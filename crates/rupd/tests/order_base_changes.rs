@@ -6,9 +6,13 @@ mod door_terminals;
 #[path = "support/rupd_harness.rs"]
 mod rupd_harness;
 use child_run::Run;
-use door_terminals::{idle, order_child, recorded_bytes};
+use door_terminals::{order_child, recorded_bytes};
 
 use serde_json::{Value, json};
+
+#[path = "support/idle.rs"]
+mod idle;
+use idle::idle;
 
 #[tokio::test]
 async fn u2773c_orders_external_change_keeps_original() {

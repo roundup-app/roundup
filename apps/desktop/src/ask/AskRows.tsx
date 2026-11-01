@@ -1,3 +1,4 @@
+import { focusPane } from "../bubbles/focus";
 import { Disclosure } from "../ui/Disclosure";
 import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import { Dynamic } from "solid-js/web";
@@ -24,10 +25,6 @@ const STATE_WORDS: Record<AskPart["state"], string> = {
   typed: copy.askSent,
   failed: copy.askFailed,
   dropped: copy.askDropped,
-};
-
-const focusPane = (): void => {
-  document.querySelector<HTMLElement>(".pane-screen textarea, .pane-screen [tabindex]")?.focus();
 };
 
 /** U505, U506: one row for each part of each Ask, newest first. */

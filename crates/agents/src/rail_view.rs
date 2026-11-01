@@ -125,6 +125,17 @@ impl Shared {
         rail: &rail::Rail,
         finished: u64,
     ) -> Result<RailNode, RpcError> {
+        node.final_text = match runs.get(&node.id) {
+            Some(Slot::Running(run)) => {
+                run.adapter.turn().map(|turn| contracts::agent::FinalText {
+                    turn: turn.to_owned(),
+                    attempt: run.attempt.clone(),
+                    finished: run.adapter.finished().to_string(),
+                    kind: run.adapter.final_text(),
+                })
+            }
+            _ => None,
+        };
         node.status_revision = match runs.get(&node.id) {
             Some(Slot::Running(run)) => Some(run.status_revision.to_string()),
             // B36: inheriting the ended run's revision closes Messages on the new Attempt.
@@ -269,53 +280,6 @@ impl Agents {
     /// Preserve canonical Rail identities after their nodes leave the live tree.
     pub fn rail_last_id(&self) -> Result<i64, RpcError> {
         self.shared.rail().last_id()
-    }
-
-    /// B32: run a synchronous input-recording operation against authoritative ownership.
-    ///
-    /// Daemon-internal only: never exposed through `Module::call`, and grants no Reach or
-    /// Steer authority. Locks Rail then Attempts, like lifecycle attachment/removal. The cut
-    /// is the targeted read with both locks parked; attach, detach, reassignment, removal,
-    /// reopen and Status/Attempt transitions cannot cross it until `record` returns.
-    /// `None` means no attached receiver (also after reopen), not a cached negative.
-    ///
-    /// `record` may lock the Message store only after these locks. It must not await, perform
-    /// Terminal I/O, emit events, reenter Agents, or take a lock whose holder calls Agents.
-    /// Record all ownership-dependent effects inside it; escaped facts are observations,
-    /// never authority for a later write. Schedule delivery only after this method returns.
-    /// SQL errors or ambiguous ownership return an error without calling `record`; its error
-    /// propagates unchanged and does not roll back effects it made: `record` owns its transaction.
-    /// Poisoned lifecycle locks panic, as other Agents operations do.
-    pub fn with_terminal_owner<R>(
-        &self,
-        terminal: &str,
-        record: impl FnOnce(Option<&TerminalOwner>) -> Result<R, RpcError>,
-    ) -> Result<R, RpcError> {
-        let mut rail = self.shared.rail();
-        let runs = self.shared.runs();
-        let owner = rail.terminal_owner(terminal)?.map(|(id, attempt)| {
-            let (status_revision, ended) = match runs.get(&id) {
-                Some(Slot::Running(run)) => (
-                    Some(run.status_revision.to_string()),
-                    run.ended
-                        || run.closing
-                        || run.adapter.is_ended()
-                        || run
-                            .adapter
-                            .status()
-                            .is_none_or(|status| status.kind == Kind::Done),
-                ),
-                Some(Slot::Starting { .. } | Slot::Resuming { .. }) => (Some("1".into()), false),
-                None | Some(Slot::Closing | Slot::ResumeCleanup { .. }) => (None, true),
-            };
-            TerminalOwner {
-                id,
-                attempt,
-                status_revision,
-                ended,
-            }
-        });
-        record(owner.as_ref())
     }
 
     /// H21: the Agent a call from process `pid` is by, found by walking its parents to the

@@ -77,6 +77,10 @@ jobs:
           rust_base="$BASE"
           if [ -n "$CI3781_CACHE" ]; then rust_base=''; fi
           rust=$(python3 loop/affected.py rust "$rust_base")
+          # C4 observers/fixtures live outside the crate graph. Select their existing Rust lane too.
+          if [ -n "$rust_base" ] && ! git diff --quiet "$rust_base" -- tools/contracts/; then
+            rust=all
+          fi
           web=$(python3 loop/affected.py web "$BASE")
           # The capture registry is imported by vite.config.ts and browser fixtures. Its 96-file selection
           # timed out in two serial-heavy shards in run 40970125076; use the full configuration lane set.
@@ -174,6 +178,9 @@ jobs:
           retention-days: 30
       - name: A4691 debug runtime preparation
         run: just build-debug
+      - name: C4 addition and freshness observers
+        if: matrix.partition == 1
+        run: just contracts-test
       - name: U4251 raw SDK storage capability
         if: matrix.partition == 1
         timeout-minutes: 1
@@ -190,6 +197,8 @@ jobs:
       # B32 compares Rust with executable Bend; setup stays outside the network-free test.
       - name: Pinned Bend for model correspondence
         run: just proofs-setup
+      - name: CI5330f disk before tests
+        run: bash .github/actions/setup/disk.sh report before
       - name: test-rust
         timeout-minutes: 15
         run: |
@@ -200,6 +209,9 @@ jobs:
       - name: E14 observer regression
         if: ${{ !cancelled() && matrix.partition == 1 }}
         run: python3 tools/e14/observe.test.py
+      - name: CI5330f disk after tests
+        if: always()
+        run: bash .github/actions/setup/disk.sh report after
       - name: E14 Rust measurement evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -254,8 +266,11 @@ jobs:
         uses: ./.github/actions/setup
         with:
           save-cache: 'true'
-          node: 'true'
+          # CI5458c: run 41349105933 spent 44 s installing Node packages and 50 s saving their cache.
+          # Only the main-only S1 packaging commands need them.
+          node: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && 'true' || 'false' }}
       - name: C9b native release size
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
           cargo build --locked --release -p rupd
           mkdir -p target/release-evidence
@@ -265,7 +280,7 @@ jobs:
           cp Cargo.toml target/release-evidence/Cargo.toml
           python3 tools/release/check.py binary target/release/rupd | tee target/release-evidence/size.json
       - name: C9 native evidence
-        if: always()
+        if: always() && github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: actions/upload-artifact@v4
         with:
           name: release-${{ runner.os }}-${{ github.run_attempt }}
@@ -292,7 +307,7 @@ jobs:
 
       - name: S1 macOS App bundle
         id: app-bundle
-        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
+        if: ${{ !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.setup.outcome == 'success' }}
         timeout-minutes: 20
         run: |
           mkdir -p target/app-bundle-evidence
@@ -309,13 +324,13 @@ jobs:
           } > target/app-bundle-evidence/identity.txt 2>&1
           just app-bundle 2>&1 | tee target/app-bundle-evidence/build.log
       - name: S1 S3 A12a X8 extracted App bundle observer
-        if: ${{ !cancelled() && steps.app-bundle.outcome == 'success' }}
+        if: ${{ !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.app-bundle.outcome == 'success' }}
         timeout-minutes: 8
         run: |
           triple=$(rustc -vV | sed -n 's/^host: //p')
           just app-bundle-check "target/$triple/release/bundle/macos/roundup.app" 2>&1 | tee target/app-bundle-evidence/observer.log
       - name: S1 macOS packaging evidence
-        if: always()
+        if: always() && github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: actions/upload-artifact@v4
         with:
           name: app-bundle-macos-${{ github.run_attempt }}

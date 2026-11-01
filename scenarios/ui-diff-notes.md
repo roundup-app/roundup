@@ -1,6 +1,6 @@
 # UI: diffs and notes on demand
 
-Specification for #2540. The Review stage of `.agents/data/journey.md`: inspect an Agent's resulting work and optionally ask that Agent for changes. This is proposed acceptance, not an implementation or a passing observation. Builds on `scenarios/ui-worktree-changes.md`; implementation waits for its implementation (#2549). Project-root overview belongs to #2567 and is not a prerequisite. Keeps ADR 0010's scope and the owner's explicit direction: a transient reader with notes, no editor suite, split, permanent pane or review gate.
+Specification for #2540. The Review stage of `.agents/data/journey.md`: inspect an Agent's resulting work and optionally ask that Agent for changes. This is proposed acceptance, not an implementation or a passing observation. Builds on `scenarios/ui-worktree-changes.md`; implementation waits for its implementation (#2549). Project-root overview belongs to #2567 and is not a prerequisite. Keeps `scenarios/ui-bubble-resize.md`'s single-view scope (U2236) and the owner's explicit direction: a transient reader with notes, no editor suite, split, permanent pane or review gate.
 
 ```text
 Terminal → changed files → View diff → select lines → Add note

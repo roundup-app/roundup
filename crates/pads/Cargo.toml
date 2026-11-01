@@ -12,7 +12,6 @@ libc = "0.2"
 rpc = { path = "../rpc" }
 serde_json.workspace = true
 tempfile.workspace = true
-time = "0.3.55"
 
 provenance = { path = "../provenance" }
 rusqlite.workspace = true

@@ -10,11 +10,11 @@
     "slop": "fallow dead-code && fallow dupes",
     "postinstall": "node node_modules/@anthropic-ai/claude-code/install.cjs",
     "prepare": "lefthook install --force",
-    "test:token-integration": "node --test docs/u478-check-integration.test.mjs",
     "lint:styles": "stylelint \"apps/desktop/src/**/*.css\" --max-warnings 0",
-    "tokens:check": "if [ -f docs/ui-tokens.test.mjs ]; then node --test docs/ui-tokens.test.mjs; fi",
-    "lint:boundaries": "ast-grep --version",
     "lint:cycles": "node tools/lint/cycles.mjs ."
+  },
+  "lint-staged": {
+    "*.{js,jsx,ts,tsx,mjs,mts,cjs,cts}": "oxlint --fix --no-error-on-unmatched-pattern --"
   },
   "devDependencies": {
     "@actions/expressions": "^0.3.61",
@@ -24,6 +24,7 @@
     "@oxlint/plugins": "1.86.0",
     "fallow": "^3.34.0",
     "lefthook": "2.2.2",
+    "lint-staged": "17.6.0",
     "mdn-data": "2.27.1",
     "oxlint": "1.86.0",
     "stylelint": "17.16.0",

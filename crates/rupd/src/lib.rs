@@ -2,7 +2,6 @@
 //! It owns the connection loop, the module router, the event bus and the Provenance log.
 
 mod actions;
-mod attachment;
 mod auto;
 #[cfg(test)]
 mod auto_tests;
@@ -116,8 +115,6 @@ pub struct Daemon {
         std::sync::Mutex<Option<tokio::sync::broadcast::Receiver<Arc<terminal::Change>>>>,
     /// A33: like `pushes`, with what keeps the Agents' waits current.
     waits: std::sync::Mutex<Option<Waiter>>,
-    /// U419: where `attachment.save` keeps a pasted image.
-    attachments: attachment::Attachments,
     /// D8: samples only inside `project.resources`.
     resources: resources::Sampler,
     publications: deliverables::Publications,
@@ -472,25 +469,6 @@ pub mod test_support {
                 }
                 _ => Err(RpcError::method_not_found(method)),
             }
-        }
-    }
-    impl messages::TerminalOwners for ReplyState {
-        fn with_terminal_owner(
-            &self,
-            terminal: &str,
-            record: &mut dyn FnMut(Option<&agents::TerminalOwner>) -> Result<(), RpcError>,
-        ) -> Result<(), RpcError> {
-            let nodes = self.nodes.lock().unwrap();
-            let owner = nodes
-                .iter()
-                .find(|n| n.terminal_id.as_deref() == Some(terminal))
-                .map(|n| agents::TerminalOwner {
-                    id: n.id.clone(),
-                    attempt: n.attempt.clone(),
-                    status_revision: n.status_revision.clone(),
-                    ended: false,
-                });
-            record(owner.as_ref())
         }
     }
     #[async_trait]

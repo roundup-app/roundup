@@ -403,8 +403,12 @@ impl Shared {
                 .lock()
                 .unwrap_or_else(|e| e.into_inner());
             let mut current = calls.remove(id);
-            if claude_code::toolcall::fold(&mut current, payload, &run.cwd, store::now_ms())
-                && let Some(tracked) = &current
+            if claude_code::toolcall::fold(
+                &mut current,
+                payload,
+                &run.cwd,
+                provenance::now_ms().max(0),
+            ) && let Some(tracked) = &current
             {
                 self.bus.emit(
                     actor.clone(),
@@ -420,15 +424,19 @@ impl Shared {
         }
         let was_kind = run.adapter.status().map(|status| status.kind);
         let was_finished = run.adapter.finished();
+        let was_final_text = run.adapter.final_text();
         let signal = matches!(observation, Observation::Signal(_));
         let changed = run.adapter.observe(observation).or_else(|| {
             if !exited || run.ended {
                 return None;
             }
             let mut status = run.adapter.status()?.clone();
-            status.since = store::now_ms();
+            status.since = provenance::now_ms().max(0);
             Some(status)
         });
+        if was_final_text != run.adapter.final_text() {
+            self.bus.emit(actor.clone(), EventData::RailChanged);
+        }
         if signal
             && (session_start
                 || changed

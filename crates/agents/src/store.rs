@@ -1,4 +1,5 @@
 use super::*;
+use provenance::now_ms;
 
 impl Agents {
     /// `project` is the Project folder and `dir` its data folder (N1). `bus` is for events no call
@@ -110,11 +111,11 @@ impl Agents {
                     kill: Arc::clone(&terminals) as Arc<dyn KillsTerminals>,
                 },
                 terminals,
-                clock: Arc::new(now_ms),
+                clock: Arc::new(|| now_ms().max(0)),
                 rail_view: rail_view::State {
                     #[cfg(feature = "test-support")]
                     statuses: Default::default(),
-                    opened: now_ms(),
+                    opened: now_ms().max(0),
                     data_dir: dir.to_owned(),
                     launcher: launcher.clone(),
                 },
@@ -310,12 +311,6 @@ impl Agents {
     }
 }
 
-/// Milliseconds since the Unix epoch.
-pub(super) fn now_ms() -> i64 {
-    let millis = time::OffsetDateTime::now_utc().unix_timestamp_nanos() / 1_000_000;
-    i64::try_from(millis.max(0)).unwrap_or(i64::MAX)
-}
-
 #[cfg(test)]
 pub(super) mod tests {
     use crate::{ending, events, rail_view};
@@ -478,72 +473,6 @@ pub(super) mod tests {
                 None,
             ),
         }
-    }
-
-    /// Each transition competes with an input record, then a fresh read observes its result.
-    pub(crate) fn owner_transition(
-        initially_attached: bool,
-        transition: impl FnOnce(&Shared, &str, &std::path::Path) + Send,
-        expected: Option<(&str, &str)>,
-    ) {
-        let (dir, _, shared) = shared_over_temp_dir(Arc::new(|| 0));
-        let id = shared
-            .rail()
-            .insert(
-                NodeKind::Agent,
-                "receiver",
-                None,
-                initially_attached.then_some("terminal"),
-            )
-            .unwrap()
-            .id;
-        let attempt = shared.rail().allocate_attempt(&id).unwrap();
-        shared.mark_starting(&id, attempt);
-        let agents = owner_agents(Arc::clone(&shared), dir.path());
-        std::thread::scope(|scope| {
-            let (start, started) = std::sync::mpsc::sync_channel(0);
-            let (done, completed) = std::sync::mpsc::channel();
-            let mut change = None;
-            agents
-                .with_terminal_owner("terminal", |owner| {
-                    assert_eq!(owner.is_some(), initially_attached);
-                    let shared = Arc::clone(&shared);
-                    let id = id.clone();
-                    let path = dir.path();
-                    change = Some(scope.spawn(move || {
-                        // Successful try_lock would mean the ownership cut is not protected.
-                        assert!(matches!(
-                            shared.rail.try_lock(),
-                            Err(std::sync::TryLockError::WouldBlock)
-                        ));
-                        assert!(matches!(
-                            shared.runs.try_lock(),
-                            Err(std::sync::TryLockError::WouldBlock)
-                        ));
-                        start.send(()).unwrap();
-                        transition(&shared, &id, path);
-                        done.send(()).unwrap();
-                    }));
-                    started.recv_timeout(PATIENCE).unwrap();
-                    assert!(matches!(
-                        completed.try_recv(),
-                        Err(std::sync::mpsc::TryRecvError::Empty)
-                    ));
-                    Ok(())
-                })
-                .unwrap();
-            completed.recv_timeout(PATIENCE).unwrap();
-            change.unwrap().join().unwrap();
-        });
-        agents
-            .with_terminal_owner("terminal", |owner| {
-                assert_eq!(
-                    owner.map(|o| (o.id.as_str(), o.attempt.as_deref().unwrap())),
-                    expected
-                );
-                Ok(())
-            })
-            .unwrap();
     }
 
     /// A `Shared` wired to a fresh temp-dir Rail and Terminals, paired with the `Bus` it was built
