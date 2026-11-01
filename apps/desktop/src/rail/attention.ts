@@ -29,9 +29,15 @@ export const nextAttention = (nodes: readonly RailNode[], selected: string | nul
   return order[(at + 1) % order.length] ?? null;
 };
 
-/** How many Agents of each attention Kind (U182's tooltip reads both); Terminals have no Status and never count. */
-export const attentionCounts = (nodes: readonly RailNode[], dismissed: Dismissed = none) => {
-  const kinds = nodes.map((node) => dismissed(node) ? undefined : node.status?.kind);
+/** PS12: what counts toward attention in one Project: its undismissed nodes and the Terminals that need you (PS11.1), so the count and Needs you agree. */
+export const attentionHolders = (nodes: readonly RailNode[], terminals: readonly TerminalInfo[], dismissed: Dismissed = none): Partial<Pick<RailNode, "status">>[] => [
+  ...nodes.filter((node) => !dismissed(node)),
+  ...terminalAttention(nodes, terminals),
+];
+
+/** How many holders of each attention Kind (U182's tooltip reads both). */
+export const attentionCounts = (holders: readonly Partial<Pick<RailNode, "status">>[]) => {
+  const kinds = holders.map((holder) => holder.status?.kind);
 
   return { needsYou: kinds.filter((kind) => kind === "needs-you").length, error: kinds.filter((kind) => kind === "error").length };
 };
