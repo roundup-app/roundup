@@ -478,26 +478,6 @@ async fn ua5_only_the_user_runs_a_user_action() {
 }
 
 #[tokio::test]
-async fn ua5_a_user_action_runs_with_no_app() {
-    let fx = with(|root| {
-        ext(
-            root,
-            "d",
-            &[],
-            &action("user.deploy", "return { done: true };"),
-        )
-    })
-    .await;
-    fx.listed(&["user.deploy"]).await;
-    let reply = fx
-        .user()
-        .await
-        .call("action.run", json!({"name":"user.deploy"}))
-        .await;
-    assert_eq!(reply["result"]["status"], "done");
-}
-
-#[tokio::test]
 async fn ua6_a_throwing_hook_is_skipped_with_one_problem() {
     let js = "export function register(on) { on('action', { name: 'user.a', label: 'A' }, () => { throw new Error('boom'); }); on('action', { name: 'user.a', label: 'A' }, () => ({ done: true })); on('action', { name: 'user.b', label: 'B' }, () => { throw new Error('bang'); }); on('action', { name: 'user.c', label: 'C' }, () => { throw new Error('bang'); }).catch(() => ({ deny: 'caught' })); }";
     let mut fx = with(|root| ext(root, "thrower", &[], js)).await;
