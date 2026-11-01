@@ -26,8 +26,8 @@ const Reveal = (props: { status: Status }) => {
 const handlers = (trigger: TriggerProps): TriggerProps => Object.fromEntries(Object.entries(trigger).filter(([name]) => name.startsWith("on") || name === "aria-describedby"));
 
 /** U5231a: on hover or focus a row of Kind blocked, needs-you, working or error reads its reason and age; any other row reveals nothing. */
-export const StatusTip = (props: { status: Status | null | undefined; dismissed?: boolean; children: (reveal: () => TriggerProps) => JSX.Element }) => {
+export const StatusTip = (props: { status: Status | null | undefined; dismissed?: boolean; placement?: "right-start" | undefined; children: (reveal: () => TriggerProps) => JSX.Element }) => {
   const revealed = () => props.status && REVEALING.has(shownKind(props.status, props.dismissed ?? false)) && props.status.label !== "" ? props.status : null;
 
-  return <Tip disabled={revealed() === null} content={<Show when={revealed()}>{status => <Reveal status={status()} />}</Show>}>{trigger => props.children(() => handlers(trigger()))}</Tip>;
+  return <Tip class="ink-tip status-reveal" placement={props.placement} disabled={revealed() === null} content={<Show when={revealed()}>{status => <Reveal status={status()} />}</Show>}>{trigger => props.children(() => handlers(trigger()))}</Tip>;
 };

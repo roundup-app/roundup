@@ -264,7 +264,7 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
 
             if (!entry) return null;
 
-            return <StatusTip status={entry.node?.status} dismissed={entry.node ? rail.dismissed(entry.node) : false}>{reveal => <span class="switcher-row" {...reveal()}>
+            return <StatusTip placement="right-start" status={entry.node?.status} dismissed={entry.node ? rail.dismissed(entry.node) : false}>{reveal => <span class="switcher-row" {...reveal()}>
               <Show when={entry.node?.status} fallback={<span class="switcher-mark" />}>{(status) => <KindGlyph kind={shownKind(status(), rail.dismissed(entry.node!))} decorative />}</Show>
               <span class="switcher-name">{entry.label}</span>
               <Show when={entry.owner}><span class="switcher-owner">{entry.owner}</span></Show>
