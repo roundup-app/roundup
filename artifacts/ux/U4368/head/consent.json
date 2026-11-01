@@ -1,6 +1,0 @@
-{
-  "cancelLabel": "Keep",
-  "message": "Stop the running process for backend. Its live Terminal input cannot be restored.\nStop the running process for Nested Group. Its live Terminal input cannot be restored.\nGoes: 3 Agents\nlogin-store\ndocs\nFinished Agent with a very long authored name for removal review\nStays at the Project root: 3 Agents\ntoken-rotation: Running\nmigrate-db: Running\nRunning Agent: Running",
-  "okLabel": "Remove",
-  "title": "Remove backend?"
-}
