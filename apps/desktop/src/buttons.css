@@ -214,11 +214,6 @@ button[aria-disabled="true"] {
   background: var(--hover);
 }
 
-/* Recovery actions keep an inset hit area without a hover surface. */
-.switcher-recovery-actions [data-button="quiet"] {
-  --button-inline: var(--space-1);
-}
-
 /* U3512c: the existing kinds gain filled variants only on floating surfaces. */
 :is(.app-dialog, .app-popover, .app-menu, .bubble, .empty-state) button[data-button] {
   --button-radius: var(--radius-pill);
