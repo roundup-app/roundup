@@ -43,7 +43,7 @@ function fixture(t, config = readFileSync(resolve(repo, "lefthook.yml"), "utf8")
   const cwd = mkdtempSync(resolve(tmpdir(), "roundup-pre-commit-"));
   t.after(() => rmSync(cwd, { recursive: true, force: true }));
 
-  for (const path of [".gitignore", ".oxlintrc.json", ".claude/sound/placement/file-stays-under-a-size-cap.gate", "tools/oxlint/anti-slop"]) {
+  for (const path of ["package.json", ".gitignore", ".oxlintrc.json", ".claude/sound/placement/file-stays-under-a-size-cap.gate", "tools/oxlint/anti-slop"]) {
     const target = resolve(cwd, path);
     mkdirSync(dirname(target), { recursive: true });
     cpSync(resolve(repo, path), target, { recursive: true });
@@ -165,4 +165,29 @@ test("t5456a_safe_fix_cannot_evade_the_size_guard", t => {
   const committed = run(cwd, "git", ["commit", "-m", "Commit a file at the cap"]);
   assert.equal(committed.status, 1, committed.stdout + committed.stderr);
   assert.match(committed.stdout + committed.stderr, /source.ts\s+1001 lines/);
+});
+
+test("t5496a_partial_staging_preserves_unstaged_hunks", t => {
+  const cwd = fixture(t);
+  const path = "source with spaces.ts";
+  const unchanged = "\n// The second function is a separate hunk.\n// Keep this boundary unchanged.\n// Only the first function is selected.\n\n";
+  const originalTail = "export function other() {\n  return 10;\n}\n";
+  const editedTail = "export function other() {\n  return 20;\n}\n";
+  write(cwd, path, fixed + unchanged + originalTail);
+  git(cwd, "add", path);
+  git(cwd, "commit", "--quiet", "-m", "Seed both functions");
+
+  write(cwd, path, unfixed.replace("42", "43") + unchanged + originalTail);
+  git(cwd, "add", path);
+  write(cwd, path, unfixed.replace("42", "43") + unchanged + editedTail);
+
+  git(cwd, "commit", "--quiet", "-m", "Commit only selected hunk");
+
+  const committed = "export function answer() {\n  const value = 43;\n\n  return value;\n}\n" + unchanged + originalTail;
+  assert.equal(git(cwd, "show", `HEAD:${path}`), committed);
+  assert.equal(git(cwd, "show", `:${path}`), committed);
+  assert.equal(readFileSync(resolve(cwd, path), "utf8"), committed.replace(originalTail, editedTail));
+  assert.equal(git(cwd, "diff", "--cached"), "");
+  assert.equal(git(cwd, "diff", "--no-ext-diff", "--no-color", "--unified=0", "--", path).replace(/^index .*\n/m, ""), "diff --git a/source with spaces.ts b/source with spaces.ts\n" +
+    "--- a/source with spaces.ts\t\n+++ b/source with spaces.ts\t\n@@ -12 +12 @@ export function other() {\n-  return 10;\n+  return 20;\n");
 });
