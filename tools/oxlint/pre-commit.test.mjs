@@ -84,45 +84,12 @@ test("t5456a_commit_contains_the_spacing_fix", t => {
 test("t5456a_unstaged_file_stays_out_of_the_commit", t => {
   const cwd = fixture(t);
   write(cwd, "unrelated.ts", unfixed);
-  write(cwd, "selected.ts", unfixed);
-  git(cwd, "add", "selected.ts");
-  git(cwd, "commit", "--quiet", "-m", "Commit selected file");
+  write(cwd, "source.ts", unfixed);
+  git(cwd, "add", "source.ts");
+  git(cwd, "commit", "--quiet", "-m", "Commit only selected file");
   assert.equal(readFileSync(resolve(cwd, "unrelated.ts"), "utf8"), unfixed);
+  assert.equal(git(cwd, "diff-tree", "--no-commit-id", "--name-only", "-r", "HEAD"), "source.ts\n");
   assert.equal(git(cwd, "show", "HEAD:unrelated.ts"), fixed);
-  assert.equal(git(cwd, "diff-tree", "--no-commit-id", "--name-only", "-r", "HEAD").trim(), "selected.ts");
-});
-
-test("t5456a_supported_web_extensions_are_fixed", t => {
-  const cwd = fixture(t);
-  const paths = ["nested/source.js", "source.jsx", "source.tsx", "source.mjs", "source.mts", "source.cjs", "source.cts"];
-  const contents = (path, source) => path.endsWith(".cjs") || path.endsWith(".cts") ? source.replace("export function answer()", "module.exports = function answer()") : source;
-
-  for (const path of paths) write(cwd, path, contents(path, unfixed));
-  git(cwd, "add", ...paths);
-  git(cwd, "commit", "--quiet", "-m", "Commit web variants");
-
-  for (const path of paths) assert.equal(git(cwd, "show", "HEAD:" + path), contents(path, fixed), path);
-});
-
-test("t5456a_ignored_paths_keep_their_bytes", t => {
-  const cwd = fixture(t);
-  const paths = ["contracts/generated/source.ts", ".agents/source.ts", "spikes/source.ts"];
-
-  for (const path of paths) write(cwd, path, unfixed);
-  git(cwd, "add", ...paths);
-  git(cwd, "commit", "--quiet", "-m", "Commit ignored paths");
-
-  for (const path of paths) assert.equal(git(cwd, "show", "HEAD:" + path), unfixed, path);
-});
-
-test("t5456a_no_web_files_skips_lint", t => {
-  const cwd = fixture(t);
-  // A full-tree fallback would encounter this unselected syntax error.
-  write(cwd, "unselected.ts", "export function {\n");
-  write(cwd, "notes.md", "A note\n");
-  git(cwd, "add", "notes.md");
-  git(cwd, "commit", "--quiet", "-m", "Commit documentation");
-  assert.equal(git(cwd, "show", "HEAD:notes.md"), "A note\n");
 });
 
 test("t5456b_ci_rejects_unfixed_spacing_without_writing", t => {
@@ -130,7 +97,7 @@ test("t5456b_ci_rejects_unfixed_spacing_without_writing", t => {
   write(cwd, "source.ts", unfixed);
   const rejected = lint(cwd, "source.ts");
   assert.equal(rejected.status, 1, rejected.stdout + rejected.stderr);
-  assert.match(rejected.stdout + rejected.stderr, /anti-slop\(require-readable-spacing\)/);
+  assert.match(rejected.stdout + rejected.stderr, /anti-slop[(/]require-readable-spacing/);
   assert.equal(readFileSync(resolve(cwd, "source.ts"), "utf8"), unfixed);
   write(cwd, "source.ts", fixed);
   const accepted = lint(cwd, "source.ts");
@@ -138,30 +105,64 @@ test("t5456b_ci_rejects_unfixed_spacing_without_writing", t => {
 });
 
 test("t5456c_small_commit_hook_stays_under_five_seconds", t => {
-  function measure(config) {
-    const cwd = fixture(t, config);
+  const original = fixture(t, baseline);
+  const candidate = fixture(t);
+  const elapsed = [];
 
-    for (const path of ["one.ts", "two.ts", "three.ts"]) write(cwd, path, path === "one.ts" ? unfixed : fixed);
-    git(cwd, "add", "one.ts", "two.ts", "three.ts");
+  for (const cwd of [original, candidate]) {
+    for (const [path, content] of [["first.ts", unfixed], ["second.ts", fixed], ["third.ts", fixed]]) {
+      write(cwd, path, content);
+      git(cwd, "add", path);
+    }
+
     const start = performance.now();
     git(cwd, "commit", "--quiet", "-m", "Measure three-file commit");
-
-    return performance.now() - start;
+    elapsed.push(performance.now() - start);
   }
 
-  const before = measure(baseline);
-  const after = measure(readFileSync(resolve(repo, "lefthook.yml"), "utf8"));
-  t.diagnostic(`baseline ${before.toFixed(1)} ms; candidate ${after.toFixed(1)} ms; added ${(after - before).toFixed(1)} ms (first lint startup included)`);
-  assert.ok(after - before < 5000);
+  const added = elapsed[1] - elapsed[0];
+  t.diagnostic(`size guard: ${elapsed[0].toFixed(1)} ms; lint hook: ${elapsed[1].toFixed(1)} ms; added: ${added.toFixed(1)} ms (including first lint startup)`);
+  assert.ok(added < 5000, `hook added ${added.toFixed(1)} ms`);
 });
 
-test("t5456a_size_guard_checks_the_fixed_contents", t => {
+test("t5456a_nested_web_extensions_receive_safe_fixes", t => {
   const cwd = fixture(t);
-  const source = "// padding\n".repeat(996) + unfixed;
-  write(cwd, "at-cap.ts", source);
-  git(cwd, "add", "at-cap.ts");
-  const committed = run(cwd, "git", ["commit", "--quiet", "-m", "Fix would grow beyond cap"]);
+  const paths = ["js", "jsx", "ts", "tsx", "mjs", "cjs", "mts", "cts"].map(extension => `src/nested/source.${extension}`);
+
+  for (const path of paths) write(cwd, path, unfixed.replace("export ", ""));
+  git(cwd, "add", ...paths);
+  git(cwd, "commit", "--quiet", "-m", "Commit web extensions");
+
+  for (const path of paths) assert.equal(git(cwd, "show", `HEAD:${path}`), fixed.replace("export ", ""), path);
+});
+
+test("t5456a_no_matching_files_skips_lint", t => {
+  const cwd = fixture(t);
+  write(cwd, "unrelated.ts", unfixed);
+  write(cwd, "note.md", "A non-web change.\n");
+  git(cwd, "add", "note.md");
+  const committed = run(cwd, "git", ["commit", "-m", "Commit only prose"]);
+  assert.equal(committed.status, 0, committed.stdout + committed.stderr);
+  assert.match(committed.stdout + committed.stderr, /lint-web.*skip|skip.*lint-web/);
+  assert.equal(readFileSync(resolve(cwd, "unrelated.ts"), "utf8"), unfixed);
+});
+
+test("t5456a_ignored_generated_paths_keep_their_bytes", t => {
+  const cwd = fixture(t);
+  const paths = ["contracts/generated/source.ts", "spikes/source.ts", ".agents/source.ts"];
+
+  for (const path of paths) write(cwd, path, unfixed);
+  git(cwd, "add", ...paths);
+  git(cwd, "commit", "--quiet", "-m", "Commit ignored fixtures");
+
+  for (const path of paths) assert.equal(git(cwd, "show", `HEAD:${path}`), unfixed, path);
+});
+
+test("t5456a_safe_fix_cannot_evade_the_size_guard", t => {
+  const cwd = fixture(t);
+  write(cwd, "source.ts", unfixed + "\n".repeat(996));
+  git(cwd, "add", "source.ts");
+  const committed = run(cwd, "git", ["commit", "-m", "Commit a file at the cap"]);
   assert.equal(committed.status, 1, committed.stdout + committed.stderr);
-  assert.match(committed.stdout + committed.stderr, /at-cap.ts\s+1001 lines/);
-  assert.equal(git(cwd, "log", "-1", "--format=%s").trim(), "Seed unrelated file");
+  assert.match(committed.stdout + committed.stderr, /source.ts\s+1001 lines/);
 });

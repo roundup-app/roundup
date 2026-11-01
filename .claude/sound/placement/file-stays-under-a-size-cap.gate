@@ -1,13 +1,11 @@
 #!/usr/bin/env bash
 # Pre-commit gate for file-stays-under-a-size-cap.md: blocks a staged file over
-# the cap that is new or grew. Run from the repo root. Exit 1 blocks the commit.
+# the cap that is new or grew. --worktree checks post-fix contents of staged files.
+# Run from the repo root. Exit 1 blocks the commit.
 set -Eeuo pipefail
 trap 'echo "size gate crashed at line $LINENO; commit allowed" >&2; exit 0' ERR
 
 cap=1000
-# Lefthook stages fixes only after all commands finish. Inspect the fixed
-# working contents of staged paths when called after the lint command.
-worktree=${1:-}
 
 # Not written by hand: vendored path, lockfile, linguist attribute, binary, or
 # a generated-file header in the first 5 lines.
@@ -32,7 +30,7 @@ while IFS= read -r -d '' meta; do
     R*) IFS= read -r -d '' path ;;
     C*) IFS= read -r -d '' path; old=0 ;;
   esac
-  if [ "$worktree" = --worktree ]; then
+  if [ "${1:-}" = --worktree ]; then
     size=$(wc -l < "$path")
   else
     size=$(git cat-file blob "$new" | wc -l)
