@@ -50,8 +50,9 @@ if (!root) throw new Error("harness.html has no #root element");
 const query = new URLSearchParams(location.search);
 
 // N5467b's isolated native boundary fixture uses the official plugin JS adapter and
-// production gate. This browser-only durable map makes no native filesystem claim.
+// production gate. This in-memory map makes no native filesystem claim.
 if (query.has("storage-recovery")) {
+  const disk = new Map<string, unknown>();
   let cache = new Map<string, unknown>();
   Object.defineProperty(window, "__TAURI_INTERNALS__", { configurable: true, value: {
     invoke: async (command: string, args: { key: string; value: unknown }) => {
@@ -60,8 +61,7 @@ if (query.has("storage-recovery")) {
       if (command === "plugin:resources|close") return;
 
       if (command === "plugin:store|load") {
-        const bytes = localStorage.getItem("u4086:store");
-        cache = new Map(bytes === null ? [] : JSON.parse(bytes));
+        cache = new Map(structuredClone([...disk]));
 
         return 1;
       }
@@ -73,8 +73,7 @@ if (query.has("storage-recovery")) {
  return; }
 
       if (command === "plugin:store|save") {
-        if (sessionStorage.getItem("u4086:fail")) throw new Error("disk is full. Free space and retry.");
-        localStorage.setItem("u4086:store", JSON.stringify([...cache]));
+        for (const [key, value] of cache) disk.set(key, structuredClone(value));
 
         return;
       }

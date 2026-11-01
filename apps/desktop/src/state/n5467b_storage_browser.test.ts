@@ -8,12 +8,12 @@ it("n5467b_old_browser_storage_is_refused_before_editors_mount", async () => {
 
   const capture = captureDir("N5467b");
 
-  if (capture) {
-    mkdirSync(capture, { recursive: true });
-    await lane.browser("record", "start", `${capture}/refusal-and-manual-reset.webm`);
-  }
-
   try {
+    if (capture) {
+      mkdirSync(capture, { recursive: true });
+      await lane.browser("record", "start", `${capture}/refusal-and-manual-reset.webm`);
+    }
+
     await lane.until("!!window.__fake");
     const origin = await lane.evaluate<string>("location.origin");
     await lane.capture("N5467b", "base-tree-40");
@@ -31,7 +31,6 @@ it("n5467b_old_browser_storage_is_refused_before_editors_mount", async () => {
     await lane.until("!!document.querySelector('[role=tree]')");
     await lane.capture("N5467b", "head-fresh");
   } finally {
-    if (capture) await lane.browser("record", "stop");
-    await lane.close();
+    try { if (capture) await lane.browser("record", "stop"); } finally { await lane.close(); }
   }
 }, 120_000);
