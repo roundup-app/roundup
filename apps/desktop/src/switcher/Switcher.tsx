@@ -2,7 +2,7 @@ import { useDialog } from "@ark-ui/solid/dialog";
 import { captureFocus, queueFocus } from "../keys/focus";
 import { writeText } from "../app/clipboard";
 import { ReservedLine } from "../ink/ReservedLine";
-import { batch, createEffect, createMemo, createSignal, on, onCleanup, Show } from "solid-js";
+import { batch, createEffect, createMemo, createSignal, For, on, onCleanup, Show } from "solid-js";
 import { createCopyFeedback } from "../ui/CopyButton";
 import * as v from "valibot";
 import { copy } from "./copy";
@@ -13,16 +13,25 @@ import { Combobox } from "../ui/Combobox";
 import { trackSurface } from "../ui/openSurfaces";
 import { useConnectedProject } from "../state/connectedProject";
 import { captureActions, modalOutside, modalOpen, registerKeys } from "../keys/registry";
-import { LEADER, SWITCHER_CLOSE } from "../keys/chords";
+import { CHORDS, LEADER, SWITCHER_CLOSE, SWITCHER_KEYS, SWITCHER_RECORD, chordNamed, chordsOf, pressOf, recordable } from "../keys/chords";
+import { KeyChip } from "../keys/KeyChip";
+import { checkRecorded, isModifier, shortcutsWith } from "../settings/shortcutRules";
+import { saveAppSettings } from "../settings/preferences";
+import { useTodoList } from "../todos/todoList";
+import { TodoHost } from "../todos/TodoDrawer";
+import { usePadList } from "../rail/pads/padList";
+import { PadHost } from "../pads/PadDrawer";
 import { KeyHint } from "../keys/KeyHint";
 import { REVEAL_BUBBLE } from "../bubbles/places";
-import { entriesOf, matching } from "./entries";
+import { entriesOf, itemsMatching, matching } from "./entries";
 import type { Entry } from "./entries";
 import "./styles.css";
 
 /** U529, U530: leader `K` opens a filter field over the centre pane listing every row by name; `⏎` selects the highlighted one as a click does. `onFailure` gets a failed selection's message; `onOpen` runs as it opens, so an overlaid Shelf can close and leave no scrim over it. */
 export const Switcher = (props: { onFailure: (message: string | null) => void; onOpen: () => void }) => {
-  const { app, rail, project, drafts } = useConnectedProject();
+  const { app, rail, project, drafts, drawer } = useConnectedProject();
+  const todos = useTodoList();
+  const pads = usePadList();
   const [open, setOpen] = createSignal(false);
   const [dispatching, setDispatching] = createSignal(false);
   trackSurface(open);
@@ -54,13 +63,14 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
   let chosenAction = false;
   let actionFocus: HTMLElement | null = null;
   let chosenTerminal: string | null = null;
+  let chosenItem = false;
 
   const dialog = useDialog(() => ({
     open: open(), modal: false, trapFocus: true, preventScroll: false,
     restoreFocus: true, closeOnInteractOutside: true,
     "aria-label": copy.switcherLabel,
     initialFocusEl: () => openingFocus.target(() => input),
-    finalFocusEl: () => chosenAction && actionFocus?.isConnected
+    finalFocusEl: () => chosenItem ? null : chosenAction && actionFocus?.isConnected
       ? actionFocus
       : chosenPane
       ? chosenTerminal
@@ -82,12 +92,36 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
 
   const entries = createMemo(() => entriesOf(rail.nodes, rail.terminals()));
 
-  const byValue = createMemo(() => new Map(entries().map(entry => [entry.value, entry])));
+  const items = createMemo(() => itemsMatching(rail.nodes, todos.all(), pads.pads(), text()));
+
+  const byValue = createMemo(() => new Map([...entries(), ...items()].map(entry => [entry.value, entry])));
 
   const shown = createMemo(() => [
     ...matching(entries(), text()),
+    ...items(),
     ...matching(actions(), text()),
   ]);
+
+  /** U5240c: the highlighted row when it is a command that can take a new key (U5240d). */
+  const highlightedCommand = createMemo(() => {
+    const action = actions().find(candidate => candidate.value === highlighted());
+    const chord = action && !action.value.startsWith("action:leader") ? CHORDS.find(row => row.name === action.name) : undefined;
+
+    return action && chord && recordable(chord) && shown().some(entry => entry.value === action.value) ? action : undefined;
+  });
+
+  const [nameFocused, setNameFocused] = createSignal(false);
+  const [recording, setRecording] = createSignal<string | null>(null);
+  const [refusal, setRefusal] = createSignal<{ value: string; cause: string } | null>(null);
+  const canRecord = () => nameFocused() && recording() === null && highlightedCommand() !== undefined;
+
+  const footer = () => [
+    { keys: SWITCHER_KEYS.move, label: copy.footerMove }, { keys: SWITCHER_KEYS.choose, label: copy.footerChoose }, { keys: SWITCHER_KEYS.close, label: copy.footerClose },
+    ...(canRecord() ? [{ keys: SWITCHER_KEYS.record, label: copy.footerRecord }] : []),
+  ];
+
+  /** The key a command shows: its live row, so a key just saved shows at once. */
+  const keysOf = (action: { value: string; name: string; keys: string }) => action.value.startsWith("action:leader") ? action.keys : chordNamed(action.name)?.keys ?? action.keys;
 
   createEffect(() => {
     const list = shown();
@@ -160,8 +194,26 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
 
   const choose = (entry: Entry): void => batch(() => {
     chosenTerminal = entry.terminal?.id ?? null;
+    chosenItem = entry.todo !== undefined || entry.pad !== undefined;
     close(false);
     props.onFailure(null);
+
+    // U5240b: the Switcher has closed; the item opens as a click on its row does.
+    if (entry.todo !== undefined) {
+      const id = entry.todo.id;
+
+      drawer.open(() => <TodoHost id={id} />, "key", { kind: "todo", project: project.path });
+
+      return;
+    }
+
+    if (entry.pad !== undefined) {
+      const name = entry.pad.name;
+
+      drawer.open(() => <PadHost name={name} />, "key", { kind: "pad", project: project.path });
+
+      return;
+    }
 
     if (entry.terminal !== undefined) {
       rail.select(entry.terminal.owner === project.path ? null : entry.terminal.owner);
@@ -197,7 +249,7 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
       return;
     }
 
-    const entry = matching(entries(), text()).find((candidate) => candidate.value === value);
+    const entry = [...matching(entries(), text()), ...items()].find((candidate) => candidate.value === value);
 
     if (entry) choose(entry);
   };
@@ -212,9 +264,12 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
     chosenAction = false;
     actionFocus = null;
     chosenTerminal = null;
+    chosenItem = false;
     openingFocus = captureFocus(true);
     setOpening({ selected: rail.selected(), actions: captureActions(document.activeElement).filter(action => action.searchable) });
     props.onOpen();
+    setRecording(null);
+    setRefusal(null);
     savedSelection = query === undefined ? current()?.selection ?? null : null;
     restoring = true;
 
@@ -223,8 +278,35 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
   };
 
   registerKeys({ kind: "leader" }, [{ action: LEADER.find(row => row.keys === "K")!, searchable: false, capture: () => ({ available: () => !open() && !modalOpen(), invoke: args => show(args?.query === undefined ? undefined : String(args.query)) }) }]);
-  registerKeys({ kind: "layer", element: () => panel, active: () => open() && !dispatching(), modal: true }, [
+  // U5240a: the direct chord opens from anywhere, a focused Terminal included; the open Switcher's layer closes it again.
+  registerKeys({ kind: "app" }, [{ action: CHORDS.find(row => row.name === "switcher.open")!, searchable: false, capture: () => ({ available: () => !open() && !modalOpen(), invoke: () => show() }) }]);
+
+  const switcherScope = { kind: "layer", element: () => panel, active: () => open() && !dispatching(), modal: true } as const;
+
+  registerKeys(switcherScope, [
     { chords: SWITCHER_CLOSE, run: () => close(true) },
+    { chords: ["[Control]+[Alt]+[Meta]+[Shift]+(.+)"], when: event => pressOf(event) === chordNamed("switcher.open")?.presses[0], run: event => { if (!event.repeat) close(true); } },
+    { chords: SWITCHER_RECORD, when: canRecord, run: () => { setRefusal(null); setRecording(highlightedCommand()!.value); } },
+  ]);
+
+  // U5240d: recording is a modal layer of its own, so no other chord runs and nothing reaches a Terminal; it ends with the layer.
+  registerKeys({ kind: "layer", element: () => panel, active: () => recording() !== null, modal: true, parent: switcherScope }, [
+    { chords: ["Escape"], run: () => { setRecording(null); setRefusal(null); } },
+    { chords: ["[Control]+[Alt]+[Meta]+[Shift]+(.+)"], when: event => !isModifier(event), run: event => {
+      const value = recording();
+      const action = actions().find(candidate => candidate.value === value);
+
+      if (!action) return;
+
+      const checked = checkRecorded(action.name, event);
+
+      if ("refusal" in checked) { setRefusal({ value: action.value, cause: checked.refusal }); return; }
+
+      void saveAppSettings({ shortcuts: shortcutsWith(action.name, checked.press) }).then(failure => {
+        if (failure) setRefusal({ value: action.value, cause: failure });
+        else { setRefusal(null); setRecording(null); }
+      });
+    } },
   ]);
 
   return (
@@ -242,9 +324,11 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
               if (savedSelection) element.setSelectionRange(savedSelection.start, savedSelection.end, savedSelection.direction);
             } else retain();
           });
+          element.addEventListener("focus", () => setNameFocused(true));
           element.addEventListener("keyup", retain);
           element.addEventListener("pointerup", retain);
           element.addEventListener("blur", (event) => {
+            setNameFocused(false);
             // Zag can retain its trap until the selecting Combobox batch ends.
             // Keep only the focus destination requested by this synchronous action.
             if (dispatching() && event.relatedTarget instanceof HTMLElement && !panel?.contains(event.relatedTarget)) actionFocus = event.relatedTarget;
@@ -260,7 +344,12 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
             const action = actions().find((candidate) => candidate.value === item.value);
             const entry = byValue().get(item.value);
 
-            if (action) return <KeyHint class="switcher-action" labelClass="switcher-name" chipAfter keys={action.keys}>{action.label}</KeyHint>;
+            if (action) return <>
+              <Show when={recording() === action.value} fallback={<KeyHint class="switcher-action" labelClass="switcher-name" chipAfter keys={keysOf(action)}>{action.label}</KeyHint>}>
+                <span class="switcher-action key-hint"><span class="switcher-name">{action.label}</span> <span class="switcher-recording">{copy.pressAKey}</span></span>
+              </Show>
+              <Show when={refusal()?.value === action.value}><span class="switcher-refusal" role="alert">{copy.refused(refusal()!.cause)}</span></Show>
+            </>;
 
             if (!entry) return null;
 
@@ -271,6 +360,7 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
               <Show when={entry.node && !rail.dismissed(entry.node)}><FailureLine status={entry.node?.status} /></Show>
             </span>}</StatusTip>;
           }} />
+        <p class="switcher-footer"><For each={footer()}>{key => <span class="switcher-footer-key"><KeyChip keys={key.keys} /> {key.label}</span>}</For></p>
         <ReservedLine message={retentionProblem() ? copy.switcherRetentionFailure(retentionProblem()!.operation, project.name) : null}>
           <Show when={text() !== "" && !copyFailure()}>
             <button data-button="quiet" ref={restoreFocusOnRemoval} onClick={copyQuery}>{copied() ? copy.queryCopied : copy.copyQuery}</button>
