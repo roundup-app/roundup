@@ -549,6 +549,8 @@ export const seedApp = (name: SeedName, now: number): Controls => {
   app.opened.project = name.startsWith("first-run") ? null : PROJECT;
 
   if (name === "menu-bar-10") {
+    app.of(PROJECT.path);
+
     const background = app.add("/Users/you/background");
     installDaemon(app.of(background.path), cyclingAgents(now, 5, () => null), now, false);
   }
