@@ -10,7 +10,6 @@ import { prepareFixture } from "./fixture";
 import type { Fixture } from "./fixture";
 import { recordFrames } from "./frames";
 import type { FrameReport, LayerAction, PreferenceAction, TodoAction } from "./frames";
-import type { NativeDragReport } from "./nativeDragProbe";
 import { SETUP_BOUND_MS, appears, bounded, reportTerminal, sleep, terminalReady, timerResolutionMs, writeInChunks } from "./run";
 
 /** `docs/motion.md`, **Native performance protocol**: every 2 s one cycle of the workload, over the 60 s sample. */
@@ -720,7 +719,7 @@ const prepare = async (app: AppSeam, workload: string, journal: LayerAction[], t
 export const createFrameRun = (app: AppSeam, workload: string, cwd: string, reduced: Accessor<boolean>) => {
   const terminal = reportTerminal(createXtermEmulators());
 
-  const report = async (body: FrameReport | NativeDragReport | { error: string }) => {
+  const report = async (body: FrameReport | { error: string }) => {
     const id = terminal.target();
 
     if (id === null) throw new Error("no Terminal printed the ready line to report through");
@@ -730,14 +729,6 @@ export const createFrameRun = (app: AppSeam, workload: string, cwd: string, redu
 
   const measure = async () => {
     const input = await terminalReady(app, terminal);
-
-    if (workload === "drag-compatibility") {
-      const { runNativeDragProbe } = await import("./nativeDragProbe");
-
-      await report(await runNativeDragProbe(app));
-
-      return;
-    }
 
     const layerActions: LayerAction[] = [];
     const todoActions: TodoAction[] = [];
