@@ -57,7 +57,7 @@ pub enum Observation {
 }
 ```
 
-`observe` folds one Observation into a Status; `None` means no change. `has_hook_signal` reports whether the Agent's tooling pushes Signals. The Claude Code implementation combines hook payloads, terminal titles and timed holds; it ignores Program observations when hooks are available. Program observations carry the Terminal program's reported Status for an adapter without hook Signals. Exit and Stopped observations settle lifecycle changes. The adapter emits glossary Kinds; the Daemon computes `blocked` from Todo blockers and Routes. See `crates/agents/src/claude_code/mod.rs` and `scenarios/terminal-program-status.md`.
+`observe` folds one Observation into a Status; `None` means no change. `has_hook_signal` reports whether the Agent's tooling pushes Signals. The Claude Code implementation combines hook payloads, terminal titles and timed holds; it ignores Program observations when hooks are available. Program observations carry the Terminal program's reported Status for an adapter without hook Signals. Exit and Stopped observations settle lifecycle changes. The adapter emits glossary Kinds; the Daemon computes `blocked` from open Todo blockers through `crates/rupd/src/waits.rs` and `crates/agents/src/rail_view.rs`. See `crates/agents/src/claude_code/mod.rs` and `scenarios/terminal-program-status.md`.
 
 Launching is separate from classification. In `crates/agents/src/spawn.rs`, `Agents::start` calls `Launcher::launch_on` (`crates/agents/src/claude_code/launch.rs`) to prepare the vendor command and environment. `Agents::spawn_behind` then calls `Terminals::spawn` to start the PTY program and attach it to the Rail node.
 
