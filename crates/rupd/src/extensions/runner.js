@@ -32,6 +32,7 @@ const $ = new Proxy({}, { get: (_, ns) => (isText(ns) ? namespace(ns) : undefine
 
 function on(event, matcher, hook) {
   if (event !== "action") throw new Error(`on("${event}"): unsupported event`);
+
   if (matcher instanceof Function) [matcher, hook] = [undefined, matcher];
 
   if (!(hook instanceof Function)) throw new Error(`on("${event}") needs a hook function`);
