@@ -15,7 +15,7 @@ export const copy = {
   footerChoose: "choose",
   footerClose: "close",
   footerRecord: "Set key",
-  pressAKey: "Press a key",
+  pressAKey: sharedCopy.pressAKey,
   refused: (cause: string) => `✕ ${cause}`,
   switcherLabel: "Switch to",
   switcherPlaceholder: sharedCopy.switcherPlaceholder,

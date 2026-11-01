@@ -129,6 +129,7 @@ export const copy = {
   newTerminal: "New Terminal",
   remove: "Remove",
   leaderChord: "⌘K",
+  pressAKey: "Press a key",
   leaderShortShelf: word.bench,
   leaderShortCapture: "Capture",
   captureATodo: "Capture a Todo",

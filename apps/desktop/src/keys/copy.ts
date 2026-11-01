@@ -59,7 +59,7 @@ export const copy = {
   closeTheBubble: "Close the Bubble",
   remove: sharedCopy.remove,
   leaderChord: sharedCopy.leaderChord,
-  leaderPanel: "Press a key",
+  leaderPanel: sharedCopy.pressAKey,
   leaderShortNeedsYou: sharedCopy.needsYou,
   leaderShortAnotherProject: "Other Project",
   leaderShortRow: "Row",
