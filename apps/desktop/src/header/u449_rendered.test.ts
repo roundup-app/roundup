@@ -5,8 +5,25 @@ import { join } from "node:path";
 import { promisify } from "node:util";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { captureDir } from "../testing/captures";
-import type { Observation } from "./u449Observation";
 import { appServer, type AppServer } from "../testing/appServer";
+
+type Box = { height: number; left: number; right: number; top: number; bottom: number };
+
+type Frame = { top: number; bottom: number; barBottom: number };
+
+type Observation = {
+  case: string; width: number; bar: Box; reserved: Box; title: Box; strip: Box; plus: Box;
+  rail: Box; centre: Box; shelf: Box; drawer: Box; close: Box;
+  menu: Box | null;
+  centreSurfaces: Box[];
+  opening?: Frame[]; closing?: Frame[];
+  titleText: string; titleName: string; titleTip: string;
+  titleTextWidth: number; titlePadding: number;
+  titleStyle: { overflow: string; whiteSpace: string };
+  controls: { name: string; box: Box; visible: boolean }[];
+  scroll: { total: number; width: number };
+  checks: Record<string, { status: string }>;
+};
 
 const run = captureDir("U449") ? describe : describe.skip;
 

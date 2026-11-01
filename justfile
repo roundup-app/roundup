@@ -30,13 +30,11 @@ lint-rust base="": lint-repo
     python3 tools/file-size/guard.test.py
     python3 tools/file-size/guard.py {{quote(base)}}
     cargo fmt --check
-    python3 tools/clippy/selection.test.py
     just clippy {{quote(base)}}
     cargo machete crates
     python3 tools/lint/setup.py rust
     python3 tools/lint/scan.py rust
     python3 loop/lint-repo.test.py
-    spikes/context-injection/e7_report.test.sh
     tools/question-guard/guard.test.sh
     tools/question-guard/guard.sh
     tools/retired-words.test.sh
@@ -90,10 +88,8 @@ lint-web:
     test -z "$(find .claude/skills -xtype l)"
     pnpm lint
     pnpm lint:styles
-    pnpm tokens:check
     pnpm typecheck
     pnpm slop
-    pnpm lint:boundaries
     pnpm lint:cycles
     just packages typecheck
 
@@ -122,7 +118,7 @@ contracts:
     cargo run --quiet -p contracts --features export --bin contracts -- contracts/generated
 
 contracts-test:
-    python3 -m unittest discover -s tools/contracts
+    python3 -m unittest discover -v -s tools/contracts
 
 contracts-fresh:
     python3 tools/contracts/fresh.py

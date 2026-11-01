@@ -117,7 +117,7 @@ impl Daemon {
             .with_overview_hold(overview_read_observer()),
         );
         let agents_at = begun.elapsed();
-        let agents_module: Arc<dyn messages::TerminalOwners> = agents.clone();
+        let agents_module: Arc<dyn Module> = agents.clone();
         let pads = Arc::new(pads::Pads::open(dir, bus.clone())?);
         let mut daemon = Self {
             naming,

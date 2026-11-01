@@ -30,30 +30,6 @@ impl FakeRail {
     }
 }
 
-impl TerminalOwners for FakeRail {
-    fn with_terminal_owner(
-        &self,
-        terminal: &str,
-        record: &mut dyn FnMut(Option<&agents::TerminalOwner>) -> Result<(), RpcError>,
-    ) -> Result<(), RpcError> {
-        // Mutations and recording share this lifecycle lock; never clone then release it.
-        let nodes = self.0.lock().unwrap();
-        let mut attached = nodes
-            .iter()
-            .filter(|n| n.terminal_id.as_deref() == Some(terminal));
-        let owner = attached.next().map(|node| agents::TerminalOwner {
-            id: node.id.clone(),
-            attempt: node.attempt.clone(),
-            status_revision: node.status_revision.clone(),
-            ended: ended(node) || node.status_revision.is_none(),
-        });
-        if attached.next().is_some() {
-            return Err(RpcError::conflict("ambiguous Terminal ownership"));
-        }
-        record(owner.as_ref())
-    }
-}
-
 #[async_trait]
 impl Module for FakeRail {
     fn namespaces(&self) -> &'static [&'static str] {
