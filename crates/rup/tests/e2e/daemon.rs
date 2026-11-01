@@ -250,16 +250,27 @@ async fn next_within<T>(
     client: &mut Client,
     pick: impl Fn(EventData) -> Option<T>,
 ) -> T {
-    tokio::time::timeout(bound, async {
+    let mut seen = Vec::new();
+    let found = tokio::time::timeout(bound, async {
         while let Some(event) = client.next_event().await {
+            if let EventData::MessageSent(m)
+            | EventData::MessageDelivered(m)
+            | EventData::MessageDropped(m) = &event.data
+            {
+                let body: String = m.body.chars().take(60).collect();
+                seen.push(format!("#{} to {} {:?} {body:?}", m.id, m.to, m.status));
+            }
             if let Some(found) = pick(event.data) {
                 return found;
             }
         }
         panic!("the connection closed before the event");
     })
-    .await
-    .unwrap_or_else(|_| panic!("{what} did not arrive within {bound:?}"))
+    .await;
+    // Which Message events arrived tells a missing send from a reshaped body or a missing receipt.
+    found.unwrap_or_else(|_| {
+        panic!("{what} did not arrive within {bound:?}; Message events seen meanwhile: {seen:#?}")
+    })
 }
 
 async fn next_status(client: &mut Client) -> StatusEvent {
