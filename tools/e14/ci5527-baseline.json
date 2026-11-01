@@ -1,0 +1,416 @@
+{
+  "run": "https://github.com/roundup-app/roundup/actions/runs/41343826661",
+  "commit": "95ed599054a7f74d856a565324d8f938f4b4f135",
+  "runner": "ubuntu-24.04",
+  "duration_source": "Vitest printed file duration, including hooks, integer milliseconds without rounding",
+  "files": [
+    {
+      "shard": 1,
+      "file": "src/app/u23_layout.test.ts",
+      "tests": 1,
+      "ms": 38962
+    },
+    {
+      "shard": 1,
+      "file": "src/inbox/u3770_inbox.test.tsx",
+      "tests": 33,
+      "ms": 79861
+    },
+    {
+      "shard": 1,
+      "file": "src/pads/p2544a_browser.test.ts",
+      "tests": 4,
+      "ms": 49569
+    },
+    {
+      "shard": 1,
+      "file": "src/perf/k1_opt_in.test.ts",
+      "tests": 8,
+      "ms": 41676
+    },
+    {
+      "shard": 1,
+      "file": "src/rail/u2875d_import.test.tsx",
+      "tests": 25,
+      "ms": 37683
+    },
+    {
+      "shard": 1,
+      "file": "src/shelf/u371_reserved_modes.test.ts",
+      "tests": 4,
+      "ms": 58122
+    },
+    {
+      "shard": 1,
+      "file": "src/shelf/u371_reserved_motion.test.ts",
+      "tests": 3,
+      "ms": 33128
+    },
+    {
+      "shard": 1,
+      "file": "src/shelf/u373_frame.test.tsx",
+      "tests": 19,
+      "ms": 38136
+    },
+    {
+      "shard": 1,
+      "file": "src/terminal/u102_emulator.test.ts",
+      "tests": 12,
+      "ms": 30119
+    },
+    {
+      "shard": 1,
+      "file": "src/testing/u362_todo_drag.test.ts",
+      "tests": 4,
+      "ms": 40144
+    },
+    {
+      "shard": 1,
+      "file": "src/testing/u3787c_inventory.test.tsx",
+      "tests": 18,
+      "ms": 55674
+    },
+    {
+      "shard": 1,
+      "file": "src/todos/u3751_triage.test.tsx",
+      "tests": 67,
+      "ms": 47285
+    },
+    {
+      "shard": 1,
+      "file": "src/ui/s3806b_actions.test.tsx",
+      "tests": 128,
+      "ms": 267262
+    },
+    {
+      "shard": 1,
+      "file": "src/ui/u535_browser.test.ts",
+      "tests": 6,
+      "ms": 36861
+    },
+    {
+      "shard": 2,
+      "file": "src/keys/u3787b_menu.test.tsx",
+      "tests": 52,
+      "ms": 145835
+    },
+    {
+      "shard": 2,
+      "file": "src/keys/u4690_browser.test.ts",
+      "tests": 10,
+      "ms": 59806
+    },
+    {
+      "shard": 2,
+      "file": "src/settings/u5239_shortcut_settings.test.tsx",
+      "tests": 12,
+      "ms": 37960
+    },
+    {
+      "shard": 2,
+      "file": "src/shelf/u3723_keys.test.tsx",
+      "tests": 27,
+      "ms": 137542
+    },
+    {
+      "shard": 2,
+      "file": "src/shelf/u3789_rows.test.tsx",
+      "tests": 65,
+      "ms": 271223
+    },
+    {
+      "shard": 2,
+      "file": "src/switcher/u2572_actions.test.tsx",
+      "tests": 43,
+      "ms": 32388
+    },
+    {
+      "shard": 2,
+      "file": "src/testing/u159_workstream_todos.test.tsx",
+      "tests": 23,
+      "ms": 50320
+    },
+    {
+      "shard": 2,
+      "file": "src/testing/u346_pad_confirm.test.tsx",
+      "tests": 2,
+      "ms": 78508
+    },
+    {
+      "shard": 2,
+      "file": "src/testing/u3787d_literal_fields.test.tsx",
+      "tests": 27,
+      "ms": 83544
+    },
+    {
+      "shard": 2,
+      "file": "src/todos/u3710_browser.test.ts",
+      "tests": 11,
+      "ms": 53646
+    },
+    {
+      "shard": 2,
+      "file": "src/todos/u3787a_undo.test.tsx",
+      "tests": 32,
+      "ms": 161698
+    },
+    {
+      "shard": 3,
+      "file": "src/app/m8_project_requested.test.tsx",
+      "tests": 21,
+      "ms": 39643
+    },
+    {
+      "shard": 3,
+      "file": "src/bubbles/u2694e_right_click.test.tsx",
+      "tests": 42,
+      "ms": 70247
+    },
+    {
+      "shard": 3,
+      "file": "src/bubbles/u3756_focus.test.ts",
+      "tests": 27,
+      "ms": 254339
+    },
+    {
+      "shard": 3,
+      "file": "src/changes/u2540c_send.test.tsx",
+      "tests": 25,
+      "ms": 69490
+    },
+    {
+      "shard": 3,
+      "file": "src/keys/u2230_hints.test.tsx",
+      "tests": 43,
+      "ms": 119433
+    },
+    {
+      "shard": 3,
+      "file": "src/rail/menu/u3787a_browser.test.ts",
+      "tests": 2,
+      "ms": 58189
+    },
+    {
+      "shard": 3,
+      "file": "src/rail/persist/u100_persist.test.tsx",
+      "tests": 17,
+      "ms": 104361
+    },
+    {
+      "shard": 3,
+      "file": "src/rail/u4547e_browser.test.ts",
+      "tests": 2,
+      "ms": 34357
+    },
+    {
+      "shard": 3,
+      "file": "src/shelf/u3721_browser.test.ts",
+      "tests": 3,
+      "ms": 49465
+    },
+    {
+      "shard": 3,
+      "file": "src/testing/u137_checks.test.tsx",
+      "tests": 54,
+      "ms": 78374
+    },
+    {
+      "shard": 3,
+      "file": "src/todos/u4698e_browser.test.ts",
+      "tests": 2,
+      "ms": 51111
+    },
+    {
+      "shard": 4,
+      "file": "src/rail/u426_rendered.test.ts",
+      "tests": 5,
+      "ms": 36371
+    },
+    {
+      "shard": 4,
+      "file": "src/settings/u3806_preferences.test.tsx",
+      "tests": 27,
+      "ms": 33263
+    },
+    {
+      "shard": 4,
+      "file": "src/todos/u3720_real_daemon_owner.test.tsx",
+      "tests": 2,
+      "ms": 96780
+    },
+    {
+      "shard": 4,
+      "file": "src/todos/u490a_browser.test.ts",
+      "tests": 8,
+      "ms": 30473
+    },
+    {
+      "shard": 5,
+      "file": "src/changes/u2539b_rendered.test.ts",
+      "tests": 5,
+      "ms": 34385
+    },
+    {
+      "shard": 5,
+      "file": "src/switcher/u3787c_browser.test.ts",
+      "tests": 4,
+      "ms": 125027
+    },
+    {
+      "shard": 5,
+      "file": "src/switcher/u529_switcher.test.tsx",
+      "tests": 19,
+      "ms": 36942
+    },
+    {
+      "shard": 5,
+      "file": "src/todos/u3718_owner_drag.test.ts",
+      "tests": 5,
+      "ms": 47640
+    },
+    {
+      "shard": 5,
+      "file": "src/todos/u492a_browser.test.ts",
+      "tests": 4,
+      "ms": 62965
+    },
+    {
+      "shard": 5,
+      "file": "src/todos/u5119_browser.test.ts",
+      "tests": 2,
+      "ms": 77987
+    },
+    {
+      "shard": 5,
+      "file": "src/ui/u3512_rendered.test.ts",
+      "tests": 4,
+      "ms": 32628
+    },
+    {
+      "shard": 5,
+      "file": "src/ui/u484_browser.test.ts",
+      "tests": 4,
+      "ms": 63977
+    },
+    {
+      "shard": 6,
+      "file": "src/bubbles/u469_bar.test.ts",
+      "tests": 7,
+      "ms": 39528
+    },
+    {
+      "shard": 6,
+      "file": "src/keys/u2539b_tasks.test.tsx",
+      "tests": 51,
+      "ms": 141691
+    },
+    {
+      "shard": 6,
+      "file": "src/keys/u4690_clicks.test.tsx",
+      "tests": 51,
+      "ms": 64324
+    },
+    {
+      "shard": 6,
+      "file": "src/keys/u481_browser.test.ts",
+      "tests": 5,
+      "ms": 42282
+    },
+    {
+      "shard": 6,
+      "file": "src/rail/pads/u4457_pads_control.test.tsx",
+      "tests": 5,
+      "ms": 33160
+    },
+    {
+      "shard": 6,
+      "file": "src/shelf/u3787c_selection.test.tsx",
+      "tests": 16,
+      "ms": 64602
+    },
+    {
+      "shard": 6,
+      "file": "src/terminal/u3707_browser.test.ts",
+      "tests": 1,
+      "ms": 30478
+    },
+    {
+      "shard": 6,
+      "file": "src/testing/u2580a_key_layers.test.tsx",
+      "tests": 5,
+      "ms": 64555
+    },
+    {
+      "shard": 6,
+      "file": "src/todos/u152_every_action.test.tsx",
+      "tests": 65,
+      "ms": 56101
+    },
+    {
+      "shard": 7,
+      "file": "src/ask/u505_ask_rows.test.tsx",
+      "tests": 12,
+      "ms": 70982
+    },
+    {
+      "shard": 7,
+      "file": "src/bubbles/u2742_browser.test.ts",
+      "tests": 6,
+      "ms": 53208
+    },
+    {
+      "shard": 7,
+      "file": "src/drawer/u4458_browser.test.ts",
+      "tests": 6,
+      "ms": 126952
+    },
+    {
+      "shard": 7,
+      "file": "src/header/u183_rename.test.tsx",
+      "tests": 46,
+      "ms": 62511
+    },
+    {
+      "shard": 7,
+      "file": "src/keys/u4324_app_chords.test.tsx",
+      "tests": 81,
+      "ms": 153540
+    },
+    {
+      "shard": 7,
+      "file": "src/keys/u4692_attention.test.tsx",
+      "tests": 22,
+      "ms": 80065
+    },
+    {
+      "shard": 7,
+      "file": "src/pads/u3787a_restore.test.tsx",
+      "tests": 26,
+      "ms": 44215
+    },
+    {
+      "shard": 7,
+      "file": "src/rail/menu/u2694_menu.test.tsx",
+      "tests": 31,
+      "ms": 30590
+    },
+    {
+      "shard": 7,
+      "file": "src/reactions/nr9_reactions.test.tsx",
+      "tests": 40,
+      "ms": 62847
+    },
+    {
+      "shard": 7,
+      "file": "src/testing/u177_restarted_door.test.tsx",
+      "tests": 1,
+      "ms": 64130
+    },
+    {
+      "shard": 7,
+      "file": "src/ui/u133_press.test.ts",
+      "tests": 15,
+      "ms": 36709
+    }
+  ]
+}
