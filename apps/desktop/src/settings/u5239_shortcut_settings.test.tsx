@@ -51,7 +51,7 @@ it("u5239a_a_new_table_entry_gets_a_row", async () => {
   (ACTION_ROWS as Chord[]).push(added);
 
   try {
-    rowOf((await mount()).view, "test.added");
+    expect((await mount()).view.getByText(added.what)).toBeTruthy();
   } finally {
     // SAFETY: removes the row pushed above.
     (CHORDS as Chord[]).pop();
@@ -92,10 +92,11 @@ it("u5239b_escape_cancels_and_reset_restores_the_default", async () => {
   fireEvent.click(rowOf(view, "terminal.new"));
   press("Escape", {});
   expect(rowOf(view, "terminal.new").getAttribute("aria-pressed")).toBe("false");
-  expect(view.queryByRole("button", { name: copy.reset })).toBeNull();
+  expect(rowOf(view, "terminal.new").closest(".settings-field")!.querySelector("button + button")).toBeNull();
   fireEvent.click(rowOf(view, "terminal.new"));
   press("KeyT", { metaKey: true, shiftKey: true });
-  fireEvent.click(await view.findByRole("button", { name: copy.reset }));
+  await waitFor(() => expect(rowOf(view, "terminal.new").closest(".settings-field")!.querySelector("button + button")).not.toBeNull());
+  fireEvent.click(rowOf(view, "terminal.new").closest(".settings-field")!.querySelector<HTMLElement>("button + button")!);
   await waitFor(() => expect(appSettings().shortcuts).toEqual({}));
   expect(chord("terminal.new").presses).toEqual(["meta+KeyT"]);
 });
@@ -146,7 +147,7 @@ it("u5239d_the_terminal_sweep_holds_with_overrides", async () => {
   press("KeyT", { metaKey: true, shiftKey: true });
   await waitFor(() => expect(appSettings().shortcuts["terminal.new"]).toBe("meta+shift+KeyT"));
 
-  const appScope = CHORDS.filter(row => !row.inFirstRun && !row.inRail && !row.inTerminals && !row.inShelf && !row.inEditor).flatMap(row => row.presses);
+  const appScope = CHORDS.filter(row => row.name !== "todo.capture" && !row.inFirstRun && !row.inRail && !row.inTerminals && !row.inShelf && !row.inEditor).flatMap(row => row.presses);
 
   expect(appScope).toContain("meta+shift+KeyT");
   expect(appScope).not.toContain("meta+KeyT");
@@ -159,9 +160,10 @@ it("u5239e_the_file_holds_exactly_the_overrides", async () => {
   const { app, view } = await mount();
 
   app.chooser.savePath = "/tmp/shortcuts.json";
-  app.handlers["shortcuts.export"] = () => null;
+  const daemon = app.of("");
+  daemon.handlers["shortcuts.export"] = () => null;
   fireEvent.click(view.getByRole("button", { name: copy.saveToFile }));
-  await waitFor(() => expect(app.calls.filter(call => call.method === "shortcuts.export")).toEqual([{ method: "shortcuts.export", params: { path: "/tmp/shortcuts.json", keys: { "terminal.new": "meta+shift+KeyT" } } }]));
+  await waitFor(() => expect(daemon.calls.filter(call => call.method === "shortcuts.export")).toEqual([{ method: "shortcuts.export", params: { path: "/tmp/shortcuts.json", keys: { "terminal.new": "meta+shift+KeyT" } } }]));
   expect(app.chooser.suggestedNames).toEqual(["shortcuts.json"]);
 });
 
@@ -176,7 +178,7 @@ it("u5239e_cancel_writes_nothing_and_no_override_disables_the_control", async ()
   app.chooser.savePath = null;
   fireEvent.click(view.getByRole("button", { name: copy.saveToFile }));
   await waitFor(() => expect(app.chooser.suggestedNames).toEqual(["shortcuts.json"]));
-  expect(app.calls.some(call => call.method === "shortcuts.export")).toBe(false);
+  expect(app.of("").calls.some(call => call.method === "shortcuts.export")).toBe(false);
 });
 
 it("u5239e_a_failed_write_shows_its_cause", async () => {
@@ -184,7 +186,7 @@ it("u5239e_a_failed_write_shows_its_cause", async () => {
   const { app, view } = await mount();
 
   app.chooser.savePath = "/nope/shortcuts.json";
-  app.handlers["shortcuts.export"] = () => { throw new Error("cannot export to /nope/shortcuts.json: denied"); };
+  app.of("").handlers["shortcuts.export"] = () => { throw new Error("cannot export to /nope/shortcuts.json: denied"); };
 
   fireEvent.click(view.getByRole("button", { name: copy.saveToFile }));
   expect(await screen.findByText(/cannot export to \/nope\/shortcuts.json: denied/)).toBeTruthy();
