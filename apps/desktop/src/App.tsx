@@ -5,7 +5,7 @@ import { debounce } from "@solid-primitives/scheduled";
 import { pressFeedback } from "./ui/pressFeedback";
 import { storageCopy } from "./app/copy";
 import { writeText } from "./app/clipboard";
-import { storageProblems, retainedStorage } from "./state/storage";
+import { storageProblems } from "./state/storage";
 import "./state/storage.css";
 import { textTarget } from "./ui/contextMenu";
 import { AppSettings } from "./settings/AppSettings";
@@ -690,18 +690,6 @@ export const App = (props: {
           <Show when={storageFailures().length > 0}><div class="storage-failure"><ReservedLine message={storageCopy.failure(storageFailures())}>
             <button data-button="quiet" type="button" onClick={() => void Promise.all(storageFailures().map(problem => problem.retry()))}>{storageCopy.saveRetry}</button>
           </ReservedLine></div></Show>
-          <Show when={retainedStorage().length > 0}><div class="storage-retained" role="group" aria-label={storageCopy.retained(retainedStorage().length)}>
-            <span>{storageCopy.retained(retainedStorage().length)}</span>
-            <For each={retainedStorage()}>{record => {
-              const [copied, setCopied] = createSignal(false);
-              const clearCopied = debounce(() => setCopied(false), 2000);
-
-              return <button data-button="quiet" type="button" onClick={() => void writeText(props.app, JSON.stringify(record)).then(() => { setCopied(true); clearCopied(); }).catch(error => { setCopied(false); setWindowFailure(error instanceof Error ? error.message : String(error)); })}>
-                <span class="storage-copy-label" style={{ visibility: copied() ? "hidden" : "visible" }} aria-hidden={copied()}>{storageCopy.recoveryLabel(record.key)}</span>
-                <span class="storage-copy-label" style={{ visibility: copied() ? "visible" : "hidden" }} aria-hidden={!copied()}>{storageCopy.recoveryLabel(record.key, true)}</span>
-              </button>;
-            }}</For>
-          </div></Show>
           <div class="centre-frame">
           <div class="settings-center">
           <div class="settings-center-content" inert={settingsOpen()} style={{ visibility: settingsOpen() ? "hidden" : "visible" }}>

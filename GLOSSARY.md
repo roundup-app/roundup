@@ -209,6 +209,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Restart reservation | same | — |
 | Retirement reservation | same | — |
 | Route | same | — |
+| Browser data folder (`webview_data_folder`) | same | — |
 | Saved work (`storedValue`, `storageSchema`, `initializeStorage`, `storageProblems`, `useBrowserStorage`, `storageCopy`) | same | — |
 | Draft (`draftStorage`) | Unfinished work | — |
 | Reason | same | — |

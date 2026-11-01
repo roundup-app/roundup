@@ -1,11 +1,12 @@
-import { storageCopy, storageLabel } from "./copy";
+import { storageCopy } from "./copy";
 import { createSignal } from "solid-js";
 import * as v from "valibot";
+import { invoke } from "@tauri-apps/api/core";
 import { load } from "@tauri-apps/plugin-store";
 
 const schemas = new Map<string, v.GenericSchema>();
 
-/** Register the existing family parser before App initialization enumerates legacy keys. */
+/** Register the existing family parser before App initialization validates native records. */
 export const storageSchema = <T extends v.GenericSchema>(family: string, schema: T): T => {
   schemas.set(family, schema);
 
@@ -57,102 +58,23 @@ export const useBrowserStorage = (adapter: Storage) => {
   initialized = true;
   writes = Promise.resolve();
   setFailures([]);
-  setRetained([]);
-  setRecovery(null);
 };
 
-const quarantinePrefix = "recovery:";
-
-const quarantineSchema = v.strictObject({ key: v.string(), bytes: v.string() });
-
-const [retained, setRetained] = createSignal<v.InferOutput<typeof quarantineSchema>[]>([]);
-
-const [recovery, setRecovery] = createSignal<{ key: string; continue: () => Promise<string | null> } | null>(null);
-
-/** Exact retained records are available only to explicit recovery copy actions. */
-export const retainedStorage = retained;
-
-/** Only a captured invalid legacy record grants permission to continue without it. */
-export const storageRecovery = recovery;
-
-const invalidLegacy = (key: string, bytes: string): string => {
-  let pending: Promise<string | null> | undefined;
-  setRecovery({ key, continue: () => {
-    if (pending) return pending;
-    pending = (async () => {
-      try {
-        const store = await reopen();
-
-        // Never let an earlier choice authorize removing a repaired or replaced record.
-        if (window.localStorage.getItem(key) !== bytes) return initializeStorage();
-        const name = quarantinePrefix + JSON.stringify([key, bytes]);
-        await store.set(name, { key, bytes });
-        await store.save();
-        // Reopen independently of the plugin cache. Native save also verifies disk bytes.
-        await reopen();
-        const checked = v.safeParse(quarantineSchema, restored.get(name));
-
-        if (!checked.success || checked.output.key !== key || checked.output.bytes !== bytes) return storageCopy.recoveryReadback;
-
-        const selected = recovery();
-        const failure = await initializeStorage();
-
-        // A failed restart or cleanup still owns the same recoverable original.
-        if (failure !== null && recovery() === null) setRecovery(selected);
-
-        return failure;
-      } catch (error) {
-        return storageCopy.recoveryFailure(storageLabel(key), error instanceof Error ? error.message : String(error));
-      }
-    })().finally(() => { pending = undefined; });
-
-    return pending;
-  } });
-
-  return storageCopy.invalid(storageLabel(key));
-};
-
-/** No editor is constructed before validation, acknowledged save and readback.
- * Recovery records live outside the family namespace and never become live values.
- */
+/** Refuse obsolete browser metadata before opening native storage or constructing editors. */
 export const initializeStorage = async (): Promise<string | null> => {
-  setRecovery(null);
+  browser = undefined;
+  initialized = false;
 
   try {
-    browser = undefined;
-    initialized = false;
-    const store = await reopen();
-    const quarantines = [...restored].flatMap(([key, value]) => key.startsWith(quarantinePrefix) ? [v.parse(quarantineSchema, value)] : []);
-    setRetained(quarantines);
-    const legacy: { key: string; bytes: string }[] = [];
-    const candidates: [string, unknown][] = [];
-
     for (let index = 0; index < window.localStorage.length; index++) {
-      const key = window.localStorage.key(index);
-      const family = key === null ? undefined : familyOf(key);
+      if (window.localStorage.key(index)?.startsWith("roundup:")) {
+        const folder = v.parse(v.string(), await invoke<unknown>("plugin:window-bar|webview_data_folder"));
 
-      if (key === null || family === undefined) continue;
-      // A read failure has no known bytes and therefore grants no continuation.
-      const bytes = window.localStorage.getItem(key);
-
-      if (bytes === null) continue;
-
-      if (quarantines.some(record => record.key === key && record.bytes === bytes)) {
-        legacy.push({ key, bytes });
-        continue;
+        return storageCopy.incompatible(folder);
       }
-
-      let value: unknown;
-
-      try { value = JSON.parse(bytes); } catch { return invalidLegacy(key, bytes); }
-
-      const parsed = v.safeParse(schemas.get(family)!, value);
-
-      if (!parsed.success) return invalidLegacy(key, bytes);
-      legacy.push({ key, bytes });
-
-      if (!restored.has(key)) candidates.push([key, { version: 1, value }]);
     }
+
+    await reopen();
 
     for (const [key, raw] of restored) {
       const family = familyOf(key);
@@ -161,22 +83,6 @@ export const initializeStorage = async (): Promise<string | null> => {
       const record = v.parse(recordSchema, raw);
 
       if ("value" in record) v.parse(schemas.get(family)!, record.value);
-    }
-
-    for (const [key, value] of candidates) await store.set(key, value);
-
-    if (legacy.length > 0) await store.save();
-    await reopen();
-
-    for (const record of quarantines) {
-      const name = quarantinePrefix + JSON.stringify([record.key, record.bytes]);
-      const checked = v.safeParse(quarantineSchema, restored.get(name));
-
-      if (!checked.success || checked.output.key !== record.key || checked.output.bytes !== record.bytes) return storageCopy.recoveryReadback;
-    }
-
-    for (const { key, bytes } of legacy) {
-      if (window.localStorage.getItem(key) === bytes) window.localStorage.removeItem(key);
     }
 
     initialized = true;
