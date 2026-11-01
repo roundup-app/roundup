@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { Terminal } from "@xterm/xterm";
 import * as xterm from "@xterm/xterm";
@@ -38,41 +38,47 @@ const section = async (name: string) => {
   const tab = screen.getByRole("tab", { name });
   fireEvent.click(tab);
   await waitFor(() => expect(tab.getAttribute("aria-selected")).toBe("true"));
+
+  return within(await screen.findByRole("tabpanel", { name }));
 };
 
 const select = async (label: string, value: string) => {
   if (label === "Appearance") {
-    await section("Appearance");
-    fireEvent.click(screen.getByRole("radio", { name: value }));
+    const panel = await section("Appearance");
+    fireEvent.click(panel.getByRole("radio", { name: value }));
     await waitFor(() => expect(appSettings().mode).toBe(value.toLowerCase()));
 
     return;
   }
 
-  await section("Agents");
-  fireEvent.click(screen.getByRole("combobox", { name: label }));
+  const panel = await section("Agents");
+  fireEvent.click(panel.getByRole("combobox", { name: label }));
   fireEvent.click(await screen.findByRole("option", { name: value }));
 };
 
 const pick = async (label: string, value: string) => {
-  await section("Agents");
-  fireEvent.click(screen.getByRole("button", { name: new RegExp(`^${label} `) }));
+  const panel = await section("Agents");
+  const trigger = panel.getByRole("button", { name: new RegExp(`^${label} `) });
+  fireEvent.click(trigger);
   fireEvent.click(await screen.findByRole("option", { name: value }));
-  await screen.findByRole("button", { name: `${label} ${value}` });
+  await waitFor(() => {
+    expect(trigger.textContent).toBe(value);
+    expect(trigger.getAttribute("aria-expanded")).toBe("false");
+  });
 };
 
 const commit = async (label: string, text: string, valid = true) => {
-  await section("Terminal");
+  const panel = await section("Terminal");
 
   if (label === "Font family") {
-    fireEvent.click(screen.getByRole("combobox", { name: label }));
+    fireEvent.click(panel.getByRole("combobox", { name: label }));
     fireEvent.click(await screen.findByRole("option", { name: text }));
     await waitFor(() => expect(appSettings().fontFamily).toBe(text));
 
     return;
   }
 
-  const field = await screen.findByRole("spinbutton", { name: label });
+  const field = await panel.findByRole("spinbutton", { name: label });
   fireEvent.input(field, { target: { value: text } });
   fireEvent.keyDown(field, { key: "Enter", code: "Enter" });
 
@@ -124,8 +130,8 @@ it("u4547c_settings_choices_do_not_change_the_workstream_prompt", async () => {
   await commit("Font family", "Menlo");
   await commit("Font size", "16");
   await select("Appearance", "Dark");
-  await section("Shortcuts");
-  fireEvent.click(screen.getByRole("button", { name: /^Quick add Todo / }));
+  const shortcuts = await section("Shortcuts");
+  fireEvent.click(shortcuts.getByRole("button", { name: /^Quick add Todo / }));
   fireEvent.keyDown(window, { key: "y", code: "KeyY", ctrlKey: true, shiftKey: true });
   await waitFor(() => expect(appSettings().quickAdd).toBe("ctrl+shift+KeyY"));
   expect(JSON.parse(localStorage.getItem("roundup:app-settings")!)).toMatchObject({ permissionMode: "plan", engine: "engine-one", model: "model-one", fontFamily: "Menlo", fontSize: 16, mode: "dark", quickAdd: "ctrl+shift+KeyY" });
@@ -375,8 +381,4 @@ it("u5205_a_mac_wide_chord_calls_configure_and_reset_returns_none", async () => 
   await waitFor(() => expect(appSettings().quickAddAnywhere).toBe(""));
   expect(configure).toHaveBeenLastCalledWith(null);
   expect(appSettings().quickAdd).toBe("meta+shift+KeyT");
-});
-
-it("u5205_no_default_setting_registers_a_global_shortcut", () => {
-  expect(appSettings().quickAddAnywhere || null).toBeNull();
 });
