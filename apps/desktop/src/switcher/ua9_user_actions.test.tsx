@@ -100,7 +100,6 @@ it("ua12_user_actions_move_nothing_built_in", async () => {
   expect(options().map(row => row.dataset.value)).toEqual(base);
 });
 
-
 it.each([
   ["initial/event", false],
   ["initial/event", true],
@@ -109,7 +108,7 @@ it.each([
 ] as const)("ua13_an_older_reply_cannot_replace_the_later_list (%s, empty=%s)", async (overlap, empty) => {
   const earlier = Promise.withResolvers<ActionRow[]>();
   const later = Promise.withResolvers<ActionRow[]>();
-  const read = vi.fn();
+  const read = vi.fn<() => ActionRow[] | Promise<ActionRow[]>>();
 
   if (overlap === "event/event") read.mockReturnValueOnce([user("user.initial", "Initial action")]);
   read.mockReturnValueOnce(earlier.promise).mockReturnValueOnce(later.promise);
@@ -128,13 +127,15 @@ it.each([
   const expected = empty ? [] : ["action:user:user.later"];
   later.resolve(empty ? [] : [user("user.later", "Later action")]);
   await later.promise;
-  // fakeApp.rpc adopts the handler promise; Switcher.readUserRows then consumes the RPC promise.
+  // fakeApp.rpc adopts the handler promise; Switcher catches failures before createResource consumes it.
+  await Promise.resolve();
   await Promise.resolve();
   await waitFor(() => expect(actionValues().filter(value => value.startsWith("action:user:"))).toEqual(expected));
 
   earlier.resolve([user("user.earlier", "Earlier action")]);
   await earlier.promise;
-  // Await the RPC adoption and its registered Switcher continuation before checking absence.
+  // fakeApp.rpc adoption, Switcher's catch, then createResource's completion run in that order.
+  await Promise.resolve();
   await Promise.resolve();
   expect(actionValues().filter(value => value.startsWith("action:user:"))).toEqual(expected);
 
