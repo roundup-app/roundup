@@ -395,9 +395,7 @@ impl Host {
         }
         match permission {
             "clock" if function == "now" => Ok(json!(
-                std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .map_or(0, |since| since.as_millis() as u64)
+                (time::OffsetDateTime::now_utc().unix_timestamp_nanos() / 1_000_000).max(0) as u64
             )),
             "store" => self.store_call(&manifest.name, function, params),
             "agents" | "todos" | "pads" => {
