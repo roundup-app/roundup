@@ -2,7 +2,7 @@
 
 # Remaining Terminal owner work (#1913)
 
-The existing the retired Message receiver lookup cut still locks Rail → Attempts, executes the identical fresh indexed owner query, records synchronously, then releases the locks. No owner facts are cached. Callers, constructors, SQL facts, callbacks and Message store behavior are unchanged.
+The retired Message receiver lookup cut locked Rail → Attempts, executes the identical fresh indexed owner query, records synchronously, then releases the locks. No owner facts are cached. Callers, constructors, SQL facts, callbacks and Message store behavior are unchanged.
 
 ```text
 input → first wake → complete-backfill admission → schema-only read → 5 ms → rollback → rearm

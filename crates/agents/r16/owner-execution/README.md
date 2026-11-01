@@ -78,7 +78,7 @@ All 36 matched commands exit 0 and qualify under the unchanged 2.0 Linux load/CP
 
 `b32_owner_read_stops_at_the_second_receiver` uses the existing owner interface and a SQLite view whose third row raises an error. CONFLICT, without callback, proves that Rust stops at the second receiver even without SQL LIMIT. A deliberate extra third step fails with INTERNAL (exit 101); the restored code passes. The mutation, red/green logs and commands are retained.
 
-Rule 10 removes `b32_an_unowned_terminal_has_no_receiver`: The retired repeated receiver-read test still proves the negative result, and the external-attachment proof retains its freshness. It also removes `b32_ambiguous_ownership_fails_without_recording_input`: `b32_a_warm_owner_read_rejects_ambiguity_then_recovers` still proves CONFLICT and callback exclusion, and the new test adds the distinct bounded-scan proof. No scenario is retired.
+Rule 10 removes `b32_an_unowned_terminal_has_no_receiver`: the repeated receiver-read test proved the negative result, and the external-attachment proof retains its freshness. It also removes `b32_ambiguous_ownership_fails_without_recording_input`: `b32_a_warm_owner_read_rejects_ambiguity_then_recovers` still proves CONFLICT and callback exclusion, and the new test adds the distinct bounded-scan proof. No scenario is retired.
 
 Existing proofs retain fresh positive/negative reads after external commits, ambiguity/recovery, SQL and callback errors, concurrent attachment/detach/reassignment/removal/reopen/Attempt changes, pending Resume, Status/revision fencing, callback effects and lifecycle lock order. The peer expiry/rearm test proves checkpoint progress after input stops and while it continues. No owner fact escaping the cut authorizes a later mutation.
 
