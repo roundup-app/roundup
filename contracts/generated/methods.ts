@@ -39,8 +39,6 @@ import type { WorktreeState as agent_WorktreeState } from "./agent/WorktreeState
 import type { Ask as ask_Ask } from "./ask/Ask";
 import type { PickParams as ask_PickParams } from "./ask/PickParams";
 import type { SendParams as ask_SendParams } from "./ask/SendParams";
-import type { SaveParams as attachment_SaveParams } from "./attachment/SaveParams";
-import type { Saved as attachment_Saved } from "./attachment/Saved";
 import type { HistoryParams as common_HistoryParams } from "./HistoryParams";
 import type { IdentifyParams as common_IdentifyParams } from "./IdentifyParams";
 import type { Ping as common_Ping } from "./Ping";
@@ -192,7 +190,6 @@ export type RpcMethods = {
   "agent.channelUp": { params: agent_NodeId; result: null };
   "agent.signal": { params: agent_SignalParams; result: agent_SignalOutcome | null };
   "rail.tree": { params: null; result: agent_RailNode[] };
-  "rail.list": { params: null; result: agent_RailNode[] };
   "workstream.setAuto": { params: workstream_AutoParams; result: null };
   "workstream.setOpeningPrompt": { params: workstream_OpeningPromptParams; result: null };
   "rail.createWorkstream": { params: agent_CreateWorkstreamParams; result: agent_RailNode };
@@ -328,7 +325,6 @@ export type RpcMethods = {
   "reaction.stop": { params: reaction_ReactionId; result: reaction_Reaction };
   "reaction.run": { params: reaction_RunParams; result: reaction_Reaction };
   "project.resources": { params: null; result: project_Resources };
-  "attachment.save": { params: attachment_SaveParams; result: attachment_Saved };
   "message.progress": { params: message_ProgressParams; result: message_Progress };
   "message.report": { params: message_ReportParams; result: message_ResultReport };
   "message.acceptResult": { params: message_AcceptResultParams; result: message_ResultAcceptance };
