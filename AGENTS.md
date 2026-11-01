@@ -38,7 +38,7 @@ Builder and QA runs are one-shot GitHub Actions jobs, and an event ends every wa
 ## Conventions
 
 - No scenario, no work. Tests are named after their scenario (`fn t3_…` proves T3).
-- Work in your own worktree and branch; `pnpm install` before pushing; a loop build or fix run ends with the lints plus the tests its changed files reach, and CI's `check` judges the push; an agent working by hand outside the loop may run `just check origin/main`; PRs go against `main`.
+- Work in your own worktree and branch; `pnpm install` before pushing; a loop build or fix run ends with the lints plus the test files it changed and the tests its task names as failing, and CI's `check` judges the push; an agent working by hand outside the loop may run `just check origin/main`; PRs go against `main`.
 - Loop machinery, including workflows, merges after independent review and the required checks; reviewers use main’s instructions and inspect the proposed diff.
 - Red `main`: fix forward through a PR that repairs the cause; never revert the merge or weaken a test.
 - Regenerate `contracts/generated/` from `crates/contracts`, never hand-edit it.
