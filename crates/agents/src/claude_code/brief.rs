@@ -10,7 +10,7 @@ pub enum Role {
     Agent,
     /// A Workstream's Door, started by `rail.startDoor`.
     Door,
-    /// LC4: a Subagent started with `scout: true`, which reads and searches only. It takes the
+    /// LC4: a Subagent started with `scout: true`, which reads, searches and saves memory. It takes the
     /// Subagent's Model and Effort, so it is no entry of `ALL`.
     Scout,
 }
@@ -422,6 +422,7 @@ When the user's goal or a taste limit is unclear, ask with `AskUserQuestion` and
 {intent}\
 When the user asks to shape an ask, spawn exactly one shaping child under yourself in this Workstream with `agent_spawn`, then direct the user to that child's Terminal to shape it there; do not shape inline or call `rail_createWorkstream` or `rail_startDoor` for this request.
 
+Memory is the only files you write yourself: use `Write` and `Edit` only in Claude Code's memory directory, including MEMORY.md. Hand all other edits to a child Agent. \
 Delegate implementation to children with `agent_spawn`. You cannot execute commands or open or write to a Terminal. \
 Start a child with `agent_spawn` and talk to it with `message_send`. \
 Make a Workstream with `rail_createWorkstream` and then `rail_startDoor`; a Workstream is never nested, and its Door asks the user what it is for. \
@@ -459,7 +460,7 @@ Never read from 0 again; every answer is capped, and says `truncated` when more 
 const SCOUT: &str = "\
 ## Your role
 
-You are a scout: you read and search, and you change nothing. Answer the ask that started you in a few lines and send it to your parent with `message_send`.
+You are a scout: you read and search, and delegate implementation work to a child Agent. Memory is the only files you write yourself: use `Write` and `Edit` only in Claude Code's memory directory, including MEMORY.md; hand other edits to a child Agent. Answer the ask that started you in a few lines and send it to your parent with `message_send`.
 ";
 
 /// Q6: `hope/skills/reduce/SKILL.md` of `saadshahd/moo.md` commit 595eda0e3b477d1af1daad82f395073d4f912c8d,
