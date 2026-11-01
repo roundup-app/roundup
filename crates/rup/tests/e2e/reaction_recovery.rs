@@ -80,9 +80,16 @@ async fn nr3_automatic_write_failure_is_inspectable_and_recovers() {
     assert!(failed.observation.recovery.is_some());
     assert_eq!(failed.remaining, 1);
     // Atomicity itself is proved by messages::tests::b_fault_tests::nr3_firing_and_message_commit_together.
-    // Reopening with the fault still present must retain an inspectable failure and the unspent bound.
+    // Reopening must retain an inspectable failure and the unspent bound. A Project refuses to open
+    // with a trigger its migrations did not build (N5420a), so the fault is lifted for the reopen
+    // and set again before anything can fire: a reopen alone fires nothing, only a started Door does.
     drop(s.user);
+    s.project.crash();
+    project_db(&s.project)
+        .execute_batch("DROP TRIGGER refuse_reaction")
+        .unwrap();
     s.project.restart(&[]);
+    project_db(&s.project).execute_batch("CREATE TRIGGER refuse_reaction BEFORE INSERT ON reaction_firings BEGIN SELECT RAISE(ABORT, 'reaction write refused'); END;").unwrap();
     s.user = s.project.client().await;
     let kept = current(&s, &saved).await;
     assert!(
