@@ -381,6 +381,40 @@ it.each([...editorKinds, "pad-source", "diff", "ask"] as const)("u3529a_text_kee
   expect(await read<number>("window.__fake.app.calls.slice(window.__textCalls).filter(c => c.method === 'message.send').length")).toBe(0);
 }, 90_000);
 
+const rightAt = async (at: { x: number; y: number }) => {
+  await browser("eval", `(() => {
+    window.__context = null;
+    document.addEventListener('contextmenu', event => {
+      const path = event.composedPath();
+      queueMicrotask(() => { window.__context = {
+        editable: path.some(node => node instanceof HTMLElement && (node.isContentEditable || node.matches('input, textarea'))),
+        cancelled: event.defaultPrevented,
+        selected: getSelection().toString(),
+      }; });
+    }, { once: true, capture: true });
+  })()`);
+  await browser("mouse", "move", String(at.x), String(at.y));
+  await browser("mouse", "down", "right");
+  await browser("mouse", "up", "right");
+  await wait("window.__context !== null");
+};
+
+it.each(["agent", "door", "bubble"] as const)("u5515a_terminal_right_click_preserves_the_whole_selection_%s", async where => {
+  const selector = await placement(where);
+
+  const from = await read<{ x: number; y: number }>(`(() => {
+    const box = document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect();
+    return { x: Math.round(box.left + 2), y: Math.round(box.top + 8) };
+  })()`);
+
+  await drag(from, { x: from.x + 150, y: from.y });
+  const selected = await read<string>("window.__emu.selection()");
+  expect(selected).toContain(" ");
+  await rightAt({ x: from.x + 30, y: from.y });
+  expect(await read("window.__context")).toEqual({ editable: false, cancelled: false, selected });
+  expect(await read<string>("window.__emu.selection()")).toBe(selected);
+}, 90_000);
+
 it.skipIf(!process.env.ROUNDUP_CAPTURES?.includes("U3529"))("u3529c_rendered_selection_and_terminal_menu_removal", async () => {
   const { copyFileSync, mkdirSync, writeFileSync } = await import("node:fs");
   const { join } = await import("node:path");
