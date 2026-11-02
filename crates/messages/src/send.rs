@@ -148,7 +148,9 @@ impl Messages {
                         .open_digests(&p.to)?
                         .into_iter()
                         .filter(|m| {
-                            pushes::is_plain_push(&m.body) && pushes::names_in(&m.body) == names
+                            pushes::is_plain_push(&m.body)
+                                && pushes::names_in(&m.body) == names
+                                && m.body != p.body
                         })
                         .collect();
                     let weight = 1 + older.iter().map(|m| pushes::weight(&m.body)).sum::<u32>();

@@ -213,6 +213,13 @@ impl Run {
         self.screen_bytes().await - self.started_with.load(Ordering::SeqCst)
     }
 
+    fn database(&self) -> rusqlite::Connection {
+        let path = rupd::data::project_data(self.data.path(), self.dir.path())
+            .unwrap()
+            .join("project.db");
+        rusqlite::Connection::open(path).unwrap()
+    }
+
     fn sessions(&self) -> PathBuf {
         self.dir.path().join("config/sessions")
     }
