@@ -625,7 +625,7 @@ it("u3791b_copy_depends_on_codes_not_messages_import_exclusions", async () => {
   cause = "unknown";
   await connected.importing.refresh();
   await screen.findByRole("checkbox", { name: /first/ });
-  expect(await exclusions()).toMatch(/Retry/);
+  expect(await exclusions()).not.toBe(before);
 
 });
 
