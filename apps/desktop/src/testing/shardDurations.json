@@ -534,7 +534,7 @@
   "src/u3747_scrollbar.test.ts": 1,
   "src/u3785_overscroll.test.ts": 1,
   "src/ui/s3806a_interruption.test.tsx": 24,
-  "src/ui/s3806b_actions.test.tsx": 164,
+  "src/ui/s3806b_actions.test.tsx": 324,
   "src/ui/u130_styles.test.ts": 1,
   "src/ui/u133_choices.test.ts": 23,
   "src/ui/u133_feedback.test.ts": 1,
