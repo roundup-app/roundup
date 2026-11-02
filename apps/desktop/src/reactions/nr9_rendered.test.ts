@@ -410,6 +410,18 @@ it.skipIf(!captureDir("U5558a"))("u5558e_open_surfaces_update_and_keep_failed_re
     await evaluate("window.__worktrees.refresh('agent-1')");
     await wait("document.querySelector('.diff-reader [role=alert]')?.textContent.includes('Worktree read refused')");
     await capture("U5558e", "diff-reload-failed");
+    await evaluate("window.__fake.app.handlers['agent.compareFile'] = () => ({base:'base',oldPath:'src/example.ts',newPath:'src/example.ts',status:'modified',old:{kind:'text',revision:'old',text:'before\\n'},new:{kind:'text',revision:'recovered',text:'recovered comparison\\n'}})");
+    await evaluate("[...document.querySelectorAll('.diff-reader button')].find(button=>button.textContent.trim()==='Retry').focus()");
+    await browser("press", "Enter");
+    await wait("!document.querySelector('.diff-reader [role=alert]') && document.querySelector('diffs-container')?.shadowRoot?.textContent.includes('recovered comparison')");
+    expect(await evaluate("document.querySelector('.note-field textarea').value")).toBe("  keep this exact unfinished note 🐝  ");
+    await capture("U5558e", "diff-keyboard-recovered");
+    await browser("focus", ".diff-header [aria-label=Close]");
+    await browser("press", "Enter");
+    await wait("!document.querySelector('.diff-reader') && !!document.querySelector('file-tree-container')");
+    await browser("focus", ".worktree-panel > .diff-actions button");
+    await browser("press", "Enter");
+    await wait("!document.querySelector('.worktree-panel')");
     expect(await evaluate("[...document.querySelectorAll('button')].some(button=>button.textContent.trim()==='Refresh')")).toBe(false);
   } finally {
     try {
