@@ -159,3 +159,12 @@
   font-size: var(--text-caption);
   color: var(--grey);
 }
+
+/* The native menu reads this range; xterm continues painting the visible selection. */
+.terminal-menu-text {
+  position: fixed;
+  pointer-events: none;
+  opacity: 0;
+  white-space: pre;
+  user-select: text;
+}
