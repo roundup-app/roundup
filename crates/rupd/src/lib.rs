@@ -24,6 +24,8 @@ mod guards;
 mod link;
 #[cfg(test)]
 mod naming_tests;
+#[cfg(test)]
+mod group_tests;
 mod observers;
 mod open;
 mod output;
