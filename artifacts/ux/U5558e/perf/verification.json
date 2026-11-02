@@ -1,0 +1,18 @@
+{
+  "ready": 0,
+  "focused_rust": 0,
+  "m5": 0,
+  "capture_dark": 0,
+  "changed_web": {
+    "exit": 1,
+    "passed": 266,
+    "failed": 2,
+    "skipped": 32,
+    "failures": [
+      "u3787a_bulk_delete_returns_focus_to_the_first_remaining_row",
+      "u463_cancel_keeps_first_run_and_the_next_choice_opens_the_project"
+    ],
+    "isolated_reruns_exit": 0
+  },
+  "perf": 0
+}

@@ -263,6 +263,11 @@ async fn n16_all_stores_share_one_project_database() {
             "../migrations/project/0033-coordination-instructions.sql"
         ))
         .unwrap();
+    retention
+        .execute_batch(include_str!(
+            "../migrations/project/0041-user-order-instructions.sql"
+        ))
+        .unwrap();
     expected.extend(
         standalone::schema(&retention)
             .into_iter()
