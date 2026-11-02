@@ -70,7 +70,7 @@ export const copy = {
   createNeedsName: "Name the Workstream first.",
   createNeedsTodo: "Choose a Todo to wait for.",
   startAfterTodoLabel: "Wait for Todo",
-  createWorkstream: "Create",
+  createWorkstream: sharedCopy.create,
   assign: sharedCopy.assign,
   assignTodo: sharedCopy.assignTodo,
   addTodo: sharedCopy.addTodo,
