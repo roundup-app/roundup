@@ -134,16 +134,23 @@ it("u5646c_equal_refresh_keeps_fallback_notice", async () => {
 it("u5646d_refresh_recovery_and_disposal", async () => {
   const { app, connected, view } = await openDiff();
   await waitFor(() => expect(rendered()).toHaveLength(1));
+  const click = vi.mocked(VirtualizedFileDiff).mock.calls[0]![0]!.onLineNumberClick!;
+
+  click({ type: "diff-line", lineType: "change-deletion", lineElement: document.createElement("div"), numberElement: document.createElement("span"), numberColumn: true, lineNumber: 2, annotationSide: "deletions", event: new PointerEvent("click") });
   app.handlers["agent.compareFile"] = () => { throw new Error("read refused"); };
 
   await connected.worktrees.refresh("a");
   await screen.findByRole("alert");
   expect(rendered()).toHaveLength(1);
+  expect(vi.mocked(VirtualizedFileDiff.prototype.setSelectedLines).mock.calls.at(-1)?.[0]).toEqual({ side: "deletions", start: 2, end: 2 });
   app.handlers["agent.compareFile"] = () => structuredClone(COMPARISON);
   fireEvent.click(screen.getByRole("button", { name: "Retry" }));
   await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
   expect(processFile).toHaveBeenCalledTimes(1);
   expect(rendered()).toHaveLength(1);
+  fireEvent.click(screen.getByRole("button", { name: "Add note" }));
+  expect(screen.getByRole("spinbutton", { name: "Start line" })).toHaveProperty("value", "2");
+  expect(screen.getByRole("tab", { name: "Old" }).getAttribute("aria-selected")).toBe("true");
   const before = app.calls.filter(call => call.method === "agent.compareFile").length;
 
   await connected.worktrees.refresh("plain");
