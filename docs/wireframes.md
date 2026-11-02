@@ -434,4 +434,3 @@ Pad formatting: use GitHub callouts for information the user must not miss: > [!
 Use text colour and highlight sparingly. Canonical inline Pad forms are <span data-pad-color="blue">text</span> and <mark>text</mark>; colours are blue, green, purple, red and amber.
 Combine them as <mark><span data-pad-color="blue">text</span></mark>. Remove only the colour wrapper for Default, or only the mark wrapper to clear highlight, retaining other inline formatting.
 Keep fenced-code language labels for syntax colour. These inline Pad wrappers are permitted; never write an HTML file.
-
