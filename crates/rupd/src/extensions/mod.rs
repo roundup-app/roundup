@@ -394,9 +394,9 @@ impl Host {
             )));
         }
         match permission {
-            "clock" if function == "now" => Ok(json!(
-                (time::OffsetDateTime::now_utc().unix_timestamp_nanos() / 1_000_000).max(0) as u64
-            )),
+            "clock" if function == "now" => {
+                Ok(json!(u64::try_from(provenance::now_ms()).unwrap_or(0)))
+            }
             "store" => self.store_call(&manifest.name, function, params),
             "agents" | "todos" | "pads" => {
                 let namespace = permission.trim_end_matches('s');

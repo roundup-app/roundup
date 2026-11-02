@@ -8,6 +8,8 @@ import { runChecks } from "../testing/checks";
 import { useBrowserStorage } from "../state/storage";
 import "../tokens.css";
 import "../styles.css";
+// Each load owns its App state; prior editable/Terminal cases must not select its view.
+localStorage.clear();
 useBrowserStorage(window.localStorage);
 const controls = seedApp("tree-40", Date.now());
 window.__fake = controls;
