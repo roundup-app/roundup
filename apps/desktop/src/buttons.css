@@ -269,3 +269,8 @@ input:is(.todo-tick, [type="range"])[data-pressed="true"]:not(:disabled, [aria-d
 [data-button], [data-button] * {
   font-family: var(--font-mono);
 }
+
+/* A content name keeps the same face inside an action or navigation control. */
+.tab-name, .tab-name *, .shelf-group-name, .overview-name {
+  font-family: var(--font-ui);
+}
