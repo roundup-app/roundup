@@ -136,10 +136,22 @@ it.skipIf(!captureDir(id))(`${id.toLowerCase()}_rendered_policy_capture`, async 
 
               await read("window.__fake.failNext(-32003, 'Workstream could not be created. Try again.')");
               await browser("click", ".rail-actions button");
+
+              if (phase === "head") {
+                await wait("!!document.querySelector('.rail-create-menu [data-value=workstream]')");
+                await browser("click", '.rail-create-menu [data-value="workstream"]');
+              }
+
               await wait("[...document.querySelectorAll('[role=alert]')].some(el=>el.textContent.includes('Workstream could not be created'))");
               await snap(`${prefix}-failure`);
               const before = await read("window.__fake.app.calls.filter(c=>c.method==='rail.createWorkstream').length");
               await browser("click", ".rail-actions button");
+
+              if (phase === "head") {
+                await wait("!!document.querySelector('.rail-create-menu [data-value=workstream]')");
+                await browser("click", '.rail-create-menu [data-value="workstream"]');
+              }
+
               await wait(`window.__fake.app.calls.filter(c=>c.method==='rail.createWorkstream').length>${before}`);
               await snap(`${prefix}-recovered`);
             }
