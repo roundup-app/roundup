@@ -548,7 +548,6 @@
 
 .ask-line[data-linked="true"].row-wash:hover {
   color: var(--text);
-  --row-wash: var(--hover);
 }
 
 .ask-open {
