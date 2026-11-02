@@ -28,8 +28,8 @@ pub struct Sources<'a> {
     pub todos: &'a [Todo],
     pub pads: &'a [Pad],
     pub touches: Vec<contracts::Touch>,
-    /// A5482c: Agent id to (Attempt/turn identity, turn start in Unix milliseconds, final text), from the Adapter.
-    pub completed: HashMap<String, (String, i64, String)>,
+    /// A5482c: Agent id to (Attempt/turn identity, turn start/end in Unix milliseconds, final text), from the Adapter.
+    pub completed: HashMap<String, (String, i64, i64, String)>,
     pub messages: &'a [Message],
 }
 
@@ -261,7 +261,7 @@ impl Seen {
             let question_turn = from
                 .completed
                 .get(&child.id)
-                .is_some_and(|(_, started, _)| question_since(child, from, *started));
+                .is_some_and(|(_, started, _, _)| question_since(child, from, *started));
             let moved = book.told.get(&key).is_none_or(|was| {
                 (was.kind != now.kind
                     && !is_flip(was, &now)
@@ -404,7 +404,7 @@ pub fn push_body(entry: &DigestEntry) -> String {
 fn told(entry: &DigestEntry, child: &RailNode, from: &Sources) -> Told {
     Told {
         binding: crate::binding(child),
-        completed: final_text(child, from).map(|(turn, _, _)| turn.clone()),
+        completed: final_text(child, from).map(|(turn, _, _, _)| turn.clone()),
         kind: entry.kind,
         todos: entry.todos,
         pads: newest_pad(child, from),
@@ -521,21 +521,17 @@ fn entry(
         .max_by_key(|message| message.id);
     // B49: an end note carries the child's own summary, whole, or says there was none.
     let end = end && is_end(child);
-    let final_reply =
-        (!end)
-            .then(|| final_text(child, from))
-            .flatten()
-            .filter(|(_, started, _)| {
-                // B5519a: a Message in the newer Status belongs ahead of the older turn's text.
-                told.is_none_or(|message| status.since <= *started || message.at < status.since)
-            });
+    let final_reply = (!end)
+        .then(|| final_text(child, from))
+        .flatten()
+        .filter(|(_, _, ended, _)| told.is_none_or(|message| message.at <= *ended));
     let last = match (told, end) {
         (Some(message), true) => message.body.as_str(),
         (None, true) => NO_FINDING,
         (Some(message), false) => message.body.lines().next().unwrap_or_default(),
         (None, false) => status.label.as_str(),
     };
-    let last = final_reply.map_or(last, |(_, _, text)| text.as_str());
+    let last = final_reply.map_or(last, |(_, _, _, text)| text.as_str());
     let last = if final_reply.is_some() && last.lines().count() > 1 {
         format!("{}[cut]", last.lines().next().unwrap_or_default())
     } else {
@@ -587,7 +583,7 @@ fn entry(
 }
 
 /// Explicit question Messages already carry this turn's choice; never duplicate them as fallback.
-fn final_text<'a>(child: &RailNode, from: &'a Sources) -> Option<&'a (String, i64, String)> {
+fn final_text<'a>(child: &RailNode, from: &'a Sources) -> Option<&'a (String, i64, i64, String)> {
     if is_end(child) {
         return None;
     }
