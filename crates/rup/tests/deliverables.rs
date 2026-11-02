@@ -626,13 +626,12 @@ async fn r3778c_removed_file_cleanup() {
 }
 
 #[tokio::test]
-async fn r3778c_legacy_and_file_reopen() {
+async fn r3778c_current_revisions_reopen() {
     let mut p = daemon::start(&[]);
     let c = p.client().await;
     pad(&c, "notes", "legacy revision").await;
     let request = json!({"key":"legacy","title":"Result","target":pad_target(&c,"notes",1).await});
     let legacy = call(&c, "deliverable.publish", request).await;
-    legacy_blobs(&mut p, &[(&legacy, b"legacy revision")]);
     let c = p.client().await;
     call(
         &c,
@@ -765,24 +764,6 @@ async fn r3778c_durable_reference_order() {
             .join(" "),
         "capture_start hashed metadata_inserted parent_synced pending_directory_synced before_file_sync after_file_sync after_directory_sync before_commit after_commit before_cleanup pending_directory_synced before_reply"
     );
-}
-
-fn legacy_blobs(p: &mut daemon::Project, publications: &[(&Value, &[u8])]) {
-    p.crash();
-    // A real version-41 database holding the rows made so far; version 41 precedes
-    // 0028-deliverable-files, the Door columns and Pad order, and still holds Clear-owned state.
-    daemon::storage::legacy_project_v41(&p.data_dir().join("project.db"));
-    let db = rusqlite::Connection::open(p.data_dir().join("project.db")).unwrap();
-    for (record, bytes) in publications {
-        db.execute(
-            "INSERT INTO deliverable_bytes VALUES (?1,?2)",
-            rusqlite::params![record["id"].as_str().unwrap(), bytes],
-        )
-        .unwrap();
-    }
-    drop(db);
-    std::fs::remove_dir_all(p.data_dir().join("publication-files")).unwrap();
-    p.restart(&[]);
 }
 
 async fn publish_bytes(

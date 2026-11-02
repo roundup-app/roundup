@@ -233,7 +233,7 @@ impl Publications {
                 rustix::fs::fsync(&pending)?;
             }
         }
-        let mut stmt = db.prepare("SELECT id FROM deliverables WHERE removed=1 AND (id IN (SELECT id FROM deliverable_files) OR id IN (SELECT id FROM deliverable_bytes))")?;
+        let mut stmt = db.prepare("SELECT id FROM deliverables WHERE removed=1 AND id IN (SELECT id FROM deliverable_files)")?;
         let ids = stmt
             .query_map([], |r| r.get::<_, String>(0))?
             .collect::<rusqlite::Result<Vec<_>>>()?;
@@ -254,7 +254,6 @@ impl Publications {
                 rustix::fs::fsync(dir)?;
             }
             db.execute("DELETE FROM deliverable_files WHERE id=?1", [&id])?;
-            db.execute("DELETE FROM deliverable_bytes WHERE id=?1", [&id])?;
         }
         Ok(())
     }
@@ -597,7 +596,7 @@ const QUOTA: i64 = 1024 * 1024 * 1024;
 fn bounded(db: &Connection, bytes: &[u8], quota: i64) -> Result<(), RpcError> {
     let used: i64 = db
         .query_row(
-            "SELECT (SELECT coalesce(sum(length(bytes)),0) FROM deliverable_bytes) + (SELECT coalesce(sum(length),0) FROM deliverable_files)",
+            "SELECT coalesce(sum(length),0) FROM deliverable_files",
             [],
             |r| r.get(0),
         )
@@ -674,20 +673,13 @@ fn resolve(
             |r| r.get(0),
         )
         .map_err(RpcError::internal)?;
-    let bytes: Option<Vec<u8>> = if selected {
-        match publications.read(&record.id) {
-            Ok(bytes) => Some(bytes),
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => None,
-            Err(_) => return unavailable(UnavailableCause::IntegrityFailure),
-        }
-    } else {
-        db.query_row(
-            "SELECT bytes FROM deliverable_bytes WHERE id=?1",
-            [&record.id],
-            |r| r.get(0),
-        )
-        .optional()
-        .map_err(RpcError::internal)?
+    if !selected {
+        return unavailable(UnavailableCause::MissingRevision);
+    }
+    let bytes = match publications.read(&record.id) {
+        Ok(bytes) => Some(bytes),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => None,
+        Err(_) => return unavailable(UnavailableCause::IntegrityFailure),
     };
     let Some(bytes) = bytes else {
         return unavailable(UnavailableCause::MissingRevision);
