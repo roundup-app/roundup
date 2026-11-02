@@ -16,7 +16,7 @@ const session = `u5557-${process.pid}`;
 
 let server: AppServer;
 
-const browser = async (...args: string[]) => (await exec("agent-browser", ["--session", session, "--json", ...args], { maxBuffer: 8 * 1024 * 1024, timeout: 25_000 })).stdout;
+const browser = async (...args: string[]) => (await exec("agent-browser", ["--session", session, "--json", ...args], { maxBuffer: 8 * 1024 * 1024, timeout: 25_000 }).catch(error => { throw new Error([error.message, error.stdout, error.stderr].join("\n")); })).stdout;
 
 const read = async (expression: string) => {
   // SAFETY: agent-browser supplies the envelope for these constant observer expressions.
@@ -34,7 +34,8 @@ beforeAll(async () => {
 
   if (!ready.ok) throw new Error(await ready.text());
 
-  await browser("--profile", profile, "--args", "--no-sandbox", "--color-scheme", "dark", "open", new URL("/harness.html?seed=empty-project", server.resolvedUrls.local[0]!).href);
+  await browser("--profile", profile, "--args", "--no-sandbox", "--color-scheme", "dark", "open");
+  await browser("open", new URL("/harness.html?seed=empty-project", server.resolvedUrls.local[0]!).href);
   await browser("set", "viewport", "1512", "950");
   await browser("set", "media", "dark");
 }, 90_000);
