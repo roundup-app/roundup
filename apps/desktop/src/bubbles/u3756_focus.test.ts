@@ -129,7 +129,7 @@ const newer = async (choice: string) => {
     await read(`document.querySelector('.drawer .todo-add-notes').click()`);
     await wait(`!!document.querySelector('.drawer textarea')`);
     await read(`document.querySelector('.drawer textarea').focus()`);
-    await browser('keyboard', 'type', ' exact newer drawer é 😀 '); // taste-skill-ignore: non-ASCII user draft, not decorative UI.
+    await browser('keyboard', 'type', ' exact newer drawer é 😀 '); // taste-skill-ignore: Unicode draft probe, not interface decoration.
   } else {
     await read(`document.querySelector('.rail-row:not([data-selected=true])[tabindex], .rail-row[tabindex], .rail-row [tabindex], .rail [role=treeitem][tabindex]')?.focus()`);
     expect(await read(`!!document.activeElement?.closest('.rail') && document.activeElement.matches('[tabindex]')`)).toBe(true);
