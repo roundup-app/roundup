@@ -222,6 +222,8 @@ for (const list of [shelf]) {
 
 it("u4275b_tab_reaches_quick_actions", async () => {
   await shelf.setup();
+  await page.call(`() => window.__fake.setStatus("tokens", "idle", "idle")`);
+  await page.until(`() => document.querySelector('.rail-row[data-id="tokens"] .row-state [aria-label="Idle"]')`);
   await page.call(`() => document.querySelector('.rail-row[data-id="tokens"]').focus()`);
 
   await page.press("Tab", "Tab");
