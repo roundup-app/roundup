@@ -5,6 +5,7 @@ import { RpcError, type App, type NativeOpen } from "./seam";
 import type { ProjectsState } from "../state/projects";
 import type { ConnectedProject } from "../state/connectedProject";
 import { REVEAL_BUBBLE } from "../bubbles/places";
+import { captureFocus } from "../keys/focus";
 import { linkCopy } from "./copy";
 
 /** Native open requests stay out of the startup entry; App loads this once mounted, under its own owner, and routes each request to the returned handler. */
@@ -17,17 +18,25 @@ export const watchNativeOpen = ({ solid: { createEffect, createSignal, onCleanup
   item: (content: LinkContent, fail: (message: string) => void) => JSX.Element;
   fail: (message: string | null) => void;
 }) => {
-  const [linked, setLinked] = createSignal<{ path: string; content: LinkContent } | null>(null);
+  const [linked, setLinked] = createSignal<{ path: string; content: LinkContent; focus: ReturnType<typeof captureFocus> } | null>(null);
   createEffect(() => {
     const target = linked();
     const open = target && connectionOf(target.path);
 
     if (!target || !open) return;
     const content = target.content;
-    projects.select(target.path);
-    open.settingsView.close();
 
-    if (content.kind === "agent" || content.kind === "workstream") open.rail.select(content.id);
+    // Selecting another destination would remove the newer input even without moving focus.
+    if ((content.kind === "agent" || content.kind === "workstream") && target.focus.signal().aborted) {
+      setLinked(null);
+
+      return;
+    }
+
+    projects.select(target.path);
+    open.settingsView.close(false);
+
+    if (content.kind === "agent" || content.kind === "workstream") open.rail.select(content.id, "open", target.focus);
     else if (content.kind === "terminal") {
       const owner = open.rail.nodes.find(node => node.terminal_id === content.id)?.id
         ?? open.rail.terminals().find(terminal => terminal.id === content.id)?.owner;
@@ -46,7 +55,8 @@ export const watchNativeOpen = ({ solid: { createEffect, createSignal, onCleanup
   let pending = Promise.resolve();
   onCleanup(() => { stopped = true; });
 
-  return (request: NativeOpen) => {
+  const open = (request: NativeOpen) => {
+    const focus = captureFocus(true);
     pending = pending.then(async () => {
       if (stopped) return;
 
@@ -66,7 +76,7 @@ export const watchNativeOpen = ({ solid: { createEffect, createSignal, onCleanup
           const content = await app.forProject(project.path).rpc("link.read", { url: request.url });
 
           if (content.kind === "deliverable") throw new Error(linkCopy.published);
-          setLinked({ path: project.path, content });
+          setLinked({ path: project.path, content, focus });
           fail(null);
 
           return;
@@ -84,4 +94,19 @@ export const watchNativeOpen = ({ solid: { createEffect, createSignal, onCleanup
       fail([...new Set(failures)].join("; ") || linkCopy.projectClosed);
     }).catch(error => { if (!(error instanceof Error)) throw error; fail(error.message); });
   };
+
+  // Native anchors use the same authorization and destination route as an OS link.
+  const activate = (event: MouseEvent) => {
+    const anchor = event.target instanceof Element ? event.target.closest<HTMLAnchorElement>("a[data-native-link]") : null;
+
+    if (!anchor || event.button !== 0) return;
+    event.preventDefault();
+    event.stopPropagation();
+    open({ kind: "link", url: anchor.href });
+  };
+
+  document.addEventListener("click", activate, true);
+  onCleanup(() => document.removeEventListener("click", activate, true));
+
+  return open;
 };
