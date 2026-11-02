@@ -211,96 +211,323 @@ fn recorded_from(mut file: impl Read + Seek, from: u64) -> (Vec<u32>, u64) {
         let end = file.seek(SeekFrom::End(0))?;
         let start = from.min(end);
         file.seek(SeekFrom::Start(start))?;
-        let mut reader = BufReader::new(file.take(end - start));
-        let mut line = Vec::new();
+        let line = ReceiptLine {
+            reader: std::cell::RefCell::new(BufReader::new(file.take(end - start))),
+            complete: std::cell::Cell::new(false),
+            bytes: std::cell::Cell::new(0),
+            valid: std::cell::Cell::new(true),
+            pending: std::cell::RefCell::new(([0; 256], 0, 0)),
+        };
+        let mut de = serde_json::Deserializer::from_reader(&line);
         let mut ids = Vec::new();
         let mut cursor = start;
         loop {
-            line.clear();
-            let count = reader.read_until(b'\n', &mut line)?;
-            if count == 0 || line.last() != Some(&b'\n') {
+            use serde::de::DeserializeSeed;
+            let result = ReceiptFields::Record.deserialize(&mut de).and_then(|id| {
+                de.end()?;
+                Ok(id)
+            });
+            if let Err(error) = &result
+                && error.is_io()
+            {
+                return Err(std::io::Error::other(error.to_string()));
+            }
+            std::io::copy(&mut &line, &mut std::io::sink())?;
+            if !line.complete.get() {
                 break;
             }
-            cursor += count as u64;
-            if let Some(id) = receipt(&line) {
-                ids.push(id);
+            cursor = start + line.bytes.get();
+            if line.valid.get()
+                && let Ok((_, Some(id))) = &result
+            {
+                ids.push(*id);
             }
+            if result.is_err() {
+                de = serde_json::Deserializer::from_reader(&line);
+            }
+            line.complete.set(false);
+            line.valid.set(true);
         }
         Ok((ids, cursor))
     };
     read().unwrap_or_else(|_| (Vec::new(), from))
 }
 
-fn receipt(line: &[u8]) -> Option<u32> {
-    use serde::Deserialize;
-    use serde_json::value::RawValue;
-    struct Record<'a> {
-        origin: Option<&'a RawValue>,
-        attachment: Option<&'a RawValue>,
+// Select fields only at their receipt path. The result marks an object for
+// origin precedence (including empty objects), or a peer kind in Text mode,
+// together with the decoded Message id.
+enum ReceiptFields {
+    Record,
+    Attachment,
+    Origin,
+    Text,
+}
+impl<'de> serde::de::DeserializeSeed<'de> for ReceiptFields {
+    type Value = (bool, Option<u32>);
+    fn deserialize<D: serde::Deserializer<'de>>(self, de: D) -> Result<Self::Value, D::Error> {
+        de.deserialize_any(self)
     }
-    impl<'de> Deserialize<'de> for Record<'de> {
-        fn deserialize<D: serde::Deserializer<'de>>(de: D) -> Result<Self, D::Error> {
-            struct Fields;
-            impl<'de> serde::de::Visitor<'de> for Fields {
-                type Value = Record<'de>;
-                fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                    f.write_str("receipt record")
+}
+impl<'de> serde::de::Visitor<'de> for ReceiptFields {
+    type Value = (bool, Option<u32>);
+    fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("receipt fields")
+    }
+    fn visit_map<A: serde::de::MapAccess<'de>>(self, mut map: A) -> Result<Self::Value, A::Error> {
+        use serde::Deserialize;
+        #[derive(Deserialize)]
+        #[serde(field_identifier)]
+        enum Field {
+            #[serde(rename = "origin")]
+            Origin,
+            #[serde(rename = "attachment")]
+            Attachment,
+            #[serde(rename = "kind")]
+            Kind,
+            #[serde(rename = "msg_id")]
+            MsgId,
+            #[serde(other)]
+            Other,
+        }
+        let mut origin = (false, None);
+        let mut attachment = None;
+        let mut kind = false;
+        let mut id = None;
+        while let Some(field) = map.next_key::<Field>()? {
+            match (&self, field) {
+                (Self::Record | Self::Attachment, Field::Origin) => {
+                    origin = map.next_value_seed(ReceiptFields::Origin)?
                 }
-                fn visit_map<A: serde::de::MapAccess<'de>>(
-                    self,
-                    mut map: A,
-                ) -> Result<Self::Value, A::Error> {
-                    #[derive(Deserialize)]
-                    #[serde(field_identifier)]
-                    enum Field {
-                        #[serde(rename = "origin")]
-                        Origin,
-                        #[serde(rename = "attachment")]
-                        Attachment,
-                        #[serde(other)]
-                        Other,
-                    }
-                    let mut record = Record {
-                        origin: None,
-                        attachment: None,
-                    };
-                    while let Some(key) = map.next_key::<Field>()? {
-                        match key {
-                            Field::Origin => record.origin = map.next_value()?,
-                            Field::Attachment => record.attachment = map.next_value()?,
-                            Field::Other => {
-                                map.next_value::<Skipped>()?;
-                            }
-                        }
-                    }
-                    Ok(record)
+                (Self::Record, Field::Attachment) => {
+                    attachment = map.next_value_seed(ReceiptFields::Attachment)?.1
+                }
+                (Self::Origin, Field::Kind) => kind = map.next_value_seed(ReceiptFields::Text)?.0,
+                (Self::Origin, Field::MsgId) => id = map.next_value_seed(ReceiptFields::Text)?.1,
+                _ => {
+                    map.next_value::<Skipped>()?;
                 }
             }
-            de.deserialize_map(Fields)
         }
+        Ok((
+            !matches!(self, Self::Text),
+            if matches!(self, Self::Origin) {
+                kind.then_some(id).flatten()
+            } else if origin.0 {
+                origin.1
+            } else {
+                attachment
+            },
+        ))
     }
-    #[derive(Deserialize)]
-    struct Origin<'a> {
-        kind: std::borrow::Cow<'a, str>,
-        msg_id: std::borrow::Cow<'a, str>,
+    fn visit_seq<A: serde::de::SeqAccess<'de>>(self, mut seq: A) -> Result<Self::Value, A::Error> {
+        while seq.next_element::<Skipped>()?.is_some() {}
+        Ok((false, None))
     }
-    let record: Record<'_> = serde_json::from_slice(line).ok()?;
-    let origin = match record.origin {
-        Some(origin) if origin.get().starts_with('{') => origin,
-        _ => {
-            serde_json::from_str::<Record<'_>>(record.attachment?.get())
-                .ok()?
-                .origin?
-        }
-    };
-    let origin: Origin<'_> = serde_json::from_str(origin.get()).ok()?;
-    (origin.kind == "peer")
-        .then(|| message_of(&origin.msg_id))
-        .flatten()
+    fn visit_unit<E>(self) -> Result<Self::Value, E> {
+        Ok((false, None))
+    }
+    fn visit_bool<E>(self, _: bool) -> Result<Self::Value, E> {
+        Ok((false, None))
+    }
+    fn visit_i64<E>(self, _: i64) -> Result<Self::Value, E> {
+        Ok((false, None))
+    }
+    fn visit_u64<E>(self, _: u64) -> Result<Self::Value, E> {
+        Ok((false, None))
+    }
+    fn visit_f64<E>(self, _: f64) -> Result<Self::Value, E> {
+        Ok((false, None))
+    }
+    fn visit_str<E>(self, value: &str) -> Result<Self::Value, E> {
+        Ok(if matches!(self, Self::Text) {
+            (value == "peer", message_of(value))
+        } else {
+            (false, None)
+        })
+    }
 }
 
-// Serde's recursive visitor skips nested unrelated fields without the per-line heap stack
-// used by serde_json's optimized IgnoredAny path (B5635a's 256 KiB scan budget).
+// B5718: only receipt-sized strings reach Serde's scratch buffer. All original
+// bytes are consumed and validated; oversized strings become an unmatched name.
+struct ReceiptLine<R> {
+    // Interior mutability lets one Deserializer retain its bounded scratch
+    // across line EOFs while the scanner resets the line boundary.
+    reader: std::cell::RefCell<R>,
+    complete: std::cell::Cell<bool>,
+    bytes: std::cell::Cell<u64>,
+    valid: std::cell::Cell<bool>,
+    // 256 encoded bytes cover even a fully Unicode-escaped receipt UUID.
+    pending: std::cell::RefCell<([u8; 256], usize, usize)>,
+}
+
+impl<R: BufRead> ReceiptLine<R> {
+    fn byte(&self) -> std::io::Result<Option<u8>> {
+        let mut reader = self.reader.borrow_mut();
+        let next = reader.fill_buf()?.first().copied();
+        if next.is_some() {
+            reader.consume(1);
+            self.bytes.set(self.bytes.get() + 1);
+        }
+        if next == Some(b'\n') {
+            self.complete.set(true);
+            return Ok(None);
+        }
+        Ok(next)
+    }
+
+    fn string(&self, out: &mut [u8]) -> std::io::Result<usize> {
+        let mut length = 1;
+        out[0] = b'"';
+        let mut overflow = false;
+        let mut high_surrogate = false;
+        loop {
+            // The common ASCII run needs neither decoding nor byte-at-a-time I/O.
+            let mut reader = self.reader.borrow_mut();
+            let buffer = reader.fill_buf()?;
+            let run = buffer
+                .iter()
+                .position(|b| !matches!(b, 0x20..=0x21 | 0x23..=0x5b | 0x5d..=0x7f))
+                .unwrap_or(buffer.len());
+            if run > 0 {
+                if high_surrogate {
+                    self.valid.set(false);
+                }
+                if !overflow && length + run < out.len() {
+                    out[length..length + run].copy_from_slice(&buffer[..run]);
+                    length += run;
+                } else {
+                    overflow = true;
+                }
+                reader.consume(run);
+                self.bytes.set(self.bytes.get() + run as u64);
+                continue;
+            }
+            drop(reader);
+            let Some(byte) = self.byte()? else {
+                return Ok(0);
+            };
+            let mut unit = [0; 12];
+            unit[0] = byte;
+            let mut count = 1;
+            match byte {
+                b'"' => {
+                    if high_surrogate {
+                        self.valid.set(false);
+                    }
+                    if overflow {
+                        out[..3].copy_from_slice(b"\"~\"");
+                        return Ok(3);
+                    }
+                    out[length] = b'"';
+                    return Ok(length + 1);
+                }
+                b'\\' => {
+                    let Some(escape) = self.byte()? else {
+                        return Ok(0);
+                    };
+                    unit[1] = escape;
+                    count = 2;
+                    if escape == b'u' {
+                        let mut value = 0u16;
+                        for slot in &mut unit[2..6] {
+                            let Some(hex) = self.byte()? else {
+                                return Ok(0);
+                            };
+                            *slot = hex;
+                            if let Some(digit) = (hex as char).to_digit(16) {
+                                value = (value << 4) | digit as u16;
+                            } else {
+                                self.valid.set(false);
+                            }
+                        }
+                        count = 6;
+                        if high_surrogate {
+                            if !(0xdc00..=0xdfff).contains(&value) {
+                                self.valid.set(false);
+                            }
+                            high_surrogate = false;
+                        } else if (0xd800..=0xdbff).contains(&value) {
+                            high_surrogate = true;
+                        } else if (0xdc00..=0xdfff).contains(&value) {
+                            self.valid.set(false);
+                        }
+                    } else {
+                        if high_surrogate
+                            || !matches!(
+                                escape,
+                                b'"' | b'\\' | b'/' | b'b' | b'f' | b'n' | b'r' | b't'
+                            )
+                        {
+                            self.valid.set(false);
+                        }
+                        high_surrogate = false;
+                    }
+                }
+                0x80..=0xff => {
+                    if high_surrogate {
+                        self.valid.set(false);
+                    }
+                    count = match byte {
+                        0xc2..=0xdf => 2,
+                        0xe0..=0xef => 3,
+                        0xf0..=0xf4 => 4,
+                        _ => 1,
+                    };
+                    for slot in &mut unit[1..count] {
+                        let Some(next) = self.byte()? else {
+                            return Ok(0);
+                        };
+                        *slot = next;
+                    }
+                    if std::str::from_utf8(&unit[..count]).is_err() {
+                        self.valid.set(false);
+                    }
+                }
+                _ => {
+                    self.valid.set(false);
+                }
+            }
+            if !overflow && length + count < out.len() {
+                out[length..length + count].copy_from_slice(&unit[..count]);
+                length += count;
+            } else {
+                overflow = true;
+            }
+        }
+    }
+}
+
+impl<R: BufRead> Read for &ReceiptLine<R> {
+    fn read(&mut self, out: &mut [u8]) -> std::io::Result<usize> {
+        if out.is_empty() {
+            return Ok(0);
+        }
+        let mut pending = self.pending.borrow_mut();
+        let (buffer, offset, length) = &mut *pending;
+        if *offset == *length {
+            if self.complete.get() {
+                return Ok(0);
+            }
+            let Some(byte) = self.byte()? else {
+                return Ok(0);
+            };
+            *offset = 0;
+            *length = if byte == b'"' {
+                self.string(buffer)?
+            } else {
+                buffer[0] = byte;
+                1
+            };
+        }
+        let count = out.len().min(*length - *offset);
+        out[..count].copy_from_slice(&buffer[*offset..*offset + count]);
+        *offset += count;
+        Ok(count)
+    }
+}
+
+// Recurse through Serde so its depth limit also bounds discarded containers.
+// IgnoredAny's optimized path instead grows its own container stack.
 struct Skipped;
 impl<'de> serde::Deserialize<'de> for Skipped {
     fn deserialize<D: serde::Deserializer<'de>>(de: D) -> Result<Self, D::Error> {
@@ -391,35 +618,175 @@ mod tests {
 
     #[test]
     fn b5718a_oversized_complete_records_keep_receipts_with_bounded_allocations() {
-        for size in [1, 16, 64] {
-            let large = "x".repeat(size * 1024 * 1024);
-            let origin = line(7);
-            let origin = origin
-                .trim()
-                .strip_prefix('{')
-                .unwrap()
-                .strip_suffix('}')
-                .unwrap();
-            let fixtures = [
-                (
-                    format!("{{\"before\":\"{large}\",{origin},\"after\":\"{large}\"}}\n"),
+        let peer = line(7);
+        let peer = peer
+            .trim()
+            .strip_prefix('{')
+            .unwrap()
+            .strip_suffix('}')
+            .unwrap();
+        let attachment = format!("\"attachment\":{{{peer}}}");
+        let mut cases = vec![
+            (format!("{{\"before\":\"$\",{peer},\"after\":\"$\"}}\n"), vec![7]),
+            (format!("{{\"attachment\":{{\"before\":\"$\",{peer},\"after\":\"$\"}}}}\n"), vec![7]),
+            (format!("{{\"origin\":{{\"kind\":\"local\"}},{attachment},\"unused\":\"$\"}}\n"), vec![]),
+            (format!("{{{peer},{},\"unused\":\"$\"}}\n", attachment.replace("000007", "00000b")), vec![7]),
+            (format!("{{\"origin\":null,{attachment},\"unused\":\"$\"}}\n"), vec![7]),
+            (format!("{{{peer},\"unused\":\"$\",!}}\n{}", line(11)), vec![11]),
+            ("{\"unused\":\"$\\\"origin\\\":{\\\"kind\\\":\\\"peer\\\",\\\"msg_id\\\":\\\"00000000-0000-4000-8000-000000000007\\\"}\"}\n".into(), vec![]),
+        ];
+        let mut escaped_cases = vec![(cases.last().unwrap().0.clone(), vec![])];
+        for invalid in ["\\q", "\\uD800", "\\uDC00", "\t"] {
+            cases.push((
+                format!("{{{peer},\"unused\":\"${invalid}\"}}\n{}", line(11)),
+                vec![11],
+            ));
+        }
+        cases.push((
+            format!("{{{peer},\"unused\":\"$é🦀\\uD83D\\uDE00\"}}\n"),
+            vec![7],
+        ));
+        for nested in [false, true] {
+            for before in [false, true] {
+                let fields = peer
+                    .strip_prefix("\"origin\":{")
+                    .unwrap()
+                    .strip_suffix('}')
+                    .unwrap();
+                let origin = if before {
+                    format!("\"origin\":{{\"unused\":\"$\",{fields}}}")
+                } else {
+                    format!("\"origin\":{{{fields},\"unused\":\"$\"}}")
+                };
+                cases.push((
+                    if nested {
+                        format!("{{\"attachment\":{{{origin}}}}}\n")
+                    } else {
+                        format!("{{{origin}}}\n")
+                    },
                     vec![7],
-                ),
-                (
-                    format!(
-                        "{{\"attachment\":{{\"before\":\"{large}\",{origin},\"after\":\"{large}\"}}}}\n"
-                    ),
-                    vec![7],
-                ),
-            ];
-            for (fixture, want) in fixtures {
-                let transcript = tempfile::NamedTempFile::new().unwrap();
-                std::fs::write(transcript.path(), &fixture).unwrap();
-                let (result, allocated) = measured(|| recorded(transcript.path(), 0));
-                assert_eq!(result, (want, fixture.len() as u64));
-                assert!(allocated <= 256 * 1024, "{size} MiB: {allocated} bytes");
+                ));
             }
         }
+        for (field, escaped) in [
+            ("\"unused\":\"$\"", true),
+            ("\"$\":null", false),
+            ("\"unused\":{\"array\":[{\"text\":\"$\"}]}", false),
+        ] {
+            for before in [false, true] {
+                let template = if before {
+                    format!("{{{field},{peer}}}\n")
+                } else {
+                    format!("{{{peer},{field}}}\n")
+                };
+                if escaped {
+                    escaped_cases.push((template.clone(), vec![7]));
+                }
+                cases.push((template, vec![7]));
+            }
+        }
+        let mut maximum = 0;
+        for size in [1, 16, 64] {
+            for escaped in [false, true] {
+                let large = if escaped {
+                    "\\\\\\u0061".repeat(size * 1024 * 1024 / 8)
+                } else {
+                    "x".repeat(size * 1024 * 1024)
+                };
+                for (template, want) in if escaped { &escaped_cases } else { &cases } {
+                    let fixture = template.replace('$', &large);
+                    let transcript = tempfile::NamedTempFile::new().unwrap();
+                    std::fs::write(transcript.path(), &fixture).unwrap();
+                    let (result, allocated) = measured(|| recorded(transcript.path(), 0));
+                    assert_eq!(result, (want.clone(), fixture.len() as u64), "{template}");
+                    assert!(
+                        allocated <= 256 * 1024,
+                        "{size} MiB escaped={escaped}: {allocated} bytes, {template}"
+                    );
+                    maximum = maximum.max(allocated);
+                }
+            }
+        }
+        eprintln!("B5718a maximum allocated per scan: {maximum} bytes");
+    }
+
+    #[test]
+    fn b5718b_unfinished_records_complete_without_unbounded_allocations() {
+        let mut maximum = 0;
+        for size in [1, 16, 64] {
+            let large = "x".repeat(size * 1024 * 1024);
+            for before in [false, true] {
+                for inside_string in [false, true] {
+                    let peer = line(7);
+                    let peer = peer
+                        .trim()
+                        .strip_prefix('{')
+                        .unwrap()
+                        .strip_suffix('}')
+                        .unwrap();
+                    let prefix = line(3);
+                    let tail = if before {
+                        format!("{{{peer},\"unused\":\"{large}")
+                    } else {
+                        format!("{{\"unused\":\"{large}")
+                    };
+                    let suffix = if before {
+                        "\"}".to_owned()
+                    } else {
+                        format!("\",{peer}}}")
+                    };
+                    let fixture = if inside_string {
+                        format!("{prefix}{tail}")
+                    } else {
+                        format!("{prefix}{tail}{suffix}")
+                    };
+                    let transcript = tempfile::NamedTempFile::new().unwrap();
+                    std::fs::write(transcript.path(), fixture).unwrap();
+                    let mut cursor = 0;
+                    for scan in 0..3 {
+                        let (result, allocated) = measured(|| recorded(transcript.path(), cursor));
+                        assert_eq!(
+                            result,
+                            (
+                                if scan == 0 { vec![3] } else { vec![] },
+                                prefix.len() as u64
+                            )
+                        );
+                        assert!(allocated <= 256 * 1024, "{size} MiB: {allocated} bytes");
+                        maximum = maximum.max(allocated);
+                        cursor = result.1;
+                    }
+                    let mut counted = Counted {
+                        inner: std::fs::File::open(transcript.path()).unwrap(),
+                        bytes: 0,
+                        fail: None,
+                    };
+                    let tail_bytes = transcript.as_file().metadata().unwrap().len() - cursor;
+                    assert_eq!(recorded_from(&mut counted, cursor), (vec![], cursor));
+                    assert_eq!(counted.bytes as u64, tail_bytes);
+                    let finish = if inside_string {
+                        format!("{suffix}\n")
+                    } else {
+                        "\n".into()
+                    };
+                    std::fs::OpenOptions::new()
+                        .append(true)
+                        .open(transcript.path())
+                        .unwrap()
+                        .write_all(finish.as_bytes())
+                        .unwrap();
+                    let end = transcript.as_file().metadata().unwrap().len();
+                    let (result, allocated) = measured(|| recorded(transcript.path(), cursor));
+                    assert_eq!(result, (vec![7], end));
+                    assert!(allocated <= 256 * 1024, "completion: {allocated} bytes");
+                    maximum = maximum.max(allocated);
+                    counted.bytes = 0;
+                    assert_eq!(recorded_from(&mut counted, end), (vec![], end));
+                    assert_eq!(counted.bytes, 0);
+                }
+            }
+        }
+        eprintln!("B5718b maximum allocated per scan: {maximum} bytes");
     }
 
     #[test]
@@ -500,6 +867,19 @@ mod tests {
             fail: Some(complete as usize),
         };
         assert_eq!(recorded_from(&mut file, 0), (vec![], 0));
+        let prefix = line(3);
+        let oversized = prefix.clone()
+            + &line(7)
+            + &format!("{{\"unused\":\"{}\"}}\n", "x".repeat(1024 * 1024));
+        let mut file = Counted {
+            inner: Cursor::new(oversized),
+            bytes: 0,
+            fail: Some(16 * 1024),
+        };
+        assert_eq!(
+            recorded_from(&mut file, prefix.len() as u64),
+            (vec![], prefix.len() as u64)
+        );
         struct FailedSeek;
         impl Read for FailedSeek {
             fn read(&mut self, _: &mut [u8]) -> std::io::Result<usize> {
