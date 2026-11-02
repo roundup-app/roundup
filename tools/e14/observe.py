@@ -175,7 +175,7 @@ def run(args):
     # rather than only the child command's E14 interval.
     started = time.monotonic()
     if args.install_dependencies:
-        subprocess.run([sys.executable, "-m", "pip", "install", "-r", "tools/e14/requirements.txt"], check=True)
+        subprocess.run([sys.executable, "-m", "pip", "install", "-r", "tools/e14/requirements.txt"], check=True, timeout=120)
     result = observe_lane(args)
     if not args.lane.startswith("web"):
         return result
