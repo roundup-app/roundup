@@ -87,7 +87,7 @@
       "run": "https://github.com/roundup-app/roundup/actions/runs/41404254825",
       "artifact": "answer-5527/ci5527",
       "before_commit": "90430d00af0c74a8432b651194621d66e8b482df",
-      "candidate_commit": "bd96bc433",
+      "candidate_commit": "bd96bc4337342f2c708c0df2a85a59c9c5affef9",
       "runner": {
         "system": "Linux-6.18.0+-x86_64-with-glibc2.39",
         "cpus": 2,
@@ -120,7 +120,13 @@
           "candidate_ms": 60253
         }
       ],
-      "setup_failure": "Initial five-file command exited 1: fixture launched target/debug/rupd while CARGO_TARGET_DIR redirected the build. An ignored target symlink repaired local setup."
+      "setup_failure": "Initial five-file command exited 1: fixture launched target/debug/rupd while CARGO_TARGET_DIR redirected the build. An ignored target symlink repaired local setup.",
+      "command": "pnpm --filter desktop exec vitest run src/inbox/u3770_inbox.test.tsx src/shelf/u373_frame.test.tsx src/keys/u3787b_menu.test.tsx src/settings/u3799_app_settings.test.tsx src/bubbles/u4274_navigation.test.tsx src/settings/u5239_shortcut_settings.test.tsx src/header/u183_rename.test.tsx src/todos/u152_every_action.test.tsx",
+      "before_exit": 0,
+      "candidate_exit": 1,
+      "candidate_log_sha256": "1c49e676a5ca7633a8a261c8498109cb46cd34a26d8583426fe4facb8ebb226e",
+      "initial_command": "pnpm --filter desktop exec vitest run src/inbox/u3770_inbox.test.tsx src/shelf/u373_frame.test.tsx src/keys/u3787b_menu.test.tsx src/settings/u3799_app_settings.test.tsx src/pads/u3787a_restore.test.tsx",
+      "initial_exit": 1
     }
   ]
 }
