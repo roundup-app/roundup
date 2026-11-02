@@ -243,3 +243,29 @@ mod tests {
         }
     }
 }
+
+#[cfg(test)]
+mod metadata_tests {
+    use super::*;
+
+    #[test]
+    fn c5459b_missing_metadata_names_the_field() {
+        let complete = Metadata {
+            name: "fixture.call", mcp: McpChoice::None("User only"),
+            perf: PerfDisposition::OffPath("Explicit action"), description: "Read a fixture.",
+        };
+        for (field, incomplete) in [
+            ("description", Metadata { description: "", ..complete }),
+            ("description", Metadata { description: "  ", ..complete }),
+            ("MCP no-tool reason", Metadata { mcp: McpChoice::None(""), ..complete }),
+            ("MCP no-tool reason", Metadata { mcp: McpChoice::None("  "), ..complete }),
+            ("perf off-path reason", Metadata { perf: PerfDisposition::OffPath(""), ..complete }),
+            ("perf off-path reason", Metadata { perf: PerfDisposition::OffPath("  "), ..complete }),
+        ] {
+            let error = incomplete.check().unwrap_err();
+            assert!(error.contains("fixture.call") && error.contains(field), "{error}");
+            complete.check().unwrap();
+        }
+        for method in metadata() { method.check().unwrap(); }
+    }
+}
