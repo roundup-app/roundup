@@ -265,6 +265,7 @@ impl Shared {
         let mut run = Run {
             yolo: mode == contracts::agent::ResumeMode::Yolo,
             startup_context: true,
+            input_started: prompt.is_some(),
             attempt: attempt.clone(),
             status_revision: 1,
             closing: false,

@@ -188,6 +188,7 @@ fn a14_a_failed_rail_write_for_a_parked_signal_does_not_poison_the_locks() {
     let prompts = shared.finish_starting(&id, "1", |named| Run {
         yolo: false,
         startup_context: true,
+        input_started: true,
         attempt: "1".into(),
         status_revision: 1,
         closing: false,
@@ -241,6 +242,7 @@ fn a21_a_failed_parked_save_reinserts_so_the_caller_can_clean_up() {
     let result = shared.finish_starting(&id, "1", |named| Run {
         yolo: false,
         startup_context: true,
+        input_started: true,
         attempt: "1".into(),
         status_revision: 1,
         closing: false,
@@ -323,6 +325,7 @@ fn a14_a_signal_released_once_the_agent_is_registered_never_outruns_the_parked_o
                     Run {
                         yolo: false,
                         startup_context: true,
+                        input_started: true,
                         attempt: "1".into(),
                         status_revision: 1,
                         closing: false,

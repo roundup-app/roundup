@@ -284,11 +284,13 @@ impl Agents {
             let node = rail.node(id)?;
             // O2, O3: the first Steer is the node's order, whichever way it was set.
             let spawn_prompt = rail.spawn_prompt(id)?;
-            let prompt = first.or_else(|| {
-                node.work
-                    .as_ref()
-                    .map(|work| order::steer(work, spawn_prompt.as_deref()))
-            });
+            let prompt = order::first_input(
+                first,
+                node.work.as_ref(),
+                spawn_prompt.as_deref(),
+                rail.order_revision(id)?.is_some(),
+                attempt,
+            );
 
             if let (Some(text), Some(revision)) = (&prompt, rail.order_revision(id)?) {
                 rail.prepare_instruction(&revision, attempt, text, true)?;
@@ -339,28 +341,16 @@ impl Agents {
                 return Err(err);
             }
         };
-        let clock = Arc::clone(&self.shared.clock);
-        let terminal_id = spawned.id.clone();
-        let run_cwd = effective_cwd.to_string_lossy().into_owned();
-        let prompts = self.shared.finish_starting(id, attempt, |named| Run {
-            yolo: false,
-            startup_context,
-            attempt: attempt.to_owned(),
-            status_revision: 1,
-            closing: false,
-            ended: false,
-            adapter: ClaudeCode::starting(move || clock()),
-            first_pending: prompt.is_some(),
-            first_completion: prompt.as_ref().map(|_| tokio::sync::watch::channel(None).0),
-            first_prompt: None,
-            prompt,
-            steer: None,
-            session_started: None,
-            starred: false,
-            interrupt: None,
-            named,
-            terminal_id,
-            cwd: run_cwd,
+        let prompts = self.shared.finish_starting(id, attempt, |named| {
+            Run::starting(
+                Arc::clone(&self.shared.clock),
+                attempt.to_owned(),
+                spawned.id.clone(),
+                effective_cwd.to_string_lossy().into_owned(),
+                prompt,
+                startup_context,
+                named,
+            )
         });
         let prompts = match prompts {
             Ok(prompts) => prompts,
@@ -489,5 +479,214 @@ impl Agents {
             }
         }
         Ok(spawned)
+    }
+}
+
+impl Run {
+    fn starting(
+        clock: Clock,
+        attempt: String,
+        terminal_id: String,
+        cwd: String,
+        prompt: Option<String>,
+        startup_context: bool,
+        named: bool,
+    ) -> Self {
+        Self {
+            yolo: false,
+            startup_context,
+            input_started: prompt.is_some(),
+            attempt,
+            status_revision: 1,
+            closing: false,
+            ended: false,
+            adapter: ClaudeCode::starting(move || clock()),
+            first_pending: prompt.is_some(),
+            first_completion: prompt.as_ref().map(|_| tokio::sync::watch::channel(None).0),
+            first_prompt: None,
+            prompt,
+            steer: None,
+            session_started: None,
+            starred: false,
+            interrupt: None,
+            named,
+            terminal_id,
+            cwd,
+        }
+    }
+}
+
+#[cfg(feature = "test-support")]
+impl Agents {
+    /// Controlled launch completion at the production lifecycle seam, without a vendor or PTY.
+    pub fn start_for_test(&self, id: &str, first: Option<String>) -> Result<(), RpcError> {
+        let (attempt, prompt) = {
+            let mut rail = self.shared.rail();
+            let node = rail.node(id)?;
+            let attempt = rail.allocate_attempt(id)?;
+            let prompt = order::first_input(
+                first,
+                node.work.as_ref(),
+                rail.spawn_prompt(id)?.as_deref(),
+                rail.order_revision(id)?.is_some(),
+                &attempt,
+            );
+            rail.attach_terminal(id, "fixture")?;
+            (attempt, prompt)
+        };
+        self.shared.mark_starting(id, attempt.clone());
+        let prompts = self.shared.finish_starting(id, &attempt, |named| {
+            Run::starting(
+                Arc::clone(&self.shared.clock),
+                attempt.clone(),
+                "fixture".into(),
+                self.project_dir().to_string_lossy().into_owned(),
+                prompt,
+                true,
+                named,
+            )
+        })?;
+        for prompt in prompts {
+            self.shared.steer_first_prompt(id, &attempt, prompt);
+        }
+        Ok(())
+    }
+
+    /// Isolate the vendor socket in a process-free Daemon observer.
+    pub fn with_launcher_for_test(mut self, launcher: Launcher) -> Self {
+        self.launcher = launcher;
+        self
+    }
+}
+
+#[cfg(test)]
+mod idle_tests {
+    use super::*;
+
+    #[tokio::test(start_paused = true)]
+    async fn a5556c_start_paths_require_explicit_input() {
+        for (kind, parent, restart) in [
+            (NodeKind::Workstream, false, false),
+            (NodeKind::Agent, false, false),
+            (NodeKind::Agent, true, false),
+            (NodeKind::Workstream, false, true),
+            (NodeKind::Agent, false, true),
+        ] {
+            let (_dir, _bus, shared) = tests::shared_over_temp_dir(Arc::new(|| 0));
+            let mut rail = shared.rail();
+            let home = rail
+                .insert(NodeKind::Workstream, "Home", None, None)
+                .unwrap();
+            let node = rail
+                .insert_ordered(
+                    kind,
+                    "Waiting",
+                    parent.then_some(home.id.as_str()),
+                    None,
+                    restart.then_some(&Order::work("stored order")),
+                )
+                .unwrap();
+            let prompt = order::first_input(
+                None,
+                node.work.as_ref(),
+                None,
+                rail.order_revision(&node.id).unwrap().is_some(),
+                if restart { "2" } else { "1" },
+            );
+            let mut run = Run::starting(
+                Arc::new(|| 0),
+                "1".into(),
+                "none".into(),
+                "/".into(),
+                prompt,
+                true,
+                false,
+            );
+            for observation in [
+                Observation::Signal(serde_json::json!({"hook_event_name":"SessionStart"})),
+                Observation::Title("✳ ready".into()),
+                Observation::Tick,
+                Observation::Signal(serde_json::json!({"hook_event_name":"Stop"})),
+                Observation::Tick,
+            ] {
+                let (input, _) = shared
+                    .apply(
+                        Some(&mut rail),
+                        &mut run,
+                        &node.id,
+                        &Actor::daemon(),
+                        observation,
+                        None,
+                    )
+                    .unwrap();
+                assert!(input.is_none(), "automatic startup input: {input:?}");
+                assert!(!run.input_started);
+                assert!(run.steer.is_none());
+            }
+            shared.apply(Some(&mut rail), &mut run, &node.id, &Actor::user(),
+                Observation::Signal(serde_json::json!({"hook_event_name":"UserPromptSubmit","prompt":"my request"})), None).unwrap();
+            assert!(run.input_started);
+        }
+        // Resume uses its actual promotion seam: a retained order is not fresh input.
+        let (_dir, _bus, shared) = tests::shared_over_temp_dir(Arc::new(|| 0));
+        let mut rail = shared.rail();
+        let node = rail
+            .insert_ordered(
+                NodeKind::Agent,
+                "Resumed",
+                None,
+                None,
+                Some(&Order::work("retained")),
+            )
+            .unwrap();
+        let (done, _completion) = oneshot::channel();
+        let conversation = "00000000-0000-4000-8000-000000000001";
+        let mut runs = HashMap::from([(
+            node.id.clone(),
+            Slot::Resuming {
+                mode: contracts::agent::ResumeMode::default(),
+                attempt: "2".into(),
+                since: 0,
+                old: None,
+                conversation_id: conversation.into(),
+                cwd: "/".into(),
+                prompt: None,
+                starred: true,
+                terminal_id: Some("fixture".into()),
+                parked: VecDeque::new(),
+                done,
+            },
+        )]);
+        let (input, _) = shared.finish_resuming(Some(&mut rail), &mut runs, &node.id, Actor::daemon(),
+            serde_json::json!({"hook_event_name":"SessionStart","source":"resume","session_id":conversation})).unwrap();
+        assert!(input.is_none());
+        let Some(Slot::Running(run)) = runs.get_mut(&node.id) else {
+            panic!("resume was not promoted")
+        };
+        assert!(!run.input_started);
+        shared
+            .apply(
+                Some(&mut rail),
+                run,
+                &node.id,
+                &Actor::user(),
+                Observation::Signal(
+                    serde_json::json!({"hook_event_name":"UserPromptSubmit","prompt":"continue"}),
+                ),
+                None,
+            )
+            .unwrap();
+        assert!(run.input_started);
+        let work = Order::work("build");
+        assert_eq!(
+            order::first_input(None, Some(&work), Some("details"), true, "1"),
+            Some("build\n\nDetails:\ndetails".into())
+        );
+        for words in ["saved opening", "new Ask", "creation prompt"] {
+            assert_eq!(
+                order::first_input(Some(words.into()), None, None, false, "1"),
+                Some(words.into())
+            );
+        }
     }
 }

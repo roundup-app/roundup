@@ -40,7 +40,6 @@ struct Run {
     kind: &'static str,
     terminal: Value,
     attempt: Value,
-    /// The bytes the Daemon typed itself at the start (its context), before any note.
     started_with: AtomicUsize,
 }
 
@@ -83,7 +82,7 @@ async fn until<T>(what: &str, mut probe: impl AsyncFnMut() -> Option<T>) -> T {
 }
 
 impl Run {
-    /// A Daemon with one idle Agent.
+    /// A Daemon with one idle Agent after its first submitted user prompt.
     async fn start() -> Self {
         Self::start_on(1).await
     }
@@ -181,6 +180,9 @@ impl Run {
         self.terminal = node["terminal_id"].clone();
         self.attempt = node["attempt"].clone();
         self.ready().await;
+        self.signal(json!({"hook_event_name":"UserPromptSubmit","prompt":"Wait for notes"}))
+            .await;
+        self.signal(json!({"hook_event_name":"Stop"})).await;
     }
 
     async fn ready(&self) {
@@ -188,13 +190,9 @@ impl Run {
             self.screen().await.contains("READY").then_some(())
         })
         .await;
-        // The Daemon types its own start-up context first; count from where that ends.
-        let mut last = usize::MAX;
-        while last != self.screen_bytes().await {
-            last = self.screen_bytes().await;
-            tokio::time::sleep(Duration::from_millis(400)).await;
-        }
-        self.started_with.store(last, Ordering::SeqCst);
+        // A5556 leaves startup input empty; no asynchronous Terminal write needs sampling.
+        self.started_with
+            .store(self.screen_bytes().await, Ordering::SeqCst);
     }
 
     async fn screen_bytes(&self) -> usize {
@@ -211,7 +209,6 @@ impl Run {
             .to_owned()
     }
 
-    /// The bytes written to the Terminal since the Agent started, as the fake `claude` read them.
     async fn typed(&self) -> usize {
         self.screen_bytes().await - self.started_with.load(Ordering::SeqCst)
     }
@@ -342,8 +339,7 @@ impl Run {
         Ok(sent["id"].as_u64().unwrap() as u32)
     }
 
-    /// A note the Agent's inbox cannot take: the sender hears `INBOX_UNAVAILABLE`, and the record
-    /// is the note, still pending. Returns the sender's error and the note's id.
+    /// An unavailable inbox's `INBOX_UNAVAILABLE` error and retained pending Message id.
     async fn refused_note(&self, body: &str) -> (rpc::RpcError, u32) {
         let err = self.try_note(body).await.unwrap_err();
         let listed = self
@@ -478,7 +474,6 @@ async fn b2706_a_note_reaches_an_acceptedits_agent_without_approval() {
     .await;
     run.spawn().await;
     let id = run.note("look at the build").await;
-    // The fake takes a line up only when its `from-mode` is the mode its settings give.
     until("the note is taken up", async || {
         (run.entries() == [format!("rup-{id}")]).then_some(())
     })
@@ -830,6 +825,9 @@ impl Run {
         self.terminal = node["terminal_id"].clone();
         self.attempt = node["attempt"].clone();
         self.ready().await;
+        self.signal(json!({"hook_event_name":"UserPromptSubmit","prompt":"Wait for notes"}))
+            .await;
+        self.signal(json!({"hook_event_name":"Stop"})).await;
     }
 }
 

@@ -204,6 +204,16 @@ async fn b2693b_real_yolo_receiver_takes_a_note_without_approval() {
                 .await
                 .unwrap();
         }
+        let prompt = if mode == "yolo" {
+            "A2693 recall with prompts off"
+        } else {
+            "A2693 recall with prompts on"
+        };
+        client
+            .request("agent.prompt", json!({"id":id,"text":prompt}))
+            .await
+            .unwrap();
+        turn_done(project.bound(), model, &client, id, prompt).await;
         std::fs::write(&gate, "pause").unwrap();
         let message = actor
             .request("message.send", json!({"to":id,"kind":"note","body":text}))

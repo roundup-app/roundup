@@ -3,6 +3,7 @@
 #[path = "e2e/daemon.rs"]
 #[allow(dead_code)]
 mod daemon;
+use daemon::start_door;
 #[path = "e2e/notes.rs"]
 mod notes;
 #[path = "e2e/reaction.rs"]
@@ -621,7 +622,7 @@ async fn b24_a_door_reads_its_brief_then_creates_and_updates_a_todo_over_mcp() {
     let workstream = client
         .request(
             "rail.createWorkstream",
-            json!({"name": "workstream", "parent": null}),
+            json!({"name": "workstream", "parent": null, "order":{"kind":"work","ask":"What is this Workstream for?","limits":[]}}),
         )
         .await
         .unwrap();
@@ -1526,15 +1527,6 @@ async fn json_file(path: &std::path::Path) -> Value {
     })
     .await
     .expect("the fake claude wrote its report")
-}
-
-async fn start_door(client: &rpc::Client) -> String {
-    let id = workstream(client, "team").await;
-    client
-        .request("rail.startDoor", json!({ "id": id }))
-        .await
-        .unwrap();
-    id
 }
 
 fn settings_of(project: &Project, id: &str) -> Value {

@@ -2,23 +2,6 @@
   "fixtures": [
     {
       "match": {
-        "userMessage": "<session>\nFollow this instruction: What is this Workstream for?"
-      },
-      "response": {
-        "content": "{\"title\":\"Workstream planning\"}"
-      }
-    },
-    {
-      "match": {
-        "userMessage": "What is this Workstream for?",
-        "hasToolResult": false
-      },
-      "response": {
-        "content": "Ready for your instructions."
-      }
-    },
-    {
-      "match": {
         "userMessage": "<session>\nFollow this instruction: Make the build pass on main."
       },
       "response": {

@@ -72,6 +72,9 @@ async fn ready_peer(run: &Run, node: Value) -> Peer {
             .then_some(())
     })
     .await;
+    for event in ["UserPromptSubmit", "Stop"] {
+        run.user.request("agent.signal", json!({"id":id,"attempt":node["attempt"],"payload":{"hook_event_name":event,"prompt":"Wait for questions"}})).await.unwrap();
+    }
     let client = Client::connect(&run.daemon.socket).await.unwrap();
     client
         .request("daemon.identify", json!({"actor":{"kind":"agent","id":id}}))
