@@ -94,78 +94,78 @@
     },
     {
       "file": "src/ui/s3806b_actions.test.tsx",
-      "baseline_ms": 203258.409998,
-      "head_ms": 147818.3212,
+      "baseline_ms": 204155.679115,
+      "head_ms": 152215.96141000002,
       "tests": 128,
       "passed": 128,
-      "skipped": 0,
-      "identities": "Identical full names and statuses in both raw reports; all passed",
-      "baseline_commit": "9128f9473d5655abb05f30a41c686e6004498ecd",
-      "head_commit": "9ab235527e58cda9968d536c2197bd09d7456979",
+      "identities": "Exact full names/statuses match both raw reports",
+      "baseline_commit": "ece55e7a3459f32035dad105c4cdeb01b1c4ff4d",
+      "head_source": "7a926b02803228c63f2ca1874e868ca387c3ff0f",
       "command": "pnpm --filter desktop exec vitest run src/ui/s3806b_actions.test.tsx src/keys/u3787b_menu.test.tsx src/keys/u2230_hints.test.tsx --reporter=default --reporter=/tmp/ci5527e-reporter.mjs",
-      "reporter": "navigation-reporter.mjs.in",
+      "runner": {
+        "class": "ubuntu-24.04 GitHub hosted runner",
+        "os": "Linux-7.0.0-1017-azure-x86_64-with-glibc2.39",
+        "cpus": 4,
+        "image": "20261026.354.1",
+        "run": "https://github.com/roundup-app/roundup/actions/runs/41492015519"
+      },
       "baseline_exit": 0,
       "head_exit": 0,
-      "runner": {
-        "class": "ubuntu-24.04",
-        "image": "20261026.354.1",
-        "cpus": 4,
-        "os": "Linux-7.0.0-1017-azure-x86_64-with-glibc2.39"
-      },
-      "baseline_report": "queries-before.json.gz",
-      "head_report": "queries-head.json.gz",
-      "repair": "Scope Project-tab and recovery-button roles to their containing regions; use existing control labels for Work and changed-file controls.",
-      "replay_setup": "Copy navigation-reporter.mjs.in to /tmp/ci5527e-reporter.mjs; CI5527_REPORT names the output JSON. pnpm install --frozen-lockfile before both runs; same worktree, runner and unchanged Vitest configuration. Runs were sequential with no competing verification jobs."
+      "reports": [
+        "continuation-ui-before.json.gz",
+        "continuation-ui-head.json.gz"
+      ],
+      "repair": "Scope Project tabs to their labelled tablist and reopen controls to centre notices; query labelled Work/changed-file controls."
     },
     {
       "file": "src/keys/u2230_hints.test.tsx",
-      "baseline_ms": 114901.26374699999,
-      "head_ms": 83686.057046,
+      "baseline_ms": 107087.76865999999,
+      "head_ms": 81304.961942,
       "tests": 43,
       "passed": 43,
-      "skipped": 0,
-      "identities": "Identical full names and statuses in both raw reports; all passed",
-      "baseline_commit": "9128f9473d5655abb05f30a41c686e6004498ecd",
-      "head_commit": "9ab235527e58cda9968d536c2197bd09d7456979",
+      "identities": "Exact full names/statuses match both raw reports",
+      "baseline_commit": "ece55e7a3459f32035dad105c4cdeb01b1c4ff4d",
+      "head_source": "7a926b02803228c63f2ca1874e868ca387c3ff0f",
       "command": "pnpm --filter desktop exec vitest run src/ui/s3806b_actions.test.tsx src/keys/u3787b_menu.test.tsx src/keys/u2230_hints.test.tsx --reporter=default --reporter=/tmp/ci5527e-reporter.mjs",
-      "reporter": "navigation-reporter.mjs.in",
+      "runner": {
+        "class": "ubuntu-24.04 GitHub hosted runner",
+        "os": "Linux-7.0.0-1017-azure-x86_64-with-glibc2.39",
+        "cpus": 4,
+        "image": "20261026.354.1",
+        "run": "https://github.com/roundup-app/roundup/actions/runs/41492015519"
+      },
       "baseline_exit": 0,
       "head_exit": 0,
-      "runner": {
-        "class": "ubuntu-24.04",
-        "image": "20261026.354.1",
-        "cpus": 4,
-        "os": "Linux-7.0.0-1017-azure-x86_64-with-glibc2.39"
-      },
-      "baseline_report": "queries-before.json.gz",
-      "head_report": "queries-head.json.gz",
-      "repair": "Scope Pad and Todos-tab role queries to Shelf regions; use the existing Triage label.",
-      "replay_setup": "Copy navigation-reporter.mjs.in to /tmp/ci5527e-reporter.mjs; CI5527_REPORT names the output JSON. pnpm install --frozen-lockfile before both runs; same worktree, runner and unchanged Vitest configuration. Runs were sequential with no competing verification jobs."
+      "reports": [
+        "continuation-ui-before.json.gz",
+        "continuation-ui-head.json.gz"
+      ],
+      "repair": "Scope Pad and Todo-tab queries to Shelf regions; query the labelled Triage button."
     },
     {
       "file": "src/keys/u3787b_menu.test.tsx",
-      "baseline_ms": 122399.062544,
-      "head_ms": 112784.111292,
+      "baseline_ms": 124208.08312100002,
+      "head_ms": 109612.906992,
       "tests": 52,
       "passed": 52,
-      "skipped": 0,
-      "identities": "Identical full names and statuses in both raw reports; all passed",
-      "baseline_commit": "9128f9473d5655abb05f30a41c686e6004498ecd",
-      "head_commit": "9ab235527e58cda9968d536c2197bd09d7456979",
+      "identities": "Exact full names/statuses match both raw reports",
+      "baseline_commit": "ece55e7a3459f32035dad105c4cdeb01b1c4ff4d",
+      "head_source": "7a926b02803228c63f2ca1874e868ca387c3ff0f",
       "command": "pnpm --filter desktop exec vitest run src/ui/s3806b_actions.test.tsx src/keys/u3787b_menu.test.tsx src/keys/u2230_hints.test.tsx --reporter=default --reporter=/tmp/ci5527e-reporter.mjs",
-      "reporter": "navigation-reporter.mjs.in",
+      "runner": {
+        "class": "ubuntu-24.04 GitHub hosted runner",
+        "os": "Linux-7.0.0-1017-azure-x86_64-with-glibc2.39",
+        "cpus": 4,
+        "image": "20261026.354.1",
+        "run": "https://github.com/roundup-app/roundup/actions/runs/41492015519"
+      },
       "baseline_exit": 0,
       "head_exit": 0,
-      "runner": {
-        "class": "ubuntu-24.04",
-        "image": "20261026.354.1",
-        "cpus": 4,
-        "os": "Linux-7.0.0-1017-azure-x86_64-with-glibc2.39"
-      },
-      "baseline_report": "queries-before.json.gz",
-      "head_report": "queries-head.json.gz",
-      "repair": "Use installed Testing Library label queries with control-type selectors for named editor, rename, triage and add controls.",
-      "replay_setup": "Copy navigation-reporter.mjs.in to /tmp/ci5527e-reporter.mjs; CI5527_REPORT names the output JSON. pnpm install --frozen-lockfile before both runs; same worktree, runner and unchanged Vitest configuration. Runs were sequential with no competing verification jobs."
+      "reports": [
+        "continuation-ui-before.json.gz",
+        "continuation-ui-head.json.gz"
+      ],
+      "repair": "Use existing accessible labels and control selectors instead of whole-App role/name resolution."
     }
   ],
   "next_observer": "Run passing baseline/head observations with identical explicit file selections, runner class and workload and no competing jobs. Retain raw module.diagnostic().duration (including hooks) or Vitest raw results cache duration, identities and statuses. Default printed integer milliseconds round duration and are diagnostic only.",
@@ -202,7 +202,12 @@
     "cache": "actions-results-cache.json; contemporaneous, not accepted paired evidence; another correctness process uses the same cache root."
   },
   "remaining": [
-    "Deliver the other nine CI5527e rows, including their concrete mount/query repairs and clean passing paired observations. Deferred edits remain recoverable from head 15e20e6a76cdb840930c42e78e7940fd21e8cbb6."
+    "src/bubbles/u3756_focus.test.ts",
+    "src/terminal/u514_browser.test.ts",
+    "src/todos/u4698d_browser.test.ts",
+    "src/drawer/u4458_browser.test.ts",
+    "src/switcher/u3787c_browser.test.ts",
+    "src/testing/u463_real_daemon.test.ts"
   ],
   "final_ready": {
     "command": "just ready",
@@ -262,42 +267,143 @@
     }
   },
   "continuation_5659": {
-    "baseline_commit": "9128f9473d5655abb05f30a41c686e6004498ecd",
-    "status": "Three passing paired observations completed; all 223 identities/statuses match.",
+    "baseline_commit": "ece55e7a3459f32035dad105c4cdeb01b1c4ff4d",
+    "status": "Three deferred rows delivered; six rows remain on Issue #5659.",
     "command": "pnpm --filter desktop exec vitest run src/ui/s3806b_actions.test.tsx src/keys/u3787b_menu.test.tsx src/keys/u2230_hints.test.tsx --reporter=default --reporter=/tmp/ci5527e-reporter.mjs",
     "reporter": "Copy navigation-reporter.mjs.in to /tmp/ci5527e-reporter.mjs; CI5527_REPORT names each output.",
-    "head_commit": "9ab235527e58cda9968d536c2197bd09d7456979",
+    "head_source": "7a926b02803228c63f2ca1874e868ca387c3ff0f",
     "runner": {
-      "class": "ubuntu-24.04",
-      "image": "20261026.354.1",
-      "cpus": 4,
+      "class": "ubuntu-24.04 GitHub hosted runner",
       "os": "Linux-7.0.0-1017-azure-x86_64-with-glibc2.39",
-      "run": "https://github.com/roundup-app/roundup/actions/runs/41493664169"
+      "cpus": 4,
+      "image": "20261026.354.1",
+      "run": "https://github.com/roundup-app/roundup/actions/runs/41492015519"
     },
     "baseline_exit": 0,
     "head_exit": 0,
-    "ui_lint": {
-      "command": "node .agents/skills/taste-skill/scripts/lint.mjs --app apps/desktop/src/ui/s3806b_actions.test.tsx apps/desktop/src/keys/u3787b_menu.test.tsx apps/desktop/src/keys/u2230_hints.test.tsx",
-      "baseline_exit": 1,
-      "head_exit": 1,
-      "result": "Identical 11 existing Unicode test-input flags; logs retained. No production UI change."
+    "setup": "pnpm install --frozen-lockfile; same isolated worktree, default Vitest config, no competing build/test/lint command. Reporter copied from retained navigation-reporter.mjs.in.",
+    "reports": [
+      "continuation-ui-before.json.gz",
+      "continuation-ui-head.json.gz"
+    ]
+  },
+  "fix_41493664169": {
+    "result": "Independent passing paired rerun of the exact same three-file source diff. Source files equal 7a926b02803228c63f2ca1874e868ca387c3ff0f byte for byte.",
+    "verification": {
+      "baseline_commit": "9128f9473d5655abb05f30a41c686e6004498ecd",
+      "status": "Three passing paired observations completed; all 223 identities/statuses match.",
+      "command": "pnpm --filter desktop exec vitest run src/ui/s3806b_actions.test.tsx src/keys/u3787b_menu.test.tsx src/keys/u2230_hints.test.tsx --reporter=default --reporter=/tmp/ci5527e-reporter.mjs",
+      "reporter": "Copy navigation-reporter.mjs.in to /tmp/ci5527e-reporter.mjs; CI5527_REPORT names each output.",
+      "head_commit": "9ab235527e58cda9968d536c2197bd09d7456979",
+      "runner": {
+        "class": "ubuntu-24.04",
+        "image": "20261026.354.1",
+        "cpus": 4,
+        "os": "Linux-7.0.0-1017-azure-x86_64-with-glibc2.39",
+        "run": "https://github.com/roundup-app/roundup/actions/runs/41493664169"
+      },
+      "baseline_exit": 0,
+      "head_exit": 0,
+      "ui_lint": {
+        "command": "node .agents/skills/taste-skill/scripts/lint.mjs --app apps/desktop/src/ui/s3806b_actions.test.tsx apps/desktop/src/keys/u3787b_menu.test.tsx apps/desktop/src/keys/u2230_hints.test.tsx",
+        "baseline_exit": 1,
+        "head_exit": 1,
+        "result": "Identical 11 existing Unicode test-input flags; logs retained. No production UI change."
+      },
+      "remaining": [
+        "src/bubbles/u3756_focus.test.ts",
+        "src/terminal/u514_browser.test.ts",
+        "src/todos/u4698d_browser.test.ts",
+        "src/drawer/u4458_browser.test.ts",
+        "src/switcher/u3787c_browser.test.ts",
+        "src/testing/u463_real_daemon.test.ts"
+      ],
+      "ready": {
+        "command": "just ready",
+        "exit": 0,
+        "log": "queries-ready.log.gz"
+      },
+      "merge_loss": {
+        "command": "bash loop/rules.sh merge-loss",
+        "exit": 0
+      }
     },
-    "remaining": [
-      "src/bubbles/u3756_focus.test.ts",
-      "src/terminal/u514_browser.test.ts",
-      "src/todos/u4698d_browser.test.ts",
-      "src/drawer/u4458_browser.test.ts",
-      "src/switcher/u3787c_browser.test.ts",
-      "src/testing/u463_real_daemon.test.ts"
-    ],
-    "ready": {
-      "command": "just ready",
-      "exit": 0,
-      "log": "queries-ready.log.gz"
-    },
-    "merge_loss": {
-      "command": "bash loop/rules.sh merge-loss",
-      "exit": 0
-    }
+    "paired_observations": [
+      {
+        "file": "src/ui/s3806b_actions.test.tsx",
+        "baseline_ms": 203258.409998,
+        "head_ms": 147818.3212,
+        "tests": 128,
+        "passed": 128,
+        "skipped": 0,
+        "identities": "Identical full names and statuses in both raw reports; all passed",
+        "baseline_commit": "9128f9473d5655abb05f30a41c686e6004498ecd",
+        "head_commit": "9ab235527e58cda9968d536c2197bd09d7456979",
+        "command": "pnpm --filter desktop exec vitest run src/ui/s3806b_actions.test.tsx src/keys/u3787b_menu.test.tsx src/keys/u2230_hints.test.tsx --reporter=default --reporter=/tmp/ci5527e-reporter.mjs",
+        "reporter": "navigation-reporter.mjs.in",
+        "baseline_exit": 0,
+        "head_exit": 0,
+        "runner": {
+          "class": "ubuntu-24.04",
+          "image": "20261026.354.1",
+          "cpus": 4,
+          "os": "Linux-7.0.0-1017-azure-x86_64-with-glibc2.39"
+        },
+        "baseline_report": "queries-before.json.gz",
+        "head_report": "queries-head.json.gz",
+        "repair": "Scope Project-tab and recovery-button roles to their containing regions; use existing control labels for Work and changed-file controls.",
+        "replay_setup": "Copy navigation-reporter.mjs.in to /tmp/ci5527e-reporter.mjs; CI5527_REPORT names the output JSON. pnpm install --frozen-lockfile before both runs; same worktree, runner and unchanged Vitest configuration. Runs were sequential with no competing verification jobs."
+      },
+      {
+        "file": "src/keys/u2230_hints.test.tsx",
+        "baseline_ms": 114901.26374699999,
+        "head_ms": 83686.057046,
+        "tests": 43,
+        "passed": 43,
+        "skipped": 0,
+        "identities": "Identical full names and statuses in both raw reports; all passed",
+        "baseline_commit": "9128f9473d5655abb05f30a41c686e6004498ecd",
+        "head_commit": "9ab235527e58cda9968d536c2197bd09d7456979",
+        "command": "pnpm --filter desktop exec vitest run src/ui/s3806b_actions.test.tsx src/keys/u3787b_menu.test.tsx src/keys/u2230_hints.test.tsx --reporter=default --reporter=/tmp/ci5527e-reporter.mjs",
+        "reporter": "navigation-reporter.mjs.in",
+        "baseline_exit": 0,
+        "head_exit": 0,
+        "runner": {
+          "class": "ubuntu-24.04",
+          "image": "20261026.354.1",
+          "cpus": 4,
+          "os": "Linux-7.0.0-1017-azure-x86_64-with-glibc2.39"
+        },
+        "baseline_report": "queries-before.json.gz",
+        "head_report": "queries-head.json.gz",
+        "repair": "Scope Pad and Todos-tab role queries to Shelf regions; use the existing Triage label.",
+        "replay_setup": "Copy navigation-reporter.mjs.in to /tmp/ci5527e-reporter.mjs; CI5527_REPORT names the output JSON. pnpm install --frozen-lockfile before both runs; same worktree, runner and unchanged Vitest configuration. Runs were sequential with no competing verification jobs."
+      },
+      {
+        "file": "src/keys/u3787b_menu.test.tsx",
+        "baseline_ms": 122399.062544,
+        "head_ms": 112784.111292,
+        "tests": 52,
+        "passed": 52,
+        "skipped": 0,
+        "identities": "Identical full names and statuses in both raw reports; all passed",
+        "baseline_commit": "9128f9473d5655abb05f30a41c686e6004498ecd",
+        "head_commit": "9ab235527e58cda9968d536c2197bd09d7456979",
+        "command": "pnpm --filter desktop exec vitest run src/ui/s3806b_actions.test.tsx src/keys/u3787b_menu.test.tsx src/keys/u2230_hints.test.tsx --reporter=default --reporter=/tmp/ci5527e-reporter.mjs",
+        "reporter": "navigation-reporter.mjs.in",
+        "baseline_exit": 0,
+        "head_exit": 0,
+        "runner": {
+          "class": "ubuntu-24.04",
+          "image": "20261026.354.1",
+          "cpus": 4,
+          "os": "Linux-7.0.0-1017-azure-x86_64-with-glibc2.39"
+        },
+        "baseline_report": "queries-before.json.gz",
+        "head_report": "queries-head.json.gz",
+        "repair": "Use installed Testing Library label queries with control-type selectors for named editor, rename, triage and add controls.",
+        "replay_setup": "Copy navigation-reporter.mjs.in to /tmp/ci5527e-reporter.mjs; CI5527_REPORT names the output JSON. pnpm install --frozen-lockfile before both runs; same worktree, runner and unchanged Vitest configuration. Runs were sequential with no competing verification jobs."
+      }
+    ]
   }
 }
