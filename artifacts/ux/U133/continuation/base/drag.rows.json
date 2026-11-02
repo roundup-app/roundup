@@ -1,9 +1,0 @@
-[
-  {
-    "id": "agent-9",
-    "opacity": "0.4",
-    "wash": "linear-gradient(rgb(77, 155, 255), rgb(77, 155, 255)), linear-gradient(rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.1))",
-    "radius": "0px",
-    "shadow": "none"
-  }
-]
