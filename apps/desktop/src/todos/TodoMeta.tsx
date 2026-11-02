@@ -1,5 +1,5 @@
 import { applied } from "../app/pending";
-import { createSignal, For } from "solid-js";
+import { createMemo, createSignal, For } from "solid-js";
 import { Portal } from "solid-js/web";
 import type { Todo } from "@contracts/todo/Todo";
 import { copy } from "./copy";
@@ -8,12 +8,12 @@ import { Icon } from "../ink/Icon";
 import { Menu } from "../ui/Menu";
 import { TickBox } from "./TickBox";
 import { BlockerMenu } from "./BlockerMenu";
-import { blockedBy, blockersOf, offeredAsBlockers, openBlockersOf } from "./todoView";
+import { blockerChoices, type blockerGraph } from "./todoView";
 
 /** Both relation directions use the same picker and authoritative edge update. */
 export const TodoMeta = (props: {
   todo: Todo;
-  all: readonly Todo[];
+  graph: ReturnType<typeof blockerGraph>;
   toggle: () => Promise<string | null>;
   change: (action: "add" | "remove", blocker: number, target?: Todo) => void;
   owner: string;
@@ -25,7 +25,8 @@ export const TodoMeta = (props: {
   const [blocking, setBlocking] = createSignal(false);
   let blockerButton: HTMLButtonElement | undefined;
   let blockingButton: HTMLButtonElement | undefined;
-  const known = () => new Map(props.all.map(todo => [todo.id, todo]));
+  const choices = createMemo(() => blockerChoices(props.todo, props.graph));
+  const known = () => props.graph.known;
 
   const priorities = copy.todoPriorities;
 
@@ -42,14 +43,14 @@ export const TodoMeta = (props: {
       <Portal><Menu.Positioner><Menu.Content aria-label={copy.todoPriority}><For each={priorities}>{priority => <Menu.Item value={priority.value ?? "unset"}>{priority.label}</Menu.Item>}</For></Menu.Content></Menu.Positioner></Portal>
     </Menu.Root>
     <BlockerMenu open={offering()} onOpenChange={setOffering}
-      label={copy.blockedByCount(openBlockersOf(props.todo, known()).length)} icon={<Icon name="branch" />}
-      related={blockersOf(props.todo, known())} others={offeredAsBlockers(props.todo, props.all)}
+      label={copy.blockedByCount(choices().blockers.filter(todo => !todo.done).length)} icon={<Icon name="branch" />}
+      related={choices().blockers} others={choices().offeredBlockers}
       buttonRef={element => { blockerButton = element; }}
       onPick={id => { blockerButton?.focus(); props.change("add", id); }}
       onRemove={id => { blockerButton?.focus(); props.change("remove", id); }} />
     <BlockerMenu open={blocking()} onOpenChange={setBlocking}
-      label={copy.blockingCount(blockedBy(props.todo, props.all).filter(todo => !todo.done).length)} icon={<Icon name="branch" />}
-      related={blockedBy(props.todo, props.all)} others={props.all.filter(other => offeredAsBlockers(other, props.all).some(candidate => candidate.id === props.todo.id))}
+      label={copy.blockingCount(choices().blocking.filter(todo => !todo.done).length)} icon={<Icon name="branch" />}
+      related={choices().blocking} others={choices().offeredBlocking}
       buttonRef={element => { blockingButton = element; }}
       onPick={id => { blockingButton?.focus(); const target = known().get(id);
 
