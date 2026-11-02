@@ -273,5 +273,6 @@ it.each(["header", "native-alert"])("u5742c_cross_project_choice_focuses_termina
     fireEvent.click(mark);
   }
 
+  await waitFor(() => expect(m.connections.has("/other")).toBe(true));
   await provesChoice({ ...m, app: m.root.of("/other"), connected: m.connections.get("/other")! }, "second");
 });
