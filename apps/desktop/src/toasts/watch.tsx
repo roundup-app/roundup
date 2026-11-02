@@ -4,7 +4,6 @@ import type { ActivationSource } from "../keys/registry";
 import { copy } from "./copy";
 import type { Actor } from "@contracts/Actor";
 import type { Kind } from "@contracts/Kind";
-import type { Pad } from "@contracts/pad/Pad";
 import type { Todo } from "@contracts/todo/Todo";
 import type { Unsubscribe } from "../app/seam";
 import type { ConnectedProject } from "../state/connectedProject";
@@ -12,8 +11,6 @@ import type { Candidate } from "./queue";
 import type { StateAlerts } from "../rail/stateAlerts";
 
 const TodoHost = lazy(() => import("../todos/TodoDrawer").then(module => ({ default: module.TodoHost })));
-
-const PadHost = lazy(() => import("../pads/PadDrawer").then(module => ({ default: module.PadHost })));
 
 const TITLE_CHARS = 60;
 
@@ -92,25 +89,6 @@ export const watchProject = (connected: ConnectedProject, pushCandidate: (candid
     return null;
   };
 
-  const openPad = (name: string) => async (source: ActivationSource) => {
-    let listed: Pad[] = [];
-
-    try {
-      listed = await app.rpc("pad.list", null);
-    } catch (failure) {
-      if (!(failure instanceof Error)) throw failure;
-
-      return failure.message;
-    }
-
-    if (!listed.some((pad) => pad.name === name)) return GONE;
-
-    show();
-    drawer.open(() => <PadHost name={name} />, source, { kind: "pad", project: connected.project.path });
-
-    return null;
-  };
-
   const stopEvents = events.subscribe((event) => {
     if (event.name === "agent.status") {
       const { id, status } = event.data;
@@ -164,20 +142,6 @@ export const watchProject = (connected: ConnectedProject, pushCandidate: (candid
       const candidate = byAgent(event.actor, todoItem(event.data.id), copy.changedTodo(cut(event.data.title)), openTodo(event.data.id));
 
       if (candidate) push(candidate);
-    } else if (event.name === "pad.changed" && event.actor.kind === "agent") {
-      const name = event.data.name;
-      const actor = event.actor;
-
-      void app.rpc("pad.list", null).then(
-        (pads) => {
-          if (!pads.some((pad) => pad.name === name)) return;
-
-          const candidate = byAgent(actor, padItem(name), copy.changedPad(cut(name)), openPad(name));
-
-          if (candidate) push(candidate);
-        },
-        () => undefined,
-      );
     }
   });
 

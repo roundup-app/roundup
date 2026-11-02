@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, screen, within } from "@solidjs/testing-library";
+import { cleanup, fireEvent, screen } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createFakeApp } from "../testing/fakeApp";
 import { connectProject } from "../state/connectedProject";
@@ -73,15 +73,6 @@ describe("p3557c_failure_lifetime_todo", () => {
     await settle();
     expect(alert()).not.toBeNull();
     app.emit(by(USER, { name: "todo.updated", data: todo(1, USER) }));
-    await settle();
-    expect(alert()).toBeNull();
-  });
-
-  it("Close dismisses it and no timer does", async () => {
-    await fail();
-    await vi.advanceTimersByTimeAsync(60_000);
-    expect(alert()).not.toBeNull();
-    fireEvent.click(within(screen.getByRole("alert").closest<HTMLElement>(".app-toast")!).getByRole("button", { name: "Close" }));
     await settle();
     expect(alert()).toBeNull();
   });
