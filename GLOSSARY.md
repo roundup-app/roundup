@@ -54,7 +54,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Home | same | — |
 | Contract methods (`daemon.methods`) | same | — |
 | Method description (`api.list`, `api.describe`) | same | — |
-| Contract declaration (`declarations`, `Method`, `METHODS`, `owner_namespace`) | same | — |
+| Contract declaration (`declarations`, `Method`, `METHODS`, `owner_namespace`, `Metadata`, `metadata`, `McpChoice`, `PerfDisposition`) | same | — |
 | Contract export (`export::generate`, `export::types`, `event_data_declaration`) | same | — |
 | Contract fingerprint | same | — |
 | Door | none | meta-agent, parent agent, lead |
@@ -210,6 +210,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Restart reservation | same | — |
 | Retirement reservation | same | — |
 | Route | same | — |
+| Browser data location (`webview_data_path`) | same | — |
 | Saved work (`storedValue`, `storageSchema`, `initializeStorage`, `storageProblems`, `useBrowserStorage`, `storageCopy`) | same | — |
 | Draft (`draftStorage`) | Unfinished work | — |
 | Reason | same | — |
