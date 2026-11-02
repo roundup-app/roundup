@@ -72,8 +72,8 @@ export type RailState = {
   retryDismissal(): void;
   clearUnsavedDismissal(): void;
   select(id: string | null, intent?: "open"): void;
-  /** Whether showing the selection acknowledges its Agent’s held alerts. */
-  shouldAcknowledgeHeld(): boolean;
+  /** Whether showing the selection acknowledges its Agent’s alerts. */
+  shouldAcknowledgeAlerts(): boolean;
   nameOf(actor: Actor): string;
   /** U5172a: the change asked of Row `id` that the Daemon has not yet confirmed, or `null`. */
   pendingOf(id: string): PendingChange | null;
@@ -551,7 +551,7 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
       save();
     },
     select: (id, intent) => select(id, captureFocus(true), intent),
-    shouldAcknowledgeHeld: () => !restored() && (selectionIntent() === "open" || model.tree.some(node => node.id === selected() && node.kind === "agent")),
+    shouldAcknowledgeAlerts: () => !restored() && (selectionIntent() === "open" || model.tree.some(node => node.id === selected() && node.kind === "agent")),
     nameOf: (actor) =>
       actor.kind === "user"
         ? "you"
