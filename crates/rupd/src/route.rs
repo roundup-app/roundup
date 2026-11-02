@@ -76,6 +76,7 @@ impl Daemon {
                 "daemon.getNaming"
                     | "daemon.setNaming"
                     | "rail.rename"
+                    | "rail.setAlertLevel"
                     | "workstream.setAuto"
                     | "agent.spawn"
                     | "agent.stop"
