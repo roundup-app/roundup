@@ -44,7 +44,14 @@ const transform = (node: MarkdownNode) => {
         node.kind = match[1];
         first.value = String(first.value).slice(match[0].length);
 
-        if (!first.value) nodes[0]!.children!.shift();
+        if (!first.value) {
+          nodes[0]!.children!.shift();
+
+          // Crepe separates the marker's newline; retaining that break adds a blank line on save.
+          if (nodes[0]!.children![0]?.type === "break") nodes[0]!.children!.shift();
+
+          if (nodes.length > 1 && nodes[0]!.children!.length === 0) nodes.shift();
+        }
       }
     }
   }
@@ -80,9 +87,9 @@ export const padFormatMarkdown = $remark("padFormats", () => function () {
     padCallout(node, _parent, state, info) {
       // SAFETY: the callout schema emits a block parent, serialized by the installed blockquote handler.
       const callout = node as Parameters<typeof state.containerFlow>[0] & { kind: string };
-      const quote = { ...callout, type: "blockquote" as const, children: [{ type: "paragraph" as const, children: [{ type: "html" as const, value: `[!${callout.kind}]` }] }, ...callout.children] };
+      const quote = { ...callout, type: "blockquote" as const };
 
-      return state.handlers.blockquote!(quote, undefined, state, info).replace(/^(> \[!\w+\])\n> ?\n/, "$1\n");
+      return `> [!${callout.kind}]\n${state.handlers.blockquote!(quote, undefined, state, info)}`;
     },
   } satisfies Record<string, Handle>;
 
