@@ -27,9 +27,10 @@ beforeAll(async () => {
 }, 90_000);
 
 afterAll(async () => {
+  await captureLists();
   await browser("close");
   await server?.close();
-});
+}, 180_000);
 
 const open = async (readonly = false, text?: string) => {
   await browser("open", `${server.resolvedUrls.local[0]}harness.html?view=workstreams&items=1&tabs=1&seed=tree-40`);
@@ -235,3 +236,64 @@ it("u3021c_open_restores_exact_revision_without_rpc_browser_focus", async () => 
     await evaluate("[window.__selectedPad.calls, window.__selectedPad.retained]"),
   );
 }, 90_000);
+
+// U5559a/b are rendered policy: this observer supplies evidence, never layout assertions.
+const captureLists = async () => {
+  const outputs = [captureDir("U5559a"), captureDir("U5559b")];
+
+  if (!outputs.some(Boolean)) return;
+
+  const long = "Keep the reading column comfortable while this deliberately long item wraps onto continuation lines at every nesting depth, preserving enough room to read the complete explanation without losing its marker. ";
+  let text = "# List spacing\n\nParagraphs establish the reading edge.\n\n";
+
+  for (const [title, marker] of [["Bullets", "-"], ["Numbers", "9."], ["Tasks", "- [ ]"]]) {
+    text += `## ${title}\n\n`;
+
+    for (let depth = 0; depth < 3; depth++) text += `${"    ".repeat(depth)}${marker} ${long}\n`;
+
+    if (title === "Numbers") text += `10. ${long}\n`;
+
+    if (title === "Tasks") text += "- [x] Completed work remains readable.\n";
+    text += "\n";
+  }
+
+  text += `## Mixed nesting\n\n- ${long}\n    1. ${long}\n        - [ ] ${long}\n`;
+  await browser("set", "viewport", "1512", "950");
+  await browser("set", "media", "dark");
+
+  const capture = async (index: number, name: string) => {
+    const output = outputs[index];
+
+    if (!output) return;
+    await mkdir(join(output, "head"), { recursive: true });
+    await browser("screenshot", join(output, "head", `${name}.png`));
+    await writeFile(join(output, "head", `${name}.checks.json`), JSON.stringify(await evaluate("window.__checks()"), null, 2));
+  };
+
+  const video = outputs[1] ?? outputs[0]!;
+
+  await mkdir(join(video, "head"), { recursive: true });
+  await browser("record", "start", join(video, "head", "lists.webm"));
+  await open(false, text);
+
+  for (const title of ["bullets", "numbers", "tasks", "mixed-nesting"]) {
+    await evaluate(`document.getElementById(${JSON.stringify(title)}).scrollIntoView({block: 'start'})`);
+    await browser("focus", ".ProseMirror");
+    await capture(0, title);
+
+    for (let depth = 0; depth < 3; depth++) {
+      const point = await evaluate(`(() => {
+        const p = document.getElementById(${JSON.stringify(title)}).nextElementSibling.querySelectorAll('p')[${depth}];
+        p.scrollIntoView({block: 'center'});
+        const r = p.getBoundingClientRect();
+        return {x: r.x + 20, y: r.y + 10};
+      })()`);
+
+      await browser("mouse", "move", String(point.x), String(point.y));
+      await browser("wait", ".milkdown-block-handle[data-show=true]");
+      await capture(1, `${title}-depth-${depth + 1}`);
+    }
+  }
+
+  await browser("record", "stop");
+};
