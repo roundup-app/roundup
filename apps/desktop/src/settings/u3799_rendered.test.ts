@@ -51,7 +51,7 @@ it.skipIf(!captureDir("U4277c")).each(["tree-40", "tabs-8"].flatMap(seed =>
     for (const filled of [false, true]) {
         await lane.evaluate("localStorage.clear()");
         await lane.browser("open");
-        await lane.evaluate(`requestAnimationFrame(() => location.assign(${JSON.stringify(origin)} + "/harness.html?seed=" + ${JSON.stringify(seed === "tabs-8" ? seed : filled || view === "resources" ? seed : "empty-project")})); true`);
+        await lane.evaluate(`requestAnimationFrame(() => location.assign(${JSON.stringify(origin)} + "/harness.html?view=workstreams&seed=" + ${JSON.stringify(seed === "tabs-8" ? seed : filled || view === "resources" ? seed : "empty-project")})); true`);
         await lane.until(seed === "tabs-8" ? "!!window.__fake && document.querySelectorAll('.project-tab').length === 8" : "!!window.__fake && window.__fake.app.calls.some(call => call.method === 'ask.list') && !!document.querySelector('.ask-bar, .pane-screen')");
         // agent-browser recording creates a fresh page; install fixtures only after it loads.
         await lane.browser("record", "start", join(dir, `${view}-${filled ? "filled" : "empty"}.webm`));
@@ -118,7 +118,7 @@ it.skipIf(!captureDir("U4277c")).each(["tree-40", "tabs-8"].flatMap(seed =>
 
         // U4274b/c: Rail and Terminal navigation are primary; their visibility commands were retired.
         if (view === "ask-history") {
-          const trigger = '.overview-section-trigger[aria-controls$=":asks"]';
+          const trigger = '.overview-section-trigger[id$=":asks"]';
 
           if (await lane.evaluate(`document.querySelector('${trigger}')?.getAttribute('aria-expanded') !== 'true'`)) await lane.browser("click", trigger);
         } else if (view !== "workstreams" && view !== "terminal-tabs") await command(view === "import-work" ? view : `view:${view}`);
