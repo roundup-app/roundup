@@ -8,7 +8,7 @@ afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
 type Mounted = Awaited<ReturnType<typeof mountTodos>>;
 
-const drawer = () => screen.getByLabelText("Drawer");
+const drawer = () => screen.getByRole("complementary", { name: "Drawer" });
 
 /** The Event the Daemon sends after a write: the list refetches from the store. */
 const refetch = ({ app, store }: Mounted) => app.emit(todoEvent("todo.updated", { ...store.todos[0]! }));
@@ -26,7 +26,7 @@ const press = (target: HTMLElement, by: "pointer" | "keyboard") => {
 const rowText = (id: number) => rowOf(id).textContent;
 
 const openDrawerOf = async (id: number) => {
-  const row = await within(rowOf(id)).findByRole("button", { name: new RegExp(`^(Idle|Blocked) #${id} `) });
+  const row = await waitFor(() => within(rowOf(id)).getByRole("button", { name: new RegExp(`^(Idle|Blocked) #${id} `) }));
   row.focus();
   fireEvent.keyDown(row, { key: "Enter", code: "Enter" });
   await within(drawer()).findByRole("button", { name: /^Blocked by/ });
