@@ -83,7 +83,7 @@ async fn until<T>(what: &str, mut probe: impl AsyncFnMut() -> Option<T>) -> T {
 }
 
 impl Run {
-    /// A Daemon with one idle Agent.
+    /// A Daemon with one idle Agent after its first submitted user prompt.
     async fn start() -> Self {
         Self::start_on(1).await
     }
@@ -188,12 +188,12 @@ impl Run {
             self.screen().await.contains("READY").then_some(())
         })
         .await;
-        let mut last = usize::MAX;
-        while last != self.screen_bytes().await {
-            last = self.screen_bytes().await;
-            tokio::time::sleep(Duration::from_millis(400)).await;
-        }
-        self.started_with.store(last, Ordering::SeqCst);
+        // A5556 leaves startup input empty; no asynchronous Terminal write needs sampling.
+        self.started_with
+            .store(self.screen_bytes().await, Ordering::SeqCst);
+        self.signal(json!({"hook_event_name":"UserPromptSubmit","prompt":"Wait for notes"}))
+            .await;
+        self.signal(json!({"hook_event_name":"Stop"})).await;
     }
 
     async fn screen_bytes(&self) -> usize {
@@ -476,8 +476,6 @@ async fn b2706_a_note_reaches_an_acceptedits_agent_without_approval() {
     )
     .await;
     run.spawn().await;
-    run.signal(json!({"hook_event_name":"UserPromptSubmit", "prompt":"Wait for build notes"}))
-        .await;
     let id = run.note("look at the build").await;
     until("the note is taken up", async || {
         (run.entries() == [format!("rup-{id}")]).then_some(())
