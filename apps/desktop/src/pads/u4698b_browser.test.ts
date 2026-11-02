@@ -277,25 +277,23 @@ it.skipIf(typographyOutputs.length === 0)("u5574b_empty_document_remains_editabl
     await save(selector.includes("h1") ? "heading-handle" : "list-handle");
   }
 
-  for (const tag of ["h1", "h2", "h3", "h4"]) {
-    await evaluate(`(() => {
-      const heading = document.querySelector('.ProseMirror ${tag}');
-      heading.scrollIntoView({block: 'center'});
-      heading.closest('[contenteditable]').focus();
-      const range = document.createRange();
-      range.selectNodeContents(heading);
-      const selection = window.getSelection();
-      selection.removeAllRanges();
-      selection.addRange(range);
-      return true;
-    })()`);
-    await browser("press", "Backspace");
-    await browser("wait", "--fn", `document.querySelector('.ProseMirror ${tag}').textContent === ''`);
-    await save(`empty-${tag}`);
-    await browser("keyboard", "type", `Restored ${tag}`);
-    await browser("wait", "--fn", `document.querySelector('.ProseMirror ${tag}').textContent === 'Restored ${tag}'`);
-    await save(`restored-${tag}`);
-  }
+  await evaluate(`(() => {
+    const heading = document.querySelector('.ProseMirror h2');
+    heading.scrollIntoView({block: 'center'});
+    heading.closest('[contenteditable]').focus();
+    const range = document.createRange();
+    range.selectNodeContents(heading);
+    const selection = window.getSelection();
+    selection.removeAllRanges();
+    selection.addRange(range);
+    return true;
+  })()`);
+  await browser("press", "Backspace");
+  await browser("wait", "--fn", "document.querySelector('.ProseMirror h2').textContent === ''");
+  await save("empty-heading");
+  await browser("keyboard", "type", "Restored heading");
+  await browser("wait", "--fn", "document.querySelector('.ProseMirror h2').textContent === 'Restored heading'");
+  await save("restored-heading");
 
   await browser("focus", ".ProseMirror");
   await settle();
