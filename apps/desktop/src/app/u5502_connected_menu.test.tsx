@@ -132,6 +132,44 @@ it("u5502_reload_reconciles_ready_results", async () => {
 });
 
 
+it.each([false, true])("u5502_reload_keeps_actual_finish_times (finish in reload gap=%s)", async (gap) => {
+  const trees = { api: [agent("a", "working", "running"), agent("b", "working", "running")], web: [] };
+  const first = await openTabs(trees);
+
+  const statuses = [
+    event({ name: "agent.status", data: { id: "a", attempt: "1", status_revision: "2", status: { kind: "idle", label: "settled", since: 100, finished: "1" } } }),
+    event({ name: "agent.status", data: { id: "b", attempt: "1", status_revision: "2", status: { kind: "idle", label: "settled", since: 200, finished: "1" } } }),
+    event({ name: "agent.status", data: { id: "a", attempt: "1", status_revision: "3", status: { kind: "working", label: "running again", since: 300, finished: "1" } } }),
+  ];
+
+  if (!gap) {
+    for (const status of statuses.slice(0, 2)) first.app.of(path("api")).emit(status);
+    await waitFor(() => expect(actions(first.app).map(action => action.agent)).toEqual(["b", "a"]));
+  }
+
+  await unseenStorage(path("api")).refresh();
+  cleanup();
+
+  const next = renderTabs({ api: [
+    agent("a", "working", "running again", { status: { kind: "working", label: "running again", since: 300, finished: "1" }, status_revision: "3" }),
+    agent("b", "idle", "settled", { status: { kind: "idle", label: "settled", since: 200, finished: "1" }, status_revision: "2" }),
+  ], web: [] }, true);
+
+  const daemon = next.app.of(path("api"));
+  const subscribe = daemon.subscribe;
+  daemon.head = 3;
+  daemon.subscribe = async (listener, after) => {
+    const head = await subscribe(listener, after);
+
+    statuses.forEach((status, index) => listener({ ...status, seq: index + 1 }));
+
+    return head;
+  };
+
+  await waitFor(() => expect(next.app.menuBar?.entries.flatMap(entry => entry.action?.kind === "agent" ? [[entry.action.agent, entry.since]] : [])).toEqual([["b", 200], ["a", 100]]));
+});
+
+
 it("u5502_menu_groups_and_orders_agents", async () => {
   const { app } = await openTabs({ api: [
     agent("older", "needs-you", "question", { status: { kind: "needs-you", label: "question", since: 1, finished: "0" } }),
