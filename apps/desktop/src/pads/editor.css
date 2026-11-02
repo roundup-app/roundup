@@ -444,7 +444,7 @@ details[data-pad-agents] textarea {
   padding-inline-start: 0;
 }
 
-.pad-rich-editor details[data-pad-agents] input {
+details[data-pad-agents] input {
   display: block;
   width: 100%;
   margin-block: var(--space-3);
@@ -467,11 +467,11 @@ details[data-pad-agents] textarea {
   vertical-align: baseline;
 }
 
-.pad-rich-editor details[data-pad-heading] summary {
+details[data-pad-heading] summary {
   cursor: pointer;
 }
 
-.pad-rich-editor details[data-pad-heading] summary:focus-visible,
-.pad-rich-editor details[data-pad-agents] summary:focus-visible {
-  outline: var(--hairline-width) solid var(--text);
+details[data-pad-heading] summary:focus-visible,
+details[data-pad-agents] summary:focus-visible {
+  color: var(--text);
 }
