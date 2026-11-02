@@ -11,8 +11,8 @@ export type Reaction = {
 	name: string,
 	/**  The authenticated Actor that made and authorized it. */
 	actor: Actor.Actor,
-	/**  Why it was made; explicitly absent for legacy definitions. */
-	reason: string | null,
+	/**  Why it was made: one nonempty line saved at creation. */
+	reason: string,
 	/**  P6: where the target sat when it was saved. */
 	home: string | null,
 	target: string,
