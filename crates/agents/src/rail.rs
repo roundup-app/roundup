@@ -199,6 +199,11 @@ impl Rail {
             params![json, node.id],
         )
         .map_err(sql)?;
+        if matches!(order, Order::Clarification { .. }) {
+            tx.execute("UPDATE nodes SET visibility='shown' WHERE id=?", [id])
+                .map_err(sql)?;
+            node.visibility = contracts::agent::RailVisibility::Shown;
+        }
         tx.commit().map_err(sql)?;
         node.work = Some(order.clone());
         Ok(node)

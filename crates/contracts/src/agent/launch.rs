@@ -16,6 +16,9 @@ pub struct SpawnParams {
     #[specta(optional, type = StartAttribution)]
     #[schemars(skip)]
     pub start_attribution: Option<StartAttribution>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[specta(optional, type = super::RailVisibility)]
+    pub visibility: Option<super::RailVisibility>,
     /// U4590: initial PTY columns; absent keeps the hostless 80-column default.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[specta(optional, type = u16)]
