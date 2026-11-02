@@ -37,6 +37,8 @@ const opening = async (failed: "comments" | "history", count: number, unread = 1
   await screen.findByRole("alert");
   fireEvent.click(await screen.findByRole("button", { name: /^Activity · / }));
 
+  if (count > 20) await screen.findByRole("button", { name: /older entr/ });
+
   return m;
 };
 
