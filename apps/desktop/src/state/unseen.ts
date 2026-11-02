@@ -54,7 +54,7 @@ export const createUnseen = (
   selected: Accessor<string | null>,
   viewing: Accessor<boolean>,
   storage: Pick<UnseenStorage, "read" | "write"> = unseenStorage(""),
-  publications?: { app: AppSeam; events: Events; path: string },
+  publications?: { app: AppSeam; events: Events; path: string; observedAt: number },
 ): UnseenState => {
   const finishStorage = storedValue(`roundup:finish-times:${publications?.path ?? ""}`, finishTimesSchema);
   const [finishTimes, setFinishTimes] = createSignal(finishStorage.read() ?? {});
@@ -134,7 +134,8 @@ export const createUnseen = (
       const next = { ...previous };
 
       for (const record of records) {
-        if (!(record.id in next)) next[record.id] = previous === null;
+        // A failed initial read cannot acknowledge publications made during recovery.
+        if (!(record.id in next)) next[record.id] = previous === null && (publicationFailure() === null || record.published_at < publications.observedAt);
       }
 
       setSeenPublications(next);

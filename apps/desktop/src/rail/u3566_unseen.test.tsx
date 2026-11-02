@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { agent, door, event, workstream } from "../testing/nodes";
-import { openTabs, path, tab } from "../header/stripFixture";
+import { openTabs, renderTabs, path, tab } from "../header/stripFixture";
 import type { FakeApp } from "../testing/fakeApp";
 
 let focused = true;
@@ -184,4 +184,47 @@ describe("u3566c reload keeps seen state and finds missed finishes", () => {
 
     expect(unread(row("a"))).toBe(false);
   });
+});
+
+
+it.each([1, 2])("u5541_first_read_failure_keeps_gap_publications_unread (%s rejected reads)", async rejectedReads => {
+  let now = 1_000;
+  const { app } = renderTabs({ api: [agent("h", "idle", "history"), agent("b", "idle", "resting"), agent("other", "idle", "resting")] }, false, () => now);
+  const daemon = app.of(path("api"));
+
+  const records: import("@contracts/deliverable/Deliverable").Deliverable[] = [{
+    project: "api-key", id: "history", maker: { kind: "agent", id: "h", parent: null }, maker_name: "h", home: null, title: "Historical result", published_at: 500,
+    target: { kind: "external", url: "https://github.com/roundup-app/roundup/issues/5508", availability: "not-checked" },
+  }];
+
+  let failedRead = 1;
+  daemon.handlers["deliverable.list"] = () => {
+    if (failedRead) throw new Error(`Publication read ${failedRead} failed`);
+
+    return [...records];
+  };
+
+  await waitFor(() => expect(tab("api").getAttribute("aria-busy")).toBe("false"));
+  fireEvent.click(row("other"));
+  await screen.findByText("Publication read 1 failed");
+  now = 2_000;
+  records.push({
+    project: "api-key", id: "gap", maker: { kind: "agent", id: "b", parent: null }, maker_name: "b", home: null, title: "Gap result", published_at: 1_500,
+    target: { kind: "external", url: "https://github.com/roundup-app/roundup/issues/5541", availability: "not-checked" },
+  });
+
+  for (let read = 2; read <= rejectedReads; read++) {
+    failedRead = read;
+    daemon.emit(event({ name: "deliverable.changed" }));
+    await screen.findByText(`Publication read ${read} failed`);
+    now += 1_000;
+  }
+
+  failedRead = 0;
+  daemon.emit(event({ name: "deliverable.changed" }));
+  await waitFor(() => expect(app.menuBar?.entries.flatMap(entry => entry.action?.kind === "agent" ? [entry.action] : [])).toEqual([
+    { kind: "agent", path: path("api"), agent: "b" },
+  ]));
+  expect(app.menuBar?.mark).toBe("ready");
+  expect(row("other").getAttribute("aria-selected")).toBe("true");
 });
