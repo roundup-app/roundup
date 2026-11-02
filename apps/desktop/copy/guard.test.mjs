@@ -268,6 +268,7 @@ it.each([
   'const matches = (row: Chord) => row.keys === "⌘N"; const row = CHORDS.find(matches)!;',
   'function matches({ keys }: Chord) { return keys === "⌘N"; } const row = CHORDS.filter(matches)[0];',
   'import { matches } from "./selectors"; const row = CHORDS.find(matches);',
+  'const matches = (row: Chord) => row.keys === "⌘N"; const row = CHORDS.find(row => matches(row));',
   'const format = (press: string) => shortcutLabel(press); const view = <KeyChip keys={format("meta+KeyN")} />;',
   'const shortcut = ariaChord({...chordNamed("agent.new")!, presses: ["meta+KeyN"]});',
 ])("u5557b_rejects_copied_shortcuts_or_a_second_renderer %s", source => {
@@ -278,6 +279,8 @@ it.each([
   'const view = <button aria-keyshortcuts={ariaChord(chordNamed("agent.new"))} />;',
   'const row = CHORDS.find(({ name }) => name === "agent.new");',
   'const rows = CHORDS.filter(row => row.inShelf && row.name !== "todo.triage-enter");',
+  'const rows = CHORDS.filter(row => ["edit.undo", "edit.redo"].includes(row.name));',
+  'const row = CHORDS.find(row => row.presses.includes(press));',
 ])("u5557b_accepts_live_registry_shortcuts %s", source => {
   expect(checkKeys({ 'app/view.tsx': source })).toEqual([]);
 });
