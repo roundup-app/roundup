@@ -208,6 +208,7 @@
   .milkdown-slash-menu ul {
     list-style: none;
     margin: 0;
+    padding: 0;
   }
   .milkdown-slash-menu li {
     display: flex;
