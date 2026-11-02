@@ -251,6 +251,15 @@ fn lc19_memory_guard_extends_user_settings() {
 #[test]
 fn lc20_memory_root_matches_the_launch() {
     let s = setup();
+    let root = s.root.path().canonicalize().unwrap();
+    // Settings override the runner's environment without changing other tests' launches.
+    let mut settings = json!({"env": {
+        "CLAUDE_CONFIG_DIR": "",
+        "CLAUDE_CODE_PROJECT_DIR_NAME": "",
+        "CLAUDE_CODE_REMOTE_MEMORY_DIR": "",
+        "CLAUDE_COWORK_MEMORY_PATH_OVERRIDE": ""
+    }});
+    std::fs::write(root.join("settings.json"), settings.to_string()).unwrap();
     let project = s.dir.parent().unwrap();
     let repo = git2::Repository::init(project).unwrap();
     let signature =
@@ -260,18 +269,25 @@ fn lc20_memory_root_matches_the_launch() {
     repo.commit(Some("HEAD"), &signature, &signature, "fixture", &tree, &[])
         .unwrap();
     let default = launch_root(&s.prepare_as("7", Role::Door).unwrap());
-    assert!(default.starts_with(s.root.path().join("projects")));
-    assert_eq!(default.file_name().unwrap(), "memory");
-    assert!(
-        default
-            .parent()
-            .unwrap()
-            .file_name()
-            .unwrap()
-            .to_str()
-            .unwrap()
-            .ends_with("-proj")
+    assert_eq!(
+        default.parent().unwrap().parent().unwrap(),
+        root.join("projects")
     );
+    assert_eq!(default.file_name().unwrap(), "memory");
+    // Compare repository identity: long temporary paths can truncate/hash the slug.
+    let argv = s
+        .launcher()
+        .prepare(folders(&s.dir), "8", "1", project, None, Role::Door)
+        .unwrap();
+    assert_eq!(launch_root(&argv), default);
+    let separate = project.join("separate");
+    std::fs::create_dir(&separate).unwrap();
+    git2::Repository::init(&separate).unwrap();
+    let argv = s
+        .launcher()
+        .prepare(folders(&s.dir), "8", "1", &separate, None, Role::Door)
+        .unwrap();
+    assert_ne!(launch_root(&argv), default);
     // The linked worktree must use the main repository's memory, not its own cwd's slug.
     let linked = project.join("linked");
     repo.worktree("linked", &linked, None).unwrap();
@@ -280,7 +296,7 @@ fn lc20_memory_root_matches_the_launch() {
         .prepare(folders(&s.dir), "8", "1", &linked, None, Role::Door)
         .unwrap();
     assert_eq!(launch_root(&argv), default);
-    let cwd_memory = s.root.path().join("worktree-memory");
+    let cwd_memory = root.join("worktree-memory");
     std::fs::create_dir_all(linked.join(".claude")).unwrap();
     std::fs::write(
         linked.join(".claude/settings.local.json"),
@@ -293,13 +309,14 @@ fn lc20_memory_root_matches_the_launch() {
         .unwrap();
     assert_eq!(launch_root(&argv), cwd_memory);
 
-    let config = s.root.path().join("custom-config");
+    let config = root.join("custom-config");
     std::fs::create_dir(&config).unwrap();
+    std::fs::write(config.join("settings.json"), settings.to_string()).unwrap();
     let launcher = Launcher::new(
         "fake",
         config.join(".claude.json"),
         s.rup.clone(),
-        Some(s.root.path().to_owned()),
+        Some(root.clone()),
     );
     let argv = launcher
         .prepare(folders(&s.dir), "9", "1", &s.cwd, None, Role::Door)
@@ -307,16 +324,21 @@ fn lc20_memory_root_matches_the_launch() {
     let custom = launch_root(&argv);
     assert!(custom.starts_with(config.join("projects")));
     assert_eq!(custom.file_name().unwrap(), "memory");
-    std::fs::write(
-        config.join("settings.json"),
-        r#"{"autoMemoryDirectory":"~/relocated"}"#,
-    )
-    .unwrap();
+    settings["env"]["CLAUDE_CONFIG_DIR"] = json!(config);
+    settings["env"]["CLAUDE_CODE_PROJECT_DIR_NAME"] = json!("named-project");
+    std::fs::write(config.join("settings.json"), settings.to_string()).unwrap();
+    let argv = launcher
+        .prepare(folders(&s.dir), "9", "1", &s.cwd, None, Role::Door)
+        .unwrap();
+    let named = launch_root(&argv);
+    assert_eq!(named, config.join("projects/named-project/memory"));
+    settings["autoMemoryDirectory"] = json!("~/relocated");
+    std::fs::write(config.join("settings.json"), settings.to_string()).unwrap();
     let argv = launcher
         .prepare(folders(&s.dir), "9", "1", &s.cwd, None, Role::Door)
         .unwrap();
     let relocated = launch_root(&argv);
-    assert_eq!(relocated, s.root.path().join("relocated"));
+    assert_eq!(relocated, root.join("relocated"));
     for tool in ["Write", "Edit"] {
         for mode in ["default", "bypassPermissions"] {
             assert_eq!(
@@ -340,6 +362,13 @@ fn lc20_memory_root_matches_the_launch() {
                 &relocated,
                 &s.cwd,
                 default.join("MEMORY.md").to_str().unwrap(),
+                tool,
+                mode,
+            ));
+            refused(&call(
+                &relocated,
+                &s.cwd,
+                named.join("MEMORY.md").to_str().unwrap(),
                 tool,
                 mode,
             ));
