@@ -75,12 +75,22 @@ fn run(out: &mut impl Write, command: &str) {
             let n: u64 = words.next().and_then(|n| n.parse().ok()).unwrap_or(10);
             let every: u64 = words.next().and_then(|n| n.parse().ok()).unwrap_or(100);
             std::thread::spawn(move || {
-                for i in 1..=n {
-                    std::thread::sleep(std::time::Duration::from_millis(every));
-                    let mut out = std::io::stdout();
-                    let _ = write!(out, "tick {i:05}\r\n");
-                    let _ = out.flush();
-                }
+                tokio::runtime::Builder::new_current_thread()
+                    .enable_time()
+                    .build()
+                    .expect("tick runtime")
+                    .block_on(async {
+                        let period = std::time::Duration::from_millis(every.max(1));
+                        let mut ticks =
+                            tokio::time::interval_at(tokio::time::Instant::now() + period, period);
+                        ticks.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+                        for i in 1..=n {
+                            ticks.tick().await;
+                            let mut out = std::io::stdout();
+                            write!(out, "tick {i:05}\r\n").expect("write tick");
+                            out.flush().expect("flush tick");
+                        }
+                    });
             });
         }
         Some("title") => write!(out, "\x1b]0;{}\x07", words.collect::<Vec<_>>().join(" ")).unwrap(),

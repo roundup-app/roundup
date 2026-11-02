@@ -18,7 +18,7 @@ pub(crate) async fn q5(scratch: &Path) -> Result<()> {
         ),
     )
     .await?;
-    wait_screen(&roundup, &session, &block, "ready>").await;
+    wait_screen(&roundup, &server.socket, &session, &block, "ready>").await?;
     let show = |label: &str, v: &Value| {
         proof!(
             "q5",
@@ -269,7 +269,7 @@ pub(crate) async fn q5_app(scratch: &Path) -> Result<()> {
         ),
     )
     .await?;
-    wait_screen(&control, &session, &block, "ready>").await;
+    wait_screen(&control, &server.socket, &session, &block, "ready>").await?;
     control
         .call(
             "session.own_block",

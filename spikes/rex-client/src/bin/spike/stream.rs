@@ -41,22 +41,28 @@ pub(crate) async fn q3(scratch: &Path) -> Result<()> {
         let terminals = &terminals;
         let id = id.clone();
         async move {
-            for _ in 0..200 {
-                let found = terminals.search(&SearchParams {
-                    id: id.clone(),
-                    pattern: pattern.into(),
-                    after: None,
-                    max: None,
-                });
-                if found.map(|s| !s.matches.is_empty()).unwrap_or(false) {
-                    return true;
+            let mut output = terminals.subscribe_output(&id)?;
+            let found = tokio::time::timeout(Duration::from_secs(10), async {
+                loop {
+                    let found = terminals.search(&SearchParams {
+                        id: id.clone(),
+                        pattern: pattern.into(),
+                        after: None,
+                        max: None,
+                    })?;
+                    if !found.matches.is_empty() {
+                        return Ok(true);
+                    }
+                    if output.next().await.is_none() {
+                        return Ok(false);
+                    }
                 }
-                tokio::time::sleep(Duration::from_millis(50)).await;
-            }
-            false
+            })
+            .await;
+            found.unwrap_or(Ok::<_, rex_client_spike::Error>(false))
         }
     };
-    let banner = wait_for("^fake-agent pid=").await;
+    let banner = wait_for("^fake-agent pid=").await?;
     proof!("q3", "banner reached Terminals log: {banner}");
     if !banner {
         let info = terminals
@@ -87,7 +93,7 @@ pub(crate) async fn q3(scratch: &Path) -> Result<()> {
     proof!(
         "q3",
         "flood finished: {}",
-        wait_for("^flood done 5000").await
+        wait_for("^flood done 5000").await?
     );
     // Read the whole log with `after` offsets, as `rup terminal read` does.
     let (mut after, mut reads, mut seen, mut split, mut out_of_order) =
@@ -230,7 +236,7 @@ pub(crate) async fn q4(scratch: &Path) -> Result<()> {
         ),
     )
     .await?;
-    wait_screen(&control, &session, &block, "ready>").await;
+    wait_screen(&control, &server.socket, &session, &block, "ready>").await?;
     let every: u64 = std::env::var("TICK_MS")
         .ok()
         .and_then(|v| v.parse().ok())
