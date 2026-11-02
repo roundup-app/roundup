@@ -17,6 +17,7 @@ fn item(id: &str, label: &str, shortcut: Option<&str>, children: Option<Vec<Item
             .to_owned(),
         ),
         enabled: true,
+        checked: None,
         children,
     }
 }
@@ -788,4 +789,26 @@ fn u5244b_project_menu_keeps_disabled_entries_and_context_menus_do_not() {
         ["action:chord:⌘N", "action:chord:⌘F", "submenu:Assign to"]
     );
     assert_eq!(project_ids(build(), true), ["action:chord:⌘N"]);
+}
+
+#[test]
+fn u5501_native_alert_choices_keep_their_checked_state() {
+    let app = mock_app();
+    for checked in [true, false] {
+        let mut choice = item("alerts:quiet", "Quiet", None, None);
+        choice.checked = Some(checked);
+        let projected = kind(
+            app.handle(),
+            &choice,
+            |app, id, label, enabled, accelerator| {
+                MenuItem::with_id(app, id, label, enabled, accelerator)
+            },
+        )
+        .unwrap();
+        let MenuItemKind::Check(entry) = projected else {
+            panic!("expected a native check item");
+        };
+        assert_eq!(entry.is_checked().unwrap(), checked);
+        assert_eq!(entry.id().0, "alerts:quiet");
+    }
 }
