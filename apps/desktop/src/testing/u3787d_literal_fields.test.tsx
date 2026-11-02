@@ -43,7 +43,7 @@ it.each(inventory)("u3787d_each_field_keeps_literal_input %s", async opening => 
   }
 
   render(() => <App app={app} reducedMotion={() => true} clock={() => 0} createEmulator={fakeEmulators().factory} prepareIdle={open => open.showView("terminal-tabs")} />);
-  await screen.findByLabelText("Ask", { selector: '[role="textbox"]' });
+  await screen.findByRole("textbox", { name: "Ask" });
   let field: HTMLInputElement | HTMLTextAreaElement;
 
   if (opening === "Change note") {
@@ -68,13 +68,13 @@ it.each(inventory)("u3787d_each_field_keeps_literal_input %s", async opening => 
     fireEvent.click(await screen.findByRole("button", { name: new RegExp(label) }));
     field = await screen.findByRole("combobox", { name: label });
   } else if (opening === "Ask prompt") {
-    field = await screen.findByLabelText("Ask", { selector: '[role="textbox"]' });
+    field = await screen.findByRole("textbox", { name: "Ask" });
   } else if (opening === "Switcher query") {
     leaderKey("KeyK");
     field = await screen.findByRole("combobox", { name: "Switch to" });
   } else if (opening === "Spawn prompt" || opening === "Opening prompt" || opening === "Terminal rename") {
     openProjectPage("view:workstreams", path("p"));
-    await screen.findByLabelText("Rail", { selector: '[role="tree"]' });
+    await screen.findByRole("tree", { name: "Rail" });
 
     if (opening === "Spawn prompt") {
       fireEvent.keyDown(document, { key: "n", code: "KeyN", metaKey: true, shiftKey: true });
