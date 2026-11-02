@@ -87,6 +87,7 @@ const observerTable = {
   "src/terminal/u3517_browser.test.ts": ["U3517b", "U3517c", "U3517f", "U4456a", "U4456b", "U4456c", "U4456d", "U4590", "U4592", "U4649", "U4679"],
   "src/terminal/u3517_type.test.ts": ["U4590"],
   "src/terminal/u3530_browser.test.ts": ["U3530a"],
+  "src/terminal/u365_browser.test.ts": ["U365"],
   "src/terminal/u3707_browser.test.ts": ["U3707"],
   "src/terminal/u4315_header.test.tsx": ["U4355"],
   "src/terminal/u4453a_terminal_only.test.tsx": ["U4453a", "U4453b"],
