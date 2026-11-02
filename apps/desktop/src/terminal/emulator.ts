@@ -325,7 +325,7 @@ export const createXtermEmulators = (
 
     // Capture reaches Bubble resize edges even when their handlers stop propagation.
     const clearOldSelection = (event: MouseEvent) => {
-      if (event.button !== 0) return;
+      if (event.button !== 0 || event.ctrlKey) return;
 
       window.getSelection()?.removeAllRanges();
       terminal.clearSelection();
@@ -522,6 +522,27 @@ export const createXtermEmulators = (
     const open = () => {
       if (!opened) {
         terminal.open(element);
+        // xterm's native-menu handler selects its editable input. WebKit needs a DOM
+        // range in non-editable text to offer Look Up and Services without Cut/Font.
+        const menuText = document.createElement("span");
+        menuText.className = "terminal-menu-text";
+        menuText.setAttribute("aria-hidden", "true");
+        terminal.element!.append(menuText);
+
+        const nativeTextMenu = (event: MouseEvent) => {
+          event.stopPropagation();
+          menuText.textContent = terminal.getSelection();
+          menuText.style.left = `${event.clientX}px`;
+          menuText.style.top = `${event.clientY}px`;
+          const range = document.createRange();
+          range.selectNodeContents(menuText);
+          const selection = window.getSelection();
+          selection?.removeAllRanges();
+          selection?.addRange(range);
+        };
+
+        terminal.element!.addEventListener("contextmenu", nativeTextMenu, true);
+        disposers.push(() => terminal.element?.removeEventListener("contextmenu", nativeTextMenu, true));
         const ligatures = new LigaturesAddon();
         terminal.loadAddon(ligatures);
         // Deregister while the renderer is alive: addon disposal requests a final refresh.
