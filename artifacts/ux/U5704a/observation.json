@@ -1,0 +1,46 @@
+{
+  "scenario": "U5704a",
+  "status": "incomplete",
+  "recorded_at_utc": "2026-11-02T19:25:06Z",
+  "observer_revision": "81643171dc12f8931a749f89f0a00b1045578750",
+  "sizing_repair": {
+    "pr": 5700,
+    "commit": "f5b68e892f281539d30fdf49b03e514edb94db8f"
+  },
+  "viewport": [
+    1512,
+    950
+  ],
+  "scheme": "dark",
+  "phases": {
+    "base": {
+      "capture_pairs": 90,
+      "product_revisions": [
+        "41e424913aa33593ca8303aa91ed41da804849fc"
+      ],
+      "minimum_recorded_hit_height": 24,
+      "states_complete": false
+    },
+    "head": {
+      "capture_pairs": 76,
+      "product_revisions": [
+        "4693e0a03b82946af41a96af3bcfeb60748f5b78"
+      ],
+      "minimum_recorded_hit_height": 24,
+      "states_complete": false
+    }
+  },
+  "verified": {
+    "just_ready": "passed",
+    "targeted_regressions": 243,
+    "readonly_heading_observer": "passed",
+    "dense_save_failure": "passed, all design Checks pass"
+  },
+  "baseline_fixture_failures": [
+    "D2: default root font",
+    "D4: App press binding absent",
+    "D10: aggregates D2 and D4"
+  ],
+  "remaining": "Finish the editable-host capture run after native keyboard activation; rerun the changed browser file and just capture U5704a, compare paired Checks, and replace this incomplete record before closing #5704.",
+  "native_mac_observation": "not claimed"
+}
