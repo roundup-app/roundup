@@ -468,14 +468,9 @@ fn e5417_a_real_project_waits_the_real_bound_and_a_fake_one_the_short_bound() {
 }
 
 pub async fn start_door(client: &rpc::Client) -> String {
-    let node = client
-        .request(
-            "rail.createWorkstream",
-            json!({"name":"team", "parent":null}),
-        )
-        .await
-        .unwrap();
-    let id = node["id"].as_str().unwrap().to_owned();
+    let id = client
+        .request("rail.createWorkstream", json!({"name":"team", "order":{"kind":"work","ask":"What is this Workstream for?","limits":[]}}))
+        .await.unwrap()["id"].as_str().unwrap().to_owned();
     client
         .request("rail.startDoor", json!({ "id": id }))
         .await

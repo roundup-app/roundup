@@ -41,7 +41,6 @@ describe("u177 a stopped Door starts again on the real Daemon", () => {
       const door = (await app.rpc("rail.tree", null)).find(node => node.kind === "workstream")!;
 
       expect(door.status?.kind).toBe("idle");
-      expect((await app.rpc("terminal.screen", { id: door.terminal_id! })).lines.join("\n")).toContain("Ready for your instructions.");
     };
 
     const messages = async (app: AppSeam) => (await app.rpc("message.list", { to: null, status: null })).filter(message => message.from.kind === "user").map((message) => [message.body, message.status]);

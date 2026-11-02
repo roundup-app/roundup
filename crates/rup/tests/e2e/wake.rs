@@ -101,7 +101,16 @@ pub(super) async fn scene(fake: &[(&str, &str)]) -> Scene {
     let door = start_door(&user).await;
     let a = named(&project, &user, "alpha", Some(&door)).await;
     let b = named(&project, &user, "beta", Some(&door)).await;
-    let w = named(&project, &user, "waiter", None).await;
+    let w = user
+        .request(
+            "agent.spawn",
+            json!({"cwd":project.dir.path(), "name":"waiter", "prompt":"Wait for updates"}),
+        )
+        .await
+        .unwrap()["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
     for id in [&a, &b] {
         drive(&user, id, WORK).await;
     }
