@@ -23,6 +23,8 @@ Every rule below is a check with an id. A check passes or fails; it has no score
 
 ## Tokens
 
+Pad fenced code maps keyword, string, number and comment classifications to `--red`, `--accent`, `--amber` and `--grey`, respectively. These existing Tokens adapt to light, dark and increased contrast; no editor theme supplies colour literals.
+
 `--text-selection` uses `--button-accent-fill` and `--text-selection-ink` uses `--button-accent-ink` in both schemes and increased contrast. Row/tab selection uses the green `--selected` wash; existing shared-form focus rings use `--accent`. U3517c’s Terminal cells retain their Solo/Tomorrow selection Tokens.
 
 All Tokens live in one file, `apps/desktop/src/tokens.css`. No other stylesheet, and no inline style, holds a colour, font size, radius, shadow, duration or easing literal; it reads `var(--…)`. Spacing uses the space Tokens, and `0`.

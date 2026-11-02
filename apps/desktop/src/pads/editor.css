@@ -407,3 +407,8 @@
 .milkdown .top-bar-inner:has(.top-bar-heading-dropdown) {
   overflow: visible;
 }
+
+.pad-rich-editor .pad-syntax-keyword { color: var(--red); }
+.pad-rich-editor .pad-syntax-string { color: var(--accent); }
+.pad-rich-editor .pad-syntax-number { color: var(--amber); }
+.pad-rich-editor .pad-syntax-comment { color: var(--grey); }
