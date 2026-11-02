@@ -13,16 +13,23 @@ const exec = promisify(execFile);
 let baseline: Awaited<ReturnType<typeof startAppServer>> | undefined;
 
 const profile = mkdtempSync(join(tmpdir(), "u2539b-profile-"));
+
 const session = `u2539b-${process.pid}`;
+
 const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith("AGENT_BROWSER_")));
+
 const browser = async (...args: string[]) => (await exec(agentBrowserExecutable, ["--executable-path", chromePath()!, "--args", "--no-sandbox", "--session", session, "--profile", profile, ...args], { env, timeout: 60_000 })).stdout;
+
 // SAFETY: agent-browser serializes the JSON value returned by each page expression.
 const evaluate = async <T,>(source: string): Promise<T> => JSON.parse(await browser("eval", source)) as T;
+
 const until = (source: string) => browser("wait", "--fn", source);
+
 let server: Awaited<ReturnType<typeof appServer>>;
 
 beforeAll(async () => {
   server = await appServer();
+
   if (process.env.ROUNDUP_BASELINE_ROOT) baseline = await startAppServer({ root: process.env.ROUNDUP_BASELINE_ROOT });
 }, 120_000);
 

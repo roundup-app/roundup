@@ -14,6 +14,7 @@ const seed = async () => {
     localStorage.clear();
     return new URL('/harness.html?view=workstreams&tabs=1&seed=agents-10', location.href).href;
   })()`);
+
   await lane.browser("open", page);
   await lane.until("document.querySelector('.rail-row[data-id=agent-4]') !== null");
 
