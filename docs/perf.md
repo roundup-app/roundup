@@ -824,10 +824,10 @@ Paired clean builds on Linux x86_64 `runnervm48cm3`, Node v22.23.4 and pnpm 10.1
 
 | Revision | Raw bytes | Gzip bytes | Checker exit |
 |---|---:|---:|---:|
-| B `4433b54af07b05794dc33af48ddb25039b5b2c22` | 1,369,334 | 435,692 | 0 |
-| Production H `d5e5bfdb536e2bce2c14cee0e2152b227be46260` | 1,278,789 | 411,916 | 0 |
+| B `5307469e18b650bca8297bbfd782cbbb72b89e23` | 1,369,334 | 435,692 | 0 |
+| Production H `d41c839fa042a4ab025cfd29b41accd3f6eee984` | 1,278,789 | 411,916 | 0 |
 
-The reduction is **23,776 gzip bytes**, exceeding 16,384 by 7,392. Headroom is **25,898 bytes** under the unchanged 437,814 ceiling. Later commits change only the capture observer and this evidence. No dependency, bundler, counting, compression or budget configuration changes.
+The reduction is **23,776 gzip bytes**, exceeding 16,384 by 7,392. Headroom is **25,898 bytes** under the unchanged 437,814 ceiling. The final pair follows a conflict-free merge of main's scenario-only PR #5592; earlier attribution at `4433b54af` has identical production inputs. Later commits change only this evidence. No dependency, bundler, counting, compression or budget configuration changes.
 
 Before selecting deferrals, the production manifest, `.vite/modules.json` and installed visualizer attributed the largest static chunks:
 
@@ -858,4 +858,4 @@ All measurement commands above exited 0. Experiments also exposed a settings Sus
 
 Reproduce B and H in separate worktrees with their locked dependencies: `pnpm install --frozen-lockfile`; delete each `apps/desktop/dist`; `pnpm --filter desktop build`; `pnpm --filter desktop run check:startup`. Install/build/check all exit 0 for the final pair. Both use B's identical observer (SHA-256 `f003a907a3aa4508fbbc34425fa28f41231c757fdfffff14aafb9351419042f4`) and ceiling file (`cc4385480a849659725f4019cf58b40e26f9546c3b79d0e81fda7271089be49c`).
 
-Raw commands, exit codes, counted-file reports, module attribution, visualizer output, failed attempts and validation logs are retained in [Builder 41378367430](https://github.com/roundup-app/roundup/actions/runs/41378367430), artifact `answer-5594`, directory `r5594`. Existing Pad/focus/keyboard/Switcher/toast observers pass 173 tests; Todo/recovery observers pass 96; the final Todo/ref/recovery/R3800 shell/lazy-Terminal group passes 45, and startup-checker tests pass 3. Dark 1512×950 `U3760` captures pass D2/D5/D6; Pad failure visibility and clearing pass the rendered P3557c observer. Full required CI lanes remain the merge gate.
+Raw commands, exit codes, counted-file reports, module attribution, visualizer output, failed attempts and validation logs are retained in [Builder 41378367430](https://github.com/roundup-app/roundup/actions/runs/41378367430), artifact `answer-5594`, directory `r5594`. Existing Pad/focus/keyboard/Switcher/toast observers pass 173 tests; Todo/recovery observers pass 96; the final Todo/ref/recovery/R3800 shell/lazy-Terminal group passes 45, and startup-checker tests pass 3. Dark 1512×950 `U3760` captures pass D2/D5/D6; Todo and Pad failure visibility and clearing pass the rendered P3557c observers, with D2/D5/D6 passing in every retained dark editor/failure capture. Full required CI lanes remain the merge gate.
