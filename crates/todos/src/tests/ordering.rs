@@ -172,7 +172,7 @@ fn t5642a_list_executes_three_reads() {
         let started = std::time::Instant::now();
         let listed = store.list().unwrap();
         store.db.trace_v2(TraceEventCodes::empty(), None);
-        assert_eq!(listed.len(), size as usize);
+        assert_eq!(listed.len(), usize::try_from(size).unwrap());
         assert_eq!(READS.get(), 3, "size {size}");
         assert!(started.elapsed() < std::time::Duration::from_secs(5));
     }
@@ -188,7 +188,7 @@ fn t5642a_batched_list_matches_individual_reads() {
                 &format!("body {id}"),
                 &[],
                 &agent(&format!("maker {id}")),
-                Some(&agent("a")),
+                Some(&agent(&format!("owner {id}"))),
                 None,
                 0,
             )
@@ -198,7 +198,8 @@ fn t5642a_batched_list_matches_individual_reads() {
         .db
         .execute_batch(
             "UPDATE todos SET pos = CASE id WHEN 4 THEN -1 WHEN 3 THEN 0 ELSE 1 END,
-         done = (id = 1), home = 'workstream', priority = '\"high\"',
+         done = (id = 1), home = 'workstream ' || id,
+         priority = CASE id WHEN 1 THEN NULL WHEN 3 THEN '\"medium\"' WHEN 4 THEN '\"high\"' ELSE '\"urgent\"' END,
          created_at = id * 10, updated_at = id * 20;
          INSERT INTO blockers VALUES(4,3),(4,1),(4,2),(3,1);
          INSERT INTO todo_refs(todo,target,url) VALUES
@@ -231,9 +232,18 @@ fn t5642a_batched_list_matches_individual_reads() {
         assert_eq!(todo.created_at, i64::from(todo.id) * 10);
         assert_eq!(todo.updated_at, i64::from(todo.id) * 20);
         assert_eq!(todo.creator, agent(&format!("maker {}", todo.id)));
-        assert_eq!(todo.owner, Some(agent("a")));
-        assert_eq!(todo.home.as_deref(), Some("workstream"));
-        assert_eq!(todo.priority, Some(contracts::todo::Priority::High));
+        assert_eq!(todo.owner, Some(agent(&format!("owner {}", todo.id))));
+        assert_eq!(todo.home, Some(format!("workstream {}", todo.id)));
+        assert_eq!(
+            todo.priority,
+            match todo.id {
+                1 => None,
+                3 => Some(contracts::todo::Priority::Medium),
+                4 => Some(contracts::todo::Priority::High),
+                5 => Some(contracts::todo::Priority::Urgent),
+                _ => unreachable!(),
+            }
+        );
         assert_eq!(todo.done, todo.id == 1);
     }
     assert_eq!(store.list().unwrap(), listed);
