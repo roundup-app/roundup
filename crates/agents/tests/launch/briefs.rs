@@ -307,3 +307,24 @@ fn e5562a_brief_teaches_pad_colour() {
         }
     }
 }
+
+#[test]
+fn u5531d_door_brief_explains_internal_helpers() {
+    let s = setup();
+    let text = brief(&s, "7013", Role::Door);
+    for clause in [
+        "agent_set_visibility",
+        "agent_spawn",
+        "shown",
+        "default",
+        "scout",
+        "one-step writer",
+        "both ways",
+        "directly",
+        "internal disclosure",
+        "Attention returns",
+    ] {
+        assert!(text.contains(clause), "missing {clause}");
+    }
+    assert!(!brief(&s, "7014", Role::Agent).contains("agent_set_visibility"));
+}
