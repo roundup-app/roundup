@@ -243,7 +243,7 @@ pub(crate) fn commands(door: bool) -> Vec<Offered> {
 
 /// M5: one tool for each method of its first list; the methods left out are in its second, with their reasons (`scenarios/mcp.md`).
 macro_rules! push_tool {
-    ($list:ident, $wire:literal, none()) => {};
+    ($list:ident, $wire:literal, none($reason:expr)) => {};
     ($list:ident, $wire:literal, all($($tool:tt)*)) => { push_tool!(@offer $list, $wire, false, $($tool)*); };
     ($list:ident, $wire:literal, door($($tool:tt)*)) => { push_tool!(@offer $list, $wire, true, $($tool)*); };
     (@offer $list:ident, $wire:literal, $door:expr, schema($schema:ty, $description:expr)) => {
