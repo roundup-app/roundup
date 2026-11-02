@@ -414,6 +414,7 @@
 }
 
 details[data-pad-agents] summary {
+  min-height: var(--space-5);
   cursor: pointer;
   color: var(--grey);
 }
@@ -425,8 +426,9 @@ details[data-pad-agents] textarea {
   margin-block-start: var(--space-3);
   padding: 0;
   border: 0;
-  font-family: var(--font-mono);
-  font-size: var(--text-body);
+  font-family: var(--font-ui);
+  font-size: var(--pad-text-body);
+  line-height: var(--pad-line-body);
   color: var(--text);
   background: var(--ground);
   resize: vertical;
@@ -468,6 +470,7 @@ details[data-pad-agents] input {
 }
 
 details[data-pad-heading] summary {
+  min-height: var(--space-5);
   cursor: pointer;
 }
 

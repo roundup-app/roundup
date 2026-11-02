@@ -58,7 +58,13 @@ export const agentDetailsView = $view(agentDetailsNode, () => (node, view, getPo
   const dom = document.createElement("details");
   dom.dataset.padAgents = "";
   const summary = document.createElement("summary");
-  const label = (source: string) => source.match(/^<details>\s*<summary>([^\r\n]*)<\/summary>/)?.[1] ?? copy.forAgents;
+
+  const label = (source: string) => {
+    const value = source.match(/^<details>\s*<summary>([^\r\n]*)<\/summary>/)?.[1];
+
+    return value?.trim() ? value : copy.toggle;
+  };
+
   summary.textContent = label(node.textContent);
   summary.setAttribute("aria-label", summary.textContent);
   summary.setAttribute("aria-expanded", "false");
@@ -67,7 +73,9 @@ export const agentDetailsView = $view(agentDetailsNode, () => (node, view, getPo
   title.type = "text";
   title.setAttribute("aria-label", copy.toggleLabel);
   title.value = label(node.textContent);
-  title.readOnly = !view.editable;
+  title.spellcheck = false;
+  title.setAttribute("autocorrect", "off");
+  title.autocapitalize = "off";
   summary.contentEditable = "false";
   const input = document.createElement("textarea");
   input.setAttribute("aria-label", label(node.textContent));
@@ -78,14 +86,23 @@ export const agentDetailsView = $view(agentDetailsNode, () => (node, view, getPo
   const save = () => {
     const pos = getPos();
 
-    if (pos === undefined || !view.editable) return;
-    const source = `<details>\n<summary>${title.value}</summary>\n\n${input.value}\n\n</details>`;
+    if (pos === undefined || !view.editable || (title.value === label(current.textContent) && input.value === body(current.textContent))) return;
+    const source = `<details>\n<summary>${title.value.trim() ? title.value : copy.toggle}</summary>\n\n${input.value}\n\n</details>`;
     view.dispatch(view.state.tr.replaceWith(pos + 1, pos + current.nodeSize - 1, view.state.schema.text(source)));
   };
 
   input.addEventListener("input", save);
-  title.addEventListener("input", save);
-  dom.append(summary, title, input);
+  title.addEventListener("blur", save);
+  title.addEventListener("keydown", event => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      title.blur();
+    }
+  });
+  dom.append(summary);
+
+  if (view.editable) dom.append(title);
+  dom.append(input);
 
   return {
     dom,
@@ -95,11 +112,18 @@ export const agentDetailsView = $view(agentDetailsNode, () => (node, view, getPo
       if (next.type !== current.type) return false;
       current = next;
       input.readOnly = !view.editable;
-      title.readOnly = !view.editable;
-      title.value = label(next.textContent);
-      summary.textContent = title.value;
-      summary.setAttribute("aria-label", title.value);
-      input.setAttribute("aria-label", title.value);
+
+      if (view.editable && !title.isConnected) summary.after(title);
+      else if (!view.editable) title.remove();
+      const nextLabel = label(next.textContent);
+
+      if (document.activeElement !== title) title.value = nextLabel;
+
+      if (summary.textContent !== nextLabel) {
+        summary.textContent = nextLabel;
+        summary.setAttribute("aria-label", nextLabel);
+        input.setAttribute("aria-label", nextLabel);
+      }
 
       if (input.value !== body(next.textContent)) input.value = body(next.textContent);
 
