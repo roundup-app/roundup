@@ -724,9 +724,9 @@ Paired clean builds on Linux x86_64 `roundup-ci-125077128093`, Node v22.23.4 and
 | Revision | Raw bytes | Gzip bytes | Checker exit |
 |---|---:|---:|---:|
 | B `efd3a0bb089f640c8a4b1ccce11e098366af9b8f` | 1,369,334 | 435,692 | 0 |
-| Production H `f49b67d6ac33b3c9be4ba65def6ee8f33337de4e` | 1,278,789 | 411,916 | 0 |
+| Production H `3b0bea12bd45188b68699c70b20b91416fae5b81` | 1,278,942 | 411,947 | 0 |
 
-The reduction is **23,776 gzip bytes**, exceeding 16,384 by 7,392. Headroom is **25,898 bytes** under the unchanged 437,814 ceiling. The refreshed pair follows a conflict-free merge of main's #5576, which repairs CI's stale fixed-length MCP test array by deriving tools from declarations. The original pair (`5307469e18b650bca8297bbfd782cbbb72b89e23` / `d41c839fa042a4ab025cfd29b41accd3f6eee984`) and earlier attribution at `4433b54af` have identical production inputs and results. Later commits change only this evidence. No dependency, bundler, counting, compression or budget configuration changes.
+The reduction is **23,745 gzip bytes**, exceeding 16,384 by 7,361. Headroom is **25,867 bytes** under the unchanged 437,814 ceiling. The refreshed pair follows a conflict-free merge of main's #5576, which repairs CI's stale fixed-length MCP test array by deriving tools from declarations. The original pair (`5307469e18b650bca8297bbfd782cbbb72b89e23` / `d41c839fa042a4ab025cfd29b41accd3f6eee984`) and earlier attribution at `4433b54af` reproduce 435,692 → 411,916. The fix also directly loads Todo creation during recovery, removing its remaining registration dependency; this adds 31 gzip bytes. Later commits change only this evidence. No dependency, bundler, counting, compression or budget configuration changes.
 
 Before selecting deferrals, the production manifest, `.vite/modules.json` and installed visualizer attributed the largest static chunks:
 
@@ -741,7 +741,7 @@ Before selecting deferrals, the production manifest, `.vite/modules.json` and in
 | preferences | 19,572 | Tauri, storage, contract discovery, preferences |
 | scrollHover | 18,563 | OverlayScrollbars and styles, Terminal links |
 
-Static paths included App → TodoHost/PadHost, Switcher → those editors, Inbox → TodoHost, toast watch → both editors, TodoRefs → PadHost, and DraftRecovery → PadDrawer. Native Solid `lazy`/dynamic imports now cut those paths. Recovery loads TodoDrawer directly instead of depending on its eager module-registration side effect. Shelf editors were already behind the Shelf's dynamic modules. Drag and shared infrastructure remain eager; Terminal remains lazy. No new loading/failure presentation is introduced.
+Static paths included App → TodoHost/PadHost, Switcher → those editors, Inbox → TodoHost, toast watch → both editors, TodoRefs → PadHost, and DraftRecovery → PadDrawer. Native Solid `lazy`/dynamic imports now cut those paths. Recovery loads TodoDrawer and Todos directly instead of depending on eager module-registration side effects. The unused editor registry is removed. Shelf editors were already behind the Shelf's dynamic modules. Drag and shared infrastructure remain eager; Terminal remains lazy. No new loading/failure presentation is introduced.
 
 | Attempt | Gzip total | Reduction from B | Disposition |
 |---|---:|---:|---|
@@ -751,7 +751,8 @@ Static paths included App → TodoHost/PadHost, Switcher → those editors, Inbo
 | Settings + changed-file tree/diff + Pad, notes eager | 422,580 | 13,112 | Discarded |
 | Above + Todo editor | 400,525 | 35,167 | Discarded in favor of smaller scope |
 | Todo + Pad only, before final recovery cleanup | 411,924 | 23,768 | Superseded |
-| Committed Todo + Pad only | 411,916 | 23,776 | Selected |
+| Todo + Pad only, existing Todo recovery direct | 411,916 | 23,776 | Superseded |
+| Above + new Todo recovery direct | 411,947 | 23,745 | Selected |
 
 All measurement commands above exited 0. Experiments also exposed a settings Suspense regression and changed-file observer failures; those production changes were discarded. The optional Todo failure capture used a checkbox selector retired on main; its selector now follows the existing metadata checkbox, preserving the same actions and assertions. No test was removed or weakened.
 
@@ -760,3 +761,5 @@ Reproduce B and H in separate worktrees with their locked dependencies: `pnpm in
 Raw commands, exit codes, counted-file reports, module attribution, visualizer output, failed attempts and validation logs are retained in [Builder 41378367430](https://github.com/roundup-app/roundup/actions/runs/41378367430), artifact `answer-5594`, directory `r5594`. Existing Pad/focus/keyboard/Switcher/toast observers pass 173 tests; Todo/recovery observers pass 96; the final Todo/ref/recovery/R3800 shell/lazy-Terminal group passes 45, and startup-checker tests pass 3. Dark 1512×950 `U3760` captures pass D2/D5/D6; Todo and Pad failure visibility and clearing pass the rendered P3557c observers, with D2/D5/D6 passing in every retained dark editor/failure capture. Full required CI lanes remain the merge gate.
 
 The fix-run pair above was rebuilt in fresh worktrees after merging #5576; its raw checker reports and exact commands are retained in [PR #5599](https://github.com/roundup-app/roundup/pull/5599). Earlier module attribution and rendered evidence remain in the original artifact.
+
+The existing `u3021c_open_restores_exact_revision_without_rpc_todos_creation` assertion failed before the new-Todo recovery repair (exit 1): Open found no field containing the exact draft. No test was changed or removed. Its full App recovery file and Todo creation file now pass all 34 tests (exit 0); the focused editor/reference/focus/startup group passes 44 (exit 0). MCP test compilation passes `cargo clippy -p rup --test mcp -- -D warnings` (exit 0).
