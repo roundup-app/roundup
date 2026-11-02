@@ -38,15 +38,19 @@ impl Rail {
         db.set_transaction_behavior(rusqlite::TransactionBehavior::Immediate);
         db.pragma_update(None, "journal_mode", "WAL")?;
         crate::schema::open(&mut db, path)?;
+        let obsolete: bool = db.query_row(
+            "SELECT EXISTS(SELECT 1 FROM nodes WHERE kind NOT IN ('workstream','agent') OR (kind='workstream' AND parent IS NOT NULL))",
+            [], |r| r.get(0),
+        )?;
+        if obsolete {
+            let folder = std::path::absolute(path.parent().unwrap_or(Path::new(".")))?;
+            return Err(OpenError::from(format!(
+                "Local data is incompatible with this build; close roundup and delete {} to start fresh.",
+                folder.display()
+            )));
+        }
         // Terminal ids restart at 1 with the Daemon, so a stored id could name an unrelated Terminal.
         db.execute("UPDATE nodes SET terminal_id = NULL", [])?;
-        // A25: a Rail stored by an earlier Daemon holds `room` where this one writes `workstream`.
-        db.execute(
-            "UPDATE nodes SET kind = 'workstream' WHERE kind = 'room'",
-            [],
-        )?;
-        drop_terminal_nodes(&db)?;
-        flatten_workstreams(&mut db)?;
         Ok(Self {
             db,
             tree_capacity: Default::default(),
@@ -603,29 +607,6 @@ fn sql(err: rusqlite::Error) -> RpcError {
     RpcError::internal(err)
 }
 
-/// X11: a Rail stored by an earlier Daemon may hold nodes of kind `terminal`; their programs are
-/// gone, so they go, and each parent's remaining children close the gap.
-fn drop_terminal_nodes(db: &Connection) -> rusqlite::Result<()> {
-    let parents: Vec<Option<i64>> = db
-        .prepare("SELECT DISTINCT parent FROM nodes WHERE kind = 'terminal'")?
-        .query_map([], |row| row.get(0))?
-        .collect::<Result<_, _>>()?;
-    db.execute("DELETE FROM nodes WHERE kind = 'terminal'", [])?;
-    for parent in parents {
-        let ids: Vec<i64> = db
-            .prepare("SELECT id FROM nodes WHERE parent IS ? ORDER BY ord, id")?
-            .query_map(params![parent], |row| row.get(0))?
-            .collect::<Result<_, _>>()?;
-        for (at, id) in ids.iter().enumerate() {
-            db.execute(
-                "UPDATE nodes SET ord = ? WHERE id = ?",
-                params![at as i64, id],
-            )?;
-        }
-    }
-    Ok(())
-}
-
 /// O3: the order a Workstream's Door holds when none was given. An Agent holds none (O2).
 fn workstream_order() -> Order {
     Order::clarification("What is this Workstream for?")
@@ -672,49 +653,6 @@ fn check_parent(nodes: &[RailNode], kind: NodeKind, parent: Option<&str>) -> Res
         ))),
         (NodeKind::Agent, _) => Ok(()),
     }
-}
-
-/// A26: a Rail stored by an earlier Daemon may hold a Workstream under another. Each moves to
-/// the root, after the last root node, in the order of depth then `order`; the siblings it leaves
-/// stay contiguous from 0. Nothing else changes.
-fn flatten_workstreams(db: &mut Connection) -> Result<(), RpcError> {
-    let tx = db.transaction().map_err(sql)?;
-    let nodes = load(&tx)?;
-    let depth = |node: &RailNode| {
-        let mut depth = 0;
-        let mut at = node.parent.as_deref();
-        while let Some(parent) = at.filter(|_| depth <= nodes.len()) {
-            depth += 1;
-            at = nodes
-                .iter()
-                .find(|candidate| candidate.id == parent)
-                .and_then(|candidate| candidate.parent.as_deref());
-        }
-        depth
-    };
-    let mut nested: Vec<&RailNode> = nodes
-        .iter()
-        .filter(|node| node.kind == NodeKind::Workstream && node.parent.is_some())
-        .collect();
-    if nested.is_empty() {
-        return Ok(());
-    }
-    nested.sort_by_key(|node| (depth(node), node.order, node.id.parse::<i64>().unwrap_or(0)));
-    let mut roots = siblings(&nodes, None);
-    let left: Vec<String> = nested
-        .iter()
-        .filter_map(|node| node.parent.clone())
-        .collect();
-    roots.extend(nested.iter().map(|node| node.id.clone()));
-    place(&tx, None, &roots)?;
-    for parent in left {
-        let rest: Vec<String> = siblings(&nodes, Some(&parent))
-            .into_iter()
-            .filter(|id| nested.iter().all(|node| &node.id != id))
-            .collect();
-        place(&tx, Some(&parent), &rest)?;
-    }
-    tx.commit().map_err(sql)
 }
 
 /// Is `node` the ancestor `id` or a descendant of it?
