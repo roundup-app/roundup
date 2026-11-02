@@ -801,9 +801,9 @@
 
 .held-row { display: flex; align-items: baseline; gap: var(--space-2); width: 100%; text-align: left; }
 .held-content { display: flex; flex: 1; min-width: 0; flex-direction: column; }
-.held-content > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.held-content span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .held-row time { color: var(--grey); font-size: var(--text-caption); }
 
-.rail-footer [data-scope="collapsible"][data-part="content"] { max-height: calc(var(--space-6) * 6); overflow-y: auto; }
+.rail-footer [data-scope="collapsible"][data-part="content"] { max-height: calc(var(--space-6) * 6); overflow-y: auto; overscroll-behavior: contain; }
 
 .alert-level, .held-line { color: var(--grey); font-size: var(--text-caption); }
