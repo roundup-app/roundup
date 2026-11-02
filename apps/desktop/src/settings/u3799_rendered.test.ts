@@ -136,7 +136,7 @@ it.skipIf(!captureDir("U4277c")).each(["tree-40", "tabs-8"].flatMap(seed =>
           await capture(`${view}-selected`);
           await lane.evaluate(`(() => {window.__fake.app.handlers['project.importCommit'] = () => ({outcomes:[{source:'s0',workstream:'imported',agent:'imported-agent',error:null},{source:'s1',workstream:null,agent:null,error:{code:-32003,message:'Storage is unavailable. Free disk space, refresh the conversation list, then retry the selected conversation. '+ 'Complete recovery details '.repeat(15),outcome:'failed'}}]});return true;})()`);
           await lane.browser("click", ".import-confirm");
-          await lane.until("document.querySelector('.import-panel').textContent.includes('Refresh to check available conversations')");
+          await lane.until("document.querySelector('.import-panel').textContent.includes('Retry to check available conversations')");
         }
 
         await capture(`${view}-${filled ? "filled" : "empty"}`);

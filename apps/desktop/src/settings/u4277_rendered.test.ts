@@ -132,7 +132,7 @@ it.skipIf(!captureDir("U4277a"))("u5621_u4277a_u4277b_u4277c_requested_screens_d
         if (command === "import-work") await lane.until("!!document.querySelector('.import-panel') && !document.querySelector('.import-panel [aria-busy=true]')");
 
         if (command === "import-work") {
-          await lane.evaluate(`Array.from(document.querySelectorAll('.settings-view button')).find(button => button.textContent === 'Refresh').click()`);
+          await lane.evaluate(`Array.from(document.querySelectorAll('.settings-view button')).find(button => button.textContent === 'Last month').click()`);
 
           if (state === "filled") await lane.until("!!document.querySelector('.import-check')");
         }

@@ -60,7 +60,7 @@ const readers: { site: string; method: "todo.unread" | "todo.comments" | "todo.g
   { site: "Todo history", method: "todo.getHistory", render: () => <TodoComments id={1} />, refresh: m => m.app.emit(event({ name: "todo.deleted", data: { id: 2 } })) },
   { site: "Todo Pad references", method: "todo.refs", render: () => <TodoRefs id={1} />, refresh: m => m.app.emit(event({ name: "pad.changed", data: { name: "Plan" } })) },
   { site: "Pads", method: "pad.list", render: () => <Pads />, refresh: m => m.app.emit(event({ name: "pad.changed", data: { name: "Plan" } })) },
-  { site: "Reactions", method: "reaction.list", render: () => <ReactionSite />, refresh: () => window.dispatchEvent(new Event("focus")) },
+  { site: "Reactions", method: "reaction.list", render: () => <ReactionSite />, refresh: m => m.app.emit(event({ name: "reaction.changed" })) },
   { site: "Work progress", method: "message.progress", render: () => <WorkProgress id="a" />, refresh: m => m.app.emit(event({ name: "rail.changed" })) },
 ];
 
@@ -147,7 +147,7 @@ const cycle = async <Shown, Cleared,>(surface: HTMLElement, show: () => Shown, h
 };
 
 it("u3807_each_site_shows_its_message_in_the_reserved_line: Diff reader", async () => {
-  const mounted = await mountTodos([]);
+  const mounted = await mountControl();
   mounted.app.handlers["agent.compareFile"] = () => ({ ...COMPARISON, status: null });
   const notes = notesFor(mounted.app, mounted.connected.project.path, mounted.connected.drafts);
   const view = render(() => <ConnectedProjectContext.Provider value={mounted.connected}><DiffReader id="a" name="alpha" path="a.ts" notes={notes} onEdited={() => {}} onBack={() => {}} onClose={() => {}} recover={() => {}} /></ConnectedProjectContext.Provider>);
@@ -155,7 +155,7 @@ it("u3807_each_site_shows_its_message_in_the_reserved_line: Diff reader", async 
   await cycle(view.container,
     () => { mounted.app.handlers["agent.compareFile"] = () => { throw new RpcError(-32003, FAILURE); };
 
- fireEvent.click(within(view.container).getByRole("button", { name: "Refresh" })); },
+ return mounted.connected.worktrees.refresh("a"); },
     () => { mounted.app.handlers["agent.compareFile"] = () => ({ ...COMPARISON, status: null }); fireEvent.click(within(view.container).getByRole("button", { name: "Retry" })); });
 });
 
