@@ -63,7 +63,7 @@ fn b24_only_a_door_brief_carries_the_role_guidance() {
     let door = brief(&s, "7", Role::Door);
     let agent = brief(&s, "8", Role::Agent);
     assert!(door.contains("coordinating Door"));
-    assert!(door.contains("ask with `AskUserQuestion`"));
+    assert!(door.contains("follow the Asking rules below"));
     assert!(door.contains("Report the outcome directly in your Terminal"));
     // B4699c permits block-reporting guidance, but no coordinating-role instructions.
     assert!(
@@ -71,7 +71,7 @@ fn b24_only_a_door_brief_carries_the_role_guidance() {
             .lines()
             .filter(|line| !line.starts_with("- `"))
             .all(|line| !line.contains("Door")
-                || line.starts_with("If you have a coordinating Door"))
+                || line.starts_with("If your Context names a coordinating Agent"))
     );
     assert!(!agent.contains("Your role"));
 }
@@ -86,7 +86,7 @@ fn f8_the_door_brief_delegates_and_uses_its_terminal() {
         "Delegate implementation to children with `agent_spawn`",
         "You cannot execute commands or open or write to a Terminal",
         "Report the outcome directly in your Terminal",
-        "ask with `AskUserQuestion`",
+        "follow the Asking rules below",
         "`order`",
         "`prompt`",
         "You write orders only for the Agents you spawn",
@@ -160,19 +160,6 @@ fn b4699a_the_door_brief_delegates_shaping_to_one_child() {
 fn b4699b_the_door_brief_forbids_reasking_for_authorized_actions() {
     let text = brief(&setup(), "7", Role::Door);
     assert!(text.contains("Never add a child limit asking the user to approve an action they already authorized, such as asking before each `gh issue create`. Preserve their actual limits and the vendor's permission mechanism."));
-}
-
-#[test]
-fn b4699c_each_brief_routes_child_blocks_to_the_door() {
-    let s = setup();
-    for role in [Role::Door, Role::Agent, Role::Scout] {
-        let text = brief(&s, "7", role);
-        assert!(text.contains("If you have a coordinating Door and cannot proceed within your order, report the block and the decision needed to that Door with `message_send`, not `AskUserQuestion`; engineering choices within existing authorization go to the Door."), "{role:?}");
-        assert!(text.contains("Only a decision reserved to the user by their stated limits, or an unresolved goal or taste choice, goes to the user with `AskUserQuestion`. A vendor permission prompt remains the user's to answer; never seek its answer from the Door."), "{role:?}");
-        if role == Role::Door {
-            assert!(text.contains("Include in child orders: report blocks and the decision needed to this Door with `message_send`; ask the user only for decisions that are theirs alone, and leave vendor permission prompts to them."));
-        }
-    }
 }
 
 #[test]
@@ -281,6 +268,21 @@ fn b5168g_no_coordinator_brief_asks_the_user_to_run_a_covered_gh_command() {
             "gh issue view",
         ] {
             assert!(!text.contains(command), "{command}");
+        }
+    }
+}
+
+#[test]
+fn b4699c_each_brief_routes_child_blocks_to_the_door() {
+    for role in [Role::Door, Role::Agent, Role::Scout] {
+        let text = brief(&setup(), "7", role);
+        assert!(text.contains("If you cannot proceed within your order, report the block and the choice needed to that coordinator."));
+        if role == Role::Door {
+            assert!(
+                text.contains(
+                    "Include in child orders: send every question and block to this Door"
+                )
+            );
         }
     }
 }

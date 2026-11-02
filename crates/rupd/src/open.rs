@@ -347,6 +347,7 @@ impl Daemon {
             Arc::clone(&self.touches),
             std::env::var_os("RUPD_DIGEST_OBSERVER").map(std::path::PathBuf::from),
         )
+        .with_agents(Arc::clone(&self.agents))
     }
 
     pub(crate) fn register(&mut self, module: Arc<dyn Module>) {

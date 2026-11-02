@@ -17,6 +17,7 @@ use tokio::sync::broadcast::error::RecvError;
 /// nothing and logs no Touch.
 #[derive(Clone)]
 pub struct Reader {
+    agents: Option<Arc<agents::Agents>>,
     modules: HashMap<&'static str, Arc<dyn Module>>,
     bus: Bus,
     touches: Arc<provenance::Touches>,
@@ -35,11 +36,17 @@ impl Reader {
             .filter_map(|name| modules.get(name).map(|module| (*name, Arc::clone(module))))
             .collect();
         Self {
+            agents: None,
             modules,
             bus,
             touches,
             observer,
         }
+    }
+
+    pub(crate) fn with_agents(mut self, agents: Arc<agents::Agents>) -> Self {
+        self.agents = Some(agents);
+        self
     }
 
     /// B21's isolated observer acknowledges the snapshot only after every push was judged.
@@ -98,6 +105,10 @@ impl Reader {
                 .await?,
             pads,
             touches,
+            completed: self
+                .agents
+                .as_ref()
+                .map_or_else(HashMap::new, |agents| agents.completed_text()),
             // The user sees every Message; `message.list` shows the Daemon only its own.
             messages: self
                 .call("message", "message.list", json!({}), Actor::user())
@@ -107,6 +118,7 @@ impl Reader {
 }
 
 pub struct World {
+    completed: HashMap<String, (String, i64, String)>,
     nodes: Vec<contracts::agent::RailNode>,
     todos: Vec<contracts::todo::Todo>,
     pads: Vec<contracts::pad::Pad>,
@@ -125,6 +137,7 @@ impl World {
 
     pub fn sources(&self) -> messages::digest::Sources<'_> {
         messages::digest::Sources {
+            completed: self.completed.clone(),
             nodes: &self.nodes,
             todos: &self.todos,
             pads: &self.pads,
