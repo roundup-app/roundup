@@ -113,7 +113,7 @@ it.skipIf(!!process.env.ROUNDUP_CAPTURES && !captureDir("U350")).each(["tree-40"
 }, 60_000);
 
 // U427/U428 policy: readings and paired pixels are evidence for the critic, not layout tests.
-it.skipIf(!captureDir("U427") && !captureDir("U428"))("u427_u428_menu_only_policy_capture", async () => {
+it.skipIf(!captureDir("U427") && !captureDir("U428")).each(["agents-10", "tree-40"])("u427_u428_menu_only_policy_capture_%s", async seed => {
   const root = resolve("../..");
   const checkout = mkdtempSync(join(tmpdir(), "rail-actions-base-"));
   const revision = execFileSync("git", ["rev-parse", "origin/main"], { encoding: "utf8" }).trim();
@@ -132,78 +132,76 @@ it.skipIf(!captureDir("U427") && !captureDir("U428"))("u427_u428_menu_only_polic
 
   try {
     for (const base of [true, false]) {
-      for (const seed of ["agents-10", "tree-40"]) {
-        await browser("set", "media", "dark");
-        await browser("set", "viewport", "1512", "950");
-        await browser("open", base ? new URL(`/harness.html?seed=${seed}&view=workstreams&items=1&tabs=1`, baseline.resolvedUrls.local[0]!).href : url(`/harness.html?seed=${seed}`));
-        await wait("!!window.__fake && !!document.querySelector('.rail-row')");
+      await browser("set", "media", "dark");
+      await browser("set", "viewport", "1512", "950");
+      await browser("open", base ? new URL(`/harness.html?seed=${seed}&view=workstreams&items=1&tabs=1`, baseline.resolvedUrls.local[0]!).href : url(`/harness.html?seed=${seed}`));
+      await wait("!!window.__fake && !!document.querySelector('.rail-row')");
 
-        const ids = await read<{ workstream: string; agent: string }>(`(async () => {
-          const app = window.__fake.app;
-          const nodes = await app.rpc('rail.tree', null);
-          const workstream = nodes.find(n => n.kind === 'workstream' && n.terminal_id) ?? nodes.find(n => n.kind === 'workstream') ?? await app.rpc('rail.createWorkstream', {name:'Product work',parent:null});
-          const agent = nodes.find(n => n.kind === 'agent');
-          for (const node of [workstream, agent]) await app.rpc('rail.rename', {id:node.id,name:(node.kind === 'agent' ? 'Agent implementation review ' : 'Workstream implementation review ').padEnd(60,'abcdefghij')});
-          document.querySelector('.window').style.setProperty('--rail-width','288px');
-          return {workstream:workstream.id,agent:agent.id};
-        })()`);
+      const ids = await read<{ workstream: string; agent: string }>(`(async () => {
+        const app = window.__fake.app;
+        const nodes = await app.rpc('rail.tree', null);
+        const workstream = nodes.find(n => n.kind === 'workstream' && n.terminal_id) ?? nodes.find(n => n.kind === 'workstream') ?? await app.rpc('rail.createWorkstream', {name:'Product work',parent:null});
+        const agent = nodes.find(n => n.kind === 'agent');
+        for (const node of [workstream, agent]) await app.rpc('rail.rename', {id:node.id,name:(node.kind === 'agent' ? 'Agent implementation review ' : 'Workstream implementation review ').padEnd(60,'abcdefghij')});
+        document.querySelector('.window').style.setProperty('--rail-width','288px');
+        return {workstream:workstream.id,agent:agent.id};
+      })()`);
 
-        await wait(`document.querySelector('.rail-row[data-id="${ids.workstream}"] .name')?.textContent.length === 60 && document.querySelector('.rail-row[data-id="${ids.agent}"] .name')?.textContent.length === 60`);
+      await wait(`document.querySelector('.rail-row[data-id="${ids.workstream}"] .name')?.textContent.length === 60 && document.querySelector('.rail-row[data-id="${ids.agent}"] .name')?.textContent.length === 60`);
 
-        for (const [kind, id] of Object.entries(ids)) {
-          const directory = captureDir(kind === "workstream" ? "U427" : "U428");
+      for (const [kind, id] of Object.entries(ids)) {
+        const directory = captureDir(kind === "workstream" ? "U427" : "U428");
 
-          if (!directory) continue;
-          const dir = join(directory, base ? "base" : "head");
-          mkdirSync(dir, { recursive: true });
-          const selector = `.rail-row[data-id="${id}"]`;
+        if (!directory) continue;
+        const dir = join(directory, base ? "base" : "head");
+        mkdirSync(dir, { recursive: true });
+        const selector = `.rail-row[data-id="${id}"]`;
 
-          const snap = async (state: string) => {
-            const name = `${seed}-${state}`;
-            await browser("screenshot", join(dir, `${name}.png`));
+        const snap = async (state: string) => {
+          const name = `${seed}-${state}`;
+          await browser("screenshot", join(dir, `${name}.png`));
 
-            const audit = await read<{ checks: unknown }>(`(() => {
-              const row = document.querySelector('${selector}');
-              const name = row.querySelector('.name');
-              const icons = row.querySelector('.row-icons');
-              const box = el => {const b=el.getBoundingClientRect();return {left:b.left,right:b.right,width:b.width,height:b.height};};
-              return {revision:${JSON.stringify(base ? revision : "working-tree")},checks:window.__checks(), row:box(row), name:box(name), uncoveredWidth:Math.min(name.getBoundingClientRect().right, icons && Number(getComputedStyle(icons).opacity) > 0 ? icons.getBoundingClientRect().left : name.getBoundingClientRect().right) - name.getBoundingClientRect().left, icons:icons ? {box:box(icons),opacity:getComputedStyle(icons).opacity,buttons:[...icons.querySelectorAll('button')].map(b=>b.getAttribute('aria-label'))}:null, selected:row.dataset.selected, focus:document.activeElement?.getAttribute('aria-label'), menus:window.__fake.app.menuLabels(), failure:document.querySelector('.rail-command-notice')?.textContent};
-            })()`);
+          const audit = await read<{ checks: unknown }>(`(() => {
+            const row = document.querySelector('${selector}');
+            const name = row.querySelector('.name');
+            const icons = row.querySelector('.row-icons');
+            const box = el => {const b=el.getBoundingClientRect();return {left:b.left,right:b.right,width:b.width,height:b.height};};
+            return {revision:${JSON.stringify(base ? revision : "working-tree")},checks:window.__checks(), row:box(row), name:box(name), uncoveredWidth:Math.min(name.getBoundingClientRect().right, icons && Number(getComputedStyle(icons).opacity) > 0 ? icons.getBoundingClientRect().left : name.getBoundingClientRect().right) - name.getBoundingClientRect().left, icons:icons ? {box:box(icons),opacity:getComputedStyle(icons).opacity,buttons:[...icons.querySelectorAll('button')].map(b=>b.getAttribute('aria-label'))}:null, selected:row.dataset.selected, focus:document.activeElement?.getAttribute('aria-label'), menus:window.__fake.app.menuLabels(), failure:document.querySelector('.rail-command-notice')?.textContent};
+          })()`);
 
-            writeFileSync(join(dir, `${name}.audit.json`), JSON.stringify(audit, null, 2) + "\n");
-            writeFileSync(join(dir, `${name}.checks.json`), JSON.stringify(audit.checks, null, 2) + "\n");
-          };
+          writeFileSync(join(dir, `${name}.audit.json`), JSON.stringify(audit, null, 2) + "\n");
+          writeFileSync(join(dir, `${name}.checks.json`), JSON.stringify(audit.checks, null, 2) + "\n");
+        };
 
-          await browser("eval", "document.activeElement?.blur()");
-          await browser("mouse", "move", "1400", "900");
-          await snap("rest");
-          await browser("hover", `${selector} .name`);
-          await snap("hover");
-          await browser("mouse", "move", "1400", "900");
-          await browser("focus", selector);
-          await wait(`document.activeElement.matches('${selector}')`);
-          await snap("focus");
-          await clickName(selector);
-          await wait(`document.querySelector('${selector}').dataset.selected === 'true'`);
-          await snap("selected-hover");
-          await browser("eval", "document.activeElement?.blur()");
-          await browser("mouse", "move", "1400", "900");
-          await snap("selected");
-          await browser("focus", selector);
-          await snap("selected-focus");
+        await browser("eval", "document.activeElement?.blur()");
+        await browser("mouse", "move", "1400", "900");
+        await snap("rest");
+        await browser("hover", `${selector} .name`);
+        await snap("hover");
+        await browser("mouse", "move", "1400", "900");
+        await browser("focus", selector);
+        await wait(`document.activeElement.matches('${selector}')`);
+        await snap("focus");
+        await clickName(selector);
+        await wait(`document.querySelector('${selector}').dataset.selected === 'true'`);
+        await snap("selected-hover");
+        await browser("eval", "document.activeElement?.blur()");
+        await browser("mouse", "move", "1400", "900");
+        await snap("selected");
+        await browser("focus", selector);
+        await snap("selected-focus");
+        await rightClick(selector);
+        await wait("window.__fake.app.menuLabels().includes('Open in editor')");
+        await snap("menu");
+        await read("window.__fake.app.closeMenu()");
+
+        if (seed === "tree-40") {
+          await read("window.__fake.app.editorFailure = new Error('Editor unavailable; install VS Code or Cursor')");
           await rightClick(selector);
-          await wait("window.__fake.app.menuLabels().includes('Open in editor')");
-          await snap("menu");
-          await read("window.__fake.app.closeMenu()");
-
-          if (seed === "tree-40") {
-            await read("window.__fake.app.editorFailure = new Error('Editor unavailable; install VS Code or Cursor')");
-            await rightClick(selector);
-            await read("window.__fake.app.pickMenu('Open in editor')");
-            await wait("document.body.textContent.includes('Editor unavailable; install VS Code or Cursor')");
-            await snap("failure");
-            await read("window.__fake.app.editorFailure = null");
-          }
+          await read("window.__fake.app.pickMenu('Open in editor')");
+          await wait("document.body.textContent.includes('Editor unavailable; install VS Code or Cursor')");
+          await snap("failure");
+          await read("window.__fake.app.editorFailure = null");
         }
       }
     }
