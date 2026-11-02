@@ -29,7 +29,8 @@ const open = async (width: number, scheme: (typeof SCHEMES)[number]) => {
 
 const select = async (id: string) => {
   await page.call(`(id) => document.querySelector('.rail-row[data-id="' + id + '"]').click()`, id);
-  await page.until(`() => Boolean(document.querySelector('.pane-screen'))`);
+  await page.until(`() => Boolean(document.querySelector('.pane-screen .xterm-helper-textarea'))`);
+  await page.call(`() => document.querySelector('.pane-screen .xterm-helper-textarea').focus()`);
 };
 
 const readChecks = (): Promise<Checks> => page.call<Checks>(`() => window.__checks()`);
