@@ -141,15 +141,17 @@ it("u4698b_expand_keeps_the_long_pad_and_all_formats_reachable", { retry: 0, tim
 
 describe("U5631 Todo block menus", () => {
   beforeEach(async ({ task }) => {
-    await openShelf("tree-40", 288, 320, 1512, "dark");
     await browser("set", "viewport", "1512", "950");
 
+    // Recording keeps the prior context alive. Start from the static fixture so it
+    // does not keep a second App rendering behind the scenario's recorded context.
     if (menuOutput) {
       mkdirSync(menuOutput, { recursive: true });
       await browser("record", "start", join(menuOutput, `${task.name}.webm`));
-      await browser("wait", ".shelf-tabs");
-      await browser("set", "media", "dark");
     }
+
+    await openShelf("tree-40", 288, 320, 1512, "dark");
+    await browser("set", "viewport", "1512", "950");
   }, 90_000);
 
 it.each(["plus", "slash"].flatMap(entry => [false, true].map(afterPad => ({ entry, afterPad }))))("u5631_todo_block_menu_excludes_agent_details $entry afterPad=$afterPad", { retry: 0, timeout: 90_000 }, async ({ entry, afterPad }) => {
@@ -180,7 +182,6 @@ it.each(["plus", "slash"].flatMap(entry => [false, true].map(afterPad => ({ entr
       await settle();
       await browser("keyboard", "type", "/For Agents");
       await browser("wait", ".milkdown-slash-menu[data-show=true] li[data-index]");
-      await shot("pad-menu");
       await browser("press", "Escape");
       await settle();
       await browser("click", ".drawer .close");
@@ -250,7 +251,6 @@ it.each(["plus", "slash"].flatMap(entry => [false, true].map(afterPad => ({ entr
 
     if (entry === "slash") expect(unfinished).toEqual([{ destination: { surface: "todos", object: "1", recipient: "body" }, text: body + "\n\n/For Agents" }]);
 
-    await shot("keyboard");
     await browser("press", "Escape");
     await settle();
     expect(await retained()).toEqual(unfinished);
