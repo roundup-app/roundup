@@ -48,7 +48,7 @@ const mountApp = async (seed: SeedName = "tree-40", reducedMotion = true) => {
 
 const shelf = () => document.querySelector<HTMLElement>(".shelf")!;
 
-const tabs = () => within(screen.getByRole("tablist", { name: "Bench" })).getAllByRole("tab");
+const tabs = () => within(screen.getByLabelText("Bench", { selector: '[role="tablist"]' })).getAllByRole("tab");
 
 const tabNamed = (name: string) => tabs().find((tab) => tab.textContent!.startsWith(name))!;
 
@@ -205,7 +205,7 @@ describe("u373 the Shelf has two tabs", () => {
     batch(cleanup);
     render(() => <App app={first.app} reducedMotion={() => true} clock={Date.now} createEmulator={fakeEmulators().factory} />);
     await screen.findAllByRole("treeitem");
-    expect(within(screen.getByRole("tablist", { name: "Bench" })).getByRole("tab", { selected: true }).id).toBe(chosen);
+    expect(within(screen.getByLabelText("Bench", { selector: '[role="tablist"]' })).getByRole("tab", { selected: true }).id).toBe(chosen);
   });
 
   it("u373_a_bad_stored_value_means_todos", async () => {
