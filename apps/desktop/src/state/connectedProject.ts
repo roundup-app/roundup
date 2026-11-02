@@ -1,3 +1,4 @@
+import { createHeld } from "./held";
 import { createTodoUndo } from "../todos/deleteTodos";
 import type { RpcMethodName } from "@contracts/methods";
 import { retryRead } from "../app/seam";
@@ -20,7 +21,7 @@ import { createAsks } from "./asks";
 import type { AsksState } from "./asks";
 import { syncTerminalScheme } from "../terminal/scheme";
 import { createRailState } from "./rail";
-import { dismissalStorage } from "../rail/persist/storage";
+import { dismissalStorage, resumptionStorage } from "../rail/persist/storage";
 import { createUnseen, unseenStorage } from "./unseen";
 import type { UnseenState } from "./unseen";
 import { createQueue } from "./queue";
@@ -136,6 +137,7 @@ export type ConnectedProject = {
   app: AppSeam;
   events: Events;
   rail: RailState;
+  held: ReturnType<typeof createHeld>;
   /** U3566: the Agents whose latest finish the user has not viewed. */
   unseen: UnseenState;
   /** U3744: the Workstreams waiting to start. */
@@ -235,13 +237,14 @@ export const connectProject = async (
   const rail = createRoot(dispose => {
     stopRail = dispose;
 
-    return createRailState(app, events, storage, dismissalStorage(project.path));
+    return createRailState(app, events, storage, dismissalStorage(project.path), resumptionStorage(project.path));
   });
 
   if (ended) stopRail();
 
   await rail.settled();
 
+  const held = createHeld(project.path, cause => rail.commandFailure.show(cause, null, "rail"));
   const settingsView = drafts.settingsView;
   let stopUnseen = () => {};
 
@@ -319,7 +322,7 @@ export const connectProject = async (
 
   const hideView = (name: string) => { setViews(previous => previous.includes(name) ? previous.filter(value => value !== name) : previous); };
 
-  return { creation, createIn, finishCreation, padsTab, padsRequest, padsOwner, showPadsOf, finishPadsRequest, view, hasView, showView, hideView, project, drafts, app, events, rail, terminalScheme, unseen, queue, importing, worktrees: createWorktreeState(app, rail, now, daemonExit), drawer: createDrawer(), asks, settingsView: drafts.settingsView, notes: createNoteQueue(app, events, daemonExit), reducedMotion, now, contractNotice, daemonExit, stopTerminalScheme: () => { stopRail(); stopQueue(); stopUnseen(); stopAsks(); terminalScheme.stop(); } };
+  return { creation, createIn, finishCreation, padsTab, padsRequest, padsOwner, showPadsOf, finishPadsRequest, view, hasView, showView, hideView, project, drafts, app, events, rail, held, terminalScheme, unseen, queue, importing, worktrees: createWorktreeState(app, rail, now, daemonExit), drawer: createDrawer(), asks, settingsView: drafts.settingsView, notes: createNoteQueue(app, events, daemonExit), reducedMotion, now, contractNotice, daemonExit, stopTerminalScheme: () => { stopRail(); stopQueue(); stopUnseen(); stopAsks(); terminalScheme.stop(); } };
 };
 
 /** App-run authority for owners outside a connection, including Project tabs.
