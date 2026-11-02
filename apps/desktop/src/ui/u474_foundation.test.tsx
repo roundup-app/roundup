@@ -160,7 +160,7 @@ const openDrawerButton = async () => {
   showShelfTab("Pads");
 
   const group = await waitFor(() => {
-    const group = document.querySelector('.pads-tab [data-shelf-group="w"]');
+    const group = document.querySelector<HTMLElement>('.pads-tab [data-shelf-group="w"]');
     expect(group).not.toBeNull();
 
     return group!;
