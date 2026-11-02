@@ -21,6 +21,7 @@ export function captureDir(id: string): string | null {
 // and scheduling; this table only names the existing observer files.
 const observerTable = {
   "src/rail/u5555_browser.test.ts": ["U5217", "U5555", "U4313b"],
+  "src/rail/u5501_capture.test.ts": ["U5501"],
   "src/app/u3560_browser.test.ts": ["U3560e"],
   "src/app/u3787f_browser.test.ts": ["U3787f"],
   "src/app/u3791c_rendered.test.ts": ["U3791c"],
@@ -93,7 +94,7 @@ const observerTable = {
   "src/terminal/u4453a_terminal_only.test.tsx": ["U4453a", "U4453b"],
   "src/terminal/u4590_preparation.test.tsx": ["U4590"],
   "src/terminal/u467_browser.test.ts": ["U467", "U468"],
-  "src/terminal/u514_browser.test.ts": ["U3529", "U3529a", "U3529b", "U3529c", "U3529d", "U5515a", "U5515b", "U5515c", "U5515d", "U5515e"],
+  "src/terminal/u514_browser.test.ts": ["U3529", "U3529a", "U3529b", "U3529c", "U3529d", "U5515a", "U5515b", "U5515c", "U5515d", "U5515e", "U5549a", "U5549b", "U5549c", "U5549d"],
   "src/terminal/u59_real_daemon.test.ts": ["U4590"],
   "src/testing/u2875d_rendered.test.ts": ["U2875d"],
   "src/testing/u3787d_capture.test.ts": ["U3787d", "U5463c"],
@@ -142,6 +143,7 @@ export function captureTests(selection: string | undefined) {
     ["U4453a", "U4453b"],
     ["U3529", "U3529a", "U3529b", "U3529c", "U3529d"],
     ["U5515a", "U5515b", "U5515c", "U5515d", "U5515e"],
+    ["U5549a", "U5549b", "U5549c", "U5549d"],
     ["U3049a", "U3049b"],
   ];
 
