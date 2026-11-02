@@ -1,3 +1,4 @@
+import { leaderKeys } from "./chords";
 import { rowKey } from "../ui/RowCollection";
 import { setInteractionModality } from "@zag-js/focus-visible";
 import { createSignal, onCleanup } from "solid-js";
@@ -259,10 +260,10 @@ const captureAll = (focus: Element | null) => {
       value: `action:${leader ? "leader" : "chord"}:${defaultKeys(binding.action)}${binding.press ? `:${binding.press}` : ""}`,
       name: binding.action.name, action: binding.action, press: binding.press, searchable: binding.searchable !== false,
       label: captured.label ?? binding.action.what,
-      keys: leader ? `${CHORDS.find((row) => row.name === "leader.open")!.keys} ${binding.action.keys}` : binding.action.keys,
+      keys: "press" in binding.action ? leaderKeys(binding.action) : binding.action.keys,
       available,
       run: (args?: ActionValues) => { if (available()) captured.invoke(args); },
-      at: rows.findIndex(row => row.keys === binding.action.keys && ("press" in row) === leader),
+      at: rows.findIndex(row => row.name === binding.action.name && ("press" in row) === leader),
     };
   })).sort((a, b) => a.at - b.at);
 };
