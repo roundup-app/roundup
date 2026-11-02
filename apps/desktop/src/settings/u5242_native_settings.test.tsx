@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { createSignal } from "solid-js";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import axe from "axe-core";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { AppSettings } from "./AppSettings";
@@ -175,4 +176,12 @@ it("u5243c_search_typing_changes_nothing_but_the_results", async () => {
   expect(screen.getByRole("tab", { name: "Terminal" }).getAttribute("aria-selected")).toBe("true");
   fireEvent.keyDown(search(), { key: "Escape" });
   await waitFor(() => expect(() => screen.getByRole("region", { name: "Settings" })).toThrow());
+});
+
+
+it("u4277a_section_navigation_has_only_tabs_in_its_accessibility_tree", async () => {
+  await mount();
+  const navigation = screen.getByRole("tablist", { name: "Settings" });
+  const result = await axe.run(navigation, { runOnly: ["aria-required-children"] });
+  expect(result.violations).toEqual([]);
 });

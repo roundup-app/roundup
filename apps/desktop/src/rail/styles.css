@@ -812,6 +812,37 @@
   overflow: hidden;
 }
 
+/* The idle branch uses the same Token columns as ordinary Rail rows. */
+.rail-fold-content {
+  grid-column: 2;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.rail-fold [data-part="branch-indicator"] {
+  position: absolute;
+  right: var(--rail-edge);
+}
+
+.rail-tree .rail-fold {
+  display: grid;
+  gap: 0;
+  padding-inline-start: 0;
+  color: var(--grey);
+}
+
+.rail-tree .rail-fold:hover {
+  color: var(--text);
+}
+
+.rail-tree .rail-fold.row-wash::after {
+  border-radius: 0;
+}
+
+.rail-fold [data-state="open"] {
+  transform: rotate(90deg);
+}
 .held-row { display: flex; align-items: baseline; gap: var(--space-2); width: 100%; text-align: left; }
 .held-content { display: flex; flex: 1; min-width: 0; flex-direction: column; }
 .held-content span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

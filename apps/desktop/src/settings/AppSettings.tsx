@@ -346,11 +346,11 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
         </Field.Root>
         <Show when={!searching()}>
         <Tabs.List aria-label={copy.settings}>
-          <h3 class="settings-category">{copy.settingsAgents}</h3>
+          <div class="settings-category" aria-hidden="true">{copy.settingsAgents}</div>
           <Tabs.Trigger value="Agents">{copy.settingsAgents}</Tabs.Trigger>
-          <h3 class="settings-category">{copy.settingsTerminal}</h3>
+          <div class="settings-category" aria-hidden="true">{copy.settingsTerminal}</div>
           <Tabs.Trigger value="Terminal">{copy.settingsTerminal}</Tabs.Trigger>
-          <h3 class="settings-category">{copy.settingsGeneral}</h3>
+          <div class="settings-category" aria-hidden="true">{copy.settingsGeneral}</div>
           <Tabs.Trigger value="Shortcuts">{copy.settingsShortcuts}</Tabs.Trigger>
           <Tabs.Trigger value="Appearance">{copy.settingsAppearance}</Tabs.Trigger>
           <Tabs.Trigger value="Alerts">{copy.settingsAlerts}</Tabs.Trigger>

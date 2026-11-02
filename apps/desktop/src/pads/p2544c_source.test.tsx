@@ -217,3 +217,14 @@ it("p3557a_ordinary_edits_preserve_source_after_whitespace_acknowledgement", asy
   expect(view.state.doc.textContent).toBe("  xyzq");
   expect(handle.getText()).toContain("x");
 });
+
+it.each(["\n", "\r\n"].flatMap(newline => [true, false].map(final => ({ newline, final }))))("u5561b_round_trip_keeps_authored_source $newline $final", async ({ newline, final }) => {
+  const section = "<details>\n<summary>For Agents</summary>\n\nPath: `日本語/café`\n\n~~~text\nraw evidence\n~~~\n\n</details>".replace(/\n/g, newline);
+  const source = `Ready.${newline}${newline}${section}${final ? newline : ""}`;
+  const { handle, view } = await open(source);
+  expect(handle.getText()).toBe(source);
+  view.dispatch(view.state.tr.insertText("Updated", 1, 6));
+  expect(handle.getText()).toBe(source.replace("Ready", "Updated"));
+  undo(view.state, view.dispatch);
+  expect(handle.getText()).toBe(source);
+});
