@@ -66,17 +66,31 @@ it("u5742c_refused_message_link_opens_nothing_and_exposes_its_cause", async () =
   expect(m.app.calls.filter(call => /spawn|start|write/.test(call.method))).toEqual([]);
 });
 
-it("u5742d_message_authorization_preserves_newer_focus", async () => {
+it.each(["authorization", "readiness"] as const)("u5742d_message_link_preserves_newer_focus_%s", async stage => {
   const m = await mount("agent");
+
+  if (stage === "authorization") {
+    m.app.handlers["link.read"] = () => { throw new RpcError(-32003, "Previous refusal"); };
+
+    fireEvent.click(m.link);
+    await screen.findByText("Previous refusal");
+  }
+
   let release!: () => void;
-  m.app.handlers["link.read"] = () => new Promise(resolve => { release = () => resolve({ kind: "agent", id: "chosen", node: agent("chosen", "idle", "ready"), digest: null }); });
+
+  if (stage === "authorization") m.app.handlers["link.read"] = () => new Promise(resolve => { release = () => resolve({ kind: "agent", id: "chosen", node: agent("chosen", "idle", "ready"), digest: null }); });
+  else m.app.handlers["terminal.snapshot"] = () => new Promise(resolve => { release = () => resolve({ cols: 80, rows: 24, after: 0, data: "" }); });
   fireEvent.click(m.link);
   await waitFor(() => expect(release).toBeDefined());
-  const ask = screen.getByRole<HTMLTextAreaElement>("textbox", { name: "Ask" });
+
+  if (stage === "readiness") fireEvent.keyDown(document.activeElement!, { key: "/", code: "Slash", metaKey: true });
+  const ask = await screen.findByRole<HTMLTextAreaElement>("textbox", { name: "Ask" });
   ask.focus();
   fireEvent.input(ask, { target: { value: "keep my draft" } });
   release();
-  await waitFor(() => expect(m.emulators.made.get("t-chosen")?.host).toBeTruthy());
+
+  if (stage === "authorization") await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+  else await waitFor(() => expect(m.emulators.made.get("t-chosen")?.host).toBeTruthy());
   expect(document.activeElement).toBe(ask);
   expect(ask.value).toBe("keep my draft");
   expect(m.app.calls.filter(call => call.method === "terminal.write")).toEqual([]);
