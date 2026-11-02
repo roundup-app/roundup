@@ -3,7 +3,7 @@
 pub use crate::declarations::METHODS;
 #[cfg(not(feature = "export"))]
 pub const METHODS: &[Method<'static>] = include!("../../../contracts/generated/methodTypes.rs");
-pub use crate::declarations::owner_namespace;
+pub use crate::declarations::{metadata, owner_namespace};
 use specta::{Format, Type};
 use std::collections::BTreeSet;
 
@@ -189,6 +189,48 @@ pub(crate) fn render_typescript(methods: &[ExportedMethod]) -> String {
     out
 }
 
+/// Explicit tool policy; absence of a policy is a declaration syntax error.
+#[derive(Clone, Copy, Debug)]
+pub enum McpChoice {
+    All,
+    Door,
+    None(&'static str),
+}
+
+/// Measured workload membership, or the reason it is outside that workload.
+#[derive(Clone, Copy, Debug)]
+pub enum PerfDisposition {
+    Measured(&'static [&'static str]),
+    OffPath(&'static str),
+}
+
+/// Consumer metadata authored beside the method, never inferred from its name.
+#[derive(Clone, Copy, Debug)]
+pub struct Metadata {
+    pub name: &'static str,
+    pub mcp: McpChoice,
+    pub perf: PerfDisposition,
+    pub description: &'static str,
+}
+
+impl Metadata {
+    /// The single completeness check for declarations and in-memory fixtures.
+    pub fn check(&self) -> Result<(), String> {
+        let missing = match (self.mcp, self.perf) {
+            (McpChoice::None(reason), _) if reason.trim().is_empty() => Some("MCP no-tool reason"),
+            (_, PerfDisposition::OffPath(reason)) if reason.trim().is_empty() => {
+                Some("perf off-path reason")
+            }
+            _ if self.description.trim().is_empty() => Some("description"),
+            _ => None,
+        };
+        match missing {
+            Some(field) => Err(format!("{}: fill {field}", self.name)),
+            None => Ok(()),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -240,6 +282,114 @@ mod tests {
             let after = render_contract_typescript_of(&changed);
             assert_eq!(lines(&after).difference(&lines(&base)).count(), 1);
             assert!(lines(&base).difference(&lines(&after)).count() <= 1);
+        }
+    }
+}
+
+#[cfg(test)]
+mod metadata_tests {
+    use super::*;
+
+    #[test]
+    fn c5459c_base_methods_keep_their_metadata() {
+        let before: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../tools/contracts/fixtures/metadata-before.json"
+        ))
+        .unwrap();
+        let current = metadata();
+        for row in before["methods"].as_array().unwrap() {
+            let name = row["name"].as_str().unwrap();
+            let method = current.iter().find(|m| m.name == name).unwrap();
+            let (choice, reason) = match method.mcp {
+                McpChoice::All => ("all", None),
+                McpChoice::Door => ("door", None),
+                McpChoice::None(reason) => ("none", Some(reason)),
+            };
+            assert_eq!(row["mcp"], choice, "{name}");
+            assert_eq!(row["no_tool_reason"], serde_json::json!(reason), "{name}");
+            let perf = match method.perf {
+                PerfDisposition::Measured(metrics) => serde_json::json!({"measured":metrics}),
+                PerfDisposition::OffPath(reason) => serde_json::json!({"off_path":reason}),
+            };
+            assert_eq!(row["perf"], perf, "{name}");
+            let described = crate::describe::describe(name).unwrap();
+            assert_eq!(row["summary"], described.summary, "{name}");
+            assert_eq!(row["description"], described.description, "{name}");
+        }
+    }
+
+    #[test]
+    fn c5459b_missing_metadata_names_the_field() {
+        let complete = Metadata {
+            name: "fixture.call",
+            mcp: McpChoice::None("User only"),
+            perf: PerfDisposition::OffPath("Explicit action"),
+            description: "Read a fixture.",
+        };
+        for (field, incomplete) in [
+            (
+                "description",
+                Metadata {
+                    description: "",
+                    ..complete
+                },
+            ),
+            (
+                "description",
+                Metadata {
+                    description: "  ",
+                    ..complete
+                },
+            ),
+            (
+                "MCP no-tool reason",
+                Metadata {
+                    mcp: McpChoice::None(""),
+                    ..complete
+                },
+            ),
+            (
+                "MCP no-tool reason",
+                Metadata {
+                    mcp: McpChoice::None("  "),
+                    ..complete
+                },
+            ),
+            (
+                "perf off-path reason",
+                Metadata {
+                    perf: PerfDisposition::OffPath(""),
+                    ..complete
+                },
+            ),
+            (
+                "perf off-path reason",
+                Metadata {
+                    perf: PerfDisposition::OffPath("  "),
+                    ..complete
+                },
+            ),
+        ] {
+            let error = incomplete.check().unwrap_err();
+            assert!(
+                error.contains("fixture.call") && error.contains(field),
+                "{error}"
+            );
+            complete.check().unwrap();
+        }
+        let budgets: serde_json::Value =
+            serde_json::from_str(include_str!("../../perf/budgets.json")).unwrap();
+        for method in metadata() {
+            method.check().unwrap();
+            if let PerfDisposition::Measured(metrics) = method.perf {
+                for metric in metrics {
+                    assert!(
+                        budgets.get(metric).is_some(),
+                        "{}: fill perf measured metric {metric}",
+                        method.name
+                    );
+                }
+            }
         }
     }
 }

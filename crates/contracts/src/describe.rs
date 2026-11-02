@@ -7,24 +7,10 @@ use specta::Type;
 /// One declared method as the declaration table holds it.
 pub(crate) struct Declared {
     pub name: &'static str,
-    pub tool_summary: Option<&'static str>,
+    pub description: &'static str,
     pub params: fn() -> Value,
     pub result: fn() -> Value,
 }
-
-/// The description a method's tool declaration already holds; `None` for a method with no tool or a custom one.
-macro_rules! role_summary {
-    ($role:ident(schema($t:ty, $d:expr))) => {
-        Some($d)
-    };
-    ($role:ident(empty($d:expr))) => {
-        Some($d)
-    };
-    ($role:ident($($tool:tt)*)) => {
-        None
-    };
-}
-pub(crate) use role_summary;
 
 pub(crate) fn schema_of<T: JsonSchema>() -> Value {
     serde_json::to_value(schemars::schema_for!(T)).expect("a schema is JSON")
@@ -68,105 +54,6 @@ pub struct MethodDescription {
     pub example: MethodExample,
 }
 
-/// What the tool declaration does not hold: methods with no tool, and tools built in the CLI.
-fn extra_text(method: &str) -> Option<&'static str> {
-    Some(match method {
-        "agent.spawn" => {
-            "Start a child Agent in a folder of this Project, with its order and prompt."
-        }
-        "shortcuts.export" => "Write the user's shortcut list to a file they chose.",
-        "agent.extras" => "Read the names a Door may give a child, by kind.",
-        "agent.extras_add" => "Add a name a Door may give a child.",
-        "agent.changedFiles" => "List the files a Worktree changed.",
-        "agent.compareFile" => "Compare one changed file of a Worktree with its Base.",
-        "agent.spawnPrompt" => "Read the prompt an Agent's spawn gave.",
-        "agent.setOrder" => "Set the order of an Agent in your Reach.",
-        "agent.channelUp" => "Tell the Daemon an Agent's channel is up.",
-        "action.serve" => "Register the open App as the one answerer of named actions.",
-        "action.list" => "List the open App's named actions.",
-        "action.userList" => "List the User actions the owner's Extensions declared.",
-        "action.run" => "Ask the open App to run a named action with arguments.",
-        "agent.signal" => "Deliver a hook signal from an Agent's Claude Code session.",
-        "workstream.setAuto" => "Turn a Workstream's automatic mode on or off.",
-        "workstream.setOpeningPrompt" => "Set the opening prompt of a Workstream's Door.",
-        "agent.run" => "Run a program for an Agent in a Terminal.",
-        "project.setMcp" => "Set the Project's MCP settings.",
-        "project.setPrepared" => "Save the Project's prepared directory settings.",
-        "project.getPrepared" => "Read the Project's prepared directory settings.",
-        "project.importDiscover" => "Find Claude Code sessions that can be imported.",
-        "project.importCommit" => "Import the approved Claude Code sessions.",
-        "project.prepareDirectory" => "Prepare a directory for the Project.",
-        "project.setModels" => "Set the Project's models.",
-        "models.list" => "List the models an Agent can use.",
-        "agent.setModel" => "Change the model of an Agent.",
-        "agent.makeWorkstream" => "Turn an Agent's node into a Workstream that holds it.",
-        "agent.saveAsMode" => "Save an Agent's setup as a named Mode.",
-        "todo.listHanded" => "List the Todos handed to Agents.",
-        "todo.getHistory" => "Read the history of a Todo.",
-        "todo.readHistory" => "Mark a Todo's history read.",
-        "todo.hand" => "Hand a Todo to an Agent.",
-        "todo.deletion" => "Read a Todo deletion.",
-        "todo.redo" => "Redo a restored Todo deletion.",
-        "todo.restore" => "Restore a deleted Todo.",
-        "todo.unread" => "List the unread Todo comments.",
-        "todo.markCommentsRead" => "Mark the comments of a Todo read.",
-        "pad.reorder" => "Reorder the Pads.",
-        "message.drop" => "Drop a queued Message.",
-        "terminal.measure" => "Record a keystroke timing probe for a Terminal.",
-        "terminal.scheme" => "Tell the Daemon the colour scheme of the App.",
-        "terminal.show" => "Ask the App to show a Terminal.",
-        "terminal.list" => "List the Terminals.",
-        "terminal.catchUp" => "Read the bytes a Terminal's emulator needs to catch up.",
-        "terminal.snapshot" => "Read a snapshot of a Terminal's emulator.",
-        "terminal.read" => "Read a Terminal's output from an offset.",
-        "checkpoint.write" => "Write a Checkpoint of a Workstream.",
-        "ask.send" => "Send an Ask to the user.",
-        "ask.list" => "List the Asks.",
-        "ask.pick" => "Answer an Ask by picking one of its choices.",
-        "daemon.getNaming" => "Read the automatic naming settings.",
-        "daemon.setNaming" => "Save the automatic naming settings.",
-        "skill.status" => "Read the state of the installed skill and hook.",
-        "skill.setup" => "Install or update the skill and hook.",
-        "skill.remove" => "Remove the installed skill and hook.",
-        "rail.deletion" => "Read a Rail node deletion.",
-        "rail.redo" => "Redo a restored Rail node deletion.",
-        "rail.restore" => "Restore a removed Rail node.",
-        "daemon.ping" => "Read the Daemon's process, Project and contract fingerprint.",
-        "daemon.methods" => "List the names of the methods the Daemon serves.",
-        "daemon.identify" => "Tell the Daemon who this connection acts as.",
-        "events.subscribe" => {
-            "Follow the Event log from a given number; the answer holds the head."
-        }
-        "terminal.output" => "Start the byte stream of a Terminal.",
-        "terminal.outputStop" => "Stop the byte stream of a Terminal.",
-        "todo.refs" => "List what refers to a Todo.",
-        "agent.context" => "Read the context of an Agent.",
-        "agent.brief" => "Read the Brief of an Agent.",
-        "agent.skills" => "List the skills of an Agent.",
-        "agent.digest" => "Read the digest of an Agent's work.",
-        "agent.wake" => "Wake an Agent that is waiting.",
-        "project.resources" => "Read the resources of the Project.",
-        "workstream.restart" => "Restart a Workstream's Door.",
-        "workstream.rewindPlan" => "Read what a rewind of a Workstream would change.",
-        "workstream.rewind" => "Rewind a Workstream to a Checkpoint.",
-        "todo.startWorkstream" => "Start a Workstream from a Todo.",
-        "workstream.queue" => "Queue a Workstream to start.",
-        "workstream.dequeue" => "Take a Workstream out of the start queue.",
-        "workstream.queueMove" => "Move a Workstream in the start queue.",
-        "workstream.startNow" => "Start a queued Workstream now.",
-        "project.setWorkstreamCap" => "Set how many Workstreams run at once.",
-        "api.list" => "List every method the Daemon serves with a one-line summary.",
-        "api.describe" => {
-            "Describe one method: its summary, params and result schemas and an example."
-        }
-        _ => return None,
-    })
-}
-
-fn text_of(d: &Declared) -> Option<&'static str> {
-    d.tool_summary.or_else(|| extra_text(d.name))
-}
-
 /// The first sentence of a description.
 fn first_sentence(text: &str) -> &str {
     match text.find(". ") {
@@ -187,7 +74,7 @@ pub fn list() -> MethodList {
         .iter()
         .map(|d| MethodSummary {
             name: d.name.to_string(),
-            summary: first_sentence(text_of(d).unwrap_or_default()).to_string(),
+            summary: first_sentence(d.description).to_string(),
         })
         .collect();
     MethodList { methods }
@@ -204,7 +91,7 @@ pub fn describe(method: &str) -> Result<MethodDescription, Option<String>> {
             .map(|(_, name)| name.to_string());
         return Err(closest);
     };
-    let description = text_of(d).unwrap_or_default();
+    let description = d.description;
     let (params, result) = ((d.params)(), (d.result)());
     let example = MethodExample {
         params: example_of(&params),

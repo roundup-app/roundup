@@ -300,10 +300,8 @@ impl Launcher {
         }
     }
 
-    /// Write Agent `id`'s settings, MCP config and Brief (E1, for its `role`) under `dir` (the Project's data folder, N1), trust
-    /// `cwd`, and return the argv that starts it. Only a `cwd` inside the Project folder is trusted: Claude's config
-    /// is the user's, and this is the only grant roundup makes in it. A22: `resume` is the saved
-    /// conversation id to continue, added to argv as `--resume <id>`; `None` starts fresh.
+    /// Prepare launch files and argv, trusting only a cwd inside the Project.
+    /// A22: `resume` continues the saved conversation; `None` starts fresh.
     pub fn prepare(
         &self,
         folders: Folders<'_>,
@@ -347,7 +345,6 @@ impl Launcher {
                 cwd.display()
             )));
         }
-        // Claude reads the settings path from its own cwd, so it must be absolute.
         let dir = dir
             .canonicalize()
             .map_err(|err| RpcError::internal(format!("{}: {err}", dir.display())))?;
@@ -402,6 +399,15 @@ impl Launcher {
         }
         replace_file(&settings, &{
             let mut own = self.settings_json(id, attempt, &path, mcp, missing_intent, &carried)?;
+            super::memory::hook(
+                &self.rup,
+                &self.conversation_dir,
+                self.home.as_deref(),
+                &cwd,
+                role,
+                &carried,
+                &mut own,
+            )?;
             if role == Role::Door && mcp {
                 own["permissions"]["allow"] = json!(
                     brief::door_tools()
@@ -522,9 +528,6 @@ impl Launcher {
                 argv.push(value.clone());
             }
         }
-        // B50: a note reaches the Agent over this socket; its permission mode is the one the
-        // note's sender names, so the receiver never holds the note for approval.
-        // A socket an earlier run of this Agent left behind is not the new session's to find.
         let socket = self.socket_path(id);
         match std::fs::remove_file(&socket) {
             Err(err) if err.kind() != ErrorKind::NotFound => return Err(RpcError::internal(err)),
@@ -813,7 +816,6 @@ impl Launcher {
             "command": format!("ROUNDUP_ATTEMPT={attempt} {rup} signal {id}"),
             "timeout": 5,
         }] }]);
-        // E3: at start the Agent is told its Context, by a second command beside the Signal.
         let session_start = json!([{ "hooks": [
             signal[0]["hooks"][0].clone(),
             { "type": "command", "command": format!("{rup} context {id}"), "timeout": 5 },
@@ -828,7 +830,6 @@ impl Launcher {
                 ((*event).to_owned(), hook.clone())
             })
             .collect();
-        // Allowed here so a roundup tool never raises a permission dialog.
         let mut settings = json!({ "hooks": hooks });
         if mcp {
             settings["permissions"] = json!({ "allow": ["mcp__roundup__*"] });

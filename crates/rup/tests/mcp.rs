@@ -24,7 +24,7 @@ mod removed_questions;
 mod rewind;
 #[path = "mcp/tool_lists.rs"]
 mod tool_lists;
-use tool_lists::{DOOR_METHODS, NO_TOOL, TOOL_METHODS, expected_tools, seam_commands};
+use tool_lists::expected_tools;
 const BOUND: Duration = Duration::from_secs(20);
 
 struct Shim {
@@ -231,40 +231,6 @@ fn assert_exit_1_with_one_line_naming(output: &Output, socket: &Path) {
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert_eq!(stderr.lines().count(), 1, "{stderr}");
     assert!(stderr.contains(socket.to_str().unwrap()), "{stderr}");
-}
-
-#[test]
-fn m5_every_app_action_has_a_tool_or_a_reason() {
-    let mut registry: Vec<String> = contracts::methods::METHODS
-        .iter()
-        .map(|m| m.name.to_owned())
-        .collect();
-    for command in seam_commands() {
-        // M8: the two commands an Agent reaches are the Daemon's methods `project.open` and `project.rename`.
-        match command.as_str() {
-            "open_project" => assert!(registry.iter().any(|m| m == "project.open")),
-            "rename_project" => assert!(registry.iter().any(|m| m == "project.rename")),
-            _ => registry.push(command),
-        }
-    }
-    let tools: Vec<&str> = TOOL_METHODS.iter().chain(&DOOR_METHODS).copied().collect();
-    let no_tool = NO_TOOL;
-
-    for name in &registry {
-        let in_tools = tools.contains(&name.as_str());
-        let in_no_tool = no_tool.contains(&name.as_str());
-        assert!(
-            in_tools || in_no_tool,
-            "{name} has neither a tool nor a reason"
-        );
-        assert!(!(in_tools && in_no_tool), "{name} is in both lists");
-    }
-    for listed in tools.iter().chain(&no_tool) {
-        assert!(
-            registry.iter().any(|name| name == listed),
-            "{listed} is listed but gone from the registry"
-        );
-    }
 }
 
 #[tokio::test]

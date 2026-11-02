@@ -1,218 +1,11 @@
 //! M5: which methods have a tool for every Agent, for a Door only, or none, with the reason.
 
 use std::path::Path;
-/// M5: the methods with a tool for every Agent, each named after its method with the dot replaced
-/// by `_`, bar `agent.setOrder` (O4), whose tool is `agent_set_order`.
-pub const TOOL_METHODS: [&str; 91] = [
-    "api.list",
-    "api.describe",
-    "agent.wake",
-    "reaction.create",
-    "reaction.preview",
-    "reaction.list",
-    "reaction.get",
-    "reaction.stop",
-    "reaction.run",
-    "deliverable.publish",
-    "deliverable.list",
-    "deliverable.get",
-    "deliverable.resolve",
-    "deliverable.move",
-    "deliverable.remove",
-    "todo.create",
-    "todo.assign",
-    "todo.comment",
-    "todo.comments",
-    "todo.addRef",
-    "todo.removeRef",
-    "todo.get",
-    "todo.list",
-    "todo.update",
-    "todo.complete",
-    "todo.reopen",
-    "todo.setBlockers",
-    "todo.move",
-    "todo.reorder",
-    "todo.delete",
-    "pad.create",
-    "pad.read",
-    "link.read",
-    "pad.list",
-    // U3523a: read-only listing for the import Agent
-    "import.list",
-    "pad.write",
-    "pad.rename",
-    "pad.append",
-    "pad.appendSection",
-    "pad.move",
-    "pad.delete",
-    "pad.getDeletion",
-    "pad.restore",
-    "pad.redoDelete",
-    "pad.export",
-    "pad.setStorage",
-    // B12
-    "message.progress",
-    "message.report",
-    "message.acceptResult",
-    "message.verifyResult",
-    "message.resolveResult",
-    "message.reconcileWork",
-    "message.resumeWork",
-    "message.send",
-    "message.get",
-    "message.list",
-    "route.list",
-    // E2, O4, F3
-    "agent.context",
-    "agent.instructions",
-    "agent.setOrder",
-    "agent.run",
-    "agent.spawn",
-    // M6, M7
-    "rail.tree",
-    "rail.createWorkstream",
-    "rail.startDoor",
-    "rail.rename",
-    "rail.move",
-    "rail.remove",
-    "agent.stop",
-    "agent.interrupt",
-    "agent.prompt",
-    "agent.resume",
-    "agent.discard",
-    "agent.land",
-    "agent.worktreeState",
-    "project.get",
-    "project.setWorktrees",
-    "provenance.history",
-    "provenance.touched",
-    // M8: the App commands `open_project` and `rename_project`
-    "project.open",
-    "project.rename",
-    // M13: reading a Terminal
-    "terminal.screen",
-    "terminal.read",
-    "terminal.search",
-    // M14: Routes and running Terminals
-    "route.set",
-    "terminal.spawn",
-    "terminal.open",
-    "terminal.close",
-    "terminal.write",
-    "terminal.resize",
-    "terminal.kill",
-];
-
-/// M5: offered to a Door only (B20, M10).
-pub const DOOR_METHODS: [&str; 10] = [
-    "agent.digest",
-    // LC7, LC8
-    "agent.extras",
-    "agent.extras_add",
-    // B53
-    "terminal.show",
-    // M5159b
-    "workstream.rewind",
-    // A5168a, A5168b
-    "github.prGet",
-    "github.issueGet",
-    "github.prSetBody",
-    "github.prReady",
-    "github.prAutoMerge",
-];
-
-/// M5: the methods and App commands with no tool; the reasons are in `scenarios/mcp.md`.
-pub const NO_TOOL: [&str; 92] = [
-    // The shortcut list is the user's own; Agents cannot write it to a file they did not choose.
-    "shortcuts.export",
-    // A4688a: only the user controls global naming preferences; Agents cannot override them.
-    "daemon.getNaming",
-    "daemon.setNaming",
-    // SK10: only the user installs or removes the skill and hook outside Claude Code sessions.
-    "skill.status",
-    "skill.setup",
-    "skill.remove",
-    // U3800a: a Shelf grip drop changes the user's order; Agents cannot reorder Pads.
-    "pad.reorder",
+/// M5: App seam commands kept outside the RPC declaration.
+pub const NO_TOOL: &[&str] = &[
     // U4461: only the user answers native removal consent; Agents use rail.remove within Reach.
     "ask_removal",
-    // A3308: Auto is the user's choice; Agents read its value through the existing rail_tree tool.
-    "workstream.setAuto",
-    "workstream.setOpeningPrompt",
-    // A4452c: only the user requests a fresh Door conversation.
-    "workstream.restart",
-    // A3194, A3195, P9: a start spends usage, so only the user's own choice starts a Workstream or sets what may run.
-    "todo.startWorkstream",
-    "workstream.queue",
-    "workstream.dequeue",
-    "workstream.queueMove",
-    "workstream.startNow",
-    "project.setWorkstreamCap",
-    // U2539b, U2540a: the App's Worktree comparison; an Agent reads its own diff with git.
-    "agent.changedFiles",
-    "agent.compareFile",
-    // A40, P9: each carries a Steer from the user.
-    "ask.send",
-    "ask.list",
-    "ask.pick",
-    // U462, T23: only the open Drawer acknowledges History and comments; Agents read without acknowledging.
-    "todo.getHistory",
-    "todo.readHistory",
-    "todo.unread",
-    "todo.markCommentsRead",
-    // U3808: the App reads recorded Hand-offs for the plan marker; only the Daemon hands a Todo (T25).
-    "todo.listHanded",
-    // T27: the Daemon computes each ref's state for the Drawer; an Agent reads `refs` on `todo_get`.
-    "todo.refs",
-    // T25: only the Daemon hands a Todo.
-    "todo.hand",
-    // U3787a: only the original user reconciles or restores a Rail removal.
-    "rail.deletion",
-    "rail.restore",
-    "rail.redo",
-    "todo.restore",
-    "todo.redo",
-    "todo.deletion",
-    "message.drop",
-    "terminal.list",
-    "terminal.snapshot",
-    // Z3788a: only the App replays raw bytes into its retained emulator; Agents read plain text.
-    "terminal.catchUp",
-    // R20: only the App's opt-in keystroke probe records timing; Agents cannot enable or read it.
-    "terminal.measure",
-    // X14: the App's per-Terminal byte stream; an Agent reads text with `terminal_read`.
-    "terminal.output",
-    "terminal.outputStop",
-    // X17: the App tells the Daemon its colour scheme; no Agent sets it.
-    "terminal.scheme",
-    "daemon.ping",
-    "daemon.methods",
-    "daemon.identify",
-    "events.subscribe",
-    "agent.brief",
-    "agent.channelUp",
-    "agent.signal",
-    "agent.skills",
-    // O8: the App's Drawer reads the prompt an Agent's spawn gave; the spawning Agent wrote it
-    "agent.spawnPrompt",
-    // A36, A37: the user's own settings, which spend the user's usage (P8)
-    "models.list",
-    "project.setModels",
-    // M2219: the user's setting for whether Agents get these tools at all
-    "project.setMcp",
-    // G2542: enrolling a directory and running its commands is the user's explicit consent
-    "project.setPrepared",
-    "project.getPrepared",
-    "project.prepareDirectory",
-    // U2875: only the user imports recent Claude Code conversations
-    "project.importDiscover",
-    "project.importCommit",
-    "agent.setModel",
-    "agent.makeWorkstream",
-    "agent.saveAsMode",
     // D8: the App's Resource strip
-    "project.resources",
     "close_project",
     "projects",
     // S6, U52: first-run facts belong to the App; Agents reach only their own Project's Daemon.
@@ -239,15 +32,13 @@ pub const NO_TOOL: [&str; 92] = [
     "plugin:window-bar|zoom_window",
     // U134: the user's native window appearance, which an Agent cannot change.
     "plugin:window-bar|native_material",
+    // N5467b: only the App reads its native storage location for recovery.
+    "plugin:window-bar|webview_data_path",
     // U3787f: the operating system hands the App a roundup link; an Agent reads one with link.read.
     "native_open",
     "rpc",
     "subscribe",
     // NA6: the user's App answers the Daemon's relayed action calls; the Daemon's action methods carry no tool.
-    "action.serve",
-    "action.list",
-    "action.userList",
-    "action.run",
     "action_serve",
     "action_answer",
     "terminal_output",
@@ -314,7 +105,13 @@ pub fn seam_commands() -> Vec<String> {
 
 /// M5, M6: the tools a non-Door Agent is offered.
 pub fn expected_tools() -> Vec<String> {
-    TOOL_METHODS.iter().map(|m| tool_name(m)).collect()
+    contracts::methods::metadata()
+        .iter()
+        .filter(|m| {
+            matches!(m.mcp, contracts::methods::McpChoice::All) && m.name != "events.subscribe"
+        })
+        .map(|m| tool_name(m.name))
+        .collect()
 }
 
 #[tokio::test]
@@ -583,4 +380,79 @@ async fn p16_shared_pad_access_over_public_seams() {
         before
     );
     serving.abort();
+}
+
+#[test]
+fn m5_every_app_action_has_a_tool_or_a_reason() {
+    let commands = seam_commands();
+    for command in &commands {
+        match command.as_str() {
+            "open_project" | "rename_project" => {
+                let method = if command == "open_project" {
+                    "project.open"
+                } else {
+                    "project.rename"
+                };
+                assert!(expected_tools().contains(&tool_name(method)));
+            }
+            _ => assert!(
+                NO_TOOL.contains(&command.as_str()),
+                "{command} has no App seam policy"
+            ),
+        }
+    }
+    for command in NO_TOOL {
+        assert!(
+            commands.iter().any(|name| name == command),
+            "{command} is gone from the App seam"
+        );
+    }
+}
+
+#[tokio::test]
+async fn u5501_public_mcp_and_cli_offer_no_level_write() {
+    use serde_json::{Value, json};
+    let project = super::start_daemon();
+    let user = super::client_as(&project.socket, contracts::Actor::user()).await;
+    let home = user
+        .request("rail.createWorkstream", json!({"name":"Home"}))
+        .await
+        .unwrap();
+    let before = user.request("rail.tree", Value::Null).await.unwrap();
+    let shim = super::spawn_shim(&project.socket, "a1").await;
+    let tools = shim.client.list_all_tools().await.unwrap();
+    assert!(tools.iter().all(|t| t.name != "rail_setAlertLevel"));
+    let refused = shim
+        .client
+        .call_tool(
+            rmcp::model::CallToolRequestParams::new("rail_setAlertLevel").with_arguments(
+                json!({"id":home["id"],"level":"all","actor":contracts::Actor::user(),"user":true})
+                    .as_object()
+                    .unwrap()
+                    .clone(),
+            ),
+        )
+        .await;
+    assert!(refused.is_err() || refused.unwrap().is_error == Some(true));
+    let cli = tokio::process::Command::new(env!("CARGO_BIN_EXE_rup"))
+        .args([
+            "rail",
+            "set-alert-level",
+            home["id"].as_str().unwrap(),
+            "all",
+            "--agent",
+            "a1",
+            "--actor",
+            "user",
+        ])
+        .env("RUPD_SOCKET", &project.socket)
+        .output()
+        .await
+        .unwrap();
+    assert!(!cli.status.success());
+    assert_eq!(
+        user.request("rail.tree", Value::Null).await.unwrap(),
+        before
+    );
+    let _ = shim.client.cancel().await;
 }
