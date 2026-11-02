@@ -61,7 +61,7 @@ export const copy = {
   settingsTerminal: sharedCopy.terminal,
   settingsShortcuts: "Shortcuts",
   settingsAppearance: "Appearance",
-  settingsAlerts: "Alerts",
+  settingsAlerts: sharedCopy.alerts,
   working: sharedCopy.working,
   blocked: sharedCopy.blocked,
   needsYou: sharedCopy.needsYou,

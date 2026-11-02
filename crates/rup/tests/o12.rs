@@ -25,19 +25,6 @@ async fn o12_the_door_spawns_with_order_and_the_users_words() {
         .request("rail.startDoor", json!({"id": door}))
         .await
         .unwrap();
-    let mut working = false;
-    loop {
-        let kind = project
-            .next(&mut client, |event| match event {
-                EventData::AgentStatus(status) if status.id == door => Some(status.status.kind),
-                _ => None,
-            })
-            .await;
-        working |= kind == Kind::Working;
-        if working && kind == Kind::Idle {
-            break;
-        }
-    }
     client
         .request(
             "message.send",

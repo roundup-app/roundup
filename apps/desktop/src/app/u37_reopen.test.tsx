@@ -60,9 +60,9 @@ describe("u37 Reopen after the Daemon exits", () => {
 
     await waitFor(() => expect(screen.queryByRole("button", { name: appCopy.reopen })).toBeNull());
 
-    await waitFor(() => expect(screen.getAllByRole("button", { name: /^(New Workstream|Add Workstream)$/ }).length).toBeGreaterThan(0));
+    await waitFor(() => expect(screen.getAllByRole("button", { name: /^(New Workstream|Create)$/ }).length).toBeGreaterThan(0));
 
-    for (const button of screen.getAllByRole("button", { name: /^(New Workstream|Add Workstream)$/ })) {
+    for (const button of screen.getAllByRole("button", { name: /^(New Workstream|Create)$/ })) {
       expect(button.matches('[aria-disabled="true"]')).toBe(false);
     }
   });
