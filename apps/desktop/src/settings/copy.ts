@@ -2,7 +2,7 @@ import type { Kind } from "@contracts/Kind";
 import { copy as sharedCopy } from "../sharedCopy";
 
 export const copy = {
-  settingsPads: "Pads",
+  settingsPads: sharedCopy.pads,
   padWidth: "Width",
   defaultWidth: "Default width",
   defaultWidthHint: "Width used when a Pad opens expanded.",
