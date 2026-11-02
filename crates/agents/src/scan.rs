@@ -113,6 +113,11 @@ pub(crate) fn strays(
 }
 
 #[cfg(test)]
+#[global_allocator]
+pub(crate) static ALLOCATOR: &stats_alloc::StatsAlloc<std::alloc::System> =
+    &stats_alloc::INSTRUMENTED_SYSTEM;
+
+#[cfg(test)]
 mod tests {
     use super::*;
 
@@ -147,5 +152,96 @@ mod tests {
     #[test]
     fn f5_a_row_that_is_not_a_row_is_skipped() {
         assert_eq!(parse("garbage\n\n  x y z\n 5 6 comm\n").len(), 1);
+    }
+    fn snapshot() -> String {
+        use std::fmt::Write;
+        let mut text = String::new();
+        for door in 1..=10 {
+            let root = door * 100;
+            writeln!(text, "{root} 1 shell shell marker-{door}-").unwrap();
+            for child in 1..=20 {
+                writeln!(
+                    text,
+                    "{} {} vendor vendor --child",
+                    root + child,
+                    root + child - 1
+                )
+                .unwrap();
+            }
+        }
+        for pid in 2000..2200 {
+            writeln!(text, "{pid} 1 unrelated unrelated --idle").unwrap();
+        }
+        text
+    }
+
+    #[test]
+    fn r5636e_scan_allocated_bytes() {
+        for doors in [1, 10] {
+            let text = snapshot();
+            let markers: Vec<_> = (1..=doors).map(|door| format!("marker-{door}-")).collect();
+            let region = stats_alloc::Region::new(ALLOCATOR);
+            let table = parse(&text);
+            let prepared = region.change();
+            for marker in &markers {
+                std::hint::black_box(strays(&table, marker, &[], &["vendor"]));
+            }
+            let total = region.change();
+            eprintln!(
+                "SCAN doors={doors} prep={prepared:?} walk={:?} total={total:?}",
+                total - prepared
+            );
+            // Base 767fa083: 65,557 / 314,713 bytes for this 410-row fixture.
+            assert!(total.bytes_allocated < if doors == 1 { 60_000 } else { 120_000 });
+        }
+    }
+    fn pids(found: Vec<Stray>) -> Vec<u32> {
+        found.into_iter().map(|stray| stray.pid).collect()
+    }
+
+    #[test]
+    fn r5636a_owned_terminal_roots_are_excluded() {
+        let table = parse(
+            "100 1 vendor vendor marker\n101 100 vendor vendor\n200 1 vendor vendor\n201 200 vendor vendor\n300 1 vendor vendor\n301 300 vendor vendor",
+        );
+        assert_eq!(
+            pids(strays(&table, "marker", &[101, 200], &["vendor"])),
+            [201]
+        );
+    }
+
+    #[test]
+    fn r5636a_matching_keeps_pid_order() {
+        let table = parse(
+            "100 1 shell shell marker\n111 100 no no\n110 100 /bin/vendor unrelated\n109 100 no /opt/vendor\n108 100 sh sh -c /opt/vendor\n107 100 bash bash -x /opt/vendor\n106 100 dash dash /opt/vendor\n105 100 zsh zsh /opt/vendor\n104 100 node node --flag /opt/vendor\n103 100 python python -u /opt/vendor\n102 100 python3 python3 /opt/vendor\n101 100 node node other vendor",
+        );
+        assert_eq!(
+            pids(strays(&table, "marker", &[], &["vendor"])),
+            (102..=110).collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
+    fn r5636a_sparse_and_cyclic_processes_terminate() {
+        let table = parse(
+            "4294967294 900 vendor vendor\n10 11 vendor vendor marker\n11 10 vendor vendor\n12 11 vendor vendor\n20 20 vendor vendor marker\n21 20 vendor vendor\n30 999 vendor vendor",
+        );
+        assert_eq!(
+            pids(strays(&table, "marker", &[900, 11], &["vendor"])),
+            [12, 21, 4294967294]
+        );
+    }
+
+    #[test]
+    fn r5636d_pid_reuse_uses_only_the_new_snapshot() {
+        let first =
+            parse("100 1 shell shell marker\n101 100 vendor vendor old\n102 101 vendor vendor");
+        assert_eq!(pids(strays(&first, "marker", &[], &["vendor"])), [101, 102]);
+        let second = parse(
+            "100 1 shell shell marker\n101 9 vendor vendor new\n102 101 vendor vendor\n103 100 vendor vendor fresh",
+        );
+        let found = strays(&second, "marker", &[], &["vendor"]);
+        assert_eq!(pids(found.clone()), [103]);
+        assert_eq!(found[0].command, "vendor fresh");
     }
 }
