@@ -1,5 +1,5 @@
-import { createRoot, createSignal } from "solid-js";
-import { afterEach, expect, it } from "vitest";
+import { createRoot, createSignal, untrack } from "solid-js";
+import { afterEach, expect, it, vi } from "vitest";
 import { waitFor } from "@solidjs/testing-library";
 import type { WorktreeState } from "@contracts/agent/WorktreeState";
 import { createFakeApp } from "../testing/fakeApp";
@@ -185,4 +185,100 @@ it.each(["unwatched", "plain", "missing", "hidden", "closed", "exited"])("s3806b
   const id = cause === "plain" || cause === "missing" ? cause : "a";
   expect(await connected.worktrees.refresh(id)).toEqual({ failure: expect.stringMatching(/\S/) });
   expect(app.calls).toHaveLength(before);
+});
+
+it("u5643c_unchanged_ticks_do_not_reconcile_rail", async () => {
+  const app = createFakeApp();
+  app.handlers["rail.tree"] = () => [agent("a", "working", "busy", { worktree: { ...worktree } }), agent("plain", "idle", "ready")];
+  app.handlers["agent.worktreeState"] = () => facts;
+  const [now, tick] = createSignal(0);
+  const connected = await connectProject(app, { path: "/p", name: "p" }, () => false, now);
+  let traversals = 0;
+  let identityReads = 0;
+
+  const rail = { ...connected.rail, get nodes() {
+    traversals++;
+
+    return connected.rail.nodes.map(node => ({
+      ...untrack(() => ({ ...node })),
+      get id() { identityReads++;
+
+ return node.id; },
+      get worktree() {
+        identityReads++;
+        const identity = node.worktree;
+
+        return identity === null ? null : {
+          get path() { identityReads++;
+
+ return identity.path; },
+          get branch() { identityReads++;
+
+ return identity.branch; },
+          get base() { identityReads++;
+
+ return identity.base; },
+        };
+      },
+    }));
+  } };
+
+  const state = createWorktreeState(app, rail, now, () => null);
+  createRoot(dispose => { disposals.push(dispose); state.watch(() => true); });
+  await waitFor(() => expect(state.read("a")).toEqual({ failure: null, state: facts }));
+  traversals = 0;
+  identityReads = 0;
+  const stringify = vi.spyOn(JSON, "stringify");
+
+  for (const time of [30_000, 45_000, 60_000]) {
+    tick(time);
+    await state.refresh("a");
+    state.read("a");
+    state.read("plain");
+  }
+
+  const counts = { traversals, identityReads, serializations: stringify.mock.calls.length };
+  stringify.mockRestore();
+  expect(counts).toEqual({ traversals: 0, identityReads: 0, serializations: 0 });
+  expect(app.calls.filter(call => call.method === "agent.worktreeState").map(call => call.params)).toEqual(Array.from({ length: 4 }, () => ({ id: "a" })));
+});
+
+it.each(["id", "presence", "path", "branch", "base", "name", "status"] as const)("u5643c_relevant_rail_changes_reconcile_once_%s", async (change) => {
+  const app = createFakeApp();
+  let tree = [agent("a", "working", "busy", { worktree: { ...worktree } })];
+  app.handlers["rail.tree"] = () => tree;
+  let ahead = 7;
+  app.handlers["agent.worktreeState"] = () => ({ ...facts, ahead });
+  const connected = await connectProject(app, { path: "/p", name: "p" }, () => false, () => 0);
+  let reconciliations = 0;
+
+  const rail = { ...connected.rail, get nodes() {
+    reconciliations++;
+
+    return connected.rail.nodes;
+  } };
+
+  const state = createWorktreeState(app, rail, () => 0, () => null);
+  createRoot(dispose => { disposals.push(dispose); state.watch(() => true); });
+  await waitFor(() => expect(state.read("a")).toEqual({ failure: null, state: facts }));
+  const previous = state.read("a");
+  reconciliations = 0;
+  ahead = 11;
+  const nextWorktree = { ...worktree };
+
+  if (change === "path" || change === "branch" || change === "base") nextWorktree[change] = "replacement";
+  tree = [agent(change === "id" ? "replacement" : "a", change === "status" ? "done" : "working", "busy", {
+    name: change === "name" ? "renamed" : tree[0]!.name,
+    worktree: change === "presence" ? null : nextWorktree,
+  })];
+  await connected.rail.refresh();
+  const relevant = change !== "name" && change !== "status";
+  const count = reconciliations;
+  const id = change === "id" ? "replacement" : "a";
+
+  if (change === "presence") expect(state.read(id)).toBeUndefined();
+  else if (relevant) await waitFor(() => expect(state.read(id)).toEqual({ failure: null, state: { ...facts, ahead: 11 } }));
+  else expect(state.read(id)).toBe(previous);
+  expect(count).toBe(relevant ? 1 : 0);
+  expect(app.calls.filter(call => call.method === "agent.worktreeState").map(call => call.params)).toEqual(relevant && change !== "presence" ? [{ id: "a" }, { id }] : [{ id: "a" }]);
 });
