@@ -1,4 +1,6 @@
 """E14 exercises the observer's evidence boundary, never a product test double."""
+import contextlib
+import io
 import importlib.util
 import unittest
 from unittest.mock import patch
@@ -191,6 +193,69 @@ class E14(unittest.TestCase):
             self.assertEqual(failed.returncode, 1)
             self.assertIn("E14 observation FAILED", failed.stderr)
             self.assertNotIn("| head |", failed.stdout)
+
+
+class CI5527(unittest.TestCase):
+    def invoke(self, elapsed, code=0, modules=None, raw=None):
+        with tempfile.TemporaryDirectory() as temporary:
+            output = Path(temporary) / "lane"
+            args = SimpleNamespace(lane="web2", base="origin/main", output=output, shards=7,
+                                   cache_state="fixture", memory_log=None, build_observation=False,
+                                   install_dependencies=False)
+            if modules is None:
+                modules = [dict(id="one.test.ts", state="passed", duration_ms=23,
+                                tests=[dict(id="one::test", status="passed", retries=0, repeats=0,
+                                            start=1, end=2, real=False)])]
+
+            def launch(*_args, **_kwargs):
+                if raw != "absent":
+                    (output / "web.json").write_text(raw if raw is not None else json.dumps(dict(modules=modules, errors=[])))
+                return SimpleNamespace(poll=lambda: code, returncode=code)
+
+            stream = io.StringIO()
+            with contextlib.ExitStack() as stack:
+                stack.enter_context(patch.object(observer.platform, "platform", return_value="Linux fixture"))
+                stack.enter_context(patch.object(observer.platform, "processor", return_value="fixture CPU"))
+                stack.enter_context(patch.object(observer.subprocess, "check_output", side_effect=["a" * 40, ""]))
+                stack.enter_context(patch.object(observer.subprocess, "Popen", side_effect=launch))
+                stack.enter_context(patch.object(observer.time, "monotonic", side_effect=[0, 0, elapsed, elapsed]))
+                stack.enter_context(contextlib.redirect_stdout(stream))
+                result = observer.run(args)
+            return result, stream.getvalue()
+
+    def test_ci5527c_web_budget_controls_the_exit_result(self):
+        for elapsed, code, expected in ((719.999, 0, 0), (720, 0, 0), (720.001, 0, 1), (3, 42, 42)):
+            with self.subTest(elapsed=elapsed, code=code):
+                result, diagnostic = self.invoke(elapsed, code)
+                self.assertEqual(result, expected, diagnostic)
+
+    def test_ci5527c_budget_failure_names_the_five_slowest_files(self):
+        files = [("z", 12), ("e", 50), ("a", 80), ("c", 50), ("b", 70), ("d", 30)]
+        for count, expected in ((6, ["a: 80 ms", "b: 70 ms", "c: 50 ms", "e: 50 ms", "d: 30 ms"]),
+                                (2, ["e: 50 ms", "z: 12 ms"])):
+            modules = [dict(id=name, state="passed", duration_ms=duration,
+                            tests=[dict(id=name, status="passed", retries=0, repeats=0,
+                                        start=1, end=2, real=False)]) for name, duration in files[:count]]
+            with self.subTest(count=count):
+                result, diagnostic = self.invoke(720.001, modules=modules)
+                self.assertNotEqual(result, 0)
+                self.assertIn("web2", diagnostic)
+                self.assertIn("720.001", diagnostic)
+                self.assertIn("720-second budget", diagnostic)
+                self.assertEqual([line.strip() for line in diagnostic.splitlines() if " ms" in line], expected)
+
+    def test_ci5527c_missing_or_invalid_report_cannot_pass(self):
+        for raw in ("absent", "{", "{}", '{"modules": [], "errors": []}'):
+            with self.subTest(raw=raw):
+                with self.assertRaises((OSError, ValueError, KeyError)):
+                    self.invoke(1, raw=raw)
+        for duration in (None, -1, float("nan"), "10", True):
+            with self.subTest(duration=duration):
+                modules = [dict(id="bad.test.ts", state="passed", duration_ms=duration,
+                                tests=[dict(id="bad", status="passed", retries=0, repeats=0,
+                                            start=1, end=2, real=False)])]
+                with self.assertRaisesRegex(ValueError, "duration"):
+                    self.invoke(1, modules=modules)
 
 
 class CI3781(unittest.TestCase):
