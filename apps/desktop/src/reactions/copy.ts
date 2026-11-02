@@ -34,12 +34,12 @@ const reactionCauses: Record<ObservationCause, string> = {
   "checks-unavailable": "PR checks are unavailable. Check your GitHub login and connection, wait for the next observation.",
   "worktree-read-failed": "Could not read the Agent's work. Check again after the observation updates.",
   "pr-missing": "The Agent's work has no matching PR. Check its PR or choose another Agent in a new reaction.",
-  "evidence-missing": "No required-check results are available. Current results appear when the observation updates.",
+  "evidence-missing": "No required-check results are available.",
   "evidence-stale": "Check results are out of date. Current results appear when the observation changes.",
   "forge-read-failed": "Could not read GitHub. Check your connection, wait for the next observation.",
-  "head-missing": "The PR's current version is unavailable. Current results appear when the observation updates.",
+  "head-missing": "The PR's current version is unavailable.",
   "repository-mismatch": "The Agent's PR belongs to another repository. Create a reaction for the correct PR.",
-  "unknown": "Observation details could not be explained. Current results appear when the observation updates.",
+  "unknown": "Observation details could not be explained.",
   "unsupported": "This source cannot be watched. Stop this reaction and choose a supported condition.",
   "firings-read-failed": "Could not read accepted firings. Check again after the observation updates.",
   "cursor-missing": "The accepted firing has no source record. Restore its evidence before checking again.",
@@ -48,7 +48,7 @@ const reactionCauses: Record<ObservationCause, string> = {
 };
 
 const reactionGaps: Record<ObservationGap, string> = {
-  "unknown": "Earlier observation details could not be explained. Current results appear when the observation updates.",
+  "unknown": "Earlier observation details could not be explained.",
   "history-expired": "Earlier activity could not be read. This gap remains in the history.",
   "agent-read-failed": "Agent activity could not be read. Nothing matched during that gap.",
   "events-read-failed": "Agent activity could not be read. Nothing matched during that gap.",

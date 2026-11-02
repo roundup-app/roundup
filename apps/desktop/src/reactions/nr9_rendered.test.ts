@@ -399,7 +399,7 @@ it.skipIf(!captureDir("U5558a"))("u5558e_open_surfaces_update_and_keep_failed_re
     await wait("document.querySelectorAll('.import-check input').length === 10");
     expect(await evaluate("document.querySelectorAll('.import-candidate input:checked').length")).toBe(0);
     await click("1 not importable");
-    await wait("!![...document.querySelectorAll('.import-excluded li')].find(row => row.textContent.includes('Incomplete saved conversation'))");
+    await wait("document.querySelector('.import-excluded button')?.getAttribute('aria-expanded') === 'true'");
     await capture("U5558d", "saved-listing");
     await evaluate("window.__fake.app.handlers['project.importDiscover'] = () => { throw new Error('Saved listing unavailable: permission denied. Retry to read the listing again.'); }");
     await evaluate("window.__fake.emit({actor:{kind:'agent',id:'listing-agent',parent:null},name:'rail.changed'})");
