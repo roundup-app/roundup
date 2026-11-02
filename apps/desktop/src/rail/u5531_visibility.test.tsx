@@ -101,8 +101,9 @@ it("u5531b_direct_message_terminal_and_draft_keep_the_child_identity", async () 
     expect(railCallsTo(m.app, "message.send")).toEqual([]);
   }
 
-  m.app.handlers["message.send"] = () => message(1);
+  m.app.handlers["message.send"] = params => message(1, { to: params.to, body: params.body });
   await notes.send("helper");
+  expect(notes.list("helper")).toEqual([]);
   expect(railCallsTo(m.app, "message.send")).toEqual([{ to: "helper", body: expect.any(String), kind: "note", replyTo: null }]);
   // SAFETY: the preceding contract assertion verifies a single send with a string body.
   const sent = railCallsTo(m.app, "message.send")[0] as { body: string };
