@@ -593,6 +593,155 @@ pub(crate) fn screen(cols: u16, rows: u16, offset: u64, shown: Vec<String>, cap:
 mod tests {
     use super::*;
 
+    #[test]
+    fn x5639a_ring_storage_grows_only_when_output_arrives() {
+        let mut log = Log::default();
+        log.push(b"");
+        assert_eq!(log.bytes.capacity(), 0);
+        assert!(log.checkpoint.is_none());
+        log.push(&[b'x'; 8192]);
+        assert!((8192..LOG_BYTES).contains(&log.bytes.capacity()));
+        assert!(log.checkpoint.is_none());
+    }
+
+    fn assert_suffix(log: &Log, input: &[u8]) {
+        let retained = input.len().min(LOG_BYTES);
+        assert!(
+            log.bytes.capacity() <= LOG_BYTES,
+            "capacity {}",
+            log.bytes.capacity()
+        );
+        assert_eq!(log.end(), input.len() as u64);
+        assert_eq!(log.start(), (input.len() - retained) as u64);
+        assert_eq!(
+            log.raw(log.start()).unwrap(),
+            input[input.len() - retained..]
+        );
+    }
+
+    #[test]
+    fn x5639a_repeated_wraps_keep_the_exact_suffix_within_capacity() {
+        let mut log = Log::default();
+        let mut input = Vec::new();
+        for index in 0..513 {
+            let chunk = vec![b'a' + (index % 26) as u8; 8192];
+            input.extend(&chunk);
+            log.push(&chunk);
+            assert_suffix(&log, &input);
+            if index == 128 {
+                assert_eq!((log.start(), log.end()), (8192, 1_056_768));
+            }
+        }
+    }
+
+    #[test]
+    fn x5639a_oversized_chunks_keep_only_the_bounded_suffix() {
+        for wrapped in [false, true] {
+            let mut log = Log::default();
+            let mut input = Vec::new();
+            if wrapped {
+                for _ in 0..129 {
+                    input.extend([b'x'; 8192]);
+                    log.push(&[b'x'; 8192]);
+                }
+                let (head, tail) = log.bytes.as_slices();
+                assert!(!head.is_empty() && !tail.is_empty());
+            }
+            for size in [LOG_BYTES + 17, 2 * LOG_BYTES + 31] {
+                let chunk: Vec<_> = (0..size).map(|n| b'a' + (n % 26) as u8).collect();
+                input.extend(&chunk);
+                log.push(&chunk);
+                assert_suffix(&log, &input);
+            }
+        }
+    }
+
+    #[test]
+    fn x5639b_eviction_preserves_exact_replay() {
+        let scene = b"\x1b[31mred\x1b]0;ti\x07\xc3\xa9!\r\nlast\xff";
+        for oversized in [false, true] {
+            for (cut, first) in [(2, "redé!"), (10, "é!"), (16, "é!")] {
+                let mut log = Log::default();
+                let mut input = Vec::new();
+                // Force both deque slices to participate in the next eviction.
+                for _ in 0..129 {
+                    log.push(&[0; 8192]);
+                    input.extend([0; 8192]);
+                }
+                let (head, tail) = log.bytes.as_slices();
+                assert!(!head.is_empty() && !tail.is_empty());
+                let mut chunk = b"old\r\x1b[2K".to_vec();
+                if oversized {
+                    chunk.resize(LOG_BYTES + 37, 0);
+                }
+                let scene_start = input.len() + chunk.len();
+                chunk.extend(scene);
+                chunk.resize(chunk.len() + LOG_BYTES + cut - scene.len(), 0);
+                if oversized {
+                    log.push(&chunk);
+                } else {
+                    chunk.chunks(4093).for_each(|part| log.push(part));
+                }
+                input.extend(chunk);
+                assert_suffix(&log, &input);
+                assert_eq!(log.start(), (scene_start + cut) as u64);
+                let next_line = (scene_start + 20) as u64;
+                let page = read(&log.from(0).unwrap(), first.len() + 1);
+                assert_eq!(
+                    (page.from, page.next, page.text, page.truncated),
+                    (log.start(), next_line, format!("{first}\n"), true)
+                );
+                let tail = read(&log.from(next_line).unwrap(), REPLY_BYTES);
+                assert_eq!(
+                    (tail.from, tail.next, tail.text, tail.truncated),
+                    (next_line, log.end(), "last�".into(), false)
+                );
+                let found =
+                    search(&log.from(0).unwrap(), ".", first.len() + MATCH_OVERHEAD).unwrap();
+                assert_eq!(found.matches.len(), 1);
+                assert_eq!(
+                    (found.matches[0].offset, found.matches[0].text.as_str()),
+                    (log.start(), first)
+                );
+                assert_eq!((found.next, found.truncated), (next_line, true));
+                let found = search(&log.from(found.next).unwrap(), ".", REPLY_BYTES).unwrap();
+                assert_eq!(found.matches.len(), 1);
+                assert_eq!(
+                    (found.matches[0].offset, found.matches[0].text.as_str()),
+                    (next_line, "last�")
+                );
+                assert_eq!((found.next, found.truncated), (log.end(), false));
+                let empty = read(&log.from(log.end()).unwrap(), REPLY_BYTES);
+                assert_eq!(
+                    (empty.from, empty.next, empty.text, empty.truncated),
+                    (log.end(), log.end(), String::new(), false)
+                );
+                assert!(log.from(log.end() + 1).is_err());
+                // End with a partial CSI, then complete it after checkpoint replay.
+                log.push(b"\x1b[");
+                input.extend(b"\x1b[");
+                let window = log.from(0).unwrap();
+                let mut replay = window.checkpoint.unwrap();
+                replay.resync();
+                for (index, byte) in window.bytes.iter().enumerate() {
+                    replay.feed(*byte, window.start + index as u64 + 1, None);
+                }
+                let mut reference = vt100::Parser::new(ROWS, COLS, usize::from(ROWS));
+                reference.process(&input);
+                replay.parser.process(b"2D!\x1b[0m");
+                reference.process(b"2D!\x1b[0m");
+                assert_eq!(
+                    replay.parser.screen().contents_formatted(),
+                    reference.screen().contents_formatted()
+                );
+                assert_eq!(
+                    replay.parser.screen().cursor_position(),
+                    reference.screen().cursor_position()
+                );
+            }
+        }
+    }
+
     /// A log of lines `z` whose first `FILLER + cut` bytes are evicted, with `scene` starting
     /// `cut` bytes before the first retained byte; pushed in chunks that do not line up with it.
     fn evicted_log(scene: &[u8], cut: usize) -> (Log, u64) {

@@ -192,10 +192,7 @@ impl Remote {
                                     match STANDARD.decode(frame.data) {
                                         Ok(bytes) => {
                                             let mut state = pushed.lock().expect("remote output");
-                                            if let Some(sender) = &state.1 {
-                                                let _ = sender.send(Chunk { offset: frame.offset, bytes: Arc::from(bytes.clone()) });
-                                                state.0 = frame.offset + bytes.len() as u64;
-                                            }
+                                            publish_output(&mut state, frame.offset, bytes);
                                         }
                                         Err(_) => break,
                                     }
@@ -222,7 +219,7 @@ impl Remote {
                                     match params::<contracts::terminal::CatchUp>(value) {
                                         Ok(contracts::terminal::CatchUp::Contiguous { from, after, data, .. }) => {
                                             if let Ok(bytes) = STANDARD.decode(data) {
-                                                if !bytes.is_empty() { let _ = state.1.as_ref().expect("output sender").send(Chunk { offset: from, bytes: Arc::from(bytes) }); }
+                                                if !bytes.is_empty() { publish_output(&mut state, from, bytes); }
                                                 state.0 = after;
                                             }
                                         }
@@ -452,5 +449,107 @@ impl Terminals {
             )?;
         }
         Ok(())
+    }
+}
+
+fn publish_output(
+    state: &mut (u64, Option<broadcast::Sender<Chunk>>),
+    offset: u64,
+    bytes: Vec<u8>,
+) {
+    if let Some(sender) = &state.1 {
+        let _ = sender.send(Chunk {
+            offset,
+            bytes: Arc::from(bytes.clone()),
+        });
+        state.0 = offset + bytes.len() as u64;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use stats_alloc::{INSTRUMENTED_SYSTEM, Region, StatsAlloc};
+    use std::alloc::System;
+
+    #[global_allocator]
+    static ALLOCATOR: &StatsAlloc<System> = &INSTRUMENTED_SYSTEM;
+
+    #[tokio::test]
+    async fn x5639c_remote_output_preserves_bytes_offsets_and_tail() {
+        let (sender, receiver) = broadcast::channel(2);
+        let mut state = (0, Some(sender));
+        let mut stream = OutputStream {
+            receiver,
+            next: 41,
+            after_gap: None,
+        };
+        for (offset, bytes) in [(41, &b"\0\x1b\xff\xc3"[..]), (45, &b"\xa9!"[..])] {
+            publish_output(&mut state, offset, bytes.to_vec());
+            assert_eq!(state.0, offset + bytes.len() as u64);
+            assert_eq!(
+                stream.next().await,
+                Some(Output::Bytes {
+                    offset,
+                    bytes: Arc::from(bytes)
+                })
+            );
+        }
+        // Simulate lag by overrunning the real bounded receiver, then publish the final catch-up.
+        for offset in [47, 48, 80] {
+            publish_output(&mut state, offset, vec![b'x']);
+        }
+        publish_output(&mut state, 81, b"tail\xc3".to_vec());
+        assert_eq!(state.0, 86);
+        state.1 = None;
+        assert_eq!(stream.next().await, Some(Output::Gap { from: 47, to: 80 }));
+        assert_eq!(
+            stream.next().await,
+            Some(Output::Bytes {
+                offset: 80,
+                bytes: Arc::from(&b"x"[..])
+            })
+        );
+        assert_eq!(
+            stream.next().await,
+            Some(Output::Bytes {
+                offset: 81,
+                bytes: Arc::from(&b"tail\xc3"[..])
+            })
+        );
+        assert_eq!(stream.next().await, None);
+    }
+
+    #[test]
+    fn x5639c_remote_output_avoids_the_temporary_payload_allocation() {
+        // Nextest runs each test in its own process; no runtime or other thread allocates here.
+        let payload = vec![0xa5; 8192];
+        let mut observed = Vec::new();
+        for former in [false, true] {
+            let bytes = payload.clone();
+            let (sender, mut receiver) = broadcast::channel(1);
+            let mut state = (0, Some(sender));
+            let region = Region::new(ALLOCATOR);
+            if former {
+                let _ = state.1.as_ref().unwrap().send(Chunk {
+                    offset: 41,
+                    bytes: Arc::from(bytes.clone()),
+                });
+                state.0 = 41 + bytes.len() as u64;
+            } else {
+                publish_output(&mut state, 41, bytes);
+            }
+            let stats = region.change();
+            let chunk = receiver.try_recv().unwrap();
+            assert_eq!(chunk.offset, 41);
+            assert_eq!(&*chunk.bytes, payload);
+            assert_eq!(state.0, 8233);
+            observed.push(stats);
+        }
+        assert_eq!(observed[1].allocations - observed[0].allocations, 1);
+        assert_eq!(
+            observed[1].bytes_allocated - observed[0].bytes_allocated,
+            payload.len()
+        );
     }
 }
