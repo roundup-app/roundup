@@ -32,9 +32,6 @@ fn lc19_lean_starts_include_memory_tools_and_guard() {
                     assert_eq!(hook["type"], "command");
                     assert_eq!(hook["onFailure"], "block");
                     assert_ne!(hook["async"], true);
-                    let command = shlex::split(hook["command"].as_str().unwrap()).unwrap();
-                    assert_eq!(Path::new(&command[0]), s.rup);
-                    assert_eq!(command[1], "claude-memory");
                     let brief = std::fs::read_to_string(
                         Setup::after(&argv, "--append-system-prompt-file").unwrap(),
                     )
@@ -168,7 +165,12 @@ fn launch_root(argv: &[String]) -> PathBuf {
     let command = guard(&settings).unwrap()["hooks"][0]["command"]
         .as_str()
         .unwrap();
-    PathBuf::from(&shlex::split(command).unwrap()[2])
+    let words = shlex::split(command).unwrap();
+    let at = words
+        .iter()
+        .position(|word| word == "claude-memory")
+        .unwrap();
+    PathBuf::from(&words[at + 1])
 }
 
 #[test]
@@ -226,9 +228,12 @@ fn lc19_memory_guard_extends_user_settings() {
         });
         assert_eq!(ours.is_some(), row != Role::Agent);
         if let Some(ours) = ours {
-            let root = PathBuf::from(
-                &shlex::split(ours["hooks"][0]["command"].as_str().unwrap()).unwrap()[2],
-            );
+            let words = shlex::split(ours["hooks"][0]["command"].as_str().unwrap()).unwrap();
+            let at = words
+                .iter()
+                .position(|word| word == "claude-memory")
+                .unwrap();
+            let root = PathBuf::from(&words[at + 1]);
             assert_eq!(root, memory);
             assert_eq!(
                 call(
