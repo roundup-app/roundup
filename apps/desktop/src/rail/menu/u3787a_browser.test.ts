@@ -72,8 +72,11 @@ it("u3787a_quiet_deletion_keeps_the_lists_and_drawers_reachable", async () => {
     if (id === "U150" || id === "U3512a") {
       await lane.browser("press", "Enter");
       await lane.until("!!document.querySelector('.todo-detail')");
+      await lane.evaluate("Promise.all(document.querySelector('.drawer').getAnimations().map(animation => animation.finished.catch(() => {})))");
       await lane.capture(id, "drawer-before");
-      await lane.browser("click", '.todo-detail button[aria-label="More actions"]');
+      await lane.browser("focus", '.todo-detail button[aria-label="More actions"]');
+      await lane.browser("press", "ArrowDown");
+      await lane.until("document.querySelector('[role=menuitem][data-value=delete]') !== null");
       await lane.browser("click", '[role="menuitem"][data-value="delete"]');
       await lane.until("!document.querySelector('.drawer[data-open=true]')");
     } else if (id === "U486") {
