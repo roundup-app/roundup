@@ -62,9 +62,13 @@ pub(crate) fn is_quiet_digest(given: &[Message], message: &Message) -> bool {
                 .rev()
                 .filter(|m| is_digest(&m.from, &m.body))
                 .find_map(|m| {
-                    entries_of(&m.body)
-                        .into_iter()
-                        .find(|e| e.name == entry.name)
+                    {
+                        #[cfg(test)]
+                        HISTORY_PARSES.with_borrow_mut(|ids| ids.push(m.id));
+                        entries_of(&m.body)
+                    }
+                    .into_iter()
+                    .find(|e| e.name == entry.name)
                 });
             let prior_kind = before.as_ref().map(|e| e.kind);
             let alarming = matches!(entry.kind, Kind::Error | Kind::NeedsYou)
@@ -110,6 +114,36 @@ mod tests {
     }
 
     #[test]
+    fn b5640b_history_is_parsed_once_per_batch() {
+        let old = entry(Kind::Working, "old", 4);
+        let current = entry(Kind::Working, "current", 2);
+        let mut given = vec![
+            digest(1, MessageStatus::Delivered, &old),
+            digest(2, MessageStatus::Delivered, &current),
+        ];
+        given[0].at = 900;
+        given[1].at = 1;
+        // The first duplicate in the newest Message wins, including inside a merge.
+        given[1].body = format!(
+            "[digest] [2 earlier updates: #7 #8]\n{}\n{}",
+            crate::digest::entry_text(&current),
+            crate::digest::entry_text(&old)
+        );
+        let pending = vec![
+            digest(3, MessageStatus::Pending, &current),
+            digest(4, MessageStatus::Pending, &current),
+        ];
+        HISTORY_PARSES.with_borrow_mut(Vec::clear);
+        assert!(pending.iter().all(|m| is_quiet_digest(&given, m)));
+        let parsed = HISTORY_PARSES.with_borrow(Clone::clone);
+        for message in &given {
+            assert!(
+                parsed.iter().filter(|id| **id == message.id).count() <= 1,
+                "{parsed:?}"
+            );
+        }
+    }
+    #[test]
     fn a_digest_with_news_is_not_quiet() {
         let given = [digest(
             1,
@@ -126,4 +160,9 @@ mod tests {
             assert!(!is_quiet_digest(&given, &next), "{}", next.body);
         }
     }
+}
+
+#[cfg(test)]
+thread_local! {
+    static HISTORY_PARSES: std::cell::RefCell<Vec<u32>> = const { std::cell::RefCell::new(Vec::new()) };
 }

@@ -509,3 +509,70 @@ impl Messages {
         Ok(Some(node))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::inbox::tests::{pending, setup};
+    use contracts::agent::DigestEntry;
+
+    #[tokio::test(start_paused = true)]
+    async fn b5640e_quiet_work_rides_one_idle_batch() {
+        let dir = tempfile::tempdir().unwrap();
+        let (messages, _, inbox) = setup(dir.path());
+        let body = crate::digest::push_body(&DigestEntry {
+            name: "child".into(),
+            kind: Kind::Working,
+            last: "unchanged".into(),
+            todos: 2,
+            pads: vec![],
+        });
+        let history = lock(&messages.inner.store)
+            .insert(
+                &Actor::daemon(),
+                "m",
+                MessageKind::Note,
+                &body,
+                None,
+                MessageStatus::Delivered,
+                None,
+                0,
+                (1, 1),
+            )
+            .unwrap();
+        let quiet = pending(&messages, &Actor::daemon(), &body);
+        on_idle(&messages.inner, "m", (1, 2), Pick::Next).await;
+        assert!(lock(&inbox.batches).is_empty());
+        assert!(!lock(&messages.inner.store).in_flight(quiet.id).unwrap());
+        let ordinary = pending(&messages, &Actor::user(), "please continue");
+        on_idle(&messages.inner, "m", (1, 2), Pick::Next).await;
+        {
+            let batches = lock(&inbox.batches);
+            assert_eq!(batches.len(), 1);
+            assert_eq!(
+                batches[0].iter().map(|e| e.0).collect::<Vec<_>>(),
+                [quiet.id, ordinary.id]
+            );
+        }
+        for id in [quiet.id, ordinary.id] {
+            let store = lock(&messages.inner.store);
+            assert!(store.in_flight(id).unwrap());
+            assert_eq!(
+                store.get(id).unwrap().unwrap().status,
+                MessageStatus::Pending
+            );
+        }
+        on_idle(&messages.inner, "m", (1, 2), Pick::Next).await;
+        assert_eq!(lock(&inbox.batches).len(), 1);
+        messages.confirm_inbox("m", &[quiet.id, ordinary.id]);
+        for id in [history.id, quiet.id, ordinary.id] {
+            assert_eq!(
+                lock(&messages.inner.store).get(id).unwrap().unwrap().status,
+                MessageStatus::Delivered
+            );
+        }
+        on_idle(&messages.inner, "m", (1, 2), Pick::Next).await;
+        assert_eq!(lock(&inbox.batches).len(), 1);
+        // BatchRail rejects every method but rail.tree: no Terminal write or prompt is possible.
+    }
+}

@@ -88,3 +88,137 @@ fn b5_a_stored_route_word_no_variant_has_is_an_error() {
     assert!(store.get_route("a", "b").is_err());
     assert!(store.list_routes().is_err());
 }
+
+#[test]
+fn b5640a_history_materializes_only_matching_rows() {
+    let store = Store::open(Path::new(":memory:")).unwrap();
+    let mut expected = Vec::new();
+    for (from, to, status, body, kind, selected) in [
+        (
+            Actor::daemon(),
+            "m",
+            MessageStatus::Delivered,
+            "[digest] plain",
+            MessageKind::Note,
+            true,
+        ),
+        (
+            Actor::daemon(),
+            "m",
+            MessageStatus::Delivered,
+            "[digest] [2 updates kept back]",
+            MessageKind::Note,
+            true,
+        ),
+        (
+            Actor::daemon(),
+            "m",
+            MessageStatus::Delivered,
+            "[digest] [2 earlier updates: #1 #2]",
+            MessageKind::Note,
+            true,
+        ),
+        (
+            Actor::daemon(),
+            "m",
+            MessageStatus::Delivered,
+            "[digest] question",
+            MessageKind::Question,
+            true,
+        ),
+        (
+            Actor::daemon(),
+            "other",
+            MessageStatus::Delivered,
+            "[digest]",
+            MessageKind::Note,
+            false,
+        ),
+        (
+            Actor::daemon(),
+            "m",
+            MessageStatus::Pending,
+            "[digest]",
+            MessageKind::Note,
+            false,
+        ),
+        (
+            Actor::daemon(),
+            "m",
+            MessageStatus::Dropped,
+            "[digest]",
+            MessageKind::Note,
+            false,
+        ),
+        (
+            Actor::daemon(),
+            "m",
+            MessageStatus::Delivered,
+            "ordinary",
+            MessageKind::Note,
+            false,
+        ),
+        (
+            Actor::user(),
+            "m",
+            MessageStatus::Delivered,
+            "[digest]",
+            MessageKind::Note,
+            false,
+        ),
+        (
+            Actor {
+                kind: ActorKind::Agent,
+                id: "daemon".into(),
+                parent: None,
+            },
+            "m",
+            MessageStatus::Delivered,
+            "[digest]",
+            MessageKind::Note,
+            false,
+        ),
+        (
+            Actor {
+                kind: ActorKind::Ext,
+                id: "daemon".into(),
+                parent: None,
+            },
+            "m",
+            MessageStatus::Delivered,
+            "[digest]",
+            MessageKind::Note,
+            false,
+        ),
+        (
+            Actor {
+                kind: Actor::daemon().kind,
+                id: "other".into(),
+                parent: None,
+            },
+            "m",
+            MessageStatus::Delivered,
+            "[digest]",
+            MessageKind::Note,
+            false,
+        ),
+    ] {
+        let m = store
+            .insert(&from, to, kind, body, None, status, None, -1, (1, 1))
+            .unwrap();
+        if selected {
+            expected.push(m.id);
+        }
+    }
+    for unrelated in [false, true] {
+        if unrelated {
+            store.db.execute_batch("WITH RECURSIVE n(x) AS (VALUES(1) UNION ALL SELECT x+1 FROM n WHERE x<100000)
+                INSERT INTO messages(from_actor,to_id,kind,body,status,at)
+                SELECT '{\"kind\":\"daemon\",\"id\":\"daemon\"}', 'other', 'note', '[digest] unrelated', 'delivered', x FROM n").unwrap();
+        }
+        MATERIALIZED.set(0);
+        let found = store.delivered_to("m").unwrap();
+        assert_eq!(MATERIALIZED.get(), expected.len());
+        assert_eq!(found.iter().map(|m| m.id).collect::<Vec<_>>(), expected);
+    }
+}

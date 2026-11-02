@@ -840,7 +840,12 @@ fn row_to_wake(row: &rusqlite::Row<'_>) -> rusqlite::Result<Wake> {
     })
 }
 
+#[cfg(test)]
+thread_local! { static MATERIALIZED: std::cell::Cell<usize> = const { std::cell::Cell::new(0) }; }
+
 fn row_to_message(row: &rusqlite::Row<'_>) -> rusqlite::Result<Message> {
+    #[cfg(test)]
+    MATERIALIZED.set(MATERIALIZED.get() + 1);
     let from: String = row.get(1)?;
     Ok(Message {
         id: row.get(0)?,
