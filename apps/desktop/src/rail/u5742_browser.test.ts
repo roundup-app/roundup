@@ -64,6 +64,7 @@ it.each(["agents-10", "tree-40"])("u5742a_rendered_rail_choices_and_controls_%s"
     await read(`(async () => {
       const app = window.__fake.app;
       const todo = await app.rpc('todo.create', { title: 'Focus check', body: null, blockers: null });
+      window.focusCheckTodo = todo.id;
       app.handlers['link.read'] = () => ({ kind: 'todo', id: String(todo.id), todo });
       app.nativeOpen({ kind: 'link', url: 'roundup://todo/' + todo.id + '?project=project-0000000000000000' });
     })()`);
@@ -79,6 +80,30 @@ it.each(["agents-10", "tree-40"])("u5742a_rendered_rail_choices_and_controls_%s"
     }
 
     await capture("U5742a", `${seed}-drawer-choice`);
+
+    if (!baseline) {
+      await read(`window.__fake.app.nativeOpen({ kind: 'link', url: 'roundup://todo/' + window.focusCheckTodo + '?project=project-0000000000000000' })`);
+      await wait("!!document.querySelector('.drawer[data-open=true]')");
+      const destination = await read<string>("[...document.querySelectorAll('.rail-row[data-id]')].find(row => row.dataset.selected !== 'true' && row.dataset.id.startsWith('agent-'))?.dataset.id");
+      await browser("focus", `.rail-row[data-id="${destination}"]`);
+      await read(`(() => {
+        const drawer = document.querySelector('.drawer');
+        const observer = new MutationObserver(() => {
+          if (drawer.dataset.open !== 'false') return;
+          observer.disconnect();
+          requestAnimationFrame(() => {
+            window.drawerKeyFrame = { open: drawer.dataset.open, motion: drawer.dataset.motion, animations: drawer.getAnimations().length, mounted: drawer.dataset.mounted };
+          });
+        });
+        observer.observe(drawer, { attributes: true, attributeFilter: ['data-open'] });
+      })()`);
+      await browser("press", "Enter");
+      await wait("!!window.drawerKeyFrame && !!document.activeElement?.closest('.pane-screen')");
+      await capture("U5742c", `${seed}-drawer-enter`);
+      const dir = captureDir("U5742c");
+
+      if (dir) await writeFile(join(dir, "head", `${seed}-drawer-enter-frames.json`), JSON.stringify(await read("window.drawerKeyFrame"), null, 2));
+    }
 
     // Hold the actual snapshot boundary, then make a newer Ask focus choice before releasing it.
     await read(`(() => { const app = window.__fake.app, snapshot = app.handlers['terminal.snapshot']; app.handlers['terminal.snapshot'] = params => new Promise(resolve => { window.releaseSnapshot = () => resolve(snapshot(params)); }); })()`);
