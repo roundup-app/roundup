@@ -178,5 +178,11 @@
       "exit": 0,
       "log": "completion-ready.log.gz"
     }
+  },
+  "continuation_5659": {
+    "baseline_commit": "ece55e7a3459f32035dad105c4cdeb01b1c4ff4d",
+    "status": "Collecting fresh passing paired observations for deferred rows; the accepted navigation pair is retained.",
+    "command": "pnpm --filter desktop exec vitest run src/ui/s3806b_actions.test.tsx src/keys/u3787b_menu.test.tsx src/keys/u2230_hints.test.tsx --reporter=default --reporter=/tmp/ci5527e-reporter.mjs",
+    "reporter": "Copy navigation-reporter.mjs.in to /tmp/ci5527e-reporter.mjs; CI5527_REPORT names each output."
   }
 }
