@@ -217,8 +217,8 @@ const editor = async (kind: typeof editorKinds[number] | "pad-source" | "diff" |
     await browser("click", "#shelf-tab-pads");
     await wait("document.querySelector('#shelf-tab-pads')?.getAttribute('aria-selected') === 'true'");
     await browser("eval", "document.querySelector('.pads-tab [data-shelf-group=unassigned][data-state=closed] [data-part=branch-control]')?.click()");
-    await wait("[...document.querySelectorAll('[data-shelf-row] .pad-name')].some(row => row.textContent === 'pad-3')");
-    await browser("eval", "[...document.querySelectorAll('[data-shelf-row] .pad-name')].find(row => row.textContent === 'pad-3').focus()");
+    await wait("document.querySelector('[data-pad=pad-3] .pad-name')?.textContent === 'pad-3'");
+    await browser("eval", "document.querySelector('[data-pad=pad-3] .pad-name').focus()");
     await wait("document.activeElement?.matches('.pad-name')");
     await browser("press", "Enter");
     await wait("!!document.querySelector('.ProseMirror[contenteditable=true]')");
@@ -305,8 +305,8 @@ it("u2680c_readonly_content_keeps_native_selection_and_copy_pad", async () => {
   await browser("click", "#shelf-tab-pads");
   await wait("document.querySelector('#shelf-tab-pads')?.getAttribute('aria-selected') === 'true'");
   await browser("eval", "document.querySelector('.pads-tab [data-shelf-group=unassigned][data-state=closed] [data-part=branch-control]')?.click()");
-  await wait("[...document.querySelectorAll('[data-shelf-row] .pad-name')].some(row => row.textContent === 'pad-0')");
-  await browser("eval", "[...document.querySelectorAll('[data-shelf-row] .pad-name')].find(row => row.textContent === 'pad-0').focus()");
+  await wait("document.querySelector('[data-pad=pad-0] .pad-name')?.textContent === 'pad-0'");
+  await browser("eval", "document.querySelector('[data-pad=pad-0] .pad-name').focus()");
     await wait("document.activeElement?.matches('.pad-name')");
     await browser("press", "Enter");
   const selector = '.pad-rich-editor .ProseMirror p';
