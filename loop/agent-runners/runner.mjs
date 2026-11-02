@@ -14,13 +14,20 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 
 const WORKFLOWS = { build: 'build', fix: 'fix', review: 'review', critic: 'critic', smoke: 'qa' };
 
+// The short jobs around each agent job, by the workflows that may run each one here, so none waits behind the hosted test
+// lanes. A light job keeps no memory.
+const LIGHT = { pick: ['build'], task: ['fix', 'review', 'critic'], after: ['build', 'fix'], post: ['review', 'critic'] };
+
+const CHECK = new Set(['rust', 'web']);
+
 const EVENTS = new Set(['workflow_run', 'workflow_dispatch', 'schedule', 'issues']);
 
 // AGENTS.md rule 5: a review or critic run judges from the PR and main alone. The controller keeps none of its memory,
 // so each one starts empty.
 const JUDGES = new Set(['review', 'critic']);
 
-const LABEL = /^roundup-(build|fix|review|critic|smoke)-([1-9][0-9]*)-([1-9][0-9]*)-([1-9][0-9]*)$/;
+// A light job that a run holds once per Issue ends its label with that Issue, so no two of its jobs share a runner.
+const LABEL = /^roundup-(build|fix|review|critic|smoke|light|check)-([1-9][0-9]*|pick|task|after|post|rust|web)-([1-9][0-9]*)-([1-9][0-9]*)(?:-[1-9][0-9]*)?$/;
 
 class RemoteFailure extends Error {}
 
@@ -42,7 +49,9 @@ function writeJson(path, value) {
 
 /** The HTTP interface persists authenticated events before acknowledging; recovery uses the same job records. */
 export function serve(settings) {
-  const { repository, ref = 'main', snapshot, secret, directory, maxRunners = 3, port = 8000 } = settings;
+  const { repository, ref = 'main', snapshot, checkSnapshot, secret, directory,
+    maxRunners = 3, maxCheckRunners = 0, port = 8000 } = settings;
+
   const boxd = settings.boxd ?? 'boxd';
   const gh = settings.gh ?? 'gh';
   mkdirSync(directory, { recursive: true, mode: 0o700 });
@@ -84,7 +93,9 @@ export function serve(settings) {
     if (!label || !incoming.labels.includes('boxd') || !incoming.labels.includes('self-hosted')) return;
     const [, kind, scope, run, attempt] = label.match(LABEL);
 
-    if (Number(run) !== incoming.run_id) return;
+    // Light and check labels name their job where an agent label names its Issue or PR.
+    if (Number(run) !== incoming.run_id || (kind === 'light') !== Object.hasOwn(LIGHT, scope) ||
+        (kind === 'check') !== CHECK.has(scope)) return;
     let job = jobs.get(incoming.id);
 
     if (!job && lookup.get(incoming.id)) return; // Terminal records reject old redeliveries without growing the active set.
@@ -121,10 +132,15 @@ export function serve(settings) {
 
   async function admit(job) {
     const run = await api(`actions/runs/${job.run}`);
+    const workflows = job.kind === 'check' ? ['check'] : job.kind === 'light' ? LIGHT[job.scope] : [WORKFLOWS[job.kind]];
 
-    if (run.head_repository?.full_name !== repository || run.head_branch !== ref ||
-        run.path !== `.github/workflows/${WORKFLOWS[job.kind]}.yml` ||
-        run.run_attempt !== job.attempt || !EVENTS.has(run.event)) {
+    const trusted = job.kind === 'check'
+      ? run.event === 'pull_request' || (run.event === 'push' && run.head_branch === 'main')
+      : run.head_branch === ref && EVENTS.has(run.event);
+
+    if (run.head_repository?.full_name !== repository || !trusted ||
+        !workflows.some(workflow => run.path === `.github/workflows/${workflow}.yml`) ||
+        run.run_attempt !== job.attempt) {
       job.state = 'rejected';
       save(job);
       jobs.delete(job.id);
@@ -155,7 +171,9 @@ export function serve(settings) {
     const project = join(directory, 'projects', job.role);
     const latest = join(retained, 'latest');
 
-    if (!existsSync(join(path, 'seed.tar.gz'))) {
+    const memory = !['light', 'check'].includes(job.kind);
+
+    if (memory && !existsSync(join(path, 'seed.tar.gz'))) {
       await command('python3', [join(HERE, 'memory.py'), 'seed',
         existsSync(latest) ? join(retained, readFileSync(latest, 'utf8')) : '-', project, path]);
     }
@@ -163,7 +181,7 @@ export function serve(settings) {
     if (!(await machines()).some(machine => machine.name === job.machine)) {
       job.state = 'provisioning';
       save(job); // A timed-out create may have succeeded: recovery looks up this deterministic name.
-      await command(boxd, ['machine', 'new', job.machine, '--from-snapshot', snapshot, '--isolated',
+      await command(boxd, ['machine', 'new', job.machine, '--from-snapshot', job.kind === 'check' ? checkSnapshot : snapshot, '--isolated',
         '--delete-after', '10800', '--json'], 90_000);
     }
 
@@ -189,7 +207,7 @@ export function serve(settings) {
       save(job);
     }
 
-    if (!job.seeded) {
+    if (memory && !job.seeded) {
       await copy(join(path, 'seed.tar.gz'), `${job.machine}:/tmp/roundup-memory.tar.gz`);
       await remote(job.machine, `python3 /opt/roundup-ci/agent.py seed /tmp/roundup-memory.tar.gz ${job.id}`);
       job.seeded = true;
@@ -204,7 +222,8 @@ export function serve(settings) {
   }
 
   async function retain(job) {
-    if (JUDGES.has(job.kind)) return;
+    // Only a seeded job holds memory: a judge's is discarded, light and check jobs have none.
+    if (JUDGES.has(job.kind) || !job.seeded) return;
     const path = join(directory, 'work', String(job.id));
     await remote(job.machine, 'python3 /opt/roundup-ci/memory.py pack /home/boxd/.roundup-ci /tmp/roundup-memory.tar.gz');
     await copy(`${job.machine}:/tmp/roundup-memory.tar.gz`, join(path, 'retained.tar.gz'));
@@ -223,12 +242,17 @@ export function serve(settings) {
     const present = (await machines()).some(machine => machine.name === job.machine);
 
     if (present) {
-      if (job.seeded && !job.retained) {
+      if (!job.retained) {
         await retain(job);
-        const diagnostics = join(directory, 'diagnostics', String(job.id));
-        mkdirSync(diagnostics, { recursive: true, mode: 0o700 });
-        await remote(job.machine, 'tar -czf /tmp/runner-diagnostics.tar.gz -C /opt/actions-runner _diag');
-        await copy(`${job.machine}:/tmp/runner-diagnostics.tar.gz`, join(diagnostics, 'runner.tar.gz'));
+
+        // A registered runner holds diagnostics whether or not its job holds memory.
+        if (job.registered) {
+          const diagnostics = join(directory, 'diagnostics', String(job.id));
+          mkdirSync(diagnostics, { recursive: true, mode: 0o700 });
+          await remote(job.machine, 'tar -czf /tmp/runner-diagnostics.tar.gz -C /opt/actions-runner _diag');
+          await copy(`${job.machine}:/tmp/runner-diagnostics.tar.gz`, join(diagnostics, 'runner.tar.gz'));
+        }
+
         job.retained = Date.now();
         save(job);
       }
@@ -255,12 +279,23 @@ export function serve(settings) {
 
   let ticking = false;
 
+  function retry(job, error) {
+    if (!(error instanceof RemoteFailure)) throw error;
+    job.error = error.message;
+    job.retryAt = Date.now() + 30_000;
+    save(job);
+    record(job, `${error.message}; preserving machine/state for retry`);
+  }
+
   async function tick() {
     if (ticking) return;
     ticking = true;
 
     try {
-      for (const job of jobs.values()) {
+      const provisioning = [];
+      const priority = job => job.kind === 'light' ? 0 : job.kind === 'check' ? 2 : 1;
+
+      for (const job of [...jobs.values()].sort((a, b) => priority(a) - priority(b))) {
         if (['done', 'rejected'].includes(job.state) || (job.retryAt ?? 0) > Date.now()) continue;
 
         try {
@@ -289,19 +324,26 @@ export function serve(settings) {
 
           if (job.state === 'queued') {
             if (!await admit(job)) continue;
-            const active = [...jobs.values()].filter(other => ['provisioning', 'online'].includes(other.state)).length;
 
-            if (active >= maxRunners) continue;
+            const active = [...jobs.values()].filter(other => ['provisioning', 'online'].includes(other.state) &&
+              (other.kind === 'check') === (job.kind === 'check')).length;
+
+            if (active >= (job.kind === 'check' ? maxCheckRunners : maxRunners)) continue;
+            job.state = 'provisioning';
+            save(job); // Reserve capacity durably before any concurrent remote work; restart resumes this claim.
           }
 
-          await provision(job);
+          provisioning.push(job);
         } catch (error) {
-          if (!(error instanceof RemoteFailure)) throw error;
-          job.error = error.message;
-          job.retryAt = Date.now() + 30_000;
-          save(job);
-          record(job, `${error.message}; preserving machine/state for retry`);
+          retry(job, error);
         }
+      }
+
+      // Join every operation before another tick (or shutdown) can touch the same jobs/database.
+      const results = await Promise.allSettled(provisioning.map(provision));
+
+      for (const [index, result] of results.entries()) {
+        if (result.status === 'rejected') retry(provisioning[index], result.reason);
       }
     } finally {
       ticking = false;
