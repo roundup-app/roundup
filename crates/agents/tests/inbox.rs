@@ -349,3 +349,38 @@ async fn b2706_note_mode_is_the_users_default_mode() {
         }
     }
 }
+
+#[test]
+fn b5763a_rendered_content_preserves_peer_comparison_identity() {
+    let sender = "uds:/tmp/rup-fixture/rupd";
+    let first = note(41, "same", false);
+    let second = note(42, "same", false);
+    assert_eq!(
+        first.content(sender, "default"),
+        second.content(sender, "default")
+    );
+    assert_eq!(
+        first.content(sender, "default"),
+        "<cross-session-message from=\"uds:/tmp/rup-fixture/rupd\" from-name=\"rupd\" from-mode=\"default\">\nsame\n</cross-session-message>"
+    );
+    assert_ne!(
+        first.content(sender, "default"),
+        first.content(sender, "plan")
+    );
+    let mut renamed = note(43, "same", false);
+    renamed.from = "different".into();
+    assert_ne!(
+        first.content(sender, "default"),
+        renamed.content(sender, "default")
+    );
+    let long = format!("[digest] {}", "é".repeat(150));
+    assert_eq!(
+        note(44, &(long.clone() + "a"), true).content(sender, "default"),
+        note(45, &(long + "b"), true).content(sender, "default")
+    );
+    let mut question = note(46, "same", false);
+    question.kind = contracts::message::MessageKind::Question;
+    let before = question.content(sender, "default");
+    question.id = 47;
+    assert_ne!(before, question.content(sender, "default"));
+}
