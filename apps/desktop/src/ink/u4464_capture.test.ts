@@ -49,6 +49,22 @@ it.skipIf(!captureDir("U4464"))("u5606_capture_empty_views_in_both_themes", { ti
   try {
     await browser("--profile", profile, "--executable-path", "/opt/google/chrome/chrome", "--args", `--no-sandbox${process.env.U4464_CONTRAST ? ",--force-high-contrast,--disable-blink-features=ForcedColors" : ""}`, "open", origin);
     await browser("set", "viewport", "1512", "950");
+    // seedApp rejects before its call log; observe RPC before App copies the seam.
+    await browser("addinitscript", `(() => {
+      let controls;
+      Object.defineProperty(window, '__fake', {
+        get: () => controls,
+        set: value => {
+          controls = value;
+          const rpc = value.app.rpc;
+          window.__u5606Calls = 0;
+          value.app.rpc = (method, params) => {
+            if (method === 'rail.createWorkstream') window.__u5606Calls += 1;
+            return rpc(method, params);
+          };
+        },
+      });
+    })()`);
 
     for (const theme of ["light", "dark"]) {
       await browser("set", "media", "color-scheme", theme);
@@ -113,8 +129,6 @@ it.skipIf(!captureDir("U4464"))("u5606_capture_empty_views_in_both_themes", { ti
       await wait(`!!document.querySelector('.draft-recovery .empty-state')`);
       await snap(`${theme}-draft-recovery`);
       await load("tree-40");
-      // seedApp rejects before FakeApp records calls, so observe the RPC entry.
-      await read(`(() => { const rpc = window.__fake.app.rpc; window.__u5606Calls = 0; window.__fake.app.rpc = (method, params) => { if (method === 'rail.createWorkstream') window.__u5606Calls += 1; return rpc(method, params); }; })()`);
       await browser("click", '[aria-label="Create"]');
       await wait(`!!document.querySelector('[data-part="item"][data-value="workstream"]')`);
       expect(await read(`window.__u5606Calls`)).toBe(0);
