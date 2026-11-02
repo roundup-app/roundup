@@ -9,6 +9,7 @@ if sys.argv[1:3] == ['plugin', 'list']:
     print('[]'); sys.exit(0)
 if sys.argv[1:3] == ['plugin', 'test']:
     print('Q11 runtime hook closure: 1 pass'); sys.exit(0)
+with open(root + "/launches.jsonl", "a") as out: out.write(str(os.getpid()) + "\n")
 def flag(name):
     return sys.argv[sys.argv.index(name) + 1]
 def session_mode():

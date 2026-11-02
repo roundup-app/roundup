@@ -71,4 +71,3 @@ async fn b52_a_restart_with_a_sent_note_delivers_it_once() {
         assert_eq!(run.seen().await, [id]);
     }
 }
-
