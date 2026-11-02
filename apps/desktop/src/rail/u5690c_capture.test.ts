@@ -21,7 +21,8 @@ it("u5690c_rendered_group_keeps_children_reachable_without_lifecycle_actions", a
 
   try {
     await lane.capture("U5690c", "existing-tree");
-    await lane.evaluate(`(async () => {
+
+    const groupId = await lane.evaluate<string>(`(async () => {
       const app = window.__fake.app;
       const nodes = await app.rpc('rail.tree', null);
       const group = nodes.find(node => node.parent === null && node.kind === 'workstream');
@@ -29,11 +30,11 @@ it("u5690c_rendered_group_keeps_children_reachable_without_lifecycle_actions", a
       group.status = null; group.work = null; group.attempt = null; group.terminal_id = null;
       app.handlers['rail.tree'] = () => nodes;
       app.emit({actor:{kind:'user',id:'you',parent:null},name:'rail.changed'});
-      return true;
+      return group.id;
     })()`);
+
     await lane.until("!![...document.querySelectorAll('.rail-row')].find(row => row.textContent.includes('Organized work'))");
-    const row = '.rail-row:has-text("Organized work")';
-    await lane.browser("dblclick", `${row} .name`);
+    await lane.browser("dblclick", `[id="rail-name-${groupId}"]`);
     await lane.capture("U5690c", "group-name");
     await lane.evaluate("window.__fake.failNext(-32003, 'Group rename refused; try again'); true");
     await lane.browser("fill", '[aria-label="Name"]', "Retained Group name");
