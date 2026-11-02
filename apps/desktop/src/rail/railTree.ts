@@ -6,7 +6,6 @@ import type { ConnectedProject } from "../state/connectedProject";
 import { railCollection } from "./collection";
 import { copy } from "./copy";
 import { layoutRail, type NodeRow } from "./layout";
-import { railTopology } from "./topology";
 import type { RailSection } from "./persist/storage";
 
 export const sections: { id: RailSection; label: string; icon: typeof KIND_ICON[keyof typeof KIND_ICON] }[] = [
@@ -58,9 +57,7 @@ export const createRailTree = (connected: ConnectedProject, unfolded: Accessor<R
       .map(message => message.from.id));
   });
 
-  // Solid tracks membership and structural fields, including reconciled in-place edits.
-  // Status, selection, disclosure, questions and clocks never enter this memo.
-  const topology = createMemo(() => railTopology(rail.nodes));
+  const topology = rail.topology;
   const presentSections = createMemo(() => sections.filter(section => topology().section.includes(section.id)));
 
   const sectionRows = createMemo(() => presentSections().map(section => ({
