@@ -124,11 +124,12 @@ impl AppState {
     }
 
     /// The folder the App keeps names and the open list in, unless `Config` already named one.
-    pub fn use_data_dir(&self, dir: PathBuf) {
+    pub fn use_data_dir(&self, dir: PathBuf) -> Result<(), RpcError> {
         self.store.use_dir(dir);
+        self.store.load()
     }
 
-    pub fn recent_projects(&self) -> Vec<String> {
+    pub fn recent_projects(&self) -> Result<Vec<String>, RpcError> {
         self.store.recent_projects()
     }
 
@@ -136,13 +137,16 @@ impl AppState {
         crate::facts::claude_binary(&self.config).await
     }
 
-    pub fn projects(&self) -> Vec<Listed> {
+    pub fn projects(&self) -> Result<Vec<Listed>, RpcError> {
+        self.store.load()?;
         self.entries()
             .iter()
-            .map(|entry| Listed {
-                name: self.name_of(&entry.path),
-                path: entry.path.clone(),
-                running: matches!(entry.phase, Phase::Open(_)),
+            .map(|entry| {
+                Ok(Listed {
+                    name: self.name_of(&entry.path)?,
+                    path: entry.path.clone(),
+                    running: matches!(entry.phase, Phase::Open(_)),
+                })
             })
             .collect()
     }
@@ -159,8 +163,8 @@ impl AppState {
 
     /// The launch's reopening of the stored list (S10): a Daemon that fails to start leaves its
     /// Project listed as not running instead of dropping it.
-    pub async fn restore<R: Runtime>(&self, app: &AppHandle<R>) {
-        for path in self.store.open_paths() {
+    pub async fn restore<R: Runtime>(&self, app: &AppHandle<R>) -> Result<(), RpcError> {
+        for path in self.store.open_paths()? {
             let path = PathBuf::from(path);
             if !path.is_dir() {
                 continue;
@@ -169,7 +173,7 @@ impl AppState {
                 log::warn!(target: "roundup::shell", "restore Project: RPC failure code {}; saved Project remains listed", err.code);
             }
         }
-        self.save_open();
+        self.save_open()
     }
 
     async fn open<R: Runtime>(
@@ -178,6 +182,7 @@ impl AppState {
         path: &Path,
         keep_on_failure: bool,
     ) -> Result<Project, RpcError> {
+        self.store.load()?;
         let key = path.display().to_string();
         let mut pending = self
             .entries()
@@ -198,9 +203,9 @@ impl AppState {
         }
         if self.is_running(&key) {
             if !keep_on_failure {
-                self.store.record_recent(&key);
+                self.store.record_recent(&key)?;
             }
-            return Ok(self.project_at(&key));
+            return self.project_at(&key);
         }
         let (lifetime, mut cancel, reopening) = {
             let mut entries = self.entries();
@@ -247,16 +252,16 @@ impl AppState {
                     if reopening {
                         Self::await_connection(app.clone(), key.clone(), run, cancel, answer);
                     }
-                    self.save_open();
+                    self.save_open()?;
                     if !keep_on_failure {
-                        self.store.record_recent(&project.path);
+                        self.store.record_recent(&project.path)?;
                     }
                     return Ok(project);
                 }
                 Err(err) => {
                     if !reopening {
                         if keep_on_failure {
-                            self.save_open();
+                            self.save_open()?;
                         } else {
                             self.entries()
                                 .retain(|entry| !Arc::ptr_eq(&entry.lifetime, &lifetime));
@@ -510,7 +515,7 @@ impl AppState {
         let closed = entries.remove(index);
         drop(entries);
         drop(closed);
-        self.save_open();
+        self.save_open()?;
         Ok(())
     }
 
@@ -562,26 +567,27 @@ impl AppState {
             .any(|entry| entry.path == path && matches!(entry.phase, Phase::Open(_)))
     }
 
-    fn name_of(&self, path: &str) -> String {
-        self.store
-            .name(path)
-            .unwrap_or_else(|| named_after(Path::new(path)))
+    fn name_of(&self, path: &str) -> Result<String, RpcError> {
+        Ok(self
+            .store
+            .name(path)?
+            .unwrap_or_else(|| named_after(Path::new(path))))
     }
 
-    fn project_at(&self, path: &str) -> Project {
-        Project {
-            name: self.name_of(path),
+    fn project_at(&self, path: &str) -> Result<Project, RpcError> {
+        Ok(Project {
+            name: self.name_of(path)?,
             path: path.to_owned(),
-        }
+        })
     }
 
-    fn save_open(&self) {
+    fn save_open(&self) -> Result<(), RpcError> {
         let paths = self
             .entries()
             .iter()
             .map(|entry| entry.path.clone())
             .collect();
-        self.store.set_open(paths);
+        self.store.set_open(paths)
     }
 
     /// Commits the run number a successful open used, so the next one gets a fresh socket path (S5).
@@ -637,7 +643,7 @@ impl AppState {
         daemon::watch_exit(started.child, move |code| {
             Self::failed(&app, &exited_path, run, code, None);
         });
-        Ok(self.project_at(&key))
+        self.project_at(&key)
     }
 
     fn record_failure(&self, path: &str, lifetime: &Arc<()>) -> Option<u8> {
