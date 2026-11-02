@@ -12,11 +12,15 @@ const execute = promisify(execFile);
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
-const WORKFLOWS = { build: 'build', fix: 'fix', smoke: 'qa' };
+const WORKFLOWS = { build: 'build', fix: 'fix', review: 'review', critic: 'critic', smoke: 'qa' };
 
 const EVENTS = new Set(['workflow_run', 'workflow_dispatch', 'schedule', 'issues']);
 
-const LABEL = /^roundup-(build|fix|smoke)-([1-9][0-9]*)-([1-9][0-9]*)-([1-9][0-9]*)$/;
+// AGENTS.md rule 5: a review or critic run judges from the PR and main alone. The controller keeps none of its memory,
+// so each one starts empty.
+const JUDGES = new Set(['review', 'critic']);
+
+const LABEL = /^roundup-(build|fix|review|critic|smoke)-([1-9][0-9]*)-([1-9][0-9]*)-([1-9][0-9]*)$/;
 
 class RemoteFailure extends Error {}
 
@@ -200,6 +204,7 @@ export function serve(settings) {
   }
 
   async function retain(job) {
+    if (JUDGES.has(job.kind)) return;
     const path = join(directory, 'work', String(job.id));
     await remote(job.machine, 'python3 /opt/roundup-ci/memory.py pack /home/boxd/.roundup-ci /tmp/roundup-memory.tar.gz');
     await copy(`${job.machine}:/tmp/roundup-memory.tar.gz`, join(path, 'retained.tar.gz'));

@@ -65,7 +65,8 @@ jobs:
     name: 'critic #${{ needs.task.outputs.pr }} ${{ needs.task.outputs.head }}'
     needs: task
     if: needs.task.outputs.pr != ''
-    runs-on: ubuntu-24.04
+    # L121: a PR in `BOXD_PRS` is judged on boxd; main's setup action verifies the snapshot there.
+    runs-on: ${{ fromJSON(contains(fromJSON(vars.BOXD_PRS || '[]'), fromJSON(needs.task.outputs.pr || '0')) && format('["self-hosted","boxd","roundup-critic-{0}-{1}-{2}"]', needs.task.outputs.pr, github.run_id, github.run_attempt) || '["ubuntu-24.04"]') }}
     timeout-minutes: 45
     permissions:
       contents: read
