@@ -1185,3 +1185,25 @@ async fn t4902_public_todo_contract_has_no_duration() {
     assert_eq!(got["body"], "keep");
     assert_eq!(got["creator"], json!(agent("a1")));
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn u5531a_door_tool_round_trip_and_reopen() {
+    let fx = b53_fixture().await;
+    let shim = spawn_shim(&fx.served.socket(), &fx.door).await;
+    let before = fx.user.request("rail.tree", Value::Null).await.unwrap();
+    let tools = shim.client.list_all_tools().await.unwrap();
+    for visibility in ["internal", "internal", "shown"] {
+        let result = shim.call("agent_set_visibility", json!({"id":fx.child,"visibility":visibility})).await;
+        assert_eq!(result.is_error, Some(false), "{result:?}");
+        let node = text(&result);
+        assert_eq!(node["visibility"], visibility);
+        let tree = fx.user.request("rail.tree", Value::Null).await.unwrap();
+        let original = before.as_array().unwrap().iter().find(|n| n["id"] == fx.child).unwrap();
+        let current = tree.as_array().unwrap().iter().find(|n| n["id"] == fx.child).unwrap();
+        for key in ["id", "parent", "order", "attempt", "terminal_id"] {
+            assert_eq!(original[key], current[key], "{key}");
+        }
+        assert_eq!(current["visibility"], visibility);
+    }
+    assert_eq!(serde_json::to_vec(&tools).unwrap(), serde_json::to_vec(&shim.client.list_all_tools().await.unwrap()).unwrap());
+}
