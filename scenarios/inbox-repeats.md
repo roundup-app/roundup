@@ -1,6 +1,6 @@
 # Repeated inbox notes
 
-Module: `crates/messages`, with the Claude Adapter in `crates/agents` and Daemon observers in `crates/rupd`. Terms: Message, Actor, Attempt, Adapter, Route, Receipt (`GLOSSARY.md`). Policy: reuse the existing inbox write, durable store and delivery events; no new RPC, Message status, queue or Terminal transport.
+Module: `crates/messages`, with the Claude Adapter in `crates/agents` and Daemon observers in `crates/rupd`. Terms: Message, Actor, Attempt, Adapter, Route (`GLOSSARY.md`). Policy: reuse the existing inbox write, durable store and delivery events; no new RPC, Message status, queue or Terminal transport.
 
 **B5763a repeat comparison uses the peer sender and rendered content.** The reference programs are Claude Code 2.1.302 and 2.1.316 (the npm `latest` version inspected on 2026-11-02). Their distributed Linux binaries contain the same peer admission rule: a map keyed by `from:<peer from address>` (falling back to verified PID only for an unknown address), retaining the last admitted body for each sender. String content is compared by exact equality; non-string content is serialized before comparison. For roundup's string entries this is the entire `<cross-session-message …>` content, including attributes and newlines, not the durable Message body, `msg_id`, authenticated Actor id or Message kind. The Adapter sends every Actor's entries, the user's included, under `from: uds:<socket dir>/rupd`.
 
@@ -62,7 +62,7 @@ Policy: the implementation names M1 (at-most-once delivery), M4 (write order), M
 
 ## Checks on origin/main
 
-1. `crates/messages/src/inbox.rs`, `send`, is the shared entry renderer/write caller; `crates/messages/src/delivery.rs`, `on_idle`, supplies eligible batches. `crates/agents/src/claude_code/inbox.rs`, `Launcher::inbox_write`, holds the actual envelope, escaping, cut and single rupd sender address.
+1. `crates/messages/src/inbox.rs`, `send`, is the shared entry builder/write caller; `crates/messages/src/delivery.rs`, `on_idle`, supplies eligible batches. `crates/agents/src/claude_code/inbox.rs`, `Launcher::inbox_write`, holds the actual envelope, escaping, cut and single rupd sender address.
 2. `crates/rupd/tests/b50_note_inbox.rs`, `b51_a_note_repeating_the_last_one_is_refused_and_made_no_record`, holds the existing sender refusal; `b51_other_senders_and_a_new_attempt_keep_distinct_messages` holds accepted question identities across sender/Attempt changes.
 3. `crates/rupd/tests/b50_note_inbox.rs`, `b50_a_note_is_delivered_when_the_transcript_records_it`, `b3563c_receipt_and_restart_preserve_each_message_once` and `b3563c_unavailable_inbox_keeps_pending_identity_and_reports_the_cause`, hold receipt, restart and failed-check regressions. `crates/agents/tests/inbox.rs`, `b50_the_transcript_records_a_note_as_a_peer_message_under_its_msg_id`, holds receipt parsing against existing fixtures.
 4. `crates/messages/src/tests/b_push_tests.rs`, `b22_after_a_burst_of_100_changes_every_change_is_counted_once`, holds digest conservation. `scenarios/messages.md`, **B47 a status flip makes no note, and the same agent and kind twice in a row is one note** and **B2704a an Agent learns each Rail rename once**, hold the separate producer constraints.
