@@ -99,10 +99,10 @@ describe("u3 Rail state", () => {
     app.handlers["rail.tree"] = () => (order.push("rail.tree"), []);
     app.handlers["terminal.list"] = () => (order.push("terminal.list"), []);
     const subscribe = app.subscribe;
-    app.subscribe = async (listener) => {
+    app.subscribe = async (...args) => {
       order.push("subscribe");
 
-      return subscribe(listener);
+      return subscribe(...args);
     };
 
     const events = await connectEvents(app);
