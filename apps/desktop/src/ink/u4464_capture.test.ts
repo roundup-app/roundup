@@ -10,7 +10,7 @@ import { captureDir } from "../testing/captures";
 const exec = promisify(execFile);
 
 // U4464's rendered policy observer: appearance is recorded for the independent critic.
-it.skipIf(!captureDir("U4464"))("u4464_capture_empty_views_in_both_themes", async () => {
+it.skipIf(!captureDir("U4464"))("u5606_capture_empty_views_in_both_themes", { timeout: 240_000, retry: 0 }, async () => {
   const phase = process.env.ROUNDUP_CAPTURE_PHASE ?? "head";
   const root = process.env.U4464_ROOT ?? process.cwd();
   const server = await appServer({ root });
@@ -46,9 +46,27 @@ it.skipIf(!captureDir("U4464"))("u4464_capture_empty_views_in_both_themes", asyn
     await wait(`!!window.__fake && !!document.querySelector('.rail-tree,.choose-project')`);
   };
 
+  // seedApp rejects before its call log; observe RPC before App copies the seam.
+  writeFileSync(join(profile, "creation-observer.js"), `(() => {
+      let controls;
+      Object.defineProperty(window, '__fake', {
+        get: () => controls,
+        set: value => {
+          controls = value;
+          const rpc = value.app.rpc;
+          window.__u5606Calls = 0;
+          value.app.rpc = (method, params) => {
+            if (method === 'rail.createWorkstream') window.__u5606Calls += 1;
+            return rpc(method, params);
+          };
+        },
+      });
+    })()`);
+
   try {
-    await browser("--profile", profile, "--executable-path", "/opt/google/chrome/chrome", "--args", `--no-sandbox${process.env.U4464_CONTRAST ? ",--force-high-contrast,--disable-blink-features=ForcedColors" : ""}`, "open", origin);
+    await browser("--profile", profile, "--init-script", join(profile, "creation-observer.js"), "--executable-path", "/opt/google/chrome/chrome", "--args", `--no-sandbox${process.env.U4464_CONTRAST ? ",--force-high-contrast,--disable-blink-features=ForcedColors" : ""}`, "open", origin);
     await browser("set", "viewport", "1512", "950");
+
 
     for (const theme of ["light", "dark"]) {
       await browser("set", "media", "color-scheme", theme);
@@ -68,13 +86,14 @@ it.skipIf(!captureDir("U4464"))("u4464_capture_empty_views_in_both_themes", asyn
       await wait(`!!document.querySelector('.pads-tab .empty-state')`);
       await snap(`${theme}-pads`);
       await browser("press", "Meta+k");
+      await wait(`!!document.querySelector('.leader')`);
       await browser("press", "i");
-      await wait(`!!document.querySelector('.inbox .empty-state')`);
+      await wait(`!!document.querySelector('.inbox .overview-quiet')`);
       await snap(`${theme}-inbox`);
 
       for (const view of ["made", "reactions"]) {
         await load("empty-project", view);
-        await wait(view === "made" ? `!!document.querySelector('.made .empty-state')` : `!!document.querySelector('.reactions .empty-state')`);
+        await wait(view === "made" ? `!!document.querySelector('.made .overview-quiet')` : `!!document.querySelector('.reactions .overview-quiet')`);
         await snap(`${theme}-${view}`);
       }
 
@@ -104,17 +123,22 @@ it.skipIf(!captureDir("U4464"))("u4464_capture_empty_views_in_both_themes", asyn
       await load("empty-project");
       await read(`(async () => { const {draftStorage} = await import('/src/state/storage.ts'); draftStorage(window.__fake.app.opened.project.path).edit({surface:'terminal_selection', object:'missing', recipient:'missing'}, {note:'Unfinished selection', excerpt:'Earlier output', source:'gone'}, null, 'ordinary'); })()`);
       await browser("reload");
-      await wait(`!!window.__fake && !!document.querySelector('[aria-label="Overview"]')`);
-      await read(`document.querySelector('[aria-label="Overview"]').dispatchEvent(new MouseEvent('contextmenu', {bubbles:true,clientX:30,clientY:60}))`);
+      await wait(`!!window.__fake && !!document.querySelector('.todo-project-root')`);
+      await read(`document.querySelector('.todo-project-root').dispatchEvent(new MouseEvent('contextmenu', {bubbles:true,clientX:30,clientY:60}))`);
       await read(`(async () => { const {menuProbe} = await import('/src/testing/menuProbe.ts'); const item = menuProbe.shown.find(item => item.id === 'recover'); if (!item) throw new Error('Recovery menu unavailable'); menuProbe.answer(item.id); })()`);
       await wait(`!!document.querySelector('.draft-recovery')`);
       await read(`[...document.querySelectorAll('.draft-recovery button')].find(button => button.textContent === 'Discard').click()`);
       await wait(`!!document.querySelector('.draft-recovery .empty-state')`);
       await snap(`${theme}-draft-recovery`);
       await load("tree-40");
-      await read(`window.__fake.failNext(-32003,'Creation rejected: choose another Workstream name'); document.querySelector('[aria-label="Create"]').click(); document.querySelector('[data-part="item"][data-value="workstream"]').click()`);
-      await wait(`document.querySelector('[role=alert]')?.textContent.includes('Creation rejected')`);
+      await browser("click", '[aria-label="Create"]');
+      await wait(`!!document.querySelector('[data-part="item"][data-value="workstream"]')`);
+      expect(await read(`window.__u5606Calls`)).toBe(0);
+      await read(`window.__fake.failNext(-32003,'Creation rejected: choose another Workstream name')`);
+      await browser("click", '[data-part="item"][data-value="workstream"]');
+      await wait(`document.querySelector('[role=alert]')?.textContent.includes('Creation rejected: choose another Workstream name')`);
       await snap(`${theme}-dense-failure`);
+      expect(await read(`window.__u5606Calls`)).toBe(1);
       expect(await read(`document.querySelectorAll('[role=alert]').length`)).toBe(1);
       await load("empty-project");
       await browser("press", "Meta+Comma");
@@ -144,7 +168,7 @@ it.skipIf(!captureDir("U4464"))("u4464_capture_empty_views_in_both_themes", asyn
   } finally {
     try { await browser("close"); } finally { await server.close(); rmSync(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); }
   }
-}, 240_000);
+});
 
 // U401 is a critic-only observer: record production marks and the four shared surfaces.
 it.skipIf(!captureDir("U401"))("u401_capture_shared_glyphs_for_the_critic", async () => {
