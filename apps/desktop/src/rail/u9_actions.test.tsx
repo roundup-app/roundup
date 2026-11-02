@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { RailNode } from "@contracts/agent/RailNode";
 import { fakeEmulators } from "../terminal/paneHarness";
 import { RpcError } from "../app/seam";
-import { chooseAction, chord, rowGlyph as glyphOf, mountRail, pinnedAdd, railCallsTo, rowNames, rowOf, settled } from "./railFixture";
+import { chooseFooter, chooseAction, chord, rowGlyph as glyphOf, mountRail, railCallsTo, rowNames, rowOf, settled } from "./railFixture";
 import { agent, event, workstream, door } from "../testing/nodes";
 
 afterEach(cleanup);
@@ -91,7 +91,7 @@ describe("u9 actions", () => {
     answerWith(mounted, "rail.createWorkstream");
     mounted.rail.select("g");
 
-    fireEvent.click(pinnedAdd());
+    await chooseFooter("Workstream");
 
     await waitFor(() => expect(railCallsTo(mounted.app, "rail.createWorkstream")).toEqual([{ name: "workstream", parent: null }]));
   });
@@ -162,7 +162,7 @@ describe("u9 actions", () => {
 
     mounted.app.handlers["rail.startDoor"] = () => door("g", "idle", "i");
 
-    fireEvent.click(pinnedAdd());
+    await chooseFooter("Workstream");
     await screen.findByRole("alert");
     fireEvent.mouseEnter(rowOf("g"));
 
@@ -213,7 +213,7 @@ it("u62_creates_one_root_workstream_selects_the_tree_row_and_starts_only_its_doo
   const mounted = await mountRail(tree);
   mounted.app.handlers["rail.createWorkstream"] = () => workstream("returned-workstream");
   mounted.app.handlers["rail.startDoor"] = () => door("returned-workstream", "working", "starting");
-  fireEvent.click(pinnedAdd());
+  await chooseFooter("Workstream");
   await waitFor(() => expect(railCallsTo(mounted.app, "rail.createWorkstream")).toEqual([{ name: "workstream", parent: null }]));
   expect(railCallsTo(mounted.app, "rail.startDoor")).toEqual([]);
   tree.push(workstream("returned-workstream"));
@@ -237,7 +237,7 @@ it("u62_failed_start_retries_the_same_workstream_and_leaves_its_terminal_unfocus
 
   mounted.app.handlers["rail.startDoor"] = () => { throw new RpcError(-32003, "launch failed"); };
 
-  fireEvent.click(pinnedAdd());
+  await chooseFooter("Workstream");
   await waitFor(() => expect(mounted.rail.selected()).toBe("actual"));
   await waitFor(() => expect(mounted.rail.doorFailure("actual")).toBe("launch failed"));
   expect(tree).toHaveLength(1);

@@ -1,3 +1,4 @@
+import { chooseFooter } from "../rail/railFixture";
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { mountNavigation } from "../testing/navigationFixture";
@@ -124,7 +125,7 @@ it.each(["keyboard", "footer"].flatMap(source => ["home", "a1", null, "empty"].m
   };
 
   if (source === "keyboard") window.dispatchEvent(new KeyboardEvent("keydown", { key: "n", code: "KeyN", metaKey: true, bubbles: true }));
-  else fireEvent.click(within(document.querySelector<HTMLElement>(".rail-actions")!).getByRole("button", { name: "New Agent" }));
+  else await chooseFooter("Agent");
   await waitFor(() => expect(connected().rail.selected()).toBe("fresh"));
   expect(daemon.calls.filter(call => ["agent.spawn", "terminal.open", "rail.createWorkstream"].includes(call.method))).toEqual([
     { method: "agent.spawn", params: { cwd: "/p", prompt: null, parent, model: null, effort: null, cols: 100, rows: 30 } },

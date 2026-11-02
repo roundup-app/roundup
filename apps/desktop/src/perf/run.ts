@@ -217,11 +217,17 @@ const readyTerminal = async (app: Pick<AppSeam, "rpc">, terminal: ReturnType<typ
 /** Creates the measurement Workstream, waits out Agent focus, then binds live and retained readiness to its one shell. */
 export const terminalReady = async (app: Pick<AppSeam, "rpc">, terminal: ReturnType<typeof reportTerminal>, beforeMeasure?: (input: HTMLTextAreaElement) => Promise<void>): Promise<HTMLTextAreaElement> => {
   const create = await appears(
-    () => [...document.querySelectorAll("button")].find((button) => (button.textContent?.trim() === "new Workstream" || button.getAttribute("aria-label") === "Add Workstream") && button.getAttribute("aria-disabled") !== "true") ?? null,
+    () => [...document.querySelectorAll("button")].find((button) => ["Create", "New Workstream"].includes(button.getAttribute("aria-label") ?? "") && button.getAttribute("aria-disabled") !== "true") ?? null,
     "the new Workstream button",
   );
 
   create.click();
+
+  if (create.getAttribute("aria-label") === "Create") {
+    const workstream = await appears(() => document.querySelector<HTMLElement>('[role="menuitem"][data-value="workstream"]'), "the Workstream menu item");
+    workstream.click();
+  }
+
   await appears(() => document.querySelector('[role="treeitem"][aria-selected="true"]'), "the new Workstream's selected row");
   // Agent focus folds a shell bubble and pauses its parsing; open the shell only after that input exists.
   await appears(

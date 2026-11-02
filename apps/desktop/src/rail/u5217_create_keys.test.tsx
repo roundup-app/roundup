@@ -1,36 +1,101 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
-import { afterEach, describe, expect, it } from "vitest";
-import { workstream, door } from "../testing/nodes";
-import { mountRail, railCallsTo } from "./railFixture";
+import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
+import { afterEach, expect, it } from "vitest";
+import { createSignal } from "solid-js";
+import type { DaemonExit } from "../app/seam";
+import { agent, workstream } from "../testing/nodes";
+import { chooseFooter, mountRail, railCallsTo } from "./railFixture";
 
 afterEach(cleanup);
 
-const press = (init: KeyboardEventInit) => fireEvent.keyDown(document, init);
+it("u5217_plus_opens_ordered_creation_choices", async () => {
+  await mountRail([workstream("g")]);
+  const plus = screen.getByRole("button", { name: "Create" });
+  expect(within(document.querySelector<HTMLElement>(".rail-actions")!).getAllByRole("button")).toHaveLength(1);
+  expect(plus.hasAttribute("aria-keyshortcuts")).toBe(false);
+  fireEvent.click(plus);
+  const items = await screen.findAllByRole("menuitem");
+  expect(items.map(item => [item.textContent?.replace(/\s+/g, " ").trim(), item.getAttribute("aria-keyshortcuts")])).toEqual([
+    ["Agent⌘N", "Meta+N"], ["Workstream⌥⌘N", "Alt+Meta+N"], ["Mode⇧⌘M", "Shift+Meta+M"],
+  ]);
+});
 
-const footer = (label: string) => screen.getByRole("button", { name: label });
+it("u5217_opening_the_menu_starts_nothing", async () => {
+  const m = await mountRail([workstream("g")]);
+  fireEvent.click(screen.getByRole("button", { name: "Create" }));
+  await screen.findByRole("menu");
+  expect(railCallsTo(m.app, "agent.spawn")).toEqual([]);
+  expect(railCallsTo(m.app, "rail.createWorkstream")).toEqual([]);
+  expect(screen.queryByRole("dialog")).toBeNull();
+});
 
-describe("u5217 the footer buttons show their key", () => {
-  it("u5217_each_footer_button_exposes_its_chord_as_its_shortcut", async () => {
-    await mountRail([workstream("g")]);
+it.each([null, "g", "a"])("u5217_a_menu_choice_runs_the_action_its_chord_runs_in_%s", async selected => {
+  for (const [kind, init] of [
+    ["Agent", { key: "n", code: "KeyN", metaKey: true }],
+    ["Workstream", { key: "n", code: "KeyN", metaKey: true, altKey: true }],
+    ["Mode", { key: "M", code: "KeyM", metaKey: true, shiftKey: true }],
+  ] as const) {
+    const outcomes = [];
 
-    expect(footer("Add Workstream").getAttribute("aria-keyshortcuts")).toBe("Alt+Meta+N");
-    expect(footer("New Mode").getAttribute("aria-keyshortcuts")).toBe("Shift+Meta+M");
-    expect(footer("New Agent").getAttribute("aria-keyshortcuts")).toBe("Meta+N");
-    expect(footer("Add Workstream").querySelector("kbd")).not.toBeNull();
-    expect(footer("New Mode").querySelector("kbd")).not.toBeNull();
-    expect(footer("New Agent").querySelector("kbd")).not.toBeNull();
-  });
+    for (const menu of [true, false]) {
+      const tree = [workstream("g"), agent("a", "idle", "idle", { parent: "g" })];
+      const m = await mountRail(tree);
+      m.rail.select(selected);
+      m.app.handlers["agent.spawn"] = () => { const made = agent("made", "idle", "idle"); tree.push(made);
 
-  it("u5217_a_button_runs_the_action_its_chord_runs", async () => {
-    const byClick = await mountRail([workstream("g")]);
-    byClick.app.handlers["rail.createWorkstream"] = () => door("w1", "idle", "idle");
-    fireEvent.click(footer("Add Workstream"));
-    await waitFor(() => expect(railCallsTo(byClick.app, "rail.createWorkstream")).toHaveLength(1));
-    cleanup();
+ return made; };
 
-    const byChord = await mountRail([workstream("g")]);
-    byChord.app.handlers["rail.createWorkstream"] = () => door("w1", "idle", "idle");
-    press({ key: "n", code: "KeyN", altKey: true, metaKey: true });
-    await waitFor(() => expect(railCallsTo(byChord.app, "rail.createWorkstream")).toHaveLength(1));
-  });
+      m.app.handlers["rail.createWorkstream"] = () => { const made = workstream("made"); tree.push(made);
+
+ return made; };
+
+      if (menu) await chooseFooter(kind);
+      else fireEvent.keyDown(document, init);
+
+      if (kind === "Mode") await screen.findByRole("dialog");
+      else await waitFor(() => expect(m.rail.selected()).toBe("made"));
+      await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
+      outcomes.push({ calls: m.app.calls.filter(call => ["agent.spawn", "rail.createWorkstream"].includes(call.method)), selected: m.rail.selected(), dialog: !!screen.queryByRole("dialog"), focus: document.activeElement?.getAttribute("data-id") ?? document.activeElement?.getAttribute("name") });
+      cleanup();
+    }
+
+    expect(outcomes[0]).toEqual(outcomes[1]);
+  }
+});
+
+it.each(["Enter", " "])("u5555_keyboard_opens_chooses_and_returns_focus_%s", async key => {
+  const m = await mountRail([workstream("g")]);
+  const plus = screen.getByRole("button", { name: "Create" });
+  plus.focus();
+  fireEvent.keyDown(plus, { key });
+  const menu = await screen.findByRole("menu");
+  fireEvent.keyDown(menu, { key: "ArrowDown" });
+  fireEvent.keyDown(menu, { key: "Escape" });
+  await waitFor(() => expect(document.activeElement).toBe(plus));
+  expect(railCallsTo(m.app, "agent.spawn")).toEqual([]);
+  expect(railCallsTo(m.app, "rail.createWorkstream")).toEqual([]);
+});
+
+it("u5555_unavailable_creation_cannot_run_from_the_menu", async () => {
+  const [exited, setExited] = createSignal<DaemonExit | null>(null);
+  const m = await mountRail([workstream("g")], [], exited);
+  fireEvent.click(screen.getByRole("button", { name: "Create" }));
+  await screen.findByRole("menu");
+  setExited({ code: 1 });
+
+  for (const item of screen.getAllByRole("menuitem")) {
+    expect(item.getAttribute("aria-disabled")).toBe("true");
+    fireEvent.click(item);
+    fireEvent.keyDown(item, { key: "Enter" });
+  }
+
+  expect(railCallsTo(m.app, "agent.spawn")).toEqual([]);
+  expect(railCallsTo(m.app, "rail.createWorkstream")).toEqual([]);
+  expect(screen.queryByRole("dialog")).toBeNull();
+  cleanup();
+  await mountRail([workstream("g")], [], exited);
+  const plus = screen.getByRole("button", { name: "Create" });
+  expect(plus.getAttribute("aria-disabled")).toBe("true");
+  fireEvent.click(plus);
+  fireEvent.keyDown(plus, { key: "Enter" });
+  expect(screen.queryByRole("menu")).toBeNull();
 });

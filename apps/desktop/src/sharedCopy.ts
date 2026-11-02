@@ -157,7 +157,7 @@ export const copy = {
   overview: "Overview",
   rail: "Rail",
   doneCount: " done",
-  addWorkstream: "Add Workstream",
+  create: "Create",
   addWorkstreamWord: " Workstream",
   importUnnamed: "Unavailable conversation title",
   unavailableHome: "Unavailable Workstream",

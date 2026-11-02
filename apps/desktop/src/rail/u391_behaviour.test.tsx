@@ -3,7 +3,7 @@ import { createSignal } from "solid-js";
 import { afterEach, describe, expect, it } from "vitest";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { DaemonExit } from "../app/seam";
-import { mountRail, pinnedAdd, railCallsTo } from "./railFixture";
+import { chooseFooter, mountRail, pinnedAdd, railCallsTo } from "./railFixture";
 import { workstream } from "../testing/nodes";
 
 afterEach(cleanup);
@@ -18,7 +18,7 @@ describe("u391 the footer button keeps U9 and U25", () => {
     mounted.app.handlers["rail.createWorkstream"] = () => new Promise<RailNode>((done) => (finish = done));
     expect(disabled()).toBe(false);
 
-    fireEvent.click(pinnedAdd());
+    await chooseFooter("Workstream");
     fireEvent.click(pinnedAdd());
     await waitFor(() => expect(disabled()).toBe(true));
     expect(railCallsTo(mounted.app, "rail.createWorkstream")).toHaveLength(1);

@@ -78,7 +78,9 @@ it.skipIf(!captureDir("U4644"))("u4644_rendered_starts_and_empty_heading_audit",
     }
 
     await load("tree-40");
-    await read(`window.__fake.failNext(-32003,'Creation rejected: choose another Workstream name'); document.querySelector('[aria-label="Add Workstream"]').click()`);
+    await read(`window.__fake.failNext(-32003,'Creation rejected: choose another Workstream name'); document.querySelector('[aria-label="Create"]').click()`);
+    await wait(`!!document.querySelector('[data-part="item"][data-value="workstream"]')`);
+    await browser("click", '[data-part="item"][data-value="workstream"]');
     await wait(`document.querySelector('[role=alert]')?.textContent.includes('Creation rejected')`);
     await snap("dark-dense-creation-failure");
 

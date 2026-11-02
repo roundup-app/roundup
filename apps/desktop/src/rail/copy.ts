@@ -14,6 +14,7 @@ const dash = "—";
 const removalPlurals = new Intl.PluralRules("en");
 
 export const copy = {
+  create: sharedCopy.create,
   addAgentWord: " Agent",
   railDraftTaskTarget: (name: string) => `Work for ${name}`,
   railDraftTaskAction: (send: boolean) => send ? "Send" : "Start Agent",
@@ -90,7 +91,6 @@ export const copy = {
   rail: sharedCopy.rail,
   doneCount: sharedCopy.doneCount,
   askingTheDoor: "Asking…",
-  addWorkstream: sharedCopy.addWorkstream,
   addWorkstreamWord: sharedCopy.addWorkstreamWord,
   importUnnamed: sharedCopy.importUnnamed,
   name: sharedCopy.name,

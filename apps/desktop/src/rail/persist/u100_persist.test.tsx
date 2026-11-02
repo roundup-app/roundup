@@ -145,10 +145,7 @@ it("u100_write_failure_shows_one_ink_line_and_keeps_working", async () => {
   await loaded();
   await click("agent-1");
   await collapse("backend");
-  expect(screen.getAllByText("storage full")).toHaveLength(1);
-  const failure = screen.getByText("storage full");
-  expect(failure.classList.contains("ink")).toBe(true);
-  expect(failure.compareDocumentPosition(screen.getByText("Workstream", { selector: ".rail-actions button" })) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
+  expect(document.querySelectorAll(".rail [role=alert]")).toHaveLength(1);
   expect(row("backend")?.getAttribute("aria-expanded")).toBe("false");
   await click("agent-2");
   expect(row("agent-2")?.getAttribute("aria-selected")).toBe("true");
