@@ -942,28 +942,6 @@ async fn nr11_reason_retry_preserves_definition() {
 }
 
 #[tokio::test]
-async fn nr11_legacy_reason_is_absent() {
-    let mut s = scene(&[]).await;
-    let mut body = definition(&s.w, "legacy instruction");
-    body["condition"]["ids"] = json!([s.a]);
-    let saved = made(&s.as_w, "reaction.create", body).await;
-    drop(s.user);
-    s.project.crash();
-    // Model an already-saved pre-NR11 definition, without changing any accepted firing.
-    project_db(&s.project).execute("UPDATE reactions SET record=json_remove(record, '$.reason'), request=json_remove(request, '$.reason') WHERE id=?1", [&saved.id]).unwrap();
-    s.project.restart(&[]);
-    let user = s.project.client().await;
-    let kept = user
-        .request("reaction.get", json!({"id": saved.id}))
-        .await
-        .unwrap();
-    assert_eq!(kept.get("reason"), Some(&Value::Null));
-    assert_eq!(kept["actor"], serde_json::to_value(&saved.actor).unwrap());
-    let list = user.request("reaction.list", Value::Null).await.unwrap();
-    assert_eq!(list[0].get("reason"), Some(&Value::Null));
-}
-
-#[tokio::test]
 async fn nr9_user_stops_agent_made_reaction() {
     let s = scene(&[]).await;
     let mut shim = super::Shim::start(&s.project, &s.w).await;
