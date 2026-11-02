@@ -157,15 +157,6 @@ impl Daemon {
         self.project_resources().await
     }
 
-    pub(super) async fn rpc_attachment_save(
-        &self,
-        _conn: &mut Conn,
-        _method: &str,
-        params: Value,
-    ) -> Result<Value, RpcError> {
-        self.attachments.save(params)
-    }
-
     pub(super) async fn rpc_evidence(
         &self,
         conn: &mut Conn,

@@ -1584,17 +1584,17 @@ class Review(unittest.TestCase):
     def test_l24_an_unchanged_diff_keeps_the_earlier_approval_and_a_changed_one_gets_a_full_run(self):
         def diff(line):
             return f'diff --git a/x b/x\n--- a/x\n+++ b/x\n@@ -1 +1 @@\n-old\n+{line}\n'
-        early = 'b' * 40
         for name, marker, context, task, now, kept in (
                 ('review', 'VERDICT', 'review', builder.review_task, 'same', True),
                 ('critic', 'CRITIC', 'critic', builder.critic_task, 'same', True),
                 ('changed', 'VERDICT', 'review', builder.review_task, 'other', False)):
             with self.subTest(name), GitHub(view=pr(), files=['apps/desktop/src/App.tsx'],
-                                            notes=[note(f'{marker}: approve\nHead: {early}\n\nok')],
-                                            diffs={HEAD: diff(now), early: diff('same')}) as github:
+                                            notes=[note(f'{marker}: approve\nHead: {"b" * 40}\n\nok')],
+                                            diffs={HEAD: diff(now), 'b' * 40: diff('same')}) as github:
                 self.assertEqual(task(9, HEAD) is None, kept)
-            success = [w for w in github.writes if f'context={context}' in w and 'state=success' in w]
-            self.assertEqual(len(success), int(kept))
+            self.assertEqual(sum(f'context={context}' in w and 'state=success' in w for w in github.writes), int(kept))
+        with patch.object(builder, 'call', side_effect=subprocess.CalledProcessError(1, 'gh')):
+            self.assertEqual(builder.patch_id(HEAD), '', 'HTTP 422: GitHub cannot generate the diff')
 
     def test_l24_an_approval_on_a_user_pr_starts_no_fix(self):
         with GitHub(view=pr(headRefName='stock-loop')) as github:
