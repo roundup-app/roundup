@@ -40,7 +40,7 @@ struct Run {
     kind: &'static str,
     terminal: Value,
     attempt: Value,
-    /// The bytes the Daemon typed itself at the start (its context), before any note.
+    /// Terminal byte count before any note.
     started_with: AtomicUsize,
 }
 
@@ -188,7 +188,6 @@ impl Run {
             self.screen().await.contains("READY").then_some(())
         })
         .await;
-        // The Daemon types its own start-up context first; count from where that ends.
         let mut last = usize::MAX;
         while last != self.screen_bytes().await {
             last = self.screen_bytes().await;
@@ -477,8 +476,9 @@ async fn b2706_a_note_reaches_an_acceptedits_agent_without_approval() {
     )
     .await;
     run.spawn().await;
+    run.signal(json!({"hook_event_name":"UserPromptSubmit", "prompt":"Wait for build notes"}))
+        .await;
     let id = run.note("look at the build").await;
-    // The fake takes a line up only when its `from-mode` is the mode its settings give.
     until("the note is taken up", async || {
         (run.entries() == [format!("rup-{id}")]).then_some(())
     })

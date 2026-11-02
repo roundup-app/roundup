@@ -46,7 +46,7 @@ impl Run {
         let door = user
             .request(
                 "rail.createWorkstream",
-                json!({"name":"work","parent":null}),
+                json!({"name":"work","parent":null, "order":{"kind":"work","ask":"What is this Workstream for?","limits":[]}}),
             )
             .await
             .unwrap()["id"]

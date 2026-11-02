@@ -622,7 +622,7 @@ async fn b24_a_door_reads_its_brief_then_creates_and_updates_a_todo_over_mcp() {
     let workstream = client
         .request(
             "rail.createWorkstream",
-            json!({"name": "workstream", "parent": null}),
+            json!({"name": "workstream", "parent": null, "order":{"kind":"work","ask":"What is this Workstream for?","limits":[]}}),
         )
         .await
         .unwrap();
