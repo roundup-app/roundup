@@ -1,10 +1,16 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { expect, it } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { captureDir } from "../testing/captures";
 import { shelfBrowser } from "../shelf/u371Browser";
 
-const { browser, evaluate, settle, openShelf } = shelfBrowser();
+const { rig, browser, evaluate, settle, openShelf } = shelfBrowser();
+
+// The App lazy-loads Crepe. Compile its real fixture before the interaction budget starts.
+beforeAll(async () => {
+  await browser("open", `${rig.server.resolvedUrls.local[0]}src/pads/u5561a.html`);
+  await browser("wait", "--fn", "document.querySelector('#root')?.dataset.ready === 'true'");
+}, 90_000);
 
 const output = captureDir("U4698b");
 
@@ -133,17 +139,21 @@ it("u4698b_expand_keeps_the_long_pad_and_all_formats_reachable", { retry: 0, tim
   }
 });
 
-it.each(["plus", "slash"].flatMap(entry => [false, true].map(afterPad => ({ entry, afterPad }))))("u5631_todo_block_menu_excludes_agent_details $entry afterPad=$afterPad", { retry: 0, timeout: 90_000 }, async ({ entry, afterPad }) => {
-  await openShelf("tree-40", 288, 320, 1512, "dark");
-  await browser("set", "viewport", "1512", "950");
-  const name = `todo-${entry}-${afterPad}`;
+describe("U5631 Todo block menus", () => {
+  beforeEach(async ({ task }) => {
+    await openShelf("tree-40", 288, 320, 1512, "dark");
+    await browser("set", "viewport", "1512", "950");
 
-  if (menuOutput) {
-    mkdirSync(menuOutput, { recursive: true });
-    await browser("record", "start", join(menuOutput, `${name}.webm`));
-    await browser("wait", ".shelf-tabs");
-    await browser("set", "media", "dark");
-  }
+    if (menuOutput) {
+      mkdirSync(menuOutput, { recursive: true });
+      await browser("record", "start", join(menuOutput, `${task.name}.webm`));
+      await browser("wait", ".shelf-tabs");
+      await browser("set", "media", "dark");
+    }
+  }, 90_000);
+
+it.each(["plus", "slash"].flatMap(entry => [false, true].map(afterPad => ({ entry, afterPad }))))("u5631_todo_block_menu_excludes_agent_details $entry afterPad=$afterPad", { retry: 0, timeout: 90_000 }, async ({ entry, afterPad }) => {
+  const name = `todo-${entry}-${afterPad}`;
 
   try {
     const shot = async (stage: string) => {
@@ -254,4 +264,6 @@ it.each(["plus", "slash"].flatMap(entry => [false, true].map(afterPad => ({ entr
   } finally {
     if (menuOutput) await browser("record", "stop");
   }
+});
+
 });
