@@ -118,7 +118,7 @@ impl Reader {
 }
 
 pub struct World {
-    completed: HashMap<String, (String, i64, String)>,
+    completed: HashMap<String, (String, i64, i64, String)>,
     nodes: Vec<contracts::agent::RailNode>,
     todos: Vec<contracts::todo::Todo>,
     pads: Vec<contracts::pad::Pad>,
