@@ -37,7 +37,8 @@ async fn b5_the_user_sets_non_agent_routes_through_daemon_dispatch() {
     .await;
     assert!(created.get("error").is_none(), "{created}");
     let to = &created["result"]["id"];
-    for from in ["ext:audit", "rupd", "you"] {
+    let daemon_sender = Actor::daemon().id;
+    for from in ["ext:audit", daemon_sender.as_str(), "you"] {
         for delivery in ["auto", "drop"] {
             let route = json!({"from":from,"to":to,"delivery":delivery});
             let mut events = daemon.bus.subscribe();
@@ -89,7 +90,8 @@ async fn send_note_from(daemon: &Daemon, from: &str, to: &str, body: &str) -> Va
 
 #[tokio::test]
 async fn b2_a_user_set_non_agent_auto_route_reaches_the_inbox() {
-    for from in ["ext:audit", "rupd"] {
+    let daemon_sender = Actor::daemon().id;
+    for from in ["ext:audit", daemon_sender.as_str()] {
         let dir = tempfile::tempdir().unwrap();
         let (daemon, state) = test_support::reply_daemon(dir.path(), false);
         let route = tests::ask(
@@ -136,7 +138,8 @@ async fn b2_a_user_set_non_agent_auto_route_reaches_the_inbox() {
 
 #[tokio::test]
 async fn b4_a_user_set_non_agent_drop_route_drops_the_message() {
-    for from in ["ext:audit", "rupd"] {
+    let daemon_sender = Actor::daemon().id;
+    for from in ["ext:audit", daemon_sender.as_str()] {
         let dir = tempfile::tempdir().unwrap();
         let (daemon, state) = test_support::reply_daemon(dir.path(), false);
         state.status("2", contracts::Kind::Idle);
@@ -165,7 +168,8 @@ async fn b4_a_user_set_non_agent_drop_route_drops_the_message() {
 
 #[tokio::test]
 async fn b5_a_non_agent_route_change_preserves_the_pending_message() {
-    for from in ["ext:audit", "rupd"] {
+    let daemon_sender = Actor::daemon().id;
+    for from in ["ext:audit", daemon_sender.as_str()] {
         let dir = tempfile::tempdir().unwrap();
         let (daemon, state) = test_support::reply_daemon(dir.path(), false);
         let route = tests::ask(
@@ -297,15 +301,17 @@ async fn u4593_agent_inputs_resolve_before_dispatch() {
             json!({"kind":"agent","id":"1","parent":null})
         );
     }
-    db.execute_batch("INSERT INTO nodes(id,kind,name,ord) VALUES(5,'agent','you',4),(6,'agent','rupd',5),(7,'agent','ext:audit',6);").unwrap();
+    let daemon_sender = Actor::daemon().id;
+    let named_daemon = format!("name:{daemon_sender}");
+    db.execute("INSERT INTO nodes(id,kind,name,ord) VALUES(5,'agent','you',4),(6,'agent',?1,5),(7,'agent','ext:audit',6)", [&daemon_sender]).unwrap();
     for (from, to, expected_from, expected_to) in [
         ("Peer", "name:me", "1", "2"),
         ("1", "2", "1", "2"),
         ("you", "Peer", "you", "1"),
-        ("rupd", "Peer", "rupd", "1"),
+        (daemon_sender.as_str(), "Peer", daemon_sender.as_str(), "1"),
         ("ext:audit", "Peer", "ext:audit", "1"),
-        ("name:you", "name:rupd", "5", "6"),
-        ("name:rupd", "name:ext:audit", "6", "7"),
+        ("name:you", named_daemon.as_str(), "5", "6"),
+        (named_daemon.as_str(), "name:ext:audit", "6", "7"),
         ("name:ext:audit", "name:you", "7", "5"),
     ] {
         let result = tests::ask(
@@ -720,7 +726,8 @@ async fn m14_an_agent_cannot_route_or_replace_the_users_routes() {
     assert_eq!(replaced.unwrap_err().code, code::FORBIDDEN);
     let before = daemon.touches.sequence().unwrap();
     let mut observed = daemon.bus.subscribe();
-    for from in ["you", "ext:audit", "rupd"] {
+    let daemon_sender = Actor::daemon().id;
+    for from in ["you", "ext:audit", daemon_sender.as_str()] {
         let response = daemon.dispatch(&mut conn, &json!({"id":1,"method":"route.set","params":{"from":from,"to":"2","delivery":"drop"}}).to_string(), None).await.unwrap().into_value();
         assert_eq!(response["error"]["code"], code::FORBIDDEN, "{response}");
     }

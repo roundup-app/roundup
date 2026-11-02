@@ -191,7 +191,7 @@ impl Daemon {
                 // Reserved sender identities keep their meaning even when an Agent shares the name.
                 if !params["from"]
                     .as_str()
-                    .is_some_and(|from| from == "rupd" || from.starts_with("ext:"))
+                    .is_some_and(|from| from == Actor::daemon().id || from.starts_with("ext:"))
                 {
                     fields.push(("from", true));
                 }
