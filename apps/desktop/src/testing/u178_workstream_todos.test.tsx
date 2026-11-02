@@ -52,6 +52,7 @@ const openBody = async (id: number, body: string) => {
   const drawer = screen.getByRole("complementary", { name: "Drawer" });
 
   const activity = await within(drawer).findByRole("region", { name: "Activity" });
+  fireEvent.click(await screen.findByRole("button", { name: /^Activity · / }));
   await within(activity).findByText(/^Created /);
   fireEvent.dblClick(await within(drawer).findByText(body));
 

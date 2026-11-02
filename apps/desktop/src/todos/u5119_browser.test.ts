@@ -62,6 +62,8 @@ it.each([[1280, 820], [1512, 950]])("u5119_partial_activity_rendered_%sx%s", { r
         await browser("click", '[data-todo="1"] [aria-label="Open todo 1"]');
         await browser("wait", ".todo-comment-field");
         await browser("wait", ".todo-comments [role=alert]");
+        await browser("click", ".todo-history-line");
+        await browser("wait", '.todo-history-line[aria-expanded="true"]');
         await settle();
         await browser("fill", ".todo-comment-field", "Unsent release notes 日本語\n".repeat(10));
         await settle();

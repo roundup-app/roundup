@@ -16,6 +16,7 @@ it("u4698e_activity_merges_sources_and_keeps_read_boundaries", async () => {
   row.focus();
   fireEvent.keyDown(row, { key: "Enter", code: "Enter" });
   await screen.findByRole("textbox", { name: "Write a comment" });
+  fireEvent.click(await screen.findByRole("button", { name: /^Activity · / }));
   const section = document.querySelector(".todo-comments")!;
   await waitFor(() => expect(section.querySelectorAll('[data-comment], [data-change]')).toHaveLength(20));
   expect(todoCallsTo(m.app, "todo.readHistory")).toHaveLength(0);
@@ -34,6 +35,7 @@ it.each([0, 3, 20, 21, 200])("u4698e_older_activity_unfolds_without_mutation_%s"
   const row = await screen.findByRole("button", { name: /^Idle #1 / }); row.focus();
   fireEvent.keyDown(row, { key: "Enter", code: "Enter" });
   await screen.findByRole("textbox", { name: "Write a comment" });
+  fireEvent.click(await screen.findByRole("button", { name: /^Activity · / }));
   const section = document.querySelector(".todo-comments")!;
   await waitFor(() => expect(section.querySelectorAll('[data-comment]')).toHaveLength(Math.min(count, 20)));
   const control = screen.queryByRole("button", { name: /older entr/ });

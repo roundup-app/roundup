@@ -36,6 +36,7 @@ const openDrawerOf = async (title: RegExp, todos = shelf(), reducedMotion = true
   fireEvent.keyDown(focusedRow, { key: "Enter", code: "Enter" });
   await within(drawer()).findByRole("button", { name: /^Blocked by/ });
   await within(drawer()).findByRole("region", { name: "Activity" });
+  fireEvent.click(await screen.findByRole("button", { name: /^Activity · / }));
 
   return mounted;
 };

@@ -115,6 +115,7 @@ export const copy = {
   blockedByCount: (count: number) => `Blocked by ${count}`,
   blockingCount: (count: number) => `Blocking ${count}`,
   activity: "Activity",
+  activityCount: (count: number) => `Activity · ${count}`,
   olderActivity: (count: number) => `${count} older ${count === 1 ? "entry" : "entries"}`,
   commentField: "Write a comment",
   commentPlaceholder: "Add a comment",
