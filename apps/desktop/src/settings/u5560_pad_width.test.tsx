@@ -16,6 +16,12 @@ const settings = async () => {
 
 const choose = async (choice: string) => {
   const group = await settings();
+
+  if (choice === "Narrow") {
+    fireEvent.click(within(group).getByRole("radio", { name: "Wide" }));
+    await waitFor(() => expect(JSON.parse(localStorage.getItem("roundup:app-settings")!).padWidth).toBe("wide"));
+  }
+
   fireEvent.click(within(group).getByRole("radio", { name: choice }));
   await waitFor(() => expect(JSON.parse(localStorage.getItem("roundup:app-settings")!).padWidth).toBe(choice.toLowerCase()));
   fireEvent.click(screen.getByRole("button", { name: "← Back" }));
@@ -31,20 +37,30 @@ afterEach(() => { cleanup(); localStorage.clear(); });
 it.each(["Narrow", "Wide", "Full"])("u5560b_saved_default_initialises_each_pad_opening %s", async choice => {
   await choose(choice);
   const { connected } = await openShelf([padOf("one", USER, "text"), padOf("two", USER, "other")]);
-  await openPad("one");
+  const firstEditor = await openPad("one");
   await selected(choice);
   fireEvent.click(screen.getByRole("radio", { name: choice === "Full" ? "Wide" : "Full" }));
   connected.drawer.close();
-  await waitFor(() => expect(screen.queryAllByRole("textbox")).toHaveLength(0));
-  await openPad("one");
+  await waitFor(() => expect(firstEditor.isConnected).toBe(false));
+  const secondEditor = await openPad("one");
+  await selected(choice);
+  window.dispatchEvent(new Event("open-app-settings"));
+  fireEvent.click(await screen.findByRole("tab", { name: "Pads" }));
+  const next = choice === "Full" ? "Wide" : "Full";
+  const defaults = await screen.findByRole("radiogroup", { name: "Default width" });
+  const current = within(defaults).getByRole("radio", { name: choice });
+  current.focus();
+  fireEvent.keyDown(current, { key: choice === "Full" ? "ArrowLeft" : "End" });
+  await waitFor(() => expect(JSON.parse(localStorage.getItem("roundup:app-settings")!).padWidth).toBe(next.toLowerCase()));
+  fireEvent.click(screen.getByRole("button", { name: "← Back" }));
   await selected(choice);
   fireEvent.click(screen.getByRole("button", { name: "Restore" }));
   connected.drawer.close();
-  await waitFor(() => expect(screen.queryAllByRole("textbox")).toHaveLength(0));
+  await waitFor(() => expect(secondEditor.isConnected).toBe(false));
   await openPad("two");
   expect(screen.queryAllByRole("radio")).toHaveLength(0);
   fireEvent.click(screen.getByRole("button", { name: "Maximise" }));
-  await selected(choice);
+  await selected(next);
 });
 
 it.each(["wide", "invalid", null])("u5560b_default_survives_restart_and_defaults_alone %s", async stored => {
