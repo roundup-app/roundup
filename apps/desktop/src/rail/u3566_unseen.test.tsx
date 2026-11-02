@@ -194,7 +194,7 @@ it.each([1, 2])("u5541_first_read_failure_keeps_gap_publications_unread (%s reje
 
   const records: import("@contracts/deliverable/Deliverable").Deliverable[] = [{
     project: "api-key", id: "history", maker: { kind: "agent", id: "h", parent: null }, maker_name: "h", home: null, title: "Historical result", published_at: 500,
-    target: { kind: "external", url: "https://example.com/history", availability: "not-checked" },
+    target: { kind: "external", url: "https://github.com/roundup-app/roundup/issues/5508", availability: "not-checked" },
   }];
 
   let failedRead = 1;
@@ -210,7 +210,7 @@ it.each([1, 2])("u5541_first_read_failure_keeps_gap_publications_unread (%s reje
   now = 2_000;
   records.push({
     project: "api-key", id: "gap", maker: { kind: "agent", id: "b", parent: null }, maker_name: "b", home: null, title: "Gap result", published_at: 1_500,
-    target: { kind: "external", url: "https://example.com/gap", availability: "not-checked" },
+    target: { kind: "external", url: "https://github.com/roundup-app/roundup/issues/5541", availability: "not-checked" },
   });
 
   for (let read = 2; read <= rejectedReads; read++) {
