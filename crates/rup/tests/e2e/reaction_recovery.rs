@@ -171,16 +171,14 @@ async fn nr3_current_firings_keep_identity_on_restart_and_replay() {
         assert_eq!(first.firings.len(), 1);
         drop(s.user);
         s.project.crash();
-        {
-            if !manual_first {
-                let db = project_db(&s.project);
-                // NR3's crash between firing commit and Watch save: automatic replay must reuse it.
-                db.execute(
-                    "UPDATE reaction_watch SET state=?1 WHERE reaction=?2",
-                    [&watch, &saved.id],
-                )
-                .unwrap();
-            }
+        if !manual_first {
+            let db = project_db(&s.project);
+            // NR3's crash between firing commit and Watch save: automatic replay must reuse it.
+            db.execute(
+                "UPDATE reaction_watch SET state=?1 WHERE reaction=?2",
+                [&watch, &saved.id],
+            )
+            .unwrap();
         }
         s.project.restart(&[]);
         s.user = s.project.client().await;
