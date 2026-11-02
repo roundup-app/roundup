@@ -1,0 +1,28 @@
+[package]
+name = "rex-client-spike"
+edition = "2024"
+version = "0.0.0"
+publish = false
+
+# Throwaway spike: its own workspace, so the repo's workspace and CI never build it.
+[workspace]
+
+[dependencies]
+agents = { path = "../../crates/agents" }
+terminal = { path = "../../crates/terminal" }
+contracts = { path = "../../crates/contracts" }
+rpc = { path = "../../crates/rpc" }
+base64 = "0.23"
+futures-util = "0.3"
+regex = "1"
+vt100 = "=0.16.2"
+nix = { version = "0.28", features = ["term", "signal", "ioctl", "process"] }
+serde_json = "1"
+tempfile = "3"
+tokio = { version = "1", features = ["full"] }
+tokio-tungstenite = "0.28"
+
+[patch.crates-io]
+rusqlite = { path = "../../vendor/rusqlite-0.40.2" }
+vt100 = { path = "../../vendor/vt100-0.16.2" }
+vte = { path = "../../vendor/vte-0.15.0" }
