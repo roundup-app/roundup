@@ -1,5 +1,6 @@
 //! The rupd stand-in every proof shares: an own Rex server, the Agent launch, block creation.
 use super::*;
+use std::io::{BufRead, Write};
 
 /// A Rex server rupd starts and owns: private socket, private state, an empty config.
 pub(crate) struct Server {
@@ -25,11 +26,11 @@ impl Server {
     pub(crate) fn start_in(dir: PathBuf, restore: bool) -> Result<Self> {
         let socket = dir.join("rex.sock");
         std::fs::write(dir.join("init.lua"), "")?;
-        let log = std::fs::OpenOptions::new()
+        let mut log = std::fs::OpenOptions::new()
             .create(true)
             .append(true)
             .open(dir.join("server.log"))?;
-        let child = Command::new(rex_bin())
+        let mut child = Command::new(rex_bin())
             .args(["server", "run", "--listen"])
             .arg(format!("unix://{}", socket.display()))
             .arg("--state-dir")
@@ -39,19 +40,29 @@ impl Server {
             .arg(dir.join("init.lua"))
             .env("SPIKE_MARK", "from-own-server")
             .stdout(Stdio::null())
-            .stderr(log)
+            .stderr(Stdio::piped())
             .spawn()?;
-        for _ in 0..100 {
-            if socket.exists() {
-                break;
-            }
-            std::thread::sleep(Duration::from_millis(20));
-        }
-        Ok(Self {
+        let stderr = child.stderr.take().ok_or("Rex stderr pipe missing")?;
+        let server = Self {
             child: Some(child),
             socket,
             dir,
-        })
+        };
+        let (ready, received) = std::sync::mpsc::channel();
+        std::thread::Builder::new()
+            .name("rex-stderr".into())
+            .spawn(move || {
+                for line in std::io::BufReader::new(stderr).lines() {
+                    let line = line.expect("read Rex stderr");
+                    writeln!(log, "{line}").expect("write Rex server log");
+                    if line.contains("Rex server ready") {
+                        let _ = ready.send(());
+                    }
+                }
+            })?;
+        received.recv_timeout(Duration::from_secs(2))?;
+        std::os::unix::net::UnixStream::connect(&server.socket)?;
+        Ok(server)
     }
 
     pub(crate) fn user() -> Self {
@@ -237,19 +248,28 @@ pub(crate) async fn screen_text(control: &Control, session: &str, block: &str) -
 
 pub(crate) async fn wait_screen(
     control: &Control,
+    socket: &Path,
     session: &str,
     block: &str,
     needle: &str,
-) -> String {
-    let mut text = String::new();
-    for _ in 0..100 {
-        text = screen_text(control, session, block).await;
+) -> Result<String> {
+    // Subscribe before reading the screen so output between the read and wait is retained.
+    let mut data = stream(control, socket, session, block).await?;
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(5);
+    let text = loop {
+        let text = screen_text(control, session, block).await;
         if text.contains(needle) {
-            break;
+            break text;
         }
-        tokio::time::sleep(Duration::from_millis(50)).await;
-    }
-    text
+        if !matches!(
+            tokio::time::timeout_at(deadline, data.next()).await,
+            Ok(Some(_))
+        ) {
+            break text;
+        }
+    };
+    data.end().await;
+    Ok(text)
 }
 
 /// Read a stream until `until` appears in its program bytes or `within` passes.

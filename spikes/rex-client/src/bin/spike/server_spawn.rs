@@ -22,13 +22,13 @@ pub(crate) async fn q1(scratch: &Path) -> Result<()> {
             options(command.clone(), None, 80, 24, false),
         )
         .await?;
-        let text = wait_screen(&control, &session, &block, "ready>").await;
+        let text = wait_screen(&control, &server.socket, &session, &block, "ready>").await?;
         proof!(
             "q1",
             "{name}: block {block} runs: {:?}",
             lines_of(&text, "fake-agent")
         );
-        tokio::time::sleep(Duration::from_secs(3)).await;
+        let mut observed = observe_events(&mut events, Duration::from_secs(3)).await?;
         let clients = control
             .call("session.list_clients", json!({"session_id":session}))
             .await?;
@@ -67,7 +67,7 @@ pub(crate) async fn q1(scratch: &Path) -> Result<()> {
         control
             .terminal(&session, &block, "resize", json!({"columns":100,"rows":30}))
             .await?;
-        tokio::time::sleep(Duration::from_secs(3)).await;
+        observed.extend(observe_events(&mut events, Duration::from_secs(3)).await?);
         let size = control
             .terminal(&session, &block, "size", json!({}))
             .await?;
@@ -79,7 +79,7 @@ pub(crate) async fn q1(scratch: &Path) -> Result<()> {
             size["owner"] == control.client_id().as_str()
         );
         let mut seen = Vec::new();
-        while let Ok(event) = events.try_recv() {
+        for event in observed {
             let inner = &event["payload"]["payload"]["event"];
             let kind = inner["type"].as_str().unwrap_or_default().to_owned();
             if kind == "block_owner_changed"
@@ -108,6 +108,19 @@ pub(crate) async fn q1(scratch: &Path) -> Result<()> {
         }
     }
     Ok(())
+}
+
+async fn observe_events(
+    events: &mut tokio::sync::broadcast::Receiver<Value>,
+    within: Duration,
+) -> Result<Vec<Value>> {
+    // Q1 observes absence too: an early event must not shorten the observation window.
+    let deadline = tokio::time::Instant::now() + within;
+    let mut seen = Vec::new();
+    while let Ok(event) = tokio::time::timeout_at(deadline, events.recv()).await {
+        seen.push(event?);
+    }
+    Ok(seen)
 }
 
 /// Q2: start a block with launch.rs's argv, env and cwd; then a bad cwd.
@@ -149,7 +162,7 @@ pub(crate) async fn q2(scratch: &Path) -> Result<()> {
     for (name, options) in cases {
         let (session, block) = create(&control, &format!("q2-{name}"), options).await?;
         let mut events = control.events();
-        let text = wait_screen(&control, &session, &block, "ready>").await;
+        let text = wait_screen(&control, &server.socket, &session, &block, "ready>").await?;
         let shown: Vec<&str> = text
             .lines()
             .filter(|l| {
