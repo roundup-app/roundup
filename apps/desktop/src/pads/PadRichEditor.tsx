@@ -21,6 +21,7 @@ import { $prose } from "@milkdown/kit/utils";
 import { trailingConfig } from "@milkdown/kit/plugin/trailing";
 import type { Node as DocumentNode } from "@milkdown/kit/prose/model";
 import { Plugin, TextSelection } from "@milkdown/kit/prose/state";
+import { Decoration, DecorationSet } from "@milkdown/kit/prose/view";
 import { getMarkdown, replaceAll } from "@milkdown/kit/utils";
 import { sourceForDocument } from "./sourceForDocument";
 import { visualBlocks } from "./visualBlocks";
@@ -211,6 +212,19 @@ export default function PadRichEditor(props: {
       $prose(
         () =>
           new Plugin({
+            props: {
+              decorations(state) {
+                const empty: Decoration[] = [];
+
+                // ProseMirror adds caret-supporting DOM breaks even to empty code.
+                state.doc.descendants((node, pos) => {
+                  if (node.isTextblock && node.content.size === 0)
+                    empty.push(Decoration.node(pos, pos + node.nodeSize, { "data-pad-empty": "true" }));
+                });
+
+                return DecorationSet.create(state.doc, empty);
+              },
+            },
             view: () => ({
               update: (view, previous) => {
                 if (view.state !== previous) setCommandState(now => now + 1);
