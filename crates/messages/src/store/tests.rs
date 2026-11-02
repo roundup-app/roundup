@@ -109,7 +109,8 @@ fn b5640a_history_materializes_only_matching_rows() {
         (?3,'m','note','[digest]','delivered',0,0),
         (?4,'m','note','[digest]','delivered',0,0),
         (?5,'m','note','[digest]','delivered',0,0),
-        (?6,'m','note','[digest]','delivered',0,0)",
+        (?6,'m','note','[digest]','delivered',0,0),
+        (json_object('parent',NULL,'id',?7,'kind',?8),'m','note','[digest] reordered','delivered',0,0)",
             params![
                 daemon,
                 actor_json(&Actor::user()),
@@ -131,10 +132,12 @@ fn b5640a_history_materializes_only_matching_rows() {
                     parent: Some("parent".into()),
                     ..Actor::daemon()
                 }),
+                Actor::daemon().id,
+                text_of(Actor::daemon().kind),
             ],
         )
         .unwrap();
-    let expected = [1, 2, 3, 4];
+    let expected = [1, 2, 3, 4, 14];
     for unrelated in [false, true] {
         if unrelated {
             store

@@ -357,11 +357,15 @@ impl Store {
             .prepare(
                 "SELECT id, from_actor, to_id, kind, body, reply_to, status, reason, at
                  FROM messages WHERE to_id = ?1 AND status = 'delivered'
-                   AND from_actor = ?2 AND substr(body, 1, 8) = '[digest]'
+                   AND json_extract(from_actor, '$.kind') = ?2
+                   AND json_extract(from_actor, '$.id') = ?3
+                   AND json_extract(from_actor, '$.parent') IS NULL
+                   AND substr(body, 1, 8) = '[digest]'
                  ORDER BY id",
             )
             .and_then(|mut stmt| {
-                stmt.query_map(params![to, actor_json(&Actor::daemon())], row_to_message)?
+                let daemon = Actor::daemon();
+                stmt.query_map(params![to, text_of(daemon.kind), daemon.id], row_to_message)?
                     .collect()
             })
             .map_err(RpcError::internal)
