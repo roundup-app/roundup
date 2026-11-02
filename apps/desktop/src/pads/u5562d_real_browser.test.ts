@@ -60,6 +60,7 @@ realBrowserTest("u5562d_colour_round_trip", { timeout: 240000, retry: 0 }, async
       await writeFile(join(dir, "colour-dark.checks.json"), JSON.stringify(await evaluate("window.__checks()")));
       await browser("set", "media", "light");
       await browser("screenshot", join(dir, "colour-light.png"));
+      await writeFile(join(dir, "colour-light.checks.json"), JSON.stringify(await evaluate("window.__checks()")));
       await browser("set", "media", "dark");
     }
 
