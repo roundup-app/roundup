@@ -123,9 +123,6 @@ importers:
       '@codemirror/language':
         specifier: 6.12.4
         version: 6.12.4
-      '@codemirror/language-data':
-        specifier: 6.5.2
-        version: 6.5.2
       '@dnd-kit/dom':
         specifier: 0.5.1
         version: 0.5.1(patch_hash=7016eb2fc5907353195dc8eb3c97980c6c35edbd8e7704cf46be9e0431f96ba5)

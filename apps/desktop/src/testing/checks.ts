@@ -248,6 +248,8 @@ const resolveAt = (page: Page, el: Element, value: string, depth = 0): string =>
 const colourTokens = (page: Page, el: Element): Rgba[] | null => {
   const names = ["red", "amber", "accent", "selected", "selected-hover"];
 
+  if (el.closest(".pad-rich-editor .ProseMirror")) names.push("pad-blue", "pad-green", "pad-purple", "pad-highlight", "pad-highlight-ink");
+
   if (el.closest('.empty-state-art')) names.push("doodle-line", "doodle-patch");
 
   if (el.closest('[data-button="primary"]')) names.push("button-accent-fill", "button-key-ink");
@@ -278,7 +280,7 @@ const d3 = (page: Page): Measure => {
 
       if (saturation(colour) > 0.15 && !allowed.some((token) => sameColour(token, colour))) return { [property]: style.getPropertyValue(property) };
 
-      if (calm && (sameColour(red, colour) || sameColour(amber, colour))) return { [property]: style.getPropertyValue(property), calm: true };
+      if (calm && !el.closest(".pad-rich-editor .ProseMirror") && (sameColour(red, colour) || sameColour(amber, colour))) return { [property]: style.getPropertyValue(property), calm: true };
     }
 
     return null;
