@@ -51,7 +51,7 @@ pub fn open_in_with_git(dir: &Path, bus: &Bus, bin: &str, git: Git) -> (Agents, 
     let log = dir.join(INBOX_LOG);
     let agents = Agents::open_with(dir, bus.clone(), Arc::clone(&terminals), launcher, git)
         .unwrap()
-        .with_coordination(move |id, text| {
+        .with_coordination(move |_, id, text| {
             let log = log.clone();
             async move {
                 use std::io::Write;
