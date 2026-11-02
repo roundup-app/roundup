@@ -139,15 +139,14 @@
 .pad-body :first-child { margin-block-start: 0; }
 
 /* Empty editor nodes retain their native caret without reserving block space. */
-.pad-body :is(p, h1, h2, h3, h4, h5, h6):is(:empty, :has(br.ProseMirror-trailingBreak:only-child)),
-.pad-body pre:has(code:is(:empty, :has(br.ProseMirror-trailingBreak:only-child))) {
+.pad-body [data-pad-empty] {
   margin-block: 0;
-  padding-block: 0;
   height: 0;
+  padding-block: 0;
   line-height: 0;
 }
 
-/* Crepe positions placeholders outside the collapsed line box. */
+/* An absolute placeholder would paint over the next block after its host collapses. */
 .pad-body .crepe-placeholder::before {
   content: none;
 }
