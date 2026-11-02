@@ -262,6 +262,12 @@ jobs:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 2
+          # CI5458c: run 41353339920 spent 108 s checking out 2.3 GB of historical perf evidence.
+          # Keep every build/test input; these archives are not inputs to this lane's commands.
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /*
+            !/crates/perf/evidence/
       - id: setup
         uses: ./.github/actions/setup
         with:

@@ -151,8 +151,8 @@ mod tests {
         // Mirrors setup's fallback: resolving the native App folder must not replace
         // the explicit override or restore its saved Projects.
         store.use_dir(PathBuf::from(std::env::var_os(CHILD).unwrap()));
-        assert!(store.open_paths().is_empty());
-        store.set_open(vec!["/tmp/bench/project".into()]);
+        assert!(store.open_paths().unwrap().is_empty());
+        store.set_open(vec!["/tmp/bench/project".into()]).unwrap();
     }
 
     #[test]
