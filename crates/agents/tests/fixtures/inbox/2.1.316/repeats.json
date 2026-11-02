@@ -1,0 +1,170 @@
+{
+  "version": "2.1.316",
+  "source": "https://registry.npmjs.org/@anthropic-ai/claude-code-linux-x64/2.1.316",
+  "binarySha256": "fd13c70000fec3f2116dfbcbb6121210b4a29328bf0e46210a59dd594a67d824",
+  "invocation": [
+    "claude",
+    "--messaging-socket-path",
+    "/tmp/isolated-probe/peer.sock"
+  ],
+  "capture": "2026-11-02; isolated PTY; existing configured login and gateway; no guard overrides; auth envelopes omitted",
+  "dedupWindowMs": 30000,
+  "operations": [
+    {
+      "atMs": 0,
+      "envelope": {
+        "msgV": 1,
+        "msg_id": "00000000-0000-4000-8000-000000000001",
+        "type": "user",
+        "message": {
+          "role": "user",
+          "content": "<cross-session-message from=\"uds:/tmp/rup-fixture/rupd\" from-name=\"rupd\" from-mode=\"default\">\nReply only ALPHA.\n</cross-session-message>"
+        },
+        "priority": "next",
+        "from": "uds:/tmp/rup-fixture/rupd"
+      }
+    },
+    {
+      "atMs": 2096,
+      "envelope": {
+        "msgV": 1,
+        "msg_id": "00000000-0000-4000-8000-000000000002",
+        "type": "user",
+        "message": {
+          "role": "user",
+          "content": "<cross-session-message from=\"uds:/tmp/rup-fixture/rupd\" from-name=\"rupd\" from-mode=\"default\">\nReply only ALPHA.\n</cross-session-message>"
+        },
+        "priority": "next",
+        "from": "uds:/tmp/rup-fixture/rupd"
+      }
+    },
+    {
+      "atMs": 4127,
+      "nativePrompt": "Reply only READY."
+    },
+    {
+      "atMs": 6191,
+      "envelope": {
+        "msgV": 1,
+        "msg_id": "00000000-0000-4000-8000-000000000003",
+        "type": "user",
+        "message": {
+          "role": "user",
+          "content": "<cross-session-message from=\"uds:/tmp/rup-fixture/rupd\" from-name=\"rupd\" from-mode=\"default\">\nReply only ALPHA.\n</cross-session-message>"
+        },
+        "priority": "next",
+        "from": "uds:/tmp/rup-fixture/rupd"
+      }
+    },
+    {
+      "atMs": 8255,
+      "envelope": {
+        "msgV": 1,
+        "msg_id": "00000000-0000-4000-8000-000000000004",
+        "type": "user",
+        "message": {
+          "role": "user",
+          "content": "<cross-session-message from=\"uds:/tmp/rup-fixture/other\" from-name=\"other\" from-mode=\"default\">\nReply only OTHER.\n</cross-session-message>"
+        },
+        "priority": "next",
+        "from": "uds:/tmp/rup-fixture/other"
+      }
+    },
+    {
+      "atMs": 10300,
+      "envelope": {
+        "msgV": 1,
+        "msg_id": "00000000-0000-4000-8000-000000000005",
+        "type": "user",
+        "message": {
+          "role": "user",
+          "content": "<cross-session-message from=\"uds:/tmp/rup-fixture/rupd\" from-name=\"rupd\" from-mode=\"default\">\nReply only ALPHA.\n</cross-session-message>"
+        },
+        "priority": "next",
+        "from": "uds:/tmp/rup-fixture/rupd"
+      }
+    },
+    {
+      "atMs": 12307,
+      "envelope": {
+        "msgV": 1,
+        "msg_id": "00000000-0000-4000-8000-000000000006",
+        "type": "user",
+        "message": {
+          "role": "user",
+          "content": "<cross-session-message from=\"uds:/tmp/rup-fixture/rupd\" from-name=\"rupd\" from-mode=\"default\">\nReply only BRAVO.\n</cross-session-message>"
+        },
+        "priority": "next",
+        "from": "uds:/tmp/rup-fixture/rupd"
+      }
+    },
+    {
+      "atMs": 14406,
+      "envelope": {
+        "msgV": 1,
+        "msg_id": "00000000-0000-4000-8000-000000000007",
+        "type": "user",
+        "message": {
+          "role": "user",
+          "content": "<cross-session-message from=\"uds:/tmp/rup-fixture/rupd\" from-name=\"rupd\" from-mode=\"default\">\nReply only ALPHA.\n</cross-session-message>"
+        },
+        "priority": "next",
+        "from": "uds:/tmp/rup-fixture/rupd"
+      }
+    },
+    {
+      "atMs": 16466,
+      "envelope": {
+        "msgV": 1,
+        "msg_id": "00000000-0000-4000-8000-000000000008",
+        "type": "user",
+        "message": {
+          "role": "user",
+          "content": "<cross-session-message from=\"uds:/tmp/rup-fixture/rupd\" from-name=\"renamed\" from-mode=\"default\">\nReply only ALPHA.\n</cross-session-message>"
+        },
+        "priority": "next",
+        "from": "uds:/tmp/rup-fixture/rupd"
+      }
+    }
+  ],
+  "admittedIds": [
+    "00000000-0000-4000-8000-000000000001",
+    "00000000-0000-4000-8000-000000000004",
+    "00000000-0000-4000-8000-000000000006",
+    "00000000-0000-4000-8000-000000000007",
+    "00000000-0000-4000-8000-000000000008"
+  ],
+  "dropNotice": "Dropped a peer message from uds:/tmp/rup-fixture/rupd: identical to the previous message from this sender.",
+  "observedTranscript": [
+    {
+      "timestamp": "2026-11-02T21:06:55.202Z",
+      "kind": "peer",
+      "msg_id": "00000000-0000-4000-8000-000000000001"
+    },
+    {
+      "timestamp": "2026-11-02T21:06:59.328Z",
+      "kind": "native",
+      "text": "Reply only READY."
+    },
+    {
+      "timestamp": "2026-11-02T21:07:03.472Z",
+      "kind": "peer",
+      "msg_id": "00000000-0000-4000-8000-000000000004"
+    },
+    {
+      "timestamp": "2026-11-02T21:07:07.470Z",
+      "kind": "peer",
+      "msg_id": "00000000-0000-4000-8000-000000000006"
+    },
+    {
+      "timestamp": "2026-11-02T21:07:09.586Z",
+      "kind": "peer",
+      "msg_id": "00000000-0000-4000-8000-000000000007"
+    },
+    {
+      "timestamp": "2026-11-02T21:07:11.641Z",
+      "kind": "peer",
+      "msg_id": "00000000-0000-4000-8000-000000000008"
+    }
+  ]
+}

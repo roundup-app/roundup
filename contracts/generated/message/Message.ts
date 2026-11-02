@@ -6,7 +6,7 @@ import type * as message$MessageStatus from "./MessageStatus";
 import type * as message$Reason from "./Reason";
 /**
  *  A typed envelope between Actors. `reply_to` names the Message this answers, if any; `reason`
- *  names why a `dropped` Message was dropped, and is `None` otherwise.
+ *  names a drop cause or explicit repeat delivery outcome.
  */
 export type Message = {
 	id: number,

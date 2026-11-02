@@ -369,7 +369,8 @@ export type message_Progress = { instructions: agent_Instructions, results: Arra
 
 export type message_ProgressParams = { project: string, id: string, };
 
-export type message_Reason = "receiver gone" | "not accepted" | "removed" | "merged";
+// B5763b adds the explicit delivered-repeat outcome to the existing Message contract.
+export type message_Reason = "repeat of last inbox entry" | "receiver gone" | "not accepted" | "removed" | "merged";
 
 export type message_Reconciliation = { agent: string, actions: Array<message_ContinuationAction>, blocked: Array<message_ContinuationBlock>, context: Array<message_ContinuationContext>, pending_checks: Array<message_ResultTarget>, };
 
