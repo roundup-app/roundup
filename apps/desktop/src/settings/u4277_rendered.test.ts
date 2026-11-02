@@ -182,6 +182,28 @@ it.skipIf(!captureDir("U5560b"))("u5560b_expanded_pad_default_screens", { timeou
       await lane.browser("fill", 'input[type="search"]', "Default width");
       await lane.until(baseline ? "!!document.querySelector('.settings-view [role=status]')" : "!!document.querySelector('.settings-result')");
       await capture(`${seed}-search`);
+
+      if (seed === "tree-40") {
+        await lane.browser("fill", 'input[type="search"]', "");
+        await lane.browser("click", `[role=tab][data-value="${baseline ? "Appearance" : "Pads"}"]`);
+        await lane.evaluate(`(() => {
+          const original = Storage.prototype.setItem;
+          window.__restoreWidthStorage = () => { Storage.prototype.setItem = original; };
+          Storage.prototype.setItem = function(key, value) {
+            if (key === 'roundup:app-settings') throw new Error('Cannot save settings; free disk space and choose the width again.');
+            return original.call(this, key, value);
+          };
+          return true;
+        })()`);
+        const choice = baseline ? '.settings-content input[value="light"]' : '.settings-content input[value="narrow"]';
+        await lane.browser("click", choice);
+        await lane.until("document.querySelector('.settings-view').textContent.includes('Cannot save settings')");
+        await capture(`${seed}-save-failure`);
+        await lane.evaluate("window.__restoreWidthStorage(); true");
+        await lane.browser("click", choice);
+        await lane.until("!document.querySelector('.settings-view').textContent.includes('Cannot save settings')");
+        await capture(`${seed}-save-recovery`);
+      }
     }
 
     await lane.browser("record", "stop");

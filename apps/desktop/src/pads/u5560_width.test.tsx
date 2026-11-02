@@ -1,3 +1,4 @@
+import userEvent from "@testing-library/user-event";
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { openPad, openShelf, padOf } from "./padsFixture";
@@ -17,10 +18,11 @@ it.each(["Narrow", "Wide", "Full"].flatMap(choice => ["pointer", "key"].map(sour
   if (source === "pointer") fireEvent.click(within(group).getByRole("radio", { name: choice }));
   else {
     const initial = within(group).getByRole("radio", { name: "Narrow" });
+    const user = userEvent.setup();
     initial.focus();
 
     for (const name of ["Wide", "Full", "Narrow"].slice(0, choice === "Wide" ? 1 : choice === "Full" ? 2 : 3)) {
-      fireEvent.keyDown(document.activeElement!, { key: "ArrowRight" });
+      await user.keyboard("{ArrowRight}");
       await waitFor(() => expect(within(group).getByRole<HTMLInputElement>("radio", { name }).checked).toBe(true));
     }
   }
