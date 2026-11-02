@@ -1,3 +1,5 @@
+import { KeyChip } from "../keys/KeyChip";
+import { ariaChord, type Chord } from "../keys/chords";
 import { createUniqueId, For, Show, type JSX } from "solid-js";
 
 const scenes = {
@@ -15,7 +17,7 @@ const scenes = {
 };
 
 /** U4464: one named empty view; the owning surface supplies its next action. */
-export const EmptyState = (props: { art: keyof typeof scenes; title: string; line?: string; action?: JSX.Element; actions?: readonly { label: string; chip: string; run: () => void }[] | undefined; available?: boolean | undefined }) => {
+export const EmptyState = (props: { art: keyof typeof scenes; title: string; line?: string; action?: JSX.Element; actions?: readonly { label: string; chord: Chord; run: () => void }[] | undefined; available?: boolean | undefined }) => {
   const title = createUniqueId();
 
   return <div class="empty-state" role="group" aria-labelledby={title}>
@@ -23,7 +25,7 @@ export const EmptyState = (props: { art: keyof typeof scenes; title: string; lin
       <div class="empty-state-art" aria-hidden="true"><svg viewBox="0 0 240 160"><use href={`${scenes[props.art]}#scene`} width="240" height="160" /></svg></div>
       <h3 id={title} class="empty-state-title">{props.title}</h3>
       <Show when={props.line}>{line => <p class="empty-state-line">{line()}</p>}</Show>
-      <Show when={props.actions?.length}><div class="empty-state-actions"><For each={props.actions}>{(action, index) => <button type="button" data-button={index() === 0 ? "primary" : "quiet"} aria-label={action.label} aria-disabled={props.available === false ? true : undefined} onClick={() => { if (props.available !== false) action.run(); }}>{action.label}<kbd class="empty-state-chip">{action.chip}</kbd></button>}</For></div></Show>
+      <Show when={props.actions?.length}><div class="empty-state-actions"><For each={props.actions}>{(action, index) => <button type="button" data-button={index() === 0 ? "primary" : "quiet"} aria-label={action.label} aria-keyshortcuts={ariaChord(action.chord)} aria-disabled={props.available === false ? true : undefined} onClick={() => { if (props.available !== false) action.run(); }}>{action.label}<KeyChip keys={action.chord.keys} /></button>}</For></div></Show>
       <Show when={props.action}><div class="empty-state-actions">{props.action}</div></Show>
     </div>
   </div>;
