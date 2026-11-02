@@ -112,7 +112,7 @@ it.skipIf(!captureDir("U4277c")).each(["tree-40", "tabs-8"].flatMap(seed =>
 
         if (filled && view === "made") await lane.evaluate(`(() => {
           window.__fake.app.handlers['deliverable.list'] = () => [{id:'publication-a',project:window.__auditPath,maker:{kind:'agent',id:'agent-1',parent:null},maker_name:'Retained maker',home:null,title:'Published result 長い名前 '.repeat(20),published_at:1,target:{kind:'external',url:'https://example.com/exact-target',availability:'unchecked'}}];
-          window.dispatchEvent(new Event('focus')); return true;
+          window.__fake.app.emit({actor:{kind:'user',id:'you',parent:null},name:'deliverable.changed'}); return true;
         })()`);
         await lane.resetCalls();
 
