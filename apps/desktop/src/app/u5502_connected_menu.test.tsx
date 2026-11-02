@@ -54,19 +54,28 @@ it("u5502_valid_menu_selection_clears_stale_row_failure", async () => {
   expect(failure.isConnected).toBe(false);
 });
 
-it("u5502_open_and_more_do_not_acknowledge_results", async () => {
-  const { app } = await openTabs({ api: Array.from({ length: 10 }, (_, index) => agent(String(index), "working", "running")), web: [] });
+it.each([false, true])("u5502_open_and_more_do_not_acknowledge_results (overflow=%s)", async overflow => {
+  const { app } = await openTabs({ api: Array.from({ length: overflow ? 10 : 1 }, (_, index) => agent(String(index), "working", "running")) });
+  await waitFor(() => expect(document.querySelector('[role=treeitem][data-id="0"]')).not.toBeNull());
+  fireEvent.click(document.querySelector<HTMLElement>('[role=treeitem][data-id="0"]')!);
+  fireEvent.blur(window);
 
-  for (let index = 0; index < 10; index++) finish(app, "api", String(index));
-  await waitFor(() => expect(actions(app)).toHaveLength(7));
+  for (let index = 0; index < (overflow ? 10 : 1); index++) finish(app, "api", String(index));
+  await waitFor(() => expect(actions(app)).toHaveLength(overflow ? 7 : 1));
   const menu = app.menuBar;
   const commands = menu?.entries.flatMap(entry => entry.action?.kind === "open" ? [entry.action] : []) ?? [];
-  expect(commands).toHaveLength(2);
+  expect(commands).toHaveLength(overflow ? 2 : 1);
 
-  for (const command of commands) app.menuBarAction(command);
+  app.menuBarAction(commands[0]!);
+  fireEvent.focus(window);
   await settled();
   expect(app.menuBar).toEqual(menu);
-  expect(tab("web").getAttribute("aria-selected")).toBe("true");
+  expect(document.querySelector('[role=treeitem][data-id="0"]')?.getAttribute("aria-selected")).toBe("true");
+
+  // A subsequent ordinary activation still acknowledges the displayed Agent.
+  fireEvent.blur(window);
+  fireEvent.focus(window);
+  await waitFor(() => expect(actions(app).some(action => action.agent === "0")).toBe(false));
 });
 
 it.each([0, 7, 8, 10].flatMap(count => (count ? [true, false] : [true]).map(waiting => ({ count, waiting }))))("u5502_seven_rows_share_one_limit ($count, waiting=$waiting)", async ({ count, waiting }) => {
@@ -185,6 +194,10 @@ it("u5502_menu_groups_and_orders_agents", async () => {
 
 it("u5502_opening_acknowledges_only_that_agents_results", async () => {
   const { app } = await openTabs({ api: [agent("a", "working", "running"), agent("other", "working", "running")], web: [agent("a", "working", "running")] });
+  fireEvent.click(tab("api"));
+  await waitFor(() => expect(document.querySelector('[role=treeitem][data-id="other"]')).not.toBeNull());
+  fireEvent.click(document.querySelector<HTMLElement>('[role=treeitem][data-id="other"]')!);
+  fireEvent.click(tab("web"));
   const daemon = app.of(path("api"));
   daemon.handlers["deliverable.list"] = () => ["a", "other"].map(id => ({ project: "api-key", id: `published-${id}`, maker: { kind: "agent", id, parent: null }, maker_name: id, home: null, title: "Result", published_at: 20, target: { kind: "external", url: "https://example.com", availability: "not-checked" } }));
   daemon.emit(event({ name: "deliverable.changed" }));
