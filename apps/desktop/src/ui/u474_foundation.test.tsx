@@ -6,6 +6,7 @@ import { afterEach, expect, it } from "vitest";
 import { u474Fixture } from "./u474Fixture";
 import { CHORDS, ariaChord, ariaShortcut } from "../keys/chords";
 import { saveAppSettings } from "../settings/preferences";
+import { useBrowserStorage } from "../state/storage";
 import { Tip } from "../ui/Tip";
 import { copy } from "./copy";
 import { IconButton } from "./IconButton";
@@ -152,20 +153,26 @@ const mountOwners = async () => {
 const shelfButton = async (name: string) => {
   showShelfTab("Todos");
 
-  return within(document.querySelector<HTMLElement>(".shelf")!).findByRole("button", { name });
+  return within(document.querySelector<HTMLElement>(".shelf")!).findByLabelText(name, { selector: "button" });
 };
 
 const openDrawerButton = async () => {
   showShelfTab("Pads");
-  const group = document.querySelector('.pads-tab [data-shelf-group="unassigned"]');
+  const pads = await screen.findByLabelText("Pads", { selector: ".pads-tab" });
+  const group = pads.querySelector('[data-shelf-group="unassigned"]');
 
   if (group?.getAttribute("aria-expanded") === "false") fireEvent.click(group.querySelector('[data-part="branch-control"]')!);
-  const pad = await screen.findByRole("button", { name: "notes" });
+  const pad = await within(pads).findByRole("button", { name: "notes" });
   pad.focus();
   fireEvent.keyDown(pad, { key: "Enter", code: "Enter" });
   await waitFor(() => expect(document.querySelector(".drawer")?.getAttribute("data-open")).toBe("true"));
 
-  return await within(document.querySelector<HTMLElement>(".drawer")!).findByRole("button", { name: /^(Maximise|Restore)$/ });
+  const drawer = within(document.querySelector<HTMLElement>(".drawer")!);
+
+  // PadRichEditor moves expand into its toolbar before naming the loaded body.
+  await drawer.findByLabelText("Pad body");
+
+  return drawer.getByLabelText(/^(Maximise|Restore)$/, { selector: "button" });
 };
 
 const pressOf = (shortcut: string, target: Element) => {
@@ -179,11 +186,11 @@ const pressOf = (shortcut: string, target: Element) => {
 };
 
 const owners: [string, string, () => Promise<HTMLElement>, (app: Awaited<ReturnType<typeof mountOwners>>) => string][] = [
-  ["Layout shelf.maximise", "shelf.maximise", () => shelfButton("Maximise"), () => String(screen.queryByRole("button", { name: "Restore" }) !== null)],
+  ["Layout shelf.maximise", "shelf.maximise", () => shelfButton("Maximise"), () => String(screen.queryByLabelText("Restore", { selector: "button" }) !== null)],
   ["Layout shelf.close", "shelf.close", () => shelfButton("Close the Bench"), () => String(document.querySelector<HTMLElement>(".window")!.dataset["shelf"])],
-  ["Todos todo.triage-enter", "todo.triage-enter", () => shelfButton("Triage"), () => String(screen.getByRole("button", { name: "Triage" }).getAttribute("aria-pressed"))],
+  ["Todos todo.triage-enter", "todo.triage-enter", () => shelfButton("Triage"), () => String(screen.getByLabelText("Triage", { selector: "button" }).getAttribute("aria-pressed"))],
   ["DrawerHost shelf.maximise", "shelf.maximise", openDrawerButton, () => String(document.querySelector<HTMLElement>(".drawer")?.dataset["maximised"])],
-  ["RowIcons agent.new", "agent.new", async () => await within(document.querySelector<HTMLElement>('.rail-row[data-id="w"]')!).findByRole("button", { name: "Add Agent" }), app => String(app.calls.filter(call => call.method === "agent.spawn").length)],
+  ["RowIcons agent.new", "agent.new", async () => await within(document.querySelector<HTMLElement>('.rail-row[data-id="w"]')!).findByLabelText("Add Agent", { selector: "button" }), app => String(app.calls.filter(call => call.method === "agent.spawn").length)],
 ];
 
 it.each(owners)("u5247a_every_named_icon_button_key_runs_its_action: %s", async (_owner, name, find, observe) => {
@@ -191,6 +198,8 @@ it.each(owners)("u5247a_every_named_icon_button_key_runs_its_action: %s", async 
 
   const run = async (how: "click" | "press") => {
     cleanup();
+    // Each mount is independent; retire queued frame saves from the previous one.
+    useBrowserStorage(localStorage);
     localStorage.clear();
     const app = await mountOwners();
     const button = await find();
@@ -201,7 +210,7 @@ it.each(owners)("u5247a_every_named_icon_button_key_runs_its_action: %s", async 
 
     if (how === "click") fireEvent.click(button);
     else pressOf(shortcut!, button);
-    await waitFor(() => expect(observe(app)).not.toBe(before), { timeout: 2000 }).catch(() => {});
+    await waitFor(() => expect(observe(app)).not.toBe(before), { timeout: 2000 });
 
     return [before, observe(app)];
   };
