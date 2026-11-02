@@ -3,7 +3,7 @@
   font-size: var(--text-title);
   box-sizing: border-box;
   width: 100%;
-  max-width: var(--pad-reading-width, var(--reading-width));
+  max-width: var(--reading-width);
   margin-inline: auto;
 }
 
@@ -102,6 +102,10 @@
   max-width: var(--pad-reading-width);
   width: 100%;
   align-self: center;
+}
+
+.pad-body .reading {
+  max-width: var(--pad-reading-width);
 }
 
 .pad-body .ProseMirror {
