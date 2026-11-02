@@ -1,6 +1,6 @@
 # UI surfaces
 
-Module: `apps/desktop` (the webview); the window half is S7 in `app.md`. Ids: U80–U87, U3704, U4464, U4607, U5163.
+Module: `apps/desktop` (the webview); the window half is S7 in `app.md`. Ids: U80–U87, U3704, U4464, U4607, U5163, U5606.
 
 What the webview shows when something fails, takes a moment, has ended or has no workstream. Ids U80 to U87; the window's smallest size is S7 in `app.md`. These scenarios are new and edit no earlier text; where one narrows an earlier scenario or test it says so, and a scenario that says "after X" may be built from X's branch and merges after X. The scenarios they build on (U47, U52, U56, U57, U59 and U4's 4.5:1) are on main. The empty states (U38), first run (U2), Daemon gone and reopen (U25, U37) and an exited Terminal that takes no input (U12) are specified elsewhere and are not repeated. Tests run in Vitest with jsdom against the fake App seam, with the injected clock and emulator (`ui.md` header), except U85, which needs real layout and is a check run in a browser (below). Every rule here is a value a test can read: a string, a token, a duration, a call that is or is not made. Ink stays what `GLOSSARY.md` says: colour, never weight, for `error` and `needs-you` only, and text keeps U4's 4.5:1.
 
@@ -134,3 +134,17 @@ Regression (policy): Moves D3 (the scene's palette exception retires), D5 and D2
 1. `docs/design-system.md`: the U4464 exception before “three hues exist”, and the four `--doodle-*` Token rows; `apps/desktop/src/tokens.css`: the `--doodle-*` declarations in each scheme block.
 2. `apps/desktop/src/testing/checks.ts`: the `.empty-state-art` recognizer naming `doodle-line` and `doodle-patch`; `apps/desktop/src/ink/u4464_capture.test.ts`: its palette reading.
 3. `apps/desktop/src/ink/EmptyState.tsx`, `EmptyState`; `apps/desktop/src/ink/styles.css`, `.empty-state` and `.empty-state-art`.
+
+
+**U5606 the dense failure capture waits for the creation menu.** Narrows U4464's rendered observer only; U5217 (`scenarios/ui-create-keys.md`) owns the creation menu. Journey stage: Enter (`.agents/data/journey.md`, “What must work”). Given the isolated headless U26 harness on `tree-40` at 1512×950 with creation available and no injected failure, when the capture opens Create, then it waits for the mounted Workstream menu item before activating it; opening the menu makes no `rail.createWorkstream` call. After that readiness signal, when the capture arms `failNext(-32003, 'Creation rejected: choose another Workstream name')` and chooses Workstream once, then exactly one `rail.createWorkstream` call occurs, one alert contains that rejection, and the dense-failure snapshot and its observation/Check readings are written without a null-element click error. Test for both then-clauses: extend the existing `apps/desktop/src/ink/u4464_capture.test.ts` observer in place as `u5606_capture_empty_views_in_both_themes`, retaining its other U4464 coverage and capture registration; do not add another full browser run.
+
+Policy — synchronization and scope: separate opening Create, awaiting the menu item's mounted readiness, arming the failure and choosing Workstream into ordered browser operations. Reuse the observer's bounded `wait` and browser helpers; no fixed sleep, timeout increase, retry, synthetic event, new helper module or dependency. Change the capture driver only; production menu behavior, failure feedback, empty-view presentation and existing capture coverage remain unchanged. No RPC, App seam command, Token or glossary term changes.
+
+Policy — rendered delivery: run `just capture U4464` after the U5217 menu implementation is on main. Retain U4464's explicit light/dark capture requirement; leave the dense-failure PNG files and readings under `artifacts/ux/U4464/head/`, never commit media. D2, D5 and D6 and every passing Check on main stay passing; appearance belongs to the critic, not new layout assertions. This observes the webview's creation-failure path, not completion of the entire journey or native Mac behavior. No capture is required for this specification-only PR; the user reports what they meet on the Mac.
+
+### U5606 existing checks on main
+
+1. Capture driver and alert assertion: `apps/desktop/src/ink/u4464_capture.test.ts`, `u4464_capture_empty_views_in_both_themes` (including its `wait`, `load` and `snap` helpers).
+2. Menu contract and no-start boundary: `scenarios/ui-create-keys.md`, U5217; shared menu implementation: `apps/desktop/src/ui/Menu.tsx`, `Menu`.
+3. Failure injection and recorded calls: `apps/desktop/src/testing/fakeApp.ts`, `createFakeApp`; U26 fixture: `apps/desktop/src/testing/seeds.ts`, `seedApp`; capture artifacts: `.agents/data/harness.md`, “Captures”.
+4. D2, D5 and D6: `docs/design-system.md`, “The checks”; `apps/desktop/src/testing/checks.ts`, `runChecks`.
