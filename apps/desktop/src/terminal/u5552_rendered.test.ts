@@ -37,6 +37,14 @@ it.each(["agents-10", "tree-40", "bubbles"])("u5552d_u5552e_rendered_focus_and_c
   })()`);
   await wait("window.__fake.app.calls.filter(call => call.method === 'terminal.write').length === 2");
   await capture("U5552d", `${seed}-image-focus`);
+  const other = seed === "bubbles" ? "dense" : "agent-3";
+  await browser("focus", `.rail-row[data-id="${other}"]`);
+  await browser("press", "Enter");
+  await wait("document.activeElement.matches('.pane-screen .xterm-helper-textarea')");
+  await browser("focus", `.rail-row[data-id="${row}"]`);
+  await browser("press", "Enter");
+  await wait(`document.activeElement.closest('[data-terminal]')?.dataset.terminal === 't-${row}'`);
+  await browser("focus", `.rail-row[data-id="${row}"]`);
   await read(`(() => {
     const body = document.querySelector('.pane-body'); const box = body.getBoundingClientRect();
     window.__fake.app.dropFiles({ phase:'drop', paths:['/tmp/focus image.png'], x:box.left+box.width/2,y:box.top+box.height/2 });
