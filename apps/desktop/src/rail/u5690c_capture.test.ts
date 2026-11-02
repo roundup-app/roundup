@@ -77,7 +77,7 @@ it("u5690c_public_group_renders_and_opens_its_children", async () => {
     await lane.capture("U5690c", "public-group-collapsed");
     await lane.browser("click", `[data-id="${group.id}"] .rail-group-chevron`);
     await lane.until(`!!document.querySelector('[id="rail-name-${nodes[0]!.id}"]')`);
-    await lane.browser("click", '.pane-group button:first-child');
+    await lane.browser("click", '.pane-group button:first-of-type');
     await lane.until("!document.querySelector('.pane-group button')?.textContent.includes('Review 1')");
     expect(await app.rpc("terminal.list", null)).toEqual([]);
     expect((await app.rpc("rail.tree", null)).find(node => node.id === group.id)?.kind).toBe("group");
