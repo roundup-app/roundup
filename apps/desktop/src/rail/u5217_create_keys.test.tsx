@@ -90,9 +90,8 @@ it("u5555_unavailable_creation_cannot_run_from_the_menu", async () => {
   expect(railCallsTo(m.app, "agent.spawn")).toEqual([]);
   expect(railCallsTo(m.app, "rail.createWorkstream")).toEqual([]);
   expect(screen.queryByRole("dialog")).toBeNull();
-  screen.getByRole("menu").focus();
-  fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" });
-  await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
+  cleanup();
+  await mountRail([workstream("g")], [], exited);
   const plus = screen.getByRole("button", { name: "Create" });
   expect(plus.getAttribute("aria-disabled")).toBe("true");
   fireEvent.click(plus);

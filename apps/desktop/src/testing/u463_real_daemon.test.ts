@@ -94,7 +94,10 @@ const width = 1280;
       await wait(`!!document.querySelector('[aria-label="Create"]')`);
 
       expect((await browser("eval", "document.querySelector('.project-tab[data-path]').dataset.path")).result).toBe(real.dir);
-      { await activate('[aria-label="Create"]'); await activate('[role="menuitem"][data-value="workstream"]'); }
+      await activate('[aria-label="Create"]');
+      await browser("press", "ArrowDown");
+      await wait("document.querySelector('[role=menuitem][data-highlighted]')?.dataset.value === 'workstream'");
+      await browser("press", "Enter");
 
       // U191: creating the Workstream starts its Door once rail.tree acknowledges the row.
       await wait(`window.__u463Calls.some(call => call.method === 'rail.startDoor')`);

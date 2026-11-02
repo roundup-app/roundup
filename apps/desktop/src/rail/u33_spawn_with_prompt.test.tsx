@@ -3,7 +3,7 @@ import { createSignal } from "solid-js";
 import { afterEach, describe, expect, it } from "vitest";
 import { mountRailAndPane } from "../terminal/paneHarness";
 import { agent, event, workstream } from "../testing/nodes";
-import { chooseFooter, mountRail, pinnedAdd, railCallsTo } from "./railFixture";
+import { chooseAction, chooseFooter, mountRail, pinnedAdd, railCallsTo } from "./railFixture";
 import { copy } from "./copy";
 
 afterEach(cleanup);

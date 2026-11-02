@@ -1,5 +1,5 @@
 // fallow-ignore-file duplicate-export -- glyphOf finds a rendered Rail glyph; ink/glyph maps Kind to glyph data. Imports are direct.
-import { fireEvent, render, screen, within } from "@solidjs/testing-library";
+import { fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach } from "vitest";
 import { createSignal, Show } from "solid-js";
 import type { Accessor } from "solid-js";
@@ -122,7 +122,8 @@ export const chooseAction = async (app: ReturnType<typeof createFakeApp>, name: 
 
 /** Chooses a creation kind through the shared footer menu. */
 export const chooseFooter = async (name: "Agent" | "Workstream" | "Mode"): Promise<void> => {
-  fireEvent.click(pinnedAdd());
+  fireEvent.click(await screen.findByRole("button", { name: "Create" }));
   const item = await screen.findByRole("menuitem", { name: new RegExp(`^${name}`) });
   fireEvent.click(item);
+  await waitFor(() => { if (screen.queryByRole("menu")) throw new Error("Creation menu remains open"); });
 };
