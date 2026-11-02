@@ -150,7 +150,7 @@ jobs:
   after:
     needs: build
     if: always()
-    runs-on: ${{ fromJSON(vars.BOXD_LIGHT == '1' && format('["self-hosted","boxd","roundup-light-after-{0}-{1}"]', github.run_id, github.run_attempt) || '["ubuntu-24.04"]') }}
+    runs-on: ${{ fromJSON(vars.BOXD_LIGHT == '1' && format('["self-hosted","boxd","roundup-light-after-{0}-{1}-{2}"]', github.run_id, github.run_attempt, inputs.issue) || '["ubuntu-24.04"]') }}
     permissions:
       actions: write
       contents: read

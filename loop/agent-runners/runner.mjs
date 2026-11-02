@@ -24,7 +24,8 @@ const EVENTS = new Set(['workflow_run', 'workflow_dispatch', 'schedule', 'issues
 // so each one starts empty.
 const JUDGES = new Set(['review', 'critic']);
 
-const LABEL = /^roundup-(build|fix|review|critic|smoke|light)-([1-9][0-9]*|pick|task|after|post)-([1-9][0-9]*)-([1-9][0-9]*)$/;
+// A light job that a run holds once per Issue ends its label with that Issue, so no two of its jobs share a runner.
+const LABEL = /^roundup-(build|fix|review|critic|smoke|light)-([1-9][0-9]*|pick|task|after|post)-([1-9][0-9]*)-([1-9][0-9]*)(?:-[1-9][0-9]*)?$/;
 
 class RemoteFailure extends Error {}
 
@@ -210,7 +211,8 @@ export function serve(settings) {
   }
 
   async function retain(job) {
-    if (JUDGES.has(job.kind)) return;
+    // Only a seeded job holds memory: a judge's is discarded, a light job has none.
+    if (JUDGES.has(job.kind) || !job.seeded) return;
     const path = join(directory, 'work', String(job.id));
     await remote(job.machine, 'python3 /opt/roundup-ci/memory.py pack /home/boxd/.roundup-ci /tmp/roundup-memory.tar.gz');
     await copy(`${job.machine}:/tmp/roundup-memory.tar.gz`, join(path, 'retained.tar.gz'));
@@ -229,12 +231,17 @@ export function serve(settings) {
     const present = (await machines()).some(machine => machine.name === job.machine);
 
     if (present) {
-      if (job.seeded && !job.retained) {
+      if (!job.retained) {
         await retain(job);
-        const diagnostics = join(directory, 'diagnostics', String(job.id));
-        mkdirSync(diagnostics, { recursive: true, mode: 0o700 });
-        await remote(job.machine, 'tar -czf /tmp/runner-diagnostics.tar.gz -C /opt/actions-runner _diag');
-        await copy(`${job.machine}:/tmp/runner-diagnostics.tar.gz`, join(diagnostics, 'runner.tar.gz'));
+
+        // A registered runner holds diagnostics whether or not its job holds memory.
+        if (job.registered) {
+          const diagnostics = join(directory, 'diagnostics', String(job.id));
+          mkdirSync(diagnostics, { recursive: true, mode: 0o700 });
+          await remote(job.machine, 'tar -czf /tmp/runner-diagnostics.tar.gz -C /opt/actions-runner _diag');
+          await copy(`${job.machine}:/tmp/runner-diagnostics.tar.gz`, join(diagnostics, 'runner.tar.gz'));
+        }
+
         job.retained = Date.now();
         save(job);
       }
