@@ -94,7 +94,7 @@ The reserved message line (`--line`) is 24 px in both schemes, including its act
 
 Space: `--space-1` to `--space-6` are 4, 8, 12, 16, 24, 32 px. A Rail row is 28 px high. U2716a specifies a future pinned 40 px Overview band above the scrolling Rail tree, with `--space-3` inline inset, a 24 px icon tile and `--text-row` at weight 400; its count rides beside the name. `--measure` is `56rem`, the Thread's column width (D11).
 
-Mono is for the Terminal, paths, ids and code. Every other word is `--font-ui`.
+Mono is for the Terminal, paths, ids, code, button labels and key chips (#5557 implementation acceptance). Every other word is `--font-ui`.
 
 ## Colour
 
@@ -170,7 +170,7 @@ Except D18 and D19, each check is measured from computed style and the DOM of th
 | Id | Passes when | Scenario |
 |---|---|---|
 | D1 | every computed colour, background, border-color, shadow, radius and duration is the value of a Token | U130 |
-| D2 | every static interface font size is a type step; U102 Terminal sizing uses its bounded Token-defined scale; every margin, padding and gap is `0` or a space step, except U2541 `kbd.key-chip`: zero vertical padding and 5 px on each side matching `--key-chip-padding` (D1 still requires Token-only declarations). This adds no general space step. Rail section alignment and grouping also satisfy the U4896 policy below. | U131, U4896 |
+| D2 | every static interface font size is a type step; U102 Terminal sizing uses its bounded Token-defined scale; every margin, padding and gap is `0` or a space step, except U2541 `kbd.key-chip`: zero vertical padding and 5 px on each side matching `--key-chip-padding` (D1 still requires Token-only declarations). #5557 adds only an intra-chip gap of `calc(var(--space-1) / 4)` between keys, not letters within key names. This adds no general space step. Rail section alignment and grouping also satisfy the U4896 policy below. | U131, U4896 |
 | D3 | every colour whose saturation exceeds 15% is `--red`, `--amber` or `--accent`; with no `error` or `needs-you` row on screen, no red or amber is drawn | U132 |
 | D4 | every Rail, Shelf and Drawer item row (not editor menu categories or commands) shows one of the six Glyphs for its Kind; no Kind is drawn by colour only | U132 |
 | D5 | text has at least 4.5:1 against its own ground, and a Glyph tone 3:1 (`done` is exempt as U4 says), in light and in dark | U4, U135 |
@@ -181,10 +181,10 @@ Except D18 and D19, each check is measured from computed style and the DOM of th
 | D10 | D1 to D9 hold in both colour schemes, in `prefers-contrast: more`, and at 1280 by 800 | U135 |
 | D11 | in the Thread, the column is at most `--measure` (`56rem`) wide, no rendered line holds more than 120 characters, and every row's text starts at one x within 1 px, at 1280 by 800 | U197 |
 | D12 | in each of the Shelf's `todos` and `pads` lists, after U3708's tree indent, the Glyphs' left x are within 1 px of one another; first words align within 1 px among tick-only rows and among rows with a Glyph column (U3726); every later line starts at its own title's left x within 1 px; across the App, every icon beside text meets U86's x-height centring policy below | U360, U3726, U86 |
-| D13 | in the Shelf, every text node is `--font-ui` unless it is an id, a path or code | U360 |
+| D13 | in the Shelf, every text node is `--font-ui` unless it is an id, a path, code, a button label or a key chip (#5557 acceptance) | U360 |
 | D14 | in the Shelf, no row has a fill, border or shadow at rest; the gaps between rows, from a head to its first row and between the two lists are space steps, equal across the lists; no title or name shows more than two lines or overflows its row | U360 |
 | D15 | all App-authored text and accessible names come from their surface’s copy module (root composition uses `app`), with multiply consumed values in dependency-free `src/sharedCopy.ts`; its entries and formatter branches use sentence case and `GLOSSARY.md` user labels, with explicit section-head, acronym and authored-value exemptions | U471, U472 |
-| D16 | in the Thread, every text node is `--font-ui` unless it is an id, a path or code, and no Agent name wraps | U425 |
+| D16 | in the Thread, every text node is `--font-ui` unless it is an id, a path, code, a button label or a key chip (#5557 acceptance), and no Agent name wraps | U425 |
 | D17 | A tooltip sits against the element under the pointer that owns it. | U2749 |
 | D18 | The design critic approves a greyscale contact sheet of all six production Kind Glyphs side by side at 16 px in both light and dark: idle/open ring, Blocked ring with a horizontal centre bar (⊖) in the same stroke and colour as the ring, working quarter, needs-you disc in a ring, error cross in a disc, done check in a disc. Every pair is distinguishable by shape without labels or colour; include three working-arc angles (U446). This is a critic-only visual Check, not a DOM or pixel-difference test. | U401 |
 | D19 | For every added or changed icon, the design critic approves its meaning against the complete icon/status inventory below: one glyph identifies one concept, and section-head icons share no bare circle/dot/square family with their rows' status marks. Inspect changed production icons at their rendered size beside neighbours in light and dark; labels and colour cannot rescue a shape collision. | U4898 |
@@ -289,8 +289,8 @@ The light header stays on root sunken. Borders carry ≥3:1 against the header a
 
 ### U2541 shortcut key chips
 
-Hint line, Help and leader keys use the shared `KeyChip`, a plain `kbd` per symbol.
-Labels remain `--grey`; chips use `--text`, `--font-ui`, `--text-small`, weight 500,
+All App chips, including EmptyState, use the shared `KeyChip`, one plain `kbd` per press; a chord keeps its modifiers and final key together (U2541d, #5557 acceptance).
+Labels remain `--grey`; chips use `--text`, `--font-mono`, `--text-small`, weight 500,
 no border and a `--space-4` (16 px) height.
 
 | Token | Light | Dark |

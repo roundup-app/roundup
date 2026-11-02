@@ -55,7 +55,6 @@ impl Rail {
             )
             .map_err(sql)?;
         if retained {
-            Self::prepare_placements(&tx)?;
             tx.execute("UPDATE rail_deletions SET boundary=json_set(boundary,'$.after',json((SELECT COALESCE(json_group_array(json(value)),'[]') FROM json_each(json_extract(boundary,'$.after')) WHERE json_extract(value,'$.id')<>?))) WHERE restored=0 AND json_type(boundary)='object'", [id]).map_err(sql)?;
         }
         tx.commit().map_err(sql)
