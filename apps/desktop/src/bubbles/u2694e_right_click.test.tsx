@@ -123,10 +123,10 @@ const mountApp = async (seed: SeedName = "tree-40", rail = false) => {
   }
 
   const emulators = fakeEmulators();
-  const view = render(() => <App app={controls.app} reducedMotion={() => true} clock={() => 0} createEmulator={emulators.factory} />);
+  const view = render(() => <App app={controls.app} initialShelfOpen={false} reducedMotion={() => true} clock={() => 0} createEmulator={emulators.factory} />);
 
   if (seed === "first-run") await screen.findByRole("button", { name: "Choose Project…" });
-  else await screen.findByRole("tree");
+  else await screen.findByLabelText("Rail", { selector: '[role="tree"]' });
 
   if (rail) fireEvent.click(row("w"));
 

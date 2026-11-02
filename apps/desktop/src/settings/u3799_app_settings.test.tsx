@@ -50,8 +50,8 @@ it.each([["KeyY", "y", "⌃⇧Y"], ["Numpad1", "1", "⌃⇧1"], ["F13", "F13", "
   const { seedApp } = await import("../testing/seeds");
   const { HELP_ROWS } = await import("../keys/chords");
   const { copy } = await import("./copy");
-  const controls = seedApp("tree-40", Date.now());
-  render(() => <App app={controls.app} reducedMotion={() => true} clock={Date.now} />);
+  const controls = seedApp("agents-10", Date.now());
+  render(() => <App app={controls.app} initialShelfOpen={false} reducedMotion={() => true} clock={Date.now} />);
   await screen.findAllByRole("treeitem");
   window.dispatchEvent(new Event("open-app-settings"));
   const settings = within(await screen.findByRole("region", { name: "Settings" }));

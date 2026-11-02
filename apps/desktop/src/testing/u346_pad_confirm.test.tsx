@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
+import { cleanup, fireEvent, waitFor, within } from "@solidjs/testing-library";
 import { expect, it } from "vitest";
 import { openPad, openShelf, waitForReload } from "../pads/padsFixture";
 import { RpcError } from "../app/seam";
@@ -23,13 +23,14 @@ it("p2544d_stale_write_without_event_keeps_draft", async () => {
 
   try {
     const field = await openPad("notes");
+    const drawer = within(document.querySelector<HTMLElement>(".drawer")!);
 
     // No pad.changed Event precedes either stale reply.
     app.handlers["pad.list"] = () => [remote];
     fireEvent.input(field, { target: { value: "my draft" } });
     fireEvent.focusOut(field);
-    await screen.findByText("Use theirs");
-    await waitFor(() => expect(screen.queryByText(/pad notes is at revision/)).toBeNull());
+    await drawer.findByText("Use theirs");
+    await waitFor(() => expect(drawer.queryByText(/pad notes is at revision/)).toBeNull());
     await waitForReload(app);
     expect(field.value).toBe("my draft");
     expect(calls.filter((call) => call.method === "pad.write")).toEqual([
@@ -38,9 +39,9 @@ it("p2544d_stale_write_without_event_keeps_draft", async () => {
     app.handlers["pad.list"] = () => [intervening];
     app.handlers["pad.write"] = () => { throw new RpcError(-32003, "pad notes is at revision 3"); };
 
-    fireEvent.click(screen.getByText("Keep mine"));
+    fireEvent.click(drawer.getByText("Keep mine"));
     await waitForReload(app, 2);
-    expect(screen.queryByText(/pad notes is at revision/)).toBeNull();
+    expect(drawer.queryByText(/pad notes is at revision/)).toBeNull();
     expect(calls.filter((call) => call.method === "pad.write").at(-1)?.params).toEqual({
       name: "notes", text: "my draft", expectedRevision: 2, expectedIncarnation: pad.incarnation,
     });
@@ -48,9 +49,9 @@ it("p2544d_stale_write_without_event_keeps_draft", async () => {
     // Observation window: PadDrawer.tsx debounces autosave at 500 ms; a conflict must suppress it.
     await new Promise((done) => setTimeout(done, 550));
     expect(calls.filter((call) => call.method === "pad.write")).toHaveLength(2);
-    fireEvent.click(screen.getByText("Use theirs"));
+    fireEvent.click(drawer.getByText("Use theirs"));
     await waitFor(() => expect(field.value).toBe("original remote intervening"));
-    expect(screen.queryByText(/pad notes is at revision/)).toBeNull();
+    expect(drawer.queryByText(/pad notes is at revision/)).toBeNull();
     app.handlers["pad.write"] = () => ({ ...intervening, text: "after choice", revision: 4 });
     fireEvent.input(field, { target: { value: "after choice" } });
     fireEvent.focusOut(field);
@@ -106,7 +107,7 @@ it("p2544e_reopen_saved_agent_work", async () => {
     let currentName = "agent-work";
 
     const openRealPad = async (visit = true) => {
-      if (visit) await browser("open", `${real.base}/harness.html?view=workstreams&items=1&tabs=1&daemon=1`);
+      if (visit) await browser("open", `${real.base}/harness.html?view=workstreams&items=1&daemon=1`);
       await browser("wait", `[data-id='${home.id}'] [data-part=branch-control]`);
 
       if (await evaluate("document.querySelector('#shelf-tab-pads').getAttribute('aria-expanded')") !== "true") await browser("click", "#shelf-tab-pads");
