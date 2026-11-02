@@ -1,10 +1,9 @@
-import { chooseAction } from "./railFixture";
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { createSignal } from "solid-js";
 import { afterEach, describe, expect, it } from "vitest";
 import { mountRailAndPane } from "../terminal/paneHarness";
 import { agent, event, workstream } from "../testing/nodes";
-import { mountRail, pinnedAdd, railCallsTo } from "./railFixture";
+import { chooseFooter, mountRail, pinnedAdd, railCallsTo } from "./railFixture";
 import { copy } from "./copy";
 
 afterEach(cleanup);
@@ -304,7 +303,7 @@ describe("u33 spawn with a prompt", () => {
 
     chord("n");
     fireEvent.input(field(), { target: { value: "keep me" } });
-    fireEvent.click(pinnedAdd());
+    await chooseFooter("Workstream");
 
     await waitFor(() =>
       expect(railCallsTo(mounted.app, "rail.createWorkstream")).toEqual([{ name: "workstream", parent: null }]),

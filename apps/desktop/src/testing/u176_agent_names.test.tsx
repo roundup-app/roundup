@@ -25,7 +25,7 @@ it("u176_two_agents_added_to_one_workstream_are_told_apart_in_the_rail", async (
   const rail = await screen.findByRole("region", { name: "Rail" });
 
   for (const [index, name] of ["what-should-this", "what-should-this-2"].entries()) {
-    await waitFor(() => expect(within(rail).getByRole("button", { name: "Add Workstream" }).getAttribute("aria-disabled")).not.toBe("true"));
+    await waitFor(() => expect(within(rail).getByRole("button", { name: "Create" }).getAttribute("aria-disabled")).not.toBe("true"));
     fireEvent.contextMenu(await within(rail).findByText(home.name, { selector: ".rail-row .name" }));
     await waitFor(() => expect(menuProbe.shown?.find(item => item.id === "add")?.children?.some(item => item.id === "add-agent" && item.enabled)).toBe(true));
     menuProbe.answer!("add-agent");
@@ -86,7 +86,7 @@ describe("u2773 Rail task destinations", () => {
   const task = () => screen.getByLabelText<HTMLTextAreaElement>("Work");
 
   const openTask = async () => {
-    await screen.findByRole("button", { name: "Add Workstream" });
+    await screen.findByRole("button", { name: "Create" });
     fireEvent.keyDown(document, { key: "n", metaKey: true, shiftKey: true });
     await waitFor(() => expect(document.activeElement).toBe(task()));
   };

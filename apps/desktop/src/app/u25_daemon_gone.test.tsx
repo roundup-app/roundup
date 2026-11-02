@@ -46,7 +46,7 @@ describe("u25 disconnected protections after U3791a recovery exhaustion", () => 
 
     app.exitDaemon({ code: 1 });
 
-    for (const button of screen.getAllByRole("button", { name: /^(New Workstream|Add Workstream)$/ })) {
+    for (const button of screen.getAllByRole("button", { name: /^(New Workstream|Create)$/ })) {
       expect(button.matches('[aria-disabled="true"]')).toBe(true);
     }
   });

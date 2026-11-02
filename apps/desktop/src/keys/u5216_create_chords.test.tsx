@@ -24,6 +24,7 @@ describe("u5216 Workstream and Mode each have a chord", () => {
     await new Promise(resolve => setTimeout(resolve, 0));
 
     expect(railCallsTo(mounted.app, "rail.createWorkstream")).toHaveLength(1);
+    expect(screen.queryByRole("menu")).toBeNull();
   });
 
   it("u5216_shift_cmd_m_opens_the_mode_field", async () => {
@@ -32,6 +33,7 @@ describe("u5216 Workstream and Mode each have a chord", () => {
     press(modeChord);
 
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeNull());
+    expect(screen.queryByRole("menu")).toBeNull();
   });
 
   it("u5216_a_repeat_or_a_busy_create_acts_once_or_not_at_all", async () => {
