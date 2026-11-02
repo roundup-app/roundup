@@ -296,6 +296,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Dialog | same | — |
 | AlertDialog | none | — |
 | Menu | same | — |
+| Dock section (`DockMenu`, `install`, `chosen` in native Dock integration) | Dock menu | — |
 | Tooltip | same | — |
 | Tabs | same | — |
 | IconButton | none | — |
