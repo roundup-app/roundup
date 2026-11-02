@@ -101,7 +101,7 @@ async fn daemon() -> (
         waits: Default::default(),
         resources: Default::default(),
         publications: crate::deliverables::Publications::in_memory(dir.join("deliverables")),
-        reactions: Arc::new(Reactions::open(&dir).unwrap()),
+        reactions: Arc::new(Reactions::open(&dir, bus.clone()).unwrap()),
         actions: Default::default(),
         extensions: crate::extensions::Host::new(std::path::PathBuf::new()),
         prompt_effect_gate: None,
@@ -623,5 +623,97 @@ async fn nr4_pr_observation_crossing_expiry_accepts_nothing() {
             .unwrap()
             .iter()
             .any(|m| m["body"] == "ship it")
+    );
+}
+
+#[tokio::test]
+async fn u5558b_signal_covers_saved_changes() {
+    let (_dir, daemon, mut client, watcher, target) = daemon().await;
+    client
+        .request("events.subscribe", Value::Null)
+        .await
+        .unwrap();
+    let id = save(&daemon, &target, REPO, 23, "head-a").await;
+    loop {
+        let event = tokio::time::timeout(Duration::from_secs(2), client.next_event())
+            .await
+            .unwrap()
+            .unwrap();
+        if matches!(event.data, contracts::EventData::ReactionChanged) {
+            break;
+        }
+    }
+    let saved = client
+        .request("reaction.get", json!({"id":id}))
+        .await
+        .unwrap();
+    assert_eq!(saved["observation"]["health_code"], "waiting");
+    let feed = Arc::new(std::sync::Mutex::new(state(
+        WorktreeEvidenceState::Complete,
+        "head-a",
+        WorktreeCheckConclusion::Failed,
+    )));
+    run(&watcher, &feed).await;
+    loop {
+        let event = tokio::time::timeout(Duration::from_secs(2), client.next_event())
+            .await
+            .unwrap()
+            .unwrap();
+        if matches!(event.data, contracts::EventData::ReactionChanged) {
+            break;
+        }
+    }
+    assert_eq!(
+        client
+            .request("reaction.get", json!({"id":id}))
+            .await
+            .unwrap()["observation"]["cause_code"],
+        "checks-failed"
+    );
+    let mut unchanged = daemon.bus.subscribe();
+    run(&watcher, &feed).await;
+    assert!(unchanged.try_recv().is_err());
+    client
+        .request("reaction.run", json!({"id":id,"operation":"explicit"}))
+        .await
+        .unwrap();
+    loop {
+        let event = tokio::time::timeout(Duration::from_secs(2), client.next_event())
+            .await
+            .unwrap()
+            .unwrap();
+        if matches!(event.data, contracts::EventData::ReactionChanged) {
+            break;
+        }
+    }
+    assert_eq!(
+        client
+            .request("reaction.get", json!({"id":id}))
+            .await
+            .unwrap()["firings"]
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
+    client
+        .request("reaction.stop", json!({"id":id}))
+        .await
+        .unwrap();
+    loop {
+        let event = tokio::time::timeout(Duration::from_secs(2), client.next_event())
+            .await
+            .unwrap()
+            .unwrap();
+        if matches!(event.data, contracts::EventData::ReactionChanged) {
+            break;
+        }
+    }
+    assert_eq!(
+        client
+            .request("reaction.get", json!({"id":id}))
+            .await
+            .unwrap()["state"],
+        "stopped"
     );
 }

@@ -42,17 +42,17 @@ it("u2540a_late_content_cannot_cross_agents", async () => {
 });
 
 it("u2540a_nontext_empty_and_failed_reads_remain_navigable", async () => {
-  const { app } = await openDiff();
+  const { app, connected } = await openDiff();
   app.handlers["agent.compareFile"] = () => ({ ...COMPARISON, old: { kind: "binary", revision: "binary" } });
-  fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
-  await screen.findByRole("button", { name: "Refresh" });
+  await connected.worktrees.refresh("a");
+  await waitFor(() => expect(screen.queryByRole("button", { name: /Add note/ })).toBeNull());
   expect(screen.queryByRole("button", { name: /Add note/ })).toBeNull();
   app.handlers["agent.compareFile"] = () => ({ ...COMPARISON, status: null });
-  fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
+  await connected.worktrees.refresh("a");
   await screen.findByText(/No remaining difference/);
   app.handlers["agent.compareFile"] = () => { throw new RpcError(-32001, "Worktree unavailable"); };
 
-  fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
+  await connected.worktrees.refresh("a");
   await screen.findByRole("alert");
   app.handlers["agent.compareFile"] = () => COMPARISON;
   fireEvent.click(screen.getByRole("button", { name: "Retry" }));
@@ -61,7 +61,7 @@ it("u2540a_nontext_empty_and_failed_reads_remain_navigable", async () => {
   await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
 });
 
-it.each(["retry", "dismiss"])("p3557c_failure_lifetime_diff_reader: %s", async action => {
+it.each(["retry", "dismiss", "signal"])("u5558e_failed_reload_retains_data: %s", async action => {
   const { app, connected } = await openDiff();
   const retainedNote = "  unrelated note e\u0301\n🐝  ";
 
@@ -72,19 +72,39 @@ it.each(["retry", "dismiss"])("p3557c_failure_lifetime_diff_reader: %s", async a
 
   app.handlers["agent.compareFile"] = () => { throw new Error("comparison refused; retry loading this diff"); };
 
-  fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
+  await connected.worktrees.refresh("a");
   await screen.findByRole("alert");
 
   if (action === "dismiss") fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
   else {
     app.handlers["agent.compareFile"] = () => COMPARISON;
-    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
-    await screen.findByRole("button", { name: "Refresh" });
+
+    if (action === "signal") await connected.worktrees.refresh("a");
+    else fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
   }
 
   expect(screen.queryByRole("alert")).toBeNull();
   expect(await screen.findByRole("textbox", { name: "Note" })).toHaveProperty("value", "  unfinished e\u0301\n🐝  ");
   expect(connected.drafts.list()).toEqual(retained);
-  expect(app.calls.filter(call => call.method === "agent.compareFile").map(call => call.params)).toEqual(Array.from({ length: action === "retry" ? 4 : 3 }, () => ({ id: "a", path: "src/a.ts" })));
   expect(app.calls.filter(call => call.method === "message.send")).toHaveLength(0);
+});
+
+
+it("u5558c_worktree_refresh_updates_open_comparison", async () => {
+  const { app, connected, view } = await openDiff();
+  const before = app.calls.filter(call => call.method === "agent.compareFile").length;
+
+  for (const revision of ["second", "third"]) {
+    app.handlers["agent.compareFile"] = () => ({ ...COMPARISON, new: { kind: "text", revision, text: `${revision}\n` } });
+    await connected.worktrees.refresh("a");
+    await waitFor(() => expect(app.calls.filter(call => call.method === "agent.compareFile")).toHaveLength(before + (revision === "second" ? 1 : 2)));
+    expect(app.calls.filter(call => call.method === "agent.compareFile").at(-1)?.params).toEqual({ id: "a", path: "src/a.ts" });
+  }
+
+  await connected.worktrees.refresh("plain");
+  expect(app.calls.filter(call => call.method === "agent.compareFile")).toHaveLength(before + 2);
+  view.unmount();
+  await connected.worktrees.refresh("a");
+  expect(app.calls.filter(call => call.method === "agent.compareFile")).toHaveLength(before + 2);
 });

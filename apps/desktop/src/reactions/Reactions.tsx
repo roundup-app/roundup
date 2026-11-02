@@ -49,11 +49,10 @@ const conditionText = (condition: Condition, nameOf: (id: string) => string): st
 
 /** NR9: saved Reactions with exact-identity inspection, Stop and Run. */
 export const Reactions = (props: { state: ReturnType<typeof createReactions> }) => {
-  const { app, daemonExit } = useConnectedProject();
+  const { app } = useConnectedProject();
   const [view, setView] = createSignal<View>({ kind: "list" });
   const [actionFailure, setActionFailure] = createSignal<Record<string, string | null>>({});
   const [pending, setPending] = createSignal(false);
-  const [made, setMade] = createSignal<Reaction | null>(null);
   let opener = "";
 
   const { read, refetch } = props.state;
@@ -90,39 +89,18 @@ export const Reactions = (props: { state: ReturnType<typeof createReactions> }) 
     return current.kind === "detail" ? current.id : null;
   };
 
-  const [inspection, { refetch: inspect, mutate: inspectValue }] = createResource(selected, async (id): Promise<{ id: string; value: Reaction | null; failure: string | null }> => {
-    try {
-      return { id, value: await app.rpc("reaction.get", { id }), failure: null };
-    } catch (error) {
-      if (!(error instanceof Error)) throw error;
-
-      return { id, value: null, failure: error.message };
-    }
-  });
-
-  const detail = createMemo(() => {
-    const current = view();
-
-    if (current.kind !== "detail") return undefined;
-
-    return (inspection()?.value?.id === current.id ? inspection()?.value : undefined) ?? (made()?.id === current.id ? made()! : undefined) ?? read().list.find((reaction) => reaction.id === current.id);
-  });
+  const detail = createMemo(() => read().list.find(reaction => reaction.id === selected()));
 
   const act = async (reaction: Reaction, method: "reaction.stop" | "reaction.run") => {
     if (pending()) return;
     setPending(true);
 
     try {
-      setMade(method === "reaction.stop" ? await app.rpc(method, { id: reaction.id }) : await app.rpc(method, { id: reaction.id, operation: crypto.randomUUID() }));
+      props.state.accept(method === "reaction.stop" ? await app.rpc(method, { id: reaction.id }) : await app.rpc(method, { id: reaction.id, operation: crypto.randomUUID() }));
       setActionFailure(value => ({ ...value, [reaction.id]: null }));
     } catch (error) {
       if (!(error instanceof Error)) throw error;
       setActionFailure(value => ({ ...value, [reaction.id]: error.message }));
-    }
-
-    if (daemonExit() === null) {
-      await refetch();
-      await inspect();
     }
 
     setPending(false);
@@ -133,15 +111,14 @@ export const Reactions = (props: { state: ReturnType<typeof createReactions> }) 
       <Show when={detail()} fallback={<ReservedLine message={copy.reactionMissing}><ExitButton onClick={back} /></ReservedLine>}>
         {(reaction) => <div class="reaction-detail" role="region" aria-label={copy.reactionDetail(reaction().name)}>
           <div class="reaction-head"><h3 class="reaction-title">{reaction().name}</h3><button type="button" data-button="quiet" class="reaction-back" aria-label={copy.closeView(reaction().name)} onClick={back}>{copy.closeView(reaction().name)}</button></div>
-          <ReservedLine overlay message={(inspection()?.id === selected() ? inspection()?.failure : null) ?? actionFailure()[reaction().id]}>
+          <ReservedLine overlay message={read().failure ?? actionFailure()[reaction().id]}>
             <button type="button" data-button="quiet" onClick={() => {
-              if (inspection()?.id === selected() && inspection()?.failure) inspectValue(value => value ? { ...value, failure: null } : value);
-              else setActionFailure(value => ({ ...value, [reaction().id]: null }));
+              props.state.dismiss();
+              setActionFailure(value => ({ ...value, [reaction().id]: null }));
             }}>{copy.clear}</button>
           </ReservedLine>
           <Facts reaction={reaction()} />
           <div class="reaction-actions">
-            <button type="button" data-button="quiet" onClick={() => { void inspect(); }}>{copy.refresh}</button>
             <button type="button" data-button="quiet" disabled={pending() || reaction().state !== "active"} onClick={() => void act(reaction(), "reaction.stop")}>{copy.reactionStop}</button>
             <button type="button" data-button="quiet" disabled={pending() || reaction().state !== "active" || reaction().remaining < 1} onClick={() => void act(reaction(), "reaction.run")}>{copy.reactionRun}</button>
           </div>

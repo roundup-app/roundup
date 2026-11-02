@@ -210,7 +210,7 @@ export const createBulkDelete = <Id,>(props: {
         </Show>
         <ReservedLine data-deletion-pending={question()?.kind === "pending"} aria-busy={question()?.kind === "pending"} status={question()?.kind === "pending" ? copy.draftStatus.pending : null} message={readFailure() ?? (shown().length > 0 ? failureText(shown()[0]!) : null)}>
           <Show when={readFailure() !== null} fallback={shown().length > 0 ? clearButton(shown()[0]!) : null}>
-            <button data-button="quiet" type="button" onClick={() => void readback?.()}>{copy.refresh}</button>
+            <button data-button="quiet" type="button" onClick={() => void readback?.()}>{copy.retry}</button>
           </Show>
         </ReservedLine>
         <For each={shown().slice(1)}>{failure => (

@@ -334,6 +334,8 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Placement request (`placement::Request`, `EarlierAsk`) | same | — |
 | Placement call (`PlacementCall`, `Agents::placement_call`) | same | — |
 | Deliverable | Made | — |
+| Publication change (`DeliverableChanged`, `deliverable.changed`) | same | — |
+| Saved Reaction change (`ReactionChanged`, `reaction.changed`) | same | — |
 | Publication target (`PublicationTarget`) | same | — |
 | Published target (`PublishedTarget`, `ExternalAvailability`) | same | — |
 | Resolution (`Resolution`, `UnavailableCause`) | same | — |

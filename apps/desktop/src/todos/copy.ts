@@ -26,7 +26,7 @@ export const copy = {
   undoAction: (action: string) => `Undo ${action}`,
   redoAction: (action: string) => `Redo ${action}`,
   deleteAction: (count: number, noun: "Todo" | "Pad") => `Delete ${noun}${count === 1 ? "" : "s"}`,
-  todoDeleteMissing: "The chosen Todo is no longer available. Refresh to check again.",
+  todoDeleteMissing: "The chosen Todo is no longer available. Retry to check again.",
   todoRestoreUnknown: "Restoration is unconfirmed. Try Undo again.",
   todoDeleteRetry: sharedCopy.todoDeleteRetry,
   todoDeleteUnconfirmed: (ids: number[]) => `Deleting ${ids.map(id => `#${id}`).join(", ")} is unconfirmed. Check that deletion before trying Delete again.`,

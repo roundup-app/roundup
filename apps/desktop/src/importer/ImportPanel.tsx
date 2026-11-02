@@ -2,7 +2,7 @@ import { KindGlyph } from "../ink/KindGlyph";
 import { CopyButton } from "../ui/CopyButton";
 import { ReservedLine } from "../ink/ReservedLine";
 import "./import.css";
-import { createSignal, For, onCleanup, Show } from "solid-js";
+import { createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import type { ImportPeriod } from "@contracts/project/ImportPeriod";
 import { copy } from "./copy";
 import { useConnectedProject } from "../state/connectedProject";
@@ -18,6 +18,8 @@ export const ImportPanel = (props: { onClose: () => void }) => {
   const { app, importing: state, drafts, project, rail, daemonExit, now, events } = useConnectedProject();
   const [copyFailure, failCopy] = createSignal<string | null>(null);
 
+  onMount(() => { if (!state.loading() && state.discovery() === null) void state.refresh(); });
+
   const release = drafts.editor({ surface: "import", object: project.path, recipient: null });
   onCleanup(release);
   onCleanup(events.subscribe(event => {
@@ -31,7 +33,6 @@ export const ImportPanel = (props: { onClose: () => void }) => {
   const refused = state.failed;
   const uncertain = () => !state.verified() && [...refused().values()].some(failure => copy.importRowRefusal(failure) === null);
   const pending = state.pending;
-  const discover = state.refresh;
   const choose = state.setPeriod;
   const confirm = state.confirm;
   const heads = new Map<string, HTMLInputElement>();
@@ -90,6 +91,7 @@ export const ImportPanel = (props: { onClose: () => void }) => {
             content={<span class="import-listing"><KindGlyph kind={listing()?.status?.kind ?? "working"} /><span>{copy.importListing(listing()?.name ?? copy.importAgentName)}</span></span>} />
           <ReservedLine message={failure() ?? (state.restoreFailure() || state.retentionFailure() ? `${state.restoreFailure() ? copy.importRestoreFailure : copy.importRetentionFailure} ${copy.importRetentionRecovery}` : null) ?? (uncertain() ? copy.importUnconfirmed : null)}
             aria-live="polite" aria-label={state.hasConflict() ? copy.importConflict : undefined} status={state.hasConflict() ? copy.importConflictExplanation : !state.verified() && wanted().size > 0 ? copy.importRestored(wanted().size) : state.loading() ? copy.importLooking : found()?.candidates.length === 0 ? copy.importNone : null}>
+            <Show when={failure()}><button type="button" data-button="quiet" onClick={() => void state.refresh()}>{copy.retry}</button></Show>
             <Show when={state.restoreFailure() || state.retentionFailure()}><button type="button" data-button="quiet" onClick={state.retryStorage}>{copy.retryStorage}</button></Show>
           </ReservedLine>
           <Show when={state.hasConflict()}>
@@ -147,7 +149,6 @@ export const ImportPanel = (props: { onClose: () => void }) => {
       </div></SettingsGroup>
       </div>
           <p class="import-words">
-            <button data-button="quiet" type="button" class="word" onClick={() => void discover()}>{copy.importRefresh}</button>
             <span class="import-actions">
               <button data-button="primary" type="button" class="word import-confirm" disabled={daemonExit() !== null || pending() || state.starting() || !state.verified() || wanted().size === 0} onClick={() => void confirm()}>
                 {copy.importConfirm(wanted().size)}

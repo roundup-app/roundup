@@ -264,11 +264,16 @@ type WithOwnerSelector<T> = { [K in keyof T]: K extends "owner" ? T[K] | string 
 
 type SelectorInputs = "todo/AssignParams" | "todo/CreateParams";
 
+// U5558 adds commit notifications; every existing Event and payload remains exact.
+type AutomaticChanges = { name: "deliverable.changed" } | { name: "reaction.changed" };
+
 // N5467b/NR11 retire nullable historical Reaction reasons; all other saved fields stay exact.
 type CurrentReaction = Omit<Before["reaction/Reaction"], "reason"> & { reason: string };
 
 type BeforeSelectors = { [K in keyof Before]: K extends SelectorInputs ? WithOwnerSelector<Before[K]>
-  : K extends "reaction/Reaction" ? CurrentReaction : Before[K] };
+  : K extends "EventData" ? Before[K] | AutomaticChanges
+    : K extends "Event" ? Before[K] | (Pick<Before["Event"], "seq" | "actor"> & AutomaticChanges)
+      : K extends "reaction/Reaction" ? CurrentReaction : Before[K] };
 
 type SelectorMethods = "todo.assign" | "todo.create";
 

@@ -527,7 +527,7 @@ for (const entry of ["selection", "clear-done"] as const) {
       fireEvent.click(screen.getByText("Delete 2", { selector: "button" }));
     }
 
-    await screen.findByText("Could not delete same #7: The chosen Todo is no longer available. Refresh to check again.");
+    await screen.findByText("Could not delete same #7: The chosen Todo is no longer available. Retry to check again.");
     expect(screen.getByLabelText(/^(?:Idle|Blocked|Done) #7 /).getAttribute("aria-pressed")).toBe("true");
     pressUndo();
     await waitFor(() => expect(daemon.calls.filter(c => c.method === "todo.restore").map(c => c.params)).toEqual([{ operation: expect.any(String) }]));

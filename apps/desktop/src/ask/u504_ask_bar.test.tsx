@@ -672,7 +672,7 @@ it("u3299d_copy_uses_selected_item_publication", async () => {
   const records = [published(7), published(9)];
   app.handlers["deliverable.list"] = () => records;
   app.handlers["deliverable.resolve"] = () => ({ kind: "retained", path: "/retained/exact", sha256: "hash-9" });
-  window.dispatchEvent(new Event("focus"));
+  app.emit(event({ name: "deliverable.changed" }));
   const made = await screen.findByRole("region", { name: "Made" });
   const rows = await within(made).findAllByRole("listitem");
   const copied: string[] = [];
@@ -689,7 +689,7 @@ it("u3299d_named_rows_keep_recorded_targets_publication", async () => {
   connected.showView("made");
   app.handlers["deliverable.list"] = () => [published(7), published(9)];
   app.handlers["deliverable.resolve"] = ({ id }) => ({ kind: "retained", path: `/retained/${id}`, sha256: "exact-hash" });
-  window.dispatchEvent(new Event("focus"));
+  app.emit(event({ name: "deliverable.changed" }));
   const made = await screen.findByRole("region", { name: "Made" });
   const rows = await within(made).findAllByRole("listitem");
 

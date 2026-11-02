@@ -33,7 +33,6 @@ export const copy = {
   selected: " selected",
   deleteWord: "Delete ",
   agentsMayStillBeWritingDeletingDoesNot: (names: CopyValue) => `${names} may still be writing. Deleting does not stop them.`,
-  refresh: sharedCopy.refresh,
   colon: ": ",
   shelfLabel: sharedCopy.shelfLabel,
   me: sharedCopy.me,

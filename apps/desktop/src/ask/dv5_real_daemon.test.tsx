@@ -98,7 +98,7 @@ it("dv5_open_failure_preserves_catalogue_selection_and_refuses_removed_or_revoke
   const link = await app.rpc("deliverable.publish", { key: "failure-link", title: "Failure link", target: { kind: "external", url: "https://example.com/refused" } });
   await app.rpc("pad.create", { name: "revoked-pad", text: "retained secret" });
   const source = await app.rpc("pad.read", { name: "revoked-pad" });
-  const pad = await app.rpc("deliverable.publish", { key: "failure-pad", title: "Failure Pad", target: { kind: "pad", name: "revoked-pad", incarnation: source.incarnation, revision: source.revision } });
+  await app.rpc("deliverable.publish", { key: "failure-pad", title: "Failure Pad", target: { kind: "pad", name: "revoked-pad", incarnation: source.incarnation, revision: source.revision } });
   await writeFile(join(real.dir, "removed-cache.txt"), "cached revision");
   const file = await app.rpc("deliverable.publish", { key: "removed-cache", title: "Cached file", target: { kind: "file", path: "removed-cache.txt" } });
   const opened: OpenTarget[] = [];
@@ -147,35 +147,33 @@ it("dv5_open_failure_preserves_catalogue_selection_and_refuses_removed_or_revoke
   const cachedFile = opened[2]!;
   expect(cachedFile.kind).toBe("path");
   await app.rpc("deliverable.remove", { project: file.project, id: file.id });
-  fireEvent.click(fileButton);
-  await waitFor(() => expect(made.getAttribute("aria-busy")).toBe("false"));
+  await waitFor(() => expect(within(made).getAllByRole("listitem").map(row => row.getAttribute("data-deliverable"))).not.toContain(file.id));
+  await expect(app.rpc("deliverable.resolve", { project: file.project, id: file.id })).rejects.toThrow();
   expect(opened).toHaveLength(3);
 
   if (cachedFile.kind === "path") await expect(readFile(cachedFile.path)).rejects.toThrow();
   await app.rpc("deliverable.remove", { project: link.project, id: link.id });
-  fireEvent.click(linkButton);
-  await waitFor(() => expect(made.getAttribute("aria-busy")).toBe("false"));
+  await waitFor(() => expect(within(made).getAllByRole("listitem").map(row => row.getAttribute("data-deliverable"))).not.toContain(link.id));
+  await expect(app.rpc("deliverable.resolve", { project: link.project, id: link.id })).rejects.toThrow();
   expect(opened).toHaveLength(3);
-  expect(within(rowOf(linkButton)).getByRole("alert")).toBeDefined();
-  expect(linkButton.getAttribute("aria-current")).toBe("true");
-  expect(within(made).getAllByRole("listitem")).toHaveLength(count);
+  expect(within(made).getAllByRole("listitem")).toHaveLength(count - 2);
   expect(connected.rail.selected()).toBeNull();
   await expect(app.rpc("deliverable.publish", { key: "unsafe", title: "Unsafe", target: { kind: "external", url: "roundup://anything" } })).rejects.toThrow();
   expect(opened).toHaveLength(3);
   // A malformed upstream external resolution still cannot reach the native opener.
+  const currentPadButton = within(made).getByRole("button", { name: /^Open Failure Pad$/ });
   const unsafe = vi.spyOn(app, "rpc").mockResolvedValueOnce({ kind: "external", url: "javascript:alert(1)", availability: "not-checked" });
-  fireEvent.click(padButton);
+  fireEvent.click(currentPadButton);
   await waitFor(() => expect(made.getAttribute("aria-busy")).toBe("false"));
   expect(opened).toHaveLength(3);
-  expect(within(rowOf(padButton)).getByRole("alert")).toBeDefined();
+  expect(within(rowOf(currentPadButton)).getByRole("alert")).toBeDefined();
   unsafe.mockRestore();
   const rpc = app.rpc;
   app.rpc = (method, params) => method === "deliverable.list" ? Promise.reject(new Error("catalogue connection interrupted")) : rpc(method, params);
-  fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
-  await waitFor(() => expect(made.getAttribute("aria-busy")).toBe("false"));
-  expect(within(made).getAllByRole("alert").some(alert => alert.textContent?.includes("catalogue connection interrupted"))).toBe(true);
-  expect(within(made).getAllByRole("listitem")).toHaveLength(count);
-  expect(padButton.getAttribute("aria-current")).toBe("true");
+  await rpc("deliverable.publish", { key: "reload-failure", title: "Reload signal", target: { kind: "external", url: "https://example.com/reload" } });
+  await waitFor(() => expect(within(made).getAllByRole("alert").some(alert => alert.textContent?.includes("catalogue connection interrupted"))).toBe(true));
+  expect(within(made).getAllByRole("listitem")).toHaveLength(count - 2);
+  expect(within(made).getByRole("button", { name: /^Open Failure Pad$/ }).getAttribute("aria-current")).toBe("true");
   app.rpc = rpc;
   cleanup();
   await real.restart();
@@ -383,8 +381,8 @@ it("dv6_guarded_send_retries_the_same_identity_through_existing_pending_delivery
     const taken = (await readFile(log, "utf8")).trim().split("\n").map(line => JSON.parse(line) as { prompt: string; inbox?: string });
     expect(taken.filter(line => line.prompt.includes(url)).map(line => line.inbox)).toEqual([`rup-${accepted.id}`]);
     await app.rpc("deliverable.remove", { project: publication.project, id: publication.id });
-    fireEvent.contextMenu(row);
-    await within(row).findByRole("alert");
+    await waitFor(() => expect(document.querySelector(`[data-deliverable="${publication.id}"]`)).toBeNull());
+    await expect(app.rpc("deliverable.get", { project: publication.project, id: publication.id })).rejects.toThrow();
     expect(sends).toHaveLength(2);
     expect(await messages()).toHaveLength(1);
   } finally {
@@ -392,4 +390,46 @@ it("dv6_guarded_send_retries_the_same_identity_through_existing_pending_delivery
     await delivery.stop();
     await rm(logs, { recursive: true, force: true });
   }
+});
+
+
+it("u5558a_publication_appears_without_input", async () => {
+  const app = createServedApp(real.base);
+  const maker = await app.rpc("agent.spawn", { cwd: real.dir, prompt: null, parent: null, name: "Automatic maker" });
+  const connected = await connectProject(app, { path: real.dir, name: "Project" }, () => false, () => 0);
+  connected.showView("made");
+  render(() => <ConnectedProjectContext.Provider value={connected}><AskBar /></ConnectedProjectContext.Provider>);
+  const made = await screen.findByRole("region", { name: "Made" });
+  const rpc = app.rpc;
+  let reads = 0;
+  app.rpc = (method, params) => { if (method === "deliverable.list") reads++;
+
+ return rpc(method, params); };
+
+  await exec(resolve("../../target/debug/rup"), ["deliverable", "publish", "automatic", "Automatic result", "--agent", maker.id, "--target", JSON.stringify({ kind: "external", url: "https://example.com/automatic" })], { env: { ...process.env, RUPD_SOCKET: join(real.dir, "rupd.sock") } });
+  const record = (await rpc("deliverable.list", { home: null, maker: maker.id }))[0]!;
+  await waitFor(() => expect(within(made).getAllByRole("listitem").map(row => row.getAttribute("data-deliverable"))).toContain(record.id));
+  expect(reads).toBe(1);
+});
+
+it("u5558a_removal_disappears_without_input", async () => {
+  const app = createServedApp(real.base);
+  const records: Awaited<ReturnType<typeof app.rpc<"deliverable.publish">>>[] = [];
+
+  for (const key of ["first-auto", "second-auto"]) records.push(await app.rpc("deliverable.publish", { key, title: "Duplicate automatic title", target: { kind: "external", url: `https://example.com/${key}` } }));
+  const connected = await connectProject(app, { path: real.dir, name: "Project" }, () => false, () => 0);
+  connected.showView("made");
+  render(() => <ConnectedProjectContext.Provider value={connected}><AskBar /></ConnectedProjectContext.Provider>);
+  const made = await screen.findByRole("region", { name: "Made" });
+  await waitFor(() => expect(within(made).getAllByRole("listitem").map(row => row.getAttribute("data-deliverable"))).toContain(records[0]!.id));
+  const rpc = app.rpc;
+  let reads = 0;
+  app.rpc = (method, params) => { if (method === "deliverable.list") reads++;
+
+ return rpc(method, params); };
+
+  await app.rpc("deliverable.remove", { project: records[0]!.project, id: records[0]!.id });
+  await waitFor(() => expect(within(made).getAllByRole("listitem").map(row => row.getAttribute("data-deliverable"))).not.toContain(records[0]!.id));
+  expect(within(made).getAllByRole("listitem").map(row => row.getAttribute("data-deliverable"))).toContain(records[1]!.id);
+  expect(reads).toBe(1);
 });
