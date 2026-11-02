@@ -67,14 +67,15 @@ describe("u137 one module measures the checks", () => {
 
   it("u137_a_later_check_call_observes_new_interaction_rules", () => {
     document.head.querySelectorAll("style").forEach((sheet) => sheet.remove());
-    document.body.innerHTML = '<button class="rail-row" style="height:24px;cursor:pointer">x</button>';
+    document.body.innerHTML = '<button class="rail-row" style="height:24px">x</button>';
+    addSheet(".rail-row { cursor: default; }");
     const before = runChecks();
 
-    expect(before.D6).toMatchObject({ status: "fail", value: { missing: ["hover"] } });
+    expect(before.D6).toMatchObject({ status: "fail", value: { missing: ["hover"], cursor: "default" } });
     expect(before.D7.status).toBe("pass");
     expect(before.D4).toMatchObject({ status: "fail", value: { pressFeedback: "missing" } });
 
-    addSheet(".rail-row:hover { color: red; } .rail-row:active { background-color: blue; }");
+    addSheet(".rail-row { cursor: pointer; } .rail-row:hover { color: red; } .rail-row:active { background-color: blue; }");
     const after = runChecks();
 
     expect(after.D6.status).toBe("pass");
