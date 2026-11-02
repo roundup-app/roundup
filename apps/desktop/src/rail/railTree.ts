@@ -1,6 +1,7 @@
 import { createMemo, createSignal, onCleanup, type Accessor } from "solid-js";
 import { createTreeCollection } from "@ark-ui/solid/tree-view";
 import { KIND_ICON } from "../ink/kindIcon";
+import type { Message } from "@contracts/message/Message";
 import type { ConnectedProject } from "../state/connectedProject";
 import { railCollection } from "./collection";
 import { copy } from "./copy";
@@ -17,8 +18,7 @@ export const createRailTree = (connected: ConnectedProject, unfolded: Accessor<R
   const { rail, now } = connected;
   const collapsed = rail.collapsed;
   // Until the complete Message list arrives, absence of a question is unknown.
-  const [questions, setQuestions] = createSignal<ReadonlySet<string> | null>(null);
-  const resumed = new Map(rail.nodes.filter(node => node.status?.kind === "working").map(node => [node.id, node.status!.since]));
+  const [messages, setMessages] = createSignal<readonly Message[] | null>(null);
   let revision = 0;
   let stopped = false;
 
@@ -26,36 +26,36 @@ export const createRailTree = (connected: ConnectedProject, unfolded: Accessor<R
     const request = ++revision;
 
     try {
-      const messages = await connected.app.rpc("message.list", { to: null, status: null });
+      const listed = await connected.app.rpc("message.list", { to: null, status: null });
 
       if (stopped || request !== revision) return;
-      setQuestions(new Set(messages.filter(message => message.kind === "question" && message.from.kind === "agent")
-        .filter(question => !messages.some(reply => reply.replyTo === question.id && reply.to === question.from.id &&
-          (resumed.get(question.from.id) ?? 0) > reply.at))
-        .map(message => message.from.id)));
+      setMessages(listed);
     } catch (error) {
       if (!(error instanceof Error)) throw error;
 
-      if (!stopped && request === revision) setQuestions(null);
+      if (!stopped && request === revision) setMessages(null);
     }
   };
 
   const stopQuestions = connected.events.subscribe(event => {
-    if (event.name === "agent.status" && event.data.status.kind === "working") {
-      const node = rail.nodes.find(node => node.id === event.data.id);
-
-      if (node?.attempt === event.data.attempt && node.status_revision === event.data.status_revision) resumed.set(node.id, event.data.status.since);
-    }
-
-    if (event.name.startsWith("message.") || event.name === "agent.status") {
-      if (event.name.startsWith("message.")) setQuestions(null);
+    if (event.name.startsWith("message.")) {
+      setMessages(null);
       void refreshQuestions();
     }
   });
 
   onCleanup(() => { stopped = true; stopQuestions(); });
   void refreshQuestions();
-  const protectedIds = () => questions() ?? new Set(rail.nodes.map(node => node.id));
+
+  const protectedIds = createMemo(() => {
+    const listed = messages();
+
+    return new Set(listed === null ? rail.nodes.map(node => node.id) : listed
+      .filter(message => message.kind === "question" && message.from.kind === "agent")
+      .filter(question => !listed.some(reply => reply.replyTo === question.id && reply.to === question.from.id &&
+        (rail.resumedAt(question.from.id) ?? 0) > reply.at))
+      .map(message => message.from.id));
+  });
 
   const sectionNodes = createMemo(() => {
     const roots = new Map(rail.nodes.filter(node => node.parent === null).map(node => [node.id,
