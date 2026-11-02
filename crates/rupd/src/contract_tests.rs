@@ -204,7 +204,8 @@ async fn b5_the_user_sets_non_agent_routes_through_daemon_dispatch() {
     .await;
     assert!(created.get("error").is_none(), "{created}");
     let to = &created["result"]["id"];
-    for from in ["ext:audit", "rupd", "you"] {
+    let sender = Actor::daemon();
+    for from in ["ext:audit", sender.id.as_str(), "you"] {
         for delivery in ["auto", "drop"] {
             let route = json!({"from":from,"to":to,"delivery":delivery});
             let mut events = daemon.bus.subscribe();
@@ -301,15 +302,25 @@ async fn u4593_agent_inputs_resolve_before_dispatch() {
             );
         }
     }
-    db.execute_batch("INSERT INTO nodes(id,kind,name,ord) VALUES(5,'agent','ext:audit',4),(6,'agent','rupd',5),(7,'agent','you',6);").unwrap();
+    let sender = Actor::daemon();
+    let sender_name = format!("name:{}", sender.id);
+    db.execute_batch(
+        "INSERT INTO nodes(id,kind,name,ord) VALUES(5,'agent','ext:audit',4),(7,'agent','you',6);",
+    )
+    .unwrap();
+    db.execute(
+        "INSERT INTO nodes(id,kind,name,ord) VALUES(6,'agent',?1,5)",
+        [&sender.id],
+    )
+    .unwrap();
     for (from, to, expected_from, expected_to) in [
         ("1", "2", "1", "2"),
         ("Peer", "name:me", "1", "2"),
         ("ext:audit", "Peer", "ext:audit", "1"),
-        ("rupd", "Peer", "rupd", "1"),
+        (sender.id.as_str(), "Peer", sender.id.as_str(), "1"),
         ("you", "Peer", "you", "1"),
-        ("name:ext:audit", "name:rupd", "5", "6"),
-        ("name:rupd", "name:you", "6", "7"),
+        ("name:ext:audit", sender_name.as_str(), "5", "6"),
+        (sender_name.as_str(), "name:you", "6", "7"),
         ("name:you", "name:ext:audit", "7", "5"),
     ] {
         let set = tests::ask(
@@ -741,7 +752,8 @@ async fn m14_an_agent_cannot_route_or_replace_the_users_routes() {
     assert_eq!(replaced.unwrap_err().code, code::FORBIDDEN);
     let before = daemon.touches.sequence().unwrap();
     let mut events = daemon.bus.subscribe();
-    for from in ["you", "ext:audit", "rupd"] {
+    let sender = Actor::daemon();
+    for from in ["you", "ext:audit", sender.id.as_str()] {
         let refused = daemon
             .route(
                 &mut conn,
