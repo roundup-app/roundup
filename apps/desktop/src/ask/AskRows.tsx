@@ -2,11 +2,12 @@ import { Dynamic } from "solid-js/web";
 import { findTargets } from "../terminal/links";
 import { focusPane } from "../bubbles/focus";
 import { Disclosure } from "../ui/Disclosure";
-import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js";
+import { createMemo, createSignal, For, Show } from "solid-js";
 import { TargetText } from "../terminal/TargetText";
 import type { AskPart } from "@contracts/ask/AskPart";
 import type { Target } from "@contracts/ask/Target";
 import { copy } from "./copy";
+import { createCut } from "../ink/Tip";
 import { ReservedLine } from "../ink/ReservedLine";
 import { KindGlyph, LABELS } from "../ink/KindGlyph";
 import { FailureLine, shownKind } from "../ink/FailureLine";
@@ -32,6 +33,7 @@ const STATE_WORDS: Record<AskPart["state"], string> = {
 /** U505, U506: one row for each part of each Ask, newest first. */
 export const AskRows = (props: { onOpened: () => void; keys: KeyScope }) => {
   const { asks, rail } = useConnectedProject();
+  const [linkFailure, setLinkFailure] = createSignal<string | null>(null);
 
   const parts = createMemo(() => {
     const shown = new Set<string>();
@@ -68,7 +70,7 @@ export const AskRows = (props: { onOpened: () => void; keys: KeyScope }) => {
   const earlier = () => parts().filter(row => asks.acknowledged(row.entry, row.index));
 
   const rows = (items: ReturnType<typeof parts>) => <ul class="ask-rows" aria-label={copy.askRows}>
-    <For each={items}>{({ entry, part, index, live }) => <AskRow live={live} keys={props.keys} entry={entry} part={part} index={index} where={where(part)} workstream={workstreamOf(part)} open={open} />}</For>
+    <For each={items}>{({ entry, part, index, live }) => <AskRow linkFailure={linkFailure()} onLinkFailure={setLinkFailure} live={live} keys={props.keys} entry={entry} part={part} index={index} where={where(part)} workstream={workstreamOf(part)} open={open} />}</For>
   </ul>;
 
   return <Show when={parts().length > 0}><div class="ask-content">
@@ -77,31 +79,18 @@ export const AskRows = (props: { onOpened: () => void; keys: KeyScope }) => {
       {rows(live())}
     </section></Show>
     <Show when={earlier().length > 0}><Disclosure class="ask-earlier" label={copy.askEarlier(earlier().length)}>{rows(earlier())}</Disclosure></Show>
+    <ReservedLine class="target-failure" message={linkFailure()} content={linkFailure()} />
   </div></Show>;
 };
 
-const AskRow = (props: { live: boolean; keys: KeyScope; entry: AskEntry; part: AskPart; index: number; where: string; workstream: string | null; open: (id: string) => void }) => {
+const AskRow = (props: { linkFailure: string | null; onLinkFailure: (message: string | null) => void; live: boolean; keys: KeyScope; entry: AskEntry; part: AskPart; index: number; where: string; workstream: string | null; open: (id: string) => void }) => {
   const { asks, rail, project } = useConnectedProject();
 
   let button: HTMLButtonElement | undefined;
-  let text: HTMLSpanElement | undefined;
-  let name: HTMLSpanElement | undefined;
-  const [cut, setCut] = createSignal(false);
-  const [linkFailure, setLinkFailure] = createSignal<string | null>(null);
-  const measure = () => setCut([text, name].some((cell) => !!cell && cell.scrollWidth > cell.clientWidth));
-
-  createEffect(() => {
-    const content = props.part.text + props.where;
-
-    if (content) queueMicrotask(measure);
-  });
-  onMount(() => {
-    const observer = new ResizeObserver(measure);
-
-    for (const cell of [text, name]) if (cell) observer.observe(cell);
-
-    onCleanup(() => observer.disconnect());
-  });
+  const [isLinkFocused, setIsLinkFocused] = createSignal(false);
+  const [text, isTextCut] = createCut(() => props.part.text);
+  const [name, isNameCut] = createCut(() => props.where);
+  const tooltip = () => [isTextCut() ? props.part.text : null, isNameCut() ? props.where : null].filter(Boolean).join("\n");
 
   const arrows = [{
     chords: ["ArrowUp", "ArrowDown"],
@@ -140,10 +129,21 @@ const AskRow = (props: { live: boolean; keys: KeyScope; entry: AskEntry; part: A
 
   const line = (trigger: TriggerProps) => (
     <>
-      <span {...trigger} ref={text} class="ask-text"><TargetText text={props.part.text} base={node()?.worktree?.path ?? project.path} onFailure={setLinkFailure} /></span>
+      <span {...(isTextCut() ? trigger : {})} ref={text} class="ask-text"
+        onFocusIn={event => {
+          if (event.target instanceof HTMLAnchorElement) {
+            setIsLinkFocused(true);
+            event.target.scrollIntoView({ block: "nearest", inline: "nearest" });
+          }
+        }}
+        onFocusOut={event => {
+          setIsLinkFocused(false);
+
+          if (!(event.relatedTarget instanceof Node && event.currentTarget.contains(event.relatedTarget))) event.currentTarget.scrollLeft = 0;
+        }}><TargetText text={props.part.text} base={node()?.worktree?.path ?? project.path} onFailure={props.onLinkFailure} /></span>
       <span class="ask-where">
         <Show when={status()}>{(live) => <Tip text={live().kind === "error" ? live().label : LABELS[live().kind]}>{(trigger) => <span {...trigger()} class="ask-kind"><KindGlyph kind={shownKind(live(), dismissed())} /></span>}</Tip>}</Show>
-        <Tip text={props.where} disabled={!cut()}>{(trigger) => <span {...trigger()} ref={name} class="ask-name">{props.where}</span>}</Tip>
+        <Tip text={props.where} disabled={!isNameCut()}>{(trigger) => <span {...trigger()} ref={name} class="ask-name">{props.where}</span>}</Tip>
       </span>
       <span class="ask-state" data-state={props.part.state}>{STATE_WORDS[props.part.state]}</span>
     </>
@@ -151,16 +151,15 @@ const AskRow = (props: { live: boolean; keys: KeyScope; entry: AskEntry; part: A
 
   return (
     <li data-overview-item={props.entry.key + ":" + props.index} class="ask-row" data-state={props.part.state}>
-      <Tip class="ask-tip" text={props.part.text + "\n" + props.where} disabled={!cut() || !!linkFailure()}>{(trigger, focus) => {
+      <Tip class="ask-tip" text={tooltip()} disabled={!tooltip() || isLinkFocused() || !!props.linkFailure}>{(trigger, focus) => {
         const tip = trigger();
 
         return <Dynamic component={node() && !linked() ? "button" : "div"} {...focus} onClick={open}
-          ref={(element: HTMLElement) => { if (element instanceof HTMLButtonElement) button = element; }} class={`ask-line ${node() ? "row-wash" : ""}`} data-linked={linked() ? "true" : undefined} data-feedback="ink" onPointerEnter={measure}>
+          ref={(element: HTMLElement) => { if (element instanceof HTMLButtonElement) button = element; }} class={`ask-line ${node() ? "row-wash" : ""}`} data-linked={linked() ? "true" : undefined} data-feedback="ink">
           <Show when={node() && linked()}><button type="button" class="ask-open" data-feedback="ink" aria-label={`${props.part.text} ${props.where} ${STATE_WORDS[props.part.state]}`} ref={element => { button = element; }} /></Show>
           {line(tip)}
         </Dynamic>;
       }}</Tip>
-      <ReservedLine class="target-failure" message={linkFailure()} content={linkFailure()} />
       <Show when={!dismissed()}><FailureLine status={status()} /></Show>
       <Show when={asking()}>
         <div class="ask-back">
