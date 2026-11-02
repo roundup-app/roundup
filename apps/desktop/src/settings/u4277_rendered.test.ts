@@ -1,6 +1,8 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, it } from "vitest";
+import { copy } from "./copy";
+import { copy as keyCopy } from "../keys/copy";
 import { captureDir } from "../testing/captures";
 import { openLane } from "../todos/laneBrowser";
 
@@ -52,17 +54,21 @@ it.skipIf(!captureDir("U4277a"))("u5621_u4277a_u4277b_u4277c_requested_screens_d
         await capture("U4277a", `${seed}-${section}`);
 
         if (section === "Shortcuts" && seed === "tree-40") {
-          const saved = await lane.evaluate("JSON.parse(localStorage.getItem('roundup:app-settings')).shortcuts ?? {}");
+          const saved = await lane.evaluate("JSON.parse(localStorage.getItem('roundup:app-settings') ?? '{}').shortcuts ?? {}");
           expect(saved).toEqual({});
-          await lane.browser("click", ".settings-shortcut button");
-          await lane.until("!!document.querySelector('.settings-shortcut [aria-pressed=true]')");
+          const caption = await lane.evaluate<string>(`Array.from(document.querySelectorAll('.settings-field-caption')).find(node => node.textContent === ${JSON.stringify(keyCopy.newAgent)}).id`);
+          const recorder = `button[aria-labelledby~=${JSON.stringify(caption)}]`;
+          await lane.browser("click", recorder);
+          await lane.until(`document.querySelector('${recorder}')?.getAttribute('aria-pressed') === 'true'`);
           await capture("U4277a", "tree-40-shortcut-recording");
           await lane.browser("press", "Meta+q");
-          await lane.until("!!document.querySelector('.settings-shortcut [aria-invalid=true]')");
-          expect(await lane.evaluate("JSON.parse(localStorage.getItem('roundup:app-settings')).shortcuts ?? {}")).toEqual(saved);
+          const refusal = copy.shortcutRefusal("⌘Q", copy.quitApp);
+          await lane.until(`document.querySelector('${recorder}')?.closest('.settings-field')?.querySelector('[role=alert]')?.textContent === ${JSON.stringify(refusal)}`);
+          expect(await lane.evaluate(`document.querySelector('${recorder}')?.getAttribute('aria-pressed') === 'true'`)).toBe(true);
+          expect(await lane.evaluate("JSON.parse(localStorage.getItem('roundup:app-settings') ?? '{}').shortcuts ?? {}")).toEqual(saved);
           await capture("U4277a", "tree-40-shortcut-refusal");
           await lane.browser("press", "Escape");
-          await lane.until("!!document.querySelector('.settings-view') && !!document.querySelector('.settings-shortcut [aria-pressed=false]')");
+          await lane.until(`!!document.querySelector('.settings-view') && document.querySelector('${recorder}')?.getAttribute('aria-pressed') === 'false'`);
         }
 
         if (section === "Terminal" && seed === "tree-40") {
