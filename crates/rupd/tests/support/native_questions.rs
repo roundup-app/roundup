@@ -239,7 +239,35 @@ async fn waiting_peer(tool: &str) -> (Run, Peer, usize) {
 // nothing, and the user's typing reaches it.
 #[tokio::test]
 async fn a3564a_native_question_uses_only_the_requesting_terminal() {
+    native_question_answer(false).await;
+}
+
+#[tokio::test]
+async fn u5501_quiet_keeps_native_attention_answerable() {
+    native_question_answer(true).await;
+}
+
+async fn native_question_answer(quiet: bool) {
     let (run, peer, typed) = waiting_peer("AskUserQuestion").await;
+    if quiet {
+        let ping = run.user.request("daemon.ping", json!({})).await.unwrap();
+        run.user
+            .request(
+                "rail.setAlertLevel",
+                json!({"project":ping["project"], "id":peer.id, "level":"quiet"}),
+            )
+            .await
+            .unwrap();
+        let tree = run.user.request("rail.tree", json!({})).await.unwrap();
+        let agent = tree
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|node| node["id"] == peer.id.as_str())
+            .unwrap();
+        assert_eq!(agent["alert_level"], "quiet");
+        assert_eq!(agent["status"]["kind"], "needs-you");
+    }
     assert_eq!(
         peer.typed(),
         typed,
