@@ -378,3 +378,14 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Claude binary (`claude_binary`, `claudeBinary`, `ClaudeBinary`, `claudeBinarySchema`) | claude | — |
 
 | Undo refusal (`RpcErrorData::UndoParent`, `UndoIdentity`, `UndoPadName`, `RpcError::undo_parent`, `undo_identity`, `undo_pad_name`) | same | — |
+
+### Pad formatting
+
+| Code term | User label | Avoid |
+|---|---|---|
+| Pad colour (`padColour`, `padColours`) | Text colour | — |
+| Pad highlight (`padHighlight`) | Highlight | — |
+| Pad callout (`padCallout`, `calloutKinds`) | Callouts | — |
+| Pad format Markdown (`padFormatMarkdown`) | none | — |
+| Code colours (`codeColours`, `languages`) | none | — |
+| Pad colour Tokens (`--pad-blue`, `--pad-green`, `--pad-purple`, `--pad-highlight`, `--pad-highlight-ink`) | none | — |
