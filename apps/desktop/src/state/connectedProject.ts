@@ -200,6 +200,7 @@ export const connectProject = async (
   drafts = createProjectDrafts()(project.path),
   /** U3566: whether the selected Agent's pane is displayed in a visible, focused, active window. */
   viewing: Accessor<boolean> = () => true,
+  clock: Accessor<number> = now,
 ): Promise<ConnectedProject> => {
   drafts.todoUndo.reconnect(app);
   const original = app;
@@ -249,7 +250,7 @@ export const connectProject = async (
   const unseen = createRoot((dispose) => {
     stopUnseen = dispose;
 
-    return createUnseen(() => rail.nodes, rail.selected, () => viewing() && !settingsView.open(), unseenStorage(project.path), { app, events, path: project.path });
+    return createUnseen(() => rail.nodes, rail.selected, () => viewing() && !settingsView.open(), unseenStorage(project.path), { app, events, path: project.path, observedAt: clock() });
   });
 
   if (ended) stopUnseen();
