@@ -139,8 +139,7 @@ it.skipIf(typographyOutputs.length > 0)("u4698b_expand_keeps_the_long_pad_and_al
 
 // Policy observers record visual evidence; assertions stay in the behavioral guards.
 
-it.skipIf(typographyOutputs.length === 0)("u5574a_u5574b_observe_pad_scale_and_rhythm", { retry: 0, timeout: 600_000 }, async () => {
-  const fixtures = [{ name: "owner", text: ownerSample }, { name: "structure", text: structureSample }];
+it.skipIf(typographyOutputs.length === 0).each([{ name: "owner", text: ownerSample }, { name: "structure", text: structureSample }])("u5574a_u5574b_observe_pad_scale_and_rhythm: $name", { retry: 0, timeout: 600_000 }, async (fixture) => {
   const revision = process.env.ROUNDUP_PAD_BASELINE ? "base" : "head";
 
   const save = async (name: string) => {
@@ -162,88 +161,86 @@ it.skipIf(typographyOutputs.length === 0)("u5574a_u5574b_observe_pad_scale_and_r
     }
   };
 
-  for (const fixture of fixtures) {
-    await openShelf("tree-40", 288, 320, 1512, "dark");
-    await evaluate(`(async () => { await window.__fake.app.rpc('pad.create', ${JSON.stringify({ name: fixture.name, text: fixture.text })}); document.querySelector('#shelf-tab-pads').click(); return true; })()`);
-    await browser("wait", "[data-shelf-group=unassigned]");
-    await evaluate(`(() => { const group = document.querySelector('[data-shelf-group=unassigned] [data-part=branch-control]'); if (group?.getAttribute('data-state') === 'closed') group.click(); return true; })()`);
-    await browser("wait", ".pad-name");
-    await evaluate(`(() => { [...document.querySelectorAll('.pad-name')].find(row => row.textContent === ${JSON.stringify(fixture.name)}).focus(); return true; })()`);
-    await browser("press", "Enter");
-    await browser("wait", ".drawer .ProseMirror");
-    await settle();
+  await openShelf("tree-40", 288, 320, 1512, "dark");
+  await evaluate(`(async () => { await window.__fake.app.rpc('pad.create', ${JSON.stringify({ name: fixture.name, text: fixture.text })}); document.querySelector('#shelf-tab-pads').click(); return true; })()`);
+  await browser("wait", "[data-shelf-group=unassigned]");
+  await evaluate(`(() => { const group = document.querySelector('[data-shelf-group=unassigned] [data-part=branch-control]'); if (group?.getAttribute('data-state') === 'closed') group.click(); return true; })()`);
+  await browser("wait", ".pad-name");
+  await evaluate(`(() => { [...document.querySelectorAll('.pad-name')].find(row => row.textContent === ${JSON.stringify(fixture.name)}).focus(); return true; })()`);
+  await browser("press", "Enter");
+  await browser("wait", ".drawer .ProseMirror");
+  await settle();
 
-    for (const renderer of ["editor", "readonly"]) {
-      if (renderer === "readonly") {
-        // Same existing binding as p2544a's read-only observer, no product mode.
-        await evaluate(`(async () => {
-          const source = await (await fetch('/src/pads/PadRichEditor.tsx')).text();
-          const dependencies = source.split('"').filter(path => path.includes('/deps/'));
-          const { createComponent } = await import(dependencies.find(path => path.includes('/solid-js.js')));
-          const { render } = await import(dependencies.find(path => path.includes('/solid-js_web.js')));
-          const { default: PadRichEditor } = await import('/src/pads/PadRichEditor.tsx');
-          const original = document.querySelector('.pad-body > .pad-editor');
-          original.style.display = 'none';
-          const root = document.createElement('div');
-          root.style.display = 'contents';
-          original.parentElement.append(root);
-          window.__disposeReadonly = render(() => createComponent(PadRichEditor, {
-            text: ${JSON.stringify(fixture.text)}, readonly: true,
-            onChange() {}, onText() {}, onBlur() {}, onReady() {}
-          }), root);
-        })()`);
-        await browser("wait", ".pad-readonly .ProseMirror[contenteditable=false]");
-      }
+  for (const renderer of ["editor", "readonly"]) {
+    if (renderer === "readonly") {
+      // Same existing binding as p2544a's read-only observer, no product mode.
+      await evaluate(`(async () => {
+        const source = await (await fetch('/src/pads/PadRichEditor.tsx')).text();
+        const dependencies = source.split('"').filter(path => path.includes('/deps/'));
+        const { createComponent } = await import(dependencies.find(path => path.includes('/solid-js.js')));
+        const { render } = await import(dependencies.find(path => path.includes('/solid-js_web.js')));
+        const { default: PadRichEditor } = await import('/src/pads/PadRichEditor.tsx');
+        const original = document.querySelector('.pad-body > .pad-editor');
+        original.style.display = 'none';
+        const root = document.createElement('div');
+        root.style.display = 'contents';
+        original.parentElement.append(root);
+        window.__disposeReadonly = render(() => createComponent(PadRichEditor, {
+          text: ${JSON.stringify(fixture.text)}, readonly: true,
+          onChange() {}, onText() {}, onBlur() {}, onReady() {}
+        }), root);
+      })()`);
+      await browser("wait", ".pad-readonly .ProseMirror[contenteditable=false]");
+    }
 
-      const surface = renderer === "editor" ? ".pad-body > .pad-editor .ProseMirror" : ".pad-readonly .ProseMirror";
+    const surface = renderer === "editor" ? ".pad-body > .pad-editor .ProseMirror" : ".pad-readonly .ProseMirror";
 
-      for (const scheme of ["light", "dark"]) {
-        await browser("set", "media", scheme);
+    for (const scheme of ["light", "dark"]) {
+      await browser("set", "media", scheme);
 
-        for (const [width, height] of [[1512, 950], [1280, 820]]) {
-          await browser("set", "viewport", String(width), String(height));
+      for (const [width, height] of [[1512, 950], [1280, 820]]) {
+        await browser("set", "viewport", String(width), String(height));
 
-          for (const expanded of [true, false]) {
-            const action = expanded ? "Maximise" : "Restore";
+        for (const expanded of [true, false]) {
+          const action = expanded ? "Maximise" : "Restore";
 
-            if (await evaluate(`Boolean(document.querySelector('.drawer [aria-label="${action}"]'))`)) await browser("click", `.drawer [aria-label="${action}"]`);
-            await settle();
-            const prefix = `${fixture.name}-${renderer}-${scheme}-${width}-${expanded ? "expanded" : "side"}`;
-            await evaluate(`document.querySelector(${JSON.stringify(surface)}).closest('.pad-editor').scrollTop = 0; true`);
-            await save(`${prefix}-rest`);
+          if (await evaluate(`Boolean(document.querySelector('.drawer [aria-label="${action}"]'))`)) await browser("click", `.drawer [aria-label="${action}"]`);
+          await settle();
+          const prefix = `${fixture.name}-${renderer}-${scheme}-${width}-${expanded ? "expanded" : "side"}`;
+          await evaluate(`document.querySelector(${JSON.stringify(surface)}).closest('.pad-editor').scrollTop = 0; true`);
+          await save(`${prefix}-rest`);
 
-            const lines = await evaluate(`(() => {
-              const root = document.querySelector(${JSON.stringify(surface)});
-              return [...root.querySelectorAll(':scope > p')].slice(0, 3).flatMap(p => {
-                const node = p.firstChild;
-                if (!node || node.nodeType !== Node.TEXT_NODE) return [];
-                const lines = new Map();
-                for (let i = 0; i < node.length; i++) {
-                  const range = document.createRange(); range.setStart(node, i); range.setEnd(node, i + 1);
-                  const y = range.getBoundingClientRect().top;
-                  lines.set(y, (lines.get(y) || '') + node.textContent[i]);
-                }
-                return [...lines.values()].slice(0, -1).map(text => ({text, count: text.length}));
-              }).slice(0, 3);
-            })()`);
+          const lines = await evaluate(`(() => {
+            const root = document.querySelector(${JSON.stringify(surface)});
+            return [...root.querySelectorAll(':scope > p')].slice(0, 3).flatMap(p => {
+              const node = p.firstChild;
+              if (!node || node.nodeType !== Node.TEXT_NODE) return [];
+              const lines = new Map();
+              for (let i = 0; i < node.length; i++) {
+                const range = document.createRange(); range.setStart(node, i); range.setEnd(node, i + 1);
+                const y = range.getBoundingClientRect().top;
+                lines.set(y, (lines.get(y) || '') + node.textContent[i]);
+              }
+              return [...lines.values()].slice(0, -1).map(text => ({text, count: text.length}));
+            }).slice(0, 3);
+          })()`);
 
-            for (const output of typographyOutputs) writeFileSync(join(output, revision, `${prefix}-lines.json`), JSON.stringify({fixture: fixture.name, renderer, scheme, width, height, expanded, interfaceScale: 1, lines}));
-            const headings = await evaluate<number>(`document.querySelector(${JSON.stringify(surface)}).querySelectorAll('h2, h3, h4, h5, h6').length`);
+          for (const output of typographyOutputs) writeFileSync(join(output, revision, `${prefix}-lines.json`), JSON.stringify({fixture: fixture.name, renderer, scheme, width, height, expanded, interfaceScale: 1, lines}));
+          const headings = await evaluate<number>(`document.querySelector(${JSON.stringify(surface)}).querySelectorAll('h2, h3, h4, h5, h6').length`);
 
-            for (let i = 0; i < headings; i++) {
-              await evaluate(`document.querySelector(${JSON.stringify(surface)}).querySelectorAll('h2, h3, h4, h5, h6')[${i}].scrollIntoView({block: 'start'}); true`);
-              await save(`${prefix}-section-${i}`);
-            }
+          for (let i = 0; i < headings; i++) {
+            await evaluate(`document.querySelector(${JSON.stringify(surface)}).querySelectorAll('h2, h3, h4, h5, h6')[${i}].scrollIntoView({block: 'start'}); true`);
+            await save(`${prefix}-section-${i}`);
           }
         }
       }
-
-      if (renderer === "readonly") await evaluate("window.__disposeReadonly(); true");
     }
 
-    expect(await evaluate(`window.__fake.app.rpc("pad.read", {name: ${JSON.stringify(fixture.name)}}).then(pad => pad.text)`)).toBe(fixture.text);
-    expect(await evaluate("window.__fake.app.calls.filter(call => call.method === 'pad.write').length")).toBe(0);
+    if (renderer === "readonly") await evaluate("window.__disposeReadonly(); true");
   }
+
+  expect(await evaluate(`window.__fake.app.rpc("pad.read", {name: ${JSON.stringify(fixture.name)}}).then(pad => pad.text)`)).toBe(fixture.text);
+  expect(await evaluate("window.__fake.app.calls.filter(call => call.method === 'pad.write').length")).toBe(0);
 });
 
 it.skipIf(typographyOutputs.length === 0)("u5574b_empty_document_remains_editable_after_rhythm_changes", { retry: 0, timeout: 180_000 }, async () => {
@@ -313,4 +310,6 @@ it.skipIf(typographyOutputs.length === 0)("u5574b_empty_document_remains_editabl
   expect(await evaluate("window.__fake.app.rpc('pad.read', {name:'empty-rhythm'}).then(pad => pad.text.trim())")).toBe("A new paragraph");
   await save("empty-document-edited");
   await browser("record", "stop");
+
+  for (const output of typographyOutputs.slice(1)) copyFileSync(join(dir, "complete-recovery.webm"), join(output, revision, "complete-recovery.webm"));
 });
