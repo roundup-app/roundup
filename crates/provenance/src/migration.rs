@@ -7,8 +7,7 @@ use rusqlite_migration::{M, Migrations};
 
 const ADVICE: &str = "This database came from a newer or branch build. Use the build that wrote it, or reset this disposable pre-release database after closing roundup.";
 
-/// Migrate `db` to the latest of `migrations`, refusing first a database from a newer build and
-/// one whose schema differs from what its first `user_version` migrations build.
+/// Build fresh input once; existing stores must already have the current version and shape.
 pub fn migrate(
     db: &mut Connection,
     path: &Path,
@@ -16,24 +15,29 @@ pub fn migrate(
 ) -> rusqlite::Result<()> {
     let known = migrations.len();
     let stored: i64 = db.pragma_query_value(None, "user_version", |row| row.get(0))?;
+    let absolute = std::path::absolute(path)
+        .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
+    let folder = absolute.parent().unwrap_or(&absolute);
     let fail = |message: String| {
         rusqlite::Error::ToSqlConversionFailure(Box::new(std::io::Error::other(format!(
-            "{}: {message}",
-            path.display()
+            "{}: {message} To start fresh, close roundup and delete {}.",
+            path.display(),
+            folder.display()
         ))))
     };
-    if let Ok(prefix) = usize::try_from(stored)
-        && prefix <= known
-    {
+    let empty = objects(db)?.is_empty();
+    if stored < known as i64 && !(stored == 0 && empty) {
+        return Err(fail("Local data is incompatible with this build.".into()));
+    }
+    if stored == known as i64 {
         let mut reference = Connection::open_in_memory()?;
-        if prefix > 0 {
-            Migrations::new(migrations[..prefix].to_vec())
-                .to_latest(&mut reference)
-                .map_err(|e| fail(format!("reference schema through {prefix}: {e}")))?;
-        }
+        Migrations::new(migrations.clone())
+            .to_latest(&mut reference)
+            .map_err(|e| fail(format!("current schema: {e}")))?;
         if let Some(difference) = difference(db, &reference)? {
             return Err(fail(divergence(&difference, stored, known)));
         }
+        return Ok(());
     }
     Migrations::new(migrations).to_latest(db).map_err(|error| {
         fail(match error {

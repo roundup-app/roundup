@@ -148,24 +148,46 @@ fn a6_rename_needs_the_exact_id() {
 }
 
 #[test]
-fn x11_a_stored_terminal_node_is_dropped_on_open() {
-    let (dir, mut rail) = rail();
-    let group = rail.insert(NodeKind::Workstream, "g", None, None).unwrap();
-    for name in ["a", "b", "c"] {
-        rail.insert(NodeKind::Agent, name, Some(&group.id), None)
+fn n5467b_obsolete_rail_records_are_refused_without_rewriting() {
+    for (kind, parent) in [
+        ("room", None),
+        ("group", None),
+        ("terminal", None),
+        ("workstream", Some(1)),
+    ] {
+        let (dir, mut rail) = rail();
+        rail.insert(NodeKind::Workstream, "kept", None, Some("9"))
             .unwrap();
+        rail.db
+            .execute(
+                "UPDATE nodes SET kind=?,parent=? WHERE name='kept'",
+                rusqlite::params![kind, parent],
+            )
+            .unwrap();
+        drop(rail);
+        let path = dir.path().join("agents.db");
+        for _ in 0..2 {
+            let error = match Rail::open(&path) {
+                Ok(_) => panic!("obsolete Rail opened"),
+                Err(error) => error.to_string(),
+            };
+            assert!(
+                error.contains(dir.path().to_str().unwrap())
+                    && error.contains("close roundup")
+                    && error.contains("delete"),
+                "{error}"
+            );
+            let kept: (String, Option<i64>, String) = rusqlite::Connection::open(&path)
+                .unwrap()
+                .query_row(
+                    "SELECT kind,parent,terminal_id FROM nodes WHERE name='kept'",
+                    [],
+                    |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+                )
+                .unwrap();
+            assert_eq!(kept, (kind.into(), parent, "9".into()));
+        }
     }
-    rail.db
-        .execute("UPDATE nodes SET kind = 'terminal' WHERE name = 'b'", [])
-        .unwrap();
-    drop(rail);
-
-    let reopened = Rail::open(&dir.path().join("agents.db")).unwrap();
-
-    let tree = reopened.tree().unwrap();
-    let rest: Vec<_> = tree.iter().map(|n| (n.name.as_str(), n.order)).collect();
-    assert_eq!(rest, [("g", 0), ("a", 0), ("c", 1)]);
-    assert!(tree.iter().all(|n| n.name != "b"));
 }
 
 #[test]
