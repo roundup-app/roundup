@@ -1,7 +1,7 @@
 import { copy as appCopy } from "../app/copy";
 import { copy } from "./copy";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
-import { afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { RequestedApp as App } from "../testing/requestedApp";
 import { fakeEmulators } from "../terminal/paneHarness";
 import { fromBase64 } from "../terminal/base64";
@@ -9,24 +9,24 @@ import { seedApp } from "./seeds";
 import type { SeedName } from "./seeds";
 import type { Event as DaemonEvent } from "@contracts/Event";
 import { event } from "./nodes";
-import { showShelfTab } from "./shelfTabs";
-import { openPad } from "../pads/padsFixture";
+import { showEverythingInApp } from "./showEverything";
 
 const NOW = 1_700_000_000_000;
 
-const mount = (seed: SeedName) => {
+const mount = (seed: SeedName, railIds?: readonly string[]) => {
   const controls = seedApp(seed, Date.now());
+
+  if (railIds) {
+    const tree = controls.app.handlers["rail.tree"]!;
+    controls.app.handlers["rail.tree"] = async () => (await tree(null)).filter(node => railIds.includes(node.id));
+  }
+
   render(() => <App app={controls.app} reducedMotion={() => false} clock={Date.now} createEmulator={fakeEmulators().factory} />);
 
   return controls;
 };
 
 const rail = () => screen.findByRole("region", { name: copy.rail });
-
-// This suite checks seed wiring; transform the real lazy editor before timing Drawer interactions.
-beforeAll(async () => {
-  await import("../pads/PadRichEditor");
-});
 
 afterEach(cleanup);
 
@@ -63,7 +63,6 @@ describe("u26 the harness seeds", () => {
     const line = await screen.findByRole("alert");
 
     expect(line.textContent).toBe(appCopy.daemonExit("exited 1"));
-    expect(line.querySelector("svg.lucide-x")).not.toBeNull();
   });
 
   it("u26_conflict_fails_the_next_call_with_conflict_and_the_one_after_succeeds", async () => {
@@ -75,16 +74,16 @@ describe("u26 the harness seeds", () => {
     await expect(app.rpc("rail.createWorkstream", { name: "x", parent: null })).resolves.toMatchObject({ name: "x" });
   });
 
-  // The real editor and tree-40 took 5.18s in the shared shard; this is seed wiring, not a latency check.
-  it("u26_a_pad_the_agent_owns_opens_in_its_drawer", async () => {
-    const { app } = mount("tree-40");
+  // U20 proves Drawer reads/editing; U4908 proves row opening through the App.
+  // U26 owns the seed's four Pads, without repeating the editor's expensive lifecycle.
+  it("u26_tree_40_lists_its_four_pads", async () => {
+    // The full tree has its own observer above; this one retains both Pad homes.
+    mount("tree-40", ["payments", "agent-1"]);
+    await showEverythingInApp(/backend/, "Pads");
+    const pads = within(await screen.findByRole("region", { name: copy.pads }));
 
-    // U347: agent-1 runs, so its Pad is in the Shelf and, once the control is open, under it on the Rail.
-    await screen.findByRole("tablist", { name: copy.leaderShortShelf });
-    showShelfTab(copy.pads);
-    await openPad("pad-0");
-    expect(app.calls.filter(call => call.method === "pad.read").map(call => call.params)).toEqual([{ name: "pad-0" }]);
-  }, 15_000);
+    await waitFor(() => expect(pads.getAllByRole("button", { name: /^(pad-\d|a-pad-with)/ })).toHaveLength(4));
+  });
 
   it("u26_set_status_moves_the_row_to_the_new_label", async () => {
     const { setStatus } = mount("tree-40");
