@@ -48,6 +48,10 @@ const parsedCommand = <Schema extends v.GenericSchema>(
   options?: InvokeOptions,
 ): Promise<v.InferOutput<Schema>> => guarded(async () => v.parse(schema, await invoke(name, args, options)));
 
+/** The reset location comes from the invoking webview's native storage configuration. */
+export const webviewDataPath = (): Promise<string> =>
+  parsedCommand(v.string(), "plugin:window-bar|webview_data_path", {});
+
 /**
  * Tauri types the drop point as physical pixels, but wry on macOS passes the NSView's points through unscaled
  * (`wkwebview/drag_drop.rs`, `draggingLocation`; `tauri-runtime-wry` wraps them in `PhysicalPosition` as they are),
