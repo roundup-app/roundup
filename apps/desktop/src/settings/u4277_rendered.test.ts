@@ -52,7 +52,9 @@ it.skipIf(!captureDir("U4277a"))("u4277a_u4277b_u4277c_requested_screens_dark", 
         await capture("U4277a", `${seed}-${section}`);
 
         if (section === "Shortcuts" && seed === "tree-40") {
-          await lane.browser("find", "role", "button", "click", "--name", "Quick add Todo");
+          // Quick add follows the action rows; the native browser click needs its recorder in view.
+          await lane.browser("scrollintoview", ".settings-shortcut button[aria-invalid]");
+          await lane.browser("click", ".settings-shortcut button[aria-invalid]");
           await lane.until("document.activeElement?.getAttribute('aria-pressed') === 'true' && document.activeElement?.hasAttribute('aria-invalid')");
           await capture("U4277a", "tree-40-shortcut-recording");
           await lane.browser("press", "Meta+q");
