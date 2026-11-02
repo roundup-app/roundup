@@ -39,6 +39,7 @@ export const journal = async (screen: string, reporting: boolean, program = fals
     click(2);
     click(0, true);
     click(2, false, 30);
+    target.dispatchEvent(new WheelEvent('wheel', { bubbles:true, cancelable:true, clientX:box.left + 25, clientY:box.top + 8, deltaY:100, deltaMode:0 }));
     return { bytes: window.__journal, selections };
   })()`);
 };
