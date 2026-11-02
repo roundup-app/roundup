@@ -207,7 +207,7 @@ export const RailRowView = (props: {
         <Show when={worktreeFailure()}><span class="worktree-chip" data-state="unavailable" role="img" aria-label={copy.worktreeUnavailable}>{copy.worktreeUnavailableMark}</span></Show>
       </span></Show>
       <span class="row-tail">
-        <RowIcons actions={props.actions}>{props.doorAction}</RowIcons>
+        <Show when={!group()}><RowIcons actions={props.actions}>{props.doorAction}</RowIcons></Show>
         <Show when={!container()}><span class="row-controls"><span class="row-control-slot"><PadsControl count={props.todoCount} agent={props.row.node.id} /></span></span></Show>
         <Show when={props.draggable}><Sortable.Handle label={copy.moveItem(props.row.node.name)} ref={props.handleRef} /></Show>
         <Show when={group()}><IconButton class="rail-group-chevron" aria-label={props.row.collapsed ? copy.expand : copy.collapse} aria-expanded={!props.row.collapsed} {...ownKeys} onClick={event => { event.stopPropagation(); props.onToggle(); }}><Icon name={props.row.collapsed ? "right" : "down"} /></IconButton></Show>
