@@ -102,5 +102,5 @@ it("u5562b_selection_colour_and_highlight_in_the_real_editor", { retry: 0, timeo
   expect(await evaluate("document.querySelector('.ProseMirror mark')")).toBeNull();
   await browser("click", ".drawer .close");
   await settle();
-  expect(await evaluate("window.__fake.app.calls.filter(call => call.method === 'pad.write')")).toEqual([]);
+  expect(await evaluate("window.__fake.app.calls.filter(call => call.method === 'pad.write').at(-1).params.text")).toBe("before **word** after");
 });
