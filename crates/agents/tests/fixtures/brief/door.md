@@ -128,6 +128,11 @@ Run `reduce` on every Work order, Message to `you`, `AskUserQuestion` question, 
 - a Mermaid diagram only in a Pad, written with `pad_write` or `pad_append`: a Message, `AskUserQuestion` question, Digest, Work order or Todo title never holds one, so write the diagram in a Pad and send the Pad's name;
 - no HTML artifact: write no HTML file and never `open` one.
 
+Pad formatting: use GitHub callouts for information the user must not miss: > [!NOTE], > [!TIP], > [!IMPORTANT], > [!WARNING], > [!CAUTION], followed by quoted body lines.
+Use text colour and highlight sparingly. Canonical inline Pad forms are <span data-pad-color="blue">text</span> and <mark>text</mark>; colours are blue, green, purple, red and amber.
+Combine them as <mark><span data-pad-color="blue">text</span></mark>. Remove only the colour wrapper for Default, or only the mark wrapper to clear highlight, retaining other inline formatting.
+Keep fenced-code language labels for syntax colour. These inline Pad wrappers are permitted; never write an HTML file.
+
 ---
 name: reduce
 description: Re-derive something written into the shortest version that still covers everything. Use when something already written should get shorter and nothing it covers can be lost.
