@@ -1,3 +1,4 @@
+import { test } from "vitest";
 import { warmApp } from "./appServer";
 import { execFile, spawn, spawnSync } from "node:child_process";
 import type { ChildProcess, SpawnOptions } from "node:child_process";
@@ -16,7 +17,7 @@ import type { Model } from "./realModel";
 const REPO = resolve(process.cwd(), "../..");
 
 /** A running `rupd` of a fresh Project and the dev server that serves it to the harness page (U144, U146). */
-export type StartedDaemon = { daemon: ChildProcess; dir: string; dataDir: string; base: string; model?: Model | undefined; restart: () => Promise<void>; stop: () => Promise<void> };
+export type StartedDaemon = { daemon: ChildProcess; dir: string; dataDir: string; socket: string; base: string; model?: Model | undefined; restart: () => Promise<void>; stop: () => Promise<void> };
 
 const served = async (base: string) => {
   for (let tries = 0; tries < 300; tries += 1) {
@@ -175,6 +176,7 @@ export const startRealDaemon = async (env: Record<string, string>, inBrowser = f
     },
     dir,
     dataDir,
+    socket,
     base,
     model,
     // U177: the Daemon ends and a new one serves the same Project on the same socket.
@@ -225,3 +227,16 @@ export const withProjectPair = async (observe: (first: StartedDaemon, second: St
     await first.stop();
   }
 };
+
+/** Browser tests consume the audited private-data launcher; Vitest owns teardown even when their assertions fail. */
+export const realBrowserTest = test.extend<{ real: StartedDaemon }>({
+  real: async ({}, use) => {
+    const real = await startRealDaemon({}, true);
+
+    try {
+      await use(real);
+    } finally {
+      await real.stop();
+    }
+  },
+});
