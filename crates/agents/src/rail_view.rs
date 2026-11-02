@@ -421,7 +421,9 @@ pub(super) fn visibility_protection(kind: Option<Kind>, empty: bool) -> Option<&
     match kind {
         Some(Kind::NeedsYou) => Some("native attention is active"),
         Some(Kind::Error) => Some("error is active"),
-        Some(Kind::Idle | Kind::Done) if !empty => Some("completed-turn protection is active"),
+        Some(Kind::Idle | Kind::Done | Kind::Blocked) if !empty => {
+            Some("completed-turn protection is active")
+        }
         _ => None,
     }
 }
