@@ -1,6 +1,6 @@
 import { expect, it } from "vitest";
 import { readFileSync } from "node:fs";
-import { checkCopy } from "./guard.mjs";
+import { checkCopy, checkKeys } from "./guard.mjs";
 
 const ROOT = new URL("../src/", import.meta.url).pathname;
 
@@ -249,4 +249,16 @@ it("u471_copy_guard_accepts_the_recovery_name", () => {
 it("u5205_copy_guard_exempts_only_the_named_long_label", () => {
   expect(rules(fixture('message: "Quick add from any app"'))).not.toContain("label-length");
   expect(rules(fixture('message: "Quick add from every app"'))).toContain("label-length");
+});
+
+it.each([
+  'const view = <button aria-keyshortcuts="Meta+N" />;',
+  'const copied = "Meta+N"; const view = <button aria-keyshortcuts={copied} />;',
+  'const view = <kbd>N</kbd>;',
+])("u5557b_rejects_copied_shortcuts_or_a_second_renderer %s", source => {
+  expect(checkKeys({ 'app/view.tsx': source }).map(row => row.rule)).toEqual(['key-source']);
+});
+
+it("u5557b_accepts_live_registry_shortcuts", () => {
+  expect(checkKeys({ 'app/view.tsx': 'const view = <button aria-keyshortcuts={ariaChord(chordNamed("agent.new"))} />;' })).toEqual([]);
 });

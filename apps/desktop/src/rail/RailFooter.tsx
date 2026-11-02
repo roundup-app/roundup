@@ -3,7 +3,7 @@ import { ReservedLine } from "../ink/ReservedLine";
 import { Icon } from "../ink/Icon";
 import { KIND_ICON } from "../ink/kindIcon";
 import { KeyChip } from "../keys/KeyChip";
-import { ariaShortcut } from "../keys/chords";
+import { ariaChord, chordNamed } from "../keys/chords";
 import { captureActions } from "../keys/registry";
 import { useConnectedProject } from "../state/connectedProject";
 import { copy } from "./copy";
@@ -33,9 +33,9 @@ export const RailFooter = (props: {
           <Show when={retained.problem()?.destination?.surface.startsWith("rail-")}><button data-button="quiet" onClick={() => retained.retry()}>{copy.railDraftRetry}</button></Show>
         </ReservedLine>
         <div class="rail-actions">
-          <button type="button" data-button="add" class="word" aria-label={copy.addWorkstream} aria-keyshortcuts={ariaShortcut("⌥⌘N")} aria-disabled={canSpawn() ? undefined : true} onClick={() => { if (canSpawn()) createWorkstream(); }}><Icon name={KIND_ICON.workstream} />{copy.addWorkstreamWord}<KeyChip keys="⌥⌘N" /></button>
-          <button type="button" data-button="add" class="word" aria-label={copy.newMode} aria-keyshortcuts={ariaShortcut("⇧⌘M")} aria-disabled={canSpawn() ? undefined : true} onClick={() => { if (canSpawn()) props.openCreateMode(); }}><Icon name={KIND_ICON.mode} />{copy.modeWord}<KeyChip keys="⇧⌘M" /></button>
-          <button type="button" data-button="add" class="word" aria-label={copy.newAgent} aria-keyshortcuts={ariaShortcut("⌘N")} aria-disabled={canSpawn() ? undefined : true} onClick={() => captureActions(document.activeElement).find(action => action.value === "action:chord:⌘N")?.run()}><Icon name={KIND_ICON.agent} />{copy.addAgentWord}<KeyChip keys="⌘N" /></button>
+          <button type="button" data-button="add" class="word" aria-label={copy.addWorkstream} aria-keyshortcuts={ariaChord(chordNamed("workstream.new"))} aria-disabled={canSpawn() ? undefined : true} onClick={() => { if (canSpawn()) createWorkstream(); }}><Icon name={KIND_ICON.workstream} />{copy.addWorkstreamWord}<KeyChip keys={chordNamed("workstream.new")!.keys} /></button>
+          <button type="button" data-button="add" class="word" aria-label={copy.newMode} aria-keyshortcuts={ariaChord(chordNamed("mode.new"))} aria-disabled={canSpawn() ? undefined : true} onClick={() => { if (canSpawn()) props.openCreateMode(); }}><Icon name={KIND_ICON.mode} />{copy.modeWord}<KeyChip keys={chordNamed("mode.new")!.keys} /></button>
+          <button type="button" data-button="add" class="word" aria-label={copy.newAgent} aria-keyshortcuts={ariaChord(chordNamed("agent.new"))} aria-disabled={canSpawn() ? undefined : true} onClick={() => captureActions(document.activeElement).find(action => action.name === "agent.new")?.run()}><Icon name={KIND_ICON.agent} />{copy.addAgentWord}<KeyChip keys={chordNamed("agent.new")!.keys} /></button>
         </div>
       </div>
   );

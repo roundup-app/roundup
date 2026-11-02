@@ -106,7 +106,7 @@
 .shelf-panel :is(.todos-tab, .pads-tab) { gap: var(--space-2); }
 
 .shelf-add {
-  font-family: var(--font-ui);
+  font-family: var(--font-mono);
 }
 
 .shelf-panel p {
@@ -173,7 +173,7 @@
 .shelf-bar .app-switch { gap: var(--space-1); color: var(--grey); font-size: var(--text-body); line-height: var(--space-4); }
 .shelf-bar .app-switch-track { align-self: center; }
 .shelf-groups.app-tree { padding: 0; }
-.shelf-groups [data-part="branch-control"] { padding-inline-end: 0; color: var(--grey); font-size: var(--text-caption); font-family: var(--font-ui); overflow-wrap: anywhere; }
+.shelf-groups [data-part="branch-control"] { padding-inline-end: 0; color: var(--grey); font-size: var(--text-caption); font-family: var(--font-mono); overflow-wrap: anywhere; }
 .shelf-groups [data-part="branch-control"]:hover { color: var(--text); background: var(--transparent); }
 .shelf-groups [data-part="branch"] { cursor: pointer; }
 .shelf-groups [data-part="branch-content"] { padding-inline-start: 0; }

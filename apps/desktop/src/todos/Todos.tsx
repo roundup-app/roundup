@@ -1,3 +1,5 @@
+import { KeyChip } from "../keys/KeyChip";
+import { shortcutLabel, chordNamed } from "../keys/chords";
 import { createTodoCreation } from "./creation";
 import { todoDropTargets } from "./todoDropTargets";
 import { rowTypeahead } from "../ui/RowCollection";
@@ -676,7 +678,7 @@ export const Todos = (props: {
         <EmptyState art="running" {...{ title: copy.noTodosYet }} line={copy.emptyTodosLine} action={<button type="button" data-button="primary" onClick={() => openField()}>{copy.addTodoWord}</button>} />
       </Show>
       <Show when={listed().length + pending().length > 0}>
-        <OwnerGroups mark={group => <Show when={board.digit(group)}>{digit => <kbd class="todo-owner-digit">{digit()}</kbd>}</Show>} detail={group => <Show when={group.id === "unassigned" && connected.rail.nodes.find(node => node.id === selectedWorkstream())?.auto}><p class="todo-auto-handling">{copy.todoAutoHandling}</p></Show>} count={group => group.items.filter(todo => !todo.done).length} onClosedChange={setClosedGroups} groups={() => ownerGroups(connected, [...listed(), ...pending()], todo => todo.owner)} dragging={dragging} bare={() => connected.rail.nodes.find(node => node.id === connected.rail.selected())?.kind === "agent" ? connected.rail.selected() : null} reveal={revealed} focus={() => requestedOpen()[0] ? groupOf(requestedOpen()[0]!) : null} focusItem={() => rowButtonOf(requestedOpen()[0]?.id ?? -1)} onFocused={connected.finishPadsRequest} arrivals={requestedGroups} unfold={() => filed() + todos.revealed()}>{group => {
+        <OwnerGroups mark={group => <Show when={board.digit(group)}>{digit => <span class="todo-owner-digit"><KeyChip keys={shortcutLabel(`Digit${digit()}`)} /></span>}</Show>} detail={group => <Show when={group.id === "unassigned" && connected.rail.nodes.find(node => node.id === selectedWorkstream())?.auto}><p class="todo-auto-handling">{copy.todoAutoHandling}</p></Show>} count={group => group.items.filter(todo => !todo.done).length} onClosedChange={setClosedGroups} groups={() => ownerGroups(connected, [...listed(), ...pending()], todo => todo.owner)} dragging={dragging} bare={() => connected.rail.nodes.find(node => node.id === connected.rail.selected())?.kind === "agent" ? connected.rail.selected() : null} reveal={revealed} focus={() => requestedOpen()[0] ? groupOf(requestedOpen()[0]!) : null} focusItem={() => rowButtonOf(requestedOpen()[0]?.id ?? -1)} onFocused={connected.finishPadsRequest} arrivals={requestedGroups} unfold={() => filed() + todos.revealed()}>{group => {
         const tree = createMemo(() => treeRows(group().items.filter(todo => !pending().includes(todo))));
         const collection = createMemo(() => treeCollection(tree()));
         const placeOf = (id: number) => tree().find((row) => row.todo.id === id) ?? { level: 1, parent: null };
@@ -851,8 +853,8 @@ export const Todos = (props: {
       </Show>
       <Show when={triage.on()}>
         <p class="triage-hints" aria-label={copy.triageKeys}>
-          <For each={[...(open().length > 0 ? QUIET_KEYS.flatMap(keys => CHORDS.filter(row => row.inTriage && row.keys === keys)) : []), { keys: copy.questionMark, what: copy.triageMore }]}>{row =>
-            <span class="triage-hint"><kbd class="triage-key">{row.keys}</kbd>{" "}{row.what}</span>}</For>
+          <For each={[...(open().length > 0 ? QUIET_KEYS.flatMap(keys => CHORDS.filter(row => row.inTriage && row.keys === keys)) : []), { ...chordNamed("help.open")!, what: copy.triageMore }]}>{row =>
+            <span class="triage-hint"><KeyChip keys={row.keys} />{" "}{row.what}</span>}</For>
         </p>
       </Show>
       <bulk.Bar />

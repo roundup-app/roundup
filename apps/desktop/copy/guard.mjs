@@ -605,3 +605,24 @@ export function checkCopy(files, { glossary = '', baseline = [], previous = base
 
   return { inventory: inventory(diagnostics), diagnostics: applyBaseline(diagnostics, baseline, previous).filter(row => !rules || rules.includes(row.rule)) };
 }
+
+/** U5557b: the type checker owns chip text; this guard owns JSX's otherwise-string shortcut attribute and renderer ownership. */
+export const checkKeys = files => Object.entries(files).filter(([file]) => production(file) && file !== 'keys/chords.ts').flatMap(([file, source]) => {
+  const diagnostics = [];
+  const fail = node => diagnostics.push({ rule: 'key-source', message: `${file}:${node.loc.start.line}: keys must come from the registry; only KeyChip emits kbd` });
+  const tree = parse(source, { sourceType: 'module', plugins: ['typescript', 'jsx'] });
+  const fromRegistry = node => node?.type === 'CallExpression' && node.callee.type === 'Identifier' && node.callee.name === 'ariaChord';
+  traverse(tree, {
+    JSXOpeningElement(path) {
+      if (path.node.name.name === 'kbd' && file !== 'keys/KeyChip.tsx') fail(path.node);
+    },
+    JSXAttribute(path) {
+      if (path.node.name.name === 'aria-keyshortcuts' && !fromRegistry(path.node.value?.expression)) fail(path.node);
+    },
+    ObjectProperty(path) {
+      if (keyOf(path.node.key) === 'aria-keyshortcuts' && !fromRegistry(path.node.value)) fail(path.node);
+    },
+  });
+
+  return diagnostics;
+});

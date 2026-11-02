@@ -172,7 +172,7 @@ button[aria-disabled="true"] {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  font-family: var(--font-ui);
+  font-family: var(--font-mono);
   font-size: var(--text-row);
   font-weight: 400;
   color: var(--text);
@@ -263,4 +263,9 @@ button[aria-disabled="true"] {
 input:is(.todo-tick, [type="range"])[data-pressed="true"]:not(:disabled, [aria-disabled="true"]) {
   opacity: var(--press-opacity);
   transition: none;
+}
+
+/* U5557c: button text, including nested labels, shares the system mono stack. */
+button, button *, [role="button"], [role="button"] * {
+  font-family: var(--font-mono);
 }

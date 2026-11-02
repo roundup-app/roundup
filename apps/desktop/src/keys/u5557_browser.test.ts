@@ -1,0 +1,68 @@
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterAll, beforeAll, expect, it } from "vitest";
+import { appServer, type AppServer } from "../testing/appServer";
+import { captureDir } from "../testing/captures";
+
+const exec = promisify(execFile);
+
+const profile = mkdtempSync(join(tmpdir(), "u5557-"));
+
+const session = `u5557-${process.pid}`;
+
+let server: AppServer;
+
+const browser = async (...args: string[]) => (await exec("agent-browser", ["--session", session, "--json", ...args], { maxBuffer: 8 * 1024 * 1024, timeout: 25_000 })).stdout;
+
+const read = async (expression: string) => {
+  // SAFETY: agent-browser supplies the envelope for these constant observer expressions.
+  const reply = JSON.parse(await browser("eval", expression)) as { success: boolean; data: { result: unknown }; error?: string };
+
+  if (!reply.success) throw new Error(reply.error);
+
+  return reply.data.result;
+};
+
+beforeAll(async () => {
+  server = await appServer();
+  const ready = await fetch(new URL("/__roundup_ready", server.resolvedUrls.local[0]!));
+
+  if (!ready.ok) throw new Error(await ready.text());
+  await browser("--profile", profile, "open", new URL("/harness.html?seed=empty-project", server.resolvedUrls.local[0]!).href);
+  await browser("set", "viewport", "1512", "950");
+  await browser("set", "media", "dark");
+}, 90_000);
+
+afterAll(async () => {
+  try { await browser("close"); }
+  finally { await server?.close(); await rm(profile, { recursive: true, force: true, maxRetries: 5 }); }
+});
+
+it("u5557b_every_chip_uses_keychip", async () => {
+  for (const seed of ["empty-project", "first-run", "tree-40"]) {
+    await browser("open", new URL(`/harness.html?seed=${seed}`, server.resolvedUrls.local[0]!).href);
+    await browser("wait", "--fn", seed === "first-run" ? `!!document.querySelector('.choose-project kbd')` : `!!window.__fake && !!document.querySelector('.rail-actions kbd')`);
+
+    if (seed === "tree-40") {
+      await read(`window.__fake.failNext(-32003, 'Could not start the Agent. Try again.'); document.querySelector('.rail-actions [aria-label="New Agent"]').click()`);
+      await browser("wait", "--fn", `!!document.querySelector('.rail-command-notice [role="alert"], .rail-command-notice.ink')?.textContent`);
+      await browser("press", "?");
+      await browser("wait", "--fn", `!!document.querySelector('.help kbd')`);
+    }
+
+    expect(await read(`Array.from(document.querySelectorAll('kbd')).every(chip => chip.classList.contains('key-chip'))`)).toBe(true);
+
+    for (const id of ["U5557a", "U5557c"]) {
+      const dir = captureDir(id);
+
+      if (!dir) continue;
+      mkdirSync(join(dir, "head"), { recursive: true });
+      await browser("screenshot", join(dir, `head/${seed}.png`));
+      writeFileSync(join(dir, `head/${seed}.checks.json`), JSON.stringify(await read("window.__checks()"), null, 2));
+    }
+  }
+}, 90_000);
