@@ -251,7 +251,7 @@ for (const path of ["ask", "switcher", "rail-name", "todo-title"]) {
 
 it.each([true, false])("u3756b_changed_files_read_and_library_readiness_respect_focus_permission_%s", async intervene => {
   await fresh("resources");
-  // A preceding case can restore this Agent and mount its panel before the read handlers are installed.
+  // A reload can restore the preceding Agent selection; install handlers before mounting the tested Worktree panel.
   await browser("click", '[data-id="bare-agent"] .name');
   await wait(`document.querySelector('.rail-row[data-id="bare-agent"]')?.dataset.selected === 'true'`);
   await read(`(() => {
