@@ -13,7 +13,7 @@ afterEach(() => { cleanup(); localStorage.clear(); sessionStorage.clear(); vi.un
 
 const mount = async (kind = "shell") => {
   vi.stubGlobal("matchMedia", () => ({ matches: false, addListener() {}, removeListener() {}, addEventListener() {}, removeEventListener() {} }));
-  const { app, connected } = await connectFakeProject([kind === "agent" ? node("a") : kind === "door" ? door("a") : terminal("a"), terminal("b")], [info("t-a"), info("t-b")]);
+  const { app, connected } = await connectFakeProject([kind === "agent" ? node("a") : kind === "door" ? door("a", "idle", "ready") : terminal("a"), terminal("b")], [info("t-a"), info("t-b")]);
   const real = createXtermEmulators(undefined, () => ({ activate() {}, dispose() {}, onContextLoss() { return { dispose() {} }; } }));
   const emulators = new Map<string, ReturnType<typeof real>>();
   let screens!: Screens;
