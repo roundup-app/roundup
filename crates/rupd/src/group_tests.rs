@@ -246,7 +246,11 @@ async fn u5690c_group_is_not_an_agent_and_workstream_removal_keeps_its_default_c
         .await;
         assert_eq!(
             reply["error"]["code"],
-            rpc::code::CONFLICT,
+            if method == "agent.run" {
+                rpc::code::INVALID_PARAMS
+            } else {
+                rpc::code::CONFLICT
+            },
             "{method}: {reply}"
         );
     }
