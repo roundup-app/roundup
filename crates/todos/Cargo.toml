@@ -16,6 +16,7 @@ rusqlite.workspace = true
 rusqlite_migration.workspace = true
 
 [dev-dependencies]
+rusqlite = { workspace = true, features = ["trace"] }
 tempfile.workspace = true
 tokio.workspace = true
 
