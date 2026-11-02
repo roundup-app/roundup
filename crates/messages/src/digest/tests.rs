@@ -683,6 +683,7 @@ fn a5482c_non_door_coordinator_receives_the_fallback() {
         (
             format!("{attempt}:1"),
             10,
+            20,
             "Should I publish three pages or five".into(),
         ),
     );
@@ -700,6 +701,69 @@ fn a5482c_non_door_coordinator_receives_the_fallback() {
         seen.ask(&Actor::user(), "m", &from).unwrap_err().code,
         rpc::code::CONFLICT
     );
+}
+
+#[test]
+fn b5519a_a_later_turn_note_replaces_the_previous_final_text() {
+    for (pushed, since) in [(false, 30), (true, 30), (false, 60), (true, 60)] {
+        let mut nodes = rail();
+        nodes[1].status = Some(Status {
+            // A same-turn permission prompt can advance Status after the note.
+            since,
+            finished: "1".into(),
+            ..status(Kind::Working, "reading page two")
+        });
+        let attempt = nodes[1].attempt.clone().unwrap();
+        let seen = Seen::default();
+        let notes = [sent(40, "a", "m", "starting page two")];
+        let mut from = sources(&nodes, &[], &[], &[]);
+        from.completed.insert(
+            "a".into(),
+            (format!("{attempt}:1"), 10, 20, "Done with page one".into()),
+        );
+        seen.baseline(&from);
+        from.messages = &notes;
+        let entry = if pushed {
+            // Progress alone is silent; an open Todo makes the next push eligible (B21).
+            assert!(seen.changed(&from).is_empty());
+            let todos = [todo(1, "a", false)];
+            from.todos = &todos;
+            let pushes = seen.changed(&from);
+            assert_eq!(pushes.len(), 1);
+            assert_eq!(pushes[0].subagent(), "a");
+            assert_eq!(pushes[0].meta, "m");
+            pushes[0].entry.clone()
+        } else {
+            let caller = Actor {
+                kind: ActorKind::Agent,
+                id: "m".into(),
+                parent: None,
+            };
+            let digest = seen.ask(&caller, "m", &from).unwrap();
+            entries(&digest.children)[0].clone()
+        };
+        assert_eq!(entry.name, "a-name");
+        assert_eq!(entry.last, "starting page two", "pushed={pushed}");
+    }
+}
+
+#[test]
+fn b5519a_the_next_completed_turn_replaces_its_progress_note() {
+    let mut nodes = rail();
+    nodes[1].status = Some(Status {
+        since: 50,
+        finished: "2".into(),
+        ..status(Kind::Idle, "idle")
+    });
+    let attempt = nodes[1].attempt.clone().unwrap();
+    let notes = [sent(40, "a", "m", "starting page two")];
+    let mut from = sources(&nodes, &[], &[], &notes);
+    from.completed.insert(
+        "a".into(),
+        (format!("{attempt}:2"), 30, 50, "Done with page two".into()),
+    );
+    let digest = Seen::default().ask(&Actor::user(), "m", &from).unwrap();
+    assert_eq!(entries(&digest.children)[0].last, "Done with page two");
 }
 
 #[test]
