@@ -35,6 +35,7 @@ const opening = async (failed: "comments" | "history", count: number, unread = 1
   fireEvent.keyDown(row, { key: "Enter", code: "Enter" });
   await screen.findByRole("textbox", { name: "Write a comment" });
   await screen.findByRole("alert");
+  fireEvent.click(await screen.findByRole("button", { name: /^Activity · / }));
 
   return m;
 };

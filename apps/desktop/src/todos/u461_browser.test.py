@@ -113,6 +113,7 @@ def fake():
         wait('Boolean(window.__fake && document.querySelector("[data-id=\\"5\\"] .row-head button"))')
         evaluate(setup)
         wait('Boolean(document.querySelector(".todo-comments"))')
+        evaluate("(() => { const line = document.querySelector('.todo-history-line'); if (line?.getAttribute('aria-expanded') === 'false') line.click(); })()")
         wait('Boolean(document.querySelector("[data-change]"))')
         evaluate('(async()=>{await document.fonts.ready;await Promise.all(document.querySelector(".drawer").getAnimations().map(a=>a.finished));})()')
         evaluate('window.__fake.failNext(-32003,"Unable to complete this Todo")')
@@ -173,6 +174,7 @@ def real():
     wait('Boolean(document.querySelector("[data-todo=\\"1\\"] button"))')
     evaluate('document.querySelector("[data-todo=\\"1\\"] button").click()')
     wait('Boolean(document.querySelector(".todo-comments"))')
+    evaluate("(() => { const line = document.querySelector('.todo-history-line'); if (line?.getAttribute('aria-expanded') === 'false') line.click(); })()")
     wait('Boolean(document.querySelector("[data-change]"))')
     evaluate("(async()=>{let h;do{h=await window.__u462rpc('todo.getHistory',{id:1});if(h.unread!==null)await new Promise(requestAnimationFrame)}while(h.unread!==null);})()")
     browser('click', '.drawer .close')
@@ -185,6 +187,7 @@ def real():
     evaluate('document.querySelector("[data-todo=\\"1\\"] button").click()')
     wait('Boolean(document.querySelector(".todo-comments"))')
     # Unread changes show as a state mark on the collapsed count; opening reads them.
+    evaluate("(() => { const line = document.querySelector('.todo-history-line'); if (line?.getAttribute('aria-expanded') === 'false') line.click(); })()")
     wait('document.querySelectorAll("[data-change]").length>=6')
     result = evaluate(reading)
     history = evaluate("(async()=> (await window.__u462rpc('todo.getHistory',{id:1})).changes.map(c=>[c.after.title,c.after.done,c.after.blockers]))()")
@@ -197,6 +200,7 @@ def reopen_fake():
     wait('Boolean(window.__fake && document.querySelector("[data-id=\\"5\\"] .row-head button"))')
     evaluate(setup)
     wait('Boolean(document.querySelector(".todo-comments"))')
+    evaluate("(() => { const line = document.querySelector('.todo-history-line'); if (line?.getAttribute('aria-expanded') === 'false') line.click(); })()")
     wait('Boolean(document.querySelector("[data-change]"))')
     baseline_checks = evaluate('window.__checks()')
     save('U461a', 'open-before-reopen-1512-dark', evaluate(reading))
@@ -316,6 +320,7 @@ def real_reopen():
     writes = [t for t in evaluate("window.__u462rpc('provenance.history',{item:'todo:1'})") if t['verb'] == 'wrote']
     assert writes[-1]['actor'] == last['actor'] and writes[-3]['actor'] == user['actor'], writes
     assert evaluate("window.__u462rpc('todo.get',{id:3})")['blocked']
+    evaluate("(() => { const line = document.querySelector('.todo-history-line'); if (line?.getAttribute('aria-expanded') === 'false') line.click(); })()")
     wait('document.querySelectorAll("[data-change]").length===7')
     evaluate('(async()=>{await Promise.allSettled(document.querySelector(".drawer").getAnimations({subtree:true}).filter(a=>a.effect.getComputedTiming().iterations!==Infinity).map(a=>a.finished));})()')
     save('U461a', 'real-daemon-user-and-agent-reopened', evaluate(reading))
@@ -339,6 +344,7 @@ def restarted():
     evaluate("[...document.querySelectorAll('button')].find(b=>b.textContent.trim()==='1 done')?.click()")
     wait('Boolean(document.querySelector("[data-todo=\\"1\\"] button"))')
     evaluate('document.querySelector("[data-todo=\\"1\\"] button").click()')
+    evaluate("(() => { const line = document.querySelector('.todo-history-line'); if (line?.getAttribute('aria-expanded') === 'false') line.click(); })()")
     wait('document.querySelectorAll("[data-change]").length===7')
     result = evaluate(reading)
     assert result['history'][-1] == 'Open' and 'Changed body\nSecond line' in result['history'][1], result
@@ -363,6 +369,7 @@ def u461b_capture_requires_observed_emulation():
     open_page(origin + '/harness.html?seed=tree-40')
     wait('Boolean(window.__fake && document.querySelector(".rail"))')
     evaluate(setup)
+    evaluate("(() => { const line = document.querySelector('.todo-history-line'); if (line?.getAttribute('aria-expanded') === 'false') line.click(); })()")
     wait('Boolean(document.querySelector("[data-change]"))')
     evaluate('window.__fake.failNext(-32003,"Unable to complete this Todo")')
     browser('click', '.drawer input[type=checkbox]')
@@ -384,6 +391,7 @@ def u3728_drawer():
     evaluate('(async()=>{await document.fonts.ready;await Promise.all(document.querySelector(".drawer").getAnimations().map(a=>a.finished));})()')
     collapsed = evaluate(reading)
     save('U3728', 'collapsed-1512-dark', collapsed)
+    evaluate("(() => { const line = document.querySelector('.todo-history-line'); if (line?.getAttribute('aria-expanded') === 'false') line.click(); })()")
     wait('Boolean(document.querySelector("[data-change]"))')
     opened = evaluate(reading)
     save('U3728', 'entries-1512-dark', opened)

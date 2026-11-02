@@ -72,6 +72,7 @@ export const TodoComments = (props: { id: number; onSent?: ((focus: ReturnType<t
   };
 
   createEffect(() => onCleanup(drafts.editor({ surface: "todos", object: String(props.id), recipient: "comment" })));
+  const [activityOpen, setActivityOpen] = createSignal(false);
   const [expanded, setExpanded] = createSignal(false);
   const [commentsLoaded, setCommentsLoaded] = createSignal(false);
 
@@ -81,7 +82,7 @@ export const TodoComments = (props: { id: number; onSent?: ((focus: ReturnType<t
   let initialized = false;
 
   const history = createTodoHistory({ get id() { return props.id; }, saved: props.saved, onCapture: props.onCapture,
-    exposed: () => entries().length >= 0 && initialized && (expanded() || history.unreadOpening().every(change => !older().some(entry => "change" in entry && entry.change.seq === change.seq))) });
+    exposed: () => activityOpen() && entries().length >= 0 && initialized && (expanded() || history.unreadOpening().every(change => !older().some(entry => "change" in entry && entry.change.seq === change.seq))) });
 
   const compare = (a: Entry, b: Entry) => a.at - b.at || Number("comment" in a) - Number("comment" in b) || a.seq - b.seq;
 
@@ -135,7 +136,7 @@ export const TodoComments = (props: { id: number; onSent?: ((focus: ReturnType<t
     if (alive && mine === latest && id === props.id) setFailure(message);
   };
 
-  createEffect(on(() => props.id, () => { setThread(reconcile([], byId)); setAnnouncement(""); shown = null; setFailure(null); setSendFailure(null); setCommentsLoaded(false); initialized = false; cutoff = undefined; setExpanded(false); void refresh(); }));
+  createEffect(on(() => props.id, () => { setThread(reconcile([], byId)); setAnnouncement(""); shown = null; setFailure(null); setSendFailure(null); setCommentsLoaded(false); initialized = false; cutoff = undefined; setExpanded(false); setActivityOpen(false); void refresh(); }));
   onCleanup(events.subscribe((event) => {
     if (doesClearTodoFailure(event, props.id)) setSendFailure(null);
 
@@ -197,14 +198,18 @@ export const TodoComments = (props: { id: number; onSent?: ((focus: ReturnType<t
     </div>;
 
   return <section class="todo-comments" aria-label={copy.activity}>
-    <div class="todo-activity-head"><h3>{copy.activity}</h3>{history.copy}</div>
+    <Collapsible.Root lazyMount unmountOnExit open={activityOpen()} onOpenChange={details => setActivityOpen(details.open)}>
+    <div class="todo-activity-head"><Collapsible.Trigger data-button="quiet" class="word todo-history-line"><Icon name={activityOpen() ? "down" : "right"} />{copy.activityCount(entries().length)}</Collapsible.Trigger>{history.copy}</div>
     {history.feedback}
     <ReservedLine message={failure()}><button data-button="quiet" class="word" type="button" onMouseDown={event => event.preventDefault()} onClick={() => void refresh()}>{copy.commentRetry}</button><button data-dismiss-failure onMouseDown={event => event.preventDefault()} data-button="quiet" class="word" type="button" onClick={() => setFailure(null)}>{copy.dismissFailure}</button></ReservedLine>
+    <Collapsible.Content>
     <Collapsible.Root lazyMount open={expanded()} onOpenChange={details => setExpanded(details.open)}>
       <Show when={older().length > 0}><Collapsible.Trigger data-button="quiet" class="word todo-older">{copy.olderActivity(older().length)}</Collapsible.Trigger></Show>
       <Collapsible.Content class="todo-activity-entries"><For each={older()}>{renderEntry}</For></Collapsible.Content>
     </Collapsible.Root>
     <div class="todo-activity-entries"><For each={recent()}>{renderEntry}</For></div>
+    </Collapsible.Content>
+    </Collapsible.Root>
     <ReservedLine class="todo-comments-live" status={announcement()} aria-live="polite" aria-atomic="true" />
     <div class="todo-composer"><span class="todo-composer-actor" aria-hidden="true"><Icon name="circle" /></span><textarea spellcheck={false} autocorrect="off" autocapitalize="off" class="todo-comment-field" rows={2} aria-label={copy.commentField} placeholder={copy.commentPlaceholder} value={text()}
       ref={(element) => { field = element; }}
