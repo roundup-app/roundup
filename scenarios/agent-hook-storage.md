@@ -33,6 +33,7 @@ Policy: determine completion changes where `ClaudeCode` accepts a Stop and retur
 | --- | --- | --- |
 | Unrelated string before a top-level peer origin for Message 7, and another after it | `[7]` | End of file |
 | Unrelated string before and after `attachment.origin` for Message 7, within the attachment, with no top-level origin | `[7]` | End of file |
+| Unrelated string fields within the top-level or attachment origin object, before or after its `kind`/`msg_id` fields (each form and order) | `[7]` | End of file |
 | Top-level non-peer origin object and attachment peer origin for Message 7, with oversized unrelated content | `[]` | End of file |
 | Top-level peer origin for Message 7 and attachment peer origin for Message 11, with oversized unrelated content | `[7]` | End of file |
 | Top-level `origin: null`, attachment peer origin for Message 7, with oversized unrelated content | `[7]` | End of file |
