@@ -21,7 +21,7 @@ afterAll(async () => { await page?.close(); });
 const open = async (): Promise<void> => {
   await page.scheme("dark", mode === "contrast" ? "more" : undefined, mode === "transparency" ? "transparency" : undefined);
   await page.load("/harness.html?view=workstreams&items=1&tabs=1&seed=bubbles", 1512, 950);
-  await page.until(`() => Boolean(window.__fake)`);
+  await page.until(`() => Boolean(window.__fake && document.querySelector('[data-id="runner"]'))`);
   await capture("before");
   await page.call(`() => document.querySelector('[data-id="runner"]').click()`);
   await page.until(`() => document.querySelector('button.terminal-tab')`);
