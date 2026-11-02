@@ -43,6 +43,7 @@ export const headingFolds = () => {
           }
 
           if (!heading) return;
+          decorations.push(Decoration.node(pos, pos + node.nodeSize, { "aria-label": node.textContent }));
           decorations.push(Decoration.widget(pos + 1, (view, getPos) => {
             const dom = document.createElement("details");
             dom.dataset.padHeading = "";
