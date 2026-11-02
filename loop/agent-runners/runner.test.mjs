@@ -11,13 +11,13 @@ import { serve } from './runner.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
-async function fixture(t, branch = 'main', kind = 'build') {
+async function fixture(t, branch = 'main', kind = 'build', { workflow = kind, scope = 11, issue } = {}) {
   const directory = mkdtempSync(join(tmpdir(), 'roundup-boxd-'));
   const provider = join(directory, 'provider.json');
 
   const initial = { jobs: { 23: { id: 23, status: 'queued' } },
     run: { head_repository: { full_name: 'owner/repo' }, head_branch: branch,
-      path: `.github/workflows/${kind}.yml`, event: 'workflow_dispatch', run_attempt: 1 },
+      path: `.github/workflows/${workflow}.yml`, event: 'workflow_dispatch', run_attempt: 1 },
     machines: [], runners: [], creates: 0, removes: 0 };
 
   writeFileSync(provider, JSON.stringify(initial));
@@ -55,6 +55,7 @@ else if(args[1]==='new'){
  if(script.includes('agent.py register')){
   const given=JSON.parse(readFileSync(join(base,'tmp/registration.json'),'utf8'));state.runners.push({id:23,name:given.name,labels:[given.label]});save();
  }else if(script.includes('agent.py seed')){
+  state.seeds=(state.seeds??0)+1;save();
   const result=spawnSync('python3',[helper,'restore',join(base,'tmp/roundup-memory.tar.gz'),join(base,'home/boxd/.roundup-ci')]);process.exitCode=result.status;
  }else if(script.includes('memory.py pack')){
   if(state.failPack)process.exitCode=1;
@@ -82,7 +83,7 @@ else if(args[1]==='new'){
 
   const send = async (action, id = 23, signature = true) => {
     const body = JSON.stringify({ action, repository: { full_name: 'owner/repo' },
-      workflow_job: { id, run_id: 7, labels: ['self-hosted', 'boxd', `roundup-${kind}-11-7-1`] } });
+      workflow_job: { id, run_id: 7, labels: ['self-hosted', 'boxd', `roundup-${kind}-${scope}-7-1${issue ? `-${issue}` : ''}`] } });
 
     return fetch(`${base()}/api/github/webhooks`, { method: 'POST', body,
       headers: { 'content-type': 'application/json', 'x-github-event': 'workflow_job',
@@ -122,6 +123,25 @@ test('L121 an invalid webhook signature cannot provision a machine', async t => 
 
 test('L121 a signed event from an untrusted ref cannot provision a machine', async t => {
   const f = await fixture(t, 'attacker-branch');
+  await f.send('queued');
+  await until(f.health, health => health.jobs.rejected === 1);
+  assert.equal(f.read().creates, 0);
+});
+
+test('L121 a light job runs on boxd from its own workflow with no memory and keeps its diagnostics', async t => {
+  const f = await fixture(t, 'main', 'light', { workflow: 'build', scope: 'after', issue: 31 });
+  await f.send('queued');
+  await until(f.health, health => health.jobs.online === 1);
+  f.update(provider => { provider.jobs[23].status = 'completed'; });
+  await f.send('completed');
+  await until(f.health, health => health.jobs.done === 1);
+  assert.equal(f.read().seeds, undefined);
+  assert.equal(f.read().removes, 1);
+  assert.ok(existsSync(join(f.directory, 'controller', 'diagnostics', '23', 'runner.tar.gz')));
+});
+
+test('L121 a light label from a workflow outside its job cannot provision a machine', async t => {
+  const f = await fixture(t, 'main', 'light', { workflow: 'check', scope: 'task' });
   await f.send('queued');
   await until(f.health, health => health.jobs.rejected === 1);
   assert.equal(f.read().creates, 0);

@@ -30,7 +30,7 @@ jobs:
       github.event.workflow_run.display_title != 'Draft check' &&
       github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'pull_request' &&
       github.event.workflow_run.head_repository.full_name == github.repository
-    runs-on: ubuntu-24.04
+    runs-on: ${{ fromJSON(vars.BOXD_LIGHT == '1' && format('["self-hosted","boxd","roundup-light-task-{0}-{1}"]', github.run_id, github.run_attempt) || '["ubuntu-24.04"]') }}
     # L24: an unchanged diff keeps its approval here (`carried`), which sets the `review` status.
     permissions:
       contents: read
@@ -158,7 +158,7 @@ jobs:
   post:
     needs: [task, review-run]
     if: ${{ !cancelled() && needs.task.outputs.pr != '' }}
-    runs-on: ubuntu-24.04
+    runs-on: ${{ fromJSON(vars.BOXD_LIGHT == '1' && format('["self-hosted","boxd","roundup-light-post-{0}-{1}"]', github.run_id, github.run_attempt) || '["ubuntu-24.04"]') }}
     permissions:
       actions: write
       contents: read
