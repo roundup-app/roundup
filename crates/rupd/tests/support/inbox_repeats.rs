@@ -114,6 +114,7 @@ impl Delivery {
         )
         .unwrap();
         messages.set_inbox(peer.clone());
+        messages.listen();
         messages
     }
     fn reopen(&mut self) {
