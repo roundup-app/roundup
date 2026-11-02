@@ -34,10 +34,20 @@ class WebShards(unittest.TestCase):
 class Identity(unittest.TestCase):
     def test_l121_each_admitted_label_kind_registers_the_job_that_carries_it(self):
         workflows = Path(__file__).resolve().parents[2] / '.github/workflows'
-        kinds = re.search(r'const LABEL = /\^roundup-\(([a-z|]+)\)-', Path(__file__).with_name('runner.mjs').read_text())[1]
-        for kind in kinds.split('|'):
-            job = re.compile(rf'^  {agent.JOBS.get(kind)}:\n(?:    .*\n)*?    runs-on: .*roundup-{kind}-', re.M)
-            self.assertTrue(any(job.search(path.read_text()) for path in workflows.glob('*.yml')), kind)
+        runner = Path(__file__).with_name('runner.mjs').read_text()
+        kinds = re.search(r'const LABEL = /\^roundup-\(([a-z|]+)\)-', runner)[1].split('|')
+        light = re.findall(r'(\w+): \[', re.search(r'const LIGHT = \{(.*?)\};', runner, re.S)[1])
+        jobs = [(agent.JOBS[kind], kind) for kind in kinds if kind != 'light'] + [(job, f'light-{job}') for job in light]
+        for job, label in jobs:
+            carrier = re.compile(rf'^  {job}:\n(?:    .*\n)*?    runs-on: .*roundup-{label}-', re.M)
+            self.assertTrue(any(carrier.search(path.read_text()) for path in workflows.glob('*.yml')), label)
+
+    def test_l121_each_job_a_run_holds_once_per_issue_labels_its_runner_with_that_issue(self):
+        workflow = (Path(__file__).resolve().parents[2] / '.github/workflows/build-issue.yml').read_text()
+        labels = [line for line in workflow.splitlines() if 'runs-on:' in line and '"boxd"' in line]
+        self.assertGreater(len(labels), 1)
+        for line in labels:
+            self.assertIn('inputs.issue', line)
 
 
 class Memory(unittest.TestCase):

@@ -935,3 +935,6 @@ fn pad_state(
     }
     pads::source_state(db, id)
 }
+
+#[cfg(test)]
+mod observation;
