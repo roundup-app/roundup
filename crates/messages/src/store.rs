@@ -62,9 +62,7 @@ impl Store {
         let mut db = Connection::open(path)?;
         db.pragma_update(None, "journal_mode", "WAL")?;
         crate::schema::open(&mut db, path)?;
-        let store = Self { db };
-        store.migrate_removed_holds()?;
-        Ok(store)
+        Ok(Self { db })
     }
 
     pub(crate) fn record_sender_name(&self, agent: &str, name: &str) -> Result<(), RpcError> {
@@ -279,37 +277,6 @@ impl Store {
             .map_err(RpcError::internal)
     }
 
-    /// B3563e: a Project written before holds were removed reopens without them. A Message
-    /// waiting on a user release is `pending` again, in id order behind what already waits, and
-    /// one waiting on the user's answer is available to the user; an approval Route is `auto`;
-    /// a stored Reason on a live Message is cleared. Terminal rows and their ids never change.
-    fn migrate_removed_holds(&self) -> rusqlite::Result<()> {
-        let base: i64 =
-            self.db
-                .query_row("SELECT COALESCE(MAX(rank), 0) FROM messages", [], |r| {
-                    r.get(0)
-                })?;
-        self.db.execute(
-            "UPDATE messages SET status = 'delivered', reason = NULL
-             WHERE status NOT IN ('pending', 'delivered', 'dropped') AND to_id = 'you'",
-            [],
-        )?;
-        self.db.execute(
-            "UPDATE messages SET status = 'pending', reason = NULL, rank = ?1 + id
-             WHERE status NOT IN ('pending', 'delivered', 'dropped')",
-            [base],
-        )?;
-        self.db.execute(
-            "UPDATE messages SET reason = NULL WHERE status IN ('pending', 'delivered') AND reason IS NOT NULL",
-            [],
-        )?;
-        self.db.execute(
-            "UPDATE routes SET delivery = 'auto' WHERE delivery NOT IN ('auto', 'drop')",
-            [],
-        )?;
-        Ok(())
-    }
-
     /// Runs `f` as one SQLite transaction: its writes all land or none do, so a kill between two
     /// of them never leaves the Store half-written (B8).
     pub(crate) fn atomically<T>(
@@ -382,6 +349,26 @@ impl Store {
         let mut thread = self.list()?;
         thread.retain(|m| m.to == door || m.from.id == door);
         Ok(thread)
+    }
+
+    /// Delivered digest history only, in Message-id order (B5640a).
+    pub(crate) fn delivered_to(&self, to: &str) -> Result<Vec<Message>, RpcError> {
+        self.db
+            .prepare(
+                "SELECT id, from_actor, to_id, kind, body, reply_to, status, reason, at
+                 FROM messages WHERE to_id = ?1 AND status = 'delivered'
+                   AND json_extract(from_actor, '$.kind') = ?2
+                   AND json_extract(from_actor, '$.id') = ?3
+                   AND json_extract(from_actor, '$.parent') IS NULL
+                   AND substr(body, 1, 8) = '[digest]'
+                 ORDER BY id",
+            )
+            .and_then(|mut stmt| {
+                let daemon = Actor::daemon();
+                stmt.query_map(params![to, text_of(daemon.kind), daemon.id], row_to_message)?
+                    .collect()
+            })
+            .map_err(RpcError::internal)
     }
 
     pub(crate) fn get(&self, id: u32) -> Result<Option<Message>, RpcError> {
@@ -866,7 +853,12 @@ fn row_to_wake(row: &rusqlite::Row<'_>) -> rusqlite::Result<Wake> {
     })
 }
 
+#[cfg(test)]
+thread_local! { static MATERIALIZED: std::cell::Cell<usize> = const { std::cell::Cell::new(0) }; }
+
 fn row_to_message(row: &rusqlite::Row<'_>) -> rusqlite::Result<Message> {
+    #[cfg(test)]
+    MATERIALIZED.set(MATERIALIZED.get() + 1);
     let from: String = row.get(1)?;
     Ok(Message {
         id: row.get(0)?,

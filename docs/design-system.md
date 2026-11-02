@@ -52,7 +52,7 @@ Starting values. The thresholds in the checks are fixed; a value that fails a th
 | `--elevation-ring` | `0 0 0 .5px rgba(0,0,0,.16)` | `0 0 0 .5px rgba(255,255,255,.20)` | the floating surface edge; never a focus or control ring |
 | `--elevation` | `var(--elevation-ring), var(--elevation-contact), var(--elevation-ambient)` | same | one shared recipe for the Drawer, Shelf, floating surfaces and Terminal Bubble |
 | `--shadow-scroll` | `inset 0 8px 8px -8px rgba(0,0,0,.18)` | `inset 0 8px 8px -8px rgba(0,0,0,.6)` | a Shelf list's clipped edge (U371) and the Rail tree's top edge beneath the pinned Overview band (U2716a) |
-| `--row-text-inset` | `32px` | same | U131 title inset, including leading slots; currently shared by Shelf rows and Terminal tabs, with Rail integration pending; U5147d moves their first text to 44 CSS px from the panel edge |
+| `--row-text-inset` | `44px` | same | U131 title inset, including leading slots; the distance from the panel edge to first text, shared by Rail, Shelf rows and Terminal tabs (U5147d) |
 | `--flat-tab-edge` | `1px` | same | the shared flat tab's border or inactive spacer; included in U131's Terminal title inset |
 | `--length-zero` | `0px` | same | typed zero for length calculations, gradients and fallbacks |
 | `--hairline-width` / `--stroke-width` / `--tick-border-width` | `1px` / `2px` / `1.5px` | same | hairlines, placement marks and the Ask tick |
@@ -65,7 +65,7 @@ Starting values. The thresholds in the checks are fixed; a value that fails a th
 | `--duration-instant` | `0s` | same | instant press feedback, keyboard paths and reduced motion |
 | `--centre-min-width` | `388px` | same | the centre floor and Shelf reservation threshold (U371, U389) |
 | `--shelf-width` | `320px` | same | the open Shelf's width (U371; #622 makes it resizable) |
-| `--text-pad-subheading` / `--text-pad-heading` | `20px` / `24px` | same | rendered and formatted Pad headings |
+| `--text-pad-subheading` / `--text-pad-heading` | `20px` / `24px` | same | legacy Todo headings and Pad document title |
 | `--radius-row` / `--radius-control` / `--radius-drawer` | `6px` / `6px` / `12px` | same | selection band, buttons, Drawer, Terminal bubble (U523) |
 | `--easing-out` | `cubic-bezier(0.32, 0.72, 0, 1)` | same | every eased motion (`docs/motion.md`, U2579a) |
 | `--duration-drawer` | `250ms` | same | the Drawer's slide in and out (`docs/motion.md`, M3 duration target; U3010b's 250 ms spring target) |
@@ -88,13 +88,17 @@ Type: `--font-ui` is `-apple-system, BlinkMacSystemFont, "SF Pro Text", system-u
 
 The App inherits `--font-ui`; code, paths, diffs, ids and token counts select `--font-mono`; Terminal output selects `--font-terminal`. `--mono` aliases `--font-mono` in the Token file. Static interface typography uses the listed type steps. U102’s user-adjustable Terminal font starts at `--text-terminal` and changes in 1 px increments within `--text-terminal-min` and `--text-terminal-max`; this scale applies only to the Terminal, not the Rail or other interface text.
 
-Pad prose uses `--text-title` (15 px). Its `--text-pad-subheading` (20 px) and `--text-pad-heading` (24 px) steps apply only to rendered and formatted Pad headings, in both colour schemes; source and code stay mono at `--text-body`. A Pad's reading and editing views use the same steps.
+U5574 Pad documents use `--pad-text-body` B = 15 px × interface scale and `--pad-type-ratio` r = 1.125. `--pad-text-small` is B/r; h4, h3, h2 and h1 are B×r through B×r⁴ (16.875, 18.984375, 21.357421875 and 24.027099609375 px at default scale). h5/h6 keep the h4 role. Code uses the small step and the existing monospace font; cells use body. These roles apply to the Pad drawer's editor and its read-only binding. Todo, metadata, toolbar, document title and Terminal retain their previous roles.
+
+`--pad-rhythm` is 4 px × interface scale. Named integer steps: item gap 1, heading-after/cell-block 2, cell-inline/code inset 3, block gap 4, section-before 8. Body and h4/h3 line boxes are 6 units; h2 is 7 and h1 is 8, giving tighter heading leading than body. Empty paragraphs, headings and code blocks retain their source node and native caret with zero height and inter-block margin; empty code also has zero block padding. Placeholder text does not paint over the following block; source is never removed. First blocks have no preceding section gap. D2 admits only these modular sizes and rhythm steps within Pad document descendants, alongside existing interface steps.
+
+`--pad-reading-width` includes a 54ch prose column plus existing gutters. The rendered observer records actual full-line strings/counts; the critic judges 60–75 characters at reading width. Narrow drawers use available room. Paragraphs use pretty wrapping and headings balance wrapping, with native fallback. U5560a Wide/Full remain measure exceptions when implemented.
 
 The reserved message line (`--line`) is 24 px in both schemes, including its actions. It stays mounted when empty; compact surfaces reserve an overlaid edge instead.
 
 Space: `--space-1` to `--space-6` are 4, 8, 12, 16, 24, 32 px. A Rail row is 28 px high. U2716a specifies a future pinned 40 px Overview band above the scrolling Rail tree, with `--space-3` inline inset, a 24 px icon tile and `--text-row` at weight 400; its count rides beside the name. `--measure` is `56rem`, the Thread's column width (D11).
 
-Mono is for the Terminal, paths, ids and code. Every other word is `--font-ui`.
+Mono is for the Terminal, paths, ids, code, button labels and key chips (#5557 implementation acceptance). Every other word is `--font-ui`.
 
 ## Colour
 
@@ -109,7 +113,7 @@ Kind has two carriers, a Glyph shape and a tone. The shape is enough on its own:
 | `idle` | `○` (empty ring; U401) | `--grey` | no |
 | `done` | `✓` (check in a disc; U401) | `--grey` | no |
 
-Outside U4464’s decorative scene and fixed primary-fill/key exceptions, three hues exist in the App: `--red`, `--amber`, `--accent`. Surfaces are neutral. A screen with no `error` and no `needs-you` shows no red and no amber.
+Outside U4464’s decorative scene (until U5163 makes it ground) and fixed primary-fill/key exceptions, three hues exist in the App: `--red`, `--amber`, `--accent`. Surfaces are neutral. A screen with no `error` and no `needs-you` shows no red and no amber.
 
 ## Click targets
 
@@ -170,7 +174,7 @@ Except D18 and D19, each check is measured from computed style and the DOM of th
 | Id | Passes when | Scenario |
 |---|---|---|
 | D1 | every computed colour, background, border-color, shadow, radius and duration is the value of a Token | U130 |
-| D2 | every static interface font size is a type step; U102 Terminal sizing uses its bounded Token-defined scale; every margin, padding and gap is `0` or a space step, except U2541 `kbd.key-chip`: zero vertical padding and 5 px on each side matching `--key-chip-padding` (D1 still requires Token-only declarations). This adds no general space step. Rail section alignment and grouping also satisfy the U4896 policy below. | U131, U4896 |
+| D2 | every static interface font size is a type step; U102 Terminal sizing uses its bounded Token-defined scale; every margin, padding and gap is `0` or a space step, except U2541 `kbd.key-chip`: zero vertical padding and 5 px on each side matching `--key-chip-padding` (D1 still requires Token-only declarations). #5557 adds only an intra-chip gap of `calc(var(--space-1) / 4)` between keys, not letters within key names. This adds no general space step. Rail section alignment and grouping also satisfy the U4896 policy below. | U131, U4896 |
 | D3 | every colour whose saturation exceeds 15% is `--red`, `--amber` or `--accent`; with no `error` or `needs-you` row on screen, no red or amber is drawn | U132 |
 | D4 | every Rail, Shelf and Drawer item row (not editor menu categories or commands) shows one of the six Glyphs for its Kind; no Kind is drawn by colour only | U132 |
 | D5 | text has at least 4.5:1 against its own ground, and a Glyph tone 3:1 (`done` is exempt as U4 says), in light and in dark | U4, U135 |
@@ -181,10 +185,10 @@ Except D18 and D19, each check is measured from computed style and the DOM of th
 | D10 | D1 to D9 hold in both colour schemes, in `prefers-contrast: more`, and at 1280 by 800 | U135 |
 | D11 | in the Thread, the column is at most `--measure` (`56rem`) wide, no rendered line holds more than 120 characters, and every row's text starts at one x within 1 px, at 1280 by 800 | U197 |
 | D12 | in each of the Shelf's `todos` and `pads` lists, after U3708's tree indent, the Glyphs' left x are within 1 px of one another; first words align within 1 px among tick-only rows and among rows with a Glyph column (U3726); every later line starts at its own title's left x within 1 px; across the App, every icon beside text meets U86's x-height centring policy below | U360, U3726, U86 |
-| D13 | in the Shelf, every text node is `--font-ui` unless it is an id, a path or code | U360 |
+| D13 | in the Shelf, every text node is `--font-ui` unless it is an id, a path, code, a button label or a key chip (#5557 acceptance) | U360 |
 | D14 | in the Shelf, no row has a fill, border or shadow at rest; the gaps between rows, from a head to its first row and between the two lists are space steps, equal across the lists; no title or name shows more than two lines or overflows its row | U360 |
 | D15 | all App-authored text and accessible names come from their surface’s copy module (root composition uses `app`), with multiply consumed values in dependency-free `src/sharedCopy.ts`; its entries and formatter branches use sentence case and `GLOSSARY.md` user labels, with explicit section-head, acronym and authored-value exemptions | U471, U472 |
-| D16 | in the Thread, every text node is `--font-ui` unless it is an id, a path or code, and no Agent name wraps | U425 |
+| D16 | in the Thread, every text node is `--font-ui` unless it is an id, a path, code, a button label or a key chip (#5557 acceptance), and no Agent name wraps | U425 |
 | D17 | A tooltip sits against the element under the pointer that owns it. | U2749 |
 | D18 | The design critic approves a greyscale contact sheet of all six production Kind Glyphs side by side at 16 px in both light and dark: idle/open ring, Blocked ring with a horizontal centre bar (⊖) in the same stroke and colour as the ring, working quarter, needs-you disc in a ring, error cross in a disc, done check in a disc. Every pair is distinguishable by shape without labels or colour; include three working-arc angles (U446). This is a critic-only visual Check, not a DOM or pixel-difference test. | U401 |
 | D19 | For every added or changed icon, the design critic approves its meaning against the complete icon/status inventory below: one glyph identifies one concept, and section-head icons share no bare circle/dot/square family with their rows' status marks. Inspect changed production icons at their rendered size beside neighbours in light and dark; labels and colour cannot rescue a shape collision. | U4898 |
@@ -198,7 +202,7 @@ This inventory records the U4898 implementation checkout, audited across all `Ic
 | Glyph / alternatives | Glossary term and meaning | Call sites / resolved providers |
 |---|---|---|
 | `bot` | Agent — section identity | `rail/Rail.tsx`, `sections` AGENTS |
-| `workflow` | Mode — section/create identity | `rail/Rail.tsx`, `sections` MODES and New Mode; `rail/RailRow.tsx`, `mode-mark` until U5147c removes it |
+| `workflow` | Mode — section/create identity | `rail/Rail.tsx`, `sections` MODES and New Mode |
 | `messages` | Workstream — section/create identity | `rail/Rail.tsx`, WORKSTREAMS and New Workstream |
 | `circle` | Agent — create action identity | `rail/Rail.tsx`, New Agent |
 | `layout-dashboard` | Project — overview navigation | `rail/Rail.tsx`, overview tile |
@@ -223,7 +227,7 @@ This inventory records the U4898 implementation checkout, audited across all `Ic
 | Counts / progress bars / state text | Status / Todo / Draft / Reaction / Deliverable — counts, progress and named states, not object icons | `rail/Rail.tsx`; `shelf/OwnerGroups.tsx`; `todos/Todos.tsx`, `todos/Capture.tsx`, `todos/CapturePanel.tsx`, `todos/EditableText.tsx`, `todos/TodoRefs.tsx`, `todos/TodoHistory.tsx`, `todos/TodoDrawer.tsx`; `ui/Progress.tsx`; `header/ProjectTab.tsx`; `drawer/DraftRecovery.tsx`; `pads/PadDrawer.tsx`; `reactions/Reactions.tsx`; `ask/AskRows.tsx`, `ask/AskBar.tsx`; `inbox/Inbox.tsx`; `bubbles/Bubbles.tsx` |
 | Direct Lucide `maximize` / `minimize` / `x` | Drawer / Shelf — resize / close actions | `drawer/DrawerHost.tsx`; `app/Layout.tsx` |
 | Direct `arrow-up-right`; `list-checks`; `grip-vertical` | Todo — open; Todo — triage; Pad order / Rail / Todo — reorder | `todos/OpenRow.tsx`; `todos/Todos.tsx`; `ui/sortable.tsx` |
-| Direct `hourglass`; `check` / `minus`; `chevron-down`; radio dot / switch thumb | App / Project — loading; Todo or form value — checked / mixed; form choice — disclosure; selected/on state | `App.tsx`, `ui/Deferred.tsx`; `ui/Checkbox.tsx`, `ui/Form.tsx`, `ui/Combobox.tsx`, `ui/Select.tsx`; `ui/RadioGroup.css`, `ui/Switch.css` |
+| Direct `hourglass`; `check` / `minus`; `chevron-down`; radio dot / switch thumb | App / Project — loading; Todo or form value — checked / mixed; form choice — disclosure; selected/on state | `App.tsx`, `ui/Deferred.tsx`; `ui/Checkbox.tsx`, `ui/Combobox.tsx`, `ui/Select.tsx`; `ui/RadioGroup.css`, `ui/Switch.css` |
 | Fixture `○`, literal `+` / `×` | Glyph / Project — test-only row mark and controls | `ui/u483Fixture.tsx`; `ui/u474Fixture.tsx`, `ui/u491Fixture.tsx` (Kind Glyph and Toast); excluded from production meaning decisions |
 
 
@@ -289,8 +293,8 @@ The light header stays on root sunken. Borders carry ≥3:1 against the header a
 
 ### U2541 shortcut key chips
 
-Hint line, Help and leader keys use the shared `KeyChip`, a plain `kbd` per symbol.
-Labels remain `--grey`; chips use `--text`, `--font-ui`, `--text-small`, weight 500,
+All App chips, including EmptyState, use the shared `KeyChip`, one plain `kbd` per press; a chord keeps its modifiers and final key together (U2541d, #5557 acceptance).
+Labels remain `--grey`; chips use `--text`, `--font-mono`, `--text-small`, weight 500,
 no border and a `--space-4` (16 px) height.
 
 | Token | Light | Dark |
@@ -327,10 +331,10 @@ Native confirmations use the system's appearance. Every remaining web modal, anc
 | `--button-neutral` | `var(--gray-4)` | `var(--gray-4)` | Secondary/action button fill |
 | `--button-accent-fill` | `#1f6b62` | same | Primary fill |
 | `--button-key-ink` | `#d4e6e2` | same | Dimmer readable key on primary fill |
-| `--doodle-line` | `#5a4a3e` | `#e6cfbb` | Decorative scene lines |
-| `--doodle-patch` | `#2f8f80` | same | Decorative scene patch |
-| `--doodle-offset` | `translate(14px, 10px)` | same | Scene patch offset |
-| `--doodle-blend` | `multiply` | `screen` | Scene patch blend |
+| `--doodle-line` | `#5a4a3e` | `#e6cfbb` | Decorative scene lines; retires under U5163 |
+| `--doodle-patch` | `#2f8f80` | same | Decorative scene patch; retires under U5163 |
+| `--doodle-offset` | `translate(14px, 10px)` | same | Scene patch offset; retires under U5163 |
+| `--doodle-blend` | `multiply` | `screen` | Scene patch blend; retires under U5163 |
 | `--button-accent-ink` | `#ffffff` | `#ffffff` | Label on accent fill |
 | `--radius-pill` | `999px` | same | Floating-surface action buttons |
 

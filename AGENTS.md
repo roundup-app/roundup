@@ -17,10 +17,10 @@ Builder and QA runs are one-shot GitHub Actions jobs, and an event ends every wa
 | Step | Who, where | Skills |
 |---|---|---|
 | 1 Ask | The user sets direction and files work Issues; a build run specifies an Issue that holds no Key or whose scenarios are not on `main` (L34) | — |
-| 2 Build | `build.yml` (L23): on each merge, each new work Issue, each build job whose model worked and each hour, one Builder run per ready Issue | prime; spec: to-spec, grill-with-docs, anchor; seam: codebase-design; tdd; UI: emil-design-eng; motion clause: animate |
+| 2 Build | `build.yml` (L23): on each merge, each new work Issue, each build job whose model worked and each hour, one Builder run per ready Issue | prime; spec: to-spec, grill-with-docs, anchor; seam: codebase-design; tdd; UI: emil-design-eng, taste-skill; motion clause: animate |
 | 3 Review | `review.yml` (L24): a review run once `pre` (the lints) passes on a PR's head, and `critic.yml` (L103): a design-critic run on a UI PR's head; the test lanes of `check` run alongside both (L24); `fix.yml` (L82): at most three fix runs per Builder PR | review, judge |
 | 4 Merge | GitHub auto-merge on `check`, `rules`, `review` and `critic` (L46) | — |
-| 5 Observe | `qa.yml` (L66) sweeps `main` every six hours; a `design-critic` run on request | review-animations, break-ui |
+| 5 Observe | `qa.yml` (L66) sweeps `main` every six hours; a `design-critic` run on request | review-animations, break-ui, taste-skill |
 
 ## Rules
 
@@ -38,7 +38,7 @@ Builder and QA runs are one-shot GitHub Actions jobs, and an event ends every wa
 ## Conventions
 
 - No scenario, no work. Tests are named after their scenario (`fn t3_…` proves T3).
-- Work in your own worktree and branch; `pnpm install` before pushing; a loop build or fix run ends with the lints plus the tests its changed files reach, and CI's `check` judges the push; an agent working by hand outside the loop may run `just check origin/main`; PRs go against `main`.
+- Work in your own worktree and branch; `pnpm install` before pushing; a loop build or fix run ends with the lints plus the test files it changed and the tests its task names as failing, and CI's `check` judges the push; an agent working by hand outside the loop may run `just check origin/main`; PRs go against `main`.
 - Loop machinery, including workflows, merges after independent review and the required checks; reviewers use main’s instructions and inspect the proposed diff.
 - Red `main`: fix forward through a PR that repairs the cause; never revert the merge or weaken a test.
 - Regenerate `contracts/generated/` from `crates/contracts`, never hand-edit it.

@@ -122,7 +122,7 @@
   .milkdown-list-item-block .list-item {
     display: flex;
     align-items: flex-start;
-    gap: var(--space-2);
+    gap: var(--space-1);
   }
   .list-item .children {
     min-width: 0;
@@ -208,6 +208,7 @@
   .milkdown-slash-menu ul {
     list-style: none;
     margin: 0;
+    padding: 0;
   }
   .milkdown-slash-menu li {
     display: flex;
@@ -406,4 +407,75 @@
    overflow so the existing library options remain reachable. */
 .milkdown .top-bar-inner:has(.top-bar-heading-dropdown) {
   overflow: visible;
+}
+
+.pad-rich-editor details[data-pad-agents] {
+  margin-block: var(--space-4);
+}
+
+details[data-pad-agents] summary {
+  min-height: var(--space-5);
+  cursor: pointer;
+  color: var(--grey);
+}
+
+details[data-pad-agents] textarea {
+  display: block;
+  width: 100%;
+  min-height: calc(var(--space-4) * 8);
+  margin-block-start: var(--space-3);
+  padding: 0;
+  border: 0;
+  font-family: var(--font-ui);
+  font-size: var(--pad-text-body);
+  line-height: var(--pad-line-body);
+  color: var(--text);
+  background: var(--ground);
+  resize: vertical;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  details[data-pad-agents] summary:hover,
+  details[data-pad-heading] summary:hover {
+    color: var(--text);
+  }
+}
+
+/* The node view supplies its marker column; list padding would indent twice. */
+.ProseMirror :is(ul, ol)[data-spread] {
+  padding-inline-start: 0;
+}
+
+details[data-pad-agents] input {
+  display: block;
+  min-height: var(--space-5);
+  width: 100%;
+  margin-block: var(--space-3);
+  padding: 0;
+  border: 0;
+  font: inherit;
+  color: var(--text);
+  background: var(--ground);
+}
+
+.pad-rich-editor .pad-heading-hidden {
+  display: none;
+}
+
+.pad-rich-editor details[data-pad-heading] {
+  display: inline-block;
+  margin-inline-end: var(--space-2);
+  font-size: var(--pad-text-body);
+  color: var(--grey);
+  vertical-align: baseline;
+}
+
+details[data-pad-heading] summary {
+  min-height: var(--space-5);
+  cursor: pointer;
+}
+
+details[data-pad-heading] summary:focus-visible,
+details[data-pad-agents] summary:focus-visible {
+  color: var(--text);
 }

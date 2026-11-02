@@ -1,3 +1,4 @@
+import { applied } from "../app/pending";
 import { currentOwner } from "../state/rail";
 import { appDark } from "../settings/preferences";
 import { outcomeOf } from "../app/seam";
@@ -178,7 +179,7 @@ export const Capture = (props: { onFile: (() => void) | undefined; onNativeOpen?
 
       try {
         if (id === null) {
-          const created = await connected.app.rpc("todo.create", owner === null ? { title, body: null, blockers: null } : { title, body: null, blockers: null, owner });
+          const created = await applied(() => connected.app.rpc("todo.create", owner === null ? { title, body: null, blockers: null } : { title, body: null, blockers: null, owner }));
 
           id = created.id;
           made = true;
@@ -186,7 +187,8 @@ export const Capture = (props: { onFile: (() => void) | undefined; onNativeOpen?
 
         if (home !== null) {
           try {
-            await connected.app.rpc("todo.move", { id, home });
+            const movedId = id;
+            await applied(() => connected.app.rpc("todo.move", { id: movedId, home }));
           } catch (error) {
             stranded = { title, id };
             throw error;
@@ -359,7 +361,7 @@ export const Capture = (props: { onFile: (() => void) | undefined; onNativeOpen?
             </div>
           </div>}</For>
 
-          <div class="capture-actions"><Dialog.CloseTrigger data-button="quiet" onClick={discard}>{copy.cancel}</Dialog.CloseTrigger><button type="button" data-button="primary" disabled={text().trim() === ""} onClick={() => file(false)}>{copy.captureATodo}</button></div>
+          <div class="capture-actions"><Dialog.CloseTrigger data-button="quiet" onClick={discard}>{copy.close}</Dialog.CloseTrigger><button type="button" data-button="primary" disabled={text().trim() === ""} onClick={() => file(false)}>{copy.captureATodo}</button></div>
         </Dialog.Content></Dialog.Positioner>
       </Dialog.Root>
   );

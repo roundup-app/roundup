@@ -45,7 +45,7 @@ use contracts::{Actor, ActorKind, EventData, Kind, Verb};
 use delivery::on_status;
 use delivery::{
     Pick, accept_receiver, accept_reservation, binding, deliver_pending as nudge, ended,
-    load_rail_nodes, reconcile, sender_name, start_listener,
+    load_rail_nodes, reconcile, start_listener,
 };
 use dispatch::{is_receiver, item, require_user, send_params};
 use flight::confirm_ids;
@@ -58,32 +58,6 @@ use serde_json::Value;
 use step::Event;
 use store::Store;
 use tokio::sync::broadcast::error::RecvError;
-
-/// Daemon-internal receiver dependency; RPC remains `Module`'s unchanged interface.
-/// Implementations must execute `record` exactly once under authoritative lifecycle locks
-/// (Rail then Attempts), including `None` for an unowned Terminal. No cached facts are allowed.
-/// The callback may take the Message store lock, but must not await, emit events, perform
-/// Terminal I/O or reenter Agents. All ownership-dependent mutations finish before it returns;
-/// returned facts grant no later mutation authority. Delivery and events follow this operation.
-/// Lookup errors do not call `record`; callback errors propagate unchanged. The callback owns
-/// rollback of partial work. Poisoned lifecycle locks panic, as in Agents.
-pub trait TerminalOwners: Module {
-    fn with_terminal_owner(
-        &self,
-        terminal: &str,
-        record: &mut dyn FnMut(Option<&agents::TerminalOwner>) -> Result<(), RpcError>,
-    ) -> Result<(), RpcError>;
-}
-
-impl TerminalOwners for agents::Agents {
-    fn with_terminal_owner(
-        &self,
-        terminal: &str,
-        record: &mut dyn FnMut(Option<&agents::TerminalOwner>) -> Result<(), RpcError>,
-    ) -> Result<(), RpcError> {
-        agents::Agents::with_terminal_owner(self, terminal, record)
-    }
-}
 
 /// The Daemon's clock in milliseconds; a test passes a fake (B14).
 pub type Clock = Arc<dyn Fn() -> i64 + Send + Sync>;

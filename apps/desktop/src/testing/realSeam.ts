@@ -198,6 +198,8 @@ export const createServedApp = (base: string, choice?: () => "choose" | "cancel"
     ask: probeQuestion,
     askRemoval: probeRemovalQuestion,
     setDockBadge: async () => {},
+    stateAlert: async () => {},
+    onStateAlertClicked: async () => () => {},
     // The isolated browser has no native window; these calls never move or rename a host window.
     setWindowTitle: async () => {},
     dragWindow: async () => {},
@@ -285,7 +287,6 @@ export const createServedApp = (base: string, choice?: () => "choose" | "cancel"
             void start();
           }),
       ),
-    imageUrl: (path) => `file://${path}`,
     selectProjectMenu: async (path, items) => { projectMenu.path = path; projectMenu.items = items ?? []; },
     onProjectPage: async (listener) => {
       const receive = (event: Event) => { if (event instanceof CustomEvent) listener(event.detail); };

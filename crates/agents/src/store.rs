@@ -1,4 +1,5 @@
 use super::*;
+use provenance::now_ms;
 
 impl Agents {
     /// `project` is the Project folder and `dir` its data folder (N1). `bus` is for events no call
@@ -110,11 +111,12 @@ impl Agents {
                     kill: Arc::clone(&terminals) as Arc<dyn KillsTerminals>,
                 },
                 terminals,
-                clock: Arc::new(now_ms),
+                clock: Arc::new(|| now_ms().max(0)),
                 rail_view: rail_view::State {
                     #[cfg(feature = "test-support")]
                     statuses: Default::default(),
-                    opened: now_ms(),
+                    opened: now_ms().max(0),
+                    data_dir: dir.to_owned(),
                     launcher: launcher.clone(),
                 },
                 me: me.clone(),
@@ -176,6 +178,15 @@ impl Agents {
         self.configure(|shared| shared.resume_effect = Some(Arc::new(observer)))
     }
 
+    /// RO3: run `hold` before each background read of a transcript overview, so an isolated
+    /// observer can keep the reader pending while Daemon calls are made.
+    #[must_use]
+    pub fn with_overview_hold(self, hold: impl Fn() + Send + Sync + 'static) -> Self {
+        self.configure(|shared| {
+            shared.rail_view.launcher = shared.rail_view.launcher.clone().with_overview_hold(hold);
+        })
+    }
+
     /// Change a setting before any call has shared the Agents: the only holder of `shared` is
     /// `self`, plus its own `me`.
     pub(super) fn configure(mut self, set: impl FnOnce(&mut Shared)) -> Self {
@@ -219,16 +230,18 @@ impl Agents {
         })
     }
 
-    /// A4452a, A4452d: send `send(agent id, text)` as a Message to the Agent's Claude inbox
+    /// A4452a, A4452d: send `send(sender, agent id, text)` as a Message to the Agent's Claude inbox
     /// for every text roundup authors; none of it is typed. Call it before the first call is made.
     #[must_use]
     pub fn with_coordination<F, Fut>(self, send: F) -> Self
     where
-        F: Fn(String, String) -> Fut + Send + Sync + 'static,
+        F: Fn(Actor, String, String) -> Fut + Send + Sync + 'static,
         Fut: std::future::Future<Output = Result<(), RpcError>> + Send + 'static,
     {
         self.configure(|shared| {
-            shared.coordination = Some(Arc::new(move |id, text| Box::pin(send(id, text))))
+            shared.coordination = Some(Arc::new(move |from, id, text| {
+                Box::pin(send(from, id, text))
+            }))
         })
     }
 
@@ -281,6 +294,32 @@ impl Agents {
         Ok(())
     }
 
+    /// A5556: whether this Attempt has received explicit input.
+    pub fn input_started(&self, id: &str) -> bool {
+        matches!(self.shared.runs().get(id), Some(Slot::Running(run)) if run.input_started)
+    }
+
+    /// Admit pending automatic Messages after explicit input, using the existing status lane.
+    pub fn admit_input(&self, id: &str) {
+        let mut runs = self.shared.runs();
+        if let Some(Slot::Running(run)) = runs.get_mut(id)
+            && !std::mem::replace(&mut run.input_started, true)
+            && let Some(status) = run.adapter.status().cloned()
+        {
+            run.status_revision += 1;
+            self.shared.bus.emit(
+                Actor::daemon(),
+                EventData::AgentStatus(Box::new(contracts::agent::StatusEvent {
+                    id: id.into(),
+                    attempt: run.attempt.clone(),
+                    status_revision: run.status_revision.to_string(),
+                    status,
+                    ended: run.ended,
+                })),
+            );
+        }
+    }
+
     /// H13: wait `bound` instead of `INTERRUPT_BOUND` for an Interrupt's title. Call it before
     /// the first call is made.
     #[must_use]
@@ -298,12 +337,6 @@ impl Agents {
     ) -> Self {
         self.configure(|shared| shared.steer.before_steer = Some(Arc::new(before)))
     }
-}
-
-/// Milliseconds since the Unix epoch.
-pub(super) fn now_ms() -> i64 {
-    let millis = time::OffsetDateTime::now_utc().unix_timestamp_nanos() / 1_000_000;
-    i64::try_from(millis.max(0)).unwrap_or(i64::MAX)
 }
 
 #[cfg(test)]
@@ -349,6 +382,7 @@ pub(super) mod tests {
             let run = Run {
                 yolo: false,
                 startup_context: true,
+                input_started: true,
                 attempt: "1".into(),
                 status_revision: 1,
                 closing: false,
@@ -470,72 +504,6 @@ pub(super) mod tests {
         }
     }
 
-    /// Each transition competes with an input record, then a fresh read observes its result.
-    pub(crate) fn owner_transition(
-        initially_attached: bool,
-        transition: impl FnOnce(&Shared, &str, &std::path::Path) + Send,
-        expected: Option<(&str, &str)>,
-    ) {
-        let (dir, _, shared) = shared_over_temp_dir(Arc::new(|| 0));
-        let id = shared
-            .rail()
-            .insert(
-                NodeKind::Agent,
-                "receiver",
-                None,
-                initially_attached.then_some("terminal"),
-            )
-            .unwrap()
-            .id;
-        let attempt = shared.rail().allocate_attempt(&id).unwrap();
-        shared.mark_starting(&id, attempt);
-        let agents = owner_agents(Arc::clone(&shared), dir.path());
-        std::thread::scope(|scope| {
-            let (start, started) = std::sync::mpsc::sync_channel(0);
-            let (done, completed) = std::sync::mpsc::channel();
-            let mut change = None;
-            agents
-                .with_terminal_owner("terminal", |owner| {
-                    assert_eq!(owner.is_some(), initially_attached);
-                    let shared = Arc::clone(&shared);
-                    let id = id.clone();
-                    let path = dir.path();
-                    change = Some(scope.spawn(move || {
-                        // Successful try_lock would mean the ownership cut is not protected.
-                        assert!(matches!(
-                            shared.rail.try_lock(),
-                            Err(std::sync::TryLockError::WouldBlock)
-                        ));
-                        assert!(matches!(
-                            shared.runs.try_lock(),
-                            Err(std::sync::TryLockError::WouldBlock)
-                        ));
-                        start.send(()).unwrap();
-                        transition(&shared, &id, path);
-                        done.send(()).unwrap();
-                    }));
-                    started.recv_timeout(PATIENCE).unwrap();
-                    assert!(matches!(
-                        completed.try_recv(),
-                        Err(std::sync::mpsc::TryRecvError::Empty)
-                    ));
-                    Ok(())
-                })
-                .unwrap();
-            completed.recv_timeout(PATIENCE).unwrap();
-            change.unwrap().join().unwrap();
-        });
-        agents
-            .with_terminal_owner("terminal", |owner| {
-                assert_eq!(
-                    owner.map(|o| (o.id.as_str(), o.attempt.as_deref().unwrap())),
-                    expected
-                );
-                Ok(())
-            })
-            .unwrap();
-    }
-
     /// A `Shared` wired to a fresh temp-dir Rail and Terminals, paired with the `Bus` it was built
     /// from so a caller can subscribe to the same events.
     pub(crate) fn shared_over_temp_dir(clock: Clock) -> (tempfile::TempDir, Bus, Arc<Shared>) {
@@ -559,6 +527,7 @@ pub(super) mod tests {
                 #[cfg(feature = "test-support")]
                 statuses: Default::default(),
                 opened: 0,
+                data_dir: dir.path().to_owned(),
                 launcher: crate::Launcher::new(
                     "claude",
                     dir.path().join("claude.json"),
@@ -619,6 +588,7 @@ pub(super) mod tests {
                 #[cfg(feature = "test-support")]
                 statuses: Default::default(),
                 opened: 0,
+                data_dir: dir.path().to_owned(),
                 launcher: crate::Launcher::new(
                     "claude",
                     dir.path().join("claude.json"),
@@ -663,6 +633,7 @@ pub(super) mod tests {
             Slot::Running(Run {
                 yolo: false,
                 startup_context: true,
+                input_started: true,
                 attempt: "1".into(),
                 status_revision: 1,
                 closing: false,
@@ -715,6 +686,7 @@ pub(super) mod tests {
                 #[cfg(feature = "test-support")]
                 statuses: Default::default(),
                 opened: 0,
+                data_dir: dir.path().to_owned(),
                 launcher: crate::Launcher::new(
                     "claude",
                     dir.path().join("claude.json"),

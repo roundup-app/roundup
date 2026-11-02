@@ -220,7 +220,7 @@ class Codex(unittest.TestCase):
         output, out = Path(path, 'output'), io.StringIO()
         with patch.dict(os.environ, RUNNER_TEMP=f'{path}/temp', SEEN=f'{path}/seen', EXIT=str(code),
                         PATH=f"{bin}:{os.environ['PATH']}"), \
-                patch.object(builder, 'app_token', return_value='fresh') as token, redirect_stdout(out):
+                patch.object(builder, 'app_token', return_value='fresh') as token, redirect_stdout(out), redirect_stderr(out):
             exit_code = builder.codex(login, 'Build U1.', 'gpt-6.1-sol', schema, output)
         seen = json.loads(Path(path, 'seen').read_text())
         return seen, output.read_text(), out.getvalue(), Path(path, 'calls').read_text(), token.call_args, exit_code
@@ -478,7 +478,7 @@ class Pick(unittest.TestCase):
             builder.main(['engine-conflict'])
         self.assertEqual(codex.call_args.args[-1], 'low')
         role = builder.role('conflict')
-        for scope in ('only the files git lists as conflicted', 'only the tests those files reach', 'merge-loss', 'Read no scenario'):
+        for scope in ('only the files git lists as conflicted', 'only the test files among those files', 'merge-loss', 'Read no scenario'):
             self.assertIn(scope, role)
         self.assertIn('Read no scenario', builder.CAUSES['conflict'])
 
@@ -736,16 +736,16 @@ class Built(unittest.TestCase):
         verdict = dict(verdict='mac', reason='why', preview='Run it.')
 
         def codex(argv, **kwargs):
+            self.assertIs(json.loads(Path(argv[argv.index('--output-schema') + 1]).read_text())['additionalProperties'], False)
             Path(argv[argv.index('--output-last-message') + 1]).write_text(json.dumps(verdict))
             return subprocess.CompletedProcess(argv, 0, stdout='', stderr='')
 
         with tempfile.TemporaryDirectory() as path, patch.dict(os.environ, CODEX_ONLY='1', RUNNER_TEMP=path,
                                                                CODEX_AUTH=Codex.LOGIN), \
-                patch.object(builder.subprocess, 'run', side_effect=codex) as run, redirect_stdout(io.StringIO()):
+                patch.object(builder.subprocess, 'run', side_effect=codex), redirect_stdout(io.StringIO()) as out:
             self.assertEqual(builder.screen('Check it?'), verdict)
-        argv = run.call_args.args[0]
-        self.assertEqual((argv[0], argv[argv.index('--model') + 1]), ('codex', builder.CODEX_MODEL))
-        self.assertEqual(argv[argv.index('-c') + 1], 'model_reasoning_effort="low"')
+        # A step writes the screen's stdout to its output whole, so a mask or usage line there drops the verdict.
+        self.assertEqual(out.getvalue(), '')
 
     def test_l79_an_empty_verdict_never_asks_the_user_and_the_run_summary_says_so(self):
         ask = 'Should the Rail hide archived Agents?'
@@ -1584,17 +1584,17 @@ class Review(unittest.TestCase):
     def test_l24_an_unchanged_diff_keeps_the_earlier_approval_and_a_changed_one_gets_a_full_run(self):
         def diff(line):
             return f'diff --git a/x b/x\n--- a/x\n+++ b/x\n@@ -1 +1 @@\n-old\n+{line}\n'
-        early = 'b' * 40
         for name, marker, context, task, now, kept in (
                 ('review', 'VERDICT', 'review', builder.review_task, 'same', True),
                 ('critic', 'CRITIC', 'critic', builder.critic_task, 'same', True),
                 ('changed', 'VERDICT', 'review', builder.review_task, 'other', False)):
             with self.subTest(name), GitHub(view=pr(), files=['apps/desktop/src/App.tsx'],
-                                            notes=[note(f'{marker}: approve\nHead: {early}\n\nok')],
-                                            diffs={HEAD: diff(now), early: diff('same')}) as github:
+                                            notes=[note(f'{marker}: approve\nHead: {"b" * 40}\n\nok')],
+                                            diffs={HEAD: diff(now), 'b' * 40: diff('same')}) as github:
                 self.assertEqual(task(9, HEAD) is None, kept)
-            success = [w for w in github.writes if f'context={context}' in w and 'state=success' in w]
-            self.assertEqual(len(success), int(kept))
+            self.assertEqual(sum(f'context={context}' in w and 'state=success' in w for w in github.writes), int(kept))
+        with patch.object(builder, 'call', side_effect=subprocess.CalledProcessError(1, 'gh')):
+            self.assertEqual(builder.patch_id(HEAD), '', 'HTTP 422: GitHub cannot generate the diff')
 
     def test_l24_an_approval_on_a_user_pr_starts_no_fix(self):
         with GitHub(view=pr(headRefName='stock-loop')) as github:

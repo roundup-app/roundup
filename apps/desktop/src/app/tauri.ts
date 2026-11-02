@@ -1,6 +1,6 @@
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { claudeBinarySchema, nativeOpenSchema, captureActionSchema, captureStateSchema, projectPageSchema } from "./seam";
-import { Channel, convertFileSrc, invoke } from "@tauri-apps/api/core";
+import { Channel, invoke } from "@tauri-apps/api/core";
 import type { InvokeArgs, InvokeOptions } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
@@ -9,7 +9,7 @@ import { ask, open, save } from "@tauri-apps/plugin-dialog";
 import * as v from "valibot";
 import type { Event as DaemonEvent } from "@contracts/Event";
 import { methodNotFoundMessage } from "./contractMatch";
-import { daemonExitedSchema, INTERNAL_CODE, listedProjectSchema, projectSchema, rpcFailureSchema, RpcError } from "./seam";
+import { actionRequestSchema, stateAlertClickedSchema, daemonExitedSchema, INTERNAL_CODE, listedProjectSchema, projectSchema, rpcFailureSchema, RpcError } from "./seam";
 import type { App, CaptureAction, CaptureState, OutputMessage } from "./seam";
 
 const METHOD_NOT_FOUND = -32601;
@@ -47,6 +47,10 @@ const parsedCommand = <Schema extends v.GenericSchema>(
   args: InvokeArgs,
   options?: InvokeOptions,
 ): Promise<v.InferOutput<Schema>> => guarded(async () => v.parse(schema, await invoke(name, args, options)));
+
+/** The reset location comes from the invoking webview's native storage configuration. */
+export const webviewDataPath = (): Promise<string> =>
+  parsedCommand(v.string(), "plugin:window-bar|webview_data_path", {});
 
 /**
  * Tauri types the drop point as physical pixels, but wry on macOS passes the NSView's points through unscaled
@@ -123,10 +127,13 @@ export const createTauriApp = (): App => {
     chooseProjectPath: () => guarded(() => open({ directory: true, multiple: false })),
     chooseSavePath: (suggestedName) => guarded(() => save({ defaultPath: suggestedName })),
     setDockBadge: (count) => guarded(() => getCurrentWindow().setBadgeCount(count === 0 ? undefined : count)),
+    stateAlert: async (alert) => {
+      await command("state_alert", { request: alert });
+    },
+    onStateAlertClicked: (listener) => guarded(() => listen("state-alert-clicked", event => listener(v.parse(stateAlertClickedSchema, event.payload).agent))),
     setWindowTitle: (title) => command<void>("plugin:window-bar|set_window_title", { title }),
     dragWindow: () => command<void>("plugin:window-bar|drag_window", {}),
     zoomWindow: () => command<void>("plugin:window-bar|zoom_window", {}),
-    imageUrl: (path) => convertFileSrc(path),
     openTarget: async (target) => {
       await command("open_target", { target });
     },
@@ -154,6 +161,15 @@ export const createTauriApp = (): App => {
         }
       },
       subscribe: (onEvent, after) => parsedCommand(v.number(), "subscribe", { path, channel: new Channel<DaemonEvent>(onEvent), after: after ?? null }),
+      serveActions: async (answer) => {
+        const channel = new Channel<unknown>(message => {
+          const request = v.safeParse(actionRequestSchema, message);
+
+          if (request.success) void answer(request.output).then(line => command("action_answer", { path, line }));
+        });
+
+        await command("action_serve", { path, channel });
+      },
       selectOutput: async (id, listener) => {
         const key = JSON.stringify([path, id]);
         const token = {};

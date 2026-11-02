@@ -2,13 +2,12 @@
 //! Sibling `order` values are contiguous from 0. Workstreams sit at the root and never nest (A26);
 //! an Agent sits under a Workstream or under the Agent that started it, to any depth.
 
+mod alert;
 mod closed;
-mod owner_reads;
-mod settings;
-use owner_reads::OwnerReads;
 mod placement;
 mod queue;
 mod removal;
+mod settings;
 mod view;
 use view::load_nodes;
 
@@ -23,7 +22,6 @@ const GONE_AGENT: &str = "an Agent that is gone";
 
 /// Structure only: a node's `status` is the Agents module's to fill in.
 pub struct Rail {
-    owner_reads: OwnerReads,
     db: Connection,
     tree_capacity: std::cell::Cell<usize>,
 }
@@ -40,17 +38,20 @@ impl Rail {
         db.set_transaction_behavior(rusqlite::TransactionBehavior::Immediate);
         db.pragma_update(None, "journal_mode", "WAL")?;
         crate::schema::open(&mut db, path)?;
+        let obsolete: bool = db.query_row(
+            "SELECT EXISTS(SELECT 1 FROM nodes WHERE kind NOT IN ('workstream','agent') OR (kind='workstream' AND parent IS NOT NULL))",
+            [], |r| r.get(0),
+        )?;
+        if obsolete {
+            let folder = std::path::absolute(path.parent().unwrap_or(Path::new(".")))?;
+            return Err(OpenError::from(format!(
+                "Local data is incompatible with this build; close roundup and delete {} to start fresh.",
+                folder.display()
+            )));
+        }
         // Terminal ids restart at 1 with the Daemon, so a stored id could name an unrelated Terminal.
         db.execute("UPDATE nodes SET terminal_id = NULL", [])?;
-        // A25: a Rail stored by an earlier Daemon holds `room` where this one writes `workstream`.
-        db.execute(
-            "UPDATE nodes SET kind = 'workstream' WHERE kind = 'room'",
-            [],
-        )?;
-        drop_terminal_nodes(&db)?;
-        flatten_workstreams(&mut db)?;
         Ok(Self {
-            owner_reads: OwnerReads::open(path),
             db,
             tree_capacity: Default::default(),
         })
@@ -384,6 +385,24 @@ impl Rail {
         Ok(())
     }
 
+    /// A5214a: turn root Agent `id` into a Workstream in place; `Ok(false)` when it is not a root
+    /// Agent. `to_workstream = false` undoes it.
+    pub fn convert_kind(&mut self, id: &str, to_workstream: bool) -> Result<bool, RpcError> {
+        let (from, to) = if to_workstream {
+            ("agent", "workstream")
+        } else {
+            ("workstream", "agent")
+        };
+        let changed = self
+            .db
+            .execute(
+                "UPDATE nodes SET kind = ?1 WHERE id = ?2 AND kind = ?3 AND parent IS NULL",
+                params![to, id, from],
+            )
+            .map_err(sql)?;
+        Ok(changed == 1)
+    }
+
     /// M7: the ids of the Workstreams Agent `creator` created and that still exist.
     pub fn created_by(&self, creator: &str) -> Result<Vec<String>, RpcError> {
         Self::created_by_in(&self.db, creator)
@@ -531,6 +550,30 @@ impl Rail {
         Ok(())
     }
 
+    /// A5213: the permission mode the saved conversation's Attempt last ran in, beside A21's data.
+    pub fn save_conversation_yolo(&mut self, id: &str, yolo: bool) -> Result<(), RpcError> {
+        self.db
+            .execute(
+                "UPDATE nodes SET conversation_yolo = ? WHERE id = ?",
+                params![yolo, id],
+            )
+            .map_err(sql)?;
+        Ok(())
+    }
+
+    /// A5213: whether the saved conversation last ran in YOLO.
+    pub fn conversation_yolo(&self, id: &str) -> Result<bool, RpcError> {
+        self.db
+            .query_row(
+                "SELECT conversation_yolo FROM nodes WHERE id = ?",
+                [id],
+                |row| row.get(0),
+            )
+            .optional()
+            .map_err(sql)?
+            .ok_or_else(|| RpcError::not_found(GONE_AGENT))
+    }
+
     /// The saved conversation id and cwd (A21), if any.
     pub fn conversation(&self, id: &str) -> Result<Option<(String, String)>, RpcError> {
         let found: (Option<String>, Option<String>) = self
@@ -562,29 +605,6 @@ fn sql_ordinal(err: std::num::ParseIntError) -> RpcError {
 
 fn sql(err: rusqlite::Error) -> RpcError {
     RpcError::internal(err)
-}
-
-/// X11: a Rail stored by an earlier Daemon may hold nodes of kind `terminal`; their programs are
-/// gone, so they go, and each parent's remaining children close the gap.
-fn drop_terminal_nodes(db: &Connection) -> rusqlite::Result<()> {
-    let parents: Vec<Option<i64>> = db
-        .prepare("SELECT DISTINCT parent FROM nodes WHERE kind = 'terminal'")?
-        .query_map([], |row| row.get(0))?
-        .collect::<Result<_, _>>()?;
-    db.execute("DELETE FROM nodes WHERE kind = 'terminal'", [])?;
-    for parent in parents {
-        let ids: Vec<i64> = db
-            .prepare("SELECT id FROM nodes WHERE parent IS ? ORDER BY ord, id")?
-            .query_map(params![parent], |row| row.get(0))?
-            .collect::<Result<_, _>>()?;
-        for (at, id) in ids.iter().enumerate() {
-            db.execute(
-                "UPDATE nodes SET ord = ? WHERE id = ?",
-                params![at as i64, id],
-            )?;
-        }
-    }
-    Ok(())
 }
 
 /// O3: the order a Workstream's Door holds when none was given. An Agent holds none (O2).
@@ -635,49 +655,6 @@ fn check_parent(nodes: &[RailNode], kind: NodeKind, parent: Option<&str>) -> Res
     }
 }
 
-/// A26: a Rail stored by an earlier Daemon may hold a Workstream under another. Each moves to
-/// the root, after the last root node, in the order of depth then `order`; the siblings it leaves
-/// stay contiguous from 0. Nothing else changes.
-fn flatten_workstreams(db: &mut Connection) -> Result<(), RpcError> {
-    let tx = db.transaction().map_err(sql)?;
-    let nodes = load(&tx)?;
-    let depth = |node: &RailNode| {
-        let mut depth = 0;
-        let mut at = node.parent.as_deref();
-        while let Some(parent) = at.filter(|_| depth <= nodes.len()) {
-            depth += 1;
-            at = nodes
-                .iter()
-                .find(|candidate| candidate.id == parent)
-                .and_then(|candidate| candidate.parent.as_deref());
-        }
-        depth
-    };
-    let mut nested: Vec<&RailNode> = nodes
-        .iter()
-        .filter(|node| node.kind == NodeKind::Workstream && node.parent.is_some())
-        .collect();
-    if nested.is_empty() {
-        return Ok(());
-    }
-    nested.sort_by_key(|node| (depth(node), node.order, node.id.parse::<i64>().unwrap_or(0)));
-    let mut roots = siblings(&nodes, None);
-    let left: Vec<String> = nested
-        .iter()
-        .filter_map(|node| node.parent.clone())
-        .collect();
-    roots.extend(nested.iter().map(|node| node.id.clone()));
-    place(&tx, None, &roots)?;
-    for parent in left {
-        let rest: Vec<String> = siblings(&nodes, Some(&parent))
-            .into_iter()
-            .filter(|id| nested.iter().all(|node| &node.id != id))
-            .collect();
-        place(&tx, Some(&parent), &rest)?;
-    }
-    tx.commit().map_err(sql)
-}
-
 /// Is `node` the ancestor `id` or a descendant of it?
 fn is_within(nodes: &[RailNode], node: &str, id: &str) -> bool {
     let mut at = Some(node);
@@ -706,230 +683,4 @@ fn place(tx: &Connection, parent: Option<&str>, ids: &[String]) -> Result<(), Rp
 }
 
 #[cfg(test)]
-mod tests {
-    use contracts::agent::NodeKind;
-    use rpc::code;
-
-    use super::Rail;
-
-    fn rail() -> (tempfile::TempDir, Rail) {
-        let dir = tempfile::tempdir().unwrap();
-        let rail = Rail::open(&dir.path().join("agents.db")).unwrap();
-        (dir, rail)
-    }
-
-    #[test]
-    fn u2875c_each_reservation_write_rolls_back_without_a_partial_rail_entry() {
-        for failure in [
-            "CREATE TRIGGER fail AFTER INSERT ON nodes WHEN NEW.kind='workstream' BEGIN SELECT RAISE(ABORT,'interrupted Workstream write'); END;",
-            "CREATE TRIGGER fail AFTER INSERT ON nodes WHEN NEW.kind='agent' BEGIN SELECT RAISE(ABORT,'interrupted Agent write'); END;",
-            "CREATE TRIGGER fail AFTER INSERT ON closed_sources BEGIN SELECT RAISE(ABORT,'interrupted source write'); END;",
-        ] {
-            let (dir, mut rail) = rail();
-            rail.db.execute_batch(failure).unwrap();
-            assert!(rail.reserve_closed("failed", "hidden").is_err());
-            assert!(rail.tree().unwrap().is_empty());
-            drop(rail);
-            let mut rail = Rail::open(&dir.path().join("agents.db")).unwrap();
-            assert!(rail.tree().unwrap().is_empty());
-            assert!(rail.closed_source("failed").unwrap().is_none());
-            rail.db.execute_batch("DROP TRIGGER fail").unwrap();
-            rail.reserve_closed("failed", "retry").unwrap();
-        }
-    }
-
-    #[test]
-    fn u2875c_final_commit_failure_keeps_both_nodes_unpublished() {
-        let (dir, mut rail) = rail();
-        let (workstream, agent) = rail.reserve_closed("failed", "hidden").unwrap();
-        rail.closed_copy("failed", b"opaque ownership").unwrap();
-        rail.save_conversation(&agent, "retained", "/project")
-            .unwrap();
-        // A deferred FK failure happens at COMMIT, after every publication statement ran.
-        rail.db.execute_batch("PRAGMA foreign_keys=ON;
-            CREATE TABLE commit_guard (source TEXT REFERENCES closed_sources(source) DEFERRABLE INITIALLY DEFERRED);
-            CREATE TRIGGER fail AFTER UPDATE OF published ON closed_sources WHEN NEW.published=1
-            BEGIN INSERT INTO commit_guard VALUES('absent'); END;").unwrap();
-        assert!(rail.publish_closed("failed").is_err());
-        assert!(rail.tree().unwrap().is_empty());
-        assert!(rail.node(&workstream).is_err());
-        assert!(rail.has_conversation(&agent).is_err());
-        drop(rail);
-        let mut rail = Rail::open(&dir.path().join("agents.db")).unwrap();
-        assert!(rail.tree().unwrap().is_empty());
-        rail.db.execute_batch("DROP TRIGGER fail").unwrap();
-        rail.publish_closed("failed").unwrap();
-        assert_eq!(rail.tree().unwrap().len(), 2);
-    }
-
-    #[test]
-    fn a2703a_rail_resolves_current_names_and_gone_agents() {
-        let (_dir, mut rail) = rail();
-        let node = rail.insert(NodeKind::Agent, "sad", None, None).unwrap();
-        assert_eq!(rail.name(&node.id).unwrap(), "sad");
-        rail.rename(&node.id, "glad").unwrap();
-        assert_eq!(rail.name(&node.id).unwrap(), "glad");
-        assert_eq!(rail.name("7013").unwrap(), "an Agent that is gone");
-        rail.db.execute_batch("DROP TABLE nodes").unwrap();
-        assert_eq!(rail.name(&node.id).unwrap_err().code, code::INTERNAL);
-    }
-
-    #[test]
-    fn r16_loaded_rail_keeps_complete_conversation_availability_in_tree_order() {
-        let (_dir, mut rail) = rail();
-        let first = rail
-            .insert(NodeKind::Workstream, "first", None, None)
-            .unwrap();
-        let child = rail
-            .insert(NodeKind::Agent, "child", Some(&first.id), None)
-            .unwrap();
-        let second = rail
-            .insert(NodeKind::Workstream, "second", None, None)
-            .unwrap();
-        rail.db.execute("UPDATE nodes SET conversation_id = 'saved', conversation_cwd = '/project' WHERE id = ?", [&child.id]).unwrap();
-        rail.db
-            .execute(
-                "UPDATE nodes SET conversation_id = 'partial' WHERE id = ?",
-                [&second.id],
-            )
-            .unwrap();
-        let tree = rail.tree().unwrap();
-        assert_eq!(
-            tree.iter()
-                .map(|n| (n.id.as_str(), n.can_resume))
-                .collect::<Vec<_>>(),
-            [
-                (first.id.as_str(), false),
-                (child.id.as_str(), true),
-                (second.id.as_str(), false),
-            ]
-        );
-        assert!(rail.node(&child.id).unwrap().can_resume);
-    }
-
-    #[test]
-    fn a7_attempt_exhaustion_does_not_wrap_or_change_the_node() {
-        let (_dir, mut rail) = rail();
-        let node = rail
-            .insert(NodeKind::Workstream, "workstream", None, None)
-            .unwrap();
-        rail.db
-            .execute("UPDATE nodes SET attempt = ?", [i64::MAX])
-            .unwrap();
-        let before = rail.node(&node.id).unwrap();
-        assert_eq!(
-            rail.allocate_attempt(&node.id).unwrap_err().code,
-            code::INTERNAL
-        );
-        assert_eq!(rail.node(&node.id).unwrap(), before);
-    }
-
-    #[test]
-    fn a6_nothing_nests_under_an_agent() {
-        let (_dir, mut rail) = rail();
-        let group = rail.insert(NodeKind::Workstream, "g", None, None).unwrap();
-        {
-            let kind = NodeKind::Agent;
-            let leaf = rail.insert(kind, "leaf", None, Some("1")).unwrap();
-            let inserted = rail
-                .insert(NodeKind::Workstream, "x", Some(&leaf.id), None)
-                .unwrap_err();
-            let moved = rail.move_node(&group.id, Some(&leaf.id), 0).unwrap_err();
-            assert_eq!(
-                (inserted.code, moved.code),
-                (code::CONFLICT, code::CONFLICT),
-                "{kind:?}"
-            );
-        }
-    }
-
-    #[test]
-    fn a6_rename_needs_the_exact_id() {
-        let (_dir, mut rail) = rail();
-        let group = rail.insert(NodeKind::Workstream, "g", None, None).unwrap();
-        let err = rail.rename(&format!("0{}", group.id), "other").unwrap_err();
-        assert_eq!(err.code, code::NOT_FOUND);
-        assert_eq!(rail.tree().unwrap()[0].name, "g");
-    }
-
-    #[test]
-    fn x11_a_stored_terminal_node_is_dropped_on_open() {
-        let (dir, mut rail) = rail();
-        let group = rail.insert(NodeKind::Workstream, "g", None, None).unwrap();
-        for name in ["a", "b", "c"] {
-            rail.insert(NodeKind::Agent, name, Some(&group.id), None)
-                .unwrap();
-        }
-        rail.db
-            .execute("UPDATE nodes SET kind = 'terminal' WHERE name = 'b'", [])
-            .unwrap();
-        drop(rail);
-
-        let reopened = Rail::open(&dir.path().join("agents.db")).unwrap();
-
-        let tree = reopened.tree().unwrap();
-        let rest: Vec<_> = tree.iter().map(|n| (n.name.as_str(), n.order)).collect();
-        assert_eq!(rest, [("g", 0), ("a", 0), ("c", 1)]);
-        assert!(tree.iter().all(|n| n.name != "b"));
-    }
-
-    #[test]
-    fn a8_reopening_unlinks_every_terminal_id() {
-        let (dir, mut rail) = rail();
-        rail.insert(NodeKind::Agent, "claude", None, Some("1"))
-            .unwrap();
-        rail.insert(NodeKind::Agent, "shell", None, Some("2"))
-            .unwrap();
-        drop(rail);
-
-        let reopened = Rail::open(&dir.path().join("agents.db")).unwrap();
-        let ids: Vec<_> = reopened
-            .tree()
-            .unwrap()
-            .into_iter()
-            .map(|n| n.terminal_id)
-            .collect();
-        assert_eq!(ids, [None, None]);
-    }
-
-    #[test]
-    fn a6_removing_a_node_closes_the_gap_among_its_siblings() {
-        let (_dir, mut rail) = rail();
-        let ids: Vec<_> = ["a", "b", "c"]
-            .map(|name| {
-                rail.insert(NodeKind::Workstream, name, None, None)
-                    .unwrap()
-                    .id
-            })
-            .into();
-        rail.remove(&ids[1]).unwrap();
-        let tree = rail.tree().unwrap();
-        let rest: Vec<_> = tree.iter().map(|n| (n.name.as_str(), n.order)).collect();
-        assert_eq!(rest, [("a", 0), ("c", 1)]);
-    }
-
-    /// A16: moving a Workstream's children and deleting the Workstream are one transaction. A trigger
-    /// that only rejects the DELETE (the UPDATEs `place` runs are untouched) tells this apart
-    /// from a mutant that commits the move before deleting in a second transaction: there, the
-    /// move would survive even though the delete failed.
-    #[test]
-    fn a16_a_groups_delete_failing_after_a_successful_move_rolls_both_back() {
-        let (_dir, mut rail) = rail();
-        let group = rail.insert(NodeKind::Workstream, "g", None, None).unwrap();
-        let child = rail
-            .insert(NodeKind::Agent, "child", Some(&group.id), None)
-            .unwrap();
-        rail.db
-            .execute_batch(
-                "CREATE TRIGGER forbid_delete BEFORE DELETE ON nodes
-                 BEGIN SELECT RAISE(ABORT, 'delete forbidden'); END;",
-            )
-            .unwrap();
-
-        let err = rail.remove(&group.id).unwrap_err();
-
-        assert_eq!(err.code, code::INTERNAL);
-        let found = rail.node(&child.id).unwrap();
-        assert_eq!(found.parent.as_deref(), Some(group.id.as_str()));
-    }
-}
+mod tests;

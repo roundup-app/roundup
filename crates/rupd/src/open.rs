@@ -7,12 +7,15 @@ impl Daemon {
         Self::open_in(dir.parent().unwrap_or(dir), dir)
     }
 
-    /// Open `project`, keeping its data in `data` (N1) after moving an older Project's files
-    /// there (N3).
+    /// Open `project`, keeping its data in `data` (N1); obsolete local data is refused.
     pub fn open_project(project: &Path, data: &Path) -> Result<Self, OpenError> {
         let dir = data::project_data(data, project)?;
-        data::migrate(project, &dir).map_err(OpenError::from)?;
-        Self::open_in(project, &dir)
+        data::refuse_old_data(project).map_err(OpenError::from)?;
+        let daemon = Self::open_in(project, &dir)?;
+        Ok(match std::env::var_os("HOME") {
+            Some(home) => daemon.with_extensions(&Path::new(&home).join(".roundup/extensions")),
+            None => daemon,
+        })
     }
 
     pub(crate) fn open_in(project: &Path, dir: &Path) -> Result<Self, OpenError> {
@@ -42,6 +45,7 @@ impl Daemon {
             terminals = terminals.with_terminal_owner(&helper);
         }
         let terminals = Arc::new(terminals);
+        terminals.answer_status_query(true);
         let messages = Arc::new(std::sync::OnceLock::<Arc<messages::Messages>>::new());
         let touches = Arc::new(Touches::open(&dir.join("project.db"))?);
         let todos = Arc::new(todos::Todos::open(dir, bus.clone())?);
@@ -85,10 +89,10 @@ impl Daemon {
                 let messages = Arc::clone(&messages);
                 let ctx_bus = bus.clone();
                 let ctx_touches = Arc::clone(&touches);
-                move |id, text| {
+                move |from, id, text| {
                     let messages = Arc::clone(&messages);
                     let ctx = Ctx {
-                        actor: Actor::daemon(),
+                        actor: from,
                         bus: ctx_bus.clone(),
                         touches: Arc::clone(&ctx_touches),
                     };
@@ -108,11 +112,11 @@ impl Daemon {
                 }
             })
             .with_steer_effect(steer_effect_observer())
-            .with_resume_effect(resume_effect_observer()),
+            .with_resume_effect(resume_effect_observer())
+            .with_overview_hold(overview_read_observer()),
         );
         let agents_at = begun.elapsed();
-        let agents_module: Arc<dyn messages::TerminalOwners> = agents.clone();
-        let checkpoints = Arc::new(checkpoints::Checkpoints::open(dir)?.with_marks(agents.clone()));
+        let agents_module: Arc<dyn Module> = agents.clone();
         let pads = Arc::new(pads::Pads::open(dir, bus.clone())?);
         let mut daemon = Self {
             naming,
@@ -127,17 +131,16 @@ impl Daemon {
                 .file_name()
                 .map(|name| name.to_string_lossy().into_owned())
                 .unwrap_or_default(),
-            attachments: attachment::Attachments::open(dir),
             digests: Arc::new(messages::digest::Seen::open(&dir.join("project.db"))?),
             sender: Arc::clone(&messages),
             agents: Arc::clone(&agents),
+            program_changes: std::sync::Mutex::new(Some(terminals.subscribe_status())),
+            program_statuses: Default::default(),
             terminals: Arc::clone(&terminals),
             wake_events: std::sync::Mutex::new(Some(bus.subscribe())),
             renames: std::sync::Mutex::new(Some(bus.subscribe_after(None)?)),
             owner_events: std::sync::Mutex::new(Some(bus.subscribe_after(None)?)),
             wake_gate: Default::default(),
-            checkpoints: Arc::clone(&checkpoints),
-            rewinding: Default::default(),
             restarting: Default::default(),
             queue: Default::default(),
             auto: auto::Auto::new(&bus),
@@ -145,11 +148,13 @@ impl Daemon {
             resources: Default::default(),
             publications: deliverables::Publications::open(dir)?,
             reactions: {
-                let reactions = reaction::Reactions::open(dir)?;
+                let reactions = reaction::Reactions::open(dir, bus.clone())?;
                 reactions.listen(bus.subscribe());
                 Arc::new(reactions)
             },
             prompt_effect_gate: std::env::var_os("RUPD_PROMPT_EFFECT_GATE").map(Into::into),
+            actions: Default::default(),
+            extensions: extensions::Host::new(dir.join("extensions")),
             waits: std::sync::Mutex::new(Some((
                 bus.subscribe(),
                 Arc::clone(&agents),
@@ -159,7 +164,6 @@ impl Daemon {
         let services_at = begun.elapsed();
         daemon.register(todos);
         daemon.register(pads);
-        daemon.register(checkpoints);
         let opened = Arc::new(messages::Messages::open_with(
             dir,
             bus,
@@ -226,6 +230,19 @@ impl Daemon {
                     serde_json::from_value(list).ok()
                 }
             }));
+        }
+        if let Some(changes) = self
+            .program_changes
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .take()
+        {
+            tokio::spawn(Arc::clone(&self.program_statuses).run(
+                changes,
+                self.bus.clone(),
+                Arc::clone(&self.terminals),
+                Arc::clone(&self.agents),
+            ));
         }
         let events = self
             .pushes
@@ -329,6 +346,7 @@ impl Daemon {
             Arc::clone(&self.touches),
             std::env::var_os("RUPD_DIGEST_OBSERVER").map(std::path::PathBuf::from),
         )
+        .with_agents(Arc::clone(&self.agents))
     }
 
     pub(crate) fn register(&mut self, module: Arc<dyn Module>) {

@@ -1,7 +1,7 @@
 import pRetry from "p-retry";
 import * as v from "valibot";
 import type { RpcErrorData } from "@contracts/RpcErrorData";
-import type { IdleEvidence } from "../perf/idle";
+import type { IdleEvidence } from "../perf/idle.ts";
 import type { Event as DaemonEvent } from "@contracts/Event";
 import type { RpcMethodName, RpcMethods } from "@contracts/methods";
 
@@ -49,7 +49,7 @@ export type FileDrop = { phase: "over" | "drop" | "leave"; paths: string[]; x: n
 export type OpenTarget = { kind: "url"; url: string } | { kind: "path"; path: string; line: number | null };
 
 /** U2694a: one item of a native menu. Both menus use one-step accelerators and separate sequence hints; adjacent context groups receive native separators. Project groups are create, navigate and views. `children` makes a native submenu in either menu. */
-export type MenuItem = { id: string; label: string; shortcut?: string; group?: string; enabled: boolean; children?: MenuItem[] };
+export type MenuItem = { id: string; label: string; shortcut?: string; group?: string; checked?: boolean; enabled: boolean; children?: MenuItem[] };
 
 /** The image types `savePastedImage` accepts (U418); the file's extension follows the type. */
 export const PASTED_IMAGE_TYPES = ["image/png", "image/jpeg", "image/gif", "image/webp"] as const;
@@ -63,6 +63,17 @@ export type OutputMessage = Uint8Array | { gap: { from: number; to: number } };
 /** `offset` is the position of the first byte the stream delivers. `release` ends only this subscription; after it the listener is never called. */
 export type OutputSubscription = { offset: number; release(): Promise<void> };
 
+/** NA6: a request line the Daemon relays to the App, and the line the App answers it with. */
+export const actionRequestSchema = v.object({
+  id: v.number(),
+  method: v.string(),
+  params: v.optional(v.nullable(v.object({ name: v.string(), args: v.array(v.object({ key: v.string(), value: v.string() })) }))),
+});
+
+export type ActionRequest = v.InferOutput<typeof actionRequestSchema>;
+
+export type ActionReply = { jsonrpc: "2.0"; id: number; result: object } | { jsonrpc: "2.0"; id: number; error: { code: number; message: string } };
+
 /** The calls into one Project's Daemon, bound to its path (S8); regions use only these and the choosers. */
 export type ProjectCalls = {
   rpc<M extends RpcMethodName>(
@@ -74,6 +85,8 @@ export type ProjectCalls = {
    * Resolves the Daemon's `head`, the highest Event number saved when it accepted.
    */
   subscribe(onEvent: (event: DaemonEvent) => void, after?: number): Promise<number>;
+  /** NA6: registers this window as the Project's action answerer; each request line the Daemon relays goes to `answer`, whose line goes back. */
+  serveActions?(answer: (request: ActionRequest) => Promise<ActionReply>): Promise<void>;
   /** Delivers the raw output of the Terminal `id`, and of no other, to `listener` in order; a second call for the same Terminal replaces the first. Rejects NOT_FOUND for an unknown or exited Terminal. */
   selectOutput(id: string, listener: (message: OutputMessage) => void): Promise<OutputSubscription>;
 };
@@ -87,12 +100,15 @@ export const SEAM_COMMANDS = [
   "recent_projects",
   "claude_binary",
   "record_idle_evidence",
+  "state_alert",
   "select_project_menu",
   "open_project",
   "close_project",
   "rename_project",
   "rpc",
   "subscribe",
+  "action_serve",
+  "action_answer",
   "terminal_output",
   "terminal_output_stop",
   "open_target",
@@ -102,6 +118,7 @@ export const SEAM_COMMANDS = [
   "show_context_menu",
   "plugin:window-bar|set_window_title",
   "plugin:window-bar|native_material",
+  "plugin:window-bar|webview_data_path",
   "plugin:window-bar|drag_window",
   "plugin:window-bar|zoom_window",
 ] as const;
@@ -149,6 +166,10 @@ export type NativeQuestion = { title: string; message: string; okLabel: string; 
 /** The Tauri commands of `scenarios/app.md` and `scenarios/project-tabs.md`, plus the macOS choosers and the Dock badge; the only door from the webview to Tauri. */
 export const claudeBinarySchema = v.object({ path: v.string(), version: v.string() });
 
+export type StateAlert = { agent: string; title: string; body: string; alert: boolean; sound: boolean };
+
+export const stateAlertClickedSchema = v.object({ agent: v.string() });
+
 export type App = {
   recentProjects(): Promise<string[]>;
   claudeBinary(): Promise<v.InferOutput<typeof claudeBinarySchema> | null>;
@@ -176,14 +197,16 @@ export type App = {
   chooseSavePath(suggestedName: string): Promise<string | null>;
   /** Shows `count` on the Dock icon; zero clears the badge. */
   setDockBadge(count: number): Promise<void>;
+  /** U5232f: shows one macOS banner naming the Agent when `alert`, plays one system sound when `sound`; both false rejects INVALID_PARAMS, a refused permission rejects FORBIDDEN with its cause (and a sound still plays). */
+  stateAlert(alert: StateAlert): Promise<void>;
+  /** U5232e: a click on a State alert's banner; the window is already in front. */
+  onStateAlertClicked(listener: (agent: string) => void): Promise<Unsubscribe>;
   /** Writes the full native title of the current window; a native failure rejects as RpcError. */
   setWindowTitle(title: string): Promise<void>;
   /** Requests a native drag of the current window; rejects as RpcError on failure. */
   dragWindow(): Promise<void>;
   /** Toggles native zoom of the current window; rejects as RpcError on failure. */
   zoomWindow(): Promise<void>;
-  /** The URL the webview loads the image file at the absolute `path` from (U352); the file is read by the webview, not the Daemon. */
-  imageUrl(path: string): string;
   /** Opens a web link in the default browser, or an absolute path in its default app (a folder in Finder). Rejects NOT_FOUND for a missing path and FORBIDDEN for a scheme but http and https (U365). */
   openTarget(target: OpenTarget): Promise<void>;
   /** Opens the absolute directory or file `path` in the user's code editor, a file at `line` when the editor takes one (U429, U2539c). Rejects NOT_FOUND for a missing path or when no editor is found, and CONFLICT for a relative path. */
@@ -236,7 +259,7 @@ export class RpcError extends Error {
   }
 }
 
-const refusals = new Set([-32700, -32601, -32602, -32001, -32002, -32003, -32005, -32007, -32009, -32010]);
+const refusals = new Set([-32700, -32601, -32602, -32001, -32002, -32003, -32005, -32007, -32009, -32010, -32011]);
 
 /** Only a typed refusal proves a remote mutation failed; all other throws preserve uncertainty. */
 // U3791b: this is the foreign-throw ingestion seam; even primitives must retain uncertainty.

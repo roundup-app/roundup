@@ -168,13 +168,15 @@ async fn r3696c_a_rail_tree_reply_written_directly_equals_the_value_route() {
         .await
         .unwrap();
     assert_eq!(routed.as_array().unwrap().len(), 2);
-    for method in ["rail.tree", "rail.list"] {
-        let reply = ask(&daemon, &json!({"id":"a\nb","method":method}).to_string()).await;
-        assert_eq!(
-            reply,
-            json!({"jsonrpc":"2.0", "id":"a\nb", "result":routed})
-        );
-    }
+    let reply = ask(
+        &daemon,
+        &json!({"id":"a\nb","method":"rail.tree"}).to_string(),
+    )
+    .await;
+    assert_eq!(
+        reply,
+        json!({"jsonrpc":"2.0", "id":"a\nb", "result":routed})
+    );
 }
 
 #[tokio::test]
@@ -362,6 +364,7 @@ impl Module for SelfEnded {
                 running: true,
                 exit_code: None,
                 owner: None,
+                status: None,
             }])),
             _ => Err(RpcError::not_found("running terminal 1")),
         }

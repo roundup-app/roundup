@@ -2,16 +2,16 @@
 import type { Ask } from "./ask/Ask";
 import type { AutoParams } from "./workstream/AutoParams";
 import type { ChannelEvent } from "./agent/ChannelEvent";
-import type { Checkpoint } from "./checkpoint/Checkpoint";
 import type { ExitedEvent } from "./terminal/ExitedEvent";
+import type { ExtensionProblem } from "./action/ExtensionProblem";
 import type { Message } from "./message/Message";
 import type { PadName } from "./pad/PadName";
 import type { Requested } from "./project/Requested";
-import type { Rewound } from "./workstream/Rewound";
 import type { Route } from "./message/Route";
 import type { StatusEvent } from "./agent/StatusEvent";
 import type { StrayEvent } from "./agent/StrayEvent";
 import type { TerminalId } from "./terminal/TerminalId";
+import type { TerminalStatusEvent } from "./terminal/TerminalStatusEvent";
 import type { TitleEvent } from "./terminal/TitleEvent";
 import type { Todo } from "./todo/Todo";
 import type { TodoId } from "./todo/TodoId";
@@ -20,7 +20,7 @@ import type { ToolCallEvent } from "./agent/ToolCallEvent";
 /**  Pushed to subscribers as a JSON-RPC notification: `{"method":"event","params":<Event>}`. */
 export type EventData = { "name": "workstream.updated", "data": AutoParams } | { "name": "ask.changed", "data": {
 	ask: Ask,
-} } | { "name": "terminal.title", "data": TitleEvent } | { "name": "terminal.exited", "data": ExitedEvent } | 
+} } | { "name": "terminal.title", "data": TitleEvent } | { "name": "terminal.status", "data": TerminalStatusEvent } | { "name": "terminal.exited", "data": ExitedEvent } | 
 /**  A Terminal with an owner opened, closed or was forgotten (X11, X12): read `terminal.list`. */
 { "name": "terminal.changed" } | 
 /**  B53: the Daemon answered a Show request; the App selects the Terminal's owner so the user sees it. */
@@ -40,12 +40,20 @@ export type EventData = { "name": "workstream.updated", "data": AutoParams } | {
 	incarnation: string,
 	name: string,
 	previous_name: string,
-} } | { "name": "pad.deleted", "data": PadName } | { "name": "message.sent", "data": Message } | { "name": "message.delivered", "data": Message } | { "name": "message.dropped", "data": Message } | { "name": "route.changed", "data": Route } | { "name": "agent.status", "data": StatusEvent } | { "name": "agent.channel", "data": ChannelEvent } | { "name": "agent.stray", "data": StrayEvent } | { "name": "agent.toolCall", "data": ToolCallEvent } | { "name": "rail.changed" } | 
+} } | { "name": "pad.deleted", "data": PadName } | { "name": "message.sent", "data": Message } | { "name": "message.delivered", "data": Message } | { "name": "message.dropped", "data": Message } | { "name": "route.changed", "data": Route } | { "name": "agent.status", "data": StatusEvent } | { "name": "agent.channel", "data": ChannelEvent } | { "name": "agent.stray", "data": StrayEvent } | { "name": "agent.toolCall", "data": ToolCallEvent } | 
+/**  Publication metadata committed; read `deliverable.list`. */
+{ "name": "deliverable.changed" } | 
+/**  Saved Reaction, observation or firing changed; read `reaction.list`. */
+{ "name": "reaction.changed" } | { "name": "rail.changed" } | 
 /**  A2741a: the exact destination and name committed under the Rail mutation lock. */
 { "name": "rail.renamed", "data": {
 	id: string,
 	name: string,
-} } | { "name": "checkpoint.written", "data": Checkpoint } | { "name": "workstream.rewound", "data": Rewound } | { "name": "project.requested", "data": Requested } | 
+} } | { "name": "project.requested", "data": Requested } | 
 /**  A3195: the Queue or the Project's cap changed; read `workstream.queue`. */
-{ "name": "workstream.queueChanged" };
+{ "name": "workstream.queueChanged" } | 
+/**  UA7: the User actions changed (a load, reload or removal); read `action.userList`. */
+{ "name": "action.userChanged" } | 
+/**  UA2, UA6, UA8: an Extension failed; the App shows one Toast. */
+{ "name": "extension.problem", "data": ExtensionProblem };
 

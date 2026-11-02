@@ -1,17 +1,16 @@
+import { createTodoCreation } from "./creation";
 import { todoDropTargets } from "./todoDropTargets";
 import { rowTypeahead } from "../ui/RowCollection";
 import type { createCopyFeedback } from "../ui/CopyButton";
-import { outcomeOf } from "../app/seam";
 import { captureFocus, queueFocus } from "../keys/focus";
 import { createDelegateBoard, TodoAuto } from "./DelegateBoard";
 import { createOwnerAssignment, createOwnerKeys, createOwnerPicker, ownersToOffer } from "./ownerAssignment";
-import { todoCreationEditor } from "../drawer/editors";
 import ListChecks from "lucide-solid/icons/list-checks";
 import { IconButton } from "../ui/IconButton";
 import { contextMenu, linkEntries, openOnRelease } from "../ui/contextMenu";
 import { registerKeys, type ActivationSource } from "../keys/registry";
 import { copy } from "./copy";
-import { shelfRowKeys, todoCreationKeys } from "../shelf/keys";
+import { shelfRowKeys } from "../shelf/keys";
 import { createBulkDelete, ShelfActions } from "../shelf/BulkDelete";
 import { createSelection } from "../shelf/selection";
 import { Progress } from "../ui/Progress";
@@ -19,18 +18,18 @@ import { createDependencyGroups } from "./dependencyGroups";
 import { createCountMotion, createFinishMotion } from "./finishMotion";
 import { Icon } from "../ink/Icon";
 import { EmptyState } from "../ink/EmptyState";
-import { EntryRow } from "../ink/EntryRow";
 import * as v from "valibot";
 import { TodoDraftRecovery, todoDraftSchema, creationSchema } from "./EditableText";
-import { batch, createEffect, createMemo, createSignal, For, on, onCleanup, Show, untrack, useContext, type JSX } from "solid-js";
+import { registerOpener } from "../shelf/openItem";
+import { createEffect, createMemo, createSignal, For, on, onCleanup, Show, useContext, type JSX } from "solid-js";
 import { useTabsContext } from "@ark-ui/solid/tabs";
 import type { Todo } from "@contracts/todo/Todo";
 import { ReservedLine } from "../ink/ReservedLine";
 import { homesToOffer } from "./homes";
 import { ShelfRow } from "../ink/ShelfRow";
 import { KindGlyph } from "../ink/KindGlyph";
-import { useConnectedProject, useCreation } from "../state/connectedProject";
-import { failureOf } from "./failureOf";
+import { useConnectedProject } from "../state/connectedProject";
+import { changeFailureOf } from "./failureOf";
 import { OpenRow } from "./OpenRow";
 import { RowButton } from "./RowButton";
 import { createSortedList } from "./sortedList";
@@ -41,15 +40,15 @@ import { ScopeAction } from "../shelf/ScopeAction";
 import { OwnerGroups } from "../shelf/OwnerGroups";
 import { NewWorkstream } from "./NewWorkstream";
 import { OwnerCommand, OwnerPicker } from "./OwnerPicker";
-import type { Actor } from "@contracts/Actor";
 import { CHORDS, chordsFor, chordsOf } from "../keys/chords";
 import { HomePicker } from "./HomePicker";
 import { idOfRow, openRowButtons, rowButtonOf as triageRowOf, triage } from "./triage";
+import { reorderChange } from "./state";
 import type { TodosState } from "./state";
 import { useTodoList } from "./todoList";
 import { TodoDrawer } from "./TodoDrawer";
 import { shownTodos } from "./shownTodos";
-import { rowAfter, doneTodos, nowTodos, offeredAsBlockers, planDrop, treeCollection, treeRows, type NestedRow } from "./todoView";
+import { rowAfter, doneTodos, nowTodos, offeredAsBlockers, planDrop, rowTopology, treeCollection, treeRows, type NestedRow } from "./todoView";
 
 /** U3513a: the keys the quiet footer shows; Help lists the rest. */
 const QUIET_KEYS = ["J K", "A", "X"];
@@ -144,7 +143,7 @@ export const Todos = (props: {
     keys: () => new Set(["overview", ...connected.rail.nodes.map(node => node.id)]),
     ids: () => new Set(todos.all().map(todo => todo.id)),
     loaded: () => todos.isLoaded() && active(),
-    rows: createMemo(() => dependencyRows().map(row => ({ ...row, todo: { ...row.todo } }))),
+    rows: dependencyRows,
     reduced: connected.reducedMotion,
     playing: () => !connected.reducedMotion() && (finishing.bar() || inScope().some(todo => finishing.row(todo.id))),
     group: id => groupOf(todos.byId().get(id)!),
@@ -245,17 +244,19 @@ export const Todos = (props: {
     ids: () => open().map((todo) => todo.id),
     all: todos.all,
     reload: todos.reload,
-    call: (params) => failureOf(() => connected.app.rpc("todo.reorder", params)),
+    call: (params) => todos.ask(params.id, reorderChange(todos.all(), params.id, params.before), () => connected.app.rpc("todo.reorder", params)),
     reducedMotion: connected.reducedMotion,
     home: {
       target: targets.home,
-      move: (id, home) => failureOf(() => connected.app.rpc("todo.move", { id, home })),
+      move: (id, home) => todos.ask(id, { kind: "home", asked: home, base: todos.byId().get(id)?.home ?? null }, () => connected.app.rpc("todo.move", { id, home })),
     },
     owner: {
       target: targets.owner,
-      assign: (id, owner) => failureOf(() => connected.app.rpc("todo.assign", { id, owner })),
+      assign: (id, owner) => todos.ask(id, { kind: "owner", asked: owner, base: todos.byId().get(id)?.owner ?? null }, () => connected.app.rpc("todo.assign", { id, owner })),
     },
   });
+
+  onCleanup(todos.onContradicted((id, message) => sorted.show(id, message)));
 
   // U138, U3709: reordering retained DOM nodes can lose native focus without mounting a new button.
   let nestFocus: number | null = null;
@@ -285,7 +286,7 @@ export const Todos = (props: {
       nestFocus = advance ? null : todo.id;
       nestGrip = false;
 
-      const message = await failureOf(() => connected.app.rpc("todo.setBlockers", { id: todo.id, blockers }));
+      const message = await changeFailureOf(() => connected.app.rpc("todo.setBlockers", { id: todo.id, blockers }));
 
       if (message !== null) nestFocus = null;
       else await advance?.();
@@ -308,7 +309,7 @@ export const Todos = (props: {
       nestPermission = captureFocus();
       nestFocus = id;
       nestGrip = true;
-      const message = await failureOf(() => connected.app.rpc("todo.setBlockers", { id, blockers }));
+      const message = await changeFailureOf(() => connected.app.rpc("todo.setBlockers", { id, blockers }));
 
       if (message !== null) {
         nestFocus = null;
@@ -409,145 +410,11 @@ export const Todos = (props: {
     );
   });
 
-  const [creationHome, setCreationHome] = createSignal<string | null>(form.success ? form.output.home : null);
-  const [creationOwner, setCreationOwner] = createSignal<string | null>(form.success ? form.output.owner : null);
-  const creationRecipient = creationHome;
-  const creationTarget = () => ({ surface: "todos", object: "new", recipient: creationRecipient() });
-
-  createEffect(() => {
-    if (typing()) onCleanup(connected.drafts.editor(creationTarget()));
+  const { creationHome, creation, openField, field } = createTodoCreation({
+    recovery: props.recovery !== undefined, form, homeExists, creationRevision, setCreationRevision, typing, setTyping, createFailure, setCreateFailure,
+    setFiled, active, scope, selectedWorkstream, plusButton: () => plusButton, section: () => section,
   });
 
-  const creation = () => connected.drafts.list().findLast(draft => draft.destination.surface === "todos"
-    && draft.destination.object === "new" && draft.destination.recipient === creationRecipient()
-    && (creationRevision() !== null ? draft.revision === creationRevision() : (draft.status === "draft" || draft.status === "failed" || draft.status === "unknown" || draft.status === "pending")));
-
-  createEffect(() => {
-    const revision = creationRevision();
-
-    if (typing() && revision !== null && !creation()) setTyping(false);
-  });
-
-  let creationRow: HTMLDivElement | undefined;
-
-  registerKeys({ kind: "region", element: () => creationRow }, [{
-    chords: ["Enter"],
-    when: () => creation()?.status === "unknown" || creation()?.status === "pending",
-    run: () => setCreateFailure(copy.draftStatus[creation()?.status ?? "unknown"]),
-  }]);
-
-  const retainCreation = (field: HTMLInputElement) => {
-    const previous = creation();
-    const caret = { start: field.selectionStart ?? 0, end: field.selectionEnd ?? 0, direction: field.selectionDirection ?? "none" };
-
-    if (creationRevision() !== null && !previous) return;
-
-    if (previous?.value.title === field.value) {
-      if ((!props.recovery || document.activeElement === field) && JSON.stringify(previous.selection) !== JSON.stringify(caret)) connected.drafts.setSelection(previous.revision, caret);
-
-      return;
-    }
-
-    if (field.value === "" && !previous) return;
-
-    batch(() => setCreationRevision(connected.drafts.edit(creationTarget(), { title: field.value, home: creationHome(), owner: creationOwner() }, caret, "ordinary", creationRevision()).draft.revision));
-  };
-
-  // EntryRow clears after capturing this revision, so another Enter cannot submit it twice.
-  const create = async (title: string) => {
-    setCreateFailure(null);
-    // Keep the owner captured when the scope-line field opened, even if selection changed.
-    const owner: Actor | null = creationOwner() === null ? null : { kind: "agent", id: creationOwner()!, parent: null };
-
-    const draft = creation();
-
-    const home = creationHome();
-    const recipient = creationRecipient();
-
-    if (!homeExists(home) || !draft || !(await connected.drafts.submit(draft.revision))) return;
-
-    if (creationRevision() === draft.revision) setCreationRevision(null);
-    const field = document.querySelector<HTMLInputElement>(".todos-tab .entry-field");
-
-    try {
-      const made = await connected.app.rpc("todo.create", owner === null ? { title, body: null, blockers: null } : { title, body: null, blockers: null, owner });
-      setFiled(count => count + 1);
-      // Creation is acknowledged before placement: a failed move must never invite duplicate creation.
-      connected.drafts.settle(draft.revision, "acknowledged");
-
-      if (home !== null) await connected.app.rpc("todo.move", { id: made.id, home });
-    } catch (error) {
-      if (!(error instanceof Error)) throw error;
-      connected.drafts.settle(draft.revision, outcomeOf(error));
-      setCreateFailure(error.message);
-      const retained = v.safeParse(v.string(), draft.value.title);
-
-      // EntryRow clears on submit; restore only this field's unchanged failed revision.
-      if (field?.isConnected && field.value === "" && creationRecipient() === recipient && (!creation() || creation()?.revision === draft.revision) && retained.success) { field.value = retained.output; setCreationRevision(draft.revision); }
-    }
-  };
-
-  const openField = (home = selectedWorkstream(), owner = scope.agent()?.id ?? null) => {
-    setCreateFailure(null);
-
-    if (typing()) {
-      document.querySelector<HTMLInputElement>(".todos-tab .entry-field")?.focus();
-
-      return;
-    }
-
-    setCreationHome(home);
-    setCreationOwner(owner);
-    const draft = creation();
-    const saved = v.safeParse(creationSchema, draft?.value);
-
-    if (saved.success) setCreationOwner(saved.output.owner);
-
-    if (draft && !v.safeParse(v.string(), draft.value.title).success) {
-      setCreateFailure(copy.draftRetention(connected.project.name, copy.draftSurface("todos"), "invalid"));
-
-      return;
-    }
-
-    setCreationRevision(draft?.revision ?? null);
-    setTyping(true);
-  };
-
-  useCreation("todo", home => {
-    setTyping(false);
-    setCreationRevision(null);
-    openField(home, null);
-  });
-  todoCreationKeys({ section: () => section, active, editing: typing, home: selectedWorkstream, owner: () => scope.agent()?.id ?? null, open: openField });
-
-  const field = () => (
-    <div class="shelf-list todo-create" ref={element => { creationRow = element; }}>
-
-      <EntryRow
-        glyph={<input type="checkbox" class="todo-tick" disabled tabIndex={-1} aria-hidden="true" />}
-        class="todo-inset"
-        label={copy.newTodoTitle}
-        placeholder={copy.newTodoPlaceholder}
-        initial={untrack(() => {
-          const draft = creation();
-          const title = v.safeParse(v.string(), draft?.value.title);
-
-          return { text: title.success ? title.output : "", selection: draft?.selection ?? null };
-        })}
-        onEdit={retainCreation}
-        onSubmit={(title) => void create(title)}
-        onClose={(reason) => {
-
-          setTyping(false);
-
-          if (reason === "escape") setCreateFailure(null);
-
-          if (reason !== "blur") plusButton?.focus();
-        }}
-      />
-      <ReservedLine message={createFailure()} content={createFailure() ? <>{copy.failed(copy.addTodo, "")}<span>{createFailure()}</span></> : undefined} />
-    </div>
-  );
 
   // U153: a row is selected while the Drawer it opened is the one open.
   const [shown, setShown] = createSignal<{ id: number; content: () => JSX.Element } | null>(null);
@@ -566,13 +433,23 @@ export const Todos = (props: {
     connected.drawer.open(content, source, { kind: "todo", project: connected.project.path });
   };
 
+  // U5240b: the Switcher opens a Todo through its Rail row, so the row reads as selected.
+  onCleanup(registerOpener("todo", id => {
+    const todo = todos.byId().get(Number(id));
+
+    if (!todo || props.recovery !== undefined) return false;
+    show(todo, "key");
+
+    return true;
+  }));
+
   const toggle = async (todo: Todo, ids: readonly number[]) => {
     const focus = captureFocus();
     const reopening = todo.done;
     const advance = !reopening ? captureAdvance(todo.id) : undefined;
     const target = rowAfter(todo.id, ids);
 
-    const message = await failureOf(() => reopening
+    const message = await changeFailureOf(() => reopening
       ? connected.app.rpc("todo.reopen", { id: todo.id })
       : connected.app.rpc("todo.complete", { id: todo.id }));
 
@@ -671,16 +548,8 @@ export const Todos = (props: {
 
   const canTriage = (event: KeyboardEvent, nesting = false) => triage.canKey(event, section, !tabs || tabs().value === "todos", nesting);
 
-  const triageKey = (keys: string, run: (todo: Todo, button: HTMLButtonElement, event?: KeyboardEvent) => void) => keys === "J K" ? {
-    chords: chordsOf(CHORDS.find(row => row.inTriage && row.keys === keys)),
-    when: (event: KeyboardEvent) => triage.on() && canTriage(event) && triageTarget(event)?.done === false,
-    run: (event: KeyboardEvent) => {
-      const found = triageTarget(event);
-
-      if (found && event.target instanceof HTMLButtonElement) run(found, event.target, event);
-    },
-  } : {
-    action: CHORDS.find(row => row.inTriage && row.keys === keys)!, searchable: false as const,
+  const triageKey = (keys: string, run: (todo: Todo, button: HTMLButtonElement) => void, press?: string) => ({
+    action: CHORDS.find(row => row.inTriage && row.keys === keys)!, press, searchable: false as const,
     when: (event: KeyboardEvent) => triage.on() && canTriage(event) && triageTarget(event)?.done === false,
     capture: (focus: Element | null) => {
       const id = idOfRow(focus);
@@ -688,13 +557,13 @@ export const Todos = (props: {
 
       return { available: () => triage.on() && active() && focus instanceof HTMLButtonElement && focus.isConnected && !focus.closest("[hidden], [inert]") && document.activeElement === focus && todo !== undefined && todos.byId().get(todo.id)?.done === false && (keys !== "W" || homesToOffer(connected.rail.nodes, todo.home).length > 0), invoke: () => { if (todo && focus instanceof HTMLButtonElement) run(todo, focus); } };
     },
-  };
+  });
 
   const moveHome = async (id: number, home: string | null) => {
     const focus = captureFocus();
     const advance = moveAdvance;
     clearFailures();
-    const message = await failureOf(() => connected.app.rpc("todo.move", { id, home }));
+    const message = await todos.ask(id, { kind: "home", asked: home, base: todos.byId().get(id)?.home ?? null }, () => connected.app.rpc("todo.move", { id, home }));
 
     pickFails.get(id)?.show(message);
 
@@ -720,12 +589,12 @@ export const Todos = (props: {
       when: event => triage.on() && canTriage(event),
       capture: focus => ({ available: () => triage.on() && focus?.isConnected === true && (focus === document.body || !!focus.closest(".shelf, .shelf-tabs")) && !focus.closest("input,textarea,select,[contenteditable]"), invoke: leaveTriage }),
     },
-    triageKey("J K", (_todo, button, event) => {
+    ...["KeyJ", "KeyK"].map(press => triageKey("J K", (_todo, button) => {
       const buttons = triageButtons();
       const at = buttons.indexOf(button);
 
-      if (at !== -1) buttons[Math.min(buttons.length - 1, Math.max(0, at + (event?.code === "KeyJ" ? 1 : -1)))]?.focus();
-    }),
+      if (at !== -1) buttons[Math.min(buttons.length - 1, Math.max(0, at + (press === "KeyJ" ? 1 : -1)))]?.focus();
+    }, press)),
     triageKey("A", (todo, button) => {
       clearFailures();
       setPicking({ id: todo.id, anchor: button });
@@ -799,7 +668,7 @@ export const Todos = (props: {
           <Icon name="plus" />
           <span>{copy.todo}</span>
         </button>
-        <IconButton class="shelf-triage" data-triage-toggle aria-label={copy.triage} aria-pressed={triage.on()} chord={CHORDS.find(row => row.keys === "T" && row.inShelf)} onClick={() => triage.on() ? leaveTriage() : enterTriage()}><ListChecks class="icon" aria-hidden="true" width={16} height={16} stroke-width={1.75} /></IconButton>
+        <IconButton class="shelf-triage" data-triage-toggle aria-label={copy.triage} aria-pressed={triage.on()} action="todo.triage-enter" onClick={() => triage.on() ? leaveTriage() : enterTriage()}><ListChecks class="icon" aria-hidden="true" width={16} height={16} stroke-width={1.75} /></IconButton>
         <TodoAuto home={selectedWorkstream} />
       </ScopeAction>
       <ReservedLine overlay message={todos.failure() || (!typing() ? createFailure() : null)} />
@@ -809,20 +678,26 @@ export const Todos = (props: {
       <Show when={listed().length + pending().length > 0}>
         <OwnerGroups mark={group => <Show when={board.digit(group)}>{digit => <kbd class="todo-owner-digit">{digit()}</kbd>}</Show>} detail={group => <Show when={group.id === "unassigned" && connected.rail.nodes.find(node => node.id === selectedWorkstream())?.auto}><p class="todo-auto-handling">{copy.todoAutoHandling}</p></Show>} count={group => group.items.filter(todo => !todo.done).length} onClosedChange={setClosedGroups} groups={() => ownerGroups(connected, [...listed(), ...pending()], todo => todo.owner)} dragging={dragging} bare={() => connected.rail.nodes.find(node => node.id === connected.rail.selected())?.kind === "agent" ? connected.rail.selected() : null} reveal={revealed} focus={() => requestedOpen()[0] ? groupOf(requestedOpen()[0]!) : null} focusItem={() => rowButtonOf(requestedOpen()[0]?.id ?? -1)} onFocused={connected.finishPadsRequest} arrivals={requestedGroups} unfold={() => filed() + todos.revealed()}>{group => {
         const tree = createMemo(() => treeRows(group().items.filter(todo => !pending().includes(todo))));
-        const collection = createMemo(() => treeCollection(tree()));
-        const placeOf = (id: number) => tree().find((row) => row.todo.id === id) ?? { level: 1, parent: null };
+        const topology = createMemo(() => rowTopology(tree()));
+        const collection = createMemo(() => treeCollection(topology()));
+        const placeOf = (id: number) => tree()[topology().index.get(id) ?? -1] ?? { level: 1, parent: null };
 
-        const renderChildren = (parent: number | null, trail: () => readonly boolean[] = () => []): JSX.Element => <For each={tree().filter(row => row.parent === parent).map(row => row.todo)}>{(todo, sibling) => {
-            const at = () => tree().findIndex(row => row.todo.id === todo.id);
-            const members = () => dependency.groups().get(todo.id) ?? [];
+        const renderChildren = (parent: number | null, trail: () => readonly boolean[] = () => []): JSX.Element => {
+          const children = createMemo(() => topology().children(parent).map(row => row.todo));
+
+          return <For each={children()}>{(todo, sibling) => {
+            const at = () => topology().index.get(todo.id)!;
+            const members = () => dependency.groups().get(todo.id);
+            const total = () => members()?.total ?? 0;
+            const completed = () => members()?.done ?? 0;
             let registered: HTMLButtonElement | null = null;
-            const row = { get level() { return placeOf(todo.id).level; }, get parent() { return placeOf(todo.id).parent; }, get trail() { return this.level > 1 ? [...trail(), sibling() < tree().filter(row => row.parent === parent).length - 1] : []; } };
+            const row = { get level() { return placeOf(todo.id).level; }, get parent() { return placeOf(todo.id).parent; }, get trail() { return this.level > 1 ? [...trail(), sibling() < children().length - 1] : []; } };
 
             return <Sortable.Item id={String(todo.id)} index={at()}>{parts => {
             const draw = (itemProps: () => JSX.HTMLAttributes<HTMLElement>) => (
             <OpenRow
               copyWith={registerCopy(todo.id)}
-              disclosure={<Show when={members().length > 0}><TreeView.BranchTrigger asChild={trigger => <IconButton {...trigger({
+              disclosure={<Show when={total() > 0}><TreeView.BranchTrigger asChild={trigger => <IconButton {...trigger({
                 "aria-label": copy.toggleTodoGroup(todo.title), "aria-controls": `todo-group-${todo.id}`, "aria-expanded": dependency.expanded(todo.id),
                 onClick: () => {
                   const content = document.getElementById(`todo-group-${todo.id}`);
@@ -831,8 +706,8 @@ export const Todos = (props: {
                 },
               })} aria-label={copy.toggleTodoGroup(todo.title)} data-group-toggle={todo.id}><Icon name={dependency.expanded(todo.id) ? "down" : "right"} /></IconButton>} /></Show>}
               aggregateMotion={dependency.strike(todo.id)}
-              groupComplete={members().length ? dependency.complete(todo.id) : undefined}
-              groupProgress={<Show when={members().length > 0}><Progress label={copy.todosDoneIn(todo.title)} max={members().length} value={members().filter(row => row.todo.done).length} motion={dependency.bar(todo.id)} onMotionEnd={() => dependency.barEnded(todo.id)}><span class="todo-progress-count" data-state="">{members().filter(row => row.todo.done).length}/{members().length}</span></Progress></Show>}
+              groupComplete={total() ? dependency.complete(todo.id) : undefined}
+              groupProgress={<Show when={total() > 0}><Progress label={copy.todosDoneIn(todo.title)} max={total()} value={completed()} motion={dependency.bar(todo.id)} onMotionEnd={() => dependency.barEnded(todo.id)}><span class="todo-progress-count" data-state="">{completed()}/{total()}</span></Progress></Show>}
               current={now().has(todo.id)}
               motion={finishing.row(todo.id)}
               onMotionEnd={() => finishing.rowEnded(todo.id)}
@@ -849,7 +724,7 @@ export const Todos = (props: {
               onAssign={(item, anchor) => { setPicking({ id: item.id, anchor }); pickAdvance = captureAdvance(item.id); }}
               failWith={(show, message, rename) => pickFails.set(todo.id, { show, message, rename })}
               sorted={sorted.row(todo.id, parts, () => tree().map(({ todo }) => todo.id))}
-              place={row} connections={<Trunks depth={row.level - 1} trail={row.trail} stem={members().length > 0 && dependency.expanded(todo.id)} />}
+              place={row} connections={<Trunks depth={row.level - 1} trail={row.trail} stem={total() > 0 && dependency.expanded(todo.id)} />}
               nest={nestOf(todo, row.parent, tree().slice(0, at()).findLast(row => !row.todo.done)?.todo ?? null, at() === 0)}
               registerRow={(id, row) => {
                 if (row) {
@@ -866,7 +741,7 @@ export const Todos = (props: {
 
             return (
             <TreeView.NodeProvider node={collection().findNode(String(todo.id))!} indexPath={collection().getIndexPath(String(todo.id)) ?? []}>
-            <Show when={members().length > 0} fallback={<TreeView.Item asChild={draw} />}>
+            <Show when={total() > 0} fallback={<TreeView.Item asChild={draw} />}>
               <TreeView.Branch asChild={branch => {
                 const attrs = () => {
                   const { "aria-level": _level, "aria-expanded": _expanded, ...rest } = branch();
@@ -884,6 +759,7 @@ export const Todos = (props: {
               );
             }}</Sortable.Item>;
         }}</For>;
+        };
 
         return <>
         <For each={group().items.filter(todo => pending().includes(todo))}>{todo => <ShelfRow class="todo-row todo-inset" data-todo={todo.id} data-pending="true" glyph={<span><KindGlyph kind="idle" /></span>} head={<div class="row-head"><span class="shelf-title">{todo.title}</span></div>} />}</For>
@@ -990,5 +866,3 @@ export const Todos = (props: {
     </section>
   );
 };
-
-todoCreationEditor.set(Todos);

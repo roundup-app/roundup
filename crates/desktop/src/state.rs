@@ -61,6 +61,8 @@ struct Open {
     subscription: Option<JoinHandle<()>>,
     /// X14: one connection and pump per selected Terminal; dropping one releases that selection.
     outputs: HashMap<String, JoinHandle<()>>,
+    /// NA6: the connection the Daemon relays the App's `action.list` and `action.run` to, and its pump.
+    actions: Option<(Arc<Client>, JoinHandle<()>)>,
     connected: Option<oneshot::Sender<Result<(), RpcError>>>,
 }
 
@@ -71,6 +73,9 @@ impl Drop for Open {
         }
         for (_, output) in self.outputs.drain() {
             output.abort();
+        }
+        if let Some((_, pump)) = self.actions.take() {
+            pump.abort();
         }
     }
 }
@@ -119,11 +124,12 @@ impl AppState {
     }
 
     /// The folder the App keeps names and the open list in, unless `Config` already named one.
-    pub fn use_data_dir(&self, dir: PathBuf) {
+    pub fn use_data_dir(&self, dir: PathBuf) -> Result<(), RpcError> {
         self.store.use_dir(dir);
+        self.store.load()
     }
 
-    pub fn recent_projects(&self) -> Vec<String> {
+    pub fn recent_projects(&self) -> Result<Vec<String>, RpcError> {
         self.store.recent_projects()
     }
 
@@ -131,13 +137,16 @@ impl AppState {
         crate::facts::claude_binary(&self.config).await
     }
 
-    pub fn projects(&self) -> Vec<Listed> {
+    pub fn projects(&self) -> Result<Vec<Listed>, RpcError> {
+        self.store.load()?;
         self.entries()
             .iter()
-            .map(|entry| Listed {
-                name: self.name_of(&entry.path),
-                path: entry.path.clone(),
-                running: matches!(entry.phase, Phase::Open(_)),
+            .map(|entry| {
+                Ok(Listed {
+                    name: self.name_of(&entry.path)?,
+                    path: entry.path.clone(),
+                    running: matches!(entry.phase, Phase::Open(_)),
+                })
             })
             .collect()
     }
@@ -154,8 +163,8 @@ impl AppState {
 
     /// The launch's reopening of the stored list (S10): a Daemon that fails to start leaves its
     /// Project listed as not running instead of dropping it.
-    pub async fn restore<R: Runtime>(&self, app: &AppHandle<R>) {
-        for path in self.store.open_paths() {
+    pub async fn restore<R: Runtime>(&self, app: &AppHandle<R>) -> Result<(), RpcError> {
+        for path in self.store.open_paths()? {
             let path = PathBuf::from(path);
             if !path.is_dir() {
                 continue;
@@ -164,7 +173,7 @@ impl AppState {
                 log::warn!(target: "roundup::shell", "restore Project: RPC failure code {}; saved Project remains listed", err.code);
             }
         }
-        self.save_open();
+        self.save_open()
     }
 
     async fn open<R: Runtime>(
@@ -173,6 +182,7 @@ impl AppState {
         path: &Path,
         keep_on_failure: bool,
     ) -> Result<Project, RpcError> {
+        self.store.load()?;
         let key = path.display().to_string();
         let mut pending = self
             .entries()
@@ -193,9 +203,9 @@ impl AppState {
         }
         if self.is_running(&key) {
             if !keep_on_failure {
-                self.store.record_recent(&key);
+                self.store.record_recent(&key)?;
             }
-            return Ok(self.project_at(&key));
+            return self.project_at(&key);
         }
         let (lifetime, mut cancel, reopening) = {
             let mut entries = self.entries();
@@ -242,16 +252,16 @@ impl AppState {
                     if reopening {
                         Self::await_connection(app.clone(), key.clone(), run, cancel, answer);
                     }
-                    self.save_open();
+                    self.save_open()?;
                     if !keep_on_failure {
-                        self.store.record_recent(&project.path);
+                        self.store.record_recent(&project.path)?;
                     }
                     return Ok(project);
                 }
                 Err(err) => {
                     if !reopening {
                         if keep_on_failure {
-                            self.save_open();
+                            self.save_open()?;
                         } else {
                             self.entries()
                                 .retain(|entry| !Arc::ptr_eq(&entry.lifetime, &lifetime));
@@ -431,6 +441,53 @@ impl AppState {
         }
     }
 
+    /// NA6: registers the webview as the Project's action answerer (`action.serve`) and sends each
+    /// request line the Daemon relays to `channel`; `action_answer` writes the answer. A second call replaces the first.
+    pub async fn action_serve(&self, path: &str, channel: Channel<Value>) -> Result<(), RpcError> {
+        let socket = self.open_ref(path, |open| open.socket.path().to_path_buf())?;
+        let mut client = Client::connect(&socket).await.map_err(RpcError::internal)?;
+        let mut requests = client
+            .take_requests()
+            .ok_or_else(|| RpcError::internal("the request intake was already taken"))?;
+        self.bounded("action.serve", client.request("action.serve", Value::Null))
+            .await?;
+        let client = Arc::new(client);
+        let pump = tauri::async_runtime::spawn(async move {
+            while let Some(request) = requests.recv().await {
+                if channel.send(request).is_err() {
+                    return;
+                }
+            }
+        });
+        let mut entries = self.entries();
+        match entries.iter_mut().find(|entry| entry.path == path) {
+            Some(Entry {
+                phase: Phase::Open(open),
+                ..
+            }) => {
+                if let Some((_, previous)) = open.actions.replace((client, pump)) {
+                    previous.abort();
+                }
+                Ok(())
+            }
+            _ => {
+                pump.abort();
+                Err(not_open(path))
+            }
+        }
+    }
+
+    /// NA6: the webview's answer to a request `action_serve` delivered.
+    pub async fn action_answer(&self, path: &str, line: Value) -> Result<(), RpcError> {
+        let client = self.open_ref(path, |open| {
+            open.actions.as_ref().map(|(client, _)| Arc::clone(client))
+        })?;
+        client
+            .ok_or_else(|| RpcError::internal("no action answerer is registered"))?
+            .reply(&line)
+            .await
+    }
+
     /// X14: releases the App's selection of one Terminal; the other Terminals' streams go on.
     pub fn terminal_output_stop(&self, path: &str, id: &str) -> Result<(), RpcError> {
         let mut entries = self.entries();
@@ -458,7 +515,7 @@ impl AppState {
         let closed = entries.remove(index);
         drop(entries);
         drop(closed);
-        self.save_open();
+        self.save_open()?;
         Ok(())
     }
 
@@ -510,26 +567,27 @@ impl AppState {
             .any(|entry| entry.path == path && matches!(entry.phase, Phase::Open(_)))
     }
 
-    fn name_of(&self, path: &str) -> String {
-        self.store
-            .name(path)
-            .unwrap_or_else(|| named_after(Path::new(path)))
+    fn name_of(&self, path: &str) -> Result<String, RpcError> {
+        Ok(self
+            .store
+            .name(path)?
+            .unwrap_or_else(|| named_after(Path::new(path))))
     }
 
-    fn project_at(&self, path: &str) -> Project {
-        Project {
-            name: self.name_of(path),
+    fn project_at(&self, path: &str) -> Result<Project, RpcError> {
+        Ok(Project {
+            name: self.name_of(path)?,
             path: path.to_owned(),
-        }
+        })
     }
 
-    fn save_open(&self) {
+    fn save_open(&self) -> Result<(), RpcError> {
         let paths = self
             .entries()
             .iter()
             .map(|entry| entry.path.clone())
             .collect();
-        self.store.set_open(paths);
+        self.store.set_open(paths)
     }
 
     /// Commits the run number a successful open used, so the next one gets a fresh socket path (S5).
@@ -568,6 +626,7 @@ impl AppState {
             run,
             subscription: None,
             outputs: HashMap::new(),
+            actions: None,
             connected,
         };
         let mut entries = self.entries();
@@ -584,7 +643,7 @@ impl AppState {
         daemon::watch_exit(started.child, move |code| {
             Self::failed(&app, &exited_path, run, code, None);
         });
-        Ok(self.project_at(&key))
+        self.project_at(&key)
     }
 
     fn record_failure(&self, path: &str, lifetime: &Arc<()>) -> Option<u8> {
@@ -765,12 +824,48 @@ impl AppState {
         method: &str,
         call: impl Future<Output = Result<T, RpcError>>,
     ) -> Result<T, RpcError> {
-        timeout(self.config.call_bound, call).await.map_err(|_| {
-            RpcError::internal(format!(
-                "no reply to {method} within {:?}; whether the Daemon applied it is unknown",
-                self.config.call_bound
-            ))
-        })?
+        timeout(self.config.call_bound, call)
+            .await
+            .map_err(|_| unanswered(method, self.config.call_bound))?
+    }
+}
+
+/// Methods that write nothing: a timeout on one leaves no outcome unknown (U5301b).
+fn writes_nothing(method: &str) -> bool {
+    const READS: [&str; 20] = [
+        "list",
+        "get",
+        "read",
+        "tree",
+        "describe",
+        "digest",
+        "context",
+        "extras",
+        "instructions",
+        "skills",
+        "snapshot",
+        "screen",
+        "search",
+        "history",
+        "touched",
+        "worktreeState",
+        "comments",
+        "getHistory",
+        "listHanded",
+        "preview",
+    ];
+    method
+        .split_once('.')
+        .is_some_and(|(_, name)| READS.contains(&name))
+}
+
+fn unanswered(method: &str, bound: Duration) -> RpcError {
+    if writes_nothing(method) {
+        RpcError::internal(format!("no reply to {method} within {bound:?}"))
+    } else {
+        RpcError::internal(format!(
+            "no reply to {method} within {bound:?}; whether the Daemon applied it is unknown"
+        ))
     }
 }
 
@@ -785,4 +880,31 @@ fn named_after(path: &Path) -> String {
         || reached.display().to_string(),
         |name| name.to_string_lossy().into_owned(),
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const BOUND: Duration = Duration::from_secs(5);
+
+    #[test]
+    fn u5301b_a_timed_out_read_says_the_daemon_did_not_answer() {
+        for method in ["todo.list", "pad.list", "rail.tree"] {
+            let message = unanswered(method, BOUND).message;
+            assert!(message.starts_with(&format!("no reply to {method} within")));
+            assert!(!message.contains("unknown"), "{message}");
+        }
+    }
+
+    #[test]
+    fn u5301b_a_timed_out_mutation_stays_unknown() {
+        for method in ["rail.remove", "todo.create"] {
+            assert!(
+                unanswered(method, BOUND)
+                    .message
+                    .contains("whether the Daemon applied it is unknown")
+            );
+        }
+    }
 }

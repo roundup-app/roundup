@@ -1,5 +1,5 @@
 //! Q11: a Workstream with a Door and children for plugin launch/resume probes.
-use crate::daemon::{self, next};
+use crate::daemon::{self};
 
 use contracts::{EventData, Kind};
 use serde_json::json;
@@ -54,6 +54,13 @@ pub async fn plugin_fixture(
         .request("rail.startDoor", json!({"id": door}))
         .await
         .unwrap();
+    client
+        .request(
+            "message.send",
+            json!({"to":door,"kind":"note","body":"Q11 start plugin inventory"}),
+        )
+        .await
+        .unwrap();
     let model = project.model.as_ref().unwrap();
     let first = model.tool_result("toolu_a32_child").await;
     let a: contracts::agent::RailNode =
@@ -65,13 +72,14 @@ pub async fn plugin_fixture(
     let mut working = std::collections::BTreeSet::new();
     let mut idle = std::collections::BTreeSet::new();
     while idle.len() < 3 {
-        let status = next(&mut client, |event| match event {
-            EventData::AgentStatus(status) if [&door, &a.id, &b.id].contains(&&status.id) => {
-                Some(status)
-            }
-            _ => None,
-        })
-        .await;
+        let status = project
+            .next(&mut client, |event| match event {
+                EventData::AgentStatus(status) if [&door, &a.id, &b.id].contains(&&status.id) => {
+                    Some(status)
+                }
+                _ => None,
+            })
+            .await;
         if status.status.kind == Kind::Working {
             working.insert(status.id.clone());
         }

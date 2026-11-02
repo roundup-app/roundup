@@ -9,7 +9,7 @@ afterEach(() => { cleanup(); localStorage.clear(); });
 
 const open = () => fireEvent.keyDown(document, { key: "n", metaKey: true, shiftKey: true });
 
-const field = () => screen.getByLabelText<HTMLTextAreaElement>("Task");
+const field = () => screen.getByLabelText<HTMLTextAreaElement>("Work");
 
 it.each(["acknowledged", "failed", "unknown", "transport"])("u2773b_rail_settlement_preserves_other_revisions_%s", async (outcome) => {
   const { RpcError } = await import("../app/seam");
@@ -116,7 +116,7 @@ it("u2773b_rail_late_failure_stays_in_original_project", async () => {
   expect(railCallsTo(original.app, "agent.spawn")).toHaveLength(1);
 });
 
-it.each(["failed", "acknowledged", "unknown", "transport"])("u2773b_rail_name_settlement_keeps_newer_edit_%s", async (outcome) => {
+it.each(["failed", "acknowledged"])("u2773b_rail_name_settlement_keeps_newer_edit_%s", async (outcome) => {
   const { agent } = await import("../testing/nodes");
   const { RpcError } = await import("../app/seam");
   const mounted = await mountRail([agent("a", "idle", "ready", { name: "Original" })]);

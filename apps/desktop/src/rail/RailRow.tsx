@@ -1,3 +1,4 @@
+import { alertLevel } from "./alertLevel";
 import { Sortable } from "../ui/sortable";
 import { createCopyFeedback } from "../ui/CopyButton";
 import { outcomeOf } from "../app/seam";
@@ -18,11 +19,14 @@ import { createCutTitle } from "../ui/cutTitle";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { Kind } from "@contracts/Kind";
 import { Icon } from "../ink/Icon";
+import { mergeProps } from "@zag-js/solid";
+import { StatusTip } from "../ink/StatusTip";
 import { KindGlyph } from "../ink/KindGlyph";
-import { agentKindsBelow, isWorkstream } from "./layout";
+import { FailureLine } from "../ink/FailureLine";
+import { agentKindsBelow, descendantsOf, isWorkstream } from "./layout";
 import { Trunks } from "../ui/TreeView";
-import type { NodeRow } from "./layout";
-import { createAgentPads, PadsControl } from "./pads/AgentPads";
+import type { NodeRow, RailTopology } from "./layout";
+import { PadsControl } from "./pads/AgentPads";
 import { draftsOf } from "./persist/storage";
 
 /** What Ark's item and branch control take for the row's own element. */
@@ -107,6 +111,7 @@ const NameField = (props: { node: RailNode; onCommit: (name: string) => Promise<
 
 export const RailRowView = (props: {
   actions: RowActions; doorAction?: JSX.Element;
+  topology: RailTopology; todoCount: number;
   row: NodeRow; rootDivider?: boolean; selected: boolean; multiple: boolean; tabbable: boolean; branch: boolean;
   copyWith?: (feedback: ReturnType<typeof createCopyFeedback>) => () => void;
   editing: boolean; onEditing: (editing: boolean) => void; onToggle: () => void;
@@ -117,7 +122,6 @@ export const RailRowView = (props: {
   onOpenMenu: (x: number, y: number) => void;
 }) => {
   const connected = useConnectedProject();
-  const pads = createAgentPads(() => props.row.node);
   const copied = createCopyFeedback();
   const unregisterCopy = props.copyWith?.(copied);
   onCleanup(() => unregisterCopy?.());
@@ -131,12 +135,18 @@ export const RailRowView = (props: {
   const cutName = createCutTitle(() => props.row.node.name);
 
   const kind = (): Kind | null => {
-    const kinds = [props.row.node.status?.kind, ...(workstream() && props.row.collapsed !== null ? agentKindsBelow(connected.rail.nodes, props.row.node.id) : [])];
+    const kinds = [connected.rail.dismissed(props.row.node) ? "idle" as const : props.row.node.status?.kind, ...(workstream() && props.row.collapsed !== null ? agentKindsBelow(props.topology, props.row.node.id, connected.rail.dismissed) : [])];
 
     return (["error", "needs-you", "blocked", "working", "done", "idle"] as const).find(kind => kinds.includes(kind)) ?? null;
   };
 
-  const unread = () => connected.unseen.of(props.row.node.id) || (workstream() && props.row.collapsed !== null && connected.unseen.below(props.row.node.id));
+  const statusLabel = () => {
+    const status = props.row.node.status;
+
+    return status?.kind === "error" && connected.rail.dismissed(props.row.node) ? copy.dismissedFailure(status.label) : status?.label ?? "";
+  };
+
+  const unread = () => connected.unseen.of(props.row.node.id) || (workstream() && props.row.collapsed !== null && descendantsOf(props.topology, props.row.node.id).some(node => connected.unseen.of(node.id)));
 
   const queuedBadge = () => {
     const queued = workstream() ? connected.queue.entryOf(props.row.node.id) : null;
@@ -159,7 +169,7 @@ export const RailRowView = (props: {
     "data-multiple": props.multiple ? "true" : undefined,
     tabIndex: props.tabbable ? 0 : -1,
     "data-worktree": props.row.node.worktree ? "true" : undefined,
-    "data-editing": props.editing, "data-kind": kind() ?? undefined, "data-lifted": props.lifted,
+    "data-editing": props.editing, "aria-busy": connected.rail.pendingOf(props.row.node.id) ? true : undefined, "data-kind": kind() ?? undefined, "data-lifted": props.lifted,
     style: { "--tree-depth": props.row.depth, "--indent": `calc(${props.row.depth} * var(--rail-step) + var(--rail-inset))` },
     onDblClick: (event: MouseEvent) => {
       if (!(event.target instanceof Element) || event.target.closest("button, input") || props.lifted) return;
@@ -176,33 +186,34 @@ export const RailRowView = (props: {
     <NameField node={props.row.node} onCommit={props.onRename} onFailure={props.onFailure} onCancel={closeName} />
   </Show>;
 
-  const row = (mine: (extra: RowProps) => RowProps) => <div {...mine(rowProps())} ref={el => { element = el; props.sortRef(el); }}>
+  const row = (mine: (extra: RowProps) => RowProps) => <StatusTip status={props.row.node.status} dismissed={connected.rail.dismissed(props.row.node)}>{reveal => <div {...mine(mergeProps(rowProps(), reveal()))} ref={el => { element = el; props.sortRef(el); }}>
     <Trunks depth={props.row.depth} trail={props.row.trail} stem={props.row.children} />
     <p class="line">
-      <Show when={workstream()}><IconButton class="rail-chevron row-control" aria-label={copy.collapse} {...ownKeys} onClick={event => { event.stopPropagation(); props.onToggle(); }}><Icon name={props.row.collapsed ? "right" : "down"} /></IconButton></Show>
+      <Show when={workstream()}><IconButton class="rail-chevron row-control" aria-label={props.row.collapsed ? copy.expand : copy.collapse} aria-expanded={!props.row.collapsed} {...ownKeys} onClick={event => { event.stopPropagation(); props.onToggle(); }}><Icon name={props.row.collapsed ? "right" : "down"} /></IconButton></Show>
       <span class="row-state"><KindGlyph kind={kind() ?? "idle"} /></span>
-      <Show when={workstream() && props.row.node.opening_prompt?.trim()} fallback={name()}>
-        <span class="mode-name">{name()}<span class="mode-mark" data-state="mode" role="img" aria-label={copy.modeWord}><Icon name="workflow" /></span></span>
-      </Show>
-      <Show when={unread()}><span class="unread-dot row-secondary" data-state="" role="img" aria-label={copy.unreadResult}>{copy.unseenMark}</span></Show>
+      {name()}
+      <Show when={alertLevel(props.topology, props.row.node) !== "default" && alertLevel(props.topology, props.row.node)}>{level => <span class="alert-level" data-state="alert-level">{level()}</span>}</Show>
+      <Show when={props.row.collapsed?.agents.length}>{hidden => <span class="hidden-agents" data-state="collapsed" role="img" aria-label={copy.hiddenAgents(hidden())}>{hidden()}</span>}</Show>
+      <Show when={unread()}><span class="unread-dot row-secondary" data-state="" role="img" aria-label={copy.unreadResult} /></Show>
       <Show when={queuedBadge()}>{badge => <span class="light queue-badge row-secondary">{badge()}</span>}</Show>
       <Show when={!workstream() && props.row.node.worktree}><span class="worktree-chips row-secondary">
         <Show when={(facts()?.ahead ?? 0) > 0}><span class="worktree-chip" role="img" data-state="ahead" aria-label={copy.worktreeAheadState(facts()!.ahead)}>{copy.worktreeAhead(facts()!.ahead)}</span></Show>
-        <Show when={facts()?.ci}>{ci => <span class="worktree-chip" role="img" data-state={ci().state} data-stale={ci().stale} aria-label={copy.worktreeCiText(ci().state, ci().stale, true)}>{copy.worktreeCiChip(ci().state)}<Show when={ci().stale}><span class="worktree-stale">{copy.worktreeStale}</span></Show></span>}</Show>
+        <Show when={facts()?.ci}>{ci => <span class="worktree-chip" role="img" data-state={ci().state} data-stale={ci().stale} aria-label={copy.worktreeCiText(ci().state, ci().stale, true)}>{copy.worktreeCiGlyph(ci().state)} {copy.ci}<Show when={ci().stale}><span class="worktree-stale">{copy.worktreeStale}</span></Show></span>}</Show>
         <Show when={facts()?.pr}>{pr => <span class="worktree-chip" role="img" data-state="pr" data-stale={pr().stale} aria-label={copy.worktreePrState(pr().number, pr().stale)}>{copy.worktreePrText(pr().number, false)}<Show when={pr().stale}><span class="worktree-stale">{copy.worktreeStale}</span></Show></span>}</Show>
         <Show when={worktreeFailure()}><span class="worktree-chip" data-state="unavailable" role="img" aria-label={copy.worktreeUnavailable}>{copy.worktreeUnavailableMark}</span></Show>
       </span></Show>
       <span class="row-tail">
         <RowIcons actions={props.actions}>{props.doorAction}</RowIcons>
-        <Show when={!workstream()}><span class="row-controls"><span class="row-control-slot"><PadsControl pads={pads} agent={props.row.node.id} /></span></span></Show>
+        <Show when={!workstream()}><span class="row-controls"><span class="row-control-slot"><PadsControl count={props.todoCount} agent={props.row.node.id} /></span></span></Show>
         <Show when={props.draggable}><Sortable.Handle label={copy.moveItem(props.row.node.name)} ref={props.handleRef} /></Show>
       </span>
     </p>
-  </div>;
+    <Show when={!workstream() && (props.selected || !connected.rail.dismissed(props.row.node))}><FailureLine status={props.row.node.status} dismissed={connected.rail.dismissed(props.row.node)} /></Show>
+  </div>}</StatusTip>;
 
   return <>
-    <Show when={props.branch} fallback={<TreeView.Item data-id={props.row.node.id} aria-label={[props.row.node.name, ...(workstream() && props.row.node.opening_prompt?.trim() ? [copy.modeWord] : []), ...(!workstream() && props.row.node.status ? [props.row.node.status.label] : [])].join(copy.comma)} asChild={item => row(extra => item(extra))} />}>
-      <TreeView.Branch class="rail-root-branch" data-id={props.row.node.id} aria-label={[props.row.node.name, ...(workstream() && props.row.node.opening_prompt?.trim() ? [copy.modeWord] : []), ...(!workstream() && props.row.node.status ? [props.row.node.status.label] : [])].join(copy.comma)}>
+    <Show when={props.branch} fallback={<TreeView.Item data-id={props.row.node.id} aria-label={[props.row.node.name, ...(workstream() && props.row.node.opening_prompt?.trim() ? [copy.modeWord] : []), ...(!workstream() && props.row.node.status ? [statusLabel()] : [])].join(copy.comma)} asChild={item => row(extra => item(extra))} />}>
+      <TreeView.Branch class="rail-root-branch" data-id={props.row.node.id} aria-label={[props.row.node.name, ...(workstream() && props.row.node.opening_prompt?.trim() ? [copy.modeWord] : []), ...(!workstream() && props.row.node.status ? [statusLabel()] : [])].join(copy.comma)}>
         <TreeView.BranchControl asChild={control => row(extra => control(extra))} />
       </TreeView.Branch>
     </Show>

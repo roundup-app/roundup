@@ -62,8 +62,8 @@ const open = async (first = false, nodes = [
     return emulator;
   }} />);
 
-  if (first) await screen.findByRole("button", { name: "Choose folder…" });
-  else await screen.findByRole("textbox", { name: "Ask" });
+  if (first) await screen.findByRole("button", { name: "Choose Project…" });
+  else await screen.findByLabelText("Ask", { selector: '[role="textbox"]' });
 
   return { app, daemon, connected: () => connection!, emulators };
 };
@@ -127,7 +127,7 @@ it.each(["rail", "centre", "shelf", "triage", "ask", "pad", "drawer", "watch", "
  return input!; });
       }
     }
-  } else target = place === "ask" ? screen.getByRole("textbox", { name: "Ask" }) : document.querySelector<HTMLElement>(place === "rail" ? '.rail-row[data-id="home"]' : ".centre")!;
+  } else target = place === "ask" ? screen.getByLabelText("Ask", { selector: '[role="textbox"]' }) : document.querySelector<HTMLElement>(place === "rail" ? '.rail-row[data-id="home"]' : ".centre")!;
   target.tabIndex = -1; target.focus();
   expect(document.activeElement).toBe(target);
 
@@ -176,14 +176,14 @@ it("u4692_project_switch_uses_only_current_attention", async () => {
 
 it("u4692_without_a_project_the_chord_does_nothing", async () => {
   const { app } = await open(true);
-  const target = screen.getByRole("button", { name: "Choose folder…" }); target.focus();
+  const target = screen.getByRole("button", { name: "Choose Project…" }); target.focus();
   press(); expect(document.activeElement).toBe(target);
   expect(app.calls.filter(call => call.method === "terminal.write")).toEqual([]);
 });
 
 it.each(["help", "switcher", "capture", "recording"])("u4692_modal_layers_block_the_direct_jump: %s", async layer => {
   const { connected, daemon } = await open();
-  const field = screen.getByRole("textbox", { name: "Ask" });
+  const field = screen.getByLabelText("Ask", { selector: '[role="textbox"]' });
   fireEvent.input(field, { target: { value: draft } });
   document.querySelector<HTMLElement>('.rail-row[data-id="home"]')!.focus();
   const saved = appSettings().quickAdd;
@@ -195,7 +195,7 @@ it.each(["help", "switcher", "capture", "recording"])("u4692_modal_layers_block_
     window.dispatchEvent(new Event("open-app-settings"));
     const settings = within(await screen.findByRole("region", { name: "Settings" }));
     fireEvent.click(settings.getByRole("tab", { name: "Shortcuts" }));
-    fireEvent.click(await settings.findByRole("button", { name: /^Quick add a Todo/ }));
+    fireEvent.click(await settings.findByRole("button", { name: /^Quick add Todo/ }));
   }
 
   if (layer !== "recording") await screen.findByRole("dialog");
@@ -212,7 +212,7 @@ it.each(["help", "switcher", "capture", "recording"])("u4692_modal_layers_block_
   key("Escape", { key: "Escape" });
 
   if (layer === "recording") fireEvent.click(screen.getByRole("button", { name: "← Back" }));
-  expect(await screen.findByRole("textbox", { name: "Ask" })).toHaveProperty("value", draft);
+  expect(await screen.findByLabelText("Ask", { selector: '[role="textbox"]' })).toHaveProperty("value", draft);
 });
 
 it.each(["ask", "pad"])("u4692_jump_preserves_unsubmitted_input: %s", async surface => {
@@ -220,7 +220,7 @@ it.each(["ask", "pad"])("u4692_jump_preserves_unsubmitted_input: %s", async surf
   let field: HTMLElement;
 
   if (surface === "ask") {
-    field = screen.getByRole("textbox", { name: "Ask" });
+    field = screen.getByLabelText("Ask", { selector: '[role="textbox"]' });
     fireEvent.input(field, { target: { value: draft } });
   } else {
     connected().drafts.edit({ surface: "pads", object: "notes-1", recipient: null }, { originalName: "notes", source: draft, base: "saved", baseRevision: 1 }, null, "ordinary");
@@ -240,7 +240,7 @@ it.each(["ask", "pad"])("u4692_jump_preserves_unsubmitted_input: %s", async surf
 
   if (surface === "ask") {
     connected().rail.select(null);
-    expect(await screen.findByRole("textbox", { name: "Ask" })).toHaveProperty("value", draft);
+    expect(await screen.findByLabelText("Ask", { selector: '[role="textbox"]' })).toHaveProperty("value", draft);
   } else {
     showShelfTab("Pads");
     const pad = await within(await screen.findByLabelText("Pads", { selector: "section" })).findByRole("button", { name: "notes" });
@@ -298,7 +298,7 @@ it("u4692_rendered_direct_jump_and_discovery", async () => {
     await lane.browser("press", "Meta+k");
     await lane.browser("press", "k");
     await lane.until("!!document.querySelector('.switcher')");
-    await lane.browser("fill", ".switcher input", "Jump to what needs you");
+    await lane.browser("fill", ".switcher input", "Next needs you");
     await lane.until(`!!document.querySelector('.switcher [data-value^="action:"]')`);
     await lane.capture("U4692a", "switcher");
   } finally { try { await lane.browser("record", "stop"); } finally { await lane.close(); } }

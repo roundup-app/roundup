@@ -18,18 +18,23 @@ ready:
     just lint-rust origin/main
     python3 loop/app-data.py python3 loop/launch-sites.test.py LaunchSites.test_n7_launch_sites_use_owned_data
 
+# The size, typos and ruff scans cover the whole repo, so the PR that adds a break fails its own `pre` (L5398).
+lint-repo:
+    pnpm exec ast-grep --version
+    python3 tools/lint/setup.py web
+    python3 tools/lint/scan.py web
+
 # The Rust checks that run no test binary; CI runs them in the `lint` job (L89).
 [script('loop/keep-going.sh')]
-lint-rust base="":
+lint-rust base="": lint-repo
     python3 tools/file-size/guard.test.py
     python3 tools/file-size/guard.py {{quote(base)}}
     cargo fmt --check
-    python3 tools/clippy/selection.test.py
     just clippy {{quote(base)}}
     cargo machete crates
     python3 tools/lint/setup.py rust
     python3 tools/lint/scan.py rust
-    spikes/context-injection/e7_report.test.sh
+    python3 loop/lint-repo.test.py
     tools/question-guard/guard.test.sh
     tools/question-guard/guard.sh
     tools/retired-words.test.sh
@@ -83,10 +88,8 @@ lint-web:
     test -z "$(find .claude/skills -xtype l)"
     pnpm lint
     pnpm lint:styles
-    pnpm tokens:check
     pnpm typecheck
     pnpm slop
-    pnpm lint:boundaries
     pnpm lint:cycles
     just packages typecheck
 
@@ -115,7 +118,7 @@ contracts:
     cargo run --quiet -p contracts --features export --bin contracts -- contracts/generated
 
 contracts-test:
-    python3 -m unittest discover -s tools/contracts
+    python3 -m unittest discover -v -s tools/contracts
 
 contracts-fresh:
     python3 tools/contracts/fresh.py

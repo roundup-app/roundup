@@ -22,7 +22,7 @@ const line = () => document.querySelector<HTMLElement>("[data-shelf-scope]")!;
 
 const select = async (name: string) => {
   fireEvent.click([...document.querySelectorAll<HTMLElement>(".rail-row")].find(row => row.textContent!.trim().startsWith(name))!);
-  await waitFor(() => expect(within(line()).getByRole("button", { name: `add todo to ${name}` })).toBeTruthy());
+  await waitFor(() => expect(within(line()).getByRole("button", { name: `Add Todo: ${name}` })).toBeTruthy());
 };
 
 it("u3730_the_scope_line_holds_the_name_and_one_add_button", async () => {
@@ -30,8 +30,8 @@ it("u3730_the_scope_line_holds_the_name_and_one_add_button", async () => {
   const { app } = await open();
 
   const expectScope = async (name: string) => {
-    await waitFor(() => expect(within(line()).getByRole("button", { name: `add todo to ${name}` })).toBeTruthy());
-    expect(within(line()).getAllByRole("button", { name: /^add todo to / })).toHaveLength(1);
+    await waitFor(() => expect(within(line()).getByRole("button", { name: `Add Todo: ${name}` })).toBeTruthy());
+    expect(within(line()).getAllByRole("button", { name: /^Add Todo: / })).toHaveLength(1);
   };
 
   await expectScope("Overview");
@@ -46,7 +46,7 @@ it("u3730_the_scope_line_holds_the_name_and_one_add_button", async () => {
 it("u3730_add_files_into_the_scope_and_returns_focus", async () => {
   const { app } = await open();
   await select("backend");
-  fireEvent.click(within(line()).getByRole("button", { name: "add todo to backend" }));
+  fireEvent.click(within(line()).getByRole("button", { name: "Add Todo: backend" }));
   const field = await screen.findByRole("textbox", { name: /new todo/i });
   await waitFor(() => expect(document.activeElement).toBe(field));
   fireEvent.input(field, { target: { value: "scoped" } });
@@ -55,10 +55,10 @@ it("u3730_add_files_into_the_scope_and_returns_focus", async () => {
   expect(app.calls.find(call => call.method === "todo.create")!.params).toMatchObject({ title: "scoped" });
   await waitFor(() => expect(app.calls.map(call => call.method)).toContain("todo.move"));
   expect(app.calls.find(call => call.method === "todo.move")!.params).toMatchObject({ home: expect.any(String) });
-  fireEvent.click(within(line()).getByRole("button", { name: "add todo to backend" }));
+  fireEvent.click(within(line()).getByRole("button", { name: "Add Todo: backend" }));
   const again = await screen.findByRole("textbox", { name: /new todo/i });
   fireEvent.keyDown(again, { key: "Escape" });
-  await waitFor(() => expect(document.activeElement).toBe(within(line()).getByRole("button", { name: "add todo to backend" })));
+  await waitFor(() => expect(document.activeElement).toBe(within(line()).getByRole("button", { name: "Add Todo: backend" })));
 });
 
 it("u3730_no_group_or_row_repeats_the_scope_name", async () => {

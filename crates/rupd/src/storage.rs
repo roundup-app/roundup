@@ -106,7 +106,7 @@ fn seed_fresh(path: &Path) -> std::io::Result<()> {
     // One sync makes the image durable before it is linked. Plain `fsync`, as SQLite issues:
     // `File::sync_all` is `F_FULLFSYNC` on macOS, several ms of the Daemon's cold start.
     rustix::fs::fsync(std::fs::File::open(&staging)?)?;
-    // A racing opener or an existing file wins; the normal path then migrates it.
+    // A racing opener or an existing file wins; the normal path checks its current schema.
     let linked = std::fs::hard_link(&staging, path);
     std::fs::remove_file(&staging)?;
     match linked {
@@ -121,11 +121,59 @@ pub(crate) fn open(dir: &Path) -> rusqlite::Result<Connection> {
     let _ = seed_fresh(&path);
     let run = || -> rusqlite::Result<Connection> {
         let mut db = Connection::open(&path)?;
+        refuse_divergent(&db)?;
         db.pragma_update(None, "journal_mode", "WAL")?;
         apply(&mut db, migrations())?;
         Ok(db)
     };
-    run().map_err(|e| error(format!("{}: {e}", path.display())))
+    run().map_err(|e| {
+        error(format!(
+            "{}: {e} To start fresh, close roundup and delete {}.",
+            path.display(),
+            std::path::absolute(dir)
+                .unwrap_or_else(|_| dir.to_path_buf())
+                .display()
+        ))
+    })
+}
+
+/// N5420a: compare only the current schema, using the unchanged fresh image.
+fn reference() -> rusqlite::Result<Connection> {
+    let mut db = Connection::open_in_memory()?;
+    let image = std::io::Read::chain(
+        std::io::Read::chain(&FRESH[..18], &[1u8, 1][..]),
+        &FRESH[20..],
+    );
+    db.deserialize_read_exact(rusqlite::MAIN_DB, image, FRESH.len(), true)?;
+    Ok(db)
+}
+
+#[cfg(test)]
+fn added_at(sql: &str) -> usize {
+    10 + added::ADDED.iter().position(|added| *added == sql).unwrap()
+}
+
+fn refuse_divergent(db: &Connection) -> rusqlite::Result<()> {
+    let known = migrations().len();
+    let stored: i64 = db.pragma_query_value(None, "user_version", |row| row.get(0))?;
+    let empty: bool = db.query_row(
+        "SELECT NOT EXISTS(SELECT 1 FROM sqlite_schema WHERE name NOT LIKE 'sqlite\\_%' ESCAPE '\\')",
+        [], |r| r.get(0),
+    )?;
+    if stored < known as i64 && !(stored == 0 && empty) {
+        return Err(error("Local data is incompatible with this build."));
+    }
+    if stored != known as i64 {
+        return Ok(());
+    }
+    if let Some(difference) = provenance::migration::difference(db, &reference()?)? {
+        return Err(error(provenance::migration::divergence(
+            &difference,
+            stored,
+            known,
+        )));
+    }
+    Ok(())
 }
 
 fn apply(db: &mut Connection, migrations: Vec<M<'_>>) -> rusqlite::Result<()> {
@@ -198,5 +246,120 @@ mod newer_tests {
             .unwrap(),
             0
         );
+    }
+
+    #[test]
+    fn n5420a_project_refuses_a_divergent_database() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("project.db");
+        let mut swapped = migrations();
+        let known = swapped.len();
+        let priority = added_at(include_str!("../migrations/project/0037-todo-priority.sql"));
+        swapped[priority] = M::up("ALTER TABLE todos ADD COLUMN n5420a_swapped INTEGER;");
+        let mut db = Connection::open(&path).unwrap();
+        Migrations::new(swapped).to_latest(&mut db).unwrap();
+        drop(db);
+        let schema = || -> Vec<(String, String)> {
+            Connection::open(&path)
+                .unwrap()
+                .prepare("SELECT name, coalesce(sql, '') FROM sqlite_schema ORDER BY name")
+                .unwrap()
+                .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))
+                .unwrap()
+                .map(Result::unwrap)
+                .collect()
+        };
+        let before = schema();
+
+        let message = open(dir.path()).unwrap_err().to_string();
+        assert!(message.contains(&path.display().to_string()), "{message}");
+        assert!(message.contains("lacks column `priority`"), "{message}");
+        assert!(
+            message.contains(&format!("database version {known}")),
+            "{message}"
+        );
+        assert!(
+            message.contains(&format!("supports through {known}")),
+            "{message}"
+        );
+        assert!(message.contains("newer or branch build"), "{message}");
+
+        let db = Connection::open(&path).unwrap();
+        assert_eq!(
+            db.pragma_query_value(None, "user_version", |row| row.get::<_, i64>(0))
+                .unwrap(),
+            i64::try_from(known).unwrap()
+        );
+        assert_eq!(schema(), before);
+    }
+}
+
+#[cfg(test)]
+mod retirement_tests {
+    use super::*;
+    use rusqlite_migration::Migrations;
+
+    #[test]
+    fn n5467a_older_store_is_refused_without_changes() {
+        for prefix in if migrations().len() == 1 {
+            vec![0]
+        } else {
+            vec![0, migrations().len() - 1]
+        } {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("project.db");
+            let mut db = Connection::open(&path).unwrap();
+            if prefix > 0 {
+                Migrations::new(migrations()[..prefix].to_vec())
+                    .to_latest(&mut db)
+                    .unwrap();
+            }
+            let read = if prefix == 0 {
+                db.execute_batch("CREATE TABLE retirement_sentinel(value TEXT); INSERT INTO retirement_sentinel VALUES ('keep me');").unwrap();
+                "SELECT value FROM retirement_sentinel"
+            } else {
+                db.execute_batch(
+                    "INSERT INTO nodes(kind,name,ord) VALUES('workstream','keep me',0)",
+                )
+                .unwrap();
+                "SELECT name FROM nodes WHERE name='keep me'"
+            };
+            let schema = |db: &Connection| -> Vec<(String, String)> {
+                db.prepare("SELECT name, coalesce(sql, '') FROM sqlite_schema ORDER BY name")
+                    .unwrap()
+                    .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))
+                    .unwrap()
+                    .map(Result::unwrap)
+                    .collect()
+            };
+            let before = schema(&db);
+            drop(db);
+            for _ in 0..2 {
+                let db = Connection::open(&path).unwrap();
+                let message = open(dir.path()).unwrap_err().to_string();
+                assert!(
+                    message.contains("incompatible with this build"),
+                    "{message}"
+                );
+                assert!(
+                    message.contains(&dir.path().display().to_string()),
+                    "{message}"
+                );
+                assert!(
+                    message.contains("close roundup") && message.contains("delete"),
+                    "{message}"
+                );
+                assert_eq!(schema(&db), before);
+                assert_eq!(
+                    db.pragma_query_value(None, "user_version", |r| r.get::<_, i64>(0))
+                        .unwrap(),
+                    prefix as i64
+                );
+                assert_eq!(
+                    db.query_row(read, [], |r| r.get::<_, String>(0)).unwrap(),
+                    "keep me"
+                );
+            }
+        }
     }
 }

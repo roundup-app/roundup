@@ -1,21 +1,19 @@
 import { historyRegion } from "./keys/focus";
 import Hourglass from "lucide-solid/icons/hourglass";
 import { ReducedMotionContext } from "./app/reducedMotion";
-import { debounce } from "@solid-primitives/scheduled";
 import { pressFeedback } from "./ui/pressFeedback";
 import { storageCopy } from "./app/copy";
-import { writeText } from "./app/clipboard";
-import { storageProblems, retainedStorage } from "./state/storage";
+import { storageProblems } from "./state/storage";
 import "./state/storage.css";
 import { textTarget } from "./ui/contextMenu";
 import { AppSettings } from "./settings/AppSettings";
 import { appSettings, applyAppAppearance } from "./settings/preferences";
 import { captureActions, registerKeys } from "./keys/registry";
 import { Combobox } from "./ui/Combobox";
-import { CHORDS, LEADER, shortcutLabel } from "./keys/chords";
+import { CHORDS, LEADER, defaultKeys, shortcutLabel } from "./keys/chords";
 import { copy } from "./app/copy";
 import "./buttons.css";
-import { createEffect, createMemo, createResource, createSignal, createUniqueId, For, getOwner, on, onCleanup, onMount, runWithOwner, Show, untrack } from "solid-js";
+import { lazy, createEffect, createMemo, createResource, createSignal, createUniqueId, For, getOwner, on, onCleanup, onMount, runWithOwner, Show, untrack } from "solid-js";
 import type { Accessor, JSX } from "solid-js";
 import { ChooseProject, EmptyRail, EmptyShelf } from "./app/FirstRun";
 import { Layout } from "./app/Layout";
@@ -33,16 +31,16 @@ import { ReservedLine } from "./ink/ReservedLine";
 import { failureLine } from "./ink/ReservedLine";
 import { exitText } from "./ink/exitText";
 import { AttentionKey } from "./rail/AttentionKey";
-import { attentionCounts, nextAttention } from "./rail/attention";
+import { attentionCounts, attentionHolders, nextAttention } from "./rail/attention";
 import { DockBadge } from "./rail/DockBadge";
+import { createStateAlerts } from "./rail/stateAlerts";
+import type { StateAlerts } from "./rail/stateAlerts";
 import { railStorage } from "./rail/persist/storage";
 import { Rail } from "./rail/Rail";
 import { ProjectSettingsView } from "./rail/ProjectSettings";
 import { Help } from "./keys/Help";
 import { Leader } from "./keys/Leader";
 import type { LinkContent } from "@contracts/link/LinkContent";
-import { PadHost } from "./pads/PadDrawer";
-import { TodoHost } from "./todos/TodoDrawer";
 import { Capture } from "./todos/Capture";
 import { createNow, DisplayClockContext } from "./state/clock";
 import type { Clock } from "./state/clock";
@@ -69,6 +67,10 @@ import { Shelf, createShelfTabs, ShelfTabs, ProjectShelfTabs } from "./shelf/She
 import { shelfKeys } from "./shelf/keys";
 import { createWidths } from "./resize/widths";
 
+const TodoHost = lazy(() => import("./todos/TodoDrawer").then(module => ({ default: module.TodoHost })));
+
+const PadHost = lazy(() => import("./pads/PadDrawer").then(module => ({ default: module.PadHost })));
+
 const daemonExitText = ({ code, recovery, cause }: DaemonExit): string | null =>
   recovery ? null : cause ?? copy.daemonExit(exitText(code === null ? { kind: "signal" } : { kind: "code", code }));
 
@@ -91,6 +93,7 @@ const Connection = (props: {
   onRecovered: (path: string, generation: number) => void;
   onRequested: (request: Requested) => void;
   toasts: ToastQueue;
+  alerts: StateAlerts;
   active: () => boolean;
   /** U3566: this Project is on screen in a visible, focused window. */
   viewing: () => boolean;
@@ -160,7 +163,7 @@ const Connection = (props: {
     if (!open || open instanceof Error) return;
 
     // Untracked: watchProject reads the Rail's nodes, and each Status change would else rebuild the watch with that change already seen.
-    onCleanup(untrack(() => watchProject(open, props.toasts.push, props.show, props.active, props.toasts.settle)));
+    onCleanup(untrack(() => watchProject(open, props.toasts.push, props.show, props.active, props.toasts.settle, props.alerts, props.toasts.suppress)));
   });
 
   createEffect(() => {
@@ -234,7 +237,7 @@ export const App = (props: {
   const [settingsOpen, setSettingsOpen] = createSignal(false);
   const drafts = props.drafts ?? createProjectDrafts();
   registerKeys({ kind: "app" }, ["⌘Z", "⇧⌘Z"].map(keys => ({
-    action: CHORDS.find(row => row.keys === keys)!,
+    action: CHORDS.find(row => defaultKeys(row) === keys)!,
     when: () => !document.activeElement?.closest("input,textarea,[contenteditable]:not([contenteditable=false]),.xterm,[role=textbox]"),
     capture: focus => {
       const path = projects.active();
@@ -283,9 +286,12 @@ export const App = (props: {
   const [jumpFailure, setJumpFailure] = createSignal<string | null>(null);
   const [windowFailure, setWindowFailure] = createSignal<string | null>(null);
   const [badgeFailure, setBadgeFailure] = createSignal<string | null>(null);
+  // U5232g: one line for a refused State alert, whichever Agent raised it.
+  const [alertFailure, setAlertFailure] = createSignal<string | null>(null);
+  const alerts = createStateAlerts(alert => props.app.stateAlert(alert), inFront, setAlertFailure);
   const capture = props.app.capture;
   onMount(() => {
-    void capture?.configure(appSettings().quickAdd).catch(error => setWindowFailure(String(error)));
+    void capture?.configure(appSettings().quickAddAnywhere || null).catch(error => setWindowFailure(String(error)));
   });
   onCleanup(() => { void capture?.configure(null); });
 
@@ -360,8 +366,7 @@ export const App = (props: {
         base: projects.base(tab.project.path),
         exitText: tab.exit ? daemonExitText(tab.exit) : null,
         busy: !connections().has(tab.project.path),
-        ...attentionCounts(nodes),
-        unseen: connectionOf(tab.project.path)?.unseen.any() ?? false,
+        ...attentionCounts(attentionHolders(nodes, railOf(tab.project.path)?.terminals() ?? [], railOf(tab.project.path)?.dismissed)),
         running: nodes.flatMap((node) => (node.status && RUNNING.has(node.status.kind) ? [node.name] : [])),
       };
     }),
@@ -475,7 +480,10 @@ export const App = (props: {
     ["reactions", copy.reactions], ["made", copy.deliverables], ["notes", copy.recoverNotes],
   ] as const;
 
-  const taskKeys = new Set(["M", "R", "⌘O", "⌘F", "⌘N", "⇧⌘N", "⌘T", "⌘/", "⌃⌘J", "J", "I", "A", "P", "C", "T"]);
+  const taskKeys = new Set(["M", "R", "⌘O", "⌘F", "⌘N", "⇧⌘N", "⌥⌘N", "⇧⌘M", "⌘T", "⌘/", "⌃⌘J", "J", "I", "A", "P", "C", "T"]);
+
+  // U5244a: plain list and text-editing keys, Triage's keys and Settings (App menu) stay native: listed only while something binds them (U3787b).
+  const nativeKeys = new Set(["⌘,", "?", "⏎", "Esc", "Tab", "⇧Tab", "J K"]);
 
   const menuItems = createMemo(() => {
     menuFocus();
@@ -492,20 +500,33 @@ export const App = (props: {
         return { id: `action:chord:${keys}`, label: history ? (redo ? history.redoLabel(region) : history.undoLabel(region)) : redo ? copy.redo : copy.todoUndo, shortcut: keys, group: "edit" as const, enabled: available && !!history && !history.pending() && (redo ? history.redoAvailable(region) : history.available(region)) };
       }) : []),
       ...views.map(([id, label]) => ({ id: `view:${id}`, label: id === "notes" ? (available && connected.hasView(id) ? copy.closeView(label) : label) : id === "resources" ? copy.showView(label, available && connected.hasView(id)) : available && connected.hasView(id) ? copy.closeView(label) : copy.openEvidence(label), group: "views" as const, enabled: available && (id !== "resources" || connected.rail.nodes.some(node => node.id === connected.rail.selected() && (node.kind === "agent" || node.kind === "workstream" && node.attempt !== null))) })),
-      ...[...CHORDS.filter(row => row.keys !== copy.leaderChord && row.keys !== "⌘Z" && row.keys !== "⇧⌘Z"), ...LEADER.filter(row => row.keys !== "T")].flatMap(row => {
+      ...[...CHORDS.filter(row => defaultKeys(row) !== copy.leaderChord && defaultKeys(row) !== "⌘Z" && defaultKeys(row) !== "⇧⌘Z"), ...LEADER.filter(row => row.keys !== "T")].flatMap(row => {
         const id = `action:${"press" in row ? "leader" : "chord"}:${row.keys}`;
+        const label = (what: string) => row.keys === "M" && "inRail" in row && row.inRail ? copy.moveToInRail : row.keys === "R" && "inRail" in row && row.inRail ? copy.restartModeInRail : "press" in row && row.keys === "B" ? (frame.open() ? copy.closeShelf : copy.openShelf) : what;
+        const group = "press" in row || defaultKeys(row) === "⌘/" || defaultKeys(row) === "⌘F" || defaultKeys(row) === "⌃⌘J" || !taskKeys.has(defaultKeys(row)) && row.what !== copy.captureATodo ? "navigate" as const : "create" as const;
+        const live = actions.filter(action => action.name === row.name && action.available());
 
-        const items = actions.filter(action => (action.value === id || action.value.startsWith(`${id}:`)) && action.available()).map(action => {
-          const item: MenuItem = { id: action.value, label: row.keys === "M" && "inRail" in row && row.inRail ? copy.moveToInRail : row.keys === "R" && "inRail" in row && row.inRail ? copy.restartModeInRail : "press" in row && row.keys === "B" ? (frame.open() ? copy.closeShelf : copy.openShelf) : action.label, group: "press" in row || row.keys === "⌘/" || row.keys === "⌘F" || row.keys === "⌃⌘J" || !taskKeys.has(row.keys) && row.what !== copy.captureATodo ? "navigate" as const : "create" as const, enabled: available || row.keys === "⌘O" };
+        if (!live.length && "keys" in row && (nativeKeys.has(row.keys) || "inTriage" in row && row.inTriage)) return [];
 
-          item.shortcut = "press" in row ? `⌘K ${row.keys}` : action.press ? shortcutLabel(action.press) : row.keys;
+        // U5244b: a command that cannot act now keeps its place, label and key, disabled.
+        const items = (live.length ? live : [null]).map(action => {
+          const item: MenuItem = { id: action?.value ?? id, label: label(action?.label ?? row.what), group, enabled: action !== null && (available || defaultKeys(row) === "⌘O") };
+
+          item.shortcut = "press" in row ? `⌘K ${row.keys}` : action?.press ? shortcutLabel(action.press) : row.keys;
 
           return item;
         });
 
-        return row.keys === "1–9" && items.length ? [{ id, label: copy.assignTo(""), group: "navigate" as const, enabled: available, children: items }] : items;
+        return defaultKeys(row) === "1–9" ? [{ id, label: copy.assignTo(""), group: "navigate" as const, enabled: available && live.length > 0, children: live.length ? items : [] }] : items;
       }),
-    ].filter((item, at, all) => (item.enabled || item.group === "edit") && all.findIndex(other => other.id === item.id) === at);
+    ].reduce<MenuItem[]>((kept, item) => {
+      const at = kept.findIndex(other => other.id === item.id);
+
+      if (at < 0) kept.push(item);
+      else if (!kept[at]!.enabled && item.enabled) kept[at] = item;
+
+      return kept;
+    }, []);
   });
 
   let menuWriting = false;
@@ -548,10 +569,23 @@ export const App = (props: {
     projects.select(path);
 
     const rail = railOf(path);
-    const next = rail && nextAttention(rail.nodes, rail.selected());
+    const next = rail && nextAttention(rail.nodes, rail.selected(), rail.dismissed);
 
     if (next) rail?.select(next.id);
   };
+
+  // U5232e: a click on a State alert opens that Agent in its Project, as a click on its Rail row does.
+  let alertClicksEnded = false;
+  let stopAlertClicks: (() => void) | undefined;
+  void props.app.onStateAlertClicked(agent => {
+    const path = [...connections().keys()].find(each => railOf(each)?.nodes.some(node => node.id === agent));
+
+    if (path === undefined) return setAlertFailure(copy.thatIsGone);
+
+    projects.select(path);
+    railOf(path)?.select(agent);
+  }).then(stop => { if (alertClicksEnded) stop(); else stopAlertClicks = stop; });
+  onCleanup(() => { alertClicksEnded = true; stopAlertClicks?.(); });
 
   onCleanup(shelfFocus.stop);
   registerKeys({ kind: "leader" }, [{ action: LEADER.find((row) => row.keys === "B")!, capture: () => {
@@ -574,13 +608,12 @@ export const App = (props: {
 
   const emulators = () => props.createEmulator ?? lazyXtermEmulators();
 
-
   return (
     <ReducedMotionContext.Provider value={props.reducedMotion}><DisplayClockContext.Provider value={now.subscribe}><ProjectDraftsContext.Provider value={drafts}><Show when={projects.loaded()}>
       <For each={keys()}>
-        {(key) => <Connection drafts={drafts} app={dropTargets.app} tab={tabOf(key)} reducedMotion={props.reducedMotion} now={pollingNow} onConnected={connect} onRecovered={projects.connected} onRequested={answer} toasts={toasts} active={() => projects.active() === key} viewing={() => projects.active() === key && visible() && focused()} show={() => projects.select(key)} />}
+        {(key) => <Connection drafts={drafts} app={dropTargets.app} tab={tabOf(key)} reducedMotion={props.reducedMotion} now={pollingNow} onConnected={connect} onRecovered={projects.connected} onRequested={answer} toasts={toasts} alerts={alerts} active={() => projects.active() === key} viewing={() => projects.active() === key && visible() && focused()} show={() => projects.select(key)} />}
       </For>
-      <DockBadge app={props.app} rails={() => [...connections().values()].flatMap((connection) => (connection instanceof Error ? [] : [connection.rail.nodes]))} onFailure={setBadgeFailure} />
+      <DockBadge app={props.app} rails={() => [...connections().values()].flatMap((connection) => (connection instanceof Error ? [] : [attentionHolders(connection.rail.nodes, connection.rail.terminals(), connection.rail.dismissed)]))} onFailure={setBadgeFailure} />
       <Tabs.Root id={tabsId} value={projects.active()} onValueChange={({ value }) => projects.select(value)} activationMode="manual" style={{ display: "contents" }}
         ids={{
           trigger: (path) => `tabs:${tabsId}:trigger-${encodeURIComponent(path)}`,
@@ -614,7 +647,7 @@ export const App = (props: {
         }
         rail={
           <>
-            <ReservedLine overlay message={windowFailure() ?? (activeTab()?.exit ? activeTab()?.reopenFailure ?? daemonExitText(activeTab()!.exit!) : null) ?? (projects.tabs().length > 0 ? projects.failure() ?? badgeFailure() : badgeFailure())}>
+            <ReservedLine overlay message={windowFailure() ?? (activeTab()?.exit ? activeTab()?.reopenFailure ?? daemonExitText(activeTab()!.exit!) : null) ?? (projects.tabs().length > 0 ? projects.failure() ?? badgeFailure() ?? alertFailure() : badgeFailure() ?? alertFailure())}>
               <Show when={projects.readFailure() && projects.tabs().length > 0 && !windowFailure() && !activeTab()?.exit}><button data-button="quiet" type="button" onClick={() => void projects.reload()}>{copy.retry}</button></Show>
               <Show when={activeTab()?.exit && !activeTab()?.exit?.recovery}><Reopen onReopen={() => void projects.reopen(activeTab()!.project.path)} busy={projects.reopening()} /></Show>
             </ReservedLine>
@@ -656,18 +689,6 @@ export const App = (props: {
           <Show when={storageFailures().length > 0}><div class="storage-failure"><ReservedLine message={storageCopy.failure(storageFailures())}>
             <button data-button="quiet" type="button" onClick={() => void Promise.all(storageFailures().map(problem => problem.retry()))}>{storageCopy.saveRetry}</button>
           </ReservedLine></div></Show>
-          <Show when={retainedStorage().length > 0}><div class="storage-retained" role="group" aria-label={storageCopy.retained(retainedStorage().length)}>
-            <span>{storageCopy.retained(retainedStorage().length)}</span>
-            <For each={retainedStorage()}>{record => {
-              const [copied, setCopied] = createSignal(false);
-              const clearCopied = debounce(() => setCopied(false), 2000);
-
-              return <button data-button="quiet" type="button" onClick={() => void writeText(props.app, JSON.stringify(record)).then(() => { setCopied(true); clearCopied(); }).catch(error => { setCopied(false); setWindowFailure(error instanceof Error ? error.message : String(error)); })}>
-                <span class="storage-copy-label" style={{ visibility: copied() ? "hidden" : "visible" }} aria-hidden={copied()}>{storageCopy.recoveryLabel(record.key)}</span>
-                <span class="storage-copy-label" style={{ visibility: copied() ? "visible" : "hidden" }} aria-hidden={!copied()}>{storageCopy.recoveryLabel(record.key, true)}</span>
-              </button>;
-            }}</For>
-          </div></Show>
           <div class="centre-frame">
           <div class="settings-center">
           <div class="settings-center-content" inert={settingsOpen()} style={{ visibility: settingsOpen() ? "hidden" : "visible" }}>
@@ -683,7 +704,7 @@ export const App = (props: {
                     <div class="project-center-content" inert={open.settingsView.open()} style={{ visibility: open.settingsView.open() ? "hidden" : "visible" }}>
                     <Pane observeTerminal={props.observeTerminal ? id => props.observeTerminal?.(open.project.path, id) : undefined} notice={open.rail.failure() ?? jumpFailure() ?? open.contractNotice} retryNotice={open.rail.failure() !== null ? () => void open.rail.refresh({ terminals: true }) : undefined} createEmulator={tracked} screensRef={setScreens} />
                     <AskBar viewLabel={id => views.find(([view]) => view === id)?.[1]} />
-                    <Switcher onFailure={setJumpFailure} onOpen={() => { if (document.querySelector('.window[data-shelf="open"][data-shelf-mode="overlay"]')) shelfFocus.toggle("key"); }} />
+                    <Switcher notify={toasts.notify} onFailure={setJumpFailure} onOpen={() => { if (document.querySelector('.window[data-shelf="open"][data-shelf-mode="overlay"]')) shelfFocus.toggle("key"); }} />
                     </div>
                     <ProjectSettingsView />
                     </div>
@@ -698,7 +719,11 @@ export const App = (props: {
             </InProject>
           </Show>
           </div>
-          <AppSettings app={props.app} project={() => projects.active()} onOpenChange={setSettingsOpen} />
+          <AppSettings app={props.app} project={() => projects.active()} onOpenChange={setSettingsOpen} navigation={() => {
+            const open = activeConnection();
+
+            return `${projects.active()}\n${open instanceof Error ? "" : open?.rail.selected()}`;
+          }} />
           </div>
           </div>
           </div>

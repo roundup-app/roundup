@@ -15,6 +15,7 @@ import { Tip } from "../ui/Tip";
 import { Popover } from "../ui/Popover";
 import { Icon } from "../ink/Icon";
 import { failureOf } from "./failureOf";
+import { applied } from "../app/pending";
 import { useTodoList } from "./todoList";
 import "./blockerMenu.styles.css";
 
@@ -59,7 +60,7 @@ const WaitFor = (props: { todos: readonly { id: number; title: string }[]; value
   </Popover.Root>;
 };
 
-/** U3743: the dialog the owner picker's `New Workstream…` opens for Todo `target`. `Create` is the one `todo.startWorkstream` call; `done` runs after it with the Workstream made, or with `null` for Esc or `Cancel`, which call nothing. Esc or `Cancel` call nothing. */
+/** U3743: the dialog the owner picker's `New Workstream…` opens for Todo `target`. `Create` is the one `todo.startWorkstream` call; `done` runs after it with the Workstream made, or with `null` for Esc or `Close`, which call nothing. Esc or `Close` call nothing. */
 export const NewWorkstream = (props: { target: Accessor<number | null>; done: (id: number, made: RailNode | null, focus?: ReturnType<typeof captureFocus>) => void; returnTo: (id: number) => HTMLElement | null }) => {
   const connected = useConnectedProject();
   const todos = useTodoList();
@@ -93,7 +94,7 @@ export const NewWorkstream = (props: { target: Accessor<number | null>; done: (i
       setFailure(null);
 
       let made!: RailNode;
-      const message = await failureOf(async () => { made = await connected.app.rpc("todo.startWorkstream", { id: id(), name: name().trim(), start: startChoiceOf(start(), chosen()) }); });
+      const message = await failureOf(async () => { made = await applied(() => connected.app.rpc("todo.startWorkstream", { id: id(), name: name().trim(), start: startChoiceOf(start(), chosen()) })); });
 
       setPending(false);
 
@@ -122,7 +123,7 @@ export const NewWorkstream = (props: { target: Accessor<number | null>; done: (i
             </Show>
             <ReservedLine message={failure()} />
             <div class="app-dialog-actions">
-              <Dialog.CloseTrigger data-button="quiet">{copy.cancel}</Dialog.CloseTrigger>
+              <Dialog.CloseTrigger data-button="quiet">{copy.close}</Dialog.CloseTrigger>
               <Tip disabled={ready()} text={createBlocked()}>{trigger =>
                 <button {...trigger()} type="submit" data-button="primary" aria-disabled={!ready()}>{copy.createWorkstream}</button>
               }</Tip>

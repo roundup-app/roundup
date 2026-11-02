@@ -1,6 +1,6 @@
 import "./SegmentGroup.css";
 import { SegmentGroup as ArkSegmentGroup } from "@ark-ui/solid/segment-group";
-import { For, type JSX } from "solid-js";
+import { createUniqueId, For, type JSX } from "solid-js";
 
 export type Segment<V extends string> = { value: V; label: string; content?: JSX.Element };
 
@@ -11,10 +11,12 @@ export const SegmentGroup = <V extends string>(props: {
   segments: readonly Segment<V>[];
   value: V;
   onValueChange: (value: V) => void;
-}): JSX.Element => (
-  <ArkSegmentGroup.Root class="app-segments" value={props.value} onValueChange={(details) => props.onValueChange(props.segments.find((segment) => segment.value === details.value)?.value ?? props.value)}>
+}): JSX.Element => {
+  const hint = createUniqueId();
+
+  return (
+  <ArkSegmentGroup.Root class="app-segments" aria-describedby={props.description ? hint : undefined} value={props.value} onValueChange={(details) => props.onValueChange(props.segments.find((segment) => segment.value === details.value)?.value ?? props.value)}>
     <ArkSegmentGroup.Label class="app-segments-label">{props.label}</ArkSegmentGroup.Label>
-    {props.description && <span class="settings-hint">{props.description}</span>}
     <div class="app-segments-track">
       <For each={props.segments}>{(segment) => (
         <ArkSegmentGroup.Item aria-label={segment.label} value={segment.value} class="app-segment">
@@ -24,5 +26,7 @@ export const SegmentGroup = <V extends string>(props: {
         </ArkSegmentGroup.Item>
       )}</For>
     </div>
+    {props.description && <span id={hint} class="settings-hint">{props.description}</span>}
   </ArkSegmentGroup.Root>
-);
+  );
+};

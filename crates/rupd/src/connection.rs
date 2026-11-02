@@ -18,7 +18,6 @@ impl From<Value> for Frame {
 
 impl Frame {
     /// The frame as the client reads it.
-    #[cfg(test)]
     pub(crate) fn into_value(self) -> Value {
         match self {
             Self::Value(value) => value,
@@ -26,7 +25,7 @@ impl Frame {
         }
     }
 
-    fn into_line(self) -> io::Result<Vec<u8>> {
+    pub(super) fn into_line(self) -> io::Result<Vec<u8>> {
         let mut bytes = match self {
             Self::Value(value) => serde_json::to_vec(&value).map_err(io::Error::other)?,
             Self::Json(text) => text.into_bytes(),
@@ -38,6 +37,8 @@ impl Frame {
 
 /// Accept connections until the listener fails.
 pub async fn serve(listener: UnixListener, daemon: Arc<Daemon>) -> io::Result<()> {
+    // UA1: the Extension host starts after the socket is bound and never delays it.
+    daemon.extensions.start(&daemon);
     loop {
         let (stream, _) = listener.accept().await?;
         let daemon = Arc::clone(&daemon);
@@ -56,29 +57,11 @@ pub(crate) async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Resul
         .and_then(|cred| cred.pid())
         .and_then(|pid| u32::try_from(pid).ok());
     let stream = BufReader::new(stream);
-    let (read, mut write) = tokio::io::split(stream);
-    let (frames, mut outbox) = mpsc::unbounded_channel::<Frame>();
-    let (port, mut selected_output) = output::Port::new();
-    let (finished, mut finish) = tokio::sync::oneshot::channel();
-    let writer = tokio::spawn(async move {
-        loop {
-            let frame = tokio::select! {
-                biased;
-                _ = &mut finish, if !outbox.is_closed() => {
-                    outbox.close();
-                    continue;
-                }
-                frame = outbox.recv() => match frame {
-                    Some(frame) => frame,
-                    None => break,
-                },
-                // Behind replies, so a flood of selected output cannot starve them.
-                Some(frame) = selected_output.recv() => frame,
-            };
-            write.write_all(&frame.into_line()?).await?;
-        }
-        io::Result::Ok(())
-    });
+    let (read, write) = tokio::io::split(stream);
+    let (frames, outbox) = mpsc::unbounded_channel::<Frame>();
+    let (port, selected_output) = output::Port::new();
+    let (finished, finish) = tokio::sync::oneshot::channel();
+    let writer = tokio::spawn(write_frames(write, outbox, selected_output, finish));
     let mut conn = Conn {
         actor: Actor::user(),
         peer: stream_pid,
@@ -94,6 +77,14 @@ pub(crate) async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Resul
             Err(err) => break Err(err),
         };
         let request = serde_json::from_str::<Value>(&line).ok();
+        // The App's answer to a relayed action call (NA6): a reply line, not a request.
+        if let Some(answer) = request.as_ref().filter(|line| {
+            line.get("method").is_none()
+                && (line.get("result").is_some() || line.get("error").is_some())
+        }) {
+            daemon.actions.answer(&frames, answer);
+            continue;
+        }
         let method = request
             .as_ref()
             .and_then(|request| request["method"].as_str().map(str::to_owned));
@@ -119,6 +110,7 @@ pub(crate) async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Resul
         } else if method.as_deref().is_some_and(|m| {
             m.starts_with("deliverable.")
                 || m.starts_with("reaction.")
+                || actions::is_action(m)
                 || matches!(
                     m,
                     "todo.delete"
@@ -143,6 +135,7 @@ pub(crate) async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Resul
                 "daemon.getNaming"
                     | "daemon.setNaming"
                     | "rail.rename"
+                    | "rail.setAlertLevel"
                     | "workstream.setAuto"
                     | "agent.spawn"
                     | "agent.stop"
@@ -151,8 +144,6 @@ pub(crate) async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Resul
                     | "agent.setOrder"
                     | "agent.resume"
                     | "agent.instructions"
-                    | "workstream.rewind"
-                    | "workstream.rewindPlan"
             )
         ) {
             daemon.action_actor(&conn)
@@ -178,6 +169,7 @@ pub(crate) async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Resul
             joined.map_err(io::Error::other)?;
         }
     };
+    daemon.actions.closed(&frames);
     // Accepted calls survive a write-side half-close and can still send their replies.
     while let Some(joined) = ordinary.join_next().await {
         joined.map_err(io::Error::other)?;
@@ -187,4 +179,29 @@ pub(crate) async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Resul
     let _ = finished.send(());
     writer.await.map_err(io::Error::other)??;
     read_result
+}
+
+pub(super) async fn write_frames(
+    mut write: impl tokio::io::AsyncWrite + Unpin,
+    mut outbox: mpsc::UnboundedReceiver<Frame>,
+    mut selected_output: mpsc::Receiver<Frame>,
+    mut finish: tokio::sync::oneshot::Receiver<()>,
+) -> io::Result<()> {
+    loop {
+        let frame = tokio::select! {
+            biased;
+            _ = &mut finish, if !outbox.is_closed() => {
+                outbox.close();
+                continue;
+            }
+            frame = outbox.recv() => match frame {
+                Some(frame) => frame,
+                None => break,
+            },
+            // Behind replies, so a flood of selected output cannot starve them.
+            Some(frame) = selected_output.recv() => frame,
+        };
+        write.write_all(&frame.into_line()?).await?;
+    }
+    io::Result::Ok(())
 }

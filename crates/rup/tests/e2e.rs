@@ -1,9 +1,9 @@
-//! The whole Daemon as the App runs it. Todo creation runs real Claude against aimock;
-//! the remaining cases retain the stub while E10 is migrated.
+//! The whole Daemon as the App runs it. Todo creation runs real Claude against aimock; the rest keep the stub while E10 migrates.
 
 #[path = "e2e/daemon.rs"]
 #[allow(dead_code)]
 mod daemon;
+use daemon::start_door;
 #[path = "e2e/notes.rs"]
 mod notes;
 #[path = "e2e/reaction.rs"]
@@ -41,11 +41,12 @@ async fn agent_created_a_todo(fixture: &str) -> (Project, RailNode, Todo) {
             .unwrap(),
     )
     .unwrap();
-    let todo = next(&mut client, |data| match data {
-        EventData::TodoCreated(todo) => Some(*todo),
-        _ => None,
-    })
-    .await;
+    let todo = project
+        .next(&mut client, |data| match data {
+            EventData::TodoCreated(todo) => Some(*todo),
+            _ => None,
+        })
+        .await;
     let result = project
         .model
         .as_ref()
@@ -621,7 +622,7 @@ async fn b24_a_door_reads_its_brief_then_creates_and_updates_a_todo_over_mcp() {
     let workstream = client
         .request(
             "rail.createWorkstream",
-            json!({"name": "workstream", "parent": null}),
+            json!({"name": "workstream", "parent": null, "order":{"kind":"work","ask":"What is this Workstream for?","limits":[]}}),
         )
         .await
         .unwrap();
@@ -631,11 +632,12 @@ async fn b24_a_door_reads_its_brief_then_creates_and_updates_a_todo_over_mcp() {
         .await
         .unwrap();
 
-    let updated = next(&mut client, |data| match data {
-        EventData::TodoUpdated(todo) if !todo.body.is_empty() => Some(todo),
-        _ => None,
-    })
-    .await;
+    let updated = project
+        .next(&mut client, |data| match data {
+            EventData::TodoUpdated(todo) if !todo.body.is_empty() => Some(todo),
+            _ => None,
+        })
+        .await;
     let model = project.model.as_ref().unwrap();
     let result = model.tool_result("toolu_update_todo").await;
     assert!(
@@ -1527,15 +1529,6 @@ async fn json_file(path: &std::path::Path) -> Value {
     .expect("the fake claude wrote its report")
 }
 
-async fn start_door(client: &rpc::Client) -> String {
-    let id = workstream(client, "team").await;
-    client
-        .request("rail.startDoor", json!({ "id": id }))
-        .await
-        .unwrap();
-    id
-}
-
 fn settings_of(project: &Project, id: &str) -> Value {
     let path = project
         .data_dir()
@@ -1782,143 +1775,13 @@ async fn a31_a_workstream_id_resolves_to_its_door() {
     assert_eq!(names, ["project-only", "reduce"]);
 }
 
-fn card(title: &str) -> Value {
-    json!({ "title": title, "blocks": [
-        { "kind": "rows", "title": "done", "rows": [{ "label": "login", "value": "merged" }] },
-        { "kind": "table", "head": ["agent", "state"], "rows": [["a", "idle"]] },
-        { "kind": "diagram", "mermaid": "graph TD; A-->B" },
-        { "kind": "text", "text": "next: the rail" },
-    ] })
-}
-
-#[tokio::test]
-async fn m10_write_returns_the_next_id_in_the_doors_workstream() {
-    let project = start(&[]);
-    let user = project.client().await;
-    // No children: startup Digests must not race the checkpoint-only Message assertion.
-    let workstream = workstream(&user, "m").await;
-    user.request("rail.startDoor", json!({"id":workstream}))
-        .await
-        .unwrap();
-    let mut door = Shim::start(&project, &workstream).await;
-    let before = user.request("message.list", json!({})).await.unwrap();
-
-    let first = door.call("checkpoint_write", card("login merged")).await;
-    let second = door.call("checkpoint_write", card("rail next")).await;
-
-    assert_eq!(
-        (first["id"].as_u64(), second["id"].as_u64()),
-        (Some(1), Some(2))
-    );
-    assert_eq!(first["workstream"], workstream.as_str());
-    assert_eq!(first["title"], "login merged");
-    assert_eq!(first["blocks"], card("")["blocks"]);
-    assert!(first["at"].as_i64().unwrap() > 0);
-    let after = user.request("message.list", json!({})).await.unwrap();
-    assert_eq!(after, before);
-}
-
-#[tokio::test]
-async fn m10_list_returns_checkpoints_in_order_after_a_restart() {
-    let mut project = start(&[]);
-    let user = project.client().await;
-    let rail = rail(&project, &user).await;
-    let door = client_as(&project, actor(ActorKind::Agent, &rail.m)).await;
-    door.request("checkpoint.write", card("one")).await.unwrap();
-    door.request("checkpoint.write", card("two")).await.unwrap();
-
-    project.restart(&[]);
-    let user = project.client().await;
-    let door = client_as(&project, actor(ActorKind::Agent, &rail.m)).await;
-    let listed = user
-        .request("checkpoint.list", json!({ "workstream": rail.m }))
-        .await
-        .unwrap();
-    let third = door
-        .request("checkpoint.write", card("three"))
-        .await
-        .unwrap();
-
-    let titles: Vec<_> = listed
-        .as_array()
-        .unwrap()
-        .iter()
-        .map(|c| c["title"].as_str().unwrap())
-        .collect();
-    assert_eq!(titles, ["one", "two"]);
-    assert_eq!(third["id"], 3);
-    let other = user
-        .request("checkpoint.list", json!({ "workstream": rail.g }))
-        .await
-        .unwrap();
-    assert_eq!(other.as_array().unwrap().len(), 0);
-}
-
-#[tokio::test]
-async fn u467_checkpoints_survive_view_removal() {
-    let mut project = start(&[]);
-    let user = project.client().await;
-    let workstream = workstream(&user, "m").await;
-    user.request("rail.startDoor", json!({"id":workstream}))
-        .await
-        .unwrap();
-    let mut door = Shim::start(&project, &workstream).await;
-    let written = door.call("checkpoint_write", card("login merged")).await;
-    drop(door);
-    drop(user);
-
-    project.restart(&[]);
-    let user = project.client().await;
-    let listed = user
-        .request("checkpoint.list", json!({ "workstream": workstream }))
-        .await
-        .unwrap();
-
-    assert_eq!(listed, json!([written]));
-}
-
-#[tokio::test]
-async fn m10_write_emits_the_event_and_logs_a_touch() {
-    let project = start(&[]);
-    let user = project.client().await;
-    let rail = rail(&project, &user).await;
-    let mut events = project.subscribed().await;
-    let door = client_as(&project, actor(ActorKind::Agent, &rail.m)).await;
-
-    door.request("checkpoint.write", card("one")).await.unwrap();
-
-    let written = next(&mut events, |data| match data {
-        EventData::CheckpointWritten(checkpoint) => Some(checkpoint),
-        _ => None,
-    })
-    .await;
-    assert_eq!(
-        (written.id, written.workstream.as_str()),
-        (1, rail.m.as_str())
-    );
-    assert_eq!(written.title, "one");
-    let history: Vec<Touch> = serde_json::from_value(
-        user.request(
-            "provenance.history",
-            json!({ "item": format!("checkpoint:{}:1", rail.m) }),
-        )
-        .await
-        .unwrap(),
-    )
-    .unwrap();
-    assert_eq!(history.len(), 1);
-    assert_eq!(history[0].actor.id, rail.m);
-    assert_eq!(history[0].verb, contracts::Verb::Wrote);
-}
-
-/// A33: an idle Agent whose own Todo waits on an open blocker reads `blocked`, and idle again
-/// once the blocker completes or the Todo is deleted.
+/// A33: an idle Agent whose Todo waits on an open blocker reads `blocked`; idle again once it clears.
 async fn a33_blocked_agent(fixture: &str) -> (Project, rpc::Client, RailNode) {
     let project = daemon::start_real(fixture, &[]);
     let client = project.client().await;
     let agent: RailNode = serde_json::from_value(
         tokio::time::timeout(
-            Duration::from_secs(30),
+            project.bound(),
             client.request(
                 "agent.spawn",
                 json!({
@@ -2735,37 +2598,6 @@ async fn d12_a_client_resumes_after_a_killed_daemon() {
         "each number once, in order"
     );
     assert!(got.len() >= 3, "b, c and d each saved an Event: {got:?}");
-}
-
-/// U516: what the webview sends for a selected Turn: a fenced Excerpt and the Turn's facts.
-const U516_BODY: &str = "why?\n\n```\n$ ls\nfile\n```\n\ncommand: ls\ncwd: /work\nexit: 0";
-
-#[tokio::test]
-async fn u516_message_list_holds_the_sent_excerpt() {
-    let project = start(&[]);
-    let client = project.client().await;
-    let door = start_door(&client).await;
-    let child = agent_in(&project, &client, Some(&door)).await;
-    client
-        .request(
-            "message.send",
-            json!({"to": child, "kind": "note", "body": U516_BODY}),
-        )
-        .await
-        .unwrap();
-
-    let listed = client
-        .request("message.list", json!({"to": child}))
-        .await
-        .unwrap();
-    let sent = listed
-        .as_array()
-        .unwrap()
-        .iter()
-        .find(|message| message["body"] == U516_BODY)
-        .expect("message.list holds the Excerpt for an Agent with no Thread");
-    assert_eq!(sent["from"]["kind"], "user");
-    assert_eq!(sent["kind"], "note");
 }
 
 const M16_START: [&str; 3] = ["agent_run", "terminal_spawn", "terminal_open"];

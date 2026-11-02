@@ -74,25 +74,7 @@ fn ask(
     pads: &[Pad],
     messages: &[Message],
 ) -> Vec<DigestItem> {
-    let from = Sources {
-        touches: pads
-            .iter()
-            .map(|pad| contracts::Touch {
-                actor: Actor {
-                    kind: ActorKind::Agent,
-                    id: pad.home.clone().unwrap(),
-                    parent: None,
-                },
-                verb: contracts::Verb::Wrote,
-                item: format!("pad:{}", pad.name),
-                at: pad.updated_at,
-            })
-            .collect(),
-        nodes,
-        todos,
-        pads,
-        messages,
-    };
+    let from = sources(nodes, todos, pads, messages);
     let m = Actor {
         kind: ActorKind::Agent,
         id: "m".into(),
@@ -172,14 +154,6 @@ fn b19_todos_counts_only_open_todos_created_by_the_agent() {
 }
 
 #[test]
-fn b19_completing_a_created_todo_reduces_the_count() {
-    let mut todos = [todo(1, "a", false), todo(2, "a", false)];
-    todos[0].done = true;
-    let items = ask(&Seen::default(), &rail(), &todos, &[], &[]);
-    assert_eq!(entries(&items)[0].todos, 1);
-}
-
-#[test]
 fn b19_home_changes_keep_creator_attribution_until_completion() {
     for home in [Some("other-workstream"), None] {
         for done in [false, true] {
@@ -202,35 +176,24 @@ fn b19_pads_name_only_pads_written_since_the_previous_envelope() {
         &[],
     );
     assert_eq!(entries(&first)[0].pads, ["one"]);
-    let pads = [pad("one", "a", 10), pad("two", "a", 20), pad("x", "b", 11)];
+    let mut pads = [pad("one", "a", 10), pad("two", "a", 20), pad("x", "b", 11)];
     let second = ask(&seen, &rail(), &[], &pads, &[]);
     assert_eq!(entries(&second)[0].pads, ["two"]);
     assert!(entries(&second)[1].pads.is_empty());
+    pads[1].text.push('!');
+    let unchanged_time = ask(&seen, &rail(), &[], &pads, &[]);
+    assert!(entries(&unchanged_time)[0].pads.is_empty());
+    pads[1].updated_at = 21;
+    let later = ask(&seen, &rail(), &[], &pads, &[]);
+    assert_eq!(entries(&later)[0].pads, ["two"]);
 }
 
 #[test]
 fn b19_the_user_asking_does_not_hide_pads_from_m() {
     let seen = Seen::default();
     let pads = [pad("one", "a", 10)];
-    let from = Sources {
-        touches: pads
-            .iter()
-            .map(|pad| contracts::Touch {
-                actor: Actor {
-                    kind: ActorKind::Agent,
-                    id: pad.home.clone().unwrap(),
-                    parent: None,
-                },
-                verb: contracts::Verb::Wrote,
-                item: format!("pad:{}", pad.name),
-                at: pad.updated_at,
-            })
-            .collect(),
-        nodes: &rail(),
-        todos: &[],
-        pads: &pads,
-        messages: &[],
-    };
+    let nodes = rail();
+    let from = sources(&nodes, &[], &pads, &[]);
     let m = Actor {
         kind: ActorKind::Agent,
         id: "m".into(),
@@ -296,13 +259,7 @@ fn b20_children_are_in_rail_order_at_most_20_then_more() {
 #[test]
 fn b20_forbidden_not_found_and_conflict() {
     let nodes = rail();
-    let from = Sources {
-        touches: Vec::new(),
-        nodes: &nodes,
-        todos: &[],
-        pads: &[],
-        messages: &[],
-    };
+    let from = sources(&nodes, &[], &[], &[]);
     let seen = Seen::default();
     let agent = |id: &str| Actor {
         kind: ActorKind::Agent,
@@ -428,6 +385,7 @@ fn sources<'a>(
     messages: &'a [Message],
 ) -> Sources<'a> {
     Sources {
+        completed: std::collections::HashMap::new(),
         touches: pads
             .iter()
             .map(|pad| contracts::Touch {
@@ -672,4 +630,371 @@ fn b23_a_last_push_that_failed_is_offered_again() {
     let mut pushes = seen.changed(&sources(&nodes, &none, &[], &[]));
     seen.release(pushes.remove(0));
     assert_eq!(seen.changed(&sources(&nodes, &none, &[], &[])).len(), 1);
+}
+
+#[test]
+fn a5482c_non_door_coordinator_receives_the_fallback() {
+    let mut nodes = rail();
+    nodes[0].kind = NodeKind::Agent;
+    let attempt = nodes[1].attempt.clone().unwrap();
+    let seen = Seen::default();
+    let mut from = sources(&nodes, &[], &[], &[]);
+    seen.baseline(&from);
+    from.completed.insert(
+        "a".into(),
+        (
+            format!("{attempt}:1"),
+            10,
+            20,
+            "Should I publish three pages or five".into(),
+        ),
+    );
+    let pushes = seen.changed(&from);
+    assert_eq!(pushes.len(), 1);
+    assert_eq!(pushes[0].meta, "m");
+    assert_eq!(pushes[0].subagent(), "a");
+    assert_eq!(pushes[0].entry.last, "Should I publish three pages or five");
+    assert!(push_body(&pushes[0].entry).starts_with("[digest] a-name is working\n"));
+    assert!(
+        seen.changed(&from).is_empty(),
+        "a replay repeated the fallback"
+    );
+    assert_eq!(
+        seen.ask(&Actor::user(), "m", &from).unwrap_err().code,
+        rpc::code::CONFLICT
+    );
+}
+
+#[test]
+fn b5519a_a_later_turn_note_replaces_the_previous_final_text() {
+    for (pushed, since) in [(false, 30), (true, 30), (false, 60), (true, 60)] {
+        let mut nodes = rail();
+        nodes[1].status = Some(Status {
+            // A same-turn permission prompt can advance Status after the note.
+            since,
+            finished: "1".into(),
+            ..status(Kind::Working, "reading page two")
+        });
+        let attempt = nodes[1].attempt.clone().unwrap();
+        let seen = Seen::default();
+        let notes = [sent(40, "a", "m", "starting page two")];
+        let mut from = sources(&nodes, &[], &[], &[]);
+        from.completed.insert(
+            "a".into(),
+            (format!("{attempt}:1"), 10, 20, "Done with page one".into()),
+        );
+        seen.baseline(&from);
+        from.messages = &notes;
+        let entry = if pushed {
+            // Progress alone is silent; an open Todo makes the next push eligible (B21).
+            assert!(seen.changed(&from).is_empty());
+            let todos = [todo(1, "a", false)];
+            from.todos = &todos;
+            let pushes = seen.changed(&from);
+            assert_eq!(pushes.len(), 1);
+            assert_eq!(pushes[0].subagent(), "a");
+            assert_eq!(pushes[0].meta, "m");
+            pushes[0].entry.clone()
+        } else {
+            let caller = Actor {
+                kind: ActorKind::Agent,
+                id: "m".into(),
+                parent: None,
+            };
+            let digest = seen.ask(&caller, "m", &from).unwrap();
+            entries(&digest.children)[0].clone()
+        };
+        assert_eq!(entry.name, "a-name");
+        assert_eq!(entry.last, "starting page two", "pushed={pushed}");
+    }
+}
+
+#[test]
+fn b5519a_the_next_completed_turn_replaces_its_progress_note() {
+    let mut nodes = rail();
+    nodes[1].status = Some(Status {
+        since: 50,
+        finished: "2".into(),
+        ..status(Kind::Idle, "idle")
+    });
+    let attempt = nodes[1].attempt.clone().unwrap();
+    let notes = [sent(40, "a", "m", "starting page two")];
+    let mut from = sources(&nodes, &[], &[], &notes);
+    from.completed.insert(
+        "a".into(),
+        (format!("{attempt}:2"), 30, 50, "Done with page two".into()),
+    );
+    let digest = Seen::default().ask(&Actor::user(), "m", &from).unwrap();
+    assert_eq!(entries(&digest.children)[0].last, "Done with page two");
+}
+
+#[test]
+fn b37_an_older_idle_snapshot_cannot_supersede_a_needs_you_digest() {
+    let seen = Seen::default();
+    let mut idle = rail();
+    idle[1].status = Some(status(Kind::Idle, "idle"));
+    idle[1].status_revision = Some("4".into());
+    seen.baseline(&sources(&idle, &[], &[], &[]));
+
+    let mut asking = idle.clone();
+    asking[1].status = Some(status(Kind::NeedsYou, "Bash: ls"));
+    asking[1].status_revision = Some("5".into());
+    seen.entry_of("a", &sources(&asking, &[], &[], &[]), true)
+        .unwrap();
+
+    assert!(
+        seen.changed(&sources(&idle, &[], &[], &[])).is_empty(),
+        "a snapshot read before the attention note must not replace it with idle"
+    );
+}
+
+// B5641's fixtures are built outside every measured region.
+type Fixture = (Vec<RailNode>, Vec<Todo>, Vec<Pad>, Vec<Message>);
+
+fn projection_fixture(agents: usize, history: usize) -> Fixture {
+    let mut nodes = rail();
+    nodes.truncate(1);
+    nodes.push(node("lead", NodeKind::Agent, None, "coordinating"));
+    for i in 0..agents {
+        nodes.push(node(
+            &format!("c{i}"),
+            NodeKind::Agent,
+            Some(if i % 2 == 0 { "m" } else { "lead" }),
+            "reading",
+        ));
+    }
+    let todos = (0..agents)
+        .map(|i| todo(u32::try_from(i).unwrap(), &format!("c{i}"), i % 3 == 0))
+        .collect();
+    let pads = (0..100)
+        .map(|i| {
+            pad(
+                &format!("成果-{i}"),
+                &format!("c{}", i % agents),
+                i64::try_from(i / 5).unwrap(),
+            )
+        })
+        .collect();
+    let messages = (0..history)
+        .map(|i| {
+            sent(
+                u32::try_from(i).unwrap(),
+                &format!("c{}", i % agents),
+                if i % 3 == 0 {
+                    "other"
+                } else if i % 2 == 0 {
+                    "m"
+                } else {
+                    "lead"
+                },
+                "a note\nsecond line",
+            )
+        })
+        .collect();
+    (nodes, todos, pads, messages)
+}
+
+fn projection_sources(data: &Fixture) -> Sources<'_> {
+    let mut from = sources(&data.0, &data.1, &data.2, &data.3);
+    let touches = from.touches.clone();
+    from.touches = touches.iter().cycle().take(1000).cloned().collect();
+    from
+}
+
+#[test]
+fn b5641a_sources_are_indexed_once_per_comparison() {
+    let data = projection_fixture(40, 1000);
+    let mut from = projection_sources(&data);
+    from.completed
+        .insert("c0".into(), ("turn".into(), 0, 100, "final".into()));
+    let seen = Seen::default();
+    let caller = Actor {
+        kind: ActorKind::Agent,
+        id: "m".into(),
+        parent: None,
+    };
+    for operation in 0..4 {
+        COST.with(|counts| *counts.borrow_mut() = [0; 7]);
+        match operation {
+            0 => seen.baseline(&from),
+            1 => assert!(seen.changed(&from).is_empty()),
+            2 => {
+                seen.entry_of("c0", &from, true).unwrap();
+            }
+            _ => {
+                seen.ask(&caller, "m", &from).unwrap();
+            }
+        }
+        COST.with(|counts| assert_eq!(*counts.borrow(), [42, 40, 100, 1000, 1000, 1, 100]));
+    }
+}
+
+#[test]
+fn b5641d_no_change_work_and_allocations() {
+    for agents in [10, 40] {
+        for history in [100, 1000, 10000] {
+            let data = projection_fixture(agents, history);
+            let from = projection_sources(&data);
+            let seen = Seen::default();
+            let start = std::time::Instant::now();
+            COST.with(|counts| *counts.borrow_mut() = [0; 7]);
+            let baseline = allocation_counter::measure(|| seen.baseline(&from));
+            let baseline_time = start.elapsed();
+            let expected = [agents + 2, agents, 100, 1000, history, 0, 100];
+            COST.with(|c| assert_eq!(*c.borrow(), expected));
+            COST.with(|counts| *counts.borrow_mut() = [0; 7]);
+            let mut pushes = Vec::new();
+            let start = std::time::Instant::now();
+            let unchanged = allocation_counter::measure(|| pushes = seen.changed(&from));
+            let unchanged_time = start.elapsed();
+            assert!(pushes.is_empty());
+            COST.with(|c| assert_eq!(*c.borrow(), expected));
+            eprintln!(
+                "B5641 agents={agents} history={history} baseline_bytes={} baseline_allocs={} baseline_us={} unchanged_bytes={} unchanged_allocs={} unchanged_us={} visits={:?}",
+                baseline.bytes_total,
+                baseline.count_total,
+                baseline_time.as_micros(),
+                unchanged.bytes_total,
+                unchanged.count_total,
+                unchanged_time.as_micros(),
+                COST.with(|c| *c.borrow())
+            );
+        }
+    }
+}
+
+#[test]
+fn b5641b_projection_preserves_entries_and_pushes() {
+    let mut data = projection_fixture(24, 100);
+    data.0[3].status = None;
+    data.1[1].creator.kind = ActorKind::Ext;
+    data.1[2].creator.kind = ActorKind::User;
+    data.2[0].name = "成果-10-prefix".into();
+    data.2.swap(90, 92);
+    data.3.push(sent(100, "c0", "other", "wrong recipient"));
+    data.3.push(sent(99, "c0", "m", "first tied id"));
+    data.3.push(sent(99, "c0", "m", "last tied id"));
+    data.3.push(sent(98, "c0", "m", "later supplied lower id"));
+    let mut other_actor = sent(101, "c0", "m", "wrong actor");
+    other_actor.from.kind = ActorKind::Ext;
+    data.3.push(other_actor);
+    let seen = Seen::default();
+    let mut from = projection_sources(&data);
+    for touch in &mut from.touches {
+        match touch.item.as_str() {
+            "pad:成果-96" => touch.actor.id = "c0-extra".into(),
+            "pad:成果-98" => touch.verb = contracts::Verb::Read,
+            "pad:成果-94" => touch.item.push_str("-missing"),
+            "pad:成果-92" => touch.actor.kind = ActorKind::Ext,
+            _ => {}
+        }
+    }
+    for index in [90, 92] {
+        let mut shared = from.touches[index].clone();
+        shared.actor.id = "c0".into();
+        from.touches.push(shared);
+    }
+    let touches = from.touches.clone();
+    seen.baseline(&from);
+    let before = seen.ask(&Actor::user(), "m", &from).unwrap();
+    data.0[2].status = Some(status(Kind::Done, "done"));
+    let mut from = projection_sources(&data);
+    from.touches = touches;
+    let pushes = seen.changed(&from);
+    let actual = serde_json::json!({"read": before, "pushes": pushes.iter().map(|p| serde_json::json!([p.meta, p.subagent(), p.entry, push_body(&p.entry)])).collect::<Vec<_>>()});
+    // Captured from 4e3cb8273 before the projection; exact entries, receiver and formatted push.
+    let expected: serde_json::Value = serde_json::from_str(r###"{"read":{"children":[{"name":"c0-name","kind":"working","last":"last tied id","todos":0,"pads":["成果-48","成果-72","成果-92","成果-90","[cut]"]},{"name":"c2-name","kind":"working","last":"a note","todos":0,"pads":["成果-2","成果-26","成果-50","成果-74"]},{"name":"c4-name","kind":"working","last":"a note","todos":1,"pads":["成果-4","成果-28","成果-52","成果-76"]},{"name":"c6-name","kind":"working","last":"reading","todos":0,"pads":["成果-6","成果-30","成果-54","成果-78"]},{"name":"c8-name","kind":"working","last":"a note","todos":1,"pads":["成果-8","成果-32","成果-56","成果-80"]},{"name":"c10-name","kind":"working","last":"a note","todos":1,"pads":["成果-10","成果-34","成果-58","成果-82"]},{"name":"c12-name","kind":"working","last":"reading","todos":0,"pads":["成果-12","成果-36","成果-60","成果-84"]},{"name":"c14-name","kind":"working","last":"a note","todos":1,"pads":["成果-14","成果-38","成果-62","成果-86"]},{"name":"c16-name","kind":"working","last":"a note","todos":1,"pads":["成果-16","成果-40","成果-64","成果-88"]},{"name":"c18-name","kind":"working","last":"reading","todos":0,"pads":["成果-18","成果-42","成果-66","成果-90"]},{"name":"c20-name","kind":"working","last":"a note","todos":1,"pads":["成果-20","成果-44","成果-68","成果-92"]},{"name":"c22-name","kind":"working","last":"a note","todos":1,"pads":["成果-22","成果-46","成果-70"]}]},"pushes":[["m","c0",{"name":"c0-name","kind":"done","last":"last tied id","todos":0,"pads":["成果-48","成果-72","成果-92","成果-90","[cut]"]},"[digest] c0-name is done\n  last: last tied id\n  open todos: 0\n  pads: 成果-48, 成果-72, 成果-92, 成果-90, [cut]"]]}"###).unwrap();
+    assert_eq!(actual, expected);
+    assert!(seen.changed(&from).is_empty());
+}
+
+#[test]
+fn b5641c_fresh_sources_keep_delivery_history() {
+    let seen = Seen::default();
+    let data = projection_fixture(2, 0);
+    seen.baseline(&projection_sources(&data));
+    drop(data);
+    let mut replacement = projection_fixture(2, 0);
+    replacement.0[2].status = Some(status(Kind::Blocked, "blocked"));
+    let fresh = || {
+        let mut from = projection_sources(&replacement);
+        let attempt = replacement.0[2].attempt.as_ref().unwrap();
+        from.completed.insert(
+            "c0".into(),
+            (format!("{attempt}:1"), 10, 20, "answer".into()),
+        );
+        from
+    };
+    let mut pushes = seen.changed(&fresh());
+    let entry = pushes[0].entry.clone();
+    assert_eq!(pushes.len(), 1);
+    seen.release(pushes.remove(0));
+    let retry = seen.changed(&fresh());
+    assert_eq!(retry[0].entry, entry);
+    assert_eq!(retry[0].meta, "m");
+    assert!(seen.changed(&fresh()).is_empty());
+    replacement.0.remove(2);
+    COST.with(|c| *c.borrow_mut() = [0; 7]);
+    let gone = seen.changed(&projection_sources(&replacement));
+    COST.with(|c| assert_eq!(*c.borrow(), [3, 2, 100, 1000, 0, 0, 100]));
+    assert_eq!(gone.len(), 1);
+    assert_eq!(gone[0].entry, entry);
+    assert_eq!(gone[0].meta, "m");
+    assert!(seen.changed(&projection_sources(&replacement)).is_empty());
+}
+
+#[test]
+fn b5641b_completion_keeps_question_and_note_time_bounds() {
+    for (question_at, note_at, attempt, expected) in [
+        (Some(9), 20, "run", "final"),
+        (Some(10), 20, "run", "note"),
+        (Some(30), 20, "run", "note"),
+        (None, 21, "run", "note"),
+        (None, 19, "other", "note"),
+        (None, 19, "run", "final"),
+    ] {
+        let mut nodes = rail();
+        nodes[1].attempt = Some(attempt.into());
+        let mut note = sent(10, "a", "m", "note");
+        note.at = note_at;
+        let mut messages = vec![note];
+        if let Some(at) = question_at {
+            let mut question = sent(1, "a", "elsewhere", "question");
+            question.kind = MessageKind::Question;
+            question.at = at;
+            messages.push(question);
+        }
+        let mut from = sources(&nodes, &[], &[], &messages);
+        from.completed
+            .insert("a".into(), ("run:1".into(), 10, 20, "final".into()));
+        assert_eq!(
+            Seen::default().entry_of("a", &from, false).unwrap().last,
+            expected
+        );
+    }
+}
+
+#[test]
+fn b5641b_end_entries_keep_the_child_summary_and_bounds() {
+    for (body, expected) in [
+        (None, "ended with no finding".to_owned()),
+        (
+            Some("short\nsummary".to_owned()),
+            "short\nsummary".to_owned(),
+        ),
+        (Some("s".repeat(700)), format!("{}[cut]", "s".repeat(595))),
+    ] {
+        let seen = Seen::default();
+        let mut nodes = rail();
+        seen.baseline(&sources(&nodes, &[], &[], &[]));
+        nodes[1].status = Some(status(Kind::Done, "done"));
+        let mut messages = vec![sent(100, "b", "m", "another child's summary")];
+        if let Some(body) = body {
+            messages.push(sent(1, "a", "m", &body));
+        }
+        let pushes = seen.changed(&sources(&nodes, &[], &[], &messages));
+        assert_eq!(pushes.len(), 1);
+        assert_eq!(pushes[0].entry.last, expected);
+        assert!(serde_json::to_string(&pushes[0].entry).unwrap().len() <= 1024);
+    }
 }

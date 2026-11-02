@@ -1,15 +1,23 @@
 import { single } from "fuzzysort";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { TerminalInfo } from "@contracts/terminal/TerminalInfo";
+import type { Todo } from "@contracts/todo/Todo";
+import type { Pad } from "@contracts/pad/Pad";
 import { railOrder } from "../rail/layout";
+import type { ActionRow } from "@contracts/action/ActionRow";
+import { ACTION_ROWS } from "../keys/chords";
 import { nameOf } from "../bubbles/places";
 
-/** One row of the Switcher: a Rail node, or a Terminal with no Kind that names the Workstream owning it. */
-export type Entry = { value: string; label: string; node?: RailNode; terminal?: TerminalInfo; owner?: string };
+/** One row of the Switcher: a Rail node, or a Terminal with no Kind that names the Workstream owning it, or a Todo or Pad (U5240b). */
+export type Entry = { value: string; label: string; node?: RailNode; terminal?: TerminalInfo; owner?: string; todo?: Todo; pad?: Pad };
 
-const urgency = (entry: Entry): number => entry.node?.status?.kind === "error" ? 0 : entry.node?.status?.kind === "needs-you" ? 1 : 2;
+const urgency = (entry: Entry): number => {
+  const kind = (entry.node?.status ?? entry.terminal?.status)?.kind;
 
-/** U529: error, then needs-you, then Rail order; the Terminals follow in start order. Terminals that are an Agent's own screen, or have no owner, are not entries. */
+  return kind === "error" ? 0 : kind === "needs-you" ? 1 : 2;
+};
+
+/** U529: error, then needs-you, then Rail order; Terminals follow in start order, each among the Agents by the Kind its program reported (PS11.3). Terminals that are an Agent's own screen, or have no owner, are not entries. */
 export const entriesOf = (nodes: readonly RailNode[], terminals: readonly TerminalInfo[]): Entry[] => {
   const panes = new Set(nodes.flatMap((node) => node.terminal_id === null ? [] : [node.terminal_id]));
   const rows: Entry[] = railOrder(nodes).map((node) => ({ value: node.id, label: node.name, node }));
@@ -24,7 +32,7 @@ export const entriesOf = (nodes: readonly RailNode[], terminals: readonly Termin
       owner: nodes.find((node) => node.id === terminal.owner)?.name ?? "",
     }));
 
-  return [...rows.map((entry, at) => ({ entry, at })).sort((a, b) => urgency(a.entry) - urgency(b.entry) || a.at - b.at).map(({ entry }) => entry), ...own];
+  return [...rows, ...own].map((entry, at) => ({ entry, at })).sort((a, b) => urgency(a.entry) - urgency(b.entry) || a.at - b.at).map(({ entry }) => entry);
 };
 
 /** Z3788b: blank queries retain domain order; fuzzy matches rank stably within each group. */
@@ -42,3 +50,28 @@ export const matching = (entries: readonly Entry[], text: string): Entry[] => {
     .sort((a, b) => b.score - a.score)
     .map(({ entry }) => entry);
 };
+
+const contains = (text: string, needle: string): boolean => text.toLowerCase().includes(needle.toLowerCase());
+
+/** U5240b: the open Todos, then the Pads, whose title contains the trimmed query, each in the order its list gives, with the name of the Workstream that is its home. Nothing for a blank query. */
+export const itemsMatching = (nodes: readonly RailNode[], todos: readonly Todo[], pads: readonly Pad[], text: string): Entry[] => {
+  const needle = text.trim();
+
+  if (!needle) return [];
+
+  const owner = (home: string | null) => nodes.find((node) => node.id === home)?.name ?? "";
+
+  return [
+    ...todos.flatMap((todo): Entry[] => (!todo.done && contains(todo.title, needle) ? [{ value: `todo:${todo.id}`, label: todo.title, todo, owner: owner(todo.home) }] : [])),
+    ...pads.flatMap((pad): Entry[] => (contains(pad.name, needle) ? [{ value: `pad:${pad.incarnation}`, label: pad.name, pad, owner: owner(pad.home) }] : [])),
+  ];
+};
+
+/** UA9, UA12: the Daemon's User actions the Switcher shows, in its order: none that needs an argument, none named like a built-in action. */
+export const userActionsOf = (rows: readonly ActionRow[]): Entry[] => {
+  const builtIn = new Set(ACTION_ROWS.map(row => row.name));
+
+  return rows.flatMap((row): Entry[] => (builtIn.has(row.name) || row.args.some(arg => arg.required) ? [] : [{ value: `${USER_PREFIX}${row.name}`, label: row.label }]));
+};
+
+export const USER_PREFIX = "action:user:";

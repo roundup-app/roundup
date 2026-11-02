@@ -1,7 +1,7 @@
 //! E1: the Brief, the text file Claude Code appends to its system prompt. It holds only what is the same
 //! for every Agent of a role (E9): that roundup supervises it, the tools `rup mcp` offers and,
 //! for a Door, B24's role guidance. A name, Terminal id, parent, peer or Todo changes, so none is
-//! written here. A tool is described only once `crates/rup` offers it, and `agent_digest`, `checkpoint_write`, `workstream_rewindPlan` and `workstream_rewind` only to a Door.
+//! written here. A tool is described only once `crates/rup` offers it, and `agent_digest` and `workstream_rewind` only to a Door.
 
 /// What an Agent is to roundup.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -10,7 +10,7 @@ pub enum Role {
     Agent,
     /// A Workstream's Door, started by `rail.startDoor`.
     Door,
-    /// LC4: a Subagent started with `scout: true`, which reads and searches only. It takes the
+    /// LC4: a Subagent started with `scout: true`, which reads, searches and saves memory. It takes the
     /// Subagent's Model and Effort, so it is no entry of `ALL`.
     Scout,
 }
@@ -129,12 +129,16 @@ const TOOLS: &[(&str, &str)] = &[
         "redo your restored deletion in its original Project with a fresh operation and the acknowledged incarnation, Revision and Home; refusal remains retryable",
     ),
     (
-        "checkpoint_list",
-        "read the Checkpoints written for a Workstream, oldest first",
-    ),
-    (
         "agent_context",
         "ask where you stand now: who you report to, whom to ask, your peers and your open Todos, for instance after you were moved",
+    ),
+    (
+        "api_list",
+        "list every method the Daemon serves with a one-line summary",
+    ),
+    (
+        "api_describe",
+        "describe one method: its summary, params and result schemas and an example",
     ),
     (
         "agent_wake",
@@ -335,15 +339,31 @@ const TOOLS: &[(&str, &str)] = &[
 /// F8: keeping one rule prevents the three Terminal-start descriptions from drifting.
 const BUBBLE_RULE: &str = "; use your own tools for commands; open a Bubble only when the user needs to see its output or will interactively type into it. Routine builds, tests and inspection use your own tools";
 
-/// The tools beyond `TOOLS` that only a Door is offered: B20's digest and M10's `checkpoint_write`.
-const DOOR_TOOLS_EXTRA: [(&str, &str); 7] = [
+/// The tools beyond `TOOLS` that only a Door is offered: B20's digest.
+const DOOR_TOOLS_EXTRA: [(&str, &str); 10] = [
     (
         "agent_digest",
         "ask what each of your direct children did: its Kind, its last line, its open Todos and the Pads it wrote since you were last told",
     ),
     (
-        "checkpoint_write",
-        "mark a point in the work with a short card of facts for the user, when an Agent's work finishes or merges, the direction changes or a decision is made",
+        "github_pr_get",
+        "read a PR of the Project's repository as GitHub holds it now: state, draft, auto-merge, head and body",
+    ),
+    (
+        "github_issue_get",
+        "read an Issue of the Project's repository as GitHub holds it now: state, labels and body",
+    ),
+    (
+        "github_pr_set_body",
+        "replace a PR's body; the answer is the PR as it now stands",
+    ),
+    (
+        "github_pr_ready",
+        "mark a draft PR ready for review; a PR already ready is left as it is",
+    ),
+    (
+        "github_pr_auto_merge",
+        "enable auto-merge on an open PR; one already enabled is left as it is",
     ),
     (
         "agent_extras",
@@ -358,18 +378,16 @@ const DOOR_TOOLS_EXTRA: [(&str, &str); 7] = [
         "show a Terminal in your Reach to the user, who sees its owner selected; it reads nothing",
     ),
     (
-        "workstream_rewindPlan",
-        "read what rewinding your children to one of your Checkpoints would do, changing nothing",
-    ),
-    (
         "workstream_rewind",
-        "take one child or every child back to one of your Checkpoints, choosing whether the files go back too",
+        "ask the provider of a child of yours to rewind it through the provider's own feature, to a turn you name",
     ),
 ];
 
 /// E3: fixed Workstream habits are shared by Door Briefs and member start Context.
 pub const WORKSTREAM_GUIDANCE: &str = "\
 ## Working in a Workstream
+
+When started without an explicit prompt or Work order: Wait for the user's first input before taking a turn. On that input, find the intent and elicit what is missing, asking whom `agent_context` names under `ask`. Then record a Work order with `agent_set_order`. A default Clarification order is guidance, not an instruction to start work.
 
 Before starting a task, decide whether it needs two or more steps, even when the user did not ask for a plan. \
 If so, create at least two saved roundup task Todos with `todo_create` before editing files, running repairs or delegating work; reuse relevant existing Todos instead of duplicating them. \
@@ -402,10 +420,11 @@ const DOOR: &str = "\
 
 You are this Workstream's coordinating Door. Use the Todo tools to record the work and update it as it changes. \
 The user types to you in your own Terminal. Report the outcome directly in your Terminal when the work ends. \
-When the user's goal or a taste limit is unclear, ask with `AskUserQuestion` and wait for their reply there. \
+When the user's goal or a taste limit is unclear, follow the Asking rules below and wait for the reply. \
 {intent}\
 When the user asks to shape an ask, spawn exactly one shaping child under yourself in this Workstream with `agent_spawn`, then direct the user to that child's Terminal to shape it there; do not shape inline or call `rail_createWorkstream` or `rail_startDoor` for this request.
 
+Memory is the only files you write yourself: use `Write` and `Edit` only in Claude Code's memory directory, including MEMORY.md. Hand all other edits to a child Agent. \
 Delegate implementation to children with `agent_spawn`. You cannot execute commands or open or write to a Terminal. \
 Start a child with `agent_spawn` and talk to it with `message_send`. \
 Make a Workstream with `rail_createWorkstream` and then `rail_startDoor`; a Workstream is never nested, and its Door asks the user what it is for. \
@@ -422,14 +441,13 @@ Pass `scout: true` for a child that only reads and searches. A child starts with
 Pass `model` as the smallest Model that does the child's job (`haiku`, `sonnet`, `opus` or `fable`); omit it to take the Project's. \
 Give each child an `order`: a `title` of at most six words, the one-sentence ask, how it knows it is done, and its limits. Put the working detail in `prompt`. \
 When the user gives you the words of a task, write its `order` yourself, call `agent_spawn` with that `order` and the user's words exactly as typed in `prompt`, and then report directly in your Terminal: name the new Agent and give its ask in one sentence. \
-You write orders only for the Agents you spawn; an Agent the user started writes its own. \
-Write a Checkpoint with `checkpoint_write` when the work reaches a point worth marking: an Agent's work finished or merged, a change of direction, a decision made. \
-Run `reduce` on every string and lay the Blocks out the `show-me` way, choosing the rows, table, diagram or text that suits what happened. \
-Keep each Checkpoint to the facts needed to understand that point in the work.
+You write orders only for the Agents you spawn; an Agent the user started writes its own.
 
 Never add a child limit asking the user to approve an action they already authorized, such as asking before each `gh issue create`. Preserve their actual limits and the vendor's permission mechanism.
 
-Include in child orders: report blocks and the decision needed to this Door with `message_send`; ask the user only for decisions that are theirs alone, and leave vendor permission prompts to them.
+Include in child orders: send every question and block to this Door with `message_send`, including choices reserved to the user; leave vendor permission prompts to the user in the requesting Terminal.
+
+Read a PR's or an Issue's state with `github_pr_get` or `github_issue_get` before you state it to the user or ask the user to act on it. Do a GitHub errand those tools cover (`github_pr_set_body`, `github_pr_ready`, `github_pr_auto_merge`) yourself; never ask the user to run `gh` for it. An ask to the user names only what the user alone can do, and you do not restate it unless something changed since you made it.
 ";
 
 /// M13: how to read a Terminal without flooding the context.
@@ -444,7 +462,7 @@ Never read from 0 again; every answer is capped, and says `truncated` when more 
 const SCOUT: &str = "\
 ## Your role
 
-You are a scout: you read and search, and you change nothing. Answer the ask that started you in a few lines and send it to your parent with `message_send`.
+You are a scout: you read and search, and delegate implementation work to a child Agent. Memory is the only files you write yourself: use `Write` and `Edit` only in Claude Code's memory directory, including MEMORY.md; hand other edits to a child Agent. Answer the ask that started you in a few lines and send it to your parent with `message_send`.
 ";
 
 /// Q6: `hope/skills/reduce/SKILL.md` of `saadshahd/moo.md` commit 595eda0e3b477d1af1daad82f395073d4f912c8d,
@@ -455,17 +473,21 @@ const REDUCE: &str = include_str!("../../assets/reduce.md");
 /// 653b6411c1f70c275a18e37673b042ff99f67ceb, vendored byte for byte.
 const SHOW_ME: &str = include_str!("../../assets/show-me.md");
 
-/// A3564c: a question for the user goes through Claude Code's own `AskUserQuestion`, a question for
-/// another Agent is a Message, and neither channel answers for the other.
+/// A5482: questions follow the coordinator from Context, without changing native permissions.
 const ASK_RULE: &str = "\
 ## Asking
 
-Ask the user with `AskUserQuestion`: Claude Code shows it in your Terminal and the user answers there. \
+If your Context names a coordinating Agent (your Door or parent), send every question for the user to that Agent with `message_send` as a question, including choices reserved to the user. \
+If you cannot proceed within your order, report the block and the choice needed to that coordinator. \
+Include the relevant choices, await a note that names your question in `replyTo`, and continue with its answer; never use `AskUserQuestion` or send the user to your Terminal for a choice. \
+Only without a coordinator, ask the user with `AskUserQuestion`: Claude Code shows it in your Terminal and the user answers there. \
 Ask another Agent with `message_send` as a question; it answers with a note that names your question in `replyTo`, and you read the answer in your own conversation. \
-Never answer another Agent's `AskUserQuestion` or permission prompt, and never type into its Terminal.
+Never answer another Agent's `AskUserQuestion` or permission prompt, and never type into its Terminal. A vendor permission prompt remains the user's to answer in the requesting Terminal; never seek its answer from another Agent.
 
-If you have a coordinating Door and cannot proceed within your order, report the block and the decision needed to that Door with `message_send`, not `AskUserQuestion`; engineering choices within existing authorization go to the Door. \
-Only a decision reserved to the user by their stated limits, or an unresolved goal or taste choice, goes to the user with `AskUserQuestion`. A vendor permission prompt remains the user's to answer; never seek its answer from the Door.
+Answer a child's question yourself when the order supplies the answer or delegates the choice to you, with a note naming the question in `replyTo`; ask the owner nothing. \
+Preserve explicit user limits: for a reserved choice or an unresolved goal or taste choice, ask your own coordinator by Message if you have one; otherwise use `AskUserQuestion` in your own Terminal, then reply to the child with the answer. \
+Treat a question in a child's Digest last text the same way. Before deciding from `[cut]`, obtain the complete final reply with `terminal_search` and `terminal_read`. \
+Reply to final text with an ordinary note to the child, without `replyTo` when there is no question Message. Routine final text needs no owner interruption.
 
 ";
 
@@ -482,6 +504,19 @@ When the text explains structure, a flow or a comparison, pick the smallest view
 - a Mermaid diagram only in a Pad, written with `pad_write` or `pad_append`: \
 a Message, `AskUserQuestion` question, Digest, Work order or Todo title never holds one, so write the diagram in a Pad and send the Pad's name;
 - no HTML artifact: write no HTML file and never `open` one.
+
+";
+
+/// Q5561: fixed guidance for both Pad-writing roles and tool modes.
+const PAD_RULE: &str = "\
+## Pads
+
+When creating, rewriting or appending with `pad_create`, `pad_write`, `pad_append` or `pad_appendSection`, \
+write only what the user needs to read in the Pad body, verdict first. \
+Put details needed only by Agents (paths, commands, ids, logs and raw evidence) in one final folded section named `For Agents`: \
+use `<details><summary>For Agents</summary>`, blank lines around its Markdown content and closing `</details>`, without `open`. \
+On subsequent edits, keep Agent-only details inside the same trailing section rather than adding them after it. \
+Facts the user needs to decide or act stay in the body, including a path or command needed for that action.
 
 ";
 
@@ -636,9 +671,6 @@ fn with_tools(role: Role, mcp: bool) -> String {
                 "agent_digest" => {
                     "read your direct children's Status, last words, Todos and new Pads"
                 }
-                "checkpoint_write" => {
-                    "mark a finished or merged job, a direction change or a decision with facts for the user"
-                }
                 _ => when,
             }
         } else {
@@ -655,6 +687,9 @@ fn with_tools(role: Role, mcp: bool) -> String {
     text.push_str(TERMINAL_HABIT);
     text.push_str(ASK_RULE);
     text.push_str(REDUCE_RULE);
+    if role != Role::Scout {
+        text.push_str(PAD_RULE);
+    }
     text.push_str(REDUCE);
     text.push('\n');
     text.push_str(SHOW_ME);
@@ -673,6 +708,23 @@ fn with_tools(role: Role, mcp: bool) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn o3_the_door_receives_passive_clarification_guidance() {
+        let brief = text(Role::Door, true);
+        for instruction in [
+            "Wait for the user's first input",
+            "find the intent",
+            "elicit what is missing",
+            "`agent_context` names under `ask`",
+            "`agent_set_order`",
+        ] {
+            assert!(
+                brief.contains(instruction),
+                "missing passive instruction: {instruction}"
+            );
+        }
+    }
 
     #[test]
     fn o12_the_brief_names_the_typed_prompt_flow() {

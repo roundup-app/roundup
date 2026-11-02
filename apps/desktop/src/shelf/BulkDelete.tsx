@@ -199,7 +199,7 @@ export const createBulkDelete = <Id,>(props: {
           <div class="shelf-bulk-line" hidden={question()?.kind === "question"}>
             <span>{props.selected().length}{copy.selected}</span>
             <button data-button="quiet" type="button" ref={(button) => { deleteButton = button; }} disabled={question()?.kind === "pending"} onClick={() => ask()}>{copy.deleteWord}{props.selected().length}</button>
-            <button data-button="quiet" type="button" disabled={question()?.kind === "pending"} onClick={() => { props.cancelSelection(); setFailures([]); }}>{copy.cancel}</button>
+            <button data-button="quiet" type="button" disabled={question()?.kind === "pending"} onClick={() => { props.cancelSelection(); setFailures([]); }}>{copy.clear}</button>
           </div>
         </Show>
         <Show when={owners().length > 0}>
@@ -210,7 +210,7 @@ export const createBulkDelete = <Id,>(props: {
         </Show>
         <ReservedLine data-deletion-pending={question()?.kind === "pending"} aria-busy={question()?.kind === "pending"} status={question()?.kind === "pending" ? copy.draftStatus.pending : null} message={readFailure() ?? (shown().length > 0 ? failureText(shown()[0]!) : null)}>
           <Show when={readFailure() !== null} fallback={shown().length > 0 ? clearButton(shown()[0]!) : null}>
-            <button data-button="quiet" type="button" onClick={() => void readback?.()}>{copy.refresh}</button>
+            <button data-button="quiet" type="button" onClick={() => void readback?.()}>{copy.retry}</button>
           </Show>
         </ReservedLine>
         <For each={shown().slice(1)}>{failure => (

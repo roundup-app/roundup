@@ -1,9 +1,11 @@
+import { alertLevel } from "../alertLevel";
 import type { createCopyFeedback } from "../../ui/CopyButton";
 import type { ConnectedProject } from "../../state/connectedProject";
 import { copy } from "../copy";
 import { createSignal } from "solid-js";
 import { createStore } from "solid-js/store";
 import type { RailNode } from "@contracts/agent/RailNode";
+import { applying } from "../../app/pending";
 import { outcomeOf, RpcError } from "../../app/seam";
 import type { AppSeam } from "../../app/seam";
 import type { ExitState, RailState } from "../../state/rail";
@@ -145,8 +147,12 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
 
   const remove = (current: MenuState, scope: "this" | "all") =>
     attempt(async () => {
-      await app.rpc("rail.remove", scope === "all" ? { id: current.node.id, scope } : { id: current.node.id });
-      current.removed?.();
+      const result = await applying(() => app.rpc("rail.remove", scope === "all" ? { id: current.node.id, scope } : { id: current.node.id }));
+
+      if (result.kind === "refused") throw result.error;
+
+      if (result.kind === "pending") rail.keepAsked(current.node.id, { kind: "remove" });
+      else current.removed?.();
     }, current.node.id);
 
   const judge = async (current: MenuState) => {
@@ -163,7 +169,7 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
 
       if (state()?.node.id !== current.node.id) return;
 
-      if (losses.length) {
+      if (losses.length || removal?.unread.length) {
         setState({ ...current, confirming: true, removal, losses });
 
         return;
@@ -175,7 +181,7 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
       if (removed) {
         current.removed?.();
         acknowledge(current.node.id);
-      } else if (storage.todoUndo.failure()) onFailure(storage.todoUndo.failure()!, current.node.id);
+      } else if (storage.todoUndo.failure() && !storage.todoUndo.blocked()) onFailure(storage.todoUndo.failure()!, current.node.id);
     } catch (error) {
       close();
 
@@ -186,7 +192,7 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
 
   /** Menu and key capture the same row before consequence judgement. */
   const requestRemove = (node: RailNode, exit: ExitState | null, removed?: () => void) => {
-    if (state()?.confirming || storage.todoUndo.pending() || storage.todoUndo.uncertain()) return;
+    if (state()?.confirming) return;
     setState({ node: { ...node }, exit, confirming: false, action: "remove", removed });
     chooseRemove();
   };
@@ -206,8 +212,32 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
     }
   };
 
+  /** A5214a: `agent.makeWorkstream`; the row then shows as a Workstream, or the Daemon's message shows. */
+  const makeWorkstream = (node: RailNode) =>
+    attempt(async () => {
+      await app.rpc("agent.makeWorkstream", { id: node.id });
+      await rail.refresh({ terminals: true });
+    }, node.id);
+
   /** U2694b: a row's items in the table's order; a Group (a Workstream with no Agent at it) offers Remove only. */
   const entries = (node: RailNode, exit: ExitState | null, removed?: () => void): MenuEntry[] => {
+    const alerts: MenuEntry = {
+      id: "alerts", label: copy.alerts,
+      children: (["all", "default", "quiet"] as const).map(level => ({
+        id: `alerts:${level}`, label: copy.alertLevels[level], checked: alertLevel(rail.nodes, node) === level,
+        run: async () => {
+          try {
+            const ping = await app.rpc("daemon.ping", null);
+            await app.rpc("rail.setAlertLevel", { project: ping.project, id: node.id, level });
+            await rail.refresh();
+          } catch (error) {
+            if (!(error instanceof Error)) throw error;
+            onFailure(error.message, node.id);
+          }
+        },
+      })),
+    };
+
     const remove: MenuEntry = { id: "remove", label: copy.remove, shortcut: "⌘⌫", run: () => requestRemove(node, exit, removed) };
 
     const queued = node.kind === "workstream" ? queue.entryOf(node.id) : null;
@@ -233,11 +263,12 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
         ...(queued.place > 1 ? [{ id: "move-up", label: copy.moveUp, run: call(async () => { await app.rpc("workstream.queueMove", { workstream: node.id, index: queued.place - 2 }); }) }] : []),
         ...(queued.place < queued.of ? [{ id: "move-down", label: copy.moveDown, run: call(async () => { await app.rpc("workstream.queueMove", { workstream: node.id, index: queued.place }); }) }] : []),
         ...extra(node),
+        alerts,
         remove,
       ];
     }
 
-    if (node.kind === "workstream" && node.attempt === null) return [...extra(node), remove];
+    if (node.kind === "workstream" && node.attempt === null) return [...extra(node), alerts, remove];
 
     const items: MenuEntry[] = [
       { id: "rename", label: copy.rename, shortcut: copy.renameChord, run: () => rename(node.id) },
@@ -245,7 +276,8 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
 
     if (node.yolo && !(node.kind === "workstream" && node.opening_prompt?.trim()) && isRunning(node, exit)) items.push({ id: "restart", label: copy.restart, run: () => restart(node, "normal") });
 
-    if (!node.yolo) items.push({ id: "yolo", label: copy.startYolo, run: () => restart(node, "yolo") });
+    // A5213: the Daemon takes `mode` for a live row, or an exited one holding a saved conversation.
+    if (!node.yolo && (isRunning(node, exit) || node.can_resume)) items.push({ id: "yolo", label: copy.startYolo, run: () => restart(node, "yolo") });
 
     if (isRunning(node, exit)) items.push({ id: "stop", label: copy.stop, run: () => requestStop(node, exit) });
 
@@ -258,6 +290,7 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
 
     return [
       ...items,
+      alerts,
       ...extra(node),
       ...linkEntries(app, { kind: node.kind, id: node.id }, rail.nodes, (candidate) => isRunning(candidate, rail.exitOf(candidate)), (message) => onFailure(message, node.id), () => acknowledge(node.id), feedback(node.id)),
       remove,
@@ -272,6 +305,7 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
     chooseRemove,
     requestRemove,
     restartSession,
+    makeWorkstream,
     restartPending: (id: string) => restarts[id]?.pending ?? false,
     requestStop,
     isRunning,

@@ -74,7 +74,7 @@ it.each(["resources"])("u2539b_landing_opens_requested_surfaces_and_returns: %s"
   const { connected } = await mount();
 
   if (view === "resources") {
-    expect(projectMenu.items.find(item => item.id === "view:resources")).toBeUndefined();
+    expect(projectMenu.items.find(item => item.id === "view:resources")?.enabled).not.toBe(true);
     connected().rail.select("a0");
     await waitFor(() => expect(projectMenu.items.find(item => item.id === "view:resources")?.enabled).toBe(true));
   }
@@ -112,8 +112,8 @@ it.each(["ask", "agent", "terminal", "todo", "attention", "items", "inbox", "ass
   if (task === "ask") {
     daemon.handlers["ask.send"] = params => ({ id: "ask", text: params.text, at: 0n, parts: [] });
     command("action:chord:⌘/", "Slash", { metaKey: true });
-    fireEvent.input(await screen.findByRole("textbox", { name: "Ask" }), { target: { value: "Do this" } });
-    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("textbox", { name: "Ask" })));
+    fireEvent.input(await screen.findByLabelText("Ask", { selector: '[role="textbox"]' }), { target: { value: "Do this" } });
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByLabelText("Ask", { selector: '[role="textbox"]' })));
     press("Enter");
     await waitFor(() => expect(daemon.calls.filter(call => call.method === "ask.send")).toHaveLength(1));
   } else if (task === "agent") {
@@ -156,7 +156,7 @@ it.each(["ask", "agent", "terminal", "todo", "attention", "items", "inbox", "ass
     fireEvent.click(await screen.findByRole("button", { name: /Unassigned/ }));
     const row = await screen.findByRole("button", { name: /^(?:Idle|Blocked|Done) #\d+ Selected work/ });
     fireEvent.click(row);
-    screen.getByRole("textbox", { name: "Ask" }).focus();
+    screen.getByLabelText("Ask", { selector: '[role="textbox"]' }).focus();
     runLeader("KeyA");
     const field = await screen.findByRole("combobox");
     fireEvent.input(field, { target: { value: "Agent 11" } });
@@ -186,9 +186,8 @@ it.each(["ask", "agent", "terminal", "todo", "attention", "items", "inbox", "ass
 it("u2539b_native_menu_projects_the_task_chords", async () => {
   const { daemon, connected } = await mount();
   await waitFor(() => expect(projectMenu.items.find(item => item.id === "action:leader:J")?.enabled).toBe(true));
-  expect(projectMenu.items.filter(item => item.id.startsWith("action:")).map(item => [item.id, item.shortcut])).toEqual([
-    ["action:chord:⌘Z", "⌘Z"], ["action:chord:⇧⌘Z", "⇧⌘Z"],
-    ["action:chord:⌘N", "⌘N"], ["action:chord:⇧⌘N", "⇧⌘N"], ["action:chord:⌘T", "⌘T"], ["action:chord:⌃⌘J", "⌃⌘J"], ["action:chord:⇧⌘T", "⇧⌘T"], ["action:chord:⌘/", "⌘/"],
+  expect(projectMenu.items.filter(item => item.id.startsWith("action:") && item.enabled).map(item => [item.id, item.shortcut])).toEqual([
+    ["action:chord:⌘N", "⌘N"], ["action:chord:⇧⌘N", "⇧⌘N"], ["action:chord:⌥⌘N", "⌥⌘N"], ["action:chord:⇧⌘M", "⇧⌘M"], ["action:chord:⌘T", "⌘T"], ["action:chord:⇧⌘P", "⇧⌘P"], ["action:chord:⌃⌘J", "⌃⌘J"], ["action:chord:⇧⌘T", "⇧⌘T"], ["action:chord:⌘/", "⌘/"],
     ["action:leader:P", "⌘K P"], ["action:leader:J", "⌘K J"],
     ["action:leader:⇧J", "⌘K ⇧J"], ["action:leader:K", "⌘K K"],
     ["action:leader:B", "⌘K B"], ["action:leader:I", "⌘K I"],
@@ -208,7 +207,7 @@ it("u2539b_native_menu_projects_the_task_chords", async () => {
 it("u2539b_empty_project_can_submit_an_ask", async () => {
   const { daemon } = await mount(true);
   daemon.handlers["ask.send"] = params => ({ id: "first", text: params.text, at: 0n, parts: [] });
-  const field = screen.getByRole("textbox", { name: "Ask" });
+  const field = screen.getByLabelText("Ask", { selector: '[role="textbox"]' });
   expect(daemon.calls.filter(call => call.method === "agent.spawn" || call.method === "ask.send")).toHaveLength(0);
   field.focus();
   fireEvent.input(field, { target: { value: "First work" } });
@@ -237,7 +236,7 @@ it("u2539b_strip_items_follow_actionable_facts", async () => {
 it("u2539b_hiding_optional_views_preserves_original_drafts", async () => {
   const { connected, daemon } = await mount();
   const text = "  unfinished\nexact work 🐈  ";
-  fireEvent.input(screen.getByRole("textbox", { name: "Ask" }), { target: { value: text } });
+  fireEvent.input(screen.getByLabelText("Ask", { selector: '[role="textbox"]' }), { target: { value: text } });
   const original = connected().drafts.list().find(draft => draft.destination.surface === "ask")!;
   openProjectPage("view:made", "/p");
   openProjectPage("view:made", "/p");
@@ -320,8 +319,8 @@ it.each(["working", "idle", "blocked", "needs-you", "error", "done"] as const)("
 
 it("u4278a_unavailable_actions_are_hidden_or_explain_on_use", async () => {
   const { daemon } = await mount(true);
-  await waitFor(() => expect(projectMenu.items.some(item => ["action:leader:C", "action:leader:A", "action:leader:J", "view:resources"].includes(item.id))).toBe(false));
-  expect(projectMenu.items.filter(item => !item.enabled).map(item => item.id)).toEqual(["action:chord:⌘Z", "action:chord:⇧⌘Z"]);
+  await waitFor(() => expect(projectMenu.items.some(item => ["action:leader:C", "action:leader:A", "action:leader:J", "view:resources"].includes(item.id) && item.enabled)).toBe(false));
+  expect(projectMenu.items.filter(item => ["action:chord:⌘Z", "action:chord:⇧⌘Z"].includes(item.id)).map(item => item.enabled)).toEqual([false, false]);
   openProjectPage("action:leader:C", "/p");
   openProjectPage("action:leader:A", "/p");
   openProjectPage("action:leader:J", "/p");
@@ -333,7 +332,7 @@ it("u4278a_no_selected_project_projects_no_actions", async () => {
   const app = createFakeApp();
   render(() => <App app={app} reducedMotion={() => true} clock={() => 0} />);
   await waitFor(() => expect(projectMenu.path).toBeNull());
-  expect(projectMenu.items.map(item => [item.id, item.enabled])).toEqual([["action:chord:⌘Z", false], ["action:chord:⇧⌘Z", false]]);
+  expect(projectMenu.items.filter(item => item.enabled)).toEqual([]);
   openProjectPage("action:chord:⌘N", "/p");
   expect(app.calls.filter(call => call.method === "agent.spawn")).toHaveLength(0);
 });

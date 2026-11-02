@@ -61,7 +61,7 @@ it("u3720_o_is_inert_in_text_fields_with_modifiers_and_on_done_rows", async () =
   fireEvent.keyDown(row, { key: "o", code: "KeyO", ctrlKey: true });
   fireEvent.keyDown(row, { key: "O", code: "KeyO", shiftKey: true });
   expect(screen.queryByRole("menu")).toBeNull();
-  fireEvent.click(screen.getByRole("button", { name: "add todo to Overview" }));
+  fireEvent.click(screen.getByRole("button", { name: "Add Todo: Overview" }));
   fireEvent.keyDown(await screen.findByRole("textbox", { name: "New Todo title" }), { key: "o", code: "KeyO" });
   expect(screen.queryByRole("menu")).toBeNull();
 });
@@ -71,7 +71,7 @@ it("u3720_o_is_inert_in_text_fields_with_modifiers_and_on_done_rows", async () =
 it("u3720_a_failed_assign_shows_its_cause_and_keeps_the_group", async () => {
   const { app } = await mount();
 
-  app.handlers["todo.assign"] = () => { throw new RpcError(-32004, "no such owner"); };
+  app.handlers["todo.assign"] = () => { throw new RpcError(-32001, "no such owner"); };
 
   await waitFor(() => expect(groups()).toContain("a"));
   fireEvent.contextMenu(document.querySelector('[data-todo="3"]')!);

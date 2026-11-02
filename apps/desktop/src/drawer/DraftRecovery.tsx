@@ -1,3 +1,4 @@
+import { applied } from "../app/pending";
 import { EmptyState } from "../ink/EmptyState";
 import { NameField } from "../ui/Editable";
 import { CopyButton } from "../ui/CopyButton";
@@ -6,17 +7,20 @@ import type { ActivationSource } from "../keys/registry";
 import { useConnectedProject } from "../state/connectedProject";
 import type { MenuEntry } from "../ui/contextMenu";
 import { copy } from "./copy";
-import { createEffect, createSignal, For, Show } from "solid-js";
+import { lazy, createEffect, createSignal, For, Show } from "solid-js";
 import { KindGlyph } from "../ink/KindGlyph";
 import { usePadList } from "../rail/pads/padList";
 import { useTodoList } from "../todos/todoList";
-import { PadDrawer } from "../pads/PadDrawer";
 import { Deferred } from "../ui/Deferred";
-
-import { todoCreationEditor, todoEditor } from "./editors";
 import { typedText, useUnfinishedWork } from "./unfinishedWork";
 
+const PadDrawer = lazy(() => import("../pads/PadDrawer").then(module => ({ default: module.PadDrawer })));
+
 const Pads = (props: Parameters<typeof import("../pads/Pads").Pads>[0]) => <Deferred load={() => import("../pads/Pads")} label={copy.pads}>{module => <module.Pads {...props} />}</Deferred>;
+
+const Todos = lazy(() => import("../todos/Todos").then(module => ({ default: module.Todos })));
+
+const TodoDrawer = lazy(() => import("../todos/TodoDrawer").then(module => ({ default: module.TodoDrawer })));
 
 /**
  * U3289c: the Overview row's menu item. Nothing renders unasked (U3289b); with no work at risk the item is absent.
@@ -75,8 +79,8 @@ const DraftRecoveryPanel = () => {
       return () => drawer.open(() => <NameField object={object} name={todo?.title ?? pad?.name ?? String(row.draft.value.base)}
         version={async () => null} close={() => drawer.close("key")} fail={message => { if (message) setFailures(current => ({ ...current, [row.draft.revision]: message })); }}
         commit={async (text, base, version) => {
-          if (todo) await app.rpc("todo.update", { id: todo.id, title: text, body: null, expected_change: Number(version) });
-          else if (pad) await app.rpc("pad.rename", { name: base, newName: text, expectedIncarnation: pad.incarnation });
+          if (todo) await applied(() => app.rpc("todo.update", { id: todo.id, title: text, body: null, expected_change: Number(version) }));
+          else if (pad) await applied(() => app.rpc("pad.rename", { name: base, newName: text, expectedIncarnation: pad.incarnation }));
           else throw new Error(copy.railDraftMissingTarget);
         }} />, "key");
     }
@@ -85,20 +89,16 @@ const DraftRecoveryPanel = () => {
       return () => drawer.open(() => <PadDrawer name={String(row.draft.value.originalName)} pads={pads.pads} recovery={{ project: project.path, revision: row.draft.revision, list: pads }} onLateFailure={() => {}} />, "key", { kind: "pad", project: project.path });
     }
 
-    const editor = todoEditor.get();
-
-    if (surface === "todos" && editor && todos.all().some((todo) => String(todo.id) === object)) {
-      return () => drawer.open(() => editor({ id: Number(object), todos, recovery: { project: project.path, revision: row.draft.revision } }), "key", { kind: "todo", project: project.path });
+    if (surface === "todos" && todos.all().some((todo) => String(todo.id) === object)) {
+      return () => drawer.open(() => <TodoDrawer id={Number(object)} todos={todos} recovery={{ project: project.path, revision: row.draft.revision }} />, "key", { kind: "todo", project: project.path });
     }
 
     if (surface === "pads" && object === "creation") {
       return () => drawer.open(() => <Pads recovery={{ project: project.path, revision: row.draft.revision, list: pads }} />, "key");
     }
 
-    const creation = todoCreationEditor.get();
-
-    if (surface === "todos" && object === "new" && creation) {
-      return () => drawer.open(() => creation({ recovery: { project: project.path, revision: row.draft.revision, list: todos } }), "key");
+    if (surface === "todos" && object === "new") {
+      return () => drawer.open(() => <Todos recovery={{ project: project.path, revision: row.draft.revision, list: todos }} />, "key");
     }
 
     const target = node(row);

@@ -25,7 +25,7 @@ describe("u138 a failed complete schedules no later focus move", () => {
   it("u138_extra_a_failed_complete_does_not_move_focus_when_the_row_later_leaves_by_another_route", async () => {
     const mounted = await mountTodos([todo(1), todo(2)]);
     mounted.app.handlers["todo.complete"] = () => {
-      throw new RpcError(-32000, "boom");
+      throw new RpcError(-32003, "boom");
     };
 
     (await screen.findByRole("button", { name: /^(?:Idle|Blocked|Done) #1 / })).focus();
@@ -54,7 +54,7 @@ describe("u138 focus already moved elsewhere is never reclaimed", () => {
     fireEvent.click(await screen.findByRole("checkbox", { name: "Complete todo 2" }));
     await waitFor(() => expect(todoCallsTo(mounted.app, "todo.complete")).toHaveLength(1));
 
-    fireEvent.click(screen.getByRole("button", { name: "add todo to Overview" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add Todo: Overview" }));
     const input = await screen.findByLabelText("New Todo title");
     input.focus();
 
@@ -108,7 +108,7 @@ describe("u138 the target is fixed at press time, not recomputed after the wait"
     mounted.app.emit(todoEvent("todo.updated", { ...mounted.store.todos.find((candidate) => candidate.id === 2)! }));
 
     await waitFor(() => expect(screen.queryByRole("button", { name: /^(?:Idle|Blocked|Done) #2 / })).toBeNull());
-    expect(document.activeElement).toBe(await screen.findByRole("button", { name: "add todo to Overview" }));
+    expect(document.activeElement).toBe(await screen.findByRole("button", { name: "Add Todo: Overview" }));
   });
 });
 
@@ -130,6 +130,6 @@ describe("u138 two rows leaving together fall back when each named the other as 
 
     await waitFor(() => expect(screen.queryByRole("button", { name: /^(?:Idle|Blocked|Done) #1 / })).toBeNull());
     await waitFor(() => expect(screen.queryByRole("button", { name: /^(?:Idle|Blocked|Done) #2 / })).toBeNull());
-    expect(document.activeElement).toBe(screen.getByRole("button", { name: "add todo to Overview" }));
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Add Todo: Overview" }));
   });
 });

@@ -1,8 +1,8 @@
 import { rowKey } from "../ui/RowCollection";
 import { setInteractionModality } from "@zag-js/focus-visible";
 import { createSignal, onCleanup } from "solid-js";
-import { CHORDS, LEADER, chordsFor, leaderChord, TEXT_FIELDS } from "./chords";
-import type { Chord, LeaderKey } from "./chords";
+import { CHORDS, LEADER, chordsOf, defaultKeys, leaderChord, TEXT_FIELDS } from "./chords";
+import type { ActionValues, Chord, LeaderKey } from "./chords";
 import { matchKeybindingPress, parseKeybinding } from "tinykeys";
 
 /** Regions follow focus; active layers precede regions. Nested layers precede their ancestors; among independent layers, the one containing focus owns shortcuts.
@@ -21,7 +21,7 @@ export const activationSource = (event: Pick<MouseEvent, "detail">): ActivationS
 
 type Binding = { chords: readonly string[]; when?: (event: KeyboardEvent) => boolean; run: (event: KeyboardEvent) => void };
 
-type ActionBinding = { action: Chord | LeaderKey; chords?: readonly string[]; repeat?: true; match?: "key"; press?: string; searchable?: false; when?: Binding["when"]; capture: (focus: Element | null) => { available: () => boolean; invoke: () => void; label?: string } };
+type ActionBinding = { action: Chord | LeaderKey; chords?: readonly string[]; repeat?: true; match?: "key"; press?: string | undefined; searchable?: false; when?: Binding["when"]; capture: (focus: Element | null) => { available: () => boolean; invoke: (args?: ActionValues) => void; label?: string } };
 
 type Registration = { scope: KeyScope; actions: ActionBinding[]; bindings: { matches: ReturnType<typeof parseKeybinding>[number][]; when: Binding["when"]; run: Binding["run"] }[] };
 
@@ -81,6 +81,18 @@ export const armLeader = (event?: Pick<KeyboardEvent, "code">): void => {
 };
 
 export const endLeader = (): void => void setArmed(false);
+
+let questions = 0;
+
+/** NA10: a native question is waiting for the user. Call the returned function when it is answered. */
+export const questionAsked = (): (() => void) => {
+  questions++;
+
+  return () => { questions--; };
+};
+
+/** NA10: whether a native question is waiting for the user. */
+export const questionPending = (): boolean => questions > 0;
 
 /** Whether a modal layer is open (U479); the leader's wait ends when one opens. */
 export const modalOpen = (): boolean => {
@@ -197,7 +209,7 @@ export const registerKeys = (scope: KeyScope, bindings: readonly (Binding | Acti
     if (!("action" in binding)) return binding;
 
     const key: Binding = {
-      chords: binding.chords ?? (binding.press ? [binding.press] : "presses" in binding.action ? chordsFor(binding.action.keys, binding.match) : leaderChord(binding.action.keys)),
+      chords: binding.chords ?? (binding.press ? [binding.press] : "presses" in binding.action ? chordsOf(binding.action, binding.match) : leaderChord(binding.action.keys)),
       run: (event) => {
         const captured = binding.capture(event.target instanceof Element ? event.target : document.activeElement);
 
@@ -229,16 +241,13 @@ export const registerKeys = (scope: KeyScope, bindings: readonly (Binding | Acti
   });
 };
 
-/** U2572: capture the registered owners before a modal moves focus. Each invocation rechecks that same owner and target; no DOM key event is manufactured or dispatched. */
-export const captureActions = (focus: Element | null) => {
-  if (modalOpen()) return [];
-
+/** U2572: capture the registered owners before a modal moves focus. Each invocation rechecks that same owner and target; no DOM key event is manufactured or dispatched. `all` also keeps the rows not available now (NA4). */
+const captureAll = (focus: Element | null) => {
   const rows = [...CHORDS, ...LEADER];
 
   const eligible = [...eligibleAt(focus), ...[...registrations].filter(({ scope }) => scope.kind === "leader")];
   const region = eligible.find(({ scope }) => scope.kind === "region")?.scope;
   const layer = eligible.find(({ scope }) => scope.kind === "layer")?.scope;
-  const seen = new Set<string>();
 
   return eligible.filter(({ scope }) => (scope.kind !== "region" || scope === region) && (scope.kind !== "layer" || scope === layer)).flatMap((registration) => registration.actions.map((binding) => {
     const captured = binding.capture(focus);
@@ -247,18 +256,32 @@ export const captureActions = (focus: Element | null) => {
     const available = () => registrations.has(registration) && captured.available();
 
     return {
-      value: `action:${leader ? "leader" : "chord"}:${binding.action.keys}${binding.press ? `:${binding.press}` : ""}`,
-      action: binding.action, press: binding.press, searchable: binding.searchable !== false,
+      value: `action:${leader ? "leader" : "chord"}:${defaultKeys(binding.action)}${binding.press ? `:${binding.press}` : ""}`,
+      name: binding.action.name, action: binding.action, press: binding.press, searchable: binding.searchable !== false,
       label: captured.label ?? binding.action.what,
-      keys: leader ? `${CHORDS.find((row) => row.keys === "⌘K")!.keys} ${binding.action.keys}` : binding.action.keys,
+      keys: leader ? `${CHORDS.find((row) => row.name === "leader.open")!.keys} ${binding.action.keys}` : binding.action.keys,
       available,
-      run: () => { if (available()) captured.invoke(); },
+      run: (args?: ActionValues) => { if (available()) captured.invoke(args); },
       at: rows.findIndex(row => row.keys === binding.action.keys && ("press" in row) === leader),
     };
-  })).filter(row => {
+  })).sort((a, b) => a.at - b.at);
+};
+
+export type CapturedAction = ReturnType<typeof captureAll>[number];
+
+/** The actions a key could run now, once each; none under a modal. */
+export const captureActions = (focus: Element | null): CapturedAction[] => {
+  if (modalOpen()) return [];
+
+  const seen = new Set<string>();
+
+  return captureAll(focus).filter(row => {
     if (!row.available() || seen.has(row.value)) return false;
     seen.add(row.value);
 
     return true;
-  }).sort((a, b) => a.at - b.at);
+  });
 };
+
+/** NA4, NA5: every registered owner for `focus`, available or not, in the table's order. */
+export const captureEvery = (focus: Element | null): CapturedAction[] => captureAll(focus);

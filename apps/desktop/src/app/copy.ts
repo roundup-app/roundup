@@ -1,22 +1,12 @@
 import { labels, copy as sharedCopy, type CopyValue } from "../sharedCopy";
 
-const settings = "settings";
-
-const recoverySubjects = new Map([
-  ["open-tab", "Project"], ["unseen", "markers"], ["drafts", labels.get("drafts")],
-  ["import", "imports"], ["rail", labels.get("rail")], ["app-settings", settings],
-  ["widths", "widths"], ["shelf", "work layout"], ["terminal-font", "Terminal size"],
-]);
-
 export const linkCopy = {
   published: "This published link cannot be opened here. Open it from Made.",
   projectClosed: "The link's Project is not open. Open that Project and try the link again.",
 } as const;
 
 export const storageCopy = {
-  continue: (key: string) => key.startsWith("roundup:drafts:") ? "Continue" : "Continue without settings",
-  retained: (count: number) => `Invalid data (${count})`,
-  recoveryLabel: (key: string, copied = false) => `${copied ? sharedCopy.copied : sharedCopy.copy} ${recoverySubjects.get(key.split(":")[1] ?? "") ?? settings}`,
+  incompatible: sharedCopy.storageIncompatible,
   restoring: "Restoring saved work…",
   restoreRetry: sharedCopy.retry,
   saveRetry: "Retry saving",
@@ -50,7 +40,6 @@ export const copy = {
   todoDeleteRetry: sharedCopy.todoDeleteRetry,
   openAFolderToStart: "Choose a Project",
   chooseFolder: sharedCopy.chooseFolder,
-  emptyFolderLine: "Choose a Project to bring your work together.",
   emptyRailTitle: "No Agents yet",
   emptyRailLine: "Start a Workstream or an Agent.",
   emptyTodosLine: sharedCopy.emptyTodosLine,
@@ -89,6 +78,7 @@ export const copy = {
   clipboardCopyRetry: "Try again, or select text and use the context menu.",
   copy: sharedCopy.copy,
   centreRegion: "Centre",
+  thatIsGone: sharedCopy.thatIsGone,
   daemonExit: (exit: string) => `Disconnected: ${exit}`,
   moveToInRail: "Move · Rail",
 } as const;

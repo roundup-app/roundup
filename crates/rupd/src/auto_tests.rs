@@ -33,7 +33,7 @@ async fn a3308_set_auto_persists_and_emits_once() {
     assert_eq!(updates, 1);
     drop(daemon);
     let reopened = daemon_in(dir.path());
-    let rail = call(&reopened, "rail.list", Value::Null).await;
+    let rail = call(&reopened, "rail.tree", Value::Null).await;
     assert_eq!(rail[0]["auto"], true);
 }
 
@@ -133,7 +133,7 @@ async fn a3308_setting_the_same_value_emits_nothing() {
     .await;
     assert!(events.try_recv().is_err());
     assert_eq!(
-        call(&daemon, "rail.list", Value::Null).await[0]["auto"],
+        call(&daemon, "rail.tree", Value::Null).await[0]["auto"],
         false
     );
 }
@@ -392,7 +392,7 @@ async fn a3308_an_agent_cannot_authorize_auto() {
         .unwrap_err();
     assert_eq!(error.code, code::FORBIDDEN);
     assert_eq!(
-        call(&daemon, "rail.list", Value::Null).await[0]["auto"],
+        call(&daemon, "rail.tree", Value::Null).await[0]["auto"],
         false
     );
 }
@@ -408,7 +408,7 @@ async fn a3308_an_idle_auto_workstream_cannot_start_over_the_cap() {
         json!({"id":home,"auto":true}),
     )
     .await;
-    let node = call(&daemon, "rail.list", Value::Null).await[0].clone();
+    let node = call(&daemon, "rail.tree", Value::Null).await[0].clone();
     call(
         &daemon,
         "agent.signal",
@@ -417,7 +417,7 @@ async fn a3308_an_idle_auto_workstream_cannot_start_over_the_cap() {
     .await;
     let other = door(&daemon).await;
     call(&daemon, "project.setWorkstreamCap", json!({"cap":1})).await;
-    let before = call(&daemon, "rail.list", Value::Null).await;
+    let before = call(&daemon, "rail.tree", Value::Null).await;
     assert_ne!(home, other);
     let (events, _) = mpsc::unbounded_channel();
     let mut conn = Conn {
@@ -433,7 +433,7 @@ async fn a3308_an_idle_auto_workstream_cannot_start_over_the_cap() {
     let result = daemon.route(&mut conn, "agent.spawn", json!({"cwd":dir.path(),"order":{"kind":"work","ask":"Implement the Todo","done":"The Todo is implemented","limits":[]}})).await;
     assert_eq!(result.unwrap_err().code, code::CONFLICT);
     assert_eq!(
-        call(&daemon, "rail.list", Value::Null)
+        call(&daemon, "rail.tree", Value::Null)
             .await
             .as_array()
             .unwrap()
@@ -478,7 +478,7 @@ async fn a3308_an_agent_cannot_enable_auto_by_claiming_user() {
         .into_value();
     assert_eq!(response["error"]["code"], code::FORBIDDEN);
     assert_eq!(
-        call(&daemon, "rail.list", Value::Null).await[0]["auto"],
+        call(&daemon, "rail.tree", Value::Null).await[0]["auto"],
         false
     );
     daemon.stop_terminals().await.unwrap();

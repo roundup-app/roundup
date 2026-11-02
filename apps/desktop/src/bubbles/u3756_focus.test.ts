@@ -30,6 +30,12 @@ const load = async (seed = "empty-project", recording?: string) => {
     app.handlers['rail.startDoor'] = params => new Promise(resolve => { window.arrive = () => resolve(start(params)); });
     document.querySelector('.rail-actions [data-button="add"]').click();
   })()`);
+
+  if (!process.env.U3756_BASELINE) {
+    await wait(`!!document.querySelector('[role=menuitem][data-value=workstream]')`);
+    await browser("click", "[role=menuitem][data-value=workstream]");
+  }
+
   await wait(`!!window.arrive && !!document.querySelector('.rail-row[data-selected=true]')`);
 };
 
@@ -123,7 +129,7 @@ const newer = async (choice: string) => {
     await read(`document.querySelector('.drawer .todo-add-notes').click()`);
     await wait(`!!document.querySelector('.drawer textarea')`);
     await read(`document.querySelector('.drawer textarea').focus()`);
-    await browser('keyboard', 'type', ' exact newer drawer é 😀 ');
+    await browser('keyboard', 'type', ' exact newer drawer é 😀 '); // taste-skill-ignore: Unicode draft probe, not interface decoration.
   } else {
     await read(`document.querySelector('.rail-row:not([data-selected=true])[tabindex], .rail-row[tabindex], .rail-row [tabindex], .rail [role=treeitem][tabindex]')?.focus()`);
     expect(await read(`!!document.activeElement?.closest('.rail') && document.activeElement.matches('[tabindex]')`)).toBe(true);
@@ -245,6 +251,9 @@ for (const path of ["ask", "switcher", "rail-name", "todo-title"]) {
 
 it.each([true, false])("u3756b_changed_files_read_and_library_readiness_respect_focus_permission_%s", async intervene => {
   await fresh("resources");
+  // A reload restores selection; leave it before installing handlers and mounting the tested Worktree panel.
+  await browser("click", '[data-id="bare-agent"] .name');
+  await wait(`document.querySelector('.rail-row[data-id="bare-agent"]')?.dataset.selected === 'true'`);
   await read(`(() => {
     window.__fake.app.handlers['agent.worktreeState'] = () => ({ahead:1,behind:0,dirty:true});
     window.__fake.app.handlers['agent.changedFiles'] = () => ({files:[{path:'src/file.ts',status:'modified',line:1}]});
@@ -285,6 +294,8 @@ const loadDense = async () => {
     const tab = document.querySelector('#shelf-tab-todos'); if (tab.getAttribute('aria-expanded') !== 'true') tab.click();
     document.querySelector('.rail-actions [data-button="add"]').click();
   })()`);
+  await wait(`!!document.querySelector('[role=menuitem][data-value=workstream]')`);
+  await browser("click", "[role=menuitem][data-value=workstream]");
   await wait(`!!window.arrive`);
   await read(`window.__fake.app.rpc('todo.move', { id: 1, home: document.querySelector('.rail-row[data-selected=true]').dataset.id })`);
   await wait(`!!document.querySelector('.todo-row-button')`);

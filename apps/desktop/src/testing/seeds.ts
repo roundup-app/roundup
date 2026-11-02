@@ -1,3 +1,4 @@
+import { descendantsOf } from "../rail/layout";
 import type { Actor } from "@contracts/Actor";
 import type { Event as DaemonEvent } from "@contracts/Event";
 import type { EventData } from "@contracts/EventData";
@@ -68,6 +69,8 @@ export type Controls = {
   actAs(actor: Actor): void;
   /** Makes the next `rpc` call, whatever its method, reject with `code` and `message`. */
   failNext(code: number, message: string): void;
+  /** The error a Daemon refusal throws, for a handler that must refuse one method. */
+  refusal(code: number, message: string): Error;
 };
 
 const statusAt = (now: number, kind: Kind, label: string, minutesAgo: number) => ({
@@ -86,6 +89,7 @@ const cyclingAgents = (now: number, count: number, parentOf: (index: number) => 
       parent: parentOf(index),
       order: index,
       status: statusAt(now, kind, `${kind} label ${index + 1}`, index * 3 + 1),
+      can_resume: kind === "error",
     });
   });
 
@@ -113,9 +117,10 @@ const nestedTree = (now: number): RailNode[] => [
     name: "login-store",
     parent: "auth",
     order: 1,
+    can_resume: true,
     status: statusAt(now, "error", "tests failed: 3", 1),
   }),
-  agent("docs", "done", "finished", { parent: "auth", order: 2, status: statusAt(now, "done", "finished", 30) }),
+  agent("docs", "done", "finished", { parent: "auth", order: 2, status: statusAt(now, "done", "finished", 30), final_text: { attempt: "1", turn: "1", finished: "0", kind: "empty" } }),
   ...cyclingAgents(now, 31, (index) => (index % 3 === 0 ? "payments" : null)),
 ];
 
@@ -158,7 +163,10 @@ const exitCodeOf = (target: RailNode): number | null => {
 
 /** Installs a Daemon that keeps the Rail, Todos and Pads in memory and sends the Events a real one sends after the same write. */
 const installDaemon = (app: FakeApp, tree: RailNode[], now: number, withShelf: boolean, withBubbles = false, withImports = false): Controls => {
-  const nodes = structuredClone(tree);
+  const nodes = structuredClone(tree).map((other) =>
+    other.kind === "agent" ? { ...other, can_save_as_mode: true, can_make_workstream: other.parent === null && other.can_resume } : other,
+  );
+
   const exits = new Map<string, number | null>();
   const outputOffsets = new Map<string, number>();
   const outputBytes = new Map<string, Uint8Array[]>();
@@ -274,6 +282,18 @@ const installDaemon = (app: FakeApp, tree: RailNode[], now: number, withShelf: b
   app.handlers["rail.createWorkstream"] = ({ name, parent }) => append(parent, (id, order) => workstream(id, { name, parent, order }));
   app.handlers["workstream.setOpeningPrompt"] = ({ id, prompt }) => {
     changed(Object.assign(find(id), { opening_prompt: prompt }));
+
+    return null;
+  };
+
+  app.handlers["rail.setAlertLevel"] = ({ id, level }) => {
+    const target = find(id);
+
+    for (const node of target.kind === "workstream" ? [target, ...descendantsOf(nodes, id)] : [target]) {
+      if (node.kind === "agent" || node.attempt !== null) node.alert_level = level;
+    }
+
+    changed(target);
 
     return null;
   };
@@ -478,6 +498,7 @@ const installDaemon = (app: FakeApp, tree: RailNode[], now: number, withShelf: b
     writeOutput: (terminalId, text) => {
       write(terminalId, text);
     },
+    refusal: (code, message) => new RpcError(code, message),
     failNext: (code, message) => {
       failure = new RpcError(code, message);
     },

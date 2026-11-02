@@ -30,6 +30,15 @@ impl Daemon {
         rpc::reply(&())
     }
 
+    pub(super) async fn rpc_skill(
+        &self,
+        conn: &mut Conn,
+        method: &str,
+        _params: Value,
+    ) -> Result<Value, RpcError> {
+        self.skill(conn, method)
+    }
+
     pub(super) async fn rpc_builtin(
         &self,
         conn: &mut Conn,
@@ -46,6 +55,15 @@ impl Daemon {
         .expect("declared built-in method")
     }
 
+    pub(super) async fn github_call(
+        &self,
+        conn: &mut Conn,
+        method: &str,
+        params: Value,
+    ) -> Result<Value, RpcError> {
+        self.github(conn, method, params).await
+    }
+
     pub(super) async fn rpc_link_read(
         &self,
         conn: &mut Conn,
@@ -53,6 +71,33 @@ impl Daemon {
         params: Value,
     ) -> Result<Value, RpcError> {
         self.link_read(conn, params).await
+    }
+
+    /// U5239e: write the overrides as `{ "<action name>": "<press>" }`; only the user exports their shortcuts.
+    pub(super) async fn rpc_shortcuts_export(
+        &self,
+        conn: &mut Conn,
+        _method: &str,
+        params: Value,
+    ) -> Result<Value, RpcError> {
+        if conn.actor.kind != contracts::ActorKind::User {
+            return Err(RpcError::forbidden("only the user exports shortcuts"));
+        }
+        let p: contracts::link::ShortcutFileExport = rpc::params(params)?;
+        if !std::path::Path::new(&p.path).is_absolute() {
+            return Err(RpcError::new(
+                rpc::code::INVALID_PARAMS,
+                format!("export path must be absolute: {}", p.path),
+            ));
+        }
+        let text = serde_json::to_string_pretty(&p.keys).map_err(RpcError::internal)?;
+        std::fs::write(&p.path, text + "\n").map_err(|err| {
+            RpcError::new(
+                rpc::code::INTERNAL,
+                format!("cannot export to {}: {err}", p.path),
+            )
+        })?;
+        rpc::reply(&())
     }
 
     pub(super) async fn rpc_todo_refs(
@@ -94,6 +139,15 @@ impl Daemon {
         rpc::reply(&waker.ask(&conn.actor, params).await?)
     }
 
+    pub(super) async fn rpc_rewind(
+        &self,
+        conn: &mut Conn,
+        _method: &str,
+        params: Value,
+    ) -> Result<Value, RpcError> {
+        self.rewind_call(&conn.actor, params).await
+    }
+
     pub(super) async fn rpc_project_resources(
         &self,
         _conn: &mut Conn,
@@ -101,15 +155,6 @@ impl Daemon {
         _params: Value,
     ) -> Result<Value, RpcError> {
         self.project_resources().await
-    }
-
-    pub(super) async fn rpc_attachment_save(
-        &self,
-        _conn: &mut Conn,
-        _method: &str,
-        params: Value,
-    ) -> Result<Value, RpcError> {
-        self.attachments.save(params)
     }
 
     pub(super) async fn rpc_evidence(
@@ -138,17 +183,6 @@ impl Daemon {
                 .restart_session(&conn.actor, rpc::params(params)?)
                 .await?,
         )
-    }
-
-    pub(super) async fn rpc_rewind(
-        &self,
-        conn: &mut Conn,
-        method: &str,
-        params: Value,
-    ) -> Result<Value, RpcError> {
-        let children = self.rewind_children(&conn.actor, method, &params).await?;
-        self.rewind_call(&conn.actor, method, params, children)
-            .await
     }
 
     pub(super) async fn rpc_queue(

@@ -134,25 +134,6 @@
   height: 100%;
 }
 
-
-
-.pane-shortcuts {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  margin: var(--space-3) 0 0;
-  padding: 0;
-  list-style: none;
-  color: var(--grey);
-}
-
-.pane-shortcuts li {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-4);
-}
-
 /* U3785: the emulator's scrollback keeps its scroll to itself. */
 .xterm .xterm-viewport {
   overscroll-behavior: contain;
@@ -165,4 +146,25 @@
   flex-direction: column;
 }
 
+.pane .terminal-find {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-4);
+  z-index: 1;
+  width: calc(var(--space-6) * 6);
+  padding: var(--space-2);
+}
 
+.pane .terminal-find-miss {
+  font-size: var(--text-caption);
+  color: var(--grey);
+}
+
+/* The native menu reads this range; xterm continues painting the visible selection. */
+.terminal-menu-text {
+  position: fixed;
+  pointer-events: none;
+  opacity: 0;
+  white-space: pre;
+  user-select: text;
+}

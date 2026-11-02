@@ -1,7 +1,7 @@
 import { DrawerExpandContext } from "../drawer/DrawerHost";
 import { registerKeys } from "../keys/registry";
 import { CHORDS, chordsFor } from "../keys/chords";
-import { toggleStrongCommand, toggleEmphasisCommand, toggleInlineCodeCommand, wrapInBlockquoteCommand, wrapInBulletListCommand, wrapInOrderedListCommand, createCodeBlockCommand } from "@milkdown/kit/preset/commonmark";
+import { toggleStrongCommand, toggleEmphasisCommand, toggleInlineCodeCommand, wrapInBlockquoteCommand, wrapInBulletListCommand, wrapInOrderedListCommand, createCodeBlockCommand, clearTextInCurrentBlockCommand } from "@milkdown/kit/preset/commonmark";
 import { captureFocus } from "../keys/focus";
 import { ReservedLine } from "../ink/ReservedLine";
 import { copy } from "./copy";
@@ -21,9 +21,12 @@ import { $prose } from "@milkdown/kit/utils";
 import { trailingConfig } from "@milkdown/kit/plugin/trailing";
 import type { Node as DocumentNode } from "@milkdown/kit/prose/model";
 import { Plugin, TextSelection } from "@milkdown/kit/prose/state";
+import { Decoration, DecorationSet } from "@milkdown/kit/prose/view";
 import { getMarkdown, replaceAll } from "@milkdown/kit/utils";
 import { sourceForDocument } from "./sourceForDocument";
 import { visualBlocks } from "./visualBlocks";
+import { agentDetailsRemark, agentDetailsNode, agentDetailsView } from "./agentDetails";
+import { headingFolds } from "./headingFolds";
 import { visualKinds } from "./visualKinds";
 import "./editor.css";
 import "../ui/reading.styles.css";
@@ -67,7 +70,7 @@ const toolbarCommands = [
   { key: "quote", action: CHORDS.find(action => action.keys === "⇧⌘B")!, label: copy.quote, command: wrapInBlockquoteCommand },
   { key: "bullet-list", action: CHORDS.find(action => action.keys === "⌥⌘8")!, label: copy.bulletList, command: wrapInBulletListCommand },
   { key: "ordered-list", action: CHORDS.find(action => action.keys === "⌥⌘7")!, label: copy.numberedList, command: wrapInOrderedListCommand },
-  { key: "code-block", action: CHORDS.find(action => action.keys === "⌥⌘C")!, label: copy.codeBlock, command: createCodeBlockCommand },
+  { key: "code-block", action: CHORDS.find(action => action.keys === "⌥⌘C")!, label: copy.codeBlock, command: createCodeBlockCommand, clearTextInCurrentBlockCommand },
   { key: "code", action: CHORDS.find(action => action.keys === "⌘E")!, label: copy.inlineCode, command: toggleInlineCodeCommand },
 ];
 
@@ -114,9 +117,53 @@ export default function PadRichEditor(props: {
 
     // SAFETY: Crepe recursively partials HTMLElement in its root type; the supported root is a real DOM element.
     const blockConfig = {
-      blockHandle: { getOffset: () => 0, root: menuHost },
+      blockHandle: {
+        getOffset: () => 0,
+        // Nested node bounds can remain over another list after scrolling; keep controls outside the reading column.
+        getPosition: ({ active, editorDom }) => {
+          const block = active.el.getBoundingClientRect();
+
+          return new DOMRect(editorDom.getBoundingClientRect().left, block.top, 0, block.height);
+        },
+        root: menuHost,
+      },
       slashMenu: { root: menuHost },
       textGroup: { divider: null },
+      buildMenu: (builder) => {
+        if (props.label) return;
+
+        for (const shortcut of [false, true]) builder.getGroup("advanced").addItem(shortcut ? "for-agents" : "toggle", {
+          label: shortcut ? copy.forAgents : copy.toggle,
+          icon: "",
+          onRun: (ctx) => {
+            const view = ctx.get(editorViewCtx);
+            ctx.get(commandsCtx).call(clearTextInCurrentBlockCommand.key);
+            const { $from } = view.state.selection;
+            const tr = view.state.tr;
+            let found: number | undefined;
+            view.state.doc.forEach((node, pos) => {
+              if (shortcut && node.type.name === "pad_agent_details" && /^<details>\s*<summary>For Agents<\/summary>/.test(node.textContent)) found = pos;
+            });
+            const label = shortcut ? copy.forAgents : copy.toggle;
+            let at = found ?? (shortcut ? view.state.doc.content.size : $from.before());
+
+            if (found === undefined) {
+              const node = agentDetailsNode.type(ctx).create(null, view.state.schema.text(`<details>\n<summary>${label}</summary>\n\n\n\n</details>`));
+              tr.insert(at, node);
+            }
+
+            if ($from.parent.type.name === "paragraph" && $from.parent.content.size === 0) tr.delete(tr.mapping.map($from.before()), tr.mapping.map($from.after(), -1));
+            at = tr.mapping.map(at, -1);
+            view.dispatch(tr);
+            const section = view.nodeDOM(at);
+
+            if (section instanceof HTMLDetailsElement) {
+              section.open = true;
+              section.querySelector<HTMLElement>(shortcut ? "textarea" : "input")?.focus();
+            }
+          },
+        });
+      },
     } as BlockEditFeatureConfig;
 
     crepe = new CrepeBuilder({
@@ -172,6 +219,19 @@ export default function PadRichEditor(props: {
       $prose(
         () =>
           new Plugin({
+            props: {
+              decorations(state) {
+                const empty: Decoration[] = [];
+
+                // ProseMirror adds caret-supporting DOM breaks even to empty code.
+                state.doc.descendants((node, pos) => {
+                  if (node.isTextblock && node.content.size === 0)
+                    empty.push(Decoration.node(pos, pos + node.nodeSize, { "data-pad-empty": "true" }));
+                });
+
+                return DecorationSet.create(state.doc, empty);
+              },
+            },
             view: () => ({
               update: (view, previous) => {
                 if (view.state !== previous) setCommandState(now => now + 1);
@@ -186,6 +246,11 @@ export default function PadRichEditor(props: {
           }),
       ),
     );
+
+    if (!props.label) {
+      crepe.editor.use(agentDetailsRemark).use(agentDetailsNode).use(agentDetailsView);
+      crepe.editor.use($prose(headingFolds));
+    }
 
     crepe.editor.use($prose(() => visualBlocks(visualKinds(), () => props.readonly)));
 

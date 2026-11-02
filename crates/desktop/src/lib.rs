@@ -1,5 +1,6 @@
 //! The App: starts a Daemon for each open Project and passes calls and events to the webview (`scenarios/app.md`).
 
+pub mod alert;
 mod config;
 mod daemon;
 mod diagnostics;
@@ -64,14 +65,23 @@ pub fn build<R: Runtime>(
         .on_menu_event(|app, event| handle_menu_event(app, &event))
         .invoke_handler(invoke_handler())
         .setup(move |app| {
+            app.manage(std::sync::Arc::new(alert::Alerts::new(Box::new(alert::Plugin(app.handle().clone())))));
             #[cfg(target_vendor = "apple")]
             native::project_menu_hints(app.handle(), Vec::new())?;
             let state = app.state::<AppState>();
-            match app.path().app_data_dir() {
-                Ok(dir) => state.use_data_dir(dir),
-                Err(err) => diagnostics::failure("locate data folder; names and open Projects are not retained", &err),
+            let initialized = app.path().app_data_dir()
+                .map_err(|error| RpcError::internal(format!("Cannot locate the App data folder: {error}")))
+                .and_then(|dir| state.use_data_dir(dir));
+            if let Err(error) = initialized {
+                log::warn!(target: "roundup::shell", "refuse Project preferences: RPC failure code {}", error.code);
+                exit(app.handle(), 1);
+                return Ok(());
             }
-            tauri::async_runtime::block_on(state.restore(app.handle()));
+            if let Err(error) = tauri::async_runtime::block_on(state.restore(app.handle())) {
+                log::warn!(target: "roundup::shell", "restore Project preferences: RPC failure code {}", error.code);
+                exit(app.handle(), 1);
+                return Ok(());
+            }
             if let Some(ref project_dir) = project_dir
                 && let Err(err) =
                     tauri::async_runtime::block_on(state.open_project(app.handle(), project_dir))
@@ -104,10 +114,13 @@ fn invoke_handler<R: Runtime>() -> impl Fn(tauri::ipc::Invoke<R>) -> bool + Send
         rename_project,
         rpc,
         subscribe,
+        action_serve,
+        action_answer,
         terminal_output,
         terminal_output_stop,
         open_target,
         open_in_editor,
+        alert::state_alert,
         save_pasted_image,
         menu::select_project_menu,
         menu::show_context_menu
@@ -157,7 +170,18 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
             builder.plugin(diagnostics::plugin()),
             config,
             project_dir,
-            |app, code| app.exit(code),
+            |app, code| {
+                if let Err(error) = app.state::<AppState>().recent_projects() {
+                    use tauri_plugin_dialog::DialogExt;
+                    let refused = app.clone();
+                    app.dialog()
+                        .message(error.message)
+                        .title("Cannot open roundup")
+                        .show(move |_| refused.exit(code));
+                    return;
+                }
+                app.exit(code);
+            },
         )
         .build(context),
     )?
@@ -166,7 +190,7 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 #[tauri::command]
-fn recent_projects(state: State<'_, AppState>) -> Vec<String> {
+fn recent_projects(state: State<'_, AppState>) -> Result<Vec<String>, RpcError> {
     state.recent_projects()
 }
 
@@ -178,7 +202,7 @@ async fn claude_binary(
 }
 
 #[tauri::command]
-fn projects(state: State<'_, AppState>) -> Vec<Listed> {
+fn projects(state: State<'_, AppState>) -> Result<Vec<Listed>, RpcError> {
     state.projects()
 }
 
@@ -224,6 +248,25 @@ async fn subscribe(
     after: Option<u64>,
 ) -> Result<u64, RpcError> {
     state.subscribe(&path, channel, after).await
+}
+
+/// NA6: the webview answers the Daemon's relayed `action.list` and `action.run`.
+#[tauri::command]
+async fn action_serve(
+    state: State<'_, AppState>,
+    path: String,
+    channel: Channel<serde_json::Value>,
+) -> Result<(), RpcError> {
+    state.action_serve(&path, channel).await
+}
+
+#[tauri::command]
+async fn action_answer(
+    state: State<'_, AppState>,
+    path: String,
+    line: serde_json::Value,
+) -> Result<(), RpcError> {
+    state.action_answer(&path, line).await
 }
 
 /// X14: raw `ArrayBuffer` bodies of one Terminal's bytes, and JSON gaps, on one ordered channel.

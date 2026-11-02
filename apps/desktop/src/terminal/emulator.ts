@@ -9,6 +9,7 @@ import type { Printed } from "./links";
 import { terminalThemeFor } from "./theme";
 import { attachTurns } from "./turns";
 import type { TurnRows } from "./turns";
+import { SearchAddon } from "@xterm/addon-search";
 import { SerializeAddon } from "@xterm/addon-serialize";
 import { FitAddon } from "@xterm/addon-fit";
 import { Unicode11Addon } from "@xterm/addon-unicode11";
@@ -41,8 +42,8 @@ export type Emulator = {
   setFontSize(size: number): void;
   /** Clears the last complete screen before a replacement snapshot is written. */
   reset(): void;
-  /** Keystrokes and pastes, as the bytes the program expects, in the order they were typed. */
-  onInput(listener: (bytes: Uint8Array) => void): void;
+  /** Input bytes in emission order; `userInput=false` identifies protocol replies that need no keyboard focus. */
+  onInput(listener: (bytes: Uint8Array, userInput?: boolean) => void): void;
   /** Live output event arrival, before buffering or snapshot recovery; snapshots never call it. */
   outputArrived?: ((bytes: Uint8Array) => void) | undefined;
   /** K1's optional probe: Screens calls this when the queue releases an input batch for encoding. */
@@ -54,6 +55,8 @@ export type Emulator = {
   /** Parsed output only, at the grid SerializeAddon requires for restoration. */
   serialize?(): Size & { data: string };
   selection(): string;
+  /** Z3788a: selects the next (or, `backwards`, previous) occurrence of `query` in the retained output and scrolls to it; false when none matches. Writes nothing. */
+  find?(query: string, backwards?: boolean): boolean;
   /** U514: the Turns the shell's marks drew, oldest first; none for a Terminal that prints no mark. */
   turns(): TurnRows[];
   /** U514: selects Turn `index`'s rows; with `extend`, from the Turn last selected through it. */
@@ -63,6 +66,7 @@ export type Emulator = {
   show(host: HTMLElement, focus?: boolean): Size;
   /** Gives the keyboard back to the emulator. */
   focus(): void;
+  blur?(): void;
   /** The size that fills the current host, or the snapshot grid while `ready` is pending. */
   fit(): Size;
   /** Reports a fit caused by loaded faces or xterm's scale/cell-metric redraw, without sending input. */
@@ -74,6 +78,11 @@ export type Emulator = {
   scrollToBottom(): void;
   dispose(): void;
 };
+
+/** xterm 6.0's synchronous user-input provenance, absent from its public onData event. */
+type InputOrigin = Terminal & { _core: { coreService: {
+  onUserInput(listener: () => void): { dispose(): void };
+} } };
 
 export type RendererAddon = ITerminalAddon & Pick<WebglAddon, "onContextLoss">;
 
@@ -131,7 +140,7 @@ const macEditingBytes = (event: KeyboardEvent): string | null => {
 };
 
 /** Rule 7's 150 MB budget for ten idle Agents must hold under a Terminal that prints without end. */
-export const SCROLLBACK_LINES = 10_000;
+const SCROLLBACK_LINES = 10_000;
 
 export const xtermOptions: ITerminalOptions = {
   allowProposedApi: true,
@@ -147,6 +156,7 @@ export const xtermOptions: ITerminalOptions = {
   letterSpacing: Number.parseFloat(/--letter-terminal:\s*([^;]+);/.exec(tokens)![1]!),
   // WebGL draws box borders across the full cell even with extra line height.
   customGlyphs: true,
+  macOptionClickForcesSelection: true,
   scrollback: SCROLLBACK_LINES,
   // Read per Terminal: a module-level read is stale for every Terminal opened after the window's scheme changes.
   get theme() {
@@ -203,6 +213,8 @@ export const createXtermEmulators = (
     const terminal = new Terminal({ ...xtermOptions, ...terminalType() });
     const serializer = new SerializeAddon();
     terminal.loadAddon(serializer);
+    const searcher = new SearchAddon();
+    terminal.loadAddon(searcher);
     terminal.loadAddon(new ClipboardAddon(undefined, {
       readText: () => "",
       writeText: (selection, text) => selection === "c" ? copy?.(text) : undefined,
@@ -219,6 +231,9 @@ export const createXtermEmulators = (
     terminal.unicode.activeVersion = "11";
     const fitter = new FitAddon();
     const element = document.createElement("div");
+
+    element.dataset.terminal = id;
+
     let resized: (size: Size) => void = () => {};
 
     let opened = false;
@@ -317,7 +332,7 @@ export const createXtermEmulators = (
 
     // Capture reaches Bubble resize edges even when their handlers stop propagation.
     const clearOldSelection = (event: MouseEvent) => {
-      if (event.button !== 0) return;
+      if (event.button !== 0 || event.ctrlKey) return;
 
       window.getSelection()?.removeAllRanges();
       terminal.clearSelection();
@@ -514,6 +529,49 @@ export const createXtermEmulators = (
     const open = () => {
       if (!opened) {
         terminal.open(element);
+        // xterm's native-menu handler selects its editable input. WebKit needs a DOM
+        // range in non-editable text to offer Look Up and Services without Cut/Font.
+        const menuText = document.createElement("span");
+        menuText.className = "terminal-menu-text";
+        menuText.setAttribute("aria-hidden", "true");
+        terminal.element!.append(menuText);
+
+        const nativeTextMenu = (event: MouseEvent) => {
+          event.stopPropagation();
+          menuText.textContent = terminal.getSelection();
+          menuText.style.left = `${event.clientX}px`;
+          menuText.style.top = `${event.clientY}px`;
+          const range = document.createRange();
+          range.selectNodeContents(menuText);
+          const selection = window.getSelection();
+          selection?.removeAllRanges();
+          selection?.addRange(range);
+        };
+
+        // xterm's reporting handler sends a right press even when its selection service
+        // preserves the selection. Stop that press before it can reach the program.
+        const selectedTextPress = (event: MouseEvent) => {
+          if (event.button !== 2 || terminal.modes.mouseTrackingMode === "none") return;
+
+          const selection = terminal.getSelectionPosition();
+
+          if (!selection) return;
+
+          const screen = terminal.element!.querySelector<HTMLElement>(".xterm-screen")!;
+          const box = screen.getBoundingClientRect();
+          const col = Math.floor((event.clientX - box.left) * terminal.cols / box.width);
+          const row = Math.floor((event.clientY - box.top) * terminal.rows / box.height);
+          const line = row + terminal.buffer.active.viewportY;
+          const afterStart = line > selection.start.y || (line === selection.start.y && col >= selection.start.x);
+          const beforeEnd = line < selection.end.y || (line === selection.end.y && col < selection.end.x);
+
+          if (col >= 0 && col < terminal.cols && row >= 0 && row < terminal.rows && afterStart && beforeEnd) event.stopImmediatePropagation();
+        };
+
+        terminal.element!.addEventListener("mousedown", selectedTextPress, true);
+        disposers.push(() => terminal.element?.removeEventListener("mousedown", selectedTextPress, true));
+        terminal.element!.addEventListener("contextmenu", nativeTextMenu, true);
+        disposers.push(() => terminal.element?.removeEventListener("contextmenu", nativeTextMenu, true));
         const ligatures = new LigaturesAddon();
         terminal.loadAddon(ligatures);
         // Deregister while the renderer is alive: addon disposal requests a final refresh.
@@ -537,6 +595,12 @@ export const createXtermEmulators = (
 
           return runs;
         });
+        // A composition belongs to this focus interval. xterm commits from the
+        // textarea later; clearing its transient buffer prevents a late commit.
+        const discardComposition = () => { if (terminal.textarea) terminal.textarea.value = ""; };
+
+        terminal.textarea?.addEventListener("blur", discardComposition);
+        disposers.push(() => terminal.textarea?.removeEventListener("blur", discardComposition));
         dropInlineGround(element, disposers);
 
         loadRenderer();
@@ -609,7 +673,7 @@ export const createXtermEmulators = (
 
     return {
       prepare,
-      bind: next => { id = next; },
+      bind: next => { id = next; element.dataset.terminal = next; },
       ready,
       write: (bytes, parsed) => {
         terminal.write(bytes, () => {
@@ -640,10 +704,19 @@ export const createXtermEmulators = (
       inputEncoding: probe ? (bytes) => probe.encoding(id, bytes) : undefined,
       inputEncoded: probe ? (bytes) => probe.encoded(id, bytes) : undefined,
       onInput: (listener) => {
+        // SAFETY: pinned xterm 6.0 CoreService fires onUserInput immediately before
+        // onData for keys, IME and paste. Public onData also carries protocol replies;
+        // retain that provenance so background reports need no keyboard focus.
+        const core = (terminal as InputOrigin)._core.coreService;
+        let userInput = false;
+        const input = core.onUserInput(() => { userInput = true; });
+        disposers.push(() => input.dispose());
         terminal.onData((text) => {
+          const accepted = userInput;
+          userInput = false;
           refit();
           probe?.input(id);
-          listener(encoder.encode(probe?.frame?.(text, id) ?? text));
+          listener(encoder.encode(probe?.frame?.(text, id) ?? text), accepted);
         });
         terminal.onBinary((text) => {
           refit();
@@ -655,6 +728,7 @@ export const createXtermEmulators = (
       },
       serialize: () => ({ cols: terminal.cols, rows: terminal.rows, data: serializer.serialize({ scrollback: SCROLLBACK_LINES }) }),
       selection: () => terminal.getSelection(),
+      find: (query, backwards = false) => query !== "" && (backwards ? searcher.findPrevious(query) : searcher.findNext(query)),
       turns: shellTurns.turns,
       selectTurn: shellTurns.selectTurn,
       paste: (text) => terminal.paste(text),
@@ -662,6 +736,7 @@ export const createXtermEmulators = (
       fit: size,
       onResize: (listener) => { resized = listener; },
       focus: () => terminal.focus(),
+      blur: () => terminal.blur(),
       isAtBottom: () => terminal.buffer.active.viewportY === terminal.buffer.active.baseY,
       onScroll: (listener) => terminal.onScroll(() => listener()),
       scrollToBottom: () => {

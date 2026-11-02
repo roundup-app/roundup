@@ -78,22 +78,79 @@ fn a1_permission_request_quotes_the_question_it_asks() {
     assert_eq!(status.label, "Do you prefer A or B?");
 }
 
-#[test]
-fn a1_stop_failure_gives_error_labelled_with_the_error_field() {
+fn failure_label(error: Option<&str>) -> String {
     let (mut adapter, _) = adapter();
-    let status = signal(&mut adapter, event(FAILURE, "StopFailure")).unwrap();
+    let mut payload = event(FAILURE, "StopFailure");
+    let fields = payload.as_object_mut().unwrap();
+    fields.remove("error_details");
+    fields.remove("last_assistant_message");
+    match error {
+        Some(code) => fields.insert("error".into(), code.into()),
+        None => fields.remove("error"),
+    };
+    let status = signal(&mut adapter, payload).unwrap();
     assert_eq!(status.kind, Kind::Error);
-    assert_eq!(status.label, "model_not_found");
+    status.label
 }
 
 #[test]
-fn a1_stop_failure_without_an_error_field_is_still_an_error() {
+fn u5151b_failure_codes_have_actionable_labels() {
+    let cases = [
+        ("rate_limit", "request limit", "wait"),
+        ("overloaded", "overloaded", "wait"),
+        ("authentication_failed", "could not sign in", "sign in"),
+        ("oauth_org_not_allowed", "organization", "check"),
+        ("account_on_hold", "on hold", "restriction"),
+        ("billing_error", "billing", "provider account"),
+        ("invalid_request", "rejected the request", "revise"),
+        ("model_not_found", "Model is unavailable", "choose"),
+        (
+            "server_error",
+            "servers failed",
+            "send the Agent a message to retry",
+        ),
+        ("max_output_tokens", "response limit", "smaller steps"),
+        ("cloud_credential_error", "credentials", "repair"),
+        (
+            "unknown",
+            "without a classified cause",
+            "inspect its Terminal",
+        ),
+    ];
+    for (code, cause, next) in cases {
+        let label = failure_label(Some(code));
+        assert!(
+            label.contains(cause) && label.contains(next),
+            "{code}: {label}"
+        );
+        assert!(label.contains("next turn replaces"), "{code}: {label}");
+        assert!(!label.contains('_'), "{code} leaked raw: {label}");
+    }
+}
+
+#[test]
+fn u5151b_unrecognized_and_missing_errors_remain_actionable() {
+    let label = failure_label(Some("future_failure_5151"));
+    assert!(
+        label.contains("future_failure_5151")
+            && label.contains("Terminal")
+            && label.contains("retry")
+    );
+    for missing in [None, Some(""), Some("  ")] {
+        let label = failure_label(missing);
+        assert!(
+            label.contains("without a reason") && label.contains("Terminal"),
+            "{label}"
+        );
+        assert_ne!(label, "error");
+    }
+    // Vendor details are never part of the label.
     let (mut adapter, _) = adapter();
-    signal(&mut adapter, event(RUN1, "UserPromptSubmit"));
-    let mut failure = event(FAILURE, "StopFailure");
-    failure.as_object_mut().unwrap().remove("error");
-    let status = signal(&mut adapter, failure).unwrap();
-    assert_eq!((status.kind, status.label.as_str()), (Kind::Error, "error"));
+    let mut payload = event(FAILURE, "StopFailure");
+    payload["error"] = "server_error".into();
+    payload["error_details"] = "<img src=x onerror=alert(1)>".into();
+    let status = signal(&mut adapter, payload).unwrap();
+    assert!(!status.label.contains('<') && status.label.contains("servers failed"));
 }
 
 #[test]
@@ -243,4 +300,92 @@ fn a7_a_stopped_agent_stays_done_when_its_program_dies_by_signal() {
         (Kind::Done, "stopped")
     );
     assert_eq!(adapter.observe(Observation::Exit { code: None }), None);
+}
+
+#[test]
+fn u5151d_session_end_reasons_read_as_user_actions() {
+    let end = |reason: Option<&str>| {
+        let (mut adapter, _) = adapter();
+        let mut payload = event(RUN1, "SessionEnd");
+        match reason {
+            Some(reason) => payload["reason"] = reason.into(),
+            None => {
+                payload.as_object_mut().expect("object").remove("reason");
+            }
+        }
+        signal(&mut adapter, payload).expect("status").label
+    };
+    assert_eq!(end(None), "done");
+    assert_eq!(end(Some("other")), "done");
+    assert!(end(Some("logout")).contains("sign in"));
+    assert!(end(Some("clear")).contains("send a message"));
+    assert_eq!(
+        end(Some("future_end_5151")),
+        "Session ended: future_end_5151"
+    );
+    for raw in ["prompt_input_exit", "bypass_permissions_disabled"] {
+        assert!(!end(Some(raw)).contains(raw), "{raw} must not show raw");
+    }
+}
+
+#[test]
+fn u5151d_status_labels_read_as_user_actions() {
+    // Each Adapter producer of a Status label, through its production path: the label
+    // names the Kind's user meaning, keeps the evidence the owner needs, and never leaks
+    // a vendor code. A3 and A21 pin the exit and save labels, which carry their evidence.
+    type Produce = Box<dyn Fn(&mut ClaudeCode) -> Option<Status>>;
+    let cases: Vec<(&str, Produce, Kind, &str)> = vec![
+        (
+            "stopped",
+            Box::new(|a| a.observe(Observation::Stopped)),
+            Kind::Done,
+            "stopped",
+        ),
+        (
+            "exit by code",
+            Box::new(|a| a.observe(Observation::Exit { code: Some(3) })),
+            Kind::Error,
+            "exited 3",
+        ),
+        (
+            "exit by signal",
+            Box::new(|a| a.observe(Observation::Exit { code: None })),
+            Kind::Error,
+            "signal",
+        ),
+        (
+            "prompt refused",
+            Box::new(|a| a.refuse_prompt()),
+            Kind::Error,
+            "prompt not accepted",
+        ),
+        (
+            "conversation not saved",
+            Box::new(|a| a.fail("cannot save conversation: disk full".into())),
+            Kind::Error,
+            "disk full",
+        ),
+        (
+            "failed turn",
+            Box::new(|a| signal(a, event(FAILURE, "StopFailure"))),
+            Kind::Error,
+            "retry",
+        ),
+        (
+            "ended session",
+            Box::new(|a| signal(a, event(RUN1, "SessionEnd"))),
+            Kind::Done,
+            "send a message",
+        ),
+    ];
+    for (name, produce, expected, mention) in cases {
+        let (mut adapter, _) = adapter();
+        let status = produce(&mut adapter).unwrap_or_else(|| panic!("{name}: no status"));
+        assert_eq!(status.kind, expected, "{name}");
+        assert!(status.label.contains(mention), "{name}: {}", status.label);
+        assert!(!status.label.trim().is_empty(), "{name}");
+        for raw in ["server_error", "StopFailure", "SessionEnd", "undefined"] {
+            assert!(!status.label.contains(raw), "{name} leaks {raw}");
+        }
+    }
 }

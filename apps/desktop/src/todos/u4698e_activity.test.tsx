@@ -4,7 +4,7 @@ import { mountTodos, todo, todoCallsTo } from "./testHarness";
 
 afterEach(cleanup);
 
-it("u4698e_activity_merges_sources_and_keeps_read_boundaries", async () => {
+it("u4698e_activity_merges_sources_and_keeps_history_opt_in", async () => {
   const m = await mountTodos([todo(1)]);
   const values = { title: "Original", body: "", done: false, blockers: [], owner: null, priority: null };
   m.app.handlers["todo.getHistory"] = () => ({ unread: 1, changes: [
@@ -19,11 +19,28 @@ it("u4698e_activity_merges_sources_and_keeps_read_boundaries", async () => {
   const section = document.querySelector(".todo-comments")!;
   await waitFor(() => expect(section.querySelectorAll('[data-comment], [data-change]')).toHaveLength(20));
   expect(todoCallsTo(m.app, "todo.readHistory")).toHaveLength(0);
-  fireEvent.click(screen.getByRole("button", { name: /older entr/ }));
+  expect(section.querySelectorAll("[data-change]")).toHaveLength(0);
+  fireEvent.click(screen.getByRole("button", { name: "2 changes" }));
   await waitFor(() => expect(todoCallsTo(m.app, "todo.readHistory").map(call => call.params)).toEqual([{ id: 1, through: 2 }]));
+  fireEvent.click(screen.getByRole("button", { name: /older entr/ }));
+  await waitFor(() => expect(section.querySelectorAll("[data-comment], [data-change]")).toHaveLength(23));
   const entries = [...section.querySelectorAll('[data-comment], [data-change]')];
-  expect(entries.slice(0, 5).map(entry => entry.getAttribute("data-comment") ?? `change-${entry.getAttribute("data-change")}`)).toEqual(["change-1", "1", "2", "change-2", "3"]);
-  expect(entries[3]!.textContent).toMatch(/Renamed.*Wrote the body/s);
+  expect(entries.slice(0, 5).map(entry => entry.getAttribute("data-comment") ?? `change-${entry.getAttribute("data-change")}`)).toEqual(["change-1", "change-2", "1", "2", "3"]);
+  expect(entries[1]!.textContent).toMatch(/Renamed.*Wrote the body/s);
+});
+
+it("u4698e_all_history_waits_for_one_counted_disclosure", async () => {
+  const m = await mountTodos([todo(1)]);
+  const row = await screen.findByRole("button", { name: /^Idle #1 / }); row.focus();
+  fireEvent.keyDown(row, { key: "Enter", code: "Enter" });
+  const disclosure = await screen.findByRole("button", { name: "1 change" });
+  expect(document.querySelector("[data-change]")).toBeNull();
+  expect(todoCallsTo(m.app, "todo.readHistory")).toHaveLength(0);
+  fireEvent.click(disclosure);
+  await waitFor(() => expect(document.querySelectorAll("[data-change]")).toHaveLength(1));
+  await waitFor(() => expect(todoCallsTo(m.app, "todo.readHistory")).toHaveLength(1));
+  fireEvent.click(disclosure);
+  await waitFor(() => expect(document.querySelector("[data-change]")).toBeNull());
 });
 
 it.each([0, 3, 20, 21, 200])("u4698e_older_activity_unfolds_without_mutation_%s", async count => {

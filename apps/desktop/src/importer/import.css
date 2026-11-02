@@ -129,15 +129,6 @@
   flex: none;
 }
 
-.import-failure {
-  flex: 1 1 100%;
-  min-width: 0;
-  color: var(--red);
-  margin: 0;
-  overflow-wrap: anywhere;
-  white-space: pre-wrap;
-}
-
 .import-list .import-candidate {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;

@@ -439,7 +439,7 @@ it.skipIf(!groundOutput)("u4456c_floating_menu_picker_dialog", async () => {
     await read("[...document.querySelectorAll('[role=menuitem]')].find(button => button.textContent.includes('New Workstream')).click()");
     await wait("!!document.querySelector('.new-workstream')");
     await groundCapture(base, "tree-40", "system", "dialog");
-    await read("[...document.querySelectorAll('.new-workstream label')].find(label => label.textContent.includes('Start after another Todo')).click()");
+    await read("[...document.querySelectorAll('.new-workstream label')].find(label => label.textContent.includes('Start after Todo')).click()");
     await browser("click", ".app-dialog-pick");
     await wait("!!document.querySelector('.todo-blocker-menu [role=combobox]')");
     await groundCapture(base, "tree-40", "system", "picker");
@@ -611,8 +611,10 @@ it("u4590_preparing_an_agent_keeps_the_selected_terminal_usable", async () => {
     document.fonts.load = async (...args) => { await gate; return load(...args); };
     window.__releaseFonts = () => { document.fonts.load = load; release(); };
     window.__fake.app.calls.length = 0;
-    document.querySelector('.rail-actions [aria-label="New Agent"]').click();
   })()`);
+  await browser("click", '.rail-actions [aria-label="Create"]');
+  await wait("!!document.querySelector('[role=menuitem][data-value=agent]')");
+  await browser("click", '[role=menuitem][data-value=agent]');
   await wait("document.querySelectorAll('.pane .xterm-screen').length === 2");
   expect(await read("window.__previousInput.isConnected")).toBe(true);
   await read("window.__previousInput.focus()");
@@ -743,7 +745,8 @@ for (const renderer of ["dom", "webgl"]) for (const seed of ["agents-10", "tree-
         await select("agent-4", "t-agent-4");
         await select("agent-3", "t-agent-3");
         await capture("restore-after-switch");
-        await browser("click", '.rail-actions [aria-label="New Agent"]');
+        await browser("click", '.rail-actions [aria-label="Create"]');
+        await browser("click", '[role=menuitem][data-value=agent]');
         await wait("window.__fake.app.calls.some(c=>c.method==='agent.spawn') && !!document.querySelector('.pane .xterm-screen')");
         id = await read<string>("[...window.__terminals.keys()].at(-1)");
         await read("window.__observedEmulator=null");

@@ -30,7 +30,7 @@ use tokio::time::{Instant, sleep_until};
 mod asks;
 mod auto;
 pub mod claude_code;
-pub mod marks;
+mod convert;
 mod models;
 pub mod placement;
 mod pr_checks;
@@ -45,6 +45,7 @@ pub use peer::{classifications, parent_lookups};
 mod prepared;
 mod queue;
 mod rail;
+pub mod rewind;
 mod scan;
 pub mod worktree;
 
@@ -62,6 +63,9 @@ pub enum Observation {
     Stopped,
     /// The Agent's program ended. `None` when it was killed by a signal.
     Exit { code: Option<i32> },
+    /// PS9.2: the Status its Terminal's program reports (PS7); read only by an adapter with no
+    /// hook Signal.
+    Program(Status),
 }
 
 /// Turns one vendor's program into an Agent's Status. It emits `error`, `needs-you`, `working`,
@@ -69,6 +73,8 @@ pub enum Observation {
 pub trait AgentAdapter {
     /// Fold one Observation into the Status. `None` means no change.
     fn observe(&mut self, observation: Observation) -> Option<Status>;
+    /// PS9.1: whether the Agent's tooling pushes Signals; if so they alone give its Kind.
+    fn has_hook_signal(&self) -> bool;
 }
 
 type ResumeEffect = Arc<dyn Fn(&str, &str) -> Result<(), RpcError> + Send + Sync>;
@@ -157,9 +163,10 @@ pub const START_DOOR_ACK_BOUND: Duration = Duration::from_secs(8);
 
 type Clock = Arc<dyn Fn() -> i64 + Send + Sync>;
 
-/// A4452a: sends roundup's own text to an Agent's Claude inbox as a Message, `(agent id, text)`.
+/// A4452a: sends roundup's own text to an Agent's Claude inbox as a Message, `(sender, agent id, text)`.
 type CoordinationSink = Arc<
     dyn Fn(
+            Actor,
             String,
             String,
         )
@@ -314,6 +321,7 @@ struct Run {
     yolo: bool,
     /// A42 keeps a new Ask's first Steer byte for byte; other starts include E3 Context.
     startup_context: bool,
+    input_started: bool,
     attempt: String,
     status_revision: i64,
     closing: bool,
@@ -346,19 +354,6 @@ struct Run {
 
 /// `spawn` registers an Agent before its watcher starts, so the watcher always finds it.
 const REGISTERED: &str = "a watched Agent is registered";
-/// Facts for binding Messages to the receiver of a Terminal at the lifecycle cut.
-/// These are not a Rail presentation or permission to Steer the receiver.
-#[derive(Debug, PartialEq, Eq)]
-pub struct TerminalOwner {
-    pub id: String,
-    /// Persisted Attempt, matching `RailNode.attempt`, including during pending resume.
-    pub attempt: Option<String>,
-    /// Active Status revision; absence permanently ends this attached receiver (B36).
-    pub status_revision: Option<String>,
-    /// B9: no Status, or a done/error Status, ends this receiver.
-    pub ended: bool,
-}
-
 /// The user's exact Ask preserves command position; ordinary instructions keep H20's lead.
 pub enum Steer<'a> {
     Instruction(&'a str),
@@ -426,8 +421,24 @@ struct SteerSettings {
 #[cfg(test)]
 use store::tests;
 
+impl Agents {
+    /// PS9.2: Terminal `terminal` now reports `status`; the Agent running in it takes it as an
+    /// Observation when its adapter has no hook Signal, and no other Agent changes.
+    pub fn observe_program_status(&self, terminal: &str, status: Status) {
+        self.shared.observe_program(terminal, status);
+    }
+}
+
 #[cfg(feature = "test-support")]
 impl Agents {
+    /// PS9.2: make Agent `id`'s adapter one with no hook Signal, as a vendor without hooks has.
+    pub fn drop_hooks_for_test(&self, id: &str) {
+        if let Some(Slot::Running(run)) = self.shared.runs().get_mut(id) {
+            let clock = Arc::clone(&self.shared.clock);
+            run.adapter = ClaudeCode::starting(move || clock()).without_hooks();
+        }
+    }
+
     /// U4593 controls observed Status without a vendor, Terminal or wall clock.
     pub fn set_status_for_test(&self, id: &str, status: Status) {
         self.shared

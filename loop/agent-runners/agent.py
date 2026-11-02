@@ -11,6 +11,8 @@ import memory
 
 RUNNER = Path('/opt/actions-runner')
 STATE = Path('/home/boxd/.roundup-ci')
+# The workflow job id (`GITHUB_JOB`) each controller label kind must run; the job-start hook refuses any other.
+JOBS = {'build': 'build', 'fix': 'fix-run', 'review': 'review-run', 'critic': 'critic-run', 'smoke': 'smoke'}
 
 
 def register(path):
@@ -26,7 +28,7 @@ def register(path):
         _, kind, _, run, attempt = given['label'].split('-')
         expected = {'GITHUB_REPOSITORY': given['repository'], 'GITHUB_RUN_ID': run,
                     'GITHUB_RUN_ATTEMPT': attempt,
-                    'GITHUB_JOB': {'build': 'build', 'fix': 'fix-run', 'smoke': 'smoke'}[kind]}
+                    'GITHUB_JOB': JOBS[kind]}
         (Path('/opt/roundup-ci') / 'job.json').write_text(json.dumps(expected))
     finally:
         path.unlink(missing_ok=True)

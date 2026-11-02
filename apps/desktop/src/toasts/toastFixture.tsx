@@ -14,6 +14,7 @@ import { event, NOW } from "../testing/nodes";
 import { createToastQueue } from "./queue";
 import { Toasts } from "./Toasts";
 import { watchProject } from "./watch";
+import { createStateAlerts } from "../rail/stateAlerts";
 
 export const TOAST_AGENT: Actor = { kind: "agent", id: "a", parent: null };
 
@@ -21,8 +22,11 @@ export const toastTodo = (id: number, creator: Actor, title = "ship it"): Todo =
 
 export const pad = (name: string, _actor: Actor): Pad => ({ incarnation: `fixture-${name}`, name, text: "", updated_at: 0, revision: 1, home: null });
 
+/** U5151a: the Adapter-mapped cause and next action a failed turn carries. */
+export const FAILURE = "Claude's servers failed; send the Agent a message to retry.";
+
 export const status = (id: string, kind: Kind) =>
-  event({ name: "agent.status", data: { id, attempt: "1", status_revision: String(Math.random()).slice(2), status: { kind, label: kind, since: NOW, finished: "0" } } });
+  event({ name: "agent.status", data: { id, attempt: "1", status_revision: String(Math.random()).slice(2), status: { kind, label: kind === "error" ? FAILURE : kind, since: NOW, finished: "0" } } });
 
 export const by = (actor: Actor, data: Parameters<typeof event>[0]) => ({ ...event(data), actor });
 
@@ -40,13 +44,14 @@ export const mountToasts = async (tree: RailNode[], options: { todos?: Todo[]; p
   const [front, setFront] = createSignal(options.front ?? true);
   const sounds: number[] = [];
   const shown: string[] = [];
+  const alertFailures: (string | null)[] = [];
   let queue!: ReturnType<typeof createToastQueue>;
 
   if (options.selected !== undefined) connected.rail.select(options.selected);
 
   const view = render(() => {
     queue = createToastQueue(front, () => sounds.push(Date.now()));
-    watchProject(connected, queue.push, () => shown.push("/p"), () => true, queue.settle);
+    watchProject(connected, queue.push, () => shown.push("/p"), () => true, queue.settle, createStateAlerts(alert => app.stateAlert(alert), front, message => alertFailures.push(message)), queue.suppress);
 
     return (
       <ConnectedProjectContext.Provider value={connected}>
@@ -58,6 +63,6 @@ export const mountToasts = async (tree: RailNode[], options: { todos?: Todo[]; p
 
   const toasts = () => [...view.container.querySelectorAll<HTMLElement>(".app-toast-action")];
 
-  return { app, connected, view, queue, sounds, shown, toasts, setFront, leaveWindow: () => { setFront(false); }, comeBack: () => { setFront(true); fireEvent(window, new Event("focus")); } };
+  return { alertFailures, app, connected, view, queue, sounds, shown, toasts, setFront, leaveWindow: () => { setFront(false); }, comeBack: () => { setFront(true); fireEvent(window, new Event("focus")); } };
 };
 

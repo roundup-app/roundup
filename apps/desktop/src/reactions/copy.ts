@@ -7,30 +7,21 @@ import type { Reason } from "@contracts/message/Reason";
 
 import { copy as sharedCopy } from "../sharedCopy";
 
-export const reactionCopy = {
-  instructionGroup: "What to send",
-  conditionGroup: "When to send",
-  limitsGroup: "Limits",
-  emptyHelp: "Send an instruction when Agents finish, checks pass, or a chosen time arrives.",
-  zone: "Time zone",
-  sendWhen: "Send when",
-  all: "All selected Agents finish",
-  any: "Any selected Agent finishes",
-  zones: [
-    { value: "Z", label: "UTC+00:00" },
-    { value: "-08:00", label: "UTC−08:00" }, { value: "-07:00", label: "UTC−07:00" },
-    { value: "-05:00", label: "UTC−05:00" }, { value: "-04:00", label: "UTC−04:00" },
-    { value: "+01:00", label: "UTC+01:00" }, { value: "+02:00", label: "UTC+02:00" },
-    { value: "+05:30", label: "UTC+05:30" }, { value: "+05:45", label: "UTC+05:45" },
-    { value: "+08:00", label: "UTC+08:00" }, { value: "+09:00", label: "UTC+09:00" },
-    { value: "+10:00", label: "UTC+10:00" }, { value: "+12:00", label: "UTC+12:00" },
-  ],
-  offset: (offset: string) => `UTC${offset}`,
-} as const;
+const unexplained = "Observation unclear";
 
-const reactionHealth = new Map<ObservationHealth, string>([["fired", "Sent at the scheduled time"], ["fired-late", "Sent after the scheduled time"], ["expired", "Expired before sending"], ["skipped", "Scheduled time missed; skipped as requested"], ["observing", "Watching for changes"], ["not-observing", "Waiting to start watching"], ["unavailable", "Observation unavailable"], ["waiting", "Waiting for checks"], ["matched", "Condition met"], ["invalidated", "PR changed"], ["acceptance-failed", "Could not accept the firing; check again"], ["write-failed", "Could not save the firing; check again"], ["observation-save-failed", "Could not save observation; retry storage"]]);
+const byYou = "run by you";
 
-const reactionStates = new Map([["stopped", "Stopped"], ["invalidated", "PR changed"]]);
+const rearms = "Re-arms";
+
+const prChanged = "PR changed";
+
+const observationUnavailable = "Observation unavailable";
+
+const deliveryUnknown = "Delivery unknown";
+
+const reactionHealth = new Map<ObservationHealth, string>([["fired", "Sent on time"], ["fired-late", "Sent late"], ["expired", "Expired unsent"], ["skipped", "Missed, skipped"], ["observing", "Watching changes"], ["not-observing", "Not watching yet"], ["unavailable", observationUnavailable], ["waiting", "Waiting for checks"], ["matched", "Condition met"], ["invalidated", prChanged], ["acceptance-failed", "Accept failed, recheck"], ["write-failed", "Save failed, recheck"], ["observation-save-failed", "Unsaved, retry storage"]]);
+
+const reactionStates = new Map([["stopped", "Stopped"], ["invalidated", prChanged]]);
 
 const reactionDelivery = new Map([["pending", "Waiting to send"], ["delivered", "Delivered"], ["dropped", "Not delivered"], ["sending", "Sending"], ["passed", "Passed on"]]);
 
@@ -40,36 +31,36 @@ const reactionCauses: Record<ObservationCause, string> = {
   "authority-refused": "Permission to reach the Agent was refused. You can inspect or stop this reaction.",
   "checks-failed": "A required check did not pass on the selected version. Check the PR before trying again.",
   "checks-pending": "Waiting for required checks to finish on the selected version.",
-  "checks-unavailable": "PR checks are unavailable. Check your GitHub login and connection, then refresh.",
-  "worktree-read-failed": "Could not read the Agent's work. Refresh before checking again.",
+  "checks-unavailable": "PR checks are unavailable. Check your GitHub login and connection, wait for the next observation.",
+  "worktree-read-failed": "Could not read the Agent's work. Check again after the observation updates.",
   "pr-missing": "The Agent's work has no matching PR. Check its PR or choose another Agent in a new reaction.",
-  "evidence-missing": "No required-check results are available. Refresh to check again.",
-  "evidence-stale": "Check results are out of date. Refresh to read the current results.",
-  "forge-read-failed": "Could not read GitHub. Check your connection, then refresh.",
-  "head-missing": "The PR's current version is unavailable. Refresh to check again.",
+  "evidence-missing": "No required-check results are available.",
+  "evidence-stale": "Check results are out of date. Current results appear when the observation changes.",
+  "forge-read-failed": "Could not read GitHub. Check your connection, wait for the next observation.",
+  "head-missing": "The PR's current version is unavailable.",
   "repository-mismatch": "The Agent's PR belongs to another repository. Create a reaction for the correct PR.",
-  "unknown": "Observation details could not be explained. Refresh to check again.",
+  "unknown": "Observation details could not be explained.",
   "unsupported": "This source cannot be watched. Stop this reaction and choose a supported condition.",
-  "firings-read-failed": "Could not read accepted firings. Refresh before checking again.",
+  "firings-read-failed": "Could not read accepted firings. Check again after the observation updates.",
   "cursor-missing": "The accepted firing has no source record. Restore its evidence before checking again.",
   "acceptance-failed": "Could not accept the firing. Check the Agent and storage before trying again.",
   "observation-save-failed": "Could not save observation. Check storage before trying again."
 };
 
 const reactionGaps: Record<ObservationGap, string> = {
-  "unknown": "Earlier observation details could not be explained. Refresh to check again.",
+  "unknown": "Earlier observation details could not be explained.",
   "history-expired": "Earlier activity could not be read. This gap remains in the history.",
   "agent-read-failed": "Agent activity could not be read. Nothing matched during that gap.",
   "events-read-failed": "Agent activity could not be read. Nothing matched during that gap.",
-  "firings-read-failed": "Could not read accepted firings. Refresh before checking again.",
+  "firings-read-failed": "Could not read accepted firings. Check again after the observation updates.",
   "cursor-missing": "The accepted firing has no source record. Restore its evidence before checking again.",
   "agent-unavailable": "An Agent is no longer available. Stop this reaction and choose an available Agent in a new one.",
   "authority-refused": "Permission to reach the Agent was refused. You can inspect or stop this reaction."
 };
 
 const reactionRecoveries: Record<ObservationRecovery, string> = {
-  "unknown": "Refresh to check current observation.",
-  "check": "Refresh to check current observation.",
+  "unknown": "The observation updates automatically.",
+  "check": "The observation updates automatically.",
   "reconciled": "Current Agent activity is available again; the earlier gap remains.",
   "replace-agent": "Stop this reaction and create one with an available Agent.",
   "replace-target": "Inspect or stop this reaction; create a new one with an authorized Agent.",
@@ -82,8 +73,8 @@ const reactionRecoveries: Record<ObservationRecovery, string> = {
 const reactionReasons: Record<Reason, string> = {
   "receiver gone": "The original Agent is no longer available. Choose an available Agent for new work.",
   "not accepted": "The Agent did not accept this Message. Check the Agent before retrying.",
-  "removed": "You removed this Message before delivery.",
-  "merged": "Included in a newer summary."
+  "removed": "This Message was removed before delivery.",
+  "merged": "A newer summary includes it."
 };
 
 export const copy = {
@@ -93,30 +84,28 @@ export const copy = {
   retry: sharedCopy.retry,
   unavailableHome: sharedCopy.unavailableHome,
   clear: sharedCopy.clear,
-  refresh: sharedCopy.refresh,
   reactions: sharedCopy.reactions,
   reactionsEmpty: sharedCopy.reactionsEmpty,
-  reactionCreate: "New reaction",
-  reactionStop: "Stop",
+  reactionStop: sharedCopy.stop,
   reactionRun: "Run now",
-  reactionMissing: "This reaction is no longer listed",
+  reactionMissing: "This reaction is gone.",
   reactionDetail: (name: string) => `Reaction ${name}`,
-  reactionState: (state: string, health: ObservationHealth = "unknown") => state === "active" ? reactionHealth.get(health) ?? "Observation unavailable" : reactionStates.get(state) ?? "Unavailable",
+  reactionState: (state: string, health: ObservationHealth = "unknown") => state === "active" ? reactionHealth.get(health) ?? observationUnavailable : reactionStates.get(state) ?? "Unavailable",
   reactionTarget: "Target Agent",
   reactionInstruction: "Instruction",
   reactionCondition: "Condition",
   reactionExpires: "Expires",
   reactionWhen: sharedCopy.reactionWhen,
   reactionAuthority: "Maker",
-  reactionActor: (kind: string, name: string | null) => kind === "user" ? "You" : name === null ? "The maker Agent is unavailable" : name,
+  reactionActor: (kind: string, name: string | null) => kind === "user" ? sharedCopy.you : name === null ? "Maker unavailable" : name,
   reactionMakerReason: "Reason",
   reactionHome: "Home",
-  reactionNoHome: "Project root",
-  reactionGone: () => "Unavailable Agent",
+  reactionNoHome: sharedCopy.projectRoot,
+  reactionGone: () => sharedCopy.unavailableAgent,
   reactionBound: "Bound",
-  reactionRemaining: (remaining: number, max: number, rearm: boolean) => `${remaining} of ${max} firings left${rearm ? ", re-arms" : ""}`,
-  reactionHealth: (health: ObservationHealth = "unknown") => reactionHealth.get(health) ?? "Observation details could not be explained.",
-  reactionDelivery: (status: string) => reactionDelivery.get(status) ?? "Delivery unknown",
+  reactionRemaining: (remaining: number, max: number, rearm: boolean) => sharedCopy.join(`${remaining}/${max} left`, ...(rearm ? [rearms] : [])),
+  reactionHealth: (health: ObservationHealth = "unknown") => reactionHealth.get(health) ?? unexplained,
+  reactionDelivery: (status: string) => reactionDelivery.get(status) ?? deliveryUnknown,
   reactionFeedback: (observation: Observation) => {
     const cause = observation.cause_code !== "unknown" || (observation.cause !== undefined && observation.cause !== null)
       ? reactionCauses[observation.cause_code]
@@ -129,7 +118,7 @@ export const copy = {
     return [cause, recovery].filter(Boolean).join(" ") || null;
   },
   reactionReason: (reason: Reason) => reactionReasons[reason],
-  reactionUnknownState: "Observation unclear",
+  reactionUnknownState: unexplained,
   reactionUnknownEvidence: "Observation details could not be explained. Copy includes the original details.",
   reactionDetails: "Details",
   reactionObservation: "Observation",
@@ -137,9 +126,9 @@ export const copy = {
   reactionMessageState: "Delivery",
   reactionFirings: "Firings",
   reactionNoFirings: "None yet",
-  reactionFiring: (ordinal: number, _message: number, outcome: string, matched: boolean) => `Firing ${ordinal} · ${reactionDelivery.get(outcome) ?? "Delivery unknown"}${matched ? "" : " · run by you"}`,
-  reactionAgents: (names: string[], any: boolean) => `${any ? "Any of" : "All of"} ${names.join(", ")} finish`,
-  reactionPrChecks: (repository: string, number: number) => `Checks pass on ${repository}#${number}`,
-  reactionInstant: (at: string, late: string) => `At ${at}; ${late === "skip" ? "skip if missed" : "run once before expiry if missed"}`,
+  reactionFiring: (ordinal: number, outcome: string, matched: boolean) => sharedCopy.join(`Firing ${ordinal}`, reactionDelivery.get(outcome) ?? deliveryUnknown, ...(matched ? [] : [byYou])),
+  reactionAgents: (names: string[], any: boolean) => `${any ? "Any of" : "All of"} ${names.join(", ")} finish.`,
+  reactionPrChecks: (repository: string, number: number) => `Checks pass on ${repository}#${number}.`,
+  reactionInstant: (at: string, late: string) => `At ${at}; ${late === "skip" ? "skip if missed" : "run once before expiry if missed"}.`,
   copy: sharedCopy.copy,
 } as const;

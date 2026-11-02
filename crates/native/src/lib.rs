@@ -44,6 +44,16 @@ mod menu;
 pub use menu::{context_menu, project_menu_hints};
 
 #[cfg(target_vendor = "apple")]
+mod notification;
+#[cfg(target_vendor = "apple")]
+pub use notification::{banner_denied, banner_permission};
+
+#[cfg(target_vendor = "apple")]
 mod alert;
 #[cfg(target_vendor = "apple")]
 pub use alert::removal_alert;
+
+#[cfg(target_os = "macos")]
+mod webview_data;
+#[cfg(target_os = "macos")]
+pub use webview_data::webview_data_path;

@@ -9,15 +9,21 @@ pub mod extras;
 pub mod inbox;
 mod launch;
 mod launch_files;
+mod memory;
 mod models;
+pub use memory::memory_guard;
+mod overview_cache;
 mod placement;
 mod profiles;
+mod rewind;
 pub mod toolcall;
 pub use placement::Call as PlacementCall;
 pub mod plugins;
+pub mod skill_setup;
 mod skills;
 mod vendor_list;
 
+use contracts::agent::FinalTextKind;
 use contracts::{Kind, Status};
 use serde_json::Value;
 
@@ -60,6 +66,12 @@ pub const MARKERS: [&str; 8] = [
 /// `idle` of an Esc during an auto-allowed tool.
 pub const STAR_HOLD: i64 = 200;
 
+/// How long a lone ◐/◑ title keeps an Agent `working` when no Signal backs it, in milliseconds,
+/// measured from the latest spinner title. A working Claude Code alternates ◐/◑ about every
+/// 0.96 s (largest gap 0.99 s across `spikes/hooks-state/screen*.jsonl`, outside a dialog); 3000 ms
+/// is about 3 times that. Claude Code can draw one spinner after `Stop` with no star after it.
+pub const SPINNER_HOLD: i64 = 3000;
+
 /// What Claude Code takes as its own exit: three Ctrl+C presses. A fullscreen session that ends
 /// any other way within 10 s of its first frame counts as a failed start, and two failed starts
 /// turn fullscreen off for every Claude Code on the machine
@@ -85,28 +97,50 @@ enum Ending {
 }
 
 pub struct ClaudeCode {
+    /// A5482c: completed turn identity, start/end times and final assistant text.
+    completed: Option<Box<(String, i64, i64, String)>>,
+    turn_started: i64,
     status: Option<Status>,
     ending: Ending,
     /// The latest recognised Signal was `PreToolUse`: a dialog may be about to open.
     after_pre_tool_use: bool,
     /// When a star after `PreToolUse` was first seen and not yet resolved.
     star_parked_since: Option<i64>,
+    /// The latest ◐/◑ title of a title-working Agent: a spinner gave `working` and no Signal
+    /// has come since.
+    spinner_at: Option<i64>,
     clock: Box<dyn Fn() -> i64 + Send>,
     /// U3566c: the Agent's published finishes, carried across Attempts by its caller.
     finished: u64,
+    /// PS9.1: false only for an Agent whose Kind comes from its Terminal's program status.
+    hooked: bool,
+    final_text: FinalTextKind,
+    prompt_id: Option<String>,
 }
 
 impl ClaudeCode {
     /// `clock` returns milliseconds since the Unix epoch; it stamps every Status `since`.
     pub fn new(clock: impl Fn() -> i64 + Send + 'static) -> Self {
         Self {
+            completed: None,
+            turn_started: (clock)(),
             status: None,
             ending: Ending::Running,
             after_pre_tool_use: false,
             star_parked_since: None,
+            spinner_at: None,
             clock: Box::new(clock),
             finished: 0,
+            hooked: true,
+            final_text: FinalTextKind::Unknown,
+            prompt_id: None,
         }
+    }
+
+    /// PS9.2: an Agent whose tooling pushes no Signal; its Terminal's program status gives its Kind.
+    pub fn without_hooks(mut self) -> Self {
+        self.hooked = false;
+        self
     }
 
     /// Continue the Agent's finish count from an earlier Attempt.
@@ -115,6 +149,14 @@ impl ClaudeCode {
         if let Some(status) = &mut self.status {
             status.finished = finished.to_string();
         }
+    }
+
+    pub(crate) fn turn(&self) -> Option<&str> {
+        self.prompt_id.as_deref()
+    }
+
+    pub(crate) fn final_text(&self) -> FinalTextKind {
+        self.final_text
     }
 
     pub(crate) fn finished(&self) -> u64 {
@@ -148,6 +190,13 @@ impl ClaudeCode {
 
     /// `settle`, with the finish count raised first when `finish` holds.
     fn settle_counting(&mut self, kind: Kind, label: String, finish: bool) -> Option<Status> {
+        if kind == Kind::Working && self.status.as_ref().is_some_and(|s| s.kind == Kind::Idle) {
+            self.turn_started = (self.clock)();
+        }
+        if kind == Kind::Working && self.status.as_ref().is_none_or(|s| s.kind != Kind::Working) {
+            self.final_text = FinalTextKind::Unknown;
+            self.prompt_id = None;
+        }
         let since = match &self.status {
             Some(current) if current.kind == kind => current.since,
             _ => (self.clock)(),
@@ -167,9 +216,12 @@ impl ClaudeCode {
         Some(next)
     }
 
-    /// When the adapter wants an `Observation::Tick`: `STAR_HOLD` after the star it is holding.
+    /// When the adapter wants an `Observation::Tick`: `STAR_HOLD` after the star it is holding,
+    /// or `SPINNER_HOLD` after the latest spinner title of a title-working Agent.
     pub fn tick_at(&self) -> Option<i64> {
-        self.star_parked_since.map(|since| since + STAR_HOLD)
+        let star = self.star_parked_since.map(|since| since + STAR_HOLD);
+        let spinner = self.spinner_at.map(|at| at + SPINNER_HOLD);
+        star.into_iter().chain(spinner).min()
     }
 
     /// Claude Code spins ◐/◑ while it works and shows ✳ whenever it is not, a permission dialog
@@ -178,14 +230,22 @@ impl ClaudeCode {
     /// `needs-you`, `error` or `done`. The one star not read at once follows `PreToolUse`: it may
     /// be the dialog's, which precedes its `PermissionRequest`, so it is parked for `STAR_HOLD`;
     /// reading it as idle would flicker `idle` before `needs-you`. A spinner after that star shows
-    /// the tool still running and drops the hold.
+    /// the tool still running and drops the hold. A spinner that turns an Agent `working` is its
+    /// only evidence, so it holds for `SPINNER_HOLD` (A2b); a star or a Signal drops that hold.
     fn retitle(&mut self, title: &str) -> Option<Status> {
         let kind = self.status.as_ref().map(|status| status.kind);
-        match title.chars().next()? {
+        let first = title.chars().next()?;
+        if first == '✳' {
+            self.spinner_at = None;
+        }
+        match first {
             '◐' | '◑' => {
                 self.star_parked_since = None;
                 if kind == Some(Kind::NeedsYou) {
                     return None;
+                }
+                if kind != Some(Kind::Working) || self.spinner_at.is_some() {
+                    self.spinner_at = Some((self.clock)());
                 }
                 self.settle(Kind::Working, "working".into())
             }
@@ -199,23 +259,96 @@ impl ClaudeCode {
         }
     }
 
-    /// A parked star that no `PermissionRequest` followed was a plain idle.
+    /// A parked star that no `PermissionRequest` followed was a plain idle, and so is a spinner
+    /// title that nothing followed for `SPINNER_HOLD`.
     fn tick(&mut self) -> Option<Status> {
+        if self
+            .spinner_at
+            .is_some_and(|at| (self.clock)() - at >= SPINNER_HOLD)
+        {
+            self.spinner_at = None;
+            return self.settle(Kind::Idle, "idle".into());
+        }
         self.star_parked_since
             .filter(|since| (self.clock)() - since >= STAR_HOLD)?;
         self.star_parked_since = None;
         self.settle(Kind::Idle, "idle".into())
     }
 
-    fn signal(&mut self, payload: &Value) -> Option<Status> {
+    fn signal(&mut self, payload: &Value, completion_changed: &mut bool) -> Option<Status> {
+        let event = payload["hook_event_name"].as_str();
+        if event == Some("UserPromptSubmit") {
+            self.turn_started = (self.clock)();
+            self.final_text = FinalTextKind::Unknown;
+        }
+        if event == Some("Stop") {
+            if let (Some(current), Some(incoming)) =
+                (self.prompt_id.as_deref(), payload["prompt_id"].as_str())
+                && current != incoming
+            {
+                return None;
+            }
+            // Without matching turn identity, an empty reply is not evidence of this turn.
+            let next = match (
+                self.prompt_id.as_deref(),
+                payload["prompt_id"].as_str(),
+                payload["last_assistant_message"].as_str(),
+            ) {
+                (Some(current), Some(incoming), Some(text)) if current == incoming => {
+                    if text.is_empty() {
+                        FinalTextKind::Empty
+                    } else {
+                        FinalTextKind::Present
+                    }
+                }
+                _ => FinalTextKind::Unknown,
+            };
+            if self.final_text != FinalTextKind::Present {
+                self.final_text = next;
+            }
+        }
         let (kind, label) = hook_status(payload)?;
-        self.after_pre_tool_use = payload["hook_event_name"] == "PreToolUse";
+        self.after_pre_tool_use = event == Some("PreToolUse");
         self.star_parked_since = None;
-        self.settle(kind, label)
+        self.spinner_at = None;
+        let changed = self.settle(kind, label);
+        if event == Some("UserPromptSubmit") {
+            self.prompt_id = payload["prompt_id"].as_str().map(str::to_owned);
+        }
+        if event == Some("Stop")
+            && let Some(text) = payload["last_assistant_message"].as_str()
+            && !text.is_empty()
+        {
+            let turn = self.finished.to_string();
+            // A replayed Stop must not move this turn's boundary past a later Message.
+            let ended = self
+                .completed
+                .as_deref()
+                .filter(|(finished, started, _, _)| {
+                    *finished == turn && *started == self.turn_started
+                })
+                .map_or_else(|| (self.clock)(), |(_, _, ended, _)| *ended);
+            if !self
+                .completed
+                .as_deref()
+                .is_some_and(|(old_turn, started, _, old_text)| {
+                    *old_turn == turn && *started == self.turn_started && old_text == text
+                })
+            {
+                self.completed = Some(Box::new((turn, self.turn_started, ended, text.to_owned())));
+                *completion_changed = true;
+            }
+        }
+        changed
+    }
+
+    pub(crate) fn completed_text(&self) -> Option<&(String, i64, i64, String)> {
+        self.completed.as_deref()
     }
 
     fn exit(&mut self, code: Option<i32>) -> Option<Status> {
         self.star_parked_since = None;
+        self.spinner_at = None;
         if matches!(self.ending, Ending::Stopped | Ending::Failed) {
             return None;
         }
@@ -235,6 +368,7 @@ impl ClaudeCode {
             return None;
         }
         self.star_parked_since = None;
+        self.spinner_at = None;
         self.settle(Kind::Error, "prompt not accepted".into())
     }
 
@@ -246,29 +380,51 @@ impl ClaudeCode {
         }
         self.ending = Ending::Failed;
         self.star_parked_since = None;
+        self.spinner_at = None;
         self.settle(Kind::Error, label)
     }
 }
 
-impl AgentAdapter for ClaudeCode {
-    fn observe(&mut self, observation: Observation) -> Option<Status> {
-        match observation {
+impl ClaudeCode {
+    pub(crate) fn observe_completion(
+        &mut self,
+        observation: Observation,
+    ) -> (Option<Status>, bool) {
+        let mut completion_changed = false;
+        let status = match observation {
             Observation::Exit { code } => self.exit(code),
             Observation::Stopped if self.ending != Ending::Running => None,
             Observation::Stopped => {
                 self.ending = Ending::Stopped;
                 self.star_parked_since = None;
+                self.spinner_at = None;
                 self.settle_counting(Kind::Done, "stopped".into(), false)
             }
-            Observation::Signal(_) | Observation::Title(_) | Observation::Tick
+            Observation::Program(_) if self.hooked => None,
+            Observation::Signal(_)
+            | Observation::Title(_)
+            | Observation::Tick
+            | Observation::Program(_)
                 if self.ending != Ending::Running =>
             {
                 None
             }
             Observation::Tick => self.tick(),
-            Observation::Signal(payload) => self.signal(&payload),
+            Observation::Signal(payload) => self.signal(&payload, &mut completion_changed),
             Observation::Title(title) => self.retitle(&title),
-        }
+            Observation::Program(status) => self.settle(status.kind, status.label),
+        };
+        (status, completion_changed)
+    }
+}
+
+impl AgentAdapter for ClaudeCode {
+    fn observe(&mut self, observation: Observation) -> Option<Status> {
+        self.observe_completion(observation).0
+    }
+
+    fn has_hook_signal(&self) -> bool {
+        self.hooked
     }
 }
 
@@ -434,14 +590,96 @@ fn hook_status(payload: &Value) -> Option<(Kind, String)> {
             Some((Kind::Working, "working".into()))
         }
         "PermissionRequest" => Some((Kind::NeedsYou, permission_label(payload))),
-        "StopFailure" => Some((Kind::Error, text("error").unwrap_or_else(|| "error".into()))),
-        "SessionEnd" => Some((Kind::Done, text("reason").unwrap_or_else(|| "done".into()))),
+        "StopFailure" => Some((Kind::Error, failure_label(payload["error"].as_str()))),
+        "SessionEnd" => Some((Kind::Done, session_end_label(text("reason").as_deref()))),
         "Notification" | "SubagentStop" | "MessageDisplay" | "PostToolBatch" => None,
         other => {
             eprintln!("agents: ignoring an unrecognised hook event {other}");
             None
         }
     }
+}
+
+/// U5151d: what a `SessionEnd` reason means to the owner. An unrecognised reason is kept
+/// verbatim; a missing or empty one reads as plain `done`.
+fn session_end_label(reason: Option<&str>) -> String {
+    match reason.map(str::trim).unwrap_or_default() {
+        "" | "other" => "done".into(),
+        "clear" => "Session cleared; send a message to start again".into(),
+        "resume" => "Session replaced by a resumed one".into(),
+        "logout" => "Claude signed out; sign in from its Terminal, then send a message".into(),
+        "prompt_input_exit" => {
+            "Claude was exited from its prompt; send a message to restart it".into()
+        }
+        "bypass_permissions_disabled" => {
+            "Claude ended because bypassing permissions is disabled; check its settings, then retry"
+                .into()
+        }
+        other => format!("Session ended: {other}"),
+    }
+}
+
+/// U5151b: the cause and next step for a `StopFailure` code. An unrecognised code is kept
+/// verbatim; a missing or empty one says Claude gave no reason. The next turn's status replaces
+/// the failure mark (U5151c).
+fn failure_label(code: Option<&str>) -> String {
+    let (cause, next) = match code.map(str::trim).unwrap_or_default() {
+        "rate_limit" => (
+            "Claude's request limit was reached",
+            "wait, then send a message to retry",
+        ),
+        "overloaded" => ("Claude is overloaded", "wait, then send a message to retry"),
+        "authentication_failed" => (
+            "Claude could not sign in",
+            "open its Terminal, sign in, then retry",
+        ),
+        "oauth_org_not_allowed" => (
+            "This login cannot use the organization",
+            "check Claude's organization and login, then retry",
+        ),
+        "account_on_hold" => (
+            "The account is on hold",
+            "resolve its account restriction, then retry",
+        ),
+        "billing_error" => (
+            "Claude refused the account's billing",
+            "resolve billing in the provider account, then retry",
+        ),
+        "invalid_request" => (
+            "Claude rejected the request",
+            "check the Terminal details and revise the request before retrying",
+        ),
+        "model_not_found" => (
+            "The chosen Model is unavailable",
+            "choose an available Model, then retry",
+        ),
+        "server_error" => (
+            "Claude's servers failed",
+            "send the Agent a message to retry",
+        ),
+        "max_output_tokens" => (
+            "Claude reached its response limit",
+            "send a message asking it to continue in smaller steps",
+        ),
+        "cloud_credential_error" => (
+            "Cloud credentials could not load",
+            "repair the configured credentials, then retry",
+        ),
+        "unknown" => (
+            "Claude failed without a classified cause",
+            "inspect its Terminal, then retry",
+        ),
+        "" => (
+            "Claude ended the turn without a reason",
+            "inspect its Terminal, then retry",
+        ),
+        other => {
+            return format!(
+                "Claude failed with {other}; inspect its Terminal, then retry. The next turn replaces this mark."
+            );
+        }
+    };
+    format!("{cause}; {next}. The next turn replaces this mark.")
 }
 
 /// The question being asked; else the tool name, with its command when it has one.
@@ -490,4 +728,90 @@ pub fn context_tokens(payload: &Value) -> Result<Option<u64>, rpc::RpcError> {
         }
     }
     Ok(last)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+    use std::sync::{
+        Arc,
+        atomic::{AtomicI64, Ordering},
+    };
+
+    struct Clocked {
+        now: Arc<AtomicI64>,
+        adapter: ClaudeCode,
+    }
+
+    impl Clocked {
+        fn new() -> Self {
+            let now = Arc::new(AtomicI64::new(0));
+            let clock = now.clone();
+            let adapter = ClaudeCode::new(move || clock.load(Ordering::SeqCst));
+            Self { now, adapter }
+        }
+
+        fn at(&mut self, ms: i64, observation: Observation) -> Option<Kind> {
+            self.now.store(ms, Ordering::SeqCst);
+            self.adapter.observe(observation);
+            self.adapter.status().map(|s| s.kind)
+        }
+
+        fn signal(&mut self, ms: i64, event: &str) -> Option<Kind> {
+            self.at(ms, Observation::Signal(json!({ "hook_event_name": event })))
+        }
+
+        fn title(&mut self, ms: i64, title: &str) -> Option<Kind> {
+            self.at(ms, Observation::Title(title.into()))
+        }
+    }
+
+    #[test]
+    fn a2b_a_lone_spinner_after_stop_reads_idle() {
+        let mut a = Clocked::new();
+        a.signal(0, "UserPromptSubmit");
+        assert_eq!(a.signal(100, "Stop"), Some(Kind::Idle));
+        assert_eq!(a.title(1500, "◐ task"), Some(Kind::Working));
+        assert_eq!(a.adapter.tick_at(), Some(1500 + SPINNER_HOLD));
+        assert_eq!(
+            a.at(1500 + SPINNER_HOLD - 1, Observation::Tick),
+            Some(Kind::Working)
+        );
+        assert_eq!(
+            a.at(1500 + SPINNER_HOLD, Observation::Tick),
+            Some(Kind::Idle)
+        );
+        assert_eq!(a.adapter.tick_at(), None);
+    }
+
+    #[test]
+    fn a2b_alternating_spinners_keep_working() {
+        let mut a = Clocked::new();
+        a.signal(0, "UserPromptSubmit");
+        a.signal(100, "Stop");
+        let mut at = 1000;
+        for glyph in ["◐", "◑", "◐", "◑", "◐"] {
+            assert_eq!(a.title(at, glyph), Some(Kind::Working));
+            assert_eq!(a.at(at + 960, Observation::Tick), Some(Kind::Working));
+            at += 960;
+        }
+        assert_eq!(a.at(at + SPINNER_HOLD, Observation::Tick), Some(Kind::Idle));
+    }
+
+    #[test]
+    fn a2b_a_signal_drops_the_spinner_hold() {
+        let mut a = Clocked::new();
+        a.signal(0, "Stop");
+        a.title(1000, "◐");
+        assert!(a.adapter.tick_at().is_some());
+        assert_eq!(a.signal(1100, "PostToolUse"), Some(Kind::Working));
+        assert_eq!(a.adapter.tick_at(), None);
+        assert_eq!(a.at(60_000, Observation::Tick), Some(Kind::Working));
+
+        a.signal(61_000, "Stop");
+        a.title(62_000, "◑");
+        a.title(62_500, "✳");
+        assert_eq!(a.adapter.tick_at(), None);
+    }
 }

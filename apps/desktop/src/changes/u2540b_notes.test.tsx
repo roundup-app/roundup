@@ -9,7 +9,43 @@ import { message } from "../testing/centreFixture";
 import { afterEach, expect, it, vi } from "vitest";
 import { COMPARISON, openDiff, openFile, saveNote } from "./noteHarness";
 
-afterEach(() => { cleanup(); vi.restoreAllMocks(); localStorage.clear(); });
+import { VirtualizedFileDiff, processFile } from "@pierre/diffs";
+import { createTwoFilesPatch } from "diff";
+
+// ESM exports are non-configurable: spy mode records the scenario's library calls while executing the real implementation.
+// eslint-disable-next-line anti-slop/no-module-mocking
+vi.mock("@pierre/diffs", { spy: true });
+
+// eslint-disable-next-line anti-slop/no-module-mocking
+vi.mock("diff", { spy: true });
+
+afterEach(() => { cleanup(); vi.clearAllMocks(); vi.restoreAllMocks(); localStorage.clear(); });
+
+const annotations = () => vi.mocked(VirtualizedFileDiff.prototype.render).mock.calls.filter(([input]) => input?.lineAnnotations).at(-1)?.[0]?.lineAnnotations;
+
+it("u5646b_annotation_updates_keep_content", async () => {
+  const { connected } = await openDiff();
+  await waitFor(() => expect(processFile).toHaveBeenCalledTimes(1));
+  const click = vi.mocked(VirtualizedFileDiff).mock.calls[0]![0]!.onLineNumberClick!;
+
+  for (const lineNumber of [1, 2]) click({ type: "diff-line", lineType: "change-deletion", lineElement: document.createElement("div"), numberElement: document.createElement("span"), numberColumn: true, lineNumber, annotationSide: "deletions", event: new PointerEvent("click", { shiftKey: lineNumber === 2 }) });
+  await saveNote("first exact 🐝");
+  await waitFor(() => expect(annotations()).toMatchObject([{ side: "deletions", lineNumber: 2, metadata: { text: "first exact 🐝", side: "old", start: 1, end: 2 } }]));
+  fireEvent.click(screen.getByRole("button", { name: "Edit note 1" }));
+  fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: "edited exact e\u0301" } });
+  fireEvent.click(screen.getByRole("button", { name: "Save" }));
+  await waitFor(() => expect(annotations()).toMatchObject([{ metadata: { text: "edited exact e\u0301" } }]));
+  await connected.worktrees.refresh("a");
+  fireEvent.click(screen.getByRole("button", { name: "Remove note 1" }));
+  await waitFor(() => expect(annotations()).toEqual([]));
+  expect(createTwoFilesPatch).toHaveBeenCalledTimes(1);
+  expect(processFile).toHaveBeenCalledTimes(1);
+  expect(VirtualizedFileDiff).toHaveBeenCalledTimes(1);
+  expect(vi.mocked(VirtualizedFileDiff.prototype.render).mock.calls.filter(([input]) => input?.fileDiff)).toHaveLength(1);
+  fireEvent.click(screen.getByRole("button", { name: "Add note" }));
+  expect(screen.getByRole("spinbutton", { name: "End line" })).toHaveProperty("value", "2");
+  expect(screen.getByRole("tab", { name: "Old" }).getAttribute("aria-selected")).toBe("true");
+});
 
 it("u2540b_save_cancel_and_invalid_ranges", async () => {
   await openDiff();
@@ -27,11 +63,12 @@ it("u2540b_save_cancel_and_invalid_ranges", async () => {
   fireEvent.input(screen.getByRole("spinbutton", { name: "Start line" }), { target: { value: "1" } });
   fireEvent.input(screen.getByRole("spinbutton", { name: "End line" }), { target: { value: "2" } });
   fireEvent.click(save);
-  expect(screen.getByRole("list", { name: "Notes" }).textContent).toContain("  keep exact\ntext  ");
+  const noteCount = () => within(screen.getByRole("list", { name: "Notes" })).getAllByRole("listitem").length;
+  expect(noteCount()).toBe(1);
   fireEvent.click(screen.getByRole("button", { name: "Add note" }));
   fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: "cancel me" } });
-  fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
-  expect(screen.getByRole("list", { name: "Notes" }).textContent).not.toContain("cancel me");
+  fireEvent.click(within(screen.getByRole("form", { name: "Line note" })).getByRole("button", { name: "Close" }));
+  expect(noteCount()).toBe(1);
 });
 
 it("u2540b_edit_remove_and_batch_across_files", async () => {
@@ -60,7 +97,7 @@ it("u2773a_changes_agent_switch_restores_form", async () => {
   fireEvent.click(screen.getByRole("button", { name: "Save" }));
   fireEvent.click(screen.getByRole("button", { name: "Add note" }));
   fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: "  unfinished a 🐝\n  " } });
-  fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+  fireEvent.click(within(screen.getByRole("form", { name: "Line note" })).getByRole("button", { name: "Close" }));
   app.handlers["rail.tree"] = () => [agent("a", "working", "building", { worktree: WORKTREE }), agent("b", "working", "building", { worktree: { ...WORKTREE, branch: "roundup/b", path: "/p/b" } })];
   app.emit(event({ name: "rail.changed" }));
   await waitFor(() => expect(connected.rail.nodes.some(node => node.id === "b")).toBe(true));
@@ -81,7 +118,7 @@ it("u2773a_changes_agent_switch_restores_form", async () => {
   await openFile();
   fireEvent.click(screen.getByRole("button", { name: "Add note" }));
   expect(screen.getByRole("textbox", { name: "Note" })).toHaveProperty("value", "  unfinished a 🐝\n  ");
-  fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+  fireEvent.click(within(screen.getByRole("form", { name: "Line note" })).getByRole("button", { name: "Close" }));
   expect(app.calls.filter(call => call.method === "message.send")).toHaveLength(0);
   app.handlers["message.send"] = params => message(1, { to: params.to, body: params.body });
   fireEvent.click(screen.getByRole("button", { name: /Send notes:/ }));
@@ -96,14 +133,21 @@ it("u2773a_changes_agent_switch_restores_form", async () => {
 });
 
 it("u2540b_refresh_keeps_original_context", async () => {
-  const { app } = await openDiff();
+  const { app, connected } = await openDiff();
   await saveNote("original");
+  await waitFor(() => expect(annotations()).toMatchObject([{ metadata: { text: "original" } }]));
+  fireEvent.click(screen.getByRole("button", { name: "Add note" }));
+  fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: "  unfinished 🐝\nexact  " } });
   app.handlers["agent.compareFile"] = () => ({ ...COMPARISON, new: { kind: "text", revision: "later-revision", text: "different\n" } });
-  fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
+  await connected.worktrees.refresh("a");
+  await waitFor(() => expect(annotations()).toEqual([]));
+  expect(screen.getByRole("textbox", { name: "Note" })).toHaveProperty("value", "  unfinished 🐝\nexact  ");
+  expect(app.calls.filter(call => call.method === "message.send")).toHaveLength(0);
+  fireEvent.click(within(screen.getByRole("form", { name: "Line note" })).getByRole("button", { name: "Close" }));
   await within(screen.getByRole("list", { name: "Notes" })).findByRole("status");
   fireEvent.click(screen.getByRole("button", { name: "Edit note 1" }));
   expect(screen.getByRole("textbox", { name: "Note" })).toHaveProperty("value", "original");
-  fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+  fireEvent.click(within(screen.getByRole("form", { name: "Line note" })).getByRole("button", { name: "Close" }));
   app.handlers["message.send"] = params => message(1, { body: params.body, to: params.to });
   fireEvent.click(screen.getByRole("button", { name: /Send notes:/ }));
   await waitFor(() => expect(app.calls.filter(call => call.method === "message.send")).toHaveLength(1));
@@ -216,7 +260,7 @@ it.each(["invalid", "unreadable"])("u2773e_changes_restore_failure_keeps_memory_
   read?.mockRestore();
 
   if (original) expect(localStorage.getItem("roundup:drafts:/p")).toBe(original);
-  fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+  fireEvent.click(within(screen.getByRole("form", { name: "Line note" })).getByRole("button", { name: "Close" }));
   fireEvent.click(screen.getByRole("button", { name: "Add note" }));
   expect(screen.getByRole("textbox", { name: "Note" })).toHaveProperty("value", "retain exact newer");
 });
@@ -441,7 +485,7 @@ it.each(["save", "cancel"])("p3557c_failure_lifetime_note_recovery_form: %s", as
   await within(recovery).findByRole("alert");
   fireEvent.click(within(form).getByRole("button", { name: "Resume note" }));
   expect(screen.getByRole("textbox", { name: "Note" })).toHaveProperty("value", exact);
-  fireEvent.click(within(recovery).getByRole("button", { name: action === "save" ? "Save" : "Cancel" }));
+  fireEvent.click(action === "save" ? within(recovery).getByRole("button", { name: "Save" }) : within(screen.getByRole("form", { name: "Line note" })).getByRole("button", { name: "Close" }));
   await waitFor(() => expect(within(recovery).queryByRole("alert") !== null).toBe(action === "cancel"));
   expect(recovery.textContent).toContain(exact);
   expect(recovery.textContent).toContain(saved);

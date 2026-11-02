@@ -1,12 +1,12 @@
 import { mergeProps, splitProps, type JSX } from "solid-js";
 import { Portal } from "solid-js/web";
-import type { Chord } from "../keys/chords";
+import { ariaChord, chordNamed } from "../keys/chords";
 import { copy } from "./copy";
 import { Icon } from "../ink/Icon";
 import { Tooltip } from "./Tooltip";
 
-export const IconButton = (props: Omit<JSX.ButtonHTMLAttributes<HTMLButtonElement>, "aria-label"> & { "aria-label": string; chord?: Chord | undefined; tooltip?: string | undefined }) => {
-  const [local, rest] = splitProps(props, ["class", "onClick", "chord", "tooltip"]);
+export const IconButton = (props: Omit<JSX.ButtonHTMLAttributes<HTMLButtonElement>, "aria-label"> & { "aria-label": string; action?: string | undefined; tooltip?: string | undefined }) => {
+  const [local, rest] = splitProps(props, ["class", "onClick", "action", "tooltip"]);
 
   const click: JSX.EventHandler<HTMLButtonElement, MouseEvent> = (event) => {
     if (props["aria-disabled"] === true || props["aria-disabled"] === "true") {
@@ -24,10 +24,12 @@ export const IconButton = (props: Omit<JSX.ButtonHTMLAttributes<HTMLButtonElemen
     else handler(event);
   };
 
+  const chord = () => chordNamed(local.action);
+
   // Escape belongs to the surrounding App surface; blur and pointer leave dismiss the name.
   return <Tooltip.Root closeOnEscape={false} positioning={{ strategy: "fixed" }}>
-    <Tooltip.Trigger asChild={(trigger) => <button {...trigger(mergeProps({ type: "button" as const }, rest, { onClick: click }))} data-button="icon" class={`word ${local.class ?? ""}`} />} />
-    <Portal><Tooltip.Positioner><Tooltip.Content chord={local.chord}>{local.tooltip ?? props["aria-label"]}</Tooltip.Content></Tooltip.Positioner></Portal>
+    <Tooltip.Trigger asChild={(trigger) => <button {...trigger(mergeProps({ type: "button" as const }, rest, { get "aria-keyshortcuts"() { return ariaChord(chord()); } }, { onClick: click }))} data-button="icon" class={`word ${local.class ?? ""}`} />} />
+    <Portal><Tooltip.Positioner><Tooltip.Content chord={chord()}>{local.tooltip ?? props["aria-label"]}</Tooltip.Content></Tooltip.Positioner></Portal>
   </Tooltip.Root>;
 };
 

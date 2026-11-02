@@ -304,15 +304,15 @@ it("u3787f_native_dismiss_retains_exact_work_and_refuses_the_previous_session", 
 });
 
 it("u3787f_shortcut_collision_preserves_the_acknowledged_setting_and_shows_the_cause", async () => {
-  const { ShortcutSetting } = await import("../settings/ShortcutSetting");
+  const { ShortcutSettings } = await import("../settings/ShortcutSetting");
   const { appSettings } = await import("../settings/preferences");
-  const before = appSettings().quickAdd;
+  const before = appSettings().quickAddAnywhere;
   const causes: (string | null)[] = [];
-  render(() => <ShortcutSetting capture={{ configure: async () => { throw new Error("Shortcut is already registered. Choose another shortcut."); }, show: async () => {}, dismiss: async () => {}, publish: async () => {}, act: async () => {}, onRequested: async () => () => {}, onAction: async () => () => {}, onState: async () => () => {} }} onFailure={cause => causes.push(cause)} />);
-  fireEvent.click(screen.getByRole("button", { name: /Quick add a Todo/ }));
+  render(() => <ShortcutSettings capture={{ configure: async () => { throw new Error("Shortcut is already registered. Choose another shortcut."); }, show: async () => {}, dismiss: async () => {}, publish: async () => {}, act: async () => {}, onRequested: async () => () => {}, onAction: async () => () => {}, onState: async () => () => {} }} onFailure={cause => causes.push(cause)} />);
+  fireEvent.click(screen.getByRole("button", { name: /Quick add from any app/ }));
   fireEvent.keyDown(window, { key: "y", code: "KeyY", metaKey: true, altKey: true });
   await waitFor(() => expect(causes.at(-1)).toContain("already registered"));
-  expect(appSettings().quickAdd).toBe(before);
+  expect(appSettings().quickAddAnywhere).toBe(before);
 });
 
 it("u3787f_global_capture_registers_and_releases_through_the_shell_event_adapter", async () => {

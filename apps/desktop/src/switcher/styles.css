@@ -12,6 +12,15 @@
   border: var(--hairline-width) solid var(--hairline);
 }
 
+.switcher-row {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
 .switcher-mark {
   width: var(--space-4);
   height: var(--space-4);
@@ -38,23 +47,6 @@
 
 .centre-stack {
   position: relative;
-}
-
-.switcher-recovery {
-  display: grid;
-  gap: var(--space-2);
-  padding: var(--space-2);
-  color: var(--grey);
-}
-
-.switcher-recovery-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-3);
-}
-
-.switcher-recovery p {
-  margin: 0;
 }
 
 /* Recovery keeps its full cause and its actions visible on dense results. */
@@ -105,4 +97,29 @@
 .switcher[role="dialog"] .reserved-line[data-empty="true"] {
   block-size: 0;
   min-block-size: 0;
+}
+
+/* U5240c: one quiet line of the keys that act now. */
+.switcher-footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin: var(--space-2) 0 0;
+  padding-inline: var(--space-2);
+  color: var(--grey);
+}
+
+.switcher-recording {
+  flex: none;
+  color: var(--grey);
+}
+
+/* U5240b: the Kind a Todo or Pad row names to a screen reader, as its mark shows it to the eye. */
+.switcher-kind {
+  position: absolute;
+  width: var(--hairline-width);
+  height: var(--hairline-width);
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
