@@ -1,4 +1,5 @@
 import { render } from "solid-js/web";
+import { runChecks } from "../testing/checks";
 import PadRichEditor from "./PadRichEditor";
 import "../tokens.css";
 
@@ -19,3 +20,5 @@ render(() => <PadRichEditor
   onBlur={() => {}}
   onReady={() => { host.dataset.changes = String(changes); host.dataset.ready = "true"; }}
 />, host);
+
+Object.assign(window, { __checks: runChecks });

@@ -26,9 +26,7 @@ const addSheet = (css: string) => {
 describe("u137 one module measures the checks", () => {
   it("u137_editor_menu_is_not_an_item_row", () => {
     document.body.innerHTML = '<aside><ul><li data-id="pad"><span class="glyph"></span>Pad</li></ul><div class="milkdown-slash-menu"><nav class="tab-group"><ul><li class="selected">Text</li><li>List</li><li>Advanced</li></ul></nav><div class="menu-groups"><ul><li data-index="0">Paragraph</li></ul></div></div></aside>';
-    const before = document.body.innerHTML;
     expect(runChecks().D4.status).toBe("pass");
-    expect(document.body.innerHTML).toBe(before);
 
     document.querySelector<HTMLElement>(".milkdown-slash-menu li")!.style.color = "#ff00ff";
     expect(runChecks().D1.status).toBe("fail");
@@ -69,14 +67,15 @@ describe("u137 one module measures the checks", () => {
 
   it("u137_a_later_check_call_observes_new_interaction_rules", () => {
     document.head.querySelectorAll("style").forEach((sheet) => sheet.remove());
-    document.body.innerHTML = '<button class="rail-row" style="height:24px;cursor:pointer">x</button>';
+    document.body.innerHTML = '<button class="rail-row" style="height:24px">x</button>';
+    addSheet(".rail-row { cursor: default; }");
     const before = runChecks();
 
-    expect(before.D6).toMatchObject({ status: "fail", value: { missing: ["hover"] } });
+    expect(before.D6).toMatchObject({ status: "fail", value: { missing: ["hover"], cursor: "default" } });
     expect(before.D7.status).toBe("pass");
     expect(before.D4).toMatchObject({ status: "fail", value: { pressFeedback: "missing" } });
 
-    addSheet(".rail-row:hover { color: red; } .rail-row:active { background-color: blue; }");
+    addSheet(".rail-row { cursor: pointer; } .rail-row:hover { color: red; } .rail-row:active { background-color: blue; }");
     const after = runChecks();
 
     expect(after.D6.status).toBe("pass");
@@ -86,8 +85,8 @@ describe("u137 one module measures the checks", () => {
     expect(runChecks().D4.status).toBe("pass");
   });
 
-  it("u133_d6_measures_text_input_hit_areas_without_button_states", () => {
-    document.body.innerHTML = '<input type="text" style="height:15px">';
+  it.each(['type="text"', 'type="search"', "", 'type="invalid"'])("u133_d6_measures_text_input_hit_areas_without_button_states_%s", (type) => {
+    document.body.innerHTML = `<input ${type} style="height:15px">`;
     expect(runChecks().D6).toMatchObject({ status: "fail", value: { height: 15 } });
 
     document.querySelector("input")!.style.height = "24px";

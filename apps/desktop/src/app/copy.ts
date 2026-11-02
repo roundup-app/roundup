@@ -58,7 +58,6 @@ export const copy = {
   maximise: sharedCopy.maximise,
   restore: sharedCopy.restore,
   newAgent: sharedCopy.newAgent,
-  leaderChord: sharedCopy.leaderChord,
   captureATodo: sharedCopy.captureATodo,
   retry: sharedCopy.retry,
   start: sharedCopy.start,
