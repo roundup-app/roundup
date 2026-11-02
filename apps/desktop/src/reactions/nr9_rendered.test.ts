@@ -339,6 +339,8 @@ it.skipIf(!captureDir("U5558a"))("u5558e_open_surfaces_update_and_keep_failed_re
     await wait("!!window.__fake");
     await browser("record", "start", video);
     recording = true;
+    // Recording replaces the browser context, including its media emulation.
+    await browser("set", "media", "dark");
     await wait("!!window.__fake && !!document.querySelector('.ask-input')");
     await click("Made");
     await evaluate(`(() => {
