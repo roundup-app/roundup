@@ -172,6 +172,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | First Steer completion (`FirstSteerCompletion`, `Agents::first_steer_completion`) | same | — |
 | Interrupt | same | cancel, abort |
 | Toast | same | — |
+| Alert level (`AlertLevel`, `RailNode.alert_level`, `SetAlertLevelParams`, `rail.setAlertLevel`, `Rail::set_alert_level`) | Alerts: Default, All, Quiet | — |
 | State alert (`StateAlert`, `stateAlert`, `state_alert`, `state-alert-clicked`) | same | notification |
 | Work order | same | — |
 | Instruction (`Instruction`, `InstructionRevision`, `Instructions`, `agent.instructions`, `agent_instructions`) | same | — |
@@ -209,6 +210,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Restart reservation | same | — |
 | Retirement reservation | same | — |
 | Route | same | — |
+| Browser data location (`webview_data_path`) | same | — |
 | Saved work (`storedValue`, `storageSchema`, `initializeStorage`, `storageProblems`, `useBrowserStorage`, `storageCopy`) | same | — |
 | Draft (`draftStorage`) | Unfinished work | — |
 | Reason | same | — |
