@@ -383,3 +383,5 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Claude binary (`claude_binary`, `claudeBinary`, `ClaudeBinary`, `claudeBinarySchema`) | claude | — |
 
 | Undo refusal (`RpcErrorData::UndoParent`, `UndoIdentity`, `UndoPadName`, `RpcError::undo_parent`, `undo_identity`, `undo_pad_name`) | same | — |
+
+| Menu-bar mark (`MenuBar`, `MenuBarAction`, `menuBarActionSchema`, `setMenuBar`, `onMenuBarAction`, `watchMenuBar`, `showWindow`, `menu_bar`, `set_menu_bar`, `menu-bar-action`) | same | — |
