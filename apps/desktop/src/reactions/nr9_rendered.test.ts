@@ -401,10 +401,12 @@ it.skipIf(!captureDir("U5558a"))("u5558e_open_surfaces_update_and_keep_failed_re
     await browser("focus", ".import-excluded button");
     await browser("press", "Enter");
     await wait("document.querySelector('.import-excluded button')?.getAttribute('aria-expanded') === 'true'");
+    await browser("scrollintoview", ".import-excluded li");
     await capture("U5558d", "saved-listing");
     await evaluate("window.__fake.app.handlers['project.importDiscover'] = () => { throw new Error('Saved listing unavailable: permission denied. Retry to read the listing again.'); }");
     await evaluate("window.__fake.emit({actor:{kind:'agent',id:'listing-agent',parent:null},name:'rail.changed'})");
     await wait("document.querySelector('.import-panel [role=alert]')?.textContent.includes('permission denied')");
+    await browser("scrollintoview", ".import-panel [role=alert]");
     await capture("U5558e", "import-reload-failed");
 
     await evaluate("localStorage.clear()");
