@@ -40,7 +40,7 @@ it("u3512b_shared_dialog_keeps_focus_and_drafts", async () => {
   expect(await lane.evaluate<string>(`document.querySelector('${field}').value`)).toBe("  exact 雪 é  ");
   await record("new-workstream");
   await lane.evaluate("window.__fake.app.handlers['todo.startWorkstream'] = () => { throw new Error('The name was refused. Try another name.'); }");
-  await lane.browser("find", "role", "button", "click", "--name", "Create", "--exact");
+  await lane.browser("click", '.new-workstream button[type="submit"]');
   await lane.until("!!document.querySelector('.new-workstream [role=alert]')");
   await record("new-workstream-failure");
   expect(await lane.evaluate<string>(`document.querySelector('${field}').value`)).toBe("  exact 雪 é  ");

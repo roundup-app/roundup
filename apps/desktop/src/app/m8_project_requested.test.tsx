@@ -24,7 +24,7 @@ const started = async () => {
 
   render(() => <App app={app} reducedMotion={() => false} clock={() => 0} />);
   await screen.findByRole("tab", { name: FIRST.name });
-  await screen.findAllByText(/^(new )?Workstream$/);
+  await screen.findByRole("button", { name: "Create" });
 
   return app;
 };
@@ -129,7 +129,7 @@ it("u3289b_recovery_entry_is_never_rendered", async () => {
   const holder = drafts(FIRST.path);
   mount(drafts);
   await screen.findByRole("tab", { name: FIRST.name });
-  await screen.findAllByText(/^(new )?Workstream$/);
+  await screen.findByRole("button", { name: "Create" });
   await new Promise((done) => setTimeout(done, 300));
   const records: MutationRecord[] = [];
   const observer = new MutationObserver((found) => records.push(...found));
@@ -235,7 +235,7 @@ const owners = {
 it.each(Object.entries(owners))("u3021d_acknowledged_typing_has_no_outside_mutations_%s", async (_owner, openField) => {
   mount(createProjectDrafts());
   await screen.findByRole("tab", { name: FIRST.name });
-  await screen.findAllByText(/^(new )?Workstream$/);
+  await screen.findByRole("button", { name: "Create" });
   const field = await openField();
 
   await new Promise((done) => setTimeout(done, 300));
@@ -258,7 +258,7 @@ it.each(Object.entries(owners))("u3021d_acknowledged_typing_has_no_outside_mutat
 it.each(Object.entries(owners))("u3289a_open_editor_stays_off_the_list_until_the_app_restarts_%s", async (_owner, openField) => {
   mount(createProjectDrafts());
   await screen.findByRole("tab", { name: FIRST.name });
-  await screen.findAllByText(/^(new )?Workstream$/);
+  await screen.findByRole("button", { name: "Create" });
   fireEvent.input(await openField(), { target: { value: "unsent words" } });
   await new Promise((done) => setTimeout(done, 100));
   expect(await recoveryLabel()).toBeNull();
