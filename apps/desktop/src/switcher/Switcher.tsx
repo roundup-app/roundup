@@ -1,3 +1,4 @@
+import type { KeyText } from "../keys/chords";
 import { useDialog } from "@ark-ui/solid/dialog";
 import { captureFocus, queueFocus } from "../keys/focus";
 import { writeText } from "../app/clipboard";
@@ -139,7 +140,7 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
   ];
 
   /** The key a command shows: its live row, so a key just saved shows at once. */
-  const keysOf = (action: { value: string; name: string; keys: string }) => action.value.startsWith("action:leader") ? action.keys : chordNamed(action.name)?.keys ?? action.keys;
+  const keysOf = (action: { value: string; name: string; keys: KeyText }) => action.value.startsWith("action:leader") ? action.keys : chordNamed(action.name)?.keys ?? action.keys;
 
   createEffect(() => {
     const list = shown();
