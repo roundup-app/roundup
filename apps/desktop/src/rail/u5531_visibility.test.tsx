@@ -54,15 +54,30 @@ it("u5531b_open_choices_survive_updates_independently", async () => {
   await waitFor(() => expect(rowNames()).not.toContain("helper"));
 });
 
-it.each(["needs-you", "error"] as const)("u5531c_attention_promotes_internal_children_without_a_timer %s", async kind => {
+it.each(["needs-you", "error", "question", "clarification", "final-text", "unknown-text"] as const)("u5531c_attention_promotes_internal_children_without_a_timer %s", async reason => {
   const child = agent("helper", "working", "working", { parent: "stream", visibility: "internal" });
   const { app, rail } = await mountRail([workstream("stream"), child]);
   await waitFor(() => expect(rowNames()).toEqual(["stream"]));
-  app.handlers["rail.tree"] = () => [workstream("stream"), { ...child, visibility: "shown", status: { ...child.status!, kind } }];
+  const { message } = await import("../testing/centreFixture");
+
+  if (reason === "question") {
+    const question = message(1, { from: { kind: "agent", id: "helper", parent: "stream" }, to: "you", kind: "question" });
+    app.handlers["message.list"] = () => [question];
+    app.emit(event({ name: "message.sent", data: question }));
+  }
+
+  const kind = reason === "needs-you" || reason === "error" ? reason : "done";
+  const promoted = agent("helper", kind, kind, { parent: "stream", visibility: "shown" });
+
+  if (reason === "clarification") promoted.work = { kind: "clarification", question: "Choose scope" };
+
+  if (reason === "final-text" || reason === "question") promoted.final_text = { attempt: "1", turn: "1", finished: "0", kind: reason === "question" ? "empty" : "present" };
+  app.handlers["rail.tree"] = () => [workstream("stream"), promoted];
   app.emit(event({ name: "rail.changed" }));
   await waitFor(() => expect(rowNames()).toEqual(["stream", "helper"]));
   expect(rail.nodes.find(node => node.id === "helper")?.visibility).toBe("shown");
   expect(screen.queryByRole("treeitem", { name: / internal$/ })).toBeNull();
+  expect(screen.queryByRole("treeitem", { name: / idle$/ })).toBeNull();
 });
 
 it("u5531c_known_empty_settled_internal_child_stays_internal", async () => {
