@@ -49,3 +49,46 @@ Each row is a failure, not a pass. Temporary driver scripts were run outside the
 ## Final checks
 
 The second `just ready` exited 1: all web checks and launch-sites passed, but the repository spelling scan found additional wrapped fragments in the Import panel raw snapshot. That exact snapshot is now retained with the uncommitted capture, with its disposition recorded in rendered.json. No text was corrected and no lint exception added. The repaired spelling scan passed (exit 0); another full ready run remains required for continuation. No local `just check`, whole Rust crate test suite, or whole Vitest suite is run. No behavior test is added to check report wording. CI remains the observer for an eventual implementation head's full check.
+
+## Continuation on builder-41533806779
+
+The evidence remains pinned to main `092fcafbf910f292d7180c97d35bd381aff984b3`. The continuation's isolated worktree merges main `b7ce9aef7` for branch validation; it does not silently repin the older runtime census or claim its offers cover methods added later. Browser observations run against the unchanged audited checkout on port 5218, in a new headless session/profile. No user browser, Agent process or native App was used.
+
+| Command / observer | Exit | Result |
+| --- | ---: | --- |
+| `pnpm install --frozen-lockfile` | 0 | Pinned dependencies installed in the continuation worktree. |
+| `just ready` | 0 | Lints, proof checks (`ALL PROOFS CHECK`) and N7 launch-sites observer pass; no product behavior or test changed. |
+| `loop/rules.sh merge-loss` | 0 | No main-only file lost through the merge. |
+| `git diff --check` | 0 | No whitespace errors. |
+| Download and SHA-256 comparison of locked Tauri/muda archives | 0 | Both archives match Cargo.lock checksums; inspected exact Tauri 2.12.1 default builder and muda 0.20.0 labels, accelerators and native selectors. Native construction inventory is in native-menus.md. |
+| `agent-browser doctor --offline --quick` | 0 | Isolated headless setup passes. |
+| `just harness tree-40 5218` lifecycle | 143 on deliberate shutdown | Served the audited checkout successfully. After captures, the run closed its own browser and stopped only this server; signal termination is not an observer pass/fail. |
+| Follow-up captures | 0 for each retained opening | Twelve openings retained: eleven pass every D check; Project rename retains a pre-existing D6 failure and its D10 aggregate. `rendered-followup.json` retains the mounted selectors and exact D-check readings. Raw snapshots and images stay uncommitted beside the captures. Only mounted, successful openings count; failed attempts below do not. |
+
+These discovery/observer failures were repaired without changing product behavior or weakening a gate:
+
+| Command / observer | Exit | Failure / disposition |
+| --- | ---: | --- |
+| `ls -d .codegraph .claude/sound` | 2 | No codegraph index; normal source search used. Sound rules exist and were read. |
+| `git worktree add /tmp/roundup-fix-5780 build/app-feature-audit-implementation` | 128 | Branch already checked out by the provided checkout. Created a detached continuation worktree at the supplied head instead; push targets the requested branch explicitly. |
+| `ls /tmp/*5741*` | 2 | Prior run's temporary drivers did not survive. New observer drivers use the existing harness and are not product machinery. |
+| `rg --files /home/boxd/.cargo /opt` | 2 | Broad discovery encountered an unreadable unrelated directory; no local Tauri menu source found. Read checksum-verified published archives instead. |
+| `cat crates/desktop/src/dock.rs` | 1 | Guessed module does not exist. No native Dock-menu coverage inferred from it. |
+| `sed ... apps/desktop/src/testing/harness.ts` | 2 | Harness is harness.tsx; actual source read before extending observations. |
+| `rg ... crates/rupd/src/dispatch` | 2 | Guessed directory absent; models.list dispatch is in crates/agents/src/dispatch.rs. |
+| `rg ... crates/agents/src/claude_code/naming.rs` | 2 | Guessed module absent; no naming equivalence inferred. |
+| `sed ... crates/agents/src/claude_code/naming.rs` | 2 | Same nonexistent module; no candidate assessment changed. |
+| `rg ... apps/desktop/src/modes/OpeningPrompt.tsx .../SaveAsMode.tsx` | 2 | Actual components are under rail; read those before dialog observations. |
+| `agent-browser wait .todo-row` | 1 | Todo owner group was collapsed; no visible row satisfied the wait. Expanding the real shelf-group-control before Open established the later detail capture. |
+| `agent-browser wait '[role=menu]'` after `click .pad-name --button right` | 1 | Click's documented interface does not support that right-button option. Repaired using real mouse move/down/up right and retained the resulting actual menu. |
+| `agent-browser mouse move 1320.3359375 188` | 1 | CLI requires integer coordinates. Rounded the measured target centre and used the real mouse API. |
+| `agent-browser scrollintoview '.rail-row[data-id="token-rotation"]'` | 1 | Used the displayed name as an id. Actual row id is tokens; repaired from the rendered DOM. |
+| `agent-browser find role button click --name 'Unassigned 7' --exact` (two attempts) | 1 each | Locator returned not found. No successful group-opening assertion is based on it; subsequent DOM inspection established the available Todo controls. |
+| `agent-browser wait .todo-drawer` | 1 | Wrong content class; the implementation uses todo-detail. No capture retained from this failed wait. |
+| Follow-up aggregate assertion that every captured Check passed | 1 | Project rename failed D6/D10. Retained the exact failure instead of claiming a pass; #5786 owns the observer repair. |
+| `rg ... scenarios/ui-project-tabs.md` | 2 | Guessed file absent; owning visual/macOS acceptance found through the scenario census instead. |
+| `agent-browser wait .todo-detail` | 1 | Todo group was collapsed, so clicking its hidden descendant opened no detail. Repaired the observer to expand the real group control before clicking its visible Open action; no pass claimed from the hidden control attempt. |
+
+The Project rename input omits its type attribute. `testing/checks.ts::d6` tests the explicit type attribute instead of the browser's effective text type and demands button hover/cursor behavior. [#5786](https://github.com/roundup-app/roundup/issues/5786) owns this observer repair under U133. The audit does not change that observer or add button styling to a text field.
+
+No owner choice has been requested. The remaining work is the full App/local-library key reconciliation, per-row three-criterion assessment and linked owner direction. This evidence slice keeps #5758 open; it is not retirement permission or complete U5741 acceptance.

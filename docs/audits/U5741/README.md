@@ -19,10 +19,12 @@ The audit must prevent missed conditional offers, unsupported claims of non-use/
 | [direction.md](direction.md) | Recovered Orca/Paseo/Bise accepted direction |
 | [catalogues/public-seams.json](catalogues/public-seams.json) | Full runtime help, role replies/schemas, methods, hashes and mapping |
 | [catalogues/app-source.json](catalogues/app-source.json) | Source modules/exports, local registrations, native/seam catalogue |
-| [rendered.json](rendered.json) | Validated surface snapshots and Check readings |
+| [rendered.json](rendered.json) | Initial surface snapshots and Check readings |
+| [native-menus.md](native-menus.md) | Locked native defaults, Project projection and menu-bar action ownership |
+| [rendered-followup.json](rendered-followup.json) | Corrected openings, loaded content and additional menu/dialog Check readings |
 | [validation.md](validation.md) | Command outcomes and observer failures |
 
-`rendered.json` holds accessibility snapshots and D-check readings from the existing isolated harness at 1512×950, dark, on the audited source. Images remain uncommitted under `artifacts/ux/U5741/`. Fake-Daemon renders establish webview reachability only, never native behavior or a real Agent action.
+`rendered.json` holds accessibility snapshots and D-check readings from the existing isolated harness at 1512×950, dark, on the audited source. The continuation uses a fresh headless session/profile against the same audited source. It establishes the Inbox command opens Needs you, a loaded Pads list and editor, top-level context menus and additional dialogs; it does not establish native submenu rendering. Images remain uncommitted under `artifacts/ux/U5741/`. Eleven follow-up openings pass every recorded D check; Project rename retains a pre-existing D6/D10 observer failure tracked in [#5786](https://github.com/roundup-app/roundup/issues/5786). Fake-Daemon renders establish webview reachability only, never native behavior or a real Agent action.
 
 ## Decision status
 
