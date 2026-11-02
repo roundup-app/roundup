@@ -1,8 +1,8 @@
 {
   "scenario": "U5704a",
-  "status": "incomplete",
-  "recorded_at_utc": "2026-11-02T19:25:56Z",
-  "observer_revision": "81643171dc12f8931a749f89f0a00b1045578750",
+  "status": "observed",
+  "recorded_at_utc": "2026-11-02T19:50:47.666975+00:00",
+  "observer_revision": "028032168410a2fd8bfe735f4c908525136605ce",
   "sizing_repair": {
     "pr": 5700,
     "commit": "f5b68e892f281539d30fdf49b03e514edb94db8f"
@@ -16,32 +16,137 @@
     "base": {
       "capture_pairs": 97,
       "product_revisions": [
-        "41e424913aa33593ca8303aa91ed41da804849fc"
+        "138e421008cfa38c7802238f8230cf1c885a7353"
       ],
       "minimum_recorded_hit_height": 24,
-      "states_complete": true
+      "states_complete": true,
+      "hosts": {
+        "editor": {
+          "captures": 48,
+          "levels": [
+            "H1",
+            "H2",
+            "H3",
+            "H4",
+            "H5",
+            "H6"
+          ],
+          "minimum_hit_height": 24,
+          "folded_and_unfolded": true,
+          "rest_hover_and_keyboard_focus": true
+        },
+        "readonly": {
+          "captures": 48,
+          "levels": [
+            "H1",
+            "H2",
+            "H3",
+            "H4",
+            "H5",
+            "H6"
+          ],
+          "minimum_hit_height": 24,
+          "folded_and_unfolded": true,
+          "rest_hover_and_keyboard_focus": true
+        }
+      },
+      "dense_save_failure_checks": {
+        "D1": "pass",
+        "D10": "pass",
+        "D11": "pass",
+        "D12": "pass",
+        "D13": "pass",
+        "D14": "pass",
+        "D16": "pass",
+        "D2": "pass",
+        "D3": "pass",
+        "D4": "pass",
+        "D5": "pass",
+        "D6": "pass",
+        "D7": "pass",
+        "D8": "pass",
+        "D9": "pass"
+      }
     },
     "head": {
-      "capture_pairs": 90,
+      "capture_pairs": 97,
       "product_revisions": [
-        "4693e0a03b82946af41a96af3bcfeb60748f5b78"
+        "028032168410a2fd8bfe735f4c908525136605ce"
       ],
       "minimum_recorded_hit_height": 24,
-      "states_complete": false
+      "states_complete": true,
+      "hosts": {
+        "editor": {
+          "captures": 48,
+          "levels": [
+            "H1",
+            "H2",
+            "H3",
+            "H4",
+            "H5",
+            "H6"
+          ],
+          "minimum_hit_height": 24,
+          "folded_and_unfolded": true,
+          "rest_hover_and_keyboard_focus": true
+        },
+        "readonly": {
+          "captures": 48,
+          "levels": [
+            "H1",
+            "H2",
+            "H3",
+            "H4",
+            "H5",
+            "H6"
+          ],
+          "minimum_hit_height": 24,
+          "folded_and_unfolded": true,
+          "rest_hover_and_keyboard_focus": true
+        }
+      },
+      "dense_save_failure_checks": {
+        "D1": "pass",
+        "D10": "pass",
+        "D11": "pass",
+        "D12": "pass",
+        "D13": "pass",
+        "D14": "pass",
+        "D16": "pass",
+        "D2": "pass",
+        "D3": "pass",
+        "D4": "pass",
+        "D5": "pass",
+        "D6": "pass",
+        "D7": "pass",
+        "D8": "pass",
+        "D9": "pass"
+      }
     }
   },
   "verified": {
-    "just_ready": "passed",
+    "just_ready": "pending rerun after SIGTERM",
     "targeted_regressions": 243,
+    "browser_file": "passed, all 13 tests",
     "readonly_heading_observer": "passed",
+    "editable_heading_observer": "passed",
     "dense_save_failure": "passed, all design Checks pass",
-    "editable_heading_baseline_observer": "passed after native keyboard activation"
+    "static_ui_lint": "passed, 0 FAIL and 0 WARN",
+    "proofs": "passed, all eight mutation checks"
   },
   "baseline_fixture_failures": [
-    "D2: default root font",
+    "D2: default root font is 16 px",
     "D4: App press binding absent",
-    "D10: aggregates D2 and D4"
+    "D6: editable fixture has a 20 px Milkdown toolbar button; heading targets meet the minimum",
+    "D10: aggregates the existing fixture failures"
   ],
-  "remaining": "Finish the editable-host capture run after native keyboard activation; rerun the changed browser file and just capture U5704a, compare paired Checks, and replace this incomplete record before closing #5704.",
-  "native_mac_observation": "not claimed"
+  "native_mac_observation": "not claimed",
+  "baseline_protocol": "The same observer and fixture instrumentation was transplanted onto origin/main; product styles and behavior were not changed.",
+  "comparison": {
+    "command": "loop/rules.sh delta artifacts/ux/U5704a/base artifacts/ux/U5704a/head",
+    "exit_code": 0,
+    "still_passing": 1022,
+    "still_failing": 336,
+    "regressions": 0
+  }
 }
