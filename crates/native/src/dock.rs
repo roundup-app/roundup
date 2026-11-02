@@ -91,8 +91,8 @@ impl DockMenu {
                 );
             }
         } else {
-            // SAFETY: only add an absent selector, on the main thread. No existing method,
-            // class, delegate instance, ivar or runtime state is replaced or modified.
+            // SAFETY: only add an absent selector, on the main thread. Existing methods,
+            // the delegate instance, ivars and runtime state stay intact.
             let registered = unsafe {
                 ffi::class_addMethod(
                     std::ptr::from_ref(class).cast_mut(),

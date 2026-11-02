@@ -296,7 +296,6 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Dialog | same | — |
 | AlertDialog | none | — |
 | Menu | same | — |
-| Dock section (`DockMenu`, `install`, `chosen` in native Dock integration) | Dock menu | — |
 | Tooltip | same | — |
 | Tabs | same | — |
 | IconButton | none | — |
@@ -386,3 +385,4 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Undo refusal (`RpcErrorData::UndoParent`, `UndoIdentity`, `UndoPadName`, `RpcError::undo_parent`, `undo_identity`, `undo_pad_name`) | same | — |
 
 | Menu-bar mark (`MenuBar`, `MenuBarAction`, `menuBarActionSchema`, `setMenuBar`, `onMenuBarAction`, `watchMenuBar`, `showWindow`, `menu_bar`, `set_menu_bar`, `menu-bar-action`) | same | — |
+| Dock menu (`DockMenu`) | same | — |
