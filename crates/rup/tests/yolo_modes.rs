@@ -254,7 +254,7 @@ async fn b2693b_real_yolo_receiver_takes_a_note_without_approval() {
     }
     let mut audit = project.client().await;
     let subscribed = audit
-        .request("events.subscribe", json!({"after":0}))
+        .request("events.subscribe", json!({"kept":true}))
         .await
         .unwrap();
     let head = subscribed["head"].as_u64().unwrap();
