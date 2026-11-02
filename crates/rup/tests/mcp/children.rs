@@ -613,62 +613,70 @@ async fn u5531c_promotion_stays_shown_until_a_new_safe_door_choice() {
             if promoted { "shown" } else { "internal" }
         );
     }
-    door.request("agent.setVisibility", choose.clone())
-        .await
-        .unwrap();
-    let sent = child
-        .request(
+    for settled in [false, true] {
+        fx.user.request("agent.signal", json!({"id":fx.child,"attempt":"1","payload":{"hook_event_name":"UserPromptSubmit","prompt_id":"question"}})).await.unwrap();
+        door.request("agent.setVisibility", choose.clone())
+            .await
+            .unwrap();
+        let sent = child
+            .request(
+                "message.send",
+                json!({"to":fx.door,"kind":"question","body":format!("Which target for settled={settled}?")}),
+            )
+            .await
+            .unwrap();
+        if settled {
+            fx.user.request("agent.signal", json!({"id":fx.child,"attempt":"1","payload":{"hook_event_name":"Stop","prompt_id":"question","last_assistant_message":""}})).await.unwrap();
+        }
+        let tree = fx.user.request("rail.tree", Value::Null).await.unwrap();
+        assert_eq!(
+            tree.as_array()
+                .unwrap()
+                .iter()
+                .find(|n| n["id"] == fx.child)
+                .unwrap()["visibility"],
+            "shown"
+        );
+        assert_eq!(
+            door.request("agent.setVisibility", choose.clone())
+                .await
+                .unwrap_err()
+                .code,
+            rpc::code::INVALID_PARAMS
+        );
+        door.request(
             "message.send",
-            json!({"to":fx.door,"kind":"question","body":"Which target?"}),
+            json!({"to":fx.child,"kind":"note","body":format!("The first target for settled={settled}"),"replyTo":sent["id"]}),
         )
         .await
         .unwrap();
-    fx.user.request("agent.signal", json!({"id":fx.child,"attempt":"1","payload":{"hook_event_name":"Stop","prompt_id":"resumed","last_assistant_message":""}})).await.unwrap();
-    let tree = fx.user.request("rail.tree", Value::Null).await.unwrap();
-    assert_eq!(
-        tree.as_array()
-            .unwrap()
-            .iter()
-            .find(|n| n["id"] == fx.child)
-            .unwrap()["visibility"],
-        "shown"
-    );
-    assert_eq!(
-        door.request("agent.setVisibility", choose.clone())
+        let refused = door
+            .request("agent.setVisibility", choose.clone())
             .await
-            .unwrap_err()
-            .code,
-        rpc::code::INVALID_PARAMS
-    );
-    door.request(
-        "message.send",
-        json!({"to":fx.child,"kind":"note","body":"The first target","replyTo":sent["id"]}),
-    )
-    .await
-    .unwrap();
-    let refused = door
-        .request("agent.setVisibility", choose.clone())
-        .await
-        .unwrap_err();
-    assert_eq!(refused.code, rpc::code::INVALID_PARAMS);
-    assert!(refused.message.contains("question"));
-    let tree = fx.user.request("rail.tree", Value::Null).await.unwrap();
-    assert_eq!(
-        tree.as_array()
-            .unwrap()
-            .iter()
-            .find(|n| n["id"] == fx.child)
-            .unwrap()["visibility"],
-        "shown"
-    );
-    fx.user.request("agent.signal", json!({"id":fx.child,"attempt":"1","payload":{"hook_event_name":"UserPromptSubmit","prompt_id":"after-reply"}})).await.unwrap();
-    fx.user.request("agent.signal", json!({"id":fx.child,"attempt":"1","payload":{"hook_event_name":"Stop","prompt_id":"after-reply","last_assistant_message":""}})).await.unwrap();
-    assert_eq!(
-        door.request("agent.setVisibility", choose.clone())
-            .await
-            .unwrap()["visibility"],
-        "internal"
-    );
+            .unwrap_err();
+        assert_eq!(refused.code, rpc::code::INVALID_PARAMS);
+        assert!(refused.message.contains("question"));
+        let tree = fx.user.request("rail.tree", Value::Null).await.unwrap();
+        assert_eq!(
+            tree.as_array()
+                .unwrap()
+                .iter()
+                .find(|n| n["id"] == fx.child)
+                .unwrap()["visibility"],
+            "shown"
+        );
+        if !settled {
+            fx.user.request("agent.signal", json!({"id":fx.child,"attempt":"1","payload":{"hook_event_name":"Stop","prompt_id":"question","last_assistant_message":""}})).await.unwrap();
+        }
+        fx.user.request("agent.signal", json!({"id":fx.child,"attempt":"1","payload":{"hook_event_name":"UserPromptSubmit","prompt_id":"after-reply"}})).await.unwrap();
+        fx.user.request("agent.signal", json!({"id":fx.child,"attempt":"1","payload":{"hook_event_name":"Stop","prompt_id":"after-reply","last_assistant_message":""}})).await.unwrap();
+        assert_eq!(
+            door.request("agent.setVisibility", choose.clone())
+                .await
+                .unwrap()["visibility"],
+            "internal"
+        );
+    }
     child
         .request(
             "agent.setOrder",

@@ -1,4 +1,5 @@
 use super::*;
+use contracts::EventData;
 
 /// The `owner` of a `todo.create` or `todo.assign`.
 #[derive(serde::Deserialize)]
@@ -258,17 +259,54 @@ impl Daemon {
                     .reader()
                     .call("message", "message.list", json!({}), Actor::user())
                     .await?;
+                let head = self.bus.subscribe_after(None)?.head();
+                let (events, _) = self
+                    .bus
+                    .saved_after(head.saturating_sub(rpc::EVENT_WINDOW))?;
+                let mut previous = None;
+                let mut resumed = None;
+                for event in &events {
+                    if let EventData::AgentStatus(status) = &event.data
+                        && status.id == p.id
+                        && Some(&status.attempt) == node.attempt.as_ref()
+                    {
+                        if status.status.kind == contracts::Kind::Working
+                            && previous != Some(contracts::Kind::Working)
+                        {
+                            resumed = Some((previous.and(event.seq), status.status.since));
+                        }
+                        previous = Some(status.status.kind);
+                    }
+                }
                 if messages.iter().any(|q| {
                     q.kind == contracts::message::MessageKind::Question
                         && q.from.kind == ActorKind::Agent
                         && q.from.id == p.id
-                        && !messages
-                            .iter()
-                            .any(|r| r.reply_to == Some(q.id) && r.to == q.from.id)
+                        && !messages.iter().any(|r| {
+                            r.reply_to == Some(q.id)
+                                && r.to == q.from.id
+                                && resumed.is_some_and(|(working_seq, since)| {
+                                    let reply_seq =
+                                        events.iter().find_map(|event| match &event.data {
+                                            EventData::MessageSent(message)
+                                                if message.id == r.id =>
+                                            {
+                                                event.seq
+                                            }
+                                            _ => None,
+                                        });
+                                    // Sequence order also proves resumption within one millisecond.
+                                    // Pruned reply history requires a strictly later working timestamp.
+                                    match (working_seq, reply_seq) {
+                                        (Some(working), Some(reply)) => working > reply,
+                                        _ => since > r.at,
+                                    }
+                                })
+                        })
                 }) {
                     return Err(RpcError::new(
                         code::INVALID_PARAMS,
-                        "unanswered outgoing question is active",
+                        "outgoing question awaits a reply and resumed work",
                     ));
                 }
             }
