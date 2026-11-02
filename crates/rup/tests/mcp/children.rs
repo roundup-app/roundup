@@ -10,9 +10,13 @@ struct B53 {
 }
 
 async fn b53_fixture() -> B53 {
+    b53_fixture_with(&[]).await
+}
+
+async fn b53_fixture_with(extra_env: &[(&str, &str)]) -> B53 {
     let served = Served::start(
         "#!/bin/sh\necho launch >> \"$CLAUDE_CONFIG_DIR/launches\"\nsleep 30\n",
-        &[],
+        extra_env,
     )
     .await;
     let user = rpc::Client::connect(&served.socket()).await.unwrap();
@@ -207,7 +211,14 @@ async fn b53_show_is_forbidden_outside_reach_and_absent_for_an_agent() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn u5531a_door_tool_round_trip_and_reopen() {
-    let mut fx = b53_fixture().await;
+    let owner = std::env::var_os("ROUNDUP_TEST_APP_BIN")
+        .map(|dir| std::path::PathBuf::from(dir).join("terminal-owner"))
+        .unwrap_or_else(|| {
+            std::path::PathBuf::from(env!("CARGO_BIN_EXE_rup")).with_file_name("terminal-owner")
+        });
+    assert!(owner.is_file(), "run `cargo build -p terminal --bins`");
+    let env = [("RUPD_TERMINAL_OWNER", owner.to_str().unwrap())];
+    let mut fx = b53_fixture_with(&env).await;
     let shim = spawn_shim(&fx.served.socket(), &fx.door).await;
     let before = fx.user.request("rail.tree", Value::Null).await.unwrap();
     let terminals = fx.user.request("terminal.list", Value::Null).await.unwrap();
@@ -290,8 +301,12 @@ async fn u5531a_door_tool_round_trip_and_reopen() {
         .await;
     assert_eq!(result.is_error, Some(false));
     let launches = std::fs::read(fx.served.dir.path().join("launches")).unwrap();
+    fx.user
+        .request("agent.stop", json!({"id":fx.door}))
+        .await
+        .unwrap();
     drop(shim);
-    fx.served.restart().await;
+    fx.served.restart(&env).await;
     let reopened = rpc::Client::connect(&fx.served.socket()).await.unwrap();
     let tree = reopened.request("rail.tree", Value::Null).await.unwrap();
     let node = tree
@@ -311,6 +326,8 @@ async fn u5531a_door_tool_round_trip_and_reopen() {
         .iter()
         .find(|t| t["id"] == node["terminal_id"])
         .expect("the same child still has its verified Terminal");
+    assert!(original_terminal["incarnation"].is_string());
+    assert!(original_terminal["program_pid"].is_number());
     assert_eq!(terminal["incarnation"], original_terminal["incarnation"]);
     assert_eq!(terminal["program_pid"], original_terminal["program_pid"]);
     assert_eq!(terminal["running"], true);
@@ -352,14 +369,16 @@ async fn u5531a_visibility_authority_is_enforced_by_the_daemon() {
         .as_str()
         .unwrap()
         .to_owned();
-    let touches = fx
-        .user
-        .request(
-            "provenance.history",
-            json!({"item":format!("agent:{}",fx.child)}),
-        )
-        .await
-        .unwrap();
+    let mut touches = Vec::new();
+    for id in [&fx.door, &fx.child, &nested, &other] {
+        let item = format!("agent:{id}");
+        let history = fx
+            .user
+            .request("provenance.history", json!({"item":item}))
+            .await
+            .unwrap();
+        touches.push((item, history));
+    }
     let before = fx.user.request("rail.tree", Value::Null).await.unwrap();
     let launches = std::fs::read(fx.served.dir.path().join("launches")).unwrap();
     let events = fx
@@ -396,16 +415,7 @@ async fn u5531a_visibility_authority_is_enforced_by_the_daemon() {
         before,
         fx.user.request("rail.tree", Value::Null).await.unwrap()
     );
-    assert_eq!(
-        touches,
-        fx.user
-            .request(
-                "provenance.history",
-                json!({"item":format!("agent:{}",fx.child)})
-            )
-            .await
-            .unwrap()
-    );
+
     let error = fx
         .user
         .request(
@@ -415,6 +425,16 @@ async fn u5531a_visibility_authority_is_enforced_by_the_daemon() {
         .await
         .unwrap_err();
     assert_eq!(error.code, rpc::code::INVALID_PARAMS);
+    for (item, history) in touches {
+        assert_eq!(
+            history,
+            fx.user
+                .request("provenance.history", json!({"item":item}))
+                .await
+                .unwrap(),
+            "refused calls write no Touch for {item}"
+        );
+    }
     assert_eq!(
         events,
         fx.user
