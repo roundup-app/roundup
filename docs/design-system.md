@@ -23,7 +23,7 @@ Every rule below is a check with an id. A check passes or fails; it has no score
 
 ## Tokens
 
-Pad Blue, Green and Purple use `--pad-blue`, `--pad-green` and `--pad-purple` (Radix scale 11); Red and Amber use existing roles. Highlight uses `--pad-highlight` (amber 4) and `--pad-highlight-ink` (amber 12). Radix light/dark scales supply both schemes.
+Pad Blue, Green and Purple use `--pad-blue`, `--pad-green` and `--pad-purple` (Radix scale 11); Red and Amber use existing roles. Highlight uses `--pad-highlight` (amber 4) and `--pad-highlight-ink` (amber 12). Overlapping text colour and highlight use that colour’s Radix scale 12 to retain D5 contrast in either nesting order. Radix light/dark scales supply both schemes.
 
 Pad fenced code maps keyword, string, number and comment classifications to `--red`, `--accent`, `--amber` and `--grey`, respectively. These existing Tokens adapt to light, dark and increased contrast; no editor theme supplies colour literals.
 

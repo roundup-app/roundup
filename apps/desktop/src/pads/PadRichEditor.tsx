@@ -166,6 +166,7 @@ export default function PadRichEditor(props: {
             icon: "", active: () => false,
             selector: {
               activeLabel: () => copy.textColour,
+              chevronIcon: copy.textColourIcon,
               options: ["default" as const, ...padColours].map(colour => ({
                 label: copy.colours[colour],
                 onSelect: (ctx: import("@milkdown/kit/ctx").Ctx) => {

@@ -102,5 +102,12 @@
 [data-pad-color="red"], .reading [data-pad-callout="caution"] { color: var(--red); }
 [data-pad-color="amber"], .reading [data-pad-callout="warning"] { color: var(--amber); }
 .reading mark { color: var(--pad-highlight-ink); background: var(--pad-highlight); }
+
+/* Either nesting order retains the authored colour with readable ink on highlight. */
+.reading :is(mark[data-pad-color="blue"], mark [data-pad-color="blue"], [data-pad-color="blue"] mark) { color: var(--blue-12); }
+.reading :is(mark[data-pad-color="green"], mark [data-pad-color="green"], [data-pad-color="green"] mark) { color: var(--green-12); }
+.reading :is(mark[data-pad-color="purple"], mark [data-pad-color="purple"], [data-pad-color="purple"] mark) { color: var(--purple-12); }
+.reading :is(mark[data-pad-color="red"], mark [data-pad-color="red"], [data-pad-color="red"] mark) { color: var(--red-12); }
+.reading :is(mark[data-pad-color="amber"], mark [data-pad-color="amber"], [data-pad-color="amber"] mark) { color: var(--amber-12); }
 .reading [data-pad-callout] { border: 0; padding: var(--space-3); background: var(--sunken); }
 .pad-callout-label { font-weight: 600; margin-block-end: var(--space-2); }

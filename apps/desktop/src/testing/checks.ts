@@ -248,7 +248,7 @@ const resolveAt = (page: Page, el: Element, value: string, depth = 0): string =>
 const colourTokens = (page: Page, el: Element): Rgba[] | null => {
   const names = ["red", "amber", "accent", "selected", "selected-hover"];
 
-  if (el.closest(".pad-rich-editor .ProseMirror")) names.push("pad-blue", "pad-green", "pad-purple", "pad-highlight", "pad-highlight-ink");
+  if (el.closest(".pad-rich-editor .ProseMirror")) names.push("pad-blue", "pad-green", "pad-purple", "pad-highlight", "pad-highlight-ink", "blue-12", "green-12", "purple-12", "red-12", "amber-12");
 
   if (el.closest('.empty-state-art')) names.push("doodle-line", "doodle-patch");
 
