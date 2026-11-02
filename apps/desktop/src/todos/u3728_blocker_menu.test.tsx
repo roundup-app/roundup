@@ -1,5 +1,6 @@
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
+import { offeredAsBlockers } from "./todoView";
 import { mountTodos, todo, todoCallsTo } from "./testHarness";
 
 afterEach(cleanup);
@@ -46,4 +47,29 @@ it("u3515c_blockers_exclude_self_existing_and_transitive_cycles", async () => {
   // 2 waits on 1 (a cycle if 1 waited on 2); 3 waits on 2 (a longer cycle); 4 is already a blocker of 1; 5 is free.
   await openMenu([todo(4), todo(1, { blockers: [4], blocked: true }), todo(2, { blockers: [1], blocked: true }), todo(3, { blockers: [2], blocked: true }), todo(5, { title: "free" })], 1);
   expect(rows()).toEqual(["todo 4#4", "free#5"]);
+});
+
+
+it("u5644c_both_menus_bound_graph_work", () => {
+  let reads = 0;
+
+  const all = Array.from({ length: 80 }, (_, at) => {
+    const blockers = at ? [at] : [];
+
+    return todo(at + 1, { get blockers() { reads++;
+
+ return blockers; } });
+  });
+
+  // Count source reads at the production seam; DOM size is irrelevant to this bound.
+  for (const item of all) {
+    const blockers = item.blockers;
+    Object.defineProperty(item, "blockers", { get() { reads++;
+
+ return blockers; } });
+  }
+
+  reads = 0;
+  expect(offeredAsBlockers(all[0]!, all)).toEqual([]);
+  expect(reads).toBeLessThanOrEqual(2 * (80 + 79));
 });
