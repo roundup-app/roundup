@@ -9,7 +9,7 @@
     "os": "Linux-7.0.0-1017-azure-x86_64-with-glibc2.39"
   },
   "command": "pnpm --filter desktop exec vitest run src/ui/s3806b_actions.test.tsx src/bubbles/u3756_focus.test.ts src/terminal/u514_browser.test.ts src/keys/u3787b_menu.test.tsx src/todos/u4698d_browser.test.ts src/drawer/u4458_browser.test.ts src/switcher/u3787c_browser.test.ts src/keys/u2230_hints.test.tsx src/testing/u463_real_daemon.test.ts src/bubbles/u4274_navigation.test.tsx",
-  "status": "Navigation plus actions/menu/hints pairs retained; six rows remain on #5659.",
+  "status": "Five accepted rows: navigation, actions, menu, hints and real-Daemon. Five browser repairs and paired observations remain; not complete.",
   "claim": "Selected-file evidence only, never a full-shard result.",
   "head_commit": "af2f13ae55c5ac188f31e74ba58da7b556047a35",
   "setup": "pnpm install --frozen-lockfile in both isolated worktrees. Shared pre-existing Rust dependency cache; cargo build -p rupd -p rup exited 0 before the real-Daemon file. Dedicated headless agent-browser sessions and fresh temporary profiles.",
@@ -59,6 +59,22 @@
       "signal": "SIGINT",
       "log": "continuation-browser-head.log.gz",
       "result": "Stopped at run time boundary to complete required checks. No accepted timing evidence. All four browser source edits restored to main; run-owned browser session closed."
+    },
+    {
+      "command": "pnpm --filter desktop exec vitest run src/bubbles/u3756_focus.test.ts src/terminal/u514_browser.test.ts src/todos/u4698d_browser.test.ts src/drawer/u4458_browser.test.ts src/switcher/u3787c_browser.test.ts src/testing/u463_real_daemon.test.ts --reporter=default --reporter=/tmp/ci5527e-reporter.mjs",
+      "commit": "9ea6ab4075840f2be01c238f8455dfeac85cc751",
+      "outer_exit": 1,
+      "vitest_exit": 130,
+      "log": "fix-41502405087-overlap-interrupted.log.gz",
+      "result": "Interrupted before completed modules because cargo setup overlapped. No accepted timing evidence."
+    },
+    {
+      "command": "pnpm --filter desktop exec vitest run src/bubbles/u3756_focus.test.ts src/terminal/u514_browser.test.ts src/todos/u4698d_browser.test.ts src/drawer/u4458_browser.test.ts src/switcher/u3787c_browser.test.ts src/testing/u463_real_daemon.test.ts --reporter=default --reporter=/tmp/ci5527e-reporter.mjs",
+      "commit": "9ea6ab4075840f2be01c238f8455dfeac85cc751",
+      "outer_exit": 1,
+      "vitest_exit": 130,
+      "log": "fix-41502405087-six-interrupted.log.gz",
+      "result": "Focus (27 passed) and Terminal (43 passed, 1 existing skip) completed. Real-Daemon had six setup failures with CHROME_PATH unset; interrupted during Switcher. No raw reporter emitted on SIGINT; no accepted timing evidence. A subsequent explicit real-Daemon pair with CHROME_PATH set passed."
     }
   ],
   "head_observation": {
@@ -175,6 +191,32 @@
         "continuation-ui-head.json.gz"
       ],
       "repair": "Use existing accessible labels and control selectors instead of whole-App role/name resolution."
+    },
+    {
+      "file": "src/testing/u463_real_daemon.test.ts",
+      "baseline_ms": 116033.340977,
+      "head_ms": 101233.46151200001,
+      "tests": 7,
+      "passed": 6,
+      "skipped": 1,
+      "identities": "Full names and statuses exactly match both raw reports",
+      "baseline_commit": "9ea6ab4075840f2be01c238f8455dfeac85cc751",
+      "head_commit": "10cc17ab6bac2f556e6fb10ffce229956d3e848f",
+      "baseline_exit": 0,
+      "head_exit": 0,
+      "command": "CHROME_PATH=/home/boxd/.agent-browser/browsers/chrome-156.0.8078.80/chrome CI5527_REPORT=<output> pnpm --filter desktop exec vitest run src/testing/u463_real_daemon.test.ts --reporter=default --reporter=/tmp/ci5527e-reporter.mjs",
+      "runner": {
+        "class": "Ubuntu 24.04.5 LTS isolated boxd self-hosted runner",
+        "cpus": 2,
+        "os": "Linux-6.18.0+-x86_64-with-glibc2.39",
+        "run": "https://github.com/roundup-app/roundup/actions/runs/41502405087"
+      },
+      "reports": [
+        "fix-41502405087-daemon-before.json.gz",
+        "fix-41502405087-daemon-head.json.gz"
+      ],
+      "repair": "Reuse laneBrowser native executable choice in both local browser wrappers; scope first-run text queries to .choose-project. All actions/assertions remain.",
+      "setup": "pnpm install --frozen-lockfile and cargo build -p rupd -p rup before the pair. target symlinks the existing CARGO_TARGET_DIR. CHROME_PATH points to agent-browser installed Chromium. Same worktree, runner, explicit file selection, configuration and workload. Sequential runs with no competing build/test/lint command; fixture-owned cargo checks are included in hooks. Reporter copied from navigation-reporter.mjs.in."
     }
   ],
   "next_observer": "Run passing baseline/head observations with identical explicit file selections, runner class and workload and no competing jobs. Retain raw module.diagnostic().duration (including hooks) or Vitest raw results cache duration, identities and statuses. Default printed integer milliseconds round duration and are diagnostic only.",
@@ -188,7 +230,15 @@
     "completion-ready-before-repair.log.gz": "8e095fe741fd7aa6f0573b1f65ba1209b18b23bc1f277438e00742ba62de0ba3",
     "completion-ready.log.gz": "013f61436ef4758e899036e86177566a4425eb5bffc66090ae899178fef16ef7",
     "completion-ui-lint-main.log.gz": "7b285c11708c7feadac205626d611502b9f7893a36ed5a0f381b5503e80accc1",
-    "completion-ui-lint.log.gz": "167da15b9729ecaad9014a1c3887627af71d1caa69e1cb1009957e9533f566db"
+    "completion-ui-lint.log.gz": "167da15b9729ecaad9014a1c3887627af71d1caa69e1cb1009957e9533f566db",
+    "fix-41502405087-daemon-before.log.gz": "31f9965e9703525092fb17cda628826e9d8ac695b4798e962e679c9c777eaffc",
+    "fix-41502405087-daemon-before.json.gz": "fc69bb62d57af8219d0239fa0f58649763902f4880143351bdb164c1a398405a",
+    "fix-41502405087-ui-head.log.gz": "bd393735718c61e7064bc631f9c72423faf39053a876541445ad318d6d9f3772",
+    "fix-41502405087-ui-before.log.gz": "70ab910696b3f96153e310ae67f059324f7fb0d92f667352de8c64648567a448",
+    "fix-41502405087-six-interrupted.log.gz": "1a44eb29d382cac259306cc9aecb7b9f382849d7cd9fc53c7a85b9851d65626d",
+    "fix-41502405087-overlap-interrupted.log.gz": "5c9038c8488fd5fe9fd5cde3de47fd9fc0518e20c1336486a248c700eb162428",
+    "fix-41502405087-daemon-head.json.gz": "ff028dcb91f79a06b8f1c2ffff54f9d9632fd2896048c636b706fec53680f906",
+    "fix-41502405087-daemon-head.log.gz": "802df097dd17714a4d4594ef2968bb59f9cb337766b8c7b4a86963a7cb6e4d7e"
   },
   "corrected_actions_commit": "e8cf1d5df08faa2b54dd48ebaedb3c7ebae514ad",
   "actions_rerun": {
@@ -208,8 +258,7 @@
     "src/terminal/u514_browser.test.ts",
     "src/todos/u4698d_browser.test.ts",
     "src/drawer/u4458_browser.test.ts",
-    "src/switcher/u3787c_browser.test.ts",
-    "src/testing/u463_real_daemon.test.ts"
+    "src/switcher/u3787c_browser.test.ts"
   ],
   "final_ready": {
     "command": "just ready",
@@ -437,5 +486,34 @@
         "replay_setup": "Copy navigation-reporter.mjs.in to /tmp/ci5527e-reporter.mjs; CI5527_REPORT names the output JSON. pnpm install --frozen-lockfile before both runs; same worktree, runner and unchanged Vitest configuration. Runs were sequential with no competing verification jobs."
       }
     ]
+  },
+  "fix_41502405087": {
+    "remaining": [
+      "src/bubbles/u3756_focus.test.ts",
+      "src/terminal/u514_browser.test.ts",
+      "src/todos/u4698d_browser.test.ts",
+      "src/drawer/u4458_browser.test.ts",
+      "src/switcher/u3787c_browser.test.ts"
+    ],
+    "ui_lint": {
+      "baseline_exit": 1,
+      "head_exit": 1,
+      "logs": [
+        "fix-41502405087-ui-before.log.gz",
+        "fix-41502405087-ui-head.log.gz"
+      ],
+      "result": "Both flag the same existing Unicode input fixture at u463_real_daemon.test.ts:463; no new UI pattern."
+    },
+    "final_merge_commit": "8720c1c02980c790e8245e22f382450d623fa2ad",
+    "note": "Measured source files are byte-identical after merging origin/main. CI5527e remains incomplete; no full-shard result.",
+    "accepted_pair_file": "src/testing/u463_real_daemon.test.ts",
+    "source_verification": {
+      "apps/desktop/src/testing/u463_real_daemon.test.ts": "a8e3806630226742781c80c16b18f6228fc182a5",
+      "apps/desktop/src/todos/laneBrowser.ts": "436d420fdae64ce74d6ab2656b266125526e54b9"
+    },
+    "merge_loss": {
+      "command": "bash loop/rules.sh merge-loss",
+      "exit": 0
+    }
   }
 }
