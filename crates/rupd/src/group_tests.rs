@@ -118,14 +118,14 @@ async fn u5690c_group_preserves_selected_identities_and_reopens() {
             pad
         );
         for node in before.as_array().unwrap() {
-            let held = after
+            let retained = after
                 .as_array()
                 .unwrap()
                 .iter()
                 .find(|n| n["id"] == node["id"])
                 .unwrap();
             for field in ["kind", "name", "attempt", "work", "can_resume"] {
-                assert_eq!(held[field], node[field], "{field}");
+                assert_eq!(retained[field], node[field], "{field}");
             }
         }
         for (id, home) in [
