@@ -513,7 +513,7 @@ it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $
       expect(connected.rail.commandFailure.message()).toContain("New Agent");
       // Removing the rendering owner must not discard the connection's recovery.
       // guarded's finally releases the add action after publishing the failure.
-      await waitFor(() => expect(document.querySelector('.rail-actions button[aria-label="New Agent"]')?.getAttribute("aria-disabled")).toBeNull());
+      await waitFor(() => expect(document.querySelector('.rail-actions button[aria-label="Create"]')?.getAttribute("aria-disabled")).toBeNull());
       const recovery = connected.rail.commandFailure.retry();
 
       if (row.owner !== "App") cleanup();

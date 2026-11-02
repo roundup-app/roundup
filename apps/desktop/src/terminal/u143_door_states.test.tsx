@@ -1,9 +1,10 @@
+import { chooseFooter } from "../rail/railFixture";
 import { chooseAction } from "../rail/railFixture";
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import type { RailNode } from "@contracts/agent/RailNode";
 import { RpcError } from "../app/seam";
-import { agent, door, event, info, workstream } from "../testing/nodes";
+import { door, event, info, workstream } from "../testing/nodes";
 import { openTabs, path } from "../header/stripFixture";
 import { CHORDS } from "../keys/chords";
 import { copy } from "./copy";
@@ -17,7 +18,7 @@ const paneStart = () => startWords().find((word) => word.closest(".pane-door"))!
 
 const calls = (app: { calls: { method: string; params: unknown }[] }, method: string) => app.calls.filter((call) => call.method === method).map((call) => call.params);
 
-const startWorkstream = () => screen.getByRole("button", { name: copy.addWorkstream });
+const startWorkstream = () => screen.getByRole("button", { name: "Create" });
 
 const emptyProject = async () => {
   const tree: RailNode[] = [];
@@ -43,7 +44,7 @@ describe("u143 empty Project", () => {
     const { app, connected } = await emptyProject();
     app.handlers["rail.startDoor"] = () => door("made", "working", "starting");
 
-    fireEvent.click(startWorkstream());
+    await chooseFooter("Workstream");
 
     await waitFor(() => expect(calls(app, "rail.startDoor")).toMatchObject([{ id: "made" }]));
     expect([calls(app, "rail.createWorkstream"), connected.rail.selected()]).toEqual([[{ name: "workstream", parent: null }], "made"]);
@@ -53,10 +54,10 @@ describe("u143 empty Project", () => {
     const { app } = await emptyProject();
     app.handlers["rail.createWorkstream"] = () => new Promise<RailNode>(() => {});
 
-    fireEvent.click(startWorkstream());
+    await chooseFooter("Workstream");
     await waitFor(() => expect(startWorkstream().matches('[aria-disabled="true"]')).toBe(true));
     fireEvent.click(startWorkstream());
-    fireEvent.click(screen.getByText(copy.addWorkstreamWord.trim(), { selector: ".rail-actions button" }));
+    fireEvent.click(startWorkstream());
 
     expect([calls(app, "rail.createWorkstream").length, startWorkstream().matches('[aria-disabled="true"]')]).toEqual([1, true]);
   });
@@ -67,7 +68,7 @@ describe("u143 empty Project", () => {
       throw new RpcError(-32000, "no space");
     };
 
-    fireEvent.click(startWorkstream());
+    await chooseFooter("Workstream");
 
     await screen.findByRole("alert");
     await waitFor(() => expect(startWorkstream().matches('[aria-disabled="true"]')).toBe(false));
@@ -84,10 +85,10 @@ describe("u143 empty Project", () => {
 
     app.handlers["rail.startDoor"] = () => door("made", "working", "starting");
 
-    fireEvent.click(startWorkstream());
+    await chooseFooter("Workstream");
     await screen.findAllByRole("alert");
     await waitFor(() => expect(startWorkstream().matches('[aria-disabled="true"]')).toBe(false));
-    fireEvent.click(startWorkstream());
+    await chooseFooter("Workstream");
 
     await waitFor(() => expect(calls(app, "rail.startDoor")).toMatchObject([{ id: "made" }]));
     expect(calls(app, "rail.createWorkstream").length).toBe(2);
@@ -99,7 +100,7 @@ describe("u143 empty Project", () => {
       throw new RpcError(-32003, "launch failed");
     };
 
-    fireEvent.click(startWorkstream());
+    await chooseFooter("Workstream");
     await screen.findByText(copy.doorDidNotStart);
     app.handlers["rail.startDoor"] = () => door("made", "working", "starting");
     fireEvent.click(paneStart());
