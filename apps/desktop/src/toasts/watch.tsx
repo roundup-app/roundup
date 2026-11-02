@@ -1,3 +1,4 @@
+import { lazy } from "solid-js";
 import type { ActivationSource } from "../keys/registry";
 import { copy } from "./copy";
 import type { Actor } from "@contracts/Actor";
@@ -6,10 +7,12 @@ import type { Pad } from "@contracts/pad/Pad";
 import type { Todo } from "@contracts/todo/Todo";
 import type { Unsubscribe } from "../app/seam";
 import type { ConnectedProject } from "../state/connectedProject";
-import { TodoHost } from "../todos/TodoDrawer";
-import { PadHost } from "../pads/PadDrawer";
 import type { Candidate } from "./queue";
 import type { StateAlerts } from "../rail/stateAlerts";
+
+const TodoHost = lazy(() => import("../todos/TodoDrawer").then(module => ({ default: module.TodoHost })));
+
+const PadHost = lazy(() => import("../pads/PadDrawer").then(module => ({ default: module.PadHost })));
 
 const TITLE_CHARS = 60;
 
