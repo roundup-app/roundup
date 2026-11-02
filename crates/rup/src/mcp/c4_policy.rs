@@ -30,14 +30,14 @@ fn c4_declarations_preserve_mcp_policy() {
         assert_eq!(rows.get(method.as_str()), Some(expected), "{method}");
     }
     for (role, list) in [("agents", tools(false)), ("doors", door_tools())] {
-        let mut methods: Vec<_> = list.iter().map(|offer| offer.method).collect();
+        // Pin the base methods' entire role sets without making additions update this record.
+        let mut methods: Vec<_> = list
+            .iter()
+            .map(|offer| offer.method)
+            .filter(|method| before["commands"].get(*method).is_some())
+            .collect();
         methods.sort_unstable();
-        for method in before[role].as_array().unwrap() {
-            assert!(
-                methods.contains(&method.as_str().unwrap()),
-                "{role}: {method}"
-            );
-        }
+        assert_eq!(serde_json::to_value(methods).unwrap(), before[role]);
     }
 }
 
