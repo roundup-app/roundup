@@ -437,7 +437,7 @@ fn test_daemon_with_agents(
 }
 
 /// Process-free domain fixture, using the existing lifecycle and inbox traits.
-#[cfg(feature = "test-support")]
+#[cfg(any(test, feature = "test-support"))]
 pub mod test_support {
     use super::*;
     use async_trait::async_trait;
@@ -451,6 +451,7 @@ pub mod test_support {
         pub nodes: Mutex<Vec<RailNode>>,
         pub entries: Mutex<Vec<(String, u32, String, String)>>,
         pub written: tokio::sync::Notify,
+        pub messages: std::sync::OnceLock<std::sync::Weak<messages::Messages>>,
         pub terminal_writes: Mutex<usize>,
     }
 
@@ -572,6 +573,7 @@ pub mod test_support {
             .unwrap(),
         );
         messages.set_inbox(state.clone());
+        state.messages.set(Arc::downgrade(&messages)).ok().unwrap();
         daemon.register(messages);
         daemon.register(state.clone());
         daemon.start_pushes();
