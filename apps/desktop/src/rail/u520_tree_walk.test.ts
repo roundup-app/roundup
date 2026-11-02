@@ -1,3 +1,8 @@
+import { createRoot } from "solid-js";
+import { connectProject } from "../state/connectedProject";
+import { createFakeApp } from "../testing/fakeApp";
+import { agent, workstream, NOW } from "../testing/nodes";
+import { createRailTree } from "./railTree";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { captureDir } from "../testing/captures";
@@ -186,4 +191,32 @@ run("u5483 folded children", () => {
     await at("fold:auth");
   });
 
+});
+
+// Exercise the same owner/projection Rail mounts; getters charge only its source reads.
+it("u5645a_one_topology_serves_rows_and_collection_at_40_and_400", async () => {
+  for (const size of [40, 400]) {
+    const chain = Array.from({ length: size - 4 }, (_, at) => workstream(`chain-${at}`, {
+      parent: at === 0 ? null : `chain-${at - 1}`, order: at,
+    }));
+
+    const expected = [...chain.map(node => node.id), "earlier", "later", "mode", "root-agent"];
+
+    const source = [...chain.toReversed(), workstream("later", { order: 8 }),
+      agent("root-agent", "working", "x"), workstream("mode", { opening_prompt: "Go" }), workstream("earlier", { order: 7 })];
+
+    let parents = 0;
+    const counted = source.map(node => ({ ...node, get parent() { parents += 1;
+
+ return node.parent; } }));
+    const connected = await connectProject(createFakeApp(), { path: "/p", name: "p" }, () => true, () => NOW);
+    createRoot(dispose => {
+      const tree = createRailTree({ ...connected, rail: { ...connected.rail, nodes: counted } }, () => new Set(), () => undefined);
+      expect(tree.rows().map(row => row.key)).toEqual(expected.map(id => `node:${id}`));
+      expect(tree.collection().getValues().filter(id => !id.startsWith("section:"))).toEqual(expected);
+      expect(tree.sectionRows().map(section => section.id)).toEqual(["workstreams", "modes", "agents"]);
+      expect(parents).toBe(size);
+      dispose();
+    });
+  }
 });
