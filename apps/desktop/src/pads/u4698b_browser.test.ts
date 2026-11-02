@@ -165,7 +165,7 @@ it("u4698b_expand_keeps_the_long_pad_and_all_formats_reachable", { retry: 0, tim
       window.__fake.actAs({kind:'user',id:'you',parent:null});
       return true;
     })()`);
-    await browser("wait", '.drawer button:has-text("Keep mine")');
+    await browser("wait", "--fn", "[...document.querySelectorAll('.drawer button')].some(button => button.textContent === 'Keep mine')");
     await capture("conflict-1280");
   }
 
