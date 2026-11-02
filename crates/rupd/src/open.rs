@@ -132,7 +132,6 @@ impl Daemon {
                 .file_name()
                 .map(|name| name.to_string_lossy().into_owned())
                 .unwrap_or_default(),
-            attachments: attachment::Attachments::open(dir),
             digests: Arc::new(messages::digest::Seen::open(&dir.join("project.db"))?),
             sender: Arc::clone(&messages),
             agents: Arc::clone(&agents),
@@ -348,6 +347,7 @@ impl Daemon {
             Arc::clone(&self.touches),
             std::env::var_os("RUPD_DIGEST_OBSERVER").map(std::path::PathBuf::from),
         )
+        .with_agents(Arc::clone(&self.agents))
     }
 
     pub(crate) fn register(&mut self, module: Arc<dyn Module>) {

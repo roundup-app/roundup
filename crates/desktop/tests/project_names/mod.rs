@@ -71,12 +71,13 @@ fn s10_a_name_over_forty_characters_or_with_a_line_break_is_invalid_params() {
 fn s10_a_failed_write_of_the_names_never_fails_the_call() {
     let fx = Fixture::new(SERVE_AND_WAIT);
     fx.serve_real_daemon();
+    let (_app, webview) = app(fx.config.clone(), None);
+    invoke(&webview, "recent_projects", json!({})).unwrap();
     std::fs::write(
         fx.dir.path().join("data"),
         "a file where the folder should be",
     )
     .unwrap();
-    let (_app, webview) = app(fx.config.clone(), None);
 
     let opened = open(&webview, &fx.project);
     let renamed = invoke(
@@ -212,4 +213,47 @@ fn u2773c_header_overlapping_captured_writes_accept_only_one() {
         invoke(&webview, "projects", json!({})),
         Ok(json!([project_json(&fx.project, &accepted[0].name, true)]))
     );
+}
+
+#[test]
+fn n5467b_native_startup_refuses_before_opening_a_project() {
+    let dir = tempfile::tempdir().unwrap();
+    let data = dir.path().join("data");
+    std::fs::create_dir(&data).unwrap();
+    let file = data.join("projects.json");
+    let bytes = br#"{"open":["/sentinel"],"names":{}}"#;
+    std::fs::write(&file, bytes).unwrap();
+    let mut config = Config::locate(None, &dir.path().join("roundup"), dir.path(), 1).unwrap();
+    config.data_dir = Some(data.clone());
+    for _ in 0..2 {
+        let exits = Arc::new(Mutex::new(Vec::new()));
+        let recorded = exits.clone();
+        let mut app = build(
+            mock_builder(),
+            config.clone(),
+            Some(dir.path().join("project")),
+            move |_, code| recorded.lock().unwrap().push(code),
+        )
+        .build(mock_context(noop_assets()))
+        .unwrap();
+        #[allow(deprecated)]
+        app.run_iteration(|_, _| {});
+        assert_eq!(*exits.lock().unwrap(), [1]);
+        let webview = WebviewWindowBuilder::new(&app, "main", WebviewUrl::default())
+            .build()
+            .unwrap();
+        for command in ["projects", "recent_projects", "open_project"] {
+            let error = invoke(
+                &webview,
+                command,
+                json!({"path": dir.path().join("project")}),
+            )
+            .unwrap_err();
+            let message = error["message"].as_str().unwrap();
+            assert!(message.contains(&data.display().to_string()));
+            assert!(message.contains("Close roundup"));
+            assert!(message.contains("delete only projects.json"));
+        }
+        assert_eq!(std::fs::read(&file).unwrap(), bytes);
+    }
 }
