@@ -1,6 +1,6 @@
 import { ExitButton } from "../ui/IconButton";
 import { copy } from "./copy";
-import { createEffect, createMemo, createSignal, onCleanup, Show } from "solid-js";
+import { createEffect, createMemo, createSignal, onCleanup, on, Show } from "solid-js";
 import type { FileComparison } from "@contracts/agent/FileComparison";
 import { useConnectedProject } from "../state/connectedProject";
 import { ReservedLine } from "../ink/ReservedLine";
@@ -18,7 +18,7 @@ export const diffsLoaded = () => library !== undefined;
 
 /** One read-only comparison, fetched only after View diff. */
 export const DiffReader = (props: { id: string; name: string; path: string; notes: Notes; editing?: Note | undefined; onEdited: () => void; onBack: () => void; onClose: () => void; recover: () => void }) => {
-  const { app } = useConnectedProject();
+  const { app, worktrees } = useConnectedProject();
   const [selection, setSelection] = createSignal<{ side: "old" | "new"; start: number; end: number }>({ side: "new", start: 1, end: 1 });
   const [form, setForm] = createSignal<{ comparison: FileComparison; selection: ReturnType<typeof selection>; editing?: Note }>();
 
@@ -51,10 +51,10 @@ export const DiffReader = (props: { id: string; name: string; path: string; note
     return coarse() ? copy.replacementDiff : copy.selectedLines(selection().side, selection().start === selection().end ? `${selection().start}` : `${selection().start}–${selection().end}`, selection().start === selection().end);
   });
 
-  createEffect(() => {
-    version();
+  const worktree = createMemo(() => worktrees.read(props.id));
+
+  createEffect(on(() => [version(), worktree(), props.id, props.path], () => {
     setLoading(true);
-    setRead(undefined);
     setCoarse(false);
     let current = true;
     void reply(() => app.rpc("agent.compareFile", { id: props.id, path: props.path })).then(result => {
@@ -66,7 +66,7 @@ export const DiffReader = (props: { id: string; name: string; path: string; note
       else setFailure(result.text);
     });
     onCleanup(() => { current = false; });
-  });
+  }));
 
   // Form/caret retention must not rebuild Pierre's DOM or disturb its selection.
   const notes = createMemo(() => props.notes.list(props.id));
@@ -158,13 +158,12 @@ export const DiffReader = (props: { id: string; name: string; path: string; note
       <div class="diff-actions">
         <Show when={read()}>{value => <>
           <Show when={value().status !== null && value().old.kind !== "binary" && value().new.kind !== "binary"}><button type="button" data-button="quiet" ref={element => { addButton = element; }} onClick={() => setForm({ comparison: value(), selection: selection() })}>{copy.addNote}</button></Show>
-          <button type="button" data-button="quiet" onClick={() => setVersion(v => v + 1)}>{copy.refresh}</button>
         </>}</Show>
         <ExitButton ref={element => { backButton = element; }} onClick={props.onBack} />
         <button type="button" data-button="quiet" onClick={props.onClose}>{copy.closeChanges}</button>
       </div>
     </header>
-    <ReservedLine message={failure()} status={notice()}><Show when={!loading() && !read()}><button type="button" data-button="quiet" onClick={() => setVersion(v => v + 1)}>{copy.retry}</button></Show><Show when={failure()}><button type="button" data-button="quiet" onClick={() => setFailure(null)}>{copy.dismissFailure}</button></Show></ReservedLine>
+    <ReservedLine message={failure()} status={notice()}><Show when={!loading() && failure()}><button type="button" data-button="quiet" onClick={() => setVersion(v => v + 1)}>{copy.retry}</button></Show><Show when={failure()}><button type="button" data-button="quiet" onClick={() => setFailure(null)}>{copy.dismissFailure}</button></Show></ReservedLine>
     <Show when={read()}>{value => <>
       <Show when={value().status !== null}>
         <Show when={value().old.kind !== "binary" && value().new.kind !== "binary"}>
