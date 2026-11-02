@@ -23,3 +23,23 @@ impl Rail {
         tx.commit().map_err(sql)
     }
 }
+
+impl Rail {
+    pub(crate) fn set_visibility(
+        &self,
+        id: &str,
+        visibility: contracts::agent::RailVisibility,
+    ) -> Result<bool, RpcError> {
+        let value = match visibility {
+            contracts::agent::RailVisibility::Shown => "shown",
+            contracts::agent::RailVisibility::Internal => "internal",
+        };
+        self.db
+            .execute(
+                "UPDATE nodes SET visibility=?1 WHERE id=?2 AND visibility<>?1",
+                params![value, id],
+            )
+            .map(|n| n != 0)
+            .map_err(sql)
+    }
+}

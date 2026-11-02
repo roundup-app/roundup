@@ -1,0 +1,7 @@
+PROOF q3 banner reached Terminals log: true
+PROOF q3 flood finished: true
+PROOF q3 terminal.read: 27 reads to offset 379804; lines seen=5000 unique=5000 first=Some(1) last=Some(5000) split=0 out_of_order=0
+PROOF q3 terminal.search line 004321 -> offset 328095; read(after=offset) starts Some("line 004321 αβγ→🙂 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")
+PROOF q3 terminal.screen (100x30) last rows == Rex format text last rows: true ; ours=["ready>", "flood done 5000", "line 005000 αβγ→🙂 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", "line 004999 αβγ→🙂 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"]
+PROOF q3 Terminals log bytes == Rex stream program bytes: true (log 379804 B, end offset 379804, Rex program bytes 379804 B)
+PROOF q3 after `exit 3`: Terminals exit_code=Some(3) running=false

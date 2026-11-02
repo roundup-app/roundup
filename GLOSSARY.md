@@ -224,6 +224,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Terminal scheme (`terminal.scheme`, `SchemeParams`, `Scheme`) | same | — |
 | RPC output intake (`Client::take_output`, `OutputFrame`) | same | — |
 | Event log | same | — |
+| Rail visibility (`RailVisibility`, `SetVisibilityParams`, `agent.setVisibility`, `agent_set_visibility`) | shown, internal | — |
 | Rail rename (`rail.renamed`, `RailRenamed`) | same | — |
 | Event number (`seq`) | same | — |
 | Event head (`head`) | same | — |
@@ -384,3 +385,5 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Claude binary (`claude_binary`, `claudeBinary`, `ClaudeBinary`, `claudeBinarySchema`) | claude | — |
 
 | Undo refusal (`RpcErrorData::UndoParent`, `UndoIdentity`, `UndoPadName`, `RpcError::undo_parent`, `undo_identity`, `undo_pad_name`) | same | — |
+
+| Menu-bar mark (`MenuBar`, `MenuBarAction`, `menuBarActionSchema`, `setMenuBar`, `onMenuBarAction`, `watchMenuBar`, `showWindow`, `menu_bar`, `set_menu_bar`, `menu-bar-action`) | same | — |

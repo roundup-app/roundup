@@ -53,6 +53,9 @@ fn usage(spec: &Spec) -> String {
 }
 
 pub(super) fn example(spec: &Spec) -> String {
+    if spec.method == "pad.appendSection" {
+        return "rup pad append-section notes Plan Added --expected-revision 1".into();
+    }
     if spec.stream {
         return format!("{} --after 12 --follow --json", invocation(spec));
     }

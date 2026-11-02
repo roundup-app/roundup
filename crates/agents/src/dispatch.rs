@@ -282,6 +282,41 @@ impl Agents {
         }
     }
 
+    async fn rpc_agent_set_visibility(
+        &self,
+        ctx: &Ctx,
+        _method: &str,
+        value: Value,
+    ) -> Result<Value, RpcError> {
+        let p: contracts::agent::SetVisibilityParams = params(value)?;
+        let rail = self.shared.rail();
+        let node = rail.node(&p.id)?;
+        if node.kind != NodeKind::Agent
+            || (ctx.actor.kind == ActorKind::Agent
+                && (node.parent.as_deref() != Some(&ctx.actor.id)
+                    || rail.node(&ctx.actor.id)?.kind != NodeKind::Workstream))
+        {
+            return Err(RpcError::forbidden(
+                "only a Door may choose visibility for its direct Agent children",
+            ));
+        }
+        let presented =
+            self.shared
+                .present(node, &self.shared.runs(), &rail, rail.finished(&p.id)?)?;
+        if p.visibility == contracts::agent::RailVisibility::Internal
+            && let Some(reason) = super::rail_view::visibility_reason(&presented)
+        {
+            return Err(RpcError::new(code::INVALID_PARAMS, reason));
+        }
+        let changed = rail.set_visibility(&p.id, p.visibility)?;
+        drop(rail);
+        if changed {
+            ctx.touch(contracts::Verb::Wrote, &format!("agent:{}", p.id))?;
+            ctx.emit(EventData::RailChanged);
+        }
+        reply(&self.shared.node(&p.id)?)
+    }
+
     async fn rpc_agent_set_order(
         &self,
         ctx: &Ctx,

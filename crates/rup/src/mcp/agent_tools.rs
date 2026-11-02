@@ -78,3 +78,13 @@ pub(super) fn agent_extras_add() -> Offered {
         )
     }
 }
+
+/// U5531a: the id names the child, never the caller.
+pub(super) fn agent_set_visibility() -> Offered {
+    let mut offer = offered::<agent::SetVisibilityParams>(
+        "agent.setVisibility",
+        "Choose shown or internal for a direct child. Internal is refused while attention or completed-turn protection is active.",
+    );
+    offer.tool.name = "agent_set_visibility".into();
+    offer
+}

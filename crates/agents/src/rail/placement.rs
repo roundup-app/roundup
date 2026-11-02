@@ -46,6 +46,8 @@ impl Rail {
         ids.insert((index as usize).min(ids.len()), id.to_owned());
         place(&tx, parent, &ids)?;
         if node.parent.as_deref() != parent {
+            tx.execute("UPDATE nodes SET visibility='shown' WHERE id=?", [id])
+                .map_err(sql)?;
             place(
                 &tx,
                 node.parent.as_deref(),

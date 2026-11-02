@@ -6,3 +6,4 @@ CREATE VIEW instruction_placement AS
   UNION ALL SELECT c.agent,n.id,n.parent,n.kind FROM nodes n JOIN chain c ON n.id=c.parent
   WHERE c.kind <> 'workstream'
  ) SELECT agent,CAST(id AS TEXT) AS home FROM chain WHERE kind='workstream';
+ALTER TABLE nodes ADD COLUMN visibility TEXT NOT NULL DEFAULT 'shown' CHECK (visibility IN ('shown','internal'));
