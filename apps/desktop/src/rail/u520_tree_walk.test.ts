@@ -139,6 +139,28 @@ run("u5483 folded children", () => {
     expect(await page.call<boolean>(`() => document.querySelector('[data-id="docs"]') === null`)).toBe(true);
     await capture("closed");
   });
+  it("u5483b_keyboard_walk_reaches_a_folded_agents_descendant", async () => {
+    await page.scheme("dark");
+    await page.load("/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40", 1512, 950);
+    await page.until(`() => !!document.querySelector('[data-id="fold:auth"]')`);
+    await page.call(`async () => {
+      const nodes = await window.__fake.app.rpc('rail.tree', null);
+      const parent = nodes.find(node => node.id === 'docs');
+      const descendant = { ...parent, id: 'fold-descendant', name: 'fold descendant', parent: 'docs', final_text: undefined,
+        status: { kind: 'working', label: 'working', since: Date.now(), finished: '0' } };
+      window.__fake.app.handlers['rail.tree'] = () => [...nodes, descendant];
+      window.__fake.emit({ actor: { kind: 'user', id: 'you', parent: null }, name: 'rail.changed' });
+    }`);
+    await page.call(`() => document.querySelector('[data-id="fold:auth"] [data-part="branch-control"]').focus()`);
+    await press("ArrowRight");
+    await folded("fold:auth", "true");
+    await press("ArrowRight");
+    await at("docs");
+    await press("ArrowRight");
+    await at("fold-descendant");
+    await capture("descendant");
+  });
+
   it("u5483b_focus_survives_folding_and_return", async () => {
     await page.load("/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40", 1512, 950);
     await page.until(`() => !!document.querySelector('[data-id="fold:auth"]')`);
