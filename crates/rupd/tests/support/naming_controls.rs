@@ -86,7 +86,7 @@ async fn b2704a_workstream_rename_notifies_its_door() {
     let mut run = Run::open(1, false).await;
     let workstream = run
         .user
-        .request("rail.createWorkstream", json!({"name":"sad","parent":null}))
+        .request("rail.createWorkstream", json!({"name":"sad","parent":null,"order":{"kind":"work","ask":"Wait for updates","limits":[]}}))
         .await
         .unwrap();
     let door = run
