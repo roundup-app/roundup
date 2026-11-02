@@ -1,0 +1,17 @@
+[
+  "/home/runner/work/roundup/roundup: git [\"rev-parse\", \"--verify\", \"HEAD^{commit}\"]",
+  "/home/runner/work/roundup/roundup: git [\"merge-base\", \"origin/main\", \"3106d2b347bd75028e6dc0206d47ade758e1b3ce\"]",
+  "/home/runner/work/roundup/roundup: sha256sum [\"/home/runner/work/roundup/roundup/target/release/perf\"]",
+  "/home/runner/work/roundup/roundup: rustc [\"-Vv\"]",
+  "/home/runner/work/roundup/roundup: rustup [\"show\", \"active-toolchain\"]",
+  "/home/runner/work/roundup/roundup: git [\"worktree\", \"add\", \"--detach\", \"/tmp/.tmpuKTDoH/base\", \"5307469e18b650bca8297bbfd782cbbb72b89e23\"]",
+  "/tmp/.tmpuKTDoH/base: pnpm [\"install\", \"--frozen-lockfile\", \"--ignore-scripts\"]",
+  "/tmp/.tmpuKTDoH/base: cargo [\"build\", \"--locked\", \"--release\", \"-p\", \"rupd\", \"-p\", \"rup\"]",
+  "/tmp/.tmpuKTDoH/base: bash [\"tools/sidecar/bundle.sh\", \"target/release/sidecar\"]",
+  "/home/runner/work/roundup/roundup: sha256sum [\"/tmp/.tmpuKTDoH/base/target/release/rupd\", \"/tmp/.tmpuKTDoH/base/target/release/rup\", \"/tmp/.tmpuKTDoH/base/target/release/sidecar/node\"]",
+  "/home/runner/work/roundup/roundup: git [\"worktree\", \"add\", \"--detach\", \"/tmp/.tmpuKTDoH/head\", \"3106d2b347bd75028e6dc0206d47ade758e1b3ce\"]",
+  "/tmp/.tmpuKTDoH/head: pnpm [\"install\", \"--frozen-lockfile\", \"--ignore-scripts\"]",
+  "/tmp/.tmpuKTDoH/head: cargo [\"build\", \"--locked\", \"--release\", \"-p\", \"rupd\", \"-p\", \"rup\"]",
+  "/tmp/.tmpuKTDoH/head: bash [\"tools/sidecar/bundle.sh\", \"target/release/sidecar\"]",
+  "/home/runner/work/roundup/roundup: sha256sum [\"/tmp/.tmpuKTDoH/head/target/release/rupd\", \"/tmp/.tmpuKTDoH/head/target/release/rup\", \"/tmp/.tmpuKTDoH/head/target/release/sidecar/node\"]"
+]
