@@ -352,7 +352,7 @@ const PadRow = (props: Parameters<typeof PadRows>[0] & { pad: Pad; parts: Parame
 
   const rename = () => { setEditing(true); };
 
-  registerKeys({ kind: "layer", element: () => row, active: () => document.activeElement === row && !modalOpen(), modal: false }, CHORDS.filter(action => action.keys === "⏎" || action.keys === "F2").map(action => ({
+  registerKeys({ kind: "layer", element: () => row, active: () => document.activeElement === row && !modalOpen(), modal: false }, CHORDS.filter(action => action.name === "todo.open-draft" || action.name === "rail.rename").map(action => ({
     action, searchable: false as const,
     when: (event: KeyboardEvent) => event.target === row && !event.isComposing,
     capture: (focus: Element | null) => {
@@ -363,7 +363,7 @@ const PadRow = (props: Parameters<typeof PadRows>[0] & { pad: Pad; parts: Parame
         available: () => focus === row && row?.isConnected === true && document.activeElement === row
           && !row.closest("[hidden], [inert]") && !editing() && !props.bulk.pending() && !modalOpen()
           && props.shown().some(current => current.incarnation === incarnation && current.name === name),
-        invoke: () => { if (action.keys === "⏎") open("key"); else rename(); },
+        invoke: () => { if (action.name === "todo.open-draft") open("key"); else rename(); },
       };
     },
   })));
