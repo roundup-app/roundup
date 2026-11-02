@@ -181,7 +181,7 @@ it.each([
   fireEvent.click(document.querySelector('.rail-row[data-id="a"]')!);
   await waitFor(() => expect(emulators.made.get("t-a")?.written).toHaveLength(1));
   await waitFor(() => expect(document.querySelector('.pane-screen [data-terminal]')?.getAttribute("data-terminal")).toBe("t-a"));
-  await waitFor(() => expect(app.calls.filter(call => call.method === "terminal.snapshot" && call.params.id === "t-a")).toHaveLength(mounted ? 2 : 1));
+  await waitFor(() => expect(app.calls.filter(call => call.method === "terminal.snapshot").map(call => call.params)).toEqual(mounted ? [{ id: "t-a" }, { id: "t-b" }, { id: "t-a" }] : [{ id: "t-a" }]));
   expect(screen.queryByRole("button", { name: /held/ })).not.toBeNull();
   expect(connected.held.rows()).toEqual(saved);
 
