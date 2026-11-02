@@ -32,6 +32,7 @@ it.each(["agent", "door", "bubble"].flatMap(placement => ["text", "image"].map(p
   }
 
   const id = placement === "bubble" ? "plain" : "t-a";
+  made.get(id)!.focus();
   const target = document.querySelector(`[data-terminal="${id}"]`)!;
   const expected = payload === "text" ? "one\n雪 🐈\n" : "'/Users/me/Library/Caches/roundup-pasted/pasted-1-abcd1234.png' ";
   pasteEvent(target, payload === "text" ? expected : "", payload === "image" ? [imageFile()] : []);
