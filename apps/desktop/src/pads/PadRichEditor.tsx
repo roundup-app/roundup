@@ -48,18 +48,18 @@ export type PadEditorHandle = {
   unchanged(): boolean;
 };
 
-const topBarNames = new Map([
-  ["bold", copy.bold],
-  ["italic", copy.italic],
-  ["code", copy.inlineCode],
-  ["bullet-list", copy.bulletList],
-  ["ordered-list", copy.numberedList],
-  ["task-list", copy.checklist],
-  ["link", copy.link],
-  ["code-block", copy.codeBlock],
-  ["quote", copy.quote],
-  ["table", copy.table],
-]);
+const topBarNames = new Map(Object.entries({
+  "bold": copy.bold,
+  "italic": copy.italic,
+  "code": copy.inlineCode,
+  "bullet-list": copy.bulletList,
+  "ordered-list": copy.numberedList,
+  "task-list": copy.checklist,
+  "link": copy.link,
+  "code-block": copy.codeBlock,
+  "quote": copy.quote,
+  "table": copy.table,
+}));
 
 /** U4698b: the toolbar is these eleven formats; Crepe's other items (strikethrough, rule) are removed before it renders. */
 const toolbarKeys = new Set(["heading-selector", "bold", "italic", "code", "link", "bullet-list", "ordered-list", "task-list", "quote", "code-block", "table"]);
@@ -153,12 +153,12 @@ export default function PadRichEditor(props: {
         buildTopBar: (builder) => {
           for (const group of builder.build()) group.items = group.items.filter((item) => toolbarKeys.has(item.key));
 
-          builder.addGroup("colour", "Colour").addItem("colour", {
+          builder.addGroup("colour", copy.textColour).addItem("colour", {
             icon: "", active: () => false,
             selector: {
               activeLabel: () => copy.textColour,
-              options: ["default", ...padColours].map(colour => ({
-                label: colour[0]!.toUpperCase() + colour.slice(1),
+              options: ["default" as const, ...padColours].map(colour => ({
+                label: copy.colours[colour],
                 onSelect: (ctx: import("@milkdown/kit/ctx").Ctx) => {
                   const view = ctx.get(editorViewCtx);
                   const { from, to } = view.state.selection;
@@ -171,7 +171,7 @@ export default function PadRichEditor(props: {
               })),
             },
           }).addItem("highlight", {
-            icon: "H", active: () => false,
+            icon: copy.highlightIcon, active: () => false,
             onRun: (ctx: import("@milkdown/kit/ctx").Ctx) => {
               const view = ctx.get(editorViewCtx);
               toggleMark(padHighlight.type(ctx))(view.state, view.dispatch);
@@ -297,7 +297,10 @@ export default function PadRichEditor(props: {
       const selectors = host.querySelectorAll<HTMLButtonElement>(".milkdown-top-bar .top-bar-heading-button");
       const heading = selectors[0];
 
-      if (selectors[1]) selectors[1].setAttribute("aria-label", copy.textColour);
+      if (selectors[1]) {
+        selectors[1].setAttribute("aria-label", copy.textColour);
+        selectors[1].title = copy.textColour;
+      }
 
       if (heading) {
         heading.setAttribute("aria-label", copy.heading);

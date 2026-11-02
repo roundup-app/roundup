@@ -1,3 +1,4 @@
+import { copy } from "./copy";
 import { $markSchema, $nodeSchema, $remark } from "@milkdown/kit/utils";
 import type { MarkdownNode } from "@milkdown/kit/transformer";
 import type { Options, Handle } from "mdast-util-to-markdown";
@@ -23,9 +24,9 @@ declare module "mdast" {
   }
 }
 
-export const calloutKinds = ["NOTE", "TIP", "IMPORTANT", "WARNING", "CAUTION"];
+export const calloutKinds = Object.values(copy.calloutKinds);
 
-export const padColours = ["blue", "green", "purple", "red", "amber"];
+export const padColours = ["blue", "green", "purple", "red", "amber"] as const;
 
 const transform = (node: MarkdownNode) => {
   const nodes = node.children;
@@ -95,7 +96,7 @@ export const padFormatMarkdown = $remark("padFormats", () => function () {
 
 export const padCallout = $nodeSchema("padCallout", () => ({
   content: "block+", group: "block", defining: true,
-  attrs: { kind: { default: "NOTE" } },
+  attrs: { kind: { default: copy.calloutKinds.NOTE } },
   toDOM: node => ["blockquote", { "data-pad-callout": node.attrs.kind.toLowerCase() }, ["div", { contenteditable: "false", class: "pad-callout-label" }, node.attrs.kind], ["div", 0]],
   parseMarkdown: { match: node => node.type === "padCallout", runner: (state, node, type) => { state.openNode(type, { kind: node.kind }).next(node.children).closeNode(); } },
   toMarkdown: { match: node => node.type.name === "padCallout", runner: (state, node) => { state.openNode("padCallout", undefined, { kind: node.attrs.kind }).next(node.content).closeNode(); } },
