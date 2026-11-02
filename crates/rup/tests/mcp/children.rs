@@ -210,6 +210,14 @@ async fn u5531a_door_tool_round_trip_and_reopen() {
     let mut fx = b53_fixture().await;
     let shim = spawn_shim(&fx.served.socket(), &fx.door).await;
     let before = fx.user.request("rail.tree", Value::Null).await.unwrap();
+    let terminals = fx.user.request("terminal.list", Value::Null).await.unwrap();
+    let original_terminal = terminals
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|t| t["id"] == fx.terminal)
+        .unwrap()
+        .clone();
     let tools = shim.client.list_all_tools().await.unwrap();
     let fixture_dir = fx.served.dir.path();
     let config_paths: Vec<_> = [&fx.door, &fx.child]
@@ -293,6 +301,19 @@ async fn u5531a_door_tool_round_trip_and_reopen() {
         .find(|n| n["id"] == fx.child)
         .unwrap();
     assert_eq!(node["visibility"], "internal");
+    let terminals = reopened
+        .request("terminal.list", Value::Null)
+        .await
+        .unwrap();
+    let terminal = terminals
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|t| t["id"] == node["terminal_id"])
+        .expect("the same child still has its verified Terminal");
+    assert_eq!(terminal["incarnation"], original_terminal["incarnation"]);
+    assert_eq!(terminal["program_pid"], original_terminal["program_pid"]);
+    assert_eq!(terminal["running"], true);
     let original = before
         .as_array()
         .unwrap()
@@ -306,6 +327,10 @@ async fn u5531a_door_tool_round_trip_and_reopen() {
         std::fs::read(fx.served.dir.path().join("launches")).unwrap(),
         launches
     );
+    reopened
+        .request("agent.stop", json!({"id":fx.child}))
+        .await
+        .unwrap();
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -336,6 +361,12 @@ async fn u5531a_visibility_authority_is_enforced_by_the_daemon() {
         .await
         .unwrap();
     let before = fx.user.request("rail.tree", Value::Null).await.unwrap();
+    let launches = std::fs::read(fx.served.dir.path().join("launches")).unwrap();
+    let events = fx
+        .user
+        .request("events.subscribe", Value::Null)
+        .await
+        .unwrap();
     for (actor, target) in [
         (&fx.door, &nested),
         (&fx.child, &fx.child),
@@ -384,6 +415,18 @@ async fn u5531a_visibility_authority_is_enforced_by_the_daemon() {
         .await
         .unwrap_err();
     assert_eq!(error.code, rpc::code::INVALID_PARAMS);
+    assert_eq!(
+        events,
+        fx.user
+            .request("events.subscribe", Value::Null)
+            .await
+            .unwrap(),
+        "refused calls emit no mutation events"
+    );
+    assert_eq!(
+        launches,
+        std::fs::read(fx.served.dir.path().join("launches")).unwrap()
+    );
     for actor in [
         Actor::user(),
         Actor {
@@ -455,6 +498,12 @@ async fn u5531a_spawn_visibility_is_atomic_and_defaults_shown() {
     }
     let child = client_as(&fx.served.socket(), agent(&fx.child)).await;
     let before = fx.user.request("rail.tree", Value::Null).await.unwrap();
+    let launches = std::fs::read(fx.served.dir.path().join("launches")).unwrap();
+    let events = fx
+        .user
+        .request("events.subscribe", Value::Null)
+        .await
+        .unwrap();
     assert_eq!(
         child
             .request(
@@ -469,6 +518,17 @@ async fn u5531a_spawn_visibility_is_atomic_and_defaults_shown() {
     assert_eq!(
         before,
         fx.user.request("rail.tree", Value::Null).await.unwrap()
+    );
+    assert_eq!(
+        events,
+        fx.user
+            .request("events.subscribe", Value::Null)
+            .await
+            .unwrap()
+    );
+    assert_eq!(
+        launches,
+        std::fs::read(fx.served.dir.path().join("launches")).unwrap()
     );
 }
 
