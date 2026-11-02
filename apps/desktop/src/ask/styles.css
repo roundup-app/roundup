@@ -569,9 +569,10 @@
 
 .ask-line[data-linked="true"] .ask-text {
   width: auto;
-  overflow: visible;
-  white-space: normal;
-  overflow-wrap: anywhere;
+}
+
+.ask-line[data-linked="true"] .target-link {
+  display: inline;
 }
 
 .ask-row .target-failure {

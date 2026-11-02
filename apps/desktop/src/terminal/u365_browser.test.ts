@@ -165,7 +165,9 @@ it.skipIf(!captureDir("U365"))("u365_rendered_links_and_failures", async () => {
         await browser("focus", ".target-link[href='https://example.com']");
         await wait("document.activeElement?.getAttribute('href') === 'https://example.com'");
         await capture(mode === "ask" ? "U505" : "NR9", mode + "-focused-url");
-        await browser("click", ".target-link:last-of-type");
+        // U505 truncates long Ask text; Tab/focus can still reach its clipped links.
+        await browser("focus", ".target-link:last-of-type");
+        await browser("press", "Enter");
         await wait("document.querySelector('[role=alert]')?.textContent.includes('missing-directory')");
         await read("document.querySelector('.target-failure').scrollIntoView({block: 'nearest'})");
         await capture(mode === "ask" ? "U505" : "NR9", mode + "-long-path-failure");
