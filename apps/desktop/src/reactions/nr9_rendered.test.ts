@@ -327,12 +327,15 @@ it.skipIf(!captureDir("U5558a"))("u5558e_open_surfaces_update_and_keep_failed_re
   const video = join(captureDir("U5558a")!, "automatic-updates.webm");
   await mkdir(captureDir("U5558a")!, { recursive: true });
 
+  let recording = false;
+
   try {
-    await browser("record", "start", video);
     await browser("set", "viewport", "1512", "950");
     await browser("set", "media", "dark");
     await browser("open", `${server.resolvedUrls.local[0]}harness.html?view=workstreams&items=1&tabs=1&view=made&seed=agents-10`);
     await wait("!!window.__fake");
+    await browser("record", "start", video);
+    recording = true;
     await click("Made");
     await evaluate(`(() => {
       const record = {project:'p', id:'automatic-made', title:'Same title', maker:{kind:'agent',id:'agent-1',parent:null}, maker_name:'Maker',home:null,published_at:1,target:{kind:'external',url:'https://example.com/result',availability:'not-checked'}};
@@ -425,14 +428,16 @@ it.skipIf(!captureDir("U5558a"))("u5558e_open_surfaces_update_and_keep_failed_re
     expect(await evaluate("[...document.querySelectorAll('button')].some(button=>button.textContent.trim()==='Refresh')")).toBe(false);
   } finally {
     try {
-      await browser("record", "stop");
+      if (recording) {
+        await browser("record", "stop");
 
-      for (const id of ["U5558b", "U5558c", "U5558d", "U5558e"]) {
-        const dir = captureDir(id);
+        for (const id of ["U5558b", "U5558c", "U5558d", "U5558e"]) {
+          const dir = captureDir(id);
 
-        if (!dir) continue;
-        await mkdir(dir, { recursive: true });
-        await copyFile(video, join(dir, "automatic-updates.webm"));
+          if (!dir) continue;
+          await mkdir(dir, { recursive: true });
+          await copyFile(video, join(dir, "automatic-updates.webm"));
+        }
       }
     } finally { await lane.close(); await server.close(); }
   }
