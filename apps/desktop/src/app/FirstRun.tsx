@@ -24,7 +24,7 @@ export const ChooseProject = (props: { app: App; failure: string | null; onOpen:
   return (
     <div class="choose-project">
       <ReservedLine message={props.failure}><Show when={props.onRetry}>{retry => <button data-button="quiet" type="button" onClick={retry()}>{copy.retry}</button>}</Show></ReservedLine>
-      <Show when={!props.failure}><EmptyState art="strolling" {...{ title: copy.openAFolderToStart }} line={copy.emptyFolderLine} actions={[{ label: copy.chooseFolder, chip: "⌘O", run: props.onChoose }]} /></Show>
+      <Show when={!props.failure}><EmptyState art="strolling" {...{ title: copy.openAFolderToStart }} actions={[{ label: copy.chooseFolder, chip: "⌘O", run: props.onChoose }]} /></Show>
       <Show when={props.failure}><button data-button="primary" type="button" onClick={() => props.onChoose()}>{copy.chooseFolder}</button></Show>
       <Show when={recent()?.failure}>{failure => <ReservedLine message={failure()} />}</Show>
       <Show when={recent()?.paths.length}>
