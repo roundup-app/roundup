@@ -178,6 +178,16 @@ impl Launcher {
             .map(|session| session.id)
     }
 
+    /// B5763c: only the live receiving session and rupd's own peer origin establish history.
+    pub fn inbox_previous(&self, agent: &str, path: &Path) -> Result<Option<String>, Inbox> {
+        let session = self.inbox_session(agent).ok_or(Inbox::Missing)?;
+        let from = format!("uds:{}", self.socket_dir().join("rupd").display());
+        previous(path, &session, &from).map_err(|error| {
+            eprintln!("inbox: cannot recover {}: {error}", path.display());
+            Inbox::Missing
+        })
+    }
+
     /// B5763b: use exactly the renderer and permission mode of the physical inbox write.
     pub fn inbox_content(&self, agent: &str, note: &Entry, yolo: bool) -> String {
         let from = format!("uds:{}", self.socket_dir().join("rupd").display());
@@ -225,6 +235,73 @@ impl Launcher {
         }
         stream.write_all(&body).map_err(|_| Inbox::Missing)
     }
+}
+
+/// B5763c: read admitted content in transcript order, never Message allocation order.
+/// Native input and other peer origins do not change rupd's last admitted entry.
+pub fn previous(path: &Path, session: &str, sender: &str) -> std::io::Result<Option<String>> {
+    #[derive(serde::Deserialize)]
+    struct Origin {
+        kind: String,
+        from: String,
+    }
+    #[derive(serde::Deserialize)]
+    struct Message {
+        content: serde_json::Value,
+    }
+    #[derive(serde::Deserialize)]
+    struct Attachment {
+        origin: Option<Origin>,
+        prompt: Option<String>,
+    }
+    #[derive(serde::Deserialize)]
+    struct Record {
+        #[serde(rename = "sessionId")]
+        session: Option<String>,
+        origin: Option<Origin>,
+        message: Option<Message>,
+        attachment: Option<Attachment>,
+    }
+    let file = match std::fs::File::open(path) {
+        Ok(file) => file,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(error) => return Err(error),
+    };
+    let mut reader = BufReader::new(file);
+    let mut line = String::new();
+    let mut last = None;
+    loop {
+        line.clear();
+        if reader.read_line(&mut line)? == 0 || !line.ends_with('\n') {
+            break;
+        }
+        let record: Record = serde_json::from_str(&line)
+            .map_err(|error| std::io::Error::new(std::io::ErrorKind::InvalidData, error))?;
+        if record.session.as_deref() != Some(session) {
+            continue;
+        }
+        let (origin, text) = match record.attachment {
+            Some(attachment) => (attachment.origin, attachment.prompt),
+            None => (
+                record.origin,
+                record
+                    .message
+                    .and_then(|message| message.content.as_str().map(str::to_owned)),
+            ),
+        };
+        if let (Some(origin), Some(text)) = (origin, text)
+            && origin.kind == "peer"
+            && origin.from == sender
+        {
+            let start = text.find("<cross-session-message ");
+            let end = text.rfind("</cross-session-message>");
+            last = start.zip(end).and_then(|(start, end)| {
+                text.get(start..end + "</cross-session-message>".len())
+                    .map(str::to_owned)
+            });
+        }
+    }
+    Ok(last)
 }
 
 /// The Message ids the transcript at `path` records as another session's message, from byte

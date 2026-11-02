@@ -78,4 +78,3 @@ async fn b51_other_senders_and_a_new_attempt_keep_distinct_messages() {
     assert_eq!(run.message(third).await["kind"], "question");
     assert_eq!(run.typed().await, 0);
 }
-
