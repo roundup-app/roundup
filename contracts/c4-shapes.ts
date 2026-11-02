@@ -264,7 +264,13 @@ type WithOwnerSelector<T> = { [K in keyof T]: K extends "owner" ? T[K] | string 
 
 type SelectorInputs = "todo/AssignParams" | "todo/CreateParams";
 
-type BeforeSelectors = { [K in keyof Before]: K extends SelectorInputs ? WithOwnerSelector<Before[K]> : Before[K] };
+// U5558 adds commit notifications; every existing Event and payload remains exact.
+type AutomaticChanges = { name: "deliverable.changed" } | { name: "reaction.changed" };
+
+type BeforeSelectors = { [K in keyof Before]: K extends SelectorInputs ? WithOwnerSelector<Before[K]>
+  : K extends "EventData" ? Before[K] | AutomaticChanges
+    : K extends "Event" ? Before[K] | (Pick<Before["Event"], "seq" | "actor"> & AutomaticChanges)
+      : Before[K] };
 
 type SelectorMethods = "todo.assign" | "todo.create";
 
