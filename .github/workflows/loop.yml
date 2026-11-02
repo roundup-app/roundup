@@ -61,13 +61,3 @@ jobs:
         if: ${{ !cancelled() }}
       - run: loop/qa-sweep.test.sh
         if: ${{ !cancelled() }}
-
-  summary:
-    needs: [rules]
-    if: always()
-    permissions: {}
-    uses: ./.github/workflows/summary.yml
-    with:
-      results: ${{ toJSON(needs) }}
-      purpose: Check loop rules and regressions
-      next: A failure blocks merge and starts a fix run on a Builder PR.

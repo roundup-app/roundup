@@ -196,14 +196,3 @@ jobs:
           RAN: ${{ needs.critic-run.outputs.ran || 'false' }}
         run: |
           { cat "$RUNNER_TEMP/answer/answer.txt" 2>/dev/null || true; } | python3 loop/builder.py critic-post "$PR" "$HEAD" "critic-$GITHUB_RUN_ID" "$RAN"
-
-  summary:
-    needs: [task, critic-run, post]
-    # L93: an event `task` skips gets no summary, which would hold a runner only to say nothing ran.
-    if: always() && needs.task.result != 'skipped'
-    permissions: {}
-    uses: ./.github/workflows/summary.yml
-    with:
-      results: ${{ toJSON(needs) }}
-      purpose: Judge a UI PR head against the user's design bar
-      next: An approval passes the critic status and, with the review's, starts the tests; a reject on a Builder PR starts a fix run.

@@ -243,15 +243,3 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh workflow run build.yml --repo "$GITHUB_REPOSITORY" --ref main
-
-  summary:
-    needs: [task, fix-run, after]
-    # L93: an event `task` skips gets no summary, which would hold a runner only to say nothing ran.
-    if: always() && needs.task.result != 'skipped'
-    permissions: {}
-    uses: ./.github/workflows/summary.yml
-    with:
-      results: ${{ toJSON(needs) }}
-      purpose: Fix a Builder PR
-      next: The fix run's push starts pre, review and check again, or a reject answered with no push reruns its review run; a draft
-        with a Stopped line goes where its screen sends it.
