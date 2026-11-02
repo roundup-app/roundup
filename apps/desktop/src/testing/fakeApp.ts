@@ -145,6 +145,7 @@ export const createFakeApp = (): FakeApp => {
 
   const app: FakeApp = {
     menuBar: null,
+    showWindow: async () => {},
     setMenuBar: async menu => { app.menuBar = menu; },
     onMenuBarAction: async listener => {
       menuBarListeners.add(listener);
@@ -318,6 +319,7 @@ export const createFakeApp = (): FakeApp => {
         ask: app.ask,
         askRemoval: app.askRemoval,
         setDockBadge: app.setDockBadge,
+        showWindow: app.showWindow,
         setMenuBar: app.setMenuBar,
         onMenuBarAction: app.onMenuBarAction,
         stateAlert: app.stateAlert,

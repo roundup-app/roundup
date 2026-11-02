@@ -127,6 +127,13 @@ export const createTauriApp = (): App => {
     chooseProjectPath: () => guarded(() => open({ directory: true, multiple: false })),
     chooseSavePath: (suggestedName) => guarded(() => save({ defaultPath: suggestedName })),
     setDockBadge: (count) => guarded(() => getCurrentWindow().setBadgeCount(count === 0 ? undefined : count)),
+    showWindow: () => guarded(async () => {
+      const window = getCurrentWindow();
+
+      await window.unminimize();
+      await window.show();
+      await window.setFocus();
+    }),
     setMenuBar: menu => command<void>("set_menu_bar", { menu }),
     onMenuBarAction: listener => guarded(() => listen("menu-bar-action", event => listener(v.parse(menuBarActionSchema, event.payload)))),
     stateAlert: async (alert) => {

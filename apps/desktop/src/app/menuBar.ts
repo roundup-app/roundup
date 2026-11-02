@@ -23,7 +23,8 @@ export const watchMenuBar = (options: {
   app: App;
   tabs: () => OpenTab[];
   connection: (path: string) => ConnectedProject | undefined;
-  select: (path: string) => void;
+  select: (path: string, agent: string) => void;
+  open: () => void;
   missing: string;
   fail: (message: string | null) => void;
 }) => {
@@ -91,13 +92,19 @@ export const watchMenuBar = (options: {
   let ended = false;
   let stop: (() => void) | undefined;
   void options.app.onMenuBarAction(action => {
-    if (action.kind !== "agent") return;
-    const rail = options.connection(action.path)?.rail;
+    options.open();
 
-    if (!options.tabs().some(tab => tab.project.path === action.path) || !rail?.nodes.some(node => node.id === action.agent)) return options.fail(options.missing);
-    options.fail(null);
-    options.select(action.path);
-    rail.select(action.agent);
+    if (action.kind === "agent") {
+      const rail = options.connection(action.path)?.rail;
+
+      if (!options.tabs().some(tab => tab.project.path === action.path) || !rail?.nodes.some(node => node.id === action.agent)) options.fail(options.missing);
+      else {
+        options.fail(null);
+        options.select(action.path, action.agent);
+      }
+    }
+
+    void options.app.showWindow().catch(error => options.fail(String(error)));
   }).then(unsubscribe => { if (ended) unsubscribe(); else stop = unsubscribe; });
   onCleanup(() => { ended = true; stop?.(); });
 };

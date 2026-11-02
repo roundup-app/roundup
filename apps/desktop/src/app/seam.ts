@@ -213,7 +213,9 @@ export type App = {
   setDockBadge(count: number): Promise<void>;
   /** U5502: replaces the passive native template image and flat menu; never activates the window. */
   setMenuBar(menu: MenuBar): Promise<void>;
-  /** U5502: only an enabled row or command activates the window and emits an action. */
+  /** Restores and focuses the window after its menu selection has been applied. */
+  showWindow(): Promise<void>;
+  /** U5502: emits an enabled action before the App requests window activation. */
   onMenuBarAction(listener: (action: MenuBarAction) => void): Promise<Unsubscribe>;
   /** U5232f: shows one macOS banner naming the Agent when `alert`, plays one system sound when `sound`; both false rejects INVALID_PARAMS, a refused permission rejects FORBIDDEN with its cause (and a sound still plays). */
   stateAlert(alert: StateAlert): Promise<void>;

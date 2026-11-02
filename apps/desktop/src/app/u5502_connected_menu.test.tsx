@@ -66,8 +66,10 @@ it.each([false, true])("u5502_open_and_more_do_not_acknowledge_results (overflow
   const commands = menu?.entries.flatMap(entry => entry.action?.kind === "open" ? [entry.action] : []) ?? [];
   expect(commands).toHaveLength(overflow ? 2 : 1);
 
+  const show = vi.spyOn(app, "showWindow").mockImplementation(async () => { fireEvent.focus(window); });
+
   app.menuBarAction(commands[0]!);
-  fireEvent.focus(window);
+  expect(show).toHaveBeenCalledOnce();
   await settled();
   expect(app.menuBar).toEqual(menu);
   expect(document.querySelector('[role=treeitem][data-id="0"]')?.getAttribute("aria-selected")).toBe("true");
