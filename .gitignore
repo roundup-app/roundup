@@ -5,14 +5,12 @@ dist
 .roundup/
 __pycache__/
 proofs/.tools/
-# Rendered captures are attached to the PR (`gh pr edit --attach`), never committed.
-artifacts/ux/**/*.png
-artifacts/ux/**/*.jpg
-artifacts/ux/**/*.webm
-artifacts/ux/**/*.mp4
-artifacts/ux/**/*.mov
+# Run output lives in CI artifacts, never in the tracked tree.
+/artifacts/
+/crates/perf/evidence/
 .closed-issues.json
 # Lint self-test fixtures a killed run can leave behind; a run saving its work must not commit them.
 .timeout-fixture-*/
 apps/desktop/src/.u3791c-*/
 site/.vitepress/cache
+.codegraph/
