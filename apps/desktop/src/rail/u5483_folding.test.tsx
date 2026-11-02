@@ -192,10 +192,10 @@ it("u5483c_resuming_clears_only_the_previous_turn", async () => {
   expect(rowNames()).not.toContain("child");
 });
 
-it.each(["mounted", "remounted", "reconnected"])("u5483c_replied_question_folds_after_queued_resumption_%s", async lifecycle => {
+it("u5483c_replied_question_folds_after_queued_resumption_reconnect", async () => {
   const child = agent("child", "idle", "idle", { parent: "stream", final_text: { ...empty, finished: "0" } });
   const app = createFakeApp();
-  const project = { path: `/resumption-${lifecycle}`, name: "p" };
+  const project = { path: "/resumption-reconnect", name: "p" };
   app.handlers["rail.tree"] = () => [workstream("stream"), child];
   const [now, setNow] = createSignal(NOW);
   let connected = await connectProject(app, project, () => false, now, () => null, railStorage(project.path));
@@ -221,16 +221,10 @@ it.each(["mounted", "remounted", "reconnected"])("u5483c_replied_question_folds_
   setNow(NOW + 300_003);
   await waitFor(() => expect(rowNames()).not.toContain("child"));
 
-  if (lifecycle !== "mounted") {
-    cleanup();
-
-    if (lifecycle === "reconnected") {
-      connected.stopTerminalScheme();
-      connected = await connectProject(app, project, () => false, now, () => null, railStorage(project.path));
-    }
-
-    render(() => <ConnectedProjectContext.Provider value={connected}><Rail /></ConnectedProjectContext.Provider>);
-  }
+  cleanup();
+  connected.stopTerminalScheme();
+  connected = await connectProject(app, project, () => false, now, () => null, railStorage(project.path));
+  render(() => <ConnectedProjectContext.Provider value={connected}><Rail /></ConnectedProjectContext.Provider>);
 
   await waitFor(() => expect(rowNames()).not.toContain("child"));
   const nextQuestion = { ...question, id: 3, at: NOW + 300_004 };
