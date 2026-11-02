@@ -79,37 +79,34 @@ export const layoutRail = (nodes: readonly RailNode[], view: RailView): RailRow[
     const nodeRows = shown.flatMap((node, at): RailRow[] => {
       const rowTrail = depth === 0 ? [] : [...trail, at < shown.length - 1 || foldShown];
 
-      const collapsed = isWorkstream(node) && view.collapsed.has(node.id);
-
-      const below = collapsed ? [] : rowsOf(node.id, depth + 1, rowTrail);
-
-      const row: RailRow = {
-        kind: "node",
-        key: `node:${node.id}`,
-        depth,
-        node,
-        trail: rowTrail,
-        children: below.length > 0,
-        collapsed: collapsed ? { agents: agentKindsBelow(nodes, node.id) } : null,
-      };
-
-      return [row, ...below];
+      return rowsOfNode(node, depth, rowTrail);
     });
 
     const foldRow: RailRow[] = parent !== null && foldShown
       ? [{ kind: "fold", key: `fold:${parent}`, depth, parent, count: folded.length, open: unfolded, trail },
-        ...(unfolded ? folded.flatMap((node, at): RailRow[] => {
-          const rowTrail = [...trail, false, at < folded.length - 1];
-          const below = rowsOf(node.id, depth + 2, rowTrail);
-
-          return [{
-            kind: "node", key: `node:${node.id}`, depth: depth + 1, node, collapsed: null,
-            trail: rowTrail, children: below.length > 0,
-          }, ...below];
-        }) : [])]
+        ...(unfolded ? folded.flatMap((node, at) =>
+          rowsOfNode(node, depth + 1, [...trail, false, at < folded.length - 1])) : [])]
       : [];
 
     return [...nodeRows, ...foldRow];
+  };
+
+  const rowsOfNode = (node: RailNode, depth: number, trail: readonly boolean[]): RailRow[] => {
+    const collapsed = isWorkstream(node) && view.collapsed.has(node.id);
+
+    const below = collapsed ? [] : rowsOf(node.id, depth + 1, trail);
+
+    const row: RailRow = {
+      kind: "node",
+      key: `node:${node.id}`,
+      depth,
+      node,
+      trail,
+      children: below.length > 0,
+      collapsed: collapsed ? { agents: agentKindsBelow(nodes, node.id) } : null,
+    };
+
+    return [row, ...below];
   };
 
   return rowsOf(null, 0, []);
