@@ -24,8 +24,8 @@ Default Route is `auto`. Pending Messages are delivered in B7 order. Delivery ac
 
 A Terminal surviving an App or Daemon restart keeps its receiving Attempt. An unknown
 Status revision is a wait, not a ReceiverExit: existing and new Messages stay pending.
-New sends bind to revision zero; a reported revision permits ordinary eligible-idle
-inbox delivery. Cached Kind alone cannot authorize that delivery. Receipts alone complete
+New sends and pending Messages of that Attempt bind to revision zero, because reattachment
+restarts the Status counter. A reported revision permits ordinary eligible-idle inbox delivery. Cached Kind alone cannot authorize that delivery. Receipts alone complete
 it; restart starts no Agent and writes no Terminal input.
 
 Reconciliation repairs the legacy closed receiver whose revision and closed revision are

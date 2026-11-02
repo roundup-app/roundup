@@ -171,7 +171,7 @@ async fn b5551a_messages_wait_for_a_surviving_agents_status() {
         // A cached idle Kind and an absent Status must both wait for a revision.
         for cached in [true, false] {
             let dir = tempfile::tempdir().unwrap();
-            let rail = FakeRail::new(vec![survivor(Kind::Working, Some("1"))]);
+            let rail = FakeRail::new(vec![survivor(Kind::Working, Some("41"))]);
             let before = Harness::open(dir.path(), rail.clone(), false);
             initial(&before.messages).await;
             let saved = before
@@ -204,8 +204,8 @@ async fn b5551a_messages_wait_for_a_surviving_agents_status() {
             assert!(h.inbox.written().is_empty());
             assert!(!h.events().iter().any(|e| e == "message.dropped"));
 
-            *rail.0.lock().unwrap() = vec![survivor(Kind::Working, Some("2"))];
-            on_status(&h.messages.inner, "b", "1", "2", Kind::Working).await;
+            *rail.0.lock().unwrap() = vec![survivor(Kind::Working, Some("1"))];
+            on_status(&h.messages.inner, "b", "1", "1", Kind::Working).await;
             for id in [1, 2] {
                 assert_eq!(
                     h.call("message.get", json!({"id":id})).await.unwrap()["status"],
@@ -213,7 +213,7 @@ async fn b5551a_messages_wait_for_a_surviving_agents_status() {
                 );
             }
             assert!(h.inbox.written().is_empty());
-            on_status(&h.messages.inner, "b", "1", "3", Kind::Idle).await;
+            on_status(&h.messages.inner, "b", "1", "2", Kind::Idle).await;
             assert_eq!(h.inbox.written(), [1, 2]);
             assert_eq!(
                 h.inbox.typed(),
