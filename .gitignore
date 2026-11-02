@@ -16,3 +16,4 @@ artifacts/ux/**/*.mov
 .timeout-fixture-*/
 apps/desktop/src/.u3791c-*/
 site/.vitepress/cache
+.codegraph/

@@ -20,6 +20,24 @@ those seams rather than adding a queue or another Adapter seam.
 
 Default Route is `auto`. Pending Messages are delivered in B7 order. Delivery acknowledgement follows the selected transport (B39/B40, B50–B52): user prompts use `UserPromptSubmit`; non-user inbox Messages use the transcript receipt for `msg_id`. Successful writing alone is not delivery. A prompt id line cannot acknowledge an inbox Message or block a prompt that names one. An unacknowledged id may be retried after restart, without another delivered transition. `blocked` is unchanged: this series gives Routes no say in Kind (`GLOSSARY.md`, "Who decides Kind").
 
+## Restart before Status (B5551a)
+
+A Terminal surviving an App or Daemon restart keeps its receiving Attempt. An unknown
+Status revision is a wait, not a ReceiverExit: existing and new Messages stay pending.
+New sends and pending Messages of that Attempt bind to revision zero, because reattachment
+restarts the Status counter. A reported revision permits ordinary eligible-idle inbox delivery. Cached Kind alone cannot authorize that delivery. Receipts alone complete
+it; restart starts no Agent and writes no Terminal input.
+
+Reconciliation repairs the legacy closed receiver whose revision and closed revision are
+both `i64::MAX` only when the current Rail shows the same Attempt with a surviving Terminal,
+not an ended or retired receiver. Pending sentinel bindings become finite; delivered and
+dropped records stay final. Actual endings still apply B9 and refuse new sends.
+
+This corrects the Rust projection of M6 (conservation), M7 (actual ending), M9 (replay)
+and M10 (eligible-idle progress). Unknown Status projects to a busy live receiver,
+not ReceiverExit. The model and laws need no changes; real-store B5551a observers prove
+this distinction and `just proofs` continues to check the unchanged laws.
+
 ## B50 to B52: authenticated sender selects transport
 
 For an Agent receiver, both `note` and `question` use this table; authenticated identity, never a caller-supplied sender or body, selects the row:
