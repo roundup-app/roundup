@@ -13,7 +13,8 @@ import { shelfSliding } from "../shelf/sliding";
 import { shelfBrowser } from "../shelf/u371Browser";
 
 // Observe before the registry consumes handled keys at window capture.
-const { browser, evaluate, settle, rig } = shelfBrowser(`if (!window.__layerWatch) {
+const { browser, evaluate, settle, rig } = shelfBrowser(`if (location.protocol === "http:") localStorage.clear();
+if (!window.__layerWatch) {
   window.__layerWatch = true;
   window.addEventListener('keydown', () => window.__layerSample?.(), true);
 }`);
@@ -56,9 +57,6 @@ const load = async (reduced = false) => {
   await browser("set", "viewport", "1512", "950");
   await browser("set", "media", "light", ...(reduced ? ["reduced-motion"] : []));
   const url = `${rig.server.resolvedUrls.local[0]}harness.html?view=workstreams&items=1&tabs=1&seed=tree-40`;
-  await browser("open", url);
-  await browser("wait", ".shelf-tabs");
-  await evaluate(`(() => { localStorage.clear(); return true; })()`);
   await browser("open", url);
   await browser("wait", ".shelf-tabs");
   await browser("wait", "--fn", `!!document.querySelector('.shelf [data-shelf-group="unassigned"] [data-part="branch-control"], .shelf [data-todo] button')`);

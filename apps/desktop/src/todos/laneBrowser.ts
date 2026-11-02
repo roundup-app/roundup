@@ -39,7 +39,7 @@ export type LaneBrowser = {
   close: () => Promise<void>;
 };
 
-export const openLane = async (width: number, scheme: "light" | "dark", name: string, reduced = false): Promise<LaneBrowser> => {
+export const openLane = async (width: number, scheme: "light" | "dark", name: string, reduced = false, initialSeed: string | null = "tree-40"): Promise<LaneBrowser> => {
   const profile = mkdtempSync(join(tmpdir(), `${name}-browser-`));
   const server = await appServer();
 
@@ -59,7 +59,7 @@ export const openLane = async (width: number, scheme: "light" | "dark", name: st
     await browser("wait", ".shelf-tabs");
   };
 
-  await reload();
+  if (initialSeed !== null) await reload(initialSeed);
 
   const focused = () => evaluate<string>("(() => { const el = document.activeElement; const row = el.closest('.todo-row'); return `${el.getAttribute('aria-label') ?? el.textContent.trim()}${row?.dataset.id ? '@' + row.dataset.id : ''}`; })()");
 

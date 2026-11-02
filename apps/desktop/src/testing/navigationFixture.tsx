@@ -10,13 +10,13 @@ import { todoHandlers } from "../testing/stores";
 import { todo } from "../todos/testHarness";
 import { WORKTREE } from "../changes/harness";
 
-export const mountNavigation = async (empty = false, projectCount = 7) => {
+export const mountNavigation = async (empty = false, projectCount = 7, agentCount = 12) => {
   const app = createFakeApp();
 
   for (let n = 0; n < projectCount; n++) app.add(`/project${n}`);
   app.add("/p");
   const daemon = app.of("/p");
-  const nodes = empty ? [] : [workstream("home"), ...Array.from({ length: 12 }, (_, index) => agent(`a${index}`, index === 0 ? "needs-you" : "idle", "ready", { name: `Agent ${index}`, parent: "home", worktree: WORKTREE }))];
+  const nodes = empty ? [] : [workstream("home"), ...Array.from({ length: agentCount }, (_, index) => agent(`a${index}`, index === 0 ? "needs-you" : "idle", "ready", { name: `Agent ${index}`, parent: "home", worktree: WORKTREE }))];
   daemon.handlers["rail.tree"] = () => nodes;
   daemon.handlers["terminal.resize"] = () => null;
   daemon.handlers["terminal.snapshot"] = () => ({ cols: 100, rows: 30, after: 0, data: "" });

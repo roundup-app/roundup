@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor } from "@solidjs/testing-library";
+import { fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import type { ConnectedProject } from "../state/connectedProject";
 import type { FileComparison } from "@contracts/agent/FileComparison";
 import { mountControl } from "./harness";
@@ -27,8 +27,9 @@ export const openDiff = async (project = "/p", drafts?: ConnectedProject["drafts
 
 export const saveNote = async (text: string) => {
   fireEvent.click(screen.getByRole("button", { name: "Add note" }));
-  fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: text } });
-  fireEvent.click(screen.getByRole("button", { name: "Save" }));
+  const form = within(screen.getByLabelText("Line note", { selector: "form" }));
+  fireEvent.input(form.getByLabelText("Note"), { target: { value: text } });
+  fireEvent.click(form.getByRole("button", { name: "Save" }));
   await screen.findByRole("button", { name: "Edit note 1" });
   await waitFor(() => { if (screen.queryByRole("textbox", { name: "Note" })) throw new Error("Note persistence is pending"); });
 };
