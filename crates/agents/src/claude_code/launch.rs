@@ -914,7 +914,6 @@ fn object(value: &mut Value) -> Result<&mut Map<String, Value>, &'static str> {
 
 /// An Agent id becomes a file name and a shell word, so only a node id in its one form (decimal,
 /// no sign, no leading zero) is accepted; `;` or `../` never reach a shell or a path.
-
 fn parse_id(id: &str) -> Option<u64> {
     id.parse()
         .ok()

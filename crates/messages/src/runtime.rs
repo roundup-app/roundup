@@ -91,6 +91,17 @@ impl Messages {
         Ok(Self { inner })
     }
 
+    /// Reconcile verified owners before any fresh Status can race the restart binding reset.
+    pub async fn recover(&self) -> Result<(), RpcError> {
+        if !super::delivery::resync(&self.inner).await {
+            return Err(RpcError::internal(
+                "could not reconcile recovered Message receivers",
+            ));
+        }
+        self.listen();
+        Ok(())
+    }
+
     /// Start lifecycle reconciliation after the receiver owners have been recovered.
     pub fn listen(&self) {
         if tokio::runtime::Handle::try_current().is_ok() {
