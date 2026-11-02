@@ -173,7 +173,7 @@
   display: inline-block;
   min-height: var(--space-5);
   max-width: 100%;
-  vertical-align: bottom;
+  vertical-align: baseline;
   color: inherit;
   text-decoration: none;
   cursor: pointer;
@@ -194,4 +194,17 @@
   background-size: 100% var(--hairline-width);
   background-repeat: no-repeat;
   pointer-events: none;
+}
+
+/* Ellipsis would hide the failure cause after a long path. */
+.target-failure {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.target-failure p.ink[role="alert"] {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow: visible;
+  text-overflow: clip;
 }
