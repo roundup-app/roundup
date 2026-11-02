@@ -210,6 +210,7 @@
  "src/pads/u4698b_toolbar.test.tsx": 10,
  "src/pads/u5561a_browser.test.ts": 485,
  "src/pads/u5561c_real_browser.test.ts": 35,
+
  "src/pads/u67_editor_cleanup.test.tsx": 1,
  "src/perf/k1_opt_in.test.ts": 26,
  "src/perf/k2_keystrokes.test.ts": 1,
