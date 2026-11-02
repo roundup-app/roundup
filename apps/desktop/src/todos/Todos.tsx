@@ -577,7 +577,7 @@ export const Todos = (props: {
 
   registerKeys({ kind: "app" }, [
     {
-      chords: [...CHORDS.filter(row => row.inTriage && row.keys !== "Esc").flatMap(row => chordsOf(row)), ...chordsFor("O")],
+      chords: [...CHORDS.filter(row => row.inTriage && row.name !== "todo.triage-leave").flatMap(row => chordsOf(row)), ...chordsFor("O")],
       when: event => triage.on() && canTriage(event, true) && triageTarget(event)?.done !== false && (!event.shiftKey || event.code === "Tab"),
       run: () => (triageButtons()[0] ?? triageButton())?.focus(),
     },
