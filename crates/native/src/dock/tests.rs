@@ -1,5 +1,5 @@
 use super::*;
-use objc2::{msg_send, rc::Retained};
+use objc2::msg_send;
 use std::cell::Cell;
 
 pub(crate) fn u5503_native_dock_menu_dispatches_the_chosen_action() {
@@ -13,10 +13,14 @@ pub(crate) fn u5503_native_dock_menu_dispatches_the_chosen_action() {
     let delegate = app.delegate().unwrap();
     let object: &AnyObject = delegate.as_ref();
     let class = object.class();
-    let methods: Vec<_> = class
-        .instance_methods()
-        .iter()
-        .map(|method| (method.name(), method.implementation()))
+    let methods: Vec<_> = std::iter::successors(Some(class), |class| class.superclass())
+        .flat_map(|class| {
+            class
+                .instance_methods()
+                .iter()
+                .map(|method| (class, method.name(), method.implementation()))
+                .collect::<Vec<_>>()
+        })
         .collect();
     for selector in [
         sel!(applicationDidFinishLaunching:),
@@ -29,6 +33,13 @@ pub(crate) fn u5503_native_dock_menu_dispatches_the_chosen_action() {
     // Tao stores its runtime state behind this ivar. Preserve that exact allocation.
     let aux = class.instance_variable(c"auxState").unwrap();
     let state = unsafe { *aux.load::<*mut std::ffi::c_void>(object) };
+    app.setDelegate(None);
+    let refusal = DockMenu::install(Vec::new, |_| {}).err();
+    app.setDelegate(Some(&delegate));
+    assert_eq!(
+        refusal.as_deref(),
+        Some("The application has no live delegate")
+    );
     let closed = Rc::new(Cell::new(false));
     let openings = Rc::new(Cell::new(0));
     let menu = DockMenu::install(
@@ -58,10 +69,10 @@ pub(crate) fn u5503_native_dock_menu_dispatches_the_chosen_action() {
     );
     assert!(std::ptr::eq(object, app.delegate().unwrap().as_ref()));
     assert_eq!(class, object.class());
-    for (selector, implementation) in methods {
+    for (owner, selector, implementation) in methods {
         assert!(std::ptr::fn_addr_eq(
             implementation,
-            class.instance_method(selector).unwrap().implementation()
+            owner.instance_method(selector).unwrap().implementation()
         ));
     }
     assert_eq!(state, unsafe { *aux.load::<*mut std::ffi::c_void>(object) });
@@ -73,34 +84,59 @@ pub(crate) fn u5503_native_dock_menu_dispatches_the_chosen_action() {
     assert!(!native.itemAtIndex(0).unwrap().isEnabled());
     let mut effects = Vec::new();
     for (index, expected) in [(2, "/web:same"), (1, "/api:same"), (3, "open")] {
-        unsafe {
-            native.performActionForItemAtIndex(index);
-        }
+        native.performActionForItemAtIndex(index);
         let event = muda::MenuEvent::receiver().try_recv().unwrap();
         effects.push(menu.chosen(event.id.as_ref()).unwrap());
         assert_eq!(effects.last().unwrap(), expected);
         assert!(muda::MenuEvent::receiver().try_recv().is_err());
     }
-    unsafe {
-        native.performActionForItemAtIndex(0);
+    native.performActionForItemAtIndex(0);
+    // AppKit disables pointer/keyboard activation; a forced programmatic action
+    // may still emit muda's event, but it must never resolve to a supplied action.
+    if let Ok(event) = muda::MenuEvent::receiver().try_recv() {
+        assert_eq!(menu.chosen(event.id.as_ref()), None);
     }
     assert!(muda::MenuEvent::receiver().try_recv().is_err());
     closed.set(true);
     let replacement: Retained<NSMenu> = unsafe { msg_send![object, applicationDockMenu: &*app] };
     assert_eq!(replacement.numberOfItems(), 1);
     // Even a retained old native target cannot select a closed Project.
-    unsafe {
-        native.performActionForItemAtIndex(1);
-    }
+    native.performActionForItemAtIndex(1);
     let stale = muda::MenuEvent::receiver().try_recv().unwrap();
     assert_eq!(menu.chosen(stale.id.as_ref()), None);
-    unsafe {
-        replacement.performActionForItemAtIndex(0);
-    }
+    replacement.performActionForItemAtIndex(0);
     let event = muda::MenuEvent::receiver().try_recv().unwrap();
     assert_eq!(menu.chosen(event.id.as_ref()).as_deref(), Some("open"));
     assert!(muda::MenuEvent::receiver().try_recv().is_err());
     drop(menu);
     let absent: Option<Retained<NSMenu>> = unsafe { msg_send![object, applicationDockMenu: &*app] };
     assert!(absent.is_none());
+
+    unsafe extern "C-unwind" fn competing(
+        _delegate: &AnyObject,
+        _selector: Sel,
+        _application: &NSApplication,
+    ) -> *mut NSMenu {
+        std::ptr::null_mut()
+    }
+    let method = class.instance_method(sel!(applicationDockMenu:)).unwrap();
+    let callback: unsafe extern "C-unwind" fn(&AnyObject, Sel, &NSApplication) -> *mut NSMenu =
+        competing;
+    // SAFETY: same Cocoa signature, on the main thread; restore before asserting.
+    let original = unsafe {
+        let implementation = std::mem::transmute::<
+            unsafe extern "C-unwind" fn(&AnyObject, Sel, &NSApplication) -> *mut NSMenu,
+            objc2::runtime::Imp,
+        >(callback);
+        method.set_implementation(implementation)
+    };
+    let refusal = DockMenu::install(Vec::new, |_| {}).err();
+    // SAFETY: restore the original, signature-identical production callback.
+    unsafe {
+        method.set_implementation(original);
+    }
+    assert_eq!(
+        refusal.as_deref(),
+        Some("The application delegate already implements an incompatible Dock callback")
+    );
 }

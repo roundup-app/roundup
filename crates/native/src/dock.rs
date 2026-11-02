@@ -8,6 +8,7 @@ use std::{
 use muda::{ContextMenu, Menu, MenuItem};
 use objc2::{
     MainThreadMarker, ffi,
+    rc::Retained,
     runtime::{AnyObject, Sel},
     sel,
 };
@@ -72,7 +73,8 @@ impl DockMenu {
         let object: &AnyObject = delegate.as_ref();
         let class = object.class();
         let selector = sel!(applicationDockMenu:);
-        let callback = dock_menu as unsafe extern "C-unwind" fn(_, _, _) -> _;
+        let callback: unsafe extern "C-unwind" fn(&AnyObject, Sel, &NSApplication) -> *mut NSMenu =
+            dock_menu;
         // SAFETY: Objective-C's IMP erases the function signature. The @ selector takes
         // self, _cmd and NSApplication*, returning NSMenu*. @ encodes object pointers.
         let implementation = unsafe {
@@ -144,9 +146,13 @@ unsafe extern "C-unwind" fn dock_menu(
         (section.failure)(error);
         return std::ptr::null_mut();
     }
-    // Muda owns this menu and its targets until replacement or owner drop; AppKit
-    // retains the callback result during tracking. Only roundup's supplied rows exist here.
-    section.menu.ns_menu().cast()
+    // Follow Cocoa's +0 callback convention even if the caller drops its owner during
+    // refresh: the autorelease keeps the menu alive until AppKit retains it for tracking.
+    // SAFETY: Muda's public accessor is a live NSMenu while Section owns its Menu.
+    let menu = unsafe { Retained::retain(section.menu.ns_menu().cast::<NSMenu>()) }
+        .expect("Muda owns a non-null NSMenu");
+    drop(section);
+    Retained::autorelease_return(menu)
 }
 
 #[cfg(test)]
