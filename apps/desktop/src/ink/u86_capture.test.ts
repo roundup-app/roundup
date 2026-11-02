@@ -106,7 +106,8 @@ it.skipIf(!captureDir("U86"))("u86_capture_icon_text_pairs", { retry: 0, timeout
       await wait("!!document.querySelector('.ask-row')");
       await states("ask-history", ".ask-row .ask-line");
       await load("conflict");
-      await browser("click", '[aria-label="Add Workstream"]');
+      { await browser("click", '[aria-label="Create"]'); await browser("click", '[role="menuitem"][data-value="workstream"]'); }
+
       await wait("!!document.querySelector('[role=alert]')");
       expect(await read("document.querySelectorAll('[role=alert]').length")).toBe(1);
       await snap("conflict-failure");

@@ -237,7 +237,7 @@ export const App = (props: {
   const [settingsOpen, setSettingsOpen] = createSignal(false);
   const drafts = props.drafts ?? createProjectDrafts();
   registerKeys({ kind: "app" }, ["⌘Z", "⇧⌘Z"].map(keys => ({
-    action: CHORDS.find(row => defaultKeys(row) === keys)!,
+    action: CHORDS.find(row => row.name === (keys === "⌘Z" ? "edit.undo" : "edit.redo"))!,
     when: () => !document.activeElement?.closest("input,textarea,[contenteditable]:not([contenteditable=false]),.xterm,[role=textbox]"),
     capture: focus => {
       const path = projects.active();

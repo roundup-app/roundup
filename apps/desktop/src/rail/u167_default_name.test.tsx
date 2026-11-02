@@ -1,8 +1,8 @@
-import { cleanup, fireEvent, waitFor } from "@solidjs/testing-library";
+import { cleanup, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import type { RailNode } from "@contracts/agent/RailNode";
 import { door, event, workstream } from "../testing/nodes";
-import { mountRail, pinnedAdd, railCallsTo, rowNames } from "./railFixture";
+import { chooseFooter, mountRail, railCallsTo, rowNames } from "./railFixture";
 
 afterEach(cleanup);
 
@@ -19,7 +19,7 @@ describe("u167 a new Workstream's default name is unique among the Rail's roots"
     mounted.app.handlers["rail.startDoor"] = () => door("x", "working", "starting");
 
     const create = async (count: number, name: string) => {
-      fireEvent.click(pinnedAdd());
+      await chooseFooter("Workstream");
       await waitFor(() => expect(railCallsTo(mounted.app, "rail.createWorkstream")).toHaveLength(count));
       tree.push(workstream(`w${count}`, { name }));
       mounted.app.emit(event({ name: "rail.changed" }));
@@ -39,7 +39,7 @@ describe("u167 a new Workstream's default name is unique among the Rail's roots"
     await waitFor(() => expect(rowNames()).toContain("renamed"));
     await mounted.rail.settled();
 
-    fireEvent.click(pinnedAdd());
+    await chooseFooter("Workstream");
     await waitFor(() => expect(createdNames(mounted.app)).toEqual(named("workstream", "workstream 2", "workstream 3", "workstream 2")));
   });
 

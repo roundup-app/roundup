@@ -73,6 +73,7 @@ it("u3787a_quiet_deletion_keeps_the_lists_and_drawers_reachable", async () => {
       await lane.browser("press", "Enter");
       await lane.until("!!document.querySelector('.todo-detail')");
       await lane.capture(id, "drawer-before");
+      await lane.until("document.querySelector('.drawer[data-open=true]')?.getAnimations().every(animation => animation.playState === 'finished')");
       await lane.browser("click", '.todo-detail button[aria-label="More actions"]');
       await lane.until("!!document.querySelector('[role=\"menuitem\"][data-value=\"delete\"]')");
       await lane.browser("click", '[role="menuitem"][data-value="delete"]');
