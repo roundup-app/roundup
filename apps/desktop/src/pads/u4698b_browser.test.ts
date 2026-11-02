@@ -20,16 +20,20 @@ const capture = async (name: string) => {
   writeFileSync(join(output, `${name}.checks.json`), JSON.stringify(await evaluate("window.__checks()")));
 };
 
-it("u4698b_expand_keeps_the_long_pad_and_all_formats_reachable", { retry: 0, timeout: output ? 240_000 : 90_000 }, async () => {
-  await openShelf("tree-40", 288, 320, 1512, "dark");
+it.each([[1512, 950], [1280, 820]])("u4698b_expand_keeps_the_long_pad_and_all_formats_reachable %s", { retry: 0, timeout: output ? 240_000 : 90_000 }, async (viewportWidth, viewportHeight) => {
+  const viewports = [[viewportWidth, viewportHeight]];
+  await openShelf("tree-40", 288, 320, viewportWidth, "dark");
 
-  await browser("set", "viewport", "1512", "950");
+  await browser("set", "viewport", String(viewportWidth), String(viewportHeight));
 
   if (output) {
     mkdirSync(output, { recursive: true });
+    await browser("record", "start", join(output, `reading-${viewportWidth}.webm`));
+    await browser("wait", ".shelf-tabs");
+    await browser("set", "media", "dark");
   }
 
-  for (const [width, height] of [[1512, 950], [1280, 820]]) {
+  for (const [width, height] of viewports) {
     await browser("set", "viewport", String(width), String(height));
     await browser("wait", "--fn", `innerWidth === ${width} && innerHeight === ${height}`);
     await settle();
@@ -59,7 +63,7 @@ it("u4698b_expand_keeps_the_long_pad_and_all_formats_reachable", { retry: 0, tim
 
   await openTodo();
 
-  for (const [width, height] of [[1512, 950], [1280, 820]]) {
+  for (const [width, height] of viewports) {
     await browser("set", "viewport", String(width), String(height));
     await browser("wait", "--fn", `innerWidth === ${width} && innerHeight === ${height}`);
     await settle();
@@ -98,15 +102,10 @@ it("u4698b_expand_keeps_the_long_pad_and_all_formats_reachable", { retry: 0, tim
     await settle();
   }
 
-  for (const [width, height] of [[1512, 950], [1280, 820]]) {
+  for (const [width, height] of viewports) {
     await browser("set", "viewport", String(width), String(height));
     await browser("wait", "--fn", `innerWidth === ${width} && innerHeight === ${height}`);
     await settle();
-
-    if (output && width === 1512) {
-      await browser("record", "start", join(output, "reading.webm"));
-      await browser("set", "media", "dark");
-    }
 
     expect(await evaluate("document.querySelectorAll('.drawer [aria-label=Restore], .drawer [aria-label=Maximise]').length")).toBe(1);
 
@@ -157,13 +156,12 @@ it("u4698b_expand_keeps_the_long_pad_and_all_formats_reachable", { retry: 0, tim
     await settle();
     expect(await evaluate("document.querySelector('.pad-head-name').textContent")).toBe(name);
 
-    if (output && width === 1512) await browser("record", "stop");
   }
 
   if (output) {
     await evaluate("document.querySelector('.pad-editor').scrollTop = 650; true");
     await settle();
-    await capture("scrolled-1280");
+    await capture(`scrolled-${viewportWidth}`);
     await browser("focus", ".drawer .ProseMirror");
     await browser("press", "Control+End");
     await evaluate("window.__fake.failNext(-32000, 'The Pad could not be saved'); true");
@@ -171,7 +169,7 @@ it("u4698b_expand_keeps_the_long_pad_and_all_formats_reachable", { retry: 0, tim
     await browser("wait", ".drawer [data-pad-dismiss]");
     await evaluate("document.querySelector('.pad-editor').scrollTop = 0; true");
     await settle();
-    await capture("save-failure-1280");
+    await capture(`save-failure-${viewportWidth}`);
     await browser("click", ".drawer [data-pad-dismiss]");
     await evaluate(`(async () => {
       const pad = await window.__fake.app.rpc('pad.read', {name: ${JSON.stringify(name)}});
@@ -181,7 +179,7 @@ it("u4698b_expand_keeps_the_long_pad_and_all_formats_reachable", { retry: 0, tim
       return true;
     })()`);
     await browser("wait", "--fn", "[...document.querySelectorAll('.drawer button')].some(button => button.textContent === 'Keep mine')");
-    await capture("conflict-1280");
+    await capture(`conflict-${viewportWidth}`);
   }
 
   await browser("click", ".drawer .close");
@@ -196,9 +194,11 @@ it("u4698b_expand_keeps_the_long_pad_and_all_formats_reachable", { retry: 0, tim
     await browser("click", ".settings-back");
   }
 
+  if (output) await browser("record", "stop");
+
   await openTodo();
 
-  for (const [width, height] of [[1512, 950], [1280, 820]]) {
+  for (const [width, height] of viewports) {
     await browser("set", "viewport", String(width), String(height));
 
     await browser("wait", "--fn", `innerWidth === ${width} && innerHeight === ${height}`);
