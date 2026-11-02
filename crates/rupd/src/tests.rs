@@ -731,6 +731,15 @@ async fn reaction_cost_fixture(
     Arc<ReactionRail>,
 ) {
     daemon.reactions.db.lock().unwrap().execute_batch("INSERT INTO nodes(id,kind,name,ord) VALUES(1,'agent','Target',0),(2,'agent','Watched',1);").unwrap();
+    daemon.agents.set_status_for_test(
+        "1",
+        contracts::Status {
+            kind: contracts::Kind::Working,
+            label: String::new(),
+            since: 0,
+            finished: "0".into(),
+        },
+    );
     let world = daemon.reader().world().await.unwrap();
     let params = serde_json::from_value(json!({"operation":"cost","name":"Observe","target":"1","instruction":"Continue","reason":"Wait for completion.","condition":{"kind":"agents","ids":["2"]},"expires_at":"2099-01-01T00:00:00Z"})).unwrap();
     let reaction = daemon
@@ -764,7 +773,22 @@ fn ec5637a_reaction_reads_only_rail() {
             evaluator.observe(&reaction, None).await;
             assert_eq!(*rail.calls.lock().unwrap(), ["rail.tree"]);
             let firings = evaluator.messages.firings_of(&reaction.id).unwrap();
-            assert_eq!(firings.len(), 1);
+            assert_eq!(
+                firings.len(),
+                1,
+                "{}",
+                daemon
+                    .reactions
+                    .db
+                    .lock()
+                    .unwrap()
+                    .query_row(
+                        "SELECT state FROM reaction_watch WHERE reaction=?1",
+                        [&reaction.id],
+                        |r| r.get::<_, String>(0)
+                    )
+                    .unwrap()
+            );
             let message = firings[0].1.as_ref().unwrap();
             assert_eq!(message.body, "Continue");
             assert_eq!(message.to, "1");
@@ -786,7 +810,22 @@ fn ec5637a_reaction_replays_a_finish_during_rail_read() {
             evaluator.observe(&reaction, None).await;
             assert_eq!(*rail.calls.lock().unwrap(), ["rail.tree"]);
             let firings = evaluator.messages.firings_of(&reaction.id).unwrap();
-            assert_eq!(firings.len(), 1);
+            assert_eq!(
+                firings.len(),
+                1,
+                "{}",
+                daemon
+                    .reactions
+                    .db
+                    .lock()
+                    .unwrap()
+                    .query_row(
+                        "SELECT state FROM reaction_watch WHERE reaction=?1",
+                        [&reaction.id],
+                        |r| r.get::<_, String>(0)
+                    )
+                    .unwrap()
+            );
             assert_eq!(firings[0].1.as_ref().unwrap().body, "Continue");
             let evidence: Value = serde_json::from_str(&firings[0].0.evidence).unwrap();
             assert_eq!(evidence["finished"], json!(["2"]));

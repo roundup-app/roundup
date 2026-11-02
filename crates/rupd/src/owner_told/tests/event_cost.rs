@@ -18,12 +18,8 @@ async fn ec5637a_owner_flush_reads_only_rail() {
 #[tokio::test]
 async fn ec5637a_owner_handoff_reads_only_rail() {
     let (stub, reader) = rig(vec![node("a", "idle", true), node("b", "idle", true)]);
-    let mut told = Told {
-        idled: vec!["b".into(), "a".into(), "b".into()],
-        ..Told::default()
-    };
+    let mut told = Told::default();
     // Production record deduplicates repeated idle Events in a batch.
-    told.idled.clear();
     for id in ["b", "a", "b"] {
         let status = serde_json::from_value(json!({"id":id,"attempt":"1","status_revision":"1","ended":false,"status":{"kind":"idle","label":"","since":0,"finished":"0"}})).unwrap();
         told.record(&Event {
@@ -37,9 +33,9 @@ async fn ec5637a_owner_handoff_reads_only_rail() {
         *stub.calls.lock().unwrap(),
         [
             "rail.tree",
-            "todo.hand",
+            "todo.hand:b",
             "message.send",
-            "todo.hand",
+            "todo.hand:a",
             "message.send"
         ]
     );
