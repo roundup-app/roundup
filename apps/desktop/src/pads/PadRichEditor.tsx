@@ -7,7 +7,7 @@ import { clearTextInCurrentBlockCommand, toggleStrongCommand, toggleEmphasisComm
 import { captureFocus } from "../keys/focus";
 import { ReservedLine } from "../ink/ReservedLine";
 import { copy } from "./copy";
-import { createEffect, createMemo, createSignal, For, Show, createUniqueId, onCleanup, onMount, useContext } from "solid-js";
+import { createEffect, createMemo, createSignal, For, Show, createUniqueId, onCleanup, onMount, splitProps, useContext } from "solid-js";
 import { Portal } from "solid-js/web";
 import { CrepeBuilder } from "@milkdown/crepe/builder";
 import { blockEdit } from "@milkdown/crepe/feature/block-edit";
@@ -565,7 +565,12 @@ export default function PadRichEditor(props: {
             view.dispatch(tr);
             view.focus();
           })}>
-            <Menu.Trigger asChild={menu => <Tip text={copy.textColour}>{trigger => <button {...trigger(menu())} class="top-bar-heading-button" aria-label={copy.textColour}>{copy.textColour}</button>}</Tip>} />
+            <Tip text={copy.textColour}>{trigger => {
+              // Menu owns its trigger value; the tooltip needs no native button value.
+              const [, attributes] = splitProps(trigger(), ["value"]);
+
+              return <Menu.Trigger {...attributes} class="top-bar-heading-button" aria-label={copy.textColour}>{copy.textColour}</Menu.Trigger>;
+            }}</Tip>
             <Portal><Menu.Positioner class="pad-rich-editor"><Menu.Content>
               <For each={["default" as const, ...padColours]}>{colour => <Menu.Item value={colour}>{copy.colours[colour]}</Menu.Item>}</For>
             </Menu.Content></Menu.Positioner></Portal>
