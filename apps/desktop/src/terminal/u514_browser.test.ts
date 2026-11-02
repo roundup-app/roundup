@@ -343,13 +343,6 @@ it.each(["bubble"] as const)("u3529b_terminal_gestures_match_plain_xterm_%s", as
   expect(await read<string>("window.__emu.selection()")).not.toBe("");
   expect(await read<boolean>("getSelection().isCollapsed")).toBe(true);
 
-  const { from: selectedFrom, cells } = await reportingSelection(where, 1000);
-  await rightAt({ x: Math.round(selectedFrom.x + cells.width * 7), y: selectedFrom.y });
-  await browser("press", "Escape");
-  await browser("mouse", "move", String(selectedFrom.x), String(selectedFrom.y));
-  await browser("mouse", "down");
-  await browser("mouse", "up");
-  expect(await read("window.__emu.selection()")).toBe("");
   const before = await read<string>("JSON.stringify([...document.querySelectorAll('.bubble')].map(b => [b.dataset.bubble,b.hidden,b.getAttribute('style')]))");
   const calls = await read<number>("window.__fake.app.calls.length");
   const appOff = await journal(selector, false);
@@ -361,9 +354,23 @@ it.each(["bubble"] as const)("u3529b_terminal_gestures_match_plain_xterm_%s", as
   expect(appOn.bytes.length).toBeGreaterThan(0);
   expect(await read<string>("JSON.stringify([...document.querySelectorAll('.bubble')].map(b => [b.dataset.bubble,b.hidden,b.getAttribute('style')]))")).toBe(before);
   expect(await read<number>(`window.__fake.app.calls.slice(${calls}).filter(c => c.method === 'terminal.open').length`)).toBe(0);
-  await load("?plain=1&mac");
+  await load("?plain=1");
   expect(await journal("#host .xterm-screen", false)).toEqual(appOff);
   expect(await journal("#host .xterm-screen", true)).toEqual(appOn);
+
+  const { from: selectedFrom, cells } = await reportingSelection(where, 1000);
+  await rightAt({ x: Math.round(selectedFrom.x + cells.width * 7), y: selectedFrom.y });
+  await browser("press", "Escape");
+  await browser("mouse", "move", String(selectedFrom.x), String(selectedFrom.y));
+  await browser("mouse", "down");
+  await browser("mouse", "up");
+  expect(await read("window.__emu.selection()")).toBe("");
+  const afterCalls = await read<number>("window.__fake.app.calls.length");
+  const afterOn = await journal(selector, true);
+  await wait(`window.__fake.app.calls.slice(${afterCalls}).filter(c => c.method === 'terminal.write').reduce((n,c) => n + atob(c.params.data).length, 0) === ${afterOn.bytes.flat().length}`);
+  expect(await read(`window.__fake.app.calls.slice(${afterCalls}).filter(c => c.method === 'terminal.write').flatMap(c => [...atob(c.params.data)].map(ch => ch.charCodeAt(0)))`)).toEqual(afterOn.bytes.flat());
+  await load("?plain&mac");
+  expect(await journal("#host .xterm-screen", true)).toEqual(afterOn);
 }, 120_000);
 
 it.each([...editorKinds, "pad-source", "diff", "ask"] as const)("u3529a_text_keeps_its_webview_menu_%s", async kind => {
@@ -424,7 +431,7 @@ const rightAt = async (at: { x: number; y: number }) => {
   await browser("eval", "window.__context.cancelled = window.__contextEvent.defaultPrevented; window.__context.selected = getSelection().toString()");
 };
 
-// agent-browser's mouse CLI omits held modifiers; its input stream carries them.
+// agent-browser's mouse CLI omits pressed modifiers; its input stream carries them.
 const optionDrag = async (from: { x: number; y: number }, to: { x: number; y: number }) => {
   // SAFETY: the isolated browser exposes its documented numeric stream port.
   const status = JSON.parse(await browser("stream", "status")) as { data: { port: number } };
@@ -499,7 +506,7 @@ it.each(["agent", "user", "bubble"] as const)("u5549b_reporting_selection_keeps_
       window.__input = [];
       window.__controls = [...document.querySelectorAll('[role=menu], [role=dialog], .app-popover')];
       document.addEventListener('mousedown', () => { queueMicrotask(() => { window.__pressSelection = window.__emu.selection(); }); }, { once: true, capture: true });
-      document.querySelector('.bubble:not([hidden]) .xterm, .pane-screen .xterm').addEventListener('contextmenu', () => { window.__contextSelection = { terminal: window.__emu.selection(), browser: getSelection().toString() }; }, { once: true, capture: true });
+      document.elementFromPoint(${from.x}, ${from.y}).closest('.xterm').addEventListener('contextmenu', () => { window.__contextSelection = { terminal: window.__emu.selection(), browser: getSelection().toString() }; }, { once: true, capture: true });
     })()`);
     await rightAt({ x: Math.round(from.x + cells.width * 7), y: from.y });
     expect(await read("window.__context")).toEqual({ editable: false, cancelled: false, selected });
@@ -543,7 +550,8 @@ it.each(["agent", "user", "bubble"] as const)("u5549c_option_typing_survives_sel
   await browser("click", ".xterm-screen");
   await browser("eval", "window.__input = []; window.__emu.onInput(bytes => window.__input.push(...bytes))");
   const plain = await optionText();
-  expect(plain).toEqual([...new TextEncoder().encode("é")]);
+  // Chromium sends the physical Alt+e as e; the committed character probes text input separately.
+  expect(plain).toEqual([...new TextEncoder().encode("eé")]);
   expect(before).toEqual(plain);
   expect(after).toEqual(plain);
 }, 120_000);
@@ -748,12 +756,12 @@ it.skipIf(!/U3529|U5515|U5549/.test(process.env.ROUNDUP_CAPTURES ?? ""))("u3529c
       const emulator = [...window.__terminals.values()].at(-1);
       window.__selected = false;
       window.__emu = emulator;
-      emulator.write(new TextEncoder().encode(${JSON.stringify(output + "\x1b[?1002h\x1b[?1006h")}), () => { if (!${option && !base}) emulator.selectTurn(0, false); window.__selected = true; });
+      emulator.write(new TextEncoder().encode(${JSON.stringify(option ? "\x1b[2J\x1b[H" + output + "\x1b[?1002h\x1b[?1006h" : output)}), () => { if (!${option && !base}) emulator.selectTurn(0, false); window.__selected = true; });
     })()`);
     await wait("window.__selected");
 
     if (option && !base) {
-      const coordinates = await read<{from: {x:number;y:number};to:{x:number;y:number}}>("(() => { const box = document.querySelector('.pane-screen .xterm-screen, .bubble:not([hidden]) .xterm-screen').getBoundingClientRect(); const row = box.height/window.__emu.fit().rows; return {from:{x:Math.round(box.left+2),y:Math.round(box.top+row*1.5)},to:{x:Math.round(box.left+150),y:Math.round(box.top+row*1.5)}}; })()");
+      const coordinates = await read<{from: {x:number;y:number};to:{x:number;y:number}}>("(() => { const box = (document.querySelector('.bubble:not([hidden]) .xterm-screen') ?? document.querySelector('.pane-screen .xterm-screen')).getBoundingClientRect(); const row = box.height/window.__emu.fit().rows; return {from:{x:Math.round(box.left+2),y:Math.round(box.top+row*1.5)},to:{x:Math.round(box.left+150),y:Math.round(box.top+row*1.5)}}; })()");
       await browser("mouse", "move", String(coordinates.from.x), String(coordinates.from.y));
       await optionDrag(coordinates.from, coordinates.to);
     }
@@ -761,7 +769,7 @@ it.skipIf(!/U3529|U5515|U5549/.test(process.env.ROUNDUP_CAPTURES ?? ""))("u3529c
     await snap(`${seed}-selected`);
     await browser("eval", "document.querySelector('.pane-screen .xterm-helper-textarea, .bubble:not([hidden]) .xterm-helper-textarea')?.blur()");
     await snap(`${seed}-inactive`);
-    const menuPoint = await read<{ x: number; y: number }>("(() => { const box = document.querySelector('.pane-screen .xterm-screen, .bubble:not([hidden]) .xterm-screen').getBoundingClientRect(); return {x: box.left + 30, y: box.top + box.height/window.__emu.fit().rows * 1.5}; })()");
+    const menuPoint = await read<{ x: number; y: number }>("(() => { const box = (document.querySelector('.bubble:not([hidden]) .xterm-screen') ?? document.querySelector('.pane-screen .xterm-screen')).getBoundingClientRect(); return {x: box.left + 30, y: box.top + box.height/window.__emu.fit().rows * 1.5}; })()");
     await rightAt(menuPoint);
     await snap(`${seed}-right-click`);
     await browser("record", "stop");
