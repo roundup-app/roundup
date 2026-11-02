@@ -197,9 +197,14 @@ const d2 = (page: Page): Measure =>
 
     const size = px(page.resolve(style.fontSize));
 
-    // The shared document headings are fixed 20/24 px Tokens (unlike the
-    // interface-scaled 11–15 px steps). No intermediate type sizes are allowed.
-    if (size !== null && ![20, 24, ...[...TYPE_STEPS].map(step => step * Number(page.token("interface-scale") ?? 1))].some(step => Math.abs(size - step) < 0.01)) return { fontSize: style.fontSize };
+    const scale = Number(page.token("interface-scale") ?? 1);
+    const inPad = el.closest(".pad-body .reading") !== null;
+    // U5574's six steps are one ratio, scoped to Pad document descendants.
+    const padBody = (px(page.token("pad-text-base") ?? "") ?? NaN) * scale;
+    const padRatio = Number(page.token("pad-type-ratio"));
+    const padTypes = inPad ? [-1, 0, 1, 2, 3, 4].map(power => padBody * padRatio ** power) : [];
+
+    if (size !== null && ![20, 24, ...[...TYPE_STEPS].map(step => step * scale), ...padTypes].some(step => Math.abs(size - step) < 0.01)) return { fontSize: style.fontSize };
 
     const level = Number(el.getAttribute("aria-level"));
 
@@ -212,6 +217,8 @@ const d2 = (page: Page): Measure =>
     const chip = el.matches("kbd.key-chip");
     const chipPadding = px(page.token("key-chip-padding") ?? "");
 
+    const padSpaces = inPad ? [1, 2, 3, 4, 6, 7, 8].map(step => step * (px(page.token("pad-rhythm-base") ?? "") ?? NaN) * scale) : [];
+
     for (const property of ["margin-top", "margin-right", "margin-bottom", "margin-left", "padding-top", "padding-right", "padding-bottom", "padding-left", "row-gap", "column-gap"]) {
       const value = px(page.resolve(style.getPropertyValue(property)));
 
@@ -221,7 +228,7 @@ const d2 = (page: Page): Measure =>
       const chipVertical = chip && (property === "padding-top" || property === "padding-bottom");
 
       const conforms = chipSide ? chipPadding === 5 && value === chipPadding : chipVertical ? value === 0
-        : value === null || SPACE_STEPS.has(value) || (property === treeSide && treePadding !== null && value === treePadding);
+        : value === null || SPACE_STEPS.has(value) || padSpaces.some(step => Math.abs(value - step) < 0.01) || (property === treeSide && treePadding !== null && value === treePadding);
 
       if (!conforms) return { [property]: style.getPropertyValue(property) };
     }
