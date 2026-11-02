@@ -151,7 +151,7 @@ class Guard(unittest.TestCase):
         self.assertTrue(all(names <= after[d] for d, names in before.items()))
 
     def test_b4522_renumber_refuses_missing_applied_names_and_width_overflow(self):
-        d = b"crates/rupd/migrations/project"
+        d = next(self.layouts())[0].rstrip(b"/")
         for before, after, message in [
             ({b"0042-main.sql"}, {b"0042-branch.sql"}, "merge/rebase"),
             ({b"9999-main.sql"}, {b"9999-main.sql", b"9999-branch.sql"}, "width exhausted"),
