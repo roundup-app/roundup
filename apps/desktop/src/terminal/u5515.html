@@ -1,0 +1,35 @@
+<!doctype html><html lang="en"><head><meta charset="UTF-8"><title>Read-only text observer</title></head><body><div id="root"></div><script type="module">
+import { createComponent } from "solid-js";
+import { render } from "solid-js/web";
+import { App } from "../App";
+import { seedApp } from "../testing/seeds";
+import PadRichEditor from "../pads/PadRichEditor";
+import { runChecks } from "../testing/checks";
+import { useBrowserStorage } from "../state/storage";
+import "../tokens.css";
+import "../styles.css";
+// Each load owns its App state; prior editable/Terminal cases must not select its view.
+localStorage.clear();
+useBrowserStorage(window.localStorage);
+const controls = seedApp("tree-40", Date.now());
+window.__fake = controls;
+window.__checks = runChecks;
+const message = new URLSearchParams(location.search).has("message");
+const record = {
+  project: "harness", reason: null, id: "selection", name: "Review output", actor: { kind: "user", id: "you", parent: null }, home: null, target: "migrate",
+  instruction: "Review the selected output", condition: { kind: "agents", ids: ["migrate"], any: false }, max_firings: 1, remaining: 0, rearm: false,
+  expires_at: "2026-11-02T09:00:00Z", created_at: "2026-11-01T09:00:00Z", state: "stopped",
+  observation: { health: "observing", health_code: "observing", cause_code: "unknown", gap_code: "unknown", recovery_code: "unknown", cursor: null, gap: null, recovery: null, evidence: null },
+  firings: [{ id: "f1", ordinal: 1, message: 42, matched: true, evidence: "finished", definition: "{}", outcome: "delivered" }],
+};
+controls.app.handlers["reaction.list"] = () => [record];
+controls.app.handlers["reaction.get"] = () => record;
+controls.app.handlers["message.get"] = () => ({ id: 42, from: record.actor, to: "migrate", body: "Review café alpha bravo charlie together", kind: "note", replyTo: null, status: "delivered", reason: null, at: Date.now() });
+render(() => createComponent(App, { app: controls.app, reducedMotion: () => true, clock: Date.now, prepareIdle: connected => {
+  if (message) connected.showView("reactions");
+  else connected.drawer.open(() => createComponent(PadRichEditor, {
+    text: "Several café words remain selected together\n\n```text\nalpha bravo charlie delta\n```", readonly: true,
+    onChange: () => {}, onText: () => {}, onBlur: () => {}, onReady: () => {},
+  }), "key");
+} }), document.getElementById("root"));
+</script></body></html>

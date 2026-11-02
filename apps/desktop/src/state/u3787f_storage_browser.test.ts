@@ -3,7 +3,7 @@ import { expect, it } from "vitest";
 import { openLane } from "../todos/laneBrowser";
 import { captureDir } from "../testing/captures";
 
-it("u3787f_failed_migration_keeps_recovery_rendered_retry", async () => {
+it("u3787f_current_save_failure_rendered_retry", async () => {
   const lane = await openLane(1512, "dark", "u3787f-retention");
 
   try {
