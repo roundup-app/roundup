@@ -2,26 +2,45 @@ import type { Size, TerminalPreparation } from "../terminal/emulator";
 import { captureFocus } from "../keys/focus";
 import { createItemFailure } from "../rail/itemFailure";
 import { copy } from "./copy";
-import { batch, createSignal } from "solid-js";
+import { applying } from "../app/pending";
+import { batch, createMemo, createSignal } from "solid-js";
 import { createStore, reconcile } from "solid-js/store";
 import type { Actor } from "@contracts/Actor";
 import type { Event as DaemonEvent } from "@contracts/Event";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { TerminalInfo } from "@contracts/terminal/TerminalInfo";
 import { defaultWorkstreamName } from "../rail/defaultName";
+import { railTopology, type RailTopology } from "../rail/topology";
 import { ancestorsOf, isWorkstream } from "../rail/layout";
-import type { RailSection, RailStorage } from "../rail/persist/storage";
+import type { RailSection, RailStorage, ResumptionStorage } from "../rail/persist/storage";
 import type { Events } from "../app/events";
 import { outcomeOf, type AppSeam } from "../app/seam";
 
 /** How an exited node's program ended: with a code, by a signal, or unknown because the node has no Terminal. */
 export type ExitState = { kind: "code"; code: number } | { kind: "signal" } | { kind: "unknown" };
 
+/** U5151c: one failure, bound to its Attempt and Status revision. */
+const failureKey = (node: RailNode): string | null =>
+  node.status?.kind === "error" && node.attempt !== null && node.status_revision !== null ? `${node.id}:${node.attempt}:${node.status_revision}` : null;
+
+export type DismissalStorage = {
+  read(): string[] | null;
+  write(keys: string[]): Promise<string | null>;
+};
+
 export type RailState = {
+  /** U5151c: whether the owner dismissed this node's current failure. */
+  dismissed(node: RailNode): boolean;
+  /** U5151c: acknowledge this node's current failure; sends nothing to the Agent. */
+  dismiss(node: RailNode): void;
   prepareTerminal?: (() => Promise<TerminalPreparation | undefined>) | undefined;
   commandFailure: ReturnType<typeof createItemFailure>;
   /** Rows in the Daemon's order; only a `rail.tree` call adds or removes one. */
   readonly nodes: readonly RailNode[];
+  /** One structural index shared by selection and every mounted Rail projection. */
+  topology(): RailTopology;
+  /** U5483c: latest accepted working start in milliseconds; retained across Project connections for the same Attempt. */
+  resumedAt(id: string): number | undefined;
   /** `null` while the node's program runs, and for a Workstream (one with no program). */
   exitOf(node: RailNode): ExitState | null;
   /** X11, X12: every Terminal the Daemon lists, as of the last `terminal.list`. */
@@ -33,6 +52,8 @@ export type RailState = {
   startDoor(id: string): Promise<void>;
   /** U9/U62: creates a root Workstream, then selects it and starts its Door once `rail.tree` returns it. */
   createWorkstream(): Promise<void>;
+  /** U5241: creates a root Workstream named `name`; resolves `null` once the Daemon made it, else the failure message, shown nowhere on the Rail. */
+  createNamedWorkstream(name: string): Promise<string | null>;
   /** True from the click until the new Workstream has appeared and its Door launch has begun. */
   workstreamCreating(): boolean;
   clearWorkstreamFailure(): void;
@@ -46,8 +67,20 @@ export type RailState = {
   toggleCollapsed(id: string): void;
   storageFailure(): string | null;
   clearStorageFailure(): void;
+  /** U5151e: the Agent whose dismissal the storage rejected, until a Retry saves it or the owner dismisses the line. */
+  unsavedDismissal(): string | null;
+  retryDismissal(): void;
+  clearUnsavedDismissal(): void;
   select(id: string | null): void;
   nameOf(actor: Actor): string;
+  /** U5172a: the change asked of Row `id` that the Daemon has not yet confirmed, or `null`. */
+  pendingOf(id: string): PendingChange | null;
+  /** U5172a: keeps the asked change on Row `id`, marked, until an Event or a re-read settles it. */
+  keepAsked(id: string, change: PendingChange): void;
+  /** U5172a: where Row `id` sits now. */
+  placeOf(id: string): RailPlace | null;
+  /** U5172a: renames Row `id`; a refusal throws, an unanswered call keeps `name` marked as unconfirmed. */
+  rename(id: string, name: string): Promise<void>;
   /** The message of the last failed fetch, until a later fetch succeeds. */
   failure(): string | null;
   /** Fetches the current tree after a write found that its row had already gone; `terminals` also refetches `terminal.list`, so a missed exit shows. */
@@ -56,18 +89,58 @@ export type RailState = {
   settled(): Promise<void>;
 };
 
+/** U5172a: a change the App asked and the Daemon has not answered. A rename shows `asked` over the `base` name. */
+export type PendingChange = { kind: "rename"; asked: string; base: string } | { kind: "remove" } | { kind: "move"; asked: RailPlace; base: RailPlace };
+
+/** U5172a: where a Row sits: its parent and its index among that parent's children. */
+export type RailPlace = { parent: string | null; index: number };
+
+const placeOf = (tree: readonly RailNode[], id: string): RailPlace | null => {
+  const node = tree.find(each => each.id === id);
+
+  return node === undefined ? null : { parent: node.parent, index: tree.filter(each => each.parent === node.parent).findIndex(each => each.id === id) };
+};
+
+/** U5172a: `tree` with Row `id` put at `place`: before the child of `place.parent` now at that index, else after the parent's last child (or its parent Row). */
+const movedTo = (tree: readonly RailNode[], id: string, place: RailPlace): RailNode[] => {
+  const node = tree.find(each => each.id === id);
+
+  if (node === undefined) return [...tree];
+  const rest = tree.filter(each => each.id !== id);
+  const siblings = rest.filter(each => each.parent === place.parent);
+  const before = siblings[place.index];
+  const last = siblings.at(-1);
+  const at = before !== undefined ? rest.indexOf(before) : last !== undefined ? rest.indexOf(last) + 1 : place.parent === null ? rest.length : rest.findIndex(each => each.id === place.parent) + 1;
+
+  return [...rest.slice(0, at), { ...node, parent: place.parent }, ...rest.slice(at)];
+};
+
 /** A24: how long the App waits for `rail.startDoor`, the Daemon's own bound of 10 000 ms. */
 const DOOR_START_BOUND_MS = 10_000;
 
-export const createRailState = (app: AppSeam, events: Events, storage?: RailStorage): RailState => {
+export const createRailState = (app: AppSeam, events: Events, storage?: RailStorage, dismissals?: DismissalStorage, resumptions?: ResumptionStorage): RailState => {
   const [model, setModel] = createStore<{ tree: RailNode[]; exited: Record<string, number | null> }>({
     tree: [],
     exited: {},
   });
 
+  // Solid tracks membership and structural fields, including reconciled in-place edits.
+  // Status, selection, disclosure, questions and clocks never enter this memo.
+  const topology = createMemo(() => railTopology(model.tree));
+
+  const [resumed, setResumed] = createStore<Parameters<ResumptionStorage["write"]>[0]>(resumptions?.read() ?? {});
+
+  const recordResumption = (node: RailNode): boolean => {
+    if (node.status?.kind !== "working" || (resumed[node.id]?.attempt === node.attempt && resumed[node.id]?.since === node.status.since)) return false;
+    setResumed(node.id, { attempt: node.attempt, since: node.status.since });
+
+    return true;
+  };
+
   const [doors, setDoors] = createStore<Record<string, { pending: boolean; observedLive: boolean; failure: { message: string; attempt: string | null } | null }>>({});
   const [terminals, setTerminals] = createSignal<readonly TerminalInfo[]>([]);
   const commandFailure = createItemFailure(id => model.tree.some(node => node.id === id), terminals);
+  const [dismissedKeys, setDismissedKeys] = createSignal<ReadonlySet<string>>(new Set(dismissals?.read() ?? []));
   const [selected, setSelected] = createSignal<string | null>(null);
   const [terminalFocus, setTerminalFocus] = createSignal(captureFocus());
   const [failure, setFailure] = createSignal<string | null>(null);
@@ -83,6 +156,8 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
   const [closedSections, setClosedSections] = createSignal<ReadonlySet<RailSection>>(new Set());
   const [restored, setRestored] = createSignal(false);
   const [storageFailure, setStorageFailure] = createSignal<string | null>(null);
+  // U5151g: one entry per failure whose dismissal write was refused; the Rail shows the oldest.
+  const [unsaved, setUnsaved] = createSignal<{ key: string; name: string }[]>([]);
   let firstTree = true;
 
   const save = async () => {
@@ -92,12 +167,45 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
     setStorageFailure(await storage?.write(layout) ?? null);
   };
 
+  const saveResumptions = async () => {
+    setStorageFailure(await resumptions?.write({ ...resumed }) ?? null);
+  };
+
   const reveal = (id: string | null) => {
     if (id === null) return;
 
-    const above = new Set(ancestorsOf(model.tree, id));
+    const above = new Set(ancestorsOf(topology(), id));
 
     setCollapsed((closed) => new Set([...closed].filter((workstream) => !above.has(workstream))));
+  };
+
+  const [unconfirmed, setAsked] = createStore<Record<string, PendingChange>>({});
+
+  /** U5172a: a read or Event settles an unconfirmed change: confirmed clears the mark, a contradicting name shows the Daemon's with one failure, an unchanged row stays marked. */
+  const reconcileAsked = (tree: readonly RailNode[]) => {
+    for (const [id, change] of Object.entries(unconfirmed)) {
+      const node = tree.find(each => each.id === id);
+
+      if (node === undefined) {
+        setAsked(id, undefined!);
+        continue;
+      }
+
+      if (change.kind === "move") {
+        const place = placeOf(tree, id)!;
+
+        if (place.parent === change.base.parent && place.index === change.base.index) continue;
+        setAsked(id, undefined!);
+
+        if (place.parent !== change.asked.parent || place.index !== change.asked.index) commandFailure.show(copy.moveDidNotApply, id, "rail");
+        continue;
+      }
+
+      if (change.kind !== "rename" || node.name === change.base) continue;
+      setAsked(id, undefined!);
+
+      if (node.name !== change.asked) commandFailure.show(copy.renameDidNotApply(change.asked, node.name), id, "rail");
+    }
   };
 
   let pending = 0;
@@ -119,11 +227,30 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
 
   const fetchTree = async () => {
     const tree = await app.rpc("rail.tree", null);
+    let resumptionChanged = false;
 
     batch(() => {
-      setModel("tree", reconcile(tree, { key: "id" }));
+      reconcileAsked(tree);
+
+      let shown = tree.map((node) => {
+        const change = unconfirmed[node.id];
+
+        return change?.kind === "rename" ? { ...node, name: change.asked } : node;
+      });
+
+      for (const [id, change] of Object.entries(unconfirmed)) if (change.kind === "move") shown = movedTo(shown, id, change.asked);
+
+      setModel("tree", reconcile(shown, { key: "id" }));
+
+      for (const id of Object.keys(resumed)) {
+        if (tree.some(node => node.id === id && node.attempt === resumed[id]?.attempt)) continue;
+        setResumed(id, undefined!);
+        resumptionChanged = true;
+      }
 
       for (const node of tree) {
+        if (recordResumption(node)) resumptionChanged = true;
+
         if (doors[node.id]?.pending && hasLiveTerminal(node)) setDoors(node.id, "observedLive", true);
         const failed = doors[node.id]?.failure;
 
@@ -154,6 +281,8 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
         }
       }
     });
+
+    if (resumptionChanged) await saveResumptions();
 
     const wanted = wantedWorkstream;
 
@@ -210,14 +339,32 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
         queued.push(event);
       } else if (event.name === "rail.changed") {
         fetching(fetchTree);
+      } else if (event.name === "rail.renamed") {
+        const row = model.tree.find(node => node.id === event.data.id);
+
+        if (row !== undefined) reconcileAsked([{ ...row, name: event.data.name }]);
+        setModel("tree", node => node.id === event.data.id, "name", event.data.name);
       } else if (event.name === "agent.status") {
         setModel("tree", (node) => node.id === event.data.id && node.attempt === event.data.attempt && node.status_revision !== null && BigInt(event.data.status_revision) > BigInt(node.status_revision), { status: event.data.status, status_revision: event.data.status_revision });
+        const node = model.tree.find(node => node.id === event.data.id);
+
+        if (node && recordResumption(node)) void saveResumptions();
       } else if (event.name === "agent.toolCall") {
         setModel("tree", (node) => node.id === event.data.id, "tool_call", reconcile(event.data.call));
       } else if (event.name === "terminal.changed") {
         fetching(fetchTerminals);
       } else if (event.name === "terminal.shown") {
         showTerminal(event.data.id);
+      } else if (event.name === "terminal.status") {
+        const { id, status } = event.data;
+
+        setTerminals((listed) => listed.map((terminal) => {
+          if (terminal.id !== id) return terminal;
+
+          const { status: _previous, ...rest } = terminal;
+
+          return status ? { ...rest, status } : rest;
+        }));
       } else if (event.name === "terminal.exited") {
         setModel("exited", event.data.id, event.data.code);
       }
@@ -267,16 +414,17 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
     }
   };
 
-  const createWorkstream = (): Promise<void> => {
-    const params = { name: defaultWorkstreamName(model.tree), parent: null };
+  /** `named` is a Switcher's create (U5241): its failure goes back to the caller, not to the Rail's line. */
+  const makeWorkstream = (named: string | null): Promise<string | null> => {
+    const params = { name: named ?? defaultWorkstreamName(model.tree), parent: null };
 
     // The connection and these arguments outlive the Rail that offered the action.
-    const create = async (): Promise<void> => {
-      if (workstreamCreating()) return;
+    const create = async (): Promise<string | null> => {
+      if (workstreamCreating()) return null;
       setWorkstreamCreating(true);
 
       try {
-        if (workstreamUnknown !== null && !await app.ask({ title: copy.newWorkstreamTitle, message: `${copy.terminalOutcomeUnknown}${workstreamUnknown}`, okLabel: copy.newWorkstreamTitle, cancelLabel: copy.keep })) return;
+        if (workstreamUnknown !== null && !await app.ask({ title: copy.newWorkstreamTitle, message: `${copy.terminalOutcomeUnknown}${workstreamUnknown}`, okLabel: copy.newWorkstreamTitle, cancelLabel: copy.keep })) return workstreamUnknown;
 
         workstreamFocus = captureFocus(true);
         workstreamSelection = selectionRevision;
@@ -284,11 +432,17 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
         workstreamUnknown = null;
         commandFailure.acknowledge(null);
         fetching(fetchTree);
+
+        return null;
       } catch (error) {
         if (!(error instanceof Error)) throw error;
 
         workstreamUnknown = outcomeOf(error) === "unknown" ? error.message : null;
+
+        if (named !== null) return error.message;
         commandFailure.show(`${copy.newWorkstreamTitle}: ${workstreamUnknown !== null ? copy.terminalOutcomeUnknown : ""}${error.message}`, null, "rail", () => { void create(); });
+
+        return error.message;
       } finally {
         if (wantedWorkstream === null) setWorkstreamCreating(false);
       }
@@ -297,12 +451,15 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
     return create();
   };
 
+  const createWorkstream = async (): Promise<void> => { await makeWorkstream(null); };
+
   events.subscribe((event) => apply([event]));
   fetching(async () => {
     await Promise.all([fetchTree(), fetchTerminals()]);
   });
 
   const state: RailState = {
+    resumedAt: id => resumed[id]?.since,
     commandFailure,
     terminals,
     terminalExit: (id) => {
@@ -316,8 +473,10 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
     doorFailure: (id) => doors[id]?.failure?.message ?? null,
     startDoor,
     createWorkstream,
+    createNamedWorkstream: name => makeWorkstream(name),
     workstreamCreating,
     clearWorkstreamFailure: () => commandFailure.acknowledge(null),
+    topology,
     get nodes() {
       return model.tree;
     },
@@ -330,7 +489,42 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
 
       return code === null ? { kind: "signal" } : { kind: "code", code };
     },
+    pendingOf: (id) => unconfirmed[id] ?? null,
+    placeOf: (id) => placeOf(model.tree, id),
+    rename: async (id, name) => {
+      const base = model.tree.find(node => node.id === id)?.name ?? "";
+      const result = await applying(() => app.rpc("rail.rename", { id, name }));
+
+      if (result.kind === "refused") throw result.error;
+
+      if (result.kind === "pending") state.keepAsked(id, { kind: "rename", asked: name, base });
+    },
+    keepAsked: (id, change) => {
+      setAsked(id, change);
+
+      if (change.kind === "rename") setModel("tree", node => node.id === id, "name", change.asked);
+      else if (change.kind === "move") setModel("tree", reconcile(movedTo(model.tree, id, change.asked), { key: "id" }));
+    },
     failure,
+    dismissed: (node) => {
+      const key = failureKey(node);
+
+      return key !== null && dismissedKeys().has(key);
+    },
+    dismiss: (node) => {
+      const key = failureKey(node);
+
+      if (key === null) return;
+      const next = new Set(dismissedKeys()).add(key);
+
+      setDismissedKeys(next);
+      void dismissals?.write([...next]).then(problem => { if (problem !== null) setUnsaved(lines => [...lines.filter(line => line.key !== key), { key, name: node.name }]); else setUnsaved([]); });
+    },
+    unsavedDismissal: () => unsaved()[0]?.name ?? null,
+    retryDismissal: () => {
+      void dismissals?.write([...dismissedKeys()]).then(problem => { if (problem === null) setUnsaved([]); });
+    },
+    clearUnsavedDismissal: () => setUnsaved(lines => lines.slice(1)),
     refresh: async (options) => {
       if (options?.terminals) fetching(async () => { await Promise.all([fetchTree(), fetchTerminals()]); });
       else fetching(fetchTree);

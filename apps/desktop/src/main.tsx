@@ -18,6 +18,9 @@ if (!root) throw new Error("index.html has no #root element");
 
 const tauri = createTauriApp();
 
+// Native preferences must open before any ordinary App surface or editor mounts.
+if (!new URLSearchParams(location.search).has("capture")) await tauri.projects();
+
 if (!new URLSearchParams(location.search).has("capture")) {
   void followMaterial(document.documentElement).catch(error => console.error(error));
 }
@@ -41,9 +44,18 @@ const keystrokes = !import.meta.env.VITE_ROUNDUP_IDLE_PERF && import.meta.env.VI
         return createFrameRun(tauri.forProject(measured.path), workload, measured.path, reducedMotion);
       }
 
-      return createKeystrokeRun(tauri.forProject(measured.path), workload === "flood" ? "flood" : "idle");
+      return createKeystrokeRun(tauri.forProject(measured.path), workload === "flood" ? "flood" : "idle", measured.path);
     })
   : null;
+
+// Opt-in at build time (SP1): the Switcher and switch marks exist only in a perf build and are read from `window`.
+if (!import.meta.env.VITE_ROUNDUP_IDLE_PERF && import.meta.env.VITE_ROUNDUP_PERF) {
+  const { createSwitchProbe, SWITCH_PROBE } = await import("./perf/switch");
+  const probe = createSwitchProbe(() => performance.now());
+
+  probe.start();
+  Object.assign(window, { [SWITCH_PROBE]: probe });
+}
 
 const app = keystrokes?.traced(tauri) ?? tauri;
 

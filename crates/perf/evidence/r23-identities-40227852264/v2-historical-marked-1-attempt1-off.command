@@ -1,2 +1,0 @@
-cwd: /tmp/r23-native-identities
-$ /tmp/r23-queue-bins/marked-perf --runs 1 --calls 1000 --rupd /tmp/r23-queue-bins/historical-instrumented-rupd --rup /tmp/r23-queue-bins/historical-rup --budgets /tmp/r23-native-identities/crates/perf/evidence/r23-identities-40227852264/diagnostic-budgets.json --out /tmp/r23-native-identities/crates/perf/evidence/r23-identities-40227852264/v2-historical-marked-1-attempt1-off.json

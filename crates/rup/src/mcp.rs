@@ -5,7 +5,8 @@ use std::path::PathBuf;
 use std::process::ExitCode;
 use std::time::Duration;
 
-use contracts::{Actor, ActorKind, IdentifyParams, agent, checkpoint, terminal, workstream};
+use contracts::bubble_rule;
+use contracts::{Actor, ActorKind, IdentifyParams, agent, terminal, workstream};
 use rmcp::model::{
     CacheScope, CallToolRequestParams, CallToolResponse, CallToolResult, ContentBlock,
     Implementation, JsonObject, ListToolsResult, PaginatedRequestParams, ServerCapabilities,
@@ -16,7 +17,6 @@ use rmcp::{ErrorData, ServerHandler, ServiceExt};
 use rpc::RpcError;
 use schemars::JsonSchema;
 use serde_json::Value;
-use tokio::sync::mpsc;
 
 /// A Todo or Pad call is a few SQLite statements; past this the Daemon is wedged, and a hung tool call would hang the Agent's turn.
 pub(crate) const CALL_TIMEOUT: Duration = Duration::from_secs(10);
@@ -27,7 +27,7 @@ pub(crate) const CALL_TIMEOUT: Duration = Duration::from_secs(10);
 mod agent_tools;
 use agent_tools::{
     agent_context, agent_digest, agent_extras, agent_extras_add, agent_set_order, agent_spawn,
-    agent_wake, checkpoint_write, workstream_rewind, workstream_rewind_plan,
+    agent_wake, workstream_rewind,
 };
 
 const TOOLS_TTL_MS: u64 = 3_600_000;
@@ -72,23 +72,17 @@ impl Offered {
     }
 }
 
-/// The Daemon cannot be spoken to; the shim exits instead of answering the Agent.
+/// The Daemon cannot be spoken to; the call fails with a tool error and the next call connects afresh (M5179).
 #[derive(Debug)]
 enum Gone {
+    /// Nothing was sent.
     Unreachable(String),
-    /// The method was sent and got no answer, so it may or may not have been applied.
-    Silent,
 }
 
 impl std::fmt::Display for Gone {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Gone::Unreachable(why) => f.write_str(why),
-            Gone::Silent => write!(
-                f,
-                "no answer within {}s; the call may have been applied",
-                CALL_TIMEOUT.as_secs()
-            ),
         }
     }
 }
@@ -105,6 +99,21 @@ fn offered_without_params(method: &'static str, description: &'static str) -> Of
     offer(method, description, schema, false)
 }
 
+/// The tool for a method: its name with `.` as `_`. The `github.` methods read `github_pr_get`
+/// (their camelCase parts split on `_`), the names B5168e lists.
+fn tool_name(method: &str) -> String {
+    let mut name = String::new();
+    for ch in method.replace('.', "_").chars() {
+        if ch.is_ascii_uppercase() && method.starts_with("github.") {
+            name.push('_');
+            name.push(ch.to_ascii_lowercase());
+        } else {
+            name.push(ch);
+        }
+    }
+    name
+}
+
 fn offer(
     method: &'static str,
     description: &'static str,
@@ -114,7 +123,7 @@ fn offer(
     Offered {
         method,
         tool: Tool::new(
-            method.replace('.', "_"),
+            tool_name(method),
             format!(
                 "{description} Agent references accept `me` (you), an exact case-sensitive Rail name, `name:<Rail name>` for collisions, or a canonical id. Owner fields also accept explicit Actors; omitted/null Todo owners remain Unassigned."
             ),
@@ -234,7 +243,7 @@ pub(crate) fn commands(door: bool) -> Vec<Offered> {
 
 /// M5: one tool for each method of its first list; the methods left out are in its second, with their reasons (`scenarios/mcp.md`).
 macro_rules! push_tool {
-    ($list:ident, $wire:literal, none()) => {};
+    ($list:ident, $wire:literal, none($reason:expr)) => {};
     ($list:ident, $wire:literal, all($($tool:tt)*)) => { push_tool!(@offer $list, $wire, false, $($tool)*); };
     ($list:ident, $wire:literal, door($($tool:tt)*)) => { push_tool!(@offer $list, $wire, true, $($tool)*); };
     (@offer $list:ident, $wire:literal, $door:expr, schema($schema:ty, $description:expr)) => {
@@ -392,7 +401,6 @@ struct Shim {
     socket: PathBuf,
     actor: Actor,
     tools: Vec<Offered>,
-    gone: mpsc::Sender<Gone>,
 }
 
 impl Shim {
@@ -477,9 +485,16 @@ impl Shim {
             Ok(display) => display,
             Err(error) => return Ok(Err(error)),
         };
-        let result = tokio::time::timeout(CALL_TIMEOUT, client.request(offer.method, &params))
-            .await
-            .map_err(|_| Gone::Silent)?;
+        // M5159a: a silent Daemon fails this call alone; the shim stays up for the next one.
+        let Ok(result) =
+            tokio::time::timeout(CALL_TIMEOUT, client.request(offer.method, &params)).await
+        else {
+            return Ok(Err(RpcError::unknown_outcome(format!(
+                "{} got no answer from the Daemon within {} s; the work may still finish",
+                offer.tool.name,
+                CALL_TIMEOUT.as_secs()
+            ))));
+        };
         let result = match result {
             Ok(result) => display_data(&client, offer.method, result).await,
             Err(error) => Err(error),
@@ -545,15 +560,23 @@ impl ServerHandler for Shim {
         match result {
             Ok(Ok(result)) => Ok(CallToolResult::success(vec![ContentBlock::text(result)]).into()),
             Ok(Err(err)) => {
-                let body = serde_json::to_string(&err)
+                let mut body = serde_json::to_string(&err)
                     .map_err(|e| ErrorData::internal_error(e.to_string(), None))?;
+                // M5179: the request went out and no answer came.
+                if err.code == rpc::code::UNKNOWN_OUTCOME {
+                    body = format!("{}: {body}; the call may have been applied", request.name);
+                }
                 Ok(CallToolResult::error(vec![ContentBlock::text(body)]).into())
             }
             Err(gone) => {
-                let message = gone.to_string();
-                // A full channel means the shim is already exiting.
-                let _ = self.gone.try_send(gone);
-                Err(ErrorData::internal_error(message, None))
+                let applied = match gone {
+                    Gone::Unreachable(_) => "; the call was not sent",
+                };
+                Ok(CallToolResult::error(vec![ContentBlock::text(format!(
+                    "{}: {gone}{applied}",
+                    request.name
+                ))])
+                .into())
             }
         }
     }
@@ -572,12 +595,10 @@ pub async fn run(actor: Actor) -> ExitCode {
 
 async fn serve(actor: Actor) -> Result<(), String> {
     let socket = rpc::socket_path().map_err(|err| err.to_string())?;
-    let (gone, mut gone_rx) = mpsc::channel(1);
     let mut shim = Shim {
         socket,
         actor,
         tools: tools(false),
-        gone,
     };
     let start = shim.connect().await.map_err(|gone| gone.to_string())?;
     // Both wait on the same Daemon, so a mute one costs one `CALL_TIMEOUT`, not two.
@@ -600,10 +621,11 @@ async fn serve(actor: Actor) -> Result<(), String> {
         .serve(rmcp::transport::stdio())
         .await
         .map_err(|err| err.to_string())?;
-    tokio::select! {
-        ended = running.waiting() => ended.map(|_| ()).map_err(|err| err.to_string()),
-        Some(gone) = gone_rx.recv() => Err(gone.to_string()),
-    }
+    running
+        .waiting()
+        .await
+        .map(|_| ())
+        .map_err(|err| err.to_string())
 }
 
 #[cfg(test)]

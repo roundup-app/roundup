@@ -1,4 +1,4 @@
-/* U4313b: keep the Terminal bar and its overlays at one footer row; stacked Rail actions size themselves. */
+/* U4313b: the Rail creation row and Terminal bar share one height. */
 :root {
   --rail-actions-height: calc(var(--space-5) + var(--space-4));
 }
@@ -12,10 +12,8 @@
 .rail-actions {
   display: flex;
   flex: none;
-  flex-direction: column;
-  align-items: stretch;
-  justify-content: space-between;
-  height: auto;
+  align-items: center;
+  height: var(--rail-actions-height);
   box-sizing: border-box;
   background: var(--sunken);
   padding-inline: var(--space-4);
@@ -24,13 +22,30 @@
   border-top-color: var(--hairline);
 }
 
-.rail-actions button {
-  justify-content: flex-start;
-  min-height: var(--space-6);
-  flex: none;
+.rail-create-menu [data-part="item"] {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
   gap: var(--space-3);
-  --button-lead: 0;
-  --button-inline: 0;
+}
+
+.rail-create-menu[data-pointer] {
+  transform-origin: var(--transform-origin);
+  transition: opacity var(--duration-reduced) var(--easing-out), transform var(--duration-reduced) var(--easing-out);
+  @starting-style {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rail-create-menu[data-pointer] {
+    transition-property: opacity;
+    @starting-style { transform: none; }
+  }
+}
+
+.rail-create-menu [data-disabled] {
+  color: var(--disabled);
 }
 
 /* U357: a depth is an --indent column, not padding, so the indent is a Token step times the depth and no spacing value of its own (D2). */
@@ -53,7 +68,7 @@
   padding-right: var(--rail-edge, var(--space-4));
 }
 
-.rail-row :is(.line, .reserved-line),
+.rail-row :is(.line, .reserved-line, .failure-line),
 .rail-fold button {
   grid-column: 2;
 }
@@ -167,11 +182,6 @@
   min-width: 0;
 }
 
-.rail-row .door-action {
-  flex: none;
-  white-space: nowrap;
-}
-
 .rail-row input {
   flex: 1;
   min-width: 0;
@@ -182,11 +192,6 @@
   background: var(--transparent);
   color: inherit;
   font: inherit;
-}
-
-.rail-name-error {
-  flex: none;
-  cursor: default;
 }
 
 .spawn-prompt-field {
@@ -221,7 +226,7 @@
   /* U357: one depth is a glyph and its gap, so a child's glyph sits under its parent's name. */
   --rail-step: var(--tree-step);
   /* The leading gap keeps every glyph clear of the tree's connecting lines. */
-  --rail-edge: var(--space-2);
+  --rail-edge: var(--space-3);
   /* Overview's space-3 inset plus space-1 tile padding. */
   --rail-inset: var(--space-4);
   --rail-slot: var(--space-5);
@@ -385,17 +390,12 @@
   order: -1;
 }
 
-.rail-leaf :is(.item-description, [data-todo-home]) {
+.rail-leaf [data-todo-home] {
   display: none;
 }
 
 .rail-leaf [data-group-toggle] {
   flex: none;
-}
-
-/* The Door keeps a full icon target beside the group; the label stays available to assistive technology. */
-.rail-row .door-action-label {
-  display: none;
 }
 
 /* U397's 163 px stress surface gives the row its whole width; U466's supported resize widths retain the row inset. */
@@ -422,10 +422,6 @@
 }
 
 @container rail (width < env(--query-rail-compact)) {
- .rail-row[data-near="true"] .door-action {
-    display: none;
-  }
-
  .rail-row .line {
     --rail-gap: var(--space-3);
   }
@@ -517,20 +513,6 @@
   font-size: var(--text-caption);
   font-variant-numeric: tabular-nums;
 }
-
-.rail-row .row-name-state {
-  display: flex;
-  flex: 1 1 0;
-  align-items: center;
-  min-width: 0;
-  gap: var(--space-2);
-  container-type: inline-size;
-}
-.row-name-state .name {
-  flex: 0 1 auto;
-  min-width: 0;
-  max-width: 100%;
-}
 .worktree-chips {
   display: flex;
   flex: none;
@@ -559,21 +541,6 @@
 }
 .worktree-chip[data-stale="true"] {
   color: var(--grey);
-}
-.rail-row:has(.row-name-state) .row-icons {
-  transform: none;
-}
-.rail-row:has(.row-name-state) .line {
-  gap: var(--space-1);
-}
-.rail-row:has(.row-name-state) :first-child {
-  margin-right: calc(var(--rail-gap) - var(--space-1));
-}
-.rail-row:has(.row-name-state) .fill {
-  display: none;
-}
-.row-name-state+.row-tail {
-  margin-left: var(--space-4);
 }
 
 .rail-recovery {
@@ -617,24 +584,8 @@
   background: var(--ground);
 }
 
-.rail-task-target {
-  margin: var(--space-1) var(--space-3);
-  color: var(--grey);
-  overflow-wrap: anywhere;
-}
-
 .rail-row[data-editing="true"] input {
   width: 100%;
-}
-
-.rail-retention {
-  display: grid;
-  gap: var(--space-3);
-  padding: var(--space-3);
-}
-
-.rail-retention button {
-  justify-self: start;
 }
 
 .rail-recovery summary {
@@ -682,10 +633,8 @@
   position: relative;
 }
 
-.rail-command-notice[data-overlay="true"] {
-  padding-inline: var(--space-4);
-  background: var(--sunken);
-  bottom: 100%;
+.rail-command-notice[data-empty="true"] {
+  display: none;
 }
 
 .rail .rail-scroll {
@@ -697,7 +646,7 @@
 .rail-row .row-state { width: var(--space-4); flex: none; }
 .rail-row .row-controls { flex: none; }
 .rail-row .rail-chevron { opacity: 0; pointer-events: none; }
-.rail-row:has(.row-state:hover, .rail-chevron:is(:hover, :focus-visible)) .rail-chevron { opacity: 1; pointer-events: auto; }
+.rail-row:has(.rail-chevron):is(:hover, :has(.rail-chevron:focus-visible)) .rail-chevron { opacity: 1; pointer-events: auto; }
 
 .rail-row[data-worktree="true"] { --elbow-y: calc((var(--space-6) + var(--space-2) - var(--space-3)) / 2); min-height: calc(var(--space-6) + var(--space-2)); }
 .rail-row[data-worktree="true"] .line { position: relative; box-sizing: border-box; padding-block-end: var(--space-3); }
@@ -725,7 +674,7 @@
 .rail-row .row-state { position: static; margin-inline-start: 0; }
 /* U4707: the 32px Token leaves no column left of the glyph, so the chevron takes the glyph's place only while the pointer or keyboard is on it; selection and focus keep the glyph. */
 .rail-row .rail-chevron { left: calc(var(--rail-inset) + var(--tree-depth) * var(--tree-step)); transform: none; z-index: 1; }
-.rail-row:has(.row-state:hover, .rail-chevron:is(:hover, :focus-visible)) .row-state { opacity: 0; }
+.rail-row:has(.rail-chevron):is(:hover, :has(.rail-chevron:focus-visible)) .row-state { opacity: 0; }
 .rail-row .row-icons {
   display: inline-flex;
   align-items: center;
@@ -797,7 +746,18 @@
   text-overflow: clip;
 }
 
-.rail-section + .rail-section { margin-top: var(--rail-section-gap); }
+.rail-section + .rail-section { margin-top: var(--rail-section-gap); position: relative; }
+/* U5147b: one hairline centred in the gap, the root divider's span and paint. */
+.rail-section + .rail-section::before {
+  content: "";
+  position: absolute;
+  top: calc((var(--rail-section-gap) + var(--hairline-width)) / -2);
+  right: 0;
+  left: 0;
+  height: var(--hairline-width);
+  background-color: var(--hairline);
+  pointer-events: none;
+}
 .rail-section [data-part="branch-content"] { padding-inline-start: 0; }
 .rail .section-head[data-part="branch-control"] { color: var(--grey); }
 .rail .section-head:is(:hover, :focus-visible) { color: var(--text); }
@@ -805,38 +765,6 @@
 .opening-prompt-dialog form {
   display: grid;
   gap: var(--space-4);
-}
-
-/* Mode identity stays beside the truncated name; actions reserve their trailing space. */
-.mode-name {
-  display: flex;
-  align-items: center;
-  flex: 1;
-  min-width: 0;
-  gap: var(--space-2);
-}
-
-.mode-name .name {
-  flex: 0 1 auto;
-}
-
-.mode-mark {
-  display: inline-flex;
-  flex: none;
-  cursor: default;
-}
-
-.rail-row:has(.mode-mark) .row-icons {
-  position: static;
-  background: none;
-}
-
-.rail-row:has(.mode-mark) .row-icons::before {
-  content: none;
-}
-
-.rail-row:has(.mode-mark) .row-tail {
-  margin-inline-start: var(--space-4);
 }
 
 .rail .section-head { padding-inline: var(--space-4); }
@@ -864,3 +792,62 @@
   margin-inline-start: auto;
 }
 .rail:has(.empty-state) .rail-scroll { flex: none; }
+
+/* U5171: a collapsed Workstream shows how many Agents it hides, as a dim count beside the name. */
+.rail-row .hidden-agents {
+  flex: none;
+  margin-inline-end: auto;
+  padding-inline-start: var(--space-2);
+  color: var(--grey);
+  font-size: var(--text-caption);
+  font-variant-numeric: tabular-nums;
+}
+
+/* U5151a: the failure line sits in the name column under the name, two lines at most; the row tooltip holds the full text. */
+.rail-row .failure-line {
+  padding-inline-start: var(--length-zero);
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+/* The idle branch uses the same Token columns as ordinary Rail rows. */
+.rail-fold-content {
+  grid-column: 2;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.rail-fold [data-part="branch-indicator"] {
+  position: absolute;
+  right: var(--rail-edge);
+}
+
+.rail-tree .rail-fold {
+  display: grid;
+  gap: 0;
+  padding-inline-start: 0;
+  color: var(--grey);
+}
+
+.rail-tree .rail-fold:hover {
+  color: var(--text);
+}
+
+.rail-tree .rail-fold.row-wash::after {
+  border-radius: 0;
+}
+
+.rail-fold [data-state="open"] {
+  transform: rotate(90deg);
+}
+.held-row { display: flex; align-items: baseline; gap: var(--space-2); width: 100%; text-align: left; }
+.held-content { display: flex; flex: 1; min-width: 0; flex-direction: column; }
+.held-content span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.held-row time { color: var(--grey); font-size: var(--text-caption); }
+
+.rail-footer [data-scope="collapsible"][data-part="content"] { max-height: calc(var(--space-6) * 6); overflow-y: auto; overscroll-behavior: contain; }
+
+.alert-level, .held-line { color: var(--grey); font-size: var(--text-caption); }

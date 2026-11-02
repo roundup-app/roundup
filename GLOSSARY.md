@@ -6,6 +6,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 
 | Code term | User label | Avoid |
 |---|---|---|
+| Wall clock (`provenance::now_ms`) | none | — |
 | Code term | same | — |
 | User label | same | — |
 | App copy catalogue (`copy`) | same | — |
@@ -32,7 +33,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Shell mark | same | shell integration (as a name; it is the means) |
 | Turn | command | — |
 | ReservedLine | none | — |
-| Terminal owner (`terminal::TerminalOwner`, `Terminals::serve_owner`, `Terminals::attach_owner`, `Terminals::with_terminal_owner`, `Terminals::terminal_owners`, `TerminalOwner`, `TerminalOwners`, `with_terminal_owner`, internal `terminal_owner`) | same | — |
+| Terminal owner (`terminal::TerminalOwner`, `Terminals::serve_owner`, `Terminals::attach_owner`, `Terminals::with_terminal_owner`, `Terminals::terminal_owners`) | same | — |
 | Cached rows (`Connection::with_cached_rows`) | same | — |
 | Bubble | same | overlay, popup |
 | Bubble focus (`closeFocused`) | none | — |
@@ -43,6 +44,8 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Snapshot | same | — |
 | Workstream | same | room, folder |
 | Mode | same | — |
+| Make a Workstream (`agent.makeWorkstream`, `Agents::make_workstream`) | Make a Workstream | — |
+| Save as Mode (`agent.saveAsMode`, `SaveAsModeParams`, `Agents::save_as_mode`) | Save as Mode… | — |
 | Auto (`auto`, `AutoParams`, `workstream.setAuto`) | same | — |
 | Start choice | same | — |
 | Queue | same | — |
@@ -50,21 +53,22 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Running | same | — |
 | Home | same | — |
 | Contract methods (`daemon.methods`) | same | — |
-| Contract declaration (`declarations`, `Method`, `METHODS`, `owner_namespace`) | same | — |
+| Method description (`api.list`, `api.describe`) | same | — |
+| Contract declaration (`declarations`, `Method`, `METHODS`, `owner_namespace`, `Metadata`, `metadata`, `McpChoice`, `PerfDisposition`) | same | — |
 | Contract export (`export::generate`, `export::types`, `event_data_declaration`) | same | — |
 | Contract fingerprint | same | — |
 | Door | none | meta-agent, parent agent, lead |
 | Subagent | same | child agent, sub-agent, meta-agent, parent agent |
 | Digest | same | — |
 | Wake request (`agent.wake`) | same | — |
-| Reaction (`reaction.create`, `.list`, `.get`, `.stop`, `.run`; authenticated maker in `actor`, one-line `reason`, absent for legacy definitions) | Reaction | — |
+| GitHub tool (`github.prGet`, `github.issueGet`, `github.prSetBody`, `github.prReady`, `github.prAutoMerge`; the Door's tools `github_pr_get`, `github_issue_get`, `github_pr_set_body`, `github_pr_ready`, `github_pr_auto_merge`) | same | — |
+| Quiet Digest (`is_quiet_digest`) | same | — |
+| Reaction (`reaction.create`, `.list`, `.get`, `.stop`, `.run`; authenticated maker in `actor`, required one-line `reason`) | Reaction | — |
 | Reaction observation identity (`ObservationCause`, `ObservationGap`, `ObservationRecovery`, `ObservationHealth`) | same | — |
 | Preview (`reaction.preview`) | Time preview | — |
 | Firing (a Reaction's `firings`) | same | — |
 | Observation (a Reaction's `observation`; `reaction_watch`, `project.db` migration 0010) | same | — |
-| Mark | same | — |
-| Rewind (`workstream.rewindPlan`, `workstream.rewind`, `workstream.rewound`, `workstream_rewindPlan`, `workstream_rewind`) | same | roll back |
-| Checkpoint | same | — |
+| Rewind (`workstream.rewind`, `RewindTurn`; the provider's own rewind, M5159b) | same | roll back |
 | Block | same | — |
 | Rollup | same | — |
 | Attempt | same | — |
@@ -74,6 +78,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Resume (`ResumeParams`, `ResumeMode`) | same | — |
 | YOLO (`yolo`) | same | — |
 | Conversation overview (`ConversationOverview`, `RailNode.overview`) | same | — |
+| Conversion offer (`RailNode.can_make_workstream`, `RailNode.can_save_as_mode`) | same | — |
 | Import (`project.importDiscover`, `project.importCommit`, `ImportPeriod`, `ImportCandidate`, `ImportSelection`, `ImportResult`) | same | — |
 | Vendor listing sidecar (`import.list`, `ImportList`, `ImportListed`, `ImportLive`) | same | — |
 | Conversation card (`ConversationCard`, `ConversationOverview.card`) | same | — |
@@ -95,11 +100,10 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | App seam | same | — |
 | App Settings | same | — |
 | File drop | same | — |
-| Message image | same | — |
 | Window bar | same | — |
 | Project tab | same | — |
 | Tab mark | same | — |
-| Rail (`Rail::name`, `Rail::last_id`, `Agents::rail_name`, `Agents::rail_last_id`, `rail.tree`, `rail.list`) | same | — |
+| Rail (`Rail::name`, `Rail::last_id`, `Agents::rail_name`, `Agents::rail_last_id`, `rail.tree`) | same | — |
 | Rail deletion redo (`RedoParams`, `rail.redo`, `Deletion.restoration`, `Agents::redo_reversible_with`, `Agents::acknowledge_restoration_in`, `Todos::redo_workstream_in`, `Pads::redo_workstream_in`) | Redo | — |
 | Rail removal operation (`agent::RemoveParams`, `agent::Deletion`, `agent::DeletionParams`, `Removal.deletion`, `rail.remove`, `rail.deletion`, `rail.restore`, `Agents::rail_deletion`, `Agents::remove_reversible_with`, `Agents::restore_reversible_with`, `Agents::restore_reversible_in`) | same | — |
 | Remove this (`agent::RemoveScope::This`) | Remove this | — |
@@ -129,11 +133,10 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Pad source state (`PadSourceState`, `source_state`) | same | — |
 | Pad deletion (`PadDeletion`) | same | — |
 | Pad | same | scratchpad |
+| Shortcut file (`ShortcutFileExport`, `shortcuts.export`) | Save to file… | — |
 | Editor | same | — |
-| Attachment | same | — |
-| Attachment file | same | upload, temp image |
 | Clipboard write (`writeClipboardText`) | same | — |
-| Pasted image | same | — |
+| Pasted image | same | upload, temp image |
 | Paste placeholder | same | — |
 | Quote | same | — |
 | setWindowTitle | none | — |
@@ -153,6 +156,9 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Ink | same | — |
 | Chip | same | — |
 | Live line | same | — |
+| Program status (`ProgramStatus`, `terminal.status`) | status | — |
+
+**Program status.** What a program in a Terminal reports about itself with OSC 7501 (`scenarios/terminal-program-status.md`): records of a state, a message and a title that the Daemon folds into the Terminal's Status. `blocked` in a report is Kind `needs-you`; Kind `blocked` stays the Daemon's.
 
 **Glyph.** The one ring-fill mark a row shows for its most urgent Kind: `⊗ ◉ ⊖ ◔ ○ ✓`.
 
@@ -166,6 +172,9 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | First Steer completion (`FirstSteerCompletion`, `Agents::first_steer_completion`) | same | — |
 | Interrupt | same | cancel, abort |
 | Toast | same | — |
+| Held alert (`createHeld`, `ConnectedProject.held`) | held | — |
+| Alert level (`alertLevel`, `AlertLevel`, `RailNode.alert_level`, `SetAlertLevelParams`, `rail.setAlertLevel`, `Rail::set_alert_level`) | Alerts: Default, All, Quiet | — |
+| State alert (`StateAlert`, `stateAlert`, `state_alert`, `state-alert-clicked`) | same | notification |
 | Work order | same | — |
 | Instruction (`Instruction`, `InstructionRevision`, `Instructions`, `agent.instructions`, `agent_instructions`) | same | — |
 | Instruction delivery (`InstructionDelivery`, `InstructionState`) | same | — |
@@ -175,6 +184,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Spawn prompt | same | — |
 | Clarification order | same | — |
 | Skill | same | — |
+| Skill setup (`Install`, `Plan`, `ItemState`, `Outcome`, `skill.status`, `skill.setup`, `skill.remove`) | teach other sessions | — |
 | Brief | same | — |
 | Context | same | — |
 | Channel | same | — |
@@ -201,6 +211,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Restart reservation | same | — |
 | Retirement reservation | same | — |
 | Route | same | — |
+| Browser data location (`webview_data_path`) | same | — |
 | Saved work (`storedValue`, `storageSchema`, `initializeStorage`, `storageProblems`, `useBrowserStorage`, `storageCopy`) | same | — |
 | Draft (`draftStorage`) | Unfinished work | — |
 | Reason | same | — |
@@ -234,6 +245,8 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | open_in_editor | none | — |
 | Extension | same | — |
 | Hook | same | — |
+| User action (`UserAction`, `action.userList`, `action.userChanged`) | action | — |
+| Extension host (`crates/rupd` `src/extensions/`, `extension.problem`) | none | — |
 
 ### Design system
 
@@ -299,6 +312,16 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | chordsFor | none | — |
 | Leader | same | — |
 
+### Named actions
+
+| Code term | User label | Avoid |
+|---|---|---|
+| Named action (`NamedAction`, `ActionName`, `ActionArg`, `runAction`) | action | — |
+| Action list (`action.list`, `rup actions`) | actions | — |
+| Action run (`action.run`, `rup do`) | do | — |
+| Action answerer (`action.serve`) | none | — |
+| App closed (`APP_CLOSED`) | none | — |
+
 ### Ask placement
 
 | Code term | User label | Avoid |
@@ -312,6 +335,8 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Placement request (`placement::Request`, `EarlierAsk`) | same | — |
 | Placement call (`PlacementCall`, `Agents::placement_call`) | same | — |
 | Deliverable | Made | — |
+| Publication change (`DeliverableChanged`, `deliverable.changed`) | same | — |
+| Saved Reaction change (`ReactionChanged`, `reaction.changed`) | same | — |
 | Publication target (`PublicationTarget`) | same | — |
 | Published target (`PublishedTarget`, `ExternalAvailability`) | same | — |
 | Resolution (`Resolution`, `UnavailableCause`) | same | — |
@@ -329,6 +354,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Import exclusion cause (`ImportExclusionCause`, `ImportExclusion.cause`) | same | — |
 | Import failure (`ImportFailure`, `ImportOutcome.error`) | same | — |
 | Import disposition (`ImportDisposition`, `outcome`) | same | — |
+| Final text (`FinalText`, `FinalTextKind`, `final_text`) | none | — |
 | Idle evidence (`record_idle_evidence`, `recordIdleEvidence`, `IdleEvidence`) | same | — |
 | Daemon recovery (`DaemonExited.recovery`, `DaemonExit.recovery`) | same | — |
 | Native integration (`native`, `Preferences`, `Missing`) | same | — |

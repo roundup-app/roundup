@@ -107,12 +107,12 @@ it.skipIf(!captureDir(id))(`${id.toLowerCase()}_rendered_policy_capture`, async 
                 return [...new Set([...selected, ...(owned?[owned]:[])])].map(row=>'.rail-row[data-id="'+row.dataset.id+'"]').concat(document.querySelector('.rail-section[aria-label="AGENTS"] .rail-fold') ? ['.rail-section[aria-label="AGENTS"] .rail-fold'] : []);
               })()`);
 
-              for (const [index, selector] of ['.rail-section[aria-label="WORKSTREAMS"] .section-head', '.rail-section[aria-label="MODES"] .section-head', '.rail-section[aria-label="AGENTS"] .section-head', '.rail-row:has(.mode-mark)', '.rail-actions', ...neighbours].entries()) {
+              for (const [index, selector] of ['.rail-section[aria-label="WORKSTREAMS"] .section-head', '.rail-section[aria-label="MODES"] .section-head', '.rail-section[aria-label="AGENTS"] .section-head', '.rail-section[aria-label="MODES"] .rail-row', '.rail-actions', ...neighbours].entries()) {
                 await browser("hover", selector);
                 await browser("screenshot", selector, join(dir, `${prefix}-contact-${index}.png`));
               }
 
-              const mode = '.rail-row:has(.mode-mark)';
+              const mode = '.rail-section[aria-label="MODES"] .rail-row';
               await browser("click", `${mode} .name`);
               await browser("mouse", "move", "1400", "900");
               await browser("focus", ".rail-tree .section-head");
@@ -136,10 +136,22 @@ it.skipIf(!captureDir(id))(`${id.toLowerCase()}_rendered_policy_capture`, async 
 
               await read("window.__fake.failNext(-32003, 'Workstream could not be created. Try again.')");
               await browser("click", ".rail-actions button");
+
+              if (phase === "head") {
+                await wait("!!document.querySelector('.rail-create-menu [data-value=workstream]')");
+                await browser("click", '.rail-create-menu [data-value="workstream"]');
+              }
+
               await wait("[...document.querySelectorAll('[role=alert]')].some(el=>el.textContent.includes('Workstream could not be created'))");
               await snap(`${prefix}-failure`);
               const before = await read("window.__fake.app.calls.filter(c=>c.method==='rail.createWorkstream').length");
               await browser("click", ".rail-actions button");
+
+              if (phase === "head") {
+                await wait("!!document.querySelector('.rail-create-menu [data-value=workstream]')");
+                await browser("click", '.rail-create-menu [data-value="workstream"]');
+              }
+
               await wait(`window.__fake.app.calls.filter(c=>c.method==='rail.createWorkstream').length>${before}`);
               await snap(`${prefix}-recovered`);
             }
@@ -228,7 +240,7 @@ it.skipIf(!captureDir(id))(`${id.toLowerCase()}_rendered_policy_capture`, async 
 
                   if (action.row!==id) break;
 
-                  if (action.label==='Open folder'||action.label==='Open in editor') {
+                  if (action.label==='Open directory'||action.label==='Open in editor') {
                     const before=await read("window.__fake.app.openedTargets.length+window.__fake.app.editorOpened.length");
                     await browser("press", index%2 ? "Space" : "Enter");
                     await wait(`window.__fake.app.openedTargets.length+window.__fake.app.editorOpened.length>${before}`);
@@ -268,7 +280,7 @@ it.skipIf(!captureDir(id))(`${id.toLowerCase()}_rendered_policy_capture`, async 
 
           await load(width);
           await read("window.__fake.app.openFailure=new Error('Folder unavailable; try again')");
-          const folder = '.rail-row .row-icons [aria-label="Open folder"]';
+          const folder = '.rail-row .row-icons [aria-label="Open directory"]';
           await browser("focus", folder);
           await browser("press", "Enter");
           await wait("document.body.textContent.includes('Folder unavailable; try again')");

@@ -98,7 +98,7 @@ it("u4547d_restart_controls_share_the_focused_mode_action_in_the_native_menu", a
   expect(railCallsTo(daemon, "agent.resume")).toEqual([]);
   const field = screen.getByRole("textbox", { name: "Ask" });
   field.focus();
-  await waitFor(() => expect(projectMenu.items.some(item => item.id === "action:chord:R")).toBe(false));
+  await waitFor(() => expect(projectMenu.items.some(item => item.id === "action:chord:R" && item.enabled)).toBe(false));
   expect(fireEvent.keyDown(field, { key: "r", code: "KeyR" })).toBe(true);
   expect(railCallsTo(daemon, "workstream.restart")).toHaveLength(1);
 });

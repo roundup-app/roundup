@@ -29,8 +29,10 @@ def deploy(controller, snapshot, ref):
     previous = json.loads(run('boxd', 'machine', 'exec', controller, '--json', '--timeout', '30', '--',
         f"python3 -c 'from pathlib import Path; p=Path(\"{config_path}\"); print(p.read_text() if p.exists() else \"{{}}\")'"))
     config = {**json.loads(previous['output']), 'repository': repository, 'snapshot': snapshot, 'ref': ref,
-              'directory': '/home/boxd/roundup-ci-state', 'maxRunners': 3, 'network': 'roundup-ci',
+              'directory': '/home/boxd/roundup-ci-state', 'network': 'roundup-ci',
               'gh': '/usr/local/bin/gh', 'boxd': '/usr/local/bin/boxd'}
+    # The owner raises the runner ceiling on the controller; a redeploy keeps it.
+    config.setdefault('maxRunners', 3)
     config.setdefault('secret', secrets.token_hex(32))
     with tempfile.TemporaryDirectory() as directory:
         directory = Path(directory)

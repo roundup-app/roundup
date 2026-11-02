@@ -192,7 +192,7 @@ async fn lc4_an_agents_scout_and_worker_start_lean() {
     let (scout, worker) = (scout.remove(0), worker.remove(0));
     assert_eq!(
         after(&scout, "--tools"),
-        Some("Read,Grep,Glob,Bash,ToolSearch,AskUserQuestion")
+        Some("Read,Grep,Glob,Write,Edit,Bash,ToolSearch,AskUserQuestion")
     );
     assert!(!scout.contains(&"--disable-slash-commands"));
     assert!(!worker.contains(&"--tools") && !worker.contains(&"--disable-slash-commands"));
@@ -213,7 +213,7 @@ async fn lc7_a_known_extra_joins_the_start() {
     let names = door.request("agent.extras", Value::Null).await.unwrap();
     assert_eq!(
         names,
-        json!({"skills": ["zzskill"], "plugins": ["zzplug@market"], "mcp": ["zzserver"]})
+        json!({"skills": ["zzskill"], "plugins": ["zzplug@market"], "mcp": ["computer-use", "zzserver"]})
     );
     run.spawn(
         &door,
@@ -305,7 +305,7 @@ async fn lc8_a_missing_extra_relaunches_with_resume_and_snapshot_off() {
     assert_eq!(after(&args, "--system-prompt-snapshot"), Some("off"));
     assert_eq!(
         after(&args, "--tools"),
-        Some("Read,Grep,Glob,Bash,ToolSearch,AskUserQuestion")
+        Some("Read,Grep,Glob,Write,Edit,Bash,ToolSearch,AskUserQuestion")
     );
     assert!(
         args.windows(2)

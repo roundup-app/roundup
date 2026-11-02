@@ -7,7 +7,7 @@ use std::time::Duration;
 use contracts::terminal::ExitedEvent;
 use contracts::{Actor, EventData, Kind};
 
-use serde_json::json;
+use serde_json::{Value, json};
 
 use tokio::time::Instant;
 
@@ -188,6 +188,7 @@ fn a14_a_failed_rail_write_for_a_parked_signal_does_not_poison_the_locks() {
     let prompts = shared.finish_starting(&id, "1", |named| Run {
         yolo: false,
         startup_context: true,
+        input_started: true,
         attempt: "1".into(),
         status_revision: 1,
         closing: false,
@@ -241,6 +242,7 @@ fn a21_a_failed_parked_save_reinserts_so_the_caller_can_clean_up() {
     let result = shared.finish_starting(&id, "1", |named| Run {
         yolo: false,
         startup_context: true,
+        input_started: true,
         attempt: "1".into(),
         status_revision: 1,
         closing: false,
@@ -323,6 +325,7 @@ fn a14_a_signal_released_once_the_agent_is_registered_never_outruns_the_parked_o
                     Run {
                         yolo: false,
                         startup_context: true,
+                        input_started: true,
                         attempt: "1".into(),
                         status_revision: 1,
                         closing: false,
@@ -463,4 +466,371 @@ async fn a21_a_failed_save_after_spawn_returned_errors_settles_error_and_stops_t
         Some("1")
     );
     db.execute_batch("DROP TRIGGER fail_write").unwrap();
+}
+
+#[tokio::test]
+async fn u5483c_final_text_protection_follows_attempt_identity() {
+    let (_dir, _, shared) = shared_over_temp_dir(Arc::new(|| 0));
+    let id = running_agent(&shared, None);
+    shared.rail().allocate_attempt(&id).unwrap();
+    for (text, expected) in [
+        (json!("Should I publish three pages or five"), "present"),
+        (json!("All done"), "present"),
+        (json!(""), "empty"),
+        (Value::Null, "unknown"),
+    ] {
+        for payload in [
+            json!({"hook_event_name":"UserPromptSubmit", "prompt_id":"current"}),
+            json!({"hook_event_name":"Stop", "prompt_id":"current", "last_assistant_message":text}),
+        ] {
+            shared
+                .observe(Actor::daemon(), &id, "1", Observation::Signal(payload))
+                .unwrap();
+        }
+        let node = serde_json::to_value(shared.node(&id).unwrap()).unwrap();
+        let evidence = &node["final_text"];
+        assert_eq!(evidence["attempt"], "1");
+        assert_eq!(evidence["finished"], node["status"]["finished"]);
+        assert_eq!(evidence["turn"], "current");
+        assert_eq!(evidence["kind"], expected);
+        shared
+            .observe(
+                Actor::daemon(),
+                &id,
+                "0",
+                Observation::Signal(json!({"hook_event_name":"Stop", "last_assistant_message":""})),
+            )
+            .unwrap();
+        assert_eq!(
+            serde_json::to_value(shared.node(&id).unwrap()).unwrap()["final_text"],
+            *evidence
+        );
+    }
+}
+
+#[tokio::test]
+async fn u5483c_resuming_clears_only_the_previous_turn() {
+    let (_dir, _, shared) = shared_over_temp_dir(Arc::new(|| 0));
+    let id = running_agent(&shared, None);
+    shared.rail().allocate_attempt(&id).unwrap();
+    for payload in [
+        json!({"hook_event_name":"UserPromptSubmit", "prompt_id":"first"}),
+        json!({"hook_event_name":"Stop", "prompt_id":"first", "last_assistant_message":"A long statement\nShould I publish three pages or five"}),
+        json!({"hook_event_name":"UserPromptSubmit", "prompt_id":"second"}),
+        json!({"hook_event_name":"Stop", "prompt_id":"first", "last_assistant_message":""}),
+    ] {
+        shared
+            .observe(Actor::daemon(), &id, "1", Observation::Signal(payload))
+            .unwrap();
+    }
+    let resumed = serde_json::to_value(shared.node(&id).unwrap()).unwrap();
+    assert_eq!(resumed["status"]["kind"], "working");
+    assert_eq!(resumed["final_text"]["kind"], "unknown");
+    shared.observe(Actor::daemon(), &id, "1", Observation::Signal(json!({"hook_event_name":"Stop", "prompt_id":"second", "last_assistant_message":""}))).unwrap();
+    let completed = serde_json::to_value(shared.node(&id).unwrap()).unwrap();
+    assert_eq!(
+        completed["final_text"],
+        json!({"attempt":"1", "turn":"second", "finished":"2", "kind":"empty"})
+    );
+}
+
+#[tokio::test]
+async fn u5483c_final_text_survives_ticks_and_done() {
+    let (_dir, _, shared) = shared_over_temp_dir(Arc::new(|| 0));
+    let id = running_agent(&shared, None);
+    shared.rail().allocate_attempt(&id).unwrap();
+    for observation in [
+        Observation::Signal(json!({"hook_event_name":"UserPromptSubmit", "prompt_id":"first"})),
+        Observation::Signal(
+            json!({"hook_event_name":"Stop", "prompt_id":"first", "last_assistant_message":"Should I publish three pages or five"}),
+        ),
+        Observation::Tick,
+        Observation::Exit { code: Some(0) },
+    ] {
+        shared
+            .observe(Actor::daemon(), &id, "1", observation)
+            .unwrap();
+    }
+    let node = serde_json::to_value(shared.node(&id).unwrap()).unwrap();
+    assert_eq!(node["status"]["kind"], "done");
+    assert_eq!(
+        node["final_text"],
+        json!({"attempt":"1", "turn":"first", "finished":"1", "kind":"present"})
+    );
+}
+
+#[tokio::test]
+async fn u5483c_late_final_text_refreshes_rail_without_a_status_change() {
+    let (_dir, bus, shared) = shared_over_temp_dir(Arc::new(|| 0));
+    let id = running_agent(&shared, None);
+    shared.rail().allocate_attempt(&id).unwrap();
+    shared
+        .observe(
+            Actor::daemon(),
+            &id,
+            "1",
+            Observation::Signal(
+                json!({"hook_event_name":"UserPromptSubmit", "prompt_id":"current"}),
+            ),
+        )
+        .unwrap();
+    shared
+        .observe(
+            Actor::daemon(),
+            &id,
+            "1",
+            Observation::Title("✳ idle".into()),
+        )
+        .unwrap();
+    let before = shared.node(&id).unwrap();
+    let mut events = bus.subscribe();
+    shared.observe(Actor::daemon(), &id, "1", Observation::Signal(json!({"hook_event_name":"Stop", "prompt_id":"current", "last_assistant_message":"Should I publish three pages or five"}))).unwrap();
+    let after = shared.node(&id).unwrap();
+    assert_eq!(after.status_revision, before.status_revision);
+    assert_eq!(
+        serde_json::to_value(after).unwrap()["final_text"]["kind"],
+        "present"
+    );
+    assert!(matches!(
+        events.try_recv().unwrap().data,
+        EventData::RailChanged
+    ));
+}
+
+#[tokio::test]
+async fn u5483c_empty_text_without_turn_identity_remains_unknown() {
+    let (_dir, _, shared) = shared_over_temp_dir(Arc::new(|| 0));
+    let id = running_agent(&shared, None);
+    shared.rail().allocate_attempt(&id).unwrap();
+    shared
+        .observe(
+            Actor::daemon(),
+            &id,
+            "1",
+            Observation::Signal(json!({"hook_event_name":"Stop", "last_assistant_message":""})),
+        )
+        .unwrap();
+    assert!(shared.node(&id).unwrap().final_text.is_none());
+}
+
+#[tokio::test]
+async fn b5519a_replayed_completion_keeps_its_original_message_boundary() {
+    use std::sync::atomic::{AtomicI64, Ordering};
+
+    let now = Arc::new(AtomicI64::new(10));
+    let clock = Arc::clone(&now);
+    let (dir, _, shared) = shared_over_temp_dir(Arc::new(move || clock.load(Ordering::SeqCst)));
+    let id = running_agent(&shared, None);
+    let clock = Arc::clone(&now);
+    let mut runs = shared.runs();
+    let Some(Slot::Running(run)) = runs.get_mut(&id) else {
+        panic!("the fixture Agent is running");
+    };
+    run.adapter = ClaudeCode::starting(move || clock.load(Ordering::SeqCst));
+    drop(runs);
+    let agents = crate::Agents {
+        shared: Arc::clone(&shared),
+        dir: dir.path().to_owned(),
+        launcher: shared.rail_view.launcher.clone(),
+    };
+    shared
+        .observe(
+            Actor::daemon(),
+            &id,
+            "1",
+            Observation::Signal(json!({"hook_event_name":"UserPromptSubmit", "prompt_id":"first"})),
+        )
+        .unwrap();
+    let stop = json!({"hook_event_name":"Stop", "prompt_id":"first", "last_assistant_message":"Done with page one"});
+    now.store(20, Ordering::SeqCst);
+    shared
+        .observe(Actor::daemon(), &id, "1", Observation::Signal(stop.clone()))
+        .unwrap();
+    now.store(50, Ordering::SeqCst);
+    shared
+        .observe(Actor::daemon(), &id, "1", Observation::Signal(stop))
+        .unwrap();
+    assert_eq!(
+        agents.completed_text().get(&id),
+        Some(&("1:1".into(), 10, 20, "Done with page one".into()))
+    );
+}
+
+#[test]
+fn b5635a_rescan_and_registry_isolation() {
+    use crate::{claude_code, events::InboxState};
+    use std::sync::{Barrier, Mutex};
+    let dir = tempfile::tempdir().unwrap();
+    let state = Arc::new(InboxState::default());
+    let receipts = Arc::new(Mutex::new(Vec::new()));
+    let output = Arc::clone(&receipts);
+    state
+        .observer
+        .set(Arc::new(move |agent, ids| {
+            output
+                .lock()
+                .unwrap()
+                .push((agent.to_owned(), ids.to_vec()));
+        }))
+        .ok()
+        .unwrap();
+    let path = dir.path().join("a.jsonl");
+    let line =
+        "{\"origin\":{\"kind\":\"peer\",\"msg_id\":\"00000000-0000-4000-8000-000000000007\"}}\n";
+    std::fs::write(&path, line).unwrap();
+    let entered = Arc::new(Barrier::new(2));
+    let release = Arc::new(Barrier::new(2));
+    let a = Arc::clone(&state);
+    let wait = Arc::clone(&entered);
+    let resume = Arc::clone(&release);
+    let payload = json!({"transcript_path":path});
+    let worker = std::thread::spawn(move || {
+        a.scan_using("a", &payload, |path, from| {
+            wait.wait();
+            resume.wait();
+            claude_code::inbox::recorded(path, from)
+        })
+    });
+    entered.wait();
+    let other = dir.path().join("b.jsonl");
+    std::fs::write(&other, line).unwrap();
+    state.scan("b", &json!({"transcript_path":other}));
+    assert_eq!(
+        receipts.lock().unwrap().as_slice(),
+        &[("b".into(), vec![7])]
+    );
+    release.wait();
+    worker.join().unwrap();
+    state.rescan("a");
+    assert_eq!(
+        receipts.lock().unwrap().as_slice(),
+        &[
+            ("b".into(), vec![7]),
+            ("a".into(), vec![7]),
+            ("a".into(), vec![7])
+        ]
+    );
+    for (_, offset) in state.transcripts.lock().unwrap().values() {
+        assert_eq!(*offset.lock().unwrap(), line.len() as u64);
+    }
+}
+
+#[tokio::test]
+async fn b5635c_unrelated_hooks_do_not_copy_completed_text() {
+    use crate::claude_code::toolcall::tests::measured;
+    let mut costs = Vec::new();
+    for size in [1024, 1024 * 1024] {
+        let (_dir, bus, shared) = shared_over_temp_dir(Arc::new(|| 0));
+        let id = running_agent(&shared, None);
+        shared
+            .observe(
+                Actor::daemon(),
+                &id,
+                "1",
+                Observation::Signal(json!({"hook_event_name":"UserPromptSubmit","prompt_id":"p"})),
+            )
+            .unwrap();
+        shared.observe(Actor::daemon(), &id, "1", Observation::Signal(json!({"hook_event_name":"Stop","prompt_id":"p","last_assistant_message":"x".repeat(size)}))).unwrap();
+        let before = shared
+            .runs()
+            .get(&id)
+            .and_then(|slot| match slot {
+                Slot::Running(run) => run.adapter.completed_text().cloned(),
+                _ => None,
+            })
+            .unwrap();
+        let signals: Vec<_> = (0..200)
+            .map(|_| Observation::Signal(json!({"hook_event_name":"ignored"})))
+            .collect();
+        let mut events = bus.subscribe();
+        while events.try_recv().is_ok() {}
+        let (_, bytes) = measured(|| {
+            for signal in signals {
+                shared.observe(Actor::daemon(), &id, "1", signal).unwrap();
+            }
+        });
+        assert!(
+            bytes < 1024 * 1024,
+            "unrelated hooks allocated {bytes}, bound below one completion-sized allocation"
+        );
+        costs.push(bytes);
+        let runs = shared.runs();
+        let Some(Slot::Running(run)) = runs.get(&id) else {
+            panic!("running")
+        };
+        assert_eq!(run.adapter.completed_text(), Some(&before));
+    }
+    assert!(
+        costs[1] <= costs[0] + 64 * 1024,
+        "large {} small {}, difference bound 64 KiB",
+        costs[1],
+        costs[0]
+    );
+}
+
+#[tokio::test]
+async fn b5635c_completion_changes_are_reported_once() {
+    use crate::claude_code::toolcall::tests::measured;
+    use std::sync::atomic::{AtomicI64, Ordering};
+    let now = Arc::new(AtomicI64::new(10));
+    let clock = Arc::clone(&now);
+    let (_dir, bus, shared) = shared_over_temp_dir(Arc::new(move || clock.load(Ordering::SeqCst)));
+    let id = running_agent(&shared, None);
+    let clock = Arc::clone(&now);
+    if let Some(Slot::Running(run)) = shared.runs().get_mut(&id) {
+        run.adapter = ClaudeCode::starting(move || clock.load(Ordering::SeqCst));
+    }
+    shared
+        .observe(
+            Actor::daemon(),
+            &id,
+            "1",
+            Observation::Signal(json!({"hook_event_name":"UserPromptSubmit","prompt_id":"p"})),
+        )
+        .unwrap();
+    let mut events = bus.subscribe();
+    for (time, prompt, text, expected_events) in [
+        (20, "p", "first", 1),
+        (30, "p", "corrected", 1),
+        (40, "p", "corrected", 0),
+        (50, "old", "stale", 0),
+    ] {
+        now.store(time, Ordering::SeqCst);
+        shared.observe(Actor::daemon(), &id, "1", Observation::Signal(json!({"hook_event_name":"Stop","prompt_id":prompt,"last_assistant_message":text}))).unwrap();
+        let mut count = 0;
+        while let Ok(event) = events.try_recv() {
+            if matches!(event.data, EventData::RailChanged) {
+                count += 1;
+            }
+        }
+        assert_eq!(count, expected_events);
+        let runs = shared.runs();
+        let Some(Slot::Running(run)) = runs.get(&id) else {
+            panic!("running")
+        };
+        assert_eq!(
+            run.adapter.completed_text(),
+            Some(&(
+                "1".into(),
+                10,
+                20,
+                if time == 20 { "first" } else { "corrected" }.into()
+            ))
+        );
+    }
+    let stop = json!({"hook_event_name":"Stop","prompt_id":"p","last_assistant_message":"x".repeat(1024 * 1024)});
+    shared
+        .observe(Actor::daemon(), &id, "1", Observation::Signal(stop.clone()))
+        .unwrap();
+    while events.try_recv().is_ok() {}
+    let (_, bytes) = measured(|| {
+        shared
+            .observe(Actor::daemon(), &id, "1", Observation::Signal(stop))
+            .unwrap()
+    });
+    assert!(
+        bytes <= 64 * 1024,
+        "unchanged replay {bytes} bytes, bound 64 KiB"
+    );
+    assert!(events.try_recv().is_err());
 }

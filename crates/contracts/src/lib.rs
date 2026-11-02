@@ -4,21 +4,23 @@
 
 extern crate self as contracts;
 
+pub mod action;
 pub mod agent;
 pub mod ask;
-pub mod attachment;
-pub mod checkpoint;
 pub mod common;
 mod declarations;
 pub mod deliverable;
+pub mod describe;
 pub mod event;
 pub mod export;
+pub mod github;
 pub mod link;
 pub mod message;
 pub mod methods;
 pub mod pad;
 pub mod project;
 pub mod reaction;
+pub mod skill;
 pub mod terminal;
 pub mod todo;
 pub mod workstream;

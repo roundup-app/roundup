@@ -9,7 +9,7 @@ impl Module for Agents {
     async fn call_reply(&self, ctx: &Ctx, method: &str, value: Value) -> Result<Reply, RpcError> {
         match method {
             // R3696c: the Rail is the largest reply a keystroke-paced client asks for.
-            "rail.tree" | "rail.list" => rpc::json(&self.shared.tree()?),
+            "rail.tree" => rpc::json(&self.shared.tree()?),
             _ => self.call(ctx, method, value).await.map(Reply::Value),
         }
     }
@@ -20,6 +20,28 @@ impl Module for Agents {
 }
 
 impl Agents {
+    async fn rpc_rail_set_alert_level(
+        &self,
+        ctx: &Ctx,
+        _method: &str,
+        value: Value,
+    ) -> Result<Value, RpcError> {
+        if ctx.actor.kind != ActorKind::User {
+            return Err(RpcError::forbidden("only the user sets alert levels"));
+        }
+        let choice: contracts::agent::SetAlertLevelParams = params(value)?;
+        if Path::new(&choice.project) != self.project_dir() {
+            return Err(RpcError::forbidden(
+                "alert level target belongs to another Project",
+            ));
+        }
+        self.shared
+            .rail()
+            .set_alert_level(&choice.id, choice.level)?;
+        ctx.emit(EventData::RailChanged);
+        reply(&())
+    }
+
     async fn rpc_agent_spawn(
         &self,
         ctx: &Ctx,
@@ -55,6 +77,25 @@ impl Agents {
         }
     }
 
+    async fn rpc_agent_make_workstream(
+        &self,
+        ctx: &Ctx,
+        _method: &str,
+        value: Value,
+    ) -> Result<Value, RpcError> {
+        let NodeId { id } = params(value)?;
+        reply(&self.make_workstream(ctx, &id).await?)
+    }
+
+    async fn rpc_agent_save_as_mode(
+        &self,
+        ctx: &Ctx,
+        _method: &str,
+        value: Value,
+    ) -> Result<Value, RpcError> {
+        reply(&self.save_as_mode(ctx, params(value)?)?)
+    }
+
     async fn rpc_agent_prompt(
         &self,
         ctx: &Ctx,
@@ -72,7 +113,7 @@ impl Agents {
             // A4452d: only the user's words are typed; an Agent's text goes to the inbox.
             if ctx.actor.kind == ActorKind::Agent {
                 self.shared
-                    .coordinate(&id, None, text)
+                    .coordinate(Actor::daemon(), &id, None, text)
                     .await
                     .map_err(PromptError::from)?;
             } else {
@@ -569,14 +610,12 @@ impl Agents {
 
     async fn rpc_models_list(
         &self,
-        ctx: &Ctx,
+        _ctx: &Ctx,
         _method: &str,
         _value: Value,
     ) -> Result<Value, RpcError> {
-        {
-            ctx.touch(contracts::Verb::Read, "project:models")?;
-            reply(&models::list())
-        }
+        // The Adapter's static table: no Project item is read, so no Touch is written to `project.db`.
+        reply(&models::list())
     }
 
     async fn rpc_project_get(

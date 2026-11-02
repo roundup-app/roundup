@@ -1,0 +1,95 @@
+{
+  "commit": "251209853e6c672f23389c726055da4887fd0081",
+  "viewport": "1512x950",
+  "media": "dark",
+  "observer": "isolated headless Chromium; fresh agent-browser session/profile",
+  "regression": "u5558a_automatic_reload_preserves_focused_publication failed on a769313f228b94e37462921ee072f9cff0bc1b43 with focus on body; passes after keyed reconciliation",
+  "focused_seeds": [
+    "agents-10",
+    "tree-40"
+  ],
+  "keyboard": "Enter opens https://example.com/result with project p and id automatic-made after automatic reload on both seeds",
+  "commands": {
+    "pnpm --filter desktop exec vitest run src/ask/p3557c_failure_lifetime.test.tsx src/ask/u504_ask_bar.test.tsx": {
+      "exit": 0,
+      "passed": 50
+    },
+    "just capture U5558a,U5558b,U5558c,U5558d,U5558e": {
+      "exit": 0,
+      "passed": 1
+    },
+    "loop/rules.sh merge-loss": {
+      "exit": 0
+    },
+    "just ready": {
+      "exit": 0
+    },
+    "just migrations origin/main": {
+      "exit": 0
+    }
+  },
+  "delta": "All five focus-fix-delta.txt comparisons exit 0; no passing baseline Check regresses. Published baseline is compared with agents-10-focused-after-publication. Additional focused-state readings all pass. Diff D2/D10 failures match baseline.",
+  "checks": [
+    {
+      "file": "artifacts/ux/U5558a/agents-10-focused-after-publication.checks.json",
+      "failed": []
+    },
+    {
+      "file": "artifacts/ux/U5558a/agents-10-focused-before-publication.checks.json",
+      "failed": []
+    },
+    {
+      "file": "artifacts/ux/U5558a/tree-40-focused-before-publication.checks.json",
+      "failed": []
+    },
+    {
+      "file": "artifacts/ux/U5558a/tree-40-focused-after-publication.checks.json",
+      "failed": []
+    },
+    {
+      "file": "artifacts/ux/U5558b/saved-firing.checks.json",
+      "failed": []
+    },
+    {
+      "file": "artifacts/ux/U5558c/worktree-update-with-draft.checks.json",
+      "failed": [
+        "D10",
+        "D2"
+      ]
+    },
+    {
+      "file": "artifacts/ux/U5558d/saved-listing.checks.json",
+      "failed": []
+    },
+    {
+      "file": "artifacts/ux/U5558e/diff-reload-failed.checks.json",
+      "failed": [
+        "D10",
+        "D2"
+      ]
+    },
+    {
+      "file": "artifacts/ux/U5558e/made-reload-failed.checks.json",
+      "failed": []
+    },
+    {
+      "file": "artifacts/ux/U5558e/diff-keyboard-recovered.checks.json",
+      "failed": [
+        "D10",
+        "D2"
+      ]
+    },
+    {
+      "file": "artifacts/ux/U5558e/reaction-reload-failed.checks.json",
+      "failed": []
+    },
+    {
+      "file": "artifacts/ux/U5558e/import-reload-failed.checks.json",
+      "failed": []
+    },
+    {
+      "file": "artifacts/ux/U5558e/reaction-evidence-missing.checks.json",
+      "failed": []
+    }
+  ]
+}

@@ -1,7 +1,0 @@
-exec(open('/tmp/r23-setup.py').read().split("run('machine'")[0])
-import shutil
-assert run('marked-probe-build-retry',['env','CARGO_TARGET_DIR=/tmp/r23-span-target','cargo','build','--release','-p','perf','--bin','perf'],'/tmp/r23-span-probe')==0
-shutil.copy2('/tmp/r23-span-target/release/perf','/tmp/r23-span-bins/marked-perf')
-with (root/'marked-probe.patch').open('w') as out:subprocess.run(['git','diff'],cwd='/tmp/r23-span-probe',stdout=out,check=True)
-shutil.copy2('/home/runner/work/roundup/roundup/crates/perf/evidence/r23-host-40170055163/compatibility.patch',root/'common-probe.patch')
-run('hashes',['bash','-c','sha256sum /tmp/r23-span-bins/*; for executable in /tmp/r23-span-bins/*; do readelf -n "$executable"; done'])

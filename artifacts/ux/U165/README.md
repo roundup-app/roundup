@@ -1,5 +1,0 @@
-# U165 rendered observer
-
-Seeds `door-stopped` and `bubbles` (the `runner` Agent selected) served by `just harness`, headless agent-browser in a fresh profile, at 1280×800 (Shelf open) and 700×800 (Shelf closed), light and dark. Each chord is a `keydown` with `metaKey` dispatched at `document.activeElement`. Sequence: `⌘T` (a new bubble), `⌘B` twice (the cycle), `⌘.` (minimise to its chip), `⇧⌘⌫` (close). `<step>-<seed>-<width>-<scheme>.png` is the screen after the step and `.checks.json` the complete `window.__checks()` object: D1, D2, D5, D6 and D8 pass on all 32.
-
-`focus.json` holds `document.activeElement` before and after every chord, for each of the eight runs: `⌘T` takes focus from `BODY` into the new bubble's emulator; on `bubbles` the first `⌘B` goes to the pane's input and the second to the first bubble; `⌘.` moves it to the chip (`BUTTON.word`); `⇧⌘⌫` returns it to the pane's input (`BODY` on `door-stopped`, whose pane holds no focusable element). On `door-stopped` the one bubble is the only stop, and the exited Door's pane takes no focus, so both `⌘B` presses end in the bubble.

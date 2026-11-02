@@ -97,13 +97,6 @@ type After = {
   "ask/SendParams": import("./generated/ask/SendParams").SendParams;
   "ask/State": import("./generated/ask/State").State;
   "ask/Target": import("./generated/ask/Target").Target;
-  "attachment/SaveParams": import("./generated/attachment/SaveParams").SaveParams;
-  "attachment/Saved": import("./generated/attachment/Saved").Saved;
-  "checkpoint/Block": import("./generated/checkpoint/Block").Block;
-  "checkpoint/Checkpoint": import("./generated/checkpoint/Checkpoint").Checkpoint;
-  "checkpoint/ListParams": import("./generated/checkpoint/ListParams").ListParams;
-  "checkpoint/Row": import("./generated/checkpoint/Row").Row;
-  "checkpoint/WriteParams": import("./generated/checkpoint/WriteParams").WriteParams;
   "deliverable/Deliverable": import("./generated/deliverable/Deliverable").Deliverable;
   "deliverable/DeliverableId": import("./generated/deliverable/DeliverableId").DeliverableId;
   "deliverable/ExternalAvailability": import("./generated/deliverable/ExternalAvailability").ExternalAvailability;
@@ -228,6 +221,7 @@ type After = {
   "terminal/SpawnParams": import("./generated/terminal/SpawnParams").SpawnParams;
   "terminal/TerminalId": import("./generated/terminal/TerminalId").TerminalId;
   "terminal/TerminalInfo": import("./generated/terminal/TerminalInfo").TerminalInfo;
+  "terminal/TerminalStatusEvent": import("./generated/terminal/TerminalStatusEvent").TerminalStatusEvent;
   "terminal/TitleEvent": import("./generated/terminal/TitleEvent").TitleEvent;
   "terminal/WriteParams": import("./generated/terminal/WriteParams").WriteParams;
   "todo/AssignParams": import("./generated/todo/AssignParams").AssignParams;
@@ -256,20 +250,11 @@ type After = {
   "todo/Values": import("./generated/todo/Values").Values;
   "workstream/AutoParams": import("./generated/workstream/AutoParams").AutoParams;
   "workstream/CapParams": import("./generated/workstream/CapParams").CapParams;
-  "workstream/Files": import("./generated/workstream/Files").Files;
-  "workstream/PlanAgent": import("./generated/workstream/PlanAgent").PlanAgent;
   "workstream/QueueEntry": import("./generated/workstream/QueueEntry").QueueEntry;
   "workstream/QueueFailure": import("./generated/workstream/QueueFailure").QueueFailure;
   "workstream/QueueMoveParams": import("./generated/workstream/QueueMoveParams").QueueMoveParams;
   "workstream/QueueState": import("./generated/workstream/QueueState").QueueState;
   "workstream/QueuedWorkstream": import("./generated/workstream/QueuedWorkstream").QueuedWorkstream;
-  "workstream/Rewind": import("./generated/workstream/Rewind").Rewind;
-  "workstream/RewindAgent": import("./generated/workstream/RewindAgent").RewindAgent;
-  "workstream/RewindParams": import("./generated/workstream/RewindParams").RewindParams;
-  "workstream/RewindPlan": import("./generated/workstream/RewindPlan").RewindPlan;
-  "workstream/RewindPlanParams": import("./generated/workstream/RewindPlanParams").RewindPlanParams;
-  "workstream/RewindState": import("./generated/workstream/RewindState").RewindState;
-  "workstream/Rewound": import("./generated/workstream/Rewound").Rewound;
   "workstream/StartChoice": import("./generated/workstream/StartChoice").StartChoice;
   "workstream/StartWorkstreamParams": import("./generated/workstream/StartWorkstreamParams").StartWorkstreamParams;
 };
@@ -279,12 +264,25 @@ type WithOwnerSelector<T> = { [K in keyof T]: K extends "owner" ? T[K] | string 
 
 type SelectorInputs = "todo/AssignParams" | "todo/CreateParams";
 
-type BeforeSelectors = { [K in keyof Before]: K extends SelectorInputs ? WithOwnerSelector<Before[K]> : Before[K] };
+// U5558 adds commit notifications; every existing Event and payload remains exact.
+type AutomaticChanges = { name: "deliverable.changed" } | { name: "reaction.changed" };
+
+// N5467b/NR11 retire nullable historical Reaction reasons; all other saved fields stay exact.
+type CurrentReaction = Omit<Before["reaction/Reaction"], "reason"> & { reason: string };
+
+type BeforeSelectors = { [K in keyof Before]: K extends SelectorInputs ? WithOwnerSelector<Before[K]>
+  : K extends "EventData" ? Before[K] | AutomaticChanges
+    : K extends "Event" ? Before[K] | (Pick<Before["Event"], "seq" | "actor"> & AutomaticChanges)
+      : K extends "reaction/Reaction" ? CurrentReaction : Before[K] };
 
 type SelectorMethods = "todo.assign" | "todo.create";
 
 type BeforeMethodSelectors = { [K in keyof BeforeRpcMethods]: K extends SelectorMethods
   ? { params: WithOwnerSelector<BeforeRpcMethods[K]["params"]>; result: BeforeRpcMethods[K]["result"] }
+  : K extends "reaction.create" | "reaction.get" | "reaction.run" | "reaction.stop"
+    ? { params: BeforeRpcMethods[K]["params"]; result: CurrentReaction }
+  : K extends "reaction.list"
+    ? { params: BeforeRpcMethods[K]["params"]; result: CurrentReaction[] }
   : BeforeRpcMethods[K] };
 
 // Both directions retain optionality, nulls, numeric types, tags and flattened fields.

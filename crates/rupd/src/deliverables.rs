@@ -9,6 +9,7 @@ use std::path::{Path, PathBuf};
 pub(crate) struct Publications {
     db: std::sync::Mutex<Connection>,
     cache: PathBuf,
+    quota: i64,
 }
 
 impl Publications {
@@ -19,6 +20,7 @@ impl Publications {
                 Connection::open_in_memory().expect("test publication database"),
             ),
             cache,
+            quota: QUOTA,
         }
     }
 
@@ -64,9 +66,20 @@ impl Publications {
         db.pragma_update(None, "journal_mode", "WAL")?;
         // SQLite uses the stronger device flush on platforms that support it.
         db.pragma_update(None, "fullfsync", true)?;
+        // R5457: only test-support builds accept a Project-local fixture limit. Keeping it
+        // beside this Project's database preserves it across restart without ambient state.
+        #[cfg(feature = "test-support")]
+        let quota = match std::fs::read_to_string(data.join("test-publication-quota")) {
+            Ok(value) => value.trim().parse::<i64>().map_err(std::io::Error::other)?,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => QUOTA,
+            Err(error) => return Err(error.into()),
+        };
+        #[cfg(not(feature = "test-support"))]
+        let quota = QUOTA;
         Ok(Self {
             db: std::sync::Mutex::new(db),
             cache,
+            quota,
         })
     }
 }
@@ -220,7 +233,7 @@ impl Publications {
                 rustix::fs::fsync(&pending)?;
             }
         }
-        let mut stmt = db.prepare("SELECT id FROM deliverables WHERE removed=1 AND (id IN (SELECT id FROM deliverable_files) OR id IN (SELECT id FROM deliverable_bytes))")?;
+        let mut stmt = db.prepare("SELECT id FROM deliverables WHERE removed=1 AND id IN (SELECT id FROM deliverable_files)")?;
         let ids = stmt
             .query_map([], |r| r.get::<_, String>(0))?
             .collect::<rusqlite::Result<Vec<_>>>()?;
@@ -241,7 +254,6 @@ impl Publications {
                 rustix::fs::fsync(dir)?;
             }
             db.execute("DELETE FROM deliverable_files WHERE id=?1", [&id])?;
-            db.execute("DELETE FROM deliverable_bytes WHERE id=?1", [&id])?;
         }
         Ok(())
     }
@@ -301,6 +313,7 @@ impl Daemon {
         let project: String = tx
             .query_row("SELECT id FROM deliverable_project", [], |r| r.get(0))
             .map_err(RpcError::internal)?;
+        let mut changed = false;
         let result = match method {
             "deliverable.publish" => {
                 let p: PublishParams = rpc::params(args)?;
@@ -359,7 +372,7 @@ impl Daemon {
                             return Err(RpcError::conflict("Pad source or Revision changed"));
                         }
                         let content = source.pad.text.into_bytes();
-                        bounded(&tx, &content)?;
+                        bounded(&tx, &content, self.publications.quota)?;
                         let target = PublishedTarget::Pad {
                             name: source.pad.name,
                             incarnation: source.pad.incarnation,
@@ -382,7 +395,7 @@ impl Daemon {
                         )?;
                         file_source =
                             Some(serde_json::to_string(&source).map_err(RpcError::internal)?);
-                        bounded(&tx, &content)?;
+                        bounded(&tx, &content, self.publications.quota)?;
                         let target = PublishedTarget::File {
                             path,
                             length: content.len() as u64,
@@ -419,6 +432,7 @@ impl Daemon {
                     target,
                 };
                 tx.execute("INSERT INTO deliverables(id,maker,publication_key,request,record,home,file_source) VALUES (?1,?2,?3,?4,?5,?6,?7)",params![record.id,actor_key,p.key,request,serde_json::to_string(&record).map_err(RpcError::internal)?,record.home,file_source]).map_err(RpcError::internal)?;
+                changed = true;
                 observe("metadata_inserted")?;
                 if let Some(bytes) = bytes {
                     self.publications
@@ -484,6 +498,7 @@ impl Daemon {
                         "only the user can change this placement",
                     ));
                 }
+                changed = record.home != p.home;
                 record.home = p.home;
                 tx.execute(
                     "UPDATE deliverables SET record=?1,home=?2,user_placed=?3 WHERE id=?4",
@@ -508,6 +523,7 @@ impl Daemon {
                 }
                 let record = get(&tx, &project, &p)?;
                 self.publications.invalidate(&record.id)?;
+                changed = true;
                 tx.execute(
                     "UPDATE deliverables SET removed=1 WHERE id=?1",
                     [&record.id],
@@ -531,6 +547,10 @@ impl Daemon {
             observe("before_commit")?;
         }
         tx.commit().map_err(RpcError::internal)?;
+        if changed {
+            self.bus
+                .emit(conn.actor.clone(), contracts::EventData::DeliverableChanged);
+        }
         if method == "deliverable.publish" {
             observe("after_commit")?;
         }
@@ -581,15 +601,15 @@ fn external(url: &str) -> Result<(), RpcError> {
 
 const MAX_BYTES: usize = 32 * 1024 * 1024;
 const QUOTA: i64 = 1024 * 1024 * 1024;
-fn bounded(db: &Connection, bytes: &[u8]) -> Result<(), RpcError> {
+fn bounded(db: &Connection, bytes: &[u8], quota: i64) -> Result<(), RpcError> {
     let used: i64 = db
         .query_row(
-            "SELECT (SELECT coalesce(sum(length(bytes)),0) FROM deliverable_bytes) + (SELECT coalesce(sum(length),0) FROM deliverable_files)",
+            "SELECT coalesce(sum(length),0) FROM deliverable_files",
             [],
             |r| r.get(0),
         )
         .map_err(RpcError::internal)?;
-    if bytes.len() > MAX_BYTES || used + bytes.len() as i64 > QUOTA {
+    if bytes.len() > MAX_BYTES || used + bytes.len() as i64 > quota {
         return Err(RpcError::new(
             code::INVALID_PARAMS,
             "publication exceeds 32 MiB or Project's 1 GiB retained quota",
@@ -661,20 +681,13 @@ fn resolve(
             |r| r.get(0),
         )
         .map_err(RpcError::internal)?;
-    let bytes: Option<Vec<u8>> = if selected {
-        match publications.read(&record.id) {
-            Ok(bytes) => Some(bytes),
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => None,
-            Err(_) => return unavailable(UnavailableCause::IntegrityFailure),
-        }
-    } else {
-        db.query_row(
-            "SELECT bytes FROM deliverable_bytes WHERE id=?1",
-            [&record.id],
-            |r| r.get(0),
-        )
-        .optional()
-        .map_err(RpcError::internal)?
+    if !selected {
+        return unavailable(UnavailableCause::MissingRevision);
+    }
+    let bytes = match publications.read(&record.id) {
+        Ok(bytes) => Some(bytes),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => None,
+        Err(_) => return unavailable(UnavailableCause::IntegrityFailure),
     };
     let Some(bytes) = bytes else {
         return unavailable(UnavailableCause::MissingRevision);
@@ -844,83 +857,7 @@ fn observe(stage: &str) -> Result<(), RpcError> {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use serde_json::json;
-    #[tokio::test]
-    async fn dv2_metadata_only() {
-        let dir = tempfile::tempdir().unwrap();
-        let daemon = crate::test_daemon(dir.path()).unwrap();
-        let (events, _) = tokio::sync::mpsc::unbounded_channel();
-        let mut conn = Conn {
-            actor: contracts::Actor::user(),
-            peer: None,
-            events,
-            output: None,
-        };
-        let pad = daemon
-            .route(
-                &mut conn,
-                "pad.create",
-                json!({"name":"notes","text":"retained"}),
-            )
-            .await
-            .unwrap();
-        let record=daemon.route(&mut conn,"deliverable.publish",json!({"key":"notes","title":"Result","target":{"kind":"pad","name":"notes","incarnation":pad["incarnation"],"revision":1}})).await.unwrap();
-        let denied = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
-        let count = denied.clone();
-        {
-            let db = daemon.publications.db.lock().unwrap();
-            let settings: (String, i64) = db
-            .query_row(
-                "SELECT journal_mode,synchronous FROM pragma_journal_mode(),pragma_synchronous()",
-                [],
-                |r| Ok((r.get(0)?, r.get(1)?)),
-            )
-            .unwrap();
-            assert_eq!(settings, ("wal".to_owned(), 2));
-            db.authorizer(Some(move |ctx: rusqlite::hooks::AuthContext<'_>| {
-                if matches!(
-                    ctx.action,
-                    rusqlite::hooks::AuthAction::Read {
-                        table_name: "deliverable_bytes" | "deliverable_files",
-                        ..
-                    }
-                ) {
-                    count.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-                    rusqlite::hooks::Authorization::Deny
-                } else {
-                    rusqlite::hooks::Authorization::Allow
-                }
-            }))
-            .unwrap();
-        }
-        assert_eq!(
-            daemon
-                .route(&mut conn, "deliverable.list", json!({}))
-                .await
-                .unwrap(),
-            json!([record])
-        );
-        let id = json!({"project":record["project"],"id":record["id"]});
-        assert_eq!(
-            daemon
-                .route(&mut conn, "deliverable.get", id.clone())
-                .await
-                .unwrap(),
-            record
-        );
-        assert_eq!(denied.load(std::sync::atomic::Ordering::SeqCst), 0);
-        // Confirm the instrument actually catches a payload read at the same public seam.
-        assert!(
-            daemon
-                .route(&mut conn, "deliverable.resolve", id)
-                .await
-                .is_err()
-        );
-        assert!(denied.load(std::sync::atomic::Ordering::SeqCst) > 0);
-    }
-}
+mod tests;
 
 #[derive(serde::Serialize, serde::Deserialize)]
 struct FileSource {

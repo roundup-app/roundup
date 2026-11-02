@@ -190,7 +190,6 @@ async fn f8_the_door_keeps_f2_on_start_and_resume() {
     acknowledge_f8_start(&f, &id, "startup").await;
     restarting.await.unwrap().unwrap();
     f.call("agent.stop", json!({"id": id})).await.unwrap();
-    crate::a35::resumes_copy(true).await;
 }
 
 async fn assert_f8_argv(f: &Fixture, resume: bool) {
@@ -200,7 +199,7 @@ async fn assert_f8_argv(f: &Fixture, resume: bool) {
     let at = args.iter().position(|&arg| arg == "--tools").unwrap();
     assert_eq!(
         args[at + 1],
-        "Read,Grep,Glob,ToolSearch,Skill,AskUserQuestion"
+        "Read,Grep,Glob,Write,Edit,ToolSearch,Skill,AskUserQuestion"
     );
     assert_eq!(args.contains(&"--resume"), resume);
 }

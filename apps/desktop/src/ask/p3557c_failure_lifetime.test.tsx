@@ -1,4 +1,4 @@
-import { copy } from "./copy";
+import { event } from "../testing/nodes";
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import type { Deliverable } from "@contracts/deliverable/Deliverable";
@@ -44,7 +44,7 @@ it("p3557c_failure_lifetime_ask_bar_deliverables", async () => {
 
   app.handlers["deliverable.list"] = () => records;
   app.handlers["deliverable.resolve"] = ({ id }) => id === "publication-1" ? { kind: "unavailable", cause: "missing-revision" } : { kind: "retained", path: "/p", sha256: "h" };
-  window.dispatchEvent(new Event("focus"));
+  app.emit(event({ name: "deliverable.changed" }));
   const made = await screen.findByRole("region", { name: "Made" });
   const rows = () => within(made).getAllByRole("listitem");
   const lines = () => rows().map(row => row.querySelector(".reserved-line")?.getAttribute("title") || null);
@@ -53,12 +53,12 @@ it("p3557c_failure_lifetime_ask_bar_deliverables", async () => {
   type(input(), "unfinished");
   await waitFor(() => expect(rows()).toHaveLength(2));
   open(0);
-  await waitFor(() => expect(lines()[0]).toContain("retained revision is missing"));
+  await waitFor(() => expect(lines()[0]).toContain("the saved version is missing"));
 
   // A successful action on another record leaves the first failure alone.
   open(1);
   await waitFor(() => expect(made.getAttribute("aria-busy")).toBe("false"));
-  expect(lines()[0]).toContain("retained revision is missing");
+  expect(lines()[0]).toContain("the saved version is missing");
   expect(lines()[1]).toBeNull();
 
   // Dismissal clears it, without touching the typed input.
@@ -79,7 +79,7 @@ it("p3557c_failure_lifetime_ask_bar_deliverables", async () => {
   await waitFor(() => expect(lines()[0]).not.toBeNull());
   await waitFor(() => expect(made.getAttribute("aria-busy")).toBe("false"));
   records = [published(2)];
-  fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
+  app.emit(event({ name: "deliverable.changed" }));
   await waitFor(() => expect(rows()).toHaveLength(1));
   expect(lines()).toEqual([null]);
   expect(input()!.value).toBe("unfinished");
@@ -103,7 +103,7 @@ it("p3557c_failure_lifetime_ask_bar_send_dismiss_once", async () => {
   expect(screen.queryByRole("button", { name: "Dismiss" })).toBeNull();
 });
 
-it("u4277c_empty_made_keeps_refresh_and_distinguishes_read_failure", async () => {
+it("u5558e_failed_reload_retains_data", async () => {
   const { app, connected } = await mountAskBar();
   connected.showView("made");
   const made = await screen.findByRole("region", { name: "Made" });
@@ -112,10 +112,32 @@ it("u4277c_empty_made_keeps_refresh_and_distinguishes_read_failure", async () =>
   expect(within(made).queryAllByRole("button", { name: /^Open / })).toHaveLength(0);
   app.handlers["deliverable.list"] = () => { throw new RpcError(-32003, "Publication list unavailable"); };
 
-  fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
+  app.emit(event({ name: "deliverable.changed" }));
   await waitFor(() => expect(within(made).getByRole("alert")).toBeTruthy());
   app.handlers["deliverable.list"] = () => [published(1)];
-  fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
+  app.emit(event({ name: "deliverable.changed" }));
   await waitFor(() => expect(within(made).getAllByRole("listitem")).toHaveLength(1));
   expect(app.calls.filter(call => ["deliverable.resolve", "ask.send", "agent.spawn", "terminal.write"].includes(call.method))).toHaveLength(0);
+});
+
+
+it("u5558a_automatic_reload_preserves_focused_publication", async () => {
+  const { app, connected } = await mountAskBar();
+  connected.showView("made");
+  app.handlers["deliverable.list"] = () => [published(1), published(2)];
+  app.handlers["deliverable.resolve"] = () => ({ kind: "retained", path: "/retained/publication-1", sha256: "hash-1" });
+  app.emit(event({ name: "deliverable.changed" }));
+  const made = await screen.findByRole("region", { name: "Made" });
+  await waitFor(() => expect(made.getAttribute("aria-busy")).toBe("false"));
+  const opener = within(made).getByRole("button", { name: "Open Title 1" });
+  opener.focus();
+
+  app.handlers["deliverable.list"] = () => [published(3), { ...published(1), home: "ops", title: "Updated result" }, published(2)];
+  app.emit(event({ name: "deliverable.changed" }));
+  await waitFor(() => expect(made.getAttribute("aria-busy")).toBe("false"));
+  expect(document.activeElement).toBe(opener);
+  expect(within(made).getByRole("button", { name: "Open Updated result" })).toBe(opener);
+  fireEvent.keyDown(opener, { key: "Enter" });
+  await waitFor(() => expect(app.openedTargets).toEqual([{ kind: "path", path: "/retained/publication-1", line: null }]));
+  expect(app.calls.filter(call => call.method === "deliverable.resolve").map(call => call.params)).toEqual([{ project: "project-original", id: "publication-1" }]);
 });

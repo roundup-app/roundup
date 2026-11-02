@@ -1,4 +1,0 @@
-{
-  "stage": "Chromium preparation only",
-  "error": "Error: RpcError: no handler for agent.signal\n    at rpc (http://127.0.0.1:46883/src/testing/fakeApp.ts:302:24)\n    at app.rpc (http://127.0.0.1:46883/src/testing/seeds.ts:546:10)\n    at prepareFixture (http://127.0.0.1:46883/src/perf/fixture.ts:96:39)\n    at async <anonymous>:6:17"
-}

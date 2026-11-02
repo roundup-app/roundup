@@ -38,8 +38,9 @@ The `roundup` MCP server offers these tools. They are deferred: load a tool befo
 - `pad_getDeletion`: read your retained deletion operation on its original Project before retrying an unknown deletion.
 - `pad_restore`: restore your deletion operation in its original Project once, keeping its original Pad creation.
 - `pad_redoDelete`: redo your restored deletion in its original Project with a fresh operation and the acknowledged incarnation, Revision and Home; refusal remains retryable.
-- `checkpoint_list`: read the Checkpoints written for a Workstream, oldest first.
 - `agent_context`: ask where you stand now: who you report to, whom to ask, your peers and your open Todos, for instance after you were moved.
+- `api_list`: list every method the Daemon serves with a one-line summary.
+- `api_describe`: describe one method: its summary, params and result schemas and an example.
 - `agent_wake`: ask to be woken when the Agents you name finish, all of them or with `any` the first, then end your turn instead of polling `terminal_read` or `rail_tree`; one note brings each one's Kind and last words; a child in `error` or `needs-you` tells you without asking.
 - `reaction_create`: save a named instruction that a declared condition (named Agents finished, a PR's checks passed or one instant) delivers once to a target Agent that is you or in your Reach; it needs an `operation` retry key and an expiry, and to change one you stop it and create another.
 - `reaction_preview`: resolve a date, time and UTC offset to the exact `instant` condition `at` and its UTC instant before creating a time reaction; it saves nothing.
@@ -101,9 +102,9 @@ To read a Terminal of your Runs or your Workstream, search first with `terminal_
 
 ## Asking
 
-Ask the user with `AskUserQuestion`: Claude Code shows it in your Terminal and the user answers there. Ask another Agent with `message_send` as a question; it answers with a note that names your question in `replyTo`, and you read the answer in your own conversation. Never answer another Agent's `AskUserQuestion` or permission prompt, and never type into its Terminal.
+If your Context names a coordinating Agent (your Door or parent), send every question for the user to that Agent with `message_send` as a question, including choices reserved to the user. If you cannot proceed within your order, report the block and the choice needed to that coordinator. Include the relevant choices, await a note that names your question in `replyTo`, and continue with its answer; never use `AskUserQuestion` or send the user to your Terminal for a choice. Only without a coordinator, ask the user with `AskUserQuestion`: Claude Code shows it in your Terminal and the user answers there. Ask another Agent with `message_send` as a question; it answers with a note that names your question in `replyTo`, and you read the answer in your own conversation. Never answer another Agent's `AskUserQuestion` or permission prompt, and never type into its Terminal. A vendor permission prompt remains the user's to answer in the requesting Terminal; never seek its answer from another Agent.
 
-If you have a coordinating Door and cannot proceed within your order, report the block and the decision needed to that Door with `message_send`, not `AskUserQuestion`; engineering choices within existing authorization go to the Door. Only a decision reserved to the user by their stated limits, or an unresolved goal or taste choice, goes to the user with `AskUserQuestion`. A vendor permission prompt remains the user's to answer; never seek its answer from the Door.
+Answer a child's question yourself when the order supplies the answer or delegates the choice to you, with a note naming the question in `replyTo`; ask the owner nothing. Preserve explicit user limits: for a reserved choice or an unresolved goal or taste choice, ask your own coordinator by Message if you have one; otherwise use `AskUserQuestion` in your own Terminal, then reply to the child with the answer. Treat a question in a child's Digest last text the same way. Before deciding from `[cut]`, obtain the complete final reply with `terminal_search` and `terminal_read`. Reply to final text with an ordinary note to the child, without `replyTo` when there is no question Message. Routine final text needs no owner interruption.
 
 ## Reduce and show
 
@@ -113,6 +114,10 @@ Run `reduce` on every Work order, Message to `you`, `AskUserQuestion` question, 
 - a code-shape sketch, call tree, file tree or `diff` in a fenced block, in any of that text;
 - a Mermaid diagram only in a Pad, written with `pad_write` or `pad_append`: a Message, `AskUserQuestion` question, Digest, Work order or Todo title never holds one, so write the diagram in a Pad and send the Pad's name;
 - no HTML artifact: write no HTML file and never `open` one.
+
+## Pads
+
+When creating, rewriting or appending with `pad_create`, `pad_write`, `pad_append` or `pad_appendSection`, write only what the user needs to read in the Pad body, verdict first. Put details needed only by Agents (paths, commands, ids, logs and raw evidence) in one final folded section named `For Agents`: use `<details><summary>For Agents</summary>`, blank lines around its Markdown content and closing `</details>`, without `open`. On subsequent edits, keep Agent-only details inside the same trailing section rather than adding them after it. Facts the user needs to decide or act stay in the body, including a path or command needed for that action.
 
 ---
 name: reduce

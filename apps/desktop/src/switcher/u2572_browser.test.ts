@@ -12,6 +12,7 @@ const exec = promisify(execFile);
 it("u2572b_a_real_action_choice_reports_creation_failure_without_writing_to_a_Terminal", async () => {
   const captures = captureDir("U2572d");
   const spacingCaptures = captureDir("U4681");
+  const userActionCaptures = captureDir("UA13");
   const server = await appServer();
   const origin = server.resolvedUrls.local[0]!;
 
@@ -20,7 +21,7 @@ it("u2572b_a_real_action_choice_reports_creation_failure_without_writing_to_a_Te
 
     if (!ready.ok) throw new Error(await ready.text());
 
-    for (const theme of spacingCaptures ? ["dark"] : captures ? ["light", "dark", "contrast"] : ["light"]) {
+    for (const theme of spacingCaptures || userActionCaptures ? ["dark"] : captures ? ["light", "dark", "contrast"] : ["light"]) {
       const session = `u2572-${process.pid}-${theme}`;
       const profile = mkdtempSync(join(tmpdir(), "u2572-"));
       const browser = async (...args: string[]) => (await exec("agent-browser", ["--session", session, "--json", ...args], { maxBuffer: 8 * 1024 * 1024, timeout: 25_000 })).stdout;
@@ -37,7 +38,7 @@ it("u2572b_a_real_action_choice_reports_creation_failure_without_writing_to_a_Te
       const capture = async (name: string) => {
         if (!captures) return;
 
-        const directory = join(captures, "head");
+        const directory = join(captures, process.env.ROUNDUP_CAPTURE_PHASE ?? "head");
         mkdirSync(directory, { recursive: true });
         await browser("screenshot", join(directory, `${theme}-${name}.png`));
         writeFileSync(join(directory, `${theme}-${name}.checks.json`), JSON.stringify(await read("window.__checks()"), null, 2));
@@ -76,7 +77,7 @@ it("u2572b_a_real_action_choice_reports_creation_failure_without_writing_to_a_Te
           for (const [width, height] of [[1280, 800], [1512, 950]]) {
             await browser("set", "viewport", String(width), String(height));
 
-            for (const [name, query] of [["empty", ""], ["mixed", "new"], ["action-only", "New Agent with a prompt"], ["no-match", "zzzz-no-match"]]) {
+            for (const [name, query] of [["empty", ""], ["mixed", "new"], ["action-only", "Agent with prompt"], ["no-match", "zzzz-no-match"]]) {
               await browser("fill", ".switcher input", query!);
               await browser("screenshot", join(directory, `${width}-${name}.png`));
               writeFileSync(join(directory, `${width}-${name}.checks.json`), JSON.stringify(await read("window.__checks()"), null, 2));
@@ -100,7 +101,7 @@ it("u2572b_a_real_action_choice_reports_creation_failure_without_writing_to_a_Te
           }
         }
 
-        for (const [name, query] of [["empty", ""], ["new", "new"], ["action-only", "New Agent with a prompt"], ["no-match", "zzzz-no-match"]]) {
+        for (const [name, query] of [["empty", ""], ["new", "new"], ["action-only", "Agent with prompt"], ["no-match", "zzzz-no-match"]]) {
           await read(`(() => { const f=document.querySelector('.switcher input'); f.value=${JSON.stringify(query)}; f.dispatchEvent(new Event('input',{bubbles:true})); })()`);
           await capture(name!);
         }
@@ -113,6 +114,13 @@ it("u2572b_a_real_action_choice_reports_creation_failure_without_writing_to_a_Te
         // The harness rejects the next call before recording it; another creation attempt or a Terminal write would be recorded.
         expect(calls).toEqual([]);
         await capture("failure");
+
+        if (userActionCaptures) {
+          await browser("press", "Meta+k");
+          await browser("press", "k");
+          await browser("wait", "--fn", "!!document.querySelector('.switcher input')");
+          await capture("failure-switcher-open");
+        }
 
         if (spacingCaptures) {
           const directory = join(spacingCaptures, process.env.ROUNDUP_CAPTURE_PHASE ?? "head");
@@ -136,7 +144,7 @@ it("u2572b_a_real_action_choice_reports_creation_failure_without_writing_to_a_Te
           await browser("wait", "--fn", "!!document.querySelector('.switcher input')");
           await read("(() => { Storage.prototype.setItem=()=>{throw new Error('full')}; Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:()=>Promise.reject(new Error('denied'))}}); const f=document.querySelector('.switcher input'); f.value='  é 🧭 東京  '; f.dispatchEvent(new Event('input',{bubbles:true})); f.setSelectionRange(2,9,'backward'); f.dispatchEvent(new Event('keyup',{bubbles:true})); })()");
           await browser("find", "role", "button", "click", "--name", "Copy query", "--exact");
-          await browser("wait", "--fn", "[...document.querySelectorAll('.switcher [role=alert]')].some(e=>e.textContent.includes('Could not copy query'))");
+          await browser("wait", "--fn", "[...document.querySelectorAll('.switcher [role=alert]')].some(e=>e.textContent.includes('Copy failed'))");
 
           for (const step of ["before", "after"]) {
             if (step === "after") await browser("find", "role", "button", "click", "--name", "Close", "--exact");

@@ -35,6 +35,7 @@ The owner wants a native macOS App, not a web page. A UI PR that breaks one of t
 - No outlines or boxes around controls or tabs.
 - No hover background boxes; hover only changes text or icon colour (#2173). The owner: "i don't like these bg hovers boxes it - its bad - annoying in spaces - radiuses - and fully annoying not native feels weby".
 - Radius only on floating panels: the bubble, menus, popovers (#2176).
+- Settings only: each group of rows sits in one rounded inset box; this is the one exception to "No outlines or boxes around controls or tabs" and "Radius only on floating panels".
 - Tabs: one flat Zed-style bar for Project and Terminal tabs (#2210). The owner: "the borders and design of the tabs is too annoying not elegant and not native - too bad".
 - Floating panels are opaque with a shadow; no opacity slider (#2176). The owner: "we should remove the opacity feature remove it and add proper box shadow and padding and radius to the bubble".
 - One Terminal bubble shows at a time, centred over the centre pane; roundup builds no splitting, tiling or bubble manager, since the Terminal itself (tmux or similar) handles splits (#2211). The owner: "we only need a resizer - terminals them selves could manage splitting and tiling not us".
@@ -52,6 +53,7 @@ The owner wants a native macOS App, not a web page. A UI PR that breaks one of t
 - Rail chevrons and grips mirror the leading glyph column: each centres 24 CSS px from the Rail's inner right edge, within 1 px, as the Overview tile centres 24 px from its left edge (U5147a). Applies to a head whose `Scenarios:` line names U5147a, and to every head once origin/main meets it.
 - A hairline separates Rail sections: one `--hairline-width` `--hairline` line centred in each gap between visible sections, within 1 px, spanning the Rail's inner width as the root Workstream divider (`.rail-root-divider`) does; none above the first section or below the last (U5147b). Applies to a head whose `Scenarios:` line names U5147b, and to every head once origin/main meets it.
 - A Mode row carries no section mark: only the MODES head and New Mode draw `workflow` (U5147c). Applies to a head whose `Scenarios:` line names U5147c, and to every head once origin/main meets it.
+- An empty view's scene is ground, never an object: one `--doodle-ground` silhouette under the message, anchored past its room's bottom-right corner and cropped by the room, never centred above the message, still, and drawn only in an empty room at least 832 px tall (U5163). Applies to a head whose `Scenarios:` line names U5163, and to every head once origin/main meets it.
 
 - D1 (#3789, row interaction): a primary click selects a Todo, Pad or Rail row; Return or its Open button opens; double-click/F2 renames. A drag or rename gesture never opens. Apply U3789a to Shelf rows and owned-item leaves alike.
 - D2 (#3789, Todo add): one key or click focuses one line; text plus Return files into the selected scope. Opening/typing never expands an owner group; only the field, accepted new row and newly nonempty destination group mount, with existing counts/empty feedback updated (U3789b).

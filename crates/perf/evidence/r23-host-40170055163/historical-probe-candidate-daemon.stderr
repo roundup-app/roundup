@@ -1,2 +1,0 @@
-run 1/1: load 4.2 on 4 cpus
-perf: rail.createGroup: method not found: rail.createGroup (code -32601)

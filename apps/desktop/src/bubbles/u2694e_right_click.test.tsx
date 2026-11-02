@@ -11,12 +11,18 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-li
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { mountBubbles } from "./bubblesFixture";
 
-beforeEach(() => { window.localStorage.clear(); window.sessionStorage.clear(); });
+// jsdom lays nothing out; the Rail rows' reveal Tooltip checks that the pointer that opens it lies in its row.
+beforeEach(() => {
+  window.localStorage.clear();
+  window.sessionStorage.clear();
+  vi.spyOn(Element.prototype, "getBoundingClientRect").mockReturnValue(new DOMRect(0, 0, 1000, 1000));
+});
 
 const clipboardBefore = Object.getOwnPropertyDescriptor(navigator, "clipboard");
 
 afterEach(() => {
   cleanup();
+  vi.restoreAllMocks();
 
   if (clipboardBefore) Object.defineProperty(navigator, "clipboard", clipboardBefore);
   else Reflect.deleteProperty(navigator, "clipboard");
@@ -119,7 +125,7 @@ const mountApp = async (seed: SeedName = "tree-40", rail = false) => {
   const emulators = fakeEmulators();
   const view = render(() => <App app={controls.app} reducedMotion={() => true} clock={() => 0} createEmulator={emulators.factory} />);
 
-  if (seed === "first-run") await screen.findByRole("button", { name: "Choose folder…" });
+  if (seed === "first-run") await screen.findByRole("button", { name: "Choose Project…" });
   else await screen.findByRole("tree");
 
   if (rail) fireEvent.click(row("w"));

@@ -1,3 +1,4 @@
+import { createHeld } from "./held";
 import { createTodoUndo } from "../todos/deleteTodos";
 import type { RpcMethodName } from "@contracts/methods";
 import { retryRead } from "../app/seam";
@@ -7,7 +8,9 @@ import { createContext, createEffect, createRoot, createSignal, getOwner, onClea
 import type { Accessor } from "solid-js";
 import { createImport } from "../rail/importState";
 import { draftStorage } from "./storage";
+import { copy } from "./copy";
 import { checkContract } from "../app/contractMatch";
+import { serveActions } from "../keys/actions";
 import { connectEvents } from "../app/events";
 import type { Events } from "../app/events";
 import type { AppSeam, DaemonExit, Project } from "../app/seam";
@@ -18,6 +21,7 @@ import { createAsks } from "./asks";
 import type { AsksState } from "./asks";
 import { syncTerminalScheme } from "../terminal/scheme";
 import { createRailState } from "./rail";
+import { dismissalStorage, resumptionStorage } from "../rail/persist/storage";
 import { createUnseen, unseenStorage } from "./unseen";
 import type { UnseenState } from "./unseen";
 import { createQueue } from "./queue";
@@ -133,6 +137,7 @@ export type ConnectedProject = {
   app: AppSeam;
   events: Events;
   rail: RailState;
+  held: ReturnType<typeof createHeld>;
   /** U3566: the Agents whose latest finish the user has not viewed. */
   unseen: UnseenState;
   /** U3744: the Workstreams waiting to start. */
@@ -173,7 +178,7 @@ export type ConnectedProject = {
 
 // Explicit read allowlist: subscriptions, cursor acknowledgments and commands never replay.
 const reads = new Set<RpcMethodName>([
-  "daemon.ping", "daemon.methods", "rail.tree", "rail.list", "terminal.list",
+  "daemon.ping", "daemon.methods", "rail.tree", "terminal.list",
   "terminal.snapshot", "terminal.screen", "terminal.read", "terminal.search",
   "todo.list", "todo.get", "todo.listHanded", "todo.getHistory", "todo.comments",
   "todo.unread", "todo.refs", "todo.deletion", "pad.list", "pad.read", "pad.getDeletion",
@@ -181,7 +186,7 @@ const reads = new Set<RpcMethodName>([
   "agent.instructions", "agent.context", "agent.brief", "agent.skills", "agent.digest", "agent.extras",
   "project.get", "project.getPrepared", "project.resources", "models.list", "import.list", "project.importDiscover",
   "message.get", "message.list",
-  "message.progress", "message.reconcileWork", "route.list", "checkpoint.list", "ask.list",
+  "message.progress", "message.reconcileWork", "route.list", "ask.list",
   "deliverable.list", "deliverable.get", "deliverable.resolve", "link.read",
   "provenance.history", "provenance.touched", "reaction.list", "reaction.get", "reaction.preview",
   "workstream.queue",
@@ -226,16 +231,20 @@ export const connectProject = async (
   const [terminalScheme, events] = await Promise.all([syncTerminalScheme(app), connectEvents(app)]);
   let stopRail = () => {};
 
+  // NA6: from here the Daemon can relay `action.list` and `action.run` to this window.
+  serveActions(app).catch(error => console.error(copy.actionsUnregistered, error));
+
   const rail = createRoot(dispose => {
     stopRail = dispose;
 
-    return createRailState(app, events, storage);
+    return createRailState(app, events, storage, dismissalStorage(project.path), resumptionStorage(project.path));
   });
 
   if (ended) stopRail();
 
   await rail.settled();
 
+  const held = createHeld(project.path, cause => rail.commandFailure.show(cause, null, "rail"));
   const settingsView = drafts.settingsView;
   let stopUnseen = () => {};
 
@@ -313,7 +322,7 @@ export const connectProject = async (
 
   const hideView = (name: string) => { setViews(previous => previous.includes(name) ? previous.filter(value => value !== name) : previous); };
 
-  return { creation, createIn, finishCreation, padsTab, padsRequest, padsOwner, showPadsOf, finishPadsRequest, view, hasView, showView, hideView, project, drafts, app, events, rail, terminalScheme, unseen, queue, importing, worktrees: createWorktreeState(app, rail, now, daemonExit), drawer: createDrawer(), asks, settingsView: drafts.settingsView, notes: createNoteQueue(app, events, daemonExit), reducedMotion, now, contractNotice, daemonExit, stopTerminalScheme: () => { stopRail(); stopQueue(); stopUnseen(); stopAsks(); terminalScheme.stop(); } };
+  return { creation, createIn, finishCreation, padsTab, padsRequest, padsOwner, showPadsOf, finishPadsRequest, view, hasView, showView, hideView, project, drafts, app, events, rail, held, terminalScheme, unseen, queue, importing, worktrees: createWorktreeState(app, rail, now, daemonExit), drawer: createDrawer(), asks, settingsView: drafts.settingsView, notes: createNoteQueue(app, events, daemonExit), reducedMotion, now, contractNotice, daemonExit, stopTerminalScheme: () => { stopRail(); stopQueue(); stopUnseen(); stopAsks(); terminalScheme.stop(); } };
 };
 
 /** App-run authority for owners outside a connection, including Project tabs.

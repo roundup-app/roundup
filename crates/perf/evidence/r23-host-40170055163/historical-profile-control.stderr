@@ -1,2 +1,0 @@
-run 1/1: load 2.3 on 4 cpus; Daemon log /tmp/r23-execution/crates/perf/evidence/r23-host-40170055163/historical-profile-control.startup-1.log
-R23 compatibility: legacy=true; create=rail.createGroup

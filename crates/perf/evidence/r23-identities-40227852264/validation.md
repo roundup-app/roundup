@@ -1,3 +1,0 @@
-# Validation
-
-`pnpm install`, `just lint-web` and `just lint-rust` exited 0 before either control set. Logs are retained. No production source or test changed. R23 is evidence policy; no synthetic timing test was added. The existing producer extract/endpoints/assessment scripts replayed on the new recording (physical-replay-v2, exit 0). Native identity assessment exited 0. Both pins joined 2200 physical writes/reads and 2200 task IDs; candidate joined 2200 exact send entry/return pairs. No TaskMeta mismatch or unsupported fetched ID offset occurred in V2. The first failed argument set and first failed offline replay remain retained. All 48 diagnostic invocations exited 1; none is a clean R16 observation.

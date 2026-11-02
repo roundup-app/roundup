@@ -265,6 +265,7 @@ impl Shared {
         let mut run = Run {
             yolo: mode == contracts::agent::ResumeMode::Yolo,
             startup_context: true,
+            input_started: prompt.is_some(),
             attempt: attempt.clone(),
             status_revision: 1,
             closing: false,
@@ -367,6 +368,7 @@ pub(super) fn save_signal_conversation(
         return Ok(());
     };
     rail.save_conversation(id, &conversation_id, &run.cwd)?;
+    rail.save_conversation_yolo(id, run.yolo)?;
     Ok(())
 }
 

@@ -40,7 +40,7 @@ it("u3512b_shared_dialog_keeps_focus_and_drafts", async () => {
   expect(await lane.evaluate<string>(`document.querySelector('${field}').value`)).toBe("  exact 雪 é  ");
   await record("new-workstream");
   await lane.evaluate("window.__fake.app.handlers['todo.startWorkstream'] = () => { throw new Error('The name was refused. Try another name.'); }");
-  await lane.browser("find", "role", "button", "click", "--name", "Create", "--exact");
+  await lane.browser("click", '.new-workstream button[type="submit"]');
   await lane.until("!!document.querySelector('.new-workstream [role=alert]')");
   await record("new-workstream-failure");
   expect(await lane.evaluate<string>(`document.querySelector('${field}').value`)).toBe("  exact 雪 é  ");
@@ -73,7 +73,7 @@ it("u3512c_form_buttons_keep_submit_and_cancel", async () => {
   await key("Meta+Shift+t");
   await lane.until("!!document.querySelector('.capture-field')");
   await lane.browser("fill", ".capture-field", "Cancelled draft");
-  await lane.browser("find", "role", "button", "click", "--name", "Cancel", "--exact");
+  await lane.browser("click", ".capture-actions [data-button=quiet]");
   await lane.until("!document.querySelector('.capture')");
   expect(await lane.calls("todo.create")).toEqual([]);
   await key("Meta+Shift+t");

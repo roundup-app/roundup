@@ -1,6 +1,0 @@
-from pathlib import Path
-p=Path('/tmp/r23-span-probe/crates/rpc/src/client.rs');s=p.read_text()
-s=s.replace('type Waiter =', 'thread_local! {\n    static R23_TID: std::path::PathBuf = std::fs::read_link("/proc/thread-self").expect("Linux observer TID");\n}\n\ntype Waiter =',1)
-s=s.replace('            eprintln!("{}", format!("R23 adapter', '            R23_TID.with(|tid| eprintln!("{}", format!("R23 adapter')
-s=s.replace('broadcast={broadcast:?} line={line}"));', 'broadcast={broadcast:?} tid={} line={line}", tid.display())));')
-p.write_text(s)

@@ -4,17 +4,9 @@ Specification for #4522. Terms: Project, Project data, Pad, Daemon (`GLOSSARY.md
 
 **B4522 migration additions never move an applied position.**
 
-## Repair
+## Repair retired
 
-Given a Project database at any earlier valid version of the production sequence, when the normal storage owner opens it with the repair, then `pad_deletions` exists and supports the current Pad deletion contract (`b4522_earlier_project_versions_support_pad_deletion`, parameterized over every prefix from zero through the implementation base's latest version). Build actual schemas by applying those prefixes; do not label a latest schema with an earlier `user_version`. Include the frozen ten-entry head and every added file, not filename numbers interpreted as SQLite versions.
-
-Given the observed drift at `user_version=44`, with `todo_deletions` and `rail_deletions` present but the Pad-deletion migration absent, when normal Project startup runs, then Pad creation, deletion, retained-operation lookup and restoration succeed through the real Daemon's existing Pad RPCs, including after reopening (`b4522_skipped_pad_migration_recovers_on_open`). The fixture must omit that migration's effects, including its trigger changes, rather than merely drop its table from a latest schema. Assert the restored Pad retains its identity and text and its original source incarnation; revocation of a publication existing before deletion remains effective after restore. This is one repair outcome, observed through current callers, not a new deletion contract.
-
-Given a database where Pad deletion already works and a retained deletion exists, when the repair runs and the Project reopens twice, then that retained operation remains readable and restorable, without duplicate records or changed identity (`b4522_existing_pad_deletion_survives_repair`).
-
-Policy: append the repair strictly after the implementation base's last Project migration. Preserve existing migration paths, bytes and positions; never rename applied files to remove duplicate prefixes. Restore all missing effects of the skipped Pad migration, including source-restoration and publication-revocation triggers, while accepting already-present objects. Keep the installed `rusqlite_migration` owner and the build-time fresh image. The existing fresh-image/schema comparison remains the observer for fresh creation.
-
-Policy: this explicitly adds a narrow exception to N20's absence of a historical-open promise. It covers production-sequence prefixes and the named skipped-Pad case, not arbitrary schema drift, reconstruction of other historical collisions, import of old per-store data or a general upgrade framework. Pre-release data remains disposable.
+Policy: N5467a–d (`scenarios/local-data-retirement.md`, #5467) retire B4522's historical-prefix opens, skipped-Pad repair, retained-deletion upgrade fixture and exception to N20. Remove `b4522_earlier_project_versions_support_pad_deletion`, `b4522_skipped_pad_migration_recovers_on_open` and `b4522_existing_pad_deletion_survives_repair` when implementing #5467. Obsolete stores are refused; fresh creation still applies the existing SQL sequence from empty input. The filename-only CI guard below remains required.
 
 ## CI guard
 
@@ -48,17 +40,16 @@ Policy: Messages' two `001` entries belong to independent Message and Digest seq
 
 ## Checks and observers
 
-Applicable P12 gate (policy): can the repair substitute a published Pad incarnation or override explicit revocation? Observer: `b4522_skipped_pad_migration_recovers_on_open` verifies exact restored identity and continued revocation of the old publication through existing Daemon calls.
+Applicable Gates (policy): N5467's refusal preserves obsolete data; current Pad publication identity and revocation remain required under P12. The retired repair no longer supplies an observer.
 
 Required checks (policy; existing anchors on main):
 
-1. Preserve one production sequence and normal opening: `crates/rupd/src/storage.rs`, `migrations`, `apply` and `open`; `crates/rupd/build.rs`, `main` and `fresh_image`. The ten-entry head remains fixed, and fresh-image creation applies the appended repair too.
-2. Preserve fresh-image equivalence: `crates/rupd/src/storage_tests.rs`, `r3696c_a_fresh_project_db_equals_the_migrated_one_with_its_own_identity`.
-3. Preserve current store operations: `crates/rupd/tests/store_migrations.rs`, `n20_current_store_opens`; `scenarios/project-store.md`, heading “N20 current schemas need no pre-release adoption”, subject only to the bounded exception above.
-4. Preserve Pad restoration and revocation: `crates/rupd/migrations/project/0026-pad-deletions.sql`, the `pad_source_created` and `pad_publications_revoked` trigger definitions; `crates/pads/migrations/004/up.sql`, the standalone deletion schema. Do not repair only the missing table.
-5. Preserve migration discovery and clean text merges: `scenarios/merge-conflict-spots.md`, heading “N21 one file per migration”; `crates/rupd/src/storage_tests.rs`, `n21_two_migrations_added_on_two_branches_merge_cleanly` and `n21_a_migration_file_runs_after_the_head_in_name_order`. A clean Git merge does not authorize duplicate-prefix additions in CI; an unmerged addition conflicting with newly landed main work must receive a new appended number before merge.
+1. `crates/rupd/build.rs`, `main` and `fresh_image`, and `crates/rupd/src/storage.rs`, `migrations`: preserve the fresh SQL/image creation sequence, not runtime upgrades.
+2. `crates/rupd/src/storage_tests.rs`, `r3696c_a_fresh_project_db_equals_the_migrated_one_with_its_own_identity`: retain fresh-from-empty equivalence and distinct identities; N5467c retires its historical suffix/rollback subcase.
+3. `crates/rupd/tests/store_migrations.rs`, `n20_current_store_opens`: preserve current store operations.
+4. `scenarios/merge-conflict-spots.md`, heading “N21 one file per migration”: retain file discovery and clean concurrent additions for fresh creation.
 
-Policy: Linux Rust tests observe the repair; the filename guard's local fixtures observe CI refusal. No UI, rendered capture or Mac-only observation is required. The implementation records the audited base SHA, all discovered migration directories and duplicate groups on its Issue. Run `just ready`, affected Rust tests and the guard fixtures; report one row per failed command with its exit code. Exit 0 passes, every other exit fails. Specification validation runs `loop/rules.sh vocab` and `loop/rules.sh scenario-ids`; both must exit 0. No scenario Work table holds progress or engineering questions.
+Policy: N5467 retires the repair observers; the filename guard's local fixtures observe CI refusal. No UI, rendered capture or Mac-only observation is required. The implementation records the audited base SHA, all discovered migration directories and duplicate groups on its Issue. Run `just ready`, affected Rust tests and the guard fixtures; report one row per failed command with its exit code. Exit 0 passes, every other exit fails. Specification validation runs `loop/rules.sh vocab` and `loop/rules.sh scenario-ids`; both must exit 0. No scenario Work table holds progress or engineering questions.
 
 ## Refuse databases from newer builds
 
@@ -99,3 +90,29 @@ Required checks (existing acceptance on `origin/main`; policy):
 Principle observers (policy): P11's Gate asks whether a rejected operation loses unfinished input; refusal must not delete or reset data. Observe refusal's unchanged version/schema in the eight tests and inspect that no recovery path discards input. P12's Gate asks whether unavailable content hides its cause or substitutes another target; preserve the refused database's identity and diagnostic through N5088b's existing surface. No publication or editable surface is added.
 
 Implementation verification (policy): run `just ready` and `cargo nextest run -p rupd -p agents -p todos -p pads -p messages -p provenance -p checkpoints -E 'test(n5088a_)'`, plus tests reached by edited files. Run `loop/rules.sh vocab` and `loop/rules.sh scenario-ids`. Exit 0 passes; every other exit fails. For each failed command report one row containing command and exit code. Linux in-process tests and review of existing error propagation suffice; no Mac observation is required.
+
+## Refuse databases whose schema diverges
+
+**N5420a a database built by a different migration list is refused at open.** Work order: [#5420](https://github.com/roundup-app/roundup/issues/5420). Amended by N5467a–d (`scenarios/local-data-retirement.md`, #5467): only the current schema opens; historical prefixes are refused, not upgraded. For each live migration owner in N5088a's table, a current-version database whose application schema differs from the current schema returns an error identifying the database path, first differing object/column, stored/current versions and incompatible-build cause before application queries or writes (`n5420a_` tests below). No skipped-Pad exception remains. The reference is the current schema built from empty input, with the Project's existing build-time image; do not construct a historical reference. N5467a adds the folder and manual reset instruction; N5088a retains refusal of newer versions.
+
+| Migration owner | In-process regression test to implement |
+|---|---|
+| Project: `crates/rupd/src/storage.rs`, `open` | `n5420a_project_refuses_a_divergent_database` |
+| Agents: `crates/agents/src/schema.rs`, `open` | `n5420a_agents_refuses_a_divergent_database` |
+| Todos: `crates/todos/src/schema.rs`, `open` | `n5420a_todos_refuses_a_divergent_database` |
+| Pads: `crates/pads/src/schema.rs`, `open` | `n5420a_pads_refuses_a_divergent_database` |
+| Messages: `crates/messages/src/schema.rs`, `open` | `n5420a_messages_refuses_a_divergent_database` |
+| Digest: `crates/messages/src/digest_schema.rs`, `open` | `n5420a_digest_refuses_a_divergent_database` |
+| Provenance: `crates/provenance/src/schema.rs`, `open` | `n5420a_provenance_refuses_a_divergent_database` |
+
+Each test builds a temporary SQLite file at `stored = known` from the production list with one migration swapped for another (a different column added, so the schemas differ while `user_version` equals `known`), closes the setup connection and invokes the real storage open. Assert the error's path, first difference, both versions and newer/branch explanation; reopen through raw SQLite to assert `user_version` and the schema are unchanged. Derive `known` and the swap from the production sequence, not a copied count. No App, browser, real Daemon process or clock.
+
+Policy: the moo.md Project database (`user_version` 52 against 52 known migrations, lacking `0037-todo-priority.sql`, the estimate removal, the Pad owner removal and the `project_import` tables) is the motivating case; the check reads only the opened file, so databases written before this change are refused the same way. No repair, down-migration, adoption or deletion of pre-release data. N5088a's refusal for `stored > known` and N5088b's propagation through the existing Daemon and App surface are unchanged and carry this diagnostic too. N5467a refuses `stored < known` without constructing a historical reference; the current open still compares against the embedded fresh image. The Checkpoints owner listed in #5088 has no crate on `origin/main`, so the implementation rechecks the inventory on its base, adds an equivalent test for any owner found and records the audited base SHA on its Issue.
+
+Policy: Reuse (rule 9), decided for the implementation's `Reuse:` section. `refinery` (runner stores a checksum per applied migration and aborts on divergence) and `sqlx`'s migrator (checksums in `_sqlx_migrations`) both detect a divergent history only from a table they wrote; every database already on disk, moo.md's included, has none, and either replaces the installed `rusqlite_migration` owner of seven stores (sqlx also adds an async runtime and a second SQLite binding). `rusqlite_migration` 2.6 records only `user_version`. Comparing `sqlite_schema` with the schema the same list builds covers existing databases and needs no new dependency; the implementation records the release evidence and any candidate it finds that does so too.
+
+Policy: rule 7. `just perf` shows no cold-start regression above 10% (`docs/perf.md`); the Project open's added work is bounded by one `sqlite_schema` read on each side.
+
+Principle observers (policy): P11, refusal changes no data, shown by the unchanged `user_version` and schema asserted above. P12, the error names the refused file and the first difference, never a later SQL error or another target.
+
+Implementation verification (policy): `just ready`, `cargo nextest run -p rupd -p agents -p todos -p pads -p messages -p provenance -E 'test(n5420a_)'` and the tests reached by edited files; `loop/rules.sh vocab` and `loop/rules.sh scenario-ids`. Exit 0 passes; every other exit fails, one row per failed command with its exit code.

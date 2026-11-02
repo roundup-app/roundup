@@ -3,6 +3,7 @@ import { createSignal } from "solid-js";
 import { afterEach, describe, expect, it } from "vitest";
 import { agent, workstream } from "../testing/nodes";
 import { mountRail, railCallsTo } from "./railFixture";
+import { copy } from "./copy";
 
 afterEach(cleanup);
 
@@ -79,7 +80,7 @@ describe("u32 spawn shortcuts and pinned actions", () => {
     await Promise.resolve();
 
     expect(spawnCalls(mounted)).toEqual([]);
-    expect(screen.queryByLabelText("Task")).toBeNull();
+    expect(screen.queryByLabelText(copy.task)).toBeNull();
   });
 
   it("u32_with_caps_lock_on_the_chord_still_spawns", async () => {

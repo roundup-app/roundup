@@ -118,12 +118,18 @@ pub struct NamedRail {
 #[allow(dead_code)]
 impl NamedRail {
     pub async fn start() -> Self {
+        Self::start_with(&[]).await
+    }
+
+    /// `extra_env` is set on the Daemon, after the fixture's own variables.
+    pub async fn start_with(extra_env: &[(&str, &str)]) -> Self {
         use serde_json::json;
         let fake = format!(
             "#!/bin/sh\nexec python3 '{}/tests/e2e/fake_claude.py' \"$@\"\n",
             env!("CARGO_MANIFEST_DIR")
         );
-        let served = Served::start(&fake, &[("FAKE_CLAUDE_PROMPT_LOG", "/dev/null")]).await;
+        let env = [&[("FAKE_CLAUDE_PROMPT_LOG", "/dev/null")], extra_env].concat();
+        let served = Served::start(&fake, &env).await;
         for args in [
             vec!["init", "-b", "main"],
             vec![
@@ -219,5 +225,46 @@ impl NamedRail {
                 .await
                 .unwrap();
         }
+    }
+}
+
+// Reuse the in-process RPC harness: unlike the release sidecar, this target enables test-support.
+#[allow(dead_code)] // Only the publication target uses the quota fixture.
+pub struct QuotaProject {
+    pub dir: tempfile::TempDir,
+    server: tokio::task::JoinHandle<std::io::Result<()>>,
+}
+
+#[allow(dead_code)]
+impl QuotaProject {
+    pub async fn start() -> Self {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::create_dir(dir.path().join(".roundup")).unwrap();
+        std::fs::write(dir.path().join(".roundup/test-publication-quota"), "64").unwrap();
+        let server = serve(dir.path(), &dir.path().join("rupd.sock"));
+        Self { dir, server }
+    }
+
+    pub fn data_dir(&self) -> std::path::PathBuf {
+        self.dir.path().join(".roundup")
+    }
+
+    pub async fn client(&self) -> rpc::Client {
+        rpc::Client::connect(&self.dir.path().join("rupd.sock"))
+            .await
+            .unwrap()
+    }
+
+    pub async fn restart(&mut self) {
+        self.server.abort();
+        assert!((&mut self.server).await.unwrap_err().is_cancelled());
+        std::fs::remove_file(self.dir.path().join("rupd.sock")).unwrap();
+        self.server = serve(self.dir.path(), &self.dir.path().join("rupd.sock"));
+    }
+}
+
+impl Drop for QuotaProject {
+    fn drop(&mut self) {
+        self.server.abort();
     }
 }

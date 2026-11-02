@@ -2,25 +2,44 @@ import { useDialog } from "@ark-ui/solid/dialog";
 import { captureFocus, queueFocus } from "../keys/focus";
 import { writeText } from "../app/clipboard";
 import { ReservedLine } from "../ink/ReservedLine";
-import { batch, createEffect, createMemo, createSignal, on, onCleanup, Show } from "solid-js";
+import { lazy, batch, createEffect, createMemo, createResource, createSignal, For, on, onCleanup, Show } from "solid-js";
 import { createCopyFeedback } from "../ui/CopyButton";
 import * as v from "valibot";
+import type { RpcError } from "../app/seam";
+import type { ActionRow } from "@contracts/action/ActionRow";
 import { copy } from "./copy";
 import { KindGlyph } from "../ink/KindGlyph";
+import { StatusTip } from "../ink/StatusTip";
+import { FailureLine, shownKind } from "../ink/FailureLine";
 import { Combobox } from "../ui/Combobox";
 import { trackSurface } from "../ui/openSurfaces";
 import { useConnectedProject } from "../state/connectedProject";
 import { captureActions, modalOutside, modalOpen, registerKeys } from "../keys/registry";
-import { LEADER, SWITCHER_CLOSE } from "../keys/chords";
+import { CHORDS, LEADER, SWITCHER_CLOSE, SWITCHER_KEYS, SWITCHER_RECORD, chordNamed, pressOf, recordable } from "../keys/chords";
+import { KeyChip } from "../keys/KeyChip";
+import { checkRecorded, isModifier, shortcutsWith } from "../settings/shortcutRules";
+import { saveAppSettings } from "../settings/preferences";
+import { useTodoList } from "../todos/todoList";
+import { Icon } from "../ink/Icon";
+import { PAD_ICON } from "../shelf/frame";
+import { openThroughRow } from "../shelf/openItem";
+import { usePadList } from "../rail/pads/padList";
 import { KeyHint } from "../keys/KeyHint";
 import { REVEAL_BUBBLE } from "../bubbles/places";
-import { entriesOf, matching } from "./entries";
+import { entriesOf, itemsMatching, matching, userActionsOf, USER_PREFIX } from "./entries";
+import type { ToastQueue } from "../toasts/queue";
 import type { Entry } from "./entries";
 import "./styles.css";
 
+const TodoHost = lazy(() => import("../todos/TodoDrawer").then(module => ({ default: module.TodoHost })));
+
+const PadHost = lazy(() => import("../pads/PadDrawer").then(module => ({ default: module.PadHost })));
+
 /** U529, U530: leader `K` opens a filter field over the centre pane listing every row by name; `⏎` selects the highlighted one as a click does. `onFailure` gets a failed selection's message; `onOpen` runs as it opens, so an overlaid Shelf can close and leave no scrim over it. */
-export const Switcher = (props: { onFailure: (message: string | null) => void; onOpen: () => void }) => {
-  const { app, rail, project, drafts } = useConnectedProject();
+export const Switcher = (props: { onFailure: (message: string | null) => void; onOpen: () => void; notify?: ToastQueue["notify"] | undefined }) => {
+  const { app, events, rail, project, drafts, drawer } = useConnectedProject();
+  const todos = useTodoList();
+  const pads = usePadList();
   const [open, setOpen] = createSignal(false);
   const [dispatching, setDispatching] = createSignal(false);
   trackSurface(open);
@@ -52,13 +71,14 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
   let chosenAction = false;
   let actionFocus: HTMLElement | null = null;
   let chosenTerminal: string | null = null;
+  let chosenItem = false;
 
   const dialog = useDialog(() => ({
     open: open(), modal: false, trapFocus: true, preventScroll: false,
     restoreFocus: true, closeOnInteractOutside: true,
     "aria-label": copy.switcherLabel,
     initialFocusEl: () => openingFocus.target(() => input),
-    finalFocusEl: () => chosenAction && actionFocus?.isConnected
+    finalFocusEl: () => chosenItem ? null : chosenAction && actionFocus?.isConnected
       ? actionFocus
       : chosenPane
       ? chosenTerminal
@@ -80,12 +100,46 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
 
   const entries = createMemo(() => entriesOf(rail.nodes, rail.terminals()));
 
-  const byValue = createMemo(() => new Map(entries().map(entry => [entry.value, entry])));
+  const items = createMemo(() => itemsMatching(rail.nodes, todos.all(), pads.pads(), text()));
+
+  const byValue = createMemo(() => new Map([...entries(), ...items()].map(entry => [entry.value, entry])));
+
+  // UA9: the Daemon's User actions, read when the Project connects and on each `action.userChanged`, so opening calls nothing; a failed read shows none and says nothing (UA12).
+  const [userRows, { refetch: readUserRows }] = createResource(
+    () => app.rpc("action.userList", null).catch((): ActionRow[] => []),
+    { initialValue: [] },
+  );
+
+  // UA13: the resource ignores superseded replies; false also keeps same-turn events from being coalesced.
+  onCleanup(events.subscribe(event => { if (event.name === "action.userChanged") void readUserRows(false); }));
+  const userActions = createMemo(() => userActionsOf(userRows()));
 
   const shown = createMemo(() => [
     ...matching(entries(), text()),
-    ...matching(actions(), text()),
+    ...items(),
+    ...matching([...actions(), ...userActions()], text()),
   ]);
+
+  /** U5240c: the highlighted row when it is a command that can take a new key (U5240d). */
+  const highlightedCommand = createMemo(() => {
+    const action = actions().find(candidate => candidate.value === highlighted());
+    const chord = action && !action.value.startsWith("action:leader") ? CHORDS.find(row => row.name === action.name) : undefined;
+
+    return action && chord && recordable(chord) && shown().some(entry => entry.value === action.value) ? action : undefined;
+  });
+
+  const [nameFocused, setNameFocused] = createSignal(false);
+  const [recording, setRecording] = createSignal<string | null>(null);
+  const [refusal, setRefusal] = createSignal<{ value: string; cause: string } | null>(null);
+  const canRecord = () => nameFocused() && recording() === null && highlightedCommand() !== undefined;
+
+  const footer = () => recording() !== null ? [{ keys: SWITCHER_KEYS.close, label: copy.footerCancel }] : [
+    { keys: SWITCHER_KEYS.move, label: copy.footerMove }, { keys: SWITCHER_KEYS.choose, label: copy.footerChoose }, { keys: SWITCHER_KEYS.close, label: copy.footerClose },
+    ...(canRecord() ? [{ keys: SWITCHER_KEYS.record, label: copy.footerRecord }] : []),
+  ];
+
+  /** The key a command shows: its live row, so a key just saved shows at once. */
+  const keysOf = (action: { value: string; name: string; keys: string }) => action.value.startsWith("action:leader") ? action.keys : chordNamed(action.name)?.keys ?? action.keys;
 
   createEffect(() => {
     const list = shown();
@@ -158,8 +212,27 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
 
   const choose = (entry: Entry): void => batch(() => {
     chosenTerminal = entry.terminal?.id ?? null;
+    chosenItem = entry.todo !== undefined || entry.pad !== undefined;
     close(false);
     props.onFailure(null);
+
+    // U5240b: the Switcher has closed; the item opens as a click on its row does.
+    if (entry.todo !== undefined) {
+      const id = entry.todo.id;
+
+      // The Rail's own row opens it when the Shelf is mounted; otherwise the Drawer opens alone.
+      if (!openThroughRow("todo", id)) drawer.open(() => <TodoHost id={id} />, "key", { kind: "todo", project: project.path });
+
+      return;
+    }
+
+    if (entry.pad !== undefined) {
+      const name = entry.pad.name;
+
+      if (!openThroughRow("pad", name)) drawer.open(() => <PadHost name={name} />, "key", { kind: "pad", project: project.path });
+
+      return;
+    }
 
     if (entry.terminal !== undefined) {
       rail.select(entry.terminal.owner === project.path ? null : entry.terminal.owner);
@@ -173,7 +246,49 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
     rail.select(node.id);
   });
 
+  const [making, setMaking] = createSignal(false);
+  const [makeFailure, setMakeFailure] = createSignal<string | null>(null);
+  // An invalidated captured action must never turn its query into a create request.
+  const makeName = () => openingSurvives() && shown().length === 0 && matching(opening().actions, text()).length === 0 ? text().trim() : "";
+
+  createEffect(on(text, () => setMakeFailure(null), { defer: true }));
+
+  /** U5241a: a query nothing matches names a new Workstream; the Switcher closes once the Daemon made it. */
+  const make = async (): Promise<void> => {
+    const name = makeName();
+
+    if (name === "" || making()) return;
+    setMaking(true);
+    setMakeFailure(null);
+
+    try {
+      const failure = await rail.createNamedWorkstream(name);
+
+      if (failure !== null) setMakeFailure(failure);
+      else if (open()) { props.onFailure(null); close(false); }
+    } finally { setMaking(false); }
+  };
+
+  /** UA10, UA11: runs the User action once by name, with no argument; a refusal raises one Toast carrying its label and cause. */
+  const runUserAction = (entry: Entry): void => {
+    const name = entry.value.slice(USER_PREFIX.length);
+
+    close(true);
+    props.onFailure(null);
+    app.rpc("action.run", { name, args: [] }).catch((failure: RpcError) => {
+      props.notify?.({ key: `${USER_PREFIX}${name}`, item: `${USER_PREFIX}${name}`, project: project.path, kind: "error", name: entry.label, line: failure.message, selected: false, open: () => null });
+    });
+  };
+
   const chooseValue = (value: string | null): void => {
+    const user = userActions().find(candidate => candidate.value === value);
+
+    if (user) {
+      runUserAction(user);
+
+      return;
+    }
+
     const action = opening().actions.find((candidate) => candidate.value === value);
 
     if (action) {
@@ -195,7 +310,7 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
       return;
     }
 
-    const entry = matching(entries(), text()).find((candidate) => candidate.value === value);
+    const entry = [...matching(entries(), text()), ...items()].find((candidate) => candidate.value === value);
 
     if (entry) choose(entry);
   };
@@ -204,23 +319,59 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
 
   let openingFocus = captureFocus();
 
-  const show = (): void => {
+  const show = (query?: string): void => {
     if (modalOpen()) return;
     chosenPane = false;
     chosenAction = false;
     actionFocus = null;
     chosenTerminal = null;
+    chosenItem = false;
     openingFocus = captureFocus(true);
     setOpening({ selected: rail.selected(), actions: captureActions(document.activeElement).filter(action => action.searchable) });
     props.onOpen();
-    savedSelection = current()?.selection ?? null;
+    setRecording(null);
+    setRefusal(null);
+    savedSelection = query === undefined ? current()?.selection ?? null : null;
     restoring = true;
+
+    if (query !== undefined) setText(query);
     setOpen(true);
   };
 
-  registerKeys({ kind: "leader" }, [{ action: LEADER.find(row => row.keys === "K")!, searchable: false, capture: () => ({ available: () => !open() && !modalOpen(), invoke: show }) }]);
-  registerKeys({ kind: "layer", element: () => panel, active: () => open() && !dispatching(), modal: true }, [
+  registerKeys({ kind: "leader" }, [{ action: LEADER.find(row => row.keys === "K")!, searchable: false, capture: () => ({ available: () => !open() && !modalOpen(), invoke: args => show(args?.query === undefined ? undefined : String(args.query)) }) }]);
+  // U5240a: the direct chord opens from anywhere, a focused Terminal included; the open Switcher's layer closes it again.
+  registerKeys({ kind: "app" }, [{ action: CHORDS.find(row => row.name === "switcher.open")!, searchable: false, capture: () => ({ available: () => !open() && !modalOpen(), invoke: () => show() }) }]);
+
+  const switcherScope = { kind: "layer", element: () => panel, active: () => open() && !dispatching(), modal: true } as const;
+
+  registerKeys(switcherScope, [
     { chords: SWITCHER_CLOSE, run: () => close(true) },
+    { chords: ["[Control]+[Alt]+[Meta]+[Shift]+(.+)"], when: event => pressOf(event) === chordNamed("switcher.open")?.presses[0], run: event => { if (!event.repeat) close(true); } },
+    { chords: SWITCHER_RECORD, when: canRecord, run: () => { setRefusal(null); setRecording(highlightedCommand()!.value); } },
+  ]);
+
+  // U5240d: recording is a modal layer of its own, so no other chord runs and nothing reaches a Terminal; it ends with the layer.
+  registerKeys({ kind: "layer", element: () => panel, active: () => recording() !== null, modal: true, parent: switcherScope }, [
+    { chords: ["Escape"], run: () => { setRecording(null); setRefusal(null); } },
+    { chords: ["[Control]+[Alt]+[Meta]+[Shift]+(.+)"], when: event => !isModifier(event), run: event => {
+      const value = recording();
+      const action = actions().find(candidate => candidate.value === value);
+
+      if (!action) return;
+
+      const checked = checkRecorded(action.name, event);
+
+      if ("refusal" in checked) {
+        setRefusal({ value: action.value, cause: checked.refusal });
+
+        return;
+      }
+
+      void saveAppSettings({ shortcuts: shortcutsWith(action.name, checked.press) }).then(failure => {
+        if (failure) setRefusal({ value: action.value, cause: failure });
+        else { setRefusal(null); setRecording(null); }
+      });
+    } },
   ]);
 
   return (
@@ -238,9 +389,17 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
               if (savedSelection) element.setSelectionRange(savedSelection.start, savedSelection.end, savedSelection.direction);
             } else retain();
           });
+          element.addEventListener("focus", () => setNameFocused(true));
+          element.addEventListener("keydown", event => {
+            if (event.key !== "Enter" || event.isComposing || event.metaKey || event.ctrlKey || event.altKey || makeName() === "") return;
+            event.preventDefault();
+            void make();
+          });
           element.addEventListener("keyup", retain);
           element.addEventListener("pointerup", retain);
           element.addEventListener("blur", (event) => {
+            setNameFocused(false);
+
             // Zag can retain its trap until the selecting Combobox batch ends.
             // Keep only the focus destination requested by this synchronous action.
             if (dispatching() && event.relatedTarget instanceof HTMLElement && !panel?.contains(event.relatedTarget)) actionFocus = event.relatedTarget;
@@ -251,21 +410,31 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
           });
         }} items={shown()} contentRow={item => !item.value.startsWith("action:")} group={(item) => item.value.startsWith("action:") ? copy.switcherActions : undefined} highlightedValue={highlighted()} onHighlightChange={setHighlighted} onInput={() => {}}
           onSelect={(value) => chooseValue(value)}
-          label={copy.switcherLabel} placeholder={copy.switcherPlaceholder} empty={copy.noMatch}
+          label={copy.switcherLabel} placeholder={copy.switcherPlaceholder} empty={makeName() === "" ? copy.noMatch : <>{copy.makeWorkstream} {copy.workstreamName(makeName())} <KeyChip keys={SWITCHER_KEYS.choose} /></>}
           row={(item) => {
             const action = actions().find((candidate) => candidate.value === item.value);
             const entry = byValue().get(item.value);
 
-            if (action) return <KeyHint class="switcher-action" labelClass="switcher-name" chipAfter keys={action.keys}>{action.label}</KeyHint>;
+            if (action) return <>
+              <Show when={recording() === action.value} fallback={<KeyHint class="switcher-action" labelClass="switcher-name" chipAfter keys={keysOf(action)}>{action.label}</KeyHint>}>
+                <span class="switcher-action key-hint"><span class="switcher-name">{action.label}</span> <span class="switcher-recording">{copy.pressAKey}</span></span>
+              </Show>
+            </>;
+
+            if (!entry && item.value.startsWith(USER_PREFIX)) return <span class="switcher-action key-hint"><span class="switcher-name">{item.label}</span></span>;
 
             if (!entry) return null;
 
-            return <>
-              <Show when={entry.node?.status} fallback={<span class="switcher-mark" />}>{(status) => <KindGlyph kind={status().kind} decorative />}</Show>
+            return <StatusTip placement="right-start" status={entry.node?.status} dismissed={entry.node ? rail.dismissed(entry.node) : false}>{reveal => <span class="switcher-row" {...reveal()}>
+              <Show when={entry.node?.status} fallback={entry.todo !== undefined ? <KindGlyph kind={entry.todo.blocked ? "blocked" : "idle"} decorative /> : entry.pad !== undefined ? <Icon name={PAD_ICON} /> : <span class="switcher-mark" />}>{(status) => <KindGlyph kind={shownKind(status(), rail.dismissed(entry.node!))} decorative />}</Show>
+              <Show when={entry.todo !== undefined || entry.pad !== undefined}><span class="switcher-kind">{entry.todo !== undefined ? copy.kindTodo : copy.kindPad}</span></Show>
               <span class="switcher-name">{entry.label}</span>
               <Show when={entry.owner}><span class="switcher-owner">{entry.owner}</span></Show>
-            </>;
+              <Show when={entry.node && !rail.dismissed(entry.node)}><FailureLine status={entry.node?.status} /></Show>
+            </span>}</StatusTip>;
           }} />
+        <ReservedLine message={makeFailure()} />
+        <p class="switcher-footer"><For each={footer()}>{key => <span class="switcher-footer-key"><KeyChip keys={key.keys} /> {key.label}</span>}</For></p>
         <ReservedLine message={retentionProblem() ? copy.switcherRetentionFailure(retentionProblem()!.operation, project.name) : null}>
           <Show when={text() !== "" && !copyFailure()}>
             <button data-button="quiet" ref={restoreFocusOnRemoval} onClick={copyQuery}>{copied() ? copy.queryCopied : copy.copyQuery}</button>
@@ -284,6 +453,7 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
           <button data-button="quiet" ref={restoreFocusOnRemoval} onClick={copyQuery}>{copied() ? copy.queryCopied : copy.copyQuery}</button>
           <button data-button="quiet" ref={restoreFocusOnRemoval} onClick={() => { setCopyFailure(null); }}>{copy.close}</button>
         </ReservedLine>
+        <Show when={refusal()}>{shown => <ReservedLine message={shown().cause} />}</Show>
       </section>
     </Show>
   );

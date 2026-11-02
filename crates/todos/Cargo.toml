@@ -10,13 +10,13 @@ contracts = { path = "../contracts" }
 pads = { path = "../pads" }
 rpc = { path = "../rpc" }
 serde_json.workspace = true
-time = "0.3.55"
 
+provenance = { path = "../provenance" }
 rusqlite.workspace = true
 rusqlite_migration.workspace = true
 
 [dev-dependencies]
-provenance = { path = "../provenance" }
+rusqlite = { workspace = true, features = ["trace"] }
 tempfile.workspace = true
 tokio.workspace = true
 

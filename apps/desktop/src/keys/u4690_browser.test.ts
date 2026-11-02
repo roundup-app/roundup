@@ -130,7 +130,7 @@ it("u4690d_numbered_group_and_rejected_assignment_keep_the_Todo", async () => {
   await read(`window.__todoSource = document.querySelector('.shelf .todo-row-button'); window.__todoSource.focus()`);
   await wait(`!!document.querySelector('.hint-line [data-hint="Digit9"]:enabled')`);
   await capture("U4690d", "head/numbered");
-  await read(`window.__fake.app.handlers['todo.assign'] = () => { throw new Error('Assignment refused: reconnect and retry without losing this Todo'); }`);
+  await read(`window.__fake.app.handlers['todo.assign'] = () => { throw window.__fake.refusal(-32003, 'Assignment refused: reconnect and retry without losing this Todo'); }`);
   await browser("click", '.hint-line [data-hint="Digit9"]');
   await wait(`document.querySelector('.shelf [role=alert]')?.textContent.includes('Assignment refused')`);
   expect(await read(`document.activeElement === window.__todoSource`)).toBe(true);

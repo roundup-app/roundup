@@ -73,10 +73,14 @@ fn lc1_each_role_launches_as_its_row() {
             };
             let argv = s.prepare_lean("7", role, &pair, None).unwrap();
             let tools = match (row, mcp) {
-                (Role::Door, true) => Some("Read,Grep,Glob,ToolSearch,Skill,AskUserQuestion"),
-                (Role::Door, false) => Some("Read,Grep,Glob,Skill,AskUserQuestion"),
-                (Role::Scout, true) => Some("Read,Grep,Glob,Bash,ToolSearch,AskUserQuestion"),
-                (Role::Scout, false) => Some("Read,Grep,Glob,Bash,AskUserQuestion"),
+                (Role::Door, true) => {
+                    Some("Read,Grep,Glob,Write,Edit,ToolSearch,Skill,AskUserQuestion")
+                }
+                (Role::Door, false) => Some("Read,Grep,Glob,Write,Edit,Skill,AskUserQuestion"),
+                (Role::Scout, true) => {
+                    Some("Read,Grep,Glob,Write,Edit,Bash,ToolSearch,AskUserQuestion")
+                }
+                (Role::Scout, false) => Some("Read,Grep,Glob,Write,Edit,Bash,AskUserQuestion"),
                 _ => None,
             };
             assert_eq!(Setup::after(&argv, "--tools"), tools, "{row:?} mcp={mcp}");
@@ -179,8 +183,8 @@ async fn lc2_the_users_output_style_shapes_a_child() {
             assert!(!env.contains_key("CLAUDE_CODE_DISABLE_AUTO_MEMORY"));
             assert_eq!(argv.iter().filter(|arg| *arg == "--plugin-dir").count(), 3);
             let tools = match row {
-                Role::Door => Some("Read,Grep,Glob,ToolSearch,Skill,AskUserQuestion"),
-                Role::Scout => Some("Read,Grep,Glob,Bash,ToolSearch,AskUserQuestion"),
+                Role::Door => Some("Read,Grep,Glob,Write,Edit,ToolSearch,Skill,AskUserQuestion"),
+                Role::Scout => Some("Read,Grep,Glob,Write,Edit,Bash,ToolSearch,AskUserQuestion"),
                 Role::Agent => None,
             };
             assert_eq!(Setup::after(&argv, "--tools"), tools);
@@ -219,7 +223,7 @@ async fn lc3_the_door_launches_with_the_users_setup_and_its_brief_omits_the_plai
         .unwrap();
     assert_eq!(
         Setup::after(&argv, "--tools"),
-        Some("Read,Grep,Glob,ToolSearch,Skill,AskUserQuestion")
+        Some("Read,Grep,Glob,Write,Edit,ToolSearch,Skill,AskUserQuestion")
     );
     assert!(!has(&argv, "--disable-slash-commands"));
     assert!(!has(&argv, "--setting-sources"));
@@ -241,7 +245,7 @@ fn lc4_a_scout_launches_with_read_tools_and_the_users_setup() {
     let argv = s.prepare_lean("7", Role::Agent, &pair, None).unwrap();
     assert_eq!(
         Setup::after(&argv, "--tools"),
-        Some("Read,Grep,Glob,Bash,ToolSearch,AskUserQuestion")
+        Some("Read,Grep,Glob,Write,Edit,Bash,ToolSearch,AskUserQuestion")
     );
     assert!(!has(&argv, "--disable-slash-commands"));
     assert_eq!(Setup::after(&argv, "--model"), Some("haiku"));
@@ -516,7 +520,7 @@ fn lc7_an_unknown_extra_fails_the_start_and_is_named() {
     );
     assert_eq!(listed.skills, ["zzskill"]);
     assert_eq!(listed.plugins, ["zzplug@market"]);
-    assert_eq!(listed.mcp, ["zzserver"]);
+    assert_eq!(listed.mcp, ["computer-use", "zzserver"]);
 }
 
 #[test]
@@ -607,6 +611,12 @@ fn lc11_the_doors_start_allows_no_shell_or_terminal_start() {
                 None,
             )
             .unwrap();
+        assert!(
+            !Setup::after(&argv, "--tools")
+                .unwrap()
+                .split(',')
+                .any(|tool| tool == "Agent")
+        );
         let settings = read(Path::new(Setup::after(&argv, "--settings").unwrap()));
         assert_eq!(settings["mcpServers"]["personal"]["command"], "personal");
         let allowed = settings["permissions"]["allow"]
@@ -723,3 +733,191 @@ fn lc16_no_role_hides_slash_commands() {
 
 #[path = "lean/user_setup.rs"]
 mod user_setup;
+
+#[test]
+fn lc18_agent_extras_lists_computer_use() {
+    let s = setup();
+    with_extras(&s);
+    std::fs::write(
+        &s.claude_json,
+        json!({"mcpServers": {
+            "computer-use": {"type": "http", "url": "https://x"},
+            "zzserver": {"type": "http", "url": "https://x"},
+        }})
+        .to_string(),
+    )
+    .unwrap();
+    let listed = agents::claude_code::extras::available(
+        &s.launcher().extras_sources(s.dir.parent().unwrap()),
+    );
+    assert_eq!(listed.mcp, ["computer-use", "zzserver"]);
+    let extras = Extras {
+        mcp: vec!["computer-use".into()],
+        ..Extras::default()
+    };
+    let argv = s
+        .prepare_lean("7", Role::Agent, &lean_pair(false, extras), None)
+        .unwrap();
+    let config = read(Path::new(Setup::after(&argv, "--mcp-config").unwrap()));
+    assert!(config["mcpServers"]["computer-use"].is_null());
+}
+
+#[test]
+fn lc18_choosing_computer_use_adds_the_switch() {
+    let s = setup();
+    let extras = Extras {
+        mcp: vec!["computer-use".into()],
+        ..Extras::default()
+    };
+    let argv = s
+        .prepare_lean("7", Role::Agent, &lean_pair(false, extras), None)
+        .unwrap();
+    assert!(has(&argv, "--computer-use-mcp"));
+}
+
+#[test]
+fn lc18_a_start_without_it_has_no_switch() {
+    let s = setup();
+    let argv = s
+        .prepare_lean("7", Role::Agent, &lean_pair(false, Extras::default()), None)
+        .unwrap();
+    assert!(!has(&argv, "--computer-use-mcp"));
+}
+
+#[path = "lean/memory.rs"]
+mod memory;
+
+#[tokio::test]
+async fn lc22_a_failed_memory_command_blocks() {
+    use std::os::unix::fs::PermissionsExt;
+    use std::process::Stdio;
+    use tokio::io::{AsyncBufReadExt, BufReader};
+
+    for (_, role, pair) in lean_children().into_iter().take(2) {
+        for mcp_off in [false, true] {
+            for yolo in [false, true] {
+                for resume in [None, Some("saved-conversation")] {
+                    let mut s = setup();
+                    s.dir = s.root.path().join("Project's checkout/.roundup");
+                    s.cwd = s.dir.parent().unwrap().join("work");
+                    std::fs::create_dir_all(&s.dir).unwrap();
+                    s.rup = s.root.path().join("rup's program");
+                    std::fs::write(&s.rup, "").unwrap();
+                    std::fs::create_dir(&s.cwd).unwrap();
+                    let memory = s.root.path().join("Claude's memory");
+                    s.user_file(
+                        "settings.json",
+                        &json!({"autoMemoryDirectory":memory}).to_string(),
+                    );
+                    let pair = Pair {
+                        mcp_off,
+                        yolo,
+                        ..pair.clone()
+                    };
+                    let argv = s.prepare_lean("7", role, &pair, resume).unwrap();
+                    let settings = read(Path::new(Setup::after(&argv, "--settings").unwrap()));
+                    let hook = settings["hooks"]["PreToolUse"]
+                        .as_array()
+                        .unwrap()
+                        .iter()
+                        .find(|hook| hook["matcher"] == "Write|Edit")
+                        .unwrap();
+                    let command = hook["hooks"][0]["command"].as_str().unwrap();
+                    for tool in ["Write", "Edit"] {
+                        for failure in [
+                            "panic",
+                            "nonzero",
+                            "allow-then-fail",
+                            "TERM",
+                            "KILL",
+                            "missing",
+                            "not-executable",
+                        ] {
+                            let script = match failure {
+                                "panic" => "exit 101",
+                                "nonzero" => "exit 1",
+                                "allow-then-fail" => {
+                                    "printf '%s\\n' '{\"hookSpecificOutput\":{\"permissionDecision\":\"allow\"}}'; exit 1"
+                                }
+                                "TERM" | "KILL" => "printf '%s\\n' \"$$\" >&2; exec sleep 3",
+                                _ => "exit 0",
+                            };
+                            std::fs::write(&s.rup, format!("#!/bin/sh\n{script}\n")).unwrap();
+                            std::fs::set_permissions(
+                                &s.rup,
+                                std::fs::Permissions::from_mode(if failure == "not-executable" {
+                                    0o600
+                                } else {
+                                    0o700
+                                }),
+                            )
+                            .unwrap();
+                            if failure == "missing" {
+                                std::fs::remove_file(&s.rup).unwrap();
+                            }
+                            let input = s.root.path().join("input.json");
+                            std::fs::write(&input, serde_json::to_vec(&json!({
+                                "tool_name":tool, "tool_input":{"file_path":s.cwd.join("source.rs")},
+                                "permission_mode":if yolo { "bypassPermissions" } else { "default" }
+                            })).unwrap()).unwrap();
+                            let mut child = tokio::process::Command::new("bash")
+                                .args(["-c", command])
+                                .stdin(std::fs::File::open(&input).unwrap())
+                                .stdout(Stdio::piped())
+                                .stderr(Stdio::piped())
+                                .kill_on_drop(true)
+                                .spawn()
+                                .unwrap();
+                            if matches!(failure, "TERM" | "KILL") {
+                                let mut text = String::new();
+                                tokio::time::timeout(
+                                    Duration::from_secs(2),
+                                    BufReader::new(child.stderr.as_mut().unwrap())
+                                        .read_line(&mut text),
+                                )
+                                .await
+                                .expect("memory fixture announced readiness")
+                                .unwrap();
+                                let pid =
+                                    rustix::process::Pid::from_raw(text.trim().parse().unwrap())
+                                        .unwrap();
+                                rustix::process::kill_process(
+                                    pid,
+                                    if failure == "TERM" {
+                                        rustix::process::Signal::TERM
+                                    } else {
+                                        rustix::process::Signal::KILL
+                                    },
+                                )
+                                .unwrap();
+                            }
+                            let output = tokio::time::timeout(
+                                Duration::from_secs(4),
+                                child.wait_with_output(),
+                            )
+                            .await
+                            .expect("hook ended")
+                            .unwrap();
+                            let stderr = String::from_utf8_lossy(&output.stderr);
+                            assert_eq!(
+                                output.status.code(),
+                                Some(2),
+                                "{role:?} {mcp_off} {yolo} {resume:?} {tool} {failure}: {stderr}"
+                            );
+                            assert!(
+                                output.stdout.is_empty(),
+                                "failed guard forwarded {:?}",
+                                output.stdout
+                            );
+                            assert!(
+                                stderr.contains("Memory guard failed")
+                                    && stderr.contains("child Agent"),
+                                "{failure}: {stderr}"
+                            );
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

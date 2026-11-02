@@ -78,7 +78,7 @@ it.each(rows)("u4324b_app_chords_follow_focus: $chord / $place / native=$native 
     return emulator;
   }} prepareIdle={open => { connection = open; }} />);
 
-  if (!first) await screen.findByRole("textbox", { name: "Ask" });
+  if (!first) await screen.findByLabelText("Ask", { selector: '[role="textbox"]' });
   const daemon = app;
   const calls = (method: string) => daemon.calls.filter(call => call.method === method);
   daemon.handlers["agent.spawn"] = () => { const spawned = agent("new", "idle", "ready"); nodes.push(spawned);
@@ -92,11 +92,11 @@ it.each(rows)("u4324b_app_chords_follow_focus: $chord / $place / native=$native 
   let target: HTMLElement;
 
   if (first) {
-    target = await screen.findByRole("button", { name: "Choose folder…" });
+    target = await screen.findByRole("button", { name: "Choose Project…" });
 
     if (place === "first-frame") target = document.querySelector<HTMLElement>(".centre")!;
   } else {
-    const editor = screen.getByRole("textbox", { name: "Ask" });
+    const editor = screen.getByLabelText("Ask", { selector: '[role="textbox"]' });
     fireEvent.input(editor, { target: { value: draft } });
     fixture!.store.todos[0]!.home = "home";
 
@@ -201,7 +201,7 @@ it.each(rows)("u4324b_app_chords_follow_focus: $chord / $place / native=$native 
     expect(nativeShow).toHaveBeenCalledTimes(1);
     expect(calls("todo.create")).toHaveLength(0);
   } else if (chord === "prompt" || chord === "capture") {
-    const field = await screen.findByRole("textbox", { name: chord === "capture" ? "Capture a Todo" : "Task" });
+    const field = await screen.findByRole("textbox", { name: chord === "capture" ? "Capture a Todo" : "Work" });
     await waitFor(() => expect(document.activeElement).toBe(field));
     expect(calls("agent.spawn")).toHaveLength(0);
     expect(calls("todo.create")).toHaveLength(0);
@@ -217,7 +217,7 @@ it.each(rows)("u4324b_app_chords_follow_focus: $chord / $place / native=$native 
     press("KeyB");
     expect(leaderArmed()).toBe(false);
     expect(document.querySelector(".window")?.getAttribute("data-shelf")).not.toBe(shelfBefore);
-  } else await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("textbox", { name: "Ask" })));
+  } else await waitFor(() => expect(document.activeElement).toBe(screen.getByLabelText("Ask", { selector: '[role="textbox"]' })));
 
   if (!first && !excludedHelp) expect(event.defaultPrevented).toBe(true);
 

@@ -1,6 +1,0 @@
-{
-  "cancelLabel": "Keep",
-  "message": "Stop the running process for backend. Its live Terminal input cannot be restored.\nGoes: 4 Agents\nauth-refactor\nlogin-store\ndocs\nFinished Agent with a very long authored name for removal review\nStays at the Project root: 5 Agents\ntoken-rotation: Running\nmigrate-db: Running\nNested Group: Running\nNested supervisor: Running\nRunning Agent: Running",
-  "okLabel": "Remove",
-  "title": "Remove backend?"
-}

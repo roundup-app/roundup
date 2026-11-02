@@ -100,7 +100,7 @@ async fn a4688c_launch_and_spawn_receive_the_guide() {
     let user = project.client().await;
     save(&user, G1).await;
     let parent = spawn(&project, &user).await;
-    let free = assert_start(reports.path(), &parent.id, G1, "on").await;
+    let free = assert_start(project.bound(), reports.path(), &parent.id, G1, "on").await;
     assert!(!free.contains("two or more steps"));
     let (mcp, _child) = shim(&project, &parent.id).await;
     let tools = mcp.list_tools(None).await.unwrap();
@@ -126,7 +126,14 @@ async fn a4688c_launch_and_spawn_receive_the_guide() {
         .iter()
         .find(|node| node["name"] == "reviewer-checks-tests")
         .unwrap();
-    let text = assert_start(reports.path(), child["id"].as_str().unwrap(), G1, "on").await;
+    let text = assert_start(
+        project.bound(),
+        reports.path(),
+        child["id"].as_str().unwrap(),
+        G1,
+        "on",
+    )
+    .await;
     assert!(text.contains("keep it"), "{text}");
     for scout in [false, true] {
         let mut call = rmcp::model::CallToolRequestParams::new("agent_spawn");
@@ -141,7 +148,14 @@ async fn a4688c_launch_and_spawn_receive_the_guide() {
         .iter()
         .filter(|n| n["parent"] == parent.id)
     {
-        assert_start(reports.path(), child["id"].as_str().unwrap(), G1, "on").await;
+        assert_start(
+            project.bound(),
+            reports.path(),
+            child["id"].as_str().unwrap(),
+            G1,
+            "on",
+        )
+        .await;
     }
     let unnamed_on = rail
         .as_array()
@@ -156,14 +170,18 @@ async fn a4688c_launch_and_spawn_receive_the_guide() {
     )
     .await
     .unwrap();
-    waiting::until_async("unnamed child uses the first-prompt fallback", || async {
-        let tree = user.request("rail.tree", ()).await.unwrap();
-        tree.as_array()
-            .unwrap()
-            .iter()
-            .any(|n| n["id"] == id_on && n["name"] == "fix-refresh-race")
-            .then_some(())
-    })
+    waiting::until_async(
+        project.bound(),
+        "unnamed child uses the first-prompt fallback",
+        || async {
+            let tree = user.request("rail.tree", ()).await.unwrap();
+            tree.as_array()
+                .unwrap()
+                .iter()
+                .any(|n| n["id"] == id_on && n["name"] == "fix-refresh-race")
+                .then_some(())
+        },
+    )
     .await;
     user.request(
         "daemon.setNaming",
@@ -190,14 +208,14 @@ async fn a4688c_launch_and_spawn_receive_the_guide() {
         })
         .unwrap();
     let id = unnamed["id"].as_str().unwrap();
-    assert_start(reports.path(), id, G1, "off").await;
+    assert_start(project.bound(), reports.path(), id, G1, "off").await;
     user.request(
         "agent.prompt",
         json!({"id":id,"text":"Fix the refresh race in token.ts"}),
     )
     .await
     .unwrap();
-    waiting::idle(&user, id).await;
+    waiting::idle(project.bound(), &user, id).await;
     let after = user.request("rail.tree", ()).await.unwrap();
     assert_eq!(
         after
@@ -219,6 +237,7 @@ async fn a4688c_launch_and_spawn_receive_the_guide() {
         .await
         .unwrap();
     let text = assert_start(
+        project.bound(),
         reports.path(),
         workstream["id"].as_str().unwrap(),
         G1,
@@ -250,7 +269,7 @@ async fn a4688c_launch_and_spawn_receive_the_guide() {
         .filter(|n| n["parent"] == door_id)
     {
         let id = child["id"].as_str().unwrap();
-        let startup = assert_start(reports.path(), id, G1, "off").await;
+        let startup = assert_start(project.bound(), reports.path(), id, G1, "off").await;
         assert!(startup.contains("two or more steps"), "{startup}");
         if let Some(catalogue) = startup.find("## Tools") {
             assert!(startup.find("two or more steps").unwrap() < catalogue);
@@ -281,8 +300,8 @@ async fn a4688d_guide_is_fixed_for_each_session() {
     save(&user, G1).await;
     let first = spawn(&project, &user).await;
     let (mcp, _child) = shim(&project, &first.id).await;
-    assert_start(reports.path(), &first.id, G1, "on").await;
-    waiting::idle(&user, &first.id).await;
+    assert_start(project.bound(), reports.path(), &first.id, G1, "on").await;
+    waiting::idle(project.bound(), &user, &first.id).await;
     let prompt_bytes = std::fs::read(&prompts).unwrap_or_default();
     let before = serde_json::to_value(mcp.list_tools(None).await.unwrap()).unwrap();
     let files = ["settings.json", "brief.md", "mcp.json"].map(|suffix| {
@@ -306,7 +325,7 @@ async fn a4688d_guide_is_fixed_for_each_session() {
     let (late, _late_child) = shim(&project, &first.id).await;
     assert!(spawn_description(&late.list_tools(None).await.unwrap()).contains(G1));
     let second = spawn(&project, &user).await;
-    assert_start(reports.path(), &second.id, G2, "on").await;
+    assert_start(project.bound(), reports.path(), &second.id, G2, "on").await;
     let (next, _next_child) = shim(&project, &second.id).await;
     let tools = next.list_tools(None).await.unwrap();
     assert!(spawn_description(&tools).contains(G2));
@@ -322,7 +341,14 @@ async fn a4688d_guide_is_fixed_for_each_session() {
         .iter()
         .find(|n| n["parent"] == second.id)
         .unwrap();
-    assert_start(reports.path(), child["id"].as_str().unwrap(), G2, "on").await;
+    assert_start(
+        project.bound(),
+        reports.path(),
+        child["id"].as_str().unwrap(),
+        G2,
+        "on",
+    )
+    .await;
     user.request("agent.stop", json!({"id":first.id}))
         .await
         .unwrap();
@@ -330,13 +356,19 @@ async fn a4688d_guide_is_fixed_for_each_session() {
     user.request("agent.resume", json!({"id":first.id}))
         .await
         .unwrap();
-    assert_start(reports.path(), &first.id, G2, "on").await;
+    assert_start(project.bound(), reports.path(), &first.id, G2, "on").await;
     let (resumed, _resumed_child) = shim(&project, &first.id).await;
     assert!(spawn_description(&resumed.list_tools(None).await.unwrap()).contains(G2));
 }
 
-async fn assert_start(dir: &std::path::Path, id: &str, guide: &str, state: &str) -> String {
-    let report = waiting::until("SessionStart hook report", || {
+async fn assert_start(
+    bound: std::time::Duration,
+    dir: &std::path::Path,
+    id: &str,
+    guide: &str,
+    state: &str,
+) -> String {
+    let report = waiting::until(bound, "SessionStart hook report", || {
         std::fs::read(dir.join(format!("{id}.json")))
             .ok()
             .and_then(|bytes| serde_json::from_slice::<Value>(&bytes).ok())

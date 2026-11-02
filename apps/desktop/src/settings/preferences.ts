@@ -14,6 +14,14 @@ export const terminalRanges = {
   letterSpacing: { min: tokenNumber("letter-terminal-min"), max: tokenNumber("letter-terminal-max"), step: tokenNumber("terminal-type-step") },
 } as const;
 
+// U5232a: the Dock badge and the sound are on for needs-you and error, every alert is off; each choice falls back alone.
+const rowDefault = (on: boolean) => ({ alert: false, sound: on, badge: on });
+
+const stateRow = (on: boolean) => v.fallback(
+  v.object({ alert: v.fallback(v.boolean(), false), sound: v.fallback(v.boolean(), on), badge: v.fallback(v.boolean(), on) }),
+  rowDefault(on),
+);
+
 const schema = storageSchema("roundup:app-settings", v.object({
   permissionMode: v.fallback(v.picklist(["", "default", "acceptEdits", "plan", "auto"]), ""),
   engine: v.fallback(v.string(), ""),
@@ -29,10 +37,24 @@ const schema = storageSchema("roundup:app-settings", v.object({
   focusMarkers: v.fallback(v.boolean(), true),
   quickAdd: v.fallback(v.pipe(v.string(), v.regex(/^(?=.*(?:meta|ctrl)\+)(?:ctrl\+)?(?:alt\+)?(?:meta\+)?(?:shift\+)?[A-Za-z][A-Za-z0-9]*$/)), "meta+shift+KeyT"),
   quickAddKey: v.fallback(v.string(), ""),
+  // Mac-wide quick add: "" is none, and none registers no global shortcut.
+  quickAddAnywhere: v.fallback(v.pipe(v.string(), v.regex(/^(?:(?=.*(?:meta|ctrl)\+)(?:ctrl\+)?(?:alt\+)?(?:meta\+)?(?:shift\+)?[A-Za-z][A-Za-z0-9]*)?$/)), ""),
+  quickAddAnywhereKey: v.fallback(v.string(), ""),
+  // U5239b: a saved press per action `name`; an entry that is not a press is dropped.
+  shortcuts: v.fallback(v.record(v.string(), v.pipe(v.string(), v.regex(/^(?=.*(?:meta|ctrl)\+)(?:ctrl\+)?(?:alt\+)?(?:meta\+)?(?:shift\+)?[A-Za-z][A-Za-z0-9]*$/))), {}),
   mode: v.fallback(v.picklist(["dark", "light", "system"]), "system"),
+  stateAlerts: v.fallback(
+    v.object({ working: stateRow(false), blocked: stateRow(false), "needs-you": stateRow(true), error: stateRow(true), done: stateRow(false) }),
+    { working: rowDefault(false), blocked: rowDefault(false), "needs-you": rowDefault(true), error: rowDefault(true), done: rowDefault(false) },
+  ),
 }));
 
 type Preferences = v.InferOutput<typeof schema>;
+
+/** The Kinds with choices (U5232), in Settings order, and the three choices each holds. */
+export const alertStates = ["working", "blocked", "needs-you", "error", "done"] as const;
+
+export const alertChoices = ["alert", "sound", "badge"] as const;
 
 const [revision, changed] = createSignal(0);
 
@@ -62,13 +84,13 @@ export const saveAppSettings = (patch: Partial<Preferences>, capture?: CapturePo
 
   const pending = saving.then(async () => {
     const before = appSettings();
-    const replacement = captured.quickAdd !== undefined && captured.quickAdd !== before.quickAdd;
+    const replacement = captured.quickAddAnywhere !== undefined && captured.quickAddAnywhere !== before.quickAddAnywhere;
 
     try {
-      if (replacement && capture) await capture.configure(captured.quickAdd!);
+      if (replacement && capture) await capture.configure(captured.quickAddAnywhere! || null);
       const failure = await storage().write({ ...before, ...captured });
 
-      if (failure && replacement && capture) await capture.configure(before.quickAdd);
+      if (failure && replacement && capture) await capture.configure(before.quickAddAnywhere || null);
 
       return failure;
     } catch (error) {

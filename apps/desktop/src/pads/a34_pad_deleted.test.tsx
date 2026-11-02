@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
+import { copy } from "./copy";
 import { afterEach, expect, it, vi } from "vitest";
 import type { Pad } from "@contracts/pad/Pad";
 import { AGENT, deferred, openPad, openShelf, padOf, RpcError } from "./padsFixture";
@@ -67,12 +68,13 @@ it("a34_pad_deleted_refreshes_the_open_drawers_touch_history", async () => {
   const { app, state } = await openShelf([padOf("plan", AGENT)]);
   await openPad("plan");
   state.pads = [];
-  state.history = [{ actor: AGENT, verb: "wrote", item: "pad:plan", at: 123 }];
+  const verb = "wrote";
+  state.history = [{ actor: AGENT, verb, item: "pad:plan", at: 123 }];
 
   app.emit({ actor: AGENT, name: "pad.deleted", data: { name: "plan" } });
 
-  expect((await screen.findByText(/auth-refactor wrote this Pad at/)).textContent)
-    .toContain("auth-refactor wrote this Pad at");
+  const line = await screen.findByText((text) => text.startsWith(`auth-refactor ${verb}`));
+  expect(line.closest("[aria-label='Drawer']")).not.toBeNull();
 });
 
 const failedSave = async (close = true) => {
@@ -172,7 +174,7 @@ it("p3557b_edits_save_and_reopen", async () => {
   expect(field.value).toContain("new");
   fireEvent.input(field, { target: { value: "one\n\nnewer\n\ntwo\n\nthree" } });
   await waitFor(() => expect(state.pads[0]!.text).toContain("newer"));
-  expect(screen.queryByText(/edited blocks could not be matched/)).toBeNull();
+  expect(screen.queryByText(copy.padSourceMappingFailed)).toBeNull();
 
   for (const call of app.calls.filter(call => call.method === "pad.write")) expect(call.params).toEqual(expect.objectContaining({ text: expect.any(String) }));
 });

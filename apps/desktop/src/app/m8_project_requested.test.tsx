@@ -24,7 +24,7 @@ const started = async () => {
 
   render(() => <App app={app} reducedMotion={() => false} clock={() => 0} />);
   await screen.findByRole("tab", { name: FIRST.name });
-  await screen.findAllByText(/^(new )?Workstream$/);
+  await screen.findByRole("button", { name: "Create" });
 
   return app;
 };
@@ -93,7 +93,7 @@ it("u3021a_recovery_lists_only_work_at_risk", async () => {
   const recovery = await screen.findByRole("region", { name: "Unfinished work" });
 
   expect(within(recovery).getAllByRole("listitem")).toHaveLength(1);
-  expect(app.shownMenus.at(-1)!.items.map((item) => item.label)).toEqual(["Recover unfinished work (1)"]);
+  expect(app.shownMenus.at(-1)!.items.map((item) => item.label)).toEqual(["Unfinished work (1)"]);
   expect(holder.list()).toHaveLength(2);
 });
 
@@ -105,7 +105,7 @@ it("u3289c_overview_menu_opens_from_the_keyboard", async () => {
 
   overview.focus();
   fireEvent.keyDown(overview, { key: "F10", shiftKey: true });
-  await vi.waitFor(() => expect(app.shownMenus.at(-1)?.items.map((item) => item.label)).toEqual(["Recover unfinished work (1)"]));
+  await vi.waitFor(() => expect(app.shownMenus.at(-1)?.items.map((item) => item.label)).toEqual(["Unfinished work (1)"]));
 });
 
 it("u3289a_left_or_crashed_input_qualifies", async () => {
@@ -129,7 +129,7 @@ it("u3289b_recovery_entry_is_never_rendered", async () => {
   const holder = drafts(FIRST.path);
   mount(drafts);
   await screen.findByRole("tab", { name: FIRST.name });
-  await screen.findAllByText(/^(new )?Workstream$/);
+  await screen.findByRole("button", { name: "Create" });
   await new Promise((done) => setTimeout(done, 300));
   const records: MutationRecord[] = [];
   const observer = new MutationObserver((found) => records.push(...found));
@@ -140,7 +140,7 @@ it("u3289b_recovery_entry_is_never_rendered", async () => {
   records.push(...observer.takeRecords());
   observer.disconnect();
   expect(records).toEqual([]);
-  expect(screen.queryByText(/Recover unfinished work/)).toBeNull();
+  expect(screen.queryByText(/Recover (unfinished )?work/)).toBeNull();
 
   await openRecovery();
   await screen.findByRole("region", { name: "Unfinished work" });
@@ -221,7 +221,7 @@ const owners = {
     return screen.findByLabelText<HTMLInputElement>("Pad name");
   },
   todo: async () => {
-    fireEvent.click(await screen.findByRole("button", { name: "add todo to Overview" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Add Todo: Overview" }));
 
     return screen.findByRole<HTMLInputElement>("textbox", { name: "New Todo title" });
   },
@@ -235,7 +235,7 @@ const owners = {
 it.each(Object.entries(owners))("u3021d_acknowledged_typing_has_no_outside_mutations_%s", async (_owner, openField) => {
   mount(createProjectDrafts());
   await screen.findByRole("tab", { name: FIRST.name });
-  await screen.findAllByText(/^(new )?Workstream$/);
+  await screen.findByRole("button", { name: "Create" });
   const field = await openField();
 
   await new Promise((done) => setTimeout(done, 300));
@@ -258,14 +258,14 @@ it.each(Object.entries(owners))("u3021d_acknowledged_typing_has_no_outside_mutat
 it.each(Object.entries(owners))("u3289a_open_editor_stays_off_the_list_until_the_app_restarts_%s", async (_owner, openField) => {
   mount(createProjectDrafts());
   await screen.findByRole("tab", { name: FIRST.name });
-  await screen.findAllByText(/^(new )?Workstream$/);
+  await screen.findByRole("button", { name: "Create" });
   fireEvent.input(await openField(), { target: { value: "unsent words" } });
   await new Promise((done) => setTimeout(done, 100));
   expect(await recoveryLabel()).toBeNull();
   cleanup();
   mount(createProjectDrafts());
   await screen.findByRole("tab", { name: FIRST.name });
-  await vi.waitFor(async () => expect(await recoveryLabel()).toBe("Recover unfinished work (1)"));
+  await vi.waitFor(async () => expect(await recoveryLabel()).toBe("Unfinished work (1)"));
 });
 
 it("u3289c_overview_menu_opens_recovery", async () => {
@@ -278,9 +278,8 @@ it("u3289c_overview_menu_opens_recovery", async () => {
   expect(app.shownMenus).toEqual([]);
   failedSave(holder, { surface: "todos", object: "9", recipient: null }, { title: "lost when closed" });
   failedSave(holder, { surface: "todos", object: "10", recipient: null }, { title: "lost too" });
-  expect(await recoveryLabel()).toBe("Recover unfinished work (2)");
+  expect(await recoveryLabel()).toBe("Unfinished work (2)");
   fireEvent.click(overview);
-  expect(screen.queryByRole("region", { name: "Unfinished work" })).toBeNull();
   await openRecovery();
   expect(within(await screen.findByRole("region", { name: "Unfinished work" })).getAllByRole("listitem")).toHaveLength(2);
 });

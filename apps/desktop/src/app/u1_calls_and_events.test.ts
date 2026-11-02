@@ -238,6 +238,24 @@ describe("u1 calls and events", () => {
     expect(await createTauriApp().chooseSavePath("x.md")).toBeNull();
   });
 
+  it("u5232f_the_adapter_sends_the_alert_request_and_hears_the_click", async () => {
+    const heard: string[] = [];
+    mockWindows("main");
+    mockIPC((command, args) => {
+      if (command === "state_alert") calls.push(args);
+
+      return null;
+    }, { shouldMockEvents: true });
+    const app = createTauriApp();
+    await app.onStateAlertClicked(agent => heard.push(agent));
+
+    await app.stateAlert({ agent: "a1", title: "Ada", body: "Done", alert: true, sound: false });
+    await emit("state-alert-clicked", { agent: "a1" });
+
+    expect(calls).toEqual([{ request: { agent: "a1", title: "Ada", body: "Done", alert: true, sound: false } }]);
+    expect(heard).toEqual(["a1"]);
+  });
+
   it("u1_the_adapter_sets_the_dock_badge_count", async () => {
     mockWindows("main");
     mockIPC((command, args) => {
@@ -410,7 +428,7 @@ it.each(["Remove", "Keep"])("u3512a_native_adapter_preserves_the_question_and_re
 });
 
 it.each(["this", "all", "cancel"])("u4461_the_native_alert_resolves_to_the_chosen_button_%s", async answer => {
-  const question = { title: "Remove chosen?", message: "Goes: Nothing", thisLabel: "Remove this", allLabel: "Remove all", cancelLabel: "Cancel" };
+  const question = { title: "Remove chosen?", message: "Goes: Nothing", thisLabel: "Remove this", allLabel: "Remove all", cancelLabel: "Keep" };
   mockIPC((command, args) => { calls.push({ command, args });
 
  return answer; });
@@ -420,5 +438,5 @@ it.each(["this", "all", "cancel"])("u4461_the_native_alert_resolves_to_the_chose
 
 it("u4461_a_rejected_native_alert_is_an_rpc_error", async () => {
   mockIPC(() => { throw "Native alert unavailable; retry"; });
-  await expect(createTauriApp().askRemoval({ title: "Remove?", message: "", thisLabel: "Remove this", allLabel: "Remove all", cancelLabel: "Cancel" })).rejects.toEqual(new RpcError(-32603, "Native alert unavailable; retry"));
+  await expect(createTauriApp().askRemoval({ title: "Remove?", message: "", thisLabel: "Remove this", allLabel: "Remove all", cancelLabel: "Keep" })).rejects.toEqual(new RpcError(-32603, "Native alert unavailable; retry"));
 });

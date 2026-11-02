@@ -9,6 +9,7 @@ impl Observation {
             Self::Tick => "tick",
             Self::Stopped => "stop",
             Self::Exit { .. } => "exit",
+            Self::Program(_) => "program status",
         }
     }
 }
@@ -35,12 +36,14 @@ impl Drop for State {
 /// B50, B51: told the Message ids an Agent's transcript records as received from another session.
 pub type InboxObserver = Arc<dyn Fn(&str, &[u32]) + Send + Sync>;
 
+type ReadCursor = (PathBuf, Arc<Mutex<u64>>);
+
 #[derive(Default)]
 pub(super) struct InboxState {
     /// B51: the latest check of each Agent's inbox, the Rail fact `inbox`.
     pub(super) facts: Mutex<HashMap<String, contracts::agent::Inbox>>,
     /// B50(c): the transcript file of each Agent and how far it has been read.
-    pub(super) transcripts: Mutex<HashMap<String, (PathBuf, u64)>>,
+    pub(super) transcripts: Mutex<HashMap<String, ReadCursor>>,
     /// B50(c): a watch on the folder of each Agent's transcript; the file system says when the file
     /// grew, so no timer decides `delivered`.
     watches: Mutex<HashMap<String, notify::RecommendedWatcher>>,
@@ -66,11 +69,15 @@ impl InboxState {
     /// B50(c): read the transcript again from its start, for an entry that Claude Code took up
     /// before the Message it carries was in flight.
     pub(super) fn rescan(self: &Arc<Self>, agent: &str) {
-        {
-            let mut files = self.transcripts.lock().unwrap_or_else(|e| e.into_inner());
-            if let Some((_, offset)) = files.get_mut(agent) {
-                *offset = 0;
-            }
+        let file = self
+            .transcripts
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .get(agent)
+            .map(|(_, offset)| Arc::clone(offset));
+        if let Some(file) = file {
+            let mut file = file.lock().unwrap_or_else(|e| e.into_inner());
+            *file = 0;
         }
         self.scan(agent, &serde_json::Value::Null);
     }
@@ -117,33 +124,39 @@ impl InboxState {
 
     /// B50(c): on an Agent's Signal, tell the observer the ids its transcript newly records.
     pub(super) fn scan(self: &Arc<Self>, agent: &str, payload: &serde_json::Value) {
+        self.scan_using(agent, payload, claude_code::inbox::recorded);
+    }
+
+    fn scan_using(
+        self: &Arc<Self>,
+        agent: &str,
+        payload: &serde_json::Value,
+        read: impl FnOnce(&Path, u64) -> (Vec<u32>, u64),
+    ) {
         let Some(observer) = self.observer.get() else {
             return;
         };
-        let (ids, ..) = {
+        let file = {
             let mut files = self.transcripts.lock().unwrap_or_else(|e| e.into_inner());
+            // Each transcript owns its I/O lock; the registry never waits for a scan.
             if let Some(path) = claude_code::inbox::transcript_of(payload) {
-                match files.get(agent) {
-                    Some((known, _)) if *known == path => {}
-                    _ => {
-                        self.watches
-                            .lock()
-                            .unwrap_or_else(|e| e.into_inner())
-                            .remove(agent);
-                        files.insert(agent.to_owned(), (path, 0));
-                    }
+                let same = files.get(agent).is_some_and(|(known, _)| *known == path);
+                if !same {
+                    self.watches
+                        .lock()
+                        .unwrap_or_else(|e| e.into_inner())
+                        .remove(agent);
+                    files.insert(agent.to_owned(), (path, Arc::new(Mutex::new(0))));
                 }
             }
-            if let Some((path, _)) = files.get(agent) {
-                self.watch(agent, path);
-            }
-            let Some((path, offset)) = files.get_mut(agent) else {
-                return;
-            };
-            let (ids, next) = claude_code::inbox::recorded(path, *offset);
-            *offset = next;
-            (ids, next)
+            files.get(agent).cloned()
         };
+        let Some((path, offset)) = file else { return };
+        let mut offset = offset.lock().unwrap_or_else(|e| e.into_inner());
+        self.watch(agent, &path);
+        let (ids, next) = read(&path, *offset);
+        *offset = next;
+        drop(offset);
         if !ids.is_empty() {
             observer(agent, &ids);
         }
@@ -151,6 +164,22 @@ impl InboxState {
 }
 
 impl Shared {
+    /// PS9.2: Terminal `terminal`'s program status reaches the Agent that runs in it, if its
+    /// adapter has no hook Signal; any other Agent keeps the Kind its Signals give (PS9.1).
+    pub(super) fn observe_program(&self, terminal: &str, status: Status) {
+        let found = self.runs().iter().find_map(|(id, slot)| match slot {
+            Slot::Running(run)
+                if run.terminal_id == terminal && !run.ended && !run.adapter.has_hook_signal() =>
+            {
+                Some((id.clone(), run.attempt.clone()))
+            }
+            _ => None,
+        });
+        if let Some((id, attempt)) = found {
+            let _ = self.observe(Actor::daemon(), &id, &attempt, Observation::Program(status));
+        }
+    }
+
     /// E6: `agent.channelUp` from Agent `id`. Nothing to report when no program of the Agent
     /// runs, and a second call while the Channel is `up` emits nothing.
     pub(super) fn channel_up(&self, actor: &Actor, id: &str) -> Result<(), RpcError> {
@@ -344,6 +373,11 @@ impl Shared {
         if star {
             run.starred = true;
         }
+        if matches!(&observation, Observation::Signal(payload)
+            if claude_code::submitted_prompt(payload).is_some())
+        {
+            run.input_started = true;
+        }
         // H11: the Steer's wait ends with the Signal that names it, or with the Agent.
         if matches!(&observation, Observation::Signal(payload)
             if claude_code::submitted_prompt(payload).is_some())
@@ -386,8 +420,12 @@ impl Shared {
                 .lock()
                 .unwrap_or_else(|e| e.into_inner());
             let mut current = calls.remove(id);
-            if claude_code::toolcall::fold(&mut current, payload, &run.cwd, store::now_ms())
-                && let Some(tracked) = &current
+            if claude_code::toolcall::fold(
+                &mut current,
+                payload,
+                &run.cwd,
+                provenance::now_ms().max(0),
+            ) && let Some(tracked) = &current
             {
                 self.bus.emit(
                     actor.clone(),
@@ -403,15 +441,20 @@ impl Shared {
         }
         let was_kind = run.adapter.status().map(|status| status.kind);
         let was_finished = run.adapter.finished();
+        let was_final_text = run.adapter.final_text();
         let signal = matches!(observation, Observation::Signal(_));
-        let changed = run.adapter.observe(observation).or_else(|| {
+        let (changed, completion_changed) = run.adapter.observe_completion(observation);
+        let changed = changed.or_else(|| {
             if !exited || run.ended {
                 return None;
             }
             let mut status = run.adapter.status()?.clone();
-            status.since = store::now_ms();
+            status.since = provenance::now_ms().max(0);
             Some(status)
         });
+        if was_final_text != run.adapter.final_text() || completion_changed {
+            self.bus.emit(actor.clone(), EventData::RailChanged);
+        }
         if signal
             && (session_start
                 || changed
@@ -586,3 +629,32 @@ pub(super) async fn watch(
 
 #[cfg(test)]
 mod tests;
+
+impl Agents {
+    /// A5482c: live Rail id to (Attempt/turn identity, turn start/end in Unix milliseconds, final text).
+    /// The Adapter supplies the text; this reads no Terminal and parses no vendor records.
+    pub fn completed_text(&self) -> HashMap<String, (String, i64, i64, String)> {
+        self.shared
+            .runs()
+            .iter()
+            .filter_map(|(id, slot)| {
+                let Slot::Running(run) = slot else {
+                    return None;
+                };
+                if run.ended {
+                    return None;
+                }
+                let (turn, started, ended, text) = run.adapter.completed_text()?;
+                Some((
+                    id.clone(),
+                    (
+                        format!("{}:{turn}", run.attempt),
+                        *started,
+                        *ended,
+                        text.clone(),
+                    ),
+                ))
+            })
+            .collect()
+    }
+}

@@ -7,7 +7,14 @@ import type { CreateParams } from "@contracts/todo/CreateParams";
 import type { Actor } from "@contracts/Actor";
 import { startRealDaemon } from "../testing/realDaemonFixture";
 import { createServedApp } from "../testing/realSeam";
-import { openLane } from "./laneBrowser";
+import { openLane, type LaneBrowser } from "./laneBrowser";
+
+const openHistory = async (lane: LaneBrowser) => {
+  // Blurring the body editor moves the controls, so focus the disclosure before activating it.
+  await lane.browser("focus", ".todo-history-line");
+  await lane.until("document.activeElement?.matches('.todo-history-line')");
+  await lane.browser("press", "Enter");
+};
 
 // A deterministic vendor child reads only delivered Auto Messages and answers through the public CLI as its Door.
 const door = `import json,os,re,subprocess,sys,time
@@ -69,11 +76,11 @@ it.skipIf(Boolean(captureDir("U4698e")) && !captureDir("U3311"))("u3311_real_dae
   };
 
   try {
-    const home = await app.rpc("rail.createWorkstream", { name: "Release", parent: null });
+    const home = await app.rpc("rail.createWorkstream", { name: "Release", parent: null, order: { kind: "work", ask: "Prepare the release", limits: [] } });
     homeId = home.id;
     const agents: { id: string }[] = [];
 
-    for (const name of ["Writer", "Builder", "Reviewer", "Empty destination"]) agents.push(await app.rpc("agent.spawn", { cwd: real.dir, prompt: null, parent: home.id, name }));
+    for (const name of ["Writer", "Builder", "Reviewer", "Empty destination"]) agents.push(await app.rpc("agent.spawn", { cwd: real.dir, prompt: "Wait for assigned work", parent: home.id, name }));
     await writeFile(target, JSON.stringify(actor(agents[0]!.id)));
     await app.rpc("rail.startDoor", { id: home.id });
     const made = [];
@@ -232,13 +239,15 @@ it.skipIf(Boolean(captureDir("U4698e")) && !captureDir("U3311"))("u3311_real_dae
     await observe(moved.id, agents[0]!.id);
     await lane.browser("click", ".todo-add-notes");
     await lane.until("!!document.querySelector('.todo-detail-body .ProseMirror[aria-label=Body]')");
-    await lane.browser("fill", ".todo-detail-body .ProseMirror[aria-label=Body]", "Exact body é 🧪 次の行");
+    await lane.browser("fill", ".todo-detail-body .ProseMirror[aria-label=Body]", "Exact body é 🧪 次の行"); // taste-skill-ignore: Unicode draft probe, not interface decoration.
     await lane.browser("press", "Control+Enter");
-    await expect.poll(async () => (await app.rpc("todo.get", { id: moved.id })).body).toBe("Exact body é 🧪 次の行");
+    await expect.poll(async () => (await app.rpc("todo.get", { id: moved.id })).body).toBe("Exact body é 🧪 次の行"); // taste-skill-ignore: Exact Unicode round-trip assertion.
     await lane.until("document.activeElement !== document.body && !!document.querySelector('.todo-detail-body .ProseMirror')");
-    saved.set(moved.id, { title: "Release notes revised", body: "Exact body é 🧪 次の行" });
+    saved.set(moved.id, { title: "Release notes revised", body: "Exact body é 🧪 次の行" }); // taste-skill-ignore: Expected Unicode draft value.
     await observe(moved.id, agents[0]!.id);
     // U4698e: user comments join the persisted resulting work in its Activity.
+    await lane.until("!!document.querySelector('.todo-comments .todo-history-line')");
+    await openHistory(lane);
     await lane.until("!!document.querySelector('.todo-comments[aria-label=Activity] [data-change]')");
     await lane.browser("fill", ".todo-comment-field", "Reviewed release notes é 雪");
     await lane.browser("press", "Enter");
@@ -296,7 +305,7 @@ print(json.dumps({'todo':todo,'pad':pad}))
   const app = createServedApp(real.base);
 
   try {
-    const home = await app.rpc("rail.createWorkstream", { name: "Release", parent: null });
+    const home = await app.rpc("rail.createWorkstream", { name: "Release", parent: null, order: { kind: "work", ask: "Prepare the release", limits: [] } });
     await app.rpc("rail.startDoor", { id: home.id });
     await expect.poll(async () => (await app.rpc("todo.list", null)).length, { timeout: 20_000 }).toBe(1);
     await expect.poll(async () => (await app.rpc("pad.list", null)).length, { timeout: 20_000 }).toBe(1);
@@ -338,6 +347,8 @@ print(json.dumps({'todo':todo,'pad':pad}))
 
     await selectHome();
     await openTodo();
+    await lane.until("!!document.querySelector('.todo-comments .todo-history-line')");
+    await openHistory(lane);
     await lane.until("!!document.querySelector('[data-change]')");
     await lane.browser("dblclick", ".todo-detail-title .todo-editable p");
     await lane.browser("fill", '.todo-detail-title textarea', "Reviewed release result");
@@ -350,7 +361,8 @@ print(json.dumps({'todo':todo,'pad':pad}))
     await lane.until("!document.querySelector('.drawer[data-mounted=true]')");
     await openPad();
     await lane.browser("focus", ".drawer .ProseMirror");
-    await lane.browser("press", "Control+a");
+    await lane.browser("press", process.platform === "darwin" ? "Meta+a" : "Control+a");
+    await lane.until("window.getSelection()?.toString() === document.querySelector('.drawer .ProseMirror')?.textContent");
     await lane.browser("type", ".drawer .ProseMirror", "Reviewed release notes");
     await expect.poll(async () => (await app.rpc("pad.read", { name: pad.name })).text).toBe("Reviewed release notes");
     await lane.browser("click", ".drawer .close");

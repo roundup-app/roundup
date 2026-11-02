@@ -61,7 +61,7 @@ impl Pushes {
                 Ok(())
             }),
         };
-        let agents: Arc<dyn TerminalOwners> = rail.clone();
+        let agents: Arc<dyn Module> = rail.clone();
         let messages = Arc::new(Messages::open_with(dir, bus.clone(), agents, env).unwrap());
         Self {
             messages,
@@ -589,6 +589,7 @@ async fn b21_two_stopped_changes_release_one_newest_entry_of_weight_two() {
     let seen = digest::Seen::default();
     let mut todos = Vec::new();
     seen.baseline(&digest::Sources {
+        completed: std::collections::HashMap::new(),
         touches: Vec::new(),
         nodes: &nodes,
         todos: &todos,
@@ -612,6 +613,7 @@ async fn b21_two_stopped_changes_release_one_newest_entry_of_weight_two() {
             priority: None,
         });
         let changes = seen.changed(&digest::Sources {
+            completed: std::collections::HashMap::new(),
             touches: Vec::new(),
             nodes: &nodes,
             todos: &todos,

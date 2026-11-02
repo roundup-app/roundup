@@ -5,7 +5,6 @@ mod daemon;
 use daemon::aimock;
 
 use contracts::{EventData, Kind};
-use daemon::{next, rail_tree};
 use serde_json::{Value, json};
 use std::time::Duration;
 
@@ -16,7 +15,7 @@ async fn m9_a_door_asked_for_a_workstream_makes_one() {
     let door = events
         .request(
             "rail.createWorkstream",
-            json!({"name": "team", "parent": null}),
+            json!({"name": "team", "parent": null, "order":{"kind":"work","ask":"What is this Workstream for?","limits":[]}}),
         )
         .await
         .unwrap()["id"]
@@ -29,13 +28,16 @@ async fn m9_a_door_asked_for_a_workstream_makes_one() {
         .unwrap();
     // SessionStart also emits Idle; observe a completed turn before reusing its bundle.
     for kind in [Kind::Working, Kind::Idle] {
-        next(&mut events, |event| match event {
-            EventData::AgentStatus(status) if status.id == door && status.status.kind == kind => {
-                Some(())
-            }
-            _ => None,
-        })
-        .await;
+        project
+            .next(&mut events, |event| match event {
+                EventData::AgentStatus(status)
+                    if status.id == door && status.status.kind == kind =>
+                {
+                    Some(())
+                }
+                _ => None,
+            })
+            .await;
     }
     events.request("message.send", json!({"to": door, "kind": "note", "body": "E10 create another Workstream named x and start its Door"})).await.unwrap();
     let model = project.model.as_ref().unwrap();
@@ -44,7 +46,7 @@ async fn m9_a_door_asked_for_a_workstream_makes_one() {
         serde_json::from_str(result["content"].as_str().unwrap()).unwrap();
     assert_eq!(made.name, "x");
     model.tool_result("toolu_m9_start").await;
-    let tree = rail_tree(&events).await;
+    let tree = project.rail_tree(&events).await;
     let node = tree.iter().find(|n| n.id == made.id).unwrap();
     assert!(node.parent.is_none());
     assert!(node.attempt.is_some(), "its Door is started");
@@ -62,7 +64,7 @@ async fn q11_a_loaded_bundle_allows_a_subsequent_agent() {
     let door = events
         .request(
             "rail.createWorkstream",
-            json!({"name": "team", "parent": null}),
+            json!({"name": "team", "parent": null, "order":{"kind":"work","ask":"What is this Workstream for?","limits":[]}}),
         )
         .await
         .unwrap()["id"]
@@ -75,13 +77,16 @@ async fn q11_a_loaded_bundle_allows_a_subsequent_agent() {
         .unwrap();
     // SessionStart also emits Idle; observe a completed turn before reusing its bundle.
     for kind in [Kind::Working, Kind::Idle] {
-        next(&mut events, |event| match event {
-            EventData::AgentStatus(status) if status.id == door && status.status.kind == kind => {
-                Some(())
-            }
-            _ => None,
-        })
-        .await;
+        project
+            .next(&mut events, |event| match event {
+                EventData::AgentStatus(status)
+                    if status.id == door && status.status.kind == kind =>
+                {
+                    Some(())
+                }
+                _ => None,
+            })
+            .await;
     }
     let agent = events
         .request(
@@ -93,15 +98,16 @@ async fn q11_a_loaded_bundle_allows_a_subsequent_agent() {
         .await
         .unwrap();
     for kind in [Kind::Working, Kind::Idle] {
-        next(&mut events, |event| match event {
-            EventData::AgentStatus(status)
-                if status.id == agent["id"].as_str().unwrap() && status.status.kind == kind =>
-            {
-                Some(())
-            }
-            _ => None,
-        })
-        .await;
+        project
+            .next(&mut events, |event| match event {
+                EventData::AgentStatus(status)
+                    if status.id == agent["id"].as_str().unwrap() && status.status.kind == kind =>
+                {
+                    Some(())
+                }
+                _ => None,
+            })
+            .await;
     }
     let model = project.model.as_ref().unwrap();
     model.assert_matched();
@@ -122,7 +128,7 @@ async fn b37_real_claude_receives_a_note_after_a_scripted_server_error() {
     let user = project.client().await;
     let mut events = project.subscribed().await;
     let door = user
-        .request("rail.createWorkstream", json!({"name":"B37 supervisor"}))
+        .request("rail.createWorkstream", json!({"name":"B37 supervisor","order":{"kind":"work","ask":"What is this Workstream for?","limits":[]}}))
         .await
         .unwrap()["id"]
         .as_str()
@@ -131,11 +137,18 @@ async fn b37_real_claude_receives_a_note_after_a_scripted_server_error() {
     user.request("rail.startDoor", json!({"id":door}))
         .await
         .unwrap();
-    next(&mut events, |data| match data {
-        EventData::AgentStatus(s) if s.id == door && s.status.kind == Kind::Idle => Some(()),
-        _ => None,
-    })
-    .await;
+    project
+        .next_named(
+            "the Door's first idle status",
+            &mut events,
+            |data| match data {
+                EventData::AgentStatus(s) if s.id == door && s.status.kind == Kind::Idle => {
+                    Some(())
+                }
+                _ => None,
+            },
+        )
+        .await;
     let child = user
         .request(
             "agent.spawn",
@@ -152,37 +165,72 @@ async fn b37_real_claude_receives_a_note_after_a_scripted_server_error() {
         .unwrap()
         .tool_result("toolu_b37_child_ready")
         .await;
-    next(&mut events, |data| match data {
-        EventData::AgentStatus(s)
-            if s.id == child && s.status.kind == Kind::Working && s.status.label == "working" =>
-        {
-            Some(())
-        }
-        _ => None,
-    })
-    .await;
-    next(&mut events, |data| match data {
-        EventData::AgentStatus(s) if s.id == child && s.status.kind == Kind::Idle => Some(()),
-        _ => None,
-    })
-    .await;
-    // The push window closes on the child's final idle Digest, not its earlier Rail status.
-    next(&mut events, |data| match data {
-        EventData::MessageDelivered(m)
-            if m.to == door
-                && m.body.contains("[digest] B37 child is idle")
-                && m.body.contains("open todos: 1") =>
-        {
-            Some(())
-        }
-        _ => None,
-    })
-    .await;
-    // B50(c): the transcript records the Digest after the turn it starts may already be over, so the
-    // door's idle edge can precede the Delivered event; the Rail poll below waits for idle instead.
-    tokio::time::timeout(Duration::from_secs(30), async {
+    project
+        .next_named(
+            "the child's working status",
+            &mut events,
+            |data| match data {
+                EventData::AgentStatus(s)
+                    if s.id == child
+                        && s.status.kind == Kind::Working
+                        && s.status.label == "working" =>
+                {
+                    Some(())
+                }
+                _ => None,
+            },
+        )
+        .await;
+    project
+        .next_named("the child's idle status", &mut events, |data| match data {
+            EventData::AgentStatus(s) if s.id == child && s.status.kind == Kind::Idle => Some(()),
+            _ => None,
+        })
+        .await;
+    // Bind the receipt to the final idle Digest, not an earlier status of the child.
+    let idle_digest = project
+        .next_named(
+            "the Digest B37 child is idle queued for the Door",
+            &mut events,
+            |data| match data {
+                EventData::MessageSent(m)
+                    if m.to == door
+                        && m.body.contains("[digest] B37 child is idle")
+                        && m.body.contains("open todos: 1") =>
+                {
+                    Some(m)
+                }
+                _ => None,
+            },
+        )
+        .await;
+    // B5168f: if an earlier idle Digest was already delivered, this one is quiet. Explicit
+    // setup input carries it without requiring that routine progress start another model turn.
+    let setup = user
+        .request(
+            "message.send",
+            json!({"to":door,"kind":"note","body":"B37 setup complete"}),
+        )
+        .await
+        .unwrap();
+    let setup_id: u32 = serde_json::from_value(setup["id"].clone()).unwrap();
+    for id in [idle_digest.id, setup_id] {
+        project
+            .next_named(
+                "the idle Digest and setup input's transcript receipts",
+                &mut events,
+                |data| match data {
+                    EventData::MessageDelivered(m) if m.id == id => Some(()),
+                    _ => None,
+                },
+            )
+            .await;
+    }
+    // B50(c): transcript receipts can follow the turn's idle edge, so poll the Rail instead
+    // of waiting for another idle event that may never follow.
+    tokio::time::timeout(project.bound(), async {
         loop {
-            let nodes = rail_tree(&user).await;
+            let nodes = project.rail_tree(&user).await;
             let node = nodes.iter().find(|n| n.id == door).unwrap();
             if node.status.as_ref().unwrap().kind == Kind::Idle {
                 match user
@@ -201,31 +249,47 @@ async fn b37_real_claude_receives_a_note_after_a_scripted_server_error() {
         }
     })
     .await
-    .unwrap();
-    let failed = next(&mut events, |data| match data {
-        EventData::AgentStatus(s) if s.id == door && s.status.kind == Kind::Error => Some(s),
-        _ => None,
-    })
-    .await;
-    assert_eq!(failed.status.label, "server_error");
-    let nodes = rail_tree(&user).await;
+    .expect("the Door went idle after the Digests and took the scripted server error prompt");
+    let failed = project
+        .next_named(
+            "the Door's error status after the scripted server error",
+            &mut events,
+            |data| match data {
+                EventData::AgentStatus(s) if s.id == door && s.status.kind == Kind::Error => {
+                    Some(s)
+                }
+                _ => None,
+            },
+        )
+        .await;
+    assert!(
+        failed.status.label.contains("Claude's servers failed"),
+        "{}",
+        failed.status.label
+    );
+    let nodes = project.rail_tree(&user).await;
     let live = nodes.iter().find(|n| n.id == door).unwrap();
     assert!(live.terminal_id.is_some());
     assert_eq!(live.attempt.as_deref(), Some(failed.attempt.as_str()));
-    daemon::needs_you(&user, &child).await;
-    next(&mut events, |data| match data {
-        EventData::MessageDelivered(m)
-            if m.to == door && m.body.contains("[digest] B37 child is needs-you") =>
-        {
-            Some(())
-        }
-        _ => None,
-    })
-    .await;
+    project.needs_you(&user, &child).await;
+    project
+        .next_named(
+            "the Digest B37 child is needs-you delivered to the Door",
+            &mut events,
+            |data| match data {
+                EventData::MessageDelivered(m)
+                    if m.to == door && m.body.contains("[digest] B37 child is needs-you") =>
+                {
+                    Some(())
+                }
+                _ => None,
+            },
+        )
+        .await;
     // Polled, not awaited as an event: the transcript records the note after its turn may be over.
-    tokio::time::timeout(Duration::from_secs(30), async {
+    tokio::time::timeout(project.bound(), async {
         loop {
-            let nodes = rail_tree(&user).await;
+            let nodes = project.rail_tree(&user).await;
             let node = nodes.iter().find(|n| n.id == door).unwrap();
             if node.status.as_ref().unwrap().kind == Kind::Idle
                 && node.status_revision.as_deref() != Some(failed.status_revision.as_str())
@@ -237,7 +301,7 @@ async fn b37_real_claude_receives_a_note_after_a_scripted_server_error() {
         }
     })
     .await
-    .unwrap();
+    .expect("the Door went idle with a new status revision after the needs-you note");
     // This observer expects one failed model request; the shared success-only Drop check does not.
     let model = project.model.take().unwrap();
     let journal = model.journal();
@@ -499,7 +563,7 @@ async fn m16_real_claude_runs_tests_with_bash_without_a_run() {
     let door = client
         .request(
             "rail.createWorkstream",
-            json!({"name": "team", "parent": null}),
+            json!({"name": "team", "parent": null, "order":{"kind":"work","ask":"What is this Workstream for?","limits":[]}}),
         )
         .await
         .unwrap()["id"]
@@ -576,7 +640,7 @@ async fn f3_a_door_spawns_into_a_worktree_when_the_setting_is_on() {
     let door = client
         .request(
             "rail.createWorkstream",
-            json!({"name": "team", "parent": null}),
+            json!({"name": "team", "parent": null, "order":{"kind":"work","ask":"What is this Workstream for?","limits":[]}}),
         )
         .await
         .unwrap()["id"]
@@ -603,15 +667,16 @@ async fn f3_a_door_spawns_into_a_worktree_when_the_setting_is_on() {
     let listed = String::from_utf8(listed.stdout).unwrap();
     assert!(listed.contains(&worktree.path), "{listed}");
     for kind in [Kind::Working, Kind::Idle] {
-        next(&mut client, |event| match event {
-            EventData::AgentStatus(status)
-                if status.id == spawned.id && status.status.kind == kind =>
-            {
-                Some(())
-            }
-            _ => None,
-        })
-        .await;
+        project
+            .next(&mut client, |event| match event {
+                EventData::AgentStatus(status)
+                    if status.id == spawned.id && status.status.kind == kind =>
+                {
+                    Some(())
+                }
+                _ => None,
+            })
+            .await;
     }
     model.assert_matched();
 }
@@ -623,7 +688,7 @@ async fn a26_a_subagent_started_by_a_subagent_sits_three_deep_under_the_door_thr
     let door = client
         .request(
             "rail.createWorkstream",
-            json!({"name": "team", "parent": null}),
+            json!({"name": "team", "parent": null, "order":{"kind":"work","ask":"What is this Workstream for?","limits":[]}}),
         )
         .await
         .unwrap()["id"]
@@ -644,7 +709,7 @@ async fn a26_a_subagent_started_by_a_subagent_sits_three_deep_under_the_door_thr
     assert_eq!(a.parent.as_deref(), Some(door.as_str()));
     assert!(a.worktree.is_none());
     assert_eq!(b.parent.as_deref(), Some(a.id.as_str()));
-    let tree = rail_tree(&client).await;
+    let tree = project.rail_tree(&client).await;
     assert!(tree.iter().all(|n| n.parent.as_deref() != Some("999")));
     assert_eq!(
         tree.iter()
@@ -660,13 +725,14 @@ async fn a26_a_subagent_started_by_a_subagent_sits_three_deep_under_the_door_thr
     let mut working = std::collections::BTreeSet::new();
     let mut idle = std::collections::BTreeSet::new();
     while idle.len() < 3 {
-        let status = next(&mut client, |event| match event {
-            EventData::AgentStatus(status) if [&door, &a.id, &b.id].contains(&&status.id) => {
-                Some(status)
-            }
-            _ => None,
-        })
-        .await;
+        let status = project
+            .next(&mut client, |event| match event {
+                EventData::AgentStatus(status) if [&door, &a.id, &b.id].contains(&&status.id) => {
+                    Some(status)
+                }
+                _ => None,
+            })
+            .await;
         if status.status.kind == Kind::Working {
             working.insert(status.id.clone());
         }
@@ -699,15 +765,15 @@ async fn a41_a_leading_slash_runs_the_skill() {
         .request("rail.startDoor", json!({"id":id}))
         .await
         .unwrap();
-    tokio::time::timeout(Duration::from_secs(15), next(&mut client, |event| matches!(event, EventData::AgentStatus(status) if status.id == id && status.status.kind == Kind::Idle).then_some(()))).await.unwrap_or_else(|_| panic!("{:?}",project.model.as_ref().unwrap().journal()));
+    tokio::time::timeout(project.bound(), project.next(&mut client, |event| matches!(event, EventData::AgentStatus(status) if status.id == id && status.status.kind == Kind::Idle).then_some(()))).await.unwrap_or_else(|_| panic!("{:?}",project.model.as_ref().unwrap().journal()));
     let ask = client
         .request("ask.send", json!({"text":"@Skill /a41-proof x"}))
         .await
         .unwrap();
-    next(&mut client, |event| matches!(event, EventData::AskChanged { ask: changed } if changed.id == ask["id"].as_str().unwrap() && changed.parts[0].state == contracts::ask::State::Typed).then_some(())).await;
+    project.next(&mut client, |event| matches!(event, EventData::AskChanged { ask: changed } if changed.id == ask["id"].as_str().unwrap() && changed.parts[0].state == contracts::ask::State::Typed).then_some(())).await;
     let model = project.model.as_ref().unwrap();
     let mut journal = Vec::new();
-    tokio::time::timeout(Duration::from_secs(15), async {
+    tokio::time::timeout(project.bound(), async {
         loop {
             journal = model.journal();
             if journal.iter().any(|entry| {
@@ -750,7 +816,7 @@ async fn b4699a_real_claude_spawns_one_shaping_child_in_the_existing_workstream(
     let door = client
         .request(
             "rail.createWorkstream",
-            json!({"name": "feedback", "parent": null}),
+            json!({"name": "feedback", "parent": null, "order":{"kind":"work","ask":"What is this Workstream for?","limits":[]}}),
         )
         .await
         .unwrap()["id"]
@@ -762,15 +828,19 @@ async fn b4699a_real_claude_spawns_one_shaping_child_in_the_existing_workstream(
         .await
         .unwrap();
     for kind in [Kind::Working, Kind::Idle] {
-        next(&mut client, |event| match event {
-            EventData::AgentStatus(status) if status.id == door && status.status.kind == kind => {
-                Some(())
-            }
-            _ => None,
-        })
-        .await;
+        project
+            .next(&mut client, |event| match event {
+                EventData::AgentStatus(status)
+                    if status.id == door && status.status.kind == kind =>
+                {
+                    Some(())
+                }
+                _ => None,
+            })
+            .await;
     }
-    let before: Vec<_> = rail_tree(&client)
+    let before: Vec<_> = project
+        .rail_tree(&client)
         .await
         .into_iter()
         .filter(|node| node.kind == contracts::agent::NodeKind::Workstream)
@@ -796,13 +866,14 @@ async fn b4699a_real_claude_spawns_one_shaping_child_in_the_existing_workstream(
     let mut completed = std::collections::BTreeSet::new();
     let mut working = std::collections::BTreeSet::new();
     while completed.len() < 2 {
-        let (id, kind) = next(&mut client, |event| match event {
-            EventData::AgentStatus(status) if status.id == door || status.id == spawned.id => {
-                Some((status.id.clone(), status.status.kind))
-            }
-            _ => None,
-        })
-        .await;
+        let (id, kind) = project
+            .next(&mut client, |event| match event {
+                EventData::AgentStatus(status) if status.id == door || status.id == spawned.id => {
+                    Some((status.id.clone(), status.status.kind))
+                }
+                _ => None,
+            })
+            .await;
         if kind == Kind::Working {
             working.insert(id.clone());
         }
@@ -815,7 +886,7 @@ async fn b4699a_real_claude_spawns_one_shaping_child_in_the_existing_workstream(
         .await
         .unwrap();
     assert_eq!(context["parent"]["id"], door);
-    let tree = rail_tree(&client).await;
+    let tree = project.rail_tree(&client).await;
     let after: Vec<_> = tree
         .iter()
         .filter(|node| node.kind == contracts::agent::NodeKind::Workstream)

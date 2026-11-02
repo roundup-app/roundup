@@ -1,6 +1,6 @@
 # Evidence references
 
-L112 changes evidence storage only. Paths under `artifacts/`, `crates/rpc/r16/` and `crates/rupd/evidence/` in scenarios/docs are artifact-relative payload names, not committed-file links. Required observers keep every assertion and condition in their scenario. A specification-only PR requires no payload. After 14-day Actions expiry, result summaries remain and the recorded command regenerates evidence; an expired artifact is no longer claimed downloadable.
+L112 changes evidence storage only. Capture payloads lived in the producing CI artifacts; committed copies were retired by SZ5455b. Paths under `artifacts/`, `crates/rpc/r16/` and `crates/rupd/evidence/` in scenarios/docs are artifact-relative payload names, not committed-file links. Required observers keep every assertion and condition in their scenario. A specification-only PR requires no payload. After 14-day Actions expiry, result summaries remain and the recorded command regenerates evidence; an expired artifact is no longer claimed downloadable.
 
 Historical statements remain observations at their named revisions. For a scenario id, use its Observer command at the stated revision, with `just capture <ids>` selecting only the cited ids. Native observers keep their scenario's Mac steps; executable observers/test inputs retiring with directories are relocated by #1651, while #1613 owns QA publication. These links describe no new observation.
 
@@ -42,10 +42,10 @@ Retired by A3564a–f (`scenarios/native-questions.md`): the user answers in the
 
 At 1512×950, an isolated headless agent-browser observed the App against the real Daemon and a temporary copy of `crates/rup/tests/e2e/fake_claude.py`. That copy handles `/clear` with `SessionStart` and no submit, holds `/held` until a release file appears, and injects refusal for `/model` by emitting no acceptance. These are controlled Adapter observations, not claims about running real Claude Code.
 
-- `/clear` reached Sent with Idle and remained typed through subsequent commands and acceptance bounds: [screen](../artifacts/ux/A2698a/head/real-clear.png), [rows](../artifacts/ux/A2698a/head/real-clear.rows.json).
-- `/held` showed Sent before its submit was released: [screen](../artifacts/ux/A2698a/head/real-held.png), [rows](../artifacts/ux/A2698a/head/real-held.json).
-- The injected refusal reached Failed with its Agent-naming reason and all three recovery actions; Drop changed it to dropped: [screen](../artifacts/ux/A2698a/head/real-refusal.png), [rows](../artifacts/ux/A2698a/head/real-refusal.rows.json). D1–D14 pass on the [real refusal screen](../artifacts/ux/A2698a/head/real-refusal.checks.json).
-- On `tree-40`, the failed reason and recovery controls remain visible, alongside Sent and the live Kind: [before](../artifacts/ux/A2698a/base/dense.png), [after](../artifacts/ux/A2698a/head/dense.png). D2/D5 pass. D6/D7 fail on `input.todo-tick` on both baseline `9ae183686` and the changed App; D10 reports those failures. All other Checks keep passing. `loop/rules.sh delta` reports no regression; the Ask controls add no D6 failure.
+- `/clear` reached Sent with Idle and remained typed through subsequent commands and acceptance bounds: screen (CI artifact), rows (CI artifact).
+- `/held` showed Sent before its submit was released: screen (CI artifact), rows (CI artifact).
+- The injected refusal reached Failed with its Agent-naming reason and all three recovery actions; Drop changed it to dropped: screen (CI artifact), rows (CI artifact). D1–D14 pass on the real refusal screen (CI artifact).
+- On `tree-40`, the failed reason and recovery controls remain visible, alongside Sent and the live Kind: before (CI artifact), after (CI artifact). D2/D5 pass. D6/D7 fail on `input.todo-tick` on both baseline `9ae183686` and the changed App; D10 reports those failures. All other Checks keep passing. `loop/rules.sh delta` reports no regression; the Ask controls add no D6 failure.
 
 The behavioral observers are A2698a's named A41/H11 and U505/U506 tests. The existing tests in those files retain distinct proofs (byte framing, durable claim, ordinary instruction acceptance, ordering, selection, refusal reason and waiting-part recovery); no complete proof is replaced, so none was removed. The ordinary lost-submit observer additionally rejects local-command Signals; the existing live-row observer now checks immediate Sent and subsequent activity changes.
 

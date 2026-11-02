@@ -60,7 +60,7 @@ const readers: { site: string; method: "todo.unread" | "todo.comments" | "todo.g
   { site: "Todo history", method: "todo.getHistory", render: () => <TodoComments id={1} />, refresh: m => m.app.emit(event({ name: "todo.deleted", data: { id: 2 } })) },
   { site: "Todo Pad references", method: "todo.refs", render: () => <TodoRefs id={1} />, refresh: m => m.app.emit(event({ name: "pad.changed", data: { name: "Plan" } })) },
   { site: "Pads", method: "pad.list", render: () => <Pads />, refresh: m => m.app.emit(event({ name: "pad.changed", data: { name: "Plan" } })) },
-  { site: "Reactions", method: "reaction.list", render: () => <ReactionSite />, refresh: () => window.dispatchEvent(new Event("focus")) },
+  { site: "Reactions", method: "reaction.list", render: () => <ReactionSite />, refresh: m => m.app.emit(event({ name: "reaction.changed" })) },
   { site: "Work progress", method: "message.progress", render: () => <WorkProgress id="a" />, refresh: m => m.app.emit(event({ name: "rail.changed" })) },
 ];
 
@@ -77,7 +77,10 @@ it.each(readers)("u3807_each_site_shows_its_message_in_the_reserved_line: $site"
 
   if (site.method === "todo.unread") await within(view.container).findByText(copy.inboxEmpty);
 
-  if (site.method === "todo.getHistory") await within(view.container).findByText(/^Created /);
+  if (site.method === "todo.getHistory") {
+    fireEvent.click(await within(view.container).findByRole("button", { name: "1 change" }));
+    await within(view.container).findByText(/^Created /);
+  }
 
   if (site.method === "pad.list") await waitFor(() => expect(view.container.querySelector(".empty-state")).not.toBeNull());
 
@@ -147,7 +150,7 @@ const cycle = async <Shown, Cleared,>(surface: HTMLElement, show: () => Shown, h
 };
 
 it("u3807_each_site_shows_its_message_in_the_reserved_line: Diff reader", async () => {
-  const mounted = await mountTodos([]);
+  const mounted = await mountControl();
   mounted.app.handlers["agent.compareFile"] = () => ({ ...COMPARISON, status: null });
   const notes = notesFor(mounted.app, mounted.connected.project.path, mounted.connected.drafts);
   const view = render(() => <ConnectedProjectContext.Provider value={mounted.connected}><DiffReader id="a" name="alpha" path="a.ts" notes={notes} onEdited={() => {}} onBack={() => {}} onClose={() => {}} recover={() => {}} /></ConnectedProjectContext.Provider>);
@@ -155,7 +158,7 @@ it("u3807_each_site_shows_its_message_in_the_reserved_line: Diff reader", async 
   await cycle(view.container,
     () => { mounted.app.handlers["agent.compareFile"] = () => { throw new RpcError(-32003, FAILURE); };
 
- fireEvent.click(within(view.container).getByRole("button", { name: "Refresh" })); },
+ return mounted.connected.worktrees.refresh("a"); },
     () => { mounted.app.handlers["agent.compareFile"] = () => ({ ...COMPARISON, status: null }); fireEvent.click(within(view.container).getByRole("button", { name: "Retry" })); });
 });
 
@@ -176,7 +179,7 @@ it("u3807_each_site_shows_its_message_in_the_reserved_line: worktree panel", asy
 it("u3807_each_site_shows_its_message_in_the_reserved_line: importer Looking and failure", async () => {
   const mounted = await mountTodos([]);
   render(() => <ConnectedProjectContext.Provider value={mounted.connected}><ImportPanel onClose={() => {}} /></ConnectedProjectContext.Provider>);
-  const surface = await within(document.body).findByRole("region", { name: "Import Claude Code work" });
+  const surface = await within(document.body).findByRole("region", { name: "Import Claude Code" });
   const read = gate<{ candidates: []; excluded: [] }>();
   mounted.app.handlers["project.importDiscover"] = () => read.promise;
   const pending = mounted.connected.importing.refresh();
@@ -351,13 +354,13 @@ it.each(["window", "Daemon exit", "Project"])("u3807_each_site_shows_its_message
     const place = message.closest<HTMLElement>(".reserved-line")!;
     fireEvent.click(within(place).getByRole("button", { name: "Reopen" }));
     await waitFor(() => expect(within(surface).queryByRole("alert")).toBeNull());
-    await within(surface).findByRole("button", { name: /Overview, Project root/ });
+    await within(surface).findByRole("button", { name: /Overview/ });
   } else {
     const original = app.chooseProjectPath;
     await cycle(surface,
       () => { app.chooseProjectPath = async () => { throw new Error(FAILURE); };
 
- fireEvent.click(within(container).getByRole("button", { name: "Open a folder" })); },
-      () => { app.chooseProjectPath = original; app.chooser.path = "/p"; fireEvent.click(within(container).getByRole("button", { name: "Open a folder" })); });
+ fireEvent.click(within(container).getByRole("button", { name: "Open Project" })); },
+      () => { app.chooseProjectPath = original; app.chooser.path = "/p"; fireEvent.click(within(container).getByRole("button", { name: "Open Project" })); });
   }
 });

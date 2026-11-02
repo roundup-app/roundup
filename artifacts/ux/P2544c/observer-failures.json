@@ -1,7 +1,0 @@
-[
-  {
-    "observer": "post-merge head captures",
-    "failure": "Traceback (most recent call last):\n  File \"/tmp/roundup-pads/artifacts/ux/P2544c/observe.py\", line 28, in <module>\n    ab('set','media',scheme);opened(port)\n                             ^^^^^^^^^^^^\n  File \"/tmp/roundup-pads/artifacts/ux/P2544c/observe.py\", line 19, in opened\n    ab('wait','.ProseMirror[contenteditable=true]')\n  File \"/tmp/roundup-pads/artifacts/ux/P2544c/observe.py\", line 12, in ab\n    if r.returncode: raise RuntimeError(str(args)+r.stderr)\n                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nRuntimeError: ('wait', '.ProseMirror[contenteditable=true]')\u2717 Wait timed out after 30000ms\n\n",
-    "diagnosis": "The isolated editor mount exceeded the 30 s browser wait during the post-merge validation load. A fresh dedicated session subsequently mounted it with no browser error or alert. Retry on the idle host; no app or assertion change."
-  }
-]

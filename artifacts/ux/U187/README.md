@@ -1,7 +1,0 @@
-# U187 rendered observer
-
-Headless agent-browser on `just harness-real` (U144) over a real `rupd` started with `FAKE_CLAUDE_ON_PROMPT` (U146) answering `done $prompt` to `you`, at 1280×800 and 700×800. `observer.txt` is the run: a new Workstream's Door; the feed shows `done a` with the Door's Terminal hidden and the composer the one text input in the centre; `take over` shows the `Takeover: typing goes straight to <name>` band, the Terminal focused and no composer; typing `z` Enter reaches the fake `claude` (`done z` in the feed); `end takeover` returns to the Thread with the composer focused.
-
-`thread-*` and `takeover-*` are captures and `window.__checks()` readings. `base/` is `main`'s reading of the same step (a new Workstream, whose Door's Terminal shows). `main` fails D1, D6 and D7 on xterm's own `div.xterm-scrollable-element` and `textarea.xterm-helper-textarea`; the Takeover keeps them (the Terminal is shown), the Thread no longer shows the Terminal, so D1 passes there. A reading stops at its first failure, so `*-scoped-*` repeat it with the todos shelf's radio inputs (and in Takeover xterm's helper textarea) removed from the DOM, which `main` also has: D1 (Takeover only, xterm) aside, D2, D5, D6, D7 and D8 pass over the new `take over`, `end takeover` and band.
-
-The Door's Status settles to `error` (`prompt not accepted`) 8 s after start under this fake `claude` (`START_DOOR_ACK_BOUND`), so each step runs inside that window. Percy and the native shell are not part of this observer.

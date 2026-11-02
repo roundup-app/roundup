@@ -1,7 +1,7 @@
 //! The Daemon: every other part of roundup is a client of it.
 //! It owns the connection loop, the module router, the event bus and the Provenance log.
 
-mod attachment;
+mod actions;
 mod auto;
 #[cfg(test)]
 mod auto_tests;
@@ -13,9 +13,13 @@ mod contract_handlers;
 mod contract_tests;
 pub mod data;
 mod deliverables;
+#[cfg(test)]
+mod describe_tests;
 mod digest;
 mod event_log;
 mod evidence;
+mod extensions;
+mod github;
 mod guards;
 mod link;
 #[cfg(test)]
@@ -24,6 +28,7 @@ mod observers;
 mod open;
 mod output;
 mod owner_told;
+mod program_status;
 mod queue;
 mod reaction;
 mod reaction_checks;
@@ -32,12 +37,13 @@ mod removal;
 mod resources;
 mod restart;
 mod resume;
-mod rewind;
 mod route;
 mod selectors;
+pub mod skill;
 mod specialist;
 mod storage;
 
+mod rewind;
 mod todo_refs;
 mod waits;
 mod wake;
@@ -45,8 +51,8 @@ mod wake;
 pub use connection::serve;
 use connection::{Frame, failure};
 use observers::{
-    messages_env, resume_effect_observer, steer_effect_observer, terminal_exit_observer,
-    terminal_input_observer,
+    messages_env, overview_read_observer, resume_effect_observer, steer_effect_observer,
+    terminal_exit_observer, terminal_input_observer,
 };
 use route::{HomeOnly, OwnerOnly};
 use specialist::Specialist;
@@ -85,9 +91,6 @@ pub struct Daemon {
     digests: Arc<messages::digest::Seen>,
     /// B21, B22: where a push is sent from, once `open` has made it.
     sender: Arc<std::sync::OnceLock<Arc<messages::Messages>>>,
-    /// A35: the Marks a rewind reads, and the rewinds under way.
-    checkpoints: Arc<checkpoints::Checkpoints>,
-    rewinding: rewind::Rewinding,
     restarting: tokio::sync::Mutex<()>,
     /// A3196: what the Workstream Queue remembers between passes.
     queue: Arc<queue::Memory>,
@@ -106,16 +109,22 @@ pub struct Daemon {
     agents: Arc<agents::Agents>,
     /// X14: where a connection's selected output streams come from.
     terminals: Arc<terminal::Terminals>,
+    /// PS8: each Terminal's program status; the changes are subscribed at `open`, taken once.
+    program_statuses: Arc<program_status::Statuses>,
+    program_changes:
+        std::sync::Mutex<Option<tokio::sync::broadcast::Receiver<Arc<terminal::Change>>>>,
     /// A33: like `pushes`, with what keeps the Agents' waits current.
     waits: std::sync::Mutex<Option<Waiter>>,
-    /// U419: where `attachment.save` keeps a pasted image.
-    attachments: attachment::Attachments,
     /// D8: samples only inside `project.resources`.
     resources: resources::Sampler,
     publications: deliverables::Publications,
     reactions: Arc<reaction::Reactions>,
     /// An isolated observer pauses a guarded call before its effect; absent in production.
     prompt_effect_gate: Option<std::path::PathBuf>,
+    /// NA6: the App that answers `action.list` and `action.run`.
+    actions: actions::Answerer,
+    /// UA1: the owner's Extensions, started once the socket is served.
+    extensions: extensions::Host,
 }
 
 type Waiter = (
@@ -320,6 +329,13 @@ impl Daemon {
         }
     }
 
+    /// Loads Extensions from `dir` instead of the Daemon's own default (UA1).
+    #[must_use]
+    pub fn with_extensions(mut self, dir: &Path) -> Self {
+        self.extensions = extensions::Host::new(dir.to_path_buf());
+        self
+    }
+
     /// Observe future events directly on this Daemon's global Bus, with its retained-event
     /// capacity. The caller controls reads: falling behind returns Tokio's structured
     /// `RecvError::Lagged`, without pausing producers or other subscribers. No forwarding
@@ -384,6 +400,8 @@ impl Daemon {
     }
 }
 
+#[cfg(test)]
+mod actions_tests;
 #[cfg(test)]
 mod tests;
 
@@ -451,25 +469,6 @@ pub mod test_support {
                 }
                 _ => Err(RpcError::method_not_found(method)),
             }
-        }
-    }
-    impl messages::TerminalOwners for ReplyState {
-        fn with_terminal_owner(
-            &self,
-            terminal: &str,
-            record: &mut dyn FnMut(Option<&agents::TerminalOwner>) -> Result<(), RpcError>,
-        ) -> Result<(), RpcError> {
-            let nodes = self.nodes.lock().unwrap();
-            let owner = nodes
-                .iter()
-                .find(|n| n.terminal_id.as_deref() == Some(terminal))
-                .map(|n| agents::TerminalOwner {
-                    id: n.id.clone(),
-                    attempt: n.attempt.clone(),
-                    status_revision: n.status_revision.clone(),
-                    ended: false,
-                });
-            record(owner.as_ref())
         }
     }
     #[async_trait]

@@ -1,5 +1,0 @@
-from importlib.machinery import SourceFileLoader
-m=SourceFileLoader('collect','/tmp/r23-collect.py').load_module()
-for ref,daemon in [('candidate','historical'),('historical','candidate')]:
- cmd=[f'/tmp/r23-bins/{ref}-perf','--runs','1','--rupd',f'/tmp/r23-bins/{daemon}-rupd','--out',str(m.ROOT/f'{ref}-probe-{daemon}-daemon.json')]
- m.run(f'{ref}-probe-{daemon}-daemon',cmd,cwd=f'/tmp/r23-{ref}',timeout=60)

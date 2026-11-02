@@ -11,7 +11,7 @@ it.each([-32603, -32004, -32006, -32008, 42])("u3791b_connected_submit_retains_u
   let reject!: (error: Error) => void;
   mounted.app.handlers["agent.spawn"] = () => new Promise((_, no) => { reject = no; });
   fireEvent.keyDown(document, { key: "n", metaKey: true, shiftKey: true });
-  const field = screen.getByLabelText<HTMLTextAreaElement>("Task");
+  const field = screen.getByLabelText<HTMLTextAreaElement>("Work");
   fireEvent.input(field, { target: { value: " exact submitted 🌿\n " } });
   fireEvent.keyDown(field, { key: "Enter" });
   fireEvent.input(field, { target: { value: " newer work e\u0301 " } });

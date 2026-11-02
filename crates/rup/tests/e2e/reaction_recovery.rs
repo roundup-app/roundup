@@ -1,6 +1,5 @@
 //! NR3/NR5: durable recovery, source gaps and failed observation writes.
 use super::*;
-use crate::daemon::storage::{PROJECT_V35, legacy_reaction};
 
 #[tokio::test]
 async fn nr5_gaps_require_condition_specific_evidence() {
@@ -80,9 +79,16 @@ async fn nr3_automatic_write_failure_is_inspectable_and_recovers() {
     assert!(failed.observation.recovery.is_some());
     assert_eq!(failed.remaining, 1);
     // Atomicity itself is proved by messages::tests::b_fault_tests::nr3_firing_and_message_commit_together.
-    // Reopening with the fault still present must retain an inspectable failure and the unspent bound.
+    // Reopening must retain an inspectable failure and the unspent bound. A Project refuses to open
+    // with a trigger its migrations did not build (N5420a), so the fault is lifted for the reopen
+    // and set again before anything can fire: a reopen alone fires nothing, only a started Door does.
     drop(s.user);
+    s.project.crash();
+    project_db(&s.project)
+        .execute_batch("DROP TRIGGER refuse_reaction")
+        .unwrap();
     s.project.restart(&[]);
+    project_db(&s.project).execute_batch("CREATE TRIGGER refuse_reaction BEFORE INSERT ON reaction_firings BEGIN SELECT RAISE(ABORT, 'reaction write refused'); END;").unwrap();
     s.user = s.project.client().await;
     let kept = current(&s, &saved).await;
     assert!(
@@ -128,7 +134,7 @@ async fn nr3_automatic_write_failure_is_inspectable_and_recovers() {
 }
 
 #[tokio::test]
-async fn nr3_legacy_firings_keep_identity_on_upgrade_and_replay() {
+async fn nr3_current_firings_keep_identity_on_restart_and_replay() {
     let acceptance = |f: &contracts::reaction::Firing| {
         (
             f.id.clone(),
@@ -142,7 +148,7 @@ async fn nr3_legacy_firings_keep_identity_on_upgrade_and_replay() {
     for manual_first in [true, false] {
         let mut s = scene(&[]).await;
         s.w = crate::start_door(&s.user).await;
-        let mut body = definition(&s.w, "legacy firing");
+        let mut body = definition(&s.w, "current firing");
         body["condition"]["ids"] = json!([s.a]);
         body["rearm"] = json!(true);
         body["max_firings"] = json!(2);
@@ -165,17 +171,14 @@ async fn nr3_legacy_firings_keep_identity_on_upgrade_and_replay() {
         assert_eq!(first.firings.len(), 1);
         drop(s.user);
         s.project.crash();
-        {
-            legacy_reaction(&s.project.data_dir().join("project.db"), PROJECT_V35[18]);
-            if !manual_first {
-                let db = project_db(&s.project);
-                // NR3's crash between firing commit and Watch save: automatic replay must reuse it.
-                db.execute(
-                    "UPDATE reaction_watch SET state=?1 WHERE reaction=?2",
-                    [&watch, &saved.id],
-                )
-                .unwrap();
-            }
+        if !manual_first {
+            let db = project_db(&s.project);
+            // NR3's crash between firing commit and Watch save: automatic replay must reuse it.
+            db.execute(
+                "UPDATE reaction_watch SET state=?1 WHERE reaction=?2",
+                [&watch, &saved.id],
+            )
+            .unwrap();
         }
         s.project.restart(&[]);
         s.user = s.project.client().await;
@@ -200,7 +203,7 @@ async fn nr3_legacy_firings_keep_identity_on_upgrade_and_replay() {
             retry.firings.iter().map(acceptance).collect::<Vec<_>>(),
             ran.firings.iter().map(acceptance).collect::<Vec<_>>()
         );
-        let sent = messages(&s.user, &s.w, "legacy firing").await;
+        let sent = messages(&s.user, &s.w, "current firing").await;
         assert_eq!(sent.len(), 2);
         for firing in &ran.firings {
             assert!(
@@ -324,7 +327,12 @@ async fn nr3_watch_write_failure_is_visible_and_keeps_eligible_work() {
         assert!(recovered.observation.recovery.is_none());
         if reopen {
             start_again(&s.user, &s.w).await;
-            start_again(&s.user, &s.a).await;
+            // Restart the watched Door without completing a turn: the cycle below is the
+            // next eligible finish. Only the recipient needs input now to admit delivery.
+            s.user
+                .request("rail.startDoor", json!({ "id": s.a }))
+                .await
+                .unwrap();
         }
         drive(&s.user, &s.a, WORK).await;
         watching(&s, "watch-write", &[&s.a], mode.clone()).await;

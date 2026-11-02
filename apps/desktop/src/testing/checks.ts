@@ -197,9 +197,14 @@ const d2 = (page: Page): Measure =>
 
     const size = px(page.resolve(style.fontSize));
 
-    // The shared document headings are fixed 20/24 px Tokens (unlike the
-    // interface-scaled 11–15 px steps). No intermediate type sizes are allowed.
-    if (size !== null && ![20, 24, ...[...TYPE_STEPS].map(step => step * Number(page.token("interface-scale") ?? 1))].some(step => Math.abs(size - step) < 0.01)) return { fontSize: style.fontSize };
+    const scale = Number(page.token("interface-scale") ?? 1);
+    const inPad = el.closest(".pad-body .reading") !== null;
+    // U5574's six steps are one ratio, scoped to Pad document descendants.
+    const padBody = (px(page.token("pad-text-base") ?? "") ?? NaN) * scale;
+    const padRatio = Number(page.token("pad-type-ratio"));
+    const padTypes = inPad ? [-1, 0, 1, 2, 3, 4].map(power => padBody * padRatio ** power) : [];
+
+    if (size !== null && ![20, 24, ...[...TYPE_STEPS].map(step => step * scale), ...padTypes].some(step => Math.abs(size - step) < 0.01)) return { fontSize: style.fontSize };
 
     const level = Number(el.getAttribute("aria-level"));
 
@@ -212,6 +217,8 @@ const d2 = (page: Page): Measure =>
     const chip = el.matches("kbd.key-chip");
     const chipPadding = px(page.token("key-chip-padding") ?? "");
 
+    const padSpaces = inPad ? [1, 2, 3, 4, 6, 7, 8].map(step => step * (px(page.token("pad-rhythm-base") ?? "") ?? NaN) * scale) : [];
+
     for (const property of ["margin-top", "margin-right", "margin-bottom", "margin-left", "padding-top", "padding-right", "padding-bottom", "padding-left", "row-gap", "column-gap"]) {
       const value = px(page.resolve(style.getPropertyValue(property)));
 
@@ -221,7 +228,7 @@ const d2 = (page: Page): Measure =>
       const chipVertical = chip && (property === "padding-top" || property === "padding-bottom");
 
       const conforms = chipSide ? chipPadding === 5 && value === chipPadding : chipVertical ? value === 0
-        : value === null || SPACE_STEPS.has(value) || (property === treeSide && treePadding !== null && value === treePadding);
+        : value === null || SPACE_STEPS.has(value) || padSpaces.some(step => Math.abs(value - step) < 0.01) || (property === treeSide && treePadding !== null && value === treePadding);
 
       if (!conforms) return { [property]: style.getPropertyValue(property) };
     }
@@ -442,7 +449,7 @@ const d6 = (page: Page): Measure => {
 
     // Every fault of the first failing target is named at once, so one fix answers them all.
     // U353: a text field answers with a caret, so only its hit area is measured.
-    const text = el.matches("input[type=text]");
+    const text = el.matches("input[type=text], input[type=search]");
 
     const missing = text ? [] : (declares(stateRules(page, el, ":hover"), "background", "background-color", "background-image", "color") ? [] : ["hover"]);
 
@@ -536,7 +543,7 @@ const d8 = (page: Page): Measure => {
     };
 
     // U375 requires the Watch overlay to cast the Drawer shadow on its surface.
-    const surfaceShadow = el.matches(".shelf[data-open=true], .app-dialog[data-scope=dialog][data-part=content][role=dialog], .app-dialog[data-scope=dialog][data-part=content][role=alertdialog], .app-menu[data-scope=menu][data-part=content][role=menu], .app-popover[data-scope=popover][data-part=content], .milkdown-slash-menu, .worktree-panel, .app-mentions-panel, .owner-picker, .rail-confirm.app-dialog, .todo-delete-confirm.app-dialog, .import-panel, .capture.app-dialog, .new-workstream.app-dialog, .project-settings.app-dialog, .app-select-list[data-scope=select][data-part=content][role=listbox]") && shadowParts(shadow) !== "" && shadowParts(shadow) === shadowParts("var(--elevation)");
+    const surfaceShadow = el.matches(".shelf[data-open=true], .app-dialog[data-scope=dialog][data-part=content][role=dialog], .app-dialog[data-scope=dialog][data-part=content][role=alertdialog], .app-menu[data-scope=menu][data-part=content][role=menu], .app-popover[data-scope=popover][data-part=content], .milkdown-slash-menu, .worktree-panel, .pane .terminal-find, .app-mentions-panel, .owner-picker, .rail-confirm.app-dialog, .todo-delete-confirm.app-dialog, .import-panel, .capture.app-dialog, .new-workstream.app-dialog, .project-settings.app-dialog, .app-select-list[data-scope=select][data-part=content][role=listbox]") && shadowParts(shadow) !== "" && shadowParts(shadow) === shadowParts("var(--elevation)");
 
     if (shadow && shadow !== "none" && !surfaceShadow && !el.matches("aside, aside *, .bubble") && el.tagName !== "ASIDE") return { boxShadow: shadow };
 

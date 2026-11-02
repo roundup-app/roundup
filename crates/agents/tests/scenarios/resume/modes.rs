@@ -60,7 +60,7 @@ async fn a2693a_running_and_exited_targets_continue_once_in_each_mode() {
         for running in [false, true] {
             for mode in ["normal", "yolo"] {
                 let f = Arc::new(Fixture::running(
-                    r#"here=$(dirname "$0"); if [ -f "$here/live.pid" ] && kill -0 "$(cat "$here/live.pid")" 2>/dev/null; then echo overlap > "$here/overlap"; fi; echo $$ > "$here/live.pid"; echo "$@" > "$here/argv.txt"; pwd > "$here/cwd.txt"; sleep 30"#,
+                    r#"here=$(dirname "$0"); if [ -f "$here/live.pid" ] && kill -0 "$(cat "$here/live.pid")" 2>/dev/null; then echo overlap > "$here/overlap"; fi; echo $$ > "$here/live.pid"; pwd > "$here/cwd.txt"; echo "$@" > "$here/argv.txt"; sleep 30"#,
                 ));
                 let node = if door {
                     let id = f.workstream("work", None).await;
@@ -96,6 +96,7 @@ async fn a2693a_running_and_exited_targets_continue_once_in_each_mode() {
                         .unwrap()
                         .running
                 );
+                // The fixture publishes argv last, so cwd and overlap are ready to inspect.
                 let argv = until_resumed(&f).await;
                 assert!(argv.contains(&format!("--resume {CONVERSATION}")));
                 assert!(

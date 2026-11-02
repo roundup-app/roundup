@@ -40,3 +40,15 @@ export const draftsOf = (storage: Drafts) => {
     retry: () => { storage.retry(); },
   };
 };
+
+const dismissedSchema = storageSchema("roundup:dismissed", v.array(v.string()));
+
+/** U5151c: the failures the owner dismissed in one Project. */
+export const dismissalStorage = (path: string) => storedValue(`roundup:dismissed:${path}`, dismissedSchema);
+
+const resumedSchema = storageSchema("roundup:resumed", v.record(v.string(), v.object({ attempt: v.nullable(v.string()), since: v.number() })));
+
+/** U5483c: accepted resumption evidence survives connection replacement without changing the user's Rail layout. */
+export const resumptionStorage = (path: string) => storedValue(`roundup:resumed:${path}`, resumedSchema);
+
+export type ResumptionStorage = Pick<ReturnType<typeof resumptionStorage>, "read" | "write">;

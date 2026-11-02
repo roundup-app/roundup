@@ -4,7 +4,6 @@
 mod daemon;
 
 use contracts::{EventData, Kind};
-use daemon::{next, rail_tree};
 use serde_json::json;
 
 #[tokio::test]
@@ -26,18 +25,6 @@ async fn o12_the_door_spawns_with_order_and_the_users_words() {
         .request("rail.startDoor", json!({"id": door}))
         .await
         .unwrap();
-    let mut working = false;
-    loop {
-        let kind = next(&mut client, |event| match event {
-            EventData::AgentStatus(status) if status.id == door => Some(status.status.kind),
-            _ => None,
-        })
-        .await;
-        working |= kind == Kind::Working;
-        if working && kind == Kind::Idle {
-            break;
-        }
-    }
     client
         .request(
             "message.send",
@@ -68,7 +55,7 @@ async fn o12_the_door_spawns_with_order_and_the_users_words() {
         .await
         .unwrap();
     assert_eq!(stored["prompt"], typed);
-    let tree = rail_tree(&client).await;
+    let tree = project.rail_tree(&client).await;
     let node = tree.iter().find(|node| node.id == spawned.id).unwrap();
     let order = serde_json::to_value(node).unwrap();
     assert_eq!(order["work"]["ask"], "Make the build pass on main.");
@@ -76,11 +63,14 @@ async fn o12_the_door_spawns_with_order_and_the_users_words() {
     assert_eq!(node.parent.as_deref(), Some(door.as_str()));
     let mut working = false;
     loop {
-        let kind = next(&mut client, |event| match event {
-            EventData::AgentStatus(status) if status.id == spawned.id => Some(status.status.kind),
-            _ => None,
-        })
-        .await;
+        let kind = project
+            .next(&mut client, |event| match event {
+                EventData::AgentStatus(status) if status.id == spawned.id => {
+                    Some(status.status.kind)
+                }
+                _ => None,
+            })
+            .await;
         working |= kind == Kind::Working;
         if working && kind == Kind::Idle {
             break;

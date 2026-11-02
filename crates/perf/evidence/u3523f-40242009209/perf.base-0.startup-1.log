@@ -1,3 +1,0 @@
-startup: stores {"storage_ms":2.973059,"base_ms":0.224808,"agents_ms":1.443811,"services_ms":0.780594,"messages_ms":1.139813}
-rupd: runtime_ms 0.340862
-rupd: serving /tmp/.tmpQE5Q88/project on /tmp/.tmpQE5Q88/rupd.sock (open 6.68 ms, bound 6.72 ms)

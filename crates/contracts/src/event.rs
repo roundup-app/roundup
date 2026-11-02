@@ -1,11 +1,12 @@
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
 use crate::common::Actor;
-use crate::{agent, checkpoint, message, pad, project, terminal, todo, workstream};
+use crate::{agent, message, pad, project, terminal, todo, workstream};
 
 /// Pushed to subscribers as a JSON-RPC notification: `{"method":"event","params":<Event>}`.
-#[derive(Clone, Debug, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 #[serde(tag = "name", content = "data")]
 pub enum EventData {
     #[serde(rename = "workstream.updated")]
@@ -14,6 +15,8 @@ pub enum EventData {
     AskChanged { ask: Box<crate::ask::Ask> },
     #[serde(rename = "terminal.title")]
     TerminalTitle(terminal::TitleEvent),
+    #[serde(rename = "terminal.status")]
+    TerminalStatus(terminal::TerminalStatusEvent),
     #[serde(rename = "terminal.exited")]
     TerminalExited(terminal::ExitedEvent),
     /// A Terminal with an owner opened, closed or was forgotten (X11, X12): read `terminal.list`.
@@ -72,23 +75,31 @@ pub enum EventData {
     AgentStray(agent::StrayEvent),
     #[serde(rename = "agent.toolCall")]
     AgentToolCall(Box<agent::ToolCallEvent>),
+    /// Publication metadata committed; read `deliverable.list`.
+    #[serde(rename = "deliverable.changed")]
+    DeliverableChanged,
+    /// Saved Reaction, observation or firing changed; read `reaction.list`.
+    #[serde(rename = "reaction.changed")]
+    ReactionChanged,
     #[serde(rename = "rail.changed")]
     RailChanged,
     /// A2741a: the exact destination and name committed under the Rail mutation lock.
     #[serde(rename = "rail.renamed")]
     RailRenamed { id: String, name: String },
-    #[serde(rename = "checkpoint.written")]
-    CheckpointWritten(checkpoint::Checkpoint),
-    #[serde(rename = "workstream.rewound")]
-    WorkstreamRewound(workstream::Rewound),
     #[serde(rename = "project.requested")]
     ProjectRequested(project::Requested),
     /// A3195: the Queue or the Project's cap changed; read `workstream.queue`.
     #[serde(rename = "workstream.queueChanged")]
     WorkstreamQueueChanged,
+    /// UA7: the User actions changed (a load, reload or removal); read `action.userList`.
+    #[serde(rename = "action.userChanged")]
+    ActionUserChanged,
+    /// UA2, UA6, UA8: an Extension failed; the App shows one Toast.
+    #[serde(rename = "extension.problem")]
+    ExtensionProblem(crate::action::ExtensionProblem),
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 pub struct Event {
     /// The Event number: set on every saved Event (D10).
     #[serde(default, skip_serializing_if = "Option::is_none")]

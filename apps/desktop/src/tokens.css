@@ -93,7 +93,7 @@
   --shelf-width: 320px;
   --centre-min-width: 388px;
   /* U131: title geometry, including empty leading slots; not a space step. */
-  --row-text-inset: 32px;
+  --row-text-inset: 44px;
   --row-inset: var(--space-1);
   --flat-tab-edge: 1px;
   /* U130: typed zero lengths remain valid in max(), gradients and fallbacks. */
@@ -174,9 +174,11 @@
   --terminal-type-step: 0.1;
   --letter-terminal: 0px;
   --weight-terminal: 300;
+  --inset-box: color-mix(in srgb, var(--text) 5%, var(--ground));
   --text-caption: calc(11px * var(--interface-scale));
   --text-small: calc(12px * var(--interface-scale));
-  --text-body: calc(13px * var(--interface-scale));
+  --text-body-base: 13px;
+  --text-body: calc(var(--text-body-base) * var(--interface-scale));
   --text-row: calc(14px * var(--interface-scale));
   --text-terminal-min: 9px;
   --text-terminal-max: 21px;
@@ -184,6 +186,28 @@
   --text-pad-subheading: 20px;
   --text-pad-heading: 24px;
   --line: 24px;
+  /* U5574: one modular Pad scale; interface and Todo roles stay independent. */
+  --pad-type-ratio: 1.125;
+  --pad-text-base: 15px;
+  --pad-text-body: calc(var(--pad-text-base) * var(--interface-scale));
+  --pad-text-small: calc(var(--pad-text-body) / var(--pad-type-ratio));
+  --pad-text-h4: calc(var(--pad-text-body) * var(--pad-type-ratio));
+  --pad-text-h3: calc(var(--pad-text-h4) * var(--pad-type-ratio));
+  --pad-text-h2: calc(var(--pad-text-h3) * var(--pad-type-ratio));
+  --pad-text-h1: calc(var(--pad-text-h2) * var(--pad-type-ratio));
+  --pad-rhythm-base: 4px;
+  --pad-rhythm: calc(var(--pad-rhythm-base) * var(--interface-scale));
+  --pad-gap-item: var(--pad-rhythm);
+  --pad-gap-heading: calc(var(--pad-rhythm) * 2);
+  --pad-gap-block: calc(var(--pad-rhythm) * 4);
+  --pad-gap-section: calc(var(--pad-rhythm) * 8);
+  --pad-cell-inline: calc(var(--pad-rhythm) * 3);
+  --pad-line-body: calc(var(--pad-rhythm) * 6);
+  --pad-line-h4: calc(var(--pad-rhythm) * 6);
+  --pad-line-h3: calc(var(--pad-rhythm) * 6);
+  --pad-line-h2: calc(var(--pad-rhythm) * 7);
+  --pad-line-h1: calc(var(--pad-rhythm) * 8);
+  --pad-reading-width: calc(54ch + var(--reading-gutter) * 2);
   --line-menu: 1.4;
   --pad-menu-max-height: 320px;
   --pad-menu-min-width: 192px;
@@ -279,7 +303,7 @@ button, file-tree-container, diffs-container {
 }
 
 /* U3805: Explicit choices use the same Token columns regardless of the host scheme. */
-:root[data-mode="light"] {
+:is(:root, .settings-appearance-preview)[data-mode="light"] {
   --surface: #ffffff;
   --terminal-background: #ffffff;
   --terminal-foreground: #4d4d4c;
@@ -328,7 +352,7 @@ button, file-tree-container, diffs-container {
   --shadow-scroll: inset 0 8px 8px -8px rgba(0, 0, 0, 0.18);
 }
 
-:root[data-mode="dark"] {
+:is(:root, .settings-appearance-preview)[data-mode="dark"] {
     --surface: var(--gray-3);
     --terminal-background: #1a1b1d;
     --terminal-foreground: #d4d4d4;
@@ -462,7 +486,7 @@ button, file-tree-container, diffs-container {
 }
 
 /* U3512b: one recipe for web modals, anchored panels and the movable Terminal Bubble. */
-:is(.app-dialog, .app-menu, .app-popover, .app-select-list, .bubble, .milkdown-slash-menu, .top-bar-heading-dropdown, .link-preview, .link-edit, .cell-handle .button-group) {
+:is(.app-dialog, .app-menu, .app-popover, .app-select-list, .bubble, .terminal-find, .milkdown-slash-menu, .top-bar-heading-dropdown, .link-preview, .link-edit, .cell-handle .button-group) {
   color: var(--text);
   background-color: var(--surface);
   border: 0;

@@ -1,6 +1,0 @@
-from importlib.machinery import SourceFileLoader
-m=SourceFileLoader('ident','/tmp/r23-identity-init.py').load_module();run=m.run
-for ref,method,offset in [('historical','local',0x3c1750),('historical','remote',0x3c1af0),('candidate','local',0x170e000),('candidate','remote',0x170e3a0),('candidate','send',0x1432c90)]:
- run(ref+'-'+method+'-return-v1-remove',['sudo','-n','sh','-c','printf "%s\\n" "$1" >> /sys/kernel/tracing/uprobe_events','sh',f'-:uprobes/p_{ref}_{offset:#x}'])
- run(ref+'-'+method+'-return-v2-add',['sudo','-n','sh','-c','printf "%s\\n" "$1" >> /sys/kernel/tracing/uprobe_events','sh',f'r:r23i/{ref}_{method}_return /tmp/r23-queue-bins/{ref}-instrumented-rupd:{offset:#x}'])
-run('registered-definitions-v2',['sudo','-n','cat','/sys/kernel/tracing/uprobe_events'])

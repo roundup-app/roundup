@@ -2,7 +2,7 @@ import { copy as sharedCopy, type CopyValue } from "../sharedCopy";
 
 export const copy = {
   age: {
-    now: "now",
+    now: sharedCopy.now,
     minutes: (value: number) => `${value}m`,
     hours: (value: number) => `${value}h`,
     days: (value: number) => `${value}d`,
@@ -13,7 +13,6 @@ export const copy = {
   couldNotDelete: "Could not delete",
   todos: sharedCopy.todos,
   pads: sharedCopy.pads,
-  cancel: sharedCopy.cancel,
   rename: sharedCopy.rename,
   needsYouGlyph: sharedCopy.needsYouGlyph,
   blocked: sharedCopy.blocked,
@@ -33,8 +32,7 @@ export const copy = {
   shelfDeletion: "Bench deletion",
   selected: " selected",
   deleteWord: "Delete ",
-  agentsMayStillBeWritingDeletingDoesNot: (names: CopyValue) => `${names} may still be writing; deleting does not stop them`,
-  refresh: sharedCopy.refresh,
+  agentsMayStillBeWritingDeletingDoesNot: (names: CopyValue) => `${names} may still be writing. Deleting does not stop them.`,
   colon: ": ",
   shelfLabel: sharedCopy.shelfLabel,
   me: sharedCopy.me,

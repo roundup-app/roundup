@@ -11,7 +11,6 @@ test-support = ["agents/test-support", "dep:async-trait"]
 async-trait = { workspace = true, optional = true }
 agents = { path = "../agents" }
 base64.workspace = true
-checkpoints = { path = "../checkpoints" }
 contracts = { path = "../contracts" }
 getrandom = "0.3"
 memchr = "2"
@@ -21,7 +20,7 @@ pads = { path = "../pads" }
 provenance = { path = "../provenance" }
 rpc = { path = "../rpc" }
 reqwest = { version = "0.13.5", default-features = false, features = ["rustls"] }
-rusqlite = { workspace = true, features = ["hooks"] }
+rusqlite = { workspace = true, features = ["hooks", "serialize"] }
 rusqlite_migration.workspace = true
 serde.workspace = true
 serde_json.workspace = true
@@ -40,8 +39,12 @@ rusqlite.workspace = true
 rusqlite_migration.workspace = true
 
 [dev-dependencies]
+allocation-counter = "0.8.1"
+terminal = { path = "../terminal", features = ["test-support"] }
+tokio = { workspace = true, features = ["test-util"] }
 agents = { path = "../agents", features = ["test-support"] }
 async-trait.workspace = true
+jsonschema = { version = "0.60.2", default-features = false }
 tempfile.workspace = true
 
 [lints]

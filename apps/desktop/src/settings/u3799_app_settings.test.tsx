@@ -22,7 +22,7 @@ it("u3799_the_event_and_cmd_comma_open_app_settings_in_the_center_with_four_grou
   fireEvent.keyDown(window, { key: ",", code: "Comma", metaKey: true });
   const view = await screen.findByRole("region", { name: "Settings" });
   expect(within(screen.getByRole("region", { name: "Centre" })).getByRole("region", { name: "Settings" })).toBe(view);
-  expect(within(view).getAllByRole("tab").map(item => item.textContent)).toEqual(["Agents", "Terminal", "Shortcuts", "Appearance"]);
+  expect(within(view).getAllByRole("tab").map(item => item.textContent)).toEqual(["Agents", "Terminal", "Shortcuts", "Appearance", "Alerts"]);
   expect(screen.queryByRole("dialog")).toBeNull();
   expect(screen.queryByRole("button", { name: /^Engine / })).toBeNull();
   expect(screen.queryByRole("button", { name: /^Model / })).toBeNull();
@@ -56,7 +56,7 @@ it.each([["KeyY", "y", "⌃⇧Y"], ["Numpad1", "1", "⌃⇧1"], ["F13", "F13", "
   window.dispatchEvent(new Event("open-app-settings"));
   const settings = within(await screen.findByRole("region", { name: "Settings" }));
   fireEvent.click(settings.getByRole("tab", { name: "Shortcuts" }));
-  const recorder = await settings.findByRole("button", { name: /^Quick add a Todo/ });
+  const recorder = await settings.findByRole("button", { name: /^Quick add Todo/ });
   fireEvent.click(recorder);
   expect(recorder.getAttribute("aria-pressed")).toBe("true");
   fireEvent.keyDown(window, { key, code, ctrlKey: true, shiftKey: true });
@@ -78,7 +78,7 @@ it("u3813_overview_has_no_sublinks_and_project_commands_open_selected_pages", as
     fireEvent.click(tab(name));
     await waitFor(() => expect(tab(name).getAttribute("aria-selected")).toBe("true"));
 
-    for (const [command, heading] of [["import-work", "Import Claude Code work"], ["project-settings", "Project settings"]] as const) {
+    for (const [command, heading] of [["import-work", "Import Claude Code"], ["project-settings", "Project settings"]] as const) {
       openProjectPage(command);
       const page = await screen.findByRole("region", { name: heading });
       expect(within(screen.getByRole("region", { name: "Centre" })).getByRole("region", { name: heading })).toBe(page);
@@ -103,7 +103,7 @@ it.each(["import-work", "project-settings"] as const)("u3814_project_switch_keep
     app.of(path(name)).handlers["project.importDiscover"] = () => ({ candidates: [{ source: name, revision: "r", title: name, cwd: "", last_activity_ms: 1n }], excluded: [] });
   }
 
-  const heading = command === "import-work" ? "Import Claude Code work" : "Project settings";
+  const heading = command === "import-work" ? "Import Claude Code" : "Project settings";
 
   for (const name of ["api", "web"]) {
     fireEvent.click(tab(name));
@@ -139,21 +139,21 @@ it.each(["import-work", "project-settings"] as const)("u3814_escape_restores_the
   document.body.append(opener);
   opener.focus();
   openProjectPage(command);
-  const page = await screen.findByRole("region", { name: command === "import-work" ? "Import Claude Code work" : "Project settings" });
+  const page = await screen.findByRole("region", { name: command === "import-work" ? "Import Claude Code" : "Project settings" });
   opener.remove();
   fireEvent.keyDown(page, { key: "Escape", code: "Escape" });
-  await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("button", { name: /^Overview, Project root/ })));
+  await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("button", { name: /^Overview/ })));
 });
 
 
 it("u3814_switching_settings_pages_keeps_the_original_return_destination", async () => {
   await openTabs({ api: [workstream("w")] });
-  const overview = screen.getByRole("button", { name: /^Overview, Project root/ });
+  const overview = screen.getByRole("button", { name: /^Overview/ });
   overview.focus();
   window.dispatchEvent(new Event("open-app-settings"));
   const appPage = await screen.findByRole("region", { name: "Settings" });
   openProjectPage("import-work");
-  const imported = await screen.findByRole("region", { name: "Import Claude Code work" });
+  const imported = await screen.findByRole("region", { name: "Import Claude Code" });
   expect(appPage.isConnected).toBe(false);
   openProjectPage("project-settings");
   const page = await screen.findByRole("region", { name: "Project settings" });
@@ -255,12 +255,12 @@ it.each([false, true])("u4277a_sections_work_by_pointer_and_keyboard_project_%s"
   window.dispatchEvent(new Event("open-app-settings"));
   const view = await screen.findByRole("region", { name: "Settings" });
 
-  for (const name of ["Agents", "Terminal", "Shortcuts", "Appearance"]) {
+  for (const name of ["Agents", "Terminal", "Shortcuts", "Appearance", "Alerts"]) {
     fireEvent.click(within(view).getByRole("tab", { name }));
     await waitFor(() => expect(within(view).getByRole("tabpanel").getAttribute("aria-labelledby")).toBe(within(view).getByRole("tab", { name }).id));
   }
 
-  const pages = ["Agents", "Terminal", "Shortcuts", "Appearance"];
+  const pages = ["Agents", "Terminal", "Shortcuts", "Appearance", "Alerts"];
   within(view).getByRole("tab", { name: "Agents" }).focus();
   await Promise.resolve();
 

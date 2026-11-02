@@ -7,13 +7,13 @@
 
 /* U4698b: the head is the document title (large, wrapping) with the Pad's actions at its right; the Drawer's close row sits above it. */
 .pad-head {
-  font-size: var(--text-title);
+  font-size: var(--pad-text-body);
   display: flex;
   align-items: flex-start;
   gap: var(--space-2);
   box-sizing: border-box;
   width: 100%;
-  max-width: var(--reading-width);
+  max-width: var(--pad-reading-width);
   margin: 0 auto var(--space-5);
   padding-inline: var(--reading-gutter);
 }
@@ -37,8 +37,6 @@
   gap: var(--space-2);
   margin-right: var(--space-2);
 }
-
-.pad-saved,
 
 .pad-editor {
   flex: 1;
@@ -131,11 +129,6 @@
 
 .pad-rich-editor .top-bar-heading-label {
   display: none;
-}
-
-.pad-editor-failure {
-  color: var(--red);
-  padding: var(--space-4);
 }
 
 .pad-name {
@@ -346,40 +339,6 @@ li[aria-selected="true"] svg {
 .menu-group+.menu-group::before {
   margin: 0 var(--space-2);
   background: var(--hairline);
-}
-
-.pad-retained-status {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--space-4);
-  margin-top: var(--space-3);
-}
-
-.pad-retention {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  margin-block: var(--space-3);
-}
-
-.pad-retention p {
-  margin: 0;
-  color: var(--text);
-}
-
-.pad-retention .diff-actions {
-  flex-wrap: wrap;
-}
-
-.pad-retention-shelf {
-  margin-inline: var(--space-2);
-}
-
-.pad-retention-shelf .diff-actions {
-  flex-direction: column;
-  align-items: flex-end;
-  gap: var(--space-1);
 }
 
 /* Reserved controls keep the Pad name width stable on focus and selection. */

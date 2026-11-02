@@ -3,6 +3,7 @@ use super::*;
 
 pub(crate) fn node(id: &str, kind: NodeKind, _door: bool, status: Option<Status>) -> RailNode {
     RailNode {
+        alert_level: Default::default(),
         id: id.into(),
         auto: (kind == NodeKind::Workstream).then_some(false),
         opening_prompt: None,
@@ -13,9 +14,12 @@ pub(crate) fn node(id: &str, kind: NodeKind, _door: bool, status: Option<Status>
         status,
         attempt: Some("1".into()),
         status_revision: Some("1".into()),
+        final_text: None,
         terminal_id: None,
         worktree: None,
         can_resume: false,
+        can_make_workstream: false,
+        can_save_as_mode: false,
         yolo: false,
         channel: None,
         stray: Vec::new(),

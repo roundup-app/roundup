@@ -3,7 +3,7 @@ import { copy as sharedCopy, type CopyValue } from "../sharedCopy";
 export const copy = {
   resources: sharedCopy.resources,
   resourcesLoading: "Loading resources…",
-  resourcesEmpty: "No resource measurements for this Agent",
+  resourcesEmpty: "No measurements",
   close: sharedCopy.close,
   notUpdating: "Not updating",
   kilobyteUnit: "KB",

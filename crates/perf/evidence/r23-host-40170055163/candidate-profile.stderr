@@ -1,4 +1,0 @@
-run 1/1: load 2.0 on 4 cpus; Daemon log /tmp/r23-execution/crates/perf/evidence/r23-host-40170055163/candidate-profile.startup-1.log
-R23 compatibility: legacy=false; create=rail.createWorkstream
-[ perf record: Woken up 366 times to write data ]
-[ perf record: Captured and wrote 91.546 MB /tmp/r23-candidate.data (5642 samples) ]

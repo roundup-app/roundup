@@ -17,6 +17,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 import deadline  # noqa: E402
+import image_tools  # noqa: E402
 import orders  # noqa: E402
 import push  # noqa: E402
 
@@ -108,7 +109,7 @@ CAUSES = {
               'finding, or the bar it names, without loosening `docs/design-system.md`, and meet each `NOTE:` line too: '
               'the notes are polish the critic raises once and never blocks on again.',
     'conflict': 'The PR conflicts with `main`. Run `git merge origin/main`, resolve only the files git lists as conflicted, '
-                'and keep the behaviour of both sides. Then run only the tests those files reach and '
+                'and keep the behaviour of both sides. Then run only the test files among those files and '
                 '`loop/rules.sh merge-loss`. Read no scenario and run no full lint: `pre` does that on the push.',
     'unfinished': 'The last run left this PR a draft without a `Stopped:` line: finish the work.',
 }
@@ -193,7 +194,7 @@ def screen_on_codex(ask):
     the JSON text it gave, which may be no valid verdict."""
     home = codex_home(os.environ.get('CODEX_AUTH', ''), Path(tempfile.mkdtemp(dir=os.environ['RUNNER_TEMP'])))
     answer = home / 'answer.json'
-    (home / 'schema.json').write_text(json.dumps(SCREEN_SCHEMA))
+    (home / 'schema.json').write_text(json.dumps(strict(SCREEN_SCHEMA)))
     run = subprocess.run(['codex', 'exec', '--json', '--model', CODEX_MODEL, '--sandbox', 'read-only',
                           '-c', f'model_reasoning_effort="{SCREEN_EFFORT}"', '--output-schema',
                           str(home / 'schema.json'), '--output-last-message', str(answer), '-'],
@@ -391,7 +392,7 @@ def log_cost(label, cost):
     """One line of the log and the job summary for a Claude Code call's dollar `cost`, on API credit only."""
     if switched():
         line = f'cost of {label}: ' + (f'${cost:.4f}' if isinstance(cost, (int, float)) else 'not reported')
-        print(line, flush=True)
+        print(line, file=sys.stderr, flush=True)
         if summary := os.environ.get('GITHUB_STEP_SUMMARY'):
             with open(summary, 'a') as out:
                 out.write(f'- {line}\n')
@@ -415,7 +416,7 @@ def log_usage(label, lines):
     share = f"{total['cached_input_tokens'] / total['input_tokens']:.0%}" if total['input_tokens'] else 'n/a'
     line = (f"usage of {label}: input {total['input_tokens']}, cached input {total['cached_input_tokens']} ({share}), "
             f"output {total['output_tokens']}" if usage else f'usage of {label}: not reported')
-    print(line, flush=True)
+    print(line, file=sys.stderr, flush=True)
     if summary := os.environ.get('GITHUB_STEP_SUMMARY'):
         with open(summary, 'a') as out:
             out.write(f'- {line}\n')
@@ -468,14 +469,13 @@ def codex_home(login, home):
     auth = json.loads(login or '{}')
     if auth.get('auth_mode') != 'chatgpt' or not auth.get('tokens'):
         raise ValueError('CODEX_AUTH holds no ChatGPT login: seed the CODEX_AUTH_JSON secret with `codex login`')
-    # GitHub masks the whole secret, not each token inside it.
+    # GitHub masks the whole secret, not each token inside it; stderr keeps the screen's stdout its verdict alone.
     for value in auth['tokens'].values():
-        print(f'::add-mask::{value}')
+        print(f'::add-mask::{value}', file=sys.stderr)
     home.mkdir(mode=0o700, exist_ok=True)
     (home / 'auth.json').write_text(login)
-    memory = '\n[features]\nmemories = true\n\n[memories]\ngenerate_memories = true\nuse_memories = true\n' \
-        if os.environ.get('ROUNDUP_AGENT_MEMORY') else ''
-    (home / 'config.toml').write_text('cli_auth_credentials_store = "file"\n' + memory)
+    memory = '\n[features]\nmemories = true\n\n[memories]\ngenerate_memories = true\nuse_memories = true\n' if os.environ.get('ROUNDUP_AGENT_MEMORY') else ''
+    (home / 'config.toml').write_text('cli_auth_credentials_store = "file"\n' + memory + image_tools.codex_files(home))
     return home
 
 
@@ -522,9 +522,9 @@ def engine(prompt, schema, output, rights=RUN_RIGHTS, effort=CODEX_BUILD_EFFORT)
     environment first, so a Claude Code run's shell never holds it. With `CODEX_ONLY` set there is no Claude Code: a Codex
     run that did no work fails. `rights` is as `stream` reads it; `effort` is Codex's reasoning effort. Returns the exit code of the run that was last."""
     login = os.environ.pop('CODEX_AUTH', '')
+    image_tools.sync_index()
     if switched():
         return claude(prompt, CLAUDE_MODEL, schema, output, rights)
-    temp = Path(os.environ['RUNNER_TEMP'])
 
     def codex_or_none():
         try:
@@ -533,7 +533,7 @@ def engine(prompt, schema, output, rights=RUN_RIGHTS, effort=CODEX_BUILD_EFFORT)
             print(f'::error::Codex did not start: {error}')
             return 1
 
-    engines = {'Claude Code': (lambda: claude(prompt, CLAUDE_MODEL, schema, output), temp / 'claude' / 'events.jsonl'),
+    engines = {'Claude Code': (lambda: claude(prompt, CLAUDE_MODEL, schema, output), Path(os.environ['RUNNER_TEMP']) / 'claude' / 'events.jsonl'),
                'Codex': (codex_or_none, codex_directory() / 'events.jsonl')}
     run, events = engines['Codex']
     code = run()
@@ -862,8 +862,8 @@ def link(pr, issue=None):
 
 
 def ended(pr, verdict, run_url):
-    """After a run that worked: a draft's `Stopped:` question goes where its screen `verdict` says (`put`), and one the
-    screen sends back to the loop resumes (`resume`); another draft gets a fix run."""
+    """After a run that worked: a draft's `Stopped:` question goes where its screen `verdict` says (`put`), one the screen
+    sends back resumes (`resume`), another gets a fix run; a ready PR keeps what its run armed (L46): this job's token can't."""
     if not pr['isDraft']:
         return
     if ask := stopped(pr):
@@ -1210,28 +1210,27 @@ def clauses(ids):
 
 
 def patch_id(head):
-    """`git patch-id --stable` of the PR's diff at `head` against its merge base with `main`; '' for an empty diff."""
-    diff = call('api', f'repos/{{owner}}/{{repo}}/compare/main...{head}', '-H', 'Accept: application/vnd.github.diff',
-                '--allow-escape-sequences')
+    """`git patch-id --stable` of the PR's diff at `head` against its merge base with `main`; '' when GitHub gives none."""
+    try:
+        diff = call('api', f'repos/{{owner}}/{{repo}}/compare/main...{head}', '-H', 'Accept: application/vnd.github.diff',
+                    '--allow-escape-sequences')
+    except subprocess.CalledProcessError:
+        return ''
     found = subprocess.run(['git', 'patch-id', '--stable'], input=diff, check=True, text=True, capture_output=True).stdout
     return found.split()[0] if found else ''
 
 
 def carried(current, marker, context):
     """L24: whether `context` keeps an earlier approval for the PR's head. When the diff there has the patch-id of the
-    diff at a head whose `marker` comment approved, set the same `success` status naming that head;
-    a head GitHub can no longer diff is skipped, so the run is a full one."""
+    diff at a head whose `marker` comment approved, set the same `success` status naming that head; a head GitHub can no
+    longer diff, or cannot diff at all (HTTP 422 on #5484's 2.5 GB deletion), carries nothing, so the run is a full one."""
     head = current['headRefOid']
     now = patch_id(head)
     for note in reversed(orders.marked(current['number'], marker)):
         if not note['body'].startswith(f'{marker} approve'):
             continue
         earlier = orders.field(note['body'], 'Head')
-        try:
-            same = now and patch_id(earlier) == now
-        except subprocess.CalledProcessError:
-            continue
-        if same:
+        if now and patch_id(earlier) == now:
             status(head, 'success', f'The diff is unchanged since {earlier[:9]}, which the {context} run approved', '', context)
             return True
     return False

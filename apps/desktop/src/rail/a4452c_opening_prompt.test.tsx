@@ -103,7 +103,7 @@ it("a4452c_restart_saves_first_and_retries_the_same_session_identity", async () 
   const field = await screen.findByRole("textbox", { name: "First prompt" });
   fireEvent.input(field, { target: { value: "  My exact opening\n" } });
   fireEvent.blur(field);
-  fireEvent.click(screen.getByRole("button", { name: "Restart session" }));
+  fireEvent.click(screen.getByRole("button", { name: "Restart" }));
   expect(railCallsTo(m.app, "workstream.restart")).toEqual([]);
   finishSave();
   await screen.findByRole("alert");
