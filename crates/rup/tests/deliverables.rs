@@ -846,7 +846,11 @@ mod quota {
         }
     }
 
-    async fn refuses_one_byte(p: &daemon::Project, c: &rpc::Client, records: &[(Value, usize, u8)]) {
+    async fn refuses_one_byte(
+        p: &daemon::Project,
+        c: &rpc::Client,
+        records: &[(Value, usize, u8)],
+    ) {
         std::fs::write(p.dir.path().join("over.bin"), b"x").unwrap();
         refused(
             c,
