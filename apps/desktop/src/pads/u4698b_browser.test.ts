@@ -1,6 +1,6 @@
 import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { captureDir } from "../testing/captures";
 import { shelfBrowser } from "../shelf/u371Browser";
 
@@ -371,12 +371,6 @@ it.skipIf(typographyOutputs.length === 0)("u5574b_empty_document_remains_editabl
 describe("U5631 Todo block menus", () => {
   let recording = false;
 
-  afterEach(async () => {
-    if (recording) {
-      await browser("record", "stop");
-      recording = false;
-    }
-  });
   beforeEach(async ({ task }) => {
     await browser("set", "viewport", "1512", "950");
 
@@ -395,6 +389,8 @@ describe("U5631 Todo block menus", () => {
 it.each(["plus", "slash"].flatMap(entry => [false, true].map(afterPad => ({ entry, afterPad }))))("u5631_todo_block_menu_excludes_agent_details $entry afterPad=$afterPad", { retry: 0, timeout: 90_000 }, async ({ entry, afterPad }) => {
   const name = `todo-${entry}-${afterPad}`;
 
+  // Finalize the video within the interaction budget, not the default 10-second hook limit.
+  try {
     const shot = async (stage: string) => {
       if (!menuOutput) return;
       await settle();
@@ -497,7 +493,12 @@ it.each(["plus", "slash"].flatMap(entry => [false, true].map(afterPad => ({ entr
     expect(await evaluate("window.__fake.app.calls.filter(call => ['todo.update', 'pad.write'].includes(call.method))")).toEqual([]);
     expect(offered.includes("For Agents")).toBe(false);
     expect(selected.includes("For Agents")).toBe(false);
-
+  } finally {
+    if (recording) {
+      await browser("record", "stop");
+      recording = false;
+    }
+  }
 });
 
 });
