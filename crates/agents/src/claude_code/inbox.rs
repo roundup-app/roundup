@@ -694,12 +694,22 @@ mod tests {
                 } else {
                     "x".repeat(size * 1024 * 1024)
                 };
+                let mut transcript = tempfile::NamedTempFile::new().unwrap();
                 for (template, want) in if escaped { &escaped_cases } else { &cases } {
-                    let fixture = template.replace('$', &large);
-                    let transcript = tempfile::NamedTempFile::new().unwrap();
-                    std::fs::write(transcript.path(), &fixture).unwrap();
+                    // B5718a took 7.059 s in CI. Reuse the file and write template
+                    // parts directly so fixture copies don't consume the test budget.
+                    let file = transcript.as_file_mut();
+                    file.rewind().unwrap();
+                    let mut parts = template.split('$');
+                    file.write_all(parts.next().unwrap().as_bytes()).unwrap();
+                    for part in parts {
+                        file.write_all(large.as_bytes()).unwrap();
+                        file.write_all(part.as_bytes()).unwrap();
+                    }
+                    let end = file.stream_position().unwrap();
+                    file.set_len(end).unwrap();
                     let (result, allocated) = measured(|| recorded(transcript.path(), 0));
-                    assert_eq!(result, (want.clone(), fixture.len() as u64), "{template}");
+                    assert_eq!(result, (want.clone(), end), "{template}");
                     assert!(
                         allocated <= 256 * 1024,
                         "{size} MiB escaped={escaped}: {allocated} bytes, {template}"
