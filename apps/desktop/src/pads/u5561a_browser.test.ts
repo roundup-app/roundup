@@ -123,3 +123,38 @@ it("u5561a_readonly_pad_disclosure_keeps_unsafe_markup_inert", { retry: 0, timeo
   expect(await read("document.querySelectorAll('details img, details script, details a').length")).toBe(0);
   expect(await read("document.querySelector('#root').dataset.changes")).toBe("0");
 });
+
+it("u5561b_failed_save_keeps_the_edited_agent_details", { retry: 0, timeout: 90_000 }, async () => {
+  await browser("set", "media", "dark");
+  await browser("open", url("/harness.html?seed=tree-40"));
+  await wait("!!window.__fake && !!document.querySelector('#shelf-tab-pads')");
+  await read(`window.__fake.app.rpc('pad.write', ${JSON.stringify({ name: "pad-3", text: source })})`);
+
+  if (await read("document.querySelector('#shelf-tab-pads').getAttribute('aria-expanded') !== 'true'")) await browser("click", "#shelf-tab-pads");
+  await wait("!!document.querySelector('.pad-name')");
+  await read(`(() => { [...document.querySelectorAll('.pad-name')].find(row => row.textContent === 'pad-3').focus(); return true; })()`);
+  await browser("press", "Enter");
+  await wait("!!document.querySelector('details[data-pad-agents]')");
+  await browser("click", "details[data-pad-agents] summary");
+  await wait("document.querySelector('details[data-pad-agents]').open");
+  await read("window.__fake.failNext(-32603, 'Pad not saved: restore write access, then Resume.')");
+  const draft = " Agent evidence after a failed save. ";
+  await browser("fill", "details[data-pad-agents] textarea", draft);
+  await wait("document.body.innerText.includes('restore write access')");
+  expect(await read("document.querySelector('details[data-pad-agents] textarea').value")).toBe(draft);
+  expect(await read("window.__fake.app.rpc('pad.read', {name:'pad-3'}).then(pad => pad.text)")).toBe(source);
+  const dir = captureDir("U5561b");
+
+  if (dir) {
+    await mkdir(dir, { recursive: true });
+    await browser("screenshot", join(dir, "save-failure.png"));
+    await writeFile(join(dir, "save-failure.checks.json"), JSON.stringify(await read("window.__checks()")));
+  }
+
+  await browser("click", ".drawer .close");
+  await wait("!document.querySelector('.drawer .ProseMirror')");
+  await read(`(() => { [...document.querySelectorAll('.pad-name')].find(row => row.textContent === 'pad-3').focus(); return true; })()`);
+  await browser("press", "Enter");
+  await wait("!!document.querySelector('details[data-pad-agents]')");
+  expect(await read("document.querySelector('details[data-pad-agents] textarea').value")).toBe(draft);
+});
