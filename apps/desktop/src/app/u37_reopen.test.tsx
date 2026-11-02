@@ -40,6 +40,26 @@ describe("u37 Reopen after the Daemon exits", () => {
     expect(within(header).getByRole("button", { name: appCopy.reopen })).toBeTruthy();
   });
 
+  it("u37_an_exit_during_connection_stays_actionable", async () => {
+    const app = createFakeApp();
+    app.opened.project = { name: "payments-api", path: "/work/payments-api" };
+    let release!: (nodes: ReturnType<typeof node>[]) => void;
+    let requested!: () => void;
+    const reading = new Promise<void>(done => { requested = done; });
+    app.handlers["rail.tree"] = () => new Promise(resolve => {
+      release = resolve;
+      requested();
+    });
+    render(() => <App app={app} reducedMotion={() => false} clock={() => 0} />);
+    await reading;
+
+    app.exitDaemon({ code: 1 });
+    release([node("kept", { name: "Connected work" })]);
+    await screen.findByText("Connected work");
+
+    expect(screen.getByRole("button", { name: appCopy.reopen })).toBeTruthy();
+  });
+
   it("u37_clicking_reopen_calls_open_project_with_the_project_path", async () => {
     const { app, header } = await openApp();
     const paths: string[] = [];

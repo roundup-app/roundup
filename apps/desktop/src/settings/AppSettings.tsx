@@ -13,7 +13,7 @@ import { Switch } from "../ui/Switch";
 import { Select } from "../ui/Select";
 import * as v from "valibot";
 import { draftStorage } from "../state/storage";
-import { createSettingsView } from "../state/settingsView";
+import { createSettingsView, type SettingsViewState } from "../state/settingsView";
 import { alertChoices, alertStates, appSettings, saveAppSettings, terminalRanges, terminalType } from "./preferences";
 import { SettingsGroup, SettingsResults, SettingsShell } from "./SettingsShell";
 import { NamingSettings } from "./NamingSettings";
@@ -21,8 +21,8 @@ import { SkillSetting } from "./SkillSetting";
 import { ShortcutSetting, ShortcutSettings } from "./ShortcutSetting";
 
 /** One App-wide center view, available even before a Project is open. */
-export const AppSettings = (props: { app: App; project: () => string | null; onOpenChange?: (open: boolean) => void; navigation?: () => string }) => {
-  const view = createSettingsView();
+export const AppSettings = (props: { app: App; project: () => string | null; onOpenChange?: (open: boolean) => void; view?: SettingsViewState; navigation?: () => string }) => {
+  const view = props.view ?? createSettingsView();
   const [section, setSection] = createSignal<string>(copy.settingsAgents);
   const [failure, setFailure] = createSignal<string | null>(null);
   const [numericFailure, setNumericFailure] = createSignal<Record<string, string | null>>({});
