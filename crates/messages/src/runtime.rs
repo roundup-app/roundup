@@ -52,10 +52,13 @@ impl Messages {
     /// `rail.tree` through the existing RPC module interface.
     pub fn open(dir: &Path, bus: Bus, agents: Arc<dyn Module>) -> Result<Self, OpenError> {
         let env = Env::system(Arc::new(provenance::Touches::in_memory()?));
-        Self::open_with(dir, bus, agents, env)
+        let messages = Self::open_with(dir, bus, agents, env)?;
+        messages.listen();
+        Ok(messages)
     }
 
-    /// `open`, with the Daemon's own Touch log and clock.
+    /// Open with the Daemon's Touch log and clock. Call `listen` after owner recovery,
+    /// before serving requests, so reconciliation observes verified surviving receivers.
     pub fn open_with(
         dir: &Path,
         bus: Bus,
@@ -85,10 +88,14 @@ impl Messages {
             typing: Mutex::default(),
             inbox: std::sync::OnceLock::new(),
         });
-        if tokio::runtime::Handle::try_current().is_ok() {
-            start_listener(&inner);
-        }
         Ok(Self { inner })
+    }
+
+    /// Start lifecycle reconciliation after the receiver owners have been recovered.
+    pub fn listen(&self) {
+        if tokio::runtime::Handle::try_current().is_ok() {
+            start_listener(&self.inner);
+        }
     }
 
     pub(super) fn store(&self) -> Result<MutexGuard<'_, Store>, RpcError> {

@@ -89,6 +89,14 @@ async fn until<T>(what: &str, mut probe: impl AsyncFnMut() -> Option<T>) -> T {
 }
 
 impl Run {
+    fn owner_helper() -> PathBuf {
+        Path::new(env!("CARGO_BIN_EXE_rupd")).with_file_name("terminal-owner")
+    }
+
+    fn project_data(&self) -> PathBuf {
+        rupd::data::project_data(self.data.path(), self.dir.path()).unwrap()
+    }
+
     /// A Daemon with one idle Agent after its first submitted user prompt.
     async fn start() -> Self {
         Self::start_on(1).await

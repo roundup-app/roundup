@@ -89,5 +89,6 @@ while True:
         line = b''
         hook('UserPromptSubmit', {'prompt': text, 'transcript_path': here + '/transcript.jsonl'})
         hook('Stop', {'transcript_path': here + '/transcript.jsonl'})
+        open(here + '/submitted.txt', 'w').write('acknowledged')
     else:
         line += data

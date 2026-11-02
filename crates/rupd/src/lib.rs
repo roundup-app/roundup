@@ -572,6 +572,7 @@ pub mod test_support {
             .unwrap(),
         );
         messages.set_inbox(state.clone());
+        messages.listen();
         daemon.register(messages);
         daemon.register(state.clone());
         daemon.start_pushes();
