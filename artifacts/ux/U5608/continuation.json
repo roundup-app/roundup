@@ -1,25 +1,48 @@
 {
-  "source": "f202b3150010ea883057ebdde4b0e7d06228fbba",
-  "author_agent": "builder-41431652445",
+  "source": "c29145ea14d0fcfb071a5f0452078614958d2598",
+  "base": "bc42f1603d9824cf2897fa5f150a783b29613fdb",
+  "author_agent": "builder-41439366141",
   "behavior": {
     "todo_files": 7,
     "todo_tests_passed": 115,
+    "first_run_tests_passed": 3,
     "retry": 0
   },
   "checks": {
-    "web_lints": "passed",
-    "typecheck": "passed",
+    "just_ready": "passed",
     "proofs": "ALL PROOFS CHECK",
     "N7": "passed",
-    "dependency_scan_after_patch": "passed",
     "merge_loss": "passed",
     "taste_lint": "0 failures; 2 unchanged warnings"
   },
-  "retained_capture_readings": 17,
-  "failing_readings": [],
-  "remaining": [
-    "Complete twelve-case U4277c capture coverage and focused Import cases on final source",
-    "Complete just ready after the lockfile repair; Rust lint rerun interrupted during clippy"
-  ],
-  "limitations": "No full retained-capture success or full just-ready success claimed. Prior paired visual evidence retained; no test or proof removed."
+  "retained_capture": {
+    "command": "ROUNDUP_CAPTURE_SCREENS=made just capture U4277c",
+    "passed": 13,
+    "skipped": 1,
+    "failed": 0,
+    "u5608_cases_passed": 12,
+    "check_files": 28,
+    "failing_readings": []
+  },
+  "fresh_visual_observation": {
+    "viewport": [
+      1512,
+      950
+    ],
+    "scheme": "dark",
+    "todo_5_collapsed_mounted_entries": 0,
+    "all_checks": "pass",
+    "files": [
+      "head/current-todo-5-collapsed.checks.json",
+      "head/current-todo-5-expanded.checks.json",
+      "head/current-first-run.checks.json"
+    ]
+  },
+  "rendered": {
+    "U5119": "both viewports passed",
+    "real_daemon": "both cases passed",
+    "U4698e": "both viewports passed"
+  },
+  "setup_repair": "Cold binary build consumed the initial real-Daemon test limit; stopped that batch and isolated browsers, then reran with warm binaries and unchanged timeouts.",
+  "limitations": "Linux Chromium and deterministic vendor observations; user reports what they meet on the Mac."
 }
