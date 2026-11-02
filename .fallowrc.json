@@ -15,6 +15,7 @@
     "spikes/**"
   ],
   "ignoreDependencies": [
+    "@ast-grep/cli",
     "@oxlint/plugins",
     "mdn-data"
   ],
