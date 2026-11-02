@@ -203,6 +203,7 @@ impl Project {
     pub async fn spawn_agent(&self, client: &Client) -> RailNode {
         let params = SpawnParams {
             start_attribution: None,
+            visibility: Default::default(),
             cols: None,
             rows: None,
             permission_mode: None,

@@ -404,6 +404,9 @@ pub struct RailNode {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[specta(optional, type = StartAttribution)]
     pub start_attribution: Option<StartAttribution>,
+    #[serde(default)]
+    #[specta(optional)]
+    pub visibility: RailVisibility,
     /// U5501: authoritative per-Agent choice; a Workstream stores its Door choice.
     #[serde(default)]
     #[specta(optional)]
@@ -976,4 +979,19 @@ pub struct ToolCallEvent {
 #[derive(Serialize, Deserialize, Type, JsonSchema)]
 pub struct SpawnPrompt {
     pub prompt: Option<String>,
+}
+
+/// U5531a: presentation only; never changes execution or Home.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
+#[serde(rename_all = "lowercase")]
+pub enum RailVisibility {
+    #[default]
+    Shown,
+    Internal,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
+pub struct SetVisibilityParams {
+    pub id: String,
+    pub visibility: RailVisibility,
 }

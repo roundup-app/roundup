@@ -17,6 +17,22 @@ impl Agents {
                 "only the user connection supplies start attribution",
             ));
         }
+        if params.visibility == Some(contracts::agent::RailVisibility::Internal) {
+            let rail = self.shared.rail();
+            if ctx.actor.kind == ActorKind::Agent
+                && rail.node(&ctx.actor.id)?.kind != NodeKind::Workstream
+            {
+                return Err(RpcError::forbidden(
+                    "only a Door may start internal children",
+                ));
+            }
+            if matches!(params.order, Some(Order::Clarification { .. })) {
+                return Err(RpcError::new(
+                    code::INVALID_PARAMS,
+                    "Clarification order is active",
+                ));
+            }
+        }
         let size = terminal::window(params.cols.unwrap_or(80), params.rows.unwrap_or(24))?;
         models::check_engine(params.engine.as_deref())?;
         models::check_permissions(&ctx.actor, params.permission_mode)?;
@@ -123,6 +139,7 @@ impl Agents {
                 order.as_ref(),
                 params.start_attribution.as_ref(),
             )?;
+            rail.set_visibility(&node.id, params.visibility.unwrap_or_default())?;
             if let Some(prompt) = &spawn_prompt {
                 rail.set_spawn_prompt(&node.id, prompt)?;
             }
@@ -593,6 +610,23 @@ mod idle_tests {
                     None,
                 )
                 .unwrap();
+            if restart {
+                let mut earlier = Run::starting(
+                    Arc::new(|| 0),
+                    "1".into(),
+                    "old".into(),
+                    "/".into(),
+                    None,
+                    true,
+                    false,
+                );
+                shared.apply(Some(&mut rail), &mut earlier, &node.id, &Actor::user(),
+                    Observation::Signal(serde_json::json!({"hook_event_name":"UserPromptSubmit","prompt":"earlier request"})), None).unwrap();
+                assert!(earlier.input_started);
+                shared
+                    .runs()
+                    .insert(node.id.clone(), Slot::Running(earlier));
+            }
             let prompt = order::first_input(
                 None,
                 node.work.as_ref(),
@@ -647,6 +681,21 @@ mod idle_tests {
                 None,
             )
             .unwrap();
+        let mut earlier = Run::starting(
+            Arc::new(|| 0),
+            "1".into(),
+            "old".into(),
+            "/".into(),
+            None,
+            true,
+            false,
+        );
+        shared.apply(Some(&mut rail), &mut earlier, &node.id, &Actor::user(),
+            Observation::Signal(serde_json::json!({"hook_event_name":"UserPromptSubmit","prompt":"earlier request"})), None).unwrap();
+        assert!(earlier.input_started);
+        shared
+            .runs()
+            .insert(node.id.clone(), Slot::Running(earlier));
         let (done, _completion) = oneshot::channel();
         let conversation = "00000000-0000-4000-8000-000000000001";
         let mut runs = HashMap::from([(

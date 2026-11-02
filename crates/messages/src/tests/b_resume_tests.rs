@@ -70,6 +70,7 @@ async fn a24_a_door_resumed_after_its_run_is_gone_takes_a_message() {
 
 fn survivor(kind: Kind, revision: Option<&str>) -> RailNode {
     RailNode {
+        visibility: Default::default(),
         terminal_id: Some("terminal-b".into()),
         status_revision: revision.map(str::to_owned),
         ..agent_node("b", kind)
