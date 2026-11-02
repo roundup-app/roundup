@@ -59,7 +59,9 @@ const heavy = ["src/**/*_browser.test.{ts,tsx}", "src/**/*_rendered.test.{ts,tsx
 // (U478 clause 1, and styles.css owns the `.light` muted-text class). Rescope the package's own rules at build time: light
 // stays on `:root`, dark moves to `:root` under the same media query tokens.css uses.
 export default defineConfig({
-  build: { manifest: true },
+  // R3800: the native startup gate reached 438,241 gzip bytes against a 437,814-byte cap.
+  // Keep Solid’s shared runtime together to reduce per-chunk gzip/import overhead.
+  build: { manifest: true, rolldownOptions: { output: { codeSplitting: { groups: [{ name: "solid", test: /\/node_modules\/solid-js\// }] } } } },
   plugins: [solid(), buildModules(), visualizer({ filename: "../../target/release-modules.json", template: "raw-data" }), ...(served ? [realDaemon(served)] : []), {
     name: "roundup-dev-ready",
     apply: "serve",
