@@ -1,3 +1,4 @@
+import { executable } from "../todos/laneBrowser";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
@@ -22,7 +23,7 @@ const observeName = async (run: (observer: NameObserver) => Promise<void>) => {
   const server = await appServer();
   const session = `switcher-name-${process.pid}`;
   const profile = mkdtempSync(join(tmpdir(), "switcher-name-"));
-  const browser = async (...args: string[]) => (await exec("agent-browser", ["--session", session, "--json", ...args], { maxBuffer: 8 * 1024 * 1024, timeout: 25_000 })).stdout;
+  const browser = async (...args: string[]) => (await exec(executable, ["--session", session, "--json", ...args], { maxBuffer: 8 * 1024 * 1024, timeout: 25_000 })).stdout;
 
   const read = async <T,>(expression: string): Promise<T> => {
     // SAFETY: agent-browser wraps these constant DOM expressions in its JSON envelope.

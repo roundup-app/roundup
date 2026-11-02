@@ -1,6 +1,6 @@
 import type { RailNode } from "@contracts/agent/RailNode";
 import { copy as appCopy } from "../app/copy";
-import { openLane } from "../todos/laneBrowser";
+import { executable as browserExecutable, openLane } from "../todos/laneBrowser";
 import type { Todo } from "@contracts/todo/Todo";
 import { execFile } from "node:child_process";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
@@ -37,7 +37,7 @@ const observer = async (width: number, input: "keyboard" | "pointer", name: stri
   const browserEnv = Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith("AGENT_BROWSER_")));
 
   const browser = async (...args: string[]) => {
-    const { stdout } = await execute("agent-browser", ["--executable-path", executable, "--args", "--no-sandbox", "--config", config, "--session", session, "--profile", profile, "--json", ...args], { env: browserEnv, timeout: 60_000, maxBuffer: 4 * 1024 * 1024 }).catch((error) => { throw new Error(`${error.message}\n${error.stdout}\n${error.stderr}`); });
+    const { stdout } = await execute(browserExecutable, ["--executable-path", executable, "--args", "--no-sandbox", "--config", config, "--session", session, "--profile", profile, "--json", ...args], { env: browserEnv, timeout: 60_000, maxBuffer: 4 * 1024 * 1024 }).catch((error) => { throw new Error(`${error.message}\n${error.stdout}\n${error.stderr}`); });
     const reply = JSON.parse(stdout);
 
     expect(reply.success, stdout).toBe(true);
@@ -502,7 +502,7 @@ it("u5552a_restored_paste_reaches_only_the_focused_program", async () => {
   const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith("AGENT_BROWSER_")));
 
   const browser = async (...args: string[]) => {
-    const { stdout } = await execute("agent-browser", ["--executable-path", chromePath()!, "--args", "--no-sandbox", "--config", config, "--profile", profile, "--session", session, "--json", ...args], { env, timeout: 60_000, maxBuffer: 4 * 1024 * 1024 });
+    const { stdout } = await execute(browserExecutable, ["--executable-path", chromePath()!, "--args", "--no-sandbox", "--config", config, "--profile", profile, "--session", session, "--json", ...args], { env, timeout: 60_000, maxBuffer: 4 * 1024 * 1024 });
     const reply = JSON.parse(stdout);
 
     if (!reply.success) throw new Error(reply.error);

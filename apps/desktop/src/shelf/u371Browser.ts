@@ -1,3 +1,4 @@
+import { executable } from "../todos/laneBrowser";
 import { execFile } from "node:child_process";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -22,7 +23,7 @@ export function shelfBrowser(initScript?: string) {
   const session = `u371-${basename(profile)}`;
 
   if (initScript) writeFileSync(join(profile, "init.js"), initScript);
-  const browser = async (...args: string[]) => (await exec("agent-browser", ["--session", session, "--profile", profile, ...(initScript ? ["--init-script", join(profile, "init.js")] : []), ...args], { timeout: 60_000 })).stdout;
+  const browser = async (...args: string[]) => (await exec(executable, ["--session", session, "--profile", profile, ...(initScript ? ["--init-script", join(profile, "init.js")] : []), ...args], { timeout: 60_000 })).stdout;
   const evaluate = async <T,>(script: string): Promise<T> => JSON.parse(await browser("eval", script));
   const rig: Rig = { server: undefined! };
 
