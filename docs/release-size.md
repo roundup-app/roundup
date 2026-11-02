@@ -80,7 +80,7 @@ metric is within its ceiling and budget (base / head ms): cold_start 10.190 / 10
 cold_plugin_materialization 10.661 / 10.270, hook_loop 205.354 / 199.839, ping_p95 0.0383 / 0.0379,
 rail_tree_10_p95 0.1266 / 0.1220, rail_tree_40_p95 0.3328 / 0.3225, rss_extra 2.148 / 2.102 MB,
 terminal_write_p95 0.0561 / 0.0562, write_to_output_p95 0.1128 / 0.1087. The pre-profile
-reference timing is in `docs/perf-release-profile.md`. A macOS cold-start comparison is read from the
+reference timing lived in the producing CI artifact. A macOS cold-start comparison is read from the
 `macos-latest` lanes of `check` on `main`; no user-only observation is requested.
 
 Raw build logs, module graphs, command results and unwind-test output are retained
