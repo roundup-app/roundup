@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """L121: prepare and verify the snapshot against CI's existing tool-version source."""
+import argparse
 import hashlib
 import io
 import json
@@ -17,6 +18,8 @@ import yaml
 
 INSTALL = Path('/opt/roundup-ci')
 RUNNER = Path('/opt/actions-runner')
+# Not in the setup action: CI does not use it. Its release publishes a SHA-256 digest per archive.
+CODEGRAPH = '1.6.2'
 
 
 def run(*args, timeout=600, cwd=None):
@@ -58,17 +61,34 @@ def verify(action):
     manifest = json.loads((INSTALL / 'image.json').read_text())
     if manifest['setup'] != hashlib.sha256(Path(action).read_bytes()).hexdigest():
         raise SystemExit('boxd snapshot does not match CI setup; refresh it before starting an agent')
-    expected = pins(action)
+    expected = {**pins(action), 'codegraph': CODEGRAPH}
     for name, executable in (('rust', 'rustc'), ('node', 'node'), ('python', 'python3'),
-                              ('codex', 'codex'), ('agent-browser', 'agent-browser'), ('claude', 'claude'), ('gh', 'gh')):
+                              ('codex', 'codex'), ('agent-browser', 'agent-browser'), ('claude', 'claude'), ('gh', 'gh'),
+                              ('codegraph', 'codegraph')):
         actual = run(executable, '--version', timeout=15).strip()
         if not re.search(rf'(?<![0-9.])v?{re.escape(expected[name])}(?:\.|[^0-9.]|$)', actual):
             raise SystemExit(f'boxd {name}: expected {expected[name]}, got {actual}')
     print(json.dumps({'prepared': manifest['created_from'], 'runner': manifest['runner'], 'tools': expected}))
 
 
-def build(repository):
-    """Build once on an isolated image machine; save only after cold reboot, before runner registration."""
+def install_codegraph():
+    """Install the pinned codegraph release the way its install.sh does (a versioned directory, `current` and a link on
+    PATH), but only from an archive whose published SHA-256 digest matches."""
+    archive, _ = github_archive('colbymchenry/codegraph', f'tags/v{CODEGRAPH}', r'codegraph-linux-x64\.tar\.gz')
+    home = Path('/home/boxd/.codegraph')
+    target = home / 'versions' / f'v{CODEGRAPH}'
+    shutil.rmtree(target, ignore_errors=True)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory() as directory, tarfile.open(fileobj=io.BytesIO(archive), mode='r:gz') as source:
+        source.extractall(directory, filter='data')
+        shutil.move(next(Path(directory).glob('codegraph-*')), target)
+    run('ln', '-sfn', str(target), str(home / 'current'))
+    run('ln', '-sf', str(target / 'bin/codegraph'), '/home/boxd/.local/bin/codegraph')
+
+
+def build(repository, instructions=None):
+    """Build once on an isolated image machine; save only after cold reboot, before runner registration. With
+    `instructions`, a file, the Claude Code and Codex user instructions of every job are that file."""
     repository = Path(repository).resolve()
     action = repository / '.github/actions/setup/action.yml'
     versions = pins(action)
@@ -97,6 +117,9 @@ def build(repository):
         if not shutil.which(tool):
             run('cargo', 'install', '--locked', crate, timeout=1200)
     run('agent-browser', 'install', '--with-deps')
+    print('Installing pinned codegraph and indexing the checkout', flush=True)
+    install_codegraph()
+    run('codegraph', 'init', '-y', str(repository), timeout=900)
     # These agent jobs use native/JavaScript actions. A foreign container job must not execute before identity checks.
     run('sudo', 'systemctl', 'disable', '--now', 'docker.service', 'docker.socket', 'containerd.service')
     print('Warming the workspace package store and Rust build cache', flush=True)
@@ -117,6 +140,8 @@ def build(repository):
     for name in ('.claude', '.codex', '.opencode', '.roundup-ci', '.config/gh', '.config/boxd',
                  '.local/share/opencode', '.local/share/claude', '.aws', '.ssh'):
         shutil.rmtree(Path('/home/boxd') / name, ignore_errors=True)
+    for target in ('/home/boxd/.claude/CLAUDE.md', '/home/boxd/.codex/AGENTS.md') if instructions else ():
+        run('sudo', 'install', '-D', '-o', 'boxd', '-g', 'boxd', '-m', '0644', str(Path(instructions).resolve()), target)
     gitconfig = Path('/home/boxd/.gitconfig')
     gitconfig.unlink(missing_ok=True)
     manifest = {'setup': hashlib.sha256(action.read_bytes()).hexdigest(), 'tools': versions,
@@ -127,5 +152,14 @@ def build(repository):
 
 
 if __name__ == '__main__':
-    command, path = sys.argv[1:]
-    {'build': build, 'verify': verify}[command](path)
+    parser = argparse.ArgumentParser()
+    parser.add_argument('command', choices=('build', 'verify'))
+    parser.add_argument('path')
+    parser.add_argument('--instructions', help='file installed as the user instructions of Claude Code and Codex (build only)')
+    arguments = parser.parse_args()
+    if arguments.command == 'verify':
+        if arguments.instructions:
+            parser.error('--instructions applies to build only')
+        verify(arguments.path)
+    else:
+        build(arguments.path, arguments.instructions)

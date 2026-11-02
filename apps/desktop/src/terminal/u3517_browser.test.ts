@@ -611,9 +611,10 @@ it("u4590_preparing_an_agent_keeps_the_selected_terminal_usable", async () => {
     document.fonts.load = async (...args) => { await gate; return load(...args); };
     window.__releaseFonts = () => { document.fonts.load = load; release(); };
     window.__fake.app.calls.length = 0;
-    document.querySelector('.rail-actions [aria-label="Create"]').click();
-    document.querySelector('[role=menuitem][data-value=agent]').click();
   })()`);
+  await browser("click", '.rail-actions [aria-label="Create"]');
+  await wait("!!document.querySelector('[role=menuitem][data-value=agent]')");
+  await browser("click", '[role=menuitem][data-value=agent]');
   await wait("document.querySelectorAll('.pane .xterm-screen').length === 2");
   expect(await read("window.__previousInput.isConnected")).toBe(true);
   await read("window.__previousInput.focus()");

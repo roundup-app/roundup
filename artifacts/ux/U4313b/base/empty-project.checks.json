@@ -10,8 +10,8 @@
     "value": {
       "contrast": "no-preference",
       "failing": [],
-      "scheme": "light",
-      "viewport": "1280x577"
+      "scheme": "dark",
+      "viewport": "1512x950"
     }
   },
   "D11": {
@@ -54,7 +54,7 @@
     "status": "pass",
     "value": {
       "extension": {
-        "controls": 24,
+        "controls": 26,
         "feedback": "instant Token recipe; frame readings in paired observer"
       },
       "original": {
@@ -71,7 +71,7 @@
     "selector": "",
     "status": "pass",
     "value": {
-      "targets": 24
+      "targets": 26
     }
   },
   "D7": {
@@ -83,7 +83,7 @@
         "rows": 0
       },
       "original": {
-        "targets": 24
+        "targets": 26
       }
     }
   },
