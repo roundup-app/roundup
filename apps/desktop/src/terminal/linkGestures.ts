@@ -50,7 +50,7 @@ export const attachLinkGestures = (terminal: Terminal, host: HTMLElement, open: 
 
     for (const mark of marks) mark.dispose();
     marks = [];
-    host.style.cursor = link ? "pointer" : "";
+    (terminal.element ?? host).style.cursor = link ? "pointer" : "";
 
     if (!link) return;
     const buffer = terminal.buffer.active;
@@ -146,7 +146,7 @@ export const attachLinkGestures = (terminal: Terminal, host: HTMLElement, open: 
     rendered.dispose(); scrolled.dispose();
 
     for (const mark of marks) mark.dispose();
-    host.style.cursor = "";
+    (terminal.element ?? host).style.cursor = "";
     host.removeEventListener("mousedown", down, true);
     host.removeEventListener("mousemove", move, true);
     host.removeEventListener("mouseleave", leave);
