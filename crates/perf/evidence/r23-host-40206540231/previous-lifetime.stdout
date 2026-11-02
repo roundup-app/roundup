@@ -1,1 +1,0 @@
-[{"completed_at":"2026-10-25T14:24:52Z","conclusion":"failure","html_url":"https://github.com/roundup-app/roundup/actions/runs/40200071512/job/121189514795","id":121189514795,"labels":["ubuntu-24.04"],"name":"build #4032 / build","runner_name":"GitHub Actions 1000015029","started_at":"2026-10-25T14:00:11Z","status":"completed"}]

@@ -1,6 +1,0 @@
-from importlib.machinery import SourceFileLoader
-m=SourceFileLoader('ident','/tmp/r23-identity-init.py').load_module();root,run=m.root,m.run
-import shutil
-shutil.copy2('/tmp/r23-id-replay.log',root/'physical-replay-v1.stderr');(root/'physical-replay-v1.exit').write_text('1\n')
-run('physical-replay-v2',['python3','/tmp/r23-identity-replay.py','/tmp/r23-native-identities',str(root),'/tmp/r23-id-replay-v2','/tmp/r23-id-assessment-v2'])
-run('identity-assess',['python3','/tmp/r23-identity-assess.py',str(root),'/tmp/r23-identity-result','/tmp/r23-id-assessment-v2'])
