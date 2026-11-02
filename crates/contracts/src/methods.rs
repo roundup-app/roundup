@@ -189,6 +189,48 @@ pub(crate) fn render_typescript(methods: &[ExportedMethod]) -> String {
     out
 }
 
+/// Explicit tool policy; absence of a policy is a declaration syntax error.
+#[derive(Clone, Copy, Debug)]
+pub enum McpChoice {
+    All,
+    Door,
+    None(&'static str),
+}
+
+/// Measured workload membership, or the reason it is outside that workload.
+#[derive(Clone, Copy, Debug)]
+pub enum PerfDisposition {
+    Measured(&'static [&'static str]),
+    OffPath(&'static str),
+}
+
+/// Consumer metadata authored beside the method, never inferred from its name.
+#[derive(Clone, Copy, Debug)]
+pub struct Metadata {
+    pub name: &'static str,
+    pub mcp: McpChoice,
+    pub perf: PerfDisposition,
+    pub description: &'static str,
+}
+
+impl Metadata {
+    /// The single completeness check for declarations and in-memory fixtures.
+    pub fn check(&self) -> Result<(), String> {
+        let missing = match (self.mcp, self.perf) {
+            (McpChoice::None(reason), _) if reason.trim().is_empty() => Some("MCP no-tool reason"),
+            (_, PerfDisposition::OffPath(reason)) if reason.trim().is_empty() => {
+                Some("perf off-path reason")
+            }
+            _ if self.description.trim().is_empty() => Some("description"),
+            _ => None,
+        };
+        match missing {
+            Some(field) => Err(format!("{}: fill {field}", self.name)),
+            None => Ok(()),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -348,48 +390,6 @@ mod metadata_tests {
                     );
                 }
             }
-        }
-    }
-}
-
-/// Explicit tool policy; absence of a policy is a declaration syntax error.
-#[derive(Clone, Copy, Debug)]
-pub enum McpChoice {
-    All,
-    Door,
-    None(&'static str),
-}
-
-/// Measured workload membership, or the reason it is outside that workload.
-#[derive(Clone, Copy, Debug)]
-pub enum PerfDisposition {
-    Measured(&'static [&'static str]),
-    OffPath(&'static str),
-}
-
-/// Consumer metadata authored beside the method, never inferred from its name.
-#[derive(Clone, Copy, Debug)]
-pub struct Metadata {
-    pub name: &'static str,
-    pub mcp: McpChoice,
-    pub perf: PerfDisposition,
-    pub description: &'static str,
-}
-
-impl Metadata {
-    /// The single completeness check for declarations and in-memory fixtures.
-    pub fn check(&self) -> Result<(), String> {
-        let missing = match (self.mcp, self.perf) {
-            (McpChoice::None(reason), _) if reason.trim().is_empty() => Some("MCP no-tool reason"),
-            (_, PerfDisposition::OffPath(reason)) if reason.trim().is_empty() => {
-                Some("perf off-path reason")
-            }
-            _ if self.description.trim().is_empty() => Some("description"),
-            _ => None,
-        };
-        match missing {
-            Some(field) => Err(format!("{}: fill {field}", self.name)),
-            None => Ok(()),
         }
     }
 }
