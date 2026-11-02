@@ -11,6 +11,7 @@ afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
 it.each(["agent", "door", "bubble"].flatMap(placement => ["text", "image"].map(payload => ({ placement, payload }))))("u3560b_paste_reaches_only_the_focused_terminal_$placement/$payload", async ({ placement, payload }) => {
   localStorage.clear();
+  sessionStorage.clear();
   const forbidden = vi.fn(() => { throw new DOMException("permission denied", "NotAllowedError"); });
   Object.defineProperty(navigator, "clipboard", { configurable: true, value: { read: forbidden, readText: forbidden, writeText: forbidden } });
   const app = createFakeApp();
@@ -28,7 +29,7 @@ it.each(["agent", "door", "bubble"].flatMap(placement => ["text", "image"].map(p
 
   if (placement === "bubble") {
     window.dispatchEvent(new CustomEvent(REVEAL_BUBBLE, { detail: "plain" }));
-    await waitFor(() => expect(document.querySelector('[data-terminal="plain"]')).not.toBeNull());
+    await waitFor(() => expect(document.activeElement?.closest<HTMLElement>("[data-terminal]")?.dataset.terminal).toBe("plain"));
   }
 
   const id = placement === "bubble" ? "plain" : "t-a";
