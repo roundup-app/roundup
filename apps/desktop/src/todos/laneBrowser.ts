@@ -14,7 +14,7 @@ const exec = promisify(execFile);
 // versus 0.156 s for the bundled CLI. Hundreds of inputs repeat that startup.
 const native = join(createRequire(import.meta.url).resolve("agent-browser/package.json"), "..", "bin", `agent-browser-${process.platform}-${process.arch}${process.platform === "win32" ? ".exe" : ""}`);
 
-export const executable = existsSync(native) ? native : "agent-browser";
+const executable = existsSync(native) ? native : "agent-browser";
 
 /** One headless Chromium on a fresh profile, driven by `agent-browser` on the shared U26 harness server; never the user's browser. */
 export type LaneBrowser = {

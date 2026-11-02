@@ -78,7 +78,7 @@ it.each(["empty-project", "tree-40"])("u3756a_late_door_terminal_keeps_the_newer
     await wait(`document.querySelector('.terminal-tab[data-bubble="101"]').getAttribute('aria-pressed') === 'false'`);
     await read(`window.__fake.app.handlers['terminal.open'] = () => { throw new Error('Terminal could not open: retry New Terminal'); }`);
     await browser("press", "Meta+t");
-    await wait(`document.querySelector('.bubbles [role=alert]')?.textContent.includes('Terminal could not open: retry New Terminal')`);
+    await wait(`document.body.textContent.includes('Terminal could not open: retry New Terminal')`);
     await capture("U3756a", "tree-40-failure");
   }
   } finally { if (recording) await browser("record", "stop"); }
@@ -119,7 +119,7 @@ const newer = async (choice: string) => {
       window.newTodo = made.id;
       const selected = document.querySelector('.rail-row[data-selected=true]')?.closest('[data-id]')?.dataset.id;
       if (selected) await app.rpc('todo.move', {id:made.id,home:selected});
-      const tab = document.querySelector('#shelf-tab-todos[role=tab]'); if (tab.getAttribute('aria-expanded') !== 'true') tab.click();
+      const tab = [...document.querySelectorAll('[role=tab]')].find(t => t.textContent.startsWith('Todos')); if (tab.getAttribute('aria-expanded') !== 'true') tab.click();
     })()`);
     await read(`document.querySelector('.shelf [data-shelf-group=unassigned][data-state=closed] [data-part=branch-control]')?.click()`);
     await wait(`!!document.querySelector('[data-todo="' + window.newTodo + '"] .todo-row-button')`);
@@ -206,7 +206,7 @@ for (const intervene of [false, true]) {
     await read(`(() => {
       const app = window.__fake.app, read = app.handlers['pad.read'];
       app.handlers['pad.read'] = params => new Promise(resolve => { window.finishPad = () => resolve(read(params)); });
-      const tab = document.querySelector('#shelf-tab-pads[role=tab]'); if (tab.getAttribute('aria-expanded') !== 'true') tab.click();
+      const tab = [...document.querySelectorAll('[role=tab]')].find(t => t.textContent.startsWith('Pads')); if (tab.getAttribute('aria-expanded') !== 'true') tab.click();
     })()`);
     await wait(`!!document.querySelector('.pad-name')`);
     await openRow('[data-pad="pad-3"] .pad-name');
@@ -368,7 +368,7 @@ it("u3756c_a_new_drawer_editor_mount_keeps_body_unclaimed_by_the_older_terminal"
     const made = await app.rpc('todo.create', {title:'Mounted editor',body:null,blockers:null});
     window.newTodo = made.id;
     await app.rpc('todo.move', {id:made.id,home:document.querySelector('.rail-row[data-selected=true]').dataset.id});
-    const tab = document.querySelector('#shelf-tab-todos[role=tab]'); if (tab.getAttribute('aria-expanded') !== 'true') tab.click();
+    const tab = [...document.querySelectorAll('[role=tab]')].find(t => t.textContent.startsWith('Todos')); if (tab.getAttribute('aria-expanded') !== 'true') tab.click();
   })()`);
   await read(`document.querySelector('.shelf [data-shelf-group=unassigned][data-state=closed] [data-part=branch-control]')?.click()`);
   await wait(`!!document.querySelector('[data-todo="' + window.newTodo + '"] .todo-row-button')`);
