@@ -133,6 +133,11 @@ jobs:
     needs: plan
     if: github.event_name != 'pull_request' || (!github.event.pull_request.draft && needs.plan.outputs.rust == 'true')
     env:
+      # CI5330e/f: run 41421700034 grew target from 12 GB to 37 GB and filled rust 3's
+      # 72 GB disk compiling a32_removed. Omit debug symbols from both runtime and
+      # test builds; debug assertions, overflow checks and test selection stay enabled.
+      CARGO_PROFILE_DEV_DEBUG: '0'
+      CARGO_PROFILE_TEST_DEBUG: '0'
       BASE: >-
         ${{ github.event_name == 'pull_request' && !startsWith(github.event.pull_request.title, 'CI3781 experiment: ') && 'HEAD^1' || '' }}
     name: rust ${{ matrix.partition }}
