@@ -1,6 +1,7 @@
 import { copy as sharedCopy, type CopyValue } from "../sharedCopy";
 
 export const copy = {
+  terminalFocusChanged: "Terminal focus changed",
   terminalDestinationUnavailable: "Terminal could not open: its font or layout was not ready. Retry.",
   terminalPreparationUnavailable: "Terminal could not open: its renderer was not available. Retry.",
   terminalPreparationCancelled: sharedCopy.terminalPreparationCancelled,
