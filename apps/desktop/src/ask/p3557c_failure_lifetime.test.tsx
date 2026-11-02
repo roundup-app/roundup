@@ -10,7 +10,7 @@ afterEach(cleanup);
 it("p3557c_failure_lifetime_ask_rows", async () => {
   const waiting = (text: string) => ({ text, placement: { kind: "unclear" as const, question: "Which?", candidates: ["lead", "ops"] }, state: "waiting" as const });
   const { app } = await mountAskBar([ask("a1", 1, [waiting("first"), waiting("second")])]);
-  const lines = () => [...document.querySelectorAll(".ask-row")].map(row => row.querySelector(".reserved-line")?.getAttribute("title") ?? null);
+  const lines = () => [...document.querySelectorAll(".ask-row")].map(row => row.querySelector(".ask-back .reserved-line")?.getAttribute("title") ?? null);
 
   app.handlers["ask.pick"] = () => { throw new Error("pick refused"); };
 

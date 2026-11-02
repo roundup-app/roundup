@@ -1,8 +1,22 @@
+import { execFileSync } from "node:child_process";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { expect, it } from "vitest";
 import { browser, read, url, wait } from "../ui/tabsBrowser";
+import type { Checks } from "../testing/checks";
 import { captureDir } from "../testing/captures";
+
+const captureSha = captureDir("U5704a") ? process.env.ROUNDUP_CAPTURE_SHA ?? execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim() : undefined;
+
+const headingHitAreas = `Array.from(document.querySelectorAll('details[data-pad-heading] summary')).filter(s => s.checkVisibility()).map(s => {
+        const r = s.getBoundingClientRect();
+        const x = r.left + r.width / 2;
+        let hitHeight = 0;
+        for (let y = r.top; y < r.bottom; y += 0.25) {
+          if (document.elementFromPoint(x, y + 0.125) === s) hitHeight += Math.min(0.25, r.bottom - y);
+        }
+        return { name: s.ariaLabel, level: s.closest('h1,h2,h3,h4,h5,h6').tagName, expanded: s.getAttribute('aria-expanded'), height: r.height, hitHeight, focused: s.matches(':focus-visible'), hovered: s.matches(':hover') };
+      })`;
 
 const source = "Ready to review.\n\n<details>\n<summary>For Agents</summary>\n\nPath: `日本語/café`\n\n<img src=x onerror=alert(1)>\n<script>alert(1)</script>\n[unsafe](javascript:alert(1))\n\n~~~text\nraw evidence\n~~~\n\n</details>";
 
@@ -157,10 +171,16 @@ it.each([false, true].flatMap(editable => ["Evidence", "For Agents"].map(label =
 });
 
 it("u5561b_failed_save_keeps_the_edited_agent_details", { retry: 0, timeout: 90_000 }, async () => {
+  await browser("set", "viewport", "1512", "950");
   await browser("set", "media", "dark");
+
+  const failureSource = captureDir("U5704a")
+    ? `# ${"A long wrapping heading with review evidence ".repeat(5)}\n\n## Second\n\n### Third\n\n#### Fourth\n\n##### Fifth\n\n###### Sixth\n\n${source}`
+    : source;
+
   await browser("open", url("/harness.html?seed=tree-40"));
   await wait("!!window.__fake && !!document.querySelector('#shelf-tab-pads')");
-  await read(`window.__fake.app.rpc('pad.write', ${JSON.stringify({ name: "pad-3", text: source })})`);
+  await read(`window.__fake.app.rpc('pad.write', ${JSON.stringify({ name: "pad-3", text: failureSource })})`);
 
   if (await read("document.querySelector('#shelf-tab-pads').getAttribute('aria-expanded') !== 'true'")) await browser("click", "#shelf-tab-pads");
   await wait("!!document.querySelector('.pad-name')");
@@ -174,13 +194,19 @@ it("u5561b_failed_save_keeps_the_edited_agent_details", { retry: 0, timeout: 90_
   await browser("fill", "details[data-pad-agents] textarea", draft);
   await wait("document.body.innerText.includes('restore write access')");
   expect(await read("document.querySelector('details[data-pad-agents] textarea').value")).toBe(draft);
-  expect(await read("window.__fake.app.rpc('pad.read', {name:'pad-3'}).then(pad => pad.text)")).toBe(source);
-  const dir = captureDir("U5561b");
+  expect(await read("window.__fake.app.rpc('pad.read', {name:'pad-3'}).then(pad => pad.text)")).toBe(failureSource);
+  const sizingDir = captureDir("U5704a");
+  const dir = sizingDir ? join(sizingDir, process.env.ROUNDUP_CAPTURE_PHASE ?? "head") : captureDir("U5561b");
+
+  if (sizingDir) {
+    await browser("scroll", "up", "1000", "--selector", ".pad-editor");
+    await wait("document.querySelector('.pad-editor').scrollTop === 0");
+  }
 
   if (dir) {
     await mkdir(dir, { recursive: true });
     await browser("screenshot", join(dir, "save-failure.png"));
-    await writeFile(join(dir, "save-failure.checks.json"), JSON.stringify(await read("window.__checks()")));
+    await writeFile(join(dir, "save-failure.checks.json"), JSON.stringify({ ...await read<Checks>("window.__checks()"), observation: { sha: captureSha, seed: "tree-40", state: "save-failure", controls: await read(headingHitAreas), viewport: [1512, 950], scheme: "dark" } }));
   }
 
   await browser("click", ".drawer .close");
@@ -202,11 +228,46 @@ it.each([false, true])("u5575a_headings_fold_only_their_sections editable=%s", {
   const heading = (name: string) => `details[data-pad-heading] summary[aria-label="${name}"]`;
   const visible = (name: string) => read<boolean>(`document.querySelector(${JSON.stringify(heading(name))}).checkVisibility()`);
   const dir = captureDir("U5575a");
+  const sizingDir = captureDir("U5704a");
+
+  const captureHeadingTargets = async (name: string, open: boolean) => {
+    if (!sizingDir) return;
+    const sha = captureSha;
+
+    if (!sha) throw new Error("U5704a requires immutable ROUNDUP_CAPTURE_SHA");
+    const folder = join(sizingDir, process.env.ROUNDUP_CAPTURE_PHASE ?? "head");
+    await mkdir(folder, { recursive: true });
+    const selector = heading(name);
+
+    for (const state of ["rest", "hover", "focus"]) {
+      if (state === "rest") {
+        await browser("press", "Tab");
+        await browser("mouse", "move", "1500", "940");
+      } else if (state === "hover") await browser("hover", selector);
+      else {
+        await browser("mouse", "move", "1500", "940");
+        await browser("focus", selector);
+        await browser("press", "Enter");
+        await wait(`document.querySelector(${JSON.stringify(selector)}).getAttribute('aria-expanded') === '${!open}'`);
+        await browser("press", "Enter");
+        await wait(`document.querySelector(${JSON.stringify(selector)}).getAttribute('aria-expanded') === '${open}'`);
+        await wait(`document.activeElement.matches(${JSON.stringify(selector)})`);
+      }
+
+      const controls = await read(headingHitAreas);
+
+      const step = `${editable ? "editor" : "readonly"}-${name}-${open}-${state}`;
+      await browser("screenshot", join(folder, `${step}.png`));
+      await writeFile(join(folder, `${step}.checks.json`), JSON.stringify({ ...await read<Checks>("window.__checks()"), observation: { sha, seed: "heading-fixture", viewport: [1512, 950], scheme: "dark", name, open, state, controls } }));
+    }
+  };
 
   if (dir) await mkdir(dir, { recursive: true });
 
+  const names = ["Verification", "Next step", "Result", "Reference", "Third", "Fourth", "Fifth", "Sixth"];
+
   for (const input of ["pointer", "Return", "Space"]) {
-    for (const name of ["Verification", "Next step", "Result", "Reference"]) {
+    for (const name of names.slice(0, input === "pointer" && sizingDir ? names.length : 4)) {
       const selector = heading(name);
       await browser("focus", selector);
 
@@ -236,6 +297,8 @@ it.each([false, true])("u5575a_headings_fold_only_their_sections editable=%s", {
         if (name === "Next step") expect(await read("[...document.querySelectorAll('.ProseMirror > p')].find(p => p.textContent === 'Review.').checkVisibility()")).toBe(open);
 
         if (name === "Reference") expect(await visible("Third")).toBe(open);
+
+        if (input === "pointer") await captureHeadingTargets(name, open);
 
         if (dir) {
           await browser("screenshot", join(dir, `${name}-${input}-${open}.png`));
