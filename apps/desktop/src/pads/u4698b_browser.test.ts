@@ -172,6 +172,7 @@ it("u4698b_expand_keeps_the_long_pad_and_all_formats_reachable", { retry: 0, tim
   if (captureDir("U5560a") && !baseline) {
     await evaluate("window.dispatchEvent(new Event('open-app-settings')); true");
     await browser("click", '[role=tab][data-value="Pads"]');
+    await browser("wait", '.settings-content input[value="full"]');
     await browser("click", '.settings-content input[value="full"]');
     await browser("wait", "--fn", "JSON.parse(localStorage.getItem('roundup:app-settings')).padWidth === 'full'");
     await browser("click", ".settings-back");
