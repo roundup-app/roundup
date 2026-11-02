@@ -76,6 +76,7 @@ const normalHeading = (text: string) => text.replace(/^#+/, "").split(/\s+/).fil
 
 /** U147: the Pad's one surface. `readonly` prevents editing unavailable content; `onChange` fires on every document change the user makes, `onText` follows with the settled Markdown. */
 export default function PadRichEditor(props: {
+  item?: "pad" | "todo";
   autofocus?: boolean;
   label?: string;
   initialFocus?: ReturnType<typeof captureFocus> | undefined;
@@ -128,6 +129,8 @@ export default function PadRichEditor(props: {
       slashMenu: { root: menuHost },
       textGroup: { divider: null },
       buildMenu: (builder) => {
+        if (props.item === "todo") return;
+
         builder.getGroup("advanced").addItem("for-agents", {
           label: copy.forAgents,
           icon: "",
