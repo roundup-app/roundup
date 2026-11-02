@@ -47,6 +47,23 @@ fn zoom_window<R: Runtime>(window: Window<R>) -> Result<(), RpcError> {
     result.map_err(|error| RpcError::new(code::INTERNAL, error.to_string()))
 }
 
+/// The browser reset location belongs to the invoking webview, not the plugin JSON store.
+#[tauri::command]
+async fn webview_data_path<R: Runtime>(webview: tauri::Webview<R>) -> Result<String, String> {
+    #[cfg(target_os = "macos")]
+    let folder = native::webview_data_path(&webview)?;
+    #[cfg(not(target_os = "macos"))]
+    let folder = webview
+        .app_handle()
+        .path()
+        .app_local_data_dir()
+        .map_err(|error| error.to_string())?;
+    if !folder.is_absolute() {
+        return Err("The browser data folder is not absolute".into());
+    }
+    Ok(folder.to_string_lossy().into_owned())
+}
+
 pub(crate) fn plugin<R: Runtime>() -> TauriPlugin<R> {
     tauri::plugin::Builder::new("window-bar")
         .on_window_ready(|window| {
@@ -92,6 +109,7 @@ pub(crate) fn plugin<R: Runtime>() -> TauriPlugin<R> {
             let _ = window;
         })
         .invoke_handler(tauri::generate_handler![
+            webview_data_path,
             native_material,
             set_window_title,
             drag_window,
