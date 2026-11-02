@@ -38,9 +38,11 @@ export const RailFooter = (props: {
           <For each={held.rows()}>{row => <button type="button" data-button="quiet" class="held-row" onClick={() => {
             const node = rail.nodes.find(node => node.id === row.agent);
 
-            if (!node) { failure.show(copy.thatIsGone, null, "rail");
+            if (!node) {
+              failure.show(copy.thatIsGone, null, "rail");
 
- return; }
+              return;
+            }
 
             rail.select(row.agent);
           }}><KindGlyph kind={row.kind} /><span class="held-content"><span>{row.name}</span><span class="held-line">{row.line}</span></span><time dateTime={new Date(row.at).toISOString()}>{new Date(row.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</time></button>}</For>

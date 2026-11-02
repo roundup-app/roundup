@@ -94,4 +94,5 @@ it("u5501_a_failed_or_gone_target_open_preserves_held_rows", async () => {
   expect(connected.held.rows()).toHaveLength(1);
   expect(connected.rail.selected()).not.toBe("b");
   await waitFor(() => expect(connected.rail.commandFailure.message()).toBeTruthy());
+  expect(await screen.findByText(connected.rail.commandFailure.message()!)).toBeTruthy();
 });

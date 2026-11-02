@@ -37,7 +37,7 @@ alert_tokens = {
     "apps/desktop/src/terminal/screens.ts": {"held"},
 }
 
-bad = []
+bad = set()
 for root in sys.argv[1:]:
     for path in pathlib.Path(root).rglob("*"):
         if not path.is_file() or {"node_modules", "target"}.intersection(path.parts):
@@ -51,7 +51,7 @@ for root in sys.argv[1:]:
             token not in allowed
             for token in re.findall(r"[\w:-]*held[\w:-]*", source, re.IGNORECASE)
         ):
-            bad.append(str(path))
+            bad.add(str(path))
 if bad:
     print("retired word (takeover, held) in:", *sorted(bad), sep="\n", file=sys.stderr)
     sys.exit(1)
