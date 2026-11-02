@@ -46,28 +46,21 @@ const lines = (change: Change, agentName: (id: string) => string, now: number): 
   return change.changed_at === null ? named : named.map((line) => copy.changeAt(line, copy.commentTime(change.changed_at!, now)));
 };
 
-type Loaded = { history: History; unread: boolean };
-
 /** History loads with the Drawer, but entries render and the read is sent only once the user opens the line. */
 export const createTodoHistory = (props: { id: number; saved?: (() => number) | undefined; onCapture?: ((change: Change | undefined) => void) | undefined; exposed: () => boolean }) => {
   const { app, events, drawer, rail, now } = useConnectedProject();
   const content = drawer.content();
-  const [loaded, setLoaded] = createSignal<Loaded | null>(null);
+  const [loaded, setLoaded] = createSignal<History | null>(null);
   const [failure, setFailure] = createSignal<string | null>(null);
   const [copyFailure, failCopy] = createSignal<string | null>(null);
   createEffect(on(props.saved ?? (() => 0), () => failCopy(null), { defer: true }));
 
   let latest = 0;
   let alive = true;
-  let boundary: number | null | undefined;
-  let baseline = 0;
-  let opening: Change[] = [];
+  let baseline: number | null = null;
   let through = 0;
   let acknowledged = false;
   let reading: Promise<null> | null = null;
-
-  const unreadIn = (changes: Change[]) => acknowledged ? changes.some((change) => change.seq > through)
-    : boundary !== null || changes.some((change) => change.seq > baseline);
 
   // The opened section reads the entries it shows, once per Drawer.
   const read = async () => {
@@ -75,19 +68,14 @@ export const createTodoHistory = (props: { id: number; saved?: (() => number) | 
     const id = props.id;
 
     if (!props.exposed() || !fetched || reading || acknowledged || drawer.content() !== content || !alive) return;
-    through = baseline;
+    through = baseline ?? 0;
 
     if (through === 0) return;
     reading = app.rpc("todo.readHistory", { id, through }).then(() => null);
     const message = await failureOf(async () => { await reading; });
 
     if (message !== null) reading = null;
-    else if (alive && id === props.id) {
-      acknowledged = true;
-      const current = loaded();
-
-      if (current) setLoaded({ ...current, unread: unreadIn(current.history.changes) });
-    }
+    else if (alive && id === props.id) acknowledged = true;
 
     if (alive && id === props.id) setFailure(message);
   };
@@ -103,13 +91,9 @@ export const createTodoHistory = (props: { id: number; saved?: (() => number) | 
       if (!alive || mine !== latest || id !== props.id || drawer.content() !== content) return;
       props.onCapture?.(fetched.changes.at(-1));
 
-      if (boundary === undefined) {
-        boundary = fetched.unread;
-        baseline = fetched.changes.at(-1)?.seq ?? 0;
-        opening = fetched.changes;
-      }
+      if (baseline === null) baseline = fetched.changes.at(-1)?.seq ?? 0;
 
-      setLoaded({ history: fetched, unread: unreadIn(fetched.changes) });
+      setLoaded(fetched);
     });
 
     if (alive && mine === latest && id === props.id && drawer.content() === content) setFailure(message);
@@ -117,7 +101,7 @@ export const createTodoHistory = (props: { id: number; saved?: (() => number) | 
   };
 
   createEffect(on(() => props.id, () => {
-    boundary = undefined; baseline = 0; through = 0; acknowledged = false; reading = null; opening = [];
+    baseline = null; through = 0; acknowledged = false; reading = null;
     setLoaded(null); setFailure(null); failCopy(null);
     void refresh();
   }));
@@ -134,15 +118,13 @@ export const createTodoHistory = (props: { id: number; saved?: (() => number) | 
   createEffect(() => { if (props.exposed()) void read(); });
 
   return {
-    changes: () => loaded()?.history.changes,
-    failed: () => failure() !== null,
-    unreadOpening: () => opening.filter(change => boundary !== null && boundary !== undefined && change.seq >= boundary),
+    changes: () => loaded()?.changes,
     feedback: <ReservedLine message={copyFailure() ?? failure()}>
       <button data-button="quiet" class="word" type="button" onMouseDown={event => event.preventDefault()} onClick={() => void refresh()}>{copy.retryHistory}</button><button data-dismiss-failure onMouseDown={event => event.preventDefault()} data-button="quiet" class="word" type="button" onClick={() => { failCopy(null); setFailure(null); }}>{copy.dismissFailure}</button>
     </ReservedLine>,
     copy: <Show when={loaded()}>{record => <CopyButton app={app} text={JSON.stringify({
-      lines: record().history.changes.flatMap(change => lines(change, id => rail.nodes.find(node => node.id === id)?.name ?? copy.missingAgent, now())),
-      history: record().history, failure: failure(),
+      lines: record().changes.flatMap(change => lines(change, id => rail.nodes.find(node => node.id === id)?.name ?? copy.missingAgent, now())),
+      history: record(), failure: failure(),
     }, null, 2)} onSuccess={() => failCopy(null)} onFailure={error => failCopy(copy.copyDraftFailure(error instanceof Error ? error.message : String(error)))}>{copy.copy}</CopyButton>}</Show>,
     entry: (change: Change) => <div class="todo-change" data-change={change.seq}>
       <span class="todo-activity-dot" aria-hidden="true" />

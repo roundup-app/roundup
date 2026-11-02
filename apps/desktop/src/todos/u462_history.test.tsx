@@ -13,10 +13,11 @@ const open = async (mounted: Awaited<ReturnType<typeof mountTodos>>, id = 1) => 
   { const focusedRow = await screen.findByRole("button", { name: new RegExp(`^Idle #${id} `) }); focusedRow.focus(); fireEvent.keyDown(focusedRow, { key: "Enter", code: "Enter" }); }
 
   await within(panel()).findByRole("region", { name: "Activity" });
+  fireEvent.click(await within(panel()).findByRole("button", { name: /^\d+ changes?$/ }));
   await within(panel()).findByText(/^Created |^Renamed |^Assigned /);
 };
 
-/** Recent history is exposed on opening; its read settles asynchronously. */
+/** Opening the counted disclosure exposes history; its read settles asynchronously. */
 const disclose = async (mounted: Awaited<ReturnType<typeof mountTodos>>) => {
   await waitFor(() => expect(todoCallsTo(mounted.app, "todo.readHistory").length).toBeGreaterThan(0));
 };
@@ -57,6 +58,7 @@ it("u462_failed_fetch_does_not_consume_unread_changes", async () => {
   await waitFor(() => expect(document.activeElement).toBe(field));
   m.app.handlers["todo.getHistory"] = original;
   fireEvent.click(within(panel()).getByRole("button", { name: "Retry history" }));
+  fireEvent.click(await within(panel()).findByRole("button", { name: /^\d+ changes?$/ }));
   await within(panel()).findByText(/^Created todo 1( · |$)/);
   await waitFor(() => expect(todoCallsTo(m.app, "todo.readHistory")).toHaveLength(1));
 });
