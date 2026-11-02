@@ -29,7 +29,10 @@ const reactionBrowser = async () => {
   const session = `nr9-${process.pid}-${profile.split("-").at(-1)}`;
 
   const browser = async (...args: string[]) => {
-    const { stdout } = await execute(command, ["--executable-path", executable, "--args", "--no-sandbox", "--config", config, "--session", session, "--profile", profile, "--json", ...args], { env, timeout: 60_000, maxBuffer: 4 * 1024 * 1024 });
+    const { stdout } = await execute(command, ["--executable-path", executable, "--args", "--no-sandbox", "--config", config, "--session", session, "--profile", profile, "--json", ...args], { env, timeout: 60_000, maxBuffer: 4 * 1024 * 1024 }).catch((error: Error & { stdout?: string; stderr?: string }) => {
+      throw new Error(error.stdout || error.stderr || error.message, { cause: error });
+    });
+
     const answer = JSON.parse(stdout);
 
     if (!answer.success) throw new Error(stdout);
@@ -336,6 +339,7 @@ it.skipIf(!captureDir("U5558a"))("u5558e_open_surfaces_update_and_keep_failed_re
     await wait("!!window.__fake");
     await browser("record", "start", video);
     recording = true;
+    await wait("!!window.__fake && !!document.querySelector('.ask-input')");
     await click("Made");
     await evaluate(`(() => {
       const record = {project:'p', id:'automatic-made', title:'Same title', maker:{kind:'agent',id:'agent-1',parent:null}, maker_name:'Maker',home:null,published_at:1,target:{kind:'external',url:'https://example.com/result',availability:'not-checked'}};
