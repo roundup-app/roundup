@@ -41,7 +41,7 @@ describe("u3718 a Todo dragged to another owner's group", () => {
   afterAll(async () => { await lane?.close(); });
 
   it("u3718_nonempty_owner_is_a_drop_target_while_dragging", async () => {
-    await lane.seedTodos(["first", "second", "third"]);
+    await lane.seedTodos(["first", "second", "third"], true, "empty-project");
 
     const [one] = await lane.order();
 
@@ -81,7 +81,7 @@ describe("u3718 a Todo dragged to another owner's group", () => {
   }, 120_000);
 
   it("u3718_the_row_moves_only_after_the_refetch", async () => {
-    await lane.seedTodos(["first", "second", "third"]);
+    await lane.seedTodos(["first", "second", "third"], true, "empty-project");
 
     const [one] = await lane.order();
 
@@ -100,7 +100,7 @@ describe("u3718 a Todo dragged to another owner's group", () => {
   }, 120_000);
 
   it("u3720_esc_and_click_outside_close_and_restore_focus", async () => {
-    await lane.seedTodos(["first", "second", "third"]);
+    await lane.seedTodos(["first", "second", "third"], true, "empty-project");
 
     const [one] = await lane.order();
 
@@ -124,7 +124,8 @@ it("u3515c_todo_nesting_excludes_self_descendants_and_unchanged_placement", asyn
   const lane = await openLane(1512, "dark", "u3515-nesting");
 
   try {
-    await lane.seedTodos(["parent", "child", "grandchild", "sibling"], false);
+    // Nesting depends on these Todos, not the forty unrelated Rail owners.
+    await lane.seedTodos(["parent", "child", "grandchild", "sibling"], false, "empty-project");
     const [parent, child, grandchild, sibling] = await lane.order();
     await lane.evaluate(`(async () => {
       await window.__fake.app.rpc('todo.setBlockers', { id: ${child}, blockers: [${parent}] });
