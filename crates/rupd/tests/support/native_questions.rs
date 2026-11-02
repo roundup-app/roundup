@@ -522,8 +522,6 @@ async fn a5482b_owner_answers_only_in_the_leads_terminal() {
 
 #[tokio::test]
 async fn a5482c_plain_text_question_reaches_the_lead_and_gets_an_inbox_answer() {
-    let (mut run, lead, child) = family().await;
-    let typed = (lead.typed(), child.typed());
     for text in [
         "Should I publish three pages or five".to_owned(),
         format!(
@@ -532,6 +530,9 @@ async fn a5482c_plain_text_question_reaches_the_lead_and_gets_an_inbox_answer() 
         ),
         "Publishing is complete".to_owned(),
     ] {
+        // Each completion case has its own B22 window; this observes A5482c, not the push cap.
+        let (mut run, lead, child) = family().await;
+        let typed = (lead.typed(), child.typed());
         signal(
             &run,
             &child,
@@ -619,12 +620,12 @@ async fn a5482c_plain_text_question_reaches_the_lead_and_gets_an_inbox_answer() 
             assert!(reply["replyTo"].is_null());
         }
         signal(&run, &lead, json!({"hook_event_name":"Stop"})).await;
+        assert_eq!((lead.typed(), child.typed()), typed);
+        assert_eq!(native_requests(&mut run, &lead, &child).await, 0);
+        child
+            .client
+            .request("todo.create", json!({"title":"Continue publishing"}))
+            .await
+            .unwrap();
     }
-    assert_eq!((lead.typed(), child.typed()), typed);
-    assert_eq!(native_requests(&mut run, &lead, &child).await, 0);
-    child
-        .client
-        .request("todo.create", json!({"title":"Continue publishing"}))
-        .await
-        .unwrap();
 }
