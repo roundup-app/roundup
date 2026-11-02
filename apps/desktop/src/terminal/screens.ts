@@ -95,6 +95,7 @@ type Holder = {
   ready: boolean;
   incarnation: string | undefined;
   emulator: Emulator;
+  host: HTMLElement | null;
   stopClipboard: (() => void) | null;
   atBottom: Accessor<boolean>;
   returnToBottom: () => void;
@@ -602,6 +603,16 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
     }
   };
 
+  const isFocused = (id: string): boolean => {
+    const active = document.activeElement;
+    const host = holders.get(id)?.host;
+
+    return !disposed && !!host?.isConnected && active instanceof HTMLElement
+      && host.contains(active) && active.closest<HTMLElement>("[data-terminal]")?.dataset.terminal === id
+      && !active.closest("[hidden], [inert]")
+      && getComputedStyle(active).visibility !== "hidden";
+  };
+
   const holderFor = (id: string, prepared?: Emulator): Holder => {
     const known = holders.get(id);
 
@@ -641,10 +652,10 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
 
     emulator.onLink((printed) => void open(id, printed));
     emulator.onScroll(() => setAtBottom(emulator.isAtBottom()));
-    emulator.onInput((bytes) => {
-      if (exited(id) || daemonExit() !== null) return;
+    emulator.onInput((bytes, userInput = true) => {
+      if ((userInput && !isFocused(id)) || exited(id) || daemonExit() !== null) return;
 
-      returnToBottom();
+      if (userInput) returnToBottom();
 
       for (const byte of bytes) typed.push(byte);
 
@@ -657,7 +668,7 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
 
         if (after != null) retain(id, holder, after);
       }, 2000),
-      emulator, ready: !emulator.ready, incarnation: rail.terminals().find(terminal => terminal.id === id)?.incarnation, stopClipboard: null, atBottom, returnToBottom, stream: null, complete: false, shownSize: null, resizeSize: null,
+      host: null, emulator, ready: !emulator.ready, incarnation: rail.terminals().find(terminal => terminal.id === id)?.incarnation, stopClipboard: null, atBottom, returnToBottom, stream: null, complete: false, shownSize: null, resizeSize: null,
     };
 
     holders.set(id, holder);
@@ -694,14 +705,26 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
   };
 
   const paste = async (id: string, event: Pick<ClipboardEvent, "clipboardData">): Promise<void> => {
-    if (exited(id) || daemonExit() !== null) return;
+    if (!isFocused(id) || exited(id) || daemonExit() !== null) return;
+
+    const owner = document.activeElement!;
+    let left = false;
+    const leave = () => { left = true; };
+
+    owner.addEventListener("blur", leave, { once: true });
+
+    const check = () => {
+      if (left || !isFocused(id)) throw new Error(appCopy.terminalFocusChanged);
+    };
 
     try {
       const pasted = await readPaste(event);
+      check();
 
       if (pasted.kind === "image") {
         const path = await app.savePastedImage(pasted.image);
 
+        check();
         pastePaths(id, [path]);
       } else if (pasted.kind === "text" && !exited(id) && daemonExit() === null) emulatorFor(id).paste(pasted.text);
 
@@ -710,11 +733,13 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
       if (!(thrown instanceof Error)) throw thrown;
 
       setFailure(id, "clipboard", clipboardFailure("paste", thrown));
+    } finally {
+      owner.removeEventListener("blur", leave);
     }
   };
 
   const pastePaths = (id: string, paths: string[]): void => {
-    if (paths.length === 0 || exited(id) || daemonExit() !== null) return;
+    if (!isFocused(id) || paths.length === 0 || exited(id) || daemonExit() !== null) return;
 
     emulatorFor(id).paste(`${paths.map((path) => `'${path.replaceAll("'", "'\\''")}'`).join(" ")} `);
   };
@@ -725,12 +750,13 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
 
     if (agent && holder.complete && !rail.restored() && rail.selected() === agent.id) connected.held.acknowledge(agent.id);
     holder.stopClipboard?.();
+    holder.host = host;
 
     const editor = (target: EventTarget | null) => target instanceof Element
       && !!target.closest('input, textarea, [contenteditable="true"]') && !target.closest(".xterm-helper-textarea");
 
     const onPaste = (event: ClipboardEvent) => {
-      if (editor(event.target)) return;
+      if (editor(event.target) || !isFocused(id)) return;
       event.preventDefault();
       event.stopImmediatePropagation();
       void paste(id, event);
@@ -790,8 +816,12 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
     const holder = holders.get(id);
 
     holder?.stopClipboard?.();
+    holder?.emulator.blur?.();
 
-    if (holder) void release(id, holder).then(reconcile);
+    if (holder) {
+      holder.host = null;
+      void release(id, holder).then(reconcile);
+    }
   };
 
   const prepare = async (host: HTMLElement, settled = () => true, signal?: AbortSignal): Promise<TerminalPreparation> => {
@@ -864,6 +894,7 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
         markUnseen(id, false);
       } else {
         viewed.delete(id);
+        holders.get(id)?.emulator.blur?.();
       }
     },
     failure: (id) => {
