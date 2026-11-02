@@ -205,6 +205,9 @@ it.each(["click", "enter", "attention", "switcher", "native-alert"])("u5742d_cho
   expect(ask.value).toBe("newer draft");
   m.emulators.made.get("t-dee")!.type(new TextEncoder().encode("wrong"));
   expect(m.app.calls.filter(call => call.method === "terminal.write")).toEqual([]);
+  key("Escape");
+  await waitFor(() => expect(document.activeElement).not.toBe(ask));
+  fireEvent.pointerDown(row("dee"));
   fireEvent.click(row("dee"));
   await provesChoice(m, "dee");
 });

@@ -20,7 +20,7 @@ it.each(["agents-10", "tree-40"])("u5742a_rendered_rail_choices_and_controls_%s"
   await browser("open", url(`/harness.html?seed=${seed}`, !!process.env.U5742_BASELINE));
   await wait("!!window.__fake && !!document.querySelector('.rail-row[data-id]')");
   await capture("U5742a", `${seed}-rest`);
-  const target = await read<string>("document.querySelector('.rail-row[data-id][data-kind]')?.dataset.id");
+  const target = await read<string>("document.querySelector('.rail-row[data-kind=\"needs-you\"]')?.dataset.id");
   await browser("click", `.rail-row[data-id="${target}"] .name`);
   await wait("!!document.querySelector('.pane-screen .xterm-helper-textarea')");
 
