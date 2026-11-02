@@ -15,7 +15,7 @@ import { padHandlers, todoHandlers } from "../../testing/stores";
 import type { PadStore, TodoStore } from "../../testing/stores";
 import { Todos } from "../../todos/Todos";
 import { todo } from "../../todos/testHarness";
-import * as layout from "../layout";
+import * as topology from "../topology";
 import { copy } from "../copy";
 import * as todoList from "../../todos/todoList";
 import { rowOf, settled } from "../railFixture";
@@ -128,7 +128,7 @@ it.each([1, 10, 40])("u5645b_one_todo_pass_counts_creators_for_every_agent (%i A
 });
 
 it("u5645b_todo_revisions_update_counts_without_row_rescans", async () => {
-  const construction = vi.spyOn(layout, "railTopology");
+  const construction = vi.spyOn(topology, "railTopology");
   const visits = observeVisits();
   const nodes = [agent("a0", "working", "x"), agent("a1", "working", "x", { order: 1 })];
   const { connected, app, store } = await mount(nodes, countedTodos(), [], true);
