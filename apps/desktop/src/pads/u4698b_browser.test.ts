@@ -143,12 +143,10 @@ it.skipIf(typographyOutputs.length === 0)("u5574a_u5574b_observe_pad_scale_and_r
   const fixtures = [{ name: "owner", text: ownerSample }, { name: "structure", text: structureSample }];
   const revision = process.env.ROUNDUP_PAD_BASELINE ? "base" : "head";
 
-  let readings: unknown;
-
   const save = async (name: string) => {
     await settle();
 
-    if (name.endsWith("-rest")) readings = await evaluate("window.__checks()");
+    const readings = await evaluate("window.__checks()");
 
     let image: string | undefined;
 
