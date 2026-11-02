@@ -13,7 +13,7 @@ export type Collapsed = { agents: readonly Kind[] };
 
 export type RailRow =
   | { kind: "node"; key: string; depth: number; node: RailNode; collapsed: Collapsed | null; trail: readonly boolean[]; /** Rows of its own children follow it (U402): its trunk drops from its mark. */ children: boolean }
-  | { kind: "fold"; key: string; depth: number; parent: string; group: "idle" | "internal"; count: number; open: boolean; trail: readonly boolean[] };
+  | { kind: "fold"; key: string; depth: number; parent: string; group: "idle" | "internal"; status: Kind; count: number; open: boolean; trail: readonly boolean[] };
 
 export type NodeRow = Extract<RailRow, { kind: "node" }>;
 
@@ -132,7 +132,7 @@ export const layoutRail = (source: RailSource, view: RailView, section?: RailSec
       const open = view.unfolded.has(id);
       const continues = position < groups.length - 1;
 
-      return [{ kind: "fold", key: `fold:${id}`, depth, parent: parentId, group, count: members.length, open, trail },
+      return [{ kind: "fold", key: `fold:${id}`, depth, parent: parentId, group, status: group === "idle" ? "idle" : byUrgency(members.flatMap(at => tree.nodes[at]!.status ? [tree.nodes[at]!.status!.kind] : []))[0] ?? "idle", count: members.length, open, trail },
         ...(open ? members.flatMap((at, child) =>
           rowsOfNode(at, depth + 1, [...trail, continues, child < members.length - 1])) : [])];
     });

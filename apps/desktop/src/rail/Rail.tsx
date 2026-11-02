@@ -758,7 +758,7 @@ export const Rail = () => {
                           <TreeView.Branch data-id={view().key} aria-label={`${view().count}${view().group === "internal" ? copy.internalCount : copy.idleCount}`}>
                             <TreeView.BranchControl class="rail-fold row-wash" style={{ "--indent": `calc(${view().depth} * var(--rail-step) + var(--rail-inset))` }} onClick={() => setUnfolded(open => toggled(open, view().key.slice(5)))}>
                               <Trunks depth={view().depth} trail={[...view().trail, false]} stem={view().open} />
-                              <span class="rail-fold-content"><KindGlyph kind={view().group === "internal" ? "agent" : "idle"} decorative /><span class="rail-fold-name">{view().count}{copy.idleCount}</span></span>
+                              <span class="rail-fold-content"><KindGlyph kind={view().status} decorative /><span class="rail-fold-name">{view().count}{view().group === "internal" ? copy.internalCount : copy.idleCount}</span></span>
                               <TreeView.BranchIndicator><Icon name="right" /></TreeView.BranchIndicator>
                             </TreeView.BranchControl>
                           </TreeView.Branch>
