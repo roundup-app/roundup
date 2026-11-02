@@ -507,3 +507,200 @@ async fn u3523c_import_agent_receives_prompt_and_tools() {
         .await;
     assert!(refused.is_err());
 }
+// In-memory Module fixtures keep the cost observer on the production Reader seam.
+struct AutoFixture {
+    todos: Vec<Value>,
+    history: std::sync::Mutex<Vec<Value>>,
+    sent: std::sync::Mutex<Vec<Value>>,
+    changes: Value,
+    fail: Option<&'static str>,
+}
+#[async_trait::async_trait]
+impl Module for AutoFixture {
+    fn namespaces(&self) -> &'static [&'static str] {
+        &["rail", "todo", "message"]
+    }
+    async fn call(&self, _: &Ctx, method: &str, params: Value) -> Result<Value, RpcError> {
+        if self.fail == Some(method) {
+            return Err(RpcError::internal("required read failed"));
+        }
+        Ok(match method {
+            "rail.tree" => {
+                json!([{"id":"door","kind":"workstream","name":"Door","parent":null,"order":0,"status":{"kind":"idle","label":"","since":0,"finished":"0"},"attempt":"1","status_revision":"1","terminal_id":"t","worktree":null,"can_resume":false,"yolo":false,"stray":[],"auto":true}])
+            }
+            "todo.list" => json!(self.todos),
+            "todo.getHistory" => self.changes.clone(),
+            "message.list" => json!(*self.history.lock().unwrap()),
+            "message.send" => {
+                self.sent.lock().unwrap().push(params.clone());
+                let message = auto_message(Actor::daemon(), params["body"].as_str().unwrap());
+                self.history.lock().unwrap().push(message.clone());
+                message
+            }
+            _ => return Err(RpcError::method_not_found(method)),
+        })
+    }
+}
+fn auto_message(from: Actor, body: &str) -> Value {
+    json!({"id":1,"from":from,"to":"elsewhere","kind":"note","body":body,"replyTo":null,"status":"dropped","reason":null,"at":0})
+}
+fn auto_fixture(
+    count: u32,
+    history: Vec<Value>,
+    changes: Vec<Value>,
+) -> (Arc<AutoFixture>, digest::Reader) {
+    let fixture = Arc::new(AutoFixture {
+        todos: (1..=count).map(|id| json!({"id":id,"title":format!("Task {id}"),"body":"","done":false,"blocked":false,"blockers":[],"created_at":0,"updated_at":0,"creator":Actor::user(),"home":"door","owner":null,"refs":[],"priority":null})).collect(),
+        history: std::sync::Mutex::new(history), sent: Default::default(), changes: json!({"changes":changes,"unread":null}), fail: None,
+    });
+    let modules = ["rail", "todo", "message"]
+        .into_iter()
+        .map(|name| (name, fixture.clone() as Arc<dyn Module>))
+        .collect();
+    let reader = digest::Reader::new(
+        &modules,
+        Bus::new(),
+        Arc::new(provenance::Touches::in_memory().unwrap()),
+        None,
+    );
+    (fixture, reader)
+}
+fn auto_body(id: u32, seq: u32) -> String {
+    format!(
+        "[auto todo:{id} unassigned:{seq}]\nTodo #{id}: Task {id}\nTake this Todo with todo_assign {{\"id\": {id}, \"owner\": \"me\"}}. Delegate using a peer's Rail name as owner, or start a Subagent and assign it. Subagent starts obey the Workstream cap."
+    )
+}
+#[tokio::test]
+async fn ec5637d_auto_many_candidates_index_history_once() {
+    let history = (1..=512)
+        .map(|id| {
+            auto_message(
+                Actor::daemon(),
+                &format!("[auto todo:{id} unassigned:0]\nold"),
+            )
+        })
+        .collect();
+    let (fixture, reader) = auto_fixture(128, history, vec![]);
+    fixture.history.lock().unwrap().push(auto_message(
+        Actor::user(),
+        "[auto todo:1 unassigned:0]\nother author",
+    ));
+    // Half already told; the other half have a different retained firing identity.
+    for row in fixture.history.lock().unwrap().iter_mut().take(64) {
+        row["body"] = json!("[auto todo:999 unassigned:0]\nold");
+    }
+    let counts = auto::counts::measure(|| async { auto::tell(&reader).await.unwrap() }).await;
+    assert_eq!(counts, (128, 512, 1));
+    eprintln!("EC5637d [identity formations, eligible first lines, sorted indexes]: {counts:?}");
+    let expected: Vec<_> = (1..=64)
+        .map(|id| json!({"to":"door","kind":"note","body":auto_body(id,0)}))
+        .collect();
+    assert_eq!(*fixture.sent.lock().unwrap(), expected);
+}
+#[tokio::test]
+async fn ec5637d_auto_zero_and_one_candidate_avoid_sorting() {
+    for (candidates, body, sent, extracted) in [
+        (0, "other\nold", false, 0),
+        (1, "other\nold", true, 1),
+        (1, "[auto todo:1 unassigned:0]\nold", false, 1),
+    ] {
+        let (fixture, reader) = auto_fixture(
+            candidates,
+            vec![auto_message(Actor::daemon(), body)],
+            vec![],
+        );
+        let counts = auto::counts::measure(|| async { auto::tell(&reader).await.unwrap() }).await;
+        assert_eq!(counts, (usize::try_from(candidates).unwrap(), extracted, 0));
+        let expected = if sent {
+            vec![json!({"to":"door","kind":"note","body":auto_body(1,0)})]
+        } else {
+            vec![]
+        };
+        assert_eq!(*fixture.sent.lock().unwrap(), expected);
+    }
+}
+#[tokio::test]
+async fn ec5637d_auto_identity_preserves_actor_and_history_predicates() {
+    let key = "[auto todo:1 unassigned:7]";
+    let mut different_kind = Actor::daemon();
+    different_kind.kind = ActorKind::User;
+    let mut different_id = Actor::daemon();
+    different_id.id = "other".into();
+    let mut different_parent = Actor::daemon();
+    different_parent.parent = Some("other".into());
+    for (actor, text, suppress) in [
+        (Actor::daemon(), format!("{key}\nold"), true),
+        (Actor::daemon(), key.into(), false),
+        (Actor::daemon(), format!("{key}\r\nold"), false),
+        (Actor::daemon(), format!("{key}longer\nold"), false),
+        (
+            Actor::daemon(),
+            "[auto todo:1 unassigned:0]\nold".into(),
+            false,
+        ),
+        (Actor::daemon(), format!("old\n{key}\n"), false),
+        (Actor::daemon(), "Task 1\nTodo #1".into(), false),
+        (different_kind, format!("{key}\nold"), false),
+        (different_id, format!("{key}\nold"), false),
+        (different_parent, format!("{key}\nold"), false),
+    ] {
+        let values = |owner: Value| json!({"title":"Task 1","body":"","done":false,"blockers":[],"home":"door","owner":owner,"refs":[],"priority":null});
+        let change = |seq, before, after| json!({"seq":seq,"before":before,"after":after});
+        let changes = vec![
+            change(1, Value::Null, values(Value::Null)),
+            change(5, values(Value::Null), values(json!(Actor::user()))),
+            change(7, values(json!(Actor::user())), values(Value::Null)),
+            change(9, values(Value::Null), values(Value::Null)),
+            change(
+                10,
+                values(json!(Actor::user())),
+                values(json!(Actor::user())),
+            ),
+        ];
+        for count in [1, 2] {
+            let (fixture, reader) = auto_fixture(
+                count,
+                vec![auto_message(actor.clone(), &text)],
+                changes.clone(),
+            );
+            auto::tell(&reader).await.unwrap();
+            let mut expected = if suppress {
+                vec![]
+            } else {
+                vec![json!({"to":"door","kind":"note","body":auto_body(1,7)})]
+            };
+            if count == 2 {
+                expected.push(json!({"to":"door","kind":"note","body":auto_body(2,7)}));
+            }
+            assert_eq!(*fixture.sent.lock().unwrap(), expected, "{text}");
+            auto::tell(&reader).await.unwrap();
+            assert_eq!(*fixture.sent.lock().unwrap(), expected, "repeat {text}");
+        }
+    }
+}
+
+#[tokio::test]
+async fn ec5637d_auto_required_reads_propagate() {
+    for method in [
+        "rail.tree",
+        "todo.list",
+        "message.list",
+        "todo.getHistory",
+        "message.send",
+    ] {
+        let (mut fixture, _) = auto_fixture(1, vec![], vec![]);
+        Arc::get_mut(&mut fixture).unwrap().fail = Some(method);
+        let modules = ["rail", "todo", "message"]
+            .into_iter()
+            .map(|name| (name, fixture.clone() as Arc<dyn Module>))
+            .collect();
+        let reader = digest::Reader::new(
+            &modules,
+            Bus::new(),
+            Arc::new(provenance::Touches::in_memory().unwrap()),
+            None,
+        );
+        assert!(auto::tell(&reader).await.is_err(), "{method}");
+        assert!(fixture.sent.lock().unwrap().is_empty(), "{method}");
+    }
+}
