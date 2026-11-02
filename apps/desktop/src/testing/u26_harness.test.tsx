@@ -10,6 +10,7 @@ import { seedApp } from "./seeds";
 import type { SeedName } from "./seeds";
 import type { Event as DaemonEvent } from "@contracts/Event";
 import { event } from "./nodes";
+import { batch } from "solid-js";
 
 const NOW = 1_700_000_000_000;
 
@@ -26,7 +27,8 @@ const rail = () => screen.findByRole("region", { name: copy.rail });
 // eslint-disable-next-line anti-slop/no-module-mocking
 vi.mock("../pads/PadRichEditor", () => ({ default: () => null }));
 
-afterEach(cleanup);
+// Dispose siblings together so teardown does not rerender the dense Shelf between removals.
+afterEach(() => batch(cleanup));
 
 describe("u26 the harness seeds", () => {
   it("u143_the_stopped_door_seed_restarts_from_its_menu", async () => {
@@ -78,14 +80,19 @@ describe("u26 the harness seeds", () => {
     render(() => <App app={app} initialShelfOpen reducedMotion={() => true} clock={Date.now} createEmulator={fakeEmulators().factory} />);
 
     // U347: agent-1 runs, so its Pad is in the Shelf and, once the control is open, under it on the Rail.
-    const tabs = await screen.findByRole("tablist", { name: copy.leaderShortShelf, hidden: true });
-    const tab = within(tabs).getByRole("tab", { name: new RegExp(`^${copy.pads}`), hidden: true });
+    // Direct identity queries keep tree-40's wiring observer within rule 10's five seconds.
+    const tab = await waitFor(() => {
+      const tab = document.querySelector<HTMLButtonElement>("#shelf-tab-pads");
+      expect(tab).not.toBeNull();
+
+      return tab!;
+    });
 
     if (tab.getAttribute("aria-expanded") !== "true") fireEvent.click(tab);
 
     const pad = await waitFor(() => {
-      const pad = [...document.querySelectorAll<HTMLButtonElement>(".pad-name")].find(row => row.textContent === "pad-0");
-      expect(pad).toBeDefined();
+      const pad = document.querySelector<HTMLButtonElement>('.pads-tab [data-pad="pad-0"] .pad-name');
+      expect(pad).not.toBeNull();
 
       return pad!;
     });
@@ -96,11 +103,11 @@ describe("u26 the harness seeds", () => {
       if (group.contains(pad) && group.getAttribute("aria-expanded") === "false") fireEvent.click(group.querySelector('[data-part="branch-control"]')!);
     }
 
-    const button = await within(list).findByRole("button", { name: "pad-0" });
-    button.focus({ preventScroll: true });
-    fireEvent.keyDown(button, { key: "Enter", code: "Enter" });
+    await waitFor(() => expect(pad.closest("[hidden]")).toBeNull());
+    pad.focus({ preventScroll: true });
+    fireEvent.keyDown(pad, { key: "Enter", code: "Enter" });
     await waitFor(() => expect(app.calls.filter(call => call.method === "pad.read").map(call => call.params)).toEqual([{ name: "pad-0" }]));
-    expect(screen.getByRole("complementary", { name: "Drawer", hidden: true }).hasAttribute("inert")).toBe(false);
+    expect(document.querySelector('aside[aria-label="Drawer"]')?.hasAttribute("inert")).toBe(false);
   });
 
   it("u26_set_status_moves_the_row_to_the_new_label", async () => {
