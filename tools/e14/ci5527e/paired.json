@@ -9,7 +9,7 @@
     "os": "Linux-7.0.0-1017-azure-x86_64-with-glibc2.39"
   },
   "command": "pnpm --filter desktop exec vitest run src/ui/s3806b_actions.test.tsx src/bubbles/u3756_focus.test.ts src/terminal/u514_browser.test.ts src/keys/u3787b_menu.test.tsx src/todos/u4698d_browser.test.ts src/drawer/u4458_browser.test.ts src/switcher/u3787c_browser.test.ts src/keys/u2230_hints.test.tsx src/testing/u463_real_daemon.test.ts src/bubbles/u4274_navigation.test.tsx",
-  "status": "Navigation slice only; nine rows deferred. Issue #5659 remains open.",
+  "status": "Navigation plus actions, menu and hints paired; six rows remain.",
   "claim": "Selected-file evidence only, never a full-shard result.",
   "head_commit": "af2f13ae55c5ac188f31e74ba58da7b556047a35",
   "setup": "pnpm install --frozen-lockfile in both isolated worktrees. Shared pre-existing Rust dependency cache; cargo build -p rupd -p rup exited 0 before the real-Daemon file. Dedicated headless agent-browser sessions and fresh temporary profiles.",
@@ -91,6 +91,81 @@
       "repair": "Existing projectCount=0 on single-Project cases and scoped label/group queries; all actions and assertions retained.",
       "replay_setup": "Copy navigation-reporter.mjs.in to /tmp/5701-reporter.mjs; set CI5527_REPORT to the output report path before running the recorded command.",
       "retained_head_commit": "c50d5067819b74758fa1d3a59c7b5e1d94d18996"
+    },
+    {
+      "file": "src/ui/s3806b_actions.test.tsx",
+      "baseline_ms": 204155.679115,
+      "head_ms": 152215.96141000002,
+      "tests": 128,
+      "passed": 128,
+      "identities": "Exact full names/statuses match both raw reports",
+      "baseline_commit": "ece55e7a3459f32035dad105c4cdeb01b1c4ff4d",
+      "head_source": "7a926b02803228c63f2ca1874e868ca387c3ff0f",
+      "command": "pnpm --filter desktop exec vitest run src/ui/s3806b_actions.test.tsx src/keys/u3787b_menu.test.tsx src/keys/u2230_hints.test.tsx --reporter=default --reporter=/tmp/ci5527e-reporter.mjs",
+      "runner": {
+        "class": "ubuntu-24.04 GitHub hosted runner",
+        "os": "Linux-7.0.0-1017-azure-x86_64-with-glibc2.39",
+        "cpus": 4,
+        "image": "20261026.354.1",
+        "run": "https://github.com/roundup-app/roundup/actions/runs/41492015519"
+      },
+      "baseline_exit": 0,
+      "head_exit": 0,
+      "reports": [
+        "continuation-ui-before.json.gz",
+        "continuation-ui-head.json.gz"
+      ],
+      "repair": "Scope Project tabs to their labelled tablist and reopen controls to centre notices; query labelled Work/changed-file controls."
+    },
+    {
+      "file": "src/keys/u2230_hints.test.tsx",
+      "baseline_ms": 107087.76865999999,
+      "head_ms": 81304.961942,
+      "tests": 43,
+      "passed": 43,
+      "identities": "Exact full names/statuses match both raw reports",
+      "baseline_commit": "ece55e7a3459f32035dad105c4cdeb01b1c4ff4d",
+      "head_source": "7a926b02803228c63f2ca1874e868ca387c3ff0f",
+      "command": "pnpm --filter desktop exec vitest run src/ui/s3806b_actions.test.tsx src/keys/u3787b_menu.test.tsx src/keys/u2230_hints.test.tsx --reporter=default --reporter=/tmp/ci5527e-reporter.mjs",
+      "runner": {
+        "class": "ubuntu-24.04 GitHub hosted runner",
+        "os": "Linux-7.0.0-1017-azure-x86_64-with-glibc2.39",
+        "cpus": 4,
+        "image": "20261026.354.1",
+        "run": "https://github.com/roundup-app/roundup/actions/runs/41492015519"
+      },
+      "baseline_exit": 0,
+      "head_exit": 0,
+      "reports": [
+        "continuation-ui-before.json.gz",
+        "continuation-ui-head.json.gz"
+      ],
+      "repair": "Scope Pad and Todo-tab queries to Shelf regions; query the labelled Triage button."
+    },
+    {
+      "file": "src/keys/u3787b_menu.test.tsx",
+      "baseline_ms": 124208.08312100002,
+      "head_ms": 109612.906992,
+      "tests": 52,
+      "passed": 52,
+      "identities": "Exact full names/statuses match both raw reports",
+      "baseline_commit": "ece55e7a3459f32035dad105c4cdeb01b1c4ff4d",
+      "head_source": "7a926b02803228c63f2ca1874e868ca387c3ff0f",
+      "command": "pnpm --filter desktop exec vitest run src/ui/s3806b_actions.test.tsx src/keys/u3787b_menu.test.tsx src/keys/u2230_hints.test.tsx --reporter=default --reporter=/tmp/ci5527e-reporter.mjs",
+      "runner": {
+        "class": "ubuntu-24.04 GitHub hosted runner",
+        "os": "Linux-7.0.0-1017-azure-x86_64-with-glibc2.39",
+        "cpus": 4,
+        "image": "20261026.354.1",
+        "run": "https://github.com/roundup-app/roundup/actions/runs/41492015519"
+      },
+      "baseline_exit": 0,
+      "head_exit": 0,
+      "reports": [
+        "continuation-ui-before.json.gz",
+        "continuation-ui-head.json.gz"
+      ],
+      "repair": "Use existing accessible labels and control selectors instead of whole-App role/name resolution."
     }
   ],
   "next_observer": "Run passing baseline/head observations with identical explicit file selections, runner class and workload and no competing jobs. Retain raw module.diagnostic().duration (including hooks) or Vitest raw results cache duration, identities and statuses. Default printed integer milliseconds round duration and are diagnostic only.",
@@ -120,7 +195,12 @@
     "cache": "actions-results-cache.json; contemporaneous, not accepted paired evidence; another correctness process uses the same cache root."
   },
   "remaining": [
-    "Deliver the other nine CI5527e rows, including their concrete mount/query repairs and clean passing paired observations. Deferred edits remain recoverable from head 15e20e6a76cdb840930c42e78e7940fd21e8cbb6."
+    "src/bubbles/u3756_focus.test.ts",
+    "src/terminal/u514_browser.test.ts",
+    "src/todos/u4698d_browser.test.ts",
+    "src/drawer/u4458_browser.test.ts",
+    "src/switcher/u3787c_browser.test.ts",
+    "src/testing/u463_real_daemon.test.ts"
   ],
   "final_ready": {
     "command": "just ready",
@@ -181,8 +261,23 @@
   },
   "continuation_5659": {
     "baseline_commit": "ece55e7a3459f32035dad105c4cdeb01b1c4ff4d",
-    "status": "Collecting fresh passing paired observations for deferred rows; the accepted navigation pair is retained.",
+    "status": "Three deferred rows delivered with passing paired reports; further rows being measured.",
     "command": "pnpm --filter desktop exec vitest run src/ui/s3806b_actions.test.tsx src/keys/u3787b_menu.test.tsx src/keys/u2230_hints.test.tsx --reporter=default --reporter=/tmp/ci5527e-reporter.mjs",
-    "reporter": "Copy navigation-reporter.mjs.in to /tmp/ci5527e-reporter.mjs; CI5527_REPORT names each output."
+    "reporter": "Copy navigation-reporter.mjs.in to /tmp/ci5527e-reporter.mjs; CI5527_REPORT names each output.",
+    "head_source": "7a926b02803228c63f2ca1874e868ca387c3ff0f",
+    "runner": {
+      "class": "ubuntu-24.04 GitHub hosted runner",
+      "os": "Linux-7.0.0-1017-azure-x86_64-with-glibc2.39",
+      "cpus": 4,
+      "image": "20261026.354.1",
+      "run": "https://github.com/roundup-app/roundup/actions/runs/41492015519"
+    },
+    "baseline_exit": 0,
+    "head_exit": 0,
+    "setup": "pnpm install --frozen-lockfile; same isolated worktree, default Vitest config, no competing build/test/lint command. Reporter copied from retained navigation-reporter.mjs.in.",
+    "reports": [
+      "continuation-ui-before.json.gz",
+      "continuation-ui-head.json.gz"
+    ]
   }
 }
