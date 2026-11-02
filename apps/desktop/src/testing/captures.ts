@@ -20,10 +20,11 @@ export function captureDir(id: string): string | null {
 // Named observers, including ids passed through capture helpers. Vitest owns discovery
 // and scheduling; this table only names the existing observer files.
 const observerTable = {
+  "src/app/u5502_rendered.test.ts": ["U5502"],
   "src/pads/u5561a_browser.test.ts": { ids: ["U5561a", "U5561b", "U5575a", "U5631"], aliases: { U5631: "U5561b" } },
   "src/pads/u5561c_real_browser.test.ts": ["U5561c"],
   "src/rail/u5555_browser.test.ts": ["U5217", "U5555", "U4313b", "U5629"],
-  "src/rail/u5501_capture.test.ts": ["U5501"],
+  "src/rail/u5501_capture.test.ts": ["U5501", "U5721"],
   "src/app/u3560_browser.test.ts": ["U3560e"],
   "src/app/u3787f_browser.test.ts": ["U3787f"],
   "src/app/u3791c_rendered.test.ts": ["U3791c"],
@@ -57,7 +58,7 @@ const observerTable = {
   "src/keys/u4692_attention.test.tsx": ["U4692", "U4692a"],
   "src/keys/u4690_browser.test.ts": ["U4690", "U4690a", "U4690b", "U4690c", "U4690d", "U4690e"],
   "src/orders/u3078i_rendered.test.ts": ["P3557c", "U3078i", "U3791b", "U4453b"],
-  "src/pads/u4698b_browser.test.ts": ["U4698b", "U5574a", "U5574b", "U5631"],
+  "src/pads/u4698b_browser.test.ts": ["U4698b", "U5574a", "U5574b", "U5631", "U5705"],
   "src/pads/p2544a_browser.test.ts": ["U3021c", "U5559a", "U5559b"],
   "src/pads/u3732_real_daemon_agent_owner.test.tsx": ["U3736"],
   "src/rail/menu/u3787a_browser.test.ts": ["U3787a", "U150", "U459", "U460", "U486", "U3512a"],
@@ -102,7 +103,7 @@ const observerTable = {
   "src/testing/u2875d_rendered.test.ts": ["U2875d"],
   "src/testing/u3787d_capture.test.ts": ["U3787d", "U5463c"],
   "src/testing/u463_real_daemon.test.ts": ["U5552a", "A4899a", "U2875d", "U3037d", "U4590", "U463"],
-  "src/toasts/p3557c_capture.test.ts": ["P3557c"],
+  "src/toasts/p3557c_capture.test.ts": ["P3557c", "U411"],
   "src/todos/u5119_browser.test.ts": ["U5119"],
   "src/todos/u4698e_browser.test.ts": ["U4698e"],
   "src/todos/u4698d_browser.test.ts": { ids: ["U4698d", "U5127a", "U5127b", "U5631"], aliases: { U5631: "U4698d" } },

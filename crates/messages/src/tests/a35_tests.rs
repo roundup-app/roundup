@@ -10,6 +10,7 @@ fn texts(inbox: &FakeInbox) -> Vec<String> {
 async fn a35_reserved_messages_wait_for_the_next_attempt_release() {
     let dir = tempfile::tempdir().unwrap();
     let rail = FakeRail::new(vec![RailNode {
+        visibility: Default::default(),
         kind: NodeKind::Workstream,
         ..agent_node("door", Kind::Working)
     }]);
@@ -61,6 +62,7 @@ impl RestartHarness {
     fn new(dir: &Path) -> Self {
         let rail = FakeRail::new(vec![
             RailNode {
+                visibility: Default::default(),
                 kind: NodeKind::Workstream,
                 ..agent_node("door", Kind::Working)
             },

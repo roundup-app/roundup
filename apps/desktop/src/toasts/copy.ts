@@ -8,5 +8,4 @@ export const copy = {
   toastOverflow: (value1: CopyValue) => `And ${value1} more`,
   thatIsGone: sharedCopy.thatIsGone,
   changedTodo: sharedCopy.changedTodo,
-  changedPad: (value1: CopyValue) => `Changed Pad ${value1}`,
 } as const;
