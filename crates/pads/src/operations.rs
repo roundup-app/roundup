@@ -1,3 +1,4 @@
+use provenance::now_ms;
 use std::path::Path;
 use std::sync::Mutex;
 
@@ -33,7 +34,7 @@ impl Pads {
             incarnation: String::new(), // Assigned by the existing source-creation trigger.
             name: p.name,
             text: p.text.unwrap_or_default(),
-            updated_at: now_ms(),
+            updated_at: now_ms().max(0),
             revision: 1,
             home: None,
         };
@@ -94,7 +95,10 @@ impl Pads {
                     pad.name, pad.revision
                 )));
             }
-            found(store.set_text(&pad.name, &p.text, now_ms()), &pad.name)?;
+            found(
+                store.set_text(&pad.name, &p.text, now_ms().max(0)),
+                &pad.name,
+            )?;
             self.mirror(&store, &pad.name, &p.text)?;
             get(&store, &pad.name)
         })?;
@@ -107,7 +111,7 @@ impl Pads {
         let pad = get(&store, &p.name)?;
         let text = pad.text + &p.text;
         store.atomically(|| {
-            found(store.set_text(&pad.name, &text, now_ms()), &pad.name)?;
+            found(store.set_text(&pad.name, &text, now_ms().max(0)), &pad.name)?;
             self.mirror(&store, &pad.name, &text)
         })?;
         wrote(ctx, &pad.name)?;
@@ -150,7 +154,7 @@ impl Pads {
                     format!("no heading \"{}\" in pad {}; {listed}", p.heading, pad.name),
                 )
             })?;
-            found(store.set_text(&pad.name, &text, now_ms()), &pad.name)?;
+            found(store.set_text(&pad.name, &text, now_ms().max(0)), &pad.name)?;
             self.mirror(&store, &pad.name, &text)?;
             get(&store, &pad.name)
         })?;
@@ -256,7 +260,7 @@ impl Pads {
                 } else if let Some(text) = files::read(&self.files_dir, &pad.name)?
                     && text != pad.text
                 {
-                    found(store.set_text(&pad.name, &text, now_ms()), &pad.name)?;
+                    found(store.set_text(&pad.name, &text, now_ms().max(0)), &pad.name)?;
                     imported.push(pad.name.clone());
                 }
             }
@@ -309,11 +313,6 @@ pub(super) fn wrote(ctx: &Ctx, name: &str) -> Result<(), RpcError> {
 
 fn item(name: &str) -> String {
     format!("pad:{name}")
-}
-
-fn now_ms() -> i64 {
-    let millis = time::OffsetDateTime::now_utc().unix_timestamp_nanos() / 1_000_000;
-    i64::try_from(millis.max(0)).unwrap_or(i64::MAX)
 }
 
 #[cfg(test)]

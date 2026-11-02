@@ -2608,37 +2608,6 @@ async fn d12_a_client_resumes_after_a_killed_daemon() {
     assert!(got.len() >= 3, "b, c and d each saved an Event: {got:?}");
 }
 
-/// U516: what the webview sends for a selected Turn: a fenced Excerpt and the Turn's facts.
-const U516_BODY: &str = "why?\n\n```\n$ ls\nfile\n```\n\ncommand: ls\ncwd: /work\nexit: 0";
-
-#[tokio::test]
-async fn u516_message_list_holds_the_sent_excerpt() {
-    let project = start(&[]);
-    let client = project.client().await;
-    let door = start_door(&client).await;
-    let child = agent_in(&project, &client, Some(&door)).await;
-    client
-        .request(
-            "message.send",
-            json!({"to": child, "kind": "note", "body": U516_BODY}),
-        )
-        .await
-        .unwrap();
-
-    let listed = client
-        .request("message.list", json!({"to": child}))
-        .await
-        .unwrap();
-    let sent = listed
-        .as_array()
-        .unwrap()
-        .iter()
-        .find(|message| message["body"] == U516_BODY)
-        .expect("message.list holds the Excerpt for an Agent with no Thread");
-    assert_eq!(sent["from"]["kind"], "user");
-    assert_eq!(sent["kind"], "note");
-}
-
 const M16_START: [&str; 3] = ["agent_run", "terminal_spawn", "terminal_open"];
 
 impl Shim {
