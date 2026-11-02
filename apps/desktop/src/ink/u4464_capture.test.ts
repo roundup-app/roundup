@@ -118,7 +118,7 @@ it.skipIf(!captureDir("U4464"))("u5606_capture_empty_views_in_both_themes", { ti
       expect(await read(`window.__fake.app.calls.filter(call => call.method === 'rail.createWorkstream').length`)).toBe(0);
       await read(`window.__fake.failNext(-32003,'Creation rejected: choose another Workstream name')`);
       await browser("click", '[data-part="item"][data-value="workstream"]');
-      await wait(`document.querySelector('[role=alert]')?.textContent.includes('Creation rejected')`);
+      await wait(`document.querySelector('[role=alert]')?.textContent.includes('Creation rejected: choose another Workstream name')`);
       await snap(`${theme}-dense-failure`);
       expect(await read(`window.__fake.app.calls.filter(call => call.method === 'rail.createWorkstream').length`)).toBe(1);
       expect(await read(`document.querySelectorAll('[role=alert]').length`)).toBe(1);
