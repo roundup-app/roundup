@@ -45,36 +45,55 @@ pub(crate) fn user_drop_moves(pending: &[Message], id: u32) -> bool {
         .contains(&id)
 }
 
-/// B5168f: whether `message` is a Quiet Digest for a receiver that was `given` these Messages: a
-/// pushed digest in which no entry has a new `error` or `needs-you` Kind, a newer `last` than the
-/// receiver was last given for that child, or fewer open Todos than it was given.
-pub(crate) fn is_quiet_digest(given: &[Message], message: &Message) -> bool {
+/// B5168f: whether every pending Message is a Quiet Digest. `given` is delivered history in
+/// Message-id order. A new alarming Kind, changed `last` or fewer open Todos makes news;
+/// B5640b resolves requested names in one newest-first history pass for the entire batch.
+pub(crate) fn are_quiet_digests(given: &[Message], pending: &[Message]) -> bool {
     use crate::pushes::{entries_of, is_digest};
     use contracts::Kind;
-    if !is_digest(&message.from, &message.body) {
-        return false;
+    use std::collections::HashMap;
+
+    let mut entries = Vec::new();
+    for message in pending {
+        if !is_digest(&message.from, &message.body) {
+            return false;
+        }
+        let parsed = entries_of(&message.body);
+        if parsed.is_empty() {
+            return false;
+        }
+        entries.extend(parsed);
     }
-    let entries = entries_of(&message.body);
-    !entries.is_empty()
-        && entries.iter().all(|entry| {
-            let before = given
-                .iter()
-                .rev()
-                .filter(|m| is_digest(&m.from, &m.body))
-                .find_map(|m| {
-                    entries_of(&m.body)
-                        .into_iter()
-                        .find(|e| e.name == entry.name)
-                });
-            let prior_kind = before.as_ref().map(|e| e.kind);
-            let alarming = matches!(entry.kind, Kind::Error | Kind::NeedsYou)
-                && prior_kind != Some(entry.kind);
-            let new_last = before
-                .as_ref()
-                .map_or(!entry.last.is_empty(), |e| e.last != entry.last);
-            let todo_done = before.as_ref().is_some_and(|e| entry.todos < e.todos);
-            !(alarming || new_last || todo_done)
-        })
+    // B5640b: resolve overlapping pending names once, without retaining parsed history.
+    let mut before: HashMap<&str, Option<contracts::agent::DigestEntry>> =
+        entries.iter().map(|e| (e.name.as_str(), None)).collect();
+    let mut unresolved = before.len();
+    for message in given.iter().rev() {
+        if unresolved == 0 {
+            break;
+        }
+        if !is_digest(&message.from, &message.body) {
+            continue;
+        }
+        #[cfg(test)]
+        HISTORY_PARSES.with_borrow_mut(|ids| ids.push(message.id));
+        for entry in entries_of(&message.body) {
+            if let Some(prior) = before.get_mut(entry.name.as_str())
+                && prior.is_none()
+            {
+                *prior = Some(entry);
+                unresolved -= 1;
+            }
+        }
+    }
+    entries.iter().all(|entry| {
+        let prior = before[entry.name.as_str()].as_ref();
+        let alarming = matches!(entry.kind, Kind::Error | Kind::NeedsYou)
+            && prior.map(|e| e.kind) != Some(entry.kind);
+        let new_last = prior.map_or(!entry.last.is_empty(), |e| e.last != entry.last);
+        let todo_done = prior.is_some_and(|e| entry.todos < e.todos);
+        !(alarming || new_last || todo_done)
+    })
 }
 
 #[cfg(test)]
@@ -110,6 +129,67 @@ mod tests {
     }
 
     #[test]
+    fn b5640b_history_is_parsed_once_per_batch() {
+        let old = entry(Kind::Working, "old", 4);
+        let current = entry(Kind::Working, "current", 2);
+        let mut given = vec![
+            digest(1, MessageStatus::Delivered, &old),
+            digest(2, MessageStatus::Delivered, &current),
+        ];
+        given[0].at = 900;
+        given[1].at = 1;
+        // The first duplicate in the newest Message wins, including inside a merge.
+        given[1].body = format!(
+            "[digest] [2 earlier updates: #7 #8]\n{}\n{}",
+            crate::digest::entry_text(&current),
+            crate::digest::entry_text(&old)
+        );
+        let mut other = entry(Kind::Error, "second", 3);
+        other.name = "other".into();
+        let mut rollup = digest(3, MessageStatus::Delivered, &other);
+        rollup.body = format!(
+            "[digest] [5 updates kept back]\n{}",
+            crate::digest::entry_text(&other)
+        );
+        let mut empty = rollup.clone();
+        empty.id = 4;
+        empty.body = "[digest] no parsed entries".into();
+        given.extend([rollup, empty]);
+        let mut absent = entry(Kind::Idle, "", 7);
+        absent.name = "absent".into();
+        // Missing names force the complete pass; repeated names must still parse each body once.
+        for (extra, quiet) in [
+            (absent.clone(), true),
+            (other.clone(), true),
+            (entry(Kind::Idle, "current", 9), true),
+            (
+                {
+                    absent.last = "new".into();
+                    absent
+                },
+                false,
+            ),
+        ] {
+            let pending = vec![
+                digest(10, MessageStatus::Pending, &current),
+                digest(11, MessageStatus::Pending, &current),
+                digest(12, MessageStatus::Pending, &extra),
+            ];
+            HISTORY_PARSES.with_borrow_mut(Vec::clear);
+            assert_eq!(are_quiet_digests(&given, &pending), quiet);
+            let parsed = HISTORY_PARSES.with_borrow(Clone::clone);
+            for message in &given {
+                assert!(
+                    parsed.iter().filter(|id| **id == message.id).count() <= 1,
+                    "{parsed:?}"
+                );
+            }
+        }
+        let mut empty = digest(13, MessageStatus::Pending, &current);
+        empty.body = "[digest]".into();
+        assert!(!are_quiet_digests(&given, &[empty]));
+    }
+    #[test]
     fn a_digest_with_news_is_not_quiet() {
         let given = [digest(
             1,
@@ -123,7 +203,16 @@ mod tests {
             entry(Kind::NeedsYou, "a", 2),
         ] {
             let next = digest(2, MessageStatus::Pending, &next);
-            assert!(!is_quiet_digest(&given, &next), "{}", next.body);
+            assert!(
+                !are_quiet_digests(&given, std::slice::from_ref(&next)),
+                "{}",
+                next.body
+            );
         }
     }
+}
+
+#[cfg(test)]
+thread_local! {
+    static HISTORY_PARSES: std::cell::RefCell<Vec<u32>> = const { std::cell::RefCell::new(Vec::new()) };
 }
