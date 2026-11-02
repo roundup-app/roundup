@@ -448,6 +448,7 @@ details[data-pad-agents] textarea {
 
 details[data-pad-agents] input {
   display: block;
+  min-height: var(--space-5);
   width: 100%;
   margin-block: var(--space-3);
   padding: 0;
