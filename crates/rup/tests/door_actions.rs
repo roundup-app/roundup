@@ -15,7 +15,7 @@ async fn m9_a_door_asked_for_a_workstream_makes_one() {
     let door = events
         .request(
             "rail.createWorkstream",
-            json!({"name": "team", "parent": null}),
+            json!({"name": "team", "parent": null, "order":{"kind":"work","ask":"What is this Workstream for?","limits":[]}}),
         )
         .await
         .unwrap()["id"]
@@ -64,7 +64,7 @@ async fn q11_a_loaded_bundle_allows_a_subsequent_agent() {
     let door = events
         .request(
             "rail.createWorkstream",
-            json!({"name": "team", "parent": null}),
+            json!({"name": "team", "parent": null, "order":{"kind":"work","ask":"What is this Workstream for?","limits":[]}}),
         )
         .await
         .unwrap()["id"]
@@ -128,7 +128,7 @@ async fn b37_real_claude_receives_a_note_after_a_scripted_server_error() {
     let user = project.client().await;
     let mut events = project.subscribed().await;
     let door = user
-        .request("rail.createWorkstream", json!({"name":"B37 supervisor"}))
+        .request("rail.createWorkstream", json!({"name":"B37 supervisor","order":{"kind":"work","ask":"What is this Workstream for?","limits":[]}}))
         .await
         .unwrap()["id"]
         .as_str()
@@ -563,7 +563,7 @@ async fn m16_real_claude_runs_tests_with_bash_without_a_run() {
     let door = client
         .request(
             "rail.createWorkstream",
-            json!({"name": "team", "parent": null}),
+            json!({"name": "team", "parent": null, "order":{"kind":"work","ask":"What is this Workstream for?","limits":[]}}),
         )
         .await
         .unwrap()["id"]
@@ -640,7 +640,7 @@ async fn f3_a_door_spawns_into_a_worktree_when_the_setting_is_on() {
     let door = client
         .request(
             "rail.createWorkstream",
-            json!({"name": "team", "parent": null}),
+            json!({"name": "team", "parent": null, "order":{"kind":"work","ask":"What is this Workstream for?","limits":[]}}),
         )
         .await
         .unwrap()["id"]
@@ -688,7 +688,7 @@ async fn a26_a_subagent_started_by_a_subagent_sits_three_deep_under_the_door_thr
     let door = client
         .request(
             "rail.createWorkstream",
-            json!({"name": "team", "parent": null}),
+            json!({"name": "team", "parent": null, "order":{"kind":"work","ask":"What is this Workstream for?","limits":[]}}),
         )
         .await
         .unwrap()["id"]
@@ -816,7 +816,7 @@ async fn b4699a_real_claude_spawns_one_shaping_child_in_the_existing_workstream(
     let door = client
         .request(
             "rail.createWorkstream",
-            json!({"name": "feedback", "parent": null}),
+            json!({"name": "feedback", "parent": null, "order":{"kind":"work","ask":"What is this Workstream for?","limits":[]}}),
         )
         .await
         .unwrap()["id"]

@@ -186,6 +186,8 @@ it.concurrent.each(cases)(
       await lane.until("!!document.querySelector('.project-tab[data-path=\"/original-failure\"] [aria-selected=true]') && !!document.querySelector('.rail-actions')");
       await lane.evaluate("window.__fake.app.of('/original-failure').handlers['workstream.create'] = () => { throw new Error('original Project refused. Retry after freeing space.'); }");
       await lane.browser("click", ".rail-actions button:first-child");
+      await lane.until("!!document.querySelector('.rail-create-menu [data-value=workstream]')");
+      await lane.browser("click", '.rail-create-menu [data-value="workstream"]');
       await lane.until("!!document.querySelector('.rail-command-notice button')");
       await lane.browser("click", '.project-tab[data-path="/Users/you/harness"] [role=tab]');
       target = ".storage-center > .reserved-line:not(.todo-undo) button:last-child";

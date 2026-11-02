@@ -73,3 +73,119 @@ async fn dv2_metadata_only() {
     );
     assert!(denied.load(std::sync::atomic::Ordering::SeqCst) > 0);
 }
+
+#[tokio::test]
+async fn u5558a_events_follow_committed_changes() {
+    let dir = tempfile::tempdir().unwrap();
+    let daemon = crate::test_daemon(dir.path()).unwrap();
+    let (events, _) = tokio::sync::mpsc::unbounded_channel();
+    let mut conn = Conn {
+        actor: contracts::Actor::user(),
+        peer: None,
+        events,
+        output: None,
+    };
+    let mut notifications = daemon.bus.subscribe();
+    let request = json!({"key":"automatic","title":"Result","target":{"kind":"external","url":"https://example.com/result"}});
+    let record = daemon
+        .route(&mut conn, "deliverable.publish", request.clone())
+        .await
+        .unwrap();
+    assert!(matches!(
+        notifications.try_recv().unwrap().data,
+        contracts::EventData::DeliverableChanged
+    ));
+    let id = json!({"project":record["project"],"id":record["id"]});
+    assert_eq!(
+        daemon
+            .route(&mut conn, "deliverable.get", id.clone())
+            .await
+            .unwrap(),
+        record
+    );
+    daemon
+        .route(&mut conn, "deliverable.publish", request)
+        .await
+        .unwrap();
+    assert!(notifications.try_recv().is_err());
+    assert!(daemon.route(&mut conn,"deliverable.publish",json!({"key":"refused","title":"Result","target":{"kind":"external","url":"javascript:bad"}})).await.is_err());
+    assert!(notifications.try_recv().is_err());
+    let home = daemon
+        .route(
+            &mut conn,
+            "rail.createWorkstream",
+            json!({"name":"Home","parent":null}),
+        )
+        .await
+        .unwrap();
+    while notifications.try_recv().is_ok() {}
+    daemon
+        .route(
+            &mut conn,
+            "deliverable.move",
+            json!({"project":record["project"],"id":record["id"],"home":home["id"]}),
+        )
+        .await
+        .unwrap();
+    assert!(matches!(
+        notifications.try_recv().unwrap().data,
+        contracts::EventData::DeliverableChanged
+    ));
+    assert_eq!(
+        daemon
+            .route(&mut conn, "deliverable.get", id.clone())
+            .await
+            .unwrap()["home"],
+        home["id"]
+    );
+    let removed = daemon
+        .route(
+            &mut conn,
+            "rail.remove",
+            json!({"id":home["id"],"operation":"automatic-home"}),
+        )
+        .await
+        .unwrap();
+    let mut rehomed = false;
+    while let Ok(event) = notifications.try_recv() {
+        rehomed |= matches!(event.data, contracts::EventData::DeliverableChanged);
+    }
+    assert!(rehomed);
+    assert!(
+        daemon
+            .route(&mut conn, "deliverable.get", id.clone())
+            .await
+            .unwrap()["home"]
+            .is_null()
+    );
+    daemon
+        .route(&mut conn, "rail.restore", removed["deletion"].clone())
+        .await
+        .unwrap();
+    let mut restored = false;
+    while let Ok(event) = notifications.try_recv() {
+        restored |= matches!(event.data, contracts::EventData::DeliverableChanged);
+    }
+    assert!(restored);
+    assert_eq!(
+        daemon
+            .route(&mut conn, "deliverable.get", id.clone())
+            .await
+            .unwrap()["home"],
+        home["id"]
+    );
+    daemon
+        .route(&mut conn, "deliverable.remove", id.clone())
+        .await
+        .unwrap();
+    assert!(matches!(
+        notifications.try_recv().unwrap().data,
+        contracts::EventData::DeliverableChanged
+    ));
+    assert!(
+        daemon
+            .route(&mut conn, "deliverable.get", id)
+            .await
+            .is_err()
+    );
+}
