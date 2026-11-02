@@ -35,7 +35,7 @@ jobs:
       (github.event.action == 'unlabeled' && contains(fromJSON('["flag:needs-user", "flag:needs-mac"]'), github.event.label.name)) ||
       (contains(fromJSON('["opened", "reopened"]'), github.event.action) &&
        contains(fromJSON('["saadshahd", "claude[bot]", "github-actions[bot]"]'), github.event.issue.user.login)))
-    runs-on: ubuntu-24.04
+    runs-on: ${{ fromJSON(vars.BOXD_LIGHT == '1' && format('["self-hosted","boxd","roundup-light-pick-{0}-{1}"]', github.run_id, github.run_attempt) || '["ubuntu-24.04"]') }}
     concurrency:
       group: build-pick
       cancel-in-progress: false
@@ -98,13 +98,3 @@ jobs:
       issue: ${{ matrix.row.issue }}
       slug: ${{ matrix.row.slug }}
     secrets: inherit
-
-  summary:
-    needs: [pick, build]
-    if: always()
-    permissions: {}
-    uses: ./.github/workflows/summary.yml
-    with:
-      results: ${{ toJSON(needs) }}
-      purpose: Build ready work Issues
-      next: Each PR goes through check and review to auto-merge; a draft with a Stopped line goes where its screen sends it.
