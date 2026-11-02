@@ -743,6 +743,8 @@ it.skipIf(!/U3529|U5515|U5549/.test(process.env.ROUNDUP_CAPTURES ?? ""))("u3529c
 
     mkdirSync(videoDirectory, { recursive: true });
     await browser("record", "start", join(videoDirectory, `${seed}-interaction.webm`), url(`${option && !base ? "/src/terminal/u514.html?app&mac&view=workstreams&items=1&tabs=1&" : "/harness.html?"}seed=${seed.replace("-user", "")}&renderer=dom`, base));
+    // agent-browser 0.27 retargets its input stream on navigation, not when recording creates a tab.
+    await browser("open", await read<string>("location.href"));
     await browser("set", "viewport", "1512", "950");
     await browser("set", "media", "dark");
     await wait("!!window.__fake && !!document.querySelector('.rail-row')");
