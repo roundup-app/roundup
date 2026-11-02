@@ -283,7 +283,7 @@ pub(crate) mod tests {
             std::env::var_os("NEXTEST").is_some(),
             "run allocation observers with cargo nextest"
         );
-        let region = stats_alloc::Region::new(crate::ALLOCATOR);
+        let region = stats_alloc::Region::new(crate::scan::ALLOCATOR);
         let result = operation();
         (result, region.change().bytes_allocated)
     }

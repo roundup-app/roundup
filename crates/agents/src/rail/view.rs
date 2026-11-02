@@ -342,7 +342,7 @@ mod tests {
         for count in [40, 400] {
             for branching in [false, true] {
                 let flat = nested(count, branching);
-                let region = stats_alloc::Region::new(crate::ALLOCATOR);
+                let region = stats_alloc::Region::new(crate::scan::ALLOCATOR);
                 let topology = topology(&flat);
                 let prepared = region.change();
                 let out = walk(flat, topology, &mut |node, _| Ok(node)).unwrap();
