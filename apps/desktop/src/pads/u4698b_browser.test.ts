@@ -156,6 +156,10 @@ it.each(["plus", "slash"].flatMap(entry => [false, true].map(afterPad => ({ entr
 
     if (afterPad) {
       await browser("click", "#shelf-tab-pads");
+      await browser("wait", '.pads-tab [data-shelf-group=unassigned] [data-part=branch-control]');
+
+      if (await evaluate("document.querySelector('.pads-tab [data-shelf-group=unassigned]').getAttribute('aria-expanded') === 'false'")) await browser("click", '.pads-tab [data-shelf-group=unassigned] [data-part=branch-control]');
+      await browser("wait", ".pad-name");
       await settle();
       await browser("focus", ".pad-name");
       await browser("press", "Enter");
@@ -216,15 +220,15 @@ it.each(["plus", "slash"].flatMap(entry => [false, true].map(afterPad => ({ entr
     const draft = await evaluate<string>("document.querySelector('.drawer .ProseMirror').textContent");
     expect(draft).toBe(body + (entry === "slash" ? "/For Agents" : ""));
     const count = offered.length;
-    const selected: (string | null)[] = [];
 
     if (entry === "plus") expect(count).toBeGreaterThan(0);
 
-    for (let i = 0; i < count; i++) {
-      await browser("press", "ArrowDown");
-      await settle();
-      selected.push(await evaluate("document.querySelector('.milkdown-slash-menu[data-show=true] [aria-selected=true]')?.textContent.trim() ?? null"));
-    }
+    await evaluate("window.__u5631Selected = []; true");
+    // Crepe renders its selection on Vue's next tick; two paint frames expose it before the next key.
+    const selectedFrame = "eval " + JSON.stringify("(async () => { await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))); window.__u5631Selected.push(document.querySelector('.milkdown-slash-menu[data-show=true] [aria-selected=true]')?.textContent.trim() ?? null); return true; })()");
+
+    if (count) await browser("batch", "--bail", ...Array.from({ length: count }, () => ["press ArrowDown", selectedFrame]).flat());
+    const selected = await evaluate<(string | null)[]>("window.__u5631Selected");
 
     const retained = () => evaluate("JSON.parse(localStorage.getItem('roundup:drafts:/Users/you/harness') ?? '{\"drafts\":[]}').drafts.filter(draft => draft.destination.surface === 'todos').map(draft => ({ destination: draft.destination, text: draft.value.text }))");
     const unfinished = await retained();
