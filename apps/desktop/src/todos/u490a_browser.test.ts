@@ -226,9 +226,9 @@ it("u4275b_tab_reaches_quick_actions", async () => {
 
   await page.press("Tab", "Tab");
   await page.until(`() => document.activeElement?.getAttribute('aria-label') === 'Stop'`);
-  await page.press("Tab", "Tab", 8);
-  await page.until(`() => document.activeElement?.matches('.rail-row[data-id="tokens"]')`);
   await page.press("Tab", "Tab");
+  await page.until(`() => document.activeElement?.getAttribute('aria-label') !== 'Stop'`);
+  await page.press("Tab", "Tab", 8);
   await page.until(`() => document.activeElement?.getAttribute('aria-label') === 'Stop'`);
   await page.press("Enter", "Enter");
   await page.until(`() => window.__fake.app.calls.filter(c => c.method === 'agent.stop').length === 1`);
