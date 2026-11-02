@@ -180,7 +180,8 @@ it.each([[1512, 950], [1280, 820]])("u4698d_rich_body_saves_the_selected_todo_an
   await browser("click", ".drawer .ProseMirror");
   await browser("wait", '.drawer .todo-detail-body .word');
   await browser("focus", '.drawer .ProseMirror');
-  await browser("press", "Control+A");
+  await browser("press", process.platform === "darwin" ? "Meta+A" : "Control+A");
+  await browser("wait", "--fn", "window.getSelection()?.isCollapsed === false");
   await browser("press", "Backspace");
   await settle();
   await browser("type", '.drawer .ProseMirror', "Exact body retained after refusal");
