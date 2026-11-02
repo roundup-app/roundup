@@ -125,13 +125,18 @@ export default function PadRichEditor(props: {
           onRun: (ctx) => {
             const view = ctx.get(editorViewCtx);
             ctx.get(commandsCtx).call(clearTextInCurrentBlockCommand.key);
+            const { $from } = view.state.selection;
+            const tr = view.state.tr;
             let found = false;
             view.state.doc.forEach(node => { if (node.type.name === "pad_agent_details") found = true; });
 
             if (!found) {
               const node = agentDetailsNode.type(ctx).create(null, view.state.schema.text(`<details>\n<summary>${copy.forAgents}</summary>\n\n\n\n</details>`));
-              view.dispatch(view.state.tr.insert(view.state.doc.content.size, node));
+              tr.insert(view.state.doc.content.size, node);
             }
+
+            if ($from.parent.type.name === "paragraph" && $from.parent.content.size === 0) tr.delete($from.before(), $from.after());
+            view.dispatch(tr);
 
             const section = view.dom.querySelector<HTMLDetailsElement>("details[data-pad-agents]");
 
