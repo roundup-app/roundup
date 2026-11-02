@@ -8,10 +8,12 @@ import os
 from pathlib import Path
 import re
 import shutil
+import ssl
 import subprocess
 import sys
 import tarfile
 import tempfile
+import urllib.error
 import urllib.request
 
 import yaml
@@ -20,6 +22,9 @@ INSTALL = Path('/opt/roundup-ci')
 RUNNER = Path('/opt/actions-runner')
 # Not in the setup action: CI does not use it. Its release publishes a SHA-256 digest per archive.
 CODEGRAPH = '1.6.2'
+# boxd's egress proxy re-signs this host with its own CA, whose key boxd rotates; a stale copy fails TLS verification.
+EGRESS_PROBE = 'https://api.anthropic.com'
+EGRESS_CA = Path('/usr/local/share/ca-certificates/boxd-egress.crt')
 
 
 def run(*args, timeout=600, cwd=None):
@@ -56,8 +61,40 @@ def github_archive(repository, release, pattern):
     return archive, release['tag_name']
 
 
+def verify_egress_tls():
+    """Fail on a TLS error reaching the proxied host; an HTTP status error means the chain verified."""
+    try:
+        urllib.request.urlopen(EGRESS_PROBE, timeout=20)
+    except urllib.error.HTTPError:
+        pass
+    except urllib.error.URLError as error:
+        if isinstance(error.reason, ssl.SSLError):
+            raise SystemExit(f'boxd egress CA is stale for {EGRESS_PROBE}: {error.reason}; rebuild the image')
+        raise
+
+
+def refresh_egress_ca():
+    """Install the CA the live egress proxy signs with: the self-signed certificate in the chain it presents."""
+    host = EGRESS_PROBE.removeprefix('https://')
+    chain = run('bash', '-c', f'openssl s_client -connect {host}:443 -servername {host} -showcerts </dev/null 2>/dev/null',
+                timeout=60)
+    for block in re.findall(r'-----BEGIN CERTIFICATE-----.*?-----END CERTIFICATE-----', chain, re.S):
+        names = subprocess.run(('openssl', 'x509', '-noout', '-subject', '-issuer'), input=block, text=True,
+                               capture_output=True, check=True).stdout.splitlines()
+        subject, issuer = (line.split('=', 1)[1].strip() for line in names)
+        if subject == issuer and 'boxd egress CA' in subject:
+            temporary = Path(tempfile.mkstemp(suffix='.crt')[1])
+            temporary.write_text(block + '\n')
+            run('sudo', 'install', '-m', '0644', '-o', 'root', '-g', 'root', str(temporary), str(EGRESS_CA))
+            temporary.unlink()
+            run('sudo', 'update-ca-certificates')
+            return
+    raise SystemExit(f'{host} presented no boxd egress CA; is the build machine behind the egress proxy?')
+
+
 def verify(action):
     """Fail visibly when a prepared snapshot no longer matches the setup action or installed programs."""
+    verify_egress_tls()
     manifest = json.loads((INSTALL / 'image.json').read_text())
     if manifest['setup'] != hashlib.sha256(Path(action).read_bytes()).hexdigest():
         raise SystemExit('boxd snapshot does not match CI setup; refresh it before starting an agent')
@@ -96,7 +133,8 @@ def build(repository, instructions=None):
     print('Installing native build/browser prerequisites', flush=True)
     run('sudo', 'apt-get', 'update', timeout=300)
     run('sudo', 'apt-get', 'install', '-y', 'python3-yaml', 'libwebkit2gtk-4.1-dev', 'build-essential',
-        'libxdo-dev', 'libssl-dev', 'libayatana-appindicator3-dev', 'librsvg2-dev', 'jq', 'unzip')
+        'libxdo-dev', 'libssl-dev', 'libayatana-appindicator3-dev', 'librsvg2-dev', 'jq', 'unzip',
+        'clang', 'libclang-dev')
     print('Preparing pinned Node and agent programs', flush=True)
     run('bash', '-lc', f'. "$HOME/.nvm/nvm.sh"; nvm install {versions["node"]}; '
         f'sudo ln -sf "$(nvm which {versions["node"]})" /usr/local/bin/node')
@@ -121,6 +159,7 @@ def build(repository, instructions=None):
     install_codegraph()
     run('codegraph', 'init', '-y', str(repository), timeout=900)
     # These agent jobs use native/JavaScript actions. A foreign container job must not execute before identity checks.
+    refresh_egress_ca()
     run('sudo', 'systemctl', 'disable', '--now', 'docker.service', 'docker.socket', 'containerd.service')
     print('Warming the workspace package store and Rust build cache', flush=True)
     run('pnpm', 'install', '--frozen-lockfile', cwd=repository)
