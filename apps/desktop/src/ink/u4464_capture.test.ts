@@ -70,12 +70,12 @@ it.skipIf(!captureDir("U4464"))("u5606_capture_empty_views_in_both_themes", { ti
       await browser("press", "Meta+k");
       await wait(`!!document.querySelector('.leader')`);
       await browser("press", "i");
-      await wait(`!!document.querySelector('.inbox .empty-state')`);
+      await wait(`!!document.querySelector('.inbox .overview-quiet')`);
       await snap(`${theme}-inbox`);
 
       for (const view of ["made", "reactions"]) {
         await load("empty-project", view);
-        await wait(view === "made" ? `!!document.querySelector('.made .empty-state')` : `!!document.querySelector('.reactions .empty-state')`);
+        await wait(view === "made" ? `!!document.querySelector('.made .overview-quiet')` : `!!document.querySelector('.reactions .overview-quiet')`);
         await snap(`${theme}-${view}`);
       }
 
@@ -105,8 +105,8 @@ it.skipIf(!captureDir("U4464"))("u5606_capture_empty_views_in_both_themes", { ti
       await load("empty-project");
       await read(`(async () => { const {draftStorage} = await import('/src/state/storage.ts'); draftStorage(window.__fake.app.opened.project.path).edit({surface:'terminal_selection', object:'missing', recipient:'missing'}, {note:'Unfinished selection', excerpt:'Earlier output', source:'gone'}, null, 'ordinary'); })()`);
       await browser("reload");
-      await wait(`!!window.__fake && !!document.querySelector('[aria-label="Overview"]')`);
-      await read(`document.querySelector('[aria-label="Overview"]').dispatchEvent(new MouseEvent('contextmenu', {bubbles:true,clientX:30,clientY:60}))`);
+      await wait(`!!window.__fake && !!document.querySelector('.todo-project-root')`);
+      await read(`document.querySelector('.todo-project-root').dispatchEvent(new MouseEvent('contextmenu', {bubbles:true,clientX:30,clientY:60}))`);
       await read(`(async () => { const {menuProbe} = await import('/src/testing/menuProbe.ts'); const item = menuProbe.shown.find(item => item.id === 'recover'); if (!item) throw new Error('Recovery menu unavailable'); menuProbe.answer(item.id); })()`);
       await wait(`!!document.querySelector('.draft-recovery')`);
       await read(`[...document.querySelectorAll('.draft-recovery button')].find(button => button.textContent === 'Discard').click()`);
