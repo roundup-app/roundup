@@ -1,0 +1,27 @@
+{
+  "source": "6ba0f140839515af63effbe978c44c79429c1175",
+  "behavior": {
+    "todo_files": 7,
+    "todo_tests_passed": 115,
+    "real_daemon_cases_passed": [
+      "u3311_real_daemon_delegate_board",
+      "u4698e_reopen_result_from_workstream"
+    ],
+    "activity_browser_cases_passed": 4,
+    "import_cases_passed": 2,
+    "import_milliseconds": [
+      49683,
+      44627
+    ]
+  },
+  "checks": {
+    "just_ready": "passed before final observer changes; final rerun pending",
+    "merge_loss": "pass",
+    "taste_lint": "0 failures; 2 existing warnings"
+  },
+  "remaining": [
+    "Complete final retained U4277c command",
+    "Complete final just ready rerun",
+    "U461 optional captures fail at pre-existing retired selectors; no success claimed"
+  ]
+}
