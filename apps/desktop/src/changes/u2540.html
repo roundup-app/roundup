@@ -63,7 +63,7 @@ if (new URLSearchParams(location.search).has("submit-failure")) {
   app.handlers["message.send"] = () => { throw new RpcError(-32003, "Agent refused these notes; edit or retry sending them."); };
 }
 
-render(() => createComponent(App, { app, reducedMotion: () => true, clock: Date.now }), document.getElementById("root"));
+render(() => createComponent(App, { app, reducedMotion: () => true, clock: Date.now, prepareIdle: open => { window.__worktrees = open.worktrees; } }), document.getElementById("root"));
 
 if (dense) {
   // The mounted control registers the App-owned holder before fixture edits enter it.

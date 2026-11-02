@@ -112,7 +112,7 @@ it.skipIf(!captureDir("U4464"))("u4464_capture_empty_views_in_both_themes", asyn
       await wait(`!!document.querySelector('.draft-recovery .empty-state')`);
       await snap(`${theme}-draft-recovery`);
       await load("tree-40");
-      await read(`window.__fake.failNext(-32003,'Creation rejected: choose another Workstream name'); document.querySelector('[aria-label="Add Workstream"]').click()`);
+      await read(`window.__fake.failNext(-32003,'Creation rejected: choose another Workstream name'); document.querySelector('[aria-label="Create"]').click(); document.querySelector('[data-part="item"][data-value="workstream"]').click()`);
       await wait(`document.querySelector('[role=alert]')?.textContent.includes('Creation rejected')`);
       await snap(`${theme}-dense-failure`);
       expect(await read(`document.querySelectorAll('[role=alert]').length`)).toBe(1);
