@@ -197,6 +197,12 @@ fn b50_the_transcript_records_a_note_as_a_peer_message_under_its_msg_id() {
         let transcript = fixtures(version).join("transcript.jsonl");
         assert_eq!(recorded(&transcript, 0).0, [7, 11], "{version}");
     }
+    let transcript = tempfile::NamedTempFile::new().unwrap();
+    std::fs::write(transcript.path(), concat!(
+        "{\"origin\":{},\"attachment\":{\"origin\":{\"kind\":\"peer\",\"msg_id\":\"00000000-0000-4000-8000-000000000007\"}}}\n",
+        "{\"origin\":null,\"attachment\":{\"origin\":{\"kind\":\"peer\",\"msg_id\":\"00000000-0000-4000-8000-00000000000b\"}}}\n"
+    )).unwrap();
+    assert_eq!(recorded(transcript.path(), 0).0, [11]);
 }
 
 #[test]
@@ -219,7 +225,10 @@ fn b50_a_transcript_is_read_from_where_it_was_left() {
         format!("{}{}{}", line(1), line(2), line(3)),
     )
     .unwrap();
-    assert_eq!(recorded(transcript.path(), offset).0, [2, 3]);
+    let (ids, end) = recorded(transcript.path(), offset);
+    assert_eq!(ids, [2, 3]);
+    assert_eq!(recorded(transcript.path(), end), (vec![], end));
+    assert_eq!(recorded(transcript.path(), 0).0, [1, 2, 3]);
 }
 
 // B50(b,d): rejects losing question/reply identity or applying the digest display cut.

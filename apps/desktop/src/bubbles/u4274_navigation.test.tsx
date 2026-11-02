@@ -11,7 +11,7 @@ afterEach(() => { cleanup(); localStorage.clear(); sessionStorage.clear(); });
 
 // U4707: the tab bar reads the 44px --row-text-inset Token (U5147d).
 it.each(["keyboard", "menu", "bar"].flatMap(source => ["home", "a1", null, "empty"].map(selection => ({ source, selection }))))("u4313a_bar_plus_opens_once_and_focuses: $source $selection", async ({ source, selection }) => {
-  const { daemon, connected, shells, emulators } = await mountNavigation(selection === "empty");
+  const { daemon, connected, shells, emulators } = await mountNavigation(selection === "empty", 0);
 
   if (selection !== "empty") connected().rail.select(selection);
 
@@ -22,7 +22,7 @@ it.each(["keyboard", "menu", "bar"].flatMap(source => ["home", "a1", null, "empt
 
   if (source === "keyboard") window.dispatchEvent(new KeyboardEvent("keydown", { key: "t", code: "KeyT", metaKey: true, bubbles: true }));
   else if (source === "menu") openProjectPage("action:chord:⌘T", "/p");
-  else fireEvent.click(within(screen.getByRole("group", { name: "Terminals" })).getByRole("button", { name: "New Terminal" }));
+  else fireEvent.click(within(screen.getByLabelText("Terminals", { selector: '[role="group"]' })).getByRole("button", { name: "New Terminal" }));
   await waitFor(() => expect(document.activeElement?.getAttribute("data-terminal")).toBe("shell"));
   expect(daemon.calls.filter(call => call.method === "terminal.open").map(call => call.params)).toEqual([{ workstream: owner, cols: 100, rows: 30 }]);
   expect(daemon.calls.filter(call => ["rail.createWorkstream", "rail.startDoor", "agent.spawn"].includes(call.method))).toHaveLength(0);
@@ -33,9 +33,9 @@ it.each(["keyboard", "menu", "bar"].flatMap(source => ["home", "a1", null, "empt
 
 // U4707: the tab bar reads the 44px --row-text-inset Token (U5147d).
 it("u4313a_empty_terminal_bar_keeps_new_terminal_available", async () => {
-  const { connected, daemon, shells, emulators } = await mountNavigation(true);
+  const { connected, daemon, shells, emulators } = await mountNavigation(true, 0);
   const portal = document.querySelector(".resource-agent");
-  const initial = screen.getByRole("group", { name: "Terminals" });
+  const initial = screen.getByLabelText("Terminals", { selector: '[role="group"]' });
   expect(within(initial).getAllByRole("button")).toEqual([within(initial).getByRole("button", { name: "New Terminal" })]);
   fireEvent.keyDown(document, { key: "Tab" });
   within(initial).getByRole("button", { name: "New Terminal" }).focus();
@@ -43,7 +43,7 @@ it("u4313a_empty_terminal_bar_keeps_new_terminal_available", async () => {
   expect(daemon.calls.filter(call => ["terminal.open", "agent.spawn", "rail.createWorkstream", "rail.startDoor"].includes(call.method))).toHaveLength(0);
   shells.push(info("shell", { owner: "/p" }));
   await connected().rail.refresh({ terminals: true });
-  const bar = await screen.findByRole("group", { name: "Terminals" });
+  const bar = await screen.findByLabelText("Terminals", { selector: '[role="group"]' });
   fireEvent.click(document.querySelector('.terminal-tab[data-bubble="shell"]')!);
   await waitFor(() => expect(emulators.made.has("shell")).toBe(true));
   fireEvent.click(document.querySelector('.terminal-tab[data-bubble="shell"]')!);
@@ -53,13 +53,13 @@ it("u4313a_empty_terminal_bar_keeps_new_terminal_available", async () => {
   expect(document.querySelector('.terminal-tab[data-bubble="shell"]')).not.toBeNull();
   shells.splice(0);
   await connected().rail.refresh({ terminals: true });
-  expect(screen.getByRole("group", { name: "Terminals" })).toBe(initial);
+  expect(screen.getByLabelText("Terminals", { selector: '[role="group"]' })).toBe(initial);
   expect(document.querySelector(".resource-agent")).toBe(portal);
   expect(daemon.calls.filter(call => ["terminal.close", "terminal.write"].includes(call.method))).toHaveLength(0);
 });
 
 it("u4274c_terminal_bar_follows_eligible_terminals_on_selection", async () => {
-  const { connected, daemon, nodes, shells } = await mountNavigation();
+  const { connected, daemon, nodes, shells } = await mountNavigation(false, 0);
   shells.push(info("shell", { owner: "home" }));
   nodes.push({ ...nodes[0]!, id: "other", name: "Other", order: 20 });
   await connected().rail.refresh({ terminals: true });
@@ -75,7 +75,7 @@ it("u4274c_terminal_bar_follows_eligible_terminals_on_selection", async () => {
 });
 
 it("u524_a_failed_empty_project_open_can_be_retried", async () => {
-  const { daemon, shells } = await mountNavigation(true);
+  const { daemon, shells } = await mountNavigation(true, 0);
   daemon.handlers["terminal.open"] = () => { throw new Error("cannot open"); };
 
   const action = document.querySelector<HTMLButtonElement>(".terminal-new")!;
@@ -95,7 +95,7 @@ it("u524_a_failed_empty_project_open_can_be_retried", async () => {
 });
 
 it("u4313a_closing_the_last_terminal_returns_focus_to_plus", async () => {
-  const { connected, daemon, shells } = await mountNavigation(true);
+  const { connected, daemon, shells } = await mountNavigation(true, 0);
   shells.push(info("shell", { owner: "/p" }));
   await connected().rail.refresh({ terminals: true });
   daemon.handlers["terminal.close"] = () => { shells.splice(0);
@@ -107,12 +107,12 @@ it("u4313a_closing_the_last_terminal_returns_focus_to_plus", async () => {
   fireEvent.click(close);
   await answerQuestion(true);
   await waitFor(() => expect(document.activeElement).toBe(document.querySelector(".terminal-new")));
-  expect(within(screen.getByRole("group", { name: "Terminals" })).getAllByRole("button")).toEqual([document.querySelector(".terminal-new")]);
+  expect(within(screen.getByLabelText("Terminals", { selector: '[role="group"]' })).getAllByRole("button")).toEqual([document.querySelector(".terminal-new")]);
   expect(daemon.calls.filter(call => call.method === "terminal.close").map(call => call.params)).toEqual([{ id: "shell" }]);
 });
 
 it.each(["keyboard", "footer"].flatMap(source => ["home", "a1", null, "empty"].map(selection => ({ source, selection }))))("u4313a_rail_agent_uses_the_new_agent_action: $source $selection", async ({ source, selection }) => {
-  const { daemon, connected, nodes } = await mountNavigation(selection === "empty");
+  const { daemon, connected, nodes } = await mountNavigation(selection === "empty", 0);
 
   if (selection !== "empty") connected().rail.select(selection);
   const parent = selection === "home" ? "home" : null;
@@ -133,10 +133,10 @@ it.each(["keyboard", "footer"].flatMap(source => ["home", "a1", null, "empty"].m
 });
 
 it("u4277c_hidden_project_terminals_never_report_empty", async () => {
-  const { connected, shells } = await mountNavigation(true);
+  const { connected, shells } = await mountNavigation(true, 0);
   shells.push(info("shell", { owner: "other" }));
   await connected().rail.refresh({ terminals: true });
-  const bar = await screen.findByRole("group", { name: "Terminals" });
+  const bar = await screen.findByLabelText("Terminals", { selector: '[role="group"]' });
   expect(within(bar).queryByRole("status")).toBeNull();
 });
 
@@ -193,20 +193,20 @@ it.each(["agent", "door", "workstream", "ask", "inbox", "resources"].flatMap(vie
   }
 
   if (view === "inbox" || view === "resources") connected().showView(view);
-  const bar = screen.getByRole("group", { name: "Terminals" });
+  const bar = screen.getByLabelText("Terminals", { selector: '[role="group"]' });
   expect(within(bar).getByRole("button", { name: "New Terminal" }).hasAttribute("disabled")).toBe(false);
   expect(bar.querySelector('.terminal-tab[data-bubble="shell"]') !== null).toBe(populated && view !== "ask");
 
 });
 
 it("u4453c_tabs_and_saved_drafts_stay_reachable", async () => {
-  const { connected, shells, daemon } = await mountNavigation();
+  const { connected, shells, daemon } = await mountNavigation(false, 0);
   shells.push(info("saved", { owner: "home", title: "zsh" }));
   await connected().rail.refresh({ terminals: true });
   connected().rail.select("home");
   const tab = document.querySelector<HTMLElement>('.terminal-tab[data-bubble="saved"]')!;
   fireEvent.dblClick(tab);
-  const field = await screen.findByRole("textbox", { name: "Terminal name" });
+  const field = await screen.findByLabelText("Terminal name", { selector: "input" });
   const text = "  saved e\u0301 🫧  ";
   fireEvent.input(field, { target: { value: text } });
   fireEvent.keyDown(field, { key: "Escape" });
@@ -220,7 +220,7 @@ it("u4453c_tabs_and_saved_drafts_stay_reachable", async () => {
     return { terminal_id: "new" };
   };
 
-  fireEvent.click(screen.getByRole("button", { name: "New Terminal" }));
+  fireEvent.click(screen.getByLabelText("New Terminal", { selector: "button" }));
   await waitFor(() => expect(document.activeElement?.getAttribute("data-terminal")).toBe("new"));
   expect(connected().drafts.list()).toEqual(retained);
   const recovery = document.querySelector<HTMLButtonElement>(".terminal-recover")!;
