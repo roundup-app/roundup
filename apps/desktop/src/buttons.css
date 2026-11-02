@@ -265,7 +265,7 @@ input:is(.todo-tick, [type="range"])[data-pressed="true"]:not(:disabled, [aria-d
   transition: none;
 }
 
-/* U5557c: button text, including nested labels, shares the system mono stack. */
-button, button *, [role="button"], [role="button"] * {
+/* U5557c: action captions share mono; content rows and names retain UI type. */
+[data-button], [data-button] * {
   font-family: var(--font-mono);
 }
