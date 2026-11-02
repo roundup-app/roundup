@@ -22,6 +22,7 @@ export function captureDir(id: string): string | null {
 const observerTable = {
   "src/pads/u5561a_browser.test.ts": ["U5561a", "U5561b"],
   "src/pads/u5561c_real_browser.test.ts": ["U5561c"],
+  "src/rail/u5501_capture.test.ts": ["U5501"],
   "src/app/u3560_browser.test.ts": ["U3560e"],
   "src/app/u3787f_browser.test.ts": ["U3787f"],
   "src/app/u3791c_rendered.test.ts": ["U3791c"],

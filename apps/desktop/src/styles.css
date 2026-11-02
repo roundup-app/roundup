@@ -356,7 +356,9 @@ p {
   top: var(--space-2);
 }
 
-.drawer[data-maximised="true"] .todo-detail {
+/* Todo CSS loads with its lazy chunk, after this file: the header Drawer rule ties on specificity, so this one outranks it. */
+.drawer[data-maximised="true"] .todo-detail,
+.drawer[data-maximised="true"]:has(.todo-header) .todo-detail {
   width: min(100%, var(--measure));
   align-self: center;
 }
