@@ -52,6 +52,12 @@ impl Shared {
             unreachable!("spawn marks {id} Starting before run_agent runs")
         };
         let mut run = build(named);
+        if run.input_started
+            && let Err(error) = self.save_input_started(id, &run.attempt)
+        {
+            runs.insert(id.to_owned(), Slot::Running(run));
+            return Err(error);
+        }
         run.adapter
             .set_finished(rail.finished(id).unwrap_or_default());
         let mut prompts = Vec::new();
@@ -283,6 +289,20 @@ impl Shared {
             terminal_id: terminal_id.clone(),
             cwd,
         };
+        if run.input_started
+            && let Err(error) = self.save_input_started(id, &run.attempt)
+        {
+            self.fail_resume(
+                runs,
+                id,
+                attempt,
+                old,
+                Some(terminal_id),
+                done,
+                error.clone(),
+            );
+            return Err(error);
+        }
         run.adapter
             .set_finished(rail.finished(id).unwrap_or_default());
         // Only the matching ack may release the first prompt; a parked mismatched SessionStart

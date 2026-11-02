@@ -89,6 +89,7 @@ const Connection = (props: {
   tab: () => OpenTab | undefined;
   reducedMotion: Accessor<boolean>;
   now: Accessor<number>;
+  clock: Clock;
   drafts: ReturnType<typeof createProjectDrafts>;
   onConnected: (path: string, connection: ConnectedProject | Error | null) => void;
   onRecovered: (path: string, generation: number) => void;
@@ -111,7 +112,7 @@ const Connection = (props: {
     const exit = props.tab()?.exit;
 
     try {
-      const next = await connectProject(props.app.forProject(path), first.project, props.reducedMotion, props.now, () => props.tab()?.generation === generation ? props.tab()?.exit ?? null : { code: null, recovery: "connecting" }, railStorage(path), props.drafts(path), props.viewing);
+      const next = await connectProject(props.app.forProject(path), first.project, props.reducedMotion, props.now, () => props.tab()?.generation === generation ? props.tab()?.exit ?? null : { code: null, recovery: "connecting" }, railStorage(path), props.drafts(path), props.viewing, props.clock);
 
       if (props.tab()?.generation !== generation) {
         next.stopTerminalScheme();
@@ -645,7 +646,7 @@ export const App = (props: {
   return (
     <ReducedMotionContext.Provider value={props.reducedMotion}><DisplayClockContext.Provider value={now.subscribe}><ProjectDraftsContext.Provider value={drafts}><Show when={projects.loaded()}>
       <For each={keys()}>
-        {(key) => <Connection drafts={drafts} app={dropTargets.app} tab={tabOf(key)} reducedMotion={props.reducedMotion} now={pollingNow} onConnected={connect} onRecovered={projects.connected} onRequested={answer} toasts={toasts} alerts={alerts} active={() => projects.active() === key} viewing={() => projects.active() === key && visible() && focus() === "focused" && !settingsOpen()} show={() => projects.select(key)} />}
+        {(key) => <Connection drafts={drafts} app={dropTargets.app} tab={tabOf(key)} reducedMotion={props.reducedMotion} now={pollingNow} clock={props.clock} onConnected={connect} onRecovered={projects.connected} onRequested={answer} toasts={toasts} alerts={alerts} active={() => projects.active() === key} viewing={() => projects.active() === key && visible() && focus() === "focused" && !settingsOpen()} show={() => projects.select(key)} />}
       </For>
       <DockBadge app={props.app} rails={() => [...connections().values()].flatMap((connection) => (connection instanceof Error ? [] : [attentionHolders(connection.rail.nodes, connection.rail.terminals(), connection.rail.dismissed)]))} onFailure={setBadgeFailure} />
       <Tabs.Root id={tabsId} value={projects.active()} onValueChange={({ value }) => projects.select(value)} activationMode="manual" style={{ display: "contents" }}
