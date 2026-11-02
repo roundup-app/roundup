@@ -11,7 +11,7 @@ export const shelfScope = (connected: ConnectedProject) => {
   const selected = createMemo<Scope>(() => {
     const node = connected.rail.nodes.find(node => node.id === connected.rail.selected());
 
-    return node ? { kind: node.kind, id: node.id, name: node.name } : { kind: "overview" };
+    return node && node.kind !== "group" ? { kind: node.kind, id: node.id, name: node.name } : { kind: "overview" };
   });
 
   return {

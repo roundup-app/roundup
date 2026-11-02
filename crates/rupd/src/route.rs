@@ -78,6 +78,7 @@ impl Daemon {
                 method,
                 "daemon.getNaming"
                     | "daemon.setNaming"
+                    | "rail.group"
                     | "rail.rename"
                     | "rail.setAlertLevel"
                     | "workstream.setAuto"

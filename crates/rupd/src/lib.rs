@@ -20,12 +20,12 @@ mod event_log;
 mod evidence;
 mod extensions;
 mod github;
+#[cfg(test)]
+mod group_tests;
 mod guards;
 mod link;
 #[cfg(test)]
 mod naming_tests;
-#[cfg(test)]
-mod group_tests;
 mod observers;
 mod open;
 mod output;

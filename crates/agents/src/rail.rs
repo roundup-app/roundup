@@ -39,7 +39,7 @@ impl Rail {
         db.pragma_update(None, "journal_mode", "WAL")?;
         crate::schema::open(&mut db, path)?;
         let obsolete: bool = db.query_row(
-            "SELECT EXISTS(SELECT 1 FROM nodes WHERE kind NOT IN ('workstream','agent') OR (kind='workstream' AND parent IS NOT NULL))",
+            "SELECT EXISTS(SELECT 1 FROM nodes WHERE kind NOT IN ('workstream','agent','group') OR (kind='workstream' AND EXISTS (WITH RECURSIVE ancestors(id,parent,kind) AS (SELECT id,parent,kind FROM nodes p WHERE p.id=nodes.parent UNION ALL SELECT p.id,p.parent,p.kind FROM nodes p JOIN ancestors a ON p.id=a.parent) SELECT 1 FROM ancestors WHERE kind<>'group')))",
             [], |r| r.get(0),
         )?;
         if obsolete {
@@ -614,6 +614,7 @@ fn workstream_order() -> Order {
 
 fn kind_name(kind: NodeKind) -> &'static str {
     match kind {
+        NodeKind::Group => "group",
         NodeKind::Workstream => "workstream",
         NodeKind::Agent => "agent",
     }
@@ -647,6 +648,18 @@ fn check_parent(nodes: &[RailNode], kind: NodeKind, parent: Option<&str>) -> Res
         return Ok(());
     };
     match (kind, parent.kind) {
+        (NodeKind::Workstream | NodeKind::Group, NodeKind::Group) => {
+            let mut at = parent.parent.as_deref();
+            while let Some(id) = at {
+                let ancestor = find(nodes, id)?;
+                if kind == NodeKind::Workstream && ancestor.kind != NodeKind::Group {
+                    return Err(RpcError::conflict("Workstreams never nest"));
+                }
+                at = ancestor.parent.as_deref();
+            }
+            Ok(())
+        }
+        (NodeKind::Group, _) => Ok(()),
         (NodeKind::Workstream, _) => Err(RpcError::conflict(format!(
             "Workstreams never nest: a Workstream cannot sit under {}",
             parent.id

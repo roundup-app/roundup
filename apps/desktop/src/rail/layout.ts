@@ -92,7 +92,7 @@ export const layoutRail = (nodes: readonly RailNode[], view: RailView): RailRow[
   };
 
   const rowsOfNode = (node: RailNode, depth: number, trail: readonly boolean[]): RailRow[] => {
-    const collapsed = isWorkstream(node) && view.collapsed.has(node.id);
+    const collapsed = (isWorkstream(node) || node.kind === "group") && view.collapsed.has(node.id);
 
     const below = collapsed ? [] : rowsOf(node.id, depth + 1, trail);
 
