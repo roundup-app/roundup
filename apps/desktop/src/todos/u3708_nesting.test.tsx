@@ -1,3 +1,6 @@
+import { createMemo, createRoot, createSignal } from "solid-js";
+import { treeRows, rowTopology, treeCollection, planDrop } from "./todoView";
+import { createDependencyGroups, groupFacts, type DependencyGroupRetention } from "./dependencyGroups";
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { SCOPE_ROW, USER } from "../testing/nodes";
@@ -318,4 +321,151 @@ it("u3811_bursts_and_reopening_settle_on_the_latest_facts (a hidden completed gr
   expect(disclosure(3).getAttribute("aria-expanded")).toBe("false");
   expect(disclosure(5).getAttribute("aria-expanded")).toBe("false");
   expect(disclosure(7).getAttribute("aria-expanded")).toBe("true");
+});
+
+// Counts owned storage slots, including repeated references, but not Todo payloads or Ark internals.
+const retainedSlots = <T,>(value: T, payloads: ReadonlySet<object>): number => {
+  const pending: unknown[] = [value];
+  const seen = new Set<object>();
+  let slots = 0;
+
+  while (pending.length) {
+    const next = pending.pop();
+
+    if (!(next instanceof Object) || payloads.has(next) || seen.has(next)) continue;
+    seen.add(next);
+    const values = next instanceof Map ? [...next].flat() : next instanceof Set ? [...next] : Object.values(next);
+    slots += values.length;
+    pending.push(...values);
+  }
+
+  return slots;
+};
+
+it("u5644a_chain_retains_linear_topology_and_group_facts", () => {
+  let inspections = 0;
+
+  const observed = <T extends object>(value: T): T => new Proxy(value, { get(target, key) {
+    inspections++;
+
+    // SAFETY: this observer forwards the Proxy's property key unchanged to its own target.
+    return target[key as keyof T];
+  } });
+
+  createRoot(dispose => {
+    const all = Array.from({ length: 2000 }, (_, at) => observed(todo(at + 1, { blockers: observed(at ? [at] : []), done: at < 1999 })));
+    const [list, setList] = createSignal(all);
+    const rows = createMemo(() => observed(treeRows(list()).map(observed)));
+    let retained: DependencyGroupRetention | null = null;
+
+    const groups = createDependencyGroups({ project: {}, key: () => "one", keys: () => new Set(["one"]), ids: () => new Set(list().map(item => item.id)),
+      loaded: () => true, rows, playing: () => false, reduced: () => true, shown: () => true, group: () => "one", focusAfterClose: () => {}, observe: value => { retained = value; } });
+
+    const check = () => {
+      const topology = rowTopology(rows());
+      const collection = treeCollection(topology);
+      expect(topology.rows).toHaveLength(2000);
+      expect(topology.parent.slice(0, 4)).toEqual([null, 0, 1, 2]);
+      expect(topology.end.every(end => end === 2000)).toBe(true);
+      expect(groups.groups().size).toBe(1999);
+      expect([...groups.groups().values()].every(group => !Array.isArray(group) && group.start < group.end)).toBe(true);
+      expect(retainedSlots({ retained, topology, nodes: collection.rootNode }, new Set([...all, ...list()]))).toBeLessThanOrEqual(64 * all.length);
+    };
+
+    expect(inspections).toBeLessThanOrEqual(64 * (2000 + 1999));
+    check();
+    const next = all.map(item => item.id === 2000 ? observed({ ...item, done: true }) : item);
+    inspections = 0;
+    setList(next);
+    expect(inspections).toBeLessThanOrEqual(64 * (2000 + 1999));
+    check();
+    expect(groups.groups().get(1999)?.done).toBe(1);
+    expect(groups.expanded(1999)).toBe(false);
+    dispose();
+  });
+});
+
+it.each(["chain", "wide"])("u5644a_chain_and_wide_tree_build_without_repeated_scans %s", branching => {
+  let inspections = 0;
+
+  const observed = <T extends object>(value: T): T => new Proxy(value, { get(target, key) {
+    inspections++;
+
+    // SAFETY: this observer forwards the Proxy's property key unchanged to its own target.
+    return target[key as keyof T];
+  } });
+
+  const all = Array.from({ length: 2000 }, (_, at) => observed(todo(at + 1, { blockers: observed(at ? [branching === "chain" ? at : 1] : []) })));
+  const rows = observed(treeRows(observed(all)).map(observed));
+  const topology = rowTopology(rows);
+  const collection = treeCollection(topology);
+  const groups = groupFacts(topology);
+
+  for (const row of rows) topology.children(row.todo.id);
+  expect(collection.rootNode.children).toHaveLength(1);
+  expect(groups.get(1)?.total).toBe(1999);
+  expect(inspections).toBeLessThanOrEqual(64 * (2000 + 1999));
+});
+
+it.each([
+  { name: "chain and secondary blockers", list: [todo(3, { blockers: [2, 1] }), todo(1), todo(2, { blockers: [1] })], triples: [[1, null, 1], [2, 1, 2], [3, 2, 3]], children: [[1], [2], [3], []] },
+  { name: "wide with done members", list: [todo(3, { blockers: [1], done: true }), todo(1, { done: true }), todo(2, { blockers: [1] })], triples: [[1, null, 1], [3, 1, 2], [2, 1, 2]], children: [[1], [3, 2], [], []] },
+  { name: "missing self and multiple roots", list: [todo(3, { blockers: [3, 99] }), todo(2), todo(1, { blockers: [99, 2] })], triples: [[3, null, 1], [2, null, 1], [1, 2, 2]], children: [[3, 2], [], [1], []] },
+  { name: "rootless cycle and downstream fallback", list: [todo(3, { blockers: [2] }), todo(2, { blockers: [1] }), todo(1, { blockers: [2] }), todo(4)], triples: [[4, null, 1], [3, null, 1], [2, null, 1], [1, null, 1]], children: [[4, 3, 2, 1], [], [], [], []] },
+])("u5644a_topology_preserves_order_membership_and_cycle_fallback $name", ({ list, triples, children }) => {
+  const rows = treeRows(list);
+  const topology = rowTopology(rows);
+  const collection = treeCollection(topology);
+  expect(rows.map(row => [row.todo.id, row.parent, row.level])).toEqual(triples);
+  expect([null, ...rows.map(row => row.todo.id)].map(id => topology.children(id).map(row => row.todo.id))).toEqual(children);
+  expect([collection.rootNode, ...rows.map(row => collection.findNode(String(row.todo.id))!)].map(node => node.children.map(child => Number(child.id)))).toEqual(children);
+  expect(topology.parent.map(at => at == null ? null : rows[at]!.todo.id)).toEqual(rows.map(row => row.parent));
+  rows.forEach((row, at) => expect(rows.slice(at + 1, topology.end[at]).every(child => child.level > row.level)).toBe(true));
+});
+
+it.each([
+  { list: [todo(1), todo(2, { blockers: [1] }), todo(3, { blockers: [2] })], before: [[1, 2, 0], [2, 1, 0]], after: [[1, 2, 1], [2, 1, 1]] },
+  { list: [todo(1), todo(2, { blockers: [1], done: true }), todo(3, { blockers: [1] })], before: [[1, 2, 1]], after: [[1, 2, 2]] },
+  { list: [todo(1, { blockers: [2] }), todo(2, { blockers: [1] }), todo(3, { blockers: [99] })], before: [], after: [] },
+])("u5644b_group_transitions_match_current_facts %#", ({ list, before, after }) => {
+  createRoot(dispose => {
+    const [all, setAll] = createSignal(list);
+
+    const groups = createDependencyGroups({ project: {}, key: () => "one", keys: () => new Set(["one"]), ids: () => new Set(all().map(item => item.id)),
+      loaded: () => true, rows: createMemo(() => treeRows(all())), playing: () => false, reduced: () => true, shown: () => true, group: () => "one", focusAfterClose: () => {} });
+
+    const facts = () => [...groups.groups()].map(([id, group]) => [id, group.total, group.done]);
+    expect(facts()).toEqual(before);
+    setAll(list.map(item => item.id === 3 ? { ...item, done: true } : item));
+    expect(facts()).toEqual(after);
+    expect([...groups.groups().keys()].map(id => [groups.expanded(id), groups.visible(id)])).toEqual(after.map(([, total, done]) => [total !== done, true]));
+    setAll(list);
+    expect(facts()).toEqual(before);
+    dispose();
+  });
+});
+
+it("u5644a_drop_plans_preserve_descendants_and_order", () => {
+  const all = [todo(1), todo(2, { blockers: [1] }), todo(3, { blockers: [2] }), todo(4), todo(5)];
+  const rows = treeRows(all);
+  expect(planDrop(rows, all, all, 1, 3, 0)).toEqual({});
+  expect(planDrop(rows, all, all, 2, 4, 0)).toEqual({ blockers: [4], before: 5 });
+  expect(planDrop(rows, all, all, 2, null, 1)).toEqual({ blockers: [] });
+});
+
+it("u5644b_refetch_and_disclosure_keep_the_todo_draft", async () => {
+  const mounted = await mountTodos([todo(1), todo(2, { blockers: [1] })]);
+  const disclosure = await screen.findByRole("button", { name: "Toggle todo 1 group" });
+  fireEvent.click(screen.getByRole("button", { name: "Add Todo: Overview" }));
+  const field = screen.getByRole<HTMLInputElement>("textbox", { name: "New Todo title" });
+  fireEvent.input(field, { target: { value: "  exact é 🧪 日本語  " } });
+  fireEvent.click(disclosure);
+  await waitFor(() => expect(disclosure.getAttribute("aria-expanded")).toBe("false"));
+  mounted.store.todos = [todo(1, { done: true }), todo(2, { blockers: [1] })];
+  await mounted.todos.reload();
+  fireEvent.click(disclosure);
+  expect(screen.getByRole("textbox", { name: "New Todo title" })).toBe(field);
+  expect(field.value).toBe("  exact é 🧪 日本語  ");
+  expect(mounted.connected.drafts.list().map(draft => [draft.destination.surface, draft.value.title])).toContainEqual(["todos", "  exact é 🧪 日本語  "]);
+  expect(mounted.app.calls.filter(call => ["todo.create", "todo.update", "todo.setBlockers", "todo.complete"].includes(call.method))).toEqual([]);
 });
