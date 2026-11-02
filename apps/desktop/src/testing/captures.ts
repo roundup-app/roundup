@@ -88,6 +88,8 @@ const observerTable = {
   "src/switcher/u2572_browser.test.ts": { ids: ["P3557c", "U2572d", "U4681", "UA13"], aliases: { UA13: "U2572d" } },
   "src/switcher/u3787c_browser.test.ts": ["U3787c", "U4682"],
   "src/terminal/s3806c_scale.test.ts": ["U4590"],
+  "src/terminal/u5552_browser.test.ts": ["U5552a"],
+  "src/terminal/u5552_rendered.test.ts": ["U5552d", "U5552e"],
   "src/terminal/u102_emulator.test.ts": ["Z3788a"],
   "src/terminal/u3517_browser.test.ts": ["U3517b", "U3517c", "U3517f", "U4456a", "U4456b", "U4456c", "U4456d", "U4590", "U4592", "U4649", "U4679"],
   "src/terminal/u3517_type.test.ts": ["U4590"],
