@@ -41,7 +41,6 @@ it.each(["tree-40", "tabs-8", "conflict"])("u3787c_Import_production_menu_naviga
       return true;
     })()`);
     await lane.until("!!document.querySelector('.import-panel')");
-    await lane.browser("click", ".import-words > button");
     await lane.until("document.querySelectorAll('.import-check input').length === 8");
     await lane.capture("U3787c", `import-${seed}-before`);
     await lane.evaluate(`(() => {

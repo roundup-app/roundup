@@ -23,7 +23,8 @@ it("u4547b_rendered_creation_and_failure_remain_actionable", async () => {
   await lane.capture("U4547b", "agents-10-rest");
   await lane.seedTodos([], false, "tree-40");
   await lane.capture("U4547b", "understand-before");
-  await lane.browser("click", '[aria-label="New Mode"]');
+  { await lane.browser("click", '[aria-label="Create"]'); await lane.browser("click", '[role="menuitem"][data-value="mode"]'); }
+
   await lane.until("document.querySelector('[role=dialog]') !== null");
   await lane.capture("U4547b", "blank-fields");
   await lane.browser("fill", '[data-part=input]', "Reviewer");
@@ -49,7 +50,7 @@ it("u4547b_rendered_creation_and_failure_remain_actionable", async () => {
   })()`);
   await lane.until("document.querySelectorAll('.rail-section[aria-label=MODES] .rail-row').length === 2");
   await lane.browser("click", '.rail-row[data-id="backend"]');
-  await lane.browser("hover", '[aria-label="New Mode"]');
+  await lane.browser("hover", '[aria-label="Create"]');
   await lane.capture("U4547b", "mode-names-at-rest");
   await lane.browser("hover", '.rail-row[data-id="' + id + '"]');
   await lane.capture("U4547b", "hovered-mode");
