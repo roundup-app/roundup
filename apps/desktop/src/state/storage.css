@@ -42,9 +42,10 @@
   max-block-size: none;
 }
 
-.storage-gate .ink {
+.storage-gate-content .ink[role="alert"] {
   overflow: visible;
   white-space: normal;
+  user-select: text;
 }
 
 .storage-gate-actions {
@@ -54,28 +55,15 @@
   gap: var(--space-5);
 }
 
-.storage-retained {
-  display: flex;
-  flex: none;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: var(--space-4);
-  padding: var(--space-2) var(--space-3);
-  color: var(--grey);
-  font-size: var(--text-caption);
-}
-
-.storage-retained button {
-  display: inline-grid;
-}
-
-.storage-copy-label {
-  grid-area: 1 / 1;
-}
-
 /* U3787a: failure feedback clears the Terminal bar and its hints. */
 .todo-undo[data-overlay="true"] {
   bottom: calc(var(--hint-row-height) + var(--rail-actions-height));
   padding-inline: var(--space-3);
   z-index: var(--layer-toast);
+}
+
+.storage-gate-folder {
+  display: block;
+  margin-block-start: var(--space-3);
+  font-family: var(--font-mono);
 }
