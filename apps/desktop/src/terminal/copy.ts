@@ -17,7 +17,6 @@ export const copy = {
   newTerminal: sharedCopy.newTerminal,
   retry: sharedCopy.retry,
   start: sharedCopy.start,
-  addWorkstream: sharedCopy.addWorkstream,
   addWorkstreamWord: sharedCopy.addWorkstreamWord,
   startingDoor: sharedCopy.startingDoor,
   doorDidNotStart: sharedCopy.doorDidNotStart,
