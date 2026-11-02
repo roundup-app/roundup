@@ -158,9 +158,19 @@ fn cut(text: &str, max: usize) -> String {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use serde_json::json;
+
+    #[global_allocator]
+    pub(crate) static ALLOCATOR: &stats_alloc::StatsAlloc<std::alloc::System> = &stats_alloc::INSTRUMENTED_SYSTEM;
+
+    pub(crate) fn measured<T>(operation: impl FnOnce() -> T) -> (T, usize) {
+        // nextest runs each observer in its own process, without other unit-test threads.
+        let region = stats_alloc::Region::new(&ALLOCATOR);
+        let result = operation();
+        (result, region.change().bytes_allocated)
+    }
 
     fn pre(id: &str, tool: &str, input: Value) -> Value {
         json!({"hook_event_name": "PreToolUse", "tool_use_id": id, "tool_name": tool, "tool_input": input})
@@ -237,6 +247,18 @@ mod tests {
             (ToolCallState::Failed, Some(60))
         );
         assert_eq!(call.result.as_deref(), Some("no such file"));
+    }
+
+    #[test]
+    fn b5635b_preview_allocations_stay_bounded() {
+        for size in [4096, 65536, 1048576, 5242880] {
+            let payload = pre("a", "Bash", json!({"command": "x".repeat(size)}));
+            let mut current = None;
+            let region = stats_alloc::Region::new(&ALLOCATOR);
+            fold(&mut current, &payload, "/p", 0);
+            let bytes = region.change().bytes_allocated;
+            assert!(bytes <= 128 * 1024, "{size}: allocated {bytes}, bound 128 KiB");
+        }
     }
 
     #[test]
