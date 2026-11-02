@@ -35,11 +35,10 @@ export const RailFooter = (props: {
           <Show when={retained.problem()?.destination?.surface.startsWith("rail-")}><button data-button="quiet" onClick={() => retained.retry()}>{copy.railDraftRetry}</button></Show>
         </ReservedLine>
         <Show when={held.rows().length}><Disclosure label={copy.held(held.rows().length)}>
-          <For each={held.rows()}>{row => <button type="button" data-button="quiet" class="held-row" onClick={event => {
-            event.stopPropagation();
+          <For each={held.rows()}>{row => <button type="button" data-button="quiet" class="held-row" onClick={() => {
             const node = rail.nodes.find(node => node.id === row.agent);
 
-            if (!node) { failure.show(copy.thatIsGone, row.agent, "rail");
+            if (!node) { failure.show(copy.thatIsGone, null, "rail");
 
  return; }
 

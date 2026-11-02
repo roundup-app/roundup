@@ -244,7 +244,7 @@ export const connectProject = async (
 
   await rail.settled();
 
-  const held = createHeld(project.path, cause => rail.commandFailure.show(cause, "held", "rail"));
+  const held = createHeld(project.path, cause => rail.commandFailure.show(cause, null, "rail"));
   const settingsView = drafts.settingsView;
   let stopUnseen = () => {};
 
