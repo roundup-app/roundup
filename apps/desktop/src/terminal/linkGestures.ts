@@ -12,7 +12,7 @@ export const attachLinkGestures = (terminal: Terminal, host: HTMLElement, open: 
   let pressed: { x: number; y: number; cell: number; row: number; link: ILink; reporting: boolean; dragged: boolean } | null = null;
   let timer: ReturnType<typeof setTimeout> | undefined;
   let pending: (() => void) | null = null;
-  let marks: { dispose: () => void }[] = [];
+  let marks: HTMLElement[] = [];
   let shown = "";
 
   const cellAt = (event: { clientX: number; clientY: number }) => {
@@ -44,31 +44,37 @@ export const attachLinkGestures = (terminal: Terminal, host: HTMLElement, open: 
 
   const refresh = () => {
     const link = linkAt(pointer && cellAt(pointer));
-    const key = link ? JSON.stringify([link.range, link.text, terminal.buffer.active.viewportY]) : "";
+    const key = link ? JSON.stringify([link.range, link.text, terminal.buffer.active.type, terminal.buffer.active.viewportY, terminal.cols, terminal.rows]) : "";
 
     if (shown === key) return;
     shown = key;
 
-    for (const mark of marks) mark.dispose();
+    for (const mark of marks) mark.remove();
     marks = [];
     (terminal.element ?? host).style.cursor = link ? "pointer" : "";
 
     if (!link) return;
+    const screen = host.querySelector(".xterm-screen");
+
+    if (!screen) return;
     const buffer = terminal.buffer.active;
 
+    // xterm's buffer decorations are hidden in the alternate buffer; screen-relative ink serves both buffers.
     for (let y = link.range.start.y; y <= link.range.end.y; y++) {
-      const marker = terminal.registerMarker(y - 1 - buffer.baseY - buffer.cursorY);
+      const row = y - 1 - buffer.viewportY;
 
-      if (!marker) continue;
+      if (row < 0 || row >= terminal.rows) continue;
       const x = y === link.range.start.y ? link.range.start.x - 1 : 0;
       const end = y === link.range.end.y ? link.range.end.x : terminal.cols;
-      const decoration = terminal.registerDecoration({ marker, x, width: end - x, layer: "top" });
-      marks.push(marker);
-
-      if (decoration) {
-        marks.push(decoration);
-        decoration.onRender(element => { element.classList.add("target-underline"); });
-      }
+      const mark = host.ownerDocument.createElement("div");
+      mark.className = "target-underline";
+      mark.setAttribute("aria-hidden", "true");
+      mark.style.left = `${100 * x / terminal.cols}%`;
+      mark.style.top = `${100 * row / terminal.rows}%`;
+      mark.style.width = `${100 * (end - x) / terminal.cols}%`;
+      mark.style.height = `${100 / terminal.rows}%`;
+      screen.append(mark);
+      marks.push(mark);
     }
   };
 
@@ -158,7 +164,7 @@ export const attachLinkGestures = (terminal: Terminal, host: HTMLElement, open: 
     cancel();
     rendered.dispose(); scrolled.dispose();
 
-    for (const mark of marks) mark.dispose();
+    for (const mark of marks) mark.remove();
     (terminal.element ?? host).style.cursor = "";
     host.removeEventListener("mousedown", down, true);
     host.removeEventListener("mousemove", move, true);

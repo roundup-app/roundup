@@ -186,6 +186,8 @@
 }
 
 .target-underline {
+  position: absolute;
+  z-index: 1;
   color: var(--text);
   background-image: linear-gradient(var(--text), var(--text));
   background-position: bottom;

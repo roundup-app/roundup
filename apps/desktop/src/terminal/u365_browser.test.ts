@@ -89,8 +89,11 @@ it("u365_stationary_hover_tracks_output_scroll_and_resize", async () => {
   expect(await opened()).toEqual([{ kind: "path", path: "/tmp/new.ts", line: null }, { kind: "path", path: "/tmp/scrolled.ts", line: null }, { kind: "path", path: "/tmp/next.ts", line: null }]);
 }, 60_000);
 
-it("u365_links_open_in_mouse_reporting_mode", async () => {
-  await load(); await output("\x1b[2J\x1b[H/tmp/link.ts plain\x1b[?1000h\x1b[?1006h");
+it.each(["normal", "alternate"])("u365_links_open_in_mouse_reporting_mode_%s", async buffer => {
+  await load();
+
+  if (buffer === "alternate") await output("\x1b[?1049h");
+  await output("\x1b[2J\x1b[H/tmp/link.ts plain\x1b[?1000h\x1b[?1006h");
   await read("window.__fake.app.calls.length = 0");
   await move(); await click(); await wait("window.__fake.app.openedTargets.length === 1");
   expect(await read("window.__fake.app.calls.filter(c => c.method === 'terminal.write')")).toEqual([]);
@@ -126,7 +129,7 @@ it.skipIf(!captureDir("U365"))("u365_rendered_links_and_failures", async () => {
       await browser("screenshot", join(directory, name + ".png"));
     };
 
-    for (const seed of ["tree-40", "bubbles"]) {
+    for (const [seed, alternate] of [["tree-40", false], ["tree-40", true], ["bubbles", false], ["bubbles", true]] as const) {
       await browser("open", url(`/harness.html?seed=${seed}&renderer=dom`, base));
       await wait("!!window.__fake && !!document.querySelector('.rail-row')");
       const row = seed === "tree-40" ? "payments" : "runner";
@@ -135,10 +138,10 @@ it.skipIf(!captureDir("U365"))("u365_rendered_links_and_failures", async () => {
       await wait(`window.__terminals.has('${id}') && !!document.querySelector('.pane-screen .xterm-screen')`);
       await read(`window.__terminals.get('${id}').ready`);
       const text = "/tmp/moo-identity/taste/heading-logo-board.png " + Array.from({length:19}, (_,i) => `/tmp/target${i}.ts`).join(" ");
-      await read(`new Promise(resolve => window.__terminals.get('${id}').write(new TextEncoder().encode(${JSON.stringify("\x1b[2J\x1b[H" + text)}), resolve))`);
+      await read(`new Promise(resolve => window.__terminals.get('${id}').write(new TextEncoder().encode(${JSON.stringify((alternate ? "\x1b[?1049h\x1b[?1000h\x1b[?1006h" : "") + "\x1b[2J\x1b[H" + text)}), resolve))`);
       const p = await read<{x:number;y:number}>("(() => { const b=(document.querySelector('.bubble:not([hidden]) .xterm-screen') ?? document.querySelector('.pane-screen .xterm-screen')).getBoundingClientRect(); return {x:Math.round(b.x+20), y:Math.round(b.y+7)}; })()");
       await browser("mouse", "move", String(p.x), String(p.y));
-      await capture("U365", seed + "-hover");
+      await capture("U365", seed + (alternate ? "-alternate" : "") + "-hover");
     }
 
     for (const mode of ["ask", "message"]) {
