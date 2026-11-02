@@ -71,7 +71,9 @@ export type RailState = {
   unsavedDismissal(): string | null;
   retryDismissal(): void;
   clearUnsavedDismissal(): void;
-  select(id: string | null): void;
+  select(id: string | null, intent?: "open"): void;
+  /** Whether showing the selection acknowledges its Agent’s held alerts. */
+  shouldAcknowledgeHeld(): boolean;
   nameOf(actor: Actor): string;
   /** U5172a: the change asked of Row `id` that the Daemon has not yet confirmed, or `null`. */
   pendingOf(id: string): PendingChange | null;
@@ -143,6 +145,7 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
   const [dismissedKeys, setDismissedKeys] = createSignal<ReadonlySet<string>>(new Set(dismissals?.read() ?? []));
   const [selected, setSelected] = createSignal<string | null>(null);
   const [terminalFocus, setTerminalFocus] = createSignal(captureFocus());
+  const [selectionIntent, setSelectionIntent] = createSignal<"select" | "open">("select");
   const [failure, setFailure] = createSignal<string | null>(null);
   const [workstreamCreating, setWorkstreamCreating] = createSignal(false);
   /** The id `rail.createWorkstream` returned, until `rail.tree` shows its row. */
@@ -212,10 +215,11 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
   let queued: DaemonEvent[] = [];
   let latest: Promise<void> = Promise.resolve();
 
-  const select = (id: string | null, focus = captureFocus(true)): void => {
+  const select = (id: string | null, focus = captureFocus(true), intent?: "open"): void => {
     selectionRevision++;
     batch(() => {
       setTerminalFocus(() => focus);
+      setSelectionIntent(intent ?? "select");
       setRestored(false);
       setSelected(id !== null && model.tree.some((node) => node.id === id) ? id : null);
       reveal(selected());
@@ -546,7 +550,8 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
       setCollapsed((closed) => new Set(closed.has(id) ? [...closed].filter((each) => each !== id) : [...closed, id]));
       save();
     },
-    select,
+    select: (id, intent) => select(id, captureFocus(true), intent),
+    shouldAcknowledgeHeld: () => !restored() && (selectionIntent() === "open" || model.tree.some(node => node.id === selected() && node.kind === "agent")),
     nameOf: (actor) =>
       actor.kind === "user"
         ? "you"
