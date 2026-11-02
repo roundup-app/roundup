@@ -17,9 +17,10 @@ const mount = async (keep = false) => {
   const tree = [agent("a", "working", "busy", { name: "<b>A</b>", alert_level: "quiet" }), agent("b", "working", "busy", { alert_level: "quiet" })];
   app.opened.project = { name: "p", path: "/p" };
   app.handlers["rail.tree"] = () => tree;
-  app.handlers["terminal.snapshot"] = () => ({ cols: 80, rows: 24, after: 0, data: "" });
+  app.handlers["terminal.snapshot"] = () => ({ cols: 80, rows: 24, after: 0, data: "c2NyZWVu" });
+  const emulators = fakeEmulators();
   let connected: ConnectedProject | undefined;
-  render(() => <App app={app} clock={Date.now} reducedMotion={() => true} createEmulator={fakeEmulators().factory} prepareIdle={open => { connected = open; }} />);
+  render(() => <App app={app} clock={Date.now} reducedMotion={() => true} createEmulator={emulators.factory} prepareIdle={open => { connected = open; }} />);
   await waitFor(() => expect(connected).toBeDefined());
   const open = connected!;
   await waitFor(() => expect(document.querySelectorAll('.rail-row[data-id]')).toHaveLength(2));
@@ -31,12 +32,14 @@ const mount = async (keep = false) => {
     app.emit(change);
   };
 
-  return { app, connected: open, hold, tree };
+  return { app, connected: open, hold, tree, emulators };
 };
 
 it("u5501_held_rows_keep_event_identity_content_and_order_across_reopen", async () => {
   vi.spyOn(Date, "now").mockReturnValue(1700000000000);
   const first = await mount();
+  fireEvent.click(document.querySelector('.rail-row[data-id="a"]')!);
+  await waitFor(() => expect(first.emulators.made.get("t-a")?.written).toHaveLength(1));
   first.hold("a", "needs-you");
   first.hold("b", "error", "second");
   first.hold("a", "error", "third");
@@ -50,6 +53,8 @@ it("u5501_held_rows_keep_event_identity_content_and_order_across_reopen", async 
   await waitFor(() => expect(localStorage.getItem("roundup:held:/p")).toContain("third"));
   cleanup();
   const reopened = await mount(true);
+  await waitFor(() => expect(reopened.emulators.made.get("t-a")?.written).toHaveLength(1));
+  expect(reopened.connected.rail.selected()).toBe("a");
   expect(reopened.connected.held.rows().map(({ agent, name, kind, line }) => ({ agent, name, kind, line }))).toEqual(saved);
   fireEvent.click(screen.getByRole("button", { name: /held/ }));
   await waitFor(() => expect(document.querySelectorAll(".held-row")).toHaveLength(3));
