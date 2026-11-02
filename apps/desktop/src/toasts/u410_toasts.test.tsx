@@ -87,13 +87,24 @@ describe("u410 which events make a Toast", () => {
 });
 
 describe("u411 what a Toast shows and how it leaves", () => {
-  it("u411_a_toast_shows_glyph_name_and_one_line", async () => {
+  it.each(["needs-you", "error", "extension"] as const)("u411_a_toast_shows_glyph_name_and_one_line: %s", async (kind) => {
     const { app, toasts, view } = await mountToasts(tree());
 
-    app.emit(status("a", "needs-you"));
+    const update = kind === "extension"
+      ? by(USER, { name: "extension.problem", data: { extension: "Workspace tools", cause: "Command could not start" } })
+      : status("a", kind);
+
+    app.emit(update);
     await settle();
 
     const toast = toasts()[0]!;
+
+    const name = update.name === "extension.problem" ? update.data.extension : "scout";
+    const line = update.name === "extension.problem" ? update.data.cause : kind === "error" ? FAILURE : undefined;
+
+    expect(screen.getByRole("button", { name: new RegExp(name) })).toBe(toast);
+
+    if (line) expect(toast.textContent).toContain(line);
 
     expect(toast.tagName).toBe("BUTTON");
     expect(toast.querySelector(".glyph")?.getAttribute("aria-hidden")).toBe("true");
