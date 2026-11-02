@@ -27,9 +27,12 @@ beforeAll(async () => {
 }, 90_000);
 
 afterAll(async () => {
-  await captureLists();
-  await browser("close");
-  await server?.close();
+  try {
+    await captureLists();
+  } finally {
+    await browser("close");
+    await server?.close();
+  }
 }, 180_000);
 
 const open = async (readonly = false, text?: string) => {
@@ -249,7 +252,7 @@ const captureLists = async () => {
   for (const [title, marker] of [["Bullets", "-"], ["Numbers", "9."], ["Tasks", "- [ ]"]]) {
     text += `## ${title}\n\n`;
 
-    for (let depth = 0; depth < 3; depth++) text += `${"    ".repeat(depth)}${marker} ${long}\n`;
+    for (let depth = 0; depth < 3; depth++) text += `${"    ".repeat(depth)}${marker === "9." && depth ? "1." : marker} ${long}\n`;
 
     if (title === "Numbers") text += `10. ${long}\n`;
 
@@ -289,11 +292,43 @@ const captureLists = async () => {
         return {x: r.x + 20, y: r.y + 10};
       })()`);
 
-      await browser("mouse", "move", String(point.x), String(point.y));
+      await browser("mouse", "move", String(Math.round(point.x)), String(Math.round(point.y)));
       await browser("wait", ".milkdown-block-handle[data-show=true]");
       await capture(1, `${title}-depth-${depth + 1}`);
     }
   }
 
+  await evaluate("window.__fake.failNext(-32000, 'Pad save rejected: disk is full. Free space and retry.')");
+  await browser("focus", ".ProseMirror");
+  await browser("press", "Control+End");
+  await browser("keyboard", "type", "Retained draft");
+  await browser("click", ".pad-head-name");
+  await browser("wait", "--fn", "document.body.textContent.includes('disk is full')");
+  await capture(0, "rejected-save");
+
+  // Exercise the existing read-only binding; no product navigation mode is added.
+  await evaluate(`(async () => {
+    const source = await (await fetch('/src/pads/PadRichEditor.tsx')).text();
+    const dependencies = source.split('"').filter(path => path.includes('/deps/'));
+    const { createComponent } = await import(dependencies.find(path => path.includes('/solid-js.js')));
+    const { render } = await import(dependencies.find(path => path.includes('/solid-js_web.js')));
+    const { default: PadRichEditor } = await import('/src/pads/PadRichEditor.tsx');
+    const original = document.querySelector('.pad-body > .pad-editor');
+    original.style.display = 'none';
+    const root = document.createElement('div');
+    original.parentElement.append(root);
+    window.__disposeReadonly = render(() => createComponent(PadRichEditor, {
+      text: ${JSON.stringify(text)}, readonly: true,
+      onChange() {}, onText() {}, onBlur() {}, onReady() {}
+    }), root);
+  })()`);
+  await browser("wait", ".pad-readonly .ProseMirror[contenteditable=false]");
+
+  for (const title of ["bullets", "numbers", "tasks", "mixed-nesting"]) {
+    await evaluate(`document.querySelector('.pad-readonly #${title}').scrollIntoView({block: 'center'})`);
+    await capture(0, `readonly-${title}`);
+  }
+
+  await evaluate("window.__disposeReadonly()");
   await browser("record", "stop");
 };
