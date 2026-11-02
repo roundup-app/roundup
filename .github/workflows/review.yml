@@ -65,7 +65,8 @@ jobs:
   review-run:
     needs: task
     if: needs.task.outputs.pr != ''
-    runs-on: ubuntu-24.04
+    # L121: a PR in `BOXD_PRS` is reviewed on boxd, whose snapshot carries Codex.
+    runs-on: ${{ fromJSON(contains(fromJSON(vars.BOXD_PRS || '[]'), fromJSON(needs.task.outputs.pr || '0')) && format('["self-hosted","boxd","roundup-review-{0}-{1}-{2}"]', needs.task.outputs.pr, github.run_id, github.run_attempt) || '["ubuntu-24.04"]') }}
     timeout-minutes: 45
     permissions:
       contents: read
@@ -87,6 +88,11 @@ jobs:
         run: |
           git show origin/main:loop/review-checkout.sh | bash
           cp -R loop "$RUNNER_TEMP/loop"
+      - name: Verify prepared boxd toolchain
+        if: runner.environment == 'self-hosted'
+        run: |
+          git show origin/main:.github/actions/setup/action.yml >"$RUNNER_TEMP/setup.yml"
+          python3 /opt/roundup-ci/image.py verify "$RUNNER_TEMP/setup.yml"
       - id: claude
         if: vars.CODEX_ONLY == '' && vars.CLAUDE_API == ''
         uses: anthropics/claude-code-action@v1
@@ -102,7 +108,7 @@ jobs:
             --json-schema '{"type":"object","properties":{"verdict":{"enum":["approve","reject"]},"findings":{"type":"string"}},"required":["verdict","findings"]}'
       # CODEX_ONLY, without CLAUDE_API: the same prompt and schema on Codex, signed in with the ChatGPT login, holding the job's read token only.
       - name: Install Codex
-        if: vars.CODEX_ONLY != '' && vars.CLAUDE_API == ''
+        if: runner.environment != 'self-hosted' && vars.CODEX_ONLY != '' && vars.CLAUDE_API == ''
         run: npm install -g @openai/codex@0.161.0
       - id: codex
         if: vars.CODEX_ONLY != '' && vars.CLAUDE_API == ''
