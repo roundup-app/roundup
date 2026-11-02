@@ -176,6 +176,9 @@ it("u4698b_expand_keeps_the_long_pad_and_all_formats_reachable", { retry: 0, tim
     await capture("conflict-1280");
   }
 
+  await browser("click", ".drawer .close");
+  await settle();
+
   if (captureDir("U5560a") && !baseline) {
     await evaluate("window.dispatchEvent(new Event('open-app-settings')); true");
     await browser("click", '[role=tab][data-value="Pads"]');
@@ -184,9 +187,6 @@ it("u4698b_expand_keeps_the_long_pad_and_all_formats_reachable", { retry: 0, tim
     await browser("wait", "--fn", "JSON.parse(localStorage.getItem('roundup:app-settings')).padWidth === 'full'");
     await browser("click", ".settings-back");
   }
-
-  await browser("click", ".drawer .close");
-  await settle();
 
   await openTodo();
 
