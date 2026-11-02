@@ -1,5 +1,5 @@
-import { menuBarCopy } from "./copy";
-import { createEffect, onCleanup } from "solid-js";
+import { menuBarCopy } from "./menuBar/copy";
+import type * as Solid from "solid-js";
 import type { ConnectedProject } from "../state/connectedProject";
 import type { OpenTab } from "../state/projects";
 import type { App, MenuBar } from "./seam";
@@ -19,12 +19,15 @@ const short = (text: string) => {
 
 /** U5502: only the connected App owns membership; the native shell presents literal rows. */
 export const watchMenuBar = (options: {
+  solid: Pick<typeof Solid, "createEffect" | "onCleanup">;
   app: App;
   tabs: () => OpenTab[];
   connection: (path: string) => ConnectedProject | undefined;
-  select: (path: string, agent: string) => void;
+  select: (path: string) => void;
+  missing: string;
   fail: (message: string | null) => void;
 }) => {
+  const { createEffect, onCleanup } = options.solid;
   const waitingSince = new Map<string, { kind: Kind; attempt: string | null; since: number }>();
   createEffect(() => {
     const tabs = options.tabs();
@@ -38,7 +41,7 @@ export const watchMenuBar = (options: {
       return connection.rail.nodes.flatMap(node => {
         const status = node.status;
 
-        if (!status || (node.kind === "workstream" && node.attempt === null)) return [];
+        if (!status || node.alert_level === "quiet" || (node.kind === "workstream" && node.attempt === null)) return [];
 
         const waiting = status.kind === "needs-you" || status.kind === "error" && !connection.rail.dismissed(node);
         const publication = connection.unseen.publicationAt(node.id);
@@ -88,7 +91,13 @@ export const watchMenuBar = (options: {
   let ended = false;
   let stop: (() => void) | undefined;
   void options.app.onMenuBarAction(action => {
-    if (action.kind === "agent") options.select(action.path, action.agent);
+    if (action.kind !== "agent") return;
+    const rail = options.connection(action.path)?.rail;
+
+    if (!options.tabs().some(tab => tab.project.path === action.path) || !rail?.nodes.some(node => node.id === action.agent)) return options.fail(options.missing);
+    options.fail(null);
+    options.select(action.path);
+    rail.select(action.agent);
   }).then(unsubscribe => { if (ended) unsubscribe(); else stop = unsubscribe; });
   onCleanup(() => { ended = true; stop?.(); });
 };
