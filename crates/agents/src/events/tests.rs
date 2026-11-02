@@ -655,3 +655,69 @@ async fn b5519a_replayed_completion_keeps_its_original_message_boundary() {
         Some(&("1:1".into(), 10, 20, "Done with page one".into()))
     );
 }
+
+#[tokio::test]
+async fn u5531c_native_and_completed_turn_evidence_promotes_durably() {
+    use contracts::agent::RailVisibility::{Internal, Shown};
+    let (_dir, _, shared) = shared_over_temp_dir(Arc::new(|| 0));
+    let id = running_agent(&shared, None);
+    shared.rail().allocate_attempt(&id).unwrap();
+    for (payload, promoted) in [
+        (
+            json!({"hook_event_name":"PermissionRequest","tool_name":"Bash","tool_input":{"command":"true"}}),
+            true,
+        ),
+        (
+            json!({"hook_event_name":"Stop","prompt_id":"turn","last_assistant_message":"All done"}),
+            true,
+        ),
+        (json!({"hook_event_name":"Stop","prompt_id":"turn"}), true),
+        (
+            json!({"hook_event_name":"Stop","prompt_id":"turn","last_assistant_message":""}),
+            false,
+        ),
+    ] {
+        shared
+            .observe(
+                Actor::daemon(),
+                &id,
+                "1",
+                Observation::Signal(
+                    json!({"hook_event_name":"UserPromptSubmit","prompt_id":"turn"}),
+                ),
+            )
+            .unwrap();
+        shared.rail().set_visibility(&id, Internal).unwrap();
+        shared
+            .observe(Actor::daemon(), &id, "1", Observation::Signal(payload))
+            .unwrap();
+        assert_eq!(
+            shared.node(&id).unwrap().visibility,
+            if promoted { Shown } else { Internal }
+        );
+        shared
+            .observe(
+                Actor::daemon(),
+                &id,
+                "1",
+                Observation::Signal(
+                    json!({"hook_event_name":"UserPromptSubmit","prompt_id":"next"}),
+                ),
+            )
+            .unwrap();
+        assert_eq!(
+            shared.node(&id).unwrap().visibility,
+            if promoted { Shown } else { Internal }
+        );
+    }
+    shared.rail().set_visibility(&id, Internal).unwrap();
+    shared
+        .observe(
+            Actor::daemon(),
+            &id,
+            "1",
+            Observation::Exit { code: Some(1) },
+        )
+        .unwrap();
+    assert_eq!(shared.node(&id).unwrap().visibility, Shown);
+}

@@ -440,6 +440,15 @@ impl Shared {
             status.since = provenance::now_ms().max(0);
             Some(status)
         });
+        let empty = run.adapter.turn().is_some()
+            && run.adapter.final_text() == contracts::agent::FinalTextKind::Empty;
+        if super::rail_view::visibility_protection(run.adapter.status().map(|s| s.kind), empty)
+            .is_some()
+            && let Some(rail) = rail.as_deref_mut()
+            && rail.set_visibility(id, contracts::agent::RailVisibility::Shown)?
+        {
+            self.bus.emit(actor.clone(), EventData::RailChanged);
+        }
         if was_final_text != run.adapter.final_text()
             || was_completed.is_some_and(|before| before.as_ref() != run.adapter.completed_text())
         {
