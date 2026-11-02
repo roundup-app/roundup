@@ -1,6 +1,7 @@
 import { batch, createMemo, createSignal, onCleanup } from "solid-js";
 import type { Accessor } from "solid-js";
 import { createStore, reconcile } from "solid-js/store";
+import { blockerGraph } from "./todoView";
 import { copy } from "./copy";
 import type { Handed } from "@contracts/todo/Handed";
 import type { Todo } from "@contracts/todo/Todo";
@@ -39,6 +40,8 @@ export type TodosState = {
   pending: Accessor<readonly Todo[]>;
   /** Every Todo by id, rebuilt once per change of the list, so a row finds its blockers without scanning. */
   byId: Accessor<ReadonlyMap<number, Todo>>;
+  /** One adjacency derivation shared by both menus and successive Drawer selections. */
+  blockerGraph: Accessor<ReturnType<typeof blockerGraph>>;
   /** Accepted Project Hand-offs in Change.seq order; null means pending/failed, [] means none. */
   handed: Accessor<readonly Handed[] | null>;
   /** Cause of the unavailable Hand-off read, cleared by its next successful refresh. */
@@ -175,6 +178,7 @@ export const createTodosState = (app: AppSeam, events: Events, project: string):
     return rows;
   });
 
+  const graph = createMemo(() => blockerGraph(all()));
   const byId = createMemo(() => new Map(all().map((todo) => [todo.id, todo])));
 
   // One await like `failureOf`, so a caller resumes in the tick it did before (U3720's reveal races the refetch).
@@ -197,5 +201,5 @@ export const createTodosState = (app: AppSeam, events: Events, project: string):
     return () => contradicted.delete(show);
   };
 
-  return { project, pendingOf: id => asked[id] ?? null, ask, onContradicted: listen, reload, all, pending, show, revealed, byId, handed, handedFailure, failure, isLoaded };
+  return { project, pendingOf: id => asked[id] ?? null, ask, onContradicted: listen, reload, all, pending, show, revealed, byId, blockerGraph: graph, handed, handedFailure, failure, isLoaded };
 };
