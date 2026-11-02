@@ -330,8 +330,8 @@ fn permanently_ended(node: &RailNode) -> bool {
     ended(node) && node.terminal_id.is_none()
 }
 
-/// Repair only the old unknown-Status sentinel for an authoritative surviving Terminal.
-/// Final Messages remain final; only pending bindings need a finite idle boundary.
+/// A reattached Terminal restarts its Status counter, so pending bindings must not wait
+/// for a revision from the previous Daemon. Final Messages remain final.
 fn reconcile_node(
     inner: &Inner,
     store: &mut Store,
@@ -339,31 +339,35 @@ fn reconcile_node(
     restart: bool,
 ) -> Result<(), RpcError> {
     let at = binding(node);
+    let poisoned = store.generation(&node.id)?.is_some_and(|state| {
+        state.attempt == at.0
+            && state.revision == i64::MAX
+            && state.closed_revision == i64::MAX
+            && state.closed
+    });
     if node.terminal_id.is_some()
         && !ended(node)
         && store.retirement(&node.id)?.is_none()
-        && store.generation(&node.id)?.is_some_and(|state| {
-            state.attempt == at.0
-                && state.revision == i64::MAX
-                && state.closed_revision == i64::MAX
-                && state.closed
-        })
+        && (node.status_revision.is_none() || poisoned)
     {
         store.atomically(|store| {
             for message in store.list_pending_to(&node.id)? {
-                if store.bound(message.id)? == (at.0, i64::MAX) {
+                if store.bound(message.id)?.0 == at.0 {
                     store.bind(message.id, (at.0, 0))?;
                 }
             }
-            store.set_generation(
-                &node.id,
-                store::ReceiverState {
-                    attempt: at.0,
-                    revision: at.1,
-                    closed_revision: -1,
-                    closed: false,
-                },
-            )
+            if poisoned {
+                store.set_generation(
+                    &node.id,
+                    store::ReceiverState {
+                        attempt: at.0,
+                        revision: at.1,
+                        closed_revision: -1,
+                        closed: false,
+                    },
+                )?;
+            }
+            Ok(())
         })?;
     }
     reconcile(
