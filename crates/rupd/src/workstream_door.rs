@@ -444,138 +444,148 @@ async fn a5556a_user_started_agents_receive_no_automatic_first_input() {
 
 #[tokio::test(start_paused = true)]
 async fn a5556b_automatic_delivery_waits_for_first_user_input() {
-    let run = IdleDoor::new();
-    let (id, listener) = run.start("workstream", None).await;
-    let messages = run.daemon.sender.get().unwrap();
-    let mut observed = run.daemon.bus.subscribe();
-    async fn produced(
-        events: &mut tokio::sync::broadcast::Receiver<contracts::Event>,
-        needle: &str,
-    ) -> Value {
-        tokio::time::timeout(std::time::Duration::from_secs(2), async {
-            loop {
-                if let EventData::MessageSent(note) = events.recv().await.unwrap().data
-                    && note.body.contains(needle)
-                {
-                    return json!(note.id);
+    for first_order in [false, true] {
+        let run = IdleDoor::new();
+        let (id, listener) = run.start("workstream", None).await;
+        let messages = run.daemon.sender.get().unwrap();
+        let mut observed = run.daemon.bus.subscribe();
+        async fn produced(
+            events: &mut tokio::sync::broadcast::Receiver<contracts::Event>,
+            needle: &str,
+        ) -> Value {
+            tokio::time::timeout(std::time::Duration::from_secs(2), async {
+                loop {
+                    if let EventData::MessageSent(note) = events.recv().await.unwrap().data
+                        && note.body.contains(needle)
+                    {
+                        return json!(note.id);
+                    }
                 }
-            }
-        })
-        .await
-        .unwrap()
-    }
-    let mut pending = Vec::new();
-    run.call("rail.rename", json!({"id":id,"name":"Waiting renamed"}))
-        .await;
-    pending.push(produced(&mut observed, "you are now called").await);
-    let todo = run
-        .call("todo.create", json!({"title":"owned task","owner":id}))
-        .await;
-    pending.push(produced(&mut observed, "assigned to you").await);
-    run.call(
-        "todo.comment",
-        json!({"id":todo["id"],"body":"please check this"}),
-    )
-    .await;
-    pending.push(produced(&mut observed, "please check this").await);
-    let (source, source_socket) = run.start("agent", Some(&id)).await;
-    let peer = run.daemon.ctx(Actor {
-        kind: contracts::ActorKind::Agent,
-        id: source.clone(),
-        parent: Some(id.clone()),
-    });
-    let note = messages
-        .call(
-            &peer,
-            "message.send",
-            json!({"to":id,"kind":"note","body":"peer message"}),
-        )
-        .await
-        .unwrap();
-    pending.push(note["id"].clone());
-    messages
-        .push_digest(
-            &id,
-            "peer",
-            &contracts::agent::DigestEntry {
-                name: "Peer".into(),
-                kind: Kind::Error,
-                last: "result needs attention".into(),
-                todos: 1,
-                pads: vec![],
-            },
+            })
+            .await
+            .unwrap()
+        }
+        let mut pending = Vec::new();
+        run.call("rail.rename", json!({"id":id,"name":"Waiting renamed"}))
+            .await;
+        pending.push(produced(&mut observed, "you are now called").await);
+        let todo = run
+            .call("todo.create", json!({"title":"owned task","owner":id}))
+            .await;
+        pending.push(produced(&mut observed, "assigned to you").await);
+        run.call(
+            "todo.comment",
+            json!({"id":todo["id"],"body":"please check this"}),
         )
         .await;
-    pending.push(produced(&mut observed, "[digest]").await);
-    // O13 allows an Agent to change its own order, but that never sends it an instruction.
-    run.daemon
-        .agents
-        .call(
-            &peer,
-            "agent.setOrder",
-            json!({"id":source,"order":{"kind":"work","ask":"stored only","limits":[]}}),
-        )
-        .await
-        .unwrap();
-    assert!(IdleDoor::read(&source_socket).is_empty());
-    run.call("reaction.create", json!({
+        pending.push(produced(&mut observed, "please check this").await);
+        let (source, source_socket) = run.start("agent", Some(&id)).await;
+        let peer = run.daemon.ctx(Actor {
+            kind: contracts::ActorKind::Agent,
+            id: source.clone(),
+            parent: Some(id.clone()),
+        });
+        let note = messages
+            .call(
+                &peer,
+                "message.send",
+                json!({"to":id,"kind":"note","body":"peer message"}),
+            )
+            .await
+            .unwrap();
+        pending.push(note["id"].clone());
+        messages
+            .push_digest(
+                &id,
+                "peer",
+                &contracts::agent::DigestEntry {
+                    name: "Peer".into(),
+                    kind: Kind::Error,
+                    last: "result needs attention".into(),
+                    todos: 1,
+                    pads: vec![],
+                },
+            )
+            .await;
+        pending.push(produced(&mut observed, "[digest]").await);
+        // O13 allows an Agent to change its own order, but that never sends it an instruction.
+        run.daemon
+            .agents
+            .call(
+                &peer,
+                "agent.setOrder",
+                json!({"id":source,"order":{"kind":"work","ask":"stored only","limits":[]}}),
+            )
+            .await
+            .unwrap();
+        assert!(IdleDoor::read(&source_socket).is_empty());
+        run.call("reaction.create", json!({
         "operation":"idle-admission", "name":"Continue later", "reason":"Observe delivery before first input",
         "target":id, "instruction":"reaction firing", "condition":{"kind":"agents","ids":[source]},
         "expires_at":"2099-01-01T00:00:00Z"
     })).await;
-    pending.push(produced(&mut observed, "reaction firing").await);
-    for tick in 0..3 {
-        run.idle(&id, tick).await;
-    }
-    assert!(IdleDoor::read(&listener).is_empty());
-    assert_eq!(run.steers.load(std::sync::atomic::Ordering::SeqCst), 0);
-    for message in &pending {
-        assert_eq!(
-            run.call("message.get", json!({"id":message})).await["status"],
-            "pending"
+        pending.push(produced(&mut observed, "reaction firing").await);
+        for tick in 0..3 {
+            run.idle(&id, tick).await;
+        }
+        assert!(IdleDoor::read(&listener).is_empty());
+        assert_eq!(run.steers.load(std::sync::atomic::Ordering::SeqCst), 0);
+        for message in &pending {
+            assert_eq!(
+                run.call("message.get", json!({"id":message})).await["status"],
+                "pending"
+            );
+        }
+        if first_order {
+            run.call(
+                "agent.setOrder",
+                json!({"id":id,"order":{"kind":"work","ask":"start now","limits":[]}}),
+            )
+            .await;
+        } else {
+            run.call(
+                "message.send",
+                json!({"to":id,"kind":"note","body":"start now"}),
+            )
+            .await;
+        }
+        let first = IdleDoor::read(&listener);
+        assert_eq!(first.len(), 1);
+        assert!(
+            first[0]["message"]["content"]
+                .as_str()
+                .unwrap()
+                .contains("start now")
         );
-    }
-    run.call(
-        "message.send",
-        json!({"to":id,"kind":"note","body":"start now"}),
-    )
-    .await;
-    let first = IdleDoor::read(&listener);
-    assert_eq!(first.len(), 1);
-    assert!(
-        first[0]["message"]["content"]
-            .as_str()
-            .unwrap()
-            .contains("start now")
-    );
-    // The first input itself schedules pending delivery, without another event.
-    let listener = tokio::net::UnixListener::from_std(listener).unwrap();
-    let later = tokio::time::timeout(std::time::Duration::from_secs(2), async {
-        use tokio::io::AsyncReadExt;
-        let (mut stream, _) = listener.accept().await.unwrap();
-        let mut text = String::new();
-        stream.read_to_string(&mut text).await.unwrap();
-        text.lines()
-            .map(|line| serde_json::from_str::<Value>(line).unwrap())
-            .filter(|line| line["type"] == "user")
+        // The first input itself schedules pending delivery, without another event.
+        let listener = tokio::net::UnixListener::from_std(listener).unwrap();
+        let later = tokio::time::timeout(std::time::Duration::from_secs(2), async {
+            use tokio::io::AsyncReadExt;
+            let (mut stream, _) = listener.accept().await.unwrap();
+            let mut text = String::new();
+            stream.read_to_string(&mut text).await.unwrap();
+            text.lines()
+                .map(|line| serde_json::from_str::<Value>(line).unwrap())
+                .filter(|line| line["type"] == "user")
+                .collect::<Vec<_>>()
+        })
+        .await
+        .unwrap();
+        assert!(later.len() >= pending.len());
+        let transcript = run._project.path().join("transcript.jsonl");
+        let receipts = later
+            .iter()
+            .map(|line| json!({"origin":{"kind":"peer","msg_id":line["msg_id"]}}).to_string())
             .collect::<Vec<_>>()
-    })
-    .await
-    .unwrap();
-    assert!(later.len() >= pending.len());
-    let transcript = run._project.path().join("transcript.jsonl");
-    let receipts = later
-        .iter()
-        .map(|line| json!({"origin":{"kind":"peer","msg_id":line["msg_id"]}}).to_string())
-        .collect::<Vec<_>>()
-        .join("\n")
-        + "\n";
-    std::fs::write(&transcript, receipts).unwrap();
-    run.call("agent.signal", json!({"id":id,"attempt":"1","payload":{"hook_event_name":"Stop","transcript_path":transcript}})).await;
-    for message in pending {
-        assert_eq!(
-            run.call("message.get", json!({"id":message})).await["status"],
-            "delivered"
-        );
+            .join("\n")
+            + "\n";
+        std::fs::write(&transcript, receipts).unwrap();
+        run.call("agent.signal", json!({"id":id,"attempt":"1","payload":{"hook_event_name":"Stop","transcript_path":transcript}})).await;
+        for message in pending {
+            assert_eq!(
+                run.call("message.get", json!({"id":message})).await["status"],
+                "delivered"
+            );
+        }
     }
 }
