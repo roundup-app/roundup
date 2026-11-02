@@ -1,0 +1,501 @@
+{
+  "baselineApp": "5307469e18b650bca8297bbfd782cbbb72b89e23",
+  "headApp": "186874d4a1adf6cc70ec7eeeb4b999534c585479",
+  "headObserver": "186874d4a1adf6cc70ec7eeeb4b999534c585479",
+  "baselineObserver": "186874d4a1adf6cc70ec7eeeb4b999534c585479",
+  "dark": true,
+  "paired": [
+    {
+      "screen": "before-editor-1280",
+      "regressed": [],
+      "baseline_failures": [],
+      "moved": {
+        "D2": "pass",
+        "D5": "pass",
+        "D6": "pass"
+      }
+    },
+    {
+      "screen": "before-editor-1512",
+      "regressed": [],
+      "baseline_failures": [],
+      "moved": {
+        "D2": "pass",
+        "D5": "pass",
+        "D6": "pass"
+      }
+    },
+    {
+      "screen": "conflict-1280",
+      "regressed": [],
+      "baseline_failures": [
+        "D10",
+        "D4"
+      ],
+      "moved": {
+        "D2": "pass",
+        "D5": "pass",
+        "D6": "pass"
+      }
+    },
+    {
+      "screen": "conflict-1512",
+      "regressed": [],
+      "baseline_failures": [
+        "D10",
+        "D4"
+      ],
+      "moved": {
+        "D2": "pass",
+        "D5": "pass",
+        "D6": "pass"
+      }
+    },
+    {
+      "screen": "full-1280",
+      "regressed": [],
+      "baseline_failures": [
+        "D10",
+        "D4"
+      ],
+      "moved": {
+        "D2": "pass",
+        "D5": "pass",
+        "D6": "pass"
+      }
+    },
+    {
+      "screen": "full-1512",
+      "regressed": [],
+      "baseline_failures": [
+        "D10",
+        "D4"
+      ],
+      "moved": {
+        "D2": "pass",
+        "D5": "pass",
+        "D6": "pass"
+      }
+    },
+    {
+      "screen": "full-focus-1280",
+      "regressed": [],
+      "baseline_failures": [
+        "D10",
+        "D4"
+      ],
+      "moved": {
+        "D2": "pass",
+        "D5": "pass",
+        "D6": "pass"
+      }
+    },
+    {
+      "screen": "full-focus-1512",
+      "regressed": [],
+      "baseline_failures": [
+        "D10",
+        "D4"
+      ],
+      "moved": {
+        "D2": "pass",
+        "D5": "pass",
+        "D6": "pass"
+      }
+    },
+    {
+      "screen": "full-scrolled-1280",
+      "regressed": [],
+      "baseline_failures": [
+        "D10",
+        "D4"
+      ],
+      "moved": {
+        "D2": "pass",
+        "D5": "pass",
+        "D6": "pass"
+      }
+    },
+    {
+      "screen": "full-scrolled-1512",
+      "regressed": [],
+      "baseline_failures": [
+        "D10",
+        "D4"
+      ],
+      "moved": {
+        "D2": "pass",
+        "D5": "pass",
+        "D6": "pass"
+      }
+    },
+    {
+      "screen": "heading-menu-1280",
+      "regressed": [],
+      "baseline_failures": [
+        "D10",
+        "D4"
+      ],
+      "moved": {
+        "D2": "pass",
+        "D5": "pass",
+        "D6": "pass"
+      }
+    },
+    {
+      "screen": "heading-menu-1512",
+      "regressed": [],
+      "baseline_failures": [
+        "D10",
+        "D4"
+      ],
+      "moved": {
+        "D2": "pass",
+        "D5": "pass",
+        "D6": "pass"
+      }
+    },
+    {
+      "screen": "minimised-1280",
+      "regressed": [],
+      "baseline_failures": [
+        "D10",
+        "D4"
+      ],
+      "moved": {
+        "D2": "pass",
+        "D5": "pass",
+        "D6": "pass"
+      }
+    },
+    {
+      "screen": "minimised-1512",
+      "regressed": [],
+      "baseline_failures": [
+        "D10",
+        "D4"
+      ],
+      "moved": {
+        "D2": "pass",
+        "D5": "pass",
+        "D6": "pass"
+      }
+    },
+    {
+      "screen": "narrow-1280",
+      "regressed": [],
+      "baseline_failures": [
+        "D10",
+        "D4"
+      ],
+      "moved": {
+        "D2": "pass",
+        "D5": "pass",
+        "D6": "pass"
+      }
+    },
+    {
+      "screen": "narrow-1512",
+      "regressed": [],
+      "baseline_failures": [
+        "D10",
+        "D4"
+      ],
+      "moved": {
+        "D2": "pass",
+        "D5": "pass",
+        "D6": "pass"
+      }
+    },
+    {
+      "screen": "narrow-focus-1280",
+      "regressed": [],
+      "baseline_failures": [
+        "D10",
+        "D4"
+      ],
+      "moved": {
+        "D2": "pass",
+        "D5": "pass",
+        "D6": "pass"
+      }
+    },
+    {
+      "screen": "narrow-focus-1512",
+      "regressed": [],
+      "baseline_failures": [
+        "D10",
+        "D4"
+      ],
+      "moved": {
+        "D2": "pass",
+        "D5": "pass",
+        "D6": "pass"
+      }
+    },
+    {
+      "screen": "narrow-scrolled-1280",
+      "regressed": [],
+      "baseline_failures": [
+        "D10",
+        "D4"
+      ],
+      "moved": {
+        "D2": "pass",
+        "D5": "pass",
+        "D6": "pass"
+      }
+    },
+    {
+      "screen": "narrow-scrolled-1512",
+      "regressed": [],
+      "baseline_failures": [
+        "D10",
+        "D4"
+      ],
+      "moved": {
+        "D2": "pass",
+        "D5": "pass",
+        "D6": "pass"
+      }
+    },
+    {
+      "screen": "save-failure-1280",
+      "regressed": [],
+      "baseline_failures": [
+        "D10",
+        "D4"
+      ],
+      "moved": {
+        "D2": "pass",
+        "D5": "pass",
+        "D6": "pass"
+      }
+    },
+    {
+      "screen": "save-failure-1512",
+      "regressed": [],
+      "baseline_failures": [
+        "D10",
+        "D4"
+      ],
+      "moved": {
+        "D2": "pass",
+        "D5": "pass",
+        "D6": "pass"
+      }
+    },
+    {
+      "screen": "scrolled-1280",
+      "regressed": [],
+      "baseline_failures": [
+        "D10",
+        "D4"
+      ],
+      "moved": {
+        "D2": "pass",
+        "D5": "pass",
+        "D6": "pass"
+      }
+    },
+    {
+      "screen": "scrolled-1512",
+      "regressed": [],
+      "baseline_failures": [
+        "D10",
+        "D4"
+      ],
+      "moved": {
+        "D2": "pass",
+        "D5": "pass",
+        "D6": "pass"
+      }
+    },
+    {
+      "screen": "todo-after-editor-1280",
+      "regressed": [],
+      "baseline_failures": [
+        "D10",
+        "D2"
+      ],
+      "moved": {
+        "D2": "fail",
+        "D5": "pass",
+        "D6": "pass"
+      }
+    },
+    {
+      "screen": "todo-after-editor-1512",
+      "regressed": [],
+      "baseline_failures": [
+        "D10",
+        "D2"
+      ],
+      "moved": {
+        "D2": "fail",
+        "D5": "pass",
+        "D6": "pass"
+      }
+    },
+    {
+      "screen": "todo-before-editor-1280",
+      "regressed": [],
+      "baseline_failures": [
+        "D10",
+        "D2"
+      ],
+      "moved": {
+        "D2": "fail",
+        "D5": "pass",
+        "D6": "pass"
+      }
+    },
+    {
+      "screen": "todo-before-editor-1512",
+      "regressed": [],
+      "baseline_failures": [
+        "D10",
+        "D2"
+      ],
+      "moved": {
+        "D2": "fail",
+        "D5": "pass",
+        "D6": "pass"
+      }
+    },
+    {
+      "screen": "todo-collapsed-1280",
+      "regressed": [],
+      "baseline_failures": [
+        "D10",
+        "D2"
+      ],
+      "moved": {
+        "D2": "fail",
+        "D5": "pass",
+        "D6": "pass"
+      }
+    },
+    {
+      "screen": "todo-collapsed-1512",
+      "regressed": [],
+      "baseline_failures": [
+        "D10",
+        "D2"
+      ],
+      "moved": {
+        "D2": "fail",
+        "D5": "pass",
+        "D6": "pass"
+      }
+    },
+    {
+      "screen": "wide-1280",
+      "regressed": [],
+      "baseline_failures": [
+        "D10",
+        "D4"
+      ],
+      "moved": {
+        "D2": "pass",
+        "D5": "pass",
+        "D6": "pass"
+      }
+    },
+    {
+      "screen": "wide-1512",
+      "regressed": [],
+      "baseline_failures": [
+        "D10",
+        "D4"
+      ],
+      "moved": {
+        "D2": "pass",
+        "D5": "pass",
+        "D6": "pass"
+      }
+    },
+    {
+      "screen": "wide-focus-1280",
+      "regressed": [],
+      "baseline_failures": [
+        "D10",
+        "D4"
+      ],
+      "moved": {
+        "D2": "pass",
+        "D5": "pass",
+        "D6": "pass"
+      }
+    },
+    {
+      "screen": "wide-focus-1512",
+      "regressed": [],
+      "baseline_failures": [
+        "D10",
+        "D4"
+      ],
+      "moved": {
+        "D2": "pass",
+        "D5": "pass",
+        "D6": "pass"
+      }
+    },
+    {
+      "screen": "wide-scrolled-1280",
+      "regressed": [],
+      "baseline_failures": [
+        "D10",
+        "D4"
+      ],
+      "moved": {
+        "D2": "pass",
+        "D5": "pass",
+        "D6": "pass"
+      }
+    },
+    {
+      "screen": "wide-scrolled-1512",
+      "regressed": [],
+      "baseline_failures": [
+        "D10",
+        "D4"
+      ],
+      "moved": {
+        "D2": "pass",
+        "D5": "pass",
+        "D6": "pass"
+      }
+    },
+    {
+      "screen": "worst-1280",
+      "regressed": [],
+      "baseline_failures": [
+        "D10",
+        "D4"
+      ],
+      "moved": {
+        "D2": "pass",
+        "D5": "pass",
+        "D6": "pass"
+      }
+    },
+    {
+      "screen": "worst-1512",
+      "regressed": [],
+      "baseline_failures": [
+        "D10",
+        "D4"
+      ],
+      "moved": {
+        "D2": "pass",
+        "D5": "pass",
+        "D6": "pass"
+      }
+    }
+  ],
+  "headOnly": [
+    "keyboard-1280.checks.json",
+    "keyboard-1512.checks.json"
+  ]
+}

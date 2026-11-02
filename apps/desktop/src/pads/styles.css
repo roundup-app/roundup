@@ -13,7 +13,7 @@
   gap: var(--space-2);
   box-sizing: border-box;
   width: 100%;
-  max-width: var(--reading-width);
+  max-width: var(--pad-reading-width, var(--reading-width));
   margin: 0 auto var(--space-5);
   padding-inline: var(--reading-gutter);
 }
@@ -366,4 +366,21 @@ li[aria-selected="true"] svg {
 .pad-toolbar-expand {
   flex-shrink: 0;
   margin-left: var(--space-2);
+}
+
+.pad-body[data-pad-width="wide"] {
+  --pad-reading-width: var(--reading-width-wide);
+}
+
+.pad-body[data-pad-width="full"] {
+  --pad-reading-width: 100%;
+}
+
+.pad-width-control {
+  order: 1;
+  flex-shrink: 0;
+}
+
+.pad-toolbar-expand {
+  order: 2;
 }

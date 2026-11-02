@@ -33,7 +33,7 @@ const section = async (name: string) => {
 it("u5242a_each_page_exposes_its_rows_as_labelled_groups", async () => {
   await mount();
 
-  for (const page of ["Agents", "Terminal", "Shortcuts", "Appearance"]) {
+  for (const page of ["Agents", "Terminal", "Shortcuts", "Appearance", "Pads"]) {
     await section(page);
     const panel = screen.getByRole("tabpanel", { name: page });
     const groups = within(panel).getAllByRole("group", { name: /\S/ });
@@ -123,6 +123,16 @@ it("u5243a_search_results_show_place_control_and_description", async () => {
   const control = within(first).getByRole("combobox", { name: "Font family" });
   expect(first.contains(document.getElementById(control.getAttribute("aria-describedby")!))).toBe(true);
   expect(screen.queryByRole("tablist")).toBeNull();
+
+  for (const query of ["Pads", "Default width"]) {
+    fireEvent.input(search(), { target: { value: query } });
+    const rows = await screen.findAllByRole("listitem");
+    expect(rows).toHaveLength(1);
+    const width = within(rows[0]!).getByRole("radiogroup", { name: "Default width", description: /\S/ });
+    expect(rows[0]!.textContent).toContain(copy.settingsPlace(copy.settingsPads, copy.settingsPads));
+    expect(rows[0]!.contains(document.getElementById(width.getAttribute("aria-describedby")!))).toBe(true);
+  }
+
   fireEvent.input(search(), { target: { value: "zzzzqx" } });
   expect((await screen.findByRole("status")).textContent).toBe(copy.settingsNoResults);
   expect(screen.queryAllByRole("listitem")).toHaveLength(0);
@@ -140,6 +150,12 @@ it("u5243b_a_result_control_edits_the_same_setting", async () => {
   fireEvent.input(search(), { target: { value: "" } });
   await section("Terminal");
   expect(await screen.findByRole("spinbutton", { name: "Font size" })).toHaveProperty("value", "19");
+  fireEvent.input(search(), { target: { value: "Default width" } });
+  fireEvent.click(await screen.findByRole("radio", { name: "Full" }));
+  await waitFor(() => expect(appSettings().padWidth).toBe("full"));
+  fireEvent.input(search(), { target: { value: "" } });
+  await section("Pads");
+  expect(screen.getByRole<HTMLInputElement>("radio", { name: "Full" }).checked).toBe(true);
 });
 
 it("u5243c_search_typing_changes_nothing_but_the_results", async () => {

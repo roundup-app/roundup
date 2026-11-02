@@ -34,6 +34,7 @@ const schema = storageSchema("roundup:app-settings", v.object({
   letterSpacing: v.fallback(v.pipe(v.number(), v.minValue(terminalRanges.letterSpacing.min), v.maxValue(terminalRanges.letterSpacing.max)), tokenNumber("letter-terminal")),
   fontWeight: v.fallback(v.pipe(v.number(), v.check(value => [300, 400, 500, 600].includes(value))), tokenNumber("weight-terminal")),
   interfaceScale: v.fallback(v.picklist(["small", "default", "large"]), "default"),
+  padWidth: v.fallback(v.picklist(["narrow", "wide", "full"]), "narrow"),
   focusMarkers: v.fallback(v.boolean(), true),
   quickAdd: v.fallback(v.pipe(v.string(), v.regex(/^(?=.*(?:meta|ctrl)\+)(?:ctrl\+)?(?:alt\+)?(?:meta\+)?(?:shift\+)?[A-Za-z][A-Za-z0-9]*$/)), "meta+shift+KeyT"),
   quickAddKey: v.fallback(v.string(), ""),

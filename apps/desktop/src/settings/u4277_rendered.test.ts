@@ -143,3 +143,69 @@ it.skipIf(!captureDir("U4277a"))("u4277a_u4277b_u4277c_requested_screens_dark", 
 
   } finally { try { await lane.browser("record", "stop"); } finally { await lane.close(); } }
 });
+
+
+it.skipIf(!captureDir("U5560b"))("u5560b_expanded_pad_default_screens", { timeout: 180_000, retry: 0 }, async () => {
+  const lane = await openLane(1512, "dark", "builder-5560-settings");
+  const baseline = process.env.ROUNDUP_CAPTURE_PHASE === "base";
+  const dir = join(captureDir("U5560b")!, baseline ? "base" : "head");
+  mkdirSync(dir, { recursive: true });
+
+  const capture = async (name: string) => {
+    await lane.browser("screenshot", join(dir, `${name}.png`));
+    writeFileSync(join(dir, `${name}.checks.json`), JSON.stringify(await lane.evaluate("window.__checks()")));
+  };
+
+  try {
+    const origin = await lane.evaluate<string>("location.origin");
+    await lane.browser("record", "start", join(dir, "default-width.webm"));
+
+    for (const seed of ["first-run", "tree-40"]) {
+      await lane.browser("open", `${origin}/harness.html?seed=${seed}`);
+      await lane.until("!!window.__fake && !!document.querySelector('.window')");
+      await lane.browser("set", "media", "dark");
+      await lane.evaluate("window.dispatchEvent(new Event('open-app-settings'))");
+      await lane.until("!!document.querySelector('.settings-view')");
+      await capture(`${seed}-before-pads`);
+
+      if (!baseline) await lane.browser("click", '[role=tab][data-value="Pads"]');
+
+      for (const choice of ["narrow", "wide", "full"]) {
+        if (!baseline) await lane.browser("click", `.settings-content input[value="${choice}"]`);
+
+        if (!baseline) await lane.until(`document.querySelector('.settings-content input[value="${choice}"]').checked`);
+
+        if (!baseline) await lane.browser("focus", `.settings-content input[value="${choice}"]`);
+        await capture(`${seed}-${choice}`);
+      }
+
+      await lane.browser("fill", 'input[type="search"]', "Default width");
+      await lane.until(baseline ? "!!document.querySelector('.settings-view [role=status]')" : "!!document.querySelector('.settings-result')");
+      await capture(`${seed}-search`);
+
+      if (seed === "tree-40") {
+        await lane.browser("fill", 'input[type="search"]', "");
+        await lane.browser("click", `[role=tab][data-value="${baseline ? "Appearance" : "Pads"}"]`);
+        await lane.evaluate(`(() => {
+          const original = Storage.prototype.setItem;
+          window.__restoreWidthStorage = () => { Storage.prototype.setItem = original; };
+          Storage.prototype.setItem = function(key, value) {
+            if (key === 'roundup:app-settings') throw new Error('Cannot save settings; free disk space and choose the width again.');
+            return original.call(this, key, value);
+          };
+          return true;
+        })()`);
+        const choice = baseline ? '.settings-content input[value="small"]' : '.settings-content input[value="narrow"]';
+        await lane.browser("click", choice);
+        await lane.until("document.querySelector('.settings-view').textContent.includes('Cannot save settings')");
+        await capture(`${seed}-save-failure`);
+        await lane.evaluate("window.__restoreWidthStorage(); true");
+        await lane.browser("click", choice);
+        await lane.until("!document.querySelector('.settings-view').textContent.includes('Cannot save settings')");
+        await capture(`${seed}-save-recovery`);
+      }
+    }
+
+    await lane.browser("record", "stop");
+  } finally { await lane.close(); }
+});

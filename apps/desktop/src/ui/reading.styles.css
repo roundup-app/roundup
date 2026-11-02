@@ -3,7 +3,7 @@
   font-size: var(--text-title);
   box-sizing: border-box;
   width: 100%;
-  max-width: var(--reading-width);
+  max-width: var(--pad-reading-width, var(--reading-width));
   margin-inline: auto;
 }
 
