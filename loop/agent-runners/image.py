@@ -96,7 +96,8 @@ def build(repository, instructions=None):
     print('Installing native build/browser prerequisites', flush=True)
     run('sudo', 'apt-get', 'update', timeout=300)
     run('sudo', 'apt-get', 'install', '-y', 'python3-yaml', 'libwebkit2gtk-4.1-dev', 'build-essential',
-        'libxdo-dev', 'libssl-dev', 'libayatana-appindicator3-dev', 'librsvg2-dev', 'jq', 'unzip')
+        'libxdo-dev', 'libssl-dev', 'libayatana-appindicator3-dev', 'librsvg2-dev', 'jq', 'unzip',
+        'clang', 'libclang-dev')
     print('Preparing pinned Node and agent programs', flush=True)
     run('bash', '-lc', f'. "$HOME/.nvm/nvm.sh"; nvm install {versions["node"]}; '
         f'sudo ln -sf "$(nvm which {versions["node"]})" /usr/local/bin/node')
