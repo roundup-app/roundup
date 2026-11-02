@@ -234,12 +234,21 @@ async fn u5690c_group_is_not_an_agent_and_workstream_removal_keeps_its_default_c
     drop(db);
     call(&daemon, "rail.group", json!({"ids":["2","3"]})).await;
     for method in ["rail.startDoor", "agent.resume", "agent.run"] {
+        let params = if method == "agent.run" {
+            json!({"id":"4","command":["true"]})
+        } else {
+            json!({"id":"4"})
+        };
         let reply = ask(
             &daemon,
-            &json!({"id":1,"method":method,"params":{"id":"4"}}).to_string(),
+            &json!({"id":1,"method":method,"params":params}).to_string(),
         )
         .await;
-        assert!(reply.get("error").is_some(), "{method}: {reply}");
+        assert_eq!(
+            reply["error"]["code"],
+            rpc::code::CONFLICT,
+            "{method}: {reply}"
+        );
     }
     call(&daemon, "rail.remove", json!({"id":"1"})).await;
     let tree = call(&daemon, "rail.tree", Value::Null).await;
