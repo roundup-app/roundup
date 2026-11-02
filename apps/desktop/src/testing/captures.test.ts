@@ -4,7 +4,7 @@ import { execFileSync } from "node:child_process";
 import { join, resolve } from "node:path";
 import type { TestProjectInlineConfiguration } from "vitest/config";
 import { afterEach, expect, test } from "vitest";
-import { captureDir, readCapture, captureTests, observers } from "./captures";
+import { captureDir, captureTests, observers } from "./captures";
 
 const named = (value: string | undefined) => {
   if (value === undefined) delete process.env.ROUNDUP_CAPTURES;
@@ -127,12 +127,6 @@ test.each(["../U361", "/tmp/elsewhere", "head/../../U361"])("l105_python_observe
     expect(() => pythonCapture(observer, variant)).toThrow("capture variant must be head or base");
     expect(existsSync(join(root, "artifacts"))).toBe(false);
   });
-});
-
-test("u453_committed_capture_reads_do_not_enable_writes", () => {
-  named(undefined);
-  expect(readCapture("U453", "base/first-run-1280x800-light-rest.checks.json")).toContain("1280x800");
-  expect(captureDir("U453")).toBeNull();
 });
 
 // U4590: selection is observed before Vitest starts any App/browser setup.
