@@ -24,11 +24,11 @@ class Addition(unittest.TestCase):
             checkout = Path(directory) / "checkout"
             subprocess.run(["git", "worktree", "add", "--detach", str(checkout), "HEAD"], cwd=ROOT, check=True, capture_output=True)
             try:
-                env = {**os.environ, "CARGO_TARGET_DIR": str(ROOT / "target")}
+                env = {**os.environ, "CARGO_TARGET_DIR": str(ROOT / "target/c4-addition")}
 
                 def run(*args):
                     result = subprocess.run(args, cwd=checkout, env=env, text=True, capture_output=True)
-                    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                    self.assertEqual(result.returncode, 0, str({key: value for key, value in env.items() if key.startswith("C4_")}) + result.stdout + result.stderr)
 
                 declaration = checkout / "crates/contracts/src/declarations.rs"
                 original = declaration.read_text()
