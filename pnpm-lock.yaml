@@ -114,6 +114,15 @@ importers:
       '@ark-ui/solid':
         specifier: ^5.39.3
         version: 5.39.3(patch_hash=53e576addedd6d850426eb700f7100e4c6d7fefc6a372b0a35cf5c4cd1d44585)(solid-js@1.9.17)
+      '@codemirror/language':
+        specifier: 6.12.4
+        version: 6.12.4
+      '@codemirror/language-data':
+        specifier: 6.5.2
+        version: 6.5.2
+      '@codemirror/view':
+        specifier: 6.43.13
+        version: 6.43.13
       '@dnd-kit/dom':
         specifier: 0.5.1
         version: 0.5.1(patch_hash=7016eb2fc5907353195dc8eb3c97980c6c35edbd8e7704cf46be9e0431f96ba5)
@@ -126,6 +135,9 @@ importers:
       '@excalidraw/excalidraw':
         specifier: ^0.18.1
         version: 0.18.1(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      '@lezer/highlight':
+        specifier: 1.2.5
+        version: 1.2.5
       '@milkdown/crepe':
         specifier: ^7.22.2
         version: 7.22.2(prosemirror-model@1.25.12)(prosemirror-state@1.4.4)(prosemirror-view@1.42.6)(typescript@7.0.2)
