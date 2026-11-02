@@ -342,15 +342,38 @@ it.skipIf(!captureDir("U5558a"))("u5558e_open_surfaces_update_and_keep_failed_re
     // Recording replaces the browser context, including its media emulation.
     await browser("set", "media", "dark");
     await wait("!!window.__fake && !!document.querySelector('.ask-input')");
-    await click("Made");
-    await evaluate(`(() => {
-      const record = {project:'p', id:'automatic-made', title:'Same title', maker:{kind:'agent',id:'agent-1',parent:null}, maker_name:'Maker',home:null,published_at:1,target:{kind:'external',url:'https://example.com/result',availability:'not-checked'}};
-      window.__fake.app.handlers['deliverable.list'] = () => [record, {...record,id:'other-made'}];
-    })()`);
-    await signal("deliverable.changed");
-    await wait("document.querySelectorAll('[data-deliverable]').length === 2");
-    expect(await evaluate("!!document.querySelector('[data-deliverable=automatic-made]')")).toBe(true);
-    await capture("U5558a", "published");
+
+    for (const seed of ["agents-10", "tree-40"]) {
+      if (seed === "tree-40") {
+        await browser("open", `${server.resolvedUrls.local[0]}harness.html?view=workstreams&items=1&tabs=1&view=made&seed=${seed}`);
+        await wait("!!window.__fake && !!document.querySelector('.ask-input')");
+      }
+
+      await click("Made");
+      await evaluate(`(() => {
+        const record = {project:'p', id:'automatic-made', title:'Same title', maker:{kind:'agent',id:'agent-1',parent:null}, maker_name:'Maker',home:null,published_at:1,target:{kind:'external',url:'https://example.com/result',availability:'not-checked'}};
+        window.__fake.app.handlers['deliverable.list'] = () => [record, {...record,id:'other-made'}];
+        window.__fake.app.handlers['deliverable.resolve'] = () => ({kind:'external',url:'https://example.com/result'});
+      })()`);
+      await signal("deliverable.changed");
+      await wait("document.querySelectorAll('[data-deliverable]').length === 2 && document.querySelector('[aria-label=Made]').getAttribute('aria-busy') === 'false'");
+      await browser("focus", "[data-deliverable=automatic-made] .made-open");
+      await capture("U5558a", `${seed}-focused-before-publication`);
+      await evaluate(`(() => {
+        window.__focusedPublication = document.activeElement;
+        const read = window.__fake.app.handlers['deliverable.list'];
+        window.__fake.app.handlers['deliverable.list'] = () => read().map(record => ({...record, maker_name:'Updated maker'}));
+      })()`);
+      await signal("deliverable.changed");
+      await wait("document.querySelector('[data-deliverable=automatic-made] .made-details').textContent.includes('Updated maker') && document.querySelector('[aria-label=Made]').getAttribute('aria-busy') === 'false'");
+      expect(await evaluate("document.activeElement === window.__focusedPublication && window.__focusedPublication.isConnected")).toBe(true);
+      await capture("U5558a", `${seed}-focused-after-publication`);
+      await browser("press", "Enter");
+      await wait("window.__fake.app.openedTargets.length === 1");
+      expect(await evaluate("window.__fake.app.openedTargets")).toEqual([{kind:"url",url:"https://example.com/result"}]);
+      expect(await evaluate("window.__fake.app.calls.filter(call => call.method === 'deliverable.resolve').map(call => call.params)")).toEqual([{project:"p",id:"automatic-made"}]);
+    }
+
     await evaluate("window.__fake.app.handlers['deliverable.list'] = () => { throw new Error('Publication list unavailable: connection refused. The last saved publications remain available.'); }");
     await signal("deliverable.changed");
     await wait("document.querySelector('[aria-label=Made] [role=alert]')?.textContent.includes('connection refused')");

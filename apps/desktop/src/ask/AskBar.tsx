@@ -6,8 +6,9 @@ import { useDialog } from "@ark-ui/solid/dialog";
 import { captureFocus, queueFocus } from "../keys/focus";
 import { createCopyLabels } from "../ui/CopyButton";
 import { writeText } from "../app/clipboard";
-import { batch, untrack, createResource, createEffect, createMemo, createSignal, For, lazy, onCleanup, onMount, Show } from "solid-js";
+import { batch, untrack, createComputed, createResource, createEffect, createMemo, createSignal, For, lazy, onCleanup, onMount, Show } from "solid-js";
 import * as v from "valibot";
+import { createStore, reconcile } from "solid-js/store";
 import type { AskSubmission } from "../state/asks";
 import { copy } from "./copy";
 import { openDeliverable } from "./openDeliverable";
@@ -478,11 +479,15 @@ const createDeliverables = () => {
     }
   }, { initialValue: { records: [], failure: null } satisfies Catalogue });
 
+  const [records, setRecords] = createStore<Deliverable[]>([]);
+  // Matching publication ids retain their row and keyboard focus across RPC snapshots.
+  createComputed(() => setRecords(reconcile(read().records, { key: "id" })));
+
   const refresh = () => { if (daemonExit() === null) void refetch(); };
 
   onCleanup(events.subscribe(event => { if (event.name === "deliverable.changed") refresh(); }));
 
-  return { records: () => read().records, failure: () => read().failure, loading: () => read.loading, refresh };
+  return { records: () => records, failure: () => read().failure, loading: () => read.loading, refresh };
 };
 
 const Deliverables = (props: { state: ReturnType<typeof createDeliverables> }) => {
