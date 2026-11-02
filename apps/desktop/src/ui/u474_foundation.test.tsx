@@ -158,16 +158,16 @@ const shelfButton = async (name: string) => {
 
 const openDrawerButton = async () => {
   showShelfTab("Pads");
-  const pads = await screen.findByLabelText("Pads", { selector: ".pads-tab" });
+
   const group = await waitFor(() => {
-    const group = pads.querySelector('[data-shelf-group="w"]');
+    const group = document.querySelector('.pads-tab [data-shelf-group="w"]');
     expect(group).not.toBeNull();
 
     return group!;
   });
 
   if (group?.getAttribute("aria-expanded") === "false") fireEvent.click(group.querySelector('[data-part="branch-control"]')!);
-  const pad = await within(pads).findByRole("button", { name: "notes" });
+  const pad = await within(group).findByRole("button", { name: "notes" });
   pad.focus();
   fireEvent.keyDown(pad, { key: "Enter", code: "Enter" });
   await waitFor(() => expect(document.querySelector(".drawer")?.getAttribute("data-open")).toBe("true"));
