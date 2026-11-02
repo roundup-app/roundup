@@ -409,6 +409,6 @@
 }
 
 /* The node view supplies its marker column; list padding would indent twice. */
-.milkdown .ProseMirror :is(ul, ol) {
+.ProseMirror :is(ul, ol)[data-spread] {
   padding-inline-start: 0;
 }
