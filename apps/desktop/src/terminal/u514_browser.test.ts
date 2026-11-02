@@ -43,9 +43,9 @@ it.each([false, true])("u2680b_a_click_clears_browser_and_terminal_selections_st
   expect(await read<{ terminal: string; browser: boolean }>("({ terminal: window.__emu.selection(), browser: getSelection().isCollapsed })")).toEqual({ terminal: "", browser: true });
 }, 90_000);
 
-const app = async (base = false) => {
+const app = async (base = false, mac = false) => {
   await browser("eval", "localStorage.clear()");
-  await browser("open", url("/harness.html?seed=tree-40&renderer=dom", base));
+  await browser("open", url(mac ? "/src/terminal/u514.html?app&mac&seed=tree-40&renderer=dom&view=workstreams&items=1&tabs=1" : "/harness.html?seed=tree-40&renderer=dom", base));
   await wait("!!document.querySelector('.shelf-tabs')");
 };
 
@@ -116,8 +116,8 @@ it.each(["pane-across-shelf", "blank-bubbles-into-pane"])("u2680c_chrome_drag_an
   expect(await read<boolean>("getSelection().isCollapsed")).toBe(true);
 }, 90_000);
 
-const placement = async (where: "agent" | "door" | "user" | "bubble") => {
-  await app();
+const placement = async (where: "agent" | "door" | "user" | "bubble", mac = false) => {
+  await app(false, mac);
 
   if (where === "bubble" || where === "user") {
     if (where === "bubble") await selectRow("payments");
@@ -417,6 +417,47 @@ const rightAt = async (at: { x: number; y: number }) => {
   await browser("eval", "window.__context.cancelled = window.__contextEvent.defaultPrevented; window.__context.selected = getSelection().toString()");
 };
 
+const reportingSelection = async (where: "agent" | "user" | "bubble", mode: number) => {
+  const selector = await placement(where, true);
+  expect(await read<string>("navigator.platform")).toBe("MacIntel");
+  await browser("eval", `(() => {
+    window.__parsed = false;
+    window.__input = [];
+    window.__emu.onInput(bytes => window.__input.push(...bytes));
+    window.__emu.write(new TextEncoder().encode(${JSON.stringify("\x1b[2J\x1b[Hcafé alpha bravo charlie\r\n日本語 delta echo foxtrot")} + '\x1b[?${mode}h\x1b[?1006h'), () => { window.__parsed = true; });
+  })()`);
+  await wait("window.__parsed");
+
+  const cells = await read<{ x: number; y: number; width: number; height: number }>(`(() => {
+    const box = document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect();
+    const size = window.__emu.fit();
+    return { x: box.left, y: box.top, width: box.width / size.cols, height: box.height / size.rows };
+  })()`);
+
+  const from = { x: Math.round(cells.x + cells.width * 0.2), y: Math.round(cells.y + cells.height * 0.5) };
+  await browser("mouse", "move", String(from.x), String(from.y));
+  await browser("mouse", "down");
+  await browser("mouse", "up");
+  await wait("window.__input.length > 0");
+  await wait("window.__fake.app.calls.filter(c => c.method === 'terminal.write').length > 0");
+  await browser("eval", "window.__input = []; window.__calls = window.__fake.app.calls.length");
+  await browser("keydown", "Alt");
+  await drag(from, { x: Math.round(cells.x + cells.width * 12.2), y: Math.round(cells.y + cells.height * 1.5) });
+  await browser("keyup", "Alt");
+
+  return { from, cells };
+};
+
+it.each(["agent", "user", "bubble"] as const)("u5549a_option_drag_selects_without_mouse_bytes_%s", async where => {
+  for (const mode of [1000, 1002]) {
+    await reportingSelection(where, mode);
+    expect(await read<string>("window.__emu.selection()")).toBe("café alpha bravo charlie\n日本語 delta ");
+    expect(await read<boolean>("getSelection().isCollapsed")).toBe(true);
+    expect(await read<number[]>("window.__input")).toEqual([]);
+    expect(await read("window.__fake.app.calls.slice(window.__calls).filter(c => c.method === 'terminal.write')")).toEqual([]);
+  }
+}, 120_000);
+
 it.each(["agent", "user", "bubble"] as const)("u5515a_terminal_right_click_preserves_the_whole_selection_%s", async where => {
   const selector = await placement(where);
   await browser("eval", String.raw`(() => {
@@ -662,7 +703,7 @@ it.skipIf(!/U3529|U5515/.test(process.env.ROUNDUP_CAPTURES ?? ""))("u3529c_rende
   const saved = { version: 1, drafts: [{ revision: "retired-selection-note", destination: { surface: "terminal_selection", object: "retired", recipient: "migrate" }, value: { note: "Retained note é 🪁", excerpt: "Original output\nexact Unicode 👩🏽‍💻", source: "retired", terminal: "retired", attempt: null, command: null, cwd: null, exit: null, x: 800, y: 300 }, selection: null, status: "draft", policy: "ordinary" }] };
 
   await read(`localStorage.setItem('roundup:drafts:/Users/you/harness', ${JSON.stringify(JSON.stringify(saved))})`);
-  await browser("open", url("/harness.html?seed=tree-40&renderer=dom", base));
+  await browser("open", url(mac ? "/src/terminal/u514.html?app&mac&seed=tree-40&renderer=dom&view=workstreams&items=1&tabs=1" : "/harness.html?seed=tree-40&renderer=dom", base));
   await wait("!!window.__fake && !!document.querySelector('.rail-row')");
   await read("[...document.querySelectorAll('button')].find(b => b.getAttribute('aria-label')?.startsWith('Overview')).dispatchEvent(new MouseEvent('contextmenu', {bubbles:true,cancelable:true,button:2}))");
   await read("window.__fake.app.pickMenu(window.__fake.app.menuLabels().find(label => label.startsWith('Recover ')))");
