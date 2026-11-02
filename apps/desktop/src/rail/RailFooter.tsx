@@ -1,4 +1,6 @@
-import { Show } from "solid-js";
+import { Disclosure } from "../ui/Disclosure";
+import { KindGlyph } from "../ink/KindGlyph";
+import { For, Show } from "solid-js";
 import { ReservedLine } from "../ink/ReservedLine";
 import { Icon } from "../ink/Icon";
 import { KIND_ICON } from "../ink/kindIcon";
@@ -16,7 +18,7 @@ export const RailFooter = (props: {
   createWorkstream: () => void;
   openCreateMode: () => void;
 }) => {
-  const { project, rail } = useConnectedProject();
+  const { project, rail, held } = useConnectedProject();
   const failure = rail.commandFailure;
   const { retained, asking, canSpawn, createWorkstream } = props;
   const dismissalLine = () => !(failure.surface() === "rail" && failure.message()) && !rail.storageFailure() && rail.unsavedDismissal() !== null;
@@ -32,6 +34,17 @@ export const RailFooter = (props: {
           <Show when={dismissalLine()}><button type="button" data-button="quiet" onClick={() => rail.retryDismissal()}>{copy.retry}</button><button type="button" data-button="quiet" onClick={() => rail.clearUnsavedDismissal()}>{copy.dismiss}</button></Show>
           <Show when={retained.problem()?.destination?.surface.startsWith("rail-")}><button data-button="quiet" onClick={() => retained.retry()}>{copy.railDraftRetry}</button></Show>
         </ReservedLine>
+        <Show when={held.rows().length}><Disclosure label={copy.held(held.rows().length)}>
+          <For each={held.rows()}>{row => <button type="button" data-button="quiet" class="held-row" onClick={() => {
+            const node = rail.nodes.find(node => node.id === row.agent);
+
+            if (!node) { failure.show(copy.thatIsGone, row.agent, "rail");
+
+ return; }
+
+            rail.select(row.agent);
+          }}><KindGlyph kind={row.kind} /><span class="held-content"><span>{row.name}</span><span class="held-line">{row.line}</span></span><time dateTime={new Date(row.at).toISOString()}>{new Date(row.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</time></button>}</For>
+        </Disclosure></Show>
         <div class="rail-actions">
           <button type="button" data-button="add" class="word" aria-label={copy.addWorkstream} aria-keyshortcuts={ariaShortcut("⌥⌘N")} aria-disabled={canSpawn() ? undefined : true} onClick={() => { if (canSpawn()) createWorkstream(); }}><Icon name={KIND_ICON.workstream} />{copy.addWorkstreamWord}<KeyChip keys="⌥⌘N" /></button>
           <button type="button" data-button="add" class="word" aria-label={copy.newMode} aria-keyshortcuts={ariaShortcut("⇧⌘M")} aria-disabled={canSpawn() ? undefined : true} onClick={() => { if (canSpawn()) props.openCreateMode(); }}><Icon name={KIND_ICON.mode} />{copy.modeWord}<KeyChip keys="⇧⌘M" /></button>
