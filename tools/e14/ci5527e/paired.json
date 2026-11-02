@@ -21,13 +21,25 @@
       "vitest_exit": 143,
       "log": "before-interrupted.log.gz",
       "result": "Interrupted after 5 of 10 modules completed. u3756b_changed_files_read_and_library_readiness_respect_focus_permission_false failed after configured retry. No accepted timing evidence. Later lint/build work overlapped this already-failed diagnostic run."
+    },
+    {
+      "command": "pnpm --filter desktop exec vitest run src/ui/s3806b_actions.test.tsx src/bubbles/u3756_focus.test.ts src/terminal/u514_browser.test.ts src/keys/u3787b_menu.test.tsx src/todos/u4698d_browser.test.ts src/drawer/u4458_browser.test.ts src/switcher/u3787c_browser.test.ts src/keys/u2230_hints.test.tsx src/testing/u463_real_daemon.test.ts src/bubbles/u4274_navigation.test.tsx",
+      "commit": "af2f13ae55c5ac188f31e74ba58da7b556047a35",
+      "status": "interrupted",
+      "result": "96 action cases failed because the newly scoped Project tablist query ran before the asynchronous mount. Corrected in the named actions commit; no accepted timing evidence.",
+      "outer_exit": 1,
+      "signal": "SIGINT",
+      "log": "head-interrupted.log.gz"
     }
   ],
   "head_observation": {
     "command": "pnpm --filter desktop exec vitest run src/ui/s3806b_actions.test.tsx src/bubbles/u3756_focus.test.ts src/terminal/u514_browser.test.ts src/keys/u3787b_menu.test.tsx src/todos/u4698d_browser.test.ts src/drawer/u4458_browser.test.ts src/switcher/u3787c_browser.test.ts src/keys/u2230_hints.test.tsx src/testing/u463_real_daemon.test.ts src/bubbles/u4274_navigation.test.tsx",
     "commit": "af2f13ae55c5ac188f31e74ba58da7b556047a35",
     "purpose": "Correctness only: initially overlapped the interrupted baseline and end of just ready. Not paired speedup evidence.",
-    "status": "running"
+    "status": "Interrupted after App group: action-query failure is fixed and its explicit rerun passes; focus failure also reproduces on main. Browser lane incomplete.",
+    "exit": 1,
+    "vitest_signal": "SIGINT",
+    "log": "head-interrupted.log.gz"
   },
   "ready": {
     "command": "just ready",
@@ -49,5 +61,28 @@
     "ui-lint.log.gz": "b897a5a4b7b90a81017876a31e42987437552c4c42474c4c228c1d00948643f9",
     "ui-lint-main.log.gz": "d6873968c6b254dec704052b59ad4ddb19faf5b49cd5c796834257924d61624e",
     "build.log.gz": "8d92ed404b0080c88171a53bc8010557c9ec9d5200692f68c3f68254111ae82c"
+  },
+  "corrected_actions_commit": "e8cf1d5df08faa2b54dd48ebaedb3c7ebae514ad",
+  "actions_rerun": {
+    "command": "pnpm --filter desktop exec vitest run src/ui/s3806b_actions.test.tsx",
+    "commit": "e8cf1d5df08faa2b54dd48ebaedb3c7ebae514ad",
+    "status": "passed",
+    "reason": "Await Project tablist before querying its tabs; first head attempt used within(null) during async mount.",
+    "exit": 0,
+    "tests": 128,
+    "log": "actions-rerun.log.gz",
+    "displayed_file_ms": 247352,
+    "identities_report": "actions-rerun-report.json.gz",
+    "cache": "actions-results-cache.json; contemporaneous, not accepted paired evidence; another correctness process uses the same cache root."
+  },
+  "remaining": [
+    "Repair/reproduce the unchanged-main u3756b changed-files false focus failure without weakening its clause.",
+    "Finish the five heavy-lane files explicitly on the corrected head.",
+    "Measure clean passing baseline/head samples for every listed file, retain unrounded hook-inclusive durations and compare passing test identities; none of this run\u2019s failed/overlapping samples is an accepted pair."
+  ],
+  "final_ready": {
+    "command": "just ready",
+    "status": "running; final web lints and typechecks have passed, repeating unchanged Rust/repository gates",
+    "log": "ready-final.log.gz"
   }
 }
