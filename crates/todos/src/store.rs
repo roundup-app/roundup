@@ -160,54 +160,16 @@ impl Store {
     }
 
     pub(crate) fn get(&self, id: u32) -> Result<Todo, RpcError> {
-        let row = self
-            .db
-            .query_row(
-                "SELECT title, body, done, created_at, updated_at, creator, home, owner, priority, EXISTS(
-                    SELECT 1 FROM blockers b JOIN todos o ON o.id = b.blocker
-                    WHERE b.todo = todos.id AND o.done = 0
-                ) FROM todos WHERE id = ?1",
-                [id],
-                |r| {
-                    Ok((
-                        r.get(0)?,
-                        r.get(1)?,
-                        r.get(2)?,
-                        r.get(3)?,
-                        r.get(4)?,
-                        r.get::<_, String>(5)?,
-                        r.get(6)?,
-                        r.get::<_, Option<String>>(7)?,
-                        r.get::<_, Option<String>>(8)?,
-                        r.get(9)?,
-                    ))
-                },
-            )
-            .optional()
-            .map_err(RpcError::internal)?;
-        let (title, body, done, created_at, updated_at, creator, home, owner, priority, blocked) =
-            row.ok_or_else(|| RpcError::not_found(format!("todo {id}")))?;
-        Ok(Todo {
-            id,
-            title,
-            body,
-            done,
-            blockers: self.blockers_of(id)?,
-            blocked,
-            created_at,
-            updated_at,
-            creator: parse_creator(&creator).map_err(RpcError::internal)?,
-            home,
-            owner: owner
-                .map(|text| parse_creator(&text))
-                .transpose()
-                .map_err(RpcError::internal)?,
-            refs: self.refs(id)?,
-            priority: priority
-                .map(|text| serde_json::from_str(&text))
-                .transpose()
-                .map_err(RpcError::internal)?,
-        })
+        let mut todo = self.db.query_row(
+            "SELECT id, title, body, done, created_at, updated_at, creator, home, owner, priority,
+             EXISTS(SELECT 1 FROM blockers b JOIN todos o ON o.id = b.blocker
+                    WHERE b.todo = todos.id AND o.done = 0)
+             FROM todos WHERE id = ?1", [id], |r| Ok(todo_row(r)),
+        ).optional().map_err(RpcError::internal)?
+            .ok_or_else(|| RpcError::not_found(format!("todo {id}")))??;
+        todo.blockers = self.blockers_of(id)?;
+        todo.refs = self.refs(id)?;
+        Ok(todo)
     }
 
     /// Bounded to one fact per current Todo. Values stay in SQLite, never in History replies.
@@ -247,15 +209,50 @@ impl Store {
     }
 
     pub(crate) fn list(&self) -> Result<Vec<Todo>, RpcError> {
-        let ids = self
-            .db
-            .prepare("SELECT id FROM todos ORDER BY pos, id")
-            .and_then(|mut stmt| {
-                stmt.query_map([], |r| r.get::<_, u32>(0))?
-                    .collect::<Result<Vec<_>, _>>()
-            })
+        // T5642a: three executions replace 1 + 3N reads; only ids/indices accompany final Todos.
+        let mut stmt = self.db.prepare(
+            "SELECT id, title, body, done, created_at, updated_at, creator, home, owner, priority,
+             EXISTS(SELECT 1 FROM blockers b JOIN todos o ON o.id = b.blocker
+                    WHERE b.todo = todos.id AND o.done = 0)
+             FROM todos ORDER BY pos, id",
+        ).map_err(RpcError::internal)?;
+        let rows = stmt
+            .query_map([], |r| Ok(todo_row(r)))
             .map_err(RpcError::internal)?;
-        ids.into_iter().map(|id| self.get(id)).collect()
+        let mut todos = Vec::new();
+        let mut indices = HashMap::new();
+        for row in rows {
+            let todo = row.map_err(RpcError::internal)??;
+            indices.insert(todo.id, todos.len());
+            todos.push(todo);
+        }
+        let mut stmt = self
+            .db
+            .prepare("SELECT todo, blocker FROM blockers ORDER BY todo, blocker")
+            .map_err(RpcError::internal)?;
+        let edges = stmt
+            .query_map([], |r| Ok((r.get::<_, u32>(0)?, r.get::<_, u32>(1)?)))
+            .map_err(RpcError::internal)?;
+        for edge in edges {
+            let (id, blocker) = edge.map_err(RpcError::internal)?;
+            if let Some(&index) = indices.get(&id) {
+                todos[index].blockers.push(blocker);
+            }
+        }
+        let mut stmt = self
+            .db
+            .prepare("SELECT todo, url FROM todo_refs ORDER BY todo, id")
+            .map_err(RpcError::internal)?;
+        let refs = stmt
+            .query_map([], |r| Ok((r.get::<_, u32>(0)?, r.get::<_, String>(1)?)))
+            .map_err(RpcError::internal)?;
+        for reference in refs {
+            let (id, url) = reference.map_err(RpcError::internal)?;
+            if let Some(&index) = indices.get(&id) {
+                todos[index].refs.push(url);
+            }
+        }
+        Ok(todos)
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -721,6 +718,49 @@ impl Store {
     pub(crate) fn require_all(&self, ids: &[u32]) -> Result<(), RpcError> {
         ids.iter().try_for_each(|id| self.get(*id).map(drop))
     }
+}
+
+/// Relations are filled by the caller, so base payloads move directly into the returned array.
+fn todo_row(r: &rusqlite::Row<'_>) -> Result<Todo, RpcError> {
+    let row = (|| -> rusqlite::Result<_> {
+        Ok((
+            r.get(0)?,
+            r.get(1)?,
+            r.get(2)?,
+            r.get(3)?,
+            r.get(4)?,
+            r.get(5)?,
+            r.get::<_, String>(6)?,
+            r.get(7)?,
+            r.get::<_, Option<String>>(8)?,
+            r.get::<_, Option<String>>(9)?,
+            r.get(10)?,
+        ))
+    })()
+    .map_err(RpcError::internal)?;
+    let (id, title, body, done, created_at, updated_at, creator, home, owner, priority, blocked) =
+        row;
+    Ok(Todo {
+        id,
+        title,
+        body,
+        done,
+        created_at,
+        updated_at,
+        home,
+        blocked,
+        creator: parse_creator(&creator).map_err(RpcError::internal)?,
+        owner: owner
+            .map(|text| parse_creator(&text))
+            .transpose()
+            .map_err(RpcError::internal)?,
+        priority: priority
+            .map(|text| serde_json::from_str(&text))
+            .transpose()
+            .map_err(RpcError::internal)?,
+        blockers: Vec::new(),
+        refs: Vec::new(),
+    })
 }
 
 type CommentRow = (u32, String, String, i64, bool);
