@@ -36,18 +36,13 @@ const logicalLine = (terminal: Pick<Terminal, "buffer" | "cols">, y: number): { 
   return cells.length > 0 ? { text, cells } : null;
 };
 
-/**
- * U365: xterm's link provider for web links and paths. A link exists only while Cmd is pressed (`cmdDown`), so a
- * plain click selects as before and the underline and hand show only with Cmd. `open` gets the printed target
- * on a Cmd+click, once.
- */
+/** U365: recognised ranges, including wrapped rows, shared by hover and activation. */
 export const createLinkProvider = (
   terminal: Pick<Terminal, "buffer" | "cols">,
-  cmdDown: () => boolean,
   open: (printed: Printed) => void,
 ): ILinkProvider => ({
   provideLinks: (y, callback) => {
-    const line = cmdDown() ? logicalLine(terminal, y) : null;
+    const line = logicalLine(terminal, y);
     const links: ILink[] = [];
 
     for (const { start, end, printed } of line ? findTargets(line.text) : []) {
@@ -63,7 +58,7 @@ export const createLinkProvider = (
         text: line.text.slice(start, end),
         decorations: { pointerCursor: true, underline: true },
         activate: (event) => {
-          if (event.metaKey) open(printed);
+          if (event.button === 0) open(printed);
         },
       });
     }

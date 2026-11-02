@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
+import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { RpcError } from "../app/seam";
 import { agent, door, workstream } from "../testing/nodes";
@@ -28,13 +28,12 @@ describe("u427 a Workstream row's icons", () => {
   });
 
 
-  it("u427_open_folder_opens_the_doors_directory", async () => {
-    const mounted = await mountRail([workstream("g"), door("d", "idle", "i", { worktree: { path: "/p/.wt/d", branch: "d", base: "main" } })]);
-
-    await chooseAction(mounted.app, "g", "Open directory");
+  it.each([null, { path: "/p/.wt/d", branch: "d", base: "main" }])("u427_open_folder_opens_the_doors_directory_%s", async worktree => {
+    const mounted = await mountRail([workstream("selected"), door("d", "idle", "i", { worktree })]);
+    mounted.rail.select("selected");
     await chooseAction(mounted.app, "d", "Open directory");
-
-    await waitFor(() => expect(mounted.app.openedTargets).toEqual([{ kind: "path", path: "/p", line: null }, { kind: "path", path: "/p/.wt/d", line: null }]));
+    await waitFor(() => expect(mounted.app.openedTargets).toEqual([{ kind: "path", path: worktree ? "/p/.wt/d" : "/p", line: null }]));
+    expect(mounted.rail.selected()).toBe("selected");
   });
 
   it("u427_a_failed_open_shows_one_failure_line", async () => {
@@ -46,12 +45,12 @@ describe("u427 a Workstream row's icons", () => {
     expect((await screen.findByText("gone")).className).toBe("ink");
   });
 
-  it("u427_open_in_editor_sends_the_same_directory", async () => {
-    const mounted = await mountRail([workstream("g")]);
+  it.each([null, { path: "/p/.wt/d", branch: "d", base: "main" }])("u427_open_in_editor_sends_the_same_directory_%s", async worktree => {
+    const mounted = await mountRail([door("g", "idle", "i", { worktree })]);
 
     await chooseAction(mounted.app, "g", "Open in editor");
 
-    await waitFor(() => expect(mounted.app.editorOpened).toEqual(["/p"]));
+    await waitFor(() => expect(mounted.app.editorOpened).toEqual([worktree ? "/p/.wt/d" : "/p"]));
   });
 
   it("u429_the_rail_shows_a_missing_editor_in_one_failure_line", async () => {
@@ -60,7 +59,7 @@ describe("u427 a Workstream row's icons", () => {
 
     await chooseAction(mounted.app, "g", "Open in editor");
 
-    expect((await screen.findByText(/no code editor found/)).className).toBe("ink");
+    expect(await screen.findAllByText(/no code editor found/)).toHaveLength(1);
   });
 });
 
@@ -72,4 +71,15 @@ it("u427_an_unavailable_add_is_omitted_and_calls_nothing", async () => {
   await mounted.app.closeMenu();
 
   expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([]);
+});
+
+it("u427_folder_and_editor_are_menu_only", async () => {
+  const { app } = await mountRail([door("g", "idle", "ready")]);
+
+  for (const label of ["Open directory", "Open in editor"]) {
+    expect(within(rowOf("g")).queryByRole("button", { name: label })).toBeNull();
+  }
+
+  fireEvent.contextMenu(rowOf("g"));
+  expect(app.menuLabels()).toEqual(expect.arrayContaining(["Open directory", "Open in editor"]));
 });
