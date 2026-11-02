@@ -683,6 +683,7 @@ fn a5482c_non_door_coordinator_receives_the_fallback() {
         (
             format!("{attempt}:1"),
             10,
+            20,
             "Should I publish three pages or five".into(),
         ),
     );
@@ -718,7 +719,7 @@ fn b5519a_a_later_turn_note_replaces_the_previous_final_text() {
         let mut from = sources(&nodes, &[], &[], &[]);
         from.completed.insert(
             "a".into(),
-            (format!("{attempt}:1"), 10, "Done with page one".into()),
+            (format!("{attempt}:1"), 10, 20, "Done with page one".into()),
         );
         seen.baseline(&from);
         from.messages = &notes;
@@ -759,7 +760,7 @@ fn b5519a_the_next_completed_turn_replaces_its_progress_note() {
     let mut from = sources(&nodes, &[], &[], &notes);
     from.completed.insert(
         "a".into(),
-        (format!("{attempt}:2"), 30, "Done with page two".into()),
+        (format!("{attempt}:2"), 30, 50, "Done with page two".into()),
     );
     let digest = Seen::default().ask(&Actor::user(), "m", &from).unwrap();
     assert_eq!(entries(&digest.children)[0].last, "Done with page two");
