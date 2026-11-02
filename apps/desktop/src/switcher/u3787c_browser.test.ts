@@ -34,10 +34,10 @@ const observeName = async (run: (observer: NameObserver) => Promise<void>) => {
   };
 
   const active = async (value: string) => {
-    await browser("wait", "--fn", `(() => { const f=document.querySelector('.switcher input'); const rows=[...document.querySelectorAll('.switcher [data-highlighted]')]; return rows.length===1 && rows[0].dataset.value===${JSON.stringify(value)} && f?.getAttribute('aria-activedescendant')===rows[0].id; })()`);
+    await browser("wait", "--fn", `(() => { const f=document.querySelector('.switcher input'); const rows=[...f.closest('.switcher').querySelectorAll('[data-highlighted]')]; return rows.length===1 && rows[0].dataset.value===${JSON.stringify(value)} && f?.getAttribute('aria-activedescendant')===rows[0].id; })()`);
   };
 
-  const options = () => read<string[]>("[...document.querySelectorAll('.switcher [role=option]')].map(e=>e.dataset.value)");
+  const options = () => read<string[]>("[...document.querySelector('.switcher').querySelectorAll('[role=option]')].map(e=>e.dataset.value)");
 
   const open = async () => {
     await browser("press", "Meta+k");
@@ -93,7 +93,7 @@ it("u4682_name_opens_with_the_first_row_and_navigates_without_selection", async 
       for (const value of order) {
         await browser("press", key);
         await active(value);
-        expect(await read(`({ focused: document.activeElement?.matches('.switcher input'), selected: ${selection}, content: document.querySelectorAll('.switcher [aria-selected=true]').length, effects: ${effects} })`)).toEqual({ focused: true, selected: ["backend"], content: 0, effects: before });
+        expect(await read(`({ focused: document.activeElement?.matches('.switcher input'), selected: ${selection}, content: document.querySelector('.switcher').querySelectorAll('[aria-selected=true]').length, effects: ${effects} })`)).toEqual({ focused: true, selected: ["backend"], content: 0, effects: before });
 
         if (key === "ArrowDown" && value === values[boundary]) await capture("boundary");
 
@@ -171,7 +171,7 @@ it("u4682_pointer_preserves_keyboard_highlight_and_query_caret", async () => {
       expect(await read("document.activeElement?.matches('.switcher input')")).toBe(true);
       expect(await read("[document.activeElement.value,document.activeElement.selectionStart,document.activeElement.selectionEnd]")).toEqual(before);
       expect(await read(selection)).toEqual(["backend"]);
-      expect(await read("document.querySelectorAll('.switcher [aria-selected=true]').length")).toBe(0);
+      expect(await read("document.querySelector('.switcher').querySelectorAll('[aria-selected=true]').length")).toBe(0);
       expect(await read(effects)).toEqual(calls);
     }
   });
