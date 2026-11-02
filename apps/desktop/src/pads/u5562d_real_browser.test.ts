@@ -81,6 +81,13 @@ realBrowserTest("u5562d_colour_round_trip", { timeout: 240000, retry: 0 }, async
     const path = join(real.dir, "colour.md");
     await app.rpc("pad.export", { name: "Colour round trip", path });
     expect(await readFile(path, "utf8")).toBe(changed);
+    await evaluate(`(() => { const field = document.querySelector('.drawer .ProseMirror'); const text = field.querySelector('[data-pad-callout] p').firstChild; const range = document.createRange(); range.setStart(text, 0); range.setEnd(text, 9); const selection = window.getSelection(); selection.removeAllRanges(); selection.addRange(range); field.focus(); return true; })()`);
+    await browser("keyboard", "type", "Edited body");
+    await browser("click", ".drawer .close");
+    const edited = await call("pad_read", { name: "Colour round trip" });
+    expect(edited.text).toBe(changed.replace("Keep this", "Edited body"));
+    expect(edited.revision).toBe(before.revision + 2);
+
   } finally {
     await client.close();
     await browser("open", "about:blank");

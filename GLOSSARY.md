@@ -393,4 +393,4 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Pad callout (`padCallout`, `calloutKinds`) | Callouts | — |
 | Pad format Markdown (`padFormatMarkdown`) | none | — |
 | Code colours (`codeColours`, `languages`) | none | — |
-| Pad colour Tokens (`--pad-blue`, `--pad-green`, `--pad-purple`, `--pad-highlight`, `--pad-highlight-ink`) | none | — |
+| Pad colour Tokens (`--pad-blue`, `--pad-green`, `--pad-amber`, `--pad-purple`, `--pad-highlight`, `--pad-highlight-ink`) | none | — |

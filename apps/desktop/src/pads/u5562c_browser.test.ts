@@ -28,6 +28,10 @@ it("u5562c_code_colours_render", { retry: 0, timeout: 90000 }, async () => {
     mkdirSync(output, { recursive: true });
     await browser("screenshot", join(output, "code.png"));
     writeFileSync(join(output, "code.checks.json"), JSON.stringify(await evaluate("window.__checks()")));
+    await browser("set", "media", "light");
+    await browser("screenshot", join(output, "code-light.png"));
+    writeFileSync(join(output, "code-light.checks.json"), JSON.stringify(await evaluate("window.__checks()")));
+    await browser("set", "media", "dark");
   }
 
   expect(await evaluate("document.querySelector('pre code').textContent.includes('const answer')")).toBe(true);
@@ -67,6 +71,7 @@ it("u5562a_insert_each_callout", { retry: 0, timeout: 180000 }, async () => {
 
 it("u5562b_selection_colour_and_highlight_in_the_real_editor", { retry: 0, timeout: 90000 }, async () => {
   await openShelf("tree-40", 288, 320, 1512, "dark");
+  await browser("set", "viewport", "1512", "950");
   await evaluate(`(async () => { await window.__fake.app.rpc('pad.create', {name:'Selection colours',text:'before **word** after'}); document.querySelector('#shelf-tab-pads').click(); return true; })()`);
   await browser("wait", "[data-shelf-group=unassigned]");
   await evaluate(`(() => { const group = document.querySelector('[data-shelf-group=unassigned] [data-part=branch-control]'); if (group?.getAttribute('data-state') === 'closed') group.click(); return true; })()`);
@@ -82,10 +87,26 @@ it("u5562b_selection_colour_and_highlight_in_the_real_editor", { retry: 0, timeo
   for (let i = 0; i < 4; i++) await browser("press", "Shift+ArrowRight");
   expect(await evaluate("window.getSelection().toString()")).toBe("word");
 
-  for (const [index, colour] of ["Blue", "Green", "Purple", "Red", "Amber"].entries()) {
-    await browser("click", 'button[aria-label="Text colour"]');
-    await browser("wait", ".top-bar-heading-dropdown");
-    await browser("click", `.top-bar-heading-option:nth-child(${index + 2})`);
+  for (const colour of ["Blue", "Green", "Purple", "Red", "Amber"]) {
+    await browser("focus", 'button[aria-label="Text colour"]');
+    await browser("press", colour === "Blue" ? "Enter" : "Space");
+    await browser("wait", '[role="menu"]');
+    const output = colour === "Blue" ? captureDir("U5562b") : null;
+
+    if (output) {
+      mkdirSync(output, { recursive: true });
+
+      for (const mode of ["dark", "light"]) {
+        await browser("set", "media", mode);
+        await browser("screenshot", join(output, `palette-${mode}.png`));
+        writeFileSync(join(output, `palette-${mode}.checks.json`), JSON.stringify(await evaluate("window.__checks()")));
+      }
+
+      await browser("set", "media", "dark");
+    }
+
+    await browser("press", colour[0]!);
+    await browser("press", "Enter");
     await browser("wait", `.ProseMirror [data-pad-color="${colour.toLowerCase()}"]`);
     expect(await evaluate("window.getSelection().toString()")).toBe("word");
     expect(await evaluate("document.activeElement.matches('.ProseMirror')")).toBe(true);
@@ -93,13 +114,15 @@ it("u5562b_selection_colour_and_highlight_in_the_real_editor", { retry: 0, timeo
 
   await browser("click", 'button[aria-label="Highlight"]');
   await browser("wait", ".ProseMirror mark");
+  expect(await evaluate('document.querySelector(\'button[aria-label="Highlight"]\').getAttribute("aria-pressed")')).toBe("true");
   await browser("click", 'button[aria-label="Text colour"]');
-  await browser("wait", ".top-bar-heading-dropdown");
-  await browser("click", ".top-bar-heading-option:first-child");
+  await browser("wait", '[role="menu"]');
+  await browser("click", '[role="menuitem"][data-value="default"]');
   expect(await evaluate("document.querySelector('.ProseMirror [data-pad-color]')")).toBeNull();
   expect(await evaluate("!!document.querySelector('.ProseMirror strong mark')")).toBe(true);
   await browser("click", 'button[aria-label="Highlight"]');
   expect(await evaluate("document.querySelector('.ProseMirror mark')")).toBeNull();
+  expect(await evaluate('document.querySelector(\'button[aria-label="Highlight"]\').getAttribute("aria-pressed")')).toBe("false");
   await browser("click", ".drawer .close");
   await settle();
   expect(await evaluate("window.__fake.app.calls.filter(call => call.method === 'pad.write').at(-1).params.text")).toBe("before **word** after");

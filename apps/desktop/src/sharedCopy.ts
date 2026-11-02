@@ -39,7 +39,6 @@ export const labels = new Map([
 
 export const copy = {
   defaultChoice: "Default",
-  textSample: "A",
   alerts: "Alerts",
   storageIncompatible: (folder: string) => `Saved work is incompatible with this app. Close roundup. Delete this browser data to start fresh: ${folder}`,
   now: "now",

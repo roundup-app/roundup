@@ -1,3 +1,5 @@
+import { Tip } from "../ui/Tip";
+import { Menu } from "../ui/Menu";
 import { DrawerExpandContext } from "../drawer/DrawerHost";
 import { registerKeys } from "../keys/registry";
 import { CHORDS, chordsFor } from "../keys/chords";
@@ -5,7 +7,7 @@ import { clearTextInCurrentBlockCommand, toggleStrongCommand, toggleEmphasisComm
 import { captureFocus } from "../keys/focus";
 import { ReservedLine } from "../ink/ReservedLine";
 import { copy } from "./copy";
-import { createEffect, createSignal, createUniqueId, onCleanup, onMount, useContext } from "solid-js";
+import { createEffect, createMemo, createSignal, For, Show, createUniqueId, onCleanup, onMount, useContext } from "solid-js";
 import { Portal } from "solid-js/web";
 import { CrepeBuilder } from "@milkdown/crepe/builder";
 import { blockEdit } from "@milkdown/crepe/feature/block-edit";
@@ -111,6 +113,18 @@ export default function PadRichEditor(props: {
   let ready = false;
   let topBarItems: { label: string; keys: string | undefined }[] = [];
   const [commandState, setCommandState] = createSignal(0);
+  const [formatHost, setFormatHost] = createSignal<HTMLElement>();
+
+  const highlighted = createMemo(() => {
+    commandState();
+
+    return !props.label && ready && crepe ? crepe.editor.action(ctx => {
+      const { doc, selection } = ctx.get(editorViewCtx).state;
+
+      return doc.rangeHasMark(selection.from, selection.to, padHighlight.type(ctx));
+    }) : false;
+  });
+
   const [failure, setFailure] = createSignal<string | null>(null);
 
   onMount(() => {
@@ -149,6 +163,7 @@ export default function PadRichEditor(props: {
             view.focus();
           },
         });
+
         for (const shortcut of [false, true]) builder.getGroup("advanced").addItem(shortcut ? "for-agents" : "toggle", {
           label: shortcut ? copy.forAgents : copy.toggle,
 
@@ -198,38 +213,11 @@ export default function PadRichEditor(props: {
         buildTopBar: (builder) => {
           for (const group of builder.build()) group.items = group.items.filter((item) => toolbarKeys.has(item.key));
 
-          builder.addGroup("colour", copy.textColour).addItem("colour", {
-            icon: "", active: () => false,
-            selector: {
-              activeLabel: () => copy.textColour,
-              chevronIcon: copy.textColourIcon,
-              options: ["default" as const, ...padColours].map(colour => ({
-                label: copy.colours[colour],
-                onSelect: (ctx: import("@milkdown/kit/ctx").Ctx) => {
-                  const view = ctx.get(editorViewCtx);
-                  const { from, to } = view.state.selection;
-                  const type = padColour.type(ctx);
-                  const tr = view.state.tr.removeMark(from, to, type);
-
-                  if (colour !== "default") tr.addMark(from, to, type.create({ colour }));
-                  view.dispatch(tr); view.focus();
-                },
-              })),
-            },
-          }).addItem("highlight", {
-            icon: copy.highlightIcon, active: () => false,
-            onRun: (ctx: import("@milkdown/kit/ctx").Ctx) => {
-              const view = ctx.get(editorViewCtx);
-              toggleMark(padHighlight.type(ctx))(view.state, view.dispatch);
-              view.focus();
-            },
-          });
-
           topBarItems = builder.build().flatMap((group) =>
             group.items
-              .filter((item) => item.key !== "heading-selector" && item.key !== "colour")
+              .filter((item) => item.key !== "heading-selector")
               .map((item) => {
-                const label = item.key === "highlight" ? copy.highlight : topBarNames.get(item.key);
+                const label = topBarNames.get(item.key);
 
                 if (!label) throw new Error(copy.padEditorToolbarActionHasNoName(item.key));
 
@@ -356,13 +344,10 @@ export default function PadRichEditor(props: {
         button.title = item.keys ? `${item.label} (${item.keys})` : item.label;
       });
 
+      if (!props.label) setFormatHost(host.querySelector<HTMLElement>(".top-bar-inner") ?? undefined);
+
       const selectors = host.querySelectorAll<HTMLButtonElement>(".milkdown-top-bar .top-bar-heading-button");
       const heading = selectors[0];
-
-      if (selectors[1]) {
-        selectors[1].setAttribute("aria-label", copy.textColour);
-        selectors[1].title = copy.textColour;
-      }
 
       if (heading) {
         heading.setAttribute("aria-label", copy.heading);
@@ -567,6 +552,31 @@ export default function PadRichEditor(props: {
 
   return (
     <>
+      <Show when={formatHost()}>{mount => <Portal mount={mount()}>
+        <div class="pad-rich-editor pad-format-controls">
+          <Menu.Root onSelect={({ value }) => crepe?.editor.action(ctx => {
+            const view = ctx.get(editorViewCtx);
+            const { from, to } = view.state.selection;
+            const type = padColour.type(ctx);
+            const tr = view.state.tr.removeMark(from, to, type);
+            const colour = padColours.find(colour => colour === value);
+
+            if (colour) tr.addMark(from, to, type.create({ colour }));
+            view.dispatch(tr);
+            view.focus();
+          })}>
+            <Tip text={copy.textColour}>{trigger => <Menu.Trigger {...trigger()} class="top-bar-heading-button" aria-label={copy.textColour}>{copy.textColour}</Menu.Trigger>}</Tip>
+            <Portal><Menu.Positioner class="pad-rich-editor"><Menu.Content>
+              <For each={["default" as const, ...padColours]}>{colour => <Menu.Item value={colour}>{copy.colours[colour]}</Menu.Item>}</For>
+            </Menu.Content></Menu.Positioner></Portal>
+          </Menu.Root>
+          <Tip text={copy.highlight}>{trigger => <button {...trigger()} type="button" class="top-bar-item" aria-label={copy.highlight} aria-pressed={highlighted()} classList={{ active: highlighted() }} onPointerDown={event => event.preventDefault()} onClick={() => crepe?.editor.action(ctx => {
+            const view = ctx.get(editorViewCtx);
+            toggleMark(padHighlight.type(ctx))(view.state, view.dispatch);
+            view.focus();
+          })}>{copy.highlightIcon}</button>}</Tip>
+        </div>
+      </Portal>}</Show>
       <Portal>
         <div class="pad-rich-editor pad-block-menu">
           <div class="milkdown" ref={(element) => (menuHost = element)} />
