@@ -98,10 +98,15 @@ export const layoutRail = (nodes: readonly RailNode[], view: RailView): RailRow[
 
     const foldRow: RailRow[] = parent !== null && foldShown
       ? [{ kind: "fold", key: `fold:${parent}`, depth, parent, count: folded.length, open: unfolded, trail },
-        ...(unfolded ? folded.map((node, at): RailRow => ({
-          kind: "node", key: `node:${node.id}`, depth: depth + 1, node, collapsed: null,
-          trail: [...trail, false, at < folded.length - 1], children: false,
-        })) : [])]
+        ...(unfolded ? folded.flatMap((node, at): RailRow[] => {
+          const rowTrail = [...trail, false, at < folded.length - 1];
+          const below = rowsOf(node.id, depth + 2, rowTrail);
+
+          return [{
+            kind: "node", key: `node:${node.id}`, depth: depth + 1, node, collapsed: null,
+            trail: rowTrail, children: below.length > 0,
+          }, ...below];
+        }) : [])]
       : [];
 
     return [...nodeRows, ...foldRow];
