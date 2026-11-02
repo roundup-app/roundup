@@ -65,6 +65,8 @@ python3 .../loop/agent-runners/image.py build <checkout> --instructions ~/.claud
 
 It is installed, owner `boxd`, mode 0644, as `/home/boxd/.claude/CLAUDE.md` and `/home/boxd/.codex/AGENTS.md`; `builder.codex_home` copies the second into each run's Codex home. Without the option neither file exists.
 
+`verify` fails on a TLS error for `https://api.anthropic.com`; an HTTP status error passes. boxd's egress proxy re-signs that host with a CA whose key boxd rotates, and a stale copy in the snapshot fails the Claude App token exchange with `CERTIFICATE_VERIFY_FAILED`. `build` never installs that CA itself, since the chain the proxy presents proves nothing about who signed it: when `verify` reports a stale CA, install the current one as `/usr/local/share/ca-certificates/boxd-egress.crt` from a source you trust, run `update-ca-certificates`, and rebuild.
+
 The running snapshot has none of this. After this change merges, rebuild and re-save `roundup-ci` (steps here); `verify` on a rebuilt image also checks the codegraph version.
 
 After the build passes, cold-stop and start the image machine, then save it **without running another command inside it**:
