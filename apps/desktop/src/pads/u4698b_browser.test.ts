@@ -27,12 +27,7 @@ it.skipIf(typographyOutputs.length > 0)("u4698b_expand_keeps_the_long_pad_and_al
 
   if (output) {
     mkdirSync(output, { recursive: true });
-    await browser("record", "start", join(output, "reading.webm"));
-    await browser("wait", ".shelf-tabs");
-    await browser("set", "media", "dark");
-  }
 
-  if (output) {
     for (const [width, height] of [[1512, 950], [1280, 820]]) {
       await browser("set", "viewport", String(width), String(height));
       await settle();
@@ -65,6 +60,12 @@ it.skipIf(typographyOutputs.length > 0)("u4698b_expand_keeps_the_long_pad_and_al
 
     await browser("click", ".drawer .close");
     await settle();
+
+    // Recording pins the viewport; finish the multi-size captures before starting it.
+    await browser("set", "viewport", "1512", "950");
+    await browser("record", "start", join(output, "reading.webm"));
+    await browser("wait", ".shelf-tabs");
+    await browser("set", "media", "dark");
   }
 
   const name = "Document reading and formatting ".repeat(7).slice(0, 200);
