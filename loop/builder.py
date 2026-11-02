@@ -194,7 +194,7 @@ def screen_on_codex(ask):
     the JSON text it gave, which may be no valid verdict."""
     home = codex_home(os.environ.get('CODEX_AUTH', ''), Path(tempfile.mkdtemp(dir=os.environ['RUNNER_TEMP'])))
     answer = home / 'answer.json'
-    (home / 'schema.json').write_text(json.dumps(SCREEN_SCHEMA))
+    (home / 'schema.json').write_text(json.dumps(strict(SCREEN_SCHEMA)))
     run = subprocess.run(['codex', 'exec', '--json', '--model', CODEX_MODEL, '--sandbox', 'read-only',
                           '-c', f'model_reasoning_effort="{SCREEN_EFFORT}"', '--output-schema',
                           str(home / 'schema.json'), '--output-last-message', str(answer), '-'],
@@ -392,7 +392,7 @@ def log_cost(label, cost):
     """One line of the log and the job summary for a Claude Code call's dollar `cost`, on API credit only."""
     if switched():
         line = f'cost of {label}: ' + (f'${cost:.4f}' if isinstance(cost, (int, float)) else 'not reported')
-        print(line, flush=True)
+        print(line, file=sys.stderr, flush=True)
         if summary := os.environ.get('GITHUB_STEP_SUMMARY'):
             with open(summary, 'a') as out:
                 out.write(f'- {line}\n')
@@ -416,7 +416,7 @@ def log_usage(label, lines):
     share = f"{total['cached_input_tokens'] / total['input_tokens']:.0%}" if total['input_tokens'] else 'n/a'
     line = (f"usage of {label}: input {total['input_tokens']}, cached input {total['cached_input_tokens']} ({share}), "
             f"output {total['output_tokens']}" if usage else f'usage of {label}: not reported')
-    print(line, flush=True)
+    print(line, file=sys.stderr, flush=True)
     if summary := os.environ.get('GITHUB_STEP_SUMMARY'):
         with open(summary, 'a') as out:
             out.write(f'- {line}\n')
@@ -469,9 +469,9 @@ def codex_home(login, home):
     auth = json.loads(login or '{}')
     if auth.get('auth_mode') != 'chatgpt' or not auth.get('tokens'):
         raise ValueError('CODEX_AUTH holds no ChatGPT login: seed the CODEX_AUTH_JSON secret with `codex login`')
-    # GitHub masks the whole secret, not each token inside it.
+    # GitHub masks the whole secret, not each token inside it; stderr keeps the screen's stdout its verdict alone.
     for value in auth['tokens'].values():
-        print(f'::add-mask::{value}')
+        print(f'::add-mask::{value}', file=sys.stderr)
     home.mkdir(mode=0o700, exist_ok=True)
     (home / 'auth.json').write_text(login)
     memory = '\n[features]\nmemories = true\n\n[memories]\ngenerate_memories = true\nuse_memories = true\n' if os.environ.get('ROUNDUP_AGENT_MEMORY') else ''

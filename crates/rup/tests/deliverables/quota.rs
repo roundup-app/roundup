@@ -20,30 +20,22 @@ async fn current_quota(p: &mut QuotaProject) -> Vec<(Value, usize, u8)> {
 
 fn allocation_bytes(p: &QuotaProject) -> i64 {
     let db = rusqlite::Connection::open(p.data_dir().join("project.db")).unwrap();
-    let blobs: i64 = db
-        .query_row(
-            "SELECT coalesce(sum(length(bytes)),0) FROM deliverable_bytes",
-            [],
-            |r| r.get(0),
-        )
-        .unwrap();
     let mut files = db
         .prepare("SELECT id,length FROM deliverable_files")
         .unwrap();
     let files = files
         .query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)?)))
         .unwrap();
-    blobs
-        + files
-            .map(|file| {
-                let (id, charged) = file.unwrap();
-                let actual = std::fs::metadata(p.data_dir().join("publication-files").join(id))
-                    .unwrap()
-                    .len();
-                assert_eq!(actual, u64::try_from(charged).unwrap());
-                charged
-            })
-            .sum::<i64>()
+    files
+        .map(|file| {
+            let (id, charged) = file.unwrap();
+            let actual = std::fs::metadata(p.data_dir().join("publication-files").join(id))
+                .unwrap()
+                .len();
+            assert_eq!(actual, u64::try_from(charged).unwrap());
+            charged
+        })
+        .sum::<i64>()
 }
 
 async fn exact_publications(c: &rpc::Client, records: &[(Value, usize, u8)]) {
@@ -107,7 +99,15 @@ async fn r4160b_cleanup_releases_only_chosen_bytes() {
             refused(&c, "deliverable.resolve", id.clone()).await;
             assert_eq!(allocation_bytes(&p), 64 - i64::try_from(length).unwrap());
             let db = rusqlite::Connection::open(p.data_dir().join("project.db")).unwrap();
-            assert_eq!(db.query_row("SELECT (SELECT count(*) FROM deliverable_bytes WHERE id=?1) + (SELECT count(*) FROM deliverable_files WHERE id=?1)", [removed["id"].as_str().unwrap()], |r| r.get::<_, i64>(0)).unwrap(), 0);
+            assert_eq!(
+                db.query_row(
+                    "SELECT count(*) FROM deliverable_files WHERE id=?1",
+                    [removed["id"].as_str().unwrap()],
+                    |r| r.get::<_, i64>(0)
+                )
+                .unwrap(),
+                0
+            );
             assert!(
                 !p.data_dir()
                     .join("publication-files")

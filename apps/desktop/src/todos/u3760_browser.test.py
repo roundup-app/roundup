@@ -78,10 +78,10 @@ try:
         browser('wait', '--fn', '!document.querySelector(".todo-comments [role=alert]")')
         assert evaluate("document.querySelector('.todo-comment-field').value") == '  e\u0301 🧪\n次の行  '
         capture('comment-dismissed')
-        evaluate("window.__fake.failNext(-32003,'Todo could not be saved; retry or dismiss the failure.'); document.querySelector('.todo-detail-title input[type=checkbox]').click()")
+        evaluate("window.__fake.failNext(-32003,'Todo could not be saved; retry or dismiss the failure.'); document.querySelector('.todo-meta-state input[type=checkbox]').click()")
         browser('wait', '--fn', 'Boolean(document.querySelector(".todo-detail > .reserved-line [role=alert]"))')
         capture('drawer-failure')
-        evaluate("document.querySelector('.todo-detail-title input[type=checkbox]').click()")
+        evaluate("document.querySelector('.todo-meta-state input[type=checkbox]').click()")
         browser('wait', '--fn', '!document.querySelector(".todo-detail > .reserved-line [role=alert]")')
         assert evaluate("document.querySelector('.todo-comment-field').value") == '  e\u0301 🧪\n次の行  '
         capture('drawer-saved')

@@ -1,28 +1,34 @@
 import { copy as appCopy } from "../app/copy";
 import { copy } from "./copy";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
-import { afterEach, describe, expect, it } from "vitest";
-import { RequestedApp as App } from "../testing/requestedApp";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { App } from "../App";
+import { RequestedApp } from "../testing/requestedApp";
 import { fakeEmulators } from "../terminal/paneHarness";
 import { fromBase64 } from "../terminal/base64";
 import { seedApp } from "./seeds";
 import type { SeedName } from "./seeds";
 import type { Event as DaemonEvent } from "@contracts/Event";
 import { event } from "./nodes";
-import { openPadDrawer } from "../pads/padsFixture";
+import { batch } from "solid-js";
 
 const NOW = 1_700_000_000_000;
 
 const mount = (seed: SeedName) => {
   const controls = seedApp(seed, Date.now());
-  render(() => <App app={controls.app} reducedMotion={() => false} clock={Date.now} createEmulator={fakeEmulators().factory} />);
+  render(() => <RequestedApp app={controls.app} reducedMotion={() => false} clock={Date.now} createEmulator={fakeEmulators().factory} />);
 
   return controls;
 };
 
 const rail = () => screen.findByRole("region", { name: copy.rail });
 
-afterEach(cleanup);
+// U26 checks seed-to-Drawer wiring; the real editor is covered by pads/u20_pad_drawer.test.tsx.
+// eslint-disable-next-line anti-slop/no-module-mocking
+vi.mock("../pads/PadRichEditor", () => ({ default: () => null }));
+
+// Dispose siblings together so teardown does not rerender the dense Shelf between removals.
+afterEach(() => batch(cleanup));
 
 describe("u26 the harness seeds", () => {
   it("u143_the_stopped_door_seed_restarts_from_its_menu", async () => {
@@ -70,17 +76,38 @@ describe("u26 the harness seeds", () => {
   });
 
   it("u26_a_pad_the_agent_owns_opens_in_its_drawer", async () => {
-    const { app } = mount("tree-40");
+    const { app } = seedApp("tree-40", Date.now());
+    render(() => <App app={app} initialShelfOpen reducedMotion={() => true} clock={Date.now} createEmulator={fakeEmulators().factory} />);
 
     // U347: agent-1 runs, so its Pad is in the Shelf and, once the control is open, under it on the Rail.
-    const label = await screen.findByText(copy.pads, { selector: ".shelf-tabs .section-head span" });
-    const tab = label.closest<HTMLElement>("[role=tab]")!;
+    // Direct identity queries keep tree-40's wiring observer within rule 10's five seconds.
+    const tab = await waitFor(() => {
+      const tab = document.querySelector<HTMLButtonElement>("#shelf-tab-pads");
+      expect(tab).not.toBeNull();
+
+      return tab!;
+    });
 
     if (tab.getAttribute("aria-expanded") !== "true") fireEvent.click(tab);
-    await openPadDrawer("pad-0");
 
-    // U147 proves the real editor; this seed observer only needs the Drawer's read of the chosen Pad.
+    const pad = await waitFor(() => {
+      const pad = document.querySelector<HTMLButtonElement>('.pads-tab [data-pad="pad-0"] .pad-name');
+      expect(pad).not.toBeNull();
+
+      return pad!;
+    });
+
+    const list = pad.closest<HTMLElement>(".pads-tab")!;
+
+    for (const group of list.querySelectorAll<HTMLElement>("[data-shelf-group]")) {
+      if (group.contains(pad) && group.getAttribute("aria-expanded") === "false") fireEvent.click(group.querySelector('[data-part="branch-control"]')!);
+    }
+
+    await waitFor(() => expect(pad.closest("[hidden]")).toBeNull());
+    pad.focus({ preventScroll: true });
+    fireEvent.keyDown(pad, { key: "Enter", code: "Enter" });
     await waitFor(() => expect(app.calls.filter(call => call.method === "pad.read").map(call => call.params)).toEqual([{ name: "pad-0" }]));
+    expect(document.querySelector('aside[aria-label="Drawer"]')?.hasAttribute("inert")).toBe(false);
   });
 
   it("u26_set_status_moves_the_row_to_the_new_label", async () => {
