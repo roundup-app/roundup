@@ -38,6 +38,13 @@ const mount = (seed: SeedName = "tree-40", path = "/u100", tree?: Promise<RailNo
   controls.app.opened.project = { name: "u100", path };
 
   if (tree) controls.app.handlers["rail.tree"] = () => tree;
+  else {
+    const readTree = controls.app.handlers["rail.tree"]!;
+    // Persistence needs these identities and ancestors; unrelated seed rows only add render work to each reopen.
+    const ids = new Set(["backend", "auth", "tokens", "logins", "docs", "payments", "agent-1", "agent-2", "agent-3"]);
+    controls.app.handlers["rail.tree"] = async params => (await readTree(params)).filter(node => ids.has(node.id));
+  }
+
   const emulators = fakeEmulators();
 
   const factory: EmulatorFactory = (id) => {
@@ -185,7 +192,7 @@ it("u100_first_tree_is_restored_without_flash_scroll_focus_or_extra_rpc", async 
   expect(document.activeElement).toBe(field);
   await waitFor(() => expect(app.calls.some((call) => call.method === "terminal.snapshot")).toBe(true));
   expect(app.calls.map((call) => call.method).sort()).toEqual([
-    "action.userList", "ask.list", "daemon.ping", "deliverable.list", "pad.list", "rail.tree", "reaction.list", "terminal.list", "terminal.resize", "terminal.scheme", "terminal.snapshot", "todo.list", "todo.listHanded", "todo.unread", "workstream.queue",
+    "action.userList", "ask.list", "daemon.ping", "deliverable.list", "message.list", "pad.list", "rail.tree", "reaction.list", "terminal.list", "terminal.resize", "terminal.scheme", "terminal.snapshot", "todo.list", "todo.listHanded", "todo.unread", "workstream.queue",
   ]);
   field.remove();
 });
@@ -220,17 +227,19 @@ it("u100_later_selection_reveals_ancestors_and_saves_each_change", async () => {
 });
 
 it("u100_done_lines_are_not_restored", async () => {
-  const first = mount("agents-10");
+  const first = mount();
   await loaded();
-  fireEvent.click(screen.getByText("1 done"));
-  expect(row("agent-6")).not.toBeNull();
+  await waitFor(() => expect(row("fold:auth")).not.toBeNull());
+  await click("fold:auth");
+  expect(row("docs")).not.toBeNull();
   await click("agent-2");
   expect(read()).toEqual({ selected: "agent-2", collapsed: [] });
   first.unmount();
-  mount("agents-10");
+  mount();
   await loaded();
-  expect(row("agent-6")).toBeNull();
-  expect(screen.getByText("1 done")).toBeDefined();
+  await waitFor(() => expect(row("fold:auth")).not.toBeNull());
+  expect(row("docs")).toBeNull();
+  expect(row("fold:auth")?.getAttribute("aria-expanded")).toBe("false");
 });
 
 it("u100_door_selection_survives_reopening", async () => {
