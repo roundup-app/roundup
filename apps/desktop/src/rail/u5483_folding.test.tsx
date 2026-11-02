@@ -1,6 +1,8 @@
-import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
+import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { agent, workstream, NOW, event } from "../testing/nodes";
+import { ConnectedProjectContext } from "../state/connectedProject";
+import { Rail } from "./Rail";
 import { mountRail, rowNames, rowOf, settled } from "./railFixture";
 
 afterEach(cleanup);
@@ -48,6 +50,7 @@ it("u5483b_opening_a_fold_preserves_agent_descendants", async () => {
   fireEvent.click(document.querySelector('.rail-fold')!);
   await waitFor(() => expect(rowNames()).toEqual(["stream", "parent", "descendant"]));
   fireEvent.click(rowOf("descendant"));
+  await settled();
   expect(rail.selected()).toBe("descendant");
 });
 
@@ -171,4 +174,32 @@ it("u5483c_resuming_clears_only_the_previous_turn", async () => {
   app.emit(event({ name: "rail.changed" }));
   await rail.settled();
   expect(rowNames()).not.toContain("child");
+});
+
+it.each([false, true])("u5483c_replied_question_folds_after_queued_resumption_reopen_%s", async reopen => {
+  const child = agent("child", "idle", "idle", { parent: "stream", final_text: { ...empty, finished: "0" } });
+  const { app, rail, connected, setNow } = await mountRail([workstream("stream"), child]);
+  const question = { id: 1, from: { kind: "agent" as const, id: "child", parent: "stream" }, to: "you", kind: "question" as const, body: "Choose scope", replyTo: null, status: "delivered" as const, reason: null, at: NOW };
+  const reply = { ...question, id: 2, from: { kind: "user" as const, id: "you", parent: null }, to: "child", kind: "note" as const, replyTo: 1, at: NOW + 1 };
+  app.handlers["message.list"] = () => [question, reply];
+  app.emit(event({ name: "message.sent", data: reply }));
+  await settled();
+  expect(rowNames()).toContain("child");
+  // The Daemon clears final text before broadcasting the new working status.
+  app.handlers["rail.tree"] = () => [workstream("stream"), { ...child, final_text: undefined }];
+  app.emit(event({ name: "rail.changed" }));
+  app.emit(event({ name: "agent.status", data: { id: "child", attempt: "1", status_revision: "2", status: { kind: "working", label: "working", since: NOW + 2, finished: "0" } } }));
+  await rail.settled();
+  app.handlers["rail.tree"] = () => [workstream("stream"), { ...child, status_revision: "3", status: { kind: "idle", label: "idle", since: NOW + 3, finished: "1" }, final_text: empty }];
+  app.emit(event({ name: "rail.changed" }));
+  app.emit(event({ name: "agent.status", data: { id: "child", attempt: "1", status_revision: "3", status: { kind: "idle", label: "idle", since: NOW + 3, finished: "1" } } }));
+  await rail.settled();
+
+  if (reopen) {
+    cleanup();
+    render(() => <ConnectedProjectContext.Provider value={connected}><Rail /></ConnectedProjectContext.Provider>);
+  }
+
+  setNow(NOW + 300_003);
+  await waitFor(() => expect(rowNames()).not.toContain("child"));
 });
