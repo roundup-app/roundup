@@ -368,6 +368,10 @@ li[aria-selected="true"] svg {
   margin-left: var(--space-2);
 }
 
+.pad-body[data-pad-width="narrow"] {
+  --pad-reading-width: var(--reading-width);
+}
+
 .pad-body[data-pad-width="wide"] {
   --pad-reading-width: var(--reading-width-wide);
 }
