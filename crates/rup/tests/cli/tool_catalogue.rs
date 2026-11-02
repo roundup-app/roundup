@@ -31,7 +31,7 @@ async fn i1_every_mcp_tool_is_a_command_and_no_command_is_extra() {
         .and_then(|rest| rest.split("\n  other\n").next())
         .unwrap();
     assert!(
-        streams.contains("rup events [--after <after>] [--follow]")
+        streams.contains("rup events [--after <after>] [--kept] [--follow]")
             && streams.contains("Example: rup events --after 12 --follow --json"),
         "{streams}"
     );
