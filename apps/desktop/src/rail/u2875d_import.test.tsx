@@ -28,7 +28,7 @@ const calls = (app: Awaited<ReturnType<typeof mountRail>>["app"], method: string
 
 describe("u2875d the import panel is an ordinary Rail action", () => {
   it("u2875d_keyboard_pointer_and_recovery", async () => {
-    const { app } = await mountRail([workstream("w1")]);
+    const { app, connected } = await mountRail([workstream("w1")]);
     let discovered = found();
     let commit: () => ImportResult = () => ({ outcomes: [{ source: "s1", workstream: "w1", agent: "a1", error: null }, { source: "s2", workstream: null, agent: null, error: { code: -32003, message: "disk full", outcome: "failed" } }] });
     app.handlers["project.importDiscover"] = () => discovered;
@@ -100,9 +100,7 @@ describe("u2875d the import panel is an ordinary Rail action", () => {
 
     await reopen();
     await screen.findByRole("region", { name: copy.importTitle });
-    const refresh = screen.queryByRole("button", { name: copy.importRefresh });
 
-    if (refresh) fireEvent.click(refresh);
     fireEvent.click(await screen.findByText("Second"));
     release({ outcomes: [{ source: "s1", workstream: "w1", agent: "a1", error: null }] });
     await waitFor(() => expect(JSON.parse(localStorage.getItem(importKey(path("api")))!).selected.map((entry: { source: string }) => entry.source)).toEqual(["s2"]));
@@ -170,29 +168,29 @@ describe("u2875d the import panel is an ordinary Rail action", () => {
 
   it("u2875d_restored_selection_never_submits_and_a_changed_source_needs_refresh", async () => {
     localStorage.setItem("roundup:import:/p", JSON.stringify({ open: true, period: "month", selected: [{ source: "s1", revision: "r1", title: "First" }] }));
-    const { app } = await mountRail([workstream("w1")]);
+    const { app, connected } = await mountRail([workstream("w1")]);
     app.handlers["project.importDiscover"] = () => found("changed");
     app.handlers["project.importCommit"] = () => ({ outcomes: [] });
 
     await screen.findByText(/chosen earlier/);
-    expect(app.calls.filter((call) => call.method.startsWith("project.import"))).toEqual([]);
+    expect(calls(app, "project.importCommit")).toEqual([]);
     fireEvent.click(await screen.findByRole("button", { name: "Import 1" }));
     expect(calls(app, "project.importCommit")).toEqual([]);
 
-    fireEvent.click(screen.getByRole("button", { name: copy.importRefresh }));
+    await connected.importing.refresh();
     await waitFor(() => expect(screen.getAllByRole("checkbox").length).toBeGreaterThan(0));
     expect(screen.queryByText(/Changed or gone since you chose them/)).toBeNull();
-    expect(calls(app, "project.importDiscover").map((call) => call.params)).toEqual([{ period: "month" }]);
+    expect(calls(app, "project.importDiscover").at(-1)?.params).toEqual({ period: "month" });
     expect(screen.getAllByRole("checkbox").every((box) => box instanceof HTMLInputElement && !box.checked)).toBe(true);
   });
 
   it("u3083d_stale_picks_drop_without_a_notice", async () => {
     localStorage.setItem("roundup:import:/p", JSON.stringify({ open: true, period: "month", selected: [{ source: "s1", revision: "r1", title: "First" }, { source: "s2", revision: "r2", title: "Second" }, { source: "gone", revision: "r9", title: "Gone" }] }));
-    const { app } = await mountRail([workstream("w1")]);
+    const { app, connected } = await mountRail([workstream("w1")]);
     app.handlers["project.importDiscover"] = () => found("changed");
     app.handlers["project.importCommit"] = () => ({ outcomes: [] });
 
-    fireEvent.click(await screen.findByRole("button", { name: copy.importRefresh }));
+    await connected.importing.refresh();
     await waitFor(() => expect(screen.getAllByRole("checkbox").length).toBe(2));
 
     const checked = (name: RegExp) => {
@@ -372,7 +370,6 @@ it("u3049b_reopen_keeps_conflicting_choices", async () => {
   expect(localStorage.getItem(importKey(path("web")))).toBe(other);
   expect(calls(daemon, "project.importCommit")).toEqual([]);
   // Restored choices must first be validated, then explicitly confirmed.
-  fireEvent.click(screen.getByRole("button", { name: copy.importRefresh }));
   await waitFor(() => expect(screen.getByRole("button", { name: "Import 2" })).toHaveProperty("disabled", false));
   expect(calls(daemon, "project.importCommit")).toEqual([]);
 });
@@ -440,7 +437,7 @@ it.each(["read", "json", "schema", "write", "draft-write"])("u3049b_retention_fa
 
 
 it.each(["discovery", "retry"])("u3049a_detects_external_record_before_%s_write", async (operation) => {
-  const { app } = await mountRail([]);
+  const { app, connected } = await mountRail([]);
   app.handlers["project.importDiscover"] = concurrentFound;
   openProjectPage("import-work");
   await screen.findByRole("checkbox", { name: /一つ目/ });
@@ -455,7 +452,9 @@ it.each(["discovery", "retry"])("u3049a_detects_external_record_before_%s_write"
   }
 
   localStorage.setItem(importKey(), externalChoices);
-  fireEvent.click(screen.getByRole("button", { name: operation === "retry" ? copy.retryStorage : copy.importRefresh }));
+
+  if (operation === "retry") fireEvent.click(screen.getByRole("button", { name: copy.retryStorage }));
+  else await connected.importing.refresh();
   await screen.findByRole("status", { name: /conflict/i });
   expect(screen.getAllByRole("button", { name: /Open choices/ })).toHaveLength(2);
   expect(calls(app, "project.importCommit")).toEqual([]);

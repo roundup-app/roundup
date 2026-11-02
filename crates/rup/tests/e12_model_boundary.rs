@@ -200,7 +200,7 @@ async fn e14_roundup_launches_and_resumes_real_claude() {
             let workstream = client
                 .request(
                     "rail.createWorkstream",
-                    json!({"name": "E14", "parent": null}),
+                    json!({"name": "E14", "parent": null, "order":{"kind":"work","ask":"What is this Workstream for?","limits":[]}}),
                 )
                 .await
                 .unwrap();

@@ -1,3 +1,5 @@
+import { Disclosure } from "../ui/Disclosure";
+import { KindGlyph } from "../ink/KindGlyph";
 import { createSignal, For, Show } from "solid-js";
 import { ReservedLine } from "../ink/ReservedLine";
 import { Icon } from "../ink/Icon";
@@ -18,7 +20,7 @@ export const RailFooter = (props: {
   createWorkstream: () => void;
   openCreateMode: () => void;
 }) => {
-  const { project, rail } = useConnectedProject();
+  const { project, rail, held } = useConnectedProject();
   const failure = rail.commandFailure;
   const { retained, asking, canSpawn, createWorkstream } = props;
   const dismissalLine = () => !(failure.surface() === "rail" && failure.message()) && !rail.storageFailure() && rail.unsavedDismissal() !== null;
@@ -43,6 +45,19 @@ export const RailFooter = (props: {
           <Show when={dismissalLine()}><button type="button" data-button="quiet" onClick={() => rail.retryDismissal()}>{copy.retry}</button><button type="button" data-button="quiet" onClick={() => rail.clearUnsavedDismissal()}>{copy.dismiss}</button></Show>
           <Show when={retained.problem()?.destination?.surface.startsWith("rail-")}><button data-button="quiet" onClick={() => retained.retry()}>{copy.railDraftRetry}</button></Show>
         </ReservedLine>
+        <Show when={held.rows().length}><Disclosure label={copy.held(held.rows().length)}>
+          <For each={held.rows()}>{row => <button type="button" data-button="quiet" class="held-row" onClick={() => {
+            const node = rail.nodes.find(node => node.id === row.agent);
+
+            if (!node) {
+              failure.show(copy.thatIsGone, null, "rail");
+
+              return;
+            }
+
+            rail.select(row.agent);
+          }}><KindGlyph kind={row.kind} /><span class="held-content"><span>{row.name}</span><span class="held-line">{row.line}</span></span><time dateTime={new Date(row.at).toISOString()}>{copy.time(row.at)}</time></button>}</For>
+        </Disclosure></Show>
         <div class="rail-actions">
           <Menu.Root open={open()} onOpenChange={details => { if (!details.open || canSpawn()) setOpen(details.open); }} positioning={{ placement: "top-start" }} onSelect={({ value }) => { if (canSpawn()) choices.find(choice => choice.kind === value)?.run(); }}>
             <Menu.Trigger onPointerDown={() => setPointer(true)} onKeyDown={() => setPointer(false)} onClick={event => setPointer(activationSource(event) === "pointer")} data-button="add" aria-label={copy.create} aria-disabled={canSpawn() ? undefined : true}><Icon name="plus" /></Menu.Trigger>

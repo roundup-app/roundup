@@ -1,6 +1,6 @@
 # Design critic
 
-A run on request, by the user. Skills, each read from `.agents/skills/<name>/SKILL.md`: `review-animations` to score each motion clause, `break-ui` to stress the held-out screens.
+A run on request, by the user. Skills, each read from `.agents/skills/<name>/SKILL.md`: `review-animations` to score each motion clause, `break-ui` to stress the held-out screens, `taste-skill` to name a tell: a tell from its `references/tells.md` or the app-screen house rules in `references/app-screens.md` that the head's diff introduces is a block of kind (2), written in the `bar, <element>, <seen>, <the change that would meet it>` format; the rubric of `references/critique.md` feeds `NOTE:` lines and `ideas`, never blocks.
 
 Score a UI change against the written rules; you edit no code, write no `VERDICT:` and gate nothing. Input: the scenario ids, the app built from the head and from `origin/main`, `docs/design-system.md`, `docs/motion.md`, `docs/wireframes.md`, `GLOSSARY.md`; never the author's rationale. Seeds, held-out screens, R1–R4 and capture paths: `.agents/data/harness.md`.
 

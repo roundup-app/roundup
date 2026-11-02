@@ -561,6 +561,7 @@ mod tests {
             Slot::Running(Run {
                 yolo: false,
                 startup_context: true,
+                input_started: true,
                 attempt: "1".into(),
                 status_revision: 1,
                 closing: false,
@@ -637,6 +638,7 @@ mod tests {
             Slot::Running(Run {
                 yolo: false,
                 startup_context: true,
+                input_started: true,
                 attempt: "1".into(),
                 status_revision: 1,
                 closing: false,
