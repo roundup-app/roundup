@@ -475,6 +475,7 @@ const PadBody = (props: {
       </ReservedLine>
       <Suspense>
         <PadRichEditor
+          item="pad"
           initialFocus={props.initialFocus}
           text={source}
           readonly={invalid()}

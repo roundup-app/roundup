@@ -20,7 +20,7 @@ export function captureDir(id: string): string | null {
 // Named observers, including ids passed through capture helpers. Vitest owns discovery
 // and scheduling; this table only names the existing observer files.
 const observerTable = {
-  "src/pads/u5561a_browser.test.ts": ["U5561a", "U5561b"],
+  "src/pads/u5561a_browser.test.ts": { ids: ["U5561a", "U5561b", "U5631"], aliases: { U5631: "U5561b" } },
   "src/pads/u5561c_real_browser.test.ts": ["U5561c"],
   "src/rail/u5555_browser.test.ts": ["U5217", "U5555", "U4313b", "U5629"],
   "src/rail/u5501_capture.test.ts": ["U5501"],
@@ -104,7 +104,7 @@ const observerTable = {
   "src/toasts/p3557c_capture.test.ts": ["P3557c"],
   "src/todos/u5119_browser.test.ts": ["U5119"],
   "src/todos/u4698e_browser.test.ts": ["U4698e"],
-  "src/todos/u4698d_browser.test.ts": ["U4698d", "U5127a", "U5127b"],
+  "src/todos/u4698d_browser.test.ts": { ids: ["U4698d", "U5127a", "U5127b", "U5631"], aliases: { U5631: "U4698d" } },
   "src/todos/u4710_rendered.test.ts": ["U4710a", "U4710b", "U4710c"],
   "src/todos/u3010c_rendered.test.ts": ["U3010c"],
   "src/todos/u3720_real_daemon_owner.test.tsx": ["U3308", "U3311", "T4902", "U4698e"],

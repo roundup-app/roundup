@@ -146,87 +146,98 @@ it.each(["plus", "slash"].flatMap(entry => [false, true].map(afterPad => ({ entr
     await browser("set", "media", "dark");
   }
 
-  const shot = async (stage: string) => {
-    if (!menuOutput) return;
-    await settle();
-    await browser("screenshot", join(menuOutput, `${name}-${stage}.png`));
-    writeFileSync(join(menuOutput, `${name}-${stage}.checks.json`), JSON.stringify(await evaluate("window.__checks()")));
-  };
+  try {
+    const shot = async (stage: string) => {
+      if (!menuOutput) return;
+      await settle();
+      await browser("screenshot", join(menuOutput, `${name}-${stage}.png`));
+      writeFileSync(join(menuOutput, `${name}-${stage}.checks.json`), JSON.stringify(await evaluate("window.__checks()")));
+    };
 
-  if (afterPad) {
-    await browser("click", "#shelf-tab-pads");
-    await settle();
-    await browser("focus", ".pad-name");
+    if (afterPad) {
+      await browser("click", "#shelf-tab-pads");
+      await settle();
+      await browser("focus", ".pad-name");
+      await browser("press", "Enter");
+      await browser("wait", ".drawer .ProseMirror");
+      await browser("focus", ".drawer .ProseMirror");
+      await browser("press", "Control+End");
+      await settle();
+      await browser("press", "Enter");
+      await settle();
+      await browser("keyboard", "type", "/For Agents");
+      await browser("wait", ".milkdown-slash-menu[data-show=true] li[data-index]");
+      await shot("pad-menu");
+      await browser("press", "Escape");
+      await settle();
+      await browser("click", ".drawer .close");
+      await settle();
+    }
+
+    const body = "Exact Todo prose — 日本語 café. " + "Keep the existing body and identity. ".repeat(24).trimEnd();
+    await evaluate(`(async () => {
+      await window.__fake.app.rpc('todo.update', { id: 1, title: ${JSON.stringify("Long Todo title ".repeat(12))}, body: ${JSON.stringify(body)} });
+      await window.__fake.app.rpc('todo.assign', { id: 1, owner: null });
+      return true;
+    })()`);
+
+    if (await evaluate("document.querySelector('#shelf-tab-todos').getAttribute('aria-expanded') !== 'true'")) await browser("click", "#shelf-tab-todos");
+    await browser("wait", '[data-shelf-group="unassigned"] [data-part="branch-control"]');
+
+    if (await evaluate("document.querySelector('.todos-tab [data-shelf-group=unassigned]').getAttribute('aria-expanded') === 'false'")) await browser("click", '.todos-tab [data-shelf-group="unassigned"] [data-part="branch-control"]');
+    await browser("wait", '[data-todo="1"] .todo-row-button');
+    await browser("focus", '[data-todo="1"] .todo-row-button');
     await browser("press", "Enter");
     await browser("wait", ".drawer .ProseMirror");
-    await browser("focus", ".drawer .ProseMirror");
-    await browser("press", "Control+End");
+    await browser("click", ".drawer .ProseMirror");
+    await browser("wait", ".todo-detail-body button.word");
     await settle();
-    await browser("press", "Enter");
+    await evaluate("window.__fake.app.calls.length = 0; true");
+
+    if (entry === "plus") {
+      await browser("hover", ".drawer .ProseMirror p:first-child");
+      await browser("wait", ".milkdown-block-handle[data-show=true]");
+      await browser("click", ".milkdown-block-handle .operation-item:first-child");
+    } else {
+      await browser("focus", ".drawer .ProseMirror");
+      await browser("press", "Control+End");
+      await settle();
+      await browser("press", "Enter");
+      await settle();
+      await browser("keyboard", "type", "/For Agents");
+    }
+
     await settle();
-    await browser("keyboard", "type", "/For Agents");
-    await browser("wait", ".milkdown-slash-menu[data-show=true] li[data-index]");
-    await shot("pad-menu");
+    await shot("menu");
+    const actions = () => evaluate<string[]>("[...document.querySelectorAll('.milkdown-slash-menu[data-show=true] li[data-index]')].map(item => item.textContent.trim())");
+    const offered = await actions();
+    const draft = await evaluate<string>("document.querySelector('.drawer .ProseMirror').textContent");
+    expect(draft).toBe(body + (entry === "slash" ? "/For Agents" : ""));
+    const count = offered.length;
+    const selected: boolean[] = [];
+
+    for (let i = 0; i < count; i++) {
+      await browser("press", "ArrowDown");
+      await settle();
+      selected.push(await evaluate("document.querySelector('.milkdown-slash-menu[data-show=true] [aria-selected=true]')?.textContent.trim() === 'For Agents'"));
+    }
+
+    const retained = () => evaluate("JSON.parse(localStorage.getItem('roundup:drafts:/Users/you/harness') ?? '{\"drafts\":[]}').drafts.filter(draft => draft.destination.surface === 'todos').map(draft => ({ destination: draft.destination, text: draft.value.text }))");
+    const unfinished = await retained();
+
+    if (entry === "slash") expect(unfinished).toEqual([{ destination: { surface: "todos", object: "1", recipient: "body" }, text: body + "\n\n/For Agents" }]);
+
+    await shot("keyboard");
     await browser("press", "Escape");
     await settle();
-    await browser("click", ".drawer .close");
-    await settle();
+    expect(await retained()).toEqual(unfinished);
+    expect(await evaluate("document.querySelectorAll('.drawer details[data-pad-agents]').length")).toBe(0);
+    await shot("dismissed");
+    expect(await evaluate("window.__fake.app.calls.filter(call => ['todo.update', 'pad.write'].includes(call.method))")).toEqual([]);
+    expect(offered.includes("For Agents")).toBe(false);
+    expect(selected.some(Boolean)).toBe(false);
+
+  } finally {
+    if (menuOutput) await browser("record", "stop");
   }
-
-  const body = "Exact Todo prose — 日本語 café. " + "Keep the existing body and identity. ".repeat(24);
-  await evaluate(`(async () => {
-    await window.__fake.app.rpc('todo.update', { id: 1, title: ${JSON.stringify("Long Todo title ".repeat(12))}, body: ${JSON.stringify(body)} });
-    await window.__fake.app.rpc('todo.assign', { id: 1, owner: null });
-    return true;
-  })()`);
-
-  if (await evaluate("document.querySelector('#shelf-tab-todos').getAttribute('aria-expanded') !== 'true'")) await browser("click", "#shelf-tab-todos");
-  await browser("wait", '[data-shelf-group="unassigned"] [data-part="branch-control"]');
-
-  if (await evaluate("document.querySelector('.todos-tab [data-shelf-group=unassigned]').getAttribute('aria-expanded') === 'false'")) await browser("click", '.todos-tab [data-shelf-group="unassigned"] [data-part="branch-control"]');
-  await browser("wait", '[data-todo="1"] .todo-row-button');
-  await browser("focus", '[data-todo="1"] .todo-row-button');
-  await browser("press", "Enter");
-  await browser("wait", ".drawer .ProseMirror");
-  await browser("click", ".drawer .ProseMirror");
-  await browser("wait", ".todo-detail-body button.word");
-  await settle();
-  await evaluate("window.__fake.app.calls.length = 0; true");
-
-  if (entry === "plus") {
-    await browser("hover", ".drawer .ProseMirror p:first-child");
-    await browser("wait", ".milkdown-block-handle[data-show=true]");
-    await browser("click", ".milkdown-block-handle .operation-item:first-child");
-  } else {
-    await browser("focus", ".drawer .ProseMirror");
-    await browser("press", "Control+End");
-    await settle();
-    await browser("press", "Enter");
-    await settle();
-    await browser("keyboard", "type", "/For Agents");
-  }
-
-  await settle();
-  await shot("menu");
-  const actions = () => evaluate<string[]>("[...document.querySelectorAll('.milkdown-slash-menu[data-show=true] li[data-index]')].map(item => item.textContent.trim())");
-  expect((await actions()).includes("For Agents")).toBe(false);
-  const draft = await evaluate<string>("document.querySelector('.drawer .ProseMirror').textContent");
-  expect(draft).toBe(body + (entry === "slash" ? "/For Agents" : ""));
-  const count = (await actions()).length;
-
-  for (let i = 0; i < count; i++) {
-    await browser("press", "ArrowDown");
-    await settle();
-    expect(await evaluate("document.querySelector('.milkdown-slash-menu[data-show=true] [aria-selected=true]')?.textContent.trim() === 'For Agents'")).toBe(false);
-  }
-
-  await shot("keyboard");
-  await browser("press", "Escape");
-  await settle();
-  expect(await evaluate("document.querySelector('.drawer .ProseMirror').textContent")).toBe(draft);
-  expect(await evaluate("document.querySelectorAll('.drawer details[data-pad-agents]').length")).toBe(0);
-  await shot("dismissed");
-  expect(await evaluate("window.__fake.app.calls.filter(call => ['todo.update', 'pad.write'].includes(call.method))")).toEqual([]);
-
-  if (menuOutput) await browser("record", "stop");
 });
