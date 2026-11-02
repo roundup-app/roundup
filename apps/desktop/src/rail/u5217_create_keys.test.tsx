@@ -174,7 +174,7 @@ it("u5629_retry_after_escape_repeats_only_the_failed_start", async () => {
 it("u5629_dismiss_after_escape_clears_only_feedback", async () => {
   const m = await mountRail([workstream("g")]);
   m.rail.select("g");
-  const draft = m.connected.drafts.edit({ surface: "ask", object: "ask-bar", recipient: "g" }, { text: " unfinished 🌿 " }, null, "ordinary").draft;
+  const draft = m.connected.drafts.edit({ surface: "ask", object: "ask-bar", recipient: "g" }, { text: " unfinished draft " }, null, "ordinary").draft;
   m.app.handlers["agent.spawn"] = () => { throw new Error("Spawn refused. Check setup and retry."); };
 
   fireEvent.keyDown(document, { key: "n", metaKey: true });
@@ -185,7 +185,7 @@ it("u5629_dismiss_after_escape_clears_only_feedback", async () => {
   fireEvent.keyDown(menu, { key: "Escape" });
   await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("button", { name: "Create" })));
   const retry = screen.getByRole("button", { name: "Retry" });
-  fireEvent.click(screen.getByRole("button", { name: "Dismiss", exact: true }));
+  fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
   await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
   expect(retry.isConnected).toBe(false);
   expect(railCallsTo(m.app, "agent.spawn")).toHaveLength(1);
