@@ -188,6 +188,9 @@ const candidates = (source: string): { line: number; text: string }[] => {
 
     const holder = ancestors.at(-2);
 
+    // Solid splitProps key arrays select properties; their names never render as copy.
+    if (parent?.type === "ArrayExpression" && holder?.type === "CallExpression" && holder.callee.type === "Identifier" && holder.callee.name === "splitProps" && holder.arguments.indexOf(parent) > 0) return;
+
     if (parent?.type === "ArrayExpression" && holder?.type === "ObjectProperty" && holder.key.type === "Identifier" && holder.key.name === "chords") return;
     let text: string;
 
