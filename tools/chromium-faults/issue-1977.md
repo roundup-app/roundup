@@ -75,7 +75,7 @@ Before: 962dac2e4e789652b98a2525bcc03b7239b6c57f, 20000 ms startup/reply cap. Af
 | after | 9 | 0 | 286.1 | 812.4 | 819.6 | 2253.2 | 3083.5 | 3214.9 | 3653.7 | 42 | 0 |
 | after | 9 | 1 | 272.9 | 847.5 | 856.9 | 2515.1 | 3322.7 | 3421.1 | 3924.9 | 42 | 0 |
 
-The raw [observations](issue-1977.jsonl) also retain the ten initial, uninstrumented pairs (`measurement=before`), including the 19223 ms cold pair used in the startup-cap calculation. Those pairs likewise returned twenty 42 values and closed twenty pages with ten exit-0 commands. The instrumented baseline's maximum close was 4136 ms; the repaired maximum was 3925 ms. These runs establish repeated success under this CPU load, not reproduction of CI's disk stall.
+The raw observations lived in the producing CI artifact and also retained the ten initial, uninstrumented pairs (`measurement=before`), including the 19223 ms cold pair used in the startup-cap calculation. Those pairs likewise returned twenty 42 values and closed twenty pages with ten exit-0 commands. The instrumented baseline's maximum close was 4136 ms; the repaired maximum was 3925 ms. These runs establish repeated success under this CPU load, not reproduction of CI's disk stall.
 
 The permanently held regression retained fault-history verification and confirmed both owned browser pids were gone while the locks remained held:
 
