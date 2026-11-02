@@ -327,7 +327,12 @@ async fn nr3_watch_write_failure_is_visible_and_keeps_eligible_work() {
         assert!(recovered.observation.recovery.is_none());
         if reopen {
             start_again(&s.user, &s.w).await;
-            start_again(&s.user, &s.a).await;
+            // Restart the watched Door without completing a turn: the cycle below is the
+            // next eligible finish. Only the recipient needs input now to admit delivery.
+            s.user
+                .request("rail.startDoor", json!({ "id": s.a }))
+                .await
+                .unwrap();
         }
         drive(&s.user, &s.a, WORK).await;
         watching(&s, "watch-write", &[&s.a], mode.clone()).await;

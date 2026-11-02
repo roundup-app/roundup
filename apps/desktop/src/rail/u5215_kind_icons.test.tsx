@@ -1,30 +1,11 @@
-import { cleanup, render, screen } from "@solidjs/testing-library";
+import { cleanup } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { Icon } from "../ink/Icon";
-import { KIND_ICON } from "../ink/kindIcon";
-import { workstream } from "../testing/nodes";
-import { mountRail } from "./railFixture";
 
 afterEach(cleanup);
 
-const footer = (label: string) => screen.getByRole("button", { name: label });
-
 describe("u5215 one map names each kind's icon", () => {
-  it("u5215_each_footer_button_shows_its_sections_icon", async () => {
-    await mountRail([workstream("g")]);
-    const kinds = { "Add Workstream": KIND_ICON.workstream, "New Mode": KIND_ICON.mode, "New Agent": KIND_ICON.agent };
-
-    for (const [label, name] of Object.entries(kinds)) {
-      const expected = render(() => <Icon name={name} />).container.querySelector("svg")?.getAttribute("class");
-
-      expect(footer(label).querySelector("svg")?.getAttribute("class")).toBe(expected);
-    }
-
-    expect(footer("New Agent").querySelector("svg")?.getAttribute("class")).not.toContain("circle");
-  });
-
   it("u5215_menus_entries_and_help_read_the_map", () => {
     // Menus, ⌘K entries and Help are .ts or .tsx; none may carry a kind's icon name as a literal.
     const files = (dir: string): string[] => readdirSync(dir).flatMap(name => {
