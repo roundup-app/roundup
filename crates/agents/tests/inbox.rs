@@ -532,3 +532,24 @@ async fn b5763a_recorded_peer_repeats_match_the_inbox_rule() {
         }
     }
 }
+
+// Rejects receipt-only or Message-id ordering as the source of legacy peer history.
+#[test]
+fn b5763c_legacy_history_uses_the_last_admitted_rupd_entry_in_its_session() {
+    let path = fixtures("2.1.302").join("transcript.jsonl");
+    let session = "77e8d837-17fb-4103-9626-145fd3dec0c4";
+    let last = agents::claude_code::inbox::previous(&path, session, "uds:/tmp/rup-x/rupd")
+        .unwrap()
+        .unwrap();
+    assert!(last.contains("say only BRAVO"));
+    assert!(!last.contains("slow"));
+    assert_eq!(
+        agents::claude_code::inbox::previous(&path, "another-session", "uds:/tmp/rup-x/rupd")
+            .unwrap(),
+        None
+    );
+    assert_eq!(
+        agents::claude_code::inbox::previous(&path, session, "uds:/another-peer").unwrap(),
+        None
+    );
+}

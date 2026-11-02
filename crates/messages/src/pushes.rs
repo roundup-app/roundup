@@ -162,13 +162,22 @@ pub(crate) fn bodies_of(found: &[Message]) -> Vec<String> {
     let mut later = std::collections::HashSet::new();
     let mut bodies: Vec<String> = found
         .iter()
+        .enumerate()
         .rev()
-        .map(|message| {
+        .map(|(index, message)| {
             if message.kind != MessageKind::Note || !is_digest(&message.from, &message.body) {
                 return message.body.clone();
             }
             let body = without(&message.body, &later);
-            later.extend(names_in(&message.body));
+            // Equal adjacent digests reach the shared rendered comparison together (B5763b).
+            // Different updates still replace the older child's content under B34.
+            if index == 0
+                || found[index - 1].kind != MessageKind::Note
+                || found[index - 1].from != message.from
+                || found[index - 1].body != message.body
+            {
+                later.extend(names_in(&message.body));
+            }
             body
         })
         .collect();

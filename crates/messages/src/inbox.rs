@@ -25,6 +25,10 @@ pub trait NoteInbox: Send + Sync {
     fn content(&self, _agent: &str, entry: &Entry) -> String {
         entry.content("", "")
     }
+    /// B5763c: last admitted entry in the current peer transcript, for history recovery.
+    fn previous(&self, _agent: &str) -> Result<Option<String>, Inbox> {
+        Ok(None)
+    }
     /// B50: write `notes` as entries; the answer names the failed state.
     fn write(&self, agent: &str, notes: &[Entry]) -> Result<(), Inbox>;
 }
@@ -51,6 +55,10 @@ impl NoteInbox for agents::Agents {
 
     fn content(&self, agent: &str, entry: &Entry) -> String {
         self.inbox_content(agent, entry)
+    }
+
+    fn previous(&self, agent: &str) -> Result<Option<String>, Inbox> {
+        self.inbox_previous(agent)
     }
 
     fn write(&self, agent: &str, notes: &[Entry]) -> Result<(), Inbox> {
@@ -155,6 +163,17 @@ pub(crate) async fn send(
     let mut previous = lock(&inner.store)
         .last_inbox(agent, &session)
         .expect("message store");
+    if previous.is_none() {
+        previous = match inbox.previous(agent) {
+            Ok(previous) => previous,
+            Err(_) => return true,
+        };
+        if let Some(content) = &previous {
+            lock(&inner.store)
+                .record_inbox(agent, &session, content)
+                .expect("message store");
+        }
+    }
     let quiet = {
         let store = lock(&inner.store);
         let given = if notes.iter().any(|m| pushes::is_digest(&m.from, &m.body)) {
