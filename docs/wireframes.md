@@ -427,3 +427,11 @@ Current evidence is the source at `a1f4d5eae322470951bb4906b31412af564bed15`; a 
 3. Add Sketches with rich Markdown and Mermaid or Drawing visuals; settle representation, permissions and storage through scoped implementation and create/edit/reopen proof.
 
 Cross-Workstream dependencies, Sketch embedding, storage and editing rights, and retention of the whole-Project view remain open. No implementation row is ready until it has a scenario and an observer. Assign that work as `; keep accepted product choices and their reasons here.
+
+### Pad colour
+
+Pad formatting: use GitHub callouts for information the user must not miss: > [!NOTE], > [!TIP], > [!IMPORTANT], > [!WARNING], > [!CAUTION], followed by quoted body lines.
+Use text colour and highlight sparingly. Canonical inline Pad forms are <span data-pad-color="blue">text</span> and <mark>text</mark>; colours are blue, green, purple, red and amber.
+Combine them as <mark><span data-pad-color="blue">text</span></mark>. Remove only the colour wrapper for Default, or only the mark wrapper to clear highlight, retaining other inline formatting.
+Keep fenced-code language labels for syntax colour. These inline Pad wrappers are permitted; never write an HTML file.
+
