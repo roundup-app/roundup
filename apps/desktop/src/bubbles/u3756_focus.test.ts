@@ -30,6 +30,12 @@ const load = async (seed = "empty-project", recording?: string) => {
     app.handlers['rail.startDoor'] = params => new Promise(resolve => { window.arrive = () => resolve(start(params)); });
     document.querySelector('.rail-actions [data-button="add"]').click();
   })()`);
+
+  if (!process.env.U3756_BASELINE) {
+    await wait(`!!document.querySelector('[role=menuitem][data-value=workstream]')`);
+    await browser("click", "[role=menuitem][data-value=workstream]");
+  }
+
   await wait(`!!window.arrive && !!document.querySelector('.rail-row[data-selected=true]')`);
 };
 
@@ -285,6 +291,8 @@ const loadDense = async () => {
     const tab = document.querySelector('#shelf-tab-todos'); if (tab.getAttribute('aria-expanded') !== 'true') tab.click();
     document.querySelector('.rail-actions [data-button="add"]').click();
   })()`);
+  await wait(`!!document.querySelector('[role=menuitem][data-value=workstream]')`);
+  await browser("click", "[role=menuitem][data-value=workstream]");
   await wait(`!!window.arrive`);
   await read(`window.__fake.app.rpc('todo.move', { id: 1, home: document.querySelector('.rail-row[data-selected=true]').dataset.id })`);
   await wait(`!!document.querySelector('.todo-row-button')`);

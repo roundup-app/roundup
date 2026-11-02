@@ -113,7 +113,7 @@ impl Agents {
             // A4452d: only the user's words are typed; an Agent's text goes to the inbox.
             if ctx.actor.kind == ActorKind::Agent {
                 self.shared
-                    .coordinate(&id, None, text)
+                    .coordinate(Actor::daemon(), &id, None, text)
                     .await
                     .map_err(PromptError::from)?;
             } else {
