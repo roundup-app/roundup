@@ -14,6 +14,7 @@ const dash = "—";
 const removalPlurals = new Intl.PluralRules("en");
 
 export const copy = {
+  create: sharedCopy.create,
   thatIsGone: sharedCopy.thatIsGone,
   alerts: sharedCopy.alerts,
   alertLevels: { all: "All", default: sharedCopy.defaultLevel, quiet: "Quiet" },
@@ -55,8 +56,7 @@ export const copy = {
   importDefaultPrompt: "Find active and recent Claude Code conversations in this Project",
   importAgentName: sharedCopy.importAgentName,
   importTitle: sharedCopy.importTitle,
-  importTimeout: "Looking for conversations took too long. Refresh to try again, or choose a shorter period.",
-  importRefresh: sharedCopy.importRefresh,
+  importTimeout: "Looking for conversations took too long. Retry to try again, or choose a shorter period.",
   rename: sharedCopy.rename,
   openAFolder: sharedCopy.openAFolder,
   newAgent: sharedCopy.newAgent,
@@ -95,7 +95,6 @@ export const copy = {
   rail: sharedCopy.rail,
   doneCount: sharedCopy.doneCount,
   askingTheDoor: "Asking…",
-  addWorkstream: sharedCopy.addWorkstream,
   addWorkstreamWord: sharedCopy.addWorkstreamWord,
   importUnnamed: sharedCopy.importUnnamed,
   name: sharedCopy.name,
