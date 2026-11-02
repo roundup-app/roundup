@@ -72,7 +72,7 @@ The remaining files are sorted by descending baseline duration, path as tie-brea
 | `src/ask/u505_ask_rows.test.tsx` | 7 | 70982 | 12 |
 | `src/bubbles/u2694e_right_click.test.tsx` | 3 | 70247 | 42 |
 
-**CI5527g repair slow-file batch 4.** Given this table, apply the child acceptance above to every row (policy; observers: paired file measurements and existing scenario tests named by each file).
+**CI5527g repair slow-file batch 4.** Given this table, apply the child acceptance above to every row, except that #5661 requires reporting slower results rather than a lower after duration for every repaired file. Every file over 30,000 ms on the before run still requires a concrete mount/query repair or Rule 10 cut. Record each file’s before and after duration from one run of the same command on the same machine, and explicitly mark every file whose after duration is greater than or equal to its before duration as "did not get faster". A file below 30,000 ms on the before run needs no change. Preserve all other child acceptance; CI5527b judges the final result on main (policy; observers: the diff, paired file measurements in the PR body and existing scenario tests named by each file).
 
 | File | Shard | Baseline ms | Tests |
 | --- | ---: | ---: | ---: |
