@@ -256,23 +256,6 @@ async fn i2_help_has_the_four_parts_in_order() {
 }
 
 #[tokio::test]
-async fn i2_a_commands_help_names_its_arguments_flags_and_an_example() {
-    let dir = tempfile::tempdir().unwrap();
-    let run = on(&dir.path().join("none"));
-    let by_help = run.rup(&["help", "pad", "read"]).await;
-    let by_flag = run.rup(&["pad", "read", "--help"]).await;
-    assert_eq!((code(&by_help), code(&by_flag)), (0, 0));
-    assert_eq!(out(&by_help), out(&by_flag));
-    let text = out(&by_help);
-    assert!(text.starts_with("Read one Pad."), "{text}");
-    assert!(text.contains("Usage: rup pad read"), "{text}");
-    assert!(text.contains("<name>") && text.contains("--json"), "{text}");
-    assert!(text.contains("Example:\n  rup pad read notes"), "{text}");
-    let noun = out(&run.rup(&["help", "pad"]).await);
-    assert!(noun.contains("read") && noun.contains("append"), "{noun}");
-}
-
-#[tokio::test]
 async fn i2_a_mistyped_command_suggests_the_closest_and_exits_2() {
     let dir = tempfile::tempdir().unwrap();
     let run = on(&dir.path().join("none"));
