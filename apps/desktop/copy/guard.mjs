@@ -614,6 +614,23 @@ export const checkKeys = files => Object.entries(files).filter(([file]) => produ
   const fromRegistry = node => node?.type === 'CallExpression' && node.callee.type === 'Identifier' && node.callee.name === 'ariaChord';
 
   const namesRegistry = (path, name, seen = new Set()) => {
+    if (name === 'CHORDS') {
+      if (path.isArrayExpression()) return path.get('elements').some(element =>
+        element.isSpreadElement() && namesRegistry(element.get('argument'), name, new Set(seen)));
+
+      if (path.isSpreadElement() || path.isTSAsExpression() || path.isTSSatisfiesExpression() || path.isTSNonNullExpression()) {
+        return namesRegistry(path.get(path.isSpreadElement() ? 'argument' : 'expression'), name, seen);
+      }
+
+      // Copies and derived arrays retain their registry source regardless of the copying API.
+      if (path.isCallExpression()) {
+        const callee = path.get('callee');
+
+        return (callee.isMemberExpression() && namesRegistry(callee.get('object'), name, new Set(seen)))
+          || path.get('arguments').some(argument => namesRegistry(argument, name, new Set(seen)));
+      }
+    }
+
     if (!path.isIdentifier() || seen.has(path.node.name)) return false;
     seen.add(path.node.name);
     const binding = path.scope.getBinding(path.node.name);
