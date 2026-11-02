@@ -42,7 +42,7 @@ export type Emulator = {
   setFontSize(size: number): void;
   /** Clears the last complete screen before a replacement snapshot is written. */
   reset(): void;
-  /** Keystrokes and pastes, as the bytes the program expects, in the order they were typed. */
+  /** Input bytes in emission order; `userInput=false` identifies protocol replies that need no keyboard focus. */
   onInput(listener: (bytes: Uint8Array, userInput?: boolean) => void): void;
   /** Live output event arrival, before buffering or snapshot recovery; snapshots never call it. */
   outputArrived?: ((bytes: Uint8Array) => void) | undefined;
