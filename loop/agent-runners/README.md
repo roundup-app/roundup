@@ -19,9 +19,12 @@ Repository variables hold JSON arrays of numeric IDs; only the matching job uses
 ```sh
 gh variable set BOXD_ISSUES --body '[123]'
 gh variable set BOXD_PRS --body '[456]'
+gh variable set BOXD_LIGHT --body 1
 ```
 
 Unset variables or `[]` keep every agent job on GitHub. `BOXD_PRS` moves a PR's fix, review and critic jobs together. A build's Issue opt-in does not opt its subsequent fix PR in; set that PR's ID separately when needed. An explicit boxd opt-in waits for its prepared runner and fails visibly if provisioning fails. It does not fall back silently. The controller and stored snapshot have costs independent of worker opt-ins.
+
+`BOXD_LIGHT=1` moves the short jobs around agent jobs (`pick`, `task`, `after`, `post`) onto boxd, so none waits behind the hosted test lanes. They keep no memory and take free capacity first; delete the variable to move them back.
 
 ## Memory
 
