@@ -255,16 +255,22 @@ it("u5561b_block_menu_inserts_two_labelled_toggles", { retry: 0, timeout: 120_00
     await wait("!!document.querySelector('.milkdown-slash-menu[data-show=true] li[data-index]')");
     await browser("press", "Enter");
     await wait("document.activeElement?.matches('details[data-pad-agents] input')");
+    const initialLabel = await read("document.activeElement.closest('details').querySelector('summary').textContent");
     await browser("press", "Control+a");
     await browser("keyboard", "type", label);
+    expect(await read("document.activeElement.closest('details').querySelector('summary').textContent")).toBe(initialLabel);
+    await browser("press", "Enter");
     const block = `details[data-pad-agents]:has(summary[aria-label="${label}"])`;
     await browser("fill", `${block} textarea`, body);
   }
 
+  await browser("fill", 'details[data-pad-agents]:has(summary[aria-label="After"]) input', "");
+  await browser("press", "Enter");
+  await wait("!!document.querySelector('summary[aria-label=Toggle]')");
   await browser("click", ".drawer .close");
   await wait("!document.querySelector('.drawer .ProseMirror')");
   const saved = await read<string>("window.__fake.app.rpc('pad.read', {name:'pad-3'}).then(pad => pad.text)");
-  expect(saved).toBe("<details>\n<summary>Before</summary>\n\nFirst evidence.\n\n</details>\n\nBetween.\n\n<details>\n<summary>After</summary>\n\nSecond evidence.\n\n</details>");
+  expect(saved).toBe("<details>\n<summary>Before</summary>\n\nFirst evidence.\n\n</details>\n\nBetween.\n\n<details>\n<summary>Toggle</summary>\n\nSecond evidence.\n\n</details>");
   await read("[...document.querySelectorAll('.pad-name')].find(row => row.textContent === 'pad-3').focus()");
   await browser("press", "Enter");
   await wait("document.querySelectorAll('details[data-pad-agents]').length === 2");
