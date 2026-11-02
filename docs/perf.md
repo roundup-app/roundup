@@ -817,3 +817,7 @@ Two budgets on macOS, key press to DOM, measured in the real App's webview by `j
 The runner (`judge_switch`, `crates/perf/src/webview.rs`) takes `switcher_open_p95_ms` and `switch_p95_ms` from the report's PERF line, each with `{n, dropped}` under `switcher_open` and `switch`. A report with the webview's error, a mean frame time above 25 ms, a missing metric or more than 5% of either kind dropped exits 2; each metric is the median over `--runs`; one over its limit exits 1 naming it, its value and its limit, and one more than 10% over a macOS baseline exits 1 naming the baseline. Neither metric has a baseline until a recorded Mac run adds one (SP5).
 
 What CI checks (SP8): the probe is absent from a normal build, the marks record the specified intervals under a fake clock, and the budget file and runner refusals hold. What only a Mac gives (SP7): the 80 ms and 32 ms readings. `just perf-keystroke` drives the open and switch workloads (SP4) in the idle run and judges both metrics with `judge_switch`. Implementation order was #5249 (App marks), #5315 (the SP4 driver), then #5250 (limits); a baseline is added after the first recorded Mac run, and the 10% regression test then applies.
+
+## R5594 startup headroom
+
+Baseline attribution prepared before deferral: clean `4433b54af` production closure is 435,692 gzip bytes (checker exit 0), leaving 2,122 bytes under the unchanged 437,814 ceiling. The paired acceptance requires a reduction of at least 16,384 bytes. Raw module attribution and build reports are retained in the producing run artifacts.
