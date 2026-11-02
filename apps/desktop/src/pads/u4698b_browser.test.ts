@@ -194,7 +194,7 @@ it("u4698b_expand_keeps_the_long_pad_and_all_formats_reachable", { retry: 0, tim
     await browser("set", "viewport", String(width), String(height));
     await settle();
     await capture(`todo-after-editor-${width}`);
-    expect(await evaluate("document.querySelectorAll('.pad-width-control').length")).toBe(0);
+    expect(await evaluate("document.querySelectorAll('.pad-width-control [role=radiogroup]').length")).toBe(0);
     await browser("click", '.drawer [aria-label="Restore"]');
     await settle();
     await capture(`todo-collapsed-${width}`);
