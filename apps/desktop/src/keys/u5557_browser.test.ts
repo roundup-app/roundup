@@ -29,9 +29,13 @@ const read = async (expression: string) => {
 
 beforeAll(async () => {
   server = await appServer({ root: process.env.U5557_ROOT ?? process.cwd() });
-  const ready = await fetch(new URL("/__roundup_ready", server.resolvedUrls.local[0]!));
 
-  if (!ready.ok) throw new Error(await ready.text());
+  if (!process.env.U5557_ROOT) {
+    const ready = await fetch(new URL("/__roundup_ready", server.resolvedUrls.local[0]!));
+
+    if (!ready.ok) throw new Error(await ready.text());
+  }
+
   await browser("--profile", profile, "open", new URL("/harness.html?seed=empty-project", server.resolvedUrls.local[0]!).href);
   await browser("set", "viewport", "1512", "950");
   await browser("set", "media", "dark");
@@ -56,7 +60,7 @@ it("u5557b_every_chip_uses_keychip", async () => {
 
     if (seed === "tree-40") {
       await read(`window.__fake.failNext(-32003, 'Could not start the Agent. Try again.'); document.querySelector('.rail-actions [aria-label="New Agent"]').click()`);
-      await browser("wait", "--fn", `!!document.querySelector('.rail-command-notice [role="alert"], .rail-command-notice.ink')?.textContent`);
+      await browser("wait", "--fn", `document.querySelector('.rail-command-notice')?.textContent.includes('Could not start the Agent. Try again.')`);
 
       for (const dir of dirs) {
         await browser("screenshot", join(dir, "dense-failure-footer.png"));
