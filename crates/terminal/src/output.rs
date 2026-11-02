@@ -50,10 +50,10 @@ pub(crate) struct Log {
 
 impl Log {
     pub(crate) fn push(&mut self, chunk: &[u8]) {
-        self.bytes.extend(chunk);
-        self.end += chunk.len() as u64;
-        let extra = self.bytes.len().saturating_sub(LOG_BYTES);
-        if extra > 0 {
+        let keep = chunk.len().min(LOG_BYTES);
+        let discard = chunk.len() - keep;
+        let extra = self.bytes.len().saturating_sub(LOG_BYTES - keep);
+        if extra > 0 || discard > 0 {
             let mut offset = self.start();
             let checkpoint = self.checkpoint.get_or_insert_with(Box::default);
             let mut left = extra;
@@ -65,7 +65,16 @@ impl Log {
                 left -= take;
             }
             self.bytes.drain(..extra);
+            checkpoint.absorb(&chunk[..discard], offset);
         }
+        // Evict before extending: 129 × 8192 bytes otherwise leaves a 2 MiB allocation (#5639).
+        let needed = self.bytes.len() + keep;
+        if needed > self.bytes.capacity() {
+            self.bytes
+                .reserve_exact(needed.next_power_of_two() - self.bytes.len());
+        }
+        self.bytes.extend(&chunk[discard..]);
+        self.end += chunk.len() as u64;
     }
 
     pub(crate) fn end(&self) -> u64 {
@@ -602,6 +611,11 @@ mod tests {
         log.push(&[b'x'; 8192]);
         assert!((8192..LOG_BYTES).contains(&log.bytes.capacity()));
         assert!(log.checkpoint.is_none());
+        let mut uneven = Log::default();
+        for _ in 0..258 {
+            uneven.push(&[0; 4093]);
+            assert!(uneven.bytes.capacity() <= LOG_BYTES);
+        }
     }
 
     fn assert_suffix(log: &Log, input: &[u8]) {
@@ -613,10 +627,10 @@ mod tests {
         );
         assert_eq!(log.end(), input.len() as u64);
         assert_eq!(log.start(), (input.len() - retained) as u64);
-        assert_eq!(
-            log.raw(log.start()).unwrap(),
-            input[input.len() - retained..]
-        );
+        let expected = &input[input.len() - retained..];
+        let (head, tail) = log.bytes.as_slices();
+        assert_eq!(head, &expected[..head.len()]);
+        assert_eq!(tail, &expected[head.len()..]);
     }
 
     #[test]
@@ -624,7 +638,8 @@ mod tests {
         let mut log = Log::default();
         let mut input = Vec::new();
         for index in 0..513 {
-            let chunk = vec![b'a' + (index % 26) as u8; 8192];
+            let mut chunk = vec![b'x'; 8192];
+            chunk[..8].copy_from_slice(format!("{index:08x}").as_bytes());
             input.extend(&chunk);
             log.push(&chunk);
             assert_suffix(&log, &input);
@@ -658,87 +673,91 @@ mod tests {
 
     #[test]
     fn x5639b_eviction_preserves_exact_replay() {
+        assert_eviction_replay(false);
+    }
+
+    #[test]
+    fn x5639b_oversized_prefix_preserves_exact_replay() {
+        assert_eviction_replay(true);
+    }
+
+    fn assert_eviction_replay(oversized: bool) {
         let scene = b"\x1b[31mred\x1b]0;ti\x07\xc3\xa9!\r\nlast\xff";
-        for oversized in [false, true] {
-            for (cut, first) in [(2, "redé!"), (10, "é!"), (16, "é!")] {
-                let mut log = Log::default();
-                let mut input = Vec::new();
-                // Force both deque slices to participate in the next eviction.
-                for _ in 0..129 {
-                    log.push(&[0; 8192]);
-                    input.extend([0; 8192]);
-                }
-                let (head, tail) = log.bytes.as_slices();
-                assert!(!head.is_empty() && !tail.is_empty());
-                let mut chunk = b"old\r\x1b[2K".to_vec();
-                if oversized {
-                    chunk.resize(LOG_BYTES + 37, 0);
-                }
-                let scene_start = input.len() + chunk.len();
-                chunk.extend(scene);
-                chunk.resize(chunk.len() + LOG_BYTES + cut - scene.len(), 0);
-                if oversized {
-                    log.push(&chunk);
-                } else {
-                    chunk.chunks(4093).for_each(|part| log.push(part));
-                }
-                input.extend(chunk);
-                assert_suffix(&log, &input);
-                assert_eq!(log.start(), (scene_start + cut) as u64);
-                let next_line = (scene_start + 20) as u64;
-                let page = read(&log.from(0).unwrap(), first.len() + 1);
-                assert_eq!(
-                    (page.from, page.next, page.text, page.truncated),
-                    (log.start(), next_line, format!("{first}\n"), true)
-                );
-                let tail = read(&log.from(next_line).unwrap(), REPLY_BYTES);
-                assert_eq!(
-                    (tail.from, tail.next, tail.text, tail.truncated),
-                    (next_line, log.end(), "last�".into(), false)
-                );
-                let found =
-                    search(&log.from(0).unwrap(), ".", first.len() + MATCH_OVERHEAD).unwrap();
-                assert_eq!(found.matches.len(), 1);
-                assert_eq!(
-                    (found.matches[0].offset, found.matches[0].text.as_str()),
-                    (log.start(), first)
-                );
-                assert_eq!((found.next, found.truncated), (next_line, true));
-                let found = search(&log.from(found.next).unwrap(), ".", REPLY_BYTES).unwrap();
-                assert_eq!(found.matches.len(), 1);
-                assert_eq!(
-                    (found.matches[0].offset, found.matches[0].text.as_str()),
-                    (next_line, "last�")
-                );
-                assert_eq!((found.next, found.truncated), (log.end(), false));
-                let empty = read(&log.from(log.end()).unwrap(), REPLY_BYTES);
-                assert_eq!(
-                    (empty.from, empty.next, empty.text, empty.truncated),
-                    (log.end(), log.end(), String::new(), false)
-                );
-                assert!(log.from(log.end() + 1).is_err());
-                // End with a partial CSI, then complete it after checkpoint replay.
-                log.push(b"\x1b[");
-                input.extend(b"\x1b[");
-                let window = log.from(0).unwrap();
-                let mut replay = window.checkpoint.unwrap();
-                replay.resync();
-                for (index, byte) in window.bytes.iter().enumerate() {
-                    replay.feed(*byte, window.start + index as u64 + 1, None);
-                }
-                let mut reference = vt100::Parser::new(ROWS, COLS, usize::from(ROWS));
-                reference.process(&input);
-                replay.parser.process(b"2D!\x1b[0m");
-                reference.process(b"2D!\x1b[0m");
-                assert_eq!(
-                    replay.parser.screen().contents_formatted(),
-                    reference.screen().contents_formatted()
-                );
-                assert_eq!(
-                    replay.parser.screen().cursor_position(),
-                    reference.screen().cursor_position()
-                );
+        for (cut, first) in [(2, "redé!"), (10, "é!"), (16, "é!")] {
+            let mut log = Log::default();
+            let mut input = Vec::new();
+            // Force both deque slices to participate in the next eviction.
+            for _ in 0..129 {
+                log.push(&[0; 8192]);
+                input.extend([0; 8192]);
             }
+            let (head, tail) = log.bytes.as_slices();
+            assert!(!head.is_empty() && !tail.is_empty());
+            let mut chunk = b"old\r\x1b[2K".to_vec();
+            if oversized {
+                chunk.resize(LOG_BYTES + 37, 0);
+            }
+            let scene_start = input.len() + chunk.len();
+            chunk.extend(scene);
+            chunk.resize(chunk.len() + LOG_BYTES + cut - scene.len(), 0);
+            if oversized {
+                log.push(&chunk);
+            } else {
+                chunk.chunks(4093).for_each(|part| log.push(part));
+            }
+            input.extend(chunk);
+            assert_suffix(&log, &input);
+            assert_eq!(log.start(), (scene_start + cut) as u64);
+            let next_line = (scene_start + 20) as u64;
+            let page = read(&log.from(0).unwrap(), first.len() + 1);
+            assert_eq!(
+                (page.from, page.next, page.text, page.truncated),
+                (log.start(), next_line, format!("{first}\n"), true)
+            );
+            let tail = read(&log.from(next_line).unwrap(), REPLY_BYTES);
+            assert_eq!(
+                (tail.from, tail.next, tail.text, tail.truncated),
+                (next_line, log.end(), "last�".into(), false)
+            );
+            let found = search(&log.from(0).unwrap(), ".", first.len() + MATCH_OVERHEAD).unwrap();
+            assert_eq!(found.matches.len(), 1);
+            assert_eq!(
+                (found.matches[0].offset, found.matches[0].text.as_str()),
+                (log.start(), first)
+            );
+            assert_eq!((found.next, found.truncated), (next_line, true));
+            let found = search(&log.from(found.next).unwrap(), ".", REPLY_BYTES).unwrap();
+            assert_eq!(found.matches.len(), 1);
+            assert_eq!(
+                (found.matches[0].offset, found.matches[0].text.as_str()),
+                (next_line, "last�")
+            );
+            assert_eq!((found.next, found.truncated), (log.end(), false));
+            let empty = read(&log.from(log.end()).unwrap(), REPLY_BYTES);
+            assert_eq!(
+                (empty.from, empty.next, empty.text, empty.truncated),
+                (log.end(), log.end(), String::new(), false)
+            );
+            assert!(log.from(log.end() + 1).is_err());
+            // End with a partial CSI, then complete it after checkpoint replay.
+            log.push(b"\x1b[");
+            input.extend(b"\x1b[");
+            let window = log.from(0).unwrap();
+            let mut replay = window.checkpoint.unwrap();
+            replay.resync();
+            replay.parser.process(&window.bytes);
+            let mut reference = vt100::Parser::new(ROWS, COLS, usize::from(ROWS));
+            reference.process(&input);
+            replay.parser.process(b"2D!\x1b[0m");
+            reference.process(b"2D!\x1b[0m");
+            assert_eq!(
+                replay.parser.screen().contents_formatted(),
+                reference.screen().contents_formatted()
+            );
+            assert_eq!(
+                replay.parser.screen().cursor_position(),
+                reference.screen().cursor_position()
+            );
         }
     }
 

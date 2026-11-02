@@ -458,11 +458,12 @@ fn publish_output(
     bytes: Vec<u8>,
 ) {
     if let Some(sender) = &state.1 {
+        let length = bytes.len() as u64;
         let _ = sender.send(Chunk {
             offset,
-            bytes: Arc::from(bytes.clone()),
+            bytes: Arc::from(bytes),
         });
-        state.0 = offset + bytes.len() as u64;
+        state.0 = offset + length;
     }
 }
 
