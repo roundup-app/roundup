@@ -1,0 +1,8 @@
+PROOF q4 program prints one tick every 20 ms, 100 ticks
+PROOF q4 format vt requested 0 ms after the stream's WELCOME
+PROOF q4 snapshot: 2203 B, magic "GHOSTSNP", header [01, 00, 01, 00, 99, 03, 00, 00, cc, 25, d4, c1, 50, 00, 18, 00]; first Rex messages [Object {"type": String("resize"), "cols": Number(80), "rows": Number(24), "cell_width_px": Number(8), "cell_height_px": Number(16), "owner": String("client:01a18f58-b0f8-7b04-a238-2bf94630e4d2")}]
+PROOF q4 snapshot holds ticks as plain text: 18 occurrences of "tick " (cell data, not VT)
+PROOF q4 format vt ticks Some(2)..Some(17); live stream ticks Some(17)..Some(100); overlap=1
+PROOF q4 format vt + live bytes: ticks Some(2)..Some(100), repeated=1, missing=0 (vt has 19 ticks, live has 84)
+PROOF q4 RESUME after 600 ms away: welcome nonce same=true keep_ms=60000
+PROOF q4 live + resumed program bytes: ticks Some(17)..Some(100), gaps or repeats=0

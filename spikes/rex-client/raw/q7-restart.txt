@@ -1,0 +1,11 @@
+PROOF q7 process 1 exited exit status: 0; saved {session, block, client_id, child_pid, data_received=2386}
+PROOF q7 process 2 control: resumed=true same client id=true
+PROOF q7 process 2 still owns block: true
+PROOF q7 identity: child pid 14545 == saved 14545 ; last_exit=null
+PROOF q7 process 1 saw 1071 B of program bytes; resumed connection delivered 312 B, ending "37\r\ntick 00038\r\ntick 00039\r\ntick 00040\r\n"
+PROOF q7 process 1 bytes + resumed bytes: ticks Some(2)..Some(40), gaps or repeats=0
+PROOF q7 RESUME with a forged token: Some("REJECT 0x01")
+PROOF q7 Rex server instance_id before restart "b6cde1c6-d534-4889-900d-59a0be517b21", after "9c22f025-6565-4895-a443-c58adc2fd34b"
+PROOF q7 after Rex restart (--restore): session.list = {"sessions":[{"session_id":"session:01a18f56-3842-7422-9e0c-ea6ca3983f63","label":"q7-restart"}]}
+PROOF q7 after Rex restart: blocks={"blocks":[{"block_id":"block:01a18f56-3842-776a-a55d-ba53bdfadf33","label":"shell","creator_name":"com.superlogical.terminal","flavor":"com.superlogical.terminal.shell","host_id":"85c234d4-90fd-45ed-911b-ad793b451780","placement":"placed","window_id":"window:01a18f56-3844-70b3-baa4-fc449c2aa41f"}]}; same block id process=Ok(Object {"child": Number(14677), "last_exit": Null})
+PROOF q7 after Rex restart: screen tail None

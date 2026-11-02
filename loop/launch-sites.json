@@ -834,5 +834,25 @@
     "cleanup": "No separate built-Daemon launch site.",
     "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
     "kind": "reference"
+  },
+  "spikes/rex-client/src/bin/spike-holder.rs": {
+    "cleanup": "Exits deliberately without WebSocket close frames; its parent waits for exit and owns the Rex server and temporary state directory.",
+    "data": "Simulates a crashing rupd with a Rex client; saves resume state only at the path supplied by the spike in its temporary directory. Starts no real rupd.",
+    "kind": "fake"
+  },
+  "spikes/rex-client/src/bin/spike/exit.rs": {
+    "cleanup": "Waits for spike-holder to exit; closes streams and sessions, and Server drop stops and waits for the owned Rex child before removing its directory.",
+    "data": "Runs spike-holder as a rupd stand-in against a private Rex socket; resume state lives under the spike temporary directory. Starts no real rupd.",
+    "kind": "fake"
+  },
+  "spikes/rex-client/src/bin/spike/harness.rs": {
+    "cleanup": "Server drop signals and waits for its owned Rex child and removes /tmp/rxs.*; the spike owns the temporary Project, data and fake-agent configuration.",
+    "data": "Implements the rupd stand-in using a Rex child with a private socket, state directory and empty config, plus Launcher argv for fake-agent. Starts no real rupd.",
+    "kind": "fake"
+  },
+  "spikes/rex-client/src/bin/spike/measure.rs": {
+    "cleanup": "Destroys the Rex sessions and closes streams; the shared Server guard stops its owned Rex child and the spike removes its temporary directory.",
+    "data": "Names rupd when comparing in-process Terminals measurements with Rex; delegates Rex and fake-agent launches to the audited spike harness. Starts no real rupd.",
+    "kind": "reference"
   }
 }
