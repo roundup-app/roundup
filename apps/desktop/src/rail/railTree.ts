@@ -5,7 +5,7 @@ import type { Message } from "@contracts/message/Message";
 import type { ConnectedProject } from "../state/connectedProject";
 import { railCollection } from "./collection";
 import { copy } from "./copy";
-import { ancestorsOf, layoutRail, type NodeRow } from "./layout";
+import { layoutRail, type NodeRow } from "./layout";
 import type { RailSection } from "./persist/storage";
 
 export const sections: { id: RailSection; label: string; icon: typeof KIND_ICON[keyof typeof KIND_ICON] }[] = [
@@ -57,25 +57,23 @@ export const createRailTree = (connected: ConnectedProject, unfolded: Accessor<R
       .map(message => message.from.id));
   });
 
-  const sectionNodes = createMemo(() => {
-    const roots = new Map(rail.nodes.filter(node => node.parent === null).map(node => [node.id,
-      node.kind === "agent" ? "agents" : node.opening_prompt?.trim() ? "modes" : "workstreams"]));
+  const topology = rail.topology;
+  const presentSections = createMemo(() => sections.filter(section => topology().section.includes(section.id)));
 
-    return sections.map(section => ({ ...section, nodes: rail.nodes.filter(node => roots.get(ancestorsOf(rail.nodes, node.id).at(-1) ?? node.id) === section.id) }));
-  });
-
-  const sectionRows = createMemo(() => sectionNodes().filter(section => section.nodes.length > 0).map(section => ({
+  const sectionRows = createMemo(() => presentSections().map(section => ({
     ...section,
-    rows: rail.closedSections().has(section.id) ? [] : layoutRail(section.nodes, { collapsed: collapsed(), unfolded: unfolded(), now: now(), protected: protectedIds() }),
+    rows: rail.closedSections().has(section.id) ? [] : layoutRail(topology(), { collapsed: collapsed(), unfolded: unfolded(), now: now(), protected: protectedIds() }, section.id),
   })));
 
   const rows = createMemo(() => sectionRows().flatMap(section => section.rows));
 
   /** Section branches share Ark's keyboard walk and add one semantic level above their rows. */
   const collection = createMemo(() => {
-    const children = sectionNodes().filter(section => section.nodes.length > 0).map(section => ({
+    const allUnfolded = new Set(topology().index.keys());
+
+    const children = presentSections().map(section => ({
       id: `section:${section.id}`, name: section.label,
-      children: railCollection(layoutRail(section.nodes, { collapsed: new Set(), unfolded: new Set(rail.nodes.map(node => node.id)), now: now(), protected: protectedIds() })).rootNode.children ?? [],
+      children: railCollection(layoutRail(topology(), { collapsed: new Set(), unfolded: allUnfolded, now: now(), protected: protectedIds() }, section.id)).rootNode.children ?? [],
     }));
 
     return createTreeCollection({
@@ -104,8 +102,8 @@ export const createRailTree = (connected: ConnectedProject, unfolded: Accessor<R
   const nodeRows = createMemo(() => rows().filter((row): row is NodeRow => row.kind === "node"));
   const nodeIds = createMemo(() => nodeRows().map((row) => row.node.id));
   const indexOf = createMemo(() => new Map(nodeIds().map((id, at) => [id, at])));
-  const treeRows = createMemo(() => nodeRows().map((row) => ({ id: row.node.id, parent: row.node.parent })));
+  const treeRows = createMemo(() => nodeRows().map((row) => ({ id: row.node.id, parent: topology().nodes[topology().parent[topology().index.get(row.node.id)!] ?? -1]?.id ?? null })));
   const byKey = createMemo(() => new Map(rows().map((row) => [row.key, row])));
 
-  return { sectionRows, rows, collection, expanded, entryOf, nodeRows, nodeIds, indexOf, treeRows, byKey };
+  return { topology, sectionRows, rows, collection, expanded, entryOf, nodeRows, nodeIds, indexOf, treeRows, byKey };
 };

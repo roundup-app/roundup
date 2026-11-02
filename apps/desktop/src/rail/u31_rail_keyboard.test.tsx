@@ -463,3 +463,43 @@ describe("u31 rail keyboard", () => {
     expect(document.querySelector(".pane-screen textarea")).not.toBeNull();
   });
 });
+
+it("u5645c_keyboard_skips_unavailable_rows", async () => {
+  localStorage.clear();
+  await mountRail([workstream("g"), agent("collapsed", "working", "x", { parent: "g" }),
+    agent("a", "working", "x"), agent("hidden", "working", "x", { order: 1 }),
+    agent("inert", "working", "x", { order: 2 }), agent("disabled", "working", "x", { order: 3 }),
+    agent("z", "working", "x", { order: 4 })]);
+  fireEvent.click(rowOf("g").querySelector('button[aria-label="Collapse"]')!);
+  await settled();
+  rowOf("hidden").hidden = true;
+  rowOf("inert").setAttribute("inert", "");
+  rowOf("disabled").setAttribute("aria-disabled", "true");
+  rowOf("a").focus();
+  press("ArrowDown");
+  await settled();
+  expect(document.activeElement).toBe(rowOf("z"));
+  press("ArrowUp");
+  await settled();
+  expect(document.activeElement).toBe(rowOf("a"));
+  press("End");
+  await settled();
+  expect(document.activeElement).toBe(rowOf("z"));
+  press("Home");
+  await settled();
+  expect(document.activeElement).toBe(document.querySelector('.rail-tree .section-head'));
+  press("ArrowDown");
+  await settled();
+  expect(document.activeElement).toBe(rowOf("g"));
+  press("ArrowRight");
+  await settled();
+  press("ArrowRight");
+  await settled();
+  expect(document.activeElement).toBe(rowOf("collapsed"));
+  press("ArrowLeft");
+  await settled();
+  expect(document.activeElement).toBe(rowOf("g"));
+  press("z");
+  await settled();
+  expect(document.activeElement).toBe(rowOf("z"));
+});
