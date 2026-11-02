@@ -67,7 +67,7 @@ export const TodoHeader = (props: {
 
           if (value === "home" && trigger) setMoving({ id: props.todo.id, anchor: trigger });
         }}>
-          <Menu.Trigger asChild={attributes => <IconButton {...attributes({ ref: (element: HTMLButtonElement) => { trigger = element; } })} aria-label={copy.todoMoreActions} onClick={() => setActions(true)}><Icon name="more" /></IconButton>} />
+          <Menu.Trigger asChild={attributes => <IconButton {...attributes({ ref: (element: HTMLButtonElement) => { trigger = element; } })} aria-label={copy.todoMoreActions}><Icon name="more" /></IconButton>} />
           <Portal><Menu.Positioner><Menu.Content aria-label={copy.todoActions}>
             <Menu.Item value="owner" disabled={props.todo.done}>{copy.assign}</Menu.Item>
             <Menu.Item value="hand" disabled={props.todo.done || !ownersOnRail(connected).some(owner => owner.actor?.kind === "agent" && !sameOwner(owner.actor, props.todo.owner))}>{copy.handToAgent}</Menu.Item>
