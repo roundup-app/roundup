@@ -277,3 +277,231 @@ impl Daemon {
         outcome
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use base64::{Engine, engine::general_purpose::STANDARD};
+    use std::sync::Mutex;
+
+    #[derive(Clone, Default)]
+    struct Input(Arc<Mutex<Vec<Vec<u8>>>>);
+    impl io::Write for Input {
+        fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
+            self.0.lock().unwrap().push(bytes.to_vec());
+            Ok(bytes.len())
+        }
+        fn flush(&mut self) -> io::Result<()> {
+            Ok(())
+        }
+    }
+    struct Listed;
+    #[async_trait::async_trait]
+    impl Module for Listed {
+        fn namespaces(&self) -> &'static [&'static str] {
+            &["terminal"]
+        }
+        async fn call(&self, _: &Ctx, method: &str, _: Value) -> Result<Value, RpcError> {
+            assert_eq!(method, "terminal.list");
+            Ok(
+                json!([{"id":"1", "incarnation":"fixture", "cwd":"/", "program":"", "running":true, "owner":"1"}]),
+            )
+        }
+    }
+    fn fixture() -> (tempfile::TempDir, Daemon, Conn, Input) {
+        let dir = tempfile::tempdir().unwrap();
+        let input = Input::default();
+        input.0.lock().unwrap().reserve(4);
+        let recorded = input.clone();
+        let mut daemon = test_daemon_with_agents(dir.path(), |_: agents::Agents| {
+            let bus = Bus::new();
+            let terminals = Arc::new(
+                terminal::Terminals::open(dir.path(), bus.clone())
+                    .unwrap()
+                    .with_test_input(recorded),
+            );
+            agents::Agents::open(dir.path(), dir.path(), bus, terminals).unwrap()
+        })
+        .unwrap();
+        rusqlite::Connection::open(dir.path().join("project.db")).unwrap().execute_batch(
+            "INSERT INTO nodes(id,kind,name,ord) VALUES(1,'agent','Writer',0),(2,'agent','Other',1);"
+        ).unwrap();
+        daemon.register(Arc::new(Listed));
+        let (events, _) = mpsc::unbounded_channel();
+        let conn = Conn {
+            actor: Actor::user(),
+            peer: None,
+            events,
+            output: None,
+        };
+        (dir, daemon, conn, input)
+    }
+    fn actor(id: &str) -> Actor {
+        Actor {
+            kind: ActorKind::Agent,
+            id: id.into(),
+            parent: None,
+        }
+    }
+    fn request(params: Value) -> Value {
+        json!({"jsonrpc":"2.0", "id":7, "method":"terminal.write", "params":params})
+    }
+
+    #[test]
+    fn r5638c_dispatch_consumes_large_write_without_payload_clones() {
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let (_dir, daemon, mut conn, input) = fixture();
+        let bytes: Vec<u8> = (0..786432).map(|n| n as u8).collect();
+        let encoded = STANDARD.encode(&bytes);
+        assert_eq!(encoded.len(), 1048576);
+        let new_request = request(json!({"id":"1", "data":encoded}));
+        let old_request = new_request.clone();
+        let old_actor = actor("1");
+        let new_actor = old_actor.clone();
+        // Warm only entry tasks, not either measured request or envelope.
+        rt.block_on(daemon.dispatch(&mut conn, r#"{"id":0,"method":"daemon.ping"}"#, None));
+        let (mut old_reply, mut new_reply) = (None, None);
+        let before = allocation_counter::measure(|| {
+            // Check 3's two clones; production below supplies identical guards, decode and effect.
+            let params = old_request["params"].clone();
+            let mut copied = old_request;
+            copied["params"] = params.clone();
+            std::hint::black_box(params);
+            old_reply = rt.block_on(daemon.dispatch_parsed(&mut conn, copied, Some(old_actor)));
+        });
+        let after = allocation_counter::measure(|| {
+            new_reply =
+                rt.block_on(daemon.dispatch_parsed(&mut conn, new_request, Some(new_actor)));
+        });
+        assert_eq!(
+            old_reply.unwrap().into_value(),
+            new_reply.unwrap().into_value()
+        );
+        assert_eq!(input.0.lock().unwrap().as_slice(), &[bytes.clone(), bytes]);
+        eprintln!(
+            "1 MiB encoded write allocated bytes: old={} new={}",
+            before.bytes_total, after.bytes_total
+        );
+        assert!(before.bytes_total >= after.bytes_total + 2 * 1048576 - 4096);
+        assert!(
+            after.bytes_total < 2_000_000,
+            "new dispatch still copies an encoded payload"
+        );
+    }
+
+    #[tokio::test]
+    async fn r5638d_resolved_agent_cannot_write_as_user() {
+        let (_dir, daemon, mut conn, input) = fixture();
+        let reply = daemon
+            .dispatch_parsed(
+                &mut conn,
+                request(json!({"id":"1","data":"!"})),
+                Some(actor("2")),
+            )
+            .await
+            .unwrap()
+            .into_value();
+        assert_eq!(conn.actor, actor("2"));
+        assert_eq!(reply["error"]["code"], code::FORBIDDEN);
+        assert!(input.0.lock().unwrap().is_empty());
+    }
+    #[tokio::test]
+    async fn r5638d_malformed_write_has_no_effect() {
+        let (_dir, daemon, mut conn, input) = fixture();
+        for params in [
+            Value::Null,
+            json!(false),
+            json!([]),
+            json!({}),
+            json!({"id":"1"}),
+            json!({"data":"eA=="}),
+            json!({"id":1,"data":"eA=="}),
+            json!({"id":"1","data":3}),
+            json!({"id":"1","data":"!"}),
+        ] {
+            let mut req = request(params);
+            if req["params"].is_null() {
+                req.as_object_mut().unwrap().remove("params");
+            }
+            let reply = daemon
+                .dispatch_parsed(&mut conn, req, Some(actor("1")))
+                .await
+                .unwrap()
+                .into_value();
+            assert_eq!(reply["error"]["code"], code::INVALID_PARAMS);
+            assert!(input.0.lock().unwrap().is_empty());
+        }
+    }
+    #[tokio::test]
+    async fn r5638d_unknown_terminal_has_no_effect() {
+        let (_dir, daemon, mut conn, input) = fixture();
+        for data in ["eA==", "!"] {
+            let reply = daemon
+                .dispatch_parsed(
+                    &mut conn,
+                    request(json!({"id":"999","data":data})),
+                    Some(actor("1")),
+                )
+                .await
+                .unwrap()
+                .into_value();
+            assert_eq!(reply["error"]["code"], code::NOT_FOUND);
+            assert!(input.0.lock().unwrap().is_empty());
+        }
+    }
+    #[tokio::test]
+    async fn r5638e_replies_preserve_arbitrary_ids() {
+        let (_dir, daemon, mut conn, input) = fixture();
+        for id in [
+            Value::Null,
+            json!(true),
+            json!(false),
+            json!(-17),
+            json!(u64::MAX),
+            json!(1.25),
+            json!([1, "x"]),
+            json!({"终\n\0":"\\\""}),
+            json!("终\n\t\0\\\""),
+        ] {
+            for caller in ["1", "2"] {
+                let mut req = request(json!({"id":"1","data":"eA=="}));
+                req["id"] = id.clone();
+                let line = daemon
+                    .dispatch_parsed(&mut conn, req, Some(actor(caller)))
+                    .await
+                    .unwrap()
+                    .into_line()
+                    .unwrap();
+                let reply: Value = serde_json::from_slice(&line).unwrap();
+                assert_eq!(reply["id"], id);
+                assert_eq!(reply.get("result").is_some(), caller == "1");
+            }
+        }
+        assert_eq!(input.0.lock().unwrap().len(), 10);
+        let parse = daemon
+            .dispatch(&mut conn, "{", None)
+            .await
+            .unwrap()
+            .into_value();
+        assert_eq!(parse["id"], Value::Null);
+        assert_eq!(parse["error"]["code"], code::PARSE_ERROR);
+    }
+    #[tokio::test]
+    async fn r5638e_notifications_preserve_effects_without_replies() {
+        let (_dir, daemon, mut conn, input) = fixture();
+        for caller in ["1", "2"] {
+            let mut req = request(json!({"id":"1","data":"eA=="}));
+            req.as_object_mut().unwrap().remove("id");
+            assert!(
+                daemon
+                    .dispatch_parsed(&mut conn, req, Some(actor(caller)))
+                    .await
+                    .is_none()
+            );
+            assert_eq!(input.0.lock().unwrap().as_slice(), &[b"x".to_vec()]);
+        }
+    }
+}

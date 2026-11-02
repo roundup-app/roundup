@@ -25,7 +25,7 @@ impl Frame {
         }
     }
 
-    fn into_line(self) -> io::Result<Vec<u8>> {
+    pub(super) fn into_line(self) -> io::Result<Vec<u8>> {
         let mut bytes = match self {
             Self::Value(value) => serde_json::to_vec(&value).map_err(io::Error::other)?,
             Self::Json(text) => text.into_bytes(),
