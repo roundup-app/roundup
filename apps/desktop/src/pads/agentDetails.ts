@@ -64,6 +64,7 @@ export const agentDetailsView = $view(agentDetailsNode, () => (node, view, getPo
   summary.setAttribute("aria-expanded", "false");
   dom.addEventListener("toggle", () => summary.setAttribute("aria-expanded", String(dom.open)));
   const title = document.createElement("input");
+  title.type = "text";
   title.setAttribute("aria-label", copy.toggleLabel);
   title.value = label(node.textContent);
   title.readOnly = !view.editable;
