@@ -133,7 +133,6 @@ it("u4698b_expand_keeps_the_long_pad_and_all_formats_reachable", { retry: 0, tim
   }
 });
 
-
 it.each(["plus", "slash"].flatMap(entry => [false, true].map(afterPad => ({ entry, afterPad }))))("u5631_todo_block_menu_excludes_agent_details $entry afterPad=$afterPad", { retry: 0, timeout: 90_000 }, async ({ entry, afterPad }) => {
   await openShelf("tree-40", 288, 320, 1512, "dark");
   await browser("set", "viewport", "1512", "950");
@@ -223,12 +222,18 @@ it.each(["plus", "slash"].flatMap(entry => [false, true].map(afterPad => ({ entr
 
     if (entry === "plus") expect(count).toBeGreaterThan(0);
 
-    await evaluate("window.__u5631Selected = []; true");
-    // Crepe renders its selection on Vue's next tick; two paint frames expose it before the next key.
-    const selectedFrame = "eval " + JSON.stringify("(async () => { await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))); window.__u5631Selected.push(document.querySelector('.milkdown-slash-menu[data-show=true] [aria-selected=true]')?.textContent.trim() ?? null); return true; })()");
+    const selection = "document.querySelector('.milkdown-slash-menu[data-show=true] [aria-selected=true]')";
+    const selected: string[] = [];
 
-    if (count) await browser("batch", "--bail", ...Array.from({ length: count }, () => ["press ArrowDown", selectedFrame]).flat());
-    const selected = await evaluate<(string | null)[]>("window.__u5631Selected");
+    // Crepe's menu/component.tsx clamps ArrowDown at the last item. PadRichEditor.updateMenu
+    // mirrors that selection into aria-selected, which acknowledges each key before the next.
+    for (let index = 0; index < count; index++) {
+      if (index) await browser("press", "ArrowDown");
+      await browser("wait", "--fn", `${selection}?.getAttribute('data-index') === '${index}'`);
+      selected.push(await evaluate<string>(`${selection}.textContent.trim()`));
+    }
+
+    expect(selected).toEqual(offered);
 
     const retained = () => evaluate("JSON.parse(localStorage.getItem('roundup:drafts:/Users/you/harness') ?? '{\"drafts\":[]}').drafts.filter(draft => draft.destination.surface === 'todos').map(draft => ({ destination: draft.destination, text: draft.value.text }))");
     const unfinished = await retained();
@@ -244,7 +249,6 @@ it.each(["plus", "slash"].flatMap(entry => [false, true].map(afterPad => ({ entr
     expect(await evaluate("window.__fake.app.calls.filter(call => ['todo.update', 'pad.write'].includes(call.method))")).toEqual([]);
     expect(offered.includes("For Agents")).toBe(false);
     expect(selected.includes("For Agents")).toBe(false);
-    expect(selected.includes(null)).toBe(false);
 
   } finally {
     if (menuOutput) await browser("record", "stop");
