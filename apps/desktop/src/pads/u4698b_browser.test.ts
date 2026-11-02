@@ -1,14 +1,18 @@
-import { copyFileSync, mkdirSync, writeFileSync } from "node:fs";
+import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, it } from "vitest";
 import { captureDir } from "../testing/captures";
-import ownerSample from "./owner-sample.md?raw";
-import structureSample from "./structure-sample.md?raw";
 import { shelfBrowser } from "../shelf/u371Browser";
 
 const { browser, evaluate, settle, openShelf } = shelfBrowser();
 
+const ownerSample = readFileSync(join(process.cwd(), "src/pads/owner-sample.md"), "utf8");
+
+const structureSample = readFileSync(join(process.cwd(), "src/pads/structure-sample.md"), "utf8");
+
 const output = captureDir("U4698b");
+
+const typographyOutputs = [captureDir("U5574a"), captureDir("U5574b")].filter((path): path is string => path !== null);
 
 const capture = async (name: string) => {
   if (!output) return;
@@ -16,7 +20,7 @@ const capture = async (name: string) => {
   writeFileSync(join(output, `${name}.checks.json`), JSON.stringify(await evaluate("window.__checks()")));
 };
 
-it("u4698b_expand_keeps_the_long_pad_and_all_formats_reachable", { retry: 0, timeout: output ? 240_000 : 90_000 }, async () => {
+it.skipIf(typographyOutputs.length > 0)("u4698b_expand_keeps_the_long_pad_and_all_formats_reachable", { retry: 0, timeout: output ? 240_000 : 90_000 }, async () => {
   await openShelf("tree-40", 288, 320, 1512, "dark");
 
   await browser("set", "viewport", "1512", "950");
@@ -134,15 +138,17 @@ it("u4698b_expand_keeps_the_long_pad_and_all_formats_reachable", { retry: 0, tim
 });
 
 // Policy observers record visual evidence; assertions stay in the behavioral guards.
-const typographyOutputs = [captureDir("U5574a"), captureDir("U5574b")].filter((path): path is string => path !== null);
 
 it.skipIf(typographyOutputs.length === 0)("u5574a_u5574b_observe_pad_scale_and_rhythm", { retry: 0, timeout: 600_000 }, async () => {
   const fixtures = [{ name: "owner", text: ownerSample }, { name: "structure", text: structureSample }];
   const revision = process.env.ROUNDUP_PAD_BASELINE ? "base" : "head";
 
+  let readings: unknown;
+
   const save = async (name: string) => {
     await settle();
-    const readings = await evaluate("window.__checks()");
+
+    if (name.endsWith("-rest")) readings = await evaluate("window.__checks()");
 
     let image: string | undefined;
 
@@ -242,20 +248,22 @@ it.skipIf(typographyOutputs.length === 0)("u5574a_u5574b_observe_pad_scale_and_r
   }
 });
 
-it.skipIf(typographyOutputs.length === 0)("u5574b_handles_focus_and_failure_keep_the_sample_draft", { retry: 0, timeout: 180_000 }, async () => {
+it.skipIf(typographyOutputs.length === 0)("u5574b_empty_document_remains_editable_after_rhythm_changes", { retry: 0, timeout: 180_000 }, async () => {
   await openShelf("tree-40", 288, 320, 1512, "dark");
   await browser("set", "viewport", "1512", "950");
+  const revision = process.env.ROUNDUP_PAD_BASELINE ? "base" : "head";
+  const dir = join(typographyOutputs[0]!, revision);
+  mkdirSync(dir, { recursive: true });
+  await browser("record", "start", join(dir, "complete-recovery.webm"));
+  await browser("wait", ".shelf-tabs");
+  await settle();
   await evaluate(`(async () => { await window.__fake.app.rpc('pad.create', ${JSON.stringify({ name: "rhythm-probe", text: structureSample })}); document.querySelector('#shelf-tab-pads').click(); return true; })()`);
   await browser("wait", "[data-shelf-group=unassigned]");
   await evaluate(`(() => { const group = document.querySelector('[data-shelf-group=unassigned] [data-part=branch-control]'); if (group?.getAttribute('data-state') === 'closed') group.click(); return true; })()`);
   await browser("wait", ".pad-name");
   await evaluate(`(() => { [...document.querySelectorAll('.pad-name')].find(row => row.textContent === 'rhythm-probe').focus(); return true; })()`);
   await browser("press", "Enter");
-  await browser("wait", ".drawer .ProseMirror");
-  const revision = process.env.ROUNDUP_PAD_BASELINE ? "base" : "head";
-  const dir = join(typographyOutputs[0]!, revision);
-  mkdirSync(dir, { recursive: true });
-  await browser("record", "start", join(dir, "handles-and-recovery.webm"));
+  await browser("wait", ".drawer .ProseMirror h1");
 
   const save = async (name: string) => {
     await settle();
@@ -284,6 +292,28 @@ it.skipIf(typographyOutputs.length === 0)("u5574b_handles_focus_and_failure_keep
   await browser("click", ".pad-head-name");
   await browser("wait", "--fn", "document.body.textContent.includes('disk is full')");
   await save("dense-save-failure");
-  expect(await evaluate("document.querySelector('.ProseMirror').textContent.includes('Retained typography draft')")).toBe(true);
+  await browser("click", "[data-pad-dismiss]");
+  await settle();
+  await evaluate(`(async () => {
+    const pad = await window.__fake.app.rpc('pad.read', {name: 'rhythm-probe'});
+    await window.__fake.app.rpc('pad.write', {name: pad.name, text: pad.text + ${JSON.stringify("\n\nExternal revision")}, expectedIncarnation: pad.incarnation, expectedRevision: pad.revision});
+    return true;
+  })()`);
+  await browser("wait", "--fn", "[...document.querySelectorAll('.pad-body button')].some(button => button.textContent === 'Keep mine')");
+  await save("dense-conflict");
+  await browser("click", ".drawer .close");
+  await settle();
+  await evaluate(`(async () => { await window.__fake.app.rpc('pad.create', {name:'empty-rhythm',text:''}); return true; })()`);
+  await browser("wait", "--fn", "[...document.querySelectorAll('.pad-name')].some(row => row.textContent === 'empty-rhythm')");
+  await evaluate("[...document.querySelectorAll('.pad-name')].find(row => row.textContent === 'empty-rhythm').focus(); true");
+  await browser("press", "Enter");
+  await browser("wait", ".ProseMirror p");
+  await save("empty-document");
+  await browser("focus", ".ProseMirror");
+  await browser("keyboard", "type", "A new paragraph");
+  await browser("click", ".pad-head-name");
+  await browser("wait", "--fn", "window.__fake.app.calls.some(call => call.method === 'pad.write' && call.params.name === 'empty-rhythm')");
+  expect(await evaluate("window.__fake.app.rpc('pad.read', {name:'empty-rhythm'}).then(pad => pad.text.trim())")).toBe("A new paragraph");
+  await save("empty-document-edited");
   await browser("record", "stop");
 });

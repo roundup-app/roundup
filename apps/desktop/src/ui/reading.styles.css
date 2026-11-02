@@ -141,7 +141,9 @@
 .pad-body .reading blockquote { padding-inline-start: var(--pad-gap-block); }
 .pad-body .reading .ProseMirror > :first-child { margin-block-start: 0; }
 
-/* Preserve empty source nodes and a caret line, while removing their gaps. */
-.pad-body .reading p:is(:empty, :has(> br:only-child)) {
+/* Preserve empty source nodes and the native caret, while removing their gaps. */
+.pad-body .reading p:is(:empty, :has(> br.ProseMirror-trailingBreak:only-child)) {
   margin-block: 0;
+  height: 0;
+  line-height: 0;
 }
