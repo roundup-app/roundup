@@ -15,6 +15,7 @@ import { showShelfTab } from "../testing/shelfTabs";
 import { padHandlers } from "../testing/stores";
 import { rowOf } from "../rail/railFixture";
 import { createFakeApp } from "../testing/fakeApp";
+import { useBrowserStorage } from "../state/storage";
 import { agent, door } from "../testing/nodes";
 
 afterEach(cleanup);
@@ -191,6 +192,8 @@ it.each(owners)("u5247a_every_named_icon_button_key_runs_its_action: %s", async 
 
   const run = async (how: "click" | "press") => {
     cleanup();
+    // Each comparison owns a fresh adapter; pending saves from the prior mount cannot repopulate it.
+    useBrowserStorage(localStorage);
     localStorage.clear();
     const app = await mountOwners();
     const button = await find();
