@@ -13,7 +13,7 @@ import { Combobox } from "./ui/Combobox";
 import { CHORDS, LEADER, defaultKeys, shortcutLabel } from "./keys/chords";
 import { copy } from "./app/copy";
 import "./buttons.css";
-import { createEffect, createMemo, createResource, createSignal, createUniqueId, For, getOwner, on, onCleanup, onMount, runWithOwner, Show, untrack } from "solid-js";
+import { lazy, createEffect, createMemo, createResource, createSignal, createUniqueId, For, getOwner, on, onCleanup, onMount, runWithOwner, Show, untrack } from "solid-js";
 import type { Accessor, JSX } from "solid-js";
 import { ChooseProject, EmptyRail, EmptyShelf } from "./app/FirstRun";
 import { Layout } from "./app/Layout";
@@ -41,8 +41,6 @@ import { ProjectSettingsView } from "./rail/ProjectSettings";
 import { Help } from "./keys/Help";
 import { Leader } from "./keys/Leader";
 import type { LinkContent } from "@contracts/link/LinkContent";
-import { PadHost } from "./pads/PadDrawer";
-import { TodoHost } from "./todos/TodoDrawer";
 import { Capture } from "./todos/Capture";
 import { createNow, DisplayClockContext } from "./state/clock";
 import type { Clock } from "./state/clock";
@@ -68,6 +66,10 @@ import { createShelfFrame } from "./shelf/frame";
 import { Shelf, createShelfTabs, ShelfTabs, ProjectShelfTabs } from "./shelf/Shelf";
 import { shelfKeys } from "./shelf/keys";
 import { createWidths } from "./resize/widths";
+
+const TodoHost = lazy(() => import("./todos/TodoDrawer").then(module => ({ default: module.TodoHost })));
+
+const PadHost = lazy(() => import("./pads/PadDrawer").then(module => ({ default: module.PadHost })));
 
 const daemonExitText = ({ code, recovery, cause }: DaemonExit): string | null =>
   recovery ? null : cause ?? copy.daemonExit(exitText(code === null ? { kind: "signal" } : { kind: "code", code }));
@@ -605,7 +607,6 @@ export const App = (props: {
   registerKeys({ kind: "layer", element: () => projectPanel, active: projectPicker, modal: true }, [{ chords: ["Escape"], run: () => setProjectPicker(false) }]);
 
   const emulators = () => props.createEmulator ?? lazyXtermEmulators();
-
 
   return (
     <ReducedMotionContext.Provider value={props.reducedMotion}><DisplayClockContext.Provider value={now.subscribe}><ProjectDraftsContext.Provider value={drafts}><Show when={projects.loaded()}>
