@@ -11,6 +11,7 @@ Scope: web test mounts and queries under `apps/desktop/`, the existing reporting
 3. File timing including hooks: `loop/web-durations.py`, module docstring and stdin parser; `justfile`, `web-durations`. Prefer Vitest's printed file duration, which includes file hooks, to its JSON assertion interval, which omits them.
 4. Existing shard assignment: `apps/desktop/src/testing/shardSequencer.ts`, `TimedSequencer`; `apps/desktop/src/testing/shardDurations.json`; `justfile`, `test-web-since`. A full observation uses an empty base, not a PR's affected selection.
 5. Assertion preservation and library reuse: `AGENTS.md`, Rules 9 and 10. The installed Ark UI and Testing Library capabilities are inspected before introducing machinery; existing test behavior remains acceptance.
+6. Native dependency gating: `loop/orders.py`, `holds` and `classify`; `loop/orders.test.py`, `Orders.test_l34_only_completed_dependencies_unblock_work`. An open predecessor blocks its dependent even when their scenario permits parallel builds. Work order fields and native dependencies are defined in `.agents/data/work.md`, Work orders.
 
 ## Acceptance
 
@@ -158,3 +159,15 @@ The regression fixtures exercise below/at/above 720 seconds, an already-failed t
 The specification is complete when CI5527a partitions all 77 baseline files exactly once into CI5527d–k, each has a scoped child Issue, and a final CI5527b/c implementation Issue is blocked by every child. The specification PR closes #5527 only for this split; it does not claim the performance target or guard is implemented. Implementation Issues remain open for their own acceptance and are blocked until these scenarios merge.
 
 The final implementation Issue retains CI5527b's first green full-main observation after its implementation merge. Its guard PR alone cannot supply that post-merge evidence: keep that Issue open until a subsequent run records all seven full step intervals, repairs forward on failure, and closes it with the observation evidence. A green PR with selected tests supplies no full-run performance result. Progress, measurements and unresolved engineering work belong on the Issues. No scenario Work table or Mac-only observation is required.
+
+## Parallel-child dependency repair
+
+Work order: [#5783](https://github.com/roundup-app/roundup/issues/5783). Scope: native GitHub dependencies and the preceding-child start instructions on the existing CI5527 child Issues. Queue code, workflows, test repairs and the performance acceptance above stay unchanged.
+
+**CI5783a child selection does not wait for a sibling.** Given CI5527d–k's independent child acceptance, when the Issue dependencies are reconciled, then these six blocked-by edges are absent: #5660 → #5659, #5661 → #5660, #5662 → #5661, #5663 → #5662, #5664 → #5663 and #5665 → #5664 (policy; observer: fresh `gh api repos/roundup-app/roundup/issues/<child>/dependencies/blocked_by` responses for all six children, recording blocker numbers before and after on #5783). The arrow means the left Issue is blocked by the right Issue. An edge already absent needs no mutation; no Issue is closed to remove a dependency.
+
+Then #5659–#5665's bodies direct each child to begin from current `origin/main` independently of preceding children, without the instruction to wait for the preceding child to complete. Preserve their other acceptance, Scope and queue fields; validate each edited body with `python3 loop/orders.py check <body-file>` before publishing it (policy; observer: before/after body diffs and checker exit codes on #5783).
+
+Then every dependency outside the six named edges is preserved, including #5666's final-budget blockers and the children's completed specification blockers. With #5659 still open, #5660 is not held by #5659: `python3 loop/orders.py ready --json` reports it ready when no other hold applies, or reports an independently identified hold such as an active PR. Do not close a sibling, remove another hold or change the queue to obtain a ready result (policy; observer: before/after dependency sets for #5659–#5666 and the fresh queue result, with commands, exit codes and any remaining hold recorded on #5783; Check 6's existing test proves open dependencies still block).
+
+The specification PR references #5783 and leaves it open in `Mode: implement`; only the subsequent dependency/body repair and its recorded observers complete this acceptance. API or observer failures remain visible on that Issue and do not count as an empty dependency set or a successful queue result (policy).
