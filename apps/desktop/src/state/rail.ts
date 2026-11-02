@@ -11,7 +11,7 @@ import type { RailNode } from "@contracts/agent/RailNode";
 import type { TerminalInfo } from "@contracts/terminal/TerminalInfo";
 import { defaultWorkstreamName } from "../rail/defaultName";
 import { ancestorsOf, isWorkstream } from "../rail/layout";
-import type { RailSection, RailStorage } from "../rail/persist/storage";
+import type { RailSection, RailStorage, ResumptionStorage } from "../rail/persist/storage";
 import type { Events } from "../app/events";
 import { outcomeOf, type AppSeam } from "../app/seam";
 
@@ -36,6 +36,8 @@ export type RailState = {
   commandFailure: ReturnType<typeof createItemFailure>;
   /** Rows in the Daemon's order; only a `rail.tree` call adds or removes one. */
   readonly nodes: readonly RailNode[];
+  /** U5483c: latest accepted working start in milliseconds; retained across Project connections for the same Attempt. */
+  resumedAt(id: string): number | undefined;
   /** `null` while the node's program runs, and for a Workstream (one with no program). */
   exitOf(node: RailNode): ExitState | null;
   /** X11, X12: every Terminal the Daemon lists, as of the last `terminal.list`. */
@@ -113,11 +115,20 @@ const movedTo = (tree: readonly RailNode[], id: string, place: RailPlace): RailN
 /** A24: how long the App waits for `rail.startDoor`, the Daemon's own bound of 10 000 ms. */
 const DOOR_START_BOUND_MS = 10_000;
 
-export const createRailState = (app: AppSeam, events: Events, storage?: RailStorage, dismissals?: DismissalStorage): RailState => {
+export const createRailState = (app: AppSeam, events: Events, storage?: RailStorage, dismissals?: DismissalStorage, resumptions?: ResumptionStorage): RailState => {
   const [model, setModel] = createStore<{ tree: RailNode[]; exited: Record<string, number | null> }>({
     tree: [],
     exited: {},
   });
+
+  const [resumed, setResumed] = createStore<Parameters<ResumptionStorage["write"]>[0]>(resumptions?.read() ?? {});
+
+  const recordResumption = (node: RailNode): boolean => {
+    if (node.status?.kind !== "working" || (resumed[node.id]?.attempt === node.attempt && resumed[node.id]?.since === node.status.since)) return false;
+    setResumed(node.id, { attempt: node.attempt, since: node.status.since });
+
+    return true;
+  };
 
   const [doors, setDoors] = createStore<Record<string, { pending: boolean; observedLive: boolean; failure: { message: string; attempt: string | null } | null }>>({});
   const [terminals, setTerminals] = createSignal<readonly TerminalInfo[]>([]);
@@ -147,6 +158,10 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
 
     if (closedSections().size > 0) layout.sections = [...closedSections()];
     setStorageFailure(await storage?.write(layout) ?? null);
+  };
+
+  const saveResumptions = async () => {
+    setStorageFailure(await resumptions?.write({ ...resumed }) ?? null);
   };
 
   const reveal = (id: string | null) => {
@@ -205,6 +220,7 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
 
   const fetchTree = async () => {
     const tree = await app.rpc("rail.tree", null);
+    let resumptionChanged = false;
 
     batch(() => {
       reconcileAsked(tree);
@@ -219,7 +235,15 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
 
       setModel("tree", reconcile(shown, { key: "id" }));
 
+      for (const id of Object.keys(resumed)) {
+        if (tree.some(node => node.id === id && node.attempt === resumed[id]?.attempt)) continue;
+        setResumed(id, undefined!);
+        resumptionChanged = true;
+      }
+
       for (const node of tree) {
+        if (recordResumption(node)) resumptionChanged = true;
+
         if (doors[node.id]?.pending && hasLiveTerminal(node)) setDoors(node.id, "observedLive", true);
         const failed = doors[node.id]?.failure;
 
@@ -250,6 +274,8 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
         }
       }
     });
+
+    if (resumptionChanged) await saveResumptions();
 
     const wanted = wantedWorkstream;
 
@@ -313,6 +339,9 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
         setModel("tree", node => node.id === event.data.id, "name", event.data.name);
       } else if (event.name === "agent.status") {
         setModel("tree", (node) => node.id === event.data.id && node.attempt === event.data.attempt && node.status_revision !== null && BigInt(event.data.status_revision) > BigInt(node.status_revision), { status: event.data.status, status_revision: event.data.status_revision });
+        const node = model.tree.find(node => node.id === event.data.id);
+
+        if (node && recordResumption(node)) void saveResumptions();
       } else if (event.name === "agent.toolCall") {
         setModel("tree", (node) => node.id === event.data.id, "tool_call", reconcile(event.data.call));
       } else if (event.name === "terminal.changed") {
@@ -423,6 +452,7 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
   });
 
   const state: RailState = {
+    resumedAt: id => resumed[id]?.since,
     commandFailure,
     terminals,
     terminalExit: (id) => {

@@ -74,24 +74,24 @@ export const TodoComments = (props: { id: number; onSent?: ((focus: ReturnType<t
   createEffect(() => onCleanup(drafts.editor({ surface: "todos", object: String(props.id), recipient: "comment" })));
   const [expanded, setExpanded] = createSignal(false);
   const [commentsLoaded, setCommentsLoaded] = createSignal(false);
+  const [historyExpanded, setHistoryExpanded] = createSignal(false);
 
-  type Entry = { key: string; at: number; seq: number; change: Change } | { key: string; at: number; seq: number; comment: Comment };
+  type Entry = { key: string; at: number; seq: number; comment: Comment };
 
   let cutoff: Entry | undefined;
   let initialized = false;
 
   const history = createTodoHistory({ get id() { return props.id; }, saved: props.saved, onCapture: props.onCapture,
-    exposed: () => entries().length >= 0 && initialized && (expanded() || history.unreadOpening().every(change => !older().some(entry => "change" in entry && entry.change.seq === change.seq))) });
+    exposed: historyExpanded });
 
-  const compare = (a: Entry, b: Entry) => a.at - b.at || Number("comment" in a) - Number("comment" in b) || a.seq - b.seq;
+  const compare = (a: Entry, b: Entry) => a.at - b.at || a.seq - b.seq;
 
   const entries = createMemo<Entry[]>((previous) => {
-    const all: Entry[] = [...(history.changes() ?? []).map(change => ({ key: `h${change.seq}`, at: change.changed_at ?? Number.NEGATIVE_INFINITY, seq: change.seq, change })),
-      ...thread.map(comment => ({ key: `c${comment.id}`, at: comment.created_at, seq: comment.id, comment }))];
+    const all: Entry[] = thread.map(comment => ({ key: `c${comment.id}`, at: comment.created_at, seq: comment.id, comment }));
 
     all.sort(compare);
 
-    if (!initialized && all.length > 0 && (commentsLoaded() || failure() !== null) && (history.changes() !== undefined || history.failed())) {
+    if (!initialized && all.length > 0 && (commentsLoaded() || failure() !== null)) {
       // Anchor the oldest exposed entry: recovery may insert entries on either side.
       cutoff = all.length > 20 ? all[all.length - 20] : undefined;
       initialized = true;
@@ -135,7 +135,7 @@ export const TodoComments = (props: { id: number; onSent?: ((focus: ReturnType<t
     if (alive && mine === latest && id === props.id) setFailure(message);
   };
 
-  createEffect(on(() => props.id, () => { setThread(reconcile([], byId)); setAnnouncement(""); shown = null; setFailure(null); setSendFailure(null); setCommentsLoaded(false); initialized = false; cutoff = undefined; setExpanded(false); void refresh(); }));
+  createEffect(on(() => props.id, () => { setThread(reconcile([], byId)); setAnnouncement(""); shown = null; setFailure(null); setSendFailure(null); setCommentsLoaded(false); initialized = false; cutoff = undefined; setExpanded(false); setHistoryExpanded(false); void refresh(); }));
   onCleanup(events.subscribe((event) => {
     if (doesClearTodoFailure(event, props.id)) setSendFailure(null);
 
@@ -182,7 +182,7 @@ export const TodoComments = (props: { id: number; onSent?: ((focus: ReturnType<t
     if (message === null) { props.onSaved?.(); await refresh(); props.onSent?.(focus); }
   };
 
-  const renderEntry = (entry: Entry) => "change" in entry ? history.entry(entry.change) : renderComment(entry.comment);
+  const renderEntry = (entry: Entry) => renderComment(entry.comment);
 
   const renderComment = (comment: Comment) => <div class="todo-comment" data-comment={comment.id}>
       <p class="todo-comment-head"><Show when={glyphOf(comment)} fallback={<Show when={comment.author.kind === "agent"}><span class="todo-comment-glyph-gap" aria-hidden="true" /></Show>}>{(node) => <KindGlyph kind={shownKind(node().status, rail.dismissed(node()))} />}</Show><span class="todo-comment-author">{author(comment)}</span> <time datetime={new Date(comment.created_at).toISOString()}>{copy.commentTime(comment.created_at, now())}</time>
@@ -200,6 +200,12 @@ export const TodoComments = (props: { id: number; onSent?: ((focus: ReturnType<t
     <div class="todo-activity-head"><h3>{copy.activity}</h3>{history.copy}</div>
     {history.feedback}
     <ReservedLine message={failure()}><button data-button="quiet" class="word" type="button" onMouseDown={event => event.preventDefault()} onClick={() => void refresh()}>{copy.commentRetry}</button><button data-dismiss-failure onMouseDown={event => event.preventDefault()} data-button="quiet" class="word" type="button" onClick={() => setFailure(null)}>{copy.dismissFailure}</button></ReservedLine>
+    <Show when={(history.changes()?.length ?? 0) > 0}>
+      <Collapsible.Root lazyMount unmountOnExit open={historyExpanded()} onOpenChange={details => setHistoryExpanded(details.open)}>
+        <Collapsible.Trigger data-button="quiet" class="word todo-history-line"><Icon name={historyExpanded() ? "down" : "right"} />{copy.historyEntries(history.changes()!.length)}</Collapsible.Trigger>
+        <Collapsible.Content class="todo-activity-entries"><For each={history.changes()}>{history.entry}</For></Collapsible.Content>
+      </Collapsible.Root>
+    </Show>
     <Collapsible.Root lazyMount open={expanded()} onOpenChange={details => setExpanded(details.open)}>
       <Show when={older().length > 0}><Collapsible.Trigger data-button="quiet" class="word todo-older">{copy.olderActivity(older().length)}</Collapsible.Trigger></Show>
       <Collapsible.Content class="todo-activity-entries"><For each={older()}>{renderEntry}</For></Collapsible.Content>

@@ -32,7 +32,7 @@ describe("U5151c", () => {
     expect(rowOf("two").getAttribute("data-kind")).toBe("error");
     expect(rail.dismissed(rail.nodes.find((node) => node.id === "one")!)).toBe(true);
     expect(rail.dismissed(rail.nodes.find((node) => node.id === "two")!)).toBe(false);
-    expect(app.calls.map((call) => call.method).filter((method) => /^(agent|terminal)\.(send|write|stop|restart)|^(message|workstream)\./.test(method))).toEqual([]);
+    expect(app.calls.map((call) => call.method).filter((method) => /^(agent|terminal)\.(send|write|stop|restart)|^message\.(?!list$)|^workstream\./.test(method))).toEqual([]);
   });
 
   it("u5151c_dismissal_clears_a_collapsed_workstream_summary", async () => {
@@ -50,7 +50,7 @@ describe("U5151e", () => {
   beforeEach(() => { localStorage.clear(); });
 
   const failed = (id: string) => agent(id, "error", "x", { status: { kind: "error", label: LABEL, since: NOW, finished: "0" } });
-  const turns = (app: { calls: { method: string }[] }) => app.calls.map((call) => call.method).filter((method) => /^(agent|terminal)\.(send|write|stop|restart)|^message\./.test(method));
+  const turns = (app: { calls: { method: string }[] }) => app.calls.map((call) => call.method).filter((method) => /^(agent|terminal)\.(send|write|stop|restart)|^message\.(?!list$)/.test(method));
 
   it("u5151e_unsaved_dismissal_is_explained", async () => {
     const writes = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("full"); });
