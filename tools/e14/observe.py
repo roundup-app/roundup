@@ -19,6 +19,7 @@ RUST_SUITES = json.loads(Path(__file__).with_name("rust-suites.json").read_text(
 # The collector starts before CI setup, which can run 28 minutes on a cold cache, so it must outlive the longest job
 # (`timeout-minutes` in check.yml) or it dies before the lane ends and the lane fails with its tests green.
 MEMORY_LIMIT_SECONDS = 40 * 60
+WEB_BUDGET_SECONDS = 720
 
 LANES = [f"rust{i}" for i in range(1, 6)] + [f"web{i}" for i in range(1, 8)]
 
@@ -193,8 +194,8 @@ def run(args):
     if not executed:
         raise ValueError(f"{args.lane}: no executed web file timing evidence")
     elapsed = time.monotonic() - started
-    if elapsed > 720:
-        print(f"{args.lane}: {elapsed:.3f} seconds exceeds 720-second budget; slowest files:")
+    if elapsed > WEB_BUDGET_SECONDS:
+        print(f"{args.lane}: {elapsed:.3f} seconds exceeds {WEB_BUDGET_SECONDS}-second budget; slowest files:")
         for path, duration in sorted(executed, key=lambda row: (-row[1], row[0]))[:5]:
             print(f"  {path}: {duration:g} ms")
         result = result or 1
