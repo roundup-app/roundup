@@ -1,3 +1,4 @@
+import { captureFocus } from "../keys/focus";
 import { copy as appCopy } from "./copy";
 import type { Emulator, EmulatorFactory, Size } from "./emulator";
 
@@ -6,11 +7,14 @@ type Loader = () => Promise<EmulatorFactory>;
 /** The first Terminal's load and every later Terminal's reuse of it (R3800): xterm stays out of the entry until a Terminal mounts. */
 export const lazyEmulators = (load: Loader): EmulatorFactory => {
   let factory: Promise<EmulatorFactory> | undefined;
+  const hosts = new WeakMap<HTMLElement, symbol>();
 
   return (id, copy) => {
     const created = (factory ??= load());
     let real: Emulator | null = null;
     let disposed = false;
+    let shownHost: HTMLElement | null = null;
+    let showing: symbol | null = null;
     let size: Size = { cols: 80, rows: 24 };
     const queue: ((emulator: Emulator) => void)[] = [];
 
@@ -63,13 +67,29 @@ export const lazyEmulators = (load: Loader): EmulatorFactory => {
       selectTurn: (index, extend) => run(emulator => emulator.selectTurn(index, extend)),
       paste: (text) => run(emulator => emulator.paste(text)),
       show: (host, focus) => {
+        shownHost = host;
+
         if (real) return real.show(host, focus);
 
-        run(emulator => { emulator.show(host, focus); });
+        const request = Symbol();
+        hosts.set(host, request);
+        showing = request;
+        const permission = captureFocus();
+        run(emulator => {
+          if (hosts.get(host) !== request) return;
+
+          if (focus === false || !permission(() => emulator.show(host, focus))) emulator.show(host, false);
+        });
 
         return size;
       },
-      focus: () => run(emulator => emulator.focus()),
+      focus: () => {
+        const permission = captureFocus();
+        run(emulator => {
+          if (shownHost && (!showing || hosts.get(shownHost) === showing)) permission(() => emulator.focus());
+        });
+      },
+      blur: () => run(emulator => emulator.blur?.()),
       fit: () => real?.fit() ?? size,
       onResize: (listener) => run(emulator => emulator.onResize?.(listener)),
       isAtBottom: () => real?.isAtBottom() ?? true,
