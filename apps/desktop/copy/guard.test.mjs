@@ -319,3 +319,19 @@ const view = <KeyChip keys={row.keys} />;`;
     { rule: 'key-source', message: 'app/view.tsx:3: keys must come from the registry; only KeyChip emits kbd' },
   ]);
 });
+
+it.each(namespaceLookups)("u5728b_namespace_action_name_lookups_are_accepted %s %s", (binding, rows, alias) => {
+  const source = `import * as ${binding} from "../keys/chords";
+${alias}
+const row = ${rows}.find(row => row.name === "agent.new")!;
+const view = <KeyChip keys={row.keys} />;`;
+
+  expect(checkKeys({ 'app/view.tsx': source })).toEqual([]);
+});
+
+it.each([
+  'import * as registry from "./chords"; const row = registry.CHORDS.find(row => row.keys === "text");',
+  'import * as registry from "../keys/chords"; function local(registry) { return registry.CHORDS.find(row => row.keys === "text"); }',
+])("u5728b_namespace_checks_preserve_unrelated_bindings %s", source => {
+  expect(checkKeys({ 'app/view.tsx': source })).toEqual([]);
+});
