@@ -21,6 +21,25 @@ const disclose = async (mounted: Awaited<ReturnType<typeof mountTodos>>) => {
   await waitFor(() => expect(todoCallsTo(mounted.app, "todo.readHistory").length).toBeGreaterThan(0));
 };
 
+it("u3728_changes_wait_behind_one_line", async () => {
+  const m = await mountTodos([todo(1)]);
+  const row = await screen.findByRole("button", { name: /^Idle #1 / });
+  row.focus();
+  fireEvent.keyDown(row, { key: "Enter", code: "Enter" });
+  const disclosure = await screen.findByRole("button", { name: /^Activity · 1$/ });
+  expect(disclosure.getAttribute("aria-expanded")).toBe("false");
+  expect(panel().querySelector("[data-change]")).toBeNull();
+  expect(todoCallsTo(m.app, "todo.readHistory")).toHaveLength(0);
+  fireEvent.click(disclosure);
+  await within(panel()).findByText(/^Created /);
+  await waitFor(() => expect(todoCallsTo(m.app, "todo.readHistory")).toHaveLength(1));
+  fireEvent.click(disclosure);
+  await waitFor(() => expect(panel().querySelector("[data-change]")).toBeNull());
+  fireEvent.click(disclosure);
+  await within(panel()).findByText(/^Created /);
+  expect(todoCallsTo(m.app, "todo.readHistory")).toHaveLength(1);
+});
+
 it("u462_only_the_open_drawer_requests_history", async () => {
   const m = await mountTodos([todo(1), todo(2)]);
   expect(todoCallsTo(m.app, "todo.getHistory")).toHaveLength(0);
