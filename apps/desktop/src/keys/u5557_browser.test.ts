@@ -30,11 +30,9 @@ const read = async (expression: string) => {
 beforeAll(async () => {
   server = await appServer({ root: process.env.U5557_ROOT ?? process.cwd() });
 
-  if (!process.env.U5557_ROOT) {
-    const ready = await fetch(new URL("/__roundup_ready", server.resolvedUrls.local[0]!));
+  const ready = await fetch(new URL("/__roundup_ready", server.resolvedUrls.local[0]!));
 
-    if (!ready.ok) throw new Error(await ready.text());
-  }
+  if (!ready.ok) throw new Error(await ready.text());
 
   await browser("--profile", profile, "--args", "--no-sandbox", "--color-scheme", "dark", "open", new URL("/harness.html?seed=empty-project", server.resolvedUrls.local[0]!).href);
   await browser("set", "viewport", "1512", "950");
