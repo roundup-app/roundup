@@ -8,6 +8,8 @@ import { activationSource } from "../keys/registry";
 import { registerKeys } from "../keys/registry";
 import { IconButton } from "../ui/IconButton";
 import { copy } from "./copy";
+import { ConnectedProjectContext } from "../state/connectedProject";
+import { useContext } from "solid-js";
 import { createContext, createEffect, createSignal, on, onCleanup, Show } from "solid-js";
 import type { Accessor } from "solid-js";
 import { Portal } from "solid-js/web";
@@ -25,6 +27,8 @@ export const DrawerExpandContext = createContext<(host: HTMLElement | undefined)
  * Drawer's width with the same transition (U430), so the Drawer covers none of it.
  */
 export const DrawerHost = (props: { drawer: DrawerState; reducedMotion: Accessor<boolean> }) => {
+  const connected = useContext(ConnectedProjectContext);
+  let openingSelection: string | null | undefined;
   const [mounted, setMounted] = createSignal<DrawerContent | null>(null);
   const [panel, setPanel] = createSignal<HTMLElement>();
   const frame = createShelfFrame(() => props.drawer.surface()?.project ?? null, props.reducedMotion, undefined, undefined, () => props.drawer.surface()?.kind ?? "drawer", fillsCentre);
@@ -62,6 +66,7 @@ export const DrawerHost = (props: { drawer: DrawerState; reducedMotion: Accessor
       const host = panel();
 
       if (open && !wasOpen) {
+        openingSelection = connected?.rail.selected();
         savedFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
         savedRegion = savedFocus?.closest<HTMLElement>("[data-history-region]") ?? null;
         captureFocus()(() => host?.querySelector<HTMLElement>(".close")?.focus({ preventScroll: true }));
@@ -74,13 +79,18 @@ export const DrawerHost = (props: { drawer: DrawerState; reducedMotion: Accessor
         savedFocus = null;
         savedRegion = null;
 
-        if (stayedInDrawer && toRefocus?.isConnected) captureFocus()(() => {
+        if (stayedInDrawer && connected?.rail.selected() === openingSelection && toRefocus?.isConnected) captureFocus()(() => {
           if (regionDestination && !toRefocus.hasAttribute("tabindex")) toRefocus.tabIndex = -1;
           toRefocus.focus({ preventScroll: true });
         });
       }
     }),
   );
+
+  // U64: a different chosen row dismisses the Drawer; its Terminal owns focus after readiness.
+  createEffect(on(() => connected?.rail.selected(), (id, previous) => {
+    if (id != null && id !== previous) props.drawer.close();
+  }, { defer: true }));
 
   // U430: the centre moves for as long as the slide runs; with no motion there is no slide.
   const lifetime = createSlideLifetime(() => [panel()]);
