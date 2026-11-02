@@ -61,6 +61,24 @@ pub struct Entry {
     pub one_line: bool,
 }
 
+impl Entry {
+    /// B5763a: the entire string the peer compares, excluding the transport Message id.
+    /// Questions include their reply identity; notes use their rendered text and labels.
+    pub fn content(&self, from: &str, permission_mode: &str) -> String {
+        let text = if self.kind == MessageKind::Question {
+            format!("[question, replyTo: {}] {}", self.id, self.text)
+        } else if self.one_line {
+            one_line(&self.text)
+        } else {
+            self.text.clone()
+        };
+        format!(
+            "<cross-session-message from=\"{from}\" from-name=\"{}\" from-mode=\"{permission_mode}\">\n{text}\n</cross-session-message>",
+            attribute(&self.from),
+        )
+    }
+}
+
 const MSG_ID_PREFIX: &str = "00000000-0000-4000-8000-";
 
 /// The `msg_id` of Message `id`: Claude Code wants a UUID and drops a second line carrying one it
@@ -171,17 +189,7 @@ impl Launcher {
         let from = format!("uds:{}", self.socket_dir().join("rupd").display());
         let mut lines = vec![json!({ "type": "auth", "token": token })];
         for note in notes {
-            let text = if note.kind == MessageKind::Question {
-                format!("[question, replyTo: {}] {}", note.id, note.text)
-            } else if note.one_line {
-                one_line(&note.text)
-            } else {
-                note.text.clone()
-            };
-            let content = format!(
-                "<cross-session-message from=\"{from}\" from-name=\"{}\" from-mode=\"{permission_mode}\">\n{text}\n</cross-session-message>",
-                attribute(&note.from),
-            );
+            let content = note.content(&from, &permission_mode);
             lines.push(json!({
                 "msgV": 1, "msg_id": msg_id(note.id), "type": "user",
                 "message": { "role": "user", "content": content },
