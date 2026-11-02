@@ -262,9 +262,11 @@ pub(crate) mod tests {
         }
     }
 
+    type Written = (u32, MessageKind, String, String);
+
     #[derive(Default)]
     pub(crate) struct BatchInbox {
-        pub batches: Mutex<Vec<Vec<(u32, MessageKind, String, String)>>>,
+        pub batches: Mutex<Vec<Vec<Written>>>,
         pub fail: AtomicBool,
     }
 
@@ -306,7 +308,12 @@ pub(crate) mod tests {
     pub(crate) fn setup(path: &Path) -> (Messages, Arc<BatchRail>, Arc<BatchInbox>) {
         let rail = Arc::new(BatchRail::default());
         lock(&rail.nodes).push(live("m"));
-        let messages = Messages::open(path, Bus::new(), rail.clone()).unwrap();
+        let env = Env {
+            touches: Arc::new(provenance::Touches::in_memory().unwrap()),
+            clock: Arc::new(|| 100_000),
+            fault: Arc::new(|_| Ok(())),
+        };
+        let messages = Messages::open_with(path, Bus::new(), rail.clone(), env).unwrap();
         let inbox = Arc::new(BatchInbox::default());
         messages.set_inbox(inbox.clone());
         lock(&messages.inner.store)
@@ -369,7 +376,25 @@ pub(crate) mod tests {
             },
         ];
         let notes: Vec<_> = (0..32)
-            .map(|i| pending(&messages, &actors[i % actors.len()], &format!("text-{i}")))
+            .map(|i| {
+                lock(&messages.inner.store)
+                    .insert(
+                        &actors[i % actors.len()],
+                        "m",
+                        if i % 3 == 0 {
+                            MessageKind::Question
+                        } else {
+                            MessageKind::Note
+                        },
+                        &format!("text-{i}"),
+                        None,
+                        MessageStatus::Pending,
+                        None,
+                        0,
+                        (1, 1),
+                    )
+                    .unwrap()
+            })
             .collect();
         lock(&rail.nodes)[1].name = "renamed".into();
         rail.reads.store(0, Ordering::SeqCst);
