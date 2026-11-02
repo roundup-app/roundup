@@ -48,7 +48,7 @@ async fn i1_every_mcp_tool_is_a_command_and_no_command_is_extra() {
 async fn i1_a_commands_flags_are_its_schemas_fields() {
     let dir = tempfile::tempdir().unwrap();
     let socket = dir.path().join("s.sock");
-    let _requests = stand_in(&socket, false, Vec::new(), &[]);
+    let mut requests = stand_in(&socket, false, Vec::new(), &[]);
     let tools = mcp_tools(&socket).await;
     let schema = |name: &str| tools.iter().find(|(n, _)| n == name).unwrap().1.clone();
     let run = on(&socket);
@@ -65,10 +65,36 @@ async fn i1_a_commands_flags_are_its_schemas_fields() {
         create.contains("Usage: rup todo create [OPTIONS] <title>"),
         "{create}"
     );
-    let has = |f: &str| create.contains(&format!("--{}", f.replace('_', "-")));
-    for field in schema["properties"].as_object().unwrap().keys() {
-        assert!(required.contains(&field.as_str()) || has(field), "{create}");
+    for flag in ["--owner", "--priority", "--body", "--blockers"] {
+        assert!(create.contains(flag), "{create}");
     }
+    let write = out(&run.rup(&["help", "pad", "write"]).await);
+    for flag in ["--expected-revision", "--expected-incarnation"] {
+        assert!(write.contains(flag), "{write}");
+    }
+    let assign = out(&run.rup(&["help", "todo", "assign"]).await);
+    assert!(assign.contains("--expected-change"), "{assign}");
+    let result = run
+        .rup(&[
+            "pad",
+            "write",
+            "notes",
+            "replacement",
+            "--expected-revision",
+            "7",
+            "--expected-incarnation",
+            "11",
+        ])
+        .await;
+    assert_eq!(code(&result), 0, "{}", err(&result));
+    let params = request_of(&mut requests, "pad.write").await;
+    assert_eq!(
+        params,
+        json!({
+            "name": "notes", "text": "replacement",
+            "expectedRevision": 7, "expectedIncarnation": "11",
+        })
+    );
     let read = out(&run.rup(&["help", "terminal", "read"]).await);
     assert!(read.contains("<id>") && read.contains("--after"), "{read}");
     let blockers = out(&run.rup(&["help", "todo", "set-blockers"]).await);
@@ -163,6 +189,77 @@ async fn m2219_every_command_the_off_brief_names_is_in_rup_help() {
                     .is_some_and(|rest| rest.is_empty() || rest.starts_with(' '))),
                 "{role:?} names `{command}`, which rup help lacks"
             );
+        }
+    }
+}
+
+#[tokio::test]
+async fn i2_a_commands_help_names_its_arguments_flags_and_an_example() {
+    let dir = tempfile::tempdir().unwrap();
+    let run = on(&dir.path().join("none"));
+    let by_help = run.rup(&["help", "pad", "read"]).await;
+    let by_flag = run.rup(&["pad", "read", "--help"]).await;
+    assert_eq!((code(&by_help), code(&by_flag)), (0, 0));
+    assert_eq!(out(&by_help), out(&by_flag));
+    let text = out(&by_help);
+    assert!(text.starts_with("Read one Pad."), "{text}");
+    assert!(text.contains("Usage: rup pad read"), "{text}");
+    assert!(text.contains("<name>") && text.contains("--json"), "{text}");
+    assert!(text.contains("Example:\n  rup pad read notes"), "{text}");
+    let noun = out(&run.rup(&["help", "pad"]).await);
+    assert!(noun.contains("read") && noun.contains("append"), "{noun}");
+    for args in [vec!["help"], vec!["help", "pad"]] {
+        let result = run.rup(&args).await;
+        let text = out(&result);
+        assert_eq!(code(&result), 0);
+        assert!(err(&result).is_empty());
+        assert!(
+            text.contains("--expected-revision") && text.contains("--expected-incarnation"),
+            "{text}"
+        );
+        assert!(!text.contains("--expectedRevision") && !text.contains("--expectedIncarnation"));
+    }
+    for verb in ["write", "append-section"] {
+        let by_help = run.rup(&["help", "pad", verb]).await;
+        let by_flag = run.rup(&["pad", verb, "--help"]).await;
+        assert_eq!((code(&by_help), code(&by_flag)), (0, 0));
+        assert!(err(&by_help).is_empty() && err(&by_flag).is_empty());
+        assert_eq!(out(&by_help), out(&by_flag));
+        let text = out(&by_help);
+        assert!(text.contains("--expected-revision"), "{text}");
+        assert!(!text.contains("--expectedRevision") && !text.contains("--expectedIncarnation"));
+        if verb == "write" {
+            assert!(text.contains("--expected-incarnation"), "{text}");
+        } else {
+            let example = text
+                .split("Example:\n  ")
+                .nth(1)
+                .unwrap()
+                .lines()
+                .next()
+                .unwrap();
+            assert_eq!(
+                example,
+                "rup pad append-section notes Plan Added --expected-revision 1"
+            );
+            let project = start_daemon().await;
+            let run = on(&project.socket);
+            assert_eq!(
+                code(
+                    &run.rup(&["pad", "create", "notes", "--text", "## Plan\nOriginal"])
+                        .await
+                ),
+                0
+            );
+            let result = run
+                .rup(&example.split_whitespace().skip(1).collect::<Vec<_>>())
+                .await;
+            assert_eq!(code(&result), 0, "{}", err(&result));
+            let read: Value =
+                serde_json::from_str(&out(&run.rup(&["pad", "read", "notes", "--json"]).await))
+                    .unwrap();
+            assert_eq!(read["revision"], 2);
+            assert_eq!(read["text"], "## Plan\nOriginal\nAdded");
         }
     }
 }

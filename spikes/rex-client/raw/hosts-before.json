@@ -1,0 +1,10 @@
+{
+  "home": {
+    "label": "",
+    "endpoint": "unix:///Users/saad.shahd/Library/Application%20Support/rex/server.sock",
+    "this_machine": true,
+    "reached": true
+  },
+  "hosts": [],
+  "warnings": []
+}

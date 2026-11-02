@@ -11,6 +11,7 @@ import tempfile
 import subprocess
 import sys
 import unittest
+from unittest.mock import patch
 
 SPEC = importlib.util.spec_from_file_location('memory', Path(__file__).with_name('memory.py'))
 memory = importlib.util.module_from_spec(SPEC)
@@ -34,23 +35,43 @@ class WebShards(unittest.TestCase):
 class Identity(unittest.TestCase):
     def test_l121_each_admitted_label_kind_registers_the_job_that_carries_it(self):
         workflows = Path(__file__).resolve().parents[2] / '.github/workflows'
-        kinds = re.search(r'const LABEL = /\^roundup-\(([a-z|]+)\)-', Path(__file__).with_name('runner.mjs').read_text())[1]
-        for kind in kinds.split('|'):
-            job = re.compile(rf'^  {agent.JOBS.get(kind)}:\n(?:    .*\n)*?    runs-on: .*roundup-{kind}-', re.M)
-            self.assertTrue(any(job.search(path.read_text()) for path in workflows.glob('*.yml')), kind)
+        runner = Path(__file__).with_name('runner.mjs').read_text()
+        kinds = re.search(r'const LABEL = /\^roundup-\(([a-z|]+)\)-', runner)[1].split('|')
+        light = re.findall(r'(\w+): \[', re.search(r'const LIGHT = \{(.*?)\};', runner, re.S)[1])
+        check = re.findall(r"'([a-z]+)'", re.search(r'const CHECK = new Set\(\[(.*?)\]\)', runner)[1])
+        jobs = [(agent.JOBS[kind], kind) for kind in kinds if kind not in ('light', 'check')]
+        jobs += [(job, f'{kind}-{job}') for kind, scopes in [('light', light), ('check', check)] for job in scopes]
+        for job, label in jobs:
+            carrier = re.compile(rf'^  {job}:\n(?:    .*\n)*?    runs-on: .*roundup-{label}-', re.M)
+            self.assertTrue(any(carrier.search(path.read_text()) for path in workflows.glob('*.yml')), label)
+            with self.subTest(label=label), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                registration = root / 'registration.json'
+                scope = label if '-' in label else f'{label}-11'
+                registration.write_text(json.dumps({'repository': 'owner/repo', 'name': 'runner', 'token': 'token',
+                                                     'label': f'roundup-{scope}-7-1-2'}))
+                with patch.object(agent, 'Path', side_effect=lambda value: root if value == '/opt/roundup-ci' else Path(value)), \
+                     patch.object(agent.subprocess, 'run'):
+                    agent.register(registration)
+                expected = root / 'job.json'
+                identity = {'GITHUB_REPOSITORY': 'owner/repo', 'GITHUB_RUN_ID': '7',
+                            'GITHUB_RUN_ATTEMPT': '1', 'GITHUB_JOB': job}
+                self.assertEqual(json.loads(expected.read_text()), identity)
+                with patch.dict(os.environ, identity):
+                    agent.verify_job(expected)
+                    for key in identity:
+                        with patch.dict(os.environ, {key: 'foreign'}), self.assertRaises(SystemExit):
+                            agent.verify_job(expected)
+
+    def test_l121_each_job_a_run_holds_once_per_issue_labels_its_runner_with_that_issue(self):
+        workflow = (Path(__file__).resolve().parents[2] / '.github/workflows/build-issue.yml').read_text()
+        labels = [line for line in workflow.splitlines() if 'runs-on:' in line and '"boxd"' in line]
+        self.assertGreater(len(labels), 1)
+        for line in labels:
+            self.assertIn('inputs.issue', line)
 
 
 class Memory(unittest.TestCase):
-    def test_l121_a_foreign_job_cannot_start_on_a_memory_bearing_runner(self):
-        with tempfile.TemporaryDirectory() as directory:
-            expected = Path(directory) / 'job.json'
-            expected.write_text(json.dumps({'GITHUB_REPOSITORY': 'owner/repo', 'GITHUB_RUN_ID': '123'}))
-            result = subprocess.run([sys.executable, str(Path(__file__).with_name('agent.py')), 'verify-job', str(expected)],
-                                    env={**os.environ, 'GITHUB_REPOSITORY': 'owner/repo', 'GITHUB_RUN_ID': '999'},
-                                    capture_output=True, text=True, timeout=10)
-            self.assertNotEqual(result.returncode, 0)
-            self.assertIn('runner refused a job', result.stderr)
-
     def test_l121_retained_codex_history_and_execution_evidence_use_the_same_home(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

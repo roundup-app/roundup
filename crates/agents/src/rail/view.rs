@@ -1,16 +1,12 @@
 //! Loading stored Rail nodes, before live Agent facts are applied.
 use super::*;
 
-// R3696c: the empty-history predicate inside the node loop costs 1292 VM steps
-// for forty Workstreams. CROSS JOIN keeps the visibility gate outside that loop.
-const NODES: &str = "WITH visible AS (
- SELECT nodes.* FROM (SELECT 1 WHERE ?1 OR NOT EXISTS (SELECT 1 FROM closed_sources)) CROSS JOIN nodes
- UNION ALL
- SELECT nodes.* FROM (SELECT 1 WHERE NOT ?1 AND EXISTS (SELECT 1 FROM closed_sources)) CROSS JOIN nodes
- WHERE NOT EXISTS (SELECT 1 FROM closed_sources WHERE published=0 AND (workstream=nodes.id OR agent=nodes.id))
-) SELECT id, kind, name, parent, ord, attempt, terminal_id,
+// R3696c: adding visibility made the compound empty-history read cost 915 VM steps.
+// Test the preparation gate once, then read the ordinary rows without per-node predicates.
+const PREPARING: &str = "SELECT EXISTS(SELECT 1 FROM closed_sources WHERE published=0)";
+const NODES: &str = "SELECT id, kind, name, parent, ord, attempt, terminal_id,
                 worktree_path, worktree_branch, worktree_base, work, model, effort,
-                conversation_id, conversation_cwd, auto, finished, opening_prompt, alert_level FROM visible";
+                conversation_id, conversation_cwd, auto, finished, opening_prompt, alert_level, visibility FROM nodes";
 
 pub(super) fn load_nodes(
     db: &Connection,
@@ -25,9 +21,19 @@ fn load_with<T>(
     capacity: usize,
     mut map: impl FnMut(RailNode, u64) -> T,
 ) -> Result<Vec<T>, RpcError> {
-    let mut query = db.prepare_cached(NODES).map_err(sql)?;
+    let all = include_preparation
+        || !db
+            .prepare_cached(PREPARING)
+            .map_err(sql)?
+            .query_row([], |row| row.get::<_, bool>(0))
+            .map_err(sql)?;
+    let mut query = if all {
+        db.prepare_cached(NODES)
+    } else {
+        db.prepare_cached(&format!("{NODES} WHERE NOT EXISTS (SELECT 1 FROM closed_sources WHERE published=0 AND (workstream=nodes.id OR agent=nodes.id))"))
+    }.map_err(sql)?;
     let rows = query
-        .query_map([include_preparation], |row| {
+        .query_map([], |row| {
             let kind = match row.get_ref(1)?.as_str()? {
                 "workstream" => NodeKind::Workstream,
                 _ => NodeKind::Agent,
@@ -49,6 +55,10 @@ fn load_with<T>(
                 NodeKind::Agent => stored,
             };
             let node = RailNode {
+                visibility: match row.get_ref(19)?.as_str()? {
+                    "internal" => contracts::agent::RailVisibility::Internal,
+                    _ => contracts::agent::RailVisibility::Shown,
+                },
                 alert_level: serde_json::from_str(row.get_ref(18)?.as_str()?).map_err(|error| {
                     rusqlite::Error::FromSqlConversionFailure(
                         18,
@@ -293,17 +303,23 @@ mod tests {
                 .unwrap();
         }
         rail.tree().unwrap();
-        rail.db
-            .prepare_cached(NODES)
-            .unwrap()
-            .reset_status(StatementStatus::VmStep);
+        for query in [PREPARING, NODES] {
+            rail.db
+                .prepare_cached(query)
+                .unwrap()
+                .reset_status(StatementStatus::VmStep);
+        }
         let tree = rail.tree().unwrap();
         assert_eq!(tree.len(), 40);
-        let steps = rail
-            .db
-            .prepare_cached(NODES)
-            .unwrap()
-            .get_status(StatementStatus::VmStep);
+        let steps: i32 = [PREPARING, NODES]
+            .into_iter()
+            .map(|query| {
+                rail.db
+                    .prepare_cached(query)
+                    .unwrap()
+                    .get_status(StatementStatus::VmStep)
+            })
+            .sum();
         eprintln!("forty Workstreams: {steps} SQLite instructions");
         assert!(
             steps <= 900,
@@ -342,7 +358,7 @@ mod tests {
         for count in [40, 400] {
             for branching in [false, true] {
                 let flat = nested(count, branching);
-                let region = stats_alloc::Region::new(crate::scan::ALLOCATOR);
+                let region = stats_alloc::Region::new(crate::ALLOCATOR);
                 let topology = topology(&flat);
                 let prepared = region.change();
                 let out = walk(flat, topology, &mut |node, _| Ok(node)).unwrap();

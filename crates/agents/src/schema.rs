@@ -31,6 +31,7 @@ fn migrations() -> Vec<M<'static>> {
         M::up(include_str!("../migrations/017/up.sql")),
         M::up(include_str!("../migrations/018/up.sql")),
         M::up(include_str!("../migrations/019/up.sql")),
+        M::up(include_str!("../migrations/020/up.sql")),
     ]
 }
 

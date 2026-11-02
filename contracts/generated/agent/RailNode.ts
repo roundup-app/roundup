@@ -8,10 +8,12 @@ import type * as agent$FinalText from "./FinalText";
 import type * as agent$Inbox from "./Inbox";
 import type * as agent$NodeKind from "./NodeKind";
 import type * as agent$Order from "./Order";
+import type * as agent$RailVisibility from "./RailVisibility";
 import type * as agent$Stray from "./Stray";
 import type * as agent$ToolCall from "./ToolCall";
 import type * as agent$Worktree from "./Worktree";
 export type RailNode = {
+	visibility?: agent$RailVisibility.RailVisibility,
 	/**  U5501: authoritative per-Agent choice; a Workstream stores its Door choice. */
 	alert_level?: agent$AlertLevel.AlertLevel,
 	/**  A3308: the Workstream's Auto choice; absent on an Agent. */
