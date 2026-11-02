@@ -186,5 +186,25 @@
         ]
       }
     }
-  ]
+  ],
+  "fullCapture": {
+    "command": "just capture U5560a",
+    "result": "passed; both viewports, without retries",
+    "pairsAgainstExistingBaseline": 38,
+    "regressions": [],
+    "baselineSource": "../manifest.json records this older baseline; the four focused pairs use current main",
+    "screenshots": 40,
+    "headOnly": [
+      "keyboard-1280.checks.json",
+      "keyboard-1512.checks.json"
+    ],
+    "head": "efebe66938c082cdbd21fbbb78c8873fd6bd33d4",
+    "checks": {
+      "stillPassing": 460,
+      "fixed": 12,
+      "stillFailing": 60,
+      "regressed": 0
+    }
+  },
+  "visualReview": "Todo titles and bodies share the same left edge and measure; empty headers keep navigation clear of expand/close. Pad width choices, keyboard focus, table scrolling and visible save/conflict feedback were inspected at both scenario viewports."
 }
