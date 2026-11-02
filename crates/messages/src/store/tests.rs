@@ -88,3 +88,71 @@ fn b5_a_stored_route_word_no_variant_has_is_an_error() {
     assert!(store.get_route("a", "b").is_err());
     assert!(store.list_routes().is_err());
 }
+
+#[test]
+fn b5640a_history_materializes_only_matching_rows() {
+    let store = Store::open(Path::new(":memory:")).unwrap();
+    let daemon = actor_json(&Actor::daemon());
+    store
+        .db
+        .execute(
+            "INSERT INTO messages(from_actor,to_id,kind,body,status,at,rank) VALUES
+        (?1,'m','note','[digest] plain','delivered',90,9),
+        (?1,'m','note','[digest] [2 updates kept back]','delivered',30,8),
+        (?1,'m','note','[digest] [2 earlier updates: #1 #2]','delivered',10,7),
+        (?1,'m','question','[digest] question','delivered',0,6),
+        (?1,'other','note','[digest]','delivered',0,0),
+        (?1,'m','note','[digest]','pending',0,0),
+        (?1,'m','note','[digest]','dropped',0,0),
+        (?1,'m','note','ordinary','delivered',0,0),
+        (?2,'m','note','[digest]','delivered',0,0),
+        (?3,'m','note','[digest]','delivered',0,0),
+        (?4,'m','note','[digest]','delivered',0,0),
+        (?5,'m','note','[digest]','delivered',0,0),
+        (?6,'m','note','[digest]','delivered',0,0),
+        (json_object('parent',NULL,'id',?7,'kind',?8),'m','note','[digest] reordered','delivered',0,0)",
+            params![
+                daemon,
+                actor_json(&Actor::user()),
+                actor_json(&Actor {
+                    kind: ActorKind::Agent,
+                    id: Actor::daemon().id,
+                    parent: None
+                }),
+                actor_json(&Actor {
+                    kind: ActorKind::Ext,
+                    id: "extension".into(),
+                    parent: None
+                }),
+                actor_json(&Actor {
+                    id: "other".into(),
+                    ..Actor::daemon()
+                }),
+                actor_json(&Actor {
+                    parent: Some("parent".into()),
+                    ..Actor::daemon()
+                }),
+                Actor::daemon().id,
+                text_of(Actor::daemon().kind),
+            ],
+        )
+        .unwrap();
+    let expected = [1, 2, 3, 4, 14];
+    for unrelated in [false, true] {
+        if unrelated {
+            store
+                .db
+                .execute(
+                    "WITH RECURSIVE n(x) AS (VALUES(1) UNION ALL SELECT x+1 FROM n WHERE x<100000)
+                INSERT INTO messages(from_actor,to_id,kind,body,status,at)
+                SELECT ?1, 'other', 'note', '[digest] unrelated', 'delivered', x FROM n",
+                    [actor_json(&Actor::daemon())],
+                )
+                .unwrap();
+        }
+        MATERIALIZED.set(0);
+        let found = store.delivered_to("m").unwrap();
+        assert_eq!(MATERIALIZED.get(), expected.len());
+        assert_eq!(found.iter().map(|m| m.id).collect::<Vec<_>>(), expected);
+    }
+}
