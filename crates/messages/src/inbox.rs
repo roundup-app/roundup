@@ -419,6 +419,7 @@ pub(crate) mod tests {
             fault: Arc::new(|_| Ok(())),
         };
         let messages = Messages::open_with(path, Bus::new(), rail.clone(), env).unwrap();
+        messages.listen();
         let inbox = Arc::new(BatchInbox::default());
         messages.set_inbox(inbox.clone());
         lock(&messages.inner.store)

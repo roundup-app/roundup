@@ -133,6 +133,7 @@ jobs:
     needs: plan
     if: github.event_name != 'pull_request' || (!github.event.pull_request.draft && needs.plan.outputs.rust == 'true')
     env:
+      CARGO_TARGET_DIR: target
       # CI5330e/f: run 41421700034 grew target from 12 GB to 37 GB and filled rust 3's
       # 72 GB disk compiling a32_removed. Omit debug symbols from both runtime and
       # test builds; debug assertions, overflow checks and test selection stay enabled.
@@ -145,12 +146,13 @@ jobs:
       fail-fast: false
       matrix:
         partition: [1, 2, 3, 4, 5]
-    runs-on: ubuntu-24.04
+    runs-on: ${{ fromJSON((vars.BOXD_CHECK == '1' || contains(fromJSON(vars.BOXD_CHECK || '[]'), github.event.pull_request.number)) && format('["self-hosted","boxd","roundup-check-rust-{0}-{1}-{2}"]', github.run_id, github.run_attempt, matrix.partition) || '"ubuntu-24.04"') }}
     # A cold Rust cache restore under a full runner pool makes setup build `rupd` for up to 16 min (2026-10-22); the test step has its own 15 min limit for a hung test.
     timeout-minutes: 35
     steps:
       - uses: actions/checkout@v5
         with:
+          clean: ${{ runner.environment != 'self-hosted' }}
           # Empty BASE makes the unchanged R26 baseline guard read origin/main.
           fetch-depth: ${{ env.CI3781_CACHE != '' && '0' || '2' }}
           # Repeated experiment pushes retain their source tree despite unrelated main merges.
@@ -200,7 +202,13 @@ jobs:
         run: node --test crates/agents/sidecar/storage.test.mjs
       - name: CI4018 experiment cache regression
         if: matrix.partition == 1
-        run: node --test .github/actions/setup/cache.test.mjs
+        run: |
+          if [ "$RUNNER_ENVIRONMENT" = self-hosted ]; then
+            # Hosted setup downloads this action; prepared machines skip that cache step.
+            git clone --depth 1 --branch v2 https://github.com/Swatinem/rust-cache "$RUNNER_TEMP/rust-cache-action"
+            export RUST_CACHE_ACTION_PATH="$RUNNER_TEMP/rust-cache-action"
+          fi
+          node --test .github/actions/setup/cache.test.mjs
       - name: E12 network observer dependencies
         run: |
           if ! command -v strace || ! command -v ip || ! command -v setpriv; then
@@ -364,17 +372,20 @@ jobs:
   web:
     needs: plan
     if: github.event_name != 'pull_request' || (!github.event.pull_request.draft && needs.plan.outputs.web == 'true')
+    env:
+      CARGO_TARGET_DIR: target
     name: web ${{ matrix.partition }}
     strategy:
       fail-fast: false
       matrix:
         partition: ${{ fromJSON(needs.plan.outputs.web_shards || '[1]') }}
-    runs-on: ubuntu-24.04
+    runs-on: ${{ fromJSON((vars.BOXD_CHECK == '1' || contains(fromJSON(vars.BOXD_CHECK || '[]'), github.event.pull_request.number)) && format('["self-hosted","boxd","roundup-check-web-{0}-{1}-{2}"]', github.run_id, github.run_attempt, matrix.partition) || '"ubuntu-24.04"') }}
     # A cold Rust cache restore under a full runner pool makes setup build `rupd` for up to 16 min (2026-10-22); the test step has its own 15 min limit for a hung test.
     timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
         with:
+          clean: ${{ runner.environment != 'self-hosted' }}
           fetch-depth: 2
       - name: E14 whole-runner memory observer
         run: |
@@ -384,6 +395,9 @@ jobs:
         with:
           rust: 'build'
           browser: 'true'
+      - name: Refresh prepared runtime for this checkout
+        if: runner.environment == 'self-hosted'
+        run: just build-debug
       - name: CI5330a disk before tests
         run: bash .github/actions/setup/disk.sh report before
       - name: C9c production desktop size
