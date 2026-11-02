@@ -1,4 +1,3 @@
-import { readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 
 const root = () => resolve(process.cwd(), "../..", "artifacts/ux");
@@ -16,11 +15,6 @@ export function captureDir(id: string): string | null {
   if (id.startsWith("J")) return /^J[0-9]+[a-z]?$/.test(id) ? join(root(), "journey", id) : null;
 
   return join(root(), target);
-}
-
-/** U453: committed observer readings remain readable when capture writes are disabled. */
-export function readCapture(id: string, name: string): string {
-  return readFileSync(join(root(), id, name), "utf8");
 }
 
 // Named observers, including ids passed through capture helpers. Vitest owns discovery
@@ -88,6 +82,7 @@ const observerTable = {
   "src/switcher/u2572_browser.test.ts": { ids: ["P3557c", "U2572d", "U4681", "UA13"], aliases: { UA13: "U2572d" } },
   "src/switcher/u3787c_browser.test.ts": ["U3787c", "U4682"],
   "src/terminal/s3806c_scale.test.ts": ["U4590"],
+  "src/terminal/u5552_rendered.test.ts": ["U5552d", "U5552e"],
   "src/terminal/u102_emulator.test.ts": ["Z3788a"],
   "src/terminal/u3517_browser.test.ts": ["U3517b", "U3517c", "U3517f", "U4456a", "U4456b", "U4456c", "U4456d", "U4590", "U4592", "U4649", "U4679"],
   "src/terminal/u3517_type.test.ts": ["U4590"],
@@ -101,7 +96,7 @@ const observerTable = {
   "src/terminal/u59_real_daemon.test.ts": ["U4590"],
   "src/testing/u2875d_rendered.test.ts": ["U2875d"],
   "src/testing/u3787d_capture.test.ts": ["U3787d", "U5463c"],
-  "src/testing/u463_real_daemon.test.ts": ["A4899a", "U2875d", "U3037d", "U4590", "U463"],
+  "src/testing/u463_real_daemon.test.ts": ["U5552a", "A4899a", "U2875d", "U3037d", "U4590", "U463"],
   "src/toasts/p3557c_capture.test.ts": ["P3557c"],
   "src/todos/u5119_browser.test.ts": ["U5119"],
   "src/todos/u4698e_browser.test.ts": ["U4698e"],

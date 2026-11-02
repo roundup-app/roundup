@@ -621,9 +621,9 @@ pub(super) async fn watch(
 mod tests;
 
 impl Agents {
-    /// A5482c: live Rail id to (Attempt/turn identity, turn start in Unix milliseconds, final text).
+    /// A5482c: live Rail id to (Attempt/turn identity, turn start/end in Unix milliseconds, final text).
     /// The Adapter supplies the text; this reads no Terminal and parses no vendor records.
-    pub fn completed_text(&self) -> HashMap<String, (String, i64, String)> {
+    pub fn completed_text(&self) -> HashMap<String, (String, i64, i64, String)> {
         self.shared
             .runs()
             .iter()
@@ -634,10 +634,15 @@ impl Agents {
                 if run.ended {
                     return None;
                 }
-                let (turn, started, text) = run.adapter.completed_text()?;
+                let (turn, started, ended, text) = run.adapter.completed_text()?;
                 Some((
                     id.clone(),
-                    (format!("{}:{turn}", run.attempt), *started, text.clone()),
+                    (
+                        format!("{}:{turn}", run.attempt),
+                        *started,
+                        *ended,
+                        text.clone(),
+                    ),
                 ))
             })
             .collect()
