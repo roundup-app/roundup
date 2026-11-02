@@ -206,7 +206,7 @@ export const Rail = () => {
 
     if (!parent) return;
 
-    const branch = current.find(row => row.kind === "fold" && row.parent === parent &&
+    const branch = id.startsWith("fold:") ? undefined : current.find(row => row.kind === "fold" && row.parent === parent &&
       row.group === (rail.nodes.find(node => node.id === id)?.visibility === "internal" ? "internal" : "idle"));
 
     const target = branch?.key ?? parent;
