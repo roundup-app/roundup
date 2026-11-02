@@ -195,7 +195,7 @@ it.skipIf(!captureDir("U5560b"))("u5560b_expanded_pad_default_screens", { timeou
           };
           return true;
         })()`);
-        const choice = baseline ? '.settings-content input[value="light"]' : '.settings-content input[value="narrow"]';
+        const choice = baseline ? '.settings-content input[value="small"]' : '.settings-content input[value="narrow"]';
         await lane.browser("click", choice);
         await lane.until("document.querySelector('.settings-view').textContent.includes('Cannot save settings')");
         await capture(`${seed}-save-failure`);
