@@ -14,10 +14,10 @@ const sections = (projectOpen: boolean, shelfOpen: boolean) => projectOpen ? [
   { title: copy.helpScope.app, rows: CHORDS.filter(row => !row.inFirstRun && !row.inRail && !row.inTerminals && !row.inShelf && !row.inEditor) },
   { title: copy.helpScope.leader, rows: LEADER.map(row => ({ ...row, keys: leaderKeys(row), what: row.keys === "B" ? (shelfOpen ? copy.closeShelf : copy.openShelf) : bubbleScopes.get(row.keys) ?? row.what })) },
   // #3853 adds the Terminal Find owner; until then its menu catalogue entry has no working key to advertise.
-  { title: copy.helpScope.terminals, rows: CHORDS.filter(row => row.inTerminals && row.keys !== "⌘F") },
+  { title: copy.helpScope.terminals, rows: CHORDS.filter(row => row.inTerminals && row.name !== "terminal.find") },
   { title: copy.helpScope.rail, rows: CHORDS.filter(row => row.inRail) },
-  { title: copy.helpScope.shelf, rows: CHORDS.filter(row => row.inShelf && !row.inTriage && row.keys !== "T").map(row => ({ ...row, what: rowScopes.get(row.keys) ?? row.what })) },
-  { title: copy.helpScope.todos, rows: CHORDS.filter(row => row.inShelf && row.keys === "T") },
+  { title: copy.helpScope.shelf, rows: CHORDS.filter(row => row.inShelf && !row.inTriage && row.name !== "todo.triage-enter").map(row => ({ ...row, what: rowScopes.get(row.keys) ?? row.what })) },
+  { title: copy.helpScope.todos, rows: CHORDS.filter(row => row.inShelf && row.name === "todo.triage-enter") },
   { title: copy.helpScope.triage, rows: CHORDS.filter(row => row.inTriage) },
 ].map(section => section.title === copy.helpScope.todos ? [
   section,

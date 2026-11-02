@@ -639,10 +639,11 @@ export const checkKeys = files => Object.entries(files).filter(([file]) => produ
 
       if (namesRegistry(path.get('callee'), 'shortcutLabel') && path.get('arguments.0').evaluate().confident) fail(path.node);
 
-      if (callee.type === 'MemberExpression' && namesRegistry(path.get('callee.object'), 'CHORDS') && callee.property.name === 'find') {
+      if (callee.type === 'MemberExpression' && namesRegistry(path.get('callee.object'), 'CHORDS') && ['find', 'findLast', 'filter', 'findIndex', 'findLastIndex'].includes(keyOf(callee.property))) {
         let displayLookup = false;
         path.get('arguments.0').traverse({
           MemberExpression(inner) { if (keyOf(inner.node.property) === 'keys') displayLookup = true; },
+          ObjectProperty(inner) { if (inner.parentPath.isObjectPattern() && keyOf(inner.node.key) === 'keys') displayLookup = true; },
           CallExpression(inner) { if (namesRegistry(inner.get('callee'), 'defaultKeys')) displayLookup = true; },
         });
 
