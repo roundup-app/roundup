@@ -1,10 +1,12 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, it } from "vitest";
+import { copy } from "./copy";
+import { copy as keyCopy } from "../keys/copy";
 import { captureDir } from "../testing/captures";
 import { openLane } from "../todos/laneBrowser";
 
-it.skipIf(!captureDir("U4277a"))("u4277a_u4277b_u4277c_requested_screens_dark", { timeout: 240_000, retry: 0 }, async () => {
+it.skipIf(!captureDir("U4277a"))("u5621_u4277a_u4277b_u4277c_requested_screens_dark", { timeout: 240_000, retry: 0 }, async () => {
   const lane = await openLane(1512, "dark", "builder-4277");
   const only = (process.env.ROUNDUP_CAPTURE_SCREENS ?? "").split(",").filter(Boolean);
   const phase = process.env.ROUNDUP_CAPTURE_PHASE ?? "head";
@@ -52,17 +54,21 @@ it.skipIf(!captureDir("U4277a"))("u4277a_u4277b_u4277c_requested_screens_dark", 
         await capture("U4277a", `${seed}-${section}`);
 
         if (section === "Shortcuts" && seed === "tree-40") {
-          // Quick add follows the action rows; the native browser click needs its recorder in view.
-          await lane.browser("scrollintoview", ".settings-shortcut button[aria-invalid]");
-          await lane.browser("click", ".settings-shortcut button[aria-invalid]");
-          await lane.until("document.activeElement?.getAttribute('aria-pressed') === 'true' && document.activeElement?.hasAttribute('aria-invalid')");
+          const saved = await lane.evaluate("JSON.parse(localStorage.getItem('roundup:app-settings') ?? '{}').shortcuts ?? {}");
+          expect(saved).toEqual({});
+          const caption = await lane.evaluate<string>(`Array.from(document.querySelectorAll('.settings-field-caption')).find(node => node.textContent === ${JSON.stringify(keyCopy.newAgent)}).id`);
+          const recorder = `button[aria-labelledby~=${JSON.stringify(caption)}]`;
+          await lane.browser("click", recorder);
+          await lane.until(`document.querySelector('${recorder}')?.getAttribute('aria-pressed') === 'true'`);
           await capture("U4277a", "tree-40-shortcut-recording");
           await lane.browser("press", "Meta+q");
-          await lane.until("document.activeElement?.getAttribute('aria-invalid') === 'true'");
+          const refusal = copy.shortcutRefusal("⌘Q", copy.quitApp);
+          await lane.until(`document.querySelector('${recorder}')?.closest('.settings-field')?.querySelector('[role=alert]')?.textContent === ${JSON.stringify(refusal)}`);
+          expect(await lane.evaluate(`document.querySelector('${recorder}')?.getAttribute('aria-pressed') === 'true'`)).toBe(true);
+          expect(await lane.evaluate("JSON.parse(localStorage.getItem('roundup:app-settings') ?? '{}').shortcuts ?? {}")).toEqual(saved);
           await capture("U4277a", "tree-40-shortcut-refusal");
           await lane.browser("press", "Escape");
-          await lane.until("!!document.querySelector('.settings-view') && document.activeElement?.getAttribute('aria-pressed') === 'false' && document.activeElement?.getAttribute('aria-invalid') === 'false'");
-          await capture("U4277a", "tree-40-shortcut-cancelled");
+          await lane.until(`!!document.querySelector('.settings-view') && document.querySelector('${recorder}')?.getAttribute('aria-pressed') === 'false'`);
         }
 
         if (section === "Terminal" && seed === "tree-40") {
@@ -126,7 +132,7 @@ it.skipIf(!captureDir("U4277a"))("u4277a_u4277b_u4277c_requested_screens_dark", 
         if (command === "import-work") await lane.until("!!document.querySelector('.import-panel') && !document.querySelector('.import-panel [aria-busy=true]')");
 
         if (command === "import-work") {
-          await lane.evaluate(`Array.from(document.querySelectorAll('.settings-view button')).find(button => button.textContent === 'Refresh').click()`);
+          await lane.evaluate(`Array.from(document.querySelectorAll('.settings-view button')).find(button => button.textContent === 'Last month').click()`);
 
           if (state === "filled") await lane.until("!!document.querySelector('.import-check')");
         }

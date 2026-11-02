@@ -37,7 +37,7 @@ it("u459_failed_done_rows_are_visible_and_selected", async () => {
 
   fireEvent.click(await screen.findByRole("button", { name: "Clear done" }));
   await confirmDeletion();
-  await screen.findByText("Could not delete todo 2 #2: The chosen Todo is no longer available. Refresh to check again.");
+  await screen.findByText("Could not delete todo 2 #2: The chosen Todo is no longer available. Retry to check again.");
   await questionClosed();
   expect(screen.getByRole("button", { name: /^(?:Idle|Blocked|Done) #2 / }).getAttribute("aria-pressed")).toBe("true");
   expect(screen.getAllByRole("button", { pressed: true })).toHaveLength(1);

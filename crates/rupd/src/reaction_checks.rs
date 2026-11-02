@@ -358,11 +358,20 @@ impl Reactions {
         if let Some(state) = end {
             saved.state = state;
         }
-        if let Ok(record) = serde_json::to_string(&saved) {
-            let _ = db.execute(
+        if let Ok(updated) = serde_json::to_string(&saved) {
+            if updated == record {
+                return;
+            }
+            let changed = db.execute(
                 "UPDATE reactions SET record=?2 WHERE id=?1",
-                params![id, record],
+                params![id, updated],
             );
+            if matches!(changed, Ok(n) if n > 0) {
+                self.bus.emit(
+                    contracts::Actor::daemon(),
+                    contracts::EventData::ReactionChanged,
+                );
+            }
         }
     }
 }
