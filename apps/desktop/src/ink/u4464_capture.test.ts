@@ -10,7 +10,7 @@ import { captureDir } from "../testing/captures";
 const exec = promisify(execFile);
 
 // U4464's rendered policy observer: appearance is recorded for the independent critic.
-it.skipIf(!captureDir("U4464"))("u4464_capture_empty_views_in_both_themes", async () => {
+it.skipIf(!captureDir("U4464"))("u5606_capture_empty_views_in_both_themes", { timeout: 240_000, retry: 0 }, async () => {
   const phase = process.env.ROUNDUP_CAPTURE_PHASE ?? "head";
   const root = process.env.U4464_ROOT ?? process.cwd();
   const server = await appServer({ root });
@@ -68,6 +68,7 @@ it.skipIf(!captureDir("U4464"))("u4464_capture_empty_views_in_both_themes", asyn
       await wait(`!!document.querySelector('.pads-tab .empty-state')`);
       await snap(`${theme}-pads`);
       await browser("press", "Meta+k");
+      await wait(`!!document.querySelector('.leader')`);
       await browser("press", "i");
       await wait(`!!document.querySelector('.inbox .empty-state')`);
       await snap(`${theme}-inbox`);
@@ -115,6 +116,7 @@ it.skipIf(!captureDir("U4464"))("u4464_capture_empty_views_in_both_themes", asyn
       await read(`window.__fake.failNext(-32003,'Creation rejected: choose another Workstream name'); document.querySelector('[aria-label="Create"]').click(); document.querySelector('[data-part="item"][data-value="workstream"]').click()`);
       await wait(`document.querySelector('[role=alert]')?.textContent.includes('Creation rejected')`);
       await snap(`${theme}-dense-failure`);
+      expect(await read(`window.__fake.app.calls.filter(call => call.method === 'rail.createWorkstream').length`)).toBe(1);
       expect(await read(`document.querySelectorAll('[role=alert]').length`)).toBe(1);
       await load("empty-project");
       await browser("press", "Meta+Comma");
@@ -144,7 +146,7 @@ it.skipIf(!captureDir("U4464"))("u4464_capture_empty_views_in_both_themes", asyn
   } finally {
     try { await browser("close"); } finally { await server.close(); rmSync(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); }
   }
-}, 240_000);
+});
 
 // U401 is a critic-only observer: record production marks and the four shared surfaces.
 it.skipIf(!captureDir("U401"))("u401_capture_shared_glyphs_for_the_critic", async () => {
