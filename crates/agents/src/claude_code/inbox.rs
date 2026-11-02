@@ -390,6 +390,39 @@ mod tests {
     }
 
     #[test]
+    fn b5718a_oversized_complete_records_keep_receipts_with_bounded_allocations() {
+        for size in [1, 16, 64] {
+            let large = "x".repeat(size * 1024 * 1024);
+            let origin = line(7);
+            let origin = origin
+                .trim()
+                .strip_prefix('{')
+                .unwrap()
+                .strip_suffix('}')
+                .unwrap();
+            let fixtures = [
+                (
+                    format!("{{\"before\":\"{large}\",{origin},\"after\":\"{large}\"}}\n"),
+                    vec![7],
+                ),
+                (
+                    format!(
+                        "{{\"attachment\":{{\"before\":\"{large}\",{origin},\"after\":\"{large}\"}}}}\n"
+                    ),
+                    vec![7],
+                ),
+            ];
+            for (fixture, want) in fixtures {
+                let transcript = tempfile::NamedTempFile::new().unwrap();
+                std::fs::write(transcript.path(), &fixture).unwrap();
+                let (result, allocated) = measured(|| recorded(transcript.path(), 0));
+                assert_eq!(result, (want, fixture.len() as u64));
+                assert!(allocated <= 256 * 1024, "{size} MiB: {allocated} bytes");
+            }
+        }
+    }
+
+    #[test]
     fn b5635a_receipt_reads_only_appended_bytes() {
         let record = format!(
             "{{\"unused\":\"{}\",\"nested\":{{\"array\":[1,2,3]}}}}\n",
