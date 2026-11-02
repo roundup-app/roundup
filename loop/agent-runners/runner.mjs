@@ -14,13 +14,17 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 
 const WORKFLOWS = { build: 'build', fix: 'fix', review: 'review', critic: 'critic', smoke: 'qa' };
 
+// The short jobs around each agent job, by the workflows that may run each one here, so none waits behind the hosted test
+// lanes. A light job keeps no memory.
+const LIGHT = { pick: ['build'], task: ['fix', 'review', 'critic'], after: ['build', 'fix'], post: ['review', 'critic'] };
+
 const EVENTS = new Set(['workflow_run', 'workflow_dispatch', 'schedule', 'issues']);
 
 // AGENTS.md rule 5: a review or critic run judges from the PR and main alone. The controller keeps none of its memory,
 // so each one starts empty.
 const JUDGES = new Set(['review', 'critic']);
 
-const LABEL = /^roundup-(build|fix|review|critic|smoke)-([1-9][0-9]*)-([1-9][0-9]*)-([1-9][0-9]*)$/;
+const LABEL = /^roundup-(build|fix|review|critic|smoke|light)-([1-9][0-9]*|pick|task|after|post)-([1-9][0-9]*)-([1-9][0-9]*)$/;
 
 class RemoteFailure extends Error {}
 
@@ -84,7 +88,8 @@ export function serve(settings) {
     if (!label || !incoming.labels.includes('boxd') || !incoming.labels.includes('self-hosted')) return;
     const [, kind, scope, run, attempt] = label.match(LABEL);
 
-    if (Number(run) !== incoming.run_id) return;
+    // A light label names its job where an agent label names its Issue or PR.
+    if (Number(run) !== incoming.run_id || (kind === 'light') !== Object.hasOwn(LIGHT, scope)) return;
     let job = jobs.get(incoming.id);
 
     if (!job && lookup.get(incoming.id)) return; // Terminal records reject old redeliveries without growing the active set.
@@ -121,9 +126,10 @@ export function serve(settings) {
 
   async function admit(job) {
     const run = await api(`actions/runs/${job.run}`);
+    const workflows = job.kind === 'light' ? LIGHT[job.scope] : [WORKFLOWS[job.kind]];
 
     if (run.head_repository?.full_name !== repository || run.head_branch !== ref ||
-        run.path !== `.github/workflows/${WORKFLOWS[job.kind]}.yml` ||
+        !workflows.some(workflow => run.path === `.github/workflows/${workflow}.yml`) ||
         run.run_attempt !== job.attempt || !EVENTS.has(run.event)) {
       job.state = 'rejected';
       save(job);
@@ -155,7 +161,7 @@ export function serve(settings) {
     const project = join(directory, 'projects', job.role);
     const latest = join(retained, 'latest');
 
-    if (!existsSync(join(path, 'seed.tar.gz'))) {
+    if (job.kind !== 'light' && !existsSync(join(path, 'seed.tar.gz'))) {
       await command('python3', [join(HERE, 'memory.py'), 'seed',
         existsSync(latest) ? join(retained, readFileSync(latest, 'utf8')) : '-', project, path]);
     }
@@ -189,7 +195,7 @@ export function serve(settings) {
       save(job);
     }
 
-    if (!job.seeded) {
+    if (job.kind !== 'light' && !job.seeded) {
       await copy(join(path, 'seed.tar.gz'), `${job.machine}:/tmp/roundup-memory.tar.gz`);
       await remote(job.machine, `python3 /opt/roundup-ci/agent.py seed /tmp/roundup-memory.tar.gz ${job.id}`);
       job.seeded = true;
@@ -260,7 +266,8 @@ export function serve(settings) {
     ticking = true;
 
     try {
-      for (const job of jobs.values()) {
+      // Light jobs take free capacity first: each gates an agent job or acts on its result, and lasts about a minute.
+      for (const job of [...jobs.values()].sort((a, b) => (b.kind === 'light') - (a.kind === 'light'))) {
         if (['done', 'rejected'].includes(job.state) || (job.retryAt ?? 0) > Date.now()) continue;
 
         try {
