@@ -1,0 +1,182 @@
+{
+  "scenario": "CI5527e",
+  "baseline_commit": "4a4233eade3d39859016af5756ee31537a5a2e6a",
+  "run": "https://github.com/roundup-app/roundup/actions/runs/41470336828",
+  "runner": {
+    "class": "ubuntu-24.04",
+    "image": "20261026.354.1",
+    "cpus": 4,
+    "os": "Linux-7.0.0-1017-azure-x86_64-with-glibc2.39"
+  },
+  "command": "pnpm --filter desktop exec vitest run src/ui/s3806b_actions.test.tsx src/bubbles/u3756_focus.test.ts src/terminal/u514_browser.test.ts src/keys/u3787b_menu.test.tsx src/todos/u4698d_browser.test.ts src/drawer/u4458_browser.test.ts src/switcher/u3787c_browser.test.ts src/keys/u2230_hints.test.tsx src/testing/u463_real_daemon.test.ts src/bubbles/u4274_navigation.test.tsx",
+  "status": "Navigation slice only; nine rows deferred. Issue #5659 remains open.",
+  "claim": "Selected-file evidence only, never a full-shard result.",
+  "head_commit": "af2f13ae55c5ac188f31e74ba58da7b556047a35",
+  "setup": "pnpm install --frozen-lockfile in both isolated worktrees. Shared pre-existing Rust dependency cache; cargo build -p rupd -p rup exited 0 before the real-Daemon file. Dedicated headless agent-browser sessions and fresh temporary profiles.",
+  "failed_observations": [
+    {
+      "command": "pnpm --filter desktop exec vitest run src/ui/s3806b_actions.test.tsx src/bubbles/u3756_focus.test.ts src/terminal/u514_browser.test.ts src/keys/u3787b_menu.test.tsx src/todos/u4698d_browser.test.ts src/drawer/u4458_browser.test.ts src/switcher/u3787c_browser.test.ts src/keys/u2230_hints.test.tsx src/testing/u463_real_daemon.test.ts src/bubbles/u4274_navigation.test.tsx",
+      "commit": "4a4233eade3d39859016af5756ee31537a5a2e6a",
+      "outer_exit": 1,
+      "vitest_exit": 143,
+      "log": "before-interrupted.log.gz",
+      "result": "Interrupted after 5 of 10 modules completed. u3756b_changed_files_read_and_library_readiness_respect_focus_permission_false failed after configured retry. No accepted timing evidence. Later lint/build work overlapped this already-failed diagnostic run."
+    },
+    {
+      "command": "pnpm --filter desktop exec vitest run src/ui/s3806b_actions.test.tsx src/bubbles/u3756_focus.test.ts src/terminal/u514_browser.test.ts src/keys/u3787b_menu.test.tsx src/todos/u4698d_browser.test.ts src/drawer/u4458_browser.test.ts src/switcher/u3787c_browser.test.ts src/keys/u2230_hints.test.tsx src/testing/u463_real_daemon.test.ts src/bubbles/u4274_navigation.test.tsx",
+      "commit": "af2f13ae55c5ac188f31e74ba58da7b556047a35",
+      "status": "interrupted",
+      "result": "96 action cases failed because the newly scoped Project tablist query ran before the asynchronous mount. Corrected in the named actions commit; no accepted timing evidence.",
+      "outer_exit": 1,
+      "signal": "SIGINT",
+      "log": "head-interrupted.log.gz"
+    },
+    {
+      "command": "pnpm --filter desktop exec vitest run src/ui/s3806b_actions.test.tsx src/bubbles/u3756_focus.test.ts src/terminal/u514_browser.test.ts src/keys/u3787b_menu.test.tsx src/todos/u4698d_browser.test.ts src/drawer/u4458_browser.test.ts src/switcher/u3787c_browser.test.ts src/keys/u2230_hints.test.tsx src/testing/u463_real_daemon.test.ts src/bubbles/u4274_navigation.test.tsx --reporter=default --reporter=/tmp/5701-reporter.mjs",
+      "commit": "76307726c",
+      "outer_exit": 1,
+      "vitest_exit": 130,
+      "log": "continuation-interrupted.log.gz",
+      "result": "Interrupted at the run time boundary after five files passed. No accepted timing evidence."
+    },
+    {
+      "command": "pnpm --filter desktop exec vitest run src/bubbles/u4274_navigation.test.tsx --reporter=default --reporter=/tmp/5701-reporter.mjs",
+      "outer_exit": 1,
+      "signal": "SIGTERM",
+      "log": "navigation-overlap-interrupted.log.gz",
+      "result": "Restarted after closing the interrupted run\u2019s remaining browser; no accepted timing evidence."
+    },
+    {
+      "command": "pnpm --filter desktop exec vitest run src/ui/s3806b_actions.test.tsx src/bubbles/u3756_focus.test.ts src/terminal/u514_browser.test.ts src/keys/u3787b_menu.test.tsx src/todos/u4698d_browser.test.ts src/drawer/u4458_browser.test.ts src/switcher/u3787c_browser.test.ts src/keys/u2230_hints.test.tsx src/testing/u463_real_daemon.test.ts src/bubbles/u4274_navigation.test.tsx --reporter=default --reporter=/tmp/5701-reporter.mjs",
+      "outer_exit": 254,
+      "result": "Initial attempt preceded completion of baseline pnpm install: Command vitest not found. No tests executed."
+    }
+  ],
+  "head_observation": {
+    "command": "pnpm --filter desktop exec vitest run src/ui/s3806b_actions.test.tsx src/bubbles/u3756_focus.test.ts src/terminal/u514_browser.test.ts src/keys/u3787b_menu.test.tsx src/todos/u4698d_browser.test.ts src/drawer/u4458_browser.test.ts src/switcher/u3787c_browser.test.ts src/keys/u2230_hints.test.tsx src/testing/u463_real_daemon.test.ts src/bubbles/u4274_navigation.test.tsx",
+    "commit": "af2f13ae55c5ac188f31e74ba58da7b556047a35",
+    "purpose": "Correctness only: initially overlapped the interrupted baseline and end of just ready. Not paired speedup evidence.",
+    "status": "Interrupted after App group: action-query failure is fixed and its explicit rerun passes; focus failure also reproduces on main. Browser lane incomplete.",
+    "exit": 1,
+    "vitest_signal": "SIGINT",
+    "log": "head-interrupted.log.gz"
+  },
+  "ready": {
+    "command": "just ready",
+    "exit": 0,
+    "log": "ready.log.gz"
+  },
+  "ui_lint": {
+    "command": "node .agents/skills/taste-skill/scripts/lint.mjs --app <13 changed source files>",
+    "exit": 1,
+    "baseline_exit": 1,
+    "log": "ui-lint.log.gz",
+    "result": "The same 17 existing Unicode draft inputs / example.com fixture flags as main; no production UI change or new flagged pattern."
+  },
+  "accepted_pairs": [
+    {
+      "file": "src/bubbles/u4274_navigation.test.tsx",
+      "baseline_ms": 131789.324269,
+      "head_ms": 107316.460245,
+      "tests": 44,
+      "passed": 43,
+      "skipped": 1,
+      "identities": "Identical full names and statuses in both raw reports",
+      "baseline_commit": "76307726cab11b93d7bab9c96f514b1e2c13ee4c",
+      "head_source": "main 76307726c plus the navigation diff in this PR; other source files equal main",
+      "command": "pnpm --filter desktop exec vitest run src/bubbles/u4274_navigation.test.tsx --reporter=default --reporter=/tmp/5701-reporter.mjs",
+      "reporter": "navigation-reporter.mjs.in",
+      "baseline_exit": 0,
+      "head_exit": 0,
+      "repair": "Existing projectCount=0 on single-Project cases and scoped label/group queries; all actions and assertions retained.",
+      "replay_setup": "Copy navigation-reporter.mjs.in to /tmp/5701-reporter.mjs; set CI5527_REPORT to the output report path before running the recorded command.",
+      "retained_head_commit": "c50d5067819b74758fa1d3a59c7b5e1d94d18996"
+    }
+  ],
+  "next_observer": "Run passing baseline/head observations with identical explicit file selections, runner class and workload and no competing jobs. Retain raw module.diagnostic().duration (including hooks) or Vitest raw results cache duration, identities and statuses. Default printed integer milliseconds round duration and are diagnostic only.",
+  "sha256": {
+    "before-interrupted.log.gz": "4cb36088feefeade405cba05f59487ff484f32b43becaa3ce903f77266f09c4d",
+    "ready.log.gz": "c463520f579de5e9d11d1a7995c1e7e685ca5c2207a1dec391a85a4f6e3a34ed",
+    "ui-lint.log.gz": "b897a5a4b7b90a81017876a31e42987437552c4c42474c4c228c1d00948643f9",
+    "ui-lint-main.log.gz": "d6873968c6b254dec704052b59ad4ddb19faf5b49cd5c796834257924d61624e",
+    "build.log.gz": "8d92ed404b0080c88171a53bc8010557c9ec9d5200692f68c3f68254111ae82c",
+    "completion-navigation.log.gz": "6b9b8502a4de698e07c2358a51bd1e8b13c773de7fd7deb387d363567be419a5",
+    "completion-ready-before-repair.log.gz": "8e095fe741fd7aa6f0573b1f65ba1209b18b23bc1f277438e00742ba62de0ba3",
+    "completion-ready.log.gz": "013f61436ef4758e899036e86177566a4425eb5bffc66090ae899178fef16ef7",
+    "completion-ui-lint-main.log.gz": "7b285c11708c7feadac205626d611502b9f7893a36ed5a0f381b5503e80accc1",
+    "completion-ui-lint.log.gz": "167da15b9729ecaad9014a1c3887627af71d1caa69e1cb1009957e9533f566db"
+  },
+  "corrected_actions_commit": "e8cf1d5df08faa2b54dd48ebaedb3c7ebae514ad",
+  "actions_rerun": {
+    "command": "pnpm --filter desktop exec vitest run src/ui/s3806b_actions.test.tsx",
+    "commit": "e8cf1d5df08faa2b54dd48ebaedb3c7ebae514ad",
+    "status": "passed",
+    "reason": "Await Project tablist before querying its tabs; first head attempt used within(null) during async mount.",
+    "exit": 0,
+    "tests": 128,
+    "log": "actions-rerun.log.gz",
+    "displayed_file_ms": 247352,
+    "identities_report": "actions-rerun-report.json.gz",
+    "cache": "actions-results-cache.json; contemporaneous, not accepted paired evidence; another correctness process uses the same cache root."
+  },
+  "remaining": [
+    "Deliver the other nine CI5527e rows, including their concrete mount/query repairs and clean passing paired observations. Deferred edits remain recoverable from head 15e20e6a76cdb840930c42e78e7940fd21e8cbb6."
+  ],
+  "final_ready": {
+    "command": "just ready",
+    "status": "passed",
+    "log": "ready-final.log.gz",
+    "exit": 0
+  },
+  "continuation_runner": {
+    "os": "Linux-6.18.0+-x86_64-with-glibc2.39",
+    "cpus": 2,
+    "class": "Ubuntu 24.04.5 LTS, isolated boxd runner",
+    "run": "https://github.com/roundup-app/roundup/actions/runs/41476236075"
+  },
+  "completion_verification": {
+    "source_commit": "c78b0469707e482ba92df7aa8d8ef572039061cd",
+    "main_commit": "6d28856326146787bf5ceb8e3bf1ca99e2b212ff",
+    "navigation": {
+      "command": "pnpm --filter desktop exec vitest run src/bubbles/u4274_navigation.test.tsx",
+      "source_commit": "43821ab5204f8113d40df0d6bfeb35e69be4bb6c",
+      "exit": 0,
+      "passed": 43,
+      "skipped": 1,
+      "log": "completion-navigation.log.gz",
+      "identities": "Full names and statuses exactly match both accepted-pair reports.",
+      "purpose": "Correctness only; ran concurrently with ready, not performance evidence."
+    },
+    "initial_ready": {
+      "command": "just ready",
+      "exit": 1,
+      "log": "completion-ready-before-repair.log.gz",
+      "failure": "Fallow reported the executable measurement reporter as an unused file and the Python-invoked @ast-grep/cli as an unused dependency. All other ready lines passed."
+    },
+    "repair": "Retain the reporter using the existing E14 .mjs.in template convention; record the installed CLI consumed by tools/lint/scan.py outside the JS import graph in .fallowrc.json. Fallow dead-code then exited 0.",
+    "ui_lint": {
+      "observations": [
+        {
+          "command": "node .agents/skills/taste-skill/scripts/lint.mjs --app apps/desktop/src/bubbles/u4274_navigation.test.tsx",
+          "exit": 1,
+          "log": "completion-ui-lint.log.gz"
+        },
+        {
+          "command": "node .agents/skills/taste-skill/scripts/lint.mjs --app /tmp/5701-navigation-main.tsx",
+          "exit": 1,
+          "log": "completion-ui-lint-main.log.gz"
+        }
+      ],
+      "result": "Both flag the same unchanged emoji in the Unicode draft fixture; no production UI changes."
+    },
+    "merge_loss": {
+      "command": "bash loop/rules.sh merge-loss",
+      "exit": 0
+    },
+    "ready": {
+      "command": "just ready",
+      "exit": 0,
+      "log": "completion-ready.log.gz"
+    }
+  }
+}
