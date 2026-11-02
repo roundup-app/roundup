@@ -498,10 +498,10 @@ Paired clean builds on Linux x86_64 `roundup-ci-125077128093`, Node v22.23.4 and
 
 | Revision | Raw bytes | Gzip bytes | Checker exit |
 |---|---:|---:|---:|
-| B `efd3a0bb089f640c8a4b1ccce11e098366af9b8f` | 1,369,334 | 435,692 | 0 |
-| Production H `3b0bea12bd45188b68699c70b20b91416fae5b81` | 1,278,942 | 411,947 | 0 |
+| B `46a40da0823fcfdcbd8bd0eb0c12dfb34fed22df` | 1,369,334 | 435,692 | 0 |
+| Production H `96e89dd3bb10694ee62ba151f9a9783f0249d370` | 1,278,942 | 411,947 | 0 |
 
-The reduction is **23,745 gzip bytes**, exceeding 16,384 by 7,361. Headroom is **25,867 bytes** under the unchanged 437,814 ceiling. The refreshed pair follows a conflict-free merge of main's #5576, which repairs CI's stale fixed-length MCP test array by deriving tools from declarations. The original pair (`5307469e18b650bca8297bbfd782cbbb72b89e23` / `d41c839fa042a4ab025cfd29b41accd3f6eee984`) and earlier attribution at `4433b54af` reproduce 435,692 → 411,916. The fix also directly loads Todo creation during recovery, removing its remaining registration dependency; this adds 31 gzip bytes. Later commits change only this evidence. No dependency, bundler, counting, compression or budget configuration changes.
+The reduction is **23,745 gzip bytes**, exceeding 16,384 by 7,361. Headroom is **25,867 bytes** under the unchanged 437,814 ceiling. The refreshed pair follows conflict-free merges of main's evidence cleanup #5484 and #5576, which repairs CI's stale fixed-length MCP test array by deriving tools from declarations. The original pair (`5307469e18b650bca8297bbfd782cbbb72b89e23` / `d41c839fa042a4ab025cfd29b41accd3f6eee984`) and earlier attribution at `4433b54af` reproduce 435,692 → 411,916. The fix also directly loads Todo creation during recovery, removing its remaining registration dependency; this adds 31 gzip bytes. Later commits change only this evidence. No dependency, bundler, counting, compression or budget configuration changes.
 
 Before selecting deferrals, the production manifest, `.vite/modules.json` and installed visualizer attributed the largest static chunks:
 
