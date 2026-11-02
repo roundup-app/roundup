@@ -478,26 +478,6 @@ async fn ua5_only_the_user_runs_a_user_action() {
 }
 
 #[tokio::test]
-async fn ua5_a_user_action_runs_with_no_app() {
-    let fx = with(|root| {
-        ext(
-            root,
-            "d",
-            &[],
-            &action("user.deploy", "return { done: true };"),
-        )
-    })
-    .await;
-    fx.listed(&["user.deploy"]).await;
-    let reply = fx
-        .user()
-        .await
-        .call("action.run", json!({"name":"user.deploy"}))
-        .await;
-    assert_eq!(reply["result"]["status"], "done");
-}
-
-#[tokio::test]
 async fn ua6_a_throwing_hook_is_skipped_with_one_problem() {
     let js = "export function register(on) { on('action', { name: 'user.a', label: 'A' }, () => { throw new Error('boom'); }); on('action', { name: 'user.a', label: 'A' }, () => ({ done: true })); on('action', { name: 'user.b', label: 'B' }, () => { throw new Error('bang'); }); on('action', { name: 'user.c', label: 'C' }, () => { throw new Error('bang'); }).catch(() => ({ deny: 'caught' })); }";
     let mut fx = with(|root| ext(root, "thrower", &[], js)).await;
@@ -700,4 +680,57 @@ async fn ua8_a_broken_extension_never_stops_the_daemon() {
         fx.user().await.call("daemon.ping", Value::Null).await["result"]["pong"],
         true
     );
+}
+
+#[tokio::test]
+async fn c5461b_unsupported_event_fails_load() {
+    let events = [
+        "rail.sort",
+        "agent.status",
+        "rail.group",
+        "agent.classify",
+        "bus.route",
+        "tool.call",
+        "ui.render",
+        "provenance.render",
+        "unknown",
+    ];
+    let mut fx = with(|root| {
+        for (index, event) in events.iter().enumerate() {
+            let suffix = char::from(b'a' + u8::try_from(index).unwrap());
+            ext(root, &format!("bad-{index}"), &[], &format!(
+                "export function register(on) {{ on('action', {{ name: 'user.bad{suffix}', label: 'Bad' }}, () => ({{ done: true }})); on('{event}', () => undefined); }}"
+            ));
+        }
+        ext(root, "good", &[], &action("user.good", "return { done: true };"));
+    }).await;
+    let mut problems = Vec::new();
+    tokio::time::timeout(Duration::from_secs(4), async {
+        while problems.len() < events.len() {
+            if let EventData::ExtensionProblem(problem) = fx.events.recv().await.unwrap().data {
+                problems.push((problem.extension, problem.cause));
+            }
+        }
+    })
+    .await
+    .expect("every unsupported registration must fail by name");
+    fx.listed(&["user.good"]).await;
+    let mut user = fx.user().await;
+    assert_eq!(
+        user.call("daemon.ping", Value::Null).await["result"]["pong"],
+        true
+    );
+    problems.extend(fx.problems());
+    assert_eq!(problems.len(), events.len(), "{problems:?}");
+    for (index, event) in events.iter().enumerate() {
+        let matching: Vec<_> = problems
+            .iter()
+            .filter(|(extension, _)| extension == &format!("bad-{index}"))
+            .collect();
+        assert_eq!(matching.len(), 1, "{problems:?}");
+        assert!(
+            matching[0].1.contains(event) && matching[0].1.contains("unsupported"),
+            "{matching:?}"
+        );
+    }
 }

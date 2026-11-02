@@ -6,7 +6,11 @@ mod child_run;
 mod door_terminals;
 #[path = "support/rupd_harness.rs"]
 mod rupd_harness;
-use door_terminals::{order_child, recorded_bytes, user_steer};
+use door_terminals::{order_child, recorded_bytes};
+
+#[path = "support/user_steer.rs"]
+mod user_steer;
+use user_steer::user_steer;
 
 #[tokio::test]
 async fn b6_a_refused_steer_writes_no_byte() {

@@ -31,15 +31,15 @@ const namespace = (ns) =>
 const $ = new Proxy({}, { get: (_, ns) => (isText(ns) ? namespace(ns) : undefined) });
 
 function on(event, matcher, hook) {
+  if (event !== "action") throw new Error(`on("${event}"): unsupported event`);
+
   if (matcher instanceof Function) [matcher, hook] = [undefined, matcher];
 
   if (!(hook instanceof Function)) throw new Error(`on("${event}") needs a hook function`);
   const entry = { event, spec: matcher, hook, catcher: null };
 
-  if (event === "action") {
-    if (!matcher || !isText(matcher.name)) throw new Error('on("action") needs { name, label }');
-    entries.push(entry);
-  }
+  if (!matcher || !isText(matcher.name)) throw new Error('on("action") needs { name, label }');
+  entries.push(entry);
 
   const handle = {
     catch(fn) {
