@@ -188,7 +188,12 @@ impl Daemon {
             "todo.hand" => fields.push(("agent", false)),
             "message.send" | "message.list" => fields.push(("to", true)),
             "route.set" => {
-                fields.push(("from", true));
+                // Sender identities retain their meaning even when an Agent has that Rail name.
+                if !params["from"].as_str().is_some_and(|from| {
+                    from == "you" || from == Actor::daemon().id || from.starts_with("ext:")
+                }) {
+                    fields.push(("from", true));
+                }
                 fields.push(("to", true));
             }
             "message.progress"

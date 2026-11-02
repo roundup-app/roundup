@@ -26,18 +26,193 @@ async fn c4_wire_envelope_bytes_match_before_migration() {
     }
 }
 
+fn non_agent_senders() -> [Actor; 2] {
+    [
+        Actor {
+            kind: ActorKind::Ext,
+            id: "ext:audit".into(),
+            parent: None,
+        },
+        Actor::daemon(),
+    ]
+}
+
+fn connection_as(actor: Actor) -> Conn {
+    let (events, _) = mpsc::unbounded_channel();
+    Conn {
+        actor,
+        peer: None,
+        events,
+        output: None,
+    }
+}
+
+#[tokio::test]
+async fn b2_a_user_set_non_agent_auto_route_reaches_the_inbox() {
+    for sender in non_agent_senders() {
+        let dir = tempfile::tempdir().unwrap();
+        let (daemon, state) = test_support::reply_daemon(dir.path(), false);
+        let mut user = connection_as(Actor::user());
+        daemon
+            .route(
+                &mut user,
+                "route.set",
+                json!({"from":sender.id,"to":"2","delivery":"auto"}),
+            )
+            .await
+            .unwrap();
+        let mut conn = connection_as(sender.clone());
+        let sent = daemon
+            .route(
+                &mut conn,
+                "message.send",
+                json!({"to":"2","kind":"note","body":"audit result"}),
+            )
+            .await
+            .unwrap();
+        assert_eq!(sent["status"], "pending");
+        assert!(state.entries.lock().unwrap().is_empty());
+        state.status("2", contracts::Kind::Idle);
+        tokio::time::timeout(std::time::Duration::from_secs(1), state.written.notified())
+            .await
+            .unwrap();
+        let id = sent["id"].as_u64().unwrap() as u32;
+        assert_eq!(
+            *state.entries.lock().unwrap(),
+            [("2".into(), id, sender.id.clone(), "audit result".into())]
+        );
+        let pending = daemon
+            .route(&mut user, "message.get", json!({"id":id}))
+            .await
+            .unwrap();
+        assert_eq!(pending["status"], "pending");
+        assert_eq!(pending["from"], serde_json::to_value(&sender).unwrap());
+        state
+            .messages
+            .get()
+            .unwrap()
+            .upgrade()
+            .unwrap()
+            .confirm_inbox("2", &[id]);
+        let delivered = daemon
+            .route(&mut user, "message.get", json!({"id":id}))
+            .await
+            .unwrap();
+        assert_eq!(delivered["status"], "delivered");
+        assert_eq!(*state.terminal_writes.lock().unwrap(), 0);
+    }
+}
+
+#[tokio::test]
+async fn b4_a_user_set_non_agent_drop_route_drops_the_message() {
+    for sender in non_agent_senders() {
+        let dir = tempfile::tempdir().unwrap();
+        let (daemon, state) = test_support::reply_daemon(dir.path(), false);
+        let mut user = connection_as(Actor::user());
+        daemon
+            .route(
+                &mut user,
+                "route.set",
+                json!({"from":sender.id,"to":"2","delivery":"drop"}),
+            )
+            .await
+            .unwrap();
+        state.status("2", contracts::Kind::Idle);
+        let mut events = daemon.bus.subscribe();
+        let mut conn = connection_as(sender.clone());
+        let sent = daemon
+            .route(
+                &mut conn,
+                "message.send",
+                json!({"to":"2","kind":"note","body":"audit result"}),
+            )
+            .await
+            .unwrap();
+        assert_eq!(sent["status"], "dropped");
+        assert_eq!(sent["from"], serde_json::to_value(&sender).unwrap());
+        let mut dropped = Vec::new();
+        while let Ok(event) = events.try_recv() {
+            if let contracts::EventData::MessageDropped(message) = event.data {
+                dropped.push(serde_json::to_value(message).unwrap());
+            }
+        }
+        assert_eq!(dropped, [sent]);
+        assert!(state.entries.lock().unwrap().is_empty());
+        assert_eq!(*state.terminal_writes.lock().unwrap(), 0);
+    }
+}
+
+#[tokio::test]
+async fn b5_a_non_agent_route_change_preserves_the_pending_message() {
+    for sender in non_agent_senders() {
+        let dir = tempfile::tempdir().unwrap();
+        let (daemon, state) = test_support::reply_daemon(dir.path(), false);
+        let mut user = connection_as(Actor::user());
+        daemon
+            .route(
+                &mut user,
+                "route.set",
+                json!({"from":sender.id,"to":"2","delivery":"auto"}),
+            )
+            .await
+            .unwrap();
+        let mut conn = connection_as(sender.clone());
+        let pending = daemon
+            .route(
+                &mut conn,
+                "message.send",
+                json!({"to":"2","kind":"question","body":"audit question"}),
+            )
+            .await
+            .unwrap();
+        assert_eq!(pending["status"], "pending");
+        let mut events = daemon.bus.subscribe();
+        daemon
+            .route(
+                &mut user,
+                "route.set",
+                json!({"from":sender.id,"to":"2","delivery":"drop"}),
+            )
+            .await
+            .unwrap();
+        let read = daemon
+            .route(&mut user, "message.get", json!({"id":pending["id"]}))
+            .await
+            .unwrap();
+        assert_eq!(read, pending);
+        while let Ok(event) = events.try_recv() {
+            assert!(
+                !serde_json::to_value(&event).unwrap()["name"]
+                    .as_str()
+                    .unwrap()
+                    .starts_with("message."),
+                "{event:?}"
+            );
+        }
+        assert!(state.entries.lock().unwrap().is_empty());
+    }
+}
+
 #[tokio::test]
 async fn b5_the_user_sets_non_agent_routes_through_daemon_dispatch() {
     let dir = tempfile::tempdir().unwrap();
     let daemon = tests::daemon_in(dir.path());
-    let created = tests::ask(&daemon, r#"{"id":1,"method":"rail.createWorkstream","params":{"name":"Receiver"}}"#).await;
+    let created = tests::ask(
+        &daemon,
+        r#"{"id":1,"method":"rail.createWorkstream","params":{"name":"Receiver"}}"#,
+    )
+    .await;
     assert!(created.get("error").is_none(), "{created}");
     let to = &created["result"]["id"];
     for from in ["ext:audit", "rupd", "you"] {
         for delivery in ["auto", "drop"] {
             let route = json!({"from":from,"to":to,"delivery":delivery});
             let mut events = daemon.bus.subscribe();
-            let response = tests::ask(&daemon, &json!({"id":2,"method":"route.set","params":route}).to_string()).await;
+            let response = tests::ask(
+                &daemon,
+                &json!({"id":2,"method":"route.set","params":route}).to_string(),
+            )
+            .await;
             assert_eq!(response["result"], route, "{response}");
             let listed = tests::ask(&daemon, r#"{"id":3,"method":"route.list"}"#).await;
             assert!(listed["result"].as_array().unwrap().contains(&route));
@@ -125,6 +300,28 @@ async fn u4593_agent_inputs_resolve_before_dispatch() {
                 "{method} {selector}"
             );
         }
+    }
+    db.execute_batch("INSERT INTO nodes(id,kind,name,ord) VALUES(5,'agent','ext:audit',4),(6,'agent','rupd',5),(7,'agent','you',6);").unwrap();
+    for (from, to, expected_from, expected_to) in [
+        ("1", "2", "1", "2"),
+        ("Peer", "name:me", "1", "2"),
+        ("ext:audit", "Peer", "ext:audit", "1"),
+        ("rupd", "Peer", "rupd", "1"),
+        ("you", "Peer", "you", "1"),
+        ("name:ext:audit", "name:rupd", "5", "6"),
+        ("name:rupd", "name:you", "6", "7"),
+        ("name:you", "name:ext:audit", "7", "5"),
+    ] {
+        let set = tests::ask(
+            &daemon,
+            &json!({"id":1,"method":"route.set","params":{"from":from,"to":to,"delivery":"drop"}})
+                .to_string(),
+        )
+        .await;
+        let expected = json!({"from":expected_from,"to":expected_to,"delivery":"drop"});
+        assert_eq!(set["result"], expected, "{set}");
+        let listed = tests::ask(&daemon, r#"{"id":1,"method":"route.list"}"#).await;
+        assert!(listed["result"].as_array().unwrap().contains(&expected));
     }
     for owner in [
         json!("Peer"),
@@ -541,18 +738,24 @@ async fn m14_an_agent_cannot_route_or_replace_the_users_routes() {
             json!({ "from": "2", "to": "3", "delivery": "auto" }),
         )
         .await;
-    let from_user = daemon
-        .route(
-            &mut conn,
-            "route.set",
-            json!({ "from": "you", "to": "2", "delivery": "drop" }),
-        )
-        .await;
-
     assert_eq!(replaced.unwrap_err().code, code::FORBIDDEN);
-    assert_eq!(from_user.unwrap_err().code, code::FORBIDDEN);
+    let before = daemon.touches.sequence().unwrap();
+    let mut events = daemon.bus.subscribe();
+    for from in ["you", "ext:audit", "rupd"] {
+        let refused = daemon
+            .route(
+                &mut conn,
+                "route.set",
+                json!({"from":from,"to":"2","delivery":"drop"}),
+            )
+            .await
+            .unwrap_err();
+        assert_eq!(refused.code, code::FORBIDDEN, "{from}: {refused:?}");
+    }
+    assert_eq!(daemon.touches.sequence().unwrap(), before);
+    assert!(events.try_recv().is_err());
     let routes = tests::ask(&daemon, r#"{"id":1,"method":"route.list"}"#).await["result"].clone();
-    assert_eq!(routes[0]["delivery"], "drop");
+    assert_eq!(routes, json!([{"from":"2","to":"3","delivery":"drop"}]));
 }
 
 #[tokio::test]
