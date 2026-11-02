@@ -13,7 +13,9 @@ it("u365_ask_row_links_open_once", async () => {
     [door("lead", "idle", "ready", { worktree: { path: "/work/lead", branch: "b", base: "main" } })]);
 
   const selected = connected.rail.selected();
-  fireEvent.click(await screen.findByRole("link", { name: "src/a.ts:42" }));
+  const link = await screen.findByRole("link", { name: "src/a.ts:42" });
+  expect(link.closest("button, [role=button]") === null).toBe(true);
+  fireEvent.click(link);
   await waitFor(() => expect(app.openedTargets).toEqual([{ kind: "path", path: "/work/lead/src/a.ts", line: 42 }]));
   fireEvent.click(screen.getByRole("link", { name: "https://example.com" }));
   await waitFor(() => expect(app.openedTargets).toHaveLength(2));

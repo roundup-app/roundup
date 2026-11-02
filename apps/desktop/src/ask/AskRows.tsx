@@ -9,6 +9,7 @@ import type { Target } from "@contracts/ask/Target";
 import { copy } from "./copy";
 import { ReservedLine } from "../ink/ReservedLine";
 import { KindGlyph, LABELS } from "../ink/KindGlyph";
+import { ErrorLine } from "../ink/ErrorLine";
 import { FailureLine, shownKind } from "../ink/FailureLine";
 import { useConnectedProject } from "../state/connectedProject";
 import type { AskEntry } from "../state/asks";
@@ -83,7 +84,7 @@ export const AskRows = (props: { onOpened: () => void; keys: KeyScope }) => {
 const AskRow = (props: { live: boolean; keys: KeyScope; entry: AskEntry; part: AskPart; index: number; where: string; workstream: string | null; open: (id: string) => void }) => {
   const { asks, rail, project } = useConnectedProject();
 
-  let button: HTMLElement | undefined;
+  let button: HTMLButtonElement | undefined;
   let text: HTMLSpanElement | undefined;
   let name: HTMLSpanElement | undefined;
   const [cut, setCut] = createSignal(false);
@@ -107,7 +108,7 @@ const AskRow = (props: { live: boolean; keys: KeyScope; entry: AskEntry; part: A
     chords: ["ArrowUp", "ArrowDown"],
     when: (event: KeyboardEvent) => event.target === button,
     run: (event: KeyboardEvent) => {
-      const lines = [...(button?.closest(".ask-content")?.querySelectorAll<HTMLElement>('button.ask-line, .ask-line[role="button"]') ?? [])];
+      const lines = [...(button?.closest(".ask-content")?.querySelectorAll<HTMLButtonElement>('button.ask-line, button.ask-open') ?? [])];
       const index = lines.findIndex((row) => row === button);
       lines[index + (event.key === "ArrowDown" ? 1 : -1)]?.focus();
     },
@@ -136,6 +137,8 @@ const AskRow = (props: { live: boolean; keys: KeyScope; entry: AskEntry; part: A
   const candidates = () => (props.part.placement.kind === "unclear" ? props.part.placement.candidates : []);
   const others = () => rail.nodes.filter((each) => each.kind === "workstream" && !candidates().includes(each.id));
 
+  const linked = () => findTargets(props.part.text).length > 0;
+
   const line = (trigger: TriggerProps) => (
     <>
       <span {...trigger} ref={text} class="ask-text"><TargetText text={props.part.text} base={node()?.worktree?.path ?? project.path} onFailure={setLinkFailure} /></span>
@@ -152,11 +155,13 @@ const AskRow = (props: { live: boolean; keys: KeyScope; entry: AskEntry; part: A
       <Tip class="ask-tip" text={props.part.text + "\n" + props.where} disabled={!cut() || !!linkFailure()}>{(trigger, focus) => {
         const tip = trigger();
 
-        return <Dynamic component={node() && findTargets(props.part.text).length === 0 ? "button" : "div"} {...focus} role={node() ? "button" : undefined} tabIndex={node() ? 0 : undefined} onClick={open}
-          onKeyDown={(event: KeyboardEvent) => { if (!(event.currentTarget instanceof HTMLButtonElement) && event.target === event.currentTarget && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); open(); } }}
-          ref={(element: HTMLElement) => { button = element; }} class={`ask-line ${node() ? "row-wash" : ""}`} data-feedback="ink" onPointerEnter={measure}>{line(tip)}</Dynamic>;
+        return <Dynamic component={node() && !linked() ? "button" : "div"} {...focus} onClick={open}
+          ref={(element: HTMLElement) => { if (element instanceof HTMLButtonElement) button = element; }} class={`ask-line ${node() ? "row-wash" : ""}`} data-linked={linked() ? "true" : undefined} data-feedback="ink" onPointerEnter={measure}>
+          <Show when={node() && linked()}><button type="button" class="ask-open" data-feedback="ink" aria-label={`${props.part.text} ${props.where} ${STATE_WORDS[props.part.state]}`} ref={element => { button = element; }} /></Show>
+          {line(tip)}
+        </Dynamic>;
       }}</Tip>
-      <Show when={linkFailure()}><ReservedLine message={linkFailure()} /></Show>
+      <Show when={linkFailure()}>{message => <div class="target-failure"><ErrorLine message={message()} /></div>}</Show>
       <Show when={!dismissed()}><FailureLine status={status()} /></Show>
       <Show when={asking()}>
         <div class="ask-back">

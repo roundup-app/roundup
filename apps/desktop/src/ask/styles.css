@@ -537,12 +537,45 @@
 .overview-sections-owner { width: min(100%, var(--ask-width)); align-self: center; }
 .ask-bar :is(.project-overview, .made):has(.empty-state) { flex: 1; min-height: 0; }
 
-.ask-line[role="button"] {
+/* The full-row opener must keep anchors outside its accessibility subtree. */
+.ask-line[data-linked="true"] {
+  position: relative;
+}
+
+.ask-line[data-linked="true"].row-wash {
   cursor: pointer;
 }
 
-.ask-line[role="button"]:hover {
+.ask-line[data-linked="true"].row-wash:hover {
   color: var(--text);
+  --row-wash: var(--hover);
+}
+
+.ask-open {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.ask-line[data-linked="true"] > :is(.ask-text, .ask-where, .ask-state) {
+  position: relative;
+  pointer-events: none;
+}
+
+.ask-line[data-linked="true"] :is(.ask-text, .ask-name, .target-link) {
+  pointer-events: auto;
+}
+
+.ask-line[data-linked="true"] .ask-text {
+  width: auto;
+  overflow: visible;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.ask-row .target-failure {
+  grid-column: 1 / -1;
 }
 
 .ask-row .reserved-line {
