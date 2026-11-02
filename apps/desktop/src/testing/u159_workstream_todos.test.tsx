@@ -4,7 +4,7 @@ import { afterEach, expect, it } from "vitest";
 import { createFakeApp } from "../testing/fakeApp";
 import { node, workstream, event, info, USER } from "../testing/nodes";
 import { todoHandlers, padHandlers } from "../testing/stores";
-import { todo } from "../todos/testHarness";
+import { todo, todoRowOf as rowOf } from "../todos/testHarness";
 import { connectProject, ConnectedProjectContext } from "../state/connectedProject";
 import { Shelf, ProjectShelfTabs, createShelfTabs } from "../shelf/Shelf";
 import { createShelfFrame } from "../shelf/frame";
@@ -61,7 +61,7 @@ it("u2744a_shelf_scope_agent_lists_only_its_own", async () => {
 });
 
 const tab = async (name: "Todos" | "Pads") => {
-  fireEvent.click(screen.getByRole("tab", { name: new RegExp(`^${name}`) }));
+  fireEvent.click(within(document.querySelector<HTMLElement>(".shelf-tabs")!).getByRole("tab", { name: new RegExp(`^${name}`) }));
   await waitFor(() => expect(document.querySelector(name === "Todos" ? "[data-shelf-scope] [aria-label^=\"Add Todo: \"]" : "[data-shelf-scope] [aria-label=\"Add Pad\"]")).not.toBeNull());
 };
 
@@ -71,7 +71,7 @@ const disclosure = (id: string) => document.querySelector<HTMLElement>(`.shelf-p
 
 const groupIds = () => [...document.querySelectorAll('.shelf-panel:not([hidden]) [data-shelf-group]')].map(el => el.getAttribute('data-shelf-group'));
 
-const count = (name: string) => screen.getByRole("tab", { name: new RegExp(`^${name}`) }).querySelector('.shelf-count')?.textContent ?? "0";
+const count = (name: string) => within(document.querySelector<HTMLElement>(".shelf-tabs")!).getByRole("tab", { name: new RegExp(`^${name}`) }).querySelector('.shelf-count')?.textContent ?? "0";
 
 const ownTodos = (id: string) => [...document.querySelectorAll(`[data-shelf-group="${id}"] [data-todo]`)].flatMap(el => el.closest('[data-shelf-group]')?.getAttribute('data-shelf-group') === id ? [Number(el.getAttribute('data-todo'))] : []);
 
@@ -127,7 +127,7 @@ it("u2744a_shelf_scope_unassigned_starts_folded", async () => {
     expect(connected.rail.selected()).toBeNull();
   }
 
-  expect(screen.getByRole("button", { name: /^(?:Idle|Blocked|Done) #2 / })).toBeTruthy();
+  expect(within(rowOf(2)).getByRole("button", { name: /^(?:Idle|Blocked|Done) #2 / })).toBeTruthy();
 });
 
 // The Todo scope clause moved to u3717_scope_still_selects_by_home_and_maker; this keeps the counts.
@@ -260,7 +260,7 @@ it.each([["work shell", "w", [1, 2, 6, 8, 12], 12], ["root shell", null, [1, 2, 
 
 it("u2744a_shelf_scope_overview_groups_every_item_once_after_reorder", async () => {
   const { app } = await mount();
-  const row = await screen.findByRole("button", { name: /^(?:Idle|Blocked|Done) #2 / });
+  const row = await waitFor(() => within(rowOf(2)).getByRole("button", { name: /^(?:Idle|Blocked|Done) #2 / }));
   row.focus();
   fireEvent.keyDown(row, { key: "ArrowDown", altKey: true });
   await waitFor(() => expect(app.calls.filter(call => call.method === "todo.reorder").map(call => call.params)).toEqual([{ id: 2, before: 6 }]));
@@ -270,9 +270,9 @@ it("u2744a_shelf_scope_overview_groups_every_item_once_after_reorder", async () 
 
 it("u458_grouped_ranges_follow_visible_order", async () => {
   await mount();
-  const first = await screen.findByRole("button", { name: /^(?:Idle|Blocked|Done) #1 / });
-  const second = await screen.findByRole("button", { name: /^(?:Idle|Blocked|Done) #2 / });
-  const fifth = await screen.findByRole("button", { name: /^(?:Idle|Blocked|Done) #5 / });
+  const first = await waitFor(() => within(rowOf(1)).getByRole("button", { name: /^(?:Idle|Blocked|Done) #1 / }));
+  const second = await waitFor(() => within(rowOf(2)).getByRole("button", { name: /^(?:Idle|Blocked|Done) #2 / }));
+  const fifth = await waitFor(() => within(rowOf(5)).getByRole("button", { name: /^(?:Idle|Blocked|Done) #5 / }));
   fireEvent.click(first, { metaKey: true });
   fireEvent.click(fifth, { shiftKey: true });
   expect([...document.querySelectorAll('[data-todo][data-selected=true]')].map(row => Number(row.getAttribute('data-todo')))).toEqual([1, 2, 5]);
