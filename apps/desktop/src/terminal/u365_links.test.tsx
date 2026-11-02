@@ -29,12 +29,10 @@ describe("u365 recognised text", () => {
 });
 
 const links = (terminal: Terminal, y: number): Promise<ILink[]> => new Promise((resolve) => {
-  const provider = createLinkProvider(terminal, () => kept, (printedTarget) => opened.push(printedTarget));
+  const provider = createLinkProvider(terminal, (printedTarget) => opened.push(printedTarget));
 
   provider.provideLinks(y, (found) => resolve(found ?? []));
 });
-
-let kept = true;
 
 let opened: unknown[] = [];
 
@@ -49,32 +47,17 @@ const written = async (cols: number, text: string): Promise<Terminal> => {
 const click = (link: ILink, init: MouseEventInit) => link.activate(new MouseEvent("click", init), link.text);
 
 describe("u365 the provider", () => {
-  it("u365_cmd_click_opens_once", async () => {
-    kept = true;
+  it("u365_plain_click_opens_once", async () => {
     opened = [];
     const [link] = await links(await written(80, "go https://example.com ok"), 1);
 
-    click(link!, { metaKey: true });
+    click(link!, {});
 
     expect(opened).toEqual([{ kind: "url", url: "https://example.com" }]);
     expect(link!.range).toEqual({ start: { x: 4, y: 1 }, end: { x: 22, y: 1 } });
   });
 
-  it("u365_a_plain_click_selects_and_opens_nothing", async () => {
-    kept = true;
-    opened = [];
-    const term = await written(80, "https://example.com");
-    const [link] = await links(term, 1);
-
-    for (const init of [{}, { ctrlKey: true }, { shiftKey: true }, { altKey: true }]) click(link!, init);
-
-    expect(opened).toEqual([]);
-    kept = false;
-    expect(await links(term, 1)).toEqual([]);
-  });
-
   it("u365_wrapped_and_dense_lines_find_each_target", async () => {
-    kept = true;
     opened = [];
     const dense = Array.from({ length: 20 }, (_, index) => `/p/f${index}.ts`).join(" ");
     const term = await written(60, `${dense}\r\n`);

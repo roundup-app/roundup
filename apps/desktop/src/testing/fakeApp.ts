@@ -78,6 +78,7 @@ export type FakeApp = AppSeam & {
   dropFiles(drop: FileDrop): void;
   /** Every target `open_target` was called with, in order; `openFailure` is what it rejects with. */
   openedTargets: OpenTarget[];
+  attemptedTargets: OpenTarget[];
   openFailure: RpcError | null;
   /** Every path `open_in_editor` was called with, in order; `editorFailure` is what it rejects with. */
   editorOpened: string[];
@@ -168,6 +169,7 @@ export const createFakeApp = (): FakeApp => {
     windowOperations: [],
     windowTitleHandler: null,
     openedTargets: [],
+    attemptedTargets: [],
     openFailure: null,
     editorOpened: [],
     editorCalls: [],
@@ -410,6 +412,8 @@ export const createFakeApp = (): FakeApp => {
       };
     },
     openTarget: async (target) => {
+      app.attemptedTargets.push(target);
+
       if (app.openFailure) throw app.openFailure;
 
       app.openedTargets.push(target);
