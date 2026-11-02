@@ -54,7 +54,6 @@ export const copy = {
   minimiseOrRestoreTheBubble: minimiseBubble,
   closeTheBubble: "Close the Bubble",
   remove: sharedCopy.remove,
-  leaderChord: sharedCopy.leaderChord,
   leaderPanel: sharedCopy.pressAKey,
   leaderShortNeedsYou: sharedCopy.needsYou,
   leaderShortAnotherProject: "Other Project",

@@ -130,7 +130,6 @@ export const copy = {
   newAgentWithAPrompt: "Agent with prompt",
   newTerminal: "New Terminal",
   remove: "Remove",
-  leaderChord: "⌘K",
   pressAKey: "Press a key",
   leaderShortShelf: word.bench,
   leaderShortCapture: "Capture",
