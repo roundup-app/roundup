@@ -1,9 +1,22 @@
+import { execFileSync } from "node:child_process";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { expect, it } from "vitest";
 import { browser, read, url, wait } from "../ui/tabsBrowser";
 import type { Checks } from "../testing/checks";
 import { captureDir } from "../testing/captures";
+
+const captureSha = captureDir("U5704a") ? process.env.ROUNDUP_CAPTURE_SHA ?? execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim() : undefined;
+
+const headingHitAreas = `Array.from(document.querySelectorAll('details[data-pad-heading] summary')).filter(s => s.checkVisibility()).map(s => {
+        const r = s.getBoundingClientRect();
+        const x = r.left + r.width / 2;
+        let hitHeight = 0;
+        for (let y = r.top; y < r.bottom; y += 0.25) {
+          if (document.elementFromPoint(x, y + 0.125) === s) hitHeight += Math.min(0.25, r.bottom - y);
+        }
+        return { name: s.ariaLabel, level: s.closest('h1,h2,h3,h4,h5,h6').tagName, expanded: s.getAttribute('aria-expanded'), height: r.height, hitHeight, focused: s.matches(':focus-visible'), hovered: s.matches(':hover') };
+      })`;
 
 const source = "Ready to review.\n\n<details>\n<summary>For Agents</summary>\n\nPath: `日本語/café`\n\n<img src=x onerror=alert(1)>\n<script>alert(1)</script>\n[unsafe](javascript:alert(1))\n\n~~~text\nraw evidence\n~~~\n\n</details>";
 
@@ -170,7 +183,7 @@ it("u5561b_failed_save_keeps_the_edited_agent_details", { retry: 0, timeout: 90_
   if (dir) {
     await mkdir(dir, { recursive: true });
     await browser("screenshot", join(dir, "save-failure.png"));
-    await writeFile(join(dir, "save-failure.checks.json"), JSON.stringify({ ...await read<Checks>("window.__checks()"), observation: { sha: process.env.ROUNDUP_CAPTURE_SHA, seed: "tree-40", state: "save-failure", viewport: [1512, 950], scheme: "dark" } }));
+    await writeFile(join(dir, "save-failure.checks.json"), JSON.stringify({ ...await read<Checks>("window.__checks()"), observation: { sha: captureSha, seed: "tree-40", state: "save-failure", controls: await read(headingHitAreas), viewport: [1512, 950], scheme: "dark" } }));
   }
 
   await browser("click", ".drawer .close");
@@ -196,7 +209,7 @@ it.each([false, true])("u5575a_headings_fold_only_their_sections editable=%s", {
 
   const captureHeadingTargets = async (name: string, open: boolean) => {
     if (!sizingDir) return;
-    const sha = process.env.ROUNDUP_CAPTURE_SHA;
+    const sha = captureSha;
 
     if (!sha) throw new Error("U5704a requires immutable ROUNDUP_CAPTURE_SHA");
     const folder = join(sizingDir, process.env.ROUNDUP_CAPTURE_PHASE ?? "head");
@@ -216,15 +229,7 @@ it.each([false, true])("u5575a_headings_fold_only_their_sections editable=%s", {
         await wait(`document.activeElement.matches(${JSON.stringify(selector)})`);
       }
 
-      const controls = await read(`Array.from(document.querySelectorAll('details[data-pad-heading] summary')).filter(s => s.checkVisibility()).map(s => {
-        const r = s.getBoundingClientRect();
-        const x = r.left + r.width / 2;
-        let hitHeight = 0;
-        for (let y = r.top; y < r.bottom; y += 0.25) {
-          if (document.elementFromPoint(x, y + 0.125) === s) hitHeight += Math.min(0.25, r.bottom - y);
-        }
-        return { name: s.ariaLabel, level: s.closest('h1,h2,h3,h4,h5,h6').tagName, expanded: s.getAttribute('aria-expanded'), height: r.height, hitHeight, focused: s.matches(':focus-visible'), hovered: s.matches(':hover') };
-      })`);
+      const controls = await read(headingHitAreas);
 
       const step = `${editable ? "editor" : "readonly"}-${name}-${open}-${state}`;
       await browser("screenshot", join(folder, `${step}.png`));
