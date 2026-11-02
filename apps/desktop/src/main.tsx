@@ -18,6 +18,9 @@ if (!root) throw new Error("index.html has no #root element");
 
 const tauri = createTauriApp();
 
+// Native preferences must open before any ordinary App surface or editor mounts.
+if (!new URLSearchParams(location.search).has("capture")) await tauri.projects();
+
 if (!new URLSearchParams(location.search).has("capture")) {
   void followMaterial(document.documentElement).catch(error => console.error(error));
 }

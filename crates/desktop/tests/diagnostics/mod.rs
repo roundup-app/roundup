@@ -19,13 +19,14 @@ pub(crate) fn u3787f_logs_report_causes_without_private_content() {
     std::fs::create_dir(&data).unwrap();
     std::fs::write(data.join("projects.json"), format!(r#"{{"open":"{private}","names":{{}},"usage":{{"input_tokens":987654,"cost_usd":123456}}}}"#)).unwrap();
     let store = crate::store::Store::new(Some(data.clone()));
-    assert!(store.open_paths().is_empty());
+    assert!(store.open_paths().is_err());
     std::fs::remove_file(data.join("projects.json")).unwrap();
     std::fs::create_dir(data.join("projects.json.tmp")).unwrap();
+    let store = crate::store::Store::new(Some(data.clone()));
     store
         .set_name("original", Some(private.into()), None, "original")
         .unwrap();
-    assert_eq!(store.name("original").as_deref(), Some(private));
+    assert_eq!(store.name("original").unwrap().as_deref(), Some(private));
     crate::daemon::tests::refuse_missing_executable(app.handle(), dir.path(), &data);
     let window_file = app
         .path()

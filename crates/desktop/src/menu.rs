@@ -125,8 +125,10 @@ async fn daemon_reachable<R: Runtime>(app: &AppHandle<R>) -> bool {
     let Some(state) = app.try_state::<crate::AppState>() else {
         return false;
     };
-    let paths: Vec<String> = state
-        .projects()
+    let Ok(projects) = state.projects() else {
+        return false;
+    };
+    let paths: Vec<String> = projects
         .into_iter()
         .filter(|project| project.running)
         .map(|project| project.path)

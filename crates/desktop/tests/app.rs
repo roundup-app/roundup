@@ -1353,7 +1353,7 @@ fn s10_a_launch_reopens_the_stored_projects_in_order_drops_a_vanished_folder_and
         gone.display().to_string(),
         broken.display().to_string(),
         third.display().to_string(),
-    ], "names": { fx.project.display().to_string(): "kept" } });
+    ], "recent": [], "names": { fx.project.display().to_string(): "kept" } });
     std::fs::create_dir_all(fx.dir.path().join("data")).unwrap();
     std::fs::write(fx.dir.path().join("data/projects.json"), saved.to_string()).unwrap();
     std::fs::remove_dir(&gone).unwrap();

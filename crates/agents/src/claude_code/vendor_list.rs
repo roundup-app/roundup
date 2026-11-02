@@ -331,7 +331,7 @@ async fn live_rows(
                         &time::format_description::well_known::Rfc3339,
                     )
                     .ok()?;
-                    i64::try_from(at.unix_timestamp_nanos() / 1_000_000).ok()
+                    i64::try_from((at - time::OffsetDateTime::UNIX_EPOCH).whole_milliseconds()).ok()
                 })
             });
             Some((
