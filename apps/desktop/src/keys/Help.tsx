@@ -2,7 +2,7 @@ import { captureFocus } from "./focus";
 import { KeyHint } from "./KeyHint";
 import { copy } from "./copy";
 import { createSignal, For, Show } from "solid-js";
-import { CHORDS, HELP_KEYS, LEADER, leaderKeys, SHELF_KEYS } from "./chords";
+import { CHORDS, HELP_KEYS, LEADER, leaderKeys, SHELF_KEYS, chordNamed } from "./chords";
 import { captureActions, registerKeys } from "./registry";
 import { Dialog } from "../ui/Dialog";
 
@@ -21,7 +21,7 @@ const sections = (projectOpen: boolean, shelfOpen: boolean) => projectOpen ? [
   { title: copy.helpScope.triage, rows: CHORDS.filter(row => row.inTriage) },
 ].map(section => section.title === copy.helpScope.todos ? [
   section,
-  { title: copy.helpScope.editor, rows: [{ ...CHORDS.find(row => row.keys === "⌘B")!, what: copy.bold }, ...CHORDS.filter(row => row.inEditor)] },
+  { title: copy.helpScope.editor, rows: [{ ...chordNamed("terminal.switch")!, what: copy.bold }, ...CHORDS.filter(row => row.inEditor)] },
 ] : [section]) : [[{ title: copy.helpScope.app, rows: CHORDS.filter(row => row.inFirstRun || row.what === copy.captureATodo || row.what === copy.settings) }]];
 
 /** U4324a: plain text and Terminal input keep `?`; every other App surface offers Help. */
@@ -37,7 +37,7 @@ export const Help = (props: { projectOpen?: boolean; shelfOpen?: boolean }) => {
   let initialFocus = captureFocus();
 
   const show = (): void => {
-    setLabels(new Map(captureActions(document.activeElement).filter(action => action.keys === "⇧⌘N").map(action => [action.keys, action.label])));
+    setLabels(new Map(captureActions(document.activeElement).filter(action => action.name === "agent.new-with-prompt").map(action => [action.keys, action.label])));
     initialFocus = captureFocus(true);
     returnTo = document.activeElement;
     setOpen(true);
