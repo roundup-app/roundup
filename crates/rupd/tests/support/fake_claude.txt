@@ -57,6 +57,7 @@ def take(conn):
             if os.path.exists(here + '/final-reply.txt'):
                 text = open(here + '/final-reply.txt').read()
                 os.unlink(here + '/final-reply.txt')
+                hook('PreToolUse', {'tool_name': 'Read'})
                 print(text, flush=True)
                 hook('Stop', {'last_assistant_message': text})
 def serve():
