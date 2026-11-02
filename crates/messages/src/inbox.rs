@@ -94,21 +94,41 @@ pub(crate) async fn send(
     if state != Inbox::Ok {
         return true;
     }
-    let (mut entries, mut texts) = (Vec::new(), pushes::bodies_of(&notes).into_iter());
-    for note in &notes {
-        let Ok(from) = sender_name(inner, &note.from).await else {
+    let senders: std::collections::HashSet<&str> = notes
+        .iter()
+        .filter(|m| m.from.kind == ActorKind::Agent)
+        .map(|m| m.from.id.as_str())
+        .collect();
+    if !senders.is_empty() && load_rail_nodes(inner).await.is_err() {
+        return false;
+    }
+    let names = {
+        let store = lock(&inner.store);
+        let names: Result<std::collections::HashMap<&str, String>, _> = senders
+            .into_iter()
+            .map(|id| store.sender_name(id).map(|name| (id, name)))
+            .collect();
+        let Ok(names) = names else {
             return false;
         };
-        let text = texts.next().unwrap_or_default();
-        entries.push(Entry {
+        names
+    };
+    let entries: Vec<Entry> = notes
+        .iter()
+        .zip(pushes::bodies_of(&notes))
+        .map(|(note, text)| Entry {
             id: note.id,
             kind: note.kind,
-            from,
+            from: if note.from.kind == ActorKind::Agent {
+                names[note.from.id.as_str()].clone()
+            } else {
+                note.from.id.clone()
+            },
             one_line: note.kind == MessageKind::Note
                 && (text.starts_with("[wake]") || text.starts_with("[digest]")),
             text,
-        });
-    }
+        })
+        .collect();
     let ids: Vec<u32> = notes.iter().map(|m| m.id).collect();
     let _typing = {
         let mut store = lock(&inner.store);
@@ -204,7 +224,7 @@ pub(crate) mod tests {
         pub nodes: Mutex<Vec<RailNode>>,
         pub reads: AtomicUsize,
         pub fail: AtomicBool,
-        pub advance: Mutex<Option<std::sync::Weak<Inner>>>,
+        pub advance: Mutex<Option<(std::sync::Weak<Inner>, bool)>>,
     }
 
     #[async_trait]
@@ -218,18 +238,25 @@ pub(crate) mod tests {
             if self.fail.load(Ordering::SeqCst) {
                 return Err(RpcError::internal("read failed"));
             }
-            if let Some(inner) = lock(&self.advance).take().and_then(|i| i.upgrade()) {
-                lock(&inner.store)
-                    .set_generation(
-                        "m",
-                        store::ReceiverState {
-                            attempt: 2,
-                            revision: 1,
-                            closed_revision: -1,
-                            closed: false,
-                        },
-                    )
-                    .unwrap();
+            if let Some((inner, generation)) = lock(&self.advance).take()
+                && let Some(inner) = inner.upgrade()
+            {
+                let store = lock(&inner.store);
+                if generation {
+                    store
+                        .set_generation(
+                            "m",
+                            store::ReceiverState {
+                                attempt: 2,
+                                revision: 1,
+                                closed_revision: -1,
+                                closed: false,
+                            },
+                        )
+                        .unwrap();
+                } else {
+                    store.bind(1, (1, 2)).unwrap();
+                }
             }
             Ok(serde_json::to_value(&*lock(&self.nodes)).unwrap())
         }
@@ -325,10 +352,14 @@ pub(crate) mod tests {
         let dir = tempfile::tempdir().unwrap();
         let (messages, rail, inbox) = setup(dir.path());
         let mut sender = live("a");
-        sender.name = "renamed".into();
+        sender.name = "before enqueue".into();
         lock(&rail.nodes).push(sender);
+        let mut second = live("b");
+        second.name = "second sender".into();
+        lock(&rail.nodes).push(second);
         let actors = [
             agent("a"),
+            agent("b"),
             Actor::user(),
             Actor::daemon(),
             Actor {
@@ -338,8 +369,9 @@ pub(crate) mod tests {
             },
         ];
         let notes: Vec<_> = (0..32)
-            .map(|i| pending(&messages, &actors[i % 4], &format!("text-{i}")))
+            .map(|i| pending(&messages, &actors[i % actors.len()], &format!("text-{i}")))
             .collect();
+        lock(&rail.nodes)[1].name = "renamed".into();
         rail.reads.store(0, Ordering::SeqCst);
         assert!(
             send(
@@ -360,10 +392,10 @@ pub(crate) mod tests {
                 (
                     m.id,
                     m.kind,
-                    if i % 4 == 0 {
-                        "renamed".into()
-                    } else {
-                        actors[i % 4].id.clone()
+                    match i % actors.len() {
+                        0 => "renamed".into(),
+                        1 => "second sender".into(),
+                        _ => actors[i % actors.len()].id.clone(),
                     },
                     m.body.clone(),
                 )
@@ -395,18 +427,23 @@ pub(crate) mod tests {
             sender.name = "first".into();
             lock(&rail.nodes).push(sender);
             load_rail_nodes(&messages.inner).await.unwrap();
+            let mut removed = live("b");
+            removed.name = "removed original".into();
+            lock(&rail.nodes).push(removed);
             lock(&rail.nodes)[1].name = "last observed".into();
             load_rail_nodes(&messages.inner).await.unwrap();
         }
         let (messages, _, inbox) = setup(dir.path());
         let notes = vec![
             pending(&messages, &agent("a"), "known"),
+            pending(&messages, &agent("b"), "removed"),
             pending(&messages, &agent("missing-id"), "unknown"),
         ];
         assert!(send(&messages.inner, "m", (1, 2), Pick::Next, notes, Inbox::Ok).await);
         let batches = lock(&inbox.batches);
         assert_eq!(batches[0][0].2, "last observed");
-        assert_eq!(batches[0][1].2, "an Agent that is gone");
+        assert_eq!(batches[0][1].2, "removed original");
+        assert_eq!(batches[0][2].2, "an Agent that is gone");
         assert_eq!(
             lock(&messages.inner.store).sender_name("a").unwrap(),
             "last observed"
@@ -415,14 +452,15 @@ pub(crate) mod tests {
 
     #[tokio::test(start_paused = true)]
     async fn b5640e_failed_or_stale_preparation_keeps_pending_identity() {
-        for failure in ["read", "write", "generation"] {
+        for failure in ["read", "write", "generation", "binding"] {
             let dir = tempfile::tempdir().unwrap();
             let (messages, rail, inbox) = setup(dir.path());
             let note = pending(&messages, &agent("a"), failure);
             rail.fail.store(failure == "read", Ordering::SeqCst);
             inbox.fail.store(failure == "write", Ordering::SeqCst);
-            if failure == "generation" {
-                *lock(&rail.advance) = Some(Arc::downgrade(&messages.inner));
+            if matches!(failure, "generation" | "binding") {
+                *lock(&rail.advance) =
+                    Some((Arc::downgrade(&messages.inner), failure == "generation"));
             }
             send(
                 &messages.inner,
@@ -445,7 +483,7 @@ pub(crate) mod tests {
             );
             rail.fail.store(false, Ordering::SeqCst);
             inbox.fail.store(false, Ordering::SeqCst);
-            if failure == "generation" {
+            if matches!(failure, "generation" | "binding") {
                 assert!(
                     !send(
                         &messages.inner,

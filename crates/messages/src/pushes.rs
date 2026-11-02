@@ -278,18 +278,29 @@ pub(crate) async fn push(inner: &Arc<Inner>, meta: &str, subagent: &str, entry: 
         .map_or(1, |at| slot.waiting.remove(at).2 + 1);
     slot.waiting
         .push((subagent.to_owned(), entry.clone(), weight));
-    roll_up(inner, meta, slot, now, plain).await;
+    match crate::load_rail_nodes(inner).await {
+        Ok(nodes) => roll_up(inner, meta, slot, now, plain, &nodes).await,
+        Err(err) => crate::log_failure("push", &format!("{meta}: {}", err.message)),
+    }
 }
 
 /// B22(a): at the window's end, the changes kept back go out as one Message.
 pub(crate) async fn flush(inner: &Arc<Inner>) {
     let mut ledger = inner.pushes.lock().await;
     let now = (inner.clock)();
-    let metas: Vec<String> = ledger.metas.keys().cloned().collect();
-    for meta in metas {
-        if let Some(slot) = ledger.metas.get_mut(&meta) {
-            slot.expire(now);
-            roll_up(inner, &meta, slot, now, false).await;
+    for slot in ledger.metas.values_mut() {
+        slot.expire(now);
+    }
+    if ledger.metas.values().any(|slot| !slot.waiting.is_empty()) {
+        match crate::load_rail_nodes(inner).await {
+            Ok(nodes) => {
+                for (meta, slot) in &mut ledger.metas {
+                    if !slot.waiting.is_empty() {
+                        roll_up(inner, meta, slot, now, false, &nodes).await;
+                    }
+                }
+            }
+            Err(err) => crate::log_failure("push", &err.message),
         }
     }
     ledger
@@ -297,15 +308,15 @@ pub(crate) async fn flush(inner: &Arc<Inner>) {
         .retain(|_, slot| !slot.sent.is_empty() || !slot.waiting.is_empty());
 }
 
-async fn roll_up(inner: &Arc<Inner>, meta: &str, slot: &mut Slot, now: i64, plain: bool) {
+async fn roll_up(
+    inner: &Arc<Inner>,
+    meta: &str,
+    slot: &mut Slot,
+    now: i64,
+    plain: bool,
+    nodes: &[contracts::agent::RailNode],
+) {
     // Resolve lifecycle before the cap: removal must discard even a full window's queue.
-    let nodes = match crate::load_rail_nodes(inner).await {
-        Ok(nodes) => nodes,
-        Err(err) => {
-            crate::log_failure("push", &format!("{meta}: {}", err.message));
-            return;
-        }
-    };
     let Some(door) = nodes.iter().find(|node| node.id == meta) else {
         slot.waiting.clear();
         return;

@@ -351,11 +351,20 @@ impl Store {
         Ok(thread)
     }
 
-    /// The Messages already `delivered` to `to`, oldest first.
+    /// Delivered digest history only, in Message-id order (B5640a).
     pub(crate) fn delivered_to(&self, to: &str) -> Result<Vec<Message>, RpcError> {
-        let mut all = self.list()?;
-        all.retain(|m| m.to == to && m.status == MessageStatus::Delivered);
-        Ok(all)
+        self.db
+            .prepare(
+                "SELECT id, from_actor, to_id, kind, body, reply_to, status, reason, at
+                 FROM messages WHERE to_id = ?1 AND status = 'delivered'
+                   AND from_actor = ?2 AND substr(body, 1, 8) = '[digest]'
+                 ORDER BY id",
+            )
+            .and_then(|mut stmt| {
+                stmt.query_map(params![to, actor_json(&Actor::daemon())], row_to_message)?
+                    .collect()
+            })
+            .map_err(RpcError::internal)
     }
 
     pub(crate) fn get(&self, id: u32) -> Result<Option<Message>, RpcError> {
