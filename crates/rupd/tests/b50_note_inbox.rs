@@ -51,6 +51,13 @@ fn launch(project: &Path, data: &Path) -> rupd_harness::Rupd {
         project,
         true,
         |command| {
+            let owner = project.join("owner-helper");
+            if owner.exists() {
+                command.env(
+                    "RUPD_TERMINAL_OWNER",
+                    std::fs::read_to_string(owner).unwrap(),
+                );
+            }
             command
                 .env("ROUNDUP_DATA_DIR", data)
                 .env("ROUNDUP_CLAUDE_BIN", project.join("claude"))
@@ -147,6 +154,10 @@ impl Run {
     }
 
     async fn spawn(&mut self) {
+        self.spawn_with_input(None, true).await;
+    }
+
+    async fn spawn_with_input(&mut self, prompt: Option<&str>, submit: bool) {
         let caller = Client::connect(&self.daemon.socket).await.unwrap();
         if self.scout {
             let parent = self
@@ -172,7 +183,7 @@ impl Run {
         let node = caller
             .request(
                 "agent.spawn",
-                json!({"name":"child","cwd":self.dir.path(),"scout":self.scout}),
+                json!({"name":"child","cwd":self.dir.path(),"scout":self.scout,"prompt":prompt}),
             )
             .await
             .unwrap();
@@ -180,8 +191,10 @@ impl Run {
         self.terminal = node["terminal_id"].clone();
         self.attempt = node["attempt"].clone();
         self.ready().await;
-        self.signal(json!({"hook_event_name":"UserPromptSubmit","prompt":"Wait for notes"}))
-            .await;
+        if submit {
+            self.signal(json!({"hook_event_name":"UserPromptSubmit","prompt":"Wait for notes"}))
+                .await;
+        }
         self.signal(json!({"hook_event_name":"Stop"})).await;
     }
 
@@ -946,6 +959,9 @@ async fn b52_restart_preserves_prewrite_and_acknowledged_outcomes() {
 
 #[path = "support/native_questions.rs"]
 mod native_questions;
+
+#[path = "support/owner_input.rs"]
+mod owner_input;
 
 #[path = "support/explicit_restart.rs"]
 mod explicit_restart;
