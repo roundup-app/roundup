@@ -35,6 +35,7 @@ alert_tokens = {
     "apps/desktop/src/state/connectedProject.ts": {"createHeld", "held", "held:"},
     "apps/desktop/src/state/held.ts": {"createHeld", "heldSchema", "roundup:held", "roundup:held:"},
     "apps/desktop/src/terminal/screens.ts": {"held"},
+    "apps/desktop/src/testing/shardDurations.json": {"u5501_held"},
 }
 
 bad = set()
