@@ -1,4 +1,4 @@
-import { createEffect, createMemo, createResource, createSignal, For, onCleanup, onMount, Show } from "solid-js";
+import { lazy, createEffect, createMemo, createResource, createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import type { UnreadComment } from "@contracts/todo/UnreadComment";
 import { copy } from "./copy";
 import { ReservedLine } from "../ink/ReservedLine";
@@ -10,13 +10,14 @@ import { useConnectedProject } from "../state/connectedProject";
 import { failureOf } from "../todos/failureOf";
 import { createRowCollection, rowKey } from "../ui/RowCollection";
 import { CopyButton } from "../ui/CopyButton";
-import { TodoHost } from "../todos/TodoDrawer";
 import { InboxRow } from "./InboxRow";
 import type { AgentRow, RowActions } from "./InboxRow";
 import { sectionsOf } from "./rows";
 import { nameOf, REVEAL_BUBBLE } from "../bubbles/places";
 import { statusText } from "../terminal/programStatus";
 import "./inbox.styles.css";
+
+const TodoHost = lazy(() => import("../todos/TodoDrawer").then(module => ({ default: module.TodoHost })));
 
 const STALE = new Set(["todo.restored", "todo.commented", "todo.commentsRead", "todo.deleted"]);
 
