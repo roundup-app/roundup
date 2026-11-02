@@ -427,7 +427,7 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
       setFailure(id, "snapshot", null);
       const agent = rail.nodes.find(node => node.terminal_id === id);
 
-      if (agent && rail.selected() === agent.id) connected.held.acknowledge(agent.id);
+      if (agent && !rail.restored() && rail.selected() === agent.id) connected.held.acknowledge(agent.id);
     } catch (thrown) {
       if (!(thrown instanceof Error)) throw thrown;
 
@@ -723,7 +723,7 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
     const holder = holderFor(id);
     const agent = rail.nodes.find(node => node.terminal_id === id);
 
-    if (agent && holder.complete && rail.selected() === agent.id) connected.held.acknowledge(agent.id);
+    if (agent && holder.complete && !rail.restored() && rail.selected() === agent.id) connected.held.acknowledge(agent.id);
     holder.stopClipboard?.();
 
     const editor = (target: EventTarget | null) => target instanceof Element
