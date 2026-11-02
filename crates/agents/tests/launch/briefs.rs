@@ -286,3 +286,24 @@ fn b4699c_each_brief_routes_child_blocks_to_the_door() {
         }
     }
 }
+
+#[test]
+fn e5562a_brief_teaches_pad_colour() {
+    let s = setup();
+    for role in [Role::Agent, Role::Door, Role::Scout] {
+        let delivered = brief(&s, "5562", role);
+        for example in [
+            "> [!NOTE]",
+            "> [!TIP]",
+            "> [!IMPORTANT]",
+            "> [!WARNING]",
+            "> [!CAUTION]",
+            "sparingly",
+            "<span data-pad-color=\"blue\">text</span>",
+            "<mark>text</mark>",
+            "fenced-code language labels",
+        ] {
+            assert!(delivered.contains(example), "missing {example} in {role:?}");
+        }
+    }
+}

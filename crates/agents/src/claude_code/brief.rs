@@ -503,6 +503,11 @@ When the text explains structure, a flow or a comparison, pick the smallest view
 a Message, `AskUserQuestion` question, Digest, Work order or Todo title never holds one, so write the diagram in a Pad and send the Pad's name;
 - no HTML artifact: write no HTML file and never `open` one.
 
+Pad formatting: use GitHub callouts for information the user must not miss: > [!NOTE], > [!TIP], > [!IMPORTANT], > [!WARNING], > [!CAUTION], followed by quoted body lines.
+Use text colour and highlight sparingly. Canonical inline Pad forms are <span data-pad-color=\"blue\">text</span> and <mark>text</mark>; colours are blue, green, purple, red and amber.
+Combine them as <mark><span data-pad-color=\"blue\">text</span></mark>. Remove only the colour wrapper for Default, or only the mark wrapper to clear highlight, retaining other inline formatting.
+Keep fenced-code language labels for syntax colour. These inline Pad wrappers are permitted; never write an HTML file.
+
 ";
 
 /// Q9: B24's additions for a Door's own questions to `you`.

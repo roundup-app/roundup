@@ -1,3 +1,9 @@
+@import "@radix-ui/colors/blue.css";
+@import "@radix-ui/colors/blue-dark.css";
+@import "@radix-ui/colors/green.css";
+@import "@radix-ui/colors/green-dark.css";
+@import "@radix-ui/colors/purple.css";
+@import "@radix-ui/colors/purple-dark.css";
 @import "@radix-ui/colors/amber.css";
 @import "@radix-ui/colors/amber-dark.css";
 @import "@radix-ui/colors/red.css";
@@ -8,6 +14,11 @@
 /* The Token file (docs/design-system.md, "Tokens"): the light values, then the dark column and the contrast setting. */
 
 :root {
+  --pad-blue: var(--blue-11);
+  --pad-green: var(--green-11);
+  --pad-purple: var(--purple-11);
+  --pad-highlight: var(--amber-4);
+  --pad-highlight-ink: var(--amber-12);
   --button-accent-fill: #1f6b62;
   --button-key-ink: #d4e6e2;
   --doodle-patch: #2f8f80;
