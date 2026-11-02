@@ -7,13 +7,14 @@ import { storageProblems } from "./state/storage";
 import "./state/storage.css";
 import { textTarget } from "./ui/contextMenu";
 import { AppSettings } from "./settings/AppSettings";
+import { createSettingsView } from "./state/settingsView";
 import { appSettings, applyAppAppearance } from "./settings/preferences";
 import { captureActions, registerKeys } from "./keys/registry";
 import { Combobox } from "./ui/Combobox";
 import { CHORDS, LEADER, defaultKeys, shortcutLabel } from "./keys/chords";
 import { copy } from "./app/copy";
 import "./buttons.css";
-import { lazy, createEffect, createMemo, createResource, createSignal, createUniqueId, For, getOwner, on, onCleanup, onMount, runWithOwner, Show, untrack } from "solid-js";
+import { batch, lazy, createEffect, createMemo, createResource, createSignal, createUniqueId, For, getOwner, on, onCleanup, onMount, runWithOwner, Show, untrack } from "solid-js";
 import type { Accessor, JSX } from "solid-js";
 import { ChooseProject, EmptyRail, EmptyShelf } from "./app/FirstRun";
 import { Layout } from "./app/Layout";
@@ -107,6 +108,8 @@ const Connection = (props: {
   let mine: ConnectedProject | Error | undefined;
 
   const [connected] = createResource(() => props.tab()?.generation, async (generation) => {
+    const exit = props.tab()?.exit;
+
     try {
       const next = await connectProject(props.app.forProject(path), first.project, props.reducedMotion, props.now, () => props.tab()?.generation === generation ? props.tab()?.exit ?? null : { code: null, recovery: "connecting" }, railStorage(path), props.drafts(path), props.viewing);
 
@@ -116,7 +119,8 @@ const Connection = (props: {
         return mine;
       }
 
-      props.onRecovered(path, generation);
+      // Clearing a newer exit would hide its Reopen action.
+      if (props.tab()?.exit === exit) props.onRecovered(path, generation);
 
       return next;
     } catch (failure) {
@@ -234,7 +238,8 @@ export const App = (props: {
 
   applyAppAppearance();
   const projects = createProjectsState(props.app);
-  const [settingsOpen, setSettingsOpen] = createSignal(false);
+  const settingsView = createSettingsView();
+  const settingsOpen = settingsView.open;
   const drafts = props.drafts ?? createProjectDrafts();
   registerKeys({ kind: "app" }, ["⌘Z", "⇧⌘Z"].map(keys => ({
     action: CHORDS.find(row => defaultKeys(row) === keys)!,
@@ -260,14 +265,21 @@ export const App = (props: {
   document.addEventListener("visibilitychange", onVisibility);
   onCleanup(() => document.removeEventListener("visibilitychange", onVisibility));
   // U3566: the window's focus, which `document.hasFocus()` alone does not announce.
-  const [focused, setFocused] = createSignal(document.hasFocus());
-  const onFocus = () => setFocused(true);
-  const onBlur = () => setFocused(false);
+  const [focus, setFocus] = createSignal<"blurred" | "focused" | "menu">(document.hasFocus() ? "focused" : "blurred");
+  // Opening the window from its menu preserves unread results until direct interaction.
+  const onFocus = () => setFocus(previous => previous === "menu" ? previous : "focused");
+  const onBlur = () => setFocus("blurred");
+  const onInteract = () => { if (document.hasFocus()) setFocus("focused"); };
+
+  window.addEventListener("click", onInteract);
+  window.addEventListener("keydown", onInteract);
   window.addEventListener("focus", onFocus);
   window.addEventListener("blur", onBlur);
   onCleanup(() => {
     window.removeEventListener("focus", onFocus);
     window.removeEventListener("blur", onBlur);
+    window.removeEventListener("click", onInteract);
+    window.removeEventListener("keydown", onInteract);
   });
 
   const isWorking = () => projects.tabs().some((tab) => {
@@ -287,6 +299,7 @@ export const App = (props: {
   const [windowFailure, setWindowFailure] = createSignal<string | null>(null);
   const [badgeFailure, setBadgeFailure] = createSignal<string | null>(null);
   // U5232g: one line for a refused State alert, whichever Agent raised it.
+  const [menuBarFailure, setMenuBarFailure] = createSignal<string | null>(null);
   const [alertFailure, setAlertFailure] = createSignal<string | null>(null);
   const alerts = createStateAlerts(alert => props.app.stateAlert(alert), inFront, setAlertFailure);
   const capture = props.app.capture;
@@ -355,6 +368,25 @@ export const App = (props: {
     onCleanup(() => void stop?.then(release => release()));
     void stop?.catch(error => setNativeFailure(String(error)));
   });
+
+  const [menuBar] = createResource(() => import("./app/menuBar").catch(error => {
+    setMenuBarFailure(String(error));
+
+    return null;
+  }));
+
+  createEffect(() => menuBar()?.watchMenuBar({
+    solid: { createEffect, onCleanup }, app: props.app, tabs: projects.tabs,
+    connection: connectionOf, open: () => setFocus("menu"),
+    select: (path, agent) => batch(() => {
+      settingsView.close(false);
+      connectionOf(path)!.settingsView.close(false);
+      projects.select(path);
+      railOf(path)!.select(agent);
+      setFocus(document.hasFocus() ? "focused" : "blurred");
+    }),
+    missing: copy.thatIsGone, fail: setMenuBarFailure,
+  }));
 
   const stripTabs = createMemo<StripTab[]>(() =>
     projects.tabs().map((tab) => {
@@ -574,6 +606,8 @@ export const App = (props: {
     if (next) rail?.select(next.id);
   };
 
+
+
   // U5232e: a click on a State alert opens that Agent in its Project, as a click on its Rail row does.
   let alertClicksEnded = false;
   let stopAlertClicks: (() => void) | undefined;
@@ -583,7 +617,7 @@ export const App = (props: {
     if (path === undefined) return setAlertFailure(copy.thatIsGone);
 
     projects.select(path);
-    railOf(path)?.select(agent);
+    railOf(path)?.select(agent, "open");
   }).then(stop => { if (alertClicksEnded) stop(); else stopAlertClicks = stop; });
   onCleanup(() => { alertClicksEnded = true; stopAlertClicks?.(); });
 
@@ -611,7 +645,7 @@ export const App = (props: {
   return (
     <ReducedMotionContext.Provider value={props.reducedMotion}><DisplayClockContext.Provider value={now.subscribe}><ProjectDraftsContext.Provider value={drafts}><Show when={projects.loaded()}>
       <For each={keys()}>
-        {(key) => <Connection drafts={drafts} app={dropTargets.app} tab={tabOf(key)} reducedMotion={props.reducedMotion} now={pollingNow} onConnected={connect} onRecovered={projects.connected} onRequested={answer} toasts={toasts} alerts={alerts} active={() => projects.active() === key} viewing={() => projects.active() === key && visible() && focused()} show={() => projects.select(key)} />}
+        {(key) => <Connection drafts={drafts} app={dropTargets.app} tab={tabOf(key)} reducedMotion={props.reducedMotion} now={pollingNow} onConnected={connect} onRecovered={projects.connected} onRequested={answer} toasts={toasts} alerts={alerts} active={() => projects.active() === key} viewing={() => projects.active() === key && visible() && focus() === "focused" && !settingsOpen()} show={() => projects.select(key)} />}
       </For>
       <DockBadge app={props.app} rails={() => [...connections().values()].flatMap((connection) => (connection instanceof Error ? [] : [attentionHolders(connection.rail.nodes, connection.rail.terminals(), connection.rail.dismissed)]))} onFailure={setBadgeFailure} />
       <Tabs.Root id={tabsId} value={projects.active()} onValueChange={({ value }) => projects.select(value)} activationMode="manual" style={{ display: "contents" }}
@@ -647,7 +681,7 @@ export const App = (props: {
         }
         rail={
           <>
-            <ReservedLine overlay message={windowFailure() ?? (activeTab()?.exit ? activeTab()?.reopenFailure ?? daemonExitText(activeTab()!.exit!) : null) ?? (projects.tabs().length > 0 ? projects.failure() ?? badgeFailure() ?? alertFailure() : badgeFailure() ?? alertFailure())}>
+            <ReservedLine overlay message={windowFailure() ?? (activeTab()?.exit ? activeTab()?.reopenFailure ?? daemonExitText(activeTab()!.exit!) : null) ?? (projects.tabs().length > 0 ? projects.failure() : null) ?? badgeFailure() ?? alertFailure() ?? menuBarFailure()}>
               <Show when={projects.readFailure() && projects.tabs().length > 0 && !windowFailure() && !activeTab()?.exit}><button data-button="quiet" type="button" onClick={() => void projects.reload()}>{copy.retry}</button></Show>
               <Show when={activeTab()?.exit && !activeTab()?.exit?.recovery}><Reopen onReopen={() => void projects.reopen(activeTab()!.project.path)} busy={projects.reopening()} /></Show>
             </ReservedLine>
@@ -719,7 +753,7 @@ export const App = (props: {
             </InProject>
           </Show>
           </div>
-          <AppSettings app={props.app} project={() => projects.active()} onOpenChange={setSettingsOpen} navigation={() => {
+          <AppSettings app={props.app} project={() => projects.active()} view={settingsView} navigation={() => {
             const open = activeConnection();
 
             return `${projects.active()}\n${open instanceof Error ? "" : open?.rail.selected()}`;

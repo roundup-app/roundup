@@ -159,7 +159,12 @@ const shelfButton = async (name: string) => {
 const openDrawerButton = async () => {
   showShelfTab("Pads");
   const pads = await screen.findByLabelText("Pads", { selector: ".pads-tab" });
-  const group = pads.querySelector('[data-shelf-group="unassigned"]');
+  const group = await waitFor(() => {
+    const group = pads.querySelector('[data-shelf-group="w"]');
+    expect(group).not.toBeNull();
+
+    return group!;
+  });
 
   if (group?.getAttribute("aria-expanded") === "false") fireEvent.click(group.querySelector('[data-part="branch-control"]')!);
   const pad = await within(pads).findByRole("button", { name: "notes" });
@@ -198,7 +203,7 @@ it.each(owners)("u5247a_every_named_icon_button_key_runs_its_action: %s", async 
 
   const run = async (how: "click" | "press") => {
     cleanup();
-    // Each mount is independent; retire queued frame saves from the previous one.
+    // Each comparison owns a fresh adapter; pending saves from the prior mount cannot repopulate it.
     useBrowserStorage(localStorage);
     localStorage.clear();
     const app = await mountOwners();
