@@ -12,6 +12,7 @@ use rpc::RpcError;
 pub(crate) enum Query {
     Foreground,
     Background,
+    Version,
     DeviceAttributes,
     Scheme,
 }
@@ -44,6 +45,8 @@ impl Palette {
         match query {
             Query::Foreground => osc_colour(10, self.foreground),
             Query::Background => osc_colour(11, self.background),
+            // XTVERSION: claims iTerm2 so programs pick their iTerm2 paths (images, no xterm.js wheel handling).
+            Query::Version => b"\x1bP>|iTerm2 3.5.0\x1b\\".to_vec(),
             Query::DeviceAttributes => b"\x1b[?62;22c".to_vec(),
             Query::Scheme => self.notice(),
         }
@@ -87,7 +90,7 @@ pub(crate) fn from_osc(params: &[&[u8]]) -> Option<Request> {
     }
 }
 
-/// A CSI the parser did not handle: DA1, DSR 996, or mode 2031 set or reset.
+/// A CSI the parser did not handle: XTVERSION, DA1, DSR 996, or mode 2031 set or reset.
 pub(crate) fn from_csi(
     first: Option<u8>,
     second: Option<u8>,
@@ -95,6 +98,9 @@ pub(crate) fn from_csi(
     last: char,
 ) -> Option<Request> {
     match (first, second, last) {
+        (Some(b'>'), None, 'q') if matches!(params, [] | [[] | [0]]) => {
+            Some(Request::Ask(Query::Version))
+        }
         (None, None, 'c') if matches!(params, [] | [[] | [0]]) => {
             Some(Request::Ask(Query::DeviceAttributes))
         }

@@ -75,6 +75,19 @@ async fn x17_a_colour_query_gets_one_reply_in_the_current_scheme() {
 }
 
 #[tokio::test]
+async fn x17_an_xtversion_query_is_answered_as_iterm2_before_da1() {
+    let dir = tempfile::tempdir().unwrap();
+    let (terminals, _) = open(&dir);
+    terminals.set_scheme(params(Scheme::Dark)).await.unwrap();
+    let mut spawned = terminals
+        .spawn(sh(dir.path(), &script(r"\033[>q\033[c")))
+        .await
+        .unwrap();
+    let expected = hex("\x1bP>|iTerm2 3.5.0\x1b\\\x1b[?62;22c");
+    assert_eq!(typed_back(&mut spawned).await, expected);
+}
+
+#[tokio::test]
 async fn x17_no_scheme_set_means_no_reply() {
     let dir = tempfile::tempdir().unwrap();
     let (terminals, _) = open(&dir);
