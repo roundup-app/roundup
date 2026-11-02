@@ -340,7 +340,11 @@ const TOOLS: &[(&str, &str)] = &[
 const BUBBLE_RULE: &str = "; use your own tools for commands; open a Bubble only when the user needs to see its output or will interactively type into it. Routine builds, tests and inspection use your own tools";
 
 /// The tools beyond `TOOLS` that only a Door is offered: B20's digest.
-const DOOR_TOOLS_EXTRA: [(&str, &str); 10] = [
+const DOOR_TOOLS_EXTRA: [(&str, &str); 11] = [
+    (
+        "agent_set_visibility",
+        "choose shown or internal for a direct child; attention and protected completed turns must stay shown",
+    ),
     (
         "agent_digest",
         "ask what each of your direct children did: its Kind, its last line, its open Todos and the Pads it wrote since you were last told",
@@ -426,6 +430,7 @@ When the user asks to shape an ask, spawn exactly one shaping child under yourse
 
 Memory is the only files you write yourself: use `Write` and `Edit` only in Claude Code's memory directory, including MEMORY.md. Hand all other edits to a child Agent. \
 Delegate implementation to children with `agent_spawn`. You cannot execute commands or open or write to a Terminal. \
+Use `agent_spawn` visibility `internal` for helpers the user need not watch, such as a scout or a one-step writer; `shown` is the default. Use `agent_set_visibility` to change a direct child both ways between shown and internal. The user can still access internal children directly under the internal disclosure. Attention returns a child to shown; it stays shown until a new safe explicit choice. Visibility never stops work.\n\n\
 Start a child with `agent_spawn` and talk to it with `message_send`. \
 Make a Workstream with `rail_createWorkstream` and then `rail_startDoor`; a Workstream is never nested, and its Door asks the user what it is for. \
 Open another Project with `project_open`. \
