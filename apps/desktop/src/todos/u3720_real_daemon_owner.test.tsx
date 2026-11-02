@@ -239,7 +239,9 @@ it.skipIf(Boolean(captureDir("U4698e")) && !captureDir("U3311"))("u3311_real_dae
     saved.set(moved.id, { title: "Release notes revised", body: "Exact body é 🧪 次の行" });
     await observe(moved.id, agents[0]!.id);
     // U4698e: user comments join the persisted resulting work in its Activity.
-    await lane.browser("click", ".todo-history-line");
+    await lane.browser("focus", ".todo-history-line");
+    await lane.until("document.activeElement?.matches('.todo-history-line')");
+    await lane.browser("press", "Space");
     await lane.until("!!document.querySelector('.todo-comments[aria-label=Activity] [data-change]')");
     await lane.browser("fill", ".todo-comment-field", "Reviewed release notes é 雪");
     await lane.browser("press", "Enter");
