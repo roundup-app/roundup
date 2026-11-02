@@ -29,7 +29,7 @@ os.makedirs(sessions, exist_ok=True)
 server = socket.socket(socket.AF_UNIX)
 server.bind(path)
 server.listen()
-json.dump({'pid': os.getpid(), 'messagingSocketPath': path, 'peerProtocol': int(open(root + '/protocol').read())}, open(sessions + '/%d.json' % os.getpid(), 'w'))
+json.dump({'sessionId': '00000000-0000-4000-8000-000000000050', 'pid': os.getpid(), 'messagingSocketPath': path, 'peerProtocol': int(open(root + '/protocol').read())}, open(sessions + '/%d.json' % os.getpid(), 'w'))
 json.dump({'peerToken': token}, open(sessions + '/%d.abc.key' % os.getpid(), 'w'))
 # A resumed conversation remembers UUID uptake; sender/content refusal resets per Attempt.
 taken_path = here + '/taken.jsonl'
