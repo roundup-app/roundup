@@ -69,11 +69,11 @@ export const lazyEmulators = (load: Loader): EmulatorFactory => {
       show: (host, focus) => {
         shownHost = host;
 
-        if (real) return real.show(host, focus);
-
         const request = Symbol();
         hosts.set(host, request);
         showing = request;
+
+        if (real) return real.show(host, focus);
         const permission = captureFocus();
         run(emulator => {
           if (showing !== request || hosts.get(host) !== request) return;
