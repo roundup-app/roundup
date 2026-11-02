@@ -114,7 +114,7 @@ fn words(context: &Context, door: bool) -> String {
         None => "Parent: none, you are at the Project root.".to_owned(),
     });
     if context.ask.to == Actor::user().id {
-        lines.push("Ask: the user, with message_send to \"you\".".to_owned());
+        lines.push("Ask: the user, with AskUserQuestion in your own Terminal.".to_owned());
     } else if let Some(parent) = &context.parent {
         let who = if door { "your Door" } else { "your parent" };
         lines.push(format!(
@@ -457,7 +457,7 @@ mod tests {
             text,
             "Your Rail name is c. Say it, never an id, when you speak of yourself or another Agent.\n\
              Parent: g, a Workstream.\n\
-             Ask: the user, with message_send to \"you\".\n\
+             Ask: the user, with AskUserQuestion in your own Terminal.\n\
              Peers: none.\n\
              Todos: none open."
         );
@@ -493,7 +493,7 @@ mod tests {
         let nodes = [node("7013", NodeKind::Agent, "sad", None, false)];
         let text = words(&compose(&nodes, &[], "7013").unwrap(), false);
         assert!(text.contains("Parent: none, you are at the Project root."));
-        assert!(text.contains("Ask: the user, with message_send to \"you\"."));
+        assert!(text.contains("Ask: the user, with AskUserQuestion in your own Terminal."));
         assert!(!text.contains("7013"));
     }
     #[test]
