@@ -103,7 +103,7 @@ Checks retained (policy): D1 (`apps/desktop/src/testing/checks.ts`, `d1`) for To
 
 **Token**: One named look value in `apps/desktop/src/tokens.css` (a colour, type step, space step, radius, shadow, blur, duration or easing curve); no other file holds such a literal. `--blur-bubble-backdrop` is the 12px background-pane blur beneath a focused Terminal Bubble.
 
-**U131 type and space.** Given the same rendered screens, then every font size is one of 11, 12, 13, 14 or 15 px; every font family is `--font-ui` except the Terminal, a path, an id and code, which are `--font-mono`; and every margin, padding and gap is `0` or one of 4, 8, 12, 16, 24 or 32 px. D2 reads it.
+**U131 type and space.** Given the same rendered screens, then every font size is one of 11, 12, 13, 14 or 15 px; every font family is `--font-ui` except the Terminal, a path, an id, code, button labels and key chips, which are `--font-mono` (#5557); and every margin, padding and gap is `0` or one of 4, 8, 12, 16, 24 or 32 px, with the existing key-chip padding exception and #5557's intra-chip key gap of `calc(var(--space-1) / 4)` (1 CSS px). D2 reads it.
 
 **U132 colour and Kind.** Given a Rail with every Kind (seed `agents-10`) and a Rail with none of `error` and `needs-you`, then each Glyph is the drawing `docs/design-system.md` assigns its Kind; every colour with saturation above 15% is `--red`, `--amber` or `--accent` (D3); the second Rail draws no red and no amber (D3); and each item row in the Rail, the Shelf and a Drawer (not editor menu categories or commands) shows one of the six Glyphs, so no Kind is drawn by colour alone (D4). Test: `u132_`.
 
