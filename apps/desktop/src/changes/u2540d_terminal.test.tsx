@@ -34,6 +34,7 @@ it("u2540d_close_returns_to_the_same_live_terminal", async () => {
   expect(emulators.get("t-a")).toBe(terminal);
   expect(terminal.disposed).toBe(false);
   expect(terminal.written.map(bytes => new TextDecoder().decode(bytes)).join("")).toContain("kept output");
+  terminal.focus();
   terminal.type(new TextEncoder().encode("after close"));
   await waitFor(() => expect(app.calls.filter(call => call.method === "terminal.write")).toHaveLength(2));
 });
