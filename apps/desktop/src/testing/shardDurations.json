@@ -335,8 +335,6 @@
  "src/state/u3703_terminal_shown.test.tsx": 1,
  "src/state/u3787f_storage.test.ts": 1,
  "src/state/u3787f_storage_browser.test.ts": 22,
- "src/state/u4086_storage_browser.test.ts": 12,
- "src/state/u4086_storage_recovery.test.tsx": 3,
  "src/state/z3802g_note_queue.test.ts": 1,
  "src/switcher/u2572_actions.test.tsx": 22,
  "src/switcher/u2572_browser.test.ts": 7,
