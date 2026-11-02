@@ -249,13 +249,12 @@ it.skipIf(typographyOutputs.length === 0)("u5574a_u5574b_observe_pad_scale_and_r
 });
 
 it.skipIf(typographyOutputs.length === 0)("u5574b_empty_document_remains_editable_after_rhythm_changes", { retry: 0, timeout: 180_000 }, async () => {
-  await openShelf("tree-40", 288, 320, 1512, "dark");
-  await browser("set", "viewport", "1512", "950");
   const revision = process.env.ROUNDUP_PAD_BASELINE ? "base" : "head";
   const dir = join(typographyOutputs[0]!, revision);
   mkdirSync(dir, { recursive: true });
   await browser("record", "start", join(dir, "complete-recovery.webm"));
-  await browser("wait", ".shelf-tabs");
+  await openShelf("tree-40", 288, 320, 1512, "dark");
+  await browser("set", "viewport", "1512", "950");
   await settle();
   await evaluate(`(async () => { await window.__fake.app.rpc('pad.create', ${JSON.stringify({ name: "rhythm-probe", text: structureSample })}); document.querySelector('#shelf-tab-pads').click(); return true; })()`);
   await browser("wait", "[data-shelf-group=unassigned]");
