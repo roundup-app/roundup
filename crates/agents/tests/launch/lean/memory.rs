@@ -185,7 +185,7 @@ fn lc19_memory_guard_extends_user_settings() {
             .chain([(Role::Agent, Role::Agent, Pair::default())])
     {
         let s = setup();
-        let memory = s.root.path().join("local-memory");
+        let memory = s.root.path().canonicalize().unwrap().join("local-memory");
         s.user_file("settings.json", &json!({
             "permissions":{"allow":["Read(user)"],"ask":["Edit(*)"],"deny":["Write(**/secret.md)"],"defaultMode":"plan"},
             "autoMemoryEnabled":false,"autoMemoryDirectory":"/user-memory",
