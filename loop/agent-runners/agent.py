@@ -12,7 +12,7 @@ import memory
 RUNNER = Path('/opt/actions-runner')
 STATE = Path('/home/boxd/.roundup-ci')
 # The workflow job id (`GITHUB_JOB`) each controller label kind must run; the job-start hook refuses any other. A `light`
-# label names its job in place of an Issue or PR number.
+# or `check` label names its job in place of an Issue or PR number.
 JOBS = {'build': 'build', 'fix': 'fix-run', 'review': 'review-run', 'critic': 'critic-run', 'smoke': 'smoke'}
 
 
@@ -29,7 +29,7 @@ def register(path):
         _, kind, scope, run, attempt = given['label'].split('-')[:5]
         expected = {'GITHUB_REPOSITORY': given['repository'], 'GITHUB_RUN_ID': run,
                     'GITHUB_RUN_ATTEMPT': attempt,
-                    'GITHUB_JOB': scope if kind == 'light' else JOBS[kind]}
+                    'GITHUB_JOB': scope if kind in ('light', 'check') else JOBS[kind]}
         (Path('/opt/roundup-ci') / 'job.json').write_text(json.dumps(expected))
     finally:
         path.unlink(missing_ok=True)
@@ -67,7 +67,7 @@ def start():
             raise ValueError('Codex project memory must use its retained directory')
         link.symlink_to(STATE / 'project-memory/codex', target_is_directory=True)
     # The controller and integration credentials are absent from this isolated VM; GitHub injects only the job grants.
-    env = {'PATH': '/home/boxd/.cargo/bin:/home/boxd/.local/bin:/usr/local/bin:/usr/bin:/bin',
+    env = {'PATH': '/opt/roundup-ci/python/bin:/home/boxd/.cargo/bin:/home/boxd/.local/bin:/usr/local/bin:/usr/bin:/bin',
            'ROUNDUP_AGENT_MEMORY': str(STATE),
            'CLAUDE_CONFIG_DIR': str(claude), 'CLAUDE_CODE_PROJECT_DIR_NAME': 'roundup',
            'CLAUDE_CODE_DISABLE_AUTO_MEMORY': '0', 'CARGO_TARGET_DIR': '/home/boxd/cargo-target',
