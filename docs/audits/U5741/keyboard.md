@@ -38,10 +38,10 @@ Paths below are relative to `apps/desktop/src/`. These are entry-point mappings,
 | `todo.capture` | ⇧⌘T | App; chooser if no Project | `App.tsx::App; todos/Capture.tsx::Capture` | U4324b |
 | `terminal.switch` | ⌘B | Terminal/tab; also Bold in editor | `bubbles/Bubbles.tsx::Bubbles; pads/PadRichEditor.tsx::PadRichEditor` | U2742c/U4698b |
 | `rail.collapse-expand` | ← → | Focused Rail; raw binding, no named-action owner | `rail/Rail.tsx::Rail` | U5171 |
-| `rail.move` | M | Focused movable Rail row | `rail/Rail.tsx::Rail` | U358 |
+| `rail.move` | M | Focused movable Rail row | `rail/Rail.tsx::Rail` | U152; exact move-key clause remains to reconcile |
 | `rail.rename` | F2 | Focused Rail/Project/Pad/Todo row | `rail/Rail.tsx::Rail; header/ProjectTab.tsx::ProjectTab; pads/Pads.tsx; todos/RowButton.tsx::RowButton` | U140/U3787c |
 | `help.open` | ? | Noneditable App focus; no Terminal | `keys/Help.tsx::Help` | U54/U4324a |
-| `agent.restart-mode` | R | Focused Workstream with saved opening prompt | `rail/Rail.tsx::Rail` | U358 |
+| `agent.restart-mode` | R | Focused Workstream with saved opening prompt | `rail/Rail.tsx::Rail` | U4547d |
 | `rail.remove` | ⌘⌫ | Focused Rail row; connected | `rail/Rail.tsx::Rail` | U358 |
 | `ask.open` | ⌘/ | App; protected Ask | `ask/AskBar.tsx::AskBar` | U4453b/P1 |
 | `todo.assign-slot` | 1–9 | Shelf; eligible Todo and owner slot | `todos/ownerAssignment.ts` | U3720 |
