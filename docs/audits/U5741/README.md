@@ -1,7 +1,7 @@
 # U5741 feature audit
 
 Work order: [#5758](https://github.com/roundup-app/roundup/issues/5758).
-Audited main: `092fcafbf910f292d7180c97d35bd381aff984b3` (verify against the manifest before using this report).
+Audited main: `092fcafbf910f292d7180c97d35bd381aff984b3`.
 
 This is an evidence collection in progress, not the complete inventory or an owner deletion request. No feature is authorized for deletion. Continue from this evidence; do not turn unresolved equivalence or reachability into a negative candidate answer.
 
@@ -11,7 +11,18 @@ The audit must prevent missed conditional offers, unsupported claims of non-use/
 
 ## Evidence
 
-`rendered/` holds accessibility snapshots and D-check readings from the existing isolated harness at 1512×950, dark, on the audited source. PNGs remain uncommitted under `artifacts/ux/U5741/`. Fake-Daemon renders establish webview reachability only, never native behavior or a real Agent action.
+| Artifact | Holds |
+| --- | --- |
+| [endpoints.md](endpoints.md) | Complete public method/CLI/MCP census and explicit CLI dispatch |
+| [settings.md](settings.md) | Individual controls, defaults, actions and unresolved criteria |
+| [entry-points.md](entry-points.md) | Production App composition and remaining reconciliation |
+| [direction.md](direction.md) | Recovered Orca/Paseo/Bise accepted direction |
+| [catalogues/public-seams.json](catalogues/public-seams.json) | Full runtime help, role replies/schemas, methods, hashes and mapping |
+| [catalogues/app-source.json](catalogues/app-source.json) | Source modules/exports, local registrations, native/seam catalogue |
+| [rendered.json](rendered.json) | Validated surface snapshots and Check readings |
+| [validation.md](validation.md) | Command outcomes and observer failures |
+
+`rendered.json` holds accessibility snapshots and D-check readings from the existing isolated harness at 1512×950, dark, on the audited source. Images remain uncommitted under `artifacts/ux/U5741/`. Fake-Daemon renders establish webview reachability only, never native behavior or a real Agent action.
 
 ## Decision status
 
