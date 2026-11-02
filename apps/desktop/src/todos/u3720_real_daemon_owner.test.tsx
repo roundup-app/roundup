@@ -240,7 +240,9 @@ it.skipIf(Boolean(captureDir("U4698e")) && !captureDir("U3311"))("u3311_real_dae
     await observe(moved.id, agents[0]!.id);
     // U4698e: user comments join the persisted resulting work in its Activity.
     await lane.until("!!document.querySelector('.todo-comments[aria-label=Activity] .todo-history-line')");
-    await lane.browser("click", ".todo-comments[aria-label=Activity] .todo-history-line");
+    await lane.browser("focus", ".todo-comments[aria-label=Activity] .todo-history-line");
+    await lane.until("document.activeElement?.matches('.todo-comments[aria-label=Activity] .todo-history-line')");
+    await lane.browser("press", "Enter");
     await lane.until("!!document.querySelector('.todo-comments[aria-label=Activity] [data-change]')");
     await lane.browser("fill", ".todo-comment-field", "Reviewed release notes é 雪");
     await lane.browser("press", "Enter");
@@ -261,6 +263,7 @@ it.skipIf(Boolean(captureDir("U4698e")) && !captureDir("U3311"))("u3311_real_dae
     await capture("empty-agent");
     expect(lostFocus).toEqual([]);
   } catch (error) {
+    console.error(error);
     console.error(await lane.evaluate("document.body.innerText"));
     console.error(await app.rpc("message.list", { to: null, status: null }));
     console.error(await readFile(target + ".log", "utf8").catch(() => "no child log"));
@@ -341,7 +344,9 @@ print(json.dumps({'todo':todo,'pad':pad}))
     await selectHome();
     await openTodo();
     await lane.until("!!document.querySelector('.todo-comments .todo-history-line')");
-    await lane.browser("click", ".todo-comments .todo-history-line");
+    await lane.browser("focus", ".todo-comments .todo-history-line");
+    await lane.until("document.activeElement?.matches('.todo-comments .todo-history-line')");
+    await lane.browser("press", "Enter");
     await lane.until("!!document.querySelector('[data-change]')");
     await lane.browser("dblclick", ".todo-detail-title .todo-editable p");
     await lane.browser("fill", '.todo-detail-title textarea', "Reviewed release result");
