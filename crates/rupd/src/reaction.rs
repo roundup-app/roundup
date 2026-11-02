@@ -36,6 +36,7 @@ const SOURCES: [&str; 3] = ["agents", "pr-checks", "instant"];
 
 pub(crate) struct Reactions {
     pub(crate) db: std::sync::Mutex<Connection>,
+    pub(crate) bus: Bus,
     /// Failed saves retain the latest cursor and re-arm progress until persistence succeeds.
     unsaved: std::sync::Mutex<HashMap<String, Watch>>,
     /// NR6: a saved reaction's time may have changed; the Timer re-reads.
@@ -52,6 +53,7 @@ impl Reactions {
     #[cfg(test)]
     pub(crate) fn in_memory() -> Self {
         Self {
+            bus: Bus::new(),
             db: std::sync::Mutex::new(
                 Connection::open_in_memory().expect("test reaction database"),
             ),
@@ -63,8 +65,9 @@ impl Reactions {
         }
     }
 
-    pub(crate) fn open(data: &std::path::Path) -> Result<Self, rpc::OpenError> {
+    pub(crate) fn open(data: &std::path::Path, bus: Bus) -> Result<Self, rpc::OpenError> {
         Ok(Self {
+            bus,
             db: std::sync::Mutex::new(Connection::open(data.join("project.db"))?),
             unsaved: Default::default(),
             changed: Default::default(),
@@ -108,13 +111,16 @@ impl Reactions {
         let state = serde_json::to_string(watch).expect("watch serialises");
         let saved = self.db.lock().expect("reaction database poisoned").execute(
             "INSERT INTO reaction_watch (reaction, state) VALUES (?1, ?2)
-             ON CONFLICT(reaction) DO UPDATE SET state = excluded.state",
+             ON CONFLICT(reaction) DO UPDATE SET state = excluded.state WHERE reaction_watch.state != excluded.state",
             params![id, state],
         );
         let mut unsaved = self.unsaved.lock().expect("reaction watches poisoned");
         match saved {
-            Ok(_) => {
+            Ok(changed) => {
                 unsaved.remove(id);
+                if changed > 0 {
+                    self.bus.emit(Actor::daemon(), EventData::ReactionChanged);
+                }
             }
             Err(err) => {
                 let mut watch = watch.clone();
@@ -818,6 +824,7 @@ impl Daemon {
                 matched: false,
             })
             .await?;
+        self.bus.emit(actor.clone(), EventData::ReactionChanged);
         self.with_firings(saved)
     }
 
@@ -933,6 +940,7 @@ impl Daemon {
         .map_err(RpcError::internal)?;
         tx.commit().map_err(RpcError::internal)?;
         self.reactions.changed.notify_one();
+        self.bus.emit(actor.clone(), EventData::ReactionChanged);
         Ok(reaction)
     }
 
@@ -978,6 +986,7 @@ impl Daemon {
                 params![id, record],
             )
             .map_err(RpcError::internal)?;
+        self.bus.emit(actor.clone(), EventData::ReactionChanged);
         Ok(saved)
     }
 }

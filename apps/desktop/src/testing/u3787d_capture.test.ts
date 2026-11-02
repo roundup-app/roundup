@@ -77,7 +77,8 @@ it.skipIf(!captureDir("U5463c")).each(["tree-40", "agents-10", "bubbles"])("u546
     };
     window.__fake.app.handlers['reaction.list'] = () => [record];
     window.__fake.app.handlers['reaction.get'] = () => record;
-    window.dispatchEvent(new Event('focus'));
+    window.__fake.emit({actor:{kind:'user',id:'you',parent:null},name:'deliverable.changed'});
+        window.__fake.emit({actor:{kind:'user',id:'you',parent:null},name:'reaction.changed'});
     return true;
   })()`);
   await lane.browser("find", "role", "button", "click", "--name", "Reactions", "--exact");

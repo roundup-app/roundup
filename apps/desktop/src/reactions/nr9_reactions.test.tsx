@@ -6,7 +6,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/te
 import { afterEach, expect, it, vi } from "vitest";
 import type { Message } from "@contracts/message/Message";
 import type { Reaction } from "@contracts/reaction/Reaction";
-import { agent, workstream } from "../testing/nodes";
+import { agent, event, workstream } from "../testing/nodes";
 import { mountAskBar } from "../ask/askFixture";
 import { copy } from "./copy";
 
@@ -25,12 +25,12 @@ const mount = async (list: () => Reaction[], homes: ReturnType<typeof workstream
   mounted.connected.showView("reactions");
   mounted.app.handlers["reaction.list"] = list;
   mounted.app.handlers["reaction.get"] = ({ id }) => list().find(reaction => reaction.id === id)!;
-  window.dispatchEvent(new Event("focus"));
+  mounted.app.emit(event({ name: "reaction.changed" }));
 
   return mounted;
 };
 
-it("z3788c_only_the_current_reactions_owner_refreshes_on_focus", async () => {
+it("u5558b_only_the_current_reactions_owner_reads_its_signal", async () => {
   const first = await mount(() => [saved()]);
   await screen.findByRole("button", { name: /Ship it/ });
   first.unmount();
@@ -39,11 +39,11 @@ it("z3788c_only_the_current_reactions_owner_refreshes_on_focus", async () => {
   const oldCalls = first.app.calls.filter(call => call.method === "reaction.list").length;
   const currentCalls = second.app.calls.filter(call => call.method === "reaction.list").length;
 
-  window.dispatchEvent(new Event("focus"));
+  second.app.emit(event({ name: "reaction.changed" }));
   await waitFor(() => expect(second.app.calls.filter(call => call.method === "reaction.list")).toHaveLength(currentCalls + 1));
   expect(first.app.calls.filter(call => call.method === "reaction.list")).toHaveLength(oldCalls);
   second.unmount();
-  window.dispatchEvent(new Event("focus"));
+  second.app.emit(event({ name: "reaction.changed" }));
   expect(second.app.calls.filter(call => call.method === "reaction.list")).toHaveLength(currentCalls + 1);
 });
 
@@ -66,13 +66,22 @@ it("nr9_inspect_stop_run_in_overview", async () => {
   connected.showView("reactions");
   await screen.findByRole("region", { name: copy.reactionDetail("Ship it") });
   expect(app.calls.map((call) => call.method)).not.toContain("reaction.run");
-  app.handlers["reaction.stop"] = () => (current = { ...current, state: "stopped" });
-  app.handlers["reaction.run"] = () => current;
+  app.handlers["reaction.stop"] = () => { current = { ...current, state: "stopped" }; app.emit(event({ name: "reaction.changed" }));
+
+ return current; };
+
+  app.handlers["reaction.run"] = () => { app.emit(event({ name: "reaction.changed" }));
+
+ return current; };
+
+  const before = app.calls.filter(call => call.method === "reaction.list").length;
   fireEvent.click(within(detail).getByRole("button", { name: copy.reactionRun }));
   await waitFor(() => expect(app.calls.filter((call) => call.method === "reaction.run")).toHaveLength(1));
   await waitFor(() => expect(within(detail).getByRole("button", { name: copy.reactionStop })).toHaveProperty("disabled", false));
   fireEvent.click(within(detail).getByRole("button", { name: copy.reactionStop }));
   await waitFor(() => expect(within(detail).getByRole("button", { name: copy.reactionRun })).toHaveProperty("disabled", true));
+  expect(app.calls.filter(call => call.method === "reaction.list")).toHaveLength(before + 2);
+  expect(app.calls.filter(call => call.method === "reaction.get")).toHaveLength(0);
   expect(app.calls.filter(call => call.method === "reaction.run" || call.method === "reaction.stop").map(call => call.params)).toEqual([{ id: "r1", operation: expect.any(String) }, { id: "r1" }]);
   fireEvent.click(within(detail).getByRole("button", { name: /^Close/ }));
   await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("button", { name: /Ship it/ })));
@@ -97,7 +106,7 @@ it("nr9_saved_reactions_remain_inspectable_after_the_last_agent_is_removed", asy
   connected.showView("reactions");
   app.handlers["reaction.list"] = () => [saved()];
   app.handlers["reaction.get"] = () => saved();
-  window.dispatchEvent(new Event("focus"));
+  app.emit(event({ name: "reaction.changed" }));
   fireEvent.click(await screen.findByRole("button", { name: /Ship it/ }));
   const detail = await screen.findByRole("region", { name: copy.reactionDetail("Ship it") });
   expect(within(detail).getByText(copy.reactionGone())).toBeTruthy();
@@ -113,8 +122,8 @@ it("u3299b_copy_keeps_original_facts", async () => {
     vi.spyOn(app, "clipboardWrite").mockImplementation(write);
     fireEvent.click(await screen.findByRole("button", { name: /Ship it/ }));
     const detail = await screen.findByRole("region", { name: copy.reactionDetail("Ship it") });
-    fireEvent.click(within(detail).getByRole("button", { name: copy.refresh }));
-    await waitFor(() => expect(app.calls.filter(call => call.method === "reaction.get")).toHaveLength(2));
+    app.emit(event({ name: "reaction.changed" }));
+    await waitFor(() => expect(app.calls.filter(call => call.method === "reaction.list")).toHaveLength(3));
     expect(write).not.toHaveBeenCalled();
     fireEvent.click(within(detail).getByRole("button", { name: copy.copy }));
     await waitFor(() => expect(write).toHaveBeenCalledOnce());
@@ -129,7 +138,7 @@ const observeFailure = async (observation: Reaction["observation"]) => {
   fireEvent.click(await screen.findByRole("button", { name: /Ship it/ }));
   const text = (await screen.findByRole("alert")).textContent;
 
-  const controls = [copy.refresh, copy.reactionStop, copy.reactionRun].map(name => ({
+  const controls = [copy.reactionStop, copy.reactionRun].map(name => ({
     name, disabled: within(document.querySelector(".reaction-detail")!).getByRole("button", { name }).hasAttribute("disabled"),
   }));
 
@@ -179,7 +188,7 @@ it("u4276c_list_opens_exact_reaction", async () => {
   await screen.findByText("second");
   expect(screen.getByText(records[1]!.reason!)).toBeTruthy();
   expect(screen.getByText(copy.reactionActor("agent", copy.draftIdentity("Same maker", "beta")))).toBeTruthy();
-  expect(app.calls.filter(call => call.method === "reaction.get").map(call => call.params)).toEqual([{ id: "r2" }]);
+  expect(app.calls.filter(call => call.method === "reaction.get")).toHaveLength(0);
   fireEvent.click(screen.getByRole("button", { name: "Close Ship it" }));
   await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("button", { name: /Ship it.*beta/ })));
 });
@@ -270,7 +279,7 @@ it.each(["Enter", " ", "click"])("u3787c_reaction_activation_preserves_identity_
   if (key === "click") fireEvent.click(rows[2]!);
   else fireEvent.keyDown(rows[2]!, { key });
   await screen.findByRole("region", { name: copy.reactionDetail(records[2]!.name) });
-  await waitFor(() => expect(app.calls.slice(before)).toEqual([{ method: "reaction.get", params: { id: "r2" } }]));
+  expect(app.calls.slice(before)).toEqual([]);
   fireEvent.click(screen.getByRole("button", { name: copy.closeView(records[2]!.name) }));
   await waitFor(() => expect(document.activeElement).toBe(document.querySelectorAll(".reaction-row")[2]));
   expect(selectedRows([...document.querySelectorAll<HTMLButtonElement>(".reaction-row")]).map(row => row.dataset.reactionOpener)).toEqual(["r1"]);
@@ -279,7 +288,6 @@ it.each(["Enter", " ", "click"])("u3787c_reaction_activation_preserves_identity_
 it.each(([
   { owner: "action", method: "reaction.run", action: copy.reactionRun },
   { owner: "action", method: "reaction.stop", action: copy.reactionStop },
-  { owner: "inspection", method: "reaction.get", action: copy.refresh },
   { owner: "clipboard", method: null, action: copy.copy },
   { owner: "message", method: "message.get", action: copy.retry },
   { owner: "message_clipboard", method: null, action: copy.copy },
@@ -300,7 +308,7 @@ it.each(([
   try {
     fireEvent.click(await screen.findByRole("button", { name: /Ship it/ }));
     await screen.findByRole("region", { name: copy.reactionDetail("Ship it") });
-    await waitFor(() => expect(app.calls.filter(call => call.method === "reaction.get")).toHaveLength(1));
+    expect(app.calls.filter(call => call.method === "reaction.get")).toHaveLength(0);
     const fail = () => { throw new Error("request refused"); };
 
     if (owner === "message" || owner === "message_clipboard") {
@@ -355,7 +363,7 @@ it.each(["dismiss", "recover"])("p3557c_failure_lifetime_reactions_list_%s", asy
   const before = structuredClone(connected.drafts.list());
   app.handlers["reaction.list"] = () => { throw new Error("list unavailable"); };
 
-  window.dispatchEvent(new Event("focus"));
+  app.emit(event({ name: "reaction.changed" }));
   await screen.findByRole("alert", { name: "list unavailable" });
   fireEvent.click(screen.getByRole("button", { name: /Ship it/ }));
   await screen.findByRole("region", { name: copy.reactionDetail("Ship it") });
@@ -389,4 +397,36 @@ it("nr9_list_stop_keeps_selected_identity_after_refusal", async () => {
     expect.objectContaining({ id: "r2" }), expect.objectContaining({ id: "r2" }),
   ]);
   expect(app.calls.filter(call => call.method === "reaction.create" || call.method === "agent.spawn")).toHaveLength(0);
+});
+
+
+it("u5558b_saved_changes_update_open_detail", async () => {
+  let current = saved();
+  const { app } = await mount(() => [current]);
+  fireEvent.click(await screen.findByRole("button", { name: /Ship it/ }));
+  await screen.findByRole("region", { name: copy.reactionDetail("Ship it") });
+  const before = app.calls.filter(call => call.method === "reaction.list").length;
+  current = saved({ state: "stopped", firings: [{ id: "f-new", ordinal: 1, message: 991, matched: true, evidence: "changed", definition: "{}", outcome: "delivered" }] });
+  app.emit(event({ name: "reaction.changed" }));
+  await screen.findByRole("button", { name: /Firing 1/ });
+  expect(screen.getByRole("button", { name: copy.reactionRun })).toHaveProperty("disabled", true);
+  expect(app.calls.filter(call => call.method === "reaction.list")).toHaveLength(before + 1);
+  expect(app.calls.filter(call => ["reaction.get", "reaction.run", "agent.spawn", "message.send"].includes(call.method))).toHaveLength(0);
+  fireEvent.click(screen.getByRole("button", { name: /^Close Ship/ }));
+  expect(screen.getByRole("button", { name: /Ship it/ }).textContent).toContain(copy.reactionState("stopped", "observing"));
+});
+
+it("u5558e_failed_reload_retains_data", async () => {
+  const { app } = await mount(() => [saved()]);
+  fireEvent.click(await screen.findByRole("button", { name: /Ship it/ }));
+  const detail = await screen.findByRole("region", { name: copy.reactionDetail("Ship it") });
+  app.handlers["reaction.list"] = () => { throw new Error("Saved reactions read refused"); };
+
+  app.emit(event({ name: "reaction.changed" }));
+  await screen.findByRole("alert", { name: "Saved reactions read refused" });
+  expect(screen.getByRole("region", { name: copy.reactionDetail("Ship it") })).toBe(detail);
+  app.handlers["reaction.list"] = () => [saved({ instruction: "new saved instruction" })];
+  app.emit(event({ name: "reaction.changed" }));
+  await within(detail).findByText("new saved instruction");
+  expect(screen.queryByRole("alert")).toBeNull();
 });

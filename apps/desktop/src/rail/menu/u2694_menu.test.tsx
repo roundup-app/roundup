@@ -179,7 +179,7 @@ it("u3515a_source_identity_follows_the_object_not_selection", async () => {
         title: "Result", published_at: 1792713600000,
         target: { kind: "external", url: "https://example.com/result", availability: "not-checked" },
       }];
-      window.dispatchEvent(new Event("focus"));
+      app.emit(event({ name: "deliverable.changed" }));
       connected.showView("made");
       const made = await screen.findByRole("region", { name: copy.deliverables });
       fireEvent.contextMenu(await within(made).findByRole("listitem"));
@@ -260,7 +260,7 @@ it("u3515d_exhausted_targets_preserve_picker_policy_and_native_omission", async 
         title: "Result", published_at: 1792713600000,
         target: { kind: "external", url: "https://example.com/result", availability: "not-checked" },
       }];
-      window.dispatchEvent(new Event("focus"));
+      app.emit(event({ name: "deliverable.changed" }));
       connected.showView("made");
       const made = await screen.findByRole("region", { name: copy.deliverables });
       fireEvent.contextMenu(await within(made).findByRole("listitem"));
@@ -491,7 +491,7 @@ it.each([
         title: "Result", published_at: 1792713600000,
         target: { kind: "external", url: "https://example.com/result", availability: "not-checked" },
       }];
-      window.dispatchEvent(new Event("focus"));
+      app.emit(event({ name: "deliverable.changed" }));
       connected.showView("made");
       const made = await screen.findByRole("region", { name: copy.deliverables });
 

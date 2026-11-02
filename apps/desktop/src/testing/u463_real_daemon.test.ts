@@ -307,7 +307,7 @@ it("u2875d_real_import_reopen_and_resume", async () => {
 
       for (const state of ["failure", "empty", "loading", ...(captureDir("U3037d") ? ["rpc-timeout", "deadline"] : [])]) {
         await browser("eval", `window.__fake.app.handlers['project.importDiscover'] = ${state === "failure" ? "() => { throw new Error('Discovery unavailable: permission denied. Retry with Refresh.'); }" : state === "rpc-timeout" ? "() => { throw new Error('no reply to project.importDiscover within 30s; whether the Daemon accepted the request is unknown. Refresh to try again.\\nSource: /a/very/long/path/without/spaces/that/must/wrap/and/remain/readable/while/the/recovery/actions/stay/available'); }" : state === "empty" ? "() => ({ candidates: [], excluded: [] })" : "() => new Promise(() => {})"}`);
-        await browser("find", "role", "button", "click", "--name", "Refresh", "--exact");
+        await browser("find", "role", "button", "click", "--name", "Retry", "--exact");
         await wait(state === "rpc-timeout" ? "document.querySelector('.import-panel [role=alert]')?.textContent.includes('within 30s')" : state === "deadline" ? "document.querySelector('.import-panel [role=alert]')?.textContent.includes('too long')" : state === "failure" ? "document.querySelector('.import-panel [role=alert]')?.textContent.includes('Discovery unavailable')" : state === "empty" ? "document.querySelector('.import-panel [role=status]')?.textContent.includes('No conversations')" : "document.querySelector('.import-panel [role=status]')?.textContent.includes('Looking')");
         await capture(state);
       }

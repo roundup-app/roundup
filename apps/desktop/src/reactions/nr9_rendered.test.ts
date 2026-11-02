@@ -93,7 +93,7 @@ it.skipIf(!captureDir("P3557c") && !captureDir("U3791b"))("u3791b_p3557c_failure
       window.__fake.app.handlers['reaction.list'] = () => [record];
       window.__fake.app.handlers['reaction.get'] = () => record;
       window.__fake.app.handlers['reaction.run'] = () => { throw new Error('Could not run the reaction. Try Run now again.'); };
-      window.dispatchEvent(new Event('focus'));
+      window.__fake.emit({ actor: { kind: 'user', id: 'you', parent: null }, name: 'reaction.changed' });
     })()`);
     await browser("wait", "--fn", "!!document.querySelector('[data-reaction-opener=reaction-lifetime]')");
     await evaluate("document.querySelector('[data-reaction-opener=reaction-lifetime]').click()");
@@ -108,7 +108,7 @@ it.skipIf(!captureDir("P3557c") && !captureDir("U3791b"))("u3791b_p3557c_failure
         const record = { ...original, observation: { ...original.observation, health: 'unavailable', health_code: 'unavailable', cause_code: 'worktree-read-failed', recovery_code: 'check', cause: 'unsupported /private/diagnostic', recovery: 'diagnostic only' } };
         app.handlers['reaction.get'] = () => record;
         app.handlers['reaction.list'] = () => [record];
-        [...document.querySelectorAll('.reaction-actions button')].find(button => button.textContent === 'Refresh').click();
+        window.__fake.emit({ actor: { kind: 'user', id: 'you', parent: null }, name: 'reaction.changed' });
       })()`);
       await browser("wait", "--fn", "!!document.querySelector('.reaction-detail .reaction-facts [role=alert]')");
       await evaluate("document.querySelector('.reaction-detail [role=alert]').scrollIntoView({ block: 'center' })");
@@ -122,7 +122,7 @@ it.skipIf(!captureDir("P3557c") && !captureDir("U3791b"))("u3791b_p3557c_failure
         const record = { ...previous, observation: { ...previous.observation, health: 'observing', health_code: 'observing', cause_code: 'unknown', recovery_code: 'unknown', cause: null, recovery: null } };
         app.handlers['reaction.get'] = () => record;
         app.handlers['reaction.list'] = () => [record];
-        [...document.querySelectorAll('.reaction-actions button')].find(button => button.textContent === 'Refresh').click();
+        window.__fake.emit({ actor: { kind: 'user', id: 'you', parent: null }, name: 'reaction.changed' });
       })()`);
       await browser("wait", "--fn", "!document.querySelector('.reaction-detail [role=alert]')");
     }
@@ -181,7 +181,7 @@ it.skipIf(!captureDir("U3787c")).each(["agents-10", "tree-40", "tabs-8", "confli
       app.handlers['reaction.list'] = () => records;
       app.handlers['reaction.get'] = ({id}) => records.find(record => record.id === id);
       window.dispatchEvent(new CustomEvent('open-project-page',{detail:{path:document.querySelector('.project-tab[data-selected=true]').dataset.path,command:'view:reactions'}}));
-      window.dispatchEvent(new Event('focus'));
+      window.__fake.emit({ actor: { kind: 'user', id: 'you', parent: null }, name: 'reaction.changed' });
       return true;
     })()`);
     await wait("document.querySelectorAll('.reaction-row').length === 5");
@@ -206,7 +206,7 @@ it.skipIf(!captureDir("U3787c")).each(["agents-10", "tree-40", "tabs-8", "confli
     expect(await evaluate("document.querySelectorAll('.reaction-row[data-row-selected=true]').length")).toBe(5);
     await evaluate(`(() => {
       ${daemon}.handlers['reaction.list'] = () => { throw new Error('Restore Project access, then Retry to load reactions.'); };
-      window.dispatchEvent(new Event('focus'));
+      window.__fake.emit({ actor: { kind: 'user', id: 'you', parent: null }, name: 'reaction.changed' });
       return true;
     })()`);
     await wait("document.querySelector('.reactions [role=alert]')?.textContent.includes('Restore Project access')");
@@ -263,7 +263,7 @@ it.skipIf(!["NR9", "U4276a", "U4276b", "U4276c"].some(id => captureDir(id)))("nr
       app.handlers['reaction.list'] = () => window.__nr9.records;
       app.handlers['reaction.get'] = ({id}) => window.__nr9.records.find(r => r.id === id);
       window.dispatchEvent(new CustomEvent('open-project-page', {detail:{path, command:'view:reactions'}}));
-      window.dispatchEvent(new Event('focus'));
+      window.__fake.emit({ actor: { kind: 'user', id: 'you', parent: null }, name: 'reaction.changed' });
     })()`);
     await wait("!!document.querySelector('.reactions .overview-quiet')");
     await capture("empty");
@@ -276,7 +276,7 @@ it.skipIf(!["NR9", "U4276a", "U4276b", "U4276c"].some(id => captureDir(id)))("nr
         expires_at:'2099-01-01T09:00:00Z',created_at:'2026-10-20T09:00:00Z',state,
         observation:{health:i === 3 ? 'unavailable' : 'observing',health_code:i === 3 ? 'unavailable' : 'observing',cause_code:i === 3 ? 'agent-unavailable' : 'unknown',gap_code:'unknown',recovery_code:i === 3 ? 'replace-agent' : 'unknown',cursor:null,gap:null,recovery:null,evidence:null},firings:[]
       }));
-      window.dispatchEvent(new Event('focus'));
+      window.__fake.emit({ actor: { kind: 'user', id: 'you', parent: null }, name: 'reaction.changed' });
     })()`);
     await wait("document.querySelectorAll('.reaction-row').length === 4");
     await capture("filled-long-stopped");
@@ -306,3 +306,102 @@ it.skipIf(!["NR9", "U4276a", "U4276b", "U4276c"].some(id => captureDir(id)))("nr
     } finally { await close(); await server.close(); }
   }
 });
+
+it.skipIf(!captureDir("U5558a"))("u5558e_open_surfaces_update_and_keep_failed_reads", async () => {
+  const server = await appServer();
+  const lane = await reactionBrowser();
+  const { browser, evaluate, wait } = lane;
+
+  const capture = async (id: string, step: string) => {
+    const dir = captureDir(id);
+
+    if (!dir) return;
+    await mkdir(dir, { recursive: true });
+    await writeFile(join(dir, `${step}.checks.json`), JSON.stringify(await evaluate("window.__checks()")));
+    await browser("screenshot", join(dir, `${step}.png`));
+  };
+
+  const click = (name: string) => browser("find", "role", "button", "click", "--name", name, "--exact");
+  const signal = (name: string) => evaluate(`window.__fake.emit({ actor: { kind: 'user', id: 'you', parent: null }, name: '${name}' })`);
+
+  try {
+    await browser("set", "viewport", "1512", "950");
+    await browser("set", "media", "dark");
+    await browser("open", `${server.resolvedUrls.local[0]}harness.html?view=workstreams&items=1&tabs=1&view=made&seed=agents-10`);
+    await wait("!!window.__fake");
+    console.log("automatic surface", await evaluate("document.body.innerText.slice(0,1600)"));
+    await evaluate(`(() => {
+      const record = {project:'p', id:'automatic-made', title:'Same title', maker:{kind:'agent',id:'agent-1',parent:null}, maker_name:'Maker',home:null,published_at:1,target:{kind:'external',url:'https://example.com/result',availability:'not-checked'}};
+      window.__fake.app.handlers['deliverable.list'] = () => [record, {...record,id:'other-made'}];
+    })()`);
+    await signal("deliverable.changed");
+    await wait("document.querySelectorAll('[data-deliverable]').length === 2");
+    expect(await evaluate("!!document.querySelector('[data-deliverable=automatic-made]')")).toBe(true);
+    await capture("U5558a", "published");
+    await evaluate("window.__fake.app.handlers['deliverable.list'] = () => { throw new Error('Publication list unavailable: connection refused. The last saved publications remain available.'); }");
+    await signal("deliverable.changed");
+    await wait("document.querySelector('[aria-label=Made] [role=alert]')?.textContent.includes('connection refused')");
+    expect(await evaluate("document.querySelectorAll('[data-deliverable]').length")).toBe(2);
+    await capture("U5558e", "made-reload-failed");
+
+    await browser("open", `${server.resolvedUrls.local[0]}harness.html?view=workstreams&items=1&tabs=1&view=reactions&seed=agents-10`);
+    await wait("!!window.__fake && !!document.querySelector('.reaction-head')");
+    await evaluate(`(() => {
+      const record = {project:'p',id:'automatic-reaction',name:'Review saved changes',actor:{kind:'user',id:'you',parent:null},home:null,target:'agent-1',instruction:'Review the recorded revision',condition:{kind:'agents',ids:['agent-1'],any:false},max_firings:2,remaining:2,rearm:true,expires_at:'2099-01-01T00:00:00Z',created_at:'2026-11-01T00:00:00Z',state:'active',observation:{health:'observing',health_code:'observing',cause_code:'unknown',gap_code:'unknown',recovery_code:'unknown',cursor:null,gap:null,recovery:null,evidence:null},firings:[]};
+      window.__automaticReaction = record;
+      window.__fake.app.handlers['reaction.list'] = () => [window.__automaticReaction];
+    })()`);
+    await signal("reaction.changed");
+    await wait("!!document.querySelector('[data-reaction-opener=automatic-reaction]')");
+    await evaluate("document.querySelector('[data-reaction-opener=automatic-reaction]').click()");
+    await wait("!!document.querySelector('.reaction-detail')");
+    await evaluate("window.__automaticReaction = {...window.__automaticReaction,state:'stopped',firings:[{id:'f1',ordinal:1,message:99,matched:true,evidence:'saved evidence',definition:'{}',outcome:'delivered'}]}");
+    await signal("reaction.changed");
+    await wait("!!document.querySelector('[data-firing-message=\"99\"]')");
+    await capture("U5558b", "saved-firing");
+    await evaluate("window.__fake.app.handlers['reaction.list'] = () => { throw new Error('Saved reactions unavailable: permission denied. The previous saved details remain available.'); }");
+    await signal("reaction.changed");
+    await wait("document.querySelector('.reaction-detail [role=alert]')?.textContent.includes('permission denied')");
+    await capture("U5558e", "reaction-reload-failed");
+
+    await browser("open", `${server.resolvedUrls.local[0]}harness.html?seed=agents-10&tabs=1`);
+    await wait("!!window.__fake && !!document.querySelector('.ask-input')");
+    await evaluate(`(async () => {
+      const app = window.__fake.app;
+      app.handlers['agent.spawn'] = () => ({id:'listing-agent',kind:'agent',name:'Import listing',parent:null,order:0,terminal_id:null,status:null,worktree:null});
+      app.handlers['project.importDiscover'] = () => ({candidates:[],excluded:[]});
+      const { projectMenu } = await import('/src/testing/menuProbe.ts');
+      window.dispatchEvent(new CustomEvent('open-project-page',{detail:{path:projectMenu.path,command:'import-work'}}));
+    })()`);
+    await wait("!!document.querySelector('.import-prompt')");
+    await click("Start import Agent");
+    await wait("window.__fake.app.calls.some(call => call.method === 'agent.spawn') && !document.querySelector('.import-instructions button').disabled");
+    await evaluate(`window.__fake.app.handlers['project.importDiscover'] = () => ({candidates:Array.from({length:10},(_,n)=>({source:'candidate-'+n,revision:'saved-'+n,title:'Conversation '+n+' — '+ '長い成果 🐝 '.repeat(6),cwd:'src/'+ 'long-path/'.repeat(5),last_activity_ms:1n})),excluded:[]})`);
+    await evaluate("window.__fake.emit({actor:{kind:'agent',id:'listing-agent',parent:null},name:'rail.changed'})");
+    await wait("document.querySelectorAll('.import-candidate').length === 10");
+    expect(await evaluate("document.querySelectorAll('.import-candidate input:checked').length")).toBe(0);
+    await capture("U5558d", "saved-listing");
+    await evaluate("window.__fake.app.handlers['project.importDiscover'] = () => { throw new Error('Saved listing unavailable: permission denied. Retry to read the listing again.'); }");
+    await evaluate("window.__fake.emit({actor:{kind:'agent',id:'listing-agent',parent:null},name:'rail.changed'})");
+    await wait("document.querySelector('.import-panel [role=alert]')?.textContent.includes('permission denied')");
+    await capture("U5558e", "import-reload-failed");
+
+    await browser("open", `${server.resolvedUrls.local[0]}src/changes/u2540.html`);
+    await wait("!!document.querySelector('.worktree-control')");
+    await browser("click", ".worktree-control");
+    await wait("!!document.querySelector('file-tree-container')?.shadowRoot?.querySelector('[data-item-type=file]')");
+    await evaluate("document.querySelector('file-tree-container').shadowRoot.querySelector('[data-item-type=file]').click()");
+    await click("View diff");
+    await wait("!!document.querySelector('diffs-container')?.shadowRoot?.querySelector('[data-column-number]')");
+    await click("Add note");
+    await browser("find", "label", "Note", "fill", "  keep this exact unfinished note 🐝  ");
+    await evaluate("window.__fake.app.handlers['agent.compareFile'] = () => ({base:'base',oldPath:'src/example.ts',newPath:'src/example.ts',status:'modified',old:{kind:'text',revision:'old',text:'before\\n'},new:{kind:'text',revision:'automatic',text:'automatic comparison update\\n'}})");
+    await wait("document.querySelector('diffs-container')?.shadowRoot?.textContent.includes('automatic comparison update')");
+    expect(await evaluate("document.querySelector('[aria-label=Note]').value")).toBe("  keep this exact unfinished note 🐝  ");
+    await capture("U5558c", "worktree-update-with-draft");
+    await evaluate("window.__fake.app.handlers['agent.compareFile'] = () => { throw new Error('Comparison unavailable: Worktree read refused. Retry to read this comparison again.'); }");
+    await wait("document.querySelector('.diff-reader [role=alert]')?.textContent.includes('Worktree read refused')");
+    await capture("U5558e", "diff-reload-failed");
+    expect(await evaluate("[...document.querySelectorAll('button')].some(button=>button.textContent.trim()==='Refresh')")).toBe(false);
+  } finally { await lane.close(); await server.close(); }
+}, 90_000);

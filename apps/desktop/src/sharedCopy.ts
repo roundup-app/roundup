@@ -8,7 +8,7 @@ const running = "Running";
 
 const failed = "Failed";
 
-const word = { name: "Name", ask: "Ask", terminal: "Terminal", done: "Done", text: "Text", pad: "Pad", todo: "Todo", agent: "Agent", title: "Title", start: "Start", retry: "Retry", refresh: "Refresh", copied: "Copied", assign: "Assign", stop: "Stop", error: "Error", bench: "Bench", firstPrompt: "First prompt", unfinishedWork: "Unfinished work", projectRoot: "Project root", newMode: "New Mode", todos: "Todos", pads: "Pads" } as const;
+const word = { name: "Name", ask: "Ask", terminal: "Terminal", done: "Done", text: "Text", pad: "Pad", todo: "Todo", agent: "Agent", title: "Title", start: "Start", retry: "Retry", copied: "Copied", assign: "Assign", stop: "Stop", error: "Error", bench: "Bench", firstPrompt: "First prompt", unfinishedWork: "Unfinished work", projectRoot: "Project root", newMode: "New Mode", todos: "Todos", pads: "Pads" } as const;
 
 export const staleSuffix = ", stale";
 
@@ -17,11 +17,11 @@ const noCi = "No CI";
 const rpcFailures = new Map<number, string>([
   [-32700, "The request could not be read. Try again."], [-32601, "This action is unavailable. Check for an update."],
   [-32602, "Check the input and try again."], [-32603, "Completion is unconfirmed. Check before trying again."],
-  [-32001, "The item is unavailable. Refresh to check again."], [-32002, "This action is not allowed. Check access before trying again."],
-  [-32003, "The item was changed. Refresh before trying again."], [-32004, "The reply was lost. Check before trying again."],
+  [-32001, "The item is unavailable. Try again to check."], [-32002, "This action is not allowed. Check access before trying again."],
+  [-32003, "The item was changed. Check the current item before trying again."], [-32004, "The reply was lost. Check before trying again."],
   [-32005, "The Agent is busy. Wait until it is idle."], [-32006, "Delivery is unconfirmed. Check the Agent before trying again."],
-  [-32007, "The Agent is not running. Refresh to check again."], [-32008, "The interruption is unconfirmed. Check the Agent before trying again."],
-  [-32009, "Earlier changes are unavailable. Refresh to check current work."], [-32010, "The inbox is unavailable. Check the Agent before trying again."],
+  [-32007, "The Agent is not running. Try again to check."], [-32008, "The interruption is unconfirmed. Check the Agent before trying again."],
+  [-32009, "Earlier changes are unavailable. Reopen to check current work."], [-32010, "The inbox is unavailable. Check the Agent before trying again."],
   [-32011, "The roundup App is not open. Open it and try again."],
 ]);
 
@@ -107,7 +107,6 @@ export const copy = {
   closeQuestion: (value1: CopyValue) => `Close ${value1}?`,
   importAgentName: "Import",
   importTitle: "Import Claude Code",
-  importRefresh: word.refresh,
   rename: "Rename",
   projects: "Projects",
   openAFolder: "Open Project",
@@ -180,7 +179,6 @@ export const copy = {
   },
   worktreePrText: (number: number, stale: boolean) => `#${number}${stale ? staleSuffix : ""}`,
   worktreeReadUnavailable: "Worktree state is unavailable.",
-  refresh: word.refresh,
   shelfLabel: word.bench,
   reactions: "Reactions",
   reactionsEmpty: "Agents create Reactions. Ask for one above.",
