@@ -443,3 +443,304 @@ async fn t15_list_does_not_load_history() {
     assert!(list[0].get("changes").is_none());
     assert!(h.call("todo.getHistory", json!({"id": 1})).await.is_err());
 }
+
+// Valid current-schema payloads; setup is separate from execution/row observation.
+fn hand_fixture() -> store::Store {
+    let store = store::Store::open(Path::new(":memory:")).unwrap();
+    store.db.execute_batch(
+        "WITH RECURSIVE n(id) AS (SELECT 1 UNION ALL SELECT id+1 FROM n WHERE id<1000)
+         INSERT INTO todos(id,title,body,created_at,updated_at,pos,owner)
+         SELECT id,'title '||id,'body '||id,1,1,1001-id,
+         '{\"kind\":\"agent\",\"id\":\"a\",\"parent\":null}' FROM n;
+         INSERT INTO changes(todo,before_values,after_values,after_touch)
+         SELECT id,NULL,json_object('title',title,'body','old '||body,'done',json('false'),'blockers',json('[]'),'owner',json(owner)),0 FROM todos;
+         INSERT INTO changes(todo,before_values,after_values,after_touch)
+         SELECT id,json_object('title',title,'body','old '||body,'done',json('false'),'blockers',json('[]'),'owner',json(owner)),
+         json_object('title',title,'body',body,'done',json('false'),'blockers',json('[]'),'owner',json(owner)),0 FROM todos;
+         INSERT INTO changes(todo,before_values,after_values,after_touch)
+         SELECT todo,after_values,json_set(after_values,'$.title','unrelated edit'),0 FROM changes WHERE seq>1000;
+         UPDATE todos SET done=1 WHERE id=1000;
+         INSERT INTO blockers VALUES(999,1);
+         UPDATE todos SET owner='{\"kind\":\"agent\",\"id\":\"b\"}' WHERE id=998;
+         INSERT INTO changes(todo,before_values,after_values,after_touch,handed)
+         SELECT id,c.after_values,c.after_values,0,t.owner FROM todos t JOIN changes c ON c.todo=t.id
+         WHERE t.id=997 AND c.seq=(SELECT MAX(seq) FROM changes WHERE todo=t.id);"
+    ).unwrap();
+    store
+}
+
+fn folded_hand(store: &store::Store) -> Option<u32> {
+    store
+        .list()
+        .unwrap()
+        .into_iter()
+        .find(|todo| {
+            let Some(owner) = &todo.owner else {
+                return false;
+            };
+            if owner.kind != ActorKind::Agent || owner.id != "a" || todo.done || todo.blocked {
+                return false;
+            }
+            let mut handed = false;
+            for (change, _) in store.history(todo.id).unwrap() {
+                if let Some(to) = &change.handed {
+                    handed = to == owner;
+                } else if change.before.as_ref().and_then(|v| v.owner.as_ref())
+                    != change.after.owner.as_ref()
+                {
+                    handed = false;
+                }
+            }
+            !handed
+        })
+        .map(|todo| todo.id)
+}
+
+// Trace executions and returned rows, then inspect their projections through SQLite's prepare API.
+// No authorizer counts, SQL occurrence counts, mocks, or production instrumentation.
+fn observed_hand(
+    store: &store::Store,
+) -> (
+    Option<contracts::todo::Todo>,
+    usize,
+    Vec<String>,
+    Vec<String>,
+) {
+    use rusqlite::trace::{TraceEvent, TraceEventCodes};
+    use std::cell::RefCell;
+    thread_local! { static EVENTS: RefCell<(usize, Vec<String>)> = const { RefCell::new((0, Vec::new())) }; }
+    EVENTS.with_borrow_mut(|events| *events = (0, Vec::new()));
+    store.db.trace_v2(
+        TraceEventCodes::SQLITE_TRACE_STMT | TraceEventCodes::SQLITE_TRACE_ROW,
+        Some(|event| {
+            EVENTS.with_borrow_mut(|events| match event {
+                TraceEvent::Stmt(stmt, _) if stmt.sql().trim_start().starts_with("SELECT") => {
+                    events.0 += 1
+                }
+                TraceEvent::Row(stmt) => events.1.push(stmt.expanded_sql().unwrap()),
+                _ => (),
+            });
+        }),
+    );
+    let started = std::time::Instant::now();
+    let todo = store.hand("a", 0, &Actor::daemon()).unwrap();
+    store.db.trace_v2(TraceEventCodes::empty(), None);
+    assert!(started.elapsed() < std::time::Duration::from_secs(5));
+    let (reads, rows) = EVENTS.take();
+    let mut body_queries = Vec::new();
+    let mut fields = Vec::new();
+    for sql in rows {
+        let stmt = store.db.prepare(&sql).unwrap();
+        let columns = stmt.column_names();
+        if columns.contains(&"body") {
+            body_queries.push(sql.clone());
+        }
+        fields.extend(columns.into_iter().map(str::to_owned));
+    }
+    (todo, reads, body_queries, fields)
+}
+
+#[test]
+fn t5642b_hand_materializes_only_the_first_eligible_todo() {
+    let store = hand_fixture();
+    let expected = folded_hand(&store).unwrap();
+    assert_eq!(
+        expected, 996,
+        "reverse user order skips done, blocked, foreign, handed"
+    );
+    let (todo, reads, bodies, fields) = observed_hand(&store);
+    let todo = todo.unwrap();
+    assert_eq!(todo.id, expected);
+    assert_eq!(bodies.len(), 1, "one returned base row; reads={reads}");
+    // Outside measurement, resolve the single returned body's identity using its bound SQL.
+    let mut stmt = store.db.prepare(&bodies[0]).unwrap();
+    let body_column = stmt.column_index("body").unwrap();
+    let body: String = stmt.query_row([], |row| row.get(body_column)).unwrap();
+    assert_eq!(body, format!("body {expected}"));
+    assert!(
+        !fields
+            .iter()
+            .any(|field| matches!(field.as_str(), "before_values" | "after_values"))
+    );
+    assert!(
+        reads <= 4,
+        "candidate selection and winner's three reads: {reads}"
+    );
+    let history = store.history(expected).unwrap();
+    let last = &history.last().unwrap().0;
+    assert_eq!(last.handed, Some(agent("a")));
+    assert_eq!(last.before.as_ref(), Some(&last.after));
+}
+
+#[test]
+fn t5642b_no_eligible_todo_materializes_nothing() {
+    let store = hand_fixture();
+    store
+        .db
+        .execute(
+            "INSERT INTO changes(todo,before_values,after_values,after_touch,handed)
+         SELECT t.id,c.after_values,c.after_values,0,t.owner FROM todos t
+         JOIN changes c ON c.seq=(SELECT MAX(seq) FROM changes WHERE todo=t.id)",
+            [],
+        )
+        .unwrap();
+    let before = store.list().unwrap();
+    let changes: i64 = store
+        .db
+        .query_row("SELECT COUNT(*) FROM changes", [], |r| r.get(0))
+        .unwrap();
+    assert_eq!(folded_hand(&store), None);
+    let (todo, reads, bodies, fields) = observed_hand(&store);
+    assert_eq!(todo, None);
+    assert!(bodies.is_empty(), "no returned bodies; reads={reads}");
+    assert!(
+        !fields
+            .iter()
+            .any(|field| matches!(field.as_str(), "before_values" | "after_values"))
+    );
+    assert_eq!(reads, 1);
+    assert_eq!(store.list().unwrap(), before);
+    assert_eq!(
+        store
+            .db
+            .query_row("SELECT COUNT(*) FROM changes", [], |r| r.get::<_, i64>(0))
+            .unwrap(),
+        changes
+    );
+}
+
+#[test]
+fn t5642b_narrow_history_matches_actor_semantics() {
+    let a = json!({"kind":"agent","id":"a","parent":null});
+    let b = json!({"kind":"agent","id":"b","parent":null});
+    let parent = json!({"kind":"agent","id":"a","parent":"parent"});
+    let user = json!({"kind":"user","id":"a","parent":null});
+    // Each event is (before owner, after owner, handed). Missing owner differs from explicit null
+    // only in its encoding, as both decode to None in Values.
+    let cases = [
+        (
+            "edit after hand",
+            vec![
+                (a.clone(), a.clone(), Some(a.clone())),
+                (a.clone(), a.clone(), None),
+            ],
+            false,
+        ),
+        (
+            "away and back",
+            vec![
+                (a.clone(), a.clone(), Some(a.clone())),
+                (a.clone(), b.clone(), None),
+                (b.clone(), a.clone(), None),
+            ],
+            true,
+        ),
+        (
+            "other hand",
+            vec![
+                (a.clone(), a.clone(), Some(a.clone())),
+                (a.clone(), a.clone(), Some(b.clone())),
+            ],
+            true,
+        ),
+        (
+            "parent transition",
+            vec![
+                (a.clone(), a.clone(), Some(a.clone())),
+                (parent.clone(), a.clone(), None),
+            ],
+            true,
+        ),
+        (
+            "kind transition",
+            vec![
+                (a.clone(), a.clone(), Some(a.clone())),
+                (user.clone(), a.clone(), None),
+            ],
+            true,
+        ),
+        (
+            "different handed parent",
+            vec![(a.clone(), a.clone(), Some(parent))],
+            true,
+        ),
+        (
+            "different handed kind",
+            vec![(a.clone(), a.clone(), Some(user))],
+            true,
+        ),
+        (
+            "null owner",
+            vec![
+                (a.clone(), a.clone(), Some(a.clone())),
+                (Value::Null, a.clone(), None),
+            ],
+            true,
+        ),
+        (
+            "missing owner",
+            vec![
+                (a.clone(), a.clone(), Some(a.clone())),
+                (json!("missing"), a.clone(), None),
+            ],
+            true,
+        ),
+        (
+            "null to missing",
+            vec![
+                (a.clone(), a.clone(), Some(a.clone())),
+                (Value::Null, json!("missing"), None),
+            ],
+            false,
+        ),
+    ];
+    for (name, events, eligible) in cases {
+        let store = store::Store::open(Path::new(":memory:")).unwrap();
+        store
+            .insert(
+                "todo",
+                "body",
+                &[],
+                &Actor::user(),
+                Some(&agent("a")),
+                None,
+                0,
+            )
+            .unwrap();
+        for (before, after, handed) in events {
+            let values = |owner: Value| {
+                let mut value = json!({"title":"todo","body":"body","done":false,"blockers":[]});
+                if owner != json!("missing") {
+                    value["owner"] = owner;
+                }
+                value
+            };
+            let before = values(before);
+            let after = values(after);
+            // Different key order/whitespace must not masquerade as an owner transition.
+            let after = if after["owner"] == a {
+                serde_json::to_string(&after).unwrap().replace(
+                    &a.to_string(),
+                    "{ \"parent\": null, \"id\": \"a\", \"kind\": \"agent\" }",
+                )
+            } else {
+                after.to_string()
+            };
+            store.db.execute("INSERT INTO changes(todo,before_values,after_values,after_touch,handed) VALUES(1,?1,?2,0,?3)",
+                rusqlite::params![before.to_string(),after,handed.map(|v| v.to_string())]).unwrap();
+        }
+        // A later unrelated body edit must not hide the last relevant event.
+        store.db.execute("INSERT INTO changes(todo,before_values,after_values,after_touch) SELECT todo,after_values,json_set(after_values,'$.body','later body'),0 FROM changes ORDER BY seq DESC LIMIT 1", []).unwrap();
+        assert_eq!(folded_hand(&store).is_some(), eligible, "fixture {name}");
+        assert_eq!(
+            !store.list_handed().unwrap().is_empty(),
+            !eligible,
+            "list_handed {name}"
+        );
+        assert_eq!(
+            store.hand("a", 0, &Actor::daemon()).unwrap().is_some(),
+            eligible,
+            "hand {name}"
+        );
+    }
+}
