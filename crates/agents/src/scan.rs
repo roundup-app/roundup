@@ -168,6 +168,11 @@ pub(crate) fn strays(
 thread_local! { static BUILDS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) }; }
 
 #[cfg(test)]
+#[global_allocator]
+pub(crate) static ALLOCATOR: &stats_alloc::StatsAlloc<std::alloc::System> =
+    &stats_alloc::INSTRUMENTED_SYSTEM;
+
+#[cfg(test)]
 mod tests {
     use super::*;
 
@@ -230,7 +235,7 @@ mod tests {
         for doors in [1, 10] {
             let text = snapshot();
             let markers: Vec<_> = (1..=doors).map(|door| format!("marker-{door}-")).collect();
-            let region = stats_alloc::Region::new(crate::ALLOCATOR);
+            let region = stats_alloc::Region::new(ALLOCATOR);
             let mut table = parse(&text);
             let prepared = region.change();
             for marker in &markers {
