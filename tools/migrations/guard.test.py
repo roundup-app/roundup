@@ -1,14 +1,16 @@
-"""B4522 local Git-tree fixtures: no checkout, database, dependency or network."""
+"""B4522 local Git trees and disposable rename checkouts; no database or network."""
 import contextlib
 from functools import cache
 import io
 import json
 import os
 from pathlib import Path
+import shlex
 import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 import guard
 
@@ -104,6 +106,106 @@ class Guard(unittest.TestCase):
         finally:
             sys.argv = argv
         self.assertIn("missing-base", output.getvalue())
+
+    def test_b4522_renumber_parallel_additions_after_each_new_base(self):
+        for d, s in self.layouts():
+            with self.subTest(directory=d, suffix=s):
+                base = {d + b"0042-rail" + s}
+                additions = {d + b"0042-a" + s, d + b"0043-a" + s}
+                expected = {d + b"0043-a" + s, d + b"0044-a" + s}
+                errors = self.check(base, base | additions)
+                commands = [shlex.split(e.split("repository root: ")[1]) for e in errors if "repository root: " in e]
+                paths = set(base | additions)
+                for command in commands:
+                    self.assertEqual(command[:3], ["git", "mv", "--"])
+                    source, target = (os.fsencode(p) for p in command[3:])
+                    if s == b"/up.sql":
+                        source, target = source + s, target + s
+                    self.assertIn(source, additions)
+                    self.assertNotIn(target, paths)
+                    paths.remove(source)
+                    paths.add(target)
+                self.assertEqual(paths, base | expected)
+                before, after = guard.entries(self.tree(frozenset(base))), guard.entries(self.tree(frozenset(paths)))
+                self.assertEqual(guard.audit(before, after), [])
+                self.assertEqual(guard.renames(before, after), [])
+                # Another PR lands before this branch: recompute from that base, not a guessed +1.
+                next_base = base | {d + b"0043-other" + s}
+                moved = guard.renames(guard.entries(self.tree(frozenset(next_base))), guard.entries(self.tree(frozenset(next_base | expected))))
+                self.assertEqual({target + (s if s == b"/up.sql" else b"") for _, target in moved}, {d + b"0044-a" + s, d + b"0045-a" + s})
+
+    def test_b4522_renumber_preserves_recorded_names_and_handles_new_sets(self):
+        before = {d: set(names) for (d, _), names in guard.RECORDED.items()}
+        # Collect all groups in a directory, including its applied duplicate prefixes.
+        for (d, _), names in guard.RECORDED.items():
+            before[d].update(names)
+        after = {d: names | {b"0001-new.sql"} for d, names in before.items()}
+        after[b"new/migrations"] = {b"001-first.sql", b"001-second.sql"}
+        moves = guard.renames(before, after)
+        for source, target in moves:
+            d, name = source.rsplit(b"/", 1)
+            self.assertNotIn(name, before.get(d, set()))
+            after[d].remove(name)
+            after[d].add(target.rsplit(b"/", 1)[1])
+        self.assertEqual(guard.audit(before, after), [])
+        self.assertTrue(all(names <= after[d] for d, names in before.items()))
+
+    def test_b4522_renumber_refuses_missing_applied_names_and_width_overflow(self):
+        d = b"crates/rupd/migrations/project"
+        for before, after, message in [
+            ({b"0042-main.sql"}, {b"0042-branch.sql"}, "merge/rebase"),
+            ({b"9999-main.sql"}, {b"9999-main.sql", b"9999-branch.sql"}, "width exhausted"),
+            ({b"0042-a.sql", b"0042-b.sql"}, {b"0042-a.sql", b"0042-b.sql"}, "cannot repair"),
+        ]:
+            with self.subTest(message=message), self.assertRaisesRegex(ValueError, message):
+                guard.renames({d: before}, {d: after})
+
+    def test_b4522_renumber_stages_whole_directories_without_changing_sql(self):
+        # Exercise real git mv, including a destination that is another rename's source.
+        cwd = os.getcwd()
+        with tempfile.TemporaryDirectory() as directory:
+            try:
+                os.chdir(directory)
+                guard.git("init", "--quiet")
+                d = Path("with space's/migrations")
+                for name in ["0042-main", "0042-new", "0043-new"]:
+                    (d / name).mkdir(parents=True)
+                    for file in ["up.sql", "down.sql"]:
+                        (d / name / file).write_text(name + file)
+                    if name != "0042-new":
+                        guard.git("add", ".")
+                        guard.git("-c", "user.name=t", "-c", "user.email=t@t", "-c", "commit.gpgsign=false", "commit", "-qm", "fixture")
+                        if name == "0042-main":
+                            base = guard.git("rev-parse", "HEAD").decode().strip()
+                before = guard.entries(base)
+                after = guard.entries("HEAD")
+                # Refuse dirty state before moving anything.
+                (d / "0042-new/up.sql").write_text("unfinished SQL")
+                with self.assertRaisesRegex(ValueError, "clean worktree"):
+                    guard.renumber(before, after)
+                self.assertTrue((d / "0042-new").is_dir())
+                (d / "0042-new/up.sql").write_text("0042-newup.sql")
+                # Even an ignored destination must not be overwritten or nested into.
+                (Path(".git") / "info/exclude").write_text("0044-new/\n")
+                (d / "0044-new").mkdir()
+                with self.assertRaisesRegex(ValueError, "occupied destination"):
+                    guard.renumber(before, after)
+                (d / "0044-new").rmdir()
+                head = guard.git("rev-parse", "HEAD")
+                with patch.object(sys, "argv", ["guard.py", "--renumber", base]), contextlib.redirect_stdout(io.StringIO()) as output, contextlib.redirect_stderr(io.StringIO()):
+                    self.assertEqual(guard.main(), 0)
+                commands = [shlex.split(line) for line in output.getvalue().splitlines() if line.startswith("git mv")]
+                self.assertEqual(len(commands), 2)
+                for source, target in [("0042-main", "0042-main"), ("0042-new", "0043-new"), ("0043-new", "0044-new")]:
+                    for file in ["up.sql", "down.sql"]:
+                        self.assertEqual((d / target / file).read_text(), source + file)
+                staged = guard.entries(guard.git("write-tree").decode().strip())
+                self.assertEqual(guard.audit(before, staged), [])
+                self.assertEqual(guard.renames(before, staged), [])
+                self.assertEqual(guard.git("diff", "--name-only"), b"")
+                self.assertEqual(guard.git("rev-parse", "HEAD"), head)
+            finally:
+                os.chdir(cwd)
 
 
 if __name__ == "__main__":
