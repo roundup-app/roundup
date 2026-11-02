@@ -19,10 +19,6 @@ struct Stored {
 }
 
 impl Agents {
-    fn owner_file(&self, id: &str) -> PathBuf {
-        self.dir.join("owners").join(format!("{id}.json"))
-    }
-
     /// Save the owner behind client Terminal `terminal_id` for Agent `id`'s current Attempt.
     /// A Terminal the client owns directly has no record, and reopening reports its Agent `done`.
     pub(super) fn save_owner(&self, id: &str, terminal_id: &str) -> Result<(), RpcError> {
@@ -30,7 +26,7 @@ impl Agents {
             return Ok(());
         };
         let attempt = self.shared.rail().node(id)?.attempt.unwrap_or_default();
-        let file = self.owner_file(id);
+        let file = self.shared.owner_file(id);
         let body = serde_json::to_vec(&Stored {
             attempt,
             input_started: false,
@@ -160,13 +156,16 @@ impl Agents {
 }
 
 impl Shared {
-    /// Keep admission beside the verified owner, fenced to its original Attempt.
-    pub(super) fn save_input_started(&self, id: &str, attempt: &str) -> Result<(), RpcError> {
-        let path = self
-            .rail_view
+    fn owner_file(&self, id: &str) -> PathBuf {
+        self.rail_view
             .data_dir
             .join("owners")
-            .join(format!("{id}.json"));
+            .join(format!("{id}.json"))
+    }
+
+    /// Keep admission beside the verified owner, fenced to its original Attempt.
+    pub(super) fn save_input_started(&self, id: &str, attempt: &str) -> Result<(), RpcError> {
+        let path = self.owner_file(id);
         let body = match std::fs::read(&path) {
             Ok(body) => body,
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(()),
