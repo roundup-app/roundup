@@ -2,6 +2,7 @@
 //! Sibling `order` values are contiguous from 0. Workstreams sit at the root and never nest (A26);
 //! an Agent sits under a Workstream or under the Agent that started it, to any depth.
 
+mod alert;
 mod closed;
 mod placement;
 mod queue;

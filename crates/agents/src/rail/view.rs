@@ -10,7 +10,7 @@ const NODES: &str = "WITH visible AS (
  WHERE NOT EXISTS (SELECT 1 FROM closed_sources WHERE published=0 AND (workstream=nodes.id OR agent=nodes.id))
 ) SELECT id, kind, name, parent, ord, attempt, terminal_id,
                 worktree_path, worktree_branch, worktree_base, work, model, effort,
-                conversation_id, conversation_cwd, auto, finished, opening_prompt FROM visible";
+                conversation_id, conversation_cwd, auto, finished, opening_prompt, alert_level FROM visible";
 
 pub(super) fn load_nodes(
     db: &Connection,
@@ -49,6 +49,13 @@ fn load_with<T>(
                 NodeKind::Agent => stored,
             };
             let node = RailNode {
+                alert_level: serde_json::from_str(row.get_ref(18)?.as_str()?).map_err(|error| {
+                    rusqlite::Error::FromSqlConversionFailure(
+                        18,
+                        rusqlite::types::Type::Text,
+                        Box::new(error),
+                    )
+                })?,
                 opening_prompt: if kind == NodeKind::Workstream {
                     row.get(17)?
                 } else {
