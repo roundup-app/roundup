@@ -290,10 +290,38 @@ it.skipIf(typographyOutputs.length === 0)("u5574b_empty_document_remains_editabl
   })()`);
   await browser("press", "Backspace");
   await browser("wait", "--fn", "document.querySelector('.ProseMirror h2').textContent === ''");
-  await save("empty-heading");
+
+  for (const scheme of ["light", "dark"]) {
+    await browser("set", "media", scheme);
+    await save(`empty-heading-${scheme}`);
+  }
+
   await browser("keyboard", "type", "Restored heading");
   await browser("wait", "--fn", "document.querySelector('.ProseMirror h2').textContent === 'Restored heading'");
   await save("restored-heading");
+
+  await evaluate(`(() => {
+    const code = document.querySelector('.ProseMirror pre code');
+    code.scrollIntoView({block: 'center'});
+    code.closest('[contenteditable]').focus();
+    const range = document.createRange();
+    range.selectNodeContents(code);
+    const selection = window.getSelection();
+    selection.removeAllRanges();
+    selection.addRange(range);
+    return true;
+  })()`);
+  await browser("press", "Backspace");
+  await browser("wait", "--fn", "document.querySelector('.ProseMirror pre code').textContent === ''");
+
+  for (const scheme of ["light", "dark"]) {
+    await browser("set", "media", scheme);
+    await save(`empty-code-${scheme}`);
+  }
+
+  await browser("keyboard", "type", "const restored = true;");
+  await browser("wait", "--fn", "document.querySelector('.ProseMirror pre code').textContent === 'const restored = true;'");
+  await save("restored-code");
 
   await browser("focus", ".ProseMirror");
   await settle();
