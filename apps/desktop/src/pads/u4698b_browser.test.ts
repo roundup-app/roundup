@@ -27,15 +27,12 @@ it.skipIf(typographyOutputs.length > 0)("u4698b_expand_keeps_the_long_pad_and_al
 
   if (output) {
     mkdirSync(output, { recursive: true });
-    await browser("record", "start", join(output, "reading.webm"));
-    await browser("wait", ".shelf-tabs");
-    await browser("set", "media", "dark");
-  }
 
-  for (const [width, height] of [[1512, 950], [1280, 820]]) {
-    await browser("set", "viewport", String(width), String(height));
-    await settle();
-    await capture(`before-editor-${width}`);
+    for (const [width, height] of [[1512, 950], [1280, 820]]) {
+      await browser("set", "viewport", String(width), String(height));
+      await settle();
+      await capture(`before-editor-${width}`);
+    }
   }
 
   const openTodo = async () => {
@@ -52,16 +49,24 @@ it.skipIf(typographyOutputs.length > 0)("u4698b_expand_keeps_the_long_pad_and_al
     await settle();
   };
 
-  await openTodo();
+  if (output) {
+    await openTodo();
 
-  for (const [width, height] of [[1512, 950], [1280, 820]]) {
-    await browser("set", "viewport", String(width), String(height));
+    for (const [width, height] of [[1512, 950], [1280, 820]]) {
+      await browser("set", "viewport", String(width), String(height));
+      await settle();
+      await capture(`todo-before-editor-${width}`);
+    }
+
+    await browser("click", ".drawer .close");
     await settle();
-    await capture(`todo-before-editor-${width}`);
-  }
 
-  await browser("click", ".drawer .close");
-  await settle();
+    // Recording pins the viewport; finish the multi-size captures before starting it.
+    await browser("set", "viewport", "1512", "950");
+    await browser("record", "start", join(output, "reading.webm"));
+    await browser("wait", ".shelf-tabs");
+    await browser("set", "media", "dark");
+  }
 
   const name = "Document reading and formatting ".repeat(7).slice(0, 200);
   const table = `| Decision | Owner | Context |\n| --- | --- | --- |\n| ${"LongUnbrokenWord".repeat(12)} | Ada | ${"Table prose wraps across multiple lines. ".repeat(15)} |`;
@@ -94,11 +99,14 @@ it.skipIf(typographyOutputs.length > 0)("u4698b_expand_keeps_the_long_pad_and_al
     expect(await evaluate("document.querySelectorAll('.drawer [aria-label=Restore], .drawer [aria-label=Maximise]').length")).toBe(1);
 
     await capture(`worst-${width}`);
-    await browser("click", '.top-bar-heading-button');
-    await settle();
-    await capture(`heading-menu-${width}`);
-    await browser("click", '.top-bar-heading-button');
-    await settle();
+
+    if (output) {
+      await browser("click", '.top-bar-heading-button');
+      await settle();
+      await capture(`heading-menu-${width}`);
+      await browser("click", '.top-bar-heading-button');
+      await settle();
+    }
 
     await browser("click", '.drawer [aria-label="Restore"]');
     await settle();
@@ -125,15 +133,17 @@ it.skipIf(typographyOutputs.length > 0)("u4698b_expand_keeps_the_long_pad_and_al
     await capture("save-failure-1280");
   }
 
-  await browser("click", ".drawer .close");
-  await settle();
-
-  await openTodo();
-
-  for (const [width, height] of [[1512, 950], [1280, 820]]) {
-    await browser("set", "viewport", String(width), String(height));
+  if (output) {
+    await browser("click", ".drawer .close");
     await settle();
-    await capture(`todo-after-editor-${width}`);
+
+    await openTodo();
+
+    for (const [width, height] of [[1512, 950], [1280, 820]]) {
+      await browser("set", "viewport", String(width), String(height));
+      await settle();
+      await capture(`todo-after-editor-${width}`);
+    }
   }
 });
 
