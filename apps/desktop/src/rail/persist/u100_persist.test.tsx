@@ -185,7 +185,7 @@ it("u100_first_tree_is_restored_without_flash_scroll_focus_or_extra_rpc", async 
   expect(document.activeElement).toBe(field);
   await waitFor(() => expect(app.calls.some((call) => call.method === "terminal.snapshot")).toBe(true));
   expect(app.calls.map((call) => call.method).sort()).toEqual([
-    "action.userList", "ask.list", "daemon.ping", "deliverable.list", "pad.list", "rail.tree", "reaction.list", "terminal.list", "terminal.resize", "terminal.scheme", "terminal.snapshot", "todo.list", "todo.listHanded", "todo.unread", "workstream.queue",
+    "action.userList", "ask.list", "daemon.ping", "deliverable.list", "deliverable.list", "pad.list", "rail.tree", "reaction.list", "terminal.list", "terminal.resize", "terminal.scheme", "terminal.snapshot", "todo.list", "todo.listHanded", "todo.unread", "workstream.queue",
   ]);
   field.remove();
 });
