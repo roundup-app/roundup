@@ -3,13 +3,13 @@ import { cleanup, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { mountNavigation } from "../testing/navigationFixture";
 import { openProjectPage, projectMenu } from "../testing/menuProbe";
-import { CHORDS, LEADER } from "./chords";
+import { CHORDS, LEADER, chordNamed } from "./chords";
 import { copy } from "./copy";
 
 afterEach(() => { batch(cleanup); localStorage.clear(); });
 
 // Rows whose keys stay native unless something binds them (U3787b): the leader, history, Settings, plain list and text keys, Triage.
-const native = new Set([copy.leaderChord, "⌘Z", "⇧⌘Z", "⌘,", "?", "⏎", "Esc", "Tab", "⇧Tab", "J K", "T", "W", "X", "C", "A"]);
+const native = new Set([chordNamed("leader.open")!.keys, "⌘Z", "⇧⌘Z", "⌘,", "?", "⏎", "Esc", "Tab", "⇧Tab", "J K", "T", "W", "X", "C", "A"]);
 
 const focusAt = async (place: "terminal" | "rail row") => {
   const { connected } = await mountNavigation(false, 0);
