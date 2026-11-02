@@ -99,3 +99,98 @@ it("u5555_unavailable_creation_cannot_run_from_the_menu", async () => {
   fireEvent.keyDown(plus, { key: "Enter" });
   expect(screen.queryByRole("menu")).toBeNull();
 });
+
+it.each(["pointer", "Enter", " "])("u5629_open_and_escape_keep_the_failed_start_%s", async opening => {
+  const m = await mountRail([workstream("g")]);
+  m.rail.select("g");
+  m.app.handlers["agent.spawn"] = () => { throw new Error("Spawn refused. Check setup and retry."); };
+
+  fireEvent.keyDown(document, { key: "n", metaKey: true });
+  const failure = await screen.findByRole("alert");
+  await screen.findByText("Spawn refused. Check setup and retry.");
+  const retry = screen.getByRole("button", { name: "Retry" });
+  expect(retry.isConnected).toBe(true);
+  const plus = screen.getByRole("button", { name: "Create" });
+
+  if (opening === "pointer") fireEvent.click(plus);
+  else {
+    plus.focus();
+    fireEvent.keyDown(plus, { key: opening });
+  }
+
+  const menu = await screen.findByRole("menu");
+  await waitFor(() => expect(document.activeElement).toBe(menu));
+  expect(screen.getByRole("alert")).toBe(failure);
+  expect(retry.isConnected).toBe(true);
+  expect(railCallsTo(m.app, "agent.spawn")).toHaveLength(1);
+  expect(railCallsTo(m.app, "rail.createWorkstream")).toEqual([]);
+  expect(railCallsTo(m.app, "rail.startDoor")).toEqual([]);
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(m.rail.selected()).toBe("g");
+  fireEvent.keyDown(menu, { key: "Escape" });
+  await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
+  await waitFor(() => expect(document.activeElement).toBe(plus));
+  expect(screen.getByRole("alert")).toBe(failure);
+  expect(retry.isConnected).toBe(true);
+  expect(railCallsTo(m.app, "agent.spawn")).toHaveLength(1);
+  expect(railCallsTo(m.app, "rail.createWorkstream")).toEqual([]);
+  expect(railCallsTo(m.app, "rail.startDoor")).toEqual([]);
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(m.rail.selected()).toBe("g");
+});
+
+it("u5629_retry_after_escape_repeats_only_the_failed_start", async () => {
+  const tree = [workstream("g")];
+  const m = await mountRail(tree);
+  m.rail.select("g");
+  m.app.handlers["agent.spawn"] = () => { throw new Error("Spawn refused. Check setup and retry."); };
+
+  fireEvent.keyDown(document, { key: "n", metaKey: true });
+  await screen.findByRole("alert");
+  fireEvent.click(screen.getByRole("button", { name: "Create" }));
+  const menu = await screen.findByRole("menu");
+  await waitFor(() => expect(document.activeElement).toBe(menu));
+  fireEvent.keyDown(menu, { key: "Escape" });
+  await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("button", { name: "Create" })));
+  m.app.handlers["agent.spawn"] = () => {
+    const made = agent("made", "idle", "idle", { parent: "g" });
+    tree.push(made);
+
+    return made;
+  };
+
+  const retry = screen.getByRole("button", { name: "Retry" });
+  fireEvent.click(retry);
+  await waitFor(() => expect(m.rail.selected()).toBe("made"));
+  const calls = railCallsTo(m.app, "agent.spawn");
+  expect(calls).toHaveLength(2);
+  expect(calls[1]).toEqual(calls[0]);
+  expect(railCallsTo(m.app, "rail.createWorkstream")).toEqual([]);
+  expect(railCallsTo(m.app, "rail.startDoor")).toEqual([]);
+  expect(screen.queryByRole("alert")).toBeNull();
+  expect(retry.isConnected).toBe(false);
+});
+
+it("u5629_dismiss_after_escape_clears_only_feedback", async () => {
+  const m = await mountRail([workstream("g")]);
+  m.rail.select("g");
+  const draft = m.connected.drafts.edit({ surface: "ask", object: "ask-bar", recipient: "g" }, { text: " unfinished 🌿 " }, null, "ordinary").draft;
+  m.app.handlers["agent.spawn"] = () => { throw new Error("Spawn refused. Check setup and retry."); };
+
+  fireEvent.keyDown(document, { key: "n", metaKey: true });
+  await screen.findByRole("alert");
+  fireEvent.click(screen.getByRole("button", { name: "Create" }));
+  const menu = await screen.findByRole("menu");
+  await waitFor(() => expect(document.activeElement).toBe(menu));
+  fireEvent.keyDown(menu, { key: "Escape" });
+  await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("button", { name: "Create" })));
+  const retry = screen.getByRole("button", { name: "Retry" });
+  fireEvent.click(screen.getByRole("button", { name: "Dismiss", exact: true }));
+  await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+  expect(retry.isConnected).toBe(false);
+  expect(railCallsTo(m.app, "agent.spawn")).toHaveLength(1);
+  expect(railCallsTo(m.app, "rail.createWorkstream")).toEqual([]);
+  expect(railCallsTo(m.app, "rail.startDoor")).toEqual([]);
+  expect(m.rail.selected()).toBe("g");
+  expect(m.connected.drafts.list()).toContainEqual(draft);
+});
