@@ -21,6 +21,7 @@ const mountPaneWithDrawer = async () => {
 
   const connected = await connectProject(app, { name: "p", path: "/p" }, () => true, () => 0);
   const field = document.createElement("textarea");
+  field.dataset.terminal = "t-a";
 
   const emulator: Emulator = {
     write: () => {},

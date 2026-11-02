@@ -1,8 +1,0 @@
-from importlib.machinery import SourceFileLoader
-m=SourceFileLoader('ident','/tmp/r23-identity-init.py').load_module();root,run=m.root,m.run
-for data in sorted(root.glob('v2-*.data')):
- name=data.stem
- run(name+'-events',['sudo','-n','perf','script','--ns','-i',str(data),'-F','comm,pid,tid,cpu,time,event,trace'])
- run(name+'-evlist',['sudo','-n','perf','evlist','-i',str(data)])
- run(name+'-header',['sudo','-n','perf','report','--header-only','-i',str(data)])
-run('v2-probes-remove',['sudo','-n','perf','probe','-d','r23i:*'])
