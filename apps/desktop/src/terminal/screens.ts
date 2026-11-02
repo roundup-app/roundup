@@ -1,4 +1,5 @@
 import { throttle } from "@solid-primitives/scheduled";
+import { captureFocus } from "../keys/focus";
 import { forgetScrollback, restoreScrollback, retainScrollback } from "./scrollback";
 import { clipboardFailure, readPaste } from "../app/clipboard";
 import { copy as appCopy } from "./copy";
@@ -707,14 +708,11 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
   const paste = async (id: string, event: Pick<ClipboardEvent, "clipboardData">): Promise<void> => {
     if (!isFocused(id) || exited(id) || daemonExit() !== null) return;
 
-    const owner = document.activeElement!;
-    let left = false;
-    const leave = () => { left = true; };
-
-    owner.addEventListener("blur", leave, { once: true });
+    const focus = captureFocus();
+    const signal = focus.signal();
 
     const check = () => {
-      if (left || !isFocused(id)) throw new Error(appCopy.terminalFocusChanged);
+      if (signal.aborted || !isFocused(id)) throw new Error(appCopy.terminalFocusChanged);
     };
 
     try {
@@ -734,7 +732,8 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
 
       setFailure(id, "clipboard", clipboardFailure("paste", thrown));
     } finally {
-      owner.removeEventListener("blur", leave);
+      // Release the pending focus request without moving focus after the paste settles.
+      focus(() => {});
     }
   };
 
