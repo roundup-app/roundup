@@ -138,3 +138,48 @@ it("n5467c_current_native_records_reopen_with_exact_identity", async () => {
     expect(localStorage.getItem(key)).toBeNull();
   }
 });
+
+it.each(["selection", "submit", "failed", "unknown"] as const)("u5643a_queued_records_survive_later_changes_%s", async (operation) => {
+  expect(await initializeStorage()).toBeNull();
+  const drafts = draftStorage("/queued");
+  const destination = { surface: "ask", object: "original", recipient: "agent-original" };
+  const edited = drafts.edit(destination, { text: " exact e\u0301 雪 " }, null, "ordinary");
+  await edited.retained;
+  const revision = edited.draft.revision;
+  const status = operation === "failed" || operation === "unknown" ? "pending" : "draft";
+
+  if (status === "pending") await drafts.submit(revision);
+  let release!: () => void;
+  let started!: () => void;
+  const saving = new Promise<void>(resolve => { started = resolve; });
+  save.mockImplementationOnce(async () => {
+    started();
+    await new Promise<void>(resolve => { release = resolve; });
+
+    for (const [key, value] of cache) disk.set(key, structuredClone(value));
+  });
+  const blocker = drafts.edit({ ...destination, object: "blocker" }, { text: "blocker" }, null, "ordinary");
+  await saving;
+  const firstSelection = { start: 1, end: 3, direction: "backward" as const };
+  const queued = drafts.setSelection(revision, firstSelection);
+
+  const later = operation === "selection" ? drafts.setSelection(revision, { start: 4, end: 4, direction: "none" })
+    : operation === "submit" ? drafts.submit(revision) : drafts.settle(revision, operation);
+
+  const snapshots: unknown[] = [];
+  save.mockImplementation(async () => {
+    snapshots.push(structuredClone(cache.get("roundup:drafts:/queued")));
+
+    for (const [key, value] of cache) disk.set(key, structuredClone(value));
+  });
+  release();
+  await blocker.retained;
+  expect(await queued).toBeNull();
+  await later;
+  expect(snapshots).toHaveLength(2);
+  expect(snapshots[0]).toMatchObject({ value: { drafts: [{ ...edited.draft, selection: firstSelection, status }] } });
+  const expected = { ...edited.draft, selection: firstSelection, status: operation === "submit" ? "pending" : status };
+
+  if (operation === "selection") expected.selection = { start: 4, end: 4, direction: "none" };
+  expect(snapshots[1]).toMatchObject({ value: { drafts: [{ ...expected, status: operation === "failed" || operation === "unknown" ? operation : expected.status }] } });
+});
