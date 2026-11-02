@@ -72,6 +72,8 @@ it("u5501_quiet_holds_one_row_per_eligible_event", async () => {
   expect(connected.held.rows()).toHaveLength(3);
   app.emit(by(TOAST_AGENT, { name: "todo.updated", data: toastTodo(8, TOAST_AGENT) }));
   app.emit(event({ name: "todo.deleted", data: { id: 7 } }));
+  app.handlers["rail.tree"] = () => [agent("a", "error", "error", { alert_level: "default" })];
+  await connected.rail.refresh();
   expect(connected.held.rows()).toHaveLength(3);
   expect(sounds).toEqual([]);
   expect(toasts()).toEqual([]);
@@ -83,6 +85,7 @@ it("u5501_settings_changes_keep_each_agents_level", async () => {
   const { appSettings, saveAppSettings } = await import("../settings/preferences");
   await saveAppSettings({ stateAlerts: { ...appSettings().stateAlerts, done: { alert: true, sound: true, badge: true } } });
   expect(connected.rail.nodes[0]?.alert_level).toBe("quiet");
+  expect(connected.held.rows()).toHaveLength(0);
   app.emit(status("a", "done"));
   await waitFor(() => expect(connected.held.rows()).toHaveLength(1));
   expect(app.calls.filter(call => call.method === "rail.setAlertLevel")).toEqual([]);
