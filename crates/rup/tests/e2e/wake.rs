@@ -559,6 +559,9 @@ pub(super) async fn start_again(user: &rpc::Client, door: &str) {
     user.request("rail.startDoor", json!({ "id": door }))
         .await
         .unwrap();
+    // A5556: resuming a stored order awaits a fresh user input before automatic delivery.
+    drive(user, door, WORK).await;
+    drive(user, door, STOP).await;
 }
 
 #[tokio::test]
