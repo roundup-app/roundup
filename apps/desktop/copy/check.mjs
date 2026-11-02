@@ -1,7 +1,7 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { checkCopy } from './guard.mjs';
+import { checkCopy, checkKeys } from './guard.mjs';
 
 const root = fileURLToPath(new URL('../src/', import.meta.url));
 
@@ -28,6 +28,8 @@ if (process.argv.includes('--inventory')) {
 } else {
   const baseline = JSON.parse(readFileSync(new URL('./baseline.json', import.meta.url), 'utf8'));
   const result = checkCopy(files, { root, glossary, baseline, previous });
+
+  result.diagnostics.push(...checkKeys(files));
 
   for (const diagnostic of result.diagnostics) process.stderr.write(diagnostic.message + '\n');
   process.exitCode = result.diagnostics.length ? 1 : 0;
