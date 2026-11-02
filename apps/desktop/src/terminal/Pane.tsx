@@ -221,12 +221,12 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
   createEffect(on(terminalId, () => setFinding(false), { defer: true }));
 
   registerKeys({ kind: "region", element: screen }, [
-    { chord: "⌘=", chords: ["Meta+[Shift]+=", "Meta+[Shift]++"], run: resize("grow") },
-    { chord: "⌘-", chords: ["Meta+-"], run: resize("shrink") },
-    { chord: "⌘0", chords: ["Meta+0"], run: resize("reset") },
-    { chord: "⌘F", chords: undefined, run: () => setFinding(true) },
+    { chord: "terminal.text-larger", chords: ["Meta+[Shift]+=", "Meta+[Shift]++"], run: resize("grow") },
+    { chord: "terminal.text-smaller", chords: ["Meta+-"], run: resize("shrink") },
+    { chord: "terminal.text-reset", chords: ["Meta+0"], run: resize("reset") },
+    { chord: "terminal.find", chords: undefined, run: () => setFinding(true) },
   ].map(({ chord, chords, run }) => ({
-    action: CHORDS.find(action => action.keys === chord)!,
+    action: CHORDS.find(action => action.name === chord)!,
     ...chords && { chords },
     repeat: true as const,
     when: (event: KeyboardEvent) => terminalId() !== null && inScreen(event.target instanceof Element ? event.target : null) && connected.daemonExit() === null,
