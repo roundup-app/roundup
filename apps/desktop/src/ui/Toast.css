@@ -52,7 +52,8 @@
 
 .app-toast-action {
   display: flex;
-  align-items: baseline;
+  flex-direction: column;
+  align-items: stretch;
   gap: var(--space-1);
   width: 100%;
   min-height: var(--space-5);
@@ -63,7 +64,6 @@
   text-align: left;
   --button-surface: var(--selected-hover);
   border-radius: var(--radius-control);
-  overflow-wrap: anywhere;
 }
 
 /* A card holding its own body (a failure) sits in the notice card's inset and height, with the bar along an empty bottom edge. */
@@ -77,7 +77,6 @@
 }
 
 .app-toast-heading {
-  flex: 0 1 auto;
   min-width: 0;
   display: flex;
   align-items: baseline;
@@ -105,10 +104,11 @@
 }
 
 .app-toast [data-part="description"] {
-  flex: 1 1 0;
-  min-width: 12ch;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   color: var(--grey);
-  white-space: normal;
+  white-space: nowrap;
 }
 
 @media (prefers-color-scheme: dark) {

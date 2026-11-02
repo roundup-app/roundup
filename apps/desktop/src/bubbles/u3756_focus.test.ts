@@ -257,6 +257,8 @@ it.each([true, false])("u3756b_changed_files_read_and_library_readiness_respect_
   await read(`(() => {
     window.__fake.app.handlers['agent.worktreeState'] = () => ({ahead:1,behind:0,dirty:true});
     window.__fake.app.handlers['agent.changedFiles'] = () => ({files:[{path:'src/file.ts',status:'modified',line:1}]});
+    // A restored selection may have read the empty fixture; refresh after installing the files.
+    window.__fake.setStatus('worktree-agent', 'idle', 'ready');
     document.querySelector('[data-id="worktree-agent"] .name').click();
   })()`);
   await wait(`!!document.querySelector('.worktree-control')`);
