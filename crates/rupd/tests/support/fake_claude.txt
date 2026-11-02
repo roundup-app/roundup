@@ -59,7 +59,7 @@ def take(conn):
                 text = open(here + '/final-reply.txt').read()
                 os.unlink(here + '/final-reply.txt')
                 print(text, flush=True)
-                hook('Stop', {'last_assistant_message': text})
+                threading.Thread(target=hook, args=('Stop', {'last_assistant_message': text}), daemon=True).start()
 def serve():
     while True:
         conn, _ = server.accept()
@@ -89,6 +89,5 @@ while True:
         line = b''
         hook('UserPromptSubmit', {'prompt': text, 'transcript_path': here + '/transcript.jsonl'})
         hook('Stop', {'transcript_path': here + '/transcript.jsonl'})
-        open(here + '/submitted.txt', 'w').write('acknowledged')
     else:
         line += data

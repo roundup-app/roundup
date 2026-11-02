@@ -90,7 +90,17 @@ async fn until<T>(what: &str, mut probe: impl AsyncFnMut() -> Option<T>) -> T {
 
 impl Run {
     fn owner_helper() -> PathBuf {
-        Path::new(env!("CARGO_BIN_EXE_rupd")).with_file_name("terminal-owner")
+        let path = Path::new(env!("CARGO_BIN_EXE_rupd")).with_file_name("terminal-owner");
+        if !path.is_file() {
+            let built = std::process::Command::new(
+                std::env::var_os("CARGO").unwrap_or_else(|| "cargo".into()),
+            )
+            .args(["build", "-p", "terminal", "--bin", "terminal-owner"])
+            .status()
+            .unwrap();
+            assert!(built.success(), "build the isolated Terminal owner");
+        }
+        path
     }
 
     fn project_data(&self) -> PathBuf {
