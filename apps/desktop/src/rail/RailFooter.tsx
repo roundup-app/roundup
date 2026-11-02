@@ -45,7 +45,7 @@ export const RailFooter = (props: {
             }
 
             rail.select(row.agent);
-          }}><KindGlyph kind={row.kind} /><span class="held-content"><span>{row.name}</span><span class="held-line">{row.line}</span></span><time dateTime={new Date(row.at).toISOString()}>{new Date(row.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</time></button>}</For>
+          }}><KindGlyph kind={row.kind} /><span class="held-content"><span>{row.name}</span><span class="held-line">{row.line}</span></span><time dateTime={new Date(row.at).toISOString()}>{copy.time(row.at)}</time></button>}</For>
         </Disclosure></Show>
         <div class="rail-actions">
           <button type="button" data-button="add" class="word" aria-label={copy.addWorkstream} aria-keyshortcuts={ariaShortcut("⌥⌘N")} aria-disabled={canSpawn() ? undefined : true} onClick={() => { if (canSpawn()) createWorkstream(); }}><Icon name={KIND_ICON.workstream} />{copy.addWorkstreamWord}<KeyChip keys="⌥⌘N" /></button>

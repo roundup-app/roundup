@@ -18,6 +18,7 @@ export const copy = {
   alerts: sharedCopy.alerts,
   alertLevels: { all: "All", default: sharedCopy.defaultLevel, quiet: "Quiet" },
   held: (count: number) => `${count} held`,
+  time: (at: number) => new Date(at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
   addAgentWord: " Agent",
   railDraftTaskTarget: (name: string) => `Work for ${name}`,
   railDraftTaskAction: (send: boolean) => send ? "Send" : "Start Agent",
