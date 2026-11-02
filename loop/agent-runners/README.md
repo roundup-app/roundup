@@ -55,6 +55,18 @@ python3 /opt/actions-runner/_work/roundup/roundup/loop/agent-runners/image.py bu
 
 The image builder requires Python's distro `python3-yaml` package. It derives the tool versions from `.github/actions/setup/action.yml`, installs the official agent packages, warms pnpm/Rust caches and checks the downloaded GitHub runner's SHA-256 digest. The existing setup action verifies the image fingerprint on self-hosted machines and still reconciles the current pnpm lockfile. Checkout keeps ignored package files because each VM starts from the clean snapshot.
 
+The builder also installs [codegraph](https://github.com/colbymchenry/codegraph) 1.6.2 (pinned in `image.py`; the archive's published SHA-256 digest must match, as for the GitHub runner) and runs `codegraph init -y` on the checkout, so the snapshot holds a code index in the ignored `.codegraph/`. `agent-browser` and its headless Chrome come from the setup action's pin, as before. Before each Claude Code or Codex run, `builder.engine` runs `codegraph sync .` once; a failed sync prints a `::warning::` and the run goes on. Codex reads MCP servers only from its per-run `CODEX_HOME`, so `builder.codex_home` adds `[mcp_servers.codegraph]` to that `config.toml` when `codegraph` is on PATH; Claude Code reads the repository's `.mcp.json`. Any tool that fails to install fails the build.
+
+To give every job the owner's instructions, pass a file that is safe for unattended runs. Do not commit it: the repository is public.
+
+```sh
+python3 .../loop/agent-runners/image.py build <checkout> --instructions ~/.claude/loop-ci/AGENTS.md
+```
+
+It is installed, owner `boxd`, mode 0644, as `/home/boxd/.claude/CLAUDE.md` and `/home/boxd/.codex/AGENTS.md`; `builder.codex_home` copies the second into each run's Codex home. Without the option neither file exists.
+
+The running snapshot has none of this. After this change merges, rebuild and re-save `roundup-ci` (steps here); `verify` on a rebuilt image also checks the codegraph version.
+
 After the build passes, cold-stop and start the image machine, then save it **without running another command inside it**:
 
 ```sh
