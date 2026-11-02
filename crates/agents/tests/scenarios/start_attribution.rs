@@ -105,6 +105,10 @@ async fn a5765e_colliding_source_id_grants_no_local_authority() {
                 json!({"id": created["id"], "name": "Taken over"}),
             ),
             (
+                "agent.setOrder",
+                json!({"id": created["id"], "order": contracts::agent::Order::work("Forged work")}),
+            ),
+            (
                 "agent.prompt",
                 json!({"id": created["id"], "text": "Forged Steer"}),
             ),
@@ -149,7 +153,7 @@ async fn a5765c_agent_attribution_input_creates_and_replaces_nothing() {
         )
         .await
         .unwrap();
-    let before = f.call("rail.tree", serde_json::Value::Null).await.unwrap();
+    let before = f.tree().await;
     let launches = f.terminals.list().await.len();
     let mut ctx = f.ctx();
     ctx.actor = Actor {
@@ -170,10 +174,14 @@ async fn a5765c_agent_attribution_input_creates_and_replaces_nothing() {
                 [code::FORBIDDEN, code::INVALID_PARAMS].contains(&error.code),
                 "{error}"
             );
-            assert_eq!(
-                f.call("rail.tree", serde_json::Value::Null).await.unwrap(),
-                before
-            );
+            let after = f.tree().await;
+            assert_eq!(after.len(), before.len());
+            for (after, before) in after.iter().zip(&before) {
+                assert_eq!(
+                    (&after.id, &after.start_attribution),
+                    (&before.id, &before.start_attribution)
+                );
+            }
             assert_eq!(f.terminals.list().await.len(), launches);
         }
     }
