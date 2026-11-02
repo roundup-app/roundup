@@ -1,8 +1,8 @@
 {
-  "baselineApp": "4a85c5370c4a00fce6a5eee372afe7f9d7b7a7d3",
-  "headApp": "b2f9547887dc3442164ba0417a265d061b637d89",
-  "headObserver": "e224fdc8d7ecc7389c253ab4025aaa0558d88925",
-  "baselineObserver": "e224fdc8d7ecc7389c253ab4025aaa0558d88925",
+  "baselineApp": "6d28856326146787bf5ceb8e3bf1ca99e2b212ff",
+  "headApp": "4436acea02d89b898f0b64511567965e4ae99b7a",
+  "headObserver": "4436acea02d89b898f0b64511567965e4ae99b7a",
+  "baselineObserver": "4436acea02d89b898f0b64511567965e4ae99b7a",
   "dark": true,
   "paired": [
     {
@@ -497,5 +497,12 @@
   "headOnly": [
     "keyboard-1280.checks.json",
     "keyboard-1512.checks.json"
-  ]
+  ],
+  "narrowAt1512": {
+    "token": "calc(68ch + 32px * 2)",
+    "maxWidth": "712.955px",
+    "width": 712.953125,
+    "renderer": "isolated headless Chromium",
+    "seed": "tree-40"
+  }
 }
