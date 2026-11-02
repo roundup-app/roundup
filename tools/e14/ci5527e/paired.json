@@ -9,7 +9,7 @@
     "os": "Linux-7.0.0-1017-azure-x86_64-with-glibc2.39"
   },
   "command": "pnpm --filter desktop exec vitest run src/ui/s3806b_actions.test.tsx src/bubbles/u3756_focus.test.ts src/terminal/u514_browser.test.ts src/keys/u3787b_menu.test.tsx src/todos/u4698d_browser.test.ts src/drawer/u4458_browser.test.ts src/switcher/u3787c_browser.test.ts src/keys/u2230_hints.test.tsx src/testing/u463_real_daemon.test.ts src/bubbles/u4274_navigation.test.tsx",
-  "status": "Navigation plus actions, menu and hints paired; six rows remain.",
+  "status": "Navigation plus actions/menu/hints pairs retained; six rows remain on #5659.",
   "claim": "Selected-file evidence only, never a full-shard result.",
   "head_commit": "af2f13ae55c5ac188f31e74ba58da7b556047a35",
   "setup": "pnpm install --frozen-lockfile in both isolated worktrees. Shared pre-existing Rust dependency cache; cargo build -p rupd -p rup exited 0 before the real-Daemon file. Dedicated headless agent-browser sessions and fresh temporary profiles.",
@@ -50,6 +50,15 @@
       "command": "pnpm --filter desktop exec vitest run src/ui/s3806b_actions.test.tsx src/bubbles/u3756_focus.test.ts src/terminal/u514_browser.test.ts src/keys/u3787b_menu.test.tsx src/todos/u4698d_browser.test.ts src/drawer/u4458_browser.test.ts src/switcher/u3787c_browser.test.ts src/keys/u2230_hints.test.tsx src/testing/u463_real_daemon.test.ts src/bubbles/u4274_navigation.test.tsx --reporter=default --reporter=/tmp/5701-reporter.mjs",
       "outer_exit": 254,
       "result": "Initial attempt preceded completion of baseline pnpm install: Command vitest not found. No tests executed."
+    },
+    {
+      "command": "pnpm --filter desktop exec vitest run src/bubbles/u3756_focus.test.ts src/terminal/u514_browser.test.ts --reporter=default --reporter=/tmp/ci5527e-reporter.mjs",
+      "commit": "4337d9fde",
+      "outer_exit": 1,
+      "vitest_exit": 130,
+      "signal": "SIGINT",
+      "log": "continuation-browser-head.log.gz",
+      "result": "Stopped at run time boundary to complete required checks. No accepted timing evidence. All four browser source edits restored to main; run-owned browser session closed."
     }
   ],
   "head_observation": {
@@ -261,7 +270,7 @@
   },
   "continuation_5659": {
     "baseline_commit": "ece55e7a3459f32035dad105c4cdeb01b1c4ff4d",
-    "status": "Three deferred rows delivered with passing paired reports; further rows being measured.",
+    "status": "Three continuation pairs delivered; six rows remain, including focus and terminal. Navigation pair retained.",
     "command": "pnpm --filter desktop exec vitest run src/ui/s3806b_actions.test.tsx src/keys/u3787b_menu.test.tsx src/keys/u2230_hints.test.tsx --reporter=default --reporter=/tmp/ci5527e-reporter.mjs",
     "reporter": "Copy navigation-reporter.mjs.in to /tmp/ci5527e-reporter.mjs; CI5527_REPORT names each output.",
     "head_source": "7a926b02803228c63f2ca1874e868ca387c3ff0f",
@@ -278,6 +287,36 @@
     "reports": [
       "continuation-ui-before.json.gz",
       "continuation-ui-head.json.gz"
-    ]
+    ],
+    "unpaired_browser_baseline": {
+      "command": "pnpm --filter desktop exec vitest run src/bubbles/u3756_focus.test.ts src/terminal/u514_browser.test.ts --reporter=default --reporter=/tmp/ci5527e-reporter.mjs",
+      "source_commit": "7c68edb3af78c11f97d64d2fe7cb93e2b66f2ebe",
+      "exit": 0,
+      "report": "continuation-browser-before.json.gz",
+      "log": "continuation-browser-before.log.gz",
+      "rows": [
+        {
+          "file": "src/bubbles/u3756_focus.test.ts",
+          "duration_ms": 152471.027729,
+          "tests": 27
+        },
+        {
+          "file": "src/terminal/u514_browser.test.ts",
+          "duration_ms": 473046.043947,
+          "tests": 44
+        }
+      ],
+      "claim": "No speedup evidence: head observation interrupted, browser source edits deferred."
+    },
+    "ui_lint": {
+      "command": "node .agents/skills/taste-skill/scripts/lint.mjs --app apps/desktop/src/ui/s3806b_actions.test.tsx apps/desktop/src/keys/u3787b_menu.test.tsx apps/desktop/src/keys/u2230_hints.test.tsx",
+      "exit": 1,
+      "main_exit": 1,
+      "result": "Both report the same 11 existing Unicode draft-input emoji fixtures. No production UI or new flagged pattern.",
+      "logs": [
+        "continuation-ui-lint.log.gz",
+        "continuation-main-ui-lint.log.gz"
+      ]
+    }
   }
 }
