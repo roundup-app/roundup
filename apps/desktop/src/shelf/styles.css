@@ -304,8 +304,8 @@
 /* U4457: pointer focus on the requested group shares the row selection. */
 .shelf-group-control:focus { color: var(--text); }
 
-/* U4908: one Token-derived origin for every marked row and group chevron. */
-.shelf-row:is(.todo-row, .todo-inset, .pad-inset),
-.shelf-groups [data-part="branch-control"] {
+/* U4908: keep the Shelf origin ahead of generic tree padding even when tree CSS loads later. */
+.shelf-row.row-wash:is(.todo-row, .todo-inset, .pad-inset),
+.shelf-groups .shelf-group-control[data-part="branch-control"] {
   padding-inline-start: calc(var(--row-text-inset) - var(--space-4) * 2 - var(--space-2) + var(--todo-depth, 0) * var(--tree-step));
 }
