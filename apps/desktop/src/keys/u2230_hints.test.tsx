@@ -1,5 +1,3 @@
-// Compile the real Pad editor before timed shortcut interactions begin.
-import "../pads/PadRichEditor";
 import { answerQuestion } from "../shelf/bulkQuestionHarness";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
