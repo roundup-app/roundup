@@ -1,7 +1,7 @@
 {
   "scenario": "U5704a",
-  "status": "observed",
-  "recorded_at_utc": "2026-11-02T19:50:47.666975+00:00",
+  "status": "complete",
+  "recorded_at_utc": "2026-11-02T20:00:17Z",
   "observer_revision": "028032168410a2fd8bfe735f4c908525136605ce",
   "sizing_repair": {
     "pr": 5700,
@@ -125,14 +125,15 @@
     }
   },
   "verified": {
-    "just_ready": "pending rerun after SIGTERM",
+    "just_ready": "passed",
     "targeted_regressions": 243,
     "browser_file": "passed, all 13 tests",
     "readonly_heading_observer": "passed",
     "editable_heading_observer": "passed",
     "dense_save_failure": "passed, all design Checks pass",
     "static_ui_lint": "passed, 0 FAIL and 0 WARN",
-    "proofs": "passed, all eight mutation checks"
+    "proofs": "passed, all eight mutation checks",
+    "capture_command": "just capture U5704a passed, all 13 tests"
   },
   "baseline_fixture_failures": [
     "D2: default root font is 16 px",
@@ -148,5 +149,9 @@
     "still_passing": 1022,
     "still_failing": 336,
     "regressions": 0
-  }
+  },
+  "recovered_observer_failures": [
+    "An initial concurrent run hit a browser navigation timeout. After moving the baseline checkout off tmpfs, the complete browser file and capture command passed.",
+    "An initial just ready run ended on SIGTERM. The unchanged rerun passed."
+  ]
 }
