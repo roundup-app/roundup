@@ -113,14 +113,16 @@ it.skipIf(!captureDir("U4464"))("u5606_capture_empty_views_in_both_themes", { ti
       await wait(`!!document.querySelector('.draft-recovery .empty-state')`);
       await snap(`${theme}-draft-recovery`);
       await load("tree-40");
+      // seedApp rejects before FakeApp records calls, so observe the RPC entry.
+      await read(`(() => { const rpc = window.__fake.app.rpc; window.__u5606Calls = 0; window.__fake.app.rpc = (method, params) => { if (method === 'rail.createWorkstream') window.__u5606Calls += 1; return rpc(method, params); }; })()`);
       await browser("click", '[aria-label="Create"]');
       await wait(`!!document.querySelector('[data-part="item"][data-value="workstream"]')`);
-      expect(await read(`window.__fake.app.calls.filter(call => call.method === 'rail.createWorkstream').length`)).toBe(0);
+      expect(await read(`window.__u5606Calls`)).toBe(0);
       await read(`window.__fake.failNext(-32003,'Creation rejected: choose another Workstream name')`);
       await browser("click", '[data-part="item"][data-value="workstream"]');
       await wait(`document.querySelector('[role=alert]')?.textContent.includes('Creation rejected: choose another Workstream name')`);
       await snap(`${theme}-dense-failure`);
-      expect(await read(`window.__fake.app.calls.filter(call => call.method === 'rail.createWorkstream').length`)).toBe(1);
+      expect(await read(`window.__u5606Calls`)).toBe(1);
       expect(await read(`document.querySelectorAll('[role=alert]').length`)).toBe(1);
       await load("empty-project");
       await browser("press", "Meta+Comma");
