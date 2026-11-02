@@ -377,7 +377,7 @@ it("u3049b_reopen_keeps_conflicting_choices", async () => {
 it.each([1, 2])("u3049b_discard_consumes_only_selected_version_%s", async (number) => {
   const { app, daemon, other } = await conflictingProjects();
   fireEvent.click(screen.getByRole("button", { name: `Discard choices ${number}` }));
-  expect(screen.queryByRole("status", { name: /conflict/i })).toBeNull();
+  await waitFor(() => expect(screen.queryByRole("status", { name: /conflict/i })).toBeNull());
   const sources = number === 2 ? ["s2"] : ["s1", "s3"];
   await waitFor(() => expect(JSON.parse(localStorage.getItem(importKey(path("api")))!).selected.map((entry: { source: string }) => entry.source)).toEqual(sources));
   cleanup();

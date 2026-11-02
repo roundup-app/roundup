@@ -35,6 +35,22 @@ async fn spawn(project: &daemon::Project, client: &rpc::Client) -> RailNode {
     .unwrap()
 }
 
+async fn prompt(bound: Duration, client: &rpc::Client, id: &str, text: &str) {
+    // SessionStart and Idle can precede completion of the child's initial coordination.
+    // BUSY refuses the prompt before writing it; every other error must fail without retry.
+    waiting::until_async(bound, "the Agent accepts the naming probe", || async {
+        match client
+            .request("agent.prompt", json!({"id": id, "text": text}))
+            .await
+        {
+            Ok(_) => Some(()),
+            Err(error) if error.code == rpc::code::BUSY => None,
+            Err(error) => panic!("naming probe refused: {error}"),
+        }
+    })
+    .await;
+}
+
 async fn shim(
     project: &daemon::Project,
     id: &str,
@@ -164,12 +180,13 @@ async fn a4688c_launch_and_spawn_receive_the_guide() {
         .find(|n| n["parent"] == parent.id && n["name"] != "reviewer-checks-tests")
         .unwrap();
     let id_on = unnamed_on["id"].as_str().unwrap();
-    user.request(
-        "agent.prompt",
-        json!({"id":id_on,"text":"Fix the refresh race in token.ts"}),
+    prompt(
+        project.bound(),
+        &user,
+        id_on,
+        "Fix the refresh race in token.ts",
     )
-    .await
-    .unwrap();
+    .await;
     waiting::until_async(
         project.bound(),
         "unnamed child uses the first-prompt fallback",
@@ -209,12 +226,13 @@ async fn a4688c_launch_and_spawn_receive_the_guide() {
         .unwrap();
     let id = unnamed["id"].as_str().unwrap();
     assert_start(project.bound(), reports.path(), id, G1, "off").await;
-    user.request(
-        "agent.prompt",
-        json!({"id":id,"text":"Fix the refresh race in token.ts"}),
+    prompt(
+        project.bound(),
+        &user,
+        id,
+        "Fix the refresh race in token.ts",
     )
-    .await
-    .unwrap();
+    .await;
     waiting::idle(project.bound(), &user, id).await;
     let after = user.request("rail.tree", ()).await.unwrap();
     assert_eq!(

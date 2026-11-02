@@ -56,7 +56,7 @@ export const RailFooter = (props: {
               return;
             }
 
-            rail.select(row.agent);
+            rail.select(row.agent, "open");
           }}><KindGlyph kind={row.kind} /><span class="held-content"><span>{row.name}</span><span class="held-line">{row.line}</span></span><time dateTime={new Date(row.at).toISOString()}>{copy.time(row.at)}</time></button>}</For>
         </Disclosure></Show>
         <div class="rail-actions">
