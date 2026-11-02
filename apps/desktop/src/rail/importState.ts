@@ -273,10 +273,11 @@ export const createImport = (app: AppSeam, path: string, onOpened: (workstream: 
     },
     open, period, selected, discovery, verified, stale, loading, pending, failure, failed, retentionFailure, restoreFailure, choices, hasConflict,
     restoreChoice,
-    discardChoice: (revision: string) => {
+    discardChoice: async (revision: string) => {
       if (pending()) return;
-      persist(false);
-      drafts?.discard(revision);
+      // Finish snapshot reconciliation before removing a revision it could otherwise restore.
+      await persist(false);
+      await drafts?.discard(revision);
 
       if (draftRevision === revision) {
         draftRevision = undefined;

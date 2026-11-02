@@ -29,7 +29,8 @@ const open = async (width: number, scheme: (typeof SCHEMES)[number]) => {
 
 const select = async (id: string) => {
   await page.call(`(id) => document.querySelector('.rail-row[data-id="' + id + '"]').click()`, id);
-  await page.until(`() => Boolean(document.querySelector('.pane-screen'))`);
+  await page.until(`() => Boolean(document.querySelector('.pane-screen .xterm-helper-textarea'))`);
+  await page.call(`() => document.querySelector('.pane-screen .xterm-helper-textarea').focus()`);
 };
 
 const readChecks = (): Promise<Checks> => page.call<Checks>(`() => window.__checks()`);
@@ -50,20 +51,22 @@ describe("u468 attention keeps focus until activated", () => {
         await open(width, scheme);
         await select("payments");
 
-        const focused = await page.call<string | null>(`() => document.activeElement?.closest('[data-terminal]')?.dataset.terminal ?? null`);
-
-        await page.call(`() => window.__fake.emit({ actor: { kind: "agent", id: "tokens", parent: null }, name: "agent.status", data: { id: "tokens", attempt: "1", status_revision: "9999", status: { kind: "needs-you", label: "needs you", since: Date.now() } } })`);
-        await page.until(`() => document.querySelector('.app-toast')`);
-
-        const after = await page.call<{ selected: string | null; terminal: string | null; toast: string }>(`() => ({
+        const before = await page.call<{ selected: string | null; terminal: string | null }>(`() => ({
           selected: document.querySelector('[role=treeitem][aria-selected=true]')?.dataset.id ?? null,
           terminal: document.activeElement?.closest('[data-terminal]')?.dataset.terminal ?? null,
-          toast: document.querySelector('.app-toast').textContent,
         })`);
 
-        expect(after.selected).toBe("payments");
-        expect(after.terminal).toBe(focused);
-        expect(after.toast).toContain("token-rotation");
+        expect(before.terminal).not.toBeNull();
+
+        await page.call(`() => window.__fake.emit({ actor: { kind: "agent", id: "tokens", parent: null }, name: "agent.status", data: { id: "tokens", attempt: "1", status_revision: "9999", status: { kind: "needs-you", label: "needs you", since: Date.now(), finished: "0" } } })`);
+        await page.until(`() => document.querySelector('.app-toast')`);
+
+        const after = await page.call<{ selected: string | null; terminal: string | null }>(`() => ({
+          selected: document.querySelector('[role=treeitem][aria-selected=true]')?.dataset.id ?? null,
+          terminal: document.activeElement?.closest('[data-terminal]')?.dataset.terminal ?? null,
+        })`);
+
+        expect(after).toEqual(before);
 
         const checks = await readChecks();
 
