@@ -97,8 +97,8 @@ enum Ending {
 }
 
 pub struct ClaudeCode {
-    /// A5482c: completed turn identity, start time and final assistant text.
-    completed: Option<Box<(String, i64, String)>>,
+    /// A5482c: completed turn identity, start/end times and final assistant text.
+    completed: Option<Box<(String, i64, i64, String)>>,
     turn_started: i64,
     status: Option<Status>,
     ending: Ending,
@@ -319,17 +319,22 @@ impl ClaudeCode {
             && let Some(text) = payload["last_assistant_message"].as_str()
             && !text.is_empty()
         {
-            let next = (
-                self.finished.to_string(),
-                self.turn_started,
-                text.to_owned(),
-            );
+            let turn = self.finished.to_string();
+            // A replayed Stop must not move this turn's boundary past a later Message.
+            let ended = self
+                .completed
+                .as_deref()
+                .filter(|(finished, started, _, _)| {
+                    *finished == turn && *started == self.turn_started
+                })
+                .map_or_else(|| (self.clock)(), |(_, _, ended, _)| *ended);
+            let next = (turn, self.turn_started, ended, text.to_owned());
             self.completed = Some(Box::new(next));
         }
         changed
     }
 
-    pub(crate) fn completed_text(&self) -> Option<&(String, i64, String)> {
+    pub(crate) fn completed_text(&self) -> Option<&(String, i64, i64, String)> {
         self.completed.as_deref()
     }
 

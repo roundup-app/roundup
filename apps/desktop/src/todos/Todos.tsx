@@ -5,7 +5,6 @@ import type { createCopyFeedback } from "../ui/CopyButton";
 import { captureFocus, queueFocus } from "../keys/focus";
 import { createDelegateBoard, TodoAuto } from "./DelegateBoard";
 import { createOwnerAssignment, createOwnerKeys, createOwnerPicker, ownersToOffer } from "./ownerAssignment";
-import { todoCreationEditor } from "../drawer/editors";
 import ListChecks from "lucide-solid/icons/list-checks";
 import { IconButton } from "../ui/IconButton";
 import { contextMenu, linkEntries, openOnRelease } from "../ui/contextMenu";
@@ -860,5 +859,3 @@ export const Todos = (props: {
     </section>
   );
 };
-
-todoCreationEditor.set(Todos);
