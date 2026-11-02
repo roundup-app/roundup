@@ -295,6 +295,8 @@ it.each(["app", "project"])("u5502_row_opens_the_original_agents_terminal_from_%
   fireEvent.click(tab("api"));
   await waitFor(() => expect(tab("api").getAttribute("aria-selected")).toBe("true"));
 
+  fireEvent.click(document.querySelector<HTMLElement>('[role=treeitem][data-id="a"]')!);
+
   if (settings === "app") window.dispatchEvent(new Event("open-app-settings"));
   else window.dispatchEvent(new CustomEvent("open-project-page", { detail: { path: path("api"), command: "project-settings" } }));
   const surface = await screen.findByRole("region", { name: settings === "app" ? "Settings" : "Project settings" });
