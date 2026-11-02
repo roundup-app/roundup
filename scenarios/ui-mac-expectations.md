@@ -110,7 +110,7 @@ Given no prior state, a corrupt record or a disconnected display, when the App o
 | Capability | Behavior and observer (planned test) |
 |---|---|
 | window-state | U3787e; replaces unconditional maximization as the only startup placement policy |
-| store | Migrate the nine current `storedValue` key families below to the plugin; reopen with identical validated values and original Project/draft identities (`u3787f_store_migrates_all_key_families`) |
+| store | Validate and reopen current native `storedValue` records with identical values and original Project/draft identities; obsolete browser keys refuse under N5467b |
 | global-shortcut | The user's configured quick-add chord opens the same Capture action while the App is inactive, once per press; changing it unregisters the old chord; collision is visible and preserves the old binding (`u3787f_global_capture_registers_and_releases`) |
 | single-instance | A second invocation reaches the existing App, opens its explicitly supplied Project through the existing open path, and starts no duplicate App/Daemon for that Project (`u3787f_second_launch_reuses_the_app`) |
 | deep-link | An existing copied `roundup://<kind>/<id>?project=<key>` link resolves the exact Project/object through LK1–LK4 (`scenarios/rup-ext.md`); malformed, absent or unauthorized targets show their cause and perform no mutation or Agent start (`u3787f_deep_link_preserves_identity_and_authority`) |

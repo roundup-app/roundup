@@ -40,6 +40,7 @@ An Agent does through its server everything the user does in the App, one tool p
 | `open_in_editor` | the user's click on a Rail row's editor icon (U429): an Agent that could call it launches an app on the user's Mac |
 | `plugin:clipboard-manager\|write_text` | the user’s clipboard; Agents cannot overwrite it (U3560a) |
 | `save_pasted_image` | the user's `⌘V` of an image into a Terminal (U418): an Agent that could call it writes files to the user's cache folder, and it has the bytes already |
+| `plugin:window-bar\|webview_data_path` | the App locates obsolete browser data for the user’s manual reset (N5467b); Agents neither navigate this startup gate nor reset that data |
 | `plugin:window-bar\|native_material` | native appearance state (U134); Agents do not control the user’s window material |
 | `plugin:window-bar\|set_window_title`, `plugin:window-bar\|drag_window`, `plugin:window-bar\|zoom_window` | the user's native window title and gestures (U449–U451); Agents do not rename or move that window |
 | `plugin:window-bar\|native_material` | the App reads its native appearance capability (U134/U135); no Agent action |
