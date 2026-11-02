@@ -106,7 +106,7 @@ impl Agents {
         let run = Run {
             yolo: false,
             startup_context: false,
-            input_started: true,
+            input_started: false,
             attempt: stored.attempt.clone(),
             status_revision: 1,
             closing: false,

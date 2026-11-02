@@ -387,7 +387,7 @@ const DOOR_TOOLS_EXTRA: [(&str, &str); 10] = [
 pub const WORKSTREAM_GUIDANCE: &str = "\
 ## Working in a Workstream
 
-Wait for the user's first input before taking a turn. On that input, find the intent and elicit what is missing, asking whom `agent_context` names under `ask`. Then record a Work order with `agent_set_order`. A default Clarification order is guidance, not an instruction to start work.
+When started without an explicit prompt or Work order: Wait for the user's first input before taking a turn. On that input, find the intent and elicit what is missing, asking whom `agent_context` names under `ask`. Then record a Work order with `agent_set_order`. A default Clarification order is guidance, not an instruction to start work.
 
 Before starting a task, decide whether it needs two or more steps, even when the user did not ask for a plan. \
 If so, create at least two saved roundup task Todos with `todo_create` before editing files, running repairs or delegating work; reuse relevant existing Todos instead of duplicating them. \
@@ -691,6 +691,23 @@ fn with_tools(role: Role, mcp: bool) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn o3_the_door_receives_passive_clarification_guidance() {
+        let brief = text(Role::Door, true);
+        for instruction in [
+            "Wait for the user's first input",
+            "find the intent",
+            "elicit what is missing",
+            "`agent_context` names under `ask`",
+            "`agent_set_order`",
+        ] {
+            assert!(
+                brief.contains(instruction),
+                "missing passive instruction: {instruction}"
+            );
+        }
+    }
 
     #[test]
     fn o12_the_brief_names_the_typed_prompt_flow() {

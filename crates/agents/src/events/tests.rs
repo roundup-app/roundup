@@ -325,7 +325,7 @@ fn a14_a_signal_released_once_the_agent_is_registered_never_outruns_the_parked_o
                     Run {
                         yolo: false,
                         startup_context: true,
-        input_started: true,
+                        input_started: true,
                         attempt: "1".into(),
                         status_revision: 1,
                         closing: false,
