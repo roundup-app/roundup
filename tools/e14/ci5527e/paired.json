@@ -238,7 +238,8 @@
     "fix-41502405087-six-interrupted.log.gz": "1a44eb29d382cac259306cc9aecb7b9f382849d7cd9fc53c7a85b9851d65626d",
     "fix-41502405087-overlap-interrupted.log.gz": "5c9038c8488fd5fe9fd5cde3de47fd9fc0518e20c1336486a248c700eb162428",
     "fix-41502405087-daemon-head.json.gz": "ff028dcb91f79a06b8f1c2ffff54f9d9632fd2896048c636b706fec53680f906",
-    "fix-41502405087-daemon-head.log.gz": "802df097dd17714a4d4594ef2968bb59f9cb337766b8c7b4a86963a7cb6e4d7e"
+    "fix-41502405087-daemon-head.log.gz": "802df097dd17714a4d4594ef2968bb59f9cb337766b8c7b4a86963a7cb6e4d7e",
+    "fix-41502405087-ready-interrupted.log.gz": "1d1f00b796d09f6df9f2b3637a9a1a822203726f4e40897a1251c87048a71f9f"
   },
   "corrected_actions_commit": "e8cf1d5df08faa2b54dd48ebaedb3c7ebae514ad",
   "actions_rerun": {
@@ -514,6 +515,12 @@
     "merge_loss": {
       "command": "bash loop/rules.sh merge-loss",
       "exit": 0
+    },
+    "ready": {
+      "command": "just ready",
+      "exit": 143,
+      "status": "Interrupted at run deadline after web lint, cycles and desktop typecheck passed; Rust/repo scans were still running. No passing ready claim.",
+      "log": "fix-41502405087-ready-interrupted.log.gz"
     }
   }
 }
