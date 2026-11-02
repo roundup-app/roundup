@@ -1,4 +1,4 @@
-import { menuBarCopy } from "./menuBar/copy";
+import { menuBarCopy } from "./copy";
 import type * as Solid from "solid-js";
 import type { ConnectedProject } from "../state/connectedProject";
 import type { OpenTab } from "../state/projects";
