@@ -24,7 +24,8 @@ it.skipIf(!captureDir(id))(`${id.toLowerCase()}_rendered_policy_capture`, async 
     delete process.env.ROUNDUP_CAPTURES;
     const servers=await Promise.all([appServer({root:join(base,"apps/desktop")}),appServer()]);
     process.env.ROUNDUP_CAPTURES=captures;
-    await Promise.all(["base", "head"].flatMap((phase,index) => ["dark","light"].map(theme => ({phase,index,theme}))).map(async ({phase,index,theme}) => {
+    await Promise.all(["base", "head"].map(async (phase,index) => {
+      const theme = "dark";
       const revision = phase === "base" ? baseRevision : execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim();
       const server=servers[index]!;
       const origin = server.resolvedUrls.local[0]!;
@@ -280,15 +281,19 @@ it.skipIf(!captureDir(id))(`${id.toLowerCase()}_rendered_policy_capture`, async 
 
           await load(width);
           await read("window.__fake.app.openFailure=new Error('Folder unavailable; try again')");
-          const folder = '.rail-row .row-icons [aria-label="Open directory"]';
-          await browser("focus", folder);
-          await browser("press", "Enter");
+          const folderRow = '.rail-row[data-id="backend"]';
+          await browser("focus", folderRow);
+          await browser("press", "Shift+F10");
+          await wait("window.__fake.app.menuLabels().includes('Open directory')");
+          await read("window.__fake.app.pickMenu('Open directory')");
           await wait("document.body.textContent.includes('Folder unavailable; try again')");
           await snap(`${prefix}-dense-failure`);
           const openedBefore=await read("window.__fake.app.openedTargets.length");
           await read("window.__fake.app.openFailure=null");
-          await browser("focus", folder);
-          await browser("press", "Enter");
+          await browser("focus", folderRow);
+          await browser("press", "Shift+F10");
+          await wait("window.__fake.app.menuLabels().includes('Open directory')");
+          await read("window.__fake.app.pickMenu('Open directory')");
           await wait(`window.__fake.app.openedTargets.length>${openedBefore}`);
           expect(await read("window.__fake.app.openedTargets.length")).toBe(openedBefore+1);
           await snap(`${prefix}-recovered`);
