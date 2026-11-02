@@ -442,3 +442,35 @@ details[data-pad-agents] textarea {
 .ProseMirror :is(ul, ol)[data-spread] {
   padding-inline-start: 0;
 }
+
+.pad-rich-editor details[data-pad-agents] input {
+  display: block;
+  width: 100%;
+  margin-block: var(--space-3);
+  padding: 0;
+  border: 0;
+  font: inherit;
+  color: var(--text);
+  background: var(--ground);
+}
+
+.pad-rich-editor .pad-heading-hidden {
+  display: none;
+}
+
+.pad-rich-editor details[data-pad-heading] {
+  display: inline-block;
+  margin-inline-end: var(--space-2);
+  font-size: var(--pad-text-body);
+  color: var(--grey);
+  vertical-align: baseline;
+}
+
+.pad-rich-editor details[data-pad-heading] summary {
+  cursor: pointer;
+}
+
+.pad-rich-editor details[data-pad-heading] summary:focus-visible,
+.pad-rich-editor details[data-pad-agents] summary:focus-visible {
+  outline: var(--hairline-width) solid var(--text);
+}
