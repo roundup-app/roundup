@@ -742,7 +742,7 @@ const monoOffenders = (page: Page, regions: Element[]): Element[] => {
     for (let node = walker.nextNode(); node; node = walker.nextNode()) {
       const el = node.parentElement;
 
-      if (!el || (node.textContent ?? "").trim() === "" || !page.elements.includes(el) || el.closest('[data-mono], code, kbd, samp, button, [role="button"]')) continue;
+      if (!el || (node.textContent ?? "").trim() === "" || !page.elements.includes(el) || el.closest('[data-mono], code, kbd, samp, [data-button]')) continue;
 
       if (page.resolve(page.style(el).fontFamily) === mono) offenders.push(el);
     }
