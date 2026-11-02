@@ -177,9 +177,9 @@ it.each(["selection", "submit", "failed", "unknown"] as const)("u5643a_queued_re
   expect(await queued).toBeNull();
   await later;
   expect(snapshots).toHaveLength(2);
-  expect(snapshots[0]).toMatchObject({ value: { drafts: [{ ...edited.draft, selection: firstSelection, status }] } });
-  const expected = { ...edited.draft, selection: firstSelection, status: operation === "submit" ? "pending" : status };
+  expect(snapshots[0]).toMatchObject({ value: { drafts: [{ ...edited.draft, selection: firstSelection, status }, blocker.draft] } });
+  const expected: typeof edited.draft = { ...edited.draft, selection: firstSelection, status: operation === "submit" ? "pending" : status };
 
   if (operation === "selection") expected.selection = { start: 4, end: 4, direction: "none" };
-  expect(snapshots[1]).toMatchObject({ value: { drafts: [{ ...expected, status: operation === "failed" || operation === "unknown" ? operation : expected.status }] } });
+  expect(snapshots[1]).toMatchObject({ value: { drafts: [{ ...expected, status: operation === "failed" || operation === "unknown" ? operation : expected.status }, blocker.draft] } });
 });
