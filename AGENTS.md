@@ -17,10 +17,10 @@ Builder and QA runs are one-shot GitHub Actions jobs, and an event ends every wa
 | Step | Who, where | Skills |
 |---|---|---|
 | 1 Ask | The user sets direction and files work Issues; a build run specifies an Issue that holds no Key or whose scenarios are not on `main` (L34) | — |
-| 2 Build | `build.yml` (L23): on each merge, each new work Issue, each build job whose model worked and each hour, one Builder run per ready Issue | prime; spec: to-spec, grill-with-docs, anchor; seam: codebase-design; tdd; UI: emil-design-eng; motion clause: animate |
+| 2 Build | `build.yml` (L23): on each merge, each new work Issue, each build job whose model worked and each hour, one Builder run per ready Issue | prime; spec: to-spec, grill-with-docs, anchor; seam: codebase-design; tdd; UI: emil-design-eng, taste-skill; motion clause: animate |
 | 3 Review | `review.yml` (L24): a review run once `pre` (the lints) passes on a PR's head, and `critic.yml` (L103): a design-critic run on a UI PR's head; the test lanes of `check` run alongside both (L24); `fix.yml` (L82): at most three fix runs per Builder PR | review, judge |
 | 4 Merge | GitHub auto-merge on `check`, `rules`, `review` and `critic` (L46) | — |
-| 5 Observe | `qa.yml` (L66) sweeps `main` every six hours; a `design-critic` run on request | review-animations, break-ui |
+| 5 Observe | `qa.yml` (L66) sweeps `main` every six hours; a `design-critic` run on request | review-animations, break-ui, taste-skill |
 
 ## Rules
 
