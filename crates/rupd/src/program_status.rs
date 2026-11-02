@@ -4,6 +4,7 @@
 //! decides, on an injected clock, when a change leaves as a `terminal.status` event. Nothing a
 //! record holds is logged or written anywhere else.
 
+use provenance::now_ms;
 use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex};
 
@@ -153,11 +154,6 @@ impl Statuses {
     }
 }
 
-fn wall_ms() -> i64 {
-    let millis = time::OffsetDateTime::now_utc().unix_timestamp_nanos() / 1_000_000;
-    i64::try_from(millis.max(0)).unwrap_or(i64::MAX)
-}
-
 impl Statuses {
     /// Publish every Terminal's changes to the Bus until the stream closes.
     pub(crate) async fn run(
@@ -175,12 +171,12 @@ impl Statuses {
         };
         loop {
             let wait = self.next_due().map(|at| {
-                std::time::Duration::from_millis(u64::try_from(at - wall_ms()).unwrap_or(0))
+                std::time::Duration::from_millis(u64::try_from(at - now_ms().max(0)).unwrap_or(0))
             });
             tokio::select! {
                 change = changes.recv() => match change {
                     Ok(change) => {
-                        let events = self.changed(&change.terminal, &change.records, wall_ms());
+                        let events = self.changed(&change.terminal, &change.records, now_ms().max(0));
                         let status = self.current(&change.terminal);
                         terminals.set_program_status(&change.terminal, status.clone());
                         if let Some(status) = status {
@@ -192,7 +188,7 @@ impl Statuses {
                     Err(RecvError::Closed) => return,
                 },
                 () = async { tokio::time::sleep(wait.unwrap_or_default()).await }, if wait.is_some() => {
-                    send(self.due(wall_ms()));
+                    send(self.due(now_ms().max(0)));
                 }
             }
         }

@@ -45,8 +45,8 @@ const section = async (name: string) => {
 
 const select = async (label: string, value: string) => {
   if (label === "Appearance") {
-    await section("Appearance");
-    fireEvent.click(screen.getByLabelText(value, { selector: "input" }));
+    const panel = await section("Appearance");
+    fireEvent.click(panel.getByLabelText(value, { selector: "input" }));
     await waitFor(() => expect(appSettings().mode).toBe(value.toLowerCase()));
 
     return;
@@ -59,10 +59,15 @@ const select = async (label: string, value: string) => {
 
 const pick = async (label: string, value: string) => {
   const page = await section("Agents");
-  fireEvent.click(page.getByLabelText(new RegExp(`^${label} `), { selector: "button" }));
+  const trigger = page.getByLabelText(new RegExp(`^${label} `), { selector: "button" });
+  fireEvent.click(trigger);
   const list = within(await screen.findByLabelText(label, { selector: '[role="listbox"]' }));
   fireEvent.click(await list.findByRole("option", { name: value }));
   await page.findByLabelText(`${label} ${value}`, { selector: "button" });
+  await waitFor(() => {
+    expect(trigger.textContent).toBe(value);
+    expect(trigger.getAttribute("aria-expanded")).toBe("false");
+  });
 };
 
 const commit = async (label: string, text: string, valid = true) => {
@@ -128,8 +133,8 @@ it("u4547c_settings_choices_do_not_change_the_workstream_prompt", async () => {
   await commit("Font family", "Menlo");
   await commit("Font size", "16");
   await select("Appearance", "Dark");
-  await section("Shortcuts");
-  fireEvent.click(screen.getByLabelText(/^Quick add Todo /, { selector: "button" }));
+  const shortcuts = await section("Shortcuts");
+  fireEvent.click(shortcuts.getByLabelText(/^Quick add Todo /, { selector: "button" }));
   fireEvent.keyDown(window, { key: "y", code: "KeyY", ctrlKey: true, shiftKey: true });
   await waitFor(() => expect(appSettings().quickAdd).toBe("ctrl+shift+KeyY"));
   expect(JSON.parse(localStorage.getItem("roundup:app-settings")!)).toMatchObject({ permissionMode: "plan", engine: "engine-one", model: "model-one", fontFamily: "Menlo", fontSize: 16, mode: "dark", quickAdd: "ctrl+shift+KeyY" });

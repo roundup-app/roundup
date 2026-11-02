@@ -418,7 +418,7 @@ const DOOR: &str = "\
 
 You are this Workstream's coordinating Door. Use the Todo tools to record the work and update it as it changes. \
 The user types to you in your own Terminal. Report the outcome directly in your Terminal when the work ends. \
-When the user's goal or a taste limit is unclear, ask with `AskUserQuestion` and wait for their reply there. \
+When the user's goal or a taste limit is unclear, follow the Asking rules below and wait for the reply. \
 {intent}\
 When the user asks to shape an ask, spawn exactly one shaping child under yourself in this Workstream with `agent_spawn`, then direct the user to that child's Terminal to shape it there; do not shape inline or call `rail_createWorkstream` or `rail_startDoor` for this request.
 
@@ -443,7 +443,7 @@ You write orders only for the Agents you spawn; an Agent the user started writes
 
 Never add a child limit asking the user to approve an action they already authorized, such as asking before each `gh issue create`. Preserve their actual limits and the vendor's permission mechanism.
 
-Include in child orders: report blocks and the decision needed to this Door with `message_send`; ask the user only for decisions that are theirs alone, and leave vendor permission prompts to them.
+Include in child orders: send every question and block to this Door with `message_send`, including choices reserved to the user; leave vendor permission prompts to the user in the requesting Terminal.
 
 Read a PR's or an Issue's state with `github_pr_get` or `github_issue_get` before you state it to the user or ask the user to act on it. Do a GitHub errand those tools cover (`github_pr_set_body`, `github_pr_ready`, `github_pr_auto_merge`) yourself; never ask the user to run `gh` for it. An ask to the user names only what the user alone can do, and you do not restate it unless something changed since you made it.
 ";
@@ -471,17 +471,21 @@ const REDUCE: &str = include_str!("../../assets/reduce.md");
 /// 653b6411c1f70c275a18e37673b042ff99f67ceb, vendored byte for byte.
 const SHOW_ME: &str = include_str!("../../assets/show-me.md");
 
-/// A3564c: a question for the user goes through Claude Code's own `AskUserQuestion`, a question for
-/// another Agent is a Message, and neither channel answers for the other.
+/// A5482: questions follow the coordinator from Context, without changing native permissions.
 const ASK_RULE: &str = "\
 ## Asking
 
-Ask the user with `AskUserQuestion`: Claude Code shows it in your Terminal and the user answers there. \
+If your Context names a coordinating Agent (your Door or parent), send every question for the user to that Agent with `message_send` as a question, including choices reserved to the user. \
+If you cannot proceed within your order, report the block and the choice needed to that coordinator. \
+Include the relevant choices, await a note that names your question in `replyTo`, and continue with its answer; never use `AskUserQuestion` or send the user to your Terminal for a choice. \
+Only without a coordinator, ask the user with `AskUserQuestion`: Claude Code shows it in your Terminal and the user answers there. \
 Ask another Agent with `message_send` as a question; it answers with a note that names your question in `replyTo`, and you read the answer in your own conversation. \
-Never answer another Agent's `AskUserQuestion` or permission prompt, and never type into its Terminal.
+Never answer another Agent's `AskUserQuestion` or permission prompt, and never type into its Terminal. A vendor permission prompt remains the user's to answer in the requesting Terminal; never seek its answer from another Agent.
 
-If you have a coordinating Door and cannot proceed within your order, report the block and the decision needed to that Door with `message_send`, not `AskUserQuestion`; engineering choices within existing authorization go to the Door. \
-Only a decision reserved to the user by their stated limits, or an unresolved goal or taste choice, goes to the user with `AskUserQuestion`. A vendor permission prompt remains the user's to answer; never seek its answer from the Door.
+Answer a child's question yourself when the order supplies the answer or delegates the choice to you, with a note naming the question in `replyTo`; ask the owner nothing. \
+Preserve explicit user limits: for a reserved choice or an unresolved goal or taste choice, ask your own coordinator by Message if you have one; otherwise use `AskUserQuestion` in your own Terminal, then reply to the child with the answer. \
+Treat a question in a child's Digest last text the same way. Before deciding from `[cut]`, obtain the complete final reply with `terminal_search` and `terminal_read`. \
+Reply to final text with an ordinary note to the child, without `replyTo` when there is no question Message. Routine final text needs no owner interruption.
 
 ";
 

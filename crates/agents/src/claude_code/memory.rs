@@ -195,17 +195,36 @@ fn project_slug(path: &Path) -> String {
     slug
 }
 
-// libgit2 resolves linked-worktree identity without starting a shell or git process.
+// Discovery and common-directory parsing stay in the Git library; no subprocess on launch.
 fn repository(cwd: &Path) -> Result<PathBuf, String> {
-    let repo = match git2::Repository::discover(cwd) {
+    let (repo, _) = match gix_discover::upwards(cwd) {
         Ok(repo) => repo,
-        Err(err) if err.code() == git2::ErrorCode::NotFound => return Ok(cwd.to_owned()),
+        Err(err)
+            if err
+                .downcast_any_ref::<gix_discover::upwards::Error>()
+                .is_some_and(|err| {
+                    matches!(
+                        err,
+                        gix_discover::upwards::Error::NoGitRepository { .. }
+                            | gix_discover::upwards::Error::NoGitRepositoryWithinFs { .. }
+                    )
+                }) =>
+        {
+            return Ok(cwd.to_owned());
+        }
         Err(err) => return Err(err.to_string()),
     };
-    let root = if repo.is_worktree() {
-        repo.commondir().parent()
-    } else {
-        repo.workdir()
+    let (git_dir, work_dir) = repo.into_repository_and_work_tree_directories();
+    let common = gix_discover::path::from_plain_file_relative_to_file(&git_dir.join("commondir"))
+        .transpose()
+        .map_err(|err| err.to_string())?;
+    let root = match common {
+        Some(common) => common
+            .canonicalize()
+            .map_err(|err| err.to_string())?
+            .parent()
+            .map(Path::to_owned),
+        None => work_dir,
     }
     .ok_or("repository has no working directory")?;
     root.canonicalize().map_err(|err| err.to_string())
