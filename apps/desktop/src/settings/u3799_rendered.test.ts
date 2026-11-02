@@ -56,7 +56,7 @@ it.skipIf(!captureDir("U4277c")).each(["tree-40", "tabs-8"].flatMap(seed =>
         await lane.browser("record", "start", join(dir, `${view}-${filled ? "filled" : "empty"}.webm`), `${origin}/harness.html?view=workstreams&seed=${captureSeed}`);
         recording = true;
 
-        await lane.until(seed === "tabs-8" ? "!!window.__fake && document.querySelectorAll('.project-tab').length === 8" : "!!window.__fake && window.__fake.app.calls.some(call => call.method === 'ask.list') && !!document.querySelector('.ask-bar, .pane-screen')");
+        await lane.until(seed === "tabs-8" ? "!!window.__fake && document.querySelectorAll('.project-tab').length === 8" : "!!window.__fake && !!document.querySelector('[data-todo-root]')");
         await lane.browser("set", "viewport", "1512", "950");
         await lane.browser("set", "media", "dark");
 
@@ -66,6 +66,9 @@ it.skipIf(!captureDir("U4277c")).each(["tree-40", "tabs-8"].flatMap(seed =>
           await lane.browser("press", "Enter");
           await lane.until("document.querySelector('.project-tab[data-path=\"/Users/you/project-number-2\"] [role=tab]')?.getAttribute('aria-selected') === 'true' && !!document.querySelector('.ask-bar')");
         }
+
+        await lane.browser("click", "[data-todo-root]");
+        await lane.until("!!document.querySelector('.ask-bar')");
 
         await lane.evaluate(`window.__fake.app.projects().then(projects => {window.__auditPath = projects[${seed === "tabs-8" ? 1 : 0}].path; window.__fake.app = window.__fake.app.of(window.__auditPath); return true;})`);
 
