@@ -24,7 +24,6 @@ RUNNER = Path('/opt/actions-runner')
 CODEGRAPH = '1.6.2'
 # boxd's egress proxy re-signs this host with its own CA, whose key boxd rotates; a stale copy fails TLS verification.
 EGRESS_PROBE = 'https://api.anthropic.com'
-EGRESS_CA = Path('/usr/local/share/ca-certificates/boxd-egress.crt')
 
 
 def run(*args, timeout=600, cwd=None):
@@ -69,27 +68,8 @@ def verify_egress_tls():
         pass
     except urllib.error.URLError as error:
         if isinstance(error.reason, ssl.SSLError):
-            raise SystemExit(f'boxd egress CA is stale for {EGRESS_PROBE}: {error.reason}; rebuild the image')
+            raise SystemExit(f'boxd egress CA is stale for {EGRESS_PROBE}: {error.reason}; install the current one and rebuild')
         raise
-
-
-def refresh_egress_ca():
-    """Install the CA the live egress proxy signs with: the self-signed certificate in the chain it presents."""
-    host = EGRESS_PROBE.removeprefix('https://')
-    chain = run('bash', '-c', f'openssl s_client -connect {host}:443 -servername {host} -showcerts </dev/null 2>/dev/null',
-                timeout=60)
-    for block in re.findall(r'-----BEGIN CERTIFICATE-----.*?-----END CERTIFICATE-----', chain, re.S):
-        names = subprocess.run(('openssl', 'x509', '-noout', '-subject', '-issuer'), input=block, text=True,
-                               capture_output=True, check=True).stdout.splitlines()
-        subject, issuer = (line.split('=', 1)[1].strip() for line in names)
-        if subject == issuer and 'boxd egress CA' in subject:
-            temporary = Path(tempfile.mkstemp(suffix='.crt')[1])
-            temporary.write_text(block + '\n')
-            run('sudo', 'install', '-m', '0644', '-o', 'root', '-g', 'root', str(temporary), str(EGRESS_CA))
-            temporary.unlink()
-            run('sudo', 'update-ca-certificates')
-            return
-    raise SystemExit(f'{host} presented no boxd egress CA; is the build machine behind the egress proxy?')
 
 
 def verify(action):
@@ -159,7 +139,6 @@ def build(repository, instructions=None):
     install_codegraph()
     run('codegraph', 'init', '-y', str(repository), timeout=900)
     # These agent jobs use native/JavaScript actions. A foreign container job must not execute before identity checks.
-    refresh_egress_ca()
     run('sudo', 'systemctl', 'disable', '--now', 'docker.service', 'docker.socket', 'containerd.service')
     print('Warming the workspace package store and Rust build cache', flush=True)
     run('pnpm', 'install', '--frozen-lockfile', cwd=repository)
