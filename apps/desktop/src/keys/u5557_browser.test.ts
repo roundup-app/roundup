@@ -1,6 +1,6 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { copyFileSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -28,7 +28,7 @@ const read = async (expression: string) => {
 };
 
 beforeAll(async () => {
-  server = await appServer();
+  server = await appServer({ root: process.env.U5557_ROOT ?? process.cwd() });
   const ready = await fetch(new URL("/__roundup_ready", server.resolvedUrls.local[0]!));
 
   if (!ready.ok) throw new Error(await ready.text());
@@ -43,6 +43,13 @@ afterAll(async () => {
 });
 
 it("u5557b_every_chip_uses_keychip", async () => {
+  const phase = process.env.ROUNDUP_CAPTURE_PHASE ?? "head";
+  const dirs = [captureDir("U5557a"), captureDir("U5557c")].flatMap(dir => dir === null ? [] : [join(dir, phase)]);
+
+  for (const dir of dirs) mkdirSync(dir, { recursive: true });
+
+  if (dirs.length) await browser("record", "start", join(dirs[0]!, "creation-help.webm"));
+
   for (const seed of ["empty-project", "first-run", "tree-40"]) {
     await browser("open", new URL(`/harness.html?seed=${seed}`, server.resolvedUrls.local[0]!).href);
     await browser("wait", "--fn", seed === "first-run" ? `!!document.querySelector('.choose-project kbd')` : `!!window.__fake && !!document.querySelector('.rail-actions kbd')`);
@@ -50,19 +57,27 @@ it("u5557b_every_chip_uses_keychip", async () => {
     if (seed === "tree-40") {
       await read(`window.__fake.failNext(-32003, 'Could not start the Agent. Try again.'); document.querySelector('.rail-actions [aria-label="New Agent"]').click()`);
       await browser("wait", "--fn", `!!document.querySelector('.rail-command-notice [role="alert"], .rail-command-notice.ink')?.textContent`);
+
+      for (const dir of dirs) {
+        await browser("screenshot", join(dir, "dense-failure-footer.png"));
+        writeFileSync(join(dir, "dense-failure-footer.checks.json"), JSON.stringify(await read("window.__checks()"), null, 2));
+      }
+
       await browser("press", "?");
       await browser("wait", "--fn", `!!document.querySelector('.help kbd')`);
     }
 
-    expect(await read(`Array.from(document.querySelectorAll('kbd')).every(chip => chip.classList.contains('key-chip'))`)).toBe(true);
+    if (phase !== "base") expect(await read(`Array.from(document.querySelectorAll('kbd')).every(chip => chip.classList.contains('key-chip'))`)).toBe(true);
 
-    for (const id of ["U5557a", "U5557c"]) {
-      const dir = captureDir(id);
-
-      if (!dir) continue;
-      mkdirSync(join(dir, "head"), { recursive: true });
-      await browser("screenshot", join(dir, `head/${seed}.png`));
-      writeFileSync(join(dir, `head/${seed}.checks.json`), JSON.stringify(await read("window.__checks()"), null, 2));
+    for (const dir of dirs) {
+      await browser("screenshot", join(dir, `${seed}.png`));
+      writeFileSync(join(dir, `${seed}.checks.json`), JSON.stringify(await read("window.__checks()"), null, 2));
     }
+  }
+
+  if (dirs.length) {
+    await browser("record", "stop");
+
+    for (const dir of dirs.slice(1)) copyFileSync(join(dirs[0]!, "creation-help.webm"), join(dir, "creation-help.webm"));
   }
 }, 90_000);
