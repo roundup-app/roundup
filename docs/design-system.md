@@ -5,7 +5,7 @@ Motion target: U3010a–d (`scenarios/ui-motion.md`) supersede only this documen
 
 How the App looks. `docs/wireframes.md` says what each screen holds and where; this file says how it is drawn. Where the two disagree on look, this file wins: it replaces the wireframes' "ink is the only colour" and "no borders" rules (the Glyph set, the visibility rule and the layout stay).
 
-The direction: a Mac app that stays out of the way. System sans for the chrome, mono only where text is code. Soft surfaces, small coloured Glyphs, nothing moves unless the user acted or an Agent finished a Todo the user can see (U3010c, U3770), or the Workstream timeline's window slides with time while an Agent it shows runs (U3768e, U3768f); no shimmer or pulse. Light and dark.
+The direction: a Mac app that stays out of the way. System sans for the chrome; mono for code, button action captions and key chips. Soft surfaces, small coloured Glyphs, nothing moves unless the user acted or an Agent finished a Todo the user can see (U3010c, U3770), or the Workstream timeline's window slides with time while an Agent it shows runs (U3768e, U3768f); no shimmer or pulse. Light and dark.
 
 Every rule below is a check with an id. A check passes or fails; it has no score. The same checks run twice: as `vitest` tests in `just check` (the gate), and by the Design critic on the real rendering (advisory). One module measures them for both (U137). D18 is the critic-only visual exception: its contact sheet and approval are required for U401’s Blocked-mark implementation, with no automated visual assertion or owner Mac observation.
 
@@ -90,7 +90,7 @@ Starting values. The thresholds in the checks are fixed; a value that fails a th
 
 Type: `--font-ui` is `-apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif`; `--font-mono` is `ui-monospace, "SF Mono", Menlo, monospace`. The steps are `--text-caption` 11, `--text-small` 12, `--text-body` 13, `--text-row` 14 (every Rail row's name), `--text-title` 15, `--text-pad-subheading` 20 and `--text-pad-heading` 24 px. Weight is 400, 500 or 600. Tracking is `0` at body and below, `-0.01em` at title (apple-design: tracking follows size).
 
-The App inherits `--font-ui`; code, paths, diffs, ids and token counts select `--font-mono`; Terminal output selects `--font-terminal`. `--mono` aliases `--font-mono` in the Token file. Static interface typography uses the listed type steps. U102’s user-adjustable Terminal font starts at `--text-terminal` and changes in 1 px increments within `--text-terminal-min` and `--text-terminal-max`; this scale applies only to the Terminal, not the Rail or other interface text.
+The App inherits `--font-ui`; code, paths, diffs, ids, button action captions and key chips select `--font-mono`; Terminal output selects `--font-terminal`. `--mono` aliases `--font-mono` in the Token file. Static interface typography uses the listed type steps. U102’s user-adjustable Terminal font starts at `--text-terminal` and changes in 1 px increments within `--text-terminal-min` and `--text-terminal-max`; this scale applies only to the Terminal, not the Rail or other interface text.
 
 U5574 Pad documents use `--pad-text-body` B = 15 px × interface scale and `--pad-type-ratio` r = 1.125. `--pad-text-small` is B/r; h4, h3, h2 and h1 are B×r through B×r⁴ (16.875, 18.984375, 21.357421875 and 24.027099609375 px at default scale). h5/h6 keep the h4 role. Code uses the small step and the existing monospace font; cells use body. These roles apply to the Pad drawer's editor and its read-only binding. Todo, metadata, toolbar, document title and Terminal retain their previous roles.
 
@@ -102,7 +102,7 @@ The reserved message line (`--line`) is 24 px in both schemes, including its act
 
 Space: `--space-1` to `--space-6` are 4, 8, 12, 16, 24, 32 px. A Rail row is 28 px high. U2716a specifies a future pinned 40 px Overview band above the scrolling Rail tree, with `--space-3` inline inset, a 24 px icon tile and `--text-row` at weight 400; its count rides beside the name. `--measure` is `56rem`, the Thread's column width (D11).
 
-Mono is for the Terminal, paths, ids, code, button labels and key chips (#5557 implementation acceptance). Every other word is `--font-ui`.
+Mono is for the Terminal, paths, ids, code, button action captions and key chips (#5557 implementation acceptance). Every other word is `--font-ui`. Content names, including Workstream, Todo, Pad and Project names, stay `--font-ui` even when their container is a button; the shared mono rule selects the `data-button` action kinds.
 
 ## Colour
 
@@ -189,10 +189,10 @@ Except D18 and D19, each check is measured from computed style and the DOM of th
 | D10 | D1 to D9 hold in both colour schemes, in `prefers-contrast: more`, and at 1280 by 800 | U135 |
 | D11 | in the Thread, the column is at most `--measure` (`56rem`) wide, no rendered line holds more than 120 characters, and every row's text starts at one x within 1 px, at 1280 by 800 | U197 |
 | D12 | in each of the Shelf's `todos` and `pads` lists, after U3708's tree indent, the Glyphs' left x are within 1 px of one another; first words align within 1 px among tick-only rows and among rows with a Glyph column (U3726); every later line starts at its own title's left x within 1 px; across the App, every icon beside text meets U86's x-height centring policy below | U360, U3726, U86 |
-| D13 | in the Shelf, every text node is `--font-ui` unless it is an id, a path, code, a button label or a key chip (#5557 acceptance) | U360 |
+| D13 | in the Shelf, every text node is `--font-ui` unless it is an id, a path, code, a button action caption or a key chip (#5557 acceptance) | U360 |
 | D14 | in the Shelf, no row has a fill, border or shadow at rest; the gaps between rows, from a head to its first row and between the two lists are space steps, equal across the lists; no title or name shows more than two lines or overflows its row | U360 |
 | D15 | all App-authored text and accessible names come from their surface’s copy module (root composition uses `app`), with multiply consumed values in dependency-free `src/sharedCopy.ts`; its entries and formatter branches use sentence case and `GLOSSARY.md` user labels, with explicit section-head, acronym and authored-value exemptions | U471, U472 |
-| D16 | in the Thread, every text node is `--font-ui` unless it is an id, a path, code, a button label or a key chip (#5557 acceptance), and no Agent name wraps | U425 |
+| D16 | in the Thread, every text node is `--font-ui` unless it is an id, a path, code, a button action caption or a key chip (#5557 acceptance), and no Agent name wraps | U425 |
 | D17 | A tooltip sits against the element under the pointer that owns it. | U2749 |
 | D18 | The design critic approves a greyscale contact sheet of all six production Kind Glyphs side by side at 16 px in both light and dark: idle/open ring, Blocked ring with a horizontal centre bar (⊖) in the same stroke and colour as the ring, working quarter, needs-you disc in a ring, error cross in a disc, done check in a disc. Every pair is distinguishable by shape without labels or colour; include three working-arc angles (U446). This is a critic-only visual Check, not a DOM or pixel-difference test. | U401 |
 | D19 | For every added or changed icon, the design critic approves its meaning against the complete icon/status inventory below: one glyph identifies one concept, and section-head icons share no bare circle/dot/square family with their rows' status marks. Inspect changed production icons at their rendered size beside neighbours in light and dark; labels and colour cannot rescue a shape collision. | U4898 |
@@ -299,7 +299,7 @@ The light header stays on root sunken. Borders carry ≥3:1 against the header a
 
 All App chips, including EmptyState, use the shared `KeyChip`, one plain `kbd` per press; a chord keeps its modifiers and final key together (U2541d, #5557 acceptance).
 Labels remain `--grey`; chips use `--text`, `--font-mono`, `--text-small`, weight 500,
-no border and a `--space-4` (16 px) height.
+no border and a `--space-4` (16 px) height. Each modifier and the final key have `calc(var(--space-1) / 4)` between them inside the chip. Multi-letter key names stay whole. `KeyText` prevents copied chip strings; the desktop typecheck also checks shortcut attributes and renderer ownership.
 
 | Token | Light | Dark |
 | --- | --- | --- |

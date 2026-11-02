@@ -106,7 +106,7 @@
 .shelf-panel :is(.todos-tab, .pads-tab) { gap: var(--space-2); }
 
 .shelf-add {
-  font-family: var(--font-ui);
+  font-family: var(--font-mono);
 }
 
 .shelf-panel p {

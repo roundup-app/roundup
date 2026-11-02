@@ -1,9 +1,5 @@
 //! Agents, the Rail tree and the Claude Code adapter. Owner: agents Builder.
 
-#[cfg(test)]
-#[global_allocator]
-static ALLOCATOR: &stats_alloc::StatsAlloc<std::alloc::System> = &stats_alloc::INSTRUMENTED_SYSTEM;
-
 #[doc(hidden)]
 pub mod schema;
 use std::collections::{BTreeMap, HashMap, VecDeque};
@@ -54,6 +50,10 @@ mod scan;
 pub mod worktree;
 
 use claude_code::{ClaudeCode, Launcher, Pair, Role};
+
+#[cfg(test)]
+#[global_allocator]
+static ALLOCATOR: &stats_alloc::StatsAlloc<std::alloc::System> = &stats_alloc::INSTRUMENTED_SYSTEM;
 
 /// One input an adapter reads about its Agent.
 pub enum Observation {

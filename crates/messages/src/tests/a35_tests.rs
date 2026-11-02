@@ -88,6 +88,7 @@ impl RestartHarness {
             }),
         };
         let messages = Messages::open_with(dir, bus.clone(), rail.clone(), env).unwrap();
+        messages.listen();
         let inbox = attach_inbox(&messages, true);
         Self {
             messages,
