@@ -13,6 +13,7 @@
     "dialog:allow-save",
     "dialog:allow-message",
     "core:window:allow-set-badge-count",
+    "window-bar:allow-webview-data-path",
     "window-bar:allow-native-material",
     "window-bar:allow-set-window-title",
     "window-bar:allow-drag-window",

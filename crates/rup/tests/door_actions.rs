@@ -187,25 +187,47 @@ async fn b37_real_claude_receives_a_note_after_a_scripted_server_error() {
             _ => None,
         })
         .await;
-    // The push window closes on the child's final idle Digest, not its earlier Rail status.
-    project
+    // Bind the receipt to the final idle Digest, not an earlier status of the child.
+    let idle_digest = project
         .next_named(
-            "the Digest B37 child is idle delivered to the Door",
+            "the Digest B37 child is idle queued for the Door",
             &mut events,
             |data| match data {
-                EventData::MessageDelivered(m)
+                EventData::MessageSent(m)
                     if m.to == door
                         && m.body.contains("[digest] B37 child is idle")
                         && m.body.contains("open todos: 1") =>
                 {
-                    Some(())
+                    Some(m)
                 }
                 _ => None,
             },
         )
         .await;
-    // B50(c): the transcript records the Digest after the turn it starts may already be over, so the
-    // door's idle edge can precede the Delivered event; the Rail poll below waits for idle instead.
+    // B5168f: if an earlier idle Digest was already delivered, this one is quiet. Explicit
+    // setup input carries it without requiring that routine progress start another model turn.
+    let setup = user
+        .request(
+            "message.send",
+            json!({"to":door,"kind":"note","body":"B37 setup complete"}),
+        )
+        .await
+        .unwrap();
+    let setup_id: u32 = serde_json::from_value(setup["id"].clone()).unwrap();
+    for id in [idle_digest.id, setup_id] {
+        project
+            .next_named(
+                "the idle Digest and setup input's transcript receipts",
+                &mut events,
+                |data| match data {
+                    EventData::MessageDelivered(m) if m.id == id => Some(()),
+                    _ => None,
+                },
+            )
+            .await;
+    }
+    // B50(c): transcript receipts can follow the turn's idle edge, so poll the Rail instead
+    // of waiting for another idle event that may never follow.
     tokio::time::timeout(project.bound(), async {
         loop {
             let nodes = project.rail_tree(&user).await;

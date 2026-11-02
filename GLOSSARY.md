@@ -63,7 +63,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Wake request (`agent.wake`) | same | — |
 | GitHub tool (`github.prGet`, `github.issueGet`, `github.prSetBody`, `github.prReady`, `github.prAutoMerge`; the Door's tools `github_pr_get`, `github_issue_get`, `github_pr_set_body`, `github_pr_ready`, `github_pr_auto_merge`) | same | — |
 | Quiet Digest (`is_quiet_digest`) | same | — |
-| Reaction (`reaction.create`, `.list`, `.get`, `.stop`, `.run`; authenticated maker in `actor`, one-line `reason`, absent for legacy definitions) | Reaction | — |
+| Reaction (`reaction.create`, `.list`, `.get`, `.stop`, `.run`; authenticated maker in `actor`, required one-line `reason`) | Reaction | — |
 | Reaction observation identity (`ObservationCause`, `ObservationGap`, `ObservationRecovery`, `ObservationHealth`) | same | — |
 | Preview (`reaction.preview`) | Time preview | — |
 | Firing (a Reaction's `firings`) | same | — |
@@ -172,6 +172,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | First Steer completion (`FirstSteerCompletion`, `Agents::first_steer_completion`) | same | — |
 | Interrupt | same | cancel, abort |
 | Toast | same | — |
+| Alert level (`AlertLevel`, `RailNode.alert_level`, `SetAlertLevelParams`, `rail.setAlertLevel`, `Rail::set_alert_level`) | Alerts: Default, All, Quiet | — |
 | State alert (`StateAlert`, `stateAlert`, `state_alert`, `state-alert-clicked`) | same | notification |
 | Work order | same | — |
 | Instruction (`Instruction`, `InstructionRevision`, `Instructions`, `agent.instructions`, `agent_instructions`) | same | — |
@@ -209,6 +210,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Restart reservation | same | — |
 | Retirement reservation | same | — |
 | Route | same | — |
+| Browser data location (`webview_data_path`) | same | — |
 | Saved work (`storedValue`, `storageSchema`, `initializeStorage`, `storageProblems`, `useBrowserStorage`, `storageCopy`) | same | — |
 | Draft (`draftStorage`) | Unfinished work | — |
 | Reason | same | — |

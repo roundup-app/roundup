@@ -104,6 +104,7 @@ export const CONTRACT = {
     "rail.remove": "aabd31b03d525482",
     "rail.rename": "9ac91873a4e7e835",
     "rail.restore": "604175d283a23c19",
+    "rail.setAlertLevel": "b782edfd95a71788",
     "rail.startDoor": "16de491a0a11f0fd",
     "rail.tree": "2ed0e295de4937dc",
     "reaction.create": "33a48eb67c6e4c23",

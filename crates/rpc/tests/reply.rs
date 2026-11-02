@@ -60,12 +60,12 @@ async fn r16_client_preserves_json_values_and_object_order_after_malformed_frame
 #[test]
 fn r16_reply_preserves_every_rail_field_in_row_order() {
     let expected = json!([{
-        "id": "door", "kind": "workstream", "name": "Door 🦀", "parent": null,
+        "alert_level": "all", "id": "door", "kind": "workstream", "name": "Door 🦀", "parent": null,
         "order": 7, "status": null, "attempt": "9223372036854775807", "status_revision": null,
         "terminal_id": null, "worktree": null, "can_resume": true, "can_make_workstream": false, "can_save_as_mode": false, "yolo": true, "channel": null,
         "work": null, "stray": [], "model": "model", "effort": "high"
     }, {
-        "id": "next", "kind": "workstream", "name": "Next", "parent": null,
+        "alert_level": "quiet", "id": "next", "kind": "workstream", "name": "Next", "parent": null,
         "order": 8, "status": null, "attempt": null, "status_revision": null,
         "terminal_id": null, "worktree": null, "can_resume": false, "can_make_workstream": false, "can_save_as_mode": false, "yolo": false, "channel": null,
         "work": null, "stray": [], "model": null, "effort": null
