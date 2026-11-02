@@ -544,6 +544,7 @@
 
 .ask-line[data-linked="true"].row-wash {
   cursor: pointer;
+  color: var(--grey);
 }
 
 .ask-line[data-linked="true"].row-wash:hover {
