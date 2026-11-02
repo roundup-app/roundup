@@ -23,7 +23,7 @@ const { browser, evaluate, settle, rig, openShelf } = shelfBrowser();
 // Ordinary CI observers use the same isolated browser as the optional critic traces below.
 // The fixture exercises the public Drawer actions and the real DrawerHost, with browser-owned animations.
 const mountDrawer = async () => {
-  await openShelf("empty-project", 288, 320, 1512, "dark");
+  await openShelf("tree-40", 288, 320, 1512, "dark");
   await browser("set", "viewport", "1512", "950");
   await evaluate(`(async () => {
     const source = await (await fetch('/src/drawer/DrawerHost.tsx')).text();

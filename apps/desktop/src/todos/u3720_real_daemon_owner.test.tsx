@@ -105,8 +105,8 @@ it.skipIf(Boolean(captureDir("U4698e")) && !captureDir("U3311"))("u3311_real_dae
 
     if (video) {
       await mkdir(video, { recursive: true });
-      await lane.browser("record", "start", join(video, "hand-offs.webm"), `${real.base}/harness.html?view=workstreams&items=1&daemon=1`);
-    } else await lane.browser("open", `${real.base}/harness.html?view=workstreams&items=1&daemon=1`);
+      await lane.browser("record", "start", join(video, "hand-offs.webm"), `${real.base}/harness.html?view=workstreams&items=1&tabs=1&daemon=1`);
+    } else await lane.browser("open", `${real.base}/harness.html?view=workstreams&items=1&tabs=1&daemon=1`);
     await lane.browser("set", "viewport", "1512", "950");
     await lane.browser("set", "media", "dark");
     await lane.until("matchMedia('(prefers-color-scheme: dark)').matches && !!document.querySelector('#shelf-tab-todos')");
@@ -319,7 +319,7 @@ print(json.dumps({'todo':todo,'pad':pad}))
     const pad = result.pad;
     await app.rpc("todo.move", { id: todo.id, home: home.id });
     await app.rpc("pad.move", { name: pad.name, home: home.id });
-    const url = `${real.base}/harness.html?view=workstreams&items=1&daemon=1&seed=first-run`;
+    const url = `${real.base}/harness.html?view=workstreams&items=1&tabs=1&daemon=1&seed=first-run`;
     await lane.browser("open", url);
     await lane.until("!!document.querySelector('[aria-label=Centre] button')");
     await lane.browser("click", "[aria-label=Centre] button");
@@ -333,7 +333,7 @@ print(json.dumps({'todo':todo,'pad':pad}))
 
     const openTodo = async () => {
       await lane.evaluate("(() => {const tab=document.querySelector('#shelf-tab-todos');if(tab.getAttribute('aria-expanded')!=='true')tab.click();return true;})()");
-      await lane.until(`(() => {document.querySelectorAll('.todos-tab [data-shelf-group][data-state=closed] [data-part=branch-control]').forEach(control => control.click()); return !!document.querySelector('[data-todo="${todo.id}"] .todo-row-button');})()`);
+      await lane.until(`(() => {document.querySelectorAll('[data-shelf-group][data-state=closed] [data-part=branch-control]').forEach(control => control.click()); return !!document.querySelector('[data-todo="${todo.id}"] .todo-row-button');})()`);
       await lane.browser("focus", `[data-todo="${todo.id}"] .todo-row-button`);
       await lane.browser("press", "Enter");
       await lane.until("!!document.querySelector('.todo-comment-field')");
@@ -341,7 +341,7 @@ print(json.dumps({'todo':todo,'pad':pad}))
 
     const openPad = async () => {
       await lane.browser("click", "#shelf-tab-pads");
-      await lane.until("(() => {document.querySelectorAll('.pads-tab [data-shelf-group][data-state=closed] [data-part=branch-control]').forEach(control => control.click());return !!document.querySelector('.pad-name');})()");
+      await lane.until("(() => {document.querySelectorAll('[data-shelf-group][data-state=closed] [data-part=branch-control]').forEach(control => control.click());return !!document.querySelector('.pad-name');})()");
       await lane.browser("focus", ".pad-name");
       await lane.browser("press", "Enter");
       await lane.until("!!document.querySelector('.drawer .ProseMirror')");
