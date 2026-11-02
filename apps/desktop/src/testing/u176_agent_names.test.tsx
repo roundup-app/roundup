@@ -108,10 +108,10 @@ describe("u2773 Rail task destinations", () => {
       const subscribe = source.subscribe.bind(source);
       let replay = () => {};
 
-      vi.spyOn(source, "subscribe").mockImplementation((receive) => subscribe((event) => {
+      vi.spyOn(source, "subscribe").mockImplementation((receive, params) => subscribe((event) => {
         replay = () => receive(event);
         receive(event);
-      }));
+      }, params));
       replays.push(() => replay());
     }
 

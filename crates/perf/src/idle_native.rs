@@ -595,7 +595,7 @@ impl Native {
         let completed: contracts::common::SubscribeResult = request(
             &replay,
             "events.subscribe",
-            json!({"after":subscribed.head}),
+            json!({"after":subscribed.head, "kept":false}),
         )
         .await?;
         let mut cursor = subscribed.head;

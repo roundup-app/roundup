@@ -72,7 +72,7 @@ describe("u37 Reopen after the Daemon exits", () => {
     const subscribed = { count: 0 };
     const subscribe = app.subscribe;
 
-    app.subscribe = (listener) => (subscribed.count++, subscribe(listener));
+    app.subscribe = (...args) => (subscribed.count++, subscribe(...args));
 
     const before = REGIONS.map((method) => callsOf(app, method));
 
