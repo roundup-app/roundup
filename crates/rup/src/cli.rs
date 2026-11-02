@@ -46,7 +46,7 @@ struct Field {
 
 impl Field {
     fn flag(&self) -> String {
-        self.name.replace('_', "-")
+        kebab(&self.name)
     }
 }
 
@@ -451,6 +451,7 @@ fn tree(specs: &[Spec]) -> Command {
     for noun in nouns {
         let mut group = Command::new(noun.to_owned())
             .about(format!("Commands on {noun}s"))
+            .flatten_help(true)
             .after_help(NAMES_HELP)
             .subcommand_required(true);
         let mut inner: Vec<Command> = Vec::new();
