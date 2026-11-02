@@ -358,6 +358,7 @@ pub struct Item {
     shortcut: Option<String>,
     group: Option<String>,
     enabled: bool,
+    checked: Option<bool>,
     children: Option<Vec<Item>>,
 }
 
@@ -454,6 +455,17 @@ fn project_kind<R: Runtime>(
         ),
         None => (None, None),
     };
+    if let Some(checked) = item.checked {
+        let entry = tauri::menu::CheckMenuItem::with_id(
+            app,
+            &item.id,
+            &item.label,
+            item.enabled,
+            checked,
+            accelerator.as_deref(),
+        )?;
+        return Ok((MenuItemKind::Check(entry), Vec::new()));
+    }
     let entry = build(
         app,
         &item.id,

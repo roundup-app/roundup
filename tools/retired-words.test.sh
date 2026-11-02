@@ -30,4 +30,29 @@ for dir in apps/desktop/src crates/one/src crates/contracts/src; do
         case $out in *"$dir/bad.txt"*) ;; *) fail "$word in $dir: file not named: $out" ;; esac
     done
 done
+# U5501: alert vocabulary is allowed only at its existing call sites. The old
+# delivery spellings still fail even beside an allowed alert token in that file.
+for file in state/held.ts state/connectedProject.ts rail/RailFooter.tsx terminal/screens.ts; do
+    fresh
+    mkdir -p "$tmp/tree/apps/desktop/src/$(dirname "$file")"
+    case $file in
+        state/*) alert=createHeld ;;
+        *) alert=held ;;
+    esac
+    echo "$alert" > "$tmp/tree/apps/desktop/src/$file"
+    "$guard" "$tmp/tree" || fail "alert $alert in $file rejected"
+    for retired in Held HeldAction held_message message_held takeover TAKEOVER; do
+        echo "$alert $retired" > "$tmp/tree/apps/desktop/src/$file"
+        set +e
+        out=$("$guard" "$tmp/tree" 2>&1)
+        code=$?
+        set -e
+        [ "$code" = 1 ] || fail "retired $retired beside alert in $file exits $code"
+        case $out in *"apps/desktop/src/$file"*) ;; *) fail "file not named: $out" ;; esac
+    done
+done
+# Copying an alert symbol into another module does not expand the exception.
+fresh
+echo createHeld > "$tmp/tree/apps/desktop/src/a.ts"
+if "$guard" "$tmp/tree" > /dev/null 2>&1; then fail "new alert call site accepted"; fi
 echo ok

@@ -31,7 +31,7 @@ export const nextAttention = (nodes: readonly RailNode[], selected: string | nul
 
 /** PS12: what counts toward attention in one Project: its undismissed nodes and the Terminals that need you (PS11.1), so the count and Needs you agree. */
 export const attentionHolders = (nodes: readonly RailNode[], terminals: readonly TerminalInfo[], dismissed: Dismissed = none): Partial<Pick<RailNode, "status">>[] => [
-  ...nodes.filter((node) => !dismissed(node)),
+  ...nodes.filter((node) => node.alert_level !== "quiet" && !dismissed(node)),
   ...terminalAttention(nodes, terminals),
 ];
 

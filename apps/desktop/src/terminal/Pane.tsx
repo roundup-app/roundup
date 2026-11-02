@@ -155,6 +155,8 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
   createEffect(() => {
     const host = screen();
     const id = terminalId();
+    const focusPermission = rail.terminalFocus();
+    const doorNotRunning = doorState() !== null;
 
     if (!host || preparing()) return;
 
@@ -167,7 +169,7 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
     untrack(() => {
       const show = (focus: boolean) => screens.resize(id, screens.show(id, host, focus));
 
-      if (rail.restored() || !rail.terminalFocus()(() => show(true))) show(false);
+      if (rail.restored() || doorNotRunning || !focusPermission(() => show(true))) show(false);
     });
   });
 

@@ -1,3 +1,4 @@
+import { alertLevel } from "../alertLevel";
 import type { createCopyFeedback } from "../../ui/CopyButton";
 import type { ConnectedProject } from "../../state/connectedProject";
 import { copy } from "../copy";
@@ -220,6 +221,23 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
 
   /** U2694b: a row's items in the table's order; a Group (a Workstream with no Agent at it) offers Remove only. */
   const entries = (node: RailNode, exit: ExitState | null, removed?: () => void): MenuEntry[] => {
+    const alerts: MenuEntry = {
+      id: "alerts", label: copy.alerts,
+      children: (["all", "default", "quiet"] as const).map(level => ({
+        id: `alerts:${level}`, label: copy.alertLevels[level], checked: alertLevel(rail.nodes, node) === level,
+        run: async () => {
+          try {
+            const ping = await app.rpc("daemon.ping", null);
+            await app.rpc("rail.setAlertLevel", { project: ping.project, id: node.id, level });
+            await rail.refresh();
+          } catch (error) {
+            if (!(error instanceof Error)) throw error;
+            onFailure(error.message, node.id);
+          }
+        },
+      })),
+    };
+
     const remove: MenuEntry = { id: "remove", label: copy.remove, shortcut: "⌘⌫", run: () => requestRemove(node, exit, removed) };
 
     const queued = node.kind === "workstream" ? queue.entryOf(node.id) : null;
@@ -245,11 +263,12 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
         ...(queued.place > 1 ? [{ id: "move-up", label: copy.moveUp, run: call(async () => { await app.rpc("workstream.queueMove", { workstream: node.id, index: queued.place - 2 }); }) }] : []),
         ...(queued.place < queued.of ? [{ id: "move-down", label: copy.moveDown, run: call(async () => { await app.rpc("workstream.queueMove", { workstream: node.id, index: queued.place }); }) }] : []),
         ...extra(node),
+        alerts,
         remove,
       ];
     }
 
-    if (node.kind === "workstream" && node.attempt === null) return [...extra(node), remove];
+    if (node.kind === "workstream" && node.attempt === null) return [...extra(node), alerts, remove];
 
     const items: MenuEntry[] = [
       { id: "rename", label: copy.rename, shortcut: copy.renameChord, run: () => rename(node.id) },
@@ -271,6 +290,7 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
 
     return [
       ...items,
+      alerts,
       ...extra(node),
       ...linkEntries(app, { kind: node.kind, id: node.id }, rail.nodes, (candidate) => isRunning(candidate, rail.exitOf(candidate)), (message) => onFailure(message, node.id), () => acknowledge(node.id), feedback(node.id)),
       remove,

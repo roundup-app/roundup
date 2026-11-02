@@ -13,6 +13,7 @@ export type MenuEntry = {
   /** The chord as `keys/chords.ts` shows it: one-step native accelerator or separate sequence hint. */
   shortcut?: string | undefined;
   group?: MenuItem["group"];
+  checked?: boolean;
   enabled?: boolean;
   run?: () => void | Promise<void>;
   children?: MenuEntry[];
@@ -20,6 +21,8 @@ export type MenuEntry = {
 
 const wire = (entry: MenuEntry): MenuItem => {
   const item: MenuItem = { id: entry.id, label: entry.label, enabled: entry.enabled ?? true };
+
+  if (entry.checked !== undefined) item.checked = entry.checked;
 
   if (entry.group !== undefined) item.group = entry.group;
 
@@ -47,7 +50,7 @@ const groups = [
   ["start", "restart", "yolo", "stop", "resume"],
   ["complete"],
   ["folder", "editor", "send", "copy-link", "copy"],
-  ["rename", "clear", "opening-prompt", "assign", "make-yours", "move", "move-up", "move-down", "make-workstream", "save-as-mode"],
+  ["rename", "alerts", "clear", "opening-prompt", "assign", "make-yours", "move", "move-up", "move-down", "make-workstream", "save-as-mode"],
   ["add"],
   ["remove", "delete", "close"],
 ];
