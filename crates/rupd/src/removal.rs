@@ -59,7 +59,7 @@ impl Daemon {
                 let mut events = todos.remove_workstream(db, &home, &caller, removal, scope)?;
                 let (files, pad_events) = pads.remove_workstream(db, &home, removal)?;
                 events.extend(pad_events);
-                db.execute("UPDATE deliverables SET home=NULL, record=json_set(record,'$.home',NULL) WHERE home=? AND removed=0",[&home]).map_err(RpcError::internal)?;
+                if db.execute("UPDATE deliverables SET home=NULL, record=json_set(record,'$.home',NULL) WHERE home=? AND removed=0",[&home]).map_err(RpcError::internal)? > 0 { events.push(contracts::EventData::DeliverableChanged); }
                 (files, events)
             } else {
                 (pads::RemovalFiles::default(), Vec::new())
@@ -198,6 +198,8 @@ impl Daemon {
                             pads.restore_workstream_in(db, &actor, &p.operation)?;
                         files = mirrors;
                         events = pad_events;
+                        let publications: bool = db.query_row("SELECT EXISTS(SELECT 1 FROM rail_removal_items WHERE operation=? AND kind='deliverable-home')", [&p.operation], |r| r.get(0)).map_err(RpcError::internal)?;
+                        if publications { events.push(contracts::EventData::DeliverableChanged); }
                         removal_touch(
                             db,
                             &actor,
@@ -347,7 +349,7 @@ impl Daemon {
                 todos::Todos::remove_owners_in(db,&Actor::daemon(),&operation,&owners)?;
                 db.execute("INSERT INTO rail_removal_items(operation,kind,id,home) SELECT ?2,kind,id,home FROM rail_removal_items r WHERE operation=?1 AND kind='deliverable-home' AND EXISTS(SELECT 1 FROM deliverables d WHERE d.id=r.id AND d.home=r.home AND d.removed=0)",params![source,operation]).map_err(RpcError::internal)?;
                 db.execute("INSERT OR IGNORE INTO rail_removal_items(operation,kind,id,home) SELECT ?1,'deliverable-home',id,home FROM deliverables WHERE home=?2 AND removed=0",params![operation,id]).map_err(RpcError::internal)?;
-                db.execute("UPDATE deliverables SET home=NULL,record=json_set(record,'$.home',NULL) WHERE id IN (SELECT id FROM rail_removal_items WHERE operation=? AND kind='deliverable-home')",[&operation]).map_err(RpcError::internal)?;
+                if db.execute("UPDATE deliverables SET home=NULL,record=json_set(record,'$.home',NULL) WHERE id IN (SELECT id FROM rail_removal_items WHERE operation=? AND kind='deliverable-home')",[&operation]).map_err(RpcError::internal)? > 0 { events.push(contracts::EventData::DeliverableChanged); }
                 let mut q=db.prepare("SELECT DISTINCT CAST(id AS INTEGER) FROM rail_removal_items WHERE operation=? AND kind IN ('todo-home','todo-owner')").map_err(RpcError::internal)?;
                 let moved=q.query_map([&operation],|r|r.get::<_,u32>(0)).map_err(RpcError::internal)?.collect::<Result<Vec<_>,_>>().map_err(RpcError::internal)?;
                 removal_touch(db, &caller, &id, Some(&operation), removal)?;

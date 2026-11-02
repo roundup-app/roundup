@@ -44,7 +44,7 @@ it("u460_partial_failure_names_and_selects_only_failed_rows", async () => {
 
   await pickTwo();
   await askToDelete(2);
-  await screen.findByText("Could not delete same #2: The chosen Todo is no longer available. Refresh to check again.");
+  await screen.findByText("Could not delete same #2: The chosen Todo is no longer available. Retry to check again.");
   expect(screen.getAllByRole("button", { pressed: true })).toHaveLength(1);
   expect(screen.queryByRole("button", { name: /^(?:Idle|Blocked|Done) #1 / })).toBeNull();
   expect(screen.getByRole("button", { name: /^(?:Idle|Blocked|Done) #2 / }).getAttribute("aria-pressed")).toBe("true");
@@ -99,7 +99,7 @@ it("u460_retry_confirms_only_the_remaining_set", async () => {
 
   await pickTwo();
   await askToDelete(2);
-  await screen.findByText("Could not delete todo 2 #2: The chosen Todo is no longer available. Refresh to check again.");
+  await screen.findByText("Could not delete todo 2 #2: The chosen Todo is no longer available. Retry to check again.");
   failed = false;
   await askToDelete(1);
   await questionClosed();
@@ -119,10 +119,10 @@ it("u460_failed_readback_blocks_retry_until_a_fresh_list_answers", async () => {
   app.handlers["todo.delete"] = () => { throw new Error("response lost"); };
 
   await askToDelete(2);
-  await screen.findByRole("button", { name: "Refresh" });
+  await screen.findByRole("button", { name: "Retry" });
   expect(screen.getByRole("button", { name: "Delete 2" }).hasAttribute("disabled")).toBe(true);
   lost = false;
-  fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
+  fireEvent.click(screen.getByRole("button", { name: "Retry" }));
   await screen.findByText("2 selected");
   expect(todoCallsTo(app, "todo.delete")).toHaveLength(1);
 });
@@ -188,10 +188,10 @@ it("u460_refresh_shows_only_after_a_failed_readback", async () => {
 
   await pickTwo();
   await askToDelete(2);
-  expect([screen.queryByRole("button", { name: "Refresh" })]).toEqual([null]);
+  expect([screen.queryByRole("button", { name: "Retry" })]).toEqual([null]);
   kept.resolve(null);
   await screen.findAllByText(/denied/);
-  expect([screen.queryByRole("button", { name: "Refresh" })]).toEqual([null]);
+  expect([screen.queryByRole("button", { name: "Retry" })]).toEqual([null]);
 });
 
 // BulkDelete owns deletion only; save acknowledgements belong to the item editors.
@@ -235,7 +235,7 @@ for (const owner of ["todos", "pads"] as const) {
 
       row("first").focus();
       fireEvent.keyDown(row("first"), { key: "d", code: "KeyD" });
-          await screen.findByRole("button", { name: "Refresh" });
+          await screen.findByRole("button", { name: "Retry" });
 
       if (listTodos) app.handlers["todo.list"] = listTodos;
 
@@ -252,7 +252,7 @@ for (const owner of ["todos", "pads"] as const) {
       await waitFor(() => expect(screen.queryByRole("button", { name: owner === "todos" ? /^(Idle|Blocked|Done) #3 / : "other" })).toBeNull());
       expect(within(screen.getByRole("group", { name: "Bench deletion" })).getByRole("alert").textContent).toContain(readbackError.message);
       expect(connected.drafts.list()).toEqual(retained);
-      fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
+      fireEvent.click(screen.getByRole("button", { name: "Retry" }));
       await questionClosed();
       expect(screen.getByText(message("second"))).toBeTruthy();
 
