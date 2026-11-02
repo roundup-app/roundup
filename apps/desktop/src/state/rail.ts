@@ -3,13 +3,14 @@ import { captureFocus } from "../keys/focus";
 import { createItemFailure } from "../rail/itemFailure";
 import { copy } from "./copy";
 import { applying } from "../app/pending";
-import { batch, createSignal } from "solid-js";
+import { batch, createMemo, createSignal } from "solid-js";
 import { createStore, reconcile } from "solid-js/store";
 import type { Actor } from "@contracts/Actor";
 import type { Event as DaemonEvent } from "@contracts/Event";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { TerminalInfo } from "@contracts/terminal/TerminalInfo";
 import { defaultWorkstreamName } from "../rail/defaultName";
+import { railTopology, type RailTopology } from "../rail/topology";
 import { ancestorsOf, isWorkstream } from "../rail/layout";
 import type { RailSection, RailStorage, ResumptionStorage } from "../rail/persist/storage";
 import type { Events } from "../app/events";
@@ -36,6 +37,8 @@ export type RailState = {
   commandFailure: ReturnType<typeof createItemFailure>;
   /** Rows in the Daemon's order; only a `rail.tree` call adds or removes one. */
   readonly nodes: readonly RailNode[];
+  /** One structural index shared by selection and every mounted Rail projection. */
+  topology(): RailTopology;
   /** U5483c: latest accepted working start in milliseconds; retained across Project connections for the same Attempt. */
   resumedAt(id: string): number | undefined;
   /** `null` while the node's program runs, and for a Workstream (one with no program). */
@@ -121,6 +124,10 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
     exited: {},
   });
 
+  // Solid tracks membership and structural fields, including reconciled in-place edits.
+  // Status, selection, disclosure, questions and clocks never enter this memo.
+  const topology = createMemo(() => railTopology(model.tree));
+
   const [resumed, setResumed] = createStore<Parameters<ResumptionStorage["write"]>[0]>(resumptions?.read() ?? {});
 
   const recordResumption = (node: RailNode): boolean => {
@@ -167,7 +174,7 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
   const reveal = (id: string | null) => {
     if (id === null) return;
 
-    const above = new Set(ancestorsOf(model.tree, id));
+    const above = new Set(ancestorsOf(topology(), id));
 
     setCollapsed((closed) => new Set([...closed].filter((workstream) => !above.has(workstream))));
   };
@@ -469,6 +476,7 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
     createNamedWorkstream: name => makeWorkstream(name),
     workstreamCreating,
     clearWorkstreamFailure: () => commandFailure.acknowledge(null),
+    topology,
     get nodes() {
       return model.tree;
     },

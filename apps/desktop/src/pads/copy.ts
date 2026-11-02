@@ -1,6 +1,8 @@
 import { copy as sharedCopy, type CopyValue } from "../sharedCopy";
 
 export const copy = {
+  toggle: "Toggle",
+  toggleLabel: "Toggle label",
   forAgents: "For Agents",
   dismiss: sharedCopy.dismiss,
   draftField: sharedCopy.draftField,
