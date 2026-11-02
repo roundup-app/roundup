@@ -51,7 +51,7 @@ Applicable Gate (policy): P1 — do these presentation changes force addressing 
 
 ### Checks on main
 
-1. `apps/desktop/src/keys/chords.ts`, constants `CHORDS` and `LEADER`, functions `chordNamed` and `ariaChord`: action identity, live keys and shortcut serialization; `apps/desktop/src/rail/u5217_create_keys.test.tsx`, test `u5217_a_menu_choice_runs_the_action_its_chord_runs`: existing action-equivalence seam.
+1. `apps/desktop/src/keys/chords.ts`, constants `CHORDS` and `LEADER`, functions `chordNamed` and `ariaChord`: action identity, live keys and shortcut serialization; `apps/desktop/src/rail/u5217_create_keys.test.tsx`, test `u5217_a_button_runs_the_action_its_chord_runs`: existing button/chord action-equivalence seam. U5217 above plans its replacement menu-choice observer `u5217_a_menu_choice_runs_the_action_its_chord_runs`.
 2. `scenarios/ui-shortcut-hints.md`, headings U2541, U2541d and U2541e: shared renderer, press boundaries and quiet hint hierarchy. `scenarios/ui-create-keys.md`, headings U5216 and U5217: creation actions and footer shortcut contracts.
 3. `scenarios/ui-visual.md`, heading U131; `docs/design-system.md`, headings “The checks” and “U2541 shortcut key chips”; `apps/desktop/src/testing/checks.ts`, functions `runChecks` and `monoOffenders`: type/spacing, contrast, targets and mono restrictions. `apps/desktop/src/tokens.css`, existing `--font-mono` and `--space-1` declarations supply the font and gap.
 4. `.agents/data/journey.md`, headings “What must work” and “The viewport”; `.agents/data/harness.md`, headings “Harness” and “Captures”: Enter-stage behavior, 1512×950 observer and artifact policy.
