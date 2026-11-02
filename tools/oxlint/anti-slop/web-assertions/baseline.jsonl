@@ -164,7 +164,6 @@
 {"file":"apps/desktop/src/rail/o11_door_writes_the_order.test.tsx","test":"o11 the Door writes the order for a prompt the user types > o11_a_failed_send_keeps_the_text","identity":"0e5b9b2fd4265da926bf06978ce750d97d4fb400d439db34a6d3d39710bb5553"}
 {"file":"apps/desktop/src/rail/p3557c_failure_lifetime.test.tsx","test":"p3557c an item failure in the Rail goes with its item > p3557c_failure_lifetime_rail_unrelated_deletion_keeps_it","identity":"8e3bc1eacdee0d168539a522c74de12a8f7351c06a5eb06ebfb1c5bc7f4d89f6"}
 {"file":"apps/desktop/src/rail/persist/u100_persist.test.tsx","test":"u100_write_failure_shows_one_ink_line_and_keeps_working","identity":"07c2cf293a23e9e9ea0598ca5b54e9f8de0700f8abebf4adbd79122a0c2b6330"}
-{"file":"apps/desktop/src/rail/persist/u100_persist.test.tsx","test":"u100_done_lines_are_not_restored","identity":"f1a38441806c2bd1658536c1ed19086cebe8c34f19fa7e6f04e510787e382f9d"}
 {"file":"apps/desktop/src/rail/persist/u100_persist.test.tsx","test":"u100_storage_failure_clears_on_the_next_click_and_can_be_reported_again","identity":"5ebfadf2b1cb46766e806bb5fa5035d5903b618ea6f8bfa5a9e6468c9754d3d9"}
 {"file":"apps/desktop/src/rail/persist/u100_persist.test.tsx","test":"u100_storage_failure_clears_on_the_next_click_and_can_be_reported_again","identity":"00b5526b4a79d9d02781b30c1e75bf3720864b615ef37fbeeecb186844986be7"}
 {"file":"apps/desktop/src/rail/persist/u100_persist.test.tsx","test":"u100_storage_failure_clears_on_the_next_click_and_can_be_reported_again","identity":"f1452ca24993f2e0230ff7837960bdd395a80cf865159128b5a44f9d7b6d24df"}
