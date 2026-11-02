@@ -129,7 +129,7 @@ const newer = async (choice: string) => {
     await read(`document.querySelector('.drawer .todo-add-notes').click()`);
     await wait(`!!document.querySelector('.drawer textarea')`);
     await read(`document.querySelector('.drawer textarea').focus()`);
-    await browser('keyboard', 'type', ' exact newer drawer é 😀 ');
+    await browser('keyboard', 'type', ' exact newer drawer é 😀 '); // taste-skill-ignore: non-ASCII user draft, not decorative UI.
   } else {
     await read(`document.querySelector('.rail-row:not([data-selected=true])[tabindex], .rail-row[tabindex], .rail-row [tabindex], .rail [role=treeitem][tabindex]')?.focus()`);
     expect(await read(`!!document.activeElement?.closest('.rail') && document.activeElement.matches('[tabindex]')`)).toBe(true);
@@ -251,6 +251,9 @@ for (const path of ["ask", "switcher", "rail-name", "todo-title"]) {
 
 it.each([true, false])("u3756b_changed_files_read_and_library_readiness_respect_focus_permission_%s", async intervene => {
   await fresh("resources");
+  // A preceding case can restore this Agent and mount its panel before the read handlers are installed.
+  await browser("click", '[data-id="bare-agent"] .name');
+  await wait(`document.querySelector('.rail-row[data-id="bare-agent"]')?.dataset.selected === 'true'`);
   await read(`(() => {
     window.__fake.app.handlers['agent.worktreeState'] = () => ({ahead:1,behind:0,dirty:true});
     window.__fake.app.handlers['agent.changedFiles'] = () => ({files:[{path:'src/file.ts',status:'modified',line:1}]});
