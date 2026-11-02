@@ -37,6 +37,20 @@ it("u5483b_click_opens_and_closes_the_branch", async () => {
   expect(rowOf("stream")).toBeDefined();
 });
 
+it("u5483b_opening_a_fold_preserves_agent_descendants", async () => {
+  const { rail } = await mountRail([
+    workstream("stream"),
+    agent("parent", "done", "done", { parent: "stream", final_text: { ...empty, finished: "0" } }),
+    agent("descendant", "working", "working", { parent: "parent" }),
+  ]);
+
+  await waitFor(() => expect(rowNames()).toEqual(["stream"]));
+  fireEvent.click(document.querySelector('.rail-fold')!);
+  await waitFor(() => expect(rowNames()).toEqual(["stream", "parent", "descendant"]));
+  fireEvent.click(rowOf("descendant"));
+  expect(rail.selected()).toBe("descendant");
+});
+
 it("u5483c_unknown_final_text_stays_visible", async () => {
   const child = agent("child", "done", "finished", { parent: "stream" });
 
