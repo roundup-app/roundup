@@ -3,7 +3,7 @@ import { afterEach, expect, it } from "vitest";
 import type { Reaction } from "@contracts/reaction/Reaction";
 import { RpcError } from "../app/seam";
 import { mountAskBar } from "../ask/askFixture";
-import { agent } from "../testing/nodes";
+import { agent, event } from "../testing/nodes";
 import { copy } from "./copy";
 
 afterEach(cleanup);
@@ -25,7 +25,7 @@ const mount = async (worktree: boolean) => {
   app.handlers["reaction.get"] = () => reaction;
   app.handlers["message.get"] = () => ({ id: 42, from: reaction.actor, to: "receiver", body: "src/a.ts:42 https://example.com", kind: "note", replyTo: null, status: "delivered", reason: null, at: 0 });
   connected.showView("reactions");
-  window.dispatchEvent(new Event("focus"));
+  app.emit(event({ name: "reaction.changed" }));
   fireEvent.click(await screen.findByRole("button", { name: /Review/ }));
   fireEvent.click(await screen.findByRole("button", { name: /Firing 1/ }));
   await screen.findByRole("link", { name: "src/a.ts:42" });
