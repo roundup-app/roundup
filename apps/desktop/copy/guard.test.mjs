@@ -261,12 +261,20 @@ it.each([
   'import { CHORDS as rows } from "../keys/chords"; const row = rows.find(row => row.keys === "⌘N");',
   'const rows = CHORDS; const row = rows.find(row => row.keys === "⌘N");',
   'const row = CHORDS.find(row => defaultKeys(row) === "⌘N");',
+  'const row = CHORDS.find(({ keys }) => keys === "⌘N");',
+  'const row = CHORDS.find(({ keys: display }) => display === "⌘N");',
+  'const row = CHORDS.filter(row => row.keys === "⌘N")[0];',
+  'const row = CHORDS.filter(({ keys }) => keys === "⌘N")[0];',
   'const format = (press: string) => shortcutLabel(press); const view = <KeyChip keys={format("meta+KeyN")} />;',
   'const shortcut = ariaChord({...chordNamed("agent.new")!, presses: ["meta+KeyN"]});',
 ])("u5557b_rejects_copied_shortcuts_or_a_second_renderer %s", source => {
   expect(checkKeys({ 'app/view.tsx': source }).map(row => row.rule)).toContain('key-source');
 });
 
-it("u5557b_accepts_live_registry_shortcuts", () => {
-  expect(checkKeys({ 'app/view.tsx': 'const view = <button aria-keyshortcuts={ariaChord(chordNamed("agent.new"))} />;' })).toEqual([]);
+it.each([
+  'const view = <button aria-keyshortcuts={ariaChord(chordNamed("agent.new"))} />;',
+  'const row = CHORDS.find(({ name }) => name === "agent.new");',
+  'const rows = CHORDS.filter(row => row.inShelf && row.name !== "todo.triage-enter");',
+])("u5557b_accepts_live_registry_shortcuts %s", source => {
+  expect(checkKeys({ 'app/view.tsx': source })).toEqual([]);
 });
