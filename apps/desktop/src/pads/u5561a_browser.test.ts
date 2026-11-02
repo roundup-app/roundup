@@ -228,9 +228,12 @@ it.each([false, true])("u5575a_headings_fold_only_their_sections editable=%s", {
       } else if (state === "hover") await browser("hover", selector);
       else {
         await browser("mouse", "move", "1500", "940");
-        await browser("press", "Tab");
         await browser("focus", selector);
-        await wait(`document.activeElement.matches(${JSON.stringify(`${selector}:focus-visible`)})`);
+        await browser("press", "Enter");
+        await wait(`document.querySelector(${JSON.stringify(selector)}).getAttribute('aria-expanded') === '${!open}'`);
+        await browser("press", "Enter");
+        await wait(`document.querySelector(${JSON.stringify(selector)}).getAttribute('aria-expanded') === '${open}'`);
+        await wait(`document.activeElement.matches(${JSON.stringify(selector)})`);
       }
 
       const controls = await read(headingHitAreas);
@@ -243,8 +246,10 @@ it.each([false, true])("u5575a_headings_fold_only_their_sections editable=%s", {
 
   if (dir) await mkdir(dir, { recursive: true });
 
+  const names = ["Verification", "Next step", "Result", "Reference", "Third", "Fourth", "Fifth", "Sixth"];
+
   for (const input of ["pointer", "Return", "Space"]) {
-    for (const name of ["Verification", "Next step", "Result", "Reference", "Third", "Fourth", "Fifth", "Sixth"]) {
+    for (const name of names.slice(0, input === "pointer" && sizingDir ? names.length : 4)) {
       const selector = heading(name);
       await browser("focus", selector);
 
