@@ -109,3 +109,19 @@ it("u4547a_section_state_survives_reopen_per_project", async () => {
   await reopen("/other");
   expect(heads().map(head => head.getAttribute("aria-expanded"))).toEqual(["true", "false", "true"]);
 });
+
+it("u5645c_sections_and_stable_order_survive_reclassification", async () => {
+  const nodes = () => [workstream("plain"), workstream("nested-mode", { parent: "plain", opening_prompt: "Saved" }),
+    node("second", { parent: "plain", order: 4 }), node("first", { parent: "plain", order: 4 }),
+    workstream("mode", { opening_prompt: "Saved" }), node("root")];
+
+  const { rail, app } = await mountRail(nodes());
+  const members = () => heads().map(head => [...head.parentElement!.querySelectorAll(".rail-row")].map(row => row.getAttribute("data-id")));
+  expect(members()).toEqual([["plain", "nested-mode", "second", "first"], ["mode"], ["root"]]);
+  app.handlers["rail.tree"] = () => nodes().map(node => node.id === "plain" ? { ...node, opening_prompt: "Now a Mode" } : node);
+  await rail.refresh();
+  expect(members()).toEqual([["plain", "nested-mode", "second", "first", "mode"], ["root"]]);
+  app.handlers["rail.tree"] = () => nodes().map(node => node.id === "nested-mode" ? { ...node, parent: null } : node);
+  await rail.refresh();
+  expect(members()).toEqual([["plain", "second", "first"], ["nested-mode", "mode"], ["root"]]);
+});
