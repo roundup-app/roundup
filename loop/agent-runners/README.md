@@ -1,6 +1,6 @@
 # Agent runners on boxd
 
-L121 keeps GitHub's permissions, independent review and merge gates. Agent jobs use GitHub-hosted runners by default. For explicitly opted-in build and fix jobs, a private controller receives signed job webhooks, restores one isolated VM and registers a GitHub runner that accepts exactly that job. Review and critic jobs remain GitHub-hosted. Work selection, answers and checks also remain GitHub-hosted.
+L121 keeps GitHub's permissions, independent review and merge gates. Agent jobs use GitHub-hosted runners by default. For explicitly opted-in build, fix, review and critic jobs, a private controller receives signed job webhooks, restores one isolated VM and registers a GitHub runner that accepts exactly that job. Work selection, answers and checks also remain GitHub-hosted.
 
 The `loop` workflow runs on PRs only. `loop/affected.py boxd` scopes its package installation and runner tests to runner code, agent integration, workflows/setup, package configuration and the L121 contract; ordinary product/documentation PRs skip those steps while retaining the required `rules` check. This removes the 12 s those steps took in [run 39336136408](https://github.com/saadshahd/roundup/actions/runs/39336136408) from unrelated PRs. The web-shard compatibility regression lives in the boxd suite so general workflow tests need no pnpm installation.
 
@@ -21,11 +21,11 @@ gh variable set BOXD_ISSUES --body '[123]'
 gh variable set BOXD_PRS --body '[456]'
 ```
 
-Unset variables or `[]` keep every agent job on GitHub. A build's Issue opt-in does not opt its subsequent fix PR in; set that PR's ID separately when needed. An explicit boxd opt-in waits for its prepared runner and fails visibly if provisioning fails. It does not fall back silently. The controller and stored snapshot have costs independent of worker opt-ins.
+Unset variables or `[]` keep every agent job on GitHub. `BOXD_PRS` moves a PR's fix, review and critic jobs together. A build's Issue opt-in does not opt its subsequent fix PR in; set that PR's ID separately when needed. An explicit boxd opt-in waits for its prepared runner and fails visibly if provisioning fails. It does not fall back silently. The controller and stored snapshot have costs independent of worker opt-ins.
 
 ## Memory
 
-Every boxd job starts a fresh process. Claude conversations and Codex session/state files survive under their Issue/PR; builder and fix jobs share the linked Issue. Claude auto-memory is explicitly enabled in its user settings. Codex's `features.memories`, `memories.generate_memories` and `memories.use_memories` are enabled when its retained home is used. Retained conversations are available to the agent; a new job does not automatically resume an old conversation.
+Every boxd job starts a fresh process. Review and critic jobs judge from the PR and main alone (AGENTS.md rule 5): they start with no conversation or project memory, and the controller keeps only their diagnostics. For the other roles, Claude conversations and Codex session/state files survive under their Issue/PR; builder and fix jobs share the linked Issue. Claude auto-memory is explicitly enabled in its user settings. Codex's `features.memories`, `memories.generate_memories` and `memories.use_memories` are enabled when its retained home is used. Retained conversations are available to the agent; a new job does not automatically resume an old conversation.
 
 Project memory is shared across builder/fix jobs, with a separate directory for smoke-test memory. A job receives current project memory alongside its scoped conversations. Changed notes merge against the job's starting revision. Concurrent edits keep the first published file and save the other under `<vendor>/conflicts/<job>/`; every job archive also remains available. Deletions apply when the current note still matches the starting revision.
 

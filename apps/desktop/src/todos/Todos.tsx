@@ -48,7 +48,7 @@ import type { TodosState } from "./state";
 import { useTodoList } from "./todoList";
 import { TodoDrawer } from "./TodoDrawer";
 import { shownTodos } from "./shownTodos";
-import { rowAfter, doneTodos, nowTodos, offeredAsBlockers, planDrop, treeCollection, treeRows, type NestedRow } from "./todoView";
+import { rowAfter, doneTodos, nowTodos, offeredAsBlockers, planDrop, rowTopology, treeCollection, treeRows, type NestedRow } from "./todoView";
 
 /** U3513a: the keys the quiet footer shows; Help lists the rest. */
 const QUIET_KEYS = ["J K", "A", "X"];
@@ -143,7 +143,7 @@ export const Todos = (props: {
     keys: () => new Set(["overview", ...connected.rail.nodes.map(node => node.id)]),
     ids: () => new Set(todos.all().map(todo => todo.id)),
     loaded: () => todos.isLoaded() && active(),
-    rows: createMemo(() => dependencyRows().map(row => ({ ...row, todo: { ...row.todo } }))),
+    rows: dependencyRows,
     reduced: connected.reducedMotion,
     playing: () => !connected.reducedMotion() && (finishing.bar() || inScope().some(todo => finishing.row(todo.id))),
     group: id => groupOf(todos.byId().get(id)!),
@@ -678,20 +678,26 @@ export const Todos = (props: {
       <Show when={listed().length + pending().length > 0}>
         <OwnerGroups mark={group => <Show when={board.digit(group)}>{digit => <kbd class="todo-owner-digit">{digit()}</kbd>}</Show>} detail={group => <Show when={group.id === "unassigned" && connected.rail.nodes.find(node => node.id === selectedWorkstream())?.auto}><p class="todo-auto-handling">{copy.todoAutoHandling}</p></Show>} count={group => group.items.filter(todo => !todo.done).length} onClosedChange={setClosedGroups} groups={() => ownerGroups(connected, [...listed(), ...pending()], todo => todo.owner)} dragging={dragging} bare={() => connected.rail.nodes.find(node => node.id === connected.rail.selected())?.kind === "agent" ? connected.rail.selected() : null} reveal={revealed} focus={() => requestedOpen()[0] ? groupOf(requestedOpen()[0]!) : null} focusItem={() => rowButtonOf(requestedOpen()[0]?.id ?? -1)} onFocused={connected.finishPadsRequest} arrivals={requestedGroups} unfold={() => filed() + todos.revealed()}>{group => {
         const tree = createMemo(() => treeRows(group().items.filter(todo => !pending().includes(todo))));
-        const collection = createMemo(() => treeCollection(tree()));
-        const placeOf = (id: number) => tree().find((row) => row.todo.id === id) ?? { level: 1, parent: null };
+        const topology = createMemo(() => rowTopology(tree()));
+        const collection = createMemo(() => treeCollection(topology()));
+        const placeOf = (id: number) => tree()[topology().index.get(id) ?? -1] ?? { level: 1, parent: null };
 
-        const renderChildren = (parent: number | null, trail: () => readonly boolean[] = () => []): JSX.Element => <For each={tree().filter(row => row.parent === parent).map(row => row.todo)}>{(todo, sibling) => {
-            const at = () => tree().findIndex(row => row.todo.id === todo.id);
-            const members = () => dependency.groups().get(todo.id) ?? [];
+        const renderChildren = (parent: number | null, trail: () => readonly boolean[] = () => []): JSX.Element => {
+          const children = createMemo(() => topology().children(parent).map(row => row.todo));
+
+          return <For each={children()}>{(todo, sibling) => {
+            const at = () => topology().index.get(todo.id)!;
+            const members = () => dependency.groups().get(todo.id);
+            const total = () => members()?.total ?? 0;
+            const completed = () => members()?.done ?? 0;
             let registered: HTMLButtonElement | null = null;
-            const row = { get level() { return placeOf(todo.id).level; }, get parent() { return placeOf(todo.id).parent; }, get trail() { return this.level > 1 ? [...trail(), sibling() < tree().filter(row => row.parent === parent).length - 1] : []; } };
+            const row = { get level() { return placeOf(todo.id).level; }, get parent() { return placeOf(todo.id).parent; }, get trail() { return this.level > 1 ? [...trail(), sibling() < children().length - 1] : []; } };
 
             return <Sortable.Item id={String(todo.id)} index={at()}>{parts => {
             const draw = (itemProps: () => JSX.HTMLAttributes<HTMLElement>) => (
             <OpenRow
               copyWith={registerCopy(todo.id)}
-              disclosure={<Show when={members().length > 0}><TreeView.BranchTrigger asChild={trigger => <IconButton {...trigger({
+              disclosure={<Show when={total() > 0}><TreeView.BranchTrigger asChild={trigger => <IconButton {...trigger({
                 "aria-label": copy.toggleTodoGroup(todo.title), "aria-controls": `todo-group-${todo.id}`, "aria-expanded": dependency.expanded(todo.id),
                 onClick: () => {
                   const content = document.getElementById(`todo-group-${todo.id}`);
@@ -700,8 +706,8 @@ export const Todos = (props: {
                 },
               })} aria-label={copy.toggleTodoGroup(todo.title)} data-group-toggle={todo.id}><Icon name={dependency.expanded(todo.id) ? "down" : "right"} /></IconButton>} /></Show>}
               aggregateMotion={dependency.strike(todo.id)}
-              groupComplete={members().length ? dependency.complete(todo.id) : undefined}
-              groupProgress={<Show when={members().length > 0}><Progress label={copy.todosDoneIn(todo.title)} max={members().length} value={members().filter(row => row.todo.done).length} motion={dependency.bar(todo.id)} onMotionEnd={() => dependency.barEnded(todo.id)}><span class="todo-progress-count" data-state="">{members().filter(row => row.todo.done).length}/{members().length}</span></Progress></Show>}
+              groupComplete={total() ? dependency.complete(todo.id) : undefined}
+              groupProgress={<Show when={total() > 0}><Progress label={copy.todosDoneIn(todo.title)} max={total()} value={completed()} motion={dependency.bar(todo.id)} onMotionEnd={() => dependency.barEnded(todo.id)}><span class="todo-progress-count" data-state="">{completed()}/{total()}</span></Progress></Show>}
               current={now().has(todo.id)}
               motion={finishing.row(todo.id)}
               onMotionEnd={() => finishing.rowEnded(todo.id)}
@@ -718,7 +724,7 @@ export const Todos = (props: {
               onAssign={(item, anchor) => { setPicking({ id: item.id, anchor }); pickAdvance = captureAdvance(item.id); }}
               failWith={(show, message, rename) => pickFails.set(todo.id, { show, message, rename })}
               sorted={sorted.row(todo.id, parts, () => tree().map(({ todo }) => todo.id))}
-              place={row} connections={<Trunks depth={row.level - 1} trail={row.trail} stem={members().length > 0 && dependency.expanded(todo.id)} />}
+              place={row} connections={<Trunks depth={row.level - 1} trail={row.trail} stem={total() > 0 && dependency.expanded(todo.id)} />}
               nest={nestOf(todo, row.parent, tree().slice(0, at()).findLast(row => !row.todo.done)?.todo ?? null, at() === 0)}
               registerRow={(id, row) => {
                 if (row) {
@@ -735,7 +741,7 @@ export const Todos = (props: {
 
             return (
             <TreeView.NodeProvider node={collection().findNode(String(todo.id))!} indexPath={collection().getIndexPath(String(todo.id)) ?? []}>
-            <Show when={members().length > 0} fallback={<TreeView.Item asChild={draw} />}>
+            <Show when={total() > 0} fallback={<TreeView.Item asChild={draw} />}>
               <TreeView.Branch asChild={branch => {
                 const attrs = () => {
                   const { "aria-level": _level, "aria-expanded": _expanded, ...rest } = branch();
@@ -753,6 +759,7 @@ export const Todos = (props: {
               );
             }}</Sortable.Item>;
         }}</For>;
+        };
 
         return <>
         <For each={group().items.filter(todo => pending().includes(todo))}>{todo => <ShelfRow class="todo-row todo-inset" data-todo={todo.id} data-pending="true" glyph={<span><KindGlyph kind="idle" /></span>} head={<div class="row-head"><span class="shelf-title">{todo.title}</span></div>} />}</For>
