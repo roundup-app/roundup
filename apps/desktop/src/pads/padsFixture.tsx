@@ -177,7 +177,7 @@ export const openPad = async (name: string, recovery?: { connected: Awaited<Retu
       if (group.contains(row) && group.getAttribute("aria-expanded") === "false") fireEvent.click(group.querySelector('[data-part="branch-control"]')!);
     }
 
-    const button = within(row.parentElement!).getByRole("button", { name });
+    const button = await within(row.parentElement!).findByRole("button", { name });
     button.focus({ preventScroll: true });
     fireEvent.keyDown(button, { key: "Enter", code: "Enter" });
   }
