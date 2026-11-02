@@ -1,5 +1,6 @@
 import { createEffect, createResource, createRoot, createSignal, onCleanup, untrack } from "solid-js";
 import type { Accessor, Resource } from "solid-js";
+import type { Worktree } from "@contracts/agent/Worktree";
 import type { WorktreeState } from "@contracts/agent/WorktreeState";
 import type { AppSeam, DaemonExit } from "../app/seam";
 import { copy } from "./copy";
@@ -9,24 +10,17 @@ import { NOW_TICK_MS } from "./clock";
 
 type Read = { failure: null; state: WorktreeState } | { failure: string };
 
-type Entry = { identity: string; read: Resource<Read>; refresh: () => Promise<Read>; dispose: () => void; attempted: number };
+type Entry = { identity: Worktree; read: Resource<Read>; refresh: () => Promise<Read>; dispose: () => void; attempted: number };
 
 /** One visible Project owner; neither consumer can retain an entry across a recorded identity change. */
 export const createWorktreeState = (app: AppSeam, rail: RailState, now: Accessor<number>, daemonExit: Accessor<DaemonExit | null>) => {
   const entries = new Map<string, Entry>();
   const [revision, changed] = createSignal(0);
 
-  const identity = (id: string) => {
-    const node = rail.nodes.find((node) => node.id === id);
-
-    return node?.worktree ? JSON.stringify([id, node.worktree.path, node.worktree.branch, node.worktree.base]) : null;
-  };
-
   const current = (id: string) => {
     revision();
-    const entry = entries.get(id);
 
-    return !daemonExit() && entry?.identity === identity(id) ? entry : undefined;
+    return !daemonExit() ? entries.get(id) : undefined;
   };
 
   const clear = () => {
@@ -49,53 +43,67 @@ export const createWorktreeState = (app: AppSeam, rail: RailState, now: Accessor
     },
     /** Called once by the connected Project's rendered owner. Uses the App's coarse tick, never a second timer. */
     watch: (visible: Accessor<boolean>) => {
+      // U5643c: Rail ownership changes independently of the coarse polling clock.
+      // Only these fields are tracked; name/Status changes leave resources alone.
       createEffect(() => {
-        const active = visible() && !daemonExit();
-        const time = now();
+        const identities = visible() && !daemonExit() ? rail.nodes.flatMap(node => {
+          const worktree = node.worktree;
 
-        const identities = active ? rail.nodes.flatMap((node) => {
-          const key = identity(node.id);
-
-          return key === null ? [] : [{ id: node.id, key }];
+          return worktree ? [{ id: node.id, path: worktree.path, branch: worktree.branch, base: worktree.base }] : [];
         }) : [];
 
         untrack(() => {
+          const live = new Set<string>();
+          let replaced = false;
+
+          for (const { id, path, branch, base } of identities) {
+            live.add(id);
+            const existing = entries.get(id);
+
+            if (existing && existing.identity.path === path && existing.identity.branch === branch && existing.identity.base === base) continue;
+            existing?.dispose();
+
+            const entry = createRoot((dispose): Entry => {
+              let latest: Promise<Read>;
+
+              const [read, { refetch }] = createResource(() => latest = (async (): Promise<Read> => {
+                let state!: WorktreeState;
+                const failure = await failureOf(async () => { state = await app.rpc("agent.worktreeState", { id }); });
+
+                return failure === null ? { failure, state } : { failure };
+              })());
+
+              return { identity: { path, branch, base }, read, dispose, attempted: now() + NOW_TICK_MS, refresh: () => {
+                // Keep the request outcome available to its caller even after resource disposal.
+                if (!read.loading) void refetch();
+
+                return latest;
+              } };
+            });
+
+            entries.set(id, entry);
+            replaced = true;
+          }
+
           for (const [id, entry] of entries) {
-            if (!identities.some((item) => item.id === id && item.key === entry.identity)) {
-              entry.dispose();
-              entries.delete(id);
-            }
+            if (live.has(id)) continue;
+            entry.dispose();
+            entries.delete(id);
+            replaced = true;
           }
 
-          for (const { id, key } of identities) {
-            let entry = entries.get(id);
+          if (replaced) changed(value => value + 1);
+        });
+      });
+      createEffect(() => {
+        const time = now();
 
-            if (!entry) {
-              entry = createRoot((dispose): Entry => {
-                let latest: Promise<Read>;
-
-                const [read, { refetch }] = createResource(() => latest = (async (): Promise<Read> => {
-                  let state!: WorktreeState;
-                  const failure = await failureOf(async () => { state = await app.rpc("agent.worktreeState", { id }); });
-
-                  return failure === null ? { failure, state } : { failure };
-                })());
-
-                return { identity: key, read, dispose, attempted: time + NOW_TICK_MS, refresh: () => {
-                  // Keep the request outcome available to its caller even after resource disposal.
-                  if (!read.loading) void refetch();
-
-                  return latest;
-                } };
-              });
-              entries.set(id, entry);
-            } else if (time - entry.attempted >= 5_000) {
-              entry.attempted = time;
-              void entry.refresh();
-            }
+        untrack(() => {
+          for (const entry of entries.values()) {
+            if (time - entry.attempted < 5_000) continue;
+            entry.attempted = time;
+            void entry.refresh();
           }
-
-          changed((value) => value + 1);
         });
       });
       onCleanup(clear);
