@@ -208,6 +208,7 @@
   .milkdown-slash-menu ul {
     list-style: none;
     margin: 0;
+    padding: 0;
   }
   .milkdown-slash-menu li {
     display: flex;
@@ -406,6 +407,35 @@
    overflow so the existing library options remain reachable. */
 .milkdown .top-bar-inner:has(.top-bar-heading-dropdown) {
   overflow: visible;
+}
+
+.pad-rich-editor details[data-pad-agents] {
+  margin-block: var(--space-4);
+}
+
+details[data-pad-agents] summary {
+  cursor: pointer;
+  color: var(--grey);
+}
+
+details[data-pad-agents] textarea {
+  display: block;
+  width: 100%;
+  min-height: calc(var(--space-4) * 8);
+  margin-block-start: var(--space-3);
+  padding: 0;
+  border: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-body);
+  color: var(--text);
+  background: var(--ground);
+  resize: vertical;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  details[data-pad-agents] summary:hover {
+    color: var(--text);
+  }
 }
 
 /* The node view supplies its marker column; list padding would indent twice. */
