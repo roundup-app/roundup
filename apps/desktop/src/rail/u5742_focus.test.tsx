@@ -130,20 +130,6 @@ it("u5742b_modifier_selection_and_arrows_keep_rail_focus", async () => {
   await provesChoice(m, "ann");
 });
 
-it("u5742c_held_choice_focuses_terminal", async () => {
-  const m = await mount([agent("ann", "working", "busy", { alert_level: "quiet" })]);
-  const { status } = await import("../toasts/toastFixture");
-  m.app.emit(status("ann", "needs-you"));
-  fireEvent.click(await screen.findByRole("button", { name: /held/ }));
-
-  const held = await waitFor(() => { const element = document.querySelector<HTMLElement>(".held-row"); expect(element).not.toBeNull();
-
- return element!; });
-
-  fireEvent.click(held);
-  await provesChoice(m, "ann");
-});
-
 it("u5742c_toast_choice_focuses_terminal", async () => {
   const m = await mount([agent("ann", "working", "busy", { alert_level: "all" })]);
   const { status } = await import("../toasts/toastFixture");

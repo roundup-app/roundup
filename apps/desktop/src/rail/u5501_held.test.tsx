@@ -64,7 +64,7 @@ it("u5501_held_rows_keep_event_identity_content_and_order_across_reopen", async 
 });
 
 it.each(["held", "rail", "alert"])("u5501_opening_an_agent_clears_only_its_held_rows via %s", async entry => {
-  const { app, connected, hold } = await mount();
+  const { app, connected, hold, emulators } = await mount();
   hold("a", "needs-you"); hold("b", "needs-you"); hold("a", "error");
 
   if (entry === "held") {
@@ -77,6 +77,10 @@ it.each(["held", "rail", "alert"])("u5501_opening_an_agent_clears_only_its_held_
   await waitFor(() => expect(connected.held.rows().map(row => row.agent)).toEqual(["b"]));
   expect(connected.rail.selected()).toBe("a");
   expect(app.calls.filter(call => ["message.send", "agent.resume", "terminal.write"].includes(call.method))).toEqual([]);
+  await waitFor(() => expect(document.activeElement?.getAttribute("data-terminal")).toBe("t-a"));
+  expect(document.activeElement?.closest(".pane-screen")).not.toBeNull();
+  emulators.made.get("t-a")!.type(new TextEncoder().encode("marker"));
+  await waitFor(() => expect(app.calls.filter(call => call.method === "terminal.write").map(call => call.params)).toEqual([{ id: "t-a", data: "bWFya2Vy" }]));
 });
 
 it("u5501_a_failed_or_gone_target_open_preserves_held_rows", async () => {
