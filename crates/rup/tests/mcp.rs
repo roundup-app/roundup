@@ -24,7 +24,7 @@ mod removed_questions;
 mod rewind;
 #[path = "mcp/tool_lists.rs"]
 mod tool_lists;
-use tool_lists::{NO_TOOL, expected_tools, seam_commands};
+use tool_lists::expected_tools;
 const BOUND: Duration = Duration::from_secs(20);
 
 struct Shim {
@@ -231,26 +231,6 @@ fn assert_exit_1_with_one_line_naming(output: &Output, socket: &Path) {
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert_eq!(stderr.lines().count(), 1, "{stderr}");
     assert!(stderr.contains(socket.to_str().unwrap()), "{stderr}");
-}
-
-#[test]
-fn m5_every_app_action_has_a_tool_or_a_reason() {
-    for command in seam_commands() {
-        match command.as_str() {
-            "open_project" | "rename_project" => {
-                let method = if command == "open_project" {
-                    "project.open"
-                } else {
-                    "project.rename"
-                };
-                assert!(expected_tools().contains(&tool_lists::tool_name(method)));
-            }
-            _ => assert!(
-                NO_TOOL.contains(&command.as_str()),
-                "{command} has no App seam policy"
-            ),
-        }
-    }
 }
 
 #[tokio::test]

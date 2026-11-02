@@ -379,3 +379,23 @@ async fn p16_shared_pad_access_over_public_seams() {
     );
     serving.abort();
 }
+
+#[test]
+fn m5_every_app_action_has_a_tool_or_a_reason() {
+    for command in seam_commands() {
+        match command.as_str() {
+            "open_project" | "rename_project" => {
+                let method = if command == "open_project" {
+                    "project.open"
+                } else {
+                    "project.rename"
+                };
+                assert!(expected_tools().contains(&tool_name(method)));
+            }
+            _ => assert!(
+                NO_TOOL.contains(&command.as_str()),
+                "{command} has no App seam policy"
+            ),
+        }
+    }
+}
