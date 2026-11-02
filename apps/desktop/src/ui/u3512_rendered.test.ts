@@ -9,7 +9,7 @@ vi.setConfig({ testTimeout: 60_000 });
 
 let lane: LaneBrowser;
 
-beforeAll(async () => { lane = await openLane(1512, "dark", "u3512"); }, 180_000);
+beforeAll(async () => { lane = await openLane(1512, "dark", "u3512", false, null); }, 180_000);
 
 afterAll(async () => { await lane?.close(); });
 
@@ -30,7 +30,7 @@ const record = async (step: string) => {
 };
 
 it("u3512b_shared_dialog_keeps_focus_and_drafts", async () => {
-  await lane.seedTodos(["Long Unicode 雪 🪁 ".repeat(5), ...Array.from({ length: 9 }, (_, at) => `Todo ${at + 2}`)], false);
+  await lane.seedTodos(["Long Unicode 雪 🪁 ".repeat(5), ...Array.from({ length: 9 }, (_, at) => `Todo ${at + 2}`)], false); // taste-skill-ignore: Unicode overflow fixture, not decorative UI.
   await openForm();
   const field = '.new-workstream textarea';
   await lane.browser("fill", field, "  exact 雪 é  ");
