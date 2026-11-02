@@ -46,7 +46,17 @@ beforeAll(async () => {
   const baseRoot = process.env.U500_BASE_ROOT;
 
   if (baseRoot) {
+    const captureSelection = process.env.ROUNDUP_CAPTURES;
+
+    // Baseline main may predate these observer ids; it serves pages, never tests.
+    delete process.env.ROUNDUP_CAPTURES;
+
+    try {
     baselineServer = await createServer({ root: baseRoot, configFile: join(baseRoot, "vite.config.ts"), cacheDir: join(profile, "base-vite"), server: { port: 0, hmr: false }, logLevel: "silent" });
+    } finally {
+      process.env.ROUNDUP_CAPTURES = captureSelection;
+    }
+
     await baselineServer.listen();
     await warmApp(baselineServer);
     baselineOrigin = baselineServer.resolvedUrls!.local[0]!;
