@@ -1,22 +1,12 @@
 import { labels, copy as sharedCopy, type CopyValue } from "../sharedCopy";
 
-const settings = "settings";
-
-const recoverySubjects = new Map([
-  ["open-tab", "Project"], ["unseen", "markers"], ["drafts", labels.get("drafts")],
-  ["import", "imports"], ["rail", labels.get("rail")], ["app-settings", settings],
-  ["widths", "widths"], ["shelf", "work layout"], ["terminal-font", "Terminal size"],
-]);
-
 export const linkCopy = {
   published: "This published link cannot be opened here. Open it from Made.",
   projectClosed: "The link's Project is not open. Open that Project and try the link again.",
 } as const;
 
 export const storageCopy = {
-  continue: (key: string) => key.startsWith("roundup:drafts:") ? "Continue" : "Continue without settings",
-  retained: (count: number) => `Invalid data (${count})`,
-  recoveryLabel: (key: string, copied = false) => `${copied ? sharedCopy.copied : sharedCopy.copy} ${recoverySubjects.get(key.split(":")[1] ?? "") ?? settings}`,
+  incompatible: sharedCopy.storageIncompatible,
   restoring: "Restoring saved work…",
   restoreRetry: sharedCopy.retry,
   saveRetry: "Retry saving",

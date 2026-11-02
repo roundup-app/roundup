@@ -241,6 +241,8 @@ pub const NO_TOOL: [&str; 93] = [
     "plugin:window-bar|zoom_window",
     // U134: the user's native window appearance, which an Agent cannot change.
     "plugin:window-bar|native_material",
+    // N5467b: only the App locates its obsolete browser data for the user’s manual reset.
+    "plugin:window-bar|webview_data_path",
     // U3787f: the operating system hands the App a roundup link; an Agent reads one with link.read.
     "native_open",
     "rpc",
