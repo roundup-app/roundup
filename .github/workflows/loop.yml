@@ -40,6 +40,8 @@ jobs:
         if: ${{ !cancelled() }}
       - run: python3 loop/deadline.test.py
         if: ${{ !cancelled() }}
+      - run: python3 loop/image_tools.test.py
+        if: ${{ !cancelled() }}
       - run: python3 loop/stall.test.py
         if: ${{ !cancelled() }}
       - name: Select boxd regressions
