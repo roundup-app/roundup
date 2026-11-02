@@ -186,7 +186,8 @@ it.each([false, true])("u5483c_replied_question_folds_after_queued_resumption_re
   await settled();
   expect(rowNames()).toContain("child");
   // The Daemon clears final text before broadcasting the new working status.
-  app.handlers["rail.tree"] = () => [workstream("stream"), { ...child, final_text: undefined }];
+  const { final_text: _finalText, ...resuming } = child;
+  app.handlers["rail.tree"] = () => [workstream("stream"), resuming];
   app.emit(event({ name: "rail.changed" }));
   app.emit(event({ name: "agent.status", data: { id: "child", attempt: "1", status_revision: "2", status: { kind: "working", label: "working", since: NOW + 2, finished: "0" } } }));
   await rail.settled();
