@@ -160,6 +160,7 @@ pub(crate) async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Resul
                     | "agent.interrupt"
                     | "agent.prompt"
                     | "agent.setOrder"
+                    | "agent.setVisibility"
                     | "agent.resume"
                     | "agent.instructions"
             )

@@ -78,9 +78,34 @@ impl Served {
             }
         });
         let served = Self { dir, child, stderr };
+        served.wait_ready().await;
+        served
+    }
+
+    /// Reopen the same Project without starting any Agent.
+    #[allow(dead_code)] // Used by the visibility MCP observer.
+    pub async fn restart(&mut self) {
+        self.child.kill().unwrap();
+        self.child.wait().unwrap();
+        std::fs::remove_file(self.socket()).unwrap();
+        self.child = Command::new(std::env::current_exe().unwrap())
+            .args(["--exact", "common::serve_for_the_parent", "--nocapture"])
+            .env(SERVE_ENV, self.dir.path())
+            .env("RUPD_SOCKET", self.socket())
+            .env("ROUNDUP_CLAUDE_BIN", self.dir.path().join("fake-claude"))
+            .env("ROUNDUP_RUP_BIN", env!("CARGO_BIN_EXE_rup"))
+            .env("CLAUDE_CONFIG_DIR", self.dir.path())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .unwrap();
+        self.wait_ready().await;
+    }
+
+    async fn wait_ready(&self) {
         for _ in 0..500 {
-            if rpc::Client::connect(&served.socket()).await.is_ok() {
-                return served;
+            if rpc::Client::connect(&self.socket()).await.is_ok() {
+                return;
             }
             tokio::time::sleep(Duration::from_millis(20)).await;
         }
