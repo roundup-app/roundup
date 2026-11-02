@@ -4,7 +4,7 @@ import { Icon } from "../ink/Icon";
 import { KIND_ICON } from "../ink/kindIcon";
 import { KeyChip } from "../keys/KeyChip";
 import { CHORDS, ariaShortcut } from "../keys/chords";
-import { captureActions } from "../keys/registry";
+import { activationSource, captureActions } from "../keys/registry";
 import { useConnectedProject } from "../state/connectedProject";
 import { copy } from "./copy";
 import { Menu } from "../ui/Menu";
@@ -24,6 +24,7 @@ export const RailFooter = (props: {
   const dismissalLine = () => !(failure.surface() === "rail" && failure.message()) && !rail.storageFailure() && rail.unsavedDismissal() !== null;
 
   const [open, setOpen] = createSignal(false);
+  const [pointer, setPointer] = createSignal(false);
 
   const choices = [
     { kind: "agent", name: "agent.new", label: copy.addAgentWord.trim(), run: () => captureActions(document.activeElement).find(action => action.value === "action:chord:⌘N")?.run() },
@@ -33,7 +34,7 @@ export const RailFooter = (props: {
 
   return (
       <div class="rail-footer">
-        <ReservedLine content={failure.message()?.startsWith(`${copy.newAgent}: `) ? <span>{failure.message()!.slice(0, copy.newAgent.length + 2)}<span>{failure.message()!.slice(copy.newAgent.length + 2)}</span></span> : undefined} class="rail-command-notice" overlay message={(failure.surface() === "rail" ? failure.message() : null) ?? rail.storageFailure() ?? (rail.unsavedDismissal() !== null ? copy.dismissalUnsaved(rail.unsavedDismissal()!) : null) ?? (retained.problem()?.destination?.surface.startsWith("rail-") ? copy.railDraftRetention(project.name, retained.problem()!.destination?.surface ?? "rail", retained.problem()!.operation) : null)}
+        <ReservedLine content={failure.message()?.startsWith(`${copy.newAgent}: `) ? <span>{failure.message()!.slice(0, copy.newAgent.length + 2)}<span>{failure.message()!.slice(copy.newAgent.length + 2)}</span></span> : undefined} class="rail-command-notice" message={(failure.surface() === "rail" ? failure.message() : null) ?? rail.storageFailure() ?? (rail.unsavedDismissal() !== null ? copy.dismissalUnsaved(rail.unsavedDismissal()!) : null) ?? (retained.problem()?.destination?.surface.startsWith("rail-") ? copy.railDraftRetention(project.name, retained.problem()!.destination?.surface ?? "rail", retained.problem()!.operation) : null)}
           status={asking() ? copy.askingTheDoor : retained.records().some(entry => entry.destination.surface.startsWith("rail-") && entry.status === "unknown") ? copy.railDraftUnknown(project.name) : null}>
           <Show when={failure.retry()}>{retry => <>
             <button type="button" data-button="quiet" onClick={() => retry()()}>{copy.retry}</button>
@@ -44,8 +45,8 @@ export const RailFooter = (props: {
         </ReservedLine>
         <div class="rail-actions">
           <Menu.Root open={open()} onOpenChange={details => { if (!details.open || canSpawn()) setOpen(details.open); }} positioning={{ placement: "top-start" }} onSelect={({ value }) => { if (canSpawn()) choices.find(choice => choice.kind === value)?.run(); }}>
-            <Menu.Trigger data-button="add" aria-label={copy.create} aria-disabled={canSpawn() ? undefined : true}><Icon name="plus" /></Menu.Trigger>
-            <Portal><Menu.Positioner><Menu.Content aria-label={copy.create} class="rail-create-menu">
+            <Menu.Trigger onPointerDown={() => setPointer(true)} onKeyDown={() => setPointer(false)} onClick={event => setPointer(activationSource(event) === "pointer")} data-button="add" aria-label={copy.create} aria-disabled={canSpawn() ? undefined : true}><Icon name="plus" /></Menu.Trigger>
+            <Portal><Menu.Positioner><Menu.Content aria-label={copy.create} class="rail-create-menu" data-pointer={pointer() || undefined}>
               <For each={choices}>{choice => {
                 const keys = CHORDS.find(chord => chord.name === choice.name)!.keys;
 

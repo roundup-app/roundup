@@ -103,6 +103,8 @@ it("u5555_rendered_unavailable_menu_and_failure_retry", async () => {
   await lane.browser("click", '[role=menuitem][data-value=workstream]');
   await lane.until("!!document.querySelector('.rail-command-notice [role=alert]')");
   await lane.capture("U4313b", "tree-40-failure");
+  await lane.evaluate("(() => { const scroll = document.querySelector('.rail-scroll'); scroll.scrollTop = scroll.scrollHeight; return true; })()");
+  await lane.capture("U4313b", "tree-40-failure-bottom");
   await lane.browser("click", '.rail-command-notice button');
   await lane.until("!document.querySelector('.rail-command-notice [role=alert]')");
   await lane.capture("U4313b", "tree-40-retry");
