@@ -114,7 +114,16 @@ export default function PadRichEditor(props: {
 
     // SAFETY: Crepe recursively partials HTMLElement in its root type; the supported root is a real DOM element.
     const blockConfig = {
-      blockHandle: { getOffset: () => 0, root: menuHost },
+      blockHandle: {
+        getOffset: () => 0,
+        // Nested node bounds can remain over another list after scrolling; keep controls outside the reading column.
+        getPosition: ({ active, editorDom }) => {
+          const block = active.el.getBoundingClientRect();
+
+          return new DOMRect(editorDom.getBoundingClientRect().left, block.top, 0, block.height);
+        },
+        root: menuHost,
+      },
       slashMenu: { root: menuHost },
       textGroup: { divider: null },
     } as BlockEditFeatureConfig;
