@@ -35,19 +35,18 @@ const capture = async (step: string) => {
   await browser("screenshot", join(dir, `${step}.png`));
 };
 
-it("p3557c_rendered_failure_clears_with_its_deleted_pad", async () => {
+it("p3557c_rendered_failure_clears_with_its_deleted_todo", async () => {
   await browser("open", `${server.resolvedUrls.local[0]}harness.html?view=workstreams&items=1&tabs=1&seed=tree-40`);
   await browser("wait", "[role=tree]");
-  const pads = "window.__fake.app.handlers['pad.list']";
-  const name = JSON.parse(await browser("eval", `window.__fake.app.rpc('pad.list').then(list => list[0].name)`));
+  const todo = JSON.parse(await browser("eval", "window.__fake.app.rpc('todo.list').then(list => list.find(todo => todo.creator.kind === 'user'))"));
 
-  await browser("eval", `window.__fake.emit({ actor: { kind: 'agent', id: 'a', parent: null }, name: 'pad.changed', data: { name: ${JSON.stringify(name)} } })`);
+  await browser("eval", `window.__fake.emit({ actor: { kind: 'agent', id: 'a', parent: null }, name: 'todo.updated', data: ${JSON.stringify(todo)} })`);
   await browser("wait", ".app-toast-action");
-  await browser("eval", `${pads} = () => []`);
+  await browser("eval", "window.__fake.app.handlers['todo.list'] = () => []");
   await browser("click", ".app-toast-action");
   await browser("wait", "[role=alert]");
   await capture("dark-failure-visible");
-  await browser("eval", `window.__fake.emit({ actor: { kind: 'user', id: 'you', parent: null }, name: 'pad.deleted', data: { name: ${JSON.stringify(name)} } })`);
+  await browser("eval", `window.__fake.emit({ actor: { kind: 'user', id: 'you', parent: null }, name: 'todo.deleted', data: { id: ${todo.id} } })`);
   await browser("wait", "--fn", "!document.querySelector('[role=alert]')");
   await capture("dark-failure-cleared");
   expect(JSON.parse(await browser("eval", "!!document.querySelector('[role=alert]')"))).toBe(false);

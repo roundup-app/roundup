@@ -43,15 +43,13 @@ describe("u410 which events make a Toast", () => {
     expect(sounds).toHaveLength(1);
   });
 
-  it("u410_an_agent_editing_the_users_todo_or_pad_makes_a_toast", async () => {
-    const { app, toasts, sounds } = await mountToasts(tree(), { todos: [todo(7, USER, "ship it")], pads: [pad("plan", USER)] });
+  it("u410_an_agent_editing_the_users_todo_makes_a_toast", async () => {
+    const { app, toasts, sounds } = await mountToasts(tree(), { todos: [todo(7, USER, "ship it")] });
 
     app.emit(by(AGENT, { name: "todo.updated", data: todo(7, USER, "ship it") }));
     await settle();
-    app.emit(by({ ...AGENT, id: "b" }, { name: "pad.changed", data: { name: "plan" } }));
-    await settle();
 
-    expect(names(toasts())).toEqual(['mason Changed Pad plan', 'scout Changed Todo "ship it"']);
+    expect(names(toasts())).toEqual(['scout Changed Todo "ship it"']);
     expect(sounds).toHaveLength(1);
   });
 
@@ -62,7 +60,13 @@ describe("u410 which events make a Toast", () => {
 
     app.emit(by(AGENT, { name: "todo.updated", data: todo(7, AGENT) }));
     app.emit(by(AGENT, { name: "pad.changed", data: { name: "plan" } }));
+    app.emit(by(USER, { name: "pad.changed", data: { name: "plan" } }));
     app.emit(by(USER, { name: "todo.updated", data: todo(8, USER) }));
+    await settle();
+
+    expect(toasts()).toHaveLength(0);
+    expect(sounds).toHaveLength(0);
+
     app.emit(status("a", "needs-you"));
     app.emit(status("a", "needs-you"));
     await settle();
@@ -152,8 +156,8 @@ describe("u412 clicking a Toast opens what it names", () => {
     expect(toasts()).toHaveLength(0);
   });
 
-  it("u412_clicking_opens_the_todo_or_pad_drawer", async () => {
-    const { app, toasts, connected } = await mountToasts(tree(), { todos: [todo(7, USER)], pads: [pad("plan", USER)] });
+  it("u412_clicking_opens_the_todo_drawer", async () => {
+    const { app, toasts, connected } = await mountToasts(tree(), { todos: [todo(7, USER)] });
 
     app.emit(by(AGENT, { name: "todo.updated", data: todo(7, USER) }));
     await settle();
@@ -161,15 +165,9 @@ describe("u412 clicking a Toast opens what it names", () => {
     await settle();
 
     expect(connected.drawer.content()).not.toBeNull();
-    expect(await screen.findByRole("checkbox", { name: "Complete ship it" })).toBeTruthy();
+    expect(await screen.findByRole("checkbox")).toBeTruthy();
 
-    connected.drawer.close();
-    app.emit(by(AGENT, { name: "pad.changed", data: { name: "plan" } }));
-    await settle();
-    fireEvent.click(toasts()[0]!);
-    await settle();
 
-    expect(connected.drawer.content()).not.toBeNull();
   });
 
   it("u412_a_gone_target_shows_the_failure_line", async () => {

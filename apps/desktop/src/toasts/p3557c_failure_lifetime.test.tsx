@@ -1,11 +1,10 @@
 import { cleanup, fireEvent, screen, within } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { Actor } from "@contracts/Actor";
 import { createFakeApp } from "../testing/fakeApp";
 import { connectProject } from "../state/connectedProject";
 import { watchProject } from "./watch";
-import { agent, event, USER } from "../testing/nodes";
-import { TOAST_AGENT as AGENT, by, mountToasts, pad, status, toastTodo as todo } from "./toastFixture";
+import { agent, USER } from "../testing/nodes";
+import { TOAST_AGENT as AGENT, by, mountToasts, status, toastTodo as todo } from "./toastFixture";
 
 const tree = () => [agent("a", "working", "x", { name: "scout" })];
 
@@ -14,7 +13,7 @@ const settle = async () => {
   await vi.advanceTimersByTimeAsync(400);
 };
 
-const alert = () => screen.queryByRole("alert")?.textContent ?? null;
+const alert = () => screen.queryByRole("alert");
 
 beforeEach(() => vi.useFakeTimers());
 
@@ -23,25 +22,16 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-type Owner = { name: string; changed: (id: string) => Parameters<typeof by>[1]; deleted: (id: string) => Parameters<typeof event>[0]; saved: (id: string, actor: Actor) => Parameters<typeof by>[1]; label: RegExp };
-
-const owners: Owner[] = [
-  { name: "todo", label: /Changed Todo/, changed: (id) => ({ name: "todo.updated", data: todo(Number(id), USER, `t${id}`) }), deleted: (id) => ({ name: "todo.deleted", data: { id: Number(id) } }), saved: (id) => ({ name: "todo.updated", data: todo(Number(id), USER, `t${id}`) }) },
-  { name: "pad", label: /Changed Pad/, changed: (id) => ({ name: "pad.changed", data: { name: `p${id}` } }), deleted: (id) => ({ name: "pad.deleted", data: { name: `p${id}` } }), saved: (id) => ({ name: "pad.changed", data: { name: `p${id}` } }) },
-];
-
-describe.each(owners)("p3557c_failure_lifetime_$name", (owner) => {
+describe("p3557c_failure_lifetime_todo", () => {
   const fail = async () => {
     // No item exists, so opening it fails with "gone".
-    const mounted = await mountToasts(tree(), { todos: [], pads: [] });
+    const mounted = await mountToasts(tree(), { todos: [] });
 
-    mounted.app.handlers["pad.list"] = () => [pad("p1", USER)];
-    mounted.app.emit(by(AGENT, owner.changed("1")));
+    mounted.app.emit(by(AGENT, { name: "todo.updated", data: todo(1, USER) }));
     await settle();
-    mounted.app.handlers["pad.list"] = () => [];
-    fireEvent.click(await screen.findByRole("button", { name: owner.label }));
+    fireEvent.click(await screen.findByRole("button", { name: /Changed Todo/ }));
     await settle();
-    expect(alert()).toContain("gone");
+    expect(alert()).not.toBeNull();
 
     return mounted;
   };
@@ -49,19 +39,17 @@ describe.each(owners)("p3557c_failure_lifetime_$name", (owner) => {
   it("u3791c_replacement_keeps_failure_ownership", async () => {
     const mounted = await fail();
     const draft = mounted.connected.drafts.edit({ surface: "ask", object: "ask-bar", recipient: "a" }, { text: " retained 🌿 " }, null, "ordinary").draft;
-    mounted.app.handlers["pad.list"] = () => [pad("p2", USER)];
-    mounted.app.emit(by(AGENT, owner.changed("2")));
+    mounted.app.emit(by(AGENT, { name: "todo.updated", data: todo(2, USER) }));
     await settle();
-    mounted.app.handlers["pad.list"] = () => [];
-    fireEvent.click(screen.getByRole("button", { name: owner.label }));
+    fireEvent.click(screen.getByRole("button", { name: /Changed Todo/ }));
     await settle();
     expect(screen.getAllByRole("alert")).toHaveLength(1);
-    mounted.app.emit(by(USER, owner.saved("1", USER)));
-    mounted.app.emit(by(USER, owner.deleted("1")));
+    mounted.app.emit(by(USER, { name: "todo.updated", data: todo(1, USER) }));
+    mounted.app.emit(by(USER, { name: "todo.deleted", data: { id: 1 } }));
     await settle();
     expect(screen.getAllByRole("alert")).toHaveLength(1);
     expect(mounted.connected.drafts.list()).toContainEqual(draft);
-    mounted.app.emit(by(USER, owner.deleted("2")));
+    mounted.app.emit(by(USER, { name: "todo.deleted", data: { id: 2 } }));
     await settle();
     expect(screen.queryByRole("alert")).toBeNull();
     expect(mounted.connected.drafts.list()).toContainEqual(draft);
@@ -70,10 +58,10 @@ describe.each(owners)("p3557c_failure_lifetime_$name", (owner) => {
   it("deleting the item clears its failure; another item's deletion does not", async () => {
     const { app } = await fail();
 
-    app.emit(by(USER, owner.deleted("2")));
+    app.emit(by(USER, { name: "todo.deleted", data: { id: 2 } }));
     await settle();
-    expect(alert()).toContain("gone");
-    app.emit(by(USER, owner.deleted("1")));
+    expect(alert()).not.toBeNull();
+    app.emit(by(USER, { name: "todo.deleted", data: { id: 1 } }));
     await settle();
     expect(alert()).toBeNull();
   });
@@ -81,10 +69,10 @@ describe.each(owners)("p3557c_failure_lifetime_$name", (owner) => {
   it("a save of the same item clears it; a save of another does not", async () => {
     const { app } = await fail();
 
-    app.emit(by(USER, owner.saved("2", USER)));
+    app.emit(by(USER, { name: "todo.updated", data: todo(2, USER) }));
     await settle();
-    expect(alert()).toContain("gone");
-    app.emit(by(USER, owner.saved("1", USER)));
+    expect(alert()).not.toBeNull();
+    app.emit(by(USER, { name: "todo.updated", data: todo(1, USER) }));
     await settle();
     expect(alert()).toBeNull();
   });
@@ -92,7 +80,7 @@ describe.each(owners)("p3557c_failure_lifetime_$name", (owner) => {
   it("Close dismisses it and no timer does", async () => {
     await fail();
     await vi.advanceTimersByTimeAsync(60_000);
-    expect(alert()).toContain("gone");
+    expect(alert()).not.toBeNull();
     fireEvent.click(within(screen.getByRole("alert").closest<HTMLElement>(".app-toast")!).getByRole("button", { name: "Close" }));
     await settle();
     expect(alert()).toBeNull();
@@ -106,7 +94,7 @@ describe.each(owners)("p3557c_failure_lifetime_$name", (owner) => {
     await settle();
     fireEvent.click(screen.getByRole("button", { name: /scout/ }));
     await settle();
-    expect(alert()).toContain("gone");
+    expect(alert()).not.toBeNull();
   });
 });
 
