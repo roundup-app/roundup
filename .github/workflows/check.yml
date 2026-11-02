@@ -401,8 +401,7 @@ jobs:
       - name: test-web
         timeout-minutes: 15
         run: |
-          python3 -m pip install -r tools/e14/requirements.txt
-          python3 tools/e14/observe.py run --lane web${{ matrix.partition }} --shards ${{ strategy.job-total }} --base "$BASE" --memory-log "$RUNNER_TEMP/e14-memory.jsonl" --output "$RUNNER_TEMP/e14/web${{ matrix.partition }}" --cache-state "setup action; restore outcomes in the run's setup log"
+          python3 tools/e14/observe.py run --install-dependencies --lane web${{ matrix.partition }} --shards ${{ strategy.job-total }} --base "$BASE" --memory-log "$RUNNER_TEMP/e14-memory.jsonl" --output "$RUNNER_TEMP/e14/web${{ matrix.partition }}" --cache-state "setup action; restore outcomes in the run's setup log"
       - name: CI5330a disk after tests
         if: always()
         run: bash .github/actions/setup/disk.sh report after

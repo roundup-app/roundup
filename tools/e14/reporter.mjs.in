@@ -22,7 +22,7 @@ export default class LifecycleReporter {
         };
       });
 
-      return { id: module.relativeModuleId, state: module.state(), tests };
+      return { id: module.relativeModuleId, state: module.state(), duration_ms: module.diagnostic().duration, tests };
     });
 
     writeFileSync(process.env.E14_LIFECYCLE, JSON.stringify({ modules: report, errors }, null, 2) + "\n");
