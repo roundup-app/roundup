@@ -87,6 +87,53 @@ Policy — use the Shared rendered observer at 1280×820 and 1512×950, dark onl
 
 **U4937 toolbar acceptance follows shared Pad editing.** Policy — U4698b names no retired read-only toolbar test and imposes no Agent-created Pad read-only condition. Retain its eleven-format save/reopen acceptance for Pads created by any Actor, governed by U3789f in `scenarios/ui-shelf.md`. This is a scenario-text correction only; it adds no runtime behavior, test, rendered observer or design Check change.
 
+## Reader-first Pads
+
+Policy — U5561a–c extend U20/U147 and P2544c, preserving shared editing, autosave and conflict protection. Q5561 in `scenarios/plain-text.md` owns the Brief instruction. This is acceptance only; new tests named below are planned. Journey stage: Review, retaining `.agents/data/journey.md`'s real-Daemon observer and next-gap rule.
+
+**U5561a a Pad ends with folded Agent details.** Given a Pad ending with the Markdown below, when it opens in the editor or any read-only Pad view, then the reader-facing body is readable and `For Agents` starts folded, its enclosed content excluded from reading and keyboard traversal. One click on the disclosure opens it; another folds it. With keyboard focus on the disclosure, Return opens it and another Return folds it, retaining focus. Closing and reopening starts it folded again. Toggling neither edits the source nor schedules a save. Planned `u5561a_pad_disclosure_toggles` under `apps/desktop/src/pads/`, parameterized over editor/read-only host and pointer/Return, asserts visibility, focus, reachability and zero toggle writes with actual browser input in an isolated headless session and fresh profile; no script `.click()` or mocked editor.
+
+```markdown
+The change is ready. Review the result before publishing.
+
+<details>
+<summary>For Agents</summary>
+
+Path: `apps/desktop/src/pads/PadDrawer.tsx`
+Command: `rup pad read notes`
+Id: `fixture-5561`
+
+~~~text
+raw evidence: check passed
+~~~
+
+</details>
+```
+
+Policy — one optional trailing section, stored as `<details>` with `<summary>For Agents</summary>`, no `open` attribute and blank lines around its Markdown content. Exported Markdown therefore folds in GitHub and other readers supporting details. This is presentation, not an access restriction: the user can read every detail. Existing Pads need no automatic rewrite. Q10's inert-HTML policy is narrowed only for this Pad disclosure structure; other HTML and unsafe links remain inert, including inside it. Planned `u5561a_agent_details_keep_unsafe_markup_inert` exercises the real editor and read-only renderer with an event-handler image, script and `javascript:` link inside the section: no script/handler runs and no unsafe link becomes actionable.
+
+**U5561b hand editing preserves and inserts the section.** Given the fixture above, when it passes through the real Crepe binding without document edits, including unfold/refold, blur and close/reopen, then its entire Markdown stays byte for byte identical with no write. Editing and saving prose before the section changes only the edited blocks and preserves the entire section's authored bytes; fully undoing the edit before saving returns the whole original source. Planned `u5561b_round_trip_keeps_authored_source` under `apps/desktop/src/pads/` uses the real parser, serializer and source interface, with LF, CRLF, non-ASCII and missing-final-newline rows, comparing exact full source without normalization. Extend P2544c's proof for this new block rather than duplicating generic fixtures.
+
+Given an editable Pad, when the user chooses `For Agents` from its existing block menu by pointer or keyboard, then an absent section is added once at the end and its body can be edited; save/reopen retains the entered details and starts folded. If already present, the action opens the existing section for editing without duplication or lost content. Planned `u5561b_block_menu_adds_agent_details`, parameterized over pointer/keyboard and absent/present section, exercises the real Crepe menu and save/reopen. Policy — this is the sole extra Pad insertion-menu action beyond U4698b's eleven formats; no formatting-toolbar or Todo-menu expansion. Library components own menu and disclosure interaction; no parallel menu or hand-written disclosure state machine.
+
+**U5561c Agent tools and export keep the whole Pad.** Given the real Daemon and an Agent-created Pad in a Workstream, when `pad_write` writes the fixture through MCP, then opening that same Pad from its Workstream meets U5561a, and `pad_read`, `rup pad read` and `rup pad read --json` return the complete Markdown, enclosed details and delimiters included. `pad.export` writes that exact Markdown to the chosen file. Planned `u5561c_public_pad_round_trip` under `apps/desktop/src/pads/` uses the existing real-Daemon/headless App harness and public MCP/CLI seams in one session: write, open, toggle by click and Return, close/reopen, read and export; compare text and exported file byte for byte, accounting only for existing CLI output envelopes/newline. Include an unchanged editor round trip and a saved prose edit preserving the section, asserting persisted results through the Daemon rather than a seeded success. This session also proves the Review journey; add no duplicate process-only read proof.
+
+### U5561 regression holders and implementation policy
+
+Existing checks on `main` to retain:
+
+1. Unchanged source/no write: `apps/desktop/src/pads/u147_live_preview.test.tsx`, `u147_an_unchanged_document_keeps_its_source_bytes_and_writes_nothing`.
+2. Edited ranges/baselines: `apps/desktop/src/pads/p2544c_source.test.tsx`, `p2544c_only_edited_ranges_change` and `p2544c_repeated_saves_and_reload_preserve_bytes`.
+3. Read-only safety: `apps/desktop/src/plain/q10_markdown.test.tsx`, `q10_html_is_text`.
+4. CLI/MCP envelopes: `crates/rup/tests/cli.rs`, `i3_stdout_is_the_text_the_mcp_tool_returns` and `i3_json_prints_the_result_alone`.
+5. Export/file safety: `crates/pads/tests/pads.rs`, `p6_export_writes_one_file_and_never_creates_directories`.
+
+Policy — P11 gate: does recognizing, toggling or editing the block alter unfinished source, consume unacknowledged work or bypass conflict protection? Observe exact source above and retain U36/P2544d and U2773a–c's existing Pad probes. P6 gate: does work lose its Home or override a user move? Observe identical Project/Pad/Home through U5561c and retain move behavior. No new RPC, contract, storage field, Message law or access rule is specified.
+
+Policy — before adding machinery, search installed Milkdown/Crepe and remark plugins for folded blocks, then compare maintained candidates and platform `<details>` under rule 9. Use Crepe's block-menu extension and existing source interface. Implementation records sources, maintenance evidence and specific missing capabilities for rejected candidates; this specification chooses no custom parser or editor replacement.
+
+Policy — the Shared rendered observer's two dark viewports and worst-case seed apply, adding long paths, commands and raw evidence inside the fold. Run `just capture U5561a U5561b U5561c` for folded, pointer-open, keyboard-open, refolded, block-menu and save-failure states; leave PNGs/videos and Check readings under `artifacts/ux/<id>/` per the harness. Moves D2, D5 and D6 (`docs/design-system.md`, heading `The checks`); Tokens only, no regression of a Check passing on the same main baseline. The critic judges appearance, clipping and complete visible failure text; tests assert behavior, roles and contracts. The user reports what they meet on the Mac; no native-only observer is required here.
+
 **U4698c a Todo has an optional priority.** Work order: [#4695](https://github.com/roundup-app/roundup/issues/4695). This is the contract prerequisite for #4696's meta row and #4697's Activity. It refines the existing priority acceptance without changing U4698d/e's presentation. Tests below are planned acceptance, not implementation evidence.
 
 **Priority** (`Priority`, `priority`): a Todo's optional urgency: Low, Medium, High or Urgent. Unset is distinct from Low. Policy: use a closed enum whose wire values are exactly `low`, `medium`, `high`, `urgent`; unset serializes as null. Add this term to `GLOSSARY.md` with user label Priority in the implementation PR, alongside the contract and all callers.
