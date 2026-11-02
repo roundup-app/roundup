@@ -78,7 +78,7 @@ it.each(rows)("u4324b_app_chords_follow_focus: $chord / $place / native=$native 
     return emulator;
   }} prepareIdle={open => { connection = open; }} />);
 
-  if (!first) await screen.findByLabelText("Ask", { selector: '[role="textbox"]' });
+  if (!first) await screen.findByRole("textbox", { name: "Ask" });
   const daemon = app;
   const calls = (method: string) => daemon.calls.filter(call => call.method === method);
   daemon.handlers["agent.spawn"] = () => { const spawned = agent("new", "idle", "ready"); nodes.push(spawned);
@@ -96,7 +96,7 @@ it.each(rows)("u4324b_app_chords_follow_focus: $chord / $place / native=$native 
 
     if (place === "first-frame") target = document.querySelector<HTMLElement>(".centre")!;
   } else {
-    const editor = screen.getByLabelText("Ask", { selector: '[role="textbox"]' });
+    const editor = screen.getByRole("textbox", { name: "Ask" });
     fireEvent.input(editor, { target: { value: draft } });
     fixture!.store.todos[0]!.home = "home";
 
@@ -217,7 +217,7 @@ it.each(rows)("u4324b_app_chords_follow_focus: $chord / $place / native=$native 
     press("KeyB");
     expect(leaderArmed()).toBe(false);
     expect(document.querySelector(".window")?.getAttribute("data-shelf")).not.toBe(shelfBefore);
-  } else await waitFor(() => expect(document.activeElement).toBe(screen.getByLabelText("Ask", { selector: '[role="textbox"]' })));
+  } else await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("textbox", { name: "Ask" })));
 
   if (!first && !excludedHelp) expect(event.defaultPrevented).toBe(true);
 
