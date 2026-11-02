@@ -24,7 +24,7 @@ use serde_json::Value;
 use time::OffsetDateTime;
 use time::format_description::well_known::Rfc3339;
 
-use crate::digest::{Reader, World};
+use crate::digest::Reader;
 use crate::wake::is_agent;
 use crate::{Conn, Daemon};
 
@@ -224,15 +224,12 @@ pub(crate) struct Evaluator {
     pub bus: Bus,
 }
 
-fn kind_of(world: &World, id: &str) -> Option<contracts::Kind> {
-    node_of(world, id).and_then(|node| node.status.as_ref().map(|status| status.kind))
+fn kind_of(nodes: &[RailNode], id: &str) -> Option<contracts::Kind> {
+    node_of(nodes, id).and_then(|node| node.status.as_ref().map(|status| status.kind))
 }
 
-fn node_of<'a>(world: &'a World, id: &str) -> Option<&'a RailNode> {
-    world
-        .nodes()
-        .iter()
-        .find(|node| node.id == id && is_agent(node))
+fn node_of<'a>(nodes: &'a [RailNode], id: &str) -> Option<&'a RailNode> {
+    nodes.iter().find(|node| node.id == id && is_agent(node))
 }
 
 impl Evaluator {
@@ -337,9 +334,9 @@ impl Evaluator {
             w.unfinished.clear();
             w.before_rearm.clear();
         }
-        let world =
-            match self.reader.world().await {
-                Ok(world) => world,
+        let nodes =
+            match self.reader.rail().await {
+                Ok(nodes) => nodes,
                 Err(err) => {
                     w.unavailable(
                         Gap::AgentReadFailed,
@@ -391,7 +388,7 @@ impl Evaluator {
             // supply the next completion set. Replay newer Events only after this older snapshot.
             for finished in [true, false] {
                 for id in ids {
-                    if kind_of(&world, id)
+                    if kind_of(&nodes, id)
                         .is_some_and(|kind| messages::wake::finished(kind) == finished)
                     {
                         w.observe(ids, id, finished);
@@ -420,14 +417,14 @@ impl Evaluator {
         }
         let gone: Vec<&String> = ids
             .iter()
-            .filter(|id| kind_of(&world, id).is_none())
+            .filter(|id| kind_of(&nodes, id).is_none())
             .collect();
-        if !gone.is_empty() || node_of(&world, &r.target).is_none() {
+        if !gone.is_empty() || node_of(&nodes, &r.target).is_none() {
             let names: Vec<&str> = gone
                 .iter()
                 .map(|id| id.as_str())
                 .chain(
-                    node_of(&world, &r.target)
+                    node_of(&nodes, &r.target)
                         .is_none()
                         .then_some(r.target.as_str()),
                 )
@@ -449,7 +446,7 @@ impl Evaluator {
         }
         let facts: Vec<serde_json::Value> = ids
             .iter()
-            .filter_map(|id| node_of(&world, id))
+            .filter_map(|id| node_of(&nodes, id))
             .map(|node| serde_json::json!({ "id": node.id, "name": node.name, "kind": node.status.as_ref().map(|s| s.kind) }))
             .collect();
         let evidence = serde_json::json!({
