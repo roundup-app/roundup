@@ -228,14 +228,9 @@ it.each([false, true])("u5575a_headings_fold_only_their_sections editable=%s", {
       } else if (state === "hover") await browser("hover", selector);
       else {
         await browser("mouse", "move", "1500", "940");
+        await browser("press", "Tab");
         await browser("focus", selector);
-        await browser("press", "Shift+Tab");
-
-        for (let tabs = 0; tabs < 24 && !await read(`document.activeElement.matches(${JSON.stringify(selector)})`); tabs++) {
-          await browser("press", "Tab");
-        }
-
-        await wait(`document.activeElement.matches(${JSON.stringify(selector)})`);
+        await wait(`document.activeElement.matches(${JSON.stringify(`${selector}:focus-visible`)})`);
       }
 
       const controls = await read(headingHitAreas);
