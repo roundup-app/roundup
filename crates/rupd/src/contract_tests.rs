@@ -528,3 +528,141 @@ async fn m14_an_agent_cannot_route_or_replace_the_users_routes() {
     let routes = tests::ask(&daemon, r#"{"id":1,"method":"route.list"}"#).await["result"].clone();
     assert_eq!(routes[0]["delivery"], "drop");
 }
+
+#[tokio::test]
+async fn n5467b_incomplete_reaction_records_refuse_without_firing() {
+    let dir = tempfile::tempdir().unwrap();
+    let daemon = tests::daemon_in(dir.path());
+    let db = rusqlite::Connection::open(dir.path().join("project.db")).unwrap();
+    db.execute_batch(
+        "INSERT INTO nodes(id,kind,name,ord) VALUES(1,'agent','Target',0),(2,'agent','Watched',1);",
+    )
+    .unwrap();
+    let created = tests::ask(&daemon, &json!({"id":1,"method":"reaction.create","params":{"operation":"current","name":"Observe","target":"1","instruction":"Continue","reason":"Wait for the prerequisite.","condition":{"kind":"agents","ids":["2"]},"expires_at":"2099-01-01T00:00:00Z"}}).to_string()).await;
+    assert!(created.get("error").is_none(), "{created}");
+    let id = created["result"]["id"].as_str().unwrap();
+    let original: String = db
+        .query_row("SELECT record FROM reactions WHERE id=?1", [id], |r| {
+            r.get(0)
+        })
+        .unwrap();
+    for field in [
+        "reason",
+        "observation.health_code",
+        "observation.cause_code",
+        "observation.gap_code",
+        "observation.recovery_code",
+    ] {
+        db.execute(
+            "UPDATE reactions SET record=json_remove(?1, ?2) WHERE id=?3",
+            rusqlite::params![original, format!("$.{field}"), id],
+        )
+        .unwrap();
+        for (method, params) in [
+            ("reaction.get", json!({"id":id})),
+            ("reaction.list", Value::Null),
+            ("reaction.run", json!({"id":id,"operation":"refused"})),
+        ] {
+            let reply = tests::ask(
+                &daemon,
+                &json!({"id":2,"method":method,"params":params}).to_string(),
+            )
+            .await;
+            assert!(reply.get("error").is_some(), "{field}: {reply}");
+        }
+    }
+    db.execute(
+        "UPDATE reactions SET record=?1 WHERE id=?2",
+        rusqlite::params![original, id],
+    )
+    .unwrap();
+    let watch: String = db
+        .query_row(
+            "SELECT state FROM reaction_watch WHERE reaction=?1",
+            [id],
+            |r| r.get(0),
+        )
+        .unwrap();
+    let current: contracts::reaction::Reaction = serde_json::from_str(&original).unwrap();
+    for field in [
+        "before_rearm",
+        "health_code",
+        "cause_code",
+        "gap_code",
+        "recovery_code",
+    ] {
+        db.execute(
+            "UPDATE reaction_watch SET state=json_remove(?1, ?2) WHERE reaction=?3",
+            rusqlite::params![watch, format!("$.{field}"), id],
+        )
+        .unwrap();
+        let incomplete: String = db
+            .query_row(
+                "SELECT state FROM reaction_watch WHERE reaction=?1",
+                [id],
+                |r| r.get(0),
+            )
+            .unwrap();
+        daemon.evaluator().unwrap().observe(&current, None).await;
+        for (method, params) in [
+            ("reaction.get", json!({"id":id})),
+            ("reaction.run", json!({"id":id,"operation":"refused"})),
+        ] {
+            let reply = tests::ask(
+                &daemon,
+                &json!({"id":2,"method":method,"params":params}).to_string(),
+            )
+            .await;
+            assert!(reply.get("error").is_some(), "Watch {field}: {reply}");
+        }
+        let retained: String = db
+            .query_row(
+                "SELECT state FROM reaction_watch WHERE reaction=?1",
+                [id],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(retained, incomplete, "Watch {field} was rewritten");
+    }
+    assert_eq!(
+        db.query_row("SELECT count(*) FROM reaction_firings", [], |r| r
+            .get::<_, i64>(0))
+            .unwrap(),
+        0
+    );
+}
+
+#[tokio::test]
+async fn c5461a_retired_methods_are_unknown() {
+    let dir = tempfile::tempdir().unwrap();
+    let daemon = tests::daemon_in(dir.path());
+    let methods = tests::ask(&daemon, r#"{"id":1,"method":"daemon.methods"}"#).await;
+    let descriptions = tests::ask(&daemon, r#"{"id":2,"method":"api.list"}"#).await;
+    for (namespace, member) in [("attachment", "save"), ("rail", "list")] {
+        let name = format!("{namespace}.{member}");
+        assert!(
+            !methods["result"].as_array().unwrap().contains(&json!(name)),
+            "{methods}"
+        );
+        assert!(
+            descriptions["result"]["methods"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .all(|row| row["name"] != name),
+            "{descriptions}"
+        );
+        let description = tests::ask(
+            &daemon,
+            &json!({"id":3,"method":"api.describe","params":{"method":name}}).to_string(),
+        )
+        .await;
+        assert_eq!(
+            description["error"]["code"],
+            code::METHOD_NOT_FOUND,
+            "{description}"
+        );
+        let reply = tests::ask(&daemon, &json!({"id":4,"method":name}).to_string()).await;
+        assert_eq!(reply["error"]["code"], code::METHOD_NOT_FOUND, "{reply}");
+    }
+}

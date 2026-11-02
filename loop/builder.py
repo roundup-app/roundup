@@ -17,6 +17,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 import deadline  # noqa: E402
+import image_tools  # noqa: E402
 import orders  # noqa: E402
 import push  # noqa: E402
 
@@ -473,9 +474,8 @@ def codex_home(login, home):
         print(f'::add-mask::{value}')
     home.mkdir(mode=0o700, exist_ok=True)
     (home / 'auth.json').write_text(login)
-    memory = '\n[features]\nmemories = true\n\n[memories]\ngenerate_memories = true\nuse_memories = true\n' \
-        if os.environ.get('ROUNDUP_AGENT_MEMORY') else ''
-    (home / 'config.toml').write_text('cli_auth_credentials_store = "file"\n' + memory)
+    memory = '\n[features]\nmemories = true\n\n[memories]\ngenerate_memories = true\nuse_memories = true\n' if os.environ.get('ROUNDUP_AGENT_MEMORY') else ''
+    (home / 'config.toml').write_text('cli_auth_credentials_store = "file"\n' + memory + image_tools.codex_files(home))
     return home
 
 
@@ -522,9 +522,9 @@ def engine(prompt, schema, output, rights=RUN_RIGHTS, effort=CODEX_BUILD_EFFORT)
     environment first, so a Claude Code run's shell never holds it. With `CODEX_ONLY` set there is no Claude Code: a Codex
     run that did no work fails. `rights` is as `stream` reads it; `effort` is Codex's reasoning effort. Returns the exit code of the run that was last."""
     login = os.environ.pop('CODEX_AUTH', '')
+    image_tools.sync_index()
     if switched():
         return claude(prompt, CLAUDE_MODEL, schema, output, rights)
-    temp = Path(os.environ['RUNNER_TEMP'])
 
     def codex_or_none():
         try:
@@ -533,7 +533,7 @@ def engine(prompt, schema, output, rights=RUN_RIGHTS, effort=CODEX_BUILD_EFFORT)
             print(f'::error::Codex did not start: {error}')
             return 1
 
-    engines = {'Claude Code': (lambda: claude(prompt, CLAUDE_MODEL, schema, output), temp / 'claude' / 'events.jsonl'),
+    engines = {'Claude Code': (lambda: claude(prompt, CLAUDE_MODEL, schema, output), Path(os.environ['RUNNER_TEMP']) / 'claude' / 'events.jsonl'),
                'Codex': (codex_or_none, codex_directory() / 'events.jsonl')}
     run, events = engines['Codex']
     code = run()
@@ -1210,28 +1210,27 @@ def clauses(ids):
 
 
 def patch_id(head):
-    """`git patch-id --stable` of the PR's diff at `head` against its merge base with `main`; '' for an empty diff."""
-    diff = call('api', f'repos/{{owner}}/{{repo}}/compare/main...{head}', '-H', 'Accept: application/vnd.github.diff',
-                '--allow-escape-sequences')
+    """`git patch-id --stable` of the PR's diff at `head` against its merge base with `main`; '' when GitHub gives none."""
+    try:
+        diff = call('api', f'repos/{{owner}}/{{repo}}/compare/main...{head}', '-H', 'Accept: application/vnd.github.diff',
+                    '--allow-escape-sequences')
+    except subprocess.CalledProcessError:
+        return ''
     found = subprocess.run(['git', 'patch-id', '--stable'], input=diff, check=True, text=True, capture_output=True).stdout
     return found.split()[0] if found else ''
 
 
 def carried(current, marker, context):
     """L24: whether `context` keeps an earlier approval for the PR's head. When the diff there has the patch-id of the
-    diff at a head whose `marker` comment approved, set the same `success` status naming that head;
-    a head GitHub can no longer diff is skipped, so the run is a full one."""
+    diff at a head whose `marker` comment approved, set the same `success` status naming that head; a head GitHub can no
+    longer diff, or cannot diff at all (HTTP 422 on #5484's 2.5 GB deletion), carries nothing, so the run is a full one."""
     head = current['headRefOid']
     now = patch_id(head)
     for note in reversed(orders.marked(current['number'], marker)):
         if not note['body'].startswith(f'{marker} approve'):
             continue
         earlier = orders.field(note['body'], 'Head')
-        try:
-            same = now and patch_id(earlier) == now
-        except subprocess.CalledProcessError:
-            continue
-        if same:
+        if now and patch_id(earlier) == now:
             status(head, 'success', f'The diff is unchanged since {earlier[:9]}, which the {context} run approved', '', context)
             return True
     return False

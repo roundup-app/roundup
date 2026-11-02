@@ -176,7 +176,7 @@ export type ConnectedProject = {
 
 // Explicit read allowlist: subscriptions, cursor acknowledgments and commands never replay.
 const reads = new Set<RpcMethodName>([
-  "daemon.ping", "daemon.methods", "rail.tree", "rail.list", "terminal.list",
+  "daemon.ping", "daemon.methods", "rail.tree", "terminal.list",
   "terminal.snapshot", "terminal.screen", "terminal.read", "terminal.search",
   "todo.list", "todo.get", "todo.listHanded", "todo.getHistory", "todo.comments",
   "todo.unread", "todo.refs", "todo.deletion", "pad.list", "pad.read", "pad.getDeletion",

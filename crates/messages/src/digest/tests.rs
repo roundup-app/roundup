@@ -75,6 +75,7 @@ fn ask(
     messages: &[Message],
 ) -> Vec<DigestItem> {
     let from = Sources {
+        completed: std::collections::HashMap::new(),
         touches: pads
             .iter()
             .map(|pad| contracts::Touch {
@@ -172,14 +173,6 @@ fn b19_todos_counts_only_open_todos_created_by_the_agent() {
 }
 
 #[test]
-fn b19_completing_a_created_todo_reduces_the_count() {
-    let mut todos = [todo(1, "a", false), todo(2, "a", false)];
-    todos[0].done = true;
-    let items = ask(&Seen::default(), &rail(), &todos, &[], &[]);
-    assert_eq!(entries(&items)[0].todos, 1);
-}
-
-#[test]
 fn b19_home_changes_keep_creator_attribution_until_completion() {
     for home in [Some("other-workstream"), None] {
         for done in [false, true] {
@@ -213,6 +206,7 @@ fn b19_the_user_asking_does_not_hide_pads_from_m() {
     let seen = Seen::default();
     let pads = [pad("one", "a", 10)];
     let from = Sources {
+        completed: std::collections::HashMap::new(),
         touches: pads
             .iter()
             .map(|pad| contracts::Touch {
@@ -297,6 +291,7 @@ fn b20_children_are_in_rail_order_at_most_20_then_more() {
 fn b20_forbidden_not_found_and_conflict() {
     let nodes = rail();
     let from = Sources {
+        completed: std::collections::HashMap::new(),
         touches: Vec::new(),
         nodes: &nodes,
         todos: &[],
@@ -428,6 +423,7 @@ fn sources<'a>(
     messages: &'a [Message],
 ) -> Sources<'a> {
     Sources {
+        completed: std::collections::HashMap::new(),
         touches: pads
             .iter()
             .map(|pad| contracts::Touch {
@@ -672,4 +668,56 @@ fn b23_a_last_push_that_failed_is_offered_again() {
     let mut pushes = seen.changed(&sources(&nodes, &none, &[], &[]));
     seen.release(pushes.remove(0));
     assert_eq!(seen.changed(&sources(&nodes, &none, &[], &[])).len(), 1);
+}
+
+#[test]
+fn a5482c_non_door_coordinator_receives_the_fallback() {
+    let mut nodes = rail();
+    nodes[0].kind = NodeKind::Agent;
+    let attempt = nodes[1].attempt.clone().unwrap();
+    let seen = Seen::default();
+    let mut from = sources(&nodes, &[], &[], &[]);
+    seen.baseline(&from);
+    from.completed.insert(
+        "a".into(),
+        (
+            format!("{attempt}:1"),
+            10,
+            "Should I publish three pages or five".into(),
+        ),
+    );
+    let pushes = seen.changed(&from);
+    assert_eq!(pushes.len(), 1);
+    assert_eq!(pushes[0].meta, "m");
+    assert_eq!(pushes[0].subagent(), "a");
+    assert_eq!(pushes[0].entry.last, "Should I publish three pages or five");
+    assert!(push_body(&pushes[0].entry).starts_with("[digest] a-name is working\n"));
+    assert!(
+        seen.changed(&from).is_empty(),
+        "a replay repeated the fallback"
+    );
+    assert_eq!(
+        seen.ask(&Actor::user(), "m", &from).unwrap_err().code,
+        rpc::code::CONFLICT
+    );
+}
+
+#[test]
+fn b37_an_older_idle_snapshot_cannot_supersede_a_needs_you_digest() {
+    let seen = Seen::default();
+    let mut idle = rail();
+    idle[1].status = Some(status(Kind::Idle, "idle"));
+    idle[1].status_revision = Some("4".into());
+    seen.baseline(&sources(&idle, &[], &[], &[]));
+
+    let mut asking = idle.clone();
+    asking[1].status = Some(status(Kind::NeedsYou, "Bash: ls"));
+    asking[1].status_revision = Some("5".into());
+    seen.entry_of("a", &sources(&asking, &[], &[], &[]), true)
+        .unwrap();
+
+    assert!(
+        seen.changed(&sources(&idle, &[], &[], &[])).is_empty(),
+        "a snapshot read before the attention note must not replace it with idle"
+    );
 }

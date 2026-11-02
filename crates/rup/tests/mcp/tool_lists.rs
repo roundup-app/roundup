@@ -123,7 +123,7 @@ pub const DOOR_METHODS: [&str; 10] = [
 ];
 
 /// M5: the methods and App commands with no tool; the reasons are in `scenarios/mcp.md`.
-pub const NO_TOOL: [&str; 95] = [
+pub const NO_TOOL: [&str; 93] = [
     // The shortcut list is the user's own; Agents cannot write it to a file they did not choose.
     "shortcuts.export",
     // A4688a: only the user controls global naming preferences; Agents cannot override them.
@@ -142,7 +142,6 @@ pub const NO_TOOL: [&str; 95] = [
     "workstream.setOpeningPrompt",
     // A4452c: only the user requests a fresh Door conversation.
     "workstream.restart",
-    "rail.list",
     // A3194, A3195, P9: a start spends usage, so only the user's own choice starts a Workstream or sets what may run.
     "todo.startWorkstream",
     "workstream.queue",
@@ -197,8 +196,6 @@ pub const NO_TOOL: [&str; 95] = [
     "agent.skills",
     // O8: the App's Drawer reads the prompt an Agent's spawn gave; the spawning Agent wrote it
     "agent.spawnPrompt",
-    // U419: the bytes of an image the user pasted
-    "attachment.save",
     // A36, A37: the user's own settings, which spend the user's usage (P8)
     "models.list",
     "project.setModels",
