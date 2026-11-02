@@ -92,8 +92,10 @@ const observeVisits = () => {
 
     return { ...list, all: () => {
       const observed = [...list.all()];
-      observed[Symbol.iterator] = function* () {
+      observed[Symbol.iterator] = function* (): Generator<Todo, undefined, unknown> {
         for (const todo of list.all()) { visits += 1; yield todo; }
+
+        return undefined;
       };
 
       return observed;
