@@ -26,11 +26,17 @@ const mount = async (kind = "shell", lazy = false) => {
  return made; }} />
   </ConnectedProjectContext.Provider>);
 
-  connected.rail.select("a");
-  await emulators.get("t-a")!.ready;
-  connected.rail.select("b");
-  await emulators.get("t-b")!.ready;
-  connected.rail.select("a");
+  if (lazy) {
+    connected.rail.select("a");
+    await emulators.get("t-a")!.ready;
+    connected.rail.select("b");
+    await emulators.get("t-b")!.ready;
+    connected.rail.select("a");
+  } else {
+    connected.rail.select("b");
+    connected.rail.select("a");
+  }
+
   const input = () => container.querySelector<HTMLTextAreaElement>(".pane-screen textarea")!;
   const field = document.createElement("textarea");
   container.append(field);
