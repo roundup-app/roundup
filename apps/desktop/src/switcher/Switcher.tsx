@@ -2,7 +2,7 @@ import { useDialog } from "@ark-ui/solid/dialog";
 import { captureFocus, queueFocus } from "../keys/focus";
 import { writeText } from "../app/clipboard";
 import { ReservedLine } from "../ink/ReservedLine";
-import { batch, createEffect, createMemo, createResource, createSignal, For, on, onCleanup, Show } from "solid-js";
+import { lazy, batch, createEffect, createMemo, createResource, createSignal, For, on, onCleanup, Show } from "solid-js";
 import { createCopyFeedback } from "../ui/CopyButton";
 import * as v from "valibot";
 import type { RpcError } from "../app/seam";
@@ -23,15 +23,17 @@ import { useTodoList } from "../todos/todoList";
 import { Icon } from "../ink/Icon";
 import { PAD_ICON } from "../shelf/frame";
 import { openThroughRow } from "../shelf/openItem";
-import { TodoHost } from "../todos/TodoDrawer";
 import { usePadList } from "../rail/pads/padList";
-import { PadHost } from "../pads/PadDrawer";
 import { KeyHint } from "../keys/KeyHint";
 import { REVEAL_BUBBLE } from "../bubbles/places";
 import { entriesOf, itemsMatching, matching, userActionsOf, USER_PREFIX } from "./entries";
 import type { ToastQueue } from "../toasts/queue";
 import type { Entry } from "./entries";
 import "./styles.css";
+
+const TodoHost = lazy(() => import("../todos/TodoDrawer").then(module => ({ default: module.TodoHost })));
+
+const PadHost = lazy(() => import("../pads/PadDrawer").then(module => ({ default: module.PadHost })));
 
 /** U529, U530: leader `K` opens a filter field over the centre pane listing every row by name; `⏎` selects the highlighted one as a click does. `onFailure` gets a failed selection's message; `onOpen` runs as it opens, so an overlaid Shelf can close and leave no scrim over it. */
 export const Switcher = (props: { onFailure: (message: string | null) => void; onOpen: () => void; notify?: ToastQueue["notify"] | undefined }) => {

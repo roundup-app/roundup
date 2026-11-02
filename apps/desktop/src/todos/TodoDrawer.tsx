@@ -2,7 +2,6 @@ import { applied } from "../app/pending";
 import { historyRegion } from "../keys/focus";
 import { outcomeOf } from "../app/seam";
 import { captureFocus, keepRegionFocus } from "../keys/focus";
-import { todoEditor } from "../drawer/editors";
 import * as v from "valibot";
 import { TodoHeader } from "./TodoHeader";
 import { TodoMeta } from "./TodoMeta";
@@ -341,7 +340,6 @@ export const TodoDrawer = (props: {
   );
 };
 
-todoEditor.set(TodoDrawer);
 
 /** The Todo's Drawer with the shared list the Shelf reads (U15); it lives while the Drawer does. */
 export const TodoHost = (props: { id: number }) => {
