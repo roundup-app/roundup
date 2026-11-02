@@ -77,7 +77,10 @@ it.each(readers)("u3807_each_site_shows_its_message_in_the_reserved_line: $site"
 
   if (site.method === "todo.unread") await within(view.container).findByText(copy.inboxEmpty);
 
-  if (site.method === "todo.getHistory") await within(view.container).findByText(/^Created /);
+  if (site.method === "todo.getHistory") {
+    fireEvent.click(await within(view.container).findByRole("button", { name: /^Activity · / }));
+    await within(view.container).findByText(/^Created /);
+  }
 
   if (site.method === "pad.list") await waitFor(() => expect(view.container.querySelector(".empty-state")).not.toBeNull());
 
