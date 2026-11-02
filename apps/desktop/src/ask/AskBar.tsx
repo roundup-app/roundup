@@ -6,7 +6,7 @@ import { useDialog } from "@ark-ui/solid/dialog";
 import { captureFocus, queueFocus } from "../keys/focus";
 import { createCopyLabels } from "../ui/CopyButton";
 import { writeText } from "../app/clipboard";
-import { batch, untrack, createComputed, createResource, createEffect, createMemo, createSignal, For, lazy, onCleanup, onMount, Show } from "solid-js";
+import { batch, untrack, createComputed, createEffect, createMemo, createSignal, For, lazy, onCleanup, onMount, Show } from "solid-js";
 import * as v from "valibot";
 import { createStore, reconcile } from "solid-js/store";
 import type { AskSubmission } from "../state/asks";
@@ -465,29 +465,13 @@ const OverviewEntry = (props: { node: RailNode; status: boolean; waiting: boolea
 
 /** DV5: metadata stays separate from resolution. Never retain a resolved path between opens. */
 const createDeliverables = () => {
-  const { app, events, daemonExit } = useConnectedProject();
-
-  type Catalogue = { records: Deliverable[]; failure: string | null };
-
-  const [read, { refetch }] = createResource(async (_key, { value }): Promise<Catalogue> => {
-    try {
-      return { records: await app.rpc("deliverable.list", { home: null, maker: null }), failure: null };
-    } catch (error) {
-      if (!(error instanceof Error)) throw error;
-
-      return { records: value?.records ?? [], failure: error.message };
-    }
-  }, { initialValue: { records: [], failure: null } satisfies Catalogue });
+  const { unseen } = useConnectedProject();
 
   const [records, setRecords] = createStore<Deliverable[]>([]);
   // Matching publication ids retain their row and keyboard focus across RPC snapshots.
-  createComputed(() => setRecords(reconcile(read().records, { key: "id" })));
+  createComputed(() => setRecords(reconcile(unseen.publications.records(), { key: "id" })));
 
-  const refresh = () => { if (daemonExit() === null) void refetch(); };
-
-  onCleanup(events.subscribe(event => { if (event.name === "deliverable.changed") refresh(); }));
-
-  return { records: () => records, failure: () => read().failure, loading: () => read.loading, refresh };
+  return { ...unseen.publications, records: () => records };
 };
 
 const Deliverables = (props: { state: ReturnType<typeof createDeliverables> }) => {

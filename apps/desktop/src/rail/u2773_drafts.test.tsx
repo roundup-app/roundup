@@ -92,10 +92,12 @@ it("u2773b_rail_late_failure_stays_in_original_project", async () => {
   const { Rail } = await import("./Rail");
   const original = await mountRail([workstream("w")]);
   let refuse!: (error: Error) => void;
-  original.app.handlers["agent.spawn"] = () => new Promise((_, reject) => { refuse = reject; });
+  const submitted = Promise.withResolvers<void>();
+  original.app.handlers["agent.spawn"] = () => new Promise((_, reject) => { refuse = reject; submitted.resolve(); });
   open();
   fireEvent.input(field(), { target: { value: " A\n😀 " } });
   fireEvent.keyDown(field(), { key: "Enter" });
+  await submitted.promise;
   cleanup();
   const other = createFakeApp();
   other.handlers["rail.tree"] = () => [workstream("other")];
