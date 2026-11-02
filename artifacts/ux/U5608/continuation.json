@@ -1,27 +1,25 @@
 {
-  "source": "6ba0f140839515af63effbe978c44c79429c1175",
+  "source": "f202b3150010ea883057ebdde4b0e7d06228fbba",
+  "author_agent": "builder-41431652445",
   "behavior": {
     "todo_files": 7,
     "todo_tests_passed": 115,
-    "real_daemon_cases_passed": [
-      "u3311_real_daemon_delegate_board",
-      "u4698e_reopen_result_from_workstream"
-    ],
-    "activity_browser_cases_passed": 4,
-    "import_cases_passed": 2,
-    "import_milliseconds": [
-      49683,
-      44627
-    ]
+    "retry": 0
   },
   "checks": {
-    "just_ready": "passed before final observer changes; final rerun pending",
-    "merge_loss": "pass",
-    "taste_lint": "0 failures; 2 existing warnings"
+    "web_lints": "passed",
+    "typecheck": "passed",
+    "proofs": "ALL PROOFS CHECK",
+    "N7": "passed",
+    "dependency_scan_after_patch": "passed",
+    "merge_loss": "passed",
+    "taste_lint": "0 failures; 2 unchanged warnings"
   },
+  "retained_capture_readings": 17,
+  "failing_readings": [],
   "remaining": [
-    "Complete final retained U4277c command",
-    "Complete final just ready rerun",
-    "U461 optional captures fail at pre-existing retired selectors; no success claimed"
-  ]
+    "Complete twelve-case U4277c capture coverage and focused Import cases on final source",
+    "Complete just ready after the lockfile repair; Rust lint rerun interrupted during clippy"
+  ],
+  "limitations": "No full retained-capture success or full just-ready success claimed. Prior paired visual evidence retained; no test or proof removed."
 }
