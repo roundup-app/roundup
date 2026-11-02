@@ -219,7 +219,11 @@ fn repository(cwd: &Path) -> Result<PathBuf, String> {
         .transpose()
         .map_err(|err| err.to_string())?;
     let root = match common {
-        Some(common) => common.parent().map(Path::to_owned),
+        Some(common) => common
+            .canonicalize()
+            .map_err(|err| err.to_string())?
+            .parent()
+            .map(Path::to_owned),
         None => work_dir,
     }
     .ok_or("repository has no working directory")?;
