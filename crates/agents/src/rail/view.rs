@@ -120,7 +120,7 @@ impl Rail {
         // reply allocate 290 times. Keep the count beside its node during traversal.
         // R3696c: growing this buffer costs 19,968 bytes per forty-node reply.
         // A previous length reserves space without the count query that regressed timing.
-        let mut flat = load_with(
+        let flat = load_with(
             &self.db,
             false,
             self.tree_capacity.get(),
@@ -128,21 +128,7 @@ impl Rail {
         )?;
         // Retain no nodes; bound speculative space after a large tree is removed.
         self.tree_capacity.set(flat.len().min(256));
-        // Sibling orders are unique (A6); equal orders across parents need no stability.
-        // R3696c: avoid the stable sort's scratch copy of these large nodes.
-        flat.sort_unstable_by_key(|(node, _)| node.order);
-        // R3696c: forty root Workstreams allocated 132,294 bytes and scanned
-        // for descendants once per node. A flat tree can reuse the loaded buffer.
-        if flat.iter().all(|(node, _)| node.parent.is_none()) {
-            return flat
-                .into_iter()
-                .map(|(node, finished)| present(node, finished))
-                .collect();
-        }
-        let mut out = Vec::with_capacity(flat.len());
-        let mut flat: Vec<_> = flat.into_iter().map(Some).collect();
-        descend(&mut flat, None, &mut out, &mut present)?;
-        Ok(out)
+        ordered(flat, &mut present)
     }
 
     /// U3566c: the Agent's published finishes; `0` for a node never counted.
@@ -191,6 +177,27 @@ impl Rail {
             .map(|changed| changed != 0)
             .map_err(sql)
     }
+}
+
+fn ordered(
+    mut flat: Vec<(RailNode, u64)>,
+    present: &mut impl FnMut(RailNode, u64) -> Result<RailNode, RpcError>,
+) -> Result<Vec<RailNode>, RpcError> {
+    // Sibling orders are unique (A6); equal orders across parents need no stability.
+    // R3696c: avoid the stable sort's scratch copy of these large nodes.
+    flat.sort_unstable_by_key(|(node, _)| node.order);
+    // R3696c: forty root Workstreams allocated 132,294 bytes and scanned
+    // for descendants once per node. A flat tree can reuse the loaded buffer.
+    if flat.iter().all(|(node, _)| node.parent.is_none()) {
+        return flat
+            .into_iter()
+            .map(|(node, finished)| present(node, finished))
+            .collect();
+    }
+    let mut out = Vec::with_capacity(flat.len());
+    let mut flat: Vec<_> = flat.into_iter().map(Some).collect();
+    descend(&mut flat, None, &mut out, present)?;
+    Ok(out)
 }
 
 // R3696c: a forty-Workstream reply allocated 530 times (181 KB). Move the
@@ -250,5 +257,47 @@ mod tests {
             steps <= 900,
             "Rail read executed {steps} SQLite instructions for forty Workstreams"
         );
+    }
+    fn nested(count: usize, branching: bool) -> Vec<(RailNode, u64)> {
+        // Payload construction is outside the measured traversal, with no database/process.
+        let template: RailNode = serde_json::from_value(serde_json::json!({
+            "id":"1", "kind":"workstream", "name":"payload", "order":0,
+            "can_resume":false, "can_make_workstream":false, "can_save_as_mode":false,
+            "yolo":false, "stray":[], "alert_level":"default"
+        }))
+        .unwrap();
+        (0..count)
+            .rev()
+            .map(|index| {
+                let mut node = template.clone();
+                node.id = (i64::MAX - i64::try_from(index).unwrap()).to_string();
+                node.parent = (index > 0).then(|| {
+                    let parent = if branching {
+                        (index - 1) / 3
+                    } else {
+                        index - 1
+                    };
+                    (i64::MAX - i64::try_from(parent).unwrap()).to_string()
+                });
+                node.order = u32::try_from(index).unwrap();
+                (node, u64::try_from(index).unwrap())
+            })
+            .collect()
+    }
+
+    #[test]
+    fn r5636e_nested_rail_allocated_bytes() {
+        for count in [40, 400] {
+            for branching in [false, true] {
+                let flat = nested(count, branching);
+                let region = stats_alloc::Region::new(crate::scan::ALLOCATOR);
+                let out = ordered(flat, &mut |node, _| Ok(node)).unwrap();
+                let total = region.change();
+                eprintln!("RAIL count={count} branching={branching} total={total:?}");
+                // Base 767fa083: 920 bytes/node (36,800 / 368,000) for both shapes.
+                assert!(total.bytes_allocated < count * 256);
+                std::hint::black_box(out);
+            }
+        }
     }
 }
