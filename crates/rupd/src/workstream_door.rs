@@ -249,6 +249,7 @@ struct IdleDoor {
     daemon: Daemon,
     launcher: Launcher,
     config: std::path::PathBuf,
+    steers: Arc<std::sync::atomic::AtomicUsize>,
 }
 
 impl IdleDoor {
@@ -262,9 +263,16 @@ impl IdleDoor {
             project.path().join("rup"),
             None,
         );
+        let steers = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let recording = Arc::clone(&steers);
         let daemon =
             Daemon::open_stores(project.path(), &project.path().join(".roundup"), |agents| {
-                agents.with_launcher_for_test(launcher.clone())
+                agents
+                    .with_launcher_for_test(launcher.clone())
+                    .with_steer_effect(move |_| {
+                        recording.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                        Ok(())
+                    })
             })
             .unwrap();
         Self {
@@ -272,6 +280,7 @@ impl IdleDoor {
             daemon,
             launcher,
             config,
+            steers,
         }
     }
 
@@ -383,6 +392,7 @@ async fn o3_an_unordered_workstream_sends_no_input_before_the_user() {
         run.idle(&id, tick).await;
     }
     assert!(IdleDoor::read(&listener).is_empty());
+    assert_eq!(run.steers.load(std::sync::atomic::Ordering::SeqCst), 0);
     assert!(!run.daemon.agents.input_started(&id));
     let node = run.call("rail.tree", Value::Null).await;
     assert_eq!(node[0]["status"]["kind"], "idle");
@@ -421,6 +431,7 @@ async fn a5556a_user_started_agents_receive_no_automatic_first_input() {
             run.idle(&id, tick).await;
         }
         assert!(IdleDoor::read(&listener).is_empty());
+        assert_eq!(run.steers.load(std::sync::atomic::Ordering::SeqCst), 0);
         run.call(
             "message.send",
             json!({"to":id,"kind":"note","body":"begin with this"}),
@@ -507,21 +518,17 @@ async fn a5556b_automatic_delivery_waits_for_first_user_input() {
         .await
         .unwrap();
     assert!(IdleDoor::read(&source_socket).is_empty());
-    let reaction = run.call("reaction.create", json!({
+    run.call("reaction.create", json!({
         "operation":"idle-admission", "name":"Continue later", "reason":"Observe delivery before first input",
         "target":id, "instruction":"reaction firing", "condition":{"kind":"agents","ids":[source]},
         "expires_at":"2099-01-01T00:00:00Z"
     })).await;
-    run.call(
-        "reaction.run",
-        json!({"id":reaction["id"],"operation":"fire-before-input"}),
-    )
-    .await;
     pending.push(produced(&mut observed, "reaction firing").await);
     for tick in 0..3 {
         run.idle(&id, tick).await;
     }
     assert!(IdleDoor::read(&listener).is_empty());
+    assert_eq!(run.steers.load(std::sync::atomic::Ordering::SeqCst), 0);
     for message in &pending {
         assert_eq!(
             run.call("message.get", json!({"id":message})).await["status"],
