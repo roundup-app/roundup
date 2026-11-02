@@ -227,97 +227,6 @@ fn tool_key(name: &str) -> String {
 }
 
 #[tokio::test]
-async fn i1_every_mcp_tool_is_a_command_and_no_command_is_extra() {
-    let dir = tempfile::tempdir().unwrap();
-    let help = out(&on(&dir.path().join("none")).rup(&["help"]).await);
-    let commands = listed_commands(&help);
-    for door in [false, true] {
-        let socket = dir.path().join(format!("{door}.sock"));
-        let _requests = stand_in(&socket, door, Vec::new(), &[]);
-        let tools: BTreeSet<String> = mcp_tools(&socket)
-            .await
-            .iter()
-            .map(|(name, _)| tool_key(name))
-            .collect();
-        // M16: a Door's `rup mcp` omits the three tools that start a Terminal; the command stays.
-        let cli: BTreeSet<String> = commands
-            .iter()
-            .filter(|(_, door_only)| door || !door_only)
-            .map(|(usage, _)| command_key(usage))
-            .filter(|key| {
-                !door || !["agentrun", "terminalspawn", "terminalopen"].contains(&key.as_str())
-            })
-            .collect();
-        assert_eq!(cli, tools, "door: {door}");
-    }
-    let streams = help
-        .split("\n  streams\n")
-        .nth(1)
-        .and_then(|rest| rest.split("\n  other\n").next())
-        .unwrap();
-    assert!(
-        streams.contains("rup events [--after <after>] [--follow]")
-            && streams.contains("Example: rup events --after 12 --follow --json"),
-        "{streams}"
-    );
-    let other = help.split("\n  other\n").nth(1).unwrap();
-    let other: Vec<&str> = other
-        .lines()
-        .filter(|line| line.starts_with("    rup "))
-        .map(|line| line.split_whitespace().nth(1).unwrap())
-        .collect();
-    assert_eq!(other, ["help", "ping", "mcp", "signal", "context", "skill"]);
-}
-
-#[tokio::test]
-async fn i1_a_commands_flags_are_its_schemas_fields() {
-    let dir = tempfile::tempdir().unwrap();
-    let socket = dir.path().join("s.sock");
-    let _requests = stand_in(&socket, false, Vec::new(), &[]);
-    let tools = mcp_tools(&socket).await;
-    let schema = |name: &str| tools.iter().find(|(n, _)| n == name).unwrap().1.clone();
-    let run = on(&socket);
-    let create = out(&run.rup(&["help", "todo", "create"]).await);
-    let schema = schema("todo_create");
-    let required: Vec<&str> = schema["required"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .filter_map(Value::as_str)
-        .collect();
-    assert_eq!(required, ["title"]);
-    assert!(
-        create.contains("Usage: rup todo create [OPTIONS] <title>"),
-        "{create}"
-    );
-    let has = |f: &str| create.contains(&format!("--{}", f.replace('_', "-")));
-    for field in schema["properties"].as_object().unwrap().keys() {
-        assert!(required.contains(&field.as_str()) || has(field), "{create}");
-    }
-    let read = out(&run.rup(&["help", "terminal", "read"]).await);
-    assert!(read.contains("<id>") && read.contains("--after"), "{read}");
-    let blockers = out(&run.rup(&["help", "todo", "set-blockers"]).await);
-    assert!(blockers.contains("--blockers"), "{blockers}");
-}
-
-#[tokio::test]
-async fn i1_a_door_only_command_is_refused_to_an_agent() {
-    let dir = tempfile::tempdir().unwrap();
-    let agent = dir.path().join("agent.sock");
-    let _a = stand_in(&agent, false, Vec::new(), &[]);
-    let refused = on(&agent).rup(&["agent", "digest"]).await;
-    assert_eq!(code(&refused), 2);
-    assert!(
-        err(&refused).contains("only a Door has"),
-        "{}",
-        err(&refused)
-    );
-    let door = dir.path().join("door.sock");
-    let _d = stand_in(&door, true, Vec::new(), &[]);
-    assert_eq!(code(&on(&door).rup(&["agent", "digest"]).await), 0);
-}
-
-#[tokio::test]
 async fn i2_every_spelling_of_help_prints_the_same_text_on_stdout_and_exits_0() {
     let dir = tempfile::tempdir().unwrap();
     let run = on(&dir.path().join("none"));
@@ -689,7 +598,6 @@ async fn i6_invalid_utf8_on_stdin_exits_2() {
         .await;
     assert_eq!(code(&output), 2);
 }
-
 fn terminal_reply() -> Value {
     json!({"from": 0, "next": 5, "text": "hello", "truncated": true})
 }
@@ -847,81 +755,6 @@ async fn i7_a_daemon_that_never_answers_exits_1_in_ten_seconds() {
 }
 
 #[tokio::test]
-async fn m2219_a_rup_command_is_judged_and_touched_like_the_tool() {
-    let project = start_daemon().await;
-    let maker = on(&project.socket).acting_as(Some("a7"));
-    let made = maker
-        .rup(&["rail", "create-workstream", "w", "--json"])
-        .await;
-    assert_eq!(code(&made), 0, "{}", err(&made));
-    let id = serde_json::from_str::<Value>(&out(&made)).unwrap()["id"]
-        .as_str()
-        .unwrap()
-        .to_owned();
-    // Reach (M7): the maker changes what it made; another Agent is refused, as over MCP.
-    assert_eq!(code(&maker.rup(&["rail", "rename", &id, "w2"]).await), 0);
-    let other = on(&project.socket).acting_as(Some("a8"));
-    let refused = other.rup(&["rail", "rename", &id, "w3"]).await;
-    assert_eq!(code(&refused), 1);
-    assert!(err(&refused).contains("FORBIDDEN"), "{}", err(&refused));
-    // The Touch names the calling Agent.
-    let touched = out(&maker.rup(&["provenance", "touched", "a7", "--json"]).await);
-    assert!(touched.contains(&format!("rail:{id}")), "{touched}");
-}
-
-#[tokio::test]
-async fn m2219_every_command_the_off_brief_names_is_in_rup_help() {
-    use agents::claude_code::{Folders, Launcher, Pair, Role};
-    let root = tempfile::tempdir().unwrap();
-    let project = root.path().join("proj");
-    let data = project.join(".roundup");
-    std::fs::create_dir_all(&data).unwrap();
-    let rup = PathBuf::from(env!("CARGO_BIN_EXE_rup"));
-    let launcher = Launcher::new("claude", root.path().join("claude.json"), rup, None);
-    let pair = Pair {
-        mcp_off: true,
-        ..Default::default()
-    };
-    let help = tokio::process::Command::new(env!("CARGO_BIN_EXE_rup"))
-        .arg("help")
-        .output()
-        .await
-        .unwrap();
-    let help = out(&help);
-    let lines: Vec<&str> = help.lines().map(str::trim).collect();
-    for role in [Role::Agent, Role::Door] {
-        let _argv = launcher
-            .prepare_on(
-                Folders {
-                    project: &project,
-                    data: &data,
-                },
-                "7",
-                "1",
-                &project,
-                None,
-                role,
-                &pair,
-            )
-            .unwrap();
-        let brief = std::fs::read_to_string(data.join("agents/7.brief.md")).unwrap();
-        let named: BTreeSet<&str> = brief
-            .split('`')
-            .filter(|span| span.starts_with("rup "))
-            .collect();
-        assert!(named.len() > 50, "{named:?}");
-        for command in named {
-            assert!(
-                lines.iter().any(|line| line
-                    .strip_prefix(command)
-                    .is_some_and(|rest| rest.is_empty() || rest.starts_with(' '))),
-                "{role:?} names `{command}`, which rup help lacks"
-            );
-        }
-    }
-}
-
-#[tokio::test]
 async fn b48_the_cli_prints_why() {
     let dir = tempfile::tempdir().unwrap();
     let socket = dir.path().join("rupd.sock");
@@ -1043,165 +876,8 @@ async fn a2693a_cli_and_mcp_forward_the_resume_mode() {
         assert_eq!(request, json!({"id":"child","mode":mode}));
     }
 }
-
-#[tokio::test]
-async fn i2706a_help_explains_rail_names_and_machine_ids() {
-    let dir = tempfile::tempdir().unwrap();
-    for args in [
-        vec!["help"],
-        vec!["help", "agent"],
-        vec!["help", "rail"],
-        vec!["help", "workstream"],
-    ] {
-        let result = on(&dir.path().join("absent.sock")).rup(&args).await;
-        assert_eq!(code(&result), 0);
-        assert!(
-            out(&result).contains("Rail name")
-                && out(&result).contains("IDs remain command arguments"),
-            "{}",
-            out(&result)
-        );
-        assert!(out(&result).contains("ROUNDUP_AGENT"));
-    }
-}
-
-#[tokio::test]
-async fn i2706a_plain_output_uses_current_rail_names() {
-    let fx = common::NamedRail::start().await;
-    let run = on(&fx.served.socket()).acting_as(Some(&fx.door));
-    let spare = fx.spawn("Spare").await;
-    let discarded = run.rup(&["agent", "discard", &spare]).await;
-    assert_eq!(code(&discarded), 0, "{}", err(&discarded));
-    assert_eq!(out(&discarded), "discarded Worktree of Agent Spare\n");
-    for renamed in [false, true] {
-        if renamed {
-            fx.rename().await;
-        }
-        let (door, child) = if renamed {
-            ("Planning", "Author")
-        } else {
-            ("Research", "Writer")
-        };
-        let moved = run
-            .rup(&["rail", "move", &fx.child, "--parent", &fx.door, "0"])
-            .await;
-        assert_eq!(code(&moved), 0, "{}", err(&moved));
-        assert_eq!(out(&moved), format!("moved {child} to {door}\n"));
-        for args in [
-            vec!["rail", "tree"],
-            vec!["agent", "context"],
-            vec!["agent", "digest"],
-        ] {
-            let caller = if args == ["agent", "context"] {
-                &fx.child
-            } else {
-                &fx.door
-            };
-            let shown = on(&fx.served.socket())
-                .acting_as(Some(caller))
-                .rup(&args)
-                .await;
-            assert_eq!(code(&shown), 0, "{}", err(&shown));
-            assert!(out(&shown).ends_with('\n'));
-            let items: Vec<Value> = out(&shown)
-                .lines()
-                .map(|line| serde_json::from_str(line).unwrap())
-                .collect();
-            match args.as_slice() {
-                ["rail", "tree"] => {
-                    let node = items.iter().find(|node| node["id"] == fx.child).unwrap();
-                    assert_eq!(node["name"], child);
-                    assert_eq!(node["parent_name"], door);
-                }
-                ["agent", "context"] => {
-                    assert_eq!(items[0]["self"]["id"], fx.child);
-                    assert_eq!(items[0]["self"]["name"], child);
-                    assert_eq!(items[0]["parent"]["name"], door);
-                    assert_eq!(items[0]["ask"]["name"], door);
-                }
-                ["agent", "digest"] => assert!(
-                    items[0]["children"]
-                        .as_array()
-                        .unwrap()
-                        .iter()
-                        .any(|entry| entry["name"] == child)
-                ),
-                _ => unreachable!(),
-            }
-        }
-    }
-    let tree = fx.user.request("rail.tree", ()).await.unwrap();
-    let path = tree
-        .as_array()
-        .unwrap()
-        .iter()
-        .find(|node| node["id"] == fx.child)
-        .unwrap()["worktree"]["path"]
-        .as_str()
-        .unwrap();
-    let discarded = run.rup(&["agent", "discard", &fx.child]).await;
-    assert_eq!(code(&discarded), 0, "{}", err(&discarded));
-    assert_eq!(out(&discarded), "discarded Worktree of Agent Author\n");
-    assert!(!Path::new(path).exists());
-}
-
-#[tokio::test]
-async fn i2706a_json_keeps_machine_results() {
-    let fx = common::NamedRail::start().await;
-    let run = on(&fx.served.socket()).acting_as(Some(&fx.door));
-    for renamed in [false, true] {
-        if renamed {
-            fx.rename().await;
-        }
-        for (args, method, params) in [
-            (vec!["rail", "tree", "--json"], "rail.tree", Value::Null),
-            (
-                vec!["agent", "context", "--json"],
-                "agent.context",
-                json!({"id":fx.door}),
-            ),
-            (
-                vec!["agent", "digest", "--json"],
-                "agent.digest",
-                json!({"id":fx.door}),
-            ),
-        ] {
-            let actual = run.rup(&args).await;
-            assert_eq!(code(&actual), 0, "{}", err(&actual));
-            let mut expected = fx.user.request(method, params).await.unwrap();
-            let mut actual = serde_json::from_str::<Value>(&out(&actual)).unwrap();
-            // These are separate live reads: hooks may publish Status between them.
-            strip_status(&mut expected);
-            strip_status(&mut actual);
-            assert_eq!(actual, expected);
-        }
-        let moved = run
-            .rup(&[
-                "rail", "move", &fx.child, "--parent", &fx.door, "0", "--json",
-            ])
-            .await;
-        assert_eq!(code(&moved), 0, "{}", err(&moved));
-        assert_eq!(out(&moved), "null\n");
-    }
-    let discarded = run.rup(&["agent", "discard", &fx.child, "--json"]).await;
-    assert_eq!(code(&discarded), 0, "{}", err(&discarded));
-    assert_eq!(out(&discarded), "null\n");
-}
-
-fn strip_status(value: &mut Value) {
-    match value {
-        Value::Object(object) => {
-            object.remove("status");
-            object.remove("status_revision");
-            for value in object.values_mut() {
-                strip_status(value);
-            }
-        }
-        Value::Array(items) => items.iter_mut().for_each(strip_status),
-        _ => {}
-    }
-}
-
+#[path = "cli/rail_names.rs"]
+mod rail_names;
 #[tokio::test]
 async fn t21_the_cli_comment_is_the_same_call() {
     let project = start_daemon().await;
@@ -1216,3 +892,98 @@ async fn t21_the_cli_comment_is_the_same_call() {
     assert_eq!(comment["author"]["id"], "a1");
     assert_eq!(comment["body"], "which branch?");
 }
+
+#[tokio::test]
+async fn lc22_successful_memory_decisions_reach_the_vendor() {
+    use agents::claude_code::{Folders, Launcher, Pair, Role};
+    let dir = tempfile::tempdir().unwrap();
+    let project = dir.path().join("Project's checkout");
+    let data = dir.path().join("data");
+    let memory = dir.path().join("Claude's memory");
+    let rup = dir.path().join("rup's program");
+    std::os::unix::fs::symlink(env!("CARGO_BIN_EXE_rup"), &rup).unwrap();
+    std::fs::create_dir(&project).unwrap();
+    std::fs::create_dir(&data).unwrap();
+    std::fs::write(
+        dir.path().join("settings.json"),
+        json!({"autoMemoryDirectory":memory}).to_string(),
+    )
+    .unwrap();
+    let launcher = Launcher::new("fake-claude", dir.path().join("config.json"), rup, None);
+    for role in [Role::Door, Role::Scout] {
+        for yolo in [false, true] {
+            let argv = launcher
+                .prepare_on(
+                    Folders {
+                        project: &project,
+                        data: &data,
+                    },
+                    "7",
+                    "1",
+                    &project,
+                    None,
+                    role,
+                    &Pair {
+                        yolo,
+                        ..Pair::default()
+                    },
+                )
+                .unwrap();
+            let settings: Value =
+                serde_json::from_slice(&std::fs::read(&argv[2]).unwrap()).unwrap();
+            let hook = settings["hooks"]["PreToolUse"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|hook| hook["matcher"] == "Write|Edit")
+                .unwrap();
+            for tool in ["Write", "Edit"] {
+                for target in [memory.join("MEMORY.md"), project.join("source.rs")] {
+                    let mut child = tokio::process::Command::new("bash")
+                        .args(["-c", hook["hooks"][0]["command"].as_str().unwrap()])
+                        .stdin(Stdio::piped())
+                        .stdout(Stdio::piped())
+                        .stderr(Stdio::piped())
+                        .kill_on_drop(true)
+                        .spawn()
+                        .unwrap();
+                    child
+                        .stdin
+                        .take()
+                        .unwrap()
+                        .write_all(
+                            json!({
+                                "tool_name":tool, "tool_input":{"file_path":target},
+                                "permission_mode":if yolo { "bypassPermissions" } else { "default" }
+                            })
+                            .to_string()
+                            .as_bytes(),
+                        )
+                        .await
+                        .unwrap();
+                    let output = tokio::time::timeout(BOUND, child.wait_with_output())
+                        .await
+                        .unwrap()
+                        .unwrap();
+                    assert_eq!(code(&output), 0, "{}", err(&output));
+                    assert!(err(&output).is_empty(), "{}", err(&output));
+                    if target.starts_with(&memory) {
+                        assert_eq!(output.stdout, b"{}\n");
+                    } else {
+                        let reply: Value = serde_json::from_slice(&output.stdout).unwrap();
+                        assert_eq!(reply["hookSpecificOutput"]["permissionDecision"], "deny");
+                        assert!(
+                            reply["hookSpecificOutput"]["permissionDecisionReason"]
+                                .as_str()
+                                .unwrap()
+                                .contains("child Agent")
+                        );
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[path = "cli/tool_catalogue.rs"]
+mod tool_catalogue;
