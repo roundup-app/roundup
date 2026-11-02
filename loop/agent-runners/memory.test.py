@@ -6,6 +6,7 @@ import json
 import os
 from pathlib import Path
 import tarfile
+import re
 import tempfile
 import subprocess
 import sys
@@ -14,6 +15,10 @@ import unittest
 SPEC = importlib.util.spec_from_file_location('memory', Path(__file__).with_name('memory.py'))
 memory = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(memory)
+sys.path.insert(0, str(Path(__file__).parent))
+AGENT = importlib.util.spec_from_file_location('agent', Path(__file__).with_name('agent.py'))
+agent = importlib.util.module_from_spec(AGENT)
+AGENT.loader.exec_module(agent)
 
 
 class WebShards(unittest.TestCase):
@@ -24,6 +29,15 @@ class WebShards(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertNotIn('TAP version', result.stdout + result.stderr)
         self.assertNotIn('No projects matched', result.stdout + result.stderr)
+
+
+class Identity(unittest.TestCase):
+    def test_l121_each_admitted_label_kind_registers_the_job_that_carries_it(self):
+        workflows = Path(__file__).resolve().parents[2] / '.github/workflows'
+        kinds = re.search(r'const LABEL = /\^roundup-\(([a-z|]+)\)-', Path(__file__).with_name('runner.mjs').read_text())[1]
+        for kind in kinds.split('|'):
+            job = re.compile(rf'^  {agent.JOBS.get(kind)}:\n(?:    .*\n)*?    runs-on: .*roundup-{kind}-', re.M)
+            self.assertTrue(any(job.search(path.read_text()) for path in workflows.glob('*.yml')), kind)
 
 
 class Memory(unittest.TestCase):
