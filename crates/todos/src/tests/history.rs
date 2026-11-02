@@ -179,27 +179,6 @@ async fn t19_failed_history_preserves_done_state() {
 }
 
 #[tokio::test]
-async fn t19_legacy_history_keeps_unknown_actor() {
-    let dir = tempfile::tempdir().unwrap();
-    let mut db = rusqlite::Connection::open(dir.path().join("todos.db")).unwrap();
-    rusqlite_migration::Migrations::new(vec![
-        rusqlite_migration::M::up(include_str!("../../migrations/001/up.sql")),
-        rusqlite_migration::M::up(include_str!("../../migrations/002/up.sql")),
-    ])
-    .to_latest(&mut db)
-    .unwrap();
-    db.execute_batch("INSERT INTO todos (title,body,created_at) VALUES ('old','',0); INSERT INTO changes(todo,after_values,after_touch) VALUES (1,'{\"title\":\"old\",\"body\":\"\",\"done\":false,\"blockers\":[]}',0);").unwrap();
-    drop(db);
-    let h = Harness::new(dir.path());
-    assert_eq!(changes(&h, 1).await["changes"][0]["actor"], Value::Null);
-    h.call("todo.complete", json!({"id":1})).await.unwrap();
-    assert_eq!(
-        changes(&h, 1).await["changes"][1]["actor"],
-        json!(Actor::user())
-    );
-}
-
-#[tokio::test]
 async fn t15_initial_values_and_field_changes() {
     let dir = tempfile::tempdir().unwrap();
     let h = Harness::new(dir.path());

@@ -156,6 +156,7 @@ export const xtermOptions: ITerminalOptions = {
   letterSpacing: Number.parseFloat(/--letter-terminal:\s*([^;]+);/.exec(tokens)![1]!),
   // WebGL draws box borders across the full cell even with extra line height.
   customGlyphs: true,
+  macOptionClickForcesSelection: true,
   scrollback: SCROLLBACK_LINES,
   // Read per Terminal: a module-level read is stale for every Terminal opened after the window's scheme changes.
   get theme() {
@@ -547,6 +548,28 @@ export const createXtermEmulators = (
           selection?.addRange(range);
         };
 
+        // xterm's reporting handler sends a right press even when its selection service
+        // preserves the selection. Stop that press before it can reach the program.
+        const selectedTextPress = (event: MouseEvent) => {
+          if (event.button !== 2 || terminal.modes.mouseTrackingMode === "none") return;
+
+          const selection = terminal.getSelectionPosition();
+
+          if (!selection) return;
+
+          const screen = terminal.element!.querySelector<HTMLElement>(".xterm-screen")!;
+          const box = screen.getBoundingClientRect();
+          const col = Math.floor((event.clientX - box.left) * terminal.cols / box.width);
+          const row = Math.floor((event.clientY - box.top) * terminal.rows / box.height);
+          const line = row + terminal.buffer.active.viewportY;
+          const afterStart = line > selection.start.y || (line === selection.start.y && col >= selection.start.x);
+          const beforeEnd = line < selection.end.y || (line === selection.end.y && col < selection.end.x);
+
+          if (col >= 0 && col < terminal.cols && row >= 0 && row < terminal.rows && afterStart && beforeEnd) event.stopImmediatePropagation();
+        };
+
+        terminal.element!.addEventListener("mousedown", selectedTextPress, true);
+        disposers.push(() => terminal.element?.removeEventListener("mousedown", selectedTextPress, true));
         terminal.element!.addEventListener("contextmenu", nativeTextMenu, true);
         disposers.push(() => terminal.element?.removeEventListener("contextmenu", nativeTextMenu, true));
         const ligatures = new LigaturesAddon();

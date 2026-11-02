@@ -220,7 +220,7 @@ class Codex(unittest.TestCase):
         output, out = Path(path, 'output'), io.StringIO()
         with patch.dict(os.environ, RUNNER_TEMP=f'{path}/temp', SEEN=f'{path}/seen', EXIT=str(code),
                         PATH=f"{bin}:{os.environ['PATH']}"), \
-                patch.object(builder, 'app_token', return_value='fresh') as token, redirect_stdout(out):
+                patch.object(builder, 'app_token', return_value='fresh') as token, redirect_stdout(out), redirect_stderr(out):
             exit_code = builder.codex(login, 'Build U1.', 'gpt-6.1-sol', schema, output)
         seen = json.loads(Path(path, 'seen').read_text())
         return seen, output.read_text(), out.getvalue(), Path(path, 'calls').read_text(), token.call_args, exit_code
@@ -736,16 +736,16 @@ class Built(unittest.TestCase):
         verdict = dict(verdict='mac', reason='why', preview='Run it.')
 
         def codex(argv, **kwargs):
+            self.assertIs(json.loads(Path(argv[argv.index('--output-schema') + 1]).read_text())['additionalProperties'], False)
             Path(argv[argv.index('--output-last-message') + 1]).write_text(json.dumps(verdict))
             return subprocess.CompletedProcess(argv, 0, stdout='', stderr='')
 
         with tempfile.TemporaryDirectory() as path, patch.dict(os.environ, CODEX_ONLY='1', RUNNER_TEMP=path,
                                                                CODEX_AUTH=Codex.LOGIN), \
-                patch.object(builder.subprocess, 'run', side_effect=codex) as run, redirect_stdout(io.StringIO()):
+                patch.object(builder.subprocess, 'run', side_effect=codex), redirect_stdout(io.StringIO()) as out:
             self.assertEqual(builder.screen('Check it?'), verdict)
-        argv = run.call_args.args[0]
-        self.assertEqual((argv[0], argv[argv.index('--model') + 1]), ('codex', builder.CODEX_MODEL))
-        self.assertEqual(argv[argv.index('-c') + 1], 'model_reasoning_effort="low"')
+        # A step writes the screen's stdout to its output whole, so a mask or usage line there drops the verdict.
+        self.assertEqual(out.getvalue(), '')
 
     def test_l79_an_empty_verdict_never_asks_the_user_and_the_run_summary_says_so(self):
         ask = 'Should the Rail hide archived Agents?'
