@@ -23,23 +23,71 @@ export const openBlockersOf = (todo: Todo, known: ReadonlyMap<number, Todo>): To
 export const blockedBy = (todo: Todo, all: readonly Todo[]): Todo[] =>
   all.filter((other) => other.blockers.includes(todo.id)).toSorted(byId);
 
-/** Todos that can wait on `todo`: not itself, not already a blocker, and none that already waits on it, directly or through others. */
-export const offeredAsBlockers = (todo: Todo, all: readonly Todo[]): Todo[] => {
-  const byKnown = new Map(all.map((other) => [other.id, other]));
+/** #5644's 338,120 reads for 80 Todos become one adjacency build per revision. */
+export const blockerGraph = (all: readonly Todo[]) => {
+  const known = new Map(all.map(todo => [todo.id, todo]));
+  const forward = new Map<number, Set<number>>();
+  const reverse = new Map<number, Set<number>>();
 
-  const waitsOnTodo = (other: Todo, seen = new Set<number>()): boolean => {
-    if (other.blockers.includes(todo.id)) return true;
-    seen.add(other.id);
+  for (const todo of all) {
+    const edges = new Set(todo.blockers);
+    forward.set(todo.id, edges);
 
-    return other.blockers.some((id) => {
-      const next = byKnown.get(id);
+    for (const id of edges) {
+      const incoming = reverse.get(id) ?? new Set<number>();
+      incoming.add(todo.id);
+      reverse.set(id, incoming);
+    }
+  }
 
-      return next !== undefined && !seen.has(id) && waitsOnTodo(next, seen);
-    });
+  return { all, known, forward, reverse };
+};
+
+export const blockerChoices = (todo: Todo, graph: ReturnType<typeof blockerGraph>, observe?: (kind: "vertex" | "edge" | "candidate", id: number) => void) => {
+  const walk = (edges: ReadonlyMap<number, ReadonlySet<number>>) => {
+    const seen = new Set<number>([todo.id]);
+    const pending = [todo.id];
+
+    while (pending.length) {
+      const current = pending.pop()!;
+      observe?.("vertex", current);
+
+      for (const id of edges.get(current) ?? []) {
+        observe?.("edge", id);
+
+        if (!graph.known.has(id) || seen.has(id)) continue;
+        seen.add(id);
+        pending.push(id);
+      }
+    }
+
+    return seen;
   };
 
-  return all.filter((other) => other.id !== todo.id && !todo.blockers.includes(other.id) && !waitsOnTodo(other)).toSorted(byId);
+  const ancestors = walk(graph.forward);
+  const descendants = walk(graph.reverse);
+  const direct = new Set(todo.blockers);
+  const incoming = graph.reverse.get(todo.id) ?? new Set<number>();
+
+  const has = (ids: ReadonlySet<number>, id: number) => {
+    observe?.("candidate", id);
+
+    return ids.has(id);
+  };
+
+  const related = (ids: ReadonlySet<number>) => [...ids].flatMap(id => graph.known.get(id) ?? []).toSorted(byId);
+
+  return {
+    blockers: related(direct),
+    blocking: related(incoming),
+    offeredBlockers: graph.all.filter(other => !has(descendants, other.id) && !has(direct, other.id)).toSorted(byId),
+    offeredBlocking: graph.all.filter(other => !has(ancestors, other.id) && !has(incoming, other.id)),
+  };
 };
+
+/** Candidates preserve id order and reject direct edges and transitive cycles. */
+export const offeredAsBlockers = (todo: Todo, all: readonly Todo[]): Todo[] =>
+  blockerChoices(todo, blockerGraph(all)).offeredBlockers;
 
 /** U3708: a row of the Todos tree: its depth and the Todo it nests under, both read from `blockers` alone. */
 export type NestedRow = { todo: Todo; level: number; parent: number | null };
@@ -53,22 +101,26 @@ export const treeRows = (list: readonly Todo[]): NestedRow[] => {
   for (const todo of list) {
     const parent = parentOf(todo);
 
-    children.set(parent, [...(children.get(parent) ?? []), todo]);
+    const siblings = children.get(parent) ?? [];
+    siblings.push(todo);
+    children.set(parent, siblings);
   }
 
   const seen = new Set<number>();
   const rows: NestedRow[] = [];
 
-  const walk = (parent: number | null, level: number) => {
-    for (const todo of children.get(parent) ?? []) {
-      if (seen.has(todo.id)) continue;
-      seen.add(todo.id);
-      rows.push({ todo, level, parent });
-      walk(todo.id, level + 1);
-    }
-  };
+  const pending: NestedRow[] = [...(children.get(null) ?? [])].reverse().map(todo => ({ todo, level: 1, parent: null }));
 
-  walk(null, 1);
+  while (pending.length) {
+    const row = pending.pop()!;
+
+    if (seen.has(row.todo.id)) continue;
+    seen.add(row.todo.id);
+    rows.push(row);
+    const nested = children.get(row.todo.id) ?? [];
+
+    for (let at = nested.length - 1; at >= 0; at--) pending.push({ todo: nested[at]!, level: row.level + 1, parent: row.todo.id });
+  }
 
   // A cycle among stale blockers leaves no root: draw what is left at level 1 rather than drop a Todo.
   for (const todo of list) if (!seen.has(todo.id)) rows.push({ todo, level: 1, parent: null });
@@ -114,18 +166,53 @@ export const planDrop = (rows: readonly NestedRow[], flat: readonly Todo[], all:
   return plan;
 };
 
-type TreeNode = { id: string; children?: TreeNode[] };
+/** Preorder columns: subtree end is exclusive; firstChild/nextSibling enumerate only immediate children. */
+export const rowTopology = (rows: readonly NestedRow[]) => {
+  const index = new Map<number, number>();
+  const parent: (number | null)[] = [];
+  const end = Array<number>(rows.length).fill(rows.length);
+  const firstChild: (number | null)[] = Array(rows.length).fill(null);
+  const nextSibling: (number | null)[] = Array(rows.length).fill(null);
+  const last = new Map<number | null, number>();
+  const stack: number[] = [];
+  let root: number | null = null;
+  rows.forEach((row, at) => {
+    while (stack.length && rows[stack.at(-1)!]!.level >= row.level) end[stack.pop()!] = at;
+    const above = row.parent === null ? null : index.get(row.parent) ?? null;
+    parent.push(above);
+    const previous = last.get(above);
 
-/** The rows as the TreeView's collection: each row's children are the rows naming it as parent. */
-export const treeCollection = (rows: readonly NestedRow[]) => {
-  const children = (parent: number | null): TreeNode[] =>
-    rows.flatMap((row) => (row.parent === parent ? [{ id: String(row.todo.id), children: children(row.todo.id) }] : []));
-
-  return createTreeCollection<TreeNode>({
-    nodeToValue: (node) => node.id,
-    nodeToString: (node) => node.id,
-    rootNode: { id: "root", children: children(null) },
+    if (previous !== undefined) nextSibling[previous] = at;
+    else if (above === null) root = at;
+    else firstChild[above] = at;
+    last.set(above, at);
+    index.set(row.todo.id, at);
+    stack.push(at);
   });
+
+  const children = (id: number | null): NestedRow[] => {
+    const result: NestedRow[] = [];
+
+    for (let at = id === null ? root : firstChild[index.get(id)!]; at != null; at = nextSibling[at]) result.push(rows[at]!);
+
+    return result;
+  };
+
+  return { rows, index, parent, end, firstChild, nextSibling, root, children };
+};
+
+type TreeNode = { id: string; children: TreeNode[] };
+
+/** Ark owns the keyboard semantics; application construction visits each child slot once. */
+export const treeCollection = (topology: ReturnType<typeof rowTopology>) => {
+  const root: TreeNode = { id: "root", children: [] };
+  const nodes = topology.rows.map((row): TreeNode => ({ id: String(row.todo.id), children: [] }));
+  nodes.forEach((node, at) => {
+    const parent = topology.parent[at];
+    (parent == null ? root : nodes[parent]!).children.push(node);
+  });
+
+  return createTreeCollection<TreeNode>({ nodeToValue: node => node.id, nodeToString: node => node.id, rootNode: root });
 };
 
 /** U3808: the latest eligible Handed Todo of each live Agent. */
