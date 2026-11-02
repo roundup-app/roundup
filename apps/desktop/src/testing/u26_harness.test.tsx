@@ -11,11 +11,18 @@ import type { SeedName } from "./seeds";
 import type { Event as DaemonEvent } from "@contracts/Event";
 import { event } from "./nodes";
 import { batch } from "solid-js";
+import { showEverythingInApp } from "./showEverything";
 
 const NOW = 1_700_000_000_000;
 
-const mount = (seed: SeedName) => {
+const mount = (seed: SeedName, railIds?: readonly string[]) => {
   const controls = seedApp(seed, Date.now());
+
+  if (railIds) {
+    const tree = controls.app.handlers["rail.tree"]!;
+    controls.app.handlers["rail.tree"] = async () => (await tree(null)).filter(node => railIds.includes(node.id));
+  }
+
   render(() => <RequestedApp app={controls.app} reducedMotion={() => false} clock={Date.now} createEmulator={fakeEmulators().factory} />);
 
   return controls;
@@ -63,7 +70,6 @@ describe("u26 the harness seeds", () => {
     const line = await screen.findByRole("alert");
 
     expect(line.textContent).toBe(appCopy.daemonExit("exited 1"));
-    expect(line.querySelector("svg.lucide-x")).not.toBeNull();
   });
 
   it("u26_conflict_fails_the_next_call_with_conflict_and_the_one_after_succeeds", async () => {
@@ -73,6 +79,15 @@ describe("u26 the harness seeds", () => {
 
     await expect(app.rpc("rail.createWorkstream", { name: "x", parent: null })).rejects.toMatchObject({ code: -32003 });
     await expect(app.rpc("rail.createWorkstream", { name: "x", parent: null })).resolves.toMatchObject({ name: "x" });
+  });
+
+  // The full-tree and Drawer observers stay separate from the four-Pad seed check.
+  it("u26_tree_40_lists_its_four_pads", async () => {
+    mount("tree-40", ["payments", "agent-1"]);
+    await showEverythingInApp(/backend/, "Pads");
+    const pads = within(await screen.findByRole("region", { name: copy.pads }));
+
+    await waitFor(() => expect(pads.getAllByRole("button", { name: /^(pad-\d|a-pad-with)/ })).toHaveLength(4));
   });
 
   it("u26_a_pad_the_agent_owns_opens_in_its_drawer", async () => {

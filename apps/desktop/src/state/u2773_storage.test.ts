@@ -463,3 +463,23 @@ it("u2773e_shared_project_credentials_stay_memory_only_across_replacement", asyn
     expect(JSON.stringify(localStorage)).not.toContain("sentinel-shared-2812");
   } finally { opened.close(); }
 });
+
+it("u5643a_edit_copies_no_unrelated_payloads", async () => {
+  const seed = Array.from({ length: 100 }, (_, index) => ({
+    revision: `seed-${index}`, destination: { ...target, object: `object-${index}` },
+    value: { text: `payload-${index} 雪 e\u0301`, choices: [`choice-${index}`] },
+    selection: null, policy: "ordinary", status: "draft",
+  }));
+
+  localStorage.setItem("roundup:drafts:/hundred", JSON.stringify({ version: 1, drafts: seed }));
+  const drafts = draftStorage("/hundred");
+  const clone = vi.spyOn(globalThis, "structuredClone");
+  const changed = drafts.edit(seed[0]!.destination, { text: "replacement 雪" }, null, "ordinary");
+  // Observe only synchronous capture/enqueue, before validation or persistence runs.
+  const inputs = clone.mock.calls.map(([value]) => JSON.stringify(value)).join("\n");
+  clone.mockRestore();
+  const copied = seed.slice(1).filter(row => inputs.includes(row.value.text));
+  expect(copied).toHaveLength(0);
+  expect(await changed.retained).toBeNull();
+  expect(draftStorage("/hundred").list()).toEqual([...seed.slice(1), changed.draft]);
+});
