@@ -9,31 +9,56 @@ async fn section(rig: &Rig, who: &Actor, heading: &str, text: &str) -> Value {
 
 #[tokio::test]
 async fn p15_appends_at_section_end() {
-    let rig = Rig::new();
-    rig.create("notes", DOC).await;
-    let a = agent("a");
+    for files in [false, true] {
+        for (before, supplied, expected) in [
+            (
+                "## Plan\nExisting hard break  \n\n## Next\nKeep\n",
+                "Added",
+                "## Plan\nExisting hard break  \nAdded\n\n## Next\nKeep\n",
+            ),
+            (
+                "## Plan\nExisting\t \n \t\n\n## Next\nKeep\n",
+                "Added",
+                "## Plan\nExisting\t \nAdded\n \t\n\n## Next\nKeep\n",
+            ),
+            (
+                "## Plan\nExisting  ",
+                "  Added\t \nNext  \n\n",
+                "## Plan\nExisting  \n  Added\t \nNext  \n",
+            ),
+            (
+                "## Plan\nExisting  \n\n## Next\nKeep\n",
+                "  Added\t \r\n",
+                "## Plan\nExisting  \n  Added\t \n\n## Next\nKeep\n",
+            ),
+            ("## Plan\nx\n", "y\n", "## Plan\nx\ny\n"),
+            ("## Plan\nx", "y", "## Plan\nx\ny"),
+            ("## Plan\nx\ny", "z\n\n", "## Plan\nx\ny\nz\n"),
+        ] {
+            let mut rig = Rig::new();
+            rig.create("notes", before).await;
+            rig.ok(&Actor::user(), "pad.setStorage", json!({"files": files}))
+                .await;
 
-    let pad = section(&rig, &a, "Done", "- y\n").await;
-    assert_eq!(pad["text"], DOC.replace("- x\n", "- x\n- y\n"));
+            let appended = section(&rig, &agent("a"), "Plan", supplied).await;
 
-    rig.create("tail", "## A\nx").await;
-    let tail = rig
-        .ok(
-            &a,
-            "pad.appendSection",
-            json!({"name": "tail", "heading": "a", "text": "y"}),
-        )
-        .await;
-    assert_eq!(tail["text"], "## A\nx\ny");
-
-    let blank = rig
-        .ok(
-            &a,
-            "pad.appendSection",
-            json!({"name": "tail", "heading": "a", "text": "z\n\n"}),
-        )
-        .await;
-    assert_eq!(blank["text"], "## A\nx\ny\nz\n");
+            assert_eq!(appended["text"], expected, "files={files}, before={before:?}");
+            let read = rig
+                .ok(&agent("a"), "pad.read", json!({"name": "notes"}))
+                .await;
+            assert_eq!(read["text"], expected);
+            if files {
+                assert_eq!(rig.file_text("notes.md"), expected);
+            }
+            drop(rig.pads);
+            rig.pads = Pads::open(rig.dir.path(), rig.bus.clone()).unwrap();
+            let reopened = rig
+                .ok(&agent("a"), "pad.read", json!({"name": "notes"}))
+                .await;
+            assert_eq!(reopened["text"], expected);
+            assert_eq!(reopened["revision"], appended["revision"]);
+        }
+    }
 }
 
 #[tokio::test]
