@@ -63,6 +63,7 @@ it("u3787a_rail_feedback_is_immediate_and_conflicts_stay_retryable", async () =>
 it("u3787a_quiet_deletion_keeps_the_lists_and_drawers_reachable", async () => {
   for (const id of ["U150", "U459", "U460", "U486", "U3512a"]) {
     await lane.seedTodos(["Chosen é 🧭 ".repeat(5), "second", "third", "fourth", "fifth"], true, "tree-40");
+    await lane.browser("set", "media", "dark");
     await lane.evaluate(`(() => {
       const row = document.querySelector('.shelf .todo-row-button');
       row.focus();
