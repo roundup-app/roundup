@@ -208,7 +208,8 @@ describe("u54 keyboard help", () => {
 
     const listed = CHORDS.filter((chord) => !chord.inFirstRun && !chord.inRail && !chord.inTerminals && !chord.inShelf && !chord.inEditor).flatMap((chord) => chord.presses).sort();
     // Arrow keys are probed for `⌘` alone: the Terminal tabs bind them with other modifiers too (U2230).
-    const outsideTerminal = document.querySelector('.rail-actions [aria-label="Create"]')!;
+    const outsideTerminal = document.querySelector<HTMLElement>("[data-todo-root]")!;
+    outsideTerminal.focus();
     const bound = [...new Set([...(await boundPresses(outsideTerminal)), ...(await boundPresses(outsideTerminal, [{ metaKey: true }], ["ArrowUp", "ArrowDown"])), ...(await boundPresses(outsideTerminal, [{ altKey: true, metaKey: true }], ["KeyN"]))])].sort();
 
     expect(bound).toEqual(listed);

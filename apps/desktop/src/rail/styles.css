@@ -26,10 +26,6 @@
   gap: var(--space-3);
 }
 
-.rail-create-menu kbd {
-  margin-inline-start: auto;
-}
-
 .rail-create-menu [data-disabled] {
   color: var(--disabled);
 }

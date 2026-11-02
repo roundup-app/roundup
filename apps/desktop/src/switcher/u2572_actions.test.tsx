@@ -1,3 +1,4 @@
+import { chooseFooter } from "../rail/railFixture";
 import { questionDialog, answerQuestion } from "../shelf/bulkQuestionHarness";
 import { cleanup, fireEvent, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
@@ -324,7 +325,7 @@ it("u2572c_New_Agent_can_return_to_the_existing_prompt_while_creation_is_pending
   const prompt = document.querySelector<HTMLTextAreaElement>(".spawn-prompt-field")!;
   fireEvent.input(prompt, { target: { value: "keep my draft" } });
   app.handlers["rail.createWorkstream"] = () => new Promise(() => {});
-  fireEvent.click(document.querySelector<HTMLButtonElement>('.rail-actions [data-button="add"]')!);
+  await chooseFooter("Workstream");
   await show();
   expect(actionNames().filter(name => /prompt/i.test(name ?? ""))).toEqual([]);
   await chooseAction("New Agent", "enter");
