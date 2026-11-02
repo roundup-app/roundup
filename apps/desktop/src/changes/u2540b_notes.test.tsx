@@ -26,8 +26,11 @@ const annotations = () => vi.mocked(VirtualizedFileDiff.prototype.render).mock.c
 it("u5646b_annotation_updates_keep_content", async () => {
   const { connected } = await openDiff();
   await waitFor(() => expect(processFile).toHaveBeenCalledTimes(1));
+  const click = vi.mocked(VirtualizedFileDiff).mock.calls[0]![0]!.onLineNumberClick!;
+
+  for (const lineNumber of [1, 2]) click({ type: "diff-line", lineType: "change-deletion", lineElement: document.createElement("div"), numberElement: document.createElement("span"), numberColumn: true, lineNumber, annotationSide: "deletions", event: new PointerEvent("click", { shiftKey: lineNumber === 2 }) });
   await saveNote("first exact 🐝");
-  await waitFor(() => expect(annotations()).toMatchObject([{ side: "additions", lineNumber: 1, metadata: { text: "first exact 🐝", side: "new", start: 1, end: 1 } }]));
+  await waitFor(() => expect(annotations()).toMatchObject([{ side: "deletions", lineNumber: 2, metadata: { text: "first exact 🐝", side: "old", start: 1, end: 2 } }]));
   fireEvent.click(screen.getByRole("button", { name: "Edit note 1" }));
   fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: "edited exact e\u0301" } });
   fireEvent.click(screen.getByRole("button", { name: "Save" }));
@@ -40,7 +43,8 @@ it("u5646b_annotation_updates_keep_content", async () => {
   expect(VirtualizedFileDiff).toHaveBeenCalledTimes(1);
   expect(vi.mocked(VirtualizedFileDiff.prototype.render).mock.calls.filter(([input]) => input?.fileDiff)).toHaveLength(1);
   fireEvent.click(screen.getByRole("button", { name: "Add note" }));
-  expect(screen.getByRole("spinbutton", { name: "Start line" })).toHaveProperty("value", "1");
+  expect(screen.getByRole("spinbutton", { name: "End line" })).toHaveProperty("value", "2");
+  expect(screen.getByRole("tab", { name: "Old" }).getAttribute("aria-selected")).toBe("true");
 });
 
 it("u2540b_save_cancel_and_invalid_ranges", async () => {

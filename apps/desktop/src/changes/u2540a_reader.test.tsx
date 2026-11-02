@@ -1,8 +1,12 @@
-import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
+import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it, vi } from "vitest";
 import { COMPARISON, openDiff, saveNote } from "./noteHarness";
 import { RpcError } from "../app/seam";
 import { mountControl } from "./harness";
+import { createSignal } from "solid-js";
+import { ConnectedProjectContext } from "../state/connectedProject";
+import { DiffReader } from "./DiffReader";
+import { notesFor } from "./notes";
 
 import { VirtualizedFileDiff, Virtualizer, processFile } from "@pierre/diffs";
 import { createTwoFilesPatch, structuredPatch } from "diff";
@@ -24,7 +28,7 @@ it("u5646a_equal_replies_keep_render_and_selection", async () => {
   await waitFor(() => expect(rendered()).toHaveLength(1));
   const click = vi.mocked(VirtualizedFileDiff).mock.calls[0]![0]!.onLineNumberClick!;
   // Pierre supplies this public callback when the user selects line numbers.
-  const line = (lineNumber: number, shiftKey = false) => click({ lineNumber, annotationSide: "deletions", event: new PointerEvent("click", { shiftKey }) });
+  const line = (lineNumber: number, shiftKey = false) => click({ type: "diff-line", lineType: "change-deletion", lineElement: document.createElement("div"), numberElement: document.createElement("span"), numberColumn: true, lineNumber, annotationSide: "deletions", event: new PointerEvent("click", { shiftKey }) });
   line(1); line(2, true);
   const add = screen.getByRole("button", { name: "Add note" });
   add.focus();
@@ -71,6 +75,33 @@ it.each([
   expect(createTwoFilesPatch).toHaveBeenCalledTimes(2);
   expect(processFile).toHaveBeenCalledTimes(2);
   expect(VirtualizedFileDiff).toHaveBeenCalledTimes(2);
+});
+
+it.each([{ id: "plain", path: "src/a.ts" }, { id: "a", path: "src/deep/b.ts" }])("u5646a_changed_target_rejects_equal_identity_and_stale_reply: %j", async target => {
+  const { app, connected, view } = await mountControl();
+
+  view.unmount();
+  const [requested, setRequested] = createSignal({ id: "a", path: "src/a.ts" });
+  const notes = notesFor(app, "/p");
+
+  app.handlers["agent.compareFile"] = () => structuredClone(COMPARISON);
+  render(() => <ConnectedProjectContext.Provider value={connected}><DiffReader id={requested().id} path={requested().path} name="a" notes={notes} onEdited={() => {}} onBack={() => {}} onClose={() => {}} recover={() => {}} /></ConnectedProjectContext.Provider>);
+  await waitFor(() => expect(rendered()).toHaveLength(1));
+  let finish!: (value: typeof COMPARISON) => void;
+
+  app.handlers["agent.compareFile"] = () => new Promise(resolve => { finish = resolve; });
+  setRequested({ id: "a", path: "pending.ts" });
+  await waitFor(() => expect(finish).toBeTypeOf("function"));
+  app.handlers["agent.compareFile"] = () => structuredClone(COMPARISON);
+  setRequested(target);
+  await waitFor(() => expect(rendered()).toHaveLength(2));
+  expect(app.calls.filter(call => call.method === "agent.compareFile").at(-1)?.params).toEqual(target);
+  finish({ ...COMPARISON, new: { kind: "text", revision: "stale", text: "stale\n" } });
+  // reply() unwraps its awaited RPC before DiffReader's .then runs.
+  await Promise.resolve();
+  await Promise.resolve();
+  expect(rendered()).toHaveLength(2);
+  expect(processFile).toHaveBeenCalledTimes(2);
 });
 
 it("u5646c_equal_refresh_keeps_fallback_notice", async () => {
