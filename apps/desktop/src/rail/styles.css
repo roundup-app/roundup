@@ -23,11 +23,9 @@
 }
 
 .rail-create-menu [data-part="item"] {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
   gap: var(--space-3);
-}
-
-.rail-create-menu .key-chips {
-  margin-inline-start: auto;
 }
 
 .rail-create-menu[data-pointer] {
