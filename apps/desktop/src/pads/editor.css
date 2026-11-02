@@ -433,7 +433,8 @@ details[data-pad-agents] textarea {
 }
 
 @media (hover: hover) and (pointer: fine) {
-  details[data-pad-agents] summary:hover {
+  details[data-pad-agents] summary:hover,
+  details[data-pad-heading] summary:hover {
     color: var(--text);
   }
 }
