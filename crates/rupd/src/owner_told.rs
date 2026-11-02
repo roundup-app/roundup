@@ -47,7 +47,7 @@ impl Change {
 /// The Todos as last seen, and the changes each owner Agent has not yet been told.
 #[derive(Default)]
 pub struct Told {
-    todos: HashMap<u32, Todo>,
+    todos: HashMap<u32, Notice>,
     pending: HashMap<String, Vec<(u32, Change)>>,
     /// The newest comment of each Todo already read, so a comment is told once.
     comments_seen: HashMap<u32, u32>,
@@ -55,6 +55,23 @@ pub struct Told {
     started: i64,
     /// T25: the Agents whose Status became `idle` since the last hand-off round.
     idled: Vec<String>,
+}
+
+/// Only fields read by the notification fold; body and references never enter its history.
+struct Notice {
+    owner: Option<Actor>,
+    blockers: Vec<u32>,
+    title: String,
+}
+
+impl From<&Todo> for Notice {
+    fn from(todo: &Todo) -> Self {
+        Self {
+            owner: todo.owner.clone(),
+            blockers: todo.blockers.clone(),
+            title: todo.title.chars().take(MAX_TITLE).collect(),
+        }
+    }
 }
 
 /// The Agent an owner names; Me and Unassigned name none.
@@ -68,7 +85,10 @@ fn agent(owner: &Option<Actor>) -> Option<&str> {
 impl Told {
     pub fn new(todos: Vec<Todo>) -> Self {
         Self {
-            todos: todos.into_iter().map(|todo| (todo.id, todo)).collect(),
+            todos: todos
+                .iter()
+                .map(|todo| (todo.id, Notice::from(todo)))
+                .collect(),
             pending: HashMap::new(),
             comments_seen: HashMap::new(),
             started: now_ms().max(0),
@@ -126,16 +146,17 @@ impl Told {
     pub fn record(&mut self, event: &Event) {
         match &event.data {
             EventData::TodoRestored(todo) => {
-                self.todos.insert(todo.id, (**todo).clone());
+                self.todos.insert(todo.id, Notice::from(todo.as_ref()));
             }
             EventData::TodoCreated(todo) => {
                 if let Some(to) = agent(&todo.owner) {
                     self.tell(to, &event.actor, todo.id, Change::Assigned);
                 }
-                self.todos.insert(todo.id, (**todo).clone());
+                self.todos.insert(todo.id, Notice::from(todo.as_ref()));
             }
             EventData::TodoUpdated(todo) => {
-                if let Some(before) = self.todos.get(&todo.id).cloned() {
+                let after = Notice::from(todo.as_ref());
+                if let Some(before) = self.todos.insert(todo.id, after) {
                     if agent(&before.owner) != agent(&todo.owner) {
                         if let Some(from) = agent(&before.owner) {
                             self.tell(from, &event.actor, todo.id, Change::Taken);
@@ -150,7 +171,6 @@ impl Told {
                         self.tell(owner, &event.actor, todo.id, change);
                     }
                 }
-                self.todos.insert(todo.id, (**todo).clone());
             }
             EventData::TodoUnblocked(id) => {
                 let owner = self.todos.get(&id.id).and_then(|todo| agent(&todo.owner));
@@ -197,7 +217,7 @@ impl Told {
                     .filter(|(changed, _)| changed == id)
                     .map(|(_, change)| change.words())
                     .collect();
-                let title: String = self.todos[id].title.chars().take(MAX_TITLE).collect();
+                let title = &self.todos[id].title;
                 format!("- {title}: {} (rup todo get {id})", words.join(", "))
             })
             .collect();
@@ -229,11 +249,11 @@ async fn flush(told: &mut Told, reader: &Reader) {
     if told.waiting().is_empty() {
         return;
     }
-    let Ok(world) = reader.world().await else {
+    let Ok(nodes) = reader.rail().await else {
         return;
     };
     for id in told.waiting() {
-        let node = world.nodes().iter().find(|n| n.id == id && is_agent(n));
+        let node = nodes.iter().find(|n| n.id == id && is_agent(n));
         let Some(node) = node else {
             told.drop_agent(&id);
             continue;
@@ -271,11 +291,11 @@ async fn hand_off(told: &mut Told, reader: &Reader) {
     if idled.is_empty() {
         return;
     }
-    let Ok(world) = reader.world().await else {
+    let Ok(nodes) = reader.rail().await else {
         return;
     };
     for id in idled {
-        let ready = world.nodes().iter().any(|n| {
+        let ready = nodes.iter().any(|n| {
             n.id == id
                 && is_agent(n)
                 && n.terminal_id.is_some()

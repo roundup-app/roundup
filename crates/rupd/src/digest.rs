@@ -83,6 +83,12 @@ impl Reader {
         serde_json::from_value(value).map_err(RpcError::internal)
     }
 
+    /// Agent-state decisions need no other snapshot sources.
+    pub(crate) async fn rail(&self) -> Result<Vec<contracts::agent::RailNode>, RpcError> {
+        self.call("rail", "rail.tree", Value::Null, Actor::daemon())
+            .await
+    }
+
     /// The Rail, the Todos, the Pads and every Message.
     pub async fn world(&self) -> Result<World, RpcError> {
         let daemon = Actor::daemon;
@@ -97,9 +103,7 @@ impl Reader {
             );
         }
         Ok(World {
-            nodes: self
-                .call("rail", "rail.tree", Value::Null, daemon())
-                .await?,
+            nodes: self.rail().await?,
             todos: self
                 .call("todo", "todo.list", Value::Null, daemon())
                 .await?,
