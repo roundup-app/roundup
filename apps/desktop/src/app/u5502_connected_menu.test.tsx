@@ -192,10 +192,10 @@ it("u5502_membership_uses_finishes_publications_and_current_attention", async ()
 
 
 it("u5502_quiet_exclusions_and_messages_do_not_light_the_mark", async () => {
-  // U5502: no Agent is Quiet until #5501 supplies an authoritative alert level.
-  const { app } = await openTabs({ api: [agent("eligible", "needs-you", "question"), agent("excluded", "error", "failure")], web: [] });
+  const { app } = await openTabs({ api: [agent("eligible", "needs-you", "question"), agent("excluded", "error", "failure"), agent("quiet-waiting", "needs-you", "question", { alert_level: "quiet" }), agent("quiet-ready", "working", "running", { alert_level: "quiet" })], web: [] });
   fireEvent.click(tab("api"));
   await waitFor(() => expect(tab("api").getAttribute("aria-selected")).toBe("true"));
+  finish(app, "api", "quiet-ready");
   await chooseAction(app, "excluded", "Dismiss error");
   await waitFor(() => expect(actions(app)).toEqual([{ kind: "agent", path: path("api"), agent: "eligible" }]));
   const menu = app.menuBar;
