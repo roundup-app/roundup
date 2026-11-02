@@ -124,7 +124,7 @@ it.skipIf(!captureDir("U4277c")).each(["tree-40", "tabs-8"].flatMap(seed =>
 
           if (await lane.evaluate(`document.querySelector('${trigger}')?.getAttribute('aria-expanded') !== 'true'`)) await lane.browser("click", trigger);
         } else if (view !== "workstreams" && view !== "terminal-tabs") await command(view === "import-work" ? view : `view:${view}`);
-        const selector = {"ask-history":".overview-sections [data-part=item-content]:not([hidden])",made:".ask-bar",resources:".resource-inspection",workstreams:".project-overview","terminal-tabs":".terminal-tabs","import-work":".import-panel"}[view];
+        const selector = {"ask-history":".overview-sections [data-part=item-content]:not([hidden])",made:".ask-bar",resources:".resource-inspection",workstreams:".rail","terminal-tabs":".terminal-tabs","import-work":".import-panel"}[view];
         await lane.until(view === "terminal-tabs" && !filled ? "!document.querySelector('.terminal-tab')" : `!!document.querySelector('${selector}')`);
         expect((await lane.calls()).filter(call => ["agent.spawn", "rail.startDoor", "ask.send", "terminal.write", "project.importCommit"].includes(call.method))).toEqual([]);
 
