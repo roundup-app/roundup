@@ -65,3 +65,6 @@ button[data-pressed="true"] { color: var(--ink-pressed); }
   color: var(--text-selection-ink);
 }
 :focus { outline: none; }
+
+/* The App's chrome is non-selectable; diff text must opt into native selection. */
+[data-line] { user-select: text; }
