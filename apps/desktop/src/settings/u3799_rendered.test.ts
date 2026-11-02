@@ -68,14 +68,14 @@ it.skipIf(!captureDir("U4277c")).each(["tree-40", "tabs-8"].flatMap(seed =>
           await lane.until("document.querySelector('.project-tab[data-path=\"/Users/you/project-number-2\"] [role=tab]')?.getAttribute('aria-selected') === 'true' && !!document.querySelector('.ask-input')");
         }
 
-        await lane.evaluate(`window.__fake.app.projects().then(projects => {window.__auditPath = projects[${seed === "tabs-8" ? 1 : 0}].path; return true;})`);
+        await lane.evaluate(`window.__fake.app.projects().then(projects => {window.__auditPath = projects[${seed === "tabs-8" ? 1 : 0}].path; window.__fake.app = window.__fake.app.of(window.__auditPath); return true;})`);
 
         if (seed === "tabs-8" && !filled && view !== "resources") {
           await lane.evaluate(`(() => {
             window.__fake.app.handlers['rail.tree'] = () => [];
             window.__fake.app.handlers['terminal.list'] = () => [];
-            window.__fake.emit({actor:{kind:'user',id:'you',parent:null},name:'rail.changed'});
-            window.__fake.emit({actor:{kind:'user',id:'you',parent:null},name:'terminal.changed'});
+            window.__fake.app.emit({actor:{kind:'user',id:'you',parent:null},name:'rail.changed'});
+            window.__fake.app.emit({actor:{kind:'user',id:'you',parent:null},name:'terminal.changed'});
             return true;
           })()`);
           await lane.until("document.querySelectorAll('.rail-row').length === 0 && !document.querySelector('.terminal-tabs')");
@@ -103,12 +103,12 @@ it.skipIf(!captureDir("U4277c")).each(["tree-40", "tabs-8"].flatMap(seed =>
             const nodes = await window.__fake.app.rpc('rail.tree', null);
             for (const node of nodes) if (node.id === ${JSON.stringify(agent)}) node.status.kind = 'working';
             window.__fake.app.handlers['rail.tree'] = () => nodes;
-            window.__fake.emit({actor:{kind:'user',id:'you',parent:null},name:'rail.changed'});
+            window.__fake.app.emit({actor:{kind:'user',id:'you',parent:null},name:'rail.changed'});
             return true;
           })()`);
         }
 
-        if (filled && view === "ask-history") await lane.evaluate(`window.__fake.emit({actor:{kind:'user',id:'you',parent:null},name:'ask.changed',data:{ask:{id:'audit',at:'1',text:'Audit',parts:[{text:'Long authored request '.repeat(20),placement:{kind:'routed',workstream:'backend'},state:'typed'}]}}})`);
+        if (filled && view === "ask-history") await lane.evaluate(`window.__fake.app.emit({actor:{kind:'user',id:'you',parent:null},name:'ask.changed',data:{ask:{id:'audit',at:'1',text:'Audit',parts:[{text:'Long authored request '.repeat(20),placement:{kind:'routed',workstream:'backend'},state:'typed'}]}}})`);
 
         if (filled && view === "made") await lane.evaluate(`(() => {
           window.__fake.app.handlers['deliverable.list'] = () => [{id:'publication-a',project:window.__auditPath,maker:{kind:'agent',id:'agent-1',parent:null},maker_name:'Retained maker',home:null,title:'Published result 長い名前 '.repeat(20),published_at:1,target:{kind:'external',url:'https://example.com/exact-target',availability:'unchecked'}}];
