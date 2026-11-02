@@ -47,7 +47,7 @@ Retention has no automatic expiry. Monitor the controller's disk usage; deleting
 
 The controller uses boxd's in-VM CLI and its managed GitHub credential wrapper. No personal GitHub token or boxd API key is copied into Actions secrets. The only additional credential is a random webhook secret stored in the controller's mode-600 configuration.
 
-Prepare an isolated image machine from the existing `ru-toolchain` snapshot. Clone the trusted revision at `/opt/actions-runner/_work/roundup/roundup` (create the parent with ownership `boxd:boxd`), then run:
+Prepare an isolated image machine from the current `roundup-ci` snapshot; `image.py build` reinstalls every pinned tool over it. Clone the trusted revision at `/opt/actions-runner/_work/roundup/roundup` (create the parent with ownership `boxd:boxd`), then run:
 
 ```sh
 python3 /opt/actions-runner/_work/roundup/roundup/loop/agent-runners/image.py build /opt/actions-runner/_work/roundup/roundup
@@ -85,7 +85,7 @@ From a checkout with `pnpm install`, authenticated `boxd` and `gh`:
 python3 loop/agent-runners/deploy.py
 ```
 
-This installs the locked controller package, a restarting systemd service, HTTPS forwarding and the repository's signed `workflow_job` webhook. Controller and isolated runners join the explicit `roundup-ci` network so registration and memory transfer work. Re-deployment preserves the secret and private history. `--ref <branch>` admits an explicitly selected branch during pre-merge smoke testing; production uses `main`. The account's 8-vCPU/32-GiB quota fits the controller plus three 2-vCPU/8-GiB runners.
+This installs the locked controller package, a restarting systemd service, HTTPS forwarding and the repository's signed `workflow_job` webhook. Controller and isolated runners join the explicit `roundup-ci` network so registration and memory transfer work. Re-deployment preserves the secret and private history. `--ref <branch>` admits an explicitly selected branch during pre-merge smoke testing; production uses `main`. boxd's 8-vCPU/32-GiB quota is per machine; the controller's `maxRunners` bounds how many 2-vCPU/8-GiB runners run at once, and a redeploy keeps it.
 
 Refresh the snapshot when setup pins change and at least weekly to track GitHub runner releases. GitHub stops assigning jobs to runner versions outside its supported update age. A fingerprint mismatch fails visibly; it never silently reinstalls the environment or routes the agent to GitHub-hosted capacity.
 
