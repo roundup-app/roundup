@@ -376,3 +376,132 @@ impl Messages {
         pushes::push(&self.inner, meta, subagent, entry).await
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::inbox::tests::{live, setup};
+    use std::sync::atomic::Ordering;
+
+    fn entry() -> DigestEntry {
+        DigestEntry {
+            name: "child".into(),
+            kind: contracts::Kind::Working,
+            last: "change".into(),
+            todos: 2,
+            pads: vec![],
+        }
+    }
+
+    fn full(now: i64, waiting: bool) -> Slot {
+        Slot {
+            sent: std::iter::repeat_n(now, PUSHES).collect(),
+            waiting: if waiting {
+                vec![("child-id".into(), entry(), 7)]
+            } else {
+                vec![]
+            },
+        }
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn b5640d_flush_reads_once_for_waiting_slots_and_never_for_sent_only() {
+        let dir = tempfile::tempdir().unwrap();
+        let (messages, rail, _) = setup(dir.path());
+        let now = (messages.inner.clock)();
+        {
+            let mut ledger = messages.inner.pushes.lock().await;
+            for i in 0..16 {
+                ledger.metas.insert(format!("m{i}"), full(now, false));
+            }
+        }
+        flush(&messages.inner).await;
+        assert_eq!(rail.reads.load(Ordering::SeqCst), 0);
+        {
+            let mut ledger = messages.inner.pushes.lock().await;
+            assert!(ledger.metas.values().all(|s| s.sent.len() == PUSHES));
+            for (id, slot) in &mut ledger.metas {
+                slot.waiting.push(("child-id".into(), entry(), 7));
+                lock(&rail.nodes).push(live(id));
+            }
+        }
+        flush(&messages.inner).await;
+        assert_eq!(rail.reads.load(Ordering::SeqCst), 1);
+        {
+            let mut ledger = messages.inner.pushes.lock().await;
+            assert!(
+                ledger
+                    .metas
+                    .values()
+                    .all(|s| s.sent.len() == PUSHES && s.waiting[0].2 == 7)
+            );
+            for slot in ledger.metas.values_mut() {
+                slot.waiting.clear();
+                slot.sent = std::iter::repeat_n(now - WINDOW_MS, PUSHES).collect();
+            }
+        }
+        flush(&messages.inner).await;
+        assert_eq!(rail.reads.load(Ordering::SeqCst), 1);
+        assert!(messages.inner.pushes.lock().await.metas.is_empty());
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn b5640d_flush_preserves_lifecycle_and_retries() {
+        let dir = tempfile::tempdir().unwrap();
+        let (messages, rail, _) = setup(dir.path());
+        let now = (messages.inner.clock)();
+        let mut stopped = live("stopped");
+        stopped.terminal_id = None;
+        lock(&rail.nodes).push(stopped);
+        {
+            let mut ledger = messages.inner.pushes.lock().await;
+            for id in ["m", "stopped", "removed"] {
+                ledger.metas.insert(id.into(), full(now, true));
+            }
+        }
+        rail.fail.store(true, Ordering::SeqCst);
+        flush(&messages.inner).await;
+        {
+            let ledger = messages.inner.pushes.lock().await;
+            assert!(
+                ledger
+                    .metas
+                    .values()
+                    .all(|s| s.waiting[0].2 == 7 && s.sent.len() == PUSHES)
+            );
+        }
+        rail.fail.store(false, Ordering::SeqCst);
+        flush(&messages.inner).await;
+        {
+            let mut ledger = messages.inner.pushes.lock().await;
+            assert!(ledger.metas["removed"].waiting.is_empty());
+            assert_eq!(ledger.metas["stopped"].waiting[0].2, 7);
+            for slot in ledger.metas.values_mut() {
+                slot.sent.clear();
+            }
+        }
+        // A receiver validation failure after the shared read must keep the work.
+        lock(&messages.inner.store)
+            .reserve_retirement("m", "retire")
+            .unwrap();
+        flush(&messages.inner).await;
+        {
+            let ledger = messages.inner.pushes.lock().await;
+            assert_eq!(ledger.metas["m"].waiting[0].2, 7);
+            assert!(ledger.metas["m"].sent.is_empty());
+            assert_eq!(ledger.metas["stopped"].waiting[0].2, 7);
+        }
+        lock(&messages.inner.store)
+            .db
+            .execute("DELETE FROM message_retirements WHERE agent='m'", [])
+            .unwrap();
+        flush(&messages.inner).await;
+        let ledger = messages.inner.pushes.lock().await;
+        assert!(ledger.metas["m"].waiting.is_empty());
+        assert_eq!(ledger.metas["m"].sent.len(), 1);
+        assert_eq!(ledger.metas["stopped"].waiting[0].2, 7);
+        let delivered = lock(&messages.inner.store).list().unwrap();
+        assert_eq!(delivered.len(), 1);
+        assert_eq!(weight(&delivered[0].body), 7);
+    }
+}
