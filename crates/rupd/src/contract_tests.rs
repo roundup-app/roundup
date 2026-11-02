@@ -27,6 +27,32 @@ async fn c4_wire_envelope_bytes_match_before_migration() {
 }
 
 #[tokio::test]
+async fn b5_the_user_sets_non_agent_routes_through_daemon_dispatch() {
+    let dir = tempfile::tempdir().unwrap();
+    let daemon = tests::daemon_in(dir.path());
+    let created = tests::ask(&daemon, r#"{"id":1,"method":"rail.createWorkstream","params":{"name":"Receiver"}}"#).await;
+    assert!(created.get("error").is_none(), "{created}");
+    let to = &created["result"]["id"];
+    for from in ["ext:audit", "rupd", "you"] {
+        for delivery in ["auto", "drop"] {
+            let route = json!({"from":from,"to":to,"delivery":delivery});
+            let mut events = daemon.bus.subscribe();
+            let response = tests::ask(&daemon, &json!({"id":2,"method":"route.set","params":route}).to_string()).await;
+            assert_eq!(response["result"], route, "{response}");
+            let listed = tests::ask(&daemon, r#"{"id":3,"method":"route.list"}"#).await;
+            assert!(listed["result"].as_array().unwrap().contains(&route));
+            let mut changed = Vec::new();
+            while let Ok(event) = events.try_recv() {
+                if let contracts::EventData::RouteChanged(route) = event.data {
+                    changed.push(serde_json::to_value(route).unwrap());
+                }
+            }
+            assert_eq!(changed, [route]);
+        }
+    }
+}
+
+#[tokio::test]
 async fn u4593_agent_inputs_resolve_before_dispatch() {
     let dir = tempfile::tempdir().unwrap();
     let daemon = tests::daemon_in(dir.path());
