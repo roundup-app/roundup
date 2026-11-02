@@ -600,7 +600,7 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
     }
   };
 
-  const focused = (id: string): boolean => {
+  const isFocused = (id: string): boolean => {
     const active = document.activeElement;
     const host = holders.get(id)?.host;
 
@@ -650,7 +650,7 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
     emulator.onLink((printed) => void open(id, printed));
     emulator.onScroll(() => setAtBottom(emulator.isAtBottom()));
     emulator.onInput((bytes, userInput = true) => {
-      if ((userInput && !focused(id)) || exited(id) || daemonExit() !== null) return;
+      if ((userInput && !isFocused(id)) || exited(id) || daemonExit() !== null) return;
 
       if (userInput) returnToBottom();
 
@@ -702,7 +702,7 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
   };
 
   const paste = async (id: string, event: Pick<ClipboardEvent, "clipboardData">): Promise<void> => {
-    if (!focused(id) || exited(id) || daemonExit() !== null) return;
+    if (!isFocused(id) || exited(id) || daemonExit() !== null) return;
 
     const owner = document.activeElement!;
     let left = false;
@@ -711,7 +711,7 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
     owner.addEventListener("blur", leave, { once: true });
 
     const check = () => {
-      if (left || !focused(id)) throw new Error(appCopy.terminalFocusChanged);
+      if (left || !isFocused(id)) throw new Error(appCopy.terminalFocusChanged);
     };
 
     try {
@@ -736,7 +736,7 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
   };
 
   const pastePaths = (id: string, paths: string[]): void => {
-    if (!focused(id) || paths.length === 0 || exited(id) || daemonExit() !== null) return;
+    if (!isFocused(id) || paths.length === 0 || exited(id) || daemonExit() !== null) return;
 
     emulatorFor(id).paste(`${paths.map((path) => `'${path.replaceAll("'", "'\\''")}'`).join(" ")} `);
   };
@@ -750,7 +750,7 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
       && !!target.closest('input, textarea, [contenteditable="true"]') && !target.closest(".xterm-helper-textarea");
 
     const onPaste = (event: ClipboardEvent) => {
-      if (editor(event.target) || !focused(id)) return;
+      if (editor(event.target) || !isFocused(id)) return;
       event.preventDefault();
       event.stopImmediatePropagation();
       void paste(id, event);
