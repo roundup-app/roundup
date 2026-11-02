@@ -30,7 +30,7 @@ jobs:
       github.event.workflow_run.display_title != 'Draft check' &&
       github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'pull_request' &&
       github.event.workflow_run.head_repository.full_name == github.repository
-    runs-on: ubuntu-24.04
+    runs-on: ${{ fromJSON(vars.BOXD_LIGHT == '1' && format('["self-hosted","boxd","roundup-light-task-{0}-{1}"]', github.run_id, github.run_attempt) || '["ubuntu-24.04"]') }}
     permissions:
       contents: read
       issues: read
@@ -172,7 +172,7 @@ jobs:
   post:
     needs: [task, critic-run]
     if: ${{ !cancelled() && needs.task.outputs.pr != '' }}
-    runs-on: ubuntu-24.04
+    runs-on: ${{ fromJSON(vars.BOXD_LIGHT == '1' && format('["self-hosted","boxd","roundup-light-post-{0}-{1}"]', github.run_id, github.run_attempt) || '["ubuntu-24.04"]') }}
     permissions:
       actions: write
       contents: read
@@ -196,14 +196,3 @@ jobs:
           RAN: ${{ needs.critic-run.outputs.ran || 'false' }}
         run: |
           { cat "$RUNNER_TEMP/answer/answer.txt" 2>/dev/null || true; } | python3 loop/builder.py critic-post "$PR" "$HEAD" "critic-$GITHUB_RUN_ID" "$RAN"
-
-  summary:
-    needs: [task, critic-run, post]
-    # L93: an event `task` skips gets no summary, which would hold a runner only to say nothing ran.
-    if: always() && needs.task.result != 'skipped'
-    permissions: {}
-    uses: ./.github/workflows/summary.yml
-    with:
-      results: ${{ toJSON(needs) }}
-      purpose: Judge a UI PR head against the user's design bar
-      next: An approval passes the critic status and, with the review's, starts the tests; a reject on a Builder PR starts a fix run.
