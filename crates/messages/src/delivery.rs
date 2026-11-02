@@ -207,16 +207,6 @@ fn record_sender_names(inner: &Inner, nodes: &[RailNode]) -> Result<(), RpcError
     })
 }
 
-/// B2's `<sender's name>`: the Rail name for an Agent, since a Rail node can be renamed; the
-/// Actor's id for the user (`you`), the Daemon and an Extension.
-pub(super) async fn sender_name(inner: &Inner, from: &Actor) -> Result<String, RpcError> {
-    if from.kind != ActorKind::Agent {
-        return Ok(from.id.clone());
-    }
-    load_rail_nodes(inner).await?;
-    lock(&inner.store).sender_name(&from.id)
-}
-
 /// B3563c: writes every pending Message to `agent`'s Claude inbox as one batch, in id order. The
 /// inbox write leaves each in flight until its transcript receipt (B50); a missing or mismatched
 /// inbox leaves them `pending` for the next eligible event.
@@ -268,10 +258,7 @@ async fn on_idle(inner: &Arc<Inner>, agent: &str, at: store::Binding, pick: Pick
             .transpose()
             .expect("message store")
             .unwrap_or_default();
-        if batch
-            .iter()
-            .all(|m| receiver_view::is_quiet_digest(&given, m))
-        {
+        if receiver_view::are_quiet_digests(&given, &batch) {
             return;
         }
         batch

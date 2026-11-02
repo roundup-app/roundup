@@ -92,129 +92,54 @@ fn b5_a_stored_route_word_no_variant_has_is_an_error() {
 #[test]
 fn b5640a_history_materializes_only_matching_rows() {
     let store = Store::open(Path::new(":memory:")).unwrap();
-    let mut expected = Vec::new();
-    for (from, to, status, body, kind, selected) in [
-        (
-            Actor::daemon(),
-            "m",
-            MessageStatus::Delivered,
-            "[digest] plain",
-            MessageKind::Note,
-            true,
-        ),
-        (
-            Actor::daemon(),
-            "m",
-            MessageStatus::Delivered,
-            "[digest] [2 updates kept back]",
-            MessageKind::Note,
-            true,
-        ),
-        (
-            Actor::daemon(),
-            "m",
-            MessageStatus::Delivered,
-            "[digest] [2 earlier updates: #1 #2]",
-            MessageKind::Note,
-            true,
-        ),
-        (
-            Actor::daemon(),
-            "m",
-            MessageStatus::Delivered,
-            "[digest] question",
-            MessageKind::Question,
-            true,
-        ),
-        (
-            Actor::daemon(),
-            "other",
-            MessageStatus::Delivered,
-            "[digest]",
-            MessageKind::Note,
-            false,
-        ),
-        (
-            Actor::daemon(),
-            "m",
-            MessageStatus::Pending,
-            "[digest]",
-            MessageKind::Note,
-            false,
-        ),
-        (
-            Actor::daemon(),
-            "m",
-            MessageStatus::Dropped,
-            "[digest]",
-            MessageKind::Note,
-            false,
-        ),
-        (
-            Actor::daemon(),
-            "m",
-            MessageStatus::Delivered,
-            "ordinary",
-            MessageKind::Note,
-            false,
-        ),
-        (
-            Actor::user(),
-            "m",
-            MessageStatus::Delivered,
-            "[digest]",
-            MessageKind::Note,
-            false,
-        ),
-        (
-            Actor {
-                kind: ActorKind::Agent,
-                id: "daemon".into(),
-                parent: None,
-            },
-            "m",
-            MessageStatus::Delivered,
-            "[digest]",
-            MessageKind::Note,
-            false,
-        ),
-        (
-            Actor {
-                kind: ActorKind::Ext,
-                id: "daemon".into(),
-                parent: None,
-            },
-            "m",
-            MessageStatus::Delivered,
-            "[digest]",
-            MessageKind::Note,
-            false,
-        ),
-        (
-            Actor {
-                kind: Actor::daemon().kind,
-                id: "other".into(),
-                parent: None,
-            },
-            "m",
-            MessageStatus::Delivered,
-            "[digest]",
-            MessageKind::Note,
-            false,
-        ),
-    ] {
-        let m = store
-            .insert(&from, to, kind, body, None, status, None, -1, (1, 1))
-            .unwrap();
-        if selected {
-            expected.push(m.id);
-        }
-    }
+    let daemon = actor_json(&Actor::daemon());
+    store
+        .db
+        .execute(
+            "INSERT INTO messages(from_actor,to_id,kind,body,status,at,rank) VALUES
+        (?1,'m','note','[digest] plain','delivered',90,9),
+        (?1,'m','note','[digest] [2 updates kept back]','delivered',30,8),
+        (?1,'m','note','[digest] [2 earlier updates: #1 #2]','delivered',10,7),
+        (?1,'m','question','[digest] question','delivered',0,6),
+        (?1,'other','note','[digest]','delivered',0,0),
+        (?1,'m','note','[digest]','pending',0,0),
+        (?1,'m','note','[digest]','dropped',0,0),
+        (?1,'m','note','ordinary','delivered',0,0),
+        (?2,'m','note','[digest]','delivered',0,0),
+        (?3,'m','note','[digest]','delivered',0,0),
+        (?4,'m','note','[digest]','delivered',0,0),
+        (?5,'m','note','[digest]','delivered',0,0),
+        (?6,'m','note','[digest]','delivered',0,0)",
+            params![
+                daemon,
+                actor_json(&Actor::user()),
+                actor_json(&Actor {
+                    kind: ActorKind::Agent,
+                    id: "rupd".into(),
+                    parent: None
+                }),
+                actor_json(&Actor {
+                    kind: ActorKind::Ext,
+                    id: "extension".into(),
+                    parent: None
+                }),
+                actor_json(&Actor {
+                    id: "other".into(),
+                    ..Actor::daemon()
+                }),
+                actor_json(&Actor {
+                    parent: Some("parent".into()),
+                    ..Actor::daemon()
+                }),
+            ],
+        )
+        .unwrap();
+    let expected = [1, 2, 3, 4];
     for unrelated in [false, true] {
         if unrelated {
             store.db.execute_batch("WITH RECURSIVE n(x) AS (VALUES(1) UNION ALL SELECT x+1 FROM n WHERE x<100000)
                 INSERT INTO messages(from_actor,to_id,kind,body,status,at)
-                SELECT '{\"kind\":\"daemon\",\"id\":\"daemon\"}', 'other', 'note', '[digest] unrelated', 'delivered', x FROM n").unwrap();
+                SELECT '{\"kind\":\"ext\",\"id\":\"rupd\",\"parent\":null}', 'other', 'note', '[digest] unrelated', 'delivered', x FROM n").unwrap();
         }
         MATERIALIZED.set(0);
         let found = store.delivered_to("m").unwrap();
