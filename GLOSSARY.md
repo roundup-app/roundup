@@ -6,6 +6,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 
 | Code term | User label | Avoid |
 |---|---|---|
+| Wall clock (`provenance::now_ms`) | none | — |
 | Code term | same | — |
 | User label | same | — |
 | App copy catalogue (`copy`) | same | — |

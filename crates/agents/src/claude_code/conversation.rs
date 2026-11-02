@@ -95,11 +95,6 @@ impl Launcher {
     }
 
     #[cfg(any(test, feature = "test-support"))]
-    pub fn path_for_test(&self, cwd: &Path, id: &str) -> Result<PathBuf, RpcError> {
-        self.conversation_path(cwd, id)
-    }
-
-    #[cfg(any(test, feature = "test-support"))]
     pub fn save_for_test(&self, cwd: &Path, id: &str, bytes: &[u8]) -> Result<PathBuf, RpcError> {
         let path = self.storage_path(
             serde_json::json!({"op":"destination", "sessionId":id, "dir":cwd, "prepare":true}),
