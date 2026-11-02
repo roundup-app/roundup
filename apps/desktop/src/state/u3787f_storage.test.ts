@@ -17,6 +17,8 @@ const native = { disk, cache, save };
 
 beforeEach(() => {
   vi.stubGlobal("__TAURI_INTERNALS__", { invoke: async (command: string, args: { key: string; value: unknown }) => {
+    if (command === "plugin:window-bar|webview_data_path") return "/isolated/WebKit/roundup/WebsiteData";
+
     if (command === "plugin:resources|close") return;
 
     if (command === "plugin:store|load") {
@@ -40,71 +42,34 @@ beforeEach(() => {
 
 afterEach(() => { localStorage.clear(); disk.clear(); cache.clear(); vi.restoreAllMocks(); vi.unstubAllGlobals(); useBrowserStorage(window.localStorage); });
 
-it("u3787f_store_migrates_all_key_families", async () => {
-  const draft = { revision: "original-revision", destination: { surface: "ask", object: "question-original", recipient: "agent-original" }, value: { text: " e\u0301\n雪 😀 " }, selection: { start: 1, end: 3, direction: "backward" }, status: "pending", policy: "ordinary" };
-
-  const families = new Map<string, unknown>([
-    ["roundup:open-tab", "/original/雪"],
-    ["roundup:unseen:/original/雪", { "agent-original": "12345678901234567890" }],
-    ["roundup:drafts:/original/雪", { version: 1, drafts: [draft] }],
-    ["roundup:import:/original/雪", { open: true, period: "week", selected: [{ source: "original-source", revision: "original-version", title: " 雪 " }] }],
-    ["roundup:rail:/original/雪", { selected: "agent-original", collapsed: ["home-original"] }],
-    ["roundup:app-settings", { fontFamily: "Original font", mode: "dark" }],
-    ["roundup:widths:/original/雪", { rail: 301, shelf: 411 }],
-    ["roundup:shelf:/original/雪", { open: false, maximised: true, tab: "pads" }],
-    ["roundup:terminal-font:/original/雪", 17],
-  ]);
-
-  for (const [key, value] of families) localStorage.setItem(key, JSON.stringify(value));
-  expect(await initializeStorage()).toBeNull();
-
-  for (const [key, value] of families) {
-    expect(native.disk.get(key)).toEqual({ version: 1, value });
-    expect(storedValue(key, v.unknown()).read()).toEqual(value);
-    expect(localStorage.getItem(key)).toBeNull();
-  }
-});
-
-it("u3787f_interrupted_migration_preserves_both_stores", async () => {
-  const key = "roundup:open-tab";
-  localStorage.setItem(key, '"/legacy/original"');
-  const remove = vi.spyOn(Storage.prototype, "removeItem").mockImplementationOnce(() => { throw new Error("cleanup interrupted"); });
-  expect(await initializeStorage()).toContain("cleanup interrupted");
-  expect(disk.get(key)).toEqual({ version: 1, value: "/legacy/original" });
-  expect(localStorage.getItem(key)).toBe('"/legacy/original"');
-  // Another completed save after the interruption must win over the old legacy source.
-  disk.set(key, { version: 1, value: "/plugin/newer" });
-  remove.mockRestore();
-  expect(await initializeStorage()).toBeNull();
-  expect(storedValue(key, v.string()).read()).toBe("/plugin/newer");
-  expect(localStorage.getItem(key)).toBeNull();
-  // An interrupted cleanup followed by a user clear must not revive the old value.
-  localStorage.setItem(key, '"/legacy/original"');
-  expect(await storedValue(key, v.string()).clear()).toBeNull();
-  expect(await initializeStorage()).toBeNull();
-  expect(storedValue(key, v.string()).restore()).toEqual({ status: "missing" });
-});
-
-it("u3787f_failed_migration_keeps_recovery", async () => {
-  const key = "roundup:open-tab";
-  localStorage.setItem(key, '"/original/雪"');
-  disk.set("roundup:rail:/other", { version: 1, value: { selected: "newer", collapsed: ["home-original"] } });
-  save.mockRejectedValueOnce(new Error("write work.json: disk quota exceeded; original committed file preserved"));
-  expect(await initializeStorage()).toContain("disk quota exceeded");
-  expect(localStorage.getItem(key)).toBe('"/original/雪"');
-  expect(disk.has(key)).toBe(false);
-  expect(disk.get("roundup:rail:/other")).toEqual({ version: 1, value: { selected: "newer", collapsed: ["home-original"] } });
-  disk.set(key, { version: 1, value: "/newer/committed" });
-  expect(await initializeStorage()).toBeNull();
-  expect(storedValue(key, v.string()).read()).toBe("/newer/committed");
-});
-
-it.each(["{broken", "42"])("u3787f_failed_migration_keeps_recovery_invalid_%s", async bytes => {
-  localStorage.setItem("roundup:open-tab", bytes);
+it("n5467b_old_browser_storage_is_refused", async () => {
+  localStorage.setItem("roundup:unknown-retired-family", "{invalid sentinel");
+  const read = vi.spyOn(Storage.prototype, "getItem");
+  const remove = vi.spyOn(Storage.prototype, "removeItem");
+  const write = vi.spyOn(Storage.prototype, "setItem");
   const before = [...disk];
-  expect(await initializeStorage()).toMatch(/Could not restore/);
-  expect(localStorage.getItem("roundup:open-tab")).toBe(bytes);
+
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const failure = await initializeStorage();
+    expect(failure?.message).toContain("incompatible");
+    expect(failure?.message).toContain("/isolated/WebKit/roundup/WebsiteData");
+    expect(failure?.message).toContain("Close roundup");
+    expect(storedValue("roundup:open-tab", v.string()).restore()).toEqual({ status: "failed", cause: "unreadable" });
+  }
+
+  expect(read).not.toHaveBeenCalled();
+  expect(remove).not.toHaveBeenCalled();
+  expect(write).not.toHaveBeenCalled();
+  expect(save).not.toHaveBeenCalled();
+  expect(cache.size).toBe(0);
   expect([...disk]).toEqual(before);
+  // Simulate the user's manual removal, then the unchanged fresh/current path.
+  localStorage.clear();
+  expect(await initializeStorage()).toBeNull();
+  const value = storedValue("roundup:open-tab", v.string());
+  expect(await value.write("/current/雪")).toBeNull();
+  expect(await initializeStorage()).toBeNull();
+  expect(value.read()).toBe("/current/雪");
 });
 
 it("u3787f_store_acknowledgement_waits_for_commit_and_retry_keeps_newer_memory", async () => {
@@ -133,7 +98,7 @@ it("u3787f_store_acknowledgement_waits_for_commit_and_retry_keeps_newer_memory",
   expect(localStorage.length).toBe(0);
 });
 
-it("u3787f_failed_migration_keeps_recovery_retry_never_rebases_an_older_write", async () => {
+it("u3787f_retry_never_rebases_an_older_write", async () => {
   const key = "roundup:open-tab";
   disk.set(key, { version: 1, value: "/committed/base" });
   expect(await initializeStorage()).toBeNull();
@@ -147,14 +112,29 @@ it("u3787f_failed_migration_keeps_recovery_retry_never_rebases_an_older_write", 
   }
 });
 
-it("u3787f_failed_migration_keeps_recovery_unreadable_legacy", async () => {
-  const key = "roundup:open-tab";
-  localStorage.setItem(key, '"/original/path"');
-  const read = vi.spyOn(Storage.prototype, "getItem").mockImplementationOnce(() => { throw new Error("read denied by webview"); });
-  expect(await initializeStorage()).toContain("read denied by webview");
-  expect(disk.size).toBe(0);
-  read.mockRestore();
-  expect(localStorage.getItem(key)).toBe('"/original/path"');
+
+it("n5467c_current_native_records_reopen_with_exact_identity", async () => {
+  const draft = { revision: "original-revision", destination: { surface: "ask", object: "question-original", recipient: "agent-original" }, value: { text: " e\u0301\n雪 😀 " }, selection: { start: 1, end: 3, direction: "backward" }, status: "pending", policy: "ordinary" };
+
+  const families = new Map<string, unknown>([
+    ["roundup:open-tab", "/original/雪"],
+    ["roundup:unseen:/original/雪", { "agent-original": "12345678901234567890" }],
+    ["roundup:drafts:/original/雪", { version: 1, drafts: [draft] }],
+    ["roundup:import:/original/雪", { open: true, period: "week", selected: [{ source: "original-source", revision: "original-version", title: " 雪 " }] }],
+    ["roundup:rail:/original/雪", { selected: "agent-original", collapsed: ["home-original"] }],
+    ["roundup:app-settings", { fontFamily: "Original font", mode: "dark" }],
+    ["roundup:widths:/original/雪", { rail: 301, shelf: 411 }],
+    ["roundup:shelf:/original/雪", { open: false, maximised: true, tab: "pads" }],
+    ["roundup:terminal-font:/original/雪", 17],
+  ]);
+
+  for (const [key, value] of families) disk.set(key, { version: 1, value });
   expect(await initializeStorage()).toBeNull();
-  expect(storedValue(key, v.string()).read()).toBe("/original/path");
+  expect(await initializeStorage()).toBeNull();
+
+  for (const [key, value] of families) {
+    expect(native.disk.get(key)).toEqual({ version: 1, value });
+    expect(storedValue(key, v.unknown()).read()).toEqual(value);
+    expect(localStorage.getItem(key)).toBeNull();
+  }
 });
