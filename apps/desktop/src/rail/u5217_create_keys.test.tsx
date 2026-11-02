@@ -1,3 +1,4 @@
+import { ariaChord, chordNamed } from "../keys/chords";
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { workstream, door } from "../testing/nodes";
@@ -13,12 +14,10 @@ describe("u5217 the footer buttons show their key", () => {
   it("u5217_each_footer_button_exposes_its_chord_as_its_shortcut", async () => {
     await mountRail([workstream("g")]);
 
-    expect(footer("Add Workstream").getAttribute("aria-keyshortcuts")).toBe("Alt+Meta+N");
-    expect(footer("New Mode").getAttribute("aria-keyshortcuts")).toBe("Shift+Meta+M");
-    expect(footer("New Agent").getAttribute("aria-keyshortcuts")).toBe("Meta+N");
-    expect(footer("Add Workstream").querySelector("kbd")).not.toBeNull();
-    expect(footer("New Mode").querySelector("kbd")).not.toBeNull();
-    expect(footer("New Agent").querySelector("kbd")).not.toBeNull();
+    for (const [label, name] of [["Add Workstream", "workstream.new"], ["New Mode", "mode.new"], ["New Agent", "agent.new"]] as const) {
+      expect(footer(label).getAttribute("aria-keyshortcuts")).toBe(ariaChord(chordNamed(name)));
+      expect(footer(label).querySelector("kbd")?.textContent).toBe(chordNamed(name)!.keys);
+    }
   });
 
   it("u5217_a_button_runs_the_action_its_chord_runs", async () => {

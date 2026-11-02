@@ -5,7 +5,7 @@ Motion target: U3010a–d (`scenarios/ui-motion.md`) supersede only this documen
 
 How the App looks. `docs/wireframes.md` says what each screen holds and where; this file says how it is drawn. Where the two disagree on look, this file wins: it replaces the wireframes' "ink is the only colour" and "no borders" rules (the Glyph set, the visibility rule and the layout stay).
 
-The direction: a Mac app that stays out of the way. System sans for the chrome, mono only where text is code. Soft surfaces, small coloured Glyphs, nothing moves unless the user acted or an Agent finished a Todo the user can see (U3010c, U3770), or the Workstream timeline's window slides with time while an Agent it shows runs (U3768e, U3768f); no shimmer or pulse. Light and dark.
+The direction: a Mac app that stays out of the way. System sans for the chrome; mono for code, button labels and key chips. Soft surfaces, small coloured Glyphs, nothing moves unless the user acted or an Agent finished a Todo the user can see (U3010c, U3770), or the Workstream timeline's window slides with time while an Agent it shows runs (U3768e, U3768f); no shimmer or pulse. Light and dark.
 
 Every rule below is a check with an id. A check passes or fails; it has no score. The same checks run twice: as `vitest` tests in `just check` (the gate), and by the Design critic on the real rendering (advisory). One module measures them for both (U137). D18 is the critic-only visual exception: its contact sheet and approval are required for U401’s Blocked-mark implementation, with no automated visual assertion or owner Mac observation.
 
@@ -86,7 +86,7 @@ Starting values. The thresholds in the checks are fixed; a value that fails a th
 
 Type: `--font-ui` is `-apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif`; `--font-mono` is `ui-monospace, "SF Mono", Menlo, monospace`. The steps are `--text-caption` 11, `--text-small` 12, `--text-body` 13, `--text-row` 14 (every Rail row's name), `--text-title` 15, `--text-pad-subheading` 20 and `--text-pad-heading` 24 px. Weight is 400, 500 or 600. Tracking is `0` at body and below, `-0.01em` at title (apple-design: tracking follows size).
 
-The App inherits `--font-ui`; code, paths, diffs, ids and token counts select `--font-mono`; Terminal output selects `--font-terminal`. `--mono` aliases `--font-mono` in the Token file. Static interface typography uses the listed type steps. U102’s user-adjustable Terminal font starts at `--text-terminal` and changes in 1 px increments within `--text-terminal-min` and `--text-terminal-max`; this scale applies only to the Terminal, not the Rail or other interface text.
+The App inherits `--font-ui`; code, paths, diffs, ids, button labels and key chips select `--font-mono`; Terminal output selects `--font-terminal`. `--mono` aliases `--font-mono` in the Token file. Static interface typography uses the listed type steps. U102’s user-adjustable Terminal font starts at `--text-terminal` and changes in 1 px increments within `--text-terminal-min` and `--text-terminal-max`; this scale applies only to the Terminal, not the Rail or other interface text.
 
 Pad prose uses `--text-title` (15 px). Its `--text-pad-subheading` (20 px) and `--text-pad-heading` (24 px) steps apply only to rendered and formatted Pad headings, in both colour schemes; source and code stay mono at `--text-body`. A Pad's reading and editing views use the same steps.
 
@@ -291,7 +291,7 @@ The light header stays on root sunken. Borders carry ≥3:1 against the header a
 
 All App chips, including EmptyState, use the shared `KeyChip`, one plain `kbd` per press; a chord keeps its modifiers and final key together (U2541d, #5557 acceptance).
 Labels remain `--grey`; chips use `--text`, `--font-mono`, `--text-small`, weight 500,
-no border and a `--space-4` (16 px) height.
+no border and a `--space-4` (16 px) height. Each modifier and the final key have `calc(var(--space-1) / 4)` between them inside the chip. Multi-letter key names stay whole. `KeyText` prevents copied chip strings; the desktop typecheck also checks shortcut attributes and renderer ownership.
 
 | Token | Light | Dark |
 | --- | --- | --- |

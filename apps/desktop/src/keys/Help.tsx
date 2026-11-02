@@ -2,7 +2,7 @@ import { captureFocus } from "./focus";
 import { KeyHint } from "./KeyHint";
 import { copy } from "./copy";
 import { createSignal, For, Show } from "solid-js";
-import { CHORDS, HELP_KEYS, LEADER } from "./chords";
+import { CHORDS, HELP_KEYS, LEADER, leaderKeys, SHELF_KEYS } from "./chords";
 import { captureActions, registerKeys } from "./registry";
 import { Dialog } from "../ui/Dialog";
 
@@ -12,7 +12,7 @@ const rowScopes = new Map(Object.entries(copy.helpRowScope));
 
 const sections = (projectOpen: boolean, shelfOpen: boolean) => projectOpen ? [
   { title: copy.helpScope.app, rows: CHORDS.filter(row => !row.inFirstRun && !row.inRail && !row.inTerminals && !row.inShelf && !row.inEditor) },
-  { title: copy.helpScope.leader, rows: LEADER.map(row => ({ ...row, keys: `${copy.leaderChord} ${row.keys}`, what: row.keys === "B" ? (shelfOpen ? copy.closeShelf : copy.openShelf) : bubbleScopes.get(row.keys) ?? row.what })) },
+  { title: copy.helpScope.leader, rows: LEADER.map(row => ({ ...row, keys: leaderKeys(row), what: row.keys === "B" ? (shelfOpen ? copy.closeShelf : copy.openShelf) : bubbleScopes.get(row.keys) ?? row.what })) },
   // #3853 adds the Terminal Find owner; until then its menu catalogue entry has no working key to advertise.
   { title: copy.helpScope.terminals, rows: CHORDS.filter(row => row.inTerminals && row.keys !== "⌘F") },
   { title: copy.helpScope.rail, rows: CHORDS.filter(row => row.inRail) },
@@ -76,10 +76,10 @@ export const Help = (props: { projectOpen?: boolean; shelfOpen?: boolean }) => {
         </div>}</For>
         <Show when={props.projectOpen ?? true}><section class="help-shelf" aria-label={copy.shelfKeys}>
         <h2>{copy.shelfKeys}</h2>
-        <p><KeyHint keys={copy.previousNextKeys}>{copy.focusThePreviousNextShelfRow}</KeyHint></p>
-        <p><KeyHint keys={copy.enter}>{copy.toggleTheFocusedShelfRowSelection}</KeyHint></p>
-        <p><KeyHint keys={copy.rangeKeys}>{copy.selectARangeOfShelfRows}</KeyHint></p>
-        <p><KeyHint keys={copy.esc}>{copy.deleteSelectedShelfRowsCancelSelection}</KeyHint></p>
+        <p><KeyHint keys={SHELF_KEYS.adjacent}>{copy.focusThePreviousNextShelfRow}</KeyHint></p>
+        <p><KeyHint keys={SHELF_KEYS.toggle}>{copy.toggleTheFocusedShelfRowSelection}</KeyHint></p>
+        <p><KeyHint keys={SHELF_KEYS.range}>{copy.selectARangeOfShelfRows}</KeyHint></p>
+        <p><KeyHint keys={SHELF_KEYS.cancel}>{copy.deleteSelectedShelfRowsCancelSelection}</KeyHint></p>
         </section></Show>
         <div class="app-dialog-actions"><Dialog.CloseTrigger data-button="quiet">{copy.close}</Dialog.CloseTrigger></div>
       </Dialog.Content></Dialog.Positioner>
