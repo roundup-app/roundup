@@ -1,0 +1,33 @@
+{
+  "scenario": "U5560a",
+  "date": "2026-11-02",
+  "baseApp": "138e421008cfa38c7802238f8230cf1c885a7353",
+  "headApp": "bf6625544d79df0dafc096e58bb900334ee76353",
+  "observerCommit": "5c2617b7f4abde8672810987ee9b6d656b3d3157",
+  "observerFile": "apps/desktop/src/pads/u4698b_browser.test.ts",
+  "observerSha256": "e8d827b94af9a668ecf2f4fc900520be0b1f4cf8d7ea3450ec80199358d9fd98",
+  "sameObserverOnBothApps": false,
+  "renderer": "isolated headless Chromium 156.0.8078.80",
+  "scheme": "dark",
+  "viewports": [
+    [
+      1512,
+      950
+    ],
+    [
+      1280,
+      820
+    ]
+  ],
+  "fixtures": [
+    "tree-40"
+  ],
+  "pairedDirectories": [
+    "base",
+    "head"
+  ],
+  "earlierEvidence": "manifest.json",
+  "baseObserverCommit": "bf6625544d79df0dafc096e58bb900334ee76353",
+  "observerDifference": "U5560a head waits for the existing Checks function before capture; all assertions and fixtures match the baseline observer.",
+  "validation": "Main baseline and implementation Settings pass. Final focused tests, ready and implementation 1280 capture are pending."
+}
