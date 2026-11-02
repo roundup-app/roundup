@@ -11,7 +11,6 @@ let page: ChromePage;
 beforeAll(async () => {
   if (!found) throw new Error("U3710 needs Chromium");
   page = await openPage(found);
-  await setup();
 }, 90_000);
 
 afterAll(async () => { await page?.close(); });

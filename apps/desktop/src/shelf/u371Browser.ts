@@ -49,8 +49,7 @@ export function shelfBrowser(initScript?: string) {
     await browser("set", "viewport", String(width), "800");
     await browser("set", "media", scheme);
     const url = `${rig.server.resolvedUrls.local[0]}harness.html?view=workstreams&items=1&tabs=1&seed=${seed}`;
-    await browser("open", url);
-    await browser("wait", ".window");
+    await browser("open", `${rig.server.resolvedUrls.local[0]}src/ui/u498.html`);
     await evaluate(`(() => { localStorage.clear(); localStorage.setItem('roundup:widths:/Users/you/harness', JSON.stringify({rail:${rail}, shelf:${shelf}})); return true; })()`);
     await browser("open", url);
     await browser("wait", seed === "first-run" ? ".window" : ".shelf-tabs");
