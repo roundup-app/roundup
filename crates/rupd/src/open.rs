@@ -149,7 +149,7 @@ impl Daemon {
             resources: Default::default(),
             publications: deliverables::Publications::open(dir)?,
             reactions: {
-                let reactions = reaction::Reactions::open(dir)?;
+                let reactions = reaction::Reactions::open(dir, bus.clone())?;
                 reactions.listen(bus.subscribe());
                 Arc::new(reactions)
             },

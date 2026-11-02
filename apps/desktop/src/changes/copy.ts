@@ -80,6 +80,5 @@ export const copy = {
   statusDeleted: "Deleted",
   fileUnavailableInEditor: "unavailable in editor",
   statusUntracked: "Untracked",
-  refresh: sharedCopy.refresh,
   copy: sharedCopy.copy,
 } as const;

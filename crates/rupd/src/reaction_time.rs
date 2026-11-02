@@ -190,7 +190,7 @@ impl Timer {
                 .db
                 .lock()
                 .expect("reaction database poisoned");
-            let _ = db.execute(
+            let changed = db.execute(
                 "UPDATE reactions SET record = json_set(record,
                    '$.observation.health', 'acceptance-failed',
                    '$.observation.health_code', 'acceptance-failed',
@@ -207,6 +207,12 @@ impl Timer {
                     serde_json::to_value(cause).expect("cause serializes").as_str(),
                 ],
             );
+            if matches!(changed, Ok(n) if n > 0) {
+                self.reactions.bus.emit(
+                    contracts::Actor::daemon(),
+                    contracts::EventData::ReactionChanged,
+                );
+            }
         };
         if let Err(why) = self.agents.guard_reach(&saved.actor, &saved.target, true) {
             return refuse(
@@ -271,11 +277,11 @@ impl Reactions {
     /// Records why a watch ended, in the saved definition's observation.
     fn mark(&self, id: &str, health: Health) {
         let db = self.db.lock().expect("reaction database poisoned");
-        let _ = db.execute(
+        let changed = db.execute(
             "UPDATE reactions SET record = json_set(record, '$.observation.health', ?2,
                 '$.observation.health_code', ?3, '$.observation.cause_code', 'unknown',
                 '$.observation.recovery_code', 'unknown',
-                '$.observation.cause', NULL, '$.observation.recovery', NULL) WHERE id = ?1",
+                '$.observation.cause', NULL, '$.observation.recovery', NULL) WHERE id = ?1 AND json_extract(record, '$.observation.health_code') IS NOT ?3",
             params![
                 id,
                 match health {
@@ -294,12 +300,66 @@ impl Reactions {
                     .as_str()
             ],
         );
+        if matches!(changed, Ok(n) if n > 0) {
+            self.bus.emit(
+                contracts::Actor::daemon(),
+                contracts::EventData::ReactionChanged,
+            );
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn u5558b_expiry_notifies_after_save() {
+        let dir = tempfile::tempdir().unwrap();
+        let daemon = crate::test_daemon(dir.path()).unwrap();
+        let db = rusqlite::Connection::open(dir.path().join("project.db")).unwrap();
+        db.execute(
+            "INSERT INTO nodes(id,kind,name,ord) VALUES(1,'agent','Target',0)",
+            [],
+        )
+        .unwrap();
+        let (events, _) = tokio::sync::mpsc::unbounded_channel();
+        let mut conn = crate::Conn {
+            actor: contracts::Actor::user(),
+            peer: None,
+            events,
+            output: None,
+        };
+        let saved = daemon.route(&mut conn, "reaction.create", serde_json::json!({
+            "operation":"expiry-signal", "name":"Future", "target":"1", "reason":"Wait for the deadline", "instruction":"Review",
+            "condition":{"kind":"instant","at":"2098-01-01T00:00:00Z","late":"skip"},
+            "expires_at":"2099-01-01T00:00:00Z"
+        })).await.unwrap();
+        let mut notifications = daemon.bus.subscribe();
+        let timer = Timer {
+            reactions: daemon.reactions.clone(),
+            agents: daemon.agents.clone(),
+            messages: daemon.sender.get().unwrap().clone(),
+            clock: Arc::new(|| t("2100-01-01T00:00:00Z")),
+        };
+        timer.settle().await;
+        assert!(matches!(
+            notifications.try_recv().unwrap().data,
+            contracts::EventData::ReactionChanged
+        ));
+        let read = daemon
+            .route(
+                &mut conn,
+                "reaction.get",
+                serde_json::json!({"id":saved["id"]}),
+            )
+            .await
+            .unwrap();
+        assert_eq!(read["observation"]["health_code"], "expired");
+        assert!(read["firings"].as_array().unwrap().is_empty());
+        timer.settle().await;
+        assert!(notifications.try_recv().is_err());
+    }
 
     fn t(text: &str) -> OffsetDateTime {
         OffsetDateTime::parse(text, &Rfc3339).unwrap()

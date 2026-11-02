@@ -39,20 +39,20 @@ const importRefusals = new Map<number, string>([
 ]);
 
 export const copy = {
+  retry: sharedCopy.retry,
   retryStorage: sharedCopy.retryStorage,
   riskTime: sharedCopy.riskTime,
   copyDraftFailure: sharedCopy.copyDraftFailure,
   importPrompt: "Import instructions",
   importStart: "Start import Agent",
   importAgentName: sharedCopy.importAgentName,
-  importListing: (name: string) => `${name} is listing conversations. Refresh to see its candidates.`,
+  importListing: (name: string) => `${name} is listing conversations. Candidates appear when its listing is saved.`,
   importTitle: sharedCopy.importTitle,
   importPeriod: "Period",
   importPeriodName: (value1: "day" | "week" | "month") => `Last ${value1}`,
   importLooking: "Looking for conversations…",
   importNone: "No conversations are available to import in this period.",
   importResults: "Conversations",
-  importRefresh: sharedCopy.importRefresh,
   importConfirm: (value1: CopyValue) => value1 === 0 ? sharedCopy.importAgentName : `Import ${value1}`,
   importChoices: "Saved Import choices",
   importConflict: "Import choices conflict",
@@ -63,13 +63,13 @@ export const copy = {
   importRestoreFailure: "Import choices could not be restored. Saved choices will be kept until storage recovers.",
   importRetentionFailure: "Import choices could not be saved for reload.",
   importRetentionRecovery: "Keep this window open; your choices are still here.",
-  importRestored: (count: number) => `${count} were chosen earlier. Refresh to check they are unchanged.`,
+  importRestored: (count: number) => `${count} were chosen earlier. Waiting to check they are unchanged.`,
   importNotImportable: (count: number) => `${count} not importable`,
-  importExcludedReason: (cause: string) => `${importExcludedReasons.get(cause) ?? "Can't be read as a conversation"}.${["missingDirectory", "noCompleteRecords", "incompleteMetadata", "sdkUnreadable", "recordsMissing", "liveWithoutRecords", "unknown"].includes(cause) ? " Refresh to check again." : ""}`,
+  importExcludedReason: (cause: string) => `${importExcludedReasons.get(cause) ?? "Can't be read as a conversation"}.${["missingDirectory", "noCompleteRecords", "incompleteMetadata", "sdkUnreadable", "recordsMissing", "liveWithoutRecords", "unknown"].includes(cause) ? " Retry to check again." : ""}`,
   importAge: (minutes: number) => minutes < 1440 ? copy.riskTime(minutes) : `${Math.floor(minutes / 1440)} d ago`,
-  importUnconfirmed: "Import completion is unconfirmed. Keep your choices; Refresh to check before importing again.",
+  importUnconfirmed: "Import completion is unconfirmed. Keep your choices; Retry to check before importing again.",
   importRowRefusal: (failure: { code: number; outcome: string }) => failure.outcome === "failed" && importRefusals.has(failure.code)
-    ? `${importRefusals.get(failure.code)} ${[-32001, -32007, -32003, -32009].includes(failure.code) ? "Refresh to check available conversations." : "Choose it again, or Refresh."}`
+    ? `${importRefusals.get(failure.code)} ${[-32001, -32007, -32003, -32009].includes(failure.code) ? "Retry to check available conversations." : "Choose it again, or Retry."}`
     : null,
   importUnnamed: sharedCopy.importUnnamed,
   importLocation: (cwd: string, project: string) => cwd === "" ? project : cwd.split(/[\\/]/).filter(Boolean).at(-1) ?? project,
