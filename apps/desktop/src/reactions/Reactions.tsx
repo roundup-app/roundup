@@ -1,3 +1,4 @@
+import { TargetText } from "../terminal/TargetText";
 import { createRowCollection, rowKey } from "../ui/RowCollection";
 import { queueFocus } from "../keys/focus";
 import { CopyButton } from "../ui/CopyButton";
@@ -181,10 +182,11 @@ export const Reactions = (props: { state: ReturnType<typeof createReactions> }) 
 
 const Facts = (props: { reaction: Reaction }) => {
   const nameOf = useNames();
-  const { app, rail } = useConnectedProject();
+  const { app, rail, project } = useConnectedProject();
   const [copyFailures, setCopyFailures] = createSignal<Record<string, string | null>>({});
   const r = () => props.reaction;
   const [messageId, setMessageId] = createSignal<number | null>(null);
+  const [linkFailure, setLinkFailure] = createSignal<string | null>(null);
 
   const copyOwner = () => messageId() === null ? `reaction:${r().id}` : `message:${messageId()}`;
   const failCopy = (owner: string, message: string | null) => setCopyFailures(value => ({ ...value, [owner]: message }));
@@ -203,6 +205,7 @@ const Facts = (props: { reaction: Reaction }) => {
 
   const closeMessage = () => {
     setMessageId(null);
+    setLinkFailure(null);
     queueFocus(() => document.querySelector<HTMLButtonElement>(`[data-firing-message="${returnId}"]`)?.focus());
   };
 
@@ -242,7 +245,7 @@ const Facts = (props: { reaction: Reaction }) => {
       <ReservedLine message={message()?.id === messageId() ? message()?.failure : null}><button type="button" data-button="quiet" onClick={() => void refetch()}>{copy.retry}</button><button type="button" data-button="quiet" onClick={() => mutate(value => value ? { ...value, failure: null } : value)}>{copy.clear}</button></ReservedLine>
       <Show when={!message.loading && message()?.id === messageId() && message()?.value}>{value => <dl class="reaction-facts">
         <dt>{copy.reactionTarget}</dt><dd>{nameOf(value().to)}</dd>
-        <dt>{copy.reactionMessage(messageId()!)}</dt><dd class="reaction-instruction">{value().body}</dd>
+        <dt>{copy.reactionMessage(messageId()!)}</dt><dd class="reaction-instruction"><TargetText text={value().body} base={rail.nodes.find(node => node.id === value().to)?.worktree?.path ?? project.path} onFailure={setLinkFailure} /><ReservedLine message={linkFailure()} /></dd>
         <dt>{copy.reactionMessageState}</dt><dd data-state={value().status}>{copy.reactionDelivery(value().status)}{value().reason ? ` · ${copy.reactionReason(value().reason!)}` : ""}</dd>
         <dt>{copy.reactionDetails}</dt><dd><CopyButton app={app} text={JSON.stringify({ target: nameOf(value().to), message: value() }, null, 2)} onSuccess={() => failCopy(copyOwner(), null)} onFailure={error => failCopy(copyOwner(), copy.copyDraftFailure(error instanceof Error ? error.message : String(error)))}>{copy.copy}</CopyButton><ReservedLine message={copyFailures()[copyOwner()]}><button type="button" data-button="quiet" onClick={() => failCopy(copyOwner(), null)}>{copy.clear}</button></ReservedLine></dd>
       </dl>}</Show>
