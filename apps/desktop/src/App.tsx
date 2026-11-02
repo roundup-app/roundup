@@ -105,6 +105,8 @@ const Connection = (props: {
   let mine: ConnectedProject | Error | undefined;
 
   const [connected] = createResource(() => props.tab()?.generation, async (generation) => {
+    const exit = props.tab()?.exit;
+
     try {
       const next = await connectProject(props.app.forProject(path), first.project, props.reducedMotion, props.now, () => props.tab()?.generation === generation ? props.tab()?.exit ?? null : { code: null, recovery: "connecting" }, railStorage(path), props.drafts(path), props.viewing);
 
@@ -114,7 +116,8 @@ const Connection = (props: {
         return mine;
       }
 
-      props.onRecovered(path, generation);
+      // Clearing a newer exit would hide its Reopen action.
+      if (props.tab()?.exit === exit) props.onRecovered(path, generation);
 
       return next;
     } catch (failure) {
