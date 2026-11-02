@@ -1,7 +1,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { execFileSync } from "node:child_process";
-import { expect, it } from "vitest";
+import { afterEach, expect, it } from "vitest";
 import { captureDir } from "../testing/captures";
 import { shelfBrowser } from "../shelf/u371Browser";
 
@@ -9,21 +9,30 @@ const { browser, evaluate, settle, openShelf } = shelfBrowser();
 
 const output = captureDir("U4698d");
 
+let activeRecording = false;
+
+afterEach(async () => {
+  if (activeRecording) {
+    await browser("record", "stop");
+    activeRecording = false;
+  }
+});
+
 const title = "UnbrokenTitle".repeat(16).slice(0, 200);
 
 const openDocument = async (width: number, height: number, recording = false) => {
-  await openShelf("tree-40", 288, 320, 1512, "dark");
-
-  // Screenshots during recording restore its starting viewport. Size that context first.
-  await browser("set", "viewport", String(width), String(height));
-
   if (output && recording) {
+    // Recording retains the previous context. A blank page keeps a second dense
+    // App from rendering behind the document being observed.
+    await browser("open", "about:blank");
+    await browser("set", "viewport", String(width), String(height));
     mkdirSync(output, { recursive: true });
     await browser("record", "start", join(output, `todo-${width}.webm`));
-    await browser("wait", ".shelf-tabs");
-    // Recording starts a fresh browser context; restore the requested media there.
-    await browser("set", "media", "dark");
+    activeRecording = true;
   }
+
+  await openShelf("tree-40", 288, 320, 1512, "dark");
+  await browser("set", "viewport", String(width), String(height));
 
   await evaluate(`(async () => {
     const app = window.__fake.app;
@@ -168,8 +177,6 @@ it.each([[1512, 950, "menus"], [1280, 820, "menus"], [1512, 950, "document"], [1
       await browser("screenshot", join(output, `bottom-${width}.png`));
     writeFileSync(join(output, `bottom-${width}.checks.json`), JSON.stringify(await evaluate("window.__checks()"), null, 2));
   }
-
-  if (output) await browser("record", "stop");
 
   expect(await evaluate("window.__fake.app.calls.filter(call => call.method === 'todo.complete' && call.params.id === 1).map(call => call.params.id)")).toEqual([1]);
 
