@@ -277,9 +277,7 @@ pub(crate) mod tests {
     use super::*;
     use serde_json::json;
 
-    #[global_allocator]
-    pub(crate) static ALLOCATOR: &stats_alloc::StatsAlloc<std::alloc::System> =
-        &stats_alloc::INSTRUMENTED_SYSTEM;
+    use crate::scan::ALLOCATOR;
 
     pub(crate) fn measured<T>(operation: impl FnOnce() -> T) -> (T, usize) {
         // Require process-per-test isolation: global counters must never include other tests.
