@@ -1,7 +1,10 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
+import { createSignal } from "solid-js";
+import { createFakeApp } from "../testing/fakeApp";
+import { railStorage } from "./persist/storage";
 import { afterEach, expect, it } from "vitest";
 import { agent, workstream, NOW, event } from "../testing/nodes";
-import { ConnectedProjectContext } from "../state/connectedProject";
+import { ConnectedProjectContext, connectProject } from "../state/connectedProject";
 import { Rail } from "./Rail";
 import { mountRail, rowNames, rowOf, settled } from "./railFixture";
 
@@ -189,9 +192,15 @@ it("u5483c_resuming_clears_only_the_previous_turn", async () => {
   expect(rowNames()).not.toContain("child");
 });
 
-it.each([false, true])("u5483c_replied_question_folds_after_queued_resumption_reopen_%s", async reopen => {
+it.each(["mounted", "remounted", "reconnected"])("u5483c_replied_question_folds_after_queued_resumption_%s", async lifecycle => {
   const child = agent("child", "idle", "idle", { parent: "stream", final_text: { ...empty, finished: "0" } });
-  const { app, rail, connected, setNow } = await mountRail([workstream("stream"), child]);
+  const app = createFakeApp();
+  const project = { path: `/resumption-${lifecycle}`, name: "p" };
+  app.handlers["rail.tree"] = () => [workstream("stream"), child];
+  const [now, setNow] = createSignal(NOW);
+  let connected = await connectProject(app, project, () => false, now, () => null, railStorage(project.path));
+  const rail = connected.rail;
+  render(() => <ConnectedProjectContext.Provider value={connected}><Rail /></ConnectedProjectContext.Provider>);
   const question = { id: 1, from: { kind: "agent" as const, id: "child", parent: "stream" }, to: "you", kind: "question" as const, body: "Choose scope", replyTo: null, status: "delivered" as const, reason: null, at: NOW };
   const reply = { ...question, id: 2, from: { kind: "user" as const, id: "you", parent: null }, to: "child", kind: "note" as const, replyTo: 1, at: NOW + 1 };
   app.handlers["message.list"] = () => [question, reply];
@@ -209,11 +218,24 @@ it.each([false, true])("u5483c_replied_question_folds_after_queued_resumption_re
   app.emit(event({ name: "agent.status", data: { id: "child", attempt: "1", status_revision: "3", status: { kind: "idle", label: "idle", since: NOW + 3, finished: "1" } } }));
   await rail.settled();
 
-  if (reopen) {
+  setNow(NOW + 300_003);
+  await waitFor(() => expect(rowNames()).not.toContain("child"));
+
+  if (lifecycle !== "mounted") {
     cleanup();
+
+    if (lifecycle === "reconnected") {
+      connected.stopTerminalScheme();
+      connected = await connectProject(app, project, () => false, now, () => null, railStorage(project.path));
+    }
+
     render(() => <ConnectedProjectContext.Provider value={connected}><Rail /></ConnectedProjectContext.Provider>);
   }
 
-  setNow(NOW + 300_003);
   await waitFor(() => expect(rowNames()).not.toContain("child"));
+  const nextQuestion = { ...question, id: 3, at: NOW + 300_004 };
+  app.handlers["message.list"] = () => [question, reply, nextQuestion];
+  app.emit(event({ name: "message.sent", data: nextQuestion }));
+  await waitFor(() => expect(rowNames()).toContain("child"));
+  connected.stopTerminalScheme();
 });
