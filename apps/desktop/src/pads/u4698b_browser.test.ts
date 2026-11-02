@@ -306,7 +306,7 @@ it.skipIf(typographyOutputs.length === 0)("u5574b_empty_document_remains_editabl
   await browser("wait", "--fn", "[...document.querySelectorAll('.pad-name')].some(row => row.textContent === 'empty-rhythm')");
   await evaluate("[...document.querySelectorAll('.pad-name')].find(row => row.textContent === 'empty-rhythm').focus(); true");
   await browser("press", "Enter");
-  await browser("wait", ".ProseMirror p");
+  await browser("wait", "--fn", "Boolean(document.querySelector('.ProseMirror p'))");
   await save("empty-document");
   await browser("focus", ".ProseMirror");
   await browser("keyboard", "type", "A new paragraph");
