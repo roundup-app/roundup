@@ -84,6 +84,8 @@ it.each([[1280, 820], [1512, 950]])("u4698e_activity_rendered_%sx%s", { retry: 0
     await browser("wait", '.todo-older[aria-expanded="true"]');
   }
 
+  await browser("click", ".todo-history-line");
+  await browser("wait", ".todo-history-line[aria-expanded=true]");
   await capture("dense-exposed");
   await browser("fill", ".todo-comment-field", "Unsent release notes 日本語\n".repeat(10));
 

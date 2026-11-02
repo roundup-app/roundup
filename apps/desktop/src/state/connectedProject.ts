@@ -21,7 +21,7 @@ import { createAsks } from "./asks";
 import type { AsksState } from "./asks";
 import { syncTerminalScheme } from "../terminal/scheme";
 import { createRailState } from "./rail";
-import { dismissalStorage } from "../rail/persist/storage";
+import { dismissalStorage, resumptionStorage } from "../rail/persist/storage";
 import type { UnseenState } from "./unseen";
 import type { QueueView } from "./queue";
 import { createSettingsView } from "./settingsView";
@@ -235,7 +235,7 @@ export const connectProject = async (
   const rail = createRoot(dispose => {
     stopRail = dispose;
 
-    return createRailState(app, events, storage, dismissalStorage(project.path));
+    return createRailState(app, events, storage, dismissalStorage(project.path), resumptionStorage(project.path));
   });
 
   if (ended) stopRail();
