@@ -138,3 +138,17 @@ The dark driver also required distinguishing the already-selected Pads tab from 
 The GitHub connector also refused `github_create_pull_request` with HTTP 403; `gh pr create --draft --body-file /tmp/u5741-pr-body-41540564606.md` succeeded, opening #5796. No automatic approval review rejected an action; these were API integration permissions. The Issue scope edit and draft PR used the already-authorized repository workflow.
 
 Final code-recipe checks: `just ready` passed (exit 0), including web lint/typecheck, Rust lint/proofs and N7's launch-site observer. `loop/rules.sh vocab`, `loop/rules.sh scenario-ids`, `loop/rules.sh merge-loss` and `git diff --check` passed (exit 0). No local `just check`, whole behavior suite or native Mac observer ran. The documentation-only diff adds no public function or behavior test. Final diff review checked source/registry ownership, duplication, placement and explicit limits; it corrected stale acceptance citations for Mode restart, owner assignment and Terminal text keys.
+
+## Required-check repair — builder-41546242110
+
+PR #5796's `pre` run [41543913546](https://github.com/roundup-app/roundup/actions/runs/41543913546) failed in Clippy: `crates/agents/src/lib.rs` defined the test global allocator twice (E0428 and “cannot define multiple global allocators”; recipe exit 101). The duplicate is inherited from main, also tracked by #5798. This continuation merges main `fc5d51ad8` cleanly and removes only the second declaration. The retained shared allocator, allocation observers and thresholds are unchanged. #5758's scope records the required-check repair; audit sources remain pinned to their original revision.
+
+| Command / observer | Exit | Result |
+| --- | ---: | --- |
+| `pnpm install --frozen-lockfile` | 0 | Installed the unchanged lockfile in the isolated continuation worktree. |
+| `cargo check -p agents --tests` | 0 | The formerly failing test target compiles with one global allocator. |
+| `cargo nextest run -p agents -E 'test(r5636e_nested_rail_allocated_bytes) \| test(r5636e_scan_allocated_bytes) \| test(b5635b_preview_allocations_stay_bounded)'` | 0 | All three existing allocation observers pass; no other behavior tests ran. |
+| `just ready` | 0 | Web lint/typecheck, workspace Clippy, Rust policy scans, `ALL PROOFS CHECK` and N7 launch-site observer pass. |
+| Vocabulary, scenario ids, merge-loss and whitespace checks | 0 | No vocabulary, scenario identity, main-only merge loss or whitespace violation. |
+
+No new test duplicates the compiler's global-allocator uniqueness check (rule 10). No UI behavior, scenario, contract or frozen-loop change was authored. Diff review confirmed the deletion preserves every allocator caller and introduces no new machinery.
