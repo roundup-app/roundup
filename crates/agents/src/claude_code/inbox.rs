@@ -689,7 +689,8 @@ mod tests {
         for size in [1, 16, 64] {
             for escaped in [false, true] {
                 let large = if escaped {
-                    "\\\\\\u0061".repeat(size * 1024 * 1024 / 8)
+                    let pattern = format!("\\\\\\u0061{}", "x".repeat(56));
+                    pattern.repeat(size * 1024 * 1024 / 64)
                 } else {
                     "x".repeat(size * 1024 * 1024)
                 };
