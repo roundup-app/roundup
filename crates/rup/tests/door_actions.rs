@@ -204,18 +204,30 @@ async fn b37_real_claude_receives_a_note_after_a_scripted_server_error() {
             },
         )
         .await;
-    project
-        .next_named(
-            "the final idle Digest's transcript receipt",
-            &mut events,
-            |data| match data {
-                EventData::MessageDelivered(m) if m.id == idle_digest.id => Some(()),
-                _ => None,
-            },
+    // B5168f: if an earlier idle Digest was already delivered, this one is quiet. Explicit
+    // setup input carries it without requiring that routine progress start another model turn.
+    let setup = user
+        .request(
+            "message.send",
+            json!({"to":door,"kind":"note","body":"B37 setup complete"}),
         )
-        .await;
-    // B50(c): the transcript records the Digest after the turn it starts may already be over, so the
-    // door's idle edge can precede the Delivered event; the Rail poll below waits for idle instead.
+        .await
+        .unwrap();
+    let setup_id: u32 = serde_json::from_value(setup["id"].clone()).unwrap();
+    for id in [idle_digest.id, setup_id] {
+        project
+            .next_named(
+                "the idle Digest and setup input's transcript receipts",
+                &mut events,
+                |data| match data {
+                    EventData::MessageDelivered(m) if m.id == id => Some(()),
+                    _ => None,
+                },
+            )
+            .await;
+    }
+    // B50(c): transcript receipts can follow the turn's idle edge, so poll the Rail instead
+    // of waiting for another idle event that may never follow.
     tokio::time::timeout(project.bound(), async {
         loop {
             let nodes = project.rail_tree(&user).await;
