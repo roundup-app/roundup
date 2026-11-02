@@ -575,7 +575,15 @@ fn t5642b_hand_materializes_only_the_first_eligible_todo() {
 #[test]
 fn t5642b_no_eligible_todo_materializes_nothing() {
     let store = hand_fixture();
-    store.db.execute("UPDATE todos SET done=1", []).unwrap();
+    store
+        .db
+        .execute(
+            "INSERT INTO changes(todo,before_values,after_values,after_touch,handed)
+         SELECT t.id,c.after_values,c.after_values,0,t.owner FROM todos t
+         JOIN changes c ON c.seq=(SELECT MAX(seq) FROM changes WHERE todo=t.id)",
+            [],
+        )
+        .unwrap();
     let before = store.list().unwrap();
     let changes: i64 = store
         .db
