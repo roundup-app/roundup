@@ -119,3 +119,25 @@ it("u5558e_failed_reload_retains_data", async () => {
   await waitFor(() => expect(within(made).getAllByRole("listitem")).toHaveLength(1));
   expect(app.calls.filter(call => ["deliverable.resolve", "ask.send", "agent.spawn", "terminal.write"].includes(call.method))).toHaveLength(0);
 });
+
+
+it("u5558a_automatic_reload_preserves_focused_publication", async () => {
+  const { app, connected } = await mountAskBar();
+  connected.showView("made");
+  app.handlers["deliverable.list"] = () => [published(1), published(2)];
+  app.handlers["deliverable.resolve"] = () => ({ kind: "retained", path: "/retained/publication-1", sha256: "hash-1" });
+  app.emit(event({ name: "deliverable.changed" }));
+  const made = await screen.findByRole("region", { name: "Made" });
+  await waitFor(() => expect(made.getAttribute("aria-busy")).toBe("false"));
+  const opener = within(made).getByRole("button", { name: "Open Title 1" });
+  opener.focus();
+
+  app.handlers["deliverable.list"] = () => [published(3), { ...published(1), home: "ops", title: "Updated result" }, published(2)];
+  app.emit(event({ name: "deliverable.changed" }));
+  await waitFor(() => expect(made.getAttribute("aria-busy")).toBe("false"));
+  expect(document.activeElement).toBe(opener);
+  expect(within(made).getByRole("button", { name: "Open Updated result" })).toBe(opener);
+  fireEvent.keyDown(opener, { key: "Enter" });
+  await waitFor(() => expect(app.openedTargets).toEqual([{ kind: "path", path: "/retained/publication-1", line: null }]));
+  expect(app.calls.filter(call => call.method === "deliverable.resolve").map(call => call.params)).toEqual([{ project: "project-original", id: "publication-1" }]);
+});
