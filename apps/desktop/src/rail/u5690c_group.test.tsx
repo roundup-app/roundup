@@ -28,26 +28,28 @@ it("u5690c_existing_clients_traverse_and_rename_a_group_without_launching", asyn
 });
 
 
-it("u5690c_group_disclosure_preserves_keyboard_expansion_and_announces_hidden_attention", async () => {
+it.each(["error", "needs-you"] as const)("u5690c_group_disclosure_preserves_keyboard_expansion_and_announces_hidden_%s", async kind => {
   const group = { ...workstream("group"), kind: "group" as const, status: null, work: null };
+
   const { rail, app } = await mountRail([group,
     workstream("home", { parent: "group" }),
-    agent("failed", "error", "Repair required", { parent: "home" }),
+    agent("failed", kind, "Repair required", { parent: "home" }),
     agent("waiting", "needs-you", "Answer required", { parent: "group", order: 1 }),
   ]);
+
   const before = rail.selected();
   fireEvent.click(within(rowOf("group")).getByRole("button", { name: "Collapse" }));
   await settled();
-  expect(screen.queryByText("waiting")).toBeNull();
+  expect(document.querySelector('[data-id="waiting"]')).toBeNull();
   expect(rail.selected()).toBe(before);
-  expect(rowOf("group").querySelector('[role="img"][aria-label="Error"]')).not.toBeNull();
+  expect(within(rowOf("group")).getByRole("img", { name: kind === "error" ? "Error" : "Needs-you" })).toBeDefined();
   fireEvent.click(screen.getByRole("button", { name: "Expand" }));
   await settled();
   expect(rowOf("waiting")).toBeDefined();
   rowOf("group").focus();
   fireEvent.keyDown(rowOf("group"), { key: "ArrowLeft" });
   await settled();
-  expect(screen.queryByText("waiting")).toBeNull();
+  expect(document.querySelector('[data-id="waiting"]')).toBeNull();
   fireEvent.keyDown(rowOf("group"), { key: "ArrowRight" });
   await settled();
   expect(rowOf("waiting")).toBeDefined();
