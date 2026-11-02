@@ -405,3 +405,31 @@ Policy — regression and gates: U147's no-op/one-write, dirty-draft/conflict an
 The implementing PR moves Checks 2, 5 and 6 (`docs/design-system.md`, **The checks**), retaining every Check passing on the same main baseline. In an isolated headless U26 harness at 1512×950, inspect the fixture above in the editor and every read-only Pad view, the colour/highlight toolbar, each callout insertion choice and code with and without a language. Use `tree-40`, long authored names and a rejected Pad save with its entire cause/recovery text visible. The critic judges callout kind/box treatment, palette and syntax legibility, selection/focus and overflow in both light and dark, including increased contrast; prose and code text meet Check 5 on their actual grounds, including highlight. Run `just capture U5562a,U5562b,U5562c,U5562d`; leave uncommitted dark PNGs/videos and readings under each `artifacts/ux/<id>/` as `.agents/data/harness.md`, **Captures**, prescribes. Light is an explicit additional observer for this Issue: retain paired light captures there too. No layout, colour or exact-copy assertion belongs in a behavioral test. The Linux/Chromium observer makes no native Mac claim; the user reports what they meet on the Mac.
 
 Before implementation, inspect installed `@milkdown/crepe`, `@milkdown/kit`, `marked`, `@radix-ui/colors` and platform features. Research Crepe's CodeMirror feature and its language loader before adding highlighting machinery; research Milkdown/remark alert and inline-mark extensions before writing a parser. Starting sources: [Crepe features and configuration](https://milkdown.dev/docs/api/crepe), [remark GitHub alerts](https://github.com/jaywcjlove/remark-github-blockquote-alert) and [marked alerts](https://github.com/bent10/marked-extensions/tree/main/packages/alert). These are candidates, not an exemption from rule 9: the implementation's Reuse section verifies maintenance/releases and names the selected library or each specific missing capability before any custom machinery. Shared Ark primitives retain menu/toolbar selection and focus semantics; this specification authorizes no hand-written picker state machine.
+
+## Light-mode Pad callout contrast (Issue #5703)
+
+**U5703a Tip and Warning text meets contrast in Light.** Journey stage: Review — read findings in a Pad. Extends U5562a's rendered acceptance after Issue #5562 supplies callouts. This is design-critic policy; it adds no behavioral test or runtime capability in the specification PR.
+
+Given an open Project with a Pad containing the following Markdown, when the user selects Light appearance and opens that Pad in the editor and each read-only Pad view, then every Tip and Warning label and body text has an unrounded contrast ratio of at least 4.5:1 against its actual painted ground (policy, rendered observer below). A value below 4.5 does not pass by rounding.
+
+```markdown
+> [!TIP]
+> Body
+
+> [!WARNING]
+> Body
+```
+
+Policy — retain U5562a's labelled kinds, green Tip and amber Warning from Tokens, and the authored Markdown. The fix must not lower the contrast threshold, exempt callout text, or change the shared Check to hide an offender. Keep Note, Important and Caution legible and retain every Check passing on the same main baseline in Light, Dark and increased contrast. Existing U5562a and U5562d behavioral acceptance remains binding; no colour, layout or exact-copy assertion belongs in a UI test (AGENTS.md rule 10). No new RPC, App seam command or domain term is needed. Changing Token roles follows U4's Contract recipe.
+
+### U5703a rendered observer (policy)
+
+Use the isolated headless U26 harness at 1512×950 with `tree-40`. Open the fixture in the editor and each read-only Pad view with Light explicitly selected. Record computed foreground, composited ground and unrounded ratio for each label and body; inspect D5 readings with `window.__checks()`. Repeat in Dark and with increased contrast in both schemes. Include the other three callout kinds as regression fixtures. On the densest seed, retain long authored names and visible rejected-save cause/recovery text; selection/focus, clipping and Token typography retain Checks 2 and 6. This observes Pad readability within Review; it claims neither a new journey capability nor native Mac rendering. The user reports what they meet on the Mac.
+
+Run `just capture U5703a` for dark evidence; register the scenario with the existing capture observer if needed. Leave uncommitted PNGs/videos and readings under `artifacts/ux/U5703a/` as `.agents/data/harness.md`, **Captures**, prescribes. Record light-mode foreground/ground/ratio readings there as JSON; screenshots required by the capture recipe remain dark only. The critic checks the explicit Light observer as well as the dark captures.
+
+Check sources on `origin/main`:
+
+1. Check 5 (D5), text ≥4.5:1 on its own ground: `docs/design-system.md`, **The checks**; `apps/desktop/src/testing/checks.ts`, `d5` and `runChecks`.
+2. Checks 2 and 6 (D2 Token type/spacing; D6 targets/focus): `docs/design-system.md`, **The checks**; `apps/desktop/src/testing/checks.ts`, `runChecks`.
+3. Existing kind/source and round-trip acceptance: `scenarios/ui-rail.md`, **U5562a callouts retain GitHub Markdown** and **U5562d Pad colour survives editor and tool round trips**.
