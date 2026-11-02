@@ -18,6 +18,7 @@ fn main() {
             .plugin(
                 "window-bar",
                 tauri_build::InlinedPlugin::new().commands(&[
+                    "webview_data_path",
                     "native_material",
                     "set_window_title",
                     "drag_window",
