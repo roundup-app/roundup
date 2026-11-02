@@ -205,6 +205,7 @@
   --space-6: 32px;
   --measure: 56rem;
   --reading-width: calc(68ch + var(--reading-gutter) * 2);
+  --reading-width-wide: calc(100ch + 2 * var(--reading-gutter));
   --reading-gutter: var(--space-6);
   --order-field-max-height: 160px;
 }
