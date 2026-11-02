@@ -623,6 +623,7 @@ async fn u5531c_promotion_stays_shown_until_a_new_safe_door_choice() {
         )
         .await
         .unwrap();
+    fx.user.request("agent.signal", json!({"id":fx.child,"attempt":"1","payload":{"hook_event_name":"Stop","prompt_id":"resumed","last_assistant_message":""}})).await.unwrap();
     let tree = fx.user.request("rail.tree", Value::Null).await.unwrap();
     assert_eq!(
         tree.as_array()
@@ -645,6 +646,23 @@ async fn u5531c_promotion_stays_shown_until_a_new_safe_door_choice() {
     )
     .await
     .unwrap();
+    let refused = door
+        .request("agent.setVisibility", choose.clone())
+        .await
+        .unwrap_err();
+    assert_eq!(refused.code, rpc::code::INVALID_PARAMS);
+    assert!(refused.message.contains("question"));
+    let tree = fx.user.request("rail.tree", Value::Null).await.unwrap();
+    assert_eq!(
+        tree.as_array()
+            .unwrap()
+            .iter()
+            .find(|n| n["id"] == fx.child)
+            .unwrap()["visibility"],
+        "shown"
+    );
+    fx.user.request("agent.signal", json!({"id":fx.child,"attempt":"1","payload":{"hook_event_name":"UserPromptSubmit","prompt_id":"after-reply"}})).await.unwrap();
+    fx.user.request("agent.signal", json!({"id":fx.child,"attempt":"1","payload":{"hook_event_name":"Stop","prompt_id":"after-reply","last_assistant_message":""}})).await.unwrap();
     assert_eq!(
         door.request("agent.setVisibility", choose.clone())
             .await
