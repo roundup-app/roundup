@@ -2,6 +2,7 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { copy } from "../importer/copy";
+import { openLane } from "../todos/laneBrowser";
 import { captureDir } from "../testing/captures";
 import { appServer, type AppServer } from "../testing/appServer";
 
@@ -22,7 +23,6 @@ describe.runIf(Boolean(output))("u3799 isolated rendered observer", () => {
 it.skipIf(!captureDir("U4277c")).each(["tree-40", "tabs-8"].flatMap(seed =>
   ["ask-history", "made", "resources", "workstreams", "terminal-tabs", "import-work"].map(view => [seed, view] as const),
 ))("u5608_u4277c_requested_%s_%s_empty_and_filled", async (seed, view) => {
-  const { openLane } = await import("../todos/laneBrowser");
   const { mkdirSync, writeFileSync } = await import("node:fs");
   const { join } = await import("node:path");
   const { execFileSync } = await import("node:child_process");
