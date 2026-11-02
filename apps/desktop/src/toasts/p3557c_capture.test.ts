@@ -60,8 +60,8 @@ it.skipIf(!captureDir("U411")).each(["needs-you", "error", "todo", "extension"])
     await browser("eval", `(async () => {
       const f = window.__fake;
       const nodes = await f.app.rpc('rail.tree', null);
-      const agents = nodes.filter(node => node.kind === "agent" && node.status).slice(0, 3);
-      for (const node of agents) { node.name = 'writer-states-skill-goals-'.repeat(3).slice(0, 60); node.status.kind = 'working'; }
+      const agents = nodes.filter(node => node.kind === "agent" && node.status?.kind === "working").slice(0, 3);
+      for (const node of agents) { node.name = 'writer-states-skill-goals-'.repeat(3).slice(0, 60); }
       f.app.handlers['rail.tree'] = () => structuredClone(nodes);
       f.emit({ actor: {kind:'user', id:'you', parent:null}, name:'rail.changed', data:null });
       window.noticeAgents = agents.map(node => node.id);
@@ -79,9 +79,10 @@ it.skipIf(!captureDir("U411")).each(["needs-you", "error", "todo", "extension"])
       } else f.setStatus(ids[0], '${kind}', line);
     })()`);
     await browser("wait", ".app-toast-action");
-    await browser("hover", ".app-toasts");
-    await browser("wait", "--fn", "!document.querySelector('.app-toast[data-overlap]')");
+    await browser("focus", ".app-toast:not([data-sibling]) .app-toast-action");
+    await browser("wait", "--fn", "document.querySelectorAll('.app-toast').length === 3 && !document.querySelector('.app-toast[data-overlap]')");
     await capture(`dark-${kind}-fanned`, "U411");
+    await browser("eval", "document.activeElement.blur()");
     await browser("mouse", "move", "0", "0");
     await browser("wait", "--fn", "!!document.querySelector('.app-toast[data-overlap]')");
     await capture(`dark-${kind}-front`, "U411");
