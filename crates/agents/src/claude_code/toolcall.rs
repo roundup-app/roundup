@@ -405,6 +405,21 @@ pub(crate) mod tests {
     }
 
     #[test]
+    fn b5635b_truncated_summaries_have_no_trailing_whitespace() {
+        for character in ["x", "é"] {
+            let prefix = character.repeat(199);
+            let mut current = None;
+            fold(
+                &mut current,
+                &pre("a", "Bash", json!({"command": format!("{prefix} y")})),
+                "/p",
+                0,
+            );
+            assert_eq!(current.unwrap().call.summary, Some(prefix));
+        }
+    }
+
+    #[test]
     fn b5635b_preview_preserves_cleaned_serialization() {
         for (input, expected) in [
             (json!(null), ""),
