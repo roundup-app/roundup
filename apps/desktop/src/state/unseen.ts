@@ -4,6 +4,7 @@ import * as v from "valibot";
 import type { AppSeam } from "../app/seam";
 import type { Events } from "../app/events";
 import type { Deliverable } from "@contracts/deliverable/Deliverable";
+import type { Status } from "@contracts/Status";
 import type { RailNode } from "@contracts/agent/RailNode";
 import { descendantsOf } from "../rail/layout";
 import { storageSchema, storedValue } from "./storage";
@@ -52,20 +53,34 @@ export const createUnseen = (
   const finishStorage = storedValue(`roundup:finish-times:${publications?.path ?? ""}`, finishTimesSchema);
   const [finishTimes, setFinishTimes] = createSignal(finishStorage.read() ?? {});
 
+  const retainFinish = (id: string, status: Status) => {
+    const previous = finishTimes()[id];
+
+    // A working Status dates the new work, never the earlier finish.
+    if ((status.kind !== "idle" && status.kind !== "done" && status.kind !== "blocked") || BigInt(status.finished) <= BigInt(previous?.count ?? "0")) return;
+    const next = { ...finishTimes(), [id]: { count: status.finished, at: status.since } };
+
+    setFinishTimes(next);
+    finishStorage.write(next);
+  };
+
+  if (publications) {
+    // Recover counted finishes from a disconnected gap before reconciling the current tree.
+    const stop = publications.events.subscribe(event => {
+      if (event.name !== "agent.status") return;
+      const node = nodes().find(node => node.id === event.data.id);
+
+      // The current Rail already applied its Attempt/revision guards. Stale events may
+      // describe history, but cannot introduce a finish the authoritative tree lacks.
+      if (node && BigInt(event.data.status.finished) <= finishes(node)) retainFinish(node.id, event.data.status);
+    }, { replay: true });
+
+    onCleanup(stop);
+  }
+
   createEffect(() => {
-    const next = { ...finishTimes() };
-    let changed = false;
-
     for (const node of nodes()) {
-      if (node.status && next[node.id]?.count !== node.status.finished) {
-        next[node.id] = { count: node.status.finished, at: node.status.since };
-        changed = true;
-      }
-    }
-
-    if (changed) {
-      setFinishTimes(next);
-      finishStorage.write(next);
+      if (node.status) retainFinish(node.id, node.status);
     }
   });
 
