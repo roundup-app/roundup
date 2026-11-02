@@ -50,14 +50,13 @@ it.skipIf(!captureDir("U4277c")).each(["tree-40", "tabs-8"].flatMap(seed =>
   try {
     for (const filled of [false, true]) {
         await lane.evaluate("localStorage.clear()");
-        await lane.browser("open");
-        await lane.evaluate(`requestAnimationFrame(() => location.assign(${JSON.stringify(origin)} + "/harness.html?seed=" + ${JSON.stringify(seed === "tabs-8" ? seed : filled || view === "resources" ? seed : "empty-project")})); true`);
-        await lane.until(seed === "tabs-8" ? "!!window.__fake && document.querySelectorAll('.project-tab').length === 8" : "!!window.__fake && window.__fake.app.calls.some(call => call.method === 'ask.list') && !!document.querySelector('.ask-input, .pane-screen')");
+        await lane.browser("open", origin + "/harness.html?seed=" + (seed === "tabs-8" ? seed : filled || view === "resources" ? seed : "empty-project"));
+        await lane.until(seed === "tabs-8" ? "!!window.__fake && document.querySelectorAll('.project-tab').length === 8" : "!!window.__fake && window.__fake.app.calls.some(call => call.method === 'ask.list') && !!document.querySelector('.project-tab')");
         // agent-browser recording creates a fresh page; install fixtures only after it loads.
         await lane.browser("record", "start", join(dir, `${view}-${filled ? "filled" : "empty"}.webm`));
         recording = true;
 
-        await lane.until(seed === "tabs-8" ? "!!window.__fake && document.querySelectorAll('.project-tab').length === 8" : "!!window.__fake && window.__fake.app.calls.some(call => call.method === 'ask.list') && !!document.querySelector('.ask-input, .pane-screen')");
+        await lane.until(seed === "tabs-8" ? "!!window.__fake && document.querySelectorAll('.project-tab').length === 8" : "!!window.__fake && window.__fake.app.calls.some(call => call.method === 'ask.list') && !!document.querySelector('.project-tab')");
         await lane.browser("set", "viewport", "1512", "950");
         await lane.browser("set", "media", "dark");
 
@@ -65,7 +64,7 @@ it.skipIf(!captureDir("U4277c")).each(["tree-40", "tabs-8"].flatMap(seed =>
           await lane.until("document.querySelectorAll('.project-tab').length === 8");
           await lane.browser("focus", '.project-tab[data-path="/Users/you/project-number-2"] [role=tab]');
           await lane.browser("press", "Enter");
-          await lane.until("document.querySelector('.project-tab[data-path=\"/Users/you/project-number-2\"] [role=tab]')?.getAttribute('aria-selected') === 'true' && !!document.querySelector('.ask-input')");
+          await lane.until("document.querySelector('.project-tab[data-path=\"/Users/you/project-number-2\"] [role=tab]')?.getAttribute('aria-selected') === 'true' && window.__fake.app.of('/Users/you/project-number-2').calls.some(call => call.method === 'ask.list')");
         }
 
         await lane.evaluate(`window.__fake.app.projects().then(projects => {window.__auditPath = projects[${seed === "tabs-8" ? 1 : 0}].path; window.__fake.app = window.__fake.app.of(window.__auditPath); return true;})`);
