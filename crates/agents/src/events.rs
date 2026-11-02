@@ -375,7 +375,9 @@ impl Shared {
         }
         if matches!(&observation, Observation::Signal(payload)
             if claude_code::submitted_prompt(payload).is_some())
+            && !run.input_started
         {
+            self.save_input_started(id, &run.attempt)?;
             run.input_started = true;
         }
         // H11: the Steer's wait ends with the Signal that names it, or with the Agent.
@@ -452,6 +454,15 @@ impl Shared {
             status.since = provenance::now_ms().max(0);
             Some(status)
         });
+        let empty = run.adapter.turn().is_some()
+            && run.adapter.final_text() == contracts::agent::FinalTextKind::Empty;
+        if super::rail_view::visibility_protection(run.adapter.status().map(|s| s.kind), empty)
+            .is_some()
+            && let Some(rail) = rail.as_deref_mut()
+            && rail.set_visibility(id, contracts::agent::RailVisibility::Shown)?
+        {
+            self.bus.emit(actor.clone(), EventData::RailChanged);
+        }
         if was_final_text != run.adapter.final_text() || completion_changed {
             self.bus.emit(actor.clone(), EventData::RailChanged);
         }

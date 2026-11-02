@@ -1,8 +1,8 @@
 import { questionDialog, answerQuestion } from "../shelf/bulkQuestionHarness";
 import { questionProbe } from "../testing/menuProbe";
-import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
+import { cleanup, fireEvent, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
-import { agent } from "../testing/nodes";
+import { agent, door } from "../testing/nodes";
 import { exitedTerminal, chooseAction, mountRail, railCallsTo, rowOf } from "./railFixture";
 
 afterEach(cleanup);
@@ -16,7 +16,7 @@ describe("u428 an Agent row's icons", () => {
     const { app } = await mountRail([agent("a", "working", "busy")]);
     app.handlers["agent.stop"] = () => null;
 
-    await chooseAction(app, "a", "Stop");
+    fireEvent.click(within(rowOf("a")).getByRole("button", { name: "Stop" }));
 
     expect((await questionDialog()).title).toBe("Stop a?");
     expect(railCallsTo(app, "agent.stop")).toEqual([]);
@@ -29,7 +29,7 @@ describe("u428 an Agent row's icons", () => {
     const { app } = await mountRail([agent("a", "idle", "idle")]);
     app.handlers["agent.stop"] = () => null;
 
-    await chooseAction(app, "a", "Stop");
+    fireEvent.click(within(rowOf("a")).getByRole("button", { name: "Stop" }));
 
     await waitFor(() => expect(railCallsTo(app, "agent.stop")).toEqual([{ id: "a" }]));
     expect(questionProbe.shown).toBeNull();
@@ -39,7 +39,7 @@ describe("u428 an Agent row's icons", () => {
     const { app } = await mountRail([agent("a", "idle", "idle")]);
     app.handlers["agent.stop"] = () => null;
 
-    await chooseAction(app, "a", "Stop");
+    fireEvent.click(within(rowOf("a")).getByRole("button", { name: "Stop" }));
     await waitFor(() => expect(railCallsTo(app, "agent.stop")).toHaveLength(1));
     fireEvent.contextMenu(rowOf("a"), { clientX: 1, clientY: 1 });
     await app.pickMenu("Stop");
@@ -61,7 +61,8 @@ describe("u428 an Agent row's icons", () => {
 
     fireEvent.contextMenu(rowOf("a"));
     expect(app.menuLabels()).not.toContain("Stop");
-    await chooseAction(app, "a", "Resume");
+    await app.closeMenu();
+    fireEvent.click(within(rowOf("a")).getByRole("button", { name: "Resume" }));
 
     await waitFor(() => expect(railCallsTo(app, "agent.resume")).toEqual([{ id: "a" }]));
   });
@@ -82,11 +83,22 @@ describe("u428 an Agent row's icons", () => {
     await waitFor(() => expect(mounted.app.openedTargets).toEqual([{ kind: "path", path: "/p", line: null }]));
   });
 
-  it("u428_open_in_editor_sends_the_same_directory", async () => {
-    const mounted = await mountRail([agent("a", "idle", "i", { worktree })]);
+  it.each([agent, door].flatMap(make => [null, worktree].map(worktree => make("a", "idle", "i", { worktree }))))("u428_open_in_editor_sends_the_same_directory_$kind/$worktree", async node => {
+    const mounted = await mountRail([node]);
 
     await chooseAction(mounted.app, "a", "Open in editor");
 
-    await waitFor(() => expect(mounted.app.editorOpened).toEqual(["/p/.wt/a"]));
+    await waitFor(() => expect(mounted.app.editorOpened).toEqual([node.worktree ? "/p/.wt/a" : "/p"]));
   });
+});
+
+it.each([agent("a", "idle", "ready"), door("a", "idle", "ready")])("u428_folder_and_editor_are_menu_only_$kind", async node => {
+  const { app } = await mountRail([node]);
+
+  for (const label of ["Open directory", "Open in editor"]) {
+    expect(within(rowOf("a")).queryByRole("button", { name: label })).toBeNull();
+  }
+
+  fireEvent.contextMenu(rowOf("a"));
+  expect(app.menuLabels()).toEqual(expect.arrayContaining(["Open directory", "Open in editor"]));
 });

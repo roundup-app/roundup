@@ -332,9 +332,15 @@ impl Agents {
     pub fn admit_input(&self, id: &str) {
         let mut runs = self.shared.runs();
         if let Some(Slot::Running(run)) = runs.get_mut(id)
-            && !std::mem::replace(&mut run.input_started, true)
-            && let Some(status) = run.adapter.status().cloned()
+            && !run.input_started
         {
+            self.shared
+                .save_input_started(id, &run.attempt)
+                .expect("persist explicit inbox input");
+            run.input_started = true;
+            let Some(status) = run.adapter.status().cloned() else {
+                return;
+            };
             run.status_revision += 1;
             self.shared.bus.emit(
                 Actor::daemon(),

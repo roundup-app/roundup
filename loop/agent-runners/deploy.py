@@ -19,7 +19,7 @@ def run(*args, data=None, timeout=120):
     return result.stdout
 
 
-def deploy(controller, snapshot, ref):
+def deploy(controller, snapshot, ref, check_snapshot, max_check_runners):
     repository = json.loads(run('gh', 'repo', 'view', '--json', 'nameWithOwner'))['nameWithOwner']
     machines = json.loads(run('boxd', 'machine', 'list', '--json'))
     if not any(machine['name'] == controller for machine in machines):
@@ -29,10 +29,14 @@ def deploy(controller, snapshot, ref):
     previous = json.loads(run('boxd', 'machine', 'exec', controller, '--json', '--timeout', '30', '--',
         f"python3 -c 'from pathlib import Path; p=Path(\"{config_path}\"); print(p.read_text() if p.exists() else \"{{}}\")'"))
     config = {**json.loads(previous['output']), 'repository': repository, 'snapshot': snapshot, 'ref': ref,
+              'checkSnapshot': check_snapshot,
               'directory': '/home/boxd/roundup-ci-state', 'network': 'roundup-ci',
               'gh': '/usr/local/bin/gh', 'boxd': '/usr/local/bin/boxd'}
     # The owner raises the runner ceiling on the controller; a redeploy keeps it.
     config.setdefault('maxRunners', 3)
+    if max_check_runners is not None:
+        config['maxCheckRunners'] = max_check_runners
+    config.setdefault('maxCheckRunners', 0)
     config.setdefault('secret', secrets.token_hex(32))
     with tempfile.TemporaryDirectory() as directory:
         directory = Path(directory)
@@ -97,5 +101,9 @@ if __name__ == '__main__':
     parser.add_argument('--controller', default='roundup-ci-control')
     parser.add_argument('--snapshot', default='roundup-ci')
     parser.add_argument('--ref', default='main')
+    parser.add_argument('--check-snapshot', default='roundup-check')
+    parser.add_argument('--max-check-runners', type=int, help='separate check capacity; initially 0, preserved on redeploy')
     args = parser.parse_args()
-    deploy(args.controller, args.snapshot, args.ref)
+    if args.max_check_runners is not None and args.max_check_runners < 0:
+        parser.error('--max-check-runners must be nonnegative')
+    deploy(args.controller, args.snapshot, args.ref, args.check_snapshot, args.max_check_runners)

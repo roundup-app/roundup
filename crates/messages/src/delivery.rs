@@ -138,7 +138,7 @@ pub(super) async fn on_status(
 
 /// Resync after bus lag or Rail changes so missed endings cannot leave Messages deliverable.
 /// A failed Rail read is retried on the next event; it never guesses that an Agent recovered.
-async fn resync(inner: &Arc<Inner>) -> bool {
+pub(super) async fn resync(inner: &Arc<Inner>) -> bool {
     let known = {
         let store = lock(&inner.store);
         store
@@ -324,7 +324,7 @@ fn reconcile_node(
     if node.terminal_id.is_some()
         && !ended(node)
         && store.retirement(&node.id)?.is_none()
-        && (node.status_revision.is_none() || poisoned)
+        && (restart || node.status_revision.is_none() || poisoned)
     {
         store.atomically(|store| {
             for message in store.list_pending_to(&node.id)? {
@@ -332,7 +332,7 @@ fn reconcile_node(
                     store.bind(message.id, (at.0, 0))?;
                 }
             }
-            if poisoned {
+            if restart || poisoned {
                 store.set_generation(
                     &node.id,
                     store::ReceiverState {

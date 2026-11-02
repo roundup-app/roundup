@@ -250,6 +250,7 @@ async fn a35_a_stopped_later_agent_retires_without_reviving_final_messages() {
     let pending = h.send(Actor::user(), "door", "ordinary stop").await;
     h.status("1", "2", Kind::Done).await;
     h.rail.0.lock().unwrap()[0] = RailNode {
+        visibility: Default::default(),
         status: Some(Status {
             kind: Kind::Done,
             label: "stopped".into(),

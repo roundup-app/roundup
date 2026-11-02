@@ -51,6 +51,13 @@ fn launch(project: &Path, data: &Path) -> rupd_harness::Rupd {
         project,
         true,
         |command| {
+            let owner = project.join("owner-helper");
+            if owner.exists() {
+                command.env(
+                    "RUPD_TERMINAL_OWNER",
+                    std::fs::read_to_string(owner).unwrap(),
+                );
+            }
             command
                 .env("ROUNDUP_DATA_DIR", data)
                 .env("ROUNDUP_CLAUDE_BIN", project.join("claude"))
@@ -82,6 +89,24 @@ async fn until<T>(what: &str, mut probe: impl AsyncFnMut() -> Option<T>) -> T {
 }
 
 impl Run {
+    fn owner_helper() -> PathBuf {
+        let path = Path::new(env!("CARGO_BIN_EXE_rupd")).with_file_name("terminal-owner");
+        if !path.is_file() {
+            let built = std::process::Command::new(
+                std::env::var_os("CARGO").unwrap_or_else(|| "cargo".into()),
+            )
+            .args(["build", "-p", "terminal", "--bin", "terminal-owner"])
+            .status()
+            .unwrap();
+            assert!(built.success(), "build the isolated Terminal owner");
+        }
+        path
+    }
+
+    fn project_data(&self) -> PathBuf {
+        rupd::data::project_data(self.data.path(), self.dir.path()).unwrap()
+    }
+
     /// A Daemon with one idle Agent after its first submitted user prompt.
     async fn start() -> Self {
         Self::start_on(1).await
@@ -147,6 +172,10 @@ impl Run {
     }
 
     async fn spawn(&mut self) {
+        self.spawn_with_input(None, true).await;
+    }
+
+    async fn spawn_with_input(&mut self, prompt: Option<&str>, submit: bool) {
         let caller = Client::connect(&self.daemon.socket).await.unwrap();
         if self.scout {
             let parent = self
@@ -172,7 +201,7 @@ impl Run {
         let node = caller
             .request(
                 "agent.spawn",
-                json!({"name":"child","cwd":self.dir.path(),"scout":self.scout}),
+                json!({"name":"child","cwd":self.dir.path(),"scout":self.scout,"prompt":prompt}),
             )
             .await
             .unwrap();
@@ -180,8 +209,10 @@ impl Run {
         self.terminal = node["terminal_id"].clone();
         self.attempt = node["attempt"].clone();
         self.ready().await;
-        self.signal(json!({"hook_event_name":"UserPromptSubmit","prompt":"Wait for notes"}))
-            .await;
+        if submit {
+            self.signal(json!({"hook_event_name":"UserPromptSubmit","prompt":"Wait for notes"}))
+                .await;
+        }
         self.signal(json!({"hook_event_name":"Stop"})).await;
     }
 
@@ -545,41 +576,6 @@ async fn b50_a_long_note_shows_as_one_line() {
 }
 
 #[tokio::test]
-async fn b52_a_restart_with_a_sent_note_delivers_it_once() {
-    // B52(b): rejects losing the unacknowledged id on restart or falsely delivering its write.
-    for kind in ["note", "question"] {
-        let mut run = Run::start().await;
-        run.kind = kind;
-        let id = run.note("once").await;
-        until("taken up", async || {
-            (!run.entries().is_empty()).then_some(())
-        })
-        .await;
-        assert_eq!(run.taken(), [format!("rup-{id}")]);
-        run.restart().await;
-        run.idle_edge().await;
-        // The resumed session is a new process with its own socket; it takes the note up once.
-        until("taken up again", async || {
-            (run.entries() == [format!("rup-{id}")]).then_some(())
-        })
-        .await;
-        run.record(&[id]).await;
-        until("delivered", async || {
-            (run.status(id).await.0 == "delivered").then_some(())
-        })
-        .await;
-        assert_eq!(run.entries(), [format!("rup-{id}")]);
-        assert_eq!(
-            run.taken(),
-            [format!("rup-{id}")],
-            "a retry is not another peer uptake"
-        );
-        assert_eq!(run.typed().await, 0);
-        assert_eq!(run.seen().await, [id]);
-    }
-}
-
-#[tokio::test]
 async fn b3563c_all_senders_use_the_inbox_while_terminal_input_is_unsent() {
     for sender in ["user", "agent", "ext", "daemon"] {
         let mut run = Run::start().await;
@@ -802,42 +798,6 @@ async fn b3563c_unavailable_inbox_keeps_pending_identity_and_reports_the_cause()
     }
 }
 
-impl Run {
-    /// A Daemon kill (D6), then a new Daemon on the same Project, and the Agent resumed.
-    async fn restart(&mut self) {
-        let socket = self.daemon.socket.clone();
-        let _ = self.daemon.child.kill();
-        let _ = self.daemon.child.wait();
-        let _ = std::fs::remove_file(&socket);
-        self.daemon = launch(self.dir.path(), self.data.path());
-        self.user = Client::connect(&self.daemon.socket).await.unwrap();
-        self.watcher = Client::connect(&self.daemon.socket).await.unwrap();
-        self.watcher
-            .request("events.subscribe", Value::Null)
-            .await
-            .unwrap();
-        self.sender = Client::connect(&self.daemon.socket).await.unwrap();
-        self.sender
-            .request(
-                "daemon.identify",
-                json!({"actor":{"kind":"ext","id":"b50"}}),
-            )
-            .await
-            .unwrap();
-        let node = self
-            .user
-            .request("agent.resume", json!({"id":self.child}))
-            .await
-            .unwrap();
-        self.terminal = node["terminal_id"].clone();
-        self.attempt = node["attempt"].clone();
-        self.ready().await;
-        self.signal(json!({"hook_event_name":"UserPromptSubmit","prompt":"Wait for notes"}))
-            .await;
-        self.signal(json!({"hook_event_name":"Stop"})).await;
-    }
-}
-
 // B50(b,d): rejects rewriting durable question identity or cutting its full multibyte body.
 #[tokio::test]
 async fn b50_an_inbox_question_preserves_its_message_and_reply_identity() {
@@ -952,3 +912,9 @@ mod b51_sender_refusal;
 
 #[path = "support/inbox_repeats.rs"]
 mod inbox_repeats;
+
+#[path = "support/owner_input.rs"]
+mod owner_input;
+
+#[path = "support/explicit_restart.rs"]
+mod explicit_restart;
