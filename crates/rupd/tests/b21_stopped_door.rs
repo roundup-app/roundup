@@ -118,6 +118,15 @@ impl Run {
             .await
             .unwrap();
         let attempt = node["attempt"].clone();
+        if attempt != "1" {
+            self.user
+                .request(
+                    "message.send",
+                    json!({"to":self.door,"kind":"note","body":DOOR_PROMPT}),
+                )
+                .await
+                .unwrap();
+        }
         wait(|| {
             snapshots(self.dir.path()).iter().any(|v| {
                 v["nodes"].as_array().unwrap().iter().any(|n| {
