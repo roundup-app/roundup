@@ -1,3 +1,4 @@
+import { descendantsOf } from "../rail/layout";
 import type { Actor } from "@contracts/Actor";
 import type { Event as DaemonEvent } from "@contracts/Event";
 import type { EventData } from "@contracts/EventData";
@@ -281,6 +282,18 @@ const installDaemon = (app: FakeApp, tree: RailNode[], now: number, withShelf: b
   app.handlers["rail.createWorkstream"] = ({ name, parent }) => append(parent, (id, order) => workstream(id, { name, parent, order }));
   app.handlers["workstream.setOpeningPrompt"] = ({ id, prompt }) => {
     changed(Object.assign(find(id), { opening_prompt: prompt }));
+
+    return null;
+  };
+
+  app.handlers["rail.setAlertLevel"] = ({ id, level }) => {
+    const target = find(id);
+
+    for (const node of target.kind === "workstream" ? [target, ...descendantsOf(nodes, id)] : [target]) {
+      if (node.kind === "agent" || node.attempt !== null) node.alert_level = level;
+    }
+
+    changed(target);
 
     return null;
   };
