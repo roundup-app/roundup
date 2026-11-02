@@ -1,6 +1,8 @@
 import { copy as sharedCopy, type CopyValue } from "../sharedCopy";
 
 export const copy = {
+  padWidth: "Width",
+  padWidths: sharedCopy.padWidths,
   dismiss: sharedCopy.dismiss,
   draftField: sharedCopy.draftField,
   draftIdentity: sharedCopy.draftIdentity,

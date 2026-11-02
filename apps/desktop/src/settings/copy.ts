@@ -3,10 +3,9 @@ import { copy as sharedCopy } from "../sharedCopy";
 
 export const copy = {
   settingsPads: sharedCopy.pads,
-  padWidth: "Width",
   defaultWidth: "Default width",
   defaultWidthHint: "Width used when a Pad opens expanded.",
-  padWidths: [{ value: "narrow", label: "Narrow" }, { value: "wide", label: "Wide" }, { value: "full", label: "Full" }] as const,
+  padWidths: sharedCopy.padWidths,
   automaticRenaming: "Automatic renaming",
   automaticRenamingHint: "Allow Agents to name themselves from their work.",
   skill: "Teach other Claude Code sessions about roundup",

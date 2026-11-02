@@ -1,7 +1,6 @@
 import { DrawerMaximisedContext } from "../drawer/DrawerHost";
 import { SegmentGroup } from "../ui/SegmentGroup";
 import { appSettings } from "../settings/preferences";
-import { copy as settingsCopy } from "../settings/copy";
 import { applied } from "../app/pending";
 import { historyRegion } from "../keys/focus";
 import { captureFocus, keepRegionFocus } from "../keys/focus";
@@ -481,7 +480,7 @@ const PadBody = (props: {
       </ReservedLine>
       <Suspense>
         <PadRichEditor
-          toolbar={<Show when={maximised()}><SegmentGroup label={settingsCopy.padWidth} segments={settingsCopy.padWidths} value={width()} onValueChange={setWidth} /></Show>}
+          toolbar={<Show when={maximised()}><SegmentGroup label={copy.padWidth} segments={copy.padWidths} value={width()} onValueChange={setWidth} /></Show>}
           initialFocus={props.initialFocus}
           text={source}
           readonly={invalid()}
