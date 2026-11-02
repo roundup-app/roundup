@@ -704,10 +704,11 @@ fn a5482c_non_door_coordinator_receives_the_fallback() {
 
 #[test]
 fn b5519a_a_later_turn_note_replaces_the_previous_final_text() {
-    for pushed in [false, true] {
+    for (pushed, since) in [(false, 30), (true, 30), (false, 60), (true, 60)] {
         let mut nodes = rail();
         nodes[1].status = Some(Status {
-            since: 30,
+            // A same-turn permission prompt can advance Status after the note.
+            since,
             finished: "1".into(),
             ..status(Kind::Working, "reading page two")
         });
