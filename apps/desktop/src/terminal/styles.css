@@ -172,6 +172,7 @@
 .target-link {
   display: inline-block;
   min-height: var(--space-5);
+  line-height: var(--line);
   max-width: 100%;
   vertical-align: baseline;
   color: inherit;
