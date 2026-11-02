@@ -1,3 +1,4 @@
+import { siblingsOf } from "../rail/layout";
 import { EmptyState } from "../ink/EmptyState";
 import { makeEventListener } from "@solid-primitives/event-listener";
 import { makeResizeObserver } from "@solid-primitives/resize-observer";
@@ -6,7 +7,7 @@ import { copy } from "./copy";
 import { shelfSliding } from "../shelf/sliding";
 import { drawerSliding } from "../drawer/sliding";
 import { resizeDragging } from "../resize/dragging";
-import { createEffect, createMemo, createSignal, on, onCleanup, Show, untrack } from "solid-js";
+import { createEffect, createMemo, createSignal, on, onCleanup, Show, For, untrack } from "solid-js";
 import { ReservedLine } from "../ink/ReservedLine";
 import { Icon } from "../ink/Icon";
 import { doorStateOf, doorStateText } from "../rail/doorState";
@@ -323,6 +324,9 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
         <div class="pane-screen" ref={element => { setScreen(element); resizeObserver?.observe(element); }} />
         <Show when={!preparing() && selected()?.kind === "agent" && terminalId() === null && (notice() === null || notice()?.kind === "command")}>
           <EmptyState art="sitting-reading" {...{ title: copy.noOutputKeptFromAnEarlierRun }} line={copy.emptyOutputLine} />
+        </Show>
+        <Show when={selected()?.kind === "group"}>
+          <nav class="pane-group" aria-label={selected()!.name}><h3>{selected()!.name}</h3><For each={siblingsOf(rail.topology(), selected()!.id)}>{child => <button type="button" class="word pane-action" onClick={() => rail.select(child.id)}>{child.name}</button>}</For></nav>
         </Show>
         <Show when={doorState()}>
           {(state) => (
