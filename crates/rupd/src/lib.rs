@@ -574,6 +574,7 @@ pub mod test_support {
         );
         messages.set_inbox(state.clone());
         assert!(state.messages.set(Arc::downgrade(&messages)).is_ok());
+        messages.listen();
         daemon.register(messages);
         daemon.register(state.clone());
         daemon.start_pushes();
