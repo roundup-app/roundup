@@ -39,6 +39,7 @@ rusqlite.workspace = true
 rusqlite_migration.workspace = true
 
 [dev-dependencies]
+tokio = { workspace = true, features = ["test-util"] }
 agents = { path = "../agents", features = ["test-support"] }
 async-trait.workspace = true
 jsonschema = { version = "0.60.2", default-features = false }
