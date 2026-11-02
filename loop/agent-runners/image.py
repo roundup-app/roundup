@@ -85,6 +85,7 @@ def verify(action):
         actual = run(executable, '--version', timeout=15).strip()
         if not re.search(rf'(?<![0-9.])v?{re.escape(expected[name])}(?:\.|[^0-9.]|$)', actual):
             raise SystemExit(f'boxd {name}: expected {expected[name]}, got {actual}')
+    run(str(INSTALL / 'python/bin/python3'), '-m', 'pip', '--version', timeout=15)
     print(json.dumps({'prepared': manifest['created_from'], 'runner': manifest['runner'], 'tools': expected}))
 
 
@@ -114,7 +115,8 @@ def build(repository, instructions=None):
     run('sudo', 'apt-get', 'update', timeout=300)
     run('sudo', 'apt-get', 'install', '-y', 'python3-yaml', 'libwebkit2gtk-4.1-dev', 'build-essential',
         'libxdo-dev', 'libssl-dev', 'libayatana-appindicator3-dev', 'librsvg2-dev', 'jq', 'unzip',
-        'clang', 'libclang-dev')
+        'clang', 'libclang-dev', 'python3-pip', 'python3-venv',
+        'bpftrace', 'libfuse3-dev', 'fuse3', 'pkg-config', 'strace', 'iproute2', 'util-linux')
     print('Preparing pinned Node and agent programs', flush=True)
     run('bash', '-lc', f'. "$HOME/.nvm/nvm.sh"; nvm install {versions["node"]}; '
         f'sudo ln -sf "$(nvm which {versions["node"]})" /usr/local/bin/node')
@@ -148,6 +150,8 @@ def build(repository, instructions=None):
     archive, runner_version = github_archive('actions/runner', 'latest', r'actions-runner-linux-x64-[0-9.]+\.tar\.gz')
     run('sudo', 'install', '-d', '-o', 'boxd', '-g', 'boxd', str(RUNNER), str(INSTALL),
         str(RUNNER / '_work'), str(RUNNER / '_work/_tool'), str(RUNNER / '_work/_temp'))
+    # E14 installs with pip before setup. A venv permits it on Ubuntu's externally managed Python and keeps distro yaml.
+    run('python3', '-m', 'venv', '--system-site-packages', str(INSTALL / 'python'))
     path = INSTALL / 'runner.tar.gz'
     path.write_bytes(archive)
     with tarfile.open(path, 'r:gz') as source:
@@ -166,7 +170,7 @@ def build(repository, instructions=None):
                 'runner': runner_version, 'created_from': run('git', '-C', str(repository), 'rev-parse', 'HEAD').strip()}
     (INSTALL / 'image.json').write_text(json.dumps(manifest, indent=2))
     verify(action)
-    print('Prepared. Cold-reboot this machine, then save the roundup-ci snapshot.', flush=True)
+    print('Prepared. Cold-reboot this machine, then save the snapshot.', flush=True)
 
 
 if __name__ == '__main__':
