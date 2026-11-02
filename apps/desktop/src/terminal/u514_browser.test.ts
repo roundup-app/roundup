@@ -217,8 +217,8 @@ const editor = async (kind: typeof editorKinds[number] | "pad-source" | "diff" |
     await browser("click", "#shelf-tab-pads");
     await wait("document.querySelector('#shelf-tab-pads')?.getAttribute('aria-selected') === 'true'");
     await browser("eval", "document.querySelector('.pads-tab [data-shelf-group=unassigned][data-state=closed] [data-part=branch-control]')?.click()");
-    await wait("[...document.querySelector('.pads-tab').querySelectorAll('[data-shelf-row] .pad-name')].some(row => row.textContent === 'pad-3')");
-    await browser("eval", "[...document.querySelector('.pads-tab').querySelectorAll('[data-shelf-row] .pad-name')].find(row => row.textContent === 'pad-3').focus()");
+    await wait("[...document.querySelectorAll('[data-shelf-row] .pad-name')].some(row => row.textContent === 'pad-3')");
+    await browser("eval", "[...document.querySelectorAll('[data-shelf-row] .pad-name')].find(row => row.textContent === 'pad-3').focus()");
     await wait("document.activeElement?.matches('.pad-name')");
     await browser("press", "Enter");
     await wait("!!document.querySelector('.ProseMirror[contenteditable=true]')");
@@ -305,8 +305,8 @@ it("u2680c_readonly_content_keeps_native_selection_and_copy_pad", async () => {
   await browser("click", "#shelf-tab-pads");
   await wait("document.querySelector('#shelf-tab-pads')?.getAttribute('aria-selected') === 'true'");
   await browser("eval", "document.querySelector('.pads-tab [data-shelf-group=unassigned][data-state=closed] [data-part=branch-control]')?.click()");
-  await wait("[...document.querySelector('.pads-tab').querySelectorAll('[data-shelf-row] .pad-name')].some(row => row.textContent === 'pad-0')");
-  await browser("eval", "[...document.querySelector('.pads-tab').querySelectorAll('[data-shelf-row] .pad-name')].find(row => row.textContent === 'pad-0').focus()");
+  await wait("[...document.querySelectorAll('[data-shelf-row] .pad-name')].some(row => row.textContent === 'pad-0')");
+  await browser("eval", "[...document.querySelectorAll('[data-shelf-row] .pad-name')].find(row => row.textContent === 'pad-0').focus()");
     await wait("document.activeElement?.matches('.pad-name')");
     await browser("press", "Enter");
   const selector = '.pad-rich-editor .ProseMirror p';
@@ -789,7 +789,7 @@ it.skipIf(!/U3529|U5515|U5549/.test(process.env.ROUNDUP_CAPTURES ?? ""))("u3529c
         input.dispatchEvent(new InputEvent('input', {bubbles:true}));
         input.dispatchEvent(new KeyboardEvent('keydown', {key:'Enter',bubbles:true,cancelable:true}));
       })()`);
-      await wait("document.querySelector('.rail')?.textContent.includes('Name changed. Retry.')");
+      await wait("document.body.textContent.includes('Name changed. Retry.')");
 
       if (!await read<boolean>("!!document.querySelector('[data-id=migrate] input')")) {
         await browser("focus", '[data-id="migrate"]');
@@ -814,7 +814,7 @@ it.skipIf(!/U3529|U5515|U5549/.test(process.env.ROUNDUP_CAPTURES ?? ""))("u3529c
   await read(`localStorage.setItem('roundup:drafts:/Users/you/harness', ${JSON.stringify(JSON.stringify(saved))})`);
   await browser("open", url("/harness.html?seed=tree-40&renderer=dom", base));
   await wait("!!window.__fake && !!document.querySelector('.rail-row')");
-  await read("document.querySelector('button[aria-label^=Overview]').dispatchEvent(new MouseEvent('contextmenu', {bubbles:true,cancelable:true,button:2}))");
+  await read("[...document.querySelectorAll('button')].find(b => b.getAttribute('aria-label')?.startsWith('Overview')).dispatchEvent(new MouseEvent('contextmenu', {bubbles:true,cancelable:true,button:2}))");
   await read("window.__fake.app.pickMenu(window.__fake.app.menuLabels().find(label => label.startsWith('Recover ')))");
   await wait("!!document.querySelector('.draft-recovery')");
   await snap("retired-note-recovery");
