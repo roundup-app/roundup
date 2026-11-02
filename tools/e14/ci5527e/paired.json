@@ -1,0 +1,14 @@
+{
+  "scenario": "CI5527e",
+  "baseline_commit": "4a4233eade3d39859016af5756ee31537a5a2e6a",
+  "run": "https://github.com/roundup-app/roundup/actions/runs/41470336828",
+  "runner": {
+    "class": "ubuntu-24.04",
+    "image": "20261026.354.1",
+    "cpus": 4,
+    "os": "Linux-7.0.0-1017-azure-x86_64-with-glibc2.39"
+  },
+  "command": "pnpm --filter desktop exec vitest run src/ui/s3806b_actions.test.tsx src/bubbles/u3756_focus.test.ts src/terminal/u514_browser.test.ts src/keys/u3787b_menu.test.tsx src/todos/u4698d_browser.test.ts src/drawer/u4458_browser.test.ts src/switcher/u3787c_browser.test.ts src/keys/u2230_hints.test.tsx src/testing/u463_real_daemon.test.ts src/bubbles/u4274_navigation.test.tsx",
+  "status": "Baseline running before applying query repairs; paired evidence pending.",
+  "claim": "Selected-file evidence only, never a full-shard result."
+}
