@@ -10,6 +10,16 @@ use contracts::{Actor, ActorKind};
 use rpc::{OpenError, RpcError};
 use rusqlite::{Connection, OptionalExtension, params};
 
+// Compare Actor fields, not serialized objects: whitespace/key order and absent/null parents
+// decode equally. Missing/null owners both have no kind/id/parent. Handed takes precedence
+// over owner changes on the same row, matching the typed History fold (T26).
+const LAST_OWNER_CHANGE: &str = "SELECT last.seq FROM changes last
+    WHERE last.todo = t.id AND (last.handed IS NOT NULL
+        OR json_extract(last.before_values, '$.owner.kind') IS NOT json_extract(last.after_values, '$.owner.kind')
+        OR json_extract(last.before_values, '$.owner.id') IS NOT json_extract(last.after_values, '$.owner.id')
+        OR json_extract(last.before_values, '$.owner.parent') IS NOT json_extract(last.after_values, '$.owner.parent'))
+    ORDER BY last.seq DESC LIMIT 1";
+
 pub(crate) struct Store {
     pub(super) db: Connection,
 }
@@ -176,15 +186,11 @@ impl Store {
     pub(crate) fn list_handed(&self) -> Result<Vec<Handed>, RpcError> {
         let mut stmt = self
             .db
-            .prepare(
+            .prepare(&format!(
                 "SELECT c.todo, c.seq, c.handed, t.owner
-             FROM todos t JOIN changes c ON c.seq = (
-                SELECT last.seq FROM changes last WHERE last.todo = t.id AND (
-                    last.handed IS NOT NULL OR json_extract(last.before_values, '$.owner')
-                        IS NOT json_extract(last.after_values, '$.owner'))
-                ORDER BY last.seq DESC LIMIT 1
-             ) WHERE c.handed IS NOT NULL AND t.owner IS NOT NULL ORDER BY c.seq",
-            )
+                 FROM todos t JOIN changes c ON c.seq = ({LAST_OWNER_CHANGE})
+                 WHERE c.handed IS NOT NULL AND t.owner IS NOT NULL ORDER BY c.seq"
+            ))
             .map_err(RpcError::internal)?;
         let rows = stmt
             .query_map([], |r| {
@@ -421,40 +427,46 @@ impl Store {
             .db
             .unchecked_transaction()
             .map_err(RpcError::internal)?;
-        for todo in self.list()? {
-            let owner = match &todo.owner {
-                Some(owner) if owner.kind == ActorKind::Agent && owner.id == agent => owner,
-                _ => continue,
-            };
-            if todo.done || todo.blocked || self.handed_to(todo.id, owner)? {
-                continue;
-            }
-            let at = values(&todo);
-            self.db.execute(
-                "INSERT INTO changes(todo, before_values, after_values, after_touch, actor, changed_at, handed) VALUES (?1, ?2, ?2, ?3, ?4, ?5, ?6)",
-                params![todo.id, serde_json::to_string(&at).map_err(RpcError::internal)?, after_touch, creator_json(actor), now_ms().max(0), creator_json(owner)],
-            ).map_err(RpcError::internal)?;
-            tx.commit().map_err(RpcError::internal)?;
-            return Ok(Some(todo));
-        }
-        Ok(None)
-    }
-
-    /// Whether a hand-off to `owner` follows the last Change of the Todo's owner.
-    fn handed_to(&self, id: u32, owner: &Actor) -> Result<bool, RpcError> {
-        let mut handed = false;
-        for (change, _) in self.history(id)? {
-            match &change.handed {
-                Some(to) => handed = to == owner,
-                None => {
-                    let before = change.before.as_ref().and_then(|v| v.owner.as_ref());
-                    if before != change.after.owner.as_ref() {
-                        handed = false;
-                    }
+        let id = {
+            let mut stmt = tx
+                .prepare(&format!(
+                    "SELECT t.id, t.owner, c.handed FROM todos t
+                 LEFT JOIN changes c ON c.seq = ({LAST_OWNER_CHANGE})
+                 WHERE t.done = 0 AND json_extract(t.owner, '$.kind') = 'agent'
+                    AND json_extract(t.owner, '$.id') = ?1
+                    AND NOT EXISTS(SELECT 1 FROM blockers b JOIN todos o ON o.id = b.blocker
+                                   WHERE b.todo = t.id AND o.done = 0)
+                 ORDER BY t.pos, t.id"
+                ))
+                .map_err(RpcError::internal)?;
+            let mut rows = stmt.query([agent]).map_err(RpcError::internal)?;
+            let mut selected = None;
+            while let Some(row) = rows.next().map_err(RpcError::internal)? {
+                let owner: String = row.get(1).map_err(RpcError::internal)?;
+                let owner = parse_creator(&owner).map_err(RpcError::internal)?;
+                let handed: Option<String> = row.get(2).map_err(RpcError::internal)?;
+                let handed = handed
+                    .map(|text| parse_creator(&text))
+                    .transpose()
+                    .map_err(RpcError::internal)?;
+                if handed.as_ref() != Some(&owner) {
+                    selected = Some(row.get::<_, u32>(0).map_err(RpcError::internal)?);
+                    break;
                 }
             }
-        }
-        Ok(handed)
+            selected
+        };
+        let Some(id) = id else {
+            return Ok(None);
+        };
+        let todo = self.get(id)?;
+        let at = values(&todo);
+        tx.execute(
+            "INSERT INTO changes(todo, before_values, after_values, after_touch, actor, changed_at, handed) VALUES (?1, ?2, ?2, ?3, ?4, ?5, ?6)",
+            params![todo.id, serde_json::to_string(&at).map_err(RpcError::internal)?, after_touch, creator_json(actor), now_ms().max(0), todo.owner.as_ref().map(creator_json)],
+        ).map_err(RpcError::internal)?;
+        tx.commit().map_err(RpcError::internal)?;
+        Ok(Some(todo))
     }
 
     /// Replaces the whole blocker list. The caller has checked ids and cycles.
