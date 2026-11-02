@@ -92,10 +92,14 @@ const width = 1280;
       })()`);
 
       await activate('[aria-label="Centre"] button');
-      await wait(`!!document.querySelector('[aria-label="Add Workstream"]')`);
+      await wait(`!!document.querySelector('[aria-label="Create"]')`);
 
       expect((await browser("eval", "document.querySelector('.project-tab[data-path]').dataset.path")).result).toBe(real.dir);
-      await activate('[aria-label="Add Workstream"]');
+      await activate('[aria-label="Create"]');
+      await browser("press", "ArrowDown");
+      await wait("document.querySelector('[role=menuitem][data-highlighted]')?.dataset.value === 'workstream'");
+      await browser("press", "Enter");
+
       // U191: creating the Workstream starts its Door once rail.tree acknowledges the row.
       await wait(`window.__u463Calls.some(call => call.method === 'rail.startDoor')`);
       await wait(`!!document.querySelector('.pane-screen textarea')`);
@@ -157,7 +161,7 @@ it(`u463_cancel_keeps_first_run_and_the_next_choice_opens_the_project ${width} k
     expect(await app.rpc("terminal.list", null)).toEqual([]);
     await wait(`document.body.textContent.includes(${JSON.stringify(appCopy.openAFolderToStart)})`);
     await activate('[aria-label="Centre"] button');
-    await wait(`!!document.querySelector('[aria-label="Add Workstream"]')`);
+    await wait(`!!document.querySelector('[aria-label="Create"]')`);
     expect((await browser("eval", "document.querySelector('.project-tab[data-path]').dataset.path")).result).toBe(real.dir);
     expect(await app.rpc("rail.tree", null)).toEqual([]);
   } finally { await fixture.close(); }
@@ -170,7 +174,7 @@ it(`u463_the_first_run_observer_is_opt_in_and_confined_to_its_project ${width} k
   try {
     await browser("open", `${real.base}/harness.html?view=workstreams&items=1&tabs=1&daemon=1`);
     await browser("set", "viewport", String(width), "800");
-    await wait(`!!document.querySelector('[aria-label="Add Workstream"]')`);
+    await wait(`!!document.querySelector('[aria-label="Create"]')`);
     expect((await browser("eval", "typeof window.__firstRun")).result).toBe("undefined");
     expect(await app.chooseProjectPath()).toBeNull();
     expect(await app.chooseSavePath("test.md")).toBeNull();
@@ -308,7 +312,7 @@ it("u2875d_real_import_reopen_and_resume", async () => {
 
       for (const state of ["failure", "empty", "loading", ...(captureDir("U3037d") ? ["rpc-timeout", "deadline"] : [])]) {
         await browser("eval", `window.__fake.app.handlers['project.importDiscover'] = ${state === "failure" ? "() => { throw new Error('Discovery unavailable: permission denied. Retry with Refresh.'); }" : state === "rpc-timeout" ? "() => { throw new Error('no reply to project.importDiscover within 30s; whether the Daemon accepted the request is unknown. Refresh to try again.\\nSource: /a/very/long/path/without/spaces/that/must/wrap/and/remain/readable/while/the/recovery/actions/stay/available'); }" : state === "empty" ? "() => ({ candidates: [], excluded: [] })" : "() => new Promise(() => {})"}`);
-        await browser("find", "role", "button", "click", "--name", "Refresh", "--exact");
+        await browser("find", "role", "button", "click", "--name", "Retry", "--exact");
         await wait(state === "rpc-timeout" ? "document.querySelector('.import-panel [role=alert]')?.textContent.includes('within 30s')" : state === "deadline" ? "document.querySelector('.import-panel [role=alert]')?.textContent.includes('too long')" : state === "failure" ? "document.querySelector('.import-panel [role=alert]')?.textContent.includes('Discovery unavailable')" : state === "empty" ? "document.querySelector('.import-panel [role=status]')?.textContent.includes('No conversations')" : "document.querySelector('.import-panel [role=status]')?.textContent.includes('Looking')");
         await capture(state);
       }
@@ -340,7 +344,7 @@ it("u4590_visible_launch_params_match_first_pty_grid", async () => {
     await browser("set", "viewport", "1512", "950");
     await browser("set", "media", "dark");
     await browser("open", `${real.base}/harness.html?daemon=1&view=workstreams&items=1&tabs=1&renderer=dom`);
-    await wait("!!document.querySelector('[aria-label=\"Add Workstream\"]')");
+    await wait("!!document.querySelector('[aria-label=\"Create\"]')");
     await read(`(() => {
       window.__launches = [];
       window.__sizingWrites = [];
@@ -359,8 +363,8 @@ it("u4590_visible_launch_params_match_first_pty_grid", async () => {
     for (const action of ["door", "agent", "prompt", "shell", "quick"]) {
       await read("window.__launches.length = 0");
 
-      if (action === "door") await browser("click", '[aria-label="Add Workstream"]');
-      else if (action === "agent") await browser("click", '[aria-label="New Agent"]');
+      if (action === "door") { await browser("click", '[aria-label="Create"]'); await browser("click", '[role="menuitem"][data-value="workstream"]'); }
+      else if (action === "agent") { await browser("click", '[aria-label="Create"]'); await browser("click", '[role="menuitem"][data-value="agent"]'); }
       else if (action === "prompt") {
         await browser("press", "Meta+Shift+n");
         await wait("document.activeElement?.matches('.spawn-prompt-field')");
