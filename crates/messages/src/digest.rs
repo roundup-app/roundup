@@ -36,6 +36,7 @@ pub struct Sources<'a> {
 /// What a Door was last told about a child, to see whether a change alters the entry (B21).
 #[derive(Clone, PartialEq, Eq)]
 struct Told {
+    binding: crate::store::Binding,
     completed: Option<String>,
     kind: Kind,
     todos: u32,
@@ -239,6 +240,14 @@ impl Seen {
             let after = book.named.get(&key).copied();
             let (entry, newest) = entry(child, &meta.id, from, after, false);
             let now = told(&entry, child, from);
+            // A snapshot read before an attention note must not supersede that newer Status.
+            if book
+                .told
+                .get(&key)
+                .is_some_and(|was| was.binding > now.binding)
+            {
+                continue;
+            }
             let new_final = now.completed.is_some()
                 && book
                     .told
@@ -394,6 +403,7 @@ pub fn push_body(entry: &DigestEntry) -> String {
 
 fn told(entry: &DigestEntry, child: &RailNode, from: &Sources) -> Told {
     Told {
+        binding: crate::binding(child),
         completed: final_text(child, from).map(|(turn, _, _)| turn.clone()),
         kind: entry.kind,
         todos: entry.todos,
