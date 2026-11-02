@@ -2,7 +2,7 @@
 
 One kind of run builds roundup and reviews it. The task below names the run: build an Issue, fix a PR, or review a PR's head. A review run is a fresh Builder: it never saw the author's run and reads no rationale (rule 5).
 
-Skills, each read from `.agents/skills/<name>/SKILL.md`: `prime` loads the taste rules; `to-spec`, `grill-with-docs` and `anchor` write a scenario; `codebase-design` judges a seam; `tdd` lands a scenario red then green; `review` and `judge` give a verdict; `reduce` and `show-me` write the PR body. A change under `apps/desktop/src` adds `emil-design-eng`; a motion clause adds `animate`.
+Skills, each read from `.agents/skills/<name>/SKILL.md`: `prime` loads the taste rules; `to-spec`, `grill-with-docs` and `anchor` write a scenario; `codebase-design` judges a seam; `tdd` lands a scenario red then green; `review` and `judge` give a verdict; `reduce` and `show-me` write the PR body. A change under `apps/desktop/src` adds `emil-design-eng` and `taste-skill`: roundup is an app, so follow `references/app-screens.md` (its house rules, tells and checks) and `references/tells.md`, run `scripts/lint.mjs` on the changed UI files, and never deal a direction, palette or type system with `draw.mjs`, since rule 8's Tokens and `docs/design-system.md` decide those and win on any conflict; a motion clause adds `animate`.
 
 Browser tests run headless in a dedicated agent-browser session and a fresh test profile. Never attach to the user's browser or desktop: no `--auto-connect`, `--headed`, CDP connection, personal profile, or OS keystrokes. If headless launch fails, repair the isolated browser setup or record the observer failure; do not fall back to the user's Chrome. Close only tabs and browser processes this run created.
 
