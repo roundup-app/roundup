@@ -262,7 +262,6 @@ const captureLists = async () => {
 
   text += `## Mixed nesting\n\n- ${long}\n    1. ${long}\n        - [ ] ${long}\n`;
   await browser("set", "viewport", "1512", "950");
-  await browser("set", "media", "dark");
 
   const capture = async (index: number, name: string) => {
     const output = outputs[index];
@@ -277,6 +276,8 @@ const captureLists = async () => {
 
   await mkdir(join(video, "head"), { recursive: true });
   await browser("record", "start", join(video, "head", "lists.webm"));
+  // Recording creates a new browser context, so apply its media emulation afterward.
+  await browser("set", "media", "dark");
   await open(false, text);
 
   for (const title of ["bullets", "numbers", "tasks", "mixed-nesting"]) {
