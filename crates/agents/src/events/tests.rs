@@ -656,6 +656,185 @@ async fn b5519a_replayed_completion_keeps_its_original_message_boundary() {
     );
 }
 
+#[test]
+fn b5635a_rescan_and_registry_isolation() {
+    use crate::{claude_code, events::InboxState};
+    use std::sync::{Barrier, Mutex};
+    let dir = tempfile::tempdir().unwrap();
+    let state = Arc::new(InboxState::default());
+    let receipts = Arc::new(Mutex::new(Vec::new()));
+    let output = Arc::clone(&receipts);
+    state
+        .observer
+        .set(Arc::new(move |agent, ids| {
+            output
+                .lock()
+                .unwrap()
+                .push((agent.to_owned(), ids.to_vec()));
+        }))
+        .ok()
+        .unwrap();
+    let path = dir.path().join("a.jsonl");
+    let line =
+        "{\"origin\":{\"kind\":\"peer\",\"msg_id\":\"00000000-0000-4000-8000-000000000007\"}}\n";
+    std::fs::write(&path, line).unwrap();
+    let entered = Arc::new(Barrier::new(2));
+    let release = Arc::new(Barrier::new(2));
+    let a = Arc::clone(&state);
+    let wait = Arc::clone(&entered);
+    let resume = Arc::clone(&release);
+    let payload = json!({"transcript_path":path});
+    let worker = std::thread::spawn(move || {
+        a.scan_using("a", &payload, |path, from| {
+            wait.wait();
+            resume.wait();
+            claude_code::inbox::recorded(path, from)
+        })
+    });
+    entered.wait();
+    let other = dir.path().join("b.jsonl");
+    std::fs::write(&other, line).unwrap();
+    state.scan("b", &json!({"transcript_path":other}));
+    assert_eq!(
+        receipts.lock().unwrap().as_slice(),
+        &[("b".into(), vec![7])]
+    );
+    release.wait();
+    worker.join().unwrap();
+    state.rescan("a");
+    assert_eq!(
+        receipts.lock().unwrap().as_slice(),
+        &[
+            ("b".into(), vec![7]),
+            ("a".into(), vec![7]),
+            ("a".into(), vec![7])
+        ]
+    );
+    for (_, offset) in state.transcripts.lock().unwrap().values() {
+        assert_eq!(*offset.lock().unwrap(), line.len() as u64);
+    }
+}
+
+#[tokio::test]
+async fn b5635c_unrelated_hooks_do_not_copy_completed_text() {
+    use crate::claude_code::toolcall::tests::measured;
+    let mut costs = Vec::new();
+    for size in [1024, 1024 * 1024] {
+        let (_dir, bus, shared) = shared_over_temp_dir(Arc::new(|| 0));
+        let id = running_agent(&shared, None);
+        shared
+            .observe(
+                Actor::daemon(),
+                &id,
+                "1",
+                Observation::Signal(json!({"hook_event_name":"UserPromptSubmit","prompt_id":"p"})),
+            )
+            .unwrap();
+        shared.observe(Actor::daemon(), &id, "1", Observation::Signal(json!({"hook_event_name":"Stop","prompt_id":"p","last_assistant_message":"x".repeat(size)}))).unwrap();
+        let before = shared
+            .runs()
+            .get(&id)
+            .and_then(|slot| match slot {
+                Slot::Running(run) => run.adapter.completed_text().cloned(),
+                _ => None,
+            })
+            .unwrap();
+        let signals: Vec<_> = (0..200)
+            .map(|_| Observation::Signal(json!({"hook_event_name":"ignored"})))
+            .collect();
+        let mut events = bus.subscribe();
+        while events.try_recv().is_ok() {}
+        let (_, bytes) = measured(|| {
+            for signal in signals {
+                shared.observe(Actor::daemon(), &id, "1", signal).unwrap();
+            }
+        });
+        assert!(
+            bytes < 1024 * 1024,
+            "unrelated hooks allocated {bytes}, bound below one completion-sized allocation"
+        );
+        costs.push(bytes);
+        let runs = shared.runs();
+        let Some(Slot::Running(run)) = runs.get(&id) else {
+            panic!("running")
+        };
+        assert_eq!(run.adapter.completed_text(), Some(&before));
+    }
+    assert!(
+        costs[1] <= costs[0] + 64 * 1024,
+        "large {} small {}, difference bound 64 KiB",
+        costs[1],
+        costs[0]
+    );
+}
+
+#[tokio::test]
+async fn b5635c_completion_changes_are_reported_once() {
+    use crate::claude_code::toolcall::tests::measured;
+    use std::sync::atomic::{AtomicI64, Ordering};
+    let now = Arc::new(AtomicI64::new(10));
+    let clock = Arc::clone(&now);
+    let (_dir, bus, shared) = shared_over_temp_dir(Arc::new(move || clock.load(Ordering::SeqCst)));
+    let id = running_agent(&shared, None);
+    let clock = Arc::clone(&now);
+    if let Some(Slot::Running(run)) = shared.runs().get_mut(&id) {
+        run.adapter = ClaudeCode::starting(move || clock.load(Ordering::SeqCst));
+    }
+    shared
+        .observe(
+            Actor::daemon(),
+            &id,
+            "1",
+            Observation::Signal(json!({"hook_event_name":"UserPromptSubmit","prompt_id":"p"})),
+        )
+        .unwrap();
+    let mut events = bus.subscribe();
+    for (time, prompt, text, expected_events) in [
+        (20, "p", "first", 1),
+        (30, "p", "corrected", 1),
+        (40, "p", "corrected", 0),
+        (50, "old", "stale", 0),
+    ] {
+        now.store(time, Ordering::SeqCst);
+        shared.observe(Actor::daemon(), &id, "1", Observation::Signal(json!({"hook_event_name":"Stop","prompt_id":prompt,"last_assistant_message":text}))).unwrap();
+        let mut count = 0;
+        while let Ok(event) = events.try_recv() {
+            if matches!(event.data, EventData::RailChanged) {
+                count += 1;
+            }
+        }
+        assert_eq!(count, expected_events);
+        let runs = shared.runs();
+        let Some(Slot::Running(run)) = runs.get(&id) else {
+            panic!("running")
+        };
+        assert_eq!(
+            run.adapter.completed_text(),
+            Some(&(
+                "1".into(),
+                10,
+                20,
+                if time == 20 { "first" } else { "corrected" }.into()
+            ))
+        );
+    }
+    let stop = json!({"hook_event_name":"Stop","prompt_id":"p","last_assistant_message":"x".repeat(1024 * 1024)});
+    shared
+        .observe(Actor::daemon(), &id, "1", Observation::Signal(stop.clone()))
+        .unwrap();
+    while events.try_recv().is_ok() {}
+    let (_, bytes) = measured(|| {
+        shared
+            .observe(Actor::daemon(), &id, "1", Observation::Signal(stop))
+            .unwrap()
+    });
+    assert!(
+        bytes <= 64 * 1024,
+        "unchanged replay {bytes} bytes, bound 64 KiB"
+    );
+    assert!(events.try_recv().is_err());
+}
+
 #[tokio::test]
 async fn u5531c_native_and_completed_turn_evidence_promotes_durably() {
     use contracts::agent::RailVisibility::{Internal, Shown};
