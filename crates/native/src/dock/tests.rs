@@ -18,7 +18,19 @@ pub(crate) fn u5503_native_dock_menu_dispatches_the_chosen_action() {
             class
                 .instance_methods()
                 .iter()
-                .map(|method| (class, method.name(), method.implementation()))
+                // Categories can leave multiple methods for one selector. Snapshot
+                // each method and the active lookup separately: they may differ already.
+                .map(|method| {
+                    (
+                        class,
+                        *method,
+                        method.implementation(),
+                        class
+                            .instance_method(method.name())
+                            .unwrap()
+                            .implementation(),
+                    )
+                })
                 .collect::<Vec<_>>()
         })
         .collect();
@@ -69,11 +81,23 @@ pub(crate) fn u5503_native_dock_menu_dispatches_the_chosen_action() {
     );
     assert!(std::ptr::eq(object, app.delegate().unwrap().as_ref()));
     assert_eq!(class, object.class());
-    for (owner, selector, implementation) in methods {
-        assert!(std::ptr::fn_addr_eq(
-            implementation,
-            owner.instance_method(selector).unwrap().implementation()
-        ));
+    for (owner, method, implementation, dispatched) in methods {
+        assert!(
+            std::ptr::fn_addr_eq(implementation, method.implementation()),
+            "{owner:?} {:?} implementation changed",
+            method.name()
+        );
+        assert!(
+            std::ptr::fn_addr_eq(
+                dispatched,
+                owner
+                    .instance_method(method.name())
+                    .unwrap()
+                    .implementation()
+            ),
+            "{owner:?} {:?} dispatch changed",
+            method.name()
+        );
     }
     assert_eq!(state, unsafe { *aux.load::<*mut std::ffi::c_void>(object) });
     let before = openings.get();
