@@ -8,6 +8,10 @@ use terminal::TerminalOwner as OwnerRecord;
 #[derive(serde::Serialize, serde::Deserialize)]
 struct Stored {
     attempt: String,
+    #[serde(default)]
+    input_started: bool,
+    #[serde(default)]
+    inbox: Option<PathBuf>,
     owner: OwnerRecord,
     /// The socket the retained program's hooks and MCP inherited as `RUPD_SOCKET`.
     #[serde(default)]
@@ -15,10 +19,6 @@ struct Stored {
 }
 
 impl Agents {
-    fn owner_file(&self, id: &str) -> PathBuf {
-        self.dir.join("owners").join(format!("{id}.json"))
-    }
-
     /// Save the owner behind client Terminal `terminal_id` for Agent `id`'s current Attempt.
     /// A Terminal the client owns directly has no record, and reopening reports its Agent `done`.
     pub(super) fn save_owner(&self, id: &str, terminal_id: &str) -> Result<(), RpcError> {
@@ -26,9 +26,11 @@ impl Agents {
             return Ok(());
         };
         let attempt = self.shared.rail().node(id)?.attempt.unwrap_or_default();
-        let file = self.owner_file(id);
+        let file = self.shared.owner_file(id);
         let body = serde_json::to_vec(&Stored {
             attempt,
+            input_started: false,
+            inbox: Some(self.launcher.socket_path(id)),
             owner,
             socket: rpc::socket_path().ok(),
         })
@@ -106,7 +108,7 @@ impl Agents {
         let run = Run {
             yolo: false,
             startup_context: false,
-            input_started: false,
+            input_started: stored.input_started,
             attempt: stored.attempt.clone(),
             status_revision: 1,
             closing: false,
@@ -139,6 +141,9 @@ impl Agents {
         if !placed {
             return false;
         }
+        if let Some(inbox) = &stored.inbox {
+            self.launcher.reattach_inbox(id, inbox);
+        }
         self.shared.watch_channel(id, &stored.attempt);
         tokio::spawn(watch(
             Arc::clone(&self.shared),
@@ -147,5 +152,34 @@ impl Agents {
             spawned.events,
         ));
         true
+    }
+}
+
+impl Shared {
+    fn owner_file(&self, id: &str) -> PathBuf {
+        self.rail_view
+            .data_dir
+            .join("owners")
+            .join(format!("{id}.json"))
+    }
+
+    /// Keep admission beside the verified owner, fenced to its original Attempt.
+    pub(super) fn save_input_started(&self, id: &str, attempt: &str) -> Result<(), RpcError> {
+        let path = self.owner_file(id);
+        let body = match std::fs::read(&path) {
+            Ok(body) => body,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+            Err(error) => return Err(RpcError::internal(error)),
+        };
+        let mut stored: Stored = serde_json::from_slice(&body).map_err(RpcError::internal)?;
+        if stored.attempt != attempt || stored.input_started {
+            return Ok(());
+        }
+        stored.input_started = true;
+        let mut file = tempfile::NamedTempFile::new_in(path.parent().expect("owners directory"))
+            .map_err(RpcError::internal)?;
+        serde_json::to_writer(&mut file, &stored).map_err(RpcError::internal)?;
+        file.persist(&path).map_err(RpcError::internal)?;
+        Ok(())
     }
 }

@@ -202,6 +202,7 @@ impl Project {
 
     pub async fn spawn_agent(&self, client: &Client) -> RailNode {
         let params = SpawnParams {
+            visibility: Default::default(),
             cols: None,
             rows: None,
             permission_mode: None,
