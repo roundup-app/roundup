@@ -45,8 +45,7 @@ impl Palette {
         match query {
             Query::Foreground => osc_colour(10, self.foreground),
             Query::Background => osc_colour(11, self.background),
-            // XTVERSION: claims iTerm2 so programs pick their iTerm2 paths (images, no xterm.js wheel handling).
-            Query::Version => b"\x1bP>|iTerm2 3.5.0\x1b\\".to_vec(),
+            Query::Version => version(),
             Query::DeviceAttributes => b"\x1b[?62;22c".to_vec(),
             Query::Scheme => self.notice(),
         }
@@ -60,6 +59,12 @@ impl Palette {
         };
         format!("\x1b[?997;{code}n").into_bytes()
     }
+}
+
+/// XTVERSION: claims iTerm2 so programs pick their iTerm2 paths (images, no xterm.js wheel handling).
+/// It needs no scheme, so it is answered before the App sets one.
+pub(crate) fn version() -> Vec<u8> {
+    b"\x1bP>|iTerm2 3.5.0\x1b\\".to_vec()
 }
 
 fn osc_colour(code: u8, [r, g, b]: [u8; 3]) -> Vec<u8> {

@@ -219,7 +219,7 @@ export const createXtermEmulators = (
       readText: () => "",
       writeText: (selection, text) => selection === "c" ? copy?.(text) : undefined,
     }));
-    // Bound each Terminal's decoded cache and decoder workspace, including idle Agents.
+    // Bound each Terminal's decoded cache (16 MB) and decoder workspace (4 Mpx), including idle Agents.
     terminal.loadAddon(new ImageAddon({
       storageLimit: 16,
       pixelLimit: 4_194_304,
