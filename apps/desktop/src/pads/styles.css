@@ -7,7 +7,7 @@
 
 /* U4698b: the head is the document title (large, wrapping) with the Pad's actions at its right; the Drawer's close row sits above it. */
 .pad-head {
-  font-size: var(--text-title);
+  font-size: var(--pad-text-body);
   display: flex;
   align-items: flex-start;
   gap: var(--space-2);

@@ -95,3 +95,58 @@
 .drawer:not([data-maximised="true"]) {
   --reading-gutter: var(--space-4);
 }
+
+/* U5574: Pad documents only. The shared editor also serves Todo bodies. */
+.pad-body {
+  font-size: var(--pad-text-body);
+  max-width: var(--pad-reading-width);
+  width: 100%;
+  align-self: center;
+}
+
+.pad-body .ProseMirror {
+  font-size: var(--pad-text-body);
+  line-height: var(--pad-line-body);
+}
+
+.pad-body :is(p, ul, ol, blockquote, pre, table, hr, .milkdown-table-block) {
+  margin-block: 0 var(--pad-gap-block);
+}
+
+.pad-body p { text-wrap: pretty; }
+
+.pad-body :is(h1, h2, h3, h4, h5, h6) {
+  margin-block: var(--pad-gap-section) var(--pad-gap-heading);
+  text-wrap: balance;
+}
+
+.pad-body h1 { font-size: var(--pad-text-h1); line-height: var(--pad-line-h1); }
+.pad-body h2 { font-size: var(--pad-text-h2); line-height: var(--pad-line-h2); }
+.pad-body h3 { font-size: var(--pad-text-h3); line-height: var(--pad-line-h3); }
+.pad-body :is(h4, h5, h6) { font-size: var(--pad-text-h4); line-height: var(--pad-line-h4); }
+.pad-body small { font-size: var(--pad-text-small); }
+.pad-body code { font-size: var(--pad-text-small); }
+
+.pad-body table { margin-block-end: 0; }
+
+.pad-body .milkdown-list-item-block { margin-block: 0 var(--pad-gap-item); }
+.pad-body :is(th, td) {
+  font-size: var(--pad-text-body);
+  padding: var(--pad-gap-heading) var(--pad-cell-inline);
+}
+.pad-body pre { padding: var(--pad-cell-inline); }
+.pad-body blockquote { padding-inline-start: var(--pad-gap-block); }
+.pad-body :first-child { margin-block-start: 0; }
+
+/* Empty editor nodes retain their native caret without reserving block space. */
+.pad-body [data-pad-empty] {
+  margin-block: 0;
+  height: 0;
+  padding-block: 0;
+  line-height: 0;
+}
+
+/* An absolute placeholder would paint over the next block after its host collapses. */
+.pad-body .crepe-placeholder::before {
+  content: none;
+}
