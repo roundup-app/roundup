@@ -11,6 +11,7 @@ export const attachLinkGestures = (terminal: Terminal, host: HTMLElement, open: 
   let pointer: { clientX: number; clientY: number } | null = null;
   let pressed: { x: number; y: number; cell: number; row: number; link: ILink; reporting: boolean; dragged: boolean } | null = null;
   let timer: ReturnType<typeof setTimeout> | undefined;
+  let pending: (() => void) | null = null;
   let marks: { dispose: () => void }[] = [];
   let shown = "";
 
@@ -71,7 +72,18 @@ export const attachLinkGestures = (terminal: Terminal, host: HTMLElement, open: 
     }
   };
 
-  const cancel = () => { clearTimeout(timer); timer = undefined; };
+  const cancel = () => { clearTimeout(timer); timer = undefined; pending = null; };
+
+  const finish = () => {
+    const activate = pending;
+    cancel();
+    activate?.();
+  };
+
+  const nextPress = (event: MouseEvent) => {
+    if (event.detail > 1) cancel();
+    else finish();
+  };
 
   const down = (event: MouseEvent) => {
     cancel();
@@ -127,7 +139,8 @@ export const attachLinkGestures = (terminal: Terminal, host: HTMLElement, open: 
     const link = linkAt(cellAt(event));
 
     if (!link || link.text !== gesture.link.text) return;
-    timer = setTimeout(() => { timer = undefined; link.activate(event, link.text); }, LINK_CLICK_MS);
+    pending = () => link.activate(event, link.text);
+    timer = setTimeout(finish, LINK_CLICK_MS);
   };
 
   const leave = () => { pointer = null; refresh(); };
@@ -137,7 +150,7 @@ export const attachLinkGestures = (terminal: Terminal, host: HTMLElement, open: 
   host.addEventListener("mouseleave", leave);
   const document = host.ownerDocument;
   document.addEventListener("mouseup", up, true);
-  document.addEventListener("mousedown", cancel, true);
+  document.addEventListener("mousedown", nextPress, true);
   const rendered = terminal.onRender(refresh);
   const scrolled = terminal.onScroll(refresh);
 
@@ -151,6 +164,6 @@ export const attachLinkGestures = (terminal: Terminal, host: HTMLElement, open: 
     host.removeEventListener("mousemove", move, true);
     host.removeEventListener("mouseleave", leave);
     document.removeEventListener("mouseup", up, true);
-    document.removeEventListener("mousedown", cancel, true);
+    document.removeEventListener("mousedown", nextPress, true);
   };
 };
