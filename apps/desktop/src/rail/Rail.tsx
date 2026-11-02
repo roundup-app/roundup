@@ -199,7 +199,8 @@ export const Rail = () => {
     const visible = current.some(row => row.kind === "node" ? row.node.id === id : row.key === id);
 
     if (visible) return;
-    const parent = id.startsWith("fold:") ? id.slice(5) : rail.nodes.find(node => node.id === id)?.parent;
+    const ancestors = id.startsWith("fold:") ? [id.slice(5), ...ancestorsOf(rail.nodes, id.slice(5))] : ancestorsOf(rail.nodes, id);
+    const parent = ancestors.find(ancestor => current.some(row => row.kind === "node" && row.node.id === ancestor));
 
     if (!parent) return;
     const target = current.some(row => row.kind === "fold" && row.parent === parent) ? `fold:${parent}` : parent;
