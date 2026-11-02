@@ -369,7 +369,7 @@ it.skipIf(!captureDir("U5558a"))("u5558e_open_surfaces_update_and_keep_failed_re
     await wait("!!document.querySelector('[data-reaction-opener=automatic-reaction]')");
     await evaluate("document.querySelector('[data-reaction-opener=automatic-reaction]').click()");
     await wait("!!document.querySelector('.reaction-detail')");
-    await evaluate("window.__automaticReaction.observation = {...window.__automaticReaction.observation,health_code:'unavailable',cause_code:'evidence-missing',cause:'saved check evidence unavailable'}");
+    await evaluate("window.__automaticReaction = {...window.__automaticReaction,observation:{...window.__automaticReaction.observation,health_code:'unavailable',cause_code:'evidence-missing',cause:'saved check evidence unavailable'}}");
     await signal("reaction.changed");
     await wait("!!document.querySelector('.reaction-detail [role=alert]')");
     await capture("U5558e", "reaction-evidence-missing");
