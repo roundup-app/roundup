@@ -30,7 +30,6 @@ export const copy = {
   workstreams: sharedCopy.workstreams,
   overview: sharedCopy.overview,
   unavailableHome: sharedCopy.unavailableHome,
-  refresh: sharedCopy.refresh,
   projectOverview: "Project overview",
   toolCallRunning: sharedCopy.running,
   toolCallDone: sharedCopy.done,

@@ -313,6 +313,7 @@ impl Daemon {
         let project: String = tx
             .query_row("SELECT id FROM deliverable_project", [], |r| r.get(0))
             .map_err(RpcError::internal)?;
+        let mut changed = false;
         let result = match method {
             "deliverable.publish" => {
                 let p: PublishParams = rpc::params(args)?;
@@ -431,6 +432,7 @@ impl Daemon {
                     target,
                 };
                 tx.execute("INSERT INTO deliverables(id,maker,publication_key,request,record,home,file_source) VALUES (?1,?2,?3,?4,?5,?6,?7)",params![record.id,actor_key,p.key,request,serde_json::to_string(&record).map_err(RpcError::internal)?,record.home,file_source]).map_err(RpcError::internal)?;
+                changed = true;
                 observe("metadata_inserted")?;
                 if let Some(bytes) = bytes {
                     self.publications
@@ -496,6 +498,7 @@ impl Daemon {
                         "only the user can change this placement",
                     ));
                 }
+                changed = record.home != p.home;
                 record.home = p.home;
                 tx.execute(
                     "UPDATE deliverables SET record=?1,home=?2,user_placed=?3 WHERE id=?4",
@@ -520,6 +523,7 @@ impl Daemon {
                 }
                 let record = get(&tx, &project, &p)?;
                 self.publications.invalidate(&record.id)?;
+                changed = true;
                 tx.execute(
                     "UPDATE deliverables SET removed=1 WHERE id=?1",
                     [&record.id],
@@ -543,6 +547,10 @@ impl Daemon {
             observe("before_commit")?;
         }
         tx.commit().map_err(RpcError::internal)?;
+        if changed {
+            self.bus
+                .emit(conn.actor.clone(), contracts::EventData::DeliverableChanged);
+        }
         if method == "deliverable.publish" {
             observe("after_commit")?;
         }

@@ -6,8 +6,9 @@ import { useDialog } from "@ark-ui/solid/dialog";
 import { captureFocus, queueFocus } from "../keys/focus";
 import { createCopyLabels } from "../ui/CopyButton";
 import { writeText } from "../app/clipboard";
-import { batch, untrack, createResource, createEffect, createMemo, createSignal, For, lazy, onCleanup, onMount, Show } from "solid-js";
+import { batch, untrack, createComputed, createResource, createEffect, createMemo, createSignal, For, lazy, onCleanup, onMount, Show } from "solid-js";
 import * as v from "valibot";
+import { createStore, reconcile } from "solid-js/store";
 import type { AskSubmission } from "../state/asks";
 import { copy } from "./copy";
 import { openDeliverable } from "./openDeliverable";
@@ -309,7 +310,7 @@ export const AskBar = (props: {
           { id: "attention", label: copy.needsYou, records: inbox.records, actions: <span class="inbox-count" data-state="attention" aria-live="polite" aria-atomic="true">{inbox.records().length || ""}</span>, content: () => <Show when={connected.hasView("workstreams")} fallback={<Inbox state={inbox} />}><ProjectOverview /></Show> },
           { id: "asks", label: copy.askRows, records: () => asks.entries().flatMap(entry => entry.parts.map((_part, index) => ({ id: entry.key + ":" + index, at: entry.at ?? Number.MAX_SAFE_INTEGER }))), content: () => <><Show when={asks.entries().length === 0}><p class="overview-quiet">{copy.askEmpty}</p></Show><AskRows keys={scope} onOpened={() => close(false)} /></> },
           { id: "reactions", label: copy.reactions, records: () => reactions.read().list.map(record => ({ id: record.id, at: Date.parse(record.created_at) })), content: () => <Reactions state={reactions} /> },
-          { id: "made", label: copy.deliverables, records: () => deliverables.records().map(record => ({ id: record.id, at: record.published_at })), actions: <button type="button" data-button="quiet" onClick={deliverables.refresh}>{copy.refresh}</button>, content: () => <Deliverables state={deliverables} /> },
+          { id: "made", label: copy.deliverables, records: () => deliverables.records().map(record => ({ id: record.id, at: record.published_at })), content: () => <Deliverables state={deliverables} /> },
         ]);
 
   const overview = <OverviewSections ready={treeReady() && inbox.loaded() && asks.loadState() !== "loading" && !reactions.read.loading && !deliverables.loading()} items={sections()} />;
@@ -478,13 +479,15 @@ const createDeliverables = () => {
     }
   }, { initialValue: { records: [], failure: null } satisfies Catalogue });
 
+  const [records, setRecords] = createStore<Deliverable[]>([]);
+  // Matching publication ids retain their row and keyboard focus across RPC snapshots.
+  createComputed(() => setRecords(reconcile(read().records, { key: "id" })));
+
   const refresh = () => { if (daemonExit() === null) void refetch(); };
 
-  window.addEventListener("focus", refresh);
-  const unsubscribe = events.subscribe(event => { if (event.name === "rail.changed") refresh(); });
-  onCleanup(() => { unsubscribe(); window.removeEventListener("focus", refresh); });
+  onCleanup(events.subscribe(event => { if (event.name === "deliverable.changed") refresh(); }));
 
-  return { records: () => read().records, failure: () => read().failure, loading: () => read.loading, refresh };
+  return { records: () => records, failure: () => read().failure, loading: () => read.loading, refresh };
 };
 
 const Deliverables = (props: { state: ReturnType<typeof createDeliverables> }) => {
