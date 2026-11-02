@@ -81,7 +81,7 @@ it.each(["pointer", "Return"].flatMap(input => [false, true].map(present => ({ i
   expect(await read("document.querySelectorAll('details[data-pad-agents]').length")).toBe(1);
 
   if (present) expect(await read("document.querySelector('details[data-pad-agents] textarea').value")).toContain("raw evidence");
-  await browser("fill", "details[data-pad-agents] textarea", "Agent evidence saved.");
+  await browser("fill", "details[data-pad-agents] textarea", " Agent evidence saved. ");
   const dir = captureDir("U5561b");
 
   if (dir) {
@@ -93,7 +93,7 @@ it.each(["pointer", "Return"].flatMap(input => [false, true].map(present => ({ i
   await browser("click", ".drawer .close");
   await wait("!document.querySelector('.drawer .ProseMirror')");
   const saved = await read<string>("window.__fake.app.rpc('pad.read', {name:'pad-3'}).then(pad => pad.text)");
-  expect(saved).toContain("<details>\n<summary>For Agents</summary>\n\nAgent evidence saved.\n\n</details>");
+  expect(saved).toContain("<details>\n<summary>For Agents</summary>\n\n Agent evidence saved. \n\n</details>");
   expect(saved.match(/<details>/g)).toHaveLength(1);
   await read(`(() => { [...document.querySelectorAll('.pad-name')].find(row => row.textContent === 'pad-3').focus(); return true; })()`);
   await browser("press", "Enter");
@@ -101,4 +101,25 @@ it.each(["pointer", "Return"].flatMap(input => [false, true].map(present => ({ i
   expect(await read("document.querySelector('details[data-pad-agents]').open")).toBe(false);
   await browser("click", ".drawer .close");
   await wait("!document.querySelector('.drawer .ProseMirror')");
+});
+
+it("u5561a_readonly_pad_disclosure_keeps_unsafe_markup_inert", { retry: 0, timeout: 60_000 }, async () => {
+  await browser("open", url("/src/pads/u5561a.html"));
+  await wait("document.querySelector('#root').dataset.ready === 'true'");
+  expect(await read("document.querySelector('details').open")).toBe(false);
+  expect(await read("document.querySelector('details textarea').readOnly")).toBe(true);
+
+  for (const input of ["pointer", "Return"]) {
+    if (input === "Return") await browser("focus", "details summary");
+
+    for (const open of [true, false]) {
+      if (input === "pointer") await browser("click", "details summary");
+      else await browser("press", "Enter");
+      await wait(`document.querySelector('details').open === ${open}`);
+      expect(await read("document.querySelector('details textarea').checkVisibility({contentVisibilityAuto:true})")).toBe(open);
+    }
+  }
+
+  expect(await read("document.querySelectorAll('details img, details script, details a').length")).toBe(0);
+  expect(await read("document.querySelector('#root').dataset.changes")).toBe("0");
 });

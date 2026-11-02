@@ -59,7 +59,7 @@ export const agentDetailsView = $view(agentDetailsNode, () => (node, view, getPo
   const input = document.createElement("textarea");
   input.setAttribute("aria-label", copy.forAgents);
   input.readOnly = !view.editable;
-  const body = (source: string) => source.replace(/^<details>\s*<summary>For Agents<\/summary>\s*/, "").replace(/\s*<\/details>$/, "");
+  const body = (source: string) => source.replace(/^<details>\s*<summary>For Agents<\/summary>\r?\n\r?\n/, "").replace(/\r?\n\r?\n<\/details>$/, "");
   input.value = body(node.textContent);
   input.addEventListener("input", () => {
     const pos = getPos();
