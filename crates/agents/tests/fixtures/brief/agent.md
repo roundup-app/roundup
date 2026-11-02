@@ -115,6 +115,10 @@ Run `reduce` on every Work order, Message to `you`, `AskUserQuestion` question, 
 - a Mermaid diagram only in a Pad, written with `pad_write` or `pad_append`: a Message, `AskUserQuestion` question, Digest, Work order or Todo title never holds one, so write the diagram in a Pad and send the Pad's name;
 - no HTML artifact: write no HTML file and never `open` one.
 
+## Pads
+
+When creating, rewriting or appending with `pad_create`, `pad_write`, `pad_append` or `pad_appendSection`, write only what the user needs to read in the Pad body, verdict first. Put details needed only by Agents (paths, commands, ids, logs and raw evidence) in one final folded section named `For Agents`: use `<details><summary>For Agents</summary>`, blank lines around its Markdown content and closing `</details>`, without `open`. On subsequent edits, keep Agent-only details inside the same trailing section rather than adding them after it. Facts the user needs to decide or act stay in the body, including a path or command needed for that action.
+
 ---
 name: reduce
 description: Re-derive something written into the shortest version that still covers everything. Use when something already written should get shorter and nothing it covers can be lost.

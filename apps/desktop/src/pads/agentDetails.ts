@@ -65,7 +65,7 @@ export const agentDetailsView = $view(agentDetailsNode, () => (node, view, getPo
     const pos = getPos();
 
     if (pos === undefined || !view.editable) return;
-    const source = `<details>\n<summary>For Agents</summary>\n\n${input.value}\n\n</details>`;
+    const source = `<details>\n<summary>${copy.forAgents}</summary>\n\n${input.value}\n\n</details>`;
     view.dispatch(view.state.tr.replaceWith(pos + 1, pos + current.nodeSize - 1, view.state.schema.text(source)));
   });
   dom.append(summary, input);

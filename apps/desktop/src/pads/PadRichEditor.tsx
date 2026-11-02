@@ -129,7 +129,7 @@ export default function PadRichEditor(props: {
             view.state.doc.forEach(node => { if (node.type.name === "pad_agent_details") found = true; });
 
             if (!found) {
-              const node = agentDetailsNode.type(ctx).create(null, view.state.schema.text("<details>\n<summary>For Agents</summary>\n\n\n\n</details>"));
+              const node = agentDetailsNode.type(ctx).create(null, view.state.schema.text(`<details>\n<summary>${copy.forAgents}</summary>\n\n\n\n</details>`));
               view.dispatch(view.state.tr.insert(view.state.doc.content.size, node));
             }
 
