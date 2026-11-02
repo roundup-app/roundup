@@ -799,42 +799,6 @@ async fn b45_the_cli_command_is_the_tool_and_exits_by_the_table() {
 }
 
 #[tokio::test]
-async fn p2544d_cli_write_accepts_revision_guard() {
-    let project = start_daemon().await;
-    let run = on(&project.socket);
-    assert_eq!(
-        code(
-            &run.rup(&["pad", "create", "notes", "--text", "original"])
-                .await
-        ),
-        0
-    );
-    assert_eq!(
-        code(
-            &run.rup(&["pad", "write", "notes", "winner", "--expectedRevision", "1"])
-                .await
-        ),
-        0
-    );
-    let stale = run
-        .rup(&[
-            "pad",
-            "write",
-            "notes",
-            "loser",
-            "--expectedRevision",
-            "1",
-            "--json",
-        ])
-        .await;
-    assert_eq!(code(&stale), 1);
-    assert!(err(&stale).contains("revision 2"));
-    let read: Value =
-        serde_json::from_str(&out(&run.rup(&["pad", "read", "notes", "--json"]).await)).unwrap();
-    assert_eq!(read["text"], "winner");
-}
-
-#[tokio::test]
 async fn a2693a_cli_and_mcp_forward_the_resume_mode() {
     for mode in ["normal", "yolo"] {
         let dir = tempfile::tempdir().unwrap();
@@ -987,3 +951,6 @@ async fn lc22_successful_memory_decisions_reach_the_vendor() {
 
 #[path = "cli/tool_catalogue.rs"]
 mod tool_catalogue;
+
+#[path = "cli/pads.rs"]
+mod pads;
