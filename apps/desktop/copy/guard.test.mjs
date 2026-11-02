@@ -302,3 +302,20 @@ it.each([
 ])("u5557b_accepts_live_registry_shortcuts %s", source => {
   expect(checkKeys({ 'app/view.tsx': source })).toEqual([]);
 });
+
+const namespaceLookups = [
+  ['registry', 'registry.CHORDS', ''],
+  ['shortcuts', 'shortcuts.CHORDS', ''],
+  ['registry', 'rows', 'const rows = registry.CHORDS;'],
+];
+
+it.each(namespaceLookups)("u5728a_namespace_display_lookups_are_rejected %s %s", (binding, rows, alias) => {
+  const source = `import * as ${binding} from "../keys/chords";
+${alias}
+const row = ${rows}.find(row => row.keys === "⌘N")!;
+const view = <KeyChip keys={row.keys} />;`;
+
+  expect(checkKeys({ 'app/view.tsx': source })).toEqual([
+    { rule: 'key-source', message: 'app/view.tsx:3: keys must come from the registry; only KeyChip emits kbd' },
+  ]);
+});
