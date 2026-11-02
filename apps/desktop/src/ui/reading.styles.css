@@ -100,6 +100,8 @@
 .pad-body {
   font-size: var(--pad-text-body);
   max-width: var(--pad-reading-width);
+  width: 100%;
+  margin-inline: auto;
 }
 
 .pad-body .ProseMirror {
@@ -136,15 +138,9 @@
 .pad-body blockquote { padding-inline-start: var(--pad-gap-block); }
 .pad-body :first-child { margin-block-start: 0; }
 
-/* Empty editor nodes keep their native caret; only Pad descendants collapse. */
-.pad-body {
-  --pad-empty-height: 0;
-  --pad-empty-leading: 0;
-  --pad-empty-gap: 0;
-}
-
-p:is(:empty, :has(> br.ProseMirror-trailingBreak:only-child)) {
-  margin-block: 0 var(--pad-empty-gap, var(--space-4));
-  height: var(--pad-empty-height, auto);
-  line-height: var(--pad-empty-leading, inherit);
+/* Empty editor nodes retain their native caret without reserving block space. */
+.pad-body :is(p, h1, h2, h3, h4, h5, h6):is(:empty, :has(br.ProseMirror-trailingBreak:only-child)) {
+  margin-block: 0;
+  height: 0;
+  line-height: 0;
 }
