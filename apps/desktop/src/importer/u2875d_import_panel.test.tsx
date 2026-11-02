@@ -162,7 +162,7 @@ it.skipIf(!captureDir("U3049a"))("u3049a_u3049b_rendered_conflict_recovery", asy
     expect(await lane.calls("project.importCommit")).toEqual([]);
     await lane.evaluate("[...document.querySelectorAll('.import-recovery button')].find(button => button.textContent === 'Open choices 1').focus()");
     await lane.browser("press", "Enter");
-    await lane.until("document.querySelector('.import-confirm')?.disabled && document.querySelector('.import-confirm')?.textContent === 'Import 1'");
+    await lane.until("document.querySelector('.import-confirm')?.disabled === false && document.querySelector('.import-confirm')?.textContent === 'Import 1'");
     await lane.capture("U3049b", "recovered");
     await lane.evaluate(`(() => {
       const read = Storage.prototype.getItem;
