@@ -820,4 +820,42 @@ What CI checks (SP8): the probe is absent from a normal build, the marks record 
 
 ## R5594 startup headroom
 
-Baseline attribution prepared before deferral: clean `4433b54af` production closure is 435,692 gzip bytes (checker exit 0), leaving 2,122 bytes under the unchanged 437,814 ceiling. The paired acceptance requires a reduction of at least 16,384 bytes. Raw module attribution and build reports are retained in the producing run artifacts.
+Paired clean builds on Linux x86_64 `runnervm48cm3`, Node v22.23.4 and pnpm 10.14.0:
+
+| Revision | Raw bytes | Gzip bytes | Checker exit |
+|---|---:|---:|---:|
+| B `4433b54af07b05794dc33af48ddb25039b5b2c22` | 1,369,334 | 435,692 | 0 |
+| Production H `d5e5bfdb536e2bce2c14cee0e2152b227be46260` | 1,278,789 | 411,916 | 0 |
+
+The reduction is **23,776 gzip bytes**, exceeding 16,384 by 7,392. Headroom is **25,898 bytes** under the unchanged 437,814 ceiling. Later commits change only the capture observer and this evidence. No dependency, bundler, counting, compression or budget configuration changes.
+
+Before selecting deferrals, the production manifest, `.vite/modules.json` and installed visualizer attributed the largest static chunks:
+
+| Chunk stem | Gzip bytes | Contents keeping it eager |
+|---|---:|---|
+| index | 141,412 | App, settings editor/Select, Rail, changed-file views, Capture |
+| BulkDelete | 65,107 | Pad editor, ItemDrawer, TreeView, Editable, eager dnd-kit |
+| shownTodos | 42,194 | Todo editor, metadata, comments, refs, pickers, Combobox |
+| drawer | 39,200 | Drawer state, Dialog, focus/keys, Tooltip, ReservedLine |
+| APQX6POG | 24,990 | motion-dom/motion-utils |
+| CopyButton | 23,089 | connected Project state, events, Rail state, clipboard |
+| preferences | 19,572 | Tauri, storage, contract discovery, preferences |
+| scrollHover | 18,563 | OverlayScrollbars and styles, Terminal links |
+
+Static paths included App → TodoHost/PadHost, Switcher → those editors, Inbox → TodoHost, toast watch → both editors, TodoRefs → PadHost, and DraftRecovery → PadDrawer. Native Solid `lazy`/dynamic imports now cut those paths. Recovery loads TodoDrawer directly instead of depending on its eager module-registration side effect. Shelf editors were already behind the Shelf's dynamic modules. Drag and shared infrastructure remain eager; Terminal remains lazy. No new loading/failure presentation is introduced.
+
+| Attempt | Gzip total | Reduction from B | Disposition |
+|---|---:|---:|---|
+| Settings editor | 428,642 | 7,050 | Discarded |
+| Settings + changed-file tree/diff + note split | 422,364 | 13,328 | Discarded; note recovery mounted immediately |
+| Above + Pad editor | 418,400 | 17,292 | Discarded |
+| Settings + changed-file tree/diff + Pad, notes eager | 422,580 | 13,112 | Discarded |
+| Above + Todo editor | 400,525 | 35,167 | Discarded in favor of smaller scope |
+| Todo + Pad only, before final recovery cleanup | 411,924 | 23,768 | Superseded |
+| Committed Todo + Pad only | 411,916 | 23,776 | Selected |
+
+All measurement commands above exited 0. Experiments also exposed a settings Suspense regression and changed-file observer failures; those production changes were discarded. The optional Todo failure capture used a checkbox selector retired on main; its selector now follows the existing metadata checkbox, preserving the same actions and assertions. No test was removed or weakened.
+
+Reproduce B and H in separate worktrees with their locked dependencies: `pnpm install --frozen-lockfile`; delete each `apps/desktop/dist`; `pnpm --filter desktop build`; `pnpm --filter desktop run check:startup`. Install/build/check all exit 0 for the final pair. Both use B's identical observer (SHA-256 `f003a907a3aa4508fbbc34425fa28f41231c757fdfffff14aafb9351419042f4`) and ceiling file (`cc4385480a849659725f4019cf58b40e26f9546c3b79d0e81fda7271089be49c`).
+
+Raw commands, exit codes, counted-file reports, module attribution, visualizer output, failed attempts and validation logs are retained in [Builder 41378367430](https://github.com/roundup-app/roundup/actions/runs/41378367430), artifact `answer-5594`, directory `r5594`. Existing Pad/focus/keyboard/Switcher/toast observers pass 173 tests; Todo/recovery observers pass 96; the final Todo/ref/recovery/R3800 shell/lazy-Terminal group passes 45, and startup-checker tests pass 3. Dark 1512×950 `U3760` captures pass D2/D5/D6; Pad failure visibility and clearing pass the rendered P3557c observer. Full required CI lanes remain the merge gate.
