@@ -99,7 +99,7 @@ Policy — rendered observer: at 1512×950 in dark, capture Overview with Unassi
 **Shelf**: The full-height Todo and Pad panel at the window's trailing edge, with two tabs, `Todos` and `Pads`, that the user opens and closes. It reserves its width for the centre; below the minimum centre width, it overlays a scrim. An open Drawer reserves width instead. Todos follow the Rail selection with no filter control: Overview lists every Project Todo, a Workstream Todos with that Home, an Agent Todos it made or owns, and a Terminal its owner’s view. Pads always list the whole Project, grouped by Home under U3736, with Project root last. Stopped and done Agents’ items remain included.
 
 
-**U3789a a row selects before it opens.** _U3789f replaces double-click rename with open._ Work order #3789; narrows U15 and U153. Journey: Understand, Intervene and Review. Given Todo and Pad rows in the Shelf and Workstream, Agent and Terminal rows in the Rail, then the same interaction applies to every row:
+**U3789a a row selects before it opens.** _U5742a (`ui-rail-focus.md`) replaces the plain-click row-focus result below only for Rail Workstream, Door, Agent and Mode rows: click selects and focuses the centre Terminal as Enter does, subject to U3756 and U64. No start/resume or Bubble creation is added. Shelf/owned-item rules and Rail controls, modifier selection, rename and drag remain unchanged._ _U3789f replaces double-click rename with open._ Work order #3789; narrows U15 and U153. Journey: Understand, Intervene and Review. Given Todo and Pad rows in the Shelf and Workstream, Agent and Terminal rows in the Rail, then the same interaction applies to every row:
 
 | Input | Result | Implementation test at the connected App seam |
 |---|---|---|
