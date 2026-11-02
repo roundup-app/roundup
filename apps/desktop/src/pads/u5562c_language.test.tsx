@@ -1,6 +1,6 @@
 import { cleanup, render, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it, vi } from "vitest";
-import { languages } from "@codemirror/language-data";
+import { languages } from "./codeColours";
 import PadRichEditor from "./PadRichEditor";
 import type { PadEditorHandle } from "./PadRichEditor";
 

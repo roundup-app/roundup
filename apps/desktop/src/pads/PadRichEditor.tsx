@@ -1,7 +1,7 @@
 import { DrawerExpandContext } from "../drawer/DrawerHost";
 import { registerKeys } from "../keys/registry";
 import { CHORDS, chordsFor } from "../keys/chords";
-import { toggleStrongCommand, toggleEmphasisCommand, toggleInlineCodeCommand, wrapInBlockquoteCommand, wrapInBulletListCommand, wrapInOrderedListCommand, createCodeBlockCommand } from "@milkdown/kit/preset/commonmark";
+import { clearTextInCurrentBlockCommand, toggleStrongCommand, toggleEmphasisCommand, toggleInlineCodeCommand, wrapInBlockquoteCommand, wrapInBulletListCommand, wrapInOrderedListCommand, createCodeBlockCommand } from "@milkdown/kit/preset/commonmark";
 import { captureFocus } from "../keys/focus";
 import { ReservedLine } from "../ink/ReservedLine";
 import { copy } from "./copy";
@@ -14,6 +14,8 @@ import { linkTooltip } from "@milkdown/crepe/feature/link-tooltip";
 import { linkPreviewTooltip } from "@milkdown/kit/component/link-tooltip";
 import { listItem } from "@milkdown/crepe/feature/list-item";
 import { placeholder } from "@milkdown/crepe/feature/placeholder";
+import { padFormatMarkdown, padCallout, padColour, padHighlight, calloutKinds, padColours } from "./padFormats";
+import { toggleMark } from "@milkdown/kit/prose/commands";
 import { codeColours } from "./codeColours";
 import { table } from "@milkdown/crepe/feature/table";
 import { topBar } from "@milkdown/crepe/feature/top-bar";
@@ -118,6 +120,23 @@ export default function PadRichEditor(props: {
       blockHandle: { getOffset: () => 0, root: menuHost },
       slashMenu: { root: menuHost },
       textGroup: { divider: null },
+      buildMenu: builder => {
+        const group = builder.addGroup("callouts", copy.callouts);
+
+        for (const kind of calloutKinds) group.addItem(kind, {
+          label: kind, icon: "!", onRun: (ctx: import("@milkdown/kit/ctx").Ctx) => {
+            ctx.get(commandsCtx).call(clearTextInCurrentBlockCommand.key);
+            const view = ctx.get(editorViewCtx);
+            const start = view.state.selection.$from.before();
+            const type = padCallout.type(ctx);
+            const body = view.state.schema.nodes.paragraph!.create();
+            const tr = view.state.tr.replaceSelectionWith(type.create({ kind }, body));
+            tr.setSelection(TextSelection.near(tr.doc.resolve(start + 2)));
+            view.dispatch(tr.scrollIntoView());
+            view.focus();
+          },
+        });
+      },
     } as BlockEditFeatureConfig;
 
     crepe = new CrepeBuilder({
@@ -134,11 +153,37 @@ export default function PadRichEditor(props: {
         buildTopBar: (builder) => {
           for (const group of builder.build()) group.items = group.items.filter((item) => toolbarKeys.has(item.key));
 
+          builder.addGroup("colour", "Colour").addItem("colour", {
+            icon: "", active: () => false,
+            selector: {
+              activeLabel: () => copy.textColour,
+              options: ["default", ...padColours].map(colour => ({
+                label: colour[0]!.toUpperCase() + colour.slice(1),
+                onSelect: (ctx: import("@milkdown/kit/ctx").Ctx) => {
+                  const view = ctx.get(editorViewCtx);
+                  const { from, to } = view.state.selection;
+                  const type = padColour.type(ctx);
+                  const tr = view.state.tr.removeMark(from, to, type);
+
+                  if (colour !== "default") tr.addMark(from, to, type.create({ colour }));
+                  view.dispatch(tr); view.focus();
+                },
+              })),
+            },
+          }).addItem("highlight", {
+            icon: "H", active: () => false,
+            onRun: (ctx: import("@milkdown/kit/ctx").Ctx) => {
+              const view = ctx.get(editorViewCtx);
+              toggleMark(padHighlight.type(ctx))(view.state, view.dispatch);
+              view.focus();
+            },
+          });
+
           topBarItems = builder.build().flatMap((group) =>
             group.items
-              .filter((item) => item.key !== "heading-selector")
+              .filter((item) => item.key !== "heading-selector" && item.key !== "colour")
               .map((item) => {
-                const label = topBarNames.get(item.key);
+                const label = item.key === "highlight" ? copy.highlight : topBarNames.get(item.key);
 
                 if (!label) throw new Error(copy.padEditorToolbarActionHasNoName(item.key));
 
@@ -187,6 +232,8 @@ export default function PadRichEditor(props: {
           }),
       ),
     );
+
+    crepe.editor.use(padFormatMarkdown).use(padCallout).use(padHighlight).use(padColour);
 
     crepe.editor.use($prose(() => codeColours()));
 
@@ -247,7 +294,10 @@ export default function PadRichEditor(props: {
         button.title = item.keys ? `${item.label} (${item.keys})` : item.label;
       });
 
-      const heading = host.querySelector<HTMLButtonElement>(".milkdown-top-bar .top-bar-heading-button");
+      const selectors = host.querySelectorAll<HTMLButtonElement>(".milkdown-top-bar .top-bar-heading-button");
+      const heading = selectors[0];
+
+      if (selectors[1]) selectors[1].setAttribute("aria-label", copy.textColour);
 
       if (heading) {
         heading.setAttribute("aria-label", copy.heading);

@@ -7,12 +7,12 @@ afterEach(cleanup);
 
 const writes = (calls: { method: string; params?: unknown }[]) => calls.filter((call) => call.method === "pad.write");
 
-const FORMATS = ["Bold", "Italic", "Inline code", "Link", "Bullet list", "Numbered list", "Checklist", "Heading", "Quote", "Code block", "Table"];
+const FORMATS = ["Bold", "Italic", "Inline code", "Link", "Bullet list", "Numbered list", "Checklist", "Heading", "Quote", "Code block", "Table", "Highlight", "Text colour"];
 
 const toolbar = () => [...document.querySelectorAll<HTMLElement>(".milkdown-top-bar .top-bar-item, .milkdown-top-bar .top-bar-heading-button")].map((button) => button.getAttribute("aria-label"));
 
-describe("u4698b the Pad toolbar is exactly the eleven formats", () => {
-  it("u4698b_toolbar_has_exactly_the_eleven_formats", async () => {
+describe("u4698b the Pad toolbar is retains the eleven formats plus Pad colour", () => {
+  it("u4698b_toolbar_retains_the_eleven_formats", async () => {
     await openShelf([padOf("note", USER, "word")]);
     await openPad("note");
 

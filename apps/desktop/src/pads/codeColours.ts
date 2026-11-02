@@ -1,5 +1,11 @@
 import { LanguageDescription } from "@codemirror/language";
-import { languages } from "@codemirror/language-data";
+
+export const languages = [
+  LanguageDescription.of({ name: "TypeScript", alias: ["ts", "tsx"], load: () => import("@codemirror/lang-javascript").then(module => module.javascript({ typescript: true, jsx: true })) }),
+  LanguageDescription.of({ name: "JavaScript", alias: ["js", "jsx"], load: () => import("@codemirror/lang-javascript").then(module => module.javascript({ jsx: true })) }),
+  LanguageDescription.of({ name: "Python", alias: ["py"], load: () => import("@codemirror/lang-python").then(module => module.python()) }),
+];
+
 import { tagHighlighter, tags } from "@lezer/highlight";
 import { createHighlightPlugin } from "prosemirror-highlight";
 import { createParser } from "prosemirror-highlight/lezer";

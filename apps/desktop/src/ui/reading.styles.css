@@ -95,3 +95,12 @@
 .drawer:not([data-maximised="true"]) {
   --reading-gutter: var(--space-4);
 }
+
+[data-pad-color="blue"], [data-pad-callout="note"] { color: var(--pad-blue); }
+[data-pad-color="green"], [data-pad-callout="tip"] { color: var(--pad-green); }
+[data-pad-color="purple"], [data-pad-callout="important"] { color: var(--pad-purple); }
+[data-pad-color="red"], [data-pad-callout="caution"] { color: var(--red); }
+[data-pad-color="amber"], [data-pad-callout="warning"] { color: var(--amber); }
+.reading mark { color: var(--pad-highlight-ink); background: var(--pad-highlight); }
+.reading [data-pad-callout] { border-color: currentColor; padding: var(--space-3); background: var(--sunken); }
+.pad-callout-label { font-weight: 600; margin-block-end: var(--space-2); }
