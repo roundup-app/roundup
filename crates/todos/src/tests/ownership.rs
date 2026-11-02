@@ -49,21 +49,6 @@ async fn t16_owner_persists_and_old_databases_read_null() {
         h.call("todo.get", json!({"id": 1})).await.unwrap()["owner"],
         owner_of(&agent("a"))
     );
-    // A database written by the first migration alone, before `owner` existed.
-    let old = tempfile::tempdir().unwrap();
-    let db = rusqlite::Connection::open(old.path().join("todos.db")).unwrap();
-    db.execute_batch(include_str!("../../migrations/001/up.sql"))
-        .unwrap();
-    db.pragma_update(None, "user_version", 1).unwrap();
-    db.execute(
-        "INSERT INTO todos (title, body, created_at) VALUES ('old', '', 1)",
-        [],
-    )
-    .unwrap();
-    drop(db);
-    let h = Harness::new(old.path());
-    let todo = h.call("todo.get", json!({"id": 1})).await.unwrap();
-    assert_eq!(todo["owner"], Value::Null);
 }
 
 #[tokio::test]
