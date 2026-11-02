@@ -2,7 +2,7 @@ import { createRoot } from "solid-js";
 import { connectProject } from "../state/connectedProject";
 import { createFakeApp } from "../testing/fakeApp";
 import { agent, workstream, NOW } from "../testing/nodes";
-import * as layout from "./layout";
+import * as topology from "./topology";
 import { createRailTree } from "./railTree";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -197,7 +197,7 @@ run("u5483 folded children", () => {
 
 // Exercise the same owner/projection Rail mounts; getters charge only its source reads.
 it("u5645a_one_topology_serves_rows_and_collection_at_40_and_400", async () => {
-  const construction = vi.spyOn(layout, "railTopology");
+  const construction = vi.spyOn(topology, "railTopology");
 
   for (const size of [40, 400]) {
     construction.mockClear();

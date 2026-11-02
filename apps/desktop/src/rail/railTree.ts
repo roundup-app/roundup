@@ -5,7 +5,8 @@ import type { Message } from "@contracts/message/Message";
 import type { ConnectedProject } from "../state/connectedProject";
 import { railCollection } from "./collection";
 import { copy } from "./copy";
-import { railTopology, layoutRail, type NodeRow } from "./layout";
+import { layoutRail, type NodeRow } from "./layout";
+import { railTopology } from "./topology";
 import type { RailSection } from "./persist/storage";
 
 export const sections: { id: RailSection; label: string; icon: typeof KIND_ICON[keyof typeof KIND_ICON] }[] = [

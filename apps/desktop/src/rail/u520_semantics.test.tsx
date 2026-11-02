@@ -4,7 +4,7 @@ import { runAxe } from "../testing/axe";
 import { agent, door, event, NOW, workstream } from "../testing/nodes";
 import { message } from "../testing/centreFixture";
 import { createRoot, createSignal } from "solid-js";
-import * as layout from "./layout";
+import * as topology from "./topology";
 import { createRailTree } from "./railTree";
 import { itemOf, mountRail, rowOf, settled } from "./railFixture";
 
@@ -53,7 +53,7 @@ describe("u520 the Rail's accessibility tree", () => {
 });
 
 it("u5645a_reconciled_structure_updates_once_and_view_changes_do_not_rebuild", async () => {
-  const construction = vi.spyOn(layout, "railTopology");
+  const construction = vi.spyOn(topology, "railTopology");
   const { connected, rail, app, setNow } = await mountRail(tree());
   const sourceArray = rail.nodes;
   const inner = rail.nodes.find(node => node.id === "inner");
@@ -64,7 +64,9 @@ it("u5645a_reconciled_structure_updates_once_and_view_changes_do_not_rebuild", a
   expect(construction.mock.calls.length).toBe(initial + 1);
   const canonical = projection.topology();
 
-  rail.select("leaf");
+  fireEvent.click(rowOf("leaf"));
+  await settled();
+  expect(construction.mock.calls.length).toBe(initial + 1);
   rowOf("leaf").focus();
   setNow(NOW + 1);
   setUnfolded(new Set(["inner"]));
