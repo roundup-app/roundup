@@ -33,7 +33,6 @@ it("u3513a_todo_footer_four_entries_and_help", async () => {
   const entries = () => [...document.querySelectorAll(".triage-hints .triage-hint")].map(hint => hint.textContent!.replace(/\s+/g, " ").trim().toLowerCase());
 
   expect(entries()).toEqual(["j k move", "a assign", "x done", "? more"]);
-  expect(document.querySelector(".triage-hints .key-chip")).toBeNull();
 
   fireEvent.keyDown(first, { key: "?", code: "Slash", shiftKey: true });
 

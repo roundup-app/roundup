@@ -10,7 +10,7 @@ import type { FakeApp } from "../testing/fakeApp";
 export const path = (name: string): string => `/Users/me/${name}`;
 
 /** The App on a fake whose open Projects are `names`, each with its own Rail tree; it returns before any Project connects. */
-export const renderTabs = (trees: Record<string, RailNode[]>, keepStorage = false) => {
+export const renderTabs = (trees: Record<string, RailNode[]>, keepStorage = false, clock = () => 0) => {
   if (!keepStorage) window.localStorage.clear();
   useBrowserStorage(window.localStorage);
 
@@ -26,7 +26,7 @@ export const renderTabs = (trees: Record<string, RailNode[]>, keepStorage = fals
     daemon.handlers["terminal.list"] = () => [];
   }
 
-  const view = render(() => <App app={app} reducedMotion={() => false} clock={() => 0} createEmulator={fakeEmulators().factory} />);
+  const view = render(() => <App app={app} reducedMotion={() => false} clock={clock} createEmulator={fakeEmulators().factory} />);
 
   return { app, view };
 };
