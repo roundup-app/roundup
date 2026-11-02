@@ -36,12 +36,15 @@ impl Daemon {
     pub(crate) async fn dispatch_parsed(
         &self,
         conn: &mut Conn,
-        request: Value,
+        mut request: Value,
         actor: Option<Actor>,
     ) -> Option<Frame> {
         let id = request.get("id").cloned();
+        let params = request
+            .get_mut("params")
+            .map(Value::take)
+            .unwrap_or(Value::Null);
         let method = request["method"].as_str().unwrap_or_default();
-        let params = request.get("params").cloned().unwrap_or(Value::Null);
         if method == "terminal.write" {
             // A child may not turn its Terminal keystrokes into a user's answer by claiming
             // `user`; H21's process identity applies here. The wire reader already resolved it.
@@ -198,7 +201,7 @@ impl Daemon {
             self.guard_route_set(&conn.actor, &params)?;
         }
         if method == "terminal.write" {
-            let write: contracts::terminal::WriteParams = rpc::params(params.clone())?;
+            let write: contracts::terminal::WriteParams = rpc::params(params)?;
             {
                 use base64::Engine;
                 let bytes = base64::engine::general_purpose::STANDARD
@@ -363,6 +366,10 @@ mod tests {
         let new_actor = old_actor.clone();
         // Warm only entry tasks, not either measured request or envelope.
         rt.block_on(daemon.dispatch(&mut conn, r#"{"id":0,"method":"daemon.ping"}"#, None));
+        rt.block_on(async {
+            tokio::task::yield_now().await;
+            tokio::task::yield_now().await;
+        });
         let (mut old_reply, mut new_reply) = (None, None);
         let before = allocation_counter::measure(|| {
             // Check 3's two clones; production below supplies identical guards, decode and effect.
@@ -372,14 +379,14 @@ mod tests {
             std::hint::black_box(params);
             old_reply = rt.block_on(daemon.dispatch_parsed(&mut conn, copied, Some(old_actor)));
         });
+        assert_eq!(input.0.lock().unwrap().len(), 1);
         let after = allocation_counter::measure(|| {
             new_reply =
                 rt.block_on(daemon.dispatch_parsed(&mut conn, new_request, Some(new_actor)));
         });
-        assert_eq!(
-            old_reply.unwrap().into_value(),
-            new_reply.unwrap().into_value()
-        );
+        let reply = new_reply.unwrap().into_value();
+        assert_eq!(reply, json!({"jsonrpc":"2.0", "id":7, "result":null}));
+        assert_eq!(old_reply.unwrap().into_value(), reply);
         assert_eq!(input.0.lock().unwrap().as_slice(), &[bytes.clone(), bytes]);
         eprintln!(
             "1 MiB encoded write allocated bytes: old={} new={}",
@@ -414,6 +421,8 @@ mod tests {
         for params in [
             Value::Null,
             json!(false),
+            json!(3),
+            json!("params"),
             json!([]),
             json!({}),
             json!({"id":"1"}),
@@ -422,10 +431,7 @@ mod tests {
             json!({"id":"1","data":3}),
             json!({"id":"1","data":"!"}),
         ] {
-            let mut req = request(params);
-            if req["params"].is_null() {
-                req.as_object_mut().unwrap().remove("params");
-            }
+            let req = request(params);
             let reply = daemon
                 .dispatch_parsed(&mut conn, req, Some(actor("1")))
                 .await
@@ -434,6 +440,21 @@ mod tests {
             assert_eq!(reply["error"]["code"], code::INVALID_PARAMS);
             assert!(input.0.lock().unwrap().is_empty());
         }
+    }
+    #[tokio::test]
+    async fn r5638d_absent_write_params_has_no_effect() {
+        let (_dir, daemon, mut conn, input) = fixture();
+        let reply = daemon
+            .dispatch_parsed(
+                &mut conn,
+                json!({"id":7,"method":"terminal.write"}),
+                Some(actor("1")),
+            )
+            .await
+            .unwrap()
+            .into_value();
+        assert_eq!(reply["error"]["code"], code::INVALID_PARAMS);
+        assert!(input.0.lock().unwrap().is_empty());
     }
     #[tokio::test]
     async fn r5638d_unknown_terminal_has_no_effect() {
@@ -480,7 +501,7 @@ mod tests {
                 assert_eq!(reply.get("result").is_some(), caller == "1");
             }
         }
-        assert_eq!(input.0.lock().unwrap().len(), 10);
+        assert_eq!(input.0.lock().unwrap().len(), 9);
         let parse = daemon
             .dispatch(&mut conn, "{", None)
             .await
