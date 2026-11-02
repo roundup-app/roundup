@@ -522,5 +522,15 @@
       "status": "Interrupted at run deadline after web lint, cycles and desktop typecheck passed; Rust/repo scans were still running. No passing ready claim.",
       "log": "fix-41502405087-ready-interrupted.log.gz"
     }
+  },
+  "fix_41508462742": {
+    "status": "Passing baseline retained; repaired head observation in progress, no new speedup claim yet.",
+    "baseline_commit": "90a44126be695d33c5116f2bda38a756a411ceda",
+    "head_commit": "442a2cc9f",
+    "baseline_exit": 0,
+    "baseline_report": "fix-41508462742-before.json.gz",
+    "baseline_log": "fix-41508462742-before.log.gz",
+    "command": "CHROME_PATH=/home/boxd/.agent-browser/browsers/chrome-156.0.8078.80/chrome CI5527_REPORT=<output> pnpm --filter desktop exec vitest run src/bubbles/u3756_focus.test.ts src/terminal/u514_browser.test.ts src/todos/u4698d_browser.test.ts src/drawer/u4458_browser.test.ts src/switcher/u3787c_browser.test.ts --reporter=default --reporter=/tmp/ci5527e-reporter.mjs",
+    "runner": "Ubuntu 24.04.5 LTS isolated boxd self-hosted runner, Linux 6.18.0+, 2 CPUs; sequential baseline/head in the same worktree."
   }
 }
