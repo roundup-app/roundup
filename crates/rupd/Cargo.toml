@@ -40,6 +40,7 @@ rusqlite_migration.workspace = true
 
 [dev-dependencies]
 allocation-counter = "0.8.1"
+terminal = { path = "../terminal", features = ["test-support"] }
 tokio = { workspace = true, features = ["test-util"] }
 agents = { path = "../agents", features = ["test-support"] }
 async-trait.workspace = true
