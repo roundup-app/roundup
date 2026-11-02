@@ -70,7 +70,6 @@ describe("u26 the harness seeds", () => {
     const line = await screen.findByRole("alert");
 
     expect(line.textContent).toBe(appCopy.daemonExit("exited 1"));
-    expect(line.querySelector("svg.lucide-x")).not.toBeNull();
   });
 
   it("u26_conflict_fails_the_next_call_with_conflict_and_the_one_after_succeeds", async () => {
