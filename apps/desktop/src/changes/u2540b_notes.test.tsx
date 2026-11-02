@@ -9,7 +9,43 @@ import { message } from "../testing/centreFixture";
 import { afterEach, expect, it, vi } from "vitest";
 import { COMPARISON, openDiff, openFile, saveNote } from "./noteHarness";
 
-afterEach(() => { cleanup(); vi.restoreAllMocks(); localStorage.clear(); });
+import { VirtualizedFileDiff, processFile } from "@pierre/diffs";
+import { createTwoFilesPatch } from "diff";
+
+// ESM exports are non-configurable: spy mode records the scenario's library calls while executing the real implementation.
+// eslint-disable-next-line anti-slop/no-module-mocking
+vi.mock("@pierre/diffs", { spy: true });
+
+// eslint-disable-next-line anti-slop/no-module-mocking
+vi.mock("diff", { spy: true });
+
+afterEach(() => { cleanup(); vi.clearAllMocks(); vi.restoreAllMocks(); localStorage.clear(); });
+
+const annotations = () => vi.mocked(VirtualizedFileDiff.prototype.render).mock.calls.filter(([input]) => input?.lineAnnotations).at(-1)?.[0]?.lineAnnotations;
+
+it("u5646b_annotation_updates_keep_content", async () => {
+  const { connected } = await openDiff();
+  await waitFor(() => expect(processFile).toHaveBeenCalledTimes(1));
+  const click = vi.mocked(VirtualizedFileDiff).mock.calls[0]![0]!.onLineNumberClick!;
+
+  for (const lineNumber of [1, 2]) click({ type: "diff-line", lineType: "change-deletion", lineElement: document.createElement("div"), numberElement: document.createElement("span"), numberColumn: true, lineNumber, annotationSide: "deletions", event: new PointerEvent("click", { shiftKey: lineNumber === 2 }) });
+  await saveNote("first exact 🐝");
+  await waitFor(() => expect(annotations()).toMatchObject([{ side: "deletions", lineNumber: 2, metadata: { text: "first exact 🐝", side: "old", start: 1, end: 2 } }]));
+  fireEvent.click(screen.getByRole("button", { name: "Edit note 1" }));
+  fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: "edited exact e\u0301" } });
+  fireEvent.click(screen.getByRole("button", { name: "Save" }));
+  await waitFor(() => expect(annotations()).toMatchObject([{ metadata: { text: "edited exact e\u0301" } }]));
+  await connected.worktrees.refresh("a");
+  fireEvent.click(screen.getByRole("button", { name: "Remove note 1" }));
+  await waitFor(() => expect(annotations()).toEqual([]));
+  expect(createTwoFilesPatch).toHaveBeenCalledTimes(1);
+  expect(processFile).toHaveBeenCalledTimes(1);
+  expect(VirtualizedFileDiff).toHaveBeenCalledTimes(1);
+  expect(vi.mocked(VirtualizedFileDiff.prototype.render).mock.calls.filter(([input]) => input?.fileDiff)).toHaveLength(1);
+  fireEvent.click(screen.getByRole("button", { name: "Add note" }));
+  expect(screen.getByRole("spinbutton", { name: "End line" })).toHaveProperty("value", "2");
+  expect(screen.getByRole("tab", { name: "Old" }).getAttribute("aria-selected")).toBe("true");
+});
 
 it("u2540b_save_cancel_and_invalid_ranges", async () => {
   await openDiff();
@@ -99,10 +135,12 @@ it("u2773a_changes_agent_switch_restores_form", async () => {
 it("u2540b_refresh_keeps_original_context", async () => {
   const { app, connected } = await openDiff();
   await saveNote("original");
+  await waitFor(() => expect(annotations()).toMatchObject([{ metadata: { text: "original" } }]));
   fireEvent.click(screen.getByRole("button", { name: "Add note" }));
   fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: "  unfinished 🐝\nexact  " } });
   app.handlers["agent.compareFile"] = () => ({ ...COMPARISON, new: { kind: "text", revision: "later-revision", text: "different\n" } });
   await connected.worktrees.refresh("a");
+  await waitFor(() => expect(annotations()).toEqual([]));
   expect(screen.getByRole("textbox", { name: "Note" })).toHaveProperty("value", "  unfinished 🐝\nexact  ");
   expect(app.calls.filter(call => call.method === "message.send")).toHaveLength(0);
   fireEvent.click(within(screen.getByRole("form", { name: "Line note" })).getByRole("button", { name: "Close" }));
