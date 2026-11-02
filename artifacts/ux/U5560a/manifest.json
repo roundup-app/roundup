@@ -1,0 +1,422 @@
+{
+  "baselineApp": "507e6ed53ba5093e92ba5a1e27d2405b6a970216",
+  "headApp": "5cd56f06734cdaec4a311436a5ec2c430617e3ac",
+  "headObserver": "ed876fc4260390eb183843b22ea34c9cb1ada11a",
+  "dark": true,
+  "paired": [
+    {
+      "screen": "before-editor-1280",
+      "regressed": [],
+      "baseline_failures": [],
+      "moved": {
+        "D2": "pass",
+        "D5": "pass",
+        "D6": "pass"
+      }
+    },
+    {
+      "screen": "before-editor-1512",
+      "regressed": [],
+      "baseline_failures": [],
+      "moved": {
+        "D2": "pass",
+        "D5": "pass",
+        "D6": "pass"
+      }
+    },
+    {
+      "screen": "full-1280",
+      "regressed": [],
+      "baseline_failures": [
+        "D10",
+        "D4"
+      ],
+      "moved": {
+        "D2": "pass",
+        "D5": "pass",
+        "D6": "pass"
+      }
+    },
+    {
+      "screen": "full-1512",
+      "regressed": [],
+      "baseline_failures": [
+        "D10",
+        "D4"
+      ],
+      "moved": {
+        "D2": "pass",
+        "D5": "pass",
+        "D6": "pass"
+      }
+    },
+    {
+      "screen": "full-focus-1280",
+      "regressed": [],
+      "baseline_failures": [
+        "D10",
+        "D4"
+      ],
+      "moved": {
+        "D2": "pass",
+        "D5": "pass",
+        "D6": "pass"
+      }
+    },
+    {
+      "screen": "full-focus-1512",
+      "regressed": [],
+      "baseline_failures": [
+        "D10",
+        "D4"
+      ],
+      "moved": {
+        "D2": "pass",
+        "D5": "pass",
+        "D6": "pass"
+      }
+    },
+    {
+      "screen": "full-scrolled-1280",
+      "regressed": [],
+      "baseline_failures": [
+        "D10",
+        "D4"
+      ],
+      "moved": {
+        "D2": "pass",
+        "D5": "pass",
+        "D6": "pass"
+      }
+    },
+    {
+      "screen": "full-scrolled-1512",
+      "regressed": [],
+      "baseline_failures": [
+        "D10",
+        "D4"
+      ],
+      "moved": {
+        "D2": "pass",
+        "D5": "pass",
+        "D6": "pass"
+      }
+    },
+    {
+      "screen": "heading-menu-1280",
+      "regressed": [],
+      "baseline_failures": [
+        "D10",
+        "D4"
+      ],
+      "moved": {
+        "D2": "pass",
+        "D5": "pass",
+        "D6": "pass"
+      }
+    },
+    {
+      "screen": "heading-menu-1512",
+      "regressed": [],
+      "baseline_failures": [
+        "D10",
+        "D4"
+      ],
+      "moved": {
+        "D2": "pass",
+        "D5": "pass",
+        "D6": "pass"
+      }
+    },
+    {
+      "screen": "minimised-1280",
+      "regressed": [],
+      "baseline_failures": [
+        "D10",
+        "D4"
+      ],
+      "moved": {
+        "D2": "pass",
+        "D5": "pass",
+        "D6": "pass"
+      }
+    },
+    {
+      "screen": "minimised-1512",
+      "regressed": [],
+      "baseline_failures": [
+        "D10",
+        "D4"
+      ],
+      "moved": {
+        "D2": "pass",
+        "D5": "pass",
+        "D6": "pass"
+      }
+    },
+    {
+      "screen": "narrow-1280",
+      "regressed": [],
+      "baseline_failures": [
+        "D10",
+        "D4"
+      ],
+      "moved": {
+        "D2": "pass",
+        "D5": "pass",
+        "D6": "pass"
+      }
+    },
+    {
+      "screen": "narrow-1512",
+      "regressed": [],
+      "baseline_failures": [
+        "D10",
+        "D4"
+      ],
+      "moved": {
+        "D2": "pass",
+        "D5": "pass",
+        "D6": "pass"
+      }
+    },
+    {
+      "screen": "narrow-focus-1280",
+      "regressed": [],
+      "baseline_failures": [
+        "D10",
+        "D4"
+      ],
+      "moved": {
+        "D2": "pass",
+        "D5": "pass",
+        "D6": "pass"
+      }
+    },
+    {
+      "screen": "narrow-focus-1512",
+      "regressed": [],
+      "baseline_failures": [
+        "D10",
+        "D4"
+      ],
+      "moved": {
+        "D2": "pass",
+        "D5": "pass",
+        "D6": "pass"
+      }
+    },
+    {
+      "screen": "narrow-scrolled-1280",
+      "regressed": [],
+      "baseline_failures": [
+        "D10",
+        "D4"
+      ],
+      "moved": {
+        "D2": "pass",
+        "D5": "pass",
+        "D6": "pass"
+      }
+    },
+    {
+      "screen": "narrow-scrolled-1512",
+      "regressed": [],
+      "baseline_failures": [
+        "D10",
+        "D4"
+      ],
+      "moved": {
+        "D2": "pass",
+        "D5": "pass",
+        "D6": "pass"
+      }
+    },
+    {
+      "screen": "save-failure-1280",
+      "regressed": [],
+      "baseline_failures": [
+        "D10",
+        "D4"
+      ],
+      "moved": {
+        "D2": "pass",
+        "D5": "pass",
+        "D6": "pass"
+      }
+    },
+    {
+      "screen": "scrolled-1280",
+      "regressed": [],
+      "baseline_failures": [
+        "D10",
+        "D4"
+      ],
+      "moved": {
+        "D2": "pass",
+        "D5": "pass",
+        "D6": "pass"
+      }
+    },
+    {
+      "screen": "todo-after-editor-1280",
+      "regressed": [],
+      "baseline_failures": [
+        "D10",
+        "D2"
+      ],
+      "moved": {
+        "D2": "fail",
+        "D5": "pass",
+        "D6": "pass"
+      }
+    },
+    {
+      "screen": "todo-after-editor-1512",
+      "regressed": [],
+      "baseline_failures": [
+        "D10",
+        "D2"
+      ],
+      "moved": {
+        "D2": "fail",
+        "D5": "pass",
+        "D6": "pass"
+      }
+    },
+    {
+      "screen": "todo-before-editor-1280",
+      "regressed": [],
+      "baseline_failures": [
+        "D10",
+        "D2"
+      ],
+      "moved": {
+        "D2": "fail",
+        "D5": "pass",
+        "D6": "pass"
+      }
+    },
+    {
+      "screen": "todo-before-editor-1512",
+      "regressed": [],
+      "baseline_failures": [
+        "D10",
+        "D2"
+      ],
+      "moved": {
+        "D2": "fail",
+        "D5": "pass",
+        "D6": "pass"
+      }
+    },
+    {
+      "screen": "wide-1280",
+      "regressed": [],
+      "baseline_failures": [
+        "D10",
+        "D4"
+      ],
+      "moved": {
+        "D2": "pass",
+        "D5": "pass",
+        "D6": "pass"
+      }
+    },
+    {
+      "screen": "wide-1512",
+      "regressed": [],
+      "baseline_failures": [
+        "D10",
+        "D4"
+      ],
+      "moved": {
+        "D2": "pass",
+        "D5": "pass",
+        "D6": "pass"
+      }
+    },
+    {
+      "screen": "wide-focus-1280",
+      "regressed": [],
+      "baseline_failures": [
+        "D10",
+        "D4"
+      ],
+      "moved": {
+        "D2": "pass",
+        "D5": "pass",
+        "D6": "pass"
+      }
+    },
+    {
+      "screen": "wide-focus-1512",
+      "regressed": [],
+      "baseline_failures": [
+        "D10",
+        "D4"
+      ],
+      "moved": {
+        "D2": "pass",
+        "D5": "pass",
+        "D6": "pass"
+      }
+    },
+    {
+      "screen": "wide-scrolled-1280",
+      "regressed": [],
+      "baseline_failures": [
+        "D10",
+        "D4"
+      ],
+      "moved": {
+        "D2": "pass",
+        "D5": "pass",
+        "D6": "pass"
+      }
+    },
+    {
+      "screen": "wide-scrolled-1512",
+      "regressed": [],
+      "baseline_failures": [
+        "D10",
+        "D4"
+      ],
+      "moved": {
+        "D2": "pass",
+        "D5": "pass",
+        "D6": "pass"
+      }
+    },
+    {
+      "screen": "worst-1280",
+      "regressed": [],
+      "baseline_failures": [
+        "D10",
+        "D4"
+      ],
+      "moved": {
+        "D2": "pass",
+        "D5": "pass",
+        "D6": "pass"
+      }
+    },
+    {
+      "screen": "worst-1512",
+      "regressed": [],
+      "baseline_failures": [
+        "D10",
+        "D4"
+      ],
+      "moved": {
+        "D2": "pass",
+        "D5": "pass",
+        "D6": "pass"
+      }
+    }
+  ],
+  "headOnly": [
+    "keyboard-1280.checks.json",
+    "keyboard-1512.checks.json"
+  ]
+}
