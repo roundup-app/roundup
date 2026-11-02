@@ -8,23 +8,28 @@ import { callsTo, connectFakeProject } from "./paneHarness";
 import { createXtermEmulators } from "./emulator";
 import type { Screens } from "./screens";
 import { Pane } from "./Pane";
+import { lazyEmulators } from "./lazyEmulator";
 
 afterEach(() => { cleanup(); localStorage.clear(); sessionStorage.clear(); vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 
-const mount = async (kind = "shell") => {
+const mount = async (kind = "shell", lazy = false) => {
   vi.stubGlobal("matchMedia", () => ({ matches: false, addListener() {}, removeListener() {}, addEventListener() {}, removeEventListener() {} }));
   const { app, connected } = await connectFakeProject([kind === "agent" ? node("a") : kind === "door" ? door("a", "idle", "ready") : terminal("a"), terminal("b")], [info("t-a"), info("t-b")]);
   const real = createXtermEmulators(undefined, () => ({ activate() {}, dispose() {}, onContextLoss() { return { dispose() {} }; } }));
+  const factory = lazy ? lazyEmulators(async () => real) : real;
   const emulators = new Map<string, ReturnType<typeof real>>();
   let screens!: Screens;
 
   const { container } = render(() => <ConnectedProjectContext.Provider value={connected}>
-    <Pane screensRef={value => { screens = value; }} createEmulator={(id, copy) => { const made = real(id, copy); emulators.set(id, made);
+    <Pane screensRef={value => { screens = value; }} createEmulator={(id, copy) => { const made = factory(id, copy); emulators.set(id, made);
 
  return made; }} />
   </ConnectedProjectContext.Provider>);
 
+  connected.rail.select("a");
+  await emulators.get("t-a")!.ready;
   connected.rail.select("b");
+  await emulators.get("t-b")!.ready;
   connected.rail.select("a");
   const input = () => container.querySelector<HTMLTextAreaElement>(".pane-screen textarea")!;
   const field = document.createElement("textarea");
@@ -108,7 +113,7 @@ it.each(["key", "composition"])("u5552c_keys_and_composition_follow_focus %s", a
 });
 
 it.each(["field", "terminal", "covered", "hidden", "outside"])("u5552e_drop_focuses_only_its_destination %s", async origin => {
-  const { app, screens, container, input, field } = await mount();
+  const { app, screens, container, input, field } = await mount("shell", true);
   const body = container.querySelector<HTMLElement>(".pane-body")!;
   body.getBoundingClientRect = () => new DOMRect(0, 0, 100, 100);
 
