@@ -277,17 +277,13 @@ pub(crate) mod tests {
     use super::*;
     use serde_json::json;
 
-    #[global_allocator]
-    pub(crate) static ALLOCATOR: &stats_alloc::StatsAlloc<std::alloc::System> =
-        &stats_alloc::INSTRUMENTED_SYSTEM;
-
     pub(crate) fn measured<T>(operation: impl FnOnce() -> T) -> (T, usize) {
         // Require process-per-test isolation: global counters must never include other tests.
         assert!(
             std::env::var_os("NEXTEST").is_some(),
             "run allocation observers with cargo nextest"
         );
-        let region = stats_alloc::Region::new(ALLOCATOR);
+        let region = stats_alloc::Region::new(crate::ALLOCATOR);
         let result = operation();
         (result, region.change().bytes_allocated)
     }
