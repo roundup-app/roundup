@@ -25,7 +25,7 @@ impl Frame {
         }
     }
 
-    fn into_line(self) -> io::Result<Vec<u8>> {
+    pub(super) fn into_line(self) -> io::Result<Vec<u8>> {
         let mut bytes = match self {
             Self::Value(value) => serde_json::to_vec(&value).map_err(io::Error::other)?,
             Self::Json(text) => text.into_bytes(),
@@ -57,29 +57,11 @@ pub(crate) async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Resul
         .and_then(|cred| cred.pid())
         .and_then(|pid| u32::try_from(pid).ok());
     let stream = BufReader::new(stream);
-    let (read, mut write) = tokio::io::split(stream);
-    let (frames, mut outbox) = mpsc::unbounded_channel::<Frame>();
-    let (port, mut selected_output) = output::Port::new();
-    let (finished, mut finish) = tokio::sync::oneshot::channel();
-    let writer = tokio::spawn(async move {
-        loop {
-            let frame = tokio::select! {
-                biased;
-                _ = &mut finish, if !outbox.is_closed() => {
-                    outbox.close();
-                    continue;
-                }
-                frame = outbox.recv() => match frame {
-                    Some(frame) => frame,
-                    None => break,
-                },
-                // Behind replies, so a flood of selected output cannot starve them.
-                Some(frame) = selected_output.recv() => frame,
-            };
-            write.write_all(&frame.into_line()?).await?;
-        }
-        io::Result::Ok(())
-    });
+    let (read, write) = tokio::io::split(stream);
+    let (frames, outbox) = mpsc::unbounded_channel::<Frame>();
+    let (port, selected_output) = output::Port::new();
+    let (finished, finish) = tokio::sync::oneshot::channel();
+    let writer = tokio::spawn(write_frames(write, outbox, selected_output, finish));
     let mut conn = Conn {
         actor: Actor::user(),
         peer: stream_pid,
@@ -198,4 +180,29 @@ pub(crate) async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Resul
     let _ = finished.send(());
     writer.await.map_err(io::Error::other)??;
     read_result
+}
+
+pub(super) async fn write_frames(
+    mut write: impl tokio::io::AsyncWrite + Unpin,
+    mut outbox: mpsc::UnboundedReceiver<Frame>,
+    mut selected_output: mpsc::Receiver<Frame>,
+    mut finish: tokio::sync::oneshot::Receiver<()>,
+) -> io::Result<()> {
+    loop {
+        let frame = tokio::select! {
+            biased;
+            _ = &mut finish, if !outbox.is_closed() => {
+                outbox.close();
+                continue;
+            }
+            frame = outbox.recv() => match frame {
+                Some(frame) => frame,
+                None => break,
+            },
+            // Behind replies, so a flood of selected output cannot starve them.
+            Some(frame) = selected_output.recv() => frame,
+        };
+        write.write_all(&frame.into_line()?).await?;
+    }
+    io::Result::Ok(())
 }
