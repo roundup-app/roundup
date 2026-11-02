@@ -282,8 +282,8 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
     setDropOver(drop.phase === "over");
 
     if (drop.phase === "drop") {
-      screens.pastePaths(id, drop.paths);
       screens.emulatorFor(id).focus();
+      screens.pastePaths(id, drop.paths);
     }
   }).then((stop) => {
     if (closed) stop();
