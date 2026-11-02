@@ -367,6 +367,18 @@ pub fn transcript_of(payload: &Value) -> Option<PathBuf> {
     payload["transcript_path"].as_str().map(PathBuf::from)
 }
 
+impl Launcher {
+    /// The private folder Agents' messaging sockets are made in.
+    pub(super) fn socket_dir(&self) -> &Path {
+        self.sockets
+            .get_or_init(|| {
+                super::launch_files::socket_folder()
+                    .expect("a private folder for messaging sockets")
+            })
+            .path()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -496,17 +508,5 @@ mod tests {
             recorded(Path::new("/absent/receipt.jsonl"), 17),
             (vec![], 17)
         );
-    }
-}
-
-impl Launcher {
-    /// The private folder Agents' messaging sockets are made in.
-    pub(super) fn socket_dir(&self) -> &Path {
-        self.sockets
-            .get_or_init(|| {
-                super::launch_files::socket_folder()
-                    .expect("a private folder for messaging sockets")
-            })
-            .path()
     }
 }

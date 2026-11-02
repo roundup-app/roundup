@@ -21,12 +21,33 @@ impl Run {
         )
         .await;
         if input == "creation" {
-            until("creation prompt acknowledged", async || {
-                run.dir.path().join("submitted.txt").is_file().then_some(())
+            let id = until("creation prompt reaches the inbox", async || {
+                run.received().iter().find_map(|entry| {
+                    entry["message"]["content"]
+                        .as_str()
+                        .unwrap()
+                        .contains("creation request")
+                        .then(|| {
+                            u32::from_str_radix(
+                                entry["msg_id"]
+                                    .as_str()
+                                    .unwrap()
+                                    .rsplit('-')
+                                    .next()
+                                    .unwrap(),
+                                16,
+                            )
+                            .unwrap()
+                        })
+                })
             })
             .await;
-            run.started_with
-                .store(run.screen_bytes().await, Ordering::SeqCst);
+            run.record(&[id]).await;
+            until("creation prompt receipt", async || {
+                (run.status(id).await.0 == "delivered").then_some(())
+            })
+            .await;
+            run.signal(json!({"hook_event_name":"Stop"})).await;
         }
         if input == "message" {
             let user = run
@@ -75,10 +96,17 @@ impl Run {
 
     async fn automatic(&mut self, round: usize) -> Vec<u32> {
         let mut ids = Vec::new();
+        let digest = messages::digest::push_body(&contracts::agent::DigestEntry {
+            name: format!("child-{round}"),
+            kind: contracts::Kind::Done,
+            last: format!("completed result {round}"),
+            todos: 0,
+            pads: vec![],
+        });
         for (sender, body) in [
-            ("agent", "peer"),
-            ("daemon", "[digest] summary"),
-            ("daemon", "accepted reaction"),
+            ("agent", format!("peer {round}")),
+            ("daemon", digest),
+            ("daemon", format!("accepted reaction {round}")),
         ] {
             if sender == "daemon" {
                 self.sender
@@ -91,7 +119,7 @@ impl Run {
             } else {
                 self.identify_sender(sender).await;
             }
-            ids.push(self.note(&format!("{body} {round}")).await);
+            ids.push(self.note(&body).await);
         }
         ids
     }
@@ -124,6 +152,16 @@ impl Run {
         let node = self.rail_node().await;
         assert_eq!(node["id"], before["id"]);
         assert_eq!(node["attempt"], before["attempt"]);
+        let db = rusqlite::Connection::open(self.project_data().join("project.db")).unwrap();
+        let conversation: (String, String) = db
+            .query_row(
+                "SELECT conversation_id, conversation_cwd FROM nodes WHERE id=?",
+                [&self.child],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!(conversation.0, "00000000-0000-4000-8000-000000000050");
+        assert_eq!(Path::new(&conversation.1), self.dir.path());
         let terminals = self
             .user
             .request("terminal.list", Value::Null)
@@ -193,12 +231,11 @@ async fn a5717a_surviving_attempt_retains_automatic_message_admission() {
                     .iter()
                     .find(|e| e["msg_id"].as_str().unwrap().ends_with(&suffix))
                     .unwrap();
-                assert!(
-                    entry["message"]["content"]
-                        .as_str()
-                        .unwrap()
-                        .contains(message["body"].as_str().unwrap())
-                );
+                let content = entry["message"]["content"].as_str().unwrap();
+                // Digests use B50's one-line transport; every body line must still arrive.
+                for line in message["body"].as_str().unwrap().lines() {
+                    assert!(content.contains(line.trim()), "{content}");
+                }
                 assert_eq!(message["to"], run.child);
             }
             run.record(&ids).await;
@@ -244,7 +281,11 @@ async fn a5717b_surviving_attempt_without_input_keeps_waiting() {
         run.reopen_owner().await;
         run.idle_edge().await;
         // message.send awaits production deliver_pending; absence is checked after that pass.
-        ids.extend(run.automatic(round).await);
+        let added = run.automatic(round).await;
+        for id in &added {
+            before.push(run.message(*id).await);
+        }
+        ids.extend(added);
         run.pending_identity(&before).await;
         assert!(run.entries().is_empty());
         run.owner_identity(&identity).await;
