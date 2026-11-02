@@ -188,11 +188,9 @@
 .target-underline {
   position: absolute;
   z-index: 1;
+  box-sizing: border-box;
   color: var(--text);
-  background-image: linear-gradient(var(--text), var(--text));
-  background-position: bottom;
-  background-size: 100% var(--hairline-width);
-  background-repeat: no-repeat;
+  border-bottom: var(--hairline-width) solid currentColor;
   pointer-events: none;
 }
 
