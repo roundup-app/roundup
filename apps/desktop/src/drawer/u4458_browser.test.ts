@@ -89,8 +89,8 @@ it("u4458_maximised_drawer_hides_the_centre_without_unmounting_it", { retry: 0, 
 
 
 const cycle = async (lane: LaneBrowser, covered: boolean, shelf: boolean) => {
-  await lane.evaluate("document.querySelectorAll('.rail [data-part=branch-control][data-depth=\"1\"][data-state=open]').forEach(el => el.click())");
-  await lane.evaluate("document.querySelectorAll('.shelf [data-part=branch-control][data-state=open]').forEach(el => el.click()); window.__cycle = { nodes: [], regions: [], ends: [] }");
+  await lane.evaluate("document.querySelector('.rail').querySelectorAll('[data-part=branch-control][data-depth=\"1\"][data-state=open]').forEach(el => el.click())");
+  await lane.evaluate("document.querySelector('.shelf').querySelectorAll('[data-part=branch-control][data-state=open]').forEach(el => el.click()); window.__cycle = { nodes: [], regions: [], ends: [] }");
 
   // Milkdown owns Tab inside its editor. Opposite sweeps meet there without editing the Pad.
   for (const key of covered ? ["Tab", "Shift+Tab"] : ["Tab"]) {
@@ -206,7 +206,7 @@ it.concurrent.each(cases)(
 
     for (const shelf of [true, false]) {
       await lane.evaluate(`(() => { const tab = document.querySelector('#shelf-tab-${kind === "pad" ? "pads" : "todos"}'); if (tab.getAttribute('aria-expanded') !== 'true') tab.click(); })()`);
-      await lane.evaluate("document.querySelectorAll('.shelf [data-part=branch-control][data-state=closed]').forEach(el => el.click())");
+      await lane.evaluate("document.querySelector('.shelf').querySelectorAll('[data-part=branch-control][data-state=closed]').forEach(el => el.click())");
       const row = kind === "pad" ? ".shelf .pad-name" : ".shelf .todo-row-button";
       await lane.browser("wait", row);
       await shot(`${shelf}-before`);
