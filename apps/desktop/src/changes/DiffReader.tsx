@@ -1,6 +1,7 @@
 import { ExitButton } from "../ui/IconButton";
 import { copy } from "./copy";
 import { createEffect, createMemo, createSignal, onCleanup, on, Show } from "solid-js";
+import type { VirtualizedFileDiff } from "@pierre/diffs";
 import type { FileComparison } from "@contracts/agent/FileComparison";
 import { useConnectedProject } from "../state/connectedProject";
 import { ReservedLine } from "../ink/ReservedLine";
@@ -32,6 +33,8 @@ export const DiffReader = (props: { id: string; name: string; path: string; note
   let backButton: HTMLButtonElement | undefined;
   const closeForm = () => { setForm(undefined); props.onEdited(); (addButton ?? backButton)?.focus(); };
 
+  let displayed: { id: string; path: string } | undefined;
+  const [renderer, setRenderer] = createSignal<VirtualizedFileDiff<Note>>();
   const [read, setRead] = createSignal<FileComparison>();
   const [failure, setFailure] = createSignal<string | null>(null);
   const [loading, setLoading] = createSignal(true);
@@ -55,14 +58,28 @@ export const DiffReader = (props: { id: string; name: string; path: string; note
 
   createEffect(on(() => [version(), worktree(), props.id, props.path], () => {
     setLoading(true);
-    setCoarse(false);
+    const target = { id: props.id, path: props.path };
     let current = true;
     void reply(() => app.rpc("agent.compareFile", { id: props.id, path: props.path })).then(result => {
       if (!current) return;
 
       setLoading(false);
 
-      if (result.kind === "ok") { setRead(result.value); setFailure(null); }
+      if (result.kind === "ok") {
+        setRead(previous => {
+          const next = result.value;
+
+          const equal = displayed?.id === target.id && displayed.path === target.path && previous
+            && previous.base === next.base && previous.oldPath === next.oldPath && previous.newPath === next.newPath
+            && previous.status === next.status && previous.old.kind === next.old.kind && previous.new.kind === next.new.kind
+            && previous.old.revision === next.old.revision && previous.new.revision === next.new.revision;
+
+          displayed = target;
+
+          return equal ? previous : next;
+        });
+        setFailure(null);
+      }
       else setFailure(result.text);
     });
     onCleanup(() => { current = false; });
@@ -73,8 +90,15 @@ export const DiffReader = (props: { id: string; name: string; path: string; note
 
   createEffect(() => {
     const value = read();
-    const mount = host();
+    const view = renderer();
     const annotations = notes().filter(note => value && note.comparison.oldPath === value.oldPath && note.comparison.newPath === value.newPath && note.comparison.base === value.base && note.comparison.old.revision === value.old.revision && note.comparison.new.revision === value.new.revision);
+
+    view?.render({ lineAnnotations: annotations.map(note => ({ side: note.side === "old" ? "deletions" : "additions", lineNumber: note.end, metadata: note })) });
+  });
+
+  createEffect(() => {
+    const value = read();
+    const mount = host();
 
     if (!value || !mount || value.old.kind === "binary" || value.new.kind === "binary" || value.status === null) return;
     let current = true;
@@ -134,7 +158,8 @@ export const DiffReader = (props: { id: string; name: string; path: string; note
       if (!fileDiff) throw new Error(copy.comparisonRenderFailed);
 
       virtualizer.setup(mount);
-      view.render({ lineAnnotations: annotations.map(note => ({ side: note.side === "old" ? "deletions" : "additions", lineNumber: note.end, metadata: note })), fileContainer: container, fileDiff });
+      view.render({ fileContainer: container, fileDiff });
+      setRenderer(view);
 
       // The initial empty viewport gives Pierre a bottom anchor; reset after its first layout.
       const initialLayout = new ResizeObserver(() => {
@@ -145,7 +170,7 @@ export const DiffReader = (props: { id: string; name: string; path: string; note
 
       initialLayout.observe(mount);
       view.setSelectedLines({ side: selection().side === "old" ? "deletions" : "additions", start: selection().start, end: selection().end });
-      dispose = () => { initialLayout.disconnect(); view.cleanUp(); virtualizer.cleanUp(); container.remove(); };
+      dispose = () => { setRenderer(undefined); initialLayout.disconnect(); view.cleanUp(); virtualizer.cleanUp(); container.remove(); };
     }).then(error => { if (current && error) setFailure(error); });
     onCleanup(() => { current = false; dispose?.(); });
   });
