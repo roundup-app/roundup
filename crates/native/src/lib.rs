@@ -52,3 +52,8 @@ pub use notification::{banner_denied, banner_permission};
 mod alert;
 #[cfg(target_vendor = "apple")]
 pub use alert::removal_alert;
+
+#[cfg(target_os = "macos")]
+mod webview_data;
+#[cfg(target_os = "macos")]
+pub use webview_data::webview_data_path;

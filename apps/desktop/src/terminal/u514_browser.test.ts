@@ -116,17 +116,19 @@ it.each(["pane-across-shelf", "blank-bubbles-into-pane"])("u2680c_chrome_drag_an
   expect(await read<boolean>("getSelection().isCollapsed")).toBe(true);
 }, 90_000);
 
-const placement = async (where: "agent" | "door" | "bubble") => {
+const placement = async (where: "agent" | "door" | "user" | "bubble") => {
   await app();
 
-  if (where === "bubble") await browser("click", ".terminal-new");
-  else await selectRow(where === "agent" ? "migrate" : "payments");
+  if (where === "bubble" || where === "user") {
+    if (where === "bubble") await selectRow("payments");
+    await browser("click", ".terminal-new");
+  } else await selectRow(where === "agent" ? "migrate" : "payments");
 
-  const selector = where === "bubble" ? ".bubble:not([hidden]) .xterm-screen" : ".pane-screen .xterm-screen";
+  const selector = where === "bubble" || where === "user" ? ".bubble:not([hidden]) .xterm-screen" : ".pane-screen .xterm-screen";
 
   await wait(`!!document.querySelector(${JSON.stringify(selector)})`);
   await browser("eval", String.raw`(() => {
-    const id = ${where === 'bubble' ? "document.querySelector('.bubble:not([hidden])').dataset.bubble" : JSON.stringify(where === 'agent' ? 't-migrate' : 't-payments')};
+    const id = ${where === 'bubble' || where === 'user' ? "document.querySelector('.bubble:not([hidden])').dataset.bubble" : JSON.stringify(where === 'agent' ? 't-migrate' : 't-payments')};
     window.__emu = window.__terminals.get(id);
     window.__emu.write(new TextEncoder().encode('\x1b[2J\x1b[H' + 'alpha bravo charlie '.repeat(1000)), () => { window.__selectionReady = true; });
   })()`);
@@ -371,21 +373,205 @@ it.each([...editorKinds, "pad-source", "diff", "ask"] as const)("u3529a_text_kee
     const link = field.querySelector('a');
     if (link) { const box = link.getBoundingClientRect(); link.dispatchEvent(new MouseEvent('mousemove', {bubbles:true,buttons:1,clientX:box.left + 2,clientY:box.top + 2})); }
   })()`);
-  expect(await read<boolean>(`(() => {
+
+  const selected = await read<string>(`(() => {
     const field = ${field};
-    const event = new MouseEvent('contextmenu', { bubbles: true, composed: true, cancelable: true, button: 2 });
-    field.dispatchEvent(event);
-    return !event.defaultPrevented;
-  })()`)).toBe(true);
+    return field instanceof HTMLInputElement || field instanceof HTMLTextAreaElement ? field.value.slice(field.selectionStart, field.selectionEnd) : getSelection().toString();
+  })()`);
+
+  const at = await read<{ x: number; y: number }>(`(() => {
+    const field = ${field};
+    const range = document.createRange(); range.selectNodeContents(field);
+    const box = field instanceof HTMLInputElement || field instanceof HTMLTextAreaElement ? field.getBoundingClientRect() : range.getClientRects()[0];
+    return { x: Math.ceil(box.left + 8), y: Math.round(box.top + box.height / 2) };
+  })()`);
+
+  await rightAt(at);
+  expect(await read<boolean>("window.__context.cancelled")).toBe(false);
+  expect(await read<boolean>("window.__context.editable")).toBe(kind !== "diff");
+  expect(await read<string>(`(() => {
+    const field = ${field};
+    return field instanceof HTMLInputElement || field instanceof HTMLTextAreaElement ? field.value.slice(field.selectionStart, field.selectionEnd) : getSelection().toString();
+  })()`)).toBe(selected);
   expect(await read<number>("[...document.querySelectorAll('[role=dialog], [role=menu], .milkdown-toolbar, .milkdown-link-preview[data-show=true], .app-popover')].filter(e => !window.__textBefore.includes(e)).length")).toBe(0);
   expect(await read<number>("window.__fake.app.calls.slice(window.__textCalls).filter(c => c.method === 'message.send').length")).toBe(0);
 }, 90_000);
 
-it.skipIf(!process.env.ROUNDUP_CAPTURES?.includes("U3529"))("u3529c_rendered_selection_and_terminal_menu_removal", async () => {
+const rightAt = async (at: { x: number; y: number }) => {
+  await browser("eval", `(() => {
+    window.__context = null;
+    document.addEventListener('contextmenu', event => {
+      const path = event.composedPath();
+      window.__contextEvent = event; window.__context = {
+        editable: path.some(node => node instanceof HTMLElement && (node.isContentEditable || node.matches('input, textarea'))),
+        cancelled: event.defaultPrevented,
+        selected: getSelection().toString(),
+      };
+    }, { once: true, capture: true });
+  })()`);
+  await browser("mouse", "move", String(at.x), String(at.y));
+  await browser("mouse", "down", "right");
+  await browser("eval", "window.__selectionBeforeRelease = getSelection().rangeCount ? getSelection().getRangeAt(0).toString() : ''");
+  await browser("mouse", "up", "right");
+  await wait("window.__context !== null");
+  await browser("eval", "window.__context.cancelled = window.__contextEvent.defaultPrevented; window.__context.selected = getSelection().toString()");
+};
+
+it.each(["agent", "user", "bubble"] as const)("u5515a_terminal_right_click_preserves_the_whole_selection_%s", async where => {
+  const selector = await placement(where);
+  await browser("eval", String.raw`(() => {
+    window.__selectionReady = false;
+    window.__emu.write(new TextEncoder().encode('\x1b[2J\x1b[Hcafé alpha bravo charlie\r\n日本語 delta echo foxtrot'), () => { window.__selectionReady = true; });
+  })()`);
+  await wait("window.__selectionReady");
+  await browser("eval", `(() => {
+    window.__menuCalls = window.__fake.app.calls.length;
+    window.__menuClipboard = window.__fake.app.clipboardWrites.length;
+    window.__menuInput = [];
+    window.__emu.onInput(bytes => window.__menuInput.push(...bytes));
+    window.__menuControls = [...document.querySelectorAll('[role=menu], [role=dialog], .app-popover')];
+  })()`);
+
+  const from = await read<{ x: number; y: number }>(`(() => {
+    const box = document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect();
+    return { x: Math.round(box.left + 2), y: Math.round(box.top + 8) };
+  })()`);
+
+  const rowHeight = await read<number>(`document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect().height / window.__emu.fit().rows`);
+  await drag(from, { x: from.x + 150, y: from.y + rowHeight });
+  const selected = await read<string>("window.__emu.selection()");
+  expect(selected).toContain("café alpha bravo charlie\n日本語");
+  await rightAt({ x: from.x + 30, y: from.y });
+  expect(await read("window.__context")).toEqual({ editable: false, cancelled: false, selected });
+  expect(await read<string>("window.__emu.selection()")).toBe(selected);
+  expect(await read<string>("window.__selectionBeforeRelease")).toBe(selected);
+  expect(await read<string>("getSelection().getRangeAt(0).toString()")).toBe(selected);
+  expect(await read<number[]>("window.__menuInput")).toEqual([]);
+  expect(await read<number>("window.__fake.app.clipboardWrites.length - window.__menuClipboard")).toBe(0);
+  expect(await read<string[]>("window.__fake.app.calls.slice(window.__menuCalls).filter(c => ['terminal.write', 'message.send', 'agent.spawn'].includes(c.method)).map(c => c.method)")).toEqual([]);
+  expect(await read<number>("[...document.querySelectorAll('[role=menu], [role=dialog], .app-popover')].filter(node => !window.__menuControls.includes(node)).length")).toBe(0);
+}, 90_000);
+
+it.each(["agent", "user", "bubble"] as const)("u5515b_terminal_unselected_word_uses_a_readonly_target_%s", async where => {
+  const selector = await placement(where);
+  const at = await point(selector);
+
+  for (const selected of [false, true]) {
+    if (selected) await browser("dblclick", selector);
+    await rightAt(at);
+    expect(await read<boolean>("window.__context.editable || window.__context.cancelled")).toBe(false);
+    expect(await read<string>("window.__context.selected")).toBe(await read<string>("window.__emu.selection()"));
+  }
+}, 90_000);
+
+it.each(["diff", "code", "readonly-pad", "message"] as const)("u5515c_readonly_text_preserves_selection_and_native_menu_%s", async kind => {
+  let field: string;
+
+  if (kind === "diff") {
+    await editor("diff");
+    field = "document.querySelector('diffs-container').shadowRoot.querySelector('[data-line]')";
+  } else {
+    await browser("open", url(`/src/terminal/u5515.html${kind === "message" ? "?message" : ""}`));
+
+    if (kind === "message") {
+      await wait("!!document.querySelector('[data-reaction-opener]')");
+
+      if (!await read<boolean>("document.querySelector('[data-reaction-opener]').checkVisibility()")) await browser("find", "role", "button", "click", "--name", "Reactions", "--exact");
+      await wait("document.querySelector('[data-reaction-opener]')?.checkVisibility()");
+      await browser("focus", "[data-reaction-opener]");
+      await wait("document.activeElement?.matches('[data-reaction-opener]')");
+      await browser("press", "Enter");
+      await wait("!!document.querySelector('[data-firing-message]')");
+      await browser("click", "[data-firing-message]");
+      field = "document.querySelector('dd.reaction-instruction')";
+      await wait(`(${field})?.textContent === 'Review café alpha bravo charlie together'`);
+    } else {
+      field = `document.querySelector('.ProseMirror[contenteditable=false] ${kind === "code" ? "pre code" : "p"}')`;
+    }
+  }
+
+  await wait(`!!(${field})`);
+
+  const from = await read<{ x: number; y: number }>(`(() => {
+    const range = document.createRange(); range.selectNodeContents(${field});
+    const walker = document.createTreeWalker(${field}, NodeFilter.SHOW_TEXT);
+    const text = walker.nextNode();
+    if (text) range.selectNodeContents(text);
+    const box = range.getClientRects()[0];
+    return { x: Math.ceil(box.left + 1), y: Math.round(box.top + box.height / 2) };
+  })()`);
+
+  await drag(from, { x: from.x + 95, y: from.y });
+  const selected = await read<string>("getSelection().toString()");
+  expect(selected).toContain(" ");
+  await rightAt({ x: from.x + 20, y: from.y });
+  expect(await read("window.__context")).toEqual({ editable: false, cancelled: false, selected });
+  await browser("click", ".window-title");
+  await rightAt(from);
+  expect(await read<boolean>("window.__context.editable || window.__context.cancelled")).toBe(false);
+}, 90_000);
+
+it.each(["agent", "user", "bubble"] as const)("u5515d_terminal_input_survives_readonly_context_menu_%s", async where => {
+  const selector = await placement(where);
+
+  const at = await read<{ x: number; y: number }>(`(() => {
+    const box = document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect();
+    return { x: Math.round(box.left + 2), y: Math.round(box.top + 8) };
+  })()`);
+
+  await drag(at, { x: at.x + 150, y: at.y });
+  const selected = await read<string>("window.__emu.selection()");
+  expect(selected).toContain(" ");
+  await rightAt({ x: at.x + 30, y: at.y });
+  // Headless Chromium opens no OS menu: the next key follows the completed gesture.
+  await browser("press", "Meta+c");
+  await wait("window.__fake.app.clipboardWrites.length === 1");
+  expect(await read<string[]>("window.__fake.app.clipboardWrites")).toEqual([selected]);
+  await browser("eval", `(() => {
+    window.__inputStart = window.__fake.app.calls.length;
+    window.__input = [];
+    window.__emu.onInput(bytes => window.__input.push(...bytes));
+    window.__inputReady = false;
+    window.__emu.write(new TextEncoder().encode('\\x1b[?2004h'), () => { window.__inputReady = true; });
+  })()`);
+  await wait("window.__inputReady");
+  await browser("press", "a");
+  await wait("window.__input.length === 1");
+  await browser("eval", `(() => {
+    const input = document.activeElement;
+    input.value = '';
+    input.dispatchEvent(new KeyboardEvent('keydown', {bubbles:true,composed:true,key:'Process',keyCode:229,isComposing:true}));
+    input.dispatchEvent(new CompositionEvent('compositionstart', {bubbles:true,data:''}));
+    input.dispatchEvent(new CompositionEvent('compositionupdate', {bubbles:true,data:'n'}));
+    input.value = 'n';
+    input.dispatchEvent(new InputEvent('input', {bubbles:true,composed:true,isComposing:true,inputType:'insertCompositionText',data:'n'}));
+  })()`);
+  expect(await read<number[]>("window.__input")).toEqual([97]);
+  await browser("eval", `(() => {
+    const input = document.activeElement;
+    input.dispatchEvent(new CompositionEvent('compositionupdate', {bubbles:true,data:'日本語'}));
+    input.value = '日本語';
+    input.dispatchEvent(new CompositionEvent('compositionend', {bubbles:true,data:'日本語'}));
+    input.dispatchEvent(new InputEvent('input', {bubbles:true,composed:true,isComposing:false,inputType:'insertText',data:'日本語'}));
+    input.dispatchEvent(new KeyboardEvent('keyup', {bubbles:true,composed:true,key:'Process',keyCode:229}));
+  })()`);
+  await wait("new TextDecoder().decode(new Uint8Array(window.__input)) === 'a日本語'");
+  await browser("clipboard", "write", "pasted text");
+  // Chromium on Linux reserves Ctrl+V for the program; its native paste chord is Ctrl+Shift+V.
+  await browser("press", "Control+Shift+V");
+  await wait("new TextDecoder().decode(new Uint8Array(window.__input)).includes('pasted text')");
+  const expected = "a日本語\x1b[200~pasted text\x1b[201~";
+  expect(await read<string>("new TextDecoder().decode(new Uint8Array(window.__input))")).toBe(expected);
+  await wait(`window.__fake.app.calls.slice(window.__inputStart).filter(c => c.method === 'terminal.write').reduce((n,c) => n + atob(c.params.data).length, 0) === ${new TextEncoder().encode(expected).length}`);
+}, 90_000);
+
+it.skipIf(!/U3529|U5515/.test(process.env.ROUNDUP_CAPTURES ?? ""))("u3529c_rendered_selection_and_terminal_menu_removal", async () => {
   const { copyFileSync, mkdirSync, writeFileSync } = await import("node:fs");
   const { join } = await import("node:path");
   const { captureDir } = await import("../testing/captures");
-  const phase = process.env.ROUNDUP_CAPTURE_PHASE ?? "head";
+  const ids = process.env.ROUNDUP_CAPTURES?.includes("U5515") ? ["U5515a", "U5515b", "U5515c", "U5515d", "U5515e"] : ["U3529a", "U3529b", "U3529c", "U3529d"];
+
+  for (const phase of process.env.U500_BASE_ROOT ? ["base", "head"] : [process.env.ROUNDUP_CAPTURE_PHASE ?? "head"]) {
   const base = phase === "base";
   const revision = (await promisify(execFile)("git", ["-C", base ? process.env.U500_BASE_ROOT! : process.cwd(), "rev-parse", "HEAD"])).stdout.trim();
 
@@ -393,7 +579,7 @@ it.skipIf(!process.env.ROUNDUP_CAPTURES?.includes("U3529"))("u3529c_rendered_sel
   await browser("set", "media", "dark");
 
   const snap = async (step: string) => {
-    const first = join(captureDir("U3529a")!, phase);
+    const first = join(captureDir(ids[0]!)!, phase);
 
     mkdirSync(first, { recursive: true });
     const shot = join(first, `${step}.png`);
@@ -401,19 +587,19 @@ it.skipIf(!process.env.ROUNDUP_CAPTURES?.includes("U3529"))("u3529c_rendered_sel
     await browser("screenshot", shot);
     const checks = JSON.stringify({ revision, ...await read<Checks>("window.__checks()") }, null, 2);
 
-    for (const id of ["U3529a", "U3529b", "U3529c", "U3529d"]) {
+    for (const id of ids) {
       const directory = join(captureDir(id)!, phase);
 
       mkdirSync(directory, { recursive: true });
 
-      if (id !== "U3529a") copyFileSync(shot, join(directory, `${step}.png`));
+      if (id !== ids[0]) copyFileSync(shot, join(directory, `${step}.png`));
 
       writeFileSync(join(directory, `${step}.checks.json`), checks);
     }
   };
 
   for (const seed of ["agents-10", "bubbles", "tree-40"]) {
-    const videoDirectory = join(captureDir("U3529a")!, phase);
+    const videoDirectory = join(captureDir(ids[0]!)!, phase);
 
     mkdirSync(videoDirectory, { recursive: true });
     await browser("record", "start", join(videoDirectory, `${seed}-interaction.webm`), url(`/harness.html?seed=${seed}&renderer=dom`, base));
@@ -435,7 +621,8 @@ it.skipIf(!process.env.ROUNDUP_CAPTURES?.includes("U3529"))("u3529c_rendered_sel
     await snap(`${seed}-selected`);
     await browser("eval", "document.querySelector('.pane-screen .xterm-helper-textarea, .bubble:not([hidden]) .xterm-helper-textarea')?.blur()");
     await snap(`${seed}-inactive`);
-    await browser("eval", "document.querySelector('.pane-screen .xterm-screen, .bubble:not([hidden]) .xterm-screen').dispatchEvent(new MouseEvent('contextmenu', {bubbles:true,cancelable:true,button:2,clientX:800,clientY:350}))");
+    const menuPoint = await read<{ x: number; y: number }>("(() => { const box = document.querySelector('.pane-screen .xterm-screen, .bubble:not([hidden]) .xterm-screen').getBoundingClientRect(); return {x: box.left + 30, y: box.top + 8}; })()");
+    await rightAt(menuPoint);
     await snap(`${seed}-right-click`);
     await browser("record", "stop");
 
@@ -468,10 +655,10 @@ it.skipIf(!process.env.ROUNDUP_CAPTURES?.includes("U3529"))("u3529c_rendered_sel
   await editor("pad", base);
   await browser("dblclick", ".ProseMirror a");
   await snap("pad-selected");
-  await browser("set", "media", "light");
   await browser("dblclick", ".ProseMirror p");
   await read("window.__checks()");
-  await browser("set", "media", "dark");
+
+  if (!process.env.ROUNDUP_CAPTURES?.includes("U5515")) {
   const saved = { version: 1, drafts: [{ revision: "retired-selection-note", destination: { surface: "terminal_selection", object: "retired", recipient: "migrate" }, value: { note: "Retained note é 🪁", excerpt: "Original output\nexact Unicode 👩🏽‍💻", source: "retired", terminal: "retired", attempt: null, command: null, cwd: null, exit: null, x: 800, y: 300 }, selection: null, status: "draft", policy: "ordinary" }] };
 
   await read(`localStorage.setItem('roundup:drafts:/Users/you/harness', ${JSON.stringify(JSON.stringify(saved))})`);
@@ -481,4 +668,6 @@ it.skipIf(!process.env.ROUNDUP_CAPTURES?.includes("U3529"))("u3529c_rendered_sel
   await read("window.__fake.app.pickMenu(window.__fake.app.menuLabels().find(label => label.startsWith('Recover ')))");
   await wait("!!document.querySelector('.draft-recovery')");
   await snap("retired-note-recovery");
+  }
+  }
 }, 300_000);
