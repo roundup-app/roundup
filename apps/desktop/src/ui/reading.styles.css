@@ -140,7 +140,7 @@
 
 /* Empty editor nodes retain their native caret without reserving block space. */
 .pad-body :is(p, h1, h2, h3, h4, h5, h6):is(:empty, :has(br.ProseMirror-trailingBreak:only-child)),
-.pad-body pre:has(code:empty) {
+.pad-body pre:has(code:is(:empty, :has(br.ProseMirror-trailingBreak:only-child))) {
   margin-block: 0;
   padding-block: 0;
   height: 0;
