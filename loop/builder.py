@@ -16,6 +16,7 @@ import urllib.request
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
+import codex_login  # noqa: E402
 import deadline  # noqa: E402
 import image_tools  # noqa: E402
 import orders  # noqa: E402
@@ -190,18 +191,27 @@ def question(answer, branch):
 
 
 def screen_on_codex(ask):
-    """`SCREEN_SCHEMA`'s answer to `ask` from Codex's `CODEX_MODEL`, signed in with `CODEX_AUTH`, in a read-only sandbox:
-    the JSON text it gave, which may be no valid verdict."""
-    home = codex_home(os.environ.get('CODEX_AUTH', ''), Path(tempfile.mkdtemp(dir=os.environ['RUNNER_TEMP'])))
-    answer = home / 'answer.json'
-    (home / 'schema.json').write_text(json.dumps(SCREEN_SCHEMA))
-    run = subprocess.run(['codex', 'exec', '--json', '--model', CODEX_MODEL, '--sandbox', 'read-only',
-                          '-c', f'model_reasoning_effort="{SCREEN_EFFORT}"', '--output-schema',
-                          str(home / 'schema.json'), '--output-last-message', str(answer), '-'],
-                         input=f'{role("screen")}\n## Ask\n\n{ask}\n', text=True, capture_output=True, timeout=300,
-                         check=True, env={**os.environ, 'CODEX_HOME': str(home)})
-    log_usage('screen', run.stdout.splitlines())
-    return answer.read_text()
+    """`SCREEN_SCHEMA`'s answer to `ask` from Codex's `CODEX_MODEL`, signed in with `CODEX_AUTH` and, when that fails, with
+    `CODEX_API_KEY`, in a read-only sandbox: the JSON text it gave, which may be no valid verdict."""
+    logins = [(os.environ.get('CODEX_AUTH', ''), '')]
+    if key := os.environ.pop('CODEX_API_KEY', ''):
+        logins.append(('', key))
+    for login, key in logins:
+        try:
+            home = codex_login.home(login, key, Path(tempfile.mkdtemp(dir=os.environ['RUNNER_TEMP'])))
+            answer = home / 'answer.json'
+            (home / 'schema.json').write_text(json.dumps(SCREEN_SCHEMA))
+            run = subprocess.run(['codex', 'exec', '--json', '--model', CODEX_MODEL, '--sandbox', 'read-only',
+                                  '-c', f'model_reasoning_effort="{SCREEN_EFFORT}"', '--output-schema',
+                                  str(home / 'schema.json'), '--output-last-message', str(answer), '-'],
+                                 input=f'{role("screen")}\n## Ask\n\n{ask}\n', text=True, capture_output=True, timeout=300,
+                                 check=True, env={**os.environ, 'CODEX_HOME': str(home), **codex_login.env(key)})
+            log_usage('screen', run.stdout.splitlines())
+            return answer.read_text()
+        except (ValueError, subprocess.SubprocessError):
+            if key or len(logins) == 1:
+                raise
+            print('screen: the ChatGPT login failed; trying the API key', file=sys.stderr)
 
 
 def screen(ask):
@@ -463,22 +473,6 @@ def codex_directory():
     return Path(os.environ.get('ROUNDUP_AGENT_MEMORY', os.environ['RUNNER_TEMP'])) / 'codex'
 
 
-def codex_home(login, home):
-    """Sign Codex in with the ChatGPT login `login` in the new directory `home`, outside the checkout so no commit takes
-    it, and return `home`; raises ValueError when `login` is no ChatGPT login."""
-    auth = json.loads(login or '{}')
-    if auth.get('auth_mode') != 'chatgpt' or not auth.get('tokens'):
-        raise ValueError('CODEX_AUTH holds no ChatGPT login: seed the CODEX_AUTH_JSON secret with `codex login`')
-    # GitHub masks the whole secret, not each token inside it.
-    for value in auth['tokens'].values():
-        print(f'::add-mask::{value}')
-    home.mkdir(mode=0o700, exist_ok=True)
-    (home / 'auth.json').write_text(login)
-    memory = '\n[features]\nmemories = true\n\n[memories]\ngenerate_memories = true\nuse_memories = true\n' if os.environ.get('ROUNDUP_AGENT_MEMORY') else ''
-    (home / 'config.toml').write_text('cli_auth_credentials_store = "file"\n' + memory + image_tools.codex_files(home))
-    return home
-
-
 def strict(schema):
     """The JSON Schema `schema` as OpenAI's structured outputs read it: every object closed and all its properties
     required, every enum typed."""
@@ -494,12 +488,12 @@ def strict(schema):
     return schema
 
 
-def codex(login, prompt, model, schema, output, rights=RUN_RIGHTS, effort=CODEX_BUILD_EFFORT):
-    """L23: run `prompt` on Codex's `model` in this checkout, signed in with the ChatGPT login `login`, answering the JSON
+def codex(login, prompt, model, schema, output, rights=RUN_RIGHTS, effort=CODEX_BUILD_EFFORT, key=''):
+    """L23: run `prompt` on Codex's `model` in this checkout, signed in with the ChatGPT login `login`, or with the API `key` when given, answering the JSON
     Schema `schema` unless it is None. Appends the step output `execution_file`, Codex's event lines, before the run
     starts, so a run cut off still leaves them, then `structured_output`, its answer. `rights` is as `stream` reads it.
     Runs at the reasoning `effort` and logs its token use (`log_usage`). Returns Codex's exit code."""
-    home = codex_home(login, codex_directory())
+    home = codex_login.home(login, key, codex_directory())
     events, answer = home / 'events.jsonl', home / 'answer.json'
     with open(output, 'a') as out:
         out.write(f'execution_file={events}\n')
@@ -508,7 +502,7 @@ def codex(login, prompt, model, schema, output, rights=RUN_RIGHTS, effort=CODEX_
     if schema is not None:
         (home / 'schema.json').write_text(json.dumps(strict(json.loads(schema)), separators=(',', ':')))
         command += ['--output-schema', str(home / 'schema.json')]
-    code = stream([*command, '-'], prompt, events, {**os.environ, 'CODEX_HOME': str(home)}, CODEX_ACCOUNT, rights)
+    code = stream([*command, '-'], prompt, events, {**os.environ, 'CODEX_HOME': str(home), **codex_login.env(key)}, CODEX_ACCOUNT, rights)
     log_usage(model, events.read_text().splitlines())
     if schema is not None and answer.is_file():
         answer_out(output, answer.read_text().strip())
@@ -517,33 +511,37 @@ def codex(login, prompt, model, schema, output, rights=RUN_RIGHTS, effort=CODEX_
 
 def engine(prompt, schema, output, rights=RUN_RIGHTS, effort=CODEX_BUILD_EFFORT):
     """L23: run `prompt` on Codex and, when that model used no tool (a usage limit or a setup failure such as a
-    broken ChatGPT login, as `worked` reads it, so the checkout is untouched), on Claude Code. With `CLAUDE_API` set Codex
-    never starts: Claude Code runs on API credit at once. The ChatGPT login leaves the
-    environment first, so a Claude Code run's shell never holds it. With `CODEX_ONLY` set there is no Claude Code: a Codex
-    run that did no work fails. `rights` is as `stream` reads it; `effort` is Codex's reasoning effort. Returns the exit code of the run that was last."""
-    login = os.environ.pop('CODEX_AUTH', '')
+    broken ChatGPT login, as `worked` reads it, so the checkout is untouched), on Codex again signed in with the API key
+    `CODEX_API_KEY` when there is one, and then on Claude Code. With `CLAUDE_API` set Codex never starts: Claude Code runs
+    on API credit at once. The ChatGPT login and the key leave the environment first, so a Claude Code run's shell never
+    holds them. With `CODEX_ONLY` set there is no Claude Code: a Codex run that did no work fails. `rights` is as `stream`
+    reads it; `effort` is Codex's reasoning effort. Returns the exit code of the run that was last."""
+    login, key = os.environ.pop('CODEX_AUTH', ''), os.environ.pop('CODEX_API_KEY', '')
     image_tools.sync_index()
     if switched():
         return claude(prompt, CLAUDE_MODEL, schema, output, rights)
+    events = codex_directory() / 'events.jsonl'
 
-    def codex_or_none():
+    def codex_or_none(login, key):
         try:
-            return codex(login, prompt, CODEX_MODEL, schema, output, rights, effort)
-        except ValueError as error:  # a broken login is a setup failure: no tool use, so the other engine runs
+            return codex(login, prompt, CODEX_MODEL, schema, output, rights, effort, key=key)
+        except ValueError as error:  # a broken login is a setup failure: no tool use, so the next engine runs
             print(f'::error::Codex did not start: {error}')
             return 1
 
-    engines = {'Claude Code': (lambda: claude(prompt, CLAUDE_MODEL, schema, output), Path(os.environ['RUNNER_TEMP']) / 'claude' / 'events.jsonl'),
-               'Codex': (codex_or_none, codex_directory() / 'events.jsonl')}
-    run, events = engines['Codex']
-    code = run()
-    if worked(events):
+    code = codex_or_none(login, '')
+    done = worked(events)
+    if key and not done:
+        print('engine: Codex did no work on the ChatGPT login; running it on the API key', file=sys.stderr)
+        code = codex_or_none('', key)
+        done = worked(events)
+    if done:
         return code
     if os.environ.get('CODEX_ONLY'):
         print('::error::Codex did no work and CODEX_ONLY forbids Claude Code', file=sys.stderr)
         return code or 1
     print('engine: Codex did no work; falling back to Claude Code', file=sys.stderr)
-    return engines['Claude Code'][0]()
+    return claude(prompt, CLAUDE_MODEL, schema, output)
 
 
 def keep(branch, issue, run_url):

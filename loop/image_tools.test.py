@@ -13,6 +13,7 @@ ROOT = Path(__file__).resolve().parent.parent
 spec = importlib.util.spec_from_file_location('builder', ROOT / 'loop/builder.py')
 builder = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(builder)
+import codex_login  # noqa: E402
 
 LOGIN = json.dumps(dict(auth_mode='chatgpt', tokens=dict(access_token='access', refresh_token='refresh')))
 SERVER = '[mcp_servers.codegraph]\ncommand = "codegraph"\nargs = ["serve", "--mcp"]\n'
@@ -28,13 +29,13 @@ def fake_codegraph(path, fails=False):
 
 class CodexHome(unittest.TestCase):
     def home(self, path, instructions=None, codegraph=True):
-        """`builder.codex_home` with HOME `path`: the new home's AGENTS.md and config.toml."""
+        """`codex_login.home` with HOME `path`: the new home's AGENTS.md and config.toml."""
         if instructions is not None:
             Path(path, '.codex').mkdir()
             Path(path, '.codex/AGENTS.md').write_text(instructions)
         with patch.dict(os.environ, HOME=path, PATH=fake_codegraph(path) if codegraph else '/usr/bin:/bin'), \
                 redirect_stdout(io.StringIO()):
-            home = builder.codex_home(LOGIN, Path(path, 'home'))
+            home = codex_login.home(LOGIN, '', Path(path, 'home'))
         agents = home / 'AGENTS.md'
         return (agents.read_text() if agents.exists() else None), (home / 'config.toml').read_text()
 

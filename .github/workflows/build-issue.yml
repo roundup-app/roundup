@@ -89,6 +89,7 @@ jobs:
         timeout-minutes: 35
         env:
           CODEX_AUTH: ${{ secrets.CODEX_AUTH_JSON }}
+          CODEX_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           CODEX_ONLY: ${{ vars.CODEX_ONLY }}
           # Claude Code runs on it, and a Builder's real-`claude` observers sign in with it.
           CLAUDE_CODE_OAUTH_TOKEN: ${{ vars.CLAUDE_API == '' && secrets.CLAUDE_CODE_OAUTH_TOKEN || '' }}
@@ -137,6 +138,7 @@ jobs:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ vars.CLAUDE_API == '' && secrets.CLAUDE_CODE_OAUTH_TOKEN || '' }}
           ANTHROPIC_API_KEY: ${{ vars.CLAUDE_API != '' && secrets.ANTHROPIC_API_KEY || '' }}
           CODEX_AUTH: ${{ secrets.CODEX_AUTH_JSON }}
+          CODEX_API_KEY: ${{ vars.CODEX_ONLY != '' && secrets.OPENAI_API_KEY || '' }}
           CODEX_ONLY: ${{ vars.CODEX_ONLY }}
           GH_TOKEN: ${{ github.token }}
         run: |
