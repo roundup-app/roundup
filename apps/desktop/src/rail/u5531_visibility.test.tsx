@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { agent, workstream, event } from "../testing/nodes";
-import { mountRail, rowNames, settled } from "./railFixture";
+import { mountRail, rowNames, rowOf, settled } from "./railFixture";
 
 afterEach(() => { cleanup(); localStorage.clear(); });
 
@@ -54,6 +54,24 @@ it("u5531b_open_choices_survive_updates_independently", async () => {
   await waitFor(() => expect(rowNames()).not.toContain("helper"));
 });
 
+it.each(["internal", "idle"] as const)("u5531b_disappearing_focused_branch_returns_to_its_workstream %s", async group => {
+  const children = [
+    agent("helper", "working", "working", { parent: "stream", visibility: "internal" }),
+    agent("settled", "done", "done", { parent: "stream", final_text: { attempt: "1", turn: "1", finished: "0", kind: "empty" } }),
+  ];
+
+  const { app } = await mountRail([workstream("stream"), ...children]);
+  const key = group === "internal" ? "fold:internal:stream" : "fold:stream";
+  const branch = () => document.querySelector<HTMLElement>(`[data-id="${key}"] [data-part=branch-control]`);
+  await waitFor(() => expect(branch()).not.toBeNull());
+  branch()!.focus();
+  await waitFor(() => expect(document.activeElement).toBe(branch()));
+  app.handlers["rail.tree"] = () => [workstream("stream"), ...children.map(child => child.id === (group === "internal" ? "helper" : "settled")
+    ? agent(child.id, "working", "working", { parent: "stream" }) : child)];
+  app.emit(event({ name: "rail.changed" }));
+  await waitFor(() => expect(document.activeElement).toBe(rowOf("stream")));
+});
+
 it.each(["needs-you", "error", "question", "clarification", "final-text", "unknown-text"] as const)("u5531c_attention_promotes_internal_children_without_a_timer %s", async reason => {
   const child = agent("helper", "working", "working", { parent: "stream", visibility: "internal" });
   const { app, rail } = await mountRail([workstream("stream"), child]);
@@ -93,7 +111,7 @@ it("u5531b_direct_message_terminal_and_draft_keep_the_child_identity", async () 
   const { info } = await import("../testing/nodes");
   const { fakeEmulators } = await import("../terminal/paneHarness");
   const { message } = await import("../testing/centreFixture");
-  const { rowOf, railCallsTo } = await import("./railFixture");
+  const { railCallsTo } = await import("./railFixture");
   const child = agent("helper", "working", "working", { parent: "stream", visibility: "internal" });
   const m = await mountRail([workstream("stream"), child], [info("t-helper")], undefined, undefined, { pane: fakeEmulators().factory });
   fireEvent.click(screen.getByRole("treeitem", { name: / internal$/ }).querySelector("[data-part=branch-control]")!);
