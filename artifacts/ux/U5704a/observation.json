@@ -1,7 +1,7 @@
 {
   "scenario": "U5704a",
   "status": "incomplete",
-  "recorded_at_utc": "2026-11-02T19:25:06Z",
+  "recorded_at_utc": "2026-11-02T19:25:56Z",
   "observer_revision": "81643171dc12f8931a749f89f0a00b1045578750",
   "sizing_repair": {
     "pr": 5700,
@@ -14,15 +14,15 @@
   "scheme": "dark",
   "phases": {
     "base": {
-      "capture_pairs": 90,
+      "capture_pairs": 97,
       "product_revisions": [
         "41e424913aa33593ca8303aa91ed41da804849fc"
       ],
       "minimum_recorded_hit_height": 24,
-      "states_complete": false
+      "states_complete": true
     },
     "head": {
-      "capture_pairs": 76,
+      "capture_pairs": 90,
       "product_revisions": [
         "4693e0a03b82946af41a96af3bcfeb60748f5b78"
       ],
@@ -34,7 +34,8 @@
     "just_ready": "passed",
     "targeted_regressions": 243,
     "readonly_heading_observer": "passed",
-    "dense_save_failure": "passed, all design Checks pass"
+    "dense_save_failure": "passed, all design Checks pass",
+    "editable_heading_baseline_observer": "passed after native keyboard activation"
   },
   "baseline_fixture_failures": [
     "D2: default root font",
