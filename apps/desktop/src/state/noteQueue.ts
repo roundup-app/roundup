@@ -26,11 +26,37 @@ export type NoteQueue = {
 const waiting = (message: Message): boolean => message.status === "pending";
 
 export const createNoteQueue = (app: AppSeam, events: Events, daemonExit: Accessor<DaemonExit | null>): NoteQueue => {
-  const [messages, setMessages] = createSignal<Map<number, Message>>(new Map());
+  const pending = new Map<string, Message[]>();
+  const recipients = new Map<number, string>();
+  // U5643b: lists never override an already observed id, even after its body is released.
+  // This metadata lives with the connected Project, like loaded recipient state.
+  const observed = new Set<number>();
+  const [revision, changed] = createSignal(0);
   const [failures, setFailures] = createSignal<readonly NoteFailure[]>([]);
   const loaded = new Set<string>();
 
-  const upsert = (message: Message): void => void setMessages((all) => new Map(all).set(message.id, message));
+  const upsert = (message: Message): void => {
+    observed.add(message.id);
+    const previous = recipients.get(message.id);
+
+    if (previous !== undefined) {
+      const rows = pending.get(previous)!.filter(row => row.id !== message.id);
+
+      if (rows.length === 0) pending.delete(previous);
+      else pending.set(previous, rows);
+      recipients.delete(message.id);
+    }
+
+    if (waiting(message)) {
+      const rows = [...pending.get(message.to) ?? []];
+      const position = rows.findIndex(row => row.id > message.id);
+      rows.splice(position === -1 ? rows.length : position, 0, message);
+      pending.set(message.to, rows);
+      recipients.set(message.id, message.to);
+    }
+
+    if (previous !== undefined || waiting(message)) changed(value => value + 1);
+  };
 
   let counter = 0;
 
@@ -74,9 +100,11 @@ export const createNoteQueue = (app: AppSeam, events: Events, daemonExit: Access
   const selected = (agent: string): NoteFailure | null => failures().findLast((failure) => failure.agent === agent) ?? null;
 
   return {
-    rows: (agent) => [...messages().values()]
-      .filter((message) => message.to === agent && waiting(message))
-      .sort((a, b) => a.id - b.id),
+    rows: (agent) => {
+      revision();
+
+      return [...pending.get(agent) ?? []];
+    },
     load: (agent) => {
       if (loaded.has(agent) || daemonExit() !== null) return;
 
@@ -84,12 +112,8 @@ export const createNoteQueue = (app: AppSeam, events: Events, daemonExit: Access
       void app.rpc("message.list", { to: agent, status: null }).then((all) => {
         // An Event that came while the list was on its way is newer than the list.
         fail(agent, null, null);
-        setMessages((known) => {
-          const next = new Map(known);
-
-          for (const message of all) if (!next.has(message.id)) next.set(message.id, message);
-
-          return next;
+        batch(() => {
+          for (const message of all) if (!observed.has(message.id)) upsert(message);
         });
       }).catch((error) => {
         loaded.delete(agent);
