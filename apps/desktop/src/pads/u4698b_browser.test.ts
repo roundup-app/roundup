@@ -27,9 +27,6 @@ it("u4698b_expand_keeps_the_long_pad_and_all_formats_reachable", { retry: 0, tim
 
   if (output) {
     mkdirSync(output, { recursive: true });
-    await browser("record", "start", join(output, "reading.webm"));
-    await browser("wait", ".shelf-tabs");
-    await browser("set", "media", "dark");
   }
 
   for (const [width, height] of [[1512, 950], [1280, 820]]) {
@@ -105,6 +102,12 @@ it("u4698b_expand_keeps_the_long_pad_and_all_formats_reachable", { retry: 0, tim
     await browser("set", "viewport", String(width), String(height));
     await browser("wait", "--fn", `innerWidth === ${width} && innerHeight === ${height}`);
     await settle();
+
+    if (output && width === 1512) {
+      await browser("record", "start", join(output, "reading.webm"));
+      await browser("set", "media", "dark");
+    }
+
     expect(await evaluate("document.querySelectorAll('.drawer [aria-label=Restore], .drawer [aria-label=Maximise]').length")).toBe(1);
 
     if (captureDir("U5560a")) {
@@ -153,6 +156,8 @@ it("u4698b_expand_keeps_the_long_pad_and_all_formats_reachable", { retry: 0, tim
     await browser("click", '.drawer [aria-label="Maximise"]');
     await settle();
     expect(await evaluate("document.querySelector('.pad-head-name').textContent")).toBe(name);
+
+    if (output && width === 1512) await browser("record", "stop");
   }
 
   if (output) {
@@ -190,8 +195,6 @@ it("u4698b_expand_keeps_the_long_pad_and_all_formats_reachable", { retry: 0, tim
     await browser("wait", "--fn", "JSON.parse(localStorage.getItem('roundup:app-settings')).padWidth === 'full'");
     await browser("click", ".settings-back");
   }
-
-  if (output) await browser("record", "stop");
 
   await openTodo();
 
