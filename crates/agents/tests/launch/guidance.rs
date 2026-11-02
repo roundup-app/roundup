@@ -257,3 +257,41 @@ fn a5482b_lead_brief_answers_or_asks_in_its_own_terminal() {
     assert!(text.contains("Treat a question in a child's Digest last text the same way"));
     assert!(text.contains("Before deciding from `[cut]`, obtain the complete final reply"));
 }
+
+#[test]
+fn q5561_pad_guidance_reaches_each_writer() {
+    for role in [Role::Agent, Role::Door] {
+        for mcp in [true, false] {
+            let s = setup();
+            let pair = agents::claude_code::Pair {
+                mcp_off: !mcp,
+                ..Default::default()
+            };
+            s.launcher()
+                .prepare_on(folders(&s.dir), "7", "1", &s.cwd, None, role, &pair)
+                .unwrap();
+            let text = std::fs::read_to_string(s.dir.join("agents/7.brief.md")).unwrap();
+            for instruction in [
+                "only what the user needs to read",
+                "verdict first",
+                "paths, commands, ids, logs and raw evidence",
+                "one final folded section named `For Agents`",
+                "<details><summary>For Agents</summary>",
+                "closing `</details>`, without `open`",
+                "inside the same trailing section",
+                "Facts the user needs to decide or act stay in the body",
+            ] {
+                assert!(text.contains(instruction), "{role:?} {mcp}: {instruction}");
+            }
+            for tool in ["pad_create", "pad_write", "pad_append", "pad_appendSection"] {
+                let name = if mcp { tool.to_owned() } else {
+                    match tool {
+                        "pad_appendSection" => "rup pad append-section".to_owned(),
+                        _ => format!("rup {}", tool.replacen("_", " ", 1)),
+                    }
+                };
+                assert!(text.contains(&name), "{role:?} {mcp}: {name}");
+            }
+        }
+    }
+}
