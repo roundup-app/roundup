@@ -1,0 +1,94 @@
+# U5741 observer log
+
+Audited source: `092fcafbf` (full SHA in README and runtime provenance). This is a documentary evidence slice. No product code, scenario, Principle, contract, storage reader or test changed. No deletion has been selected, so no retirement/reopen pass is claimed. No Mac-only observation is requested.
+
+| Command / observer | Exit | Result |
+| --- | ---: | --- |
+| `pnpm install --frozen-lockfile` | 0 | Installed the pinned dependencies in the isolated audit worktree. |
+| `cargo build -p rup --bins` | 0 | Rebuilt the observed CLI/MCP binary from the audited checkout. |
+| `cargo build -p rupd --bin rupd` | 0 | Rebuilt the real Daemon used by the public endpoint observer. |
+| `python3 /tmp/u5741-runtime.py` | 0 | Fresh temporary git Project, explicit isolated data/socket; real Daemon ping, one unstarted Workstream, actual stdio initialize/tools-list for both role classifications, public api-list. 91 Agent tools, 98 Door tools, 169 methods. Process stdin closed and Daemon exited afterward. Full replies, executable hashes and role setup are retained in public-seams.json. |
+| Reconciliation of runtime methods and declarations | 0 | All 169 match; no source-only/runtime-only methods; no unmatched tool methods; each shared CLI invocation appears in actual help. Explicit top-level/internal CLI commands are separately inventoried. |
+| `rup help`, `rup help skill`, `rup actions --help`, `rup do --help` | 0 each | Exact output retained, including options and role restrictions. |
+| `pnpm exec claude --version`, `pnpm exec claude --help` | 0 each | Installed Claude Code 2.1.300; no model turn or login attempted. |
+| `gh --version`, `gh pr checks --help`, `gh pr diff --help`, `gh pr view --help` | 0 each | Installed vendor command evidence retained. |
+| `agent-browser doctor --offline --quick` | 0 | Headless isolated setup available; no user's browser/desktop connection. |
+| `python3 /tmp/u5741-render.py` (corrected evaluation) | 0 | Initial seeds and five App Settings pages captured with existing isolated harness. |
+| Rendered readings retained in rendered.json | 0 | 33 captured states; every retained D2/D5/D6 reading passes. This does not assert the remaining unrendered surfaces or native behavior. Images stay uncommitted under artifacts/ux/U5741. |
+| `python3 tools/lint/scan.py typos` after repair | 0 | Documentary spelling issue repaired; raw wrapped-tab snapshot kept with uncommitted capture, not silently corrected. |
+| `python3 loop/orders.py check /tmp/u5741-scope.md` | 0 | Exact evidence-file scope added to #5758 before the evidence commit. |
+
+## Failed commands
+
+Each row is a failure, not a pass. Temporary driver scripts were run outside the product tree and are not new product machinery.
+
+| Command | Exit | Failure / disposition |
+| --- | ---: | --- |
+| `ls -d .codegraph` | 2 | Index absent; normal source search used. No index created. |
+| `cat .cargo/config.toml` | 1 | File absent; existing CARGO_TARGET_DIR read from environment instead. |
+| `ls target/debug/rup*` | 2 | Local target directory absent; actual shared target directory located, then binaries rebuilt. |
+| `cat crates/rup/src/bin/rupd.rs` | 1 | Wrong discovery path; Daemon is crates/rupd/src/main.rs, read before use. |
+| `rg ... crates/contracts/src/rail.rs ...` | 2 | No such module; types found in agent.rs and method declarations. |
+| `rg ... scenarios/ui-settings.md scenarios/ui-naming.md scenarios/ui-resources.md` | 2 | Guessed paths absent; actual owning settings/naming scenarios located and read. |
+| `agent-browser eval 'JSON.stringify((await import("/src/keys/actions.ts")).listActions())'` | 1 | Top-level await/import syntax rejected by evaluator. Replaced with an async function expression; actual catalogue then collected successfully. |
+| `python3 /tmp/u5741-render.py` (initial attempt) | 1 | Aborted on that evaluation failure; rerun after repair. |
+| `python3 /tmp/u5741-more-render.py` | 1 | Exact counted Pads tab locator was unavailable. Several earlier capture labels also did not correspond to a newly opened surface; discarded. This run establishes no Inbox/new-Workstream/prompt-dialog pass. |
+| `agent-browser find role tab click --name 'PADS 4' --exact` (both discovery attempts) | 1 each | Count-sensitive locator failed. Final observer targets stable shelf-tab-pads and checks its selected state; Pads list capture retained. |
+| `agent-browser wait --text 'Opening prompt'` | 1 | Wait timed out: actual Mode field is First prompt. Reopened in a clean page and observed the actual dialog. |
+| `agent-browser wait --text 'New Agent'` | 1 | Guessed copy did not identify the inline prompt surface. No capture accepted. |
+| `agent-browser wait --text 'Work'` | 1 | Text wait did not identify textbox accessible name. Replaced with textarea.spawn-prompt-field selector and captured the actual field. |
+| `python3 /tmp/u5741-interact.py` (three attempts) | 1 each | Aborted respectively at the above three waits. Only later independently recaptured surfaces are retained. |
+| `agent-browser wait --fn 'document.body.innerText.includes("Inbox")'` | 1 | Timed out after the leader sequence; Inbox opening remains unverified. |
+| `python3 /tmp/u5741-final-render.py` | 1 | Pads and loaded Import captures completed; script then aborted on the Inbox wait. No Inbox capture accepted. |
+| `rg ... /home/boxd/.cargo/registry/src/*/tauri-*/src/menu/menu.rs` | 2 | Guessed registry path absent. Complete Tauri default native-menu reconciliation remains engineering work. |
+| `wc -l docs/audits/U5741/* ...` | 1 | Glob included a directory; file counts still printed. No verification claim depends on it. |
+| `just ready` (initial run) | 1 | lint-web completed, but lint-rust's repository spelling scan rejected the report's image abbreviation and wrapped tab-name fragments in raw accessibility text. Launch-sites passed. Repaired prose and kept the exact wrapped snapshot with the uncommitted capture; no lint exclusions or product changes. Final run recorded below. |
+
+| `just ready` (second run) | 1 | Repository spelling scan rejected wrapped fragments in the Import panel snapshot; moved exact raw text beside its uncommitted capture, retaining Check readings and explicit disposition in rendered.json. |
+
+## Final checks
+
+The second `just ready` exited 1: all web checks and launch-sites passed, but the repository spelling scan found additional wrapped fragments in the Import panel raw snapshot. That exact snapshot is now retained with the uncommitted capture, with its disposition recorded in rendered.json. No text was corrected and no lint exception added. The repaired spelling scan passed (exit 0); another full ready run remains required for continuation. No local `just check`, whole Rust crate test suite, or whole Vitest suite is run. No behavior test is added to check report wording. CI remains the observer for an eventual implementation head's full check.
+
+## Continuation on builder-41533806779
+
+The evidence remains pinned to main `092fcafbf910f292d7180c97d35bd381aff984b3`. The continuation's isolated worktree merges main `b7ce9aef7` for branch validation; it does not silently repin the older runtime census or claim its offers cover methods added later. Browser observations run against the unchanged audited checkout on port 5218, in a new headless session/profile. No user browser, Agent process or native App was used.
+
+| Command / observer | Exit | Result |
+| --- | ---: | --- |
+| `pnpm install --frozen-lockfile` | 0 | Pinned dependencies installed in the continuation worktree. |
+| `just ready` | 0 | Lints, proof checks (`ALL PROOFS CHECK`) and N7 launch-sites observer pass; no product behavior or test changed. |
+| `loop/rules.sh merge-loss` | 0 | No main-only file lost through the merge. |
+| `git diff --check` | 0 | No whitespace errors. |
+| Download and SHA-256 comparison of locked Tauri/muda archives | 0 | Both archives match Cargo.lock checksums; inspected exact Tauri 2.12.1 default builder and muda 0.20.0 labels, accelerators and native selectors. Native construction inventory is in native-menus.md. |
+| `agent-browser doctor --offline --quick` | 0 | Isolated headless setup passes. |
+| `just harness tree-40 5218` lifecycle | 143 on deliberate shutdown | Served the audited checkout successfully. After captures, the run closed its own browser and stopped only this server; signal termination is not an observer pass/fail. |
+| Follow-up captures | 0 for each retained opening | Twelve openings retained: eleven pass every D check; Project rename retains a pre-existing D6 failure and its D10 aggregate. `rendered-followup.json` retains the mounted selectors and exact D-check readings. Raw snapshots and images stay uncommitted beside the captures. Only mounted, successful openings count; failed attempts below do not. |
+
+These discovery/observer failures were repaired without changing product behavior or weakening a gate:
+
+| Command / observer | Exit | Failure / disposition |
+| --- | ---: | --- |
+| `ls -d .codegraph .claude/sound` | 2 | No codegraph index; normal source search used. Sound rules exist and were read. |
+| `git worktree add /tmp/roundup-fix-5780 build/app-feature-audit-implementation` | 128 | Branch already checked out by the provided checkout. Created a detached continuation worktree at the supplied head instead; push targets the requested branch explicitly. |
+| `ls /tmp/*5741*` | 2 | Prior run's temporary drivers did not survive. New observer drivers use the existing harness and are not product machinery. |
+| `rg --files /home/boxd/.cargo /opt` | 2 | Broad discovery encountered an unreadable unrelated directory; no local Tauri menu source found. Read checksum-verified published archives instead. |
+| `cat crates/desktop/src/dock.rs` | 1 | Guessed module does not exist. No native Dock-menu coverage inferred from it. |
+| `sed ... apps/desktop/src/testing/harness.ts` | 2 | Harness is harness.tsx; actual source read before extending observations. |
+| `rg ... crates/rupd/src/dispatch` | 2 | Guessed directory absent; models.list dispatch is in crates/agents/src/dispatch.rs. |
+| `rg ... crates/agents/src/claude_code/naming.rs` | 2 | Guessed module absent; no naming equivalence inferred. |
+| `sed ... crates/agents/src/claude_code/naming.rs` | 2 | Same nonexistent module; no candidate assessment changed. |
+| `rg ... apps/desktop/src/modes/OpeningPrompt.tsx .../SaveAsMode.tsx` | 2 | Actual components are under rail; read those before dialog observations. |
+| `agent-browser wait .todo-row` | 1 | Todo owner group was collapsed; no visible row satisfied the wait. Expanding the real shelf-group-control before Open established the later detail capture. |
+| `agent-browser wait '[role=menu]'` after `click .pad-name --button right` | 1 | Click's documented interface does not support that right-button option. Repaired using real mouse move/down/up right and retained the resulting actual menu. |
+| `agent-browser mouse move 1320.3359375 188` | 1 | CLI requires integer coordinates. Rounded the measured target centre and used the real mouse API. |
+| `agent-browser scrollintoview '.rail-row[data-id="token-rotation"]'` | 1 | Used the displayed name as an id. Actual row id is tokens; repaired from the rendered DOM. |
+| `agent-browser find role button click --name 'Unassigned 7' --exact` (two attempts) | 1 each | Locator returned not found. No successful group-opening assertion is based on it; subsequent DOM inspection established the available Todo controls. |
+| `agent-browser wait .todo-drawer` | 1 | Wrong content class; the implementation uses todo-detail. No capture retained from this failed wait. |
+| Follow-up aggregate assertion that every captured Check passed | 1 | Project rename failed D6/D10. Retained the exact failure instead of claiming a pass; #5786 owns the observer repair. |
+| `rg ... scenarios/ui-project-tabs.md` | 2 | Guessed file absent; owning visual/macOS acceptance found through the scenario census instead. |
+| `agent-browser wait .todo-detail` | 1 | Todo group was collapsed, so clicking its hidden descendant opened no detail. Repaired the observer to expand the real group control before clicking its visible Open action; no pass claimed from the hidden control attempt. |
+
+The Project rename input omits its type attribute. `testing/checks.ts::d6` tests the explicit type attribute instead of the browser's effective text type and demands button hover/cursor behavior. [#5786](https://github.com/roundup-app/roundup/issues/5786) owns this observer repair under U133. The audit does not change that observer or add button styling to a text field.
+
+No owner choice has been requested. The remaining work is the full App/local-library key reconciliation, per-row three-criterion assessment and linked owner direction. This evidence slice keeps #5758 open; it is not retirement permission or complete U5741 acceptance.
