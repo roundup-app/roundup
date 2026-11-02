@@ -188,14 +188,13 @@ it("u4698b_expand_keeps_the_long_pad_and_all_formats_reachable", { retry: 0, tim
     await browser("click", ".settings-back");
   }
 
-  await openTodo();
-
   if (output) await browser("record", "stop");
+
+  await openTodo();
 
   for (const [width, height] of [[1512, 950], [1280, 820]]) {
     await browser("set", "viewport", String(width), String(height));
 
-    if (output) await browser("record", "start", join(output, `todo-${width}.webm`));
     await browser("wait", "--fn", `innerWidth === ${width} && innerHeight === ${height}`);
     await settle();
     await capture(`todo-after-editor-${width}`);
@@ -206,6 +205,5 @@ it("u4698b_expand_keeps_the_long_pad_and_all_formats_reachable", { retry: 0, tim
     await browser("click", '.drawer [aria-label="Maximise"]');
     await settle();
 
-    if (output) await browser("record", "stop");
   }
 });
