@@ -192,6 +192,7 @@ it("u4698b_expand_keeps_the_long_pad_and_all_formats_reachable", { retry: 0, tim
 
   for (const [width, height] of [[1512, 950], [1280, 820]]) {
     await browser("set", "viewport", String(width), String(height));
+    await browser("wait", "--fn", `innerWidth === ${width} && innerHeight === ${height}`);
     await settle();
     await capture(`todo-after-editor-${width}`);
     expect(await evaluate("document.querySelectorAll('.pad-width-control [role=radiogroup]').length")).toBe(0);
