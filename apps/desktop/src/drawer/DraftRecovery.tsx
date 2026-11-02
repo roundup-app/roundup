@@ -7,17 +7,19 @@ import type { ActivationSource } from "../keys/registry";
 import { useConnectedProject } from "../state/connectedProject";
 import type { MenuEntry } from "../ui/contextMenu";
 import { copy } from "./copy";
-import { createEffect, createSignal, For, Show } from "solid-js";
+import { lazy, createEffect, createSignal, For, Show } from "solid-js";
 import { KindGlyph } from "../ink/KindGlyph";
 import { usePadList } from "../rail/pads/padList";
 import { useTodoList } from "../todos/todoList";
-import { PadDrawer } from "../pads/PadDrawer";
 import { Deferred } from "../ui/Deferred";
-
-import { todoCreationEditor, todoEditor } from "./editors";
+import { todoCreationEditor } from "./editors";
 import { typedText, useUnfinishedWork } from "./unfinishedWork";
 
+const PadDrawer = lazy(() => import("../pads/PadDrawer").then(module => ({ default: module.PadDrawer })));
+
 const Pads = (props: Parameters<typeof import("../pads/Pads").Pads>[0]) => <Deferred load={() => import("../pads/Pads")} label={copy.pads}>{module => <module.Pads {...props} />}</Deferred>;
+
+const TodoDrawer = lazy(() => import("../todos/TodoDrawer").then(module => ({ default: module.TodoDrawer })));
 
 /**
  * U3289c: the Overview row's menu item. Nothing renders unasked (U3289b); with no work at risk the item is absent.
@@ -86,10 +88,8 @@ const DraftRecoveryPanel = () => {
       return () => drawer.open(() => <PadDrawer name={String(row.draft.value.originalName)} pads={pads.pads} recovery={{ project: project.path, revision: row.draft.revision, list: pads }} onLateFailure={() => {}} />, "key", { kind: "pad", project: project.path });
     }
 
-    const editor = todoEditor.get();
-
-    if (surface === "todos" && editor && todos.all().some((todo) => String(todo.id) === object)) {
-      return () => drawer.open(() => editor({ id: Number(object), todos, recovery: { project: project.path, revision: row.draft.revision } }), "key", { kind: "todo", project: project.path });
+    if (surface === "todos" && todos.all().some((todo) => String(todo.id) === object)) {
+      return () => drawer.open(() => <TodoDrawer id={Number(object)} todos={todos} recovery={{ project: project.path, revision: row.draft.revision }} />, "key", { kind: "todo", project: project.path });
     }
 
     if (surface === "pads" && object === "creation") {
