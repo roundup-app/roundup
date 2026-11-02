@@ -18,12 +18,14 @@ async fn u5690c_group_preserves_selected_identities_and_reopens() {
         (
             json!(["5", "1", "3", "1"]),
             json!([
-                ["8", null, 0],
-                ["1", "8", 0],
+                ["11", null, 0],
+                ["1", "11", 0],
                 ["2", "1", 0],
-                ["3", "8", 1],
+                ["9", "1", 1],
+                ["10", "1", 2],
+                ["3", "11", 1],
                 ["4", "3", 0],
-                ["5", "8", 2],
+                ["5", "11", 2],
                 ["6", null, 1],
                 ["7", "6", 0]
             ]),
@@ -31,10 +33,12 @@ async fn u5690c_group_preserves_selected_identities_and_reopens() {
         (
             json!(["7", "2", "1"]),
             json!([
-                ["8", null, 0],
-                ["1", "8", 0],
-                ["2", "8", 1],
-                ["7", "8", 2],
+                ["11", null, 0],
+                ["1", "11", 0],
+                ["9", "1", 0],
+                ["10", "1", 1],
+                ["2", "11", 1],
+                ["7", "11", 2],
                 ["3", null, 1],
                 ["4", "3", 0],
                 ["5", null, 2],
@@ -46,9 +50,11 @@ async fn u5690c_group_preserves_selected_identities_and_reopens() {
             json!([
                 ["1", null, 0],
                 ["2", "1", 0],
-                ["8", null, 1],
-                ["3", "8", 0],
-                ["4", "8", 1],
+                ["9", "1", 1],
+                ["10", "1", 2],
+                ["11", null, 1],
+                ["3", "11", 0],
+                ["4", "11", 1],
                 ["5", null, 2],
                 ["6", null, 3],
                 ["7", "6", 0]
@@ -67,7 +73,9 @@ async fn u5690c_group_preserves_selected_identities_and_reopens() {
           (4,'agent','C child',3,0,NULL,NULL),
           (5,'workstream','E',NULL,2,NULL,NULL),
           (6,'workstream','F',NULL,3,NULL,NULL),
-          (7,'agent','F child',6,0,NULL,NULL);",
+          (7,'agent','F child',6,0,NULL,NULL),
+          (9,'agent','A kept first',1,1,NULL,NULL),
+          (10,'agent','A kept second',1,2,NULL,NULL);",
         )
         .unwrap();
         drop(db);
@@ -86,11 +94,11 @@ async fn u5690c_group_preserves_selected_identities_and_reopens() {
         let group = call(&daemon, "rail.group", json!({"ids":selected})).await;
         let typed: contracts::agent::RailNode = serde_json::from_value(group.clone()).unwrap();
         assert_eq!(serde_json::to_value(typed.kind).unwrap(), "group");
-        assert_eq!(group["id"], "8");
+        assert_eq!(group["id"], "11");
         call(
             &daemon,
             "rail.rename",
-            json!({"id":"8","name":"Selected work"}),
+            json!({"id":"11","name":"Selected work"}),
         )
         .await;
         let after = call(&daemon, "rail.tree", Value::Null).await;
