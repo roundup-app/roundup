@@ -123,7 +123,7 @@ pub const DOOR_METHODS: [&str; 10] = [
 ];
 
 /// M5: the methods and App commands with no tool; the reasons are in `scenarios/mcp.md`.
-pub const NO_TOOL: [&str; 92] = [
+pub const NO_TOOL: [&str; 93] = [
     // The shortcut list is the user's own; Agents cannot write it to a file they did not choose.
     "shortcuts.export",
     // A4688a: only the user controls global naming preferences; Agents cannot override them.
@@ -239,6 +239,8 @@ pub const NO_TOOL: [&str; 92] = [
     "plugin:window-bar|zoom_window",
     // U134: the user's native window appearance, which an Agent cannot change.
     "plugin:window-bar|native_material",
+    // N5467b: only the App locates its obsolete browser data for the user’s manual reset.
+    "plugin:window-bar|webview_data_path",
     // U3787f: the operating system hands the App a roundup link; an Agent reads one with link.read.
     "native_open",
     "rpc",
