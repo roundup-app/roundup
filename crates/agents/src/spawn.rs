@@ -12,6 +12,11 @@ impl Agents {
         ctx: &Ctx,
         mut params: SpawnParams,
     ) -> Result<RailNode, RpcError> {
+        if params.start_attribution.is_some() && ctx.actor.kind != ActorKind::User {
+            return Err(RpcError::forbidden(
+                "only the user connection supplies start attribution",
+            ));
+        }
         let size = terminal::window(params.cols.unwrap_or(80), params.rows.unwrap_or(24))?;
         models::check_engine(params.engine.as_deref())?;
         models::check_permissions(&ctx.actor, params.permission_mode)?;
@@ -116,6 +121,7 @@ impl Agents {
                 params.parent.as_deref(),
                 None,
                 order.as_ref(),
+                params.start_attribution.as_ref(),
             )?;
             if let Some(prompt) = &spawn_prompt {
                 rail.set_spawn_prompt(&node.id, prompt)?;
@@ -584,6 +590,7 @@ mod idle_tests {
                     parent.then_some(home.id.as_str()),
                     None,
                     restart.then_some(&Order::work("stored order")),
+                    None,
                 )
                 .unwrap();
             let prompt = order::first_input(
@@ -637,6 +644,7 @@ mod idle_tests {
                 None,
                 None,
                 Some(&Order::work("retained")),
+                None,
             )
             .unwrap();
         let (done, _completion) = oneshot::channel();

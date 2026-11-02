@@ -13,7 +13,7 @@ use view::load_nodes;
 
 use std::path::Path;
 
-use contracts::agent::{CapturedOrder, NodeKind, Order, RailNode, Worktree};
+use contracts::agent::{CapturedOrder, NodeKind, Order, RailNode, StartAttribution, Worktree};
 use contracts::project::{Mcp, Prepared, ProjectModels, RoleModels, Worktrees};
 use rpc::{OpenError, RpcError};
 use rusqlite::{Connection, OptionalExtension, TransactionBehavior, params};
@@ -71,7 +71,7 @@ impl Rail {
         parent: Option<&str>,
         terminal_id: Option<&str>,
     ) -> Result<RailNode, RpcError> {
-        self.insert_ordered(kind, name, parent, terminal_id, None)
+        self.insert_ordered(kind, name, parent, terminal_id, None, None)
     }
 
     /// `insert` with the node's order (O2, O3); `None` is a Workstream's default and an Agent's no order.
@@ -82,10 +82,15 @@ impl Rail {
         parent: Option<&str>,
         terminal_id: Option<&str>,
         work: Option<&Order>,
+        start_attribution: Option<&StartAttribution>,
     ) -> Result<RailNode, RpcError> {
         // NULL already materializes O3's Workstream default in the loader. Persisting
         // that implicit Order adds 40 allocations per forty-node read (R3696c).
         let work = work
+            .map(serde_json::to_string)
+            .transpose()
+            .map_err(RpcError::internal)?;
+        let start_attribution = start_attribution
             .map(serde_json::to_string)
             .transpose()
             .map_err(RpcError::internal)?;
@@ -94,9 +99,17 @@ impl Rail {
         check_parent(&nodes, kind, parent)?;
         let order = siblings(&nodes, parent).len() as i64;
         tx.execute(
-            "INSERT INTO nodes (kind, name, parent, ord, terminal_id, work)
-                VALUES (?, ?, ?, ?, ?, ?)",
-            params![kind_name(kind), name, parent, order, terminal_id, work],
+            "INSERT INTO nodes (kind, name, parent, ord, terminal_id, work, start_attribution)
+                VALUES (?, ?, ?, ?, ?, ?, ?)",
+            params![
+                kind_name(kind),
+                name,
+                parent,
+                order,
+                terminal_id,
+                work,
+                start_attribution
+            ],
         )
         .map_err(sql)?;
         let id = tx.last_insert_rowid().to_string();

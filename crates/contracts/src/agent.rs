@@ -10,7 +10,9 @@ use crate::common::Status;
 mod alert;
 pub use alert::{AlertLevel, SetAlertLevelParams};
 mod launch;
-pub use launch::{Extras, ExtrasAddParams, PermissionMode, SpawnParams, StartDoorParams};
+pub use launch::{
+    Extras, ExtrasAddParams, PermissionMode, SpawnParams, StartAttribution, StartDoorParams,
+};
 
 /// Parse the wire ordinal without accepting aliases such as leading zeroes or signs.
 pub fn parse_positive_ordinal(value: &str) -> Option<i64> {
@@ -398,6 +400,10 @@ pub const TITLE_CAP: usize = 6;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct RailNode {
+    /// A5765e: captured foreign source identity, descriptive only; absent for ordinary Add.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[specta(optional, type = StartAttribution)]
+    pub start_attribution: Option<StartAttribution>,
     /// U5501: authoritative per-Agent choice; a Workstream stores its Door choice.
     #[serde(default)]
     #[specta(optional)]
@@ -854,6 +860,15 @@ pub struct SignalOutcome {
 
 #[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 pub struct CreateWorkstreamParams {
+    /// A5765e: only the target user connection may supply source attribution.
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "StartAttribution::deserialize_present"
+    )]
+    #[specta(optional, type = StartAttribution)]
+    #[schemars(skip)]
+    pub start_attribution: Option<StartAttribution>,
     pub name: String,
     pub parent: Option<String>,
     /// O3: the Door's order.
