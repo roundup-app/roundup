@@ -207,16 +207,6 @@ fn record_sender_names(inner: &Inner, nodes: &[RailNode]) -> Result<(), RpcError
     })
 }
 
-/// B2's `<sender's name>`: the Rail name for an Agent, since a Rail node can be renamed; the
-/// Actor's id for the user (`you`), the Daemon and an Extension.
-pub(super) async fn sender_name(inner: &Inner, from: &Actor) -> Result<String, RpcError> {
-    if from.kind != ActorKind::Agent {
-        return Ok(from.id.clone());
-    }
-    load_rail_nodes(inner).await?;
-    lock(&inner.store).sender_name(&from.id)
-}
-
 /// B3563c: writes every pending Message to `agent`'s Claude inbox as one batch, in id order. The
 /// inbox write leaves each in flight until its transcript receipt (B50); a missing or mismatched
 /// inbox leaves them `pending` for the next eligible event.
@@ -268,10 +258,7 @@ async fn on_idle(inner: &Arc<Inner>, agent: &str, at: store::Binding, pick: Pick
             .transpose()
             .expect("message store")
             .unwrap_or_default();
-        if batch
-            .iter()
-            .all(|m| receiver_view::is_quiet_digest(&given, m))
-        {
+        if receiver_view::are_quiet_digests(&given, &batch) {
             return;
         }
         batch
@@ -507,5 +494,72 @@ impl Messages {
             .find(|node| node.id == to)
             .ok_or_else(|| RpcError::not_found(format!("actor {to}")))?;
         Ok(Some(node))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::inbox::tests::{pending, setup};
+    use contracts::agent::DigestEntry;
+
+    #[tokio::test(start_paused = true)]
+    async fn b5640e_quiet_work_rides_one_idle_batch() {
+        let dir = tempfile::tempdir().unwrap();
+        let (messages, _, inbox) = setup(dir.path());
+        let body = crate::digest::push_body(&DigestEntry {
+            name: "child".into(),
+            kind: Kind::Working,
+            last: "unchanged".into(),
+            todos: 2,
+            pads: vec![],
+        });
+        let history = lock(&messages.inner.store)
+            .insert(
+                &Actor::daemon(),
+                "m",
+                MessageKind::Note,
+                &body,
+                None,
+                MessageStatus::Delivered,
+                None,
+                0,
+                (1, 1),
+            )
+            .unwrap();
+        let quiet = pending(&messages, &Actor::daemon(), &body);
+        on_idle(&messages.inner, "m", (1, 2), Pick::Next).await;
+        assert!(lock(&inbox.batches).is_empty());
+        assert!(!lock(&messages.inner.store).in_flight(quiet.id).unwrap());
+        let ordinary = pending(&messages, &Actor::user(), "please continue");
+        on_idle(&messages.inner, "m", (1, 2), Pick::Next).await;
+        {
+            let batches = lock(&inbox.batches);
+            assert_eq!(batches.len(), 1);
+            assert_eq!(
+                batches[0].iter().map(|e| e.0).collect::<Vec<_>>(),
+                [quiet.id, ordinary.id]
+            );
+        }
+        for id in [quiet.id, ordinary.id] {
+            let store = lock(&messages.inner.store);
+            assert!(store.in_flight(id).unwrap());
+            assert_eq!(
+                store.get(id).unwrap().unwrap().status,
+                MessageStatus::Pending
+            );
+        }
+        on_idle(&messages.inner, "m", (1, 2), Pick::Next).await;
+        assert_eq!(lock(&inbox.batches).len(), 1);
+        messages.confirm_inbox("m", &[quiet.id, ordinary.id]);
+        for id in [history.id, quiet.id, ordinary.id] {
+            assert_eq!(
+                lock(&messages.inner.store).get(id).unwrap().unwrap().status,
+                MessageStatus::Delivered
+            );
+        }
+        on_idle(&messages.inner, "m", (1, 2), Pick::Next).await;
+        assert_eq!(lock(&inbox.batches).len(), 1);
+        // BatchRail rejects every method but rail.tree: no Terminal write or prompt is possible.
     }
 }
