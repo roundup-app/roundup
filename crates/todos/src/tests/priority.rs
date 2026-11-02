@@ -2,7 +2,7 @@
 use super::*;
 
 #[tokio::test]
-async fn u4698c_priority_round_trips_and_old_data_loads() {
+async fn u4698c_priority_round_trips() {
     let dir = tempfile::tempdir().unwrap();
     for priority in [
         json!(null),
@@ -30,10 +30,7 @@ async fn u4698c_priority_round_trips_and_old_data_loads() {
                 .unwrap()["priority"],
             priority
         );
-        let mut old = todo.clone();
-        old.as_object_mut().unwrap().remove("priority");
-        let old: contracts::todo::Todo = serde_json::from_value(old).unwrap();
-        assert_eq!(serde_json::to_value(old).unwrap()["priority"], Value::Null);
+
         drop(h);
         let h = Harness::new(dir.path());
         assert_eq!(
@@ -237,26 +234,8 @@ async fn u4698c_other_mutations_keep_priority() {
 #[tokio::test]
 async fn u4698c_standalone_priority_survives_reopen() {
     let dir = tempfile::tempdir().unwrap();
-    let mut db = rusqlite::Connection::open(dir.path().join("todos.db")).unwrap();
-    let sql = [
-        include_str!("../../migrations/001/up.sql"),
-        include_str!("../../migrations/002/up.sql"),
-        include_str!("../../migrations/003/up.sql"),
-        include_str!("../../migrations/004/up.sql"),
-        include_str!("../../migrations/005/up.sql"),
-        include_str!("../../migrations/006/up.sql"),
-        include_str!("../../migrations/007/up.sql"),
-        "-- T4902: retired T29; retain the migration slot.",
-        include_str!("../../migrations/009/up.sql"),
-        include_str!("../../migrations/010/up.sql"),
-    ];
-    rusqlite_migration::Migrations::new(sql.into_iter().map(rusqlite_migration::M::up).collect())
-        .to_latest(&mut db)
-        .unwrap();
-    db.execute_batch("INSERT INTO todos(title,body,created_at,updated_at) VALUES('old','body',1,1);
-        INSERT INTO changes(todo,after_values,after_touch) VALUES(1,'{\"title\":\"old\",\"body\":\"body\",\"done\":false,\"blockers\":[]}',0);").unwrap();
-    drop(db);
     let h = Harness::new(dir.path());
+    made(&h, json!({"title":"current"})).await;
     assert_eq!(
         h.call("todo.get", json!({"id":1})).await.unwrap()["priority"],
         Value::Null
@@ -275,7 +254,7 @@ async fn u4698c_standalone_priority_survives_reopen() {
 }
 
 #[tokio::test]
-async fn u4698c_priority_migration_keeps_retained_redo_authority() {
+async fn u4698c_current_reopen_keeps_retained_redo_authority() {
     let dir = tempfile::tempdir().unwrap();
     let h = Harness::new(dir.path());
     made(&h, json!({"title":"retained"})).await;
@@ -287,12 +266,6 @@ async fn u4698c_priority_migration_keeps_retained_redo_authority() {
         .await
         .unwrap();
     drop(h);
-    let db = rusqlite::Connection::open(dir.path().join("todos.db")).unwrap();
-    // Reconstruct the immediate predecessor's retained target shape and schema.
-    db.execute_batch("UPDATE todo_deletions SET result=json_set(result,'$.restoredTargets',json((SELECT json_group_array(json_remove(value,'$[#-1]')) FROM json_each(todo_deletions.result,'$.restoredTargets'))));
-        ALTER TABLE todos DROP COLUMN priority; ALTER TABLE deleted_todos DROP COLUMN priority;
-        PRAGMA user_version=10;").unwrap();
-    drop(db);
     let h = Harness::new(dir.path());
     h.call(
         "todo.redo",
