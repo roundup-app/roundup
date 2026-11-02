@@ -63,6 +63,7 @@ impl Pushes {
         };
         let agents: Arc<dyn Module> = rail.clone();
         let messages = Arc::new(Messages::open_with(dir, bus.clone(), agents, env).unwrap());
+        messages.listen();
         Self {
             messages,
             bus,
