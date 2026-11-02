@@ -272,7 +272,7 @@ async fn n16_all_stores_share_one_project_database() {
     );
     resize_schema
         .execute_batch(include_str!(
-            "../migrations/project/0039-current-publications.sql"
+            "../migrations/project/0040-current-publications.sql"
         ))
         .unwrap();
     for name in [
