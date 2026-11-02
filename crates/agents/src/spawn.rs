@@ -624,6 +624,56 @@ mod idle_tests {
                 Observation::Signal(serde_json::json!({"hook_event_name":"UserPromptSubmit","prompt":"my request"})), None).unwrap();
             assert!(run.input_started);
         }
+        // Resume uses its actual promotion seam: a retained order is not fresh input.
+        let (_dir, _bus, shared) = tests::shared_over_temp_dir(Arc::new(|| 0));
+        let mut rail = shared.rail();
+        let node = rail
+            .insert_ordered(
+                NodeKind::Agent,
+                "Resumed",
+                None,
+                None,
+                Some(&Order::work("retained")),
+            )
+            .unwrap();
+        let (done, _completion) = oneshot::channel();
+        let conversation = "00000000-0000-4000-8000-000000000001";
+        let mut runs = HashMap::from([(
+            node.id.clone(),
+            Slot::Resuming {
+                mode: contracts::agent::ResumeMode::default(),
+                attempt: "2".into(),
+                since: 0,
+                old: None,
+                conversation_id: conversation.into(),
+                cwd: "/".into(),
+                prompt: None,
+                starred: true,
+                terminal_id: Some("fixture".into()),
+                parked: VecDeque::new(),
+                done,
+            },
+        )]);
+        let (input, _) = shared.finish_resuming(Some(&mut rail), &mut runs, &node.id, Actor::daemon(),
+            serde_json::json!({"hook_event_name":"SessionStart","source":"resume","session_id":conversation})).unwrap();
+        assert!(input.is_none());
+        let Some(Slot::Running(run)) = runs.get_mut(&node.id) else {
+            panic!("resume was not promoted")
+        };
+        assert!(!run.input_started);
+        shared
+            .apply(
+                Some(&mut rail),
+                run,
+                &node.id,
+                &Actor::user(),
+                Observation::Signal(
+                    serde_json::json!({"hook_event_name":"UserPromptSubmit","prompt":"continue"}),
+                ),
+                None,
+            )
+            .unwrap();
+        assert!(run.input_started);
         let work = Order::work("build");
         assert_eq!(
             order::first_input(None, Some(&work), Some("details"), true),
