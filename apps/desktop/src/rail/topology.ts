@@ -35,4 +35,3 @@ export const railTopology = (source: readonly RailNode[]) => {
 };
 
 export type RailTopology = ReturnType<typeof railTopology>;
-
