@@ -86,11 +86,15 @@ pub fn insert(text: &str, wanted: &str, add: &str) -> Result<String, Vec<String>
         .find(|h| h.level <= all[at].level)
         .map_or(text.len(), |h| h.line);
     let content_end = text[..end].trim_end().len();
-    let at = text[content_end..end]
-        .lines()
-        .next()
-        .map_or(content_end, |tail| content_end + tail.len());
-    let add = add.strip_suffix('\n').unwrap_or(add);
-    let add = add.strip_suffix('\r').unwrap_or(add);
-    Ok(format!("{}\n{add}{}", &text[..at], &text[at..]))
+    let add = add
+        .strip_suffix("\r\n")
+        .or_else(|| add.strip_suffix('\n'))
+        .unwrap_or(add);
+    Ok(match text[content_end..end].find('\n') {
+        Some(offset) => {
+            let at = content_end + offset + 1;
+            format!("{}{add}\n{}", &text[..at], &text[at..])
+        }
+        None => format!("{}\n{add}{}", &text[..end], &text[end..]),
+    })
 }

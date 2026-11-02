@@ -7,6 +7,17 @@ async fn section(rig: &Rig, who: &Actor, heading: &str, text: &str) -> Value {
     rig.ok(who, "pad.appendSection", params).await
 }
 
+async fn assert_section_text(rig: &Rig, files: bool, pad: &Value, expected: &str) {
+    assert_eq!(pad["text"], expected, "files={files}");
+    let read = rig
+        .ok(&agent("a"), "pad.read", json!({"name": "notes"}))
+        .await;
+    assert_eq!(read["text"], expected);
+    if files {
+        assert_eq!(rig.file_text("notes.md"), expected);
+    }
+}
+
 #[tokio::test]
 async fn p15_appends_at_section_end() {
     for files in [false, true] {
@@ -31,6 +42,12 @@ async fn p15_appends_at_section_end() {
                 "  Added\t \r\n",
                 "## Plan\nExisting  \n  Added\t \n\n## Next\nKeep\n",
             ),
+            (
+                "## Plan\r\nExisting  \r\n\r\n## Next\r\nKeep\r\n",
+                "Added",
+                "## Plan\r\nExisting  \r\nAdded\n\r\n## Next\r\nKeep\r\n",
+            ),
+            ("## Plan\nx", "Added\r", "## Plan\nx\nAdded\r"),
             ("## Plan\nx\n", "y\n", "## Plan\nx\ny\n"),
             ("## Plan\nx", "y", "## Plan\nx\ny"),
             ("## Plan\nx\ny", "z\n\n", "## Plan\nx\ny\nz\n"),
@@ -42,14 +59,7 @@ async fn p15_appends_at_section_end() {
 
             let appended = section(&rig, &agent("a"), "Plan", supplied).await;
 
-            assert_eq!(appended["text"], expected, "files={files}, before={before:?}");
-            let read = rig
-                .ok(&agent("a"), "pad.read", json!({"name": "notes"}))
-                .await;
-            assert_eq!(read["text"], expected);
-            if files {
-                assert_eq!(rig.file_text("notes.md"), expected);
-            }
+            assert_section_text(&rig, files, &appended, expected).await;
             drop(rig.pads);
             rig.pads = Pads::open(rig.dir.path(), rig.bus.clone()).unwrap();
             let reopened = rig
@@ -63,46 +73,66 @@ async fn p15_appends_at_section_end() {
 
 #[tokio::test]
 async fn p15_deeper_heading_stays_inside_section() {
-    let rig = Rig::new();
-    rig.create("notes", DOC).await;
+    for files in [false, true] {
+        let rig = Rig::new();
+        rig.create(
+            "notes",
+            "# Notes\n\n## Plan\n- one\n\n### Detail\nmore  \n \t\n\n## Done\n- x\n",
+        )
+        .await;
+        rig.ok(&Actor::user(), "pad.setStorage", json!({"files": files}))
+            .await;
 
-    let pad = section(&rig, &agent("a"), "## Plan", "- two").await;
+        let pad = section(&rig, &agent("a"), "## Plan", "- two  ").await;
 
-    assert_eq!(
-        pad["text"],
-        "# Notes\n\n## Plan\n- one\n\n### Detail\nmore\n- two\n\n## Done\n- x\n"
-    );
-    let inner = section(&rig, &agent("a"), "Detail", "deep").await;
-    assert!(
-        inner["text"]
-            .as_str()
-            .unwrap()
-            .contains("more\n- two\ndeep\n\n## Done")
-    );
+        assert_section_text(
+            &rig,
+            files,
+            &pad,
+            "# Notes\n\n## Plan\n- one\n\n### Detail\nmore  \n- two  \n \t\n\n## Done\n- x\n",
+        )
+        .await;
+        let inner = section(&rig, &agent("a"), "Detail", "deep").await;
+        assert_section_text(
+            &rig,
+            files,
+            &inner,
+            "# Notes\n\n## Plan\n- one\n\n### Detail\nmore  \n- two  \ndeep\n \t\n\n## Done\n- x\n",
+        )
+        .await;
+    }
 }
 
 #[tokio::test]
 async fn p15_fenced_hash_is_no_heading() {
-    let rig = Rig::new();
-    rig.create(
-        "notes",
-        "## Plan\n```\n# not a heading\n```\nafter\n## Done\n",
-    )
-    .await;
-
-    let pad = section(&rig, &agent("a"), "Plan", "added").await;
-    assert_eq!(
-        pad["text"],
-        "## Plan\n```\n# not a heading\n```\nafter\nadded\n## Done\n"
-    );
-    let missing = rig
-        .fail(
-            &agent("a"),
-            "pad.appendSection",
-            json!({"name": "notes", "heading": "not a heading", "text": "x"}),
+    for files in [false, true] {
+        let rig = Rig::new();
+        rig.create(
+            "notes",
+            "## Plan\n```\n# not a heading\n```\nafter  \n\n## Done\n",
         )
         .await;
-    assert_eq!(missing.code, code::INVALID_PARAMS);
+        rig.ok(&Actor::user(), "pad.setStorage", json!({"files": files}))
+            .await;
+
+        let pad = section(&rig, &agent("a"), "Plan", "added").await;
+
+        assert_section_text(
+            &rig,
+            files,
+            &pad,
+            "## Plan\n```\n# not a heading\n```\nafter  \nadded\n\n## Done\n",
+        )
+        .await;
+        let missing = rig
+            .fail(
+                &agent("a"),
+                "pad.appendSection",
+                json!({"name": "notes", "heading": "not a heading", "text": "x"}),
+            )
+            .await;
+        assert_eq!(missing.code, code::INVALID_PARAMS);
+    }
 }
 
 #[tokio::test]
@@ -291,18 +321,6 @@ async fn p15_rejected_call_leaves_no_trace() {
             assert_eq!(rig.file_text("notes.md"), DOC);
         }
     }
-}
-
-#[tokio::test]
-async fn p15_file_storage_follows_the_section_append() {
-    let rig = Rig::new();
-    rig.create("notes", DOC).await;
-    rig.ok(&Actor::user(), "pad.setStorage", json!({"files": true}))
-        .await;
-
-    let pad = section(&rig, &agent("a"), "Done", "- y").await;
-
-    assert_eq!(rig.file_text("notes.md"), pad["text"].as_str().unwrap());
 }
 
 #[tokio::test]
