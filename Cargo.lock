@@ -3070,6 +3070,7 @@ name = "messages"
 version = "0.0.0"
 dependencies = [
  "agents",
+ "allocation-counter",
  "async-trait",
  "contracts",
  "provenance",
