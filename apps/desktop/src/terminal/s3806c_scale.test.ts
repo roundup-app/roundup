@@ -188,11 +188,13 @@ it.each(["Agent", "Door", "Bubble"].flatMap(host => [false, true].map(webgl => (
 
   const focused: { cols: number; rows: number }[] = [];
 
-  vi.spyOn(terminal, "focus").mockImplementation(() => { focused.push({ cols: terminal.cols, rows: terminal.rows }); });
+  const focus = terminal.focus.bind(terminal);
+  vi.spyOn(terminal, "focus").mockImplementation(() => { focused.push({ cols: terminal.cols, rows: terminal.rows }); focus(); });
 
   if (hostKind === "Bubble") {
     setPlace({ ...place(), min: false });
     // Input can arrive before Bubble's queued frame. Its resize must already precede this deliberate input.
+    terminal.focus();
     terminal.input("resume", true);
     expect(app.calls.filter(call => call.method === "terminal.resize" || call.method === "terminal.write").slice(-2).map(call => call.method))
       .toEqual(["terminal.resize", "terminal.write"]);
