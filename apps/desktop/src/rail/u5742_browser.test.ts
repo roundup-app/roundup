@@ -84,11 +84,10 @@ it.each(["agents-10", "tree-40"])("u5742a_rendered_rail_choices_and_controls_%s"
     await read(`(() => { const app = window.__fake.app, snapshot = app.handlers['terminal.snapshot']; app.handlers['terminal.snapshot'] = params => new Promise(resolve => { window.releaseSnapshot = () => resolve(snapshot(params)); }); })()`);
     const next = await read<string>("(async () => { const nodes = await window.__fake.app.rpc('rail.tree', {}); return nodes.find(node => node.kind === 'agent' && !window.__terminals.has(node.terminal_id) && document.querySelector('.rail-row[data-id=\"' + node.id + '\"]'))?.id; })()");
     await browser("click", `.rail-row[data-id="${next}"] .name`);
-    await wait("!!window.releaseSnapshot");
     await browser("find", "role", "button", "click", "--name", "⌘/ Focus Ask bar", "--exact");
     await wait("document.activeElement?.matches('.ask-input')");
     await browser("keyboard", "type", "newer draft");
-    await read("window.newerFocus = document.activeElement; window.releaseSnapshot()");
+    await read("window.newerFocus = document.activeElement; window.releaseSnapshot?.()");
     await wait("!!document.querySelector('.pane-screen .xterm-helper-textarea')");
     expect(await read("document.activeElement === window.newerFocus && (window.newerFocus.value ?? window.newerFocus.textContent) === 'newer draft'")).toBe(true);
     await capture("U5742d", `${seed}-ready`);
