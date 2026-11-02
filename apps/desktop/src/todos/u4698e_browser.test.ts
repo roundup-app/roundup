@@ -47,7 +47,9 @@ it.each([[1280, 820], [1512, 950]])("u4698e_activity_rendered_%sx%s", { retry: 0
   await settle();
   await evaluate("document.querySelector('.todo-comments').scrollIntoView(); true");
   await capture("empty");
-  await browser("click", ".todo-history-line");
+  await browser("focus", ".todo-history-line");
+  await settle();
+  await browser("press", "Space");
   await browser("wait", '.todo-history-line[aria-expanded="true"]');
 
   const add = async (from: number, through: number) => {
@@ -78,7 +80,9 @@ it.each([[1280, 820], [1512, 950]])("u4698e_activity_rendered_%sx%s", { retry: 0
   await browser("wait", ".todo-comment-field");
   await settle();
   await evaluate("document.querySelector('.todo-comments').scrollIntoView(); true");
-  await browser("click", ".todo-history-line");
+  await browser("focus", ".todo-history-line");
+  await settle();
+  await browser("press", "Space");
   await browser("wait", '.todo-history-line[aria-expanded="true"]');
   await capture("dense-folded");
 
@@ -112,7 +116,9 @@ it.each([[1280, 820], [1512, 950]])("u4698e_activity_rendered_%sx%s", { retry: 0
   await settle();
 
   if (await evaluate("!!document.querySelector('.todo-history-line')")) {
-    await browser("click", ".todo-history-line");
+    await browser("focus", ".todo-history-line");
+  await settle();
+  await browser("press", "Space");
     await settle();
   }
 
