@@ -24,7 +24,7 @@ Q11's Linux baseline is 11.940635 ms, the median of nine eleven-sample release o
 
 ## Perf work and evidence (R25–R27)
 
-The live `contracts::methods::METHODS` table is checked by `r25_every_method_has_a_perf_disposition` against `methods` arrays in `crates/perf/budgets.json` and the JSON list below. Metadata adds no metric and waives no R7 measurement. Off-path is a workload disposition, never a claim that a method is fast. Review a changed method's disposition against its behavior.
+RPC perf dispositions live beside each method in `crates/contracts/src/declarations.rs` and reach consumers through `contracts::methods::metadata()`. The single `c5459b_missing_metadata_names_the_field` observer checks completeness. `crates/perf/budgets.json` holds measured budgets only. Metadata adds no metric and waives no R7 measurement. Off-path is a workload disposition, never a claim that a method is fast. Review a changed method's disposition against its behavior.
 
 Every perf repair PR carries a table with metric/unit, before/after values, reference commits, exact observer command, host class, physical host identity and run/session identity. Compare the same observer command on one host in one session, changing only reference binaries or repaired code. Retain reports, failures, skips and exit codes. Isolate probe changes by running old/new probes against the same binaries before attributing a difference. Another host or command supplies diagnosis, never the required pair.
 
@@ -60,110 +60,9 @@ Each report path must exist in the tested Git head and repeat its observation's 
 
 ## Off the hot path
 
-These exact method keys explain exclusions from the measured workload. Adding a
-method without a measured mapping or non-empty reason fails live coverage.
+Each declaration names its measured metrics or its exact off-path reason.
+Read these through `contracts::methods::metadata()`; adding a method edits no perf registry.
 
-```json
-{
-  "deliverable.publish": "Published-output management is user-requested and absent from the Terminal echo and Rail-read workload.", "deliverable.list": "Published-output management is user-requested and absent from the Terminal echo and Rail-read workload.",
-  "deliverable.get": "Published-output management is user-requested and absent from the Terminal echo and Rail-read workload.", "deliverable.resolve": "Published-output management is user-requested and absent from the Terminal echo and Rail-read workload.",
-  "deliverable.move": "Published-output management is user-requested and absent from the Terminal echo and Rail-read workload.", "deliverable.remove": "Published-output management is user-requested and absent from the Terminal echo and Rail-read workload.",
-  "ask.send": "Question delivery and selection are event-driven coordination, outside the measured echo and Rail-read loops.", "ask.list": "Question delivery and selection are event-driven coordination, outside the measured echo and Rail-read loops.",
-  "ask.pick": "Question delivery and selection are event-driven coordination, outside the measured echo and Rail-read loops.",
-  "github.issueGet": "Explicit user-requested GitHub reads and writes through the gh CLI are outside the measured echo and Rail-read workload.",
-  "github.prAutoMerge": "Explicit user-requested GitHub reads and writes through the gh CLI are outside the measured echo and Rail-read workload.",
-  "github.prGet": "Explicit user-requested GitHub reads and writes through the gh CLI are outside the measured echo and Rail-read workload.",
-  "github.prReady": "Explicit user-requested GitHub reads and writes through the gh CLI are outside the measured echo and Rail-read workload.",
-  "github.prSetBody": "Explicit user-requested GitHub reads and writes through the gh CLI are outside the measured echo and Rail-read workload.",
-  "daemon.methods": "Connection setup or contract discovery is not a repeated call in the measured workload.",
-  "api.describe": "Connection setup or contract discovery is not a repeated call in the measured workload.",
-  "api.list": "Connection setup or contract discovery is not a repeated call in the measured workload.",
-  "daemon.getNaming": "Global naming preferences are read when opening Settings, outside the Terminal echo and Rail-read workload.",
-  "daemon.setNaming": "Saving global naming preferences is an explicit user action outside the Terminal echo and Rail-read workload.",
-  "skill.status": "Skill state is read when opening Settings, outside the Terminal echo and Rail-read workload.",
-  "skill.setup": "Installing the skill is an explicit user action outside the Terminal echo and Rail-read workload.",
-  "skill.remove": "Removing the skill is an explicit user action outside the Terminal echo and Rail-read workload.",
-  "link.read": "External link reading depends on external content and is absent from the isolated perf workload.",
-  "daemon.identify": "Connection setup or contract discovery is not a repeated call in the measured workload.",
-  "events.subscribe": "Subscription setup is outside the timed calls; write-to-output measures delivery on an already subscribed connection.",
-  "provenance.history": "History inspection is user-requested and absent from the measured steady workload.", "provenance.touched": "History inspection is user-requested and absent from the measured steady workload.",
-  "terminal.open": "Terminal inspection, presentation or lifecycle control is outside the timed write/echo calls and ten-shell RSS sample.", "terminal.close": "Terminal inspection, presentation or lifecycle control is outside the timed write/echo calls and ten-shell RSS sample.",
-  "terminal.resize": "Terminal inspection, presentation or lifecycle control is outside the timed write/echo calls and ten-shell RSS sample.", "terminal.kill": "Terminal inspection, presentation or lifecycle control is outside the timed write/echo calls and ten-shell RSS sample.",
-  "terminal.scheme": "Terminal inspection, presentation or lifecycle control is outside the timed write/echo calls and ten-shell RSS sample.", "terminal.show": "Terminal inspection, presentation or lifecycle control is outside the timed write/echo calls and ten-shell RSS sample.",
-  "terminal.measure": "Explicit opt-in keystroke attribution and calibration setup/collection, outside timed production input and steady-state workloads.",
-  "terminal.list": "Terminal inspection, presentation or lifecycle control is outside the timed write/echo calls and ten-shell RSS sample.", "terminal.snapshot": "Terminal inspection, presentation or lifecycle control is outside the timed write/echo calls and ten-shell RSS sample.",
-  "terminal.catchUp": "Bounded raw-output recovery on Terminal return is outside the timed write/echo calls and ten-shell RSS sample.",
-  "terminal.outputStop": "Terminal inspection, presentation or lifecycle control is outside the timed write/echo calls and ten-shell RSS sample.", "terminal.screen": "Terminal inspection, presentation or lifecycle control is outside the timed write/echo calls and ten-shell RSS sample.",
-  "terminal.read": "Terminal inspection, presentation or lifecycle control is outside the timed write/echo calls and ten-shell RSS sample.", "terminal.search": "Terminal inspection, presentation or lifecycle control is outside the timed write/echo calls and ten-shell RSS sample.",
-  "todo.create": "Todo management is outside the fixed ten-shell and Rail-read workload; no Todo latency is measured.", "todo.get": "Todo management is outside the fixed ten-shell and Rail-read workload; no Todo latency is measured.",
-  "todo.listHanded": "Todo management is outside the fixed ten-shell and Rail-read workload; no Todo latency is measured.", "todo.getHistory": "Todo management is outside the fixed ten-shell and Rail-read workload; no Todo latency is measured.",
-  "todo.readHistory": "Todo management is outside the fixed ten-shell and Rail-read workload; no Todo latency is measured.", "todo.list": "Todo management is outside the fixed ten-shell and Rail-read workload; no Todo latency is measured.",
-  "todo.update": "Todo management is outside the fixed ten-shell and Rail-read workload; no Todo latency is measured.", "todo.complete": "Todo management is outside the fixed ten-shell and Rail-read workload; no Todo latency is measured.",
-  "todo.reopen": "Todo management is outside the fixed ten-shell and Rail-read workload; no Todo latency is measured.", "todo.setBlockers": "Todo management is outside the fixed ten-shell and Rail-read workload; no Todo latency is measured.",
-  "todo.assign": "Todo management is outside the fixed ten-shell and Rail-read workload; no Todo latency is measured.", "todo.hand": "Todo management is outside the fixed ten-shell and Rail-read workload; no Todo latency is measured.",
-  "todo.move": "Todo management is outside the fixed ten-shell and Rail-read workload; no Todo latency is measured.", "todo.reorder": "Todo management is outside the fixed ten-shell and Rail-read workload; no Todo latency is measured.",
-  "todo.delete": "Todo management is outside the fixed ten-shell and Rail-read workload; no Todo latency is measured.", "todo.deletion": "Todo management is outside the fixed ten-shell and Rail-read workload; no Todo latency is measured.",
-  "todo.restore": "Todo management is outside the fixed ten-shell and Rail-read workload; no Todo latency is measured.", "todo.comment": "Todo management is outside the fixed ten-shell and Rail-read workload; no Todo latency is measured.",
-  "todo.redo": "Todo management is outside the fixed ten-shell and Rail-read workload; no Todo latency is measured.",
-  "todo.comments": "Todo management is outside the fixed ten-shell and Rail-read workload; no Todo latency is measured.", "todo.unread": "Todo management is outside the fixed ten-shell and Rail-read workload; no Todo latency is measured.",
-  "todo.markCommentsRead": "Todo management is outside the fixed ten-shell and Rail-read workload; no Todo latency is measured.", "todo.addRef": "Todo management is outside the fixed ten-shell and Rail-read workload; no Todo latency is measured.",
-  "todo.removeRef": "Todo management is outside the fixed ten-shell and Rail-read workload; no Todo latency is measured.", "todo.refs": "Todo management is outside the fixed ten-shell and Rail-read workload; no Todo latency is measured.",
-  "pad.create": "Document editing and storage are outside the Terminal echo and Rail-read workload.", "pad.read": "Document editing and storage are outside the Terminal echo and Rail-read workload.",
-  "pad.reorder": "Shelf ordering is outside the Terminal echo and Rail-read workload.",
-  "pad.list": "Document editing and storage are outside the Terminal echo and Rail-read workload.", "pad.rename": "Document editing and storage are outside the Terminal echo and Rail-read workload.",
-  "pad.write": "Document editing and storage are outside the Terminal echo and Rail-read workload.", "pad.append": "Document editing and storage are outside the Terminal echo and Rail-read workload.",
-  "pad.appendSection": "Document editing and storage are outside the Terminal echo and Rail-read workload.", "pad.setOwner": "Document editing and storage are outside the Terminal echo and Rail-read workload.",
-  "pad.move": "Document editing and storage are outside the Terminal echo and Rail-read workload.", "pad.delete": "Document editing and storage are outside the Terminal echo and Rail-read workload.",
-  "pad.redoDelete": "User-requested document deletion redo is outside the Terminal echo and Rail-read workload.",
-  "pad.getDeletion": "Deletion reconciliation is outside the Terminal echo and Rail-read workload.", "pad.restore": "User-requested document restoration is outside the Terminal echo and Rail-read workload.",
-  "pad.export": "Document editing and storage are outside the Terminal echo and Rail-read workload.", "shortcuts.export": "Writing a Shortcuts file is outside the Terminal echo and Rail-read workload.", "pad.setStorage": "Document editing and storage are outside the Terminal echo and Rail-read workload.",
-  "agent.spawn": "Agent lifecycle, configuration and work coordination are outside the timed hook calls; the hook Agent is setup only.", "agent.extras": "Agent lifecycle, configuration and work coordination are outside the timed hook calls; the hook Agent is setup only.",
-  "agent.extras_add": "Agent lifecycle, configuration and work coordination are outside the timed hook calls; the hook Agent is setup only.", "agent.stop": "Agent lifecycle, configuration and work coordination are outside the timed hook calls; the hook Agent is setup only.",
-  "agent.prompt": "Agent lifecycle, configuration and work coordination are outside the timed hook calls; the hook Agent is setup only.", "agent.interrupt": "Agent lifecycle, configuration and work coordination are outside the timed hook calls; the hook Agent is setup only.",
-  "agent.worktreeState": "Agent lifecycle, configuration and work coordination are outside the timed hook calls; the hook Agent is setup only.", "agent.changedFiles": "Agent lifecycle, configuration and work coordination are outside the timed hook calls; the hook Agent is setup only.",
-  "agent.compareFile": "Agent lifecycle, configuration and work coordination are outside the timed hook calls; the hook Agent is setup only.", "agent.land": "Agent lifecycle, configuration and work coordination are outside the timed hook calls; the hook Agent is setup only.",
-  "agent.discard": "Agent lifecycle, configuration and work coordination are outside the timed hook calls; the hook Agent is setup only.", "agent.context": "Agent lifecycle, configuration and work coordination are outside the timed hook calls; the hook Agent is setup only.",
-  "agent.brief": "Agent lifecycle, configuration and work coordination are outside the timed hook calls; the hook Agent is setup only.", "agent.skills": "Agent lifecycle, configuration and work coordination are outside the timed hook calls; the hook Agent is setup only.",
-  "agent.digest": "Agent lifecycle, configuration and work coordination are outside the timed hook calls; the hook Agent is setup only.", "agent.wake": "Agent lifecycle, configuration and work coordination are outside the timed hook calls; the hook Agent is setup only.",
-  "reaction.create": "Reaction configuration and explicit execution are absent from the isolated Terminal and Rail workload.", "reaction.preview": "Reaction configuration and explicit execution are absent from the isolated Terminal and Rail workload.",
-  "reaction.list": "Reaction configuration and explicit execution are absent from the isolated Terminal and Rail workload.", "reaction.get": "Reaction configuration and explicit execution are absent from the isolated Terminal and Rail workload.",
-  "reaction.stop": "Reaction configuration and explicit execution are absent from the isolated Terminal and Rail workload.", "reaction.run": "Reaction configuration and explicit execution are absent from the isolated Terminal and Rail workload.",
-  "action.serve": "Named actions are explicit user work and absent from the isolated Terminal and Rail workload.", "action.list": "Named actions are explicit user work and absent from the isolated Terminal and Rail workload.", "action.run": "Named actions are explicit user work and absent from the isolated Terminal and Rail workload.", "action.userList": "User actions are explicit user work and absent from the isolated Terminal and Rail workload.",
-  "agent.spawnPrompt": "Agent lifecycle, configuration and work coordination are outside the timed hook calls; the hook Agent is setup only.", "agent.setOrder": "Agent lifecycle, configuration and work coordination are outside the timed hook calls; the hook Agent is setup only.",
-  "agent.instructions": "Agent lifecycle, configuration and work coordination are outside the timed hook calls; the hook Agent is setup only.", "agent.channelUp": "Agent lifecycle, configuration and work coordination are outside the timed hook calls; the hook Agent is setup only.",
-  "workstream.restart": "User-requested fresh Door launch is outside the steady Rail-read workload.", "workstream.setAuto": "Workstream scheduling and lifecycle actions are absent from the steady Rail-read workload.", "workstream.setOpeningPrompt": "Workstream settings are absent from the steady Rail-read workload.",
-  "rail.createWorkstream": "Rail mutation or listing is setup or a user action, outside the repeated rail.tree latency sample.", "rail.move": "Rail mutation or listing is setup or a user action, outside the repeated rail.tree latency sample.",
-  "rail.setAlertLevel": "User-requested alert configuration writes are outside the repeated rail.tree latency sample.",
-  "rail.rename": "Rail mutation or listing is setup or a user action, outside the repeated rail.tree latency sample.", "rail.startDoor": "Rail mutation or listing is setup or a user action, outside the repeated rail.tree latency sample.",
-  "agent.run": "Agent lifecycle, configuration and work coordination are outside the timed hook calls; the hook Agent is setup only.",
-  "project.setWorktrees": "Project inspection or configuration is outside the steady Terminal write and Rail-read workload.", "project.setMcp": "Project inspection or configuration is outside the steady Terminal write and Rail-read workload.",
-  "project.setPrepared": "Project inspection or configuration is outside the steady Terminal write and Rail-read workload.", "project.getPrepared": "Project inspection or configuration is outside the steady Terminal write and Rail-read workload.",
-  "project.importDiscover": "Project inspection or configuration is outside the steady Terminal write and Rail-read workload.",
-  "import.list": "Saved-conversation import is explicit user work and absent from the isolated perf workload.",
-  "project.importCommit": "Project inspection or configuration is outside the steady Terminal write and Rail-read workload.", "project.prepareDirectory": "Project inspection or configuration is outside the steady Terminal write and Rail-read workload.",
-  "project.get": "Project inspection or configuration is outside the steady Terminal write and Rail-read workload.", "project.setModels": "Project inspection or configuration is outside the steady Terminal write and Rail-read workload.",
-  "models.list": "Vendor model discovery is configuration work, absent from the isolated perf workload.",
-  "project.resources": "Project inspection or configuration is outside the steady Terminal write and Rail-read workload.", "project.open": "Project inspection or configuration is outside the steady Terminal write and Rail-read workload.",
-  "project.rename": "Project inspection or configuration is outside the steady Terminal write and Rail-read workload.",
-  "message.progress": "Durable instruction and result coordination are absent from the Terminal echo and Rail-read workload.", "message.report": "Durable instruction and result coordination are absent from the Terminal echo and Rail-read workload.",
-  "message.acceptResult": "Durable instruction and result coordination are absent from the Terminal echo and Rail-read workload.", "message.verifyResult": "Durable instruction and result coordination are absent from the Terminal echo and Rail-read workload.",
-  "message.resolveResult": "Durable instruction and result coordination are absent from the Terminal echo and Rail-read workload.", "message.reconcileWork": "Durable instruction and result coordination are absent from the Terminal echo and Rail-read workload.",
-  "message.resumeWork": "Durable instruction and result coordination are absent from the Terminal echo and Rail-read workload.", "message.send": "Durable instruction and result coordination are absent from the Terminal echo and Rail-read workload.",
-  "message.get": "Durable instruction and result coordination are absent from the Terminal echo and Rail-read workload.", "message.list": "Durable instruction and result coordination are absent from the Terminal echo and Rail-read workload.",
-  "message.drop": "Durable instruction and result coordination are absent from the Terminal echo and Rail-read workload.",
-  "route.set": "Routing configuration is absent from the isolated Terminal and Rail-read workload.", "route.list": "Routing configuration is absent from the isolated Terminal and Rail-read workload.",
-  "rail.redo": "Retained Rail mutation is a user action, outside the repeated rail.tree latency sample.",
-  "rail.remove": "Rail mutation or listing is setup or a user action, outside the repeated rail.tree latency sample.",
-  "rail.deletion": "Deletion reconciliation is outside the Terminal echo and repeated rail.tree latency workload.",
-  "rail.restore": "User-requested Rail restoration is outside the Terminal echo and repeated rail.tree latency workload.",
-  "agent.resume": "Agent lifecycle, configuration and work coordination are outside the timed hook calls; the hook Agent is setup only.", "agent.setModel": "Agent lifecycle, configuration and work coordination are outside the timed hook calls; the hook Agent is setup only.", "agent.makeWorkstream": "Agent lifecycle, configuration and work coordination are outside the timed hook calls; the hook Agent is setup only.", "agent.saveAsMode": "Agent lifecycle, configuration and work coordination are outside the timed hook calls; the hook Agent is setup only.",
-  "workstream.rewind": "Workstream scheduling and lifecycle actions are absent from the steady Rail-read workload.",
-  "todo.startWorkstream": "Todo management is outside the fixed ten-shell and Rail-read workload; no Todo latency is measured.",
-  "workstream.queue": "Workstream scheduling and lifecycle actions are absent from the steady Rail-read workload.", "workstream.dequeue": "Workstream scheduling and lifecycle actions are absent from the steady Rail-read workload.",
-  "workstream.queueMove": "Workstream scheduling and lifecycle actions are absent from the steady Rail-read workload.", "workstream.startNow": "Workstream scheduling and lifecycle actions are absent from the steady Rail-read workload.",
-  "project.setWorkstreamCap": "Project inspection or configuration is outside the steady Terminal write and Rail-read workload."
-}
-```
 
 ## What is enforced, and what is not
 
