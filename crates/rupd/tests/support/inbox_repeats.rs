@@ -36,13 +36,13 @@ impl messages::NoteInbox for Peer {
         Some(self.session.lock().unwrap().clone())
     }
     fn content(&self, _: &str, entry: &Entry) -> String {
-        entry.content("uds:/probe/rupd", "default")
+        entry.content("uds:/probe/service", "default")
     }
     fn previous(&self, _: &str) -> Result<Option<String>, Inbox> {
         agents::claude_code::inbox::previous(
             &self.transcript,
             &self.session.lock().unwrap(),
-            "uds:/probe/rupd",
+            "uds:/probe/service",
         )
         .map_err(|_| Inbox::Missing)
     }
@@ -127,7 +127,17 @@ impl Delivery {
         );
     }
     async fn call(&self, method: &str, params: Value) -> Value {
-        self.messages.call(&self.ctx, method, params).await.unwrap()
+        let reader = rpc::Ctx {
+            actor: Actor::user(),
+            bus: self.ctx.bus.clone(),
+            touches: self.ctx.touches.clone(),
+        };
+        let ctx = if matches!(method, "message.get" | "message.list") {
+            &reader
+        } else {
+            &self.ctx
+        };
+        self.messages.call(ctx, method, params).await.unwrap()
     }
     async fn send(&self, kind: &str, body: &str) -> u32 {
         self.call(
@@ -295,8 +305,8 @@ async fn b5763c_restart_closes_a_dropped_inflight_repeat() {
                 text: "A".into(),
                 one_line: false,
             }
-            .content("uds:/probe/rupd", "default");
-            std::fs::write(&h.peer.transcript,format!("{}\n",json!({"sessionId":"same-session","origin":{"kind":"peer","from":"uds:/probe/rupd"},"message":{"content":content}}))).unwrap();
+            .content("uds:/probe/service", "default");
+            std::fs::write(&h.peer.transcript,format!("{}\n",json!({"sessionId":"same-session","origin":{"kind":"peer","from":"uds:/probe/service"},"message":{"content":content}}))).unwrap();
         }
         db.execute("INSERT INTO messages(from_actor,to_id,kind,body,status,at,receiver_attempt,receiver_revision,rank) SELECT from_actor,to_id,kind,body,'pending',at,receiver_attempt,receiver_revision,rank FROM messages WHERE id=?",[first]).unwrap();
         let repeat = db.last_insert_rowid() as u32;
@@ -431,15 +441,12 @@ async fn b5763d_committed_rename_and_todo_handoff_share_the_repeat_rule() {
         let content = Entry {
             id: first,
             kind: contracts::message::MessageKind::Note,
-            from: "rupd".into(),
+            from: Actor::daemon().id,
             text: body.clone(),
             one_line: false,
         }
         .content(&from, "default");
-        let path = rupd::data::project_data(run.data.path(), run.dir.path())
-            .unwrap()
-            .join("project.db");
-        let db = rusqlite::Connection::open(path).unwrap();
+        let db = run.database();
         assert_eq!(
             db.execute(
                 "UPDATE message_inbox_last SET content=? WHERE receiver=?",
@@ -489,12 +496,19 @@ async fn b5763b_rendered_labels_and_the_one_line_cut_decide_equality() {
     h.ctx.actor = Actor::daemon();
     let other = h.send("note", "same body").await;
     assert_eq!(h.writes(), [first, other]);
-    let prefix = format!("[digest] {}", "é".repeat(150));
-    let long = h.send("note", &format!("{prefix} left")).await;
-    let repeat = h.send("note", &format!("{prefix} right")).await;
+    let prefix = "é".repeat(150);
+    let left = messages::digest::push_body(&digest(&format!("{prefix} left")));
+    let right = messages::digest::push_body(&digest(&format!("{prefix} right")));
+    let long = h.send("note", &left).await;
+    let repeat = h.send("note", &right).await;
     assert_eq!(h.writes(), [first, other, long]);
     assert_eq!(h.get(repeat).await["reason"], "repeat of last inbox entry");
-    assert_eq!(h.get(repeat).await["body"], format!("{prefix} right"));
+    assert!(
+        h.get(repeat).await["body"]
+            .as_str()
+            .unwrap()
+            .starts_with(&right)
+    );
 }
 
 // Rejects calling an unwritten pending note delivered merely because the Daemon reopened.

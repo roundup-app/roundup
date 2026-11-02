@@ -30,6 +30,12 @@ async fn b51_a_note_repeating_the_last_one_is_refused_and_made_no_record() {
                 assert_eq!(listed.as_array().unwrap().len(), 1, "no second record");
                 // Another text, and the same text once another note came between, are taken up.
                 let other = run.note("other").await;
+                until("different entry reached the peer", async || {
+                    run.entries()
+                        .contains(&format!("rup-{other}"))
+                        .then_some(())
+                })
+                .await;
                 let again = run.note("same").await;
                 until("taken up", async || {
                     (run.entries().len() == 3).then_some(())
@@ -59,7 +65,10 @@ async fn b51_other_senders_and_a_new_attempt_keep_distinct_messages() {
     .await;
     assert_ne!(first, second);
     assert_eq!(run.message(first).await["from"]["kind"], "ext");
-    assert_eq!(run.message(second).await["from"]["id"], "rupd");
+    assert_eq!(
+        run.message(second).await["from"]["id"],
+        contracts::Actor::daemon().id
+    );
     run.record(&[first, second]).await;
     until("receipts", async || {
         (run.status(first).await.0 == "delivered" && run.status(second).await.0 == "delivered")
