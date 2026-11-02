@@ -239,11 +239,11 @@ it.skipIf(Boolean(captureDir("U4698e")) && !captureDir("U3311"))("u3311_real_dae
     await observe(moved.id, agents[0]!.id);
     await lane.browser("click", ".todo-add-notes");
     await lane.until("!!document.querySelector('.todo-detail-body .ProseMirror[aria-label=Body]')");
-    await lane.browser("fill", ".todo-detail-body .ProseMirror[aria-label=Body]", "Exact body é 🧪 次の行");
+    await lane.browser("fill", ".todo-detail-body .ProseMirror[aria-label=Body]", "Exact body é 🧪 次の行"); // taste-skill-ignore: Unicode draft probe, not interface decoration.
     await lane.browser("press", "Control+Enter");
-    await expect.poll(async () => (await app.rpc("todo.get", { id: moved.id })).body).toBe("Exact body é 🧪 次の行");
+    await expect.poll(async () => (await app.rpc("todo.get", { id: moved.id })).body).toBe("Exact body é 🧪 次の行"); // taste-skill-ignore: Exact Unicode round-trip assertion.
     await lane.until("document.activeElement !== document.body && !!document.querySelector('.todo-detail-body .ProseMirror')");
-    saved.set(moved.id, { title: "Release notes revised", body: "Exact body é 🧪 次の行" });
+    saved.set(moved.id, { title: "Release notes revised", body: "Exact body é 🧪 次の行" }); // taste-skill-ignore: Expected Unicode draft value.
     await observe(moved.id, agents[0]!.id);
     // U4698e: user comments join the persisted resulting work in its Activity.
     await lane.until("!!document.querySelector('.todo-comments .todo-history-line')");
