@@ -207,7 +207,7 @@ it.each(["terminal", "rail row", "Project tab", "Shelf row", "Pad row", "Pad edi
 
     if (place === "Pad editor") {
       await openPad("Plan");
-      screen.getByRole("textbox", { name: "Pad body" }).focus();
+      screen.getByLabelText("Pad body", { selector: '[role="textbox"]' }).focus();
     }
   }
 
@@ -413,7 +413,7 @@ it.each(["key", "menu"])("u3787b_menu_and_key_share_one_action: Project Rename f
   if (source === "key") fireEvent.keyDown(target, { key: "F2", code: "F2" });
   else openProjectPage("action:chord:F2", "/p");
 
-  const field = await screen.findByRole<HTMLInputElement>("textbox", { name: "Project name" });
+  const field = await screen.findByLabelText<HTMLInputElement>("Project name", { selector: 'input' });
   expect(field.closest(".project-tab")?.getAttribute("data-path")).toBe("/p");
   expect(rename).not.toHaveBeenCalled();
   expect(captured.available()).toBe(false);
@@ -425,7 +425,7 @@ it.each(["key", "menu"])("u3787b_menu_and_key_share_one_action: Project Rename f
   await waitFor(() => expect(rename).toHaveBeenCalledExactlyOnceWith("/p", "Renamed Project", "p"));
   expect(document.activeElement?.closest(".project-tab")?.getAttribute("data-path")).toBe("/p");
   const retained = captureActions(document.activeElement).find(action => action.value === "action:chord:F2")!;
-  screen.getByRole("textbox", { name: "Ask" }).focus();
+  screen.getByLabelText("Ask", { selector: '[role="textbox"]' }).focus();
   expect(retained.available()).toBe(false);
   retained.run();
   openProjectPage("action:chord:F2", "/p");
@@ -445,7 +445,7 @@ it.each([
   await showEverythingInApp(undefined, "Pads");
   const field = await openPad("Plan");
   field.setSelectionRange(1, 7, "forward");
-  const surface = screen.getByRole("textbox", { name: "Pad body" });
+  const surface = screen.getByLabelText("Pad body", { selector: '[role="textbox"]' });
   surface.focus();
   await waitFor(() => expect(projectMenu.items.find(item => item.id === `action:chord:${chord}`)).toMatchObject({ shortcut: chord, enabled: true }));
   const captured = captureActions(surface).find(action => action.keys === chord)!;
@@ -458,7 +458,7 @@ it.each([
   expect([...field.querySelectorAll(semantic)].map(node => node.textContent)).toEqual(["chosen"]);
   expect(field.value).toContain(" untouched");
   expect(document.activeElement).toBe(surface);
-  const ask = screen.getByRole("textbox", { name: "Ask" });
+  const ask = screen.getByLabelText("Ask", { selector: '[role="textbox"]' });
   ask.focus();
   expect(captured.available()).toBe(false);
   captured.run();
@@ -481,7 +481,7 @@ it.each([
   await showEverythingInApp(undefined, "Pads");
   const field = await openPad("Plan");
   field.setSelectionRange(1, 7, "forward");
-  const surface = screen.getByRole("textbox", { name: "Pad body" });
+  const surface = screen.getByLabelText("Pad body", { selector: '[role="textbox"]' });
   surface.focus();
   await waitFor(() => expect(projectMenu.items.find(item => item.id === `action:chord:${chord}`)).toMatchObject({ shortcut: chord, enabled: true }));
   const captured = captureActions(surface).find(action => action.keys === chord)!;
@@ -493,7 +493,7 @@ it.each([
 
   expect([...field.querySelectorAll(semantic)].map(node => node.querySelector("p")?.textContent ?? node.textContent)).toEqual(["chosen"]);
   expect(document.activeElement).toBe(surface);
-  screen.getByRole("textbox", { name: "Ask" }).focus();
+  screen.getByLabelText("Ask", { selector: '[role="textbox"]' }).focus();
   expect(captured.available()).toBe(false);
   captured.run();
   openProjectPage(`action:chord:${chord}`);

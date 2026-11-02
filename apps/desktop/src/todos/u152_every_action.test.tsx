@@ -8,7 +8,7 @@ afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
 type Mounted = Awaited<ReturnType<typeof mountTodos>>;
 
-const drawer = () => screen.getByRole("complementary", { name: "Drawer" });
+const drawer = () => screen.getByLabelText("Drawer", { selector: 'aside' });
 
 /** The Event the Daemon sends after a write: the list refetches from the store. */
 const refetch = ({ app, store }: Mounted) => app.emit(todoEvent("todo.updated", { ...store.todos[0]! }));

@@ -15,14 +15,14 @@ import { renderTabs, openTabs, path, tab, projectTabs } from "./stripFixture";
 
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
-const field = () => screen.getByRole<HTMLInputElement>("textbox", { name: "Project name" });
+const field = () => screen.getByLabelText<HTMLInputElement>("Project name", { selector: 'input' });
 
 const edit = async (name = "api") => {
   await settled();
   const target = await screen.findByRole("tab", { name: new RegExp(`^${name}`) });
   fireEvent.dblClick(target.querySelector(".tab-name")!);
 
-  return await screen.findByRole<HTMLInputElement>("textbox", { name: "Project name" });
+  return await screen.findByLabelText<HTMLInputElement>("Project name", { selector: 'input' });
 };
 
 const press = (key: string) => fireEvent.keyDown(field(), { key });
@@ -220,7 +220,7 @@ it.each(["F2", "double-click", "native Rename"] as const)("u3787c_escape_restore
     await app.pickMenu("Rename");
   }
 
-  const input = await screen.findByRole<HTMLInputElement>("textbox", { name: "Project name" });
+  const input = await screen.findByLabelText<HTMLInputElement>("Project name", { selector: 'input' });
   await waitFor(() => expect(document.activeElement).toBe(input));
   const exact = "  e\u0301 🪁 雪\t  ";
   fireEvent.input(input, { target: { value: exact } });
@@ -287,7 +287,7 @@ it("u2773c_header_late_conflict_read_cannot_replace_newer_acknowledgement", asyn
   app.projects = () => new Promise(resolve => { finishRead = resolve; });
   tab("api").focus();
   fireEvent.keyDown(tab("api"), { key: "F2" });
-  const older = await screen.findByRole<HTMLInputElement>("textbox", { name: "Project name" });
+  const older = await screen.findByLabelText<HTMLInputElement>("Project name", { selector: 'input' });
   fireEvent.input(older, { target: { value: "A 雪" } });
   press("Enter");
   await waitFor(() => expect(calls).toHaveLength(1));
@@ -459,7 +459,7 @@ it.each(["failed", "unknown"] as const)("u3021c_open_restores_exact_revision_wit
   const before = drafts.list();
   const beforeCalls = calls();
   open(a.revision);
-  const input = await screen.findByRole<HTMLInputElement>("textbox", { name: "Project name" });
+  const input = await screen.findByLabelText<HTMLInputElement>("Project name", { selector: 'input' });
   await waitFor(() => expect(document.activeElement).toBe(input));
   expect([input.value, input.selectionStart, input.selectionEnd, input.selectionDirection])
     .toEqual([a.value.name, 2, 7, "backward"]);
@@ -468,7 +468,7 @@ it.each(["failed", "unknown"] as const)("u3021c_open_restores_exact_revision_wit
   expect(screen.queryByRole("textbox")).toBeNull();
   expect(drafts.list()).toEqual(before);
   open(b.revision);
-  const newer = await screen.findByRole<HTMLInputElement>("textbox", { name: "Project name" });
+  const newer = await screen.findByLabelText<HTMLInputElement>("Project name", { selector: 'input' });
   expect([newer.value, newer.selectionStart, newer.selectionEnd, newer.selectionDirection])
     .toEqual([b.value.name, 1, 4, "forward"]);
   press("Escape");
@@ -480,7 +480,7 @@ it.each(["failed", "unknown"] as const)("u3021c_header_editing_selected_revision
   const { drafts, a, b, open, calls } = await selectedHeader(outcome);
   const beforeCalls = calls();
   open(a.revision);
-  const input = await screen.findByRole<HTMLInputElement>("textbox", { name: "Project name" });
+  const input = await screen.findByLabelText<HTMLInputElement>("Project name", { selector: 'input' });
   fireEvent.input(input, { target: { value: "  edited A 🧭  " } });
   input.setSelectionRange(1, 6, "backward");
   fireEvent.select(input);
@@ -490,7 +490,7 @@ it.each(["failed", "unknown"] as const)("u3021c_header_editing_selected_revision
   expect(drafts.list()).toContainEqual(b);
   expect(drafts.list()).toContainEqual(a);
   open(b.revision);
-  const newer = await screen.findByRole<HTMLInputElement>("textbox", { name: "Project name" });
+  const newer = await screen.findByLabelText<HTMLInputElement>("Project name", { selector: 'input' });
   expect([newer.value, newer.selectionStart, newer.selectionEnd, newer.selectionDirection]).toEqual([b.value.name, 1, 4, "forward"]);
   open(edited.revision);
   await waitFor(() => expect(field().value).toBe("  edited A 🧭  "));
@@ -511,7 +511,7 @@ it.each(["acknowledged", "failed", "unknown"] as const)("u3021c_header_confirmat
     return { path: path("api"), name: "edited A" };
   });
   open(a.revision);
-  const input = await screen.findByRole<HTMLInputElement>("textbox", { name: "Project name" });
+  const input = await screen.findByLabelText<HTMLInputElement>("Project name", { selector: 'input' });
   fireEvent.input(input, { target: { value: "edited A" } });
   const submitted = drafts.list().find(draft => draft.value.name === "edited A")!;
   press("Enter");
@@ -527,7 +527,7 @@ it("u3021c_header_selected_edit_preserves_captured_base_conflict_refusal", async
   await app.renameProject(path("api"), "external");
   const sends = vi.spyOn(app, "renameProject");
   open(a.revision);
-  const input = await screen.findByRole<HTMLInputElement>("textbox", { name: "Project name" });
+  const input = await screen.findByLabelText<HTMLInputElement>("Project name", { selector: 'input' });
   fireEvent.input(input, { target: { value: "my edit" } });
   press("Enter");
   await waitFor(() => expect(drafts.list().find(draft => draft.value.name === "my edit")?.status).toBe("failed"));
@@ -540,7 +540,7 @@ it("u3021c_header_unknown_acceptance_is_never_retried_unchanged", async () => {
   const { a, open, calls } = await selectedHeader("unknown");
   const before = calls();
   open(a.revision);
-  await screen.findByRole("textbox", { name: "Project name" });
+  await screen.findByLabelText("Project name", { selector: 'input' });
   press("Enter");
   await screen.findByRole("dialog", { name: "Unfinished work" });
   expect(calls()).toEqual(before);

@@ -36,7 +36,7 @@ const mountInbox = async (nodes: RailNode[] = NODES, reducedMotion = true) => {
   render(() => <ConnectedProjectContext.Provider value={m.connected}><AskBar /></ConnectedProjectContext.Provider>);
   m.connected.showView(null);
   m.connected.showView("attention");
-  await screen.findByRole("region", { name: "Needs you" });
+  await screen.findByLabelText("Needs you", { selector: 'section' });
 
   return m;
 };
@@ -187,7 +187,7 @@ it("u3770a_unread_comment_rows_keep_u3742_behaviour", async () => {
   render(() => <ConnectedProjectContext.Provider value={m.connected}><AskBar /></ConnectedProjectContext.Provider>);
   m.connected.showView(null);
   m.connected.showView("attention");
-  await screen.findByRole("region", { name: "Needs you" });
+  await screen.findByLabelText("Needs you", { selector: 'section' });
   const row = (await within(groupOf("Needs you")).findAllByRole("button", { name: /alpha.*Ship/ }))[0]!;
   // The unread comment row follows the Agent rows and makes no Message call.
   expect(within(row).getByText(m.store.comments!.get(1)![0]!.body)).toBeTruthy();
@@ -306,7 +306,7 @@ it.each(["rail", "ask", "bench", "drawer", "agent-terminal", "shell-terminal", "
     await connected().rail.refresh();
   }
 
-  const ask = screen.getByRole("textbox", { name: "Ask" });
+  const ask = screen.getByLabelText("Ask", { selector: '[role="textbox"]' });
   const draft = "  exact é 東京 🧭 draft  ";
   fireEvent.input(ask, { target: { value: draft } });
   await screen.findByRole("button", { name: "Made" });
@@ -355,14 +355,14 @@ it.each(["rail", "ask", "bench", "drawer", "agent-terminal", "shell-terminal", "
     expect(["Needs you", "Asks", "Reactions", "Made"].map(name => screen.getByRole("button", { name }).getAttribute("aria-expanded"))).toEqual(["true", "false", "false", "false"]);
 
     if (from.startsWith("empty") || from.startsWith("idle")) {
-      const inbox = screen.getByRole("region", { name: "Needs you" });
+      const inbox = screen.getByLabelText("Needs you", { selector: 'section' });
       expect(within(inbox).queryAllByRole("listitem")).toHaveLength(0);
       expect(inbox.textContent?.trim()).not.toBe("");
     }
 
     expect(connected().project.path).toBe("/p");
     expect(projectMenu.path).toBe("/p");
-    expect(screen.getByRole("textbox", { name: "Ask" })).toHaveProperty("value", draft);
+    expect(screen.getByLabelText("Ask", { selector: '[role="textbox"]' })).toHaveProperty("value", draft);
     expect(daemon.calls.slice(before).filter(call => ["terminal.write", "ask.send", "agent.resume", "rail.startDoor", "agent.spawn"].includes(call.method))).toEqual([]);
   }
 });
