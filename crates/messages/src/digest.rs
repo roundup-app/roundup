@@ -28,12 +28,15 @@ pub struct Sources<'a> {
     pub todos: &'a [Todo],
     pub pads: &'a [Pad],
     pub touches: Vec<contracts::Touch>,
+    /// A5482c: Agent id to (Attempt/turn identity, turn start in Unix milliseconds, final text), from the Adapter.
+    pub completed: HashMap<String, (String, i64, String)>,
     pub messages: &'a [Message],
 }
 
 /// What a Door was last told about a child, to see whether a change alters the entry (B21).
 #[derive(Clone, PartialEq, Eq)]
 struct Told {
+    completed: Option<String>,
     kind: Kind,
     todos: u32,
     /// The newest Pad write seen then, named or not.
@@ -236,10 +239,26 @@ impl Seen {
             let after = book.named.get(&key).copied();
             let (entry, newest) = entry(child, &meta.id, from, after, false);
             let now = told(&entry, child, from);
+            let new_final = now.completed.is_some()
+                && book
+                    .told
+                    .get(&key)
+                    .is_none_or(|was| was.completed != now.completed);
+            if meta.kind != NodeKind::Workstream && !new_final {
+                continue;
+            }
             // B43: the change into `error` or `needs-you` is the parent's note, not a push.
             let attention = matches!(now.kind, Kind::Error | Kind::NeedsYou);
+            let question_turn = from
+                .completed
+                .get(&child.id)
+                .is_some_and(|(_, started, _)| question_since(child, from, *started));
             let moved = book.told.get(&key).is_none_or(|was| {
-                (was.kind != now.kind && !is_flip(was, &now) && !attention)
+                (was.kind != now.kind
+                    && !is_flip(was, &now)
+                    && !attention
+                    && !(question_turn && matches!(now.kind, Kind::Idle | Kind::Working)))
+                    || (now.completed.is_some() && was.completed != now.completed)
                     || was.todos != now.todos
                     || (!entry.pads.is_empty() && now.pads > was.pads)
             });
@@ -375,6 +394,7 @@ pub fn push_body(entry: &DigestEntry) -> String {
 
 fn told(entry: &DigestEntry, child: &RailNode, from: &Sources) -> Told {
     Told {
+        completed: final_text(child, from).map(|(turn, _, _)| turn.clone()),
         kind: entry.kind,
         todos: entry.todos,
         pads: newest_pad(child, from),
@@ -448,11 +468,11 @@ fn children_of<'a>(id: &str, from: &'a Sources) -> Vec<&'a RailNode> {
         .collect()
 }
 
-/// Every (Door, child) pair on the Rail, the Door being a Workstream whose Door ran.
+/// Every coordinating Agent and direct child on the Rail, including non-Door parents (A5482c).
 fn pairs<'a>(from: &'a Sources) -> impl Iterator<Item = (&'a RailNode, &'a RailNode)> {
     from.nodes
         .iter()
-        .filter(|node| node.kind == NodeKind::Workstream && is_agent(node))
+        .filter(|node| is_agent(node))
         .flat_map(|meta| {
             children_of(&meta.id, from)
                 .into_iter()
@@ -491,11 +511,18 @@ fn entry(
         .max_by_key(|message| message.id);
     // B49: an end note carries the child's own summary, whole, or says there was none.
     let end = end && is_end(child);
+    let final_reply = (!end).then(|| final_text(child, from)).flatten();
     let last = match (told, end) {
         (Some(message), true) => message.body.as_str(),
         (None, true) => NO_FINDING,
         (Some(message), false) => message.body.lines().next().unwrap_or_default(),
         (None, false) => status.label.as_str(),
+    };
+    let last = final_reply.map_or(last, |(_, _, text)| text.as_str());
+    let last = if final_reply.is_some() && last.lines().count() > 1 {
+        format!("{}[cut]", last.lines().next().unwrap_or_default())
+    } else {
+        last.to_owned()
     };
     let todos = from
         .todos
@@ -532,7 +559,7 @@ fn entry(
     let entry = DigestEntry {
         name: child.name.clone(),
         kind: status.kind,
-        last: cut(last, if end { END_LAST_BYTES } else { LAST_BYTES }),
+        last: cut(&last, if end { END_LAST_BYTES } else { LAST_BYTES }),
         todos: u32::try_from(todos).unwrap_or(u32::MAX),
         pads,
     };
@@ -540,6 +567,30 @@ fn entry(
         fit(entry, if end { END_ENTRY_BYTES } else { ENTRY_BYTES }),
         newest,
     )
+}
+
+/// Explicit question Messages already carry this turn's choice; never duplicate them as fallback.
+fn final_text<'a>(child: &RailNode, from: &'a Sources) -> Option<&'a (String, i64, String)> {
+    if is_end(child) {
+        return None;
+    }
+    let text = from.completed.get(&child.id)?;
+    if !text
+        .0
+        .starts_with(&format!("{}:", child.attempt.as_deref()?))
+    {
+        return None;
+    }
+    (!question_since(child, from, text.1)).then_some(text)
+}
+
+fn question_since(child: &RailNode, from: &Sources, started: i64) -> bool {
+    from.messages.iter().any(|message| {
+        message.from.kind == ActorKind::Agent
+            && message.from.id == child.id
+            && message.kind == contracts::message::MessageKind::Question
+            && message.at >= started
+    })
 }
 
 /// `text` as is when it fits `max` bytes, else a prefix ending in `[cut]`, whole at most `max`.

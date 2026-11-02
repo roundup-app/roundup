@@ -559,6 +559,7 @@ mod recovery {
             fx.app
                 .state::<AppState>()
                 .projects()
+                .unwrap()
                 .iter()
                 .any(|entry| entry.path == path && entry.running)
         );
@@ -587,6 +588,7 @@ mod recovery {
                     .app
                     .state::<AppState>()
                     .projects()
+                    .unwrap()
                     .iter()
                     .any(|entry| entry.path == path && entry.running)
         })
@@ -605,6 +607,7 @@ mod recovery {
                     .app
                     .state::<AppState>()
                     .projects()
+                    .unwrap()
                     .iter()
                     .any(|entry| entry.path == path && entry.running)
         })
@@ -654,6 +657,7 @@ mod recovery {
             fx.app
                 .state::<AppState>()
                 .projects()
+                .unwrap()
                 .iter()
                 .any(|entry| entry.path == late && entry.running)
         );
@@ -694,6 +698,7 @@ mod recovery {
             !fx.app
                 .state::<AppState>()
                 .projects()
+                .unwrap()
                 .iter()
                 .any(|entry| entry.path == path || entry.path == blocking)
         );
@@ -751,6 +756,7 @@ mod recovery {
                     .app
                     .state::<AppState>()
                     .projects()
+                    .unwrap()
                     .iter()
                     .any(|entry| entry.path == b && entry.running)
         })
@@ -794,7 +800,7 @@ mod recovery {
         fx.app.state::<AppState>().close();
         tick(1000).await;
         assert_eq!(fx.starts(&path), 1);
-        assert!(fx.app.state::<AppState>().projects().is_empty());
+        assert!(fx.app.state::<AppState>().projects().unwrap().is_empty());
     }
 }
 
@@ -845,7 +851,7 @@ mod s6 {
             invoke("claude_binary"),
             json!({"path": binary, "version": "9.8.7 (Claude Code)"})
         );
-        assert!(app.state::<AppState>().projects().is_empty());
+        assert!(app.state::<AppState>().projects().unwrap().is_empty());
     }
 
     #[test]
@@ -880,9 +886,6 @@ mod s6 {
             let data = dir
                 .path()
                 .join(if launch { "launch-data" } else { "unwritable" });
-            if !launch {
-                std::fs::write(&data, "not a directory").unwrap();
-            }
             config.data_dir = Some(data.clone());
             let mut app = build(
                 mock_builder(),
@@ -896,16 +899,18 @@ mod s6 {
                 #[allow(deprecated)]
                 app.run_iteration(|_, _| {});
             } else {
+                app.state::<AppState>().recent_projects().unwrap();
+                std::fs::write(&data, "not a directory").unwrap();
                 tauri::async_runtime::block_on(
                     app.state::<AppState>().open_project(app.handle(), &project),
                 )
                 .unwrap();
             }
             assert_eq!(
-                app.state::<AppState>().recent_projects(),
+                app.state::<AppState>().recent_projects().unwrap(),
                 vec![project.display().to_string()]
             );
-            assert_eq!(app.state::<AppState>().projects().len(), 1);
+            assert_eq!(app.state::<AppState>().projects().unwrap().len(), 1);
             app.state::<AppState>().close();
             if launch {
                 let newer = dir.path().join("newer");
@@ -919,9 +924,9 @@ mod s6 {
                 )
                 .unwrap();
                 let restored = AppState::new(config);
-                tauri::async_runtime::block_on(restored.restore(app.handle()));
+                tauri::async_runtime::block_on(restored.restore(app.handle())).unwrap();
                 assert_eq!(
-                    restored.recent_projects(),
+                    restored.recent_projects().unwrap(),
                     vec![newer.display().to_string(), project.display().to_string()]
                 );
                 restored.close();
