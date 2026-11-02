@@ -30,7 +30,7 @@ export const shelfRowKeys = <Id,>(props: {
     };
 
     return {
-      action: CHORDS.find(row => row.keys === keys)!, searchable: false as const,
+      action: CHORDS.find(row => row.name === (keys === "D" ? "todo.delete" : "todo.export"))!, searchable: false as const,
       when: (event: KeyboardEvent) => canShelfKey(event) && capture(event.target instanceof Element ? event.target : null).available(),
       capture,
     };
@@ -104,9 +104,9 @@ export const shelfKeys = (props: { frame: ShelfFrame; shelf: () => HTMLElement |
       chords: ["Shift+Tab"],
       when: event => props.frame.open() && event.target === firstControl() && selectedTab() !== undefined,
       run: () => selectedTab()?.focus({ preventScroll: true }),
-    }, { action: CHORDS.find(row => row.keys === "M")!, searchable: false,
+    }, { action: CHORDS.find(row => row.name === "shelf.maximise")!, searchable: false,
       when: canShelfKey, capture: focus => ({ available: () => focus?.isConnected === true && !focus.closest("input,textarea,select,[contenteditable]") && props.frame.open() && props.shelf()?.contains(focus) === true && props.shelf()?.closest(".window")?.getAttribute("data-shelf-mode") !== "overlay", invoke: () => props.frame.toggleMaximise("key") }) }]);
-    registerKeys({ kind: "app" }, [{ action: CHORDS.find(row => row.keys === "Esc" && !row.inTriage)!, searchable: false, when: canEscape,
+    registerKeys({ kind: "app" }, [{ action: CHORDS.find(row => row.name === "shelf.close")!, searchable: false, when: canEscape,
       capture: focus => ({ available: () => focus?.isConnected === true && isCloseAvailable(focus), invoke: () => toggle("key") }) }]);
 
     return dispose;
@@ -130,7 +130,7 @@ export const todoCreationKeys = (props: {
   owner: () => string | null;
   open: (home: string | null, owner: string | null) => void;
 }) => {
-  registerKeys(shelfKeyScope, [{ action: CHORDS.find(action => action.keys === "N")!, match: "key", searchable: false,
+  registerKeys(shelfKeyScope, [{ action: CHORDS.find(action => action.name === "todo.add")!, match: "key", searchable: false,
     when: event => !event.repeat && !event.isComposing && !rowTypeahead(event),
     capture: focus => {
       const home = props.home();
