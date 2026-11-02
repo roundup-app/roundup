@@ -791,7 +791,7 @@ mod memory;
 async fn lc22_a_failed_memory_command_blocks() {
     use std::os::unix::fs::PermissionsExt;
     use std::process::Stdio;
-    use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+    use tokio::io::{AsyncBufReadExt, BufReader};
 
     for (_, role, pair) in lean_children().into_iter().take(2) {
         for mcp_off in [false, true] {
@@ -871,19 +871,20 @@ async fn lc22_a_failed_memory_command_blocks() {
                             let _writer = tokio::net::unix::pipe::OpenOptions::new()
                                 .open_sender(&ready)
                                 .unwrap();
-                            let mut child = tokio::process::Command::new("bash")
+                            let input = s.root.path().join("input.json");
+                            std::fs::write(&input, serde_json::to_vec(&json!({
+                                "tool_name":tool, "tool_input":{"file_path":s.cwd.join("source.rs")},
+                                "permission_mode":if yolo { "bypassPermissions" } else { "default" }
+                            })).unwrap()).unwrap();
+                            let child = tokio::process::Command::new("bash")
                                 .args(["-c", command])
                                 .env("READY", &ready)
-                                .stdin(Stdio::piped())
+                                .stdin(std::fs::File::open(&input).unwrap())
                                 .stdout(Stdio::piped())
                                 .stderr(Stdio::piped())
                                 .kill_on_drop(true)
                                 .spawn()
                                 .unwrap();
-                            child.stdin.take().unwrap().write_all(json!({
-                                "tool_name":tool, "tool_input":{"file_path":s.cwd.join("source.rs")},
-                                "permission_mode":if yolo { "bypassPermissions" } else { "default" }
-                            }).to_string().as_bytes()).await.unwrap();
                             if matches!(failure, "TERM" | "KILL") {
                                 let mut text = String::new();
                                 tokio::time::timeout(
