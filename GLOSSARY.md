@@ -223,6 +223,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Terminal scheme (`terminal.scheme`, `SchemeParams`, `Scheme`) | same | — |
 | RPC output intake (`Client::take_output`, `OutputFrame`) | same | — |
 | Event log | same | — |
+| Kept Events (`SubscribeParams.kept`) | same | — |
 | Rail rename (`rail.renamed`, `RailRenamed`) | same | — |
 | Event number (`seq`) | same | — |
 | Event head (`head`) | same | — |

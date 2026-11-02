@@ -14,7 +14,8 @@ const outcomeSchema = v.union([
 const openSchema = v.object({ project: projectSchema });
 
 const frameSchema = v.union([
-  v.object({ ready: v.literal(true) }),
+  v.object({ ready: v.literal(true), head: v.number() }),
+  v.object({ error: rpcFailureSchema }),
   v.object({ event: v.unknown() }),
   v.object({ exited: v.nullable(v.number()) }),
 ]);
@@ -212,11 +213,12 @@ export const createServedApp = (base: string, choice?: () => "choose" | "cancel"
     savePastedImage: async () => "/tmp/roundup-pasted/pasted.png",
     rpc,
     selectOutput,
-    subscribe: (onEvent) =>
+    subscribe: (onEvent, params) =>
       reach(
         () =>
           new Promise<number>((ready, fail) => {
             let suspended = false;
+            let requested = params;
             let controller = new AbortController();
 
             const hide = () => {
@@ -241,7 +243,7 @@ export const createServedApp = (base: string, choice?: () => "choose" | "cancel"
               controller = current;
 
               try {
-                const response = await fetch(`${base}/__daemon/events`, { signal: current.signal });
+                const response = await fetch(`${base}/__daemon/events`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(requested ?? null), signal: current.signal });
                 const reader = response.body!.pipeThrough(new TextDecoderStream()).getReader();
                 let pending = "";
                 let subscribed = false;
@@ -261,11 +263,17 @@ export const createServedApp = (base: string, choice?: () => "choose" | "cancel"
 
                     if ("ready" in frame) {
                       subscribed = true;
-                      ready(0);
+
+                      if (!requested?.kept && requested?.after === undefined) requested = { after: frame.head };
+                      ready(frame.head);
                     } else if ("event" in frame) {
                       // SAFETY: the Daemon's pushed Events are the generated contract type, as the Tauri adapter trusts them.
-                      onEvent(frame.event as DaemonEvent);
-                    } else void exit(frame.exited);
+                      const event = frame.event as DaemonEvent;
+                      onEvent(event);
+
+                      if (event.seq !== undefined) requested = { after: event.seq };
+                    } else if ("error" in frame) throw new RpcError(frame.error.code, frame.error.message, frame.error.data);
+                    else void exit(frame.exited);
                   }
                 }
 

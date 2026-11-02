@@ -154,6 +154,66 @@ mod tests {
         assert_eq!(highest, 4);
     }
 
+    #[tokio::test]
+    async fn d11_a_subscribe_for_every_kept_event_never_expires() {
+        let dir = project();
+        let daemon = crate::test_daemon(dir.path()).unwrap();
+        let bus = &daemon.bus;
+        for _ in 0..EVENT_WINDOW + 5 {
+            bus.emit(Actor::user(), EventData::RailChanged);
+        }
+        let (append, requested) = std::sync::mpsc::channel();
+        let (appended, finished) = std::sync::mpsc::channel();
+        let writer = bus.clone();
+        let writer = std::thread::spawn(move || {
+            while requested.recv().is_ok() {
+                writer.emit(Actor::user(), EventData::RailChanged);
+                if appended.send(()).is_err() {
+                    break;
+                }
+            }
+        });
+        for _ in 0..32 {
+            let (events, mut replay) = tokio::sync::mpsc::unbounded_channel();
+            let mut conn = crate::Conn {
+                actor: Actor::user(),
+                peer: None,
+                events,
+                output: None,
+            };
+            append.send(()).unwrap();
+            let answer = daemon.dispatch(&mut conn,
+                r#"{"jsonrpc":"2.0","id":1,"method":"events.subscribe","params":{"kept":true}}"#,
+                None).await.unwrap().into_value();
+            assert!(answer.get("error").is_none(), "{answer}");
+            let first = answer["result"]["head"].as_u64().unwrap() - EVENT_WINDOW + 1;
+            finished.recv().unwrap();
+            // Prune once more before reading: accepted replay must already be safe.
+            bus.emit(Actor::user(), EventData::RailChanged);
+            let end = bus.subscribe_after(Default::default()).unwrap().head();
+            tokio::time::timeout(std::time::Duration::from_secs(5), async {
+                for expected in first..=end {
+                    let event = replay.recv().await.unwrap().into_value();
+                    assert_eq!(event["params"]["seq"], expected);
+                }
+            })
+            .await
+            .expect("the complete kept replay and live Events arrive");
+        }
+        drop(append);
+        writer.join().unwrap();
+    }
+
+    #[tokio::test]
+    async fn d11_kept_with_after_fails_invalid_params() {
+        let dir = project();
+        let daemon = crate::test_daemon(dir.path()).unwrap();
+        let answer = crate::tests::ask(&daemon,
+            r#"{"jsonrpc":"2.0","id":1,"method":"events.subscribe","params":{"kept":true,"after":0}}"#,
+        ).await;
+        assert_eq!(answer["error"]["code"], code::INVALID_PARAMS);
+    }
+
     #[test]
     fn d11_an_after_older_than_the_window_names_the_oldest_kept() {
         let dir = project();
@@ -166,7 +226,13 @@ mod tests {
         let (oldest, highest) = SqliteLog::open(dir.path()).unwrap().bounds().unwrap();
         assert_eq!((oldest, highest), (6, total));
 
-        let expired = bus.subscribe_after(Some(oldest - 2)).err().unwrap();
+        let expired = bus
+            .subscribe_after(contracts::SubscribeParams {
+                after: Some(oldest - 2),
+                kept: false,
+            })
+            .err()
+            .unwrap();
         assert_eq!(expired.code, code::EVENTS_EXPIRED);
         assert_eq!(
             expired.data,
@@ -183,8 +249,20 @@ mod tests {
             );
             assert!(!error.message.is_empty());
         }
-        assert!(bus.subscribe_after(Some(oldest - 1)).is_ok());
-        let ahead = bus.subscribe_after(Some(highest + 1)).err().unwrap();
+        assert!(
+            bus.subscribe_after(contracts::SubscribeParams {
+                after: Some(oldest - 1),
+                kept: false
+            })
+            .is_ok()
+        );
+        let ahead = bus
+            .subscribe_after(contracts::SubscribeParams {
+                after: Some(highest + 1),
+                kept: false,
+            })
+            .err()
+            .unwrap();
         assert_eq!(ahead.code, code::INVALID_PARAMS);
     }
 }

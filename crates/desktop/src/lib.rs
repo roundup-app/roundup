@@ -245,9 +245,9 @@ async fn subscribe(
     state: State<'_, AppState>,
     path: String,
     channel: Channel<Event>,
-    after: Option<u64>,
+    params: Option<contracts::SubscribeParams>,
 ) -> Result<u64, RpcError> {
-    state.subscribe(&path, channel, after).await
+    state.subscribe(&path, channel, params).await
 }
 
 /// NA6: the webview answers the Daemon's relayed `action.list` and `action.run`.

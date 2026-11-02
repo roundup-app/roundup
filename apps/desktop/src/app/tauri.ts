@@ -160,7 +160,7 @@ export const createTauriApp = (): App => {
             : failure;
         }
       },
-      subscribe: (onEvent, after) => parsedCommand(v.number(), "subscribe", { path, channel: new Channel<DaemonEvent>(onEvent), after: after ?? null }),
+      subscribe: (onEvent, params) => parsedCommand(v.number(), "subscribe", { path, channel: new Channel<DaemonEvent>(onEvent), params: params ?? null }),
       serveActions: async (answer) => {
         const channel = new Channel<unknown>(message => {
           const request = v.safeParse(actionRequestSchema, message);
