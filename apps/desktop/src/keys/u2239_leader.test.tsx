@@ -1,3 +1,4 @@
+import { chooseFooter } from "../rail/railFixture";
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { createSignal } from "solid-js";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -146,9 +147,9 @@ describe("u2239 the leader takes the next key", () => {
 
     app.of("/Users/me/web").handlers["rail.createWorkstream"] = () => { throw failure; };
 
-    fireEvent.click(screen.getByRole("button", { name: "Add Workstream" }));
+    await chooseFooter("Workstream");
     await waitFor(() => expect(screen.getByRole("alert").textContent).toContain(failure.message));
-    const focus = screen.getByRole("button", { name: "Add Workstream" });
+    const focus = screen.getByRole("button", { name: "Create" });
 
     focus.focus();
 
