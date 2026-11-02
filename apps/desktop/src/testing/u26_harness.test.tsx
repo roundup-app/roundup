@@ -1,7 +1,7 @@
 import { copy as appCopy } from "../app/copy";
 import { copy } from "./copy";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
-import { afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { RequestedApp as App } from "../testing/requestedApp";
 import { fakeEmulators } from "../terminal/paneHarness";
 import { fromBase64 } from "../terminal/base64";
@@ -9,8 +9,7 @@ import { seedApp } from "./seeds";
 import type { SeedName } from "./seeds";
 import type { Event as DaemonEvent } from "@contracts/Event";
 import { event } from "./nodes";
-import { showShelfTab } from "./shelfTabs";
-import { openPad } from "../pads/padsFixture";
+import { openPadDrawer } from "../pads/padsFixture";
 
 const NOW = 1_700_000_000_000;
 
@@ -22,11 +21,6 @@ const mount = (seed: SeedName) => {
 };
 
 const rail = () => screen.findByRole("region", { name: copy.rail });
-
-// This suite checks seed wiring; transform the real lazy editor before timing Drawer interactions.
-beforeAll(async () => {
-  await import("../pads/PadRichEditor");
-});
 
 afterEach(cleanup);
 
@@ -75,16 +69,19 @@ describe("u26 the harness seeds", () => {
     await expect(app.rpc("rail.createWorkstream", { name: "x", parent: null })).resolves.toMatchObject({ name: "x" });
   });
 
-  // The real editor and tree-40 took 5.18s in the shared shard; this is seed wiring, not a latency check.
   it("u26_a_pad_the_agent_owns_opens_in_its_drawer", async () => {
     const { app } = mount("tree-40");
 
     // U347: agent-1 runs, so its Pad is in the Shelf and, once the control is open, under it on the Rail.
-    await screen.findByRole("tablist", { name: copy.leaderShortShelf });
-    showShelfTab(copy.pads);
-    await openPad("pad-0");
-    expect(app.calls.filter(call => call.method === "pad.read").map(call => call.params)).toEqual([{ name: "pad-0" }]);
-  }, 15_000);
+    const label = await screen.findByText(copy.pads, { selector: ".shelf-tabs .section-head span" });
+    const tab = label.closest<HTMLElement>("[role=tab]")!;
+
+    if (tab.getAttribute("aria-expanded") !== "true") fireEvent.click(tab);
+    await openPadDrawer("pad-0");
+
+    // U147 proves the real editor; this seed observer only needs the Drawer's read of the chosen Pad.
+    await waitFor(() => expect(app.calls.filter(call => call.method === "pad.read").map(call => call.params)).toEqual([{ name: "pad-0" }]));
+  });
 
   it("u26_set_status_moves_the_row_to_the_new_label", async () => {
     const { setStatus } = mount("tree-40");

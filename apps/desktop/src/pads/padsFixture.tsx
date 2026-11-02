@@ -1,7 +1,7 @@
 import { createNow, DisplayClockContext } from "../state/clock";
 // fallow-ignore-file duplicate-export -- AGENT is this fixture’s actor; toastFixture owns a different actor with the same local name.
 import { usePadList } from "../rail/pads/padList";
-import { fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
+import { fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { expect } from "vitest";
 import type { Actor } from "@contracts/Actor";
 import type { Touch } from "@contracts/Touch";
@@ -158,6 +158,24 @@ const trackEditors = () => {
   };
 };
 
+/** Opens the chosen Shelf Pad through its visible row, without waiting for its lazy editor. */
+export const openPadDrawer = async (name: string) => {
+  const row = await waitFor(() => {
+    const row = [...document.querySelectorAll<HTMLButtonElement>(".pad-name")].find(row => row.textContent === name);
+    expect(row).toBeDefined();
+
+    return row!;
+  });
+
+  for (const group of row.closest(".pads-tab")!.querySelectorAll<HTMLElement>("[data-shelf-group]")) {
+    if (group.contains(row) && group.getAttribute("aria-expanded") === "false") fireEvent.click(group.querySelector('[data-part="branch-control"]')!);
+  }
+
+  const button = await within(row.closest<HTMLElement>(".pads-tab")!).findByRole("button", { name });
+  button.focus({ preventScroll: true });
+  fireEvent.keyDown(button, { key: "Enter", code: "Enter" });
+};
+
 /** Opens a Pad's Drawer and returns its scroll root with textarea-shaped `value` accessors over the document, so a test can type `fireEvent.input(field, { target: { value } })` and read what the Pad holds. */
 export const openPad = async (name: string, recovery?: { connected: Awaited<ReturnType<typeof connectProject>>; pads: readonly Pad[]; revision: string }) => {
   trackEditors();
@@ -166,20 +184,7 @@ export const openPad = async (name: string, recovery?: { connected: Awaited<Retu
     const { connected, pads, revision } = recovery;
     connected.drawer.open(() => <ConnectedProjectContext.Provider value={connected}><PadDrawer name={name} pads={() => pads} recovery={{ project: connected.project.path, revision, list: { pads: () => pads, loaded: () => true, failure: () => null, reload: async () => {}, settled: async () => {} } }} onLateFailure={() => {}} /></ConnectedProjectContext.Provider>, "key");
   } else {
-    const row = await waitFor(() => {
-      const row = [...document.querySelectorAll<HTMLButtonElement>(".pad-name")].find(row => row.textContent === name);
-      expect(row).toBeDefined();
-
-      return row!;
-    });
-
-    for (const group of row.closest(".pads-tab")!.querySelectorAll<HTMLElement>("[data-shelf-group]")) {
-      if (group.contains(row) && group.getAttribute("aria-expanded") === "false") fireEvent.click(group.querySelector('[data-part="branch-control"]')!);
-    }
-
-    const button = await screen.findByRole("button", { name });
-    button.focus({ preventScroll: true });
-    fireEvent.keyDown(button, { key: "Enter", code: "Enter" });
+    await openPadDrawer(name);
   }
 
   const surface = await screen.findByRole<HTMLElement>("textbox", { name: "Pad body" }, { timeout: 5000 });
