@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, expect, it } from "vitest";
+import { captureDir } from "../testing/captures";
 import { openLane, type LaneBrowser } from "../todos/laneBrowser";
 
 let lane: LaneBrowser;
@@ -50,17 +51,20 @@ it("u4547a_rendered_heading_keys_preserve_focus_without_calls", async () => {
   await lane.browser("click", '.rail-create-menu [data-value="workstream"]');
   await lane.until("document.querySelector('[role=alert]')?.textContent.includes('Workstream could not be created')");
   await lane.capture("U4547a", "dense-failure");
-  const saved = await lane.evaluate<unknown[]>("window.__fake.app.rpc('rail.tree', null)");
 
-  for (const kind of ["workstreams", "modes", "agents", "empty"]) {
-    await lane.evaluate(`(() => {
-      const saved = ${JSON.stringify(saved)};
-      const rows = saved.filter(row => row.parent === null && (${JSON.stringify(kind)} === 'agents' ? row.kind === 'agent' : ${JSON.stringify(kind)} === 'modes' ? !!row.opening_prompt?.trim() : ${JSON.stringify(kind)} === 'workstreams' ? row.kind === 'workstream' && !row.opening_prompt?.trim() : false));
-      window.__fake.app.handlers['rail.tree'] = () => rows;
-      window.__fake.emit({ actor: { kind: 'user', id: 'you', parent: null }, name: 'rail.changed' });
-      return true;
-    })()`);
-    await lane.until(`document.querySelectorAll('.rail-tree .section-head').length === ${kind === "empty" ? 0 : 1}`);
-    await lane.capture("U4547a", kind);
+  if (captureDir("U4547a")) {
+    const saved = await lane.evaluate<unknown[]>("window.__fake.app.rpc('rail.tree', null)");
+
+    for (const kind of ["workstreams", "modes", "agents", "empty"]) {
+      await lane.evaluate(`(() => {
+        const saved = ${JSON.stringify(saved)};
+        const rows = saved.filter(row => row.parent === null && (${JSON.stringify(kind)} === 'agents' ? row.kind === 'agent' : ${JSON.stringify(kind)} === 'modes' ? !!row.opening_prompt?.trim() : ${JSON.stringify(kind)} === 'workstreams' ? row.kind === 'workstream' && !row.opening_prompt?.trim() : false));
+        window.__fake.app.handlers['rail.tree'] = () => rows;
+        window.__fake.emit({ actor: { kind: 'user', id: 'you', parent: null }, name: 'rail.changed' });
+        return true;
+      })()`);
+      await lane.until(`document.querySelectorAll('.rail-tree .section-head').length === ${kind === "empty" ? 0 : 1}`);
+      await lane.capture("U4547a", kind);
+    }
   }
 }, 180_000);
