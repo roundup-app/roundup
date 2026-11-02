@@ -387,6 +387,7 @@ it.skipIf(!captureDir("U5558a"))("u5558e_open_surfaces_update_and_keep_failed_re
     await wait("document.querySelector('.import-panel [role=alert]')?.textContent.includes('permission denied')");
     await capture("U5558e", "import-reload-failed");
 
+    await evaluate("localStorage.clear()");
     await browser("open", `${server.resolvedUrls.local[0]}src/changes/u2540.html`);
     await wait("!!document.querySelector('.worktree-control')");
     await browser("click", ".worktree-control");
