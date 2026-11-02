@@ -131,3 +131,58 @@ it("u2540b_pointer_and_keyboard_select_lines", async () => {
     await browser("record", "stop");
   }
 }, 60_000);
+
+
+it("u5646a_b_c_d_dense_refresh_retains_reader", async () => {
+  await browser("set", "media", "dark");
+  const recording = captureDir("U5646a");
+
+  if (recording) {
+    await mkdir(recording, { recursive: true });
+    await browser("record", "start", join(recording, "dense-refresh.webm"));
+  }
+
+  await browser("set", "viewport", "1512", "950");
+  await browser("set", "media", "dark");
+  await open("/src/changes/u2540.html?dense");
+  await showDiff();
+  await wait("!!document.querySelector('diffs-container')?.shadowRoot?.querySelector('[data-column-number]') && document.querySelectorAll('[aria-label=Notes] > li').length === 100");
+  await browser("eval", `(() => {
+    window.__retainedDiff = document.querySelector('diffs-container');
+    const root = window.__retainedDiff.shadowRoot;
+    const lines = [...root.querySelectorAll('[data-line-type="change-deletion"][data-column-number]')];
+    lines[0].dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
+    lines[1].dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true, shiftKey: true }));
+    [...document.querySelectorAll('button')].find(button => button.textContent === 'Add note').focus();
+  })()`);
+  await browser("eval", "(async () => { await window.__worktrees.refresh('agent-1'); await window.__worktrees.refresh('agent-1'); })()");
+  await wait("document.activeElement?.textContent === 'Add note'");
+  expect(await browser("eval", "document.querySelector('diffs-container') === window.__retainedDiff")).toBe(true);
+  await capture("dense-equal-refresh", "U5646a");
+  await capture("dense-fallback-retained", "U5646c");
+  await click("Add note");
+  expect(await browser("eval", "[...document.querySelectorAll('.note-form input[type=number]')].map(input => input.value)")).toEqual(["1", "2"]);
+  await browser("find", "label", "Note", "fill", "Updated annotation after unchanged refresh");
+  await click("Save");
+  await wait("document.querySelectorAll('[aria-label=Notes] > li').length === 101");
+  expect(await browser("eval", "document.querySelector('diffs-container') === window.__retainedDiff")).toBe(true);
+  await capture("dense-annotation-updated", "U5646b");
+  await browser("eval", `(() => {
+    window.__comparisonHandler = window.__fake.app.handlers['agent.compareFile'];
+    window.__fake.app.handlers['agent.compareFile'] = () => { throw new Error('Worktree read refused; retry loading this diff'); };
+    return window.__worktrees.refresh('agent-1');
+  })()`);
+  await wait("!!document.querySelector('.diff-reader [role=alert]')");
+  const checks = await capture("dense-refresh-failure", "U5646d");
+
+  expect(checks.D2.status).toBe("pass");
+  expect(checks.D5.status).toBe("pass");
+  expect(checks.D6.status).toBe("pass");
+  await browser("eval", "window.__fake.app.handlers['agent.compareFile'] = window.__comparisonHandler");
+  await click("Retry");
+  await wait("!document.querySelector('.diff-reader [role=alert]')");
+  expect(await browser("eval", "document.querySelector('diffs-container') === window.__retainedDiff")).toBe(true);
+  await capture("dense-recovered", "U5646d");
+
+  if (recording) await browser("record", "stop");
+}, 60_000);

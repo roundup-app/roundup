@@ -33,7 +33,7 @@ const selected = () => browser.call<string>("() => window.getSelection().toStrin
 
 const load = async (size: { width: number; height: number }) => {
   await browser.load("/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40", size.width, size.height);
-  await browser.until(`() => Boolean(window.__fake && window.__fake.app.calls.some((call) => call.method === "pad.list") && document.querySelector(".rail-fold button"))`);
+  await browser.until(`() => Boolean(window.__fake && window.__fake.app.calls.some((call) => call.method === "pad.list") && document.querySelector('.rail-fold[data-part="branch-control"]'))`);
   await browser.call("() => window.getSelection().removeAllRanges()");
 };
 
