@@ -16,7 +16,7 @@ import type { Model } from "./realModel";
 const REPO = resolve(process.cwd(), "../..");
 
 /** A running `rupd` of a fresh Project and the dev server that serves it to the harness page (U144, U146). */
-export type StartedDaemon = { daemon: ChildProcess; dir: string; dataDir: string; base: string; model?: Model | undefined; restart: () => Promise<void>; stop: () => Promise<void> };
+export type StartedDaemon = { daemon: ChildProcess; dir: string; socket: string; dataDir: string; base: string; model?: Model | undefined; restart: () => Promise<void>; stop: () => Promise<void> };
 
 const served = async (base: string) => {
   for (let tries = 0; tries < 300; tries += 1) {
@@ -174,6 +174,7 @@ export const startRealDaemon = async (env: Record<string, string>, inBrowser = f
       return daemon!;
     },
     dir,
+    socket,
     dataDir,
     base,
     model,
@@ -209,19 +210,18 @@ export const startWorktreeProject = async (files: Record<string, string>, env: R
   }
 };
 
-/** Two Projects with separate data; browser observers warm their bundles, and failed startup or observation reaps both. */
-export const withProjectPair = async (observe: (first: StartedDaemon, second: StartedDaemon) => Promise<void>, inBrowser = true): Promise<void> => {
-  const first = await startRealDaemon({}, inBrowser);
+/** One isolated Project whose Daemon and data are released after the observer, including failures. */
+export const withProject = async (observe: (real: StartedDaemon) => Promise<void>, inBrowser = true): Promise<void> => {
+  const real = await startRealDaemon({}, inBrowser);
 
   try {
-    const second = await startRealDaemon({}, inBrowser);
-
-    try {
-      await observe(first, second);
-    } finally {
-      await second.stop();
-    }
+    await observe(real);
   } finally {
-    await first.stop();
+    await real.stop();
   }
+};
+
+/** Two Projects with separate data, both released when observation ends. */
+export const withProjectPair = async (observe: (first: StartedDaemon, second: StartedDaemon) => Promise<void>, inBrowser = true): Promise<void> => {
+  await withProject(first => withProject(second => observe(first, second), inBrowser), inBrowser);
 };
