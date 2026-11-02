@@ -156,6 +156,7 @@ export const createServedApp = (base: string, choice?: () => "choose" | "cancel"
     });
 
   const app: AppSeam = {
+    showWindow: async () => {},
     setMenuBar: async () => {},
     onMenuBarAction: async () => () => {},
     recentProjects: async () => [],
