@@ -679,7 +679,7 @@ export const Bubbles = (props: {
   const outsideEditor = (focus: EventTarget | null): boolean => !(focus instanceof Element && focus.closest(".terminal-tab-editor"));
 
   registerKeys({ kind: "app" }, [
-    { action: CHORDS.find((row) => row.keys === "⌘T")!,
+    { action: CHORDS.find((row) => row.name === "terminal.new")!,
       when: (press) => outsideEditor(press.target),
       capture: (focus) => {
         const owner = terminalOwner();
@@ -726,7 +726,7 @@ export const Bubbles = (props: {
   };
 
   registerKeys({ kind: "app" }, [{
-    action: CHORDS.find((row) => row.keys === "⌘B")!,
+    action: CHORDS.find((row) => row.name === "terminal.switch")!,
     when: () => hasTerminalFocus(document.activeElement),
     capture: switchPair,
   }]);

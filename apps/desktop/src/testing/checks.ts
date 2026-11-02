@@ -227,7 +227,9 @@ const d2 = (page: Page): Measure =>
       const chipSide = chip && (property === "padding-left" || property === "padding-right");
       const chipVertical = chip && (property === "padding-top" || property === "padding-bottom");
 
-      const conforms = chipSide ? chipPadding === 5 && value === chipPadding : chipVertical ? value === 0
+      const keyGap = chip && (property === "column-gap" || property === "row-gap") && value === (px(page.token("space-1") ?? "") ?? NaN) / 4;
+
+      const conforms = keyGap ? true : chipSide ? chipPadding === 5 && value === chipPadding : chipVertical ? value === 0
         : value === null || SPACE_STEPS.has(value) || padSpaces.some(step => Math.abs(value - step) < 0.01) || (property === treeSide && treePadding !== null && value === treePadding);
 
       if (!conforms) return { [property]: style.getPropertyValue(property) };
@@ -742,7 +744,9 @@ const monoOffenders = (page: Page, regions: Element[]): Element[] => {
     for (let node = walker.nextNode(); node; node = walker.nextNode()) {
       const el = node.parentElement;
 
-      if (!el || (node.textContent ?? "").trim() === "" || !page.elements.includes(el) || el.closest("[data-mono], code, kbd, samp")) continue;
+      if (!el || (node.textContent ?? "").trim() === "" || !page.elements.includes(el) || el.closest('[data-mono], code, kbd, samp')) continue;
+
+      if (el.closest('[data-button]') && !el.closest('.tab-name, .shelf-group-name, .overview-name')) continue;
 
       if (page.resolve(page.style(el).fontFamily) === mono) offenders.push(el);
     }

@@ -228,7 +228,6 @@ p.ink[role="alert"] {
 
 .empty-state-title { color: var(--text); font-size: var(--text-title); font-weight: 500; }
 .empty-state-line { font-size: var(--text-caption); max-width: var(--measure); }
-.empty-state-chip { font-size: var(--text-caption); }
 .empty-state :is(.empty-state-title, .empty-state-line) { margin: 0; }
 
 
@@ -361,13 +360,12 @@ p.ink[role="alert"] {
 }
 
 .empty-state-actions { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: var(--space-2); }
-.empty-state-chip { margin-inline-start: var(--space-2); color: var(--grey); }
 .empty-state-actions [data-button="primary"] { --grey: var(--button-key-ink); }
 
 .section-head:focus-visible { color: var(--text); }
 .section-head [data-part="branch-indicator"] { margin-left: auto; }
 
-.empty-state-actions [data-button] { font-size: var(--text-caption); white-space: nowrap; --button-inline: var(--space-2); }
+.empty-state-actions [data-button] { display: inline-flex; align-items: center; gap: var(--space-2); font-size: var(--text-caption); white-space: nowrap; --button-inline: var(--space-2); }
 
 /* U4908: only a present mark owns a column and its gap. */
 .shelf-row:has(> .shelf-glyph) {
