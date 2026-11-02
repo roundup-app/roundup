@@ -609,3 +609,46 @@ async fn u5483c_empty_text_without_turn_identity_remains_unknown() {
         .unwrap();
     assert!(shared.node(&id).unwrap().final_text.is_none());
 }
+
+#[tokio::test]
+async fn b5519a_replayed_completion_keeps_its_original_message_boundary() {
+    use std::sync::atomic::{AtomicI64, Ordering};
+
+    let now = Arc::new(AtomicI64::new(10));
+    let clock = Arc::clone(&now);
+    let (dir, _, shared) = shared_over_temp_dir(Arc::new(move || clock.load(Ordering::SeqCst)));
+    let id = running_agent(&shared, None);
+    let clock = Arc::clone(&now);
+    let mut runs = shared.runs();
+    let Some(Slot::Running(run)) = runs.get_mut(&id) else {
+        panic!("the fixture Agent is running");
+    };
+    run.adapter = ClaudeCode::starting(move || clock.load(Ordering::SeqCst));
+    drop(runs);
+    let agents = crate::Agents {
+        shared: Arc::clone(&shared),
+        dir: dir.path().to_owned(),
+        launcher: shared.rail_view.launcher.clone(),
+    };
+    shared
+        .observe(
+            Actor::daemon(),
+            &id,
+            "1",
+            Observation::Signal(json!({"hook_event_name":"UserPromptSubmit", "prompt_id":"first"})),
+        )
+        .unwrap();
+    let stop = json!({"hook_event_name":"Stop", "prompt_id":"first", "last_assistant_message":"Done with page one"});
+    now.store(20, Ordering::SeqCst);
+    shared
+        .observe(Actor::daemon(), &id, "1", Observation::Signal(stop.clone()))
+        .unwrap();
+    now.store(50, Ordering::SeqCst);
+    shared
+        .observe(Actor::daemon(), &id, "1", Observation::Signal(stop))
+        .unwrap();
+    assert_eq!(
+        agents.completed_text().get(&id),
+        Some(&("1:1".into(), 10, 20, "Done with page one".into()))
+    );
+}
