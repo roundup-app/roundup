@@ -326,7 +326,7 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
           <EmptyState art="sitting-reading" {...{ title: copy.noOutputKeptFromAnEarlierRun }} line={copy.emptyOutputLine} />
         </Show>
         <Show when={selected()?.kind === "group"}>
-          <nav class="pane-group" aria-label={selected()!.name}><h3>{selected()!.name}</h3><For each={siblingsOf(rail.topology(), selected()!.id)}>{child => <button type="button" class="word pane-action" onClick={() => rail.select(child.id)}>{child.name}</button>}</For></nav>
+          <nav class="pane-group" aria-label={selected()!.name}><h3>{selected()!.name}</h3><div class="pane-group-children"><For each={siblingsOf(rail.topology(), selected()!.id)}>{child => <button type="button" class="word pane-action" onClick={() => rail.select(child.id)}>{child.name}</button>}</For></div></nav>
         </Show>
         <Show when={doorState()}>
           {(state) => (
