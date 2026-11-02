@@ -146,14 +146,6 @@ fn chosen<R: Runtime>(app: &AppHandle<R>, id: &str) {
         .lock()
         .expect("menu-bar lock")
         .chosen(id, |action| {
-            if let Some(window) = app.get_webview_window("main")
-                && let Err(error) = window
-                    .unminimize()
-                    .and_then(|()| window.show())
-                    .and_then(|()| window.set_focus())
-            {
-                crate::diagnostics::failure("open roundup", &error);
-            }
             if let Err(error) = app.emit("menu-bar-action", action) {
                 crate::diagnostics::failure("open menu-bar selection", &error);
             }

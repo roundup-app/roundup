@@ -28,7 +28,7 @@ The App is the Tauri 2 shell in `crates/desktop` (ADR 0001). It starts a Daemon 
 | App emits (Tauri event) | Payload | Result |
 |---|---|---|
 | `open-project-page` | `{path, command: "import-work" or "project-settings"}` | Native Project menu activation captures its synchronized selected Project; only that Project opens its center page (U3813/U3814). No selection emits nothing. |
-| `menu-bar-action` | `{kind: "agent", path, agent}` or `{kind: "open"}` | An enabled current menu row/command brought the window forward. Agent actions retain their original Project and Agent; Open chooses and acknowledges nothing (U5502). |
+| `menu-bar-action` | `{kind: "agent", path, agent}` or `{kind: "open"}` | An enabled current menu row/command requests opening. The App applies selection and acknowledgement policy before restoring, showing and focusing the window through Tauri’s window API. Agent actions retain their original Project and Agent; Open chooses and acknowledges nothing (U5502). |
 | `state-alert-clicked` | `{agent}` | The owner clicked a State alert's banner: the window is in front and the webview opens that Agent (U5232e). |
 | `open-app-settings` | none | The webview opens App Settings in the center (U3799); works without an open Project. |
 

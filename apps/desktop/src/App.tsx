@@ -13,7 +13,7 @@ import { Combobox } from "./ui/Combobox";
 import { CHORDS, LEADER, defaultKeys, shortcutLabel } from "./keys/chords";
 import { copy } from "./app/copy";
 import "./buttons.css";
-import { lazy, createEffect, createMemo, createResource, createSignal, createUniqueId, For, getOwner, on, onCleanup, onMount, runWithOwner, Show, untrack } from "solid-js";
+import { batch, lazy, createEffect, createMemo, createResource, createSignal, createUniqueId, For, getOwner, on, onCleanup, onMount, runWithOwner, Show, untrack } from "solid-js";
 import type { Accessor, JSX } from "solid-js";
 import { ChooseProject, EmptyRail, EmptyShelf } from "./app/FirstRun";
 import { Layout } from "./app/Layout";
@@ -263,14 +263,21 @@ export const App = (props: {
   document.addEventListener("visibilitychange", onVisibility);
   onCleanup(() => document.removeEventListener("visibilitychange", onVisibility));
   // U3566: the window's focus, which `document.hasFocus()` alone does not announce.
-  const [focused, setFocused] = createSignal(document.hasFocus());
-  const onFocus = () => setFocused(true);
-  const onBlur = () => setFocused(false);
+  const [focus, setFocus] = createSignal<"blurred" | "focused" | "menu">(document.hasFocus() ? "focused" : "blurred");
+  // Opening the window from its menu preserves unread results until direct interaction.
+  const onFocus = () => setFocus(previous => previous === "menu" ? previous : "focused");
+  const onBlur = () => setFocus("blurred");
+  const onInteract = () => { if (document.hasFocus()) setFocus("focused"); };
+
+  window.addEventListener("click", onInteract);
+  window.addEventListener("keydown", onInteract);
   window.addEventListener("focus", onFocus);
   window.addEventListener("blur", onBlur);
   onCleanup(() => {
     window.removeEventListener("focus", onFocus);
     window.removeEventListener("blur", onBlur);
+    window.removeEventListener("click", onInteract);
+    window.removeEventListener("keydown", onInteract);
   });
 
   const isWorking = () => projects.tabs().some((tab) => {
@@ -368,7 +375,12 @@ export const App = (props: {
 
   createEffect(() => menuBar()?.watchMenuBar({
     solid: { createEffect, onCleanup }, app: props.app, tabs: projects.tabs,
-    connection: connectionOf, select: projects.select,
+    connection: connectionOf, open: () => setFocus("menu"),
+    select: (path, agent) => batch(() => {
+      projects.select(path);
+      railOf(path)!.select(agent);
+      setFocus(document.hasFocus() ? "focused" : "blurred");
+    }),
     missing: copy.thatIsGone, fail: setMenuBarFailure,
   }));
 
@@ -629,7 +641,7 @@ export const App = (props: {
   return (
     <ReducedMotionContext.Provider value={props.reducedMotion}><DisplayClockContext.Provider value={now.subscribe}><ProjectDraftsContext.Provider value={drafts}><Show when={projects.loaded()}>
       <For each={keys()}>
-        {(key) => <Connection drafts={drafts} app={dropTargets.app} tab={tabOf(key)} reducedMotion={props.reducedMotion} now={pollingNow} onConnected={connect} onRecovered={projects.connected} onRequested={answer} toasts={toasts} alerts={alerts} active={() => projects.active() === key} viewing={() => projects.active() === key && visible() && focused()} show={() => projects.select(key)} />}
+        {(key) => <Connection drafts={drafts} app={dropTargets.app} tab={tabOf(key)} reducedMotion={props.reducedMotion} now={pollingNow} onConnected={connect} onRecovered={projects.connected} onRequested={answer} toasts={toasts} alerts={alerts} active={() => projects.active() === key} viewing={() => projects.active() === key && visible() && focus() === "focused"} show={() => projects.select(key)} />}
       </For>
       <DockBadge app={props.app} rails={() => [...connections().values()].flatMap((connection) => (connection instanceof Error ? [] : [attentionHolders(connection.rail.nodes, connection.rail.terminals(), connection.rail.dismissed)]))} onFailure={setBadgeFailure} />
       <Tabs.Root id={tabsId} value={projects.active()} onValueChange={({ value }) => projects.select(value)} activationMode="manual" style={{ display: "contents" }}

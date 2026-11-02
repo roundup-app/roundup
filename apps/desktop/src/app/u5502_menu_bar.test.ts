@@ -1,5 +1,5 @@
 import { emit } from "@tauri-apps/api/event";
-import { clearMocks, mockIPC } from "@tauri-apps/api/mocks";
+import { clearMocks, mockIPC, mockWindows } from "@tauri-apps/api/mocks";
 import { afterEach, expect, it } from "vitest";
 import { createTauriApp } from "./tauri";
 import type { MenuBarAction, MenuBar } from "./seam";
@@ -9,8 +9,12 @@ afterEach(clearMocks);
 it("u5502_the_app_seam_keeps_original_menu_identities", async () => {
   const sent: unknown[] = [];
   const heard: MenuBarAction[] = [];
+  const windowCalls: string[] = [];
+  mockWindows("main");
   mockIPC((command, args) => {
     if (command === "set_menu_bar") sent.push(args);
+
+    if (command.startsWith("plugin:window|")) windowCalls.push(command);
 
     return null;
   }, { shouldMockEvents: true });
@@ -26,6 +30,9 @@ it("u5502_the_app_seam_keeps_original_menu_identities", async () => {
 
   await app.setMenuBar(menu);
   await emit("menu-bar-action", { kind: "agent", path: "/original", agent: "a" });
+  expect(windowCalls).toEqual([]);
+  await app.showWindow();
+  expect(windowCalls).toEqual(["plugin:window|unminimize", "plugin:window|show", "plugin:window|set_focus"]);
   stop();
   await emit("menu-bar-action", { kind: "open" });
 
