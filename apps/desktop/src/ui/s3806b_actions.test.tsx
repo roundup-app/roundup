@@ -126,7 +126,7 @@ const mountApp = async (capture?: import("../app/seam").CapturePort, empty = fal
   let original: ConnectedProject | undefined;
   const emulators = fakeEmulators();
   render(() => <App app={app} reducedMotion={() => true} clock={() => 0} createEmulator={emulators.factory} prepareIdle={open => { if (open.project.path === path("first")) original = open; }} />);
-  await within(document.querySelector<HTMLElement>('[role="tablist"][aria-label="Projects"]')!).findByRole("tab", { name: /^first/ });
+  await within(await screen.findByLabelText("Projects", { selector: '[role="tablist"]' })).findByRole("tab", { name: /^first/ });
   fireEvent.click(tab("first"));
   await waitFor(() => expect(original).toBeDefined());
 
