@@ -132,20 +132,26 @@ it("u3299b_copy_keeps_original_facts", async () => {
   } finally { vi.unstubAllGlobals(); }
 });
 
-const observeFailure = async (observation: Reaction["observation"]) => {
-  const record = saved({ observation });
+const openObservation = async () => {
+  let revision = 0;
+  let record = saved();
   const { app } = await mount(() => [record]);
   fireEvent.click(await screen.findByRole("button", { name: /Ship it/ }));
-  const text = (await screen.findByRole("alert")).textContent;
 
-  const controls = [copy.reactionStop, copy.reactionRun].map(name => ({
-    name, disabled: within(document.querySelector(".reaction-detail")!).getByRole("button", { name }).hasAttribute("disabled"),
-  }));
+  return async (observation: Reaction["observation"]) => {
+    record = saved({ observation, instruction: `Observation revision ${++revision}` });
+    app.emit(event({ name: "reaction.changed" }));
+    await screen.findByText(record.instruction);
+    const text = (await screen.findByRole("alert")).textContent;
 
-  expect(app.calls.filter(call => call.method === "reaction.run" || call.method === "message.send")).toHaveLength(0);
-  cleanup();
+    const controls = [copy.reactionStop, copy.reactionRun].map(name => ({
+      name, disabled: within(document.querySelector(".reaction-detail")!).getByRole("button", { name }).hasAttribute("disabled"),
+    }));
 
-  return { text, controls };
+    expect(app.calls.filter(call => call.method === "reaction.run" || call.method === "message.send")).toHaveLength(0);
+
+    return { text, controls };
+  };
 };
 
 it.each([
@@ -155,14 +161,15 @@ it.each([
     health: "unavailable", health_code: "unavailable", cause_code, gap_code: "unknown", recovery_code: "check", cursor: 19, gap: null, recovery: "same diagnostic", evidence: null, cause,
   });
 
+  const observe = await openObservation();
   const diagnostic = "the PR head moved from a to b";
-  const baseline = await observeFailure(observation(code, diagnostic));
+  const baseline = await observe(observation(code, diagnostic));
 
   for (const changed of ["unsupported /private/diagnostic", ""]) {
-    expect(await observeFailure(observation(code, changed))).toEqual(baseline);
+    expect(await observe(observation(code, changed))).toEqual(baseline);
   }
 
-  expect((await observeFailure(observation(otherCode, diagnostic))).text).not.toBe(baseline.text);
+  expect((await observe(observation(otherCode, diagnostic))).text).not.toBe(baseline.text);
 });
 
 it.each([
@@ -174,11 +181,12 @@ it.each([
     health: "observing", health_code: "observing", cause_code: "unknown", gap_code, recovery_code, cursor: 99, gap: diagnostic, recovery: diagnostic, evidence: null,
   });
 
+  const observe = await openObservation();
   const diagnostic = "the Event history after 88 expired";
-  const baseline = await observeFailure(observation(gap, recovery, diagnostic));
-  expect(await observeFailure(observation(gap, recovery, "unrecognized /private/history"))).toEqual(baseline);
-  expect((await observeFailure(observation(otherGap, recovery, diagnostic))).text).not.toBe(baseline.text);
-  expect((await observeFailure(observation(gap, otherRecovery, diagnostic))).text).not.toBe(baseline.text);
+  const baseline = await observe(observation(gap, recovery, diagnostic));
+  expect(await observe(observation(gap, recovery, "unrecognized /private/history"))).toEqual(baseline);
+  expect((await observe(observation(otherGap, recovery, diagnostic))).text).not.toBe(baseline.text);
+  expect((await observe(observation(gap, otherRecovery, diagnostic))).text).not.toBe(baseline.text);
 });
 
 it("u4276c_list_opens_exact_reaction", async () => {
