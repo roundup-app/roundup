@@ -204,11 +204,11 @@ describe("u54 keyboard help", () => {
   it("u480_u54_help_stays_in_step_with_the_chords_bound_in_the_webview", async () => {
     await open("Saved Mode prompt");
     fireEvent.click(rowOf("a"));
-    await waitFor(() => expect(document.querySelector('.rail-actions [aria-label="New Agent"]')).not.toBeNull());
+    await waitFor(() => expect(document.querySelector('.rail-actions [aria-label="Create"]')).not.toBeNull());
 
     const listed = CHORDS.filter((chord) => !chord.inFirstRun && !chord.inRail && !chord.inTerminals && !chord.inShelf && !chord.inEditor).flatMap((chord) => chord.presses).sort();
     // Arrow keys are probed for `⌘` alone: the Terminal tabs bind them with other modifiers too (U2230).
-    const outsideTerminal = document.querySelector('.rail-actions [aria-label="New Agent"]')!;
+    const outsideTerminal = document.querySelector('.rail-actions [aria-label="Create"]')!;
     const bound = [...new Set([...(await boundPresses(outsideTerminal)), ...(await boundPresses(outsideTerminal, [{ metaKey: true }], ["ArrowUp", "ArrowDown"])), ...(await boundPresses(outsideTerminal, [{ altKey: true, metaKey: true }], ["KeyN"]))])].sort();
 
     expect(bound).toEqual(listed);

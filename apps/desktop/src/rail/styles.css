@@ -1,4 +1,4 @@
-/* U4313b: keep the Terminal bar and its overlays at one footer row; stacked Rail actions size themselves. */
+/* U4313b: the Rail creation row and Terminal bar share one height. */
 :root {
   --rail-actions-height: calc(var(--space-5) + var(--space-4));
 }
@@ -12,10 +12,8 @@
 .rail-actions {
   display: flex;
   flex: none;
-  flex-direction: column;
-  align-items: stretch;
-  justify-content: space-between;
-  height: auto;
+  align-items: center;
+  height: var(--rail-actions-height);
   box-sizing: border-box;
   background: var(--sunken);
   padding-inline: var(--space-4);
@@ -24,13 +22,16 @@
   border-top-color: var(--hairline);
 }
 
-.rail-actions button {
-  justify-content: flex-start;
-  min-height: var(--space-6);
-  flex: none;
+.rail-create-menu [data-part="item"] {
   gap: var(--space-3);
-  --button-lead: 0;
-  --button-inline: 0;
+}
+
+.rail-create-menu kbd {
+  margin-inline-start: auto;
+}
+
+.rail-create-menu [data-disabled] {
+  color: var(--disabled);
 }
 
 /* U357: a depth is an --indent column, not padding, so the indent is a Token step times the depth and no spacing value of its own (D2). */

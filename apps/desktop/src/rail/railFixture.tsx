@@ -109,7 +109,7 @@ export const chord = (key: string): void => {
 };
 
 /** U191: the one add in the pinned line. */
-export const pinnedAdd = (): HTMLElement => screen.getByText("Workstream", { selector: ".rail-actions button" });
+export const pinnedAdd = (): HTMLElement => screen.getByRole("button", { name: "Create" });
 
 /** Ark's tree reads a key or a click on a microtask: await this before asserting what the press did. */
 export const settled = (): Promise<void> => new Promise((resolve) => setTimeout(resolve));
@@ -118,4 +118,11 @@ export const settled = (): Promise<void> => new Promise((resolve) => setTimeout(
 export const chooseAction = async (app: ReturnType<typeof createFakeApp>, name: string, label: string) => {
   fireEvent.contextMenu(rowOf(name), { clientX: 1, clientY: 1 });
   await app.pickMenu(label);
+};
+
+/** Chooses a creation kind through the shared footer menu. */
+export const chooseFooter = async (name: "Agent" | "Workstream" | "Mode"): Promise<void> => {
+  fireEvent.click(pinnedAdd());
+  const item = await screen.findByRole("menuitem", { name: new RegExp(`^${name}`) });
+  fireEvent.click(item);
 };

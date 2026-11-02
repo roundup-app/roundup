@@ -1,9 +1,10 @@
+import { chooseFooter } from "../rail/railFixture";
 import { chooseAction } from "../rail/railFixture";
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import type { RailNode } from "@contracts/agent/RailNode";
 import { RpcError } from "../app/seam";
-import { agent, door, event, info, workstream } from "../testing/nodes";
+import { door, event, info, workstream } from "../testing/nodes";
 import { openTabs, path } from "../header/stripFixture";
 import { CHORDS } from "../keys/chords";
 import { copy } from "./copy";
@@ -56,7 +57,7 @@ describe("u143 empty Project", () => {
     fireEvent.click(startWorkstream());
     await waitFor(() => expect(startWorkstream().matches('[aria-disabled="true"]')).toBe(true));
     fireEvent.click(startWorkstream());
-    fireEvent.click(screen.getByText(copy.addWorkstreamWord.trim(), { selector: ".rail-actions button" }));
+    await chooseFooter("Workstream");
 
     expect([calls(app, "rail.createWorkstream").length, startWorkstream().matches('[aria-disabled="true"]')]).toEqual([1, true]);
   });
