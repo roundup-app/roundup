@@ -71,7 +71,7 @@ it("u5562d_colour_round_trip", { timeout: 240000, retry: 0 }, async () => {
     await open();
     await evaluate(`(() => { const field = document.querySelector('.drawer .ProseMirror'); const paragraph = [...field.querySelectorAll('p')].find(p => p.textContent === 'Separate paragraph'); const range = document.createRange(); range.selectNodeContents(paragraph); const selection = window.getSelection(); selection.removeAllRanges(); selection.addRange(range); field.focus(); return true; })()`);
     await browser("press", "Backspace");
-    await browser("type", "Changed paragraph");
+    await browser("keyboard", "type", "Changed paragraph");
     await browser("click", ".drawer .close");
     const changed = source.replace("Separate paragraph", "Changed paragraph");
     const after = await call("pad_read", { name: "Colour round trip" });
