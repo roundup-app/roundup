@@ -43,8 +43,22 @@ beforeAll(async () => {
       // Supply the public Layout props at the App composition site without
       // replacing Layout, its children, width controls or Terminal implementation.
       enforce: "pre",
-      resolveId: (id, importer) => id === "./app/Layout" && importer?.endsWith("/src/App.tsx") ? "/u507-bound-layout.js" : undefined,
-      load: (id) => id === "/u507-bound-layout.js" ? `
+      resolveId: (id, importer) => {
+        if (id === "./app/Layout" && importer?.endsWith("/src/App.tsx")) return "\0u507-bound-layout.js";
+
+        if (id === "./seeds" && importer?.endsWith("/src/testing/harness.tsx")) return "\0u507-seeds.js";
+      },
+      load: (id) => id === "\0u507-seeds.js" ? `
+export { SEEDS, isSeedName } from '/src/testing/seeds.ts';
+import { seedApp as original } from '/src/testing/seeds.ts';
+export const seedApp = (...args) => {
+  const controls = original(...args);
+  const tree = controls.app.handlers['rail.tree'];
+  // CI5527a: retain the Workstream and its live Agent used by every action below,
+  // instead of mounting tree-40's unrelated rows for each App load.
+  controls.app.handlers['rail.tree'] = async (params) => (await tree(params)).filter(node => ['payments', 'agent-4'].includes(node.id));
+  return controls;
+};` : id === "\0u507-bound-layout.js" ? `
 import { createComponent, mergeProps } from 'solid-js';
 import { useSplitter } from '@ark-ui/solid/splitter';
 import { Layout as RealLayout } from '/src/app/Layout.tsx';
