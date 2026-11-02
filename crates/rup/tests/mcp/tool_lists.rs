@@ -382,7 +382,8 @@ async fn p16_shared_pad_access_over_public_seams() {
 
 #[test]
 fn m5_every_app_action_has_a_tool_or_a_reason() {
-    for command in seam_commands() {
+    let commands = seam_commands();
+    for command in &commands {
         match command.as_str() {
             "open_project" | "rename_project" => {
                 let method = if command == "open_project" {
@@ -397,5 +398,11 @@ fn m5_every_app_action_has_a_tool_or_a_reason() {
                 "{command} has no App seam policy"
             ),
         }
+    }
+    for command in NO_TOOL {
+        assert!(
+            commands.iter().any(|name| name == command),
+            "{command} is gone from the App seam"
+        );
     }
 }
