@@ -36,9 +36,9 @@ beforeAll(async () => {
     if (!ready.ok) throw new Error(await ready.text());
   }
 
-  await browser("--profile", profile, "--executable-path", "/opt/google/chrome/chrome", "--args", "--no-sandbox", "open", new URL("/harness.html?seed=empty-project", server.resolvedUrls.local[0]!).href);
+  await browser("--profile", profile, "--executable-path", "/opt/google/chrome/chrome", "--args", "--no-sandbox", "--color-scheme", "dark", "open", new URL("/harness.html?seed=empty-project", server.resolvedUrls.local[0]!).href);
   await browser("set", "viewport", "1512", "950");
-  await browser("set", "media", "color-scheme", "dark");
+  await browser("set", "media", "dark");
 }, 90_000);
 
 afterAll(async () => {
@@ -56,6 +56,7 @@ it("u5557b_every_chip_uses_keychip", async () => {
 
   for (const seed of ["empty-project", "first-run", "tree-40"]) {
     await browser("open", new URL(`/harness.html?seed=${seed}`, server.resolvedUrls.local[0]!).href);
+    await browser("set", "media", "dark");
     await browser("wait", "--fn", seed === "first-run" ? `!!document.querySelector('.choose-project kbd')` : `!!window.__fake && !!document.querySelector('.rail-actions kbd')`);
 
     if (seed === "tree-40") {
