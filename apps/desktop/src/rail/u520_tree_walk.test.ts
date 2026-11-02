@@ -217,16 +217,18 @@ it("u5645a_one_topology_serves_rows_and_collection_at_40_and_400", async () => {
 
  return node.parent; } }));
 
-    const connected = await connectProject(createFakeApp(), { path: "/p", name: "p" }, () => true, () => NOW);
+    const app = createFakeApp();
+    app.handlers["rail.tree"] = () => counted;
+    const connected = await connectProject(app, { path: "/p", name: "p" }, () => true, () => NOW);
     createRoot(dispose => {
-      const tree = createRailTree({ ...connected, rail: { ...connected.rail, nodes: counted } }, () => new Set(), () => undefined);
+      const tree = createRailTree(connected, () => new Set(), () => undefined);
       expect(tree.rows().map(row => row.key)).toEqual(expected.map(id => `node:${id}`));
       expect(tree.collection().getValues().filter(id => !id.startsWith("section:"))).toEqual(expected);
       expect(tree.sectionRows().map(section => section.id)).toEqual(["workstreams", "modes", "agents"]);
-      expect(tree.topology().nodes.every(node => counted.includes(node))).toBe(true);
+      expect(tree.topology().nodes.every(node => connected.rail.nodes.includes(node))).toBe(true);
       tree.treeRows();
       tree.expanded();
-      expect(construction).toHaveBeenCalledTimes(1);
+      expect(construction.mock.results.filter(result => result.type === "return" && result.value.nodes.length === size)).toHaveLength(1);
       expect(parents).toBe(size);
       dispose();
     });

@@ -57,16 +57,16 @@ it("u5645a_reconciled_structure_updates_once_and_view_changes_do_not_rebuild", a
   const { connected, rail, app, setNow } = await mountRail(tree());
   const sourceArray = rail.nodes;
   const inner = rail.nodes.find(node => node.id === "inner");
-  // Include the mounted owner's construction; this second owner observes the same connected seam.
+  // A second projection shares the connected Rail state's canonical topology.
   const initial = construction.mock.calls.length;
   const [unfolded, setUnfolded] = createSignal<ReadonlySet<string | null>>(new Set());
   const { projection, dispose } = createRoot(dispose => ({ projection: createRailTree(connected, unfolded, () => undefined), dispose }));
-  expect(construction.mock.calls.length).toBe(initial + 1);
+  expect(construction.mock.calls.length).toBe(initial);
   const canonical = projection.topology();
 
   fireEvent.click(rowOf("leaf"));
   await settled();
-  expect(construction.mock.calls.length).toBe(initial + 1);
+  expect(construction.mock.calls.length).toBe(initial);
   rowOf("leaf").focus();
   setNow(NOW + 1);
   setUnfolded(new Set(["inner"]));
@@ -78,7 +78,7 @@ it("u5645a_reconciled_structure_updates_once_and_view_changes_do_not_rebuild", a
   expect(projection.rows().map(row => row.key)).not.toContain("node:leaf");
   expect(projection.expanded()).not.toContain("inner");
   expect(projection.expanded()).not.toContain("section:workstreams");
-  expect(construction.mock.calls.length).toBe(initial + 1);
+  expect(construction.mock.calls.length).toBe(initial);
 
   const refresh = async (nodes: ReturnType<typeof tree>) => {
     const before = construction.mock.calls.length;
@@ -86,10 +86,10 @@ it("u5645a_reconciled_structure_updates_once_and_view_changes_do_not_rebuild", a
     await rail.refresh();
     expect(rail.nodes).toBe(sourceArray);
     expect(rail.nodes.find(node => node.id === "inner")).toBe(inner);
-    // One build in each of the two real owners, never one per section/consumer.
-    expect(construction.mock.calls.length).toBe(before + 2);
+    // Both projections and selection share one build for the reconciled revision.
+    expect(construction.mock.calls.length).toBe(before + 1);
     projection.rows(); projection.collection(); projection.treeRows();
-    expect(construction.mock.calls.length).toBe(before + 2);
+    expect(construction.mock.calls.length).toBe(before + 1);
   };
 
   rail.toggleCollapsed("inner");
