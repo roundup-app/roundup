@@ -10,9 +10,9 @@ import { captureDir } from "../testing/captures";
 
 const execute = promisify(execFile);
 
-const source = "Ready to review.\n\n<details>\n<summary>For Agents</summary>\n\nPath: `日本語/café`\nCommand: `rup pad read notes`\nId: `fixture-5561`\n\n~~~text\nraw evidence: check passed\n~~~\n\n</details>";
+const source = "# Result\n\nReady to review.\n\n## Verification\n\nRead the outcome first.\n\n<details>\n<summary>Evidence</summary>\n\nThe check passed.\n\n</details>\n\n## Next step\n\nReview before publishing.\n\n# Reference\n\n<details>\n<summary>For Agents</summary>\n\nPath: `日本語/café`\nCommand: `rup pad read notes`\nId: `fixture-5561`\n\n~~~text\nraw evidence: check passed\n~~~\n\n</details>";
 
-it("u5561c_public_pad_round_trip", { retry: 0, timeout: 240_000 }, async () => {
+it("u5561c_public_pad_round_trip", { retry: 0, timeout: 360_000 }, async () => {
   await withProject(async real => {
   const app = createServedApp(real.base);
   const binary = resolve("../../target/debug/rup");
@@ -62,15 +62,39 @@ finally:
 
     await openPad();
 
-    for (const action of ["click", "Return"]) {
-      expect(await read("document.querySelector('details[data-pad-agents]').open")).toBe(false);
+    const capture = async (id: string, name: string) => {
+      const dir = captureDir(id);
 
-      if (action === "Return") await browser("focus", "details[data-pad-agents] summary");
+      if (!dir) return;
+      await mkdir(dir, { recursive: true });
+      await browser("screenshot", join(dir, `daemon-${name}.png`));
+      await writeFile(join(dir, `daemon-${name}.checks.json`), JSON.stringify(await read("window.__checks()")));
+    };
 
-      for (const open of [true, false]) {
-        if (action === "click") await browser("click", "details[data-pad-agents] summary");
-        else await browser("press", "Enter");
-        await wait(`document.querySelector('details[data-pad-agents]').open === ${open}`);
+
+    for (const action of ["click", "Return", "Space"]) {
+      for (const label of ["Evidence", "For Agents"]) {
+        const control = `details[data-pad-agents] summary[aria-label="${label}"]`;
+        await browser("focus", control);
+
+        for (const open of [true, false]) {
+          if (action === "click") await browser("click", control);
+          else await browser("press", action === "Return" ? "Enter" : "Space");
+          await wait(`document.querySelector(${JSON.stringify(control)}).getAttribute('aria-expanded') === '${open}'`);
+          await capture(label === 'Evidence' || label === 'For Agents' ? 'U5561a' : 'U5575a', `${label}-${action}-${open}`);
+        }
+      }
+
+      for (const label of ["Verification", "Next step", "Result", "Reference"]) {
+        const control = `details[data-pad-heading] summary[aria-label="${label}"]`;
+        await browser("focus", control);
+
+        for (const open of [false, true]) {
+          if (action === "click") await browser("click", control);
+          else await browser("press", action === "Return" ? "Enter" : "Space");
+          await wait(`document.querySelector(${JSON.stringify(control)}).getAttribute('aria-expanded') === '${open}'`);
+          await capture(label === 'Evidence' || label === 'For Agents' ? 'U5561a' : 'U5575a', `${label}-${action}-${open}`);
+        }
       }
     }
 
@@ -79,8 +103,8 @@ finally:
     expect((await app.rpc("pad.read", { name: "notes" })).text).toBe(source);
     await openPad();
     expect(await read("document.querySelector('details[data-pad-agents]').open")).toBe(false);
-    await browser("focus", ".ProseMirror");
-    await browser("press", "Control+Home");
+    await browser("click", ".ProseMirror > p:first-of-type");
+    await browser("press", "Home");
     await browser("press", "Shift+End");
     await browser("keyboard", "type", "Updated.");
     await browser("click", ".drawer .close");
