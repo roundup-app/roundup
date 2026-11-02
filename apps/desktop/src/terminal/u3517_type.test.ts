@@ -21,6 +21,7 @@ it("u3517a_font_readiness_preserves_output_and_fits_once_ready", async () => {
   const emulator = factory("t-a");
   const real = spy.mock.instances[0]!;
   vi.spyOn(real, "open").mockImplementation(() => {});
+  vi.spyOn(real, "element", "get").mockReturnValue(document.createElement("div"));
   // This buffer-only probe closes drawing; the addon requires an opened renderer.
   vi.spyOn(LigaturesAddon.prototype, "activate").mockImplementation(() => {});
   vi.spyOn(real, "registerCharacterJoiner").mockReturnValue(0);
