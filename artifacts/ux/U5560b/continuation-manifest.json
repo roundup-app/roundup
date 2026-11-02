@@ -25,7 +25,7 @@
   ],
   "earlierEvidence": "manifest.json",
   "baseObserverCommit": "92e1d60b4e01c1bcb2cf4e9887e4180e14ab755a",
-  "validation": "Fresh dark base/head captures complete. No Check regression in 38 paired Pad and 12 paired Settings screens. All 52 head screens pass D2/D5/D6. Focused tests and ready are running.",
+  "validation": "All changed behavior files pass: 226 focused tests, one inherited skip, no retry in final passing results. All 52 head screens pass D2/D5/D6; no paired Check regression. just ready passed 193 lint fixtures and web/type/copy checks; Rust Clippy is compiling, with no passing result claimed. Required CI judges the push.",
   "pairedScreens": 12,
   "headOnlyScreens": []
 }
