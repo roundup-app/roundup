@@ -1,0 +1,4 @@
+PROOF q7 keep_open=true: before exit child={pid:12687, name:"fake-agent"} last_exit=null
+PROOF q7 keep_open=true: event child_exited=Ok(Object {"exit_code": Number(7), "error": String("exit status 7")}); stream APC=[Object {"type": String("child_exited"), "exit_code": Number(7)}]; stream close=None; process after={"exit_code":7,"error":"exit status 7"}
+PROOF q7 keep_open=false: before exit child={pid:12720, name:"fake-agent"} last_exit=null
+PROOF q7 keep_open=false: event child_exited=Ok(Object {"exit_code": Number(7), "error": String("exit status 7")}); stream APC=[Object {"type": String("child_exited"), "exit_code": Number(7)}]; stream close=None; process after={"exit_code":7,"error":"exit status 7"}

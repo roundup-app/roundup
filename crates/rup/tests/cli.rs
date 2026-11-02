@@ -256,23 +256,6 @@ async fn i2_help_has_the_four_parts_in_order() {
 }
 
 #[tokio::test]
-async fn i2_a_commands_help_names_its_arguments_flags_and_an_example() {
-    let dir = tempfile::tempdir().unwrap();
-    let run = on(&dir.path().join("none"));
-    let by_help = run.rup(&["help", "pad", "read"]).await;
-    let by_flag = run.rup(&["pad", "read", "--help"]).await;
-    assert_eq!((code(&by_help), code(&by_flag)), (0, 0));
-    assert_eq!(out(&by_help), out(&by_flag));
-    let text = out(&by_help);
-    assert!(text.starts_with("Read one Pad."), "{text}");
-    assert!(text.contains("Usage: rup pad read"), "{text}");
-    assert!(text.contains("<name>") && text.contains("--json"), "{text}");
-    assert!(text.contains("Example:\n  rup pad read notes"), "{text}");
-    let noun = out(&run.rup(&["help", "pad"]).await);
-    assert!(noun.contains("read") && noun.contains("append"), "{noun}");
-}
-
-#[tokio::test]
 async fn i2_a_mistyped_command_suggests_the_closest_and_exits_2() {
     let dir = tempfile::tempdir().unwrap();
     let run = on(&dir.path().join("none"));
@@ -799,42 +782,6 @@ async fn b45_the_cli_command_is_the_tool_and_exits_by_the_table() {
 }
 
 #[tokio::test]
-async fn p2544d_cli_write_accepts_revision_guard() {
-    let project = start_daemon().await;
-    let run = on(&project.socket);
-    assert_eq!(
-        code(
-            &run.rup(&["pad", "create", "notes", "--text", "original"])
-                .await
-        ),
-        0
-    );
-    assert_eq!(
-        code(
-            &run.rup(&["pad", "write", "notes", "winner", "--expectedRevision", "1"])
-                .await
-        ),
-        0
-    );
-    let stale = run
-        .rup(&[
-            "pad",
-            "write",
-            "notes",
-            "loser",
-            "--expectedRevision",
-            "1",
-            "--json",
-        ])
-        .await;
-    assert_eq!(code(&stale), 1);
-    assert!(err(&stale).contains("revision 2"));
-    let read: Value =
-        serde_json::from_str(&out(&run.rup(&["pad", "read", "notes", "--json"]).await)).unwrap();
-    assert_eq!(read["text"], "winner");
-}
-
-#[tokio::test]
 async fn a2693a_cli_and_mcp_forward_the_resume_mode() {
     for mode in ["normal", "yolo"] {
         let dir = tempfile::tempdir().unwrap();
@@ -987,3 +934,6 @@ async fn lc22_successful_memory_decisions_reach_the_vendor() {
 
 #[path = "cli/tool_catalogue.rs"]
 mod tool_catalogue;
+
+#[path = "cli/pads.rs"]
+mod pads;
