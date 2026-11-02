@@ -75,6 +75,7 @@
 }
 
 .reaction-instruction {
+  user-select: text;
   color: var(--text);
   white-space: pre-wrap;
 }
