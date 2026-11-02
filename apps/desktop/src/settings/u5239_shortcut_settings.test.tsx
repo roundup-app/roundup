@@ -1,3 +1,4 @@
+import { shortcutLabel } from "../keys/chords";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it, vi } from "vitest";
 import { Terminal } from "@xterm/xterm";
@@ -44,7 +45,7 @@ it("u5239a_one_row_per_named_action_with_its_label_and_keys", async () => {
 });
 
 it("u5239a_a_new_table_entry_gets_a_row", async () => {
-  const added = { name: "test.added", keys: "⌘9", what: "Added by a test", presses: [] } satisfies Chord;
+  const added = { name: "test.added", keys: shortcutLabel("meta+Digit9"), what: "Added by a test", presses: [] } satisfies Chord;
   // SAFETY: the tables are readonly views of arrays; the test adds and removes one row.
   (CHORDS as Chord[]).push(added);
   // SAFETY: as above.

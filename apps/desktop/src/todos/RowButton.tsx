@@ -15,13 +15,13 @@ export const RowButton = (props: { onClick: (event: MouseEvent) => void; pressed
       && (event.altKey ? props.reorderable === true : props.pressed !== undefined)
       && ((event.key !== "Escape" && event.key !== "Backspace") || props.selectionActive === true),
     run: (event) => props.onKeyDown?.(event),
-  }, ...CHORDS.filter(row => row.keys === "⏎" || row.keys === "F2").map(action => ({
+  }, ...CHORDS.filter(row => row.name === "todo.open-draft" || row.name === "rail.rename").map(action => ({
     action,
     searchable: false as const,
     when: (event: KeyboardEvent) => event.target === button && !props.keysSuspended
-      && (action.keys === "⏎" ? props.onOpen !== undefined : props.onRename !== undefined),
+      && (action.name === "todo.open-draft" ? props.onOpen !== undefined : props.onRename !== undefined),
     capture: (focus: Element | null) => {
-      const invoke = action.keys === "⏎" ? props.onOpen : props.onRename;
+      const invoke = action.name === "todo.open-draft" ? props.onOpen : props.onRename;
 
       return {
         available: () => invoke !== undefined && focus === button && button?.isConnected === true
@@ -30,7 +30,7 @@ export const RowButton = (props: { onClick: (event: MouseEvent) => void; pressed
       };
     },
   })), ...[false, true].map(out => ({
-    action: CHORDS.find(row => row.inTriage && row.keys === (out ? "⇧Tab" : "Tab"))!,
+    action: CHORDS.find(row => row.name === (out ? "todo.triage-unnest" : "todo.triage-nest"))!,
     searchable: false as const, repeat: true as const,
     when: (event: KeyboardEvent) => event.target === button && props.nest?.(out) != null,
     capture: (focus: Element | null) => {
