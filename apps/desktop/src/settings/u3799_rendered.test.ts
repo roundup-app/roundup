@@ -77,7 +77,7 @@ it.skipIf(!captureDir("U4277c")).each(["tree-40", "tabs-8"].flatMap(seed =>
             window.__fake.app.emit({actor:{kind:'user',id:'you',parent:null},name:'terminal.changed'});
             return true;
           })()`);
-          await lane.until("document.querySelectorAll('.rail-row').length === 0 && !document.querySelector('.terminal-tabs')");
+          await lane.until("document.querySelectorAll('.rail-row').length === 0 && !document.querySelector('.terminal-tab')");
         }
 
         if (seed === "tabs-8" && filled && view === "workstreams") {
@@ -118,7 +118,7 @@ it.skipIf(!captureDir("U4277c")).each(["tree-40", "tabs-8"].flatMap(seed =>
         // U4274b/c: Rail and Terminal navigation are primary; their visibility commands were retired.
         if (view !== "workstreams" && view !== "terminal-tabs") await command(view === "import-work" ? view : `view:${view}`);
         const selector = {"ask-history":".ask-rows",made:".ask-bar",resources:".resource-inspection",workstreams:".project-overview","terminal-tabs":".terminal-tabs","import-work":".import-panel"}[view];
-        await lane.until(view === "terminal-tabs" && !filled ? "!document.querySelector('.terminal-tabs')" : `!!document.querySelector('${selector}')`);
+        await lane.until(view === "terminal-tabs" && !filled ? "!document.querySelector('.terminal-tab')" : `!!document.querySelector('${selector}')`);
         expect((await lane.calls()).filter(call => ["agent.spawn", "rail.startDoor", "ask.send", "terminal.write", "project.importCommit"].includes(call.method))).toEqual([]);
 
         if (view === "ask-history") await lane.until("document.querySelector('.ask-rows')?.getAttribute('aria-busy') === 'false'");
