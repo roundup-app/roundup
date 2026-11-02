@@ -36,9 +36,9 @@ beforeAll(async () => {
     if (!ready.ok) throw new Error(await ready.text());
   }
 
-  await browser("--profile", profile, "open", new URL("/harness.html?seed=empty-project", server.resolvedUrls.local[0]!).href);
+  await browser("--profile", profile, "--executable-path", "/opt/google/chrome/chrome", "--args", "--no-sandbox", "open", new URL("/harness.html?seed=empty-project", server.resolvedUrls.local[0]!).href);
   await browser("set", "viewport", "1512", "950");
-  await browser("set", "media", "dark");
+  await browser("set", "media", "color-scheme", "dark");
 }, 90_000);
 
 afterAll(async () => {
