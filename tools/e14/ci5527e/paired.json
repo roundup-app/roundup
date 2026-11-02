@@ -90,7 +90,7 @@
       "head_exit": 0,
       "repair": "Existing projectCount=0 on single-Project cases and scoped label/group queries; all actions and assertions retained.",
       "replay_setup": "Copy navigation-reporter.mjs.in to /tmp/5701-reporter.mjs; set CI5527_REPORT to the output report path before running the recorded command.",
-      "head_commit": "c50d5067819b74758fa1d3a59c7b5e1d94d18996"
+      "retained_head_commit": "c50d5067819b74758fa1d3a59c7b5e1d94d18996"
     }
   ],
   "next_observer": "Run passing baseline/head observations with identical explicit file selections, runner class and workload and no competing jobs. Retain raw module.diagnostic().duration (including hooks) or Vitest raw results cache duration, identities and statuses. Default printed integer milliseconds round duration and are diagnostic only.",
@@ -99,7 +99,12 @@
     "ready.log.gz": "c463520f579de5e9d11d1a7995c1e7e685ca5c2207a1dec391a85a4f6e3a34ed",
     "ui-lint.log.gz": "b897a5a4b7b90a81017876a31e42987437552c4c42474c4c228c1d00948643f9",
     "ui-lint-main.log.gz": "d6873968c6b254dec704052b59ad4ddb19faf5b49cd5c796834257924d61624e",
-    "build.log.gz": "8d92ed404b0080c88171a53bc8010557c9ec9d5200692f68c3f68254111ae82c"
+    "build.log.gz": "8d92ed404b0080c88171a53bc8010557c9ec9d5200692f68c3f68254111ae82c",
+    "completion-navigation.log.gz": "6b9b8502a4de698e07c2358a51bd1e8b13c773de7fd7deb387d363567be419a5",
+    "completion-ready-before-repair.log.gz": "8e095fe741fd7aa6f0573b1f65ba1209b18b23bc1f277438e00742ba62de0ba3",
+    "completion-ready.log.gz": "013f61436ef4758e899036e86177566a4425eb5bffc66090ae899178fef16ef7",
+    "completion-ui-lint-main.log.gz": "7b285c11708c7feadac205626d611502b9f7893a36ed5a0f381b5503e80accc1",
+    "completion-ui-lint.log.gz": "167da15b9729ecaad9014a1c3887627af71d1caa69e1cb1009957e9533f566db"
   },
   "corrected_actions_commit": "e8cf1d5df08faa2b54dd48ebaedb3c7ebae514ad",
   "actions_rerun": {
@@ -128,5 +133,50 @@
     "cpus": 2,
     "class": "Ubuntu 24.04.5 LTS, isolated boxd runner",
     "run": "https://github.com/roundup-app/roundup/actions/runs/41476236075"
+  },
+  "completion_verification": {
+    "source_commit": "c78b0469707e482ba92df7aa8d8ef572039061cd",
+    "main_commit": "6d28856326146787bf5ceb8e3bf1ca99e2b212ff",
+    "navigation": {
+      "command": "pnpm --filter desktop exec vitest run src/bubbles/u4274_navigation.test.tsx",
+      "source_commit": "43821ab5204f8113d40df0d6bfeb35e69be4bb6c",
+      "exit": 0,
+      "passed": 43,
+      "skipped": 1,
+      "log": "completion-navigation.log.gz",
+      "identities": "Full names and statuses exactly match both accepted-pair reports.",
+      "purpose": "Correctness only; ran concurrently with ready, not performance evidence."
+    },
+    "initial_ready": {
+      "command": "just ready",
+      "exit": 1,
+      "log": "completion-ready-before-repair.log.gz",
+      "failure": "Fallow reported the executable measurement reporter as an unused file and the Python-invoked @ast-grep/cli as an unused dependency. All other ready lines passed."
+    },
+    "repair": "Retain the reporter using the existing E14 .mjs.in template convention; record the installed CLI consumed by tools/lint/scan.py outside the JS import graph in .fallowrc.json. Fallow dead-code then exited 0.",
+    "ui_lint": {
+      "observations": [
+        {
+          "command": "node .agents/skills/taste-skill/scripts/lint.mjs --app apps/desktop/src/bubbles/u4274_navigation.test.tsx",
+          "exit": 1,
+          "log": "completion-ui-lint.log.gz"
+        },
+        {
+          "command": "node .agents/skills/taste-skill/scripts/lint.mjs --app /tmp/5701-navigation-main.tsx",
+          "exit": 1,
+          "log": "completion-ui-lint-main.log.gz"
+        }
+      ],
+      "result": "Both flag the same unchanged emoji in the Unicode draft fixture; no production UI changes."
+    },
+    "merge_loss": {
+      "command": "bash loop/rules.sh merge-loss",
+      "exit": 0
+    },
+    "ready": {
+      "command": "just ready",
+      "exit": 0,
+      "log": "completion-ready.log.gz"
+    }
   }
 }
