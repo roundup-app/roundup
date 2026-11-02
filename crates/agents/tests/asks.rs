@@ -213,7 +213,7 @@ impl DoorHarness {
             )
             .unwrap()
             .with_context(|_, _| async { Ok("Context must not enter a new Ask's Steer".into()) })
-            .with_coordination(|_, _| async { Ok(()) })
+            .with_coordination(|_, _, _| async { Ok(()) })
             .with_steer_bound(bound)
             .with_steer_effect(move |_| {
                 if gone.load(Ordering::SeqCst) {

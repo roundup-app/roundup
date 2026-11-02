@@ -28,7 +28,9 @@ impl Shared {
                     Err(_) => eprintln!("agents: startup Context for {id} timed out"),
                 }
             }
-            let result = shared.coordinate(&id, Some(&attempt), prompt).await;
+            let result = shared
+                .coordinate(Actor::daemon(), &id, Some(&attempt), prompt)
+                .await;
             if let Err(err) = &result {
                 eprintln!("agents: the coordination text of {id} failed: {err}");
             }
@@ -52,6 +54,7 @@ impl Shared {
     /// no byte to its Terminal. `attempt` fences a stale start.
     pub(super) async fn coordinate(
         &self,
+        from: Actor,
         id: &str,
         attempt: Option<&str>,
         text: String,
@@ -78,7 +81,7 @@ impl Shared {
                 name,
             }));
         };
-        send(id.to_owned(), text)
+        send(from, id.to_owned(), text)
             .await
             .map_err(|error| SteerError::Refused(PromptError::Rail(error)))
     }
@@ -124,7 +127,7 @@ impl Agents {
     /// A4452d: send roundup's own `text` to `id`'s Claude inbox as a Message; no byte is typed.
     pub async fn coordinate(&self, id: &str, text: String) -> Result<(), PromptError> {
         self.shared
-            .coordinate(id, None, text)
+            .coordinate(Actor::daemon(), id, None, text)
             .await
             .map_err(PromptError::from)
     }

@@ -354,9 +354,6 @@ impl Agents {
             .shared
             .rail()
             .set_order(&id, &order, captured.as_ref())?;
-        if ctx.actor.kind == ActorKind::User {
-            self.admit_input(&id);
-        }
         ctx.touch(contracts::Verb::Wrote, &format!("agent:{id}"))?;
         ctx.emit(EventData::RailChanged);
         if ctx.actor.id != id {
@@ -369,7 +366,14 @@ impl Agents {
                     rail.prepare_instruction(&revision, attempt, &text, false)?;
                 }
             }
-            let sent = shared.coordinate(&id, None, text).await;
+            // User orders use the same physical-delivery admission as user Messages:
+            // retained automatic notes can follow this instruction, never precede it.
+            let from = if ctx.actor.kind == ActorKind::User {
+                ctx.actor.clone()
+            } else {
+                Actor::daemon()
+            };
+            let sent = shared.coordinate(from, &id, None, text).await;
             if let Err(err) = sent {
                 if ctx.actor.kind == ActorKind::Agent {
                     let mut error = RpcError::from(PromptError::from(err));

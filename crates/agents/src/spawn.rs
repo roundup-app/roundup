@@ -288,7 +288,8 @@ impl Agents {
                 first,
                 node.work.as_ref(),
                 spawn_prompt.as_deref(),
-                rail.order_revision(id)?.is_some() && attempt == "1",
+                rail.order_revision(id)?.is_some(),
+                attempt,
             );
 
             if let (Some(text), Some(revision)) = (&prompt, rail.order_revision(id)?) {
@@ -522,13 +523,14 @@ impl Agents {
         let (attempt, prompt) = {
             let mut rail = self.shared.rail();
             let node = rail.node(id)?;
+            let attempt = rail.allocate_attempt(id)?;
             let prompt = order::first_input(
                 first,
                 node.work.as_ref(),
                 rail.spawn_prompt(id)?.as_deref(),
-                rail.order_revision(id)?.is_some() && node.attempt.is_none(),
+                rail.order_revision(id)?.is_some(),
+                &attempt,
             );
-            let attempt = rail.allocate_attempt(id)?;
             rail.attach_terminal(id, "fixture")?;
             (attempt, prompt)
         };
@@ -585,10 +587,11 @@ mod idle_tests {
                 )
                 .unwrap();
             let prompt = order::first_input(
-                restart.then(String::new),
+                None,
                 node.work.as_ref(),
                 None,
-                !restart && rail.order_revision(&node.id).unwrap().is_some(),
+                rail.order_revision(&node.id).unwrap().is_some(),
+                if restart { "2" } else { "1" },
             );
             let mut run = Run::starting(
                 Arc::new(|| 0),
@@ -676,12 +679,12 @@ mod idle_tests {
         assert!(run.input_started);
         let work = Order::work("build");
         assert_eq!(
-            order::first_input(None, Some(&work), Some("details"), true),
+            order::first_input(None, Some(&work), Some("details"), true, "1"),
             Some("build\n\nDetails:\ndetails".into())
         );
         for words in ["saved opening", "new Ask", "creation prompt"] {
             assert_eq!(
-                order::first_input(Some(words.into()), None, None, false),
+                order::first_input(Some(words.into()), None, None, false, "1"),
                 Some(words.into())
             );
         }

@@ -38,15 +38,19 @@ pub(crate) fn steer(order: &Order, prompt: Option<&str>) -> String {
     }
 }
 
+/// Supplied words, or an explicit order on its first Attempt; retained orders stay passive.
 pub(crate) fn first_input(
     first: Option<String>,
     work: Option<&Order>,
     details: Option<&str>,
-    explicit: bool,
+    has_order_revision: bool,
+    attempt: &str,
 ) -> Option<String> {
     match first {
         Some(text) => (!text.is_empty()).then_some(text),
-        None => work.filter(|_| explicit).map(|work| steer(work, details)),
+        None => work
+            .filter(|_| has_order_revision && attempt == "1")
+            .map(|work| steer(work, details)),
     }
 }
 
