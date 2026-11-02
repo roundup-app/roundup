@@ -71,6 +71,17 @@ async fn u5690c_group_preserves_selected_identities_and_reopens() {
         )
         .unwrap();
         drop(db);
+        let todo = call(&daemon, "todo.create", json!({"title":"Keep this work"})).await;
+        call(&daemon, "todo.move", json!({"id":todo["id"],"home":"1"})).await;
+        call(
+            &daemon,
+            "pad.create",
+            json!({"name":"kept-work","text":"Exact retained text"}),
+        )
+        .await;
+        call(&daemon, "pad.move", json!({"name":"kept-work","home":"1"})).await;
+        let todos = call(&daemon, "todo.list", Value::Null).await;
+        let pad = call(&daemon, "pad.read", json!({"name":"kept-work"})).await;
         let before = call(&daemon, "rail.tree", Value::Null).await;
         let group = call(&daemon, "rail.group", json!({"ids":selected})).await;
         let typed: contracts::agent::RailNode = serde_json::from_value(group.clone()).unwrap();
@@ -93,6 +104,11 @@ async fn u5690c_group_preserves_selected_identities_and_reopens() {
             )
         };
         assert_eq!(positions(&after), expected);
+        assert_eq!(call(&daemon, "todo.list", Value::Null).await, todos);
+        assert_eq!(
+            call(&daemon, "pad.read", json!({"name":"kept-work"})).await,
+            pad
+        );
         for node in before.as_array().unwrap() {
             let held = after
                 .as_array()
@@ -103,6 +119,37 @@ async fn u5690c_group_preserves_selected_identities_and_reopens() {
             for field in ["kind", "name", "attempt", "work", "can_resume"] {
                 assert_eq!(held[field], node[field], "{field}");
             }
+        }
+        for (id, home) in [
+            (
+                "2",
+                if selected.as_array().unwrap().contains(&json!("2")) {
+                    Value::Null
+                } else {
+                    json!("1")
+                },
+            ),
+            (
+                "4",
+                if selected.as_array().unwrap().contains(&json!("4")) {
+                    Value::Null
+                } else {
+                    json!("3")
+                },
+            ),
+            (
+                "7",
+                if selected.as_array().unwrap().contains(&json!("7")) {
+                    Value::Null
+                } else {
+                    json!("6")
+                },
+            ),
+        ] {
+            assert_eq!(
+                call(&daemon, "agent.instructions", json!({"id":id})).await["home"],
+                home
+            );
         }
         assert!(daemon.agents.running_programs().is_empty());
         assert!(
@@ -125,6 +172,11 @@ async fn u5690c_group_preserves_selected_identities_and_reopens() {
         };
         assert_eq!(persisted(tree), persisted(after));
         assert!(reopened.agents.running_programs().is_empty());
+        assert_eq!(call(&reopened, "todo.list", Value::Null).await, todos);
+        assert_eq!(
+            call(&reopened, "pad.read", json!({"name":"kept-work"})).await,
+            pad
+        );
     }
 }
 
@@ -142,6 +194,12 @@ async fn u5690c_group_uses_nearest_common_ancestor_and_preserves_workstream_rest
     .unwrap();
     drop(db);
     let group = call(&daemon, "rail.group", json!({"ids":["6","2","4","2"]})).await;
+    for id in ["2", "4", "6"] {
+        assert_eq!(
+            call(&daemon, "agent.instructions", json!({"id":id})).await["home"],
+            "1"
+        );
+    }
     assert_eq!(group["parent"], "1");
     assert_eq!(group["order"], 0);
     let tree = call(&daemon, "rail.tree", Value::Null).await;
