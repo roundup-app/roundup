@@ -1,9 +1,0 @@
-shell=/bin/bash
-RUSTFLAGS=<unset>
-CARGO_ENCODED_RUSTFLAGS=<unset>
-CARGO_BUILD_TARGET=<unset>
-CARGO_PROFILE_RELEASE_DEBUG=<unset>
-CARGO_PROFILE_RELEASE_LTO=<unset>
-CARGO_BUILD_JOBS=<unset>
-perf version 6.17.13
-bpftrace v0.20.2
