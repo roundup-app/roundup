@@ -2,7 +2,7 @@ import { captureFocus } from "./focus";
 import { KeyHint } from "./KeyHint";
 import { copy } from "./copy";
 import { createSignal, For, Show } from "solid-js";
-import { CHORDS, HELP_KEYS, LEADER } from "./chords";
+import { CHORDS, HELP_KEYS, LEADER, leaderKeys, SHELF_KEYS, chordNamed } from "./chords";
 import { captureActions, registerKeys } from "./registry";
 import { Dialog } from "../ui/Dialog";
 
@@ -12,16 +12,16 @@ const rowScopes = new Map(Object.entries(copy.helpRowScope));
 
 const sections = (projectOpen: boolean, shelfOpen: boolean) => projectOpen ? [
   { title: copy.helpScope.app, rows: CHORDS.filter(row => !row.inFirstRun && !row.inRail && !row.inTerminals && !row.inShelf && !row.inEditor) },
-  { title: copy.helpScope.leader, rows: LEADER.map(row => ({ ...row, keys: `${copy.leaderChord} ${row.keys}`, what: row.keys === "B" ? (shelfOpen ? copy.closeShelf : copy.openShelf) : bubbleScopes.get(row.keys) ?? row.what })) },
+  { title: copy.helpScope.leader, rows: LEADER.map(row => ({ ...row, keys: leaderKeys(row), what: row.keys === "B" ? (shelfOpen ? copy.closeShelf : copy.openShelf) : bubbleScopes.get(row.keys) ?? row.what })) },
   // #3853 adds the Terminal Find owner; until then its menu catalogue entry has no working key to advertise.
-  { title: copy.helpScope.terminals, rows: CHORDS.filter(row => row.inTerminals && row.keys !== "⌘F") },
+  { title: copy.helpScope.terminals, rows: CHORDS.filter(row => row.inTerminals && row.name !== "terminal.find") },
   { title: copy.helpScope.rail, rows: CHORDS.filter(row => row.inRail) },
-  { title: copy.helpScope.shelf, rows: CHORDS.filter(row => row.inShelf && !row.inTriage && row.keys !== "T").map(row => ({ ...row, what: rowScopes.get(row.keys) ?? row.what })) },
-  { title: copy.helpScope.todos, rows: CHORDS.filter(row => row.inShelf && row.keys === "T") },
+  { title: copy.helpScope.shelf, rows: CHORDS.filter(row => row.inShelf && !row.inTriage && row.name !== "todo.triage-enter").map(row => ({ ...row, what: rowScopes.get(row.keys) ?? row.what })) },
+  { title: copy.helpScope.todos, rows: CHORDS.filter(row => row.inShelf && row.name === "todo.triage-enter") },
   { title: copy.helpScope.triage, rows: CHORDS.filter(row => row.inTriage) },
 ].map(section => section.title === copy.helpScope.todos ? [
   section,
-  { title: copy.helpScope.editor, rows: [{ ...CHORDS.find(row => row.keys === "⌘B")!, what: copy.bold }, ...CHORDS.filter(row => row.inEditor)] },
+  { title: copy.helpScope.editor, rows: [{ ...chordNamed("terminal.switch")!, what: copy.bold }, ...CHORDS.filter(row => row.inEditor)] },
 ] : [section]) : [[{ title: copy.helpScope.app, rows: CHORDS.filter(row => row.inFirstRun || row.what === copy.captureATodo || row.what === copy.settings) }]];
 
 /** U4324a: plain text and Terminal input keep `?`; every other App surface offers Help. */
@@ -37,7 +37,7 @@ export const Help = (props: { projectOpen?: boolean; shelfOpen?: boolean }) => {
   let initialFocus = captureFocus();
 
   const show = (): void => {
-    setLabels(new Map(captureActions(document.activeElement).filter(action => action.keys === "⇧⌘N").map(action => [action.keys, action.label])));
+    setLabels(new Map(captureActions(document.activeElement).filter(action => action.name === "agent.new-with-prompt").map(action => [action.keys, action.label])));
     initialFocus = captureFocus(true);
     returnTo = document.activeElement;
     setOpen(true);
@@ -49,7 +49,7 @@ export const Help = (props: { projectOpen?: boolean; shelfOpen?: boolean }) => {
     if (returnTo instanceof HTMLElement && returnTo.isConnected) returnTo.focus({ preventScroll: true });
   };
 
-  registerKeys({ kind: "app" }, [{ action: CHORDS.find(row => row.keys === "?")!, chords: HELP_KEYS, when: press => opensFrom(press.target), capture: focus => ({
+  registerKeys({ kind: "app" }, [{ action: CHORDS.find(row => row.name === "help.open")!, chords: HELP_KEYS, when: press => opensFrom(press.target), capture: focus => ({
     available: () => !open() && !!focus?.isConnected && opensFrom(focus),
     invoke: show,
   }) }]);
@@ -76,10 +76,10 @@ export const Help = (props: { projectOpen?: boolean; shelfOpen?: boolean }) => {
         </div>}</For>
         <Show when={props.projectOpen ?? true}><section class="help-shelf" aria-label={copy.shelfKeys}>
         <h2>{copy.shelfKeys}</h2>
-        <p><KeyHint keys={copy.previousNextKeys}>{copy.focusThePreviousNextShelfRow}</KeyHint></p>
-        <p><KeyHint keys={copy.enter}>{copy.toggleTheFocusedShelfRowSelection}</KeyHint></p>
-        <p><KeyHint keys={copy.rangeKeys}>{copy.selectARangeOfShelfRows}</KeyHint></p>
-        <p><KeyHint keys={copy.esc}>{copy.deleteSelectedShelfRowsCancelSelection}</KeyHint></p>
+        <p><KeyHint keys={SHELF_KEYS.adjacent}>{copy.focusThePreviousNextShelfRow}</KeyHint></p>
+        <p><KeyHint keys={SHELF_KEYS.toggle}>{copy.toggleTheFocusedShelfRowSelection}</KeyHint></p>
+        <p><KeyHint keys={SHELF_KEYS.range}>{copy.selectARangeOfShelfRows}</KeyHint></p>
+        <p><KeyHint keys={SHELF_KEYS.cancel}>{copy.deleteSelectedShelfRowsCancelSelection}</KeyHint></p>
         </section></Show>
         <div class="app-dialog-actions"><Dialog.CloseTrigger data-button="quiet">{copy.close}</Dialog.CloseTrigger></div>
       </Dialog.Content></Dialog.Positioner>
