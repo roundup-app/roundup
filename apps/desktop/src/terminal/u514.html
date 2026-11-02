@@ -18,7 +18,7 @@ if (new URLSearchParams(location.search).has("app")) {
 const OSC = (body) => `\x1b]${body}\x07`;
 const turn = (command, output, exit = 0) => OSC("7;file://host/work") + OSC("133;A") + "$ " + OSC("133;B") + command + "\r\n" + OSC("133;C") + output.map((line) => `${line}\r\n`).join("") + OSC(`133;D;${exit}`);
 const plain = new URLSearchParams(location.search).has("plain");
-const terminal = plain ? new Terminal(xtermOptions) : null;
+const terminal = plain ? new Terminal({ ...xtermOptions, macOptionClickForcesSelection: false }) : null;
 const emulator = terminal ? {
   show: host => terminal.open(host),
   fit: () => ({ cols: terminal.cols, rows: terminal.rows }),
