@@ -6,7 +6,7 @@ import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
-DECLARATION = '        "project.contractProbe": contracts::todo::TodoId => contracts::todo::TodoId, rpc_contract_probe, all(schema(contracts::todo::TodoId, "A harmless contract fixture."));\n'
+DECLARATION = '        "project.contractProbe": contracts::todo::TodoId => contracts::todo::TodoId, rpc_contract_probe, all(schema(contracts::todo::TodoId, "A harmless contract fixture.")), measured("ping_p95_ms"), tool;\n'
 HANDLER = '''
 impl Todos {
     pub async fn rpc_contract_probe(&self, ctx: &Ctx, _method: &str, value: Value) -> Result<Value, RpcError> {
@@ -24,7 +24,7 @@ class Addition(unittest.TestCase):
             checkout = Path(directory) / "checkout"
             subprocess.run(["git", "worktree", "add", "--detach", str(checkout), "HEAD"], cwd=ROOT, check=True, capture_output=True)
             try:
-                env = {**os.environ, "CARGO_TARGET_DIR": str(ROOT / "target/c4-addition")}
+                env = {**os.environ, "CARGO_TARGET_DIR": str(ROOT / "target")}
 
                 def run(*args):
                     result = subprocess.run(args, cwd=checkout, env=env, text=True, capture_output=True)
@@ -56,7 +56,7 @@ export type C4Caller = Assert<Equal<RpcMethods["project.contractProbe"], {params
                 caller.unlink()
                 variants = [
                     ("C4_DOOR_ONLY", DECLARATION.replace(", all(", ", door(")),
-                    ("C4_NO_TOOL", DECLARATION.rsplit(", all(", 1)[0] + ", none();\n"),
+                    ("C4_NO_TOOL", DECLARATION.rsplit(", all(", 1)[0] + ", none(\"Fixture has no tool\"), off_path(\"Fixture outside workload\"), text(\"A harmless contract fixture.\");\n"),
                     ("C4_REMOVED", ""),
                 ]
                 for mode, row in variants:
