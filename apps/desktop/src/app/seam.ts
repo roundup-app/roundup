@@ -118,6 +118,7 @@ export const SEAM_COMMANDS = [
   "show_context_menu",
   "plugin:window-bar|set_window_title",
   "plugin:window-bar|native_material",
+  "plugin:window-bar|webview_data_path",
   "plugin:window-bar|drag_window",
   "plugin:window-bar|zoom_window",
 ] as const;
