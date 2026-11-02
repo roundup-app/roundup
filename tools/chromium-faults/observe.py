@@ -26,6 +26,10 @@ import time
 
 HERE = Path(__file__).resolve().parent
 
+# check.yml permits 35-minute web jobs. The tracer must outlive their command
+# or successful tests leave incomplete fault evidence.
+TRACER_LIMIT_MINUTES = 40
+
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
@@ -343,7 +347,7 @@ def main():
         # timeout from forwarding a second INT: bpftrace treats it as a hard
         # stop and omits END's final evidence. Preserve the tracer's exit status
         # rather than timeout's 124 for an externally requested graceful stop.
-        tracer = subprocess.Popen(["sudo", "-n", "--", "env", "BPFTRACE_MAX_MAP_KEYS=4096", "BPFTRACE_PERF_RB_PAGES=64", "timeout", "--foreground", "--preserve-status", "--signal=INT", "--kill-after=5s", "15m", "bpftrace", "--no-warnings", "-f", "json", "-B", "line", str(HERE / "faults.bt"), str(child.pid), str(os.sysconf("SC_PAGE_SIZE")), str(options.samples)], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=1)
+        tracer = subprocess.Popen(["sudo", "-n", "--", "env", "BPFTRACE_MAX_MAP_KEYS=4096", "BPFTRACE_PERF_RB_PAGES=64", "timeout", "--foreground", "--preserve-status", "--signal=INT", "--kill-after=5s", f"{TRACER_LIMIT_MINUTES}m", "bpftrace", "--no-warnings", "-f", "json", "-B", "line", str(HERE / "faults.bt"), str(child.pid), str(os.sysconf("SC_PAGE_SIZE")), str(options.samples)], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=1)
         readers = [threading.Thread(target=target, daemon=True) for target in (consume, stderr, announce)]
         for reader in readers:
             reader.start()
@@ -366,12 +370,12 @@ def main():
         if tracer and tracer.poll() is None:
             # sudo forwards to the timeout supervisor, which owns only this
             # tracer. TERM also reaches bpftrace when INT was inherited ignored.
-            # Its 15-minute watchdog also bounds a lost control channel.
+            # Its watchdog also bounds a lost control channel.
             try:
                 subprocess.run(["sudo", "-n", "kill", "-TERM", str(tracer.pid)], timeout=5, check=False)
                 tracer.wait(timeout=10)
             except (OSError, subprocess.TimeoutExpired) as error:
-                publish({"status": "error", "detail": f"tracer cleanup: {error}; its watchdog remains bounded to 15 minutes"})
+                publish({"status": "error", "detail": f"tracer cleanup: {error}; its watchdog remains bounded to {TRACER_LIMIT_MINUTES} minutes"})
         with condition:
             stopped = True
             condition.notify_all()
