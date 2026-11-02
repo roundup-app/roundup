@@ -177,16 +177,7 @@ async fn resync(inner: &Arc<Inner>) -> bool {
         }
     }
     for node in nodes {
-        reconcile(
-            inner,
-            &mut store,
-            &node.id,
-            binding(&node),
-            ended(&node),
-            permanently_ended(&node),
-            true,
-        )
-        .expect("message store");
+        reconcile_node(inner, &mut store, &node, true).expect("message store");
     }
     true
 }
@@ -307,6 +298,7 @@ pub(super) async fn deliver_pending(inner: &Arc<Inner>, agent: &str) {
     if let Some(node) = nodes.iter().find(|node| {
         node.id == agent
             && !ended(node)
+            && node.status_revision.is_some()
             && node
                 .status
                 .as_ref()
@@ -321,21 +313,68 @@ pub(super) fn binding(node: &RailNode) -> store::Binding {
         node.attempt.as_deref().map_or(0, |n| {
             contracts::agent::parse_positive_ordinal(n).expect("Rail Attempt")
         }),
-        node.status_revision.as_deref().map_or(i64::MAX, |n| {
+        node.status_revision.as_deref().map_or(0, |n| {
             contracts::agent::parse_positive_ordinal(n).expect("Rail Status revision")
         }),
     )
 }
 
 pub(super) fn ended(node: &RailNode) -> bool {
-    node.status_revision.is_none()
-        || node.status.as_ref().is_none_or(|s| {
+    ((node.status_revision.is_none() || node.status.is_none()) && node.terminal_id.is_none())
+        || node.status.as_ref().is_some_and(|s| {
             s.kind == Kind::Done || (s.kind == Kind::Error && node.terminal_id.is_none())
         })
 }
 
 fn permanently_ended(node: &RailNode) -> bool {
-    node.status_revision.is_none() || (ended(node) && node.terminal_id.is_none())
+    ended(node) && node.terminal_id.is_none()
+}
+
+/// Repair only the old unknown-Status sentinel for an authoritative surviving Terminal.
+/// Final Messages remain final; only pending bindings need a finite idle boundary.
+fn reconcile_node(
+    inner: &Inner,
+    store: &mut Store,
+    node: &RailNode,
+    restart: bool,
+) -> Result<(), RpcError> {
+    let at = binding(node);
+    if node.terminal_id.is_some()
+        && !ended(node)
+        && store.retirement(&node.id)?.is_none()
+        && store.generation(&node.id)?.is_some_and(|state| {
+            state.attempt == at.0
+                && state.revision == i64::MAX
+                && state.closed_revision == i64::MAX
+                && state.closed
+        })
+    {
+        store.atomically(|store| {
+            for message in store.list_pending_to(&node.id)? {
+                if store.bound(message.id)? == (at.0, i64::MAX) {
+                    store.bind(message.id, (at.0, 0))?;
+                }
+            }
+            store.set_generation(
+                &node.id,
+                store::ReceiverState {
+                    attempt: at.0,
+                    revision: at.1,
+                    closed_revision: -1,
+                    closed: false,
+                },
+            )
+        })?;
+    }
+    reconcile(
+        inner,
+        store,
+        &node.id,
+        at,
+        ended(node),
+        permanently_ended(node),
+        restart,
+    )
 }
 
 pub(super) fn accept_receiver(
@@ -346,15 +385,7 @@ pub(super) fn accept_receiver(
     if store.retirement(&node.id)?.is_some() {
         return Err(RpcError::conflict("receiver reserved for retirement"));
     }
-    reconcile(
-        inner,
-        store,
-        &node.id,
-        binding(node),
-        ended(node),
-        permanently_ended(node),
-        false,
-    )?;
+    reconcile_node(inner, store, node, false)?;
     store.require_generation(&node.id, binding(node))
 }
 
@@ -366,15 +397,7 @@ pub(super) fn accept_reservation(
     node: &RailNode,
 ) -> Result<(), RpcError> {
     let at = binding(node);
-    reconcile(
-        inner,
-        store,
-        &node.id,
-        at,
-        ended(node),
-        permanently_ended(node),
-        false,
-    )?;
+    reconcile_node(inner, store, node, false)?;
     if ended(node) {
         if store
             .generation(&node.id)?
