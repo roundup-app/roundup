@@ -324,7 +324,11 @@ it.skipIf(!captureDir("U5558a"))("u5558e_open_surfaces_update_and_keep_failed_re
   const click = (name: string) => browser("find", "role", "button", "click", "--name", name, "--exact");
   const signal = (name: string) => evaluate(`window.__fake.emit({ actor: { kind: 'user', id: 'you', parent: null }, name: '${name}' })`);
 
+  const video = join(captureDir("U5558a")!, "automatic-updates.webm");
+  await mkdir(captureDir("U5558a")!, { recursive: true });
+
   try {
+    await browser("record", "start", video);
     await browser("set", "viewport", "1512", "950");
     await browser("set", "media", "dark");
     await browser("open", `${server.resolvedUrls.local[0]}harness.html?view=workstreams&items=1&tabs=1&view=made&seed=agents-10`);
@@ -407,5 +411,17 @@ it.skipIf(!captureDir("U5558a"))("u5558e_open_surfaces_update_and_keep_failed_re
     await wait("document.querySelector('.diff-reader [role=alert]')?.textContent.includes('Worktree read refused')");
     await capture("U5558e", "diff-reload-failed");
     expect(await evaluate("[...document.querySelectorAll('button')].some(button=>button.textContent.trim()==='Refresh')")).toBe(false);
-  } finally { await lane.close(); await server.close(); }
+  } finally {
+    try {
+      await browser("record", "stop");
+
+      for (const id of ["U5558b", "U5558c", "U5558d", "U5558e"]) {
+        const dir = captureDir(id);
+
+        if (!dir) continue;
+        await mkdir(dir, { recursive: true });
+        await copyFile(video, join(dir, "automatic-updates.webm"));
+      }
+    } finally { await lane.close(); await server.close(); }
+  }
 }, 90_000);
