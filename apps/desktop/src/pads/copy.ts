@@ -28,7 +28,7 @@ export const copy = {
   textColour: "Text colour",
   highlight: "Highlight",
   highlightIcon: "H",
-  colours: { default: "Default", blue: "Blue", green: "Green", purple: "Purple", red: "Red", amber: "Amber" },
+  colours: { default: sharedCopy.defaultChoice, blue: "Blue", green: "Green", purple: "Purple", red: "Red", amber: "Amber" },
   calloutKinds: { NOTE: "NOTE", TIP: "TIP", IMPORTANT: "IMPORTANT", WARNING: "WARNING", CAUTION: "CAUTION" },
   languages: { typescript: "TypeScript", javascript: "JavaScript", python: "Python" },
   callouts: "Callouts",
