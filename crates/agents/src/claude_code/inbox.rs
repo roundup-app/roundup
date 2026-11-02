@@ -485,3 +485,12 @@ mod tests {
         );
     }
 }
+
+impl Launcher {
+    /// The private folder Agents' messaging sockets are made in.
+    pub(super) fn socket_dir(&self) -> &Path {
+        self.sockets
+            .get_or_init(|| super::launch_files::socket_folder().expect("a private folder for messaging sockets"))
+            .path()
+    }
+}
