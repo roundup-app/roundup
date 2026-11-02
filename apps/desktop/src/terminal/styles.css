@@ -197,7 +197,10 @@
 }
 
 /* Ellipsis would hide the failure cause after a long path. */
-.target-failure {
+.reserved-line.target-failure {
+  block-size: auto;
+  max-block-size: none;
+  overflow: visible;
   min-width: 0;
   overflow-wrap: anywhere;
 }

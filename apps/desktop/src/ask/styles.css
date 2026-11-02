@@ -558,7 +558,7 @@
   height: 100%;
 }
 
-.ask-line[data-linked="true"] > :is(.ask-text, .ask-where, .ask-state) {
+.ask-line[data-linked="true"] :is(.ask-text, .ask-where, .ask-state) {
   position: relative;
   pointer-events: none;
 }

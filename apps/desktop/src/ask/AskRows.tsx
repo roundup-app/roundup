@@ -9,7 +9,6 @@ import type { Target } from "@contracts/ask/Target";
 import { copy } from "./copy";
 import { ReservedLine } from "../ink/ReservedLine";
 import { KindGlyph, LABELS } from "../ink/KindGlyph";
-import { ErrorLine } from "../ink/ErrorLine";
 import { FailureLine, shownKind } from "../ink/FailureLine";
 import { useConnectedProject } from "../state/connectedProject";
 import type { AskEntry } from "../state/asks";
@@ -161,7 +160,7 @@ const AskRow = (props: { live: boolean; keys: KeyScope; entry: AskEntry; part: A
           {line(tip)}
         </Dynamic>;
       }}</Tip>
-      <Show when={linkFailure()}>{message => <div class="target-failure"><ErrorLine message={message()} /></div>}</Show>
+      <ReservedLine class="target-failure" message={linkFailure()} content={linkFailure()} />
       <Show when={!dismissed()}><FailureLine status={status()} /></Show>
       <Show when={asking()}>
         <div class="ask-back">
