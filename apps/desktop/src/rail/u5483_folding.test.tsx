@@ -54,6 +54,19 @@ it("u5483b_opening_a_fold_preserves_agent_descendants", async () => {
   expect(rail.selected()).toBe("descendant");
 });
 
+it("u5483b_folding_an_ancestor_recovers_descendant_focus", async () => {
+  const { app } = await mountRail([
+    workstream("stream"),
+    agent("parent", "working", "working", { parent: "stream", final_text: { ...empty, finished: "0" } }),
+    agent("descendant", "working", "working", { parent: "parent" }),
+  ]);
+
+  rowOf("descendant").focus();
+  await settled();
+  app.emit(event({ name: "agent.status", data: { id: "parent", attempt: "1", status_revision: "2", status: { kind: "done", label: "finished", since: NOW, finished: "0" } } }));
+  await waitFor(() => expect(document.activeElement).toBe(document.querySelector('[data-id="fold:stream"] [data-part="branch-control"]')));
+});
+
 it("u5483c_unknown_final_text_stays_visible", async () => {
   const child = agent("child", "done", "finished", { parent: "stream" });
 
