@@ -1,5 +1,40 @@
-import { createComputed, createMemo, createSignal, on, untrack, type Accessor } from "solid-js";
-import type { NestedRow } from "./todoView";
+import { batch, createComputed, createMemo, createSignal, on, untrack, type Accessor } from "solid-js";
+import { rowTopology, type NestedRow } from "./todoView";
+
+/** Range aggregates replace #5644's 1,999,000 retained descendant references. */
+export const groupFacts = (topology: ReturnType<typeof rowTopology>) => {
+  const { rows, end } = topology;
+  const done = [0];
+  const nextOpen: (number | null)[] = Array(rows.length + 1).fill(null);
+  rows.forEach(row => done.push(done.at(-1)! + Number(row.todo.done)));
+
+  for (let at = rows.length - 1; at >= 0; at--) nextOpen[at] = rows[at]!.todo.done ? nextOpen[at + 1]! : at;
+  const groups = new Map<number, { start: number; end: number; total: number; done: number; first: number | null }>();
+  rows.forEach((row, at) => {
+    const stop = end[at]!;
+
+    if (stop === at + 1) return;
+    const first = nextOpen[at + 1];
+    groups.set(row.todo.id, { start: at + 1, end: stop, total: stop - at - 1, done: done[stop]! - done[at + 1]!, first: first != null && first < stop ? first : null });
+  });
+
+  return groups;
+};
+
+type Accepted = { rows: readonly NestedRow[]; done: Map<number, boolean>; blocked: Map<number, boolean> };
+
+export type DependencyGroupRetention = {
+  topology: ReturnType<typeof rowTopology>;
+  groups: ReturnType<typeof groupFacts>;
+  listed: ReturnType<typeof groupFacts>;
+  visibility: boolean[];
+  before: { key: string; done: Map<number, boolean>; blocked: Map<number, boolean> } | null;
+  accepted: Accepted;
+  choices: Map<string, Map<number, boolean>>;
+  pending: { close: number[]; open: number[]; blocked: ReadonlyMap<number, boolean> };
+  bars: ReadonlySet<number>;
+  strikes: ReadonlySet<number>;
+};
 
 const choices = new WeakMap<object, Map<string, Map<number, boolean>>>();
 
@@ -16,6 +51,7 @@ export const createDependencyGroups = (input: {
   shown: (id: number) => boolean;
   group: (id: number) => string;
   focusAfterClose: (ids: ReadonlySet<number>) => void;
+  observe?: (retained: DependencyGroupRetention) => void;
 }) => {
   const cache = choices.get(input.project) ?? new Map<string, Map<number, boolean>>();
   choices.set(input.project, cache);
@@ -36,23 +72,15 @@ export const createDependencyGroups = (input: {
     }
   });
 
-  const groups = createMemo(() => {
-    const rows = input.rows();
-    const result = new Map<number, readonly NestedRow[]>();
+  const topology = createMemo(() => rowTopology(input.rows()));
+  const groups = createMemo(() => groupFacts(topology()));
+  const [listedGroups, setListedGroups] = createSignal<ReturnType<typeof groupFacts>>(new Map());
 
-    rows.forEach((row, at) => {
-      const end = rows.findIndex((next, index) => index > at && next.level <= row.level);
-      const descendants = rows.slice(at + 1, end < 0 ? rows.length : end);
+  const complete = (id: number) => {
+    const facts = groups().get(id);
 
-      if (descendants.length) result.set(row.todo.id, descendants);
-    });
-
-    return result;
-  });
-
-  const [listedGroups, setListedGroups] = createSignal<ReadonlyMap<number, readonly NestedRow[]>>(new Map());
-
-  const complete = (id: number) => groups().get(id)?.every(row => row.todo.done) ?? false;
+    return !!facts && facts.done === facts.total;
+  };
 
   const expanded = (id: number): boolean => {
     revision();
@@ -68,19 +96,18 @@ export const createDependencyGroups = (input: {
     setRevision(value => value + 1);
   };
 
-  const visible = (id: number) => {
-    let row = input.rows().find(row => row.todo.id === id);
-    const seen = new Set<number>();
+  const visibility = createMemo(() => {
+    const { rows, parent } = topology();
+    const result: boolean[] = [];
+    rows.forEach((_row, at) => {
+      const above = parent[at];
+      result.push(above == null || (result[above]! && expanded(rows[above]!.todo.id)));
+    });
 
-    while (row?.parent != null && !seen.has(row.parent)) {
-      seen.add(row.parent);
+    return result;
+  });
 
-      if (!expanded(row.parent)) return false;
-      row = input.rows().find(next => next.todo.id === row!.parent);
-    }
-
-    return true;
-  };
+  const visible = (id: number) => visibility()[topology().index.get(id) ?? -1] ?? true;
 
   createComputed(() => {
     const visibleBars = [...bars()].filter(id => input.shown(id) && visible(id));
@@ -90,9 +117,16 @@ export const createDependencyGroups = (input: {
 
   let before: { key: string; done: Map<number, boolean>; blocked: Map<number, boolean> } | null = null;
 
-  createComputed(on([input.loaded, input.key, input.rows], ([loaded, key, rows]) => {
+  const accepted = createMemo(() => {
+    const rows = input.rows();
+
+    return { rows, done: new Map(rows.map(row => [row.todo.id, row.todo.done])), blocked: new Map(rows.map(row => [row.todo.id, row.todo.blocked])) };
+  });
+
+  createComputed(on([input.loaded, input.key, accepted], ([loaded, key, facts]) => batch(() => {
+    const { rows, done, blocked } = facts;
     const was = before;
-    before = loaded ? { key, done: new Map(rows.map(row => [row.todo.id, row.todo.done])), blocked: new Map(rows.map(row => [row.todo.id, row.todo.blocked])) } : null;
+    before = loaded ? { key, done, blocked } : null;
 
     const scope = cache.get(key) ?? new Map<number, boolean>();
 
@@ -103,7 +137,7 @@ export const createDependencyGroups = (input: {
       if (was) for (const id of pending().close) {
         const members = listedGroups().get(id);
 
-        if (members?.every(row => was.done.get(row.todo.id) === true)) cache.get(was.key)?.set(id, false);
+        if (members && members.done === members.total) cache.get(was.key)?.set(id, false);
       }
 
       setStrikes(new Set<number>());
@@ -118,24 +152,31 @@ export const createDependencyGroups = (input: {
     const playing = new Set(bars());
     const changedTitles = new Set([...strikes()].filter(id => groups().has(id)));
 
+    const changed = [0];
+    const previouslyOpen = [0];
+    rows.forEach(row => {
+      const previous = was.done.get(row.todo.id);
+      changed.push(changed.at(-1)! + Number(previous !== undefined && previous !== row.todo.done && visible(row.todo.id)));
+      previouslyOpen.push(previouslyOpen.at(-1)! + Number(previous === false));
+    });
+
     for (const [id, members] of groups()) {
-      const previousMembers = listedGroups().get(id);
-      const oldDone = previousMembers?.filter(row => row.todo.done).length ?? 0;
-      const newDone = members.filter(row => row.todo.done).length;
+      const previous = listedGroups().get(id);
+      const oldDone = previous?.done ?? 0;
+      const newDone = members.done;
+      const hasChange = changed[members.end]! !== changed[members.start]!;
 
-      const changed = members.some(row => was.done.has(row.todo.id) && was.done.get(row.todo.id) !== row.todo.done && visible(row.todo.id));
-
-      if (changed && previousMembers && oldDone * members.length !== newDone * previousMembers.length && !input.reduced() && input.shown(id) && visible(id)) {
+      if (hasChange && previous && oldDone * members.total !== newDone * previous.total && !input.reduced() && input.shown(id) && visible(id)) {
         playing.add(id);
 
-        if ((oldDone === previousMembers.length) !== (newDone === members.length)) changedTitles.add(id);
+        if ((oldDone === previous.total) !== (newDone === members.total)) changedTitles.add(id);
       }
     }
 
     setBars(playing);
     setStrikes(changedTitles);
 
-    const closed = [...groups()].filter(([id, members]) => complete(id) && members.some(row => was.done.get(row.todo.id) === false));
+    const closed = [...groups()].filter(([id, members]) => complete(id) && previouslyOpen[members.end]! !== previouslyOpen[members.start]!);
     const shown = closed.filter(([id]) => input.shown(id) && untrack(() => expanded(id) && visible(id)));
 
     if (!closed.length) {
@@ -148,7 +189,9 @@ export const createDependencyGroups = (input: {
     // Preserve the currently expanded group through the final child's visible effects.
     for (const [id] of shown) setExpanded(id, true);
 
-    for (const [id] of closed.filter(([id]) => !shown.some(([other]) => other === id))) setExpanded(id, false);
+    const shownIds = new Set(shown.map(([id]) => id));
+
+    for (const [id] of closed) if (!shownIds.has(id)) setExpanded(id, false);
 
     const history = pending();
     const baseline = history.close.length > 0 ? history.blocked : was.blocked;
@@ -158,26 +201,31 @@ export const createDependencyGroups = (input: {
 
     for (const id of new Set([...retained, ...closed.map(([id]) => id)])) {
       const owner = input.group(id);
-      const at = rows.findIndex(row => row.todo.id === id);
+      const at = topology().index.get(id)!;
 
       if (visibleOwners.has(owner)) lastByOwner.set(owner, Math.max(lastByOwner.get(owner) ?? -1, at));
     }
 
-    const successors = [...lastByOwner.values()].flatMap(last => {
-      const candidate = rows.slice(last + 1).find(row => {
-        const first = groups().get(row.todo.id)?.find(member => !member.todo.done);
+    const successors: number[] = [];
+    rows.forEach((row, at) => {
+      const owner = input.group(row.todo.id);
+      const last = lastByOwner.get(owner);
 
-        return input.group(row.todo.id) === input.group(rows[last]!.todo.id) && first && baseline.get(first.todo.id) === true && !first.todo.blocked && !complete(row.todo.id);
-      });
+      if (last === undefined || at <= last) return;
+      const firstAt = groups().get(row.todo.id)?.first;
+      const first = firstAt == null ? undefined : rows[firstAt];
 
-      return candidate ? [candidate.todo.id] : [];
+      if (first && baseline.get(first.todo.id) === true && !first.todo.blocked && !complete(row.todo.id)) {
+        successors.push(row.todo.id);
+        lastByOwner.delete(owner);
+      }
     });
 
     setPending({ close: [...new Set([...pending().close.filter(id => groups().has(id)), ...shown.map(([id]) => id)])], open: successors, blocked: baseline });
     setListedGroups(groups());
-  }));
+  })));
 
-  createComputed(() => {
+  createComputed(() => batch(() => {
     if (input.reduced() && bars().size) setBars(new Set<number>());
 
     if (input.playing() || bars().size > 0) return;
@@ -185,19 +233,32 @@ export const createDependencyGroups = (input: {
 
     if (!request.close.length) return;
     const closing = request.close.filter(complete);
-    const hidden = new Set(closing.flatMap(id => groups().get(id)?.map(row => row.todo.id) ?? []));
+    const hidden = new Set<number>();
+    // Union the closing ranges in preorder, so nested completions visit each row once.
+    const ranges = closing.map(id => groups().get(id)!).toSorted((a, b) => a.start - b.start);
+    let end = 0;
+
+    for (const range of ranges) {
+      for (let at = Math.max(end, range.start); at < range.end; at++) hidden.add(topology().rows[at]!.todo.id);
+      end = Math.max(end, range.end);
+    }
+
     input.focusAfterClose(hidden);
 
     for (const id of closing) setExpanded(id, false);
 
     if (closing.length > 0) for (const id of request.open) {
-      const first = groups().get(id)?.find(row => !row.todo.done);
+      const at = groups().get(id)?.first;
+      const first = at == null ? undefined : topology().rows[at];
 
       if (first && !first.todo.blocked) setExpanded(id, true);
     }
 
     setPending({ close: [], open: [], blocked: new Map<number, boolean>() });
-  });
+  }));
+
+  createComputed(() => input.observe?.({ topology: topology(), groups: groups(), listed: listedGroups(), visibility: visibility(), before,
+    accepted: accepted(), choices: cache, pending: pending(), bars: bars(), strikes: strikes() }));
 
   return { groups: listedGroups, complete, expanded, visible, setExpanded, moving,
     bar: (id: number) => bars().has(id),

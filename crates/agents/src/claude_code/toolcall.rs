@@ -31,9 +31,9 @@ pub fn fold(current: &mut Option<Tracked>, payload: &Value, root: &str, now: i64
             *current = Some(Tracked {
                 id: id.to_owned(),
                 call: ToolCall {
-                    tool: clean(tool).chars().take(64).collect(),
+                    tool: cleaned(tool, 64, false),
                     summary: summary(tool, input, root),
-                    arguments: cut(&clean(&text_of(input)), PAYLOAD_MAX),
+                    arguments: preview(input),
                     result: None,
                     state: ToolCallState::Running,
                     started: now,
@@ -50,12 +50,10 @@ pub fn fold(current: &mut Option<Tracked>, payload: &Value, root: &str, now: i64
                 return false;
             }
             let failed = event == "PostToolUseFailure";
-            let result = if failed {
-                payload["error"]
-                    .as_str()
-                    .map_or_else(|| text_of(&payload["tool_response"]), str::to_owned)
+            let result = if failed && payload["error"].is_string() {
+                &payload["error"]
             } else {
-                text_of(&payload["tool_response"])
+                &payload["tool_response"]
             };
             let call = &mut tracked.call;
             call.state = if failed {
@@ -63,7 +61,7 @@ pub fn fold(current: &mut Option<Tracked>, payload: &Value, root: &str, now: i64
             } else {
                 ToolCallState::Done
             };
-            call.result = Some(cut(&clean(&result), PAYLOAD_MAX));
+            call.result = Some(preview(result));
             call.duration_ms = Some(
                 payload["duration_ms"]
                     .as_u64()
@@ -75,92 +73,220 @@ pub fn fold(current: &mut Option<Tracked>, payload: &Value, root: &str, now: i64
     }
 }
 
-fn text_of(value: &Value) -> String {
+fn preview(value: &Value) -> String {
+    let mut sink = Cleaned::new(Limit::Preview, false);
     match value {
-        Value::Null => String::new(),
-        Value::String(text) => text.clone(),
-        other => serde_json::to_string_pretty(other).unwrap_or_default(),
+        Value::Null => {}
+        Value::String(text) => {
+            std::io::Write::write_all(&mut sink, text.as_bytes()).expect("infallible sink");
+        }
+        other => {
+            serde_json::to_writer_pretty(&mut sink, other).expect("JSON values serialize");
+        }
     }
+    sink.finish_preview()
 }
 
 fn summary(tool: &str, input: &Value, root: &str) -> Option<String> {
     let field = |names: &[&str]| names.iter().find_map(|name| input[*name].as_str());
     let line = match tool {
-        "Bash" => field(&["command"])?.to_owned(),
+        "Bash" => field(&["command"])?,
         "Read" | "Edit" | "Write" => relative(field(&["file_path"])?, root),
-        "Grep" | "Glob" => field(&["pattern"])?.to_owned(),
-        "WebSearch" => field(&["query"])?.to_owned(),
-        "WebFetch" => field(&["url", "query"])?.to_owned(),
+        "Grep" | "Glob" => field(&["pattern"])?,
+        "WebSearch" => field(&["query"])?,
+        "WebFetch" => field(&["url", "query"])?,
         _ => return None,
     };
-    let line = clean(&line)
-        .split_whitespace()
-        .collect::<Vec<_>>()
-        .join(" ");
-    (!line.is_empty()).then(|| line.chars().take(SUMMARY_MAX).collect())
+    let mut line = cleaned(line, SUMMARY_MAX, true);
+    line.truncate(line.trim_end().len());
+    (!line.is_empty()).then_some(line)
 }
 
-fn relative(path: &str, root: &str) -> String {
+fn relative<'a>(path: &'a str, root: &str) -> &'a str {
     let root = root.trim_end_matches('/');
     match path.strip_prefix(root) {
-        Some(rest) if !root.is_empty() && rest.starts_with('/') => rest[1..].to_owned(),
-        _ => path.to_owned(),
+        Some(rest) if !root.is_empty() && rest.starts_with('/') => &rest[1..],
+        _ => path,
     }
 }
 
-/// `text` without terminal escape sequences and control characters other than newline and tab.
-fn clean(text: &str) -> String {
-    let mut out = String::with_capacity(text.len());
-    let mut chars = text.chars().peekable();
-    while let Some(c) = chars.next() {
-        match c {
-            '\u{1b}' => match chars.next() {
-                // CSI: parameters, then a final byte in `@` to `~`.
-                Some('[') => {
-                    for c in chars.by_ref() {
-                        if ('@'..='~').contains(&c) {
-                            break;
-                        }
-                    }
-                }
-                // OSC, DCS, APC, PM, SOS: up to BEL or ESC `\`.
-                Some(']' | 'P' | '_' | '^' | 'X') => {
-                    while let Some(c) = chars.next() {
-                        if c == '\u{7}' {
-                            break;
-                        }
-                        if c == '\u{1b}' {
-                            chars.next_if_eq(&'\\');
-                            break;
-                        }
-                    }
-                }
-                _ => {}
-            },
-            '\n' | '\t' => out.push(c),
-            c if c.is_control() => {}
-            c => out.push(c),
+fn cleaned(text: &str, max: usize, whitespace: bool) -> String {
+    let mut sink = Cleaned::new(Limit::Characters(max), whitespace);
+    std::io::Write::write_all(&mut sink, text.as_bytes()).expect("infallible sink");
+    sink.text
+}
+
+/// B5635b: retain only the wire prefix while scanning discarded bytes for the exact cut mark.
+/// The UTF-8 and escape states survive Serde writer chunk boundaries.
+enum Limit {
+    Preview,
+    Characters(usize),
+}
+
+struct Cleaned {
+    text: String,
+    total: usize,
+    chars: usize,
+    limit: Limit,
+    whitespace: bool,
+    space: bool,
+    escape: u8,
+    utf8: [u8; 4],
+    used: usize,
+}
+
+impl Cleaned {
+    fn new(limit: Limit, whitespace: bool) -> Self {
+        let capacity = match limit {
+            Limit::Preview => PAYLOAD_MAX,
+            Limit::Characters(max) => max,
+        };
+        Self {
+            text: String::with_capacity(capacity),
+            total: 0,
+            chars: 0,
+            limit,
+            whitespace,
+            space: false,
+            escape: 0,
+            utf8: [0; 4],
+            used: 0,
         }
     }
-    out
+
+    fn character(&mut self, c: char) {
+        match self.escape {
+            1 => {
+                self.escape = match c {
+                    '[' => 2,
+                    ']' | 'P' | '_' | '^' | 'X' => 3,
+                    _ => 0,
+                };
+                return;
+            }
+            2 => {
+                if ('@'..='~').contains(&c) {
+                    self.escape = 0;
+                }
+                return;
+            }
+            3 => {
+                if c == '\u{7}' {
+                    self.escape = 0;
+                } else if c == '\u{1b}' {
+                    self.escape = 4;
+                }
+                return;
+            }
+            4 => {
+                self.escape = 0;
+                if c == '\\' {
+                    return;
+                }
+            }
+            _ => {}
+        }
+        if c == '\u{1b}' {
+            self.escape = 1;
+            return;
+        }
+        if c.is_control() && c != '\n' && c != '\t' {
+            return;
+        }
+        self.total += c.len_utf8();
+        if self.whitespace {
+            if c.is_whitespace() {
+                self.space = self.chars > 0;
+                return;
+            }
+            if self.space && self.chars < SUMMARY_MAX {
+                self.text.push(' ');
+                self.chars += 1;
+            }
+            self.space = false;
+        }
+        match self.limit {
+            Limit::Characters(max) if self.chars < max => {
+                self.text.push(c);
+                self.chars += 1;
+            }
+            Limit::Preview if self.total <= PAYLOAD_MAX => self.text.push(c),
+            _ => {}
+        }
+    }
+
+    fn finish_preview(mut self) -> String {
+        if self.total > PAYLOAD_MAX {
+            let mut end = PAYLOAD_MAX - MARK_ROOM;
+            while !self.text.is_char_boundary(end) {
+                end -= 1;
+            }
+            self.text.truncate(end);
+            use std::fmt::Write;
+            write!(&mut self.text, "… (cut, {} bytes more)", self.total - end)
+                .expect("String write");
+        }
+        self.text
+    }
 }
 
-/// `text` within `max` bytes, cut at a character boundary and ended by the mark when cut.
-fn cut(text: &str, max: usize) -> String {
-    if text.len() <= max {
-        return text.to_owned();
+impl std::io::Write for Cleaned {
+    fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+        if self.used == 0
+            && self.escape == 0
+            && matches!(self.limit, Limit::Preview)
+            && bytes
+                .iter()
+                .all(|b| matches!(b, b'\n' | b'\t' | 0x20..=0x7e))
+        {
+            let keep = bytes.len().min(PAYLOAD_MAX.saturating_sub(self.total));
+            self.text
+                .push_str(std::str::from_utf8(&bytes[..keep]).expect("ASCII"));
+            self.total += bytes.len();
+            return Ok(bytes.len());
+        }
+        if self.used == 0
+            && let Ok(text) = std::str::from_utf8(bytes)
+        {
+            for c in text.chars() {
+                self.character(c);
+                if matches!(self.limit, Limit::Characters(max) if self.chars >= max) {
+                    break;
+                }
+            }
+            return Ok(bytes.len());
+        }
+        for &byte in bytes {
+            self.utf8[self.used] = byte;
+            self.used += 1;
+            if let Ok(text) = std::str::from_utf8(&self.utf8[..self.used]) {
+                let c = text.chars().next().expect("nonempty UTF-8");
+                self.used = 0;
+                self.character(c);
+            }
+        }
+        Ok(bytes.len())
     }
-    let mut end = max - MARK_ROOM;
-    while !text.is_char_boundary(end) {
-        end -= 1;
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
     }
-    format!("{}… (cut, {} bytes more)", &text[..end], text.len() - end)
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use serde_json::json;
+
+    pub(crate) fn measured<T>(operation: impl FnOnce() -> T) -> (T, usize) {
+        // Require process-per-test isolation: global counters must never include other tests.
+        assert!(
+            std::env::var_os("NEXTEST").is_some(),
+            "run allocation observers with cargo nextest"
+        );
+        let region = stats_alloc::Region::new(crate::scan::ALLOCATOR);
+        let result = operation();
+        (result, region.change().bytes_allocated)
+    }
 
     fn pre(id: &str, tool: &str, input: Value) -> Value {
         json!({"hook_event_name": "PreToolUse", "tool_use_id": id, "tool_name": tool, "tool_input": input})
@@ -196,7 +322,6 @@ mod tests {
             assert_eq!(call.summary.as_deref(), want);
             assert_eq!(call.state, ToolCallState::Running);
             assert_eq!((call.started, call.result), (7, None));
-            assert!(call.arguments.contains(&text_of(&input)[..2]));
         }
     }
 
@@ -240,6 +365,151 @@ mod tests {
     }
 
     #[test]
+    fn b5635b_preview_allocations_stay_bounded() {
+        for size in [4096, 65536, 1048576, 5242880] {
+            for input in [
+                json!("x".repeat(size)),
+                json!({"command": "é ".repeat(size / 3)}),
+            ] {
+                let payload = pre("a", "Bash", input);
+                let mut current = None;
+                let (_, bytes) = measured(|| fold(&mut current, &payload, "/p", 0));
+                assert!(
+                    bytes <= 128 * 1024,
+                    "pre {size}: allocated {bytes}, bound 128 KiB"
+                );
+                let response = payload["tool_input"].clone();
+                for (event, field) in [
+                    ("PostToolUse", "tool_response"),
+                    ("PostToolUseFailure", "error"),
+                    ("PostToolUseFailure", "tool_response"),
+                ] {
+                    let mut payload = json!({"hook_event_name": event, "tool_use_id": "a"});
+                    payload[field] = if field == "error" {
+                        json!("x".repeat(size))
+                    } else {
+                        response.clone()
+                    };
+                    fold(&mut current, &pre("a", "Bash", json!(null)), "/p", 0);
+                    let (_, bytes) = measured(|| fold(&mut current, &payload, "/p", 1));
+                    assert!(
+                        bytes <= 128 * 1024,
+                        "{event}/{field} {size}: allocated {bytes}, bound 128 KiB"
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn b5635b_truncated_summaries_have_no_trailing_whitespace() {
+        for character in ["x", "é"] {
+            let prefix = character.repeat(199);
+            let mut current = None;
+            fold(
+                &mut current,
+                &pre("a", "Bash", json!({"command": format!("{prefix} y")})),
+                "/p",
+                0,
+            );
+            assert_eq!(current.unwrap().call.summary, Some(prefix));
+        }
+    }
+
+    #[test]
+    fn b5635b_preview_preserves_cleaned_serialization() {
+        for (input, expected) in [
+            (json!(null), ""),
+            (json!("é\n\t\r\u{0}x"), "é\n\tx"),
+            (
+                json!({"a":[1,true]}),
+                "{\n  \"a\": [\n    1,\n    true\n  ]\n}",
+            ),
+            (json!(["é", null]), "[\n  \"é\",\n  null\n]"),
+            (
+                json!("a\u{1b}[31mb\u{1b}]title\u{7}c\u{1b}Pdata\u{1b}\\d"),
+                "abcd",
+            ),
+            (json!("a\u{1b}_hidden\u{1b}xb\u{1b}[31"), "axb"),
+        ] {
+            assert_eq!(preview(&input), expected);
+        }
+        for text in [
+            "é\u{1b}[31m好\u{1b}]hide\u{1b}\\x",
+            "a\u{1b}Pgone\u{1b}xb\n\t",
+            " a  \n 好 ",
+        ] {
+            let expected = preview(&json!(text));
+            for split in 0..=text.len() {
+                let mut sink = Cleaned::new(Limit::Preview, false);
+                use std::io::Write;
+                sink.write_all(&text.as_bytes()[..split]).unwrap();
+                sink.write_all(&text.as_bytes()[split..]).unwrap();
+                assert_eq!(sink.finish_preview(), expected);
+            }
+            let mut sink = Cleaned::new(Limit::Preview, false);
+            for byte in text.as_bytes() {
+                std::io::Write::write_all(&mut sink, &[*byte]).unwrap();
+            }
+            assert_eq!(sink.finish_preview(), expected);
+        }
+        assert_eq!(
+            summary("Bash", &json!({"command":"  é \t 好\n x "}), "/"),
+            Some("é 好 x".into())
+        );
+        assert_eq!(
+            summary("Read", &json!({"file_path":"/a"}), "/"),
+            Some("/a".into())
+        );
+        assert_eq!(
+            summary("Read", &json!({"file_path":"/p/a"}), "/p/"),
+            Some("a".into())
+        );
+        for split in 0..="  é \n\t 好  x ".len() {
+            let bytes = "  é \n\t 好  x ".as_bytes();
+            let mut sink = Cleaned::new(Limit::Characters(SUMMARY_MAX), true);
+            std::io::Write::write_all(&mut sink, &bytes[..split]).unwrap();
+            std::io::Write::write_all(&mut sink, &bytes[split..]).unwrap();
+            assert_eq!(sink.text, "é 好 x");
+        }
+        assert_eq!(
+            preview(&json!(
+                "a\u{1b}^hidden\u{7}b\u{1b}Xhidden\u{1b}\\c\u{1b}]unfinished"
+            )),
+            "abc"
+        );
+        let text = "é".repeat(3000);
+        assert_eq!(
+            preview(&json!(text)),
+            format!("{}… (cut, 1952 bytes more)", "é".repeat(2024))
+        );
+        for chunk in [1, 3, 4047, 4096] {
+            let raw = "\u{1b}[31m".to_owned() + &"é".repeat(3000);
+            let mut sink = Cleaned::new(Limit::Preview, false);
+            for bytes in raw.as_bytes().chunks(chunk) {
+                std::io::Write::write_all(&mut sink, bytes).unwrap();
+            }
+            assert_eq!(
+                sink.finish_preview(),
+                format!("{}… (cut, 1952 bytes more)", "é".repeat(2024))
+            );
+        }
+        let mut current = None;
+        fold(
+            &mut current,
+            &pre(
+                "name",
+                &("\u{1b}[31m".to_owned() + &"é".repeat(100)),
+                json!(null),
+            ),
+            "/p",
+            0,
+        );
+        assert_eq!(current.unwrap().call.tool, "é".repeat(64));
+        assert_eq!(preview(&json!("uncut é")), "uncut é");
+    }
+
+    #[test]
     fn u3780a_long_arguments_and_results_are_cut_with_a_mark() {
         let mut current = None;
         let big = "é".repeat(2_500_000);
@@ -253,10 +523,16 @@ mod tests {
         fold(&mut current, &done, "/p", 1);
         let call = current.unwrap().call;
         assert_eq!(call.summary.unwrap().chars().count(), SUMMARY_MAX);
-        for text in [call.arguments, call.result.unwrap()] {
-            assert!(text.len() <= PAYLOAD_MAX);
-            assert!(text.ends_with(" bytes more)") && text.contains("… (cut, "));
-            assert!(!text.contains('\u{1b}'));
-        }
+        assert_eq!(
+            call.arguments,
+            format!(
+                "{{\n  \"command\": \"{}… (cut, 4995971 bytes more)",
+                "é".repeat(2016)
+            )
+        );
+        assert_eq!(
+            call.result.unwrap(),
+            format!("{}… (cut, 4995952 bytes more)", "é".repeat(2024))
+        );
     }
 }
