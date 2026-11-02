@@ -34,15 +34,16 @@ impl Shared {
                 .map(|(id, marker)| (id.clone(), marker.clone()))
                 .collect()
         };
-        let table = if live.is_empty() {
-            Vec::new()
+        let snapshot = if live.is_empty() {
+            String::new()
         } else {
             match tokio::task::spawn_blocking(scan::read_table).await {
-                Ok(Ok(table)) => scan::parse(&table),
+                Ok(Ok(table)) => table,
                 Ok(Err(err)) => return eprintln!("agents: cannot read the process table: {err}"),
                 Err(err) => return eprintln!("agents: the process scan stopped: {err}"),
             }
         };
+        let mut table = scan::parse(&snapshot);
         let programs = claude_code::programs();
         let listed = self.terminals.list().await;
         let mut now: HashMap<String, Vec<Stray>> = live
@@ -53,7 +54,10 @@ impl Shared {
                     .filter(|info| info.owner.as_deref() == Some(id.as_str()))
                     .filter_map(|info| self.terminals.program_pid(&info.id))
                     .collect();
-                (id.clone(), scan::strays(&table, marker, &owned, programs))
+                (
+                    id.clone(),
+                    scan::strays(&mut table, marker, &owned, programs),
+                )
             })
             .collect();
         let changed: Vec<(String, Vec<Stray>)> = {
