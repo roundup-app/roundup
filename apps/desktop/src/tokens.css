@@ -186,6 +186,28 @@
   --text-pad-subheading: 20px;
   --text-pad-heading: 24px;
   --line: 24px;
+  /* U5574: one modular Pad scale; interface and Todo roles stay independent. */
+  --pad-type-ratio: 1.125;
+  --pad-text-base: 15px;
+  --pad-text-body: calc(var(--pad-text-base) * var(--interface-scale));
+  --pad-text-small: calc(var(--pad-text-body) / var(--pad-type-ratio));
+  --pad-text-h4: calc(var(--pad-text-body) * var(--pad-type-ratio));
+  --pad-text-h3: calc(var(--pad-text-h4) * var(--pad-type-ratio));
+  --pad-text-h2: calc(var(--pad-text-h3) * var(--pad-type-ratio));
+  --pad-text-h1: calc(var(--pad-text-h2) * var(--pad-type-ratio));
+  --pad-rhythm-base: 4px;
+  --pad-rhythm: calc(var(--pad-rhythm-base) * var(--interface-scale));
+  --pad-gap-item: var(--pad-rhythm);
+  --pad-gap-heading: calc(var(--pad-rhythm) * 2);
+  --pad-gap-block: calc(var(--pad-rhythm) * 4);
+  --pad-gap-section: calc(var(--pad-rhythm) * 8);
+  --pad-cell-inline: calc(var(--pad-rhythm) * 3);
+  --pad-line-body: calc(var(--pad-rhythm) * 6);
+  --pad-line-h4: calc(var(--pad-rhythm) * 6);
+  --pad-line-h3: calc(var(--pad-rhythm) * 6);
+  --pad-line-h2: calc(var(--pad-rhythm) * 7);
+  --pad-line-h1: calc(var(--pad-rhythm) * 8);
+  --pad-reading-width: calc(54ch + var(--reading-gutter) * 2);
   --line-menu: 1.4;
   --pad-menu-max-height: 320px;
   --pad-menu-min-width: 192px;
