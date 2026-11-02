@@ -21,10 +21,11 @@ export function captureDir(id: string): string | null {
 // and scheduling; this table only names the existing observer files.
 const observerTable = {
   "src/rail/u5742_browser.test.ts": ["U5742a", "U5742b", "U5742c", "U5742d"],
+  "src/app/u5502_rendered.test.ts": ["U5502"],
   "src/pads/u5561a_browser.test.ts": ["U5561a", "U5561b", "U5575a"],
   "src/pads/u5561c_real_browser.test.ts": ["U5561c"],
   "src/rail/u5555_browser.test.ts": ["U5217", "U5555", "U4313b", "U5629"],
-  "src/rail/u5501_capture.test.ts": ["U5501"],
+  "src/rail/u5501_capture.test.ts": ["U5501", "U5721"],
   "src/app/u3560_browser.test.ts": ["U3560e"],
   "src/app/u3787f_browser.test.ts": ["U3787f"],
   "src/app/u3791c_rendered.test.ts": ["U3791c"],
@@ -103,7 +104,7 @@ const observerTable = {
   "src/testing/u2875d_rendered.test.ts": ["U2875d"],
   "src/testing/u3787d_capture.test.ts": ["U3787d", "U5463c"],
   "src/testing/u463_real_daemon.test.ts": ["U5552a", "A4899a", "U2875d", "U3037d", "U4590", "U463"],
-  "src/toasts/p3557c_capture.test.ts": ["P3557c"],
+  "src/toasts/p3557c_capture.test.ts": ["P3557c", "U411"],
   "src/todos/u5119_browser.test.ts": ["U5119"],
   "src/todos/u4698e_browser.test.ts": ["U4698e"],
   "src/todos/u4698d_browser.test.ts": ["U4698d", "U5127a", "U5127b"],
