@@ -147,7 +147,8 @@ it.skipIf(!captureDir("U4277a"))("u4277a_u4277b_u4277c_requested_screens_dark", 
 
 it.skipIf(!captureDir("U5560b"))("u5560b_expanded_pad_default_screens", { timeout: 180_000, retry: 0 }, async () => {
   const lane = await openLane(1512, "dark", "builder-5560-settings");
-  const dir = captureDir("U5560b")!;
+  const baseline = process.env.ROUNDUP_CAPTURE_PHASE === "base";
+  const dir = join(captureDir("U5560b")!, baseline ? "base" : "head");
   mkdirSync(dir, { recursive: true });
 
   const capture = async (name: string) => {
@@ -166,17 +167,20 @@ it.skipIf(!captureDir("U5560b"))("u5560b_expanded_pad_default_screens", { timeou
       await lane.evaluate("window.dispatchEvent(new Event('open-app-settings'))");
       await lane.until("!!document.querySelector('.settings-view')");
       await capture(`${seed}-before-pads`);
-      await lane.browser("click", '[role=tab][data-value="Pads"]');
+
+      if (!baseline) await lane.browser("click", '[role=tab][data-value="Pads"]');
 
       for (const choice of ["narrow", "wide", "full"]) {
-        await lane.browser("click", `.settings-content input[value="${choice}"]`);
-        await lane.until(`JSON.parse(localStorage.getItem('roundup:app-settings')).padWidth === '${choice}'`);
-        await lane.browser("focus", `.settings-content input[value="${choice}"]`);
+        if (!baseline) await lane.browser("click", `.settings-content input[value="${choice}"]`);
+
+        if (!baseline) await lane.until(`document.querySelector('.settings-content input[value="${choice}"]').checked`);
+
+        if (!baseline) await lane.browser("focus", `.settings-content input[value="${choice}"]`);
         await capture(`${seed}-${choice}`);
       }
 
       await lane.browser("fill", 'input[type="search"]', "Default width");
-      await lane.until("!!document.querySelector('.settings-result')");
+      await lane.until(baseline ? "!!document.querySelector('.settings-view [role=status]')" : "!!document.querySelector('.settings-result')");
       await capture(`${seed}-search`);
     }
 

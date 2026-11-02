@@ -6,7 +6,13 @@ import { shelfBrowser } from "../shelf/u371Browser";
 
 const { browser, evaluate, settle, openShelf } = shelfBrowser();
 
-const output = captureDir("U5560a") ?? captureDir("U4698b");
+const phase = process.env.ROUNDUP_CAPTURE_PHASE ?? "head";
+
+const baseline = phase === "base";
+
+const selected = captureDir("U5560a") ?? captureDir("U4698b");
+
+const output = selected ? join(selected, phase) : null;
 
 const capture = async (name: string) => {
   if (!output) return;
@@ -89,10 +95,11 @@ it("u4698b_expand_keeps_the_long_pad_and_all_formats_reachable", { retry: 0, tim
 
     if (captureDir("U5560a")) {
       for (const choice of ["Narrow", "Wide", "Full"]) {
-        await browser("click", `.pad-width-control input[value="${choice.toLowerCase()}"]`);
+        if (!baseline) await browser("click", `.pad-width-control input[value="${choice.toLowerCase()}"]`);
         await settle();
         await capture(`${choice.toLowerCase()}-${width}`);
-        await browser("focus", `.pad-width-control input[value="${choice.toLowerCase()}"]`);
+
+        if (!baseline) await browser("focus", `.pad-width-control input[value="${choice.toLowerCase()}"]`);
         await capture(`${choice.toLowerCase()}-focus-${width}`);
       }
     }
