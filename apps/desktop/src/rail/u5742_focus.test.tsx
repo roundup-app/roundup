@@ -100,12 +100,6 @@ it.each(["direct", "leader"])("u5742c_attention_choice_focuses_terminal_%s", asy
   await provesChoice(m, "dee");
 });
 
-it("u5742c_native_alert_choice_focuses_terminal", async () => {
-  const m = await mount();
-  m.root.clickStateAlert("ann");
-  await provesChoice(m, "ann");
-});
-
 it("u5742c_overview_choice_focuses_terminal", async () => {
   const m = await mount();
 
@@ -275,4 +269,24 @@ it.each(["header", "native-alert"])("u5742c_cross_project_choice_focuses_termina
 
   await waitFor(() => expect(m.connections.has("/other")).toBe(true));
   await provesChoice({ ...m, app: m.root.of("/other"), connected: m.connections.get("/other")! }, "second");
+});
+
+it("u5742b_native_ctrl_click_does_not_activate_the_row", async () => {
+  const m = await mount();
+  row("ann").focus();
+  fireEvent.pointerDown(row("dee"), { button: 0, ctrlKey: true });
+  fireEvent.contextMenu(row("dee"), { ctrlKey: true });
+  await waitFor(() => expect(m.app.shownMenus).toHaveLength(1));
+  await m.app.closeMenu();
+  fireEvent.click(row("dee"));
+  expect(m.connected.rail.selected()).toBeNull();
+  expect(document.activeElement?.closest(".pane-screen")).toBeNull();
+  expect(m.app.calls.filter(call => ["agent.spawn", "agent.resume", "terminal.open", "terminal.write"].includes(call.method))).toEqual([]);
+});
+
+it.each(["agent", "door"] as const)("u5742c_native_menu_choice_focuses_terminal_%s", async kind => {
+  const m = await mount([(kind === "agent" ? agent : door)("ann", "needs-you", "question")]);
+  await waitFor(() => expect(m.root.menuBar).not.toBeNull());
+  m.root.menuBarAction({ kind: "agent", path: "/p", agent: "ann" });
+  await provesChoice(m, "ann");
 });
