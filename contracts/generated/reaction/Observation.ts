@@ -10,13 +10,13 @@ import type * as reaction$ObservationRecovery from "./ObservationRecovery";
  *  recorded, stays recorded after the state is reconciled.
  */
 export type Observation = {
-	/**  Absent in legacy records: explicitly unknown, never inferred from prose. */
+	/**  Required typed identity, never inferred from diagnostic prose. */
 	health_code: reaction$ObservationHealth.ObservationHealth,
-	/**  Absent in legacy records: explicitly unknown, never inferred from prose. */
+	/**  Required typed identity, never inferred from diagnostic prose. */
 	cause_code: reaction$ObservationCause.ObservationCause,
-	/**  Absent in legacy records: explicitly unknown, never inferred from prose. */
+	/**  Required typed identity, never inferred from diagnostic prose. */
 	gap_code: reaction$ObservationGap.ObservationGap,
-	/**  Absent in legacy records: explicitly unknown, never inferred from prose. */
+	/**  Required typed identity, never inferred from diagnostic prose. */
 	recovery_code: reaction$ObservationRecovery.ObservationRecovery,
 	health: string,
 	cursor: number | null,

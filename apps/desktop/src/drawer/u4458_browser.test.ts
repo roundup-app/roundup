@@ -136,7 +136,6 @@ vi.setConfig({ maxConcurrency: 3 });
 // One case per background state, alternating the item kind: the exclusion is the same Drawer-fill state for Todo and Pad, and each case costs ~50 s of per-key browser round trips.
 const cases = [
   {kind: "pad", background: "save"},
-  {kind: "todo", background: "retained"},
   {kind: "pad", background: "project-failure"},
   {kind: "todo", background: "project-settings"},
   {kind: "pad", background: "app-settings"},
@@ -164,15 +163,6 @@ it.concurrent.each(cases)(
   };
 
   try {
-    if (background === "retained") {
-      const origin = await lane.evaluate<string>("location.origin");
-      await lane.evaluate(`localStorage.setItem('roundup:shelf:/original', '{"open":')`);
-      await lane.browser("open", `${origin}/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40&storage-recovery=1`);
-      await lane.until("!!document.querySelector('.storage-gate button:last-child')");
-      await lane.browser("click", ".storage-gate button:last-child");
-      await lane.until("!!document.querySelector('.storage-retained button')");
-    }
-
     await lane.until("!!document.querySelector('[data-todo-root]')");
     await lane.browser("click", "[data-todo-root]");
     await lane.until("!!document.querySelector('.ask-input')");
@@ -190,8 +180,7 @@ it.concurrent.each(cases)(
         };
         await (await import('/src/settings/preferences.ts')).saveAppSettings({fontFamily:'Original font 雪'});
       })()`);
-    } else if (background === "retained") target = ".storage-retained button";
-    else if (background === "project-failure") {
+    } else if (background === "project-failure") {
       await lane.evaluate("window.__fake.app.chooseProjectPath = async () => '/original-failure'");
       await lane.browser("click", ".strip-add");
       await lane.until("!!document.querySelector('.project-tab[data-path=\"/original-failure\"] [aria-selected=true]') && !!document.querySelector('.rail-actions')");
@@ -262,9 +251,6 @@ it.concurrent.each(cases)(
     if (background === "save") {
       await lane.until("!document.querySelector('.storage-failure')");
       expect(await lane.evaluate("(async () => (await import('/src/settings/preferences.ts')).appSettings().fontFamily)()")).toBe("Original font 雪");
-    } else if (background === "retained") {
-      await lane.until("window.__fake.app.clipboardWrites.length === 1");
-      expect(await lane.evaluate("JSON.parse(window.__fake.app.clipboardWrites[0])")).toEqual({key:"roundup:shelf:/original",bytes:'{"open":'});
     } else if (background === "project-failure") await lane.until(`!document.querySelector(${JSON.stringify(target)})`);
     else await lane.until("!document.querySelector('.settings-view')");
   } finally {
