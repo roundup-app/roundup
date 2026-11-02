@@ -709,3 +709,46 @@ fn a5482c_non_door_coordinator_receives_the_fallback() {
         rpc::code::CONFLICT
     );
 }
+
+#[test]
+fn b5519a_a_later_turn_note_replaces_the_previous_final_text() {
+    for pushed in [false, true] {
+        let mut nodes = rail();
+        nodes[1].status = Some(Status {
+            since: 30,
+            finished: "1".into(),
+            ..status(Kind::Working, "reading page two")
+        });
+        let attempt = nodes[1].attempt.clone().unwrap();
+        let seen = Seen::default();
+        let notes = [sent(40, "a", "m", "starting page two")];
+        let mut from = sources(&nodes, &[], &[], &[]);
+        from.completed.insert(
+            "a".into(),
+            (format!("{attempt}:1"), 10, "Done with page one".into()),
+        );
+        seen.baseline(&from);
+        from.messages = &notes;
+        let entry = if pushed {
+            // Progress alone is silent; an open Todo makes the next push eligible (B21).
+            assert!(seen.changed(&from).is_empty());
+            let todos = [todo(1, "a", false)];
+            from.todos = &todos;
+            let pushes = seen.changed(&from);
+            assert_eq!(pushes.len(), 1);
+            assert_eq!(pushes[0].subagent(), "a");
+            assert_eq!(pushes[0].meta, "m");
+            pushes[0].entry.clone()
+        } else {
+            let caller = Actor {
+                kind: ActorKind::Agent,
+                id: "m".into(),
+                parent: None,
+            };
+            let digest = seen.ask(&caller, "m", &from).unwrap();
+            entries(&digest.children)[0].clone()
+        };
+        assert_eq!(entry.name, "a-name");
+        assert_eq!(entry.last, "starting page two", "pushed={pushed}");
+    }
+}
