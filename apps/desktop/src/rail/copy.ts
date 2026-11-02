@@ -14,6 +14,10 @@ const dash = "—";
 const removalPlurals = new Intl.PluralRules("en");
 
 export const copy = {
+  thatIsGone: sharedCopy.thatIsGone,
+  alerts: sharedCopy.alerts,
+  alertLevels: { all: "All", default: sharedCopy.defaultLevel, quiet: "Quiet" },
+  held: (count: number) => `${count} held`,
   addAgentWord: " Agent",
   railDraftTaskTarget: (name: string) => `Work for ${name}`,
   railDraftTaskAction: (send: boolean) => send ? "Send" : "Start Agent",
@@ -168,5 +172,5 @@ export const copy = {
 } as const;
 
 /** The word for an Agent's state in a State alert's body. */
-export const stateLabel = (state: Exclude<Kind, "idle">): string =>
-  ({ working: sharedCopy.working, blocked: sharedCopy.blocked, "needs-you": sharedCopy.needsYou, error: sharedCopy.error, done: sharedCopy.done })[state];
+export const stateLabel = (state: Kind): string =>
+  ({ idle: "Idle", working: sharedCopy.working, blocked: sharedCopy.blocked, "needs-you": sharedCopy.needsYou, error: sharedCopy.error, done: sharedCopy.done })[state];

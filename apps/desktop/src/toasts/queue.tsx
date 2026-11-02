@@ -51,6 +51,8 @@ export type ToastQueue = {
   /** P3557c: the item was deleted or saved; its failure, and no other, clears. */
   settle(item: string): void;
   push(candidate: Candidate): void;
+  /** U5501: discard visible and away-queued output belonging to this Agent. */
+  suppress(key: string): void;
   /** A Toast for something the user just did; it makes no sound and is never suppressed for the selected Agent. */
   notify(candidate: Candidate): void;
 };
@@ -189,6 +191,19 @@ export const createToastQueue = (inFront: () => boolean, chime: Chime, now: () =
     shown,
     failure,
     settle,
+    suppress: (key) => {
+      kept.delete(key);
+      const removed = entries().filter(entry => entry.key === key);
+
+      for (const entry of removed) {
+        displayed.delete(entry.id);
+        known.delete(entry.id);
+        toast.store.remove(entry.id);
+      }
+
+      setEntries(all => all.filter(entry => entry.key !== key));
+      sync();
+    },
     notify: (candidate) => {
       show(candidate);
     },

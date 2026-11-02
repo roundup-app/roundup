@@ -52,7 +52,7 @@ export const railOrder = (nodes: readonly RailNode[]): RailNode[] =>
 
 /** U403: the Kinds of the Agents below `id`, most urgent first. */
 export const agentKindsBelow = (nodes: readonly RailNode[], id: string, dismissed: (node: RailNode) => boolean = () => false): Kind[] =>
-  byUrgency(descendantsOf(nodes, id).flatMap((node) => (node.kind === "agent" && node.status && !dismissed(node) ? [node.status.kind] : [])));
+  byUrgency(descendantsOf(nodes, id).flatMap((node) => (node.kind === "agent" && node.alert_level !== "quiet" && node.status && !dismissed(node) ? [node.status.kind] : [])));
 
 const isFoldedAgent = (node: RailNode, view: RailView): boolean =>
   node.kind === "agent" &&

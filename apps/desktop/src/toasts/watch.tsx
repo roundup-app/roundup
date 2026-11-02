@@ -1,3 +1,5 @@
+import { appSettings } from "../settings/preferences";
+import { createEffect, createRoot, untrack } from "solid-js";
 import type { ActivationSource } from "../keys/registry";
 import { copy } from "./copy";
 import type { Actor } from "@contracts/Actor";
@@ -22,7 +24,7 @@ const todoItem = (id: number) => `todo:${id}`;
 const padItem = (name: string) => `pad:${name}`;
 
 /** U410: the Events of one open Project that make a Toast, as Candidates. `select` is how a click reaches the Agent's row, `show` the Project's tab. */
-export const watchProject = (connected: ConnectedProject, pushCandidate: (candidate: Candidate) => void, show: () => void, isActive: () => boolean, settleItem: (item: string) => void, alerts?: StateAlerts): Unsubscribe => {
+export const watchProject = (connected: ConnectedProject, pushCandidate: (candidate: Candidate) => void, show: () => void, isActive: () => boolean, settleItem: (item: string) => void, alerts?: StateAlerts, suppress: (key: string) => void = () => {}): Unsubscribe => {
   const { rail, events, app, drawer } = connected;
   const owned = (item: string) => JSON.stringify([connected.project.path, item]);
   const settle = (item: string) => settleItem(owned(item));
@@ -30,10 +32,24 @@ export const watchProject = (connected: ConnectedProject, pushCandidate: (candid
   // The Kind each Agent last had, so a load or a repeat makes no Toast.
   const seen = new Map<string, Kind>(rail.nodes.flatMap((node) => (node.status ? [[node.id, node.status.kind] as const] : [])));
 
+  const stopFiltering = createRoot(dispose => {
+    createEffect(() => {
+      for (const node of rail.nodes) if (node.alert_level === "quiet") untrack(() => suppress(owned(node.id)));
+    });
+
+    return dispose;
+  });
+
   const byAgent = (actor: Actor, item: string, line: string, open: Candidate["open"]): Candidate | null => {
     if (actor.kind !== "agent") return null;
 
     const node = rail.nodes.find((each) => each.id === actor.id);
+
+    if (node?.alert_level === "quiet") {
+      if (item.startsWith("todo:")) connected.held.retain({ agent: actor.id, name: node.name, kind: node.status?.kind ?? "working", line: node.status?.label ?? "", at: Date.now() });
+
+      return null;
+    }
 
     return {
       key: actor.id,
@@ -93,18 +109,29 @@ export const watchProject = (connected: ConnectedProject, pushCandidate: (candid
     return null;
   };
 
-  return events.subscribe((event) => {
+  const stopEvents = events.subscribe((event) => {
     if (event.name === "agent.status") {
       const { id, status } = event.data;
       const before = seen.get(id);
 
       seen.set(id, status.kind);
 
-      if (before === status.kind) return;
+      if (before === undefined || before === status.kind) return;
 
       const node = rail.nodes.find((each) => each.id === id);
+
+      if (node?.alert_level === "quiet") {
+        const choice = status.kind === "idle" ? null : appSettings().stateAlerts[status.kind];
+
+        if (choice?.alert || choice?.sound || choice?.badge || status.kind === "needs-you" || status.kind === "error") {
+          connected.held.retain({ agent: id, name: node.name, kind: status.kind, line: status.label, at: Date.now() });
+        }
+
+        return;
+      }
+
       const selected = isActive() && rail.selected() === id;
-      const raised = alerts?.changed({ key: owned(id), id, name: node?.name ?? id, kind: status.kind, selected });
+      const raised = alerts?.changed({ key: owned(id), id, name: node?.name ?? id, kind: status.kind, selected, level: node?.alert_level ?? "default" });
 
       if (status.kind !== "needs-you" && status.kind !== "error") return;
 
@@ -151,4 +178,6 @@ export const watchProject = (connected: ConnectedProject, pushCandidate: (candid
       );
     }
   });
+
+  return () => { stopEvents(); stopFiltering(); };
 };

@@ -1,3 +1,4 @@
+import { alertLevel } from "./alertLevel";
 import { Sortable } from "../ui/sortable";
 import { createCopyFeedback } from "../ui/CopyButton";
 import { outcomeOf } from "../app/seam";
@@ -191,6 +192,7 @@ export const RailRowView = (props: {
       <Show when={workstream()}><IconButton class="rail-chevron row-control" aria-label={props.row.collapsed ? copy.expand : copy.collapse} aria-expanded={!props.row.collapsed} {...ownKeys} onClick={event => { event.stopPropagation(); props.onToggle(); }}><Icon name={props.row.collapsed ? "right" : "down"} /></IconButton></Show>
       <span class="row-state"><KindGlyph kind={kind() ?? "idle"} /></span>
       {name()}
+      <Show when={alertLevel(connected.rail.nodes, props.row.node) !== "default" && alertLevel(connected.rail.nodes, props.row.node)}>{level => <span class="alert-level" data-state="alert-level">{level()}</span>}</Show>
       <Show when={props.row.collapsed?.agents.length}>{hidden => <span class="hidden-agents" data-state="collapsed" role="img" aria-label={copy.hiddenAgents(hidden())}>{hidden()}</span>}</Show>
       <Show when={unread()}><span class="unread-dot row-secondary" data-state="" role="img" aria-label={copy.unreadResult} /></Show>
       <Show when={queuedBadge()}>{badge => <span class="light queue-badge row-secondary">{badge()}</span>}</Show>
