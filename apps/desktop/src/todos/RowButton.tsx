@@ -30,7 +30,7 @@ export const RowButton = (props: { onClick: (event: MouseEvent) => void; pressed
       };
     },
   })), ...[false, true].map(out => ({
-    action: CHORDS.find(row => row.inTriage && row.keys === (out ? "⇧Tab" : "Tab"))!,
+    action: CHORDS.find(row => row.name === (out ? "todo.triage-unnest" : "todo.triage-nest"))!,
     searchable: false as const, repeat: true as const,
     when: (event: KeyboardEvent) => event.target === button && props.nest?.(out) != null,
     capture: (focus: Element | null) => {

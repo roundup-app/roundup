@@ -613,14 +613,28 @@ export const checkKeys = files => Object.entries(files).filter(([file]) => produ
   const tree = parse(source, { sourceType: 'module', plugins: ['typescript', 'jsx'] });
   const fromRegistry = node => node?.type === 'CallExpression' && node.callee.type === 'Identifier' && node.callee.name === 'ariaChord';
   traverse(tree, {
+    CallExpression(path) {
+      const callee = path.node.callee;
+
+      if (callee.type === 'Identifier' && callee.name === 'shortcutLabel' && path.get('arguments.0').evaluate().confident) fail(path.node);
+
+      if (callee.type === 'MemberExpression' && callee.object.name === 'CHORDS' && callee.property.name === 'find') {
+        let displayLookup = false;
+        path.get('arguments.0').traverse({ MemberExpression(inner) { if (keyOf(inner.node.property) === 'keys') displayLookup = true; } });
+
+        if (displayLookup) fail(path.node);
+      }
+    },
+    ObjectProperty(path) {
+      if (keyOf(path.node.key) === 'presses') fail(path.node);
+
+      if (keyOf(path.node.key) === 'aria-keyshortcuts' && !fromRegistry(path.node.value)) fail(path.node);
+    },
     JSXOpeningElement(path) {
       if (path.node.name.name === 'kbd' && file !== 'keys/KeyChip.tsx') fail(path.node);
     },
     JSXAttribute(path) {
       if (path.node.name.name === 'aria-keyshortcuts' && !fromRegistry(path.node.value?.expression)) fail(path.node);
-    },
-    ObjectProperty(path) {
-      if (keyOf(path.node.key) === 'aria-keyshortcuts' && !fromRegistry(path.node.value)) fail(path.node);
     },
   });
 

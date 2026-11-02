@@ -242,7 +242,7 @@ export const AskBar = (props: {
   });
 
   registerKeys({ kind: "app" }, [{
-    action: CHORDS.find((row) => row.keys === "⌘/")!,
+    action: CHORDS.find((row) => row.name === "ask.open")!,
     when: () => daemonExit() === null && !over(),
     capture: () => ({ available: () => daemonExit() === null && !over(),
     invoke: open }),

@@ -255,6 +255,10 @@ it.each([
   'const view = <button aria-keyshortcuts="Meta+N" />;',
   'const copied = "Meta+N"; const view = <button aria-keyshortcuts={copied} />;',
   'const view = <kbd>N</kbd>;',
+  'const view = <KeyChip keys={shortcutLabel("meta+KeyN")} />;',
+  'const copied = "meta+KeyN"; const view = <KeyChip keys={shortcutLabel(copied)} />;',
+  'const copied = "⌘N"; const row = CHORDS.find(row => row.keys === copied);',
+  'const shortcut = ariaChord({...chordNamed("agent.new")!, presses: ["meta+KeyN"]});',
 ])("u5557b_rejects_copied_shortcuts_or_a_second_renderer %s", source => {
   expect(checkKeys({ 'app/view.tsx': source }).map(row => row.rule)).toEqual(['key-source']);
 });
