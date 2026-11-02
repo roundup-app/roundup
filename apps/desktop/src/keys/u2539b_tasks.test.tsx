@@ -112,8 +112,8 @@ it.each(["ask", "agent", "terminal", "todo", "attention", "items", "inbox", "ass
   if (task === "ask") {
     daemon.handlers["ask.send"] = params => ({ id: "ask", text: params.text, at: 0n, parts: [] });
     command("action:chord:⌘/", "Slash", { metaKey: true });
-    fireEvent.input(await screen.findByRole("textbox", { name: "Ask" }), { target: { value: "Do this" } });
-    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("textbox", { name: "Ask" })));
+    fireEvent.input(await screen.findByLabelText("Ask", { selector: '[role="textbox"]' }), { target: { value: "Do this" } });
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByLabelText("Ask", { selector: '[role="textbox"]' })));
     press("Enter");
     await waitFor(() => expect(daemon.calls.filter(call => call.method === "ask.send")).toHaveLength(1));
   } else if (task === "agent") {
@@ -156,7 +156,7 @@ it.each(["ask", "agent", "terminal", "todo", "attention", "items", "inbox", "ass
     fireEvent.click(await screen.findByRole("button", { name: /Unassigned/ }));
     const row = await screen.findByRole("button", { name: /^(?:Idle|Blocked|Done) #\d+ Selected work/ });
     fireEvent.click(row);
-    screen.getByRole("textbox", { name: "Ask" }).focus();
+    screen.getByLabelText("Ask", { selector: '[role="textbox"]' }).focus();
     runLeader("KeyA");
     const field = await screen.findByRole("combobox");
     fireEvent.input(field, { target: { value: "Agent 11" } });
@@ -207,7 +207,7 @@ it("u2539b_native_menu_projects_the_task_chords", async () => {
 it("u2539b_empty_project_can_submit_an_ask", async () => {
   const { daemon } = await mount(true);
   daemon.handlers["ask.send"] = params => ({ id: "first", text: params.text, at: 0n, parts: [] });
-  const field = screen.getByRole("textbox", { name: "Ask" });
+  const field = screen.getByLabelText("Ask", { selector: '[role="textbox"]' });
   expect(daemon.calls.filter(call => call.method === "agent.spawn" || call.method === "ask.send")).toHaveLength(0);
   field.focus();
   fireEvent.input(field, { target: { value: "First work" } });
@@ -236,7 +236,7 @@ it("u2539b_strip_items_follow_actionable_facts", async () => {
 it("u2539b_hiding_optional_views_preserves_original_drafts", async () => {
   const { connected, daemon } = await mount();
   const text = "  unfinished\nexact work 🐈  ";
-  fireEvent.input(screen.getByRole("textbox", { name: "Ask" }), { target: { value: text } });
+  fireEvent.input(screen.getByLabelText("Ask", { selector: '[role="textbox"]' }), { target: { value: text } });
   const original = connected().drafts.list().find(draft => draft.destination.surface === "ask")!;
   openProjectPage("view:made", "/p");
   openProjectPage("view:made", "/p");
