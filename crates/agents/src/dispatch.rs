@@ -434,6 +434,29 @@ impl Agents {
         }
     }
 
+    async fn rpc_rail_group(
+        &self,
+        ctx: &Ctx,
+        _method: &str,
+        value: Value,
+    ) -> Result<Value, RpcError> {
+        if ctx.actor.kind != ActorKind::User {
+            return Err(RpcError::forbidden("only the user groups Rail selections"));
+        }
+        let selection: contracts::agent::GroupParams = params(value)?;
+        let node = self.shared.rail().group(&selection.ids)?;
+        Self::touch_rail(ctx, &node.id)?;
+        for id in selection
+            .ids
+            .iter()
+            .collect::<std::collections::HashSet<_>>()
+        {
+            Self::touch_rail(ctx, id)?;
+        }
+        ctx.emit(EventData::RailChanged);
+        reply(&node)
+    }
+
     async fn rpc_rail_rename(
         &self,
         ctx: &Ctx,

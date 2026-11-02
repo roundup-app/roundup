@@ -12,6 +12,7 @@ use rpc::RpcError;
 /// An Agent, or a Workstream whose Door has run: only these have a Context.
 fn is_agent(node: &RailNode) -> bool {
     match node.kind {
+        NodeKind::Group => false,
         NodeKind::Agent => true,
         NodeKind::Workstream => node.attempt.is_some(),
     }
@@ -28,10 +29,16 @@ pub(crate) fn compose(nodes: &[RailNode], todos: &[Todo], id: &str) -> Result<Co
             .clone()
             .ok_or_else(|| RpcError::internal(format!("{} has no Status", node.name)))
     };
-    let parent = node
+    // Organizational placement does not introduce a coordinator or replace the Door.
+    let mut parent = node
         .parent
         .as_deref()
-        .and_then(|parent| nodes.iter().find(|candidate| candidate.id == parent));
+        .and_then(|id| nodes.iter().find(|candidate| candidate.id == id));
+    while parent.is_some_and(|node| node.kind == NodeKind::Group) {
+        parent = parent
+            .and_then(|node| node.parent.as_deref())
+            .and_then(|id| nodes.iter().find(|candidate| candidate.id == id));
+    }
     let ask = match parent {
         Some(parent) if is_agent(parent) => parent.id.clone(),
         _ => Actor::user().id,
