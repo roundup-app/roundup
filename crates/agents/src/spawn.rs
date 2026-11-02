@@ -586,6 +586,23 @@ mod idle_tests {
                     restart.then_some(&Order::work("stored order")),
                 )
                 .unwrap();
+            if restart {
+                let mut earlier = Run::starting(
+                    Arc::new(|| 0),
+                    "1".into(),
+                    "old".into(),
+                    "/".into(),
+                    None,
+                    true,
+                    false,
+                );
+                shared.apply(Some(&mut rail), &mut earlier, &node.id, &Actor::user(),
+                    Observation::Signal(serde_json::json!({"hook_event_name":"UserPromptSubmit","prompt":"earlier request"})), None).unwrap();
+                assert!(earlier.input_started);
+                shared
+                    .runs()
+                    .insert(node.id.clone(), Slot::Running(earlier));
+            }
             let prompt = order::first_input(
                 None,
                 node.work.as_ref(),
@@ -639,6 +656,21 @@ mod idle_tests {
                 Some(&Order::work("retained")),
             )
             .unwrap();
+        let mut earlier = Run::starting(
+            Arc::new(|| 0),
+            "1".into(),
+            "old".into(),
+            "/".into(),
+            None,
+            true,
+            false,
+        );
+        shared.apply(Some(&mut rail), &mut earlier, &node.id, &Actor::user(),
+            Observation::Signal(serde_json::json!({"hook_event_name":"UserPromptSubmit","prompt":"earlier request"})), None).unwrap();
+        assert!(earlier.input_started);
+        shared
+            .runs()
+            .insert(node.id.clone(), Slot::Running(earlier));
         let (done, _completion) = oneshot::channel();
         let conversation = "00000000-0000-4000-8000-000000000001";
         let mut runs = HashMap::from([(

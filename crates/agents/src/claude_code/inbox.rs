@@ -106,7 +106,20 @@ struct Session {
 impl Launcher {
     /// The socket Agent `agent` is launched to make.
     pub fn socket_path(&self, agent: impl std::fmt::Display) -> PathBuf {
-        self.socket_dir().join(format!("{agent}.sock"))
+        self.retained_inboxes
+            .lock()
+            .expect("retained inboxes")
+            .get(&agent.to_string())
+            .cloned()
+            .unwrap_or_else(|| self.socket_dir().join(format!("{agent}.sock")))
+    }
+
+    /// Restore only the messaging endpoint of a verified surviving owner.
+    pub(crate) fn reattach_inbox(&self, agent: &str, socket: &Path) {
+        self.retained_inboxes
+            .lock()
+            .expect("retained inboxes")
+            .insert(agent.to_owned(), socket.to_owned());
     }
 
     /// The live session listening on `socket`: Claude Code lists each session in
@@ -490,7 +503,10 @@ impl Launcher {
     /// The private folder Agents' messaging sockets are made in.
     pub(super) fn socket_dir(&self) -> &Path {
         self.sockets
-            .get_or_init(|| super::launch_files::socket_folder().expect("a private folder for messaging sockets"))
+            .get_or_init(|| {
+                super::launch_files::socket_folder()
+                    .expect("a private folder for messaging sockets")
+            })
             .path()
     }
 }

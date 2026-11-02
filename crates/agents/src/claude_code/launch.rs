@@ -19,8 +19,7 @@ use unicode_normalization::UnicodeNormalization;
 use super::brief::{self, Role};
 use super::extras;
 use super::launch_files::{
-    ConfigLock, is_symlink, landing, merge_settings, replace_file, replace_text,
-    user_settings,
+    ConfigLock, is_symlink, landing, merge_settings, replace_file, replace_text, user_settings,
 };
 use super::models::{Lean, Pair};
 use super::plugins;
@@ -87,6 +86,7 @@ pub struct Launcher {
     /// B50: the private folder each Agent's messaging socket is made in, made at the first
     /// launch; gone with the Launcher.
     pub(super) sockets: Arc<std::sync::OnceLock<tempfile::TempDir>>,
+    pub(super) retained_inboxes: Arc<Mutex<std::collections::HashMap<String, PathBuf>>>,
     /// B2706: the permission mode each Agent's latest normal Attempt runs in, for its notes.
     pub(super) modes: Arc<Mutex<std::collections::HashMap<String, super::models::LaunchMode>>>,
     /// RO1: what each saved conversation's overview was read to, shared by every clone.
@@ -180,6 +180,7 @@ impl Launcher {
             lacks_intent: false,
             plugins: Arc::new(OnceCell::new()),
             sockets: Arc::new(std::sync::OnceLock::new()),
+            retained_inboxes: Default::default(),
             modes: Arc::default(),
             overviews: Arc::default(),
         }
@@ -528,6 +529,10 @@ impl Launcher {
                 argv.push(value.clone());
             }
         }
+        self.retained_inboxes
+            .lock()
+            .expect("retained inboxes")
+            .remove(&id.to_string());
         let socket = self.socket_path(id);
         match std::fs::remove_file(&socket) {
             Err(err) if err.kind() != ErrorKind::NotFound => return Err(RpcError::internal(err)),

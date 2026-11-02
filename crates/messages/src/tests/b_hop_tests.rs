@@ -69,6 +69,7 @@ impl Hops {
         };
         let agents: Arc<dyn Module> = rail.clone();
         let messages = Messages::open_with(dir, bus.clone(), agents, env).unwrap();
+        messages.listen();
         let inbox = attach_inbox(&messages, true);
         let messages = Arc::new(messages);
         Self {

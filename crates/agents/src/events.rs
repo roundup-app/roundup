@@ -376,7 +376,10 @@ impl Shared {
         if matches!(&observation, Observation::Signal(payload)
             if claude_code::submitted_prompt(payload).is_some())
         {
-            run.input_started = true;
+            if !run.input_started {
+                self.save_input_started(id, &run.attempt)?;
+                run.input_started = true;
+            }
         }
         // H11: the Steer's wait ends with the Signal that names it, or with the Agent.
         if matches!(&observation, Observation::Signal(payload)

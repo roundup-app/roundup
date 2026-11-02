@@ -4,7 +4,7 @@ use super::*;
 impl Run {
     async fn owned(input: &str) -> Self {
         let mut run = Self::open(1, false).await;
-        let helper = Path::new(env!("CARGO_BIN_EXE_rupd")).with_file_name("terminal-owner");
+        let helper = Self::owner_helper();
         assert!(
             helper.is_file(),
             "cargo build -p terminal --bin terminal-owner"
@@ -20,6 +20,14 @@ impl Run {
             input == "terminal",
         )
         .await;
+        if input == "creation" {
+            until("creation prompt acknowledged", async || {
+                run.dir.path().join("submitted.txt").is_file().then_some(())
+            })
+            .await;
+            run.started_with
+                .store(run.screen_bytes().await, Ordering::SeqCst);
+        }
         if input == "message" {
             let user = run
                 .user
@@ -72,7 +80,17 @@ impl Run {
             ("daemon", "[digest] summary"),
             ("daemon", "accepted reaction"),
         ] {
-            self.identify_sender(sender).await;
+            if sender == "daemon" {
+                self.sender
+                    .request(
+                        "daemon.identify",
+                        json!({"actor":contracts::Actor::daemon()}),
+                    )
+                    .await
+                    .unwrap();
+            } else {
+                self.identify_sender(sender).await;
+            }
             ids.push(self.note(&format!("{body} {round}")).await);
         }
         ids
@@ -84,6 +102,22 @@ impl Run {
             assert_eq!(self.message(id).await, *original);
             assert_eq!(original["status"], "pending");
         }
+    }
+
+    fn in_flight(&self, ids: &[u32]) -> Vec<u32> {
+        let data = self.project_data();
+        let db = rusqlite::Connection::open(data.join("project.db")).unwrap();
+        ids.iter()
+            .copied()
+            .filter(|id| {
+                db.query_row(
+                    "SELECT EXISTS(SELECT 1 FROM message_flight WHERE message_id=?)",
+                    [id],
+                    |row| row.get::<_, bool>(0),
+                )
+                .unwrap()
+            })
+            .collect()
     }
 
     async fn owner_identity(&self, before: &Value) {
@@ -103,6 +137,8 @@ impl Run {
             .collect();
         assert_eq!(live.len(), 1);
         assert_eq!(live[0]["id"], self.terminal);
+        assert_eq!(live[0]["incarnation"], before["terminal"]["incarnation"]);
+        assert_eq!(live[0]["program_pid"], before["terminal"]["program_pid"]);
         assert_eq!(
             std::fs::read_to_string(self.dir.path().join("launches.jsonl"))
                 .unwrap()
@@ -118,7 +154,13 @@ impl Run {
 async fn a5717a_surviving_attempt_retains_automatic_message_admission() {
     for input in ["terminal", "message", "creation"] {
         let mut run = Run::owned(input).await;
-        let identity = run.rail_node().await;
+        let mut identity = run.rail_node().await;
+        identity["terminal"] = run
+            .user
+            .request("terminal.list", Value::Null)
+            .await
+            .unwrap()[0]
+            .clone();
         let mut received = run.entries();
         for round in 0..2 {
             run.signal(json!({"hook_event_name":"PreToolUse","tool_name":"Bash"}))
@@ -133,6 +175,9 @@ async fn a5717a_surviving_attempt_retains_automatic_message_admission() {
             // No new SessionStart or input: the retained program only reports its next idle.
             run.signal(json!({"hook_event_name":"Stop"})).await;
             ids.extend(run.automatic(round * 2 + 1).await);
+            for id in &ids[before.len()..] {
+                before.push(run.message(*id).await);
+            }
             received.extend(ids.iter().map(|id| format!("rup-{id}")));
             until("recovered automatic batch", async || {
                 (run.entries() == received).then_some(())
@@ -140,6 +185,22 @@ async fn a5717a_surviving_attempt_retains_automatic_message_admission() {
             .await;
             run.pending_identity(&before).await;
             run.owner_identity(&identity).await;
+            assert_eq!(run.in_flight(&ids), ids);
+            let entries = run.received();
+            for message in &before {
+                let suffix = format!("{:012x}", message["id"].as_u64().unwrap());
+                let entry = entries
+                    .iter()
+                    .find(|e| e["msg_id"].as_str().unwrap().ends_with(&suffix))
+                    .unwrap();
+                assert!(
+                    entry["message"]["content"]
+                        .as_str()
+                        .unwrap()
+                        .contains(message["body"].as_str().unwrap())
+                );
+                assert_eq!(message["to"], run.child);
+            }
             run.record(&ids).await;
             until("all transcript receipts", async || {
                 for id in &ids {
@@ -151,6 +212,7 @@ async fn a5717a_surviving_attempt_retains_automatic_message_admission() {
             })
             .await;
             assert_eq!(run.seen().await, ids);
+            assert!(run.in_flight(&ids).is_empty());
             run.record(&ids).await;
             run.idle_edge().await;
             assert_eq!(run.entries(), received);
@@ -166,7 +228,13 @@ async fn a5717a_surviving_attempt_retains_automatic_message_admission() {
 #[tokio::test]
 async fn a5717b_surviving_attempt_without_input_keeps_waiting() {
     let mut run = Run::owned("none").await;
-    let identity = run.rail_node().await;
+    let mut identity = run.rail_node().await;
+    identity["terminal"] = run
+        .user
+        .request("terminal.list", Value::Null)
+        .await
+        .unwrap()[0]
+        .clone();
     let mut ids = run.automatic(0).await;
     let mut before = Vec::new();
     for id in &ids {
@@ -218,4 +286,52 @@ async fn a5717b_surviving_attempt_without_input_keeps_waiting() {
         .request("agent.stop", json!({"id":run.child}))
         .await
         .unwrap();
+}
+
+// A5717c: durable authorization belongs only to the surviving Attempt, including on restart.
+#[tokio::test]
+async fn a5717c_explicit_resume_and_restart_require_fresh_input() {
+    for restart_live in [false, true] {
+        let mut run = Run::owned("terminal").await;
+        let earlier = run.attempt.clone();
+        if !restart_live {
+            run.user
+                .request("agent.stop", json!({"id":run.child}))
+                .await
+                .unwrap();
+        }
+        let node = run
+            .user
+            .request("agent.resume", json!({"id":run.child,"mode":"normal"}))
+            .await
+            .unwrap();
+        run.terminal = node["terminal_id"].clone();
+        run.attempt = node["attempt"].clone();
+        assert_ne!(run.attempt, earlier);
+        run.ready().await;
+        run.idle_edge().await;
+        let ids = run.automatic(0).await;
+        assert!(run.entries().is_empty());
+        for id in ids {
+            assert_eq!(run.status(id).await.0, "pending");
+        }
+        let user = run
+            .user
+            .request(
+                "message.send",
+                json!({"to":run.child,"kind":"note","body":"fresh request"}),
+            )
+            .await
+            .unwrap();
+        let id = user["id"].as_u64().unwrap() as u32;
+        until("fresh explicit input", async || {
+            (!run.entries().is_empty()).then_some(())
+        })
+        .await;
+        assert_eq!(run.entries()[0], format!("rup-{id}"));
+        run.user
+            .request("agent.stop", json!({"id":run.child}))
+            .await
+            .unwrap();
+    }
 }
