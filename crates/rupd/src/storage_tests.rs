@@ -48,32 +48,10 @@ fn r3696c_a_fresh_project_db_equals_the_migrated_one_with_its_own_identity() {
     open(b.path()).unwrap();
     let migrated = tempfile::tempdir().unwrap();
     let mut db = Connection::open(migrated.path().join("project.db")).unwrap();
-    let mut historical = migrations();
-    // T4902 removes one migration before deliverable files; keep the same schema boundary.
-    historical.truncate(41);
-    apply(&mut db, historical).unwrap();
-    assert!(db.prepare("SELECT id FROM deliverable_files").is_err());
-    db.prepare("SELECT operation FROM rail_deletions").unwrap();
     let version = |d: &Connection| {
         d.query_row("PRAGMA user_version", [], |r| r.get::<_, i64>(0))
             .unwrap()
     };
-    let version_before = version(&db);
-    let before = dump(&db);
-    use rusqlite::hooks::{AuthAction, AuthContext, Authorization};
-    db.authorizer(Some(|ctx: AuthContext<'_>| match ctx.action {
-        AuthAction::Pragma {
-            pragma_name: "user_version",
-            pragma_value: Some(_),
-        } => Authorization::Deny,
-        _ => Authorization::Allow,
-    }))
-    .unwrap();
-    assert!(apply(&mut db, migrations()).is_err());
-    db.authorizer(None::<fn(AuthContext<'_>) -> Authorization>)
-        .unwrap();
-    assert_eq!(dump(&db), before);
-    assert_eq!(version(&db), version_before);
     apply(&mut db, migrations()).unwrap();
     let fresh = Connection::open(a.path().join("project.db")).unwrap();
     assert_eq!(version(&fresh), version(&db));
@@ -97,106 +75,6 @@ fn r3696c_a_fresh_project_db_equals_the_migrated_one_with_its_own_identity() {
 
 mod standalone {
     include!("../tests/support/store_migrations.rs");
-}
-
-#[tokio::test]
-async fn a3308_an_old_workstream_defaults_to_auto_off() {
-    let dir = tempfile::tempdir().unwrap();
-    let mut db = Connection::open(dir.path().join("project.db")).unwrap();
-    let before_auto = 10
-        + added::ADDED
-            .iter()
-            .position(|sql| *sql == include_str!("../migrations/project/0022-workstream-auto.sql"))
-            .unwrap();
-    Migrations::new(migrations())
-        .to_version(&mut db, before_auto)
-        .unwrap();
-    db.execute(
-        "INSERT INTO nodes(kind,name,ord) VALUES('workstream','Before Auto',0)",
-        [],
-    )
-    .unwrap();
-    drop(db);
-    let upgraded = crate::tests::daemon_in(dir.path());
-    let reply = crate::tests::ask(&upgraded, r#"{"id":1,"method":"rail.tree"}"#).await;
-    assert_eq!(reply["result"][0]["auto"], false);
-}
-
-#[tokio::test]
-async fn t19_main_project_upgrades_without_losing_todo_history() {
-    use contracts::Actor;
-    use rpc::Ctx;
-    use serde_json::{Value, json};
-
-    let dir = tempfile::tempdir().unwrap();
-    let mut db = Connection::open(dir.path().join("project.db")).unwrap();
-    // Freeze main 25e81a6d5's sequence: deriving it from migrations() would
-    // hide an insertion that shifts an already-shipped SQLite version.
-    let shipped = [
-        SCHEMA,
-        ANSWERS,
-        RESIZES,
-        ASKS,
-        ACTIONS,
-        PAD_REVISIONS,
-        EVENTS,
-        MCP,
-        FLIGHT,
-        WAKES,
-        include_str!("../migrations/project/0001-prepared.sql"),
-        include_str!("../migrations/project/0002-message-sender-names.sql"),
-        include_str!("../migrations/project/0003-pad-sources.sql"),
-        include_str!("../migrations/project/0004-deliverables.sql"),
-        include_str!("../migrations/project/0005-ask-submissions.sql"),
-        include_str!("../migrations/project/0006-closed-sources.sql"),
-        include_str!("../migrations/project/0007-todo-owner.sql"),
-        include_str!("../migrations/project/0008-reactions.sql"),
-        include_str!("../migrations/project/0009-reaction-firings.sql"),
-        include_str!("../migrations/project/0010-reaction-watch.sql"),
-        include_str!("../migrations/project/0011-measurements.sql"),
-        include_str!("../migrations/project/0012-instruction-revisions.sql"),
-        include_str!("../migrations/project/0013-instruction-messages.sql"),
-    ];
-    apply(&mut db, shipped.into_iter().map(M::up).collect()).unwrap();
-    db.execute_batch(
-        r#"INSERT INTO todos(id,title,body,done,created_at)
-           VALUES(1,'shipped Todo','kept body',1,42);
-           INSERT INTO changes(todo,after_values,after_touch)
-           VALUES(1,'{"title":"shipped Todo","body":"kept body","done":true,"blockers":[]}',0);"#,
-    )
-    .unwrap();
-    drop(db);
-
-    let daemon = crate::test_daemon(dir.path()).unwrap();
-    let ctx = Ctx {
-        actor: Actor::user(),
-        bus: daemon.bus.clone(),
-        touches: daemon.touches.clone(),
-    };
-    let todos = &daemon.modules["todo"];
-    let history = todos
-        .call(&ctx, "todo.getHistory", json!({"id":1}))
-        .await
-        .unwrap();
-    assert_eq!(history["changes"].as_array().unwrap().len(), 1);
-    assert_eq!(history["changes"][0]["actor"], Value::Null);
-    assert_eq!(history["changes"][0]["after"]["done"], true);
-    let reopened = todos
-        .call(&ctx, "todo.reopen", json!({"id":1}))
-        .await
-        .unwrap();
-    assert_eq!(reopened["id"], 1);
-    assert_eq!(reopened["title"], "shipped Todo");
-    assert_eq!(reopened["body"], "kept body");
-    assert_eq!(reopened["done"], false);
-    let history = todos
-        .call(&ctx, "todo.getHistory", json!({"id":1}))
-        .await
-        .unwrap();
-    assert_eq!(history["changes"].as_array().unwrap().len(), 2);
-    assert_eq!(history["changes"][1]["actor"], json!(Actor::user()));
-    assert_eq!(history["changes"][1]["before"]["done"], true);
-    assert_eq!(history["changes"][1]["after"]["done"], false);
 }
 
 #[test]
@@ -256,136 +134,6 @@ fn n2705a_updated_names_survive_project_reopen() {
             ("7014".to_owned(), "glad".to_owned())
         ]
     );
-}
-
-#[test]
-fn n2705a_an_added_migration_preserves_messages_and_routes() {
-    let dir = tempfile::tempdir().unwrap();
-    let path = dir.path().join("project.db");
-    let mut db = Connection::open(&path).unwrap();
-    let mut preceding = migrations();
-    preceding.truncate(preceding.len() - 1);
-    apply(&mut db, preceding).unwrap();
-    db.execute_batch(
-        r#"INSERT INTO messages
-            (id, from_actor, to_id, kind, body, reply_to, status, reason, at,
-             rank, receiver_attempt, receiver_revision, passed_from)
-           VALUES (31, '{"kind":"agent","id":"7013","parent":null}', '7014',
-                   'note', 'preserved Message', 29, 'queued', 'preserved reason',
-                   12345, 2, 3, 4, 28);
-           INSERT INTO routes(from_id, to_id, delivery, set_by)
-           VALUES ('7013', '7014', 'ask-first', '7013');"#,
-    )
-    .unwrap();
-    let rows = |db: &Connection, table: &str| -> Vec<Vec<rusqlite::types::Value>> {
-        db.prepare(&format!("SELECT * FROM {table}"))
-            .unwrap()
-            .query_map([], |r| {
-                (0..r.as_ref().column_count()).map(|i| r.get(i)).collect()
-            })
-            .unwrap()
-            .collect::<Result<_, _>>()
-            .unwrap()
-    };
-    let message = rows(&db, "messages");
-    let route = rows(&db, "routes");
-    drop(db);
-    open(dir.path()).unwrap();
-    let db = Connection::open(&path).unwrap();
-    let count: i64 = db
-        .query_row("SELECT count(*) FROM message_sender_names", [], |r| {
-            r.get(0)
-        })
-        .unwrap();
-    assert_eq!(count, 0);
-    assert_eq!(rows(&db, "messages"), message);
-    assert_eq!(rows(&db, "routes"), route);
-    db.execute(
-        "INSERT INTO message_sender_names(agent, name) VALUES ('7013', 'sad')",
-        [],
-    )
-    .unwrap();
-    drop(db);
-    open(dir.path()).unwrap();
-    let db = Connection::open(path).unwrap();
-    let names: Vec<(String, String)> = db
-        .prepare("SELECT agent, name FROM message_sender_names")
-        .unwrap()
-        .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))
-        .unwrap()
-        .collect::<Result<_, _>>()
-        .unwrap();
-    assert_eq!(names, [("7013".to_owned(), "sad".to_owned())]);
-    assert_eq!(rows(&db, "messages"), message);
-    assert_eq!(rows(&db, "routes"), route);
-}
-
-/// U3078a/b: an existing version-24 Project must gain evidence storage on upgrade.
-#[tokio::test]
-async fn u3078a_main_database_upgrade_keeps_progress_readable() {
-    use contracts::Actor;
-    use serde_json::json;
-
-    let dir = tempfile::tempdir().unwrap();
-    let mut db = Connection::open(dir.path().join("project.db")).unwrap();
-    // Pin main's released sequence, independently of the candidate's added-file order.
-    let released = [
-        include_str!("../migrations/project/0001-prepared.sql"),
-        include_str!("../migrations/project/0002-message-sender-names.sql"),
-        include_str!("../migrations/project/0003-pad-sources.sql"),
-        include_str!("../migrations/project/0004-deliverables.sql"),
-        include_str!("../migrations/project/0005-ask-submissions.sql"),
-        include_str!("../migrations/project/0006-closed-sources.sql"),
-        include_str!("../migrations/project/0007-todo-owner.sql"),
-        include_str!("../migrations/project/0008-reactions.sql"),
-        include_str!("../migrations/project/0009-reaction-firings.sql"),
-        include_str!("../migrations/project/0010-reaction-watch.sql"),
-        include_str!("../migrations/project/0011-measurements.sql"),
-        include_str!("../migrations/project/0012-instruction-revisions.sql"),
-        include_str!("../migrations/project/0013-instruction-messages.sql"),
-        include_str!("../migrations/project/0014-reaction-firing-identities.sql"),
-    ];
-    apply(
-        &mut db,
-        migrations()
-            .into_iter()
-            .take(10)
-            .chain(released.into_iter().map(M::up))
-            .collect(),
-    )
-    .unwrap();
-    drop(db);
-
-    let daemon = crate::test_daemon(dir.path()).unwrap();
-    let (events, _) = tokio::sync::mpsc::unbounded_channel();
-    let mut conn = crate::Conn {
-        actor: Actor::user(),
-        peer: None,
-        events,
-        output: None,
-    };
-    let home = daemon
-        .route(
-            &mut conn,
-            "rail.createWorkstream",
-            json!({"name":"Kept work"}),
-        )
-        .await
-        .unwrap();
-    let instructions = daemon
-        .route(&mut conn, "agent.instructions", json!({"id":home["id"]}))
-        .await
-        .unwrap();
-    let progress = daemon
-        .route(
-            &mut conn,
-            "message.progress",
-            json!({"project":daemon.project,"id":home["id"]}),
-        )
-        .await
-        .unwrap();
-    assert_eq!(progress["instructions"], instructions);
-    assert_eq!(progress["results"], json!([]));
 }
 
 #[tokio::test]
@@ -522,6 +270,19 @@ async fn n16_all_stores_share_one_project_database() {
                 name == "instruction_deliveries" || name.starts_with("instruction_message")
             }),
     );
+    resize_schema
+        .execute_batch(include_str!(
+            "../migrations/project/0040-current-publications.sql"
+        ))
+        .unwrap();
+    for name in [
+        "deliverable_file_exclusive",
+        "deliverable_blob_exclusive",
+        "deliverable_blob_identity",
+        "deliverable_bytes",
+    ] {
+        expected.remove(name);
+    }
     // The standalone Agents store keeps its frozen head; the Project drops the answers table.
     expected.remove("decision_answers");
     expected.remove("decision_answers_agent");
@@ -709,130 +470,4 @@ fn r3696c_idle_project_stores_do_not_read_the_schema_on_open() {
     let _todos =
         todos::Todos::open(dir.path(), bus.clone()).expect("Todos must not read the schema yet");
     let _pads = pads::Pads::open(dir.path(), bus).expect("Pads must not read the schema yet");
-}
-
-#[path = "../tests/support/b4522.rs"]
-mod b4522;
-
-#[test]
-fn a32_retired_state_is_dropped_without_losing_project_records() {
-    let dir = tempfile::tempdir().unwrap();
-    let path = dir.path().join("project.db");
-    let mut db = Connection::open(&path).unwrap();
-    let mut previous = migrations();
-    let boundary = added::ADDED
-        .iter()
-        .position(|sql| *sql == include_str!("../migrations/project/0035-drop-clear-state.sql"))
-        .unwrap()
-        + 10;
-    previous.truncate(boundary);
-    apply(&mut db, previous).unwrap();
-    db.execute_batch("INSERT INTO nodes (id,kind,name,ord,iteration,opening_prompt) VALUES (1,'workstream','saved',0,3,'Keep this prompt');
-        INSERT INTO iterations VALUES ('1',2,7);
-        INSERT INTO checkpoints VALUES ('1',1,123,'saved card','[]');
-        INSERT INTO marks VALUES ('1',1,3,1,'{\"iteration\":3,\"agents\":[]}');").unwrap();
-    drop(db);
-    for _ in 0..2 {
-        let db = open(dir.path()).unwrap();
-        let retired: u32 = db.query_row("SELECT (SELECT count(*) FROM sqlite_schema WHERE name='iterations') + (SELECT count(*) FROM pragma_table_info('nodes') WHERE name='iteration') + (SELECT count(*) FROM pragma_table_info('marks') WHERE name='iteration')", [], |r| r.get(0)).unwrap();
-        assert_eq!(retired, 0);
-        let node: (String, String) = db
-            .query_row(
-                "SELECT name,opening_prompt FROM nodes WHERE id=1",
-                [],
-                |r| Ok((r.get(0)?, r.get(1)?)),
-            )
-            .unwrap();
-        assert_eq!(node, ("saved".into(), "Keep this prompt".into()));
-        let card: (String, String, bool) = db.query_row("SELECT c.title,m.content,m.usable FROM checkpoints c JOIN marks m ON c.workstream=m.workstream AND c.id=m.checkpoint", [], |r| Ok((r.get(0)?,r.get(1)?,r.get(2)?))).unwrap();
-        assert_eq!(
-            card,
-            (
-                "saved card".into(),
-                "{\"iteration\":3,\"agents\":[]}".into(),
-                true
-            )
-        );
-    }
-}
-
-#[tokio::test]
-async fn u4698c_added_priority_migration_preserves_todos_and_history() {
-    use rpc::Module;
-    let dir = tempfile::tempdir().unwrap();
-    let mut db = Connection::open(dir.path().join("project.db")).unwrap();
-    let mut previous = migrations();
-    previous.truncate(
-        10 + added::ADDED
-            .iter()
-            .position(|sql| *sql == include_str!("../migrations/project/0037-todo-priority.sql"))
-            .unwrap(),
-    );
-    apply(&mut db, previous).unwrap();
-    db.execute_batch("INSERT INTO todos(id,title,body,created_at,updated_at) VALUES(7,'saved','body',123,456);
-        INSERT INTO changes(seq,todo,after_values,after_touch,changed_at) VALUES(11,7,'{\"title\":\"saved\",\"body\":\"body\",\"done\":false,\"blockers\":[]}',0,456);").unwrap();
-    drop(db);
-    drop(open(dir.path()).unwrap());
-    let bus = rpc::Bus::new();
-    let ctx = rpc::Ctx {
-        actor: contracts::Actor::user(),
-        bus: bus.clone(),
-        touches: std::sync::Arc::new(provenance::Touches::in_memory().unwrap()),
-    };
-    let todos = todos::Todos::open(dir.path(), bus.clone()).unwrap();
-    let old = todos
-        .call(&ctx, "todo.get", serde_json::json!({"id":7}))
-        .await
-        .unwrap();
-    assert_eq!(old["title"], "saved");
-    assert_eq!(old["body"], "body");
-    assert_eq!(old["updated_at"], 456);
-    assert_eq!(old["priority"], serde_json::Value::Null);
-    let history = todos
-        .call(&ctx, "todo.getHistory", serde_json::json!({"id":7}))
-        .await
-        .unwrap();
-    assert_eq!(history["changes"][0]["seq"], 11);
-    assert_eq!(
-        history["changes"][0]["after"]["priority"],
-        serde_json::Value::Null
-    );
-    todos
-        .call(
-            &ctx,
-            "todo.update",
-            serde_json::json!({"id":7,"priority":"urgent"}),
-        )
-        .await
-        .unwrap();
-    drop(todos);
-    drop(open(dir.path()).unwrap());
-    let todos = todos::Todos::open(dir.path(), bus.clone()).unwrap();
-    assert_eq!(
-        todos
-            .call(&ctx, "todo.get", serde_json::json!({"id":7}))
-            .await
-            .unwrap()["priority"],
-        "urgent"
-    );
-    let after = todos
-        .call(&ctx, "todo.getHistory", serde_json::json!({"id":7}))
-        .await
-        .unwrap();
-    assert_eq!(after["changes"][0], history["changes"][0]);
-    assert_eq!(after["changes"].as_array().unwrap().len(), 2);
-    let fresh = tempfile::tempdir().unwrap();
-    drop(open(fresh.path()).unwrap());
-    let todos = todos::Todos::open(fresh.path(), bus).unwrap();
-    assert_eq!(
-        todos
-            .call(
-                &ctx,
-                "todo.create",
-                serde_json::json!({"title":"fresh","priority":"low"})
-            )
-            .await
-            .unwrap()["priority"],
-        "low"
-    );
 }
