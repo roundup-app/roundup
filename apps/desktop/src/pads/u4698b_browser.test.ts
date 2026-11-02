@@ -39,6 +39,13 @@ it("u4698b_expand_keeps_the_long_pad_and_all_formats_reachable", { retry: 0, tim
   }
 
   const openTodo = async () => {
+    if (await evaluate("!document.querySelector('#shelf-tab-todos')")) {
+      await browser("press", "Meta+k");
+      await browser("press", "b");
+      await browser("wait", "#shelf-tab-todos");
+      await settle();
+    }
+
     if (await evaluate("document.querySelector('#shelf-tab-todos').getAttribute('aria-expanded') !== 'true'")) {
       await browser("click", "#shelf-tab-todos");
     }
