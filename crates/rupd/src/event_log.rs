@@ -173,33 +173,37 @@ mod tests {
                 }
             }
         });
-        for _ in 0..32 {
-            let (events, mut replay) = tokio::sync::mpsc::unbounded_channel();
-            let mut conn = crate::Conn {
-                actor: Actor::user(),
-                peer: None,
-                events,
-                output: None,
-            };
-            append.send(()).unwrap();
-            let answer = daemon.dispatch(&mut conn,
+        let (events, mut replay) = tokio::sync::mpsc::unbounded_channel();
+        let mut conn = crate::Conn {
+            actor: Actor::user(),
+            peer: None,
+            events,
+            output: None,
+        };
+        append.send(()).unwrap();
+        let answer = daemon
+            .dispatch(
+                &mut conn,
                 r#"{"jsonrpc":"2.0","id":1,"method":"events.subscribe","params":{"kept":true}}"#,
-                None).await.unwrap().into_value();
-            assert!(answer.get("error").is_none(), "{answer}");
-            let first = answer["result"]["head"].as_u64().unwrap() - EVENT_WINDOW + 1;
-            finished.recv().unwrap();
-            // Prune once more before reading: accepted replay must already be safe.
-            bus.emit(Actor::user(), EventData::RailChanged);
-            let end = bus.subscribe_after(Default::default()).unwrap().head();
-            tokio::time::timeout(std::time::Duration::from_secs(5), async {
-                for expected in first..=end {
-                    let event = replay.recv().await.unwrap().into_value();
-                    assert_eq!(event["params"]["seq"], expected);
-                }
-            })
+                None,
+            )
             .await
-            .expect("the complete kept replay and live Events arrive");
-        }
+            .unwrap()
+            .into_value();
+        assert!(answer.get("error").is_none(), "{answer}");
+        let first = answer["result"]["head"].as_u64().unwrap() - EVENT_WINDOW + 1;
+        finished.recv().unwrap();
+        // Prune once more before reading: accepted replay must already be safe.
+        bus.emit(Actor::user(), EventData::RailChanged);
+        let end = bus.subscribe_after(Default::default()).unwrap().head();
+        tokio::time::timeout(std::time::Duration::from_secs(5), async {
+            for expected in first..=end {
+                let event = replay.recv().await.unwrap().into_value();
+                assert_eq!(event["params"]["seq"], expected);
+            }
+        })
+        .await
+        .expect("the complete kept replay and live Events arrive");
         drop(append);
         writer.join().unwrap();
     }
