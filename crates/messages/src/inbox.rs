@@ -171,7 +171,9 @@ pub(crate) async fn send(
         let content = inbox.content(agent, &entry);
         if entry.text.is_empty() {
             empty.push(entry);
-        } else if previous.as_deref() == Some(&content) {
+        // Questions preserve same-id receipt recovery; distinct reply ids already prevent
+        // equality between different Questions. B5763c closes recovered notes only.
+        } else if entry.kind == MessageKind::Note && previous.as_deref() == Some(&content) {
             repeats.push(entry.id);
         } else if !quiet {
             previous = Some(content);
