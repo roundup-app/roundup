@@ -97,10 +97,15 @@ it("u2773a_changes_agent_switch_restores_form", async () => {
 });
 
 it("u2540b_refresh_keeps_original_context", async () => {
-  const { app } = await openDiff();
+  const { app, connected } = await openDiff();
   await saveNote("original");
+  fireEvent.click(screen.getByRole("button", { name: "Add note" }));
+  fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: "  unfinished 🐝\nexact  " } });
   app.handlers["agent.compareFile"] = () => ({ ...COMPARISON, new: { kind: "text", revision: "later-revision", text: "different\n" } });
-  fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
+  await connected.worktrees.refresh("a");
+  expect(screen.getByRole("textbox", { name: "Note" })).toHaveProperty("value", "  unfinished 🐝\nexact  ");
+  expect(app.calls.filter(call => call.method === "message.send")).toHaveLength(0);
+  fireEvent.click(within(screen.getByRole("form", { name: "Line note" })).getByRole("button", { name: "Close" }));
   await within(screen.getByRole("list", { name: "Notes" })).findByRole("status");
   fireEvent.click(screen.getByRole("button", { name: "Edit note 1" }));
   expect(screen.getByRole("textbox", { name: "Note" })).toHaveProperty("value", "original");
