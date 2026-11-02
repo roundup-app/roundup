@@ -7,6 +7,7 @@ import { storageProblems } from "./state/storage";
 import "./state/storage.css";
 import { textTarget } from "./ui/contextMenu";
 import { AppSettings } from "./settings/AppSettings";
+import { createSettingsView } from "./state/settingsView";
 import { appSettings, applyAppAppearance } from "./settings/preferences";
 import { captureActions, registerKeys } from "./keys/registry";
 import { Combobox } from "./ui/Combobox";
@@ -237,7 +238,8 @@ export const App = (props: {
 
   applyAppAppearance();
   const projects = createProjectsState(props.app);
-  const [settingsOpen, setSettingsOpen] = createSignal(false);
+  const settingsView = createSettingsView();
+  const settingsOpen = settingsView.open;
   const drafts = props.drafts ?? createProjectDrafts();
   registerKeys({ kind: "app" }, ["⌘Z", "⇧⌘Z"].map(keys => ({
     action: CHORDS.find(row => defaultKeys(row) === keys)!,
@@ -377,6 +379,8 @@ export const App = (props: {
     solid: { createEffect, onCleanup }, app: props.app, tabs: projects.tabs,
     connection: connectionOf, open: () => setFocus("menu"),
     select: (path, agent) => batch(() => {
+      settingsView.close(false);
+      connectionOf(path)!.settingsView.close(false);
       projects.select(path);
       railOf(path)!.select(agent);
       setFocus(document.hasFocus() ? "focused" : "blurred");
@@ -641,7 +645,7 @@ export const App = (props: {
   return (
     <ReducedMotionContext.Provider value={props.reducedMotion}><DisplayClockContext.Provider value={now.subscribe}><ProjectDraftsContext.Provider value={drafts}><Show when={projects.loaded()}>
       <For each={keys()}>
-        {(key) => <Connection drafts={drafts} app={dropTargets.app} tab={tabOf(key)} reducedMotion={props.reducedMotion} now={pollingNow} onConnected={connect} onRecovered={projects.connected} onRequested={answer} toasts={toasts} alerts={alerts} active={() => projects.active() === key} viewing={() => projects.active() === key && visible() && focus() === "focused"} show={() => projects.select(key)} />}
+        {(key) => <Connection drafts={drafts} app={dropTargets.app} tab={tabOf(key)} reducedMotion={props.reducedMotion} now={pollingNow} onConnected={connect} onRecovered={projects.connected} onRequested={answer} toasts={toasts} alerts={alerts} active={() => projects.active() === key} viewing={() => projects.active() === key && visible() && focus() === "focused" && !settingsOpen()} show={() => projects.select(key)} />}
       </For>
       <DockBadge app={props.app} rails={() => [...connections().values()].flatMap((connection) => (connection instanceof Error ? [] : [attentionHolders(connection.rail.nodes, connection.rail.terminals(), connection.rail.dismissed)]))} onFailure={setBadgeFailure} />
       <Tabs.Root id={tabsId} value={projects.active()} onValueChange={({ value }) => projects.select(value)} activationMode="manual" style={{ display: "contents" }}
@@ -749,7 +753,7 @@ export const App = (props: {
             </InProject>
           </Show>
           </div>
-          <AppSettings app={props.app} project={() => projects.active()} onOpenChange={setSettingsOpen} navigation={() => {
+          <AppSettings app={props.app} project={() => projects.active()} view={settingsView} navigation={() => {
             const open = activeConnection();
 
             return `${projects.active()}\n${open instanceof Error ? "" : open?.rail.selected()}`;
