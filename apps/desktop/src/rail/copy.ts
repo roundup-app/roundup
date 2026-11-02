@@ -14,6 +14,7 @@ const dash = "—";
 const removalPlurals = new Intl.PluralRules("en");
 
 export const copy = {
+  create: sharedCopy.create,
   thatIsGone: sharedCopy.thatIsGone,
   alerts: sharedCopy.alerts,
   alertLevels: { all: "All", default: sharedCopy.defaultLevel, quiet: "Quiet" },
@@ -95,7 +96,6 @@ export const copy = {
   rail: sharedCopy.rail,
   doneCount: sharedCopy.doneCount,
   askingTheDoor: "Asking…",
-  addWorkstream: sharedCopy.addWorkstream,
   addWorkstreamWord: sharedCopy.addWorkstreamWord,
   importUnnamed: sharedCopy.importUnnamed,
   name: sharedCopy.name,
