@@ -2,7 +2,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-li
 import { afterEach, expect, it, vi } from "vitest";
 import { App } from "../App";
 import { createFakeApp } from "../testing/fakeApp";
-import { agent, event } from "../testing/nodes";
+import { agent, door, event } from "../testing/nodes";
 import { fakeEmulators } from "../terminal/paneHarness";
 import { status } from "../toasts/toastFixture";
 import type { ConnectedProject } from "../state/connectedProject";
@@ -10,11 +10,11 @@ import { useBrowserStorage } from "../state/storage";
 
 afterEach(() => { cleanup(); localStorage.clear(); vi.restoreAllMocks(); });
 
-const mount = async (keep = false) => {
+const mount = async (keep = false, target: "agent" | "door" = "agent") => {
   if (!keep) localStorage.clear();
   useBrowserStorage(localStorage);
   const app = createFakeApp();
-  const tree = [agent("a", "working", "busy", { name: "<b>A</b>", alert_level: "quiet" }), agent("b", "working", "busy", { alert_level: "quiet" })];
+  const tree = [(target === "door" ? door : agent)("a", "working", "busy", { name: "<b>A</b>", alert_level: "quiet" }), agent("b", "working", "busy", { alert_level: "quiet" })];
   app.opened.project = { name: "p", path: "/p" };
   app.handlers["rail.tree"] = () => tree;
   app.handlers["terminal.snapshot"] = () => ({ cols: 80, rows: 24, after: 0, data: "c2NyZWVu" });
@@ -100,4 +100,43 @@ it("u5501_a_failed_or_gone_target_open_preserves_held_rows", async () => {
   expect(connected.rail.selected()).not.toBe("b");
   await waitFor(() => expect(connected.rail.commandFailure.message()).toBeTruthy());
   expect(await screen.findByText(connected.rail.commandFailure.message()!)).toBeTruthy();
+});
+
+
+it.each([
+  { mounted: false, expanded: false },
+  { mounted: false, expanded: true },
+  { mounted: true, expanded: false },
+  { mounted: true, expanded: true },
+])("u5721_workstream_selection_preserves_held_alerts mounted=$mounted expanded=$expanded", async ({ mounted, expanded }) => {
+  const { app, connected, hold, emulators } = await mount(false, "door");
+  const acknowledge = vi.spyOn(connected.held, "acknowledge");
+
+  if (mounted) {
+    fireEvent.click(document.querySelector('.rail-row[data-id="a"]')!);
+    await waitFor(() => expect(emulators.made.get("t-a")?.written).toHaveLength(1));
+    fireEvent.click(document.querySelector('.rail-row[data-id="b"]')!);
+    await waitFor(() => expect(emulators.made.get("t-b")?.written).toHaveLength(1));
+  }
+
+  hold("a", "needs-you", "Door needs a decision");
+  hold("b", "error", "Other Agent failed");
+  hold("a", "error", "Door failed later");
+  const saved = structuredClone(connected.held.rows());
+  acknowledge.mockClear();
+
+  if (expanded) fireEvent.click(screen.getByRole("button", { name: /held/ }));
+  fireEvent.click(document.querySelector('.rail-row[data-id="a"]')!);
+  await waitFor(() => expect(emulators.made.get("t-a")?.written).toHaveLength(1));
+  await waitFor(() => expect(emulators.made.get("t-a")?.host?.isConnected).toBe(true));
+  expect(screen.queryByRole("button", { name: /held/ })).not.toBeNull();
+  expect(connected.held.rows()).toEqual(saved);
+  expect(acknowledge).not.toHaveBeenCalled();
+
+  if (!expanded) fireEvent.click(screen.getByRole("button", { name: /held/ }));
+  await waitFor(() => expect(document.querySelectorAll(".held-row")).toHaveLength(3));
+  expect([...document.querySelectorAll(".held-line")].map(row => row.textContent)).toEqual(saved.map(row => row.line));
+  expect(connected.held.rows()).toEqual(saved);
+  expect(app.calls.filter(call => ["message.send", "agent.resume", "agent.prompt", "terminal.write"].includes(call.method))).toEqual([]);
+
 });
