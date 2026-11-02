@@ -243,4 +243,4 @@ export function leaderKeys(row: LeaderKey): KeyText {
 
 /** Navigation hints share the registry source without claiming an action binding. */
 // SAFETY: navigation text is defined only in this registry.
-export const SHELF_KEYS = { adjacent: textOf("↑ / ↓"), toggle: textOf("⌘⏎"), range: textOf("⇧↑ / ⇧↓"), cancel: textOf("⌫ / Esc") };
+export const SHELF_KEYS = { adjacent: textOf("↑ / ↓"), toggle: textOf("⌘⏎"), range: textOf("⇧↑ / ⇧↓"), cancel: textOf([copy.shortcutSymbols.Backspace, "/", "Esc"].join(" ")) };
