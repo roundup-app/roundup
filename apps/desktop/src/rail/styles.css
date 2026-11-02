@@ -816,6 +816,15 @@
   display: grid;
   gap: 0;
   padding-inline-start: 0;
+  color: var(--grey);
+}
+
+.rail-tree .rail-fold:hover {
+  color: var(--text);
+}
+
+.rail-tree .rail-fold.row-wash::after {
+  border-radius: 0;
 }
 
 .rail-fold [data-state="open"] {
