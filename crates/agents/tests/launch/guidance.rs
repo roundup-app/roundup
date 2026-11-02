@@ -284,7 +284,9 @@ fn q5561_pad_guidance_reaches_each_writer() {
                 assert!(text.contains(instruction), "{role:?} {mcp}: {instruction}");
             }
             for tool in ["pad_create", "pad_write", "pad_append", "pad_appendSection"] {
-                let name = if mcp { tool.to_owned() } else {
+                let name = if mcp {
+                    tool.to_owned()
+                } else {
                     match tool {
                         "pad_appendSection" => "rup pad append-section".to_owned(),
                         _ => format!("rup {}", tool.replacen("_", " ", 1)),
