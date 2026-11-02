@@ -21,7 +21,7 @@ it.each(["keyboard", "menu", "bar"].flatMap(source => ["home", "a1", null, "empt
 
   if (source === "keyboard") window.dispatchEvent(new KeyboardEvent("keydown", { key: "t", code: "KeyT", metaKey: true, bubbles: true }));
   else if (source === "menu") openProjectPage("action:chord:⌘T", "/p");
-  else fireEvent.click(within(screen.getByLabelText("Terminals", { selector: '[role="group"]' })).getByRole("button", { name: "New Terminal" }));
+  else fireEvent.click(within(screen.getByRole("group", { name: "Terminals" })).getByRole("button", { name: "New Terminal" }));
   await waitFor(() => expect(document.activeElement?.getAttribute("data-terminal")).toBe("shell"));
   expect(daemon.calls.filter(call => call.method === "terminal.open").map(call => call.params)).toEqual([{ workstream: owner, cols: 100, rows: 30 }]);
   expect(daemon.calls.filter(call => ["rail.createWorkstream", "rail.startDoor", "agent.spawn"].includes(call.method))).toHaveLength(0);
@@ -34,7 +34,7 @@ it.each(["keyboard", "menu", "bar"].flatMap(source => ["home", "a1", null, "empt
 it("u4313a_empty_terminal_bar_keeps_new_terminal_available", async () => {
   const { connected, daemon, shells, emulators } = await mountNavigation(true);
   const portal = document.querySelector(".resource-agent");
-  const initial = screen.getByLabelText("Terminals", { selector: '[role="group"]' });
+  const initial = screen.getByRole("group", { name: "Terminals" });
   expect(within(initial).getAllByRole("button")).toEqual([within(initial).getByRole("button", { name: "New Terminal" })]);
   fireEvent.keyDown(document, { key: "Tab" });
   within(initial).getByRole("button", { name: "New Terminal" }).focus();
@@ -42,7 +42,7 @@ it("u4313a_empty_terminal_bar_keeps_new_terminal_available", async () => {
   expect(daemon.calls.filter(call => ["terminal.open", "agent.spawn", "rail.createWorkstream", "rail.startDoor"].includes(call.method))).toHaveLength(0);
   shells.push(info("shell", { owner: "/p" }));
   await connected().rail.refresh({ terminals: true });
-  const bar = await screen.findByLabelText("Terminals", { selector: '[role="group"]' });
+  const bar = await screen.findByRole("group", { name: "Terminals" });
   fireEvent.click(document.querySelector('.terminal-tab[data-bubble="shell"]')!);
   await waitFor(() => expect(emulators.made.has("shell")).toBe(true));
   fireEvent.click(document.querySelector('.terminal-tab[data-bubble="shell"]')!);
@@ -52,7 +52,7 @@ it("u4313a_empty_terminal_bar_keeps_new_terminal_available", async () => {
   expect(document.querySelector('.terminal-tab[data-bubble="shell"]')).not.toBeNull();
   shells.splice(0);
   await connected().rail.refresh({ terminals: true });
-  expect(screen.getByLabelText("Terminals", { selector: '[role="group"]' })).toBe(initial);
+  expect(screen.getByRole("group", { name: "Terminals" })).toBe(initial);
   expect(document.querySelector(".resource-agent")).toBe(portal);
   expect(daemon.calls.filter(call => ["terminal.close", "terminal.write"].includes(call.method))).toHaveLength(0);
 });
@@ -106,7 +106,7 @@ it("u4313a_closing_the_last_terminal_returns_focus_to_plus", async () => {
   fireEvent.click(close);
   await answerQuestion(true);
   await waitFor(() => expect(document.activeElement).toBe(document.querySelector(".terminal-new")));
-  expect(within(screen.getByLabelText("Terminals", { selector: '[role="group"]' })).getAllByRole("button")).toEqual([document.querySelector(".terminal-new")]);
+  expect(within(screen.getByRole("group", { name: "Terminals" })).getAllByRole("button")).toEqual([document.querySelector(".terminal-new")]);
   expect(daemon.calls.filter(call => call.method === "terminal.close").map(call => call.params)).toEqual([{ id: "shell" }]);
 });
 
@@ -135,7 +135,7 @@ it("u4277c_hidden_project_terminals_never_report_empty", async () => {
   const { connected, shells } = await mountNavigation(true);
   shells.push(info("shell", { owner: "other" }));
   await connected().rail.refresh({ terminals: true });
-  const bar = await screen.findByLabelText("Terminals", { selector: '[role="group"]' });
+  const bar = await screen.findByRole("group", { name: "Terminals" });
   expect(within(bar).queryByRole("status")).toBeNull();
 });
 
@@ -192,7 +192,7 @@ it.each(["agent", "door", "workstream", "ask", "inbox", "resources"].flatMap(vie
   }
 
   if (view === "inbox" || view === "resources") connected().showView(view);
-  const bar = screen.getByLabelText("Terminals", { selector: '[role="group"]' });
+  const bar = screen.getByRole("group", { name: "Terminals" });
   expect(within(bar).getByRole("button", { name: "New Terminal" }).hasAttribute("disabled")).toBe(false);
   expect(bar.querySelector('.terminal-tab[data-bubble="shell"]') !== null).toBe(populated && view !== "ask");
 

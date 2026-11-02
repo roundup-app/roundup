@@ -20,14 +20,14 @@ it("u3799_the_event_and_cmd_comma_open_app_settings_in_the_center_with_four_grou
   render(() => <App app={createFakeApp()} reducedMotion={() => true} clock={Date.now} />);
   await screen.findByRole("button", { name: /Choose/ });
   fireEvent.keyDown(window, { key: ",", code: "Comma", metaKey: true });
-  const view = await screen.findByLabelText("Settings", { selector: 'section' });
-  expect(within(screen.getByLabelText("Centre", { selector: 'section' })).getByLabelText("Settings", { selector: 'section' })).toBe(view);
+  const view = await screen.findByRole("region", { name: "Settings" });
+  expect(within(screen.getByRole("region", { name: "Centre" })).getByRole("region", { name: "Settings" })).toBe(view);
   expect(within(view).getAllByRole("tab").map(item => item.textContent)).toEqual(["Agents", "Terminal", "Shortcuts", "Appearance", "Alerts"]);
   expect(screen.queryByRole("dialog")).toBeNull();
   expect(screen.queryByRole("button", { name: /^Engine / })).toBeNull();
   expect(screen.queryByRole("button", { name: /^Model / })).toBeNull();
   fireEvent.keyDown(window, { key: ",", code: "Comma", metaKey: true });
-  expect(screen.getByLabelText("Settings", { selector: 'section' })).toBe(view);
+  expect(screen.getByRole("region", { name: "Settings" })).toBe(view);
 });
 
 it("u3800_close_returns_the_center_and_focus", async () => {
@@ -35,14 +35,14 @@ it("u3800_close_returns_the_center_and_focus", async () => {
   const opener = await screen.findByRole("button", { name: /Choose/ });
   opener.focus();
   window.dispatchEvent(new Event("open-app-settings"));
-  const view = await screen.findByLabelText("Settings", { selector: 'section' });
+  const view = await screen.findByRole("region", { name: "Settings" });
   fireEvent.keyDown(view, { key: "Escape", code: "Escape" });
   expect(view.isConnected).toBe(false);
   expect(document.activeElement).toBe(opener);
   expect(screen.getByRole("button", { name: /Choose/ })).toBe(opener);
   fireEvent.keyDown(opener, { key: ",", code: "Comma", metaKey: true });
-  await screen.findByLabelText("Settings", { selector: 'section' });
-  fireEvent.click(within(screen.getByLabelText("Settings", { selector: 'section' })).getByRole("button", { name: "← Back" }));
+  await screen.findByRole("region", { name: "Settings" });
+  fireEvent.click(within(screen.getByRole("region", { name: "Settings" })).getByRole("button", { name: "← Back" }));
   expect(document.activeElement).toBe(opener);
 });
 
@@ -54,13 +54,13 @@ it.each([["KeyY", "y", "⌃⇧Y"], ["Numpad1", "1", "⌃⇧1"], ["F13", "F13", "
   render(() => <App app={controls.app} reducedMotion={() => true} clock={Date.now} />);
   await screen.findAllByRole("treeitem");
   window.dispatchEvent(new Event("open-app-settings"));
-  const settings = within(await screen.findByLabelText("Settings", { selector: 'section' }));
+  const settings = within(await screen.findByRole("region", { name: "Settings" }));
   fireEvent.click(settings.getByRole("tab", { name: "Shortcuts" }));
   const recorder = await settings.findByRole("button", { name: /^Quick add Todo/ });
   fireEvent.click(recorder);
   expect(recorder.getAttribute("aria-pressed")).toBe("true");
   fireEvent.keyDown(window, { key, code, ctrlKey: true, shiftKey: true });
-  fireEvent.click(within(screen.getByLabelText("Settings", { selector: 'section' })).getByRole("button", { name: "← Back" }));
+  fireEvent.click(within(screen.getByRole("region", { name: "Settings" })).getByRole("button", { name: "← Back" }));
   fireEvent.keyDown(window, { key: "T", code: "KeyT", metaKey: true, shiftKey: true });
   expect(screen.queryByRole("dialog")).toBeNull();
   fireEvent.keyDown(window, { key, code, ctrlKey: true, shiftKey: true });
@@ -81,7 +81,7 @@ it("u3813_overview_has_no_sublinks_and_project_commands_open_selected_pages", as
     for (const [command, heading] of [["import-work", "Import Claude Code"], ["project-settings", "Project settings"]] as const) {
       openProjectPage(command);
       const page = await screen.findByRole("region", { name: heading });
-      expect(within(screen.getByLabelText("Centre", { selector: 'section' })).getByRole("region", { name: heading })).toBe(page);
+      expect(within(screen.getByRole("region", { name: "Centre" })).getByRole("region", { name: heading })).toBe(page);
       expect(screen.queryByRole("dialog")).toBeNull();
 
       if (command === "import-work") expect(await within(page).findByRole("checkbox", { name: new RegExp(name) })).toBeTruthy();
@@ -151,12 +151,12 @@ it("u3814_switching_settings_pages_keeps_the_original_return_destination", async
   const overview = screen.getByRole("button", { name: /^Overview/ });
   overview.focus();
   window.dispatchEvent(new Event("open-app-settings"));
-  const appPage = await screen.findByLabelText("Settings", { selector: 'section' });
+  const appPage = await screen.findByRole("region", { name: "Settings" });
   openProjectPage("import-work");
-  const imported = await screen.findByLabelText("Import Claude Code", { selector: 'section' });
+  const imported = await screen.findByRole("region", { name: "Import Claude Code" });
   expect(appPage.isConnected).toBe(false);
   openProjectPage("project-settings");
-  const page = await screen.findByLabelText("Project settings", { selector: 'section' });
+  const page = await screen.findByRole("region", { name: "Project settings" });
   fireEvent.keyDown(page, { key: "Escape", code: "Escape" });
   await waitFor(() => expect(document.activeElement).toBe(overview));
   expect(imported.isConnected).toBe(false);
@@ -250,10 +250,10 @@ it.each([false, true])("u4277a_sections_work_by_pointer_and_keyboard_project_%s"
   const { seedApp } = await import("../testing/seeds");
   render(() => <App app={project ? seedApp("empty-project", Date.now()).app : createFakeApp()} reducedMotion={() => true} clock={Date.now} createEmulator={fakeEmulators().factory} />);
 
-  if (project) await screen.findByLabelText("Rail", { selector: '[role="tree"]' });
+  if (project) await screen.findByRole("tree", { name: "Rail" });
   else await screen.findByRole("button", { name: /Choose/ });
   window.dispatchEvent(new Event("open-app-settings"));
-  const view = await screen.findByLabelText("Settings", { selector: 'section' });
+  const view = await screen.findByRole("region", { name: "Settings" });
 
   for (const name of ["Agents", "Terminal", "Shortcuts", "Appearance", "Alerts"]) {
     fireEvent.click(within(view).getByRole("tab", { name }));

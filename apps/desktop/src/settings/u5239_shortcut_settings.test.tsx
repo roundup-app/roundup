@@ -19,7 +19,7 @@ const mount = async () => {
   render(() => <AppSettings app={app} project={() => "/p"} />);
   await Promise.resolve();
   window.dispatchEvent(new Event("open-app-settings"));
-  const view = within(await screen.findByLabelText("Settings", { selector: 'section' }));
+  const view = within(await screen.findByRole("region", { name: "Settings" }));
   fireEvent.click(view.getByRole("tab", { name: "Shortcuts" }));
   await view.findByRole("button", { name: copy.findKey });
 

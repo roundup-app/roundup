@@ -81,5 +81,46 @@
       ]
     }
   ],
-  "coverage": "Ten of 77 baseline files now have paired lower timings, including the three prior measurements on Issue #5527. Remaining 67 require mount/query repair and paired evidence; no full-shard result is claimed."
+  "coverage": "Ten of 77 baseline files now have paired lower timings, including the three prior measurements on Issue #5527. Remaining 67 require mount/query repair and paired evidence; no full-shard result is claimed.",
+  "discarded_experiments": [
+    {
+      "run": "https://github.com/roundup-app/roundup/actions/runs/41404254825",
+      "artifact": "answer-5527/ci5527",
+      "before_commit": "90430d00af0c74a8432b651194621d66e8b482df",
+      "candidate_commit": "bd96bc433",
+      "runner": {
+        "system": "Linux-6.18.0+-x86_64-with-glibc2.39",
+        "cpus": 2,
+        "runner_environment": "self-hosted",
+        "runner_os": "Linux",
+        "run": "41404254825"
+      },
+      "before_result": "8 files passed; 284 passed and two existing capture-only skips",
+      "candidate_result": "interrupted after the first four completed files were all slower; all eight query edits discarded; no speedup evidence",
+      "before_log_sha256": "fa99f33ab3c21149f88f58728c1111d37aade0fea85c87905274ffb6a3ab2b0a",
+      "completed_files": [
+        {
+          "file": "src/keys/u3787b_menu.test.tsx",
+          "before_ms": 84222,
+          "candidate_ms": 96653
+        },
+        {
+          "file": "src/header/u183_rename.test.tsx",
+          "before_ms": 36173,
+          "candidate_ms": 39462
+        },
+        {
+          "file": "src/bubbles/u4274_navigation.test.tsx",
+          "before_ms": 83432,
+          "candidate_ms": 108152
+        },
+        {
+          "file": "src/settings/u3799_app_settings.test.tsx",
+          "before_ms": 31595,
+          "candidate_ms": 60253
+        }
+      ],
+      "setup_failure": "Initial five-file command exited 1: fixture launched target/debug/rupd while CARGO_TARGET_DIR redirected the build. An ignored target symlink repaired local setup."
+    }
+  ]
 }
