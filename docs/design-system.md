@@ -65,7 +65,7 @@ Starting values. The thresholds in the checks are fixed; a value that fails a th
 | `--duration-instant` | `0s` | same | instant press feedback, keyboard paths and reduced motion |
 | `--centre-min-width` | `388px` | same | the centre floor and Shelf reservation threshold (U371, U389) |
 | `--shelf-width` | `320px` | same | the open Shelf's width (U371; #622 makes it resizable) |
-| `--text-pad-subheading` / `--text-pad-heading` | `20px` / `24px` | same | rendered and formatted Pad headings |
+| `--text-pad-subheading` / `--text-pad-heading` | `20px` / `24px` | same | legacy Todo headings and Pad document title |
 | `--radius-row` / `--radius-control` / `--radius-drawer` | `6px` / `6px` / `12px` | same | selection band, buttons, Drawer, Terminal bubble (U523) |
 | `--easing-out` | `cubic-bezier(0.32, 0.72, 0, 1)` | same | every eased motion (`docs/motion.md`, U2579a) |
 | `--duration-drawer` | `250ms` | same | the Drawer's slide in and out (`docs/motion.md`, M3 duration target; U3010b's 250 ms spring target) |
@@ -90,7 +90,7 @@ The App inherits `--font-ui`; code, paths, diffs, ids and token counts select `-
 
 U5574 Pad documents use `--pad-text-body` B = 15 px × interface scale and `--pad-type-ratio` r = 1.125. `--pad-text-small` is B/r; h4, h3, h2 and h1 are B×r through B×r⁴ (16.875, 18.984375, 21.357421875 and 24.027099609375 px at default scale). h5/h6 keep the h4 role. Code uses the small step and the existing monospace font; cells use body. These roles apply to the Pad drawer's editor and its read-only binding. Todo, metadata, toolbar, document title and Terminal retain their previous roles.
 
-`--pad-rhythm` is 4 px × interface scale. Named integer steps: item gap 1, heading-after/cell-block 2, cell-inline/code inset 3, block gap 4, section-before 8. Body and h4/h3 line boxes are 6 units; h2 is 7 and h1 is 8, giving tighter heading leading than body. Empty paragraphs retain a caret line with zero inter-block margin; source is never removed. First blocks have no preceding section gap. D2 admits only these modular sizes and rhythm steps within Pad document descendants, alongside existing interface steps.
+`--pad-rhythm` is 4 px × interface scale. Named integer steps: item gap 1, heading-after/cell-block 2, cell-inline/code inset 3, block gap 4, section-before 8. Body and h4/h3 line boxes are 6 units; h2 is 7 and h1 is 8, giving tighter heading leading than body. Empty paragraphs retain their source node and native caret with zero height and inter-block margin; source is never removed. First blocks have no preceding section gap. D2 admits only these modular sizes and rhythm steps within Pad document descendants, alongside existing interface steps.
 
 `--pad-reading-width` includes a 54ch prose column plus existing gutters. The rendered observer records actual full-line strings/counts; the critic judges 60–75 characters at reading width. Narrow drawers use available room. Paragraphs use pretty wrapping and headings balance wrapping, with native fallback. U5560a Wide/Full remain measure exceptions when implemented.
 
