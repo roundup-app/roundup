@@ -1,4 +1,4 @@
-//! LC19–LC20: the file-tool boundary for roles that delegate implementation.
+//! LC19–LC22: the file-tool boundary for roles that delegate implementation.
 use std::path::{Path, PathBuf};
 
 use serde::Deserialize;
@@ -104,7 +104,12 @@ pub(super) fn hook(
         "matcher": "Write|Edit",
         "hooks": [{
             "type": "command",
-            "command": format!("{} claude-memory {} {}", quote(rup)?, quote(&root)?, quote(cwd)?),
+            // Capture before forwarding: failed programs may already have printed an allow.
+            // The marker preserves trailing newlines removed by command substitution.
+            "command": format!(
+                "if rup_memory_output=$({} claude-memory {} {} && printf '.'); then printf '%s' \"${{rup_memory_output%.}}\"; else printf '%s\\n' 'Memory guard failed; hand the work to a child Agent.' >&2; exit 2; fi",
+                quote(rup)?, quote(&root)?, quote(cwd)?
+            ),
             "timeout": 5,
             "onFailure": "block"
         }]
