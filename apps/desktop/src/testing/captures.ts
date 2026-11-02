@@ -24,7 +24,7 @@ const observerTable = {
   "src/pads/u5561a_browser.test.ts": ["U5561a", "U5561b", "U5575a"],
   "src/pads/u5561c_real_browser.test.ts": ["U5561c"],
   "src/rail/u5555_browser.test.ts": ["U5217", "U5555", "U4313b", "U5629"],
-  "src/rail/u5501_capture.test.ts": ["U5501"],
+  "src/rail/u5501_capture.test.ts": ["U5501", "U5721"],
   "src/app/u3560_browser.test.ts": ["U3560e"],
   "src/app/u3787f_browser.test.ts": ["U3787f"],
   "src/app/u3791c_rendered.test.ts": ["U3791c"],

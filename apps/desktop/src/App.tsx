@@ -617,7 +617,7 @@ export const App = (props: {
     if (path === undefined) return setAlertFailure(copy.thatIsGone);
 
     projects.select(path);
-    railOf(path)?.select(agent);
+    railOf(path)?.select(agent, "open");
   }).then(stop => { if (alertClicksEnded) stop(); else stopAlertClicks = stop; });
   onCleanup(() => { alertClicksEnded = true; stopAlertClicks?.(); });
 
