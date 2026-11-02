@@ -4,7 +4,7 @@ import { connectFakeProject } from "../terminal/paneHarness";
 import { ConnectedProjectContext } from "../state/connectedProject";
 import { ImportPanel } from "./ImportPanel";
 import { connectProject } from "../state/connectedProject";
-import { agent } from "../testing/nodes";
+import { agent, event } from "../testing/nodes";
 
 afterEach(() => { cleanup(); localStorage.clear(); });
 
@@ -35,7 +35,7 @@ it("u3523d_listed_candidates_require_user_confirm", async () => {
   await waitFor(() => expect(connected.importing.listingAgent()).toBe("importer"));
   // start() releases the controls after its draft persistence acknowledges the launch.
   await waitFor(() => expect(connected.importing.starting()).toBe(false));
-  fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
+  app.emit({ ...event({ name: "rail.changed" }), actor: { kind: "agent", id: "importer", parent: null } });
   fireEvent.click(await screen.findByRole("checkbox", { name: /Listed work/ }));
   expect(app.calls.filter(call => call.method === "project.importCommit")).toHaveLength(0);
   fireEvent.click(await screen.findByRole("button", { name: "Import 1" }));
@@ -59,4 +59,63 @@ it("u3523c_import_draft_keeps_project_and_revisions", async () => {
 
   expect(restored instanceof HTMLTextAreaElement && restored.value).toBe("  exact\nunfinished 🪁  ");
   expect(app.calls.filter(call => call.method === "agent.spawn")).toHaveLength(1);
+});
+
+
+it("u5558d_listing_signal_updates_candidates", async () => {
+  const { app, connected } = await connectFakeProject([]);
+  app.handlers["agent.spawn"] = () => agent("importer", "working", "starting");
+  app.handlers["project.importDiscover"] = () => ({ candidates: [], excluded: [] });
+  render(() => <ConnectedProjectContext.Provider value={connected}><ImportPanel onClose={() => {}} /></ConnectedProjectContext.Provider>);
+  await connected.importing.start();
+  const before = app.calls.filter(call => call.method === "project.importDiscover").length;
+  app.handlers["project.importDiscover"] = () => ({ candidates: [{ source: "new-listing", revision: "new-revision", title: "Saved candidate", cwd: "", last_activity_ms: 1n }], excluded: [] });
+  app.emit({ ...event({ name: "rail.changed" }), actor: { kind: "agent", id: "other", parent: null } });
+  expect(app.calls.filter(call => call.method === "project.importDiscover")).toHaveLength(before);
+  app.emit({ ...event({ name: "rail.changed" }), actor: { kind: "agent", id: "importer", parent: null } });
+  expect(await screen.findByRole("checkbox", { name: /Saved candidate/ })).toHaveProperty("checked", false);
+  expect(app.calls.filter(call => call.method === "project.importDiscover").slice(before)).toEqual([{ method: "project.importDiscover", params: { agent: "importer", period: connected.importing.period() } }]);
+  expect(app.calls.filter(call => call.method === "project.importCommit")).toHaveLength(0);
+  expect(app.calls.filter(call => call.method === "agent.spawn")).toHaveLength(1);
+});
+
+it("u5558d_new_listing_revalidates_existing_choices", async () => {
+  const { app, connected } = await connectFakeProject([]);
+  app.handlers["agent.spawn"] = () => agent("importer", "working", "starting");
+  let revision = "original";
+  app.handlers["project.importDiscover"] = () => ({ candidates: [{ source: "chosen", revision, title: "Chosen work", cwd: "", last_activity_ms: 1n }], excluded: [] });
+  render(() => <ConnectedProjectContext.Provider value={connected}><ImportPanel onClose={() => {}} /></ConnectedProjectContext.Provider>);
+  await connected.importing.start();
+  await connected.importing.setPrompt("  retain exact 🐝\n  ");
+  app.emit({ ...event({ name: "rail.changed" }), actor: { kind: "agent", id: "importer", parent: null } });
+  fireEvent.click(await screen.findByRole("checkbox", { name: /Chosen work/ }));
+  await waitFor(() => expect(connected.importing.selected().size).toBe(1));
+  revision = "changed";
+  app.emit({ ...event({ name: "rail.changed" }), actor: { kind: "agent", id: "importer", parent: null } });
+  await waitFor(() => expect(connected.importing.discovery()?.candidates[0]?.revision).toBe("changed"));
+  expect(connected.importing.selected().size).toBe(0);
+  expect(connected.importing.prompt()).toBe("  retain exact 🐝\n  ");
+  expect(app.calls.filter(call => call.method === "project.importCommit")).toHaveLength(0);
+  expect(app.calls.filter(call => call.method === "agent.spawn")).toHaveLength(1);
+});
+
+it("u5558e_failed_reload_retains_data", async () => {
+  const { app, connected } = await connectFakeProject([]);
+  app.handlers["agent.spawn"] = () => agent("importer", "working", "starting");
+  const result = { candidates: [{ source: "kept", revision: "r1", title: "Kept listing", cwd: "", last_activity_ms: 1n }], excluded: [] };
+  app.handlers["project.importDiscover"] = () => result;
+  render(() => <ConnectedProjectContext.Provider value={connected}><ImportPanel onClose={() => {}} /></ConnectedProjectContext.Provider>);
+  await connected.importing.start();
+  const signal = () => app.emit({ ...event({ name: "rail.changed" }), actor: { kind: "agent", id: "importer", parent: null } });
+  signal();
+  await screen.findByRole("checkbox", { name: /Kept listing/ });
+  app.handlers["project.importDiscover"] = () => { throw new Error("Saved listing read refused"); };
+
+  signal();
+  await screen.findByRole("alert", { name: "Saved listing read refused" });
+  expect(screen.getByRole("checkbox", { name: /Kept listing/ })).toBeTruthy();
+  app.handlers["project.importDiscover"] = () => result;
+  signal();
+  await waitFor(() => expect(connected.importing.loading()).toBe(false));
+  expect(screen.queryByRole("alert")).toBeNull();
 });

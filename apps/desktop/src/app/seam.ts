@@ -49,7 +49,7 @@ export type FileDrop = { phase: "over" | "drop" | "leave"; paths: string[]; x: n
 export type OpenTarget = { kind: "url"; url: string } | { kind: "path"; path: string; line: number | null };
 
 /** U2694a: one item of a native menu. Both menus use one-step accelerators and separate sequence hints; adjacent context groups receive native separators. Project groups are create, navigate and views. `children` makes a native submenu in either menu. */
-export type MenuItem = { id: string; label: string; shortcut?: string; group?: string; enabled: boolean; children?: MenuItem[] };
+export type MenuItem = { id: string; label: string; shortcut?: string; group?: string; checked?: boolean; enabled: boolean; children?: MenuItem[] };
 
 /** The image types `savePastedImage` accepts (U418); the file's extension follows the type. */
 export const PASTED_IMAGE_TYPES = ["image/png", "image/jpeg", "image/gif", "image/webp"] as const;
