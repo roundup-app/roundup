@@ -95,7 +95,7 @@ export const rowGlyph = (name: string): HTMLElement => {
 };
 
 export const rowNames = (): string[] =>
-  screen.getAllByRole("treeitem").filter((row) => row.hasAttribute("data-id")).map((row) => row.querySelector(".name")?.textContent ?? "");
+  screen.getAllByRole("treeitem").filter((row) => row.hasAttribute("data-id") && !row.dataset.id?.startsWith("fold:")).map((row) => row.querySelector(".name")?.textContent ?? "");
 
 export const tabbableRows = (): HTMLElement[] =>
   [...document.querySelectorAll<HTMLElement>('[role="tree"] [data-part="item"], [role="tree"] [data-part="branch-control"]:not(.section-head)')].filter((row) => row.tabIndex === 0);

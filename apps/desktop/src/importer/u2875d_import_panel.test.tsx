@@ -182,7 +182,8 @@ it.skipIf(!captureDir("U3049a"))("u3049a_u3049b_rendered_conflict_recovery", asy
 it("u3037d_discovery_deadline_and_retry", async () => {
   const { app } = await mount();
   app.handlers["project.importDiscover"] = () => new Promise(() => {});
-  vi.useFakeTimers();
+  // Fake discovery deadlines only: replacing setInterval strands jsdom’s shared animation-frame clock after restore.
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
   openProjectPage("import-work");
   await vi.advanceTimersByTimeAsync(0);
   expect(within(screen.getByRole("region", { name: "Import Claude Code" })).getByRole("status")).toBeTruthy();
@@ -204,7 +205,8 @@ it.each(["timeout", "period", "dismiss", "project"])("u3037d_late_results_cannot
   let complete: (result: { candidates: typeof candidates; excluded: [] }) => void = () => {};
 
   app.handlers["project.importDiscover"] = () => new Promise((resolve) => { complete = resolve; });
-  vi.useFakeTimers();
+  // Fake discovery deadlines only: replacing setInterval strands jsdom’s shared animation-frame clock after restore.
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
   openProjectPage("import-work");
   await vi.advanceTimersByTimeAsync(0);
   app.handlers["project.importDiscover"] = () => { throw new Error("current failure"); };

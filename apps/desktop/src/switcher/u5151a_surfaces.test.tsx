@@ -9,7 +9,7 @@ const LABEL = "Claude's servers failed; send the Agent a message to retry. The n
 
 const failed = agent("cy", "error", "x", { name: "Cy", status: { kind: "error", label: LABEL, since: NOW, finished: "0" } });
 
-const TURNS = /^(agent|terminal)\.(send|write|stop|restart)|^(message|workstream)\./;
+const TURNS = /^(agent|terminal)\.(send|write|stop|restart)|^message\.(?!list$)|^workstream\./;
 
 describe("U5151a", () => {
   it("u5151a_each_error_surface_explains_recovery", async () => {

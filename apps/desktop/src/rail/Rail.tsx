@@ -191,6 +191,22 @@ export const Rail = () => {
   /** The focusable element of the row `id`: its item, or the control of its branch. */
   const rowElement = (id: string) => container()?.querySelector<HTMLElement>(`[data-id="${CSS.escape(id)}"]`)?.closest<HTMLElement>(ROW) ?? container()?.querySelector<HTMLElement>(`[data-id="${CSS.escape(id)}"] [data-part="branch-control"]`) ?? undefined;
 
+  const [focused, setFocused] = createSignal<string | null>(null);
+  createEffect(on(rows, current => {
+    const id = focused();
+
+    if (!id || document.activeElement !== document.body && !container()?.contains(document.activeElement)) return;
+    const visible = current.some(row => row.kind === "node" ? row.node.id === id : row.key === id);
+
+    if (visible) return;
+    const parent = id.startsWith("fold:") ? id.slice(5) : rail.nodes.find(node => node.id === id)?.parent;
+
+    if (!parent) return;
+    const target = current.some(row => row.kind === "fold" && row.parent === parent) ? `fold:${parent}` : parent;
+    setFocused(target);
+    queueMicrotask(() => rowElement(target)?.focus());
+  }));
+
   const openRow = (id: string) => {
     const node = rail.nodes.find(each => each.id === id);
 
@@ -256,7 +272,7 @@ export const Rail = () => {
   const { railStep, pointerOutside, placeDrop } = createRailDrag(rail, container, openRow, focusRow);
 
 
-  /** The index among all of `parent`'s other children for one counted among the shown ones: a done row folded into its `✓ n done` line is still a sibling. */
+  /** The index among all of `parent`'s other children for one counted among the shown ones: an Agent in the idle branch is still a sibling. */
   const trueIndex = (id: string, parent: string | null, shown: number): number => {
     if (shown === 0) return 0;
 
@@ -606,6 +622,8 @@ export const Rail = () => {
         }, true);
       }}
       collection={collection()}
+      focusedValue={focused()}
+      onFocusChange={details => setFocused(details.focusedValue)}
       expandedValue={expanded()}
       selectedValue={selection.selection.selectedValues()}
       expandOnClick={false}
@@ -621,6 +639,11 @@ export const Rail = () => {
           const section = sections.find(section => `section:${section.id}` === id);
 
           if (section) rail.setSectionOpen(section.id, open.has(id));
+          else if (id.startsWith("fold:")) {
+            const parent = id.slice(5);
+
+            if (open.has(id) !== unfolded().has(parent)) setUnfolded(current => toggled(current, parent));
+          }
           else if (open.has(id) === collapsed().has(id)) rail.toggleCollapsed(id);
         }
       }}
@@ -722,16 +745,15 @@ export const Rail = () => {
                     </Show>
                     <Show when={fold()}>
                       {(view) => (
-                        <div class="rail-fold row-wash" role="none" style={{ "--indent": `calc(${view().depth} * var(--rail-step) + var(--rail-inset))` }}>
-                          <Trunks depth={view().depth} trail={[...view().trail, false]} stem={false} />
-                          <button data-button="quiet"
-                            class="word"
-                            role="treeitem"
-                            aria-level={view().depth + 2}
-                            onClick={() => setUnfolded((open) => toggled(open, view().parent))}
-                          >
-                            <KindGlyph kind="done" decorative /><span class="rail-fold-name">{view().count}{copy.doneCount}</span></button>
-                        </div>
+                        <TreeView.NodeProvider node={entryOf(view().key).node} indexPath={entryOf(view().key).indexPath}>
+                          <TreeView.Branch data-id={view().key} aria-label={`${view().count}${copy.idleCount}`}>
+                            <TreeView.BranchControl class="rail-fold row-wash" style={{ "--indent": `calc(${view().depth} * var(--rail-step) + var(--rail-inset))` }} onClick={() => setUnfolded(open => toggled(open, view().parent))}>
+                              <Trunks depth={view().depth} trail={[...view().trail, false]} stem={view().open} />
+                              <span class="rail-fold-content"><KindGlyph kind="idle" decorative /><span class="rail-fold-name">{view().count}{copy.idleCount}</span></span>
+                              <TreeView.BranchIndicator><Icon name="right" /></TreeView.BranchIndicator>
+                            </TreeView.BranchControl>
+                          </TreeView.Branch>
+                        </TreeView.NodeProvider>
                       )}
                     </Show>
                   </>

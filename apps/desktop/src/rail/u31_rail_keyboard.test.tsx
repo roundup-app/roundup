@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, screen } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
-import { agent, event, workstream, MINUTE, NOW, terminal } from "../testing/nodes";
+import { agent, event, workstream, terminal } from "../testing/nodes";
 import type { EmulatorFactory } from "../terminal/emulator";
 import { mountRail, rowOf, settled, tabbableRows } from "./railFixture";
 
@@ -229,17 +229,6 @@ describe("u31 rail keyboard", () => {
     await mounted.rail.settled();
 
     expect(tabbableRows()).toEqual([rowOf("a")]);
-  });
-
-  it("u31_folding_the_selected_row_moves_the_roving_tabindex_to_the_first_row", async () => {
-    const { rail } = await mountRail([
-      agent("old", "done", "finished", { status: { kind: "done", label: "finished", since: NOW - 10 * MINUTE, finished: "0" }, order: 0 }),
-      agent("after", "idle", "x", { order: 1 }),
-    ]);
-
-    rail.select("old");
-
-    expect(tabbableRows()).toEqual([rowOf("after")]);
   });
 
   it("u31_typing_j_into_the_pane_never_reaches_the_rail", async () => {

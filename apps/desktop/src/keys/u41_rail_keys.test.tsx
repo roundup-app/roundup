@@ -217,10 +217,10 @@ describe("u41 rail by keyboard, the rest", () => {
     expect(document.activeElement).toBe(rowOf("a"));
   });
 
-  it("u41_right_moves_to_the_first_visible_child_skipping_a_row_folded_into_done", async () => {
+  it("u41_right_moves_to_the_first_visible_child_skipping_a_folded_child", async () => {
     await mountKeys([
       workstream("g"),
-      agent("old", "done", "finished", { parent: "g", order: 0, status: { kind: "done", label: "finished", since: NOW - 11 * MINUTE, finished: "0" } }),
+      agent("old", "done", "finished", { parent: "g", order: 0, final_text: { attempt: "1", turn: "1", finished: "0", kind: "empty" }, status: { kind: "done", label: "finished", since: NOW - 11 * MINUTE, finished: "0" } }),
       agent("live", "idle", "x", { parent: "g", order: 1 }),
     ]);
 

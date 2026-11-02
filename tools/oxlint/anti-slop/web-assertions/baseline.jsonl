@@ -164,7 +164,6 @@
 {"file":"apps/desktop/src/rail/o11_door_writes_the_order.test.tsx","test":"o11 the Door writes the order for a prompt the user types > o11_a_failed_send_keeps_the_text","identity":"0e5b9b2fd4265da926bf06978ce750d97d4fb400d439db34a6d3d39710bb5553"}
 {"file":"apps/desktop/src/rail/p3557c_failure_lifetime.test.tsx","test":"p3557c an item failure in the Rail goes with its item > p3557c_failure_lifetime_rail_unrelated_deletion_keeps_it","identity":"8e3bc1eacdee0d168539a522c74de12a8f7351c06a5eb06ebfb1c5bc7f4d89f6"}
 {"file":"apps/desktop/src/rail/persist/u100_persist.test.tsx","test":"u100_write_failure_shows_one_ink_line_and_keeps_working","identity":"07c2cf293a23e9e9ea0598ca5b54e9f8de0700f8abebf4adbd79122a0c2b6330"}
-{"file":"apps/desktop/src/rail/persist/u100_persist.test.tsx","test":"u100_done_lines_are_not_restored","identity":"f1a38441806c2bd1658536c1ed19086cebe8c34f19fa7e6f04e510787e382f9d"}
 {"file":"apps/desktop/src/rail/persist/u100_persist.test.tsx","test":"u100_storage_failure_clears_on_the_next_click_and_can_be_reported_again","identity":"5ebfadf2b1cb46766e806bb5fa5035d5903b618ea6f8bfa5a9e6468c9754d3d9"}
 {"file":"apps/desktop/src/rail/persist/u100_persist.test.tsx","test":"u100_storage_failure_clears_on_the_next_click_and_can_be_reported_again","identity":"00b5526b4a79d9d02781b30c1e75bf3720864b615ef37fbeeecb186844986be7"}
 {"file":"apps/desktop/src/rail/persist/u100_persist.test.tsx","test":"u100_storage_failure_clears_on_the_next_click_and_can_be_reported_again","identity":"f1452ca24993f2e0230ff7837960bdd395a80cf865159128b5a44f9d7b6d24df"}
@@ -181,8 +180,6 @@
 {"file":"apps/desktop/src/rail/u377_no_models.test.tsx","test":"u377 u378 the Rail offers no Model > u377_no_app_screen_offers_a_model","identity":"8f8d29ce43b0f9b02e8f0cfbb126869b75af7440c64300457b0795d02d0acc76"}
 {"file":"apps/desktop/src/rail/u403_chevron_row.test.tsx","test":"u403 a Workstream row leads with its chevron > u403_the_chevron_folds_and_selects_nothing","identity":"ad2345fb462d7bc918ba8b41f0f586c7b8d469e3adf92c74c8852cf47e55aae2"}
 {"file":"apps/desktop/src/rail/u521_controls.test.tsx","test":"u521_copy_preserves_content","identity":"db2db91aa5dfe9534fe8aaf01a1f6a403d2b79067c8007ab1cf38c7abbaf75d9"}
-{"file":"apps/desktop/src/rail/u8_folding.test.tsx","test":"u8 folding > u8_an_agent_folds_once_the_clock_passes_10_minutes_of_done","identity":"a9d3fee7641439c59bb4cfd6e9fe9cce36e0651e57d9b1aef24caaded4c78388"}
-{"file":"apps/desktop/src/rail/u8_folding.test.tsx","test":"u8 folding > u8_each_parent_folds_its_own_done_agents_at_its_own_depth","identity":"f38ff94f7d85df71663726b37d1baf4af226143e2355c8fd400cd33d44ce474b"}
 {"file":"apps/desktop/src/settings/u3806_preferences.test.tsx","test":"u3802_a_failed_list_shows_the_message_and_keeps_the_choice","identity":"85ab15b551b2ab7e4896718f825f66be740e55b3d3f87b890f25b79ddaa5b8d2"}
 {"file":"apps/desktop/src/settings/u3806_preferences.test.tsx","test":"u3802_a_failed_list_shows_the_message_and_keeps_the_choice","identity":"867c09b7869223d7825e13b327a36098630100eedabe32959bbda83e1917ad84"}
 {"file":"apps/desktop/src/shelf/u3723_keys.test.tsx","test":"u3723_keys_are_shelf_scoped_and_leave_the_terminal_alone","identity":"41e60c2c30d5da55ecf8879c21d81514a2c2354c7952a4f2d83b16d797ce4cf3"}

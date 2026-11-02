@@ -12,7 +12,7 @@ describe("u357 fold line", () => {
       workstream("g", { order: 0 }),
       workstream("h", { parent: "g", order: 0 }),
       agent("x", "idle", "i", { parent: "h", order: 0 }),
-      agent("old", "done", "finished", { parent: "h", order: 1, status: done }),
+      agent("old", "done", "finished", { parent: "h", order: 1, status: done, final_text: { attempt: "1", turn: "1", finished: "0", kind: "empty" } }),
       agent("y", "idle", "i", { parent: "g", order: 1 }),
     ];
 
