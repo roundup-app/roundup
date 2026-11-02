@@ -262,7 +262,7 @@ it("u5742c_ask_result_choice_focuses_terminal", async () => {
 
 it.each(["header", "native-alert"])("u5742c_cross_project_choice_focuses_terminal_%s", async path => {
   const m = await mount(undefined, false, true);
-  await waitFor(() => expect(m.connections.has("/other")).toBe(true));
+  await waitFor(() => expect(document.querySelector('.project-tab[data-path="/other"] .tab-mark')).not.toBeNull());
 
   if (path === "native-alert") m.root.clickStateAlert("second");
   else {
