@@ -156,7 +156,8 @@ pub fn render_contract_typescript_of(methods: &[Method]) -> String {
 }
 
 /// Render `METHODS` as `contracts/generated/contract.ts`.
-pub fn render_contract_typescript() -> String {
+#[cfg(test)]
+fn render_contract_typescript() -> String {
     render_contract_typescript_of(METHODS)
 }
 

@@ -97,6 +97,9 @@ enum Ending {
 }
 
 pub struct ClaudeCode {
+    /// A5482c: completed turn identity, start time and final assistant text.
+    completed: Option<Box<(String, i64, String)>>,
+    turn_started: i64,
     status: Option<Status>,
     ending: Ending,
     /// The latest recognised Signal was `PreToolUse`: a dialog may be about to open.
@@ -119,6 +122,8 @@ impl ClaudeCode {
     /// `clock` returns milliseconds since the Unix epoch; it stamps every Status `since`.
     pub fn new(clock: impl Fn() -> i64 + Send + 'static) -> Self {
         Self {
+            completed: None,
+            turn_started: (clock)(),
             status: None,
             ending: Ending::Running,
             after_pre_tool_use: false,
@@ -185,6 +190,9 @@ impl ClaudeCode {
 
     /// `settle`, with the finish count raised first when `finish` holds.
     fn settle_counting(&mut self, kind: Kind, label: String, finish: bool) -> Option<Status> {
+        if kind == Kind::Working && self.status.as_ref().is_some_and(|s| s.kind == Kind::Idle) {
+            self.turn_started = (self.clock)();
+        }
         if kind == Kind::Working && self.status.as_ref().is_none_or(|s| s.kind != Kind::Working) {
             self.final_text = FinalTextKind::Unknown;
             self.prompt_id = None;
@@ -270,6 +278,7 @@ impl ClaudeCode {
     fn signal(&mut self, payload: &Value) -> Option<Status> {
         let event = payload["hook_event_name"].as_str();
         if event == Some("UserPromptSubmit") {
+            self.turn_started = (self.clock)();
             self.final_text = FinalTextKind::Unknown;
         }
         if event == Some("Stop") {
@@ -299,14 +308,29 @@ impl ClaudeCode {
             }
         }
         let (kind, label) = hook_status(payload)?;
-        self.after_pre_tool_use = payload["hook_event_name"] == "PreToolUse";
+        self.after_pre_tool_use = event == Some("PreToolUse");
         self.star_parked_since = None;
         self.spinner_at = None;
         let changed = self.settle(kind, label);
         if event == Some("UserPromptSubmit") {
             self.prompt_id = payload["prompt_id"].as_str().map(str::to_owned);
         }
+        if event == Some("Stop")
+            && let Some(text) = payload["last_assistant_message"].as_str()
+            && !text.is_empty()
+        {
+            let next = (
+                self.finished.to_string(),
+                self.turn_started,
+                text.to_owned(),
+            );
+            self.completed = Some(Box::new(next));
+        }
         changed
+    }
+
+    pub(crate) fn completed_text(&self) -> Option<&(String, i64, String)> {
+        self.completed.as_deref()
     }
 
     fn exit(&mut self, code: Option<i32>) -> Option<Status> {

@@ -2,6 +2,7 @@
 //! Todo was assigned to it, taken from it, re-nested or unblocked. Changes wait here in memory
 //! while the Agent has any other Kind, and go out through `message.send` like any note.
 
+use provenance::now_ms;
 use std::collections::HashMap;
 use std::time::Duration;
 
@@ -56,11 +57,6 @@ pub struct Told {
     idled: Vec<String>,
 }
 
-fn now_ms() -> i64 {
-    let millis = time::OffsetDateTime::now_utc().unix_timestamp_nanos() / 1_000_000;
-    i64::try_from(millis.max(0)).unwrap_or(i64::MAX)
-}
-
 /// The Agent an owner names; Me and Unassigned name none.
 fn agent(owner: &Option<Actor>) -> Option<&str> {
     owner
@@ -75,7 +71,7 @@ impl Told {
             todos: todos.into_iter().map(|todo| (todo.id, todo)).collect(),
             pending: HashMap::new(),
             comments_seen: HashMap::new(),
-            started: now_ms(),
+            started: now_ms().max(0),
             idled: Vec::new(),
         }
     }
@@ -630,7 +626,7 @@ mod tests {
             id,
             author: by,
             body: body.into(),
-            created_at: now_ms(),
+            created_at: now_ms().max(0),
             read: false,
         }
     }

@@ -227,3 +227,44 @@ impl NamedRail {
         }
     }
 }
+
+// Reuse the in-process RPC harness: unlike the release sidecar, this target enables test-support.
+#[allow(dead_code)] // Only the publication target uses the quota fixture.
+pub struct QuotaProject {
+    pub dir: tempfile::TempDir,
+    server: tokio::task::JoinHandle<std::io::Result<()>>,
+}
+
+#[allow(dead_code)]
+impl QuotaProject {
+    pub async fn start() -> Self {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::create_dir(dir.path().join(".roundup")).unwrap();
+        std::fs::write(dir.path().join(".roundup/test-publication-quota"), "64").unwrap();
+        let server = serve(dir.path(), &dir.path().join("rupd.sock"));
+        Self { dir, server }
+    }
+
+    pub fn data_dir(&self) -> std::path::PathBuf {
+        self.dir.path().join(".roundup")
+    }
+
+    pub async fn client(&self) -> rpc::Client {
+        rpc::Client::connect(&self.dir.path().join("rupd.sock"))
+            .await
+            .unwrap()
+    }
+
+    pub async fn restart(&mut self) {
+        self.server.abort();
+        assert!((&mut self.server).await.unwrap_err().is_cancelled());
+        std::fs::remove_file(self.dir.path().join("rupd.sock")).unwrap();
+        self.server = serve(self.dir.path(), &self.dir.path().join("rupd.sock"));
+    }
+}
+
+impl Drop for QuotaProject {
+    fn drop(&mut self) {
+        self.server.abort();
+    }
+}
