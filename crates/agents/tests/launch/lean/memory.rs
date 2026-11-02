@@ -165,6 +165,10 @@ fn launch_root(argv: &[String]) -> PathBuf {
     let command = guard(&settings).unwrap()["hooks"][0]["command"]
         .as_str()
         .unwrap();
+    memory_command_root(command)
+}
+
+fn memory_command_root(command: &str) -> PathBuf {
     let words = shlex::split(command).unwrap();
     let at = words
         .iter()
@@ -228,12 +232,7 @@ fn lc19_memory_guard_extends_user_settings() {
         });
         assert_eq!(ours.is_some(), row != Role::Agent);
         if let Some(ours) = ours {
-            let words = shlex::split(ours["hooks"][0]["command"].as_str().unwrap()).unwrap();
-            let at = words
-                .iter()
-                .position(|word| word == "claude-memory")
-                .unwrap();
-            let root = PathBuf::from(&words[at + 1]);
+            let root = memory_command_root(ours["hooks"][0]["command"].as_str().unwrap());
             assert_eq!(root, memory);
             assert_eq!(
                 call(
