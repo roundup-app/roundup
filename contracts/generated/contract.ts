@@ -24,6 +24,7 @@ export const CONTRACT = {
     "agent.saveAsMode": "384a473f6cad06e2",
     "agent.setModel": "a39ada4af9d22490",
     "agent.setOrder": "3e4ed619bac6256e",
+    "agent.setVisibility": "8cc9f497759b6d2a",
     "agent.signal": "a38ecdad5e0ad001",
     "agent.skills": "2cc888937b3bd549",
     "agent.spawn": "e2da2683d27ba6c2",
