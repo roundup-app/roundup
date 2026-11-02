@@ -35,8 +35,6 @@ it.skipIf(!captureDir("U4277c")).each(["tree-40", "tabs-8"].flatMap(seed =>
   const origin = await lane.evaluate<string>("location.origin");
 
   const capture = async (name: string) => {
-    await lane.browser("set", "viewport", "1512", "950");
-    await lane.browser("set", "media", "dark");
     writeFileSync(join(dir, name + ".checks.json"), JSON.stringify(await lane.evaluate("window.__checks()")) + "\n");
     await lane.browser("screenshot", join(dir, name + ".png"));
   };
@@ -99,7 +97,8 @@ it.skipIf(!captureDir("U4277c")).each(["tree-40", "tabs-8"].flatMap(seed =>
 
         if (view === "resources") {
           await command("view:workstreams");
-          await lane.browser("click", `.rail-row[data-id="${agent}"]`);
+          await lane.browser("focus", `.rail-row[data-id="${agent}"]`);
+          await lane.browser("press", "Enter");
           await lane.until(`document.querySelector('.rail-row[data-id="${agent}"]')?.dataset.selected === 'true'`);
           await lane.evaluate(`(async () => {
             const nodes = await window.__fake.app.rpc('rail.tree', null);
