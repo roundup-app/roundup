@@ -224,18 +224,26 @@ it("u4275b_tab_reaches_quick_actions", async () => {
   await shelf.setup();
   await page.call(`() => document.querySelector('.rail-row[data-id="tokens"]').focus()`);
 
-  for (const name of ["Stop", "Open directory", "Open in editor"]) {
-    await page.press("Tab", "Tab");
-    await page.until(`() => document.activeElement?.getAttribute('aria-label') === ${JSON.stringify(name)}`);
+  await page.press("Tab", "Tab");
+  await page.until(`() => document.activeElement?.getAttribute('aria-label') === 'Stop'`);
+  await page.press("Tab", "Tab", 8);
+  await page.until(`() => document.activeElement?.matches('.rail-row[data-id="tokens"]')`);
+  await page.press("Tab", "Tab");
+  await page.until(`() => document.activeElement?.getAttribute('aria-label') === 'Stop'`);
+  await page.press("Enter", "Enter");
+  await page.until(`() => window.__fake.app.calls.filter(c => c.method === 'agent.stop').length === 1`);
+  await page.press(" ", "Space");
+  await page.until(`() => window.__fake.app.calls.filter(c => c.method === 'agent.stop').length === 2`);
+  expect(await page.call(`() => window.__fake.app.calls.filter(c => c.method === 'agent.stop').map(c => c.params)`)).toEqual([{ id: "tokens" }, { id: "tokens" }]);
+
+  for (const label of ["Open directory", "Open in editor"]) {
+    await page.call(`() => document.querySelector('.rail-row[data-id="tokens"]').dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }))`);
+    await page.until(`() => window.__fake.app.menuLabels().includes(${JSON.stringify(label)})`);
+    await page.call(`() => window.__fake.app.pickMenu(${JSON.stringify(label)})`);
   }
 
-  await page.press("Tab", "Tab", 8);
-  await page.until(`() => document.activeElement?.getAttribute('aria-label') === 'Open directory'`);
-  await page.press("Enter", "Enter");
-  await page.until(`() => window.__fake.app.openedTargets.length === 1`);
-  await page.press(" ", "Space");
-  await page.until(`() => window.__fake.app.openedTargets.length === 2`);
-  expect(await page.call(`() => window.__fake.app.openedTargets[0]`)).toEqual(await page.call(`() => window.__fake.app.openedTargets[1]`));
+  expect(await page.call(`() => window.__fake.app.openedTargets`)).toEqual([{ kind: "path", path: "/Users/you/harness", line: null }]);
+  expect(await page.call(`() => window.__fake.app.editorOpened`)).toEqual(["/Users/you/harness"]);
 }, 60_000);
 
 it("u3789d_focus_reaches_open_and_secondary_actions", async () => {
