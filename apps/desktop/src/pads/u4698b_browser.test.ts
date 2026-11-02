@@ -223,16 +223,16 @@ it.each(["plus", "slash"].flatMap(entry => [false, true].map(afterPad => ({ entr
     if (entry === "plus") expect(count).toBeGreaterThan(0);
 
     const selection = "document.querySelector('.milkdown-slash-menu[data-show=true] [aria-selected=true]')";
-    const selected: string[] = [];
+    await evaluate("window.__u5631Selected = []; true");
 
     // Crepe's menu/component.tsx clamps ArrowDown at the last item. PadRichEditor.updateMenu
     // mirrors that selection into aria-selected, which acknowledges each key before the next.
-    for (let index = 0; index < count; index++) {
-      if (index) await browser("press", "ArrowDown");
-      await browser("wait", "--fn", `${selection}?.getAttribute('data-index') === '${index}'`);
-      selected.push(await evaluate<string>(`${selection}.textContent.trim()`));
-    }
-
+    if (count) await browser("batch", "--bail", ...Array.from({ length: count }, (_, index) => [
+      ...(index ? ["press ArrowDown"] : []),
+      "wait --fn " + JSON.stringify(`${selection}?.getAttribute('data-index') === '${index}'`),
+      "eval " + JSON.stringify(`window.__u5631Selected.push(${selection}.textContent.trim()); true`),
+    ]).flat());
+    const selected = await evaluate<string[]>("window.__u5631Selected");
     expect(selected).toEqual(offered);
 
     const retained = () => evaluate("JSON.parse(localStorage.getItem('roundup:drafts:/Users/you/harness') ?? '{\"drafts\":[]}').drafts.filter(draft => draft.destination.surface === 'todos').map(draft => ({ destination: draft.destination, text: draft.value.text }))");
@@ -244,6 +244,7 @@ it.each(["plus", "slash"].flatMap(entry => [false, true].map(afterPad => ({ entr
     await browser("press", "Escape");
     await settle();
     expect(await retained()).toEqual(unfinished);
+    expect(await evaluate("document.querySelector('.drawer .ProseMirror').textContent")).toBe(draft);
     expect(await evaluate("document.querySelectorAll('.drawer details[data-pad-agents]').length")).toBe(0);
     await shot("dismissed");
     expect(await evaluate("window.__fake.app.calls.filter(call => ['todo.update', 'pad.write'].includes(call.method))")).toEqual([]);
