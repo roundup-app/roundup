@@ -134,7 +134,7 @@ impl Daemon {
     }
 }
 
-async fn tell(reader: &digest::Reader) -> Result<(), RpcError> {
+pub(super) async fn tell(reader: &digest::Reader) -> Result<(), RpcError> {
     let nodes: Vec<RailNode> = reader
         .call("rail", "rail.tree", Value::Null, Actor::daemon())
         .await?;
@@ -161,16 +161,36 @@ async fn tell(reader: &digest::Reader) -> Result<(), RpcError> {
     let sent: Vec<Message> = reader
         .call("message", "message.list", json!({}), Actor::daemon())
         .await?;
-    for todo in todos
+    let candidates: Vec<_> = todos
         .iter()
         .filter(|todo| !todo.done && todo.owner.is_none())
-    {
-        let Some(door) = doors
-            .iter()
-            .find(|door| Some(&door.id) == todo.home.as_ref())
-        else {
-            continue;
-        };
+        .filter_map(|todo| {
+            doors
+                .iter()
+                .find(|door| Some(&door.id) == todo.home.as_ref())
+                .map(|door| (todo, door))
+        })
+        .collect();
+    // EC5637d bounds history extraction to once per row for a multi-candidate pass.
+    // split_once preserves the exact newline protocol (including rejecting bare keys / CRLF).
+    let daemon = Actor::daemon();
+    fn first_line(message: &Message) -> Option<&str> {
+        #[cfg(test)]
+        counts::first_line();
+        message.body.split_once('\n').map(|(line, _)| line)
+    }
+    let mut index = Vec::new();
+    if candidates.len() > 1 {
+        #[cfg(test)]
+        counts::index();
+        index.extend(
+            sent.iter()
+                .filter(|message| message.from == daemon)
+                .filter_map(first_line),
+        );
+        index.sort_unstable();
+    }
+    for (todo, door) in candidates.iter() {
         let history: History = reader
             .call(
                 "todo",
@@ -191,10 +211,17 @@ async fn tell(reader: &digest::Reader) -> Result<(), RpcError> {
                         .is_none_or(|before| before.owner.is_some())
             })
             .map_or(0, |change| change.seq);
+        #[cfg(test)]
+        counts::identity();
         let key = format!("[auto todo:{} unassigned:{unassigned}]", todo.id);
-        if sent.iter().any(|message| {
-            message.from == Actor::daemon() && message.body.starts_with(&format!("{key}\n"))
-        }) {
+        let already_sent = if candidates.len() > 1 {
+            index.binary_search(&key.as_str()).is_ok()
+        } else {
+            sent.iter()
+                .filter(|message| message.from == daemon)
+                .any(|message| first_line(message) == Some(key.as_str()))
+        };
+        if already_sent {
             continue;
         }
         let body = format!(
@@ -211,4 +238,28 @@ async fn tell(reader: &digest::Reader) -> Result<(), RpcError> {
             .await?;
     }
     Ok(())
+}
+
+#[cfg(test)]
+pub(super) mod counts {
+    use std::cell::Cell;
+    thread_local! { static COUNTS: Cell<(usize, usize, usize)> = const { Cell::new((0,0,0)) }; }
+    pub(super) fn identity() {
+        COUNTS.update(|(a, b, c)| (a + 1, b, c));
+    }
+    pub(super) fn first_line() {
+        COUNTS.update(|(a, b, c)| (a, b + 1, c));
+    }
+    pub(super) fn index() {
+        COUNTS.update(|(a, b, c)| (a, b, c + 1));
+    }
+    pub(crate) async fn measure<F, R>(run: F) -> (usize, usize, usize)
+    where
+        F: FnOnce() -> R,
+        R: std::future::Future<Output = ()>,
+    {
+        COUNTS.set((0, 0, 0));
+        run().await;
+        COUNTS.get()
+    }
 }
