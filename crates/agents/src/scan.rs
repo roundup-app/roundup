@@ -2,7 +2,6 @@
 //! names come from the Adapters (`claude_code::programs`); this file writes none. It reads the
 //! process table once per scan and prevents nothing.
 
-use std::collections::{HashMap, HashSet};
 use std::path::Path;
 use std::process::{Command, Stdio};
 
@@ -13,11 +12,11 @@ const INTERPRETERS: [&str; 7] = ["sh", "bash", "dash", "zsh", "node", "python", 
 
 /// One row of `ps -o pid=,ppid=,comm=,args=`.
 #[derive(Debug, PartialEq, Eq)]
-pub(crate) struct Row {
+struct Row<'a> {
     pid: u32,
     ppid: u32,
-    comm: String,
-    args: String,
+    comm: &'a str,
+    args: &'a str,
 }
 
 /// The process table as `ps` prints it, which macOS and Linux both do.
@@ -33,9 +32,20 @@ pub(crate) fn read_table() -> std::io::Result<String> {
     Ok(String::from_utf8_lossy(&out.stdout).into_owned())
 }
 
+/// A topology belongs to the borrowed snapshot; only published Strays outlive it.
+pub(crate) struct Table<'a> {
+    rows: Vec<Row<'a>>,
+    children: Vec<usize>,
+    parents: Vec<(u32, std::ops::Range<usize>)>,
+    seen: Vec<bool>,
+    pending: Vec<u32>,
+    #[cfg(test)]
+    edges: usize,
+}
+
 /// The rows of `table`; a row that is not `pid ppid comm args` is skipped.
-pub(crate) fn parse(table: &str) -> Vec<Row> {
-    table
+pub(crate) fn parse(table: &str) -> Table<'_> {
+    let mut rows: Vec<_> = table
         .lines()
         .filter_map(|line| {
             let (pid, rest) = line.trim_start().split_once(char::is_whitespace)?;
@@ -45,11 +55,36 @@ pub(crate) fn parse(table: &str) -> Vec<Row> {
             Some(Row {
                 pid: pid.parse().ok()?,
                 ppid: ppid.parse().ok()?,
-                comm: comm.to_owned(),
-                args: args.trim().to_owned(),
+                comm,
+                args: args.trim(),
             })
         })
-        .collect()
+        .collect();
+    rows.sort_unstable_by_key(|row| row.pid);
+    let mut children: Vec<_> = (0..rows.len()).collect();
+    children.sort_unstable_by_key(|&index| rows[index].ppid);
+    #[cfg(test)]
+    BUILDS.with(|count| count.set(count.get() + 1));
+    let mut parents: Vec<(u32, std::ops::Range<usize>)> = Vec::with_capacity(rows.len());
+    for (at, &index) in children.iter().enumerate() {
+        let parent = rows[index].ppid;
+        if let Some((last, range)) = parents.last_mut()
+            && *last == parent
+        {
+            range.end = at + 1;
+        } else {
+            parents.push((parent, at..at + 1));
+        }
+    }
+    Table {
+        seen: vec![false; rows.len()],
+        pending: Vec::with_capacity(rows.len()),
+        rows,
+        children,
+        parents,
+        #[cfg(test)]
+        edges: 0,
+    }
 }
 
 fn base(path: &str) -> &str {
@@ -59,58 +94,83 @@ fn base(path: &str) -> &str {
         .unwrap_or(path)
 }
 
-/// The names a process answers to: the basename of its executable and of `argv[0]`, and, for an
-/// interpreter, of the first argument that is not an option.
-fn names(row: &Row) -> Vec<&str> {
+fn is_program(row: &Row<'_>, programs: &[&str]) -> bool {
     let mut words = row.args.split_whitespace();
     let argv0 = words.next().map_or("", base);
-    let mut names = vec![base(&row.comm), argv0];
-    if INTERPRETERS.contains(&argv0) {
-        names.extend(words.find(|word| !word.starts_with('-')).map(base));
-    }
-    names
+    programs.contains(&base(row.comm))
+        || programs.contains(&argv0)
+        || (INTERPRETERS.contains(&argv0)
+            && words
+                .find(|word| !word.starts_with('-'))
+                .is_some_and(|word| programs.contains(&base(word))))
 }
 
-/// The processes below any process whose arguments hold `marker` (a Door's own program), not
-/// those themselves, that go by one of `programs`. A Terminal the Daemon registered is a child of
-/// the Daemon and so never below a Door; one the Door owns (M14) is scanned from its `terminals`
-/// pids, below the program the Daemon started and not that program itself.
+/// Door-owned roots are excluded even when another owned root reaches them.
 pub(crate) fn strays(
-    table: &[Row],
+    table: &mut Table<'_>,
     marker: &str,
     terminals: &[u32],
     programs: &[&str],
 ) -> Vec<Stray> {
-    let own: HashSet<u32> = table
-        .iter()
-        .filter(|row| row.args.contains(marker))
-        .map(|row| row.pid)
-        .chain(terminals.iter().copied())
-        .collect();
-    let mut children: HashMap<u32, Vec<&Row>> = HashMap::new();
-    for row in table {
-        children.entry(row.ppid).or_default().push(row);
+    table.seen.fill(false);
+    table.pending.clear();
+    #[cfg(test)]
+    {
+        table.edges = 0;
     }
-    let mut found = Vec::new();
-    let mut seen = own.clone();
-    let mut pending: Vec<u32> = own.iter().copied().collect();
-    while let Some(parent) = pending.pop() {
-        for child in children.get(&parent).into_iter().flatten() {
-            if !seen.insert(child.pid) {
+    for (index, row) in table.rows.iter().enumerate() {
+        if row.args.contains(marker) {
+            table.seen[index] = true;
+            table.pending.push(row.pid);
+        }
+    }
+    for &pid in terminals {
+        if let Ok(index) = table.rows.binary_search_by_key(&pid, |row| row.pid) {
+            if table.seen[index] {
                 continue;
             }
-            pending.push(child.pid);
-            if names(child).iter().any(|name| programs.contains(name)) {
+            table.seen[index] = true;
+        }
+        // Missing Terminal roots still own rows whose parent PID names them.
+        table.pending.push(pid);
+    }
+    // Duplicate missing roots must not cause repeated edge visits either.
+    table.pending.sort_unstable();
+    table.pending.dedup();
+    let mut found = Vec::new();
+    while let Some(parent) = table.pending.pop() {
+        let Ok(at) = table.parents.binary_search_by_key(&parent, |(pid, _)| *pid) else {
+            continue;
+        };
+        for &index in &table.children[table.parents[at].1.clone()] {
+            #[cfg(test)]
+            {
+                table.edges += 1;
+            }
+            if std::mem::replace(&mut table.seen[index], true) {
+                continue;
+            }
+            let child = &table.rows[index];
+            table.pending.push(child.pid);
+            if is_program(child, programs) {
                 found.push(Stray {
                     pid: child.pid,
-                    command: child.args.clone(),
+                    command: child.args.to_owned(),
                 });
             }
         }
     }
-    found.sort_by_key(|stray| stray.pid);
+    found.sort_unstable_by_key(|stray| stray.pid);
     found
 }
+
+#[cfg(test)]
+thread_local! { static BUILDS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) }; }
+
+#[cfg(test)]
+#[global_allocator]
+pub(crate) static ALLOCATOR: &stats_alloc::StatsAlloc<std::alloc::System> =
+    &stats_alloc::INSTRUMENTED_SYSTEM;
 
 #[cfg(test)]
 mod tests {
@@ -129,7 +189,7 @@ mod tests {
 
     #[test]
     fn f5_a_vendor_name_below_the_door_is_a_stray_by_executable_or_by_interpreter_argument() {
-        let found = strays(&parse(TABLE), "/p/7.settings.json", &[], &["claude"]);
+        let found = strays(&mut parse(TABLE), "/p/7.settings.json", &[], &["claude"]);
 
         let pids: Vec<_> = found.iter().map(|stray| stray.pid).collect();
         assert_eq!(pids, [101, 103]);
@@ -138,14 +198,141 @@ mod tests {
 
     #[test]
     fn f5_the_door_itself_and_a_row_outside_its_tree_are_not_strays() {
-        let table = parse(TABLE);
+        let mut table = parse(TABLE);
 
-        assert!(strays(&table, "/p/7.settings.json", &[], &["other"]).is_empty());
-        assert!(strays(&table, "/p/8.settings.json", &[], &["claude"]).is_empty());
+        assert!(strays(&mut table, "/p/7.settings.json", &[], &["other"]).is_empty());
+        assert!(strays(&mut table, "/p/8.settings.json", &[], &["claude"]).is_empty());
     }
 
     #[test]
     fn f5_a_row_that_is_not_a_row_is_skipped() {
-        assert_eq!(parse("garbage\n\n  x y z\n 5 6 comm\n").len(), 1);
+        assert_eq!(parse("garbage\n\n  x y z\n 5 6 comm\n").rows.len(), 1);
+    }
+    fn snapshot() -> String {
+        use std::fmt::Write;
+        let mut text = String::new();
+        for door in 1..=10 {
+            let root = door * 100;
+            writeln!(text, "{root} 1 shell shell marker-{door}-").unwrap();
+            for child in 1..=20 {
+                writeln!(
+                    text,
+                    "{} {} vendor vendor --child",
+                    root + child,
+                    root + child - 1
+                )
+                .unwrap();
+            }
+        }
+        for pid in 2000..2200 {
+            writeln!(text, "{pid} 1 unrelated unrelated --idle").unwrap();
+        }
+        text
+    }
+
+    #[test]
+    fn r5636e_scan_allocated_bytes() {
+        for doors in [1, 10] {
+            let text = snapshot();
+            let markers: Vec<_> = (1..=doors).map(|door| format!("marker-{door}-")).collect();
+            let region = stats_alloc::Region::new(ALLOCATOR);
+            let mut table = parse(&text);
+            let prepared = region.change();
+            for marker in &markers {
+                std::hint::black_box(strays(&mut table, marker, &[], &["vendor"]));
+            }
+            let total = region.change();
+            eprintln!(
+                "SCAN doors={doors} prep={prepared:?} walk={:?} total={total:?}",
+                total - prepared
+            );
+            // Base 767fa083: 65,557 / 314,713 bytes for this 410-row fixture.
+            assert!(total.bytes_allocated < if doors == 1 { 60_000 } else { 120_000 });
+        }
+    }
+    fn pids(found: Vec<Stray>) -> Vec<u32> {
+        found.into_iter().map(|stray| stray.pid).collect()
+    }
+
+    #[test]
+    fn r5636a_owned_terminal_roots_are_excluded() {
+        let mut table = parse(
+            "100 1 vendor vendor marker\n101 100 vendor vendor\n200 1 vendor vendor\n201 200 vendor vendor\n300 1 vendor vendor\n301 300 vendor vendor",
+        );
+        assert_eq!(
+            pids(strays(&mut table, "marker", &[101, 200], &["vendor"])),
+            [201]
+        );
+    }
+
+    #[test]
+    fn r5636a_matching_keeps_pid_order() {
+        let mut table = parse(
+            "100 1 shell shell marker\n111 100 no no\n110 100 /bin/vendor unrelated\n109 100 no /opt/vendor\n108 100 sh sh -c /opt/vendor\n107 100 bash bash -x /opt/vendor\n106 100 dash dash /opt/vendor\n105 100 zsh zsh /opt/vendor\n104 100 node node --flag /opt/vendor\n103 100 python python -u /opt/vendor\n102 100 python3 python3 /opt/vendor\n101 100 node node other vendor",
+        );
+        assert_eq!(
+            pids(strays(&mut table, "marker", &[], &["vendor"])),
+            (102..=110).collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
+    fn r5636a_sparse_and_cyclic_processes_terminate() {
+        let mut table = parse(
+            "4294967294 900 vendor vendor\n10 11 vendor vendor marker\n11 10 vendor vendor\n12 11 vendor vendor\n20 20 vendor vendor marker\n21 20 vendor vendor\n30 999 vendor vendor",
+        );
+        assert_eq!(
+            pids(strays(&mut table, "marker", &[900, 11], &["vendor"])),
+            [12, 21, 4294967294]
+        );
+    }
+
+    #[test]
+    fn r5636d_pid_reuse_uses_only_the_new_snapshot() {
+        let mut first =
+            parse("100 1 shell shell marker\n101 100 vendor vendor old\n102 101 vendor vendor");
+        assert_eq!(
+            pids(strays(&mut first, "marker", &[], &["vendor"])),
+            [101, 102]
+        );
+        let mut second = parse(
+            "100 1 shell shell marker\n101 9 vendor vendor new\n102 101 vendor vendor\n103 100 vendor vendor fresh",
+        );
+        let found = strays(&mut second, "marker", &[], &["vendor"]);
+        assert_eq!(pids(found.clone()), [103]);
+        assert_eq!(found[0].command, "vendor fresh");
+    }
+    #[test]
+    fn r5636b_one_snapshot_indexes_once_for_one_or_ten_doors() {
+        for doors in [1, 10] {
+            let text = snapshot();
+            BUILDS.set(0);
+            let mut table = parse(&text);
+            for door in 1..=doors {
+                assert_eq!(
+                    pids(strays(
+                        &mut table,
+                        &format!("marker-{door}-"),
+                        &[],
+                        &["vendor"]
+                    )),
+                    (door * 100 + 1..=door * 100 + 20).collect::<Vec<_>>()
+                );
+                assert_eq!(table.edges, 20);
+            }
+            assert_eq!(BUILDS.get(), 1);
+        }
+    }
+
+    #[test]
+    fn r5636b_each_reachable_edge_is_visited_once() {
+        let mut table = parse(
+            "4294967294 900 vendor vendor\n10 11 vendor vendor marker\n11 10 vendor vendor marker\n12 11 vendor vendor\n20 20 vendor vendor marker\n21 20 vendor vendor\n30 999 vendor vendor",
+        );
+        assert_eq!(
+            pids(strays(&mut table, "marker", &[900, 900, 11], &["vendor"])),
+            [12, 21, 4294967294]
+        );
+        assert_eq!(table.edges, 6);
     }
 }
