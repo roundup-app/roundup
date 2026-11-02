@@ -192,6 +192,8 @@ it.each(["plus", "slash"].flatMap(entry => [false, true].map(afterPad => ({ entr
     await browser("click", ".drawer .ProseMirror");
     await browser("wait", ".todo-detail-body button.word");
     await settle();
+    await browser("focus", ".drawer .ProseMirror");
+    await settle();
     await evaluate("window.__fake.app.calls.length = 0; true");
 
     if (entry === "plus") {
@@ -214,12 +216,14 @@ it.each(["plus", "slash"].flatMap(entry => [false, true].map(afterPad => ({ entr
     const draft = await evaluate<string>("document.querySelector('.drawer .ProseMirror').textContent");
     expect(draft).toBe(body + (entry === "slash" ? "/For Agents" : ""));
     const count = offered.length;
-    const selected: boolean[] = [];
+    const selected: (string | null)[] = [];
+
+    if (entry === "plus") expect(count).toBeGreaterThan(0);
 
     for (let i = 0; i < count; i++) {
       await browser("press", "ArrowDown");
       await settle();
-      selected.push(await evaluate("document.querySelector('.milkdown-slash-menu[data-show=true] [aria-selected=true]')?.textContent.trim() === 'For Agents'"));
+      selected.push(await evaluate("document.querySelector('.milkdown-slash-menu[data-show=true] [aria-selected=true]')?.textContent.trim() ?? null"));
     }
 
     const retained = () => evaluate("JSON.parse(localStorage.getItem('roundup:drafts:/Users/you/harness') ?? '{\"drafts\":[]}').drafts.filter(draft => draft.destination.surface === 'todos').map(draft => ({ destination: draft.destination, text: draft.value.text }))");
@@ -235,7 +239,8 @@ it.each(["plus", "slash"].flatMap(entry => [false, true].map(afterPad => ({ entr
     await shot("dismissed");
     expect(await evaluate("window.__fake.app.calls.filter(call => ['todo.update', 'pad.write'].includes(call.method))")).toEqual([]);
     expect(offered.includes("For Agents")).toBe(false);
-    expect(selected.some(Boolean)).toBe(false);
+    expect(selected.includes("For Agents")).toBe(false);
+    expect(selected.includes(null)).toBe(false);
 
   } finally {
     if (menuOutput) await browser("record", "stop");
