@@ -11,13 +11,13 @@ import { serve } from './runner.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
-async function fixture(t, branch = 'main') {
+async function fixture(t, branch = 'main', kind = 'build') {
   const directory = mkdtempSync(join(tmpdir(), 'roundup-boxd-'));
   const provider = join(directory, 'provider.json');
 
   const initial = { jobs: { 23: { id: 23, status: 'queued' } },
     run: { head_repository: { full_name: 'owner/repo' }, head_branch: branch,
-      path: '.github/workflows/build.yml', event: 'workflow_dispatch', run_attempt: 1 },
+      path: `.github/workflows/${kind}.yml`, event: 'workflow_dispatch', run_attempt: 1 },
     machines: [], runners: [], creates: 0, removes: 0 };
 
   writeFileSync(provider, JSON.stringify(initial));
@@ -82,7 +82,7 @@ else if(args[1]==='new'){
 
   const send = async (action, id = 23, signature = true) => {
     const body = JSON.stringify({ action, repository: { full_name: 'owner/repo' },
-      workflow_job: { id, run_id: 7, labels: ['self-hosted', 'boxd', 'roundup-build-11-7-1'] } });
+      workflow_job: { id, run_id: 7, labels: ['self-hosted', 'boxd', `roundup-${kind}-11-7-1`] } });
 
     return fetch(`${base()}/api/github/webhooks`, { method: 'POST', body,
       headers: { 'content-type': 'application/json', 'x-github-event': 'workflow_job',
@@ -174,6 +174,28 @@ test('L121 the next fresh job restores history and project memory without logins
   assert.equal(readFileSync(join(restored, 'claude/projects/roundup/session.jsonl'), 'utf8'), 'earlier conversation');
   assert.equal(readFileSync(join(restored, 'project-memory/claude/MEMORY.md'), 'utf8'), 'use pnpm');
   assert.equal(existsSync(join(restored, 'codex/auth.json')), false);
+  assert.equal(f.read().removes, 1);
+});
+
+test('L121 a review job runs on boxd and the next one starts with no memory', async t => {
+  const f = await fixture(t, 'main', 'review');
+  await f.send('queued');
+  await until(f.health, health => health.jobs.online === 1);
+  const state = join(f.directory, 'machines/roundup-ci-23/home/boxd/.roundup-ci');
+
+  for (const [name, content] of Object.entries({ 'claude/projects/roundup/session.jsonl': 'earlier review',
+    'project-memory/claude/MEMORY.md': 'approve small PRs' })) {
+    mkdirSync(dirname(join(state, name)), { recursive: true }); writeFileSync(join(state, name), content);
+  }
+
+  f.update(provider => { provider.jobs[23].status = 'completed'; provider.jobs[24] = { id: 24, status: 'queued' }; });
+  await f.send('completed');
+  await until(f.health, health => health.jobs.done === 1);
+  await f.send('queued', 24);
+  await until(f.health, health => health.jobs.online === 1);
+  const restored = join(f.directory, 'machines/roundup-ci-24/home/boxd/.roundup-ci');
+  assert.equal(existsSync(join(restored, 'claude/projects/roundup/session.jsonl')), false);
+  assert.equal(existsSync(join(restored, 'project-memory/claude/MEMORY.md')), false);
   assert.equal(f.read().removes, 1);
 });
 
