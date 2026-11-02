@@ -400,6 +400,11 @@ impl Evaluator {
             }
         }
         for event in &events {
+            // Change notifications are not Agent observations; counting them makes a replay
+            // advance its own cursor after save_watch publishes the previous result.
+            if matches!(event.data, EventData::ReactionChanged) {
+                continue;
+            }
             if let Some(seq) = event.seq {
                 w.seen = w.seen.max(seq);
             }

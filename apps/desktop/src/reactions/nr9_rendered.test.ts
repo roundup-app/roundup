@@ -369,6 +369,10 @@ it.skipIf(!captureDir("U5558a"))("u5558e_open_surfaces_update_and_keep_failed_re
     await wait("!!document.querySelector('[data-reaction-opener=automatic-reaction]')");
     await evaluate("document.querySelector('[data-reaction-opener=automatic-reaction]').click()");
     await wait("!!document.querySelector('.reaction-detail')");
+    await evaluate("window.__automaticReaction.observation = {...window.__automaticReaction.observation,health_code:'unavailable',cause_code:'evidence-missing',cause:'saved check evidence unavailable'}");
+    await signal("reaction.changed");
+    await wait("!!document.querySelector('.reaction-detail [role=alert]')");
+    await capture("U5558e", "reaction-evidence-missing");
     await evaluate("window.__automaticReaction = {...window.__automaticReaction,state:'stopped',firings:[{id:'f1',ordinal:1,message:99,matched:true,evidence:'saved evidence',definition:'{}',outcome:'delivered'}]}");
     await signal("reaction.changed");
     await wait("!!document.querySelector('[data-firing-message=\"99\"]')");
@@ -390,10 +394,12 @@ it.skipIf(!captureDir("U5558a"))("u5558e_open_surfaces_update_and_keep_failed_re
     await wait("!!document.querySelector('.import-prompt')");
     await click("Start import Agent");
     await wait("window.__fake.app.calls.some(call => call.method === 'agent.spawn') && !document.querySelector('.import-instructions button').disabled");
-    await evaluate(`window.__fake.app.handlers['project.importDiscover'] = () => ({candidates:Array.from({length:10},(_,n)=>({source:'candidate-'+n,revision:'saved-'+n,title:'Conversation '+n+' — '+ '長い成果 🐝 '.repeat(6),cwd:'src/'+ 'long-path/'.repeat(5),last_activity_ms:1n})),excluded:[]})`);
+    await evaluate(`window.__fake.app.handlers['project.importDiscover'] = () => ({candidates:Array.from({length:10},(_,n)=>({source:'candidate-'+n,revision:'saved-'+n,title:'Conversation '+n+' — '+ '長い成果 🐝 '.repeat(6),cwd:'src/'+ 'long-path/'.repeat(5),last_activity_ms:1n})),excluded:[{source:'incomplete',title:'Incomplete saved conversation',cause:'noCompleteRecords',reason:'No complete records',last_activity_ms:null}]})`);
     await evaluate("window.__fake.emit({actor:{kind:'agent',id:'listing-agent',parent:null},name:'rail.changed'})");
-    await wait("document.querySelectorAll('.import-candidate').length === 10");
+    await wait("document.querySelectorAll('.import-check input').length === 10");
     expect(await evaluate("document.querySelectorAll('.import-candidate input:checked').length")).toBe(0);
+    await click("1 not importable");
+    await wait("!![...document.querySelectorAll('.import-excluded li')].find(row => row.textContent.includes('Incomplete saved conversation'))");
     await capture("U5558d", "saved-listing");
     await evaluate("window.__fake.app.handlers['project.importDiscover'] = () => { throw new Error('Saved listing unavailable: permission denied. Retry to read the listing again.'); }");
     await evaluate("window.__fake.emit({actor:{kind:'agent',id:'listing-agent',parent:null},name:'rail.changed'})");
