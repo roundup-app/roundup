@@ -14,7 +14,7 @@ const mount = async (worktree: boolean) => {
   })], false, "/project");
 
   const reaction: Reaction = {
-    project: "p", reason: null, id: "r", name: "Review", actor: { kind: "user", id: "u", parent: null }, home: null, target: "receiver",
+    project: "p", reason: "Review the output", id: "r", name: "Review", actor: { kind: "user", id: "u", parent: null }, home: null, target: "receiver",
     instruction: "go", condition: { kind: "agents", ids: ["receiver"], any: false }, max_firings: 1, remaining: 0, rearm: false,
     expires_at: "2026-11-02T09:00:00Z", created_at: "2026-11-01T09:00:00Z", state: "stopped",
     observation: { health: "observing", health_code: "observing", cause_code: "unknown", gap_code: "unknown", recovery_code: "unknown", cursor: null, gap: null, recovery: null, evidence: null },
@@ -52,4 +52,5 @@ it("u365_message_missing_path_shows_failure", async () => {
   fireEvent.click(screen.getByRole("link", { name: "src/a.ts:42" }));
   await waitFor(() => expect(screen.getByRole("alert")).toBeTruthy());
   expect(app.openedTargets).toEqual([]);
+  expect(app.attemptedTargets).toHaveLength(1);
 });

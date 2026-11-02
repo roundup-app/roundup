@@ -536,3 +536,15 @@
 .overview-quiet { margin: var(--space-2); color: var(--grey); }
 .overview-sections-owner { width: min(100%, var(--ask-width)); align-self: center; }
 .ask-bar :is(.project-overview, .made):has(.empty-state) { flex: 1; min-height: 0; }
+
+.ask-line[role="button"] {
+  cursor: pointer;
+}
+
+.ask-line[role="button"]:hover {
+  color: var(--text);
+}
+
+.ask-row .reserved-line {
+  grid-column: 1 / -1;
+}

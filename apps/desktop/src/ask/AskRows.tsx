@@ -149,7 +149,7 @@ const AskRow = (props: { live: boolean; keys: KeyScope; entry: AskEntry; part: A
 
   return (
     <li data-overview-item={props.entry.key + ":" + props.index} class="ask-row" data-state={props.part.state}>
-      <Tip class="ask-tip" text={props.part.text + "\n" + props.where} disabled={!cut()}>{(trigger, focus) => {
+      <Tip class="ask-tip" text={props.part.text + "\n" + props.where} disabled={!cut() || !!linkFailure()}>{(trigger, focus) => {
         const tip = trigger();
 
         return <Dynamic component={node() && findTargets(props.part.text).length === 0 ? "button" : "div"} {...focus} role={node() ? "button" : undefined} tabIndex={node() ? 0 : undefined} onClick={open}
