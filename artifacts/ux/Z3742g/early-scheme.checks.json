@@ -1,1 +1,0 @@
-{"dark": {"method": "terminal.scheme", "params": {"background": "#282c34", "foreground": "#ffffff", "scheme": "dark"}}, "initial": {"method": "terminal.scheme", "params": {"background": "#282c34", "foreground": "#ffffff", "scheme": "dark"}}, "light": {"method": "terminal.scheme", "params": {"background": "#ffffff", "foreground": "#4d4d4c", "scheme": "light"}}}

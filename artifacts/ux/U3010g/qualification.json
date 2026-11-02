@@ -1,9 +1,0 @@
-{
-  "stage": "Chromium preparation only; no WKWebView timing or presentation result",
-  "viewport": {"width": 1512, "height": 950, "scheme": "dark"},
-  "completed": ["user-owner insertion, completion, done-fold, trusted pointer reorder 4 before 1", "fixture restoration", "agent-owner insertion, completion, done-fold, trusted pointer reorder 8 before 5"],
-  "checks": {"D2": "pass", "D5": "pass", "D6": "pass"},
-  "incomplete": ["full native selected streaming Terminal and ten-visible-Glyph fixture", "both Shelf modes", "trusted layer interruption sequence", "live reduced-motion variants", "native stream and settled-idle qualification owned by #3013"],
-  "retained_failures": ["observer-failure.json: initial fake-App missing agent.signal; repaired only in the isolated rendered observer", "initial done-fold observation failed before its first content mount; driver now waits on the existing owner", "initial pointer drag used the row frame instead of its title handle; repaired in the rendered observer", "D14 is reported raw and is not claimed qualified by the Overview preparation"],
-  "capture_command": "just capture U3010d,U3010e,U3010g invoked; whole-suite run stopped after starting unrelated suites; focused isolated observer completed"
-}

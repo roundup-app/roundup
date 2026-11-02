@@ -20,6 +20,20 @@ async fn c4_one_declaration_reaches_every_surface() {
     } else {
         assert_eq!(result.unwrap(), json!({"id": 42}));
     }
+    let metadata = contracts::methods::metadata().into_iter().find(|m| m.name == "project.contractProbe");
+    if removed {
+        assert!(metadata.is_none());
+        assert!(contracts::describe::describe("project.contractProbe").is_err());
+    } else {
+        let described = direct.request("api.describe", json!({"method":"project.contractProbe"})).await.unwrap();
+        assert_eq!(described["description"], "A harmless contract fixture.");
+        let disposition = metadata.unwrap().perf;
+        if no_tool {
+            assert!(matches!(disposition, contracts::methods::PerfDisposition::OffPath("Fixture outside workload")));
+        } else {
+            assert!(matches!(disposition, contracts::methods::PerfDisposition::Measured(&["ping_p95_ms"])));
+        }
+    }
     let mut delivered = usize::from(!removed);
     for (door, id, expected) in [(false, 51, json!({"id":52})), (true, 61, json!({"id":62}))] {
         let allowed = !removed && !no_tool && (door || !door_only);
