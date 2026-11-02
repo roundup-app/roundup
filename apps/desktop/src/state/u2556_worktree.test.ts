@@ -201,29 +201,38 @@ it("u5643c_unchanged_ticks_do_not_reconcile_rail", async () => {
 
     return connected.rail.nodes.map(node => ({
       ...untrack(() => ({ ...node })),
-      get id() { identityReads++;
+      get id() {
+        identityReads++;
 
- return node.id; },
+        return node.id;
+      },
       get worktree() {
         identityReads++;
         const identity = node.worktree;
 
         return identity === null ? null : {
-          get path() { identityReads++;
+          get path() {
+            identityReads++;
 
- return identity.path; },
-          get branch() { identityReads++;
+            return identity.path;
+          },
+          get branch() {
+            identityReads++;
 
- return identity.branch; },
-          get base() { identityReads++;
+            return identity.branch;
+          },
+          get base() {
+            identityReads++;
 
- return identity.base; },
+            return identity.base;
+          },
         };
       },
     }));
   } };
 
   const state = createWorktreeState(app, rail, now, () => null);
+  const before = app.calls.length;
   createRoot(dispose => { disposals.push(dispose); state.watch(() => true); });
   await waitFor(() => expect(state.read("a")).toEqual({ failure: null, state: facts }));
   traversals = 0;
@@ -240,7 +249,7 @@ it("u5643c_unchanged_ticks_do_not_reconcile_rail", async () => {
   const counts = { traversals, identityReads, serializations: stringify.mock.calls.length };
   stringify.mockRestore();
   expect(counts).toEqual({ traversals: 0, identityReads: 0, serializations: 0 });
-  expect(app.calls.filter(call => call.method === "agent.worktreeState").map(call => call.params)).toEqual(Array.from({ length: 4 }, () => ({ id: "a" })));
+  expect(app.calls.slice(before).map(call => ({ method: call.method, params: call.params }))).toEqual(Array.from({ length: 4 }, () => ({ method: "agent.worktreeState", params: { id: "a" } })));
 });
 
 it.each(["id", "presence", "path", "branch", "base", "name", "status"] as const)("u5643c_relevant_rail_changes_reconcile_once_%s", async (change) => {
@@ -259,6 +268,7 @@ it.each(["id", "presence", "path", "branch", "base", "name", "status"] as const)
   } };
 
   const state = createWorktreeState(app, rail, () => 0, () => null);
+  const before = app.calls.length;
   createRoot(dispose => { disposals.push(dispose); state.watch(() => true); });
   await waitFor(() => expect(state.read("a")).toEqual({ failure: null, state: facts }));
   const previous = state.read("a");
@@ -280,5 +290,5 @@ it.each(["id", "presence", "path", "branch", "base", "name", "status"] as const)
   else if (relevant) await waitFor(() => expect(state.read(id)).toEqual({ failure: null, state: { ...facts, ahead: 11 } }));
   else expect(state.read(id)).toBe(previous);
   expect(count).toBe(relevant ? 1 : 0);
-  expect(app.calls.filter(call => call.method === "agent.worktreeState").map(call => call.params)).toEqual(relevant && change !== "presence" ? [{ id: "a" }, { id }] : [{ id: "a" }]);
+  expect(app.calls.slice(before).map(call => ({ method: call.method, params: call.params }))).toEqual(relevant && change !== "presence" ? [{ method: "agent.worktreeState", params: { id: "a" } }, { method: "agent.worktreeState", params: { id } }] : [{ method: "agent.worktreeState", params: { id: "a" } }]);
 });

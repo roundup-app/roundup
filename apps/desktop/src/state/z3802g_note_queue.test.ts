@@ -72,7 +72,8 @@ afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 // Track production collection ownership, including replacement Maps; no GC observation.
 const collections = () => {
   const NativeMap = Map;
-  const owned = new Set<Map<unknown, unknown>>();
+  const NativeSet = Set;
+  const owned = new NativeSet<Map<unknown, unknown> | Set<unknown>>();
 
   class ObservedMap<K, V> extends NativeMap<K, V> {
     constructor(values?: Iterable<readonly [K, V]> | null) {
@@ -83,7 +84,17 @@ const collections = () => {
     }
   }
 
+  class ObservedSet<T> extends NativeSet<T> {
+    constructor(values?: Iterable<T> | null) {
+      super(values);
+
+      if (values instanceof NativeSet) owned.delete(values);
+      owned.add(this);
+    }
+  }
+
   vi.stubGlobal("Map", ObservedMap);
+  vi.stubGlobal("Set", ObservedSet);
 
   return () => [...owned].flatMap(map => [...map.values()]);
 };
@@ -130,9 +141,11 @@ it("u5643b_recipient_reads_touch_only_its_pending_rows", async () => {
   emit(app, message(1002));
   let inspected = 0;
   // Production retains this Message; read instrumentation starts after event folding.
-  Object.defineProperty(other, "to", { get: () => { inspected++;
+  Object.defineProperty(other, "to", { get: () => {
+    inspected++;
 
- return "b"; }, configurable: true });
+    return "b";
+  }, configurable: true });
   const filtering = vi.spyOn(Array.prototype, "filter");
   const sorting = vi.spyOn(Array.prototype, "sort");
   const reads = Array.from({ length: 20 }, () => notes.rows("a"));
