@@ -187,19 +187,29 @@ async fn b37_real_claude_receives_a_note_after_a_scripted_server_error() {
             _ => None,
         })
         .await;
-    // The push window closes on the child's final idle Digest, not its earlier Rail status.
-    project
+    // Bind the receipt to the final idle Digest, not an earlier status of the child.
+    let idle_digest = project
         .next_named(
-            "the Digest B37 child is idle delivered to the Door",
+            "the Digest B37 child is idle queued for the Door",
             &mut events,
             |data| match data {
-                EventData::MessageDelivered(m)
+                EventData::MessageSent(m)
                     if m.to == door
                         && m.body.contains("[digest] B37 child is idle")
                         && m.body.contains("open todos: 1") =>
                 {
-                    Some(())
+                    Some(m)
                 }
+                _ => None,
+            },
+        )
+        .await;
+    project
+        .next_named(
+            "the final idle Digest's transcript receipt",
+            &mut events,
+            |data| match data {
+                EventData::MessageDelivered(m) if m.id == idle_digest.id => Some(()),
                 _ => None,
             },
         )
