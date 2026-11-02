@@ -1,5 +1,6 @@
 //! SQLite persistence for Todos. `blocked` is computed on read, never stored.
 
+use provenance::now_ms;
 use std::collections::{BTreeSet, HashMap};
 use std::path::Path;
 use std::sync::Mutex;
@@ -81,7 +82,7 @@ impl Store {
                 .expect("listed Todo has initial values");
             let after = values(&todo);
             if previous != &after {
-                let at = now_ms();
+                let at = now_ms().max(0);
                 todo.updated_at = at;
                 db.execute(
                     "UPDATE todos SET updated_at = ?2 WHERE id = ?1",
@@ -130,7 +131,7 @@ impl Store {
         after_touch: i64,
     ) -> Result<Todo, RpcError> {
         self.require_all(blockers)?;
-        let created_at = now_ms();
+        let created_at = now_ms().max(0);
         let tx = self
             .db
             .unchecked_transaction()
@@ -434,7 +435,7 @@ impl Store {
             let at = values(&todo);
             self.db.execute(
                 "INSERT INTO changes(todo, before_values, after_values, after_touch, actor, changed_at, handed) VALUES (?1, ?2, ?2, ?3, ?4, ?5, ?6)",
-                params![todo.id, serde_json::to_string(&at).map_err(RpcError::internal)?, after_touch, creator_json(actor), now_ms(), creator_json(owner)],
+                params![todo.id, serde_json::to_string(&at).map_err(RpcError::internal)?, after_touch, creator_json(actor), now_ms().max(0), creator_json(owner)],
             ).map_err(RpcError::internal)?;
             tx.commit().map_err(RpcError::internal)?;
             return Ok(Some(todo));
@@ -490,7 +491,7 @@ impl Store {
         self.db
             .execute(
                 "INSERT INTO comments (todo, author, body, created_at, read) VALUES (?1, ?2, ?3, ?4, ?5)",
-                params![id, creator_json(author), body, now_ms(), read],
+                params![id, creator_json(author), body, now_ms().max(0), read],
             )
             .map_err(RpcError::internal)?;
         Ok(())
@@ -620,7 +621,7 @@ impl Store {
         if before.as_ref() == Some(&after) {
             return Ok(());
         }
-        let at = now_ms();
+        let at = now_ms().max(0);
         let created = before.is_none();
         self.db.execute(
             "INSERT INTO changes(todo, before_values, after_values, after_touch, actor, changed_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
@@ -761,11 +762,6 @@ fn creator_json(creator: &Actor) -> String {
 
 fn parse_creator(text: &str) -> serde_json::Result<Actor> {
     serde_json::from_str(text)
-}
-
-pub(super) fn now_ms() -> i64 {
-    let millis = time::OffsetDateTime::now_utc().unix_timestamp_nanos() / 1_000_000;
-    i64::try_from(millis.max(0)).unwrap_or(i64::MAX)
 }
 
 impl super::Todos {

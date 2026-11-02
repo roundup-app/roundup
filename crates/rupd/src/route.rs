@@ -88,7 +88,7 @@ impl Daemon {
         {
             conn.actor = actor.unwrap_or_else(|| self.action_actor(conn));
         }
-        let outcome = if matches!(method, "rail.tree" | "rail.list") {
+        let outcome = if method == "rail.tree" {
             self.rail_reply(conn).await
         } else if method == "daemon.ping" {
             // Every guard in `route_inner` passes a ping, so only its entry steps remain.
@@ -117,8 +117,8 @@ impl Daemon {
         })
     }
 
-    /// `rail.tree` and `rail.list`, written without a `Value` tree. No guard in `route_inner`
-    /// applies to them (they name no child and no Terminal), so this keeps only its entry steps.
+    /// `rail.tree`, written without a `Value` tree. No guard in `route_inner`
+    /// applies to it (it names no child and no Terminal), so this keeps only its entry steps.
     async fn rail_reply(&self, conn: &Conn) -> Result<rpc::Reply, RpcError> {
         self.auto.start(|| self.reader());
         self.start_pushes();

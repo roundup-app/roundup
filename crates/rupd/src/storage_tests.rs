@@ -118,7 +118,7 @@ async fn a3308_an_old_workstream_defaults_to_auto_off() {
     .unwrap();
     drop(db);
     let upgraded = crate::tests::daemon_in(dir.path());
-    let reply = crate::tests::ask(&upgraded, r#"{"id":1,"method":"rail.list"}"#).await;
+    let reply = crate::tests::ask(&upgraded, r#"{"id":1,"method":"rail.tree"}"#).await;
     assert_eq!(reply["result"][0]["auto"], false);
 }
 
@@ -611,6 +611,7 @@ async fn n16_all_stores_share_one_project_database() {
     let pads: Vec<contracts::pad::Pad> =
         serde_json::from_value(call(&daemon, "pad.list", Json::Null).await).unwrap();
     let sources = messages::digest::Sources {
+        completed: std::collections::HashMap::new(),
         touches: daemon.touches.history("pad:kept Pad").unwrap(),
         nodes: &nodes,
         todos: &todos,
