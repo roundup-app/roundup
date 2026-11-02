@@ -11,6 +11,12 @@ use super::*;
 pub trait NoteInbox: Send + Sync {
     /// B51: check the inbox of `agent` and show the outcome on the Rail.
     async fn check(&self, agent: &str) -> Inbox;
+    /// A5556: automatic entries wait for first input; authenticated user entries may start it.
+    fn admits(&self, _agent: &str, _from: &Actor) -> bool {
+        true
+    }
+    /// Account for the authenticated sender only after physical delivery.
+    fn submitted(&self, _agent: &str, _from: &Actor) {}
     /// B50: write `notes` as entries; the answer names the failed state.
     fn write(&self, agent: &str, notes: &[Entry]) -> Result<(), Inbox>;
 }
@@ -19,6 +25,16 @@ pub trait NoteInbox: Send + Sync {
 impl NoteInbox for agents::Agents {
     async fn check(&self, agent: &str) -> Inbox {
         self.inbox_check(agent)
+    }
+
+    fn admits(&self, agent: &str, from: &Actor) -> bool {
+        from.kind == contracts::ActorKind::User || self.input_started(agent)
+    }
+
+    fn submitted(&self, agent: &str, from: &Actor) {
+        if from.kind == contracts::ActorKind::User {
+            self.admit_input(agent);
+        }
     }
 
     fn write(&self, agent: &str, notes: &[Entry]) -> Result<(), Inbox> {
@@ -64,7 +80,13 @@ pub(crate) async fn send(
 ) -> bool {
     {
         let store = lock(&inner.store);
-        notes.retain(|m| !store.in_flight(m.id).expect("message store"));
+        notes.retain(|m| {
+            !store.in_flight(m.id).expect("message store")
+                && inner
+                    .inbox
+                    .get()
+                    .is_none_or(|inbox| inbox.admits(agent, &m.from))
+        });
     }
     if notes.is_empty() {
         return true;
@@ -131,6 +153,11 @@ pub(crate) async fn send(
             lock(&inner.store).clear_flight(*id).expect("message store");
         }
         return true;
+    }
+    if let Some(inbox) = inner.inbox.get() {
+        for note in &notes {
+            inbox.submitted(agent, &note.from);
+        }
     }
     if !empty.is_empty() {
         let empty: Vec<u32> = empty.iter().map(|entry| entry.id).collect();

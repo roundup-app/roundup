@@ -320,6 +320,7 @@ struct Run {
     yolo: bool,
     /// A42 keeps a new Ask's first Steer byte for byte; other starts include E3 Context.
     startup_context: bool,
+    input_started: bool,
     attempt: String,
     status_revision: i64,
     closing: bool,

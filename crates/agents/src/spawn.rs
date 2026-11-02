@@ -284,11 +284,12 @@ impl Agents {
             let node = rail.node(id)?;
             // O2, O3: the first Steer is the node's order, whichever way it was set.
             let spawn_prompt = rail.spawn_prompt(id)?;
-            let prompt = first.or_else(|| {
-                node.work
-                    .as_ref()
-                    .map(|work| order::steer(work, spawn_prompt.as_deref()))
-            });
+            let prompt = order::first_input(
+                first,
+                node.work.as_ref(),
+                spawn_prompt.as_deref(),
+                rail.order_revision(id)?.is_some(),
+            );
 
             if let (Some(text), Some(revision)) = (&prompt, rail.order_revision(id)?) {
                 rail.prepare_instruction(&revision, attempt, text, true)?;
@@ -339,29 +340,10 @@ impl Agents {
                 return Err(err);
             }
         };
-        let clock = Arc::clone(&self.shared.clock);
-        let terminal_id = spawned.id.clone();
-        let run_cwd = effective_cwd.to_string_lossy().into_owned();
-        let prompts = self.shared.finish_starting(id, attempt, |named| Run {
-            yolo: false,
-            startup_context,
-            attempt: attempt.to_owned(),
-            status_revision: 1,
-            closing: false,
-            ended: false,
-            adapter: ClaudeCode::starting(move || clock()),
-            first_pending: prompt.is_some(),
-            first_completion: prompt.as_ref().map(|_| tokio::sync::watch::channel(None).0),
-            first_prompt: None,
-            prompt,
-            steer: None,
-            session_started: None,
-            starred: false,
-            interrupt: None,
-            named,
-            terminal_id,
-            cwd: run_cwd,
-        });
+        let prompts = self.shared.finish_starting(id, attempt, |named| Run::starting(
+            Arc::clone(&self.shared.clock), attempt.to_owned(), spawned.id.clone(),
+            effective_cwd.to_string_lossy().into_owned(), prompt, startup_context, named,
+        ));
         let prompts = match prompts {
             Ok(prompts) => prompts,
             Err(err) => {
@@ -489,5 +471,47 @@ impl Agents {
             }
         }
         Ok(spawned)
+    }
+}
+
+impl Run {
+    fn starting(clock: Clock, attempt: String, terminal_id: String, cwd: String, prompt: Option<String>, startup_context: bool, named: bool) -> Self {
+        Self {
+            yolo: false, startup_context, input_started: prompt.is_some(), attempt,
+            status_revision: 1, closing: false, ended: false,
+            adapter: ClaudeCode::starting(move || clock()),
+            first_pending: prompt.is_some(),
+            first_completion: prompt.as_ref().map(|_| tokio::sync::watch::channel(None).0),
+            first_prompt: None, prompt, steer: None, session_started: None,
+            starred: false, interrupt: None, named, terminal_id, cwd,
+        }
+    }
+}
+
+#[cfg(feature = "test-support")]
+impl Agents {
+    /// Controlled launch completion at the production lifecycle seam, without a vendor or PTY.
+    pub fn start_for_test(&self, id: &str, first: Option<String>) -> Result<(), RpcError> {
+        let (attempt, prompt) = {
+            let mut rail = self.shared.rail();
+            let node = rail.node(id)?;
+            let prompt = order::first_input(first, node.work.as_ref(), rail.spawn_prompt(id)?.as_deref(), rail.order_revision(id)?.is_some());
+            let attempt = rail.allocate_attempt(id)?;
+            rail.attach_terminal(id, "fixture")?;
+            (attempt, prompt)
+        };
+        self.shared.mark_starting(id, attempt.clone());
+        let prompts = self.shared.finish_starting(id, &attempt, |named| Run::starting(
+            Arc::clone(&self.shared.clock), attempt.clone(), "fixture".into(),
+            self.project_dir().to_string_lossy().into_owned(), prompt, true, named,
+        ))?;
+        for prompt in prompts { self.shared.steer_first_prompt(id, &attempt, prompt); }
+        Ok(())
+    }
+
+    /// Isolate the vendor socket in a process-free Daemon observer.
+    pub fn with_launcher_for_test(mut self, launcher: Launcher) -> Self {
+        self.launcher = launcher;
+        self
     }
 }
