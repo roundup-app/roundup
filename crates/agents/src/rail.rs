@@ -39,7 +39,7 @@ impl Rail {
         db.pragma_update(None, "journal_mode", "WAL")?;
         crate::schema::open(&mut db, path)?;
         let obsolete: bool = db.query_row(
-            "SELECT EXISTS(SELECT 1 FROM nodes WHERE kind NOT IN ('workstream','agent','group') OR (kind='workstream' AND EXISTS (WITH RECURSIVE ancestors(id,parent,kind) AS (SELECT id,parent,kind FROM nodes p WHERE p.id=nodes.parent UNION ALL SELECT p.id,p.parent,p.kind FROM nodes p JOIN ancestors a ON p.id=a.parent) SELECT 1 FROM ancestors WHERE kind<>'group')))",
+            "SELECT EXISTS(SELECT 1 FROM nodes WHERE kind NOT IN ('workstream','agent','group') OR (kind='group' AND terminal_id IS NOT NULL) OR (kind='workstream' AND EXISTS (WITH RECURSIVE ancestors(id,parent,kind) AS (SELECT id,parent,kind FROM nodes p WHERE p.id=nodes.parent UNION ALL SELECT p.id,p.parent,p.kind FROM nodes p JOIN ancestors a ON p.id=a.parent) SELECT 1 FROM ancestors WHERE kind<>'group')))",
             [], |r| r.get(0),
         )?;
         if obsolete {
