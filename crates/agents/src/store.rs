@@ -292,6 +292,32 @@ impl Agents {
         Ok(())
     }
 
+    /// A5556: whether this Attempt has received explicit input.
+    pub fn input_started(&self, id: &str) -> bool {
+        matches!(self.shared.runs().get(id), Some(Slot::Running(run)) if run.input_started)
+    }
+
+    /// Admit pending automatic Messages after explicit input, using the existing status lane.
+    pub fn admit_input(&self, id: &str) {
+        let mut runs = self.shared.runs();
+        if let Some(Slot::Running(run)) = runs.get_mut(id)
+            && !std::mem::replace(&mut run.input_started, true)
+            && let Some(status) = run.adapter.status().cloned()
+        {
+            run.status_revision += 1;
+            self.shared.bus.emit(
+                Actor::daemon(),
+                EventData::AgentStatus(Box::new(contracts::agent::StatusEvent {
+                    id: id.into(),
+                    attempt: run.attempt.clone(),
+                    status_revision: run.status_revision.to_string(),
+                    status,
+                    ended: run.ended,
+                })),
+            );
+        }
+    }
+
     /// H13: wait `bound` instead of `INTERRUPT_BOUND` for an Interrupt's title. Call it before
     /// the first call is made.
     #[must_use]
@@ -354,6 +380,7 @@ pub(super) mod tests {
             let run = Run {
                 yolo: false,
                 startup_context: true,
+                input_started: true,
                 attempt: "1".into(),
                 status_revision: 1,
                 closing: false,
@@ -604,6 +631,7 @@ pub(super) mod tests {
             Slot::Running(Run {
                 yolo: false,
                 startup_context: true,
+                input_started: true,
                 attempt: "1".into(),
                 status_revision: 1,
                 closing: false,

@@ -38,9 +38,52 @@ pub(crate) fn steer(order: &Order, prompt: Option<&str>) -> String {
     }
 }
 
+pub(crate) fn first_input(
+    first: Option<String>,
+    work: Option<&Order>,
+    details: Option<&str>,
+    _explicit: bool,
+) -> Option<String> {
+    first.or_else(|| work.map(|work| steer(work, details)))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a5556c_start_paths_require_explicit_input() {
+        for path in [
+            "Door",
+            "Project Agent",
+            "Workstream Agent",
+            "Mode",
+            "resume",
+            "restart",
+        ] {
+            let default = Order::Clarification {
+                question: "What is this Workstream for?".into(),
+            };
+            assert_eq!(
+                first_input(None, Some(&default), None, false),
+                None,
+                "{path}"
+            );
+            assert_eq!(
+                first_input(Some("my request".into()), Some(&default), None, false),
+                Some("my request".into()),
+                "{path}"
+            );
+        }
+        assert_eq!(
+            first_input(None, Some(&Order::work("build")), Some("details"), true),
+            Some("build\n\nDetails:\ndetails".into())
+        );
+        assert_eq!(
+            first_input(Some("saved words".into()), None, None, false),
+            Some("saved words".into())
+        );
+    }
 
     #[test]
     fn o2_a_work_order_steers_the_ask_then_one_line_per_limit() {

@@ -354,6 +354,9 @@ impl Agents {
             .shared
             .rail()
             .set_order(&id, &order, captured.as_ref())?;
+        if ctx.actor.kind == ActorKind::User {
+            self.admit_input(&id);
+        }
         ctx.touch(contracts::Verb::Wrote, &format!("agent:{id}"))?;
         ctx.emit(EventData::RailChanged);
         if ctx.actor.id != id {
