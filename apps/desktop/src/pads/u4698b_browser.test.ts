@@ -22,6 +22,7 @@ const typographyOutputs = [captureDir("U5574a"), captureDir("U5574b")].filter((p
 
 const capture = async (name: string) => {
   if (!output) return;
+  await browser("wait", "--fn", "typeof window.__checks === 'function'");
   await browser("screenshot", join(output, `${name}.png`));
   writeFileSync(join(output, `${name}.checks.json`), JSON.stringify(await evaluate("window.__checks()")));
 };
