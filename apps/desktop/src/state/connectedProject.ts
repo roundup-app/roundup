@@ -21,9 +21,7 @@ import type { AsksState } from "./asks";
 import { syncTerminalScheme } from "../terminal/scheme";
 import { createRailState } from "./rail";
 import { dismissalStorage } from "../rail/persist/storage";
-import { createUnseen, unseenStorage } from "./unseen";
 import type { UnseenState } from "./unseen";
-import { createQueue } from "./queue";
 import type { QueueView } from "./queue";
 import { createSettingsView } from "./settingsView";
 import type { SettingsViewState } from "./settingsView";
@@ -226,7 +224,7 @@ export const connectProject = async (
 
   const contractNotice = await checkContract(app);
   // Issued before the subscription, so a seed that arms a failure after it never meets this call, and awaited beside it, so connecting takes no longer.
-  const [terminalScheme, events] = await Promise.all([syncTerminalScheme(app), connectEvents(app)]);
+  const [terminalScheme, events, { createUnseen, unseenStorage }, { createQueue }] = await Promise.all([syncTerminalScheme(app), connectEvents(app), import("./unseen"), import("./queue")]);
   let stopRail = () => {};
 
   // NA6: from here the Daemon can relay `action.list` and `action.run` to this window.
@@ -248,7 +246,7 @@ export const connectProject = async (
   const unseen = createRoot((dispose) => {
     stopUnseen = dispose;
 
-    return createUnseen(() => rail.nodes, rail.selected, () => viewing() && !settingsView.open(), unseenStorage(project.path));
+    return createUnseen(() => rail.nodes, rail.selected, () => viewing() && !settingsView.open(), unseenStorage(project.path), { app, events, path: project.path });
   });
 
   if (ended) stopUnseen();

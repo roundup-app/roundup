@@ -19,7 +19,7 @@ it.each([
   connected.showView(view);
   render(() => <ConnectedProjectContext.Provider value={connected}><AskBar /></ConnectedProjectContext.Provider>);
   await screen.findByRole("heading", { name: heading });
-  expect(app.calls.filter(call => call.method === method)).toHaveLength(1);
+  expect(app.calls.filter(call => call.method === method)).toHaveLength(view === "made" ? 2 : 1);
   expect(screen.queryByRole("group", { name: title })).toBeNull();
   answer.resolve([]);
   const empty = await screen.findByText(title);

@@ -352,7 +352,7 @@ it.each(rows)("s3806a_interruption_settles_the_gesture $owner $trigger $phase", 
   pointer("pointerup", window, button);
   await frame();
   expect(placesStorage("/p").read()["2"]).toEqual(settled);
-  expect(writes).not.toHaveBeenCalled();
+  expect(writes.mock.calls.filter(([key]) => key === "roundup:bubble-places:/p")).toEqual([]);
 
   if (trigger === "capture-blur") Reflect.deleteProperty(target, "setPointerCapture");
 

@@ -2,7 +2,7 @@
 
 Module: `crates/desktop` (the App: Tauri shell, App seam). Ids: every `S` heading in the file.
 
-The App is the Tauri 2 shell in `crates/desktop` (ADR 0001). It starts a Daemon for each open Project and passes calls and events between the webview (`apps/desktop`, see `ui.md`) and that Daemon. It holds no state of its own beyond which Projects are open, their names (`project-tabs.md`, S10), the list of recently opened Projects (S6), and the selected Project for native menu dispatch (U3813). Tests use Tauri's mock runtime (`tauri::test`) and need no window. A fake `rupd` comes from `ROUNDUP_RUPD_BIN`; a real Daemon runs in-process on a temp socket (`rupd` as a dev-dependency).
+The App is the Tauri 2 shell in `crates/desktop` (ADR 0001). It starts a Daemon for each open Project and passes calls and events between the webview (`apps/desktop`, see `ui.md`) and that Daemon. It holds no state of its own beyond which Projects are open, their names (`project-tabs.md`, S10), the list of recently opened Projects (S6), the selected Project for native menu dispatch (U3813), and the current passive menu-bar presentation (U5502). Tests use Tauri's mock runtime (`tauri::test`) and need no window. A fake `rupd` comes from `ROUNDUP_RUPD_BIN`; a real Daemon runs in-process on a temp socket (`rupd` as a dev-dependency).
 
 ## App seam
 
@@ -10,6 +10,7 @@ The App is the Tauri 2 shell in `crates/desktop` (ADR 0001). It starts a Daemon 
 
 | Webview calls (Tauri command) | Arguments | Result |
 |---|---|---|
+| `set_menu_bar` | `{menu: {mark: "waiting" or "ready" or "empty", entries: {label: string, since?: number, action: {kind: "agent", path, agent} or {kind: "open"} or null}[]}}` | Replaces the static template image and flat native menu without activating the window. Labels are literal native text; null actions are disabled heads. `since` is epoch milliseconds; the native adapter appends and refreshes its age on menu opening. Replacement invalidates removed actions without retargeting queued events (U5502). |
 | `show_context_menu` | `{items: MenuItem[], x: number, y: number}` | Chosen selectable leaf id, or `null` on dismissal. Coordinates are window CSS pixels. `MenuItem` holds `id`, plain `label`, `enabled`, optional `shortcut`, `group` and recursive `children`. The shared webview projection omits unavailable leaves/empty submenus and orders applicable groups; each adjacent distinct `group` becomes one native separator, without a fake action id. Single-step chords use native accelerators; sequences use separate native hints. Only a leaf dispatches its captured webview callback, once; popup items never enter the installed application menu (U4322a/b). |
 | `select_project_menu` | `{path: string or null, items?: MenuItem[]}` | `null`; items project the shortcut registry labels, chords and availability plus requested surfaces; native activation emits the selected path and command id. The webview rechecks the captured action against the active Project. The webview synchronizes its selected Project whenever tabs change; the Project title is disabled for null (U4278a). `MenuItem.group?: "create" \| "navigate" \| "views"` supplies each projected item’s group and preserves its webview order; omitted groups default to navigate for existing callers; `shortcut` supplies a native one-step accelerator or a separate sequence hint in the Project menu (U4278b), and context menus share both facilities (U4322b). Starts no Daemon and sends no prompt. |
 | `plugin:window-bar\|native_material` | none | `boolean`; whether native material is currently applied (U134); the `native-material` event reports later changes (U135) |
@@ -27,6 +28,7 @@ The App is the Tauri 2 shell in `crates/desktop` (ADR 0001). It starts a Daemon 
 | App emits (Tauri event) | Payload | Result |
 |---|---|---|
 | `open-project-page` | `{path, command: "import-work" or "project-settings"}` | Native Project menu activation captures its synchronized selected Project; only that Project opens its center page (U3813/U3814). No selection emits nothing. |
+| `menu-bar-action` | `{kind: "agent", path, agent}` or `{kind: "open"}` | An enabled current menu row/command brought the window forward. Agent actions retain their original Project and Agent; Open chooses and acknowledges nothing (U5502). |
 | `state-alert-clicked` | `{agent}` | The owner clicked a State alert's banner: the window is in front and the webview opens that Agent (U5232e). |
 | `open-app-settings` | none | The webview opens App Settings in the center (U3799); works without an open Project. |
 

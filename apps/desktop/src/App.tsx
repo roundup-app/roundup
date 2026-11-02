@@ -105,6 +105,8 @@ const Connection = (props: {
   let mine: ConnectedProject | Error | undefined;
 
   const [connected] = createResource(() => props.tab()?.generation, async (generation) => {
+    const exit = props.tab()?.exit;
+
     try {
       const next = await connectProject(props.app.forProject(path), first.project, props.reducedMotion, props.now, () => props.tab()?.generation === generation ? props.tab()?.exit ?? null : { code: null, recovery: "connecting" }, railStorage(path), props.drafts(path), props.viewing);
 
@@ -114,7 +116,8 @@ const Connection = (props: {
         return mine;
       }
 
-      props.onRecovered(path, generation);
+      // Clearing a newer exit would hide its Reopen action.
+      if (props.tab()?.exit === exit) props.onRecovered(path, generation);
 
       return next;
     } catch (failure) {
@@ -285,6 +288,7 @@ export const App = (props: {
   const [windowFailure, setWindowFailure] = createSignal<string | null>(null);
   const [badgeFailure, setBadgeFailure] = createSignal<string | null>(null);
   // U5232g: one line for a refused State alert, whichever Agent raised it.
+  const [menuBarFailure, setMenuBarFailure] = createSignal<string | null>(null);
   const [alertFailure, setAlertFailure] = createSignal<string | null>(null);
   const alerts = createStateAlerts(alert => props.app.stateAlert(alert), inFront, setAlertFailure);
   const capture = props.app.capture;
@@ -353,6 +357,18 @@ export const App = (props: {
     onCleanup(() => void stop?.then(release => release()));
     void stop?.catch(error => setNativeFailure(String(error)));
   });
+
+  const [menuBar] = createResource(() => import("./app/menuBar").catch(error => {
+    setMenuBarFailure(String(error));
+
+    return null;
+  }));
+
+  createEffect(() => menuBar()?.watchMenuBar({
+    solid: { createEffect, onCleanup }, app: props.app, tabs: projects.tabs,
+    connection: connectionOf, select: projects.select,
+    missing: copy.thatIsGone, fail: setMenuBarFailure,
+  }));
 
   const stripTabs = createMemo<StripTab[]>(() =>
     projects.tabs().map((tab) => {
@@ -572,6 +588,8 @@ export const App = (props: {
     if (next) rail?.select(next.id);
   };
 
+
+
   // U5232e: a click on a State alert opens that Agent in its Project, as a click on its Rail row does.
   let alertClicksEnded = false;
   let stopAlertClicks: (() => void) | undefined;
@@ -646,7 +664,7 @@ export const App = (props: {
         }
         rail={
           <>
-            <ReservedLine overlay message={windowFailure() ?? (activeTab()?.exit ? activeTab()?.reopenFailure ?? daemonExitText(activeTab()!.exit!) : null) ?? (projects.tabs().length > 0 ? projects.failure() ?? badgeFailure() ?? alertFailure() : badgeFailure() ?? alertFailure())}>
+            <ReservedLine overlay message={windowFailure() ?? (activeTab()?.exit ? activeTab()?.reopenFailure ?? daemonExitText(activeTab()!.exit!) : null) ?? (projects.tabs().length > 0 ? projects.failure() : null) ?? badgeFailure() ?? alertFailure() ?? menuBarFailure()}>
               <Show when={projects.readFailure() && projects.tabs().length > 0 && !windowFailure() && !activeTab()?.exit}><button data-button="quiet" type="button" onClick={() => void projects.reload()}>{copy.retry}</button></Show>
               <Show when={activeTab()?.exit && !activeTab()?.exit?.recovery}><Reopen onReopen={() => void projects.reopen(activeTab()!.project.path)} busy={projects.reopening()} /></Show>
             </ReservedLine>

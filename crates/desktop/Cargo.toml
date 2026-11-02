@@ -26,7 +26,7 @@ rpc = { path = "../rpc" }
 rupd = { path = "../rupd" }
 serde.workspace = true
 serde_json.workspace = true
-tauri = { version = "2", features = ["protocol-asset", "macos-private-api"] }
+tauri = { version = "2", features = ["protocol-asset", "macos-private-api", "tray-icon"] }
 tauri-plugin-clipboard-manager = "2"
 tauri-plugin-dialog = "2"
 tauri-plugin-window-state = { version = "=2.5.0", path = "vendor/tauri-plugin-window-state-2.5.0" }

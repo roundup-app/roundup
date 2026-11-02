@@ -1,7 +1,7 @@
 [workspace]
 resolver = "2"
 members = ["crates/*"]
-exclude = ["crates/desktop/vendor/tauri-plugin-single-instance-2.5.4", "crates/desktop/vendor/tauri-plugin-deep-link-2.6.2", "vendor/tauri-plugin-global-shortcut-2.4.1", "crates/desktop/vendor/tauri-plugin-store-2.5.0", "crates/desktop/vendor/tauri-plugin-window-state-2.5.0", "vendor/rusqlite-0.40.2", "vendor/vt100-0.16.2", "vendor/vte-0.15.0"]
+exclude = ["crates/desktop/vendor/tauri-plugin-single-instance-2.5.4", "crates/desktop/vendor/tauri-plugin-deep-link-2.6.2", "vendor/tauri-plugin-global-shortcut-2.4.1", "crates/desktop/vendor/tauri-plugin-store-2.5.0", "crates/desktop/vendor/tauri-plugin-window-state-2.5.0", "vendor/rusqlite-0.40.2", "vendor/vt100-0.16.2", "vendor/vte-0.15.0", "vendor/libappindicator-sys-0.9.0"]
 
 [workspace.package]
 edition = "2024"
@@ -33,6 +33,8 @@ unused = { level = "deny", priority = -1 }
 all = { level = "deny", priority = -1 }
 
 [patch.crates-io]
+# Tauri tray backend: retain upstream bindings while sharing libloading 0.8.
+libappindicator-sys = { path = "vendor/libappindicator-sys-0.9.0" }
 tauri-plugin-global-shortcut = { path = "vendor/tauri-plugin-global-shortcut-2.4.1" }
 rusqlite = { path = "vendor/rusqlite-0.40.2" }
 vt100 = { path = "vendor/vt100-0.16.2" }

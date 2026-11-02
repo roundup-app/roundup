@@ -156,6 +156,8 @@ export const createServedApp = (base: string, choice?: () => "choose" | "cancel"
     });
 
   const app: AppSeam = {
+    setMenuBar: async () => {},
+    onMenuBarAction: async () => () => {},
     recentProjects: async () => [],
     claudeBinary: async () => ({ path: "/fake/claude", version: "1.0.0" }),
     writeClipboardText: async () => { throw new RpcError(-32003, "Native clipboard is unavailable in the browser harness. Use the desktop App to copy."); },

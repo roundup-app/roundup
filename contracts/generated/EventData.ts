@@ -18,7 +18,9 @@ import type { TodoId } from "./todo/TodoId";
 import type { ToolCallEvent } from "./agent/ToolCallEvent";
 
 /**  Pushed to subscribers as a JSON-RPC notification: `{"method":"event","params":<Event>}`. */
-export type EventData = { "name": "workstream.updated", "data": AutoParams } | { "name": "ask.changed", "data": {
+export type EventData = 
+/**  Committed publication membership changed; read deliverable.list, never infer a result from replay. */
+{ "name": "deliverable.changed" } | { "name": "workstream.updated", "data": AutoParams } | { "name": "ask.changed", "data": {
 	ask: Ask,
 } } | { "name": "terminal.title", "data": TitleEvent } | { "name": "terminal.status", "data": TerminalStatusEvent } | { "name": "terminal.exited", "data": ExitedEvent } | 
 /**  A Terminal with an owner opened, closed or was forgotten (X11, X12): read `terminal.list`. */
