@@ -101,7 +101,7 @@
   font-size: var(--pad-text-body);
   max-width: var(--pad-reading-width);
   width: 100%;
-  margin-inline: auto;
+  align-self: center;
 }
 
 .pad-body .ProseMirror {
