@@ -34,6 +34,8 @@ it.each(["agents-10", "tree-40"])("u5531b_keyboard_and_click_walk_internal_child
         node.status = {kind: index === 3 ? 'done' : 'working', label: 'working', since: Date.now(), finished:'0'};
         node.final_text = index === 3 ? {attempt:node.attempt,turn:'1',finished:'0',kind:'empty'} : undefined;
       });
+      children[1].status.kind = 'done';
+      children[1].final_text = {attempt:children[1].attempt,turn:'1',finished:'0',kind:'empty'};
       children[0].name = 'Review compatibility with the existing production release';
       window.__u5531 = {home:home.id,child:children[0].id};
       app.handlers['rail.tree'] = () => structuredClone(nodes);
@@ -57,6 +59,10 @@ it.each(["agents-10", "tree-40"])("u5531b_keyboard_and_click_walk_internal_child
     await lane.browser("press", "ArrowLeft");
     await lane.until("!document.querySelector('[data-id=\"' + window.__u5531.child + '\"]')");
     await lane.capture("U5531b", `${seed}-reclosed`);
+    const idle = await lane.evaluate<string>("'fold:' + window.__u5531.home");
+    await lane.browser("click", `[data-id="${idle}"] [data-part=branch-control]`);
+    await lane.capture("U5531b", `${seed}-idle-open`);
+    await lane.browser("click", `[data-id="${idle}"] [data-part=branch-control]`);
     await lane.evaluate(`(() => {
       const app=window.__fake.app; const nodes=app.handlers['rail.tree']();
       const child=nodes.find(node=>node.id===window.__u5531.child);
