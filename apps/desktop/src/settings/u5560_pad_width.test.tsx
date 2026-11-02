@@ -1,3 +1,4 @@
+import userEvent from "@testing-library/user-event";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { AppSettings } from "./AppSettings";
@@ -40,6 +41,8 @@ it.each(["Narrow", "Wide", "Full"])("u5560b_saved_default_initialises_each_pad_o
   const firstEditor = await openPad("one");
   await selected(choice);
   fireEvent.click(screen.getByRole("radio", { name: choice === "Full" ? "Wide" : "Full" }));
+  await openPad("two");
+  await selected(choice);
   connected.drawer.close();
   await waitFor(() => expect(firstEditor.isConnected).toBe(false));
   const secondEditor = await openPad("one");
@@ -50,7 +53,9 @@ it.each(["Narrow", "Wide", "Full"])("u5560b_saved_default_initialises_each_pad_o
   const defaults = await screen.findByRole("radiogroup", { name: "Default width" });
   const current = within(defaults).getByRole("radio", { name: choice });
   current.focus();
-  fireEvent.keyDown(current, { key: choice === "Full" ? "ArrowLeft" : "End" });
+  const user = userEvent.setup();
+
+  for (let step = 0; step < (choice === "Narrow" ? 2 : 1); step++) await user.keyboard(choice === "Full" ? "{ArrowLeft}" : "{ArrowRight}");
   await waitFor(() => expect(JSON.parse(localStorage.getItem("roundup:app-settings")!).padWidth).toBe(next.toLowerCase()));
   fireEvent.click(screen.getByRole("button", { name: "← Back" }));
   await selected(choice);
