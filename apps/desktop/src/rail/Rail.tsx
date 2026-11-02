@@ -472,7 +472,7 @@ export const Rail = () => {
   onMount(() => {
     const clear = (event: MouseEvent) => {
       const recoversSpawn = failure.message()?.startsWith(`${copy.newAgent}: `);
-      const usesRecovery = event.target instanceof Element && event.target.closest(".rail-command-notice");
+      const usesRecovery = event.target instanceof Element && event.target.closest(".rail-command-notice, .rail-actions");
 
       if (!failure.retry() || recoversSpawn && !usesRecovery) {
         failure.clear();
