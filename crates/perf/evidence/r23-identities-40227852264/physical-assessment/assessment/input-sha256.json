@@ -1,8 +1,0 @@
-{
-  "historical-instrumented-v3-marked-low-physical-writes.csv.gz": "d67a9a2f08e22eaa445db0a28505ef28cc68b402f7be06900d0c980e6b59664d",
-  "historical-instrumented-v3-marked-low-markers.jsonl.gz": "1f37a42899d8bd235c3711fddb31c4a97758f3875fb623f08337ceb8f3ad4c21",
-  "historical-instrumented-v3-marked-low-events.stdout.gz": "f77bf913aded9fd61ba4fdc75826afc10e5b4f74cb551d80015e7a529c4188d1",
-  "candidate-instrumented-v3-marked-low-physical-writes.csv.gz": "ba6c7e19055cb11f3e63eff5903c3c47bb5306fa7b35c96399d309e3ce4969a4",
-  "candidate-instrumented-v3-marked-low-markers.jsonl.gz": "c919e890bc60895122dbab0222344e27935ed5f83171b1a7bef233e5d21befcd",
-  "candidate-instrumented-v3-marked-low-events.stdout.gz": "2010ab77ab46c312722b25d2ebc89247e5c990b7c237193302660172b78f4e1b"
-}
