@@ -147,6 +147,7 @@ impl Seen {
         let name = |id: &str| {
             from.nodes
                 .iter()
+                .inspect(|_| cost(0))
                 .find(|node| node.id == id && is_agent(node))
                 .map_or("an Agent that is gone", |node| node.name.as_str())
         };
@@ -164,6 +165,7 @@ impl Seen {
         let node = from
             .nodes
             .iter()
+            .inspect(|_| cost(0))
             .find(|node| node.id == id && is_agent(node))
             .ok_or_else(|| RpcError::not_found(name(id)))?;
         if node.kind != NodeKind::Workstream {
@@ -198,6 +200,7 @@ impl Seen {
         let node = from
             .nodes
             .iter()
+            .inspect(|_| cost(0))
             .find(|node| node.id == child && is_agent(node) && node.status.is_some())?;
         let parent = node.parent.clone().unwrap_or_default();
         let mut book = self.book();
@@ -419,6 +422,7 @@ fn farewells(book: &mut Book, from: &Sources) -> Vec<Push> {
     let child_of = |key: &(String, String)| {
         from.nodes
             .iter()
+            .inspect(|_| cost(0))
             .find(|node| node.id == key.1 && is_agent(node))
     };
     let stale: Vec<(String, String)> = book
@@ -436,10 +440,10 @@ fn farewells(book: &mut Book, from: &Sources) -> Vec<Push> {
         if child_of(&key).is_some() {
             continue;
         }
-        let door = from
-            .nodes
-            .iter()
-            .any(|node| node.id == key.0 && node.kind == NodeKind::Workstream && is_agent(node));
+        let door =
+            from.nodes.iter().inspect(|_| cost(0)).any(|node| {
+                node.id == key.0 && node.kind == NodeKind::Workstream && is_agent(node)
+            });
         if door && !matches!(told.kind, Kind::Done | Kind::Error) {
             pushes.push(Push {
                 meta: key.0.clone(),
@@ -457,11 +461,15 @@ fn farewells(book: &mut Book, from: &Sources) -> Vec<Push> {
 fn newest_pad(child: &RailNode, from: &Sources) -> i64 {
     from.pads
         .iter()
+        .inspect(|_| cost(2))
         .filter(|pad| {
-            from.touches.iter().any(|touch| {
+            from.touches.iter().inspect(|_| cost(3)).any(|touch| {
                 touch.verb == contracts::Verb::Wrote
                     && touch.actor.id == child.id
-                    && touch.item == format!("pad:{}", pad.name)
+                    && touch.item == {
+                        cost(6);
+                        format!("pad:{}", pad.name)
+                    }
             })
         })
         .map(|pad| pad.updated_at)
@@ -473,6 +481,7 @@ fn newest_pad(child: &RailNode, from: &Sources) -> i64 {
 fn children_of<'a>(id: &str, from: &'a Sources) -> Vec<&'a RailNode> {
     from.nodes
         .iter()
+        .inspect(|_| cost(0))
         .filter(|child| child.parent.as_deref() == Some(id) && is_agent(child))
         .filter(|child| child.status.is_some())
         .collect()
@@ -482,6 +491,7 @@ fn children_of<'a>(id: &str, from: &'a Sources) -> Vec<&'a RailNode> {
 fn pairs<'a>(from: &'a Sources) -> impl Iterator<Item = (&'a RailNode, &'a RailNode)> {
     from.nodes
         .iter()
+        .inspect(|_| cost(0))
         .filter(|node| is_agent(node))
         .flat_map(|meta| {
             children_of(&meta.id, from)
@@ -513,6 +523,7 @@ fn entry(
     let told = from
         .messages
         .iter()
+        .inspect(|_| cost(4))
         .filter(|message| {
             message.from.kind == ActorKind::Agent
                 && message.from.id == child.id
@@ -540,6 +551,7 @@ fn entry(
     let todos = from
         .todos
         .iter()
+        .inspect(|_| cost(1))
         .filter(|todo| {
             !todo.done && todo.creator.kind == ActorKind::Agent && todo.creator.id == child.id
         })
@@ -547,11 +559,15 @@ fn entry(
     let mut written: Vec<&Pad> = from
         .pads
         .iter()
+        .inspect(|_| cost(2))
         .filter(|pad| {
-            from.touches.iter().any(|touch| {
+            from.touches.iter().inspect(|_| cost(3)).any(|touch| {
                 touch.verb == contracts::Verb::Wrote
                     && touch.actor.id == child.id
-                    && touch.item == format!("pad:{}", pad.name)
+                    && touch.item == {
+                        cost(6);
+                        format!("pad:{}", pad.name)
+                    }
             })
         })
         .filter(|pad| after.is_none_or(|after| pad.updated_at > after))
@@ -598,7 +614,7 @@ fn final_text<'a>(child: &RailNode, from: &'a Sources) -> Option<&'a (String, i6
 }
 
 fn question_since(child: &RailNode, from: &Sources, started: i64) -> bool {
-    from.messages.iter().any(|message| {
+    from.messages.iter().inspect(|_| cost(4)).any(|message| {
         message.from.kind == ActorKind::Agent
             && message.from.id == child.id
             && message.kind == contracts::message::MessageKind::Question
@@ -661,3 +677,16 @@ pub(crate) fn fit(mut entry: DigestEntry, max: usize) -> DigestEntry {
 
 #[cfg(test)]
 mod tests;
+// B5641a counts source visits at the loops, never inferred from capacities.
+#[inline]
+fn cost(column: usize) {
+    #[cfg(test)]
+    COST.with(|counts| counts.borrow_mut()[column] += 1);
+    #[cfg(not(test))]
+    let _ = column;
+}
+
+#[cfg(test)]
+thread_local! {
+    static COST: std::cell::RefCell<[usize; 7]> = const { std::cell::RefCell::new([0; 7]) };
+}

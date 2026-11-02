@@ -785,3 +785,158 @@ fn b37_an_older_idle_snapshot_cannot_supersede_a_needs_you_digest() {
         "a snapshot read before the attention note must not replace it with idle"
     );
 }
+
+// B5641's fixtures are built outside every measured region.
+fn projection_fixture(
+    agents: usize,
+    history: usize,
+) -> (Vec<RailNode>, Vec<Todo>, Vec<Pad>, Vec<Message>) {
+    let mut nodes = rail();
+    nodes.truncate(1);
+    nodes.push(node("lead", NodeKind::Agent, None, "coordinating"));
+    for i in 0..agents {
+        nodes.push(node(
+            &format!("c{i}"),
+            NodeKind::Agent,
+            Some(if i % 2 == 0 { "m" } else { "lead" }),
+            "reading",
+        ));
+    }
+    let todos = (0..agents)
+        .map(|i| todo(u32::try_from(i).unwrap(), &format!("c{i}"), i % 3 == 0))
+        .collect();
+    let pads = (0..100)
+        .map(|i| {
+            pad(
+                &format!("成果-{i}"),
+                &format!("c{}", i % agents),
+                i64::try_from(i / 5).unwrap(),
+            )
+        })
+        .collect();
+    let messages = (0..history)
+        .map(|i| {
+            sent(
+                u32::try_from(i).unwrap(),
+                &format!("c{}", i % agents),
+                if i % 3 == 0 {
+                    "other"
+                } else if i % 2 == 0 {
+                    "m"
+                } else {
+                    "lead"
+                },
+                "a note\nsecond line",
+            )
+        })
+        .collect();
+    (nodes, todos, pads, messages)
+}
+
+fn projection_sources<'a>(
+    data: &'a (Vec<RailNode>, Vec<Todo>, Vec<Pad>, Vec<Message>),
+) -> Sources<'a> {
+    let mut from = sources(&data.0, &data.1, &data.2, &data.3);
+    let touches = from.touches.clone();
+    from.touches = touches.iter().cycle().take(1000).cloned().collect();
+    from
+}
+
+#[test]
+fn b5641a_sources_are_indexed_once_per_comparison() {
+    let data = projection_fixture(40, 1000);
+    let from = projection_sources(&data);
+    let seen = Seen::default();
+    seen.baseline(&from);
+    COST.with(|counts| *counts.borrow_mut() = [0; 7]);
+    assert!(seen.changed(&from).is_empty());
+    COST.with(|counts| assert_eq!(*counts.borrow(), [42, 40, 100, 1000, 1000, 0, 100]));
+}
+
+#[test]
+fn b5641d_no_change_work_and_allocations() {
+    for agents in [10, 40] {
+        for history in [100, 1000, 10000] {
+            let data = projection_fixture(agents, history);
+            let from = projection_sources(&data);
+            let seen = Seen::default();
+            let start = std::time::Instant::now();
+            let baseline = allocation_counter::measure(|| seen.baseline(&from));
+            let baseline_time = start.elapsed();
+            COST.with(|counts| *counts.borrow_mut() = [0; 7]);
+            let mut pushes = Vec::new();
+            let start = std::time::Instant::now();
+            let unchanged = allocation_counter::measure(|| pushes = seen.changed(&from));
+            let unchanged_time = start.elapsed();
+            assert!(pushes.is_empty());
+            eprintln!(
+                "B5641 agents={agents} history={history} baseline_bytes={} baseline_allocs={} baseline_us={} unchanged_bytes={} unchanged_allocs={} unchanged_us={} visits={:?}",
+                baseline.bytes_total,
+                baseline.count_total,
+                baseline_time.as_micros(),
+                unchanged.bytes_total,
+                unchanged.count_total,
+                unchanged_time.as_micros(),
+                COST.with(|c| *c.borrow())
+            );
+        }
+    }
+}
+
+#[test]
+fn b5641b_projection_preserves_entries_and_pushes() {
+    let mut data = projection_fixture(24, 100);
+    data.0[3].status = None;
+    data.1[1].creator.kind = ActorKind::Ext;
+    data.1[2].creator.kind = ActorKind::User;
+    data.2[0].name = "成果-10-prefix".into();
+    data.3.push(sent(100, "c0", "other", "wrong recipient"));
+    data.3.push(sent(99, "c0", "m", "first tied id"));
+    data.3.push(sent(99, "c0", "m", "last tied id"));
+    data.3.push(sent(98, "c0", "m", "later supplied lower id"));
+    let seen = Seen::default();
+    let from = projection_sources(&data);
+    seen.baseline(&from);
+    let before = seen
+        .ask(
+            &Actor {
+                kind: ActorKind::User,
+                id: "user".into(),
+                parent: None,
+            },
+            "m",
+            &from,
+        )
+        .unwrap();
+    data.0[2].status = Some(status(Kind::Done, "done"));
+    let from = projection_sources(&data);
+    let pushes = seen.changed(&from);
+    let actual = serde_json::json!({"read": before, "pushes": pushes.iter().map(|p| serde_json::json!([p.meta, p.subagent(), p.entry, push_body(&p.entry)])).collect::<Vec<_>>()});
+    // Captured from 4e3cb8273 before the projection; exact entries, receiver and formatted push.
+    let expected: serde_json::Value = serde_json::from_str(r###"{"read":{"children":[{"name":"c0-name","kind":"working","last":"last tied id","todos":0,"pads":["成果-24","成果-48","成果-72","成果-96","[cut]"]},{"name":"c2-name","kind":"working","last":"a note","todos":0,"pads":["成果-26","成果-50","成果-74","成果-98","[cut]"]},{"name":"c4-name","kind":"working","last":"a note","todos":1,"pads":["成果-4","成果-28","成果-52","成果-76"]},{"name":"c6-name","kind":"working","last":"reading","todos":0,"pads":["成果-6","成果-30","成果-54","成果-78"]},{"name":"c8-name","kind":"working","last":"a note","todos":1,"pads":["成果-8","成果-32","成果-56","成果-80"]},{"name":"c10-name","kind":"working","last":"a note","todos":1,"pads":["成果-10","成果-34","成果-58","成果-82"]},{"name":"c12-name","kind":"working","last":"reading","todos":0,"pads":["成果-12","成果-36","成果-60","成果-84"]},{"name":"c14-name","kind":"working","last":"a note","todos":1,"pads":["成果-14","成果-38","成果-62","成果-86"]},{"name":"c16-name","kind":"working","last":"a note","todos":1,"pads":["成果-16","成果-40","成果-64","成果-88"]},{"name":"c18-name","kind":"working","last":"reading","todos":0,"pads":["成果-18","成果-42","成果-66","成果-90"]},{"name":"c20-name","kind":"working","last":"a note","todos":1,"pads":["成果-20","成果-44","成果-68","成果-92"]},{"name":"c22-name","kind":"working","last":"a note","todos":1,"pads":["成果-22","成果-46","成果-70","成果-94"]}]},"pushes":[["m","c0",{"name":"c0-name","kind":"done","last":"last tied id","todos":0,"pads":["成果-24","成果-48","成果-72","成果-96","[cut]"]},"[digest] c0-name is done\n  last: last tied id\n  open todos: 0\n  pads: 成果-24, 成果-48, 成果-72, 成果-96, [cut]"]]}"###).unwrap();
+    assert_eq!(actual, expected);
+    assert!(seen.changed(&from).is_empty());
+}
+
+#[test]
+fn b5641c_fresh_sources_keep_delivery_history() {
+    let seen = Seen::default();
+    let data = projection_fixture(2, 0);
+    seen.baseline(&projection_sources(&data));
+    let mut replacement = projection_fixture(2, 0);
+    replacement.0[2].status = Some(status(Kind::Blocked, "blocked"));
+    let mut pushes = seen.changed(&projection_sources(&replacement));
+    let entry = pushes[0].entry.clone();
+    assert_eq!(pushes.len(), 1);
+    seen.release(pushes.remove(0));
+    let retry = seen.changed(&projection_sources(&replacement));
+    assert_eq!(retry[0].entry, entry);
+    assert_eq!(retry[0].meta, "m");
+    assert!(seen.changed(&projection_sources(&replacement)).is_empty());
+    replacement.0.remove(2);
+    let gone = seen.changed(&projection_sources(&replacement));
+    assert_eq!(gone.len(), 1);
+    assert_eq!(gone[0].entry, entry);
+    assert_eq!(gone[0].meta, "m");
+    assert!(seen.changed(&projection_sources(&replacement)).is_empty());
+}
