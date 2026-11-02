@@ -126,7 +126,7 @@ const mountApp = async (capture?: import("../app/seam").CapturePort, empty = fal
   let original: ConnectedProject | undefined;
   const emulators = fakeEmulators();
   render(() => <App app={app} reducedMotion={() => true} clock={() => 0} createEmulator={emulators.factory} prepareIdle={open => { if (open.project.path === path("first")) original = open; }} />);
-  await screen.findByRole("tab", { name: /^first/ });
+  await within(await screen.findByLabelText("Projects", { selector: '[role="tablist"]' })).findByRole("tab", { name: /^first/ });
   fireEvent.click(tab("first"));
   await waitFor(() => expect(original).toBeDefined());
 
@@ -261,7 +261,7 @@ it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $
   let newer: ReturnType<typeof connected.drafts.list>[number] | undefined;
 
   if (row.label === "Agent with prompt") {
-    const prompt = await screen.findByRole<HTMLTextAreaElement>("textbox", { name: "Work" });
+    const prompt = await screen.findByLabelText<HTMLTextAreaElement>("Work", { selector: '[role="textbox"], textarea' });
     fireEvent.input(prompt, { target: { value: " A\ne\u0301 🧭 " } });
     submitted = connected.drafts.list().find(entry => entry.destination.surface === "rail-task");
     switcherKey("Enter", {}, prompt);
@@ -342,7 +342,7 @@ it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $
       const recovery = connected.rail.commandFailure.retry();
       expect(recovery).not.toBeNull();
       expect(connected.drafts.list()).toEqual(drafts);
-      fireEvent.click(screen.getByRole("button", { name: "Open first" }));
+      fireEvent.click(within(document.querySelector<HTMLElement>(".centre-notice")!).getByRole("button", { name: "Open first" }));
       await waitFor(() => expect(document.querySelector(row.origin)).not.toBeNull());
       expect(ofMethod()).toHaveLength(1);
       // New facts must not change the name captured by the empty-Rail activation.
@@ -394,7 +394,7 @@ it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $
       await waitFor(() => expect(screen.getAllByRole("alert").some(alert => alert.textContent?.includes("Native Capture could not open") && alert.textContent.includes(row.label))).toBe(true));
       expect(connected.drafts.list()).toEqual(drafts);
       expect(ofMethod()).toHaveLength(1);
-      fireEvent.click(screen.getByRole("button", { name: "Open first" }));
+      fireEvent.click(within(document.querySelector<HTMLElement>(".centre-notice")!).getByRole("button", { name: "Open first" }));
       await waitFor(() => expect(document.querySelector(row.origin)).not.toBeNull());
       expect(ofMethod()).toHaveLength(1);
       connected.rail.select("elsewhere");
@@ -435,7 +435,7 @@ it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $
       expect(connected.drafts.list()).toEqual(drafts);
       expect(ofMethod()).toHaveLength(1);
       expect(screen.getAllByRole("alert").some(alert => alert.textContent?.includes("Outcome is unknown"))).toBe(true);
-      fireEvent.click(screen.getByRole("button", { name: "Open first" }));
+      fireEvent.click(within(document.querySelector<HTMLElement>(".centre-notice")!).getByRole("button", { name: "Open first" }));
       await waitFor(() => expect(document.querySelector(row.origin)).not.toBeNull());
       expect(ofMethod()).toHaveLength(1);
       expect(connected.drafts.list()).toEqual(drafts);
@@ -501,7 +501,7 @@ it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $
         expect(connected.drafts.list().filter(entry => entry.destination.surface === "switcher")).toEqual(queryDraft);
         expect("other" in mounted && mounted.other.calls.filter(call => call.method === row.method || call.method === "message.send" || call.method === "terminal.write")).toEqual([]);
         expect(app.badges.filter(count => count > 0)).toEqual([]);
-        fireEvent.click(screen.getByRole("button", { name: "Open first" }));
+        fireEvent.click(within(document.querySelector<HTMLElement>(".centre-notice")!).getByRole("button", { name: "Open first" }));
         await waitFor(() => expect(document.querySelector(row.origin)).not.toBeNull());
         expect(connected.drafts.list().filter(entry => entry.destination.surface === "switcher")).toEqual(queryDraft);
         expect(ofMethod()).toHaveLength(1);
@@ -588,7 +588,7 @@ it.each(reviewCases)("s3806b_action_survives_surface_close: Review changes $read
   app.handlers["agent.changedFiles"] = () => ({ files: [{ path: "a.ts", status: "modified", line: 1 }] });
   await connected.rail.refresh();
   connected.rail.select("reviewed");
-  const origin = await screen.findByRole("button", { name: "1 changed file" });
+  const origin = await screen.findByLabelText("1 changed file", { selector: "button" });
   const retained = connected.drafts.edit({ surface: "rail-task", object: "ops", recipient: "reviewed" }, { text: "  é 🧭\n unfinished  " }, null, "ordinary");
   await retained.retained;
   const notes = notesFor(connected.app, path("first"), connected.drafts);
@@ -668,7 +668,7 @@ it.each(reviewCases)("s3806b_action_survives_surface_close: Review changes $read
     app.handlers["agent.changedFiles"] = () => ({ files: [{ path: "original.ts", status: "modified", line: 1 }] });
 
     if (removal === "project") {
-      fireEvent.click(screen.getByRole("button", { name: /Open first/ }));
+      fireEvent.click(within(document.querySelector<HTMLElement>(".centre-notice")!).getByRole("button", { name: /Open first/ }));
       await screen.findByText("ops", { selector: ".name" });
     }
 
