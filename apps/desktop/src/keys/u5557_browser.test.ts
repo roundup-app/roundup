@@ -36,7 +36,7 @@ beforeAll(async () => {
     if (!ready.ok) throw new Error(await ready.text());
   }
 
-  await browser("--profile", profile, "--executable-path", "/opt/google/chrome/chrome", "--args", "--no-sandbox", "--color-scheme", "dark", "open", new URL("/harness.html?seed=empty-project", server.resolvedUrls.local[0]!).href);
+  await browser("--profile", profile, "--args", "--no-sandbox", "--color-scheme", "dark", "open", new URL("/harness.html?seed=empty-project", server.resolvedUrls.local[0]!).href);
   await browser("set", "viewport", "1512", "950");
   await browser("set", "media", "dark");
 }, 90_000);
@@ -57,10 +57,13 @@ it("u5557b_every_chip_uses_keychip", async () => {
   for (const seed of ["empty-project", "first-run", "tree-40"]) {
     await browser("open", new URL(`/harness.html?seed=${seed}`, server.resolvedUrls.local[0]!).href);
     await browser("set", "media", "dark");
-    await browser("wait", "--fn", seed === "first-run" ? `!!document.querySelector('.choose-project kbd')` : `!!window.__fake && !!document.querySelector('.rail-actions kbd')`);
+    await browser("wait", "--fn", seed === "first-run" ? `!!document.querySelector('.choose-project kbd')` : `!!window.__fake && !!document.querySelector('.rail-actions button')`);
 
     if (seed === "tree-40") {
-      await read(`window.__fake.failNext(-32003, 'Could not start the Agent. Try again.'); document.querySelector('.rail-actions [aria-label="New Agent"]').click()`);
+      await browser("click", '.rail-actions [aria-label="Create"]');
+      await browser("wait", "--fn", `!!document.querySelector('[role=menuitem][data-value=agent]')`);
+      await read(`window.__fake.failNext(-32003, 'Could not start the Agent. Try again.')`);
+      await browser("click", '[role=menuitem][data-value=agent]');
       await browser("wait", "--fn", `document.querySelector('.rail-command-notice')?.textContent.includes('Could not start the Agent. Try again.')`);
 
       for (const dir of dirs) {
@@ -70,6 +73,11 @@ it("u5557b_every_chip_uses_keychip", async () => {
 
       await browser("press", "?");
       await browser("wait", "--fn", `!!document.querySelector('.help kbd')`);
+    }
+
+    if (seed === "empty-project") {
+      await browser("click", '.rail-actions [aria-label="Create"]');
+      await browser("wait", "--fn", `!!document.querySelector('[role=menuitem] kbd')`);
     }
 
     if (phase !== "base") expect(await read(`Array.from(document.querySelectorAll('kbd')).every(chip => chip.classList.contains('key-chip'))`)).toBe(true);

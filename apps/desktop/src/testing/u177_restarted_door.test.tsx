@@ -1,3 +1,4 @@
+import { chooseFooter } from "../rail/railFixture";
 import { resolve } from "node:path";
 import { copy } from "./copy";
 // @vitest-environment jsdom
@@ -53,7 +54,7 @@ describe("u177 a stopped Door starts again on the real Daemon", () => {
       await app.rpc("message.send", { to: workstream.id, kind: "note", body, replyTo: null });
     };
 
-    fireEvent.click((await screen.findAllByRole("button", { name: /^(New Workstream|Add Workstream)$/ }))[0]!);
+    await chooseFooter("Workstream");
     await waitFor(settled(first), { timeout: 30_000 });
     await send(first, "ship a");
     await waitFor(async () => expect(await messages(first)).toContainEqual(["ship a", "delivered"]), { timeout: 90_000 });

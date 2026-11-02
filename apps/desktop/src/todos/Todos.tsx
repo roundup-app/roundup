@@ -53,7 +53,7 @@ import { shownTodos } from "./shownTodos";
 import { rowAfter, doneTodos, nowTodos, offeredAsBlockers, planDrop, treeCollection, treeRows, type NestedRow } from "./todoView";
 
 /** U3513a: the keys the quiet footer shows; Help lists the rest. */
-const QUIET_KEYS = ["J K", "A", "X"];
+const QUIET_KEYS = ["todo.triage-move", "todo.triage-assign", "todo.triage-done"];
 
 export const Todos = (props: {
   /** Open a retained creation form using this Project's already-loaded Todo facts. */

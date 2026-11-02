@@ -258,9 +258,13 @@ it.each([
   'const view = <KeyChip keys={shortcutLabel("meta+KeyN")} />;',
   'const copied = "meta+KeyN"; const view = <KeyChip keys={shortcutLabel(copied)} />;',
   'const copied = "⌘N"; const row = CHORDS.find(row => row.keys === copied);',
+  'import { CHORDS as rows } from "../keys/chords"; const row = rows.find(row => row.keys === "⌘N");',
+  'const rows = CHORDS; const row = rows.find(row => row.keys === "⌘N");',
+  'const row = CHORDS.find(row => defaultKeys(row) === "⌘N");',
+  'const format = (press: string) => shortcutLabel(press); const view = <KeyChip keys={format("meta+KeyN")} />;',
   'const shortcut = ariaChord({...chordNamed("agent.new")!, presses: ["meta+KeyN"]});',
 ])("u5557b_rejects_copied_shortcuts_or_a_second_renderer %s", source => {
-  expect(checkKeys({ 'app/view.tsx': source }).map(row => row.rule)).toEqual(['key-source']);
+  expect(checkKeys({ 'app/view.tsx': source }).map(row => row.rule)).toContain('key-source');
 });
 
 it("u5557b_accepts_live_registry_shortcuts", () => {

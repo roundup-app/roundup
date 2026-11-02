@@ -612,15 +612,39 @@ export const checkKeys = files => Object.entries(files).filter(([file]) => produ
   const fail = node => diagnostics.push({ rule: 'key-source', message: `${file}:${node.loc.start.line}: keys must come from the registry; only KeyChip emits kbd` });
   const tree = parse(source, { sourceType: 'module', plugins: ['typescript', 'jsx'] });
   const fromRegistry = node => node?.type === 'CallExpression' && node.callee.type === 'Identifier' && node.callee.name === 'ariaChord';
+
+  const namesRegistry = (path, name, seen = new Set()) => {
+    if (!path.isIdentifier() || seen.has(path.node.name)) return false;
+    seen.add(path.node.name);
+    const binding = path.scope.getBinding(path.node.name);
+
+    if (!binding) return path.node.name === name;
+
+    if (binding.path.isImportSpecifier()) return keyOf(binding.path.node.imported) === name;
+
+    if (binding.path.isVariableDeclarator()) return namesRegistry(binding.path.get('init'), name, seen);
+
+    return false;
+  };
+
   traverse(tree, {
+    StringLiteral(path) {
+      // Saved shortcut defaults and reservation rules belong to Settings; UI call sites cannot type physical presses.
+      if (/^(?:(?:ctrl|alt|meta|shift)\+)+(?:Key[A-Z]|Digit[0-9]|[A-Z][a-zA-Z]+)$/.test(path.node.value)
+        && !['settings/preferences.ts', 'settings/shortcutRules.ts', 'settings/ShortcutSetting.tsx'].includes(file)
+        && !path.findParent(parent => parent.isObjectProperty() && keyOf(parent.node.key) === 'presses')) fail(path.node);
+    },
     CallExpression(path) {
       const callee = path.node.callee;
 
-      if (callee.type === 'Identifier' && callee.name === 'shortcutLabel' && path.get('arguments.0').evaluate().confident) fail(path.node);
+      if (namesRegistry(path.get('callee'), 'shortcutLabel') && path.get('arguments.0').evaluate().confident) fail(path.node);
 
-      if (callee.type === 'MemberExpression' && callee.object.name === 'CHORDS' && callee.property.name === 'find') {
+      if (callee.type === 'MemberExpression' && namesRegistry(path.get('callee.object'), 'CHORDS') && callee.property.name === 'find') {
         let displayLookup = false;
-        path.get('arguments.0').traverse({ MemberExpression(inner) { if (keyOf(inner.node.property) === 'keys') displayLookup = true; } });
+        path.get('arguments.0').traverse({
+          MemberExpression(inner) { if (keyOf(inner.node.property) === 'keys') displayLookup = true; },
+          CallExpression(inner) { if (namesRegistry(inner.get('callee'), 'defaultKeys')) displayLookup = true; },
+        });
 
         if (displayLookup) fail(path.node);
       }
