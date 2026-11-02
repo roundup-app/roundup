@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
+import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { RpcError } from "../app/seam";
 import { agent, door, workstream } from "../testing/nodes";
@@ -72,4 +72,15 @@ it("u427_an_unavailable_add_is_omitted_and_calls_nothing", async () => {
   await mounted.app.closeMenu();
 
   expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([]);
+});
+
+it("u427_folder_and_editor_are_menu_only", async () => {
+  const { app } = await mountRail([door("g", "idle", "ready")]);
+
+  for (const label of ["Open directory", "Open in editor"]) {
+    expect(within(rowOf("g")).queryByRole("button", { name: label })).toBeNull();
+  }
+
+  fireEvent.contextMenu(rowOf("g"));
+  expect(app.menuLabels()).toEqual(expect.arrayContaining(["Open directory", "Open in editor"]));
 });
