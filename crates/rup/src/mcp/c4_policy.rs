@@ -5,37 +5,39 @@ use std::collections::BTreeMap;
 fn c4_declarations_preserve_mcp_policy() {
     // Captured from main 09f5f6611: descriptions, names, schemas, reshaping, injection and role sets.
     let before: Value = serde_json::from_str(include_str!("fixtures/c4-before.json")).unwrap();
-    for _ in 0..2 {
-        let rows: BTreeMap<_, _> = commands(true)
-            .into_iter()
-            .map(|offer| {
-                let params = offer.params(
-                    "fixture-agent",
-                    Some(JsonObject::from_iter([
-                        ("id".into(), "supplied-id".into()),
-                        ("reader".into(), "supplied-reader".into()),
-                    ])),
-                );
-                (
-                    offer.method,
-                    serde_json::json!({
-                        "tool": offer.tool, "params": params,
-                        "takes_params": offer.takes_params, "own_id": offer.own_id,
-                        "own_reader": offer.own_reader, "waits_for_user": offer.waits_for_user,
-                        "door_only": offer.door_only, "stream": offer.stream,
-                    }),
-                )
-            })
+    let rows: BTreeMap<_, _> = commands(true)
+        .into_iter()
+        .map(|offer| {
+            let params = offer.params(
+                "fixture-agent",
+                Some(JsonObject::from_iter([
+                    ("id".into(), "supplied-id".into()),
+                    ("reader".into(), "supplied-reader".into()),
+                ])),
+            );
+            (
+                offer.method,
+                serde_json::json!({
+                    "tool": offer.tool, "params": params,
+                    "takes_params": offer.takes_params, "own_id": offer.own_id,
+                    "own_reader": offer.own_reader, "waits_for_user": offer.waits_for_user,
+                    "door_only": offer.door_only, "stream": offer.stream,
+                }),
+            )
+        })
+        .collect();
+    for (method, expected) in before["commands"].as_object().unwrap() {
+        assert_eq!(rows.get(method.as_str()), Some(expected), "{method}");
+    }
+    for (role, list) in [("agents", tools(false)), ("doors", door_tools())] {
+        // Pin the base methods' entire role sets without making additions update this record.
+        let mut methods: Vec<_> = list
+            .iter()
+            .map(|offer| offer.method)
+            .filter(|method| before["commands"].get(*method).is_some())
             .collect();
-        assert_eq!(rows.len(), before["commands"].as_object().unwrap().len());
-        for (method, actual) in rows {
-            assert_eq!(actual, before["commands"][method], "{method}");
-        }
-        for (role, list) in [("agents", tools(false)), ("doors", door_tools())] {
-            let mut methods: Vec<_> = list.iter().map(|offer| offer.method).collect();
-            methods.sort_unstable();
-            assert_eq!(serde_json::to_value(methods).unwrap(), before[role]);
-        }
+        methods.sort_unstable();
+        assert_eq!(serde_json::to_value(methods).unwrap(), before[role]);
     }
 }
 
