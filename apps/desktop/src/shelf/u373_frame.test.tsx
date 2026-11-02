@@ -234,6 +234,7 @@ describe("u370 the Shelf closes and opens", () => {
     const first = await mountApp();
 
     chord();
+    await waitFor(() => expect(JSON.parse(localStorage.getItem("roundup:shelf:/Users/you/harness") ?? "null")?.open).toBe(false));
     batch(cleanup);
     render(() => <App app={first.app} reducedMotion={() => true} clock={Date.now} createEmulator={fakeEmulators().factory} />);
     await screen.findAllByRole("treeitem");
