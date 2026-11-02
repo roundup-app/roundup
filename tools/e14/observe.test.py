@@ -197,13 +197,19 @@ class CI5527(unittest.TestCase):
             output = Path(temporary) / "lane"
             args = SimpleNamespace(lane="web2", base=base, output=output, shards=7,
                                    cache_state="fixture", memory_log=None, build_observation=False,
-                                   install_dependencies=False)
+                                   install_dependencies=True)
+            clock = [0]
+
+            def install(*_args, **_kwargs):
+                clock[0] = 2
+
             if modules is None:
                 modules = [dict(id="one.test.ts", state="passed", duration_ms=23,
                                 tests=[dict(id="one::test", status="passed", retries=0, repeats=0,
                                             start=1500, end=1500, real=False)])]
 
             def launch(*_args, **_kwargs):
+                clock[0] = elapsed
                 if raw != "absent":
                     (output / "web.json").write_text(raw if raw is not None else json.dumps(dict(modules=modules, errors=[])))
                 return SimpleNamespace(poll=lambda: code, returncode=code)
@@ -214,7 +220,8 @@ class CI5527(unittest.TestCase):
                 stack.enter_context(patch.object(observer.platform, "processor", return_value="fixture CPU"))
                 stack.enter_context(patch.object(observer.subprocess, "check_output", side_effect=["a" * 40, ""]))
                 stack.enter_context(patch.object(observer.subprocess, "Popen", side_effect=launch))
-                stack.enter_context(patch.object(observer.time, "monotonic", side_effect=[0, 0, elapsed, elapsed]))
+                stack.enter_context(patch.object(observer.subprocess, "run", side_effect=install))
+                stack.enter_context(patch.object(observer.time, "monotonic", side_effect=lambda: clock[0]))
                 stack.enter_context(patch.object(observer.time, "time", return_value=1.5))
                 stack.enter_context(contextlib.redirect_stdout(stream))
                 result = observer.run(args)
