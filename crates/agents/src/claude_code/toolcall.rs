@@ -97,7 +97,8 @@ fn summary(tool: &str, input: &Value, root: &str) -> Option<String> {
         "WebFetch" => field(&["url", "query"])?,
         _ => return None,
     };
-    let line = cleaned(line, SUMMARY_MAX, true);
+    let mut line = cleaned(line, SUMMARY_MAX, true);
+    line.truncate(line.trim_end().len());
     (!line.is_empty()).then_some(line)
 }
 
