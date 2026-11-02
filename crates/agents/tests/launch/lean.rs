@@ -786,3 +786,142 @@ fn lc18_a_start_without_it_has_no_switch() {
 
 #[path = "lean/memory.rs"]
 mod memory;
+
+#[tokio::test]
+async fn lc22_a_failed_memory_command_blocks() {
+    use std::os::unix::fs::PermissionsExt;
+    use std::process::Stdio;
+    use tokio::io::AsyncWriteExt;
+
+    for (_, role, pair) in lean_children().into_iter().take(2) {
+        for mcp_off in [false, true] {
+            for yolo in [false, true] {
+                for resume in [None, Some("saved-conversation")] {
+                    let mut s = setup();
+                    s.dir = s.root.path().join("Project's checkout/.roundup");
+                    s.cwd = s.dir.parent().unwrap().join("work");
+                    std::fs::create_dir_all(&s.dir).unwrap();
+                    s.rup = s.root.path().join("rup's program");
+                    std::fs::write(&s.rup, "").unwrap();
+                    std::fs::create_dir(&s.cwd).unwrap();
+                    let memory = s.root.path().join("Claude's memory");
+                    s.user_file(
+                        "settings.json",
+                        &json!({"autoMemoryDirectory":memory}).to_string(),
+                    );
+                    let pair = Pair {
+                        mcp_off,
+                        yolo,
+                        ..pair.clone()
+                    };
+                    let argv = s.prepare_lean("7", role, &pair, resume).unwrap();
+                    let settings = read(Path::new(Setup::after(&argv, "--settings").unwrap()));
+                    let hook = settings["hooks"]["PreToolUse"]
+                        .as_array()
+                        .unwrap()
+                        .iter()
+                        .find(|hook| hook["matcher"] == "Write|Edit")
+                        .unwrap();
+                    let command = hook["hooks"][0]["command"].as_str().unwrap();
+                    for tool in ["Write", "Edit"] {
+                        for failure in [
+                            "panic",
+                            "nonzero",
+                            "allow-then-fail",
+                            "TERM",
+                            "KILL",
+                            "missing",
+                            "not-executable",
+                        ] {
+                            let script = match failure {
+                                "panic" => "exit 101",
+                                "nonzero" => "exit 1",
+                                "allow-then-fail" => {
+                                    "printf '%s\\n' '{\"hookSpecificOutput\":{\"permissionDecision\":\"allow\"}}'; exit 1"
+                                }
+                                "TERM" | "KILL" => {
+                                    "printf '%s\\n' \"$$\" > \"$READY\"; exec sleep 3"
+                                }
+                                _ => "exit 0",
+                            };
+                            std::fs::write(&s.rup, format!("#!/bin/sh\n{script}\n")).unwrap();
+                            std::fs::set_permissions(
+                                &s.rup,
+                                std::fs::Permissions::from_mode(if failure == "not-executable" {
+                                    0o600
+                                } else {
+                                    0o700
+                                }),
+                            )
+                            .unwrap();
+                            if failure == "missing" {
+                                std::fs::remove_file(&s.rup).unwrap();
+                            }
+                            let ready = s.root.path().join("ready");
+                            let _ = std::fs::remove_file(&ready);
+                            let mut child = tokio::process::Command::new("bash")
+                                .args(["-c", command])
+                                .env("READY", &ready)
+                                .stdin(Stdio::piped())
+                                .stdout(Stdio::piped())
+                                .stderr(Stdio::piped())
+                                .kill_on_drop(true)
+                                .spawn()
+                                .unwrap();
+                            child.stdin.take().unwrap().write_all(json!({
+                                "tool_name":tool, "tool_input":{"file_path":s.cwd.join("source.rs")},
+                                "permission_mode":if yolo { "bypassPermissions" } else { "default" }
+                            }).to_string().as_bytes()).await.unwrap();
+                            if matches!(failure, "TERM" | "KILL") {
+                                let pid = tokio::time::timeout(Duration::from_secs(2), async {
+                                    loop {
+                                        if let Ok(text) = std::fs::read_to_string(&ready)
+                                            && let Ok(pid) = text.trim().parse::<i32>()
+                                        {
+                                            break rustix::process::Pid::from_raw(pid).unwrap();
+                                        }
+                                        tokio::time::sleep(Duration::from_millis(1)).await;
+                                    }
+                                })
+                                .await
+                                .expect("memory fixture announced readiness");
+                                rustix::process::kill_process(
+                                    pid,
+                                    if failure == "TERM" {
+                                        rustix::process::Signal::TERM
+                                    } else {
+                                        rustix::process::Signal::KILL
+                                    },
+                                )
+                                .unwrap();
+                            }
+                            let output = tokio::time::timeout(
+                                Duration::from_secs(4),
+                                child.wait_with_output(),
+                            )
+                            .await
+                            .expect("hook ended")
+                            .unwrap();
+                            let stderr = String::from_utf8_lossy(&output.stderr);
+                            assert_eq!(
+                                output.status.code(),
+                                Some(2),
+                                "{role:?} {mcp_off} {yolo} {resume:?} {tool} {failure}: {stderr}"
+                            );
+                            assert!(
+                                output.stdout.is_empty(),
+                                "failed guard forwarded {:?}",
+                                output.stdout
+                            );
+                            assert!(
+                                stderr.contains("Memory guard failed")
+                                    && stderr.contains("child Agent"),
+                                "{failure}: {stderr}"
+                            );
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

@@ -156,4 +156,3 @@ async fn i7_a_daemon_that_never_answers_exits_1_in_ten_seconds() {
     assert!(started.elapsed() >= Duration::from_secs(10));
     assert!(started.elapsed() < Duration::from_secs(14));
 }
-
