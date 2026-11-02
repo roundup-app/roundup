@@ -266,7 +266,8 @@ input:is(.todo-tick, [type="range"])[data-pressed="true"]:not(:disabled, [aria-d
 }
 
 /* U5557c: action captions share mono; content rows and names retain UI type. */
-[data-button], [data-button] * {
+[data-button], [data-button] *,
+.hint-line .hint-action, .hint-action * {
   font-family: var(--font-mono);
 }
 
