@@ -42,8 +42,8 @@ export type Emulator = {
   setFontSize(size: number): void;
   /** Clears the last complete screen before a replacement snapshot is written. */
   reset(): void;
-  /** Keystrokes and pastes, as the bytes the program expects, in the order they were typed. */
-  onInput(listener: (bytes: Uint8Array) => void): void;
+  /** Input bytes in emission order; `userInput=false` identifies protocol replies that need no keyboard focus. */
+  onInput(listener: (bytes: Uint8Array, userInput?: boolean) => void): void;
   /** Live output event arrival, before buffering or snapshot recovery; snapshots never call it. */
   outputArrived?: ((bytes: Uint8Array) => void) | undefined;
   /** K1's optional probe: Screens calls this when the queue releases an input batch for encoding. */
@@ -66,6 +66,7 @@ export type Emulator = {
   show(host: HTMLElement, focus?: boolean): Size;
   /** Gives the keyboard back to the emulator. */
   focus(): void;
+  blur?(): void;
   /** The size that fills the current host, or the snapshot grid while `ready` is pending. */
   fit(): Size;
   /** Reports a fit caused by loaded faces or xterm's scale/cell-metric redraw, without sending input. */
@@ -77,6 +78,11 @@ export type Emulator = {
   scrollToBottom(): void;
   dispose(): void;
 };
+
+/** xterm 6.0's synchronous user-input provenance, absent from its public onData event. */
+type InputOrigin = Terminal & { _core: { coreService: {
+  onUserInput(listener: () => void): { dispose(): void };
+} } };
 
 export type RendererAddon = ITerminalAddon & Pick<WebglAddon, "onContextLoss">;
 
@@ -566,6 +572,12 @@ export const createXtermEmulators = (
 
           return runs;
         });
+        // A composition belongs to this focus interval. xterm commits from the
+        // textarea later; clearing its transient buffer prevents a late commit.
+        const discardComposition = () => { if (terminal.textarea) terminal.textarea.value = ""; };
+
+        terminal.textarea?.addEventListener("blur", discardComposition);
+        disposers.push(() => terminal.textarea?.removeEventListener("blur", discardComposition));
         dropInlineGround(element, disposers);
 
         loadRenderer();
@@ -638,7 +650,7 @@ export const createXtermEmulators = (
 
     return {
       prepare,
-      bind: next => { id = next; },
+      bind: next => { id = next; element.dataset.terminal = next; },
       ready,
       write: (bytes, parsed) => {
         terminal.write(bytes, () => {
@@ -669,10 +681,19 @@ export const createXtermEmulators = (
       inputEncoding: probe ? (bytes) => probe.encoding(id, bytes) : undefined,
       inputEncoded: probe ? (bytes) => probe.encoded(id, bytes) : undefined,
       onInput: (listener) => {
+        // SAFETY: pinned xterm 6.0 CoreService fires onUserInput immediately before
+        // onData for keys, IME and paste. Public onData also carries protocol replies;
+        // retain that provenance so background reports need no keyboard focus.
+        const core = (terminal as InputOrigin)._core.coreService;
+        let userInput = false;
+        const input = core.onUserInput(() => { userInput = true; });
+        disposers.push(() => input.dispose());
         terminal.onData((text) => {
+          const accepted = userInput;
+          userInput = false;
           refit();
           probe?.input(id);
-          listener(encoder.encode(probe?.frame?.(text, id) ?? text));
+          listener(encoder.encode(probe?.frame?.(text, id) ?? text), accepted);
         });
         terminal.onBinary((text) => {
           refit();
@@ -692,6 +713,7 @@ export const createXtermEmulators = (
       fit: size,
       onResize: (listener) => { resized = listener; },
       focus: () => terminal.focus(),
+      blur: () => terminal.blur(),
       isAtBottom: () => terminal.buffer.active.viewportY === terminal.buffer.active.baseY,
       onScroll: (listener) => terminal.onScroll(() => listener()),
       scrollToBottom: () => {
