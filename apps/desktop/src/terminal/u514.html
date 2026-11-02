@@ -1,16 +1,24 @@
 <!doctype html>
 <html lang="en"><head><meta charset="UTF-8"><title>Terminal turns fixture</title></head>
-<body style="margin:0"><div id="host" class="pane-screen" style="width:900px;height:500px"></div><script type="module">
+<body style="margin:0"><div id="host" class="pane-screen" style="width:900px;height:500px"></div><script>
+// Run before xterm's modules cache their platform choice.
+if (new URLSearchParams(location.search).has("mac")) Object.defineProperty(navigator, "platform", { value: "MacIntel" });
+</script><script type="module">
 import "../tokens.css";
 import "../styles.css";
 import "./styles.css";
 import { Terminal } from "@xterm/xterm";
 import { xtermOptions } from "./emulator";
 import { createXtermEmulators } from "./emulator";
+if (new URLSearchParams(location.search).has("app")) {
+  document.getElementById("host").remove();
+  const root = document.createElement("div"); root.id = "root"; document.body.append(root);
+  await import("../testing/harness");
+} else {
 const OSC = (body) => `\x1b]${body}\x07`;
 const turn = (command, output, exit = 0) => OSC("7;file://host/work") + OSC("133;A") + "$ " + OSC("133;B") + command + "\r\n" + OSC("133;C") + output.map((line) => `${line}\r\n`).join("") + OSC(`133;D;${exit}`);
 const plain = new URLSearchParams(location.search).has("plain");
-const terminal = plain ? new Terminal(xtermOptions) : null;
+const terminal = plain ? new Terminal({ ...xtermOptions, macOptionClickForcesSelection: false }) : null;
 const emulator = terminal ? {
   show: host => terminal.open(host),
   fit: () => ({ cols: terminal.cols, rows: terminal.rows }),
@@ -24,4 +32,4 @@ emulator.show(host, false);
 const tall = new URLSearchParams(location.search).has("tall");
 const text = tall ? turn("seq 200", Array.from({ length: 200 }, (_, i) => `${i + 1}`)) : marked ? [turn("one", ["1"]), turn("two", ["2"], 1), turn("three", ["3"])].join("") : "plain\r\ntext\r\n";
 emulator.write(new TextEncoder().encode(text), () => { window.__emu = emulator; document.body.dataset.ready = "1"; });
-</script></body></html>
+}</script></body></html>
