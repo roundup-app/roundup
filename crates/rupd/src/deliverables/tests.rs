@@ -36,7 +36,7 @@ async fn dv2_metadata_only() {
             if matches!(
                 ctx.action,
                 rusqlite::hooks::AuthAction::Read {
-                    table_name: "deliverable_bytes" | "deliverable_files",
+                    table_name: "deliverable_files",
                     ..
                 }
             ) {
