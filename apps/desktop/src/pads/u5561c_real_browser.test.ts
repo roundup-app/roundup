@@ -4,7 +4,7 @@ import { readFile, mkdir, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { expect, it } from "vitest";
 import { browser, read, wait } from "../ui/tabsBrowser";
-import { startRealDaemon } from "../testing/realDaemonFixture";
+import { withProject } from "../testing/realDaemonFixture";
 import { createServedApp } from "../testing/realSeam";
 import { captureDir } from "../testing/captures";
 
@@ -13,10 +13,10 @@ const execute = promisify(execFile);
 const source = "Ready to review.\n\n<details>\n<summary>For Agents</summary>\n\nPath: `日本語/café`\nCommand: `rup pad read notes`\nId: `fixture-5561`\n\n~~~text\nraw evidence: check passed\n~~~\n\n</details>";
 
 it("u5561c_public_pad_round_trip", { retry: 0, timeout: 240_000 }, async () => {
-  const real = await startRealDaemon({}, true);
+  await withProject(async real => {
   const app = createServedApp(real.base);
   const binary = resolve("../../target/debug/rup");
-  const env = { ...process.env, RUPD_SOCKET: join(real.dir, "rupd.sock") };
+  const env = { ...process.env, RUPD_SOCKET: real.socket };
 
   try {
     const home = await app.rpc("rail.createWorkstream", { name: "Review", parent: null });
@@ -104,6 +104,6 @@ finally:
     }
   } finally {
     await browser("open", "about:blank");
-    await real.stop();
   }
+  });
 });
