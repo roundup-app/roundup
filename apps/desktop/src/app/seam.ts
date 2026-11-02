@@ -101,6 +101,7 @@ export const SEAM_COMMANDS = [
   "claude_binary",
   "record_idle_evidence",
   "state_alert",
+  "set_menu_bar",
   "select_project_menu",
   "open_project",
   "close_project",

@@ -123,7 +123,7 @@ pub const DOOR_METHODS: [&str; 10] = [
 ];
 
 /// M5: the methods and App commands with no tool; the reasons are in `scenarios/mcp.md`.
-pub const NO_TOOL: [&str; 94] = [
+pub const NO_TOOL: [&str; 95] = [
     // The shortcut list is the user's own; Agents cannot write it to a file they did not choose.
     "shortcuts.export",
     // A4688a: only the user controls global naming preferences; Agents cannot override them.
@@ -236,6 +236,8 @@ pub const NO_TOOL: [&str; 94] = [
     "record_idle_evidence",
     // U5232f: the user's macOS banner and sound, which an Agent cannot raise.
     "state_alert",
+    // U5502: passive native menu presentation belongs to the user's App, never an Agent.
+    "set_menu_bar",
     // U449–U451: the user's native window, which an Agent cannot move or rename.
     "plugin:window-bar|set_window_title",
     "plugin:window-bar|drag_window",
