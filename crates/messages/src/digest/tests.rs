@@ -752,3 +752,22 @@ fn b5519a_a_later_turn_note_replaces_the_previous_final_text() {
         assert_eq!(entry.last, "starting page two", "pushed={pushed}");
     }
 }
+
+#[test]
+fn b5519a_the_next_completed_turn_replaces_its_progress_note() {
+    let mut nodes = rail();
+    nodes[1].status = Some(Status {
+        since: 50,
+        finished: "2".into(),
+        ..status(Kind::Idle, "idle")
+    });
+    let attempt = nodes[1].attempt.clone().unwrap();
+    let notes = [sent(40, "a", "m", "starting page two")];
+    let mut from = sources(&nodes, &[], &[], &notes);
+    from.completed.insert(
+        "a".into(),
+        (format!("{attempt}:2"), 30, "Done with page two".into()),
+    );
+    let digest = Seen::default().ask(&Actor::user(), "m", &from).unwrap();
+    assert_eq!(entries(&digest.children)[0].last, "Done with page two");
+}

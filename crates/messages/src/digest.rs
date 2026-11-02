@@ -511,7 +511,13 @@ fn entry(
         .max_by_key(|message| message.id);
     // B49: an end note carries the child's own summary, whole, or says there was none.
     let end = end && is_end(child);
-    let final_reply = (!end).then(|| final_text(child, from)).flatten();
+    let final_reply = (!end)
+        .then(|| final_text(child, from))
+        .flatten()
+        .filter(|(_, started, _)| {
+            // B5519a: a Message in the newer Status belongs ahead of the older turn's text.
+            told.is_none_or(|message| status.since <= *started || message.at < status.since)
+        });
     let last = match (told, end) {
         (Some(message), true) => message.body.as_str(),
         (None, true) => NO_FINDING,
