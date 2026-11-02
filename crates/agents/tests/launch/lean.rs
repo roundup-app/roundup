@@ -839,9 +839,7 @@ async fn lc22_a_failed_memory_command_blocks() {
                                 "allow-then-fail" => {
                                     "printf '%s\\n' '{\"hookSpecificOutput\":{\"permissionDecision\":\"allow\"}}'; exit 1"
                                 }
-                                "TERM" | "KILL" => {
-                                    "printf '%s\\n' \"$$\" > \"$READY\"; exec sleep 3"
-                                }
+                                "TERM" | "KILL" => "printf '%s\\n' \"$$\" >&2; exec sleep 3",
                                 _ => "exit 0",
                             };
                             std::fs::write(&s.rup, format!("#!/bin/sh\n{script}\n")).unwrap();
@@ -857,28 +855,13 @@ async fn lc22_a_failed_memory_command_blocks() {
                             if failure == "missing" {
                                 std::fs::remove_file(&s.rup).unwrap();
                             }
-                            let ready = s.root.path().join("ready");
-                            let _ = std::fs::remove_file(&ready);
-                            rustix::fs::mkfifoat(
-                                rustix::fs::CWD,
-                                &ready,
-                                rustix::fs::Mode::RUSR | rustix::fs::Mode::WUSR,
-                            )
-                            .unwrap();
-                            let reader = tokio::net::unix::pipe::OpenOptions::new()
-                                .open_receiver(&ready)
-                                .unwrap();
-                            let _writer = tokio::net::unix::pipe::OpenOptions::new()
-                                .open_sender(&ready)
-                                .unwrap();
                             let input = s.root.path().join("input.json");
                             std::fs::write(&input, serde_json::to_vec(&json!({
                                 "tool_name":tool, "tool_input":{"file_path":s.cwd.join("source.rs")},
                                 "permission_mode":if yolo { "bypassPermissions" } else { "default" }
                             })).unwrap()).unwrap();
-                            let child = tokio::process::Command::new("bash")
+                            let mut child = tokio::process::Command::new("bash")
                                 .args(["-c", command])
-                                .env("READY", &ready)
                                 .stdin(std::fs::File::open(&input).unwrap())
                                 .stdout(Stdio::piped())
                                 .stderr(Stdio::piped())
@@ -889,7 +872,8 @@ async fn lc22_a_failed_memory_command_blocks() {
                                 let mut text = String::new();
                                 tokio::time::timeout(
                                     Duration::from_secs(2),
-                                    BufReader::new(reader).read_line(&mut text),
+                                    BufReader::new(child.stderr.as_mut().unwrap())
+                                        .read_line(&mut text),
                                 )
                                 .await
                                 .expect("memory fixture announced readiness")
