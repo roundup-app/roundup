@@ -414,6 +414,7 @@
 }
 
 details[data-pad-agents] summary {
+  min-height: var(--space-5);
   cursor: pointer;
   color: var(--grey);
 }
@@ -425,15 +426,17 @@ details[data-pad-agents] textarea {
   margin-block-start: var(--space-3);
   padding: 0;
   border: 0;
-  font-family: var(--font-mono);
-  font-size: var(--text-body);
+  font-family: var(--font-ui);
+  font-size: var(--pad-text-body);
+  line-height: var(--pad-line-body);
   color: var(--text);
   background: var(--ground);
   resize: vertical;
 }
 
 @media (hover: hover) and (pointer: fine) {
-  details[data-pad-agents] summary:hover {
+  details[data-pad-agents] summary:hover,
+  details[data-pad-heading] summary:hover {
     color: var(--text);
   }
 }
@@ -441,4 +444,38 @@ details[data-pad-agents] textarea {
 /* The node view supplies its marker column; list padding would indent twice. */
 .ProseMirror :is(ul, ol)[data-spread] {
   padding-inline-start: 0;
+}
+
+details[data-pad-agents] input {
+  display: block;
+  min-height: var(--space-5);
+  width: 100%;
+  margin-block: var(--space-3);
+  padding: 0;
+  border: 0;
+  font: inherit;
+  color: var(--text);
+  background: var(--ground);
+}
+
+.pad-rich-editor .pad-heading-hidden {
+  display: none;
+}
+
+.pad-rich-editor details[data-pad-heading] {
+  display: inline-block;
+  margin-inline-end: var(--space-2);
+  font-size: var(--pad-text-body);
+  color: var(--grey);
+  vertical-align: baseline;
+}
+
+details[data-pad-heading] summary {
+  min-height: var(--space-5);
+  cursor: pointer;
+}
+
+details[data-pad-heading] summary:focus-visible,
+details[data-pad-agents] summary:focus-visible {
+  color: var(--text);
 }

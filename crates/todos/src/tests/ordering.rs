@@ -145,3 +145,140 @@ async fn t11_a_reorder_changes_no_other_field() {
         .unwrap();
     assert_eq!(h.call("todo.get", json!({"id": 3})).await.unwrap(), before);
 }
+
+#[test]
+fn t5642a_list_executes_three_reads() {
+    use rusqlite::trace::{TraceEvent, TraceEventCodes};
+    use std::cell::Cell;
+    thread_local! { static READS: Cell<usize> = const { Cell::new(0) }; }
+    for size in [0, 1, 1000] {
+        let store = store::Store::open(Path::new(":memory:")).unwrap();
+        store.db.execute(
+            "WITH RECURSIVE n(id) AS (SELECT 1 WHERE ?1 > 0 UNION ALL SELECT id+1 FROM n WHERE id < ?1)
+             INSERT INTO todos(id, title, body, created_at, pos) SELECT id, 'title', 'body', 1, id FROM n",
+            [size],
+        ).unwrap();
+        READS.set(0);
+        store.db.trace_v2(
+            TraceEventCodes::SQLITE_TRACE_STMT,
+            Some(|event| {
+                if let TraceEvent::Stmt(_, sql) = event
+                    && sql.trim_start().starts_with("SELECT")
+                {
+                    READS.set(READS.get() + 1);
+                }
+            }),
+        );
+        let started = std::time::Instant::now();
+        let listed = store.list().unwrap();
+        store.db.trace_v2(TraceEventCodes::empty(), None);
+        assert_eq!(listed.len(), usize::try_from(size).unwrap());
+        assert_eq!(READS.get(), 3, "size {size}");
+        assert!(started.elapsed() < std::time::Duration::from_secs(5));
+    }
+}
+
+#[test]
+fn t5642a_batched_list_matches_individual_reads() {
+    let store = store::Store::open(Path::new(":memory:")).unwrap();
+    for id in 1..=5 {
+        store
+            .insert(
+                &format!("title {id}"),
+                &format!("body {id}"),
+                &[],
+                &agent(&format!("maker {id}")),
+                Some(&agent(&format!("owner {id}"))),
+                None,
+                0,
+            )
+            .unwrap();
+    }
+    store
+        .db
+        .execute_batch(
+            "UPDATE todos SET pos = CASE id WHEN 4 THEN -1 WHEN 3 THEN 0 ELSE 1 END,
+         done = (id = 1), home = 'workstream ' || id,
+         priority = CASE id WHEN 1 THEN NULL WHEN 3 THEN '\"medium\"' WHEN 4 THEN '\"high\"' ELSE '\"urgent\"' END,
+         created_at = id * 10, updated_at = id * 20;
+         INSERT INTO blockers VALUES(4,3),(4,1),(4,2),(3,1);
+         INSERT INTO todo_refs(todo,target,url) VALUES
+         (4,'missing-pad','z-missing'),(4,'other','a-second'),(2,'deleted','deleted-ref');
+         DELETE FROM todos WHERE id = 2;",
+        )
+        .unwrap();
+    let expected: Vec<_> = [4, 3, 1, 5]
+        .into_iter()
+        .map(|id| store.get(id).unwrap())
+        .collect();
+    let history: Vec<_> = [4, 3, 1, 5]
+        .into_iter()
+        .map(|id| store.history(id).unwrap())
+        .collect();
+    let listed = store.list().unwrap();
+    assert_eq!(listed, expected);
+    assert_eq!(
+        listed.iter().map(|t| t.id).collect::<Vec<_>>(),
+        [4, 3, 1, 5]
+    );
+    assert_eq!(listed[0].blockers, [1, 3]);
+    assert_eq!(listed[0].refs, ["z-missing", "a-second"]);
+    assert!(listed[0].blocked);
+    assert!(!listed[1].blocked, "done blocker is not blocking");
+    assert!(listed[2].blockers.is_empty() && listed[2].refs.is_empty());
+    for todo in &listed {
+        assert_eq!(todo.title, format!("title {}", todo.id));
+        assert_eq!(todo.body, format!("body {}", todo.id));
+        assert_eq!(todo.created_at, i64::from(todo.id) * 10);
+        assert_eq!(todo.updated_at, i64::from(todo.id) * 20);
+        assert_eq!(todo.creator, agent(&format!("maker {}", todo.id)));
+        assert_eq!(todo.owner, Some(agent(&format!("owner {}", todo.id))));
+        assert_eq!(todo.home, Some(format!("workstream {}", todo.id)));
+        assert_eq!(
+            todo.priority,
+            match todo.id {
+                1 => None,
+                3 => Some(contracts::todo::Priority::Medium),
+                4 => Some(contracts::todo::Priority::High),
+                5 => Some(contracts::todo::Priority::Urgent),
+                _ => unreachable!(),
+            }
+        );
+        assert_eq!(todo.done, todo.id == 1);
+    }
+    assert_eq!(store.list().unwrap(), listed);
+    assert_eq!(
+        [4, 3, 1, 5]
+            .into_iter()
+            .map(|id| store.history(id).unwrap())
+            .collect::<Vec<_>>(),
+        history
+    );
+}
+
+#[test]
+fn t5642a_list_preserves_the_callers_transaction() {
+    let store = store::Store::open(Path::new(":memory:")).unwrap();
+    for title in ["one", "two"] {
+        store
+            .insert(title, "body", &[], &Actor::user(), None, None, 0)
+            .unwrap();
+    }
+    let before = store.list().unwrap();
+    let tx = store.db.unchecked_transaction().unwrap();
+    tx.execute_batch(
+        "UPDATE todos SET body='uncommitted',pos=-1 WHERE id=2;
+        INSERT INTO blockers VALUES(2,1);
+        INSERT INTO todo_refs(todo,target,url) VALUES(2,'missing','uncommitted-ref');",
+    )
+    .unwrap();
+    let listed = store.list().unwrap();
+    assert!(!store.db.is_autocommit());
+    assert_eq!(listed[0].id, 2);
+    assert_eq!(listed[0].body, "uncommitted");
+    assert_eq!(listed[0].blockers, [1]);
+    assert!(listed[0].blocked);
+    assert_eq!(listed[0].refs, ["uncommitted-ref"]);
+    tx.rollback().unwrap();
+    assert_eq!(store.list().unwrap(), before);
+}

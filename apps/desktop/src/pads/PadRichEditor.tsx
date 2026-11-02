@@ -26,6 +26,7 @@ import { getMarkdown, replaceAll } from "@milkdown/kit/utils";
 import { sourceForDocument } from "./sourceForDocument";
 import { visualBlocks } from "./visualBlocks";
 import { agentDetailsRemark, agentDetailsNode, agentDetailsView } from "./agentDetails";
+import { headingFolds } from "./headingFolds";
 import { visualKinds } from "./visualKinds";
 import "./editor.css";
 import "../ui/reading.styles.css";
@@ -131,30 +132,36 @@ export default function PadRichEditor(props: {
       slashMenu: { root: menuHost },
       textGroup: { divider: null },
       buildMenu: (builder) => {
-        builder.getGroup("advanced").addItem("for-agents", {
-          label: copy.forAgents,
+        if (props.label) return;
+
+        for (const shortcut of [false, true]) builder.getGroup("advanced").addItem(shortcut ? "for-agents" : "toggle", {
+          label: shortcut ? copy.forAgents : copy.toggle,
           icon: "",
           onRun: (ctx) => {
             const view = ctx.get(editorViewCtx);
             ctx.get(commandsCtx).call(clearTextInCurrentBlockCommand.key);
             const { $from } = view.state.selection;
             const tr = view.state.tr;
-            let found = false;
-            view.state.doc.forEach(node => { if (node.type.name === "pad_agent_details") found = true; });
+            let found: number | undefined;
+            view.state.doc.forEach((node, pos) => {
+              if (shortcut && node.type.name === "pad_agent_details" && /^<details>\s*<summary>For Agents<\/summary>/.test(node.textContent)) found = pos;
+            });
+            const label = shortcut ? copy.forAgents : copy.toggle;
+            let at = found ?? (shortcut ? view.state.doc.content.size : $from.before());
 
-            if (!found) {
-              const node = agentDetailsNode.type(ctx).create(null, view.state.schema.text(`<details>\n<summary>${copy.forAgents}</summary>\n\n\n\n</details>`));
-              tr.insert(view.state.doc.content.size, node);
+            if (found === undefined) {
+              const node = agentDetailsNode.type(ctx).create(null, view.state.schema.text(`<details>\n<summary>${label}</summary>\n\n\n\n</details>`));
+              tr.insert(at, node);
             }
 
-            if ($from.parent.type.name === "paragraph" && $from.parent.content.size === 0) tr.delete($from.before(), $from.after());
+            if ($from.parent.type.name === "paragraph" && $from.parent.content.size === 0) tr.delete(tr.mapping.map($from.before()), tr.mapping.map($from.after(), -1));
+            at = tr.mapping.map(at, -1);
             view.dispatch(tr);
+            const section = view.nodeDOM(at);
 
-            const section = view.dom.querySelector<HTMLDetailsElement>("details[data-pad-agents]");
-
-            if (section) {
+            if (section instanceof HTMLDetailsElement) {
               section.open = true;
-              section.querySelector("textarea")?.focus();
+              section.querySelector<HTMLElement>(shortcut ? "textarea" : "input")?.focus();
             }
           },
         });
@@ -242,7 +249,10 @@ export default function PadRichEditor(props: {
       ),
     );
 
-    crepe.editor.use(agentDetailsRemark).use(agentDetailsNode).use(agentDetailsView);
+    if (!props.label) {
+      crepe.editor.use(agentDetailsRemark).use(agentDetailsNode).use(agentDetailsView);
+      crepe.editor.use($prose(headingFolds));
+    }
 
     crepe.editor.use($prose(() => visualBlocks(visualKinds(), () => props.readonly)));
 
