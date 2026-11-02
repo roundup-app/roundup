@@ -59,6 +59,7 @@ impl Faulty {
         };
         let rail = FakeRail::new(nodes);
         let messages = Messages::open_with(dir, bus.clone(), rail.clone(), env).unwrap();
+        messages.listen();
         let inbox = attach_inbox(&messages, true);
         let completed = tokio::sync::Mutex::new(messages.inner.completed.subscribe());
         Self {

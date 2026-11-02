@@ -652,3 +652,44 @@ async fn a2741a_workstream_changes_keep_the_door_destination_without_starting() 
         assert_eq!(after.iter().find(|n| n.id == id).unwrap().name, "sad-3");
     }
 }
+
+#[tokio::test]
+async fn u5531a_user_home_move_clears_the_old_doors_visibility() {
+    let f = Fixture::new();
+    let door = f.workstream("Door", None).await;
+    let other = f.workstream("Other", None).await;
+    let child = f.spawn(Some(&door), None).await.unwrap().id;
+    let mut ctx = f.ctx();
+    ctx.actor = contracts::Actor {
+        kind: contracts::ActorKind::Agent,
+        id: door.clone(),
+        parent: None,
+    };
+    use rpc::Module;
+    f.agents
+        .call(
+            &ctx,
+            "agent.setVisibility",
+            json!({"id":child,"visibility":"internal"}),
+        )
+        .await
+        .unwrap();
+    f.mv(&child, Some(&other), 0).await.unwrap();
+    assert_eq!(
+        serde_json::to_value(f.tree().await.into_iter().find(|n| n.id == child).unwrap()).unwrap()
+            ["visibility"],
+        "shown"
+    );
+    assert_eq!(
+        f.agents
+            .call(
+                &ctx,
+                "agent.setVisibility",
+                json!({"id":child,"visibility":"internal"})
+            )
+            .await
+            .unwrap_err()
+            .code,
+        code::FORBIDDEN
+    );
+}
