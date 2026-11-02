@@ -31,8 +31,7 @@ const read = async <T,>(expression: string): Promise<T> => {
 beforeAll(async () => {
   server = await appServer();
   origin = server.resolvedUrls.local[0]!;
-  await browser("--profile", profile, "open", new URL(new URL("./u484Fixture.tsx", import.meta.url).pathname.replace("Fixture.tsx", ".html"), origin).href);
-  await browser("set", "viewport", "1512", "950");
+  await browser("--profile", profile, "set", "viewport", "1512", "950");
   await browser("set", "media", "dark");
 }, 90_000);
 
