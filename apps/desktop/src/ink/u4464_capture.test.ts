@@ -46,11 +46,8 @@ it.skipIf(!captureDir("U4464"))("u5606_capture_empty_views_in_both_themes", { ti
     await wait(`!!window.__fake && !!document.querySelector('.rail-tree,.choose-project')`);
   };
 
-  try {
-    await browser("--profile", profile, "--executable-path", "/opt/google/chrome/chrome", "--args", `--no-sandbox${process.env.U4464_CONTRAST ? ",--force-high-contrast,--disable-blink-features=ForcedColors" : ""}`, "open", origin);
-    await browser("set", "viewport", "1512", "950");
-    // seedApp rejects before its call log; observe RPC before App copies the seam.
-    await browser("addinitscript", `(() => {
+  // seedApp rejects before its call log; observe RPC before App copies the seam.
+  writeFileSync(join(profile, "creation-observer.js"), `(() => {
       let controls;
       Object.defineProperty(window, '__fake', {
         get: () => controls,
@@ -65,6 +62,11 @@ it.skipIf(!captureDir("U4464"))("u5606_capture_empty_views_in_both_themes", { ti
         },
       });
     })()`);
+
+  try {
+    await browser("--profile", profile, "--init-script", join(profile, "creation-observer.js"), "--executable-path", "/opt/google/chrome/chrome", "--args", `--no-sandbox${process.env.U4464_CONTRAST ? ",--force-high-contrast,--disable-blink-features=ForcedColors" : ""}`, "open", origin);
+    await browser("set", "viewport", "1512", "950");
+
 
     for (const theme of ["light", "dark"]) {
       await browser("set", "media", "color-scheme", theme);
