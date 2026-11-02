@@ -19,7 +19,7 @@ use unicode_normalization::UnicodeNormalization;
 use super::brief::{self, Role};
 use super::extras;
 use super::launch_files::{
-    ConfigLock, is_symlink, landing, merge_settings, replace_file, replace_text, socket_folder,
+    ConfigLock, is_symlink, landing, merge_settings, replace_file, replace_text,
     user_settings,
 };
 use super::models::{Lean, Pair};
@@ -86,7 +86,7 @@ pub struct Launcher {
     plugins: Arc<OnceCell<Delivery>>,
     /// B50: the private folder each Agent's messaging socket is made in, made at the first
     /// launch; gone with the Launcher.
-    sockets: Arc<std::sync::OnceLock<tempfile::TempDir>>,
+    pub(super) sockets: Arc<std::sync::OnceLock<tempfile::TempDir>>,
     /// B2706: the permission mode each Agent's latest normal Attempt runs in, for its notes.
     pub(super) modes: Arc<Mutex<std::collections::HashMap<String, super::models::LaunchMode>>>,
     /// RO1: what each saved conversation's overview was read to, shared by every clone.
@@ -909,14 +909,6 @@ fn object(value: &mut Value) -> Result<&mut Map<String, Value>, &'static str> {
 
 /// An Agent id becomes a file name and a shell word, so only a node id in its one form (decimal,
 /// no sign, no leading zero) is accepted; `;` or `../` never reach a shell or a path.
-impl Launcher {
-    /// The private folder Agents' messaging sockets are made in.
-    pub(super) fn socket_dir(&self) -> &Path {
-        self.sockets
-            .get_or_init(|| socket_folder().expect("a private folder for messaging sockets"))
-            .path()
-    }
-}
 
 fn parse_id(id: &str) -> Option<u64> {
     id.parse()
