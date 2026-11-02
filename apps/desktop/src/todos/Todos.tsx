@@ -1,3 +1,5 @@
+import { KeyChip } from "../keys/KeyChip";
+import { shortcutLabel, chordNamed } from "../keys/chords";
 import { createTodoCreation } from "./creation";
 import { todoDropTargets } from "./todoDropTargets";
 import { rowTypeahead } from "../ui/RowCollection";
@@ -51,7 +53,7 @@ import { shownTodos } from "./shownTodos";
 import { rowAfter, doneTodos, nowTodos, offeredAsBlockers, planDrop, rowTopology, treeCollection, treeRows, type NestedRow } from "./todoView";
 
 /** U3513a: the keys the quiet footer shows; Help lists the rest. */
-const QUIET_KEYS = ["J K", "A", "X"];
+const QUIET_KEYS = ["todo.triage-move", "todo.triage-assign", "todo.triage-done"];
 
 export const Todos = (props: {
   /** Open a retained creation form using this Project's already-loaded Todo facts. */
@@ -549,13 +551,13 @@ export const Todos = (props: {
   const canTriage = (event: KeyboardEvent, nesting = false) => triage.canKey(event, section, !tabs || tabs().value === "todos", nesting);
 
   const triageKey = (keys: string, run: (todo: Todo, button: HTMLButtonElement) => void, press?: string) => ({
-    action: CHORDS.find(row => row.inTriage && row.keys === keys)!, press, searchable: false as const,
+    action: CHORDS.find(row => row.name === keys)!, press, searchable: false as const,
     when: (event: KeyboardEvent) => triage.on() && canTriage(event) && triageTarget(event)?.done === false,
     capture: (focus: Element | null) => {
       const id = idOfRow(focus);
       const todo = id === undefined ? undefined : todos.byId().get(id);
 
-      return { available: () => triage.on() && active() && focus instanceof HTMLButtonElement && focus.isConnected && !focus.closest("[hidden], [inert]") && document.activeElement === focus && todo !== undefined && todos.byId().get(todo.id)?.done === false && (keys !== "W" || homesToOffer(connected.rail.nodes, todo.home).length > 0), invoke: () => { if (todo && focus instanceof HTMLButtonElement) run(todo, focus); } };
+      return { available: () => triage.on() && active() && focus instanceof HTMLButtonElement && focus.isConnected && !focus.closest("[hidden], [inert]") && document.activeElement === focus && todo !== undefined && todos.byId().get(todo.id)?.done === false && (keys !== "todo.triage-workstream" || homesToOffer(connected.rail.nodes, todo.home).length > 0), invoke: () => { if (todo && focus instanceof HTMLButtonElement) run(todo, focus); } };
     },
   });
 
@@ -575,42 +577,42 @@ export const Todos = (props: {
 
   registerKeys({ kind: "app" }, [
     {
-      chords: [...CHORDS.filter(row => row.inTriage && row.keys !== "Esc").flatMap(row => chordsOf(row)), ...chordsFor("O")],
+      chords: [...CHORDS.filter(row => row.inTriage && row.name !== "todo.triage-leave").flatMap(row => chordsOf(row)), ...chordsFor("O")],
       when: event => triage.on() && canTriage(event, true) && triageTarget(event)?.done !== false && (!event.shiftKey || event.code === "Tab"),
       run: () => (triageButtons()[0] ?? triageButton())?.focus(),
     },
     {
-      action: CHORDS.find(row => row.keys === "T")!, searchable: false,
+      action: CHORDS.find(row => row.name === "todo.triage-enter")!, searchable: false,
       when: event => !triage.on() && canTriage(event) && !rowTypeahead(event),
       capture: focus => ({ available: () => !triage.on() && section?.isConnected === true && focus?.isConnected === true && (focus === document.body || !!focus.closest(".shelf, .shelf-tabs")) && !focus.closest("input,textarea,select,[contenteditable]") && (!tabs || tabs().value === "todos"), invoke: enterTriage }),
     },
     {
-      action: CHORDS.find(row => row.inTriage && row.keys === "Esc")!, searchable: false,
+      action: CHORDS.find(row => row.name === "todo.triage-leave")!, searchable: false,
       when: event => triage.on() && canTriage(event),
       capture: focus => ({ available: () => triage.on() && focus?.isConnected === true && (focus === document.body || !!focus.closest(".shelf, .shelf-tabs")) && !focus.closest("input,textarea,select,[contenteditable]"), invoke: leaveTriage }),
     },
-    ...["KeyJ", "KeyK"].map(press => triageKey("J K", (_todo, button) => {
+    ...["KeyJ", "KeyK"].map(press => triageKey("todo.triage-move", (_todo, button) => {
       const buttons = triageButtons();
       const at = buttons.indexOf(button);
 
       if (at !== -1) buttons[Math.min(buttons.length - 1, Math.max(0, at + (press === "KeyJ" ? 1 : -1)))]?.focus();
     }, press)),
-    triageKey("A", (todo, button) => {
+    triageKey("todo.triage-assign", (todo, button) => {
       clearFailures();
       setPicking({ id: todo.id, anchor: button });
       pickAdvance = captureAdvance(todo.id);
     }),
-    triageKey("W", (todo, button) => {
+    triageKey("todo.triage-workstream", (todo, button) => {
       if (homesToOffer(connected.rail.nodes, todo.home).length === 0) return;
       clearFailures();
       setMoving({ id: todo.id, anchor: button });
       moveAdvance = captureAdvance(todo.id);
     }),
-    triageKey("X", async (todo) => {
+    triageKey("todo.triage-done", async (todo) => {
       clearFailures();
       pickFails.get(todo.id)?.show(await toggle(todo, triageButtons().map(idOfRow).filter(each => each !== undefined)));
     }),
-    triageKey("C", (todo) => {
+    triageKey("todo.triage-comment", (todo) => {
       if (selectedId() !== todo.id) show(todo, "key");
       triage.askComment(todo.id);
       commentAdvance = captureAdvance(todo.id);
@@ -676,7 +678,7 @@ export const Todos = (props: {
         <EmptyState art="running" {...{ title: copy.noTodosYet }} line={copy.emptyTodosLine} action={<button type="button" data-button="primary" onClick={() => openField()}>{copy.addTodoWord}</button>} />
       </Show>
       <Show when={listed().length + pending().length > 0}>
-        <OwnerGroups mark={group => <Show when={board.digit(group)}>{digit => <kbd class="todo-owner-digit">{digit()}</kbd>}</Show>} detail={group => <Show when={group.id === "unassigned" && connected.rail.nodes.find(node => node.id === selectedWorkstream())?.auto}><p class="todo-auto-handling">{copy.todoAutoHandling}</p></Show>} count={group => group.items.filter(todo => !todo.done).length} onClosedChange={setClosedGroups} groups={() => ownerGroups(connected, [...listed(), ...pending()], todo => todo.owner)} dragging={dragging} bare={() => connected.rail.nodes.find(node => node.id === connected.rail.selected())?.kind === "agent" ? connected.rail.selected() : null} reveal={revealed} focus={() => requestedOpen()[0] ? groupOf(requestedOpen()[0]!) : null} focusItem={() => rowButtonOf(requestedOpen()[0]?.id ?? -1)} onFocused={connected.finishPadsRequest} arrivals={requestedGroups} unfold={() => filed() + todos.revealed()}>{group => {
+        <OwnerGroups mark={group => <Show when={board.digit(group)}>{digit => <span class="todo-owner-digit"><KeyChip keys={shortcutLabel(`Digit${digit()}`)} /></span>}</Show>} detail={group => <Show when={group.id === "unassigned" && connected.rail.nodes.find(node => node.id === selectedWorkstream())?.auto}><p class="todo-auto-handling">{copy.todoAutoHandling}</p></Show>} count={group => group.items.filter(todo => !todo.done).length} onClosedChange={setClosedGroups} groups={() => ownerGroups(connected, [...listed(), ...pending()], todo => todo.owner)} dragging={dragging} bare={() => connected.rail.nodes.find(node => node.id === connected.rail.selected())?.kind === "agent" ? connected.rail.selected() : null} reveal={revealed} focus={() => requestedOpen()[0] ? groupOf(requestedOpen()[0]!) : null} focusItem={() => rowButtonOf(requestedOpen()[0]?.id ?? -1)} onFocused={connected.finishPadsRequest} arrivals={requestedGroups} unfold={() => filed() + todos.revealed()}>{group => {
         const tree = createMemo(() => treeRows(group().items.filter(todo => !pending().includes(todo))));
         const topology = createMemo(() => rowTopology(tree()));
         const collection = createMemo(() => treeCollection(topology()));
@@ -858,8 +860,8 @@ export const Todos = (props: {
       </Show>
       <Show when={triage.on()}>
         <p class="triage-hints" aria-label={copy.triageKeys}>
-          <For each={[...(open().length > 0 ? QUIET_KEYS.flatMap(keys => CHORDS.filter(row => row.inTriage && row.keys === keys)) : []), { keys: copy.questionMark, what: copy.triageMore }]}>{row =>
-            <span class="triage-hint"><kbd class="triage-key">{row.keys}</kbd>{" "}{row.what}</span>}</For>
+          <For each={[...(open().length > 0 ? QUIET_KEYS.flatMap(keys => CHORDS.filter(row => row.name === keys)) : []), { ...chordNamed("help.open")!, what: copy.triageMore }]}>{row =>
+            <span class="triage-hint"><KeyChip keys={row.keys} />{" "}{row.what}</span>}</For>
         </p>
       </Show>
       <bulk.Bar />

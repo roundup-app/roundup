@@ -89,6 +89,7 @@ const Connection = (props: {
   tab: () => OpenTab | undefined;
   reducedMotion: Accessor<boolean>;
   now: Accessor<number>;
+  clock: Clock;
   drafts: ReturnType<typeof createProjectDrafts>;
   onConnected: (path: string, connection: ConnectedProject | Error | null) => void;
   onRecovered: (path: string, generation: number) => void;
@@ -111,7 +112,7 @@ const Connection = (props: {
     const exit = props.tab()?.exit;
 
     try {
-      const next = await connectProject(props.app.forProject(path), first.project, props.reducedMotion, props.now, () => props.tab()?.generation === generation ? props.tab()?.exit ?? null : { code: null, recovery: "connecting" }, railStorage(path), props.drafts(path), props.viewing);
+      const next = await connectProject(props.app.forProject(path), first.project, props.reducedMotion, props.now, () => props.tab()?.generation === generation ? props.tab()?.exit ?? null : { code: null, recovery: "connecting" }, railStorage(path), props.drafts(path), props.viewing, props.clock);
 
       if (props.tab()?.generation !== generation) {
         next.stopTerminalScheme();
@@ -245,7 +246,7 @@ export const App = (props: {
   const settingsOpen = settingsView.open;
   const drafts = props.drafts ?? createProjectDrafts();
   registerKeys({ kind: "app" }, ["⌘Z", "⇧⌘Z"].map(keys => ({
-    action: CHORDS.find(row => defaultKeys(row) === keys)!,
+    action: CHORDS.find(row => row.name === (keys === "⌘Z" ? "edit.undo" : "edit.redo"))!,
     when: () => !document.activeElement?.closest("input,textarea,[contenteditable]:not([contenteditable=false]),.xterm,[role=textbox]"),
     capture: focus => {
       const path = projects.active();
@@ -535,7 +536,7 @@ export const App = (props: {
         return { id: `action:chord:${keys}`, label: history ? (redo ? history.redoLabel(region) : history.undoLabel(region)) : redo ? copy.redo : copy.todoUndo, shortcut: keys, group: "edit" as const, enabled: available && !!history && !history.pending() && (redo ? history.redoAvailable(region) : history.available(region)) };
       }) : []),
       ...views.map(([id, label]) => ({ id: `view:${id}`, label: id === "notes" ? (available && connected.hasView(id) ? copy.closeView(label) : label) : id === "resources" ? copy.showView(label, available && connected.hasView(id)) : available && connected.hasView(id) ? copy.closeView(label) : copy.openEvidence(label), group: "views" as const, enabled: available && (id !== "resources" || connected.rail.nodes.some(node => node.id === connected.rail.selected() && (node.kind === "agent" || node.kind === "workstream" && node.attempt !== null))) })),
-      ...[...CHORDS.filter(row => defaultKeys(row) !== copy.leaderChord && defaultKeys(row) !== "⌘Z" && defaultKeys(row) !== "⇧⌘Z"), ...LEADER.filter(row => row.keys !== "T")].flatMap(row => {
+      ...[...CHORDS.filter(row => !["leader.open", "edit.undo", "edit.redo"].includes(row.name)), ...LEADER.filter(row => row.keys !== "T")].flatMap(row => {
         const id = `action:${"press" in row ? "leader" : "chord"}:${row.keys}`;
         const label = (what: string) => row.keys === "M" && "inRail" in row && row.inRail ? copy.moveToInRail : row.keys === "R" && "inRail" in row && row.inRail ? copy.restartModeInRail : "press" in row && row.keys === "B" ? (frame.open() ? copy.closeShelf : copy.openShelf) : what;
         const group = "press" in row || defaultKeys(row) === "⌘/" || defaultKeys(row) === "⌘F" || defaultKeys(row) === "⌃⌘J" || !taskKeys.has(defaultKeys(row)) && row.what !== copy.captureATodo ? "navigate" as const : "create" as const;
@@ -648,7 +649,7 @@ export const App = (props: {
   return (
     <ReducedMotionContext.Provider value={props.reducedMotion}><DisplayClockContext.Provider value={now.subscribe}><ProjectDraftsContext.Provider value={drafts}><Show when={projects.loaded()}>
       <For each={keys()}>
-        {(key) => <Connection drafts={drafts} app={dropTargets.app} tab={tabOf(key)} reducedMotion={props.reducedMotion} now={pollingNow} onConnected={connect} onRecovered={projects.connected} onRequested={answer} toasts={toasts} alerts={alerts} active={() => projects.active() === key} viewing={() => projects.active() === key && visible() && focus() === "focused" && !settingsOpen()} show={() => projects.select(key)} />}
+        {(key) => <Connection drafts={drafts} app={dropTargets.app} tab={tabOf(key)} reducedMotion={props.reducedMotion} now={pollingNow} clock={props.clock} onConnected={connect} onRecovered={projects.connected} onRequested={answer} toasts={toasts} alerts={alerts} active={() => projects.active() === key} viewing={() => projects.active() === key && visible() && focus() === "focused" && !settingsOpen()} show={() => projects.select(key)} />}
       </For>
       <DockBadge app={props.app} rails={() => [...connections().values()].flatMap((connection) => (connection instanceof Error ? [] : [attentionHolders(connection.rail.nodes, connection.rail.terminals(), connection.rail.dismissed)]))} onFailure={setBadgeFailure} />
       <Tabs.Root id={tabsId} value={projects.active()} onValueChange={({ value }) => projects.select(value)} activationMode="manual" style={{ display: "contents" }}

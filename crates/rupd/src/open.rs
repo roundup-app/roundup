@@ -189,7 +189,6 @@ impl Daemon {
         )?));
         daemon.register(agents);
         daemon.register(terminals);
-        daemon.start_pushes();
         let messages_at = begun.elapsed();
         // R3696c: the retained open total cannot distinguish image IO from store initialization.
         // Emit once, after the measured work, into perf's existing startup log.
@@ -384,6 +383,13 @@ impl Daemon {
     /// sockets their programs still call, for the caller to serve beside its own.
     pub async fn reattach_owners(&self) -> Vec<std::path::PathBuf> {
         self.agents.reattach_owners().await;
+        self.sender
+            .get()
+            .expect("Messages opened")
+            .recover()
+            .await
+            .expect("recovered Message receivers");
+        self.start_pushes();
         self.agents.retained_sockets()
     }
 }
