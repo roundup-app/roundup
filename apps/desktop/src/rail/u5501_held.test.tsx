@@ -162,7 +162,7 @@ it.each([
   { mounted: false, expanded: true },
   { mounted: true, expanded: false },
   { mounted: true, expanded: true },
-])("u5721_workstream_selection_preserves_held_alerts mounted=$mounted expanded=$expanded", async ({ mounted, expanded }) => {
+])("u5721_workstream_selection_preserves_alerts mounted=$mounted expanded=$expanded", async ({ mounted, expanded }) => {
   const { app, connected, hold, emulators, chime } = await mount(false, "door");
 
   if (mounted) {
@@ -187,7 +187,7 @@ it.each([
 
   if (!expanded) fireEvent.click(screen.getByRole("button", { name: /held/ }));
   await waitFor(() => expect(document.querySelectorAll(".held-row")).toHaveLength(3));
-  expect([...document.querySelectorAll(".held-line")].map(row => row.textContent)).toEqual(saved.map(row => row.line));
+  expect([...document.querySelectorAll(".held-row")].map(row => row.querySelector("span span:last-child")?.textContent)).toEqual(saved.map(row => row.line));
   expect(connected.held.rows()).toEqual(saved);
   expect(app.stateAlerts).toEqual([]);
   expect(chime).not.toHaveBeenCalled();

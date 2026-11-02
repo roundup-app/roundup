@@ -429,7 +429,7 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
       setFailure(id, "snapshot", null);
       const agent = rail.nodes.find(node => node.terminal_id === id);
 
-      if (agent && rail.shouldAcknowledgeHeld() && rail.selected() === agent.id) connected.held.acknowledge(agent.id);
+      if (agent && rail.shouldAcknowledgeAlerts() && rail.selected() === agent.id) connected.held.acknowledge(agent.id);
     } catch (thrown) {
       if (!(thrown instanceof Error)) throw thrown;
 
@@ -805,7 +805,7 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
 
       holder.stream = stream;
       void attach(id, holder, stream);
-    } else if (agent && rail.shouldAcknowledgeHeld() && holder.complete && holder.stream.after !== null && !holder.stream.lost && rail.selected() === agent.id) {
+    } else if (agent && rail.shouldAcknowledgeAlerts() && holder.complete && holder.stream.after !== null && !holder.stream.lost && rail.selected() === agent.id) {
       connected.held.acknowledge(agent.id);
     }
 
