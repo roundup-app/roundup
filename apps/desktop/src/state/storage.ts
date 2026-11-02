@@ -392,7 +392,8 @@ export const draftStorage = (project: string) => {
   };
 
   const retain = (affected: Draft | null): Promise<DraftProblem | null> => {
-    const ordinary = structuredClone(drafts.filter(draft => draft.policy === "ordinary"));
+    // U5643a: only membership is captured; retained records are replaced, never mutated.
+    const ordinary = drafts.filter(draft => draft.policy === "ordinary");
     const discarded = [...removed];
 
     const pending = retaining.then(() => persist(affected, ordinary, discarded)).then(failure => {
@@ -499,18 +500,20 @@ export const draftStorage = (project: string) => {
       const draft = drafts.find(entry => entry.revision === revision);
 
       if (!draft) return structuredClone(problem);
-      draft.selection = structuredClone(selection);
+      const next = { ...draft, selection: structuredClone(selection) };
+      drafts = drafts.map(entry => entry === draft ? next : entry);
 
-      return retain(draft);
+      return retain(next);
     },
     submit: async (revision: string): Promise<{ draft: Draft; problem: DraftProblem | null } | null> => {
       const draft = drafts.find((entry) => entry.revision === revision);
 
       if (!draft || (draft.status !== "draft" && draft.status !== "failed")) return null;
 
-      draft.status = "pending";
-      const snapshot = structuredClone(draft);
-      const failure = await retain(draft);
+      const next: Draft = { ...draft, status: "pending" };
+      drafts = drafts.map(entry => entry === draft ? next : entry);
+      const snapshot = structuredClone(next);
+      const failure = await retain(next);
 
       return { draft: snapshot, problem: failure };
     },
@@ -523,7 +526,7 @@ export const draftStorage = (project: string) => {
         removed.add(revision);
         drafts = drafts.filter((entry) => entry.revision !== revision);
       }
-      else draft.status = outcome;
+      else drafts = drafts.map(entry => entry === draft ? { ...entry, status: outcome } : entry);
 
       return retain(draft);
     },

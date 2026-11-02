@@ -175,10 +175,11 @@ it.each(["write", "read", "invalid"])("u2773e_recovery_actions_keep_surface_draf
   const calls = app.calls.length;
   openSwitcher();
   await waitFor(() => expect(field()).not.toBeNull());
+  const dialog = within(screen.getByRole("dialog", { name: "Switch to" }));
   type(exact);
-  expect(await screen.findByRole("alert")).toBeDefined();
+  expect(await dialog.findByRole("alert")).toBeDefined();
   expect(field()!.value).toBe(exact);
-  fireEvent.click(await screen.findByRole("button", { name: "Copy query" }));
+  fireEvent.click(await dialog.findByRole("button", { name: "Copy query" }));
 
   await waitFor(() => expect(writeText).toHaveBeenCalledWith(exact));
 
@@ -190,9 +191,9 @@ it.each(["write", "read", "invalid"])("u2773e_recovery_actions_keep_surface_draf
   if (failure === "invalid") localStorage.removeItem(key);
 
   field()!.setSelectionRange(2, 9, "backward");
-  screen.getByRole("button", { name: "Try again" }).focus();
+  dialog.getByRole("button", { name: "Try again" }).focus();
   fireEvent.click(document.activeElement!);
-  await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+  await waitFor(() => expect(dialog.queryByRole("alert")).toBeNull());
   expect(JSON.parse(localStorage.getItem(key)!).drafts.at(-1).value.query).toBe(exact);
   expect(field()!.value).toBe(exact);
   expect(document.activeElement).toBe(field());
@@ -201,9 +202,9 @@ it.each(["write", "read", "invalid"])("u2773e_recovery_actions_keep_surface_draf
 
   const refuse = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("full"); });
   type("newer query");
-  await screen.findByRole("alert");
+  await dialog.findByRole("alert");
   refuse.mockRestore();
-  fireEvent.click(screen.getByRole("button", { name: "Discard query" }));
+  fireEvent.click(dialog.getByRole("button", { name: "Discard query" }));
   expect(field()!.value).toBe("");
   await waitFor(() => expect(JSON.parse(localStorage.getItem(key)!).drafts).toEqual([]));
   expect(app.calls.length).toBe(calls);

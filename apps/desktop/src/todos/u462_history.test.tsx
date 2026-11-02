@@ -13,33 +13,14 @@ const open = async (mounted: Awaited<ReturnType<typeof mountTodos>>, id = 1) => 
   { const focusedRow = await screen.findByRole("button", { name: new RegExp(`^Idle #${id} `) }); focusedRow.focus(); fireEvent.keyDown(focusedRow, { key: "Enter", code: "Enter" }); }
 
   await within(panel()).findByRole("region", { name: "Activity" });
-  fireEvent.click(await screen.findByRole("button", { name: /^Activity · / }));
+  fireEvent.click(await within(panel()).findByRole("button", { name: /^\d+ changes?$/ }));
   await within(panel()).findByText(/^Created |^Renamed |^Assigned /);
 };
 
-/** The explicitly opened Activity acknowledges only its opening snapshot. */
+/** Opening the counted disclosure exposes history; its read settles asynchronously. */
 const disclose = async (mounted: Awaited<ReturnType<typeof mountTodos>>) => {
   await waitFor(() => expect(todoCallsTo(mounted.app, "todo.readHistory").length).toBeGreaterThan(0));
 };
-
-it("u3728_changes_wait_behind_one_line", async () => {
-  const m = await mountTodos([todo(1)]);
-  const row = await screen.findByRole("button", { name: /^Idle #1 / });
-  row.focus();
-  fireEvent.keyDown(row, { key: "Enter", code: "Enter" });
-  const disclosure = await screen.findByRole("button", { name: /^Activity · 1$/ });
-  expect(disclosure.getAttribute("aria-expanded")).toBe("false");
-  expect(document.querySelectorAll(".todo-comments [data-change]")).toHaveLength(0);
-  expect(todoCallsTo(m.app, "todo.readHistory")).toHaveLength(0);
-  fireEvent.click(disclosure);
-  await within(panel()).findByText(/^Created /);
-  await waitFor(() => expect(todoCallsTo(m.app, "todo.readHistory")).toHaveLength(1));
-  fireEvent.click(disclosure);
-  await waitFor(() => expect(document.querySelectorAll(".todo-comments [data-change]")).toHaveLength(0));
-  fireEvent.click(disclosure);
-  await within(panel()).findByText(/^Created /);
-  expect(todoCallsTo(m.app, "todo.readHistory")).toHaveLength(1);
-});
 
 it("u462_only_the_open_drawer_requests_history", async () => {
   const m = await mountTodos([todo(1), todo(2)]);
@@ -77,7 +58,7 @@ it("u462_failed_fetch_does_not_consume_unread_changes", async () => {
   await waitFor(() => expect(document.activeElement).toBe(field));
   m.app.handlers["todo.getHistory"] = original;
   fireEvent.click(within(panel()).getByRole("button", { name: "Retry history" }));
-  fireEvent.click(await screen.findByRole("button", { name: /^Activity · / }));
+  fireEvent.click(await within(panel()).findByRole("button", { name: /^\d+ changes?$/ }));
   await within(panel()).findByText(/^Created todo 1( · |$)/);
   await waitFor(() => expect(todoCallsTo(m.app, "todo.readHistory")).toHaveLength(1));
 });
@@ -127,7 +108,7 @@ it("u462_live_refresh_does_not_acknowledge_changes_absent_from_opening", async (
 });
 
 
-// U4698e retains the older-entry boundary after Activity is disclosed.
+// U4698e's integrated boundary test replaces the opt-in history fold and read tests.
 
 it("u3728_failed_read_retries_without_consuming_unread", async () => {
   const m = await mountTodos([todo(1)]);

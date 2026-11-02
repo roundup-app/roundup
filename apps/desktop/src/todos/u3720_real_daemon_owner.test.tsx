@@ -239,9 +239,6 @@ it.skipIf(Boolean(captureDir("U4698e")) && !captureDir("U3311"))("u3311_real_dae
     saved.set(moved.id, { title: "Release notes revised", body: "Exact body é 🧪 次の行" });
     await observe(moved.id, agents[0]!.id);
     // U4698e: user comments join the persisted resulting work in its Activity.
-    await lane.browser("focus", ".todo-history-line");
-    await lane.until("document.activeElement?.matches('.todo-history-line')");
-    await lane.browser("press", "Space");
     await lane.until("!!document.querySelector('.todo-comments[aria-label=Activity] [data-change]')");
     await lane.browser("fill", ".todo-comment-field", "Reviewed release notes é 雪");
     await lane.browser("press", "Enter");
@@ -341,7 +338,6 @@ print(json.dumps({'todo':todo,'pad':pad}))
 
     await selectHome();
     await openTodo();
-    await lane.browser("click", ".todo-history-line");
     await lane.until("!!document.querySelector('[data-change]')");
     await lane.browser("dblclick", ".todo-detail-title .todo-editable p");
     await lane.browser("fill", '.todo-detail-title textarea', "Reviewed release result");
@@ -367,7 +363,6 @@ print(json.dumps({'todo':todo,'pad':pad}))
     await lane.until(`!!document.querySelector('.rail-row[data-id="${home.id}"]')`);
     await selectHome();
     await openTodo();
-    await lane.browser("click", ".todo-history-line");
     await lane.until("document.querySelector('.todo-detail-title')?.textContent.includes('Reviewed release result') && document.querySelector('.todo-comments')?.textContent.includes('Ready to publish')");
     await lane.capture("U4698e", "persisted-todo");
     expect(await app.rpc("todo.get", { id: todo.id })).toMatchObject({ id: todo.id, home: home.id, title: "Reviewed release result", body: "Vendor result", creator: todo.creator });

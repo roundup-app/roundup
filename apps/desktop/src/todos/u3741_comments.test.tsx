@@ -20,7 +20,6 @@ const open = async () => {
   { const focusedRow = await screen.findByRole("button", { name: /^Idle #1 / }); focusedRow.focus(); fireEvent.keyDown(focusedRow, { key: "Enter", code: "Enter" }); }
 
   await within(panel()).findByRole("region", { name: "Activity" });
-  fireEvent.click(await screen.findByRole("button", { name: /^Activity · / }));
 };
 
 it("u3741_the_thread_reads_oldest_first_with_authors", async () => {
