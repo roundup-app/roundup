@@ -32,13 +32,15 @@ export const draftProblem = (cause: string) => `${cause === "write" ? "Storage c
 export type CopyValue = string | number | undefined;
 
 export const labels = new Map([
-  ["open-tab", "the selected Project"], ["unseen", "read markers"], ["drafts", "unfinished work"],
+  ["held", "held alerts"], ["open-tab", "the selected Project"], ["unseen", "read markers"], ["drafts", "unfinished work"],
   ["import", "imported work"], ["rail", "Rail layout"], ["app-settings", "settings"],
   ["widths", "panel widths"], ["shelf", "work item layout"], ["terminal-font", "Terminal text size"],
  ]);
 
 export const copy = {
   padWidths: [{ value: "narrow", label: "Narrow" }, { value: "wide", label: "Wide" }, { value: "full", label: "Full" }] as const,
+  alerts: "Alerts",
+  defaultLevel: "Default",
   storageIncompatible: (folder: string) => `Saved work is incompatible with this app. Close roundup. Delete this browser data to start fresh: ${folder}`,
   now: "now",
   dotted: (first: string, second: string) => `${first} · ${second}`,
@@ -158,7 +160,7 @@ export const copy = {
   overview: "Overview",
   rail: "Rail",
   doneCount: " done",
-  addWorkstream: "Add Workstream",
+  create: "Create",
   addWorkstreamWord: " Workstream",
   importUnnamed: "Unavailable conversation title",
   unavailableHome: "Unavailable Workstream",

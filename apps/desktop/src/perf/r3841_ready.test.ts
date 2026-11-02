@@ -73,7 +73,7 @@ it.each(["idle", "flood"] as const)("u165_k3_opens_its_terminal_with_cmd_t_after
   });
 
   render(() => createComponent(App, { app, reducedMotion: () => true, clock: () => 0, createEmulator: terminal.createEmulator }));
-  await waitFor(() => expect(document.querySelector('[aria-label="Add Workstream"]')).not.toBeNull());
+  await waitFor(() => expect(document.querySelector('[aria-label="Create"]')).not.toBeNull());
   const opened: string[] = [];
 
   const input = await terminalReady(app, terminal, workload === "flood" ? async (flood) => {
@@ -142,7 +142,7 @@ it.each(["keys", "frames"])("r3841a_terminal_setup_waits_for_agent_before_openin
   vi.stubGlobal("requestAnimationFrame", vi.fn());
   document.body.innerHTML = '<button>Add</button>';
   const button = document.querySelector("button")!;
-  button.setAttribute("aria-label", "Add Workstream");
+  button.setAttribute("aria-label", "New Workstream");
   button.onclick = () => document.body.insertAdjacentHTML("beforeend", '<div role="treeitem" aria-selected="true"></div>');
   const app = createFakeApp();
 
@@ -180,7 +180,7 @@ it.each(["keys", "frames"])("r3841a_terminal_setup_waits_for_agent_before_openin
 const bytes = (text: string) => new TextEncoder().encode(text);
 
 const setup = (options: { agent?: boolean; shell?: boolean; retained?: string } = {}) => {
-  document.body.innerHTML = '<button aria-label="Add Workstream"></button>';
+  document.body.innerHTML = '<button aria-label="New Workstream"></button>';
   document.querySelector("button")!.onclick = () => {
     document.body.insertAdjacentHTML("beforeend", '<div role="treeitem" aria-selected="true"></div>');
 
@@ -434,7 +434,7 @@ it("r20_flood_reports_activity_and_drops_when_output_stops_display_frames", asyn
   const reports: Uint8Array[] = [];
   document.body.innerHTML = '<button>Add</button>';
   const create = document.querySelector("button")!;
-  create.setAttribute("aria-label", "Add Workstream");
+  create.setAttribute("aria-label", "New Workstream");
   create.onclick = () => {
     document.body.insertAdjacentHTML("beforeend", '<div role="treeitem" aria-selected="true"></div><textarea class="xterm-helper-textarea"></textarea>');
   };
@@ -553,7 +553,7 @@ it("r20_the_recorder_addresses_the_terminal_the_daemon_listed_not_the_placeholde
   });
 
   render(() => createComponent(App, { app, reducedMotion: () => true, clock: () => 0, createEmulator: terminal.createEmulator }));
-  await waitFor(() => expect(document.querySelector('[aria-label="Add Workstream"]')).not.toBeNull());
+  await waitFor(() => expect(document.querySelector('[aria-label="Create"]')).not.toBeNull());
   const ready = terminalReady(app, terminal);
 
   setTimeout(answer, 100);

@@ -2,7 +2,7 @@ import { cleanup, fireEvent, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import type { RailNode } from "@contracts/agent/RailNode";
 import { agent, door, event, workstream } from "../testing/nodes";
-import { chord, mountRail, pinnedAdd, railCallsTo, rowNames, rowOf, settled } from "./railFixture";
+import { chooseFooter, chord, mountRail, railCallsTo, rowNames, rowOf, settled } from "./railFixture";
 
 afterEach(cleanup);
 
@@ -13,7 +13,7 @@ describe("u162 one add opens a Workstream", () => {
     mounted.app.handlers["rail.createWorkstream"] = () => door("made", "idle", "idle");
     mounted.app.handlers["rail.startDoor"] = () => door("made", "working", "starting");
 
-    fireEvent.click(pinnedAdd());
+    await chooseFooter("Workstream");
     await waitFor(() => expect(railCallsTo(mounted.app, "rail.createWorkstream")).toEqual([{ name: "workstream", parent: null }]));
     tree.push(workstream("made"));
     mounted.app.emit(event({ name: "rail.changed" }));
