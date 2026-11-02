@@ -117,6 +117,7 @@ fn attribute(name: &str) -> String {
 
 /// A live session's listing: the `peerProtocol` it names and its `peerToken`.
 struct Session {
+    id: String,
     protocol: Option<u64>,
     token: String,
 }
@@ -134,7 +135,7 @@ impl Launcher {
         let socket = socket.canonicalize().ok()?;
         let sessions = self.conversation_dir.join("sessions");
         let files: Vec<_> = std::fs::read_dir(&sessions).ok()?.flatten().collect();
-        let (pid, protocol) = files.iter().find_map(|file| {
+        let (pid, protocol, id) = files.iter().find_map(|file| {
             let name = file.file_name().into_string().ok()?;
             let pid = name.strip_suffix(".json")?;
             let session: Value = serde_json::from_slice(&std::fs::read(file.path()).ok()?).ok()?;
@@ -143,8 +144,9 @@ impl Launcher {
                 .ok()?;
             let alive = rustix::process::Pid::from_raw(session["pid"].as_i64()?.try_into().ok()?)
                 .is_some_and(|pid| rustix::process::test_kill_process(pid).is_ok());
+            let id = session["sessionId"].as_str()?.to_owned();
             (listening == socket && alive)
-                .then(|| (pid.to_owned(), session["peerProtocol"].as_u64()))
+                .then(|| (pid.to_owned(), session["peerProtocol"].as_u64(), id))
         })?;
         let token = files.iter().find_map(|file| {
             let name = file.file_name().into_string().ok()?;
@@ -153,7 +155,11 @@ impl Launcher {
             let key: Value = serde_json::from_slice(&std::fs::read(file.path()).ok()?).ok()?;
             key["peerToken"].as_str().map(str::to_owned)
         })?;
-        Some(Session { protocol, token })
+        Some(Session {
+            id,
+            protocol,
+            token,
+        })
     }
 
     /// B51: the state of Agent `agent`'s inbox: `missing` when its session is not listening on
@@ -166,11 +172,20 @@ impl Launcher {
         }
     }
 
-    /// B50(a), B50(c): sends one line per note over `agent`'s socket. A failure, which may come
-    /// after some notes went, names `missing`; sending the batch again is safe, since Claude Code
-    /// drops a `msg_id` it has taken up.
-    pub fn inbox_write(&self, agent: &str, notes: &[Entry], yolo: bool) -> Result<(), Inbox> {
-        let permission_mode = if yolo {
+    /// B5763b: the actual peer session, independent of Daemon restart or Agent labels.
+    pub fn inbox_session(&self, agent: &str) -> Option<String> {
+        self.session(&self.socket_path(agent))
+            .map(|session| session.id)
+    }
+
+    /// B5763b: use exactly the renderer and permission mode of the physical inbox write.
+    pub fn inbox_content(&self, agent: &str, note: &Entry, yolo: bool) -> String {
+        let from = format!("uds:{}", self.socket_dir().join("rupd").display());
+        note.content(&from, &self.inbox_mode(agent, yolo))
+    }
+
+    fn inbox_mode(&self, agent: &str, yolo: bool) -> String {
+        if yolo {
             "bypassPermissions".to_owned()
         } else {
             self.modes
@@ -179,7 +194,14 @@ impl Launcher {
                 .get(agent)
                 .map(|mode| mode.effective.clone())
                 .unwrap_or_else(|| "default".into())
-        };
+        }
+    }
+
+    /// B50(a), B50(c): sends one line per note over `agent`'s socket. A failure, which may come
+    /// after some notes went, names `missing`; sending the batch again is safe, since Claude Code
+    /// drops a `msg_id` it has taken up.
+    pub fn inbox_write(&self, agent: &str, notes: &[Entry], yolo: bool) -> Result<(), Inbox> {
+        let permission_mode = self.inbox_mode(agent, yolo);
         let socket = self.socket_path(agent);
         let token = self.session(&socket).ok_or(Inbox::Missing)?.token;
         let mut stream = UnixStream::connect(&socket).map_err(|_| Inbox::Missing)?;

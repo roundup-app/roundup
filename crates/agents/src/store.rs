@@ -274,6 +274,18 @@ impl Agents {
         state
     }
 
+    /// B5763b: the receiving peer session used for durable inbox comparison.
+    pub fn inbox_session(&self, id: &str) -> Option<String> {
+        self.launcher.inbox_session(id)
+    }
+
+    /// B5763b: the exact content the current receiving permission mode will write.
+    pub fn inbox_content(&self, id: &str, note: &claude_code::inbox::Entry) -> String {
+        let runs = self.shared.runs();
+        let yolo = matches!(runs.get(id), Some(Slot::Running(run)) if run.yolo);
+        self.launcher.inbox_content(id, note, yolo)
+    }
+
     /// B50: write notes to Agent `id`'s Claude inbox; a failure is the state they stay pending under,
     /// and is the Rail fact too.
     pub fn inbox_write(
