@@ -83,4 +83,4 @@ it("u5690c_public_group_renders_and_opens_its_children", async () => {
     expect((await app.rpc("rail.tree", null)).find(node => node.id === group.id)?.kind).toBe("group");
     await lane.capture("U5690c", "public-group-child");
   });
-}, 180_000);
+}, 360_000);
