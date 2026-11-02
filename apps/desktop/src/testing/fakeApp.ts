@@ -313,7 +313,6 @@ export const createFakeApp = (): FakeApp => {
         exitDaemon: app.exitDaemon,
         onDaemonExited: app.onDaemonExited,
         onFileDrop: app.onFileDrop,
-        imageUrl: app.imageUrl,
         chooseProjectPath: app.chooseProjectPath,
         chooseSavePath: app.chooseSavePath,
         ask: app.ask,
@@ -423,7 +422,6 @@ export const createFakeApp = (): FakeApp => {
         },
       };
     },
-    imageUrl: (path) => `file://${path}`,
     openTarget: async (target) => {
       if (app.openFailure) throw app.openFailure;
 

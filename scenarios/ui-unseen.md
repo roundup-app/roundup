@@ -1,6 +1,6 @@
 # UI: find an Agent's unseen finish
 
-Module: `apps/desktop` (App state and summaries), `crates/agents` (retained finish count) and `crates/contracts` (one Status field). Ids: U3566a, U3566b, U3566c, U3566d, U5153a, U5153b, U5153c.
+Module: `apps/desktop` (App state and summaries), `crates/agents` (retained finish count) and `crates/contracts` (one Status field). Ids: U3566a, U3566b, U3566c, U3566d, U5153a, U5153b, U5153c, U5541.
 
 Work order: [#3566](https://github.com/saadshahd/roundup/issues/3566). Journey: Understand → Review (`.agents/data/journey.md`, headings “What must work” and “How a Builder closes a gap”). A finish means a published Kind transition directly from `working` to `idle` or `done`; it says that a turn ended, never that its result was accepted or independently checked. A Door is an Agent too. Plain Terminals keep U3704's separate unseen-output behavior.
 
@@ -64,3 +64,23 @@ Policy, P3 Gate: can a routine finish interrupt the user or masquerade as a requ
 1. `scenarios/project-tabs.md`, “U180 the Tab mark”, “U182 hover tells the count”, “U184 close with a question, and overflow”, “U185 a Daemon gone, in a tab” and “U186 keys and a restart”: attention counts, priority, overflow, exit recovery and navigation remain acceptance; U5153a changes only the inclusion of unread finishes.
 2. `apps/desktop/src/rail/u3566_unseen.test.tsx`, `u3566a_unselected_finish_is_unseen_until_selected`, `u3566b_summaries_follow_their_unseen_agents` and `u3566c_reload_reconciles_finishes_with_seen_state`: Agent unread acknowledgement, collapsed summaries, Project identity isolation and reload remain; remove only the superseded tab-unread assertions.
 3. `apps/desktop/src/header/u186_keys.test.tsx`, `u186_leader_shift_j_goes_to_the_next_marked_project_and_selects_its_most_urgent_agent`: the attention route retains selection order. Extend through U5153a's unread-only Project case rather than duplicating its existing proof.
+
+## Publication discovery after an initial read failure
+
+Work order: [#5541](https://github.com/roundup-app/roundup/issues/5541). Module: `apps/desktop` publication seen state and its connected-App tests. Journey: Understand → Review. This extends U5502's Ready acknowledgement in `scenarios/ui-state-alerts.md`, heading “Opening and acknowledgement”; its publication-tracking implementation is prerequisite work owned by #5508. No runtime behavior is delivered by this specification.
+
+**U5541 a failed first read preserves unread gap publications.** Given an open Project with no saved publication seen record, Agent H has a committed historical Deliverable before the App begins observing that Project, Agent B has no published result or unread finish, and another Agent's pane is displayed. When the first `deliverable.list` call rejects, B deliberately publishes a committed Deliverable while that pane remains displayed, and a later list refresh succeeds with both records, then B's publication is unread and makes B eligible for U5502's Ready list, while H's older publication stays read and does not make H Ready. Planned test: `u5541_first_read_failure_keeps_gap_publications_unread` in `apps/desktop/src/rail/u3566_unseen.test.tsx`, parameterized for one or two rejected reads before success. Through the mounted real App and existing fake App RPC/Event seam, supply distinct ordered publication times, reject the initial read(s), advance the supplied time, return the committed records on refresh, and inspect the connected Ready projection's Project/Agent identities. Keep B unviewed throughout recovery; no finish event may create its Ready membership. The test must fail if recovery marks every returned record seen or makes historical H Ready.
+
+Policy: U5502's “baseline the first successful publication list” rule applies to publications predating observation of this Project; a read failure must not move that boundary forward to the recovery read. A rejected read is unknown data, never an empty successful catalogue or an acknowledgement. Consume committed Deliverable metadata and the existing refresh path; add no per-Agent polling, publication log, vendor parsing or seen RPC. Reuse installed storage, resource and clock facilities before considering new machinery (rule 9).
+
+Policy/regression: retain U5502's first-read success, per-Project isolation, reload/replay and foreground-only per-Agent acknowledgement requirements, and U3566a–c's finish behavior. Reuse their observers rather than add duplicate tests. Failed publication attempts and idempotent replay still create no new Ready result. No native-menu composition, visual treatment, alert or navigation behavior changes are ordered. If implementation changes a visible path, retain U5502's dark 1512×950 rendered observer and D2/D5/D6; this specification makes no rendered or Mac claim.
+
+Applicable Gates and Observers (policy): P3 — can recovery introduce an interruption for routine publication? Observe only the existing passive Ready projection, with no unsolicited activation or sound. P9 — can list recovery start an Agent or type input? Observe zero turn-producing calls. P12 — can recovery hide the gap publication or substitute its Project/maker/record? The U5541 observer checks the committed record's original Project and Agent; opening/acceptance/removal semantics remain unchanged.
+
+### Main regression Checks for U5541
+
+These are existing main anchors, not claims that the planned U5541 test passes:
+
+1. `scenarios/ui-state-alerts.md`, U5502, “Opening and acknowledgement”: publication baseline, Ready membership, Project identity, acknowledgement and reload requirements.
+2. `apps/desktop/src/state/unseen.ts`, `createUnseen`; `apps/desktop/src/rail/u3566_unseen.test.tsx`, `u3566c_reload_reconciles_finishes_with_seen_state`: retained finish baselines and foreground acknowledgement stay intact.
+3. `scenarios/deliverables.md`, DV1; `crates/rupd/src/deliverables.rs`, `Daemon::deliverable_call`; `contracts/generated/deliverable/Deliverable.ts`, `Deliverable`: use committed publication identity, maker, Project and publication time, never Terminal output or scratch files.

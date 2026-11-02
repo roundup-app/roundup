@@ -205,7 +205,7 @@ fn a3564c_each_brief_separates_peer_and_user_questions() {
     for role in [Role::Agent, Role::Door, Role::Scout] {
         let text = brief(&s, "7", role);
         for rule in [
-            "Ask the user with `AskUserQuestion`",
+            "Only without a coordinator, ask the user with `AskUserQuestion`",
             "Ask another Agent with `message_send` as a question",
             "names your question in `replyTo`",
             "Never answer another Agent's `AskUserQuestion` or permission prompt, and never type into its Terminal.",
@@ -215,4 +215,45 @@ fn a3564c_each_brief_separates_peer_and_user_questions() {
         assert!(!text.contains(&["ask", "user"].join("_")), "{role:?}");
         assert!(!text.contains("decision_answer"), "{role:?}");
     }
+}
+
+#[test]
+fn a5482a_each_brief_routes_user_questions_by_coordinator() {
+    for role in [Role::Agent, Role::Door, Role::Scout] {
+        for mcp in [true, false] {
+            let s = setup();
+            let pair = agents::claude_code::Pair {
+                mcp_off: !mcp,
+                ..Default::default()
+            };
+            s.launcher()
+                .prepare_on(folders(&s.dir), "7", "1", &s.cwd, None, role, &pair)
+                .unwrap();
+            let text = std::fs::read_to_string(s.dir.join("agents/7.brief.md")).unwrap();
+            let send = if mcp {
+                "message_send"
+            } else {
+                "rup message send"
+            };
+            assert!(
+                text.contains(&format!(
+                    "send every question for the user to that Agent with `{send}` as a question"
+                )),
+                "{role:?} {mcp}"
+            );
+            assert!(text.contains("including choices reserved to the user"));
+            assert!(text.contains(
+                "never use `AskUserQuestion` or send the user to your Terminal for a choice"
+            ));
+        }
+    }
+}
+
+#[test]
+fn a5482b_lead_brief_answers_or_asks_in_its_own_terminal() {
+    let text = brief(&setup(), "7", Role::Door);
+    assert!(text.contains("Answer a child's question yourself when the order supplies the answer or delegates the choice to you"));
+    assert!(text.contains("Preserve explicit user limits"));
+    assert!(text.contains("Treat a question in a child's Digest last text the same way"));
+    assert!(text.contains("Before deciding from `[cut]`, obtain the complete final reply"));
 }

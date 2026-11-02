@@ -6,6 +6,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 
 | Code term | User label | Avoid |
 |---|---|---|
+| Wall clock (`provenance::now_ms`) | none | — |
 | Code term | same | — |
 | User label | same | — |
 | App copy catalogue (`copy`) | same | — |
@@ -62,7 +63,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Wake request (`agent.wake`) | same | — |
 | GitHub tool (`github.prGet`, `github.issueGet`, `github.prSetBody`, `github.prReady`, `github.prAutoMerge`; the Door's tools `github_pr_get`, `github_issue_get`, `github_pr_set_body`, `github_pr_ready`, `github_pr_auto_merge`) | same | — |
 | Quiet Digest (`is_quiet_digest`) | same | — |
-| Reaction (`reaction.create`, `.list`, `.get`, `.stop`, `.run`; authenticated maker in `actor`, one-line `reason`, absent for legacy definitions) | Reaction | — |
+| Reaction (`reaction.create`, `.list`, `.get`, `.stop`, `.run`; authenticated maker in `actor`, required one-line `reason`) | Reaction | — |
 | Reaction observation identity (`ObservationCause`, `ObservationGap`, `ObservationRecovery`, `ObservationHealth`) | same | — |
 | Preview (`reaction.preview`) | Time preview | — |
 | Firing (a Reaction's `firings`) | same | — |
@@ -102,7 +103,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Window bar | same | — |
 | Project tab | same | — |
 | Tab mark | same | — |
-| Rail (`Rail::name`, `Rail::last_id`, `Agents::rail_name`, `Agents::rail_last_id`, `rail.tree`, `rail.list`) | same | — |
+| Rail (`Rail::name`, `Rail::last_id`, `Agents::rail_name`, `Agents::rail_last_id`, `rail.tree`) | same | — |
 | Rail deletion redo (`RedoParams`, `rail.redo`, `Deletion.restoration`, `Agents::redo_reversible_with`, `Agents::acknowledge_restoration_in`, `Todos::redo_workstream_in`, `Pads::redo_workstream_in`) | Redo | — |
 | Rail removal operation (`agent::RemoveParams`, `agent::Deletion`, `agent::DeletionParams`, `Removal.deletion`, `rail.remove`, `rail.deletion`, `rail.restore`, `Agents::rail_deletion`, `Agents::remove_reversible_with`, `Agents::restore_reversible_with`, `Agents::restore_reversible_in`) | same | — |
 | Remove this (`agent::RemoveScope::This`) | Remove this | — |
@@ -134,10 +135,9 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Pad | same | scratchpad |
 | Shortcut file (`ShortcutFileExport`, `shortcuts.export`) | Save to file… | — |
 | Editor | same | — |
-| Attachment | same | — |
-| Attachment file | same | upload, temp image |
 | Clipboard write (`writeClipboardText`) | same | — |
-| Pasted image | same | — |
+| Pasted image | same | upload, temp image |
+| Paste placeholder | same | — |
 | Quote | same | — |
 | setWindowTitle | none | — |
 | dragWindow | none | — |

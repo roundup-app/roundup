@@ -71,11 +71,19 @@ pub fn build<R: Runtime>(
             #[cfg(target_vendor = "apple")]
             native::project_menu_hints(app.handle(), Vec::new())?;
             let state = app.state::<AppState>();
-            match app.path().app_data_dir() {
-                Ok(dir) => state.use_data_dir(dir),
-                Err(err) => diagnostics::failure("locate data folder; names and open Projects are not retained", &err),
+            let initialized = app.path().app_data_dir()
+                .map_err(|error| RpcError::internal(format!("Cannot locate the App data folder: {error}")))
+                .and_then(|dir| state.use_data_dir(dir));
+            if let Err(error) = initialized {
+                log::warn!(target: "roundup::shell", "refuse Project preferences: RPC failure code {}", error.code);
+                exit(app.handle(), 1);
+                return Ok(());
             }
-            tauri::async_runtime::block_on(state.restore(app.handle()));
+            if let Err(error) = tauri::async_runtime::block_on(state.restore(app.handle())) {
+                log::warn!(target: "roundup::shell", "restore Project preferences: RPC failure code {}", error.code);
+                exit(app.handle(), 1);
+                return Ok(());
+            }
             if let Some(ref project_dir) = project_dir
                 && let Err(err) =
                     tauri::async_runtime::block_on(state.open_project(app.handle(), project_dir))
@@ -165,7 +173,18 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
             builder.plugin(diagnostics::plugin()),
             config,
             project_dir,
-            |app, code| app.exit(code),
+            |app, code| {
+                if let Err(error) = app.state::<AppState>().recent_projects() {
+                    use tauri_plugin_dialog::DialogExt;
+                    let refused = app.clone();
+                    app.dialog()
+                        .message(error.message)
+                        .title("Cannot open roundup")
+                        .show(move |_| refused.exit(code));
+                    return;
+                }
+                app.exit(code);
+            },
         )
         .build(context),
     )?
@@ -174,7 +193,7 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 #[tauri::command]
-fn recent_projects(state: State<'_, AppState>) -> Vec<String> {
+fn recent_projects(state: State<'_, AppState>) -> Result<Vec<String>, RpcError> {
     state.recent_projects()
 }
 
@@ -186,7 +205,7 @@ async fn claude_binary(
 }
 
 #[tauri::command]
-fn projects(state: State<'_, AppState>) -> Vec<Listed> {
+fn projects(state: State<'_, AppState>) -> Result<Vec<Listed>, RpcError> {
     state.projects()
 }
 

@@ -224,8 +224,6 @@ export type App = {
   dragWindow(): Promise<void>;
   /** Toggles native zoom of the current window; rejects as RpcError on failure. */
   zoomWindow(): Promise<void>;
-  /** The URL the webview loads the image file at the absolute `path` from (U352); the file is read by the webview, not the Daemon. */
-  imageUrl(path: string): string;
   /** Opens a web link in the default browser, or an absolute path in its default app (a folder in Finder). Rejects NOT_FOUND for a missing path and FORBIDDEN for a scheme but http and https (U365). */
   openTarget(target: OpenTarget): Promise<void>;
   /** Opens the absolute directory or file `path` in the user's code editor, a file at `line` when the editor takes one (U429, U2539c). Rejects NOT_FOUND for a missing path or when no editor is found, and CONFLICT for a relative path. */

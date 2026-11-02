@@ -289,7 +289,6 @@ export const createServedApp = (base: string, choice?: () => "choose" | "cancel"
             void start();
           }),
       ),
-    imageUrl: (path) => `file://${path}`,
     selectProjectMenu: async (path, items) => { projectMenu.path = path; projectMenu.items = items ?? []; },
     onProjectPage: async (listener) => {
       const receive = (event: Event) => { if (event instanceof CustomEvent) listener(event.detail); };

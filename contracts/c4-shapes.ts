@@ -98,8 +98,6 @@ type After = {
   "ask/SendParams": import("./generated/ask/SendParams").SendParams;
   "ask/State": import("./generated/ask/State").State;
   "ask/Target": import("./generated/ask/Target").Target;
-  "attachment/SaveParams": import("./generated/attachment/SaveParams").SaveParams;
-  "attachment/Saved": import("./generated/attachment/Saved").Saved;
   "deliverable/Deliverable": import("./generated/deliverable/Deliverable").Deliverable;
   "deliverable/DeliverableId": import("./generated/deliverable/DeliverableId").DeliverableId;
   "deliverable/ExternalAvailability": import("./generated/deliverable/ExternalAvailability").ExternalAvailability;
@@ -267,12 +265,20 @@ type WithOwnerSelector<T> = { [K in keyof T]: K extends "owner" ? T[K] | string 
 
 type SelectorInputs = "todo/AssignParams" | "todo/CreateParams";
 
-type BeforeSelectors = { [K in keyof Before]: K extends SelectorInputs ? WithOwnerSelector<Before[K]> : Before[K] };
+// N5467b/NR11 retire nullable historical Reaction reasons; all other saved fields stay exact.
+type CurrentReaction = Omit<Before["reaction/Reaction"], "reason"> & { reason: string };
+
+type BeforeSelectors = { [K in keyof Before]: K extends SelectorInputs ? WithOwnerSelector<Before[K]>
+  : K extends "reaction/Reaction" ? CurrentReaction : Before[K] };
 
 type SelectorMethods = "todo.assign" | "todo.create";
 
 type BeforeMethodSelectors = { [K in keyof BeforeRpcMethods]: K extends SelectorMethods
   ? { params: WithOwnerSelector<BeforeRpcMethods[K]["params"]>; result: BeforeRpcMethods[K]["result"] }
+  : K extends "reaction.create" | "reaction.get" | "reaction.run" | "reaction.stop"
+    ? { params: BeforeRpcMethods[K]["params"]; result: CurrentReaction }
+  : K extends "reaction.list"
+    ? { params: BeforeRpcMethods[K]["params"]; result: CurrentReaction[] }
   : BeforeRpcMethods[K] };
 
 // Both directions retain optionality, nulls, numeric types, tags and flattened fields.
