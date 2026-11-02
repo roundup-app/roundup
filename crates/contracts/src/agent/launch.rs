@@ -7,6 +7,15 @@ use specta::Type;
 
 #[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 pub struct SpawnParams {
+    /// A5765e: immutable source names and identities, supplied only by the target user connection.
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "StartAttribution::deserialize_present"
+    )]
+    #[specta(optional, type = StartAttribution)]
+    #[schemars(skip)]
+    pub start_attribution: Option<StartAttribution>,
     /// U4590: initial PTY columns; absent keeps the hostless 80-column default.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[specta(optional, type = u16)]
@@ -131,4 +140,23 @@ pub enum PermissionMode {
     AcceptEdits,
     Plan,
     Auto,
+}
+
+/// A5765e: descriptive source identity captured at creation; never a target-local Actor or authority.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct StartAttribution {
+    pub project: String,
+    pub agent: String,
+    pub project_name: String,
+    pub agent_name: String,
+}
+
+impl StartAttribution {
+    // Explicit null is input too: reject it rather than treating it as omission.
+    pub(super) fn deserialize_present<'de, D: serde::Deserializer<'de>>(
+        deserializer: D,
+    ) -> Result<Option<Self>, D::Error> {
+        Self::deserialize(deserializer).map(Some)
+    }
 }
