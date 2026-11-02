@@ -236,11 +236,11 @@ it.each([false, true])("u5575a_headings_fold_only_their_sections editable=%s", {
 it("u5561b_block_menu_inserts_two_labelled_toggles", { retry: 0, timeout: 120_000 }, async () => {
   await browser("open", url("/harness.html?seed=tree-40"));
   await wait("!!window.__fake && !!document.querySelector('#shelf-tab-pads')");
-  await read("window.__fake.app.rpc('pad.write', {name:'pad-3', text:'Between.'})");
+  await read("window.__fake.app.rpc('pad.create', {name:'toggle-insertion', text:'Between.'})");
 
   if (await read("document.querySelector('#shelf-tab-pads').getAttribute('aria-expanded') !== 'true'")) await browser("click", "#shelf-tab-pads");
   await wait("!!document.querySelector('.pad-name')");
-  await read("[...document.querySelectorAll('.pad-name')].find(row => row.textContent === 'pad-3').focus()");
+  await read("[...document.querySelectorAll('.pad-name')].find(row => row.textContent === 'toggle-insertion').focus()");
   await browser("press", "Enter");
   await wait("!!document.querySelector('.ProseMirror')");
 
@@ -262,9 +262,9 @@ it("u5561b_block_menu_inserts_two_labelled_toggles", { retry: 0, timeout: 120_00
 
   await browser("click", ".drawer .close");
   await wait("!document.querySelector('.drawer .ProseMirror')");
-  const saved = await read<string>("window.__fake.app.rpc('pad.read', {name:'pad-3'}).then(pad => pad.text)");
+  const saved = await read<string>("window.__fake.app.rpc('pad.read', {name:'toggle-insertion'}).then(pad => pad.text)");
   expect(saved).toBe("<details>\n<summary>Before</summary>\n\nFirst evidence.\n\n</details>\n\nBetween.\n\n<details>\n<summary>After</summary>\n\nSecond evidence.\n\n</details>");
-  await read("[...document.querySelectorAll('.pad-name')].find(row => row.textContent === 'pad-3').focus()");
+  await read("[...document.querySelectorAll('.pad-name')].find(row => row.textContent === 'toggle-insertion').focus()");
   await browser("press", "Enter");
   await wait("document.querySelectorAll('details[data-pad-agents]').length === 2");
   expect(await read("[...document.querySelectorAll('details[data-pad-agents]')].every(d => !d.open)")).toBe(true);
