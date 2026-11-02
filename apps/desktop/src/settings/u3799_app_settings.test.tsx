@@ -255,11 +255,12 @@ it.each([false, true])("u4277a_sections_work_by_pointer_and_keyboard_project_%s"
   window.dispatchEvent(new Event("open-app-settings"));
   const view = await screen.findByRole("region", { name: "Settings" });
 
+  const visiblePanel = () => view.querySelector('[role="tabpanel"]:not([hidden])');
   const tabs = new Map(within(view).getAllByRole("tab").map(tab => [tab.getAttribute("data-value"), tab]));
 
   for (const name of ["Agents", "Terminal", "Shortcuts", "Appearance", "Alerts", "Pads"]) {
     fireEvent.click(tabs.get(name)!);
-    await waitFor(() => expect(within(view).getByRole("tabpanel").getAttribute("aria-labelledby")).toBe(tabs.get(name)!.id));
+    await waitFor(() => expect(visiblePanel()?.getAttribute("aria-labelledby")).toBe(tabs.get(name)!.id));
   }
 
   const pages = ["Agents", "Terminal", "Shortcuts", "Appearance", "Alerts", "Pads"];
@@ -272,11 +273,11 @@ it.each([false, true])("u4277a_sections_work_by_pointer_and_keyboard_project_%s"
       const tab = tabs.get(name)!;
       await waitFor(() => expect(document.activeElement).toBe(tab));
       await waitFor(() => expect(tab.getAttribute("aria-selected")).toBe("true"));
-      await waitFor(() => expect(within(view).getByRole("tabpanel").getAttribute("aria-labelledby")).toBe(tab.id));
+      await waitFor(() => expect(visiblePanel()?.getAttribute("aria-labelledby")).toBe(tab.id));
     }
   }
 
-  for (const [page, choice] of [["Appearance", "System"], ["Pads", "Narrow"]]) {
+  for (const [page, choice] of [["Appearance", "System"], ["Pads", "Narrow"]] as const) {
     fireEvent.click(tabs.get(page)!);
     const panel = await within(view).findByRole("tabpanel", { name: page });
     const control = within(panel).getByRole("radio", { name: choice });
