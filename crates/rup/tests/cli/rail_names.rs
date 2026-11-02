@@ -158,4 +158,3 @@ fn strip_status(value: &mut Value) {
         _ => {}
     }
 }
-

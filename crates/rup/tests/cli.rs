@@ -689,7 +689,6 @@ async fn i6_invalid_utf8_on_stdin_exits_2() {
         .await;
     assert_eq!(code(&output), 2);
 }
-
 #[path = "cli/terminal.rs"]
 mod terminal;
 
@@ -890,10 +889,8 @@ async fn a2693a_cli_and_mcp_forward_the_resume_mode() {
         assert_eq!(request, json!({"id":"child","mode":mode}));
     }
 }
-
 #[path = "cli/rail_names.rs"]
 mod rail_names;
-
 #[tokio::test]
 async fn t21_the_cli_comment_is_the_same_call() {
     let project = start_daemon().await;
@@ -907,4 +904,96 @@ async fn t21_the_cli_comment_is_the_same_call() {
     assert_eq!(comment["author"]["kind"], "agent");
     assert_eq!(comment["author"]["id"], "a1");
     assert_eq!(comment["body"], "which branch?");
+}
+
+#[tokio::test]
+async fn lc22_successful_memory_decisions_reach_the_vendor() {
+    use agents::claude_code::{Folders, Launcher, Pair, Role};
+    let dir = tempfile::tempdir().unwrap();
+    let project = dir.path().join("Project's checkout");
+    let data = dir.path().join("data");
+    let memory = dir.path().join("Claude's memory");
+    let rup = dir.path().join("rup's program");
+    std::os::unix::fs::symlink(env!("CARGO_BIN_EXE_rup"), &rup).unwrap();
+    std::fs::create_dir(&project).unwrap();
+    std::fs::create_dir(&data).unwrap();
+    std::fs::write(
+        dir.path().join("settings.json"),
+        json!({"autoMemoryDirectory":memory}).to_string(),
+    )
+    .unwrap();
+    let launcher = Launcher::new("fake-claude", dir.path().join("config.json"), rup, None);
+    for role in [Role::Door, Role::Scout] {
+        for yolo in [false, true] {
+            let argv = launcher
+                .prepare_on(
+                    Folders {
+                        project: &project,
+                        data: &data,
+                    },
+                    "7",
+                    "1",
+                    &project,
+                    None,
+                    role,
+                    &Pair {
+                        yolo,
+                        ..Pair::default()
+                    },
+                )
+                .unwrap();
+            let settings: Value =
+                serde_json::from_slice(&std::fs::read(&argv[2]).unwrap()).unwrap();
+            let hook = settings["hooks"]["PreToolUse"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|hook| hook["matcher"] == "Write|Edit")
+                .unwrap();
+            for tool in ["Write", "Edit"] {
+                for target in [memory.join("MEMORY.md"), project.join("source.rs")] {
+                    let mut child = tokio::process::Command::new("bash")
+                        .args(["-c", hook["hooks"][0]["command"].as_str().unwrap()])
+                        .stdin(Stdio::piped())
+                        .stdout(Stdio::piped())
+                        .stderr(Stdio::piped())
+                        .kill_on_drop(true)
+                        .spawn()
+                        .unwrap();
+                    child
+                        .stdin
+                        .take()
+                        .unwrap()
+                        .write_all(
+                            json!({
+                                "tool_name":tool, "tool_input":{"file_path":target},
+                                "permission_mode":if yolo { "bypassPermissions" } else { "default" }
+                            })
+                            .to_string()
+                            .as_bytes(),
+                        )
+                        .await
+                        .unwrap();
+                    let output = tokio::time::timeout(BOUND, child.wait_with_output())
+                        .await
+                        .unwrap()
+                        .unwrap();
+                    assert_eq!(code(&output), 0, "{}", err(&output));
+                    assert!(err(&output).is_empty(), "{}", err(&output));
+                    if target.starts_with(&memory) {
+                        assert_eq!(output.stdout, b"{}\n");
+                    } else {
+                        let reply: Value = serde_json::from_slice(&output.stdout).unwrap();
+                        assert_eq!(reply["hookSpecificOutput"]["permissionDecision"], "deny");
+                        assert!(
+                            reply["hookSpecificOutput"]["permissionDecisionReason"]
+                                .as_str()
+                                .unwrap()
+                                .contains("child Agent")
+                        );
+                    }
+                }
+            }
+        }
+    }
 }
