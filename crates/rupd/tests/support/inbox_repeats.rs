@@ -207,7 +207,8 @@ fn digest(last: &str) -> contracts::agent::DigestEntry {
 // Rejects bypassing the shared rule in the internal producer, losing batch history, or adding expiry.
 #[tokio::test(start_paused = true)]
 async fn b5763b_identical_daemon_digests_write_once() {
-    for batch in [false, true] {
+    for case in [0, 1, 2] {
+        let batch = case > 0;
         let h = Delivery::new();
         if batch {
             h.rail.0.lock().unwrap()[0]["status"]["kind"] = json!("working");
@@ -223,6 +224,11 @@ async fn b5763b_identical_daemon_digests_write_once() {
         }
         h.messages.note_attention("receiver", &entry).await.unwrap();
         let second = h.all().await.last().unwrap()["id"].as_u64().unwrap() as u32;
+        let other = if case == 2 {
+            Some(h.send("note", "continue").await)
+        } else {
+            None
+        };
         if batch {
             h.edge().await;
         }
@@ -231,7 +237,9 @@ async fn b5763b_identical_daemon_digests_write_once() {
         })
         .await;
         assert_ne!(first, second);
-        assert_eq!(h.writes(), [first]);
+        let mut expected = vec![first];
+        expected.extend(other);
+        assert_eq!(h.writes(), expected);
         assert!(!h.flight(second));
         assert_eq!(h.get(second).await["status"], "delivered");
     }
