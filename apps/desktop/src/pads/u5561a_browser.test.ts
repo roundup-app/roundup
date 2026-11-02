@@ -180,6 +180,11 @@ it("u5561b_failed_save_keeps_the_edited_agent_details", { retry: 0, timeout: 90_
   const sizingDir = captureDir("U5704a");
   const dir = sizingDir ? join(sizingDir, process.env.ROUNDUP_CAPTURE_PHASE ?? "head") : captureDir("U5561b");
 
+  if (sizingDir) {
+    await browser("scroll", "up", "1000", "--selector", ".pad-editor");
+    await wait("document.querySelector('.pad-editor').scrollTop === 0");
+  }
+
   if (dir) {
     await mkdir(dir, { recursive: true });
     await browser("screenshot", join(dir, "save-failure.png"));
