@@ -4,7 +4,8 @@ import { shelfBrowser } from "./u371Browser";
 const { browser, evaluate, settle, openShelf } = shelfBrowser();
 
 it("u3721_overlay_mode_has_no_maximise_button_and_m_does_nothing", async () => {
-  await openShelf("tree-40", 288, 360, 800, "dark");
+  // This overlay-control probe needs no owners or attention rows.
+  await openShelf("empty-project", 288, 360, 800, "dark");
   expect(await evaluate("document.querySelector('.shelf-controls button[aria-label=Maximise]') === null")).toBe(true);
   await evaluate(`document.querySelector('.shelf button').focus()`);
   await browser("press", "m");
