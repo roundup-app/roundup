@@ -247,4 +247,3 @@ it.each(["retry", "dismiss", "signal"])("u5558e_failed_reload_retains_data: %s",
   expect(connected.drafts.list()).toEqual(retained);
   expect(app.calls.filter(call => call.method === "message.send")).toHaveLength(0);
 });
-
