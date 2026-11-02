@@ -2,9 +2,9 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
-import { expect, it } from "vitest";
+import { expect } from "vitest";
 import { shelfBrowser } from "../shelf/u371Browser";
-import { startRealDaemon } from "../testing/realDaemonFixture";
+import { realBrowserTest } from "../testing/realDaemonFixture";
 import { createServedApp } from "../testing/realSeam";
 import { captureDir } from "../testing/captures";
 
@@ -12,14 +12,13 @@ const { browser, evaluate } = shelfBrowser();
 
 const source = ['NOTE', 'TIP', 'IMPORTANT', 'WARNING', 'CAUTION'].map(kind => `> [!${kind}]\n> Keep this\n> and this\n`).join('\n') + '\n<span data-pad-color="blue">a *linked* [word](https://example.com)</span>\n\n<mark>highlight</mark> and <mark><span data-pad-color="blue">both</span></mark>\n\n```ts\nconst answer: number = 42; // keeper\n```\n\nSeparate paragraph\n';
 
-it("u5562d_colour_round_trip", { timeout: 240000, retry: 0 }, async () => {
-  const real = await startRealDaemon({}, true);
+realBrowserTest("u5562d_colour_round_trip", { timeout: 240000, retry: 0 }, async ({ real }) => {
   const app = createServedApp(real.base);
   const client = new Client({ name: "Pad round trip", version: "1" });
 
   try {
     const agent = await app.rpc("agent.spawn", { cwd: real.dir, parent: null, prompt: null, name: "Pad author", order: { kind: "work", ask: "inspect", limits: [] } });
-    await client.connect(new StdioClientTransport({ command: resolve("../../target/debug/rup"), args: ["mcp", agent.id], env: { ...process.env, RUPD_SOCKET: join(real.dir, "rupd.sock") } }));
+    await client.connect(new StdioClientTransport({ command: resolve("../../target/debug/rup"), args: ["mcp", agent.id], env: { ...process.env, RUPD_SOCKET: real.socket } }));
 
     const call = async (name: string, args: { name: string; text?: string }) => {
       const result = await client.callTool({ name, arguments: args });
@@ -85,6 +84,5 @@ it("u5562d_colour_round_trip", { timeout: 240000, retry: 0 }, async () => {
   } finally {
     await client.close();
     await browser("open", "about:blank");
-    await real.stop();
   }
 });
