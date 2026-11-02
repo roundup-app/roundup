@@ -1,3 +1,7 @@
+import { DrawerMaximisedContext } from "../drawer/DrawerHost";
+import { SegmentGroup } from "../ui/SegmentGroup";
+import { appSettings } from "../settings/preferences";
+import { copy as settingsCopy } from "../settings/copy";
 import { applied } from "../app/pending";
 import { historyRegion } from "../keys/focus";
 import { captureFocus, keepRegionFocus } from "../keys/focus";
@@ -9,7 +13,7 @@ import type { ActivationSource } from "../keys/registry";
 import { debounce } from "@solid-primitives/scheduled";
 import { copy } from "./copy";
 import { Icon } from "../ink/Icon";
-import { createEffect, createMemo, createSignal, lazy, on, onCleanup, Show, Suspense } from "solid-js";
+import { createEffect, createMemo, createSignal, lazy, on, onCleanup, Show, Suspense, useContext, untrack } from "solid-js";
 import type { Accessor } from "solid-js";
 import type { Actor } from "@contracts/Actor";
 import type { Pad } from "@contracts/pad/Pad";
@@ -43,6 +47,8 @@ const PadBody = (props: {
 }) => {
   const connected = useConnectedProject();
   const list = props.list ?? usePadList();
+  const maximised = useContext(DrawerMaximisedContext);
+  const [width, setWidth] = createSignal(untrack(() => appSettings().padWidth));
   const name = props.initial.name;
   const destination = { surface: "pads", object: props.initial.incarnation, recipient: null };
   const retained = connected.drafts.list().filter(draft => draft.destination.surface === "pads" && draft.destination.object === destination.object && (props.revision === undefined || draft.revision === props.revision)).at(-1);
@@ -437,7 +443,7 @@ const PadBody = (props: {
   const nameCut = createCutTitle(() => name);
 
   return (
-    <div class="pad-body" data-history-region={`pad:${destination.object}`}>
+    <div class="pad-body" data-pad-width={maximised() ? width() : undefined} data-history-region={`pad:${destination.object}`}>
       <div class="pad-head">
         <span class="pad-head-title">
           <span {...nameCut.attrs()} class="pad-head-name">{name}</span>
@@ -475,6 +481,7 @@ const PadBody = (props: {
       </ReservedLine>
       <Suspense>
         <PadRichEditor
+          toolbar={<Show when={maximised()}><SegmentGroup label={settingsCopy.padWidth} segments={settingsCopy.padWidths} value={width()} onValueChange={setWidth} /></Show>}
           initialFocus={props.initialFocus}
           text={source}
           readonly={invalid()}

@@ -22,14 +22,15 @@ it("u5560a_width_choice_lasts_for_the_open_pad", async () => {
   const { app } = await openShelf([padOf("note", USER, "original")]);
   const editor = await openPad("note");
   fireEvent.click(await screen.findByRole("radio", { name: "Full" }));
+  await waitFor(() => expect(screen.getByRole<HTMLInputElement>("radio", { name: "Full" }).checked).toBe(true));
   fireEvent.input(editor, { target: { value: "exact unfinished  \ntext" } });
   const text = editor.value;
   app.calls.length = 0;
   fireEvent.click(screen.getByRole("button", { name: "Restore" }));
   expect(screen.queryAllByRole("radio")).toHaveLength(0);
   fireEvent.click(screen.getByRole("button", { name: "Maximise" }));
-  expect((await screen.findByRole<HTMLInputElement>("radio", { name: "Full" })).checked).toBe(true);
-  expect(screen.getByRole("textbox")).toBe(editor);
+  await waitFor(() => expect(screen.getByRole<HTMLInputElement>("radio", { name: "Full" }).checked).toBe(true));
+  expect(screen.getByRole("textbox")).toBe(editor.querySelector("[contenteditable]"));
   expect(editor.value).toBe(text);
   expect(app.calls.filter(call => call.method === "pad.write")).toHaveLength(0);
 });

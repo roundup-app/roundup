@@ -5,7 +5,7 @@ import { toggleStrongCommand, toggleEmphasisCommand, toggleInlineCodeCommand, wr
 import { captureFocus } from "../keys/focus";
 import { ReservedLine } from "../ink/ReservedLine";
 import { copy } from "./copy";
-import { createEffect, createSignal, createUniqueId, onCleanup, onMount, useContext } from "solid-js";
+import { Show, createEffect, createSignal, createUniqueId, onCleanup, onMount, useContext } from "solid-js";
 import { Portal } from "solid-js/web";
 import { CrepeBuilder } from "@milkdown/crepe/builder";
 import { blockEdit } from "@milkdown/crepe/feature/block-edit";
@@ -84,9 +84,11 @@ export default function PadRichEditor(props: {
   onText: (text: string) => void;
   onBlur: (next: EventTarget | null) => void;
   onReady: (editor: PadEditorHandle) => void;
+  toolbar?: import("solid-js").JSX.Element;
   onSelection?: () => void;
 }) {
   const mountExpand = useContext(DrawerExpandContext);
+  const [toolbarHost, setToolbarHost] = createSignal<HTMLElement>();
   const menuId = createUniqueId();
   let menuObserver: MutationObserver | undefined;
   let host: HTMLDivElement | undefined;
@@ -229,7 +231,9 @@ export default function PadRichEditor(props: {
 
       if (!field) throw new Error(copy.padEditorDidNotOpen);
 
-      mountExpand?.(host.querySelector<HTMLElement>(".milkdown-top-bar") ?? undefined);
+      const toolbar = host.querySelector<HTMLElement>(".milkdown-top-bar") ?? undefined;
+      setToolbarHost(toolbar);
+      mountExpand?.(toolbar);
 
       const buttons = host.querySelectorAll<HTMLButtonElement>(".milkdown-top-bar .top-bar-item");
 
@@ -449,6 +453,7 @@ export default function PadRichEditor(props: {
 
   return (
     <>
+      <Show when={toolbarHost()}>{target => <Portal mount={target()}><div class="pad-width-control">{props.toolbar}</div></Portal>}</Show>
       <Portal>
         <div class="pad-rich-editor pad-block-menu">
           <div class="milkdown" ref={(element) => (menuHost = element)} />
