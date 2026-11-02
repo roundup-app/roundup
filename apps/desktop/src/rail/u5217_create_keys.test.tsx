@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
+import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { createSignal } from "solid-js";
 import type { DaemonExit } from "../app/seam";
@@ -10,6 +10,7 @@ afterEach(cleanup);
 it("u5217_plus_opens_ordered_creation_choices", async () => {
   await mountRail([workstream("g")]);
   const plus = screen.getByRole("button", { name: "Create" });
+  expect(within(document.querySelector<HTMLElement>(".rail-actions")!).getAllByRole("button")).toHaveLength(1);
   expect(plus.hasAttribute("aria-keyshortcuts")).toBe(false);
   fireEvent.click(plus);
   const items = await screen.findAllByRole("menuitem");
