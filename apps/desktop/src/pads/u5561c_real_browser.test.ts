@@ -47,13 +47,6 @@ finally:
     expect(pad.home).toBe(home.id);
     await browser("set", "viewport", "1512", "950");
     await browser("set", "media", "dark");
-    const recording = captureDir("U5561c");
-
-    if (recording) {
-      await mkdir(recording, { recursive: true });
-      await browser("record", "start", join(recording, "folding.webm"));
-    }
-
     await browser("open", `${real.base}/harness.html?view=workstreams&items=1&tabs=1&daemon=1`);
     await wait("!!document.querySelector('#shelf-tab-pads')");
     await browser("click", "#shelf-tab-pads");
@@ -105,7 +98,6 @@ finally:
       }
     }
 
-    if (recording) await browser("record", "stop");
     await browser("click", ".drawer .close");
     await wait("!document.querySelector('.drawer .ProseMirror')");
     expect((await app.rpc("pad.read", { name: "notes" })).text).toBe(source);
