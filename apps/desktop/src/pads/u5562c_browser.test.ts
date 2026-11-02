@@ -31,4 +31,7 @@ it("u5562c_code_colours_render", { retry: 0, timeout: 90000 }, async () => {
   }
 
   expect(await evaluate("document.querySelector('pre code').textContent.includes('const answer')")).toBe(true);
+  await browser("click", ".drawer .close");
+  await settle();
+  expect(await evaluate("window.__fake.app.calls.filter(call => call.method === 'pad.write').length")).toBe(0);
 });
