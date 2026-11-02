@@ -115,7 +115,7 @@ fn b5640a_history_materializes_only_matching_rows() {
                 actor_json(&Actor::user()),
                 actor_json(&Actor {
                     kind: ActorKind::Agent,
-                    id: "rupd".into(),
+                    id: Actor::daemon().id,
                     parent: None
                 }),
                 actor_json(&Actor {
@@ -137,9 +137,15 @@ fn b5640a_history_materializes_only_matching_rows() {
     let expected = [1, 2, 3, 4];
     for unrelated in [false, true] {
         if unrelated {
-            store.db.execute_batch("WITH RECURSIVE n(x) AS (VALUES(1) UNION ALL SELECT x+1 FROM n WHERE x<100000)
+            store
+                .db
+                .execute(
+                    "WITH RECURSIVE n(x) AS (VALUES(1) UNION ALL SELECT x+1 FROM n WHERE x<100000)
                 INSERT INTO messages(from_actor,to_id,kind,body,status,at)
-                SELECT '{\"kind\":\"ext\",\"id\":\"rupd\",\"parent\":null}', 'other', 'note', '[digest] unrelated', 'delivered', x FROM n").unwrap();
+                SELECT ?1, 'other', 'note', '[digest] unrelated', 'delivered', x FROM n",
+                    [actor_json(&Actor::daemon())],
+                )
+                .unwrap();
         }
         MATERIALIZED.set(0);
         let found = store.delivered_to("m").unwrap();
