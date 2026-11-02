@@ -35,37 +35,44 @@ const selected = async (choice: string) => {
 
 afterEach(() => { cleanup(); localStorage.clear(); });
 
-it.each(["Narrow", "Wide", "Full"])("u5560b_saved_default_initialises_each_pad_opening %s", async choice => {
+it.each(["Narrow", "Wide", "Full"].flatMap(choice => ["close", "switch", "collapsed"].map(path => [choice, path])))("u5560b_saved_default_initialises_each_pad_opening %s %s", async (choice, path) => {
   await choose(choice);
   const { connected } = await openShelf([padOf("one", USER, "text"), padOf("two", USER, "other")]);
-  const firstEditor = await openPad("one");
+  const editor = await openPad("one");
   await selected(choice);
-  fireEvent.click(screen.getByRole("radio", { name: choice === "Full" ? "Wide" : "Full" }));
-  await openPad("two");
-  await selected(choice);
-  connected.drawer.close();
-  await waitFor(() => expect(firstEditor.isConnected).toBe(false));
-  const secondEditor = await openPad("one");
-  await selected(choice);
-  window.dispatchEvent(new Event("open-app-settings"));
-  fireEvent.click(await screen.findByRole("tab", { name: "Pads" }));
-  const next = choice === "Full" ? "Wide" : "Full";
-  const defaults = await screen.findByRole("radiogroup", { name: "Default width" });
-  const current = within(defaults).getByRole("radio", { name: choice });
-  current.focus();
-  const user = userEvent.setup();
+  const local = choice === "Full" ? "Wide" : "Full";
+  fireEvent.click(screen.getByRole("radio", { name: local }));
+  await selected(local);
 
-  for (let step = 0; step < (choice === "Narrow" ? 2 : 1); step++) await user.keyboard(choice === "Full" ? "{ArrowLeft}" : "{ArrowRight}");
-  await waitFor(() => expect(JSON.parse(localStorage.getItem("roundup:app-settings")!).padWidth).toBe(next.toLowerCase()));
-  fireEvent.click(screen.getByRole("button", { name: "← Back" }));
-  await selected(choice);
-  fireEvent.click(screen.getByRole("button", { name: "Restore" }));
-  connected.drawer.close();
-  await waitFor(() => expect(secondEditor.isConnected).toBe(false));
-  await openPad("two");
-  expect(screen.queryAllByRole("radio")).toHaveLength(0);
-  fireEvent.click(screen.getByRole("button", { name: "Maximise" }));
-  await selected(next);
+  if (path === "collapsed") {
+    fireEvent.click(screen.getByRole("radio", { name: choice }));
+    await selected(choice);
+    window.dispatchEvent(new Event("open-app-settings"));
+    fireEvent.click(await screen.findByRole("tab", { name: "Pads" }));
+    const defaults = await screen.findByRole("radiogroup", { name: "Default width" });
+    within(defaults).getByRole("radio", { name: choice }).focus();
+    const user = userEvent.setup();
+
+    for (let step = 0; step < (choice === "Narrow" ? 2 : 1); step++) await user.keyboard(choice === "Full" ? "{ArrowLeft}" : "{ArrowRight}");
+    await waitFor(() => expect(JSON.parse(localStorage.getItem("roundup:app-settings")!).padWidth).toBe(local.toLowerCase()));
+    fireEvent.click(screen.getByRole("button", { name: "← Back" }));
+    await selected(choice);
+    fireEvent.click(screen.getByRole("button", { name: "Restore" }));
+  }
+
+  if (path !== "switch") {
+    connected.drawer.close();
+    await waitFor(() => expect(editor.isConnected).toBe(false));
+  }
+
+  await openPad(path === "close" ? "one" : "two");
+
+  if (path === "collapsed") {
+    expect(screen.queryAllByRole("radio")).toHaveLength(0);
+    fireEvent.click(screen.getByRole("button", { name: "Maximise" }));
+  }
+
+  await selected(path === "collapsed" ? local : choice);
 });
 
 it.each(["wide", "invalid", null])("u5560b_default_survives_restart_and_defaults_alone %s", async stored => {
