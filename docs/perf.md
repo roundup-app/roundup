@@ -24,7 +24,7 @@ Q11's Linux baseline is 11.940635 ms, the median of nine eleven-sample release o
 
 ## Perf work and evidence (R25–R27)
 
-The live `contracts::methods::METHODS` table is checked by `r25_every_method_has_a_perf_disposition` against `methods` arrays in `crates/perf/budgets.json` and the JSON list below. Metadata adds no metric and waives no R7 measurement. Off-path is a workload disposition, never a claim that a method is fast. Review a changed method's disposition against its behavior.
+RPC perf dispositions live beside each method in `crates/contracts/src/declarations.rs` and reach consumers through `contracts::methods::metadata()`. The single `c5459b_missing_metadata_names_the_field` observer checks completeness. `crates/perf/budgets.json` holds measured budgets only. Metadata adds no metric and waives no R7 measurement. Off-path is a workload disposition, never a claim that a method is fast. Review a changed method's disposition against its behavior.
 
 Every perf repair PR carries a table with metric/unit, before/after values, reference commits, exact observer command, host class, physical host identity and run/session identity. Compare the same observer command on one host in one session, changing only reference binaries or repaired code. Retain reports, failures, skips and exit codes. Isolate probe changes by running old/new probes against the same binaries before attributing a difference. Another host or command supplies diagnosis, never the required pair.
 
@@ -60,109 +60,9 @@ Each report path must exist in the tested Git head and repeat its observation's 
 
 ## Off the hot path
 
-These exact method keys explain exclusions from the measured workload. Adding a
-method without a measured mapping or non-empty reason fails live coverage.
+Each declaration names its measured metrics or its exact off-path reason.
+Read these through `contracts::methods::metadata()`; adding a method edits no perf registry.
 
-```json
-{
-  "deliverable.publish": "Published-output management is user-requested and absent from the Terminal echo and Rail-read workload.", "deliverable.list": "Published-output management is user-requested and absent from the Terminal echo and Rail-read workload.",
-  "deliverable.get": "Published-output management is user-requested and absent from the Terminal echo and Rail-read workload.", "deliverable.resolve": "Published-output management is user-requested and absent from the Terminal echo and Rail-read workload.",
-  "deliverable.move": "Published-output management is user-requested and absent from the Terminal echo and Rail-read workload.", "deliverable.remove": "Published-output management is user-requested and absent from the Terminal echo and Rail-read workload.",
-  "ask.send": "Question delivery and selection are event-driven coordination, outside the measured echo and Rail-read loops.", "ask.list": "Question delivery and selection are event-driven coordination, outside the measured echo and Rail-read loops.",
-  "ask.pick": "Question delivery and selection are event-driven coordination, outside the measured echo and Rail-read loops.",
-  "github.issueGet": "Explicit user-requested GitHub reads and writes through the gh CLI are outside the measured echo and Rail-read workload.",
-  "github.prAutoMerge": "Explicit user-requested GitHub reads and writes through the gh CLI are outside the measured echo and Rail-read workload.",
-  "github.prGet": "Explicit user-requested GitHub reads and writes through the gh CLI are outside the measured echo and Rail-read workload.",
-  "github.prReady": "Explicit user-requested GitHub reads and writes through the gh CLI are outside the measured echo and Rail-read workload.",
-  "github.prSetBody": "Explicit user-requested GitHub reads and writes through the gh CLI are outside the measured echo and Rail-read workload.",
-  "daemon.methods": "Connection setup or contract discovery is not a repeated call in the measured workload.",
-  "api.describe": "Connection setup or contract discovery is not a repeated call in the measured workload.",
-  "api.list": "Connection setup or contract discovery is not a repeated call in the measured workload.",
-  "daemon.getNaming": "Global naming preferences are read when opening Settings, outside the Terminal echo and Rail-read workload.",
-  "daemon.setNaming": "Saving global naming preferences is an explicit user action outside the Terminal echo and Rail-read workload.",
-  "skill.status": "Skill state is read when opening Settings, outside the Terminal echo and Rail-read workload.",
-  "skill.setup": "Installing the skill is an explicit user action outside the Terminal echo and Rail-read workload.",
-  "skill.remove": "Removing the skill is an explicit user action outside the Terminal echo and Rail-read workload.",
-  "link.read": "External link reading depends on external content and is absent from the isolated perf workload.",
-  "daemon.identify": "Connection setup or contract discovery is not a repeated call in the measured workload.",
-  "events.subscribe": "Subscription setup is outside the timed calls; write-to-output measures delivery on an already subscribed connection.",
-  "provenance.history": "History inspection is user-requested and absent from the measured steady workload.", "provenance.touched": "History inspection is user-requested and absent from the measured steady workload.",
-  "terminal.open": "Terminal inspection, presentation or lifecycle control is outside the timed write/echo calls and ten-shell RSS sample.", "terminal.close": "Terminal inspection, presentation or lifecycle control is outside the timed write/echo calls and ten-shell RSS sample.",
-  "terminal.resize": "Terminal inspection, presentation or lifecycle control is outside the timed write/echo calls and ten-shell RSS sample.", "terminal.kill": "Terminal inspection, presentation or lifecycle control is outside the timed write/echo calls and ten-shell RSS sample.",
-  "terminal.scheme": "Terminal inspection, presentation or lifecycle control is outside the timed write/echo calls and ten-shell RSS sample.", "terminal.show": "Terminal inspection, presentation or lifecycle control is outside the timed write/echo calls and ten-shell RSS sample.",
-  "terminal.measure": "Explicit opt-in keystroke attribution and calibration setup/collection, outside timed production input and steady-state workloads.",
-  "terminal.list": "Terminal inspection, presentation or lifecycle control is outside the timed write/echo calls and ten-shell RSS sample.", "terminal.snapshot": "Terminal inspection, presentation or lifecycle control is outside the timed write/echo calls and ten-shell RSS sample.",
-  "terminal.catchUp": "Bounded raw-output recovery on Terminal return is outside the timed write/echo calls and ten-shell RSS sample.",
-  "terminal.outputStop": "Terminal inspection, presentation or lifecycle control is outside the timed write/echo calls and ten-shell RSS sample.", "terminal.screen": "Terminal inspection, presentation or lifecycle control is outside the timed write/echo calls and ten-shell RSS sample.",
-  "terminal.read": "Terminal inspection, presentation or lifecycle control is outside the timed write/echo calls and ten-shell RSS sample.", "terminal.search": "Terminal inspection, presentation or lifecycle control is outside the timed write/echo calls and ten-shell RSS sample.",
-  "todo.create": "Todo management is outside the fixed ten-shell and Rail-read workload; no Todo latency is measured.", "todo.get": "Todo management is outside the fixed ten-shell and Rail-read workload; no Todo latency is measured.",
-  "todo.listHanded": "Todo management is outside the fixed ten-shell and Rail-read workload; no Todo latency is measured.", "todo.getHistory": "Todo management is outside the fixed ten-shell and Rail-read workload; no Todo latency is measured.",
-  "todo.readHistory": "Todo management is outside the fixed ten-shell and Rail-read workload; no Todo latency is measured.", "todo.list": "Todo management is outside the fixed ten-shell and Rail-read workload; no Todo latency is measured.",
-  "todo.update": "Todo management is outside the fixed ten-shell and Rail-read workload; no Todo latency is measured.", "todo.complete": "Todo management is outside the fixed ten-shell and Rail-read workload; no Todo latency is measured.",
-  "todo.reopen": "Todo management is outside the fixed ten-shell and Rail-read workload; no Todo latency is measured.", "todo.setBlockers": "Todo management is outside the fixed ten-shell and Rail-read workload; no Todo latency is measured.",
-  "todo.assign": "Todo management is outside the fixed ten-shell and Rail-read workload; no Todo latency is measured.", "todo.hand": "Todo management is outside the fixed ten-shell and Rail-read workload; no Todo latency is measured.",
-  "todo.move": "Todo management is outside the fixed ten-shell and Rail-read workload; no Todo latency is measured.", "todo.reorder": "Todo management is outside the fixed ten-shell and Rail-read workload; no Todo latency is measured.",
-  "todo.delete": "Todo management is outside the fixed ten-shell and Rail-read workload; no Todo latency is measured.", "todo.deletion": "Todo management is outside the fixed ten-shell and Rail-read workload; no Todo latency is measured.",
-  "todo.restore": "Todo management is outside the fixed ten-shell and Rail-read workload; no Todo latency is measured.", "todo.comment": "Todo management is outside the fixed ten-shell and Rail-read workload; no Todo latency is measured.",
-  "todo.redo": "Todo management is outside the fixed ten-shell and Rail-read workload; no Todo latency is measured.",
-  "todo.comments": "Todo management is outside the fixed ten-shell and Rail-read workload; no Todo latency is measured.", "todo.unread": "Todo management is outside the fixed ten-shell and Rail-read workload; no Todo latency is measured.",
-  "todo.markCommentsRead": "Todo management is outside the fixed ten-shell and Rail-read workload; no Todo latency is measured.", "todo.addRef": "Todo management is outside the fixed ten-shell and Rail-read workload; no Todo latency is measured.",
-  "todo.removeRef": "Todo management is outside the fixed ten-shell and Rail-read workload; no Todo latency is measured.", "todo.refs": "Todo management is outside the fixed ten-shell and Rail-read workload; no Todo latency is measured.",
-  "pad.create": "Document editing and storage are outside the Terminal echo and Rail-read workload.", "pad.read": "Document editing and storage are outside the Terminal echo and Rail-read workload.",
-  "pad.reorder": "Shelf ordering is outside the Terminal echo and Rail-read workload.",
-  "pad.list": "Document editing and storage are outside the Terminal echo and Rail-read workload.", "pad.rename": "Document editing and storage are outside the Terminal echo and Rail-read workload.",
-  "pad.write": "Document editing and storage are outside the Terminal echo and Rail-read workload.", "pad.append": "Document editing and storage are outside the Terminal echo and Rail-read workload.",
-  "pad.appendSection": "Document editing and storage are outside the Terminal echo and Rail-read workload.", "pad.setOwner": "Document editing and storage are outside the Terminal echo and Rail-read workload.",
-  "pad.move": "Document editing and storage are outside the Terminal echo and Rail-read workload.", "pad.delete": "Document editing and storage are outside the Terminal echo and Rail-read workload.",
-  "pad.redoDelete": "User-requested document deletion redo is outside the Terminal echo and Rail-read workload.",
-  "pad.getDeletion": "Deletion reconciliation is outside the Terminal echo and Rail-read workload.", "pad.restore": "User-requested document restoration is outside the Terminal echo and Rail-read workload.",
-  "pad.export": "Document editing and storage are outside the Terminal echo and Rail-read workload.", "shortcuts.export": "Writing a Shortcuts file is outside the Terminal echo and Rail-read workload.", "pad.setStorage": "Document editing and storage are outside the Terminal echo and Rail-read workload.",
-  "agent.spawn": "Agent lifecycle, configuration and work coordination are outside the timed hook calls; the hook Agent is setup only.", "agent.extras": "Agent lifecycle, configuration and work coordination are outside the timed hook calls; the hook Agent is setup only.",
-  "agent.extras_add": "Agent lifecycle, configuration and work coordination are outside the timed hook calls; the hook Agent is setup only.", "agent.stop": "Agent lifecycle, configuration and work coordination are outside the timed hook calls; the hook Agent is setup only.",
-  "agent.prompt": "Agent lifecycle, configuration and work coordination are outside the timed hook calls; the hook Agent is setup only.", "agent.interrupt": "Agent lifecycle, configuration and work coordination are outside the timed hook calls; the hook Agent is setup only.",
-  "agent.worktreeState": "Agent lifecycle, configuration and work coordination are outside the timed hook calls; the hook Agent is setup only.", "agent.changedFiles": "Agent lifecycle, configuration and work coordination are outside the timed hook calls; the hook Agent is setup only.",
-  "agent.compareFile": "Agent lifecycle, configuration and work coordination are outside the timed hook calls; the hook Agent is setup only.", "agent.land": "Agent lifecycle, configuration and work coordination are outside the timed hook calls; the hook Agent is setup only.",
-  "agent.discard": "Agent lifecycle, configuration and work coordination are outside the timed hook calls; the hook Agent is setup only.", "agent.context": "Agent lifecycle, configuration and work coordination are outside the timed hook calls; the hook Agent is setup only.",
-  "agent.brief": "Agent lifecycle, configuration and work coordination are outside the timed hook calls; the hook Agent is setup only.", "agent.skills": "Agent lifecycle, configuration and work coordination are outside the timed hook calls; the hook Agent is setup only.",
-  "agent.digest": "Agent lifecycle, configuration and work coordination are outside the timed hook calls; the hook Agent is setup only.", "agent.wake": "Agent lifecycle, configuration and work coordination are outside the timed hook calls; the hook Agent is setup only.",
-  "reaction.create": "Reaction configuration and explicit execution are absent from the isolated Terminal and Rail workload.", "reaction.preview": "Reaction configuration and explicit execution are absent from the isolated Terminal and Rail workload.",
-  "reaction.list": "Reaction configuration and explicit execution are absent from the isolated Terminal and Rail workload.", "reaction.get": "Reaction configuration and explicit execution are absent from the isolated Terminal and Rail workload.",
-  "reaction.stop": "Reaction configuration and explicit execution are absent from the isolated Terminal and Rail workload.", "reaction.run": "Reaction configuration and explicit execution are absent from the isolated Terminal and Rail workload.",
-  "action.serve": "Named actions are explicit user work and absent from the isolated Terminal and Rail workload.", "action.list": "Named actions are explicit user work and absent from the isolated Terminal and Rail workload.", "action.run": "Named actions are explicit user work and absent from the isolated Terminal and Rail workload.", "action.userList": "User actions are explicit user work and absent from the isolated Terminal and Rail workload.",
-  "agent.spawnPrompt": "Agent lifecycle, configuration and work coordination are outside the timed hook calls; the hook Agent is setup only.", "agent.setOrder": "Agent lifecycle, configuration and work coordination are outside the timed hook calls; the hook Agent is setup only.",
-  "agent.instructions": "Agent lifecycle, configuration and work coordination are outside the timed hook calls; the hook Agent is setup only.", "agent.channelUp": "Agent lifecycle, configuration and work coordination are outside the timed hook calls; the hook Agent is setup only.",
-  "workstream.restart": "User-requested fresh Door launch is outside the steady Rail-read workload.", "workstream.setAuto": "Workstream scheduling and lifecycle actions are absent from the steady Rail-read workload.", "workstream.setOpeningPrompt": "Workstream settings are absent from the steady Rail-read workload.",
-  "rail.createWorkstream": "Rail mutation or listing is setup or a user action, outside the repeated rail.tree latency sample.", "rail.move": "Rail mutation or listing is setup or a user action, outside the repeated rail.tree latency sample.",
-  "rail.rename": "Rail mutation or listing is setup or a user action, outside the repeated rail.tree latency sample.", "rail.startDoor": "Rail mutation or listing is setup or a user action, outside the repeated rail.tree latency sample.",
-  "agent.run": "Agent lifecycle, configuration and work coordination are outside the timed hook calls; the hook Agent is setup only.",
-  "project.setWorktrees": "Project inspection or configuration is outside the steady Terminal write and Rail-read workload.", "project.setMcp": "Project inspection or configuration is outside the steady Terminal write and Rail-read workload.",
-  "project.setPrepared": "Project inspection or configuration is outside the steady Terminal write and Rail-read workload.", "project.getPrepared": "Project inspection or configuration is outside the steady Terminal write and Rail-read workload.",
-  "project.importDiscover": "Project inspection or configuration is outside the steady Terminal write and Rail-read workload.",
-  "import.list": "Saved-conversation import is explicit user work and absent from the isolated perf workload.",
-  "project.importCommit": "Project inspection or configuration is outside the steady Terminal write and Rail-read workload.", "project.prepareDirectory": "Project inspection or configuration is outside the steady Terminal write and Rail-read workload.",
-  "project.get": "Project inspection or configuration is outside the steady Terminal write and Rail-read workload.", "project.setModels": "Project inspection or configuration is outside the steady Terminal write and Rail-read workload.",
-  "models.list": "Vendor model discovery is configuration work, absent from the isolated perf workload.",
-  "project.resources": "Project inspection or configuration is outside the steady Terminal write and Rail-read workload.", "project.open": "Project inspection or configuration is outside the steady Terminal write and Rail-read workload.",
-  "project.rename": "Project inspection or configuration is outside the steady Terminal write and Rail-read workload.",
-  "message.progress": "Durable instruction and result coordination are absent from the Terminal echo and Rail-read workload.", "message.report": "Durable instruction and result coordination are absent from the Terminal echo and Rail-read workload.",
-  "message.acceptResult": "Durable instruction and result coordination are absent from the Terminal echo and Rail-read workload.", "message.verifyResult": "Durable instruction and result coordination are absent from the Terminal echo and Rail-read workload.",
-  "message.resolveResult": "Durable instruction and result coordination are absent from the Terminal echo and Rail-read workload.", "message.reconcileWork": "Durable instruction and result coordination are absent from the Terminal echo and Rail-read workload.",
-  "message.resumeWork": "Durable instruction and result coordination are absent from the Terminal echo and Rail-read workload.", "message.send": "Durable instruction and result coordination are absent from the Terminal echo and Rail-read workload.",
-  "message.get": "Durable instruction and result coordination are absent from the Terminal echo and Rail-read workload.", "message.list": "Durable instruction and result coordination are absent from the Terminal echo and Rail-read workload.",
-  "message.drop": "Durable instruction and result coordination are absent from the Terminal echo and Rail-read workload.",
-  "route.set": "Routing configuration is absent from the isolated Terminal and Rail-read workload.", "route.list": "Routing configuration is absent from the isolated Terminal and Rail-read workload.",
-  "rail.redo": "Retained Rail mutation is a user action, outside the repeated rail.tree latency sample.",
-  "rail.remove": "Rail mutation or listing is setup or a user action, outside the repeated rail.tree latency sample.",
-  "rail.deletion": "Deletion reconciliation is outside the Terminal echo and repeated rail.tree latency workload.",
-  "rail.restore": "User-requested Rail restoration is outside the Terminal echo and repeated rail.tree latency workload.",
-  "agent.resume": "Agent lifecycle, configuration and work coordination are outside the timed hook calls; the hook Agent is setup only.", "agent.setModel": "Agent lifecycle, configuration and work coordination are outside the timed hook calls; the hook Agent is setup only.", "agent.makeWorkstream": "Agent lifecycle, configuration and work coordination are outside the timed hook calls; the hook Agent is setup only.", "agent.saveAsMode": "Agent lifecycle, configuration and work coordination are outside the timed hook calls; the hook Agent is setup only.",
-  "workstream.rewind": "Workstream scheduling and lifecycle actions are absent from the steady Rail-read workload.",
-  "todo.startWorkstream": "Todo management is outside the fixed ten-shell and Rail-read workload; no Todo latency is measured.",
-  "workstream.queue": "Workstream scheduling and lifecycle actions are absent from the steady Rail-read workload.", "workstream.dequeue": "Workstream scheduling and lifecycle actions are absent from the steady Rail-read workload.",
-  "workstream.queueMove": "Workstream scheduling and lifecycle actions are absent from the steady Rail-read workload.", "workstream.startNow": "Workstream scheduling and lifecycle actions are absent from the steady Rail-read workload.",
-  "project.setWorkstreamCap": "Project inspection or configuration is outside the steady Terminal write and Rail-read workload."
-}
-```
 
 ## What is enforced, and what is not
 
@@ -254,119 +154,11 @@ worktrees and their build products are removed after collection; reports remain.
 
 Stored calibration still follows R16's historical diagnosis, nine clean calibration invocations and three independent observations. R8 pins and R13 remain unchanged. This work supplies no new stored baseline, calibration or measured perf pass and changes no loop machinery. Tests can complete #4134's implementation acceptance without a calibration campaign.
 
-### R23 execution lifetime (#3764)
-
-[Host attempts, qualified observations and reproduction instructions](perf-r23-execution.md).
-
-[Producer-observer attempt 40193504693](../crates/perf/evidence/r23-host-40193504693/README.md)
-failed the unchanged exact-9V45 preflight (exit 2): `Intel(R) Xeon(R) 6973P-C`.
-Runner inventory was inaccessible (HTTP 403, exit 1); the existing Builder inputs
-provide no exact-model selector. No qualified target was identified and no
-collection ran. #4032 remains the execution prerequisite of #4031 under #3760
-and #3720; producer/initial-dispatch capture, isolated repeated controls and their
-assessment remain incomplete. This host record completes none of those Issues.
-
-[Producer-observer attempt 40196101407](../crates/perf/evidence/r23-host-40196101407/README.md)
-also failed the unchanged preflight (exit 2): `AMD EPYC 7763 64-Core Processor`.
-Runner inventory returned HTTP 403 (exit 1); job metadata and existing launch
-inputs identify no reachable qualified target. The matching boot IDs, commands,
-outputs, statuses and machine/load/process records are retained. No collection
-ran: #4032, #4031 and #3760 remain incomplete under #3720. This supplies no new
-producer/dispatch observation, repeated control, overhead bound or timing verdict.
-
-### R23 hosted producer/dispatch collection (#4032)
-
-[R23 producer/dispatch capture and offline assessment](../crates/perf/evidence/r23-producer-40214115988/README.md)
-records Builder 40214115988's actual CPU (`AMD EPYC 9V45 96-Core Processor`)
-without requiring that model. Both pinned references and all 24 alternating
-controls share this job and matching boot identity. Both captures join 2200
-writes/echoes to physical PTY endpoints; supported source probes reach producer
-locations, dispatch prologue precedes field extraction, and Tokio hooks separately
-bracket complete spawned-task polls. Commands, failures, source patches, executable
-bytes, hashes, load/process records and replay scripts are retained together.
-
-All controls are load-qualified with no skips, but instrumentation shifts write
-p95s materially and source/perf costs remain inseparable. The report states each
-metric's variation and each unresolved enqueue/producer/task bound; it claims no
-Daemon-only cause or clean timing verdict. The six earlier clean pairs remain
-history, never this host's comparison base. This execution-only collection adds
-no timing campaign, calibrated baseline or production repair. #4031 and #3760
-remain open under #3720. R16/R23 now explicitly retire exact-CPU eligibility for
-this hosted collection; ordinary calibrated baseline selection stays separate.
-
-### R23 incremental recorder controls (#4109)
-
-[Recorder overhead capture and offline assessment](../crates/perf/evidence/r23-overhead-40221022276/README.md)
-restore #4082's matching archived instrumented Daemons and common/marked
-observers on job 40221022276 (AMD EPYC 9V45, four CPUs, one boot). Three cycles
-per pin/probe alternate recorder-off, scheduler/syscall recording and the same
-recorder plus retained producer source probes. Hook/logger bytes and diagnostic
-build settings remain identical. These single-Daemon controls preserve the R15
-workload; they are neither eleven-Daemon clean comparisons nor calibration.
-
-All 36 controls are load-qualified (load 1.68–3.39 on four CPUs), with no skipped
-write metrics. Every attempt retains its diagnostic ceiling miss; historical/marked
-cycle 2 with the recorder off also misses the 300 ms absolute cold-start limit
-(610.779718 ms). All full recordings have producer hits; none reports LOST events.
-The retained assessment reports each metric's variation and every paired
-incremental difference/ratio separately for historical/common, historical/marked,
-candidate/common and candidate/marked. Three repetitions supply observed
-variation, not a universal overhead bound. Aggregate p95 deltas cannot bound or
-correct individual stage intervals in #4031's earlier profiles. Nothing is
-subtracted from clean p95s. Configuration/logger confounding, optimized
-publication boundaries and unsupported exact executor enqueue remain unresolved;
-supported task-spawn hooks are not enqueue timestamps. Daemon-only attribution
-under #4031, #3760 and #3720 remains incomplete. The evidence names the remaining
-observations and scoped engineering investigation; no user or Mac decision is
-needed. Original clean observations remain labelled history only. No baseline,
-ceiling, load threshold, absolute limit or clean R16 verdict changes.
-
-### R23 observer acceptance assessment (#4031)
-
-[Offline verification and supported boundaries](../crates/perf/evidence/r23-observer-40219905108/README.md)
-replays #4082's producer capture and controls from the raw retained logs, preserving
-request/task/thread/FD identities. It separates pre-extraction dispatch,
-submission/first selected poll, actual pinned producer locations and complete
-spawned-task poll hooks from unsupported exact executor enqueue and optimized
-publication timestamps. Thread CPU remains distinct from useful-task CPU.
-
-The 24 controls show substantial instrumentation variation, including one retained
-historical/common echo outlier. [#4110's recorder controls](../crates/perf/evidence/r23-overhead-40221022276/README.md)
-now complete #4109: 36 fixed-binary attempts separately measure additional
-recorder variation. Aggregate p95 differences cannot correct individual stages;
-diagnostic configuration, logger and hooks remain confounded.
-
-[The cumulative assessment and native profiler attempts from run 40227127433](https://github.com/roundup-app/roundup/actions/runs/40227127433)
-replay both assessments exactly and verify all ten executable members. Raw files
-are retained outside git in artifact `r23-capability-40227127433`,
-[uploaded by fix run 40229755357](https://github.com/roundup-app/roundup/actions/runs/40229755357/artifacts/12612748101).
-The archive SHA-256 is `1a5cec1a9b0cc57f1c5638ab40122499fec4df484bcf01175639ca7398df93b8`.
-Native `schedule_local` probes resolve at both pins; candidate byte-broadcast `send`
-entry/return definitions also resolve, but the broad entry pattern yields two
-addresses and perf exposes no named arguments. These definitions supply no hits,
-exact queue insertion or task identity. The pinned Tokio 1.53.1 contract exposes
-no task-identity enqueue hook; aggregate schedule-latency histograms do not supply
-one. [#4120](https://github.com/roundup-app/roundup/issues/4120) blocks #4031 with
-validated native argument/identity recovery, local/remote scheduling and byte-send
-samples plus controls for that probe set, using existing profiler capabilities.
-Attribution remains incomplete; #4031 and #3760 stay open under #3720. No new
-clean timing campaign, p95 correction, baseline, calibration, production repair
-or user/Mac decision is supplied. Each original clean write-metric comparison
-remains separately labelled history below.
-
-### R23 paired write conclusions (#3760)
-
-[Paired measurements, reference commits, ceilings, compatibility failures and profile qualifications](perf-r23-writes.md#r23-paired-write-conclusions-3760).
-
-### R23 retained thread attribution (#3971)
-
-[Retained thread attribution, unresolved boundaries and scoped capture requirements](perf-r23-writes.md#r23-retained-thread-attribution-3971).
-
 ### Builder 9V45 diagnosis (#3700, R16 steps 1 to 3)
 
 No Builder baseline is recorded: the same-class comparison finds a regression, not a class mismatch, and R16 step 3 says to repair it before accepting baselines. The earlier 7763 figures (taken from `main` itself, with no historical comparison) are withdrawn; a 7763 baseline needs its own diagnosis on a 7763 host.
 
-References: the commit that set the Linux baselines, `2029ed2c4ee606d26e73c858c4d7c93130df36e0` (2026-10-01), and `main` at `90df821c0` (2026-10-24), 21,720 added lines of Daemon and probe source apart. Both built with `cargo build --release -p rupd -p rup -p perf`, rustc 1.99.0; hashes and machine facts are in `crates/perf/evidence/linux-9v45/machine.txt`. Commands, nine rounds alternating the two on one VM (AMD EPYC 9V45, four CPUs), 11 fresh Daemons each, script `crates/perf/evidence/linux-9v45/diagnosis/reproduce.txt`: historical `perf --runs 11 --rupd <hist>/rupd --out historical-N.json`, current `perf --runs 11 --budgets <scratch>/budgets.json --out current-N.json`, where the scratch `budgets.json` and `classes.json` copy `linux-boxd` into `linux-9v45` so the current binary runs. Every report, log and exit code is kept (`historical-N.*`: exit 0; `current-N.*`: exit 1, the ceilings missed). Loads were 1.6 to 3.8 on four CPUs, under R13's 2.0 per CPU, so every invocation is clean.
+References: the commit that set the Linux baselines, `2029ed2c4ee606d26e73c858c4d7c93130df36e0` (2026-10-01), and `main` at `90df821c0` (2026-10-24), 21,720 added lines of Daemon and probe source apart. Both built with `cargo build --release -p rupd -p rup -p perf`, rustc 1.99.0; hashes, machine facts and raw diagnosis evidence belonged to the producing CI artifact. Reproduce nine rounds alternating the two on one VM (AMD EPYC 9V45, four CPUs), 11 fresh Daemons each: historical `perf --runs 11 --rupd <hist>/rupd --out historical-N.json`, current `perf --runs 11 --budgets <scratch>/budgets.json --out current-N.json`, where the scratch `budgets.json` and `classes.json` copy `linux-boxd` into `linux-9v45` so the current binary runs. Every report, log and exit code is kept (`historical-N.*`: exit 0; `current-N.*`: exit 1, the ceilings missed). Loads were 1.6 to 3.8 on four CPUs, under R13's 2.0 per CPU, so every invocation is clean.
 
 | Metric | Historical median | Ceiling (×1.10 + noise) | Current median | Current invocations over ceiling |
 |---|---|---|---|---|
@@ -407,8 +199,7 @@ macOS cold start is stable (1.07) where the Linux VM's was not (3.08), so it is 
 
 ## macOS `cold_start_ms` and `rail_tree_40_p95_ms` (#3696)
 
-The #3696 startup and Rail attribution record lives in [`perf-macos-startup.md`](perf-macos-startup.md).
-[Rail empty-history read repair and paired measurements](perf-rail-read.md).
+The closed #3696 investigation attributed startup connection handoff and Rail read work; its raw measurements lived in the producing CI artifacts. The macOS baseline and load qualifications above remain the comparison rules.
 
 ### R24 idle App observer
 
@@ -545,94 +336,7 @@ memory aims here with justification. File measured repairs in their owning
 modules with same-observer/same-Mac before/after evidence; #3802 consumes these
 measurements and this observer selects no allocator.
 
-Release profile measurements: [code generation comparison](perf-release-profile.md).
-
-### R23 correlated write capture (#3976)
-
-[Correlated capture, adapter timings, probe isolation and remaining attribution gaps](perf-r23-writes.md#r23-correlated-write-capture-3976).
-
-### R23 task/queue execution lifetime (#3991)
-
-[Qualified lifetime, raw task/queue/syscall recordings and executable material](../crates/perf/evidence/r23-queues-40186616032/README.md)
-retains both pinned references on Builder 40186616032's exact R16 9V45 host.
-[Reproduction](../crates/perf/evidence/r23-queues-40186616032/reproduce.txt) and
-[controls/statuses](../crates/perf/evidence/r23-queues-40186616032/controls.md)
-include every failed attempt, both prior probe variants against identical
-Daemon executables, separate scheduler-only observations and syscall tracepoints
-that exclude the recorder's own events. Matching executables, raw records,
-PID/TID/FD associations and CLOCK_MONOTONIC task/queue markers are retained.
-
-Each marked capture joins 2200 writes; filtered physical endpoints retain 2200
-one-byte PTY writes and reads per reference. Input acceptance is enqueue
-acknowledgment. Producer input enqueue remains bounded by user-call entry and
-acceptance return; output publication remains bounded by physical PTY read exit
-and forward receive. Delegated wake markers precede logging and original wake,
-and selected-future polls are not whole-runtime task polls. CPU execution,
-thread runnable delay, physical blocking and unresolved runtime-task delay stay
-separate. Observer-perturbed stages cannot be transferred to clean p95s.
-
-[#3983 interval assessment](../crates/perf/evidence/r23-assessment-40190149199/README.md)
-joins all 2200 filtered writes per reference and separates selected-future polls,
-delegated wakes and thread scheduler states. Both dispatch futures return ready
-on their first selected poll for all writes. Producer enqueue, initial dispatch
-scheduling, exact runtime enqueue and observer overhead remain explicitly bounded;
-no dominant cause is established. #3760 and #3720 retain their full acceptance.
-The six original clean observations, #3982's four controls/recordings and #3975's
-offline extraction are reused. No new clean pair, aggregate CPU table, stage p95,
-calibration, baseline, production repair or Mac observation is supplied.
-
-### R23 producer/dispatch continuation (#4032)
-
-[Builder 40212001837](../crates/perf/evidence/r23-host-40212001837/README.md)
-retains an unchanged exact-model qualification miss: AMD EPYC 9V74, exit 2.
-Commands, actual statuses, runner/job identity, matching before/after boot IDs,
-load/background processes, toolchain, shell and settings are retained. Runner
-inventory returned HTTP 403 (exit 1); available job metadata and launch inputs
-identify no accessible qualified target. No producer/dispatch collection or
-controls ran. #4032 remains incomplete; this miss supplies no timing observation,
-attribution or overhead bound.
-
-
-[Builder 40208780160](../crates/perf/evidence/r23-host-40208780160/README.md)
-retains an unchanged exact-model qualification miss: AMD EPYC 7763, exit 2.
-Original commands, statuses, runner/job identity, matching before/after boot IDs,
-load/background processes, toolchain, shell and settings are retained. Runner
-inventory returned HTTP 403 (exit 1); available job metadata and launch inputs
-identify no accessible qualified target. No producer/dispatch collection or
-controls ran. #4032 remains incomplete; this miss supplies no timing observation,
-attribution or overhead bound.
-
-[Builder 40206540231](../crates/perf/evidence/r23-host-40206540231/README.md)
-retains an unchanged exact-model qualification miss: AMD EPYC 7763, exit 2.
-Before/after boot IDs match; original commands, statuses, load/background processes,
-toolchain, shell and settings are retained. Runner inventory returned HTTP 403
-(exit 1); current job metadata and launch inputs identify no accessible qualified
-target. No producer/dispatch collection or controls ran. #4032 remains incomplete;
-this miss supplies no timing observation or overhead bound.
-
-[Builder 40204505975](../crates/perf/evidence/r23-host-40204505975/README.md)
-retains another unchanged qualification miss: AMD EPYC 7763, exit 2, with
-matching before/after boot IDs and actual command statuses. Runner inventory
-again returned HTTP 403 (exit 1); available job metadata and existing launch
-inputs identify no accessible qualified lifetime. No build or collection ran.
-This host-only report leaves producer/initial-dispatch attempts, isolated
-repeated controls and their assessment incomplete; it supplies no overhead bound.
-
-[Builder 40200071512's retained qualification](../crates/perf/evidence/r23-producer-40200071512/README.md)
-passed on an exact 9V45 host, but its build job ended with failure at
-2026-10-25T14:24:52Z without retaining producer/initial-dispatch capture,
-repeated controls or assessment. That lifetime is no longer collecting.
-[Fix run 40202162343](../crates/perf/evidence/r23-host-40202162343/README.md)
-retains a new exact-model qualification failure: AMD EPYC 9V74, exit 2.
-Runner inventory returned HTTP 403 (exit 1); existing launch inputs and job
-metadata identify no accessible qualified target. No new build or collection ran.
-
-#4032 remains the execution prerequisite of #4031 under #3760 and #3720.
-The linked continuation report retains commands, statuses, boot/runner identity
-and the outstanding producer, initial scheduling and observer-overhead boundaries.
-The original six clean observations remain the timing evidence; this continuation
-changes no per-metric conclusion and supplies no attribution or overhead bound.
-No baseline, calibration, production repair or clean R16 verdict is claimed.
+Release profile conclusions remain in [the release size report](release-size.md). Raw code-generation measurements lived in the producing CI artifact.
 
 ### Terminal readiness repair and U3800 Mac handoff (#3841)
 
@@ -730,38 +434,9 @@ The no-window implementation does not measure or repair #3550's 129–136 ms
 flood slowdown. Its native flood observation follows this implementation's
 merge; the valid quiet idle baseline above cannot choose that repair.
 
-### Native scheduler and producer identities (#4120, R23)
-
-[Capture, argument validation and replay](../crates/perf/evidence/r23-identities-40227852264/README.md)
-retain both archived pins on hosted job 40227852264. Local/remote scheduling
-samples recover TaskMeta IDs through the emitted header/vtable access sequence;
-2200 physical write ordinals join per pin. Candidate byte-broadcast send has
-2211 separate entry/return hits at its true symbol entry, excluding send+217;
-2200 match the paced PTY bytes and stream offsets. Observed pointer reuse is
-retained; neither worker TID nor allocation pointer substitutes for task identity.
-
-Two probe sets each retain their own three alternating off/on pairs per
-pin/common-or-marked observer, fixed archived executable/hook/logger bytes,
-backgrounds, loads and all statuses. The first set omitted the actual ID offset;
-the corrected set recovers it. All 48 invocations are R13-qualified and exit 1
-against diagnostic ceilings; a 1685.683182 ms cold-start absolute miss remains.
-Ranges describe aggregate variation, never per-stage corrections. No diagnostic
-interval or p95 difference is subtracted from clean p95s.
-
-[#4031](https://github.com/roundup-app/roundup/issues/4031),
-[#3760](https://github.com/roundup-app/roundup/issues/3760) and
-[#3720](https://github.com/roundup-app/roundup/issues/3720) still lack exact
-executor insertion/publication observations and separation of build/hook/logger
-work from useful-task CPU. Function entry/return supplies bounds, not
-linearization. Pending-read idle exclusion, overlapping branches and the
-selected-future/full-poll distinction remain. The original six clean observations
-are history only; this investigation creates no clean R16 verdict or baseline.
-
-C9 release artifacts, dependency attribution and remaining acceptance: [release sizes](release-size.md).
-
 ## Plugin materialization check for #4196
 
-The reported plugin miss was not reproduced by the permitted current-main R16 pair on 2026-10-26. `just perf` exited 0: every metric passed, no comparisons were skipped, and both eleven-Daemon invocations used 1000 calls. The complete report is [perf-linux-7763-plugins.json](perf-linux-7763-plugins.json). This is a same-job comparison on `linux-8573c`, not a new 7763 calibration or a claim about the earlier VM. No implementation repair is indicated by this pair. Plugin materialization: base 7.583291 ms; head 7.519237 ms; paired ceiling 8.3426201 ms; absolute limit 300 ms.
+The reported plugin miss was not reproduced by the permitted current-main R16 pair on 2026-10-26. `just perf` exited 0: every metric passed, no comparisons were skipped, and both eleven-Daemon invocations used 1000 calls. The raw report lived in the producing CI artifact. This is a same-job comparison on `linux-8573c`, not a new 7763 calibration or a claim about the earlier VM. No implementation repair is indicated by this pair. Plugin materialization: base 7.583291 ms; head 7.519237 ms; paired ceiling 8.3426201 ms; absolute limit 300 ms.
 Both immutable references are `f1f59fb1d218120f3f2e321a64e480686f9a88a0` (current main and its merge base at invocation), built separately with Rust 1.99.0 and the unchanged locked release settings. Host `runnervmtai0g`, boot `75d56492-f160-4056-8ff2-2e813bf4296d`, session `40298544515/1/build`: Ubuntu 24.04, Intel 8573C, four online/available CPUs and affinity `0-3`. Base/head median loads were 3.77 and 2.91 on four CPUs. The common observer SHA-256 is `01d2b1ffc5443e1d36b590bacd225b26f676f888c7ab1c35f55fa4f8293aac15`; Daemon, CLI and sidecar hashes match across the two isolated builds. All hashes, samples, verdicts and commands are in the report. The 7763 baseline 11.940635 ms, stored ceiling 13.1356985 ms, 300 ms limit and every other budget remain unchanged.
 Raw evidence: [Builder 40298544515](https://github.com/roundup-app/roundup/actions/runs/40298544515), job `build #4196 / build`, artifact `answer-4196` (publication follows the run). Its `perf-4196.tar.gz` has SHA-256 `9bc32eb651d921fc0e89e9d5028dc2c9ec0aa9422d7c96aa67839dd5a97a679d`; its README and SHA256SUMS enumerate the original output, command/build logs, observer metadata, both invocation reports, all startup logs and actual exits. No failed observation was discarded.
 Validation: `pnpm install`, `just lint-web`, `just lint-rust` and `cargo nextest run -p agents --test plugins` exited 0. All six ordinary Q11 tests passed; the existing real-Claude test remains ignored because it requires `ROUNDUP_CLAUDE`. No plugin bytes, modes, registration, validation or launch code changed.
