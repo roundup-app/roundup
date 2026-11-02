@@ -106,6 +106,7 @@
 }
 
 .pad-rich-editor .top-bar-heading-button {
+  min-width: var(--space-5);
   height: var(--space-5);
   padding: 0 0 0 var(--space-1);
 }
