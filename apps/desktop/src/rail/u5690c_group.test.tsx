@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, screen } from "@solidjs/testing-library";
+import { cleanup, fireEvent, screen, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { agent, workstream } from "../testing/nodes";
 import { mountRail, rowOf, settled } from "./railFixture";
@@ -24,5 +24,43 @@ it("u5690c_existing_clients_traverse_and_rename_a_group_without_launching", asyn
   fireEvent.contextMenu(rowOf("group"), { clientX: 120, clientY: 80 });
   expect(app.shownMenus.at(-1)?.items.filter(item => ["start", "stop", "resume", "restart", "yolo", "add"].includes(item.id))).toEqual([]);
   await app.closeMenu();
+  expect(app.calls.filter(call => /^(agent\.(spawn|resume|stop)|rail\.startDoor|terminal\.spawn)$/.test(call.method))).toEqual([]);
+});
+
+
+it("u5690c_group_disclosure_preserves_keyboard_expansion_and_announces_hidden_attention", async () => {
+  const group = { ...workstream("group"), kind: "group" as const, status: null, work: null };
+  const { rail, app } = await mountRail([group,
+    workstream("home", { parent: "group" }),
+    agent("failed", "error", "Repair required", { parent: "home" }),
+    agent("waiting", "needs-you", "Answer required", { parent: "group", order: 1 }),
+  ]);
+  const before = rail.selected();
+  fireEvent.click(within(rowOf("group")).getByRole("button", { name: "Collapse" }));
+  await settled();
+  expect(screen.queryByText("waiting")).toBeNull();
+  expect(rail.selected()).toBe(before);
+  expect(rowOf("group").querySelector('[role="img"][aria-label="Error"]')).not.toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Expand" }));
+  await settled();
+  expect(rowOf("waiting")).toBeDefined();
+  rowOf("group").focus();
+  fireEvent.keyDown(rowOf("group"), { key: "ArrowLeft" });
+  await settled();
+  expect(screen.queryByText("waiting")).toBeNull();
+  fireEvent.keyDown(rowOf("group"), { key: "ArrowRight" });
+  await settled();
+  expect(rowOf("waiting")).toBeDefined();
+  expect(app.calls.filter(call => /^(agent\.(spawn|resume|stop)|rail\.startDoor|terminal\.spawn)$/.test(call.method))).toEqual([]);
+});
+
+it("u5690c_group_centre_opens_a_child_without_starting_a_program", async () => {
+  const group = { ...workstream("group"), kind: "group" as const, status: null, work: null };
+  const { rail, app } = await mountRail([group, agent("child", "idle", "Ready", { parent: "group", terminal_id: null })], [], undefined, undefined, { pane: true });
+  rail.select("group");
+  await settled();
+  fireEvent.click(screen.getByRole("button", { name: "child" }));
+  await settled();
+  expect(rail.selected()).toBe("child");
   expect(app.calls.filter(call => /^(agent\.(spawn|resume|stop)|rail\.startDoor|terminal\.spawn)$/.test(call.method))).toEqual([]);
 });
