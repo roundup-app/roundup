@@ -106,6 +106,7 @@ it("u102_a_second_chord_before_restoration_keeps_the_reflow_anchor", async () =>
   if (!terminal) throw new Error("xterm was not created");
   spy.mockRestore();
   vi.spyOn(terminal, "open").mockImplementation(() => {});
+  vi.spyOn(terminal, "element", "get").mockReturnValue(document.createElement("div"));
   // This buffer-only probe closes drawing; the addon requires an opened renderer.
   vi.spyOn(LigaturesAddon.prototype, "activate").mockImplementation(() => {});
   vi.spyOn(terminal, "registerCharacterJoiner").mockReturnValue(0);

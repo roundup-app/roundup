@@ -38,6 +38,7 @@ export const labels = new Map([
  ]);
 
 export const copy = {
+  storageIncompatible: (folder: string) => `Saved work is incompatible with this app. Close roundup. Delete this browser data to start fresh: ${folder}`,
   now: "now",
   dotted: (first: string, second: string) => `${first} · ${second}`,
   you: "You",
