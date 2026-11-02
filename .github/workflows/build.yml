@@ -98,13 +98,3 @@ jobs:
       issue: ${{ matrix.row.issue }}
       slug: ${{ matrix.row.slug }}
     secrets: inherit
-
-  summary:
-    needs: [pick, build]
-    if: always()
-    permissions: {}
-    uses: ./.github/workflows/summary.yml
-    with:
-      results: ${{ toJSON(needs) }}
-      purpose: Build ready work Issues
-      next: Each PR goes through check and review to auto-merge; a draft with a Stopped line goes where its screen sends it.

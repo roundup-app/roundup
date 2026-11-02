@@ -59,7 +59,7 @@ Retention has no automatic expiry. Monitor the controller's disk usage; deleting
 
 The controller uses boxd's in-VM CLI and its managed GitHub credential wrapper. No personal GitHub token or boxd API key is copied into Actions secrets. The only additional credential is a random webhook secret stored in the controller's mode-600 configuration.
 
-Prepare an isolated image machine from the existing `ru-toolchain` snapshot. Clone the trusted revision at `/opt/actions-runner/_work/roundup/roundup` (create the parent with ownership `boxd:boxd`), then run:
+Prepare an isolated image machine from the current `roundup-ci` snapshot; `image.py build` reinstalls every pinned tool over it. Clone the trusted revision at `/opt/actions-runner/_work/roundup/roundup` (create the parent with ownership `boxd:boxd`), then run:
 
 ```sh
 python3 /opt/actions-runner/_work/roundup/roundup/loop/agent-runners/image.py build /opt/actions-runner/_work/roundup/roundup
@@ -123,7 +123,7 @@ From a checkout with `pnpm install`, authenticated `boxd` and `gh`:
 python3 loop/agent-runners/deploy.py --check-snapshot roundup-check --max-check-runners 12
 ```
 
-This installs the locked controller package, a restarting systemd service, HTTPS forwarding and the repository's signed `workflow_job` webhook. Controller and isolated runners join the explicit `roundup-ci` network so registration and memory transfer work. Re-deployment preserves the secret and private history. `--ref <branch>` admits an explicitly selected branch during pre-merge smoke testing; production uses `main`. Deployment writes `checkSnapshot` and `maxCheckRunners`; omitting the cap preserves it on redeploy and defaults a new controller to 0. Choose a cap within the account quota: twelve 4-vCPU/16-GiB check machines require 48 vCPU/192 GiB in addition to the controller and agent/light pool. The former 8-vCPU/32-GiB quota needs raising before this rollout.
+This installs the locked controller package, a restarting systemd service, HTTPS forwarding and the repository's signed `workflow_job` webhook. Controller and isolated runners join the explicit `roundup-ci` network so registration and memory transfer work. Re-deployment preserves the secret and private history. `--ref <branch>` admits an explicitly selected branch during pre-merge smoke testing; production uses `main`. boxd's 8-vCPU/32-GiB quota is per machine; the controller's `maxRunners` bounds how many 2-vCPU/8-GiB runners run at once, and a redeploy keeps it. Deployment writes `checkSnapshot` and `maxCheckRunners`, which bounds the 4-vCPU/16-GiB check machines the same way; omitting the cap preserves it on redeploy and defaults a new controller to 0.
 
 Budget estimate: 4 vCPU/16 GiB costs approximately €0.35/h; a full run of 12 machines for about 20 minutes costs €1.4. At roughly 150 check runs/day, most narrower, budget approximately €40–80/day. Build the snapshot, redeploy with the chosen cap, canary `BOXD_CHECK='[<pr>]'`, then set `1`.
 

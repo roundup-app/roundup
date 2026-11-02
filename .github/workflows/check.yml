@@ -507,13 +507,3 @@ jobs:
           EVENT: ${{ github.event_name }}
         run: |
           jq -e --arg event "$EVENT" 'map_values(.result) | ., (.plan == "success" and all(.[]; . == "success" or ($event == "pull_request" and . == "skipped")))' <<<"$NEEDS"
-
-  summary:
-    needs: [plan, rust, mac-clippy, mac, web, chromium, check]
-    if: always()
-    permissions: {}
-    uses: ./.github/workflows/summary.yml
-    with:
-      results: ${{ toJSON(needs) }}
-      purpose: Check Rust and web behavior
-      next: Success lets the PR merge; a failure blocks merge and starts a fix run on a Builder PR.
