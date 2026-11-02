@@ -1,0 +1,568 @@
+{
+  "baseline": "de6570e9c",
+  "viewport": [
+    1512,
+    950
+  ],
+  "scheme": "dark",
+  "states": {
+    "bullets": {
+      "D1": [
+        "pass",
+        "pass"
+      ],
+      "D10": [
+        "fail",
+        "fail"
+      ],
+      "D11": [
+        "pass",
+        "pass"
+      ],
+      "D12": [
+        "pass",
+        "pass"
+      ],
+      "D13": [
+        "pass",
+        "pass"
+      ],
+      "D14": [
+        "pass",
+        "pass"
+      ],
+      "D16": [
+        "pass",
+        "pass"
+      ],
+      "D2": [
+        "pass",
+        "pass"
+      ],
+      "D3": [
+        "pass",
+        "pass"
+      ],
+      "D4": [
+        "fail",
+        "fail"
+      ],
+      "D5": [
+        "pass",
+        "pass"
+      ],
+      "D6": [
+        "pass",
+        "pass"
+      ],
+      "D7": [
+        "pass",
+        "pass"
+      ],
+      "D8": [
+        "pass",
+        "pass"
+      ],
+      "D9": [
+        "pass",
+        "pass"
+      ]
+    },
+    "mixed-nesting": {
+      "D1": [
+        "pass",
+        "pass"
+      ],
+      "D10": [
+        "fail",
+        "fail"
+      ],
+      "D11": [
+        "pass",
+        "pass"
+      ],
+      "D12": [
+        "pass",
+        "pass"
+      ],
+      "D13": [
+        "pass",
+        "pass"
+      ],
+      "D14": [
+        "pass",
+        "pass"
+      ],
+      "D16": [
+        "pass",
+        "pass"
+      ],
+      "D2": [
+        "pass",
+        "pass"
+      ],
+      "D3": [
+        "pass",
+        "pass"
+      ],
+      "D4": [
+        "fail",
+        "fail"
+      ],
+      "D5": [
+        "pass",
+        "pass"
+      ],
+      "D6": [
+        "pass",
+        "pass"
+      ],
+      "D7": [
+        "pass",
+        "pass"
+      ],
+      "D8": [
+        "pass",
+        "pass"
+      ],
+      "D9": [
+        "pass",
+        "pass"
+      ]
+    },
+    "numbers": {
+      "D1": [
+        "pass",
+        "pass"
+      ],
+      "D10": [
+        "fail",
+        "fail"
+      ],
+      "D11": [
+        "pass",
+        "pass"
+      ],
+      "D12": [
+        "pass",
+        "pass"
+      ],
+      "D13": [
+        "pass",
+        "pass"
+      ],
+      "D14": [
+        "pass",
+        "pass"
+      ],
+      "D16": [
+        "pass",
+        "pass"
+      ],
+      "D2": [
+        "pass",
+        "pass"
+      ],
+      "D3": [
+        "pass",
+        "pass"
+      ],
+      "D4": [
+        "fail",
+        "fail"
+      ],
+      "D5": [
+        "pass",
+        "pass"
+      ],
+      "D6": [
+        "pass",
+        "pass"
+      ],
+      "D7": [
+        "pass",
+        "pass"
+      ],
+      "D8": [
+        "pass",
+        "pass"
+      ],
+      "D9": [
+        "pass",
+        "pass"
+      ]
+    },
+    "readonly-bullets": {
+      "D1": [
+        "pass",
+        "pass"
+      ],
+      "D10": [
+        "fail",
+        "fail"
+      ],
+      "D11": [
+        "pass",
+        "pass"
+      ],
+      "D12": [
+        "pass",
+        "pass"
+      ],
+      "D13": [
+        "pass",
+        "pass"
+      ],
+      "D14": [
+        "pass",
+        "pass"
+      ],
+      "D16": [
+        "pass",
+        "pass"
+      ],
+      "D2": [
+        "pass",
+        "pass"
+      ],
+      "D3": [
+        "pass",
+        "pass"
+      ],
+      "D4": [
+        "fail",
+        "fail"
+      ],
+      "D5": [
+        "pass",
+        "pass"
+      ],
+      "D6": [
+        "pass",
+        "pass"
+      ],
+      "D7": [
+        "pass",
+        "pass"
+      ],
+      "D8": [
+        "pass",
+        "pass"
+      ],
+      "D9": [
+        "pass",
+        "pass"
+      ]
+    },
+    "readonly-mixed-nesting": {
+      "D1": [
+        "pass",
+        "pass"
+      ],
+      "D10": [
+        "fail",
+        "fail"
+      ],
+      "D11": [
+        "pass",
+        "pass"
+      ],
+      "D12": [
+        "pass",
+        "pass"
+      ],
+      "D13": [
+        "pass",
+        "pass"
+      ],
+      "D14": [
+        "pass",
+        "pass"
+      ],
+      "D16": [
+        "pass",
+        "pass"
+      ],
+      "D2": [
+        "pass",
+        "pass"
+      ],
+      "D3": [
+        "pass",
+        "pass"
+      ],
+      "D4": [
+        "fail",
+        "fail"
+      ],
+      "D5": [
+        "pass",
+        "pass"
+      ],
+      "D6": [
+        "pass",
+        "pass"
+      ],
+      "D7": [
+        "pass",
+        "pass"
+      ],
+      "D8": [
+        "pass",
+        "pass"
+      ],
+      "D9": [
+        "pass",
+        "pass"
+      ]
+    },
+    "readonly-numbers": {
+      "D1": [
+        "pass",
+        "pass"
+      ],
+      "D10": [
+        "fail",
+        "fail"
+      ],
+      "D11": [
+        "pass",
+        "pass"
+      ],
+      "D12": [
+        "pass",
+        "pass"
+      ],
+      "D13": [
+        "pass",
+        "pass"
+      ],
+      "D14": [
+        "pass",
+        "pass"
+      ],
+      "D16": [
+        "pass",
+        "pass"
+      ],
+      "D2": [
+        "pass",
+        "pass"
+      ],
+      "D3": [
+        "pass",
+        "pass"
+      ],
+      "D4": [
+        "fail",
+        "fail"
+      ],
+      "D5": [
+        "pass",
+        "pass"
+      ],
+      "D6": [
+        "pass",
+        "pass"
+      ],
+      "D7": [
+        "pass",
+        "pass"
+      ],
+      "D8": [
+        "pass",
+        "pass"
+      ],
+      "D9": [
+        "pass",
+        "pass"
+      ]
+    },
+    "readonly-tasks": {
+      "D1": [
+        "pass",
+        "pass"
+      ],
+      "D10": [
+        "fail",
+        "fail"
+      ],
+      "D11": [
+        "pass",
+        "pass"
+      ],
+      "D12": [
+        "pass",
+        "pass"
+      ],
+      "D13": [
+        "pass",
+        "pass"
+      ],
+      "D14": [
+        "pass",
+        "pass"
+      ],
+      "D16": [
+        "pass",
+        "pass"
+      ],
+      "D2": [
+        "pass",
+        "pass"
+      ],
+      "D3": [
+        "pass",
+        "pass"
+      ],
+      "D4": [
+        "fail",
+        "fail"
+      ],
+      "D5": [
+        "pass",
+        "pass"
+      ],
+      "D6": [
+        "pass",
+        "pass"
+      ],
+      "D7": [
+        "pass",
+        "pass"
+      ],
+      "D8": [
+        "pass",
+        "pass"
+      ],
+      "D9": [
+        "pass",
+        "pass"
+      ]
+    },
+    "rejected-save": {
+      "D1": [
+        "pass",
+        "pass"
+      ],
+      "D10": [
+        "fail",
+        "fail"
+      ],
+      "D11": [
+        "pass",
+        "pass"
+      ],
+      "D12": [
+        "pass",
+        "pass"
+      ],
+      "D13": [
+        "pass",
+        "pass"
+      ],
+      "D14": [
+        "pass",
+        "pass"
+      ],
+      "D16": [
+        "pass",
+        "pass"
+      ],
+      "D2": [
+        "pass",
+        "pass"
+      ],
+      "D3": [
+        "pass",
+        "pass"
+      ],
+      "D4": [
+        "fail",
+        "fail"
+      ],
+      "D5": [
+        "pass",
+        "pass"
+      ],
+      "D6": [
+        "pass",
+        "pass"
+      ],
+      "D7": [
+        "pass",
+        "pass"
+      ],
+      "D8": [
+        "pass",
+        "pass"
+      ],
+      "D9": [
+        "pass",
+        "pass"
+      ]
+    },
+    "tasks": {
+      "D1": [
+        "pass",
+        "pass"
+      ],
+      "D10": [
+        "fail",
+        "fail"
+      ],
+      "D11": [
+        "pass",
+        "pass"
+      ],
+      "D12": [
+        "pass",
+        "pass"
+      ],
+      "D13": [
+        "pass",
+        "pass"
+      ],
+      "D14": [
+        "pass",
+        "pass"
+      ],
+      "D16": [
+        "pass",
+        "pass"
+      ],
+      "D2": [
+        "pass",
+        "pass"
+      ],
+      "D3": [
+        "pass",
+        "pass"
+      ],
+      "D4": [
+        "fail",
+        "fail"
+      ],
+      "D5": [
+        "pass",
+        "pass"
+      ],
+      "D6": [
+        "pass",
+        "pass"
+      ],
+      "D7": [
+        "pass",
+        "pass"
+      ],
+      "D8": [
+        "pass",
+        "pass"
+      ],
+      "D9": [
+        "pass",
+        "pass"
+      ]
+    }
+  }
+}
