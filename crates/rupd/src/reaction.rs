@@ -85,14 +85,14 @@ impl Reactions {
         self.events.lock().expect("reaction events poisoned").take()
     }
 
-    fn watch(&self, id: &str) -> Option<Watch> {
+    fn watch(&self, id: &str) -> Result<Option<Watch>, RpcError> {
         if let Some(watch) = self
             .unsaved
             .lock()
             .expect("reaction watches poisoned")
             .get(id)
         {
-            return Some(watch.clone());
+            return Ok(Some(watch.clone()));
         }
         let db = self.db.lock().expect("reaction database poisoned");
         let state: Option<String> = db
@@ -102,9 +102,10 @@ impl Reactions {
                 |r| r.get(0),
             )
             .optional()
-            .ok()
-            .flatten();
-        state.and_then(|state| serde_json::from_str(&state).ok())
+            .map_err(RpcError::internal)?;
+        state
+            .map(|state| serde_json::from_str(&state).map_err(RpcError::internal))
+            .transpose()
     }
 
     fn save_watch(&self, id: &str, watch: &Watch) {
@@ -161,21 +162,15 @@ struct Watch {
     unfinished: Vec<String>,
     armed: bool,
     /// Finishes observed before re-arm cannot count again until a non-finished observation.
-    #[serde(default)]
     before_rearm: Vec<String>,
     /// Automatic firings accepted; the next one's operation is `auto-<round + 1>`, so a retry after a
     /// crash between the acceptance and this save returns the firing already made.
     round: u32,
     health: String,
-    #[serde(default)]
     health_code: Health,
-    #[serde(default)]
     cause_code: Cause,
-    #[serde(default)]
     gap_code: Gap,
-    #[serde(default)]
     recovery_code: Recovery,
-    #[serde(default)]
     cause: Option<String>,
     gap: Option<String>,
     recovery: Option<String>,
@@ -278,7 +273,10 @@ impl Evaluator {
             .bus
             .subscribe_after(None)
             .map_or(0, |events| events.head());
-        let mut watch = self.reactions.watch(&reaction.id).unwrap_or_else(|| Watch {
+        let Ok(watch) = self.reactions.watch(&reaction.id) else {
+            return;
+        };
+        let mut watch = watch.unwrap_or_else(|| Watch {
             seen: head,
             armed: true,
             health: "observing".into(),
@@ -756,7 +754,7 @@ impl Daemon {
                 definition: f.definition,
             })
             .collect();
-        if let Some(mut watch) = self.reactions.watch(&saved.id) {
+        if let Some(mut watch) = self.reactions.watch(&saved.id)? {
             if let Some(cause) = watch.write_failure {
                 watch.health = "observation-save-failed".into();
                 watch.health_code = Health::ObservationSaveFailed;
@@ -898,7 +896,7 @@ impl Daemon {
             id: id.clone(),
             name: p.name,
             actor: actor.clone(),
-            reason: Some(p.reason),
+            reason: p.reason,
             home: target.parent.clone(),
             target: p.target,
             instruction: p.instruction,

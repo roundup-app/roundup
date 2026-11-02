@@ -257,9 +257,7 @@ impl Reactions {
             "SELECT record FROM reactions
              WHERE json_extract(record, '$.state') = 'active'
                AND json_extract(record, '$.condition.kind') = 'instant'
-               AND (json_extract(record, '$.observation.health_code') IN ('not-observing', 'waiting', 'acceptance-failed')
-                    OR (json_type(record, '$.observation.health_code') IS NULL
-                        AND json_extract(record, '$.observation.health') IN ('not-observing', 'waiting', 'acceptance-failed')))
+               AND json_extract(record, '$.observation.health_code') IN ('not-observing', 'waiting', 'acceptance-failed')
                AND NOT EXISTS (SELECT 1 FROM reaction_firings WHERE reaction = reactions.id)",
         ) else {
             return Vec::new();

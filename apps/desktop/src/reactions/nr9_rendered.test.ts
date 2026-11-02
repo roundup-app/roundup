@@ -270,7 +270,7 @@ it.skipIf(!["NR9", "U4276a", "U4276b", "U4276c"].some(id => captureDir(id)))("nr
     await evaluate(`(() => {
       window.__nr9.records = ['active', 'stopped', 'expired', 'active'].map((state, i) => ({
         project:'p', id:'nr9-'+i, name:i < 2 ? 'Review overlapping changes' : 'Review long overlapping changes '.repeat(5),
-        actor:{kind:'agent', id:'agent-'+(i+1), parent:null}, reason:i === 2 ? null : 'Wait for the prerequisite review before continuing',
+        actor:{kind:'agent', id:'agent-'+(i+1), parent:null}, reason: 'Wait for the prerequisite review before continuing',
         home:null, target:'agent-2', instruction:'Review the saved changes and update the changelog',
         condition:{kind:'agents',ids:['agent-3'],any:false},max_firings:2,remaining:2,rearm:true,
         expires_at:'2099-01-01T09:00:00Z',created_at:'2026-10-20T09:00:00Z',state,

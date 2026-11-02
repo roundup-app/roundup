@@ -70,7 +70,7 @@ it.skipIf(!captureDir("U5463c")).each(["tree-40", "agents-10", "bubbles"])("u546
   await lane.until("!!window.__fake && !!document.querySelector('.ask-bar')");
   await lane.evaluate(`(() => {
     const record = {
-      project: 'p', reason: null, id: 'cleanup-reaction', name: 'Review changes', actor: { kind: 'user', id: 'you', parent: null }, home: null, target: 'agent-1',
+      project: 'p', reason: "Wait for the prerequisite.", id: 'cleanup-reaction', name: 'Review changes', actor: { kind: 'user', id: 'you', parent: null }, home: null, target: 'agent-1',
       instruction: 'Review the saved changes', condition: { kind: 'agents', ids: ['agent-1'], any: false }, max_firings: 1, remaining: 1, rearm: false,
       expires_at: '2026-11-02T09:00:00Z', created_at: '2026-11-01T09:00:00Z', state: 'active',
       observation: { health: 'observing', health_code: 'observing', cause_code: 'unknown', gap_code: 'unknown', recovery_code: 'unknown', cursor: null, gap: null, recovery: null, evidence: null }, firings: [],
