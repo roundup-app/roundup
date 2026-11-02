@@ -275,7 +275,7 @@ impl ClaudeCode {
         self.settle(Kind::Idle, "idle".into())
     }
 
-    fn signal(&mut self, payload: &Value) -> Option<Status> {
+    fn signal(&mut self, payload: &Value, completion_changed: &mut bool) -> Option<Status> {
         let event = payload["hook_event_name"].as_str();
         if event == Some("UserPromptSubmit") {
             self.turn_started = (self.clock)();
@@ -328,8 +328,16 @@ impl ClaudeCode {
                     *finished == turn && *started == self.turn_started
                 })
                 .map_or_else(|| (self.clock)(), |(_, _, ended, _)| *ended);
-            let next = (turn, self.turn_started, ended, text.to_owned());
-            self.completed = Some(Box::new(next));
+            if !self
+                .completed
+                .as_deref()
+                .is_some_and(|(old_turn, started, _, old_text)| {
+                    *old_turn == turn && *started == self.turn_started && old_text == text
+                })
+            {
+                self.completed = Some(Box::new((turn, self.turn_started, ended, text.to_owned())));
+                *completion_changed = true;
+            }
         }
         changed
     }
@@ -377,9 +385,13 @@ impl ClaudeCode {
     }
 }
 
-impl AgentAdapter for ClaudeCode {
-    fn observe(&mut self, observation: Observation) -> Option<Status> {
-        match observation {
+impl ClaudeCode {
+    pub(crate) fn observe_completion(
+        &mut self,
+        observation: Observation,
+    ) -> (Option<Status>, bool) {
+        let mut completion_changed = false;
+        let status = match observation {
             Observation::Exit { code } => self.exit(code),
             Observation::Stopped if self.ending != Ending::Running => None,
             Observation::Stopped => {
@@ -398,10 +410,17 @@ impl AgentAdapter for ClaudeCode {
                 None
             }
             Observation::Tick => self.tick(),
-            Observation::Signal(payload) => self.signal(&payload),
+            Observation::Signal(payload) => self.signal(&payload, &mut completion_changed),
             Observation::Title(title) => self.retitle(&title),
             Observation::Program(status) => self.settle(status.kind, status.label),
-        }
+        };
+        (status, completion_changed)
+    }
+}
+
+impl AgentAdapter for ClaudeCode {
+    fn observe(&mut self, observation: Observation) -> Option<Status> {
+        self.observe_completion(observation).0
     }
 
     fn has_hook_signal(&self) -> bool {
