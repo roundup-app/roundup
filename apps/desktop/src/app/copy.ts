@@ -6,6 +6,7 @@ export const linkCopy = {
 } as const;
 
 export const storageCopy = {
+  incompatible: sharedCopy.storageIncompatible,
   restoring: "Restoring saved work…",
   restoreRetry: sharedCopy.retry,
   saveRetry: "Retry saving",

@@ -1,7 +1,6 @@
 import { createResource, Show, type JSX } from "solid-js";
 import { initializeStorage } from "../state/storage";
 import { storageCopy } from "./copy";
-import { storageCopy as savedWorkCopy } from "../state/copy";
 import { ReservedLine } from "../ink/ReservedLine";
 import "../state/storage.css";
 
@@ -13,7 +12,7 @@ export const StorageRecovery = (props: { children: JSX.Element }) => {
     <Show when={result() === null} fallback={<div class="storage-gate"><div class="storage-gate-content">
       <ReservedLine message={result()?.message} content={
         <Show when={result()} keyed>{failure => failure.status === "incompatible"
-          ? <>{savedWorkCopy.incompatible("")}<code class="storage-gate-folder">{failure.folder}</code></>
+          ? <>{storageCopy.incompatible("")}<code class="storage-gate-folder">{failure.folder}</code></>
           : failure.message}</Show>
       } />
       <Show when={result()?.status === "failed"}><div class="storage-gate-actions">
