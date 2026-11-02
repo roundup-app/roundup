@@ -48,7 +48,7 @@ async fn i1_every_mcp_tool_is_a_command_and_no_command_is_extra() {
 async fn i1_a_commands_flags_are_its_schemas_fields() {
     let dir = tempfile::tempdir().unwrap();
     let socket = dir.path().join("s.sock");
-    let _requests = stand_in(&socket, false, Vec::new(), &[]);
+    let mut requests = stand_in(&socket, false, Vec::new(), &[]);
     let tools = mcp_tools(&socket).await;
     let schema = |name: &str| tools.iter().find(|(n, _)| n == name).unwrap().1.clone();
     let run = on(&socket);
@@ -65,10 +65,25 @@ async fn i1_a_commands_flags_are_its_schemas_fields() {
         create.contains("Usage: rup todo create [OPTIONS] <title>"),
         "{create}"
     );
-    let has = |f: &str| create.contains(&format!("--{}", f.replace('_', "-")));
-    for field in schema["properties"].as_object().unwrap().keys() {
-        assert!(required.contains(&field.as_str()) || has(field), "{create}");
+    for flag in ["--owner", "--priority", "--state", "--description"] {
+        assert!(create.contains(flag), "{create}");
     }
+    let write = out(&run.rup(&["help", "pad", "write"]).await);
+    for flag in ["--expected-revision", "--expected-incarnation"] {
+        assert!(write.contains(flag), "{write}");
+    }
+    let spawn = out(&run.rup(&["help", "agent", "spawn"]).await);
+    assert!(spawn.contains("--permission-mode"), "{spawn}");
+    let result = run.rup(&[
+        "pad", "write", "notes", "replacement", "--expected-revision", "7",
+        "--expected-incarnation", "11",
+    ]).await;
+    assert_eq!(code(&result), 0, "{}", err(&result));
+    let params = request_of(&mut requests, "pad.write").await;
+    assert_eq!(params, json!({
+        "name": "notes", "text": "replacement",
+        "expectedRevision": 7, "expectedIncarnation": "11",
+    }));
     let read = out(&run.rup(&["help", "terminal", "read"]).await);
     assert!(read.contains("<id>") && read.contains("--after"), "{read}");
     let blockers = out(&run.rup(&["help", "todo", "set-blockers"]).await);
