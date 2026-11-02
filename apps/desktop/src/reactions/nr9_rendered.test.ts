@@ -364,7 +364,7 @@ it.skipIf(!captureDir("U5558a"))("u5558e_open_surfaces_update_and_keep_failed_re
     await signal("reaction.changed");
     await wait("!!document.querySelector('[data-firing-message=\"99\"]')");
     await capture("U5558b", "saved-firing");
-    await evaluate("window.__fake.app.handlers['reaction.list'] = () => { throw new Error('Saved reactions unavailable: permission denied. The previous saved details remain available.'); }");
+    await evaluate("window.__fake.app.handlers['reaction.list'] = () => { throw new Error('Reactions read refused: permission denied. Saved details retained.'); }");
     await signal("reaction.changed");
     await wait("document.querySelector('.reaction-detail [role=alert]')?.textContent.includes('permission denied')");
     await capture("U5558e", "reaction-reload-failed");
