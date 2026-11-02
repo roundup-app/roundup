@@ -14,6 +14,7 @@
     Method { name: "agent.discard", params: "agent_NodeId", result: "null" },
     Method { name: "agent.spawnPrompt", params: "agent_NodeId", result: "agent_SpawnPrompt" },
     Method { name: "agent.setOrder", params: "agent_SetOrderParams", result: "agent_RailNode" },
+    Method { name: "agent.setVisibility", params: "agent_SetVisibilityParams", result: "agent_RailNode" },
     Method { name: "agent.instructions", params: "agent_NodeId", result: "agent_Instructions" },
     Method { name: "agent.channelUp", params: "agent_NodeId", result: "null" },
     Method { name: "agent.signal", params: "agent_SignalParams", result: "agent_SignalOutcome | null" },
