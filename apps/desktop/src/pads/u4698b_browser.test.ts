@@ -1,7 +1,9 @@
-import { mkdirSync, writeFileSync } from "node:fs";
+import { copyFileSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, it } from "vitest";
 import { captureDir } from "../testing/captures";
+import ownerSample from "./owner-sample.md?raw";
+import structureSample from "./structure-sample.md?raw";
 import { shelfBrowser } from "../shelf/u371Browser";
 
 const { browser, evaluate, settle, openShelf } = shelfBrowser();
@@ -135,18 +137,23 @@ it("u4698b_expand_keeps_the_long_pad_and_all_formats_reachable", { retry: 0, tim
 const typographyOutputs = [captureDir("U5574a"), captureDir("U5574b")].filter((path): path is string => path !== null);
 
 it.skipIf(typographyOutputs.length === 0)("u5574a_u5574b_observe_pad_scale_and_rhythm", { retry: 0, timeout: 600_000 }, async () => {
-  const { readFileSync } = await import("node:fs");
-  const fixtures = ["owner", "structure"].map(name => ({ name, text: readFileSync(new URL(`./${name}-sample.md`, import.meta.url), "utf8") }));
+  const fixtures = [{ name: "owner", text: ownerSample }, { name: "structure", text: structureSample }];
   const revision = process.env.ROUNDUP_PAD_BASELINE ? "base" : "head";
 
   const save = async (name: string) => {
     await settle();
     const readings = await evaluate("window.__checks()");
 
+    let image: string | undefined;
+
     for (const output of typographyOutputs) {
       const dir = join(output, revision);
       mkdirSync(dir, { recursive: true });
-      await browser("screenshot", join(dir, `${name}.png`));
+      const path = join(dir, `${name}.png`);
+
+      if (image) copyFileSync(image, path);
+      else { await browser("screenshot", path); image = path; }
+
       writeFileSync(join(dir, `${name}.checks.json`), JSON.stringify(readings));
     }
   };
@@ -229,5 +236,54 @@ it.skipIf(typographyOutputs.length === 0)("u5574a_u5574b_observe_pad_scale_and_r
 
       if (renderer === "readonly") await evaluate("window.__disposeReadonly(); true");
     }
+
+    expect(await evaluate(`window.__fake.app.rpc("pad.read", {name: ${JSON.stringify(fixture.name)}}).then(pad => pad.text)`)).toBe(fixture.text);
+    expect(await evaluate("window.__fake.app.calls.filter(call => call.method === 'pad.write').length")).toBe(0);
   }
+});
+
+it.skipIf(typographyOutputs.length === 0)("u5574b_handles_focus_and_failure_keep_the_sample_draft", { retry: 0, timeout: 180_000 }, async () => {
+  await openShelf("tree-40", 288, 320, 1512, "dark");
+  await browser("set", "viewport", "1512", "950");
+  await evaluate(`(async () => { await window.__fake.app.rpc('pad.create', ${JSON.stringify({ name: "rhythm-probe", text: structureSample })}); document.querySelector('#shelf-tab-pads').click(); return true; })()`);
+  await browser("wait", "[data-shelf-group=unassigned]");
+  await evaluate(`(() => { const group = document.querySelector('[data-shelf-group=unassigned] [data-part=branch-control]'); if (group?.getAttribute('data-state') === 'closed') group.click(); return true; })()`);
+  await browser("wait", ".pad-name");
+  await evaluate(`(() => { [...document.querySelectorAll('.pad-name')].find(row => row.textContent === 'rhythm-probe').focus(); return true; })()`);
+  await browser("press", "Enter");
+  await browser("wait", ".drawer .ProseMirror");
+  const revision = process.env.ROUNDUP_PAD_BASELINE ? "base" : "head";
+  const dir = join(typographyOutputs[0]!, revision);
+  mkdirSync(dir, { recursive: true });
+  await browser("record", "start", join(dir, "handles-and-recovery.webm"));
+
+  const save = async (name: string) => {
+    await settle();
+
+    for (const output of typographyOutputs) {
+      mkdirSync(join(output, revision), { recursive: true });
+      await browser("screenshot", join(output, revision, `${name}.png`));
+      writeFileSync(join(output, revision, `${name}.checks.json`), JSON.stringify(await evaluate("window.__checks()")));
+    }
+  };
+
+  for (const selector of [".ProseMirror h1", ".ProseMirror .children p"]) {
+    const point = await evaluate<{x: number; y: number}>(`(() => { const node = document.querySelector(${JSON.stringify(selector)}); node.scrollIntoView({block: 'center'}); const r = node.getBoundingClientRect(); return {x:r.x + 20,y:r.y + 10}; })()`);
+    await settle();
+    await browser("mouse", "move", String(Math.round(point.x)), String(Math.round(point.y)));
+    await browser("wait", ".milkdown-block-handle[data-show=true]");
+    await save(selector.includes("h1") ? "heading-handle" : "list-handle");
+  }
+
+  await browser("focus", ".ProseMirror");
+  await settle();
+  await save("keyboard-focus");
+  await evaluate("window.__fake.failNext(-32000, 'Pad save rejected: disk is full. Free space and retry.'); true");
+  await browser("press", "Control+End");
+  await browser("keyboard", "type", "Retained typography draft");
+  await browser("click", ".pad-head-name");
+  await browser("wait", "--fn", "document.body.textContent.includes('disk is full')");
+  await save("dense-save-failure");
+  expect(await evaluate("document.querySelector('.ProseMirror').textContent.includes('Retained typography draft')")).toBe(true);
+  await browser("record", "stop");
 });
