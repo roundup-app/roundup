@@ -59,6 +59,7 @@ const observerTable = {
   "src/keys/u4692_attention.test.tsx": ["U4692", "U4692a"],
   "src/keys/u4690_browser.test.ts": ["U4690", "U4690a", "U4690b", "U4690c", "U4690d", "U4690e"],
   "src/orders/u3078i_rendered.test.ts": ["P3557c", "U3078i", "U3791b", "U4453b"],
+  "src/pads/u5562c_browser.test.ts": ["U5562c"],
   "src/pads/u4698b_browser.test.ts": ["U4698b"],
   "src/pads/p2544a_browser.test.ts": ["U3021c"],
   "src/pads/u3732_real_daemon_agent_owner.test.tsx": ["U3736"],

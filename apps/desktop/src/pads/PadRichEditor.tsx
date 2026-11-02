@@ -14,6 +14,7 @@ import { linkTooltip } from "@milkdown/crepe/feature/link-tooltip";
 import { linkPreviewTooltip } from "@milkdown/kit/component/link-tooltip";
 import { listItem } from "@milkdown/crepe/feature/list-item";
 import { placeholder } from "@milkdown/crepe/feature/placeholder";
+import { codeColours } from "./codeColours";
 import { table } from "@milkdown/crepe/feature/table";
 import { topBar } from "@milkdown/crepe/feature/top-bar";
 import { commandsCtx, editorViewCtx, remarkStringifyOptionsCtx } from "@milkdown/kit/core";
@@ -186,6 +187,8 @@ export default function PadRichEditor(props: {
           }),
       ),
     );
+
+    crepe.editor.use($prose(() => codeColours()));
 
     crepe.editor.use($prose(() => visualBlocks(visualKinds(), () => props.readonly)));
 
