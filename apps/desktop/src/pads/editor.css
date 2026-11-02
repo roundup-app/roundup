@@ -407,3 +407,32 @@
 .milkdown .top-bar-inner:has(.top-bar-heading-dropdown) {
   overflow: visible;
 }
+
+.pad-rich-editor details[data-pad-agents] {
+  margin-block: var(--space-4);
+}
+
+details[data-pad-agents] summary {
+  cursor: pointer;
+  color: var(--grey);
+}
+
+details[data-pad-agents] textarea {
+  display: block;
+  width: 100%;
+  min-height: calc(var(--space-4) * 8);
+  margin-block-start: var(--space-3);
+  padding: 0;
+  border: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-body);
+  color: var(--text);
+  background: var(--ground);
+  resize: vertical;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  details[data-pad-agents] summary:hover {
+    color: var(--text);
+  }
+}

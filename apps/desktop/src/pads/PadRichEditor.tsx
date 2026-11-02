@@ -1,7 +1,7 @@
 import { DrawerExpandContext } from "../drawer/DrawerHost";
 import { registerKeys } from "../keys/registry";
 import { CHORDS, chordsFor } from "../keys/chords";
-import { toggleStrongCommand, toggleEmphasisCommand, toggleInlineCodeCommand, wrapInBlockquoteCommand, wrapInBulletListCommand, wrapInOrderedListCommand, createCodeBlockCommand } from "@milkdown/kit/preset/commonmark";
+import { toggleStrongCommand, toggleEmphasisCommand, toggleInlineCodeCommand, wrapInBlockquoteCommand, wrapInBulletListCommand, wrapInOrderedListCommand, createCodeBlockCommand, clearTextInCurrentBlockCommand } from "@milkdown/kit/preset/commonmark";
 import { captureFocus } from "../keys/focus";
 import { ReservedLine } from "../ink/ReservedLine";
 import { copy } from "./copy";
@@ -24,6 +24,7 @@ import { Plugin, TextSelection } from "@milkdown/kit/prose/state";
 import { getMarkdown, replaceAll } from "@milkdown/kit/utils";
 import { sourceForDocument } from "./sourceForDocument";
 import { visualBlocks } from "./visualBlocks";
+import { agentDetailsRemark, agentDetailsNode, agentDetailsView } from "./agentDetails";
 import { visualKinds } from "./visualKinds";
 import "./editor.css";
 import "../ui/reading.styles.css";
@@ -67,7 +68,7 @@ const toolbarCommands = [
   { key: "quote", action: CHORDS.find(action => action.keys === "⇧⌘B")!, label: copy.quote, command: wrapInBlockquoteCommand },
   { key: "bullet-list", action: CHORDS.find(action => action.keys === "⌥⌘8")!, label: copy.bulletList, command: wrapInBulletListCommand },
   { key: "ordered-list", action: CHORDS.find(action => action.keys === "⌥⌘7")!, label: copy.numberedList, command: wrapInOrderedListCommand },
-  { key: "code-block", action: CHORDS.find(action => action.keys === "⌥⌘C")!, label: copy.codeBlock, command: createCodeBlockCommand },
+  { key: "code-block", action: CHORDS.find(action => action.keys === "⌥⌘C")!, label: copy.codeBlock, command: createCodeBlockCommand, clearTextInCurrentBlockCommand },
   { key: "code", action: CHORDS.find(action => action.keys === "⌘E")!, label: copy.inlineCode, command: toggleInlineCodeCommand },
 ];
 
@@ -117,6 +118,30 @@ export default function PadRichEditor(props: {
       blockHandle: { getOffset: () => 0, root: menuHost },
       slashMenu: { root: menuHost },
       textGroup: { divider: null },
+      buildMenu: (builder) => {
+        builder.getGroup("advanced").addItem("for-agents", {
+          label: copy.forAgents,
+          icon: "",
+          onRun: (ctx) => {
+            const view = ctx.get(editorViewCtx);
+            ctx.get(commandsCtx).call(clearTextInCurrentBlockCommand.key);
+            let found = false;
+            view.state.doc.forEach(node => { if (node.type.name === "pad_agent_details") found = true; });
+
+            if (!found) {
+              const node = agentDetailsNode.type(ctx).create(null, view.state.schema.text(`<details>\n<summary>${copy.forAgents}</summary>\n\n\n\n</details>`));
+              view.dispatch(view.state.tr.insert(view.state.doc.content.size, node));
+            }
+
+            const section = view.dom.querySelector<HTMLDetailsElement>("details[data-pad-agents]");
+
+            if (section) {
+              section.open = true;
+              section.querySelector("textarea")?.focus();
+            }
+          },
+        });
+      },
     } as BlockEditFeatureConfig;
 
     crepe = new CrepeBuilder({
@@ -186,6 +211,8 @@ export default function PadRichEditor(props: {
           }),
       ),
     );
+
+    crepe.editor.use(agentDetailsRemark).use(agentDetailsNode).use(agentDetailsView);
 
     crepe.editor.use($prose(() => visualBlocks(visualKinds(), () => props.readonly)));
 

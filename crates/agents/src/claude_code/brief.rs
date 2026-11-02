@@ -505,6 +505,19 @@ a Message, `AskUserQuestion` question, Digest, Work order or Todo title never ho
 
 ";
 
+/// Q5561: fixed guidance for both Pad-writing roles and tool modes.
+const PAD_RULE: &str = "\
+## Pads
+
+When creating, rewriting or appending with `pad_create`, `pad_write`, `pad_append` or `pad_appendSection`, \
+write only what the user needs to read in the Pad body, verdict first. \
+Put details needed only by Agents (paths, commands, ids, logs and raw evidence) in one final folded section named `For Agents`: \
+use `<details><summary>For Agents</summary>`, blank lines around its Markdown content and closing `</details>`, without `open`. \
+On subsequent edits, keep Agent-only details inside the same trailing section rather than adding them after it. \
+Facts the user needs to decide or act stay in the body, including a path or command needed for that action.
+
+";
+
 /// Q9: B24's additions for a Door's own questions to `you`.
 const DOOR_QUESTIONS: &str = "\
 Open a question with the question. State a guess once, as a choice to confirm. \
@@ -672,6 +685,9 @@ fn with_tools(role: Role, mcp: bool) -> String {
     text.push_str(TERMINAL_HABIT);
     text.push_str(ASK_RULE);
     text.push_str(REDUCE_RULE);
+    if role != Role::Scout {
+        text.push_str(PAD_RULE);
+    }
     text.push_str(REDUCE);
     text.push('\n');
     text.push_str(SHOW_ME);
