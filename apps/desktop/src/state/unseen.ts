@@ -29,6 +29,12 @@ export type UnseenState = {
   finishAt(id: string): number;
   publicationAt(id: string): number | null;
   publicationFailure(): string | null;
+  /** Project catalogue shared by unread-result tracking and Made. */
+  publications: {
+    records: Accessor<Deliverable[]>;
+    failure: Accessor<string | null>;
+    loading: Accessor<boolean>;
+  };
   /** U3566b: whether any Agent below Workstream `id` is unseen. */
   below(id: string): boolean;
   /** U3566b: whether any Agent of the Project is unseen. */
@@ -186,6 +192,11 @@ export const createUnseen = (
       return times.length ? Math.max(...times) : null;
     },
     publicationFailure,
+    publications: {
+      records: () => catalogue() ?? [],
+      failure: publicationFailure,
+      loading: () => catalogue.loading,
+    },
     below: (id) => descendantsOf(nodes(), id).some((node) => of(node.id)),
     any: () => nodes().some((node) => of(node.id)),
   };
