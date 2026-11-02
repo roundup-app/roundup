@@ -36,3 +36,39 @@ impl Run {
         self.signal(json!({"hook_event_name":"Stop"})).await;
     }
 }
+
+#[tokio::test]
+async fn b52_a_restart_with_a_sent_note_delivers_it_once() {
+    // B52(b): rejects losing the unacknowledged id on restart or falsely delivering its write.
+    for kind in ["note", "question"] {
+        let mut run = Run::start().await;
+        run.kind = kind;
+        let id = run.note("once").await;
+        until("taken up", async || {
+            (!run.entries().is_empty()).then_some(())
+        })
+        .await;
+        assert_eq!(run.taken(), [format!("rup-{id}")]);
+        run.restart().await;
+        run.idle_edge().await;
+        // The resumed session is a new process with its own socket; it takes the note up once.
+        until("taken up again", async || {
+            (run.entries() == [format!("rup-{id}")]).then_some(())
+        })
+        .await;
+        run.record(&[id]).await;
+        until("delivered", async || {
+            (run.status(id).await.0 == "delivered").then_some(())
+        })
+        .await;
+        assert_eq!(run.entries(), [format!("rup-{id}")]);
+        assert_eq!(
+            run.taken(),
+            [format!("rup-{id}")],
+            "a retry is not another peer uptake"
+        );
+        assert_eq!(run.typed().await, 0);
+        assert_eq!(run.seen().await, [id]);
+    }
+}
+
