@@ -19,6 +19,7 @@ mod resume;
 mod runs;
 mod signal;
 mod spawn;
+mod start_attribution;
 mod steer;
 mod u2539a_changed_files;
 mod u3566;
