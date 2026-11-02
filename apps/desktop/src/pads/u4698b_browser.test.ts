@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, it } from "vitest";
@@ -20,7 +21,7 @@ const capture = async (name: string) => {
   writeFileSync(join(output, `${name}.checks.json`), JSON.stringify(await evaluate("window.__checks()")));
 };
 
-it.skipIf(typographyOutputs.length > 0)("u4698b_expand_keeps_the_long_pad_and_all_formats_reachable", { retry: 0, timeout: output ? 240_000 : 90_000 }, async () => {
+it.skipIf(typographyOutputs.length > 0 || Boolean(captureDir("U5705")))("u4698b_expand_keeps_the_long_pad_and_all_formats_reachable", { retry: 0, timeout: output ? 240_000 : 90_000 }, async () => {
   await openShelf("tree-40", 288, 320, 1512, "dark");
 
   await browser("set", "viewport", "1512", "950");
@@ -368,4 +369,106 @@ it.skipIf(typographyOutputs.length === 0)("u5574b_empty_document_remains_editabl
   await browser("record", "stop");
 
   for (const output of typographyOutputs.slice(1)) copyFileSync(join(dir, "complete-recovery.webm"), join(output, revision, "complete-recovery.webm"));
+});
+
+const todoWidthOutput = captureDir("U5705");
+
+it.skipIf(!todoWidthOutput)("u5705_observe_nonempty_todo_and_pad_reading_columns", { retry: 0, timeout: 240_000 }, async () => {
+  const revision = process.env.ROUNDUP_PAD_BASELINE ? "base" : "head";
+  const dir = join(todoWidthOutput!, revision);
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, "metadata.json"), JSON.stringify({
+    sha: execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim(),
+    seed: "tree-40", viewport: [1512, 950], scheme: "dark", interfaceScale: 1,
+    tokens: { todo: "--reading-width", pad: "--pad-reading-width", gutter: "--reading-gutter" },
+  }, null, 2));
+  const prose = Array.from({ length: 5 }, (_, i) => `Paragraph ${i + 1}. ${"The release review keeps the original context beside the work so everyone can read the outcome and decide what happens next. ".repeat(4)}`).join("\n\n");
+
+  const save = async (name: string) => {
+    await settle();
+    await browser("screenshot", join(dir, `${name}.png`));
+    writeFileSync(join(dir, `${name}.checks.json`), JSON.stringify(await evaluate("window.__checks()")));
+
+    const widths = await evaluate(`(() => {
+      const editor = document.querySelector('.drawer .ProseMirror');
+      const ancestors = [];
+      for (let node = editor; node && !node.matches('.window'); node = node.parentElement) {
+        const style = getComputedStyle(node), rect = node.getBoundingClientRect();
+        ancestors.push({class: node.className, width: rect.width, x: rect.x, maxWidth: style.maxWidth, fontSize: style.fontSize, lineHeight: style.lineHeight, paddingInline: style.paddingInline, readingWidth: style.getPropertyValue('--reading-width'), padReadingWidth: style.getPropertyValue('--pad-reading-width'), gutter: style.getPropertyValue('--reading-gutter')});
+      }
+      const edges = [...document.querySelectorAll('.drawer .todo-detail-title, .drawer .pad-head, .drawer .milkdown-top-bar, .drawer .ProseMirror')].map(node => {
+        const rect = node.getBoundingClientRect(), style = getComputedStyle(node);
+        return {class: node.className, x: rect.x, width: rect.width, paddingInline: style.paddingInline};
+      });
+      return {edges, viewport: [innerWidth, innerHeight], focus: document.activeElement?.outerHTML.slice(0, 300), ancestors};
+    })()`);
+
+    writeFileSync(join(dir, `${name}-widths.json`), JSON.stringify(widths, null, 2));
+  };
+
+  await openShelf("tree-40", 288, 320, 1512, "dark");
+  await browser("set", "viewport", "1512", "950");
+  await evaluate(`(async () => {
+    await window.__fake.app.rpc('todo.update', {id: 1, body: ${JSON.stringify(prose)}});
+    await window.__fake.app.rpc('todo.assign', {id: 1, owner: null});
+    await window.__fake.app.rpc('pad.create', {name: 'Reading review', text: ${JSON.stringify(prose)}});
+    return true;
+  })()`);
+
+  const openTodo = async () => {
+    if (await evaluate("document.querySelector('#shelf-tab-todos').getAttribute('aria-expanded') !== 'true'")) await browser("click", "#shelf-tab-todos");
+    await browser("wait", '.todos-tab [data-shelf-group="unassigned"]');
+    await evaluate(`(() => { const group = document.querySelector('.todos-tab [data-shelf-group="unassigned"] [data-part="branch-control"]'); if (group?.getAttribute('data-state') === 'closed') group.click(); return true; })()`);
+    await browser("wait", '[data-todo="1"] .todo-row-button');
+    await browser("focus", '[data-todo="1"] .todo-row-button');
+    await browser("press", "Enter");
+    await browser("wait", ".drawer .ProseMirror");
+    await settle();
+
+    if (await evaluate("Boolean(document.querySelector('.drawer [aria-label=Maximise]'))")) await browser("click", '.drawer [aria-label="Maximise"]');
+    await settle();
+    await browser("focus", ".drawer .ProseMirror");
+    await browser("wait", ".drawer .ProseMirror:focus");
+  };
+
+  await openTodo();
+  await save("todo-expanded");
+  await browser("click", '.drawer [aria-label="Restore"]');
+  await settle();
+  await browser("focus", ".drawer .ProseMirror");
+  await save("todo-minimised");
+  await browser("click", '.drawer [aria-label="Maximise"]');
+  await settle();
+  await browser("focus", ".drawer .ProseMirror");
+  await save("todo-reexpanded");
+  await browser("click", ".drawer .close");
+  await settle();
+  await browser("click", "#shelf-tab-pads");
+  await browser("wait", '[data-shelf-group="unassigned"]');
+  await evaluate(`(() => { const group = document.querySelector('[data-shelf-group="unassigned"] [data-part="branch-control"]'); if (group?.getAttribute('data-state') === 'closed') group.click(); return true; })()`);
+  await browser("wait", ".pad-name");
+  await evaluate("[...document.querySelectorAll('.pad-name')].find(row => row.textContent === 'Reading review').focus(); true");
+  await browser("press", "Enter");
+  await browser("wait", ".drawer .ProseMirror");
+  await settle();
+  await browser("focus", ".drawer .ProseMirror");
+  await save("pad-expanded");
+  await browser("click", '.drawer [aria-label="Restore"]');
+  await settle();
+  await browser("focus", ".drawer .ProseMirror");
+  await save("pad-minimised");
+  await browser("click", '.drawer [aria-label="Maximise"]');
+  await settle();
+  await browser("focus", ".drawer .ProseMirror");
+  await evaluate("window.__fake.failNext(-32000, 'Pad save rejected: disk is full. Free space and retry.'); true");
+  await browser("press", "Control+End");
+  await browser("keyboard", "type", "Retained review draft");
+  await browser("click", ".pad-head-name");
+  await browser("wait", "--fn", "document.body.textContent.includes('disk is full')");
+  await evaluate("document.querySelector('.pad-editor').scrollTop = 0; true");
+  await save("pad-save-rejected");
+  await browser("click", ".drawer .close");
+  await settle();
+  await openTodo();
+  await save("todo-after-pad");
 });
