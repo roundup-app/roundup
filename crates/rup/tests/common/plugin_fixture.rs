@@ -54,6 +54,13 @@ pub async fn plugin_fixture(
         .request("rail.startDoor", json!({"id": door}))
         .await
         .unwrap();
+    client
+        .request(
+            "message.send",
+            json!({"to":door,"kind":"note","body":"Q11 start plugin inventory"}),
+        )
+        .await
+        .unwrap();
     let model = project.model.as_ref().unwrap();
     let first = model.tool_result("toolu_a32_child").await;
     let a: contracts::agent::RailNode =
