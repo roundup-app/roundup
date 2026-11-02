@@ -89,8 +89,10 @@ code and zero input writes through production dispatch. Given an authorized
 caller, when params are absent, null, not an object, missing `id`/`data`, have a
 wrong field type, or have invalid base64, then dispatch returns `INVALID_PARAMS`
 and performs zero input writes; planned `r5638d_malformed_write_has_no_effect`
-checks those cases. Preserve unknown-Terminal refusal and its existing ordering
-with malformed data in planned `r5638d_unknown_terminal_has_no_effect`.
+checks those cases. Given a resolved Agent and an absent canonical numeric
+Terminal id, when `data` is either valid or invalid base64, then `NOT_FOUND`
+precedes decode and no input write occurs; planned
+`r5638d_unknown_terminal_has_no_effect` asserts both cases.
 
 Policy: preserve Check 4's process-derived authority (the code's H21 guard),
 one classification per wire write, and authorization before effects. This does
