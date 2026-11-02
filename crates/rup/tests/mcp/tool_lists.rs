@@ -123,7 +123,7 @@ pub const DOOR_METHODS: [&str; 10] = [
 ];
 
 /// M5: the methods and App commands with no tool; the reasons are in `scenarios/mcp.md`.
-pub const NO_TOOL: [&str; 92] = [
+pub const NO_TOOL: [&str; 93] = [
     // The shortcut list is the user's own; Agents cannot write it to a file they did not choose.
     "shortcuts.export",
     // A4688a: only the user controls global naming preferences; Agents cannot override them.
@@ -142,6 +142,8 @@ pub const NO_TOOL: [&str; 92] = [
     "workstream.setOpeningPrompt",
     // A4452c: only the user requests a fresh Door conversation.
     "workstream.restart",
+    // U5501: only the user chooses Agent alert levels.
+    "rail.setAlertLevel",
     // A3194, A3195, P9: a start spends usage, so only the user's own choice starts a Workstream or sets what may run.
     "todo.startWorkstream",
     "workstream.queue",
@@ -239,6 +241,8 @@ pub const NO_TOOL: [&str; 92] = [
     "plugin:window-bar|zoom_window",
     // U134: the user's native window appearance, which an Agent cannot change.
     "plugin:window-bar|native_material",
+    // N5467b: only the App locates its obsolete browser data for the user’s manual reset.
+    "plugin:window-bar|webview_data_path",
     // U3787f: the operating system hands the App a roundup link; an Agent reads one with link.read.
     "native_open",
     "rpc",
@@ -583,4 +587,52 @@ async fn p16_shared_pad_access_over_public_seams() {
         before
     );
     serving.abort();
+}
+
+#[tokio::test]
+async fn u5501_public_mcp_and_cli_offer_no_level_write() {
+    use serde_json::{Value, json};
+    let project = super::start_daemon();
+    let user = super::client_as(&project.socket, contracts::Actor::user()).await;
+    let home = user
+        .request("rail.createWorkstream", json!({"name":"Home"}))
+        .await
+        .unwrap();
+    let before = user.request("rail.tree", Value::Null).await.unwrap();
+    let shim = super::spawn_shim(&project.socket, "a1").await;
+    let tools = shim.client.list_all_tools().await.unwrap();
+    assert!(tools.iter().all(|t| t.name != "rail_setAlertLevel"));
+    let refused = shim
+        .client
+        .call_tool(
+            rmcp::model::CallToolRequestParams::new("rail_setAlertLevel").with_arguments(
+                json!({"id":home["id"],"level":"all","actor":contracts::Actor::user(),"user":true})
+                    .as_object()
+                    .unwrap()
+                    .clone(),
+            ),
+        )
+        .await;
+    assert!(refused.is_err() || refused.unwrap().is_error == Some(true));
+    let cli = tokio::process::Command::new(env!("CARGO_BIN_EXE_rup"))
+        .args([
+            "rail",
+            "set-alert-level",
+            home["id"].as_str().unwrap(),
+            "all",
+            "--agent",
+            "a1",
+            "--actor",
+            "user",
+        ])
+        .env("RUPD_SOCKET", &project.socket)
+        .output()
+        .await
+        .unwrap();
+    assert!(!cli.status.success());
+    assert_eq!(
+        user.request("rail.tree", Value::Null).await.unwrap(),
+        before
+    );
+    let _ = shim.client.cancel().await;
 }
