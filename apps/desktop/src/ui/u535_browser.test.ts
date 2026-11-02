@@ -165,7 +165,7 @@ it("u535_release_swallows_the_click", async () => {
   await browser("mouse", "up");
   await browser("wait", "--fn", `document.querySelector('[aria-label="Previews"]').textContent.endsWith('end')`);
   await browser("wait", "--fn", `new Promise(resolve => setTimeout(() => resolve(true), 100))`);
-  expect(await output("Clicks")).toBe("0");
+  expect(Number(await output("Clicks"))).toBe(0);
   await browser("click", '[data-id="Q"] span');
   await browser("wait", "--fn", `document.querySelector('[aria-label="Clicks"]').textContent === '1'`);
 }, 60_000);
