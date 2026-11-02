@@ -163,9 +163,10 @@ pub const START_DOOR_ACK_BOUND: Duration = Duration::from_secs(8);
 
 type Clock = Arc<dyn Fn() -> i64 + Send + Sync>;
 
-/// A4452a: sends roundup's own text to an Agent's Claude inbox as a Message, `(agent id, text)`.
+/// A4452a: sends roundup's own text to an Agent's Claude inbox as a Message, `(sender, agent id, text)`.
 type CoordinationSink = Arc<
     dyn Fn(
+            Actor,
             String,
             String,
         )

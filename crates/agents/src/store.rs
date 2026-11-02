@@ -230,16 +230,18 @@ impl Agents {
         })
     }
 
-    /// A4452a, A4452d: send `send(agent id, text)` as a Message to the Agent's Claude inbox
+    /// A4452a, A4452d: send `send(sender, agent id, text)` as a Message to the Agent's Claude inbox
     /// for every text roundup authors; none of it is typed. Call it before the first call is made.
     #[must_use]
     pub fn with_coordination<F, Fut>(self, send: F) -> Self
     where
-        F: Fn(String, String) -> Fut + Send + Sync + 'static,
+        F: Fn(Actor, String, String) -> Fut + Send + Sync + 'static,
         Fut: std::future::Future<Output = Result<(), RpcError>> + Send + 'static,
     {
         self.configure(|shared| {
-            shared.coordination = Some(Arc::new(move |id, text| Box::pin(send(id, text))))
+            shared.coordination = Some(Arc::new(move |from, id, text| {
+                Box::pin(send(from, id, text))
+            }))
         })
     }
 

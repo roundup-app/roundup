@@ -90,10 +90,10 @@ impl Daemon {
                 let messages = Arc::clone(&messages);
                 let ctx_bus = bus.clone();
                 let ctx_touches = Arc::clone(&touches);
-                move |id, text| {
+                move |from, id, text| {
                     let messages = Arc::clone(&messages);
                     let ctx = Ctx {
-                        actor: Actor::daemon(),
+                        actor: from,
                         bus: ctx_bus.clone(),
                         touches: Arc::clone(&ctx_touches),
                     };
