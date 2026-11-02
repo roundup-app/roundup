@@ -565,7 +565,7 @@ export default function PadRichEditor(props: {
             view.dispatch(tr);
             view.focus();
           })}>
-            <Tip text={copy.textColour}>{trigger => <Menu.Trigger {...trigger()} class="top-bar-heading-button" aria-label={copy.textColour}>{copy.textColour}</Menu.Trigger>}</Tip>
+            <Menu.Trigger asChild={menu => <Tip text={copy.textColour}>{trigger => <button {...trigger(menu())} class="top-bar-heading-button" aria-label={copy.textColour}>{copy.textColour}</button>}</Tip>} />
             <Portal><Menu.Positioner class="pad-rich-editor"><Menu.Content>
               <For each={["default" as const, ...padColours]}>{colour => <Menu.Item value={colour}>{copy.colours[colour]}</Menu.Item>}</For>
             </Menu.Content></Menu.Positioner></Portal>
