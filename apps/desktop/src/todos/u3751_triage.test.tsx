@@ -17,7 +17,7 @@ const mount = () => mountTodos([todo(1, { owner: by("a") }), todo(2), todo(3), t
 
 const row = (id: number) => document.querySelector<HTMLButtonElement>(`[data-todo="${id}"] .row-head .todo-row-button`)!;
 
-const shelf = () => document.querySelector(".shelf")!;
+const shelf = () => document.querySelector<HTMLElement>(".shelf")!;
 
 const press = (target: HTMLElement, key: string, init: KeyboardEventInit = {}) => {
   target.focus();
