@@ -88,3 +88,22 @@ it.each(["retry", "dismiss"])("p3557c_failure_lifetime_diff_reader: %s", async a
   expect(app.calls.filter(call => call.method === "agent.compareFile").map(call => call.params)).toEqual(Array.from({ length: action === "retry" ? 4 : 3 }, () => ({ id: "a", path: "src/a.ts" })));
   expect(app.calls.filter(call => call.method === "message.send")).toHaveLength(0);
 });
+
+
+it("u5558c_worktree_refresh_updates_open_comparison", async () => {
+  const { app, connected, view } = await openDiff();
+  const before = app.calls.filter(call => call.method === "agent.compareFile").length;
+
+  for (const revision of ["second", "third"]) {
+    app.handlers["agent.compareFile"] = () => ({ ...COMPARISON, new: { kind: "text", revision, text: `${revision}\n` } });
+    await connected.worktrees.refresh("a");
+    await waitFor(() => expect(app.calls.filter(call => call.method === "agent.compareFile")).toHaveLength(before + (revision === "second" ? 1 : 2)));
+    expect(app.calls.filter(call => call.method === "agent.compareFile").at(-1)?.params).toEqual({ id: "a", path: "src/a.ts" });
+  }
+
+  await connected.worktrees.refresh("plain");
+  expect(app.calls.filter(call => call.method === "agent.compareFile")).toHaveLength(before + 2);
+  view.unmount();
+  await connected.worktrees.refresh("a");
+  expect(app.calls.filter(call => call.method === "agent.compareFile")).toHaveLength(before + 2);
+});
