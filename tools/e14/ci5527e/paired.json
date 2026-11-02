@@ -85,10 +85,12 @@
       "baseline_commit": "76307726cab11b93d7bab9c96f514b1e2c13ee4c",
       "head_source": "main 76307726c plus the navigation diff in this PR; other source files equal main",
       "command": "pnpm --filter desktop exec vitest run src/bubbles/u4274_navigation.test.tsx --reporter=default --reporter=/tmp/5701-reporter.mjs",
-      "reporter": "navigation-reporter.mjs",
+      "reporter": "navigation-reporter.mjs.in",
       "baseline_exit": 0,
       "head_exit": 0,
-      "repair": "Existing projectCount=0 on single-Project cases and scoped label/group queries; all actions and assertions retained."
+      "repair": "Existing projectCount=0 on single-Project cases and scoped label/group queries; all actions and assertions retained.",
+      "replay_setup": "Copy navigation-reporter.mjs.in to /tmp/5701-reporter.mjs; set CI5527_REPORT to the output report path before running the recorded command.",
+      "head_commit": "c50d5067819b74758fa1d3a59c7b5e1d94d18996"
     }
   ],
   "next_observer": "Run passing baseline/head observations with identical explicit file selections, runner class and workload and no competing jobs. Retain raw module.diagnostic().duration (including hooks) or Vitest raw results cache duration, identities and statuses. Default printed integer milliseconds round duration and are diagnostic only.",
