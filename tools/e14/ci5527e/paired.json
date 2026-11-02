@@ -82,7 +82,8 @@
   ],
   "final_ready": {
     "command": "just ready",
-    "status": "running; final web lints and typechecks have passed, repeating unchanged Rust/repository gates",
-    "log": "ready-final.log.gz"
+    "status": "passed",
+    "log": "ready-final.log.gz",
+    "exit": 0
   }
 }
