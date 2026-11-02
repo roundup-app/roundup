@@ -1,3 +1,4 @@
+import { isFocusVisible } from "@zag-js/focus-visible";
 import { surfaceOpen } from "../ui/openSurfaces";
 import { CHORDS } from "../keys/chords";
 import Maximize from "lucide-solid/icons/maximize";
@@ -89,7 +90,7 @@ export const DrawerHost = (props: { drawer: DrawerState; reducedMotion: Accessor
 
   // U64: a different chosen row dismisses the Drawer; its Terminal owns focus after readiness.
   createEffect(on(() => connected?.rail.selected(), (id, previous) => {
-    if (id != null && id !== previous) props.drawer.close();
+    if (id != null && id !== previous) props.drawer.close(isFocusVisible() ? "key" : "pointer");
   }, { defer: true }));
 
   // U430: the centre moves for as long as the slide runs; with no motion there is no slide.
