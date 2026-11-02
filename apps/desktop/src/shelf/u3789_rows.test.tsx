@@ -40,9 +40,7 @@ const cases = ["todo-shelf", "pad-shelf", "workstream", "agent"] as const;
 
 type RowCase = typeof cases[number];
 
-// CI5527d: keep the Agent ancestors and the Workstream’s live Door for activation;
-// Shelf cases retain their existing Home rows.
-const target = async (kind: RowCase, rows: readonly string[] = kind === "agent" ? ["backend", "auth", "tokens"] : kind === "workstream" ? ["payments", "agent-4"] : ["backend", "auth", "tokens", "payments", "agent-4"]) => {
+const target = async (kind: RowCase, rows: readonly string[] = ["backend", "auth", "tokens", "payments", "agent-4"]) => {
   const controls = await open("tree-40", rows, false, kind === "pad-shelf" ? copy.pads : copy.todos);
 
   const selector = {
