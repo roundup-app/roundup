@@ -70,13 +70,13 @@ const topBarNames = new Map(Object.entries({
 const toolbarKeys = new Set(["heading-selector", "bold", "italic", "code", "link", "bullet-list", "ordered-list", "task-list", "quote", "code-block", "table"]);
 
 const toolbarCommands = [
-  { key: "bold", action: CHORDS.find(action => action.keys === "⌘B")!, label: copy.bold, command: toggleStrongCommand },
-  { key: "italic", action: CHORDS.find(action => action.keys === "⌘I")!, label: copy.italic, command: toggleEmphasisCommand },
-  { key: "quote", action: CHORDS.find(action => action.keys === "⇧⌘B")!, label: copy.quote, command: wrapInBlockquoteCommand },
-  { key: "bullet-list", action: CHORDS.find(action => action.keys === "⌥⌘8")!, label: copy.bulletList, command: wrapInBulletListCommand },
-  { key: "ordered-list", action: CHORDS.find(action => action.keys === "⌥⌘7")!, label: copy.numberedList, command: wrapInOrderedListCommand },
-  { key: "code-block", action: CHORDS.find(action => action.keys === "⌥⌘C")!, label: copy.codeBlock, command: createCodeBlockCommand, clearTextInCurrentBlockCommand },
-  { key: "code", action: CHORDS.find(action => action.keys === "⌘E")!, label: copy.inlineCode, command: toggleInlineCodeCommand },
+  { key: "bold", action: CHORDS.find(action => action.name === "terminal.switch")!, label: copy.bold, command: toggleStrongCommand },
+  { key: "italic", action: CHORDS.find(action => action.name === "editor.italic")!, label: copy.italic, command: toggleEmphasisCommand },
+  { key: "quote", action: CHORDS.find(action => action.name === "editor.quote")!, label: copy.quote, command: wrapInBlockquoteCommand },
+  { key: "bullet-list", action: CHORDS.find(action => action.name === "editor.bullet-list")!, label: copy.bulletList, command: wrapInBulletListCommand },
+  { key: "ordered-list", action: CHORDS.find(action => action.name === "editor.numbered-list")!, label: copy.numberedList, command: wrapInOrderedListCommand },
+  { key: "code-block", action: CHORDS.find(action => action.name === "editor.code-block")!, label: copy.codeBlock, command: createCodeBlockCommand, clearTextInCurrentBlockCommand },
+  { key: "code", action: CHORDS.find(action => action.name === "editor.inline-code")!, label: copy.inlineCode, command: toggleInlineCodeCommand },
 ];
 
 const normalHeading = (text: string) => text.replace(/^#+/, "").split(/\s+/).filter(Boolean).join(" ").toLowerCase();

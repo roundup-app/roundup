@@ -21,9 +21,10 @@ export function captureDir(id: string): string | null {
 // and scheduling; this table only names the existing observer files.
 const observerTable = {
   "src/app/u5502_rendered.test.ts": ["U5502"],
-  "src/pads/u5561a_browser.test.ts": ["U5561a", "U5561b", "U5575a"],
+  "src/pads/u5561a_browser.test.ts": ["U5561a", "U5561b", "U5575a", "U5704a"],
   "src/pads/u5561c_real_browser.test.ts": ["U5561c"],
   "src/rail/u5555_browser.test.ts": ["U5217", "U5555", "U4313b", "U5629"],
+  "src/keys/u5557_browser.test.ts": ["U5557a", "U5557c"],
   "src/rail/u5501_capture.test.ts": ["U5501", "U5721"],
   "src/app/u3560_browser.test.ts": ["U3560e"],
   "src/app/u3787f_browser.test.ts": ["U3787f"],
@@ -66,7 +67,7 @@ const observerTable = {
   "src/rail/menu/u3787a_browser.test.ts": ["U3787a", "U150", "U459", "U460", "U486", "U3512a"],
   "src/rail/menu/u4461_rendered.test.ts": ["U4461", "U4601"],
   "src/rail/u3787c_browser.test.ts": ["U3787c"],
-  "src/rail/u426_rendered.test.ts": ["U350"],
+  "src/rail/u426_rendered.test.ts": ["U350", "U427", "U428"],
   "src/rail/u4547a_browser.test.ts": ["U4547a"],
   "src/rail/u4547bc_browser.test.ts": ["U4547b", "U4547c"],
   "src/rail/u4547d_browser.test.ts": ["U4547d"],
@@ -95,6 +96,7 @@ const observerTable = {
   "src/terminal/u3517_browser.test.ts": ["U3517b", "U3517c", "U3517f", "U4456a", "U4456b", "U4456c", "U4456d", "U4590", "U4592", "U4649", "U4679"],
   "src/terminal/u3517_type.test.ts": ["U4590"],
   "src/terminal/u3530_browser.test.ts": ["U3530a"],
+  "src/terminal/u365_browser.test.ts": ["U365"],
   "src/terminal/u3707_browser.test.ts": ["U3707"],
   "src/terminal/u4315_header.test.tsx": ["U4355"],
   "src/terminal/u4453a_terminal_only.test.tsx": ["U4453a", "U4453b"],

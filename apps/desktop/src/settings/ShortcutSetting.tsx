@@ -3,7 +3,7 @@ import { createSignal, createUniqueId, For, Show } from "solid-js";
 import { copy } from "./copy";
 import { KeyChip } from "../keys/KeyChip";
 import { ReservedLine } from "../ink/ReservedLine";
-import { ACTION_ROWS, CHORDS, LEADER, defaultPress, pressOf, recordable, shortcutLabel } from "../keys/chords";
+import { type KeyText, leaderKeys, ACTION_ROWS, CHORDS, LEADER, defaultPress, pressOf, recordable, shortcutLabel } from "../keys/chords";
 import { checkRecorded, holderOf, isModifier, ownerOf, shortcutsWith } from "./shortcutRules";
 import { registerKeys } from "../keys/registry";
 import { appSettings, saveAppSettings } from "./preferences";
@@ -25,7 +25,7 @@ export const ShortcutSettings = (props: { capture?: CapturePort | undefined; app
   const [found, setFound] = createSignal<string | null>(null);
 
   // Read from the table, not `listActions`: its availability reads the key registry's layers, and registering a row's layer would rerun the list for ever.
-  const keysOf = (row: (typeof ACTION_ROWS)[number]) => "press" in row ? `${ACTION_ROWS.find(chord => chord.name === "leader.open")!.keys} ${row.keys}` : row.keys;
+  const keysOf = (row: (typeof ACTION_ROWS)[number]) => "press" in row ? leaderKeys(row) : row.keys;
 
   const overrides = () => appSettings().shortcuts;
   let active: HTMLElement | undefined;
@@ -113,7 +113,7 @@ export const ShortcutSettings = (props: { capture?: CapturePort | undefined; app
 };
 
 /** One action's row: its label and keys, and where recordable the button to press a new key and the Reset. */
-const ActionShortcut = (props: { label: string; keys: string; recording: boolean; failure: string | null; overridden: boolean; onRecord?: ((event: MouseEvent & { currentTarget: HTMLElement }) => void) | undefined; onReset: () => void }) => {
+const ActionShortcut = (props: { label: string; keys: KeyText; recording: boolean; failure: string | null; overridden: boolean; onRecord?: ((event: MouseEvent & { currentTarget: HTMLElement }) => void) | undefined; onReset: () => void }) => {
   const caption = createUniqueId();
   const value = createUniqueId();
 
