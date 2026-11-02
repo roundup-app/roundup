@@ -26,7 +26,7 @@ def register(path):
                         f"self-hosted,boxd,{given['label']}", '--no-default-labels', '--ephemeral',
                         '--disableupdate', '--unattended', '--work', '_work'], cwd=RUNNER,
                        check=True, timeout=90)
-        _, kind, scope, run, attempt = given['label'].split('-')
+        _, kind, scope, run, attempt = given['label'].split('-')[:5]
         expected = {'GITHUB_REPOSITORY': given['repository'], 'GITHUB_RUN_ID': run,
                     'GITHUB_RUN_ATTEMPT': attempt,
                     'GITHUB_JOB': scope if kind == 'light' else JOBS[kind]}

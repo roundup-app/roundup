@@ -42,6 +42,13 @@ class Identity(unittest.TestCase):
             carrier = re.compile(rf'^  {job}:\n(?:    .*\n)*?    runs-on: .*roundup-{label}-', re.M)
             self.assertTrue(any(carrier.search(path.read_text()) for path in workflows.glob('*.yml')), label)
 
+    def test_l121_each_job_a_run_holds_once_per_issue_labels_its_runner_with_that_issue(self):
+        workflow = (Path(__file__).resolve().parents[2] / '.github/workflows/build-issue.yml').read_text()
+        labels = [line for line in workflow.splitlines() if 'runs-on:' in line and '"boxd"' in line]
+        self.assertGreater(len(labels), 1)
+        for line in labels:
+            self.assertIn('inputs.issue', line)
+
 
 class Memory(unittest.TestCase):
     def test_l121_a_foreign_job_cannot_start_on_a_memory_bearing_runner(self):
