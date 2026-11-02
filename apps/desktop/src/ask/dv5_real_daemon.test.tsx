@@ -161,11 +161,12 @@ it("dv5_open_failure_preserves_catalogue_selection_and_refuses_removed_or_revoke
   await expect(app.rpc("deliverable.publish", { key: "unsafe", title: "Unsafe", target: { kind: "external", url: "roundup://anything" } })).rejects.toThrow();
   expect(opened).toHaveLength(3);
   // A malformed upstream external resolution still cannot reach the native opener.
+  const currentPadButton = within(made).getByRole("button", { name: /^Open Failure Pad$/ });
   const unsafe = vi.spyOn(app, "rpc").mockResolvedValueOnce({ kind: "external", url: "javascript:alert(1)", availability: "not-checked" });
-  fireEvent.click(padButton);
+  fireEvent.click(currentPadButton);
   await waitFor(() => expect(made.getAttribute("aria-busy")).toBe("false"));
   expect(opened).toHaveLength(3);
-  expect(within(rowOf(padButton)).getByRole("alert")).toBeDefined();
+  expect(within(rowOf(currentPadButton)).getByRole("alert")).toBeDefined();
   unsafe.mockRestore();
   const rpc = app.rpc;
   app.rpc = (method, params) => method === "deliverable.list" ? Promise.reject(new Error("catalogue connection interrupted")) : rpc(method, params);

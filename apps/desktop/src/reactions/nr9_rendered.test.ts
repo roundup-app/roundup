@@ -329,7 +329,7 @@ it.skipIf(!captureDir("U5558a"))("u5558e_open_surfaces_update_and_keep_failed_re
     await browser("set", "media", "dark");
     await browser("open", `${server.resolvedUrls.local[0]}harness.html?view=workstreams&items=1&tabs=1&view=made&seed=agents-10`);
     await wait("!!window.__fake");
-    console.log("automatic surface", await evaluate("document.body.innerText.slice(0,1600)"));
+    await click("Made");
     await evaluate(`(() => {
       const record = {project:'p', id:'automatic-made', title:'Same title', maker:{kind:'agent',id:'agent-1',parent:null}, maker_name:'Maker',home:null,published_at:1,target:{kind:'external',url:'https://example.com/result',availability:'not-checked'}};
       window.__fake.app.handlers['deliverable.list'] = () => [record, {...record,id:'other-made'}];
@@ -345,7 +345,8 @@ it.skipIf(!captureDir("U5558a"))("u5558e_open_surfaces_update_and_keep_failed_re
     await capture("U5558e", "made-reload-failed");
 
     await browser("open", `${server.resolvedUrls.local[0]}harness.html?view=workstreams&items=1&tabs=1&view=reactions&seed=agents-10`);
-    await wait("!!window.__fake && !!document.querySelector('.reaction-head')");
+    await wait("!!window.__fake && !!document.querySelector('.ask-input')");
+    await click("Reactions");
     await evaluate(`(() => {
       const record = {project:'p',id:'automatic-reaction',name:'Review saved changes',actor:{kind:'user',id:'you',parent:null},home:null,target:'agent-1',instruction:'Review the recorded revision',condition:{kind:'agents',ids:['agent-1'],any:false},max_firings:2,remaining:2,rearm:true,expires_at:'2099-01-01T00:00:00Z',created_at:'2026-11-01T00:00:00Z',state:'active',observation:{health:'observing',health_code:'observing',cause_code:'unknown',gap_code:'unknown',recovery_code:'unknown',cursor:null,gap:null,recovery:null,evidence:null},firings:[]};
       window.__automaticReaction = record;
@@ -394,12 +395,14 @@ it.skipIf(!captureDir("U5558a"))("u5558e_open_surfaces_update_and_keep_failed_re
     await click("View diff");
     await wait("!!document.querySelector('diffs-container')?.shadowRoot?.querySelector('[data-column-number]')");
     await click("Add note");
-    await browser("find", "label", "Note", "fill", "  keep this exact unfinished note 🐝  ");
+    await browser("fill", ".note-field textarea", "  keep this exact unfinished note 🐝  ");
     await evaluate("window.__fake.app.handlers['agent.compareFile'] = () => ({base:'base',oldPath:'src/example.ts',newPath:'src/example.ts',status:'modified',old:{kind:'text',revision:'old',text:'before\\n'},new:{kind:'text',revision:'automatic',text:'automatic comparison update\\n'}})");
+    await evaluate("window.__worktrees.refresh('agent-1')");
     await wait("document.querySelector('diffs-container')?.shadowRoot?.textContent.includes('automatic comparison update')");
-    expect(await evaluate("document.querySelector('[aria-label=Note]').value")).toBe("  keep this exact unfinished note 🐝  ");
+    expect(await evaluate("document.querySelector('.note-field textarea').value")).toBe("  keep this exact unfinished note 🐝  ");
     await capture("U5558c", "worktree-update-with-draft");
     await evaluate("window.__fake.app.handlers['agent.compareFile'] = () => { throw new Error('Comparison unavailable: Worktree read refused. Retry to read this comparison again.'); }");
+    await evaluate("window.__worktrees.refresh('agent-1')");
     await wait("document.querySelector('.diff-reader [role=alert]')?.textContent.includes('Worktree read refused')");
     await capture("U5558e", "diff-reload-failed");
     expect(await evaluate("[...document.querySelectorAll('button')].some(button=>button.textContent.trim()==='Refresh')")).toBe(false);
