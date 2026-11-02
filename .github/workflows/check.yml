@@ -181,6 +181,14 @@ jobs:
       - name: C4 addition and freshness observers
         if: matrix.partition == 1
         run: just contracts-test
+      # CI5330e: run 41406327635 exhausted rust 1 during test compilation after C4 built two isolated
+      # target trees. Their observers have finished, and C9's release evidence is already uploaded.
+      - name: Reclaim completed observer builds
+        if: matrix.partition == 1
+        run: |
+          du -sh target/release target/c4-addition target/c4-fresh
+          rm -rf target/release target/c4-addition target/c4-fresh
+          df -h /
       - name: U4251 raw SDK storage capability
         if: matrix.partition == 1
         timeout-minutes: 1

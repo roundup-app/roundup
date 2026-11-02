@@ -69,11 +69,11 @@ it.skipIf(Boolean(captureDir("U4698e")) && !captureDir("U3311"))("u3311_real_dae
   };
 
   try {
-    const home = await app.rpc("rail.createWorkstream", { name: "Release", parent: null });
+    const home = await app.rpc("rail.createWorkstream", { name: "Release", parent: null, order: { kind: "work", ask: "Prepare the release", limits: [] } });
     homeId = home.id;
     const agents: { id: string }[] = [];
 
-    for (const name of ["Writer", "Builder", "Reviewer", "Empty destination"]) agents.push(await app.rpc("agent.spawn", { cwd: real.dir, prompt: null, parent: home.id, name }));
+    for (const name of ["Writer", "Builder", "Reviewer", "Empty destination"]) agents.push(await app.rpc("agent.spawn", { cwd: real.dir, prompt: "Wait for assigned work", parent: home.id, name }));
     await writeFile(target, JSON.stringify(actor(agents[0]!.id)));
     await app.rpc("rail.startDoor", { id: home.id });
     const made = [];
@@ -296,7 +296,7 @@ print(json.dumps({'todo':todo,'pad':pad}))
   const app = createServedApp(real.base);
 
   try {
-    const home = await app.rpc("rail.createWorkstream", { name: "Release", parent: null });
+    const home = await app.rpc("rail.createWorkstream", { name: "Release", parent: null, order: { kind: "work", ask: "Prepare the release", limits: [] } });
     await app.rpc("rail.startDoor", { id: home.id });
     await expect.poll(async () => (await app.rpc("todo.list", null)).length, { timeout: 20_000 }).toBe(1);
     await expect.poll(async () => (await app.rpc("pad.list", null)).length, { timeout: 20_000 }).toBe(1);

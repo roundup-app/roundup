@@ -1,11 +1,10 @@
-import { makeEventListener } from "@solid-primitives/event-listener";
-import { createMemo, createResource } from "solid-js";
+import { createMemo, createResource, onCleanup } from "solid-js";
 import type { Reaction } from "@contracts/reaction/Reaction";
 import { useConnectedProject } from "../state/connectedProject";
 
 /** NR9: saved reactions remain readable when their Agents no longer exist. */
 export const createReactions = () => {
-  const { app, drafts, daemonExit } = useConnectedProject();
+  const { app, drafts, daemonExit, events } = useConnectedProject();
 
   // Project-owned submissions outlive the overview; settlement refreshes its current mount.
   const submissions = createMemo(() => daemonExit() === null ? JSON.stringify(drafts.list()
@@ -24,8 +23,10 @@ export const createReactions = () => {
 
   const refresh = () => { if (daemonExit() === null) void refetch(); };
 
-  makeEventListener(window, "focus", refresh);
+  onCleanup(events.subscribe(event => {
+    if (event.name === "reaction.changed" || ((event.name === "message.delivered" || event.name === "message.dropped") && read().list.some(reaction => reaction.firings.some(firing => firing.message === event.data.id)))) refresh();
+  }));
 
-  return { read, refresh, refetch, dismiss: () => mutate(value => ({ ...value, failure: null })) };
+  return { read, refresh, refetch, accept: (reaction: Reaction) => mutate(value => ({ ...value, list: value.list.map(saved => saved.id === reaction.id ? reaction : saved) })), dismiss: () => mutate(value => ({ ...value, failure: null })) };
 };
 
