@@ -1,6 +1,7 @@
 import { copy as sharedCopy, type CopyValue } from "../sharedCopy";
 
 export const copy = {
+  forAgents: "For Agents",
   dismiss: sharedCopy.dismiss,
   draftField: sharedCopy.draftField,
   draftIdentity: sharedCopy.draftIdentity,

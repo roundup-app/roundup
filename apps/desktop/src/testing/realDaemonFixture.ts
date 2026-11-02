@@ -175,8 +175,8 @@ export const startRealDaemon = async (env: Record<string, string>, inBrowser = f
       return daemon!;
     },
     dir,
-    dataDir,
     socket,
+    dataDir,
     base,
     model,
     // U177: the Daemon ends and a new one serves the same Project on the same socket.
@@ -211,20 +211,14 @@ export const startWorktreeProject = async (files: Record<string, string>, env: R
   }
 };
 
-/** Two Projects with separate data; browser observers warm their bundles, and failed startup or observation reaps both. */
-export const withProjectPair = async (observe: (first: StartedDaemon, second: StartedDaemon) => Promise<void>, inBrowser = true): Promise<void> => {
-  const first = await startRealDaemon({}, inBrowser);
+/** One isolated Project whose Daemon and data are released after the observer, including failures. */
+export const withProject = async (observe: (real: StartedDaemon) => Promise<void>, inBrowser = true): Promise<void> => {
+  const real = await startRealDaemon({}, inBrowser);
 
   try {
-    const second = await startRealDaemon({}, inBrowser);
-
-    try {
-      await observe(first, second);
-    } finally {
-      await second.stop();
-    }
+    await observe(real);
   } finally {
-    await first.stop();
+    await real.stop();
   }
 };
 
@@ -240,3 +234,8 @@ export const realBrowserTest = test.extend<{ real: StartedDaemon }>({
     }
   },
 });
+
+/** Two Projects with separate data, both released when observation ends. */
+export const withProjectPair = async (observe: (first: StartedDaemon, second: StartedDaemon) => Promise<void>, inBrowser = true): Promise<void> => {
+  await withProject(first => withProject(second => observe(first, second), inBrowser), inBrowser);
+};
