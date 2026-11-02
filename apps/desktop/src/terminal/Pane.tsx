@@ -167,9 +167,12 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
     }
 
     untrack(() => {
-      const show = (focus: boolean) => screens.resize(id, screens.show(id, host, focus));
+      screens.resize(id, screens.show(id, host, false));
 
-      if (rail.restored() || doorNotRunning || !focusPermission(() => show(true))) show(false);
+      if (!rail.restored() && !doorNotRunning) {
+        // Selection also dismisses a full-centre Drawer; focus after its inert state settles.
+        queueMicrotask(() => focusPermission(() => screens.emulatorFor(id).focus()));
+      }
     });
   });
 

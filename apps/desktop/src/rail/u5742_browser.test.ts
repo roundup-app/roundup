@@ -18,6 +18,7 @@ it.each(["agents-10", "tree-40"])("u5742a_rendered_rail_choices_and_controls_%s"
   const baseline = !!process.env.U5742_BASELINE;
   await browser("set", "viewport", "1512", "950");
   await browser("set", "media", "dark");
+  await read("localStorage.clear(); sessionStorage.clear()");
   await browser("open", url(`/harness.html?seed=${seed}&renderer=dom&menu=1`, baseline));
   await wait("!!window.__fake && !!document.querySelector('.rail-row[data-id]')");
   const root = captureDir("U5742a");
@@ -56,6 +57,8 @@ it.each(["agents-10", "tree-40"])("u5742a_rendered_rail_choices_and_controls_%s"
       await browser("click", fold);
       await wait("!!document.activeElement?.closest('.rail')");
       await capture("U5742b", `${seed}-control`);
+      await browser("click", fold);
+      await wait(`!!document.querySelector('.rail-row[data-id="${target}"]')`);
     }
 
     await read(`(async () => {
