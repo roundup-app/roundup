@@ -791,7 +791,7 @@ mod memory;
 async fn lc22_a_failed_memory_command_blocks() {
     use std::os::unix::fs::PermissionsExt;
     use std::process::Stdio;
-    use tokio::io::AsyncWriteExt;
+    use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 
     for (_, role, pair) in lean_children().into_iter().take(2) {
         for mcp_off in [false, true] {
@@ -859,6 +859,18 @@ async fn lc22_a_failed_memory_command_blocks() {
                             }
                             let ready = s.root.path().join("ready");
                             let _ = std::fs::remove_file(&ready);
+                            rustix::fs::mkfifoat(
+                                rustix::fs::CWD,
+                                &ready,
+                                rustix::fs::Mode::RUSR | rustix::fs::Mode::WUSR,
+                            )
+                            .unwrap();
+                            let reader = tokio::net::unix::pipe::OpenOptions::new()
+                                .open_receiver(&ready)
+                                .unwrap();
+                            let _writer = tokio::net::unix::pipe::OpenOptions::new()
+                                .open_sender(&ready)
+                                .unwrap();
                             let mut child = tokio::process::Command::new("bash")
                                 .args(["-c", command])
                                 .env("READY", &ready)
@@ -873,18 +885,17 @@ async fn lc22_a_failed_memory_command_blocks() {
                                 "permission_mode":if yolo { "bypassPermissions" } else { "default" }
                             }).to_string().as_bytes()).await.unwrap();
                             if matches!(failure, "TERM" | "KILL") {
-                                let pid = tokio::time::timeout(Duration::from_secs(2), async {
-                                    loop {
-                                        if let Ok(text) = std::fs::read_to_string(&ready)
-                                            && let Ok(pid) = text.trim().parse::<i32>()
-                                        {
-                                            break rustix::process::Pid::from_raw(pid).unwrap();
-                                        }
-                                        tokio::time::sleep(Duration::from_millis(1)).await;
-                                    }
-                                })
+                                let mut text = String::new();
+                                tokio::time::timeout(
+                                    Duration::from_secs(2),
+                                    BufReader::new(reader).read_line(&mut text),
+                                )
                                 .await
-                                .expect("memory fixture announced readiness");
+                                .expect("memory fixture announced readiness")
+                                .unwrap();
+                                let pid =
+                                    rustix::process::Pid::from_raw(text.trim().parse().unwrap())
+                                        .unwrap();
                                 rustix::process::kill_process(
                                     pid,
                                     if failure == "TERM" {
