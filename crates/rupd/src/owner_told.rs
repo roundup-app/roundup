@@ -526,6 +526,8 @@ mod tests {
         nodes: Mutex<Vec<Value>>,
         sent: Mutex<Vec<Value>>,
         thread: Mutex<Value>,
+        calls: Mutex<Vec<String>>,
+        rail_fails: std::sync::atomic::AtomicBool,
     }
 
     #[async_trait]
@@ -535,13 +537,26 @@ mod tests {
         }
 
         async fn call(&self, _: &Ctx, method: &str, params: Value) -> Result<Value, RpcError> {
+            self.calls.lock().unwrap().push(if method == "todo.hand" {
+                format!("todo.hand:{}", params["agent"].as_str().unwrap())
+            } else {
+                method.into()
+            });
             match method {
+                "rail.tree" if self.rail_fails.load(std::sync::atomic::Ordering::Relaxed) => {
+                    Err(RpcError::internal("Rail unavailable"))
+                }
                 "rail.tree" => Ok(Value::Array(self.nodes.lock().unwrap().clone())),
-                "todo.list" | "pad.list" | "message.list" => Ok(json!([])),
+                "todo.list" | "pad.list" | "message.list" => {
+                    Err(RpcError::internal("unrelated read"))
+                }
+                "todo.hand" => rpc::reply(&Some(todo(7, "Next task", None, vec![]))),
                 "todo.comments" => Ok(self.thread.lock().unwrap().clone()),
                 "message.send" => {
-                    self.sent.lock().unwrap().push(params);
-                    Err(RpcError::internal("stub"))
+                    self.sent.lock().unwrap().push(params.clone());
+                    Ok(
+                        json!({"id":1,"from":Actor::daemon(),"to":params["to"],"kind":"note","body":params["body"],"replyTo":null,"status":"pending","reason":null,"at":0}),
+                    )
                 }
                 other => panic!("unexpected {other}"),
             }
@@ -566,6 +581,8 @@ mod tests {
             nodes: Mutex::new(nodes),
             sent: Mutex::new(Vec::new()),
             thread: Mutex::new(json!([])),
+            calls: Default::default(),
+            rail_fails: Default::default(),
         });
         let mut modules = daemon.modules.clone();
         for name in ["rail", "todo", "pad", "message"] {
@@ -620,6 +637,8 @@ mod tests {
             assert_eq!(stub.sent.lock().unwrap().len(), 1);
         }
     }
+
+    mod event_cost;
 
     fn comment(id: u32, by: Actor, body: &str) -> Comment {
         Comment {
