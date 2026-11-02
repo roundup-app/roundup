@@ -75,6 +75,14 @@ it.each(["pointer", "Return"].flatMap(input => [false, true].map(present => ({ i
   await browser("keyboard", "type", "/For Agents");
   await wait("!!document.querySelector('.milkdown-slash-menu[data-show=true] li[data-index]')");
 
+  const dir = captureDir("U5561b");
+
+  if (dir) {
+    await mkdir(dir, { recursive: true });
+    await browser("screenshot", join(dir, `block-menu-${input}-${present}.png`));
+    await writeFile(join(dir, `block-menu-${input}-${present}.checks.json`), JSON.stringify(await read("window.__checks()")));
+  }
+
   if (input === "pointer") await browser("click", ".milkdown-slash-menu[data-show=true] li[data-index]");
   else await browser("press", "Enter");
   await wait("document.activeElement?.matches('details[data-pad-agents] textarea')");
@@ -82,10 +90,8 @@ it.each(["pointer", "Return"].flatMap(input => [false, true].map(present => ({ i
 
   if (present) expect(await read("document.querySelector('details[data-pad-agents] textarea').value")).toContain("raw evidence");
   await browser("fill", "details[data-pad-agents] textarea", " Agent evidence saved. ");
-  const dir = captureDir("U5561b");
 
   if (dir) {
-    await mkdir(dir, { recursive: true });
     await browser("screenshot", join(dir, `menu-${input}-${present}.png`));
     await writeFile(join(dir, `menu-${input}-${present}.checks.json`), JSON.stringify(await read("window.__checks()")));
   }
@@ -93,8 +99,7 @@ it.each(["pointer", "Return"].flatMap(input => [false, true].map(present => ({ i
   await browser("click", ".drawer .close");
   await wait("!document.querySelector('.drawer .ProseMirror')");
   const saved = await read<string>("window.__fake.app.rpc('pad.read', {name:'pad-3'}).then(pad => pad.text)");
-  expect(saved).toContain("<details>\n<summary>For Agents</summary>\n\n Agent evidence saved. \n\n</details>");
-  expect(saved.match(/<details>/g)).toHaveLength(1);
+  expect(saved).toBe("Ready to review.\n\n<details>\n<summary>For Agents</summary>\n\n Agent evidence saved. \n\n</details>");
   await read(`(() => { [...document.querySelectorAll('.pad-name')].find(row => row.textContent === 'pad-3').focus(); return true; })()`);
   await browser("press", "Enter");
   await wait("!!document.querySelector('details[data-pad-agents]')");
