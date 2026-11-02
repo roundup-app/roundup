@@ -54,6 +54,11 @@ def take(conn):
                 seen_ids.add(entry['msg_id'])
                 last_entry = content
                 with open(taken_path, 'a') as out: out.write(line)
+            if os.path.exists(here + '/final-reply.txt'):
+                text = open(here + '/final-reply.txt').read()
+                os.unlink(here + '/final-reply.txt')
+                print(text, flush=True)
+                hook('Stop', {'last_assistant_message': text})
 def serve():
     while True:
         conn, _ = server.accept()

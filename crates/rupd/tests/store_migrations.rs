@@ -166,6 +166,7 @@ async fn n20_current_store_opens() {
         home: Some("door".into()),
     }];
     let sources = messages::digest::Sources {
+        completed: std::collections::HashMap::new(),
         touches: vec![contracts::Touch {
             actor: Actor {
                 kind: ActorKind::Agent,
