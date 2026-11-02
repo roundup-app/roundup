@@ -466,3 +466,19 @@ fn e5417_a_real_project_waits_the_real_bound_and_a_fake_one_the_short_bound() {
     assert_ne!(bound_for(false), aimock::REAL_BOUND);
     assert!(bound_for(true) > bound_for(false));
 }
+
+pub async fn start_door(client: &rpc::Client) -> String {
+    let node = client
+        .request(
+            "rail.createWorkstream",
+            json!({"name":"team", "parent":null}),
+        )
+        .await
+        .unwrap();
+    let id = node["id"].as_str().unwrap().to_owned();
+    client
+        .request("rail.startDoor", json!({ "id": id }))
+        .await
+        .unwrap();
+    id
+}

@@ -3,6 +3,7 @@
 #[path = "e2e/daemon.rs"]
 #[allow(dead_code)]
 mod daemon;
+use daemon::start_door;
 #[path = "e2e/notes.rs"]
 mod notes;
 #[path = "e2e/reaction.rs"]
@@ -1526,15 +1527,6 @@ async fn json_file(path: &std::path::Path) -> Value {
     })
     .await
     .expect("the fake claude wrote its report")
-}
-
-async fn start_door(client: &rpc::Client) -> String {
-    let id = workstream(client, "team").await;
-    client
-        .request("rail.startDoor", json!({ "id": id }))
-        .await
-        .unwrap();
-    id
 }
 
 fn settings_of(project: &Project, id: &str) -> Value {
