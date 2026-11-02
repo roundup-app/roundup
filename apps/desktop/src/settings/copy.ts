@@ -104,7 +104,7 @@ export const copy = {
   previewRow: "│ ░▒▓█   │ ready  │",
   previewBottom: "└────────┴────────┘",
   previewResult: "tests passed",
-  interfaceSample: "A",
+  interfaceSample: sharedCopy.textSample,
   interfaceSmall: "Small",
   interfaceLarge: "Large",
   fontWeight: "Font weight",
