@@ -60,7 +60,7 @@ const observerTable = {
   "src/orders/u3078i_rendered.test.ts": ["P3557c", "U3078i", "U3791b", "U4453b"],
   "src/pads/u5562c_browser.test.ts": ["U5562b", "U5562c"],
   "src/pads/u5562d_real_browser.test.ts": ["U5562a", "U5562b", "U5562c", "U5562d"],
-  "src/pads/u4698b_browser.test.ts": ["U4698b", "U5574a", "U5574b"],
+  "src/pads/u4698b_browser.test.ts": ["U4698b", "U5574a", "U5574b", "U5705"],
   "src/pads/p2544a_browser.test.ts": ["U3021c", "U5559a", "U5559b"],
   "src/pads/u3732_real_daemon_agent_owner.test.tsx": ["U3736"],
   "src/rail/menu/u3787a_browser.test.ts": ["U3787a", "U150", "U459", "U460", "U486", "U3512a"],
