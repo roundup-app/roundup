@@ -263,7 +263,7 @@ const captureAll = (focus: Element | null) => {
       keys: "press" in binding.action ? leaderKeys(binding.action) : binding.action.keys,
       available,
       run: (args?: ActionValues) => { if (available()) captured.invoke(args); },
-      at: rows.findIndex(row => row.keys === binding.action.keys && ("press" in row) === leader),
+      at: rows.findIndex(row => row.name === binding.action.name && ("press" in row) === leader),
     };
   })).sort((a, b) => a.at - b.at);
 };
