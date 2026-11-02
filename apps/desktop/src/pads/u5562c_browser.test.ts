@@ -64,3 +64,43 @@ it("u5562a_insert_each_callout", { retry: 0, timeout: 180000 }, async () => {
     expect(final[0]!.params.text.startsWith("Keep  exact\n")).toBe(true);
   }
 });
+
+it("u5562b_selection_colour_and_highlight_in_the_real_editor", { retry: 0, timeout: 90000 }, async () => {
+  await openShelf("tree-40", 288, 320, 1512, "dark");
+  await evaluate(`(async () => { await window.__fake.app.rpc('pad.create', {name:'Selection colours',text:'before **word** after'}); document.querySelector('#shelf-tab-pads').click(); return true; })()`);
+  await browser("wait", "[data-shelf-group=unassigned]");
+  await evaluate(`(() => { const group = document.querySelector('[data-shelf-group=unassigned] [data-part=branch-control]'); if (group?.getAttribute('data-state') === 'closed') group.click(); return true; })()`);
+  await browser("wait", ".pad-name");
+  await evaluate(`(() => { [...document.querySelectorAll('.pad-name')].find(row => row.textContent === 'Selection colours').focus(); return true; })()`);
+  await browser("press", "Enter");
+  await browser("wait", ".ProseMirror[contenteditable=true]");
+  await browser("focus", ".drawer .ProseMirror");
+  await browser("press", "Control+Home");
+
+  for (let i = 0; i < 7; i++) await browser("press", "ArrowRight");
+
+  for (let i = 0; i < 4; i++) await browser("press", "Shift+ArrowRight");
+  expect(await evaluate("window.getSelection().toString()")).toBe("word");
+
+  for (const [index, colour] of ["Blue", "Green", "Purple", "Red", "Amber"].entries()) {
+    await browser("click", 'button[aria-label="Text colour"]');
+    await browser("wait", ".top-bar-heading-dropdown");
+    await browser("click", `.top-bar-heading-option:nth-child(${index + 2})`);
+    await browser("wait", `.ProseMirror [data-pad-color="${colour.toLowerCase()}"]`);
+    expect(await evaluate("window.getSelection().toString()")).toBe("word");
+    expect(await evaluate("document.activeElement.matches('.ProseMirror')")).toBe(true);
+  }
+
+  await browser("click", 'button[aria-label="Highlight"]');
+  await browser("wait", ".ProseMirror mark");
+  await browser("click", 'button[aria-label="Text colour"]');
+  await browser("wait", ".top-bar-heading-dropdown");
+  await browser("click", ".top-bar-heading-option:first-child");
+  expect(await evaluate("document.querySelector('.ProseMirror [data-pad-color]')")).toBeNull();
+  expect(await evaluate("!!document.querySelector('.ProseMirror strong mark')")).toBe(true);
+  await browser("click", 'button[aria-label="Highlight"]');
+  expect(await evaluate("document.querySelector('.ProseMirror mark')")).toBeNull();
+  await browser("click", ".drawer .close");
+  await settle();
+  expect(await evaluate("window.__fake.app.calls.filter(call => call.method === 'pad.write')")).toEqual([]);
+});
