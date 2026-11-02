@@ -1,3 +1,4 @@
+import { createAgentPads } from "./pads/AgentPads";
 import { createMove, MovePicker } from "./MovePicker";
 import { WorkProgress } from "../orders/WorkProgress";
 import { EmptyRail } from "../app/FirstRun";
@@ -49,6 +50,7 @@ export const Rail = () => {
   const { app, project, rail, daemonExit } = connected;
   const recoveryEntries = useRecoveryMenu();
 
+  const todoCount = createAgentPads();
   const attention = createMemo(() => attentionCount(rail.nodes, rail.dismissed));
   const [scrolled, setScrolled] = createSignal(false);
   const collapsed = rail.collapsed;
@@ -166,7 +168,7 @@ export const Rail = () => {
 
   const endCompose = () => setComposing(false);
 
-  const { sectionRows, rows, collection, expanded, entryOf, nodeRows, nodeIds, indexOf, treeRows, byKey } = createRailTree(connected, unfolded, id => rowElement(id));
+  const { topology, sectionRows, rows, collection, expanded, entryOf, nodeRows, nodeIds, indexOf, treeRows, byKey } = createRailTree(connected, unfolded, id => rowElement(id));
 
 
   /** U38: mounting follows the first tree answer; fetch failure takes precedence. */
@@ -199,7 +201,7 @@ export const Rail = () => {
     const visible = current.some(row => row.kind === "node" ? row.node.id === id : row.key === id);
 
     if (visible) return;
-    const ancestors = id.startsWith("fold:") ? [id.slice(5), ...ancestorsOf(rail.nodes, id.slice(5))] : ancestorsOf(rail.nodes, id);
+    const ancestors = id.startsWith("fold:") ? [id.slice(5), ...ancestorsOf(topology(), id.slice(5))] : ancestorsOf(topology(), id);
     const parent = ancestors.find(ancestor => current.some(row => row.kind === "node" && row.node.id === ancestor));
 
     if (!parent) return;
@@ -212,7 +214,7 @@ export const Rail = () => {
     const node = rail.nodes.find(each => each.id === id);
 
     const attention = node?.kind === "workstream" && node.status?.kind !== "needs-you"
-      ? rail.nodes.find(each => each.status?.kind === "needs-you" && ancestorsOf(rail.nodes, each.id).includes(id)) : undefined;
+      ? rail.nodes.find(each => each.status?.kind === "needs-you" && ancestorsOf(topology(), each.id).includes(id)) : undefined;
 
     rail.select(attention?.id ?? id);
     queueMicrotask(() => document.querySelector<HTMLElement>(".pane-screen textarea, .pane-screen [tabindex]")?.focus());
@@ -279,7 +281,7 @@ export const Rail = () => {
 
     const anchor = treeRows().filter((row) => row.parent === parent && row.id !== id)[shown - 1];
 
-    return anchor === undefined ? shown : siblingsOf(rail.nodes, parent).filter((node) => node.id !== id).findIndex((node) => node.id === anchor.id) + 1;
+    return anchor === undefined ? shown : siblingsOf(topology(), parent).filter((node) => node.id !== id).findIndex((node) => node.id === anchor.id) + 1;
   };
 
   const moveTo = ({ id, parent, index }: SortableMove) => {
@@ -567,7 +569,7 @@ export const Rail = () => {
 
   return (
     <>
-    <MovePicker target={moveAgent.target()} destinations={moveAgent.destinations()} close={moveAgent.close} choose={(id, parent) => { void moveAgent.move({ id, parent, index: siblingsOf(rail.nodes, parent).length }); }} />
+    <MovePicker target={moveAgent.target()} destinations={moveAgent.destinations()} close={moveAgent.close} choose={(id, parent) => { void moveAgent.move({ id, parent, index: siblingsOf(topology(), parent).length }); }} />
     <button
       type="button"
       data-button="quiet"
@@ -710,6 +712,8 @@ export const Rail = () => {
                         <Sortable.Item id={view().node.id} index={indexOf().get(view().node.id) ?? 0} disabled={daemonExit() !== null}>{(parts) =>
                         <RailRowView
                           row={view()}
+                          topology={topology()}
+                          todoCount={todoCount(view().node.id)}
                           actions={actionsOf(view().node)}
                           doorAction={<Show when={isWorkstream(view().node) && !view().node.opening_prompt?.trim() && rail.exitOf(view().node) !== null && !connected.queue.entryOf(view().node.id)}><IconButton aria-label={rail.doorFailure(view().node.id) ? copy.retryDoor : copy.startDoor} aria-disabled={rail.doorPending(view().node.id)} onKeyDown={event => event.stopPropagation()} onClick={event => { event.stopPropagation(); failure.clear(); rail.clearWorkstreamFailure(); void rail.startDoor(view().node.id); }}><Icon name="play" /></IconButton></Show>}
                           rootDivider={collection().isBranchNode(entryOf(view().node.id).node) && view().key !== sectionRows().find(each => each.id === section.id)?.rows[0]?.key}

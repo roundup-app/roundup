@@ -246,7 +246,7 @@ it.skipIf(Boolean(captureDir("U4698e")) && !captureDir("U3311"))("u3311_real_dae
     saved.set(moved.id, { title: "Release notes revised", body: "Exact body é 🧪 次の行" }); // taste-skill-ignore: Expected Unicode draft value.
     await observe(moved.id, agents[0]!.id);
     // U4698e: user comments join the persisted resulting work in its Activity.
-    await lane.until("!!document.querySelector('.todo-history-line')");
+    await lane.until("!!document.querySelector('.todo-comments .todo-history-line')");
     await openHistory(lane);
     await lane.until("!!document.querySelector('.todo-comments[aria-label=Activity] [data-change]')");
     await lane.browser("fill", ".todo-comment-field", "Reviewed release notes é 雪");
@@ -347,7 +347,7 @@ print(json.dumps({'todo':todo,'pad':pad}))
 
     await selectHome();
     await openTodo();
-    await lane.until("!!document.querySelector('.todo-history-line')");
+    await lane.until("!!document.querySelector('.todo-comments .todo-history-line')");
     await openHistory(lane);
     await lane.until("!!document.querySelector('[data-change]')");
     await lane.browser("dblclick", ".todo-detail-title .todo-editable p");
