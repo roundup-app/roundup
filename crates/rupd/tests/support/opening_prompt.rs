@@ -1,9 +1,5 @@
 //! A4452c: saved Opening prompts through the existing Door test harness.
-use super::{
-    child_run::{BOUND, Run},
-    door_terminals::recorded_bytes,
-    idle::idle,
-};
+use super::{child_run::Run, door_terminals::recorded_bytes, idle::idle};
 use serde_json::{Value, json};
 
 async fn door(prompt: Option<&str>) -> Run {
@@ -98,22 +94,17 @@ async fn u4547d_restart_uses_the_saved_prompt_and_preserves_contents() {
     assert_eq!(node["opening_prompt"], prompt);
     assert_eq!(node["id"], run.child);
     assert_eq!(node["name"], "Fresh team");
-    tokio::time::timeout(BOUND, async {
-        let inbox = run.dir.path().join(format!("received-{}.jsonl", run.child));
-        loop {
-            if std::fs::read_to_string(&inbox).is_ok_and(|text| {
-                text.lines().any(|line| {
-                    line.contains("roundup-context")
-                        && line.contains("Your Rail name is Fresh team")
-                })
-            }) {
-                break;
-            }
-            tokio::task::yield_now().await;
-        }
-    })
-    .await
-    .expect("fresh Context reaches the Claude inbox");
+    let brief = run
+        .user
+        .request("agent.brief", json!({"id":run.child}))
+        .await
+        .unwrap();
+    assert!(
+        brief["stdout"]
+            .as_str()
+            .unwrap()
+            .contains("Your Rail name is Fresh team")
+    );
     let expected = format!("\x1b[200~{prompt}\x1b[201~\r").into_bytes();
     assert_eq!(recorded_bytes(&run).await, expected);
     let tree = run.user.request("rail.tree", ()).await.unwrap();

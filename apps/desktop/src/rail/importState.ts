@@ -191,7 +191,7 @@ export const createImport = (app: AppSeam, path: string, onOpened: (workstream: 
       setOpen(true); setDiscovery(null); setVerified(false); setLoading(false); setStale([]); setFailed(new Map()); setFailure(null);
     });
 
-    return persist(false);
+    return persist(false).then(() => refresh());
   };
 
   const refresh = async () => {
@@ -202,7 +202,6 @@ export const createImport = (app: AppSeam, path: string, onOpened: (workstream: 
       invalidate();
       batch(() => { setLoading(false); setFailure(copy.importTimeout); });
     }, 20_000);
-    setDiscovery(null);
     setVerified(false);
     setLoading(true);
     setFailure(null);
@@ -232,7 +231,8 @@ export const createImport = (app: AppSeam, path: string, onOpened: (workstream: 
         setSelected(keep);
         setStale(dropped);
         setVerified(true);
-        persist();
+
+        if (!hasConflict()) persist();
       });
     } catch (error) {
       if (mine === latest) setFailure(error instanceof Error ? error.message : String(error));
