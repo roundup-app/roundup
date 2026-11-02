@@ -107,14 +107,18 @@ it.each(["key", "composition"])("u5552c_keys_and_composition_follow_focus %s", a
   expect(callsTo(app, "terminal.write")).toHaveLength(1);
 });
 
-it.each(["field", "terminal", "covered", "outside"])("u5552e_drop_focuses_only_its_destination %s", async origin => {
-  const { app, connected, container, input, field } = await mount();
+it.each(["field", "terminal", "covered", "hidden", "outside"])("u5552e_drop_focuses_only_its_destination %s", async origin => {
+  const { app, screens, container, input, field } = await mount();
   const body = container.querySelector<HTMLElement>(".pane-body")!;
   body.getBoundingClientRect = () => new DOMRect(0, 0, 100, 100);
 
-  if (origin === "terminal") { connected.rail.select("b"); connected.rail.select("a"); }
+  if (origin === "terminal") {
+    const other = document.createElement("div");
+    container.append(other);
+    screens.show("t-b", other);
+  }
   else field.focus();
-  Object.defineProperty(document, "elementFromPoint", { configurable: true, value: () => origin === "covered" ? field : body });
+  Object.defineProperty(document, "elementFromPoint", { configurable: true, value: () => origin === "hidden" ? null : origin === "covered" ? field : body });
   const active = document.activeElement;
   const focused: boolean[] = [];
   app.handlers["terminal.write"] = () => { focused.push(document.activeElement === input());
@@ -123,7 +127,7 @@ it.each(["field", "terminal", "covered", "outside"])("u5552e_drop_focuses_only_i
 
   app.dropFiles({ phase: "drop", x: origin === "outside" ? 200 : 50, y: 50, paths: ["/tmp/it's.png"] });
 
-  if (origin === "covered" || origin === "outside") {
+  if (origin === "covered" || origin === "hidden" || origin === "outside") {
     expect(callsTo(app, "terminal.write")).toEqual([]);
     expect(document.activeElement).toBe(active);
   } else {

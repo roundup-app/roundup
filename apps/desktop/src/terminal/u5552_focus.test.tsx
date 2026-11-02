@@ -3,7 +3,7 @@ import { lazyEmulators } from "./lazyEmulator";
 import { createScreens } from "./screens";
 import { connectFakeProject, fakeEmulators } from "./paneHarness";
 import { cleanup } from "@solidjs/testing-library";
-import { afterEach, expect, it } from "vitest";
+import { afterEach, expect, it, vi } from "vitest";
 import { callsTo, mountPane } from "./paneHarness";
 import { info, terminal } from "../testing/nodes";
 
@@ -53,4 +53,24 @@ it("u5552b_loading_restored_emulators_cannot_replace_the_latest_destination", as
   made.get("t-a")!.type(new TextEncoder().encode("right"));
   expect(callsTo(app, "terminal.write")).toEqual([{ id: "t-a", data: "cmlnaHQ=" }]);
   screens.dispose(); dispose(); host.remove();
+});
+
+it("u5552b_accepted_bytes_keep_the_original_terminal_after_a_switch", async () => {
+  const { app, connected, emulators } = await mountPane([terminal("a"), terminal("b")], [info("t-a"), info("t-b")]);
+  const first = Promise.withResolvers<null>();
+  const second = Promise.withResolvers<null>();
+  let count = 0;
+  app.handlers["terminal.write"] = () => ++count === 1 ? first.promise : second.promise;
+  connected.rail.select("a");
+  emulators.get("t-a")!.focus();
+  emulators.get("t-a")!.type(Uint8Array.of(65));
+  emulators.get("t-a")!.type(Uint8Array.of(66, 67));
+  connected.rail.select("b");
+  first.resolve(null);
+  await first.promise;
+  // attempt awaits the RPC before flush releases the queued batch (screens.ts).
+  await vi.waitFor(() => expect(callsTo(app, "terminal.write")).toEqual([
+    { id: "t-a", data: "QQ==" }, { id: "t-a", data: "QkM=" },
+  ]));
+  second.resolve(null);
 });
