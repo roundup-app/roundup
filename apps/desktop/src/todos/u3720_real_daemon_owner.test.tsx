@@ -7,7 +7,14 @@ import type { CreateParams } from "@contracts/todo/CreateParams";
 import type { Actor } from "@contracts/Actor";
 import { startRealDaemon } from "../testing/realDaemonFixture";
 import { createServedApp } from "../testing/realSeam";
-import { openLane } from "./laneBrowser";
+import { openLane, type LaneBrowser } from "./laneBrowser";
+
+const openHistory = async (lane: LaneBrowser) => {
+  // Blurring the body editor moves the controls, so focus the disclosure before activating it.
+  await lane.browser("focus", ".todo-history-line");
+  await lane.until("document.activeElement?.matches('.todo-history-line')");
+  await lane.browser("press", "Enter");
+};
 
 // A deterministic vendor child reads only delivered Auto Messages and answers through the public CLI as its Door.
 const door = `import json,os,re,subprocess,sys,time
@@ -240,9 +247,7 @@ it.skipIf(Boolean(captureDir("U4698e")) && !captureDir("U3311"))("u3311_real_dae
     await observe(moved.id, agents[0]!.id);
     // U4698e: user comments join the persisted resulting work in its Activity.
     await lane.until("!!document.querySelector('.todo-history-line')");
-    await lane.browser("focus", ".todo-history-line");
-    await lane.until("document.activeElement?.matches('.todo-history-line')");
-    await lane.browser("press", "Enter");
+    await openHistory(lane);
     await lane.until("!!document.querySelector('.todo-comments[aria-label=Activity] [data-change]')");
     await lane.browser("fill", ".todo-comment-field", "Reviewed release notes é 雪");
     await lane.browser("press", "Enter");
@@ -343,9 +348,7 @@ print(json.dumps({'todo':todo,'pad':pad}))
     await selectHome();
     await openTodo();
     await lane.until("!!document.querySelector('.todo-history-line')");
-    await lane.browser("focus", ".todo-history-line");
-    await lane.until("document.activeElement?.matches('.todo-history-line')");
-    await lane.browser("press", "Enter");
+    await openHistory(lane);
     await lane.until("!!document.querySelector('[data-change]')");
     await lane.browser("dblclick", ".todo-detail-title .todo-editable p");
     await lane.browser("fill", '.todo-detail-title textarea', "Reviewed release result");
@@ -358,7 +361,8 @@ print(json.dumps({'todo':todo,'pad':pad}))
     await lane.until("!document.querySelector('.drawer[data-mounted=true]')");
     await openPad();
     await lane.browser("focus", ".drawer .ProseMirror");
-    await lane.browser("press", "Control+a");
+    await lane.browser("press", process.platform === "darwin" ? "Meta+a" : "Control+a");
+    await lane.until("window.getSelection()?.toString() === document.querySelector('.drawer .ProseMirror')?.textContent");
     await lane.browser("type", ".drawer .ProseMirror", "Reviewed release notes");
     await expect.poll(async () => (await app.rpc("pad.read", { name: pad.name })).text).toBe("Reviewed release notes");
     await lane.browser("click", ".drawer .close");
