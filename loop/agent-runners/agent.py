@@ -11,7 +11,8 @@ import memory
 
 RUNNER = Path('/opt/actions-runner')
 STATE = Path('/home/boxd/.roundup-ci')
-# The workflow job id (`GITHUB_JOB`) each controller label kind must run; the job-start hook refuses any other.
+# The workflow job id (`GITHUB_JOB`) each controller label kind must run; the job-start hook refuses any other. A `light`
+# label names its job in place of an Issue or PR number.
 JOBS = {'build': 'build', 'fix': 'fix-run', 'review': 'review-run', 'critic': 'critic-run', 'smoke': 'smoke'}
 
 
@@ -25,10 +26,10 @@ def register(path):
                         f"self-hosted,boxd,{given['label']}", '--no-default-labels', '--ephemeral',
                         '--disableupdate', '--unattended', '--work', '_work'], cwd=RUNNER,
                        check=True, timeout=90)
-        _, kind, _, run, attempt = given['label'].split('-')
+        _, kind, scope, run, attempt = given['label'].split('-')
         expected = {'GITHUB_REPOSITORY': given['repository'], 'GITHUB_RUN_ID': run,
                     'GITHUB_RUN_ATTEMPT': attempt,
-                    'GITHUB_JOB': JOBS[kind]}
+                    'GITHUB_JOB': scope if kind == 'light' else JOBS[kind]}
         (Path('/opt/roundup-ci') / 'job.json').write_text(json.dumps(expected))
     finally:
         path.unlink(missing_ok=True)
