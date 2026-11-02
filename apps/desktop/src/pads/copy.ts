@@ -29,7 +29,6 @@ export const copy = {
   keepMine: "Keep mine",
   useTheirs: "Use theirs",
   textColour: "Text colour",
-  textColourIcon: sharedCopy.textSample,
   highlight: "Highlight",
   highlightIcon: "H",
   colours: { default: sharedCopy.defaultChoice, blue: "Blue", green: "Green", purple: "Purple", red: "Red", amber: "Amber" },

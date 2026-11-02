@@ -15,7 +15,8 @@
 
 :root {
   --pad-blue: var(--blue-11);
-  --pad-green: var(--green-11);
+  --pad-green: var(--green-12);
+  --pad-amber: var(--amber-12);
   --pad-purple: var(--purple-11);
   --pad-highlight: var(--amber-4);
   --pad-highlight-ink: var(--amber-12);

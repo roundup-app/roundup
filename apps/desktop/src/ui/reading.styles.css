@@ -100,7 +100,7 @@
 [data-pad-color="green"], .reading [data-pad-callout="tip"] { color: var(--pad-green); }
 [data-pad-color="purple"], .reading [data-pad-callout="important"] { color: var(--pad-purple); }
 [data-pad-color="red"], .reading [data-pad-callout="caution"] { color: var(--red); }
-[data-pad-color="amber"], .reading [data-pad-callout="warning"] { color: var(--amber); }
+[data-pad-color="amber"], .reading [data-pad-callout="warning"] { color: var(--pad-amber); }
 .reading mark { color: var(--pad-highlight-ink); background: var(--pad-highlight); }
 
 /* Either nesting order retains the authored colour with readable ink on highlight. */
