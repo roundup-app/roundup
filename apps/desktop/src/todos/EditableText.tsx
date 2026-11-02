@@ -348,7 +348,10 @@ export const EditableText = (props: {
  if (!started) handle?.setText(text); });
 
     return <div ref={host} onFocusIn={event => { if (!started && event.target instanceof Element && event.target.matches(".ProseMirror")) startWith(); }} onDblClick={() => { if (!started) startWith(); }} onKeyDown={event => {
-      if (started) key?.(event);
+      // Crepe dismisses block menus in capture; a no-match slash query has already
+      // hidden its menu. Neither Escape should replace the current rich draft.
+      if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); }
+      else if (started) { if (!event.defaultPrevented) key?.(event); }
       else if (event.key === "Enter") { event.preventDefault(); startWith(); }
     }}><Suspense><PadRichEditor item="todo" text={started?.text ?? props.todo.body} readonly={false} autofocus={false} initialFocus={started ? captureFocus() : undefined} label={copy.body}
       onChange={() => binding?.retain()}

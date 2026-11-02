@@ -12,8 +12,6 @@ beforeAll(async () => {
   await browser("wait", "--fn", "document.querySelector('#root')?.dataset.ready === 'true'");
 }, 90_000);
 
-
-
 const ownerSample = readFileSync(join(process.cwd(), "src/pads/owner-sample.md"), "utf8");
 
 const structureSample = readFileSync(join(process.cwd(), "src/pads/structure-sample.md"), "utf8");
