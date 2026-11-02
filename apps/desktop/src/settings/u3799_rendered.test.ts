@@ -2,6 +2,7 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { captureDir } from "../testing/captures";
+import { copy } from "../importer/copy";
 import { appServer, type AppServer } from "../testing/appServer";
 
 const output = captureDir("U3799") ?? captureDir("U3805") ?? "";
@@ -136,7 +137,12 @@ it.skipIf(!captureDir("U4277c")).each(["tree-40", "tabs-8"].flatMap(seed =>
           await capture(`${view}-selected`);
           await lane.evaluate(`(() => {window.__fake.app.handlers['project.importCommit'] = () => ({outcomes:[{source:'s0',workstream:'imported',agent:'imported-agent',error:null},{source:'s1',workstream:null,agent:null,error:{code:-32003,message:'Storage is unavailable. Free disk space, refresh the conversation list, then retry the selected conversation. '+ 'Complete recovery details '.repeat(15),outcome:'failed'}}]});return true;})()`);
           await lane.browser("click", ".import-confirm");
-          await lane.until("document.querySelector('.import-panel').textContent.includes('Refresh to check available conversations')");
+          const refusal = copy.importRowRefusal({ code: -32003, outcome: "failed" });
+          await lane.until(`(() => {
+            const expected = ${JSON.stringify(refusal)};
+            const rendered = document.querySelector('.import-candidate:nth-child(2) [role="alert"]')?.textContent?.trim();
+            return !!expected && !!rendered && rendered.includes(expected);
+          })()`);
         }
 
         await capture(`${view}-${filled ? "filled" : "empty"}`);
