@@ -351,11 +351,24 @@ impl Store {
         Ok(thread)
     }
 
-    /// The Messages already `delivered` to `to`, oldest first.
+    /// Delivered digest history only, in Message-id order (B5640a).
     pub(crate) fn delivered_to(&self, to: &str) -> Result<Vec<Message>, RpcError> {
-        let mut all = self.list()?;
-        all.retain(|m| m.to == to && m.status == MessageStatus::Delivered);
-        Ok(all)
+        self.db
+            .prepare(
+                "SELECT id, from_actor, to_id, kind, body, reply_to, status, reason, at
+                 FROM messages WHERE to_id = ?1 AND status = 'delivered'
+                   AND json_extract(from_actor, '$.kind') = ?2
+                   AND json_extract(from_actor, '$.id') = ?3
+                   AND json_extract(from_actor, '$.parent') IS NULL
+                   AND substr(body, 1, 8) = '[digest]'
+                 ORDER BY id",
+            )
+            .and_then(|mut stmt| {
+                let daemon = Actor::daemon();
+                stmt.query_map(params![to, text_of(daemon.kind), daemon.id], row_to_message)?
+                    .collect()
+            })
+            .map_err(RpcError::internal)
     }
 
     pub(crate) fn get(&self, id: u32) -> Result<Option<Message>, RpcError> {
@@ -840,7 +853,12 @@ fn row_to_wake(row: &rusqlite::Row<'_>) -> rusqlite::Result<Wake> {
     })
 }
 
+#[cfg(test)]
+thread_local! { static MATERIALIZED: std::cell::Cell<usize> = const { std::cell::Cell::new(0) }; }
+
 fn row_to_message(row: &rusqlite::Row<'_>) -> rusqlite::Result<Message> {
+    #[cfg(test)]
+    MATERIALIZED.set(MATERIALIZED.get() + 1);
     let from: String = row.get(1)?;
     Ok(Message {
         id: row.get(0)?,
