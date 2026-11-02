@@ -20,6 +20,7 @@ export function captureDir(id: string): string | null {
 // Named observers, including ids passed through capture helpers. Vitest owns discovery
 // and scheduling; this table only names the existing observer files.
 const observerTable = {
+  "src/rail/u5742_browser.test.ts": ["U5742a", "U5742b", "U5742c", "U5742d"],
   "src/pads/u5561a_browser.test.ts": ["U5561a", "U5561b", "U5575a"],
   "src/pads/u5561c_real_browser.test.ts": ["U5561c"],
   "src/rail/u5555_browser.test.ts": ["U5217", "U5555", "U4313b", "U5629"],

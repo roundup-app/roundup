@@ -217,7 +217,6 @@ export const Rail = () => {
       ? rail.nodes.find(each => each.status?.kind === "needs-you" && ancestorsOf(topology(), each.id).includes(id)) : undefined;
 
     rail.select(attention?.id ?? id);
-    queueMicrotask(() => document.querySelector<HTMLElement>(".pane-screen textarea, .pane-screen [tabindex]")?.focus());
   };
 
   const focusRow = (id: string) => rowElement(id)?.focus();
@@ -633,7 +632,7 @@ export const Rail = () => {
       onSelectionChange={(details) => {
         const id = details.selectedValue.at(-1);
 
-        if (id !== undefined && rail.nodes.some(node => node.id === id)) { selection.selection.replace(id); anchorAt(id); rail.select(id); queueMicrotask(() => rowElement(id)?.focus()); }
+        if (id !== undefined && rail.nodes.some(node => node.id === id)) { selection.selection.replace(id); anchorAt(id); }
       }}
       onExpandedChange={(details) => {
         const open = new Set(details.expandedValue);
@@ -729,6 +728,7 @@ export const Rail = () => {
                           tabbable={tabbableId() === view().node.id}
                           branch={collection().isBranchNode(entryOf(view().node.id).node)}
                           onToggle={() => rail.toggleCollapsed(view().node.id)}
+                          onOpen={() => openRow(view().node.id)}
                           onFailure={(message) => {
                             const id = view().node.id;
                             failure.show(message, id, "rail", () => setEditingName(id));
