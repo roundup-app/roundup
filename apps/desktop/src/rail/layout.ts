@@ -1,6 +1,10 @@
 import type { Kind } from "@contracts/Kind";
 import type { RailNode } from "@contracts/agent/RailNode";
+import type { RailSection } from "./persist/storage";
+import { railTopology, type RailTopology } from "./topology";
 import { byUrgency } from "../ink/glyph";
+
+export type { RailTopology } from "./topology";
 
 const IDLE_FOLD_MS = 5 * 60_000;
 
@@ -32,82 +36,111 @@ export const resolvedWorkstream = (nodes: readonly RailNode[], selected: string 
   return isWorkstream(node) ? node.id : node.parent === null ? null : resolvedWorkstream(nodes, node.parent);
 };
 
+export type RailSource = readonly RailNode[] | RailTopology;
+
+const indexed = (source: RailSource): RailTopology => "nodes" in source ? source : railTopology(source);
+
+const childrenOf = (tree: RailTopology, parent: number): number[] => tree.children.slice(tree.starts[parent + 1], tree.starts[parent + 2]);
+
 /** The children of `parent` (`null` is the top level) by `order`. */
-export const siblingsOf = (nodes: readonly RailNode[], parent: string | null): RailNode[] =>
-  nodes.filter((node) => node.parent === parent).toSorted((a, b) => a.order - b.order);
+export const siblingsOf = (source: RailSource, parent: string | null): RailNode[] => {
+  const tree = indexed(source);
+  const at = parent === null ? -1 : tree.index.get(parent);
+
+  return at === undefined ? [] : childrenOf(tree, at).map(child => tree.nodes[child]!);
+};
 
 /** The ids of every node above `id`, nearest first. */
-export const ancestorsOf = (nodes: readonly RailNode[], id: string): string[] => {
-  const parent = nodes.find((node) => node.id === id)?.parent ?? null;
+export const ancestorsOf = (source: RailSource, id: string): string[] => {
+  const tree = indexed(source);
+  const ids: string[] = [];
+  let at = tree.index.get(id);
 
-  return parent === null ? [] : [parent, ...ancestorsOf(nodes, parent)];
+  while (at !== undefined && tree.parent[at] !== -1) {
+    at = tree.parent[at]!;
+    ids.push(tree.nodes[at]!.id);
+  }
+
+  return ids;
 };
 
 /** Every node below `id`, each parent before its children. */
-export const descendantsOf = (nodes: readonly RailNode[], id: string): RailNode[] =>
-  siblingsOf(nodes, id).flatMap((child) => [child, ...descendantsOf(nodes, child.id)]);
+export const descendantsOf = (source: RailSource, id: string): RailNode[] => {
+  const tree = indexed(source);
+  const result: RailNode[] = [];
+
+  const visit = (at: number) => {
+    for (const child of childrenOf(tree, at)) { result.push(tree.nodes[child]!); visit(child); }
+  };
+
+  const at = tree.index.get(id);
+
+  if (at !== undefined) visit(at);
+
+  return result;
+};
 
 /** Every Project node in Rail order, including children of collapsed Workstreams. */
-export const railOrder = (nodes: readonly RailNode[]): RailNode[] =>
-  siblingsOf(nodes, null).flatMap((node) => [node, ...descendantsOf(nodes, node.id)]);
+export const railOrder = (source: RailSource): RailNode[] => {
+  const tree = indexed(source);
+
+  return siblingsOf(tree, null).flatMap(node => [node, ...descendantsOf(tree, node.id)]);
+};
 
 /** U403: the Kinds of the Agents below `id`, most urgent first. */
-export const agentKindsBelow = (nodes: readonly RailNode[], id: string, dismissed: (node: RailNode) => boolean = () => false): Kind[] =>
-  byUrgency(descendantsOf(nodes, id).flatMap((node) => (node.kind === "agent" && node.alert_level !== "quiet" && node.status && !dismissed(node) ? [node.status.kind] : [])));
+export const agentKindsBelow = (source: RailSource, id: string, dismissed: (node: RailNode) => boolean = () => false): Kind[] =>
+  byUrgency(descendantsOf(source, id).flatMap((node) => (node.kind === "agent" && node.alert_level !== "quiet" && node.status && !dismissed(node) ? [node.status.kind] : [])));
 
 const isFoldedAgent = (node: RailNode, view: RailView): boolean =>
-  node.kind === "agent" && node.parent !== null &&
+  node.kind === "agent" &&
   !view.protected?.has(node.id) && node.work?.kind !== "clarification" &&
   node.final_text?.kind === "empty" && node.final_text.attempt === node.attempt &&
   node.final_text.finished === node.status?.finished &&
   (node.status?.kind === "done" || node.status?.kind === "idle" && view.now - node.status.since >= IDLE_FOLD_MS);
 
 /** Rows in tree order, with eligible Workstream children behind one reversible idle branch. */
-export const layoutRail = (nodes: readonly RailNode[], view: RailView): RailRow[] => {
-  const under = (parent: string | null): RailNode[] => siblingsOf(nodes, parent);
+export const layoutRail = (source: RailSource, view: RailView, section?: RailSection): RailRow[] => {
+  const tree = indexed(source);
 
-  /** `trail[level - 1]` tells whether the connector line at `level` (U357) runs on below a row: the row's own ancestor at that depth has a later sibling row. */
-  const rowsOf = (parent: string | null, depth: number, trail: readonly boolean[]): RailRow[] => {
-    const siblings = under(parent);
-    const folded = siblings.filter((node) => nodes.some(each => each.id === parent && isWorkstream(each)) && isFoldedAgent(node, view));
-    const unfolded = view.unfolded.has(parent);
+  /** The trail records which ancestor connectors continue below this row. Its output
+   * may be quadratic on a chain; ancestry searches and sibling sorting are not repeated. */
+  const rowsOf = (parent: number, depth: number, trail: readonly boolean[]): RailRow[] => {
+    const siblings = childrenOf(tree, parent).filter(at => parent !== -1 || section === undefined || tree.section[at] === section);
+    const parentId = tree.nodes[parent]?.id ?? null;
+    const canFold = parent !== -1 && isWorkstream(tree.nodes[parent]!);
+    const folded: number[] = [];
+    const shown: number[] = [];
 
-    const shown = siblings.filter((node) => !folded.includes(node));
+    for (const at of siblings) (canFold && isFoldedAgent(tree.nodes[at]!, view) ? folded : shown).push(at);
 
+    const unfolded = view.unfolded.has(parentId);
     const foldShown = folded.length > 0;
 
-    const nodeRows = shown.flatMap((node, at): RailRow[] => {
-      const rowTrail = depth === 0 ? [] : [...trail, at < shown.length - 1 || foldShown];
+    const nodeRows = shown.flatMap((at, position): RailRow[] =>
+      rowsOfNode(at, depth, depth === 0 ? [] : [...trail, position < shown.length - 1 || foldShown]));
 
-      return rowsOfNode(node, depth, rowTrail);
-    });
-
-    const foldRow: RailRow[] = parent !== null && foldShown
-      ? [{ kind: "fold", key: `fold:${parent}`, depth, parent, count: folded.length, open: unfolded, trail },
-        ...(unfolded ? folded.flatMap((node, at) =>
-          rowsOfNode(node, depth + 1, [...trail, false, at < folded.length - 1])) : [])]
+    const foldRow: RailRow[] = parentId !== null && foldShown
+      ? [{ kind: "fold", key: `fold:${parentId}`, depth, parent: parentId, count: folded.length, open: unfolded, trail },
+        ...(unfolded ? folded.flatMap((at, position) =>
+          rowsOfNode(at, depth + 1, [...trail, false, position < folded.length - 1])) : [])]
       : [];
 
     return [...nodeRows, ...foldRow];
   };
 
-  const rowsOfNode = (node: RailNode, depth: number, trail: readonly boolean[]): RailRow[] => {
+  const rowsOfNode = (at: number, depth: number, trail: readonly boolean[]): RailRow[] => {
+    const node = tree.nodes[at]!;
     const collapsed = (isWorkstream(node) || node.kind === "group") && view.collapsed.has(node.id);
-
-    const below = collapsed ? [] : rowsOf(node.id, depth + 1, trail);
+    const below = collapsed ? [] : rowsOf(at, depth + 1, trail);
 
     const row: RailRow = {
-      kind: "node",
-      key: `node:${node.id}`,
-      depth,
-      node,
-      trail,
+      kind: "node", key: `node:${node.id}`, depth, node, trail,
       children: below.length > 0,
-      collapsed: collapsed ? { agents: agentKindsBelow(nodes, node.id) } : null,
+      collapsed: collapsed ? { agents: agentKindsBelow(tree, node.id) } : null,
     };
 
     return [row, ...below];
   };
 
-  return rowsOf(null, 0, []);
+  return rowsOf(-1, 0, []);
 };
