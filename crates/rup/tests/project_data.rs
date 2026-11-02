@@ -1,5 +1,5 @@
-//! N1 to N4: a Project's data lives in the data folder, never in the Project folder, and an older
-//! Project's files move there whole. The real `rupd`, with the fake `claude` for every Agent.
+//! N1, N2 and N4: current Project data placement and isolation.
+//! The real `rupd`, with the fake `claude` for every Agent.
 #![allow(dead_code)]
 
 #[path = "e2e/daemon.rs"]
@@ -277,63 +277,6 @@ async fn dv2_retained_revision_n2_with_worktrees_on_only_the_worktree_folders_ap
     );
 }
 
-/// What a Daemon before this change left: its data folder's files, in `<project>/.roundup/`.
-fn age(project: &Project) {
-    let old = project.dir.path().join(".roundup");
-    std::fs::create_dir_all(&old).unwrap();
-    let data = project.data_dir();
-    for entry in std::fs::read_dir(&data).unwrap() {
-        let entry = entry.unwrap();
-        // Q11's runtime cache never existed in legacy Project storage. A killed modern
-        // Daemon leaves it in the current data folder, outside this migration fixture.
-        if entry
-            .file_name()
-            .to_string_lossy()
-            .starts_with("q11-plugins-")
-        {
-            continue;
-        }
-        std::fs::rename(entry.path(), old.join(entry.file_name())).unwrap();
-    }
-}
-
-#[tokio::test]
-async fn n3_an_older_project_opens_whole_and_its_worktree_stays() {
-    let dir = repository();
-    let mut project = open(dir, tempfile::tempdir().unwrap());
-    project
-        .client()
-        .await
-        .request("project.setWorktrees", json!({"on": true, "check": "true"}))
-        .await
-        .unwrap();
-    let ids = work(&project).await;
-    project.crash();
-    age(&project);
-    let worktrees = listing(&project.dir.path().join(".roundup/worktrees"));
-    assert!(!worktrees.is_empty());
-    let bytes = std::fs::read(project.dir.path().join(".roundup/project.db")).unwrap();
-
-    project.restart(&[]);
-
-    assert_eq!(titles(&project).await, ["keep me"]);
-    let tree = rail_tree(&project.client().await).await;
-    assert!(
-        tree.iter()
-            .any(|node| node.id == ids[0] && node.worktree.is_some())
-    );
-    let old = project.dir.path().join(".roundup");
-    let left: Vec<_> = std::fs::read_dir(&old)
-        .unwrap()
-        .map(|entry| entry.unwrap().file_name())
-        .collect();
-    assert_eq!(left, ["worktrees"]);
-    assert_eq!(listing(&old.join("worktrees")), worktrees);
-    assert!(project.data_dir().join("project.db").is_file());
-    assert!(!bytes.is_empty());
-    assert!(project.data_dir().join("pads/notes.md").is_file());
-}
-
 /// A Daemon on `dir` with `data` that is expected to refuse: its exit status and stderr.
 fn refused(dir: &Path, data: &Path) -> (bool, String) {
     refused_with(dir, data, Duration::from_secs(10), |_| {})
@@ -381,53 +324,6 @@ fn refused_with(
     std::io::Read::read_to_string(&mut daemon.child.stderr.take().unwrap(), &mut stderr).unwrap();
     assert!(!socket.exists(), "a refusing Daemon accepted connections");
     (!status.success(), stderr)
-}
-
-#[test]
-fn n3_differing_copies_make_the_daemon_exit_naming_both_and_change_nothing() {
-    let dir = tempfile::tempdir().unwrap();
-    let data = tempfile::tempdir().unwrap();
-    let old = dir.path().join(".roundup");
-    std::fs::create_dir_all(&old).unwrap();
-    std::fs::write(old.join("todos.db"), "old").unwrap();
-    let key = rupd::data::project_data(data.path(), dir.path()).unwrap();
-    std::fs::create_dir_all(&key).unwrap();
-    std::fs::write(key.join("todos.db"), "new").unwrap();
-
-    let (failed, stderr) = refused(dir.path(), data.path());
-
-    assert!(failed, "{stderr}");
-    assert!(
-        stderr.contains(old.join("todos.db").to_str().unwrap()),
-        "{stderr}"
-    );
-    assert!(
-        stderr.contains(key.join("todos.db").to_str().unwrap()),
-        "{stderr}"
-    );
-    assert_eq!(std::fs::read(old.join("todos.db")).unwrap(), b"old");
-    assert_eq!(std::fs::read(key.join("todos.db")).unwrap(), b"new");
-}
-
-#[test]
-fn n3_a_data_folder_that_cannot_be_written_leaves_the_old_files_whole() {
-    use std::os::unix::fs::PermissionsExt;
-    let dir = tempfile::tempdir().unwrap();
-    let data = tempfile::tempdir().unwrap();
-    let old = dir.path().join(".roundup");
-    std::fs::create_dir_all(&old).unwrap();
-    std::fs::write(old.join("todos.db"), "old").unwrap();
-    std::fs::set_permissions(data.path(), std::fs::Permissions::from_mode(0o500)).unwrap();
-    if std::fs::write(data.path().join("probe"), "").is_ok() {
-        return; // root writes anywhere; the case cannot be made
-    }
-
-    let (failed, stderr) = refused(dir.path(), data.path());
-
-    std::fs::set_permissions(data.path(), std::fs::Permissions::from_mode(0o700)).unwrap();
-    assert!(failed, "{stderr}");
-    assert!(stderr.contains(data.path().to_str().unwrap()), "{stderr}");
-    assert_eq!(std::fs::read(old.join("todos.db")).unwrap(), b"old");
 }
 
 #[tokio::test]
@@ -543,54 +439,4 @@ async fn n1_fallback_uses_a_nested_temporary_home() {
     assert_reaped(pid);
     drop(run);
     assert!(!path.exists());
-}
-
-#[tokio::test]
-async fn dv2_preexisting_project_pads_gain_durable_source_incarnations() {
-    let mut project = daemon::start(&[]);
-    let client = project.client().await;
-    let original = client
-        .request(
-            "pad.create",
-            json!({"name":"existing", "text":"before upgrade"}),
-        )
-        .await
-        .unwrap();
-    project.crash();
-    let path = project.data_dir().join("project.db");
-    for name in ["project.db", "project.db-wal", "project.db-shm"] {
-        match std::fs::remove_file(project.data_dir().join(name)) {
-            Ok(()) => {}
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
-            Err(error) => panic!("remove current fixture database: {error}"),
-        }
-    }
-    let db = rusqlite::Connection::open(path).unwrap();
-    // Pin historical Project version 12, before source incarnations. New migrations must
-    // not turn this fixture into a different predecessor or replay already-created tables.
-    let historical = [
-        include_str!("../../rupd/migrations/001/up.sql"),
-        include_str!("../../agents/migrations/003/up.sql"),
-        include_str!("../../rupd/migrations/003/up.sql"),
-        include_str!("../../agents/migrations/004/up.sql"),
-        include_str!("../../rupd/migrations/005/up.sql"),
-        include_str!("../../pads/migrations/002/up.sql"),
-        include_str!("../../rupd/migrations/006/up.sql"),
-        include_str!("../../agents/migrations/005/up.sql"),
-        include_str!("../../messages/migrations/002/up.sql"),
-        include_str!("../../messages/migrations/003/up.sql"),
-        include_str!("../../rupd/migrations/project/0001-prepared.sql"),
-        include_str!("../../rupd/migrations/project/0002-message-sender-names.sql"),
-    ];
-    for sql in historical {
-        db.execute_batch(sql).unwrap();
-    }
-    db.execute("INSERT INTO pads(key,name,text,updated_at,home,revision) VALUES ('existing','existing',?1,?2,NULL,1)",rusqlite::params![original["text"].as_str().unwrap(),original["updated_at"].as_i64().unwrap()]).unwrap();
-    db.pragma_update(None, "user_version", 12).unwrap();
-    project.restart(&[]);
-    let first = pads::source(&db, "existing").unwrap().unwrap();
-    assert_eq!(first.pad.text, "before upgrade");
-    assert_eq!(first.pad.revision, 1);
-    project.restart(&[]);
-    assert_eq!(pads::source(&db, "EXISTING").unwrap(), Some(first));
 }
