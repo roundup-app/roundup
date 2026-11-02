@@ -1,4 +1,3 @@
-import { readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 
 const root = () => resolve(process.cwd(), "../..", "artifacts/ux");
@@ -16,11 +15,6 @@ export function captureDir(id: string): string | null {
   if (id.startsWith("J")) return /^J[0-9]+[a-z]?$/.test(id) ? join(root(), "journey", id) : null;
 
   return join(root(), target);
-}
-
-/** U453: committed observer readings remain readable when capture writes are disabled. */
-export function readCapture(id: string, name: string): string {
-  return readFileSync(join(root(), id, name), "utf8");
 }
 
 // Named observers, including ids passed through capture helpers. Vitest owns discovery
@@ -85,10 +79,11 @@ const observerTable = {
   "src/shelf/u3789_browser.test.ts": { ids: ["U3800a", "U4908", "U4708", "U4709a", "U4709b", "U4709c"], aliases: {} },
   "src/shelf/u4463_browser.test.ts": ["U4463"],
   "src/state/u3787f_storage_browser.test.ts": ["U3787f"],
-  "src/state/u4086_storage_browser.test.ts": ["U4086a", "U4086b", "U4086c", "U4086d"],
+  "src/state/n5467b_storage_browser.test.ts": ["N5467b"],
   "src/switcher/u2572_browser.test.ts": { ids: ["P3557c", "U2572d", "U4681", "UA13"], aliases: { UA13: "U2572d" } },
   "src/switcher/u3787c_browser.test.ts": ["U3787c", "U4682"],
   "src/terminal/s3806c_scale.test.ts": ["U4590"],
+  "src/terminal/u5552_rendered.test.ts": ["U5552d", "U5552e"],
   "src/terminal/u102_emulator.test.ts": ["Z3788a"],
   "src/terminal/u3517_browser.test.ts": ["U3517b", "U3517c", "U3517f", "U4456a", "U4456b", "U4456c", "U4456d", "U4590", "U4592", "U4649", "U4679"],
   "src/terminal/u3517_type.test.ts": ["U4590"],
@@ -98,11 +93,11 @@ const observerTable = {
   "src/terminal/u4453a_terminal_only.test.tsx": ["U4453a", "U4453b"],
   "src/terminal/u4590_preparation.test.tsx": ["U4590"],
   "src/terminal/u467_browser.test.ts": ["U467", "U468"],
-  "src/terminal/u514_browser.test.ts": ["U3529", "U3529a", "U3529b", "U3529c", "U3529d"],
+  "src/terminal/u514_browser.test.ts": ["U3529", "U3529a", "U3529b", "U3529c", "U3529d", "U5515a", "U5515b", "U5515c", "U5515d", "U5515e"],
   "src/terminal/u59_real_daemon.test.ts": ["U4590"],
   "src/testing/u2875d_rendered.test.ts": ["U2875d"],
   "src/testing/u3787d_capture.test.ts": ["U3787d", "U5463c"],
-  "src/testing/u463_real_daemon.test.ts": ["A4899a", "U2875d", "U3037d", "U4590", "U463"],
+  "src/testing/u463_real_daemon.test.ts": ["U5552a", "A4899a", "U2875d", "U3037d", "U4590", "U463"],
   "src/toasts/p3557c_capture.test.ts": ["P3557c"],
   "src/todos/u5119_browser.test.ts": ["U5119"],
   "src/todos/u4698e_browser.test.ts": ["U4698e"],
@@ -146,6 +141,7 @@ export function captureTests(selection: string | undefined) {
     ["U3813", "U3814", "U3815"],
     ["U4453a", "U4453b"],
     ["U3529", "U3529a", "U3529b", "U3529c", "U3529d"],
+    ["U5515a", "U5515b", "U5515c", "U5515d", "U5515e"],
     ["U3049a", "U3049b"],
   ];
 

@@ -1,2 +1,0 @@
-cwd: /tmp/r23-probe
-$ sudo -n perf record -F 199 -e cpu-clock --call-graph dwarf,16384 -o /tmp/r23-candidate.data -- /tmp/r23-bins/compatible-perf --runs 1 --calls 50000 --rupd /tmp/r23-bins/candidate-rupd --rup /tmp/r23-bins/candidate-rup --budgets /tmp/r23-execution/crates/perf/evidence/r23-host-40170055163/diagnostic-budgets.json --out /tmp/r23-execution/crates/perf/evidence/r23-host-40170055163/candidate-profile.json
