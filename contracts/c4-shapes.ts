@@ -1,11 +1,10 @@
 import type { Before, BeforeRpcMethods } from "./c4-before";
 
-// U5502 adds one publication observation; every legacy event still matches the C4 baseline exactly.
 type After = {
   "Actor": import("./generated/Actor").Actor;
   "ActorKind": import("./generated/ActorKind").ActorKind;
-  "Event": Exclude<import("./generated/Event").Event, { name: "deliverable.changed" }>;
-  "EventData": Exclude<import("./generated/EventData").EventData, { name: "deliverable.changed" }>;
+  "Event": import("./generated/Event").Event;
+  "EventData": import("./generated/EventData").EventData;
   "HistoryParams": import("./generated/HistoryParams").HistoryParams;
   "IdentifyParams": import("./generated/IdentifyParams").IdentifyParams;
   "Kind": import("./generated/Kind").Kind;
