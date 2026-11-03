@@ -136,14 +136,16 @@ it("r17_resume_reads_current_time_without_catch_up", async () => {
   visibility("visible");
   status(app, "a", "working");
   expect(intervals.size).toBe(2);
-  expect(clock).toHaveBeenCalledTimes(reads + 1);
-  await vi.advanceTimersByTimeAsync(15_000);
+  // U5959b: the menu bar's hour cut reads the clock once when the status change recomputes it.
   expect(clock).toHaveBeenCalledTimes(reads + 2);
+  await vi.advanceTimersByTimeAsync(15_000);
+  expect(clock).toHaveBeenCalledTimes(reads + 3);
   view.unmount();
   expect(intervals.size).toBe(0);
+  const unmounted = clock.mock.calls.length;
   visibility("hidden");
   visibility("visible");
-  expect(clock).toHaveBeenCalledTimes(reads + 2);
+  expect(clock).toHaveBeenCalledTimes(unmounted);
 });
 
 it("r17_blur_is_not_hide", async () => {
