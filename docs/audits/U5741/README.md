@@ -12,6 +12,9 @@ The audit must prevent missed conditional offers, unsupported claims of non-use/
 ## Evidence
 
 | Artifact | Holds |
+| [todos.md](todos.md) | Forty independent Todo detail decisions, criteria, direction and explicit unfinished controls |
+| [catalogues/todos-source.json](catalogues/todos-source.json) | Current pinned sources, historical actual role offers, vendor help and exact observer |
+| [rendered-todos.json](rendered-todos.json) | Fresh isolated dark 1512×950 Todo detail/menu/editor/failure openings |
 | [rendered-shelf-followup.json](rendered-shelf-followup.json) | Nineteen independent Shelf openings, resolving reserved maximization and keyboard width/reset observation gaps |
 | [catalogues/shelf-followup-source.json](catalogues/shelf-followup-source.json) | Independent sources, dated direction and exact replay with archival naming |
 | [shelf.md](shelf.md) | Twenty-six independent Shelf/frame/selection/deletion/recovery decisions and explicit unfinished comparisons |
