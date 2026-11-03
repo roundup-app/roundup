@@ -20,7 +20,7 @@ it("u5502_the_app_seam_keeps_original_menu_identities", async () => {
   }, { shouldMockEvents: true });
   const app = createTauriApp();
 
-  const menu: MenuBar = { mark: "waiting", entries: [
+  const menu: MenuBar = { mark: "waiting", dock: [], entries: [
     { label: "Waiting", action: null },
     { label: "Ada", action: { kind: "agent", path: "/original", agent: "a" } },
     { label: "Open roundup", action: { kind: "open" } },
@@ -38,4 +38,21 @@ it("u5502_the_app_seam_keeps_original_menu_identities", async () => {
 
   expect(sent).toEqual([{ menu }]);
   expect(heard).toEqual([{ kind: "agent", path: "/original", agent: "a" }]);
+});
+
+it("u5503_native_refresh_failure_reaches_the_app_without_window_effects", async () => {
+  const heard: MenuBarAction[] = [];
+  const windowCalls: string[] = [];
+  mockWindows("main");
+  mockIPC(command => {
+    if (command.startsWith("plugin:window|")) windowCalls.push(command);
+
+    return null;
+  }, { shouldMockEvents: true });
+  const app = createTauriApp();
+  const stop = await app.onMenuBarAction(action => heard.push(action));
+  await emit("menu-bar-action", { kind: "failure", message: "Native section unavailable" });
+  stop();
+  expect(heard).toEqual([{ kind: "failure", message: "Native section unavailable" }]);
+  expect(windowCalls).toEqual([]);
 });
