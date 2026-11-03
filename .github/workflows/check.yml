@@ -51,6 +51,18 @@ jobs:
           # Depth 2 holds HEAD and HEAD^1, all that BASE, affected.py and the migration guard read; a full fetch of
           # every branch took 1 to 47 min on 2026-10-28.
           fetch-depth: 2
+      # SZ5455h: a branch revived from a PR closed before the 2026-11-03 history rewrite holds the old history.
+      - name: SZ5455h the PR builds on main's history
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RANGE: ${{ github.event.pull_request.base.sha }}...${{ github.event.pull_request.head.sha }}
+        run: |
+          ahead=$(gh api "repos/$GITHUB_REPOSITORY/compare/$RANGE?per_page=1" --jq .ahead_by)
+          if [ "$ahead" -gt 1000 ]; then
+            echo "::error::The branch is $ahead commits ahead of main: it holds the history from before the 2026-11-03 rewrite. Merge origin/main into it, then replace the branch with one commit: git commit-tree 'HEAD^{tree}' -p \"\$(git merge-base HEAD origin/main)\" -m '<subject>'"
+            exit 1
+          fi
       - name: B4522 migration filename boundaries
         run: |
           guard=tools/migrations/guard.py

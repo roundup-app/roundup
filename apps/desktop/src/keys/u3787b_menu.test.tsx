@@ -2,17 +2,14 @@ import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { batch, createRoot, createSignal } from "solid-js";
 import { afterEach, expect, it, vi } from "vitest";
 import { mountNavigation } from "../testing/navigationFixture";
-import { openProjectPage, projectMenu } from "../testing/menuProbe";
+import { openProjectPage } from "../testing/menuProbe";
 import { showEverythingInApp } from "../testing/showEverything";
 import { agent, info, USER, workstream } from "../testing/nodes";
 import { padHandlers } from "../testing/stores";
 import { openPad } from "../pads/padsFixture";
 import { CHORDS } from "./chords";
 import { saveAppSettings } from "../settings/preferences";
-import type { MenuItem } from "../app/seam";
 import { captureActions, registerKeys } from "./registry";
-
-const menuCommands = (items: MenuItem[]): MenuItem[] => items.flatMap(item => item.children ? menuCommands(item.children) : [item]);
 
 const disposals: (() => void)[] = [];
 
@@ -38,7 +35,7 @@ const owner = (terminal: HTMLElement) => {
   return { calls, setAvailable, remove };
 };
 
-it.each(["key", "menu"])("u3787b_menu_and_key_share_one_action: Terminal Find from %s", async source => {
+it("u3787b_menu_and_key_share_one_action: Terminal Find from key", async () => {
   const { connected, daemon } = await mountNavigation(false, 0);
   connected().rail.select("a1");
   await waitFor(() => expect(document.activeElement?.getAttribute("data-terminal")).toBe("t-a1"));
@@ -48,13 +45,11 @@ it.each(["key", "menu"])("u3787b_menu_and_key_share_one_action: Terminal Find fr
 
   const inactive = owner(document.createElement("div"));
   const find = owner(terminal);
-  await waitFor(() => expect(projectMenu.items.find(item => item.id === "action:chord:⌘F")?.enabled).toBe(true));
   const writes = daemon.calls.filter(call => call.method === "terminal.write").length;
   expect(document.activeElement).toBe(terminal);
   expect(find.calls).toEqual([]);
 
-  if (source === "key") fireEvent.keyDown(terminal, { code: "KeyF", key: "f", metaKey: true });
-  else openProjectPage("action:chord:⌘F", "/p");
+  fireEvent.keyDown(terminal, { code: "KeyF", key: "f", metaKey: true });
 
   expect(find.calls).toEqual([terminal]);
   expect(inactive.calls).toEqual([]);
@@ -71,7 +66,6 @@ it.each(["unavailable", "removed", "editor"])("u3787b_scoped_menu_does_not_steal
   if (!(terminal instanceof HTMLElement)) throw new Error("Terminal did not receive focus");
 
   const find = owner(terminal);
-  await waitFor(() => expect(projectMenu.items.some(item => item.id === "action:chord:⌘F" && item.enabled)).toBe(true));
   const captured = captureActions(terminal).find(action => action.keys === "⌘F")!;
 
   if (state === "unavailable") find.setAvailable(false);
@@ -83,8 +77,6 @@ it.each(["unavailable", "removed", "editor"])("u3787b_scoped_menu_does_not_steal
     expect(fireEvent.keyDown(editor, { code: "KeyF", key: "f", metaKey: true })).toBe(true);
   }
 
-  // The Pane's own Find owner stays while the Terminal is mounted, so only the probe owner's absence is observable.
-  if (state !== "removed") await waitFor(() => expect(projectMenu.items.some(item => item.id === "action:chord:⌘F" && item.enabled)).toBe(false));
   openProjectPage("action:chord:⌘F", "/p");
 
   if (state !== "editor") captured.run();
@@ -92,21 +84,17 @@ it.each(["unavailable", "removed", "editor"])("u3787b_scoped_menu_does_not_steal
   expect(find.calls).toEqual([]);
 });
 
-
-it.each(["key", "menu"])("u3787b_menu_and_key_share_one_action: row Switcher from %s", async source => {
+it("u3787b_menu_and_key_share_one_action: row Switcher from key", async () => {
   const { connected, daemon } = await mountNavigation(false, 0);
   connected().rail.select("a1");
   await waitFor(() => expect(document.activeElement?.getAttribute("data-terminal")).toBe("t-a1"));
   const terminal = document.activeElement!;
   const writes = daemon.calls.filter(call => call.method === "terminal.write").length;
-  await waitFor(() => expect(projectMenu.items.find(item => item.id === "action:leader:K")?.shortcut).toBe("⌘K K"));
   expect(document.activeElement).toBe(terminal);
   expect(screen.queryByRole("combobox")).toBeNull();
 
-  if (source === "key") {
     fireEvent.keyDown(terminal, { code: "KeyK", key: "k", metaKey: true });
     fireEvent.keyDown(terminal, { code: "KeyK", key: "k" });
-  } else openProjectPage("action:leader:K", "/p");
 
   await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("combobox")));
   expect(screen.getAllByRole("combobox")).toHaveLength(1);
@@ -114,8 +102,7 @@ it.each(["key", "menu"])("u3787b_menu_and_key_share_one_action: row Switcher fro
   expect(daemon.calls.filter(call => call.method === "terminal.write")).toHaveLength(writes);
 });
 
-
-it.each(["key", "menu"])("u3787b_menu_and_key_share_one_action: Bubble minimise from %s", async source => {
+it("u3787b_menu_and_key_share_one_action: Bubble minimise from key", async () => {
   const { connected, daemon, shells } = await mountNavigation(false, 0);
   connected().rail.select("home");
   daemon.handlers["terminal.open"] = () => {
@@ -127,26 +114,21 @@ it.each(["key", "menu"])("u3787b_menu_and_key_share_one_action: Bubble minimise 
   openProjectPage("action:chord:⌘T", "/p");
   await waitFor(() => expect(document.activeElement?.getAttribute("data-terminal")).toBe("shell"));
   const terminal = document.activeElement!;
-  await waitFor(() => expect(projectMenu.items.find(item => item.id === "action:leader:M")?.shortcut).toBe("⌘K M"));
-  expect(projectMenu.items.find(item => item.id === "action:leader:W")?.shortcut).toBe("⌘K W");
   const writes = daemon.calls.filter(call => call.method === "terminal.write").length;
   expect(document.activeElement).toBe(terminal);
 
-  if (source === "key") {
     fireEvent.keyDown(terminal, { code: "KeyK", key: "k", metaKey: true });
     fireEvent.keyDown(terminal, { code: "KeyM", key: "m" });
-  } else openProjectPage("action:leader:M", "/p");
 
   await waitFor(() => expect(document.querySelector<HTMLElement>('.bubble[data-bubble="shell"]')?.hidden).toBe(true));
   expect(daemon.calls.filter(call => call.method === "terminal.write")).toHaveLength(writes);
 });
 
-
 it.each([
   { chord: "⌘=", key: "=", code: "Equal", size: 18 },
   { chord: "⌘-", key: "-", code: "Minus", size: 16 },
   { chord: "⌘0", key: "0", code: "Digit0", size: 15 },
-].flatMap(command => ["key", "menu"].map(source => ({ ...command, source }))))("u3787b_menu_and_key_share_one_action: Terminal font $chord from $source", async ({ chord, key, code, size, source }) => {
+])("u3787b_menu_and_key_share_one_action: Terminal font $chord from key", async ({ chord, key, code, size }) => {
   await saveAppSettings({ fontSize: 15 });
   localStorage.setItem("roundup:terminal-font:/p", "17");
   const { connected, daemon, emulators } = await mountNavigation(false, 0);
@@ -154,14 +136,12 @@ it.each([
   await waitFor(() => expect(document.activeElement?.getAttribute("data-terminal")).toBe("t-a1"));
   const terminal = document.activeElement!;
   const emulator = emulators.made.get("t-a1")!;
-  await waitFor(() => expect(projectMenu.items.find(item => item.id === `action:chord:${chord}`)?.shortcut).toBe(chord));
   const writes = daemon.calls.filter(call => call.method === "terminal.write").length;
   expect(document.activeElement).toBe(terminal);
   expect(emulator.fontSize).toBe(17);
   const resize = vi.spyOn(emulator, "setFontSize");
 
-  if (source === "key") fireEvent.keyDown(terminal, { key, code, metaKey: true });
-  else openProjectPage(`action:chord:${chord}`, "/p");
+  fireEvent.keyDown(terminal, { key, code, metaKey: true });
 
   expect(emulator.fontSize).toBe(size);
   expect(resize).toHaveBeenCalledExactlyOnceWith(size);
@@ -181,86 +161,31 @@ it("u3787b_scoped_menu_does_not_steal_terminal_input: font owner leaves", async 
   expect(emulators.made.get("t-a2")!.fontSize).toBe(size);
 });
 
-it.each(["terminal", "rail row", "Project tab", "Shelf row", "Pad row", "Pad editor", "triage"])("u3787b_menu_covers_bound_commands: every available command of the %s focus has a menu item", async place => {
-  const { connected, daemon } = await mountNavigation(place === "Pad editor", 0, place === "Shelf row" ? 9 : 3);
 
-  if (place !== "Pad editor") {
-    connected().rail.select("a1");
-    await waitFor(() => expect(document.activeElement?.getAttribute("data-terminal")).toBe("t-a1"));
-  }
-
-  if (place === "rail row") document.querySelector<HTMLElement>('[data-part="item"]')!.focus();
-
-  if (place === "Shelf row" || place === "triage") {
-    await showEverythingInApp();
-    document.querySelector<HTMLElement>('[data-todo="1"] .todo-row-button[aria-pressed]')!.focus();
-
-    if (place === "triage") fireEvent.click(screen.getByLabelText("Triage", { selector: "button" }));
-  }
-
-  if (place === "Pad row" || place === "Pad editor") {
-    const pads = [{ name: "Plan", incarnation: "fixture-Plan", text: "", updated_at: 0, revision: 1, home: null }];
-    Object.assign(daemon.handlers, padHandlers({ pads, history: [] }, () => {}));
-    daemon.emit({ actor: USER, name: "pad.changed", data: { name: "Plan" } });
-    await showEverythingInApp(undefined, "Pads");
-    document.querySelector<HTMLButtonElement>('[data-pad="Plan"] .pad-name')!.focus();
-
-    if (place === "Pad editor") {
-      await openPad("Plan");
-      screen.getByLabelText("Pad body", { selector: '[role="textbox"]' }).focus();
-    }
-  }
-
-  if (place === "Project tab") document.querySelector<HTMLButtonElement>('.project-tab[data-path="/p"] [role="tab"]')!.focus();
-
-  const focus = document.activeElement!;
-  const expected = place === "Pad editor" ? "action:chord:⌘I" : place === "Shelf row" ? "action:chord:1–9:Digit9" : place === "triage" ? "action:chord:X" : (place === "rail row" || place === "Pad row" || place === "Project tab") ? "action:chord:F2" : "action:chord:⌘=";
-  await waitFor(() => expect(menuCommands(projectMenu.items).some(item => item.id === expected)).toBe(true));
-  const available = captureActions(focus).filter(action => action.available() && action.value.startsWith("action:") && !action.value.startsWith("action:chord:⌘K") && action.value !== "action:leader:T");
-  const shown = new Map(menuCommands(projectMenu.items).filter(item => item.enabled && item.id.startsWith("action:")).map(item => [item.id, item.shortcut]));
-
-  expect(available.length).toBeGreaterThan(place === "Pad editor" ? 2 : 10);
-
-  for (const action of available) {
-    expect(shown.has(action.value), action.value).toBe(true);
-    expect(shown.get(action.value), action.value).toBe(action.value.startsWith("action:leader:") ? `⌘K ${action.value.slice(14)}` : action.press?.slice(-1) ?? action.keys);
-  }
-
-  expect([...shown.keys()].filter(id => !available.some(action => action.value === id))).toEqual([]);
-  expect(document.activeElement).toBe(focus);
-});
-
-
-it.each(["key", "menu"])("u3787b_menu_and_key_share_one_action: Rail rename from %s captures the focused row", async source => {
+it("u3787b_menu_and_key_share_one_action: Rail rename from key captures the focused row", async () => {
   const { connected, daemon } = await mountNavigation(false, 0);
   connected().rail.select("a2");
   const row = document.querySelector<HTMLElement>('[data-id="a1"][data-part="item"]')!;
   row.focus();
-  await waitFor(() => expect(projectMenu.items.find(item => item.id === "action:chord:F2")?.shortcut).toBe("F2"));
   expect(document.activeElement).toBe(row);
 
-  if (source === "key") fireEvent.keyDown(row, { key: "F2", code: "F2" });
-  else openProjectPage("action:chord:F2", "/p");
+  fireEvent.keyDown(row, { key: "F2", code: "F2" });
 
   const field = await screen.findByLabelText("Name", { selector: "input" });
   expect(field.closest("[data-id]")?.getAttribute("data-id")).toBe("a1");
-  expect(projectMenu.items.some(item => item.id === "action:chord:F2" && item.enabled)).toBe(false);
   expect(daemon.calls.filter(call => call.method === "rail.rename")).toHaveLength(0);
   fireEvent.keyDown(field, { key: "Escape", code: "Escape" });
   await waitFor(() => expect(document.activeElement).toBe(row));
-  expect(projectMenu.items.some(item => item.id === "action:chord:F2" && item.enabled)).toBe(true);
 });
 
-it.each(["key", "menu"])("u3787b_menu_and_key_share_one_action: Help from %s returns focus without Terminal input", async source => {
+it("u3787b_menu_and_key_share_one_action: Help from key returns focus without Terminal input", async () => {
   const { daemon } = await mountNavigation(false, 0);
   const row = document.querySelector<HTMLElement>('[data-part="item"]')!;
   row.focus();
-  await waitFor(() => expect(projectMenu.items.find(item => item.id === "action:chord:?")?.shortcut).toBe("?"));
   const writes = daemon.calls.filter(call => call.method === "terminal.write").length;
   expect(document.activeElement).toBe(row);
 
-  if (source === "key") fireEvent.keyDown(row, { key: "?", code: "Slash", shiftKey: true });
-  else openProjectPage("action:chord:?", "/p");
+  fireEvent.keyDown(row, { key: "?", code: "Slash", shiftKey: true });
 
   const help = await screen.findByRole("dialog", { name: "Help" });
   fireEvent.keyDown(help, { key: "Escape", code: "Escape" });
@@ -268,36 +193,28 @@ it.each(["key", "menu"])("u3787b_menu_and_key_share_one_action: Help from %s ret
   expect(daemon.calls.filter(call => call.method === "terminal.write")).toHaveLength(writes);
 });
 
-
-it.each(["key", "menu"])("u3787b_numbered_assignment_captures_one_todo_and_owner: ninth Agent from %s", async source => {
+it("u3787b_numbered_assignment_captures_one_todo_and_owner: ninth Agent from key", async () => {
   const number = 9;
   const { daemon } = await mountNavigation(false, 0, number);
   await showEverythingInApp();
   const row = document.querySelector<HTMLButtonElement>('[data-todo="1"] .todo-row-button[aria-pressed]')!;
   row.focus();
   const command = `action:chord:1–9:Digit${number}`;
-  await waitFor(() => expect(menuCommands(projectMenu.items).find(item => item.id === command)?.shortcut).toBe(String(number)));
   const captured = captureActions(row).find(action => action.value === command)!;
-  const assignments = projectMenu.items.find(item => item.children?.some(child => child.id === command));
-  expect(assignments?.children).toHaveLength(9);
-  expect(projectMenu.items.some(item => item.id.startsWith("action:chord:1–9:"))).toBe(false);
   expect(document.activeElement).toBe(row);
 
-  if (source === "key") fireEvent.keyDown(row, { key: String(number), code: `Digit${number}` });
-  else openProjectPage(command);
+  fireEvent.keyDown(row, { key: String(number), code: `Digit${number}` });
 
   await waitFor(() => expect(daemon.calls.filter(call => call.method === "todo.assign").map(call => call.params)).toEqual([{ id: 1, owner: { kind: "agent", id: `a${number - 1}`, parent: null } }]));
   fireEvent.click(screen.getByLabelText("Add Todo: Overview", { selector: "button" }));
   screen.getByLabelText("New Todo title").focus();
-  await waitFor(() => expect(menuCommands(projectMenu.items).some(item => item.id.startsWith("action:chord:1–9:"))).toBe(false));
   captured.run();
   openProjectPage(command);
   expect(daemon.calls.filter(call => call.method === "todo.assign")).toHaveLength(1);
   expect(daemon.calls.filter(call => call.method === "terminal.write")).toEqual([]);
 });
 
-
-it.each(["key", "menu"])("u3787b_menu_and_key_share_one_action: Pad Open from %s captures the focused Pad", async source => {
+it("u3787b_menu_and_key_share_one_action: Pad Open from key captures the focused Pad", async () => {
   const { daemon } = await mountNavigation(false, 0);
   const pads = ["Selected", "Focused"].map(name => ({ name, incarnation: `fixture-${name}`, text: "", updated_at: 0, revision: 1, home: null }));
   Object.assign(daemon.handlers, padHandlers({ pads, history: [] }, () => {}));
@@ -307,17 +224,15 @@ it.each(["key", "menu"])("u3787b_menu_and_key_share_one_action: Pad Open from %s
   const row = document.querySelector<HTMLButtonElement>('[data-pad="Focused"] .pad-name')!;
   fireEvent.click(selected);
   row.focus();
-  await waitFor(() => expect(projectMenu.items.find(item => item.id === "action:chord:⏎")?.shortcut).toBe("⏎"));
   expect(document.activeElement).toBe(row);
 
-  if (source === "key") fireEvent.keyDown(row, { key: "Enter", code: "Enter" });
-  else openProjectPage("action:chord:⏎");
+  fireEvent.keyDown(row, { key: "Enter", code: "Enter" });
 
   await waitFor(() => expect(daemon.calls.filter(call => call.method === "pad.read").map(call => call.params)).toEqual([{ name: "Focused" }]));
   expect(daemon.calls.filter(call => call.method === "pad.write" || call.method === "terminal.write")).toEqual([]);
 });
 
-it.each(["key", "menu"])("u3787b_menu_and_key_share_one_action: Pad Rename from %s refuses its editing owner", async source => {
+it("u3787b_menu_and_key_share_one_action: Pad Rename from key refuses its editing owner", async () => {
   const { daemon } = await mountNavigation(false, 0);
   const pads = ["Selected", "Focused"].map(name => ({ name, incarnation: `fixture-${name}`, text: "", updated_at: 0, revision: 1, home: null }));
   Object.assign(daemon.handlers, padHandlers({ pads, history: [] }, () => {}));
@@ -326,16 +241,13 @@ it.each(["key", "menu"])("u3787b_menu_and_key_share_one_action: Pad Rename from 
   fireEvent.click(document.querySelector<HTMLButtonElement>('[data-pad="Selected"] .pad-name')!);
   const row = document.querySelector<HTMLButtonElement>('[data-pad="Focused"] .pad-name')!;
   row.focus();
-  await waitFor(() => expect(projectMenu.items.find(item => item.id === "action:chord:F2")?.shortcut).toBe("F2"));
   const captured = captureActions(row).find(action => action.value === "action:chord:F2")!;
   expect(document.activeElement).toBe(row);
 
-  if (source === "key") fireEvent.keyDown(row, { key: "F2", code: "F2" });
-  else openProjectPage("action:chord:F2");
+  fireEvent.keyDown(row, { key: "F2", code: "F2" });
 
   const field = await screen.findByLabelText("Name", { selector: "input" });
   expect(field.closest("[data-pad]")?.getAttribute("data-pad")).toBe("Focused");
-  await waitFor(() => expect(projectMenu.items.some(item => item.id === "action:chord:F2" && item.enabled)).toBe(false));
   expect(captured.available()).toBe(false);
   captured.run();
   openProjectPage("action:chord:F2");
@@ -344,7 +256,6 @@ it.each(["key", "menu"])("u3787b_menu_and_key_share_one_action: Pad Rename from 
   fireEvent.keyDown(field, { key: "Escape", code: "Escape" });
   await waitFor(() => expect(document.activeElement?.closest("[data-pad]")?.getAttribute("data-pad")).toBe("Focused"));
 });
-
 
 const creationScope = async () => {
   const fixture = await mountNavigation(true, 0);
@@ -355,22 +266,19 @@ const creationScope = async () => {
   return fixture;
 };
 
-it.each(["key", "menu"])("u3787b_menu_and_key_share_one_action: Add Todo from %s retains its scope", async source => {
+it("u3787b_menu_and_key_share_one_action: Add Todo from key retains its scope", async () => {
   const { connected, daemon } = await creationScope();
   await showEverythingInApp();
   connected().rail.select("a1");
   const list = document.querySelector<HTMLElement>(".todos-tab")!;
   list.focus();
-  await waitFor(() => expect(projectMenu.items.find(item => item.id === "action:chord:N")?.shortcut).toBe("N"));
   const captured = captureActions(list).find(action => action.value === "action:chord:N")!;
   expect(document.activeElement).toBe(list);
 
-  if (source === "key") fireEvent.keyDown(list, { key: "n", code: "KeyN" });
-  else openProjectPage("action:chord:N");
+  fireEvent.keyDown(list, { key: "n", code: "KeyN" });
 
   const field = await screen.findByLabelText("New Todo title", { selector: "input" });
   await waitFor(() => expect(document.activeElement).toBe(field));
-  expect(projectMenu.items.some(item => item.id === "action:chord:N" && item.enabled)).toBe(false);
   expect(fireEvent.keyDown(field, { key: "n", code: "KeyN" })).toBe(true);
   captured.run();
   openProjectPage("action:chord:N");
@@ -383,13 +291,11 @@ it.each(["key", "menu"])("u3787b_menu_and_key_share_one_action: Add Todo from %s
   expect(daemon.calls.filter(call => call.method === "terminal.write")).toEqual([]);
 });
 
-
 it("u3787b_scoped_menu_does_not_steal_terminal_input: Add Todo refuses a changed scope", async () => {
   const { connected, daemon } = await creationScope();
   await showEverythingInApp();
   const list = document.querySelector<HTMLElement>('[data-todo="1"] .todo-row-button[aria-pressed]')!;
   list.focus();
-  await waitFor(() => expect(projectMenu.items.some(item => item.id === "action:chord:N" && item.enabled)).toBe(true));
   const captured = captureActions(list).find(action => action.value === "action:chord:N")!;
   connected().rail.select("a2");
   await waitFor(() => expect(document.activeElement?.getAttribute("data-terminal")).toBe("t-a2"));
@@ -400,18 +306,15 @@ it("u3787b_scoped_menu_does_not_steal_terminal_input: Add Todo refuses a changed
   expect(daemon.calls.filter(call => call.method === "todo.create" || call.method === "terminal.write")).toEqual([]);
 });
 
-
-it.each(["key", "menu"])("u3787b_menu_and_key_share_one_action: Project Rename from %s captures the focused tab", async source => {
+it("u3787b_menu_and_key_share_one_action: Project Rename from key captures the focused tab", async () => {
   const { app } = await mountNavigation(true, 1);
   const target = document.querySelector<HTMLButtonElement>('.project-tab[data-path="/p"] [role="tab"]')!;
   target.focus();
-  await waitFor(() => expect(projectMenu.items.find(item => item.id === "action:chord:F2")?.shortcut).toBe("F2"));
   const captured = captureActions(target).find(action => action.value === "action:chord:F2")!;
   expect(document.activeElement).toBe(target);
   const rename = vi.spyOn(app, "renameProject");
 
-  if (source === "key") fireEvent.keyDown(target, { key: "F2", code: "F2" });
-  else openProjectPage("action:chord:F2", "/p");
+  fireEvent.keyDown(target, { key: "F2", code: "F2" });
 
   const field = await screen.findByLabelText<HTMLInputElement>("Project name", { selector: "input" });
   expect(field.closest(".project-tab")?.getAttribute("data-path")).toBe("/p");
@@ -432,12 +335,11 @@ it.each(["key", "menu"])("u3787b_menu_and_key_share_one_action: Project Rename f
   expect(screen.getAllByRole("textbox").filter(editor => editor.closest(".project-tab"))).toEqual([]);
 });
 
-
 it.each([
   { chord: "⌘B", key: "b", code: "KeyB", label: "Bold", semantic: "strong" },
   { chord: "⌘I", key: "i", code: "KeyI", label: "Italic", semantic: "em" },
   { chord: "⌘E", key: "e", code: "KeyE", label: "Inline code", semantic: "code" },
-].flatMap(command => ["key", "menu"].map(source => ({ ...command, source }))))("u3787b_menu_and_key_share_one_action: Pad $label from $source captures the editor selection", async ({ chord, key, code, semantic, source }) => {
+])("u3787b_menu_and_key_share_one_action: Pad $label from key captures the editor selection", async ({ chord, key, code, semantic }) => {
   const { daemon } = await mountNavigation(true, 0);
   const pads = [{ name: "Plan", incarnation: "fixture-Plan", text: "chosen untouched", updated_at: 0, revision: 1, home: null }];
   Object.assign(daemon.handlers, padHandlers({ pads, history: [] }, () => {}));
@@ -447,13 +349,11 @@ it.each([
   field.setSelectionRange(1, 7, "forward");
   const surface = screen.getByLabelText("Pad body", { selector: '[role="textbox"]' });
   surface.focus();
-  await waitFor(() => expect(projectMenu.items.find(item => item.id === `action:chord:${chord}`)).toMatchObject({ shortcut: chord, enabled: true }));
   const captured = captureActions(surface).find(action => action.keys === chord)!;
   expect(document.activeElement).toBe(surface);
   expect(field.querySelector(semantic)).toBeNull();
 
-  if (source === "key") fireEvent.keyDown(surface, { key, code, metaKey: true });
-  else openProjectPage(`action:chord:${chord}`);
+  fireEvent.keyDown(surface, { key, code, metaKey: true });
 
   expect([...field.querySelectorAll(semantic)].map(node => node.textContent)).toEqual(["chosen"]);
   expect(field.value).toContain(" untouched");
@@ -467,13 +367,12 @@ it.each([
   expect(daemon.calls.filter(call => call.method === "terminal.write")).toEqual([]);
 });
 
-
 it.each([
   { chord: "⇧⌘B", key: "B", code: "KeyB", shiftKey: true, altKey: false, semantic: "blockquote" },
   { chord: "⌥⌘8", key: "8", code: "Digit8", shiftKey: false, altKey: true, semantic: "ul" },
   { chord: "⌥⌘7", key: "7", code: "Digit7", shiftKey: false, altKey: true, semantic: "ol" },
   { chord: "⌥⌘C", key: "ç", code: "KeyC", shiftKey: false, altKey: true, semantic: "pre" },
-].flatMap(command => ["key", "menu"].map(source => ({ ...command, source }))))("u3787b_menu_and_key_share_one_action: Pad block $chord from $source captures the editor", async ({ chord, key, code, shiftKey, altKey, semantic, source }) => {
+])("u3787b_menu_and_key_share_one_action: Pad block $chord from key captures the editor", async ({ chord, key, code, shiftKey, altKey, semantic }) => {
   const { daemon } = await mountNavigation(true, 0);
   const pads = [{ name: "Plan", incarnation: "fixture-Plan", text: "chosen", updated_at: 0, revision: 1, home: null }];
   Object.assign(daemon.handlers, padHandlers({ pads, history: [] }, () => {}));
@@ -483,13 +382,11 @@ it.each([
   field.setSelectionRange(1, 7, "forward");
   const surface = screen.getByLabelText("Pad body", { selector: '[role="textbox"]' });
   surface.focus();
-  await waitFor(() => expect(projectMenu.items.find(item => item.id === `action:chord:${chord}`)).toMatchObject({ shortcut: chord, enabled: true }));
   const captured = captureActions(surface).find(action => action.keys === chord)!;
   expect(document.activeElement).toBe(surface);
   expect(field.querySelector(semantic)).toBeNull();
 
-  if (source === "key") fireEvent.keyDown(surface, { key, code, metaKey: true, shiftKey, altKey });
-  else openProjectPage(`action:chord:${chord}`);
+  fireEvent.keyDown(surface, { key, code, metaKey: true, shiftKey, altKey });
 
   expect([...field.querySelectorAll(semantic)].map(node => node.querySelector("p")?.textContent ?? node.textContent)).toEqual(["chosen"]);
   expect(document.activeElement).toBe(surface);

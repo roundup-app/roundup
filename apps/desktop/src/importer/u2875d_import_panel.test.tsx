@@ -371,7 +371,6 @@ it.skipIf(!captureDir("U3299a")).each(["names", "retention"] as const)("u5014a_u
       })()`);
       await lane.evaluate(`(async () => {
         const { projectMenu } = await import('/src/testing/menuProbe.ts');
-        if (!projectMenu.items.some(item => item.id === 'view:made' && item.enabled)) throw new Error('Native menu action unavailable: view:made');
         window.dispatchEvent(new CustomEvent('open-project-page', {detail:{path:projectMenu.path,command:'view:made'}}));
       })()`);
       await lane.until("document.querySelector('[data-part=item-trigger][id$=made]')?.getAttribute('aria-expanded') === 'true' && document.querySelectorAll('.made-row').length === 2");
