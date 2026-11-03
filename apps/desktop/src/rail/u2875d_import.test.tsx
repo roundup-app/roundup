@@ -97,7 +97,7 @@ describe("u2875d the import panel is an ordinary Rail action", () => {
       fireEvent.click(screen.getByLabelText("Close api"));
       await waitFor(() => expect(screen.queryByRole("tab", { name: /^api/ })).toBeNull());
       app.chooser.path = path("api");
-      fireEvent.click(panel().getByRole("button", { name: copy.openAFolder }));
+      fireEvent.click(screen.getByRole("button", { name: copy.openAFolder }));
       await waitFor(() => expect(tab("api").getAttribute("aria-busy")).toBe("false"));
     };
 
