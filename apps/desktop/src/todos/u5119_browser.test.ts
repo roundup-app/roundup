@@ -5,13 +5,17 @@ import { it, expect } from "vitest";
 import { captureDir } from "../testing/captures";
 import { shelfBrowser } from "../shelf/u371Browser";
 
-const { browser, evaluate, settle, openShelf } = shelfBrowser();
+const { browser, evaluate, settle, rig } = shelfBrowser();
 
 const output = captureDir("U5119");
 
 it.each([[1280, 820], [1512, 950]])("u5119_partial_activity_rendered_%sx%s", { retry: 0, timeout: 180_000 }, async (width, height) => {
-  await openShelf("tree-40", 288, 320, width, "dark");
   await browser("set", "viewport", String(width), String(height));
+  await browser("set", "media", "dark");
+  // resize/widths.ts already defaults to 288/320; this fresh profile needs one mount and no terminal tabs.
+  await browser("open", `${rig.server.resolvedUrls.local[0]}harness.html?view=workstreams&items=1&seed=tree-40`);
+  await browser("wait", ".shelf-tabs");
+  await settle();
   const directory = output ? join(output, process.env.ACTIVITY_BASE ? "base" : "head") : null;
 
   if (directory) {
@@ -87,7 +91,7 @@ it.each([[1280, 820], [1512, 950]])("u5119_partial_activity_rendered_%sx%s", { r
         await browser("focus", ".todo-comment-field");
         await evaluate("document.querySelector('.todo-comments [role=alert]').scrollIntoView({block:'center'}); true");
         await settle();
-        await browser("find", "role", "button", "click", "--name", failed === "history" ? "Retry history" : "Retry comments");
+        await browser("click", '.todo-comments .reserved-line:has([role="alert"]) .reserved-actions button:not([data-dismiss-failure])');
         await browser("wait", "--fn", "!document.querySelector('.todo-comments [role=alert]')");
         expect(await evaluate("document.activeElement === document.querySelector('.todo-comment-field')")).toBe(true);
         await capture(`${failed}-${expanded ? 'open' : 'closed'}-recovered`);
@@ -98,5 +102,8 @@ it.each([[1280, 820], [1512, 950]])("u5119_partial_activity_rendered_%sx%s", { r
         await browser("wait", '.drawer[data-mounted="false"]');
       }
     }
-  } finally { if (directory) await browser("record", "stop"); }
+  } finally {
+    if (directory) await browser("record", "stop");
+    await evaluate("localStorage.clear(); true");
+  }
 });
