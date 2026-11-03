@@ -11,7 +11,7 @@ import { captureDir } from "../testing/captures";
 const exec = promisify(execFile);
 
 // U4464's rendered policy observer: appearance is recorded for the independent critic.
-it.skipIf(!captureDir("U4464"))("u5606_capture_empty_views_in_both_themes", { timeout: 240_000, retry: 0 }, async () => {
+it.skipIf(!captureDir("U4464") && !captureDir("U5163"))("u5606_capture_empty_views_in_both_themes", { timeout: 480_000, retry: 0 }, async () => {
   const phase = process.env.ROUNDUP_CAPTURE_PHASE ?? "head";
   const root = process.env.U4464_ROOT ?? process.cwd();
   const server = await appServer({ root });
@@ -29,14 +29,30 @@ it.skipIf(!captureDir("U4464"))("u5606_capture_empty_views_in_both_themes", { ti
 
   const wait = (expression: string) => browser("wait", "--fn", expression);
   const origin = server.resolvedUrls.local[0]!;
-  const dir = join(captureDir("U4464")!, phase, ...(process.env.U4464_CONTRAST ? ["increased-contrast"] : []));
+  const dir = join((captureDir("U5163") ?? captureDir("U4464"))!, phase, ...(process.env.U4464_CONTRAST ? ["increased-contrast"] : []));
   const revision = execFileSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).trim();
   mkdirSync(dir, { recursive: true });
 
   const snap = async (name: string) => {
+    await read(`new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))`);
+
+    const scenes = await read(`(() => {
+      const box = el => { const r = el.getBoundingClientRect(); return {x:r.x,y:r.y,width:r.width,height:r.height,bottom:r.bottom,right:r.right}; };
+      return [...document.querySelectorAll('.empty-state')].map(el => {
+        const room = el.closest('.choose-project,.shelf-area,.pane-body,.note-recovery,.draft-recovery') ?? el;
+        const scene = room.querySelector('.empty-state-ground svg,.empty-state-art svg');
+        const content = [...room.querySelectorAll('h3,p,button,li,[role=alert],.empty-state-actions')].filter(node => node.getBoundingClientRect().height > 0);
+        const lowestContentBottom = Math.max(...content.map(node => box(node).bottom));
+        const style = scene && getComputedStyle(scene);
+        const ground = getComputedStyle(room).getPropertyValue('--ground').trim();
+        return {name:el.querySelector('h3')?.textContent,room:box(room),scene:scene ? box(scene) : null,visibleTop:scene ? Math.max(box(scene).y,box(room).y) : null,lowestContentBottom,fill:style?.getPropertyValue('--doodle-ground').trim(),ground,hitTargets:content.map(node => {const r=box(node); const hit=document.elementFromPoint(r.x+r.width/2,r.y+r.height/2);return {text:node.textContent,hit:hit===node || node.contains(hit)};}),pointerEvents:style?.pointerEvents,animation:style?.animationName};
+      });
+    })()`);
+
+    writeFileSync(join(dir, `${name}.scenes.json`), JSON.stringify(scenes, null, 2));
     await browser("screenshot", join(dir, `${name}.png`));
     const observation = await read(`({ revision: ${JSON.stringify(revision)}, checks: window.__checks(), empty: [...document.querySelectorAll('.empty-state')].map(el => ({name: el.querySelector('h3')?.textContent, artHidden: el.querySelector('.empty-state-art')?.getAttribute('aria-hidden')})), failures: [...document.querySelectorAll('[role=alert]')].map(el => el.textContent) })`);
-    const palette = await read(`(() => { const root = getComputedStyle(document.documentElement); const tokens = Object.fromEntries(['accent','ground','sunken','selected','selected-hover','button-accent-fill','button-accent-ink','button-key-ink','text-selection','text-selection-ink','doodle-line','doodle-patch','doodle-offset','doodle-blend'].map(name => [name, root.getPropertyValue('--'+name).trim()])); return {increasedContrast:matchMedia('(prefers-contrast: more)').matches,tokens,buttons:[...document.querySelectorAll('.empty-state button')].map(el => ({label:el.textContent,ink:getComputedStyle(el).color,fill:getComputedStyle(el).backgroundColor,key:el.querySelector('kbd') ? getComputedStyle(el.querySelector('kbd')).color : null})),selection:{fill:getComputedStyle(document.body,'::selection').backgroundColor,ink:getComputedStyle(document.body,'::selection').color},formRings:[...document.querySelectorAll('.app-select-trigger,.app-combobox-input,[data-scope="field"][data-part="input"]')].map(el => ({ink:getComputedStyle(el).outlineColor,ground:getComputedStyle(el).backgroundColor}))}; })()`);
+    const palette = await read(`(() => { const root = getComputedStyle(document.documentElement); const tokens = Object.fromEntries(['accent','ground','sunken','selected','selected-hover','button-accent-fill','button-accent-ink','button-key-ink','text-selection','text-selection-ink','doodle-ground'].map(name => [name, root.getPropertyValue('--'+name).trim()])); return {increasedContrast:matchMedia('(prefers-contrast: more)').matches,tokens,buttons:[...document.querySelectorAll('.empty-state button')].map(el => ({label:el.textContent,ink:getComputedStyle(el).color,fill:getComputedStyle(el).backgroundColor,key:el.querySelector('kbd') ? getComputedStyle(el.querySelector('kbd')).color : null})),selection:{fill:getComputedStyle(document.body,'::selection').backgroundColor,ink:getComputedStyle(document.body,'::selection').color},formRings:[...document.querySelectorAll('.app-select-trigger,.app-combobox-input,[data-scope="field"][data-part="input"]')].map(el => ({ink:getComputedStyle(el).outlineColor,ground:getComputedStyle(el).backgroundColor}))}; })()`);
     writeFileSync(join(dir, `${name}.palette.json`), JSON.stringify(palette, null, 2));
     writeFileSync(join(dir, `${name}.checks.json`), JSON.stringify(observation.checks, null, 2));
     writeFileSync(join(dir, `${name}.observation.json`), JSON.stringify(observation, null, 2));
@@ -98,6 +114,32 @@ it.skipIf(!captureDir("U4464"))("u5606_capture_empty_views_in_both_themes", { ti
         await snap(`${theme}-${view}`);
       }
 
+      for (const height of [950, 1100]) {
+        await browser("set", "viewport", "1512", String(height));
+
+        for (const width of [320, 516]) {
+          for (const seed of ["first-run", "first-run-five", "empty-project", "earlier-run", "door-stopped"]) {
+            if (height === 1100 && seed !== "empty-project") continue;
+            await load(seed, seed === "empty-project" ? "workstreams" : "");
+            await read(`document.documentElement.style.setProperty('--shelf-span', '${width}px')`);
+
+            if (seed === "empty-project") {
+              await browser("click", '[role="tab"][data-value="todos"]');
+              await wait(`!!document.querySelector('.todos-tab .empty-state')`);
+            }
+
+            await snap(`${theme}-${seed}-${height}-shelf-${width}`);
+
+            if (seed === "empty-project") {
+              await browser("click", '[role="tab"][data-value="pads"]');
+              await wait(`!!document.querySelector('.pads-tab .empty-state')`);
+              await snap(`${theme}-pads-${height}-shelf-${width}`);
+            }
+          }
+        }
+      }
+
+      await browser("set", "viewport", "1512", "950");
       await load("agents-10");
       await read(`(async () => { const nodes = await window.__fake.app.rpc('rail.tree',{}); window.__fake.app.handlers['rail.tree'] = () => nodes.map((node, index) => index === 0 ? {...node, terminal_id:null} : node); window.__fake.emit({actor:{kind:'user',id:'you',parent:null},name:'rail.changed'}); })()`);
       await browser("click", '.rail-row[data-id="agent-1"]');
@@ -276,7 +318,7 @@ it.skipIf(!captureDir("U401"))("u401_capture_shared_glyphs_for_the_critic", asyn
   }
 }, 60_000);
 
-it.skipIf(!captureDir("U5740a"))("u5740a_capture_remaining_app_surfaces", { timeout: 240_000, retry: 0 }, async () => {
+it.skipIf(!captureDir("U5740a"))("u5740a_capture_remaining_app_surfaces", { timeout: 480_000, retry: 0 }, async () => {
   const { openLane } = await import("../todos/laneBrowser");
   const lane = await openLane(1512, "dark", "u5740a", false, null);
   const server = await appServer();
