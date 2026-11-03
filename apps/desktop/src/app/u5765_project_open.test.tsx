@@ -1,5 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it, vi } from "vitest";
+import { saveAppSettings } from "../settings/preferences";
+import { agent, door } from "../testing/nodes";
 import { App } from "../App";
 import { createProjectDrafts } from "../state/connectedProject";
 import { createFakeApp } from "../testing/fakeApp";
@@ -12,9 +14,11 @@ const TARGET = "/repos/target";
 
 const request = (id: number, path = TARGET, source = SOURCE.path): ActionRequest => ({ id, method: "project.open", params: { path, source, agent: { id: "1", name: "builder" } } });
 
-const mount = async (canonicalPath = SOURCE.path) => {
+const mount = async (canonicalPath = SOURCE.path, targetOpen = false) => {
   const app = createFakeApp();
   app.opened.project = SOURCE;
+
+  if (targetOpen) app.add(TARGET);
   app.canonicalProjectPath = async () => canonicalPath;
   let answer: Parameters<NonNullable<ProjectCalls["serveActions"]>>[0] | undefined;
   let invalidate: (() => void) | undefined;
@@ -26,10 +30,12 @@ const mount = async (canonicalPath = SOURCE.path) => {
   await screen.findByRole("tab", { name: SOURCE.name });
   await waitFor(() => expect(answer).toBeDefined());
 
+  if (targetOpen) fireEvent.click(screen.getByRole("tab", { name: SOURCE.name }));
+
   return { app, opening, drafts, answer: (value: ActionRequest) => answer!(value), invalidate: () => invalidate?.() };
 };
 
-afterEach(() => { cleanup(); vi.restoreAllMocks(); localStorage.clear(); });
+afterEach(async () => { cleanup(); vi.restoreAllMocks(); await saveAppSettings({ permissionMode: "" }); localStorage.clear(); });
 
 it("u5765_open_waits_for_bound_consent_and_uses_the_existing_open_flow_once", async () => {
   const mounted = await mount();
@@ -122,4 +128,106 @@ it("u5765_navigation_preserves_the_asking_project_and_request", async () => {
   fireEvent.click(screen.getByRole("button", { name: "Refuse" }));
   expect(await reply).toMatchObject({ id: 71, error: { code: -32002 } });
   expect(mounted.opening).toHaveBeenCalledExactlyOnceWith("/repos/navigation");
+});
+
+it.each(["agent", "workstream", "mode"] as const)("u5765_start_%s_waits_for_consent_then_uses_target_calls", async kind => {
+  const mounted = await mount();
+  const targetApp = mounted.app.of(TARGET);
+  targetApp.handlers["agent.spawn"] = () => agent("made", "idle", "ready");
+  targetApp.handlers["rail.createWorkstream"] = () => door("made", "idle", "ready");
+  targetApp.handlers["workstream.setOpeningPrompt"] = () => null;
+  targetApp.handlers["rail.startDoor"] = () => door("made", "idle", "ready");
+  const prompt = " exact first prompt\n  é ";
+  const reply = mounted.answer({ id: 61, method: "project.start", params: { path: TARGET, source: SOURCE.path, agent: { id: "1", name: "builder" }, kind, name: "target-worker", prompt } });
+  await screen.findByRole("dialog");
+  expect(mounted.app.calls.filter(call => ["agent.spawn", "rail.createWorkstream"].includes(call.method))).toEqual([]);
+  fireEvent.click(screen.getByRole("button", { name: "Open" }));
+  const result = await reply;
+  expect(result).not.toHaveProperty("error");
+  expect(result).toMatchObject({ id: 61, result: { path: TARGET, kind, id: expect.any(String) } });
+  const target = mounted.app.of(TARGET);
+  const created = target.calls.find(call => call.method === (kind === "agent" ? "agent.spawn" : "rail.createWorkstream"));
+  expect(created?.params).toMatchObject({ name: "target-worker", start_attribution: { project: SOURCE.path, project_name: SOURCE.name, agent: "1", agent_name: "builder" } });
+
+  if (kind === "agent") expect(created?.params).toMatchObject({ cwd: TARGET, prompt });
+  else {
+    const launch = target.calls.find(call => call.method === "rail.startDoor");
+    expect(launch?.params).toMatchObject({ prompt });
+    const saved = target.calls.findIndex(call => call.method === "workstream.setOpeningPrompt");
+
+    if (kind === "mode") expect(saved).toBeLessThan(target.calls.findIndex(call => call.method === "rail.startDoor"));
+    else expect(saved).toBe(-1);
+  }
+});
+
+it.each(["agent", "workstream", "mode"] as const)("u5765_start_%s_in_open_b_uses_normal_permissions_and_preserves_source_draft", async kind => {
+  for (const permissionMode of ["acceptEdits", ""] as const) {
+    await saveAppSettings({ permissionMode });
+    const mounted = await mount(SOURCE.path, true);
+    const target = mounted.app.of(TARGET);
+    target.handlers["agent.spawn"] = () => agent("made", "idle", "ready");
+    target.handlers["rail.createWorkstream"] = () => door("made", "idle", "ready");
+    target.handlers["workstream.setOpeningPrompt"] = () => null;
+    target.handlers["rail.startDoor"] = () => door("made", "idle", "ready");
+    const holder = mounted.drafts(SOURCE.path);
+    await holder.edit({ surface: "terminal_selection", object: "original", recipient: "builder" }, { note: " unsent é\n ", excerpt: "source bytes" }, null, "ordinary").retained;
+    const before = holder.list();
+    const result = await mounted.answer({ id: 71, method: "project.start", params: { path: TARGET, source: SOURCE.path, agent: { id: "1", name: "builder" }, kind, name: "worker", prompt: "work there" } });
+    expect(result).toMatchObject({ id: 71, result: { path: TARGET, kind, id: "made" } });
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(mounted.opening).not.toHaveBeenCalled();
+    expect(screen.getByRole("tab", { name: SOURCE.name }).getAttribute("aria-selected")).toBe("true");
+    expect(holder.list()).toEqual(before);
+    const launch = target.calls.find(call => call.method === (kind === "agent" ? "agent.spawn" : "rail.startDoor"));
+    expect(launch?.params).not.toHaveProperty("mode");
+
+    if (permissionMode) expect(launch?.params).toHaveProperty("permissionMode", permissionMode);
+    else expect(launch?.params).not.toHaveProperty("permissionMode");
+    cleanup();
+  }
+});
+
+it.each(["agent", "workstream", "mode"] as const)("u5765_refusing_%s_creates_nothing", async kind => {
+  const mounted = await mount();
+  const pending = mounted.answer({ id: 81, method: "project.start", params: { path: TARGET, source: SOURCE.path, agent: { id: "1", name: "builder" }, kind, name: "worker", prompt: "work there" } });
+  await screen.findByRole("dialog");
+  fireEvent.click(screen.getByRole("button", { name: "Refuse" }));
+  expect(await pending).toMatchObject({ id: 81, error: { code: -32002 } });
+  expect(mounted.opening).not.toHaveBeenCalled();
+  expect(mounted.app.of(TARGET).calls.filter(call => ["agent.spawn", "rail.createWorkstream", "rail.startDoor"].includes(call.method))).toEqual([]);
+});
+
+it.each(["save", "start"] as const)("u5765_target_%s_failure_reports_the_created_identity_without_retrying", async stage => {
+  const mounted = await mount(SOURCE.path, true);
+  const target = mounted.app.of(TARGET);
+  target.handlers["rail.createWorkstream"] = () => door("made", "idle", "ready");
+  target.handlers["workstream.setOpeningPrompt"] = () => null;
+  target.handlers[stage === "save" ? "workstream.setOpeningPrompt" : "rail.startDoor"] = () => { throw new RpcError(-32003, "Vendor unavailable"); };
+
+  const result = await mounted.answer({ id: 91, method: "project.start", params: { path: TARGET, source: SOURCE.path, agent: { id: "1", name: "builder" }, kind: "mode", name: "target-worker", prompt: "work there" } });
+  expect(result).toMatchObject({ id: 91, error: { code: -32003 } });
+
+  if (!("error" in result)) throw new Error("a failed launch must not succeed");
+  expect(result.error.message).toContain(TARGET);
+  expect(result.error.message).toContain("made");
+  expect(result.error.message).toContain(`${stage} failed`);
+  expect(target.calls.filter(call => call.method === "rail.createWorkstream")).toHaveLength(1);
+  expect(target.calls.filter(call => call.method === "rail.startDoor")).toHaveLength(stage === "save" ? 0 : 1);
+  expect(await screen.findByRole("dialog", { description: /target-worker.*Vendor unavailable/ })).toBeDefined();
+});
+
+
+it("u5765_failed_agent_launch_reports_the_retained_row_and_named_recovery", async () => {
+  const mounted = await mount(SOURCE.path, true);
+  const target = mounted.app.of(TARGET);
+  target.handlers["agent.spawn"] = () => { throw new RpcError(-32603, "start failed for target row retained-id", { kind: "start-failed", path: TARGET, id: "retained-id", cause: "Readiness failed" }); };
+
+  const result = await mounted.answer({ id: 92, method: "project.start", params: { path: TARGET, source: SOURCE.path, agent: { id: "1", name: "builder" }, kind: "agent", name: "target-worker", prompt: "work there" } });
+  expect(result).toMatchObject({ error: { code: -32603 } });
+
+  if (!("error" in result)) throw new Error("failed launch must not succeed");
+  expect(result.error.message).toContain("retained-id");
+  expect(result.error.message).toContain(TARGET);
+  expect(target.calls.filter(call => call.method === "agent.spawn")).toHaveLength(1);
+  expect(await screen.findByRole("dialog", { description: /target-worker.*Readiness failed/ })).toBeDefined();
 });

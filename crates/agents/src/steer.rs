@@ -195,6 +195,26 @@ impl Agents {
     }
 
     /// M7: log the `wrote` Touch on `rail:<id>` for a call that succeeded.
+    /// A5765e: qualify a remote maker for the log without giving it target-local authority.
+    pub(super) fn touch_creation(
+        ctx: &Ctx,
+        id: &str,
+        source: Option<&contracts::agent::StartAttribution>,
+    ) -> Result<(), RpcError> {
+        let actor = match source {
+            Some(source) => contracts::Actor {
+                kind: contracts::ActorKind::Agent,
+                id: serde_json::to_string(&[&source.project, &source.agent])
+                    .map_err(RpcError::internal)?,
+                parent: None,
+            },
+            None => ctx.actor.clone(),
+        };
+        ctx.touches
+            .record(&actor, contracts::Verb::Wrote, &format!("rail:{id}"))
+            .map_err(RpcError::internal)
+    }
+
     pub(super) fn touch_rail(ctx: &Ctx, id: &str) -> Result<(), RpcError> {
         ctx.touch(contracts::Verb::Wrote, &format!("rail:{id}"))
     }
