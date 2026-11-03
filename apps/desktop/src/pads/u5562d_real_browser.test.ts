@@ -42,9 +42,9 @@ realBrowserTest("u5562d_colour_round_trip", { timeout: 240000, retry: 0 }, async
 
     const open = async () => {
       await browser("wait", ".pads-tab [data-shelf-group]");
-      await evaluate(`(() => { for (const group of document.querySelectorAll('[data-shelf-group] [data-part=branch-control]')) if (group.closest('[role=treeitem]')?.getAttribute('aria-expanded') === 'false') group.click(); return true; })()`);
+      await evaluate(`(() => { for (const group of document.querySelectorAll('.pads-tab [data-shelf-group] [data-part=branch-control]')) if (group.closest('[role=treeitem]')?.getAttribute('aria-expanded') === 'false') group.click(); return true; })()`);
       await browser("wait", ".pad-name");
-      await evaluate(`(() => { [...document.querySelectorAll('.pad-name')].find(row => row.textContent === 'Colour round trip').focus(); return true; })()`);
+      await evaluate(`(() => { document.querySelector('.pads-tab [data-pad="Colour round trip"] .pad-name').focus(); return true; })()`);
       await browser("press", "Enter");
       await browser("wait", ".drawer .pad-syntax-keyword");
     };
