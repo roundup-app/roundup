@@ -230,7 +230,9 @@ async fn read_loop(
             }
             continue;
         }
-        if frame["method"].is_string() && frame["id"].is_u64() {
+        if frame["method"] == "action.closed"
+            || (frame["method"].is_string() && frame["id"].is_u64())
+        {
             let _ = requests.send(frame);
             continue;
         }

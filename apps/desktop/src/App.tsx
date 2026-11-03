@@ -1,3 +1,4 @@
+import { createProjectOpening, ProjectOpening } from "./app/ProjectOpening";
 import { historyRegion } from "./keys/focus";
 import Hourglass from "lucide-solid/icons/hourglass";
 import { ReducedMotionContext } from "./app/reducedMotion";
@@ -22,7 +23,7 @@ import { Tabs } from "./ui/Tabs";
 import { Reopen } from "./app/Reopen";
 import { createDropTargets } from "./app/dropTargets";
 import type { Requested } from "@contracts/project/Requested";
-import type { App as AppCalls, DaemonExit, MenuItem } from "./app/seam";
+import type { App as AppCalls, DaemonExit, MenuItem, ActionRequest, ActionReply } from "./app/seam";
 import { DrawerHost } from "./drawer/DrawerHost";
 import { InboxKey } from "./inbox/Inbox";
 import { WindowBar } from "./header/WindowBar";
@@ -94,6 +95,7 @@ const Connection = (props: {
   onConnected: (path: string, connection: ConnectedProject | Error | null) => void;
   onRecovered: (path: string, generation: number) => void;
   onRequested: (request: Requested) => void;
+  onOpen: (request: Extract<ActionRequest, { method: "project.open" }>, signal: AbortSignal) => Promise<ActionReply>;
   toasts: ToastQueue;
   alerts: StateAlerts;
   active: () => boolean;
@@ -107,12 +109,23 @@ const Connection = (props: {
 
   const { path } = first.project;
   let mine: ConnectedProject | Error | undefined;
+  let registration = new AbortController();
+  onCleanup(() => registration.abort());
+  createEffect(() => { if (props.tab()?.exit) registration.abort(); });
 
   const [connected] = createResource(() => props.tab()?.generation, async (generation) => {
     const exit = props.tab()?.exit;
 
     try {
-      const next = await connectProject(props.app.forProject(path), first.project, props.reducedMotion, props.now, () => props.tab()?.generation === generation ? props.tab()?.exit ?? null : { code: null, recovery: "connecting" }, railStorage(path), props.drafts(path), props.viewing, props.clock);
+      registration.abort();
+      registration = new AbortController();
+      const captured = registration;
+      const calls = props.app.forProject(path);
+
+      const next = await connectProject({ ...calls, serveActions: async (answer, invalidated) => {
+        await calls.serveActions?.(request => request.method === "project.open"
+          ? props.onOpen(request, captured.signal) : answer(request), () => { captured.abort(); invalidated?.(); });
+      } }, first.project, props.reducedMotion, props.now, () => props.tab()?.generation === generation ? props.tab()?.exit ?? null : { code: null, recovery: "connecting" }, railStorage(path), props.drafts(path), props.viewing, props.clock);
 
       if (props.tab()?.generation !== generation) {
         next.stopTerminalScheme();
@@ -148,7 +161,7 @@ const Connection = (props: {
     if (open && !(open instanceof Error)) open.worktrees.watch(props.active);
   });
 
-  // M8: the Daemon cannot reach the App, so an Agent's open or rename of a Project arrives as an Event.
+  // M8: rename keeps its request Event; open completes through the registered App relay.
   createEffect(() => {
     const open = connected();
 
@@ -348,7 +361,8 @@ export const App = (props: {
     return outcome;
   };
 
-  const answer = (request: Requested) => void (request.kind === "open" ? projects.open(request.path) : renameProject(request.path, request.name));
+  const opening = createProjectOpening(projects);
+  const answer = (request: Requested) => void renameProject(request.path, request.name);
 
   const tabOf = (path: string) => () => projects.tabs().find((tab) => tab.project.path === path);
 
@@ -649,8 +663,9 @@ export const App = (props: {
   return (
     <ReducedMotionContext.Provider value={props.reducedMotion}><DisplayClockContext.Provider value={now.subscribe}><ProjectDraftsContext.Provider value={drafts}><Show when={projects.loaded()}>
       <For each={keys()}>
-        {(key) => <Connection drafts={drafts} app={dropTargets.app} tab={tabOf(key)} reducedMotion={props.reducedMotion} now={pollingNow} clock={props.clock} onConnected={connect} onRecovered={projects.connected} onRequested={answer} toasts={toasts} alerts={alerts} active={() => projects.active() === key} viewing={() => projects.active() === key && visible() && focus() === "focused" && !settingsOpen()} show={() => projects.select(key)} />}
+        {(key) => <Connection drafts={drafts} app={dropTargets.app} tab={tabOf(key)} reducedMotion={props.reducedMotion} now={pollingNow} clock={props.clock} onConnected={connect} onRecovered={projects.connected} onRequested={answer} onOpen={opening.answer} toasts={toasts} alerts={alerts} active={() => projects.active() === key} viewing={() => projects.active() === key && visible() && focus() === "focused" && !settingsOpen()} show={() => projects.select(key)} />}
       </For>
+      <ProjectOpening opening={opening} />
       <DockBadge app={props.app} rails={() => [...connections().values()].flatMap((connection) => (connection instanceof Error ? [] : [attentionHolders(connection.rail.nodes, connection.rail.terminals(), connection.rail.dismissed)]))} onFailure={setBadgeFailure} />
       <Tabs.Root id={tabsId} value={projects.active()} onValueChange={({ value }) => projects.select(value)} activationMode="manual" style={{ display: "contents" }}
         ids={{

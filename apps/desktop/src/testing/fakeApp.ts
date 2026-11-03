@@ -5,7 +5,7 @@ import type { RpcMethodName, RpcMethods } from "@contracts/methods";
 import { OWN_CONTRACT } from "../app/contractMatch";
 import { RpcError } from "../app/seam";
 import { menuProbe, probeQuestion, probeRemovalQuestion, questionProbe } from "./menuProbe";
-import type { AppSeam, RemovalQuestion, RemovalAnswer, NativeOpen, NativeQuestion, DaemonExit, DaemonExited, FileDrop, MenuItem, OpenTarget, OutputMessage, PastedImage, Project, StateAlert, MenuBar, MenuBarAction } from "../app/seam";
+import type { ActionRequest, ActionReply, ProjectCalls, AppSeam, RemovalQuestion, RemovalAnswer, NativeOpen, NativeQuestion, DaemonExit, DaemonExited, FileDrop, MenuItem, OpenTarget, OutputMessage, PastedImage, Project, StateAlert, MenuBar, MenuBarAction } from "../app/seam";
 
 const CONFLICT = -32003;
 
@@ -45,6 +45,8 @@ const emptyReads: Handlers = {
 export type FakeOutputSubscription = { id: string; offset: number; listener: (message: OutputMessage) => void; released: boolean };
 
 export type FakeApp = AppSeam & {
+  requestAction(request: ActionRequest): Promise<ActionReply>;
+  invalidateActions(): void;
   menuBar: MenuBar | null;
   menuBarAction(action: MenuBarAction): void;
   nativeOpen(request: NativeOpen): void;
@@ -130,6 +132,8 @@ const folderOf = (path: string): string => path.split("/").pop() ?? path;
 export const createFakeApp = (): FakeApp => {
   const menuBarListeners = new Set<(action: MenuBarAction) => void>();
   const nativeListeners = new Set<(request: NativeOpen) => void>();
+  let answerAction: Parameters<NonNullable<ProjectCalls["serveActions"]>>[0] | undefined;
+  let invalidateActions: (() => void) | undefined;
   let onEvent: ((event: DaemonEvent) => void) | null = null;
   const live = new Map<string, FakeOutputSubscription>();
   const alertClicks = new Set<(agent: string) => void>();
@@ -145,6 +149,13 @@ export const createFakeApp = (): FakeApp => {
   let naming = { automaticRenaming: true, namingGuide: "Use three hyphen-separated words: role-verb-object, within 32 characters." };
 
   const app: FakeApp = {
+    serveActions: async (answer, invalidated) => { invalidateActions?.(); answerAction = answer; invalidateActions = invalidated; },
+    requestAction: async request => {
+      if (!answerAction) throw new Error("No App answerer is registered");
+
+      return answerAction(request);
+    },
+    invalidateActions: () => invalidateActions?.(),
     menuBar: null,
     showWindow: async () => {},
     setMenuBar: async menu => { app.menuBar = menu; },
@@ -260,6 +271,7 @@ export const createFakeApp = (): FakeApp => {
     dropFiles: (drop) => {
       for (const listener of dropListeners) listener(drop);
     },
+    canonicalProjectPath: async path => path,
     projects: async () => open.map((project) => ({ ...project, running: !exited.has(project.path) })),
     add: (path, name) => {
       exited.delete(path);
@@ -307,6 +319,7 @@ export const createFakeApp = (): FakeApp => {
       // The Project-wide calls are the one App's; only the Daemon's own calls, events are this Project's.
       Object.assign(other, {
         projects: app.projects,
+        canonicalProjectPath: (path: string) => app.canonicalProjectPath(path),
         add: app.add,
         openProject: app.openProject,
         closeProject: app.closeProject,
