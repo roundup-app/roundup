@@ -104,46 +104,48 @@ mod tests {
 
     #[test]
     fn n5420a_messages_refuses_a_divergent_database() {
-        let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().join("messages.db");
-        let mut swapped = migrations();
-        let known = swapped.len();
-        *swapped.last_mut().unwrap() = M::up("CREATE TABLE n5420a_swapped (c);");
-        let mut db = Connection::open(&path).unwrap();
-        Migrations::new(swapped).to_latest(&mut db).unwrap();
-        let schema = |db: &Connection| -> Vec<(String, String)> {
-            db.prepare("SELECT name, coalesce(sql, '') FROM sqlite_schema ORDER BY name")
-                .unwrap()
-                .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))
-                .unwrap()
-                .map(Result::unwrap)
-                .collect()
-        };
-        let before = schema(&db);
-        drop(db);
+        for prefix in [migrations().len() - 1, migrations().len()] {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("messages.db");
+            let known = migrations().len();
+            let mut swapped = migrations()[..prefix].to_vec();
+            *swapped.last_mut().unwrap() = M::up("CREATE TABLE n5420a_swapped (c);");
+            let mut db = Connection::open(&path).unwrap();
+            Migrations::new(swapped).to_latest(&mut db).unwrap();
+            let schema = |db: &Connection| -> Vec<(String, String)> {
+                db.prepare("SELECT name, coalesce(sql, '') FROM sqlite_schema ORDER BY name")
+                    .unwrap()
+                    .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))
+                    .unwrap()
+                    .map(Result::unwrap)
+                    .collect()
+            };
+            let before = schema(&db);
+            drop(db);
 
-        let mut db = Connection::open(&path).unwrap();
-        let message = open(&mut db, &path).unwrap_err().to_string();
-        assert!(message.contains(&path.display().to_string()), "{message}");
-        assert!(message.contains("schema differs"), "{message}");
-        assert!(
-            message.contains(&format!("database version {known}")),
-            "{message}"
-        );
-        assert!(
-            message.contains(&format!("supports through {known}")),
-            "{message}"
-        );
-        assert!(message.contains("newer or branch build"), "{message}");
-        drop(db);
+            let mut db = Connection::open(&path).unwrap();
+            let message = open(&mut db, &path).unwrap_err().to_string();
+            assert!(message.contains(&path.display().to_string()), "{message}");
+            assert!(message.contains("schema differs"), "{message}");
+            assert!(
+                message.contains(&format!("database version {prefix}")),
+                "{message}"
+            );
+            assert!(
+                message.contains(&format!("supports through {known}")),
+                "{message}"
+            );
+            assert!(message.contains("newer or branch build"), "{message}");
+            drop(db);
 
-        let db = Connection::open(&path).unwrap();
-        assert_eq!(
-            db.pragma_query_value(None, "user_version", |row| row.get::<_, i64>(0))
-                .unwrap(),
-            i64::try_from(known).unwrap()
-        );
-        assert_eq!(schema(&db), before);
+            let db = Connection::open(&path).unwrap();
+            assert_eq!(
+                db.pragma_query_value(None, "user_version", |row| row.get::<_, i64>(0))
+                    .unwrap(),
+                i64::try_from(prefix).unwrap()
+            );
+            assert_eq!(schema(&db), before);
+        }
     }
 }
 

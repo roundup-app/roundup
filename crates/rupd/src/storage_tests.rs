@@ -11,6 +11,10 @@ const STORES: [&str; 6] = [
 ];
 
 fn dump(db: &Connection) -> Vec<String> {
+    dump_except(db, &[])
+}
+
+fn dump_except(db: &Connection, excluded: &[&str]) -> Vec<String> {
     let mut out = Vec::new();
     let mut q = db
         .prepare("SELECT type,name,sql FROM sqlite_master ORDER BY type,name")
@@ -21,6 +25,12 @@ fn dump(db: &Connection) -> Vec<String> {
         .map(Result::unwrap)
         .collect();
     for (kind, name, sql) in rows {
+        if excluded
+            .iter()
+            .any(|table| name == *table || name.starts_with(&format!("sqlite_autoindex_{table}_")))
+        {
+            continue;
+        }
         out.push(format!("{kind} {name} {sql:?}"));
         if kind == "table" && !name.starts_with("sqlite_") && name != "deliverable_project" {
             let mut s = db.prepare(&format!("SELECT * FROM \"{name}\"")).unwrap();
@@ -123,7 +133,7 @@ fn n5809b_divergent_project_names_column_without_changes() {
     let rows = saved_rows(&db);
     drop(db);
     for _ in 0..2 {
-        let message = match crate::Daemon::open(dir.path()) {
+        let message = match crate::test_daemon(dir.path()) {
             Ok(_) => panic!("divergent predecessor returned a Daemon"),
             Err(error) => error.to_string(),
         };
@@ -576,12 +586,12 @@ async fn u5740c_current_project_drops_only_retired_tables() {
         INSERT INTO todos(id,title,body,created_at) VALUES(5900,'Keep Todo','exact body',42);
         INSERT INTO pads(key,name,text,updated_at) VALUES('kept-pad','Keep Pad','exact text',43);
         INSERT INTO messages(id,from_actor,to_id,kind,body,status,at) VALUES
-            (5900,'{"kind":"daemon","id":"rupd","parent":null}','5900','note','accepted firing','pending',44),
             (5901,'{"kind":"user","id":"you","parent":null}','you','note','ordinary message','delivered',45);
         INSERT INTO continuation_decisions(id,agent,request,payload,message,evidence)
             VALUES('decision-kept','5900','request-kept','payload-kept',5901,'evidence-kept');
         INSERT INTO continuation_actions(action,decision) VALUES('action-kept','decision-kept');
     "#).unwrap();
+    db.execute("INSERT INTO messages(id,from_actor,to_id,kind,body,status,at) VALUES(5900,?1,'5900','note','accepted firing','pending',44)", [serde_json::to_string(&contracts::Actor::daemon()).unwrap()]).unwrap();
     let record = json_definition(&db);
     db.execute("INSERT INTO reactions(id,actor_key,operation,request,record) VALUES('retired','user:you','saved','request',?1)", [&record]).unwrap();
     db.execute(
@@ -591,15 +601,20 @@ async fn u5740c_current_project_drops_only_retired_tables() {
     .unwrap();
     db.execute("INSERT INTO reaction_firings(id,reaction,operation,ordinal,message,matched,definition,evidence) VALUES('firing-kept','retired','auto-1',1,5900,1,?1,'accepted evidence')", [&record]).unwrap();
     let retained = |db: &Connection| {
-        dump(db)
-            .into_iter()
-            .filter(|row| !row.contains("reaction"))
-            .collect::<Vec<_>>()
+        dump_except(
+            db,
+            &[
+                "reaction_watch",
+                "reaction_firings",
+                "reactions",
+                "reaction_project",
+            ],
+        )
     };
     let before = retained(&db);
     drop(db);
     for _ in 0..2 {
-        let daemon = crate::Daemon::open(dir.path()).unwrap();
+        let daemon = crate::test_daemon(dir.path()).unwrap();
         let db = Connection::open(dir.path().join("project.db")).unwrap();
         assert_eq!(retained(&db), before);
         for table in [
@@ -648,7 +663,7 @@ fn u5740c_other_representations_are_unchanged_on_refusal() {
     let before = dump(&db);
     drop(db);
     for _ in 0..2 {
-        assert!(crate::Daemon::open(dir.path()).is_err());
+        assert!(crate::test_daemon(dir.path()).is_err());
         let db = Connection::open(dir.path().join("project.db")).unwrap();
         assert_eq!(dump(&db), before);
         assert_eq!(
