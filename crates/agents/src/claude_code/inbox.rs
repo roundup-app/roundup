@@ -831,47 +831,49 @@ mod tests {
         let peer = line(7);
         for size in [1, 16, 64] {
             let large = "x".repeat(size * 1024 * 1024);
-            let fixture = format!(
-                "{prefix}{{{},\"unused\":\"{large}\\q",
-                peer.trim()
-                    .strip_prefix('{')
-                    .unwrap()
-                    .strip_suffix('}')
-                    .unwrap()
-            );
-            let transcript = tempfile::NamedTempFile::new().unwrap();
-            std::fs::write(transcript.path(), fixture).unwrap();
-            let mut cursor = 0;
-            for scan in 0..3 {
-                let (result, allocated) = measured(|| recorded(transcript.path(), cursor));
-                assert_eq!(
-                    result,
-                    (
-                        if scan == 0 { vec![3] } else { vec![] },
-                        prefix.len() as u64
-                    ),
-                    "malformed unfinished string, {size} MiB, scan {scan}"
+            for (tail, completion) in [("\\q", "\"}"), ("\"}\"", "")] {
+                let fixture = format!(
+                    "{prefix}{{{},\"unused\":\"{large}{tail}",
+                    peer.trim()
+                        .strip_prefix('{')
+                        .unwrap()
+                        .strip_suffix('}')
+                        .unwrap()
                 );
+                let transcript = tempfile::NamedTempFile::new().unwrap();
+                std::fs::write(transcript.path(), fixture).unwrap();
+                let mut cursor = 0;
+                for scan in 0..3 {
+                    let (result, allocated) = measured(|| recorded(transcript.path(), cursor));
+                    assert_eq!(
+                        result,
+                        (
+                            if scan == 0 { vec![3] } else { vec![] },
+                            prefix.len() as u64
+                        ),
+                        "malformed unfinished string, {size} MiB, scan {scan}"
+                    );
+                    assert!(
+                        allocated <= 256 * 1024,
+                        "malformed unfinished string, {size} MiB, scan {scan}: {allocated} bytes, bound 256 KiB"
+                    );
+                    cursor = result.1;
+                }
+                let finish = format!("{completion}\n{}", line(11));
+                std::fs::OpenOptions::new()
+                    .append(true)
+                    .open(transcript.path())
+                    .unwrap()
+                    .write_all(finish.as_bytes())
+                    .unwrap();
+                let end = transcript.as_file().metadata().unwrap().len();
+                let (result, allocated) = measured(|| recorded(transcript.path(), cursor));
+                assert_eq!(result, (vec![11], end), "malformed recovery, {size} MiB");
                 assert!(
                     allocated <= 256 * 1024,
-                    "malformed unfinished string, {size} MiB, scan {scan}: {allocated} bytes, bound 256 KiB"
+                    "malformed recovery, {size} MiB: {allocated} bytes, bound 256 KiB"
                 );
-                cursor = result.1;
             }
-            let finish = format!("\"}}\n{}", line(11));
-            std::fs::OpenOptions::new()
-                .append(true)
-                .open(transcript.path())
-                .unwrap()
-                .write_all(finish.as_bytes())
-                .unwrap();
-            let end = transcript.as_file().metadata().unwrap().len();
-            let (result, allocated) = measured(|| recorded(transcript.path(), cursor));
-            assert_eq!(result, (vec![11], end), "malformed recovery, {size} MiB");
-            assert!(
-                allocated <= 256 * 1024,
-                "malformed recovery, {size} MiB: {allocated} bytes, bound 256 KiB"
-            );
         }
     }
 
