@@ -33,6 +33,18 @@ impl Wire {
         Some(serde_json::from_str(&line).unwrap())
     }
 
+    async fn project(&mut self) -> Value {
+        loop {
+            let request = self.next().await.expect("App request");
+            if request["method"] == "action.list" {
+                self.send(json!({"jsonrpc":"2.0","id":request["id"],"result":rows()}))
+                    .await;
+            } else {
+                return request;
+            }
+        }
+    }
+
     /// One request and its reply.
     async fn call(&mut self, method: &str, params: Value) -> Value {
         self.send(json!({"jsonrpc":"2.0","id":1,"method":method,"params":params}))
@@ -315,4 +327,116 @@ async fn na9_a_run_the_app_never_answered_is_unknown_outcome_and_not_retried() {
         .await;
     assert_eq!(reply["error"]["code"], code::UNKNOWN_OUTCOME);
     assert_eq!(fixture.runs.lock().unwrap().len(), 2);
+}
+
+#[tokio::test]
+async fn a5765f_open_without_or_losing_the_app() {
+    let fixture = daemon().await;
+    let target = tempfile::tempdir().unwrap();
+    let params = json!({"path": target.path()});
+    let reply = fixture
+        .user()
+        .await
+        .call("project.open", params.clone())
+        .await;
+    assert_eq!(reply["error"]["code"], code::APP_CLOSED);
+
+    let mut app = fixture.user().await;
+    app.call("action.serve", Value::Null).await;
+    let mut caller = fixture.user().await;
+    caller
+        .send(json!({"jsonrpc":"2.0","id":2,"method":"project.open","params":params}))
+        .await;
+    let request = app.project().await;
+    assert_eq!(request["method"], "project.open");
+    assert_eq!(request["params"]["path"], json!(target.path()));
+    let mut replacement = fixture.user().await;
+    replacement.call("action.serve", Value::Null).await;
+    let reply = caller.next().await.unwrap();
+    assert_eq!(reply["error"]["code"], code::UNKNOWN_OUTCOME);
+}
+
+#[tokio::test(start_paused = true)]
+async fn a5765b_open_confirmation_outlives_the_action_timeout() {
+    let fixture = daemon().await;
+    let target = tempfile::tempdir().unwrap();
+    let mut app = fixture.user().await;
+    app.call("action.serve", Value::Null).await;
+    let mut caller = fixture.user().await;
+    let door = caller
+        .call("rail.createWorkstream", json!({"name":"builder"}))
+        .await;
+    let id = door["result"]["id"].as_str().unwrap();
+    caller
+        .call(
+            "daemon.identify",
+            json!({"actor":{"kind":"agent","id":id,"parent":null}}),
+        )
+        .await;
+    caller
+        .send(
+            json!({"jsonrpc":"2.0","id":2,"method":"project.open","params":{"path":target.path()}}),
+        )
+        .await;
+    let request = app.project().await;
+    assert_eq!(request["method"], "project.open");
+    assert_eq!(
+        request["params"]["agent"],
+        json!({"id":id,"name":"builder"})
+    );
+    tokio::time::advance(Duration::from_secs(11)).await;
+    app.send(json!({"jsonrpc":"2.0","id":request["id"],"result":{"path":target.path()}}))
+        .await;
+    assert_eq!(
+        caller.next().await.unwrap()["result"],
+        json!({"path":target.path()})
+    );
+    assert!(!target.path().join(".roundup").exists());
+}
+
+#[tokio::test]
+async fn a5765c_open_refusal_and_invalid_params_create_nothing() {
+    let fixture = daemon().await;
+    let target = tempfile::tempdir().unwrap();
+    let mut caller = fixture.user().await;
+    for params in [
+        json!({"path":"relative"}),
+        json!({"path":target.path(),"yolo":true}),
+        json!({"path":target.path(),"actor":"you"}),
+        json!({"path":target.path(),"rpc":"agent.spawn"}),
+    ] {
+        assert_eq!(
+            caller.call("project.open", params).await["error"]["code"],
+            code::INVALID_PARAMS
+        );
+    }
+    let file = target.path().join("file");
+    std::fs::write(&file, "").unwrap();
+    for path in [file, target.path().join("missing")] {
+        assert_eq!(
+            caller.call("project.open", json!({"path":path})).await["error"]["code"],
+            code::NOT_FOUND
+        );
+    }
+    let mut unknown = fixture.agent().await;
+    assert_eq!(
+        unknown
+            .call("project.open", json!({"path":target.path()}))
+            .await["error"]["code"],
+        code::FORBIDDEN
+    );
+    let mut app = fixture.user().await;
+    app.call("action.serve", Value::Null).await;
+    caller
+        .send(
+            json!({"jsonrpc":"2.0","id":2,"method":"project.open","params":{"path":target.path()}}),
+        )
+        .await;
+    let request = app.project().await;
+    let cause = format!("The user refused to open {}", target.path().display());
+    app.send(json!({"jsonrpc":"2.0","id":request["id"],"error":{"code":code::FORBIDDEN,"message":cause}})).await;
+    let reply = caller.next().await.unwrap();
+    assert_eq!(reply["error"]["code"], code::FORBIDDEN);
+    assert_eq!(reply["error"]["message"], cause);
+    assert!(!target.path().join(".roundup").exists());
 }

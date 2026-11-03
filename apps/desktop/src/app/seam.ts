@@ -65,11 +65,11 @@ export type OutputMessage = Uint8Array | { gap: { from: number; to: number } };
 export type OutputSubscription = { offset: number; release(): Promise<void> };
 
 /** NA6: a request line the Daemon relays to the App, and the line the App answers it with. */
-export const actionRequestSchema = v.object({
-  id: v.number(),
-  method: v.string(),
-  params: v.optional(v.nullable(v.object({ name: v.string(), args: v.array(v.object({ key: v.string(), value: v.string() })) }))),
-});
+export const actionRequestSchema = v.variant("method", [
+  v.object({ id: v.number(), method: v.literal("action.list"), params: v.optional(v.nullable(v.object({}))) }),
+  v.object({ id: v.number(), method: v.literal("action.run"), params: v.object({ name: v.string(), args: v.array(v.object({ key: v.string(), value: v.string() })) }) }),
+  v.object({ id: v.number(), method: v.literal("project.open"), params: v.object({ path: v.string(), source: v.string(), agent: v.nullable(v.object({ id: v.string(), name: v.string() })) }) }),
+]);
 
 export type ActionRequest = v.InferOutput<typeof actionRequestSchema>;
 
@@ -87,7 +87,7 @@ export type ProjectCalls = {
    */
   subscribe(onEvent: (event: DaemonEvent) => void, params?: SubscribeParams): Promise<number>;
   /** NA6: registers this window as the Project's action answerer; each request line the Daemon relays goes to `answer`, whose line goes back. */
-  serveActions?(answer: (request: ActionRequest) => Promise<ActionReply>): Promise<void>;
+  serveActions?(answer: (request: ActionRequest) => Promise<ActionReply>, invalidated?: () => void): Promise<void>;
   /** Delivers the raw output of the Terminal `id`, and of no other, to `listener` in order; a second call for the same Terminal replaces the first. Rejects NOT_FOUND for an unknown or exited Terminal. */
   selectOutput(id: string, listener: (message: OutputMessage) => void): Promise<OutputSubscription>;
 };
@@ -105,6 +105,7 @@ export const SEAM_COMMANDS = [
   "set_menu_bar",
   "select_project_menu",
   "open_project",
+  "canonical_project_path",
   "close_project",
   "rename_project",
   "rpc",
@@ -203,6 +204,8 @@ export type App = {
   /** The open Projects in tab order. */
   projects(): Promise<ListedProject[]>;
   openProject(path: string): Promise<Project>;
+  /** Resolves filesystem aliases without opening a Project or changing its saved path. */
+  canonicalProjectPath(path: string): Promise<string>;
   /** Ends the Project's Daemon and its Agents and Terminals. */
   closeProject(path: string): Promise<void>;
   /** Stores `name` for the Project; an empty name returns it to its folder's name (S10). */
