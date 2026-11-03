@@ -54,7 +54,7 @@ it("u5765_escape_refuses_and_restores_ask_focus_on_tree_40", async () => {
 it("u5765_open_failure_exposes_the_cause_and_recovery", async () => {
   await page.evaluate(`(() => {
     const app = window.__fake.app;
-    app.opened.failure = window.__fake.refusal(-32001, 'The folder is unavailable. Choose an existing folder and try again.');
+    app.opened.failure = window.__fake.refusal(-32001, 'The folder is unavailable.');
     window.openResult=null;
     void app.requestAction({id:5766,method:'project.open',params:{source:app.opened.project.path,path:'/Users/you/Projects/unavailable-folder',agent:{id:'agent-1',name:'builder'}}}).then(reply=>window.openResult=reply);
     return true;
