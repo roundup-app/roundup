@@ -487,3 +487,58 @@ Integrated remote head `c2ca0523e` by fast-forward; it had already made #5861 re
 `pnpm install`, vocabulary, scenario ids, merge-loss and whitespace checks pass. No product, contract, scenario or behavior test changed; #5758 remains open for the complete inventory and later owner request.
 
 Final fix-run `just ready` passes (exit 0), including all 193 lint-behavior checks, styles, package typechecks, repository/Rust lints, B4522, `ALL PROOFS CHECK` and N7. The corrected standalone spelling scan also passes. No local `just check` ran.
+
+## Requested attention, progress and Import — builder-41603063123
+
+Documentation-only slice pinned to main `b021117d063f663008f9a692be5e7496b2eebbe1`. No product/scenario/contract/test/frozen-loop changes, owner request or deletion. `attention-import.md` records A01–A10, W01–W09 and I01–I15 separately. Source catalogue retains inspected hashes, exact direction replies, installed Claude 2.1.300 help, gh run view help and reproducible isolated driver. Current source public mappings are distinguished from earlier actual role offers; no fresh tools/list is claimed.
+
+Observer: existing isolated App harness, fresh named browser/profile, headless Chromium, dark 1512×950. Fake Daemon openings prove webview controls and calls only. Captures remain uncommitted under `artifacts/ux/U5741/attention-import/`. Existing unavailable/error states are retained with Check readings; no native, real import/Message, clipboard or older-data reopening claim. Remaining conditional/equivalence/runtime/revision gaps remain on #5758.
+
+| Failed command / observer | Exit | Failure and repair |
+| --- | ---: | --- |
+| Initial `pwd; git status --short; git rev-parse HEAD; ls .codegraph` | 2 | Optional index absent; ordinary source discovery used. |
+| `cat ... importer/state.ts ... testing/fakeAppHandlers.ts` | 1 | Guessed modules absent; inspected rail/importState.ts and fakeApp.ts instead. |
+| `rg ... app/commands.ts ...` | 2 | Guessed commands module absent; actual Rail/App/ProjectSettings registration read. |
+| `rg ... app/App.tsx ...` | 2 | Actual App.tsx is at src root. |
+| `rg ... settings/SettingsNav.tsx rail/ProjectTab.tsx ...` | 2 | Guessed modules absent; actual SettingsShell and header composition inspected. |
+| first isolated driver, attention row activation | 1 | Used displayed login-store name as id. DOM gives logins; corrected selector, discarded earlier run and recaptured all openings after clearing test storage. |
+| `rg ... contracts/src/methods/declarations.rs ...` | 2 | Actual declarations.rs is at contracts/src root. |
+| direction search in existing direction.md | 1 | No matching Import/progress entry; fetched linked #3523/#3666/#4966 and read owning scenarios. |
+| second isolated driver, unknown-resume wait | 1 | Expected phrase differs from current App text. Corrected wait to actual rendered status; all openings recaptured. |
+| `cat crates/rup/src/cli/specs.rs` | 1 | Actual specs function is in cli.rs. |
+| `rg ... crates/rup/src/cli/mod.rs` (two reads) | 2 each | Actual cli.rs read; verified command construction and kebab mapping. |
+
+`pnpm install --frozen-lockfile`, work-order validation and Issue scope update passed (exit 0). Full lint and final source/render/archive reconciliation results follow below. No local `just check`; unchanged behavior files add no tests under U5741's policy observer.
+
+| Additional command / observer | Exit | Failure and repair |
+| --- | ---: | --- |
+| `rg` over importState with an unescaped opening brace | 2 | Invalid regular expression; read the actual implementation block instead. |
+| Python rendered-manifest inspection in the original checkout | 1 | New file belongs to the isolated worktree; reran there. |
+| First `just ready` | 143 | Terminated during proof-command fixture checks, after web/Rust lints. No complete pass; reran detached with an explicit exit-code file. |
+| `gh pr checks 5867` | 8 | Draft checks pending/skipped; no required-gate pass claimed. |
+| Isolated `just harness import-candidates 5243` shutdown | 130 | Deliberately stopped this run's harness after all captures; browser session closed separately. |
+
+Seventeen final openings retained: twelve Import/attention screens pass every recorded Check; five dense progress screens preserve D4's `li.progress-row` reading 41 initially and 42 after expansion and dependent D10 failure. Every D2/D5/D6 passes. The full-diagnostic screen opens the resume failure tooltip. Fake refusal/unknown replies exercise controls, not a production failure claim. All earlier failed driver runs are superseded, not combined with the final run.
+
+Self-review corrected two observer limits before finalization: the fake seeded Import has no listing Agent, so the report distinguishes its source/revision refusal from the production branch adding a retained listing Agent. The final driver preserves the pointer on the diagnostic tooltip instead of moving it away before capture, and sets dark media as well as App dark appearance. The earlier tooltip capture is superseded.
+
+The detached lint run records its final result independently of the interactive command lifetime. Only its explicit exit-code file establishes completion.
+
+The final row review marks Q3 unverified for unrendered conditional variants (shell/comment attention, selected Copy, read/copy failures and Import conflict/storage recovery). Their implemented actions are recorded as source evidence; missing renders are not silently counted as negative criterion answers.
+
+The final inventory separates read Retry from read-error Clear (W08/W09), yielding 34 independent rows. Error dismissal is optional to the five-stage result even where its owning scenario remains active; the rows no longer claim that a required retry/open outcome needs a separate dismissal control. This is candidate evidence only, not permission to remove one.
+
+Final detached `just ready` passed (exit 0): all 193 lint-behavior checks, package typechecks, repository/Rust lints, formal proofs (`ALL PROOFS CHECK`) and N7's launch-site observer. Final source/archive/snapshot reconciliation, dark media/appearance/viewport checks, D2/D5/D6, vocabulary, scenario ids, merge-loss, spelling and whitespace checks passed (exit 0). No local `just check` or added/changed behavior tests. Browser session and only this run's harness are closed. All seventeen final PNG files are also copied to the workflow checkout's `artifacts/ux/U5741/attention-import/` for attachment; none is committed.
+
+
+## Independent fix-run verification — builder-41604993438
+
+Integrated the original builder's concurrent head `840a525bb0fcb01dd0a9be9cde2a12c55e541b90` by fast-forward, retaining its 34 rows, conditional observer limits, source/refusal distinction and corrected archived driver. Main remains the audited `b021117d063f663008f9a692be5e7496b2eebbe1`; no merge resolution or product change was needed.
+
+Independently verified all 34 source hashes, every archived payload and all seventeen stored snapshot checksums. Replayed the updated driver in a fresh headless profile/session on isolated port 5247: all seventeen openings reproduce the recorded Check statuses, with dark media and App appearance at 1512×950. Visually inspected the final diagnostic PNG: the full cause and recovery stay visible. Corrected the report's D4 reading to 41 initially and 42 after expanding earlier versions; the underlying observations are unchanged. Captures and the independent manifest remain uncommitted under the workflow checkout's `artifacts/ux/U5741/attention-import/`.
+
+| Command / observer | Exit | Disposition |
+| --- | ---: | --- |
+| `just harness import-candidates 5247` shutdown | 130 | Deliberately stopped only this run's harness after observation; its dedicated browser closed successfully. |
+
+Independent `pnpm install --frozen-lockfile` and `just ready` pass (exit 0), including all 193 lint-behavior checks, package typechecks, repository/Rust lints, B4522, `ALL PROOFS CHECK` and N7. Final spelling, vocabulary, scenario ids, merge-loss and whitespace checks pass. No local `just check` or changed behavior tests. #5758 remains open for the documented inventory gaps, owner choices and authorized retirements; older-Project reopening remains mandatory.
