@@ -145,6 +145,7 @@ jobs:
         with:
           name: answer
           path: ${{ runner.temp }}/answer.txt
+          overwrite: true  # a rerun's answer replaces the earlier attempt's, which download would otherwise pick (#5924)
       # A usage limit or a setup failure leaves no tool use; post then leaves `review` pending for a rerun.
       - id: ran
         if: always()
