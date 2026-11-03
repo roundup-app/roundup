@@ -18,7 +18,7 @@ it("u5562c_code_colours_render", { retry: 0, timeout: 90000 }, async () => {
   await browser("wait", "[data-shelf-group=unassigned]");
   await evaluate(`(() => { const group = document.querySelector('[data-shelf-group=unassigned] [data-part=branch-control]'); if (group?.getAttribute('data-state') === 'closed') group.click(); return true; })()`);
   await browser("wait", ".pad-name");
-  await evaluate(`(() => { [...document.querySelectorAll('.pad-name')].find(row => row.textContent === 'Code colours').focus(); return true; })()`);
+  await evaluate(`(() => { document.querySelector('.pads-tab [data-pad="Code colours"] .pad-name').focus(); return true; })()`);
   await browser("press", "Enter");
   await browser("wait", ".drawer .pad-syntax-keyword");
   await settle();
@@ -41,13 +41,15 @@ it("u5562c_code_colours_render", { retry: 0, timeout: 90000 }, async () => {
 });
 
 it("u5562a_insert_each_callout", { retry: 0, timeout: 180000 }, async () => {
+  await openShelf("tree-40", 288, 320, 1512, "dark");
+
   for (const kind of ["NOTE", "TIP", "IMPORTANT", "WARNING", "CAUTION"]) {
-    await openShelf("tree-40", 288, 320, 1512, "dark");
-    await evaluate(`(async () => { await window.__fake.app.rpc('pad.create', {name:'Insert callout',text:'Keep  exact\\n'}); document.querySelector('#shelf-tab-pads').click(); return true; })()`);
+    const name = `Insert callout ${kind}`;
+    await evaluate(`(async () => { window.__fake.app.calls.length = 0; await window.__fake.app.rpc('pad.create', {name:${JSON.stringify(name)},text:'Keep  exact\\n'}); const tab = document.querySelector('#shelf-tab-pads'); if (tab.getAttribute('aria-expanded') !== 'true') tab.click(); return true; })()`);
     await browser("wait", "[data-shelf-group=unassigned]");
     await evaluate(`(() => { const group = document.querySelector('[data-shelf-group=unassigned] [data-part=branch-control]'); if (group?.getAttribute('data-state') === 'closed') group.click(); return true; })()`);
     await browser("wait", ".pad-name");
-    await evaluate(`(() => { [...document.querySelectorAll('.pad-name')].find(row => row.textContent === 'Insert callout').focus(); return true; })()`);
+    await evaluate(`(() => { document.querySelector(${JSON.stringify('.pads-tab [data-pad=' + JSON.stringify(name) + '] .pad-name')}).focus(); return true; })()`);
     await browser("press", "Enter");
     await browser("wait", ".ProseMirror[contenteditable=true]");
     await browser("focus", ".ProseMirror");
@@ -76,7 +78,7 @@ it("u5562b_selection_colour_and_highlight_in_the_real_editor", { retry: 0, timeo
   await browser("wait", "[data-shelf-group=unassigned]");
   await evaluate(`(() => { const group = document.querySelector('[data-shelf-group=unassigned] [data-part=branch-control]'); if (group?.getAttribute('data-state') === 'closed') group.click(); return true; })()`);
   await browser("wait", ".pad-name");
-  await evaluate(`(() => { [...document.querySelectorAll('.pad-name')].find(row => row.textContent === 'Selection colours').focus(); return true; })()`);
+  await evaluate(`(() => { document.querySelector('.pads-tab [data-pad="Selection colours"] .pad-name').focus(); return true; })()`);
   await browser("press", "Enter");
   await browser("wait", ".ProseMirror[contenteditable=true]");
   await browser("focus", ".drawer .ProseMirror");
@@ -159,7 +161,7 @@ it("u5562b_selection_colour_and_highlight_in_the_real_editor", { retry: 0, timeo
 
   if (recoveryOutput) {
     mkdirSync(recoveryOutput, { recursive: true });
-    await evaluate(`(() => { [...document.querySelectorAll('.pad-name')].find(row => row.textContent === 'Selection colours').focus(); return true; })()`);
+    await evaluate(`(() => { document.querySelector('.pads-tab [data-pad="Selection colours"] .pad-name').focus(); return true; })()`);
     await browser("press", "Enter");
     await browser("wait", ".ProseMirror[contenteditable=true]");
     await evaluate(`(() => { document.querySelector('.drawer [aria-label="Restore"]')?.click(); return true; })()`);
