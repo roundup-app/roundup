@@ -1,7 +1,11 @@
 import { expect, it } from "vitest";
 import { shelfBrowser } from "./u371Browser";
 
-const { browser, evaluate, settle, openShelf } = shelfBrowser();
+const { browser, evaluate, settle, openShelf } = shelfBrowser(`
+  if (new URLSearchParams(location.search).get('seed') === 'tree-40') {
+    localStorage.setItem('roundup:rail:/Users/you/harness', JSON.stringify({ selected: null, collapsed: ['backend', 'payments'], sections: ['agents'] }));
+  }
+`);
 
 it("u3721_overlay_mode_has_no_maximise_button_and_m_does_nothing", async () => {
   // This overlay-control probe needs no owners or attention rows.
