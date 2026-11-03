@@ -288,6 +288,8 @@ export const createXtermEmulators = (
     element.style.gridArea = "1 / 1";
     terminal.loadAddon(fitter);
     terminal.onRender(() => {
+      const buffer = terminal.buffer.active;
+      element.toggleAttribute("data-terminal-content", buffer.baseY > 0 || Array.from({ length: terminal.rows }, (_, row) => buffer.getLine(row)?.translateToString(true)).some(Boolean));
       element.toggleAttribute("data-scrollback", terminal.buffer.active.baseY > 0);
       probe?.rendered(id);
 

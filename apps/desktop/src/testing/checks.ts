@@ -259,8 +259,6 @@ const colourTokens = (page: Page, el: Element): Rgba[] | null => {
 
   if (el.closest(".pad-rich-editor .ProseMirror")) names.push("pad-blue", "pad-amber", "pad-green", "pad-purple", "pad-highlight", "pad-highlight-ink", "blue-12", "green-12", "purple-12", "red-12", "amber-12");
 
-  if (el.closest('.empty-state-art')) names.push("doodle-line", "doodle-patch");
-
   if (el.closest('[data-button="primary"]')) names.push("button-accent-fill", "button-key-ink");
 
   const read = names.map((name) => parseColour(resolveAt(page, el, `var(--${name})`)));
