@@ -18,7 +18,7 @@ const capture = async (name: string) => {
 };
 
 it("u4458_maximised_drawer_hides_the_centre_without_unmounting_it", { retry: 0, timeout: 90_000 }, async () => {
-  await openShelf("tree-40", 288, 320, 1280, "dark");
+  await openShelf(output ? "tree-40" : "selection", 288, 320, 1280, "dark");
   await browser("set", "viewport", "1280", "820");
 
   if (output) {
@@ -99,9 +99,9 @@ const cycle = async (lane: LaneBrowser, covered: boolean, shelf: boolean) => {
     let complete = false;
 
     for (let step = 0; step < 160; step++) {
-      await lane.browser("press", key);
-
-      const state = await lane.evaluate<{ complete: boolean; centre: boolean }>(`(() => {
+      // CI5527e: 131832 ms on the rejected head. Keep each real key and its
+      // observation sequential while avoiding a second CLI connection per step.
+      const expression = `(() => {
         const el = document.activeElement;
         const cycle = window.__cycle;
         cycle.nodes.push(el);
@@ -109,7 +109,17 @@ const cycle = async (lane: LaneBrowser, covered: boolean, shelf: boolean) => {
         const complete = ${covered ? "el === cycle.start || el.matches('.drawer [contenteditable=true]')" : "el === window.__covered.button"};
         if (complete) cycle.ends.push(el);
         return { complete, centre: !!el.closest('.centre') && !el.closest('.resource-agent') };
-      })()`);
+      })()`;
+
+      const replies: { success: boolean; error?: string; result: { result: { complete: boolean; centre: boolean } } }[] = JSON.parse(await lane.browser(
+        "--json", "batch", "--bail", `press ${key}`, "eval '" + expression.replaceAll("'", "'\\''") + "'"
+      ));
+
+      const failed = replies.find(reply => !reply.success);
+
+      if (failed) throw new Error(failed.error);
+
+      const state = replies.at(-1)!.result.result;
 
       if (covered) expect(state.centre, `${key} reached a covered control`).toBe(false);
 
@@ -143,7 +153,7 @@ const cases = [
 
 it.concurrent.each(cases)(
   "u4911a_covered_centre_controls_leave_and_rejoin_tab_order_$kind / $background", { retry: 0, timeout: 180_000 }, async ({kind, background}) => {
-  const lane = await openLane(1512, "dark", `u4911a-${kind}-${background}`);
+  const lane = await openLane(1512, "dark", `u4911a-${kind}-${background}`, false, captureDir("U4911a") ? "tree-40" : "selection");
   const phase = process.env.ROUNDUP_CAPTURE_PHASE ?? "head";
   const directory = captureDir("U4911a");
   const recording = directory && background === "save";

@@ -78,7 +78,7 @@ it.each(["empty-project", "tree-40"])("u3756a_late_door_terminal_keeps_the_newer
     await wait(`document.querySelector('.terminal-tab[data-bubble="101"]').getAttribute('aria-pressed') === 'false'`);
     await read(`window.__fake.app.handlers['terminal.open'] = () => { throw new Error('Terminal could not open: retry New Terminal'); }`);
     await browser("press", "Meta+t");
-    await wait(`document.body.textContent.includes('Terminal could not open: retry New Terminal')`);
+    await wait(`document.querySelector('.bubbles [role=alert]')?.textContent.includes('Terminal could not open: retry New Terminal')`);
     await capture("U3756a", "tree-40-failure");
   }
   } finally { if (recording) await browser("record", "stop"); }
@@ -192,7 +192,7 @@ for (const intervene of [false, true]) {
     await read(`(() => {
       const app = window.__fake.app, read = app.handlers['pad.read'];
       app.handlers['pad.read'] = params => new Promise(resolve => { window.finishPad = () => resolve(read(params)); });
-      const tab = [...document.querySelectorAll('[role=tab]')].find(t => t.textContent.startsWith('Pads')); if (tab.getAttribute('aria-expanded') !== 'true') tab.click();
+      const tab = document.querySelector('#shelf-tab-pads[role=tab]'); if (tab.getAttribute('aria-expanded') !== 'true') tab.click();
     })()`);
     await wait(`!!document.querySelector('.pad-name')`);
     await read(`document.querySelector('[data-pad="pad-3"] .pad-name').closest('[data-shelf-group][data-state=closed]')?.querySelector('[data-part=branch-control]').click()`);

@@ -1,20 +1,22 @@
 import { build } from "vite";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-const bundled = async (): Promise<string> => {
+const bundled = async (): Promise<string[]> => {
   const built = await build({
     root: ".",
     configFile: "vite.config.ts",
     logLevel: "silent",
-    build: { write: false },
+    // CI5527i: three full dependency bundles took 43,203 ms on web 4 (run 41575179006).
+    // Probe guards live in App modules: keep their production transforms and tree-shaking,
+    // but leave installed dependencies out of the chunks these assertions search.
+    build: { write: false, rolldownOptions: { external: [/\/node_modules\//] } },
   });
 
   const outputs = [built].flat();
 
   return outputs
     .flatMap((output) => ("output" in output ? output.output : []))
-    .map((file) => (file.type === "chunk" ? file.code : ""))
-    .join("\n");
+    .flatMap((file) => (file.type === "chunk" ? [file.code] : []));
 };
 
 // Each build is slow, so the four opt-in cases (K1's probe, U3010e's recorder) share two.
@@ -37,31 +39,31 @@ afterEach(() => vi.unstubAllEnvs());
 
 describe("k1 and u3010e the probes are opt-in at build time", () => {
   it("k1_a_normal_build_carries_no_trace_of_the_probe", async () => {
-    expect(await normal()).not.toContain("roundup-keystroke-probe");
+    expect((await normal()).some(chunk => chunk.includes("roundup-keystroke-probe"))).toBe(false);
   }, 60_000);
 
   it("sp1_a_normal_build_carries_no_trace_of_the_switch_probe", async () => {
-    expect(await normal()).not.toContain("roundup-switch-probe");
+    expect((await normal()).some(chunk => chunk.includes("roundup-switch-probe"))).toBe(false);
   }, 60_000);
 
   it("sp1_a_build_made_with_VITE_ROUNDUP_PERF_carries_the_switch_probe", async () => {
-    expect(await measurement()).toContain("roundup-switch-probe");
+    expect((await measurement()).some(chunk => chunk.includes("roundup-switch-probe"))).toBe(true);
   }, 60_000);
 
   it("u3010e_a_normal_build_carries_no_trace_of_the_recorder", async () => {
-    expect(await normal()).not.toContain("roundup-frame-recorder");
+    expect((await normal()).some(chunk => chunk.includes("roundup-frame-recorder"))).toBe(false);
   }, 60_000);
 
   it("r24_a_normal_build_excludes_the_idle_producer_and_its_native_command", async () => {
-    expect(await normal()).not.toContain("record_idle_evidence");
+    expect((await normal()).some(chunk => chunk.includes("record_idle_evidence"))).toBe(false);
   }, 60_000);
 
   it("k1_a_build_made_with_VITE_ROUNDUP_PERF_carries_it", async () => {
-    expect(await measurement()).toContain("roundup-keystroke-probe");
+    expect((await measurement()).some(chunk => chunk.includes("roundup-keystroke-probe"))).toBe(true);
   }, 60_000);
 
   it("u3010e_a_measurement_build_carries_it", async () => {
-    expect(await measurement()).toContain("roundup-frame-recorder");
+    expect((await measurement()).some(chunk => chunk.includes("roundup-frame-recorder"))).toBe(true);
   }, 60_000);
 });
 
@@ -71,7 +73,7 @@ it("r24_an_idle_build_carries_evidence_without_typing_or_frame_drivers", async (
 
   const code = await bundled();
 
-  expect(code).toContain("record_idle_evidence");
-  expect(code).not.toContain("roundup-keystroke-probe");
-  expect(code).not.toContain("roundup-frame-recorder");
+  expect(code.some(chunk => chunk.includes("record_idle_evidence"))).toBe(true);
+  expect(code.some(chunk => chunk.includes("roundup-keystroke-probe"))).toBe(false);
+  expect(code.some(chunk => chunk.includes("roundup-frame-recorder"))).toBe(false);
 }, 60_000);

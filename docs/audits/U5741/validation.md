@@ -324,3 +324,44 @@ Merged `origin/main` at `9f948f124` without conflicts; `git show --remerge-diff`
 | Temporary aggregate report assertion (Python) | 1 | Counted decision ids again in the public-mapping table. Restricted counting to the independent-decision table; 22 rows, thirteen rendered openings, eight menu models and every inspected source hash then reconciled (exit 0). |
 
 Final `just ready` passes (exit 0): B4522 migration guard, web lint/typecheck, repository and Rust lints, `ALL PROOFS CHECK` and N7 launch sites. Vocabulary, scenario ids, merge-loss, whitespace, all 33 inspected source hashes, eight exact menu models and thirteen rendered openings pass (exit 0). Own diff review is clean after correcting the existing `RailRow::NameField` reference and naming each applicable action id. No behavior tests changed; no local `just check` ran. The dedicated browser session was closed.
+
+## Project entry continuation — builder-41583532350
+
+Audited main `4dfcec6fd757600df568ecbe414e503d5d2af064`; own worktree `/tmp/roundup-u5741-41583532350`. The specification is merged and #5741 is closed. #5758's body was expanded with the exact documentary scope after `python3 loop/orders.py check /tmp/u5741-body.md` passed (exit 0), before edits. No product, scenario, test, contract or frozen-loop change; no policy-report wording test is added. No deletion, partial owner ask or Mac-only observation is requested.
+
+Successful commands (exit 0): `git fetch origin main`; own branch/worktree creation; validated Issue edit; `pnpm install --frozen-lockfile`; `agent-browser skills get core`; installed `node_modules/.bin/claude --version` and `--help`; linked #1093 body/comments and #5741 state retrieval. `just harness tree-40 5227` subsequently served successfully (long-running observer, not a completed test).
+
+Fresh dedicated headless session `u5741-project-415835`, profile `/tmp/u5741-project-profile-415835`, dark 1512×950. The observer saves the actual App appearance preference through existing preferences rather than editing DOM styling. The startup gate has no mounted App appearance; its system scheme follows the forced dark browser preference. Rendered evidence labels fake replies and native projections, retains Check failures if any, and makes no real process/clipboard/native chooser/durability claim. Current non-running-tab close and running-tab confirmation are different observations; the former must not be relabelled as a missing native question.
+
+| Failed command / observer | Exit / status | Failure / disposition |
+| --- | --- | --- |
+| Initial `ls -d .codegraph .claude/sound` | 2 | No codegraph index; sound rules exist. Normal source search used. |
+| `rg` against guessed harness/test/App paths | 2 | Actual harness is testing/harness.tsx and root App.tsx; both inspected. No absence inferred from guessed paths. |
+| Reads of guessed `state/storageCopy.ts`, `settings/schema.ts`, `scenarios/ui-draft-continuity.md` | 2 | Actual owners are app/copy.ts, settings/preferences.ts and scenarios/unfinished-input.md, inspected. |
+| `just harness tree-40 5227` before install finished | 254 | Vite was not linked yet; awaited successful pnpm install and relaunched. |
+| Initial headless navigation to port 5227 | 1 | Connection refused before server startup; relaunched the existing isolated session after server became ready. Same fresh test profile, never personal Chrome. |
+| First `/tmp/u5741-project-observe.py` | 1 | Environment assertion demanded literal dark while App used system `light dark`; no image retained. Explicit saved dark preference used for all App captures; startup gate uses forced dark media. |
+| Premature rendered-project.json inspection | 1 | No manifest existed before the first successful capture; not a missing product observer. |
+| Next `/tmp/u5741-project-observe.py` | 1 | Guessed nth-child tab-selection target did not reach the intended tab. Existing successful first five pages retained; exact data-path plus scroll reveal used in continuation. |
+| `/tmp/u5741-project-continue.py` | 1 | Generic right-click did not reach the pointer-release menu path; actual mouse move/down/up opened the existing menu projection. Earlier valid captures retained. |
+| `/tmp/u5741-project-rest.py` | 1 | Expected a running-Agent question on a tab with no running Agents; normal close succeeded. Captured that outcome separately, then opened agents-10 for the running confirmation. No confirmation failure inferred. |
+| Apple canonical Recent Items page retrieval | unavailable | Full page could not be retrieved; search excerpt alone is insufficient. Its Q1 comparison remains unverified. |
+| Literal public-rename lookup in keys/chords.ts | 1 | No such named tab action exists; focused F2 is a local binding in ProjectTab.tsx. Report corrected. |
+
+The temporary observer drivers are retained as provenance in the source catalogue, not installed as product machinery. PNG files and Check readings remain under the checkout's `artifacts/ux/U5741/project/` for attachment; JSON report retains snapshots and evidence. Existing policy observers, not new source-text tests, judge U5741. B4522's unchanged migration guard is included by `just ready`. No local `just check` runs.
+
+Final capture reconciliation: fifteen unique openings, each dark 1512×950, all recorded Checks pass. Visual inspection of tab draft recovery agrees with the retained exact authored name. Visual inspection of `reopen-failed.png` shows the cause shortened to `Cannot reopen Project. Check …` in the Rail's failure line while Reopen remains visible; automated Checks do not detect this missing full failure text. This is an unresolved rendered limitation, not a full failure-readability pass. Full cause bytes are retained in the snapshot/body. Final inventory reconciliation must resolve failure readability, not infer a passing visual observer from Check status alone.
+
+Main `9c782fc17c78cb3c86dad633d5c84d646e2f58be` merged without conflicts; merge-loss passes (exit 0) and remerge-diff contains no manual resolution. The 33 inspected source hashes still match the observer pin. Main's new shared Menu code is outside that inspected list; rendered menu evidence stays pinned to its original revision. No all-feature revision promotion is claimed.
+
+Additional failed source lookup: `rg ... crates/rupd/src/rpc/project.rs` exits 2 because no such module exists. The authoritative declarations and earlier endpoint census supply the public mapping; no runtime behavior or absence was inferred from the guessed path.
+
+| Further failed command | Exit | Failure / repair |
+| --- | ---: | --- |
+| First `python3 tools/lint/scan.py typos` | 2 | Pinned spelling binary not installed; `python3 tools/lint/setup.py web` passed (exit 0). |
+| Standalone spelling scans and first `just ready` | 1 | Generated accessibility labels split a clipped Project name into an apparent misspelling; report prose also used a plural abbreviation rejected by the scanner. Corrected prose; raw snapshots/body now retain exact original bytes in gzip/base64 with SHA-256 and documented decoding. Question and Checks stay plain JSON; no baseline, lint rule or observed string changed. |
+| Temporary spelling-diagnostic extraction | 1 | Diagnostic lines carry a trailing location after JSON; repaired the temporary extractor with JSONDecoder.raw_decode. No product observer affected. |
+
+Spelling repair completed: raw body text carries the same clipped fragments as the snapshot, so both are now losslessly encoded. Both are checksum-verified after decoding; fifteen captures and 21 decision rows reconcile, with 34 source hashes matching both original revision and current checkout. Final standalone spelling scan passes (exit 0). No captured byte, lint policy or baseline was changed. The initial 33-source statement above precedes inspection of the actual public handler in crates/agents/src/dispatch.rs; that added source is the 34th.
+
+Final `just ready` passes (exit 0): B4522 migration guard, 193 lint-behavior checks, web lint/typecheck, repository and Rust lints, `ALL PROOFS CHECK` and N7 launch sites. Vocabulary, scenario ids, merge-loss, whitespace and final evidence reconciliation pass (exit 0). No behavior test file changed and no local `just check` ran. Own diff review resolved incorrect scenario/action references and separated missing-binary failure from optional executable diagnostics. The dedicated browser session is closed. #5758 stays open for complete coverage, one current revision, owner answers and authorized retirements.
