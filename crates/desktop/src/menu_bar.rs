@@ -275,8 +275,8 @@ fn install_dock<R: Runtime>(app: &AppHandle<R>) -> Result<(), RpcError> {
     })
 }
 
+#[cfg(target_os = "macos")]
 pub(crate) fn dock_chosen<R: Runtime>(app: &AppHandle<R>, id: &str) {
-    #[cfg(target_os = "macos")]
     DOCK.with_borrow(|owner| {
         if let Some(action) = owner.as_ref().and_then(|menu| menu.chosen(id)) {
             // The displayed Dock row retains its original identity while tracking. The
@@ -286,8 +286,6 @@ pub(crate) fn dock_chosen<R: Runtime>(app: &AppHandle<R>, id: &str) {
             deliver(app, &action);
         }
     });
-    #[cfg(not(target_os = "macos"))]
-    let _ = (app, id);
 }
 
 #[cfg(test)]
