@@ -2,6 +2,53 @@ use super::*;
 use crate::claude_code::toolcall::tests::measured;
 use std::io::Cursor;
 
+#[test]
+fn b5763b_native_and_unrelated_records_preserve_the_last_rupd_entry() {
+    let transcript = tempfile::NamedTempFile::new().unwrap();
+    let native = concat!(
+        "{\"sessionId\":\"s\",\"origin\":{\"kind\":\"human\"},\"message\":{\"content\":\"hi\"}}\n",
+        "{\"sessionId\":\"s\",\"attachment\":{\"origin\":{\"kind\":\"human\"},\"prompt\":\"hi\"}}\n",
+    );
+    let peer = |session, sender, text, attachment| {
+        let origin = json!({"kind":"peer", "from":sender, "unused":{"native":true}});
+        let mut record = json!({"sessionId":session, "unused":[1,2,3]});
+        if attachment {
+            record["attachment"] = json!({"origin":origin, "prompt":text});
+        } else {
+            record["origin"] = origin;
+            record["message"] = json!({"content":text});
+        }
+        format!("{record}\n")
+    };
+    let first = "<cross-session-message from=\"uds:/x/rupd\">\nfirst\n</cross-session-message>";
+    let last = "<cross-session-message from=\"uds:/x/rupd\">\nlast\n</cross-session-message>";
+    let unrelated = concat!(
+        "{\"sessionId\":\"s\",\"origin\":{\"kind\":\"future\",\"from\":\"uds:/x/rupd\"},\"message\":{\"content\":\"unknown\"}}\n",
+        "{\"sessionId\":\"s\",\"origin\":{\"kind\":\"peer\"},\"message\":{\"content\":\"no sender\"}}\n",
+        "invalid json\n",
+    );
+    for attachment in [false, true] {
+        for admitted in [false, true] {
+            let mut records = native.to_owned();
+            if admitted {
+                records += &peer("s", "uds:/x/rupd", first, !attachment);
+                records += native;
+                records += &peer("s", "uds:/x/rupd", last, attachment);
+            }
+            records += native;
+            records += unrelated;
+            records += &peer("other-session", "uds:/x/rupd", first, attachment);
+            records += &peer("s", "uds:/other-peer", first, attachment);
+            std::fs::write(transcript.path(), records).unwrap();
+            assert_eq!(
+                previous(transcript.path(), "s", "uds:/x/rupd").unwrap(),
+                admitted.then(|| last.to_owned()),
+                "admitted={admitted}, attachment={attachment}",
+            );
+        }
+    }
+}
+
 struct Counted<R> {
     inner: R,
     bytes: usize,
