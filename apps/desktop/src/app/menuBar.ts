@@ -5,11 +5,22 @@ import type { OpenTab } from "../state/projects";
 import type { App, MenuBar } from "./seam";
 import type { Kind } from "@contracts/Kind";
 
-const glyph: Record<Kind, string> = { error: "⊗", "needs-you": "◉", blocked: "⊖", working: "◔", idle: "○", done: "✓" }; // taste-skill-ignore: U5502/U5503 require the existing Kind Glyphs.
+const graphemes = new Intl.Segmenter(undefined, { granularity: "grapheme" });
+
+const HOUR = 3_600_000;
+
+/** U5959a: the disc's state; the Kind Glyph of `glyphOf` picks amber `!` and red cross, Ready takes the accent check. */
+const stateOf = (kind: Kind, waiting: boolean): "needs-you" | "error" | "ready" => (!waiting ? "ready" : kind === "error" ? "error" : "needs-you");
+
+/** U5959a: hyphens become spaces and the first letter is capital; the rest stays literal. */
+const sentence = (text: string) => {
+  const [first, ...rest] = [...graphemes.segment(literal(text).replaceAll("-", " "))].map(part => part.segment);
+
+  return first === undefined ? "" : first.toUpperCase() + rest.join("");
+};
 
 const literal = (text: string) => text.replace(/[\r\n\u2028\u2029]+/g, " ");
 
-const graphemes = new Intl.Segmenter(undefined, { granularity: "grapheme" });
 
 const short = (text: string) => {
   const parts = [...graphemes.segment(literal(text))].map(part => part.segment);
@@ -60,8 +71,8 @@ export const watchMenuBar = (options: {
 
         const since = waiting ? waitingSince.get(key)!.since : Math.max(finish ? connection.unseen.finishAt(node.id) : 0, publication ?? 0);
 
-        return [{ path: tab.project.path, agent: node.id, waiting, since,
-          label: menuBarCopy.row(glyph[status.kind], literal(node.name), tabs.length > 1 ? literal(tab.project.name) : null, short(status.label)) }];
+        return [{ path: tab.project.path, agent: node.id, waiting, since, state: stateOf(status.kind, waiting),
+          label: sentence(node.name), subtitle: menuBarCopy.subtitle(short(status.label), tabs.length > 1 ? literal(tab.project.name) : null) }];
       });
     }).sort((a, b) => Number(b.waiting) - Number(a.waiting)
       || (a.waiting ? a.since - b.since : b.since - a.since)
@@ -72,19 +83,26 @@ export const watchMenuBar = (options: {
       if (!current.has(key)) waitingSince.delete(key);
     }
 
+    // U5959b: Ready keeps the last hour; older Ready Agents fold into `n earlier…`. Date.now, not the App display clock: R17 counts that clock's reads, and this runs per event, never on a timer.
+    const now = Date.now();
+    const shown = rows.filter(row => row.waiting || now - row.since <= HOUR);
+    const earlier = rows.length - shown.length;
+
     const entries = (limit: number): MenuBar["entries"] => {
       const result: MenuBar["entries"] = [];
       let group: boolean | undefined;
 
-      for (const row of rows.slice(0, limit)) {
-        if (group !== row.waiting) result.push({ label: row.waiting ? menuBarCopy.waiting : menuBarCopy.ready, action: null });
+      for (const row of shown.slice(0, limit)) {
+        if (group !== row.waiting) result.push({ label: row.waiting ? menuBarCopy.waiting : menuBarCopy.ready, head: true, action: null });
         group = row.waiting;
-        result.push({ label: row.label, since: row.since, action: { kind: "agent", path: row.path, agent: row.agent } });
+        result.push({ label: row.label, subtitle: row.subtitle, state: row.state, since: row.since, action: { kind: "agent", path: row.path, agent: row.agent } });
       }
 
-      if (rows.length === 0) result.push({ label: menuBarCopy.empty, action: null });
+      if (shown.length === 0) result.push({ label: menuBarCopy.empty, action: null });
 
-      if (rows.length > limit) result.push({ label: menuBarCopy.more(rows.length - limit), action: { kind: "open" } });
+      if (earlier > 0) result.push({ label: menuBarCopy.earlier(earlier), action: { kind: "open" } });
+
+      if (shown.length > limit) result.push({ label: menuBarCopy.more(shown.length - limit), action: { kind: "open" } });
       result.push({ label: menuBarCopy.open, action: { kind: "open" } });
 
       return result;
