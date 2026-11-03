@@ -1,0 +1,21 @@
+{
+  "base": "5118468aa67e0e0bd1df14e76336bc4ede64b91e",
+  "app": "5c4ac86e9d8c63f996eb1b342c28836993d94279",
+  "viewport": [
+    1512,
+    950
+  ],
+  "scheme": "dark",
+  "observer": "src/testing/u3787d_capture.test.ts::u5740a_remaining_surfaces_rendered",
+  "result": "All emitted Checks pass on all eight screens, including D2/D5/D6 and visible Made failure. Menu items are read through the native-menu App seam; Chromium screenshots show its underlying App.",
+  "screens": [
+    "1512x950-dark-agents-10-draft-and-focus.checks.json",
+    "1512x950-dark-agents-10-help.checks.json",
+    "1512x950-dark-agents-10-made-failure.checks.json",
+    "1512x950-dark-agents-10-overview.checks.json",
+    "1512x950-dark-agents-10-project-menu.checks.json",
+    "1512x950-dark-agents-10-switcher.checks.json",
+    "1512x950-dark-empty-project-overview.checks.json",
+    "1512x950-dark-empty-project-project-menu.checks.json"
+  ]
+}
