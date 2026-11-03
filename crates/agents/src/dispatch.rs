@@ -446,10 +446,16 @@ impl Agents {
         let shared = &self.shared;
         {
             let CreateWorkstreamParams {
+                start_attribution,
                 name,
                 parent,
                 order,
             } = params(value)?;
+            if start_attribution.is_some() && ctx.actor.kind != ActorKind::User {
+                return Err(RpcError::forbidden(
+                    "only the user connection supplies start attribution",
+                ));
+            }
             if let Some(order) = &order {
                 valid_explicit_order(order)?;
             }
@@ -459,6 +465,7 @@ impl Agents {
                 parent.as_deref(),
                 None,
                 order.as_ref(),
+                start_attribution.as_ref(),
             )?;
             if ctx.actor.kind == ActorKind::Agent {
                 shared.rail().set_creator(&node.id, &ctx.actor.id)?;
@@ -765,6 +772,17 @@ impl Agents {
             ctx.emit(EventData::RailChanged);
             reply(&())
         }
+    }
+
+    async fn rpc_rail_remove_selection(
+        &self,
+        _ctx: &Ctx,
+        _method: &str,
+        _value: Value,
+    ) -> Result<Value, RpcError> {
+        Err(RpcError::forbidden(
+            "selection removal requires the Project Daemon",
+        ))
     }
 
     async fn rpc_rail_remove(
