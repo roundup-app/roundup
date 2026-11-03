@@ -3,8 +3,9 @@ import { USER } from "../testing/nodes";
 import { openPad } from "../pads/padsFixture";
 import { showEverythingInApp } from "../testing/showEverything";
 import { batch } from "solid-js";
-import { cleanup, screen, waitFor } from "@solidjs/testing-library";
+import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
+import { saveAppSettings } from "../settings/preferences";
 import { mountNavigation } from "../testing/navigationFixture";
 import { openProjectPage, projectMenu } from "../testing/menuProbe";
 
@@ -71,4 +72,16 @@ it("u5919b_unreachable_daemon_keeps_create_actions_disabled", async () => {
   await waitFor(() => expect(projectMenu.items.find(item => item.id === "action:chord:⌘N")?.enabled).toBe(false));
   expect(projectMenu.items.filter(item => item.group !== "edit").map(({ id, label, shortcut }) => ({ id, label, shortcut })))
     .toEqual(before.map(({ id, label, shortcut }) => ({ id, label, shortcut })));
+});
+
+it("u5919b_project_sequences_track_the_configured_leader", async () => {
+  expect(await saveAppSettings({ quickAdd: "ctrl+shift+KeyY", shortcuts: { "leader.open": "meta+shift+KeyT" } })).toBeNull();
+  await mountNavigation(false, 1);
+  await waitFor(() => expect(projectMenu.items.filter(item => item.id.startsWith("action:leader:")).map(item => item.shortcut)).toEqual(["⇧⌘T C", "⇧⌘T P"]));
+
+  const row = document.querySelector<HTMLElement>('[data-part="item"]')!;
+  row.focus();
+  fireEvent.keyDown(row, { key: "T", code: "KeyT", metaKey: true, shiftKey: true });
+  fireEvent.keyDown(row, { key: "p", code: "KeyP" });
+  expect(document.activeElement).toBe(await screen.findByRole("combobox", { name: "Switch Project" }));
 });

@@ -450,8 +450,17 @@ fn u3787b_plain_key_commands_register_no_accelerator() {
 #[test]
 fn u4278b_leader_hints_register_no_accelerator() {
     let app = mock_app();
-    for key in ["P", "J", "I", "C", "A", "S"] {
-        let shortcut = format!("⌘K {key}");
+    for (prefix, key) in [
+        ("⌘K", "P"),
+        ("⌘K", "J"),
+        ("⌘K", "I"),
+        ("⌘K", "C"),
+        ("⌘K", "A"),
+        ("⌘K", "S"),
+        ("⇧⌘T", "C"),
+        ("⇧⌘T", "P"),
+    ] {
+        let shortcut = format!("{prefix} {key}");
         let source = item(
             &format!("action:leader:{key}"),
             "Run action",
@@ -469,7 +478,8 @@ fn u4278b_leader_hints_register_no_accelerator() {
         )
         .unwrap();
         assert_eq!(plain(built).text().unwrap(), source.label);
-        assert_eq!(hint, [(vec![], shortcut)]);
+        assert_eq!(hint, [(vec![], shortcut.clone())]);
+        assert_eq!(sequence_hints(&[source]), [("Run action".into(), shortcut)]);
     }
 }
 
