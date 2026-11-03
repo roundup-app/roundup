@@ -32,10 +32,12 @@ const STATES = [
 const failing = (checks: Checks) => CHECK_IDS.filter((id) => checks[id].status === "fail");
 
 it("u3707_rendered_checks", async () => {
-  for (const [scheme, contrast] of MODES) {
-    for (const [name, seed, row] of STATES) {
+  for (const [name, seed, row] of STATES) {
+    for (const [at, [scheme, contrast]] of MODES.entries()) {
       await page.scheme(scheme, contrast);
-      await page.load(`/harness.html?view=workstreams&items=1&tabs=1&seed=${seed}`, FULLSCREEN.width, FULLSCREEN.height);
+
+      // Retain each media observation and row click; only Bubble creation needs a fresh mount.
+      if (at === 0 || name === "bubble") await page.load(`/harness.html?view=workstreams&items=1&tabs=1&seed=${seed}`, FULLSCREEN.width, FULLSCREEN.height);
       await page.until(`() => Boolean(window.__fake && document.querySelector('.rail-row, .pane'))`);
 
       if (row) await page.call(`(row) => document.querySelector(row).click()`, row);
