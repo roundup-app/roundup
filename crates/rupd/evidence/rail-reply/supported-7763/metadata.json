@@ -1,11 +1,11 @@
 {
   "time": "2026-10-13T08:47:39.043302+00:00",
-  "historical": "1d1618d2d9bb5c0f25ecb6b32de1cde20bfad6d0",
+  "historical": "5371e7c423c6f37704dfe64ceb5808f3e4c429a8",
   "release_profile": "committed default; no RUSTFLAGS overrides",
   "commands": {
     "git rev-parse HEAD": {
       "exit": 0,
-      "stdout": "64d8ec4e19fefb482cf6b898976fda82ef5c9577\n",
+      "stdout": "eaa8055d3ac98b1518bc6bdc73866f3deebcdf11\n",
       "stderr": ""
     },
     "rustc -Vv": {
@@ -64,8 +64,8 @@
       "stderr": ""
     }
   },
-  "measured_source": "75314ff011e0c1479aae530eebc6d837eb6e45f3",
-  "merged_main": "5d53884bb3508b2d652812d28630d66c815a9882",
-  "final_validated_source": "9dc85aa0f522f9b618a76f43c440ee32337c2b4b",
+  "measured_source": "14e5db0525faed4fd33153e00bbed0d00f9ddcca",
+  "merged_main": "bdfdfab6a780c899308be1eb637cb4f2c3aefe4d",
+  "final_validated_source": "b5f8cc480abdf91c62778f78144b02a78392a1d8",
   "final_merged_main": "376496ae"
 }

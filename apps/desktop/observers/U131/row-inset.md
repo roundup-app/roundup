@@ -7,7 +7,7 @@ the optical baseline measurement remain acceptance on #3824.
 
 ## Baseline
 
-Main `6caf136e5e939f4694f436e40e9331c4727af1e4`, isolated headless Chromium,
+Main `6f8f854bfe62405d4cc2ef184802dbc4ae6840da`, isolated headless Chromium,
 dark, 1512×950, device scale 1. On `tree-40`, open the Overview's Unassigned
 group. Measure each title from its own row edge, subtracting only
 `(aria-level - 1) × 16` for the existing Todo tree indent.
@@ -88,7 +88,7 @@ Mac/performance observations. This slice changes no native window setup.
 ## Completion refresh
 
 Fix run `builder-40191473795` merged main `eb4a16fdb` cleanly into
-`56a96a70544c2c89a6e2170a2a655cca2375c1a4`. No runtime edit or conflict
+`47d2a705ec4e36204da84df2d721e9dac220d8cf`. No runtime edit or conflict
 resolution was needed. `completion.json` records the immutable revisions
 and the Check comparison.
 

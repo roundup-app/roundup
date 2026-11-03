@@ -1,6 +1,6 @@
 # U5741 keyboard entry points
 
-Audited main: `092fcafbf910f292d7180c97d35bd381aff984b3`. This report extends the [App reconciliation](entry-points.md); it is not the complete feature audit or an owner decision request. No retirement is authorized.
+Audited main: `e97b71b0cf59d0cab56543d192c9ecf148f56fa7`. This report extends the [App reconciliation](entry-points.md); it is not the complete feature audit or an owner decision request. No retirement is authorized.
 
 ## Observer and boundary
 

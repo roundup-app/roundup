@@ -2,7 +2,7 @@
 
 Installed production package: `@ark-ui/solid` **5.39.3** (desktop manifest and `pnpm-lock.yaml`). Solid, vanilla CSS, `tokens.css` and all five button kinds are retained. Only CloseDialog is migrated; the fixture exercises Menu and Tooltip without migrating callers.
 
-Implementation source: `5b02565152a3741d72ebc9d80789ff0e45b2e046`. Merge `965d2db7498a33e27208c03715a6a0855ca50fa2` adds only main's two specification files; production source is identical.
+Implementation source: `e0aa87095fb7a418005c48c14024af6b4aabd7b3`. Merge `5676d23d4445c28f9ea24e9012412359ac7a2304` adds only main's two specification files; production source is identical.
 
 | Clause | Observer |
 | --- | --- |
@@ -17,7 +17,7 @@ Implementation source: `5b02565152a3741d72ebc9d80789ff0e45b2e046`. Merge `965d2d
 
 ## Daemon budget
 
-`daemon-perf.log` retains the full `just perf` output; `daemon-perf.json` retains its measurement JSON. The first observation used the library-installed working tree at parent `447c2aebe8a3bdc72137936d1a1a42bf1e912021`. All Daemon source and build inputs are identical to main `d5ada596` and to the implementation source above; this change touches no Rust or Daemon build file.
+`daemon-perf.log` retains the full `just perf` output; `daemon-perf.json` retains its measurement JSON. The first observation used the library-installed working tree at parent `891642dd3e84589d04dba48673ec36f7ac0e57a0`. All Daemon source and build inputs are identical to main `d5ada596` and to the implementation source above; this change touches no Rust or Daemon build file.
 
 OS: Linux, x86_64, AMD EPYC 9V45, four available CPUs. Baseline: `crates/perf/budgets.json` on main `d5ada596`, the OS-level Linux baseline documented in `docs/perf.md`. The runner-class repair belongs to #1251.
 

@@ -109,13 +109,13 @@ printf 'SHELL=%s\n' "$SHELL"
 
 `nproc` reports available CPUs; the online set and process affinity must both be `0-3`. Compare the parsed distribution, version, architecture and full CPU model for exact equality; do not match an EPYC or Xeon family prefix. Record release toolchain/build settings, login-shell workload and binary hashes with the reports as R16 requires. Kernel and shell differences are diagnostic metadata, not CPU identity. CPU affinity or CPU-count rescaling cannot convert boxd, 7763, 9V45, 9V74, Intel 8573C or Intel 8370C into one another.
 
-The identity evidence in #1266 records a 9V45 Builder at `7922b6f225452fc4da68396d7d75b4ed0054fa74`; it establishes the supported identity, not performance. A 7763 report cannot establish a 9V45 baseline even with identical Ubuntu and CPU counts. An unknown identity or any missing required identity field is an observer error (exit 2), naming the mismatch or missing input. Under the amended R16 acceptance, a supported Builder without complete measured baseline/provenance uses the same-job pair below. An identity error cannot reuse another class's values or report a clean pass. R16 assigns selection/report metadata to `r16_builder_selects_its_measured_class` and these rejections to `r16_unknown_or_incomplete_linux_class_is_an_observer_error`; these are implementation obligations for all five Builder identities.
+The identity evidence in #1266 records a 9V45 Builder at `79135f1a80b8a0adb16206bfe708a305192e000a`; it establishes the supported identity, not performance. A 7763 report cannot establish a 9V45 baseline even with identical Ubuntu and CPU counts. An unknown identity or any missing required identity field is an observer error (exit 2), naming the mismatch or missing input. Under the amended R16 acceptance, a supported Builder without complete measured baseline/provenance uses the same-job pair below. An identity error cannot reuse another class's values or report a clean pass. R16 assigns selection/report metadata to `r16_builder_selects_its_measured_class` and these rejections to `r16_unknown_or_incomplete_linux_class_is_an_observer_error`; these are implementation obligations for all five Builder identities.
 
-The identity evidence in #1303 records an Intel 8573C Builder at `ab349a1d5f46d0dce3c6d51a0a0f8617311c4669` on 2026-10-12: Ubuntu 24.04, x86_64, online CPUs and affinity `0-3`, four available CPUs, kernel `6.17.0-1022-azure`, rustc `1.99.0 (b940084d7 2026-09-28)` and cargo `1.99.0 (5f94df478 2026-08-27)`. This records identity only; AMD measurements establish no Intel baseline.
+The identity evidence in #1303 records an Intel 8573C Builder at `864f30961b41fede8579293e096df1bb888b79ba` on 2026-10-12: Ubuntu 24.04, x86_64, online CPUs and affinity `0-3`, four available CPUs, kernel `6.17.0-1022-azure`, rustc `1.99.0 (b940084d7 2026-09-28)` and cargo `1.99.0 (5f94df478 2026-08-27)`. This records identity only; AMD measurements establish no Intel baseline.
 
-The identity evidence in #1313 records a 9V74 Builder at `2ae44989f5ec68a2c9021a381f5f2eae8cbb63ff` on 2026-10-12: Ubuntu 24.04 (`ID=ubuntu`, `VERSION_ID=24.04`), x86_64, exact CPU model `AMD EPYC 9V74 80-Core Processor`, online CPUs and affinity `0-3`, four available CPUs, kernel `6.17.0-1022-azure`, rustc `1.99.0 (b940084d7 2026-09-28)`, cargo `1.99.0 (5f94df478 2026-08-27)` and shell `/bin/bash`. This records identity only. No other CPU class can establish its baseline or provenance.
+The identity evidence in #1313 records a 9V74 Builder at `243fbe8f6ba4fafdd8c02c73dae28087e2da9fce` on 2026-10-12: Ubuntu 24.04 (`ID=ubuntu`, `VERSION_ID=24.04`), x86_64, exact CPU model `AMD EPYC 9V74 80-Core Processor`, online CPUs and affinity `0-3`, four available CPUs, kernel `6.17.0-1022-azure`, rustc `1.99.0 (b940084d7 2026-09-28)`, cargo `1.99.0 (5f94df478 2026-08-27)` and shell `/bin/bash`. This records identity only. No other CPU class can establish its baseline or provenance.
 
-The identity evidence in #1941 records an Intel 8370C Builder at `06fd4eb7e24c476b104e52b94e78fa491d2f47f4`: Ubuntu 24.04.5 (`ID=ubuntu`, `VERSION_ID=24.04`), architecture `x86_64`, exact CPU model `Intel(R) Xeon(R) Platinum 8370C CPU @ 2.80GHz`, online CPUs `0-3`, four available CPUs and process affinity `0-3`. Diagnostic metadata: kernel `6.17.0-1022-azure`, rustc `1.99.0 (b940084d7 2026-09-28)`, cargo `1.99.0 (5f94df478 2026-08-27)` and shell `/bin/bash`. This is identity evidence only; its standalone preflight exit 2 is a qualification failure, not a `just perf` result or latency observation. No Daemon/probe build, timing or benchmark failure is claimed. No other CPU class establishes its baseline or provenance, including Intel 8573C.
+The identity evidence in #1941 records an Intel 8370C Builder at `eecb35adbeab51e665db1cb4e778b2e0fb3dad1b`: Ubuntu 24.04.5 (`ID=ubuntu`, `VERSION_ID=24.04`), architecture `x86_64`, exact CPU model `Intel(R) Xeon(R) Platinum 8370C CPU @ 2.80GHz`, online CPUs `0-3`, four available CPUs and process affinity `0-3`. Diagnostic metadata: kernel `6.17.0-1022-azure`, rustc `1.99.0 (b940084d7 2026-09-28)`, cargo `1.99.0 (5f94df478 2026-08-27)` and shell `/bin/bash`. This is identity evidence only; its standalone preflight exit 2 is a qualification failure, not a `just perf` result or latency observation. No Daemon/probe build, timing or benchmark failure is claimed. No other CPU class establishes its baseline or provenance, including Intel 8573C.
 
 #1266, #1303, #1313 and #1941 specify identities only; the Intel specification PR closes #1303 when its specification acceptance holds and the 9V74 specification PR uses `Refs #1313` and closes #1313 only when its specification acceptance holds; the 8370C specification PR uses `Refs #1941` and `Closes #1941` only when its specification acceptance holds. #1366 stays open for same-host Message latency evidence, #1361 for final combined latency acceptance and #1251 for observer implementation, independent calibration and completion observations. Measurement policy: for each newly measured class, including 9V74 and 8370C independently, R16 requires historical/current same-host diagnosis with nine alternating invocations of eleven fresh Daemons per reference, compatible identical probe bytes and isolation of probe changes using the same binaries, nine clean calibration invocations only after regression diagnosis and repair, then three separate clean eleven-Daemon observations on the implementation head with the baseline fixed. Retain every report, per-run metric and load, failed observation and repeat, exit code, reference commit, binary hash and exact command; retain and repeat busy invocations rather than counting them as clean. Diagnose and repair Daemon or probe regressions before accepting a baseline. This identity amendment supplies no evidence that either regression is absent.
 
@@ -158,7 +158,7 @@ Stored calibration still follows R16's historical diagnosis, nine clean calibrat
 
 No Builder baseline is recorded: the same-class comparison finds a regression, not a class mismatch, and R16 step 3 says to repair it before accepting baselines. The earlier 7763 figures (taken from `main` itself, with no historical comparison) are withdrawn; a 7763 baseline needs its own diagnosis on a 7763 host.
 
-References: the commit that set the Linux baselines, `2029ed2c4ee606d26e73c858c4d7c93130df36e0` (2026-10-01), and `main` at `90df821c0` (2026-10-24), 21,720 added lines of Daemon and probe source apart. Both built with `cargo build --release -p rupd -p rup -p perf`, rustc 1.99.0; hashes, machine facts and raw diagnosis evidence belonged to the producing CI artifact. Reproduce nine rounds alternating the two on one VM (AMD EPYC 9V45, four CPUs), 11 fresh Daemons each: historical `perf --runs 11 --rupd <hist>/rupd --out historical-N.json`, current `perf --runs 11 --budgets <scratch>/budgets.json --out current-N.json`, where the scratch `budgets.json` and `classes.json` copy `linux-boxd` into `linux-9v45` so the current binary runs. Every report, log and exit code is kept (`historical-N.*`: exit 0; `current-N.*`: exit 1, the ceilings missed). Loads were 1.6 to 3.8 on four CPUs, under R13's 2.0 per CPU, so every invocation is clean.
+References: the commit that set the Linux baselines, `4862eed764476fe963ff779f9c4a02944bf0da2e` (2026-10-01), and `main` at `90df821c0` (2026-10-24), 21,720 added lines of Daemon and probe source apart. Both built with `cargo build --release -p rupd -p rup -p perf`, rustc 1.99.0; hashes, machine facts and raw diagnosis evidence belonged to the producing CI artifact. Reproduce nine rounds alternating the two on one VM (AMD EPYC 9V45, four CPUs), 11 fresh Daemons each: historical `perf --runs 11 --rupd <hist>/rupd --out historical-N.json`, current `perf --runs 11 --budgets <scratch>/budgets.json --out current-N.json`, where the scratch `budgets.json` and `classes.json` copy `linux-boxd` into `linux-9v45` so the current binary runs. Every report, log and exit code is kept (`historical-N.*`: exit 0; `current-N.*`: exit 1, the ceilings missed). Loads were 1.6 to 3.8 on four CPUs, under R13's 2.0 per CPU, so every invocation is clean.
 
 | Metric | Historical median | Ceiling (×1.10 + noise) | Current median | Current invocations over ceiling |
 |---|---|---|---|---|
@@ -362,17 +362,17 @@ is already authorized on this Mac; use them to perform sibling, nested, outdent 
 
 | Identity | Full SHA |
 |---|---|
-| Base source (#3772's merged-main parent) | `3d224def071626e2ed1528a11d9d6e2f6303d2b3` |
-| Candidate source (#3772 head) | `2863633ddd508bd7a6f227286ca5f3b32c242258` |
-| Readiness observer revision | `a575c56c44e189b2808dae540b272199f69f8496` |
+| Base source (#3772's merged-main parent) | `eba487ebb5b7bfbc340669e845e9c80c523be45f` |
+| Candidate source (#3772 head) | `44e5f4051b08ba1cd939f2b6b5a82ab1d0144209` |
+| Readiness observer revision | `4fefd22a8426df1be74618fc01a5955714d5869b` |
 
 From a repository containing these commits, prepare fresh, separate checkouts. The frame driver copied to base is measurement
 setup/action accounting only; never copy candidate production drag files. Retain that transfer separately from readiness:
 
 ```sh
-base=3d224def071626e2ed1528a11d9d6e2f6303d2b3
-head=2863633ddd508bd7a6f227286ca5f3b32c242258
-repair=a575c56c44e189b2808dae540b272199f69f8496
+base=eba487ebb5b7bfbc340669e845e9c80c523be45f
+head=44e5f4051b08ba1cd939f2b6b5a82ab1d0144209
+repair=4fefd22a8426df1be74618fc01a5955714d5869b
 qualification=$(mktemp -d /tmp/roundup-u3800.XXXXXX)
 git worktree add --detach "$qualification/base" "$base"
 git worktree add --detach "$qualification/head" "$head"
@@ -437,13 +437,13 @@ merge; the valid quiet idle baseline above cannot choose that repair.
 ## Plugin materialization check for #4196
 
 The reported plugin miss was not reproduced by the permitted current-main R16 pair on 2026-10-26. `just perf` exited 0: every metric passed, no comparisons were skipped, and both eleven-Daemon invocations used 1000 calls. The raw report lived in the producing CI artifact. This is a same-job comparison on `linux-8573c`, not a new 7763 calibration or a claim about the earlier VM. No implementation repair is indicated by this pair. Plugin materialization: base 7.583291 ms; head 7.519237 ms; paired ceiling 8.3426201 ms; absolute limit 300 ms.
-Both immutable references are `f1f59fb1d218120f3f2e321a64e480686f9a88a0` (current main and its merge base at invocation), built separately with Rust 1.99.0 and the unchanged locked release settings. Host `runnervmtai0g`, boot `75d56492-f160-4056-8ff2-2e813bf4296d`, session `40298544515/1/build`: Ubuntu 24.04, Intel 8573C, four online/available CPUs and affinity `0-3`. Base/head median loads were 3.77 and 2.91 on four CPUs. The common observer SHA-256 is `01d2b1ffc5443e1d36b590bacd225b26f676f888c7ab1c35f55fa4f8293aac15`; Daemon, CLI and sidecar hashes match across the two isolated builds. All hashes, samples, verdicts and commands are in the report. The 7763 baseline 11.940635 ms, stored ceiling 13.1356985 ms, 300 ms limit and every other budget remain unchanged.
+Both immutable references are `6deddee2bf2ac2e18973dacbb80225d6be84266b` (current main and its merge base at invocation), built separately with Rust 1.99.0 and the unchanged locked release settings. Host `runnervmtai0g`, boot `75d56492-f160-4056-8ff2-2e813bf4296d`, session `40298544515/1/build`: Ubuntu 24.04, Intel 8573C, four online/available CPUs and affinity `0-3`. Base/head median loads were 3.77 and 2.91 on four CPUs. The common observer SHA-256 is `01d2b1ffc5443e1d36b590bacd225b26f676f888c7ab1c35f55fa4f8293aac15`; Daemon, CLI and sidecar hashes match across the two isolated builds. All hashes, samples, verdicts and commands are in the report. The 7763 baseline 11.940635 ms, stored ceiling 13.1356985 ms, 300 ms limit and every other budget remain unchanged.
 Raw evidence: [Builder 40298544515](https://github.com/roundup-app/roundup/actions/runs/40298544515), job `build #4196 / build`, artifact `answer-4196` (publication follows the run). Its `perf-4196.tar.gz` has SHA-256 `9bc32eb651d921fc0e89e9d5028dc2c9ec0aa9422d7c96aa67839dd5a97a679d`; its README and SHA256SUMS enumerate the original output, command/build logs, observer metadata, both invocation reports, all startup logs and actual exits. No failed observation was discarded.
 Validation: `pnpm install`, `just lint-web`, `just lint-rust` and `cargo nextest run -p agents --test plugins` exited 0. All six ordinary Q11 tests passed; the existing real-Claude test remains ignored because it requires `ROUNDUP_CLAUDE`. No plugin bytes, modes, registration, validation or launch code changed.
 
 ## R4229 startup headroom
 
-Clean paired builds on Linux x86_64 (`runnervmtai0g`), Node v22.23.3/pnpm 10.14.0: base `6db8b27bda83f7b3c21a1f6d6088156dbd1a90b4` = **437,808 gzip bytes** (1,388,635 raw); implementation `6c19d0a20767f73e8a2f0bdc3a12122aff71eb0a` = **422,146 gzip bytes** (1,329,400 raw), saving **15,662 bytes**. Both checkers exit 0 against the unchanged 437,814 ceiling. Later test/evidence commits change no production input.
+Clean paired builds on Linux x86_64 (`runnervmtai0g`), Node v22.23.3/pnpm 10.14.0: base `6e9f5726170682e3dd94da2464f9ac122c240447` = **437,808 gzip bytes** (1,388,635 raw); implementation `098a15ab4f45d0f8f77325f70e4c34be54f2292f` = **422,146 gzip bytes** (1,329,400 raw), saving **15,662 bytes**. Both checkers exit 0 against the unchanged 437,814 ceiling. Later test/evidence commits change no production input.
 
 Measured moves: ImportPanel alone grew the closure by 1,491 to 439,299 (checker exit 1), so it was discarded. Deferring OrderDrawer at its three production callers saved 15,662 relative to base; a clean committed-head rebuild reproduced 422,146. Solid's existing `lazy` and native dynamic imports defer the Order editor and progress view until shown. Shared chunks remain counted: `index-BIzfQbNs.js`, `copy-CGbSrKPM.js`, `ReservedLine-BMsOCD5R.js`, `floating-ui.dom-vtOd0C_f.js` (all under `assets/`). No budget, observer, compression, dependency or bundler configuration changed; drag remains eager and Terminal remains lazy.
 
@@ -451,7 +451,7 @@ Reproduce in separate base/head worktrees with identical environment: `pnpm inst
 
 ## R20 recorder startup isolation (2026-10-28)
 
-The Mac flood observation at `5b36bf532dc45e53d818a727e67423acd51ecd3a`
+The Mac flood observation at `684ab62c22db8b526873217dc5702f7e4d2112c9`
 exited 2 on all three runs: the App exited 0 before opening its Daemon socket,
 with empty stdout/stderr. The machine was an M4 Max, 16 cores, macOS 26.0.1,
 AC power, Low Power Mode off, unlocked, load/CPU ≤ 0.33. The full failed
@@ -498,10 +498,10 @@ Paired clean builds on Linux x86_64 `roundup-ci-125077128093`, Node v22.23.4 and
 
 | Revision | Raw bytes | Gzip bytes | Checker exit |
 |---|---:|---:|---:|
-| B `46a40da0823fcfdcbd8bd0eb0c12dfb34fed22df` | 1,369,334 | 435,692 | 0 |
-| Production H `96e89dd3bb10694ee62ba151f9a9783f0249d370` | 1,278,942 | 411,947 | 0 |
+| B `dfa45945e9e1b58b897dc2f2842bffe9e01ebab1` | 1,369,334 | 435,692 | 0 |
+| Production H `91752158362e6213cf3e74d41028949689549090` | 1,278,942 | 411,947 | 0 |
 
-The reduction is **23,745 gzip bytes**, exceeding 16,384 by 7,361. Headroom is **25,867 bytes** under the unchanged 437,814 ceiling. The refreshed pair follows conflict-free merges of main's evidence cleanup #5484 and #5576, which repairs CI's stale fixed-length MCP test array by deriving tools from declarations. The original pair (`5307469e18b650bca8297bbfd782cbbb72b89e23` / `d41c839fa042a4ab025cfd29b41accd3f6eee984`) and earlier attribution at `4433b54af` reproduce 435,692 → 411,916. The fix also directly loads Todo creation during recovery, removing its remaining registration dependency; this adds 31 gzip bytes. Later commits change only this evidence. No dependency, bundler, counting, compression or budget configuration changes.
+The reduction is **23,745 gzip bytes**, exceeding 16,384 by 7,361. Headroom is **25,867 bytes** under the unchanged 437,814 ceiling. The refreshed pair follows conflict-free merges of main's evidence cleanup #5484 and #5576, which repairs CI's stale fixed-length MCP test array by deriving tools from declarations. The original pair (`861f61d3deb197c958b64fa17e1dc97b553f4071` / `fb045482a78356da9a3a4b5c2bb558037715f6d9`) and earlier attribution at `4433b54af` reproduce 435,692 → 411,916. The fix also directly loads Todo creation during recovery, removing its remaining registration dependency; this adds 31 gzip bytes. Later commits change only this evidence. No dependency, bundler, counting, compression or budget configuration changes.
 
 Before selecting deferrals, the production manifest, `.vite/modules.json` and installed visualizer attributed the largest static chunks:
 

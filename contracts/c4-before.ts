@@ -1,4 +1,4 @@
-// C4: pre-migration type shapes from main 09f5f6611149162c403fe07adf8e757190fb2bf2; frozen independently of the exporter.
+// C4: pre-migration type shapes from main c279d5d28644bd8d3f2425f412f6b360bc67a0fd; frozen independently of the exporter.
 // Todo restoration contracts and Event unions also include main c8c12a4a3 (U3787a).
 // Pad deletion receipts and restoration contracts include U3787a (#3918).
 // RpcErrorData includes `other-project` from U3787f (#4225) and named Undo refusals from U3787a (#4668).
