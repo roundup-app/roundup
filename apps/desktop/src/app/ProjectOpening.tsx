@@ -1,5 +1,5 @@
 import "./ProjectOpening.css";
-import { createSignal, Show } from "solid-js";
+import { createComputed, createSignal, Show } from "solid-js";
 import { Dialog } from "../ui/Dialog";
 import type { ProjectsState } from "../state/projects";
 import { RpcError, type ActionRequest, type ActionReply } from "./seam";
@@ -70,8 +70,18 @@ export const createProjectOpening = (projects: ProjectsState) => {
   return { pending: () => pending()[0], answer };
 };
 
-export const ProjectOpening = (props: { opening: ReturnType<typeof createProjectOpening> }) =>
-  <Dialog.Root open={props.opening.pending() !== undefined} instant onOpenChange={details => {
+export const ProjectOpening = (props: { opening: ReturnType<typeof createProjectOpening> }) => {
+  let returnFocus: HTMLElement | null = null;
+
+  createComputed(() => {
+    const pending = props.opening.pending();
+    const focused = document.activeElement;
+
+    // A failed open replaces consent before Ark can return focus; keep its connected background target.
+    if (pending && focused instanceof HTMLElement && focused !== document.body && !focused.closest('[role="dialog"]')) returnFocus = focused;
+  });
+
+  return <Dialog.Root finalFocusEl={() => returnFocus?.isConnected ? returnFocus : null} open={props.opening.pending() !== undefined} instant onOpenChange={details => {
     const pending = props.opening.pending();
 
     if (details.open || !pending) return;
@@ -99,3 +109,4 @@ export const ProjectOpening = (props: { opening: ReturnType<typeof createProject
       </Dialog.Content></Dialog.Positioner>
     }</Show>
   </Dialog.Root>;
+};
