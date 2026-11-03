@@ -389,10 +389,20 @@ The first creator-Todo screenshot preceded loaded rows; it was superseded by a b
 | --- | --- | --- |
 | `python3 tools/lint/scan.py typos` before setup | 2 | Pinned binary absent in fresh worktree; `python3 tools/lint/setup.py web` installed the required tools. |
 
-Self-review removed a duplicate error-dismissal row (R16 already owns it), separated Workstream bulk All/Default/Quiet into RS17a/b/c, corrected the creator reveal description and fixed the README table delimiter. The final inventory contains 21 unique decisions, ten unique rendered states, four exact native models and 37 inspected source hashes. All final Check readings pass. Error-seed labels are fixture evidence only; full actionable real-failure readability remains part of the unfinished audit.
+Self-review removed a duplicate error-dismissal row (R16 already owns it), separated Workstream bulk All/Default/Quiet into RS17a/b/c, corrected the creator reveal description and fixed the README table delimiter. The final inventory contains 21 unique decisions, ten unique rendered states, four exact native models and 36 inspected source hashes. All final Check readings pass. Error-seed labels are fixture evidence only; full actionable real-failure readability remains part of the unfinished audit.
 
 | Further spelling scan failures | Exit | Repair |
 | --- | --- | --- |
 | Standalone `python3 tools/lint/scan.py typos` (two runs) | 1 each | Exact quoted Issue direction contained the historical plural image abbreviation. Retained its complete JSON losslessly as directionArchive (zlib/base64, decoded-byte SHA-256); readable direction findings stay in the report. No baseline or spelling exception changed. |
 
 Decode the linked direction archive using the same zlib/base64 operation as snapshots, then JSON-decode. Its SHA-256 verifies the complete preserved Issue bodies/comments, including exact owner quotes.
+
+| Required observer interrupted | Exit | Disposition |
+| --- | --- | --- |
+| First `just ready` | 143 | Process ended after desktop typecheck completed; output shows no preceding lint failure, but the Rust and N7 stages did not run. No complete pass claimed. Rerunning the required observer with retained log. |
+
+| Observer execution repair | Exit | Disposition |
+| --- | --- | --- |
+| Second `just ready > /tmp/u5741-ready-2.log` | 143 | Run deliberately terminated after launching a detached observer, to keep the full required check independent of the interactive command lifetime. No pass inferred from the interrupted partial run. |
+
+The final observer runs the unchanged `just ready` in a detached shell, retaining its complete log and explicit exit file; it changes no timeout, gate, recipe or test. The repeated partial lints are due to the interrupted observer, not added coverage.
