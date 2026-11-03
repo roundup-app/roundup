@@ -220,6 +220,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Markdown | same | — |
 | Owner selector (`Owner`) | owner | — |
 | Actor | same | — |
+| Start attribution (`StartAttribution`, `start_attribution`) | started by | — |
 | Output stream (`Output`, `OutputStream`, `Terminals::subscribe_output`, `terminal.output`, `terminal.outputStop`, `OutputStarted`, `OutputEvent`, `OutputGap`, `terminal.gap`) | same | — |
 | Terminal scheme (`terminal.scheme`, `SchemeParams`, `Scheme`) | same | — |
 | RPC output intake (`Client::take_output`, `OutputFrame`) | same | — |
