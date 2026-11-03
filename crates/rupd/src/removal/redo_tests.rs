@@ -599,7 +599,7 @@ async fn u5690d_reversible_selection_is_one_undo_step() {
     let dir = tempfile::tempdir().unwrap();
     let daemon = crate::test_daemon(dir.path()).unwrap();
     let db = rusqlite::Connection::open(dir.path().join("project.db")).unwrap();
-    db.execute("INSERT INTO nodes(id,kind,name,ord) VALUES(1,'group','group',0),(4,'workstream','other',1),(5,'workstream','second',2)", []).unwrap();
+    db.execute("INSERT INTO nodes(id,kind,name,ord) VALUES(1,'group','group',0),(5,'workstream','second',1),(4,'workstream','other',2)", []).unwrap();
     db.execute("INSERT INTO nodes(id,kind,name,parent,ord) VALUES(2,'workstream','chosen',1,0),(3,'agent','explicit',2,0),(6,'group','unchosen nested group',2,1)", []).unwrap();
     for home in ["2", "5"] {
         let todo = call(
