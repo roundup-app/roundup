@@ -420,7 +420,7 @@ fn project_kind<R: Runtime>(
         return Ok((MenuItemKind::Submenu(sub), hints));
     }
     let (accelerator, hint) = match item.shortcut.as_deref() {
-        Some(shortcut) if shortcut.starts_with("⌘K ") => (None, Some(shortcut.to_owned())),
+        Some(shortcut) if shortcut.contains(' ') => (None, Some(shortcut.to_owned())),
         // A plain key (a Shelf row's `D`) is control-owned: shown as a hint, never a global accelerator.
         Some(shortcut) if item.id.starts_with("action:") && !shortcut.contains(['⌘', '⌃', '⌥']) => {
             (None, Some(shortcut.to_owned()))
@@ -480,7 +480,7 @@ fn sequence_hints(items: &[Item]) -> Vec<(String, String)> {
             item.shortcut
                 .as_ref()
                 .filter(|shortcut| {
-                    shortcut.starts_with("⌘K ")
+                    shortcut.contains(' ')
                         || (item.id.starts_with("action:") && !shortcut.contains(['⌘', '⌃', '⌥']))
                 })
                 .map(|shortcut| (item.label.clone(), shortcut.clone()))
