@@ -30,6 +30,7 @@ afterAll(async () => {
 });
 
 it("u5765_open_confirmation_and_failure_are_visible_on_tree_40", async () => {
+  await page.browser("focus", ".ask-input");
   await page.capture("U5765", "before");
   await page.evaluate(`(() => {
     const app = window.__fake.app;
@@ -44,6 +45,7 @@ it("u5765_open_confirmation_and_failure_are_visible_on_tree_40", async () => {
   // A real keyboard Escape refuses the actual registered App handler.
   await page.browser("press", "Escape");
   await page.until("window.openResult?.error?.code === -32002 && !document.querySelector('[role=dialog]')");
+  await page.until("document.activeElement?.matches('.ask-input')");
   await page.capture("U5765", "refused");
   await page.evaluate(`(() => {
     const app = window.__fake.app;

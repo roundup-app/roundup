@@ -112,14 +112,26 @@ it("u5765_open_failure_returns_its_cause_and_visible_recovery", async () => {
   expect(await screen.findByRole("dialog", { description: /Folder unavailable/ })).toBeDefined();
 });
 
-it("u5765_escape_refuses_and_restores_the_original_focus", async () => {
+it.each(["escape", "pointer", "queue"])("u5765_dismissal_restores_the_original_focus: %s", async dismissal => {
   const mounted = await mount();
-  const original = screen.getByRole("tab", { name: SOURCE.name });
+  const original = document.querySelector<HTMLTextAreaElement>(".ask-input")!;
+  expect(original).not.toBeNull();
   original.focus();
   const reply = mounted.answer(request(61));
   await screen.findByRole("dialog");
-  fireEvent.keyDown(document.activeElement!, { key: "Escape", code: "Escape" });
+  screen.getByRole("button", { name: "Refuse" }).focus();
+  const queued = dismissal === "queue" ? mounted.answer(request(62, "/repos/queued")) : null;
+
+  if (dismissal === "escape") fireEvent.keyDown(document.activeElement!, { key: "Escape", code: "Escape" });
+  else fireEvent.click(screen.getByRole("button", { name: "Refuse" }));
   expect(await reply).toMatchObject({ id: 61, error: { code: -32002 } });
+
+  if (queued) {
+    await screen.findByRole("dialog", { description: /\/repos\/queued/ });
+    fireEvent.click(screen.getByRole("button", { name: "Refuse" }));
+    expect(await queued).toMatchObject({ id: 62, error: { code: -32002 } });
+  }
+
   await waitFor(() => expect(document.activeElement).toBe(original));
   expect(mounted.opening).not.toHaveBeenCalled();
 });
