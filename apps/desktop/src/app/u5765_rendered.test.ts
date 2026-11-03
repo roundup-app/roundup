@@ -57,4 +57,18 @@ it("u5765_open_confirmation_and_failure_are_visible_on_tree_40", async () => {
   await page.browser("click", "[role=dialog] button:last-child");
   await page.until("window.openResult?.error?.code === -32001 && document.body.textContent.includes('folder is unavailable')");
   await page.capture("U5765", "failure");
+  await page.browser("press", "Escape");
+  await page.until("!document.querySelector('[role=dialog]')");
+  await page.evaluate(`(() => {
+    const app = window.__fake.app;
+    app.opened.failure = null;
+    window.openResult = null;
+    void app.requestAction({id:5767,method:'project.open',params:{source:app.opened.project.path,path:'/Users/you/Projects/keyboard-target',agent:{id:'agent-1',name:'builder'}}}).then(reply => window.openResult=reply);
+    return true;
+  })()`);
+  await page.until("document.querySelector('[role=dialog]') !== null");
+  await page.tabTo("Open");
+  await page.browser("press", "Enter");
+  await page.until("window.openResult?.result?.path === '/Users/you/Projects/keyboard-target' && !document.querySelector('[role=dialog]')");
+  expect(await page.evaluate("window.openResult")).toEqual({ jsonrpc: "2.0", id: 5767, result: { path: "/Users/you/Projects/keyboard-target" } });
 });
