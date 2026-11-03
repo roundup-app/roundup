@@ -14,7 +14,7 @@ type Frame = { top: number; bottom: number; barBottom: number };
 type Observation = {
   case: string; width: number; bar: Box; reserved: Box; title: Box; strip: Box; plus: Box;
   rail: Box; centre: Box; shelf: Box; drawer: Box; close: Box;
-  menu: Box | null;
+  menu: { items: { id: string; label: string; enabled: boolean }[] } | null;
   centreSurfaces: Box[];
   opening?: Frame[]; closing?: Frame[];
   windowTitle: string; titleName: string; titleTip: string;

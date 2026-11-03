@@ -42,9 +42,9 @@ read = r"""(() => {
   return {width:innerWidth,bar:box('.header'),reserved:box('.traffic-lights'),title:box('.window-title'),windowTitle:window.__fake.app.windowOperations.filter(op=>op.kind==='title').at(-1)?.title ?? "",titleName:title?.getAttribute('aria-label') ?? "",titleTip:document.getElementById(title?.getAttribute('aria-describedby'))?.textContent ?? "",
     titleStyle:{overflow:title ? getComputedStyle(title).textOverflow : "",whiteSpace:title ? getComputedStyle(title).whiteSpace : ""},
     titleTextWidth:title ? titleRange.getBoundingClientRect().width : 0,titlePadding:titleCss ? parseFloat(titleCss.paddingLeft)+parseFloat(titleCss.paddingRight) : 0,
-    strip:box('.strip'),rail:box('.rail'),centre:box('.centre'),shelf:box('.shelf'),drawer:box('.drawer'),close:box('.drawer .close'),menu:box('.tab-menu'),
-    centreSurfaces:[...document.querySelectorAll('.centre .order-line,.centre .thread-header')].map(e=>e.getBoundingClientRect().toJSON()),
-    checks:window.__checks(),controls,plus:box('.strip-add'),scroll:{width:document.querySelector('.tablist')?.clientWidth ?? 0,total:document.querySelector('.tablist')?.scrollWidth ?? 0}};
+    strip:box('.strip'),rail:box('.rail'),centre:box('.centre'),shelf:box('.shelf'),drawer:box('.drawer'),close:box('.drawer .close'),menu:window.__fake.app.shownMenus.at(-1) ?? null,
+    centreSurfaces:[...document.querySelectorAll('.centre .pane-screen,.centre .terminal-bar')].map(e=>e.getBoundingClientRect().toJSON()),
+    checks:matchMedia('(prefers-color-scheme: dark)').matches ? window.__checks() : {},controls,plus:box('.strip-add'),scroll:{width:document.querySelector('.tablist')?.clientWidth ?? 0,total:document.querySelector('.tablist')?.scrollWidth ?? 0}};
 })()"""
 
 
@@ -183,7 +183,7 @@ if len(sys.argv) > 5 and sys.argv[5] == "edges":
         browser("close")
     sys.exit(0)
 
-slide = r"""async (selector) => {
+slide = r"""(() => {
  const panel=document.querySelector('.drawer');
  const frames=[];
  let done=false;
@@ -199,9 +199,18 @@ slide = r"""async (selector) => {
    if(!done)requestAnimationFrame(sample);
  };
  requestAnimationFrame(sample);
- document.querySelector(selector).click();await ended;await new Promise(requestAnimationFrame);
- return frames;
-}"""
+ window.__u449Slide=ended.then(async()=>{await new Promise(requestAnimationFrame);return frames});
+})()"""
+
+
+def observe_slide(selector):
+    evaluate(slide)
+    if selector == ".drawer .close":
+        browser("click", selector)
+    else:
+        # OpenButton explicitly uses pointer activation even when its Shelf is closed.
+        evaluate(f"document.querySelector({json.dumps(selector)}).click()")
+    return evaluate("window.__u449Slide")
 
 try:
     browser("open", origin + "harness.html?seed=first-run")
@@ -221,45 +230,45 @@ try:
                 if seed == "tree-40":
                     # Every Drawer keeps its top throughout opening and closing, with either Shelf state.
                     for shelf_open in (True, False):
-                        for kind in ("Todo", "Pad", "Work-order"):
+                        # U467 retires the Work-order Drawer and Thread header; Todo and Pad survive.
+                        for kind in ("Todo", "Pad"):
+                            tab_selector = "#shelf-tab-pads" if kind == "Pad" else "#shelf-tab-todos"
                             evaluate("document.querySelector('.rail [data-todo-root]').click()")
                             if kind == "Pad":
                                 evaluate("[...document.querySelectorAll('.shelf-tabs [role=tab]')].find(e=>e.textContent.startsWith('Pads') && e.getAttribute('aria-expanded') !== 'true')?.click()")
+                                evaluate("document.querySelector('.shelf [data-shelf-group=unassigned][data-state=closed] [data-part=branch-control]')?.click()")
                                 browser("wait", ".shelf .pad-name")
-                                selector = ".shelf .pad-name"
+                                selector = ".shelf [data-pad] .todo-open"
                             elif kind == "Todo":
                                 evaluate("[...document.querySelectorAll('.shelf-tabs [role=tab]')].find(e=>e.textContent.startsWith('Todos') && e.getAttribute('aria-expanded') !== 'true')?.click()")
+                                evaluate("document.querySelector('.shelf [data-shelf-group=unassigned][data-state=closed] [data-part=branch-control]')?.click()")
                                 browser("wait", ".shelf .todo-row-button")
-                                selector = ".shelf .todo-row-button"
-                            else:
-                                evaluate("document.querySelector('[role=treeitem]').click()")
-                                browser("wait", ".thread-header button")
-                                selector = ".thread-header button"
+                                selector = ".shelf [data-todo] .todo-open"
                             if not shelf_open:
-                                evaluate("document.querySelector('.shelf-tab[data-selected]').click()")
-                                browser("wait", '.shelf-tab[data-selected][aria-expanded="false"]')
-                            frames = evaluate(f"({slide})({json.dumps(selector)})")
+                                evaluate(f"document.querySelector({json.dumps(tab_selector)}).click()")
+                                browser("wait", tab_selector + '[aria-expanded="false"]')
+                            frames = observe_slide(selector)
                             if kind == "Pad":
                                 browser("wait", ".pad-body .ProseMirror")
                             opened = capture(prefix + f"-{kind}-{'open' if shelf_open else 'closed'}-shelf")
                             opened["opening"] = frames
-                            opened["closing"] = evaluate(f"({slide})('.drawer .close')")
-                            if output:
+                            opened["closing"] = observe_slide(".drawer .close")
+                            if output and scheme == "dark":
                                 directory = Path(output) / variant
                                 (directory / (opened["case"] + ".geometry.json")).write_text(json.dumps(opened, separators=(",", ":")) + "\n")
                             if not shelf_open:
-                                evaluate("document.querySelector('.shelf-tab[data-selected]').click()")
-                                browser("wait", '.shelf-tab[data-selected][aria-expanded="true"]')
+                                evaluate(f"document.querySelector({json.dumps(tab_selector)}).click()")
+                                browser("wait", tab_selector + '[aria-expanded="true"]')
                     # Selection identifies the Workstream in the bar, independent of Shelf width.
                     evaluate("document.querySelector('[role=treeitem]').click()")
                     capture(prefix + "-selected")
                     evaluate("document.querySelector('.window').style.setProperty('--shelf-span','400px')")
                     capture(prefix + "-resized")
-                    evaluate("document.querySelector('.shelf-tab[data-selected]').click()")
+                    evaluate("document.querySelector('.shelf-tab[aria-expanded=true]').click()")
                     capture(prefix + "-closed")
                     browser("wait", '.rail [data-id="tokens"]')
                     evaluate("document.querySelector('.rail [data-id=\"tokens\"]').click()")
-                    browser("wait", ".order-line")
+                    browser("wait", ".centre .pane-screen")
                     capture(prefix + "-closed-agent")
                 if seed == "tabs-8":
                     evaluate(r"""(async()=>{
@@ -283,14 +292,20 @@ try:
                     browser("wait", "[role=tooltip][data-state=open]")
                     capture(prefix + "-overflow")
                     browser("hover", ".centre")
-                    evaluate("const list=document.querySelector('.tablist'),tab=list.querySelector('.tab-mark').closest('[role=tab]');list.scrollLeft=tab.closest('.project-tab').offsetLeft+20;tab.focus({preventScroll:true})")
-                    browser("wait", ".tab-tip")
+                    browser("press", "Tab")
+                    evaluate("""(async()=>{
+                      const list=document.querySelector('.tablist'),tab=list.querySelector('.tab-mark').closest('[role=tab]');
+                      const left=Math.min(tab.closest('.project-tab').offsetLeft+20,list.scrollWidth-list.clientWidth);
+                      if(list.scrollLeft!==left)await new Promise(resolve=>{list.addEventListener('scroll',resolve,{once:true});list.scrollLeft=left});
+                      tab.focus({preventScroll:true});
+                    })()""")
+                    browser("wait", ".tab-tip[data-state=open]")
                     capture(prefix + "-tooltip")
                     evaluate("document.activeElement.blur();document.querySelector('.tablist').scrollLeft=0")
                     evaluate("const v=document.querySelector('.tablist').getBoundingClientRect(),end=document.querySelector('.strip-edge-right')?.getBoundingClientRect().left??v.right;const tab=[...document.querySelectorAll('.project-tab')].filter(e=>{const r=e.getBoundingClientRect();return Math.min(r.right,end)-Math.max(r.left,v.left)>16}).at(-1);const r=tab.getBoundingClientRect();tab.dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,clientX:Math.min(r.right,end)-8,clientY:24}))")
-                    browser("wait", ".tab-menu")
+                    browser("wait", "--fn", "window.__fake.app.menuResolve !== null")
                     capture(prefix + "-menu")
-                    evaluate("document.activeElement.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}))")
+                    evaluate("window.__fake.app.closeMenu()")
                     evaluate("document.querySelector('.tab-name').dispatchEvent(new MouseEvent('dblclick',{bubbles:true}))")
                     browser("wait", ".tab-rename")
                     capture(prefix + "-rename")
