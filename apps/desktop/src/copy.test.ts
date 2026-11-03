@@ -153,6 +153,9 @@ const candidates = (source: string): { line: number; text: string }[] => {
     if (ancestors.some((each) => (each.type.startsWith("TS") && each.type !== "TSAsExpression" && each.type !== "TSSatisfiesExpression") || each.type === "ImportDeclaration")) return;
 
     if (ancestors.some((each) => each.type === "TemplateLiteral" && /^<a href=/.test(each.quasis[0]?.value.cooked ?? ""))) return;
+
+    // Pad Markdown wrappers are serialized source delimiters; their contents remain expressions checked below.
+    if (node.type === "TemplateLiteral" && /^(?:<span data-pad-color=" "> <\/span>|<mark> <\/mark>)$/.test(node.quasis.map(part => part.value.cooked ?? "").join(" "))) return;
     const parent = ancestors.at(-1);
 
     // FontFaceSet.load consumes CSS font syntax, never App copy.
@@ -184,6 +187,9 @@ const candidates = (source: string): { line: number; text: string }[] => {
     if (parent?.type === "ObjectProperty" && parent.key === node || parent?.type === "MemberExpression") return;
 
     const holder = ancestors.at(-2);
+
+    // Solid splitProps key arrays select properties; their names never render as copy.
+    if (parent?.type === "ArrayExpression" && holder?.type === "CallExpression" && holder.callee.type === "Identifier" && holder.callee.name === "splitProps" && holder.arguments.indexOf(parent) > 0) return;
 
     if (parent?.type === "ArrayExpression" && holder?.type === "ObjectProperty" && holder.key.type === "Identifier" && holder.key.name === "chords") return;
     let text: string;
@@ -255,13 +261,26 @@ it("u471_catalogue_distinguishes_internal_fallback_props_from_app_copy", () => {
     document.fonts.load(\`\${style} \${size}px \${family}\`);
     rows?.querySelectorAll("button.ask-line");
     row?.setAttribute("aria-label", "Open row");
+    const menu = <Tip>{trigger => {
+      const [, attributes] = splitProps(trigger({ "aria-label": "Choose colour" }), ["value"], ["title"]);
+      return <Menu.Trigger {...attributes}>Choose colour</Menu.Trigger>;
+    }}</Tip>;
   `)).toEqual([
     { line: 3, text: "recover" },
     { line: 4, text: "recovery failed" },
     { line: 5, text: "rename" },
     { line: 5, text: "Rename project" },
     { line: 10, text: "Open row" },
+    { line: 12, text: "Choose colour" },
+    { line: 13, text: "Choose colour" },
   ]);
+});
+
+// The catalogue scan above still proves every production string; these cases distinguish source markup from authored words.
+it("u471_serialized_pad_wrappers_are_structure_while_authored_text_is_copy", () => {
+  expect(candidates('const colour = `<span data-pad-color="${colour}">${body}</span>`; const highlight = `<mark>${body}</mark>`;')).toEqual([]);
+  expect(candidates('const text = `<mark>Read this</mark>`;')).toEqual([{ line: 1, text: "<mark>Read this</mark>" }]);
+  expect(candidates('const text = `<mark>${"Read this"}</mark>`;')).toEqual([{ line: 1, text: "Read this" }]);
 });
 
 it("u471_action_labels_describe_the_existing_action_retry_supervisor", async () => {

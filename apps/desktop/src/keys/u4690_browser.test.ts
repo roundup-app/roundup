@@ -37,7 +37,7 @@ beforeAll(async () => {
   const ready = await fetch(new URL("/__roundup_ready", origin));
 
   if (!ready.ok) throw new Error(await ready.text());
-  await browser("--profile", profile, "open", new URL("/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40", origin).href);
+  await browser("--profile", profile, "open", new URL("/harness.html?view=workstreams&items=1&tabs=1&renderer=dom&seed=tree-40", origin).href);
 
   const dir = captureDir("U4690");
 
@@ -123,7 +123,7 @@ it("u4690a_native_button_activation_uses_described_context", async () => {
 }, 60_000);
 
 it("u4690d_numbered_group_and_rejected_assignment_keep_the_Todo", async () => {
-  await browser("open", new URL("/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40", origin).href);
+  await browser("open", new URL("/harness.html?view=workstreams&items=1&tabs=1&renderer=dom&seed=tree-40", origin).href);
   await wait(`!!window.__fake && !!document.querySelector('.shelf [data-part=branch-control]')`);
   await read(`document.querySelector('.shelf [data-part=branch-control]').click()`);
   await wait(`!!document.querySelector('.shelf .todo-row-button')`);
@@ -156,7 +156,7 @@ it("u4690a_pointer_picker_returns_to_its_Todo", async () => {
 it("u2230b_hint_line_drops_from_the_end", async () => {
   for (const width of [1280, 700]) {
     await browser("set", "viewport", String(width), "800");
-    await browser("open", new URL("/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40", origin).href);
+    await browser("open", new URL("/harness.html?view=workstreams&items=1&tabs=1&renderer=dom&seed=tree-40", origin).href);
     await wait(`!!document.querySelector('.shelf [data-part=branch-control]')`);
     await read(`document.querySelector('.shelf [data-part=branch-control]').click()`);
     await wait(`!!document.querySelector('.shelf .todo-row-button')`);
@@ -178,7 +178,7 @@ it("u2230b_hint_line_drops_from_the_end", async () => {
 it.each(["agent", "bubble", "pad-filled", "pad-side"])("u4690a_pointer_keeps_source_focus_and_action_destinations: %s", async place => {
   await browser("set", "viewport", "1512", "950");
   await browser("set", "media", "dark");
-  await browser("open", new URL("/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40", origin).href);
+  await browser("open", new URL("/harness.html?view=workstreams&items=1&tabs=1&renderer=dom&seed=tree-40", origin).href);
   await wait(`!!window.__fake && !!document.querySelector('.rail-row[data-id="agent-2"]')`);
 
   if (place.startsWith("pad-")) {

@@ -73,7 +73,7 @@
   --crepe-base-font-size: var(--text-title);
   --crepe-font-title: var(--font-ui);
   --crepe-font-default: var(--font-ui);
-  --crepe-font-code: var(--font-mono);
+  --crepe-font-code: var(--font-mono); /* taste-skill-ignore: literal code uses the code face. */
   --crepe-shadow-1: none;
   --crepe-shadow-2: none;
 }
@@ -106,6 +106,7 @@
 }
 
 .pad-rich-editor .top-bar-heading-button {
+  min-width: var(--space-5);
   height: var(--space-5);
   padding: 0 0 0 var(--space-1);
 }
@@ -368,6 +369,10 @@ li[aria-selected="true"] svg {
   margin-left: var(--space-2);
 }
 
+/* A save refusal must expose both its cause and its recovery action. */
+.pad-body .reserved-line:has([role="alert"]) { block-size: auto; max-block-size: none; }
+.pad-body .reserved-content { flex-wrap: wrap; }
+.pad-body .ink[data-kind="error"] { white-space: normal; overflow-wrap: anywhere; overflow: visible; }
 .pad-body[data-pad-width="narrow"] {
   --pad-reading-width: var(--reading-width);
 }
@@ -381,10 +386,11 @@ li[aria-selected="true"] svg {
 }
 
 .pad-width-control {
-  order: 1;
+  order: 2;
   flex-shrink: 0;
+  margin-inline-start: var(--space-2);
 }
 
 .pad-toolbar-expand {
-  order: 2;
+  order: 3;
 }

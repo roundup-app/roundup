@@ -7,7 +7,7 @@ import { captureDir } from "../../testing/captures";
 let lane: LaneBrowser;
 
 beforeAll(async () => {
-  lane = await openLane(1512, "dark", "rail-u3787a");
+  lane = await openLane(1512, "dark", "rail-u3787a", false, captureDir("U3787a") ? "tree-40" : null);
   const dir = captureDir("U3787a");
 
   if (dir) { mkdirSync(dir, { recursive: true }); await lane.browser("record", "start", join(dir, "rail-undo.webm")); }
@@ -73,6 +73,7 @@ it("u3787a_quiet_deletion_keeps_the_lists_and_drawers_reachable", async () => {
     if (id === "U150" || id === "U3512a") {
       await lane.browser("press", "Enter");
       await lane.until("!!document.querySelector('.todo-detail')");
+      await lane.evaluate("Promise.all(document.querySelector('.drawer').getAnimations().map(animation => animation.finished.catch(() => {})))");
       await lane.capture(id, "drawer-before");
       await lane.until("document.querySelector('.drawer[data-open=true]')?.getAnimations().every(animation => animation.playState === 'finished')");
       await lane.browser("focus", '.todo-detail button[aria-label="More actions"]');
