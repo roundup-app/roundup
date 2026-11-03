@@ -74,7 +74,7 @@ export const copy = {
   choiceLabels: { alert: "Alert", sound: "Sound", badge: "Dock badge" },
   permissionMode: "Permission mode",
   permissionDefault: "Claude Code default",
-  settingsDefault: sharedCopy.defaultLevel,
+  settingsDefault: sharedCopy.defaultChoice,
   permissionEdits: "Accept edits",
   permissionPlan: "Plan",
   permissionAuto: sharedCopy.auto,

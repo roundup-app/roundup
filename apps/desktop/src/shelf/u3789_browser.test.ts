@@ -56,8 +56,7 @@ const shot = async (id: string, stage: string, step: string): Promise<Checks> =>
 };
 
 const load = async (seed: string, base = false) => {
-  await browser("open", url(`/harness.html?seed=${seed}`, base));
-  await wait("window.__fake && document.querySelector('.rail-tree')");
+  await browser("open", url("/src/ui/u498.html", base));
   await browser("eval", "localStorage.clear()");
   await browser("open", url(`/harness.html?seed=${seed}`, base));
   await wait("window.__fake && document.querySelector('.rail-tree')");

@@ -22,7 +22,7 @@ export function captureDir(id: string): string | null {
 const observerTable = {
   "src/rail/u5531_capture.test.ts": ["U5531b", "U5531c"],
   "src/rail/u5690c_capture.test.ts": ["U5690c"],
-  "src/app/u5502_rendered.test.ts": ["U5502"],
+  "src/app/u5502_rendered.test.ts": ["U5502", "U5503"],
   "src/pads/u5561a_browser.test.ts": ["U5561a", "U5561b", "U5575a", "U5704a"],
   "src/pads/u5561c_real_browser.test.ts": ["U5561c"],
   "src/rail/u5555_browser.test.ts": ["U5217", "U5555", "U4313b", "U5629"],
@@ -61,6 +61,8 @@ const observerTable = {
   "src/keys/u4692_attention.test.tsx": ["U4692", "U4692a"],
   "src/keys/u4690_browser.test.ts": ["U4690", "U4690a", "U4690b", "U4690c", "U4690d", "U4690e"],
   "src/orders/u3078i_rendered.test.ts": ["P3557c", "U3078i", "U3791b", "U4453b"],
+  "src/pads/u5562c_browser.test.ts": ["U5562b", "U5562c", "U5562d"],
+  "src/pads/u5562d_real_browser.test.ts": ["U5562a", "U5562b", "U5562c", "U5562d"],
   "src/pads/u4698b_browser.test.ts": ["U4698b", "U5560a", "U5574a", "U5574b", "U5705"],
   "src/pads/p2544a_browser.test.ts": ["U3021c", "U5559a", "U5559b"],
   "src/pads/u3732_real_daemon_agent_owner.test.tsx": ["U3736"],
