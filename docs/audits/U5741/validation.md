@@ -734,3 +734,10 @@ Only the successful final replay supplies rendered-todos.json. Earlier partial i
 | Required-check interruption | Exit | Disposition |
 | --- | ---: | --- |
 | First `just ready` | 143 | All 193 lint-behavior fixtures passed, but the parent terminated before remaining lints. Not counted as a pass; reran after harness shutdown. Cause of parent termination unverified. |
+
+| Final required validation | Exit | Result |
+| --- | ---: | --- |
+| Second complete `just ready` | 0 | B4522 migration guard, all 193 lint-behavior fixtures, web/package type checks, repository/Rust scans, formatting/dependency checks, proof setup/mutation observers (`ALL PROOFS CHECK`) and N7 pass. Existing affected-path observer skips Clippy because no Rust crate reaches this documentation diff. |
+| Vocabulary, scenario ids, merge-loss, whitespace | 0 each | Self-review found no duplicate row id, misplaced product change, naming drift or merge loss. All forty row ids are unique; ten retained records have only successful commands. |
+
+The complete evidence commit is on PR #5875. This slice leaves #5758 open and requests no owner choices. No product, scenario, contract, test or frozen-loop file changed; no local just check ran.
