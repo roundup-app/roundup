@@ -44,7 +44,7 @@ it.skipIf(Boolean(captureDir("U4698e")) && !captureDir("U3311"))("u3311_real_dae
     FAKE_CLAUDE_LAUNCH_LOG: join(scratch, "launches.jsonl"),
   }, true);
 
-  const lane = await openLane(1512, "dark", "u3311-delegate-board");
+  const lane = await openLane(1512, "dark", "u3311-delegate-board", false, null);
   const app = createServedApp(real.base);
   const me: Actor = { kind: "user", id: "you", parent: null };
   const actor = (id: string): Actor => ({ kind: "agent", id, parent: null });
@@ -303,7 +303,7 @@ print(json.dumps({'todo':todo,'pad':pad}))
 `;
 
   const real = await startRealDaemon({ FAKE_CLAUDE_RUN: JSON.stringify([["python3", "-c", make, resolve("../../target/debug/rup")]]), FAKE_CLAUDE_RUN_REPORT: report }, true);
-  const lane = await openLane(1512, "dark", "u4698e-persisted");
+  const lane = await openLane(1512, "dark", "u4698e-persisted", false, null);
   const app = createServedApp(real.base);
 
   try {

@@ -33,7 +33,7 @@ describe.each([[1512, "dark"], [1512, "light"]] as const)("u492a at %i %s", (wid
     // A click anywhere clears a row's failure, and the fake Daemon answers within the click, so the chord stands in for the control.
     await lane.browser("focus", `.shelf [data-todo="${one}"] .todo-row-button`);
     await lane.browser("press", "Alt+ArrowUp");
-    await lane.until("document.querySelector('.shelf').textContent.includes('cannot reorder')");
+    await lane.until("document.querySelector('.shelf [role=alert]')?.textContent.includes('cannot reorder')");
     await read(lane, "reorder-failure");
     expect((await lane.calls("todo.reorder")).map(call => call.params)).toEqual([{ id: one, before: initial[2] }]);
 
@@ -145,7 +145,7 @@ describe.each([[1512, "dark"], [1512, "light"]] as const)("u492a at %i %s", (wid
     await lane.evaluate("(() => { window.__fake.failNext(-32001, 'cannot move this Todo because the Daemon refused it'); return true; })()");
     await lane.browser("focus", `.shelf [data-todo="${ids[0]}"] .todo-row-button`);
     await lane.browser("press", "Alt+ArrowDown");
-    await lane.until("document.querySelector('.shelf').textContent.includes('cannot move this Todo')");
+    await lane.until("document.querySelector('.shelf [role=alert]')?.textContent.includes('cannot move this Todo')");
     await read(lane, "dense-failure");
     expect(await lane.order()).toContain(ids[0]);
     expect(await lane.calls("todo.reorder")).toEqual([]);
