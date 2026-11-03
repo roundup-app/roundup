@@ -262,11 +262,6 @@ async fn u4593_agent_inputs_resolve_before_dispatch() {
                 json!({"turns":[{"agent":selector,"turn":"t"}]}),
                 "/turns/0/agent",
             ),
-            (
-                "reaction.create",
-                json!({"target":selector,"condition":{"kind":"agents","ids":[selector]}}),
-                "/condition/ids/0",
-            ),
         ] {
             let caller = if method == "agent.spawn" && selector != "me" {
                 Actor::user()
@@ -394,28 +389,6 @@ async fn u4593_selection_preserves_authority() {
         let error = daemon.route(&mut conn, method, params).await.unwrap_err();
         assert_eq!(error.code, code::FORBIDDEN, "{error:?}");
     }
-}
-
-#[tokio::test]
-async fn u4593_reaction_keeps_resolved_identities() {
-    let dir = tempfile::tempdir().unwrap();
-    let daemon = tests::daemon_in(dir.path());
-    let db = rusqlite::Connection::open(dir.path().join("project.db")).unwrap();
-    db.execute_batch(
-        "INSERT INTO nodes(id,kind,name,ord) VALUES(1,'agent','Target',0),(2,'agent','Watched',1);",
-    )
-    .unwrap();
-    let created = tests::ask(&daemon, &json!({"id":1,"method":"reaction.create","params":{"operation":"names","name":"Observe","target":"Target","instruction":"Continue","reason":"Wait for the prerequisite.","condition":{"kind":"agents","ids":["Watched"]},"expires_at":"2099-01-01T00:00:00Z"}}).to_string()).await;
-    assert!(created.get("error").is_none(), "{created}");
-    db.execute_batch("UPDATE nodes SET name='Renamed' WHERE id=1; UPDATE nodes SET name='Also renamed' WHERE id=2; INSERT INTO nodes(id,kind,name,ord) VALUES(3,'agent','Target',2),(4,'agent','Watched',3);").unwrap();
-    let read = tests::ask(
-        &daemon,
-        &json!({"id":1,"method":"reaction.get","params":{"id":created["result"]["id"]}})
-            .to_string(),
-    )
-    .await;
-    assert_eq!(read["result"]["target"], "1");
-    assert_eq!(read["result"]["condition"]["ids"], json!(["2"]));
 }
 
 #[tokio::test]
@@ -740,109 +713,6 @@ async fn m14_an_agent_cannot_route_or_replace_the_users_routes() {
 }
 
 #[tokio::test]
-async fn n5467b_incomplete_reaction_records_refuse_without_firing() {
-    let dir = tempfile::tempdir().unwrap();
-    let daemon = tests::daemon_in(dir.path());
-    let db = rusqlite::Connection::open(dir.path().join("project.db")).unwrap();
-    db.execute_batch(
-        "INSERT INTO nodes(id,kind,name,ord) VALUES(1,'agent','Target',0),(2,'agent','Watched',1);",
-    )
-    .unwrap();
-    let created = tests::ask(&daemon, &json!({"id":1,"method":"reaction.create","params":{"operation":"current","name":"Observe","target":"1","instruction":"Continue","reason":"Wait for the prerequisite.","condition":{"kind":"agents","ids":["2"]},"expires_at":"2099-01-01T00:00:00Z"}}).to_string()).await;
-    assert!(created.get("error").is_none(), "{created}");
-    let id = created["result"]["id"].as_str().unwrap();
-    let original: String = db
-        .query_row("SELECT record FROM reactions WHERE id=?1", [id], |r| {
-            r.get(0)
-        })
-        .unwrap();
-    for field in [
-        "reason",
-        "observation.health_code",
-        "observation.cause_code",
-        "observation.gap_code",
-        "observation.recovery_code",
-    ] {
-        db.execute(
-            "UPDATE reactions SET record=json_remove(?1, ?2) WHERE id=?3",
-            rusqlite::params![original, format!("$.{field}"), id],
-        )
-        .unwrap();
-        for (method, params) in [
-            ("reaction.get", json!({"id":id})),
-            ("reaction.list", Value::Null),
-            ("reaction.run", json!({"id":id,"operation":"refused"})),
-        ] {
-            let reply = tests::ask(
-                &daemon,
-                &json!({"id":2,"method":method,"params":params}).to_string(),
-            )
-            .await;
-            assert!(reply.get("error").is_some(), "{field}: {reply}");
-        }
-    }
-    db.execute(
-        "UPDATE reactions SET record=?1 WHERE id=?2",
-        rusqlite::params![original, id],
-    )
-    .unwrap();
-    let watch: String = db
-        .query_row(
-            "SELECT state FROM reaction_watch WHERE reaction=?1",
-            [id],
-            |r| r.get(0),
-        )
-        .unwrap();
-    let current: contracts::reaction::Reaction = serde_json::from_str(&original).unwrap();
-    for field in [
-        "before_rearm",
-        "health_code",
-        "cause_code",
-        "gap_code",
-        "recovery_code",
-    ] {
-        db.execute(
-            "UPDATE reaction_watch SET state=json_remove(?1, ?2) WHERE reaction=?3",
-            rusqlite::params![watch, format!("$.{field}"), id],
-        )
-        .unwrap();
-        let incomplete: String = db
-            .query_row(
-                "SELECT state FROM reaction_watch WHERE reaction=?1",
-                [id],
-                |r| r.get(0),
-            )
-            .unwrap();
-        daemon.evaluator().unwrap().observe(&current, None).await;
-        for (method, params) in [
-            ("reaction.get", json!({"id":id})),
-            ("reaction.run", json!({"id":id,"operation":"refused"})),
-        ] {
-            let reply = tests::ask(
-                &daemon,
-                &json!({"id":2,"method":method,"params":params}).to_string(),
-            )
-            .await;
-            assert!(reply.get("error").is_some(), "Watch {field}: {reply}");
-        }
-        let retained: String = db
-            .query_row(
-                "SELECT state FROM reaction_watch WHERE reaction=?1",
-                [id],
-                |r| r.get(0),
-            )
-            .unwrap();
-        assert_eq!(retained, incomplete, "Watch {field} was rewritten");
-    }
-    assert_eq!(
-        db.query_row("SELECT count(*) FROM reaction_firings", [], |r| r
-            .get::<_, i64>(0))
-            .unwrap(),
-        0
-    );
-}
-
-#[tokio::test]
 async fn c5461a_retired_methods_are_unknown() {
     let dir = tempfile::tempdir().unwrap();
     let daemon = tests::daemon_in(dir.path());
@@ -882,11 +752,28 @@ async fn u5740b_removed_methods_are_unknown() {
     let dir = tempfile::tempdir().unwrap();
     let daemon = tests::daemon_in(dir.path());
     let baseline = tests::ask(&daemon, r#"{"id":1,"method":"retired.unknown"}"#).await;
-    for method in ["reaction.create", "reaction.preview", "reaction.list", "reaction.get", "reaction.stop", "reaction.run"] {
+    for method in [
+        "reaction.create",
+        "reaction.preview",
+        "reaction.list",
+        "reaction.get",
+        "reaction.stop",
+        "reaction.run",
+    ] {
         let reply = tests::ask(&daemon, &json!({"id":1,"method":method}).to_string()).await;
-        assert_eq!(reply["error"]["code"], baseline["error"]["code"], "{method}");
-        assert_eq!(reply["error"]["message"], format!("method not found: {method}"));
+        assert_eq!(
+            reply["error"]["code"], baseline["error"]["code"],
+            "{method}"
+        );
+        assert_eq!(
+            reply["error"]["message"],
+            format!("method not found: {method}")
+        );
     }
     let db = rusqlite::Connection::open(dir.path().join("project.db")).unwrap();
-    assert_eq!(db.query_row("SELECT count(*) FROM messages", [], |r| r.get::<_, i64>(0)).unwrap(), 0);
+    assert_eq!(
+        db.query_row("SELECT count(*) FROM messages", [], |r| r.get::<_, i64>(0))
+            .unwrap(),
+        0
+    );
 }

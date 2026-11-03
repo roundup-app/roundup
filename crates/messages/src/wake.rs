@@ -119,7 +119,7 @@ impl Messages {
             reply_to: None,
         };
         match self
-            .send_message_with(&ctx, params, false, Some(wake), None, None)
+            .send_message_with(&ctx, params, false, Some(wake), None)
             .await
         {
             Ok(_) => Ok(true),

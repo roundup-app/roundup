@@ -33,7 +33,6 @@ const SAMPLED: [&str; 17] = [
     "project.getPrepared",
     "project.resources",
     "rail.tree",
-    "reaction.list",
     "route.list",
     "terminal.list",
     "todo.list",
