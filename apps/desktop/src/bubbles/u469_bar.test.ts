@@ -36,7 +36,6 @@ const capture = async (name: string): Promise<void> => {
   if (baseline && name === "bar-1280-light") writeFileSync(join(dir, "main-observer.json"), JSON.stringify(JSON.parse(readFileSync(baseline, "utf8"))));
 };
 
-// Both seeds are needed: the empty bar and a populated owner have different keyboard tab sequences.
 it.each(["empty-project", "bubbles"].flatMap(seed => [["Enter", "Enter"], [" ", "Space"]].map(([key, code]) => ({ seed, key: key!, code: code! }))))("u469_every_tab_close_and_plus_is_named_and_keyboard_reachable: $seed $code", async ({ seed, key, code }) => {
   await page.load(`/harness.html?seed=${seed}`);
   await page.until(`() => Boolean(window.__fake && document.querySelector('.terminal-new'))`);
@@ -120,7 +119,7 @@ it("u469_the_observer_records_open_switch_minimise_pull_close_failure_and_select
 }, 60_000);
 
 it.each([["Enter", "Enter"], [" ", "Space"]])("u469_visibility_buttons_activate_from_the_keyboard_%s", async (key, code) => {
-  await page.load('/harness.html?view=workstreams&items=1&tabs=1&seed=bubbles', 1280, 800);
+  await page.load('/harness.html?view=workstreams&tabs=1&seed=bubbles', 1280, 800);
   await page.until(`() => Boolean(window.__fake)`);
   await page.call(`() => document.querySelector('[data-id="runner"]').click()`);
   await page.until(`() => document.querySelectorAll('.terminal-tab').length===3`);

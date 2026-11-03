@@ -17,15 +17,14 @@ const request = (app: FakeApp, data: Requested) => {
   app.emit({ actor: { kind: "user", id: "you", parent: null }, name: "project.requested", data });
 };
 
-// Keep the App boundary: project.requested must exercise the event subscription and project switch together.
 const started = async () => {
   const app = createFakeApp();
 
   app.opened.project = FIRST;
 
   render(() => <App app={app} reducedMotion={() => false} clock={() => 0} />);
-  await screen.findByRole("tab", { name: FIRST.name });
-  await screen.findByRole("button", { name: "Create" });
+  await within(await screen.findByLabelText("Projects", { selector: '[role="tablist"]' })).findByRole("tab", { name: FIRST.name });
+  await screen.findByLabelText("Create", { selector: "button" });
 
   return app;
 };
@@ -38,7 +37,7 @@ describe("m8 an Agent opens and renames Projects", () => {
 
     request(app, { kind: "open", path: SECOND });
 
-    await screen.findByRole("tab", { name: "ledger" });
+    await within(await screen.findByLabelText("Projects", { selector: '[role="tablist"]' })).findByRole("tab", { name: "ledger" });
   });
 
   it("m8_a_failed_open_shows_the_error_line", async () => {
@@ -55,7 +54,7 @@ describe("m8 an Agent opens and renames Projects", () => {
 
     request(app, { kind: "rename", path: FIRST.path, name: "billing" });
 
-    await screen.findByRole("tab", { name: "billing" });
+    await within(await screen.findByLabelText("Projects", { selector: '[role="tablist"]' })).findByRole("tab", { name: "billing" });
   });
 });
 
@@ -85,7 +84,7 @@ it("u3021a_recovery_lists_only_work_at_risk", async () => {
   // Blank text, like picks and unknown availability, never qualifies.
   failedSave(holder, { surface: "todos", object: "8", recipient: null }, { title: "  " });
   const app = mount(drafts);
-  await screen.findByRole("tab", { name: FIRST.name });
+  await within(await screen.findByLabelText("Projects", { selector: '[role="tablist"]' })).findByRole("tab", { name: FIRST.name });
   fireEvent.contextMenu(await screen.findByRole("button", { name: /^Overview/ }), { clientX: 10, clientY: 10 });
   expect(app.shownMenus).toEqual([]);
 
@@ -129,8 +128,8 @@ it("u3289b_recovery_entry_is_never_rendered", async () => {
   const drafts = createProjectDrafts();
   const holder = drafts(FIRST.path);
   mount(drafts);
-  await screen.findByRole("tab", { name: FIRST.name });
-  await screen.findByRole("button", { name: "Create" });
+  await within(await screen.findByLabelText("Projects", { selector: '[role="tablist"]' })).findByRole("tab", { name: FIRST.name });
+  await screen.findByLabelText("Create", { selector: "button" });
   await new Promise((done) => setTimeout(done, 300));
   const records: MutationRecord[] = [];
   const observer = new MutationObserver((found) => records.push(...found));
@@ -224,19 +223,19 @@ const owners = {
   todo: async () => {
     fireEvent.click(await screen.findByRole("button", { name: "Add Todo: Overview" }));
 
-    return screen.findByRole<HTMLInputElement>("textbox", { name: "New Todo title" });
+    return screen.findByLabelText<HTMLInputElement>("New Todo title");
   },
   name: async () => {
     fireEvent.dblClick(document.querySelector(".tab-name")!);
 
-    return screen.findByRole<HTMLInputElement>("textbox", { name: "Project name" });
+    return screen.findByLabelText<HTMLInputElement>("Project name");
   },
 };
 
 it.each(Object.entries(owners))("u3021d_acknowledged_typing_has_no_outside_mutations_%s", async (_owner, openField) => {
   mount(createProjectDrafts());
-  await screen.findByRole("tab", { name: FIRST.name });
-  await screen.findByRole("button", { name: "Create" });
+  await within(await screen.findByLabelText("Projects", { selector: '[role="tablist"]' })).findByRole("tab", { name: FIRST.name });
+  await screen.findByLabelText("Create", { selector: "button" });
   const field = await openField();
 
   await new Promise((done) => setTimeout(done, 300));
@@ -258,14 +257,14 @@ it.each(Object.entries(owners))("u3021d_acknowledged_typing_has_no_outside_mutat
 
 it.each(Object.entries(owners))("u3289a_open_editor_stays_off_the_list_until_the_app_restarts_%s", async (_owner, openField) => {
   mount(createProjectDrafts());
-  await screen.findByRole("tab", { name: FIRST.name });
-  await screen.findByRole("button", { name: "Create" });
+  await within(await screen.findByLabelText("Projects", { selector: '[role="tablist"]' })).findByRole("tab", { name: FIRST.name });
+  await screen.findByLabelText("Create", { selector: "button" });
   fireEvent.input(await openField(), { target: { value: "unsent words" } });
   await new Promise((done) => setTimeout(done, 100));
   expect(await recoveryLabel()).toBeNull();
   cleanup();
   mount(createProjectDrafts());
-  await screen.findByRole("tab", { name: FIRST.name });
+  await within(await screen.findByLabelText("Projects", { selector: '[role="tablist"]' })).findByRole("tab", { name: FIRST.name });
   await vi.waitFor(async () => expect(await recoveryLabel()).toBe("Unfinished work (1)"));
 });
 

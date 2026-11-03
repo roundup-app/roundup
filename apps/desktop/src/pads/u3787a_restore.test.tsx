@@ -46,7 +46,7 @@ it.each(["fake", "real"])("u3787a_generated_contract_restores_without_submitting
     await openPad(pad.name, { connected, pads: [restored.pad], revision: draft.revision });
     expect(connected.drafts.list().find(item => item.revision === draft.revision)).toMatchObject({ destination, value: { source: text, originalName: "notes" } });
     expect(await app.rpc("pad.read", { name: "notes" })).toEqual(pad);
-    fireEvent.click(screen.getByRole("button", { name: "Resume" }));
+    fireEvent.click(screen.getByText("Resume", { selector: "button" }));
     await waitFor(async () => expect((await app.rpc("pad.read", { name: "notes" })).text).toBe(text));
   } finally {
     cleanup();
@@ -386,7 +386,6 @@ describe("U3787a connected App regions", () => {
   beforeEach(async () => { real = await startRealDaemon({}); }, 120_000);
   afterEach(async () => { await real?.stop(); });
 
-// The full App owns keys and native menu capture; the Daemon owns every mutation and identity.
 it.each(["todos", "pads", "shelf-todos", "shelf-pads", "clear-done", "drawer-todo", "drawer-pad"])("u3787a_%s_delete_undo_redo_without_feedback", async kind => {
   const app = createServedApp(real.base);
 
@@ -422,17 +421,17 @@ it.each(["todos", "pads", "shelf-todos", "shelf-pads", "clear-done", "drawer-tod
     });
   }
 
-  const owner = kind === "todos" || kind === "pads" ? within(screen.getByRole("complementary", { name: "Drawer" })) : screen;
+  const owner = kind === "todos" || kind === "pads" ? within(screen.getByLabelText("Drawer", { selector: "aside" })) : screen;
   const row = kind === "clear-done" ? await screen.findByText("Clear done", { selector: "button" }) : isPad ? (await owner.findByText(name, { selector: ".pad-name .shelf-title" })).closest<HTMLElement>(".pad-name")! : await owner.findByLabelText(new RegExp(`^(?:Idle|Blocked|Done) #${todo!.id} `));
   row.focus();
 
   if (kind.startsWith("drawer-")) {
     fireEvent.keyDown(row, { key: "Enter", code: "Enter" });
-    const panel = screen.getByRole("complementary", { name: "Drawer" });
-    const button = await within(panel).findByRole("button", { name: isPad ? "Delete" : "More actions" });
+    const panel = screen.getByLabelText("Drawer", { selector: "aside" });
+    const button = await within(panel).findByLabelText(isPad ? "Delete" : "More actions", { selector: "button" });
     button.focus(); fireEvent.click(button);
 
-    if (!isPad) fireEvent.click(await screen.findByRole("menuitem", { name: "Delete Todo" }));
+    if (!isPad) fireEvent.click(await screen.findByText("Delete Todo", { selector: '[role="menuitem"]' }));
   } else if (kind === "clear-done") fireEvent.click(await screen.findByText("Clear done", { selector: "button" }));
   else if (kind === "todos" || kind === "pads") {
     const menus = menuProbe.count;
@@ -474,7 +473,7 @@ it.each(["todos", "pads", "shelf-todos", "shelf-pads", "clear-done", "drawer-tod
     const restoredRow = isPad ? (await screen.findByText(name, { selector: ".pad-name .shelf-title" })).closest<HTMLElement>(".pad-name")! : await screen.findByLabelText(new RegExp(`^(?:Idle|Blocked|Done) #${todo!.id} `));
     restoredRow.focus();
     fireEvent.keyDown(restoredRow, { key: "Enter", code: "Enter" });
-    const button = await within(screen.getByRole("complementary", { name: "Drawer" })).findByRole("button", { name: isPad ? "Delete" : "More actions" });
+    const button = await within(screen.getByLabelText("Drawer", { selector: "aside" })).findByLabelText(isPad ? "Delete" : "More actions", { selector: "button" });
     button.focus();
   }
 
@@ -501,7 +500,7 @@ it("u3787a_rail_delete_undo_redo_without_feedback", async () => {
   const present = async () => (await app.rpc("rail.tree", null)).some(node => node.id === item.id);
   await waitFor(async () => expect(await present()).toBe(false));
   await waitFor(() => expect(connected!.drafts.todoUndo.pending()).toBe(false));
-  const rail = screen.getByRole("tree", { name: "Rail" });
+  const rail = screen.getByLabelText("Rail", { selector: '[role="tree"]' });
   rail.tabIndex = -1; rail.focus();
   await waitFor(() => expect(projectMenu.items.find(item => item.id === "action:chord:⌘Z")?.label).toBe("Undo Remove round-trip-rail"));
   expect([...document.querySelectorAll("button")].filter(button => ["Undo", "Dismiss"].includes(button.textContent ?? ""))).toEqual([]);
