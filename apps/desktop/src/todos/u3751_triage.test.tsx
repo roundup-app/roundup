@@ -1,10 +1,11 @@
+import { batch } from "solid-js";
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { RpcError } from "../app/seam";
 import { agent, workstream } from "../testing/nodes";
 import { mountTodos, todo as makeTodo, todoCallsTo as callsTo, todoEvent } from "./testHarness";
 
-afterEach(cleanup);
+afterEach(() => batch(cleanup));
 
 // T must have no name-prefix match so these observers enter triage (U3787c).
 const todo: typeof makeTodo = (id, over) => makeTodo(id, { title: `item ${id}`, ...over });
