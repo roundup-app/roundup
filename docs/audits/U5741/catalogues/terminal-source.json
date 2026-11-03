@@ -176,5 +176,10 @@
   "limits": [
     "Runtime role offers retain public-seams.json original pin; no rebuilt role claim.",
     "Report separates rendered and source-only boundaries; no native effects or usage claim."
-  ]
+  ],
+  "failureObserverDriver": {
+    "encoding": "zlib+base64",
+    "sha256": "175b95afb11c1c26bc7d2773464da213b183160dcdef9de4483d48aa94d27110",
+    "data": "eJyVUkuP2yAQvudXIF8AKcbJbqtKibyX3qtVH6fIWmEYxzQ2uMw4D0X734uTbKT01hPM4G++x7iJoWeDprZzNXP9ECKx11TOsJwOwQvqh2L8/OXTMieIvfO6y0ONEPeghhOXKoK2bwRHEnINRzACNytUzls4igz2gguNJ2+ELF/OJngkNpSZrOTMlr8xeNUFbVGIGAIV3AaDhR6tIyx+TaRFhDQpgr2zo5pgj8RyHcGEaBN1VdoNv1W8WpvQ99rfHz5KXs10LbjpnNnxOVd3a6TrfNAubqwmnddjXXdQZsvlIqtYPRIFv+o0Um5a11ku19OUg3aUhuR549NxSNbDQb29NXoHSg+D+jMCkkvWVQd+S+3LE5ezf5J5RDXadd8mZ/nz02LxPM9+tNB1zHQBgUVoRgSr2HegeLo0nd8yah2ynzcfKpPra9h9qSd9t92KrMBoCpoE+W3Rgx9fY6hBESZEf5d6bWqPB4iC4ghTwjRGz6biXQqZLDx4nxaRLv8tNGWIbSDBLXiE/ILMJ/9jhMQxROdJXH4UO/YDijM3ekhKAPkqxSluq5ZzPoHAfm3B7NLbOW641z3warXZsSZEtpvvmfMs9c31m0o5gh6FZK5he7WFpAJJ04hcluVlHq8u0HgBXpne36Wc/QWB0Rwu"
+  }
 }
