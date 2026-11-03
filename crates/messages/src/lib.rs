@@ -10,6 +10,7 @@ pub mod digest;
 pub mod digest_schema;
 mod dispatch;
 pub mod evidence;
+mod failure;
 mod flight;
 mod inbox;
 mod pushes;
