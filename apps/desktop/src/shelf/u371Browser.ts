@@ -46,10 +46,10 @@ export function shelfBrowser(initScript?: string) {
     return true;
   })()`);
 
-  const openShelf = async (seed = "tree-40", rail = 288, shelf = 320, width = 1280, scheme = "light") => {
+  const openShelf = async (seed = "tree-40", rail = 288, shelf = 320, width = 1280, scheme = "light", terminalTabs = true) => {
     await browser("set", "viewport", String(width), "800");
     await browser("set", "media", scheme);
-    const url = `${rig.server.resolvedUrls.local[0]}harness.html?view=workstreams&items=1&tabs=1&seed=${seed}`;
+    const url = `${rig.server.resolvedUrls.local[0]}harness.html?view=workstreams&items=1&tabs=${terminalTabs ? 1 : 0}&seed=${seed}`;
     // Seed on the small fixture to avoid mounting and discarding a full App.
     await browser("open", `${rig.server.resolvedUrls.local[0]}src/ui/u498.html`);
     await browser("wait", "[data-fixture=tabs]");
