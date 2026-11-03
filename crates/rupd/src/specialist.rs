@@ -198,3 +198,7 @@ impl Daemon {
         Ok(node)
     }
 }
+
+#[cfg(test)]
+#[path = "specialist_tests.rs"]
+mod tests;
