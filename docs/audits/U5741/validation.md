@@ -826,3 +826,27 @@ Current publication offers: locked `cargo build -p rup --bin rup --locked` and `
 Harness stderr also reported a PostCSS missing-from warning and `ResizeObserver loop completed with undelivered notifications` at 13:15:48, 13:21:06, 13:21:09 and 13:23:08 UTC. These are retained observer/runtime diagnostics, not a clean-console claim. The fifteen retained mounted states, calls, image hashes and Check results remain recorded independently. Closing the isolated browser exits 0; intentional server shutdown exits 143.
 
 Main advanced to `f2514c06d5fb546b52a8a78c45d7199afb6a0354` with only Pad test/realDaemonFixture optimizations. Merged without conflicts; `loop/rules.sh merge-loss` exits 0, own diff remains six documentary files. The audit remains pinned to `cca472d3d8f5ce3808869ed6da6a4464e348169c`; no older evidence is promoted to the merge revision. The final whole-App revision reconciliation remains required. An ad hoc integrity observer exits 0 for all 47 source archives, four direction archives, fifteen image hashes/Check sets, seven publication tool schemas per current role and every recorded runtime/help command.
+
+## Made/publication verification — builder-41646073376
+
+Merged main `7874f9949` without conflicts into this documentation slice. Both branch merges have empty remerge diffs; `loop/rules.sh merge-loss` passes. All 47 inspected source paths still equal the pinned audit revision `cca472d3d8f5ce3808869ed6da6a4464e348169c`. The evidence remains pinned there; this is no whole-App revision reconciliation.
+
+| Observer | Exit | Result |
+| --- | ---: | --- |
+| `pnpm install --frozen-lockfile` | 0 | Installed the locked dependencies in `/tmp/roundup-fix-5895`. |
+| Independent archive verification | 0 | All 53 compressed source/direction/driver archives match their checksums; all 47 source archives match pinned git objects. Retained role replies contain 86 Agent and 94 Door tools, including all seven publication/link tools. No fresh real-Daemon execution claimed. |
+| Adapted archived `observerDriver` replay | 0 | Fresh isolated headless session `u5741-outputs-416460`, new profile, dark 1512×950, port 5295. Only worktree/output/session paths changed. All fifteen named openings reproduce passing Check statuses and identical row, alert, attempted/opened-target and clipboard states. PNG checksums verify. |
+| Visual failure inspection | 0 | Dense refused-open capture shows the complete access cause and recovery action. Fifteen fresh PNGs remain uncommitted at `artifacts/ux/U5741/outputs-verified-*.png` in the workflow checkout. |
+| Browser close | 0 | Closed only this run's isolated session. |
+
+The replay wrote its temporary manifest under `/tmp/5895-evidence/`; it did not replace historical observations or promote their revision. Source-only/native/recipient branches, broader equivalents and the failed keyboard reset remain unresolved. No partial owner request or deletion; #5758 remains open.
+
+| Failed command / observer | Exit | Disposition |
+| --- | ---: | --- |
+| First `just ready` | 143 | Attached command terminated during lint fixtures before completion; no pass claimed. Repeated with a dedicated PTY and explicit exit-code file. |
+| Initial optional `.codegraph` directory probe | 1 | Index absent; ordinary source search used. |
+| `gh pr diff 5895 --stat` | 1 | Unsupported option; used local git diff statistics. |
+| `ls /tmp/roundup-fix-5895/node_modules/.bin/vite` | 2 | Vite is a desktop dependency rather than a root binary; existing `just harness` launches it successfully. |
+| `just harness tree-40 5295` shutdown | 130 | Deliberately interrupted this run's server after closing its browser. PostCSS missing-from warning and two ResizeObserver diagnostics occurred during the successful replay; no clean-console claim. |
+
+Self-review checked the six-file own diff, empty merge-resolution diffs, independent decision rows O01–O36, evidence provenance and overlap with earlier inventories. No product, scenario, contract or behavior-test changes. No local `just check`.
