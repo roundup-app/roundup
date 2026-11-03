@@ -591,10 +591,11 @@ async fn u3523h_unrelated_sessions_are_not_read() {
             .join("projects")
             .join(bucket.file_name().unwrap())
             .join(format!("{id}.jsonl"));
-        let pad = vec![b' '; 1024 * 1024];
-        let mut body = std::fs::read(&file).unwrap();
-        body.extend_from_slice(&pad);
-        std::fs::write(&file, body).unwrap();
+        // The unterminated tail carries no metadata. Sparse padding keeps the same
+        // logical size and both cwd records without writing 3 GB before discovery.
+        let file = std::fs::OpenOptions::new().write(true).open(file).unwrap();
+        file.set_len(file.metadata().unwrap().len() + 1024 * 1024)
+            .unwrap();
     }
     let cli = root.path().join("claude");
     executable(&cli, "#!/bin/sh\nprintf '[]'\n");
