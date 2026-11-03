@@ -106,9 +106,9 @@ fn n5809a_matching_project_upgrades_and_keeps_rows() {
     for _ in 0..2 {
         let db = open(dir.path()).unwrap();
         assert_eq!(
-            db.pragma_query_value(None, "user_version", |r| r.get::<_, usize>(0))
+            db.pragma_query_value(None, "user_version", |r| r.get::<_, i64>(0))
                 .unwrap(),
-            migrations().len()
+            migrations().len() as i64
         );
         assert_eq!(
             provenance::migration::difference(&db, &reference().unwrap()).unwrap(),
@@ -140,9 +140,9 @@ fn n5809b_divergent_project_names_column_without_changes() {
         }
         let db = Connection::open(dir.path().join("project.db")).unwrap();
         assert_eq!(
-            db.pragma_query_value(None, "user_version", |r| r.get::<_, usize>(0))
+            db.pragma_query_value(None, "user_version", |r| r.get::<_, i64>(0))
                 .unwrap(),
-            prefix
+            prefix as i64
         );
         assert_eq!(dump(&db), before);
         assert_eq!(saved_rows(&db), rows);
@@ -168,9 +168,9 @@ fn n5809c_failed_suffix_rolls_back_and_names_migration() {
     drop(db);
     let db = Connection::open(dir.path().join("project.db")).unwrap();
     assert_eq!(
-        db.pragma_query_value(None, "user_version", |r| r.get::<_, usize>(0))
+        db.pragma_query_value(None, "user_version", |r| r.get::<_, i64>(0))
             .unwrap(),
-        prefix
+        prefix as i64
     );
     assert_eq!(dump(&db), before);
     assert_eq!(saved_rows(&db), rows);
