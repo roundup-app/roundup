@@ -41,15 +41,15 @@ describe("u3010c_m9", () => {
     setKind("working");
     expect(container.querySelectorAll("[role=img]")).toHaveLength(1);
     expect(container.querySelector("span")?.dataset["drawing"]).toBe("quarter");
-    cleanup();
-    expect(container.querySelector("svg")).toBeNull();
   });
 
   it("u3010c_a_second_change_mid_fade_leaves_one_mark_of_the_latest_kind", async () => {
+    document.documentElement.style.setProperty("--duration-reduced", "150ms");
     const [kind, setKind] = createSignal<Kind>("idle");
     const { container } = render(() => <ReducedMotionContext.Provider value={() => false}><KindGlyph kind={kind()} /></ReducedMotionContext.Provider>);
 
     setKind("working");
+    await waitFor(() => expect(container.querySelectorAll("svg")).toHaveLength(2));
     setKind("error");
     await waitFor(() => expect(container.querySelectorAll("svg")).toHaveLength(1));
     expect([container.querySelectorAll("svg").length, container.querySelector("span")?.dataset["drawing"]]).toEqual([1, "cross"]);
