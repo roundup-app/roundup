@@ -62,7 +62,7 @@ it("u2744a_shelf_scope_agent_lists_only_its_own", async () => {
 });
 
 const tab = async (name: "Todos" | "Pads") => {
-  fireEvent.click(within(document.querySelector<HTMLElement>(".shelf-tabs")!).getByRole("tab", { name: new RegExp(`^${name}`) }));
+  fireEvent.click(within(document.querySelector<HTMLElement>(".shelf-tabs")!).getByText(name, { exact: true }).closest<HTMLElement>('[role="tab"]')!);
   await waitFor(() => expect(document.querySelector(name === "Todos" ? "[data-shelf-scope] [aria-label^=\"Add Todo: \"]" : "[data-shelf-scope] [aria-label=\"Add Pad\"]")).not.toBeNull());
 };
 
@@ -72,7 +72,7 @@ const disclosure = (id: string) => document.querySelector<HTMLElement>(`.shelf-p
 
 const groupIds = () => [...document.querySelectorAll('.shelf-panel:not([hidden]) [data-shelf-group]')].map(el => el.getAttribute('data-shelf-group'));
 
-const count = (name: string) => within(document.querySelector<HTMLElement>(".shelf-tabs")!).getByRole("tab", { name: new RegExp(`^${name}`) }).querySelector('.shelf-count')?.textContent ?? "0";
+const count = (name: "Todos" | "Pads") => document.getElementById(`shelf-tab-${name.toLowerCase()}`)!.querySelector(".shelf-count")?.textContent ?? "0";
 
 const ownTodos = (id: string) => [...document.querySelectorAll(`[data-shelf-group="${id}"] [data-todo]`)].flatMap(el => el.closest('[data-shelf-group]')?.getAttribute('data-shelf-group') === id ? [Number(el.getAttribute('data-todo'))] : []);
 
