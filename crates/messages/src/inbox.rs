@@ -17,6 +17,18 @@ pub trait NoteInbox: Send + Sync {
     }
     /// Account for the authenticated sender only after physical delivery.
     fn submitted(&self, _agent: &str, _from: &Actor) {}
+    /// B5763b: the receiving session, preserved when the Daemon reopens.
+    fn session(&self, _agent: &str) -> Option<String> {
+        None
+    }
+    /// B5763b: exact Adapter-rendered peer content, including labels and question identity.
+    fn content(&self, _agent: &str, entry: &Entry) -> String {
+        entry.content("", "")
+    }
+    /// B5763c: last admitted entry in the current peer transcript, for history recovery.
+    fn previous(&self, _agent: &str) -> Result<Option<String>, Inbox> {
+        Ok(None)
+    }
     /// B50: write `notes` as entries; the answer names the failed state.
     fn write(&self, agent: &str, notes: &[Entry]) -> Result<(), Inbox>;
 }
@@ -35,6 +47,18 @@ impl NoteInbox for agents::Agents {
         if from.kind == contracts::ActorKind::User {
             self.admit_input(agent);
         }
+    }
+
+    fn session(&self, agent: &str) -> Option<String> {
+        self.inbox_session(agent)
+    }
+
+    fn content(&self, agent: &str, entry: &Entry) -> String {
+        self.inbox_content(agent, entry)
+    }
+
+    fn previous(&self, agent: &str) -> Result<Option<String>, Inbox> {
+        self.inbox_previous(agent)
     }
 
     fn write(&self, agent: &str, notes: &[Entry]) -> Result<(), Inbox> {
@@ -81,7 +105,8 @@ pub(crate) async fn send(
     {
         let store = lock(&inner.store);
         notes.retain(|m| {
-            !store.in_flight(m.id).expect("message store")
+            (!store.in_flight(m.id).expect("message store")
+                || !lock(&inner.inbox_written).contains(&m.id))
                 && inner
                     .inbox
                     .get()
@@ -129,6 +154,59 @@ pub(crate) async fn send(
             text,
         })
         .collect();
+    let Some(inbox) = inner.inbox.get() else {
+        return true;
+    };
+    let session = inbox
+        .session(agent)
+        .unwrap_or_else(|| format!("attempt:{}", at.0));
+    let mut previous = lock(&inner.store)
+        .last_inbox(agent, &session)
+        .expect("message store");
+    if previous.is_none() {
+        previous = match inbox.previous(agent) {
+            Ok(previous) => previous,
+            Err(_) => return true,
+        };
+        if let Some(content) = &previous {
+            lock(&inner.store)
+                .record_inbox(agent, &session, content)
+                .expect("message store");
+        }
+    }
+    let quiet = {
+        let store = lock(&inner.store);
+        let given = if notes.iter().any(|m| pushes::is_digest(&m.from, &m.body)) {
+            store.delivered_to(agent).expect("message store")
+        } else {
+            Vec::new()
+        };
+        receiver_view::are_quiet_digests(&given, &notes)
+    };
+    let mut repeats = Vec::new();
+    let mut said = Vec::new();
+    let mut empty = Vec::new();
+    for entry in entries {
+        let content = inbox.content(agent, &entry);
+        if entry.text.is_empty() {
+            empty.push(entry);
+        // Questions preserve same-id receipt recovery; distinct reply ids already prevent
+        // equality between different Questions. B5763c closes recovered notes only.
+        } else if entry.kind == MessageKind::Note && previous.as_deref() == Some(&content) {
+            repeats.push(entry.id);
+        } else if !quiet {
+            previous = Some(content);
+            said.push(entry);
+        }
+    }
+    notes.retain(|m| {
+        repeats.contains(&m.id)
+            || said.iter().any(|e| e.id == m.id)
+            || empty.iter().any(|e| e.id == m.id)
+    });
+    if notes.is_empty() {
+        return true;
+    }
     let ids: Vec<u32> = notes.iter().map(|m| m.id).collect();
     let _typing = {
         let mut store = lock(&inner.store);
@@ -161,22 +239,49 @@ pub(crate) async fn send(
         }
         guard
     };
-    // A note with nothing left to say (B34) has no entry to wait for.
-    let (empty, said): (Vec<Entry>, Vec<Entry>) =
-        entries.into_iter().partition(|entry| entry.text.is_empty());
     let written = match inner.inbox.get() {
         Some(inbox) if !said.is_empty() => inbox.write(agent, &said),
         _ => Ok(()),
     };
     if written.is_err() {
+        // A failed batch may have written a prefix; its previous comparison value is uncertain.
+        lock(&inner.store)
+            .db
+            .execute(
+                "DELETE FROM message_inbox_last WHERE receiver=? AND session=?",
+                rusqlite::params![agent, session],
+            )
+            .expect("message store");
         for id in &ids {
             lock(&inner.store).clear_flight(*id).expect("message store");
         }
         return true;
     }
+    {
+        let mut store = lock(&inner.store);
+        if !said.is_empty() {
+            store
+                .record_inbox(agent, &session, previous.as_deref().expect("written entry"))
+                .expect("message store");
+            lock(&inner.inbox_written).extend(
+                said.iter()
+                    .filter(|e| store.in_flight(e.id).expect("message store"))
+                    .map(|e| e.id),
+            );
+        }
+        for id in repeats {
+            if let Some(message) = store.deliver_repeat(id).expect("message store") {
+                inner
+                    .bus
+                    .emit(Actor::daemon(), EventData::MessageDelivered(message.into()));
+            }
+        }
+    }
     if let Some(inbox) = inner.inbox.get() {
         for note in &notes {
-            inbox.submitted(agent, &note.from);
+            if said.iter().any(|entry| entry.id == note.id) {
+                inbox.submitted(agent, &note.from);
+            }
         }
     }
     if !empty.is_empty() {
@@ -329,6 +434,153 @@ pub(crate) mod tests {
             )
             .unwrap();
         (messages, rail, inbox)
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn b5763b_identical_entries_write_once_and_close_the_repeat() {
+        let dir = tempfile::tempdir().unwrap();
+        let (messages, _, inbox) = setup(dir.path());
+        let first = pending(&messages, &Actor::daemon(), "same note");
+        let repeat = pending(&messages, &Actor::daemon(), "same note");
+        assert!(
+            send(
+                &messages.inner,
+                "m",
+                (1, 2),
+                Pick::Next,
+                vec![first.clone(), repeat.clone()],
+                Inbox::Ok
+            )
+            .await
+        );
+        assert_eq!(lock(&inbox.batches)[0].len(), 1);
+        let store = lock(&messages.inner.store);
+        assert_eq!(
+            store.get(first.id).unwrap().unwrap().status,
+            MessageStatus::Pending
+        );
+        let closed = store.get(repeat.id).unwrap().unwrap();
+        assert_eq!(closed.status, MessageStatus::Delivered);
+        assert!(
+            serde_json::to_string(&closed.reason)
+                .unwrap()
+                .contains("repeat")
+        );
+        assert!(!store.in_flight(repeat.id).unwrap());
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn b5763c_reopen_closes_a_known_inflight_repeat_without_a_write() {
+        let dir = tempfile::tempdir().unwrap();
+        let repeat;
+        {
+            let (messages, _, _) = setup(dir.path());
+            let first = pending(&messages, &Actor::daemon(), "same note");
+            send(
+                &messages.inner,
+                "m",
+                (1, 2),
+                Pick::Next,
+                vec![first.clone()],
+                Inbox::Ok,
+            )
+            .await;
+            messages.confirm_inbox("m", &[first.id]);
+            repeat = pending(&messages, &Actor::daemon(), "same note");
+            lock(&messages.inner.store)
+                .record_flight(repeat.id, repeat.id)
+                .unwrap();
+        }
+        let (messages, _, inbox) = setup(dir.path());
+        let mut events = messages.inner.bus.subscribe();
+        send(
+            &messages.inner,
+            "m",
+            (1, 2),
+            Pick::Next,
+            vec![repeat.clone()],
+            Inbox::Ok,
+        )
+        .await;
+        assert!(lock(&inbox.batches).is_empty());
+        assert_eq!(
+            lock(&messages.inner.store)
+                .get(repeat.id)
+                .unwrap()
+                .unwrap()
+                .reason,
+            Some(Reason::InboxRepeat)
+        );
+        assert!(!lock(&messages.inner.store).in_flight(repeat.id).unwrap());
+        messages.confirm_inbox("m", &[repeat.id, repeat.id]);
+        let mut delivered = 0;
+        while let Ok(event) = events.try_recv() {
+            if matches!(event.data, EventData::MessageDelivered(_)) {
+                delivered += 1;
+            }
+        }
+        assert_eq!(delivered, 1);
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn b5763b_quiet_digest_repeat_closes_after_the_vendor_window() {
+        let dir = tempfile::tempdir().unwrap();
+        let (messages, _, inbox) = setup(dir.path());
+        let body = crate::digest::push_body(&contracts::agent::DigestEntry {
+            name: "child".into(),
+            kind: Kind::Working,
+            last: "new work".into(),
+            todos: 1,
+            pads: vec![],
+        });
+        let first = pending(&messages, &Actor::daemon(), &body);
+        send(
+            &messages.inner,
+            "m",
+            (1, 2),
+            Pick::Next,
+            vec![first.clone()],
+            Inbox::Ok,
+        )
+        .await;
+        messages.confirm_inbox("m", &[first.id]);
+        tokio::time::advance(std::time::Duration::from_secs(31)).await;
+        let repeat = pending(&messages, &Actor::daemon(), &body);
+        send(
+            &messages.inner,
+            "m",
+            (1, 2),
+            Pick::Next,
+            vec![repeat.clone()],
+            Inbox::Missing,
+        )
+        .await;
+        assert_eq!(
+            lock(&messages.inner.store)
+                .get(repeat.id)
+                .unwrap()
+                .unwrap()
+                .status,
+            MessageStatus::Pending
+        );
+        send(
+            &messages.inner,
+            "m",
+            (1, 2),
+            Pick::Next,
+            vec![repeat.clone()],
+            Inbox::Ok,
+        )
+        .await;
+        assert_eq!(lock(&inbox.batches).len(), 1);
+        assert_eq!(
+            lock(&messages.inner.store)
+                .get(repeat.id)
+                .unwrap()
+                .unwrap()
+                .reason,
+            Some(Reason::InboxRepeat)
+        );
     }
 
     fn agent(id: &str) -> Actor {

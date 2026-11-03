@@ -34,6 +34,7 @@ export type LaneBrowser = {
   close: () => Promise<void>;
 };
 
+/** `initialSeed: null` leaves the page blank for callers whose first action is `seedTodos`. */
 export const openLane = async (width: number, scheme: "light" | "dark", name: string, reduced = false, initialSeed: string | null = "tree-40"): Promise<LaneBrowser> => {
   const profile = mkdtempSync(join(tmpdir(), `${name}-browser-`));
   const server = await appServer();

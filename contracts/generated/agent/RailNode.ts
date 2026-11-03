@@ -9,10 +9,13 @@ import type * as agent$Inbox from "./Inbox";
 import type * as agent$NodeKind from "./NodeKind";
 import type * as agent$Order from "./Order";
 import type * as agent$RailVisibility from "./RailVisibility";
+import type * as agent$StartAttribution from "./StartAttribution";
 import type * as agent$Stray from "./Stray";
 import type * as agent$ToolCall from "./ToolCall";
 import type * as agent$Worktree from "./Worktree";
 export type RailNode = {
+	/**  A5765e: captured foreign source identity, descriptive only; absent for ordinary Add. */
+	start_attribution?: agent$StartAttribution.StartAttribution,
 	visibility?: agent$RailVisibility.RailVisibility,
 	/**  U5501: authoritative per-Agent choice; a Workstream stores its Door choice. */
 	alert_level?: agent$AlertLevel.AlertLevel,
