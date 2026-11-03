@@ -462,7 +462,10 @@ const reportingSelection = async (where: "agent" | "user" | "bubble", mode: numb
     window.__parsed = false;
     window.__input = [];
     window.__probeCalls = window.__fake.app.calls.length;
-    window.__emu.onInput(bytes => window.__input.push(...bytes));
+    if (window.__reportingEmulator !== window.__emu) {
+      window.__emu.onInput(bytes => window.__input.push(...bytes));
+      window.__reportingEmulator = window.__emu;
+    }
     window.__emu.write(new TextEncoder().encode(${JSON.stringify("\x1b[2J\x1b[Hcafé alpha bravo charlie\r\n日本語 delta echo foxtrot")} + '\x1b[?${mode}h\x1b[?1006h'), () => { window.__parsed = true; });
   })()`);
   await wait("window.__parsed");
