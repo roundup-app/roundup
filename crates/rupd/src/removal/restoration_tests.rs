@@ -981,3 +981,20 @@ async fn u3787a_rail_redo_reuses_restored_identity_and_reconciles_reply() {
         json!([])
     );
 }
+
+#[tokio::test]
+async fn u5690d_overlapping_selection_removes_each_identity_once() {
+    let dir = tempfile::tempdir().unwrap();
+    let daemon = crate::test_daemon(dir.path()).unwrap();
+    let db = rusqlite::Connection::open(dir.path().join("project.db")).unwrap();
+    db.execute("INSERT INTO nodes(id,kind,name,ord) VALUES(1,'workstream','chosen',0),(4,'agent','other',1)", []).unwrap();
+    db.execute("INSERT INTO nodes(id,kind,name,parent,ord) VALUES(2,'agent','explicit',1,0),(3,'agent','kept',1,1)", []).unwrap();
+    let result = call(&daemon,"rail.removeSelection",json!({"ids":["1","2","2"]})).await.unwrap();
+    let removed: Vec<_> = result["removed"].as_array().unwrap().iter().map(|item|item["id"].as_str().unwrap()).collect();
+    assert_eq!(removed.len(),2);
+    assert!(removed.contains(&"1") && removed.contains(&"2"));
+    let tree = call(&daemon,"rail.tree",Value::Null).await.unwrap();
+    assert_eq!(tree.as_array().unwrap().iter().map(|n|n["id"].as_str().unwrap()).collect::<Vec<_>>(), ["3","4"]);
+    assert!(tree[0]["parent"].is_null());
+    assert!(result.get("deletion").is_none());
+}
