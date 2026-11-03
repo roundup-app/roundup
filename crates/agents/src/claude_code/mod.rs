@@ -203,7 +203,11 @@ impl ClaudeCode {
         }
         if kind == Kind::Working && self.status.as_ref().is_none_or(|s| s.kind != Kind::Working) {
             self.final_text = FinalTextKind::Unknown;
-            if self.status.as_ref().is_none_or(|s| s.kind != Kind::NeedsYou) {
+            if self
+                .status
+                .as_ref()
+                .is_none_or(|s| s.kind != Kind::NeedsYou)
+            {
                 self.prompt_id = None;
             }
         }
