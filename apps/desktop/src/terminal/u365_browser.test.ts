@@ -143,6 +143,7 @@ it.skipIf(!captureDir("U365")).each(process.env.U500_BASE_ROOT ? [true, false] :
   const recording = join(captureDir("U365")!, base ? "base" : "head", "links.webm");
   mkdirSync(join(recording, ".."), {recursive:true});
   await browser("record", "start", recording);
+  await browser("set", "media", "dark");
 
   const capture = async (id: string, name: string) => {
     const directory = join(captureDir(id) ?? join(captureDir("U365")!, "..", id), base ? "base" : "head");
@@ -187,6 +188,7 @@ it.skipIf(!captureDir("U365")).each(process.env.U500_BASE_ROOT ? [true, false] :
   const askDirectory = join(captureDir("U505") ?? join(captureDir("U365")!, "..", "U505"), base ? "base" : "head");
   mkdirSync(askDirectory, {recursive:true});
   await browser("record", "start", join(askDirectory, "links.webm"));
+  await browser("set", "media", "dark");
 
   for (const mode of ["ask"]) {
     await browser("open", url(`/src/terminal/u365.html?mode=${mode}`, base));
