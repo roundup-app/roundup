@@ -16,9 +16,11 @@ const source = 'before **word** after\n\n<mark><span data-pad-color="blue">Exist
 const triggerSelector = 'button[aria-label="Text colour"]';
 
 it("u5808b_colour_palette_capture", { retry: 0, timeout: 180000 }, async () => {
-  const directories = ["U5808a", "U5808b"].flatMap(id => { const dir = captureDir(id);
+  const directories = ["U5808a", "U5808b"].flatMap(id => {
+    const dir = captureDir(id);
 
- return dir ? [join(dir, process.env.ROUNDUP_CAPTURE_PHASE ?? "head")] : []; });
+    return dir ? [join(dir, process.env.ROUNDUP_CAPTURE_PHASE ?? "head")] : [];
+  });
 
   for (const dir of directories) mkdirSync(dir, { recursive: true });
   await openShelf("tree-40", 288, 320, 1512, "dark");
