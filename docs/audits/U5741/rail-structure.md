@@ -10,7 +10,7 @@ Q1: does a named vendor/platform provide the same action/result? Q2: does no req
 
 Current [Claude interactive reference](https://code.claude.com/docs/en/interactive-mode), inspected 2026-11-03, documents conversation rename and task/transcript navigation. Those operations do not establish roundup identity, Home, alert authority or link semantics. Apple's [Finder folder guide](https://support.apple.com/en-nz/guide/mac-help/mchlp1032/mac) search result establishes folder opening; [Open With](https://support.apple.com/en-ie/guide/mac-help/mh35597/27/mac/27) establishes choosing a file application. Both full-page requests failed HTTP 429. Neither proves opening the selected Worktree in the configured editor; that comparison remains unverified.
 
-Paths below are relative to `apps/desktop/src/`. Lifecycle/creation decisions remain R01–R22 in [rail-lifecycle.md](rail-lifecycle.md); they are not duplicated here. Report identifiers below are stable decisions, not new product names.
+Paths below are relative to `apps/desktop/src/`. Lifecycle/creation decisions remain R01–R22 in [rail-lifecycle.md](rail-lifecycle.md); they are not duplicated here. The `rename` opening below supplies R12’s pending inline observation; `move-picker` supplies R13’s pending picker observation. Their mutation, drag and failure observers remain unfinished. Report identifiers below are stable decisions, not new product names.
 
 | Id / feature and exact entry points | Implementation; acceptance | Q1 | Q2: required stage/action | Q3: information and action |
 | --- | --- | --- | --- | --- |

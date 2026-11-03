@@ -382,3 +382,17 @@ Fresh isolated `agent-browser --session u5741-415869`, default headless, no pers
 | Apple Open With guide open | HTTP 429 | Same limit; no configured-directory editor equivalence claimed. |
 
 Successful source/render/hash reconciliation and final lint results are recorded below after completion. Every remaining vendor comparison, conditional opening, other App/endpoint decision and final all-feature revision reconciliation stays on #5758. No local `just check` or behavior-test suite ran; policy U5741 forbids report-text tests.
+
+
+## Rail structure completion — builder-41588674845
+
+PR #5859’s inherited evidence slice is verified against unchanged main `4525b6ce563888c08b0b8bba3806449cf3b9c1f8`: all 32 inspected source hashes match the checkout, all ten stored accessibility snapshots decode to their recorded SHA-256, and all ten environments are dark 1512×950. The independent-decision table contains 21 rows. No policy-report test was added.
+
+Recreated all ten accepted openings with the recorded driver’s successful paths in dedicated headless session `fix5859`, fresh profile `/tmp/fix5859-profile`, isolated harness port 5233. Explicit App appearance is dark; every recorded Check passes. Fresh PNGs remain uncommitted under `artifacts/ux/U5741/rail-structure/`; fresh snapshots, Checks and command logs are retained there too. The known unavailable projected Alerts submenu was skipped; its full production model was reproduced separately: all four complete native menu models match the recorded models (exit 0). Screens establish reachability only: the creator filter opens an empty Shelf on this fixture, not a populated creator-owned list. Rename and Move picker openings supply R12/R13’s pending rendered entry points, without establishing mutation or drag success.
+
+| Failed command | Exit | Failure / disposition |
+| --- | ---: | --- |
+| `gh pr diff 5859 --stat` | 1 | This CLI has no stat option; used `git diff --stat origin/main...HEAD`. |
+| `rg -n 'preferences' apps/desktop/src/testing/fakeApp.ts` | 1 | No match; inspected actual preferences storage in settings/preferences.ts and used saveAppSettings. |
+
+The complete inventory, vendor comparisons, conditional states, final revision reconciliation and single owner request remain on #5758. No owner choice, retirement, product change or native effect is inferred.
