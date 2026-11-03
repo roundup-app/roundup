@@ -482,9 +482,9 @@ impl Shim {
         let client = self.connect().await?;
         if offer.waits_for_user {
             return Ok(client
-                .request(offer.method, params)
+                .request(offer.method, &params)
                 .await
-                .map(|result| result.to_string()));
+                .map(|result| success_text(offer.method, &params, result)));
         }
         let display = match display_params(&client, offer.method, &params).await {
             Ok(display) => display,
