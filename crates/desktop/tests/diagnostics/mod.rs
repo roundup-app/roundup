@@ -53,10 +53,7 @@ pub(crate) fn u3787f_logs_report_causes_without_private_content() {
     assert!(super::startup(failed).is_err());
     log::error!(target: "third_party", "{private} input_tokens=987654 cost_usd=123456");
     log::logger().flush();
-    let logs = std::fs::read_dir(app.path().app_log_dir().unwrap())
-        .unwrap()
-        .map(|entry| std::fs::read_to_string(entry.unwrap().path()).unwrap())
-        .collect::<String>();
+    let logs = logs(&app);
     assert!(
         logs.contains("restore Project store") && logs.contains("Data"),
         "{logs}"
@@ -123,7 +120,6 @@ fn s5810d_foreign_startup_errors_are_redacted() {
 }
 
 fn logs(app: &tauri::App<tauri::test::MockRuntime>) -> String {
-    log::logger().flush();
     std::fs::read_dir(app.path().app_log_dir().unwrap())
         .unwrap()
         .map(|entry| std::fs::read_to_string(entry.unwrap().path()).unwrap())
@@ -193,16 +189,28 @@ fn s5810a_startup_refusal_reaches_user_and_log() {
         .unwrap();
         let reports = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
         let recorded = reports.clone();
-        let app = crate::build_reporting(
+        let log_dir = sink.path().app_log_dir().unwrap();
+        let mut app = crate::build_reporting(
             mock_builder(),
             config,
             Some(project),
             move |_, message, fatal| {
+                let written: String = std::fs::read_dir(&log_dir)
+                    .unwrap()
+                    .map(|entry| std::fs::read_to_string(entry.unwrap().path()).unwrap())
+                    .collect();
+                assert!(
+                    written.contains(&message),
+                    "log must reach disk before fatal feedback: {written}"
+                );
                 recorded.lock().unwrap().push((message, fatal));
             },
         )
         .build(mock_context(noop_assets()))
         .unwrap();
+        // Tauri executes the startup setup hook on the first event-loop iteration.
+        #[allow(deprecated)]
+        app.run_iteration(|_, _| {});
         let reports = reports.lock().unwrap();
         assert_eq!(reports.len(), 1);
         let (message, fatal) = &reports[0];
@@ -256,12 +264,16 @@ fn s5810b_restore_reports_each_refusal_without_losing_projects() {
         .unwrap();
         let reports = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
         let recorded = reports.clone();
-        let app = crate::build_reporting(mock_builder(), config, None, move |_, message, fatal| {
-            assert!(!fatal, "restore must continue");
-            recorded.lock().unwrap().push(message);
-        })
-        .build(mock_context(noop_assets()))
-        .unwrap();
+        let mut app =
+            crate::build_reporting(mock_builder(), config, None, move |_, message, fatal| {
+                assert!(!fatal, "restore must continue");
+                recorded.lock().unwrap().push(message);
+            })
+            .build(mock_context(noop_assets()))
+            .unwrap();
+        // Restore runs before the webview and its listeners exist.
+        #[allow(deprecated)]
+        app.run_iteration(|_, _| {});
         let _webview = tauri::WebviewWindowBuilder::new(&app, "main", tauri::WebviewUrl::default())
             .build()
             .unwrap();
@@ -370,7 +382,7 @@ fn s5810c_fatal_startup_stages_report_before_exit() {
         std::fs::create_dir(&project).unwrap();
         let feedback = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
         let recorded = feedback.clone();
-        let app = crate::build_reporting(
+        let mut app = crate::build_reporting(
             mock_builder(),
             config,
             Some(project),
@@ -381,6 +393,9 @@ fn s5810c_fatal_startup_stages_report_before_exit() {
         )
         .build(mock_context(noop_assets()))
         .unwrap();
+        // MockRuntime needs an event-loop iteration to execute Tauri's setup hook.
+        #[allow(deprecated)]
+        app.run_iteration(|_, _| {});
         let feedback = feedback.lock().unwrap();
         assert_eq!(feedback.len(), 1);
         assert!(logs(&sink).contains(&feedback[0]));

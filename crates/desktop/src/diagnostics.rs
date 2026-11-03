@@ -28,7 +28,7 @@ pub(crate) fn report(operation: &str, cause: &str) {
 }
 
 type FeedbackHandler<R> = dyn Fn(&tauri::AppHandle<R>, String, bool) + Send + Sync;
-pub(crate) struct Feedback<R: Runtime>(pub std::sync::Arc<FeedbackHandler<R>>);
+pub(crate) struct Feedback<R: Runtime>(pub Box<FeedbackHandler<R>>);
 
 pub(crate) fn feedback<R: Runtime>(
     app: &tauri::AppHandle<R>,
