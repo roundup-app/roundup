@@ -14,13 +14,11 @@ serde.workspace = true
 serde_json.workspace = true
 rusqlite.workspace = true
 rusqlite_migration.workspace = true
-time = { version = "0.3.55", features = ["parsing"] }
 tokio.workspace = true
 
 [dev-dependencies]
 allocation-counter = "0.8.1"
 tempfile.workspace = true
-time = { version = "0.3.55", features = ["formatting"] }
 tokio = { workspace = true, features = ["test-util"] }
 
 [lints]
