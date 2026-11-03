@@ -228,7 +228,7 @@ fn u3787a_edit_menu_tracks_focused_history() {
 }
 
 #[test]
-fn s_u3813_project_menu_tracks_the_selected_project() {
+fn u5919a_native_project_menu_has_two_groups() {
     use std::sync::Arc;
     use tauri::Listener;
     use tauri::test::{mock_builder, mock_context, noop_assets};
@@ -237,131 +237,91 @@ fn s_u3813_project_menu_tracks_the_selected_project() {
         .menu(app_menu)
         .build(mock_context(noop_assets()))
         .unwrap();
-    let menu = app.menu().unwrap();
-    let project = menu
-        .items()
-        .unwrap()
-        .into_iter()
-        .find_map(|item| match item {
-            MenuItemKind::Submenu(sub) if sub.text().unwrap() == "Project" => Some(sub),
-            _ => None,
-        })
-        .expect("Project menu");
     let received = Arc::new(Mutex::new(Vec::new()));
     let observed = Arc::clone(&received);
     app.listen("open-project-page", move |event| {
         observed
             .lock()
             .unwrap()
-            .push(serde_json::from_str::<serde_json::Value>(event.payload()).unwrap())
+            .push(serde_json::from_str::<serde_json::Value>(event.payload()).unwrap());
     });
-    for path in [None, Some("/A"), Some("/B"), None] {
-        select_project_menu(app.handle().clone(), path.map(str::to_owned), None).unwrap();
-        let before = received.lock().unwrap().len();
-        let items = project.items().unwrap();
-        assert_eq!(items.len(), if path.is_some() { 2 } else { 0 });
-        assert_eq!(project.is_enabled().unwrap(), path.is_some());
-        for item in items.into_iter().map(plain) {
-            assert!(item.is_enabled().unwrap());
+    for path in [Some("/A"), None, Some("/B")] {
+        let inputs: Vec<_> = [
+            ("action:chord:⌘N", "New Agent", "⌘N"),
+            ("action:chord:⇧⌘N", "New Agent with a Prompt…", "⇧⌘N"),
+            ("action:chord:⌥⌘N", "New Workstream", "⌥⌘N"),
+            ("action:chord:⇧⌘M", "New Mode", "⇧⌘M"),
+            ("action:chord:⌘T", "New Terminal", "⌘T"),
+            ("action:chord:⇧⌘T", "Capture a Todo", "⇧⌘T"),
+            ("action:chord:⌃⌘J", "Jump to What Needs You", "⌃⌘J"),
+            ("action:leader:C", "Review Changes", "⌘K C"),
+            ("action:leader:P", "Switch Project", "⌘K P"),
+            ("action:chord:⌘O", "Open Folder…", "⌘O"),
+        ]
+        .into_iter()
+        .enumerate()
+        .map(|(index, (id, label, shortcut))| {
+            let mut entry = item(id, label, Some(shortcut), None);
+            entry.group = Some(if index < 6 { "create" } else { "navigate" }.to_owned());
+            entry.enabled = path != Some("/A") || index != 7;
+            entry
+        })
+        .collect();
+        let expected: Vec<_> = inputs
+            .iter()
+            .enumerate()
+            .flat_map(|(index, entry)| {
+                let mut ids = Vec::new();
+                if index == 6 {
+                    ids.push("separator".to_owned());
+                }
+                ids.push(entry.id.clone());
+                ids
+            })
+            .collect();
+        select_project_menu(app.handle().clone(), path.map(str::to_owned), Some(inputs)).unwrap();
+        let MenuItemKind::Submenu(project) = app.menu().unwrap().get("project-menu").unwrap()
+        else {
+            panic!("Project submenu");
+        };
+        assert!(project.is_enabled().unwrap());
+        let actual: Vec<_> = project
+            .items()
+            .unwrap()
+            .into_iter()
+            .map(|entry| match entry {
+                MenuItemKind::MenuItem(entry) => {
+                    assert_eq!(
+                        entry.is_enabled().unwrap(),
+                        path.is_some() && (path != Some("/A") || entry.id().0 != "action:leader:C")
+                    );
+                    entry.id().0.clone()
+                }
+                MenuItemKind::Predefined(_) => "separator".to_owned(),
+                _ => panic!("Unexpected submenu"),
+            })
+            .collect();
+        assert_eq!(actual, expected);
+        received.lock().unwrap().clear();
+        for id in expected.iter().filter(|id| id.as_str() != "separator") {
             app_chosen(
                 app.handle(),
                 &MenuEvent {
-                    id: item.id().clone(),
+                    id: id.clone().into(),
                 },
             );
         }
-        let replies = received.lock().unwrap();
-        if let Some(path) = path {
-            assert_eq!(
-                &replies[before..],
-                &[
-                    serde_json::json!({"path": path, "command": "import-work"}),
-                    serde_json::json!({"path": path, "command": "project-settings"}),
-                ]
-            );
-        } else {
-            assert_eq!(replies.len(), before);
-        }
+        let expected_events: Vec<_> = expected
+            .iter()
+            .filter(|id| {
+                path.is_some()
+                    && id.as_str() != "separator"
+                    && (path != Some("/A") || id.as_str() != "action:leader:C")
+            })
+            .map(|id| serde_json::json!({"path": path, "command": id}))
+            .collect();
+        assert_eq!(*received.lock().unwrap(), expected_events);
     }
-}
-#[test]
-fn u4278a_native_separators_split_action_groups() {
-    use tauri::test::{mock_builder, mock_context, noop_assets};
-    let app = mock_builder()
-        .manage(ProjectMenu::default())
-        .menu(app_menu)
-        .build(mock_context(noop_assets()))
-        .unwrap();
-    select_project_menu(
-        app.handle().clone(),
-        Some("/A".to_owned()),
-        Some(vec![
-            item("action:chord:⇧⌘T", "Capture a Todo", Some("⇧⌘T"), None),
-            item("action:chord:⌘/", "Focus Ask", Some("⌘/"), None),
-            item("action:leader:A", "Assign Todo", Some("⌘K A"), None),
-            item("action:leader:S", "Open work items", Some("⌘K S"), None),
-            item("view:notes", "Recover notes", None, None),
-            item("action:leader:C", "Review changes", Some("⌘K C"), None),
-            item("action:chord:⌘N", "New Agent", Some("⌘N"), None),
-            item("action:chord:⌘T", "New Terminal", Some("⌘T"), None),
-            item("action:leader:T", "Capture a Todo", Some("⌘K T"), None),
-            item(
-                "action:chord:⇧⌘N",
-                "New Agent with a prompt",
-                Some("⇧⌘N"),
-                None,
-            ),
-            item("action:leader:P", "Switch Project", Some("⌘K P"), None),
-            item(
-                "action:leader:J",
-                "Jump to what needs you",
-                Some("⌘K J"),
-                None,
-            ),
-            item("action:leader:I", "Open the Inbox", Some("⌘K I"), None),
-            item("action:future", "A newly registered action", None, None),
-            item("view:workstreams", "Open Workstreams", None, None),
-        ]),
-    )
-    .unwrap();
-    let MenuItemKind::Submenu(project) = app.menu().unwrap().get("project-menu").unwrap() else {
-        panic!("Project submenu");
-    };
-    let ids: Vec<_> = project
-        .items()
-        .unwrap()
-        .into_iter()
-        .map(|entry| match entry {
-            MenuItemKind::MenuItem(entry) => entry.id().0.clone(),
-            MenuItemKind::Predefined(_) => "separator".to_owned(),
-            _ => panic!("Unexpected submenu"),
-        })
-        .collect();
-    assert_eq!(
-        ids,
-        [
-            "action:chord:⇧⌘T",
-            "action:chord:⌘N",
-            "action:chord:⌘T",
-            "action:chord:⇧⌘N",
-            "separator",
-            "action:chord:⌘/",
-            "action:leader:A",
-            "action:leader:S",
-            "action:leader:C",
-            "action:leader:T",
-            "action:leader:P",
-            "action:leader:J",
-            "action:leader:I",
-            "action:future",
-            "separator",
-            "view:notes",
-            "view:workstreams",
-            "separator",
-            "import-work",
-            "project-settings",
-        ]
-    );
 }
 
 #[test]
@@ -514,161 +474,6 @@ fn u4278b_leader_hints_register_no_accelerator() {
 }
 
 #[test]
-fn u2539b_native_menu_projects_the_task_chords() {
-    use std::sync::Arc;
-    use tauri::Listener;
-    use tauri::test::{mock_builder, mock_context, noop_assets};
-    let app = mock_builder()
-        .manage(ProjectMenu::default())
-        .menu(app_menu)
-        .build(mock_context(noop_assets()))
-        .unwrap();
-    let received = Arc::new(Mutex::new(Vec::new()));
-    let observed = Arc::clone(&received);
-    app.listen("open-project-page", move |event| {
-        observed
-            .lock()
-            .unwrap()
-            .push(serde_json::from_str::<serde_json::Value>(event.payload()).unwrap());
-    });
-    for path in ["/A", "/B"] {
-        let mut unavailable = item("action:leader:A", "Assign Todo", Some("⌘K A"), None);
-        unavailable.enabled = false;
-        select_project_menu(
-            app.handle().clone(),
-            Some(path.to_owned()),
-            Some(vec![
-                item("action:leader:C", "Review changes", Some("⌘K C"), None),
-                item("action:chord:⌘F", "Find…", Some("⌘F"), None),
-                item("action:chord:⌘B", "Bold", Some("⌘B"), None),
-                item("action:chord:⌘I", "Italic", Some("⌘I"), None),
-                item("action:chord:⇧⌘B", "Quote", Some("⇧⌘B"), None),
-                item("action:chord:⌥⌘8", "Bullet list", Some("⌥⌘8"), None),
-                item("action:chord:⌥⌘7", "Numbered list", Some("⌥⌘7"), None),
-                item("action:chord:⌥⌘C", "Code block", Some("⌥⌘C"), None),
-                item("action:chord:⌘E", "Inline code", Some("⌘E"), None),
-                item("action:chord:F2", "Rename", Some("F2"), None),
-                item("action:chord:⏎", "Open", Some("⏎"), None),
-                item("action:chord:?", "Help", Some("?"), None),
-                item("action:chord:⌘=", "Larger Terminal text", Some("⌘="), None),
-                item("action:chord:⌘-", "Smaller Terminal text", Some("⌘-"), None),
-                item(
-                    "action:chord:⌘0",
-                    "Reset Terminal text size",
-                    Some("⌘0"),
-                    None,
-                ),
-                item("action:chord:A", "Assign", Some("A"), None),
-                item("action:chord:W", "Move", Some("W"), None),
-                item("action:chord:X", "Complete", Some("X"), None),
-                item("action:chord:C", "Comment", Some("C"), None),
-                item("action:chord:Tab", "Nest", Some("Tab"), None),
-                item("action:chord:⇧Tab", "Unnest", Some("⇧Tab"), None),
-                item(
-                    "action:chord:1–9:Digit1",
-                    "Assign to first Agent",
-                    Some("1"),
-                    None,
-                ),
-                item(
-                    "action:chord:1–9:Digit9",
-                    "Assign to ninth Agent",
-                    Some("9"),
-                    None,
-                ),
-                unavailable,
-            ]),
-        )
-        .unwrap();
-        let menu = app.menu().unwrap();
-        let MenuItemKind::Submenu(project) = menu.get("project-menu").unwrap() else {
-            panic!("Project submenu");
-        };
-        let changes = plain(project.get("action:leader:C").unwrap());
-        assert_eq!(changes.text().unwrap(), "Review changes");
-        for id in [
-            "action:leader:C",
-            "action:chord:⌘F",
-            "action:chord:⌘B",
-            "action:chord:⌘I",
-            "action:chord:⇧⌘B",
-            "action:chord:⌥⌘8",
-            "action:chord:⌥⌘7",
-            "action:chord:⌥⌘C",
-            "action:chord:⌘E",
-            "action:chord:F2",
-            "action:chord:⏎",
-            "action:chord:?",
-            "action:chord:⌘=",
-            "action:chord:⌘-",
-            "action:chord:⌘0",
-            "action:chord:A",
-            "action:chord:W",
-            "action:chord:X",
-            "action:chord:C",
-            "action:chord:Tab",
-            "action:chord:⇧Tab",
-            "action:chord:1–9:Digit1",
-            "action:chord:1–9:Digit9",
-            "action:leader:A",
-        ] {
-            app_chosen(app.handle(), &MenuEvent { id: id.into() });
-        }
-    }
-    assert_eq!(
-        *received.lock().unwrap(),
-        vec![
-            serde_json::json!({"path": "/A", "command": "action:leader:C"}),
-            serde_json::json!({"path": "/A", "command": "action:chord:⌘F"}),
-            serde_json::json!({"path": "/A", "command": "action:chord:⌘B"}),
-            serde_json::json!({"path": "/A", "command": "action:chord:⌘I"}),
-            serde_json::json!({"path": "/A", "command": "action:chord:⇧⌘B"}),
-            serde_json::json!({"path": "/A", "command": "action:chord:⌥⌘8"}),
-            serde_json::json!({"path": "/A", "command": "action:chord:⌥⌘7"}),
-            serde_json::json!({"path": "/A", "command": "action:chord:⌥⌘C"}),
-            serde_json::json!({"path": "/A", "command": "action:chord:⌘E"}),
-            serde_json::json!({"path": "/A", "command": "action:chord:F2"}),
-            serde_json::json!({"path": "/A", "command": "action:chord:⏎"}),
-            serde_json::json!({"path": "/A", "command": "action:chord:?"}),
-            serde_json::json!({"path": "/A", "command": "action:chord:⌘="}),
-            serde_json::json!({"path": "/A", "command": "action:chord:⌘-"}),
-            serde_json::json!({"path": "/A", "command": "action:chord:⌘0"}),
-            serde_json::json!({"path": "/A", "command": "action:chord:A"}),
-            serde_json::json!({"path": "/A", "command": "action:chord:W"}),
-            serde_json::json!({"path": "/A", "command": "action:chord:X"}),
-            serde_json::json!({"path": "/A", "command": "action:chord:C"}),
-            serde_json::json!({"path": "/A", "command": "action:chord:Tab"}),
-            serde_json::json!({"path": "/A", "command": "action:chord:⇧Tab"}),
-            serde_json::json!({"path": "/A", "command": "action:chord:1–9:Digit1"}),
-            serde_json::json!({"path": "/A", "command": "action:chord:1–9:Digit9"}),
-            serde_json::json!({"path": "/B", "command": "action:leader:C"}),
-            serde_json::json!({"path": "/B", "command": "action:chord:⌘F"}),
-            serde_json::json!({"path": "/B", "command": "action:chord:⌘B"}),
-            serde_json::json!({"path": "/B", "command": "action:chord:⌘I"}),
-            serde_json::json!({"path": "/B", "command": "action:chord:⇧⌘B"}),
-            serde_json::json!({"path": "/B", "command": "action:chord:⌥⌘8"}),
-            serde_json::json!({"path": "/B", "command": "action:chord:⌥⌘7"}),
-            serde_json::json!({"path": "/B", "command": "action:chord:⌥⌘C"}),
-            serde_json::json!({"path": "/B", "command": "action:chord:⌘E"}),
-            serde_json::json!({"path": "/B", "command": "action:chord:F2"}),
-            serde_json::json!({"path": "/B", "command": "action:chord:⏎"}),
-            serde_json::json!({"path": "/B", "command": "action:chord:?"}),
-            serde_json::json!({"path": "/B", "command": "action:chord:⌘="}),
-            serde_json::json!({"path": "/B", "command": "action:chord:⌘-"}),
-            serde_json::json!({"path": "/B", "command": "action:chord:⌘0"}),
-            serde_json::json!({"path": "/B", "command": "action:chord:A"}),
-            serde_json::json!({"path": "/B", "command": "action:chord:W"}),
-            serde_json::json!({"path": "/B", "command": "action:chord:X"}),
-            serde_json::json!({"path": "/B", "command": "action:chord:C"}),
-            serde_json::json!({"path": "/B", "command": "action:chord:Tab"}),
-            serde_json::json!({"path": "/B", "command": "action:chord:⇧Tab"}),
-            serde_json::json!({"path": "/B", "command": "action:chord:1–9:Digit1"}),
-            serde_json::json!({"path": "/B", "command": "action:chord:1–9:Digit9"}),
-        ]
-    );
-}
-
-#[test]
 fn u5244d_copy_version_info_writes_the_app_version() {
     let app = mock_app();
     let text = info_text(app.handle(), "copy-version-info", false).unwrap();
@@ -754,39 +559,19 @@ fn project_ids(inputs: Vec<Item>, popup: bool) -> Vec<String> {
             MenuItemKind::Submenu(sub) => Some(format!("submenu:{}", sub.text().unwrap())),
             _ => None,
         })
-        .filter(|id| id != "import-work" && id != "project-settings")
         .collect()
-}
-
-#[test]
-fn u5244a_menu_construction_keeps_every_item() {
-    let mut disabled = item("action:chord:⌘F", "Find", Some("⌘F"), None);
-    disabled.enabled = false;
-    let inputs = vec![
-        item("action:chord:⌘N", "New Agent", Some("⌘N"), None),
-        disabled,
-        item("action:leader:K", "Switch to a row", Some("⌘K K"), None),
-    ];
-    let wanted: Vec<_> = inputs.iter().map(|input| input.id.clone()).collect();
-    assert_eq!(project_ids(inputs, false), wanted);
 }
 
 #[test]
 fn u5244b_project_menu_keeps_disabled_entries_and_context_menus_do_not() {
     let build = || {
-        let mut off = item("action:chord:⌘F", "Find", Some("⌘F"), None);
+        let mut off = item("action:leader:C", "Review Changes", Some("⌘K C"), None);
         off.enabled = false;
-        let mut empty = item("action:chord:1–9", "Assign to", None, Some(vec![]));
-        empty.enabled = false;
-        vec![
-            item("action:chord:⌘N", "New Agent", Some("⌘N"), None),
-            off,
-            empty,
-        ]
+        vec![item("action:chord:⌘N", "New Agent", Some("⌘N"), None), off]
     };
     assert_eq!(
         project_ids(build(), false),
-        ["action:chord:⌘N", "action:chord:⌘F", "submenu:Assign to"]
+        ["action:chord:⌘N", "action:leader:C"]
     );
     assert_eq!(project_ids(build(), true), ["action:chord:⌘N"]);
 }

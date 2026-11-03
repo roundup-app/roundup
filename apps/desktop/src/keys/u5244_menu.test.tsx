@@ -1,17 +1,31 @@
+import { padHandlers } from "../testing/stores";
+import { USER } from "../testing/nodes";
+import { openPad } from "../pads/padsFixture";
+import { showEverythingInApp } from "../testing/showEverything";
 import { batch } from "solid-js";
-import { cleanup, waitFor } from "@solidjs/testing-library";
+import { cleanup, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { mountNavigation } from "../testing/navigationFixture";
 import { openProjectPage, projectMenu } from "../testing/menuProbe";
 
 afterEach(() => { batch(cleanup); localStorage.clear(); });
 
-const focusAt = async (place: "terminal" | "rail row") => {
+const focusAt = async (place: "terminal" | "rail row" | "Shelf row" | "Pad editor") => {
   const mounted = await mountNavigation(false, 0);
 
   if (place === "terminal") {
     mounted.connected().rail.select("a1");
     await waitFor(() => expect(document.activeElement?.getAttribute("data-terminal")).toBe("t-a1"));
+  } else if (place === "Shelf row") {
+    await showEverythingInApp();
+    document.querySelector<HTMLElement>('[data-todo="1"] .todo-row-button[aria-pressed]')!.focus();
+  } else if (place === "Pad editor") {
+    const pads = [{ name: "Plan", incarnation: "fixture-Plan", text: "", updated_at: 0, revision: 1, home: null }];
+    Object.assign(mounted.daemon.handlers, padHandlers({ pads, history: [] }, () => {}));
+    mounted.daemon.emit({ actor: USER, name: "pad.changed", data: { name: "Plan" } });
+    await showEverythingInApp(undefined, "Pads");
+    await openPad("Plan");
+    screen.getByLabelText("Pad body", { selector: '[role="textbox"]' }).focus();
   } else document.querySelector<HTMLElement>('[data-part="item"]')!.focus();
 
   await waitFor(() => expect(projectMenu.items.length).toBeGreaterThan(5));
@@ -19,7 +33,7 @@ const focusAt = async (place: "terminal" | "rail row") => {
   return mounted;
 };
 
-it.each(["terminal", "rail row"] as const)("u5919a_project_menu_has_only_the_ten_actions: %s focus", async place => {
+it.each(["terminal", "rail row", "Shelf row", "Pad editor"] as const)("u5919a_project_menu_has_only_the_ten_actions: %s focus", async place => {
   await focusAt(place);
   expect(projectMenu.items.filter(item => item.group !== "edit").map(item => item.id)).toEqual([
     "action:chord:⌘N", "action:chord:⇧⌘N", "action:chord:⌥⌘N", "action:chord:⇧⌘M", "action:chord:⌘T", "action:chord:⇧⌘T",
@@ -48,4 +62,13 @@ it("u5244b_choosing_a_disabled_item_runs_nothing", async () => {
   openProjectPage(id, "/p");
   expect(daemon.calls).toHaveLength(calls);
   expect(document.activeElement).toBe(focus);
+});
+
+it("u5919b_unreachable_daemon_keeps_create_actions_disabled", async () => {
+  const { app } = await focusAt("rail row");
+  const before = projectMenu.items.filter(item => item.group !== "edit");
+  app.exitDaemon({ code: 1 }, "/p");
+  await waitFor(() => expect(projectMenu.items.find(item => item.id === "action:chord:⌘N")?.enabled).toBe(false));
+  expect(projectMenu.items.filter(item => item.group !== "edit").map(({ id, label, shortcut }) => ({ id, label, shortcut })))
+    .toEqual(before.map(({ id, label, shortcut }) => ({ id, label, shortcut })));
 });

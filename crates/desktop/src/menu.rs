@@ -259,8 +259,13 @@ pub fn select_project_menu<R: Runtime>(
     for item in project.items().map_err(internal)? {
         project.remove(&item).map_err(internal)?;
     }
-    project.set_enabled(path.is_some()).map_err(internal)?;
-    let items = items.unwrap_or_default();
+    project.set_enabled(true).map_err(internal)?;
+    let mut items = items.unwrap_or_default();
+    if path.is_none() {
+        for item in &mut items {
+            item.enabled = false;
+        }
+    }
     if let Some(MenuItemKind::Submenu(edit)) = menu.get("edit-menu") {
         // Replace only the two history commands, leaving native Cut/Copy/Paste responders intact.
         for item in edit.items().map_err(internal)?.into_iter().take(2) {
@@ -292,11 +297,11 @@ pub fn select_project_menu<R: Runtime>(
             }
         }
     }
-    if path.is_some() {
+    {
         // Keep native separators between nonempty groups, including when availability changes.
         let mut separated = false;
         let mut hints = Vec::new();
-        for group in ["create", "navigate", "views"] {
+        for group in ["create", "navigate"] {
             let entries: Vec<_> = items
                 .iter()
                 .filter(|item| item.group.as_deref().unwrap_or("navigate") == group)
@@ -324,24 +329,8 @@ pub fn select_project_menu<R: Runtime>(
             }
             separated = true;
         }
-        if separated {
-            project
-                .append(&tauri::menu::PredefinedMenuItem::separator(&app).map_err(internal)?)
-                .map_err(internal)?;
-        }
-        for (id, label) in [
-            ("import-work", "Import Claude Code work…"),
-            ("project-settings", "Open Project settings…"),
-        ] {
-            project
-                .append(&MenuItem::with_id(&app, id, label, true, None::<&str>).map_err(internal)?)
-                .map_err(internal)?;
-        }
         #[cfg(target_vendor = "apple")]
         native::project_menu_hints(&app, hints).map_err(internal)?;
-    } else {
-        #[cfg(target_vendor = "apple")]
-        native::project_menu_hints(&app, Vec::new()).map_err(internal)?;
     }
     *app.state::<ProjectMenu>()
         .0

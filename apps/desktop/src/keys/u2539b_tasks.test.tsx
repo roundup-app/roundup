@@ -14,6 +14,8 @@ afterEach(() => { batch(cleanup); localStorage.clear(); });
 const key = (code: string, options: KeyboardEventInit = {}) => {
   const event = new KeyboardEvent("keydown", { code, key: code === "Enter" ? "Enter" : code.replace("Key", "").toLowerCase(), bubbles: true, cancelable: true, ...options });
   (document.activeElement ?? document.body).dispatchEvent(event);
+
+  return event.defaultPrevented;
 };
 
 const leader = (code: string) => { key("KeyK", { metaKey: true }); key(code); };
@@ -74,9 +76,7 @@ it.each(["resources"])("u2539b_landing_opens_requested_surfaces_and_returns: %s"
   const { connected } = await mount();
 
   if (view === "resources") {
-    expect(projectMenu.items.find(item => item.id === "view:resources")?.enabled).not.toBe(true);
     connected().rail.select("a0");
-    await waitFor(() => expect(projectMenu.items.find(item => item.id === "view:resources")?.enabled).toBe(true));
   }
 
   openProjectPage(`view:${view}`, "/p");
@@ -89,7 +89,7 @@ it.each(["resources"])("u2539b_landing_opens_requested_surfaces_and_returns: %s"
 });
 
 it.each(["ask", "agent", "terminal", "todo", "attention", "items", "inbox", "assign", "project", "changes"].flatMap(task =>
-  (task === "assign" ? ["keyboard", "native-menu"] : ["keyboard", "native-menu", "terminal"]).map(source => ({ task, source, scenario: source === "native-menu" ? "u4278b_native_accelerator_runs_the_action_once" : "u2539b_top_ten_tasks_complete_within_three_presses" }))))("$scenario: $task from $source", async ({ task, source }) => {
+  (task === "assign" ? ["keyboard"] : ["agent", "terminal", "todo", "attention", "project", "changes"].includes(task) ? ["keyboard", "native-menu", "terminal"] : ["keyboard", "terminal"]).map(source => ({ task, source, scenario: source === "native-menu" ? "u4278b_native_accelerator_runs_the_action_once" : "u2539b_top_ten_tasks_complete_within_three_presses" }))))("$scenario: $task from $source", async ({ task, source }) => {
   const { daemon, connected, store, nodes, shells, emulators } = await mount(false, task === "project" ? 7 : 0, task === "assign" ? 12 : 3);
   let presses = 0;
   const press = (code: string, options: KeyboardEventInit = {}) => { presses++; key(code, options); };
@@ -140,7 +140,7 @@ it.each(["ask", "agent", "terminal", "todo", "attention", "items", "inbox", "ass
     press("Enter");
     await waitFor(() => expect(store.todos.some(row => row.title === "Capture me")).toBe(true));
   } else if (task === "attention") {
-    runLeader("KeyJ");
+    command("action:chord:⌃⌘J", "KeyJ", { ctrlKey: true, metaKey: true });
     await waitFor(() => expect(connected().rail.selected()).toBe("a0"));
     await waitFor(() => expect(document.activeElement?.getAttribute("data-terminal")).toBe("t-a0"));
   } else if (task === "items") {
@@ -184,17 +184,11 @@ it.each(["ask", "agent", "terminal", "todo", "attention", "items", "inbox", "ass
   expect(presses).toBeLessThanOrEqual(3);
 });
 
-it("u2539b_native_menu_projects_the_task_chords", async () => {
+it("u5919b_menu_tracks_configured_capture_shortcut", async () => {
   const { daemon, connected } = await mount();
-  await waitFor(() => expect(projectMenu.items.find(item => item.id === "action:leader:J")?.enabled).toBe(true));
-  expect(projectMenu.items.filter(item => item.id.startsWith("action:") && item.enabled).map(item => [item.id, item.shortcut])).toEqual([
-    ["action:chord:⌘N", "⌘N"], ["action:chord:⇧⌘N", "⇧⌘N"], ["action:chord:⌥⌘N", "⌥⌘N"], ["action:chord:⇧⌘M", "⇧⌘M"], ["action:chord:⌘T", "⌘T"], ["action:chord:⇧⌘P", "⇧⌘P"], ["action:chord:⌃⌘J", "⌃⌘J"], ["action:chord:⇧⌘T", "⇧⌘T"], ["action:chord:⌘/", "⌘/"],
-    ["action:leader:P", "⌘K P"], ["action:leader:J", "⌘K J"],
-    ["action:leader:⇧J", "⌘K ⇧J"], ["action:leader:K", "⌘K K"],
-    ["action:leader:B", "⌘K B"], ["action:leader:I", "⌘K I"],
-  ]);
   await saveAppSettings({ quickAdd: "ctrl+shift+KeyY" });
   await waitFor(() => expect(projectMenu.items.filter(item => item.group === "create" && item.label === "Capture a Todo").map(item => [item.id, item.shortcut])).toEqual([["action:chord:⌃⇧Y", "⌃⇧Y"]]));
+  expect(key("KeyT", { metaKey: true, shiftKey: true })).toBe(false);
   openProjectPage("action:chord:⌃⇧Y", "/p");
   await screen.findByRole("textbox", { name: "Capture a Todo" });
   key("Escape");
@@ -321,7 +315,7 @@ it.each(["working", "idle", "blocked", "needs-you", "error", "done"] as const)("
 it("u4278a_unavailable_actions_are_hidden_or_explain_on_use", async () => {
   const { daemon } = await mount(true);
   await waitFor(() => expect(projectMenu.items.some(item => ["action:leader:C", "action:leader:A", "action:leader:J", "view:resources"].includes(item.id) && item.enabled)).toBe(false));
-  expect(projectMenu.items.filter(item => ["action:chord:⌘Z", "action:chord:⇧⌘Z"].includes(item.id)).map(item => item.enabled)).toEqual([false, false]);
+  expect(projectMenu.items.find(item => item.id === "action:leader:C")?.enabled).toBe(false);
   openProjectPage("action:leader:C", "/p");
   openProjectPage("action:leader:A", "/p");
   openProjectPage("action:leader:J", "/p");

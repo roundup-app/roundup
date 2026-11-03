@@ -4,7 +4,6 @@ import { door, workstream } from "../testing/nodes";
 import { RpcError } from "../app/seam";
 import { mountRail, railCallsTo, rowOf, chooseAction, exitedTerminal } from "./railFixture";
 import { openTabs, path } from "../header/stripFixture";
-import { projectMenu, openProjectPage } from "../testing/menuProbe";
 import { fakeEmulators } from "../terminal/paneHarness";
 import { copy } from "./copy";
 
@@ -85,20 +84,17 @@ it("u4547d_only_explicit_restart_requests_a_fresh_session", async () => {
   expect(railCallsTo(reopened.app, "workstream.restart")).toEqual([]);
 });
 
-it("u4547d_restart_controls_share_the_focused_mode_action_in_the_native_menu", async () => {
+it("u4547d_restart_controls_share_the_focused_mode_action_from_its_key", async () => {
   const tree = [workstream("mode", { opening_prompt: "saved" })];
   const { app } = await openTabs({ p: tree });
   const daemon = app.of(path("p"));
   daemon.handlers["workstream.restart"] = () => tree[0]!;
   rowOf("mode").focus();
-  await waitFor(() => expect(projectMenu.items.find(item => item.id === "action:chord:R")).toMatchObject({ enabled: true }));
-  expect(projectMenu.items.find(item => item.id === "action:chord:R")?.shortcut).toBe("R");
-  openProjectPage("action:chord:R", path("p"));
+  fireEvent.keyDown(rowOf("mode"), { key: "r", code: "KeyR" });
   await waitFor(() => expect(railCallsTo(daemon, "workstream.restart")).toHaveLength(1));
   expect(railCallsTo(daemon, "agent.resume")).toEqual([]);
   const field = screen.getByRole("textbox", { name: "Ask" });
   field.focus();
-  await waitFor(() => expect(projectMenu.items.some(item => item.id === "action:chord:R" && item.enabled)).toBe(false));
   expect(fireEvent.keyDown(field, { key: "r", code: "KeyR" })).toBe(true);
   expect(railCallsTo(daemon, "workstream.restart")).toHaveLength(1);
 });

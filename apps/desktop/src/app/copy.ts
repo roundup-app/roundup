@@ -22,6 +22,12 @@ export const storageCopy = {
 const openProjectRetry = "Use Open Project to try again.";
 
 export const copy = {
+  projectMenuLabels: new Map([
+    ["agent.new-with-prompt", "New Agent with a Prompt…"],
+    ["attention.jump", "Jump to What Needs You"],
+    ["leader.changes", "Review Changes"],
+    ["project.choose-folder", "Open Folder…"],
+  ]),
   openProjectRetry,
   openProjectFailed: "Opening failed",
   /** @prose */
