@@ -1,5 +1,6 @@
 import { copy as appCopy } from "./copy";
 import { showScrollbars } from "../scrollHover";
+import { resizeDragging } from "../resize/dragging";
 import tokens from "../tokens.css?inline";
 import { createRoot, createEffect, on } from "solid-js";
 import { terminalType, followAppAppearance } from "../settings/preferences";
@@ -449,8 +450,9 @@ export const createXtermEmulators = (
     };
 
     // xterm redraws both renderers after DPR/cell metrics change; host observers miss equal CSS bounds.
+    // During an edge drag, Pane refits on release; a live-output redraw must not fit the intermediate width.
     const refit = () => {
-      if (!opened || disposed || !fontsReady || !element.parentElement || element.closest("[hidden]")) return;
+      if (!opened || disposed || !fontsReady || resizeDragging() || !element.parentElement || element.closest("[hidden]")) return;
 
       const proposed = fitter.proposeDimensions();
 
