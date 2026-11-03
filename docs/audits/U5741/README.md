@@ -13,7 +13,7 @@ The audit must prevent missed conditional offers, unsupported claims of non-use/
 
 | Artifact | Holds |
 | --- | --- |
-| [project-entry.md](project-entry.md) | Twenty independent Project entry, tab and recovery decisions, criteria, direction and remaining conditional gaps |
+| [project-entry.md](project-entry.md) | Twenty-one independent Project entry, tab and recovery decisions, criteria, direction and remaining conditional gaps |
 | [catalogues/project-source.json](catalogues/project-source.json) | Current source hashes, historical role offers explicitly pinned to their original revision, vendor help and direction provenance |
 | [rendered-project.json](rendered-project.json) | Fresh isolated first-run, tab, draft recovery, close and startup/Daemon failure openings |
 | [rail-lifecycle.md](rail-lifecycle.md) | Independent lifecycle, creation and Queue controls, criteria and dated Mode/conversion direction |
