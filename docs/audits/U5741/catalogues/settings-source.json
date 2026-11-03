@@ -489,7 +489,117 @@
     }
   ],
   "continuationMain": "df38b366e772e810592e7d19b3b8d04adb8419c7",
-  "changedProductionSinceAudit": [
+  "direction": [
+    {
+      "issue": 3281,
+      "url": "https://github.com/roundup-app/roundup/issues/3281",
+      "author": "saadshahd",
+      "createdAt": "2026-10-22T07:58:32Z",
+      "bodySha256": "4726809fc2520bf02e73e26862111591d20fdcd9dec8b1f3be254661032b55f4",
+      "dateBoundary": "Creation date of owner-filed Issue; not proof of later body edits or every detailed clause."
+    },
+    {
+      "issue": 4687,
+      "url": "https://github.com/roundup-app/roundup/issues/4687",
+      "author": "saadshahd",
+      "createdAt": "2026-10-28T22:37:54Z",
+      "bodySha256": "53da4f05bd69ba8db926206d86f1b9fc63a12dfac2697abf5d0704cf66a0a5be",
+      "dateBoundary": "Creation date of owner-filed Issue; not proof of later body edits or every detailed clause."
+    },
+    {
+      "issue": 4688,
+      "url": "https://github.com/roundup-app/roundup/issues/4688",
+      "author": "saadshahd",
+      "createdAt": "2026-10-28T22:37:55Z",
+      "bodySha256": "fb425cd3158264c4b16ae8814f3975a0e035132052e5fb33ea79457c4fa8688a",
+      "dateBoundary": "Creation date of owner-filed Issue; not proof of later body edits or every detailed clause."
+    },
+    {
+      "issue": 5232,
+      "url": "https://github.com/roundup-app/roundup/issues/5232",
+      "author": "saadshahd",
+      "createdAt": "2026-10-31T02:45:30Z",
+      "bodySha256": "a452f910f9f1877f333f0502ec14bbd443c9eff119e6d4c7e89e6a9789a35469",
+      "dateBoundary": "Creation date of owner-filed Issue; not proof of later body edits or every detailed clause."
+    },
+    {
+      "issue": 5239,
+      "url": "https://github.com/roundup-app/roundup/issues/5239",
+      "author": "saadshahd",
+      "createdAt": "2026-10-31T02:45:39Z",
+      "bodySha256": "f8572c298eca6319b4ea05e00906e5eb9340cbd4a03640b82f47d7f0796e69da",
+      "dateBoundary": "Creation date of owner-filed Issue; not proof of later body edits or every detailed clause."
+    }
+  ],
+  "modelsRuntime": {
+    "command": "cargo build -p rup -p rupd; isolated rupd; newline JSON-RPC models.list over its Unix socket",
+    "request": {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "method": "models.list",
+      "params": null
+    },
+    "reply": {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "result": {
+        "engines": [
+          {
+            "id": "claude-code",
+            "label": "Claude Code"
+          }
+        ],
+        "models": [
+          {
+            "id": "fable",
+            "label": "Fable"
+          },
+          {
+            "id": "opus",
+            "label": "Opus"
+          },
+          {
+            "id": "sonnet",
+            "label": "Sonnet"
+          },
+          {
+            "id": "haiku",
+            "label": "Haiku"
+          }
+        ],
+        "efforts": [
+          {
+            "id": "low",
+            "label": "Low"
+          },
+          {
+            "id": "medium",
+            "label": "Medium"
+          },
+          {
+            "id": "high",
+            "label": "High"
+          },
+          {
+            "id": "xhigh",
+            "label": "Extra high"
+          },
+          {
+            "id": "max",
+            "label": "Max"
+          }
+        ]
+      }
+    },
+    "project": "/tmp/u5741-runtime-41556795106/project",
+    "data": "/tmp/u5741-runtime-41556795106/data",
+    "source": "092fcafbf910f292d7180c97d35bd381aff984b3",
+    "binaries": {
+      "rup": "5504a4e6d2ce938dc5b1389456c6a2e839a89bccf2e8a2dccaf7b497b9460f3b",
+      "rupd": "5bf55076adf4ace6293e17fc788ea5fa05dd26a8a8dc3053d7035c57ad025c2f"
+    }
+  },
+  "changedProductPathsSinceAudit": [
     "apps/desktop/src/App.tsx",
     "apps/desktop/src/app/FirstRun.tsx",
     "apps/desktop/src/app/copy.ts",
@@ -658,115 +768,5 @@
     "crates/rup/tests/mcp.rs",
     "crates/rup/tests/mcp/children.rs",
     "crates/rup/tests/yolo_modes.rs"
-  ],
-  "direction": [
-    {
-      "issue": 3281,
-      "url": "https://github.com/roundup-app/roundup/issues/3281",
-      "author": "saadshahd",
-      "createdAt": "2026-10-22T07:58:32Z",
-      "bodySha256": "4726809fc2520bf02e73e26862111591d20fdcd9dec8b1f3be254661032b55f4",
-      "dateBoundary": "Creation date of owner-filed Issue; not proof of later body edits or every detailed clause."
-    },
-    {
-      "issue": 4687,
-      "url": "https://github.com/roundup-app/roundup/issues/4687",
-      "author": "saadshahd",
-      "createdAt": "2026-10-28T22:37:54Z",
-      "bodySha256": "53da4f05bd69ba8db926206d86f1b9fc63a12dfac2697abf5d0704cf66a0a5be",
-      "dateBoundary": "Creation date of owner-filed Issue; not proof of later body edits or every detailed clause."
-    },
-    {
-      "issue": 4688,
-      "url": "https://github.com/roundup-app/roundup/issues/4688",
-      "author": "saadshahd",
-      "createdAt": "2026-10-28T22:37:55Z",
-      "bodySha256": "fb425cd3158264c4b16ae8814f3975a0e035132052e5fb33ea79457c4fa8688a",
-      "dateBoundary": "Creation date of owner-filed Issue; not proof of later body edits or every detailed clause."
-    },
-    {
-      "issue": 5232,
-      "url": "https://github.com/roundup-app/roundup/issues/5232",
-      "author": "saadshahd",
-      "createdAt": "2026-10-31T02:45:30Z",
-      "bodySha256": "a452f910f9f1877f333f0502ec14bbd443c9eff119e6d4c7e89e6a9789a35469",
-      "dateBoundary": "Creation date of owner-filed Issue; not proof of later body edits or every detailed clause."
-    },
-    {
-      "issue": 5239,
-      "url": "https://github.com/roundup-app/roundup/issues/5239",
-      "author": "saadshahd",
-      "createdAt": "2026-10-31T02:45:39Z",
-      "bodySha256": "f8572c298eca6319b4ea05e00906e5eb9340cbd4a03640b82f47d7f0796e69da",
-      "dateBoundary": "Creation date of owner-filed Issue; not proof of later body edits or every detailed clause."
-    }
-  ],
-  "modelsRuntime": {
-    "command": "cargo build -p rup -p rupd; isolated rupd; newline JSON-RPC models.list over its Unix socket",
-    "request": {
-      "jsonrpc": "2.0",
-      "id": 1,
-      "method": "models.list",
-      "params": null
-    },
-    "reply": {
-      "jsonrpc": "2.0",
-      "id": 1,
-      "result": {
-        "engines": [
-          {
-            "id": "claude-code",
-            "label": "Claude Code"
-          }
-        ],
-        "models": [
-          {
-            "id": "fable",
-            "label": "Fable"
-          },
-          {
-            "id": "opus",
-            "label": "Opus"
-          },
-          {
-            "id": "sonnet",
-            "label": "Sonnet"
-          },
-          {
-            "id": "haiku",
-            "label": "Haiku"
-          }
-        ],
-        "efforts": [
-          {
-            "id": "low",
-            "label": "Low"
-          },
-          {
-            "id": "medium",
-            "label": "Medium"
-          },
-          {
-            "id": "high",
-            "label": "High"
-          },
-          {
-            "id": "xhigh",
-            "label": "Extra high"
-          },
-          {
-            "id": "max",
-            "label": "Max"
-          }
-        ]
-      }
-    },
-    "project": "/tmp/u5741-runtime-41556795106/project",
-    "data": "/tmp/u5741-runtime-41556795106/data",
-    "source": "092fcafbf910f292d7180c97d35bd381aff984b3",
-    "binaries": {
-      "rup": "5504a4e6d2ce938dc5b1389456c6a2e839a89bccf2e8a2dccaf7b497b9460f3b",
-      "rupd": "5bf55076adf4ace6293e17fc788ea5fa05dd26a8a8dc3053d7035c57ad025c2f"
-    }
-  }
+  ]
 }
