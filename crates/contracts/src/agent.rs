@@ -10,7 +10,10 @@ use crate::common::Status;
 mod alert;
 pub use alert::{AlertLevel, SetAlertLevelParams};
 mod launch;
-pub use launch::{Extras, ExtrasAddParams, PermissionMode, SpawnParams, StartDoorParams};
+pub use launch::{
+    CreateWorkstreamParams, Extras, ExtrasAddParams, PermissionMode, SpawnParams, StartAttribution,
+    StartDoorParams,
+};
 
 /// Parse the wire ordinal without accepting aliases such as leading zeroes or signs.
 pub fn parse_positive_ordinal(value: &str) -> Option<i64> {
@@ -27,7 +30,6 @@ pub enum NodeKind {
     Workstream,
     Agent,
 }
-
 /// The git worktree Provisioning made for a node's Agent (G2, `scenarios/worktrees.md`).
 /// `base` is the branch that was checked out in the Project when it was made.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
@@ -36,7 +38,6 @@ pub struct Worktree {
     pub branch: String,
     pub base: String,
 }
-
 /// A34: what a Workstream's removal took off the Rail, the Todos and the Pads.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 #[serde(rename_all = "kebab-case")]
@@ -45,7 +46,6 @@ pub enum RemovalKind {
     Todo,
     Pad,
 }
-
 /// A34: why a Workstream's removal kept an item at the Project root.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 #[serde(rename_all = "kebab-case")]
@@ -55,7 +55,6 @@ pub enum KeptReason {
     Ahead,
     Open,
 }
-
 /// A34: one item `rail.remove` of a Workstream deleted.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct RemovedItem {
@@ -76,6 +75,9 @@ pub struct KeptItem {
 /// A34: what `rail.remove` of a Workstream returns.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct Removal {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[specta(optional)]
+    pub selection: Vec<String>,
     pub removed: Vec<RemovedItem>,
     pub kept: Vec<KeptItem>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -99,6 +101,15 @@ pub struct RemoveParams {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[specta(optional)]
     pub scope: Option<RemoveScope>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[specta(optional)]
+    pub operation: Option<String>,
+}
+
+/// Captured selection; every target uses its default removal scope. A key requests data-only retention.
+#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
+pub struct RemoveSelectionParams {
+    pub ids: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[specta(optional)]
     pub operation: Option<String>,
@@ -399,6 +410,10 @@ pub const TITLE_CAP: usize = 6;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct RailNode {
+    /// A5765e: captured foreign source identity, descriptive only; absent for ordinary Add.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[specta(optional, type = StartAttribution)]
+    pub start_attribution: Option<StartAttribution>,
     #[serde(default)]
     #[specta(optional)]
     pub visibility: RailVisibility,
@@ -854,16 +869,6 @@ pub struct SignalParams {
 #[derive(Clone, Debug, Default, Serialize, Deserialize, Type, JsonSchema)]
 pub struct SignalOutcome {
     pub drop: bool,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
-pub struct CreateWorkstreamParams {
-    pub name: String,
-    pub parent: Option<String>,
-    /// O3: the Door's order.
-    #[serde(default)]
-    #[specta(optional, type = Order)]
-    pub order: Option<Order>,
 }
 
 /// U2773c: the Order read with an editor's original Project and exact node id.

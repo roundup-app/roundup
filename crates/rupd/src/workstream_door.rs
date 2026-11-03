@@ -324,7 +324,8 @@ impl IdleDoor {
         let pid = std::process::id();
         std::fs::write(
             self.config.join(format!("sessions/{id}.json")),
-            json!({"pid":pid,"peerProtocol":1,"messagingSocketPath":socket}).to_string(),
+            json!({"pid":pid,"sessionId":id,"peerProtocol":1,"messagingSocketPath":socket})
+                .to_string(),
         )
         .unwrap();
         std::fs::write(

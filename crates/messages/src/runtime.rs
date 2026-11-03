@@ -42,6 +42,8 @@ pub(super) struct Inner {
     /// B39: the Messages being written to an inbox by this Daemon run, so no second `idle`
     /// writes them again. A Message in flight at a kill is not in it.
     pub(super) typing: Mutex<std::collections::HashSet<u32>>,
+    /// Successful writes in this Daemon run; recovered flights may need repeat closure.
+    pub(super) inbox_written: Mutex<std::collections::HashSet<u32>>,
     /// B50: the transport of every Message to an Agent; without one nothing is delivered.
     pub(super) inbox: std::sync::OnceLock<Arc<dyn NoteInbox>>,
 }
@@ -86,6 +88,7 @@ impl Messages {
             pushes: tokio::sync::Mutex::default(),
             delivery: tokio::sync::RwLock::default(),
             typing: Mutex::default(),
+            inbox_written: Mutex::default(),
             inbox: std::sync::OnceLock::new(),
         });
         Ok(Self { inner })
