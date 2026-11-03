@@ -1,6 +1,7 @@
 import { answerQuestion } from "../shelf/bulkQuestionHarness";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
+import { batch } from "solid-js";
 import { App } from "../App";
 import { showShelfTab } from "../testing/shelfTabs";
 import { padHandlers } from "../testing/stores";
@@ -12,7 +13,7 @@ import { endLeader } from "./registry";
 import { CHORDS, hintsFor, pressOf } from "./chords";
 import type { HintPlace } from "./chords";
 
-afterEach(() => { cleanup(); endLeader(); });
+afterEach(() => { batch(cleanup); endLeader(); });
 
 const focusableEmulator = (): EmulatorFactory => () => {
   const field = document.createElement("textarea");
