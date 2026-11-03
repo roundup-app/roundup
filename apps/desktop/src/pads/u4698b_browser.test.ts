@@ -554,9 +554,9 @@ describe("U5631 Todo block menus", () => {
   beforeEach(async ({ task }) => {
     await browser("set", "viewport", "1512", "950");
 
-    // Recording keeps the prior context alive. Start from the static fixture so it
-    // does not keep a second App rendering behind the scenario's recorded context.
+    // Recording retains the previous context; keep a second App from rendering.
     if (menuOutput) {
+      await browser("open", "about:blank");
       mkdirSync(menuOutput, { recursive: true });
       await browser("record", "start", join(menuOutput, `${task.name}.webm`));
     }
@@ -664,8 +664,8 @@ it.each(["plus", "slash"].flatMap(entry => [false, true].map(afterPad => ({ entr
 
     await browser("press", "Escape");
     await settle();
-    expect(await retained()).toEqual(unfinished);
-    expect(await evaluate("document.querySelector('.drawer .ProseMirror').textContent")).toBe(draft);
+    expect.soft(await retained()).toEqual(unfinished);
+    expect.soft(await evaluate("document.querySelector('.drawer .ProseMirror').textContent")).toBe(draft);
     expect(await evaluate("document.querySelectorAll('.drawer details[data-pad-agents]').length")).toBe(0);
     await shot("dismissed");
     expect(await evaluate("window.__fake.app.calls.filter(call => ['todo.update', 'pad.write'].includes(call.method))")).toEqual([]);
