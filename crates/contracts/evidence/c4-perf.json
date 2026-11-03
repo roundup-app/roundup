@@ -1,7 +1,7 @@
 {
   "observer": "perf::measure::one_run, alternating base/PR, 11 samples each, 1000 calls; perf::gate::conclude with the unchanged shared limits/noise/load rules and five same-host main medians as temporary comparison baselines",
-  "implementation_commit": "616108fce61dfcaea4f6b51fcc50f699f68b3483",
-  "base_commit": "34e84bc41fa2c4cf281dcc139e1eb1e6769bbfc3",
+  "implementation_commit": "131eb974b49840d619e755aa9fffde641b475cf7",
+  "base_commit": "a7ec8fbf279ce909cff26dfd666e4c19f71c38ec",
   "baseline_gap": "The default just perf exits 2 because linux-7763 has no five-metric matrix baseline, tracked by #3700. No shared baseline, limit or class file changed.",
   "toolchain": "rustc 1.99.0 (b940084d7 2026-09-28)\nbinary: rustc\ncommit-hash: b940084d7eb6a299eb4bfeb8e34901bc051e7ac4\ncommit-date: 2026-09-28\nhost: x86_64-unknown-linux-gnu\nrelease: 1.99.0\nLLVM version: 23.1.1\n",
   "cargo": "cargo 1.99.0 (5f94df478 2026-08-27)",

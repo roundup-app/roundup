@@ -1,8 +1,8 @@
 {
   "scenario": "Z3788c",
   "scope": "TimelineView visibility listener only",
-  "base_revision": "6153b330ce65f647062045e40d1f716c3421c570",
-  "head_revision": "15b90e20fee3736f030a0e9a21a49317d62ea129",
+  "base_revision": "17a412ee74d0c85e5f85b3c59a2a2835dc9a6e8c",
+  "head_revision": "52a030fd65fd12e56547b2635a0a2c4f0bc52b26",
   "host": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39",
   "node": "v22.23.3",
   "pnpm": "10.14.0",
@@ -39,7 +39,7 @@
     "ceiling": 437814,
     "diagnostic": ""
   },
-  "merged_revision": "25f224c3f594b3ce88467368201bf845ddbea97f",
+  "merged_revision": "61ac9c44c019217e2441bdf081ebc8ba1683dc40",
   "merged": {
     "exit": 0,
     "entry": "assets/index-bixwFIRy.js",

@@ -8,7 +8,7 @@ All 660 archived edits now pair to their displayed results. Chromium p95 exceeds
 | 400 | 20 / 200 | 51.942 | 82.259 | 1 |
 | 4000 | 20 / 200 | 457.234 | 732.659 | 1 |
 
-These are the original collection's timings, not new browser observations or before/after improvements. `../environment.json` records revision `1494ab15241e8811f0f1f7c8b96dc441ff5f7f2f`, host, fresh profile, dark 1512×950 viewport, seed, build and source hashes. No current-main, native Mac, production-build or design Check pass is claimed. The 400/4000 percentiles are unchanged. Each original selection acknowledged `row-0000`, returned focus and recorded zero Terminal writes.
+These are the original collection's timings, not new browser observations or before/after improvements. `../environment.json` records revision `b9a062d9a65ebf7b4df54348df3f3a3b1c4394e5`, host, fresh profile, dark 1512×950 viewport, seed, build and source hashes. No current-main, native Mac, production-build or design Check pass is claimed. The 400/4000 percentiles are unchanged. Each original selection acknowledged `row-0000`, returned focus and recorded zero Terminal writes.
 
 ## Exact frame repair
 
@@ -64,9 +64,9 @@ The isolated fixture has no Rail DOM, and input dispatch grows with list length,
 
 ## Required-gate repair (PR #4384)
 
-`check` run 40477290026 failed U362's unchanged 200-Todo failure observer on head `91ff04323811473894490046aa5810fc5764bd8d`: `Input.dispatchKeyEvent` exceeded its 20,000 ms reply bound. A fresh isolated Chromium/profile reproduces it locally (five other cases pass). Changing the setup to the native-menu seam still times out mounting the list; those setup experiments were discarded.
+`check` run 40477290026 failed U362's unchanged 200-Todo failure observer on head `5666b4fbc8c404bacee8e852db2833dd54280e70`: `Input.dispatchKeyEvent` exceeded its 20,000 ms reply bound. A fresh isolated Chromium/profile reproduces it locally (five other cases pass). Changing the setup to the native-menu seam still times out mounting the list; those setup experiments were discarded.
 
-A debugger pause during dense rendering finds `createSelection.selected` reading eligible identities through `ownerGroups`, `ownersOnRail` and `railOrder`. An initial local Todo memo made the unchanged six-test file pass with retries disabled (densest failure case 6,838 ms). That local memo was removed after main merged PR #4386 at `968e384d40214ae977dd1ef0cddffa72461fe736`, containing `ae7d61631`'s shared selection memo and Set membership lookup. That fix explicitly covers this same 200-Todo timeout. The final PR takes it through a clean merge; App source equals main.
+A debugger pause during dense rendering finds `createSelection.selected` reading eligible identities through `ownerGroups`, `ownersOnRail` and `railOrder`. An initial local Todo memo made the unchanged six-test file pass with retries disabled (densest failure case 6,838 ms). That local memo was removed after main merged PR #4386 at `99488cd1fd3cd61c2d925418fd74fc9e4c0a0be9`, containing `ae7d61631`'s shared selection memo and Set membership lookup. That fix explicitly covers this same 200-Todo timeout. The final PR takes it through a clean merge; App source equals main.
 
 The observer, fixture, 200-row assertion, drag actions, failure readback and timeout remain unchanged. The initial local experiment is diagnostic evidence, not a final-head, native or controlled production performance claim. The archived replay and all four negative probes also reproduce unchanged: the replay remains valid but over budget, and every invalid-archive probe exits 2. No custom cache, selection controller, dependency or adapter is introduced by this PR.
 

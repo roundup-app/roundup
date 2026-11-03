@@ -12,7 +12,7 @@ is an existing regression observer, not the S3806b guard.
 
 ## Baseline observation
 
-At main `c9c69c69f6ff685dc81cd579b806abb45306a64e`, the three-file invocation in
+At main `0315deaa23c5bbc355eef6d7b9267287674cc37a`, the three-file invocation in
 #4440 unconditionally enters `warmChrome` and `globalAppServer`. A Linux
 `strace -f -e trace=execve,bind,listen` observation recorded a real headless
 Chrome launch with a fresh `chrome-page-*` profile and App-server listening.
@@ -35,7 +35,7 @@ selection. Root global setup would run even for the cheap project.
 
 ## Implementation observation
 
-Tested configuration: `edebf5ba6815b94caffcc6c8e23192e9f42f3d26`.
+Tested configuration: `9ea9e713429ebbe6d3170e15f999020c3f621151`.
 
 ```sh
 strace -f -e trace=execve,bind,listen -o /tmp/guards.trace \

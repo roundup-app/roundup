@@ -1,6 +1,6 @@
 # U5741 requested attention, Work progress and Import
 
-Audit pin: main `b021117d063f663008f9a692be5e7496b2eebbe1`. This continues the inventory, not the complete owner request. No deletion is authorized. [Source provenance](catalogues/attention-import-source.json) and [isolated observations](rendered-attention-import.json) accompany these rows. Ask and real Agent Terminals remain protected; the Overview list (#5730) remains excluded. Requested attention's individual controls below do not authorize a decision about that list.
+Audit pin: main `6296fc98884e3b7c73a26f630b668ff63d540613`. This continues the inventory, not the complete owner request. No deletion is authorized. [Source provenance](catalogues/attention-import-source.json) and [isolated observations](rendered-attention-import.json) accompany these rows. Ask and real Agent Terminals remain protected; the Overview list (#5730) remains excluded. Requested attention's individual controls below do not authorize a decision about that list.
 
 Q1: does a named vendor/platform supply the same action/result? Q2: does no required five-stage journey result need this feature? Q3: is information shown without an action on or because of it? A yes is only a candidate reason. Unverified is never no. No usage telemetry is assumed.
 

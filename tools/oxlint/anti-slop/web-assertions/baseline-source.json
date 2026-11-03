@@ -1,5 +1,5 @@
 {
-  "sourceRevision": "6feb4407e540ce42aba24820c148e8f2bbab6c24",
+  "sourceRevision": "94e43b8669b86d7fa12c4032c7f70b0d32c9a73f",
   "sourceModified": false,
   "toolVersions": {
     "oxlint": "1.86.0",
@@ -18,7 +18,7 @@
   "observations": 1222,
   "files": 228,
   "note": "Initial exact baseline from unchanged App source on origin/main; audit.mjs reproduces source observations. Creation is subject to independent review before cuts. Later baseline changes may only remove entries.",
-  "implementationBase": "8e7d524fd65126fd6bb3b0a77b132af4d21b5532",
+  "implementationBase": "bdbb4101e81daa184714c93fa9057f48b8addd59",
   "baselineAssertions": 1177,
   "baselineFiles": 228
 }

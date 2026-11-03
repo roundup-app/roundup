@@ -40,7 +40,7 @@ run('check',['just','check'],env=dict(os.environ,VITEST_MAX_WORKERS='1'))
 metadata={}
 for name,args in [('os',['cat','/etc/os-release']),('cpu',['lscpu']),('available',['nproc']),('affinity',['sed','-n','/^Cpus_allowed_list:/p','/proc/self/status']),('rust',['rustc','-Vv']),('kernel',['uname','-a']),('shell',['bash','--version']),('head',['git','rev-parse','HEAD'])]:
     metadata[name]=dict(command=args,output=subprocess.check_output(args,cwd=root,text=True))
-metadata.update(historical='1d1618d2d9bb5c0f25ecb6b32de1cde20bfad6d0',original=subprocess.check_output(['git','rev-parse','HEAD'],cwd=original,text=True).strip(),profile='Default release, committed reference lockfiles, no overridden compiler flags',workers='VITEST_MAX_WORKERS=1 for check only')
+metadata.update(historical='5371e7c423c6f37704dfe64ceb5808f3e4c429a8',original=subprocess.check_output(['git','rev-parse','HEAD'],cwd=original,text=True).strip(),profile='Default release, committed reference lockfiles, no overridden compiler flags',workers='VITEST_MAX_WORKERS=1 for check only')
 (out/'metadata.json').write_text(json.dumps(metadata,indent=2)+'\n')
 files=list(bins.iterdir())+[root/'Cargo.lock',history/'Cargo.lock',history/'crates/perf/src/measure.rs',history/'crates/perf/budgets.json',root/'crates/rpc/src/client.rs',root/'crates/rpc/src/client/frame.rs']
 (out/'hashes.json').write_text(json.dumps({str(p):hashlib.sha256(p.read_bytes()).hexdigest() for p in files},indent=2)+'\n')
