@@ -24,6 +24,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | App registration (`registration`, `action.closed`) | none | — |
 | Project name base (`base`, `ProjectsState.base`) | same | — |
 | Project data | same | — |
+| Fork (`data.fork`, `ForkColour`, `fork.json`) | same | — |
 | Engine (`engine`, `ModelList.engines`) | same | — |
 | Permission mode (`PermissionMode`, `permissionMode` on launch calls) | same | — |
 | Agent name (`agent_name`) | same | — |
@@ -39,6 +40,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Turn | command | — |
 | ReservedLine | none | — |
 | Terminal owner (`terminal::TerminalOwner`, `Terminals::serve_owner`, `Terminals::attach_owner`, `Terminals::with_terminal_owner`, `Terminals::terminal_owners`) | same | — |
+| Update exit (`exit_for_update`) | Restart to update | — |
 | Cached rows (`Connection::with_cached_rows`) | same | — |
 | Bubble | same | overlay, popup |
 | Bubble focus (`closeFocused`) | none | — |
@@ -262,7 +264,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 
 | Code term | User label | Avoid |
 |---|---|---|
-| Token (`--button-accent-fill`, `--button-key-ink`, `--doodle-line`, `--doodle-patch`, `--doodle-offset`, `--doodle-blend`) | same | — |
+| Token (`--button-accent-fill`, `--button-key-ink`, `--doodle-ground`) | same | — |
 | Text selection Token (`--text-selection`, `--text-selection-ink`) | same | — |
 | Section head | same | — |
 | Signifier | same | — |

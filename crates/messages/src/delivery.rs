@@ -27,6 +27,7 @@ fn spawn_push_clock(inner: std::sync::Weak<Inner>) {
                 break;
             };
             pushes::flush(&inner).await;
+            failure::sweep(&inner).await;
             #[cfg(test)]
             let _ = inner.completed.send("clock");
         }
@@ -438,15 +439,25 @@ fn reconcile_into(
         // B8: a Message written and not confirmed waits for the Agent to be resumed.
         let rebind = (through.0 < at.0).then_some((at.0, 0));
         let keep = Some(rebind);
-        for message in store.drop_all_pending(
-            agent,
-            Reason::ReceiverGone,
-            through,
-            gone_drops,
-            keep,
-            restart,
-        )? {
+        // DCL4: the drops and each sender's one return note commit together, so a crash and
+        // replay find either both or neither; a replay drops nothing and so notes nothing.
+        let (dropped, notes) = store.atomically(|store| {
+            let dropped = store.drop_all_pending(
+                agent,
+                Reason::ReceiverGone,
+                through,
+                gone_drops,
+                keep,
+                restart,
+            )?;
+            let notes = return_notes(store, agent, &dropped)?;
+            Ok((dropped, notes))
+        })?;
+        for message in dropped {
             events.push(EventData::MessageDropped(message.into()));
+        }
+        for note in notes {
+            events.push(EventData::MessageSent(note.into()));
         }
     }
     if previous.is_some_and(|state| state.attempt > at.0) {
@@ -467,6 +478,82 @@ fn reconcile_into(
     }
     state.closed |= retiring || (permanent && !reserved);
     store.set_generation(agent, state)
+}
+
+const NOTE_IDS: usize = 32;
+const NOTE_CAUSE_BYTES: usize = 512;
+
+/// RN1 RN2: the note body lists at most 32 ids, counts the rest, and cuts the cause at a
+/// character boundary at or before byte 512, so it stays under B1's 8192-byte body limit.
+fn return_note_body(ids: &[u32], name: &str, cause: &str) -> String {
+    let list = |ids: &[u32]| {
+        ids.iter()
+            .map(|id| format!("#{id}"))
+            .collect::<Vec<_>>()
+            .join(" ")
+    };
+    let cause = if cause.len() > NOTE_CAUSE_BYTES {
+        let end = (0..=NOTE_CAUSE_BYTES)
+            .rev()
+            .find(|&i| cause.is_char_boundary(i))
+            .unwrap_or(0);
+        format!("{} [cut]", &cause[..end])
+    } else {
+        cause.to_owned()
+    };
+    if ids.len() <= NOTE_IDS {
+        return format!("[return] {} never reached {name}: {cause}", list(ids));
+    }
+    let (head, rest) = ids.split_at(NOTE_IDS);
+    format!(
+        "[return] {}\n[+{} more: #{} to #{}]\nnever reached {name}: {cause}",
+        list(head),
+        rest.len(),
+        rest[0],
+        rest[rest.len() - 1]
+    )
+}
+
+/// DCL4: one pending note from the Daemon to each Agent sender whose Messages `dropped` closed
+/// at `agent`, listing the original ids. The originals keep their identity and are never reset.
+fn return_notes(
+    store: &mut Store,
+    agent: &str,
+    dropped: &[Message],
+) -> Result<Vec<Message>, RpcError> {
+    let mut senders: Vec<&Actor> = Vec::new();
+    for message in dropped {
+        if message.from.kind == ActorKind::Agent && !senders.contains(&&message.from) {
+            senders.push(&message.from);
+        }
+    }
+    let name = store.sender_name(agent)?;
+    let mut notes = Vec::new();
+    for sender in senders {
+        let mut ids: Vec<u32> = dropped
+            .iter()
+            .filter(|m| &m.from == sender)
+            .map(|m| m.id)
+            .collect();
+        ids.sort_unstable();
+        let body = return_note_body(&ids, &name, "it ended before they were read");
+        let at = dropped.iter().map(|m| m.at).max().unwrap_or(0);
+        let binding = store
+            .generation(&sender.id)?
+            .map_or((0, 0), |state| (state.attempt, state.revision));
+        notes.push(store.insert(
+            &Actor::daemon(),
+            &sender.id,
+            MessageKind::Note,
+            &body,
+            None,
+            MessageStatus::Pending,
+            None,
+            at,
+            binding,
+        )?);
+    }
+    Ok(notes)
 }
 
 impl Messages {
@@ -550,5 +637,120 @@ mod tests {
         on_idle(&messages.inner, "m", (1, 2), Pick::Next).await;
         assert_eq!(lock(&inbox.batches).len(), 1);
         // BatchRail rejects every method but rail.tree: no Terminal write or prompt is possible.
+    }
+}
+
+#[cfg(test)]
+mod dcl_tests {
+    use super::*;
+    use crate::inbox::tests::setup;
+
+    #[tokio::test(start_paused = true)]
+    async fn dcl4_killed_subagent_returns_pending_messages_once() {
+        let dir = tempfile::tempdir().unwrap();
+        let (messages, _, _) = setup(dir.path());
+        let door = Actor {
+            kind: ActorKind::Agent,
+            id: "door".into(),
+            parent: None,
+        };
+        let send = |body: &str| {
+            lock(&messages.inner.store)
+                .insert(
+                    &door,
+                    "m",
+                    MessageKind::Note,
+                    body,
+                    None,
+                    MessageStatus::Pending,
+                    None,
+                    5,
+                    (1, 1),
+                )
+                .unwrap()
+                .id
+        };
+        let (a, b) = (send("one"), send("two"));
+        for _ in 0..2 {
+            let mut store = lock(&messages.inner.store);
+            reconcile(&messages.inner, &mut store, "m", (1, 9), true, true, false).unwrap();
+            assert!(store.list_pending_to("m").unwrap().is_empty());
+        }
+        let store = lock(&messages.inner.store);
+        for id in [a, b] {
+            let m = store.get(id).unwrap().unwrap();
+            assert_eq!(m.status, MessageStatus::Dropped);
+            assert_eq!(m.reason, Some(Reason::ReceiverGone));
+        }
+        let notes = store.list_pending_to("door").unwrap();
+        assert_eq!(notes.len(), 1);
+        assert_eq!(notes[0].from, Actor::daemon());
+        assert!(
+            notes[0].body.contains(&format!("#{a} #{b} never reached")),
+            "{}",
+            notes[0].body
+        );
+    }
+
+    fn kill_with_pending(count: usize) -> (tempfile::TempDir, Messages, Vec<u32>) {
+        let dir = tempfile::tempdir().unwrap();
+        let (messages, _, _) = setup(dir.path());
+        let door = Actor {
+            kind: ActorKind::Agent,
+            id: "door".into(),
+            parent: None,
+        };
+        let ids: Vec<u32> = (0..count)
+            .map(|_| {
+                lock(&messages.inner.store)
+                    .insert(
+                        &door,
+                        "m",
+                        MessageKind::Note,
+                        "x",
+                        None,
+                        MessageStatus::Pending,
+                        None,
+                        5,
+                        (1, 1),
+                    )
+                    .unwrap()
+                    .id
+            })
+            .collect();
+        for _ in 0..2 {
+            let mut store = lock(&messages.inner.store);
+            reconcile(&messages.inner, &mut store, "m", (1, 9), true, true, false).unwrap();
+        }
+        (dir, messages, ids)
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn rn1_a_return_note_lists_32_ids_and_counts_the_rest() {
+        let (_dir, messages, ids) = kill_with_pending(40);
+        let store = lock(&messages.inner.store);
+        for id in &ids {
+            assert_eq!(
+                store.get(*id).unwrap().unwrap().status,
+                MessageStatus::Dropped
+            );
+        }
+        let notes = store.list_pending_to("door").unwrap();
+        assert_eq!(notes.len(), 1);
+        let lines: Vec<&str> = notes[0].body.lines().collect();
+        let listed: Vec<String> = ids[..32].iter().map(|id| format!("#{id}")).collect();
+        assert_eq!(lines[0], format!("[return] {}", listed.join(" ")));
+        assert_eq!(lines[1], format!("[+8 more: #{} to #{}]", ids[32], ids[39]));
+        assert!(lines[2].starts_with("never reached "));
+    }
+
+    #[test]
+    fn rn2_a_return_note_with_a_long_cause_stays_within_8192_bytes() {
+        let ids: Vec<u32> = (1000..1040).collect();
+        let body = return_note_body(&ids, "m", &"é".repeat(10_000));
+        assert!(body.len() <= 8192, "{}", body.len());
+        assert!(body.ends_with("é [cut]"));
+        assert!(body.contains("[+8 more: #1032 to #1039]"));
+        assert!(body.contains("#1031\n"));
     }
 }

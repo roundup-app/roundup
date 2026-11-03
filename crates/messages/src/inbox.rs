@@ -166,7 +166,10 @@ pub(crate) async fn send(
     if previous.is_none() {
         previous = match inbox.previous(agent) {
             Ok(previous) => previous,
-            Err(_) => return true,
+            Err(_) => {
+                failure::record(inner, agent, failure::UNREADABLE);
+                return true;
+            }
         };
         if let Some(content) = &previous {
             lock(&inner.store)
@@ -244,6 +247,7 @@ pub(crate) async fn send(
         _ => Ok(()),
     };
     if written.is_err() {
+        failure::record(inner, agent, failure::WRITE_FAILED);
         // A failed batch may have written a prefix; its previous comparison value is uncertain.
         lock(&inner.store)
             .db
@@ -592,6 +596,7 @@ pub(crate) mod tests {
     }
 
     pub(crate) fn pending(messages: &Messages, from: &Actor, body: &str) -> Message {
+        let at = (messages.inner.clock)();
         lock(&messages.inner.store)
             .insert(
                 from,
@@ -601,7 +606,7 @@ pub(crate) mod tests {
                 None,
                 MessageStatus::Pending,
                 None,
-                0,
+                at,
                 (1, 1),
             )
             .unwrap()

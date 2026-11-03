@@ -12,6 +12,8 @@ The audit must prevent missed conditional offers, unsupported claims of non-use/
 ## Evidence
 
 | Artifact | Holds |
+| [worktree-reads.md](worktree-reads.md) | Three Worktree read decisions AW01-AW03, criteria, direction and remaining gaps |
+| [agent-start-config.md](agent-start-config.md) | Five Agent start/resume/run/order/visibility decisions, criteria and remaining gaps |
 | [todos.md](todos.md) | Forty independent Todo detail decisions, criteria, direction and explicit unfinished controls |
 | [catalogues/todos-source.json](catalogues/todos-source.json) | Current pinned sources, historical actual role offers, vendor help and exact observer |
 | [rendered-todos.json](rendered-todos.json) | Fresh isolated dark 1512×950 Todo detail/menu/editor/failure openings |
@@ -98,3 +100,13 @@ GitHub tool continuation: [github-tools.md](github-tools.md) pins main `f7471659
 ## Route control continuation
 
 [routes.md](routes.md) adds RT01–RT03 for explicit Auto, Drop and stored Route inspection, with dated owner direction. [catalogues/route-source.json](catalogues/route-source.json) holds pinned source/public evidence and replay; [validation-routes.md](validation-routes.md) records outcomes and corrections. These are candidate assessments, not owner choices or deletion permission.
+
+[message-results.md](message-results.md) adds MR01–MR05 for Message read, Result report, acceptance, verification and resolution, assessed from source and declarations on main `f966e5b58`. They are candidate assessments, not owner choices or deletion permission.
+
+## Agent context continuation
+
+[agent-context.md](agent-context.md) adds AC01–AC07 for Agent Brief, skills, context, digest, instruction and extras operations, assessed from source and declarations on main `a743b75fe`. They are candidate assessments, not owner choices or deletion permission.
+
+## Agent lifecycle continuation
+
+[agent-lifecycle.md](agent-lifecycle.md) adds AL01–AL06 for Agent stop, prompt, interrupt, land, discard and wake, assessed from source, declarations and scenarios on main `058c00704`. AL06 is a Q2 candidate with dated #2218 direction; the rest are not candidates on this evidence. No runtime or vendor probe is claimed; candidate assessments, not owner choices or deletion permission.
