@@ -30,7 +30,7 @@ os.makedirs(sessions, exist_ok=True)
 server = socket.socket(socket.AF_UNIX)
 server.bind(path)
 server.listen()
-json.dump({'pid': os.getpid(), 'messagingSocketPath': path, 'peerProtocol': int(open(root + '/protocol').read())}, open(sessions + '/%d.json' % os.getpid(), 'w'))
+json.dump({'sessionId': '00000000-0000-4000-8000-000000000050', 'pid': os.getpid(), 'messagingSocketPath': path, 'peerProtocol': int(open(root + '/protocol').read())}, open(sessions + '/%d.json' % os.getpid(), 'w'))
 json.dump({'peerToken': token}, open(sessions + '/%d.abc.key' % os.getpid(), 'w'))
 # A resumed conversation remembers UUID uptake; sender/content refusal resets per Attempt.
 taken_path = here + '/taken.jsonl'
@@ -58,6 +58,7 @@ def take(conn):
             if os.path.exists(here + '/final-reply.txt'):
                 text = open(here + '/final-reply.txt').read()
                 os.unlink(here + '/final-reply.txt')
+                hook('PreToolUse', {'tool_name': 'Read'})
                 print(text, flush=True)
                 threading.Thread(target=hook, args=('Stop', {'last_assistant_message': text}), daemon=True).start()
 def serve():

@@ -21,11 +21,14 @@ pub enum MessageStatus {
     Dropped,
 }
 
-/// Why a Message is `dropped`
+/// Why a Message is dropped or delivered without a new inbox entry
 /// (`receiver gone`, B9; `not accepted`, B2; `removed`, a `pending` note the user took back, U3782; `merged`, a pushed digest folded into a newer one, B22).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 #[serde(rename_all = "kebab-case")]
 pub enum Reason {
+    /// B5763b: delivered without another write: equal to the last inbox entry.
+    #[serde(rename = "repeat of last inbox entry")]
+    InboxRepeat,
     #[serde(rename = "receiver gone")]
     ReceiverGone,
     #[serde(rename = "not accepted")]
@@ -37,7 +40,7 @@ pub enum Reason {
 }
 
 /// A typed envelope between Actors. `reply_to` names the Message this answers, if any; `reason`
-/// names why a `dropped` Message was dropped, and is `None` otherwise.
+/// names a drop cause or explicit repeat delivery outcome.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct Message {
     pub id: u32,
