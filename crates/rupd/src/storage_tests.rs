@@ -68,11 +68,9 @@ fn r3696c_a_fresh_project_db_equals_the_migrated_one_with_its_own_identity() {
             .query_row(&format!("SELECT id FROM {table}"), [], |r| r.get(0))
             .unwrap()
     };
-    for table in ["deliverable_project"] {
-        let own = id(a.path(), table);
-        assert_ne!(own, id(b.path(), table));
-        assert!(own.len() == 32 && own.bytes().all(|c| c.is_ascii_hexdigit()));
-    }
+    let own = id(a.path(), "deliverable_project");
+    assert_ne!(own, id(b.path(), "deliverable_project"));
+    assert!(own.len() == 32 && own.bytes().all(|c| c.is_ascii_hexdigit()));
     let image = std::fs::read(a.path().join("project.db")).unwrap();
     for placeholder in IDENTITIES {
         assert!(!image.windows(32).any(|window| window == placeholder));

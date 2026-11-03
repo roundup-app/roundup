@@ -79,10 +79,8 @@ fn fresh_image(root: &Path, dir: &Path, added: &[String]) {
     let migrations: Vec<M> = sources.iter().map(|s| M::up(s)).collect();
     Migrations::new(migrations).to_latest(&mut db).unwrap();
     // Placeholders `storage.rs` replaces with each Project's own ids, in the bytes of the copy.
-    for (table, id) in [("deliverable_project", IDENTITIES[0])] {
-        db.execute(&format!("UPDATE {table} SET id=?1"), [id])
-            .unwrap();
-    }
+    db.execute("UPDATE deliverable_project SET id=?1", [IDENTITIES[0]])
+        .unwrap();
     db.execute("VACUUM INTO ?1", [image.to_str().unwrap()])
         .unwrap();
     // The WAL mode is kept in the file, so `storage::open` finds it set and writes nothing.
