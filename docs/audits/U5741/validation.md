@@ -535,10 +535,38 @@ Final detached `just ready` passed (exit 0): all 193 lint-behavior checks, packa
 
 Integrated the original builder's concurrent head `840a525bb0fcb01dd0a9be9cde2a12c55e541b90` by fast-forward, retaining its 34 rows, conditional observer limits, source/refusal distinction and corrected archived driver. Main remains the audited `b021117d063f663008f9a692be5e7496b2eebbe1`; no merge resolution or product change was needed.
 
-Independently verified all 34 source hashes, every archived payload and all seventeen stored snapshot checksums. Replayed the updated driver in a fresh headless profile/session on isolated port 5247: all seventeen openings reproduce the recorded Check statuses, with dark media and App appearance at 1512×950. Visually inspected the final diagnostic PNG: the full cause and recovery stay visible. Corrected the report's D4 reading to 41 initially and 42 after expanding earlier versions; the underlying observations are unchanged. Captures and the independent manifest remain uncommitted under the workflow checkout's `artifacts/ux/U5741/attention-import/`.
+Independently verified all 34 source hashes, every archived payload and all seventeen stored snapshot checksums. Replayed the updated driver in a fresh headless profile/session on isolated port 5247: all nineteen openings reproduce the recorded Check statuses, with dark media and App appearance at 1512×950. Visually inspected the final diagnostic PNG: the full cause and recovery stay visible. Corrected the report's D4 reading to 41 initially and 42 after expanding earlier versions; the underlying observations are unchanged. Captures and the independent manifest remain uncommitted under the workflow checkout's `artifacts/ux/U5741/attention-import/`.
 
 | Command / observer | Exit | Disposition |
 | --- | ---: | --- |
 | `just harness import-candidates 5247` shutdown | 130 | Deliberately stopped only this run's harness after observation; its dedicated browser closed successfully. |
 
 Independent `pnpm install --frozen-lockfile` and `just ready` pass (exit 0), including all 193 lint-behavior checks, package typechecks, repository/Rust lints, B4522, `ALL PROOFS CHECK` and N7. Final spelling, vocabulary, scenario ids, merge-loss and whitespace checks pass. No local `just check` or changed behavior tests. #5758 remains open for the documented inventory gaps, owner choices and authorized retirements; older-Project reopening remains mandatory.
+
+## Shelf fix-run evidence — builder-41609532898
+
+Completed the five-line Shelf stub on PR #5868 as a documentation-only evidence slice pinned to main `eaa391d9d2f9eb7d9aaeb874590ec20e4ad805a8`. `shelf.md` records 24 independent frame, count, membership, grouping, selection, deletion and recovery decisions. Every row distinguishes its three criteria; all vendor-equivalence comparisons and unrendered conditional branches remain explicitly unverified. No product, contract, scenario, behavior test or frozen-loop change. #5758 stays open for the complete inventory, owner choices and authorized retirements.
+
+Observed through the existing fake-Daemon harness in an isolated worktree and a fresh dedicated headless Chromium profile/session, at 1512×950 with dark media and App appearance. Source hashes, complete #4966/#4533 direction replies and the compressed reproducible driver are in `catalogues/shelf-source.json`. `rendered-shelf.json` retains snapshots, call payloads, local storage and Check readings. Media stays uncommitted under `artifacts/ux/U5741/shelf/`; it proves webview actions only, never native menus, actual store mutation or older-Project reopening.
+
+| Failed command / observer | Exit | Failure and repair |
+| --- | ---: | --- |
+| `rg` including `scenarios/ui-shelf-selection.md` | 2 | Guessed scenario path absent; read ui-shelf-delete.md instead. |
+| `rg` over `todos/deletion*.ts*` | 2 | Guessed module absent; actual deletion implementation is todos/deleteTodos.ts. |
+| `rg` including `state/unfinishedWork.ts` | 2 | Guessed path absent; connectedProject.ts identifies createTodoUndo in deleteTodos.ts. |
+| First isolated driver, `.todo-row-button` wait | 143 | Stopped the driver and its wait: initial Unassigned group is folded. Wait for mounted scope and explicitly unfold it. No capture accepted. |
+| Second isolated driver, all-animation settle | 143 | Stopped driver and evaluator: indefinite Terminal cursor animation never finishes. Existing Shelf observer filters relevant surface animations; adopted that filter. No capture accepted. |
+| Third isolated driver, exact Restore button | 1 | Unscoped Maximise matched a centre control; repaired to .shelf-controls and explicit maximised-state waits. Superseded captures discarded. |
+| Fourth isolated driver, `[data-id="auth-refactor"]` | 1 | Display name is not identity; inspected DOM and used auth/tokens ids. Superseded captures discarded. |
+| Fifth isolated driver, exact Overview Project root button | 1 | Accessible name also includes current attention counts. Use its stable todo-project-root selector. Superseded captures discarded. |
+| Sixth isolated driver, closed tab click | 1 | Closed layout does not expose that trigger for this state. Reopen through the existing ⌘K B action; final replay supersedes the partial manifest. |
+
+`pnpm install --frozen-lockfile` passed. No test file changed; U5741's policy observer requires evidence rather than tests of report wording. Required lint and final evidence reconciliation results follow below. No local `just check` ran.
+
+| Additional failed command | Exit | Disposition |
+| --- | ---: | --- |
+| Mid-replay manifest inspection for delete-failed | 1 | The new manifest had not reached that opening yet; inspected only the complete final record afterward. |
+
+Final replay retains nineteen openings, each passing every recorded Check, including D2/D5/D6. Visually inspected the deletion-failure image: the cause, original-work guidance and originating recovery controls remain visible. The refusal is an injected fake reply; no real storage failure is asserted. All source hashes match the pinned main bytes; archived driver/snapshot checksums, dark media/appearance, viewport, successful command records and image presence reconcile. All nineteen media files are copied to the workflow checkout for attachment, without committing images.
+
+The final observer additionally exercises keyboard resize and Enter width reset, bringing the total to nineteen passing openings and SH01–SH24. Pointer resize and double-click reset remain explicit source-only branches. `just ready` passed (exit 0), including all 193 lint-behavior checks, styles, package typechecks, repository/Rust lints, B4522, `ALL PROOFS CHECK` and N7. Final spelling, vocabulary, scenario ids, merge-loss and whitespace checks pass. No local `just check` or added/changed behavior tests.
