@@ -308,3 +308,18 @@ Eight additional exact native menu models are observed without `menu=1` through 
 | Replacement of original FakeApp.showContextMenu after mount | 0, observer invalid | Decorated App retained its menu boundary; interception arrays stayed empty. Null values discarded; exact menu models independently recaptured using menuProbe without menu=1. This is not a successful interception claim. |
 
 The remaining complete inventory, Q1 gaps, conditional states, dated direction and all-feature revision reconciliation stay on #5758. There is no owner ask or deletion permission. Older-Project successful reopening remains mandatory for any later retirement.
+
+Additional command failures:
+
+| Command | Exit | Failure / repair |
+| --- | ---: | --- |
+| `python3 tools/lint/scan.py rust` before setup | 2 | Dependency scan required the pinned cargo-deny binary. `just ready` installs it through the existing setup. This command was not a spelling scan. |
+| `python3 tools/lint/scan.py web` first standalone run | 1 | Spelling scan rejected a misspelling in the copied #3194 owner quotation. Retained the linked source body hash and exact accepted-choice/outcome excerpt instead of copying unrelated original wording. No spelling exception or product change. |
+
+Merged `origin/main` at `9f948f124` without conflicts; `git show --remerge-diff` has no resolution changes and `loop/rules.sh merge-loss` passes. Every inspected source hash remains identical to the audit pin. The full all-feature audit remains revision-unreconciled; this check covers only this slice's inspected paths.
+
+| Further failed command | Exit | Failure / repair |
+| --- | ---: | --- |
+| `just ready` first run | 1 | Web lint/typecheck and N7 passed; repository spelling scan rejected the copied #3194 misspelling before the source excerpt repair. Rerun after repair; no product or lint-rule change. |
+
+| Temporary aggregate report assertion (Python) | 1 | Counted decision ids again in the public-mapping table. Restricted counting to the independent-decision table; 22 rows, thirteen rendered openings, eight menu models and every inspected source hash then reconciled (exit 0). |
