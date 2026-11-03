@@ -5,7 +5,7 @@ import type { OpenTab } from "../state/projects";
 import type { App, MenuBar } from "./seam";
 import type { Kind } from "@contracts/Kind";
 
-const glyph: Record<Kind, string> = { error: "⊗", "needs-you": "◉", blocked: "⊖", working: "◔", idle: "○", done: "✓" };
+const glyph: Record<Kind, string> = { error: "⊗", "needs-you": "◉", blocked: "⊖", working: "◔", idle: "○", done: "✓" }; // taste-skill-ignore: U5502/U5503 require the existing Kind Glyphs.
 
 const literal = (text: string) => text.replace(/[\r\n\u2028\u2029]+/g, " ");
 
@@ -72,19 +72,25 @@ export const watchMenuBar = (options: {
       if (!current.has(key)) waitingSince.delete(key);
     }
 
-    const menu: MenuBar = { mark: rows.some(row => row.waiting) ? "waiting" : rows.length ? "ready" : "empty", entries: [] };
-    let group: boolean | undefined;
+    const entries = (limit: number): MenuBar["entries"] => {
+      const result: MenuBar["entries"] = [];
+      let group: boolean | undefined;
 
-    for (const row of rows.slice(0, 7)) {
-      if (group !== row.waiting) menu.entries.push({ label: row.waiting ? menuBarCopy.waiting : menuBarCopy.ready, action: null });
-      group = row.waiting;
-      menu.entries.push({ label: row.label, since: row.since, action: { kind: "agent", path: row.path, agent: row.agent } });
-    }
+      for (const row of rows.slice(0, limit)) {
+        if (group !== row.waiting) result.push({ label: row.waiting ? menuBarCopy.waiting : menuBarCopy.ready, action: null });
+        group = row.waiting;
+        result.push({ label: row.label, since: row.since, action: { kind: "agent", path: row.path, agent: row.agent } });
+      }
 
-    if (rows.length === 0) menu.entries.push({ label: menuBarCopy.empty, action: null });
+      if (rows.length === 0) result.push({ label: menuBarCopy.empty, action: null });
 
-    if (rows.length > 7) menu.entries.push({ label: menuBarCopy.more(rows.length - 7), action: { kind: "open" } });
-    menu.entries.push({ label: menuBarCopy.open, action: { kind: "open" } });
+      if (rows.length > limit) result.push({ label: menuBarCopy.more(rows.length - limit), action: { kind: "open" } });
+      result.push({ label: menuBarCopy.open, action: { kind: "open" } });
+
+      return result;
+    };
+
+    const menu: MenuBar = { mark: rows.some(row => row.waiting) ? "waiting" : rows.length ? "ready" : "empty", entries: entries(7), dock: entries(5) };
     const failure = tabs.map(tab => options.connection(tab.project.path)?.unseen.publicationFailure()).find(Boolean) ?? null;
 
     void options.app.setMenuBar(menu).then(() => options.fail(failure), error => options.fail(String(error)));
@@ -92,6 +98,10 @@ export const watchMenuBar = (options: {
   let ended = false;
   let stop: (() => void) | undefined;
   void options.app.onMenuBarAction(action => {
+    if (action.kind === "failure") { options.fail(action.message);
+
+ return; }
+
     options.open();
 
     if (action.kind === "agent") {
