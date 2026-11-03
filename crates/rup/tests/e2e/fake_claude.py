@@ -215,8 +215,9 @@ def listen():
     sessions = os.path.join(os.environ["CLAUDE_CONFIG_DIR"], "sessions")
     os.makedirs(sessions, exist_ok=True)
     pid = os.getpid()
+    session = flag("--resume") if "--resume" in sys.argv else "00000000-0000-4000-8000-000000000146"
     with open(os.path.join(sessions, f"{pid}.json"), "w") as out:
-        json.dump({"pid": pid, "version": "2.1.300", "peerProtocol": 1, "messagingSocketPath": path}, out)
+        json.dump({"pid": pid, "sessionId": session, "version": "2.1.300", "peerProtocol": 1, "messagingSocketPath": path}, out)
     with open(os.path.join(sessions, f"{pid}.{token()}.key"), "w") as out:
         json.dump({"peerToken": token()}, out)
     return server
