@@ -1,7 +1,7 @@
 {
   "observed_utc": "2026-10-25T16:59:55.863314+00:00",
-  "production_reference": "066f4cfd45196c5e7f67c1b0b94ce962c4f29cf9",
-  "observer_commit": "4adcd7b3eb56c7ba1833c69a06900a3cab1ebf83",
+  "production_reference": "59d46d580e341b527cce9439afedb59af2ccd7f7",
+  "observer_commit": "3e90a585da90890bf1b7878b1f411ed54d15f22d",
   "host": "runnervmtai0g",
   "boot_id": "41486746-3565-4689-bb26-1d2f2e9337e7",
   "cpus": 4,
@@ -17,7 +17,7 @@
   "binary_bytes": 2646736,
   "probe_lock_sha256": "1fd602ecb4f2f931ab05d43c1e7ec9d634d1ff3378033d7a0768ea3a5ffca82c",
   "workspace_lock_sha256": "89e606996f9a83f7d1be3608982f0e84d22fc29d8cc8468a59e321b3b6177f10",
-  "worktrees": "worktree /home/runner/work/roundup/roundup\nHEAD 066f4cfd45196c5e7f67c1b0b94ce962c4f29cf9\nbranch refs/heads/main\n\nworktree /tmp/roundup-gix\nHEAD a667070509cb33627c7f0651da778f1c1631d35e\nbranch refs/heads/build/rust-libraries-gix\n\n",
+  "worktrees": "worktree /home/runner/work/roundup/roundup\nHEAD 59d46d580e341b527cce9439afedb59af2ccd7f7\nbranch refs/heads/main\n\nworktree /tmp/roundup-gix\nHEAD 9f0087cdef411e8622be9973d4f1c1b642179c71\nbranch refs/heads/build/rust-libraries-gix\n\n",
   "first_build": {
     "command": "cargo build --release --manifest-path /tmp/z3802d-probe/Cargo.toml",
     "exit": 0,

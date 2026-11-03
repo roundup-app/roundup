@@ -1,6 +1,6 @@
 # U5741 Toast decisions
 
-Audited main: `daa930055bd538a2fafce2960dbdb6825c0c7b93`, 2026-11-03. This continues the inventory, not the owner request. No retirement is authorized. [Source archive and replay](catalogues/toast-source.json) and [rendered observations](rendered-toasts.json) preserve this revision independently of earlier slices. The observer uses the production App in the existing isolated harness, headless Chromium, fresh profile, dark 1512×950; fake Events prove webview reachability, not native continuation, sound audibility or real persistence.
+Audited main: `197edb930603845118fbea4b4f68e648614849a3`, 2026-11-03. This continues the inventory, not the owner request. No retirement is authorized. [Source archive and replay](catalogues/toast-source.json) and [rendered observations](rendered-toasts.json) preserve this revision independently of earlier slices. The observer uses the production App in the existing isolated harness, headless Chromium, fresh profile, dark 1512×950; fake Events prove webview reachability, not native continuation, sound audibility or real persistence.
 
 ## Criteria
 

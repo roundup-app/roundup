@@ -2,7 +2,7 @@
 
 Refs #1357. Scenarios: U356, U351, U146, U166, U177.
 
-Observed main commit `35ab1855d4c0debe8ea869689486a61bde2d6d92` on the Linux runner in [Builder run 38345715731](https://github.com/saadshahd/roundup/actions/runs/38345715731).
+Observed main commit `07b0ab8a17922800e19666eb0e671aed441833c6` on the Linux runner in [Builder run 38345715731](https://github.com/saadshahd/roundup/actions/runs/38345715731).
 Render waits merged in #1246 (U356) and #1360 (U351 and the three Door files).
 This observation changes no assertion, timeout or application behavior.
 

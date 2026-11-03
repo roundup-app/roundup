@@ -33,7 +33,7 @@ work stay on #3824.
 
 ## Validation
 
-Runtime source: `e66f1e52b6510c8be607fd52915805b7a189bf70`.
+Runtime source: `6ac1cbea4d84966888b6628464baa63575908eaa`.
 Both required lints, Token ownership and merge-loss pass. The prescribed
 `just capture U130,U131,U132,U133,U134,U135,U136,U137` run reports 4,011 passed,
 57 skipped and two failed tests: N5's first fixture startup timed out at
