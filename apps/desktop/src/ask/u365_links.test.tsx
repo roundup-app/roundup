@@ -1,5 +1,7 @@
-import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
+import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
+import { ConnectedProjectContext } from "../state/connectedProject";
+import { TargetText } from "../terminal/TargetText";
 import { RpcError } from "../app/seam";
 import { door } from "../testing/nodes";
 import { ask, mountAskBar } from "./askFixture";
@@ -58,4 +60,30 @@ it("u365_ask_row_links_open_once_in_earlier", async () => {
   await waitFor(() => expect(app.openedTargets).toHaveLength(1));
   fireEvent.click(screen.getByRole("link", { name: "https://example.com" }));
   await waitFor(() => expect(app.openedTargets).toHaveLength(2));
+});
+
+
+it("u365_ask_slash_commands_stay_plain_text", async () => {
+  const text = "/clear /context /hope:compose /word /word:word";
+  const entry = ask("commands", 1, [{ text, state: "typed", placement: { kind: "routed", workstream: "lead" } }]);
+  const { app, connected } = await mountAskBar([entry]);
+  const draft = screen.getByRole("textbox", { name: "Ask" });
+  fireEvent.input(draft, { target: { value: "exact unsent draft" } });
+  const calls = app.calls.length;
+
+  const readonly = render(() => <ConnectedProjectContext.Provider value={connected}>
+    <TargetText text={text} base="/" onFailure={() => { throw new Error("commands must not open"); }} />
+  </ConnectedProjectContext.Provider>);
+
+  expect(readonly.container.querySelectorAll("a")).toHaveLength(0);
+  const row = await screen.findByRole("button", { name: /\/clear/ });
+  expect(row.querySelectorAll("a")).toHaveLength(0);
+  fireEvent.mouseOver(row);
+  expect(app.attemptedTargets).toEqual([]);
+  expect(app.calls.slice(calls).filter(call => ["agent.spawn", "rail.startDoor", "agent.prompt", "ask.send", "ask.pick", "message.send", "terminal.write"].includes(call.method))).toEqual([]);
+  fireEvent.click(row);
+  await waitFor(() => expect(connected.rail.selected()).toBe("lead"));
+  expect(connected.asks.entries()[0]?.parts[0]?.placement).toEqual(entry.parts[0]!.placement);
+  expect(draft).toHaveProperty("value", "exact unsent draft");
+  expect(app.attemptedTargets).toEqual([]);
 });
