@@ -69,7 +69,7 @@ export const createRailTree = (connected: ConnectedProject, unfolded: Accessor<R
 
   /** Section branches share Ark's keyboard walk and add one semantic level above their rows. */
   const collection = createMemo(() => {
-    const allUnfolded = new Set(topology().index.keys());
+    const allUnfolded = new Set([...topology().index.keys()].flatMap(id => [id, `internal:${id}`]));
 
     const children = presentSections().map(section => ({
       id: `section:${section.id}`, name: section.label,
