@@ -1,8 +1,8 @@
 //! DCL1: a pending Message the inbox could not take, or that no receipt followed for 30 s while
 //! its receiver was eligible, is a delivery failure the Rows can show. The cause is derived from
-//! the pending Messages and the Daemon's clock, so a restart rebuilds it by the next pass.
+//! the pending Messages and the Daemon's clock, so a restart rebuilds the 30 s deadline from the stored time of the oldest pending Message.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use super::*;
 
@@ -18,6 +18,8 @@ pub(crate) const NO_RECEIPT: &str = "no receipt after 30 s";
 pub(crate) struct Failures {
     cause: HashMap<String, &'static str>,
     since: HashMap<String, i64>,
+    /// Receivers this process has judged: busy time resets their clock, a first sight does not.
+    seen: HashSet<String>,
 }
 
 pub(crate) fn record(inner: &Inner, agent: &str, cause: &'static str) {
@@ -34,6 +36,7 @@ pub(crate) fn settle(inner: &Inner, agent: &str) {
         let mut failures = lock(&inner.failures);
         failures.cause.remove(agent);
         failures.since.remove(agent);
+        failures.seen.remove(agent);
     }
 }
 
@@ -60,6 +63,10 @@ pub(super) async fn sweep(inner: &Arc<Inner>) {
         return;
     }
     let Ok(nodes) = delivery::load_rail_nodes(inner).await else {
+        // Eligibility cannot be established: show the read failure without waiting.
+        for agent in &waiting {
+            record(inner, agent, UNREADABLE);
+        }
         return;
     };
     let now = (inner.clock)();
@@ -73,10 +80,22 @@ pub(super) async fn sweep(inner: &Arc<Inner>) {
                     .as_ref()
                     .is_some_and(|s| matches!(s.kind, Kind::Idle | Kind::Blocked | Kind::Error))
         });
+        let stored = lock(&inner.store)
+            .list_pending_to(&agent)
+            .expect("message store")
+            .iter()
+            .map(|m| m.at)
+            .min()
+            .unwrap_or(now);
         let due = {
             let mut failures = lock(&inner.failures);
+            let seen = !failures.seen.insert(agent.clone());
             if eligible {
-                let since = *failures.since.entry(agent.clone()).or_insert(now);
+                let since = *failures.since.entry(agent.clone()).or_insert(if seen {
+                    now
+                } else {
+                    stored.min(now)
+                });
                 if now - since >= DEADLINE_MS {
                     failures.since.insert(agent.clone(), now);
                     failures.cause.entry(agent.clone()).or_insert(NO_RECEIPT);

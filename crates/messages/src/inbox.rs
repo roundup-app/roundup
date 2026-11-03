@@ -596,6 +596,7 @@ pub(crate) mod tests {
     }
 
     pub(crate) fn pending(messages: &Messages, from: &Actor, body: &str) -> Message {
+        let at = (messages.inner.clock)();
         lock(&messages.inner.store)
             .insert(
                 from,
@@ -605,7 +606,7 @@ pub(crate) mod tests {
                 None,
                 MessageStatus::Pending,
                 None,
-                0,
+                at,
                 (1, 1),
             )
             .unwrap()
