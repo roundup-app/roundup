@@ -64,7 +64,7 @@ it("u5765_open_failure_exposes_the_cause_and_recovery", async () => {
   expect(await page.evaluate("window.openResult.error.code")).toBe(-32001);
   await page.capture("U5765", "failure");
   await page.browser("press", "Escape");
-  await page.until("!document.querySelector('[role=dialog]')");
+  await page.until("!document.querySelector('[role=dialog]') && document.activeElement?.matches('.ask-input')");
 });
 
 it("u5765_pointer_refusal_restores_ask_focus_after_the_final_queued_request", async () => {
