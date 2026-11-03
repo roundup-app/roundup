@@ -211,12 +211,10 @@ impl Daemon {
             }
             "terminal.read" if params["after"].is_null() => fields.push(("reader", false)),
             "project.importDiscover" | "project.importCommit" => fields.push(("agent", false)),
-            "reaction.create" => fields.push(("target", false)),
             _ => {}
         }
         let has_owner = matches!(method, "todo.create" | "todo.assign");
-        let has_list = matches!(method, "agent.wake" | "workstream.rewind")
-            || (method == "reaction.create" && params["condition"]["kind"] == "agents");
+        let has_list = matches!(method, "agent.wake" | "workstream.rewind");
         if !has_owner && !has_list && !fields.iter().any(|(field, _)| params[*field].is_string()) {
             return Ok(params);
         }
@@ -247,8 +245,6 @@ impl Daemon {
         }
         let list = if method == "agent.wake" {
             params.get_mut("ids")
-        } else if method == "reaction.create" && params["condition"]["kind"] == "agents" {
-            params["condition"].get_mut("ids")
         } else {
             None
         };

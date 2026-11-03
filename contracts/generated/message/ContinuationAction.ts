@@ -12,6 +12,6 @@ export type ContinuationAction = {
 	output: string,
 	instruction: string,
 	next: string,
-	/**  The accepted decision (or reaction firing) that already holds this action. */
+	/**  The accepted decision that already holds this action. */
 	decision: string | null,
 };

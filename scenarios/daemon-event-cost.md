@@ -1,5 +1,7 @@
 # Daemon event cost
 
+Policy: U5740b retires only Reaction evaluation in EC5637a: its three `ec5637a_reaction_*` tests and Checks 2–4. Owner notifications and hand-off keep all Rail-read, required-read-failure, Message and Todo assertions.
+
 Module: `crates/rupd`, `src/{digest,reaction,owner_told,auto}.rs` and the existing `src/{tests,auto_tests}.rs` unit tests. Ids: EC5637a–EC5637d. Work order: [#5637](https://github.com/roundup-app/roundup/issues/5637). Terms: Rail, Reaction, Todo, Actor, Message, Hand-off (`GLOSSARY.md`). Principles: P10 (one idle batch), P13 (authoritative Reaction evidence).
 
 These clauses preserve notification behavior while bounding per-event work. The test names below are implementation acceptance, not claims that tests already exist. Existing regression checks are numbered separately. No public RPC or contract changes.

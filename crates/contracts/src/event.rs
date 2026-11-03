@@ -78,9 +78,6 @@ pub enum EventData {
     /// Publication metadata committed; read `deliverable.list`.
     #[serde(rename = "deliverable.changed")]
     DeliverableChanged,
-    /// Saved Reaction, observation or firing changed; read `reaction.list`.
-    #[serde(rename = "reaction.changed")]
-    ReactionChanged,
     #[serde(rename = "rail.changed")]
     RailChanged,
     /// A2741a: the exact destination and name committed under the Rail mutation lock.
