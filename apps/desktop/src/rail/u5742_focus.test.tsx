@@ -1,6 +1,6 @@
 import { TargetText } from "../terminal/TargetText";
 import { ConnectedProjectContext } from "../state/connectedProject";
-import { createSignal } from "solid-js";
+import { batch, createSignal } from "solid-js";
 import { RpcError } from "../app/seam";
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
@@ -12,7 +12,7 @@ import { fakeEmulators } from "../terminal/paneHarness";
 import type { ConnectedProject } from "../state/connectedProject";
 import type { RailNode } from "@contracts/agent/RailNode";
 
-afterEach(() => { cleanup(); localStorage.clear(); sessionStorage.clear(); });
+afterEach(() => { batch(cleanup); localStorage.clear(); sessionStorage.clear(); });
 
 const row = (id: string) => document.querySelector<HTMLElement>(`.rail-row[data-id="${id}"]`)!;
 
