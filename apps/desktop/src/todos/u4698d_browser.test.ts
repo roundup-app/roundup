@@ -5,14 +5,19 @@ import { expect, it } from "vitest";
 import { captureDir } from "../testing/captures";
 import { shelfBrowser } from "../shelf/u371Browser";
 
-const { browser, evaluate, settle, openShelf } = shelfBrowser();
+const { browser, evaluate, settle, rig } = shelfBrowser(`
+  localStorage.clear();
+  localStorage.setItem('roundup:widths:/Users/you/harness', JSON.stringify({rail:288, shelf:320}));
+`);
 
 const output = captureDir("U4698d");
 
 const title = "UnbrokenTitle".repeat(16).slice(0, 200);
 
 const openDocument = async (width: number, height: number, recording = false) => {
-  await openShelf("tree-40", 288, 320, 1512, "dark");
+  await browser("set", "media", "dark");
+  await browser("open", `${rig.server.resolvedUrls.local[0]}harness.html?view=workstreams&items=1&seed=tree-40`);
+  await browser("wait", ".shelf-tabs");
 
   // Screenshots during recording restore its starting viewport. Size that context first.
   await browser("set", "viewport", String(width), String(height));
@@ -272,7 +277,7 @@ it.skipIf(!captureDir("U5127a") && !captureDir("U5127b"))("u5127a_u5127b_failed_
 
       try {
         await lane.browser("set", "media", "dark");
-        await lane.seedTodos(Array.from({ length: 8 }, (_, index) => `${index} 長い é 🧭 日本語 ${"Review dependency ".repeat(10)}`), false);
+        await lane.seedTodos(Array.from({ length: 8 }, (_, index) => `${index} 長い é 🧭 日本語 ${"Review dependency ".repeat(10)}`), false); // taste-skill-ignore: Unicode worst-case fixture, not interface decoration.
         const [chosen, survivor] = await lane.order();
         await lane.capture(id, "before");
         await lane.browser("focus", `.shelf [data-todo="${chosen}"] .todo-row-button`);

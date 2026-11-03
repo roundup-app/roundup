@@ -44,7 +44,7 @@ it.skipIf(Boolean(captureDir("U4698e")) && !captureDir("U3311"))("u3311_real_dae
     FAKE_CLAUDE_LAUNCH_LOG: join(scratch, "launches.jsonl"),
   }, true);
 
-  const lane = await openLane(1512, "dark", "u3311-delegate-board");
+  const lane = await openLane(1512, "dark", "u3311-delegate-board", false, null);
   const app = createServedApp(real.base);
   const me: Actor = { kind: "user", id: "you", parent: null };
   const actor = (id: string): Actor => ({ kind: "agent", id, parent: null });
@@ -204,9 +204,9 @@ it.skipIf(Boolean(captureDir("U4698e")) && !captureDir("U3311"))("u3311_real_dae
     await observe(moved.id, agents[2]!.id);
     await lane.until(`window.__glides.filter(item=>item.id===${moved.id}).length===${beforeBurst + 2} && window.__glides.filter(item=>item.id===${moved.id})[${beforeBurst}].canceled`);
     expect(await lane.evaluate<boolean>("window.__glides.every(item=>item.frames.every(frame=>frame.active<=1))")).toBe(true);
-    await lane.evaluate("(() => { window.__glideRate = 1; for (const row of document.querySelectorAll('.todo-row')) for (const animation of row.getAnimations()) animation.playbackRate = 1; })()");
+    await lane.evaluate("(() => { window.__glideRate = 1; for (const row of document.querySelector('.shelf').querySelectorAll('.todo-row')) for (const animation of row.getAnimations()) animation.playbackRate = 1; })()");
     // Motion frames above record the retarget; the layout Checks read its settled destination.
-    await lane.evaluate("Promise.all([...document.querySelectorAll('.todo-row')].flatMap(row=>row.getAnimations()).map(animation=>animation.finished.catch(()=>{}))).then(()=>true)");
+    await lane.evaluate("Promise.all([...document.querySelector('.shelf').querySelectorAll('.todo-row')].flatMap(row=>row.getAnimations()).map(animation=>animation.finished.catch(()=>{}))).then(()=>true)");
     await capture("burst-hand-off");
     await lane.browser("set", "media", "dark", "reduced-motion");
     const beforeReduced = await lane.evaluate<number>(`window.__glides.filter(item=>item.id===${moved.id}).length`);
@@ -303,7 +303,7 @@ print(json.dumps({'todo':todo,'pad':pad}))
 `;
 
   const real = await startRealDaemon({ FAKE_CLAUDE_RUN: JSON.stringify([["python3", "-c", make, resolve("../../target/debug/rup")]]), FAKE_CLAUDE_RUN_REPORT: report }, true);
-  const lane = await openLane(1512, "dark", "u4698e-persisted");
+  const lane = await openLane(1512, "dark", "u4698e-persisted", false, null);
   const app = createServedApp(real.base);
 
   try {
@@ -333,7 +333,7 @@ print(json.dumps({'todo':todo,'pad':pad}))
 
     const openTodo = async () => {
       await lane.evaluate("(() => {const tab=document.querySelector('#shelf-tab-todos');if(tab.getAttribute('aria-expanded')!=='true')tab.click();return true;})()");
-      await lane.until(`(() => {document.querySelectorAll('[data-shelf-group][data-state=closed] [data-part=branch-control]').forEach(control => control.click()); return !!document.querySelector('[data-todo="${todo.id}"] .todo-row-button');})()`);
+      await lane.until(`(() => {document.querySelector('.shelf').querySelectorAll('[data-shelf-group][data-state=closed] [data-part=branch-control]').forEach(control => control.click()); return !!document.querySelector('[data-todo="${todo.id}"] .todo-row-button');})()`);
       await lane.browser("focus", `[data-todo="${todo.id}"] .todo-row-button`);
       await lane.browser("press", "Enter");
       await lane.until("!!document.querySelector('.todo-comment-field')");
@@ -341,7 +341,7 @@ print(json.dumps({'todo':todo,'pad':pad}))
 
     const openPad = async () => {
       await lane.browser("click", "#shelf-tab-pads");
-      await lane.until("(() => {document.querySelectorAll('[data-shelf-group][data-state=closed] [data-part=branch-control]').forEach(control => control.click());return !!document.querySelector('.pad-name');})()");
+      await lane.until("(() => {document.querySelector('.shelf').querySelectorAll('[data-shelf-group][data-state=closed] [data-part=branch-control]').forEach(control => control.click());return !!document.querySelector('.pad-name');})()");
       await lane.browser("focus", ".pad-name");
       await lane.browser("press", "Enter");
       await lane.until("!!document.querySelector('.drawer .ProseMirror')");

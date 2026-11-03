@@ -36,7 +36,7 @@ const seedDestination = async (lane: LaneBrowser) => {
 describe("u3718 a Todo dragged to another owner's group", () => {
   let lane: LaneBrowser;
 
-  beforeAll(async () => { lane = await openLane(1512, "dark", "u3718"); }, 180_000);
+  beforeAll(async () => { lane = await openLane(1512, "dark", "u3718", false, null); }, 180_000);
 
   afterAll(async () => { await lane?.close(); });
 
@@ -64,7 +64,7 @@ describe("u3718 a Todo dragged to another owner's group", () => {
 
     const [one] = await lane.order();
     const owner = await lane.evaluate(`window.__fake.app.rpc('todo.list', null).then(todos => todos.find(todo => todo.id === ${one}).owner)`);
-    const destination = await lane.evaluate<string>(`document.querySelector('[data-part="branch"][aria-expanded] > .rail-row').dataset.id`);
+    const destination = await lane.evaluate<string>(`document.querySelector('.rail').querySelector('[data-part="branch"][aria-expanded] > .rail-row').dataset.id`);
     const from = await lift(lane, one!);
     const to = await centre(lane, `[data-part="branch"][aria-expanded] > .rail-row`);
 
@@ -121,7 +121,7 @@ describe("u3718 a Todo dragged to another owner's group", () => {
 });
 
 it("u3515c_todo_nesting_excludes_self_descendants_and_unchanged_placement", async () => {
-  const lane = await openLane(1512, "dark", "u3515-nesting");
+  const lane = await openLane(1512, "dark", "u3515-nesting", false, null);
 
   try {
     // Nesting depends on these Todos, not the forty unrelated Rail owners.

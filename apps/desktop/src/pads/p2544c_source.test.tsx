@@ -226,7 +226,7 @@ it.each(["\n", "\r\n"].flatMap(newline => [true, false].map(final => ({ newline,
   const source = `Ready.${newline}${newline}${evidence}${newline}${newline}## Next${newline}${newline}Review.${newline}${newline}${section}${final ? newline : ""}`;
   const { handle, view } = await open(source);
   expect(handle.getText()).toBe(source);
-  expect(document.querySelectorAll("details[data-pad-agents]")).toHaveLength(2);
+  expect(view.dom.querySelectorAll("details[data-pad-agents]")).toHaveLength(2);
   view.dispatch(view.state.tr.insertText("Updated", 1, 6));
   expect(handle.getText()).toBe(source.replace("Ready", "Updated"));
   undo(view.state, view.dispatch);

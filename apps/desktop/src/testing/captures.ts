@@ -52,7 +52,7 @@ const observerTable = {
   "src/header/u449_rendered.test.ts": ["U449", "U451"],
   "src/header/u475_browser.test.ts": ["P3557c", "U2539b"],
   "src/header/u497_rendered.test.ts": ["U497"],
-  "src/importer/u2875d_import_panel.test.tsx": ["U3049a", "U3049b", "U3299a", "U3299b", "U3299c", "U3299d", "U5558a", "U5558b", "U5558c", "U5558d", "U5558e"],
+  "src/importer/u2875d_import_panel.test.tsx": ["U3049a", "U3049b", "U3299a", "U3299c", "U3299d", "U5558a", "U5558c", "U5558d", "U5558e"],
   "src/importer/u3787c_browser.test.ts": ["U3787c"],
   "src/inbox/u3770_browser.test.ts": ["P3557c", "U3770a", "U3770b", "U3770e"],
   "src/inbox/u3787c_browser.test.ts": ["U3787c"],
@@ -149,7 +149,7 @@ export function captureTests(selection: string | undefined) {
   const groups = [
     ["U4708", "U4908"],
     ["U3295a", "U3295b"],
-    ["U3299a", "U3299b", "U3299c", "U3299d", "U5558a", "U5558b", "U5558c", "U5558d", "U5558e"],
+    ["U3299a", "U3299c", "U3299d", "U5558a", "U5558c", "U5558d", "U5558e"],
     ["U4277a", "U4277b", "U4277c"],
     ["U3813", "U3814", "U3815"],
     ["U4453a", "U4453b"],

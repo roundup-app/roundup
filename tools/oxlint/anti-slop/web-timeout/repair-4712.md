@@ -22,7 +22,7 @@ Remaining: successful isolated source-head result, other reproduced observers, a
 | DV5 | Passed, 38.071 s, no retry. No code repair inferred necessary. |
 | DV6 | Both attempts time out after its App remount: the new App has no requested Made view. The old clipboard stub also bypasses the native App clipboard seam. |
 | U3049 | Both attempts wait for a status inside `.import-recovery`; the conflict status now lives in the Import panel's reserved line. The first recovery button is now Copy, so recovery must choose the published Open choices action. |
-| U3299 names / retention | Both attempts wait for Reactions and Made without requesting either native menu view. |
+| U3299 names / retention | Both attempts wait for Made without requesting either native menu view. |
 | Inbox / Progress / project pages | Real actions reached video finalization, which failed because this runner had no `ffmpeg`. Inbox's configured retry then failed to start over the still-active recording. |
 
 The runner repair is `sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg` (exit 0). No workflow was edited. The three video observers keep their actions and assertions. Subsequent runs require this encoder. Header clipboard injection uses the fake App seam; DV6 uses the served App seam. Optional views are requested through existing published native menu commands and the host's `onProjectPage` event, never `showView` or a component-only opener.

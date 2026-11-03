@@ -31,7 +31,7 @@ Policy: `docs/extension-interface.md` documents only the Hook the host runs: `on
 5. `crates/rupd/src/extensions/tests.rs`, `ua7_a_bad_save_keeps_the_last_good_registration` and `ua8_a_broken_extension_never_stops_the_daemon`: load failure does not replace a working registration or stop the Daemon.
 6. `crates/rupd/src/auto_tests.rs`, `a3308_set_auto_persists_and_emits_once` and `a3308_a_restart_resends_nothing`; `crates/rupd/src/tests.rs`, `r3696c_a_rail_tree_reply_written_directly_equals_the_value_route`: use the surviving Rail method without changing Auto persistence or wire behavior.
 7. `justfile`, **contracts-fresh**: regeneration must match committed outputs on the implementation head; a generation failure or output drift fails the observer.
-8. `PRINCIPLES.md`, **P13 Named reactions**: the applicable gate asks whether the changed path hides an unsupported event source. The C5461b real-host observer must expose it by name. No reaction engine or Model turn is added. `PRINCIPLES.md`, **P11 Unfinished input**: removing the unused image-view command preserves U418's supported save/paste and failure path; Checks 2–3 are its observers.
+8. `PRINCIPLES.md`, **P11 Unfinished input**: removing the unused image-view command preserves U418's supported save/paste and failure path; Checks 2–3 are its observers.
 
 ## Implementation observer
 

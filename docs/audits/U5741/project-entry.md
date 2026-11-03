@@ -6,7 +6,7 @@ Audited main: `4dfcec6fd757600df568ecbe414e503d5d2af064`, 2026-11-03. Continues 
 
 ## Criteria
 
-Q1: a vendor already supplies the same action/result. Q2: no required result in the five-stage journey needs the feature. Q3: information has no action or concrete decision. Any yes identifies a candidate for the eventual complete request only; unverified requires investigation. No usage history is assumed. Ask, real Agent Terminals, direct access and native request continuation stay protected. Overview (#5730) and Reactions (#5740) are excluded.
+Q1: a vendor already supplies the same action/result. Q2: no required result in the five-stage journey needs the feature. Q3: information has no action or concrete decision. Any yes identifies a candidate for the eventual complete request only; unverified requires investigation. No usage history is assumed. Ask, real Agent Terminals, direct access and native request continuation stay protected. Overview (#5730) are excluded.
 
 Every journey reference below means `.agents/data/journey.md`, **What must work**. A row's Q2 no names a required result and why this path needs the feature. A different scenario requiring a feature does not make it essential to the journey.
 
