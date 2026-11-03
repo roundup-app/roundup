@@ -2,7 +2,7 @@
 
 `observe.py run` runs one **complete** Linux CI test lane. It keeps the existing
 five nextest profiles, four Rust test threads, seven Vitest shards, package tests,
-contract freshness check, Chromium fault observer and all configured reporters.
+contract freshness check, Chromium fault observer (`--fault-log`, hosted lanes only) and all configured reporters.
 The temporary nextest configuration copies the checkout's entire configuration
 and adds JUnit output plus a Nextest run-wrapper for precise timestamps. The temporary web configuration adds one reporter.
 No dependency pin, group, filter or scheduler changes.
