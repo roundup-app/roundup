@@ -5,7 +5,7 @@ const { browser, evaluate, settle, openShelf, toggle } = shelfBrowser();
 
 it("u371_escape_closes_the_drawer_before_the_shelf", async () => {
   await openShelf("tree-40", 480, 560);
-  await evaluate(`(() => { document.querySelector('.todos-tab [data-shelf-group=unassigned][data-state=closed] [data-part=branch-control]')?.click(); document.querySelector('.shelf [data-todo] .todo-row-button').focus(); return true; })()`);
+  await evaluate(`(() => { const shelf = document.querySelector('.shelf'); shelf.querySelector('.todos-tab [data-shelf-group=unassigned][data-state=closed] [data-part=branch-control]')?.click(); shelf.querySelector('[data-todo] .todo-row-button').focus(); return true; })()`);
   await browser("focus", ".shelf [data-todo] .todo-row-button");
   await browser("press", "Enter");
   await browser("wait", ".drawer[data-open=true]");
