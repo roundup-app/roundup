@@ -233,3 +233,17 @@ CI runs `41565024004` and `41565023990` on `fa9b5c63ca140e8bcbf28ba5364e44638eed
 | `git diff --check`, `loop/rules.sh vocab`, `loop/rules.sh merge-loss` | 0 each | No whitespace, vocabulary or inherited merge-loss defect. Main merged without conflicts; its merge has no remerge diff. |
 | Targeted `cargo nextest run -p agents --lib` allocation observers | 0 | All six pass: `b5635b_preview_allocations_stay_bounded`, `r5636e_scan_allocated_bytes`, `r5636e_nested_rail_allocated_bytes`, `b5635a_receipt_reads_only_appended_bytes`, `b5635c_unrelated_hooks_do_not_copy_completed_text` and `b5635c_completion_changes_are_reported_once`. |
 | `just ready` | 1 | Only `just migrations origin/main` fails: main already contains both `0044-inbox-entry.sql` and `0044-start-attribution.sql`. Existing repair PR #5833 and Issue #5837 own this collision. Web lint/typecheck, Rust/repository guards, `ALL PROOFS CHECK` and N7 launch-sites pass. Clippy skips the documentation-only net diff; the targeted Nextest runs compile the agents unit tests. No local `just check` ran. |
+
+
+## Required-check repair — builder-41568471071
+
+CI run `41568393992` on `f8495ca8decd9244e0cc8d88307d812e2e9cafba` failed the B4522 filename guard before tests: main contains both `0044-inbox-entry.sql` and `0044-start-attribution.sql`. Carry the exact independently approved repair from PR #5833 (`85f61e537cb70d2cdd923ce947338438ce0071d2`): rename the latter to `0045-start-attribution.sql`. Issue #5758 records this scope expansion; #5837 owns the upstream collision. Neither the guard nor its recorded exceptions change.
+
+| Command / observer | Exit | Result |
+| --- | ---: | --- |
+| `pnpm install --frozen-lockfile` | 0 | Pinned dependencies installed before `just ready`. |
+| `just migrations origin/main` | 0 | Filename guard and all nine existing fixture tests pass. |
+| Ordered Project SQL comparison against `origin/main` | 0 | All 49 bytewise-sorted SQL contents match exactly; the migration count and applied positions are unchanged. |
+| `git diff --check`, `loop/rules.sh merge-loss` | 0 each | Exact rename; no whitespace or inherited merge-loss defect. |
+| `cargo nextest run -p rupd --lib -E 'test(r3696c_a_fresh_project_db_equals_the_migrated_one_with_its_own_identity) \| test(n5467)'` | 0 | Four existing observers pass: fresh schema/image equality, older-store refusal without changes, old Project data refusal with retained worktrees, and incomplete reaction-record refusal. |
+| `just ready` | 0 | Web lint and typecheck, workspace Clippy, repository guards, `ALL PROOFS CHECK` and N7 launch-sites pass. No local `just check` ran. |
