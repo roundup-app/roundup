@@ -11,7 +11,8 @@ mod alert;
 pub use alert::{AlertLevel, SetAlertLevelParams};
 mod launch;
 pub use launch::{
-    Extras, ExtrasAddParams, PermissionMode, SpawnParams, StartAttribution, StartDoorParams,
+    CreateWorkstreamParams, Extras, ExtrasAddParams, PermissionMode, SpawnParams, StartAttribution,
+    StartDoorParams,
 };
 
 /// Parse the wire ordinal without accepting aliases such as leading zeroes or signs.
@@ -860,25 +861,6 @@ pub struct SignalParams {
 #[derive(Clone, Debug, Default, Serialize, Deserialize, Type, JsonSchema)]
 pub struct SignalOutcome {
     pub drop: bool,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
-pub struct CreateWorkstreamParams {
-    /// A5765e: only the target user connection may supply source attribution.
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        deserialize_with = "StartAttribution::deserialize_present"
-    )]
-    #[specta(optional, type = StartAttribution)]
-    #[schemars(skip)]
-    pub start_attribution: Option<StartAttribution>,
-    pub name: String,
-    pub parent: Option<String>,
-    /// O3: the Door's order.
-    #[serde(default)]
-    #[specta(optional, type = Order)]
-    pub order: Option<Order>,
 }
 
 /// U2773c: the Order read with an editor's original Project and exact node id.
