@@ -13,6 +13,9 @@ The audit must prevent missed conditional offers, unsupported claims of non-use/
 
 | Artifact | Holds |
 | --- | --- |
+| [attention-import.md](attention-import.md) | Requested attention, Work progress and Import decision rows; explicit remaining comparisons and conditional states |
+| [catalogues/attention-import-source.json](catalogues/attention-import-source.json) | Current inspected source hashes, exact direction, public mappings and archived observer |
+| [rendered-attention-import.json](rendered-attention-import.json) | Fresh isolated dark Import, attention failure and progress/evidence openings |
 | [terminals.md](terminals.md) | Thirty-one Terminal/control rows, explicit unfinished protocol decisions and protected access boundary |
 | [catalogues/terminal-source.json](catalogues/terminal-source.json) | Inspected source hashes, exact direction and reproducible isolated observer |
 | [rendered-terminals.json](rendered-terminals.json) | Twelve fresh Terminal/shell/Find/rename/close/dense openings and Checks |
