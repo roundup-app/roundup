@@ -305,7 +305,7 @@ fn s5810b_restore_reports_each_refusal_without_losing_projects() {
 fn s5810c_fatal_startup_stages_report_before_exit() {
     const NAME: &str = "diagnostics::tests::s5810c_fatal_startup_stages_report_before_exit";
     if let Ok(stage) = std::env::var("S5810_STAGE") {
-        if stage == "config" {
+        if stage == "config" || stage == "idle" {
             assert!(crate::run().is_err());
         } else if stage == "context" || stage == "argument" {
             let dir = tempfile::tempdir().unwrap();
@@ -374,10 +374,15 @@ fn s5810c_fatal_startup_stages_report_before_exit() {
         eprintln!("observer: returned after reporting");
         return;
     }
-    for (stage, expected) in [
+    #[cfg(not(feature = "idle-perf"))]
+    let prelog = [
         ("config", "configure App: the Daemon socket path"),
         ("context", "resolve App context: IO NotFound"),
         ("argument", "resolve startup Project: IO NotFound"),
+    ];
+    #[cfg(feature = "idle-perf")]
+    let prelog = [("idle", "check idle performance profile: R24 requires")];
+    for (stage, expected) in prelog.into_iter().chain([
         (
             "preferences",
             "refuse Project preferences: Local Project preferences",
@@ -386,12 +391,14 @@ fn s5810c_fatal_startup_stages_report_before_exit() {
         ("io", "start shell: IO PermissionDenied"),
         ("json", "start shell: JSON Data"),
         ("setup", "start shell: application setup failed"),
-    ] {
+    ]) {
         let mut command = std::process::Command::new(std::env::current_exe().unwrap());
         command
             .args(["--exact", NAME, "--nocapture"])
             .env("S5810_STAGE", stage)
-            .env_remove("ROUNDUP_DATA_DIR");
+            .env_remove("ROUNDUP_DATA_DIR")
+            .env_remove("ROUNDUP_ALLOW_WINDOW")
+            .env_remove("ROUNDUP_IDLE_EVIDENCE_DIR");
         if stage == "config" {
             command.env("TMPDIR", format!("/{}", "d".repeat(120)));
         }
