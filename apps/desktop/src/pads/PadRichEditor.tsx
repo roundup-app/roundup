@@ -630,10 +630,11 @@ export default function PadRichEditor(props: {
     <>
       <Show when={formatHost()}>{mount => <Portal mount={mount()}>
         <div class="pad-rich-editor pad-format-controls">
-          <Menu.Root ids={{ trigger: colourTriggerId }} positioning={{ onPositioned: ({ placed }) => setPalettePositioned(placed) }} open={paletteOpen()} present={palettePresent()} onOpenChange={({ open }) => {
+          <Menu.Root ids={{ trigger: colourTriggerId }} positioning={{ updatePosition: async ({ updatePosition }) => { await updatePosition(); setPalettePositioned(true); } }} open={paletteOpen()} present={palettePresent()} onOpenChange={({ open }) => {
             setPaletteMotion(!isFocusVisible());
 
-            if (open) setPalettePresent(true);
+            if (open) { setPalettePositioned(false); setPalettePresent(true); }
+
             setPaletteOpen(open);
           }} onSelect={({ value }) => crepe?.editor.action(ctx => {
             const view = ctx.get(editorViewCtx);
