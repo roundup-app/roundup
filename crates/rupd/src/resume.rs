@@ -176,7 +176,7 @@ impl Daemon {
             output: report.request.output.id.clone(),
             instruction: report.instruction.revision.clone(),
             next: report.request.next.clone(),
-            decision: covered.map(|c| c.decision.or(c.firing).unwrap_or_default()),
+            decision: covered.map(|c| c.decision),
             id,
         })
     }
