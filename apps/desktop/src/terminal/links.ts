@@ -22,9 +22,7 @@ const pathAt = (token: string): Printed | null => {
 
   if (!path || path === "/") return null;
 
-  const absolute = path.startsWith("/");
-
-  if (!absolute && !path.includes("/") && !EXTENSION.test(path)) return null;
+  if (!path.includes("/", path.startsWith("/") ? 1 : 0) && !EXTENSION.test(path)) return null;
 
   return { kind: "path", path, line: parts[2] ? Number(parts[2]) : null };
 };

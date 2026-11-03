@@ -54,3 +54,7 @@ Independent Shelf follow-up: rendered-shelf-followup.json adds successful reserv
 ## Made and link continuation
 
 `outputs.md` records O01–O36 at main `cca472d3d8f5ce3808869ed6da6a4464e348169c`. Each public publication operation remains independently decidable; file, Pad and current external publication targets are separate. `catalogues/outputs-source.json` preserves source/declaration/offer provenance, versioned vendor help and dated #2774/#5730 direction; historical runtime role replies keep their original revision. `rendered-outputs.json` adds fresh dense catalogue, actual Home/maker filters, pointer reset, identity opening, selection, Copy and actionable unavailable/refused/unsafe-target states. Recipient selection, native effects, all earlier conditional gaps and final current all-feature reconciliation remain. Neither the Overview list nor Reactions enters these decisions; Ask/direct Terminals/native continuation remain protected. No partial owner request or deletion.
+
+## Pad conditional/library continuation
+
+`pad-controls.md` adds PC01–PC15 and cross-references PF05/PF22/PF27/PF28 without duplicating owner decisions. Installed Milkdown 7.22.2 table/link/block-menu sources are reconciled with App configuration on main `ecf788ebdc146bb66cd26acebe020c1874950b39`. Fresh disclosure expansion is asserted before capture; the older collapsed capture remains failed. Table gestures, generic insertion, drawing/recovery/library conditions and all-feature current revision reconciliation remain explicit gaps.
