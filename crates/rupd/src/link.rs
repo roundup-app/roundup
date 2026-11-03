@@ -199,7 +199,11 @@ impl Daemon {
         self.rail()
             .await?
             .into_iter()
-            .find(|node| node.id == id && is_workstream(node) == workstream)
+            .find(|node| {
+                node.id == id
+                    && node.kind != agent::NodeKind::Group
+                    && is_workstream(node) == workstream
+            })
             .ok_or_else(|| {
                 let kind = if workstream { "workstream" } else { "agent" };
                 RpcError::new(code::NOT_FOUND, format!("not found: {kind} {id}"))
