@@ -438,15 +438,25 @@ fn reconcile_into(
         // B8: a Message written and not confirmed waits for the Agent to be resumed.
         let rebind = (through.0 < at.0).then_some((at.0, 0));
         let keep = Some(rebind);
-        for message in store.drop_all_pending(
-            agent,
-            Reason::ReceiverGone,
-            through,
-            gone_drops,
-            keep,
-            restart,
-        )? {
+        // DCL4: the drops and each sender's one return note commit together, so a crash and
+        // replay find either both or neither; a replay drops nothing and so notes nothing.
+        let (dropped, notes) = store.atomically(|store| {
+            let dropped = store.drop_all_pending(
+                agent,
+                Reason::ReceiverGone,
+                through,
+                gone_drops,
+                keep,
+                restart,
+            )?;
+            let notes = return_notes(store, agent, &dropped)?;
+            Ok((dropped, notes))
+        })?;
+        for message in dropped {
             events.push(EventData::MessageDropped(message.into()));
+        }
+        for note in notes {
+            events.push(EventData::MessageSent(note.into()));
         }
     }
     if previous.is_some_and(|state| state.attempt > at.0) {
@@ -467,6 +477,48 @@ fn reconcile_into(
     }
     state.closed |= retiring || (permanent && !reserved);
     store.set_generation(agent, state)
+}
+
+/// DCL4: one pending note from the Daemon to each Agent sender whose Messages `dropped` closed
+/// at `agent`, listing the original ids. The originals keep their identity and are never reset.
+fn return_notes(
+    store: &mut Store,
+    agent: &str,
+    dropped: &[Message],
+) -> Result<Vec<Message>, RpcError> {
+    let mut senders: Vec<&Actor> = Vec::new();
+    for message in dropped {
+        if message.from.kind == ActorKind::Agent && !senders.contains(&&message.from) {
+            senders.push(&message.from);
+        }
+    }
+    let name = store.sender_name(agent)?;
+    let mut notes = Vec::new();
+    for sender in senders {
+        let ids = dropped
+            .iter()
+            .filter(|m| &m.from == sender)
+            .map(|m| format!("#{}", m.id))
+            .collect::<Vec<_>>()
+            .join(" ");
+        let body = format!("[return] {ids} never reached {name}: it ended before they were read");
+        let at = dropped.iter().map(|m| m.at).max().unwrap_or(0);
+        let binding = store
+            .generation(&sender.id)?
+            .map_or((0, 0), |state| (state.attempt, state.revision));
+        notes.push(store.insert(
+            &Actor::daemon(),
+            &sender.id,
+            MessageKind::Note,
+            &body,
+            None,
+            MessageStatus::Pending,
+            None,
+            at,
+            binding,
+        )?);
+    }
+    Ok(notes)
 }
 
 impl Messages {
@@ -550,5 +602,58 @@ mod tests {
         on_idle(&messages.inner, "m", (1, 2), Pick::Next).await;
         assert_eq!(lock(&inbox.batches).len(), 1);
         // BatchRail rejects every method but rail.tree: no Terminal write or prompt is possible.
+    }
+}
+
+#[cfg(test)]
+mod dcl_tests {
+    use super::*;
+    use crate::inbox::tests::setup;
+
+    #[tokio::test(start_paused = true)]
+    async fn dcl4_killed_subagent_returns_pending_messages_once() {
+        let dir = tempfile::tempdir().unwrap();
+        let (messages, _, _) = setup(dir.path());
+        let door = Actor {
+            kind: ActorKind::Agent,
+            id: "door".into(),
+            parent: None,
+        };
+        let send = |body: &str| {
+            lock(&messages.inner.store)
+                .insert(
+                    &door,
+                    "m",
+                    MessageKind::Note,
+                    body,
+                    None,
+                    MessageStatus::Pending,
+                    None,
+                    5,
+                    (1, 1),
+                )
+                .unwrap()
+                .id
+        };
+        let (a, b) = (send("one"), send("two"));
+        for _ in 0..2 {
+            let mut store = lock(&messages.inner.store);
+            reconcile(&messages.inner, &mut store, "m", (1, 9), true, true, false).unwrap();
+            assert!(store.list_pending_to("m").unwrap().is_empty());
+        }
+        let store = lock(&messages.inner.store);
+        for id in [a, b] {
+            let m = store.get(id).unwrap().unwrap();
+            assert_eq!(m.status, MessageStatus::Dropped);
+            assert_eq!(m.reason, Some(Reason::ReceiverGone));
+        }
+        let notes = store.list_pending_to("door").unwrap();
+        assert_eq!(notes.len(), 1);
+        assert_eq!(notes[0].from, Actor::daemon());
+        assert!(
+            notes[0].body.contains(&format!("#{a} #{b} never reached")),
+            "{}",
+            notes[0].body
+        );
     }
 }

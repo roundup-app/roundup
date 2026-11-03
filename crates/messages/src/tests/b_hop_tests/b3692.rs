@@ -50,7 +50,9 @@ async fn b3692a_a_question_to_an_agent_that_ends_stays_dropped_and_nothing_repla
     h.becomes("sub", Kind::Done).await;
     h.at(600_000).await;
     let all = h.all().await;
-    assert_eq!(all.len(), 1);
+    // DCL4: nothing replaces the question; its sender gets one return note.
+    assert_eq!(all.len(), 2);
     assert_eq!(all[0].1, "dropped");
     assert_eq!(all[0].2, "receiver gone");
+    assert_eq!((all[1].0.as_str(), all[1].1.as_str()), ("c", "pending"));
 }
