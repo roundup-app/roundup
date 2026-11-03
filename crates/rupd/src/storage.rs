@@ -137,7 +137,7 @@ pub(crate) fn open(dir: &Path) -> rusqlite::Result<Connection> {
     })
 }
 
-/// N5420a: compare only the current schema, using the unchanged fresh image.
+/// N5420a: current-version input compares against the unchanged fresh image.
 fn reference() -> rusqlite::Result<Connection> {
     let mut db = Connection::open_in_memory()?;
     let image = std::io::Read::chain(
@@ -160,13 +160,20 @@ fn refuse_divergent(db: &Connection) -> rusqlite::Result<()> {
         "SELECT NOT EXISTS(SELECT 1 FROM sqlite_schema WHERE name NOT LIKE 'sqlite\\_%' ESCAPE '\\')",
         [], |r| r.get(0),
     )?;
-    if stored < known as i64 && !(stored == 0 && empty) {
+    if stored <= 0 && !(stored == 0 && empty) {
         return Err(error("Local data is incompatible with this build."));
     }
-    if stored != known as i64 {
+    if stored == 0 || stored > known as i64 {
         return Ok(());
     }
-    if let Some(difference) = provenance::migration::difference(db, &reference()?)? {
+    let reference = if stored == known as i64 {
+        reference()?
+    } else {
+        let mut reference = Connection::open_in_memory()?;
+        apply(&mut reference, migrations()[..stored as usize].to_vec())?;
+        reference
+    };
+    if let Some(difference) = provenance::migration::difference(db, &reference)? {
         return Err(error(provenance::migration::divergence(
             &difference,
             stored,
@@ -179,21 +186,25 @@ fn refuse_divergent(db: &Connection) -> rusqlite::Result<()> {
 fn apply(db: &mut Connection, migrations: Vec<M<'_>>) -> rusqlite::Result<()> {
     let count = migrations.len();
     let stored: i64 = db.pragma_query_value(None, "user_version", |row| row.get(0))?;
-    Migrations::new(migrations)
-        .to_latest(db)
-        .map_err(|error| {
-            let message = if matches!(
-            error,
+    Migrations::from_slice(&migrations).to_latest(db).map_err(|error| {
+        let message = match &error {
             rusqlite_migration::Error::MigrationDefinition(
-                rusqlite_migration::MigrationDefinitionError::DatabaseTooFarAhead
-            )
-        ) {
-            format!("database version {stored}; this build supports through {count}. This database came from a newer or branch build. Use the build that wrote it, or reset this disposable pre-release database after closing roundup.")
-        } else {
-            format!("migration through {count}: {error}")
+                rusqlite_migration::MigrationDefinitionError::DatabaseTooFarAhead,
+            ) => format!("database version {stored}; this build supports through {count}. This database came from a newer or branch build. Use the build that wrote it, or reset this disposable pre-release database after closing roundup."),
+            rusqlite_migration::Error::RusqliteError { query, .. } => {
+                // The library returns the full failed entry's SQL, not only its failed statement.
+                let position = migrations.iter().enumerate().find(|(index, migration)| {
+                    *index as i64 >= stored && **migration == M::up(query)
+                });
+                match position {
+                    Some((index, _)) => format!("migration {}: {error}", index + 1),
+                    None => format!("migration through {count}: {error}"),
+                }
+            }
+            _ => format!("migration through {count}: {error}"),
         };
-            self::error(message)
-        })
+        self::error(message)
+    })
 }
 
 fn error(message: impl Into<String>) -> rusqlite::Error {
@@ -297,69 +308,49 @@ mod newer_tests {
 #[cfg(test)]
 mod retirement_tests {
     use super::*;
-    use rusqlite_migration::Migrations;
 
     #[test]
     fn n5467a_older_store_is_refused_without_changes() {
-        for prefix in if migrations().len() == 1 {
-            vec![0]
-        } else {
-            vec![0, migrations().len() - 1]
-        } {
-            let dir = tempfile::tempdir().unwrap();
-            let path = dir.path().join("project.db");
-            let mut db = Connection::open(&path).unwrap();
-            if prefix > 0 {
-                Migrations::new(migrations()[..prefix].to_vec())
-                    .to_latest(&mut db)
-                    .unwrap();
-            }
-            let read = if prefix == 0 {
-                db.execute_batch("CREATE TABLE retirement_sentinel(value TEXT); INSERT INTO retirement_sentinel VALUES ('keep me');").unwrap();
-                "SELECT value FROM retirement_sentinel"
-            } else {
-                db.execute_batch(
-                    "INSERT INTO nodes(kind,name,ord) VALUES('workstream','keep me',0)",
-                )
-                .unwrap();
-                "SELECT name FROM nodes WHERE name='keep me'"
-            };
-            let schema = |db: &Connection| -> Vec<(String, String)> {
-                db.prepare("SELECT name, coalesce(sql, '') FROM sqlite_schema ORDER BY name")
-                    .unwrap()
-                    .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))
-                    .unwrap()
-                    .map(Result::unwrap)
-                    .collect()
-            };
-            let before = schema(&db);
-            drop(db);
-            for _ in 0..2 {
-                let db = Connection::open(&path).unwrap();
-                let message = open(dir.path()).unwrap_err().to_string();
-                assert!(
-                    message.contains("incompatible with this build"),
-                    "{message}"
-                );
-                assert!(
-                    message.contains(&dir.path().display().to_string()),
-                    "{message}"
-                );
-                assert!(
-                    message.contains("close roundup") && message.contains("delete"),
-                    "{message}"
-                );
-                assert_eq!(schema(&db), before);
-                assert_eq!(
-                    db.pragma_query_value(None, "user_version", |r| r.get::<_, i64>(0))
-                        .unwrap(),
-                    prefix as i64
-                );
-                assert_eq!(
-                    db.query_row(read, [], |r| r.get::<_, String>(0)).unwrap(),
-                    "keep me"
-                );
-            }
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("project.db");
+        let db = Connection::open(&path).unwrap();
+        db.execute_batch("CREATE TABLE retirement_sentinel(value TEXT); INSERT INTO retirement_sentinel VALUES ('keep me');").unwrap();
+        let read = "SELECT value FROM retirement_sentinel";
+        let schema = |db: &Connection| -> Vec<(String, String)> {
+            db.prepare("SELECT name, coalesce(sql, '') FROM sqlite_schema ORDER BY name")
+                .unwrap()
+                .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))
+                .unwrap()
+                .map(Result::unwrap)
+                .collect()
+        };
+        let before = schema(&db);
+        drop(db);
+        for _ in 0..2 {
+            let db = Connection::open(&path).unwrap();
+            let message = open(dir.path()).unwrap_err().to_string();
+            assert!(
+                message.contains("incompatible with this build"),
+                "{message}"
+            );
+            assert!(
+                message.contains(&dir.path().display().to_string()),
+                "{message}"
+            );
+            assert!(
+                message.contains("close roundup") && message.contains("delete"),
+                "{message}"
+            );
+            assert_eq!(schema(&db), before);
+            assert_eq!(
+                db.pragma_query_value(None, "user_version", |r| r.get::<_, i64>(0))
+                    .unwrap(),
+                0
+            );
+            assert_eq!(
+                db.query_row(read, [], |r| r.get::<_, String>(0)).unwrap(),
+                "keep me"
+            );
         }
     }
 }
