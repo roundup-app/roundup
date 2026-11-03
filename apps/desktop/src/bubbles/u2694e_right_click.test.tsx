@@ -116,7 +116,8 @@ it.each(["Send", "Copy link", "Rename", "Close"])("u4322b_bubble_choice_uses_its
 });
 
 const mountApp = async (seed: SeedName = "tree-40", rail = false) => {
-  const controls = seedApp(seed, 0);
+  // Rail cases supply their whole tree and Terminal list below; no seeded Shelf is used.
+  const controls = seedApp(rail ? "empty-project" : seed, 0);
 
   if (rail) {
     controls.app.handlers["rail.tree"] = () => [workstream("w"), node("branch", { parent: "w" }), node("child", { parent: "branch" }), node("leaf", { parent: "w", order: 1 })];
@@ -157,7 +158,7 @@ it.each(["agent", "door", "bubble"] as const)("u3529a_terminal_selection_and_rig
   fireEvent.mouseDown(target, { button: 0, buttons: 1 });
   fireEvent.pointerMove(target, { buttons: 1 });
   fireEvent.mouseMove(target, { buttons: 1 });
-  emulator.select("exact é 🪁 output");
+  emulator.select("exact é 🪁 output"); // taste-skill-ignore: Unicode Terminal selection probe.
   fireEvent.pointerUp(target, { button: 0, buttons: 0 });
   fireEvent.mouseUp(target, { button: 0, buttons: 0 });
   expect(controls().filter(each => !before.includes(each))).toEqual([]);
