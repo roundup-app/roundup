@@ -581,6 +581,12 @@ Final evidence integrity: 41 inspected source hashes, twelve dark 1512×950 open
 The first detached repeat ended before completion without an exit file; no pass is inferred. A live PTY repeat preserves explicit status. The initial exit-file read failed (1) because its process had ended without writing it. Final required-command status follows after completion.
 
 
+
+Isolated browser closed successfully (0); this run's harness session ended by SIGTERM (143) after captures, with no native browser fallback. Twelve accepted PNG files were copied to the workflow checkout under artifacts/ux/U5741/shelf/ for attachment. Source and observer archives are lossless; no image/video is committed. Self-review checked duplicate decisions, code/user-label naming, placement, every claimed capture and the explicit failed/unavailable branches. Main remains the audited eaa391d9d revision after the final fetch; no merge resolution was needed.
+
+Final `just ready` live PTY repeat: exit **0**, confirmed both by the completed process and /tmp/u5741-ready-live.exit. B4522 migration guard, all 193 lint-behavior checks, package type checks, repository/Rust lints, formal proofs and N7 pass. Final vocabulary, scenario ids, merge-loss, spelling and whitespace pass. No behavior test changed or local just check ran; CI judges the implementation head. This evidence slice is complete; the full U5741 inventory, vendor/conditional reconciliation and owner request remain unfinished on #5758.
+
+
 ## Shelf fix-run evidence — builder-41609532898
 
 Independently observed the Shelf on PR #5868 as a documentation-only evidence slice pinned to main `eaa391d9d2f9eb7d9aaeb874590ec20e4ad805a8`. The concurrent head 1454b5428 supplies 26 S-prefixed decision rows. This integration retains them and separates per-target dismissal, uncertain-operation dismissal and width reset as S27–S29; they can have different keep/delete choices. The preliminary SH-prefixed table was superseded when integrating that head. Every row distinguishes its three criteria; all vendor-equivalence comparisons and unrendered conditional branches remain explicitly unverified. No product, contract, scenario, behavior test or frozen-loop change. #5758 stays open for the complete inventory, owner choices and authorized retirements.
@@ -619,3 +625,5 @@ The final observer additionally exercises keyboard resize and Enter width reset,
 The follow-up media has its own shelf-followup directory to avoid replacing the original run's captures. Its exact executed driver retains the original output names; the bootstrap documents the archival rename. Source hashes/snapshot bytes and observation values are unchanged. The combined head receives another required lint pass below.
 
 The integrated public mapping uses exact MCP spellings `pad_getDeletion` and `pad_redoDelete`: `crates/rup/src/mcp.rs::tool_name` preserves camelCase outside github methods. CLI verbs still use kebab-case in cli.rs. This corrects source-map spelling, without claiming fresh tools/list replies.
+
+The second concurrent advance only appended its completed validation/cleanup record (911bc66ef and 046f897f6); both paragraphs are retained. Its merge returned 1 for a validation-footer conflict, resolved by keeping both records. No product file or baseline source changed.
