@@ -109,7 +109,6 @@ pub(crate) async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Resul
             }
         } else if method.as_deref().is_some_and(|m| {
             m.starts_with("deliverable.")
-                || m.starts_with("reaction.")
                 || m == "project.open"
                 || actions::is_action(m)
                 || matches!(

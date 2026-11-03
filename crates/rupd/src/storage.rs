@@ -46,15 +46,12 @@ fn migrations() -> Vec<M<'static>> {
 /// R3696c: every migration applied to an empty database, built by `build.rs`.
 const FRESH: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/fresh.db"));
 
-/// The ids the image holds in place of a Project's own (`build.rs` writes the same pair); each is
+/// The ids the image holds in place of a Project's own (`build.rs` writes the same ids); each is
 /// replaced in a copy's bytes, so a fresh start opens no connection to give them values.
-const IDENTITIES: [&[u8; 32]; 2] = [
-    b"00000000000000000000000000000001",
-    b"00000000000000000000000000000002",
-];
+const IDENTITIES: [&[u8; 32]; 1] = [b"00000000000000000000000000000001"];
 
 /// Where each of `IDENTITIES` stands in the image, with the new random id to put there, in file
-/// order. The image is written around these, so a start never copies its 1 MiB to patch 64 bytes.
+/// order. The image is written around these, so a start never copies its 1 MiB to patch the ids.
 fn reidentified() -> std::io::Result<Vec<(usize, [u8; 32])>> {
     let mut random = [0u8; 16 * IDENTITIES.len()];
     getrandom::fill(&mut random).map_err(|e| std::io::Error::other(e.to_string()))?;
@@ -160,10 +157,15 @@ fn refuse_divergent(db: &Connection) -> rusqlite::Result<()> {
         "SELECT NOT EXISTS(SELECT 1 FROM sqlite_schema WHERE name NOT LIKE 'sqlite\\_%' ESCAPE '\\')",
         [], |r| r.get(0),
     )?;
-    if stored <= 0 && !(stored == 0 && empty) {
+    if stored < known as i64 - 1 && !(stored == 0 && empty) {
         return Err(error("Local data is incompatible with this build."));
     }
-    if stored == 0 || stored > known as i64 {
+    if stored > known as i64 {
+        return Err(error(format!(
+            "database version {stored}; this build supports through {known}. This database came from a newer or branch build. Use the build that wrote it, or reset this disposable pre-release database after closing roundup."
+        )));
+    }
+    if stored == 0 {
         return Ok(());
     }
     let reference = if stored == known as i64 {

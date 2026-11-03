@@ -13,7 +13,6 @@ pub mod evidence;
 mod flight;
 mod inbox;
 mod pushes;
-pub mod reaction;
 mod receiver_view;
 mod removal;
 pub mod restart;

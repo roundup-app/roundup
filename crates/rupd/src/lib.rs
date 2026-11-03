@@ -30,11 +30,9 @@ mod observers;
 mod open;
 mod output;
 mod owner_told;
+mod pr_checks;
 mod program_status;
 mod queue;
-mod reaction;
-mod reaction_checks;
-mod reaction_time;
 mod removal;
 mod resources;
 mod restart;
@@ -120,7 +118,6 @@ pub struct Daemon {
     /// D8: samples only inside `project.resources`.
     resources: resources::Sampler,
     publications: deliverables::Publications,
-    reactions: Arc<reaction::Reactions>,
     /// An isolated observer pauses a guarded call before its effect; absent in production.
     prompt_effect_gate: Option<std::path::PathBuf>,
     /// NA6: the App that answers `action.list` and `action.run`.
