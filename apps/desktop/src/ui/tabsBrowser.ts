@@ -1,3 +1,4 @@
+import { executable } from "../todos/laneBrowser";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { mkdtempSync } from "node:fs";
@@ -23,10 +24,14 @@ let baselineServer: ViteDevServer | undefined;
 let baselineOrigin: string | undefined;
 
 export const browser = async (...args: string[]) => {
-  const stdout = (await exec("agent-browser", ["--session", session, "--json", ...args], { maxBuffer: 8 * 1024 * 1024, timeout: 25_000 })).stdout;
-  const reply: { success: boolean; error?: string } = JSON.parse(stdout);
+  const stdout = (await exec(executable, ["--session", session, "--json", ...args], { maxBuffer: 8 * 1024 * 1024, timeout: 25_000 })).stdout;
 
-  if (!reply.success) throw new Error(reply.error);
+  type Reply = { success: boolean; error?: string };
+
+  const reply: Reply | Reply[] = JSON.parse(stdout);
+  const failed = (Array.isArray(reply) ? reply : [reply]).find(result => !result.success);
+
+  if (failed) throw new Error(failed.error);
 
   return stdout;
 };

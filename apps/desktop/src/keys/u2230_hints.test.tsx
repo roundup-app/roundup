@@ -119,7 +119,7 @@ const toPlace = async (place: "pad" | "drawer") => {
   const group = document.querySelector('.pads-tab [data-shelf-group="unassigned"]');
 
   if (group?.getAttribute("aria-expanded") === "false") fireEvent.click(group.querySelector('[data-part="branch-control"]')!);
-  const pad = await screen.findByRole("button", { name: "notes" });
+  const pad = await within(document.querySelector<HTMLElement>(".shelf")!).findByRole("button", { name: "notes" });
   pad.focus();
   fireEvent.keyDown(pad, { key: "Enter", code: "Enter" });
   const selector = place === "pad" ? ".pad-body button" : ".drawer .close";
@@ -219,13 +219,13 @@ it.each(["Triage", "Todos tab", "Maximise"])("u3474d_shown_shortcuts_run_from_th
   await toRail();
   showShelfTab("Todos");
   const shelf = within(document.querySelector<HTMLElement>(".shelf")!);
-  const control = target === "Todos tab" ? screen.getByRole("tab", { name: /Todos/ }) : await shelf.findByRole("button", { name: target });
+  const control = target === "Todos tab" ? within(document.querySelector<HTMLElement>(".shelf-tabs")!).getByRole("tab", { name: /Todos/ }) : await shelf.findByRole("button", { name: target });
   control.focus();
   await waitFor(() => expect(line().some(hint => hint.startsWith("D "))).toBe(false));
   fireEvent.keyDown(document.activeElement!, { key: target !== "Maximise" ? "t" : "m", code: target !== "Maximise" ? "KeyT" : "KeyM" });
 
   if (target !== "Maximise") {
-    const control = await screen.findByRole("button", { name: "Triage" });
+    const control = await screen.findByLabelText("Triage", { selector: "button" });
     // Ark publishes tab focus changes before the next paint. Observe the settled mode.
     await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
     expect(control.getAttribute("aria-pressed")).toBe("true");
