@@ -1,3 +1,4 @@
+import { agentBrowserExecutable } from "../testing/chromePage";
 import { execFile } from "node:child_process";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -13,7 +14,7 @@ const session = `p3557c-${process.pid}`;
 
 let server: AppServer;
 
-const browser = async (...args: string[]) => (await execute("agent-browser", ["--session", session, ...args], { timeout: 60_000 })).stdout;
+const browser = async (...args: string[]) => (await execute(agentBrowserExecutable, ["--session", session, ...args], { timeout: 60_000 })).stdout;
 
 beforeAll(async () => {
   server = await appServer();

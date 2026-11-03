@@ -1,3 +1,4 @@
+import { batch } from "solid-js";
 import { questionDialog, answerQuestion } from "../shelf/bulkQuestionHarness";
 // U2694f/g exercise the mounted App: row-only fixtures miss Ark activation and Bubble restoration.
 import { RequestedApp as App } from "../testing/requestedApp";
@@ -21,7 +22,7 @@ beforeEach(() => {
 const clipboardBefore = Object.getOwnPropertyDescriptor(navigator, "clipboard");
 
 afterEach(() => {
-  cleanup();
+  batch(cleanup);
   vi.restoreAllMocks();
 
   if (clipboardBefore) Object.defineProperty(navigator, "clipboard", clipboardBefore);

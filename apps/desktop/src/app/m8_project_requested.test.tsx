@@ -1,3 +1,4 @@
+import { batch } from "solid-js";
 import * as v from "valibot";
 import { cleanup, fireEvent, render, screen, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -26,7 +27,7 @@ const started = async () => {
   return app;
 };
 
-afterEach(() => { cleanup(); vi.restoreAllMocks(); window.localStorage.clear(); });
+afterEach(() => { batch(cleanup); vi.restoreAllMocks(); window.localStorage.clear(); });
 
 describe("m8 an Agent opens and renames Projects", () => {
   it("m8_a_requested_rename_calls_rename_project", async () => {
@@ -242,7 +243,7 @@ it.each(Object.entries(owners))("u3289a_open_editor_stays_off_the_list_until_the
   fireEvent.input(await openField(), { target: { value: "unsent words" } });
   await new Promise((done) => setTimeout(done, 100));
   expect(await recoveryLabel()).toBeNull();
-  cleanup();
+  batch(cleanup);
   mount(createProjectDrafts());
   await within(await screen.findByLabelText("Projects", { selector: '[role="tablist"]' })).findByRole("tab", { name: FIRST.name });
   await vi.waitFor(async () => expect(await recoveryLabel()).toBe("Unfinished work (1)"));

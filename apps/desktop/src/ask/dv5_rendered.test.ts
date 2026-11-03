@@ -6,7 +6,7 @@ import { promisify } from "node:util";
 import { expect, it } from "vitest";
 import { startRealDaemon } from "../testing/realDaemonFixture";
 import { createServedApp } from "../testing/realSeam";
-import { chromePath } from "../testing/chromePage";
+import { agentBrowserExecutable, chromePath } from "../testing/chromePage";
 import { captureDir } from "../testing/captures";
 
 const exec = promisify(execFile);
@@ -17,7 +17,7 @@ it.skipIf(!captureDir("DV6"))("dv6_bound_share_pointer_and_keyboard_keep_identit
   const session = `dv6-${process.pid}`;
   writeFileSync(join(profile, "config.json"), "{}");
   const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith("AGENT_BROWSER_")));
-  const browser = async (...args: string[]) => (await exec("agent-browser", ["--executable-path", chromePath()!, "--args", "--no-sandbox", "--config", join(profile, "config.json"), "--session", session, "--profile", profile, ...args], { env, timeout: 60_000 })).stdout;
+  const browser = async (...args: string[]) => (await exec(agentBrowserExecutable, ["--executable-path", chromePath()!, "--args", "--no-sandbox", "--config", join(profile, "config.json"), "--session", session, "--profile", profile, ...args], { env, timeout: 60_000 })).stdout;
   // SAFETY: agent-browser serialises the evaluated JSON value.
   const evaluate = async <T,>(source: string): Promise<T> => JSON.parse(await browser("eval", source)) as T;
   const app = createServedApp(real.base);
