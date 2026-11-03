@@ -64,7 +64,7 @@ const mount = (seed: SeedName = "tree-40", path = "/u100", tree?: Promise<RailNo
     };
   };
 
-  const view = render(() => <App app={controls.app} reducedMotion={() => false} clock={() => NOW} createEmulator={factory} />);
+  const view = render(() => <App initialShelfOpen={false} app={controls.app} reducedMotion={() => false} clock={() => NOW} createEmulator={factory} />);
 
   return { ...controls, ...view };
 };

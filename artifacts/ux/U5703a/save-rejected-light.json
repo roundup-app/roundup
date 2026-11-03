@@ -1,0 +1,26 @@
+{
+  "contrast": false,
+  "mode": "light",
+  "viewport": [
+    1512,
+    950
+  ],
+  "failure": [
+    {
+      "text": "Pad save rejected: disk is full. Free space and retry.",
+      "visible": true
+    }
+  ],
+  "rows": [
+    {"foreground":"rgb(13, 116, 206)","ground":{"a":1,"b":249,"g":249,"r":249},"kind":"note","part":"label","ratio":4.526508353199227,"text":"NOTE"},
+    {"foreground":"rgb(13, 116, 206)","ground":{"a":1,"b":249,"g":249,"r":249},"kind":"note","part":"body","ratio":4.526508353199227,"text":"Body"},
+    {"foreground":"rgb(25, 59, 45)","ground":{"a":1,"b":249,"g":249,"r":249},"kind":"tip","part":"label","ratio":11.699894995454748,"text":"TIP"},
+    {"foreground":"rgb(25, 59, 45)","ground":{"a":1,"b":249,"g":249,"r":249},"kind":"tip","part":"body","ratio":11.699894995454748,"text":"Body"},
+    {"foreground":"rgb(129, 69, 181)","ground":{"a":1,"b":249,"g":249,"r":249},"kind":"important","part":"label","ratio":5.778282585141523,"text":"IMPORTANT"},
+    {"foreground":"rgb(129, 69, 181)","ground":{"a":1,"b":249,"g":249,"r":249},"kind":"important","part":"body","ratio":5.778282585141523,"text":"Body"},
+    {"foreground":"rgb(79, 52, 34)","ground":{"a":1,"b":249,"g":249,"r":249},"kind":"warning","part":"label","ratio":10.80067718384134,"text":"WARNING"},
+    {"foreground":"rgb(79, 52, 34)","ground":{"a":1,"b":249,"g":249,"r":249},"kind":"warning","part":"body","ratio":10.80067718384134,"text":"Body"},
+    {"foreground":"rgb(206, 44, 49)","ground":{"a":1,"b":249,"g":249,"r":249},"kind":"caution","part":"label","ratio":4.95065853332785,"text":"CAUTION"},
+    {"foreground":"rgb(206, 44, 49)","ground":{"a":1,"b":249,"g":249,"r":249},"kind":"caution","part":"body","ratio":4.95065853332785,"text":"Body Retained draft"}
+  ]
+}
