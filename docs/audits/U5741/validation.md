@@ -222,3 +222,14 @@ CI run `41560029671` on `29c2f339ea44b8f4366f33fe7038060b55dcf670` failed `lint`
 | `git diff --check`, `loop/rules.sh vocab`, `loop/rules.sh merge-loss` | 0 each | No whitespace, vocabulary or inherited merge-loss defect. |
 | `just ready` (first repair attempt) | 1 | Started before dependency installation exited; early web checks could not find Babel, Stylelint or TypeScript. Rust lint, proofs and N7 passed. Rerun after installation completed. |
 | `just ready` (final repair attempt) | 0 | Web lint/typecheck, workspace Clippy, repository guards, `ALL PROOFS CHECK` and N7 launch-sites pass. No local `just check` ran. |
+
+## Required-check repair — builder-41567182937
+
+CI runs `41565024004` and `41565023990` on `fa9b5c63ca140e8bcbf28ba5364e44638eed1846` failed lint and the macOS/Rust test lanes before tests ran: their merge checkout contained two `ALLOCATOR` declarations (E0428). Main's independently merged #5828 already supplies the shared test allocator. Merge main `fc8f38711` and delete this branch's duplicate; `crates/agents/src/lib.rs` then equals main. Allocation observers and thresholds remain unchanged, and the net PR changes only audit documentation.
+
+| Command / observer | Exit | Result |
+| --- | ---: | --- |
+| `pnpm install --frozen-lockfile` | 0 | Pinned dependencies installed before `just ready`. |
+| `git diff --check`, `loop/rules.sh vocab`, `loop/rules.sh merge-loss` | 0 each | No whitespace, vocabulary or inherited merge-loss defect. Main merged without conflicts; its merge has no remerge diff. |
+| Targeted `cargo nextest run -p agents --lib` allocation observers | 0 | All six pass: `b5635b_preview_allocations_stay_bounded`, `r5636e_scan_allocated_bytes`, `r5636e_nested_rail_allocated_bytes`, `b5635a_receipt_reads_only_appended_bytes`, `b5635c_unrelated_hooks_do_not_copy_completed_text` and `b5635c_completion_changes_are_reported_once`. |
+| `just ready` | 1 | Only `just migrations origin/main` fails: main already contains both `0044-inbox-entry.sql` and `0044-start-attribution.sql`. Existing repair PR #5833 and Issue #5837 own this collision. Web lint/typecheck, Rust/repository guards, `ALL PROOFS CHECK` and N7 launch-sites pass. Clippy skips the documentation-only net diff; the targeted Nextest runs compile the agents unit tests. No local `just check` ran. |
