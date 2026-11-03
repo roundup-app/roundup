@@ -1,4 +1,4 @@
-//! Launch parameters shared by Agent spawn and Door start.
+//! Creation parameters for Agents, Workstreams and Door starts.
 
 use super::Order;
 use schemars::JsonSchema;
@@ -7,6 +7,15 @@ use specta::Type;
 
 #[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 pub struct SpawnParams {
+    /// A5765e: immutable source names and identities, supplied only by the target user connection.
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "StartAttribution::deserialize_present"
+    )]
+    #[specta(optional, type = StartAttribution)]
+    #[schemars(skip)]
+    pub start_attribution: Option<StartAttribution>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[specta(optional, type = super::RailVisibility)]
     pub visibility: Option<super::RailVisibility>,
@@ -72,6 +81,25 @@ pub struct SpawnParams {
     pub extras: Option<Extras>,
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
+pub struct CreateWorkstreamParams {
+    /// A5765e: only the target user connection may supply source attribution.
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "StartAttribution::deserialize_present"
+    )]
+    #[specta(optional, type = StartAttribution)]
+    #[schemars(skip)]
+    pub start_attribution: Option<StartAttribution>,
+    pub name: String,
+    pub parent: Option<String>,
+    /// O3: the Door's order.
+    #[serde(default)]
+    #[specta(optional, type = Order)]
+    pub order: Option<Order>,
+}
+
 /// LC7: names by kind. As a call's parameter, the extras to add; as the result of `agent.extras`,
 /// the names that exist.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
@@ -134,4 +162,23 @@ pub enum PermissionMode {
     AcceptEdits,
     Plan,
     Auto,
+}
+
+/// A5765e: descriptive source identity captured at creation; never a target-local Actor or authority.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct StartAttribution {
+    pub project: String,
+    pub agent: String,
+    pub project_name: String,
+    pub agent_name: String,
+}
+
+impl StartAttribution {
+    // Explicit null is input too: reject it rather than treating it as omission.
+    pub(super) fn deserialize_present<'de, D: serde::Deserializer<'de>>(
+        deserializer: D,
+    ) -> Result<Option<Self>, D::Error> {
+        Self::deserialize(deserializer).map(Some)
+    }
 }
