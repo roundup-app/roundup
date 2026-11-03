@@ -247,3 +247,37 @@ CI run `41568393992` on `f8495ca8decd9244e0cc8d88307d812e2e9cafba` failed the B4
 | `git diff --check`, `loop/rules.sh merge-loss` | 0 each | Exact rename; no whitespace or inherited merge-loss defect. |
 | `cargo nextest run -p rupd --lib -E 'test(r3696c_a_fresh_project_db_equals_the_migrated_one_with_its_own_identity) \| test(n5467)'` | 0 | Four existing observers pass: fresh schema/image equality, older-store refusal without changes, old Project data refusal with retained worktrees, and incomplete reaction-record refusal. |
 | `just ready` | 0 | Web lint and typecheck, workspace Clippy, repository guards, `ALL PROOFS CHECK` and N7 launch-sites pass. No local `just check` ran. |
+
+## Changes and resources continuation — builder-41575207304
+
+This documentation slice observes main `f87a3ddd158ec53a311d29265fa6414d6efa4434`, not an unrecorded promotion of the earlier product revision. The changes/resources report and source catalogue reconcile the relevant current declarations, menu projection and inspected implementation hashes. Other production delta and the complete audit remain pending. No product, scenario, Principle, contract, test or frozen-loop file changes; no deletion or owner choice.
+
+| Command / observer | Exit | Result |
+| --- | ---: | --- |
+| `pnpm install --frozen-lockfile` | 0 | Installed pinned dependencies in this run's own worktree. |
+| `python3 loop/orders.py check /tmp/u5741-scope-415752.md` | 0 | Validated exact documentary scope before editing #5758. |
+| `gh issue edit 5758 --body-file /tmp/u5741-scope-415752.md` | 0 | Added the permitted evidence files and reasons to the canonical work order. |
+| `just harness resources 5234` | running observer | Isolated fake-Daemon App from this recorded source, loopback only. |
+| `python3 /tmp/u5741-changes-observe.py` and `...-run.py` | 0 each | Fresh dedicated headless session/profile, actual tree opening and requested resource inspection. |
+| `python3 /tmp/u5741-changes-more.py` after locator repair | 0 | Diff, source-note fields, saved batch and edit openings retained. A final guessed button hit Old rather than Close; no close pass was inferred from it. Correct action used subsequently. |
+| `python3 /tmp/u5741-changes-recovery.py` | 0 | Existing native Project command opens the actual recoverable forms/notes and actions. |
+| `python3 /tmp/u5741-changes-failures.py` | 0 | Actionable failed Worktree read, stale resource samples, finished selection and absent measurements. Eleven distinct pages in rendered-changes.json. Nine pass all Checks; note form/edit retain existing D2/D10 failures on resolved automatic margin. |
+| `python3 /tmp/u5741-editor-probe.py`, `.../u5741-probes.py` | 0 each | Real tree selection plus Enter reaches the editor seam with the selected Worktree path and line 1; no native editor execution claimed. Catalogue retains exact menu projection and editorCalls. |
+| `gh --version`, `gh pr diff/checks/view/review --help` | 0 each | Vendor version and exact supported commands retained; no review posted. |
+| `loop/rules.sh vocab`, `loop/rules.sh scenario-ids`, `git diff --check` | 0 each | Documentary vocabulary, ids and whitespace pass. |
+
+| Failed command / observer | Exit / status | Failure / disposition |
+| --- | --- | --- |
+| Initial `ls -d .codegraph .claude/sound` | 2 | No graph index; sound rules exist. Normal source search used. |
+| `sed ... apps/desktop/src/changes/ChangedTree.ts` | 2 | Actual source is ChangedTree.tsx; read it before completing reconciliation. |
+| First `python3 /tmp/u5741-changes-more.py` | 1 | Exact semantic locator could not address the shadow tree row. Fresh snapshot ref selected the actual file, then View diff opened it. |
+| `python3 /tmp/u5741-changes-states.py` | 1 | Recover notes trigger was no longer open when `.note-recovery` was observed. No trigger pass claimed. Project command observer subsequently opened actual recovery. |
+| `python3 /tmp/u5741-changes-final-render.py` | 1 | Resource-value recapture completed, but guessed shadow path attribute wait timed out. No editor pass inferred; actual row ref plus Enter subsequently recorded the correct path/line. |
+| `rg ... apps/desktop/src/rail/Worktree*` | 2 | No module matches the guessed glob; chips live in RailRow.tsx, which was read and recorded. |
+| Primary Apple process-guide page retrieval | HTTP 429 | Full-page retrieval unavailable. Search excerpt does not prove Agent-tree or directory-size equivalence; Q1 stays unverified. |
+
+PNG files and paired readings remain under artifacts/ux/U5741 in this run's worktree, uncommitted. The final inventory and owner request remain pending, including every unverified row and conditional opening named in changes-resources.md. An existing Check failure is retained as evidence, never converted to a pass. No local `just check` ran.
+
+Observer correction before commit: the first CI fixture used `failure`, outside WorktreeCiState's `failed` variant. All eleven first-session readings and images were discarded. `python3 /tmp/u5741-changes-recapture-rest.py` (exit 0), in fresh session/profile `u5741-415752-r2`, replaces every retained page using the valid contract value; CI reads Failed and PR reads #42. The first recapture attempt (`.../u5741-changes-recapture.py`, exit 1) waited for a CI chip before the shared Worktree read refreshed. Opening the actual Worktree control refreshed the shared state, then the continuation captured it; no chip pass is based on the timed-out wait. This is an observer repair, not a product fix. All eleven final pages have a verified dark 1512×950 environment and no undefined label; nine pass every Check and the two note forms retain D2/D10 only.
+
+The standalone spelling command initially exited 2 because the pinned tool had not been installed in this new worktree. `python3 tools/lint/setup.py web` installed the checksum-verified tools (exit 0); the subsequent `python3 tools/lint/scan.py typos` passed (exit 0). No baseline or rule changed.

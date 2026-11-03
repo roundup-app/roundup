@@ -32,6 +32,8 @@ The audit must prevent missed conditional offers, unsupported claims of non-use/
 
 `rendered.json` holds accessibility snapshots and D-check readings from the existing isolated harness at 1512×950, dark, on the audited source. The continuation uses a fresh headless session/profile against the same audited source. It establishes the Inbox command opens Needs you, a loaded Pads list and editor, top-level context menus and additional dialogs; it does not establish native submenu rendering. Images remain uncommitted under `artifacts/ux/U5741/`. Eleven follow-up openings pass every recorded D check; Project rename retains a pre-existing D6/D10 observer failure tracked in [#5786](https://github.com/roundup-app/roundup/issues/5786). Fake-Daemon renders establish webview reachability only, never native behavior or a real Agent action.
 
+Current changes/resource continuation: main `f87a3ddd158ec53a311d29265fa6414d6efa4434`. [changes-resources.md](changes-resources.md) adds independent controls, current source/offer reconciliation, linked direction and eleven isolated openings; [rendered-changes.json](rendered-changes.json) retains failed as well as passing Checks. Earlier observations remain pinned to their own source, not silently promoted to this revision. The final inventory still needs one reconciled current revision.
+
 ## Decision status
 
 No owner choices have been requested or received. The single final request must include every verified candidate, in consecutive batches of at most ten, with keep / delete and dated accepted-direction reversals. The implementation Issue remains open.
