@@ -627,3 +627,5 @@ The follow-up media has its own shelf-followup directory to avoid replacing the 
 The integrated public mapping uses exact MCP spellings `pad_getDeletion` and `pad_redoDelete`: `crates/rup/src/mcp.rs::tool_name` preserves camelCase outside github methods. CLI verbs still use kebab-case in cli.rs. This corrects source-map spelling, without claiming fresh tools/list replies.
 
 The second concurrent advance only appended its completed validation/cleanup record (911bc66ef and 046f897f6); both paragraphs are retained. Its merge returned 1 for a validation-footer conflict, resolved by keeping both records. No product file or baseline source changed.
+
+`loop/rules.sh merge-loss` initially returned 1 because the two follow-up files first appeared through a merge commit. A normal own commit now records useful image SHA-256 values and the explicit driver-to-archive path mapping in those files; no evidence is discarded. Final merge-loss is checked again before push.
