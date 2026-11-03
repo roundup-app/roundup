@@ -1,0 +1,18 @@
+{
+  "baselineSha": "9eac3e6302cc3e6f35ad14b1c2b45737da3c8b15",
+  "headSha": "6a079cb36feeef1df447fca0af23b3402beb6d0c",
+  "observerSha": "6a079cb36feeef1df447fca0af23b3402beb6d0c",
+  "observerFiles": {
+    "apps/desktop/src/pads/u4698b_browser.test.ts": "1b00e26c0a6a7c697644fed9b500dce2bcc9043d9dc63f62ed8574a17f87fc2b",
+    "apps/desktop/src/pads/u5561a_browser.test.ts": "14727a3f935c6f33d7029d0ee2d4ee81d8309912918e7bfc3019df5e14834ccb",
+    "apps/desktop/src/testing/captures.ts": "1a3f7ec04f6c3d1eaa6231ea00fbd9ba22ff1f8244cb6815b6937b84147c8560"
+  },
+  "viewport": [
+    1512,
+    950
+  ],
+  "scheme": "dark",
+  "seed": "tree-40",
+  "baselineResult": "Plus cases pass. Both slash cases fail exact visible draft retention on Escape. Pad insertion and failure recovery pass.",
+  "headResult": "All 19 active capture tests pass, including four recorded U5631 cases."
+}
