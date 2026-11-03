@@ -672,3 +672,23 @@ No owner choices requested, deletion authorized or complete-inventory claim made
 | Required local check | Exit | Result |
 | --- | ---: | --- |
 | `just ready` | 0 | B4522 migration guard and its nine tests, all 193 lint-behavior fixtures, web/package type checks, repository/Rust lints, formal proof command/mutation checks (`ALL PROOFS CHECK`) and N7 pass. Documentation diff reaches no Rust crate, so clippy is correctly skipped by the existing affected-path check. No local `just check` or additional behavior suite. |
+
+## Pad disclosure correction — builder-41620937179
+
+The earlier Pad replay and integrity rows establish nine retained records, not nine successful openings. `agent-details-open` retains a closed For Agents disclosure (`aria-expanded="false"`); visible text and the accessibility snapshot equal `maximised-width`. The click returned 0, but the driver never asserted expansion. PF22/PF27/PF28 are now explicitly source-only and their expanded-body/editing-field observations unverified. An appended correction in `rendered-pads.json` references that record without altering its DOM, snapshot, commands or Check readings. No recapture or product behavior pass is claimed.
+
+| Failed observer | Exit / status | Disposition |
+| --- | --- | --- |
+| For Agents expansion in archived `python3 /tmp/pads-observer.py` replay | Command 0; intended opening unverified | Closed disclosure retained; layout Checks do not prove expansion. Recapture must assert the open details element, expanded summary and visible label input/body textarea before claiming PF22/PF27/PF28 rendered coverage. |
+
+| Fix verification | Exit | Result |
+| --- | ---: | --- |
+| `pnpm install --frozen-lockfile` | 0 | Pinned dependencies installed in the isolated fix worktree. |
+| Archived-record comparison against rejected head | 0 | All original records and commands unchanged; closed summary and identical visible text/snapshot confirmed; all three rows explicitly unverified. |
+| Merge `origin/main` | 0 | Integrated current main without conflicts; no resolution changes. |
+| `just ready` | 0 | Migration guard, lint fixtures, package type checks, repository/Rust lints, formal proofs (`ALL PROOFS CHECK`) and N7 pass. No changed behavior test or local `just check`. |
+| Vocabulary, scenario ids, merge-loss, whitespace | 0 each | All pass after integration; self-review found no duplicated concept or naming drift. |
+
+| Verification-note failure | Exit | Disposition |
+| --- | ---: | --- |
+| `python3 tools/lint/scan.py typos` (two attempts after final note) | 1 each | The abbreviated main commit hash was flagged as a spelling error. Removed the unnecessary abbreviation; the merge commit retains its exact parent. Repeated spelling scan passes. |
