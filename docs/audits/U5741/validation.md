@@ -858,7 +858,7 @@ Final `just ready` passes with exit 0, including all 193 lint-behavior fixtures,
 
 Audited main `ecf788ebdc146bb66cd26acebe020c1874950b39`. Documentation only; `pad-controls.md` adds fifteen independent operations and corrects PF22/PF27/PF28 observation coverage while preserving the older failed capture. No behavior/test/scenario/contract/frozen-loop change or owner choice. #5758 remains open; no partial candidate request or deletion. Older-Project reopening remains mandatory for any later selected persisted retirement.
 
-Observer: `pnpm install` (0), dedicated headless agent-browser session and fresh test profile, `just harness tree-40 5278`, dark 1512×950. Ten retained openings, exact snapshots/calls/disclosure states/image hashes in `rendered-pad-controls.json`; reproducible driver and 37 source archives in `catalogues/pad-controls-source.json`. Nine openings pass every Check; Link editor fails D2/D6/D8/D10, retained explicitly. Table handle submenu opening failed; source-only operations are not rendered successes. Full rejected-save diagnostic and retained text are visible in the densest seed. PNGs remain uncommitted under `artifacts/ux/U5741/pad-controls/`.
+Observer: `pnpm install` (0), dedicated headless agent-browser session and fresh test profile, `just harness tree-40 5278`, dark 1512×950. Ten retained openings, exact snapshots/calls/disclosure states/image hashes in `rendered-pad-controls.json`; reproducible driver and 37 source archives in `catalogues/pad-controls-source.json`. Nine openings pass every Check; Link editor fails D2/D6/D8/D10, retained explicitly. Table handle submenu opening failed; source-only operations are not rendered successes. Full rejected-save diagnostic and retained text are visible in the densest seed. images remain uncommitted under `artifacts/ux/U5741/pad-controls/`.
 
 | Failed command / observer | Exit / status | Failure and disposition |
 | --- | --- | --- |
@@ -871,3 +871,23 @@ Observer: `pnpm install` (0), dedicated headless agent-browser session and fresh
 | Intermediate manifest inspection | 1 | `KeyError: details` while reading the earlier manifest before corrected replay completed. Final manifest includes explicit disclosure fields. |
 
 No changed behavior test file exists; none was invented for documentary acceptance. No local `just check`. Required-check result and final integrity validation follow below.
+
+| Additional failed observer | Exit | Disposition |
+| --- | ---: | --- |
+| `just capture U5741` | 1 | Existing capture registry rejects unsupported U5741 during config load, before tests. Dedicated isolated replay supplies the documentary openings; registry/frozen loop untouched. |
+
+Integrity observer (0): all 37 source archives match their checksums and pinned repository/installed bytes; ten snapshots and images match stored hashes, all viewports/schemes agree, expanded For Agents has both native open and true ARIA state, and recorded Check results agree with the report. Eight inspected Pad production modules are unchanged against the earlier Pad audit. Vocabulary, scenario ids, merge-loss and whitespace checks pass (0). Self-review checked grouping, exact option spellings, historical versus current offers, provenance and failed-observer claims; no product behavior inferred from source-only table controls.
+
+| Observer shutdown | Exit | Disposition |
+| --- | ---: | --- |
+| This run’s `just harness tree-40 5278` shutdown | 143 | Deliberately terminated only this isolated harness after captures; dedicated browser closed successfully (0). |
+
+| Validation failures | Exit | Disposition |
+| --- | ---: | --- |
+| `python3 tools/lint/scan.py spelling` | 2 | Invalid section name; use the existing `typos` section. |
+| `python3 tools/lint/scan.py typos` | 1 | Uppercase plural image abbreviation in new validation prose is flagged. Reworded to images; exact historical archives remain unchanged. |
+| First `just ready` | 1 | Same spelling diagnostic; fixed prose and repeated the full required observer. |
+
+| Required-check size failure | Exit | Disposition |
+| --- | ---: | --- |
+| Second `just ready` and standalone file-size guard | 1 each | Manifest was 1,059,173 bytes, above the 1,000,000-byte Git blob cap. Losslessly archived repeated focused-element/table DOM JSON with hashes; round trips preserve every value. Committed smaller blob before repeating, since this guard reads HEAD. Other checks, proofs and N7 passed. |
