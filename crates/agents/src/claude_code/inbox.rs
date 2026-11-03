@@ -288,8 +288,10 @@ pub fn previous(path: &Path, session: &str, sender: &str) -> std::io::Result<Opt
         if reader.read_line(&mut line)? == 0 || !line.ends_with('\n') {
             break;
         }
-        let record: Record = serde_json::from_str(&line)
-            .map_err(|error| std::io::Error::new(std::io::ErrorKind::InvalidData, error))?;
+        // Native prompts and unrelated vendor records need not carry peer fields.
+        let Ok(record) = serde_json::from_str::<Record>(&line) else {
+            continue;
+        };
         if record.session.as_deref() != Some(session) {
             continue;
         }
