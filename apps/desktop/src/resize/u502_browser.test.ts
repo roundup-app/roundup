@@ -174,8 +174,8 @@ run("u502 resize edges use Ark Splitter", () => {
 
       await drag(edge, by, "release", async () => {
         // Live output redraws xterm during a drag; its render callback must obey the same fit guard as the host observer.
-        await page.call(`() => window.__fake.app.emitOutput("t-agent-4", "U502 live output\\r\\n")`);
-        await page.until(`() => window.__terminals.get("t-agent-4").serialize().data.includes("U502 live output")`);
+        await page.call(`() => window.__fake.app.emitOutput("t-agent-4", "U502 ${edge.label}\\r\\n")`);
+        await page.until(`() => window.__terminals.get("t-agent-4").serialize().data.includes("U502 ${edge.label}")`);
         await frames();
         expect(await resizes() - before).toBe(0);
       });
