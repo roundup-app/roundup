@@ -206,3 +206,7 @@ Fetched and merged main `b0562bd815f4f986b981b1c024e989328dd1489f` without confl
 | Command | Exit | Result |
 | --- | --- | --- |
 | `just ready` (second run) | 1 | Spelling scan found the same plural image abbreviation in settings-evidence.md. Replaced every new occurrence; web lint/typecheck and launch-sites passed. No baseline, spelling exception or product change. |
+
+Final reconciliation passed (exit 0): sixty unique configuration rows match the runtime catalogue; inspected files match their pinned hashes; the real model reply names only Claude Code; all ten nonempty retained pages pass every recorded Check and have paired PNG files; the actual Alerts snapshot contains fifteen switches and the actual recorder says Press a shortcut. No override image remains. Vocabulary, scenario ids, whitespace and post-merge merge-loss pass (exit 0). Standalone `just lint-rust origin/main` passes (exit 0), including `ALL PROOFS CHECK`; its first successful run installed the existing pinned Lean toolchain. No test file was changed or newly required by this documentation-only slice.
+
+`just ready` final rerun passes (exit 0) on the merged checkout: web lint, typecheck, Rust/repository lint, proofs and N7 launch-sites. The only subsequent change records this result. No local `just check` ran; CI judges the pushed head.
