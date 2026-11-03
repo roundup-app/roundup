@@ -6,7 +6,7 @@ import { byUrgency } from "../ink/glyph";
 
 export type { RailTopology } from "./topology";
 
-const IDLE_FOLD_MS = 5 * 60_000;
+const IDLE_FOLD_MS = 60_000;
 
 /** U403: what a folded Workstream shows at its right: the Kinds of the Agents below it, most urgent first, whose length is the Agent count. */
 export type Collapsed = { agents: readonly Kind[] };
@@ -22,7 +22,6 @@ export type RailView = {
   /** Workstreams whose idle branch the user opened. */
   unfolded: ReadonlySet<string | null>;
   now: number;
-  protected?: ReadonlySet<string>;
 };
 
 export const isWorkstream = (node: RailNode): boolean => node.kind === "workstream";
@@ -93,9 +92,6 @@ export const agentKindsBelow = (source: RailSource, id: string, dismissed: (node
 
 const isFoldedAgent = (node: RailNode, view: RailView): boolean =>
   node.kind === "agent" &&
-  !view.protected?.has(node.id) && node.work?.kind !== "clarification" &&
-  node.final_text?.kind === "empty" && node.final_text.attempt === node.attempt &&
-  node.final_text.finished === node.status?.finished &&
   (node.status?.kind === "done" || node.status?.kind === "idle" && view.now - node.status.since >= IDLE_FOLD_MS);
 
 /** Rows in tree order, with eligible Workstream children behind one reversible idle branch. */
