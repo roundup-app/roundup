@@ -44,6 +44,8 @@ const mount = async (nodes: RailNode[] = [door("a", "working", "building", { wor
   const clock = vi.fn(() => Date.now());
   const view = render(() => <App app={app} clock={clock} reducedMotion={() => true} prepareIdle={open => open.showView("resources")} createEmulator={createEmulator ?? fakeEmulators().factory} />);
   await settle();
+  // The resources view is a lazy chunk; a cold import needs real I/O turns, which fake timers do not give.
+  for (let i = 0; i < 400 && !document.querySelector(".resource-strip"); i++) { await new Promise(resolve => setImmediate(resolve)); await settle(); }
   expect(document.querySelector(".resource-strip")).not.toBeNull();
   const row = document.querySelector(`.rail-row[data-id="${nodes[0]?.id}"]`);
 
