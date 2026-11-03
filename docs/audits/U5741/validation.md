@@ -741,3 +741,42 @@ Only the successful final replay supplies rendered-todos.json. Earlier partial i
 | Vocabulary, scenario ids, merge-loss, whitespace | 0 each | Self-review found no duplicate row id, misplaced product change, naming drift or merge loss. All forty row ids are unique; ten retained records have only successful commands. |
 
 The complete evidence commit is on PR #5875. This slice leaves #5758 open and requests no owner choices. No product, scenario, contract, test or frozen-loop file changed; no local just check ran.
+
+## Todo capture and triage continuation — builder-41630122849
+
+Audited main `6629a9640a1c279b5e398a2c4f4e90a6bfcfff99`; independent worktree `/tmp/roundup-audit-416301`. Documentation only. The source checkout serving the harness has that identical SHA and no product edits. `todo-intake.md` adds TI01–TI31 without changing acceptance, behavior, contracts, tests or frozen loop files. Sources, direction Issues, exact observer and commands are archived in catalogues/todo-intake-source.json; actual snapshots/Checks/calls are in rendered-todo-intake.json. Missing comparisons and conditional openings remain explicit.
+
+| Command / observer | Exit | Result |
+| --- | --- | --- |
+| `python3 loop/orders.py check /tmp/5758-updated.md` then `gh issue edit 5758 --body-file /tmp/5758-updated.md` | 0 | Exact documentary slice scope recorded on canonical Issue before writing. |
+| `pnpm install --frozen-lockfile` | 0 | Installed locked dependencies in worktree. |
+| `agent-browser skills get core` | 0 | Read before browser work. Fresh isolated headless session/profile, no personal browser or native fallback. |
+| `agent-browser doctor --offline --quick --json` | 0 | Browser/session environment passed; no repair or external browser attachment. |
+| Five `gh issue view … --json …` and installed `gh issue create --help`, `gh --version` | 0 | Direction #2898/#3191/#3193/#3194/#3195 and versioned vendor comparison retained. Primary create/edit manuals inspected. |
+
+| Failed command / observer | Exit | Failure and disposition |
+| --- | --- | --- |
+| Initial `pwd … && test -d .codegraph` | 1 | No .codegraph directory; used source search, did not create an index. |
+| Guessed `head scenarios/ui-todo-capture.md` / `sed scenarios/ui-todo-workstream.md` and `rg` guessed native/tauri paths | 2 | Paths absent; found actual ui-capture.md, workstream-queue.md and crates/native/src/capture.rs and archived them. |
+| `ls … node_modules/.bin/vite` probe | 2 | Root/worktree bin links absent while installation was running; existing desktop source-checkout Vite available. |
+| First `just harness tree-40 5281` in worktree | 254 | Vite not installed yet; no captures accepted. After installation, observations use same-SHA source checkout's existing harness. |
+| Initial isolated `agent-browser … open` | 1 | Navigation timed out during Vite dependency preparation. Chained viewport/media commands succeeded but empty snapshot is not a pass. Same isolated profile reopened after server ready. |
+| First `/tmp/intake-observer.py` | 1 | Color-scheme assertion saw `light dark`, not explicit dark; saved actual App dark preference after navigation and replayed. No opening accepted from this failure. |
+| Second `/tmp/intake-observer.py` | 1 | Generic Error correctly classified as completion unknown: exact text survived in recovered revision, not active field. Replaced fixture with actual RpcError(-32602) to observe the named explicit-refusal branch. No preservation failure inferred; original assumption rejected. |
+| `just capture U5741` | 1 | Unsupported capture id rejected at Vitest config startup; no test suite ran. Dedicated archived agent-browser observer supplies documentary openings; no registry or frozen-loop edits. |
+
+U5741 policy prohibits report-wording tests. No behavior test file changed, no local `just check`, and no claim of real Daemon/storage/native launch from these fixture renders. Final observer, lint and integrity results follow.
+
+Additional observer failures: third driver exited 1 waiting for New Workstream after pointer menu selection: menu dismissed, dialog absent. A separate ordinary row O → End → Enter opened it; final archived replay uses that keyboard route. Pointer opening remains an unresolved branch, not a successful observation. `loop/rules.sh spelling` exited 2 because that subcommand does not exist; actual observer is `python3 tools/lint/scan.py typos`. Its first invocation exited 2 before setup (missing pinned tool); `python3 tools/lint/setup.py web` then passed and the actual spelling scan passed (0), retaining baseline debt. A probe for the still-running ready exit file returned 2; it was not a gate result.
+
+Fourth driver exited 1 on `find role radio click --name 'Start now'`: the accessibility snapshot exposes the radio under its clickable label, while this pointer locator found no target. Final driver clicks the actual Ark label and waits for its checked state. It clears only its test profile's localStorage before replay; actual App preference then sets explicit dark. No synthetic event or library workaround enters product code.
+
+Fifth driver exited 1 on a malformed JavaScript checked-state wait (nested selector quotes), after successfully clicking Start now. Corrected the observer expression; continued from the accepted fresh-profile records with an archived continuation. That continuation exited 1 on the long start-refusal wait after the actionable-failure observer had already begun dismissing the dialog: those observer actions overlapped. The interrupted start-refusal opening is rejected, not a product failure or capture. Actionable observers are completed sequentially below. These are observer repairs only; no product patch or approval inference.
+
+The sequential start-refusal pointer attempt also exited 1: Create dismissed the dialog without a recorded start call. Keyboard row O → End → Enter, explicit name-field focus and Enter produced `todo.startWorkstream {id:5,name:"todo 5",start:{kind:"queued"}}` and the short refusal with name retained. The interrupted pointer attempts establish no successful pointer action. Their cause remains unresolved here. The final screenshot-only script waits on that actual visible dialog state; exact manual key sequence and script are archived separately.
+
+Final evidence integrity passed (0): 41 lossless source archives match audited checkout bytes and hashes; all 17 accepted accessibility snapshots and PNG hashes verify; every opening is dark 1512×950 and every recorded Check passes, including D2/D5/D6. New Workstream's now/after choices wait on actual checked labels, and its explicit refusal is observed after keyboard submission with original name retained. capture-actionable, inline-actionable and new-workstream-actionable show the complete short cause and next step; longer diagnostics remain visibly truncated and are not claimed fully visible. Images remain uncommitted and are copied to the workflow checkout under artifacts/ux/U5741/todo-intake/. No real storage, native panel, OS shortcut or Door start claimed.
+
+The initial standalone spelling scan passed before later source metadata was added; final scans and repairs are recorded below. Vocabulary, scenario ids, merge-loss and whitespace checks passed (0). Main remains the same audited SHA after fetch; no merge or conflict resolution. Self-review checked independent decisions against entry points, naming/placement, duplicate overlap with existing reports, archived sources and actual snapshots; pointer and conditional gaps remain explicit. The full owner request still waits for all remaining inventory and final current-revision reconciliation.
+
+First complete `just ready` exited 1: its required Rust lint includes the repository scanner, which flagged spelling in verbatim owner Issue quotes added to the source catalogue. All 193 lint-behavior checks, web/style/type/dependency checks, B4522, formal proofs (`ALL PROOFS CHECK`) and N7 passed; only the repository spelling scan failed. Final standalone spelling also exited 1 for the same verbatim quotes. Preserved the exact Issue bodies/comments in lossless compressed archives, matching the existing source archive format, rather than altering the owner's evidence or adding lint exceptions. The repaired standalone spelling scan passed (0). A second full `just ready` is the final aggregate observer.
