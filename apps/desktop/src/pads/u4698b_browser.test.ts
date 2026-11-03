@@ -1,17 +1,11 @@
 import { execFileSync } from "node:child_process";
 import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { captureDir } from "../testing/captures";
 import { shelfBrowser } from "../shelf/u371Browser";
 
-const { rig, browser, evaluate, settle, openShelf } = shelfBrowser();
-
-// The App lazy-loads Crepe. Compile its real fixture before the interaction budget starts.
-beforeAll(async () => {
-  await browser("open", `${rig.server.resolvedUrls.local[0]}src/pads/u5561a.html`);
-  await browser("wait", "--fn", "document.querySelector('#root')?.dataset.ready === 'true'");
-}, 90_000);
+const { browser, evaluate, settle, openShelf } = shelfBrowser();
 
 const phase = process.env.ROUNDUP_CAPTURE_PHASE ?? "head";
 
@@ -91,7 +85,7 @@ it.skipIf(typographyOutputs.length > 0 || Boolean(captureDir("U5705"))).each([[1
   await browser("wait", "[data-shelf-group=unassigned]");
   await evaluate(`(() => { const group = document.querySelector('[data-shelf-group=unassigned] [data-part=branch-control]'); if (group?.getAttribute('data-state') === 'closed') group.click(); return true; })()`);
   await browser("wait", ".pad-name");
-  await evaluate(`(() => { [...document.querySelectorAll('.pad-name')].find(row => row.textContent === ${JSON.stringify(name)}).focus(); return true; })()`);
+  await evaluate(`(() => { document.querySelector(${JSON.stringify('.pads-tab [data-pad=' + JSON.stringify(name) + '] .pad-name')}).focus(); return true; })()`);
   await browser("press", "Enter");
   await browser("wait", ".drawer .ProseMirror");
   await settle();
@@ -252,7 +246,7 @@ it.skipIf(typographyOutputs.length === 0).each([{ name: "owner", text: ownerSamp
   await browser("wait", "[data-shelf-group=unassigned]");
   await evaluate(`(() => { const group = document.querySelector('[data-shelf-group=unassigned] [data-part=branch-control]'); if (group?.getAttribute('data-state') === 'closed') group.click(); return true; })()`);
   await browser("wait", ".pad-name");
-  await evaluate(`(() => { [...document.querySelectorAll('.pad-name')].find(row => row.textContent === ${JSON.stringify(fixture.name)}).focus(); return true; })()`);
+  await evaluate(`(() => { document.querySelector(${JSON.stringify('.pads-tab [data-pad=' + JSON.stringify(fixture.name) + '] .pad-name')}).focus(); return true; })()`);
   await browser("press", "Enter");
   await browser("wait", ".drawer .ProseMirror");
   await settle();
@@ -341,7 +335,7 @@ it.skipIf(typographyOutputs.length === 0)("u5574b_empty_document_remains_editabl
   await browser("wait", "[data-shelf-group=unassigned]");
   await evaluate(`(() => { const group = document.querySelector('[data-shelf-group=unassigned] [data-part=branch-control]'); if (group?.getAttribute('data-state') === 'closed') group.click(); return true; })()`);
   await browser("wait", ".pad-name");
-  await evaluate(`(() => { [...document.querySelectorAll('.pad-name')].find(row => row.textContent === 'rhythm-probe').focus(); return true; })()`);
+  await evaluate(`(() => { document.querySelector('.pads-tab [data-pad="rhythm-probe"] .pad-name').focus(); return true; })()`);
   await browser("press", "Enter");
   await browser("wait", ".drawer .ProseMirror h1");
 
@@ -431,7 +425,7 @@ it.skipIf(typographyOutputs.length === 0)("u5574b_empty_document_remains_editabl
   await settle();
   await evaluate(`(async () => { await window.__fake.app.rpc('pad.create', {name:'empty-rhythm',text:''}); return true; })()`);
   await browser("wait", "--fn", "[...document.querySelectorAll('.pad-name')].some(row => row.textContent === 'empty-rhythm')");
-  await evaluate("[...document.querySelectorAll('.pad-name')].find(row => row.textContent === 'empty-rhythm').focus(); true");
+  await evaluate("document.querySelector('.pads-tab [data-pad=\"empty-rhythm\"] .pad-name').focus(); true");
   await browser("press", "Enter");
   await browser("wait", "--fn", "Boolean(document.querySelector('.ProseMirror p'))");
   await save("empty-document");
@@ -522,7 +516,7 @@ it.skipIf(!todoWidthOutput)("u5705_observe_nonempty_todo_and_pad_reading_columns
   await browser("wait", '[data-shelf-group="unassigned"]');
   await evaluate(`(() => { const group = document.querySelector('[data-shelf-group="unassigned"] [data-part="branch-control"]'); if (group?.getAttribute('data-state') === 'closed') group.click(); return true; })()`);
   await browser("wait", ".pad-name");
-  await evaluate("[...document.querySelectorAll('.pad-name')].find(row => row.textContent === 'Reading review').focus(); true");
+  await evaluate("document.querySelector('.pads-tab [data-pad=\"Reading review\"] .pad-name').focus(); true");
   await browser("press", "Enter");
   await browser("wait", ".drawer .ProseMirror");
   await settle();
