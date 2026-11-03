@@ -1,4 +1,4 @@
-import { cleanup, waitFor } from "@solidjs/testing-library";
+import { cleanup, waitFor, screen } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { openPad, openShelf, padOf } from "./padsFixture";
 import { USER } from "./owner";
@@ -21,7 +21,13 @@ describe("u431 the Drawer's head", () => {
     });
 
     // The one-row layout itself is measured in the real-browser harness: the observe.sh of U431.
-    expect(buttons.filter((button) => !button.title)).toEqual([]);
+    for (const button of buttons.filter(button => !button.title)) {
+      button.focus();
+      const tooltip = await screen.findByRole("tooltip", { name: button.getAttribute("aria-label")! });
+      expect(tooltip.textContent).toBe(button.getAttribute("aria-label"));
+      button.blur();
+      await waitFor(() => expect(screen.queryByRole("tooltip")).toBeNull());
+    }
     // Titles may also teach the registered chord; U431 requires an action title, not exact label equality.
   });
 });

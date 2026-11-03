@@ -227,6 +227,9 @@ export const App = (props: {
 
     if (event.button !== 0 || event.ctrlKey) return;
 
+    // Crepe owns its selection while a formatting control runs.
+    if (event.target instanceof Element && event.target.closest(".pad-rich-editor")) return;
+
     window.getSelection()?.removeAllRanges();
     const editing = document.activeElement;
 
