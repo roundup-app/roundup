@@ -102,6 +102,18 @@ then failed because its lint dependency was cancelled. This run supplies no
 lint result or new performance observation. Preserve the required gates and
 retry CI on the updated evidence head.
 
+On head `0ad8ed50b1e40e94e16e1449bdc0ac438f1888f2`,
+[lint job 126055465918](https://github.com/roundup-app/roundup/actions/runs/41675662819/job/126055465918)
+hit its 15-minute job limit (check annotation: `The job has exceeded the
+maximum execution time of 15m0s`). The main-branch fetch ran from
+2026-11-03T16:35:05Z to 16:44:57Z (592 seconds); setup finished at
+16:46:38Z. Unlike the earlier attempt, lint execution started, but was
+cancelled at 16:50:17Z. The log reports no lint failure before cancellation;
+it supplies no completed lint pass. `pre` failed on the cancelled dependency.
+The same main-branch fetch completed locally in under one second during
+investigation; no persistent fetch failure was reproduced. Retry on the
+updated evidence head, retaining the job limit and every required gate.
+
 ## Repair prerequisite
 
 [#5911](https://github.com/roundup-app/roundup/issues/5911) blocks #5666 and scopes
@@ -120,3 +132,8 @@ retain this failed performance observation and all intervening failures.
 
 The raw durations identify repair candidates, not a measured improvement.
 No local observer duration is CI5527b evidence.
+
+Repair [#5912](https://github.com/roundup-app/roundup/pull/5912) subsequently
+merged as `0cfb3fdee8b0c3bbcb72497246992c49578b7d4b`, closing #5911.
+The full main checks for that merge and the next main head were still running
+when this evidence was updated; no replacement performance result is claimed.
