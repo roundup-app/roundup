@@ -1,3 +1,4 @@
+import { agentBrowserExecutable } from "../testing/chromePage";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
@@ -24,7 +25,7 @@ it("u2572b_a_real_action_choice_reports_creation_failure_without_writing_to_a_Te
     for (const theme of spacingCaptures || userActionCaptures ? ["dark"] : captures ? ["light", "dark", "contrast"] : ["light"]) {
       const session = `u2572-${process.pid}-${theme}`;
       const profile = mkdtempSync(join(tmpdir(), "u2572-"));
-      const browser = async (...args: string[]) => (await exec("agent-browser", ["--session", session, "--json", ...args], { maxBuffer: 8 * 1024 * 1024, timeout: 25_000 })).stdout;
+      const browser = async (...args: string[]) => (await exec(agentBrowserExecutable, ["--session", session, "--json", ...args], { maxBuffer: 8 * 1024 * 1024, timeout: 25_000 })).stdout;
 
       const read = async <T,>(expression: string): Promise<T> => {
         // SAFETY: agent-browser wraps the result of the constant expressions below in this envelope.

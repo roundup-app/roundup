@@ -1,3 +1,4 @@
+import { agentBrowserExecutable } from "../testing/chromePage";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
@@ -16,7 +17,7 @@ it.skipIf(!captureDir("U3295b"))("u3295b_rendered_modal_dismissal_and_dialog_pic
   const revision = process.env.ROUNDUP_CAPTURE_REVISION ?? (await exec("git", ["rev-parse", "HEAD"])).stdout.trim();
   const profile = mkdtempSync(join(tmpdir(), "u3295-"));
   const session = `u3295-${process.pid}`;
-  const browser = async (...args: string[]) => (await exec("agent-browser", ["--session", session, "--json", ...args], { timeout: 30_000, maxBuffer: 8 * 1024 * 1024 })).stdout;
+  const browser = async (...args: string[]) => (await exec(agentBrowserExecutable, ["--session", session, "--json", ...args], { timeout: 30_000, maxBuffer: 8 * 1024 * 1024 })).stdout;
 
   const read = async <T,>(expression: string): Promise<T> => {
     // SAFETY: agent-browser returns this documented envelope for our constant expressions.
