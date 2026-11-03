@@ -67,12 +67,6 @@
   },
   {
     "telltale": "system-time",
-    "file": "crates/rup/tests/e2e/reaction.rs",
-    "symbol": "utc_in",
-    "reason": "Real-Daemon reaction test constructs a future UTC instant relative to the running process clock."
-  },
-  {
-    "telltale": "system-time",
     "file": "crates/rup/tests/evidence_support/mod.rs",
     "symbol": "receipt",
     "reason": "Real receipt-server fixture supplies a fresh observed_at for the Daemon freshness check."

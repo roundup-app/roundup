@@ -123,7 +123,6 @@ still belongs exclusively to the older CI SHA. No row is a cut disposition.
 | `header/u184_close.test.tsx` | 11 | same source |
 | `orders/q2_surfaces.test.tsx` | 10 | same source |
 | `pads/u3732_real_daemon_agent_owner.test.tsx` | 27 | same source |
-| `reactions/nr9_rendered.test.ts` | 37 | same source |
 | `shelf/u460_real_daemon.test.tsx` | 15 | same source |
 | `terminal/u3016_browser.test.ts` | 27 | same source |
 | `terminal/u59_real_daemon.test.ts` | 61 | same source |

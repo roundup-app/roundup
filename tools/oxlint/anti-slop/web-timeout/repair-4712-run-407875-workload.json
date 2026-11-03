@@ -29,7 +29,6 @@
     "src/pads/u3732_drag_browser.test.ts",
     "src/pads/u3732_real_daemon_agent_owner.test.tsx",
     "src/rail/menu/u2694_menu.test.tsx",
-    "src/reactions/nr9_rendered.test.ts",
     "src/settings/u3799_app_settings.test.tsx",
     "src/settings/u3799_rendered.test.ts",
     "src/shelf/u371_reserved_checks_light.test.ts",

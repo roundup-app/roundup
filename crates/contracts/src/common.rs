@@ -165,6 +165,12 @@ pub enum RpcErrorData {
     },
     /// `link.read` names an object of another Project; the Daemon of the link's Project answers it.
     OtherProject,
+    /// A failed cross-Project launch retained its row and Worktree; inspect it before retrying.
+    StartFailed {
+        path: String,
+        id: String,
+        cause: String,
+    },
     UndoParent {
         id: String,
         name: String,

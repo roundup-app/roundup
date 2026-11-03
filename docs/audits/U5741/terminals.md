@@ -2,7 +2,7 @@
 
 Audit pin: main `20576d304c07acb4010a54c8ced66f1e86c255e8`. Continue the reviewed inventory; this is neither the complete inventory nor an owner request. No deletion is authorized. Source hashes and inspected boundaries are in [terminal-source.json](catalogues/terminal-source.json); isolated openings and Checks are in [rendered-terminals.json](rendered-terminals.json).
 
-Real Agent Terminals, direct access, native question continuation and Ask are protected by U5741. A shell panel, Find or a formatting preference must not be confused with that protected access. Reactions and Overview remain excluded. No usage measurement is assumed.
+Real Agent Terminals, direct access, native question continuation and Ask are protected by U5741. A shell panel, Find or a formatting preference must not be confused with that protected access. Overview remain excluded. No usage measurement is assumed.
 
 ## Criteria and observer
 

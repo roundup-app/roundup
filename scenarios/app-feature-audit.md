@@ -35,7 +35,7 @@ Policy: for each in-scope row answer all three questions. Any yes makes it a can
 
 Policy: record yes/no and evidence for all three, including non-candidates. An unresolved claim is marked unverified and investigated, never silently counted as no. Resolve engineering gaps before presenting the complete candidate list. An unreachable implementation is recorded separately from an offered feature; do not invent an owner usage claim for it.
 
-Policy: Reactions (#5740) and the Overview list (#5730) are excluded from candidate decisions and deletion work here; list them only as exclusions with their owning Issues. Real Agent Terminals and the Ask are always retained and never candidates, including their direct access and native request continuation. This protection does not exempt independently removable inspection/settings beside them from the inventory. Do not move excluded work into a different row to retire it indirectly.
+Policy: The Overview list (#5730) is excluded from candidate decisions and deletion work here; list it only as an exclusion with its owning Issue. Real Agent Terminals and the Ask are always retained and never candidates, including their direct access and native request continuation. This protection does not exempt independently removable inspection/settings beside them from the inventory. Do not move excluded work into a different row to retire it indirectly.
 
 ## One owner decision request
 

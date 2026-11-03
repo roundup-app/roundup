@@ -102,7 +102,6 @@ Source: green `check` run [39378452452](https://github.com/saadshahd/roundup/act
 3. `crates/messages/src/lib.rs`, `tests::b1_concurrent_sends_at_the_bound_never_both_succeed`: the current B1 race observer is one of the audit subjects, not evidence that all observers require processes.
 4. `crates/agents/src/worktrunk/tests.rs`, `u2556b_timeout_ends_a_stalled_collector`: the current collector timeout observer is one of the audit subjects; retention must identify the collector behavior that needs a real process or clock.
 
-
 # Web test cost
 
 Module: web tests in `apps/desktop/src` and their lint configuration under `tools/oxlint/` and `.oxlintrc.json`. Source: #3779. These scenarios specify T1's web timeout limit, T3's assertion limit and T4's web cuts. Implementation follows this specification in a dependent Issue; this specification delivers no lint or cut.
@@ -243,7 +242,7 @@ The authorized implementation remains inside this file set (policy):
 | `crates/rup/tests/deliverables.rs` | Preserve all behavioral assertions; adapt direct physical BLOB allocation/corruption/deletion probes to the selected retained location and add the missing crash/recovery cases. Apply rule 10 to this file and name every cut's surviving proof. The 32-publication observer's sequence, payloads and limits remain unchanged. |
 | `scenarios/deliverables.md`, `scenarios/test-cost.md`, `docs/adr/0004-sqlite-wal-and-md-pads.md` | Record authorized physical representation and its observers; no identity, durability, quota, atomicity or concurrency weakening. |
 
-Audit, but do not reconfigure, callers in `crates/rupd/src/{open,event_log,reaction}.rs`, `crates/agents/src/rail.rs` and `rail/owner_reads.rs`, `crates/pads/src/store.rs`, `crates/todos/src/store.rs`, `crates/messages/src/{store,digest}.rs`, `crates/checkpoints/src/lib.rs` and `crates/provenance/src/lib.rs`. `storage::open` still migrates before `Publications::open`; all stores share `project.db`. The Event log's WAL/NORMAL policy remains unchanged, and publication commits retain FULL or stronger synchronization. Standalone stores retain WAL and their existing leases. No new connection owner, timer, queue, dependency or frozen loop change is authorized. A necessary file outside this set needs separate ownership authorization, never a silent expansion (policy).
+Audit, but do not reconfigure, callers in `crates/rupd/src/{open,event_log}.rs`, `crates/agents/src/rail.rs` and `rail/owner_reads.rs`, `crates/pads/src/store.rs`, `crates/todos/src/store.rs`, `crates/messages/src/{store,digest}.rs`, `crates/checkpoints/src/lib.rs` and `crates/provenance/src/lib.rs`. `storage::open` still migrates before `Publications::open`; all stores share `project.db`. The Event log's WAL/NORMAL policy remains unchanged, and publication commits retain FULL or stronger synchronization. Standalone stores retain WAL and their existing leases. No new connection owner, timer, queue, dependency or frozen loop change is authorized. A necessary file outside this set needs separate ownership authorization, never a silent expansion (policy).
 
 Installed capabilities checked first: bundled `rusqlite` 0.40.2 transactions/pragmas, SQLite WAL and ATTACH, existing `cap-std` 4 source-path confinement, `rustix` 1 filesystem calls and Rust file synchronization. Native SQLite journaling cannot eliminate both payload copies while preserving the pinned reader. The selected design reuses installed directory/file facilities; it requires coordination between a durable file and the existing transaction, not another store's transaction protocol. Before implementing any new machinery, perform rule 9's two-library audit and document specific uncovered capabilities and current maintenance evidence; this specification approves no custom persistence helper or new library in advance (policy).
 
@@ -342,7 +341,6 @@ Checks (on specification base `f1f59fb1d`; none retired):
 3. `crates/rup/tests/deliverables.rs`, `r3778c_removed_file_cleanup` and `dv4_removal_replay`: recoverable file cleanup, surviving publication bytes and removal replay refusal.
 4. `scenarios/deliverables.md`, DV2 and DV4; `scenarios/test-cost.md`, R3778c: unchanged quota, mixed allocation charging and publication-specific cleanup contract.
 
-
 # Retired Message receiver lookup
 
 Source: #5460. Acceptance is policy, checked by grep, independent review and the implementation head's checks; add no test that rereads code or inventories tests.
@@ -376,7 +374,7 @@ Checks (on main when specified):
 5. `justfile`, `check`; `AGENTS.md`, Rules, rule 10: implementation checks and each removed test's proof/retirement mapping.
 ## Quota tests without GiB fixtures
 
-Scope: R4160a/R4160b fixtures in `crates/rup/tests/deliverables.rs`, their existing test support, and the production quota seam needed to exercise the same enforcement with fewer bytes. Shared-failure repairs may reach the existing R3778c/NR3 test support when the evidence identifies it as the cause; preserve those scenarios and assertions. No loop machinery, product contract or storage-format change (policy).
+Scope: R4160a/R4160b fixtures in `crates/rup/tests/deliverables.rs`, their existing test support, and the production quota seam needed to exercise the same enforcement with fewer bytes. Shared-failure repairs may reach the existing R3778c test support when the evidence identifies it as the cause; preserve those scenarios and assertions. No loop machinery, product contract or storage-format change (policy).
 
 **R5457a small fixtures preserve quota proofs.** Given R4160a and R4160b, when their fixtures use a smaller quota Q, then all their existing then-clauses still hold through the real Daemon/public publication calls: exact equality accepts, one byte beyond refuses without mutation, mixed BLOB/file charges equal actual retained lengths, identities and exact bytes survive restart, and each removal releases only its chosen allocation once before B replacement bytes restore Q. Observers remain `r4160a_mixed_quota_boundary` and `r4160b_cleanup_releases_only_chosen_bytes` in `crates/rup/tests/deliverables.rs`; the latter retains both removal representations, unequal chosen lengths and survivors in both formats.
 
@@ -384,7 +382,7 @@ Policy: the fixture quota applies only to the selected test Project, survives it
 
 **R5457b fast tests and an evidenced shared-failure repair.** Given the implementation head, when its required `check` Rust lanes run, then each R4160 observer passes in strictly less than 5 seconds on its first attempt. Policy observer: the implementation PR records that head SHA, successful run URL, lane and nextest duration for each observer; local timing or a specification-only check run does not satisfy this acceptance. Retries, longer timeouts, ignored tests and weaker assertions are forbidden.
 
-Policy: before claiming the four-test failure cluster repaired, inspect failed runs from the work order's 24-hour window ending 2026-11-01 17:37 UTC. Record the run URLs/heads, full test names for the R4160a, R4160b, R3778c and NR3 failures, and the failure output or resource observations identifying their shared cause. The implementation PR names that cause, the change removing it and the evidence connecting them; simultaneous failure alone does not establish disk exhaustion. Its successful head's required Rust lanes must include passing observations of those identified tests, preserving their assertions. Missing cause evidence is incomplete acceptance; investigate on the Issue rather than weakening the requirement. Progress and engineering questions belong on the work Issue, never in scenario Work tables.
+Policy: before claiming the surviving failure cluster repaired, inspect failed runs from the work order's 24-hour window ending 2026-11-01 17:37 UTC. Record the run URLs/heads, full test names for the R4160a, R4160b and R3778c failures, and the failure output or resource observations identifying their shared cause. The implementation PR names that cause, the change removing it and the evidence connecting them; simultaneous failure alone does not establish disk exhaustion. Its successful head's required Rust lanes must include passing observations of those identified tests, preserving their assertions. Missing cause evidence is incomplete acceptance; investigate on the Issue rather than weakening the requirement. Progress and engineering questions belong on the work Issue, never in scenario Work tables.
 
 P12 Gate: can smaller fixtures hide lost/substituted publications or ineffective removal? Observer: R4160a/R4160b's unchanged exact-byte, identity, listing, restart and cleanup assertions, plus the unchanged production-boundary observer (policy).
 
@@ -394,5 +392,5 @@ Checks (on main at specification time; none retired):
 2. `crates/rup/tests/deliverables.rs`, `r4160a_mixed_quota_boundary` and `r4160b_cleanup_releases_only_chosen_bytes`: existing real-Daemon boundary, restart and cleanup observers.
 3. `crates/rup/tests/deliverables.rs`, `dv2_publish_failures`: production-size boundary acceptance and retained bytes after reopen.
 4. `crates/rupd/src/deliverables.rs`, `bounded`: combined BLOB/file accounting and production limit enforcement.
-5. `scenarios/test-cost.md`, R3778c, and `scenarios/named-reactions.md`, NR3: publication recovery and durable reaction acceptance remain required.
+5. `scenarios/test-cost.md`, R3778c: publication recovery remains required.
 6. `AGENTS.md`, Rules, rule 10: quota tests exceeding five seconds have no process/clock exemption.
