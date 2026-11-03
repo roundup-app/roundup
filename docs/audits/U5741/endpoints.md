@@ -211,3 +211,8 @@ These commands bypass the shared method-to-command catalogue. Their production o
 ## GitHub operation continuation
 
 [github-tools.md](github-tools.md) adds GH01–GH05 for each GitHub operation's three criteria, exact CLI/Door MCP mappings, authority differences and the 2026-10-30 owner-direction reversal. [catalogues/github-source.json](catalogues/github-source.json) retains fresh current descriptions/role lists/help, two successful live reads, versioned vendor help, source hashes and replay. Other per-method decisions and existing conditional App gaps remain; this does not complete the inventory or send a partial owner request.
+
+
+## Provenance query continuation
+
+[provenance.md](provenance.md) assesses PV01/PV02, the exact item-history and Actor-history CLI/MCP queries, on main `7ae759f2bc7f8e8e58a02a11f88488480364db41`. [catalogues/provenance-source.json](catalogues/provenance-source.json) retains current actual offers, isolated live queries, 28 pinned sources, vendor comparisons, direction and replay. Both queries are candidates on the journey criterion, not permission to erase Touches or shared unread/attribution state. Dependent App attribution choices, other public methods, conditional App evidence and final whole-App revision reconciliation remain unfinished; no partial owner request or deletion. [validation-provenance.md](validation-provenance.md) records commands and limits.
