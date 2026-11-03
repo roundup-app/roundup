@@ -85,9 +85,9 @@ impl Daemon {
         )
     }
 
-    /// Every saved Event number, from a run of `rup events --after 0`.
+    /// Every kept Event number, from a run of `rup events --kept`.
     async fn seqs(&self) -> Vec<u64> {
-        let (code, out, _) = self.run(&["events", "--after", "0"]).await;
+        let (code, out, _) = self.run(&["events", "--kept"]).await;
         assert_eq!(code, 0);
         numbers(&out)
     }
@@ -235,9 +235,7 @@ async fn i9_an_after_older_than_the_window_exits_1_with_the_daemons_error() {
         .parse()
         .unwrap();
     assert!(oldest > 1000, "the log was pruned to its window");
-    let (_, out, _) = daemon
-        .run(&["events", "--after", &(oldest - 1).to_string()])
-        .await;
+    let (_, out, _) = daemon.run(&["events", "--kept"]).await;
     let head = *numbers(&out).last().unwrap();
 
     let (code, out, err) = daemon
@@ -341,4 +339,13 @@ async fn i9_each_line_is_flushed_and_terminal_output_is_absent() {
         .unwrap()
         .unwrap();
     assert_eq!(status.code(), Some(0));
+}
+
+#[tokio::test]
+async fn d11_kept_with_after_exits_1() {
+    let dir = project();
+    let daemon = Daemon::start(dir.path());
+    let (code, out, err) = daemon.run(&["events", "--kept", "--after", "0"]).await;
+    assert_eq!((code, out.as_str()), (1, ""));
+    assert!(err.contains("INVALID_PARAMS"), "{err}");
 }

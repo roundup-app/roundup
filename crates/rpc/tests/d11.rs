@@ -60,7 +60,12 @@ async fn take(sub: &mut Subscription, count: usize) -> Vec<u64> {
 async fn d11_replay_then_live_has_no_gap_and_no_repeat() {
     let bus = bus();
     emit(&bus, 20);
-    let mut sub = bus.subscribe_after(Some(12)).unwrap();
+    let mut sub = bus
+        .subscribe_after(contracts::SubscribeParams {
+            after: Some(12),
+            kept: false,
+        })
+        .unwrap();
     // Saved while the replay is parked: it is in the ring and must not be sent twice.
     emit(&bus, 3);
     let first = take(&mut sub, 11).await;
@@ -73,7 +78,7 @@ async fn d11_replay_then_live_has_no_gap_and_no_repeat() {
 async fn d11_subscribe_without_after_streams_only_new_events() {
     let bus = bus();
     emit(&bus, 5);
-    let mut sub = bus.subscribe_after(None).unwrap();
+    let mut sub = bus.subscribe_after(Default::default()).unwrap();
     emit(&bus, 2);
     assert_eq!(take(&mut sub, 2).await, [6, 7]);
 }
@@ -81,10 +86,24 @@ async fn d11_subscribe_without_after_streams_only_new_events() {
 #[tokio::test]
 async fn d11_a_slow_subscriber_catches_up_from_the_log() {
     let bus = bus();
-    let mut sub = bus.subscribe_after(None).unwrap();
+    let mut sub = bus.subscribe_after(Default::default()).unwrap();
     // More than the 1024-Event ring holds, none read.
     emit(&bus, 3000);
     assert_eq!(take(&mut sub, 3000).await, (1..=3000).collect::<Vec<_>>());
     emit(&bus, 1);
     assert_eq!(take(&mut sub, 1).await, [3001]);
+}
+
+#[tokio::test]
+async fn d11_kept_on_an_empty_log_streams_new_events() {
+    let bus = bus();
+    let mut sub = bus
+        .subscribe_after(contracts::SubscribeParams {
+            kept: true,
+            after: None,
+        })
+        .unwrap();
+    assert_eq!(sub.head(), 0);
+    emit(&bus, 2);
+    assert_eq!(take(&mut sub, 2).await, [1, 2]);
 }
