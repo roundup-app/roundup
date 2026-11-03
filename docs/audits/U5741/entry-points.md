@@ -80,3 +80,8 @@ Independent Shelf follow-up: rendered-shelf-followup.json adds successful reserv
 ## Provenance query continuation
 
 [provenance.md](provenance.md) assesses PV01/PV02, the exact item-history and Actor-history CLI/MCP queries, on main `7ae759f2bc7f8e8e58a02a11f88488480364db41`. [catalogues/provenance-source.json](catalogues/provenance-source.json) retains current actual offers, isolated live queries, 28 pinned sources, vendor comparisons, direction and replay. Both queries are candidates on the journey criterion, not permission to erase Touches or shared unread/attribution state. Dependent App attribution choices, other public methods, conditional App evidence and final whole-App revision reconciliation remain unfinished; no partial owner request or deletion. [validation-provenance.md](validation-provenance.md) records commands and limits.
+
+
+## Route control continuation
+
+[routes.md](routes.md) reconciles Route controls RT01–RT03 with the connected `route.list` declaration and actual public offers. There is no mounted Route editor in the inspected App source; no rendered absence or new native observation is claimed. Independent Auto/Drop/list choices retain default delivery and ownership dependencies. Remaining conditional App evidence, other method decisions and final whole-App revision reconciliation stay open.

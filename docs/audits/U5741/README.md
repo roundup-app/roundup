@@ -93,3 +93,8 @@ GitHub tool continuation: [github-tools.md](github-tools.md) pins main `f7471659
 ## Provenance query continuation
 
 [provenance.md](provenance.md) assesses PV01/PV02, the exact item-history and Actor-history CLI/MCP queries, on main `7ae759f2bc7f8e8e58a02a11f88488480364db41`. [catalogues/provenance-source.json](catalogues/provenance-source.json) retains current actual offers, isolated live queries, 28 pinned sources, vendor comparisons, direction and replay. Both queries are candidates on the journey criterion, not permission to erase Touches or shared unread/attribution state. Dependent App attribution choices, other public methods, conditional App evidence and final whole-App revision reconciliation remain unfinished; no partial owner request or deletion. [validation-provenance.md](validation-provenance.md) records commands and limits.
+
+
+## Route control continuation
+
+[routes.md](routes.md) adds RT01–RT03 for explicit Auto, Drop and stored Route inspection, with dated owner direction. [catalogues/route-source.json](catalogues/route-source.json) holds pinned source/public evidence and replay; [validation-routes.md](validation-routes.md) records outcomes and corrections. These are candidate assessments, not owner choices or deletion permission.
