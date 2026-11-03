@@ -142,6 +142,9 @@ it("u5765_keyboard_open_completes_the_request", async () => {
 
 
 it("u5765_target_start_failure_keeps_recovery_reachable", async () => {
+  const source = await page.evaluate<string>("window.__fake.app.opened.project.path");
+  await page.browser("click", `.project-tab[data-path="${source}"] [role=tab]`);
+  await page.until("document.querySelectorAll('[role=treeitem]').length >= 40");
   await page.browser("focus", ".ask-input");
   await page.evaluate(`(() => {
     const app = window.__fake.app;
