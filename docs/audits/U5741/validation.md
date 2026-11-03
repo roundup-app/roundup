@@ -365,3 +365,20 @@ Additional failed source lookup: `rg ... crates/rupd/src/rpc/project.rs` exits 2
 Spelling repair completed: raw body text carries the same clipped fragments as the snapshot, so both are now losslessly encoded. Both are checksum-verified after decoding; fifteen captures and 21 decision rows reconcile, with 34 source hashes matching both original revision and current checkout. Final standalone spelling scan passes (exit 0). No captured byte, lint policy or baseline was changed. The initial 33-source statement above precedes inspection of the actual public handler in crates/agents/src/dispatch.rs; that added source is the 34th.
 
 Final `just ready` passes (exit 0): B4522 migration guard, 193 lint-behavior checks, web lint/typecheck, repository and Rust lints, `ALL PROOFS CHECK` and N7 launch sites. Vocabulary, scenario ids, merge-loss, whitespace and final evidence reconciliation pass (exit 0). No behavior test file changed and no local `just check` ran. Own diff review resolved incorrect scenario/action references and separated missing-binary failure from optional executable diagnostics. The dedicated browser session is closed. #5758 stays open for complete coverage, one current revision, owner answers and authorized retirements.
+
+## Rail structure continuation — builder-41586912445
+
+Source main `4525b6ce563888c08b0b8bba3806449cf3b9c1f8`. Documentation only. RS01–RS19 (with RS17a/b/c) extend the reviewed inventory; R16 still owns error dismissal. No owner ask, answer or deletion is inferred. P1/P3/P6/P9/P11 gates preserve direct access, attention, Home, intentional work and drafts; rendered/action evidence is scoped to the fake seam, not production mutation.
+
+Fresh isolated `agent-browser --session u5741-415869`, default headless, no personal profile or external browser connection; dark 1512×950, existing tree-40 harness on port 5231. Ten openings retain screenshots under `artifacts/ux/U5741/rail-structure/`. Raw accessibility snapshots are losslessly compressed to avoid spelling checks treating clipped labels as authored prose: `zlib.decompress(base64.b64decode(page['snapshotZlibBase64']))`, UTF-8; compare SHA-256 to `snapshotSha256`. Native menu models use the existing menuProbe in a separate nonprojected opening. No native appearance/launch/Message-delivery claim.
+
+| Failed command / observer | Exit / status | Failure and disposition |
+| --- | --- | --- |
+| Initial `ls -d .codegraph .claude/sound` | 2 | No codegraph index; sound exists. Normal source search used. |
+| `agent-browser skills get core && ls /tmp/*u5741* /tmp/*rail*` | 2 | Browser core read succeeded; no previous temporary drivers matched. Restored the reviewed driver from the checked-in source catalogue. |
+| `cat .../emil-design-eng/references/accessibility.md` | 1 | Guessed reference absent; no observer claim depends on it. No UI code changed. |
+| `agent-browser wait --text Quiet` in first structure driver | 1 | Timeout after 30000ms. Harness projects Alerts parent disabled rather than nested children; no submenu screenshot accepted. Exact production model read through existing native menuProbe. |
+| Apple Finder folder guide open | HTTP 429 | Full page unavailable; search evidence alone retained; exact equivalence remains unverified. |
+| Apple Open With guide open | HTTP 429 | Same limit; no configured-directory editor equivalence claimed. |
+
+Successful source/render/hash reconciliation and final lint results are recorded below after completion. Every remaining vendor comparison, conditional opening, other App/endpoint decision and final all-feature revision reconciliation stays on #5758. No local `just check` or behavior-test suite ran; policy U5741 forbids report-text tests.
