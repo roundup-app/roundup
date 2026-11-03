@@ -836,13 +836,14 @@ Merged main `7874f9949` without conflicts into this documentation slice. Both br
 | `pnpm install --frozen-lockfile` | 0 | Installed the locked dependencies in `/tmp/roundup-fix-5895`. |
 | Independent archive verification | 0 | All 53 compressed source/direction/driver archives match their checksums; all 47 source archives match pinned git objects. Retained role replies contain 86 Agent and 94 Door tools, including all seven publication/link tools. No fresh real-Daemon execution claimed. |
 | Adapted archived `observerDriver` replay | 0 | Fresh isolated headless session `u5741-outputs-416460`, new profile, dark 1512×950, port 5295. Only worktree/output/session paths changed. All fifteen named openings reproduce passing Check statuses and identical row, alert, attempted/opened-target and clipboard states. PNG checksums verify. |
-| Visual failure inspection | 0 | Dense refused-open capture shows the complete access cause and recovery action. Fifteen fresh PNGs remain uncommitted at `artifacts/ux/U5741/outputs-verified-*.png` in the workflow checkout. |
+| Visual failure inspection | 0 | Dense refused-open capture shows the complete access cause and recovery action. Fifteen fresh screenshots remain uncommitted at `artifacts/ux/U5741/outputs-verified-*.png` in the workflow checkout. |
 | Browser close | 0 | Closed only this run's isolated session. |
 
 The replay wrote its temporary manifest under `/tmp/5895-evidence/`; it did not replace historical observations or promote their revision. Source-only/native/recipient branches, broader equivalents and the failed keyboard reset remain unresolved. No partial owner request or deletion; #5758 remains open.
 
 | Failed command / observer | Exit | Disposition |
 | --- | ---: | --- |
+| Second `just ready` | 1 | Repository spelling scanner rejected the plural image-format abbreviation in this new verification record. Rephrased it as screenshots; no evidence or lint-policy change. |
 | First `just ready` | 143 | Attached command terminated during lint fixtures before completion; no pass claimed. Repeated with a dedicated PTY and explicit exit-code file. |
 | Initial optional `.codegraph` directory probe | 1 | Index absent; ordinary source search used. |
 | `gh pr diff 5895 --stat` | 1 | Unsupported option; used local git diff statistics. |
@@ -850,3 +851,5 @@ The replay wrote its temporary manifest under `/tmp/5895-evidence/`; it did not 
 | `just harness tree-40 5295` shutdown | 130 | Deliberately interrupted this run's server after closing its browser. PostCSS missing-from warning and two ResizeObserver diagnostics occurred during the successful replay; no clean-console claim. |
 
 Self-review checked the six-file own diff, empty merge-resolution diffs, independent decision rows O01–O36, evidence provenance and overlap with earlier inventories. No product, scenario, contract or behavior-test changes. No local `just check`.
+
+Final `just ready` passes with exit 0, including all 193 lint-behavior fixtures, web/style/type/dependency checks, repository/Rust lints, migration guard, `ALL PROOFS CHECK` and N7. Standalone repository scan, vocabulary, scenario ids, merge-loss and whitespace pass. No behavior test changed and no local `just check` ran.
