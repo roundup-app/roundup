@@ -1,3 +1,4 @@
+import { agentBrowserExecutable } from "../testing/chromePage";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { mkdtempSync, rmSync } from "node:fs";
@@ -16,7 +17,7 @@ let server: AppServer;
 
 let origin: string;
 
-const browser = async (...args: string[]) => (await exec("agent-browser", ["--session", session, "--json", ...args], { env: { ...process.env, AGENT_BROWSER_DEFAULT_TIMEOUT: "15000" }, maxBuffer: 8 * 1024 * 1024, timeout: 25_000 })).stdout;
+const browser = async (...args: string[]) => (await exec(agentBrowserExecutable, ["--session", session, "--json", ...args], { env: { ...process.env, AGENT_BROWSER_DEFAULT_TIMEOUT: "15000" }, maxBuffer: 8 * 1024 * 1024, timeout: 25_000 })).stdout;
 
 const read = async <T,>(expression: string): Promise<T> => {
   // SAFETY: the envelope is agent-browser's result for the constant expressions below.

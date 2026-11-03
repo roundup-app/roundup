@@ -1,3 +1,4 @@
+import { agentBrowserExecutable } from "../testing/chromePage";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
@@ -21,7 +22,7 @@ let server: AppServer;
 
 let origin: string;
 
-const browser = async (...args: string[]) => (await exec("agent-browser", ["--session", session, "--json", ...args], {
+const browser = async (...args: string[]) => (await exec(agentBrowserExecutable, ["--session", session, "--json", ...args], {
   maxBuffer: 8 * 1024 * 1024, timeout: 60_000,
 })).stdout;
 
