@@ -22,7 +22,7 @@ export const copy = {
   noNoteDrafts: "No unfinished work",
   recoverNotes: sharedCopy.recoverNotes,
   noteDraft: sharedCopy.draftStatus.draft,
-  unavailableAgent: sharedCopy.unavailableAgent,
+  unavailableAgent: "Unavailable Agent",
   unreadableNoteDraft: "Unfinished work details are unavailable. Copy the stored record to recover its contents.",
   resumeNote: "Resume note",
   discardDraft: sharedCopy.discardRevision,

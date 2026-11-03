@@ -486,7 +486,6 @@
     "/tmp/roundup-startup/node_modules/.pnpm/@ark-ui+solid@5.39.3_patch_hash=53e576addedd6d850426eb700f7100e4c6d7fefc6a372b0a35cf5c4cd1d44585_solid-js@1.9.17/node_modules/@ark-ui/solid/dist/chunk/RBSE5GQN.jsx",
     "/tmp/roundup-startup/apps/desktop/src/ui/Mentions.tsx",
     "/tmp/roundup-startup/apps/desktop/src/ask/AskRows.tsx",
-    "/tmp/roundup-startup/apps/desktop/src/reactions/Reactions.tsx",
     "/tmp/roundup-startup/apps/desktop/src/ask/ToolCallLine.tsx",
     "/tmp/roundup-startup/apps/desktop/src/ask/AskBar.tsx",
     "/tmp/roundup-startup/apps/desktop/src/switcher/entries.ts",
@@ -556,7 +555,7 @@
   "node": "v22.23.3",
   "os": "linux",
   "architecture": "x64",
-  "note": "Artifact observer slice only. Both runtime outputs are byte-identical. No runtime startup, first-use, rendered or performance acceptance is claimed.",
+  "note": "Artifact observer slice only. Both runtime outputs are byte-identical. No runtime startup, first-use, rendered or performance acceptance is claimed. Retired App modules are omitted from the module inventory; byte measurements remain pinned to the original reference revision.",
   "afterMainMerge": {
     "source": "b53b17f157589e155db5d33727165c084ed4f07c",
     "buildExit": 0,
