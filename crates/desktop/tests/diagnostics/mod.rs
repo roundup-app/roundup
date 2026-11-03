@@ -87,3 +87,22 @@ pub(crate) fn u3787f_logs_report_causes_without_private_content() {
         assert!(!logs.contains(secret), "leaked {secret}: {logs}");
     }
 }
+
+
+#[test]
+fn s5810d_foreign_startup_errors_are_redacted() {
+    const CHILD: &str = "S5810D_CHILD";
+    if std::env::var_os(CHILD).is_none() {
+        let output = std::process::Command::new(std::env::current_exe().unwrap())
+            .args(["--exact", "diagnostics::tests::s5810d_foreign_startup_errors_are_redacted", "--nocapture"])
+            .env(CHILD, "1").output().unwrap();
+        assert!(output.status.success());
+        let stderr = String::from_utf8(output.stderr).unwrap();
+        assert!(stderr.contains("start shell: plugin initialization failed"), "{stderr}");
+        for secret in ["credential-SENTINEL", "draft-SENTINEL", "terminal-SENTINEL", "project-path-SENTINEL", "input_tokens", "cost_usd"] {
+            assert!(!stderr.contains(secret), "{stderr}");
+        }
+        return;
+    }
+    u3787f_logs_report_causes_without_private_content();
+}
