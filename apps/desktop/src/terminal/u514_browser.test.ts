@@ -53,7 +53,7 @@ it.each([false, true])("u2680b_a_click_clears_browser_and_terminal_selections_st
 const app = async (base = false, mac = false, items = true) => {
   const seed = process.env.ROUNDUP_CAPTURES ? "tree-40" : "selection";
 
-  const views = `view=workstreams&tabs=1${items ? "&items=1" : ""}`;
+  const views = `tabs=1${items ? "&view=workstreams&items=1" : ""}`;
 
   await batch(
     ["eval", "localStorage.clear()"],
@@ -215,7 +215,7 @@ const editorKinds = ["pad", "rename"] as const;
 
 const editor = async (kind: typeof editorKinds[number] | "pad-source" | "diff" | "ask", base = false) => {
   if (kind === "diff") await browser("eval", "localStorage.clear()");
-  else await app(base);
+  else await app(base, false, !!process.env.ROUNDUP_CAPTURES || kind === "pad" || kind === "pad-source");
 
   let selector: string;
 
