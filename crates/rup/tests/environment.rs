@@ -176,6 +176,7 @@ async fn agent_env(method: &str) -> String {
             .request(
                 "agent.spawn",
                 AgentSpawnParams {
+                    start_attribution: None,
                     visibility: None,
                     cols: None,
                     rows: None,
