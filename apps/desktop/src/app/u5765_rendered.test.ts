@@ -83,6 +83,27 @@ it("u5765_pointer_refusal_restores_ask_focus_after_the_final_queued_request", as
   expect(await page.evaluate("window.queuedResults.map(reply => [reply.id, reply.error.code])")).toEqual([[5768, -32002], [5769, -32002]]);
 });
 
+it("u5765_keyboard_queue_handoff_keeps_choices_reachable_and_returns_to_ask", async () => {
+  await page.browser("focus", ".ask-input");
+  await page.evaluate(`(() => {
+    const app = window.__fake.app;
+    window.queuedResults = [];
+    for (const id of [5770, 5771]) void app.requestAction({id,method:'project.open',params:{source:app.opened.project.path,path:'/Users/you/Projects/keyboard-queued-' + id,agent:{id:'agent-1',name:'builder'}}}).then(reply => window.queuedResults.push(reply));
+    return true;
+  })()`);
+  await page.until("document.querySelector('[role=dialog]') !== null");
+  await page.tabTo("Refuse");
+  await page.browser("press", "Enter");
+  await page.until("window.queuedResults.length === 1 && document.querySelector('[role=dialog]')?.textContent.includes('keyboard-queued-5771')");
+  await page.browser("press", "Tab");
+  expect(await page.focused()).toBe("Open");
+  await page.browser("press", "Shift+Tab");
+  await page.until("document.activeElement?.textContent === 'Refuse'");
+  await page.browser("press", "Enter");
+  await page.until("window.queuedResults.length === 2 && document.activeElement?.matches('.ask-input')");
+  expect(await page.evaluate("window.queuedResults.map(reply => [reply.id, reply.error.code])")).toEqual([[5770, -32002], [5771, -32002]]);
+});
+
 it("u5765_keyboard_open_completes_the_request", async () => {
   await page.evaluate(`(() => {
     const app = window.__fake.app;
