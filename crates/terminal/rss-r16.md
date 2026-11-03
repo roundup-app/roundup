@@ -1,6 +1,6 @@
 # R16 idle Terminal RSS repair observation
 
-Refs #1326. Allocation repair: [#1329](https://github.com/saadshahd/roundup/pull/1329), merged as `886ae8fa0761bfd94e3349464c3f5d3f5242fe34`. The [allocation diagnosis](https://github.com/saadshahd/roundup/issues/1326#issuecomment-6133761239) traced growth to ten eager 1,024-slot `EventData` backlogs. Boxing large non-Terminal event payloads reduced `EventData` from 176 to 88 bytes; ten channels allocate 1,148,240 bytes, preserving capacity and lag reporting. The allocation invariant and populated-field wire tests are in `crates/contracts/tests/event_allocation.rs` and `event_wire.rs`.
+Refs #1326. Allocation repair: [#1329](https://github.com/saadshahd/roundup/pull/1329), merged as `8439e572a4713dfce5a6d3fb7c3d5bd18844100a`. The [allocation diagnosis](https://github.com/saadshahd/roundup/issues/1326#issuecomment-6133761239) traced growth to ten eager 1,024-slot `EventData` backlogs. Boxing large non-Terminal event payloads reduced `EventData` from 176 to 88 bytes; ten channels allocate 1,148,240 bytes, preserving capacity and lag reporting. The allocation invariant and populated-field wire tests are in `crates/contracts/tests/event_allocation.rs` and `event_wire.rs`.
 
 ```text
 EventData layout repaired (#1329)
@@ -47,8 +47,8 @@ Validation before observations: `pnpm install` and `just check` exit 0; 1,495 Ru
     "SHELL": "/bin/bash"
   },
   "refs": {
-    "historical": "607da1b0661c778a47ae448c371f0df59ae94d6c",
-    "repaired": "41e4dad19fad7565a2f9b891966e85e1c6fff5c0"
+    "historical": "5371e7c423c6f37704dfe64ceb5808f3e4c429a8",
+    "repaired": "46499d54ca8aedd101835630ed2ce99ab2f96f01"
   },
   "hashes": {
     "/tmp/roundup-rss-historical/target/release/perf": "a35e5a3b16a6169ccb025a955ad382fb0f08ec3f098229604780c993bf7c3558",
@@ -65,8 +65,8 @@ Validation before observations: `pnpm install` and `just check` exit 0; 1,495 Ru
 Create worktrees at the full references in metadata at the recorded paths, build both as above, apply the compatibility patch only to historical perf, and run `cargo build --release -p perf` there (exit 0). Save the patch below to `/tmp/rss-evidence/compatibility.patch` and the script to `/tmp/rss-evidence/compare.py`. These are the exact reproduction commands (each build exits 0); `--unidiff-zero` accepts the patch without context lines:
 
 ```sh
-git worktree add --detach /tmp/roundup-rss-historical 607da1b0661c778a47ae448c371f0df59ae94d6c
-git worktree add --detach /tmp/roundup-rss 41e4dad19fad7565a2f9b891966e85e1c6fff5c0
+git worktree add --detach /tmp/roundup-rss-historical 5371e7c423c6f37704dfe64ceb5808f3e4c429a8
+git worktree add --detach /tmp/roundup-rss 46499d54ca8aedd101835630ed2ce99ab2f96f01
 cd /tmp/roundup-rss-historical
 cargo build --release -p rupd -p rup -p perf
 git apply --unidiff-zero /tmp/rss-evidence/compatibility.patch

@@ -4,8 +4,8 @@ Acceptance: `scenarios/ui-visual.md`, “U130 Token ownership and lint extension
 This continues #3948 through merged #4005 and #4013; their row-state repairs
 and shared insets remain intact.
 
-Baseline: main `32af734bff8c1dfebc4bafd628ccafe9c4aea222`.
-Runtime: `bed25ab0767160f682913c8483fa9d6e37a5f3bf`.
+Baseline: main `9e68fd5f5c756fa5ff9fb68f95317695595248d3`.
+Runtime: `1fcd38ad3e09ea5656727e5dcf45cfd76b596e20`.
 
 An in-process Stylelint audit reads every authored CSS file with
 `unit-disallowed-list: [px, ms, s]`, exempting only `tokens.css`.

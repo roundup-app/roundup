@@ -1,7 +1,7 @@
 # T4451a / T4451b timing evidence
 
 The inventory is PR #4449's 79 lowered declarations in 49 files, at
-`072a8fda1ca4fb88a479e15b01907ab81612d10d` (merge `0f625feb80e7078d1bfcaae58689ab856c825891`).
+`329b596ba4ae4cfcdbea5a944adf0674ad13336f` (merge `f5a9a7cd09899cbb8857899a733b59738034a7a3`).
 `evidence-4451.jsonl` preserves every original declaration and its previous maximum,
 current runtime matches, skips, retries, and file disposition. Parameterized titles
 expand to their runtime cases. An empty results array is missing evidence, not a pass.
@@ -9,7 +9,7 @@ expand to their runtime cases. An empty results array is missing evidence, not a
 ## Complete seven-shard CI extraction
 
 Run: [40781133074](https://github.com/roundup-app/roundup/actions/runs/40781133074),
-at SHA `7ef346a0238b90726c17e5a8a3bec84afe8e8ff9`, attempt 1, all seven web jobs successful.
+at SHA `01e71280951cdbbbec6e09b325c2e5b3165d2be0`, attempt 1, all seven web jobs successful.
 This is historical evidence for that SHA, not a measurement of this PR's head.
 
 Use raw job logs: `gh run view --log` omits six oversized JSON report lines in
@@ -131,7 +131,7 @@ Validation: reuse `node --test tools/oxlint/anti-slop/web-timeout/timeout.test.m
 
 [Build run 40783012875](https://github.com/roundup-app/roundup/actions/runs/40783012875)
 started the 46 retained files with the existing capture flags, App/test source
-`7df72b4e85bfef15e8d9b3b7edce3987d26aa89a`, and unchanged caps/retries.
+`747edad92dea4ab2a4cf82770f3fa81377434831`, and unchanged caps/retries.
 `capture-40783012875.json` records the exact command, environment flags,
 reporter-only config, source SHA, emitted failures and log identity.
 `capture-40783012875.log.gz` preserves the diagnostic output; read it with

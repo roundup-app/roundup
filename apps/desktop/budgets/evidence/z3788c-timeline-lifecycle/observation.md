@@ -1,4 +1,4 @@
-Z3788c Timeline visibility row, Linux/Chromium, 2026-10-26. Base `1226248788d47a7655ef50545547cd746a5483d3`; production source `15b90e20f`.
+Z3788c Timeline visibility row, Linux/Chromium, 2026-10-26. Base `17a412ee74d0c85e5f85b3c59a2a2835dc9a6e8c`; production source `15b90e20f`.
 
 | Observer | Result |
 | --- | --- |

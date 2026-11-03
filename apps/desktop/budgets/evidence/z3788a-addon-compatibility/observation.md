@@ -81,7 +81,7 @@ Remaining on #3853: integrate Find and query retention, serialize with authorita
 
 ## Continued verification
 
-The replacement for closed PR #4312 starts at its final head `05311ed350923dddc891b8884c557ae7f3312c86`, which already removed the unrelated recovery, styling and browser-test changes. A clean merge of main `02dd47127` leaves only this evidence directory in the diff; merge-loss passes. The original 13 evidence files were unchanged before this continuation.
+The replacement for closed PR #4312 starts at its final head `55ad4e5dfea0f156596623df9c5ad7b80cbf577e`, which already removed the unrelated recovery, styling and browser-test changes. A clean merge of main `02dd47127` leaves only this evidence directory in the diff; merge-loss passes. The original 13 evidence files were unchanged before this continuation.
 
 A fresh isolated installation, patched packages and fresh dedicated headless Chromium profile at 1512×950 reproduce all 40 checks (`continued-result.json`). All 29 existing emulator/snapshot/renderer-recovery tests pass again. The dedicated browser and probe server are closed. `continued-validation.json` records the revision pair and results. This does not extend the native, rendering, memory or production-byte claims above.
 

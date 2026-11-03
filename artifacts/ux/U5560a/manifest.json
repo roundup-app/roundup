@@ -1,8 +1,8 @@
 {
-  "baselineApp": "1b7bbf9bb300e119c54b77b497b1f56df850619e",
-  "headApp": "fbb37949571cee08957cd48fa2f7d3485c43794d",
-  "headObserver": "fbb37949571cee08957cd48fa2f7d3485c43794d",
-  "baselineObserver": "fbb37949571cee08957cd48fa2f7d3485c43794d",
+  "baselineApp": "750660893b4f13bef13cc4a34e3bdb8fee4deb34",
+  "headApp": "d2a8bde84ed2a3d31c22ff8463e19aba79c879de",
+  "headObserver": "d2a8bde84ed2a3d31c22ff8463e19aba79c879de",
+  "baselineObserver": "d2a8bde84ed2a3d31c22ff8463e19aba79c879de",
   "dark": true,
   "paired": [
     {

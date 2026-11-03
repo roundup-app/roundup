@@ -1,6 +1,6 @@
 # U5741 public command decisions
 
-Audited main: `041f53e100ac8da520931c54e1557c88ddc8efbd`. Continuation of [endpoints.md](endpoints.md), not the whole-App decision request. No owner answer or retirement. Real Agent Terminals, direct access, native continuation and Ask remain protected; Overview and Reactions are excluded.
+Audited main: `0ff0b698e2cc3768a6ae316b9f829e52b20808f7`. Continuation of [endpoints.md](endpoints.md), not the whole-App decision request. No owner answer or retirement. Real Agent Terminals, direct access, native continuation and Ask remain protected; Overview and Reactions are excluded.
 
 ## Runtime reconciliation
 

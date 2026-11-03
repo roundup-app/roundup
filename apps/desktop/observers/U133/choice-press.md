@@ -1,7 +1,7 @@
 # U130/U133 choice controls
 
-Baseline: `31a93921a976d0121ff732e5962146d70a0442ef`.
-Runtime: `68419f1dd4585ce5310aadc65afda03e719e2654`.
+Baseline: `91ae7e8f4709d4cd7e542d7351d639034feff2a2`.
+Runtime: `2d5cfd4818e0e8ddc088ee83b014519ac8a16944`.
 Continuation of #3948, whose final focus and check repairs are on main through #4005.
 
 RadioGroup and SegmentGroup draw no first-frame press feedback. In isolated
@@ -79,8 +79,8 @@ isolated rerun with `--retry=0 --maxWorkers=1` passes. The retry remains part
 of the full-run record. The initial related run was replaced after 54 passing
 files by this complete capture run; it is not claimed as a complete pass.
 
-Main `e1c02febce5135a197cc4706f183164d8c4176c2` merges cleanly in
-`32ee245af59777905c0c981a83bcb5c4d7a500f0`. Its work is retained without
+Main `f9b23fd7b58151d055b53d36137447be7864b15d` merges cleanly in
+`26b1ebe21cb7183316c173badbf09278f023a5d7`. Its work is retained without
 conflict resolution; the remerge diff and `merge-loss` are empty. The two
 choice wrappers, their styles, manifests and dependency patch are identical
 to the captured runtime above. The incoming work changes tests, native

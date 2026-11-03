@@ -1,5 +1,5 @@
 {
-  "source_sha": "c1d2dec6f9a63e8ddc7dc197d7c8bd22c412dee7",
+  "source_sha": "245344d6a4f3c3244bf51617d8730dc6870ef80c",
   "run_url": "https://github.com/roundup-app/roundup/actions/runs/40792366171",
   "capture_flags": "DV6,U3021c,U3049a,U3299a,U3813,U3814,U3799,U4277c,U3741,U3760,P3557c,U3774,U3776,U461,U462,U461a,U461b,U3728,U3295a,U3295b,U3517f",
   "isolated_settings": {
@@ -246,7 +246,7 @@
     }
   },
   "retention_green": {
-    "source_sha": "518e922da8fc82e98a2e64f60984a7bda6139e9f",
+    "source_sha": "6c3e20bfc87a226c72b314fef354bd98cde4d279",
     "command": [
       "python3",
       "loop/app-data.py",

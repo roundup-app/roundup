@@ -68,7 +68,7 @@
       "rev-parse",
       "HEAD"
     ],
-    "output": "a305b7c969af599a3c203563951a2aa88bc3a290\n"
+    "output": "5427c491a9331255bb557d4874403ff754ac4485\n"
   },
   "profile": "Default cargo --release; committed lockfile on each reference; no overridden flags",
   "env": {
@@ -86,13 +86,13 @@
     "CARGO_PROFILE_RELEASE_PANIC": null,
     "CARGO_PROFILE_RELEASE_STRIP": null
   },
-  "historical": "607da1b0661c778a47ae448c371f0df59ae94d6c",
+  "historical": "5371e7c423c6f37704dfe64ceb5808f3e4c429a8",
   "main": "76c160e4",
   "warmups": 100,
   "samples": 3300,
   "median": "mean of the two middle samples",
   "p95": "nearest rank",
-  "repaired_source": "f2f6c6acd9cc766e6c36f1d18f0fae797e12fc46",
+  "repaired_source": "4f5760dfec66264aadea9380ee25a9149f998166",
   "production_repair": "8bb34848",
   "merged_main": "8ac1da8c",
   "staging_entries": 8,

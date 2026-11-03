@@ -167,7 +167,7 @@ for name, version in [('@xterm/xterm', '6.0.0'),
 # The historical control uses 400; retrieve its unmodified face from the recorded main.
 (root / "FiraCode-Regular.woff2").write_bytes(subprocess.check_output([
     "git", "show",
-    "7df72b4e85bfef15e8d9b3b7edce3987d26aa89a:apps/desktop/public/fonts/fira-code/FiraCode-Regular.woff2",
+    "747edad92dea4ab2a4cf82770f3fa81377434831:apps/desktop/public/fonts/fira-code/FiraCode-Regular.woff2",
 ]))
 PYTHON
 ```
@@ -324,8 +324,8 @@ parse wait precedes the paint frame and selection.
 
 ### Matched Linux observation, 2026-10-28
 
-Baseline `0bc1dae5ec41cd48867cc55c6ce9d246ac2a21f0` and head
-`680c4bcde74e1f16e1067e73acd8b2ed129aae04` replay SHA-256
+Baseline `6206e838c4d1224405c37d522a5c580fb77ce282` and head
+`7e7c68836afcf69687503ff20bdac76c2438571e` replay SHA-256
 `5884dab79050166104654bc5077dabfa61991c1eb36d57aee7fa3d046c281449`
 in Dark at 1512×950, DPR 2. Both use loaded Fira Code 400/700 and WebGL;
 canvas backing dimensions are twice their CSS dimensions.
@@ -364,7 +364,7 @@ capture file's related run and the focused regression runs above completed.
 Raw logs are retained uncommitted in `artifacts/ux/U4592/validation.tar.gz`.
 
 The latest completed main CI run [40754668320](https://github.com/roundup-app/roundup/actions/runs/40754668320)
-on `8d6d9fdce4ce788e3e861e2789267898e626d2e3` passed both `mac` and
+on `155648f3f55136049f2ed5e2cdd1d6c497a0aea2` passed both `mac` and
 `mac-clippy`. No native timing is inferred; the existing K1/K2 tests above retain
 the opt-in build and echoed-character timing boundaries. Native appearance and
 WKWebView timing remain post-merge observations.
@@ -373,8 +373,8 @@ WKWebView timing remain post-merge observations.
 
 `just perf --out artifacts/ux/U4592/validation/perf.json` exits 0 on host
 `runnervm48cm3`, job `40758778090/1/fix-run` (`linux-9v45`). The immutable
-baseline is `0bc1dae5ec41cd48867cc55c6ce9d246ac2a21f0`; implementation head is
-`f97c314617b0a27a6d3dffd3fbf7d5b627c2f3ee`. Later commits change only the capture
+baseline is `6206e838c4d1224405c37d522a5c580fb77ce282`; implementation head is
+`566f0c778092e9113066df687e9e60d08eb79c81`. Later commits change only the capture
 observer and evidence. Separate release builds produce identical Daemon, CLI
 and sidecar hashes. One common observer collects eleven samples per side,
 1,000 calls per latency observation. The full report, observer/toolchain identity,
@@ -436,8 +436,8 @@ policy remain unchanged.
 
 ### Matched Light comparison, 2026-10-28
 
-Main `7df72b4e85bfef15e8d9b3b7edce3987d26aa89a` and rendering head
-`eba02da188107c33821262678848fe8723258990` replay the same SHA-256
+Main `747edad92dea4ab2a4cf82770f3fa81377434831` and rendering head
+`3217308cba7c994c93a6075c179e84cb544a85e7` replay the same SHA-256
 `5884dab79050166104654bc5077dabfa61991c1eb36d57aee7fa3d046c281449`,
 Dark 1512×950, DPR 2, through the existing capture path. Both use WebGL with
 matched canvas backing scale. Head records the loaded 300/400/700 faces and
@@ -468,7 +468,7 @@ with `AGENT_BROWSER_EXECUTABLE_PATH` selecting bundled Chrome 156.0.8078.73 and
 All failures remain observer failures, never visual evidence.
 
 Latest completed main CI [40781133074](https://github.com/roundup-app/roundup/actions/runs/40781133074)
-passed `mac` and `mac-clippy` on `7ef346a0238b90726c17e5a8a3bec84afe8e8ff9`.
+passed `mac` and `mac-clippy` on `01e71280951cdbbbec6e09b325c2e5b3165d2be0`.
 No native appearance or WKWebView timing is inferred; the owner reports native
 appearance after merge under the unchanged observation policy.
 

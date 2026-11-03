@@ -39,7 +39,7 @@ To reproduce the measured source inventory without changing a checkout:
 
 ```sh
 audit_base=$(mktemp -d)
-git archive e88aaa9844d03f1cace9e4529df0ec8906bc7ac9 | tar -x -C "$audit_base"
+git archive 2698de9260d4dc273528c24d25f47eb971ec0be7 | tar -x -C "$audit_base"
 ln -s "$PWD/node_modules" "$audit_base/node_modules"
 ln -s "$PWD/apps/desktop/node_modules" "$audit_base/apps/desktop/node_modules"
 node tools/oxlint/anti-slop/web-cost/inventory.mjs --source "$audit_base/apps/desktop/src" > /tmp/base-consumers.json
@@ -51,7 +51,7 @@ are the installed ones, whose manifests and lockfile match this CI commit.
 ## Source reconciliation
 
 `base-consumers.json` inventories the exact archive of CI commit
-`e88aaa9844d03f1cace9e4529df0ec8906bc7ac9`: 34 consumer files, with 158 static
+`2698de9260d4dc273528c24d25f47eb971ec0be7`: 34 consumer files, with 158 static
 registrations. This archived inventory deliberately retains tests later cut by T3779c; no lint reads it as a current-test allowlist. Run the inventory command above for the current checkout. `current-consumers.json` inventories the implementation's unchanged
 App source: 30 consumer files, with 151 static registrations.
 
@@ -65,7 +65,7 @@ removed by other merged work; this PR claims no reduction for them.
 ## CI observations
 
 Source: successful [check run 40151611415](https://github.com/roundup-app/roundup/actions/runs/40151611415),
-SHA `e88aaa9844d03f1cace9e4529df0ec8906bc7ac9`. Fetch each raw web job log with
+SHA `2698de9260d4dc273528c24d25f47eb971ec0be7`. Fetch each raw web job log with
 `--allow-escape-sequences`; `gh run view --log` did not preserve the complete
 machine reports in this observation.
 

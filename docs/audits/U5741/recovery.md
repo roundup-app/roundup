@@ -1,6 +1,6 @@
 # U5741 unfinished-work recovery decisions
 
-Audited main: `01a991deebe6793adc9066855767be8d8c5aeab9`, 2026-11-03. This continues the inventory; it is neither the complete owner request nor permission to delete. [Inspected sources, direction and replay](catalogues/recovery-source.json) and [rendered observations](rendered-recovery.json) preserve the revision. All paths below are relative to `apps/desktop/src/` unless stated otherwise.
+Audited main: `919327e7d5c2604f282ff04463dea528e81c1f0d`, 2026-11-03. This continues the inventory; it is neither the complete owner request nor permission to delete. [Inspected sources, direction and replay](catalogues/recovery-source.json) and [rendered observations](rendered-recovery.json) preserve the revision. All paths below are relative to `apps/desktop/src/` unless stated otherwise.
 
 The production Rail mounts `RailRecovery` and uses `useRecoveryMenu` from `drawer/DraftRecovery.tsx`. The requested panel and Rail disclosure are separate owners. The former filters out `rail-*` drafts; the latter owns those records. Overview is only the context-menu anchor here: its list and disposition remain excluded under #5730. Ask, live Agent Terminals, direct access and native continuation remain protected. This report inventories recovery controls without treating the retained work itself as fluff.
 

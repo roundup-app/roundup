@@ -1,12 +1,12 @@
 # U5741 settings decision evidence
 
-Audited product: `6d36d21c90b43cd4a244cc3f60d0a54ff1cf9dd8`. This continues [settings.md](settings.md); it does not complete U5741 or request owner decisions. Stable S identifiers refer to that table. No deletion, acceptance retirement or owner usage claim follows from candidacy.
+Audited product: `e97b71b0cf59d0cab56543d192c9ecf148f56fa7`. This continues [settings.md](settings.md); it does not complete U5741 or request owner decisions. Stable S identifiers refer to that table. No deletion, acceptance retirement or owner usage claim follows from candidacy.
 
 ## Evidence boundary
 
 [Source provenance](catalogues/settings-source.json) hashes the inspected owning files and records the actual 60-row shortcut configuration catalogue. [Rendered observations](rendered-settings.json) record actions, mounted control values and D Checks (lazy-mounted hidden tabs can remain in the value census; paired accessibility snapshots identify the visible controls). Their paired raw accessibility snapshots and PNG files stay under `artifacts/ux/U5741/settings/`. Real keys/clicks open the surfaces; fixture handlers supply only the named conditional server states. Engine/model fixture ids are not a production Adapter offer.
 
-The report retains the old product revision deliberately. The source catalogue separately lists every changed product file through continuation main `78b58bbc2256b7e6fb50c36d3cddd7e10a77c4ae`. That delta includes Pad width settings, keyboard offers, native Dock and other App changes. Before the complete ask, reconcile that delta, refresh the runtime offers/renders where changed and pin the resulting complete inventory to one main revision. Old census totals cannot stand for current main. This list is a continuation worklist, not evidence those changes have been audited.
+The report retains the old product revision deliberately. The source catalogue separately lists every changed product file through continuation main `f7998b3431cf887cd10976d64a02d898e9ed2cb0`. That delta includes Pad width settings, keyboard offers, native Dock and other App changes. Before the complete ask, reconcile that delta, refresh the runtime offers/renders where changed and pin the resulting complete inventory to one main revision. Old census totals cannot stand for current main. This list is a continuation worklist, not evidence those changes have been audited.
 
 ## Equivalence comparisons
 

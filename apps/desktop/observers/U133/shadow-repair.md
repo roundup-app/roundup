@@ -1,6 +1,6 @@
 # U133 shadow-root press repair
 
-Observed source: `93c26af9a37e4222990a575989dcbdfa615c47b7` (includes the repair and current main).
+Observed source: `4cc493214a753522f49d8b4acebafc4666655a95` (includes the repair and current main).
 Isolated headless Chromium, fresh profile, dark, 1512×950.
 
 | Control | Pointer / Enter first frame | Release |

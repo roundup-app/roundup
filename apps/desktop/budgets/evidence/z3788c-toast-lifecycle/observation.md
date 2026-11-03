@@ -1,4 +1,4 @@
-Z3788c Toast queue row, Linux/Chromium, 2026-10-26. Base `07cdccb91`; production head `fcc8eae0ab3fb845ca44b9106f718e3da748e0eb`.
+Z3788c Toast queue row, Linux/Chromium, 2026-10-26. Base `07cdccb91`; production head `b7218b360ca025736124ccee9af1ee3d959ad9ac`.
 
 | Observer | Result |
 | --- | --- |

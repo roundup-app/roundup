@@ -1,7 +1,7 @@
 # C9 release size (#3807)
 
-Reference: `4301955c9cb93c18aefc4541aa65df36400c030a`; measured implementation:
-`4a973e4c9e18700a9e1088747d4444d160825ecd`. Ubuntu 24.04.5, AMD EPYC 7763,
+Reference: `84410ec307ea49442bd8c6a3fc5f18eea242119d`; measured implementation:
+`eb3127bab91875ae7714d58abfa52fe231a4bf30`. Ubuntu 24.04.5, AMD EPYC 7763,
 four available CPUs; rustc 1.99.0 (`b940084d7eb6a299eb4bfeb8e34901bc051e7ac4`),
 x86_64-unknown-linux-gnu, LLVM 23.1.1, Node 22.23.3, pnpm 10.14.0.
 

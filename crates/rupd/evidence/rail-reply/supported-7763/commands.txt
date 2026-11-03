@@ -1,5 +1,5 @@
 git worktree add -b build/rail-reply-latency-regression /tmp/rail-1369 origin/main
-git worktree add --detach /tmp/rail-1369-historical 607da1b0661c778a47ae448c371f0df59ae94d6c
+git worktree add --detach /tmp/rail-1369-historical 5371e7c423c6f37704dfe64ceb5808f3e4c429a8
 # /tmp/rail-1369-historical:
 git apply --unidiff-zero /tmp/rail-1369/crates/rpc/r16/probe-compatible.patch
 cargo build --release -p rupd -p rup -p perf

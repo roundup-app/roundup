@@ -22,13 +22,13 @@
   },
   "builds": [
     {
-      "reference": "d4984632c877794d0369cc911145491f76e69495",
+      "reference": "861f61d3deb197c958b64fa17e1dc97b553f4071",
       "daemon": "/tmp/.tmpuKTDoH/base/target/release/rupd",
       "rup": "/tmp/.tmpuKTDoH/base/target/release/rup",
       "hashes": "7492f8110a11dce104d5d134d2507d6161ca24407a6e979d13420cb6d6cd05f1  /tmp/.tmpuKTDoH/base/target/release/rupd\n1c4edcfb32725e6fca19344a3b08f49fbcadc28af29f80705502fccd0e0988d8  /tmp/.tmpuKTDoH/base/target/release/rup\nfde6a4bf8d0562f7751d1a2d6cb9b417c4cfe107bbcb0aa3e9a24e125e348f48  /tmp/.tmpuKTDoH/base/target/release/sidecar/node"
     },
     {
-      "reference": "7debf49f1825c343869234e5d8745a3f6ae001ec",
+      "reference": "2252322071decfb67fe71385f4e8b0341ccdaf0f",
       "daemon": "/tmp/.tmpuKTDoH/head/target/release/rupd",
       "rup": "/tmp/.tmpuKTDoH/head/target/release/rup",
       "hashes": "28cbac4068e9fca7396ce273aab7e73280f34a1078e253ee0618a4ab0ac579d4  /tmp/.tmpuKTDoH/head/target/release/rupd\neb9128b51161dc78792d3ab8a987cf5975541538727c404ed43259e0be1c9a2e  /tmp/.tmpuKTDoH/head/target/release/rup\nfde6a4bf8d0562f7751d1a2d6cb9b417c4cfe107bbcb0aa3e9a24e125e348f48  /tmp/.tmpuKTDoH/head/target/release/sidecar/node"
@@ -480,16 +480,16 @@
   },
   "commands": [
     "/home/runner/work/roundup/roundup: git [\"rev-parse\", \"--verify\", \"HEAD^{commit}\"]",
-    "/home/runner/work/roundup/roundup: git [\"merge-base\", \"origin/main\", \"7debf49f1825c343869234e5d8745a3f6ae001ec\"]",
+    "/home/runner/work/roundup/roundup: git [\"merge-base\", \"origin/main\", \"2252322071decfb67fe71385f4e8b0341ccdaf0f\"]",
     "/home/runner/work/roundup/roundup: sha256sum [\"/home/runner/work/roundup/roundup/target/release/perf\"]",
     "/home/runner/work/roundup/roundup: rustc [\"-Vv\"]",
     "/home/runner/work/roundup/roundup: rustup [\"show\", \"active-toolchain\"]",
-    "/home/runner/work/roundup/roundup: git [\"worktree\", \"add\", \"--detach\", \"/tmp/.tmpuKTDoH/base\", \"d4984632c877794d0369cc911145491f76e69495\"]",
+    "/home/runner/work/roundup/roundup: git [\"worktree\", \"add\", \"--detach\", \"/tmp/.tmpuKTDoH/base\", \"861f61d3deb197c958b64fa17e1dc97b553f4071\"]",
     "/tmp/.tmpuKTDoH/base: pnpm [\"install\", \"--frozen-lockfile\", \"--ignore-scripts\"]",
     "/tmp/.tmpuKTDoH/base: cargo [\"build\", \"--locked\", \"--release\", \"-p\", \"rupd\", \"-p\", \"rup\"]",
     "/tmp/.tmpuKTDoH/base: bash [\"tools/sidecar/bundle.sh\", \"target/release/sidecar\"]",
     "/home/runner/work/roundup/roundup: sha256sum [\"/tmp/.tmpuKTDoH/base/target/release/rupd\", \"/tmp/.tmpuKTDoH/base/target/release/rup\", \"/tmp/.tmpuKTDoH/base/target/release/sidecar/node\"]",
-    "/home/runner/work/roundup/roundup: git [\"worktree\", \"add\", \"--detach\", \"/tmp/.tmpuKTDoH/head\", \"7debf49f1825c343869234e5d8745a3f6ae001ec\"]",
+    "/home/runner/work/roundup/roundup: git [\"worktree\", \"add\", \"--detach\", \"/tmp/.tmpuKTDoH/head\", \"2252322071decfb67fe71385f4e8b0341ccdaf0f\"]",
     "/tmp/.tmpuKTDoH/head: pnpm [\"install\", \"--frozen-lockfile\", \"--ignore-scripts\"]",
     "/tmp/.tmpuKTDoH/head: cargo [\"build\", \"--locked\", \"--release\", \"-p\", \"rupd\", \"-p\", \"rup\"]",
     "/tmp/.tmpuKTDoH/head: bash [\"tools/sidecar/bundle.sh\", \"target/release/sidecar\"]",

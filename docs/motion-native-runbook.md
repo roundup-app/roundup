@@ -6,7 +6,7 @@ For U3010d (#3013). One command per workload, one paste back. This document clai
 
 Base and head are the two commits U3010d compares; build and run each in its own checkout, alternating base, head, base, head, base, head. The recorder (U3010e) must be in both: for a base before it, cherry-pick `apps/desktop/src/perf/` and the `perf-frames` recipe onto it.
 
-The historical pre-layer baseline is `c3ca65e933b8fb8ec6d131aad157b0c9d63dd0f8`. For the final Motion migration, identify its pre-implementation source and final implementation head on #3013; apply the same observer-only overlay to both and retain source, patch and binary hashes.
+The historical pre-layer baseline is `656686c77003bc1f20dd2c94467d6a5f581832a7`. For the final Motion migration, identify its pre-implementation source and final implementation head on #3013; apply the same observer-only overlay to both and retain source, patch and binary hashes.
 
 ## Before you run
 
@@ -59,7 +59,7 @@ In a normal App build of that same commit, also exercise a Rail, Todo and Pad dr
 ## Observer implementation status (#4244)
 
 Do not request another owner sequence from this partial observer. The three reports
-already returned at `ec520f692a92f9ce4e4d3cae82312bb0bf4c252f` stay retained,
+already returned at `aee6741ce1b59be46105cee7c94a714abe3dffd1` stay retained,
 including their missing viewport and possibly disturbed Glyphs tail. They are
 historical scheduling evidence, with presentation unmeasured.
 

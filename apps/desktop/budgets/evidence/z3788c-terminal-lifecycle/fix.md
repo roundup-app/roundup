@@ -1,6 +1,6 @@
 # PR 4223 gate repair
 
-The failing head was `d68c74d06aaf74096770db48399300e7ed9f65dd`. Main `5f706c3a3` merged cleanly; merge-loss passes.
+The failing head was `865558b0a1b1f994e3ac7ecb1570955a9b5bb043`. Main `5f706c3a3` merged cleanly; merge-loss passes.
 
 | Gate | Cause and repair |
 | --- | --- |

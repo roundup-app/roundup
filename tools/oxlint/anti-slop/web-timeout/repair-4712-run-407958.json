@@ -1,5 +1,5 @@
 {
-  "source_sha": "7143dd9fa093a08a69044a7b24d2648ccd337137",
+  "source_sha": "6138fb50d3014eb57aee171d4260f8d9119af67d",
   "run_url": "https://github.com/roundup-app/roundup/actions/runs/40795838749",
   "command": [
     "python3",
@@ -63,13 +63,13 @@
   "workload_exit_code": 1,
   "ready_exit_code": 1,
   "end_utc": "2026-10-29T01:08:38.541695+00:00",
-  "source_note": "Started on 7143dd9fa093a08a69044a7b24d2648ccd337137. After the complete Import file passed, 19e9ec43a added only two required blank lines to that file while other workload files were still running; the final related Import run uses 19e9ec43a. This failed workload is diagnostic, never final-head cap evidence.",
-  "final_source_sha": "e86778ecc2b2d6f77d71311520593bcaf0759c54",
+  "source_note": "Started on 6138fb50d3014eb57aee171d4260f8d9119af67d. After the complete Import file passed, 19e9ec43a added only two required blank lines to that file while other workload files were still running; the final related Import run uses 19e9ec43a. This failed workload is diagnostic, never final-head cap evidence.",
+  "final_source_sha": "20d65e61c2997d1f075e2a28e3cfcc2328758815",
   "final_ready_exit_code": 0,
   "records": [
     {
       "name": "isolated-import",
-      "source_sha": "7143dd9fa093a08a69044a7b24d2648ccd337137",
+      "source_sha": "6138fb50d3014eb57aee171d4260f8d9119af67d",
       "command": [
         "python3",
         "loop/app-data.py",
@@ -102,7 +102,7 @@
     },
     {
       "name": "import-final",
-      "source_sha": "7143dd9fa093a08a69044a7b24d2648ccd337137",
+      "source_sha": "6138fb50d3014eb57aee171d4260f8d9119af67d",
       "command": [
         "python3",
         "loop/app-data.py",
@@ -135,7 +135,7 @@
     },
     {
       "name": "normal",
-      "source_sha": "7143dd9fa093a08a69044a7b24d2648ccd337137",
+      "source_sha": "6138fb50d3014eb57aee171d4260f8d9119af67d",
       "command": [
         "python3",
         "loop/app-data.py",
@@ -222,7 +222,7 @@
     },
     {
       "name": "related",
-      "source_sha": "e86778ecc2b2d6f77d71311520593bcaf0759c54",
+      "source_sha": "20d65e61c2997d1f075e2a28e3cfcc2328758815",
       "command": [
         "python3",
         "loop/app-data.py",

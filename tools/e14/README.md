@@ -273,7 +273,7 @@ observers still prove collector completion and whole-lane coverage. The
 
 [Run 40179342510](https://github.com/roundup-app/roundup/actions/runs/40179342510),
 [job 121127217065](https://github.com/roundup-app/roundup/actions/runs/40179342510/job/121127217065),
-measured source [a24f263ab48f4abad75ce18c1ab47fd3b0fb8fdd](https://github.com/roundup-app/roundup/commit/a24f263ab48f4abad75ce18c1ab47fd3b0fb8fdd):
+measured source [e6b4a0ff5ea62b05a51cd085c17e63c4ac29ed08](https://github.com/roundup-app/roundup/commit/e6b4a0ff5ea62b05a51cd085c17e63c4ac29ed08):
 `rust1`, empty BASE, profile `ci1`, four threads, exit 0, 310 tests passing.
 The command took 376.497 seconds; this is **not full hosted check-job time**.
 The Builder workflow's own head differs from its measured checkout; both SHAs

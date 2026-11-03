@@ -1,6 +1,6 @@
 # U5741 native menu reconciliation
 
-Audited App: `6d36d21c90b43cd4a244cc3f60d0a54ff1cf9dd8`. This closes the native-default discovery gap in the source census; it does not complete the feature audit or authorize deletion. The native host is not rendered by Chromium. Source construction, projected menu models and a macOS visual observation are different observers.
+Audited App: `e97b71b0cf59d0cab56543d192c9ecf148f56fa7`. This closes the native-default discovery gap in the source census; it does not complete the feature audit or authorize deletion. The native host is not rendered by Chromium. Source construction, projected menu models and a macOS visual observation are different observers.
 
 `crates/desktop/src/menu.rs::app_menu` starts with `tauri::menu::Menu::default`, inserts Project, replaces Edit, and extends the application submenu. `Cargo.lock` pins Tauri 2.12.1 and muda 0.20.0. The exact published crate archives were read, including Tauri's `src/menu/menu.rs::Menu::default` and muda's `src/items/predefined.rs::{default_text,accelerator}` and macOS selector dispatch. Sources: [Tauri 2.12.1 source](https://docs.rs/tauri/2.12.1/src/tauri/menu/menu.rs.html), [muda 0.20.0 source](https://docs.rs/muda/0.20.0/src/muda/items/predefined.rs.html). Both downloaded archive SHA-256 values match Cargo.lock. No substitute version or guessed list was used.
 

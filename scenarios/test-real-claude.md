@@ -147,7 +147,7 @@ Observer: independent review of the mapping, scenario needs and assertion bodies
 
 ## E2962 fixed inventory
 
-Baseline: `rup::real_claude` on successful [check run 39378452452](https://github.com/saadshahd/roundup/actions/runs/39378452452), commit `f6d967049750237f48ea82956d9a614fcbe67dd2`; reported group total 608 s (policy). Per-test times below are rounded; compare against the reported group total, not a sum presented as unrounded precision (policy).
+Baseline: `rup::real_claude` on successful [check run 39378452452](https://github.com/saadshahd/roundup/actions/runs/39378452452), commit `beee749413122789f2102533eb9ec93a7e00a3af`; reported group total 608 s (policy). Per-test times below are rounded; compare against the reported group total, not a sum presented as unrounded precision (policy).
 
 | test | binary | seconds |
 |---|---|---|

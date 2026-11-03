@@ -2,7 +2,7 @@
 
 LC23: PASS
 Both crash cases blocked Write and Edit without file changes; the restored program passed LC21.
-Implementation commit: 9f5a450f5b7e1beec61deb61141881e377882a02
+Implementation commit: 6b92722ff8baa740019043fc2e73af35a64cdaa5
 Claude Code: 2.1.316; Haiku 5.5, selected as haiku; four Door prompts.
 Launch: rail.startDoor, Workstream 1, Door Terminal 1, PID 36665; isolated rupd PID 36364.
 Permission mode: auto, inherited from the user; all four failing hook payloads report auto. LC21 used the same Door and mode.
@@ -77,4 +77,4 @@ Fixture readiness and kill records: evidence/fixture-*.json and evidence/killed-
 No tracked PR files changed; nothing pushed. No desktop App or production binary was launched or replaced. No credentials or user settings were edited by the observer.
 Cleanup: all observed test processes stopped by PID; none remain. Details: evidence/cleanup.json.
 
-PR head c93fed796 merges main into the observed commit; `git diff 9f5a450f5b7e1beec61deb61141881e377882a02 c93fed796 -- crates/agents crates/rup crates/rupd` is empty, so the observed hook code is the head's. The `evidence/` files stayed on the observing Mac.
+PR head c93fed796 merges main into the observed commit; `git diff 6b92722ff8baa740019043fc2e73af35a64cdaa5 c93fed796 -- crates/agents crates/rup crates/rupd` is empty, so the observed hook code is the head's. The `evidence/` files stayed on the observing Mac.

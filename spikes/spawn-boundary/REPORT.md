@@ -30,7 +30,7 @@ Same VM kind (isolated, from `ru-toolchain`), `claude` in a `tmux` pty, `--model
 
 ## Interactive re-run, 2026-10-09
 
-Observed on a disposable GitHub Actions Ubuntu runner, Claude Code **2.1.295** in every case, Haiku 5.5, interactive `tmux` PTYs. [Run 37958168926](https://github.com/saadshahd/roundup/actions/runs/37958168926) executes the audited isolated script at `5417f878daccfec86f809c074c42fd59e1a529bf`. The shell receives the plan OAuth environment directly, outside the Builder's tool shell. Each run uses a fresh config directory and private tmux socket; no personal browser, desktop or copied login is used.
+Observed on a disposable GitHub Actions Ubuntu runner, Claude Code **2.1.295** in every case, Haiku 5.5, interactive `tmux` PTYs. [Run 37958168926](https://github.com/saadshahd/roundup/actions/runs/37958168926) executes the audited isolated script at `755e84d605e7444bcbb9e428530a219b7c207e0a`. The shell receives the plan OAuth environment directly, outside the Builder's tool shell. Each run uses a fresh config directory and private tmux socket; no personal browser, desktop or copied login is used.
 
 The four captures contain completed answers, not login/trust prompts or timeout screens. Each case's version file reports 2.1.295. [The manifest](raw-interactive/2026-10-09-2.1.295/manifest.json) records the capture source; its `captured-not-judged` state describes the artifact before this inspection.
 

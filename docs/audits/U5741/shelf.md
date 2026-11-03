@@ -1,6 +1,6 @@
 # U5741 Shelf decisions
 
-Audited main: `891b6f6d4760684f5cac71bd63ed3ede3b573a81`. This continues the existing inventory; it is not an owner request or deletion authorization. Todo/Pad content editing, toolbar choices and output delivery remain separate work. Ask and real Agent Terminals remain protected; Overview remain excluded.
+Audited main: `19412c0e4d2429f0579c9835c04eba72ffcd1db7`. This continues the existing inventory; it is not an owner request or deletion authorization. Todo/Pad content editing, toolbar choices and output delivery remain separate work. Ask and real Agent Terminals remain protected; Overview remain excluded.
 
 Observer: reconcile production `App`, `Layout`, Shelf frame, scope, groups, selection and reversible-deletion callers with isolated dark 1512×950 openings. All three candidate questions must have evidence; unverified comparisons remain unfinished, never counted as no. No usage measurements are assumed.
 

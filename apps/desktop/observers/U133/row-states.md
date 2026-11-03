@@ -65,7 +65,7 @@ makes no native rendering or launch-performance claim.
 
 ## Current main integration
 
-Clean merge `fb9dd2f56838cacf86b1261d88de3a9fd5a4f7c6` includes main
+Clean merge `f85fba086f34af194127aa6b1c37ebb1577f6b28` includes main
 `02bd2825b`; no authored row stylesheet changes in that merge. Fresh isolated
 headless Chromium captures in the dedicated `fix4005` session are dark,
 1512×950, device scale 1. Every existing Check passes on all five named seeds.

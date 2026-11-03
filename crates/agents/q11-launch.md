@@ -2,7 +2,7 @@
 
 Claude Code 2.1.296, Linux, 2026-10-14. Isolated temporary Project and
 CLAUDE_CONFIG_DIR; no model request, user plugin installation or startup fetch.
-Code revision: `1694f48f7ca59379a0bb10728264c2e1c34ab42b`. Observer exit: 0.
+Code revision: `683591b6691b69cccfcbb017f7a7d5419bfc3fe3`. Observer exit: 0.
 The same Launcher and Project supply both role configurations. The real vendor
 hook loader probe succeeds before inventory is requested through those argv.
 
@@ -28,7 +28,7 @@ not a fake argv report. It does not claim model style compliance.
 ## Rule 7 observation
 
 Two `just perf` invocations, eleven fresh Daemons each, on the same host:
-implementation `1694f48f7ca59379a0bb10728264c2e1c34ab42b` and unmodified
+implementation `683591b6691b69cccfcbb017f7a7d5419bfc3fe3` and unmodified
 main `955dfe50`. Both exit 1 on the same five historical-baseline comparisons:
 ping, Rail-40, RSS, Terminal write and write-to-output. No budget or allowance
 changed. Every implementation metric remains within 10% of same-host main;

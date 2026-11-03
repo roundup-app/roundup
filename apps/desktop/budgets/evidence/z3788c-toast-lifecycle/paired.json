@@ -2,7 +2,7 @@
   "scenario": "Z3788c",
   "scope": "Toast queue focus/visibility listener lifecycle only",
   "base_revision": "07cdccb91",
-  "head_revision": "fcc8eae0ab3fb845ca44b9106f718e3da748e0eb",
+  "head_revision": "b7218b360ca025736124ccee9af1ee3d959ad9ac",
   "host": "Linux 6.17.0-1022-azure x64",
   "node": "v22.23.3",
   "pnpm": "10.14.0",

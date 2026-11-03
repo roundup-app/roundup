@@ -31,8 +31,8 @@
     "VITEST_MAX_WORKERS": "2",
     "CARGO_TARGET_DIR": "/home/runner/work/roundup/roundup/target"
   },
-  "post_merge_checked_head": "58767949a658cf7069128902040b921b04532bc6",
-  "post_merge_main": "e056d94cdb6a690169167cb3392d345fbee304ef",
+  "post_merge_checked_head": "fdd4396b85c45d2357b3ae4f599fbeae4ef2ede2",
+  "post_merge_main": "040e51dcd5fdb1db52bafb6f93410f3b5147243c",
   "post_merge_rust_tests": {
     "passed": 1543,
     "skipped": 0

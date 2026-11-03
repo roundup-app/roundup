@@ -1,6 +1,6 @@
 # U5741 Made and publication decision evidence
 
-Audited main: `1c1b50bcc0a15d2f6093d31e52715cab22e9e653` (the full SHA is in catalogues/outputs-source.json). This continues the reviewed inventory; no owner request, answer or retirement. The Overview list belongs to #5730 and Reactions to #5740. Ask and real Agent Terminals, direct access and native continuation remain protected.
+Audited main: `05263fecb94094861577d86e6785baf5ecccce73` (the full SHA is in catalogues/outputs-source.json). This continues the reviewed inventory; no owner request, answer or retirement. The Overview list belongs to #5730 and Reactions to #5740. Ask and real Agent Terminals, direct access and native continuation remain protected.
 
 ## Evidence and interpretation
 

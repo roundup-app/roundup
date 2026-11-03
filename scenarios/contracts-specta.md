@@ -77,7 +77,7 @@ its clause under rule 10; no wire assertion is weakened to fit the exporter.
 
 ## Baseline and migration decisions
 
-Verified on main commit `8fc32098118dbe86c96bd1410558345dbf7cb0f5`:
+Verified on main commit `b12863417c718aaddd916a0832243d3dc96cb860`:
 `contracts/generated/` contains 276 tracked files. For a null-to-null method in
 an existing module, a disposable `project.contractProbe` addition has three
 hand-edited files: `crates/contracts/src/methods.rs` (`METHODS`),

@@ -9,7 +9,7 @@
   },
   "phase": "plan",
   "trigger": "c513616b34ae134c0aebe916d3e68b8547d2c649369574f3f6a6234f8e8f1807",
-  "main": "b599c26b796b411ced379fdae7b1903ade920b6d",
+  "main": "05203681cc6f2d3e1ffae2ae0ce2b8a9cb8c7d6b",
   "previous": null,
   "answer": {
     "goals": [
@@ -49,7 +49,7 @@
     "evidence": [
       {
         "goal": 1,
-        "command": "grep -n -E 'setMode\\(\"edit\"\\)|>Preview<|onClick=\\{done\\}' apps/desktop/src/pads/PadDrawer.tsx  (at main b599c26b796b411ced379fdae7b1903ade920b6d)",
+        "command": "grep -n -E 'setMode\\(\"edit\"\\)|>Preview<|onClick=\\{done\\}' apps/desktop/src/pads/PadDrawer.tsx  (at main 05203681cc6f2d3e1ffae2ae0ce2b8a9cb8c7d6b)",
         "output": "242: <button type=\"button\" onClick={() => setMode(\"edit\")}>edit</button>\n255: <button type=\"button\" onClick={() => showDraft(\"preview\")}>Preview</button>\n258: <button type=\"button\" onClick={() => setMode(\"edit\")}>edit</button>\n261: <button type=\"button\" onClick={done}>done</button>",
         "url": "https://github.com/saadshahd/roundup/actions/runs/37957697127",
         "proved": false,
@@ -57,7 +57,7 @@
       },
       {
         "goal": 2,
-        "command": "grep -n -E 'mermaid|tldraw' apps/desktop/package.json  (at main b599c26b796b411ced379fdae7b1903ade920b6d)",
+        "command": "grep -n -E 'mermaid|tldraw' apps/desktop/package.json  (at main 05203681cc6f2d3e1ffae2ae0ce2b8a9cb8c7d6b)",
         "output": "(no output; the dependencies are codemirror and milkdown only)",
         "url": "https://github.com/saadshahd/roundup/actions/runs/37957697127",
         "proved": false,
@@ -65,7 +65,7 @@
       },
       {
         "goal": 3,
-        "command": "grep -n -E 'mermaid|tldraw' apps/desktop/package.json  (at main b599c26b796b411ced379fdae7b1903ade920b6d)",
+        "command": "grep -n -E 'mermaid|tldraw' apps/desktop/package.json  (at main 05203681cc6f2d3e1ffae2ae0ce2b8a9cb8c7d6b)",
         "output": "(no output; the App has no drawing canvas)",
         "url": "https://github.com/saadshahd/roundup/actions/runs/37957697127",
         "proved": false,

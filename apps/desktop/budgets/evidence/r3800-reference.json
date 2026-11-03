@@ -5,7 +5,7 @@
     "gzip": 521539,
     "sha256": "e4c87f8ce4c891b5091b3761678c6d456121410d1b207aaa24fde70bbb2fae86"
   },
-  "instrumentedHead": "0889b39025886d0b5a4ad5ea5e59140270ef83a5",
+  "instrumentedHead": "45be307f7864f3e8abeae655357a4f264e6734fe",
   "commands": [
     "pnpm install",
     "pnpm --filter desktop build",
@@ -557,7 +557,7 @@
   "architecture": "x64",
   "note": "Artifact observer slice only. Both runtime outputs are byte-identical. No runtime startup, first-use, rendered or performance acceptance is claimed. Retired App modules are omitted from the module inventory; byte measurements remain pinned to the original reference revision.",
   "afterMainMerge": {
-    "source": "7d09c9395024e0cd2a68675039062d293f7aecca",
+    "source": "b271d11d6c61c62cbfaed4c34f9e5f4851e51034",
     "buildExit": 0,
     "checker": {
       "exit": 1,

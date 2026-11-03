@@ -1,6 +1,6 @@
 # Tauri 2 + xterm.js keystroke latency spike
 
-Retired measurement. Source and raw samples are historical, retained at revision `1ad3e2c1b6a0e45ddd1645ad609260bfc67f4ea9` under `spikes/tauri-latency/` in git history. The runnable spike and its dependency manifests have been removed; this report retains the ADR evidence.
+Retired measurement. Source and raw samples are historical, retained at revision `4712b7572d2ed0224b2f2704327cc5ddea017b82` under `spikes/tauri-latency/` in git history. The runnable spike and its dependency manifests have been removed; this report retains the ADR evidence.
 
 Budget under test: keystroke-to-render p95 < 16 ms (in-webview, NOT input-to-photon).
 

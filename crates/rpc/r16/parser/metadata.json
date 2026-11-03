@@ -68,7 +68,7 @@
       "rev-parse",
       "HEAD"
     ],
-    "output": "25d5d0114414f2ee79faacc5615b5143716c770c\n"
+    "output": "bdfdfab6a780c899308be1eb637cb4f2c3aefe4d\n"
   },
   "profile": "Default cargo --release; committed Cargo.lock; no flags overridden",
   "env": {

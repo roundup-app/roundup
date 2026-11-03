@@ -1,6 +1,6 @@
 # U5741 changes and resource decisions
 
-Source: main `c909d5b3b7afbe92d20d12520f7d94263bc977d7`; earlier audit: `6d36d21c90b43cd4a244cc3f60d0a54ff1cf9dd8`. This continuation inventories independently removable controls. It is neither the complete audit nor an owner request. No choice or deletion is authorized.
+Source: main `3466a2241a589e28125beb40ab266800176f8a3e`; earlier audit: `e97b71b0cf59d0cab56543d192c9ecf148f56fa7`. This continuation inventories independently removable controls. It is neither the complete audit nor an owner request. No choice or deletion is authorized.
 
 [Source provenance](catalogues/changes-source.json) retains inspected hashes, exact fixture setup, observer drivers, vendor help and linked owner direction. [Rendered openings](rendered-changes.json) retain isolated headless Chromium observations at 1512×950, dark, with a fresh profile. The six changes components and ResourceStrip/format are byte-identical to the earlier audit; newer App/menu composition is inspected separately. Fixtures enter through existing `window.__fake.app.handlers`; all openings use actual controls or the existing native Project-command observer. No fixture result proves real sampling, Git correctness, a native editor opening or Message delivery.
 

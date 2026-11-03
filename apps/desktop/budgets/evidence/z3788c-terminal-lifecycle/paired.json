@@ -1,8 +1,8 @@
 {
   "scenario": "Z3788c",
   "scope": "Terminal Pane observer/window listener only",
-  "base_revision": "8ed968165e5e2ba14f0394e7138335e183103909",
-  "head_revision": "867249b5e934188cf8f7deb74e84af562a7dc07b",
+  "base_revision": "b43935f53e69ac0d4f2b898e79c13774f7ab5e31",
+  "head_revision": "fef95d468e2a31b013ec868650789f7f63a86c38",
   "host": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39",
   "node": "v22.23.3",
   "pnpm": "10.14.0",
@@ -32,8 +32,8 @@
   "mutation": "Removing observer disconnect, window listener removal and pending-frame cancellation makes both owner cleanup cases fail: retired fits=1 rather than 0. Restored before production implementation.",
   "claims": "No Z3788a entry no-growth/409600 pass, no image memory or native timing claim.",
   "merge_verification": {
-    "revision": "e1cc0f0d2c206a4ff34a206f1c6a0a6c3312ca41",
-    "main": "bd97d971b916133d7259862319c7ac0fb4f7294b",
+    "revision": "65bad720cc8e36425b94d49f5abbeddb931b8ed2",
+    "main": "2b3d79a82efc3ca5ca666a1e2c3853fa45cd67e1",
     "result": {
       "exit": 0,
       "entry": "assets/index-BEg5J6kB.js",

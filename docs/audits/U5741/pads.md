@@ -1,6 +1,6 @@
 # U5741 Pad decisions
 
-Audited main: `263e337fa8f42806c2260a0709b0701be3ba37a1` (2026-11-03). This continues the reviewed inventory; it is neither the complete inventory nor an owner decision request. No usage measurement, keep/delete answer or retirement is inferred. [Source catalogue](catalogues/pads-source.json) pins the inspected implementation, public mappings, direction and replay driver. [Rendered openings](rendered-pads.json) retain the actual isolated observations and failures. Earlier observations keep their original revisions.
+Audited main: `aac76a0ce2dda2648e9e2071a91cbc3e8db5dae6` (2026-11-03). This continues the reviewed inventory; it is neither the complete inventory nor an owner decision request. No usage measurement, keep/delete answer or retirement is inferred. [Source catalogue](catalogues/pads-source.json) pins the inspected implementation, public mappings, direction and replay driver. [Rendered openings](rendered-pads.json) retain the actual isolated observations and failures. Earlier observations keep their original revisions.
 
 ## Reading the decisions
 
@@ -99,4 +99,4 @@ Finish conditional Pad creation/conflict/retention/read failure/deleted/rename/e
 
 ## Conditional/library continuation
 
-[pad-controls.md](pad-controls.md), [source archive](catalogues/pad-controls-source.json) and [fresh observations](rendered-pad-controls.json) continue on main `2136a0813f23b187102f2af1040c393537cec35b`. They correct PF22/PF27/PF28 expanded/edit coverage while preserving the original failed capture, separate PC01–PC15 and reconcile slash choices with enabled library features. They do not establish the remaining conditional/native/storage paths or complete the inventory.
+[pad-controls.md](pad-controls.md), [source archive](catalogues/pad-controls-source.json) and [fresh observations](rendered-pad-controls.json) continue on main `52538bc2c9597113cf7ae51aec1b11861011a671`. They correct PF22/PF27/PF28 expanded/edit coverage while preserving the original failed capture, separate PC01–PC15 and reconcile slash choices with enabled library features. They do not establish the remaining conditional/native/storage paths or complete the inventory.
