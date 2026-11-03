@@ -28,7 +28,7 @@ const NOT_FOUND = -32001;
 
 const KINDS: Kind[] = ["error", "needs-you", "blocked", "working", "idle", "done"];
 
-export const SEEDS = ["first-run", "first-run-five", "first-run-missing-binary", "agents-10", "menu-bar-10", "tree-40", "daemon-exits", "conflict", "empty-project", "door-stopped", "door-report", "earlier-run", "context-bar", "tabs-8", "bubbles", "resources", "import-candidates", "note-queue"] as const;
+export const SEEDS = ["first-run", "first-run-five", "first-run-missing-binary", "agents-10", "menu-bar-10", "tree-40", "selection", "daemon-exits", "conflict", "empty-project", "door-stopped", "door-report", "earlier-run", "context-bar", "tabs-8", "bubbles", "resources", "import-candidates", "note-queue"] as const;
 
 export type SeedName = (typeof SEEDS)[number];
 
@@ -524,7 +524,7 @@ export const seedApp = (name: SeedName, now: number): Controls => {
 
   if (name === "first-run-missing-binary") app.claudeBinary = async () => null;
 
-  const tree = (name === "tree-40" || name === "import-candidates") ? nestedTree(now) : cyclingAgents(now, 10, () => null);
+  const tree = (name === "tree-40" || name === "selection" || name === "import-candidates") ? nestedTree(now) : cyclingAgents(now, 10, () => null);
 
   const nodes = name.startsWith("first-run") || name === "empty-project"
     ? []
@@ -553,12 +553,14 @@ export const seedApp = (name: SeedName, now: number): Controls => {
       ? [door("first-workstream", "done", "finished", { name: "first workstream", status: statusAt(now, "done", "finished", 0) })]
       : tree;
 
+  if (name === "selection") nodes.splice(0, nodes.length, ...nodes.filter(node => ["backend", "payments", "migrate", "agent-1"].includes(node.id)));
+
   if (name === "menu-bar-10") {
     nodes.splice(0, nodes.length, door("menu-door", "needs-you", "Which revision?", { name: "Review the published revision 🌿" }),
       ...cyclingAgents(now, 4, () => null).map(node => ({ ...node, name: `日本語 👩🏽‍💻 ${node.name} ${"long name ".repeat(5).trimEnd()}` })));
   }
 
-  const controls = installDaemon(app, nodes, now, name === "tree-40" || name === "conflict" || name === "import-candidates", name === "bubbles", name === "import-candidates");
+  const controls = installDaemon(app, nodes, now, name === "tree-40" || name === "selection" || name === "conflict" || name === "import-candidates", name === "bubbles", name === "import-candidates");
   app.opened.project = name.startsWith("first-run") ? null : PROJECT;
 
   if (name === "menu-bar-10") {
