@@ -22,8 +22,6 @@
   --pad-highlight-ink: var(--amber-12);
   --button-accent-fill: #1f6b62;
   --button-key-ink: #d4e6e2;
-  --doodle-patch: #2f8f80;
-  --doodle-offset: translate(14px, 10px);
   --text-selection: var(--button-accent-fill);
   --text-selection-ink: var(--button-accent-ink);
   color-scheme: light dark;
@@ -77,8 +75,7 @@
   --disabled: #707070;
   --press-opacity: 0.9;
   --accent: #1a6b61;
-  --doodle-line: #5a4a3e;
-  --doodle-blend: multiply;
+  --doodle-ground: color-mix(in srgb, var(--ground) 95%, #000000);
   --amber: var(--amber-11);
   --red: var(--red-11);
   --hairline: rgba(0, 0, 0, 0.1);
@@ -285,8 +282,7 @@
     --cache-write: var(--gray-9);
     --disabled: #999999;
     --accent: #5cc7b5;
-    --doodle-line: #e6cfbb;
-    --doodle-blend: screen;
+    --doodle-ground: color-mix(in srgb, var(--ground) 95%, #ffffff);
     --amber: var(--amber-11);
     --red: var(--red-11);
     --hairline: rgba(255, 255, 255, 0.12);
@@ -356,8 +352,7 @@ button, file-tree-container, diffs-container {
   --cache-write: var(--gray-9);
   --disabled: #707070;
   --accent: #1a6b61;
-  --doodle-line: #5a4a3e;
-  --doodle-blend: multiply;
+  --doodle-ground: color-mix(in srgb, var(--ground) 95%, #000000);
   --amber: var(--amber-11);
   --red: var(--red-11);
   --hairline: rgba(0, 0, 0, 0.1);
@@ -404,8 +399,7 @@ button, file-tree-container, diffs-container {
     --cache-write: var(--gray-9);
     --disabled: #999999;
     --accent: #5cc7b5;
-    --doodle-line: #e6cfbb;
-    --doodle-blend: screen;
+    --doodle-ground: color-mix(in srgb, var(--ground) 95%, #ffffff);
     --amber: var(--amber-11);
     --red: var(--red-11);
     --hairline: rgba(255, 255, 255, 0.12);

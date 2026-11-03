@@ -257,7 +257,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 
 | Code term | User label | Avoid |
 |---|---|---|
-| Token (`--button-accent-fill`, `--button-key-ink`, `--doodle-line`, `--doodle-patch`, `--doodle-offset`, `--doodle-blend`) | same | — |
+| Token (`--button-accent-fill`, `--button-key-ink`, `--doodle-ground`) | same | — |
 | Text selection Token (`--text-selection`, `--text-selection-ink`) | same | — |
 | Section head | same | — |
 | Signifier | same | — |

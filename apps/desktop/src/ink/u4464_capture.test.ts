@@ -1,4 +1,4 @@
-import { agentBrowserExecutable } from "../testing/chromePage";
+import { agentBrowserExecutable, chromePath } from "../testing/chromePage";
 import { execFile, execFileSync } from "node:child_process";
 import { promisify } from "node:util";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
@@ -44,8 +44,16 @@ it.skipIf(!captureDir("U4464") && !captureDir("U5163"))("u5606_capture_empty_vie
         const content = [...room.querySelectorAll('h3,p,button,li,[role=alert],.empty-state-actions')].filter(node => node.getBoundingClientRect().height > 0);
         const lowestContentBottom = Math.max(...content.map(node => box(node).bottom));
         const style = scene && getComputedStyle(scene);
+        const probe = document.createElement('span');
+        probe.hidden = true;
+        probe.style.color = 'var(--doodle-ground)';
+        probe.style.backgroundColor = 'var(--ground)';
+        room.append(probe);
+        const fillColour = getComputedStyle(probe).color;
+        const groundColour = getComputedStyle(probe).backgroundColor;
+        probe.remove();
         const ground = getComputedStyle(room).getPropertyValue('--ground').trim();
-        return {name:el.querySelector('h3')?.textContent,room:box(room),scene:scene ? box(scene) : null,visibleTop:scene ? Math.max(box(scene).y,box(room).y) : null,lowestContentBottom,fill:style?.getPropertyValue('--doodle-ground').trim(),ground,hitTargets:content.map(node => {const r=box(node); const hit=document.elementFromPoint(r.x+r.width/2,r.y+r.height/2);return {text:node.textContent,hit:hit===node || node.contains(hit)};}),pointerEvents:style?.pointerEvents,animation:style?.animationName};
+        return {name:el.querySelector('h3')?.textContent,room:box(room),scene:scene ? box(scene) : null,visibleTop:scene ? Math.max(box(scene).y,box(room).y) : null,lowestContentBottom,fillColour,groundColour,fill:style?.getPropertyValue('--doodle-ground').trim(),ground,hitTargets:content.map(node => {const r=box(node); const hit=document.elementFromPoint(r.x+r.width/2,r.y+r.height/2);return {text:node.textContent,hit:hit===node || node.contains(hit)};}),pointerEvents:style?.pointerEvents,animation:style?.animationName};
       });
     })()`);
 
@@ -81,7 +89,7 @@ it.skipIf(!captureDir("U4464") && !captureDir("U5163"))("u5606_capture_empty_vie
     })()`);
 
   try {
-    await browser("--profile", profile, "--init-script", join(profile, "creation-observer.js"), "--executable-path", "/opt/google/chrome/chrome", "--args", `--no-sandbox${process.env.U4464_CONTRAST ? ",--force-high-contrast,--disable-blink-features=ForcedColors" : ""}`, "open", origin);
+    await browser("--profile", profile, "--init-script", join(profile, "creation-observer.js"), ...(chromePath() ? ["--executable-path", chromePath()!] : []), "--args", `--no-sandbox${process.env.U4464_CONTRAST ? ",--force-high-contrast,--disable-blink-features=ForcedColors" : ""}`, "open", origin);
     await browser("set", "viewport", "1512", "950");
 
 
@@ -121,7 +129,7 @@ it.skipIf(!captureDir("U4464") && !captureDir("U5163"))("u5606_capture_empty_vie
           for (const seed of ["first-run", "first-run-five", "empty-project", "earlier-run", "door-stopped"]) {
             if (height === 1100 && seed !== "empty-project") continue;
             await load(seed, seed === "empty-project" ? "workstreams" : "");
-            await read(`document.documentElement.style.setProperty('--shelf-span', '${width}px')`);
+            await read(`document.querySelector('.window').style.setProperty('--shelf-span', '${width}px')`);
 
             if (seed === "empty-project") {
               await browser("click", '[role="tab"][data-value="todos"]');
@@ -156,6 +164,12 @@ it.skipIf(!captureDir("U4464") && !captureDir("U5163"))("u5606_capture_empty_vie
       await load("door-stopped");
       await wait(`!!document.querySelector('.pane-door .empty-state') && !!document.querySelector('.xterm-screen')`);
       await read(`(async () => { const emulator = window.__terminals.get('t-first-workstream'); await emulator.ready; const output = Array.from({length:60}, (_, index) => 'Retained output line ' + (index + 1) + ' — completed work remains available across the stopped Door pane.').join('\\r\\n') + '\\r\\n'; await new Promise(resolve => emulator.write(new TextEncoder().encode(output), resolve)); })()`);
+
+      if (phase !== "base") {
+        await wait(`!!document.querySelector('[data-terminal-content]')`);
+        expect(await read(`!!document.querySelector('.pane-body .empty-state-ground')`)).toBe(false);
+      }
+
       await snap(`${theme}-stopped-door-output`);
       await load("resources", "resources");
       await read(`window.__fake.app.handlers['agent.changedFiles'] = () => ({files:[]})`);
@@ -243,7 +257,7 @@ it.skipIf(!captureDir("U401"))("u401_capture_shared_glyphs_for_the_critic", asyn
   };
 
   try {
-    await browser("--profile", profile, "--executable-path", "/opt/google/chrome/chrome", "--args", "--no-sandbox", "open", origin);
+    await browser("--profile", profile, ...(chromePath() ? ["--executable-path", chromePath()!] : []), "--args", "--no-sandbox", "open", origin);
     await browser("set", "viewport", "1512", "950");
 
     for (const theme of ["light", "dark"]) {

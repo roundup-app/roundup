@@ -117,7 +117,7 @@ Kind has two carriers, a Glyph shape and a tone. The shape is enough on its own:
 | `idle` | `○` (empty ring; U401) | `--grey` | no |
 | `done` | `✓` (check in a disc; U401) | `--grey` | no |
 
-Outside U4464’s decorative scene (until U5163 makes it ground) and fixed primary-fill/key exceptions, three hues exist in the App: `--red`, `--amber`, `--accent`. Surfaces are neutral. A screen with no `error` and no `needs-you` shows no red and no amber.
+Outside U4464’s fixed primary-fill/key exceptions, three hues exist in the App: `--red`, `--amber`, `--accent`. Surfaces are neutral. A screen with no `error` and no `needs-you` shows no red and no amber.
 
 ## Click targets
 
@@ -334,10 +334,7 @@ Native confirmations use the system's appearance. Every remaining web modal, anc
 | `--button-neutral` | `var(--gray-4)` | `var(--gray-4)` | Secondary/action button fill |
 | `--button-accent-fill` | `#1f6b62` | same | Primary fill |
 | `--button-key-ink` | `#d4e6e2` | same | Dimmer readable key on primary fill |
-| `--doodle-line` | `#5a4a3e` | `#e6cfbb` | Decorative scene lines; retires under U5163 |
-| `--doodle-patch` | `#2f8f80` | same | Decorative scene patch; retires under U5163 |
-| `--doodle-offset` | `translate(14px, 10px)` | same | Scene patch offset; retires under U5163 |
-| `--doodle-blend` | `multiply` | `screen` | Scene patch blend; retires under U5163 |
+| `--doodle-ground` | ground mixed with 5% black | ground mixed with 5% white | U5163 empty-view silhouette, below 1.2:1 contrast |
 | `--button-accent-ink` | `#ffffff` | `#ffffff` | Label on accent fill |
 | `--radius-pill` | `999px` | same | Floating-surface action buttons |
 
@@ -393,7 +390,7 @@ U4382a supersedes the no-box and no-focus-ring rules above only for shared form 
 
 Keyboard focus draws a two-pixel `--accent` outline with a two-pixel offset, including invalid fields. Invalid frames use `--red` with the supplied error below. Disabled fields keep readable `--disabled` text. D6 requires these rings; unrelated controls retain U3528. D8 allows these one-pixel frames in form-border, accent, red and disabled only on the listed shared control parts; other borders and all elevation restrictions remain unchanged. D2, D5 and D9 remain unchanged. U4382a's paired dark/light 1512×950 comparisons and U401’s D18 contact sheet are the exceptions to dark-only evidence.
 
-U4464: empty-view actions reuse shared primary/quiet buttons in one centred horizontal row, with shortcuts inside. Rail order is New Agent ⌘N, New Workstream ⇧⌘N. Single-action and actionless views retain their behavior. Open Doodles use `--doodle-line` (#5a4a3e light, #e6cfbb dark), `--doodle-patch` (#2f8f80), `--doodle-offset` (+14/+10 scene units) and `--doodle-blend` (multiply light, screen dark), with unchanged geometry. These decorative inks and the fixed primary fill/key ink are named D3 exceptions.
+U4464: empty-view actions reuse shared primary/quiet buttons in one centred horizontal row, with shortcuts inside. Rail order is New Agent ⌘N, New Workstream ⇧⌘N. Single-action and actionless views retain their behavior. U5163’s Open Doodles silhouettes use only `--doodle-ground`, cropped past their room’s bottom-right edge, beneath the message. Scenes require a room at least 832 px tall and 32 px clearance below all content; otherwise none renders. Only the fixed primary fill/key ink retain the D3 exception.
 
 U4685a/b: `tokens.css` paints an inward `--hairline-width` outline in `--accent` on the focused Terminal, Rail, Shelf or Drawer. CSS `:focus-within` follows actual focus immediately; Shelf also follows its tabs in the shared header. It changes no border, padding or dimensions and requests no fit or resize. A hidden Shelf paints nothing. Help and other dialogs take focus away, clearing the region indicator, and existing focus return restores it. Controls retain U3528 and shared forms retain U4382a. D2, D5 and D6 hold; region geometry and unobscured Terminal glyphs/caret are judged through the rendered U4685 observer.
 
