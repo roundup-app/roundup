@@ -487,3 +487,29 @@ Integrated remote head `c2ca0523e` by fast-forward; it had already made #5861 re
 `pnpm install`, vocabulary, scenario ids, merge-loss and whitespace checks pass. No product, contract, scenario or behavior test changed; #5758 remains open for the complete inventory and later owner request.
 
 Final fix-run `just ready` passes (exit 0), including all 193 lint-behavior checks, styles, package typechecks, repository/Rust lints, B4522, `ALL PROOFS CHECK` and N7. The corrected standalone spelling scan also passes. No local `just check` ran.
+
+## Requested attention, progress and Import — builder-41603063123
+
+Documentation-only slice pinned to main `b021117d063f663008f9a692be5e7496b2eebbe1`. No product/scenario/contract/test/frozen-loop changes, owner request or deletion. `attention-import.md` records A01–A10, W01–W08 and I01–I15 separately. Source catalogue retains inspected hashes, exact direction replies, installed Claude 2.1.300 help, gh run view help and reproducible isolated driver. Current source public mappings are distinguished from earlier actual role offers; no fresh tools/list is claimed.
+
+Observer: existing isolated App harness, fresh named browser/profile, headless Chromium, dark 1512×950. Fake Daemon openings prove webview controls and calls only. Captures remain uncommitted under `artifacts/ux/U5741/attention-import/`. Existing unavailable/error states are retained with Check readings; no native, real import/Message, clipboard or older-data reopening claim. Remaining conditional/equivalence/runtime/revision gaps remain on #5758.
+
+| Failed command / observer | Exit | Failure and repair |
+| --- | ---: | --- |
+| Initial `pwd; git status --short; git rev-parse HEAD; ls .codegraph` | 2 | Optional index absent; ordinary source discovery used. |
+| `cat ... importer/state.ts ... testing/fakeAppHandlers.ts` | 1 | Guessed modules absent; inspected rail/importState.ts and fakeApp.ts instead. |
+| `rg ... app/commands.ts ...` | 2 | Guessed commands module absent; actual Rail/App/ProjectSettings registration read. |
+| `rg ... app/App.tsx ...` | 2 | Actual App.tsx is at src root. |
+| `rg ... settings/SettingsNav.tsx rail/ProjectTab.tsx ...` | 2 | Guessed modules absent; actual SettingsShell and header composition inspected. |
+| first isolated driver, attention row activation | 1 | Used displayed login-store name as id. DOM gives logins; corrected selector, discarded earlier run and recaptured all openings after clearing test storage. |
+| `rg ... contracts/src/methods/declarations.rs ...` | 2 | Actual declarations.rs is at contracts/src root. |
+| direction search in existing direction.md | 1 | No matching Import/progress entry; fetched linked #3523/#3666/#4966 and read owning scenarios. |
+| second isolated driver, unknown-resume wait | 1 | Expected phrase differs from current App text. Corrected wait to actual rendered status; all openings recaptured. |
+| `cat crates/rup/src/cli/specs.rs` | 1 | Actual specs function is in cli.rs. |
+| `rg ... crates/rup/src/cli/mod.rs` (two reads) | 2 each | Actual cli.rs read; verified command construction and kebab mapping. |
+
+`pnpm install --frozen-lockfile`, work-order validation and Issue scope update passed (exit 0). Full lint and final source/render/archive reconciliation results follow below. No local `just check`; unchanged behavior files add no tests under U5741's policy observer.
+
+Additional failed inspection commands: `rg` with an unescaped opening brace exited 2 (invalid regular expression; read the actual importState block instead). A Python rendered-manifest inspection from the original checkout exited 1 (new file belongs to the isolated worktree; reran there). Neither affected product state or observer results.
+
+Seventeen final openings retained: twelve Import/attention screens pass every recorded Check; five dense progress screens preserve D4's `li.progress-row` reading 41 and dependent D10 failure. Every D2/D5/D6 passes. The full-diagnostic screen opens the resume failure tooltip. Fake refusal/unknown replies exercise controls, not a production failure claim. All earlier failed driver runs are superseded, not combined with the final run.
