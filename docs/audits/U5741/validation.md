@@ -193,7 +193,7 @@ Each failed command below failed; later unrelated commands in a shell do not con
 | First report reconciliation Python assertion | 1 | DOM control census included hidden lazy-mounted tabs; classified it explicitly as mountedControls. Actual accessibility snapshot has the fifteen visible alert switches. No visibility pass inferred from the broader census. |
 | First `git commit` | 1 | Pretty-printed generated readings exceeded the 1000-line file gate. Serialized the readings compactly, matching rendered-keyboard.json; hook then passed, with no rule change. |
 
-The final documentary checks and `just ready` result are recorded below. No local `just check`, whole test suite or report-text test runs.
+The final documentary checks and `just ready` result are recorded below. Final self-review retained E7 as unverified: Apple supports rebinding existing menu commands, so different preference storage cannot justify a negative equivalence answer. Menu titles and native/webview scope still need per-row reconciliation. No local `just check`, whole test suite or report-text test runs.
 
 | Command | Exit | Result |
 | --- | --- | --- |
