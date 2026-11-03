@@ -34,9 +34,11 @@ it("u5765_open_waits_for_bound_consent_and_uses_the_existing_open_flow_once", as
   const mounted = await mount();
   let settled = false;
 
-  const reply = mounted.answer(request(11)).then(value => { settled = true;
+  const reply = mounted.answer(request(11)).then(value => {
+    settled = true;
 
- return value; });
+    return value;
+  });
 
   const dialog = await screen.findByRole("dialog");
   expect(screen.getByRole("dialog", { description: new RegExp(["builder", SOURCE.name, TARGET].join(".*")) })).toBe(dialog);
