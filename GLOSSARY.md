@@ -40,6 +40,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Turn | command | — |
 | ReservedLine | none | — |
 | Terminal owner (`terminal::TerminalOwner`, `Terminals::serve_owner`, `Terminals::attach_owner`, `Terminals::with_terminal_owner`, `Terminals::terminal_owners`) | same | — |
+| Update exit (`exit_for_update`) | Restart to update | — |
 | Cached rows (`Connection::with_cached_rows`) | same | — |
 | Bubble | same | overlay, popup |
 | Bubble focus (`closeFocused`) | none | — |
