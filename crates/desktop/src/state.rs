@@ -296,16 +296,16 @@ impl AppState {
     }
 
     /// Sends every Event of the Project's Daemon to `channel`, in the Daemon's order, until the Daemon or the webview goes away.
-    /// With `after`, it first replays every saved Event numbered above it (D11). Answers the Daemon's `head`: the highest Event number saved when it accepted.
+    /// With `after`, it replays above that number; with `kept`, it replays every retained Event (D11). Answers the Daemon's `head`: the highest Event number saved when it accepted.
     pub async fn subscribe(
         &self,
         path: &str,
         channel: Channel<Event>,
-        after: Option<u64>,
+        params: Option<contracts::SubscribeParams>,
     ) -> Result<u64, RpcError> {
         let (socket, run) =
             self.open_ref(path, |open| (open.socket.path().to_path_buf(), open.run))?;
-        let result = self.subscribe_run(path, channel, after, socket, run).await;
+        let result = self.subscribe_run(path, channel, params, socket, run).await;
         let mut entries = self.entries();
         if let Some(entry) = entries.iter_mut().find(|entry| entry.path == path)
             && let Phase::Open(open) = &mut entry.phase
@@ -314,10 +314,7 @@ impl AppState {
             if result.is_ok() {
                 entry.failures = 0;
             }
-            // D11 retries an expired cursor on this same connection; it is not a failed startup.
-            if !matches!(&result, Err(err) if err.code == code::EVENTS_EXPIRED)
-                && let Some(connected) = open.connected.take()
-            {
+            if let Some(connected) = open.connected.take() {
                 let _ = connected.send(result.clone().map(|_| ()));
             }
         }
@@ -328,12 +325,11 @@ impl AppState {
         &self,
         path: &str,
         channel: Channel<Event>,
-        after: Option<u64>,
+        params: Option<contracts::SubscribeParams>,
         socket: PathBuf,
         run: u64,
     ) -> Result<u64, RpcError> {
         let mut events = Client::connect(&socket).await.map_err(RpcError::internal)?;
-        let params = after.map_or(Value::Null, |after| serde_json::json!({ "after": after }));
         let answer = self
             .bounded(
                 "events.subscribe",
