@@ -15,10 +15,10 @@ type Frame = { top: number; bottom: number; barBottom: number };
 type Observation = {
   case: string; width: number; bar: Box; reserved: Box; title: Box; strip: Box; plus: Box;
   rail: Box; centre: Box; shelf: Box; drawer: Box; close: Box;
-  menu: Box | null;
+  menu: { items: { id: string; label: string; enabled: boolean }[] } | null;
   centreSurfaces: Box[];
   opening?: Frame[]; closing?: Frame[];
-  titleText: string; titleName: string; titleTip: string;
+  windowTitle: string; titleName: string; titleTip: string;
   titleTextWidth: number; titlePadding: number;
   titleStyle: { overflow: string; whiteSpace: string };
   controls: { name: string; box: Box; visible: boolean }[];
@@ -60,9 +60,9 @@ run("u449 isolated rendered window bar", () => {
 
   it("u449_long_title_keeps_its_full_name", () => {
     for (const record of records.filter((record) => record.case.includes("overflow"))) {
-      expect(record.titleText).toContain("W".repeat(300));
-      expect(record.titleText).toBe(record.titleName);
-      expect(record.titleText).toBe(record.titleTip);
+      expect(record.windowTitle).toContain("W".repeat(300));
+      expect(record.windowTitle).toBe(record.titleName);
+      expect(record.windowTitle).toBe(record.titleTip);
     }
   });
 });
