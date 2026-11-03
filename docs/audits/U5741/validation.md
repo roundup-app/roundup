@@ -202,3 +202,7 @@ The final documentary checks and `just ready` result are recorded below. Final s
 Harness process log also reported four `ResizeObserver loop completed with undelivered notifications` errors during navigation; these remain observer diagnostics, not a product fix or a native behavior pass. The final ten retained screens each independently passed their recorded Checks. Browser and both isolated serving processes were closed by this run after collection.
 
 Fetched and merged main `b0562bd815f4f986b981b1c024e989328dd1489f` without conflicts; `loop/rules.sh merge-loss` passes (exit 0). Pinned product source and its observations remain unchanged. The production-path delta catalogue is refreshed through this merge.
+
+| Command | Exit | Result |
+| --- | --- | --- |
+| `just ready` (second run) | 1 | Spelling scan found the same plural image abbreviation in settings-evidence.md. Replaced every new occurrence; web lint/typecheck and launch-sites passed. No baseline, spelling exception or product change. |
