@@ -1,5 +1,3 @@
-import { createRequire } from "node:module";
-import { existsSync } from "node:fs";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { copyFile, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
@@ -8,15 +6,10 @@ import { join } from "node:path";
 import { expect, it } from "vitest";
 import { CHECK_IDS, type Checks } from "../testing/checks";
 import { appServer } from "../testing/appServer";
-import { chromePath } from "../testing/chromePage";
+import { agentBrowserExecutable, chromePath } from "../testing/chromePage";
 import { captureDir } from "../testing/captures";
 
 const execute = promisify(execFile);
-
-// The bundled CLI avoids the npm wrapper's per-input startup (todos/laneBrowser.ts).
-const native = join(createRequire(import.meta.url).resolve("agent-browser/package.json"), "..", "bin", `agent-browser-${process.platform}-${process.arch}`);
-
-const command = existsSync(native) ? native : "agent-browser";
 
 const reactionBrowser = async () => {
   const profile = await mkdtemp(join(tmpdir(), "nr9-browser-"));
@@ -29,7 +22,7 @@ const reactionBrowser = async () => {
   const session = `nr9-${process.pid}-${profile.split("-").at(-1)}`;
 
   const browser = async (...args: string[]) => {
-    const { stdout } = await execute(command, ["--executable-path", executable, "--args", "--no-sandbox", "--config", config, "--session", session, "--profile", profile, "--json", ...args], { env, timeout: 60_000, maxBuffer: 4 * 1024 * 1024 }).catch((error: Error & { stdout?: string; stderr?: string }) => {
+    const { stdout } = await execute(agentBrowserExecutable, ["--executable-path", executable, "--args", "--no-sandbox", "--config", config, "--session", session, "--profile", profile, "--json", ...args], { env, timeout: 60_000, maxBuffer: 4 * 1024 * 1024 }).catch((error: Error & { stdout?: string; stderr?: string }) => {
       throw new Error(error.stdout || error.stderr || error.message, { cause: error });
     });
 
@@ -61,7 +54,7 @@ it.skipIf(!captureDir("P3557c") && !captureDir("U3791b"))("u3791b_p3557c_failure
   const session = `p3557c-${process.pid}`;
 
   const browser = async (...args: string[]) => {
-    const { stdout } = await execute("agent-browser", ["--executable-path", executable, "--args", "--no-sandbox", "--config", config, "--session", session, "--profile", profile, "--json", ...args], { env, timeout: 60_000, maxBuffer: 4 * 1024 * 1024 });
+    const { stdout } = await execute(agentBrowserExecutable, ["--executable-path", executable, "--args", "--no-sandbox", "--config", config, "--session", session, "--profile", profile, "--json", ...args], { env, timeout: 60_000, maxBuffer: 4 * 1024 * 1024 });
     const answer = JSON.parse(stdout);
 
     if (!answer.success) throw new Error(stdout);

@@ -1,3 +1,4 @@
+import { agentBrowserExecutable } from "../testing/chromePage";
 import { execFile, spawnSync } from "node:child_process";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -33,7 +34,7 @@ run("u449 isolated rendered window bar", () => {
   let records: Observation[] = [];
 
   beforeAll(async () => {
-    if (spawnSync("agent-browser", ["--version"], { timeout: 10_000 }).status !== 0) {
+    if (spawnSync(agentBrowserExecutable, ["--version"], { timeout: 10_000 }).status !== 0) {
       throw new Error("U449 needs agent-browser for isolated headless Chromium");
     }
 

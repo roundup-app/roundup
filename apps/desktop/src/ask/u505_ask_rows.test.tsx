@@ -7,7 +7,7 @@ import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { promisify } from "node:util";
 import { appServer } from "../testing/appServer";
-import { chromePath } from "../testing/chromePage";
+import { agentBrowserExecutable, chromePath } from "../testing/chromePage";
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { event } from "../testing/nodes";
@@ -30,7 +30,7 @@ const observe = async (run: (browser: Browser, origin: string) => Promise<void>)
   if (!executable) throw new Error("U505 needs headless Chromium");
 
   const browser = async (...args: string[]) => {
-    const { stdout } = await promisify(execFile)("agent-browser", ["--executable-path", executable, "--args", "--no-sandbox", "--config", config, "--session", session, "--profile", profile, "--json", ...args], {
+    const { stdout } = await promisify(execFile)(agentBrowserExecutable, ["--executable-path", executable, "--args", "--no-sandbox", "--config", config, "--session", session, "--profile", profile, "--json", ...args], {
       timeout: 60_000,
       env: Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith("AGENT_BROWSER_"))),
     });

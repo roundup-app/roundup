@@ -1,3 +1,4 @@
+import { agentBrowserExecutable } from "../testing/chromePage";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
@@ -23,7 +24,7 @@ let origin: string;
 
 const browser = async (...args: string[]) => {
   try {
-    return (await exec("agent-browser", ["--session", session, "--json", ...args], { maxBuffer: 8 * 1024 * 1024, timeout: 60_000 })).stdout;
+    return (await exec(agentBrowserExecutable, ["--session", session, "--json", ...args], { maxBuffer: 8 * 1024 * 1024, timeout: 60_000 })).stdout;
   } catch (error) {
     // SAFETY: promisified execFile rejects with its documented stdout/stderr fields.
     const failure = error as Error & { stdout?: string; stderr?: string };

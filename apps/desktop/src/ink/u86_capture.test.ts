@@ -1,3 +1,4 @@
+import { agentBrowserExecutable } from "../testing/chromePage";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
@@ -21,7 +22,7 @@ it.skipIf(!captureDir("U86"))("u86_capture_icon_text_pairs", { retry: 0, timeout
   writeFileSync(clock, "Date.now = () => 1793304000000 + Math.floor(performance.now());");
 
   const browser = async (...args: string[]) => {
-    const reply = JSON.parse((await exec("agent-browser", ["--session", session, "--json", ...args], { timeout: 30_000, maxBuffer: 8 * 1024 * 1024 })).stdout);
+    const reply = JSON.parse((await exec(agentBrowserExecutable, ["--session", session, "--json", ...args], { timeout: 30_000, maxBuffer: 8 * 1024 * 1024 })).stdout);
 
     if (!reply.success) throw new Error(reply.error);
 
