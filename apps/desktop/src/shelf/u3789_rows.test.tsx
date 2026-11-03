@@ -461,7 +461,7 @@ it("u3789d_controls_keep_all_actions_dismisses_failure_from_menu", async () => {
 });
 
 it("u3789d_failed_rail_rename_keeps_retry_after_selection_changes", async () => {
-  const { app, row } = await target("agent");
+  const { app, row, emulators } = await target("agent");
   const refused = new RpcError(-32003, "name already taken");
   app.handlers["rail.rename"] = () => { throw refused; };
 
@@ -474,7 +474,7 @@ it("u3789d_failed_rail_rename_keeps_retry_after_selection_changes", async () => 
   const elsewhere = document.querySelector<HTMLElement>('.rail-row[data-id="agent-4"]')!;
   fireEvent.blur(field);
   fireEvent.click(elsewhere);
-  await waitFor(() => expect(document.activeElement).toBe(elsewhere));
+  await waitFor(() => expect(emulators.made.get("t-agent-4")?.host?.contains(document.activeElement)).toBe(true));
   expect(screen.getByRole("alert", { name: new RegExp(refused.message) })).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: copy.retry }));
   const recovered = await screen.findByRole<HTMLInputElement>("textbox", { name: copy.name });
