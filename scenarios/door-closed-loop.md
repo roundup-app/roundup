@@ -160,6 +160,8 @@ This work order explicitly requests the following scenario amendments with imple
 
 Message-law review must cover **M1, M4, M5, M6, M7, M9, M10** in `scenarios/proofs.md`; M2/M3/M8 remain retired. M7 currently forbids pending Messages after done/error, which conflicts with the owner's retained stopped-Door inbox. This is an explicit engineering contract conflict to resolve in the Messages order: model the durable logical Door receiver separately from an ended Attempt and make the model/Rust/docs agree under independent Contract review. Do not claim that unchanged M7 proves retention, silently relax its predicate, or reset terminal Message statuses. If that distinction cannot meet the existing no-weakened-law rule, record the precise conflict on this Issue before publication; it is not permission to skip proofs or to drop the backlog. Every affected Contract PR runs the existing proof observer and retains its mutants.
 
+Receipt accounting also has an existing exception: `scenarios/inbox-repeats.md`, B5763b–c, closes matching notes as delivered/repeat without a new transcript receipt. That outcome alone does not establish that a distinct lifecycle fact reached the Door under DCL1/DCL4. The Messages Contract order must reconcile the two contracts explicitly, preserving peer-repeat protection, readable original identities, questions and absorbing terminal statuses; neither resetting a terminal Message nor declaring an unseen fact told resolves it. This specification claims no existing repeat test proves the new receipt requirement (policy).
+
 ## Regression checks on main
 
 1. `scenarios/messages.md`, **B50 every Message to an Agent goes through the inbox, never the Terminal**, and `crates/rupd/tests/b50_note_inbox.rs`, `b50_a_note_is_delivered_when_the_transcript_records_it`: original identity and transcript receipts, zero Message Terminal writes.
@@ -168,6 +170,8 @@ Message-law review must cover **M1, M4, M5, M6, M7, M9, M10** in `scenarios/proo
 4. `docs/adr/0006-claude-code-hooks-for-state.md`, **Claude Code hooks as the state Signal**, and `crates/agents/src/claude_code/launch.rs`, `STATE_EVENTS`: preserve identity-checked lifecycle observations and the documented spurious-stop warning.
 5. `docs/design-system.md`, **The checks**, and `apps/desktop/src/testing/checks.ts`, `runChecks`: D2 type/space, D5 contrast, D6 interaction; critic observations at dark 1512×950 on dense `tree-40`, with injected delivery failures visible. Preserve all checks passing on baseline, name changed Checks, use Tokens and existing Ark primitives. Capture DCL1/DCL2/DCL8 with `just capture` during UI implementation; leave media under `artifacts/ux/<id>/`, never commit it. UI behavior tests assert actions, focus, identities and RPC calls; critic owns appearance.
 6. `scenarios/proofs.md`, **V7 the Reviewer checks the proofs**, and `proofs/messages/LAWS.bend`, `m7_receiver_gone`: independent review, actual model/Rust agreement, proof execution and no silently weakened law.
+
+7. `scenarios/inbox-repeats.md`, **B5763b the shared inbox write closes repeats once**, and `crates/messages/src/inbox.rs`, `b5763b_identical_entries_write_once_and_close_the_repeat`: preserve shared peer-repeat protection while reconciling the receipt-accounting conflict above.
 
 ## Reuse research and observer limits
 
