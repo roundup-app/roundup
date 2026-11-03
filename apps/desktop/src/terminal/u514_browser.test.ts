@@ -51,10 +51,10 @@ it.each([false, true])("u2680b_a_click_clears_browser_and_terminal_selections_st
 }, 90_000);
 
 const app = async (base = false, mac = false) => {
-  await browser("eval", "localStorage.clear()");
   const seed = process.env.ROUNDUP_CAPTURES ? "tree-40" : "selection";
 
   await batch(
+    ["eval", "localStorage.clear()"],
     ["open", url(mac ? `/src/terminal/u514.html?app&mac&seed=${seed}&renderer=dom&view=workstreams&items=1&tabs=1` : `/harness.html?seed=${seed}&renderer=dom`, base)],
     ["wait", "--fn", "!!document.querySelector('.shelf-tabs')"]
   );
@@ -377,18 +377,27 @@ it("u2680c_readonly_content_keeps_native_selection_and_copy_pad", async () => {
 // U2680a and U3529b share one Bubble: real pointer selection, then the mode/byte journal.
 it.each(["bubble"] as const)("u3529b_terminal_gestures_match_plain_xterm_%s", async where => {
   const selector = await placement(where);
-  const at = await point(selector);
-  const from = { x: at.x + 3, y: await read<number>(`Math.round(document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect().top + 8)`) };
+
+  const from = await read<{ x: number; y: number }>(`(() => {
+    const box = document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect();
+    return { x: Math.round(box.left + 2) + 3, y: Math.round(box.top + 8) };
+  })()`);
 
   await drag(from, { x: from.x + 110, y: from.y });
-  expect(await read<string>("window.__emu.selection()")).not.toBe("");
-  expect(await read<boolean>("getSelection().isCollapsed")).toBe(true);
-  await doubleAt({ x: from.x + 20, y: from.y });
-  expect(await read<string>("window.__emu.selection()")).not.toBe("");
-  expect(await read<boolean>("getSelection().isCollapsed")).toBe(true);
+  const [dragSelection, dragCollapsed] = await read<[string, boolean]>("[window.__emu.selection(), getSelection().isCollapsed]");
 
-  const before = await read<string>("JSON.stringify([...document.querySelectorAll('.bubble')].map(b => [b.dataset.bubble,b.hidden,b.getAttribute('style')]))");
-  const calls = await read<number>("window.__fake.app.calls.length");
+  expect(dragSelection).not.toBe("");
+  expect(dragCollapsed).toBe(true);
+  await doubleAt({ x: from.x + 20, y: from.y });
+
+  const [doubleSelection, doubleCollapsed, before, calls] = await read<[string, boolean, string, number]>(`[
+    window.__emu.selection(), getSelection().isCollapsed,
+    JSON.stringify([...document.querySelectorAll('.bubble')].map(b => [b.dataset.bubble,b.hidden,b.getAttribute('style')])),
+    window.__fake.app.calls.length
+  ]`);
+
+  expect(doubleSelection).not.toBe("");
+  expect(doubleCollapsed).toBe(true);
   const appOff = await journal(selector, false);
   const appOn = await journal(selector, true);
   const count = appOn.bytes.flat().length;
@@ -447,14 +456,20 @@ it.each([...editorKinds, "pad-source", "diff", "ask"] as const)("u3529a_text_kee
   })()`);
 
   await rightAt(at);
-  expect(await read<boolean>("window.__context.cancelled")).toBe(false);
-  expect(await read<boolean>("window.__context.editable")).toBe(kind !== "diff");
-  expect(await read<string>(`(() => {
+
+  const [context, selection, controls, calls] = await read<[{ cancelled: boolean; editable: boolean }, string, number, number]>(`(() => {
     const field = ${field};
-    return field instanceof HTMLInputElement || field instanceof HTMLTextAreaElement ? field.value.slice(field.selectionStart, field.selectionEnd) : getSelection().toString();
-  })()`)).toBe(selected);
-  expect(await read<number>("[...document.querySelectorAll('[role=dialog], [role=menu], .milkdown-toolbar, .milkdown-link-preview[data-show=true], .app-popover')].filter(e => !window.__textBefore.includes(e)).length")).toBe(0);
-  expect(await read<number>("window.__fake.app.calls.slice(window.__textCalls).filter(c => c.method === 'message.send').length")).toBe(0);
+    return [window.__context,
+      field instanceof HTMLInputElement || field instanceof HTMLTextAreaElement ? field.value.slice(field.selectionStart, field.selectionEnd) : getSelection().toString(),
+      [...document.querySelectorAll('[role=dialog], [role=menu], .milkdown-toolbar, .milkdown-link-preview[data-show=true], .app-popover')].filter(e => !window.__textBefore.includes(e)).length,
+      window.__fake.app.calls.slice(window.__textCalls).filter(c => c.method === 'message.send').length];
+  })()`);
+
+  expect(context.cancelled).toBe(false);
+  expect(context.editable).toBe(kind !== "diff");
+  expect(selection).toBe(selected);
+  expect(controls).toBe(0);
+  expect(calls).toBe(0);
 }, 90_000);
 
 const rightAt = async (at: { x: number; y: number }) => {
@@ -548,15 +563,16 @@ it.each(["agent", "user", "bubble"] as const)("u5549a_option_drag_selects_withou
 
   for (const mode of [1000, 1002]) {
     await reportingSelection(where, mode, undefined, selector);
-    expect(await read("window.__mouseModifiers")).toEqual([[true, false]]);
 
-    const [selection, browserCollapsed, input, calls] = await read<unknown[]>(`[
+    const [modifiers, selection, browserCollapsed, input, calls] = await read<unknown[]>(`[
+      window.__mouseModifiers,
       window.__emu.selection(),
       getSelection().isCollapsed,
       window.__input,
       window.__fake.app.calls.slice(window.__calls).filter(c => c.method === 'terminal.write')
     ]`);
 
+    expect(modifiers).toEqual([[true, false]]);
     expect(selection).toBe("café alpha bravo charlie\n日本語 delta");
     expect(browserCollapsed).toBe(true);
     expect(input).toEqual([]);
@@ -612,9 +628,9 @@ const optionText = async () => {
     ["keyboard", "inserttext", "é"],
     ["wait", "--fn", "new TextDecoder().decode(new Uint8Array(window.__input)).includes('é')"]
   );
-  const bytes = await read<number[]>("window.__input");
+  const [bytes, appMounted] = await read<[number[], boolean]>("[window.__input, !!window.__fake]");
 
-  if (await read<boolean>("!!window.__fake")) {
+  if (appMounted) {
     await wait(`window.__fake.app.calls.slice(window.__typingCalls).filter(c => c.method === 'terminal.write').reduce((n,c) => n + atob(c.params.data).length, 0) === ${bytes.length}`);
     expect(await read("window.__fake.app.calls.slice(window.__typingCalls).filter(c => c.method === 'terminal.write').flatMap(c => [...atob(c.params.data)].map(ch => ch.charCodeAt(0)))")).toEqual(bytes);
   }
@@ -663,12 +679,11 @@ it.each(["agent", "user", "bubble"] as const)("u5515a_terminal_right_click_prese
   })()`]
   );
 
-  const from = await read<{ x: number; y: number }>(`(() => {
+  const { from, rowHeight } = await read<{ from: { x: number; y: number }; rowHeight: number }>(`(() => {
     const box = document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect();
-    return { x: Math.round(box.left + 2), y: Math.round(box.top + 8) };
+    return { from: { x: Math.round(box.left + 2), y: Math.round(box.top + 8) }, rowHeight: box.height / window.__emu.fit().rows };
   })()`);
 
-  const rowHeight = await read<number>(`document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect().height / window.__emu.fit().rows`);
   await drag(from, { x: from.x + 150, y: from.y + rowHeight });
   const selected = await read<string>("window.__emu.selection()");
   expect(selected).toContain("café alpha bravo charlie\n日本語");
@@ -702,8 +717,10 @@ it.each(["agent", "user", "bubble"] as const)("u5515b_terminal_unselected_word_u
   for (const selected of [false, true]) {
     if (selected) await browser("dblclick", selector);
     await rightAt(at);
-    expect(await read<boolean>("window.__context.editable || window.__context.cancelled")).toBe(false);
-    expect(await read<string>("window.__context.selected")).toBe(await read<string>("window.__emu.selection()"));
+    const [editableOrCancelled, contextSelection, terminalSelection] = await read<[boolean, string, string]>("[window.__context.editable || window.__context.cancelled, window.__context.selected, window.__emu.selection()]");
+
+    expect(editableOrCancelled).toBe(false);
+    expect(contextSelection).toBe(terminalSelection);
   }
 }, 90_000);
 
