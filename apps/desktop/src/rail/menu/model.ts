@@ -47,6 +47,11 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
   const resuming = new Set<string>();
   const [restarts, setRestarts] = createStore<Record<string, { request: string; pending: boolean } | undefined>>({});
 
+  const lossesOf = (chosen: readonly RailNode[]) => chosen.flatMap(node => [
+    ...(node.worktree ? [copy.removeWorktreeLoss(node.name)] : []),
+    ...((node.terminal_id !== null && rail.exitOf(node) === null) || rail.terminals().some(t => t.running && t.owner === node.id) ? [copy.removeProcessLoss(node.name)] : []),
+  ]);
+
   const restartSession = async (id: string, request = restarts[id]?.request ?? crypto.randomUUID()): Promise<{ kind: "acknowledged" | "pending" } | { kind: "failed" | "unknown"; message: string }> => {
     if (restarts[id]?.pending) return { kind: "pending" };
     setRestarts(id, { request, pending: true });
@@ -170,10 +175,7 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
       const removal = current.node.kind === "workstream" ? await judgeRemoval(app, rail.nodes, current.node.id) : undefined;
       const chosen = [current.node, ...rail.nodes.filter(node => removal?.removedIds.includes(node.id))];
 
-      const losses = chosen.flatMap(node => [
-        ...(node.worktree ? [copy.removeWorktreeLoss(node.name)] : []),
-        ...((node.terminal_id !== null && rail.exitOf(node) === null) || rail.terminals().some(t => t.running && t.owner === node.id) ? [copy.removeProcessLoss(node.name)] : []),
-      ]);
+      const losses = lossesOf(chosen);
 
       if (state()?.node.id !== current.node.id) return;
 
@@ -249,13 +251,10 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
     setState(current);
 
     try {
-      const judgments = await Promise.all(chosen.flatMap(node => node.kind === "workstream" ? [(async () => ({ node, removal: await judgeRemoval(app, rail.nodes, node.id, ids) }))()] : []));
+      const judgments = await Promise.all(chosen.values().filter(node => node.kind === "workstream").map(async node => ({ node, removal: await judgeRemoval(app, rail.nodes, node.id, ids) })).toArray());
       const affected = new Set([...chosen.map(node => node.id), ...judgments.flatMap(({ removal }) => removal.removedIds)]);
 
-      const losses = railOrder(rail.nodes).filter(node => affected.has(node.id)).flatMap(node => [
-        ...(node.worktree ? [copy.removeWorktreeLoss(node.name)] : []),
-        ...((node.terminal_id !== null && rail.exitOf(node) === null) || rail.terminals().some(t => t.running && t.owner === node.id) ? [copy.removeProcessLoss(node.name)] : []),
-      ]);
+      const losses = lossesOf(railOrder(rail.nodes).filter(node => affected.has(node.id)));
 
       const summary = [chosen.map(node => node.name).join("\n"), ...judgments.flatMap(({ node, removal }) => [goesLine(removal, node.name), staysLine(removal), ...removal.unread.map(list => copy.listUnread(list))]), ...losses].filter(Boolean).join("\n");
       const unread = judgments.flatMap(({ removal }) => removal.unread);
