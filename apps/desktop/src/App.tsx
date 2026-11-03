@@ -527,7 +527,7 @@ export const App = (props: {
 
   const views = [
     ["resources", copy.resources],
-    ["reactions", copy.reactions], ["made", copy.deliverables], ["notes", copy.recoverNotes],
+    ["made", copy.deliverables], ["notes", copy.recoverNotes],
   ] as const;
 
   const taskKeys = new Set(["M", "R", "⌘O", "⌘F", "⌘N", "⇧⌘N", "⌥⌘N", "⇧⌘M", "⌘T", "⌘/", "⌃⌘J", "J", "I", "A", "P", "C", "T"]);
