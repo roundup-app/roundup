@@ -17,6 +17,7 @@ const request = (app: FakeApp, data: Requested) => {
   app.emit({ actor: { kind: "user", id: "you", parent: null }, name: "project.requested", data });
 };
 
+// Keep the App boundary: project.requested must exercise the event subscription and project switch together.
 const started = async () => {
   const app = createFakeApp();
 

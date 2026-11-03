@@ -1,6 +1,7 @@
 import { build } from "vite";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+// Inspect complete production bundles: mounting only the probes would miss accidental inclusion in normal builds.
 const bundled = async (): Promise<string> => {
   const built = await build({
     root: ".",
