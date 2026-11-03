@@ -100,3 +100,5 @@ Independent Shelf follow-up: rendered-shelf-followup.json adds successful reserv
 ## Agent start and configuration continuation
 
 [agent-start-config.md](agent-start-config.md) reconciles `agent.spawn`, `agent.resume`, `agent.run`, `agent.setOrder` and `agent.setVisibility` (AS01–AS05) on main `fbc754cf50339cb73c744f3a4e714375444cd659`. Spawn and resume have production App callers; the other three have none by exact-string search. No candidate on this evidence; no owner choice or deletion.
+
+[worktree-reads.md](worktree-reads.md) reconciles `agent.worktreeState`, `agent.changedFiles` and `agent.compareFile` (AW01–AW03) at main `842e70e14162ac5311df8869810aa09a42c17e5e`. Remaining undecided methods are listed there; no owner choice or deletion.
