@@ -310,43 +310,70 @@ impl Agents {
         self.shared.rail().deletion(actor, operation)
     }
 
-    /// Data-only removal uses the same Project graph transaction as A34. No stop, git,
-    /// Terminal close or other external effect is permitted on this path.
+    /// Retain one captured selection in the existing graph transaction; this never starts or stops programs.
     pub async fn remove_reversible_with<T: Send + 'static>(
         &self,
         actor: Actor,
-        id: &str,
+        ids: Vec<String>,
         operation: &str,
         apply: impl FnOnce(&rusqlite::Connection, &mut Removal) -> Result<T, RpcError> + Send + 'static,
     ) -> Result<(Removal, T), RpcError> {
         let shared = &self.shared;
         let _lifecycle = shared.door_lifecycle.write().await;
-        shared.guard_reach(&actor, id, false)?;
+        let id = ids
+            .first()
+            .ok_or_else(|| RpcError::new(rpc::code::INVALID_PARAMS, "empty Rail selection"))?;
+        for target in &ids {
+            shared.guard_reach(&actor, target, false)?;
+        }
         let tree = shared.tree()?;
-        let node = tree
-            .iter()
-            .find(|n| n.id == id)
-            .ok_or_else(|| RpcError::not_found("Rail node"))?;
-        let mut removal = Removal::default();
-        let mut below = Vec::new();
-        collect_below(&tree, id, &mut below);
-        if node.kind == NodeKind::Workstream {
-            for child in below.iter().filter(|node| node.kind == NodeKind::Agent) {
-                if let Some(reason) = shared.keep_reason(child).await? {
-                    removal.kept.push(kept_agent(child, reason));
-                } else {
-                    removal.removed.push(RemovedItem {
-                        id: child.id.clone(),
-                        kind: RemovalKind::Agent,
-                        name: child.name.clone(),
-                    });
+        let mut removal = Removal {
+            selection: if ids.len() > 1 {
+                ids.clone()
+            } else {
+                Vec::new()
+            },
+            ..Removal::default()
+        };
+        for target in &ids {
+            let node = tree
+                .iter()
+                .find(|n| n.id == *target)
+                .ok_or_else(|| RpcError::not_found("Rail node"))?;
+            if ids.len() > 1 {
+                removal.removed.push(RemovedItem {
+                    id: node.id.clone(),
+                    kind: RemovalKind::Agent,
+                    name: node.name.clone(),
+                });
+            }
+            let mut below = Vec::new();
+            collect_below(&tree, target, &mut below);
+            if node.kind == NodeKind::Workstream {
+                for child in below.iter().filter(|n| n.kind == NodeKind::Agent) {
+                    if let Some(reason) = shared.keep_reason(child).await? {
+                        removal.kept.push(kept_agent(child, reason));
+                    } else {
+                        removal.removed.push(RemovedItem {
+                            id: child.id.clone(),
+                            kind: RemovalKind::Agent,
+                            name: child.name.clone(),
+                        });
+                    }
+                }
+            } else {
+                for child in tree.iter().filter(|n| n.parent.as_deref() == Some(target)) {
+                    removal.kept.push(kept_agent(child, KeptReason::Running));
                 }
             }
-        } else {
-            for child in tree.iter().filter(|n| n.parent.as_deref() == Some(id)) {
-                removal.kept.push(kept_agent(child, KeptReason::Running));
-            }
         }
+        let mut seen = std::collections::HashSet::new();
+        removal.removed.retain(|item| seen.insert(item.id.clone()));
+        seen.clear();
+        removal.kept.retain(|item| {
+            !removal.removed.iter().any(|removed| removed.id == item.id)
+                && seen.insert(item.id.clone())
+        });
         let shared = Arc::clone(shared);
         let id = id.to_owned();
         let operation = operation.to_owned();

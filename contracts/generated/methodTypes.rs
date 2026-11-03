@@ -40,6 +40,7 @@
     Method { name: "models.list", params: "null", result: "project_ModelList" },
     Method { name: "project.open", params: "project_OpenParams", result: "null" },
     Method { name: "project.rename", params: "project_RenameParams", result: "null" },
+    Method { name: "rail.removeSelection", params: "agent_RemoveSelectionParams", result: "agent_Removal" },
     Method { name: "rail.remove", params: "agent_RemoveParams", result: "agent_Removal | null" },
     Method { name: "agent.resume", params: "agent_ResumeParams", result: "agent_RailNode" },
     Method { name: "agent.makeWorkstream", params: "agent_NodeId", result: "agent_RailNode" },
