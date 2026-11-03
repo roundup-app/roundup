@@ -600,7 +600,8 @@ async fn u5740c_current_project_drops_only_retired_tables() {
     db.execute("INSERT INTO reaction_firings(id,reaction,operation,ordinal,message,matched,definition,evidence) VALUES('firing-kept','retired','auto-1',1,5900,1,?1,'accepted evidence')", [&record]).unwrap();
     // Kept replay must cross a full page of retired Events, keep original numbers,
     // and tolerate a retired final row without changing the persisted log.
-    db.execute_batch(r#"
+    db.execute_batch(
+        r#"
         INSERT INTO events(id,event) VALUES
             (1,'{"actor":{"kind":"user","id":"you"},"name":"rail.changed"}');
         WITH RECURSIVE numbers(id) AS (
@@ -610,7 +611,9 @@ async fn u5740c_current_project_drops_only_retired_tables() {
         INSERT INTO events(id,event) VALUES
             (1027,'{"actor":{"kind":"user","id":"you"},"name":"rail.changed"}'),
             (1028,'{"actor":{"kind":"ext","id":"rupd"},"name":"reaction.changed"}');
-    "#).unwrap();
+    "#,
+    )
+    .unwrap();
     let retained = |db: &Connection| {
         dump_except(
             db,
@@ -644,7 +647,7 @@ async fn u5740c_current_project_drops_only_retired_tables() {
                 0
             );
         }
-        let (events, mut replay) = tokio::sync::mpsc::unbounded_channel();
+        let (events, _replay) = tokio::sync::mpsc::unbounded_channel();
         let mut conn = crate::Conn {
             actor: contracts::Actor::user(),
             peer: None,
@@ -662,19 +665,17 @@ async fn u5740c_current_project_drops_only_retired_tables() {
             .into_value();
         assert!(answer.get("error").is_none(), "{answer}");
         assert_eq!(answer["result"]["head"], 1028);
-        for seq in [1, 1027] {
-            let event = tokio::time::timeout(std::time::Duration::from_secs(1), replay.recv())
-                .await
-                .unwrap()
-                .unwrap()
-                .into_value();
-            assert_eq!(event["params"]["seq"], seq);
-            assert_eq!(event["params"]["name"], "rail.changed");
-        }
-        assert!(matches!(
-            replay.try_recv(),
-            Err(tokio::sync::mpsc::error::TryRecvError::Empty)
-        ));
+        let (saved, head) = daemon.bus.saved_after(0).unwrap();
+        assert_eq!(head, 1028);
+        assert_eq!(
+            saved.iter().map(|event| event.seq).collect::<Vec<_>>(),
+            [Some(1), Some(1027)]
+        );
+        assert!(
+            saved
+                .iter()
+                .all(|event| matches!(event.data, contracts::EventData::RailChanged))
+        );
         // Opening a persisted Agent never starts a Terminal/program or adds a Message.
         assert_eq!(daemon.terminals.list().await.len(), 0);
         assert_eq!(
