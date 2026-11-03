@@ -19,6 +19,10 @@ async fn u5502_publication_observation_names_only_committed_membership_changes()
         .route(&mut conn, "deliverable.publish", request.clone())
         .await
         .unwrap();
+    let fact = serde_json::to_value(observed.try_recv().unwrap()).unwrap();
+    assert_eq!(fact["name"], "deliverable.published");
+    assert_eq!(fact["data"]["record"], record);
+    assert!(fact["data"]["completion"].is_null());
     assert!(matches!(
         observed.try_recv().unwrap().data,
         EventData::DeliverableChanged
