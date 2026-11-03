@@ -450,3 +450,23 @@ The push was rejected (exit 1) because the branch advanced to 30de64f7d. Merging
 Combined evidence reconciliation passes: all 36 inspected source hashes, ten stored snapshot checksums and the complete direction archive’s decoded SHA-256. A second fresh headless profile and isolated port 5234 reproduce the loaded Todo opening after waiting for actual rows: all eight recorded Todo ids are visible, with creator-matching rows revealed in their owner group. The updated creator-todos PNG and loaded-completion-observations.json supersede this run’s earlier loading-state capture. Every recorded Check passes. The extra browser and harness are closed.
 
 Post-integration `just ready` passes (exit 0), including all 193 lint-behavior checks, package typechecks, repository/Rust lints, `ALL PROOFS CHECK` and N7. Vocabulary, scenario ids, merge-loss and whitespace pass on the combined head. Self-review preserves the concurrent loaded-Todo correction and every main-side product/test change. No local `just check` ran.
+
+## Terminal controls continuation — builder-41592285096
+
+Main `20576d304c07acb4010a54c8ced66f1e86c255e8`: documentation only, no product/contract/scenario/test change. `terminals.md` records 31 controls and boundaries with three criteria, remaining unknowns and independent protocol work. Source catalogue pins 40 inspected files, exact linked direction and the losslessly archived observer driver. Decode archive fields with base64 then zlib and compare SHA-256. `rendered-terminals.json` retains twelve fresh isolated headless real-xterm/fake-Daemon openings; all recorded Checks pass at 1512×950 with explicit dark App mode. The observer reloads after setting dark mode so initial emulator Tokens are dark too. Initial captures from before that reload were superseded. Running/exited close confirmation payloads are observed at the App boundary, not rendered native dialogs. PNG files stay under `artifacts/ux/U5741/terminals/` uncommitted.
+
+`pnpm install`, vocabulary, scenario ids, merge-loss, whitespace and evidence checks pass. The evidence check validates all source hashes, all three archive fields, twelve lossless accessibility snapshots, dark viewport and every recorded Check. No local `just check`, new behavior test, native outcome, real clipboard effect or older-data reopen is claimed. Full all-feature revision reconciliation and owner request remain unfinished; #5758 stays open.
+
+| Failed command / observer | Exit | Failure / disposition |
+| --- | ---: | --- |
+| Initial `ls -d .codegraph` | 2 | No index; ordinary source search used. |
+| `cat .../bubbles/close.ts` | 1 | Actual module is close.tsx; read before judging confirmation. |
+| `sed .../testing/seeds/bubbles.ts` | 2 | Seeds are in testing/seeds.ts; inspected actual fixture. |
+| `rg ... settings/schema.ts ...` | 2 | Guessed schema module absent; inspected preferences.ts and settings definitions. |
+| Initial `python3 /tmp/u5741-terminal-observe.py` | 1 | Dark-mode assertion rejected guessed appearance preference; no capture accepted. Replaced with actual mode setting. |
+| `rg ... crates/contracts/src/methods/*.rs` | 2 | Declarations are in declarations.rs and role filtering in rup/src/mcp.rs; inspected both. |
+| Initial standalone `python3 tools/lint/scan.py typos` | 2 | Pinned tool absent in fresh worktree; existing setup installs it before rerun. |
+
+The successful observer subsequently reloaded the App before selecting the Agent, reran all twelve openings and overwrote every previous capture and reading. Native text services, marked output, input/library variants, conditional failures and protocol comparisons remain engineering gaps; neither source-only evidence nor missing vendor parity is treated as a negative candidate answer.
+
+The twelfth opening adds a chosen-Terminal close refusal on the eight-Run seed: full failure text and Retry remain visible, the tab stays, and all Checks pass. Its continuation driver is archived separately in terminal-source.json and uses the same isolated session. This establishes fake-seam readability, not a real Daemon outcome.
