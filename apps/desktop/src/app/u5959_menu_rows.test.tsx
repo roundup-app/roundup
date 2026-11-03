@@ -29,7 +29,7 @@ it("u5959a_rows_project_title_badge_and_subtitle", async () => {
   expect(app.menuBar?.entries.map(entry => [entry.head, entry.state, entry.subtitle])).toEqual([
     [true, undefined, undefined], [undefined, "needs-you", "question"], [undefined, "error", "failure"], [undefined, undefined, undefined],
   ]);
-  expect(app.menuBar?.entries.slice(1, 3).every(entry => typeof entry.since === "number")).toBe(true);
+  expect(app.menuBar?.entries.slice(1, 3).map(entry => Number.isFinite(entry.since))).toEqual([true, true]);
 });
 
 it("u5959a_the_project_name_follows_the_live_line_with_two_projects", async () => {
@@ -68,6 +68,7 @@ it("u5959c_dock_applies_the_hour_cut_and_five_row_limit", async () => {
   const ids = ["a", "b", "c", "d", "e", "f", "g"];
   const { app } = await openTabs({ api: ids.map(id => agent(id, "working", "running")).concat(agent("old", "working", "running")) });
   finishAt(app, "api", "old", 0);
+
   for (const id of ids) finishAt(app, "api", id, 2 * HOUR);
 
   await waitFor(() => expect(app.menuBar?.dock.map(entry => entry.label)).toEqual(["Ready", "A", "B", "C", "D", "E", "1 earlier…", "2 more…", "Open roundup"]));

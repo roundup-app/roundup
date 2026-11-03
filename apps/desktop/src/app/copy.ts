@@ -105,5 +105,5 @@ export const menuBarCopy = {
   more: (count: number) => `${count} more…`,
   earlier: (count: number) => `${count} earlier…`,
   /** @prose */
-  subtitle: (live: string, project: string | null) => (project === null ? live : `${live} · ${project}`),
+  subtitle: (live: string, project: string | null) => (project === null ? live : sharedCopy.dotted(live, project)),
 };
