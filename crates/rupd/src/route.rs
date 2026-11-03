@@ -80,6 +80,7 @@ impl Daemon {
                 "daemon.getNaming"
                     | "daemon.setNaming"
                     | "rail.group"
+                    | "rail.removeSelection"
                     | "rail.rename"
                     | "rail.setAlertLevel"
                     | "workstream.setAuto"
@@ -217,6 +218,11 @@ impl Daemon {
                     .await?;
                 return rpc::reply(&());
             }
+        }
+        if method == "rail.removeSelection" {
+            return self
+                .remove_selection(&conn.actor, rpc::params(params)?)
+                .await;
         }
         if method == "rail.remove" {
             let removal: contracts::agent::RemoveParams = rpc::params(params.clone())?;

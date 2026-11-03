@@ -416,19 +416,19 @@ fn publish(ctx: &Ctx, events: Vec<EventData>) -> Result<(), RpcError> {
 }
 
 impl Todos {
-    /// Capture the existing A34 chosen set before the coordinator invokes its removal.
-    /// Empty sets still give the graph coordinator one retryable transaction identity.
+    /// One selection shares the existing Todo participant receipt across its Workstream Homes.
     pub fn retain_workstream_in(
         db: &Connection,
         actor: &Actor,
         operation: &str,
-        home: Option<&str>,
+        homes: &[String],
     ) -> Result<(), RpcError> {
+        let homes = serde_json::to_string(homes).map_err(RpcError::internal)?;
         let mut query = db
-            .prepare("SELECT id,done,home,owner FROM todos WHERE home=? ORDER BY id")
+            .prepare("SELECT id,done,home,owner FROM todos WHERE home IN (SELECT value FROM json_each(?)) ORDER BY id")
             .map_err(RpcError::internal)?;
         let rows = query
-            .query_map([home], |r| {
+            .query_map([homes], |r| {
                 Ok((
                     r.get::<_, u32>(0)?,
                     r.get::<_, bool>(1)?,

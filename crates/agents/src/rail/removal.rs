@@ -87,8 +87,18 @@ impl Rail {
         if let Some((actor, operation)) = retain {
             let mut graph = graph.take().expect("retained graph");
             // Queue reads prune missing nodes; retain that change before any reader can do so.
-            tx.execute("DELETE FROM workstream_queue WHERE workstream=?", [id])
-                .map_err(sql)?;
+            let mut removed: Vec<_> = removal
+                .removed
+                .iter()
+                .filter(|item| item.kind == contracts::agent::RemovalKind::Agent)
+                .map(|item| item.id.as_str())
+                .collect();
+            removed.push(id);
+            tx.execute(
+                "DELETE FROM workstream_queue WHERE workstream IN (SELECT value FROM json_each(?))",
+                [serde_json::to_string(&removed).map_err(RpcError::internal)?],
+            )
+            .map_err(sql)?;
             let mut forward = Vec::new();
             graph.changeset_strm(&mut forward).map_err(sql)?;
             let mut inverse = Vec::new();
@@ -124,44 +134,57 @@ impl Rail {
     ) -> Result<(), RpcError> {
         let nodes = load(db)?;
         let node = find(&nodes, id)?;
-        let mut ids = siblings(&nodes, node.parent.as_deref());
-        let at = ids
-            .iter()
-            .position(|s| s == id)
-            .expect("Workstream is a sibling");
-        // Organizational Groups have no lifecycle. Preserve them when their Workstream
-        // disappears, alongside the Agents its existing default cascade keeps.
-        let mut retained: Vec<_> = removal
-            .kept
+        let mut selected: Vec<_> = removal
+            .removed
             .iter()
             .filter(|item| item.kind == contracts::agent::RemovalKind::Agent)
-            .map(|item| item.id.clone())
+            .map(|item| item.id.as_str())
             .collect();
-        retained.extend(
-            nodes
-                .iter()
-                .filter(|candidate| {
-                    candidate.kind == NodeKind::Group
-                        && candidate.parent.as_deref().is_some_and(|parent| {
-                            parent == id
-                                || removal.removed.iter().any(|item| {
-                                    item.kind == contracts::agent::RemovalKind::Agent
-                                        && item.id == parent
-                                })
-                        })
-                })
-                .map(|candidate| candidate.id.clone()),
-        );
-        ids.splice(at..=at, retained);
-        place(db, node.parent.as_deref(), &ids)?;
-        for item in removal.removed.iter().rev() {
-            if item.kind == contracts::agent::RemovalKind::Agent {
-                db.execute("DELETE FROM nodes WHERE id = ?", [&item.id])
-                    .map_err(sql)?;
+        selected.push(&node.id);
+        fn surviving_children(
+            nodes: &[RailNode],
+            parent: Option<&str>,
+            selected: &[&str],
+            out: &mut Vec<String>,
+        ) {
+            for id in siblings(nodes, parent) {
+                if selected.contains(&id.as_str()) {
+                    surviving_children(nodes, Some(&id), selected, out);
+                } else {
+                    out.push(id);
+                }
             }
         }
-        db.execute("DELETE FROM nodes WHERE id = ?", [id])
-            .map_err(sql)?;
+        // Flatten only removed ancestors; unchosen subtrees keep their internal relationships.
+        for parent in std::iter::once(None).chain(
+            nodes
+                .iter()
+                .filter(|n| !selected.contains(&n.id.as_str()))
+                .map(|n| Some(n.id.as_str())),
+        ) {
+            let mut children = Vec::new();
+            surviving_children(&nodes, parent, &selected, &mut children);
+            place(db, parent, &children)?;
+        }
+        // Reparenting has detached every survivor. Delete selected children before ancestors.
+        fn delete_selected(
+            db: &Connection,
+            nodes: &[RailNode],
+            id: &str,
+            selected: &[&str],
+        ) -> Result<(), RpcError> {
+            for child in nodes.iter().filter(|n| n.parent.as_deref() == Some(id)) {
+                delete_selected(db, nodes, &child.id, selected)?;
+            }
+            if selected.contains(&id) {
+                db.execute("DELETE FROM nodes WHERE id=?", [id])
+                    .map_err(sql)?;
+            }
+            Ok(())
+        }
+        for root in nodes.iter().filter(|n| n.parent.is_none()) {
+            delete_selected(db, &nodes, &root.id, &selected)?;
+        }
         Ok(())
     }
 
@@ -350,7 +373,8 @@ impl Rail {
                             })
                 })
                 .collect();
-            reconnect.sort_by_key(|node| node.order);
+            // Following restored siblings must be in place before they anchor earlier ones.
+            reconnect.sort_by_key(|node| std::cmp::Reverse(node.order));
             for node in reconnect {
                 affected.push(node.parent.clone());
                 if let Some(previous) = current.iter().find(|live| live.id == node.id) {
