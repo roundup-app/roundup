@@ -29,7 +29,7 @@ afterAll(async () => {
   finally { await page?.close(); }
 });
 
-it("u5765_open_confirmation_and_failure_are_visible_on_tree_40", async () => {
+it("u5765_escape_refuses_and_restores_ask_focus_on_tree_40", async () => {
   await page.browser("focus", ".ask-input");
   await page.capture("U5765", "before");
   await page.evaluate(`(() => {
@@ -61,12 +61,26 @@ it("u5765_open_failure_exposes_the_cause_and_recovery", async () => {
   await page.browser("get", "text", "[role=dialog]");
   await page.browser("click", "[role=dialog] button:last-child");
   await page.until("window.openResult?.error?.code === -32001 && document.body.textContent.includes('folder is unavailable')");
+  expect(await page.evaluate("window.openResult.error.code")).toBe(-32001);
   await page.capture("U5765", "failure");
   await page.browser("press", "Escape");
   await page.until("!document.querySelector('[role=dialog]')");
 });
 
-it("u5765_open_failure_exposes_the_cause_and_recovery", async () => {
+it("u5765_pointer_refusal_restores_ask_focus_after_the_final_queued_request", async () => {
+  await page.browser("focus", ".ask-input");
+  await page.evaluate(`(() => {
+    const app = window.__fake.app;
+    window.queuedResults = [];
+    for (const id of [5768, 5769]) void app.requestAction({id,method:'project.open',params:{source:app.opened.project.path,path:'/Users/you/Projects/queued-' + id,agent:{id:'agent-1',name:'builder'}}}).then(reply => window.queuedResults.push(reply));
+    return true;
+  })()`);
+  await page.until("document.querySelector('[role=dialog]') !== null");
+  await page.browser("click", "[role=dialog] button:first-child");
+  await page.until("window.queuedResults.length === 1 && document.querySelector('[role=dialog]')?.textContent.includes('queued-5769')");
+  await page.browser("click", "[role=dialog] button:first-child");
+  await page.until("window.queuedResults.length === 2 && document.activeElement?.matches('.ask-input')");
+  expect(await page.evaluate("window.queuedResults.map(reply => [reply.id, reply.error.code])")).toEqual([[5768, -32002], [5769, -32002]]);
 });
 
 it("u5765_keyboard_open_completes_the_request", async () => {
