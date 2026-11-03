@@ -19,6 +19,10 @@ const run = found || process.env["CI"] ? describe : describe.skip;
 
 let page: ChromePage;
 
+// CI 41644930161 spent 34,282 ms here; only the first walk uses the Shelf.
+// Captures retain the complete frame for the design observer.
+const walkHarness = `/harness.html?view=workstreams&seed=tree-40${process.env["ROUNDUP_CAPTURES"] ? "&items=1&tabs=1" : ""}`;
+
 const focused = (): Promise<string | null> =>
   page.call<string | null>(`() => document.activeElement?.closest('[data-id]')?.getAttribute('data-id') ?? null`);
 
@@ -111,7 +115,7 @@ run("u520 the Rail is a tree", () => {
   });
 
   it("u520_done_line_is_not_a_row", async () => {
-    await page.load("/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40", 1280, 800);
+    await page.load(walkHarness, 1280, 800);
     await page.until(`() => document.querySelector('[role=tree] [data-id="auth"]') !== null`);
 
     const rows = await page.call<string[]>(`() => [...document.querySelectorAll('[role=treeitem][data-id]')].map((row) => row.getAttribute('data-id'))`);
@@ -127,12 +131,12 @@ run("u520 the Rail is a tree", () => {
 run("u5483 folded children", () => {
   beforeAll(async () => {
     if (found && !page) page = await openPage(found);
-    // The former second profile started without the first walk's saved Shelf/fold choices.
+    // Group isolation requires clearing saved Shelf/fold choices before the next fresh tab.
     else if (page) await page.call("() => { localStorage.clear(); sessionStorage.clear(); }");
   }, 90_000);
   it("u5483b_keyboard_walk_enters_only_open_children", async () => {
     await page.scheme("dark");
-    await page.load("/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40", 1512, 950);
+    await page.load(walkHarness, 1512, 950);
     await page.until(`() => !!document.querySelector('[data-id="fold:auth"]')`);
     await page.call(`() => document.querySelector('[data-id="fold:auth"] [data-part="branch-control"]').focus()`);
     await press("ArrowRight");
@@ -150,7 +154,7 @@ run("u5483 folded children", () => {
   });
   it("u5483b_keyboard_walk_reaches_a_folded_agents_descendant", async () => {
     await page.scheme("dark");
-    await page.load("/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40", 1512, 950);
+    await page.load(walkHarness, 1512, 950);
     await page.until(`() => !!document.querySelector('[data-id="fold:auth"]')`);
     await page.call(`async () => {
       const nodes = await window.__fake.app.rpc('rail.tree', null);
@@ -171,7 +175,7 @@ run("u5483 folded children", () => {
   });
 
   it("u5483b_focus_survives_folding_and_return", async () => {
-    await page.load("/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40", 1512, 950);
+    await page.load(walkHarness, 1512, 950);
     await page.until(`() => !!document.querySelector('[data-id="fold:auth"]')`);
     await page.call(`() => document.querySelector('[data-id="fold:auth"] [data-part="branch-control"]').focus()`);
     await press("ArrowRight");
