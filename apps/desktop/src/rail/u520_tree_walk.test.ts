@@ -125,7 +125,11 @@ run("u520 the Rail is a tree", () => {
 
 
 run("u5483 folded children", () => {
-  beforeAll(async () => { if (found && !page) page = await openPage(found); }, 90_000);
+  beforeAll(async () => {
+    if (found && !page) page = await openPage(found);
+    // The former second profile started without the first walk's saved Shelf/fold choices.
+    else if (page) await page.call("() => { localStorage.clear(); sessionStorage.clear(); }");
+  }, 90_000);
   it("u5483b_keyboard_walk_enters_only_open_children", async () => {
     await page.scheme("dark");
     await page.load("/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40", 1512, 950);
