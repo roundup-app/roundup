@@ -1,5 +1,7 @@
 # Open surfaces update themselves
 
+Policy amendment — U5740a (#5750): retire only the Reactions App surface and its portions of mixed clauses below, including its empty/loading/failure views, navigation, inspection, copy, selection, links and rendered captures. Shared Ask, Made, import, diff, Terminal, navigation and Message behavior remains required; backend Reaction acceptance remains until U5740b. See `scenarios/delete-reactions.md`.
+
 Acceptance for #5558. This specification amends DV5, U504's heading actions, NR9, U2540b's content refresh and U3523a/d's listing refresh. It delivers no runtime behavior. Journey stages: Understand and Review; a result published by an Agent becomes discoverable without leaving the window or finding a reload action.
 
 All test names below are implementation obligations, not claims that tests already exist. Extend existing proofs instead of duplicating them. App tests assert behavior, roles, selected identities, calls and contracts; the critic owns appearance and exact copy.

@@ -1,5 +1,7 @@
 # UI: scoped shortcuts (U479 to U481) and the ⌘K leader (U2238 to U2241)
 
+Policy amendment — U5740a (#5750): retire only the Reactions App surface and its portions of mixed clauses below, including its empty/loading/failure views, navigation, inspection, copy, selection, links and rendered captures. Shared Ask, Made, import, diff, Terminal, navigation and Message behavior remains required; backend Reaction acceptance remains until U5740b. See `scenarios/delete-reactions.md`.
+
 Policy: U3787b (`scenarios/ui-mac-expectations.md`) adds menu-bar discoverability without widening App key ownership. U3787a owns ⌘Z and ⇧⌘Z for the focused region’s undo/redo outside editors and Terminals; their own undo/redo remains untouched. Empty histories do not fall through to another region; the Edit menu names available actions and Help lists both chords.
 
 The keyboard layer serves the Enter and Intervene stages of `.agents/data/journey.md`: opening Help must not change the user's selected Agent or place in the centre. This specification defines implementation acceptance; it claims no shipped registry.

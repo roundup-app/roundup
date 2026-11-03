@@ -1,5 +1,7 @@
 # UI surfaces
 
+Policy amendment — U5740a (#5750): retire only the Reactions App surface and its portions of mixed clauses below, including its empty/loading/failure views, navigation, inspection, copy, selection, links and rendered captures. Shared Ask, Made, import, diff, Terminal, navigation and Message behavior remains required; backend Reaction acceptance remains until U5740b. See `scenarios/delete-reactions.md`.
+
 Module: `apps/desktop` (the webview); the window half is S7 in `app.md`. Ids: U80–U87, U3704, U4464, U4607, U5163, U5606.
 
 What the webview shows when something fails, takes a moment, has ended or has no workstream. Ids U80 to U87; the window's smallest size is S7 in `app.md`. These scenarios are new and edit no earlier text; where one narrows an earlier scenario or test it says so, and a scenario that says "after X" may be built from X's branch and merges after X. The scenarios they build on (U47, U52, U56, U57, U59 and U4's 4.5:1) are on main. The empty states (U38), first run (U2), Daemon gone and reopen (U25, U37) and an exited Terminal that takes no input (U12) are specified elsewhere and are not repeated. Tests run in Vitest with jsdom against the fake App seam, with the injected clock and emulator (`ui.md` header), except U85, which needs real layout and is a check run in a browser (below). Every rule here is a value a test can read: a string, a token, a duration, a call that is or is not made. Ink stays what `GLOSSARY.md` says: colour, never weight, for `error` and `needs-you` only, and text keeps U4's 4.5:1.

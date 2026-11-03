@@ -1,5 +1,7 @@
 # UI: the visual system (U130 to U137, U161, U476, U3767, U3807, U3299a–d, U3295a–c, U3480)
 
+Policy amendment — U5740a (#5750): retire only the Reactions App surface and its portions of mixed clauses below, including its empty/loading/failure views, navigation, inspection, copy, selection, links and rendered captures. Shared Ask, Made, import, diff, Terminal, navigation and Message behavior remains required; backend Reaction acceptance remains until U5740b. See `scenarios/delete-reactions.md`.
+
 Module: `apps/desktop` (the webview). Ids: U130–U137, U161, U476, U3767, U3807, U3299a–d, U3295a–c, U3480.
 
 Webview only except U134’s native material and the retirement of system-accent delivery specified below. No Daemon method changes; any new App seam or contract follows the Contract recipe. `docs/design-system.md` holds the Tokens, the six rules and the checks D1 to D10; each scenario below is the test that proves some of them, and its test name starts with its id. For rendered captures, every Check runs on every visible element in dark and fails when it cannot measure; non-capture behavioral and Token tests retain their supported schemes (U3725). `docs/motion.md` is unchanged.
