@@ -876,3 +876,17 @@ async fn c5461a_retired_methods_are_unknown() {
         assert_eq!(reply["error"]["code"], code::METHOD_NOT_FOUND, "{reply}");
     }
 }
+
+#[tokio::test]
+async fn u5740b_removed_methods_are_unknown() {
+    let dir = tempfile::tempdir().unwrap();
+    let daemon = tests::daemon_in(dir.path());
+    let baseline = tests::ask(&daemon, r#"{"id":1,"method":"retired.unknown"}"#).await;
+    for method in ["reaction.create", "reaction.preview", "reaction.list", "reaction.get", "reaction.stop", "reaction.run"] {
+        let reply = tests::ask(&daemon, &json!({"id":1,"method":method}).to_string()).await;
+        assert_eq!(reply["error"]["code"], baseline["error"]["code"], "{method}");
+        assert_eq!(reply["error"]["message"], format!("method not found: {method}"));
+    }
+    let db = rusqlite::Connection::open(dir.path().join("project.db")).unwrap();
+    assert_eq!(db.query_row("SELECT count(*) FROM messages", [], |r| r.get::<_, i64>(0)).unwrap(), 0);
+}
