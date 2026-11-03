@@ -81,7 +81,7 @@ it("u5765_open_b_preserves_the_selected_project_without_an_extra_open", async ()
   const mounted = await mount();
   const holder = mounted.drafts(SOURCE.path);
   const destination = { surface: "terminal_selection", object: "original", recipient: "builder" };
-  const draft = holder.edit(destination, { note: " exact é 👩🏽‍💻\n  unfinished ", excerpt: "source bytes" }, null, "ordinary");
+  const draft = holder.edit(destination, { note: " exact é \u{1f469}\u{1f3fd}\u200d\u{1f4bb}\n  unfinished ", excerpt: "source bytes" }, null, "ordinary");
   await draft.retained;
   const before = holder.list();
   const reply: ActionReply = await mounted.answer(request(41, SOURCE.path));
