@@ -46,12 +46,12 @@ fn migrations() -> Vec<M<'static>> {
 /// R3696c: every migration applied to an empty database, built by `build.rs`.
 const FRESH: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/fresh.db"));
 
-/// The ids the image holds in place of a Project's own (`build.rs` writes the same pair); each is
+/// The ids the image holds in place of a Project's own (`build.rs` writes the same ids); each is
 /// replaced in a copy's bytes, so a fresh start opens no connection to give them values.
 const IDENTITIES: [&[u8; 32]; 1] = [b"00000000000000000000000000000001"];
 
 /// Where each of `IDENTITIES` stands in the image, with the new random id to put there, in file
-/// order. The image is written around these, so a start never copies its 1 MiB to patch 64 bytes.
+/// order. The image is written around these, so a start never copies its 1 MiB to patch the ids.
 fn reidentified() -> std::io::Result<Vec<(usize, [u8; 32])>> {
     let mut random = [0u8; 16 * IDENTITIES.len()];
     getrandom::fill(&mut random).map_err(|e| std::io::Error::other(e.to_string()))?;
