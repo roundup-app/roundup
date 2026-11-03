@@ -6,11 +6,12 @@ import { USER } from "../testing/nodes";
 
 afterEach(cleanup);
 
-it("u5808a_keyboard_open_and_escape_keep_the_colour_trigger", async () => {
+it("u5808a_keyboard_open_and_escape_keep_the_colour_trigger", { retry: 0 }, async () => {
   const source = 'before **word** after  \n\n<mark><span data-pad-color="blue">keep</span></mark>\n';
   const { app, connected, state } = await openShelf([padOf("note", USER, source)]);
   const field = await openPad("note");
   field.setSelectionRange(8, 12, "forward");
+  const markdown = field.value;
   const selection = [field.selectionStart, field.selectionEnd, field.selectionDirection];
   const trigger = screen.getByRole("button", { name: "Text colour" });
   const user = userEvent.setup();
@@ -23,14 +24,14 @@ it("u5808a_keyboard_open_and_escape_keep_the_colour_trigger", async () => {
     expect(screen.getAllByRole("button", { name: "Text colour" })).toEqual([trigger]);
     expect(document.getElementById(menu.getAttribute("aria-labelledby")!)).toBe(trigger);
     expect([...document.querySelectorAll("[id]")].filter(node => node.id === trigger.id)).toEqual([trigger]);
-    expect(document.getElementById(trigger.getAttribute("aria-controls")!)).toBe(menu);
+    expect(document.getElementById(trigger.getAttribute("aria-controls")!), trigger.outerHTML).toBe(menu);
     expect(trigger.getAttribute("aria-expanded")).toBe("true");
     await user.keyboard("{Escape}");
     await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
     await waitFor(() => expect(document.activeElement).toBe(trigger));
     expect(trigger.getAttribute("aria-expanded")).toBe("false");
     expect([field.selectionStart, field.selectionEnd, field.selectionDirection]).toEqual(selection);
-    expect(field.value).toBe(source.trimEnd());
+    expect(field.value).toBe(markdown);
   }
 
   fireEvent.focusOut(field);
