@@ -63,3 +63,5 @@ Policy: no new test that merely rereads removed source, stylesheet or dependency
 | `loop/rules.sh delta artifacts/ux/U5463c/base artifacts/ux/U5463c/head` (repo root) | A passing Check regressed: 1. Missing or incomparable readings: 2. |
 
 Specification validation: `loop/rules.sh vocab` and `loop/rules.sh scenario-ids`. The specification PR leaves Issue #5463 open for implementation.
+
+Policy retirement — U5740a: U5463c no longer visits Reactions or injects its read failure. Its Shelf, Drawer, shared editor and draft recovery captures remain required.
