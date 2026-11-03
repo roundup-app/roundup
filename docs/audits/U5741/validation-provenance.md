@@ -23,7 +23,6 @@ Each absent guessed source path was replaced by the actual source discovered wit
 | Command / observer | Exit | Failure and disposition |
 | --- | ---: | --- |
 | Initial `test -d .codegraph` probe | 1 | No index; ordinary repository discovery used. The surrounding shell continued successfully. |
-| `rg --files .claude/sound` in initial batch | 0 | Rules exist; relevant placement/size rules read. This is recorded to distinguish the successful rules discovery from the absent index. |
 | `ls target/debug/rup` | 2 | Default target path absent; actual `CARGO_TARGET_DIR` is `/home/boxd/cargo-target`. Rebuilt there. |
 | `cat crates/rupd/src/provenance.rs` | 1 | Guessed file absent; handlers are in `builtin.rs`, storage in `crates/provenance/src/store.rs`. |
 | `cat crates/contracts/src/methods/provenance.rs` | 1 | Guessed file absent; declarations and params are in `declarations.rs` and `common.rs`. |
@@ -37,3 +36,5 @@ Each absent guessed source path was replaced by the actual source discovered wit
 | `rg` over guessed `crates/rupd/src/authorization.rs` | 2 | Path absent; actual source is `guards.rs`, plus production route/selector dispatch. |
 
 The initial probes were exploratory, not scenario observers. No runtime query or named behavior test failed. The two primary vendor pages opened successfully; no substitute source or inferred vendor measurement was used.
+
+Self-review strengthened the runtime fixture with a second Todo: item history excludes it while Actor history includes it. This corrects the initial report’s unsupported statement about a Workstream appearing under the user. Replayed runtime and integrity observers pass (0); the archived source revision stays the original main commit, independent of subsequent documentation commits.
