@@ -24,10 +24,8 @@ it("u4454a_the_centre_has_no_time_timeline_or_back_to_ask", async () => {
     connected().rail.select(id);
     await waitFor(() => expect(connected().rail.selected()).toBe(id));
 
-    for (const name of ["Time", "Timeline", "Back to Ask"]) {
-      expect(screen.queryByRole("tab", { name })).toBeNull();
-      expect(screen.queryByRole("button", { name })).toBeNull();
-      expect(screen.queryByRole("region", { name })).toBeNull();
+    for (const role of ["tab", "button", "region"]) {
+      expect(screen.queryAllByRole(role, { name: /^(Time|Timeline|Back to Ask)$/ })).toEqual([]);
     }
   }
 
