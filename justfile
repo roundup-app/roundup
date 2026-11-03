@@ -20,6 +20,7 @@ ready:
 
 # The size, typos and ruff scans cover the whole repo, so the PR that adds a break fails its own `pre` (L5398).
 lint-repo:
+    just lint-artifacts
     pnpm exec ast-grep --version
     python3 tools/lint/setup.py web
     python3 tools/lint/scan.py web
@@ -329,3 +330,15 @@ perf-idle *args:
 migrations base="":
     python3 tools/migrations/guard.py {{quote(base)}}
     python3 tools/migrations/guard.test.py
+
+# SZ5455b/d: inspect the index, including force-added output ignored by ordinary staging.
+lint-artifacts:
+    #!/usr/bin/env python3
+    import subprocess
+    import sys
+
+    paths = subprocess.check_output(["git", "ls-files", "-z", "--", "artifacts/"]).split(b"\0")
+    forbidden = [path for path in paths if path and not (path.startswith(b"artifacts/ux/") and path.endswith(b".json"))]
+    for path in forbidden:
+        print(f"SZ5455d: forbidden tracked run output: {path!r}; only artifacts/ux/**/*.json readings may be tracked", file=sys.stderr)
+    sys.exit(bool(forbidden))
