@@ -1,8 +1,8 @@
 fn main() -> std::process::ExitCode {
     match desktop::run() {
         Ok(()) => std::process::ExitCode::SUCCESS,
-        // run reports through the native sink when available. Debug-printing its error here
-        // would disclose foreign plugin messages and Project paths on a failed launch.
+        // run reports every failure to stderr before returning, and uses a native dialog
+        // for Project refusals. Printing the boxed error would disclose plugin content.
         Err(_) => std::process::ExitCode::FAILURE,
     }
 }
