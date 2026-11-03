@@ -1,3 +1,4 @@
+import { agentBrowserExecutable } from "../testing/chromePage";
 import { execFile } from "node:child_process";
 import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -123,7 +124,7 @@ it.skipIf(!captureDir("U3021c"))("u3021c_open_restores_exact_revision_without_rp
   const server = await appServer();
   const session = `todo-selected-${process.pid}`;
   const profile = await mkdtemp(join(tmpdir(), "todo-selected-"));
-  const browser = async (...args: string[]) => (await promisify(execFile)("agent-browser", ["--session", session, "--profile", profile, ...args], { timeout: 60_000 })).stdout;
+  const browser = async (...args: string[]) => (await promisify(execFile)(agentBrowserExecutable, ["--session", session, "--profile", profile, ...args], { timeout: 60_000 })).stdout;
   const evaluate = async (source: string) => JSON.parse(await browser("eval", source));
 
   try {
@@ -258,7 +259,7 @@ describe("u3789a connected browser rows", () => {
     const session = `u3789-real-${process.pid}`;
 
     const browser = async (...args: string[]) => {
-      const { stdout } = await execute("agent-browser", ["--session", session, "--profile", profile, "--json", ...args], { timeout: 60_000 });
+      const { stdout } = await execute(agentBrowserExecutable, ["--session", session, "--profile", profile, "--json", ...args], { timeout: 60_000 });
       const reply = JSON.parse(stdout);
 
       if (!reply.success) throw new Error(reply.error);

@@ -97,7 +97,8 @@ export const openLane = async (width: number, scheme: "light" | "dark", name: st
       if (seed === "conflict") await evaluate("window.__fake.app.rpc('todo.list', null).catch(error => { if (error.code !== -32003) throw error; return []; })");
       await evaluate(`(async () => {
         const rpc = window.__fake.app.rpc;
-        for (const todo of await rpc('todo.list', null)) await rpc('todo.delete', { operation: crypto.randomUUID(), ids: [todo.id] });
+        const ids = (await rpc('todo.list', null)).map(todo => todo.id);
+        if (ids.length) await rpc('todo.delete', { operation: crypto.randomUUID(), ids });
         window.__fake.actAs({ kind: 'agent', id: 'tokens', parent: null });
         const made = [];
         for (const title of ${JSON.stringify(titles)}) made.push(await rpc('todo.create', { title, body: null, blockers: null }));
