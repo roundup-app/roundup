@@ -480,7 +480,7 @@ const reportingSelection = async (where: "agent" | "user" | "bubble", mode: numb
   await wait("window.__input.length > 0");
   await wait("window.__fake.app.calls.slice(window.__probeCalls).filter(c => c.method === 'terminal.write').reduce((n,c) => n + atob(c.params.data).length, 0) === window.__input.length");
   await before?.();
-  await browser("eval", "window.__input = []; window.__calls = window.__fake.app.calls.length; window.__mouseModifiers = []; document.addEventListener('mousedown', e => window.__mouseModifiers.push([e.altKey, e.shiftKey]), true)");
+  await browser("eval", "window.__input = []; window.__calls = window.__fake.app.calls.length; window.__mouseModifiers = []; document.addEventListener('mousedown', e => window.__mouseModifiers.push([e.altKey, e.shiftKey]), { once: true, capture: true })");
   await optionDrag(from, { x: Math.round(cells.x + cells.width * 12.2), y: Math.round(cells.y + cells.height * 1.5) });
 
   return { from, cells };
