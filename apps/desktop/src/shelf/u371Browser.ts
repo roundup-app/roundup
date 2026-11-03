@@ -1,3 +1,4 @@
+import { executable } from "../todos/laneBrowser";
 import { execFile } from "node:child_process";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -22,7 +23,7 @@ export function shelfBrowser(initScript?: string) {
   const session = `u371-${basename(profile)}`;
 
   if (initScript) writeFileSync(join(profile, "init.js"), initScript);
-  const browser = async (...args: string[]) => (await exec("agent-browser", ["--session", session, "--profile", profile, ...(initScript ? ["--init-script", join(profile, "init.js")] : []), ...args], { timeout: 60_000 })).stdout;
+  const browser = async (...args: string[]) => (await exec(executable, ["--session", session, "--profile", profile, ...(initScript ? ["--init-script", join(profile, "init.js")] : []), ...args], { timeout: 60_000 })).stdout;
   const evaluate = async <T,>(script: string): Promise<T> => JSON.parse(await browser("eval", script));
   const rig: Rig = { server: undefined! };
 
@@ -49,7 +50,9 @@ export function shelfBrowser(initScript?: string) {
     await browser("set", "viewport", String(width), "800");
     await browser("set", "media", scheme);
     const url = `${rig.server.resolvedUrls.local[0]}harness.html?view=workstreams&items=1&tabs=1&seed=${seed}`;
+    // Seed on the small fixture to avoid mounting and discarding a full App.
     await browser("open", `${rig.server.resolvedUrls.local[0]}src/ui/u498.html`);
+    await browser("wait", "[data-fixture=tabs]");
     await evaluate(`(() => { localStorage.clear(); localStorage.setItem('roundup:widths:/Users/you/harness', JSON.stringify({rail:${rail}, shelf:${shelf}})); return true; })()`);
     await browser("open", url);
     await browser("wait", seed === "first-run" ? ".window" : ".shelf-tabs");
