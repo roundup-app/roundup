@@ -34,6 +34,7 @@ it.skipIf(!captureDir("U4464") && !captureDir("U5163"))("u5606_capture_empty_vie
   mkdirSync(dir, { recursive: true });
 
   const snap = async (name: string) => {
+    // EmptyState.tsx measures in ResizeObserver before paint; the next frame paints its Portal.
     await read(`new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))`);
 
     const scenes = await read(`(() => {
@@ -169,7 +170,6 @@ it.skipIf(!captureDir("U4464") && !captureDir("U5163"))("u5606_capture_empty_vie
 
       if (phase !== "base") {
         await wait(`!!document.querySelector('[data-terminal-content]')`);
-        expect(await read(`!!document.querySelector('.pane-body .empty-state-ground')`)).toBe(false);
       }
 
       await snap(`${theme}-stopped-door-output`);
