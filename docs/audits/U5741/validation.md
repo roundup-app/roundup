@@ -937,12 +937,14 @@ Fourteen openings retain image hashes and exact Check readings. Thirteen pass al
 
 | Failed command or observer | Exit | Failure and disposition |
 | --- | ---: | --- |
+| First `just ready` | 143 | Process ended on signal TERM during lint fixtures, without a diagnostic failure; cause unknown. Complete second run passes. |
 | Initial workspace/index probe, `test -d .codegraph` | 1 | No index; used normal repository source search. |
 | Exploratory `rg`/`cat` probes of guessed harness, drafts and Order paths | 2/1 | Paths absent; replaced by verified files in the archived manifest. No absence inference from failed guesses. |
 | Worktree dependency readiness `ls node_modules/.bin/vite` | 2 | Installation not finished; install later passed. Original identical checkout served the harness. |
 | `python3 /tmp/u5741-recovery-observer.py` | 1 | Text locator arguments reversed; snapshot confirmed one menu item and corrected continuation clicks its role. |
 | `python3 /tmp/u5741-write-report.py`, first attempt | 1 | Singular contract method filename absent (`git show` 128); verified plural registry and regenerated source archive. |
 | `python3 /tmp/u5741-recovery-todo.py` | 1 | Relaunched isolated browser default viewport failed capture assertion; reapplied viewport/media, asserted settled exact Todo input, captured correction. |
+| Standalone `python3 tools/lint/scan.py typos`, before setup | 1 | Required worktree tool binaries absent. `python3 tools/lint/setup.py web` passes (0); repeated spelling scan passes (0), with existing baseline debt only. |
 | Apple file-recovery primary-page web open | Unavailable | Tool could not retrieve the page; no equivalent-operation claim made. |
 
-`just ready` is running; its result will be recorded before completion. External equivalence, remaining conditional owning controls, fresh role offers and final one-revision whole-App reconciliation remain open engineering work. No partial candidate ask, owner choice or deletion.
+The second complete `just ready` passes (0): all 193 lint-behavior fixtures, package/web type checks, repository and Rust lints, migration guard, `ALL PROOFS CHECK` and N7. Standalone final spelling, size, vocabulary, scenario ids, merge-loss, whitespace, archive and image integrity checks pass (0). The dedicated browser closes (0); stopping only this run's Vite deliberately ends its harness with 143. Self-review confirms only the six declared documentation paths changed, with distinct recovery destinations and explicit observation limits. External equivalence, remaining conditional owning controls, fresh role offers and final one-revision whole-App reconciliation remain open engineering work. No partial candidate ask, owner choice or deletion.
