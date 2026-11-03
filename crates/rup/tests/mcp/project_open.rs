@@ -430,11 +430,9 @@ async fn i5765_cli_and_mcp_share_the_project_contract() {
     let params = json!({"path":target.path(),"kind":"agent","name":"worker","prompt":"exact work"});
     let call = shim.call("project_start", params.clone());
     tokio::pin!(call);
-    let request = loop {
-        tokio::select! {
-            result = &mut call => panic!("MCP answered before the App: {result:?}"),
-            request = world.next() => break request,
-        }
+    let request = tokio::select! {
+        result = &mut call => panic!("MCP answered before the App: {result:?}"),
+        request = world.next() => request,
     };
     assert_eq!(request["method"], "project.start");
     for key in ["path", "kind", "name", "prompt"] {
