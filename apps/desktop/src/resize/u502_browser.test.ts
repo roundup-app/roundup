@@ -170,6 +170,8 @@ run("u502 resize edges use Ark Splitter", () => {
 
       const before = await resizes();
 
+      expect(before).toBeGreaterThan(0);
+
       await drag(edge, by, "release", async () => {
         await frames();
         expect(await resizes() - before).toBe(0);
