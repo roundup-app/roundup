@@ -85,7 +85,7 @@ The `roundup` MCP server offers these tools. They are deferred: load a tool befo
 - `project_setWorktrees`: turn Worktrees on or off for the Project and set the command Landing runs.
 - `provenance_history`: list the Touches on one item, such as `todo:3` or `rail:5`.
 - `provenance_touched`: list the Touches one Actor made.
-- `project_open`: ask the App to open the Project at an absolute folder path; the answer means asked, not done.
+- `project_open`: open an absolute existing folder through the App; wait for user consent when needed and return the final canonical opened path.
 - `project_rename`: ask the App to give this Project another name; the answer means asked, not done.
 - `agent_spawn`: delegate a whole job to a named child with an order and working prompt.
 - `terminal_screen`: read a Terminal's screen as it is now, as plain text, with the `offset` to read from next.

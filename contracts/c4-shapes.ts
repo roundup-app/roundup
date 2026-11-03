@@ -252,15 +252,23 @@ type SelectorInputs = "todo/AssignParams" | "todo/CreateParams";
 // U5558 adds commit notifications; every existing Event and payload remains exact.
 type AutomaticChanges = { name: "deliverable.changed" };
 
+// A5765b removes only open Events and replaces open's null result with completion.
+type RenameRequest = Extract<Before["project/Requested"], { kind: "rename" }>;
+
+type WithoutOpenEvent<T> = T extends { name: "project.requested" }
+  ? Omit<T, "data"> & { data: RenameRequest } : T;
+
 type BeforeSelectors = { [K in keyof Before]: K extends SelectorInputs ? WithOwnerSelector<Before[K]>
-  : K extends "EventData" ? Before[K] | AutomaticChanges
-    : K extends "Event" ? Before[K] | (Pick<Before["Event"], "seq" | "actor"> & AutomaticChanges)
+  : K extends "EventData" ? WithoutOpenEvent<Before[K]> | AutomaticChanges
+    : K extends "Event" ? WithoutOpenEvent<Before[K]> | (Pick<Before["Event"], "seq" | "actor"> & AutomaticChanges)
+      : K extends "project/Requested" ? RenameRequest
       : Before[K] };
 
 type SelectorMethods = "todo.assign" | "todo.create";
 
 type BeforeMethodSelectors = { [K in keyof BeforeRpcMethods]: K extends SelectorMethods
   ? { params: WithOwnerSelector<BeforeRpcMethods[K]["params"]>; result: BeforeRpcMethods[K]["result"] }
+  : K extends "project.open" ? { params: BeforeRpcMethods[K]["params"]; result: { path: string } }
   : BeforeRpcMethods[K] };
 
 // U5690c adds exactly one Rail NodeKind; nested Rail replies keep every other field.
