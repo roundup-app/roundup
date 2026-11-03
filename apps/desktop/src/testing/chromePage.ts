@@ -1,3 +1,4 @@
+import { createRequire } from "node:module";
 import { spawn } from "node:child_process";
 import type { ChildProcess } from "node:child_process";
 import { createReadStream, existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs";
@@ -5,6 +6,13 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { finished } from "node:stream/promises";
 import { appServer } from "./appServer.ts";
+
+// PR #2973: 20 --version calls cost 4.038 s through the npm wrapper,
+// versus 0.156 s for the bundled CLI. Hundreds of inputs repeat that startup.
+const native = join(createRequire(import.meta.url).resolve("agent-browser/package.json"), "..", "bin", `agent-browser-${process.platform}-${process.arch}${process.platform === "win32" ? ".exe" : ""}`);
+
+export const agentBrowserExecutable = existsSync(native) ? native : "agent-browser";
+
 
 /** A headless Chromium on a fresh profile, driven over its DevTools pipe, with Vite serving the U26 harness; never the user's browser. */
 

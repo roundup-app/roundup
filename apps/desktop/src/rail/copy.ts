@@ -94,6 +94,7 @@ export const copy = {
   workstreamsHead: "WORKSTREAMS",
   rail: sharedCopy.rail,
   doneCount: sharedCopy.doneCount,
+  internalCount: " internal",
   idleCount: " idle",
   askingTheDoor: "Asking…",
   addWorkstreamWord: sharedCopy.addWorkstreamWord,
