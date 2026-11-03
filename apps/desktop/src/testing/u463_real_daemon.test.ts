@@ -162,7 +162,7 @@ it(`u463_cancel_keeps_first_run_and_the_next_choice_opens_the_project ${width} k
 
   try {
     await batch(
-      ["open", `${real.base}/harness.html?view=workstreams&items=1&tabs=1&daemon=1&seed=first-run`],
+      ["open", `${real.base}/harness.html?view=workstreams&tabs=1&daemon=1&seed=first-run`],
       ["set", "viewport", String(width), "800"],
       ["wait", "--fn", `document.querySelector('.choose-project')?.textContent.includes(${JSON.stringify(appCopy.openAFolderToStart)})`]
     );
@@ -188,7 +188,7 @@ it(`u463_the_first_run_observer_is_opt_in_and_confined_to_its_project ${width} k
 
   try {
     await batch(
-      ["open", `${real.base}/harness.html?view=workstreams&items=1&tabs=1&daemon=1`],
+      ["open", `${real.base}/harness.html?view=workstreams&tabs=1&daemon=1`],
       ["set", "viewport", String(width), "800"],
       ["wait", "--fn", `!!document.querySelector('[aria-label="Create"]')`]
     );

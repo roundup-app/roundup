@@ -69,6 +69,7 @@ export const actionRequestSchema = v.variant("method", [
   v.object({ id: v.number(), method: v.literal("action.list"), params: v.optional(v.nullable(v.object({}))) }),
   v.object({ id: v.number(), method: v.literal("action.run"), params: v.object({ name: v.string(), args: v.array(v.object({ key: v.string(), value: v.string() })) }) }),
   v.object({ id: v.number(), method: v.literal("project.open"), params: v.object({ path: v.string(), source: v.string(), agent: v.nullable(v.object({ id: v.string(), name: v.string() })) }) }),
+  v.object({ id: v.number(), method: v.literal("project.start"), params: v.object({ kind: v.picklist(["agent", "workstream", "mode"]), name: v.string(), prompt: v.string(), path: v.string(), source: v.string(), agent: v.object({ id: v.string(), name: v.string() }) }) }),
 ]);
 
 export type ActionRequest = v.InferOutput<typeof actionRequestSchema>;
@@ -266,6 +267,7 @@ export const rpcFailureSchema = v.object({
   data: v.fallback(v.optional(v.variant("kind", [
     v.object({ kind: v.literal("events-expired"), oldest: v.pipe(v.number(), v.safeInteger(), v.minValue(1)) }),
     v.object({ kind: v.literal("other-project") }),
+    v.object({ kind: v.literal("start-failed"), path: v.string(), id: v.string(), cause: v.string() }),
     v.object({ kind: v.literal("undo-parent"), id: v.string(), name: v.string() }),
     v.object({ kind: v.literal("undo-identity"), id: v.string(), name: v.string() }),
     v.object({ kind: v.literal("undo-pad-name"), name: v.string() }),

@@ -265,6 +265,10 @@ const TOOLS: &[(&str, &str)] = &[
         "open an absolute existing folder through the App; wait for user consent when needed and return the final canonical opened path",
     ),
     (
+        "project_start",
+        "start an Agent, Workstream or Mode in a target Project through the App; return its canonical path, kind and row id",
+    ),
+    (
         "project_rename",
         "ask the App to give this Project another name; the answer means asked, not done",
     ),

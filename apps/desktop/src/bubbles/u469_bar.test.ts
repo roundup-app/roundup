@@ -22,11 +22,11 @@ const geometry = `() => {
 }`;
 
 const capture = async (name: string): Promise<void> => {
-  const observed = await page.call<{ checks: Record<string, { status: string }> }>(geometry);
-
   const dir = captureDir("U469");
 
   if (!dir) return;
+  const observed = await page.call<{ checks: Record<string, { status: string }> }>(geometry);
+
   mkdirSync(dir, { recursive: true });
   writeFileSync(join(dir, `${name}.png`), Buffer.from(await page.shot(), "base64"));
   writeFileSync(join(dir, `${name}.checks.json`), JSON.stringify(observed.checks));

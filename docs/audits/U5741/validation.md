@@ -234,7 +234,6 @@ CI runs `41565024004` and `41565023990` on `fa9b5c63ca140e8bcbf28ba5364e44638eed
 | Targeted `cargo nextest run -p agents --lib` allocation observers | 0 | All six pass: `b5635b_preview_allocations_stay_bounded`, `r5636e_scan_allocated_bytes`, `r5636e_nested_rail_allocated_bytes`, `b5635a_receipt_reads_only_appended_bytes`, `b5635c_unrelated_hooks_do_not_copy_completed_text` and `b5635c_completion_changes_are_reported_once`. |
 | `just ready` | 1 | Only `just migrations origin/main` fails: main already contains both `0044-inbox-entry.sql` and `0044-start-attribution.sql`. Existing repair PR #5833 and Issue #5837 own this collision. Web lint/typecheck, Rust/repository guards, `ALL PROOFS CHECK` and N7 launch-sites pass. Clippy skips the documentation-only net diff; the targeted Nextest runs compile the agents unit tests. No local `just check` ran. |
 
-
 ## Required-check repair — builder-41568471071
 
 CI run `41568393992` on `f8495ca8decd9244e0cc8d88307d812e2e9cafba` failed the B4522 filename guard before tests: main contains both `0044-inbox-entry.sql` and `0044-start-attribution.sql`. Carry the exact independently approved repair from PR #5833 (`85f61e537cb70d2cdd923ce947338438ce0071d2`): rename the latter to `0045-start-attribution.sql`. Issue #5758 records this scope expansion; #5837 owns the upstream collision. Neither the guard nor its recorded exceptions change.
@@ -245,7 +244,7 @@ CI run `41568393992` on `f8495ca8decd9244e0cc8d88307d812e2e9cafba` failed the B4
 | `just migrations origin/main` | 0 | Filename guard and all nine existing fixture tests pass. |
 | Ordered Project SQL comparison against `origin/main` | 0 | All 49 bytewise-sorted SQL contents match exactly; the migration count and applied positions are unchanged. |
 | `git diff --check`, `loop/rules.sh merge-loss` | 0 each | Exact rename; no whitespace or inherited merge-loss defect. |
-| `cargo nextest run -p rupd --lib -E 'test(r3696c_a_fresh_project_db_equals_the_migrated_one_with_its_own_identity) \| test(n5467)'` | 0 | Four existing observers pass: fresh schema/image equality, older-store refusal without changes, old Project data refusal with retained worktrees, and incomplete reaction-record refusal. |
+| `cargo nextest run -p rupd --lib -E 'test(r3696c_a_fresh_project_db_equals_the_migrated_one_with_its_own_identity) \| test(n5467)'` | 0 | Four existing observers pass: fresh schema/image equality, older-store refusal without changes, old Project data refusal with retained worktrees. |
 | `just ready` | 0 | Web lint and typecheck, workspace Clippy, repository guards, `ALL PROOFS CHECK` and N7 launch-sites pass. No local `just check` ran. |
 
 ## Changes and resources continuation — builder-41575207304
@@ -283,7 +282,6 @@ Observer correction before commit: the first CI fixture used `failure`, outside 
 The standalone spelling command initially exited 2 because the pinned tool had not been installed in this new worktree. `python3 tools/lint/setup.py web` installed the checksum-verified tools (exit 0); the subsequent `python3 tools/lint/scan.py typos` passed (exit 0). No baseline or rule changed.
 
 Final checks: both `just ready` runs pass (exit 0), including B4522's migration guard, web lint/typecheck, Rust lints, `ALL PROOFS CHECK` and N7 launch sites. Main `0c060bfd8` was merged without conflicts; every inspected source file remains byte-identical to the pinned observer source. `loop/rules.sh merge-loss`, vocabulary, scenario ids, final spelling, JSON/source/editor/menu reconciliation and whitespace checks pass (exit 0). There are no changed behavior tests to run in this documentation-only slice. The complete inventory and final owner ask remain open on #5758.
-
 
 ## Rail lifecycle continuation — builder-41579716823
 
@@ -411,7 +409,6 @@ Final detached `just ready` passes, exit 0: B4522 migration guard, web lint/styl
 
 Main `d26af47b9e1fea792c4e7a9fd48f83070a3fdf9b` was merged without conflicts during validation; the source catalogue holds its exact resolved SHA and merge SHA. All 36 inspected sources still equal the audit pin. The final web source lint/type checks and repository/Rust/proof/N7 stages read the merged checkout; historical rendered evidence keeps its original pin. Vocabulary, scenario ids, whitespace, lossless snapshot/direction round trips, native alert models and merge-loss pass. Scope is six audit documents only; no image, video, product or frozen-loop file is committed. #5758 remains open for the unfinished inventory and later owner choices/retirements.
 
-
 ## Rail structure completion — builder-41588674845
 
 PR #5859’s inherited evidence slice is verified against audited main `4525b6ce563888c08b0b8bba3806449cf3b9c1f8`: all 32 inspected source hashes match the checkout, all ten stored accessibility snapshots decode to their recorded SHA-256, and all ten environments are dark 1512×950. The independent-decision table contains 21 rows. No policy-report test was added.
@@ -473,7 +470,6 @@ The twelfth opening adds a chosen-Terminal close refusal on the eight-Run seed: 
 
 Final `just ready` passes (exit 0): B4522 migration filename guard, all 193 lint-behavior checks, styles, typechecks, repository/Rust lints, formal proof mutation checks (`ALL PROOFS CHECK`) and N7. Final evidence validation passes for all 40 source hashes, three archives and twelve dark viewport/snapshot/Check records, including the full dense close-refusal text. Main remains the audit pin; no merge or product delta occurred. Self-review restored the earlier changes/resource capture count accidentally touched by report wording replacement. Isolated browser and harness processes are closed; final media is also copied into the run checkout's artifacts path for workflow attachment. No local `just check` ran.
 
-
 ## Fix-run verification — builder-41594280547
 
 Integrated remote head `c2ca0523e` by fast-forward; it had already made #5861 ready with auto-merge enabled. Independently verified all 40 pinned source hashes, three decoded archives and twelve stored snapshot hashes, dark viewport records and passing Checks. Replayed both archived observer drivers using a fresh isolated headless session against the unchanged App at the audit pin: all twelve openings pass every recorded Check, including readable dense close-refusal text and Retry. Recreated PNG files, Check readings and the replay manifest remain uncommitted under `artifacts/ux/U5741/terminals/`, also copied to the run checkout for attachment. Original checked-in observations remain unchanged. The isolated browser and harness are closed.
@@ -530,7 +526,6 @@ The final inventory separates read Retry from read-error Clear (W08/W09), yieldi
 
 Final detached `just ready` passed (exit 0): all 193 lint-behavior checks, package typechecks, repository/Rust lints, formal proofs (`ALL PROOFS CHECK`) and N7's launch-site observer. Final source/archive/snapshot reconciliation, dark media/appearance/viewport checks, D2/D5/D6, vocabulary, scenario ids, merge-loss, spelling and whitespace checks passed (exit 0). No local `just check` or added/changed behavior tests. Browser session and only this run's harness are closed. All seventeen final PNG files are also copied to the workflow checkout's `artifacts/ux/U5741/attention-import/` for attachment; none is committed.
 
-
 ## Independent fix-run verification — builder-41604993438
 
 Integrated the original builder's concurrent head `840a525bb0fcb01dd0a9be9cde2a12c55e541b90` by fast-forward, retaining its 34 rows, conditional observer limits, source/refusal distinction and corrected archived driver. Main remains the audited `b021117d063f663008f9a692be5e7496b2eebbe1`; no merge resolution or product change was needed.
@@ -580,12 +575,9 @@ Final evidence integrity: 41 inspected source hashes, twelve dark 1512×950 open
 
 The first detached repeat ended before completion without an exit file; no pass is inferred. A live PTY repeat preserves explicit status. The initial exit-file read failed (1) because its process had ended without writing it. Final required-command status follows after completion.
 
-
-
 Isolated browser closed successfully (0); this run's harness session ended by SIGTERM (143) after captures, with no native browser fallback. Twelve accepted PNG files were copied to the workflow checkout under artifacts/ux/U5741/shelf/ for attachment. Source and observer archives are lossless; no image/video is committed. Self-review checked duplicate decisions, code/user-label naming, placement, every claimed capture and the explicit failed/unavailable branches. Main remains the audited eaa391d9d revision after the final fetch; no merge resolution was needed.
 
 Final `just ready` live PTY repeat: exit **0**, confirmed both by the completed process and /tmp/u5741-ready-live.exit. B4522 migration guard, all 193 lint-behavior checks, package type checks, repository/Rust lints, formal proofs and N7 pass. Final vocabulary, scenario ids, merge-loss, spelling and whitespace pass. No behavior test changed or local just check ran; CI judges the implementation head. This evidence slice is complete; the full U5741 inventory, vendor/conditional reconciliation and owner request remain unfinished on #5758.
-
 
 ## Shelf fix-run evidence — builder-41609532898
 
@@ -614,7 +606,6 @@ Observed through the existing fake-Daemon harness in an isolated worktree and a 
 Final replay retains nineteen openings, each passing every recorded Check, including D2/D5/D6. Visually inspected the deletion-failure image: the cause, original-work guidance and originating recovery controls remain visible. The refusal is an injected fake reply; no real storage failure is asserted. All source hashes match the pinned main bytes; archived driver/snapshot checksums, dark media/appearance, viewport, successful command records and image presence reconcile. All nineteen media files are copied to the workflow checkout for attachment, without committing images.
 
 The final observer additionally exercises keyboard resize and Enter width reset, bringing the total to nineteen passing openings, including S07 resizing and S29 width reset. Pointer resize and double-click reset remain explicit source-only branches. `just ready` passed (exit 0), including all 193 lint-behavior checks, styles, package typechecks, repository/Rust lints, B4522, `ALL PROOFS CHECK` and N7. Final spelling, vocabulary, scenario ids, merge-loss and whitespace checks pass. No local `just check` or added/changed behavior tests.
-
 
 | Integration / shutdown command | Exit | Disposition |
 | --- | ---: | --- |
@@ -741,3 +732,42 @@ Only the successful final replay supplies rendered-todos.json. Earlier partial i
 | Vocabulary, scenario ids, merge-loss, whitespace | 0 each | Self-review found no duplicate row id, misplaced product change, naming drift or merge loss. All forty row ids are unique; ten retained records have only successful commands. |
 
 The complete evidence commit is on PR #5875. This slice leaves #5758 open and requests no owner choices. No product, scenario, contract, test or frozen-loop file changed; no local just check ran.
+
+## Todo capture and triage continuation — builder-41630122849
+
+Audited main `6629a9640a1c279b5e398a2c4f4e90a6bfcfff99`; independent worktree `/tmp/roundup-audit-416301`. Documentation only. The source checkout serving the harness has that identical SHA and no product edits. `todo-intake.md` adds TI01–TI31 without changing acceptance, behavior, contracts, tests or frozen loop files. Sources, direction Issues, exact observer and commands are archived in catalogues/todo-intake-source.json; actual snapshots/Checks/calls are in rendered-todo-intake.json. Missing comparisons and conditional openings remain explicit.
+
+| Command / observer | Exit | Result |
+| --- | --- | --- |
+| `python3 loop/orders.py check /tmp/5758-updated.md` then `gh issue edit 5758 --body-file /tmp/5758-updated.md` | 0 | Exact documentary slice scope recorded on canonical Issue before writing. |
+| `pnpm install --frozen-lockfile` | 0 | Installed locked dependencies in worktree. |
+| `agent-browser skills get core` | 0 | Read before browser work. Fresh isolated headless session/profile, no personal browser or native fallback. |
+| `agent-browser doctor --offline --quick --json` | 0 | Browser/session environment passed; no repair or external browser attachment. |
+| Five `gh issue view … --json …` and installed `gh issue create --help`, `gh --version` | 0 | Direction #2898/#3191/#3193/#3194/#3195 and versioned vendor comparison retained. Primary create/edit manuals inspected. |
+
+| Failed command / observer | Exit | Failure and disposition |
+| --- | --- | --- |
+| Initial `pwd … && test -d .codegraph` | 1 | No .codegraph directory; used source search, did not create an index. |
+| Guessed `head scenarios/ui-todo-capture.md` / `sed scenarios/ui-todo-workstream.md` and `rg` guessed native/tauri paths | 2 | Paths absent; found actual ui-capture.md, workstream-queue.md and crates/native/src/capture.rs and archived them. |
+| `ls … node_modules/.bin/vite` probe | 2 | Root/worktree bin links absent while installation was running; existing desktop source-checkout Vite available. |
+| First `just harness tree-40 5281` in worktree | 254 | Vite not installed yet; no captures accepted. After installation, observations use same-SHA source checkout's existing harness. |
+| Initial isolated `agent-browser … open` | 1 | Navigation timed out during Vite dependency preparation. Chained viewport/media commands succeeded but empty snapshot is not a pass. Same isolated profile reopened after server ready. |
+| First `/tmp/intake-observer.py` | 1 | Color-scheme assertion saw `light dark`, not explicit dark; saved actual App dark preference after navigation and replayed. No opening accepted from this failure. |
+| Second `/tmp/intake-observer.py` | 1 | Generic Error correctly classified as completion unknown: exact text survived in recovered revision, not active field. Replaced fixture with actual RpcError(-32602) to observe the named explicit-refusal branch. No preservation failure inferred; original assumption rejected. |
+| `just capture U5741` | 1 | Unsupported capture id rejected at Vitest config startup; no test suite ran. Dedicated archived agent-browser observer supplies documentary openings; no registry or frozen-loop edits. |
+
+U5741 policy prohibits report-wording tests. No behavior test file changed, no local `just check`, and no claim of real Daemon/storage/native launch from these fixture renders. Final observer, lint and integrity results follow.
+
+Additional observer failures: third driver exited 1 waiting for New Workstream after pointer menu selection: menu dismissed, dialog absent. A separate ordinary row O → End → Enter opened it; final archived replay uses that keyboard route. Pointer opening remains an unresolved branch, not a successful observation. `loop/rules.sh spelling` exited 2 because that subcommand does not exist; actual observer is `python3 tools/lint/scan.py typos`. Its first invocation exited 2 before setup (missing pinned tool); `python3 tools/lint/setup.py web` then passed and the actual spelling scan passed (0), retaining baseline debt. A probe for the still-running ready exit file returned 2; it was not a gate result.
+
+Fourth driver exited 1 on `find role radio click --name 'Start now'`: the accessibility snapshot exposes the radio under its clickable label, while this pointer locator found no target. Final driver clicks the actual Ark label and waits for its checked state. It clears only its test profile's localStorage before replay; actual App preference then sets explicit dark. No synthetic event or library workaround enters product code.
+
+Fifth driver exited 1 on a malformed JavaScript checked-state wait (nested selector quotes), after successfully clicking Start now. Corrected the observer expression; continued from the accepted fresh-profile records with an archived continuation. That continuation exited 1 on the long start-refusal wait after the actionable-failure observer had already begun dismissing the dialog: those observer actions overlapped. The interrupted start-refusal opening is rejected, not a product failure or capture. Actionable observers are completed sequentially below. These are observer repairs only; no product patch or approval inference.
+
+The sequential start-refusal pointer attempt also exited 1: Create dismissed the dialog without a recorded start call. Keyboard row O → End → Enter, explicit name-field focus and Enter produced `todo.startWorkstream {id:5,name:"todo 5",start:{kind:"queued"}}` and the short refusal with name retained. The interrupted pointer attempts establish no successful pointer action. Their cause remains unresolved here. The final screenshot-only script waits on that actual visible dialog state; exact manual key sequence and script are archived separately.
+
+Final evidence integrity passed (0): 41 lossless source archives match audited checkout bytes and hashes; all 17 accepted accessibility snapshots and PNG hashes verify; every opening is dark 1512×950 and every recorded Check passes, including D2/D5/D6. New Workstream's now/after choices wait on actual checked labels, and its explicit refusal is observed after keyboard submission with original name retained. capture-actionable, inline-actionable and new-workstream-actionable show the complete short cause and next step; longer diagnostics remain visibly truncated and are not claimed fully visible. Images remain uncommitted and are copied to the workflow checkout under artifacts/ux/U5741/todo-intake/. No real storage, native panel, OS shortcut or Door start claimed.
+
+The initial standalone spelling scan passed before later source metadata was added; final scans and repairs are recorded below. Vocabulary, scenario ids, merge-loss and whitespace checks passed (0). Main remains the same audited SHA after fetch; no merge or conflict resolution. Self-review checked independent decisions against entry points, naming/placement, duplicate overlap with existing reports, archived sources and actual snapshots; pointer and conditional gaps remain explicit. The full owner request still waits for all remaining inventory and final current-revision reconciliation.
+
+First complete `just ready` exited 1: its required Rust lint includes the repository scanner, which flagged spelling in verbatim owner Issue quotes added to the source catalogue. All 193 lint-behavior checks, web/style/type/dependency checks, B4522, formal proofs (`ALL PROOFS CHECK`) and N7 passed; only the repository spelling scan failed. Final standalone spelling also exited 1 for the same verbatim quotes. Preserved the exact Issue bodies/comments in lossless compressed archives, matching the existing source archive format, rather than altering the owner's evidence or adding lint exceptions. The repaired standalone spelling scan passed (0). A second full `just ready` is the final aggregate observer.

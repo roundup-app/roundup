@@ -42,6 +42,7 @@ mod reach;
 pub use asks::Asks;
 pub use models::mcp_on;
 mod name;
+pub use name::given as agent_name;
 mod order;
 mod peer;
 #[cfg(feature = "test-support")]
