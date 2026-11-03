@@ -132,7 +132,7 @@ fn offer(
         takes_params,
         own_id: false,
         own_reader: false,
-        waits_for_user: method == "project.open",
+        waits_for_user: matches!(method, "project.open" | "project.start"),
         door_only: false,
         stream: false,
     }
