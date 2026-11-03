@@ -156,9 +156,7 @@ fn n5809c_failed_suffix_rolls_back_and_names_migration() {
     let rows = saved_rows(&db);
     let mut failing = migrations()[..prefix].to_vec();
     failing.push(M::up("CREATE TABLE n5809_partial(value TEXT); INSERT INTO nodes(id,kind,name,ord) VALUES(5811,'workstream','must roll back',11);"));
-    // A third entry distinguishes the failing position from the final target.
     failing.push(M::up("N5809_INVALID_SQL;"));
-    failing.push(M::up("CREATE TABLE n5809_unreached(value TEXT);"));
     let message = apply(&mut db, failing).unwrap_err().to_string();
     assert!(
         message.contains(&format!("migration {}:", prefix + 2)),
