@@ -115,7 +115,7 @@ export const RailRowView = (props: {
   topology: RailTopology; todoCount: number;
   row: NodeRow; rootDivider?: boolean; selected: boolean; multiple: boolean; tabbable: boolean; branch: boolean;
   copyWith?: (feedback: ReturnType<typeof createCopyFeedback>) => () => void;
-  editing: boolean; onEditing: (editing: boolean) => void; onToggle: () => void;
+  editing: boolean; onEditing: (editing: boolean) => void; onToggle: () => void; onOpen: () => void;
   onRename: (name: string) => Promise<void>; onFailure: (message: string) => void;
   lifted: boolean; sortRef: (element: HTMLElement | undefined) => void;
   handleRef: (element: HTMLButtonElement | undefined) => void;
@@ -190,7 +190,14 @@ export const RailRowView = (props: {
     <NameField node={props.row.node} onCommit={props.onRename} onFailure={props.onFailure} onCancel={closeName} />
   </Show>;
 
-  const row = (mine: (extra: RowProps) => RowProps) => <StatusTip status={props.row.node.status} dismissed={connected.rail.dismissed(props.row.node)}>{reveal => <div {...mine(mergeProps(rowProps(), reveal()))} ref={el => { element = el; props.sortRef(el); }}>
+  const choose = (event: MouseEvent) => {
+    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || props.lifted) return;
+
+    if (!(event.target instanceof Element) || event.target.closest("button, input, a, [contenteditable]")) return;
+    props.onOpen();
+  };
+
+  const row = (mine: (extra: RowProps) => RowProps) => <StatusTip status={props.row.node.status} dismissed={connected.rail.dismissed(props.row.node)}>{reveal => <div {...mergeProps({ onClick: choose }, mine(mergeProps(rowProps(), reveal())))} ref={el => { element = el; props.sortRef(el); }}>
     <Trunks depth={props.row.depth} trail={props.row.trail} stem={props.row.children} />
     <p class="line">
       <Show when={workstream()}><IconButton class="rail-chevron row-control" aria-label={props.row.collapsed ? copy.expand : copy.collapse} aria-expanded={!props.row.collapsed} {...ownKeys} onClick={event => { event.stopPropagation(); props.onToggle(); }}><Icon name={props.row.collapsed ? "right" : "down"} /></IconButton></Show>

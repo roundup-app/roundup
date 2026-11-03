@@ -58,7 +58,7 @@ const open = async () => {
   app.opened.project = { name: "p", path: "/p" };
   app.handlers["rail.tree"] = () => [
     door("w", "idle", "idle", { name: "lead" }),
-    ...["a", "b", "c"].map((id) => agent(id, id === "a" ? "needs-you" : "idle", "x", { parent: "w" })),
+    ...["a", "b", "c"].map((id) => agent(id, id === "a" ? "needs-you" : "idle", "x", { parent: id === "a" ? null : "w" })),
   ];
   Object.assign(app.handlers, padHandlers({ pads: [{ incarnation: "fixture-1", name: "notes", text: "", updated_at: 0, revision: 1, home: "w" }], history: [] }, () => {}));
   app.handlers["terminal.list"] = () => listed;

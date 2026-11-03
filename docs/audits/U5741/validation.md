@@ -247,3 +247,80 @@ CI run `41568393992` on `f8495ca8decd9244e0cc8d88307d812e2e9cafba` failed the B4
 | `git diff --check`, `loop/rules.sh merge-loss` | 0 each | Exact rename; no whitespace or inherited merge-loss defect. |
 | `cargo nextest run -p rupd --lib -E 'test(r3696c_a_fresh_project_db_equals_the_migrated_one_with_its_own_identity) \| test(n5467)'` | 0 | Four existing observers pass: fresh schema/image equality, older-store refusal without changes, old Project data refusal with retained worktrees, and incomplete reaction-record refusal. |
 | `just ready` | 0 | Web lint and typecheck, workspace Clippy, repository guards, `ALL PROOFS CHECK` and N7 launch-sites pass. No local `just check` ran. |
+
+## Changes and resources continuation — builder-41575207304
+
+This documentation slice observes main `f87a3ddd158ec53a311d29265fa6414d6efa4434`, not an unrecorded promotion of the earlier product revision. The changes/resources report and source catalogue reconcile the relevant current declarations, menu projection and inspected implementation hashes. Other production delta and the complete audit remain pending. No product, scenario, Principle, contract, test or frozen-loop file changes; no deletion or owner choice.
+
+| Command / observer | Exit | Result |
+| --- | ---: | --- |
+| `pnpm install --frozen-lockfile` | 0 | Installed pinned dependencies in this run's own worktree. |
+| `python3 loop/orders.py check /tmp/u5741-scope-415752.md` | 0 | Validated exact documentary scope before editing #5758. |
+| `gh issue edit 5758 --body-file /tmp/u5741-scope-415752.md` | 0 | Added the permitted evidence files and reasons to the canonical work order. |
+| `just harness resources 5234` | running observer | Isolated fake-Daemon App from this recorded source, loopback only. |
+| `python3 /tmp/u5741-changes-observe.py` and `...-run.py` | 0 each | Fresh dedicated headless session/profile, actual tree opening and requested resource inspection. |
+| `python3 /tmp/u5741-changes-more.py` after locator repair | 0 | Diff, source-note fields, saved batch and edit openings retained. A final guessed button hit Old rather than Close; no close pass was inferred from it. Correct action used subsequently. |
+| `python3 /tmp/u5741-changes-recovery.py` | 0 | Existing native Project command opens the actual recoverable forms/notes and actions. |
+| `python3 /tmp/u5741-changes-failures.py` | 0 | Actionable failed Worktree read, stale resource samples, finished selection and absent measurements. Eleven distinct pages in rendered-changes.json. Nine pass all Checks; note form/edit retain existing D2/D10 failures on resolved automatic margin. |
+| `python3 /tmp/u5741-editor-probe.py`, `.../u5741-probes.py` | 0 each | Real tree selection plus Enter reaches the editor seam with the selected Worktree path and line 1; no native editor execution claimed. Catalogue retains exact menu projection and editorCalls. |
+| `gh --version`, `gh pr diff/checks/view/review --help` | 0 each | Vendor version and exact supported commands retained; no review posted. |
+| `loop/rules.sh vocab`, `loop/rules.sh scenario-ids`, `git diff --check` | 0 each | Documentary vocabulary, ids and whitespace pass. |
+
+| Failed command / observer | Exit / status | Failure / disposition |
+| --- | --- | --- |
+| Initial `ls -d .codegraph .claude/sound` | 2 | No graph index; sound rules exist. Normal source search used. |
+| `sed ... apps/desktop/src/changes/ChangedTree.ts` | 2 | Actual source is ChangedTree.tsx; read it before completing reconciliation. |
+| First `python3 /tmp/u5741-changes-more.py` | 1 | Exact semantic locator could not address the shadow tree row. Fresh snapshot ref selected the actual file, then View diff opened it. |
+| `python3 /tmp/u5741-changes-states.py` | 1 | Recover notes trigger was no longer open when `.note-recovery` was observed. No trigger pass claimed. Project command observer subsequently opened actual recovery. |
+| `python3 /tmp/u5741-changes-final-render.py` | 1 | Resource-value recapture completed, but guessed shadow path attribute wait timed out. No editor pass inferred; actual row ref plus Enter subsequently recorded the correct path/line. |
+| `rg ... apps/desktop/src/rail/Worktree*` | 2 | No module matches the guessed glob; chips live in RailRow.tsx, which was read and recorded. |
+| Primary Apple process-guide page retrieval | HTTP 429 | Full-page retrieval unavailable. Search excerpt does not prove Agent-tree or directory-size equivalence; Q1 stays unverified. |
+
+PNG files and paired readings remain under artifacts/ux/U5741 in this run's worktree, uncommitted. The final inventory and owner request remain pending, including every unverified row and conditional opening named in changes-resources.md. An existing Check failure is retained as evidence, never converted to a pass. No local `just check` ran.
+
+Observer correction before commit: the first CI fixture used `failure`, outside WorktreeCiState's `failed` variant. All eleven first-session readings and images were discarded. `python3 /tmp/u5741-changes-recapture-rest.py` (exit 0), in fresh session/profile `u5741-415752-r2`, replaces every retained page using the valid contract value; CI reads Failed and PR reads #42. The first recapture attempt (`.../u5741-changes-recapture.py`, exit 1) waited for a CI chip before the shared Worktree read refreshed. Opening the actual Worktree control refreshed the shared state, then the continuation captured it; no chip pass is based on the timed-out wait. This is an observer repair, not a product fix. All eleven final pages have a verified dark 1512×950 environment and no undefined label; nine pass every Check and the two note forms retain D2/D10 only.
+
+The standalone spelling command initially exited 2 because the pinned tool had not been installed in this new worktree. `python3 tools/lint/setup.py web` installed the checksum-verified tools (exit 0); the subsequent `python3 tools/lint/scan.py typos` passed (exit 0). No baseline or rule changed.
+
+Final checks: both `just ready` runs pass (exit 0), including B4522's migration guard, web lint/typecheck, Rust lints, `ALL PROOFS CHECK` and N7 launch sites. Main `0c060bfd8` was merged without conflicts; every inspected source file remains byte-identical to the pinned observer source. `loop/rules.sh merge-loss`, vocabulary, scenario ids, final spelling, JSON/source/editor/menu reconciliation and whitespace checks pass (exit 0). There are no changed behavior tests to run in this documentation-only slice. The complete inventory and final owner ask remain open on #5758.
+
+
+## Rail lifecycle continuation — builder-41579716823
+
+Product main `a3a760a66f4e2bf91a613636640e649695e6dc65`; isolated worktree `/tmp/roundup-audit-41579716823`. #5741 is closed after its specification merged. #5758's validated body adds the exact documentary slice before edits. No product, scenario, contract, test or frozen-loop change; U5741 uses policy observers, so no report-text test is added. B4522 is observed through the unchanged migration guard in `just ready`.
+
+Successful commands (exit 0): `git fetch origin main`; own branch/worktree creation; `python3 loop/orders.py check /tmp/5758-body.md`; `gh issue edit 5758 --body-file /tmp/5758-body.md`; `pnpm install --frozen-lockfile`; `agent-browser skills get core`; `just harness tree-40 5223` served successfully (long-running server, not a completed test); `node_modules/.bin/claude --version` and `--help`; linked #4547/#5214/#4452/#3194 direction retrieval.
+
+Thirteen actual openings at 1512×950, dark, fresh headless profile `/tmp/u5741-rail-profile-41579716823`, dedicated session `u5741-rail-41579716823`, pass all recorded D Checks. Fonts, viewport and dark preference are checked on each capture. PNG files and raw snapshots remain uncommitted under `artifacts/ux/U5741/rail/` for workflow attachment. Visually inspected New Mode and middle-Queue images agree with their openings. Native Stop/Keep is observed at the existing question boundary, not drawn as a web dialog. No real launch, permission change, native macOS render or Message delivery is claimed.
+
+Eight additional exact native menu models are observed without `menu=1` through the existing menuProbe. Each top-level label reconciles to its corresponding projected-menu accessibility snapshot; first/middle/last Queue menus differ in the expected directional offers. The source catalogue retains complete nested models, fixture drivers and checksummed inspected source. The generated JSON uses compact serialization as the existing evidence does; it is not handwritten product machinery.
+
+| Failed command / observer | Exit | Failure / disposition |
+| --- | ---: | --- |
+| Initial `pwd && git status --short && ls -d .codegraph` | 2 | No codegraph index exists; normal source search used. |
+| `rg ... testing/harness.tsx testing/seeds.ts testing/fake.ts` | 2 | Guessed fake.ts absent; located and read actual fakeApp.ts. |
+| `rg ... testing/FakeApp.ts` | 2 | Case-sensitive filename mismatch; actual fakeApp.ts inspected. |
+| `rg ... scenarios/workstreams.md` | 2 | Guessed plural path absent; actual workstream.md and workstream-queue.md inspected. |
+| `cat apps/desktop/src/rail/move.ts` | 1 | Guessed module absent; actual MovePicker.tsx inspected. |
+| `python3 /tmp/rail-observe.py` / exact menuitem Mode locator | 1 | Actual accessible name includes its chord. Snapshot ref selected Mode; New Mode dialog then independently captured. Earlier valid captures retained. |
+| `rg ... crates/rup/src/mcp.rs crates/rup/src/cli/*.rs` for literal owner-only method names | 1 | No literal registrations there; shared annotations in crates/contracts/src/declarations.rs inspected. No absence inferred from the failed search. |
+| `rg ... /tmp/rail-claude-help.txt` for slash-command names | 1 | Help does not list those built-ins. Official interactive reference is the source for them; help proves only the flags it actually prints. |
+| Replacement of original FakeApp.showContextMenu after mount | 0, observer invalid | Decorated App retained its menu boundary; interception arrays stayed empty. Null values discarded; exact menu models independently recaptured using menuProbe without menu=1. This is not a successful interception claim. |
+
+The remaining complete inventory, Q1 gaps, conditional states, dated direction and all-feature revision reconciliation stay on #5758. There is no owner ask or deletion permission. Older-Project successful reopening remains mandatory for any later retirement.
+
+Additional command failures:
+
+| Command | Exit | Failure / repair |
+| --- | ---: | --- |
+| `python3 tools/lint/scan.py rust` before setup | 2 | Dependency scan required the pinned cargo-deny binary. `just ready` installs it through the existing setup. This command was not a spelling scan. |
+| `python3 tools/lint/scan.py web` first standalone run | 1 | Spelling scan rejected a misspelling in the copied #3194 owner quotation. Retained the linked source body hash and exact accepted-choice/outcome excerpt instead of copying unrelated original wording. No spelling exception or product change. |
+
+Merged `origin/main` at `9f948f124` without conflicts; `git show --remerge-diff` has no resolution changes and `loop/rules.sh merge-loss` passes. Every inspected source hash remains identical to the audit pin. The full all-feature audit remains revision-unreconciled; this check covers only this slice's inspected paths.
+
+| Further failed command | Exit | Failure / repair |
+| --- | ---: | --- |
+| `just ready` first run | 1 | Web lint/typecheck and N7 passed; repository spelling scan rejected the copied #3194 misspelling before the source excerpt repair. Rerun after repair; no product or lint-rule change. |
+| Temporary aggregate report assertion (Python) | 1 | Counted decision ids again in the public-mapping table. Restricted counting to the independent-decision table; 22 rows, thirteen rendered openings, eight menu models and every inspected source hash then reconciled (exit 0). |
+
+Final `just ready` passes (exit 0): B4522 migration guard, web lint/typecheck, repository and Rust lints, `ALL PROOFS CHECK` and N7 launch sites. Vocabulary, scenario ids, merge-loss, whitespace, all 33 inspected source hashes, eight exact menu models and thirteen rendered openings pass (exit 0). Own diff review is clean after correcting the existing `RailRow::NameField` reference and naming each applicable action id. No behavior tests changed; no local `just check` ran. The dedicated browser session was closed.

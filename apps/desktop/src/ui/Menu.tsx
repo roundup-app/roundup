@@ -5,7 +5,7 @@ import { normalizeProps, useMachine } from "@zag-js/solid";
 import { getInitialFocus } from "@zag-js/dom-query";
 import { useLocaleContext } from "@ark-ui/solid/locale";
 import { useEnvironmentContext } from "@ark-ui/solid/environment";
-import { Menu as ArkMenu } from "@ark-ui/solid/menu";
+import { Menu as ArkMenu, useMenuContext } from "@ark-ui/solid/menu";
 import { createComputed, createContext, createMemo, createSignal, createUniqueId, on, onCleanup, splitProps, useContext } from "solid-js";
 import { floatingControl } from "./Dialog";
 import { trackSurface } from "./openSurfaces";
@@ -74,8 +74,10 @@ export const Menu = {
   },
   Trigger: (props: ArkMenu.TriggerProps) => {
     const owner = useContext(Owner);
+    const menu = useMenuContext();
 
-    return <ArkMenu.Trigger {...props} ref={(element: HTMLButtonElement) => {
+    // Ark 5.39.3 replaces the mounted trigger relationship with false; retain Zag’s live association.
+    return <ArkMenu.Trigger {...props} aria-controls={menu().getTriggerProps(props)["aria-controls"]} ref={(element: HTMLButtonElement) => {
       owner?.setElement(element);
       trackOpening(element, () => owner?.request());
 
