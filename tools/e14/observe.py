@@ -19,6 +19,7 @@ RUST_SUITES = json.loads(Path(__file__).with_name("rust-suites.json").read_text(
 # The collector starts before CI setup, which can run 28 minutes on a cold cache, so it must outlive the longest job
 # (`timeout-minutes` in check.yml) or it dies before the lane ends and the lane fails with its tests green.
 MEMORY_LIMIT_SECONDS = 40 * 60
+WEB_BUDGET_SECONDS = 720
 
 LANES = [f"rust{i}" for i in range(1, 6)] + [f"web{i}" for i in range(1, 8)]
 
@@ -170,6 +171,42 @@ def report_flaky(lane, output):
 
 
 def run(args):
+    # This is the first operation in test-web: include dependency setup and all reporting,
+    # rather than only the child command's E14 interval.
+    started = time.monotonic()
+    if args.install_dependencies:
+        subprocess.run([sys.executable, "-m", "pip", "install", "-r", "tools/e14/requirements.txt"], check=True, timeout=120)
+    result = observe_lane(args)
+    if not args.lane.startswith("web"):
+        return result
+    report = json.loads((args.output / "web.json").read_text())
+    modules = report["modules"]
+    if not isinstance(modules, list) or not modules:
+        raise ValueError(f"{args.lane}: missing web file timing evidence")
+    executed = []
+    for module in modules:
+        if module["state"] == "skipped":
+            continue
+        duration = module.get("duration_ms")
+        if type(duration) not in (int, float) or not math.isfinite(duration) or duration < 0:
+            raise ValueError(f"{args.lane}: invalid file duration for {module['id']}: {duration!r}")
+        executed.append((module["id"], duration))
+    if not executed:
+        raise ValueError(f"{args.lane}: no executed web file timing evidence")
+    metadata_path = args.output / "lane.json"
+    metadata = json.loads(metadata_path.read_text())
+    elapsed = time.monotonic() - started
+    if elapsed > WEB_BUDGET_SECONDS:
+        print(f"{args.lane}: {elapsed:.3f} seconds exceeds {WEB_BUDGET_SECONDS}-second budget; slowest files:")
+        for path, duration in sorted(executed, key=lambda row: (-row[1], row[0]))[:5]:
+            print(f"  {path}: {duration:g} ms")
+        result = result or 1
+    metadata.update(web_step_elapsed_seconds=elapsed, exit_code=result)
+    metadata_path.write_text(json.dumps(metadata, indent=2) + "\n")
+    return result
+
+
+def observe_lane(args):
     import psutil  # Installed only for observation, not for report validation.
 
     root = Path.cwd()
@@ -347,6 +384,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="mode", required=True)
     lane = sub.add_parser("run")
+    lane.add_argument("--install-dependencies", action="store_true", help="Include observer dependency installation in the web step budget")
     lane.add_argument("--lane", choices=LANES, required=True)
     lane.add_argument("--output", type=Path, required=True)
     lane.add_argument("--shards", type=int, default=sum(name.startswith("web") for name in LANES), help="The web shard count the lane's number is one of")
@@ -368,7 +406,7 @@ def main():
         if args.mode == "memory":
             return memory(args)
         return run(args) if args.mode == "run" else compare(args)
-    except (OSError, ValueError, KeyError, ET.ParseError) as error:
+    except (OSError, ValueError, KeyError, TypeError, ET.ParseError) as error:
         print(f"E14 observation FAILED: {error}", file=sys.stderr)
         return 1
 
