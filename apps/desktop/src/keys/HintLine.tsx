@@ -1,6 +1,6 @@
 import { KeyHint } from "./KeyHint";
 import { createEffect, createMemo, createSignal, For, Show, onCleanup, onMount } from "solid-js";
-import { hintsFor, LEADER } from "./chords";
+import { hintsFor, LEADER, shortcutLabel } from "./chords";
 import type { HintPlace } from "./chords";
 import { copy } from "./copy";
 import { captureActions, endLeader, leaderArmed, modalOpen } from "./registry";
@@ -140,7 +140,7 @@ export const HintLine = () => {
       }>
         <span class="hint key-hint"><For each={choices(hint.keys)}>{action =>
           <button type="button" class="hint-action" data-hint={action.press} aria-label={action.label} disabled={!action.available()}
-            onPointerDown={event => event.preventDefault()} onClick={() => run(action)}><KeyHint bare keys={action.press?.replace("Digit", "") ?? ""} children={null} /></button>
+            onPointerDown={event => event.preventDefault()} onClick={() => run(action)}><KeyHint bare keys={shortcutLabel(action.press ?? "")} children={null} /></button>
         }</For><span class="key-hint-label">{hint.label}</span></span>
       </Show>}</For>
     </p>

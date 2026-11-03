@@ -26,6 +26,23 @@ Policy: discover every tracked migration directory, including a newly added one.
 
 Each filename fixture is parameterized over both SQL-file and numbered-directory layouts, including `crates/pads/migrations/` and a newly introduced migration directory. The guard must inspect all directories even when a PR changes only one. Its fixture input trees are temporary local Git objects; no network, browser or real application process is needed (policy).
 
+### Parallel additions
+
+Policy: parallel branches may choose the same next number. A timestamp does not remove the append boundary: an older timestamp merging second still sorts before an applied entry. Keep the existing names, four-digit Project format and position-based loader. B4522's refusal rules above remain unchanged; extend them with a deterministic repair for branch-only additions, without new historical exceptions.
+
+After integrating the latest target base and committing local changes, run `python3 tools/migrations/guard.py --renumber origin/main`. The helper stages renames; review them, update any explicit filename references, commit and run `just migrations origin/main` before submission. It does not fetch, commit or push. If the target base advances again, integrate it and rerun; no local number allocation reserves a position on main (policy).
+
+| Repair input | Required result | Guard fixture |
+| --- | --- | --- |
+| Concurrent additions collide with the base or insert before its maximum | Guard still exits nonzero and prints shell-quoted `git mv` commands from repository root; helper assigns unique prefixes after the base maximum, preserving additions' bytewise order and suffixes | `b4522_renumber_parallel_additions_after_each_new_base` |
+| Another PR lands before repair, or the helper is rerun after repair | Recompute against the selected base; an already valid sequence has no renames | `b4522_renumber_parallel_additions_after_each_new_base` |
+| Historical duplicate groups coexist with new collisions, including a new migration directory | Rename only additions; every base name and recorded exception remains unchanged; the resulting sequence passes the original audit | `b4522_renumber_preserves_recorded_names_and_handles_new_sets` |
+| Selected base has migrations absent from HEAD, an applied collision needs repair, or the filename width is exhausted | Refuse visibly before any rename; never rename an applied migration or widen the loader's format | `b4522_renumber_refuses_missing_applied_names_and_width_overflow` |
+| Clean current checkout contains repairable additions | Stage the exact planned moves without changing SQL bytes; move numbered directories with all companion files; vacate a destination before reusing it | `b4522_renumber_stages_whole_directories_without_changing_sql` |
+| Worktree/index is dirty or a destination is occupied, including ignored paths | Refuse before any rename | `b4522_renumber_stages_whole_directories_without_changing_sql` |
+
+Policy: repair fixtures may use a disposable local Git checkout to observe actual staged moves. Ordinary guard fixtures remain tree-only. Neither path reads an owner database or changes the production SQL sequence.
+
 Policy: the sole duplicate exceptions are these exact pre-existing path groups, relative to their named directory. No wildcard, maximum-prefix exemption or automatic expansion from the current base is allowed. A PR cannot bless its own new collision by editing an exception. Keep the exception inventory and its fixture in the guard's module.
 
 | Directory | Prefix | Exact existing members |
