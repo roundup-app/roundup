@@ -86,6 +86,10 @@
     "unicode-case-folding": "1.1.2",
     "vite": "^8.3.5",
     "vite-plugin-solid": "^2.11.14",
-    "vitest": "^5.0.3"
+    "vitest": "^5.0.3",
+    "@babel/traverse": "7.29.10",
+    "natural": "8.2.3",
+    "typescript-analysis": "npm:typescript@6.0.3",
+    "@testing-library/user-event": "^14.6.8"
   }
 }

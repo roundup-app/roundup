@@ -125,6 +125,9 @@ impl Shared {
         rail: &rail::Rail,
         finished: u64,
     ) -> Result<RailNode, RpcError> {
+        if node.kind == NodeKind::Group {
+            return Ok(node);
+        }
         node.final_text = match runs.get(&node.id) {
             Some(Slot::Running(run)) => {
                 run.adapter.turn().map(|turn| contracts::agent::FinalText {

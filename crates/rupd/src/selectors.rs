@@ -14,6 +14,7 @@ fn select(
     kind: NodeKind,
 ) -> Result<String, RpcError> {
     let (label, accepts): (&str, fn(&RailNode) -> bool) = match kind {
+        NodeKind::Group => ("Group", |node| node.kind == NodeKind::Group),
         NodeKind::Agent => ("Agent", is_agent),
         NodeKind::Workstream => ("Workstream", |node| node.kind == NodeKind::Workstream),
     };
