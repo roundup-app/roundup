@@ -927,3 +927,22 @@ Merged `origin/main` at `20c374201` without conflicts; `git show --remerge-diff`
 | Corrected standalone spelling scan | 1 | Raw archived owner quote contains a historical misspelling. Losslessly archived full direction records as JSON/zlib/base64 with hashes, preserving the exact quote without adding spelling exceptions. |
 
 Final `just ready` on the merged checkout passes (0): all 193 lint-behavior fixtures, web/package type checks, repository/Rust lints, migration guard, `ALL PROOFS CHECK` and N7. Final standalone spelling, size, vocabulary, scenario ids, merge-loss, whitespace and archive/image integrity pass (0). No changed behavior tests or local `just check`. This six-file evidence slice is ready for independent review; #5758 stays open for the complete inventory, owner choices and chosen retirements.
+
+
+## Draft recovery evidence — builder-41667382041
+
+Audited main `ada406b500d9fa415e7777d201ad6f6130f9f946`; documentation only. `recovery.md`, `catalogues/recovery-source.json` and `rendered-recovery.json` reconcile fifteen requested-panel/Rail controls. `pnpm install` in the isolated worktree passes (0). `python3 loop/orders.py check /tmp/u5741-updated-issue.md` passes (0) before the Issue Scope update. The original checkout serves the identical pinned App through `just harness tree-40 5284`; a fresh dedicated headless session/profile supplies fake Daemon/browser storage, dark 1512×950. No native durability, real delivery or host clipboard claim. No changed tests and no local `just check`.
+
+Fourteen openings retain image hashes and exact Check readings. Thirteen pass all Checks; the settled Todo creation opening fails D8 (Todo shelf-row inset 28, expected 44) and aggregate D10, while D2/D5/D6 pass. This is the pinned unchanged App, not a regression introduced by documentation. The original premature Todo destination capture remains explicitly limited. Full source and observer archives carry decoded-byte hashes. Images stay uncommitted in the workflow workspace under `artifacts/ux/U5741/recovery/`.
+
+| Failed command or observer | Exit | Failure and disposition |
+| --- | ---: | --- |
+| Initial workspace/index probe, `test -d .codegraph` | 1 | No index; used normal repository source search. |
+| Exploratory `rg`/`cat` probes of guessed harness, drafts and Order paths | 2/1 | Paths absent; replaced by verified files in the archived manifest. No absence inference from failed guesses. |
+| Worktree dependency readiness `ls node_modules/.bin/vite` | 2 | Installation not finished; install later passed. Original identical checkout served the harness. |
+| `python3 /tmp/u5741-recovery-observer.py` | 1 | Text locator arguments reversed; snapshot confirmed one menu item and corrected continuation clicks its role. |
+| `python3 /tmp/u5741-write-report.py`, first attempt | 1 | Singular contract method filename absent (`git show` 128); verified plural registry and regenerated source archive. |
+| `python3 /tmp/u5741-recovery-todo.py` | 1 | Relaunched isolated browser default viewport failed capture assertion; reapplied viewport/media, asserted settled exact Todo input, captured correction. |
+| Apple file-recovery primary-page web open | Unavailable | Tool could not retrieve the page; no equivalent-operation claim made. |
+
+`just ready` is running; its result will be recorded before completion. External equivalence, remaining conditional owning controls, fresh role offers and final one-revision whole-App reconciliation remain open engineering work. No partial candidate ask, owner choice or deletion.
