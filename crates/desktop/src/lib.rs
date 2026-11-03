@@ -259,8 +259,9 @@ async fn action_serve(
     state: State<'_, AppState>,
     path: String,
     channel: Channel<serde_json::Value>,
+    registration: String,
 ) -> Result<(), RpcError> {
-    state.action_serve(&path, channel).await
+    state.action_serve(&path, channel, registration).await
 }
 
 #[tauri::command]
@@ -268,8 +269,9 @@ async fn action_answer(
     state: State<'_, AppState>,
     path: String,
     line: serde_json::Value,
+    registration: String,
 ) -> Result<(), RpcError> {
-    state.action_answer(&path, line).await
+    state.action_answer(&path, &registration, line).await
 }
 
 /// X14: raw `ArrayBuffer` bodies of one Terminal's bytes, and JSON gaps, on one ordered channel.
