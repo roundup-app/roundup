@@ -132,7 +132,7 @@ async fn a5765a_an_agent_starts_each_kind_in_open_b_and_gets_its_id() {
         .await
         .unwrap();
     let socket = source.socket();
-    let mut app = Client::connect(&socket).await.unwrap();
+    let mut app = Client::connect(socket).await.unwrap();
     let mut requests = app.take_requests().unwrap();
     app.request("action.serve", Value::Null).await.unwrap();
     let target_client = target.client().await;
@@ -255,9 +255,8 @@ async fn a5765a_an_agent_starts_each_kind_in_open_b_and_gets_its_id() {
         .await
         .unwrap();
     target.close().await;
-    let socket_after = target.dir.path().join("reload.sock");
-    let reload = common::serve(target.dir.path(), &socket_after);
-    let reopened = Client::connect(&socket_after).await.unwrap();
+    target.restart(&[]);
+    let reopened = target.client().await;
     let after = reopened.request("rail.tree", Value::Null).await.unwrap();
     for row in before.as_array().unwrap() {
         let loaded = after
@@ -269,7 +268,6 @@ async fn a5765a_an_agent_starts_each_kind_in_open_b_and_gets_its_id() {
         assert_eq!(loaded["start_attribution"], row["start_attribution"]);
         assert_eq!(loaded["opening_prompt"], row["opening_prompt"]);
     }
-    reload.abort();
     let launches = std::fs::read_to_string(launch).unwrap();
     assert_eq!(launches.lines().count(), 12);
     for (index, line) in launches.lines().enumerate() {
@@ -286,7 +284,7 @@ async fn a5765a_an_agent_starts_each_kind_in_open_b_and_gets_its_id() {
         assert_eq!(record["env"]["ANTHROPIC_MODEL"], "target-vendor-default");
         assert!(!args.contains(&json!("--dangerously-skip-permissions")));
     }
-    let user = Client::connect(&socket).await.unwrap();
+    let user = Client::connect(socket).await.unwrap();
     assert_eq!(
         user.request("rail.tree", Value::Null)
             .await
