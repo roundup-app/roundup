@@ -1,3 +1,4 @@
+import { batch } from "solid-js";
 import { cleanup, render, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it, vi } from "vitest";
 import { Editor, editorViewCtx, parserCtx, serializerCtx } from "@milkdown/kit/core";
@@ -11,7 +12,7 @@ Range.prototype.getClientRects ??= () => document.body.getClientRects();
 
 Range.prototype.getBoundingClientRect ??= () => new DOMRect();
 
-afterEach(() => { cleanup(); vi.restoreAllMocks(); });
+afterEach(() => { batch(cleanup); vi.restoreAllMocks(); });
 
 const open = async (source: string) => {
   let handle: PadEditorHandle | undefined;
