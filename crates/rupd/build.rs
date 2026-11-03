@@ -54,7 +54,7 @@ const HEAD: [&str; 10] = [
     "../messages/migrations/003/up.sql",
 ];
 
-/// The ids the image holds in place of a Project's own, one per table; `storage.rs` has the same pair.
+/// The ids the image holds in place of a Project's own, one per table; `storage.rs` has the same ids.
 const IDENTITIES: [&str; 1] = ["00000000000000000000000000000001"];
 
 /// R3696c: a fresh `project.db` is copied from this migrated image, not replayed through every migration.
