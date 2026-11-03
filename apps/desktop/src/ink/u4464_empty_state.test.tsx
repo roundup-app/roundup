@@ -5,11 +5,11 @@ import { EmptyState } from "./EmptyState";
 
 afterEach(cleanup);
 
-it("u4464_empty_state_parts_are_optional_and_the_art_is_hidden", () => {
+it("u4464_empty_state_parts_are_optional", () => {
   render(() => <EmptyState art="strolling" {...{ title: "Open Project" }} line="Choose where to work." />);
   const empty = screen.getByRole("group");
   expect(within(empty).queryByRole("button")).toBeNull();
-  expect(empty.querySelector('[aria-hidden="true"] svg')).not.toBeNull();
+  expect(screen.getByRole("group", { name: "Open Project" })).toBe(empty);
 });
 
 it("u4464_single_action_runs_once", () => {

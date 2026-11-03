@@ -13,6 +13,7 @@ pub(crate) fn confirm_ids(inner: &Inner, agent: &str, ids: &[u32]) -> bool {
                     .bus
                     .emit(Actor::daemon(), EventData::MessageDelivered(message.into()));
             }
+            failure::settle(inner, agent);
             repeated
         }
         Err(err) => {
