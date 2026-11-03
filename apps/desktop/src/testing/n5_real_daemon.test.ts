@@ -4,7 +4,7 @@ import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { isAbsolute, join, relative } from "node:path";
-import { createServer } from "vite";
+import { createServer, mergeConfig } from "vite";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { startRealDaemon } from "./realDaemonFixture";
 import type { StartedDaemon } from "./realDaemonFixture";
@@ -12,14 +12,7 @@ import { createServedApp } from "./realSeam";
 
 // N5 uses only the Daemon relay routes, so do not load the App's transform,
 // reporting and CSS plugins for each isolated server.
-const runtime = {
-  spawn: vi.fn(spawn),
-  createServer: vi.fn((config: Parameters<typeof createServer>[0]) => {
-    const inline = config && "inlineConfig" in config ? config.inlineConfig : config;
-
-    return createServer({ ...inline, configFile: false });
-  }),
-};
+const runtime = { spawn: vi.fn(spawn), createServer: vi.fn((config: Parameters<typeof createServer>[0]) => createServer(mergeConfig(config ?? {}, { configFile: false }))) };
 
 let home: string;
 
