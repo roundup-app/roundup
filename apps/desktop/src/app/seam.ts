@@ -168,17 +168,19 @@ export type NativeQuestion = { title: string; message: string; okLabel: string; 
 /** The Tauri commands of `scenarios/app.md` and `scenarios/project-tabs.md`, plus the macOS choosers and the Dock badge; the only door from the webview to Tauri. */
 export const claudeBinarySchema = v.object({ path: v.string(), version: v.string() });
 
-/** U5502: native menu activation retains the original Project and Agent. */
+/** U5502/U5503: both native menus retain original identities and surface Dock failures. */
 export const menuBarActionSchema = v.variant("kind", [
   v.object({ kind: v.literal("agent"), path: v.string(), agent: v.string() }),
   v.object({ kind: v.literal("open") }),
+  v.object({ kind: v.literal("failure"), message: v.string() }),
 ]);
 
 export type MenuBarAction = v.InferOutput<typeof menuBarActionSchema>;
 
 export type MenuBar = {
   mark: "waiting" | "ready" | "empty";
-  entries: { label: string; action: MenuBarAction | null; since?: number }[];
+  entries: { label: string; action: Exclude<MenuBarAction, { kind: "failure" }> | null; since?: number }[];
+  dock: MenuBar["entries"];
 };
 
 export type StateAlert = { agent: string; title: string; body: string; alert: boolean; sound: boolean };
@@ -212,11 +214,11 @@ export type App = {
   chooseSavePath(suggestedName: string): Promise<string | null>;
   /** Shows `count` on the Dock icon; zero clears the badge. */
   setDockBadge(count: number): Promise<void>;
-  /** U5502: replaces the passive native template image and flat menu; never activates the window. */
+  /** U5502/U5503: replaces both passive native menus and the template mark; never activates the window. */
   setMenuBar(menu: MenuBar): Promise<void>;
   /** Restores and focuses the window after its menu selection has been applied. */
   showWindow(): Promise<void>;
-  /** U5502: emits an enabled action before the App requests window activation. */
+  /** U5502/U5503: native actions request opening; native failures only report their cause. */
   onMenuBarAction(listener: (action: MenuBarAction) => void): Promise<Unsubscribe>;
   /** U5232f: shows one macOS banner naming the Agent when `alert`, plays one system sound when `sound`; both false rejects INVALID_PARAMS, a refused permission rejects FORBIDDEN with its cause (and a sound still plays). */
   stateAlert(alert: StateAlert): Promise<void>;
