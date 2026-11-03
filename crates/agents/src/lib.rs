@@ -1,9 +1,5 @@
 //! Agents, the Rail tree and the Claude Code adapter. Owner: agents Builder.
 
-#[cfg(test)]
-#[global_allocator]
-static ALLOCATOR: &stats_alloc::StatsAlloc<std::alloc::System> = &stats_alloc::INSTRUMENTED_SYSTEM;
-
 #[doc(hidden)]
 pub mod schema;
 use std::collections::{BTreeMap, HashMap, VecDeque};

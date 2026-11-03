@@ -20,7 +20,7 @@ const RowIcon = (props: { name: "rotate-cw" | "plus" | "stop" | "play" | "more";
 
 /** U426/U4896: hover and focus reveal actions by opacity without changing their Tab order. */
 export const RowIcons = (props: { actions: RowActions; children?: JSX.Element }) => (
-  <Show when={props.actions.kind === "workstream" || props.actions.stop || props.actions.resume}>
+  <Show when={props.actions.kind === "workstream" || (props.actions.kind === "agent" && (props.actions.stop || props.actions.resume))}>
     <span class="row-icons" role="group" aria-label={copy.rowActions}>
       <Show when={props.actions.kind === "workstream" ? props.actions.add : undefined}>
         {(add) => (
