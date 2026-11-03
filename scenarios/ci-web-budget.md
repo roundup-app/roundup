@@ -21,7 +21,7 @@ The fixed baseline is green full main run [41343826661](https://github.com/round
 
 ### Child acceptance (policy)
 
-Each child below is a separate implementation work order. Given the listed baseline files, when its mount/query repairs run, then every listed file over 30 s on the PR's before run has a concrete repair with a lower after duration, or a Rule 10 cut, and passes its unchanged action sequences and then-clauses under explicit filename selection (policy; observers: the diff, the changed tests and the PR body's before and after durations). Each table gives baseline shard, unrounded milliseconds and test count including existing skips; paths are relative to `apps/desktop/`. A file already under 30 s on the PR's before run needs no change. No child adds a timeout, retry or shard, or weakens coverage. Rule 10 cuts retain their named surviving test.
+Each child below is a separate implementation work order. Given the listed baseline files, when its mount/query repairs run, then every listed file has a concrete repair that runs faster on the PR head's CI `web` lane than its baseline row, or a Rule 10 cut, and passes its unchanged action sequences and then-clauses under explicit filename selection (policy; observers: the diff, the changed tests and the PR head's `web` lane logs). Each table gives baseline shard, unrounded milliseconds and test count including existing skips; paths are relative to `apps/desktop/`. A change made only to put a file on the PR's lanes, such as a comment, is no repair. No child adds a timeout, retry or shard, or weakens coverage. Rule 10 cuts retain their named surviving test.
 
 CI5527d kept the ten measured repairs of [PR #5610](https://github.com/roundup-app/roundup/pull/5610); #5671 merged it.
 
