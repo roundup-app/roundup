@@ -143,10 +143,10 @@ impl Store {
         match std::fs::read(dir.join(FILE)) {
             Ok(bytes) => serde_json::from_slice(&bytes).map_err(|error| {
                 log::warn!(target: "roundup::shell", "restore Project store: JSON {:?} at {}:{}; original file retained", error.classify(), error.line(), error.column());
-                refuse(error.to_string())
+                refuse(format!("JSON {:?} at {}:{}", error.classify(), error.line(), error.column()))
             }),
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(Saved::default()),
-            Err(error) => Err(refuse(error.to_string())),
+            Err(error) => Err(refuse(format!("IO {:?}", error.kind()))),
         }
     }
 }

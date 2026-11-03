@@ -94,13 +94,14 @@ impl Config {
 
     pub fn from_env() -> Result<Self, String> {
         let exe = std::env::current_exe()
-            .map_err(|err| format!("cannot find the App's own executable: {err}"))?;
+            .map_err(|err| format!("cannot find the App's own executable: IO {:?}", err.kind()))?;
         let mut config = Self::locate(
             std::env::var_os("ROUNDUP_RUPD_BIN"),
             &exe,
             &std::env::temp_dir(),
             std::process::id(),
-        )?;
+        )
+        .map_err(|_| "Daemon socket path exceeds the Unix socket limit".to_owned())?;
         config.claude_bin = std::env::var_os("ROUNDUP_CLAUDE_BIN");
         config.search_path = std::env::var_os("PATH").unwrap_or_default();
         config.data_dir = std::env::var_os("ROUNDUP_DATA_DIR").map(PathBuf::from);

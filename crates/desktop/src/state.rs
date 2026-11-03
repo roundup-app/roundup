@@ -170,10 +170,24 @@ impl AppState {
                 continue;
             }
             if let Err(err) = self.open(app, &path, true).await {
-                log::warn!(target: "roundup::shell", "restore Project: RPC failure code {}; saved Project remains listed", err.code);
+                self.report_project_failure(app, "restore Project", &path, &err, false);
             }
         }
         self.save_open()
+    }
+
+    pub(crate) fn report_project_failure<R: Runtime>(
+        &self,
+        app: &AppHandle<R>,
+        operation: &str,
+        path: &Path,
+        error: &RpcError,
+        fatal: bool,
+    ) {
+        // S10 resolves names locally even when the refusing Daemon cannot answer.
+        let key = path.to_string_lossy();
+        let name = self.name_of(&key).unwrap_or_else(|_| named_after(path));
+        crate::diagnostics::feedback(app, operation, &format!("{name}: {}", error.message), fatal);
     }
 
     async fn open<R: Runtime>(
