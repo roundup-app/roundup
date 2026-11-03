@@ -2,9 +2,11 @@
 #[path = "common/served.rs"]
 mod common;
 
+// The shared real-Daemon harness exposes helpers for other integration targets too.
 #[allow(dead_code)]
 #[path = "e2e/daemon.rs"]
 mod daemon;
+// This observer uses only the bounded file and idle probes from the shared harness.
 #[allow(dead_code)]
 #[path = "common/waiting.rs"]
 mod waiting;
@@ -102,7 +104,13 @@ async fn a5765a_an_agent_starts_each_kind_in_open_b_and_gets_its_id() {
         ("FAKE_CLAUDE_EXACT_PROMPTS", "1"),
         ("ANTHROPIC_MODEL", "target-vendor-default"),
     ]);
-    let source = daemon::start(&[("ANTHROPIC_MODEL", "source-vendor-default")]);
+    let source_launch = logs.path().join("source-launch.jsonl");
+    let source_input = logs.path().join("source-input.jsonl");
+    let source = daemon::start(&[
+        ("ANTHROPIC_MODEL", "source-vendor-default"),
+        ("FAKE_CLAUDE_LAUNCH_LOG", source_launch.to_str().unwrap()),
+        ("FAKE_CLAUDE_PROMPT_LOG", source_input.to_str().unwrap()),
+    ]);
     let user = source.client().await;
     let node = user.request("agent.spawn", json!({"cwd":source.dir.path(),"name":"builder","permissionMode":"auto","prompt":"source work"})).await.unwrap();
     waiting::idle(
