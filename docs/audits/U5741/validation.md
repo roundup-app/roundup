@@ -234,7 +234,6 @@ CI runs `41565024004` and `41565023990` on `fa9b5c63ca140e8bcbf28ba5364e44638eed
 | Targeted `cargo nextest run -p agents --lib` allocation observers | 0 | All six pass: `b5635b_preview_allocations_stay_bounded`, `r5636e_scan_allocated_bytes`, `r5636e_nested_rail_allocated_bytes`, `b5635a_receipt_reads_only_appended_bytes`, `b5635c_unrelated_hooks_do_not_copy_completed_text` and `b5635c_completion_changes_are_reported_once`. |
 | `just ready` | 1 | Only `just migrations origin/main` fails: main already contains both `0044-inbox-entry.sql` and `0044-start-attribution.sql`. Existing repair PR #5833 and Issue #5837 own this collision. Web lint/typecheck, Rust/repository guards, `ALL PROOFS CHECK` and N7 launch-sites pass. Clippy skips the documentation-only net diff; the targeted Nextest runs compile the agents unit tests. No local `just check` ran. |
 
-
 ## Required-check repair — builder-41568471071
 
 CI run `41568393992` on `f8495ca8decd9244e0cc8d88307d812e2e9cafba` failed the B4522 filename guard before tests: main contains both `0044-inbox-entry.sql` and `0044-start-attribution.sql`. Carry the exact independently approved repair from PR #5833 (`85f61e537cb70d2cdd923ce947338438ce0071d2`): rename the latter to `0045-start-attribution.sql`. Issue #5758 records this scope expansion; #5837 owns the upstream collision. Neither the guard nor its recorded exceptions change.
@@ -245,7 +244,7 @@ CI run `41568393992` on `f8495ca8decd9244e0cc8d88307d812e2e9cafba` failed the B4
 | `just migrations origin/main` | 0 | Filename guard and all nine existing fixture tests pass. |
 | Ordered Project SQL comparison against `origin/main` | 0 | All 49 bytewise-sorted SQL contents match exactly; the migration count and applied positions are unchanged. |
 | `git diff --check`, `loop/rules.sh merge-loss` | 0 each | Exact rename; no whitespace or inherited merge-loss defect. |
-| `cargo nextest run -p rupd --lib -E 'test(r3696c_a_fresh_project_db_equals_the_migrated_one_with_its_own_identity) \| test(n5467)'` | 0 | Four existing observers pass: fresh schema/image equality, older-store refusal without changes, old Project data refusal with retained worktrees, and incomplete reaction-record refusal. |
+| `cargo nextest run -p rupd --lib -E 'test(r3696c_a_fresh_project_db_equals_the_migrated_one_with_its_own_identity) \| test(n5467)'` | 0 | Four existing observers pass: fresh schema/image equality, older-store refusal without changes, old Project data refusal with retained worktrees. |
 | `just ready` | 0 | Web lint and typecheck, workspace Clippy, repository guards, `ALL PROOFS CHECK` and N7 launch-sites pass. No local `just check` ran. |
 
 ## Changes and resources continuation — builder-41575207304
@@ -283,7 +282,6 @@ Observer correction before commit: the first CI fixture used `failure`, outside 
 The standalone spelling command initially exited 2 because the pinned tool had not been installed in this new worktree. `python3 tools/lint/setup.py web` installed the checksum-verified tools (exit 0); the subsequent `python3 tools/lint/scan.py typos` passed (exit 0). No baseline or rule changed.
 
 Final checks: both `just ready` runs pass (exit 0), including B4522's migration guard, web lint/typecheck, Rust lints, `ALL PROOFS CHECK` and N7 launch sites. Main `0c060bfd8` was merged without conflicts; every inspected source file remains byte-identical to the pinned observer source. `loop/rules.sh merge-loss`, vocabulary, scenario ids, final spelling, JSON/source/editor/menu reconciliation and whitespace checks pass (exit 0). There are no changed behavior tests to run in this documentation-only slice. The complete inventory and final owner ask remain open on #5758.
-
 
 ## Rail lifecycle continuation — builder-41579716823
 
@@ -411,7 +409,6 @@ Final detached `just ready` passes, exit 0: B4522 migration guard, web lint/styl
 
 Main `d26af47b9e1fea792c4e7a9fd48f83070a3fdf9b` was merged without conflicts during validation; the source catalogue holds its exact resolved SHA and merge SHA. All 36 inspected sources still equal the audit pin. The final web source lint/type checks and repository/Rust/proof/N7 stages read the merged checkout; historical rendered evidence keeps its original pin. Vocabulary, scenario ids, whitespace, lossless snapshot/direction round trips, native alert models and merge-loss pass. Scope is six audit documents only; no image, video, product or frozen-loop file is committed. #5758 remains open for the unfinished inventory and later owner choices/retirements.
 
-
 ## Rail structure completion — builder-41588674845
 
 PR #5859’s inherited evidence slice is verified against audited main `4525b6ce563888c08b0b8bba3806449cf3b9c1f8`: all 32 inspected source hashes match the checkout, all ten stored accessibility snapshots decode to their recorded SHA-256, and all ten environments are dark 1512×950. The independent-decision table contains 21 rows. No policy-report test was added.
@@ -473,7 +470,6 @@ The twelfth opening adds a chosen-Terminal close refusal on the eight-Run seed: 
 
 Final `just ready` passes (exit 0): B4522 migration filename guard, all 193 lint-behavior checks, styles, typechecks, repository/Rust lints, formal proof mutation checks (`ALL PROOFS CHECK`) and N7. Final evidence validation passes for all 40 source hashes, three archives and twelve dark viewport/snapshot/Check records, including the full dense close-refusal text. Main remains the audit pin; no merge or product delta occurred. Self-review restored the earlier changes/resource capture count accidentally touched by report wording replacement. Isolated browser and harness processes are closed; final media is also copied into the run checkout's artifacts path for workflow attachment. No local `just check` ran.
 
-
 ## Fix-run verification — builder-41594280547
 
 Integrated remote head `c2ca0523e` by fast-forward; it had already made #5861 ready with auto-merge enabled. Independently verified all 40 pinned source hashes, three decoded archives and twelve stored snapshot hashes, dark viewport records and passing Checks. Replayed both archived observer drivers using a fresh isolated headless session against the unchanged App at the audit pin: all twelve openings pass every recorded Check, including readable dense close-refusal text and Retry. Recreated PNG files, Check readings and the replay manifest remain uncommitted under `artifacts/ux/U5741/terminals/`, also copied to the run checkout for attachment. Original checked-in observations remain unchanged. The isolated browser and harness are closed.
@@ -530,7 +526,6 @@ The final inventory separates read Retry from read-error Clear (W08/W09), yieldi
 
 Final detached `just ready` passed (exit 0): all 193 lint-behavior checks, package typechecks, repository/Rust lints, formal proofs (`ALL PROOFS CHECK`) and N7's launch-site observer. Final source/archive/snapshot reconciliation, dark media/appearance/viewport checks, D2/D5/D6, vocabulary, scenario ids, merge-loss, spelling and whitespace checks passed (exit 0). No local `just check` or added/changed behavior tests. Browser session and only this run's harness are closed. All seventeen final PNG files are also copied to the workflow checkout's `artifacts/ux/U5741/attention-import/` for attachment; none is committed.
 
-
 ## Independent fix-run verification — builder-41604993438
 
 Integrated the original builder's concurrent head `840a525bb0fcb01dd0a9be9cde2a12c55e541b90` by fast-forward, retaining its 34 rows, conditional observer limits, source/refusal distinction and corrected archived driver. Main remains the audited `b021117d063f663008f9a692be5e7496b2eebbe1`; no merge resolution or product change was needed.
@@ -580,12 +575,9 @@ Final evidence integrity: 41 inspected source hashes, twelve dark 1512×950 open
 
 The first detached repeat ended before completion without an exit file; no pass is inferred. A live PTY repeat preserves explicit status. The initial exit-file read failed (1) because its process had ended without writing it. Final required-command status follows after completion.
 
-
-
 Isolated browser closed successfully (0); this run's harness session ended by SIGTERM (143) after captures, with no native browser fallback. Twelve accepted PNG files were copied to the workflow checkout under artifacts/ux/U5741/shelf/ for attachment. Source and observer archives are lossless; no image/video is committed. Self-review checked duplicate decisions, code/user-label naming, placement, every claimed capture and the explicit failed/unavailable branches. Main remains the audited eaa391d9d revision after the final fetch; no merge resolution was needed.
 
 Final `just ready` live PTY repeat: exit **0**, confirmed both by the completed process and /tmp/u5741-ready-live.exit. B4522 migration guard, all 193 lint-behavior checks, package type checks, repository/Rust lints, formal proofs and N7 pass. Final vocabulary, scenario ids, merge-loss, spelling and whitespace pass. No behavior test changed or local just check ran; CI judges the implementation head. This evidence slice is complete; the full U5741 inventory, vendor/conditional reconciliation and owner request remain unfinished on #5758.
-
 
 ## Shelf fix-run evidence — builder-41609532898
 
@@ -614,7 +606,6 @@ Observed through the existing fake-Daemon harness in an isolated worktree and a 
 Final replay retains nineteen openings, each passing every recorded Check, including D2/D5/D6. Visually inspected the deletion-failure image: the cause, original-work guidance and originating recovery controls remain visible. The refusal is an injected fake reply; no real storage failure is asserted. All source hashes match the pinned main bytes; archived driver/snapshot checksums, dark media/appearance, viewport, successful command records and image presence reconcile. All nineteen media files are copied to the workflow checkout for attachment, without committing images.
 
 The final observer additionally exercises keyboard resize and Enter width reset, bringing the total to nineteen passing openings, including S07 resizing and S29 width reset. Pointer resize and double-click reset remain explicit source-only branches. `just ready` passed (exit 0), including all 193 lint-behavior checks, styles, package typechecks, repository/Rust lints, B4522, `ALL PROOFS CHECK` and N7. Final spelling, vocabulary, scenario ids, merge-loss and whitespace checks pass. No local `just check` or added/changed behavior tests.
-
 
 | Integration / shutdown command | Exit | Disposition |
 | --- | ---: | --- |

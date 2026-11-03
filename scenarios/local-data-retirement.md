@@ -1,6 +1,6 @@
 # Current local data only
 
-Policy: U5740c (`scenarios/delete-reactions.md`, #5740/#5863) supersedes historical-open permissions and refusals below only for deletion of the retired feature. Project and standalone Messages accept fresh/current stores and the full-schema-verified immediate production predecessor only. Earlier prefixes, nonempty unversioned, divergent and newer stores are refused unchanged. The installed `rusqlite_migration` runs only the appended deletion suffix transactionally; no historical record decoding, repair or import is permitted. N5809a/b now cover only that immediate Project predecessor; N5809c retains its transactional rollback observer. All other refusal boundaries remain binding.
+Policy: U5740c (#5740/#5863, U5740c retirement record) supersedes historical-open permissions and refusals below only for deletion of the retired feature. Project and standalone Messages accept fresh/current stores and the full-schema-verified immediate production predecessor only. Earlier prefixes, nonempty unversioned, divergent and newer stores are refused unchanged. The installed `rusqlite_migration` runs only the appended deletion suffix transactionally; no historical record decoding, repair or import is permitted. N5809a/b now cover only that immediate Project predecessor; N5809c retains its transactional rollback observer. All other refusal boundaries remain binding.
 
 Specification for [#5467](https://github.com/roundup-app/roundup/issues/5467). Terms: App, Daemon, Project data, Saved work (`GLOSSARY.md`). Until release 0, local application data need not survive a schema change. This specifies removal and refusal, not an implementation or an observed pass.
 
@@ -32,7 +32,6 @@ Policy: remove historical acceptance and its exclusive tests; retain the current
 | N3, N20, N2705a, B4522, N5420a | Folder import, added-migration preservation, prefix repair/reference schemas and skipped-Pad exception | Placement, fresh SQL discovery/image, current persistence and divergent/newer refusal |
 | A8, A25, A26, X11, A32, A4452c, A3308, T19, T30, U3787a, T8/T10/T12/T15 (including `scenarios/todo-drawer.md`), P12/P14, U433, U4698c, U4454d | Old Group/Room/nested Workstream/Terminal records, removal boundary conversion, Todo, Scribe, priority and measurement schema adoption | Current Rail, Todo history, Pad and priority operations |
 | U3787f, U4086a–d | Browser-key import, quarantine and continuation after partial import | Validated current plugin storage and draft recovery |
-| NR11 | Missing-reason legacy reads and their exclusive fixture | Authenticated current maker/reason and unknown-authority refusal |
 | R3778b–e, R4160a/b | Legacy BLOB reading/accounting, mixed historical fixtures and upgrade measurement pairs | Current publication bytes, quota boundary, selected cleanup, restart and durability |
 
 ## Gates, checks and observers

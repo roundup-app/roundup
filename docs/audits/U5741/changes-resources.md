@@ -4,7 +4,7 @@ Source: main `f87a3ddd158ec53a311d29265fa6414d6efa4434`; earlier audit: `092fcaf
 
 [Source provenance](catalogues/changes-source.json) retains inspected hashes, exact fixture setup, observer drivers, vendor help and linked owner direction. [Rendered openings](rendered-changes.json) retain isolated headless Chromium observations at 1512×950, dark, with a fresh profile. The six changes components and ResourceStrip/format are byte-identical to the earlier audit; newer App/menu composition is inspected separately. Fixtures enter through existing `window.__fake.app.handlers`; all openings use actual controls or the existing native Project-command observer. No fixture result proves real sampling, Git correctness, a native editor opening or Message delivery.
 
-Q1 asks whether a named vendor already supplies the same action/result; Q2 asks whether no required journey action needs it; Q3 asks whether the information has no actionable use. Any yes makes a candidate. An unverified answer remains engineering work. The comparisons below consider scope and authority, not names. Real Agent Terminals and Ask remain protected; Overview and Reactions remain excluded.
+Q1 asks whether a named vendor already supplies the same action/result; Q2 asks whether no required journey action needs it; Q3 asks whether the information has no actionable use. Any yes makes a candidate. An unverified answer remains engineering work. The comparisons below consider scope and authority, not names. Real Agent Terminals and Ask remain protected; Overview remain excluded.
 
 ## Equivalence evidence
 

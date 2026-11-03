@@ -14,7 +14,7 @@
       "exit": 0,
       "passed": 50
     },
-    "just capture U5558a,U5558b,U5558c,U5558d,U5558e": {
+    "just capture U5558a,U5558c,U5558d,U5558e": {
       "exit": 0,
       "passed": 1
     },
@@ -80,15 +80,7 @@
       ]
     },
     {
-      "file": "artifacts/ux/U5558e/reaction-reload-failed.checks.json",
-      "failed": []
-    },
-    {
       "file": "artifacts/ux/U5558e/import-reload-failed.checks.json",
-      "failed": []
-    },
-    {
-      "file": "artifacts/ux/U5558e/reaction-evidence-missing.checks.json",
       "failed": []
     }
   ]

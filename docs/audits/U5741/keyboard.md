@@ -85,7 +85,7 @@ These source owners account for the production keyboard census. The excerpts in 
 | --- | --- | --- |
 | `App.tsx::App` | Escape in Project picker; native Undo/Redo focus exclusions | Dismiss Project choice; focused item history; native text/Terminal keeps input. Other key listeners retain draft selection, not additional commands. |
 | `app/FirstRun.tsx::FirstRun` | ⌘O | Choose Project; first-run only. |
-| `ask/AskBar.tsx`, `ask/AskRows.tsx` | Escape/Tab/Enter through mentions and Ask scope; ↑/↓ between Ask result buttons | Ask typing/submission and result navigation; protected. Made content additionally inherits the row collection. Overview/Reactions remain excluded. |
+| `ask/AskBar.tsx`, `ask/AskRows.tsx` | Escape/Tab/Enter through mentions and Ask scope; ↑/↓ between Ask result buttons | Ask typing/submission and result navigation; protected. Made content additionally inherits the row collection. Overview remain excluded. |
 | `bubbles/Bubble.tsx::Bubble` | Header arrows; Shift+arrows; Escape during preparation/resize | Move/resize Bubble; cancel pending opening or resize. This presentation is distinct from protected Agent Terminal access. |
 | `bubbles/Bubbles.tsx::Bubbles`, `bubbles/tab.tsx::Tab` | Escape during pull; Escape in tab-name editor | Cancel pull or name edit; ordinary Bubble commands are in the named table. Recovery layer suppresses underlying commands. |
 | `changes/ChangedTree.tsx::ChangedTree` | Enter on focused tree path; inherited library tree navigation | Open selected file; click/focus also chooses the diff. `WorktreeControl` Escape closes its popover; leader C opens it only with an available original Worktree and nonempty changes. |
