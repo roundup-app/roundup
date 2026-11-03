@@ -18,7 +18,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Code term | User label | Avoid |
 |---|---|---|
 | Project | same | — |
-| Project start (`StartParams`, `StartKind`, `Started`, `project.start`, `rpc_project_request`, `StartFailed`) | same | — |
+| Project start (`StartParams`, `StartKind`, `StartedRow`, `project.start`, `rpc_project_request`, `StartFailed`) | same | — |
 | Opened Project (`Opened`, `project.open`, `openRequested`) | same | — |
 | Project opening (`createProjectOpening`, `ProjectOpening`, `ProjectRequest`, `Confirmation`) | Open Project | — |
 | App registration (`registration`, `action.closed`) | none | — |

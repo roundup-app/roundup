@@ -186,7 +186,7 @@ pub fn types() -> specta::Types {
         .register::<crate::project::OpenParams>()
         .register::<crate::project::StartParams>()
         .register::<crate::project::StartKind>()
-        .register::<crate::project::Started>()
+        .register::<crate::project::StartedRow>()
         .register::<crate::project::RenameParams>()
         .register::<crate::project::Requested>()
         .register::<crate::project::AgentResources>()

@@ -118,7 +118,7 @@ import type { ProjectSettings as project_ProjectSettings } from "./project/Proje
 import type { RenameParams as project_RenameParams } from "./project/RenameParams";
 import type { Resources as project_Resources } from "./project/Resources";
 import type { StartParams as project_StartParams } from "./project/StartParams";
-import type { Started as project_Started } from "./project/Started";
+import type { StartedRow as project_StartedRow } from "./project/StartedRow";
 import type { Worktrees as project_Worktrees } from "./project/Worktrees";
 import type { SkillFiles as skill_SkillFiles } from "./skill/SkillFiles";
 import type { CatchUp as terminal_CatchUp } from "./terminal/CatchUp";
@@ -301,7 +301,7 @@ export type RpcMethods = {
   "github.prReady": { params: github_Number; result: github_Pr };
   "github.prAutoMerge": { params: github_Number; result: github_Pr };
   "project.open": { params: project_OpenParams; result: project_Opened };
-  "project.start": { params: project_StartParams; result: project_Started };
+  "project.start": { params: project_StartParams; result: project_StartedRow };
   "action.serve": { params: null; result: null };
   "action.list": { params: null; result: action_ActionRow[] };
   "action.userList": { params: null; result: action_ActionRow[] };
