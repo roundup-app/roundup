@@ -1,3 +1,4 @@
+import { captureFocus } from "../keys/focus";
 import { createNow, DisplayClockContext } from "../state/clock";
 import { render, waitFor } from "@solidjs/testing-library";
 import { vi } from "vitest";
@@ -52,7 +53,12 @@ export const mountBubbles = async (selected: string | null = "a", terminals: Ter
   connected.showView("terminal-tabs");
   const emulators = fakeEmulators();
 
-  if (selected !== null) connected.rail.select(selected);
+  if (selected !== null) {
+    // Seed restoration must not take centre focus and minimise the saved Bubbles before a test acts.
+    const focus = captureFocus(true);
+    focus(() => {});
+    connected.rail.select(selected, undefined, focus);
+  }
 
   /** A selected Agent's Pane takes focus on show, which would minimise the Bubbles under test (U2224); these tests place focus themselves. */
   const unfocused = (id: string) => {

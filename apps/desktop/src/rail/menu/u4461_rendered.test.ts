@@ -78,6 +78,8 @@ it("u4461_removal_failure_keeps_the_captured_workstream_in_the_rendered_app", as
     await lane.browser("click", ".native-alert-failure button:first-child");
     await lane.until("window.__question.shown !== null");
   } else {
+    // Keep the removal target on its Workstream rather than U5742's requesting-descendant redirect.
+    await lane.evaluate("window.__fake.setStatus('migrate', 'working', 'working')");
     // Removing this Workstream closes its owned shell, so this path requires consent.
     const terminal = await lane.evaluate<string>("window.__fake.app.rpc('terminal.open', { workstream: 'backend' }).then(result => result.terminal_id)");
     // Hover reveals the row's controls over its middle, so press the start of the name.

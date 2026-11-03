@@ -37,6 +37,15 @@ it.each(cases)("u4463_space_requests_auto_once_from_the_head_%s_%s", async (seed
     })()`);
   }
 
+  // U5742 opens a requesting descendant; this Auto observer needs the Workstream itself.
+  if (seed === "tree-40") {
+    await evaluate(`(async () => {
+      const tree = await window.__fake.app.rpc('rail.tree', null);
+      for (const node of tree) if (node.status?.kind === 'needs-you') window.__fake.setStatus(node.id, 'working', 'working');
+    })()`);
+    await settle();
+  }
+
   const target = seed === "tree-40" ? '.rail-row[data-id="backend"]' : '.rail-row[data-id="n1"]';
   await browser("wait", target);
   await browser("click", `${target} .name`);
