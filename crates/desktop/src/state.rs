@@ -164,16 +164,40 @@ impl AppState {
     /// The launch's reopening of the stored list (S10): a Daemon that fails to start leaves its
     /// Project listed as not running instead of dropping it.
     pub async fn restore<R: Runtime>(&self, app: &AppHandle<R>) -> Result<(), RpcError> {
+        self.restore_with_feedback(app, |message| {
+            crate::diagnostics::message(app, message, None)
+        })
+        .await
+    }
+
+    pub(crate) async fn restore_with_feedback<R: Runtime>(
+        &self,
+        app: &AppHandle<R>,
+        mut feedback: impl FnMut(String),
+    ) -> Result<(), RpcError> {
         for path in self.store.open_paths()? {
             let path = PathBuf::from(path);
             if !path.is_dir() {
                 continue;
             }
             if let Err(err) = self.open(app, &path, true).await {
-                log::warn!(target: "roundup::shell", "restore Project: RPC failure code {}; saved Project remains listed", err.code);
+                feedback(self.report_project_failure("restore Project", &path, &err)?);
             }
         }
         self.save_open()
+    }
+
+    pub(crate) fn report_project_failure(
+        &self,
+        operation: &str,
+        path: &Path,
+        error: &RpcError,
+    ) -> Result<String, RpcError> {
+        let name = self.name_of(&path.display().to_string())?;
+        Ok(crate::diagnostics::report(
+            &format!("{operation} \"{name}\""),
+            &error.message,
+        ))
     }
 
     async fn open<R: Runtime>(
