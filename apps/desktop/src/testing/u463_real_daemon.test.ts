@@ -40,22 +40,27 @@ const observer = async (width: number, input: "keyboard" | "pointer", name: stri
     const { stdout } = await execute(browserExecutable, ["--executable-path", executable, "--args", "--no-sandbox", "--config", config, "--session", session, "--profile", profile, "--json", ...args], { env: browserEnv, timeout: 60_000, maxBuffer: 4 * 1024 * 1024 }).catch((error) => { throw new Error(`${error.message}\n${error.stdout}\n${error.stderr}`); });
     const reply = JSON.parse(stdout);
 
-    expect(reply.success, stdout).toBe(true);
+    const replies = Array.isArray(reply) ? reply : [reply];
 
-    return reply.data;
+    for (const result of replies) expect(result.success, stdout).toBe(true);
+
+    return Array.isArray(reply) ? reply.at(-1)!.result : reply.data;
   };
+
+  // CI5527e: 118844 ms on the rejected head. The installed sequential batch
+  // keeps readiness commands between inputs without reconnecting for each one.
+  const batch = (...commands: string[][]) => browser("batch", "--bail", ...commands.map(command => command.map(arg => "'" + arg.replaceAll("'", "'\\''") + "'").join(" ")));
 
   const wait = (expression: string) => browser("wait", "--fn", expression);
 
   const activate = async (selector: string) => {
     if (input === "pointer") await browser("click", selector);
     else {
-      await browser("focus", selector);
-      await browser("press", "Enter");
+      await batch(["focus", selector], ["press", "Enter"]);
     }
   };
 
-  return { real, browser, wait, activate, app: createServedApp(real.base), close: async () => {
+  return { real, browser, batch, wait, activate, app: createServedApp(real.base), close: async () => {
     try { await browser("close"); } finally {
       await real.stop();
       await rm(profile, { recursive: true, force: true }).catch(error => {
@@ -74,12 +79,14 @@ const width = 1280;
 
   it(`u463_first_run_chooses_the_configured_project_and_reaches_its_real_door_terminal ${width} ${input}`, async () => {
     const fixture = await observer(width, input, "choose", DOOR_REQUEST);
-    const { real, browser, wait, activate, app } = fixture;
+    const { real, browser, batch, wait, activate, app } = fixture;
 
     try {
-      await browser("open", `${real.base}/harness.html?view=workstreams&items=1&tabs=1&daemon=1&seed=first-run`);
-      await browser("set", "viewport", String(width), "800");
-      await wait(`document.querySelector('.choose-project')?.textContent.includes(${JSON.stringify(appCopy.openAFolderToStart)})`);
+      await batch(
+        ["open", `${real.base}/harness.html?view=workstreams&items=1&tabs=1&daemon=1&seed=first-run`],
+        ["set", "viewport", String(width), "800"],
+        ["wait", "--fn", `document.querySelector('.choose-project')?.textContent.includes(${JSON.stringify(appCopy.openAFolderToStart)})`]
+      );
       expect((await browser("eval", "document.querySelectorAll('[role=tablist][aria-label=Projects] [role=tab]').length")).result).toBe(0);
       await browser("eval", `(() => {
         const fetch = window.fetch.bind(window);
@@ -96,13 +103,17 @@ const width = 1280;
 
       expect((await browser("eval", "document.querySelector('.project-tab[data-path]').dataset.path")).result).toBe(real.dir);
       await activate('[aria-label="Create"]');
-      await browser("press", "ArrowDown");
-      await wait("document.querySelector('[role=menuitem][data-highlighted]')?.dataset.value === 'workstream'");
-      await browser("press", "Enter");
+      await batch(
+        ["press", "ArrowDown"],
+        ["wait", "--fn", "document.querySelector('[role=menuitem][data-highlighted]')?.dataset.value === 'workstream'"],
+        ["press", "Enter"]
+      );
 
       // U191: creating the Workstream starts its Door once rail.tree acknowledges the row.
-      await wait(`window.__u463Calls.some(call => call.method === 'rail.startDoor')`);
-      await wait(`!!document.querySelector('.pane-screen textarea')`);
+      await batch(
+        ["wait", "--fn", `window.__u463Calls.some(call => call.method === 'rail.startDoor')`],
+        ["wait", "--fn", `!!document.querySelector('.pane-screen textarea')`]
+      );
       const tree = await app.rpc("rail.tree", null);
       const workstream = tree.find((node) => node.kind === "workstream")!;
       await wait(`(async () => {
@@ -116,11 +127,13 @@ const width = 1280;
       expect((await browser("eval", "window.__u463Calls.find(call => call.method === 'rail.startDoor').params.id")).result).toBe(workstream.id);
       expect((await app.rpc("terminal.list", null)).map((terminal) => terminal.id)).toContain(workstream.terminal_id);
       // U467: the user types to the Door in its own Terminal; the real Claude reads the line as its prompt.
-      await browser("click", ".pane-screen");
-      await browser("type", ".pane-screen textarea", "u463 real request");
-      await browser("press", "Enter");
-      await wait(`window.__u463Calls.some(call => call.method === 'terminal.write' && call.params.id === '${workstream.terminal_id}')`);
-      await wait(`window.__u463Calls.some(call => call.method === 'todo.list' && call.outcome.result?.some(todo => todo.title === 'u463 real request'))`);
+      await batch(
+        ["click", ".pane-screen"],
+        ["type", ".pane-screen textarea", "u463 real request"],
+        ["press", "Enter"],
+        ["wait", "--fn", `window.__u463Calls.some(call => call.method === 'terminal.write' && call.params.id === '${workstream.terminal_id}')`],
+        ["wait", "--fn", `window.__u463Calls.some(call => call.method === 'todo.list' && call.outcome.result?.some(todo => todo.title === 'u463 real request'))`]
+      );
       expect((await app.rpc("message.list", { to: null, status: null })).map((message) => message.body)).not.toContain("u463 real request");
       expect((await app.rpc("todo.list", null)).map((todo) => todo.title)).toContain("u463 real request");
       await real.model!.assertMatched();
@@ -145,12 +158,14 @@ const width = 1280;
 // boundary checks the served seam, not an input path, so both run by keyboard only.
 it(`u463_cancel_keeps_first_run_and_the_next_choice_opens_the_project ${width} keyboard`, async () => {
   const fixture = await observer(width, "keyboard", "cancel");
-  const { real, browser, wait, activate, app } = fixture;
+  const { real, browser, batch, wait, activate, app } = fixture;
 
   try {
-    await browser("open", `${real.base}/harness.html?view=workstreams&items=1&tabs=1&daemon=1&seed=first-run`);
-    await browser("set", "viewport", String(width), "800");
-    await wait(`document.querySelector('.choose-project')?.textContent.includes(${JSON.stringify(appCopy.openAFolderToStart)})`);
+    await batch(
+      ["open", `${real.base}/harness.html?view=workstreams&items=1&tabs=1&daemon=1&seed=first-run`],
+      ["set", "viewport", String(width), "800"],
+      ["wait", "--fn", `document.querySelector('.choose-project')?.textContent.includes(${JSON.stringify(appCopy.openAFolderToStart)})`]
+    );
     expect((await browser("eval", "document.querySelectorAll('[role=tablist][aria-label=Projects] [role=tab]').length")).result).toBe(0);
 
     await browser("eval", "window.__firstRun.cancelNextChoice()");
@@ -169,12 +184,14 @@ it(`u463_cancel_keeps_first_run_and_the_next_choice_opens_the_project ${width} k
 
 it(`u463_the_first_run_observer_is_opt_in_and_confined_to_its_project ${width} keyboard`, async () => {
   const fixture = await observer(width, "keyboard", "boundary");
-  const { real, browser, wait, activate, app } = fixture;
+  const { real, browser, batch, activate, app } = fixture;
 
   try {
-    await browser("open", `${real.base}/harness.html?view=workstreams&items=1&tabs=1&daemon=1`);
-    await browser("set", "viewport", String(width), "800");
-    await wait(`!!document.querySelector('[aria-label="Create"]')`);
+    await batch(
+      ["open", `${real.base}/harness.html?view=workstreams&items=1&tabs=1&daemon=1`],
+      ["set", "viewport", String(width), "800"],
+      ["wait", "--fn", `!!document.querySelector('[aria-label="Create"]')`]
+    );
     expect((await browser("eval", "typeof window.__firstRun")).result).toBe("undefined");
     expect(await app.chooseProjectPath()).toBeNull();
     expect(await app.chooseSavePath("test.md")).toBeNull();
@@ -196,7 +213,7 @@ it(`u463_the_first_run_observer_is_opt_in_and_confined_to_its_project ${width} k
 
 it("u2875d_real_import_reopen_and_resume", async () => {
   const fixture = await observer(1512, "pointer", "import", undefined, undefined, { FAKE_CLAUDE_LAUNCH_LOG: "/dev/null" });
-  const { real, browser, wait, activate, app } = fixture;
+  const { real, browser, batch, wait, activate, app } = fixture;
 
   try {
     const recorded = await readFile(resolve(process.cwd(), "../../crates/agents/tests/fixtures/import-2.1.300/top-level.jsonl"), "utf8");
@@ -205,12 +222,14 @@ it("u2875d_real_import_reopen_and_resume", async () => {
 
     await mkdir(bucket, { recursive: true });
     await writeFile(join(bucket, "00000001-1111-4111-8111-111111111111.jsonl"), stamped);
-    await browser("open", `${real.base}/harness.html?view=workstreams&items=1&tabs=1&daemon=1`);
-    await browser("set", "viewport", "1512", "950");
-    await browser("set", "media", "dark");
-    await wait("!!document.querySelector('.todo-project-root')");
-    await browser("eval", "window.dispatchEvent(new CustomEvent('open-project-page', { detail: { path: document.querySelector('.project-tab[data-selected=true]').dataset.path, command: 'import-work' } }))");
-    await wait("!!document.querySelector('.import-check')");
+    await batch(
+      ["open", `${real.base}/harness.html?view=workstreams&items=1&tabs=1&daemon=1`],
+      ["set", "viewport", "1512", "950"],
+      ["set", "media", "dark"],
+      ["wait", "--fn", "!!document.querySelector('.todo-project-root')"],
+      ["eval", "window.dispatchEvent(new CustomEvent('open-project-page', { detail: { path: document.querySelector('.project-tab[data-selected=true]').dataset.path, command: 'import-work' } }))"],
+      ["wait", "--fn", "!!document.querySelector('.import-check')"]
+    );
     await activate(".import-check");
     await wait("!document.querySelector('.import-confirm').disabled");
     await activate(".import-confirm");
@@ -224,16 +243,20 @@ it("u2875d_real_import_reopen_and_resume", async () => {
 
     const rightClick = async (id: string) => {
       const point = (await browser("eval", `(() => { const box = document.querySelector('.rail-row[data-id="${id}"]').getBoundingClientRect(); return {x:box.x + box.width / 2,y:box.y + box.height / 2}; })()`)).result;
-      await browser("mouse", "move", String(Math.round(point.x)), String(Math.round(point.y)));
-      await browser("mouse", "down", "right");
-      await browser("mouse", "up", "right");
+      await batch(
+        ["mouse", "move", String(Math.round(point.x)), String(Math.round(point.y))],
+        ["mouse", "down", "right"],
+        ["mouse", "up", "right"]
+      );
     };
 
     const choose = async (id: string, action: string) => {
       await browser("eval", "window.__importMenu.shown = null");
       await rightClick(id);
-      await wait(`window.__importMenu.shown?.some(item => item.id === '${action}' && item.enabled !== false)`);
-      await browser("eval", `window.__importMenu.answer('${action}')`);
+      await batch(
+        ["wait", "--fn", `window.__importMenu.shown?.some(item => item.id === '${action}' && item.enabled !== false)`],
+        ["eval", `window.__importMenu.answer('${action}')`]
+      );
     };
 
     // Imported rows already report idle. Wait for the new Attempt and Terminal so
@@ -247,8 +270,10 @@ it("u2875d_real_import_reopen_and_resume", async () => {
     }, { timeout: 30_000 });
 
     await rightClick(parent.id);
-    await wait("window.__importMenu.shown?.some(item => item.id === 'start' && item.enabled !== false)");
-    await browser("eval", "window.__importMenu.answer(null)");
+    await batch(
+      ["wait", "--fn", "window.__importMenu.shown?.some(item => item.id === 'start' && item.enabled !== false)"],
+      ["eval", "window.__importMenu.answer(null)"]
+    );
 
     const captures = captureDir("U3037d") ?? captureDir("U2875d");
 
@@ -333,7 +358,7 @@ it("u4590_visible_launch_params_match_first_pty_grid", async () => {
   await writeFile(executable, "#!/usr/bin/env python3\n" + program, { mode: 0o755 });
   const command = JSON.stringify([executable]);
   const observed = await observer(1512, "pointer", "terminal-size", undefined, undefined, { SHELL: executable, FAKE_CLAUDE_CHILD_PROCESS: command, FAKE_CLAUDE_DOOR_PROCESS: command });
-  const { real, browser, wait } = observed;
+  const { real, browser, batch, wait } = observed;
   const read = async <T,>(expression: string): Promise<T> => (await browser("eval", expression)).result;
   const { mkdirSync, writeFileSync } = await import("node:fs");
   const app = createServedApp(real.base);
@@ -341,10 +366,12 @@ it("u4590_visible_launch_params_match_first_pty_grid", async () => {
   mkdirSync(evidence, { recursive: true });
 
   try {
-    await browser("set", "viewport", "1512", "950");
-    await browser("set", "media", "dark");
-    await browser("open", `${real.base}/harness.html?daemon=1&view=workstreams&items=1&tabs=1&renderer=dom`);
-    await wait("!!document.querySelector('[aria-label=\"Create\"]')");
+    await batch(
+      ["set", "viewport", "1512", "950"],
+      ["set", "media", "dark"],
+      ["open", `${real.base}/harness.html?daemon=1&view=workstreams&items=1&tabs=1&renderer=dom`],
+      ["wait", "--fn", "!!document.querySelector('[aria-label=\"Create\"]')"]
+    );
     await read(`(() => {
       window.__launches = [];
       window.__sizingWrites = [];
@@ -366,16 +393,20 @@ it("u4590_visible_launch_params_match_first_pty_grid", async () => {
       if (action === "door") { await browser("click", '[aria-label="Create"]'); await browser("click", '[role="menuitem"][data-value="workstream"]'); }
       else if (action === "agent") { await browser("click", '[aria-label="Create"]'); await browser("click", '[role="menuitem"][data-value="agent"]'); }
       else if (action === "prompt") {
-        await browser("press", "Meta+Shift+n");
-        await wait("document.activeElement?.matches('.spawn-prompt-field')");
-        await browser("fill", ".spawn-prompt-field", "sizing-fixture");
-        await browser("press", "Enter");
+        await batch(
+          ["press", "Meta+Shift+n"],
+          ["wait", "--fn", "document.activeElement?.matches('.spawn-prompt-field')"],
+          ["fill", ".spawn-prompt-field", "sizing-fixture"],
+          ["press", "Enter"]
+        );
       }
       else if (action === "shell") await browser("click", ".terminal-new");
       else {
         await read("document.querySelector('.rail-row').click()");
-        await wait("!document.querySelector('.bubble:not([hidden])')");
-        await browser("press", "Meta+t");
+        await batch(
+          ["wait", "--fn", "!document.querySelector('.bubble:not([hidden])')"],
+          ["press", "Meta+t"]
+        );
       }
 
       await wait("window.__launches.length === 1");
@@ -406,8 +437,10 @@ it("u4590_visible_launch_params_match_first_pty_grid", async () => {
       expect(later).toContain(`pid=${pid}`);
       expect((await app.rpc("terminal.list", null)).find(terminal => terminal.id === id)!.incarnation).toBe(incarnation);
       writeFileSync(join(evidence, `${action}-launch.json`), JSON.stringify({ trace, before, later, pid, incarnation }, null, 2));
-      await browser("set", "viewport", "1512", "950");
-      await wait("innerWidth === 1512 && innerHeight === 950 && document.fonts.status === 'loaded'");
+      await batch(
+        ["set", "viewport", "1512", "950"],
+        ["wait", "--fn", "innerWidth === 1512 && innerHeight === 950 && document.fonts.status === 'loaded'"]
+      );
       writeFileSync(join(evidence, `${action}.checks.json`), JSON.stringify(await read("window.__checks()"), null, 2));
       await browser("screenshot", join(evidence, `${action}.png`));
     }
