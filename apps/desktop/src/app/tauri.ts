@@ -84,7 +84,8 @@ export const tauriFileDrop = (
   );
 
 export const createTauriApp = (): App => {
-  // The live subscription of each Terminal: a replaced or released one is no longer the current, so its late messages and its late stop are inert.
+  const answerers = new Map<string, { token: string; invalidate: () => void }>();
+  // A replaced Terminal subscription cannot deliver bytes or stop its replacement.
   const selections = new Map<string, object>();
 
   type CaptureRequest =
@@ -170,14 +171,28 @@ export const createTauriApp = (): App => {
         }
       },
       subscribe: (onEvent, params) => parsedCommand(v.number(), "subscribe", { path, channel: new Channel<DaemonEvent>(onEvent), params: params ?? null }),
-      serveActions: async (answer) => {
+      serveActions: async (answer, invalidated) => {
+        answerers.get(path)?.invalidate();
+        const registration = crypto.randomUUID();
+        const invalidate = () => { invalidated?.(); };
+
+        answerers.set(path, { token: registration, invalidate });
+
         const channel = new Channel<unknown>(message => {
+          if (v.is(v.object({ method: v.literal("action.closed") }), message)) {
+            invalidate();
+
+            return;
+          }
+
           const request = v.safeParse(actionRequestSchema, message);
 
-          if (request.success) void answer(request.output).then(line => command("action_answer", { path, line }));
+          if (request.success && answerers.get(path)?.token === registration) void answer(request.output).then(async line => {
+            if (answerers.get(path)?.token === registration) await command("action_answer", { path, registration, line });
+          });
         });
 
-        await command("action_serve", { path, channel });
+        await command("action_serve", { path, registration, channel });
       },
       selectOutput: async (id, listener) => {
         const key = JSON.stringify([path, id]);

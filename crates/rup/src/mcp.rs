@@ -132,7 +132,7 @@ fn offer(
         takes_params,
         own_id: false,
         own_reader: false,
-        waits_for_user: false,
+        waits_for_user: method == "project.open",
         door_only: false,
         stream: false,
     }
@@ -335,6 +335,12 @@ pub(crate) fn success_text(method: &str, params: &Value, result: Value) -> Strin
     let unit = contracts::methods::METHODS
         .iter()
         .any(|m| m.name == method && m.result == "null");
+    if method == "project.open" {
+        return format!(
+            "opened Project {}",
+            result["path"].as_str().unwrap_or_default()
+        );
+    }
     if !unit {
         return result.to_string();
     }
@@ -371,7 +377,6 @@ pub(crate) fn success_text(method: &str, params: &Value, result: Value) -> Strin
                 "disabled"
             }
         ),
-        "project.open" => format!("requested opening Project {}", field("path")),
         "project.rename" => format!("requested renaming Project to {}", field("name")),
         "terminal.show" => format!("showing Terminal {id}"),
         _ => format!("accepted {}", method.replace('.', " ")),

@@ -20,6 +20,14 @@ export const storageCopy = {
 } as const;
 
 export const copy = {
+  openUser: "You",
+  openProjectTitle: "Open Project?",
+  openProjectChoice: "Open",
+  refuseProject: "Refuse",
+  /** @prose */
+  openProjectQuestion: (agent: string, source: string, path: string) => `${agent} in ${source} asks to open ${path}`,
+  openRefused: (path: string) => `The user refused to open ${path}. Ask the user before trying again.`,
+  openConnectionLost: (path: string) => `The App connection was lost while opening ${path}; inspect open Projects before retrying.`,
   claudeBinary: (version: string, path: string) => `claude ${version}  ${path}`,
   recentFolders: "Recent Projects",
   claudeNotFound: "Claude Code is unavailable. Install Claude Code and try again.",

@@ -29,8 +29,10 @@ export type ProjectsState = {
   select(path: string): void;
   /** Asks the macOS chooser for a folder and opens it as a tab; a cancel changes nothing. */
   choose(): Promise<void>;
-  /** Opens `path` as a tab as `choose` does, without the chooser; an Agent's `project_open` arrives here. */
+  /** Opens `path` as a tab as `choose` does, without the chooser. */
   open(path: string): Promise<void>;
+  /** Completes an Agent's authorized open, preserving failure identity for its caller. */
+  openRequested(path: string): Promise<Project>;
   /** Starts a new Daemon for an exited Project (U37); a failure keeps the exit and records why. */
   reopen(path: string): Promise<void>;
   /** True from a `reopen` call until it answers, so a second click cannot ask for a second Daemon. */
@@ -122,6 +124,8 @@ export const createProjectsState = (app: App, saved = openTabStorage()): Project
     else setTabs((all) => [...all, { project, exit: null, reopenFailure: null, generation: 0 }]);
 
     show(project.path);
+
+    return project;
   };
 
   return {
@@ -148,6 +152,19 @@ export const createProjectsState = (app: App, saved = openTabStorage()): Project
         if (!(error instanceof Error)) throw error;
 
         setFailure(error.message);
+      }
+    },
+    openRequested: async (path) => {
+      const known = tabs().find(tab => tab.project.path === path && !tab.exit);
+
+      if (known) return known.project;
+
+      try {
+        return await openPath(path);
+      } catch (error) {
+        if (!(error instanceof Error)) throw error;
+        setFailure(`${error.message}; open the folder from Add Project to try again.`);
+        throw error;
       }
     },
     open: async (path) => {

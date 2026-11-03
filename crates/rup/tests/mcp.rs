@@ -11,11 +11,14 @@ use contracts::{Actor, ActorKind, IdentifyParams, Touch, Verb};
 use rmcp::ServiceExt;
 use rmcp::model::{CallToolRequestParams, CallToolResult, ProtocolVersion};
 use rmcp::service::{RoleClient, RunningService};
+use rpc::Client;
 use serde_json::{Value, json};
 use tokio::io::{AsyncBufReadExt, AsyncWrite, AsyncWriteExt, BufReader};
 use tokio::net::UnixListener;
 use tokio::process::Child;
 use tokio::sync::mpsc;
+#[path = "mcp/project_open.rs"]
+mod project_open;
 #[path = "mcp/reconnect.rs"]
 mod reconnect;
 #[path = "mcp/removed_questions.rs"]
@@ -729,10 +732,6 @@ async fn m17_every_offered_unit_method_acknowledges_its_action() {
                 "moved Writer to Research",
             ),
             "project.setWorktrees" => (json!({"on":false}), "disabled Worktrees"),
-            "project.open" => (
-                json!({"path":"/tmp/project"}),
-                "requested opening Project /tmp/project",
-            ),
             "project.rename" => (
                 json!({"name":"New name"}),
                 "requested renaming Project to New name",
@@ -759,28 +758,15 @@ async fn m17_every_offered_unit_method_acknowledges_its_action() {
 }
 
 #[tokio::test]
-async fn m17_project_actions_acknowledge_requests_not_completion() {
+async fn m17_project_rename_acknowledges_request_not_completion() {
     let project = start_daemon();
     let shim = spawn_shim(&project.socket, "a1").await;
-    for (name, args, expected) in [
-        (
-            "project_open",
-            json!({"path":project._dir.path()}),
-            format!(
-                "requested opening Project {}",
-                project._dir.path().display()
-            ),
-        ),
-        (
-            "project_rename",
-            json!({"name":"Renamed"}),
-            "requested renaming Project to Renamed".into(),
-        ),
-    ] {
-        let result = shim.call(name, args).await;
-        assert_eq!(result.is_error, Some(false), "{result:?}");
-        assert_eq!(result.content[0].as_text().unwrap().text, expected);
-    }
+    let result = shim.call("project_rename", json!({"name":"Renamed"})).await;
+    assert_eq!(result.is_error, Some(false));
+    assert_eq!(
+        result.content[0].as_text().unwrap().text,
+        "requested renaming Project to Renamed"
+    );
     project.daemon.abort();
 }
 

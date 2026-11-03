@@ -18,6 +18,9 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Code term | User label | Avoid |
 |---|---|---|
 | Project | same | — |
+| Opened Project (`Opened`, `project.open`, `openRequested`) | same | — |
+| Project opening (`createProjectOpening`, `ProjectOpening`, `OpenRequest`, `Confirmation`) | Open Project | — |
+| App registration (`registration`, `action.closed`) | none | — |
 | Project name base (`base`, `ProjectsState.base`) | same | — |
 | Project data | same | — |
 | Engine (`engine`, `ModelList.engines`) | same | — |
