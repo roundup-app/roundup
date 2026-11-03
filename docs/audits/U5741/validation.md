@@ -152,3 +152,51 @@ PR #5796's `pre` run [41543913546](https://github.com/roundup-app/roundup/action
 | Vocabulary, scenario ids, merge-loss and whitespace checks | 0 | No vocabulary, scenario identity, main-only merge loss or whitespace violation. |
 
 No new test duplicates the compiler's global-allocator uniqueness check (rule 10). No UI behavior, scenario, contract or frozen-loop change was authored. Diff review confirmed the deletion preserves every allocator caller and introduces no new machinery.
+
+## Settings evidence — builder-41556795106
+
+Product source remains `092fcafbf910f292d7180c97d35bd381aff984b3`; documentation continues from main `df38b366e772e810592e7d19b3b8d04adb8419c7`. Own branch/worktree and a separate detached product-source worktree preserve that boundary. The new catalogue lists product changes between them, not an audited disposition of that delta.
+
+Passed: `pnpm install --frozen-lockfile` in both worktrees (exit 0); `cargo build -p rup -p rupd` at the audited source (exit 0); `python3 loop/orders.py check /tmp/u5741-5758-41556795106.md` (exit 0) before the authorized documentation scope update. Rebuilt binary hashes and the isolated real Daemon's actual `models.list` request/reply are in `catalogues/settings-source.json`. No Agent is launched. Ten settings openings at 1512×950 in dark pass every recorded D Check, including D2/D5/D6. PNG files and raw snapshots stay under `artifacts/ux/U5741/settings/`; exact controls/values and Checks are in `rendered-settings.json`.
+
+The existing fake App has separate `of("")` global calls: changing a Project's skill handler does not supply Settings' global installation read. The corrected observer supplies only that isolated global fixture. It establishes actual outdated/foreign presentation, never a real file installation. The New Agent recorder opens, but neither the CLI chord nor the single evaluated key saved an override; Reset/export rendering remains unverified. Earlier labels claiming an override were discarded and their image removed. No product behavior change or bug conclusion rests on these observer failures.
+
+Each failed command below failed; later unrelated commands in a shell do not convert it into a pass. Temporary drivers are observers outside the product tree, not new product helpers.
+
+| Command / observer | Exit / status | Failure and disposition |
+| --- | --- | --- |
+| Initial `ls -d .codegraph .claude/sound` | 2 | No codegraph index; sound directory exists. Normal source search used. |
+| `cat .../settings/pages.ts` in the first settings read | 1 | Guessed module absent; actual control registry is in AppSettings.tsx and was read. |
+| `rg ... claude_code/*naming* ... app/notifications.ts` | 2 | Guessed paths absent; actual naming delivery and rail/stateAlerts.ts found from the file census. |
+| Python catalogue read in the detached product-source worktree | 1 | Audit reports postdate the product revision; loaded them from the continuation checkout instead. |
+| `rg ... claude_code/hooks*` | 2 | Guessed glob absent; no equivalence conclusion depends on it. |
+| `cat .../app/stateAlerts.ts` | 1 | Actual module is rail/stateAlerts.ts. |
+| `cat .../settings/ShortcutRow.tsx .../app/alerts.ts` | 1 | Both guessed modules absent; actual owners are ShortcutSetting.tsx and rail/stateAlerts.ts. |
+| `cat .../toasts/watch.ts .../toasts/policy.ts` | 1 | Actual watch is watch.tsx; no policy module inferred. |
+| `rg ... scenarios/ui-agent-naming.md ... scenarios/ui-settings*` | 2 | Guessed path/glob absent; actual naming and settings scenarios located by file census and read. |
+| Python `rendered-keyboard.json['pages'][0]` discovery | 1 | Pages is a name-keyed object, not an array; no evidence accepted from that expression. |
+| `cat docs/audits/U5741/rendered-keyboard.json` in the pinned source worktree | 1 | Report does not exist at that older product revision; read it from the continuation checkout. |
+| `rg --files /tmp` discovery | 2 | Unrelated private directories unreadable. Shared Cargo target was read directly from CARGO_TARGET_DIR. |
+| `agent-browser find role button click --name 'Engine Use the default' --exact` | 1 | Exact composite accessible-name locator failed. Actual mounted trigger selected through its popover attributes. |
+| `agent-browser find nth '.settings-content button[aria-haspopup=dialog]' 0 click` | 1 | Arguments reversed; corrected documented order to index then selector. |
+| `agent-browser find role button click --name 'New Agent ⌘N' --exact` | 1 | Composite name locator failed. Actual current snapshot ref used; Press a shortcut state captured. |
+| `agent-browser find role button click --name Reset --exact` | 1 | No Reset existed. The preceding text wait matched Reset text size, not a Reset control; that override image was discarded. |
+| `python3 /tmp/u5741-settings-rest.py` initial discovery | 1 | Reset ref search returned none; no Reset behavior or capture accepted. |
+| `agent-browser wait --fn 'Array.from(document.querySelectorAll(".settings-content button")).some(e=>e.textContent==="Reset")'` | 1 | Timed out; supplied chord left the recorder active. No saved override or export pass claimed. |
+| `agent-browser wait --fn 'Array.from(document.querySelectorAll("button")).some(e=>e.textContent==="Update")'` | 1 | Timed out because fixture changed the Project handler instead of global `of("")`; corrected fixture yielded actual Update. |
+| `rupd --help` | 1 | Daemon takes a positional Project; it treated --help as a nonexistent directory and refused. Read main.rs/data.rs before starting an isolated Project with dedicated data and socket. |
+| `rup models list` | 2 | No CLI leaf named models; source registry exposes models.list as RPC. Used the existing newline JSON-RPC socket seam, preserving its actual reply. |
+| `rg ... crates/rupd/src/config.rs` | 2 | Actual data configuration lives in data.rs; read before isolated launch. |
+| `rg ... crates/rupd/src/server.rs` | 2 | Guessed server path absent; request framing verified in rpc/src/client.rs. |
+| Apple notification page open, canonical URL | HTTP 429 | Browser tool could not fetch. Primary Apple search result and alternate regional source establish only app-scoped controls; no native observation claimed. |
+| Apple notification page open, UK regional URL | HTTP 429 | Same access failure; not a second successful source. |
+| First report reconciliation Python assertion | 1 | DOM control census included hidden lazy-mounted tabs; classified it explicitly as mountedControls. Actual accessibility snapshot has the fifteen visible alert switches. No visibility pass inferred from the broader census. |
+| First `git commit` | 1 | Pretty-printed generated readings exceeded the 1000-line file gate. Serialized the readings compactly, matching rendered-keyboard.json; hook then passed, with no rule change. |
+
+The final documentary checks and `just ready` result are recorded below. No local `just check`, whole test suite or report-text test runs.
+
+| Command | Exit | Result |
+| --- | --- | --- |
+| `just ready` (first run) | 1 | lint-repo spelling scan rejected the plural image abbreviation in this log. Replaced it with PNG files; web lint/typecheck and launch-sites passed. Required rerun recorded below. |
+
+Harness process log also reported four `ResizeObserver loop completed with undelivered notifications` errors during navigation; these remain observer diagnostics, not a product fix or a native behavior pass. The final ten retained screens each independently passed their recorded Checks. Browser and both isolated serving processes were closed by this run after collection.

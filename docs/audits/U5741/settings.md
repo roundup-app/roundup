@@ -55,70 +55,9 @@ Supplemental [settings-evidence.md](settings-evidence.md) resolves naming and st
 
 ## Individual shortcut settings and named actions
 
-These are separate controls in `ShortcutSettings`, not hidden in a single “rebind keys” row. Exact default presses/scopes also need reconciliation against local registrations (listed in the App source catalogue). `recordable` allows one own press except quick add; Leader/multi-key rows are read-only references. A saved override adds Reset, subject to conflict refusal. The same named action is callable through `rup do`; no MCP tool bypasses its captured target or availability.
+The complete 60-row configuration inventory and its criteria now live in [settings-evidence.md](settings-evidence.md), “Shortcut configuration is separate from the action”. [keyboard.md](keyboard.md), “Named actions and owning controls”, maps each underlying action's focus, target, implementation and acceptance. Exact argument schemas and observed availability remain in `catalogues/keyboard-source.json`, `namedActions.actions`. The action's own Q1/Q2/Q3 still needs assessment; a customization candidate does not authorize removing that action.
 
-| Setting/action id | Label | Default keys | Arguments | Assessment status |
-| --- | --- | --- | --- | --- |
-| `agent.new` | New Agent | ⌘N | `[]` | Q1/Q2/Q3 per action pending; do not count unverified as no |
-| `agent.new-with-prompt` | Agent with prompt | ⇧⌘N | `[{"key": "prompt", "type": "string"}]` | Q1/Q2/Q3 per action pending; do not count unverified as no |
-| `workstream.new` | New Workstream | ⌥⌘N | `[]` | Q1/Q2/Q3 per action pending; do not count unverified as no |
-| `mode.new` | New Mode | ⇧⌘M | `[]` | Q1/Q2/Q3 per action pending; do not count unverified as no |
-| `leader.assign` | Assign / Ask | ⌘K A | `[]` | Q1/Q2/Q3 per action pending; do not count unverified as no |
-| `leader.project` | Switch Project | ⌘K P | `[]` | Q1/Q2/Q3 per action pending; do not count unverified as no |
-| `leader.changes` | Review changes | ⌘K C | `[]` | Q1/Q2/Q3 per action pending; do not count unverified as no |
-| `leader.attention` | Next needs you | ⌘K J | `[]` | Q1/Q2/Q3 per action pending; do not count unverified as no |
-| `leader.attention-other-project` | Needs you elsewhere | ⌘K ⇧J | `[]` | Q1/Q2/Q3 per action pending; do not count unverified as no |
-| `leader.row` | Find row | ⌘K K | `[{"key": "query", "type": "string"}]` | Q1/Q2/Q3 per action pending; do not count unverified as no |
-| `leader.bubble-minimise` | Minimise Bubble | ⌘K M | `[]` | Q1/Q2/Q3 per action pending; do not count unverified as no |
-| `leader.bubble-close` | Close the Bubble | ⌘K W | `[]` | Q1/Q2/Q3 per action pending; do not count unverified as no |
-| `leader.shelf` | Open the Bench | ⌘K B | `[]` | Q1/Q2/Q3 per action pending; do not count unverified as no |
-| `leader.capture` | Capture a Todo | ⌘K T | `[]` | Q1/Q2/Q3 per action pending; do not count unverified as no |
-| `leader.inbox` | Open the Inbox | ⌘K I | `[]` | Q1/Q2/Q3 per action pending; do not count unverified as no |
-| `terminal.new` | New Terminal | ⌘T | `[]` | Q1/Q2/Q3 per action pending; do not count unverified as no |
-| `leader.open` | More keys… | ⌘K | `[]` | Q1/Q2/Q3 per action pending; do not count unverified as no |
-| `switcher.open` | Find anything | ⇧⌘P | `[]` | Q1/Q2/Q3 per action pending; do not count unverified as no |
-| `attention.jump` | Next needs you | ⌃⌘J | `[]` | Q1/Q2/Q3 per action pending; do not count unverified as no |
-| `todo.capture` | Capture a Todo | ⇧⌘T | `[]` | Q1/Q2/Q3 per action pending; do not count unverified as no |
-| `terminal.switch` | Switch Agent / Terminal | ⌘B | `[]` | Q1/Q2/Q3 per action pending; do not count unverified as no |
-| `rail.collapse-expand` | Collapse / expand | ← → | `[]` | Q1/Q2/Q3 per action pending; do not count unverified as no |
-| `rail.move` | Move to… | M | `[]` | Q1/Q2/Q3 per action pending; do not count unverified as no |
-| `rail.rename` | Rename | F2 | `[]` | Q1/Q2/Q3 per action pending; do not count unverified as no |
-| `help.open` | Help | ? | `[]` | Q1/Q2/Q3 per action pending; do not count unverified as no |
-| `agent.restart-mode` | Restart Mode | R | `[]` | Q1/Q2/Q3 per action pending; do not count unverified as no |
-| `rail.remove` | Remove | ⌘⌫ | `[]` | Q1/Q2/Q3 per action pending; do not count unverified as no |
-| `ask.open` | Focus Ask bar | ⌘/ | `[]` | Q1/Q2/Q3 per action pending; do not count unverified as no |
-| `todo.assign-slot` | Assign | 1–9 | `[{"key": "slot", "type": "integer", "min": 1, "max": 9, "required": true}]` | Q1/Q2/Q3 per action pending; do not count unverified as no |
-| `todo.open-draft` | Open | ⏎ | `[]` | Q1/Q2/Q3 per action pending; do not count unverified as no |
-| `todo.add` | Add Todo | N | `[]` | Q1/Q2/Q3 per action pending; do not count unverified as no |
-| `todo.assign` | Assign | O | `[]` | Q1/Q2/Q3 per action pending; do not count unverified as no |
-| `shelf.maximise` | Maximise | M | `[]` | Q1/Q2/Q3 per action pending; do not count unverified as no |
-| `todo.delete` | Delete row | D | `[]` | Q1/Q2/Q3 per action pending; do not count unverified as no |
-| `todo.export` | Export .md | E | `[]` | Q1/Q2/Q3 per action pending; do not count unverified as no |
-| `shelf.close` | Close | Esc | `[]` | Q1/Q2/Q3 per action pending; do not count unverified as no |
-| `terminal.text-larger` | Larger Terminal text | ⌘= | `[]` | Q1/Q2/Q3 per action pending; do not count unverified as no |
-| `terminal.text-smaller` | Smaller Terminal text | ⌘- | `[]` | Q1/Q2/Q3 per action pending; do not count unverified as no |
-| `terminal.text-reset` | Reset text size | ⌘0 | `[]` | Q1/Q2/Q3 per action pending; do not count unverified as no |
-| `editor.quote` | Quote | ⇧⌘B | `[]` | Q1/Q2/Q3 per action pending; do not count unverified as no |
-| `editor.bullet-list` | Bullet list | ⌥⌘8 | `[]` | Q1/Q2/Q3 per action pending; do not count unverified as no |
-| `editor.numbered-list` | Numbered list | ⌥⌘7 | `[]` | Q1/Q2/Q3 per action pending; do not count unverified as no |
-| `editor.code-block` | Code block | ⌥⌘C | `[]` | Q1/Q2/Q3 per action pending; do not count unverified as no |
-| `editor.italic` | Italic | ⌘I | `[]` | Q1/Q2/Q3 per action pending; do not count unverified as no |
-| `editor.inline-code` | Inline code | ⌘E | `[]` | Q1/Q2/Q3 per action pending; do not count unverified as no |
-| `terminal.find` | Find… | ⌘F | `[]` | Q1/Q2/Q3 per action pending; do not count unverified as no |
-| `edit.undo` | Undo | ⌘Z | `[]` | Q1/Q2/Q3 per action pending; do not count unverified as no |
-| `edit.redo` | Redo | ⇧⌘Z | `[]` | Q1/Q2/Q3 per action pending; do not count unverified as no |
-| `settings.open` | Settings | ⌘, | `[]` | Q1/Q2/Q3 per action pending; do not count unverified as no |
-| `settings.forward` | Forward → | ⌘] | `[]` | Q1/Q2/Q3 per action pending; do not count unverified as no |
-| `todo.triage-enter` | Triage Todos | T | `[]` | Q1/Q2/Q3 per action pending; do not count unverified as no |
-| `todo.triage-move` | Move | J K | `[{"key": "direction", "type": "choice", "options": ["up", "down"], "required": true}]` | Q1/Q2/Q3 per action pending; do not count unverified as no |
-| `todo.triage-assign` | Assign | A | `[]` | Q1/Q2/Q3 per action pending; do not count unverified as no |
-| `todo.triage-workstream` | Workstream | W | `[]` | Q1/Q2/Q3 per action pending; do not count unverified as no |
-| `todo.triage-nest` | Nest | Tab | `[]` | Q1/Q2/Q3 per action pending; do not count unverified as no |
-| `todo.triage-unnest` | Un-nest | ⇧Tab | `[]` | Q1/Q2/Q3 per action pending; do not count unverified as no |
-| `todo.triage-done` | Done | X | `[]` | Q1/Q2/Q3 per action pending; do not count unverified as no |
-| `todo.triage-comment` | Comment | C | `[]` | Q1/Q2/Q3 per action pending; do not count unverified as no |
-| `todo.triage-leave` | Leave | Esc | `[]` | Q1/Q2/Q3 per action pending; do not count unverified as no |
-| `project.choose-folder` | Choose Project… | ⌘O | `[]` | Q1/Q2/Q3 per action pending; do not count unverified as no |
+`ShortcutSettings` renders Record only for eligible single-press actions, read-only references for others, Reset only for an override, and the separate S12/S13 quick-add recorders for todo.capture. The supplemental source catalogue records that distinction for every row. No second pending action table is maintained here.
 
 ## Direction still to reconcile
 
