@@ -60,8 +60,14 @@ impl Terminals {
         home: Option<String>,
     ) -> Result<Spawned, RpcError> {
         let project = self.integration_dir.parent().expect("Project data");
+        let scheme = self
+            .shared
+            .scheme
+            .lock()
+            .expect("terminal scheme lock")
+            .map(scheme::Palette::params);
         let (owner, mut child) =
-            TerminalOwner::start_with(helper, project, params, &self.shared.clean_env)
+            TerminalOwner::start_with(helper, project, params, &self.shared.clean_env, scheme)
                 .map_err(RpcError::internal)?;
         let result = self.attach_owner(project, &owner).await;
         if result.is_err()
@@ -94,6 +100,18 @@ impl Terminals {
         let id = self.next.fetch_add(1, Ordering::Relaxed);
         let (remote, output, events) =
             Remote::connect(id.to_string(), project, owner, self.shared.bus.clone())?;
+        let scheme = self
+            .shared
+            .scheme
+            .lock()
+            .expect("terminal scheme lock")
+            .map(scheme::Palette::params);
+        if let Some(scheme) = scheme {
+            remote.call::<()>(
+                "terminal.scheme",
+                serde_json::to_value(scheme).map_err(RpcError::internal)?,
+            )?;
+        }
         let spawned = Spawned {
             id: id.to_string(),
             events,
