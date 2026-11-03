@@ -407,8 +407,6 @@ export default function PadRichEditor(props: {
       if (!field) throw new Error(copy.padEditorDidNotOpen);
 
       const toolbar = host.querySelector<HTMLElement>(".milkdown-top-bar") ?? undefined;
-      setToolbarHost(toolbar);
-      mountExpand?.(toolbar);
 
       const buttons = host.querySelectorAll<HTMLButtonElement>(".milkdown-top-bar .top-bar-item");
 
@@ -430,6 +428,10 @@ export default function PadRichEditor(props: {
         heading.setAttribute("aria-label", copy.heading);
         heading.title = copy.heading;
       }
+
+      // Label Crepe's controls before mounting ours into the same toolbar.
+      setToolbarHost(toolbar);
+      mountExpand?.(toolbar);
 
       field.setAttribute("role", "textbox");
       field.setAttribute("aria-label", props.label ?? copy.padBody);
