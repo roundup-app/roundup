@@ -13,7 +13,6 @@ The production App owns these content collections. Tests below assert behavior i
 | Changed files | Select Agent with Worktree → counted changed-files control, or Review changes (⌘K, C) | `testing/u3787c_inventory.test.tsx`: both App list tests for both openings; `changes/u2539b_library.test.tsx`: vanilla typeahead/range/input ownership |
 | Overview entries | Open Project → Needs you; Project menu → Workstreams overview | `ask/u3787c_lists.test.tsx`: both list tests, original attention activation and lifetime |
 | Made | Project menu → Made | `ask/u3787c_lists.test.tsx`: both list tests, original publication identity and lifetime |
-| Named reactions | Project menu → Named reactions → saved list; return from detail | `reactions/nr9_reactions.test.tsx`: both list tests, exact reaction activation, lifetime and form key ownership |
 
 Rail Pad/Todo leaves were retired by #4457. Their counted owner control opens the actual Shelf group; no duplicate Rail collection is added. Current standalone Terminals use Terminal tabs, not a separate Rail content collection (`testing/nodes.ts`'s historical `terminal` fixture now makes an Agent without Status).
 
@@ -30,7 +29,6 @@ Agent-owned Pad names retain their ownership restriction. `pads/u3789a_pad_renam
 | --- | --- |
 | Project / Terminal tabs | Native/library tab semantics; `header/u184_close.test.tsx`, `bubbles/u511a_rename.test.tsx` |
 | Form pickers / action menus | Single-value/native command semantics; `ui/Combobox.tsx`, `ui/contextMenu.ts`, `switcher/u2572_actions.test.tsx` |
-| Ask history, revisions, reaction firing history | Read-only records, not independently opened content objects; `ask/AskRows.tsx`, `todos/u462_history.test.tsx`, `reactions/nr9_reactions.test.tsx` |
 | Work progress report | Report prose with explicit evidence links; existing progress observers |
 | Resource summaries / Terminal output | Read-only measurements / vendor-owned input and output; `resources/u408_strip.test.tsx`, Terminal typing observers |
 
@@ -45,7 +43,6 @@ Ark's deferred select-all must not overwrite that range.
 | Retained acceptance | Behavioral observer |
 | --- | --- |
 | Exact Todo/Pad draft, selection and original object after reload; no rename/read/history from restoration | `shelf/u3789_rows.test.tsx`: `u3789a_rename_never_opens_reload_keeps_original_identity`, parameterized over Todo and Pad |
-| Late reaction acknowledgement stays in its original Project and preserves newer input | `reactions/nr9_reactions.test.tsx`: `nr9_creation_acknowledgement_refreshes_the_remounted_project` |
 | Mounted App-seam Project-name restoration after remount: exact Unicode/whitespace, selection and original Project identity, with zero rename calls; no real-Daemon reload coverage | `header/u183_rename.test.tsx`: `u3787c_escape_restores_the_name_project_%s` |
 | Real Terminal-name restoration, exact selection and refusal to rename an ended original | `bubbles/u511a_browser.test.ts`: `u2773a_bubbles_real_project_reload_and_u2773c_ended_original_recovery` |
 

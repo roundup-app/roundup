@@ -61,7 +61,7 @@ Audit, one row per view; each renders `EmptyState` and none keeps an ad-hoc `<p>
 2. The Shelf's `todos`, `pads`, `inbox` and `made` tabs (U38), each with its own art, a line saying what the tab is for, and for Todos and Pads the `+ Todo` or `+ Pad` action in place of U38's hint; Inbox and Made carry no action.
 3. An empty Rail (`EmptyRail`, U38’s `no agents yet`) has `New Agent` / `⌘N` first, green primary, and `New Workstream` / `⇧⌘N` second, quiet secondary. Both are buttons in one centred horizontal row, with each dimmer key label inside its button; no blue text links or stacked, left-ragged action list. Retain the existing availability guards and action handlers. This also orders the action-order change from U4644’s current Workstream-first rendering.
 4. The centre with nothing selected (U38) and an Agent or Door with no output (`pane-empty`), without an action.
-5. The empty Changes list, the Named reactions list (`copy.reactionsEmpty`) and the Ask history (`copy.askHistoryEmpty`), each with its own art. Timeline is retired by U4454a–b (`scenarios/remove-time-timeline.md`); it requires no empty view or test.
+5. The empty Changes list, the Ask history (`copy.askHistoryEmpty`), each with its own art. Timeline is retired by U4454a–b (`scenarios/remove-time-timeline.md`); it requires no empty view or test.
 
 Search and picker results (`copy.noMatch` in the Switcher, Combobox, owner and blocker pickers) are a list's one line, not a view: they keep their line and take no art. The PR lists any further empty view it finds and does the same for it.
 
@@ -76,25 +76,24 @@ Rendered observer (policy): Enter stage of `.agents/data/journey.md`, isolated h
 Size policy for #4727: scene geometry and asset count remain unchanged; report base/head SVG byte totals and production dist totals. Recolouring and patch transforms must preserve `scenarios/perf.md`, **C9c desktop dist below 18 MB**: the recursive logical length of all regular production files is strictly below 18,000,000 bytes, with invalid output an observer error. Also retain **U3010d** in `scenarios/ui-motion.md` and `apps/desktop/budgets/startup.mjs`, `checkStartup`, for the eager entry budget. Existing C9c/U3010d gates prove these limits; add no test of a copied size constant. No bundle-cap increase or alternate drawing set is authorized.
 
 
-**U4607 first replies govern Reactions and Ask history empty views.** Extends U4464's timing observer for the two surviving views from #4607; it changes no art, copy, action or loading/failure rule. Timeline stays retired under U4454a–b (`scenarios/remove-time-timeline.md`); neither its view nor a test for it is restored. Journey stage: Enter (`.agents/data/journey.md`, “What must work”).
+**U4607 first replies govern Ask history empty views.** Extends U4464's timing observer for the two surviving views from #4607; it changes no art, copy, action or loading/failure rule. Timeline stays retired under U4454a–b (`scenarios/remove-time-timeline.md`); neither its view nor a test for it is restored. Journey stage: Enter (`.agents/data/journey.md`, “What must work”).
 
 Given a fresh connected Project in the fake App seam, with no cached items, mount `AskBar` and request each view below in turn in its own fresh mount. Hold that view's first list reply pending; other RPCs answer normally. Resolve or reject that reply explicitly, without timers, a browser or a real Daemon. Observe the mounted view, not a source-string audit or a replacement component.
 
 | View | Requested view | First list call | Empty group's accessible name |
 | --- | --- | --- | --- |
-| Named reactions | `reactions` | `reaction.list` | `copy.reactionsEmpty` |
 | Ask history | `ask-history` | `ask.list` | `copy.askHistoryEmpty` |
 
 1. After the list call has started and the requested view's heading is mounted, while the first reply is still pending, no empty group is mounted. A successful empty reply mounts exactly one named group, with no action button. Prove the view is mounted before checking absence, including the lazy Reactions component. Retain the two corresponding rows of `u4464_no_empty_view_before_the_first_answer` in `apps/desktop/src/ask/u4464_empty_views.test.tsx`; strengthen their assertions in place if needed, keeping the Made row. Do not add a duplicate pending-to-empty test.
-2. When the first reply contains one valid Reaction or one Ask with a visible part, that item's name or text is reachable in its view and no empty group is mounted. Assert both rows with `u4607_a_populated_first_reply_shows_items_instead_of_an_empty_view` in the same test file, using existing fixtures.
+2. When the first reply contains one Ask with a visible part, that item's name or text is reachable in its view and no empty group is mounted. Assert both rows with `u4607_a_populated_first_reply_shows_items_instead_of_an_empty_view` in the same test file, using existing fixtures.
 3. When the first reply rejects with a named failure, that view exposes the failure through U80's alert and mounts no empty group. Assert both rows with `u4607_a_failed_first_reply_shows_the_failure_instead_of_an_empty_view` in the same test file. No retry, dismissal, later refresh or navigation race is required by this scenario.
 
 Policy: keep the shared `EmptyState` and the existing App seam; add no RPC, contract, domain term, dependency or UI machinery. Test roles, item text, failure messages and call boundaries only; appearance remains U4464's rendered observer. A test-only implementation needs no new capture. If a correction changes visible rendering, use U4464's existing light/dark observer at 1512×950 with the densest seed and visible failure, retaining D2, D5 and D6 (`docs/design-system.md`, “The checks”).
 
 Checks on main:
 
-1. `apps/desktop/src/ask/u4464_empty_views.test.tsx`, `u4464_no_empty_view_before_the_first_answer`: pending-to-empty rows for Ask history, Made and Reactions.
-2. `apps/desktop/src/ask/AskBar.tsx`, `AskBar`; `apps/desktop/src/ask/AskRows.tsx`, `AskRows`; `apps/desktop/src/reactions/Reactions.tsx`, `Reactions`: mounted owners and shared empty groups.
+1. `apps/desktop/src/ask/u4464_empty_views.test.tsx`, `u4464_no_empty_view_before_the_first_answer`: pending-to-empty rows for Ask history and Made.
+2. `apps/desktop/src/ask/AskBar.tsx`, `AskBar`; `apps/desktop/src/ask/AskRows.tsx`, `AskRows`: mounted owners and shared empty groups.
 3. `apps/desktop/src/ink/EmptyState.tsx`, `EmptyState`: accessible named group and optional action.
 4. `scenarios/remove-time-timeline.md`, U4454a and U4454b: Timeline's retirement; no Timeline empty-view requirement remains here.
 5. `scenarios/ui-surfaces.md`, U80 and U4464: failure precedence and shared empty-view rules.
@@ -148,3 +147,5 @@ Policy — rendered delivery: run `just capture U4464` after the U5217 menu impl
 2. Menu contract and no-start boundary: `scenarios/ui-create-keys.md`, U5217; shared menu implementation: `apps/desktop/src/ui/Menu.tsx`, `Menu`.
 3. Failure injection and recorded calls: `apps/desktop/src/testing/fakeApp.ts`, `createFakeApp`; U26 fixture: `apps/desktop/src/testing/seeds.ts`, `seedApp`; capture artifacts: `.agents/data/harness.md`, “Captures”.
 4. D2, D5 and D6: `docs/design-system.md`, “The checks”; `apps/desktop/src/testing/checks.ts`, `runChecks`.
+
+Policy retirement — U5740a: only the Reactions rows of U4464/U4607 are retired. Ask history and Made retain their first-reply, empty, populated and failed-read acceptance and existing owning tests.

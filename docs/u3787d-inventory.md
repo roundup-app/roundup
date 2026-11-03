@@ -28,7 +28,6 @@ Capture panel is a separate production entry point and is tested through Capture
 | `settings/AppSettings.tsx` | Settings → Terminal → Font family → Font family |
 | `ui/Combobox.tsx` | ⌘K K → Switcher query; ⌘K P → Project query |
 | `ui/Combobox.tsx` | Settings → Agents → Engine / Model → Engine query / Model query |
-| `ui/Combobox.tsx` | New reaction → Target Agent → Reaction target query |
 | `ui/Combobox.tsx` | Todo selection → ⌘K A → Owner query; Todo → Blocker → Blocker query |
 | `ui/Combobox.tsx` | Todo → O → New Workstream → Start after Todo → Choose a Todo → Wait-for query |
 
