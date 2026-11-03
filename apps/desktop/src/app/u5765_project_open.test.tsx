@@ -94,6 +94,9 @@ it("u5765_open_b_preserves_the_selected_project_without_an_extra_open", async ()
 
 it("u5765_open_failure_returns_its_cause_and_visible_recovery", async () => {
   const mounted = await mount();
+  const holder = mounted.drafts(SOURCE.path);
+  await holder.edit({ surface: "terminal_selection", object: "original", recipient: "builder" }, { note: " unsent failure work\n  é ", excerpt: "source bytes" }, null, "ordinary").retained;
+  const before = holder.list();
   mounted.app.opened.failure = new RpcError(-32001, "Folder unavailable");
   const reply = mounted.answer(request(51));
   await screen.findByRole("dialog");
@@ -104,6 +107,7 @@ it("u5765_open_failure_returns_its_cause_and_visible_recovery", async () => {
   if (!("error" in result)) throw new Error("opening must report its failure");
   expect(result.error.message).toContain(TARGET);
   expect(result.error.message).toContain("try again");
+  expect(holder.list()).toEqual(before);
   expect(await screen.findByRole("dialog", { description: /Folder unavailable/ })).toBeDefined();
 });
 
