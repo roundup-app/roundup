@@ -9,7 +9,7 @@
 }
 
 /* Empty supporting content must not leave a flex gap beside the field (U504). */
-.ask-bar :is(.ask-compose, .overview, .ask-rows, .made, .reactions):empty {
+.ask-bar :is(.ask-compose, .overview, .ask-rows, .made):empty {
   display: none;
 }
 
@@ -497,7 +497,7 @@
   color: var(--text);
 }
 
-.ask-bar[data-mode="home"] :is(.made, .reactions, .project-overview) {
+.ask-bar[data-mode="home"] :is(.made, .project-overview) {
   display: flex;
   flex-direction: column;
 }

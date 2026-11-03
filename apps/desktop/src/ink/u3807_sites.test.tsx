@@ -8,7 +8,6 @@ import { mountBubbles } from "../bubbles/bubblesFixture";
 import { ChooseProject } from "../app/FirstRun";
 import { RpcError } from "../app/seam";
 import { Pads } from "../pads/Pads";
-import { createReactions, Reactions } from "../reactions/Reactions";
 import { Inbox } from "../inbox/Inbox";
 import { WorkProgress } from "../orders/WorkProgress";
 import { ConnectedProjectContext } from "../state/connectedProject";
@@ -48,19 +47,12 @@ const FAILURE = "Cannot read work: try again";
 
 type Mounted = Awaited<ReturnType<typeof mountTodos>>;
 
-const ReactionSite = () => {
-  const state = createReactions();
-
-  return <section aria-busy={state.read.loading}><Reactions state={state} /></section>;
-};
-
-const readers: { site: string; method: "todo.unread" | "todo.comments" | "todo.getHistory" | "todo.refs" | "pad.list" | "reaction.list" | "message.progress"; render: () => JSX.Element; refresh: (mounted: Mounted) => void; role?: "status" }[] = [
+const readers: { site: string; method: "todo.unread" | "todo.comments" | "todo.getHistory" | "todo.refs" | "pad.list" | "message.progress"; render: () => JSX.Element; refresh: (mounted: Mounted) => void; role?: "status" }[] = [
   { site: "Inbox", method: "todo.unread", render: () => <Inbox />, refresh: m => m.app.emit(event({ name: "todo.commented", data: { id: 1 } })) },
   { site: "Todo comments", method: "todo.comments", render: () => <TodoComments id={1} />, refresh: m => m.app.emit(event({ name: "todo.commented", data: { id: 1 } })) },
   { site: "Todo history", method: "todo.getHistory", render: () => <TodoComments id={1} />, refresh: m => m.app.emit(event({ name: "todo.deleted", data: { id: 2 } })) },
   { site: "Todo Pad references", method: "todo.refs", render: () => <TodoRefs id={1} />, refresh: m => m.app.emit(event({ name: "pad.changed", data: { name: "Plan" } })) },
   { site: "Pads", method: "pad.list", render: () => <Pads />, refresh: m => m.app.emit(event({ name: "pad.changed", data: { name: "Plan" } })) },
-  { site: "Reactions", method: "reaction.list", render: () => <ReactionSite />, refresh: m => m.app.emit(event({ name: "reaction.changed" })) },
   { site: "Work progress", method: "message.progress", render: () => <WorkProgress id="a" />, refresh: m => m.app.emit(event({ name: "rail.changed" })) },
 ];
 
@@ -84,7 +76,6 @@ it.each(readers)("u3807_each_site_shows_its_message_in_the_reserved_line: $site"
 
   if (site.method === "pad.list") await waitFor(() => expect(view.container.querySelector(".empty-state")).not.toBeNull());
 
-  if (site.method === "reaction.list") await waitFor(() => expect(view.container.querySelector("[aria-busy=false]")).not.toBeNull());
 
   if (site.method === "message.progress") await within(view.container).findByRole("region", { name: "Progress" });
 
