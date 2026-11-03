@@ -207,3 +207,7 @@ These commands bypass the shared method-to-command catalogue. Their production o
 ## Current public offer reconciliation
 
 [public-commands.md](public-commands.md) pins main `0ff0b698e2cc3768a6ae316b9f829e52b20808f7`; [catalogues/public-current.json](catalogues/public-current.json) retains every current method/handler/type/role and exact CLI/tool spelling, full API descriptions, schemas, 98 leaf help results and both runtime role lists. Current counts are 167 methods, 86 Agent tools, 94 Door tools. Four methods were added, none removed against the retained historical replies. Static/actual reconciliation has no unmatched command or tool; independent Q1/Q2/Q3 decisions for every method remain unfinished. RC01–RC23 assess explicit command, discovery, stream, named-action and hook controls without authorizing deletion.
+
+## GitHub operation continuation
+
+[github-tools.md](github-tools.md) adds GH01–GH05 for each GitHub operation's three criteria, exact CLI/Door MCP mappings, authority differences and the 2026-10-30 owner-direction reversal. [catalogues/github-source.json](catalogues/github-source.json) retains fresh current descriptions/role lists/help, two successful live reads, versioned vendor help, source hashes and replay. Other per-method decisions and existing conditional App gaps remain; this does not complete the inventory or send a partial owner request.

@@ -71,3 +71,7 @@ Independent Shelf follow-up: rendered-shelf-followup.json adds successful reserv
 ## Public command continuation
 
 [public-commands.md](public-commands.md) and [catalogues/public-current.json](catalogues/public-current.json) reconcile all 167 declarations with the current actual API, both real MCP roles and 98 shared command/stream paths on pinned main. Exact tool schemas and all API descriptions are retained; zero unmatched CLI/MCP offers remain in this census. Explicit help/ping/MCP/signal/context/memory/skill/actions/do dispatch paths are separately assessed as RC01–RC23. Source-only hook effects, unverified vendor comparisons, per-method decisions and existing conditional App gaps remain; this census does not complete their Q1/Q2/Q3 evidence or promote historical renders to current main.
+
+## GitHub operation continuation
+
+[github-tools.md](github-tools.md) adds GH01–GH05 for each GitHub operation's three criteria, exact CLI/Door MCP mappings, authority differences and the 2026-10-30 owner-direction reversal. [catalogues/github-source.json](catalogues/github-source.json) retains fresh current descriptions/role lists/help, two successful live reads, versioned vendor help, source hashes and replay. Other per-method decisions and existing conditional App gaps remain; this does not complete the inventory or send a partial owner request.
