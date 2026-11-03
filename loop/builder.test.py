@@ -1641,9 +1641,9 @@ class Review(unittest.TestCase):
                pr(number=3, statusCheckRollup=passed(run=56) + [review]), pr(number=4, statusCheckRollup=passed() + [review, critic]),
                pr(number=5, statusCheckRollup=passed() + [dict(workflowName='review', status='IN_PROGRESS')]), pr(number=6, statusCheckRollup=passed(ago=60)),
                pr(number=7, isDraft=True, statusCheckRollup=passed()), pr(number=8, isCrossRepository=True, statusCheckRollup=passed()),
-               pr(number=9, statusCheckRollup=[dict(passed()[0], conclusion='FAILURE')]), pr(number=10, statusCheckRollup=[review])]
+               pr(number=9, statusCheckRollup=[dict(passed()[0], conclusion='FAILURE')]), pr(number=10, statusCheckRollup=[review]), pr(number=11, headRefName='build/reviewing', statusCheckRollup=passed())]
         with patch.object(builder.orders, 'touches_desktop', side_effect=lambda number: number == 3):
-            self.assertEqual(builder.stranded(prs, NOW), [(1, '55'), (3, '56')])
+            self.assertEqual(builder.stranded(prs, NOW, {'build/reviewing'}), [(1, '55'), (3, '56')])
 
     def test_l24_a_review_that_did_no_model_work_in_every_rerun_asks_the_user(self):
         with GitHub(run=dict(status='completed', attempt=builder.RERUNS, url='https://x/actions/runs/77')) as github:
