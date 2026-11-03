@@ -244,3 +244,10 @@ all six current fixtures, including the job-summary diagnostic check added by
 #5921. Repeating the controlled invocation printed above exits **1** and prints
 exactly the same five-file diagnostic. Supplied fixture timing is not a full-run
 performance claim. CI5527b remains unmet, so #5666 stays open for repair forward.
+
+## Repair forward: shard weights
+
+`apps/desktop/src/testing/shardDurations.json` is regenerated with `just web-durations 41686557916`,
+the first green full run after #5921, whose web 1, 2 and 6 sat at 649, 612 and 656 seconds.
+The budget diagnostic of #5921 already reaches the job log on `main`: run 41671191057 predates it
+(commit `816eef1`, before `80e5434`). CI5527b stays open until a full `main` run after this merge shows all seven below 600 seconds.
