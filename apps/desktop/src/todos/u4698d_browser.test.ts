@@ -12,7 +12,7 @@ const output = captureDir("U4698d");
 const title = "UnbrokenTitle".repeat(16).slice(0, 200);
 
 const openDocument = async (width: number, height: number, recording = false) => {
-  await openShelf("tree-40", 288, 320, 1512, "dark");
+  await openShelf("tree-40", 288, 320, 1512, "dark", false);
 
   // Screenshots during recording restore its starting viewport. Size that context first.
   await browser("set", "viewport", String(width), String(height));
@@ -272,7 +272,7 @@ it.skipIf(!captureDir("U5127a") && !captureDir("U5127b"))("u5127a_u5127b_failed_
 
       try {
         await lane.browser("set", "media", "dark");
-        await lane.seedTodos(Array.from({ length: 8 }, (_, index) => `${index} 長い é 🧭 日本語 ${"Review dependency ".repeat(10)}`), false);
+        await lane.seedTodos(Array.from({ length: 8 }, (_, index) => `${index} 長い é 🧭 日本語 ${"Review dependency ".repeat(10)}`), false); // taste-skill-ignore: Unicode worst-case fixture, not interface decoration.
         const [chosen, survivor] = await lane.order();
         await lane.capture(id, "before");
         await lane.browser("focus", `.shelf [data-todo="${chosen}"] .todo-row-button`);
