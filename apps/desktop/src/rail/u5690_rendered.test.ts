@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { expect, it } from "vitest";
 import { captureDir } from "../testing/captures";
@@ -9,14 +9,21 @@ const ids = ["U5690a", "U5690b", "U5690c", "U5690d", "U5690e"];
 const baseline = !!process.env.U5690_BASELINE;
 
 const capture = async (step: string) => {
+  const checks = JSON.stringify(await read("window.__checks()"), null, 2);
+  let source: string | undefined;
+
   for (const id of ids) {
     const root = captureDir(id);
 
     if (!root) continue;
     const dir = join(root, baseline ? "base" : "head");
     await mkdir(dir, { recursive: true });
-    await browser("screenshot", join(dir, `${step}.png`));
-    await writeFile(join(dir, `${step}.checks.json`), JSON.stringify(await read("window.__checks()"), null, 2));
+    const target = join(dir, `${step}.png`);
+
+    if (source) await copyFile(source, target);
+    else await browser("screenshot", target);
+    source = target;
+    await writeFile(join(dir, `${step}.checks.json`), checks);
   }
 };
 
