@@ -141,7 +141,7 @@ it("u4277c_hidden_project_terminals_never_report_empty", async () => {
 });
 
 it.each(["home", "a1", null, "empty", "root-agent"])("u4453c_command_menu_opens_once_and_focuses: %s", async selection => {
-  const { connected, daemon, nodes, shells, emulators } = await mountNavigation(selection === "empty" || selection === "root-agent");
+  const { connected, daemon, nodes, shells, emulators } = await mountNavigation(selection === "empty" || selection === "root-agent", 0);
 
   if (selection === "root-agent") {
     nodes.push(agent("root-agent", "idle", "ready"));
@@ -183,7 +183,7 @@ it.each(["home", "a1", null, "empty", "root-agent"])("u4453c_command_menu_opens_
 });
 
 it.each(["agent", "door", "workstream", "ask", "inbox", "resources"].flatMap(view => [false, true].map(populated => ({ view, populated }))))("u4453c_terminal_bar_stays_in_every_view: $view $populated", async ({ view, populated }) => {
-  const { connected, nodes, shells } = await mountNavigation(!populated);
+  const { connected, nodes, shells } = await mountNavigation(!populated, 0);
 
   if (populated) {
     nodes.push(door("supervisor", "idle", "Ready", { parent: "home" }));
