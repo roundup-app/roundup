@@ -39,6 +39,7 @@ import subprocess
 import sys
 import threading
 import time
+import uuid
 
 
 # The fake models the version probe the inbox check runs (B51).
@@ -184,6 +185,7 @@ def play_prompts():
             play_turn(prompt, inbox)
 
     def play_turn(prompt, inbox):
+        turn_id = str(uuid.uuid4())
         if "FAKE_CLAUDE_PROMPT_LOG" in os.environ and not inbox:
             with open(os.environ["FAKE_CLAUDE_PROMPT_LOG"], "a") as log:
                 log.write(json.dumps({"resume": "--resume" in sys.argv, "prompt": prompt}) + "\n")
@@ -191,12 +193,12 @@ def play_prompts():
             # B50: Claude Code takes a turn on another session's message with no UserPromptSubmit.
             hook("PostToolUse", {"transcript_path": inbox})
         else:
-            hook("UserPromptSubmit", {"prompt": prompt})
+            hook("UserPromptSubmit", {"prompt": prompt, "prompt_id": turn_id})
         if BLOCKED:
             # B39: the prompt is blocked, so no turn runs and no Stop follows.
             BLOCKED.clear()
             return
-        hook("Stop")
+        hook("Stop", None if inbox else {"prompt_id": turn_id, "last_assistant_message": "Completed " + prompt})
 
     threading.Thread(target=watch_inbox, args=(server, turn), daemon=True).start()
     for prompt in typed_prompts():

@@ -75,7 +75,18 @@ pub enum EventData {
     AgentStray(agent::StrayEvent),
     #[serde(rename = "agent.toolCall")]
     AgentToolCall(Box<agent::ToolCallEvent>),
+    /// U504: a matched completed turn, independent of Kind or final text contents.
+    #[serde(rename = "agent.completed")]
+    AgentCompleted(Completion),
+    /// U504: a new publication committed; retries, moves and removals never emit this fact.
+    #[serde(rename = "deliverable.published")]
+    DeliverablePublished {
+        record: Box<crate::deliverable::Deliverable>,
+        /// None for a user publication or when no authoritative maker turn was observed.
+        completion: Option<Completion>,
+    },
     /// Publication metadata committed; read `deliverable.list`.
+    /// Older stored invalidations carry no historical publication evidence.
     #[serde(rename = "deliverable.changed")]
     DeliverableChanged,
     #[serde(rename = "rail.changed")]
@@ -105,4 +116,12 @@ pub struct Event {
     pub actor: Actor,
     #[serde(flatten)]
     pub data: EventData,
+}
+
+/// U504: authoritative turn identity, shared by completion and publication evidence.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
+pub struct Completion {
+    pub maker: String,
+    pub attempt: String,
+    pub turn: String,
 }

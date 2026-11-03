@@ -2,6 +2,8 @@
 import type { Ask } from "./ask/Ask";
 import type { AutoParams } from "./workstream/AutoParams";
 import type { ChannelEvent } from "./agent/ChannelEvent";
+import type { Completion } from "./Completion";
+import type { Deliverable } from "./deliverable/Deliverable";
 import type { ExitedEvent } from "./terminal/ExitedEvent";
 import type { ExtensionProblem } from "./action/ExtensionProblem";
 import type { Message } from "./message/Message";
@@ -41,7 +43,18 @@ export type EventData = { "name": "workstream.updated", "data": AutoParams } | {
 	name: string,
 	previous_name: string,
 } } | { "name": "pad.deleted", "data": PadName } | { "name": "message.sent", "data": Message } | { "name": "message.delivered", "data": Message } | { "name": "message.dropped", "data": Message } | { "name": "route.changed", "data": Route } | { "name": "agent.status", "data": StatusEvent } | { "name": "agent.channel", "data": ChannelEvent } | { "name": "agent.stray", "data": StrayEvent } | { "name": "agent.toolCall", "data": ToolCallEvent } | 
-/**  Publication metadata committed; read `deliverable.list`. */
+/**  U504: a matched completed turn, independent of Kind or final text contents. */
+{ "name": "agent.completed", "data": Completion } | 
+/**  U504: a new publication committed; retries, moves and removals never emit this fact. */
+{ "name": "deliverable.published", "data": {
+	record: Deliverable,
+	/**  None for a user publication or when no authoritative maker turn was observed. */
+	completion: Completion | null,
+} } | 
+/**
+ *  Publication metadata committed; read `deliverable.list`.
+ *  Older stored invalidations carry no historical publication evidence.
+ */
 { "name": "deliverable.changed" } | { "name": "rail.changed" } | 
 /**  A2741a: the exact destination and name committed under the Rail mutation lock. */
 { "name": "rail.renamed", "data": {

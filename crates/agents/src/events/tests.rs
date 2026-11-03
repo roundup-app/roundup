@@ -899,3 +899,38 @@ async fn u5531c_native_and_completed_turn_evidence_promotes_durably() {
         .unwrap();
     assert_eq!(shared.node(&id).unwrap().visibility, Shown);
 }
+
+#[tokio::test]
+async fn u504_completion_requires_matched_turn_and_ignores_repeated_stop() {
+    let (_dir, bus, shared) = shared_over_temp_dir(Arc::new(|| 0));
+    let id = running_agent(&shared, None);
+    let mut events = bus.subscribe();
+    for payload in [
+        json!({"hook_event_name":"Stop"}),
+        json!({"hook_event_name":"UserPromptSubmit", "prompt_id":"one"}),
+        json!({"hook_event_name":"Stop", "prompt_id":"wrong"}),
+        json!({"hook_event_name":"Stop", "prompt_id":"one", "last_assistant_message":""}),
+        json!({"hook_event_name":"Stop", "prompt_id":"one", "last_assistant_message":"late text"}),
+        json!({"hook_event_name":"UserPromptSubmit", "prompt_id":"two"}),
+        json!({"hook_event_name":"Stop", "prompt_id":"one"}),
+        json!({"hook_event_name":"Stop", "prompt_id":"two"}),
+    ] {
+        shared
+            .observe(Actor::daemon(), &id, "1", Observation::Signal(payload))
+            .unwrap();
+    }
+    let mut completed = Vec::new();
+    while let Ok(event) = events.try_recv() {
+        if let EventData::AgentCompleted(completion) = event.data {
+            completed.push(completion);
+        }
+    }
+    assert_eq!(
+        completed,
+        ["one", "two"].map(|turn| contracts::event::Completion {
+            maker: id.clone(),
+            attempt: "1".into(),
+            turn: turn.into(),
+        })
+    );
+}

@@ -285,6 +285,12 @@ impl Daemon {
         method: &str,
         args: Value,
     ) -> Result<Value, RpcError> {
+        // Read the run before taking SQLite's writer lock: completion folds may save the Rail.
+        let completion = if method == "deliverable.publish" && conn.actor.kind == ActorKind::Agent {
+            self.agents.turn_identity(&conn.actor.id)
+        } else {
+            None
+        };
         let mut db = self
             .publications
             .db
@@ -314,6 +320,7 @@ impl Daemon {
             .query_row("SELECT id FROM deliverable_project", [], |r| r.get(0))
             .map_err(RpcError::internal)?;
         let mut changed = false;
+        let mut publication = None;
         let result = match method {
             "deliverable.publish" => {
                 let p: PublishParams = rpc::params(args)?;
@@ -444,6 +451,10 @@ impl Daemon {
                     )
                     .map_err(RpcError::internal)?;
                 }
+                publication = Some(contracts::EventData::DeliverablePublished {
+                    record: Box::new(record.clone()),
+                    completion,
+                });
                 rpc::reply(&record)?
             }
             "deliverable.list" => {
@@ -547,6 +558,9 @@ impl Daemon {
             observe("before_commit")?;
         }
         tx.commit().map_err(RpcError::internal)?;
+        if let Some(publication) = publication {
+            self.bus.emit(conn.actor.clone(), publication);
+        }
         if changed {
             self.bus
                 .emit(conn.actor.clone(), contracts::EventData::DeliverableChanged);
