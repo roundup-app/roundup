@@ -201,6 +201,7 @@ it("u4686d_controls_have_labels_and_descriptions", async () => {
     ["Agents", [["combobox", "Permission mode"], ["button", /^Engine /], ["button", /^Model /]]],
     ["Terminal", [["combobox", "Font family"], ["spinbutton", "Font size"]]],
     ["Shortcuts", [["button", /^Quick add Todo /]]],
+    ["Pads", [["radiogroup", "Default width"]]],
 
   ] as const) {
     const panel = await section(page);

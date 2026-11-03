@@ -187,6 +187,10 @@ pub(crate) mod tests {
     pub(crate) fn run() {
         let tests: &[(&str, fn())] = &[
             (
+                "u5503_native_dock_menu_dispatches_the_chosen_action",
+                crate::dock::tests::u5503_native_dock_menu_dispatches_the_chosen_action,
+            ),
+            (
                 "u3787b_native_responder_find_and_close_follow_availability",
                 crate::menu::tests::u3787b_native_responder_find_and_close_follow_availability,
             ),
