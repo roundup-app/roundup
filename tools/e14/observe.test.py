@@ -267,6 +267,15 @@ class CI5527(unittest.TestCase):
                 self.assertIn("720-second budget", diagnostic)
                 self.assertEqual([line.strip() for line in diagnostic.splitlines() if " ms" in line], expected)
 
+    def test_ci5527c_budget_failure_reaches_the_job_summary(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            summary = Path(temporary) / "summary.md"
+            with patch.dict(observer.os.environ, {"GITHUB_STEP_SUMMARY": str(summary)}):
+                result, _ = self.invoke(720.001)
+            self.assertEqual(result, 1)
+            self.assertIn("web2: 720.001 seconds exceeds 720-second budget; slowest files:", summary.read_text())
+            self.assertIn("one.test.ts: 23 ms", summary.read_text())
+
     def test_ci5527c_missing_or_invalid_report_cannot_pass(self):
         for raw, cause in (("absent", "web.json"), ("{", "Expecting property"),
                            ("{}", "modules"), ("null", "not subscriptable"),
