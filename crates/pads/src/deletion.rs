@@ -542,6 +542,7 @@ impl Pads {
         actor: &Actor,
         prior: &str,
         operation: &str,
+        removed: &[String],
     ) -> Result<(RemovalFiles, Vec<EventData>), RpcError> {
         let mut q=db.prepare("SELECT id,incarnation FROM rail_removal_items WHERE operation=? AND kind='pad' ORDER BY id").map_err(RpcError::internal)?;
         let rows = q
@@ -585,7 +586,7 @@ impl Pads {
                 .map_err(RpcError::internal)?;
             events.push(EventData::PadDeleted(PadName { name }));
         }
-        db.execute("INSERT INTO rail_removal_items(operation,kind,id,home,incarnation) SELECT ?2,'pad-home',p.name,p.home,CAST(s.incarnation AS TEXT) FROM pads p JOIN pad_sources s ON s.pad_key=p.key WHERE p.home=(SELECT node FROM rail_deletions WHERE operation=?1)",rusqlite::params![prior,operation]).map_err(RpcError::internal)?;
+        db.execute("INSERT INTO rail_removal_items(operation,kind,id,home,incarnation) SELECT ?2,'pad-home',p.name,p.home,CAST(s.incarnation AS TEXT) FROM pads p JOIN pad_sources s ON s.pad_key=p.key WHERE p.home IN (SELECT value FROM json_each(?1))",rusqlite::params![serde_json::to_string(removed).map_err(RpcError::internal)?,operation]).map_err(RpcError::internal)?;
         let mut q = db
             .prepare("SELECT id FROM rail_removal_items WHERE operation=? AND kind='pad-home'")
             .map_err(RpcError::internal)?;
