@@ -60,6 +60,14 @@ impl<R: Runtime> Default for MenuBar<R> {
     }
 }
 
+/// An entry's label, with its age appended when it carries a `since` time.
+fn shown(entry: &Entry) -> String {
+    entry.since.map_or_else(
+        || entry.label.clone(),
+        |since| aged(&entry.label, since, provenance::now_ms()),
+    )
+}
+
 fn aged(label: &str, since: i64, now: i64) -> String {
     let seconds = now.saturating_sub(since).max(0) / 1000;
     let age = match seconds {
@@ -179,10 +187,7 @@ pub(crate) fn set_menu_bar<R: Runtime>(
     let native = Menu::new(&app).map_err(internal)?;
     let mut ages = Vec::new();
     for (index, entry) in menu.entries.iter().enumerate() {
-        let label = entry.since.map_or_else(
-            || entry.label.clone(),
-            |since| aged(&entry.label, since, provenance::now_ms()),
-        );
+        let label = shown(entry);
         let item = MenuItem::with_id(
             &app,
             entry
@@ -258,10 +263,7 @@ fn install_dock<R: Runtime>(app: &AppHandle<R>) -> Result<(), RpcError> {
                         .iter()
                         .map(|entry| {
                             (
-                                entry.since.map_or_else(
-                                    || entry.label.clone(),
-                                    |since| aged(&entry.label, since, provenance::now_ms()),
-                                ),
+                                shown(entry),
                                 entry.action.as_ref().map(|action| {
                                     serde_json::to_string(action).expect("menu action serializes")
                                 }),
