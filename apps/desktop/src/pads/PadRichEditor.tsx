@@ -30,7 +30,7 @@ import { commandsCtx, editorViewCtx, remarkStringifyOptionsCtx } from "@milkdown
 import { $prose } from "@milkdown/kit/utils";
 import { trailingConfig } from "@milkdown/kit/plugin/trailing";
 import type { Node as DocumentNode } from "@milkdown/kit/prose/model";
-import { Plugin, TextSelection } from "@milkdown/kit/prose/state";
+import { type EditorState, Plugin, TextSelection } from "@milkdown/kit/prose/state";
 import { Decoration, DecorationSet } from "@milkdown/kit/prose/view";
 import { getMarkdown, replaceAll } from "@milkdown/kit/utils";
 import { sourceForDocument } from "./sourceForDocument";
@@ -172,24 +172,23 @@ export default function PadRichEditor(props: {
 
   let ready = false;
   let topBarItems: { label: string; keys: string | undefined }[] = [];
-  const [commandState, setCommandState] = createSignal(0);
-  const [formatHost, setFormatHost] = createSignal<HTMLElement>();
+  const [commandState, setCommandState] = createSignal<EditorState>();
 
   const highlighted = createMemo(() => {
-    commandState();
+    const state = commandState();
 
-    return !props.label && ready && crepe ? crepe.editor.action(ctx => {
-      const { doc, selection } = ctx.get(editorViewCtx).state;
+    return !props.label && state && crepe ? crepe.editor.action(ctx => {
+      const { doc, selection } = state;
 
       return doc.rangeHasMark(selection.from, selection.to, padHighlight.type(ctx));
     }) : false;
   });
 
   const currentColour = createMemo(() => {
-    commandState();
+    const state = commandState();
 
-    return ready && crepe ? crepe.editor.action(ctx => {
-      const { doc, selection, storedMarks } = ctx.get(editorViewCtx).state;
+    return !props.label && state && crepe ? crepe.editor.action(ctx => {
+      const { doc, selection, storedMarks } = state;
       const type = padColour.type(ctx);
       const colours = new Set<string>();
 
@@ -345,7 +344,7 @@ export default function PadRichEditor(props: {
             },
             view: () => ({
               update: (view, previous) => {
-                if (view.state !== previous) setCommandState(now => now + 1);
+                if (view.state !== previous) setCommandState(view.state);
 
                 if (!applying && !closed && !view.state.doc.eq(previous.doc)) {
                   restored = null;
@@ -423,8 +422,6 @@ export default function PadRichEditor(props: {
         button.setAttribute("aria-label", item.label);
         button.title = item.keys ? `${item.label} (${item.keys})` : item.label;
       });
-
-      if (!props.label) setFormatHost(host.querySelector<HTMLElement>(".top-bar-inner") ?? undefined);
 
       const selectors = host.querySelectorAll<HTMLButtonElement>(".milkdown-top-bar .top-bar-heading-button");
       const heading = selectors[0];
@@ -632,7 +629,7 @@ export default function PadRichEditor(props: {
 
   return (
     <>
-      <Show when={formatHost()}>{mount => <Portal mount={mount()}>
+      <Show when={!props.label && toolbarHost()}>{mount => <Portal mount={mount()}>
         <div class="pad-rich-editor pad-format-controls">
           <Menu.Root ids={{ trigger: colourTriggerId }} positioning={{ updatePosition: async ({ updatePosition }) => { await updatePosition(); setPalettePositioned(true); } }} open={paletteOpen()} present={palettePresent()} onOpenChange={({ open }) => {
             setPaletteMotion(!isFocusVisible());

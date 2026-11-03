@@ -386,11 +386,11 @@ li[aria-selected="true"] svg {
 }
 
 .pad-width-control {
-  order: 1;
+  order: 2;
   flex-shrink: 0;
   margin-inline-start: var(--space-2);
 }
 
 .pad-toolbar-expand {
-  order: 2;
+  order: 3;
 }
