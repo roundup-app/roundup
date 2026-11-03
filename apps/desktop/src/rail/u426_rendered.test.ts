@@ -7,14 +7,6 @@ import { expect, it } from "vitest";
 import { browser, read, url, wait } from "../ui/tabsBrowser";
 import { captureDir } from "../testing/captures";
 
-const load = async (seed: string, width: number, scheme: "light" | "dark") => {
-  await browser("set", "media", scheme);
-  const path = `/harness.html?seed=${seed}`;
-  await browser("set", "viewport", String(width), "950");
-  await browser("open", url(`${path}&rest=1&view=workstreams&tabs=1`));
-  await wait(`document.querySelectorAll('.rail-row').length >= 9`);
-};
-
 // U4707: hovering the Status Glyph shows the fold chevron, and the hover icons overlay the name's middle, so select by the name's first pixels.
 const clickName = async (selector: string) => {
   const point = await read<{x:number;y:number}>(`(() => { const box = document.querySelector('${selector} .name').getBoundingClientRect(); return {x:box.x + 4,y:box.y + box.height / 2}; })()`);
@@ -29,24 +21,6 @@ const rightClick = async (selector: string) => {
   await browser("mouse", "down", "right");
   await browser("mouse", "up", "right");
 };
-
-// Row controls keep Open; former tools retain their native menu paths.
-it.skipIf(!!process.env.ROUNDUP_CAPTURES && !captureDir("U350"))("u426_menu_actions_run_without_selecting", async () => {
-  await load("tree-40", 1280, "light");
-  await browser("focus", '.rail-row[data-id="backend"]');
-  const selected = await read("document.querySelector('.rail-row[data-selected=true]')?.dataset.id ?? null");
-  await wait(`document.activeElement?.matches('.rail-row[data-id="backend"]')`);
-  await browser("press", "Shift+F10");
-  await wait("window.__fake.app.menuLabels().includes('Open in editor')");
-  await browser("eval", "window.__fake.app.pickMenu('Open in editor')");
-  await wait("window.__fake.app.editorOpened.length === 1");
-  expect(await read("document.querySelector('.rail-row[data-selected=true]')?.dataset.id ?? null")).toBe(selected);
-  await rightClick('.rail-row[data-id="backend"]');
-  await wait("window.__fake.app.menuLabels().includes('Open directory')");
-  await browser("eval", "window.__fake.app.pickMenu('Open directory')");
-  await wait("window.__fake.app.openedTargets.length === 1");
-  expect(await read("document.querySelector('.rail-row[data-selected=true]')?.dataset.id ?? null")).toBe(selected);
-}, 60_000);
 
 it.skipIf(!!process.env.ROUNDUP_CAPTURES && !captureDir("U350")).each(["tree-40", "agents-10", "door-stopped", "conflict"])("u350_rendered_workstream_actions_have_no_clear_%s", async seed => {
   const directory = captureDir("U350");

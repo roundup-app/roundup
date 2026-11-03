@@ -335,3 +335,14 @@ it.each([
 ])("u5728b_namespace_checks_preserve_unrelated_bindings %s", source => {
   expect(checkKeys({ 'app/view.tsx': source })).toEqual([]);
 });
+
+it("u5919a_copy_guard_allows_only_the_owner_ordered_project_labels", () => {
+  const glossary = readFileSync(join(ROOT, "../../../GLOSSARY.md"), "utf8");
+
+  for (const text of ["New Agent with a Prompt…", "Jump to What Needs You", "Open Folder…"]) {
+    expect(checkCopy(fixture(`message: ${JSON.stringify(text)}`), { glossary }).diagnostics).toEqual([]);
+  }
+
+  expect(checkCopy(fixture('message: "Open Folder"'), { glossary }).diagnostics.map(each => each.rule)).toContain("vocabulary");
+  expect(rules(fixture('message: "Jump to What Needs You now"'))).toContain("label-length");
+});

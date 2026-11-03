@@ -187,6 +187,7 @@ export const Rail = () => {
     }
   };
 
+  let overview: HTMLButtonElement | undefined;
   const [container, setContainer] = createSignal<HTMLElement>();
   const [field, setField] = createSignal<HTMLTextAreaElement>();
 
@@ -232,6 +233,48 @@ export const Rail = () => {
 
 
 
+  const selectedNodes = () => nodeRows().flatMap(row => selection.selection.isSelected(row.node.id) ? [row.node] : []);
+
+  const removeSelection = (chosen = selectedNodes()) => {
+    const before = nodeIds();
+    const last = Math.max(...chosen.map(node => before.indexOf(node.id)));
+    void menu.requestRemoveSelection(chosen, () => {
+      void rail.refresh().then(() => {
+        const survivors = new Set(nodeIds());
+        const next = before.slice(last + 1).find(id => survivors.has(id)) ?? before.slice(0, last).findLast(id => survivors.has(id));
+        selection.selection.setSelectedValues(next ? [next] : []);
+        rail.select(next ?? null);
+
+        if (next) focusRow(next);
+        else overview?.focus();
+      });
+    });
+  };
+
+  const openSelectionMenu = (node: RailNode, x: number, y: number) => {
+    if (!selection.selection.isSelected(node.id)) {
+      selection.selection.replace(node.id);
+      anchorAt(node.id);
+    }
+
+    const chosen = selectedNodes();
+
+    if (chosen.length < 2) return menu.open(node, rail.exitOf(node), x, y);
+
+    return contextMenu(app, [
+      { id: "group", label: copy.group, run: () => attempt(async () => {
+        const group = await app.rpc("rail.group", { ids: chosen.map(each => each.id) });
+        await rail.refresh();
+
+        if (rail.collapsed().has(group.id)) rail.toggleCollapsed(group.id);
+        rail.select(group.id);
+        selection.selection.replace(group.id);
+        setEditingName(group.id);
+      }, node.id) },
+      { id: "remove-selection", label: copy.removeAll, shortcut: "⌘⌫", run: () => removeSelection(chosen) },
+    ], x, y);
+  };
+
   /** U31: exactly one row is reachable by Tab, the selected row when one exists, else the first; moving focus by key does not move it. */
   const tabbableId = createMemo(() => {
     const selected = rail.selected();
@@ -242,7 +285,13 @@ export const Rail = () => {
 
   /** U358: `⌘⌫` in the Rail takes the row menu's `remove` for the selected row; the selection then moves to the next row, else the previous, and focus stays in the Rail. A repeat acts on nothing. */
   const removeSelected = (repeat: boolean) => {
-    const id = rail.selected();
+    if (!repeat && selectedNodes().length > 1) {
+      removeSelection();
+
+      return;
+    }
+
+    const id = selectedNodes()[0]?.id ?? rail.selected();
     const node = rail.nodes.find((candidate) => candidate.id === id);
     const row = id === null ? undefined : rowElement(id);
 
@@ -265,7 +314,7 @@ export const Rail = () => {
 
     if (row && node) {
       const box = row.getBoundingClientRect();
-      void menu.open(node, rail.exitOf(node), box.left, box.bottom);
+      void openSelectionMenu(node, box.left, box.bottom);
     }
   };
 
@@ -540,7 +589,7 @@ export const Rail = () => {
     { action: CHORDS.find(row => row.name === "mode.new")!, capture: () => ({ available: canSpawn, invoke: () => setCreatingMode(true) }) },
     { chords: ["ContextMenu", "Shift+F10"], when: (press) => focusedRowId(press) !== undefined, run: openMenuAtFocusedRow },
     { chords: ["ContextMenu", "Shift+F10"], when: (press) => press.target instanceof HTMLElement && press.target.matches("[data-todo-root]"), run: openOverviewMenu },
-    { action: CHORDS.find((row) => row.name === "rail.remove")!, when: (press) => focusedRowId(press) !== undefined, capture: (focus) => ({ available: () => focus instanceof HTMLElement && focus.isConnected && focus.matches(ROW) && rail.nodes.some((node) => node.id === rail.selected()) && daemonExit() === null, invoke: () => removeSelected(false) }) },
+    { action: CHORDS.find((row) => row.name === "rail.remove")!, when: (press) => focusedRowId(press) !== undefined, capture: (focus) => ({ available: () => focus instanceof HTMLElement && focus.isConnected && focus.matches(ROW) && (selectedNodes().length > 0 || rail.nodes.some((node) => node.id === rail.selected())) && daemonExit() === null, invoke: () => removeSelected(false) }) },
   ]);
 
   registerKeys({ kind: "region", element: container }, [{ action: CHORDS.find(row => row.name === "rail.rename")!, capture: focus => {
@@ -582,6 +631,7 @@ export const Rail = () => {
       type="button"
       data-button="quiet"
       data-todo-root
+      ref={element => { overview = element; }}
       data-history-region="rail"
       aria-pressed={rail.selected() === null}
       aria-labelledby={`${overviewName} ${overviewRoot}${waitingShown() ? ` ${overviewWaiting}` : ""}`}
@@ -746,7 +796,7 @@ export const Rail = () => {
                           sortRef={parts.ref}
                           handleRef={parts.handleRef}
                           draggable={daemonExit() === null}
-                          onOpenMenu={(x, y) => void menu.open(view().node, rail.exitOf(view().node), x, y)}
+                          onOpenMenu={(x, y) => void openSelectionMenu(view().node, x, y)}
                         />
                         }</Sortable.Item>
                         </TreeView.NodeProvider>

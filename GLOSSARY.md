@@ -48,6 +48,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Terminal catch-up (`CatchUpParams`, `CatchUp`, `terminal.catchUp`, `Terminals::catch_up`) | same | — |
 | Snapshot | same | — |
 | Workstream | same | room, folder |
+| Workstream state | same | — |
 | Group (`NodeKind::Group`, `GroupParams`, `rail.group`, `Rail::group`) | same | — |
 | Mode | same | — |
 | Make a Workstream (`agent.makeWorkstream`, `Agents::make_workstream`) | Make a Workstream | — |
@@ -65,6 +66,10 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Contract fingerprint | same | — |
 | Door | none | meta-agent, parent agent, lead |
 | Subagent | same | child agent, sub-agent, meta-agent, parent agent |
+| Job | same | — |
+| Consult | same | — |
+| Stalled | stalled | — |
+| Settled note | none | — |
 | Digest | same | — |
 | Wake request (`agent.wake`) | same | — |
 | GitHub tool (`github.prGet`, `github.issueGet`, `github.prSetBody`, `github.prReady`, `github.prAutoMerge`; the Door's tools `github_pr_get`, `github_issue_get`, `github_pr_set_body`, `github_pr_ready`, `github_pr_auto_merge`) | same | — |

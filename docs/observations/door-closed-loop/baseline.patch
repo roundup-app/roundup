@@ -1,0 +1,468 @@
+diff --git a/crates/agents/tests/dcl_baseline.rs b/crates/agents/tests/dcl_baseline.rs
+new file mode 100644
+index 000000000..4885c5fec
+--- /dev/null
++++ b/crates/agents/tests/dcl_baseline.rs
+@@ -0,0 +1,28 @@
++//! First failing adapter assertions from DCL3; no vendor credentials or wall-clock wait.
++use agents::{AgentAdapter, Observation, claude_code::ClaudeCode};
++use contracts::Kind;
++use serde_json::json;
++
++#[test]
++fn dcl3_background_bash_monitor_and_task_hold_working() {
++    let mut shell = std::process::Command::new("sleep")
++        .arg("30")
++        .spawn()
++        .unwrap();
++    let mut adapter = ClaudeCode::new(|| 0);
++    adapter.observe(Observation::Signal(
++        json!({"hook_event_name":"UserPromptSubmit","prompt":"background work"}),
++    ));
++    adapter.observe(Observation::Signal(json!({"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"sleep 30","run_in_background":true}})));
++    adapter.observe(Observation::Signal(json!({"hook_event_name":"PostToolUse","tool_name":"Bash","tool_response":{"task_id":"dcl-shell","status":"running","output_file":"/tmp/dcl-shell.output"}})));
++    adapter.observe(Observation::Signal(json!({"hook_event_name":"Stop"})));
++    let live = shell.try_wait().unwrap().is_none();
++    shell.kill().unwrap();
++    shell.wait().unwrap();
++    assert!(live, "probe requires a live background shell at Stop");
++    assert_eq!(
++        adapter.status().unwrap().kind,
++        Kind::Working,
++        "DCL3 foreground Stop must not finish live background Bash"
++    );
++}
+diff --git a/crates/rupd/src/digest.rs b/crates/rupd/src/digest.rs
+index 6e3735296..e87c55cd0 100644
+--- a/crates/rupd/src/digest.rs
++++ b/crates/rupd/src/digest.rs
+@@ -284,0 +285,82 @@ mod tests {
++
++#[cfg(test)]
++mod dcl_baseline {
++    use super::*;
++    use std::os::unix::fs::PermissionsExt;
++    use std::sync::atomic::{AtomicI64, Ordering};
++
++    async fn call(daemon: &crate::Daemon, method: &str, params: Value) -> Value {
++        let reply = crate::tests::ask(
++            daemon,
++            &json!({"jsonrpc":"2.0","id":1,"method":method,"params":params}).to_string(),
++        )
++        .await;
++        assert!(reply.get("error").is_none(), "{reply}");
++        reply["result"].clone()
++    }
++
++    #[tokio::test]
++    async fn dcl5_inactive_turn_stalls_but_live_background_work_does_not() {
++        let dir = tempfile::tempdir().unwrap();
++        let fake = dir.path().join("fake-claude");
++        std::fs::write(&fake, "#!/bin/sh\nif [ \"$1\" = plugin ] && [ \"$2\" = test ]; then echo 'Q11 runtime hook closure: 1 pass'; exit 0; fi\nwhile read line; do :; done\n").unwrap();
++        std::fs::set_permissions(&fake, std::fs::Permissions::from_mode(0o755)).unwrap();
++        let rup = dir.path().join("rup");
++        std::fs::write(&rup, "").unwrap();
++        let clock = Arc::new(AtomicI64::new(0));
++        let reading = clock.clone();
++        let daemon = crate::Daemon::open_stores(dir.path(), dir.path(), |_| {
++            let bus = Bus::new();
++            let terminals = Arc::new(terminal::Terminals::open(dir.path(), bus.clone()).unwrap());
++            agents::Agents::open_in(
++                dir.path(),
++                dir.path(),
++                bus,
++                terminals,
++                agents::claude_code::Launcher::new(
++                    fake.to_str().unwrap(),
++                    dir.path().join("claude.json"),
++                    rup,
++                    None,
++                ),
++                agents::worktree::Git::from_env(),
++            )
++            .unwrap()
++            .with_clock(move || reading.load(Ordering::SeqCst))
++        })
++        .unwrap();
++        let door = call(
++            &daemon,
++            "rail.createWorkstream",
++            json!({"name":"inactive Door","parent":null}),
++        )
++        .await;
++        let node = call(&daemon, "rail.startDoor", json!({"id":door["id"]})).await;
++        for payload in [
++            json!({"hook_event_name":"SessionStart","session_id":"00000000-0000-4000-8000-000000000099"}),
++            json!({"hook_event_name":"UserPromptSubmit","prompt":"bounded job"}),
++        ] {
++            call(
++                &daemon,
++                "agent.signal",
++                json!({"id":door["id"],"attempt":node["attempt"],"payload":payload}),
++            )
++            .await;
++        }
++        let before = call(&daemon, "rail.tree", Value::Null).await;
++        assert_eq!(
++            before[0]["status"]["kind"], "working",
++            "probe needs a live working Door"
++        );
++        tokio::time::pause();
++        clock.store(600_001, Ordering::SeqCst);
++        tokio::time::advance(std::time::Duration::from_secs(31)).await;
++        let tree = call(&daemon, "rail.tree", Value::Null).await;
++        tokio::time::resume();
++        call(&daemon, "agent.stop", json!({"id":door["id"]})).await;
++        assert!(
++            tree.to_string().contains("stall"),
++            "DCL5 inactive Door must expose its own stall: {tree}"
++        );
++    }
++}
+diff --git a/crates/rupd/tests/b50_note_inbox.rs b/crates/rupd/tests/b50_note_inbox.rs
+index 6388a9457..10f605d02 100644
+--- a/crates/rupd/tests/b50_note_inbox.rs
++++ b/crates/rupd/tests/b50_note_inbox.rs
+@@ -61,0 +62,2 @@ fn launch(project: &Path, data: &Path) -> rupd_harness::Rupd {
++                .env("RUPD_MESSAGES_FAULT_FILE", project.join("fault"))
++                .env("RUPD_DIGEST_OBSERVER", project.join("comparisons"))
+@@ -920,0 +923,3 @@ mod explicit_restart;
++
++#[path = "support/dcl_baseline.rs"]
++mod dcl_baseline;
+diff --git a/crates/rupd/tests/support/dcl_baseline.rs b/crates/rupd/tests/support/dcl_baseline.rs
+new file mode 100644
+index 000000000..2c2edf999
+--- /dev/null
++++ b/crates/rupd/tests/support/dcl_baseline.rs
+@@ -0,0 +1,330 @@
++//! Initial failing DCL assertions; replay only, not the complete implementation suite.
++use super::*;
++
++async fn workstream(run: &Run) -> String {
++    run.user
++        .request(
++            "rail.createWorkstream",
++            json!({"name":"DCL work","parent":null}),
++        )
++        .await
++        .unwrap()["id"]
++        .as_str()
++        .unwrap()
++        .to_owned()
++}
++
++async fn ordered_child(run: &mut Run) -> String {
++    let door = workstream(run).await;
++    let caller = Client::connect(&run.daemon.socket).await.unwrap();
++    caller
++        .request(
++            "daemon.identify",
++            json!({"actor":{"kind":"agent","id":door}}),
++        )
++        .await
++        .unwrap();
++    let node = caller
++        .request(
++            "agent.spawn",
++            json!({"name":"bounded job","cwd":run.dir.path(),"role":"job"}),
++        )
++        .await
++        .unwrap();
++    run.child = node["id"].as_str().unwrap().to_owned();
++    run.terminal = node["terminal_id"].clone();
++    run.attempt = node["attempt"].clone();
++    run.ready().await;
++    run.signal(
++        json!({"hook_event_name":"UserPromptSubmit","prompt":"bounded outcome; report then end"}),
++    )
++    .await;
++    door
++}
++
++#[tokio::test]
++async fn dcl1_unreadable_transcript_exposes_delivery_failure() {
++    let run = Run::start().await;
++    // Invalid UTF-8 is a read failure even if malformed JSON lines become tolerant.
++    std::fs::write(run.dir.path().join("transcript.jsonl"), [0xff, b'\n']).unwrap();
++    run.signal(json!({"hook_event_name":"Stop"})).await;
++    let id = run.note("retain unreadable-transcript message").await;
++    assert_eq!(run.status(id).await.0, "pending");
++    let row = run.rail_node().await;
++    assert!(
++        row.to_string().contains("can't reach"),
++        "DCL1 missing actionable delivery failure: {row}"
++    );
++}
++
++#[tokio::test]
++async fn dcl5_kill_reports_owned_open_todos_without_reassigning() {
++    let mut run = Run::open(1, false).await;
++    let door = ordered_child(&mut run).await;
++    let mut owned = Vec::new();
++    for i in 0..7 {
++        owned.push(
++            run.user
++                .request(
++                    "todo.create",
++                    json!({"title":format!("owned {i}"),"owner":{"kind":"agent","id":run.child}}),
++                )
++                .await
++                .unwrap(),
++        );
++    }
++    for i in 0..14 {
++        run.user
++            .request("todo.create", json!({"title":format!("unassigned {i}")}))
++            .await
++            .unwrap();
++    }
++    let session = std::fs::read_dir(run.sessions())
++        .unwrap()
++        .map(Result::unwrap)
++        .find(|f| f.path().extension().is_some_and(|e| e == "json"))
++        .unwrap();
++    let listing: Value = serde_json::from_slice(&std::fs::read(session.path()).unwrap()).unwrap();
++    assert!(
++        std::process::Command::new("kill")
++            .arg("-KILL")
++            .arg(listing["pid"].as_u64().unwrap().to_string())
++            .status()
++            .unwrap()
++            .success()
++    );
++    until("killed child reaped", async || {
++        matches!(run.rail_status().await.as_str(), "done" | "error").then_some(())
++    })
++    .await;
++    // Observe for one supervisor pass plus 1s scheduling tolerance. No additional event repairs it.
++    let found = tokio::time::timeout(Duration::from_secs(31), async {
++        loop {
++            let notes = run
++                .user
++                .request("message.list", json!({"to":door}))
++                .await
++                .unwrap();
++            if notes.as_array().unwrap().iter().any(|m| {
++                let body = m["body"].as_str().unwrap();
++                body.contains("7 open") && body.contains("no report")
++            }) {
++                break;
++            }
++            tokio::time::sleep(Duration::from_millis(20)).await;
++        }
++    })
++    .await;
++    let todos = run.user.request("todo.list", Value::Null).await.unwrap();
++    for todo in owned {
++        assert!(
++            todos
++                .as_array()
++                .unwrap()
++                .iter()
++                .any(|t| t["id"] == todo["id"] && t["owner"] == todo["owner"])
++        );
++    }
++    assert!(
++        found.is_ok(),
++        "DCL5 no ending note naming seven owned open Todos and no report within 31s"
++    );
++}
++
++#[tokio::test]
++async fn dcl9_idle_job_without_report_is_actionable_consult_idle_is_rest() {
++    let mut run = Run::open(1, false).await;
++    let door = ordered_child(&mut run).await;
++    run.signal(json!({"hook_event_name":"Stop"})).await;
++    let found = tokio::time::timeout(Duration::from_secs(31), async {
++        loop {
++            let notes = run
++                .user
++                .request("message.list", json!({"to":door}))
++                .await
++                .unwrap();
++            if notes
++                .as_array()
++                .unwrap()
++                .iter()
++                .any(|m| m["body"].as_str().unwrap().contains("no report"))
++            {
++                break;
++            }
++            tokio::time::sleep(Duration::from_millis(20)).await;
++        }
++    })
++    .await;
++    assert!(
++        found.is_ok(),
++        "DCL9 idle Job without current report produced no actionable stop fact within 31s"
++    );
++}
++
++#[tokio::test]
++async fn dcl8_stopped_and_crashed_door_keep_backlog_across_restart() {
++    let mut run = Run::open(1, false).await;
++    run.child = workstream(&run).await;
++    let node = run
++        .user
++        .request("rail.startDoor", json!({"id":run.child}))
++        .await
++        .unwrap();
++    run.terminal = node["terminal_id"].clone();
++    run.attempt = node["attempt"].clone();
++    run.ready().await;
++    run.signal(json!({"hook_event_name":"UserPromptSubmit","prompt":"busy Door"}))
++        .await;
++    let first = run.note("first original identity").await;
++    let second = run.note("second original identity").await;
++    assert_eq!(run.status(first).await.0, "pending");
++    run.user
++        .request("agent.stop", json!({"id":run.child}))
++        .await
++        .unwrap();
++    // First required boundary; failure here deliberately precedes crash/restart.
++    for id in [first, second] {
++        assert_eq!(
++            run.status(id).await.0,
++            "pending",
++            "DCL8 stopping Door must preserve original {id}"
++        );
++    }
++}
++
++#[tokio::test]
++async fn dcl4_burst_crash_at_each_delivery_boundary_replays_all_facts() {
++    let mut run = Run::open(1, false).await;
++    let door = ordered_child(&mut run).await;
++    let running = run
++        .user
++        .request("rail.startDoor", json!({"id":door}))
++        .await
++        .unwrap();
++    until("Door fake program ready", async || {
++        let screen = run
++            .user
++            .request(
++                "terminal.read",
++                json!({"id":running["terminal_id"],"after":0}),
++            )
++            .await
++            .unwrap();
++        screen["text"]
++            .as_str()
++            .unwrap()
++            .contains("READY")
++            .then_some(())
++    })
++    .await;
++    run.user.request("agent.signal", json!({"id":door,"attempt":running["attempt"],"payload":{"hook_event_name":"UserPromptSubmit","prompt":"busy Door"}})).await.unwrap();
++    // Refuse publication after the authoritative Todo writes. Kill at the first boundary:
++    // stored fact, no durable Message. Later boundaries remain implementation obligations.
++    std::fs::write(run.dir.path().join("fault"), "push").unwrap();
++    let child = Client::connect(&run.daemon.socket).await.unwrap();
++    child
++        .request(
++            "daemon.identify",
++            json!({"actor":{"kind":"agent","id":run.child,"parent":door}}),
++        )
++        .await
++        .unwrap();
++    for i in 0..100 {
++        child
++            .request(
++                "todo.create",
++                json!({"title":format!("burst {i}"),"owner":{"kind":"agent","id":run.child}}),
++            )
++            .await
++            .unwrap();
++    }
++    until(
++        "all stored facts compared before killing Daemon",
++        async || {
++            std::fs::read_to_string(run.dir.path().join("comparisons"))
++                .unwrap_or_default()
++                .lines()
++                .filter_map(|s| serde_json::from_str::<Value>(s).ok())
++                .any(|v| v["todos"].as_array().is_some_and(|t| t.len() == 100))
++                .then_some(())
++        },
++    )
++    .await;
++    assert!(
++        std::fs::read_to_string(run.dir.path().join("rupd.err"))
++            .unwrap()
++            .contains("injected failure in push"),
++        "publication fault must actually fire before the kill"
++    );
++    run.daemon.child.kill().unwrap();
++    run.daemon.child.wait().unwrap();
++    std::fs::remove_file(&run.daemon.socket).unwrap();
++    std::fs::remove_file(run.dir.path().join("fault")).unwrap();
++    run.daemon = launch(run.dir.path(), run.data.path());
++    run.user = Client::connect(&run.daemon.socket).await.unwrap();
++    let found = tokio::time::timeout(Duration::from_secs(31), async {
++        loop {
++            let messages = run
++                .user
++                .request("message.list", json!({"to":door}))
++                .await
++                .unwrap();
++            if messages
++                .as_array()
++                .unwrap()
++                .iter()
++                .any(|m| m["body"].as_str().unwrap().contains("open todos: 100"))
++            {
++                break;
++            }
++            tokio::time::sleep(Duration::from_millis(20)).await;
++        }
++    })
++    .await;
++    assert!(
++        found.is_ok(),
++        "DCL4 startup plus one supervisor pass lost stored burst before Message publication"
++    );
++}
++
++#[tokio::test]
++async fn dcl1_previous_read_and_write_errors_keep_original_pending_batch_previous_read() {
++    let run = Run::start().await;
++    let path = run.dir.path().join("transcript.jsonl");
++    if path.exists() {
++        std::fs::remove_file(&path).unwrap();
++    }
++    std::fs::create_dir(&path).unwrap();
++    let id = run.note("previous-entry read fault").await;
++    assert_eq!(run.status(id).await.0, "pending");
++    let row = run.rail_node().await;
++    assert!(
++        row.to_string().contains("can't reach"),
++        "DCL1 previous-entry read failure is silent: {row}"
++    );
++}
++
++#[tokio::test]
++async fn dcl1_previous_read_and_write_errors_keep_original_pending_batch_write() {
++    let run = Run::start().await;
++    // Preserve the live, listed session and canonical path, but make the transport refuse connections.
++    let session = std::fs::read_dir(run.sessions())
++        .unwrap()
++        .map(Result::unwrap)
++        .find(|f| f.path().extension().is_some_and(|e| e == "json"))
++        .unwrap();
++    let listing: Value = serde_json::from_slice(&std::fs::read(session.path()).unwrap()).unwrap();
++    std::fs::remove_file(listing["messagingSocketPath"].as_str().unwrap()).unwrap();
++    std::fs::write(
++        listing["messagingSocketPath"].as_str().unwrap(),
++        "refused transport",
++    )
++    .unwrap();
++    let id = run.note("inbox transport write fault").await;
++    assert_eq!(run.status(id).await.0, "pending");
++    let row = run.rail_node().await;
++    assert!(
++        row.to_string().contains("can't reach"),
++        "DCL1 inbox write failure has no actionable cause: {row}"
++    );
++}

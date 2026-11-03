@@ -1,5 +1,4 @@
 import { openTabs, path } from "../header/stripFixture";
-import { projectMenu, openProjectPage } from "../testing/menuProbe";
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { agent, info, workstream } from "../testing/nodes";
@@ -73,18 +72,16 @@ it("u4547e_failed_or_cancelled_move_keeps_the_original_home", async () => {
   await waitFor(() => expect(railCallsTo(m.app, "rail.move")).toEqual([{ id: "free", parent: "Research", index: 0 }, { id: "free", parent: "Research", index: 0 }]));
 });
 
-it("u4547e_native_menu_uses_the_focused_rail_scope", async () => {
+it("u4547e_move_key_uses_the_focused_rail_scope", async () => {
   const { app } = await openTabs({ p: tree() });
   const daemon = app.of(path("p"));
   rowOf("free").focus();
-  await waitFor(() => expect(projectMenu.items.find(item => item.id === "action:chord:M")).toMatchObject({ enabled: true }));
-  openProjectPage("action:chord:M", path("p"));
+  fireEvent.keyDown(rowOf("free"), { key: "m", code: "KeyM" });
   const input = await screen.findByRole("combobox");
   fireEvent.keyDown(input, { key: "Escape", code: "Escape" });
   await waitFor(() => expect(document.activeElement).toBe(rowOf("free")));
   const ask = screen.getByRole("textbox", { name: "Ask" });
   ask.focus();
-  await waitFor(() => expect(projectMenu.items.some(item => item.id === "action:chord:M" && item.enabled)).toBe(false));
   expect(fireEvent.keyDown(ask, { key: "m", code: "KeyM" })).toBe(true);
   expect(railCallsTo(daemon, "rail.move")).toEqual([]);
 });

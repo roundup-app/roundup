@@ -2,7 +2,6 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/te
 import { afterEach, expect, it } from "vitest";
 import { App } from "../App";
 import { seedApp } from "../testing/seeds";
-import { projectMenu } from "../testing/menuProbe";
 import { fakeEmulators } from "../terminal/paneHarness";
 import { railCallsTo } from "./railFixture";
 
@@ -19,8 +18,6 @@ it.each([
   const empty = await screen.findByRole("group", { name: "No Agents yet" });
   expect(railCallsTo(app, "rail.createWorkstream")).toEqual([]);
   expect(railCallsTo(app, "agent.spawn")).toEqual([]);
-
-  await waitFor(() => expect(projectMenu.items.find(item => item.id === "action:chord:⇧⌘N")?.label).toBe("New Workstream"));
 
   if (keyboard) fireEvent.keyDown(document, { key: "n", code: "KeyN", metaKey: true, shiftKey: method === "rail.createWorkstream" });
   else fireEvent.click(within(empty).getByRole("button", { name: method === "rail.createWorkstream" ? "New Workstream" : "New Agent" }));

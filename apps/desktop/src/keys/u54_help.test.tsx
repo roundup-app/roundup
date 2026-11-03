@@ -5,7 +5,7 @@ import { rowOf } from "../rail/railFixture";
 import { createFakeApp } from "../testing/fakeApp";
 import { agent, door } from "../testing/nodes";
 import type { EmulatorFactory } from "../terminal/emulator";
-import { CHORDS, pressOf } from "./chords";
+import { CHORDS, LEADER, pressOf } from "./chords";
 import { endLeader } from "./registry";
 
 afterEach(cleanup);
@@ -142,9 +142,9 @@ const boundPresses = async (from: Element, modSets: readonly KeyboardEventInit[]
 };
 
 describe("u54 keyboard help", () => {
-  // U2241's rendered-list proof is u54_question_mark_in_the_rail_opens_help_listing_each_chord_and_esc_returns_focus;
+  // U2241's rendered-list proof is u5919c_help_keeps_commands_removed_from_project;
   // u480_u54_help_stays_in_step_with_the_chords_bound_in_the_webview and u2241_no_other_chord_is_taken_at_app_scope retain the binding boundary.
-  it("u54_question_mark_in_the_rail_opens_help_listing_each_chord_and_esc_returns_focus", async () => {
+  it("u5919c_help_keeps_commands_removed_from_project", async () => {
     await open();
     rowOf("a").focus();
 
@@ -155,8 +155,16 @@ describe("u54 keyboard help", () => {
 
     expect(panel).not.toBeNull();
 
+    const shown = [...panel!.querySelectorAll(".key-chips")].map(chip => chip.textContent);
+
+    // U5919c: Help keeps the full inventory, independently of Project membership.
+    for (const row of CHORDS.filter(row => !row.inFirstRun && row.name !== "terminal.find")) {
+      expect(shown, row.name).toContain(row.keys);
+    }
+
+    for (const row of LEADER) expect(shown, row.name).toContain(`⌘K ${row.keys}`);
+
     expect(within(panel!).queryByText(/Choose folder/)).toBeNull();
-    expect([...panel!.querySelectorAll(".key-chips")].map(chip => chip.textContent)).toEqual(expect.arrayContaining(["⌃⌘J", "⌘K J", "⌘K ⇧J"]));
     await waitFor(() => expect(document.activeElement).toBe(panel));
     fireEvent.keyDown(document.activeElement!, { key: "Escape" });
 

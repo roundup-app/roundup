@@ -22,6 +22,7 @@ export const storageCopy = {
 const openProjectRetry = "Use Open Project to try again.";
 
 export const copy = {
+  projectMenuLabel: (name: string, fallback: string) => name === "agent.new-with-prompt" ? "New Agent with a Prompt…" : name === "attention.jump" ? "Jump to What Needs You" : name === "leader.changes" ? "Review Changes" : name === "project.choose-folder" ? "Open Folder…" : fallback,
   openProjectRetry,
   openProjectFailed: "Opening failed",
   /** @prose */
@@ -40,7 +41,6 @@ export const copy = {
   resources: sharedCopy.resources,
   switchProject: sharedCopy.switchProject,
   closeView: sharedCopy.closeView,
-  showView: (name: string, open: boolean) => `${open ? "Hide" : "Show"} ${name}`,
   rpcFailure: sharedCopy.rpcFailure,
   deliverables: sharedCopy.deliverables,
   dismissFailure: sharedCopy.dismissFailure,
@@ -85,10 +85,8 @@ export const copy = {
   shelfLabel: sharedCopy.shelfLabel,
   switcherPlaceholder: sharedCopy.switcherPlaceholder,
   noMatch: sharedCopy.noMatch,
-  restartModeInRail: "Restart · Rail",
   pasteFailedTheClipboardHoldsAnImageWhich: "Paste failed: The clipboard contains an image instead of text. Save the image, then drop its file on the pane.",
   failed: sharedCopy.failed,
-  assignTo: (name: CopyValue) => name ? `Assign to ${name}` : "Assign to",
   paste: "Paste",
   clipboardDataUnavailable: "Clipboard data is unavailable.",
   clipboardRetry: "Try again, or copy the content in its source app again.",
@@ -97,7 +95,6 @@ export const copy = {
   centreRegion: "Centre",
   thatIsGone: sharedCopy.thatIsGone,
   daemonExit: (exit: string) => `Disconnected: ${exit}`,
-  moveToInRail: "Move · Rail",
 } as const;
 
 export const menuBarCopy = {
