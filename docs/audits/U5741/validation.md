@@ -631,3 +631,64 @@ The second concurrent advance only appended its completed validation/cleanup rec
 `loop/rules.sh merge-loss` initially returned 1 because the two follow-up files first appeared through a merge commit. A normal own commit now records useful image SHA-256 values and the explicit driver-to-archive path mapping in those files; no evidence is discarded. Final merge-loss is checked again before push.
 
 Combined-head verification after both concurrent integrations: `just ready` completed with exit 0, including all 193 lint-behavior checks, package typechecks, repository/Rust lints, B4522, formal proofs (`ALL PROOFS CHECK`) and N7. Both source catalogues (41 and 38 entries), both exact observer archives, all 31 snapshots and every recorded Check set verify. The nineteen independent image hashes match the retained media. Final standalone spelling, vocabulary, scenario ids, merge-loss and whitespace pass. The scope addition for the two follow-up evidence files was validated with loop/orders.py (0) and recorded on #5758. No behavior tests changed and no local just check ran.
+
+## Pad editing continuation — builder-41616125355
+
+Audited main `93982da434256d5942ead8db7e4efd38710e9ebd`. Documentation only. `pads.md` records independent list/document/recovery/formatting decisions and explicit unfinished comparisons. `catalogues/pads-source.json` retains 48 source archives/hashes, four full direction replies, prior actual fourteen-tool Pad lists for each role and exact current declaration lines. Earlier runtime evidence is not repinned. The archived replay opens the actual production Pad components on the existing fake-Daemon harness, never a user's browser or native App.
+
+| Command / observer | Exit | Result |
+| --- | ---: | --- |
+| `python3 loop/orders.py check /tmp/issue5758-scope.md` then Issue edit | 0 each | Exact evidence scope recorded before writing files. |
+| `pnpm install --frozen-lockfile` | 0 | Installed pinned dependencies in this run's own worktree. |
+| `agent-browser skills get core` | 0 | Read isolation and command guidance before browser work. |
+| `python3 /tmp/pads-observer.py` | 0 | Nine fresh dark 1512×950 openings; every recorded Check passes, including D2/D5/D6. Actual snapshots, fake calls, full rejected-save diagnostic and image hashes retained. Source/script archives permit replay. |
+| `python3 /tmp/pads-catalogue.py` | 0 | Inspected bytes equal git blobs on audited SHA; exact prior role offers and full direction replies retained. |
+
+The browser replay proves webview offers and actions only. It does not prove native chooser/clipboard, vendor behavior or storage reopening. The save failure is deliberately injected and never reported as an ordinary-path defect. The full diagnostic is visible in the captured maximised editor. No product behavior/test changed, so no behavior test or report-wording test was added. No local `just check`, whole crate or whole Vitest suite ran.
+
+| Failed command / observer | Exit | Disposition |
+| --- | ---: | --- |
+| Initial `pwd && … && ls -d .codegraph .claude/sound` | 2 | Optional codegraph absent; sound rules available. Used ordinary source discovery. |
+| `rg … testing/fixtures.ts` | 2 | Guessed fixture module absent; inspected actual seeds.ts/stores.ts and existing browser observers. |
+| First `just harness tree-40 5261` | 254 | Install had not finished, Vite unavailable; completed install and relaunched isolated server successfully. |
+| `just capture U5741` | 1 | Capture registry rejects unsupported id before tests. No suite ran. Dedicated archived headless harness observer supplies the nine openings; no registry or frozen-loop change. |
+| `pgrep -af 'vitest\|just capture\|pnpm -r'` | 1 | No leftover matching process after unsupported capture. |
+
+No owner choices requested, deletion authorized or complete-inventory claim made. Continue Todo/Pad conditional/library controls, Made, other worklist gaps, exact comparisons and final current all-feature/runtime reconciliation before the single complete owner request. Older owner Project reopening is mandatory for every selected persisted retirement.
+
+| Additional observer failure | Exit / status | Disposition |
+| --- | --- | --- |
+| `python3 tools/lint/scan.py typos` (two early standalone attempts) | 2 each | Pinned spelling executable not installed yet; ran `python3 tools/lint/setup.py web` before repeating. |
+| Primary Apple tables page, regional URL | HTTP 429 | Full canonical Apple page opened successfully; report cites that page. No equivalence claim rests only on a search excerpt. |
+
+| Final evidence check | Exit | Result |
+| --- | ---: | --- |
+| Source/archive/snapshot/image verification | 0 | All 48 archived source files equal audited git blobs; all nine snapshots and image hashes agree; every recorded Check passes. 52 unique decision row ids. |
+| Vocabulary, scenario ids, merge-loss, whitespace | 0 each | No unmatched id, merge loss or whitespace defect. Self-review corrected MCP camel-case suffixes, actual Wide label and the local-only Pad width choice. |
+| `python3 tools/lint/setup.py web` / final spelling scan | 0 each | Installed pinned tools; no new spelling debt. |
+| Browser close | 0 | Only this run's dedicated session closed; nine captures copied to workflow checkout under `artifacts/ux/U5741/pads/`, uncommitted. |
+| Harness deliberate shutdown | Vite 143, wrapper 1 | Sent SIGTERM only to this run's Vite process after captures; not a failed opening or product defect. |
+
+| Required local check | Exit | Result |
+| --- | ---: | --- |
+| `just ready` | 0 | B4522 migration guard and its nine tests, all 193 lint-behavior fixtures, web/package type checks, repository/Rust lints, formal proof command/mutation checks (`ALL PROOFS CHECK`) and N7 pass. Documentation diff reaches no Rust crate, so clippy is correctly skipped by the existing affected-path check. No local `just check` or additional behavior suite. |
+
+## Pad disclosure correction — builder-41620937179
+
+The earlier Pad replay and integrity rows establish nine retained records, not nine successful openings. `agent-details-open` retains a closed For Agents disclosure (`aria-expanded="false"`); visible text and the accessibility snapshot equal `maximised-width`. The click returned 0, but the driver never asserted expansion. PF22/PF27/PF28 are now explicitly source-only and their expanded-body/editing-field observations unverified. An appended correction in `rendered-pads.json` references that record without altering its DOM, snapshot, commands or Check readings. No recapture or product behavior pass is claimed.
+
+| Failed observer | Exit / status | Disposition |
+| --- | --- | --- |
+| For Agents expansion in archived `python3 /tmp/pads-observer.py` replay | Command 0; intended opening unverified | Closed disclosure retained; layout Checks do not prove expansion. Recapture must assert the open details element, expanded summary and visible label input/body textarea before claiming PF22/PF27/PF28 rendered coverage. |
+
+| Fix verification | Exit | Result |
+| --- | ---: | --- |
+| `pnpm install --frozen-lockfile` | 0 | Pinned dependencies installed in the isolated fix worktree. |
+| Archived-record comparison against rejected head | 0 | All original records and commands unchanged; closed summary and identical visible text/snapshot confirmed; all three rows explicitly unverified. |
+| Merge `origin/main` | 0 | Integrated current main without conflicts; no resolution changes. |
+| `just ready` | 0 | Migration guard, lint fixtures, package type checks, repository/Rust lints, formal proofs (`ALL PROOFS CHECK`) and N7 pass. No changed behavior test or local `just check`. |
+| Vocabulary, scenario ids, merge-loss, whitespace | 0 each | All pass after integration; self-review found no duplicated concept or naming drift. |
+
+| Verification-note failure | Exit | Disposition |
+| --- | ---: | --- |
+| `python3 tools/lint/scan.py typos` (two attempts after final note) | 1 each | The abbreviated main commit hash was flagged as a spelling error. Removed the unnecessary abbreviation; the merge commit retains its exact parent. Repeated spelling scan passes. |
