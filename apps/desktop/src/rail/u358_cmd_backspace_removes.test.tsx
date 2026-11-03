@@ -1,6 +1,6 @@
 import { RpcError } from "../app/seam";
 import { questionDialog, answerQuestion } from "../shelf/bulkQuestionHarness";
-import { questionProbe } from "../testing/menuProbe";
+import { menuProbe, questionProbe } from "../testing/menuProbe";
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import type { FakeApp } from "../testing/fakeApp";
@@ -149,5 +149,55 @@ describe("u358 cmd backspace removes the selected Rail row", () => {
     await tick();
 
     expect(removals(app)).toEqual([]);
+  });
+
+  /** U2694g's right-button sequence, then the native menu dismissed. */
+  const contextClickAndDismiss = async (id: string) => {
+    const target = rowOf(id);
+    const event = (type: string, buttons: number) => target.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, button: 2, buttons, clientX: 10, clientY: 10 }));
+
+    event("pointerdown", 2);
+    event("mousedown", 2);
+    event("contextmenu", 2);
+    event("pointerup", 0);
+    event("mouseup", 0);
+    await waitFor(() => expect(menuProbe.answer).not.toBeNull());
+    menuProbe.answer!(null);
+    await tick();
+  };
+
+  const dismissedMenu = async () => {
+    const mounted = await mount([agent("a", "idle", "x"), agent("b", "idle", "x"), agent("c", "idle", "x")]);
+
+    mounted.rail.select("a");
+    rowOf("a").focus();
+    menuProbe.count = 0;
+    menuProbe.answer = null;
+    await contextClickAndDismiss("b");
+
+    return mounted;
+  };
+
+  it("u5951a_dismissed_menu_keeps_its_row_selected_and_focused", async () => {
+    const { app } = await dismissedMenu();
+
+    expect(menuProbe.count).toBe(1);
+    expect(rowOf("b").getAttribute("aria-selected") ?? rowOf("b").closest("[role=treeitem]")?.getAttribute("aria-selected")).toBe("true");
+    expect(rowOf("a").closest("[role=treeitem]")?.getAttribute("aria-selected")).not.toBe("true");
+    expect(document.activeElement).toBe(rowOf("b"));
+    expect(app.calls.filter(call => /^(rail\.remove|terminal\.(open|write)|agent\.(spawn|resume))$/.test(call.method))).toEqual([]);
+    expect(questionProbe.count).toBe(0);
+  });
+
+  it("u5951a_removal_after_menu_dismissal_selects_and_focuses_next_row", async () => {
+    const { app, rail } = await dismissedMenu();
+
+    fireEvent.keyDown(document.activeElement!, CMD_BACKSPACE);
+    await answerQuestion(true);
+
+    await waitFor(() => expect(removals(app)).toEqual([{ id: "b" }]));
+    await waitFor(() => expect(rail.selected()).toBe("c"));
+    expect(document.activeElement).toBe(rowOf("c"));
+    expect(rowOf("c").closest("[role=treeitem]")?.getAttribute("aria-selected")).toBe("true");
   });
 });
