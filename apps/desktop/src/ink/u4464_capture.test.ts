@@ -302,7 +302,7 @@ it.skipIf(!captureDir("U5740a"))("u5740a_capture_remaining_app_surfaces", { time
       await lane.capture("U5740a", `${seed}-menu-made`);
       await lane.browser("fill", ".ask-input", "keep exact unfinished 🧭  ");
       await lane.browser("focus", "[data-todo-root]");
-      await lane.browser("press", "?");
+      await lane.browser("press", "Shift+?");
       await lane.until("!!document.querySelector('.help')");
       await lane.capture("U5740a", `${seed}-help`);
       await lane.browser("press", "Escape");
