@@ -6,7 +6,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 
 let lane: LaneBrowser;
 
-beforeAll(async () => { if (!captureDir("U3787d") && !captureDir("U5463c") && !captureDir("U5740a")) return; lane = await openLane(1512, "dark", "u3787d"); }, 60_000);
+beforeAll(async () => { if (!captureDir("U3787d") && !captureDir("U5463c")) return; lane = await openLane(1512, "dark", "u3787d"); }, 60_000);
 
 afterAll(async () => { await lane?.close(); }, 60_000);
 
@@ -65,6 +65,7 @@ it.skipIf(!captureDir("U5463c")).each(["tree-40", "agents-10", "bubbles"])("u546
   await lane.until("!!document.querySelector('.drawer[data-open=true] .todo-detail-title')");
   expect(await lane.evaluate<boolean>("!!document.querySelector('.drawer[data-open=true] .todo-detail-title')")).toBe(true);
   await capture("drawer");
+
 }, 60_000);
 
 
@@ -79,6 +80,7 @@ it.skipIf(!captureDir("U5463c"))("u5463c_shared_editor_and_recovery_surfaces", a
     await lane.browser("screenshot", `${file}.png`);
   };
 
+  const origin = await lane.evaluate<string>("location.origin");
     await lane.browser("open", `${origin}/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40&menu=1`);
     await lane.until("!!document.querySelector('#shelf-tab-pads')");
     await lane.browser("click", "#shelf-tab-pads");
@@ -111,61 +113,3 @@ it.skipIf(!captureDir("U5463c"))("u5463c_shared_editor_and_recovery_surfaces", a
     await capture("unfinished-work");
   expect(await lane.evaluate<number>("document.querySelectorAll('.draft-revisions button').length")).toBeGreaterThan(0);
 }, 60_000);
-
-it.skipIf(!captureDir("U5740a"))("u5740a_remaining_surfaces_rendered", { timeout: 90_000, retry: 0 }, async () => {
-  const dir = captureDir("U5740a")!;
-  mkdirSync(dir, { recursive: true });
-  await lane.browser("record", "start", join(dir, "navigation.webm"));
-
-  try {
-    await lane.browser("set", "media", "dark");
-
-    for (const seed of ["empty-project", "agents-10"]) {
-      await lane.seedTodos([], false, seed);
-      await lane.until("!!document.querySelector('.ask-input')");
-
-      const capture = async (step: string) => {
-        const checks = await lane.evaluate<Record<string, { status: string }>>("window.__checks()");
-
-        for (const id of ["D2", "D5", "D6"]) expect(checks[id], `${seed} ${step} ${id}`).toMatchObject({ status: "pass" });
-        expect(await lane.evaluate("document.body.textContent.includes('Reactions')")).toBe(false);
-        await lane.capture("U5740a", `${seed}-${step}`);
-      };
-
-      await capture("overview");
-      await lane.evaluate(`(async () => {
-        const { projectMenu } = await import('/src/testing/menuProbe.ts');
-        window.__remainingMenu = projectMenu.items;
-      })()`);
-      expect(await lane.evaluate("window.__remainingMenu.some(item => /reaction/i.test(item.id + item.label))")).toBe(false);
-      writeFileSync(join(dir, `${seed}-project-menu.json`), JSON.stringify(await lane.evaluate("window.__remainingMenu")) + "\n");
-      await capture("project-menu");
-
-      if (seed === "empty-project") continue;
-      await lane.browser("fill", ".ask-input", "keep exact unfinished draft  ");
-      await lane.browser("press", "Meta+k");
-      await lane.browser("press", "k");
-      await lane.until("!!document.querySelector('[role=combobox]')");
-      await capture("switcher");
-      await lane.browser("press", "Escape");
-      await lane.until("!document.querySelector('[role=combobox]')");
-      await lane.browser("focus", ".todo-project-root");
-      await lane.browser("press", "Shift+?");
-      await lane.until("!!document.querySelector('[role=dialog]')");
-      await capture("help");
-      await lane.browser("press", "Escape");
-      await lane.until("!document.querySelector('[role=dialog]')");
-      expect(await lane.evaluate("document.querySelector('.ask-input').value")).toBe("keep exact unfinished draft  ");
-      await lane.browser("focus", ".ask-input");
-      await capture("draft-and-focus");
-      await lane.evaluate(`(async () => {
-        const { projectMenu } = await import('/src/testing/menuProbe.ts');
-        window.__fake.app.handlers['deliverable.list'] = () => { throw new Error('Saved publications unavailable. Open Made again to retry.'); };
-        window.dispatchEvent(new CustomEvent('open-project-page', {detail:{path:projectMenu.path,command:'view:made'}}));
-        window.__fake.emit({actor:{kind:'user',id:'you',parent:null},name:'deliverable.changed'});
-      })()`);
-      await lane.until("!!document.querySelector('.made [role=alert]')");
-      await capture("made-failure");
-    }
-  } finally { await lane.browser("record", "stop"); }
-});

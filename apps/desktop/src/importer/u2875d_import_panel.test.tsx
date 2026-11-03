@@ -1,5 +1,6 @@
-import { join } from "node:path";
+import { appServer } from "../testing/appServer";
 import { copyFile, mkdir, writeFile } from "node:fs/promises";
+import { join } from "node:path";
 import { openProjectPage } from "../testing/menuProbe";
 import { openLane } from "../todos/laneBrowser";
 import { captureDir } from "../testing/captures";
@@ -361,6 +362,7 @@ it.skipIf(!captureDir("U3299a")).each(["names", "retention"] as const)("u5014a_u
         for (const node of tree) { if (node.id === 'migrate' || node.id === 'tokens') node.name = 'Review'; }
         tree.find(node => node.id === 'tokens').work = {kind:'work',title:'Orchard release',ask:'Review the retained work',done:'Release checked',limits:[]};
         app.handlers['rail.tree'] = () => tree;
+        app.handlers['message.get'] = () => ({id:42,from:{kind:'user',id:'you',parent:null},to:'migrate',body:'Exact accepted instruction /Users/authored/path',kind:'note',replyTo:null,status:'kept',reason:'receiver gone',at:0});
         app.handlers['deliverable.list'] = () => [7,9].map(revision => ({id:'published-'+revision,project:'original-project',title:'Orchard report',maker:{kind:'agent',id:'removed-maker',parent:null},maker_name:'Review',home:'backend',published_at:1792713600000,target:{kind:'pad',name:'Authored report',incarnation:'original-incarnation',revision,length:10,sha256:'original-hash-'+revision}}));
         window.__fake.emit({actor:{kind:'user',id:'you',parent:null},name:'rail.changed'});
         window.__fake.emit({actor:{kind:'user',id:'you',parent:null},name:'deliverable.changed'});
@@ -631,11 +633,9 @@ it("u3791b_copy_depends_on_codes_not_messages_import_refusals", async () => {
 });
 
 it.skipIf(!captureDir("U5558a"))("u5558e_open_surfaces_update_and_keep_failed_reads", async () => {
-  const lane = await openLane(1512, "dark", "u5558");
-  const { browser, evaluate } = lane;
-  const wait = lane.until;
-  await lane.seedTodos([], false, "agents-10");
-  const origin = await evaluate<string>("location.origin");
+  const server = await appServer();
+  const lane = await openLane(1512, "dark", "u5558", false, null);
+  const { browser, evaluate, until: wait } = lane;
 
   const capture = async (id: string, step: string) => {
     const dir = captureDir(id);
@@ -657,7 +657,7 @@ it.skipIf(!captureDir("U5558a"))("u5558e_open_surfaces_update_and_keep_failed_re
   try {
     await browser("set", "viewport", "1512", "950");
     await browser("set", "media", "dark");
-    await browser("open", `${origin}/harness.html?view=workstreams&items=1&tabs=1&view=made&seed=agents-10`);
+    await browser("open", `${server.resolvedUrls.local[0]}harness.html?view=workstreams&items=1&tabs=1&view=made&seed=agents-10`);
     await wait("!!window.__fake");
     await browser("record", "start", video);
     recording = true;
@@ -667,7 +667,7 @@ it.skipIf(!captureDir("U5558a"))("u5558e_open_surfaces_update_and_keep_failed_re
 
     for (const seed of ["agents-10", "tree-40"]) {
       if (seed === "tree-40") {
-        await browser("open", `${origin}/harness.html?view=workstreams&items=1&tabs=1&view=made&seed=${seed}`);
+        await browser("open", `${server.resolvedUrls.local[0]}harness.html?view=workstreams&items=1&tabs=1&view=made&seed=${seed}`);
         await wait("!!window.__fake && !!document.querySelector('.ask-input')");
       }
 
@@ -702,7 +702,7 @@ it.skipIf(!captureDir("U5558a"))("u5558e_open_surfaces_update_and_keep_failed_re
     expect(await evaluate("document.querySelectorAll('[data-deliverable]').length")).toBe(2);
     await capture("U5558e", "made-reload-failed");
 
-    await browser("open", `${origin}/harness.html?seed=agents-10&tabs=1`);
+    await browser("open", `${server.resolvedUrls.local[0]}harness.html?seed=agents-10&tabs=1`);
     await wait("!!window.__fake && !!document.querySelector('.ask-input')");
     await evaluate(`(async () => {
       const app = window.__fake.app;
@@ -730,7 +730,7 @@ it.skipIf(!captureDir("U5558a"))("u5558e_open_surfaces_update_and_keep_failed_re
     await capture("U5558e", "import-reload-failed");
 
     await evaluate("localStorage.clear()");
-    await browser("open", `${origin}/src/changes/u2540.html`);
+    await browser("open", `${server.resolvedUrls.local[0]}src/changes/u2540.html`);
     await wait("!!document.querySelector('.worktree-control')");
     await browser("click", ".worktree-control");
     await wait("!!document.querySelector('file-tree-container')?.shadowRoot?.querySelector('[data-item-type=file]')");
@@ -774,6 +774,6 @@ it.skipIf(!captureDir("U5558a"))("u5558e_open_surfaces_update_and_keep_failed_re
           await copyFile(video, join(dir, "automatic-updates.webm"));
         }
       }
-    } finally { await lane.close(); }
+    } finally { await lane.close(); await server.close(); }
   }
 }, 90_000);

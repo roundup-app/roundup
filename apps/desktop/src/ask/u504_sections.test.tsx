@@ -10,7 +10,6 @@ import type { Deliverable } from "@contracts/deliverable/Deliverable";
 
 const sent = ask("same-id", 1000, [{ text: "same text", placement: { kind: "routed", workstream: "target" }, state: "typed" }]);
 
-
 const made: Deliverable = { project: "p", id: "made", maker: { kind: "user", id: "you", parent: null }, maker_name: "Me", home: null, title: "same name", published_at: 3000, target: { kind: "external", url: "https://example.com/result", availability: "not-checked" } };
 
 const headings = () => [...document.querySelectorAll<HTMLButtonElement>(".overview-sections [data-part=item-trigger]")];
@@ -19,11 +18,11 @@ const expanded = () => headings().map(button => button.getAttribute("aria-expand
 
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
-const mount = async (path: string, attention = false, times = [1000, 2000, 3000], empty = false) => {
+const mount = async (path: string, attention = false, times = [1000, 3000], empty = false) => {
   const app = createFakeApp();
   app.handlers["rail.tree"] = () => attention ? [agent("waiting", "needs-you", "permission")] : [];
   app.handlers["ask.list"] = () => empty ? [] : [{ ...sent, at: BigInt(times[0]!) }];
-  app.handlers["deliverable.list"] = () => empty ? [] : [{ ...made, published_at: times[2]! }];
+  app.handlers["deliverable.list"] = () => empty ? [] : [{ ...made, published_at: times[1]! }];
   const connected = await connectProject(app, { name: "p", path }, () => true, () => 0);
   render(() => <ConnectedProjectContext.Provider value={connected}><AskBar /></ConnectedProjectContext.Provider>);
   await connected.rail.settled();
@@ -34,10 +33,10 @@ const mount = async (path: string, attention = false, times = [1000, 2000, 3000]
 };
 
 it.each([
-  { attention: true, times: [1000, 2000, 3000], winner: 0 },
-  { attention: false, times: [4000, 2000, 3000], winner: 1 },
-  { attention: false, times: [1000, 2000, 3000], winner: 2 },
-  { attention: false, times: [3000, 3000, 3000], winner: 1 },
+  { attention: true, times: [1000, 3000], winner: 0 },
+  { attention: false, times: [4000, 3000], winner: 1 },
+  { attention: false, times: [1000, 3000], winner: 2 },
+  { attention: false, times: [3000, 3000], winner: 1 },
 ])("u504_initial_section_prefers_attention_then_newest_unseen: $winner $times", async ({ attention, times, winner }) => {
   await mount(`/initial-${crypto.randomUUID()}`, attention, times);
   await waitFor(() => expect(expanded()).toEqual([0, 1, 2].map(index => index === winner)));
@@ -100,10 +99,21 @@ it("u504_unseen_tracks_visible_items_and_persists_per_project", async () => {
   await waitFor(() => expect(headings()[1]!.querySelector(".overview-unseen")).toBeNull());
   cleanup();
   await mount(path);
-  await waitFor(() => expect(expanded().every(value => !value)).toBe(true));
+  await waitFor(() => expect(expanded()).toEqual([false, false, false]));
   expect(headings()[1]!.querySelector(".overview-unseen")).toBeNull();
   cleanup();
   await mount(`${path}-other`);
   await waitFor(() => expect(expanded()[2]).toBe(true));
   expect(headings()[1]!.querySelector(".overview-unseen")).not.toBeNull();
+});
+
+it("u504_requests_use_ask", async () => {
+  const { app } = await mount(`/request-${crypto.randomUUID()}`, false, [], true);
+  const field = document.querySelector<HTMLTextAreaElement>(".ask-input")!;
+  const text = "Review the saved changes\n exact words";
+  app.handlers["ask.send"] = () => ({ ...sent, text });
+  fireEvent.input(field, { target: { value: text } });
+  fireEvent.keyDown(field, { key: "Enter", code: "Enter" });
+  await waitFor(() => expect(app.calls.filter(call => call.method === "ask.send").map(call => call.params)).toMatchObject([{ text }]));
+  await waitFor(() => expect(expanded()).toEqual([false, true, false]));
 });

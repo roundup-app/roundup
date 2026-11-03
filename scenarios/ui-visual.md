@@ -1,7 +1,5 @@
 # UI: the visual system (U130 to U137, U161, U476, U3767, U3807, U3299a–d, U3295a–c, U3480)
 
-Policy amendment — U5740a (#5750): retire only the Reactions App surface and its portions of mixed clauses below, including its empty/loading/failure views, navigation, inspection, copy, selection, links and rendered captures. Shared Ask, Made, import, diff, Terminal, navigation and Message behavior remains required; backend Reaction acceptance remains until U5740b. See `scenarios/delete-reactions.md`.
-
 Module: `apps/desktop` (the webview). Ids: U130–U137, U161, U476, U3767, U3807, U3299a–d, U3295a–c, U3480.
 
 Webview only except U134’s native material and the retirement of system-accent delivery specified below. No Daemon method changes; any new App seam or contract follows the Contract recipe. `docs/design-system.md` holds the Tokens, the six rules and the checks D1 to D10; each scenario below is the test that proves some of them, and its test name starts with its id. For rendered captures, every Check runs on every visible element in dark and fails when it cannot measure; non-capture behavioral and Token tests retain their supported schemes (U3725). `docs/motion.md` is unchanged.
@@ -238,3 +236,7 @@ Given the complete authored stylesheet set after the audit, when `pnpm lint:styl
 
 
 **U3480 Terminal pane menu acceptance is retired.** Policy: #3529 removes the pane Copy/Paste/Send Menu entirely, including its reopening and note regressions, tests and captures. U3295b's surviving shared Menu/Dialog dismissal and Dialog-owned controls remain required; no Terminal Menu is kept to exercise them. U3529a–d in `ui-text-selection.md` govern selection, gestures and retained old notes.
+
+Policy retirement — U5740a (`scenarios/delete-reactions.md`): retire only U3299b/U5014a's Reactions list/detail/firing/Message-view actions and capture requirements. All remaining Ask, import, publication, draft recovery, navigation and shared Message acceptance stays in force.
+
+Policy retirement — U5740a: remove only the Reactions reader from U3807 failure-row coverage, its U86 controls and U3787c/d list/field inventory. Remaining readers, Message progress, literal input, keyboard selection and failure/clearing behavior retain their observers.

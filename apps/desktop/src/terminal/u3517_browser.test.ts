@@ -374,6 +374,7 @@ for (const scheme of ["system", "explicit"]) {
 for (const [surface, seed, command, selector] of [
   ["settings", "tree-40", "settings", ".settings-view"],
   ["inbox", "tree-40", "inbox", ".inbox"],
+  ["reactions", "tree-40", "view:reactions", ".reactions"],
   ["resources", "resources", "view:resources", ".resource-inspection"],
   ["import", "import-candidates", "import-work", ".import-panel"],
 ]) {
