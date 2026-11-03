@@ -271,7 +271,7 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
         if (saved) {
           setClosedSections(new Set(saved.sections ?? []));
           setSelected(tree.some((node) => node.id === saved.selected) ? saved.selected : null);
-          setCollapsed(new Set(saved.collapsed.filter((id) => tree.some((node) => node.id === id && isWorkstream(node)))));
+          setCollapsed(new Set(saved.collapsed.filter((id) => tree.some((node) => node.id === id && (isWorkstream(node) || node.kind === "group")))));
           reveal(selected());
           setRestored(selected() !== null);
           save();
