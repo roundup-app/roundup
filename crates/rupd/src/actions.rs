@@ -229,7 +229,7 @@ impl Daemon {
             Relay::Answer(answer) => {
                 let value = answer?;
                 if let Some(start) = start {
-                    let started: contracts::project::Started =
+                    let started: contracts::project::StartedRow =
                         serde_json::from_value(value).map_err(RpcError::internal)?;
                     if started.path != path || started.kind != start.kind || started.id.is_empty() {
                         return Err(RpcError::unknown_outcome(

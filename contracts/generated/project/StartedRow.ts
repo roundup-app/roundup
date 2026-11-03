@@ -2,7 +2,7 @@
 
 import type * as project$StartKind from "./StartKind";
 /**  A5765a: the created target row, qualified by its canonical Project path. */
-export type Started = {
+export type StartedRow = {
 	path: string,
 	kind: project$StartKind.StartKind,
 	id: string,

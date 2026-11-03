@@ -141,6 +141,27 @@ it("u5765_keyboard_open_completes_the_request", async () => {
 });
 
 
+it("u5765_target_start_failure_keeps_recovery_reachable", async () => {
+  await page.browser("focus", ".ask-input");
+  await page.evaluate(`(() => {
+    const app = window.__fake.app;
+    const target = app.of('/Users/you/Projects/keyboard-target');
+    target.handlers['rail.createWorkstream'] = () => ({id:'created-work',kind:'workstream',name:'target-worker',parent:null});
+    target.handlers['workstream.setOpeningPrompt'] = () => null;
+    target.handlers['rail.startDoor'] = () => { throw window.__fake.refusal(-32003, 'The vendor could not start. Check its configuration.'); };
+    window.startResult = null;
+    void app.requestAction({id:5774,method:'project.start',params:{source:app.opened.project.path,path:'/Users/you/Projects/keyboard-target',agent:{id:'agent-1',name:'builder'},kind:'mode',name:'target-worker',prompt:'Review the target changes'}}).then(reply=>window.startResult=reply);
+    return true;
+  })()`);
+  await page.until("window.startResult?.error?.code === -32003 && document.querySelector('[role=dialog]')?.textContent.includes('target-worker')");
+  await page.capture("U5765", "target-start-failure");
+  await page.tabTo("Close");
+  await page.browser("press", "Enter");
+  await page.until("!document.querySelector('[role=dialog]') && document.activeElement?.matches('.ask-input')");
+  expect(await page.evaluate("window.startResult.error.message.includes('created-work')")).toBe(true);
+});
+
+
 it("u5765_invalidating_a_pressed_confirmation_cannot_authorize_the_next_request", async () => {
   const sourceB = "/Users/you/Projects/second-source";
   await page.evaluate(`window.__fake.app.nativeOpen({kind:'project',path:'${sourceB}'})`);

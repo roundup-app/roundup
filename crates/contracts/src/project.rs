@@ -115,7 +115,7 @@ pub struct StartParams {
 
 /// A5765a: the created target row, qualified by its canonical Project path.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
-pub struct Started {
+pub struct StartedRow {
     pub path: String,
     pub kind: StartKind,
     pub id: String,
