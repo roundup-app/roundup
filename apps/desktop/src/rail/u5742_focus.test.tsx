@@ -49,6 +49,7 @@ const mount = async (nodes: RailNode[] = [agent("ann", "idle", "ready"), agent("
 const provesChoice = async (m: Awaited<ReturnType<typeof mount>>, id: string) => {
   await waitFor(() => {
     expect(m.connected.rail.selected()).toBe(id);
+    expect([...document.querySelectorAll<HTMLElement>('.rail-row[data-selected="true"]')].map(row => row.dataset.id)).toEqual([id]);
     expect(document.activeElement?.closest(".pane-screen")).not.toBeNull();
     expect(document.activeElement?.getAttribute("data-terminal")).toBe(`t-${id}`);
   });

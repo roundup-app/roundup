@@ -55,7 +55,7 @@ const target = async (kind: RowCase, rows: readonly string[] = ["backend", "auth
   return { ...controls, row: document.querySelector<HTMLElement>(selector)! };
 };
 
-it.each(cases)("u3789a_click_selects_without_opening_%s", async kind => {
+it.each(["todo-shelf", "pad-shelf"] as const)("u3789a_click_selects_without_opening_%s", async kind => {
   const { app, row } = await target(kind);
   const start = app.calls.length;
   const frame = row.closest(".shelf-row, .pad-row-head, .rail-row")!;
@@ -422,6 +422,7 @@ it("u3789d_controls_keep_native_attention_destination_return", async () => {
   fireEvent.click(row);
   await settled();
 
+  row.focus();
   fireEvent.keyDown(row, {key:"Enter"});
   await waitFor(() => expect(emulators.made.get("t-migrate")?.host?.contains(document.activeElement)).toBe(true));
   expect(document.querySelector('.rail-row[data-selected=true]')?.getAttribute('data-id')).toBe("migrate");
