@@ -771,3 +771,50 @@ Final evidence integrity passed (0): 41 lossless source archives match audited c
 The initial standalone spelling scan passed before later source metadata was added; final scans and repairs are recorded below. Vocabulary, scenario ids, merge-loss and whitespace checks passed (0). Main remains the same audited SHA after fetch; no merge or conflict resolution. Self-review checked independent decisions against entry points, naming/placement, duplicate overlap with existing reports, archived sources and actual snapshots; pointer and conditional gaps remain explicit. The full owner request still waits for all remaining inventory and final current-revision reconciliation.
 
 First complete `just ready` exited 1: its required Rust lint includes the repository scanner, which flagged spelling in verbatim owner Issue quotes added to the source catalogue. All 193 lint-behavior checks, web/style/type/dependency checks, B4522, formal proofs (`ALL PROOFS CHECK`) and N7 passed; only the repository spelling scan failed. Final standalone spelling also exited 1 for the same verbatim quotes. Preserved the exact Issue bodies/comments in lossless compressed archives, matching the existing source archive format, rather than altering the owner's evidence or adding lint exceptions. The repaired standalone spelling scan passed (0). A second full `just ready` is the final aggregate observer.
+
+## Made/publication/link continuation — builder-41641079399
+
+Source main: `cca472d3d8f5ce3808869ed6da6a4464e348169c`; own worktree `/tmp/roundup-u5741`. Documentation only. `outputs.md` records O01–O36; sources and role/CLI provenance stay in `catalogues/outputs-source.json`. Fifteen retained openings use a fresh isolated headless session/profile, dark 1512×950, `tree-40`, thirteen publications, duplicate titles, all target kinds, stopped maker, missing-Home source variant and a long multilingual title. Fixtures and driver are archived; screenshots remain uncommitted under `artifacts/ux/U5741/outputs-*`.
+
+All retained openings pass every recorded Check, including D2/D5/D6. The dense refused-open PNG was visually inspected: complete short cause and next action are visible. This establishes webview actions and fake calls only. The native menu projection disables nested recipients; actual Send, native opening, OS clipboard, vendor behavior and persistence remain unproved. Empty/loading/failure and conditional source-only branches are identified separately in the report. No older-data reopen or selected deletion is claimed.
+
+| Command / observer | Exit | Result |
+| --- | ---: | --- |
+| `python3 loop/orders.py check /tmp/u5741-expanded.md` | 0 | Exact documentation slice scope validated before updating #5758. |
+| `pnpm install --frozen-lockfile` | 0 | Pinned dependencies installed in the isolated worktree. |
+| `agent-browser skills get core` | 0 | Isolated browser instructions read before use. |
+| `just harness tree-40 5291` | running observer | Served the pinned App; no user browser/profile/desktop connection. |
+| Final `python3 /tmp/u5741-outputs-observe.py` | 0 | Fifteen retained openings; all recorded Checks pass. Pointer Overview reset works; keyboard-only reset below is not promoted to a pass. |
+| `gh --version`, `gh release view --help`, `gh release download --help`, `gh pr view --help` | 0 each | Versioned remote-object comparison evidence retained; does not establish equivalent local publication authority. |
+| `git diff --check` | 0 | No whitespace errors. |
+
+Discovery and observer failures are retained explicitly. A missing guessed path is not evidence that a feature is absent; actual files were located with `rg --files`/symbol searches afterward. Failed exploratory browser commands are not among the fifteen successful final captures.
+
+| Failed command / subcommand | Exit | Failure and disposition |
+| --- | ---: | --- |
+| `cat apps/desktop/src/ask/Made.tsx` | 1 | Guessed component absent; actual Deliverables/createDeliverables are inside AskBar.tsx. |
+| `cat apps/desktop/src/ask/Deliverables.tsx` | 1 | Same absent standalone component; read AskBar.tsx. |
+| `cat apps/desktop/src/state/deliverables.ts` | 1 | Guessed store absent; actual catalogue is state/unseen.ts. |
+| `sed -n '1,100p' apps/desktop/src/harness.tsx` | 2 | Harness lives under testing/harness.tsx. |
+| `rg ... apps/desktop/src/testing/fake.ts` | 2 | Guessed fake module absent; actual fakeApp.ts inspected. |
+| `ls target/debug/rup target/debug/rupd` | 2 | Worktree has no local target directory; CARGO_TARGET_DIR is /home/boxd/cargo-target. |
+| `ls /opt/actions-runner/_work/roundup/roundup/target/debug/rup` | 2 | Same absent local target; current binaries rebuilt using the configured target. |
+| `sed -n '1,60p' crates/rup/src/cli/mod.rs` | 2 | CLI root is cli.rs, read afterward. |
+| `rg ... crates/rupd/src/links.rs` | 2 | Daemon link implementation is link.rs, inspected afterward. |
+| `rg ... crates/rupd/src/rpc_link_read.rs` | 2 | Same guessed path absent; link_read is in link.rs. |
+| `sed -n '1,85p' apps/desktop/src/keys/content.ts` | 2 | Guessed module absent; row keys are in ui/RowCollection.ts. |
+| `rg ... scenarios/links.md` | 2 | LK clauses live in scenarios/rup-ext.md; U365 in ui-terminal-links.md. |
+| `sed -n '1,55p' crates/rupd/src/accept.rs` | 2 | Guessed module absent; existing Daemon/public RPC path used instead. |
+| `agent-browser ... click '[aria-label="Filter Made"]'` | 1 | Trigger has aria-labelledby, not that attribute; successful final observer uses .made .app-select-trigger. |
+| `agent-browser ... find role button click --name 'Filter Made Overview' --exact` | 1 | Locator did not find trigger; replaced with actual CSS selector without changing product code. |
+| Exploratory `python3 /tmp/u5741-outputs-observe.py`: keyboard Overview filter reset | 1 | Nested wait exited 1 after 30000 ms; maker filter stayed selected. Pointer option selection reset to all thirteen; keyboard-only reset stays unresolved. |
+| Exploratory `python3 /tmp/u5741-outputs-observe.py`: Send host-model override | 1 | Nested wait exited 1 after 30000 ms; changing the root fake's menu function after mount did not replace the captured App seam. No message.send observed, no Send pass claimed. Final driver leaves recipients source-only. |
+| First `cargo build -p rup --bin rup` | 143 | Compilation terminated before completion; no fresh binary claim from this attempt. Subsequent locked build is recorded separately. |
+
+No behavior test added, changed or removed: U5741's observers are policy/source/rendered evidence. CI `check` judges the PR; no local `just check` or whole behavior suite was run. Earlier evidence remains pinned to its own revision; whole-App coverage and final revision reconciliation remain unfinished. No partial owner request or deletion.
+
+Current publication offers: locked `cargo build -p rup --bin rup --locked` and `cargo build -p rupd --bin rupd --locked` each exit 0. `python3 /tmp/u5741-outputs-runtime.py` exits 0: real isolated temporary Project/data/socket, unstarted Workstream for Door classification, absent Agent id for non-Door classification, actual stdio initialize/tools/list (86 Agent / 94 Door tools) and every publication/link leaf help. All seven related tool names and complete input schemas occur in both lists. No vendor program started, no tool execution by the absent Agent claimed; Daemon exits 0. Full replies, exact commands, hashes and replay are retained in currentRuntime/runtimeDriver. This refreshes publication offers, not the final whole-App reconciliation.
+
+| Failed command | Exit | Repair |
+| --- | ---: | --- |
+| First `just ready` | 1 | `just lint-rust origin/main` → `lint-repo`: new spelling matches in exact archived owner text (`tthat`, `desogned`, screenshot abbreviation) and one report abbreviation. Original Issue records preserved byte-for-byte as compressed source evidence, as the other source archives are; report says screenshots. Web lint/typecheck and N7 launch-sites passed. No production or lint-policy change. |
