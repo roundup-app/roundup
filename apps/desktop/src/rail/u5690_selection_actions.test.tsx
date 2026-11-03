@@ -49,7 +49,12 @@ it.each(["menu", "key"])("u5690d_remove_menu_and_chord_share_one_selection_quest
   expect(selected()).toEqual(["a", "c", "e"]);
 });
 
-it.each([["b", "c"], ["d", "e"], ["a", "b", "c", "d", "e"]])("u5690d_selection_chord_uses_collection_and_advances_once_%j", async (...ids) => {
+it.each([
+  { ids: ["b", "c"], next: "d" },
+  { ids: ["d", "e"], next: "c" },
+  { ids: ["a", "c", "e"], next: "d" },
+  { ids: ["a", "b", "c", "d", "e"], next: null },
+])("u5690d_selection_chord_uses_collection_and_advances_once_$ids", async ({ ids, next }) => {
   const tree = nodes();
   const { app, rail, connected } = await mountRail(tree);
   let finish: ((value: import("@contracts/agent/Removal").Removal) => void) | undefined;
@@ -69,8 +74,8 @@ it.each([["b", "c"], ["d", "e"], ["a", "b", "c", "d", "e"]])("u5690d_selection_c
   expect(railCallsTo(app, "rail.removeSelection")).toEqual([{ ids: [...ids].sort(), operation: expect.any(String) }]);
   app.handlers["rail.tree"] = () => tree.filter(node => !ids.includes(node.id));
   finish!({ removed: [], kept: [], selection: ids, deletion: { id: ids[0]!, project: "p", operation: "selected-removal", restored: false } });
-  const next = ids.includes("a") ? null : ids.includes("e") ? "c" : "d";
   await waitFor(() => expect(rail.selected()).toBe(next));
+  await waitFor(() => expect(selected()).toEqual(next ? [next] : []));
 
   if (next) await waitFor(() => expect(document.activeElement).toBe(rowOf(next)));
   else await waitFor(() => expect(document.activeElement).toBe(document.querySelector("[data-todo-root]")));
