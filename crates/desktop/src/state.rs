@@ -45,6 +45,9 @@ struct DaemonExited {
     cause: Option<String>,
 }
 
+/// How long `exit_for_update` waits for each Daemon to answer and then to be gone.
+const UPDATE_BOUND: Duration = Duration::from_secs(5);
+
 /// The longest name `rename_project` stores (S10).
 const NAME_LIMIT: usize = 40;
 
@@ -52,6 +55,8 @@ struct Open {
     client: Arc<Client>,
     /// Closing it is how the Daemon learns the App is gone (D1).
     _stdin: ChildStdin,
+    /// Ends the Daemon without closing its stdin, for `exit_for_update` (S5981a).
+    leave: Option<daemon::Leave>,
     /// This run's socket path (S5): `subscribe` reconnects here, not through `Config`, since a
     /// reopen's Daemon runs on its own path.
     socket: OwnedSocket,
@@ -584,6 +589,53 @@ impl AppState {
         })
     }
 
+    /// Ends every Daemon without the stdin-close shutdown, so no Agent or Terminal owner is
+    /// stopped (S5981a). Each Daemon must first answer `daemon.ping` within `UPDATE_BOUND`; if one
+    /// does not, nothing is ended and the call fails naming its Project. Daemons it ended are not
+    /// restarted.
+    pub async fn exit_for_update(&self) -> Result<(), RpcError> {
+        let open: Vec<(String, Arc<Client>)> = self
+            .entries()
+            .iter()
+            .filter_map(|entry| match &entry.phase {
+                Phase::Open(open) => Some((entry.path.clone(), Arc::clone(&open.client))),
+                _ => None,
+            })
+            .collect();
+        for (path, client) in &open {
+            match timeout(UPDATE_BOUND, client.request("daemon.ping", Value::Null)).await {
+                Ok(Ok(_)) => {}
+                Ok(Err(err)) => {
+                    return Err(RpcError::internal(format!(
+                        "the Daemon of {path} could not be left safely: {}",
+                        err.message
+                    )));
+                }
+                Err(_) => {
+                    return Err(RpcError::internal(format!(
+                        "the Daemon of {path} did not answer within {UPDATE_BOUND:?}"
+                    )));
+                }
+            }
+        }
+        self.closed.store(true, Ordering::SeqCst);
+        let mut left = Vec::new();
+        for entry in self.entries().iter_mut() {
+            if let Phase::Open(open) = &mut entry.phase
+                && let Some(leave) = open.leave.take()
+            {
+                let (ack, done) = oneshot::channel();
+                if leave.send(ack).is_ok() {
+                    left.push(done);
+                }
+            }
+        }
+        for done in left {
+            let _ = timeout(UPDATE_BOUND, done).await;
+        }
+        Ok(())
+    }
+
     /// Closes every Daemon's stdin (S3).
     pub fn close(&self) {
         self.closed.store(true, Ordering::SeqCst);
@@ -654,9 +706,10 @@ impl AppState {
             .socket_for_run(run)
             .map_err(RpcError::internal)?;
         let started = daemon::start(&self.config, path, &socket, self.store.dir()).await?;
-        let open = Open {
+        let mut open = Open {
             client: Arc::new(started.client),
             _stdin: started.stdin,
+            leave: None,
             socket: started.socket,
             run,
             subscription: None,
@@ -665,19 +718,21 @@ impl AppState {
             connected,
         };
         let mut entries = self.entries();
-        match entries.iter_mut().find(|entry| entry.path == key) {
-            Some(entry) if Arc::ptr_eq(&entry.lifetime, lifetime) => {
-                entry.phase = Phase::Open(open)
-            }
-            _ => return Err(not_open(&key)),
-        }
-        drop(entries);
-        self.commit_run(run);
+        let Some(entry) = entries
+            .iter_mut()
+            .find(|entry| entry.path == key && Arc::ptr_eq(&entry.lifetime, lifetime))
+        else {
+            return Err(not_open(&key));
+        };
         let app = app.clone();
         let exited_path = key.clone();
-        daemon::watch_exit(started.child, move |code| {
+        let leave = daemon::watch_exit(started.child, move |code| {
             Self::failed(&app, &exited_path, run, code, None);
         });
+        open.leave = Some(leave);
+        entry.phase = Phase::Open(open);
+        drop(entries);
+        self.commit_run(run);
         self.project_at(&key)
     }
 

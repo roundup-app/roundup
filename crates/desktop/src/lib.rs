@@ -142,6 +142,7 @@ fn invoke_handler<R: Runtime>() -> impl Fn(tauri::ipc::Invoke<R>) -> bool + Send
         open_project,
         canonical_project_path,
         close_project,
+        exit_for_update,
         rename_project,
         rpc,
         subscribe,
@@ -265,6 +266,21 @@ fn canonical_project_path(path: String) -> Result<String, RpcError> {
 #[tauri::command]
 fn close_project(state: State<'_, AppState>, path: String) -> Result<(), RpcError> {
     state.close_project(&path)
+}
+
+/// S5981a: ends every Daemon without stopping its Agents, then exits the App.
+#[tauri::command]
+async fn exit_for_update<R: Runtime>(
+    app: AppHandle<R>,
+    state: State<'_, AppState>,
+) -> Result<(), RpcError> {
+    state.exit_for_update().await?;
+    // After the answer: the exit tears the webview down, so the call would never return.
+    tauri::async_runtime::spawn(async move {
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+        app.exit(0);
+    });
+    Ok(())
 }
 
 #[tauri::command]
