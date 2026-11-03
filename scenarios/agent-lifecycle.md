@@ -119,7 +119,7 @@ These numbered Checks hold on `origin/main` at `a1d2169e3`; they are preservatio
 |---|---|---|
 | 1 | `scenarios/agents.md`, A7/A8/A12/A20/A22; `crates/agents/tests/scenarios/door.rs`, `a7_two_concurrent_start_doors_start_one_agent_and_one_loses`; `crates/agents/src/rail.rs`, `a8_reopening_unlinks_every_terminal_id` | P4/P6/P9: one live launch, retained Workstream, reopen starts nothing, stale Attempts fenced |
 | 2 | `scenarios/worktrees.md`, G5/G6/G2542c/G2542d; `docs/worktrees.md`, “Prepared directories (specified)” | P2/P5: opted-in exclusive assignment, no unauthorized loss of work, enrolled paths retained |
-| 3 | `scenarios/execution-recovery.md`, U3078h/U3078j; `scenarios/door-terminal.md`, F8/M16 | P9/P13: no automatic program start, unknown external effect not retried, existing Door authority preserved |
+| 3 | `scenarios/execution-recovery.md`, U3078h/U3078j; `scenarios/door-terminal.md`, F8/M16 | P9: no automatic program start, unknown external effect not retried, existing Door authority preserved |
 | 4 | `scenarios/proofs.md`, V3/V5/V7 | Owner approval, no weakening, explicit liveness assumptions, model-proof limits |
 
 Review the proposed state/events/effects against these gates. Visual Checks and captures do not apply: this specification changes no App surface. Existing Message laws and proof files remain unchanged.
