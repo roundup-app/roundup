@@ -13,6 +13,9 @@ The audit must prevent missed conditional offers, unsupported claims of non-use/
 
 | Artifact | Holds |
 | --- | --- |
+| [project-entry.md](project-entry.md) | Twenty-one independent Project entry, tab and recovery decisions, criteria, direction and remaining conditional gaps |
+| [catalogues/project-source.json](catalogues/project-source.json) | Current source hashes, historical role offers explicitly pinned to their original revision, vendor help and direction provenance |
+| [rendered-project.json](rendered-project.json) | Fresh isolated first-run, tab, draft recovery, close and startup/Daemon failure openings |
 | [rail-lifecycle.md](rail-lifecycle.md) | Independent lifecycle, creation and Queue controls, criteria and dated Mode/conversion direction |
 | [catalogues/rail-source.json](catalogues/rail-source.json) | Current inspected source hashes, exact conditional native menu models and observer provenance |
 | [rendered-rail.json](rendered-rail.json) | Thirteen isolated Rail/menu/dialog/native-question boundary openings at current main |
@@ -41,6 +44,8 @@ The audit must prevent missed conditional offers, unsupported claims of non-use/
 Current changes/resource continuation: main `f87a3ddd158ec53a311d29265fa6414d6efa4434`. [changes-resources.md](changes-resources.md) adds independent controls, current source/offer reconciliation, linked direction and eleven isolated openings; [rendered-changes.json](rendered-changes.json) retains failed as well as passing Checks. Earlier observations remain pinned to their own source, not silently promoted to this revision. The final inventory still needs one reconciled current revision.
 
 Rail lifecycle continuation: main `a3a760a66f4e2bf91a613636640e649695e6dc65`. [rail-lifecycle.md](rail-lifecycle.md) separates 22 creation/lifecycle/Queue decisions and preserves unknown equivalence and conditional coverage. This reads the newer Rail choice/focus behavior from #5742; the final all-feature revision reconciliation remains unfinished.
+
+Project entry continuation: main `4dfcec6fd757600df568ecbe414e503d5d2af064`. [project-entry.md](project-entry.md) separates Project opening, navigation, attention, rename, clipboard, closing and recovery decisions. Source-only conditional coverage and unverified equivalence remain explicit; the final inventory still needs one reconciled current revision.
 
 ## Decision status
 
