@@ -7,6 +7,7 @@ import { Pads } from "./Pads";
 import type { ConnectedProject } from "../state/connectedProject";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
+import { batch } from "solid-js";
 import type { AppSeam } from "../app/seam";
 import { DrawerHost } from "../drawer/DrawerHost";
 import { connectProject, ConnectedProjectContext } from "../state/connectedProject";
@@ -24,7 +25,7 @@ beforeAll(async () => { real = await startRealDaemon({}); }, 120_000);
 
 afterAll(async () => { await real?.stop(); });
 
-afterEach(() => { cleanup(); localStorage.clear(); });
+afterEach(() => { batch(cleanup); localStorage.clear(); });
 
 it.each(["fake", "real"])("u3787a_generated_contract_restores_without_submitting_recovered_input_%s", async (kind) => {
   const fake = createFakeApp();
@@ -49,7 +50,7 @@ it.each(["fake", "real"])("u3787a_generated_contract_restores_without_submitting
     fireEvent.click(screen.getByText("Resume", { selector: "button" }));
     await waitFor(async () => expect((await app.rpc("pad.read", { name: "notes" })).text).toBe(text));
   } finally {
-    cleanup();
+    batch(cleanup);
     connected.stopTerminalScheme();
   }
 }, 120_000);

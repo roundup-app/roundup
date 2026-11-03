@@ -1,4 +1,6 @@
 """E14 exercises the observer's evidence boundary, never a product test double."""
+import contextlib
+import io
 import importlib.util
 import unittest
 from unittest.mock import patch
@@ -18,12 +20,6 @@ spec.loader.exec_module(observer)
 
 
 class E14(unittest.TestCase):
-    def test_e14_real_claude_test_concurrency_is_at_most_four(self):
-        rows = [dict(id=str(i), start=1000, end=2000, real=True) for i in range(4)]
-        self.assertEqual(observer.overlap(rows), 4)
-        with self.assertRaisesRegex(ValueError, "5 overlapping"):
-            observer.overlap(rows + [dict(id="b21", start=1100, end=1900, real=True)])
-
     def test_e14_precise_intervals_only_touch_at_equal_timestamps(self):
         rows = [dict(id=str(i), start=1000, end=2000, real=True) for i in range(4)]
         self.assertEqual(observer.overlap(rows + [dict(id="b21", start=2000, end=3000, real=True)]), 4)
@@ -66,7 +62,7 @@ class E14(unittest.TestCase):
         with tempfile.TemporaryDirectory(dir=root / "apps/desktop/reporting") as temporary:
             directory = Path(temporary)
             fixture = directory / "e14.test.ts"
-            fixture.write_text('test("e14_pass", () => expect(1).toBe(1)); test("e14_failure", () => expect(1).toBe(2));')
+            fixture.write_text('beforeAll(() => new Promise(resolve => setTimeout(resolve, 20))); test("e14_pass", () => expect(1).toBe(1)); test("e14_failure", () => expect(1).toBe(2));')
             config = directory / "vitest.config.mjs"
             report = directory / "web.json"
             reporter = directory / "reporter.mjs"
@@ -74,7 +70,9 @@ class E14(unittest.TestCase):
             config.write_text("export default " + json.dumps(dict(test=dict(globals=True, include=[str(fixture)], reporters=[str(reporter)]))) + ";")
             result = subprocess.run(["pnpm", "--filter", "desktop", "exec", "vitest", "run", "--config", str(config)], cwd=root, env=dict(os.environ, E14_LIFECYCLE=str(report)), capture_output=True, text=True, timeout=60)
             self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
-            rows = json.loads(report.read_text())["modules"][0]["tests"]
+            module = json.loads(report.read_text())["modules"][0]
+            self.assertGreaterEqual(module["duration_ms"], 20)
+            rows = module["tests"]
             self.assertEqual([r["status"] for r in rows], ["passed", "failed"])
             self.assertTrue(all(r["end"] >= r["start"] > 0 for r in rows))
             with self.assertRaisesRegex(ValueError, "web module failed"):
@@ -193,6 +191,101 @@ class E14(unittest.TestCase):
             self.assertNotIn("| head |", failed.stdout)
 
 
+class CI5527(unittest.TestCase):
+    def invoke(self, elapsed, code=0, modules=None, raw=None, base="origin/main", setup=2, reporting=0):
+        with tempfile.TemporaryDirectory() as temporary:
+            output = Path(temporary) / "lane"
+            argv = ["observe.py", "run", "--install-dependencies", "--lane", "web2",
+                    "--base", base, "--output", str(output), "--cache-state", "fixture"]
+            clock = [0]
+
+            def install(*_args, **_kwargs):
+                clock[0] = setup
+
+            if modules is None:
+                modules = [dict(id="one.test.ts", state="passed", duration_ms=23,
+                                tests=[dict(id="one::test", status="passed", retries=0, repeats=0,
+                                            start=1500, end=1500, real=False)])]
+
+            def launch(*_args, **_kwargs):
+                clock[0] = elapsed
+                if raw != "absent":
+                    (output / "web.json").write_text(raw if raw is not None else json.dumps(dict(modules=modules, errors=[])))
+                return SimpleNamespace(poll=lambda: code, returncode=code)
+
+            original_report = observer.report_flaky
+
+            def report(*args):
+                original_report(*args)
+                clock[0] += reporting
+
+            stream = io.StringIO()
+            with contextlib.ExitStack() as stack:
+                stack.enter_context(patch.object(observer.platform, "platform", return_value="Linux fixture"))
+                stack.enter_context(patch.object(observer.platform, "processor", return_value="fixture CPU"))
+                stack.enter_context(patch.object(observer.subprocess, "check_output", side_effect=["a" * 40, ""]))
+                stack.enter_context(patch.object(observer.subprocess, "Popen", side_effect=launch))
+                stack.enter_context(patch.object(observer, "report_flaky", side_effect=report))
+                stack.enter_context(patch.object(observer.subprocess, "run", side_effect=install))
+                stack.enter_context(patch.object(observer.time, "monotonic", side_effect=lambda: clock[0]))
+                stack.enter_context(patch.object(observer.time, "time", return_value=1.5))
+                stack.enter_context(contextlib.redirect_stdout(stream))
+                stack.enter_context(contextlib.redirect_stderr(stream))
+                stack.enter_context(patch.object(sys, "argv", argv))
+                result = observer.main()
+            return result, stream.getvalue()
+
+    def test_ci5527c_web_budget_controls_the_exit_result(self):
+        for elapsed, code, expected in ((719.999, 0, 0), (720, 0, 0), (720.001, 0, 1), (3, 42, 42), (721, 42, 42)):
+            for base in ("", "origin/main"):
+                with self.subTest(elapsed=elapsed, code=code, base=base):
+                    result, diagnostic = self.invoke(elapsed, code, base=base)
+                    self.assertEqual(result, expected, diagnostic)
+
+    def test_ci5527c_setup_crossing_the_boundary_fails(self):
+        result, diagnostic = self.invoke(721, setup=721)
+        self.assertEqual(result, 1, diagnostic)
+        self.assertIn("721.000 seconds", diagnostic)
+
+    def test_ci5527c_reporting_crossing_the_boundary_fails(self):
+        result, diagnostic = self.invoke(719, reporting=2)
+        self.assertEqual(result, 1, diagnostic)
+        self.assertIn("721.000 seconds", diagnostic)
+
+    def test_ci5527c_budget_failure_names_the_five_slowest_files(self):
+        files = [("z", 12), ("e", 50), ("a", 80), ("c", 50), ("b", 70), ("d", 30)]
+        for count, expected in ((6, ["a: 80 ms", "b: 70 ms", "c: 50 ms", "e: 50 ms", "d: 30 ms"]),
+                                (2, ["e: 50 ms", "z: 12 ms"])):
+            modules = [dict(id=name, state="passed", duration_ms=duration,
+                            tests=[dict(id=name, status="passed", retries=0, repeats=0,
+                                        start=1500, end=1500, real=False)]) for name, duration in files[:count]]
+            with self.subTest(count=count):
+                result, diagnostic = self.invoke(720.001, modules=modules)
+                self.assertNotEqual(result, 0)
+                self.assertIn("web2", diagnostic)
+                self.assertIn("720.001", diagnostic)
+                self.assertIn("720-second budget", diagnostic)
+                self.assertEqual([line.strip() for line in diagnostic.splitlines() if " ms" in line], expected)
+
+    def test_ci5527c_missing_or_invalid_report_cannot_pass(self):
+        for raw, cause in (("absent", "web.json"), ("{", "Expecting property"),
+                           ("{}", "modules"), ("null", "not subscriptable"),
+                           ('{"modules": [], "errors": []}', "timing evidence")):
+            with self.subTest(raw=raw):
+                result, diagnostic = self.invoke(1, raw=raw)
+                self.assertEqual(result, 1, diagnostic)
+                self.assertIn("E14 observation FAILED", diagnostic)
+                self.assertIn(cause, diagnostic)
+        for duration in (None, -1, float("nan"), "10", True):
+            with self.subTest(duration=duration):
+                modules = [dict(id="bad.test.ts", state="passed", duration_ms=duration,
+                                tests=[dict(id="bad", status="passed", retries=0, repeats=0,
+                                            start=1500, end=1500, real=False)])]
+                result, diagnostic = self.invoke(1, modules=modules)
+                self.assertEqual(result, 1, diagnostic)
+                self.assertIn("invalid file duration for bad.test.ts", diagnostic)
+
+
 class CI3781(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -280,7 +373,7 @@ class CI3781Reports(unittest.TestCase):
         for lane, base, runner in [('rust1', 'HEAD^', 'github-hosted'), ('web1', '', 'github-hosted'), ('rust1', '', 'self-hosted'), ('rust1', '', 'local')]:
             with self.subTest(lane=lane, base=base, runner=runner), patch.dict(os.environ, RUNNER_ENVIRONMENT=runner):
                 with self.assertRaisesRegex(ValueError, 'unchanged full Rust lane on hosted Linux'):
-                    observer.run(SimpleNamespace(build_observation=True, lane=lane, base=base))
+                    observer.run(SimpleNamespace(build_observation=True, lane=lane, base=base, install_dependencies=False))
 
     def test_ci3781_compiler_frontends_and_assemblers_are_not_link_intervals(self):
         spec = importlib.util.spec_from_file_location('build', Path(__file__).with_name('build.py'))

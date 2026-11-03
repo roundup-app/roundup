@@ -182,7 +182,7 @@ it("u3787b_scoped_menu_does_not_steal_terminal_input: font owner leaves", async 
 });
 
 it.each(["terminal", "rail row", "Project tab", "Shelf row", "Pad row", "Pad editor", "triage"])("u3787b_menu_covers_bound_commands: every available command of the %s focus has a menu item", async place => {
-  const { connected, daemon } = await mountNavigation(place === "Pad editor", 0);
+  const { connected, daemon } = await mountNavigation(place === "Pad editor", 0, place === "Shelf row" ? 9 : 3);
 
   if (place !== "Pad editor") {
     connected().rail.select("a1");
@@ -271,7 +271,7 @@ it.each(["key", "menu"])("u3787b_menu_and_key_share_one_action: Help from %s ret
 
 it.each(["key", "menu"])("u3787b_numbered_assignment_captures_one_todo_and_owner: ninth Agent from %s", async source => {
   const number = 9;
-  const { daemon } = await mountNavigation(false, 0);
+  const { daemon } = await mountNavigation(false, 0, number);
   await showEverythingInApp();
   const row = document.querySelector<HTMLButtonElement>('[data-todo="1"] .todo-row-button[aria-pressed]')!;
   row.focus();

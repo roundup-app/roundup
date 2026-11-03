@@ -2,7 +2,7 @@ import { chooseFooter } from "../rail/railFixture";
 import { questionDialog, answerQuestion } from "../shelf/bulkQuestionHarness";
 import { cleanup, fireEvent, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
-import { createSignal } from "solid-js";
+import { batch, createSignal } from "solid-js";
 import fuzzysort from "fuzzysort";
 import { chooseAction as chooseRailAction } from "../rail/railFixture";
 import { CHORDS, LEADER } from "../keys/chords";
@@ -11,7 +11,7 @@ import { openTabs, tab } from "../header/stripFixture";
 import { agent, info, workstream } from "../testing/nodes";
 import { field, mountSwitcher, openSwitcher, switcherKey as press } from "./switcherFixture";
 
-afterEach(() => { cleanup(); localStorage.clear(); sessionStorage.clear(); });
+afterEach(() => { batch(cleanup); localStorage.clear(); sessionStorage.clear(); });
 
 it.each(["new", " NeW ", "nsh", "Agent with prompt", "zzzz-no-match", "", "   "])(
   "z3788b_queries_rank_both_groups_and_keep_blank_order: %s", async (query) => {
@@ -183,7 +183,7 @@ it.each(["M", "W"])("u2572b_actions_share_key_behavior_in_the_opening_view: Bubb
       await waitFor(() => expect(document.querySelector('.bubble[data-bubble="7"]')).toBeNull());
     } else await waitFor(() => expect(document.querySelector<HTMLElement>('.bubble[data-bubble="7"]')?.hidden).toBe(true));
     results.push(app.calls.filter((call) => call.method === "terminal.close" || call.method === "terminal.write"));
-    cleanup();
+    batch(cleanup);
     sessionStorage.clear();
   }
 
@@ -201,7 +201,7 @@ it.each(["B", "⇧J"])("u2572b_actions_share_key_behavior_in_the_opening_view: A
 
     if (key === "B") await waitFor(() => expect(document.querySelector<HTMLElement>(".window")?.dataset.shelf).toBe(beforeShelf === "open" ? "closed" : "open"));
     else await waitFor(() => expect(tab("api").getAttribute("aria-selected")).toBe("true"));
-    cleanup();
+    batch(cleanup);
   }
 });
 

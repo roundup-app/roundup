@@ -1,3 +1,4 @@
+import { agentBrowserExecutable } from "../testing/chromePage";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { copyFileSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
@@ -16,7 +17,7 @@ const session = `u5557-${process.pid}`;
 
 let server: AppServer;
 
-const browser = async (...args: string[]) => (await exec("agent-browser", ["--session", session, "--json", ...args], { maxBuffer: 8 * 1024 * 1024, timeout: 25_000 }).catch(error => { throw new Error([error.message, error.stdout, error.stderr].join("\n")); })).stdout;
+const browser = async (...args: string[]) => (await exec(agentBrowserExecutable, ["--session", session, "--json", ...args], { maxBuffer: 8 * 1024 * 1024, timeout: 25_000 }).catch(error => { throw new Error([error.message, error.stdout, error.stderr].join("\n")); })).stdout;
 
 const read = async (expression: string) => {
   // SAFETY: agent-browser supplies the envelope for these constant observer expressions.

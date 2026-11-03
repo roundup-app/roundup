@@ -1,3 +1,4 @@
+import { agentBrowserExecutable } from "../testing/chromePage";
 import { execFile, execFileSync } from "node:child_process";
 import { promisify } from "node:util";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
@@ -14,7 +15,7 @@ it.skipIf(!captureDir("U4644"))("u4644_rendered_starts_and_empty_heading_audit",
   const server = await appServer(process.env.U4644_ROOT ? { root: process.env.U4644_ROOT } : {});
   const profile = mkdtempSync(join(tmpdir(), "u4644-"));
   const session = `u4644-${process.pid}`;
-  const browser = async (...args: string[]) => (await exec("agent-browser", ["--session", session, "--json", ...args], { timeout: 30_000, maxBuffer: 8 * 1024 * 1024 })).stdout;
+  const browser = async (...args: string[]) => (await exec(agentBrowserExecutable, ["--session", session, "--json", ...args], { timeout: 30_000, maxBuffer: 8 * 1024 * 1024 })).stdout;
 
   const read = async (expression: string) => {
     const reply = JSON.parse(await browser("eval", expression));
