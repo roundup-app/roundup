@@ -518,7 +518,7 @@ Observer: existing isolated App harness, fresh named browser/profile, headless C
 | `gh pr checks 5867` | 8 | Draft checks pending/skipped; no required-gate pass claimed. |
 | Isolated `just harness import-candidates 5243` shutdown | 130 | Deliberately stopped this run's harness after all captures; browser session closed separately. |
 
-Seventeen final openings retained: twelve Import/attention screens pass every recorded Check; five dense progress screens preserve D4's `li.progress-row` reading 41 and dependent D10 failure. Every D2/D5/D6 passes. The full-diagnostic screen opens the resume failure tooltip. Fake refusal/unknown replies exercise controls, not a production failure claim. All earlier failed driver runs are superseded, not combined with the final run.
+Seventeen final openings retained: twelve Import/attention screens pass every recorded Check; five dense progress screens preserve D4's `li.progress-row` reading 41 initially and 42 after expansion and dependent D10 failure. Every D2/D5/D6 passes. The full-diagnostic screen opens the resume failure tooltip. Fake refusal/unknown replies exercise controls, not a production failure claim. All earlier failed driver runs are superseded, not combined with the final run.
 
 Self-review corrected two observer limits before finalization: the fake seeded Import has no listing Agent, so the report distinguishes its source/revision refusal from the production branch adding a retained listing Agent. The final driver preserves the pointer on the diagnostic tooltip instead of moving it away before capture, and sets dark media as well as App dark appearance. The earlier tooltip capture is superseded.
 
@@ -529,3 +529,16 @@ The final row review marks Q3 unverified for unrendered conditional variants (sh
 The final inventory separates read Retry from read-error Clear (W08/W09), yielding 34 independent rows. Error dismissal is optional to the five-stage result even where its owning scenario remains active; the rows no longer claim that a required retry/open outcome needs a separate dismissal control. This is candidate evidence only, not permission to remove one.
 
 Final detached `just ready` passed (exit 0): all 193 lint-behavior checks, package typechecks, repository/Rust lints, formal proofs (`ALL PROOFS CHECK`) and N7's launch-site observer. Final source/archive/snapshot reconciliation, dark media/appearance/viewport checks, D2/D5/D6, vocabulary, scenario ids, merge-loss, spelling and whitespace checks passed (exit 0). No local `just check` or added/changed behavior tests. Browser session and only this run's harness are closed. All seventeen final PNG files are also copied to the workflow checkout's `artifacts/ux/U5741/attention-import/` for attachment; none is committed.
+
+
+## Independent fix-run verification — builder-41604993438
+
+Integrated the original builder's concurrent head `840a525bb0fcb01dd0a9be9cde2a12c55e541b90` by fast-forward, retaining its 34 rows, conditional observer limits, source/refusal distinction and corrected archived driver. Main remains the audited `b021117d063f663008f9a692be5e7496b2eebbe1`; no merge resolution or product change was needed.
+
+Independently verified all 34 source hashes, every archived payload and all seventeen stored snapshot checksums. Replayed the updated driver in a fresh headless profile/session on isolated port 5247: all seventeen openings reproduce the recorded Check statuses, with dark media and App appearance at 1512×950. Visually inspected the final diagnostic PNG: the full cause and recovery stay visible. Corrected the report's D4 reading to 41 initially and 42 after expanding earlier versions; the underlying observations are unchanged. Captures and the independent manifest remain uncommitted under the workflow checkout's `artifacts/ux/U5741/attention-import/`.
+
+| Command / observer | Exit | Disposition |
+| --- | ---: | --- |
+| `just harness import-candidates 5247` shutdown | 130 | Deliberately stopped only this run's harness after observation; its dedicated browser closed successfully. |
+
+Independent `pnpm install --frozen-lockfile` and `just ready` pass (exit 0), including all 193 lint-behavior checks, package typechecks, repository/Rust lints, B4522, `ALL PROOFS CHECK` and N7. Final spelling, vocabulary, scenario ids, merge-loss and whitespace checks pass. No local `just check` or changed behavior tests. #5758 remains open for the documented inventory gaps, owner choices and authorized retirements; older-Project reopening remains mandatory.
