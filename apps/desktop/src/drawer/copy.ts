@@ -33,5 +33,5 @@ export const copy = {
   padTouch: touch,
   maximise: sharedCopy.maximise,
   restore: sharedCopy.restore,
-  you: sharedCopy.you,
+  you: "You",
 } as const;
