@@ -440,3 +440,13 @@ Merged main `d26af47b9e1fea792c4e7a9fd48f83070a3fdf9b` without conflicts; remerg
 Final `just ready` passes (exit 0) on the merged head: B4522 migration guard, 193 lint-behavior checks, web and package typechecks, repository/Rust lints, `ALL PROOFS CHECK` and N7 launch sites. Standalone spelling, vocabulary, scenario ids, merge-loss and whitespace checks pass. Source hashes, ten stored snapshot checksums, ten recreated openings and four complete menu models reconcile. Decoding the two archived direction comments reconstructs the entire inherited source catalogue exactly. Own diff review is clean; no behavior test changed and no local `just check` ran. The dedicated browser and harness are closed.
 
 The push was rejected (exit 1) because the branch advanced to 30de64f7d. Merging that head stopped with content conflicts (exit 1); retained its complete source catalogue, direction archive and loaded Todo correction, plus this run’s independent validation. No product file or main-side line was dropped. Final post-merge checks follow below.
+
+| Concurrent-head command result | Exit | Disposition |
+| --- | ---: | --- |
+| `git push origin HEAD:build/app-feature-audit-implementation` | 1 | Remote head advanced to 30de64f7d; fetched and integrated its corrections without force pushing. |
+| `gh pr ready 5859` | 1 | Another run already marked the PR ready; verified ready state and enabled auto-merge. |
+| `git merge origin/build/app-feature-audit-implementation` | 1 | Source catalogue and validation history conflicted. Kept the remote complete archive/loaded observation and both validation records; merge commit carries this run’s Author-Agent trailer. |
+
+Combined evidence reconciliation passes: all 36 inspected source hashes, ten stored snapshot checksums and the complete direction archive’s decoded SHA-256. A second fresh headless profile and isolated port 5234 reproduce the loaded Todo opening after waiting for actual rows: all eight recorded Todo ids are visible, with creator-matching rows revealed in their owner group. The updated creator-todos PNG and loaded-completion-observations.json supersede this run’s earlier loading-state capture. Every recorded Check passes. The extra browser and harness are closed.
+
+Post-integration `just ready` passes (exit 0), including all 193 lint-behavior checks, package typechecks, repository/Rust lints, `ALL PROOFS CHECK` and N7. Vocabulary, scenario ids, merge-loss and whitespace pass on the combined head. Self-review preserves the concurrent loaded-Todo correction and every main-side product/test change. No local `just check` ran.
