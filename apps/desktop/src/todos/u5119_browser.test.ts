@@ -9,18 +9,21 @@ const { browser, evaluate, settle, rig } = shelfBrowser();
 
 const output = captureDir("U5119");
 
+// The activity owns the dense data; only captures need the unrelated dense Rail.
+const seed = output ? "tree-40" : "selection";
+
 it.each([[1280, 820], [1512, 950]])("u5119_partial_activity_rendered_%sx%s", { retry: 0, timeout: 180_000 }, async (width, height) => {
   await browser("set", "viewport", String(width), String(height));
   await browser("set", "media", "dark");
   // resize/widths.ts already defaults to 288/320; this fresh profile needs one mount and no terminal tabs.
-  await browser("open", `${rig.server.resolvedUrls.local[0]}harness.html?view=workstreams&items=1&seed=tree-40`);
+  await browser("open", `${rig.server.resolvedUrls.local[0]}harness.html?view=workstreams&items=1&seed=${seed}`);
   await browser("wait", ".shelf-tabs");
   await settle();
   const directory = output ? join(output, process.env.ACTIVITY_BASE ? "base" : "head") : null;
 
   if (directory) {
     mkdirSync(directory, { recursive: true });
-    writeFileSync(join(directory, `metadata-${width}.json`), JSON.stringify({ sha: process.env.ACTIVITY_BASE || execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim(), seed: "tree-40", viewport: [width, height], scheme: "dark", available: 30, recovered: 15 }));
+    writeFileSync(join(directory, `metadata-${width}.json`), JSON.stringify({ sha: process.env.ACTIVITY_BASE || execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim(), seed, viewport: [width, height], scheme: "dark", available: 30, recovered: 15 }));
     await browser("record", "start", join(directory, `retry-${width}.webm`));
   }
 
