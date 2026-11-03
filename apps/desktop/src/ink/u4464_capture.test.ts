@@ -11,7 +11,7 @@ import { captureDir } from "../testing/captures";
 const exec = promisify(execFile);
 
 // U4464's rendered policy observer: appearance is recorded for the independent critic.
-it.skipIf(!captureDir("U4464") && !captureDir("U5163"))("u5606_capture_empty_views_in_both_themes", { timeout: 480_000, retry: 0 }, async () => {
+it.skipIf(!captureDir("U4464") && !captureDir("U5163"))("u5606_capture_empty_views_in_both_themes", { timeout: 240_000, retry: 0 }, async () => {
   const phase = process.env.ROUNDUP_CAPTURE_PHASE ?? "head";
   const root = process.env.U4464_ROOT ?? process.cwd();
   const server = await appServer({ root });
@@ -58,7 +58,9 @@ it.skipIf(!captureDir("U4464") && !captureDir("U5163"))("u5606_capture_empty_vie
     })()`);
 
     writeFileSync(join(dir, `${name}.scenes.json`), JSON.stringify(scenes, null, 2));
-    await browser("screenshot", join(dir, `${name}.png`));
+
+    // U5163 keeps both schemes’ readings; Builder media stays dark-only.
+    if (!captureDir("U5163") || name.startsWith("dark-")) await browser("screenshot", join(dir, `${name}.png`));
     const observation = await read(`({ revision: ${JSON.stringify(revision)}, checks: window.__checks(), empty: [...document.querySelectorAll('.empty-state')].map(el => ({name: el.querySelector('h3')?.textContent, artHidden: el.querySelector('.empty-state-art')?.getAttribute('aria-hidden')})), failures: [...document.querySelectorAll('[role=alert]')].map(el => el.textContent) })`);
     const palette = await read(`(() => { const root = getComputedStyle(document.documentElement); const tokens = Object.fromEntries(['accent','ground','sunken','selected','selected-hover','button-accent-fill','button-accent-ink','button-key-ink','text-selection','text-selection-ink','doodle-ground'].map(name => [name, root.getPropertyValue('--'+name).trim()])); return {increasedContrast:matchMedia('(prefers-contrast: more)').matches,tokens,buttons:[...document.querySelectorAll('.empty-state button')].map(el => ({label:el.textContent,ink:getComputedStyle(el).color,fill:getComputedStyle(el).backgroundColor,key:el.querySelector('kbd') ? getComputedStyle(el.querySelector('kbd')).color : null})),selection:{fill:getComputedStyle(document.body,'::selection').backgroundColor,ink:getComputedStyle(document.body,'::selection').color},formRings:[...document.querySelectorAll('.app-select-trigger,.app-combobox-input,[data-scope="field"][data-part="input"]')].map(el => ({ink:getComputedStyle(el).outlineColor,ground:getComputedStyle(el).backgroundColor}))}; })()`);
     writeFileSync(join(dir, `${name}.palette.json`), JSON.stringify(palette, null, 2));
@@ -332,7 +334,7 @@ it.skipIf(!captureDir("U401"))("u401_capture_shared_glyphs_for_the_critic", asyn
   }
 }, 60_000);
 
-it.skipIf(!captureDir("U5740a"))("u5740a_capture_remaining_app_surfaces", { timeout: 480_000, retry: 0 }, async () => {
+it.skipIf(!captureDir("U5740a"))("u5740a_capture_remaining_app_surfaces", { timeout: 240_000, retry: 0 }, async () => {
   const { openLane } = await import("../todos/laneBrowser");
   const lane = await openLane(1512, "dark", "u5740a", false, null);
   const server = await appServer();

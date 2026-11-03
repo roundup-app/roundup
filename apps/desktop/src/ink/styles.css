@@ -222,7 +222,7 @@ p.ink[role="alert"] {
 }
 
 /* Keep xterm’s link canvas below the empty message and its actions. */
-.pane-body:has(.empty-state) > .pane-screen { isolation: isolate; }
+.pane-body:has(.empty-state) .pane-screen { isolation: isolate; }
 
 .empty-state-ground {
   position: absolute;
