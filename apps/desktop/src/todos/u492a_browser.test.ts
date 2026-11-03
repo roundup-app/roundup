@@ -20,7 +20,15 @@ describe.each([[1512, "dark"], [1512, "light"]] as const)("u492a at %i %s", (wid
     await read(lane, "baseline");
 
     // Reorder by Move down, then a failed one, on a flat list: a nested row's order is its parent's (U3708).
-    await lane.seedTodos(["first", "second", "third"], false);
+    await lane.evaluate(`(async () => {
+      const app = window.__fake.app;
+      for (const todo of await app.rpc('todo.list', null)) {
+        if (todo.blockers.length > 0) await app.rpc('todo.setBlockers', { id: todo.id, blockers: [] });
+      }
+      return true;
+    })()`);
+    await lane.until("!document.querySelector('.shelf .todo-list [aria-level=\"2\"]')");
+    await lane.resetCalls();
 
     const initial = await lane.order();
     const [one] = initial;
