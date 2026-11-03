@@ -365,3 +365,88 @@ Additional failed source lookup: `rg ... crates/rupd/src/rpc/project.rs` exits 2
 Spelling repair completed: raw body text carries the same clipped fragments as the snapshot, so both are now losslessly encoded. Both are checksum-verified after decoding; fifteen captures and 21 decision rows reconcile, with 34 source hashes matching both original revision and current checkout. Final standalone spelling scan passes (exit 0). No captured byte, lint policy or baseline was changed. The initial 33-source statement above precedes inspection of the actual public handler in crates/agents/src/dispatch.rs; that added source is the 34th.
 
 Final `just ready` passes (exit 0): B4522 migration guard, 193 lint-behavior checks, web lint/typecheck, repository and Rust lints, `ALL PROOFS CHECK` and N7 launch sites. Vocabulary, scenario ids, merge-loss, whitespace and final evidence reconciliation pass (exit 0). No behavior test file changed and no local `just check` ran. Own diff review resolved incorrect scenario/action references and separated missing-binary failure from optional executable diagnostics. The dedicated browser session is closed. #5758 stays open for complete coverage, one current revision, owner answers and authorized retirements.
+
+## Rail structure continuation — builder-41586912445
+
+Source main `4525b6ce563888c08b0b8bba3806449cf3b9c1f8`. Documentation only. RS01–RS19 (with RS17a/b/c) extend the reviewed inventory; R16 still owns error dismissal. No owner ask, answer or deletion is inferred. P1/P3/P6/P9/P11 gates preserve direct access, attention, Home, intentional work and drafts; rendered/action evidence is scoped to the fake seam, not production mutation.
+
+Fresh isolated `agent-browser --session u5741-415869`, default headless, no personal profile or external browser connection; dark 1512×950, existing tree-40 harness on port 5231. Ten openings retain screenshots under `artifacts/ux/U5741/rail-structure/`. Raw accessibility snapshots are losslessly compressed to avoid spelling checks treating clipped labels as authored prose: `zlib.decompress(base64.b64decode(page['snapshotZlibBase64']))`, UTF-8; compare SHA-256 to `snapshotSha256`. Native menu models use the existing menuProbe in a separate nonprojected opening. No native appearance/launch/Message-delivery claim.
+
+| Failed command / observer | Exit / status | Failure and disposition |
+| --- | --- | --- |
+| Initial `ls -d .codegraph .claude/sound` | 2 | No codegraph index; sound exists. Normal source search used. |
+| `agent-browser skills get core && ls /tmp/*u5741* /tmp/*rail*` | 2 | Browser core read succeeded; no previous temporary drivers matched. Restored the reviewed driver from the checked-in source catalogue. |
+| `cat .../emil-design-eng/references/accessibility.md` | 1 | Guessed reference absent; no observer claim depends on it. No UI code changed. |
+| `agent-browser wait --text Quiet` in first structure driver | 1 | Timeout after 30000ms. Harness projects Alerts parent disabled rather than nested children; no submenu screenshot accepted. Exact production model read through existing native menuProbe. |
+| Apple Finder folder guide open | HTTP 429 | Full page unavailable; search evidence alone retained; exact equivalence remains unverified. |
+| Apple Open With guide open | HTTP 429 | Same limit; no configured-directory editor equivalence claimed. |
+
+Successful source/render/hash reconciliation and final lint results are recorded below after completion. Every remaining vendor comparison, conditional opening, other App/endpoint decision and final all-feature revision reconciliation stays on #5758. No local `just check` or behavior-test suite ran; policy U5741 forbids report-text tests.
+
+The first creator-Todo screenshot preceded loaded rows; it was superseded by a bounded `.todos-tab [data-todo]` wait and loaded capture. Source and screenshot show creator-matching reveal within owner groups, with other Todos still visible; no exclusive filter pass is claimed. Ten final openings pass every recorded Check; fake clipboard writes the exact `roundup://agent/tokens?project=project-0000000000000000`, and directory/editor boundaries receive `/Users/you/harness` (Project fallback, not a real Worktree observation).
+
+| Additional command failure | Exit | Repair |
+| --- | --- | --- |
+| `python3 tools/lint/scan.py typos` before setup | 2 | Pinned binary absent in fresh worktree; `python3 tools/lint/setup.py web` installed the required tools. |
+
+Self-review removed a duplicate error-dismissal row (R16 already owns it), separated Workstream bulk All/Default/Quiet into RS17a/b/c, corrected the creator reveal description and fixed the README table delimiter. The final inventory contains 21 unique decisions, ten unique rendered states, four exact native models and 36 inspected source hashes. All final Check readings pass. Error-seed labels are fixture evidence only; full actionable real-failure readability remains part of the unfinished audit.
+
+| Further spelling scan failures | Exit | Repair |
+| --- | --- | --- |
+| Standalone `python3 tools/lint/scan.py typos` (two runs) | 1 each | Exact quoted Issue direction contained the historical plural image abbreviation. Retained its complete JSON losslessly as directionArchive (zlib/base64, decoded-byte SHA-256); readable direction findings stay in the report. No baseline or spelling exception changed. |
+
+Decode the linked direction archive using the same zlib/base64 operation as snapshots, then JSON-decode. Its SHA-256 verifies the complete preserved Issue bodies/comments, including exact owner quotes.
+
+| Required observer interrupted | Exit | Disposition |
+| --- | --- | --- |
+| First `just ready` | 143 | Process ended after desktop typecheck completed; output shows no preceding lint failure, but the Rust and N7 stages did not run. No complete pass claimed. Rerunning the required observer with retained log. |
+
+| Observer execution repair | Exit | Disposition |
+| --- | --- | --- |
+| Second `just ready > /tmp/u5741-ready-2.log` | 143 | Run deliberately terminated after launching a detached observer, to keep the full required check independent of the interactive command lifetime. No pass inferred from the interrupted partial run. |
+
+The final observer runs the unchanged `just ready` in a detached shell, retaining its complete log and explicit exit file; it changes no timeout, gate, recipe or test. The repeated partial lints are due to the interrupted observer, not added coverage.
+
+Final detached `just ready` passes, exit 0: B4522 migration guard, web lint/styles/type checks, repository and Rust lints, `ALL PROOFS CHECK`, and N7 launch-sites. The complete log is `/tmp/u5741-ready-detached.log`; exit file `/tmp/u5741-ready-detached.exit` holds `0`. No local `just check` ran. No behavior test was authored or changed by this slice.
+
+Main `d26af47b9e1fea792c4e7a9fd48f83070a3fdf9b` was merged without conflicts during validation; the source catalogue holds its exact resolved SHA and merge SHA. All 36 inspected sources still equal the audit pin. The final web source lint/type checks and repository/Rust/proof/N7 stages read the merged checkout; historical rendered evidence keeps its original pin. Vocabulary, scenario ids, whitespace, lossless snapshot/direction round trips, native alert models and merge-loss pass. Scope is six audit documents only; no image, video, product or frozen-loop file is committed. #5758 remains open for the unfinished inventory and later owner choices/retirements.
+
+
+## Rail structure completion — builder-41588674845
+
+PR #5859’s inherited evidence slice is verified against audited main `4525b6ce563888c08b0b8bba3806449cf3b9c1f8`: all 32 inspected source hashes match the checkout, all ten stored accessibility snapshots decode to their recorded SHA-256, and all ten environments are dark 1512×950. The independent-decision table contains 21 rows. No policy-report test was added.
+
+Recreated all ten accepted openings with the recorded driver’s successful paths in dedicated headless session `fix5859`, fresh profile `/tmp/fix5859-profile`, isolated harness port 5233. Explicit App appearance is dark; every recorded Check passes. Fresh PNG files remain uncommitted under `artifacts/ux/U5741/rail-structure/`; fresh snapshots, Checks and command logs are retained there too. The known unavailable projected Alerts submenu was skipped; its full production model was reproduced separately: all four complete native menu models match the recorded models (exit 0). Screens establish reachability only: the creator control was captured before Todo rows loaded; the concurrent run’s loaded capture supersedes it and proves creator-based reveal within owner groups, not an exclusive filter. Rename and Move picker openings supply R12/R13’s pending rendered entry points, without establishing mutation or drag success.
+
+| Failed command | Exit | Failure / disposition |
+| --- | ---: | --- |
+| `gh pr diff 5859 --stat` | 1 | This CLI has no stat option; used `git diff --stat origin/main...HEAD`. |
+| `rg -n 'preferences' apps/desktop/src/testing/fakeApp.ts` | 1 | No match; inspected actual preferences storage in settings/preferences.ts and used saveAppSettings. |
+
+The complete inventory, vendor comparisons, conditional states, final revision reconciliation and single owner request remain on #5758. No owner choice, retirement, product change or native effect is inferred.
+
+Merged main `d26af47b9e1fea792c4e7a9fd48f83070a3fdf9b` without conflicts; remerge-diff is empty and merge-loss passes. Its test-only changes leave all 32 inspected sources unchanged; earlier rendered evidence remains pinned to its original revision.
+
+| Failed command | Exit | Failure / repair |
+| --- | ---: | --- |
+| First `just ready` | 1 | Spelling scan rejected the plural image abbreviation in two copied direction comments. This run initially encoded only those two bodies with checksums; both decoded to the original bytes. The combined head retains the concurrent run’s complete directionArchive instead. No lint exception, baseline or product change. |
+
+| Further failed command | Exit | Failure / repair |
+| --- | ---: | --- |
+| `python3 tools/lint/scan.py typos` (first standalone run) | 1 | Same plural abbreviation in the new validation paragraph; changed authored prose to PNG files. |
+| `python3 tools/lint/scan.py web` (standalone run) | 1 | Same validation paragraph; source-comment encoding itself passed. |
+| `python3 tools/lint/scan.py typos` (separate stderr diagnostic) | 1 | Reproduced that same validation paragraph diagnostic; repaired prose without changing observed bytes. |
+
+Final `just ready` passes (exit 0) on the merged head: B4522 migration guard, 193 lint-behavior checks, web and package typechecks, repository/Rust lints, `ALL PROOFS CHECK` and N7 launch sites. Standalone spelling, vocabulary, scenario ids, merge-loss and whitespace checks pass. Source hashes, ten stored snapshot checksums, ten recreated openings and four complete menu models reconcile. Decoding the two archived direction comments reconstructs the entire inherited source catalogue exactly. Own diff review is clean; no behavior test changed and no local `just check` ran. The dedicated browser and harness are closed.
+
+The push was rejected (exit 1) because the branch advanced to 30de64f7d. Merging that head stopped with content conflicts (exit 1); retained its complete source catalogue, direction archive and loaded Todo correction, plus this run’s independent validation. No product file or main-side line was dropped. Final post-merge checks follow below.
+
+| Concurrent-head command result | Exit | Disposition |
+| --- | ---: | --- |
+| `git push origin HEAD:build/app-feature-audit-implementation` | 1 | Remote head advanced to 30de64f7d; fetched and integrated its corrections without force pushing. |
+| `gh pr ready 5859` | 1 | Another run already marked the PR ready; verified ready state and enabled auto-merge. |
+| `git merge origin/build/app-feature-audit-implementation` | 1 | Source catalogue and validation history conflicted. Kept the remote complete archive/loaded observation and both validation records; merge commit carries this run’s Author-Agent trailer. |
+
+Combined evidence reconciliation passes: all 36 inspected source hashes, ten stored snapshot checksums and the complete direction archive’s decoded SHA-256. A second fresh headless profile and isolated port 5234 reproduce the loaded Todo opening after waiting for actual rows: all eight recorded Todo ids are visible, with creator-matching rows revealed in their owner group. The updated creator-todos PNG and loaded-completion-observations.json supersede this run’s earlier loading-state capture. Every recorded Check passes. The extra browser and harness are closed.
+
+Post-integration `just ready` passes (exit 0), including all 193 lint-behavior checks, package typechecks, repository/Rust lints, `ALL PROOFS CHECK` and N7. Vocabulary, scenario ids, merge-loss and whitespace pass on the combined head. Self-review preserves the concurrent loaded-Todo correction and every main-side product/test change. No local `just check` ran.
