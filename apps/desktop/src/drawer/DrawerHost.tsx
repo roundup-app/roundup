@@ -18,6 +18,8 @@ import { setDrawerSliding } from "./sliding";
 import type { ActivationSource } from "../keys/registry";
 import type { DrawerContent, DrawerState } from "./drawer";
 
+export const DrawerMaximisedContext = createContext<Accessor<boolean>>(() => false);
+
 export const DrawerExpandContext = createContext<(host: HTMLElement | undefined) => void>();
 
 /**
@@ -180,7 +182,7 @@ export const DrawerHost = (props: { drawer: DrawerState; reducedMotion: Accessor
         </IconButton>
       </div>
       <Show when={mounted()} keyed>
-        {(content) => <DrawerExpandContext.Provider value={setExpandHost}>{content()}</DrawerExpandContext.Provider>}
+        {(content) => <DrawerMaximisedContext.Provider value={frame.maximised}><DrawerExpandContext.Provider value={setExpandHost}>{content()}</DrawerExpandContext.Provider></DrawerMaximisedContext.Provider>}
       </Show>
     </aside>
   );
