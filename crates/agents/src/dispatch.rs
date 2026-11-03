@@ -703,32 +703,6 @@ impl Agents {
         }
     }
 
-    async fn rpc_project_open(
-        &self,
-        ctx: &Ctx,
-        _method: &str,
-        value: Value,
-    ) -> Result<Value, RpcError> {
-        {
-            let contracts::project::OpenParams { path } = params(value)?;
-            let folder = Path::new(&path);
-            if !folder.is_absolute() {
-                return Err(RpcError::new(
-                    code::INVALID_PARAMS,
-                    format!("path {path} is not absolute"),
-                ));
-            }
-            if !folder.is_dir() {
-                return Err(RpcError::not_found(format!("directory {path}")));
-            }
-            ctx.touch(contracts::Verb::Wrote, &format!("project:{path}"))?;
-            ctx.emit(EventData::ProjectRequested(
-                contracts::project::Requested::Open { path },
-            ));
-            reply(&())
-        }
-    }
-
     async fn rpc_project_rename(
         &self,
         ctx: &Ctx,

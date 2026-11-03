@@ -19,7 +19,21 @@ export const storageCopy = {
   },
 } as const;
 
+const openProjectRetry = "Use Open Project to try again.";
+
 export const copy = {
+  openProjectRetry,
+  openProjectFailed: "Opening failed",
+  /** @prose */
+  openProjectRecovery: (path: string, cause: string) => `${path}: ${cause} ${openProjectRetry}`,
+  openUser: sharedCopy.you,
+  openProjectTitle: "Open Project?",
+  openProjectChoice: sharedCopy.openDraft,
+  refuseProject: "Refuse",
+  /** @prose */
+  openProjectQuestion: (agent: string, source: string) => `${agent} in ${source} asks to open`,
+  openRefused: (path: string) => `The user refused to open ${path}. Ask the user before trying again.`,
+  openConnectionLost: (path: string) => `The App connection was lost while opening ${path}. Check open Projects before retrying.`,
   claudeBinary: (version: string, path: string) => `claude ${version}  ${path}`,
   recentFolders: "Recent Projects",
   claudeNotFound: "Claude Code is unavailable. Install Claude Code and try again.",

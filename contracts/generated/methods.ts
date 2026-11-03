@@ -110,6 +110,7 @@ import type { Mcp as project_Mcp } from "./project/Mcp";
 import type { ModelList as project_ModelList } from "./project/ModelList";
 import type { NamingSettings as project_NamingSettings } from "./project/NamingSettings";
 import type { OpenParams as project_OpenParams } from "./project/OpenParams";
+import type { Opened as project_Opened } from "./project/Opened";
 import type { PrepareParams as project_PrepareParams } from "./project/PrepareParams";
 import type { Prepared as project_Prepared } from "./project/Prepared";
 import type { ProjectModels as project_ProjectModels } from "./project/ProjectModels";
@@ -214,7 +215,6 @@ export type RpcMethods = {
   "project.get": { params: null; result: project_ProjectSettings };
   "project.setModels": { params: project_ProjectModels; result: null };
   "models.list": { params: null; result: project_ModelList };
-  "project.open": { params: project_OpenParams; result: null };
   "project.rename": { params: project_RenameParams; result: null };
   "rail.removeSelection": { params: agent_RemoveSelectionParams; result: agent_Removal };
   "rail.remove": { params: agent_RemoveParams; result: agent_Removal | null };
@@ -304,6 +304,7 @@ export type RpcMethods = {
   "github.prSetBody": { params: github_SetBodyParams; result: github_Pr };
   "github.prReady": { params: github_Number; result: github_Pr };
   "github.prAutoMerge": { params: github_Number; result: github_Pr };
+  "project.open": { params: project_OpenParams; result: project_Opened };
   "action.serve": { params: null; result: null };
   "action.list": { params: null; result: action_ActionRow[] };
   "action.userList": { params: null; result: action_ActionRow[] };

@@ -283,7 +283,7 @@ const TOOLS: &[(&str, &str)] = &[
     ("provenance_touched", "list the Touches one Actor made"),
     (
         "project_open",
-        "ask the App to open the Project at an absolute folder path; the answer means asked, not done",
+        "open an absolute existing folder through the App; wait for user consent when needed and return the final canonical opened path",
     ),
     (
         "project_rename",

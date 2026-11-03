@@ -140,6 +140,7 @@ fn invoke_handler<R: Runtime>() -> impl Fn(tauri::ipc::Invoke<R>) -> bool + Send
         recent_projects,
         claude_binary,
         open_project,
+        canonical_project_path,
         close_project,
         rename_project,
         rpc,
@@ -249,6 +250,19 @@ async fn open_project<R: Runtime>(
 }
 
 #[tauri::command]
+fn canonical_project_path(path: String) -> Result<String, RpcError> {
+    Path::new(&path)
+        .canonicalize()
+        .map(|resolved| resolved.display().to_string())
+        .map_err(|error| {
+            RpcError::new(
+                rpc::code::INVALID_PARAMS,
+                format!("cannot resolve Project folder {path}: {error}"),
+            )
+        })
+}
+
+#[tauri::command]
 fn close_project(state: State<'_, AppState>, path: String) -> Result<(), RpcError> {
     state.close_project(&path)
 }
@@ -289,8 +303,9 @@ async fn action_serve(
     state: State<'_, AppState>,
     path: String,
     channel: Channel<serde_json::Value>,
+    registration: String,
 ) -> Result<(), RpcError> {
-    state.action_serve(&path, channel).await
+    state.action_serve(&path, channel, registration).await
 }
 
 #[tauri::command]
@@ -298,8 +313,9 @@ async fn action_answer(
     state: State<'_, AppState>,
     path: String,
     line: serde_json::Value,
+    registration: String,
 ) -> Result<(), RpcError> {
-    state.action_answer(&path, line).await
+    state.action_answer(&path, &registration, line).await
 }
 
 /// X14: raw `ArrayBuffer` bodies of one Terminal's bytes, and JSON gaps, on one ordered channel.
