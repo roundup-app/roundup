@@ -598,6 +598,19 @@ async fn u5740c_current_project_drops_only_retired_tables() {
     )
     .unwrap();
     db.execute("INSERT INTO reaction_firings(id,reaction,operation,ordinal,message,matched,definition,evidence) VALUES('firing-kept','retired','auto-1',1,5900,1,?1,'accepted evidence')", [&record]).unwrap();
+    // Kept replay must cross a full page of retired Events, keep original numbers,
+    // and tolerate a retired final row without changing the persisted log.
+    db.execute_batch(r#"
+        INSERT INTO events(id,event) VALUES
+            (1,'{"actor":{"kind":"user","id":"you"},"name":"rail.changed"}');
+        WITH RECURSIVE numbers(id) AS (
+            SELECT 2 UNION ALL SELECT id+1 FROM numbers WHERE id<1026
+        ) INSERT INTO events(id,event)
+            SELECT id,'{"actor":{"kind":"ext","id":"rupd"},"name":"reaction.changed"}' FROM numbers;
+        INSERT INTO events(id,event) VALUES
+            (1027,'{"actor":{"kind":"user","id":"you"},"name":"rail.changed"}'),
+            (1028,'{"actor":{"kind":"ext","id":"rupd"},"name":"reaction.changed"}');
+    "#).unwrap();
     let retained = |db: &Connection| {
         dump_except(
             db,
@@ -631,6 +644,37 @@ async fn u5740c_current_project_drops_only_retired_tables() {
                 0
             );
         }
+        let (events, mut replay) = tokio::sync::mpsc::unbounded_channel();
+        let mut conn = crate::Conn {
+            actor: contracts::Actor::user(),
+            peer: None,
+            events,
+            output: None,
+        };
+        let answer = daemon
+            .dispatch(
+                &mut conn,
+                r#"{"jsonrpc":"2.0","id":1,"method":"events.subscribe","params":{"kept":true}}"#,
+                None,
+            )
+            .await
+            .unwrap()
+            .into_value();
+        assert!(answer.get("error").is_none(), "{answer}");
+        assert_eq!(answer["result"]["head"], 1028);
+        for seq in [1, 1027] {
+            let event = tokio::time::timeout(std::time::Duration::from_secs(1), replay.recv())
+                .await
+                .unwrap()
+                .unwrap()
+                .into_value();
+            assert_eq!(event["params"]["seq"], seq);
+            assert_eq!(event["params"]["name"], "rail.changed");
+        }
+        assert!(matches!(
+            replay.try_recv(),
+            Err(tokio::sync::mpsc::error::TryRecvError::Empty)
+        ));
         // Opening a persisted Agent never starts a Terminal/program or adds a Message.
         assert_eq!(daemon.terminals.list().await.len(), 0);
         assert_eq!(
