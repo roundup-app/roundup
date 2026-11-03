@@ -69,7 +69,6 @@ Policy: derive each gate from these changed paths, not from unrelated unmet goal
 | P9/P10 | Start/send without authorization, changed cached configuration or unnecessary prompt? | U3078a/d/g/j; launch/prompt counts and bytes |
 | P11 | Lost draft, wrong identity/revision consumed or send on restore? | U3078g/i; original-input and submitted-call assertions |
 | P12 | Substituted/unavailable published revision, ignored removal or duplicated publication store? | U3078a/c/i; exact Deliverable identity and resolution |
-| P13 | Unknown facts treated as success, duplicate/lost accepted successor, stop bypass or Model polling? | U3078b/e/f/g/h/j; durable ids, authority and effect counts |
 
 ## Regression checks on main
 
@@ -77,7 +76,7 @@ Policy: derive each gate from these changed paths, not from unrelated unmet goal
 2. `scenarios/messages.md`, headings B8, B30, B32, B39–B48; `crates/messages/src/store.rs`, tests `b6_begin_between_check_and_record_holds_the_message` and `b32_input_between_the_check_and_the_record_holds_the_message`: preserve delivery/replay, batching and holds. Unknown work is not evidence that transport failed.
 3. `scenarios/agents.md`, headings A8, A20–A24 and A30; `crates/agents/src/resume.rs`: preserve no-start-on-open, Attempt identity, acknowledged saved-conversation resume and subscription launches.
 4. `crates/rup/tests/e2e/wake.rs`, tests `b41_no_timer_is_set` and `b42_the_note_and_the_removal_are_one_write`: retain event-driven Wake semantics. A Wake's finished Kind is not successful-work evidence.
-5. `scenarios/product-continuity.md`, headings PC1–PC4; `scenarios/deliverables.md`, headings DV1–DV6; `scenarios/unfinished-input.md`, headings U2773a–U2773h: preserve original draft and published-target identities, refusal and removal/access rules.
+5. `scenarios/product-continuity.md`, headings PC1, PC2 and PC4; `scenarios/deliverables.md`, headings DV1–DV6; `scenarios/unfinished-input.md`, headings U2773a–U2773h: preserve original draft and published-target identities, refusal and removal/access rules.
 6. `.agents/data/journey.md`, headings “What must work” and “The viewport”; `.agents/data/harness.md`, heading “Captures”; `docs/design-system.md`, heading “The checks”; `scenarios/proofs.md`, heading V5 (laws M1–M10): retain journey/capture, appearance and Message observers.
 
 ## Specification boundary

@@ -1,6 +1,6 @@
 # Open surfaces update themselves
 
-Acceptance for #5558. This specification amends DV5, U504's heading actions, NR9, U2540b's content refresh and U3523a/d's listing refresh. It delivers no runtime behavior. Journey stages: Understand and Review; a result published by an Agent becomes discoverable without leaving the window or finding a reload action.
+Acceptance for #5558. This specification amends DV5, U504's heading actions, U2540b's content refresh and U3523a/d's listing refresh. It delivers no runtime behavior. Journey stages: Understand and Review; a result published by an Agent becomes discoverable without leaving the window or finding a reload action.
 
 All test names below are implementation obligations, not claims that tests already exist. Extend existing proofs instead of duplicating them. App tests assert behavior, roles, selected identities, calls and contracts; the critic owns appearance and exact copy.
 
