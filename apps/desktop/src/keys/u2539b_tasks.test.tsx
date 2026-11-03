@@ -339,24 +339,25 @@ it("u4278a_no_selected_project_projects_no_actions", async () => {
 });
 
 it("u5740a_remaining_navigation_preserves_ask_and_terminal", async () => {
-  const { connected, daemon } = await mount(false, 0, 10);
+  const { connected, daemon, emulators } = await mount(false, 0, 10);
   const text = "keep exact\n unfinished 🧭  ";
   fireEvent.input(screen.getByRole("textbox", { name: "Ask" }), { target: { value: text } });
   connected().rail.select("a1");
   await waitFor(() => expect(document.activeElement?.getAttribute("data-terminal")).toBe("t-a1"));
-  const before = 0;
+  const terminal = emulators.made.get("t-a1")!;
+  terminal.select("exact Terminal selection\n second line");
   openProjectPage("view:made", "/p");
-  await waitFor(() => expect(connected().hasView("made")).toBe(true));
-  openProjectPage("view:made", "/p");
-  await waitFor(() => expect(connected().hasView("made")).toBe(false));
-  expect(connected().rail.selected()).toBe("a1");
+  await waitFor(() => expect(screen.getByRole("button", { name: "Made" }).getAttribute("aria-expanded")).toBe("true"));
+  expect(connected().rail.selected()).toBeNull();
   leader("KeyK");
   const search = await screen.findByRole("combobox");
-  fireEvent.input(search, { target: { value: "Agent 2" } });
-  await waitFor(() => expect(screen.getByRole("option", { name: /Agent 2/ })).toBeTruthy());
-  key("ArrowDown");
-  key("Escape");
+  fireEvent.input(search, { target: { value: "Agent 1" } });
+  await waitFor(() => expect(screen.getByRole("option", { name: /Agent 1/ })).toBeTruthy());
+  key("Enter");
   await waitFor(() => expect(document.activeElement?.getAttribute("data-terminal")).toBe("t-a1"));
+  expect(connected().rail.selected()).toBe("a1");
+  expect(emulators.made.get("t-a1")).toBe(terminal);
+  expect(terminal.selection()).toBe("exact Terminal selection\n second line");
   fireEvent.click(screen.getByRole("button", { name: /^Overview/ }));
   const overview = screen.getByRole("button", { name: /^Overview/ });
   overview.focus();
@@ -365,7 +366,8 @@ it("u5740a_remaining_navigation_preserves_ask_and_terminal", async () => {
   key("Escape");
   await waitFor(() => expect(document.activeElement).toBe(overview));
   expect(screen.getByRole<HTMLTextAreaElement>("textbox", { name: "Ask" }).value).toBe(text);
-  expect(daemon.calls.slice(before).filter(call => !["terminal.resize", "terminal.snapshot", "rail.tree", "terminal.list", "deliverable.list", "ask.list", "todo.unread", "pad.list", "daemon.ping", "terminal.scheme"].includes(call.method))).toEqual([]);
+  expect(terminal.selection()).toBe("exact Terminal selection\n second line");
+  expect(daemon.calls.filter(call => !["terminal.resize", "terminal.snapshot", "rail.tree", "terminal.list", "deliverable.list", "ask.list", "todo.unread", "pad.list", "daemon.ping", "terminal.scheme", "agent.changedFiles", "agent.worktreeState", "todo.list", "workstream.queue", "action.userList", "message.list", "todo.listHanded"].includes(call.method))).toEqual([]);
 });
 
 it("u4274b_project_menu_omits_navigation_toggles", async () => {
