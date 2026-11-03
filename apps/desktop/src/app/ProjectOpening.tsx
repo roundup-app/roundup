@@ -109,9 +109,9 @@ export const ProjectOpening = (props: { opening: ReturnType<typeof createProject
           </Show>
         </Dialog.Description>
         <footer class="app-dialog-actions">
-          <Show when={confirmation()} fallback={<button type="button" data-button="quiet" onClick={() => failure()?.dismiss()}>{copy.close}</button>}>{confirmation => <>
-            <button type="button" data-button="quiet" onClick={() => confirmation().choose(false)}>{copy.refuseProject}</button>
-            <button type="button" data-button="primary" onClick={() => confirmation().choose(true)}>{copy.openProjectChoice}</button>
+          <Show when={confirmation()} keyed fallback={<button type="button" data-button="quiet" onClick={() => failure()?.dismiss()}>{copy.close}</button>}>{confirmation => <>
+            <button type="button" data-button="quiet" onClick={() => confirmation.choose(false)}>{copy.refuseProject}</button>
+            <button type="button" data-button="primary" onClick={() => confirmation.choose(true)}>{copy.openProjectChoice}</button>
           </>}</Show>
         </footer>
       </Dialog.Content></Dialog.Positioner>;
