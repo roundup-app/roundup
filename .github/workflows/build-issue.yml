@@ -148,6 +148,7 @@ jobs:
         with:
           name: answer-${{ inputs.issue }}
           path: ${{ runner.temp }}/answer
+          overwrite: true  # a rerun's answer replaces the earlier attempt's, which download would otherwise pick (#5924)
 
   after:
     needs: build
