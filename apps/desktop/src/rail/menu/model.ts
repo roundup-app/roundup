@@ -251,7 +251,7 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
     setState(current);
 
     try {
-      const judgments = await Promise.all(chosen.values().filter(node => node.kind === "workstream").map(async node => ({ node, removal: await judgeRemoval(app, rail.nodes, node.id, ids) })).toArray());
+      const judgments = await Promise.all(chosen.flatMap(node => node.kind === "workstream" ? [judgeRemoval(app, rail.nodes, node.id, ids).then(removal => ({ node, removal }))] : []));
       const affected = new Set([...chosen.map(node => node.id), ...judgments.flatMap(({ removal }) => removal.removedIds)]);
 
       const losses = lossesOf(railOrder(rail.nodes).filter(node => affected.has(node.id)));
