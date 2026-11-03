@@ -173,7 +173,7 @@ impl Agents {
             .map(drop)
         {
             Ok(()) => {}
-            Err(err) => {
+            Err(mut err) => {
                 let mut rail = self.shared.rail();
                 let mut runs = self.shared.runs();
                 if runs.get(&id).is_some_and(|slot| slot.attempt() == attempt) {
@@ -181,11 +181,26 @@ impl Agents {
                     self.shared.events.observed.notify_waiters();
                     if rail.node(&id)?.worktree.is_none() {
                         report_undo("remove the Agent from the Rail", rail.remove(&id));
+                    } else if params.start_attribution.is_some() {
+                        let path = self.project_dir().to_string_lossy().into_owned();
+                        let cause = err.message.clone();
+                        err.message = format!(
+                            "start failed for {path} row {id}: {cause}; inspect this row before retrying"
+                        );
+                        err.data = Some(contracts::RpcErrorData::StartFailed {
+                            path,
+                            id: id.clone(),
+                            cause,
+                        });
+                        Self::touch_creation(ctx, &id, params.start_attribution.as_ref())?;
                     }
                 }
                 return Err(err);
             }
         };
+        if params.start_attribution.is_some() {
+            Self::touch_creation(ctx, &id, params.start_attribution.as_ref())?;
+        }
         ctx.emit(EventData::RailChanged);
         self.shared.node(&id)
     }
