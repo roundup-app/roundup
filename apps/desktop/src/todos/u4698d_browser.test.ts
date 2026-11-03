@@ -272,7 +272,7 @@ it.skipIf(!captureDir("U5127a") && !captureDir("U5127b"))("u5127a_u5127b_failed_
 
       try {
         await lane.browser("set", "media", "dark");
-        await lane.seedTodos(Array.from({ length: 8 }, (_, index) => `${index} 長い é 🧭 日本語 ${"Review dependency ".repeat(10)}`), false);
+        await lane.seedTodos(Array.from({ length: 8 }, (_, index) => `${index} 長い é 🧭 日本語 ${"Review dependency ".repeat(10)}`), false); // taste-skill-ignore: Unicode worst-case fixture, not interface decoration.
         const [chosen, survivor] = await lane.order();
         await lane.capture(id, "before");
         await lane.browser("focus", `.shelf [data-todo="${chosen}"] .todo-row-button`);
