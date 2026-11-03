@@ -485,7 +485,7 @@ details[data-pad-agents] summary:focus-visible {
   color: var(--text);
 }
 
-.pad-format-controls { display: flex; align-items: center; gap: var(--space-1); }
+.pad-format-controls { display: flex; align-items: center; gap: var(--space-1); flex-shrink: 0; }
 .pad-format-controls .icon { fill: none; }
 
 .pad-colour-menu { transform-origin: var(--transform-origin); }

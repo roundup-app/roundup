@@ -73,7 +73,7 @@
   --crepe-base-font-size: var(--text-title);
   --crepe-font-title: var(--font-ui);
   --crepe-font-default: var(--font-ui);
-  --crepe-font-code: var(--font-mono);
+  --crepe-font-code: var(--font-mono); /* taste-skill-ignore: literal code uses the code face. */
   --crepe-shadow-1: none;
   --crepe-shadow-2: none;
 }
@@ -388,6 +388,7 @@ li[aria-selected="true"] svg {
 .pad-width-control {
   order: 1;
   flex-shrink: 0;
+  margin-inline-start: var(--space-2);
 }
 
 .pad-toolbar-expand {

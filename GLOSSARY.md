@@ -389,6 +389,8 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 
 | Menu-bar mark (`MenuBar`, `MenuBarAction`, `menuBarActionSchema`, `setMenuBar`, `onMenuBarAction`, `watchMenuBar`, `showWindow`, `menu_bar`, `set_menu_bar`, `menu-bar-action`) | same | — |
 
+| Dock menu (`DockMenu`) | same | — |
+
 ### Pad formatting
 
 | Code term | User label | Avoid |
@@ -399,4 +401,3 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Pad format Markdown (`padFormatMarkdown`) | none | — |
 | Code colours (`codeColours`, `languages`) | none | — |
 | Pad colour Tokens (`--pad-blue`, `--pad-green`, `--pad-amber`, `--pad-purple`, `--pad-highlight`, `--pad-highlight-ink`) | none | — |
-| Dock menu (`DockMenu`) | same | — |
