@@ -470,6 +470,18 @@ it("u504_changes_survive_app_disconnection", async () => {
       }
     }
 
+    for (let turn = 1; turn <= 2; turn += 1) {
+      const before = (await app.rpc("rail.tree", null)).find(node => node.id === maker.id)!.status!.finished;
+      await app.rpc("message.send", { to: maker.id, kind: "note", body: `Message turn ${turn}`, replyTo: null });
+      await waitFor(async () => {
+        const node = (await app.rpc("rail.tree", null)).find(node => node.id === maker.id);
+        expect(node?.status?.kind).toBe("idle");
+        expect(node?.status?.finished).not.toBe(before);
+      });
+      const { stdout } = await exec(resolve("../../target/debug/rup"), ["--json", "deliverable", "publish", `message-${turn}`, "Same title", "--agent", maker.id, "--target", JSON.stringify({ kind: "external", url: `https://example.com/message-${turn}` })], { env: { ...process.env, RUPD_SOCKET: source.socket } });
+      publications.push(JSON.parse(stdout));
+    }
+
     // The process restart discards every in-memory notification before D11 reconnects.
     await source.restart();
     const reopened = createServedApp(source.base);
@@ -482,10 +494,10 @@ it("u504_changes_survive_app_disconnection", async () => {
     expect(new Set(completions.map(event => JSON.stringify(event.data))).size).toBe(3);
     expect(new Set(completions.map(event => event.data.attempt)).size).toBe(1);
     expect(facts.map(event => event.data.record)).toEqual(publications);
-    expect(facts.map(event => event.data.completion)).toEqual(completions.slice(0, 2).map(event => event.data));
+    expect(facts.map(event => event.data.completion)).toEqual([...identities.slice(0, 2), null, null]);
     expect(completions.every(event => event.data.maker === maker.id)).toBe(true);
     expect(seen.map(event => event.seq)).toEqual([...new Set(seen.map(event => event.seq))].sort((a, b) => a! - b!));
-    expect(facts.every((fact, index) => fact.seq! > completions[index]!.seq!)).toBe(true);
+    expect(facts.slice(0, 2).every((fact, index) => fact.seq! > completions[index]!.seq!)).toBe(true);
     const prompts = await readFile(log, "utf8");
     const before = await reopened.rpc("rail.tree", null);
     const asks = await reopened.rpc("ask.list", null);
@@ -499,10 +511,10 @@ it("u504_changes_survive_app_disconnection", async () => {
     expect(await reopened.rpc("ask.list", null)).toEqual(asks);
     expect(await reopened.rpc("message.list", { to: maker.id, status: null })).toEqual(messages);
 
-    for (const fact of facts) {
+    for (const [index, fact] of facts.entries()) {
       const { project, id } = fact.data.record;
       expect(await reopened.rpc("deliverable.get", { project, id })).toEqual(fact.data.record);
-      expect(await reopened.rpc("deliverable.resolve", { project, id })).toEqual({ kind: "external", url: `https://example.com/turn-${facts.indexOf(fact) + 1}`, availability: "not-checked" });
+      expect(await reopened.rpc("deliverable.resolve", { project, id })).toEqual({ kind: "external", url: `https://example.com/${["turn-1", "turn-2", "message-1", "message-2"][index]}`, availability: "not-checked" });
     }
   } finally {
     window.dispatchEvent(new Event("pagehide"));

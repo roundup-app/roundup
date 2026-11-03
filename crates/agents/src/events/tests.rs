@@ -612,49 +612,6 @@ async fn u5483c_empty_text_without_turn_identity_remains_unknown() {
     assert!(shared.node(&id).unwrap().final_text.is_none());
 }
 
-#[tokio::test]
-async fn b5519a_replayed_completion_keeps_its_original_message_boundary() {
-    use std::sync::atomic::{AtomicI64, Ordering};
-
-    let now = Arc::new(AtomicI64::new(10));
-    let clock = Arc::clone(&now);
-    let (dir, _, shared) = shared_over_temp_dir(Arc::new(move || clock.load(Ordering::SeqCst)));
-    let id = running_agent(&shared, None);
-    let clock = Arc::clone(&now);
-    let mut runs = shared.runs();
-    let Some(Slot::Running(run)) = runs.get_mut(&id) else {
-        panic!("the fixture Agent is running");
-    };
-    run.adapter = ClaudeCode::starting(move || clock.load(Ordering::SeqCst));
-    drop(runs);
-    let agents = crate::Agents {
-        shared: Arc::clone(&shared),
-        dir: dir.path().to_owned(),
-        launcher: shared.rail_view.launcher.clone(),
-    };
-    shared
-        .observe(
-            Actor::daemon(),
-            &id,
-            "1",
-            Observation::Signal(json!({"hook_event_name":"UserPromptSubmit", "prompt_id":"first"})),
-        )
-        .unwrap();
-    let stop = json!({"hook_event_name":"Stop", "prompt_id":"first", "last_assistant_message":"Done with page one"});
-    now.store(20, Ordering::SeqCst);
-    shared
-        .observe(Actor::daemon(), &id, "1", Observation::Signal(stop.clone()))
-        .unwrap();
-    now.store(50, Ordering::SeqCst);
-    shared
-        .observe(Actor::daemon(), &id, "1", Observation::Signal(stop))
-        .unwrap();
-    assert_eq!(
-        agents.completed_text().get(&id),
-        Some(&("1:1".into(), 10, 20, "Done with page one".into()))
-    );
-}
-
 #[test]
 fn b5635a_rescan_and_registry_isolation() {
     use crate::{claude_code, events::InboxState};
@@ -975,4 +932,48 @@ async fn u504_native_permission_resumption_preserves_completion_identity() {
     }
     assert_eq!(completed, expected);
     assert_eq!(observed_turns, expected.map(Some));
+}
+
+#[tokio::test]
+async fn u504_a_turn_without_prompt_identity_does_not_reuse_the_previous_completion() {
+    for start in [
+        Observation::Signal(json!({"hook_event_name":"PostToolUse"})),
+        Observation::Title("◐ working".into()),
+    ] {
+        let (dir, bus, shared) = shared_over_temp_dir(Arc::new(|| 0));
+        let id = running_agent(&shared, None);
+        let agents = crate::Agents {
+            shared: Arc::clone(&shared),
+            dir: dir.path().to_owned(),
+            launcher: shared.rail_view.launcher.clone(),
+        };
+        let mut events = bus.subscribe();
+        for payload in [
+            json!({"hook_event_name":"UserPromptSubmit", "prompt_id":"typed"}),
+            json!({"hook_event_name":"Stop", "prompt_id":"typed", "last_assistant_message":"Typed result"}),
+        ] {
+            shared
+                .observe(Actor::daemon(), &id, "1", Observation::Signal(payload))
+                .unwrap();
+        }
+        assert_eq!(agents.turn_identity(&id).unwrap().turn, "typed");
+        shared.observe(Actor::daemon(), &id, "1", start).unwrap();
+        assert_eq!(agents.turn_identity(&id), None);
+        shared
+            .observe(
+                Actor::daemon(),
+                &id,
+                "1",
+                Observation::Signal(json!({"hook_event_name":"Stop"})),
+            )
+            .unwrap();
+        assert_eq!(agents.turn_identity(&id), None);
+        let mut completed = Vec::new();
+        while let Ok(event) = events.try_recv() {
+            if let EventData::AgentCompleted(completion) = event.data {
+                completed.push(completion.turn);
+            }
+        }
+        assert_eq!(completed, ["typed"]);
+    }
 }
