@@ -160,6 +160,9 @@ run("u502 resize edges use Ark Splitter", () => {
     await load(1280);
     await page.call(`() => document.querySelector('.rail [data-id="agent-4"] .name').click()`);
     await page.until(`() => document.querySelector(".xterm-screen")`);
+    // emulator.ts resolves ready after loading and measuring the effective font;
+    // that initial fit must finish before measuring only the user's drag.
+    await page.call(`() => window.__terminals.get('t-agent-4').ready`);
 
     const frames = () => page.call(`() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done)))`);
     const resizes = () => page.call<number>(`() => window.__fake.app.calls.filter((call) => call.method === "terminal.resize").length`);
