@@ -120,3 +120,35 @@ it("u5765_keyboard_open_completes_the_request", async () => {
   await page.until("window.openResult?.result?.path === '/Users/you/Projects/keyboard-target' && !document.querySelector('[role=dialog]')");
   expect(await page.evaluate("window.openResult")).toEqual({ jsonrpc: "2.0", id: 5767, result: { path: "/Users/you/Projects/keyboard-target" } });
 });
+
+
+it("u5765_invalidating_a_pressed_confirmation_cannot_authorize_the_next_request", async () => {
+  const sourceB = "/Users/you/Projects/second-source";
+  await page.evaluate(`window.__fake.app.nativeOpen({kind:'project',path:'${sourceB}'})`);
+  await page.until("[...document.querySelectorAll('[role=tab]')].some(tab => tab.textContent.includes('second-source'))");
+  await page.evaluate(`(() => {
+    const app = window.__fake.app;
+    window.staleResult = null;
+    window.nextResult = null;
+    void app.requestAction({id:5772,method:'project.open',params:{source:app.opened.project.path,path:'/Users/you/Projects/stale-target'}}).then(reply => window.staleResult=reply);
+    void app.of('${sourceB}').requestAction({id:5773,method:'project.open',params:{source:'${sourceB}',path:'/Users/you/Projects/fresh-target'}}).then(reply => window.nextResult=reply);
+    return true;
+  })()`);
+  await page.until("document.querySelector('[role=dialog]')?.textContent.includes('stale-target')");
+
+  const point = await page.evaluate<{ x: number; y: number }>(`(() => {
+    const rect = document.querySelector('[role=dialog] button:last-child').getBoundingClientRect();
+    return {x:rect.x + rect.width / 2,y:rect.y + rect.height / 2};
+  })()`);
+
+  await page.browser("mouse", "move", String(Math.round(point.x)), String(Math.round(point.y)));
+  await page.browser("mouse", "down", "left");
+  await page.evaluate("window.__fake.app.invalidateActions()");
+  await page.until("window.staleResult?.error?.code === -32004 && document.querySelector('[role=dialog]')?.textContent.includes('fresh-target')");
+  await page.browser("mouse", "up", "left");
+  expect(await page.evaluate("window.nextResult")).toBeNull();
+  expect(await page.evaluate("[...document.querySelectorAll('[role=tab]')].some(tab => tab.textContent.includes('fresh-target'))")).toBe(false);
+  await page.browser("click", "[role=dialog] button:last-child");
+  await page.until("window.nextResult?.result?.path === '/Users/you/Projects/fresh-target' && !document.querySelector('[role=dialog]')");
+  expect(await page.evaluate("window.nextResult")).toEqual({jsonrpc:"2.0",id:5773,result:{path:"/Users/you/Projects/fresh-target"}});
+});
