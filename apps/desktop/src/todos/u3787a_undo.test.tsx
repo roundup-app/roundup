@@ -6,6 +6,7 @@ import { RpcError } from "../app/seam";
 import type { DeleteParams } from "@contracts/todo/DeleteParams";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
+import { batch } from "solid-js";
 import { showEverythingInApp } from "../testing/showEverything";
 import { App } from "../App";
 import { createFakeApp, type FakeApp } from "../testing/fakeApp";
@@ -20,7 +21,7 @@ import { historyRegion } from "../keys/focus";
 
 stubDialogLayout();
 
-afterEach(cleanup);
+afterEach(() => batch(cleanup));
 
 let histories: Map<string, ConnectedProject>;
 
