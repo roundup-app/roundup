@@ -34,7 +34,12 @@ Each absent guessed source path was replaced by the actual source discovered wit
 | `cat crates/rupd/src/guard.rs` | 1 | Singular path absent; `guards.rs` is the actual file. |
 | `rg` over guessed `scenarios/architecture.md` | 2 | Path absent; declarations and actual owning scenarios supplied acceptance sources. |
 | `rg` over guessed `crates/rupd/src/authorization.rs` | 2 | Path absent; actual source is `guards.rs`, plus production route/selector dispatch. |
+| `python3 tools/lint/scan.py file-size` | 2 | Invalid section name; corrected `python3 tools/lint/scan.py size` passes (0), retaining the existing baseline debt. |
 
 The initial probes were exploratory, not scenario observers. No runtime query or named behavior test failed. The two primary vendor pages opened successfully; no substitute source or inferred vendor measurement was used.
 
 Self-review strengthened the runtime fixture with a second Todo: item history excludes it while Actor history includes it. This corrects the initial report’s unsupported statement about a Workstream appearing under the user. Replayed runtime and integrity observers pass (0); the archived source revision stays the original main commit, independent of subsequent documentation commits.
+
+Merged `origin/main` at `eb958ff1fee390218a6639d114dc05eb62e85170` without conflicts; its only change since the audited revision adds the commit-attribution specification. All 28 inspected source archives still match the checkout; the integrity observer and merge-loss pass (0). This does not promote historical App evidence or claim the whole-App inventory is current. Standalone spelling, size, vocabulary, scenario ids and whitespace checks pass (0).
+
+Final `just ready` passes (0): all 193 lint fixtures, package type checks, repository/Rust lints, migration guard, `ALL PROOFS CHECK` and N7. The main merge completed during this run before its repository/Rust checks; the only incoming file is the unrelated specification recorded above, and every inspected implementation stays identical. The two named store tests, strengthened live fixture, source/offer integrity, spelling, size, vocabulary, scenario ids, merge-loss and whitespace checks pass (0). Independent required CI/review judge the pushed head; no successful future merge is claimed here.
