@@ -1,14 +1,14 @@
 # U5741 public endpoint census
 
-Audited source and runtime: `092fcafbf` (full revision in `runtime-provenance.json`). Both binaries were rebuilt here; no vendor Agent was started. A real isolated Daemon stored one unstarted Workstream to exercise the Door role. The non-Door id is classified by the production `is_door` lookup, not a fabricated role reply.
+Historical source and runtime: `092fcafbf910f292d7180c97d35bd381aff984b3` (`runtime-provenance.json` field in [catalogues/public-seams.json](catalogues/public-seams.json)). Both binaries were rebuilt here; no vendor Agent was started. A real isolated Daemon stored one unstarted Workstream to exercise the Door role. The non-Door id is classified by the production `is_door` lookup, not a fabricated role reply.
 
-All 169 `api list` results match the 169 declarations, with no unmatched method. Every declared CLI offer is present in observed `rup help`. Both real stdio `tools/list` replies, including exact input schemas and descriptions, are retained in `mcp-agent.json` and `mcp-door.json`.
+Correction from retained raw replies: this historical capture has 163 `api list` results, 85 non-Door tools and 92 Door tools. The original 169/91/98 headline was incorrect; the original replies remain in `catalogues/public-seams.json`. See the fresh [public command reconciliation](public-commands.md) for current counts and exact mappings. All captured methods match their declarations, with no unmatched method. Every declared CLI offer is present in observed `rup help`. Both real stdio `tools/list` replies, including exact input schemas and descriptions, are retained in `mcp-agent.json` and `mcp-door.json`.
 
 | Offer | Count |
 | --- | ---: |
-| Non-Door Agent tools | 91 |
-| Door tools | 98 |
-| Both roles | 88 |
+| Non-Door Agent tools | 85 |
+| Door tools | 92 |
+| Both roles | 82 |
 
 Door-only: `agent_digest`, `agent_extras`, `agent_extras_add`, `github_issue_get`, `github_pr_auto_merge`, `github_pr_get`, `github_pr_ready`, `github_pr_set_body`, `terminal_show`, `workstream_rewind`.
 
@@ -202,3 +202,8 @@ These commands bypass the shared method-to-command catalogue. Their production o
 | `rup do <name> [key=value]...` | `action.run`; registered target/availability and authority still apply. |
 
 `rup help skill`, `rup actions --help` and `rup do --help` output is retained. Global `--as ext:<name>` and `--json` restrictions are in `main`; shared CLI `--agent`/`ROUNDUP_AGENT` resolution and Door-only refusal are in `cli.rs`. No usage telemetry is inferred.
+
+
+## Current public offer reconciliation
+
+[public-commands.md](public-commands.md) pins main `59f67922447ce40b2a76492611117ad44da28578`; [catalogues/public-current.json](catalogues/public-current.json) retains every current method/handler/type/role and exact CLI/tool spelling, full API descriptions, schemas, 98 leaf help results and both runtime role lists. Current counts are 167 methods, 86 Agent tools, 94 Door tools. Four methods were added, none removed against the retained historical replies. Static/actual reconciliation has no unmatched command or tool; independent Q1/Q2/Q3 decisions for every method remain unfinished. RC01–RC23 assess explicit command, discovery, stream, named-action and hook controls without authorizing deletion.
