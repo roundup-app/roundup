@@ -213,8 +213,8 @@ try:
                 evaluate("localStorage.clear()")
                 browser("open", origin + "harness.html?view=workstreams&items=1&tabs=1&renderer=dom&seed=" + seed)
                 browser("wait", ".window-bar" if seed == "first-run" else ".strip")
-                browser("wait", "--fn", "document.querySelector('.shelf').getBoundingClientRect().left < innerWidth")
                 if seed != "first-run":
+                    browser("wait", "--fn", "document.querySelector('.shelf').getBoundingClientRect().left < innerWidth")
                     browser("wait", ".rail [data-todo-root]")
                 prefix = f"{seed}-{width}-{scheme}"
                 capture(prefix + "-rest")
