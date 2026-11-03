@@ -71,7 +71,7 @@ export type RailState = {
   unsavedDismissal(): string | null;
   retryDismissal(): void;
   clearUnsavedDismissal(): void;
-  select(id: string | null, intent?: "open"): void;
+  select(id: string | null, intent?: "open", focus?: ReturnType<typeof captureFocus>): void;
   /** Whether showing the selection acknowledges its Agent’s alerts. */
   shouldAcknowledgeAlerts(): boolean;
   nameOf(actor: Actor): string;
@@ -271,7 +271,7 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
         if (saved) {
           setClosedSections(new Set(saved.sections ?? []));
           setSelected(tree.some((node) => node.id === saved.selected) ? saved.selected : null);
-          setCollapsed(new Set(saved.collapsed.filter((id) => tree.some((node) => node.id === id && isWorkstream(node)))));
+          setCollapsed(new Set(saved.collapsed.filter((id) => tree.some((node) => node.id === id && (isWorkstream(node) || node.kind === "group")))));
           reveal(selected());
           setRestored(selected() !== null);
           save();
@@ -550,7 +550,7 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
       setCollapsed((closed) => new Set(closed.has(id) ? [...closed].filter((each) => each !== id) : [...closed, id]));
       save();
     },
-    select: (id, intent) => select(id, captureFocus(true), intent),
+    select: (id, intent, focus = captureFocus(true)) => select(id, focus, intent),
     shouldAcknowledgeAlerts: () => !restored() && (selectionIntent() === "open" || model.tree.some(node => node.id === selected() && node.kind === "agent")),
     nameOf: (actor) =>
       actor.kind === "user"
