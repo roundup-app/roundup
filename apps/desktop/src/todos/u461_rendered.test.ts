@@ -122,7 +122,8 @@ describe.skipIf(!captureDir("U461b"))("u461b browser environment", () => {
 it.skipIf(!captureDir("U3021c"))("u3021c_open_restores_exact_revision_without_rpc_todo_browser_focus", async () => {
   const server = await appServer();
   const session = `todo-selected-${process.pid}`;
-  const browser = async (...args: string[]) => (await promisify(execFile)("agent-browser", ["--session", session, ...args], { timeout: 60_000 })).stdout;
+  const profile = await mkdtemp(join(tmpdir(), "todo-selected-"));
+  const browser = async (...args: string[]) => (await promisify(execFile)("agent-browser", ["--session", session, "--profile", profile, ...args], { timeout: 60_000 })).stdout;
   const evaluate = async (source: string) => JSON.parse(await browser("eval", source));
 
   try {
@@ -137,18 +138,20 @@ it.skipIf(!captureDir("U3021c"))("u3021c_open_restores_exact_revision_without_rp
       const { render } = await import(paths.find(path => path.includes('/solid-js_web.js')));
       const { connectProject, ConnectedProjectContext } = await import('/src/state/connectedProject.ts');
       const { TodoDrawer } = await import('/src/todos/TodoDrawer.tsx');
+      const { createTodosState } = await import('/src/todos/state.ts');
       const { DrawerHost } = await import('/src/drawer/DrawerHost.tsx');
       const app = window.__fake.app;
       const all = await app.rpc('todo.list', null);
       const original = all[0];
       const connected = await connectProject(app, app.opened.project, () => true, Date.now);
       const destination = { surface: 'todos', object: String(original.id), recipient: 'body' };
-      const form = { text: '  A é 🧪\\n次の行  ', base: original.body, home: original.home, expected_change: 1, title: original.title, body: original.body, done: original.done, blockers: original.blockers.map(String) };
+      const form = { text: '  A é 🧪\\n次の行  ', base: original.body, home: original.home, expected_change: 1, title: original.title, body: original.body, done: original.done, blockers: original.blockers.map(String) }; // taste-skill-ignore: exact Unicode draft fixture, not UI ornament.
       const a = connected.drafts.edit(destination, form, { start: 2, end: 5, direction: 'backward' }, 'ordinary').draft;
       connected.drafts.submit(a.revision);
       connected.drafts.settle(a.revision, 'failed');
       const b = connected.drafts.edit(destination, { ...form, text: 'newer B' }, { start: 1, end: 3, direction: 'forward' }, 'ordinary').draft;
-      const list = { project: connected.project.path, all: () => all, byId: () => new Map(all.map(todo => [todo.id, todo])), isLoaded: () => true, failure: () => null, reload: async () => {} };
+      const list = createTodosState(app, connected.events, connected.project.path);
+      await list.reload();
       const root = document.createElement('div');
       document.querySelector('.window .overlay').append(root);
       render(() => createComponent(ConnectedProjectContext.Provider, { value: connected, get children() { return createComponent(DrawerHost, { drawer: connected.drawer, reducedMotion: () => true }); } }), root);
@@ -157,7 +160,7 @@ it.skipIf(!captureDir("U3021c"))("u3021c_open_restores_exact_revision_without_rp
       show(a.revision);
     })()`);
     await browser("wait", "textarea[aria-label=Body]");
-    expect(await evaluate(`(() => { const f = document.querySelector('textarea[aria-label=Body]'); return [f.value, f.selectionStart, f.selectionEnd, f.selectionDirection]; })()`)).toEqual(["  A é 🧪\n次の行  ", 2, 5, "backward"]);
+    expect(await evaluate(`(() => { const f = document.querySelector('textarea[aria-label=Body]'); return [f.value, f.selectionStart, f.selectionEnd, f.selectionDirection]; })()`)).toEqual(["  A é 🧪\n次の行  ", 2, 5, "backward"]); // taste-skill-ignore: exact Unicode draft fixture, not UI ornament.
     await browser("click", ".todo-detail-title");
     expect(await evaluate("[window.__selectedTodo.app.calls, window.__selectedTodo.connected.drafts.list()]")).toEqual(await evaluate("[window.__selectedTodo.calls, window.__selectedTodo.retained]"));
     const output = captureDir("U3021c")!;
@@ -177,7 +180,7 @@ it.skipIf(!captureDir("U3021c"))("u3021c_open_restores_exact_revision_without_rp
       const { ConnectedProjectContext } = await import('/src/state/connectedProject.ts');
       const { Todos } = await import('/src/todos/Todos.tsx');
       const destination = { surface: 'todos', object: 'new', recipient: null };
-      const a = p.connected.drafts.edit(destination, { title: '  creation é 🧪  ', home: null }, { start: 2, end: 7, direction: 'backward' }, 'ordinary').draft;
+      const a = p.connected.drafts.edit(destination, { title: '  creation é 🧪  ', home: null }, { start: 2, end: 7, direction: 'backward' }, 'ordinary').draft; // taste-skill-ignore: exact Unicode draft fixture, not UI ornament.
       p.connected.drafts.submit(a.revision);
       p.connected.drafts.settle(a.revision, 'failed');
       p.connected.drafts.edit(destination, { title: 'newer creation B', home: null }, null, 'ordinary');
@@ -186,7 +189,7 @@ it.skipIf(!captureDir("U3021c"))("u3021c_open_restores_exact_revision_without_rp
       p.connected.drawer.open(() => createComponent(ConnectedProjectContext.Provider, { value: p.connected, get children() { return createComponent(Todos, { recovery: { project: p.connected.project.path, revision: a.revision, list: p.list } }); } }), 'key');
     })()`);
     await browser("wait", ".entry-field");
-    expect(await evaluate(`(() => { const f = document.querySelector('.entry-field'); return [f.value, f.selectionStart, f.selectionEnd, f.selectionDirection]; })()`)).toEqual(["  creation é 🧪  ", 2, 7, "backward"]);
+    expect(await evaluate(`(() => { const f = document.querySelector('.entry-field'); return [f.value, f.selectionStart, f.selectionEnd, f.selectionDirection]; })()`)).toEqual(["  creation é 🧪  ", 2, 7, "backward"]); // taste-skill-ignore: exact Unicode draft fixture, not UI ornament.
     await browser("screenshot", join(output, "selected-todo-creation.png"));
     await browser("click", ".drawer .close");
     expect(await evaluate("[window.__selectedTodo.app.calls, window.__selectedTodo.connected.drafts.list()]")).toEqual(await evaluate("[window.__selectedTodo.calls, window.__selectedTodo.retained]"));
@@ -213,13 +216,14 @@ it.skipIf(!captureDir("U3021c"))("u3021c_open_restores_exact_revision_without_rp
       Storage.prototype.setItem = () => { throw new Error('disk full'); };
       try { p.connected.drafts.setSelection(a.revision, null); } finally { Storage.prototype.setItem = write; }
     })()`);
-    await browser("wait", ".todo-dependencies");
+    await browser("wait", ".todo-meta");
     expect(await evaluate("[window.__selectedTodo.app.calls, window.__selectedTodo.connected.drafts.list()]")).toEqual(await evaluate("[window.__selectedTodo.calls, window.__selectedTodo.retained]"));
     await browser("screenshot", join(output, "selected-todo-blocker-retention-failure.png"));
     await writeFile(join(output, "selected-todo-blocker.checks.json"), JSON.stringify(await evaluate("window.__checks()"), null, 2));
   } finally {
     await browser("close");
     await server.close();
+    await rm(profile, { recursive: true, force: true });
   }
 }, 60_000);
 
