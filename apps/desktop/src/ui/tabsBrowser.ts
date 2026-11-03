@@ -25,9 +25,13 @@ let baselineOrigin: string | undefined;
 
 export const browser = async (...args: string[]) => {
   const stdout = (await exec(executable, ["--session", session, "--json", ...args], { maxBuffer: 8 * 1024 * 1024, timeout: 25_000 })).stdout;
-  const reply: { success: boolean; error?: string } = JSON.parse(stdout);
 
-  if (!reply.success) throw new Error(reply.error);
+  type Reply = { success: boolean; error?: string };
+
+  const reply: Reply | Reply[] = JSON.parse(stdout);
+  const failed = (Array.isArray(reply) ? reply : [reply]).find(result => !result.success);
+
+  if (failed) throw new Error(failed.error);
 
   return stdout;
 };
