@@ -586,3 +586,177 @@ async fn u3787a_rail_redo_reconciles_after_daemon_restart_and_preserves_mirror_e
     );
 }
 
+struct SelectionArrivals {
+    _dir: tempfile::TempDir,
+    daemon: Daemon,
+    restored: Value,
+    tree: Value,
+    todos: Vec<Value>,
+    pads: Vec<Value>,
+}
+
+async fn selection_arrivals(completed: bool, survivor: bool) -> SelectionArrivals {
+    let dir = tempfile::tempdir().unwrap();
+    let daemon = crate::test_daemon(dir.path()).unwrap();
+    let mut homes = Vec::new();
+    for name in ["A", "B"].into_iter().chain(survivor.then_some("C")) {
+        homes.push(
+            call(&daemon, "rail.createWorkstream", json!({"name":name}))
+                .await
+                .unwrap()["id"]
+                .clone(),
+        );
+    }
+    let tree = rail_placement(&daemon).await;
+    let removed = call(
+        &daemon,
+        "rail.removeSelection",
+        json!({"ids":&homes[..2],"operation":"selection"}),
+    )
+    .await
+    .unwrap();
+    let restored = call(&daemon, "rail.restore", removed["deletion"].clone())
+        .await
+        .unwrap();
+    homes.push(Value::Null);
+    let mut todos = Vec::new();
+    let mut pads = Vec::new();
+    for (i, home) in homes.iter().enumerate() {
+        let todo = call(
+            &daemon,
+            "todo.create",
+            json!({"title":format!("arrival {i}")}),
+        )
+        .await
+        .unwrap();
+        call(&daemon, "todo.move", json!({"id":todo["id"],"home":home}))
+            .await
+            .unwrap();
+        if completed {
+            call(&daemon, "todo.complete", json!({"id":todo["id"]}))
+                .await
+                .unwrap();
+        }
+        todos.push(todo);
+        let name = format!("arrival-{i}");
+        call(
+            &daemon,
+            "pad.create",
+            json!({"name":name,"text":format!("distinct bytes {i}\n")}),
+        )
+        .await
+        .unwrap();
+        call(&daemon, "pad.move", json!({"name":name,"home":home}))
+            .await
+            .unwrap();
+        pads.push(
+            call(&daemon, "pad.read", json!({"name":name}))
+                .await
+                .unwrap(),
+        );
+    }
+    // Cross-Home blocker edges must survive even when both endpoints lose their Home.
+    call(
+        &daemon,
+        "todo.setBlockers",
+        json!({"id":todos[1]["id"],"blockers":[todos[0]["id"]]}),
+    )
+    .await
+    .unwrap();
+    for todo in &mut todos {
+        *todo = call(&daemon, "todo.get", json!({"id":todo["id"]}))
+            .await
+            .unwrap();
+    }
+    SelectionArrivals {
+        _dir: dir,
+        daemon,
+        restored,
+        tree,
+        todos,
+        pads,
+    }
+}
+
+async fn rail_placement(daemon: &Daemon) -> Value {
+    let mut tree = call(daemon, "rail.tree", Value::Null).await.unwrap();
+    for node in tree.as_array_mut().unwrap() {
+        if let Some(status) = node["status"].as_object_mut() {
+            status.remove("since");
+        }
+    }
+    tree
+}
+
+async fn assert_arrivals(fixture: &SelectionArrivals, removed: bool) {
+    for (i, (todo, pad)) in fixture.todos.iter().zip(&fixture.pads).enumerate() {
+        let mut expected_todo = todo.clone();
+        let mut expected_pad = pad.clone();
+        if removed && i < 2 {
+            expected_todo["home"] = Value::Null;
+            expected_pad["home"] = Value::Null;
+        }
+        assert_eq!(
+            call(&fixture.daemon, "todo.get", json!({"id":todo["id"]}))
+                .await
+                .unwrap(),
+            expected_todo,
+            "Todo Home {i}"
+        );
+        assert_eq!(
+            call(&fixture.daemon, "pad.read", json!({"name":pad["name"]}))
+                .await
+                .unwrap(),
+            expected_pad,
+            "Pad Home {i}"
+        );
+    }
+    let mut expected_tree = fixture.tree.clone();
+    if removed {
+        expected_tree.as_array_mut().unwrap().drain(..2);
+        // The surviving Workstream takes the first Rail position.
+        if let Some(node) = expected_tree.as_array_mut().unwrap().first_mut() {
+            node["order"] = json!(0);
+        }
+    }
+    assert_eq!(rail_placement(&fixture.daemon).await, expected_tree);
+    assert_eq!(
+        call(&fixture.daemon, "terminal.list", Value::Null)
+            .await
+            .unwrap(),
+        json!([])
+    );
+}
+
+#[tokio::test]
+async fn u5829a_selection_redo_preserves_arrivals_in_every_removed_home() {
+    for completed in [false, true] {
+        for survivor in [false, true] {
+            let fixture = selection_arrivals(completed, survivor).await;
+            call(
+                &fixture.daemon,
+                "rail.redo",
+                redo(&fixture.restored, "redo"),
+            )
+            .await
+            .unwrap();
+            assert_arrivals(&fixture, true).await;
+        }
+    }
+}
+
+#[tokio::test]
+async fn u5829b_selection_redo_undo_restores_each_arrival_home() {
+    let fixture = selection_arrivals(true, true).await;
+    let mut restored = fixture.restored.clone();
+    for operation in ["redo-first", "redo-second"] {
+        let redone = call(&fixture.daemon, "rail.redo", redo(&restored, operation))
+            .await
+            .unwrap();
+        assert_arrivals(&fixture, true).await;
+        restored = call(&fixture.daemon, "rail.restore", redone["deletion"].clone())
+            .await
+            .unwrap();
+        assert_arrivals(&fixture, false).await;
+    }
+}
