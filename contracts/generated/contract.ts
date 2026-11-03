@@ -100,6 +100,7 @@ export const CONTRACT = {
     "provenance.touched": "90d4eb550afcfb2b",
     "rail.createWorkstream": "caadcbf2e211b123",
     "rail.deletion": "eee0740db6e84936",
+    "rail.group": "89f2eedfda5394d9",
     "rail.move": "f2b63e102cb0cc02",
     "rail.redo": "7c2bb87e5e957d47",
     "rail.remove": "aabd31b03d525482",
