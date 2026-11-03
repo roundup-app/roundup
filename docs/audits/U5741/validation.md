@@ -948,3 +948,35 @@ Fourteen openings retain image hashes and exact Check readings. Thirteen pass al
 | Apple file-recovery primary-page web open | Unavailable | Tool could not retrieve the page; no equivalent-operation claim made. |
 
 The second complete `just ready` passes (0): all 193 lint-behavior fixtures, package/web type checks, repository and Rust lints, migration guard, `ALL PROOFS CHECK` and N7. Standalone final spelling, size, vocabulary, scenario ids, merge-loss, whitespace, archive and image integrity checks pass (0). The dedicated browser closes (0); stopping only this run's Vite deliberately ends its harness with 143. Self-review confirms only the six declared documentation paths changed, with distinct recovery destinations and explicit observation limits. External equivalence, remaining conditional owning controls, fresh role offers and final one-revision whole-App reconciliation remain open engineering work. No partial candidate ask, owner choice or deletion.
+
+## Public command reconciliation — builder-41674352370
+
+Audited main `59f67922447ce40b2a76492611117ad44da28578`; six documentation paths only. Rebuilt `rup` and `rupd` successfully (0), then used a disposable Project/data/config/socket and real Daemon. Created one unstarted Workstream under an explicit isolated Agent identity; no vendor Agent session or App was started. Actual API, all descriptions, both real MCP role offers, all 98 shared leaf help paths, explicit dispatch probes, exact source bytes, vendor versions/help, linked direction and replay are retained in `catalogues/public-current.json`. `public-commands.md` separates 23 decisions. No rendered App change, native claim, host install, owner choice, retirement or local `just check`; no behavior test changed or invented for policy acceptance.
+
+Both original and isolated-worktree `pnpm install` pass (0). Issue Scope body validation and update pass (0). Corrected runtime replay passes (0); original invalid attempts remain recorded. All 167 declarations match actual methods, every offered CLI/MCP entry maps, and all 167 descriptions succeed. Historical raw replies contain 163/85/92 methods/Agent tools/Door tools, correcting the earlier prose's 169/91/98; preserve original archives. Whole-App revision reconciliation and unfinished vendor/per-method/conditional evidence remain open.
+
+| Failed command / observer | Exit | Failure and disposition |
+| --- | ---: | --- |
+| Initial `test -d .codegraph` | 1 | Optional index absent; ordinary source discovery used. |
+| Source census `rg --files crates/rup/src crates/mcp/src` | 2 | Guessed separate MCP crate absent; actual implementation is in rup. |
+| `cat docs/audits/U5741/runtime-provenance.json` | 1 | Provenance is a field in the existing public-seam archive; read it there. |
+| `cat crates/rup/tests/common/mod.rs` | 1 | Actual composition helper is common/served.rs; existing test composition inspected. |
+| `rg` with guessed `scenarios/skills.md` | 2 | Read actual skill-setup.md. |
+| `rg` and `sed` against guessed `crates/rupd/src/methods.rs` | 2 each | Read actual contracts declarations and Daemon macro dispatch. |
+| `gh issue view 5758 --comments --json comments` | 1 | Flags conflict; existing full JSON Issue/comment fetch already succeeds. |
+| Exploratory `rg` for absent scenario names/symbols | 1/2 | Located actual rup-ext.md, control.md and terminal-program-status.md; corrected report anchors. |
+| First runtime replay | 1 | Workstream create needs Agent identity; corrected disposable call passes explicit --agent. |
+| Second runtime replay leaf extraction | 0, invalid observation | Returned zero due to indentation parsing; rejected coverage result and reran. |
+| Third runtime replay | 1 | Required --on treated as command word; parser now stops before any flag. |
+| User `rup actions --json` | 1 | Expected APP_CLOSED with cause/fix; no App registered, not a successful action observation. |
+| User `rup do project.open` | 1 | Expected APP_CLOSED, same isolated limit. |
+| Agent `rup actions --json` | 1 | Expected APP_CLOSED; listing does not grant action authority. |
+| Agent `rup do project.open` | 1 | Expected FORBIDDEN with user-shell fix; no target executed. |
+
+The isolated Daemon is deliberately terminated after each replay (signal 15); MCP processes close their own stdin. Self-review checks exact role counts, special Todo ref spelling, independent choices versus linked Settings S06, unsupported equivalence left unverified, archive hashes, source revision and documentary scope. Required lint and integrity results follow below.
+
+Commit hook first attempt: exit 1, pretty-printed generated public catalogue exceeded 1,000 lines. Re-serialized the same JSON with one top-level field per line, matching existing catalogue archival layout; no data removed or hook skipped. Integrity rerun confirms identical decoded content.
+
+Merged main `0cfb3fdee8b0c3bbcb72497246992c49578b7d4b` without conflicts; remerge diff is empty and merge-loss passes (0). Its four test-disposal changes leave all 19 inspected source bytes identical; the runtime audit remains pinned to its original revision. Integrity, vocabulary, scenario ids, size, spelling and whitespace checks pass (0).
+
+Final `just ready` passes (0) on the merged checkout: all 193 lint fixtures, package/web type checks, repository/Rust lints, file-size guard, migration guard, `ALL PROOFS CHECK` and N7. Final archive/source/offer integrity, spelling, size, vocabulary, scenario ids, merge-loss and whitespace observers pass (0). No new behavior test or App capture was needed for these six documentation paths. #5758 remains open for every unfinished inventory/owner/retirement requirement.
