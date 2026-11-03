@@ -14,6 +14,9 @@ The audit must prevent missed conditional offers, unsupported claims of non-use/
 | Artifact | Holds |
 | --- | --- |
 | [endpoints.md](endpoints.md) | Complete public method/CLI/MCP census and explicit CLI dispatch |
+| [keyboard.md](keyboard.md) | Named actions, local bindings, inherited editor keys and remaining widget coverage |
+| [catalogues/keyboard-source.json](catalogues/keyboard-source.json) | Pinned keyboard source excerpts, library provenance and runtime action catalogue |
+| [rendered-keyboard.json](rendered-keyboard.json) | Additional actual keyboard/editor openings and Check readings |
 | [settings.md](settings.md) | Individual controls, defaults, actions and unresolved criteria |
 | [entry-points.md](entry-points.md) | Production App composition and remaining reconciliation |
 | [direction.md](direction.md) | Recovered Orca/Paseo/Bise accepted direction |
