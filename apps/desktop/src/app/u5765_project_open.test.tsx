@@ -197,20 +197,37 @@ it.each(["agent", "workstream", "mode"] as const)("u5765_refusing_%s_creates_not
   expect(mounted.app.of(TARGET).calls.filter(call => ["agent.spawn", "rail.createWorkstream", "rail.startDoor"].includes(call.method))).toEqual([]);
 });
 
-it("u5765_target_failure_reports_the_created_identity_without_retrying", async () => {
+it.each(["save", "start"] as const)("u5765_target_%s_failure_reports_the_created_identity_without_retrying", async stage => {
   const mounted = await mount(SOURCE.path, true);
   const target = mounted.app.of(TARGET);
   target.handlers["rail.createWorkstream"] = () => door("made", "idle", "ready");
-  target.handlers["rail.startDoor"] = () => { throw new RpcError(-32003, "Vendor unavailable"); };
+  target.handlers["workstream.setOpeningPrompt"] = () => null;
+  target.handlers[stage === "save" ? "workstream.setOpeningPrompt" : "rail.startDoor"] = () => { throw new RpcError(-32003, "Vendor unavailable"); };
 
-  const result = await mounted.answer({ id: 91, method: "project.start", params: { path: TARGET, source: SOURCE.path, agent: { id: "1", name: "builder" }, kind: "workstream", name: "target-worker", prompt: "work there" } });
+  const result = await mounted.answer({ id: 91, method: "project.start", params: { path: TARGET, source: SOURCE.path, agent: { id: "1", name: "builder" }, kind: "mode", name: "target-worker", prompt: "work there" } });
   expect(result).toMatchObject({ id: 91, error: { code: -32003 } });
 
   if (!("error" in result)) throw new Error("a failed launch must not succeed");
   expect(result.error.message).toContain(TARGET);
   expect(result.error.message).toContain("made");
-  expect(result.error.message).toContain("start failed");
+  expect(result.error.message).toContain(`${stage} failed`);
   expect(target.calls.filter(call => call.method === "rail.createWorkstream")).toHaveLength(1);
-  expect(target.calls.filter(call => call.method === "rail.startDoor")).toHaveLength(1);
+  expect(target.calls.filter(call => call.method === "rail.startDoor")).toHaveLength(stage === "save" ? 0 : 1);
   expect(await screen.findByRole("dialog", { description: /target-worker.*Vendor unavailable/ })).toBeDefined();
+});
+
+
+it("u5765_failed_agent_launch_reports_the_retained_row_and_named_recovery", async () => {
+  const mounted = await mount(SOURCE.path, true);
+  const target = mounted.app.of(TARGET);
+  target.handlers["agent.spawn"] = () => { throw new RpcError(-32603, "start failed for target row retained-id", { kind: "start-failed", path: TARGET, id: "retained-id", cause: "Readiness failed" }); };
+
+  const result = await mounted.answer({ id: 92, method: "project.start", params: { path: TARGET, source: SOURCE.path, agent: { id: "1", name: "builder" }, kind: "agent", name: "target-worker", prompt: "work there" } });
+  expect(result).toMatchObject({ error: { code: -32603 } });
+
+  if (!("error" in result)) throw new Error("failed launch must not succeed");
+  expect(result.error.message).toContain("retained-id");
+  expect(result.error.message).toContain(TARGET);
+  expect(target.calls.filter(call => call.method === "agent.spawn")).toHaveLength(1);
+  expect(await screen.findByRole("dialog", { description: /target-worker.*Readiness failed/ })).toBeDefined();
 });

@@ -88,8 +88,11 @@ export const createProjectOpening = (projects: ProjectsState, forProject: (path:
     } catch (error) {
       if (!(error instanceof Error)) throw error;
 
-      const resultCause = created ? copy.projectStartFailed(created.path, created.id, created.stage, error.message) : error.message;
-      const message = created && request.method === "project.start" ? copy.projectStartRecovery(request.params.name, created.stage, error.message) : error.message;
+      const retained = error instanceof RpcError && error.data?.kind === "start-failed" ? error.data : undefined;
+      const partial = created ?? (retained ? { ...retained, stage: "start" as const } : undefined);
+      const cause = retained?.cause ?? error.message;
+      const resultCause = partial ? copy.projectStartFailed(partial.path, partial.id, partial.stage, cause) : cause;
+      const message = partial && request.method === "project.start" ? copy.projectStartRecovery(request.params.name, partial.stage, cause) : cause;
 
       if (!signal.aborted) setPending(all => [...all, {
         kind: "failure", request, message,

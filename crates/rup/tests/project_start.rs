@@ -45,6 +45,10 @@ async fn a5765c_start_validation_and_refusal_create_nothing() {
     for extra in [
         json!({"permissionMode":"auto"}),
         json!({"agent":"spoof"}),
+        json!({"yolo":true}),
+        json!({"model":"override"}),
+        json!({"effort":"override"}),
+        json!({"socket":"/other.sock"}),
         json!({"kind":"bad"}),
         json!({"name":" "}),
         json!({"prompt":" "}),
@@ -151,10 +155,7 @@ async fn a5765a_an_agent_starts_each_kind_in_open_b_and_gets_its_id() {
                 .unwrap();
             assert_eq!(resumed["yolo"], true);
         }
-        let prompt = format!("exact {source_mode} {kind} {index} first prompt");
-        let normal = permission
-            .map(|mode| json!({"permissionMode":mode}))
-            .unwrap_or_else(|| json!({}));
+        let prompt = format!(" exact {source_mode} {kind} {index} first prompt\n é\n ");
         let params =
             json!({"path":alias,"kind":kind,"name":format!("target-{kind}"),"prompt":prompt});
         let call = caller.request("project.start", params);
@@ -171,41 +172,7 @@ async fn a5765a_an_agent_starts_each_kind_in_open_b_and_gets_its_id() {
         };
         assert_eq!(request["method"], "project.start");
         let attribution = json!({"project":source.dir.path(),"project_name":"source","agent":node["id"],"agent_name":"builder"});
-        let made = if kind == "agent" {
-            target_client.request("agent.spawn",{
-                let mut params = json!({"cwd":target.dir.path(),"name":format!("target-{kind}"),"prompt":prompt,"start_attribution":attribution});
-                params.as_object_mut().unwrap().extend(normal.as_object().unwrap().clone());
-                params
-            }).await.unwrap()
-        } else {
-            let made = target_client
-                .request(
-                    "rail.createWorkstream",
-                    json!({"name":format!("target-{kind}"),"start_attribution":attribution}),
-                )
-                .await
-                .unwrap();
-            if kind == "mode" {
-                target_client
-                    .request(
-                        "workstream.setOpeningPrompt",
-                        json!({"id":made["id"],"prompt":prompt}),
-                    )
-                    .await
-                    .unwrap();
-            }
-            target_client
-                .request("rail.startDoor", {
-                    let mut params = json!({"id":made["id"],"prompt":prompt});
-                    params
-                        .as_object_mut()
-                        .unwrap()
-                        .extend(normal.as_object().unwrap().clone());
-                    params
-                })
-                .await
-                .unwrap()
-        };
+        let made = start_target(&target_client, target.dir.path(), &request, permission).await;
         app.reply(&json!({"jsonrpc":"2.0","id":request["id"],"result":{"path":target.dir.path(),"kind":kind,"id":made["id"]}})).await.unwrap();
         let result = call.await.unwrap();
         assert_eq!(result["id"], made["id"]);
@@ -237,6 +204,15 @@ async fn a5765a_an_agent_starts_each_kind_in_open_b_and_gets_its_id() {
             .iter()
             .find(|row| row["id"] == made["id"])
             .unwrap();
+        assert_eq!(row["parent"], Value::Null);
+        assert_eq!(
+            row["kind"],
+            if kind == "agent" {
+                "agent"
+            } else {
+                "workstream"
+            }
+        );
         assert_eq!(row["start_attribution"], attribution);
         let history = target_client
             .request(
@@ -358,7 +334,7 @@ async fn a5765f_agent_launch_failure_reports_the_retained_identity() {
     );
     let id = rows[0]["id"].as_str().unwrap();
     assert!(
-        error.message.contains(id),
+        matches!(&error.data, Some(contracts::RpcErrorData::StartFailed { id: retained, .. }) if retained == id),
         "missing retained row {id}: {error}"
     );
     assert!(
@@ -373,5 +349,127 @@ async fn a5765f_agent_launch_failure_reports_the_retained_identity() {
         std::fs::read_to_string(project.path().join("prepared/user-work")).unwrap(),
         "retained"
     );
+    server.abort();
+}
+
+async fn start_target(
+    client: &Client,
+    path: &std::path::Path,
+    request: &Value,
+    permission: Option<&str>,
+) -> Value {
+    let params = &request["params"];
+    let attribution = json!({"project":params["source"],"project_name":"source","agent":params["agent"]["id"],"agent_name":params["agent"]["name"]});
+    let mut launch = json!({"prompt":params["prompt"]});
+    if let Some(mode) = permission {
+        launch["permissionMode"] = json!(mode);
+    }
+    if params["kind"] == "agent" {
+        launch["cwd"] = json!(path);
+        launch["name"] = params["name"].clone();
+        launch["start_attribution"] = attribution;
+        client.request("agent.spawn", launch).await.unwrap()
+    } else {
+        let node = client
+            .request(
+                "rail.createWorkstream",
+                json!({"name":params["name"],"start_attribution":attribution}),
+            )
+            .await
+            .unwrap();
+        if params["kind"] == "mode" {
+            client
+                .request(
+                    "workstream.setOpeningPrompt",
+                    json!({"id":node["id"],"prompt":params["prompt"]}),
+                )
+                .await
+                .unwrap();
+        }
+        launch["id"] = node["id"].clone();
+        client.request("rail.startDoor", launch).await.unwrap()
+    }
+}
+
+#[tokio::test]
+async fn a5765b_unopened_c_has_no_effect_until_open() {
+    let source = tempfile::tempdir().unwrap();
+    let socket = source.path().join("source.sock");
+    let server = common::serve(source.path(), &socket);
+    let caller = Client::connect(&socket).await.unwrap();
+    let node = caller
+        .request("rail.createWorkstream", json!({"name":"builder"}))
+        .await
+        .unwrap();
+    caller
+        .request(
+            "daemon.identify",
+            json!({"actor":{"kind":"agent","id":node["id"],"parent":null}}),
+        )
+        .await
+        .unwrap();
+    let mut app = Client::connect(&socket).await.unwrap();
+    let mut requests = app.take_requests().unwrap();
+    app.request("action.serve", Value::Null).await.unwrap();
+    for kind in ["agent", "workstream", "mode"] {
+        let folder = tempfile::tempdir().unwrap();
+        let path = folder.path().to_owned();
+        let log = tempfile::tempdir().unwrap();
+        let input = log.path().join("input");
+        let prompt = format!("start {kind} after Open");
+        let call = caller.request(
+            "project.start",
+            json!({"path":path,"kind":kind,"name":"worker","prompt":prompt}),
+        );
+        tokio::pin!(call);
+        let request = loop {
+            tokio::select! {
+                result = &mut call => panic!("completed before Open: {result:?}"),
+                request = requests.recv() => {
+                    let request = request.unwrap();
+                    if request["method"] == "action.list" { app.reply(&json!({"jsonrpc":"2.0","id":request["id"],"result":[]})).await.unwrap(); }
+                    else { break request; }
+                }
+            }
+        };
+        assert!(!path.join(".roundup").exists());
+        assert!(!input.exists());
+        // Choosing Open is the only point that constructs C's real Daemon.
+        let mut target = daemon::start_in(
+            folder,
+            tempfile::tempdir().unwrap(),
+            &[("FAKE_CLAUDE_PROMPT_LOG", input.to_str().unwrap())],
+        );
+        let client = target.client().await;
+        let made = start_target(&client, &path, &request, None).await;
+        app.reply(&json!({"jsonrpc":"2.0","id":request["id"],"result":{"path":path,"kind":kind,"id":made["id"]}})).await.unwrap();
+        assert_eq!(
+            call.await.unwrap(),
+            json!({"path":path,"kind":kind,"id":made["id"]})
+        );
+        waiting::until(
+            std::time::Duration::from_secs(15),
+            "first prompt after Open",
+            || {
+                std::fs::read_to_string(&input).ok().filter(|text| {
+                    text.lines().any(|line| {
+                        serde_json::from_str::<Value>(line).unwrap()["prompt"] == prompt
+                    })
+                })
+            },
+        )
+        .await;
+        assert_eq!(
+            client
+                .request("rail.tree", Value::Null)
+                .await
+                .unwrap()
+                .as_array()
+                .unwrap()
+                .len(),
+            1
+        );
+        target.close().await;
+    }
     server.abort();
 }
