@@ -221,6 +221,9 @@ p.ink[role="alert"] {
   position: relative;
 }
 
+/* Keep xterm’s link canvas below the empty message and its actions. */
+.pane-body:has(.empty-state) > .pane-screen { isolation: isolate; }
+
 .empty-state-ground {
   position: absolute;
   inset: 0;
