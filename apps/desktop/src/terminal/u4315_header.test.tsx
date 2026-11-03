@@ -43,7 +43,7 @@ it("u4454a_the_centre_has_no_time_timeline_or_back_to_ask", async () => {
 });
 
 it.each(["project-settings", "import-work", "app-settings"])("u4315a_requested_screens_close_themselves: %s", async command => {
-  const { connected, daemon } = await mountNavigation();
+  const { connected, daemon } = await mountNavigation(false, 0, 1);
 
   if (command === "import-work") daemon.handlers["project.importDiscover"] = () => new Promise(() => {});
   connected().rail.select("a0");
@@ -57,7 +57,7 @@ it.each(["project-settings", "import-work", "app-settings"])("u4315a_requested_s
 });
 
 it.each(["success", "refused"])("u4355_close_keeps_pending_import: %s", async outcome => {
-  const { connected, daemon, nodes } = await mountNavigation(false, 0);
+  const { connected, daemon, nodes } = await mountNavigation(false, 0, 1);
 
   const candidates = [
     { source: "source-first", revision: "revision-first", title: "First work", cwd: "", last_activity_ms: 2n },
