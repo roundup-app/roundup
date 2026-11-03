@@ -49,7 +49,7 @@ it("u4458_maximised_drawer_hides_the_centre_without_unmounting_it", { retry: 0, 
     }
 
     // U4698a: the item opens filled; one click on the single expand control minimises it and one more fills again.
-    await evaluate("(() => { window.__u4458 = { centre: document.querySelector('.centre'), shelf: document.querySelector('.shelf'), field: document.querySelector('.drawer input, .drawer textarea, .drawer [contenteditable=true]') }; return true; })()");
+    await evaluate("(() => { window.__u4458 = { centre: document.querySelector('.centre'), shelf: document.querySelector('.shelf'), field: document.querySelector('.drawer .ProseMirror, .drawer .todo-detail-title') }; return true; })()");
     await capture(`${kind}-maximised`);
     expect(await evaluate("document.querySelectorAll('.drawer button[aria-label=Restore], .drawer button[aria-label=Maximise]').length")).toBe(1);
 

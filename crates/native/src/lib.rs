@@ -57,3 +57,8 @@ pub use alert::removal_alert;
 mod webview_data;
 #[cfg(target_os = "macos")]
 pub use webview_data::webview_data_path;
+
+#[cfg(target_os = "macos")]
+mod dock;
+#[cfg(target_os = "macos")]
+pub use dock::DockMenu;

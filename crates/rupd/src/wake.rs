@@ -51,6 +51,7 @@ pub struct Waker {
 
 pub(crate) fn is_agent(node: &RailNode) -> bool {
     match node.kind {
+        NodeKind::Group => false,
         NodeKind::Agent => true,
         NodeKind::Workstream => node.attempt.is_some(),
     }
