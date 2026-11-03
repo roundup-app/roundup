@@ -6,12 +6,12 @@ import { browser, read, url, wait } from "../ui/tabsBrowser";
 import { LINK_CLICK_MS } from "./linkGestures";
 
 const load = async (kind = "agent") => {
-  const seed = kind === "agent" ? "agents-10" : "tree-40";
+  const seed = kind === "agent" ? "agents-10" : "selection";
   const row = kind === "agent" ? "agent-3" : "payments";
   const id = kind === "agent" ? "t-agent-3" : "t-payments";
   await browser("set", "viewport", "1512", "950");
   await browser("set", "media", "dark");
-  await browser("open", url(`/harness.html?seed=${seed}&renderer=dom`));
+  await browser("open", url(`/harness.html?rest=1&tabs=1&seed=${seed}&renderer=dom`));
   await wait(`!!window.__fake && !!document.querySelector('.rail-row[data-id="${row}"]')`);
   await read(`document.querySelector('.rail-row[data-id="${row}"]').click()`);
   await wait(`window.__terminals.has('${id}') && !!document.querySelector('.pane-screen .xterm-screen')`);

@@ -77,7 +77,6 @@ accounted for below rather than silently removed from the inventory.
 | `apps/desktop/src/pads/u3732_drag_browser.test.ts` | 4 | 1 / 0 | preserve effective caps ≤60000 ms |
 | `apps/desktop/src/pads/u3732_real_daemon_agent_owner.test.tsx` | 42 | 2 / 0 | preserve effective caps ≤60000 ms |
 | `apps/desktop/src/rail/menu/u2694_menu.test.tsx` | 23 | 31 / 0 | preserve effective caps ≤60000 ms |
-| `apps/desktop/src/reactions/nr9_rendered.test.ts` | 184 | 5 / 1 | unmeasured affected observers; retain caps pending requested observation |
 | `apps/desktop/src/settings/u3799_app_settings.test.tsx` | 46 | 16 / 1 | unmeasured affected observers; retain caps pending requested observation |
 | `apps/desktop/src/settings/u3799_rendered.test.ts` | — | 0 / 13 | unmeasured affected observers; retain caps pending requested observation |
 | `apps/desktop/src/shelf/u371_reserved_checks_light.test.ts` | 11 | 1 / 0 | preserve effective caps ≤60000 ms |

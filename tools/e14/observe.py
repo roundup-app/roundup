@@ -212,6 +212,8 @@ def observe_lane(args):
     root = Path.cwd()
     if args.build_observation and (args.base or not args.lane.startswith("rust") or platform.system() != "Linux" or os.environ.get("RUNNER_ENVIRONMENT") != "github-hosted"):
         raise ValueError("build observation requires an unchanged full Rust lane on hosted Linux (empty BASE)")
+    if args.fault_log and not args.lane.startswith("web"):
+        raise ValueError("the Chromium fault log observes a web lane")
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=False)  # Never reuse stale passing evidence.
     commit = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
@@ -239,7 +241,8 @@ def observe_lane(args):
         reporter.write_text(Path(__file__).with_name("reporter.mjs.in").read_text())
         config = output / "vitest.config.mjs"
         config.write_text("import desktop from " + json.dumps(str(root / "apps/desktop/vite.config.ts")) + ";\nexport default { ...desktop, test: { ...desktop.test, reporters: [...desktop.test.reporters, " + json.dumps(str(reporter)) + ", [\"junit\", { outputFile: " + json.dumps(str(output / "junit.xml")) + " }]] } };\n")
-        command = ["python3", "loop/app-data.py", "python3", "tools/chromium-faults/observe.py", "--log", str(Path(os.environ["RUNNER_TEMP"]) / f"chromium-faults-{args.lane[3:]}.jsonl") if "RUNNER_TEMP" in os.environ else str(output / "chromium-faults.jsonl"), "--", "just", "test-web-since", args.base, f"--shard={args.lane[3:]}/{args.shards}", "--config", str(config)]
+        faults = ["python3", "tools/chromium-faults/observe.py", "--log", str(args.fault_log), "--"] if args.fault_log else []
+        command = ["python3", "loop/app-data.py", *faults, "just", "test-web-since", args.base, f"--shard={args.lane[3:]}/{args.shards}", "--config", str(config)]
     metadata = dict(lane=args.lane, commit=commit, full=not args.base, observer=observer, cache=cache, locks=locks, command=command,
                     runner={"name": os.environ.get("RUNNER_NAME", platform.node()), "hostname": platform.node(), "os": platform.platform(), "cpu_count": os.cpu_count(), "cpu": platform.processor(), "total_memory": psutil.virtual_memory().total,
                             "image": os.environ.get("ImageOS"), "image_version": os.environ.get("ImageVersion"), "type": os.environ.get("RUNNER_ENVIRONMENT", "local"),
@@ -391,6 +394,7 @@ def main():
     lane.add_argument("--cache-state", required=True, help="Actual restore hits/misses and keys, or explicit cold-cache preparation")
     lane.add_argument("--build-observation", action="store_true", help="CI3781: opt-in hosted Linux Cargo timings and passive linker exec/exit evidence; full Rust lanes only")
     lane.add_argument("--memory-log", type=Path, help="Whole-job collector started before CI setup")
+    lane.add_argument("--fault-log", type=Path, help="U26: run the web command under tools/chromium-faults/observe.py, which needs a kernel with BTF, kprobes and tracepoints")
     collector = sub.add_parser("memory")
     collector.add_argument("--output", type=Path, required=True)
     lane.add_argument("--base", default="", help="PR selection only; nonempty runs cannot enter an E14 comparison")

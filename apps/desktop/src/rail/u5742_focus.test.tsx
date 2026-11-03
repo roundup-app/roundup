@@ -98,7 +98,7 @@ it.each(["pointer", "enter"])("u5742c_switcher_choice_focuses_terminal_%s", asyn
 
 it.each(["direct", "leader"])("u5742c_attention_choice_focuses_terminal_%s", async choice => {
   const m = await mount();
-  screen.getByRole("textbox", { name: "Ask" }).focus();
+  screen.getByLabelText("Ask", { selector: "textarea" }).focus();
 
   if (choice === "leader") { key("k", { metaKey: true }); key("j"); }
   else key("j", { metaKey: true, ctrlKey: true });
@@ -178,7 +178,7 @@ it("u5742a_choice_closes_drawer_and_focuses_terminal", async () => {
   m.connected.rail.select("ann");
   await waitFor(() => expect(document.activeElement?.getAttribute("data-terminal")).toBe("t-ann"));
   m.connected.drawer.open(() => <textarea aria-label="Drawer draft" />, "key");
-  const editor = await screen.findByRole("textbox", { name: "Drawer draft" });
+  const editor = await screen.findByLabelText("Drawer draft", { selector: "textarea" });
   editor.focus();
   fireEvent.click(row("ann"));
   expect(m.connected.drawer.content()).not.toBeNull();
@@ -204,7 +204,7 @@ it.each(["click", "enter", "attention", "switcher", "native-alert"])("u5742d_cho
 
   await waitFor(() => expect(m.connected.rail.selected()).toBe("dee"));
   key("/", { metaKey: true });
-  const ask = await screen.findByRole<HTMLTextAreaElement>("textbox", { name: "Ask" });
+  const ask = await screen.findByLabelText<HTMLTextAreaElement>("Ask", { selector: "textarea" });
   fireEvent.pointerDown(ask); ask.focus();
   fireEvent.input(ask, { target: { value: "newer draft" } });
   m.finish();
@@ -384,7 +384,7 @@ it.each(["authorization", "readiness"] as const)("u5742d_message_link_preserves_
   await waitFor(() => expect(release).toBeDefined());
 
   if (stage === "readiness") fireEvent.keyDown(document.activeElement!, { key: "/", code: "Slash", metaKey: true });
-  const ask = await screen.findByRole<HTMLTextAreaElement>("textbox", { name: "Ask" });
+  const ask = await screen.findByLabelText<HTMLTextAreaElement>("Ask", { selector: "textarea" });
   ask.focus();
   fireEvent.input(ask, { target: { value: "keep my draft" } });
   release();
