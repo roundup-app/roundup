@@ -31,6 +31,15 @@ runs:
       name: Verify prepared boxd toolchain
       shell: bash
       run: python3 /opt/roundup-ci/image.py verify "${{ github.action_path }}/action.yml"
+    # Hosted runners ship Google Chrome at /opt/google/chrome/chrome, which `chromePage.ts` finds; a prepared boxd image
+    # holds only agent-browser's Chrome for Testing, so name it, and fail unless there is exactly one.
+    - if: runner.environment == 'self-hosted' && inputs.browser == 'true'
+      name: Name the prepared browser
+      shell: bash
+      run: |
+        chrome=("$HOME"/.agent-browser/browsers/chrome-*/chrome)
+        [ "${#chrome[@]}" = 1 ] && [ -x "${chrome[0]}" ] || { echo "::error::expected one prepared Chrome, found: ${chrome[*]}"; exit 1; }
+        echo "CHROME_PATH=${chrome[0]}" >>"$GITHUB_ENV"
     # The browser downloads and its system packages install in about 30 s of waiting on the network: where no Tauri
     # install holds apt's lock, they run in the background while the toolchain, caches and Node install, and `Wait for
     # browser` joins them. Chrome's system libraries are preinstalled on the runner image: `--with-deps` (apt-get update plus
