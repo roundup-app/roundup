@@ -2,7 +2,7 @@ use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
 
 use async_trait::async_trait;
-use contracts::{Actor, Event, EventData, Verb};
+use contracts::{Actor, Event, EventData, SubscribeParams, Verb};
 use provenance::Touches;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
@@ -129,8 +129,16 @@ impl Bus {
     }
 
     /// Subscribe from an Event number: every saved Event above `after` from the log, then every
-    /// later one live, each once (D11). Without `after`, only Events saved from now on.
-    pub fn subscribe_after(&self, after: Option<u64>) -> Result<Subscription, RpcError> {
+    /// later one live, each once (D11). With `kept`, queue every retained Event under the append
+    /// lock so pruning cannot remove accepted replay. With neither, only new Events.
+    pub fn subscribe_after(&self, params: SubscribeParams) -> Result<Subscription, RpcError> {
+        let SubscribeParams { after, kept } = params;
+        if kept && after.is_some() {
+            return Err(RpcError::new(
+                crate::error::code::INVALID_PARAMS,
+                "kept cannot be combined with after",
+            ));
+        }
         let _order = self.shared.order.lock().unwrap_or_else(|e| e.into_inner());
         let live = self.shared.sender.subscribe();
         let (mut last, mut replay_end) = (0, 0);
@@ -155,16 +163,21 @@ impl Bus {
                     });
                 }
                 Some(after) => after,
+                None if kept => oldest - 1,
                 None => highest,
             };
         }
-        Ok(Subscription {
+        let mut subscription = Subscription {
             log: self.shared.log.clone(),
             live,
             last,
             replay_end,
             backlog: VecDeque::new(),
-        })
+        };
+        if kept {
+            subscription.read_log(replay_end)?;
+        }
+        Ok(subscription)
     }
 }
 
@@ -223,32 +236,30 @@ impl Subscription {
 
     /// Queue the saved Events above `last` up to `until`.
     fn fill(&mut self, until: u64) {
-        self.read_log(until);
+        if let Err(err) = self.read_log(until) {
+            eprintln!("rpc: the event log was not read: {}", err.message);
+        }
         // Numbers the log no longer keeps are not coming; do not wait on them.
         self.last = self.last.max(until);
     }
 
-    fn read_log(&mut self, until: u64) {
-        let Some(log) = &self.log else { return };
+    fn read_log(&mut self, until: u64) -> Result<(), RpcError> {
+        let Some(log) = &self.log else { return Ok(()) };
         while self.last < until {
-            match log.read(self.last, CHUNK) {
-                Ok(events) if !events.is_empty() => {
-                    for event in events {
-                        let seq = event.seq.unwrap_or(0);
-                        if seq > until {
-                            return;
-                        }
-                        self.last = seq;
-                        self.backlog.push_back(event);
-                    }
+            let events = log.read(self.last, CHUNK)?;
+            if events.is_empty() {
+                break;
+            }
+            for event in events {
+                let seq = event.seq.unwrap_or(0);
+                if seq > until {
+                    return Ok(());
                 }
-                Ok(_) => return,
-                Err(err) => {
-                    eprintln!("rpc: the event log was not read: {}", err.message);
-                    return;
-                }
+                self.last = seq;
+                self.backlog.push_back(event);
             }
         }
+        Ok(())
     }
 }
 

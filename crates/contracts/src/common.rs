@@ -114,6 +114,10 @@ pub struct SubscribeParams {
     #[serde(default)]
     #[specta(optional, type = specta_typescript::Number)]
     pub after: Option<u64>,
+    /// Replay every kept Event, decided atomically with appends. Cannot be combined with `after`.
+    #[serde(default)]
+    #[specta(optional)]
+    pub kept: bool,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]

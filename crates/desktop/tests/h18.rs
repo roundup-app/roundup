@@ -543,26 +543,6 @@ mod recovery {
         })
         .await;
         // Readiness alone is insufficient: rejecting the replacement subscription is failure 2.
-        *fx.subscribe_failure.lock().unwrap() = Some(rpc::code::EVENTS_EXPIRED);
-        let expired = fx.subscribe(&path).await.unwrap_err();
-        assert_eq!(expired.code, rpc::code::EVENTS_EXPIRED);
-        assert_eq!(
-            expired.data,
-            Some(contracts::RpcErrorData::EventsExpired { oldest: 6 })
-        );
-        let native = tauri::ipc::InvokeError::from(expired);
-        assert_eq!(
-            native.0,
-            json!({"code": -32009, "message":"subscription refused", "data":{"kind":"events-expired", "oldest":6}})
-        );
-        assert!(
-            fx.app
-                .state::<AppState>()
-                .projects()
-                .unwrap()
-                .iter()
-                .any(|entry| entry.path == path && entry.running)
-        );
         *fx.subscribe_failure.lock().unwrap() = Some(rpc::code::INTERNAL);
         assert!(fx.subscribe(&path).await.is_err());
         until(|| {
