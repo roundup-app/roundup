@@ -1,6 +1,6 @@
 # U5741 conditional Pad controls
 
-Audited main: `ecf788ebdc146bb66cd26acebe020c1874950b39`, 2026-11-03. This continues [Pad decisions](pads.md); it does not complete the inventory or request owner choices. No product, acceptance or data changed. [Sources and replay](catalogues/pad-controls-source.json) distinguish repository bytes from installed Milkdown 7.22.2 bytes; [rendered observations](rendered-pad-controls.json) retain isolated dark 1512×950 states. Fake-Daemon acknowledgements establish this webview path, never real persistence or native behavior.
+Audited main: `52538bc2c9597113cf7ae51aec1b11861011a671`, 2026-11-03. This continues [Pad decisions](pads.md); it does not complete the inventory or request owner choices. No product, acceptance or data changed. [Sources and replay](catalogues/pad-controls-source.json) distinguish repository bytes from installed Milkdown 7.22.2 bytes; [rendered observations](rendered-pad-controls.json) retain isolated dark 1512×950 states. Fake-Daemon acknowledgements establish this webview path, never real persistence or native behavior.
 
 ## Criteria and decision boundary
 

@@ -7,7 +7,7 @@ Each emitted JS file is compressed independently with `gzipSync(bytes, { level: 
 
 | Immutable revision | Entry gzip bytes | Full eager JS gzip bytes | Result |
 | --- | ---: | ---: | --- |
-| `8604b4fc8702f0ffa4b9ec7b6e1bb402bddf8745` | 267,873 | 414,342 | exit 1: at or above 400,000 |
+| `1c46cd6b988cd65c3a5211595cb5d21bc4f43c65` | 267,873 | 414,342 | exit 1: at or above 400,000 |
 
 The base has 11 eager JS files, 1,291,913 raw bytes. The configured startup guard
 passes its unchanged 437,814-byte ceiling; that pass does not meet U3010d.
@@ -43,7 +43,7 @@ because shared modules split into additional eager chunks. The full closure
 decides the budget. The PR records the final immutable head after committing.
 
 After merging `origin/main` (`95dff3cba`), clean production build of immutable
-`66e598a244afbdc1877bc1c46500a3267e2263ae` passes both observers: `checkStartup`
+`9ac80ad0095208328233173b3685c2eb41b3b79a` passes both observers: `checkStartup`
 with the temporary 400,000-byte ceiling exits 0 at **399,474 gzip bytes**
 (19 eager JS files; 1,232,248 raw bytes); the unchanged configured guard also
 exits 0. Node and pnpm versions, installation and compression settings match
@@ -62,7 +62,7 @@ fails on both. `loop/rules.sh delta` exits 0; no passing Check regresses.
 Screenshots and readings stay under `artifacts/ux/U3010d/{base,head}/`.
 
 The CI repair compares incoming immutable head
-`1fc15d269c3d01b4256d706ac9b5da6bf4ab76fb` with implementation
+`e242e04efd7077dd6b3a815004317893f0bb9528` with implementation
 `c9e02b34c` after a clean merge of `origin/main`. Same Node/pnpm, clean production
 builds and level-9 compression:
 
@@ -90,7 +90,7 @@ and repair: Pads failure, Import failure and loaded Settings preserve D1–D14
 `artifacts/ux/U3010d/{base,head}/`; they make no native rendering claim.
 
 After merging main `00eb126ac`, immutable merge head
-`42d1d7e4908193c27cd5093a389dfb2926a7fba6` builds with the same Node/pnpm and
+`a6c6258bf5990317fbc17ce71326d99fb8faf72d` builds with the same Node/pnpm and
 level-9 compression at 396,560 gzip bytes for the hash-verified eager closure
 (1,220,414 raw bytes, 20 JS files). Entry `index-BmlCniZc.js` is 514,707 raw /
 159,868 gzip bytes. The deferred Pads, ImportPanel and NumberInput chunks are

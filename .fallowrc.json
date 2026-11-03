@@ -3,6 +3,7 @@
     "duplicate-exports": "off"
   },
   "entry": [
+    ".github/workflows/check.test.mjs",
     "contracts/**/*.ts",
     "tools/oxlint/pre-commit.test.mjs",
     "apps/*/harness.html",

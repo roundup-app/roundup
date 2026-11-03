@@ -212,8 +212,8 @@ This wiring is partial M10 delivery. The CSS media layers, live cancellation of 
 effects, unified 150 ms fades, loop shutdown and complete rendered protocol remain
 open alongside the remaining migration, bundle-budget repair and scheduling evidence.
 `artifacts/ux/U3010d/preference-bundle.json` records production builds at immutable
-base `697b285406d76e0f93b5ff2830381f822dcaabeb` and source head
-`382fc7369fb9fd579ab73eda81659b9641fbb795`: entry plus eager JS gzip-9 is
+base `8ef7ee29943ac1e139f7eaaacbb473a566ca07e8` and source head
+`05b14b295b4939f020c276718d4c2277357b2b5a`: entry plus eager JS gzip-9 is
 415,900 → 415,937 bytes (+37); eager CSS is 26,389 bytes in both. Each build
 has 262 lazy JS chunks, all enumerated. Motion remains in the eager entry with no
 lazy Motion chunk; its dependency version and engine imports are unchanged. The
@@ -240,8 +240,8 @@ rotation from the new frozen phase. All layer/layout/completion adoption, remain
 inventory, full capture and native scheduling obligations remain on #3821.
 
 The glyph slice's immutable production comparison is `docs/perf-motion-glyph.json`:
-base `3b6b9daaa52dd8cd25505d84b235e0c981779cf0`, source head
-`784719087648be9bb7845658c2d60c99c03c8143`, gzip-9 entry/eager JS
+base `68a6d7d95bb505d8e31382b404cc470ca4ec36f8`, source head
+`a9c5214b4ecb48e410fbbecda07e8d8a2ee5f3e9`, gzip-9 entry/eager JS
 433,360 → 433,586 bytes (+226). Both builds have 262 lazy JS chunks, all enumerated;
 Motion remains eager, with no dependency/engine change or new lazy Motion chunk.
 This is incremental glyph integration cost; the original engine/press delta remains
@@ -394,7 +394,7 @@ opening and focus. Availability updates immediately on editing, scope change or
 list removal. No animation, duration, curve or Token changes.
 
 
-U3787b native responder menus (#5108, implementation `136436470b07a0c5a0cb87b8969f44481591f33f`)
+U3787b native responder menus (#5108, implementation `7dbfb657723376d0d1fde1c8837152e550eb3733`)
 use AppKit's immediate validation and dispatch. Projection and menu opening move
 no focus and add no delay or animation. Find and Close retain native feedback;
 Terminal Find retains its existing registry owner. No Token, geometry or

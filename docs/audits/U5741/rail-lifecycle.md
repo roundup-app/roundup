@@ -1,6 +1,6 @@
 # U5741 Rail lifecycle and creation decisions
 
-Audited main: `a3a760a66f4e2bf91a613636640e649695e6dc65` (2026-11-03). This extends the reviewed inventory; it is not the complete audit or an owner decision request. No deletion is authorized. Earlier observations retain their own revision pins.
+Audited main: `9e90a8434abbfd21a03b3e6a1d8b1d87e9e1f491` (2026-11-03). This extends the reviewed inventory; it is not the complete audit or an owner decision request. No deletion is authorized. Earlier observations retain their own revision pins.
 
 [Source catalogue](catalogues/rail-source.json) records hashes, exact help, runtime menu models, fixtures and linked direction. [Rendered evidence](rendered-rail.json) records isolated headless Chromium at 1512×950, dark, with the existing fake Daemon and native-menu projection. A projected menu proves webview reachability and its model, never NSMenu appearance or execution against the real Daemon.
 
@@ -72,6 +72,6 @@ Named actions also project into native Project menus and the App action seam (`r
 - R18–R22: `scenarios/workstream-queue.md` records the owner-chosen queue/cap. [#3194](https://github.com/roundup-app/roundup/issues/3194), created 2026-10-21, retains the owner queue/cap choice and original words. Creation time does not establish the exact date of that later choice; confirm a dated owner reply before final reversal wording.
 - R12/R16/R17: source/scenario acceptance exists; per-feature dated owner direction remains unresolved. Search retained `direction.md`, owning scenarios, Principles and journey. Orca/Paseo changes/shortcut direction and Bise continuity remain as recorded there; no evidence makes those comparisons authority to remove Rail lifecycle controls.
 
-The product delta since the changes/resource pin `f87a3ddd158ec53a311d29265fa6414d6efa4434` includes #5742's Rail choice/Terminal focus repair. This report reads and renders the current Rail; earlier screenshots are not relabelled as current. The final inventory must still reconcile all other product paths and offers to one current SHA.
+The product delta since the changes/resource pin `3466a2241a589e28125beb40ab266800176f8a3e` includes #5742's Rail choice/Terminal focus repair. This report reads and renders the current Rail; earlier screenshots are not relabelled as current. The final inventory must still reconcile all other product paths and offers to one current SHA.
 
 Remaining Rail work: section folding, row selection/disclosure/grouping, item counts, Held entries, folder/editor, copy/send links, Work progress, Add Todo/Pad/Terminal and their dialogs, raw/local keys and native projections must each resolve to separate inventory rows or existing evidenced decisions. Conditional queued-after-Todo/failed start, live/stopped Mode restart, native removal scope and failure/recovery surfaces still need current probes. No row claims real Daemon action success from a fake reply. Before any selected retirement, older-data shapes and successful store-open/real in-process Daemon reopen tests must be named, with N5467 amendments where needed; refusal/reset is never an owner choice.

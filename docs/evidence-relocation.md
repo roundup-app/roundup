@@ -1,6 +1,6 @@
 # L112 observer relocation
 
-Inventory revision: `b0d75619e9631910b325e647597e58bbaa33ad67`. `loop/evidence-paths.json` defines the complete per-path classification: enumerate that revision's tracked files under its three `roots`; an explicit `relocated` row is an observer or input, and every other path is generated evidence. This avoids copying 4,992 payload names into a second inventory. The audit checks the revision, root counts and every relocation destination.
+Inventory revision: `1dfbeef815f19d92863d1b5aaa2d1ab358ce2ac6`. `loop/evidence-paths.json` defines the complete per-path classification: enumerate that revision's tracked files under its three `roots`; an explicit `relocated` row is an observer or input, and every other path is generated evidence. This avoids copying 4,992 payload names into a second inventory. The audit checks the revision, root counts and every relocation destination.
 
 | Inventory | Tracked | Relocated | Generated remaining for #1651 |
 | --- | ---: | ---: | ---: |
@@ -35,7 +35,7 @@ loop/fixtures/               L103 verdicts
 
 All other tracked PNG/JSON/JSONL/log/text/report/README files are historical generated results or their report narratives, not executable or test inputs. Historical reports can be fetched from the inventory revision. Comparators regenerate their report inputs into an explicit output directory; none require committed pairs. Scenario artifact-relative citations and historical-checkout commands remain valid at their recorded revisions. Current source paths are in the manifest above; no QA workflow or production Rust implementation changes.
 
-For R16 continuation regeneration, use disposable historical worktree `/tmp/rpc-1374-history` at `1d1618d2d9bb5c0f25ecb6b32de1cde20bfad6d0` and original Client worktree `/tmp/rpc-1476-original` at `0698c9f1`. Create `/tmp/r16-1476-binaries`. Apply the relocated `probe-compatible.patch` by absolute path with `git apply --unidiff-zero` in the historical worktree; build `cargo build --release -p rupd -p rup -p perf` there. Build `cargo build --release -p rupd -p rup -p rpc --examples` in the selected repaired checkout and install its dependencies. Historical exact performance regeneration uses the recorded repaired revision `b856ae9a`, importing these observer sources/inputs from this relocation revision; current measurements must name their actual head instead. Then run `ROUNDUP_OBSERVER_OUTPUT=<fresh-output> python3 crates/rpc/tests/observers/r16/staging/continuation-7763/build-and-observe.py` from the repaired checkout. The driver finishes builds and check before observing; run `r16_parse` three times afterward if parser profiles are required. Never equate a collector exit with performance acceptance. `resume.py` is only for the recorded build-stage continuation, not overwriting observation files.
+For R16 continuation regeneration, use disposable historical worktree `/tmp/rpc-1374-history` at `5371e7c423c6f37704dfe64ceb5808f3e4c429a8` and original Client worktree `/tmp/rpc-1476-original` at `0698c9f1`. Create `/tmp/r16-1476-binaries`. Apply the relocated `probe-compatible.patch` by absolute path with `git apply --unidiff-zero` in the historical worktree; build `cargo build --release -p rupd -p rup -p perf` there. Build `cargo build --release -p rupd -p rup -p rpc --examples` in the selected repaired checkout and install its dependencies. Historical exact performance regeneration uses the recorded repaired revision `b856ae9a`, importing these observer sources/inputs from this relocation revision; current measurements must name their actual head instead. Then run `ROUNDUP_OBSERVER_OUTPUT=<fresh-output> python3 crates/rpc/tests/observers/r16/staging/continuation-7763/build-and-observe.py` from the repaired checkout. The driver finishes builds and check before observing; run `r16_parse` three times afterward if parser profiles are required. Never equate a collector exit with performance acceptance. `resume.py` is only for the recorded build-stage continuation, not overwriting observation files.
 
 #1651 already lists #1700 as a native prerequisite. It stays blocked until this PR merges and closes #1700. Coordination references: #1615 owns RPC migration, #1620 owns Daemon readers, #1613 owns QA callers/publication; this PR moves their observer files without changing their implementations.
 
@@ -55,21 +55,21 @@ Captures disabled. Exit rows are updated after each command ends; no new browser
 | `bash loop/captures.test.sh` | 0 |
 | `loop/rules.sh vocab` | 0 |
 | `env -u ROUNDUP_CAPTURES VITEST_MAX_WORKERS=2 just check` (before main refresh) | 100; unrelated `rupd::b6_prompt_identity::b6_a_checked_effect_completes_before_a_racing_prompt_replacement` failed; 1,577 Rust tests passed |
-| `cargo nextest run -p rupd --test b6_prompt_identity b6_a_checked_effect_completes_before_a_racing_prompt_replacement` (after merging main `eedfce650e37b6de385a7622e75b0639063026c3`) | 100; same Q11 non-TTY fake-runtime failure |
+| `cargo nextest run -p rupd --test b6_prompt_identity b6_a_checked_effect_completes_before_a_racing_prompt_replacement` (after merging main `ab73be9255d49cea2d7d4e541ecb41b7f95b9e39`) | 100; same Q11 non-TTY fake-runtime failure |
 
 The initial check failure was owned by prerequisite #1708, now completed through main. No B6 assertion or production runtime is changed by this relocation. The surviving relocated Resume-cleanup proof is `cleanup_completion::b6_resume_completion_waits_for_both_promotion_failure_cleanups` in `crates/rupd/tests/b6_cleanup_completion.rs`; its behavioral acceptance is B6’s Resume cleanup amendment in `scenarios/messages.md`. The former Takeover race is retired there by B3563d (`scenarios/remove-message-holds.md`).
 
 | Final refreshed command | Exit |
 | --- | ---: |
-| `env -u ROUNDUP_CAPTURES VITEST_MAX_WORKERS=2 just check` after merging main `eedfce650e37b6de385a7622e75b0639063026c3` | 100; same B6/Q11 fake-runtime failure; 1,577 Rust tests passed, 89 not run, two skipped |
+| `env -u ROUNDUP_CAPTURES VITEST_MAX_WORKERS=2 just check` after merging main `ab73be9255d49cea2d7d4e541ecb41b7f95b9e39` | 100; same B6/Q11 fake-runtime failure; 1,577 Rust tests passed, 89 not run, two skipped |
 | `python3 loop/evidence.test.py` after the merge | 0; all four relocation audits pass |
 | `just check-web` with captures unset | 0; lint, typecheck, slop, reporting tests and 2,880 desktop tests pass; 11 skipped |
 
-Validation checkout: `1d16268dcc9886ece0a52ed73d31ef3b0d0765e8`. The final follow-up commit records these result rows only. These failures preceded the completed prerequisite repair.
+Validation checkout: `f572fa462be7836f7b8b003e9f7bb0fe0b3dbf18`. The final follow-up commit records these result rows only. These failures preceded the completed prerequisite repair.
 
 ## Completion validation
 
-Merged main `c8194f2677e7315d4121246577070d11f2296a2d`, including the prerequisite repair, into validation checkout `2ce739bbd330fe61a0969b770c11b9d65217b97e`. The diff against main contains only this relocation's files. Captures remain unset; no generated payload is added or edited.
+Merged main `0fc8564a614b8f153c98c0fdd3a3c3677bdef5d3`, including the prerequisite repair, into validation checkout `6b1908d9c0d5dbf50bcba18bacc25228784b42e3`. The diff against main contains only this relocation's files. Captures remain unset; no generated payload is added or edited.
 
 | Command | Exit |
 | --- | ---: |
@@ -85,7 +85,7 @@ Merged main `c8194f2677e7315d4121246577070d11f2296a2d`, including the prerequisi
 
 ## Refreshed validation
 
-Validation checkout: `299ad342a55f09e403bfcfc81eb4671419b7243a`, after merging main `29f31e2b`. The diff against main contains only the relocation's files. Captures remain unset.
+Validation checkout: `5e2104c984a0d15c05cc0c2afa5e2e8752b4d4aa`, after merging main `29f31e2b`. The diff against main contains only the relocation's files. Captures remain unset.
 
 [CI run 38564538715](https://github.com/saadshahd/roundup/actions/runs/38564538715) records startup timeouts in U359, U426 and U441 before Chromium's first DevTools reply; its captured browser main thread is waiting on disk reads. All 56 tests in those three suites pass in the full validation below. Browser timeouts and assertions are unchanged.
 

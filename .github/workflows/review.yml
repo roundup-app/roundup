@@ -83,6 +83,8 @@ jobs:
         with:
           ref: ${{ needs.task.outputs.head }}
           fetch-depth: 0
+          # Blobs load on demand: history still holds the 2.5 GB of evidence #5484 removed from the tree.
+          filter: blob:none
           persist-credentials: false
       - name: Install main's reviewer instructions
         run: |

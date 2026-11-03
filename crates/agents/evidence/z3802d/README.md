@@ -7,7 +7,7 @@ change valid-reference semantics. git2 0.21.0 rejects the same repository's
 earlier Issue comment's shell-wrapper/deadline argument: bypassing an injected
 shell wrapper alone does not establish a library capability failure.
 
-Production reference: `066f4cfd45196c5e7f67c1b0b94ce962c4f29cf9`.
+Production reference: `59d46d580e341b527cce9439afedb59af2ccd7f7`.
 The probe's source, pinned standalone manifest and complete dependency lock are
 retained here, outside workspace membership and production dependency graphs.
 `session.json` records the observer revision, binary/lock hashes, host, boot,

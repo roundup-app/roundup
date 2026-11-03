@@ -1,5 +1,5 @@
 # Working directory: /tmp/rpc-1374 (own worktree at origin/main 76c160e4).
-# Historical worktree: /tmp/rpc-1374-history, 1d1618d2d9bb5c0f25ecb6b32de1cde20bfad6d0.
+# Historical worktree: /tmp/rpc-1374-history, 5371e7c423c6f37704dfe64ceb5808f3e4c429a8.
 # Default release settings, each reference's committed lockfile, no overridden flags.
 git worktree add -b build/rpc-rail-reply-latency-regression /tmp/rpc-1374 origin/main
 cargo build --release -p rpc --examples
