@@ -126,7 +126,7 @@ it.each([false, true])("u2572b_actions_share_key_behavior_in_the_opening_view: p
 });
 
 it.each([false, true])("u2572b_actions_share_key_behavior_in_the_opening_view: rejected Terminal %s", async (byAction) => {
-  const { app, connected } = await mountSwitcher("ops");
+  const { app, connected } = await mountSwitcher("ops", [workstream("ops")], []);
   app.handlers["terminal.open"] = () => { throw new Error("Terminal creation rejected"); };
 
   if (byAction) { await show(); await chooseAction("New Terminal", "enter"); }
@@ -137,7 +137,7 @@ it.each([false, true])("u2572b_actions_share_key_behavior_in_the_opening_view: r
 });
 
 it.each([false, true])("u2572b_actions_share_key_behavior_in_the_opening_view: Ask %s", async (byAction) => {
-  await mountSwitcher("ops");
+  await mountSwitcher("ops", [workstream("ops")], []);
 
   if (byAction) { await show(); await chooseAction("Focus Ask bar", "pointer"); }
   else press("/", { metaKey: true, code: "Slash" });

@@ -106,6 +106,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Tab mark | same | — |
 | Rail (`Rail::name`, `Rail::last_id`, `Agents::rail_name`, `Agents::rail_last_id`, `rail.tree`) | same | — |
 | Rail deletion redo (`RedoParams`, `rail.redo`, `Deletion.restoration`, `Agents::redo_reversible_with`, `Agents::acknowledge_restoration_in`, `Todos::redo_workstream_in`, `Pads::redo_workstream_in`) | Redo | — |
+| Rail selection removal (`RemoveSelectionParams`, `rail.removeSelection`, `Removal.selection`, `Todos::retain_workstream_in`) | Remove | — |
 | Rail removal operation (`agent::RemoveParams`, `agent::Deletion`, `agent::DeletionParams`, `Removal.deletion`, `rail.remove`, `rail.deletion`, `rail.restore`, `Agents::rail_deletion`, `Agents::remove_reversible_with`, `Agents::restore_reversible_with`, `Agents::restore_reversible_in`) | same | — |
 | Remove this (`agent::RemoveScope::This`) | Remove this | — |
 | Remove all (`agent::RemoveScope::All`) | Remove all | — |
@@ -215,11 +216,12 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Browser data location (`webview_data_path`) | same | — |
 | Saved work (`storedValue`, `storageSchema`, `initializeStorage`, `storageProblems`, `useBrowserStorage`, `storageCopy`) | same | — |
 | Draft (`draftStorage`) | Unfinished work | — |
-| Reason | same | — |
+| Reason (`InboxRepeat`: equal to the last entry in the receiving inbox session) | same | — |
 | Card | same | popup |
 | Markdown | same | — |
 | Owner selector (`Owner`) | owner | — |
 | Actor | same | — |
+| Start attribution (`StartAttribution`, `start_attribution`) | started by | — |
 | Output stream (`Output`, `OutputStream`, `Terminals::subscribe_output`, `terminal.output`, `terminal.outputStop`, `OutputStarted`, `OutputEvent`, `OutputGap`, `terminal.gap`) | same | — |
 | Terminal scheme (`terminal.scheme`, `SchemeParams`, `Scheme`) | same | — |
 | RPC output intake (`Client::take_output`, `OutputFrame`) | same | — |

@@ -215,7 +215,8 @@ fn record_sender_names(inner: &Inner, nodes: &[RailNode]) -> Result<(), RpcError
 /// Message just sent or passed on to it): no `idle` event will follow for it, so the batch the next
 /// `idle` would pick is written now, though its Status revision is the current one.
 async fn on_idle(inner: &Arc<Inner>, agent: &str, at: store::Binding, pick: Pick) {
-    let _delivery = inner.delivery.read().await;
+    // Preserve physical write order through comparison, inbox write and durable history.
+    let _delivery = inner.delivery.write().await;
     let state = match inner.inbox.get() {
         Some(inbox) => inbox.check(agent).await,
         None => contracts::agent::Inbox::Missing,
@@ -246,22 +247,10 @@ async fn on_idle(inner: &Arc<Inner>, agent: &str, at: store::Binding, pick: Pick
             .collect::<Vec<_>>();
         drop(typing);
         let ids = idle_batch(&pending);
-        let batch = pending
+        pending
             .into_iter()
             .filter(|m| ids.contains(&m.id))
-            .collect::<Vec<_>>();
-        // B5168f: a batch of Quiet Digests alone starts no turn; it rides the next delivery.
-        let given = batch
-            .iter()
-            .any(|m| pushes::is_digest(&m.from, &m.body))
-            .then(|| store.delivered_to(agent))
-            .transpose()
-            .expect("message store")
-            .unwrap_or_default();
-        if receiver_view::are_quiet_digests(&given, &batch) {
-            return;
-        }
-        batch
+            .collect::<Vec<_>>()
     };
     if !found.is_empty() {
         inbox::send(inner, agent, at, pick, found, state).await;
