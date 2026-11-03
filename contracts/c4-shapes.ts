@@ -250,7 +250,9 @@ type WithOwnerSelector<T> = { [K in keyof T]: K extends "owner" ? T[K] | string 
 type SelectorInputs = "todo/AssignParams" | "todo/CreateParams";
 
 // U5558 adds commit notifications; every existing Event and payload remains exact.
-type AutomaticChanges = { name: "deliverable.changed" };
+type AutomaticChanges = { name: "deliverable.changed" }
+  | { name: "agent.completed"; data: { maker: string; attempt: string; turn: string } }
+  | { name: "deliverable.published"; data: { record: Before["deliverable/Deliverable"]; completion: { maker: string; attempt: string; turn: string } | null } };
 
 // A5765b removes only open Events and replaces open's null result with completion.
 type RenameRequest = Extract<Before["project/Requested"], { kind: "rename" }>;

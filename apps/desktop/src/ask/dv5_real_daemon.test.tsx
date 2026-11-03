@@ -11,6 +11,8 @@ import { ConnectedProjectContext, connectProject } from "../state/connectedProje
 import { createServedApp } from "../testing/realSeam";
 import { startRealDaemon, type StartedDaemon } from "../testing/realDaemonFixture";
 import { RpcError } from "../app/seam";
+import type { Completion } from "@contracts/Completion";
+import type { Event as ProjectEvent } from "@contracts/Event";
 import type { OpenTarget } from "../app/seam";
 import { AskBar } from "./AskBar";
 
@@ -433,3 +435,90 @@ it("u5558a_removal_disappears_without_input", async () => {
   expect(within(made).getAllByRole("listitem").map(row => row.getAttribute("data-deliverable"))).toContain(records[1]!.id);
   expect(reads).toBe(1);
 });
+
+
+it("u504_changes_survive_app_disconnection", async () => {
+  const logs = await mkdtemp(join(tmpdir(), "u504-evidence-"));
+  const log = join(logs, "prompts.jsonl");
+  const source = await startRealDaemon({ FAKE_CLAUDE_PROMPT_LOG: log });
+  const app = createServedApp(source.base);
+
+  try {
+    const maker = await app.rpc("agent.spawn", { cwd: source.dir, prompt: null, parent: null, name: "Evidence maker" });
+    await waitFor(async () => expect((await app.rpc("rail.tree", null)).find(node => node.id === maker.id)?.status?.kind).toBe("idle"));
+    const baseline = await app.subscribe(() => {});
+    window.dispatchEvent(new Event("pagehide"));
+    const publications = [];
+    const identities: Completion[] = [];
+
+    for (let turn = 1; turn <= 3; turn += 1) {
+      await app.rpc("terminal.write", { id: maker.terminal_id!, data: Buffer.from(`turn ${turn}\r`).toString("base64") });
+
+      const completed = await waitFor(async () => {
+        const node = (await app.rpc("rail.tree", null)).find(node => node.id === maker.id);
+        expect(node?.final_text?.kind).toBe("present");
+        expect(node?.final_text?.turn).not.toBe(identities.at(-1)?.turn);
+
+        return node!.final_text!;
+      });
+
+      identities.push({ maker: maker.id, attempt: completed.attempt, turn: completed.turn });
+
+      if (turn < 3) {
+        const { stdout } = await exec(resolve("../../target/debug/rup"), ["--json", "deliverable", "publish", `turn-${turn}`, "Same title", "--agent", maker.id, "--target", JSON.stringify({ kind: "external", url: `https://example.com/turn-${turn}` })], { env: { ...process.env, RUPD_SOCKET: source.socket } });
+        publications.push(JSON.parse(stdout));
+      }
+    }
+
+    for (let turn = 1; turn <= 2; turn += 1) {
+      const before = (await app.rpc("rail.tree", null)).find(node => node.id === maker.id)!.status!.finished;
+      await app.rpc("message.send", { to: maker.id, kind: "note", body: `Message turn ${turn}`, replyTo: null });
+      await waitFor(async () => {
+        const node = (await app.rpc("rail.tree", null)).find(node => node.id === maker.id);
+        expect(node?.status?.kind).toBe("idle");
+        expect(node?.status?.finished).not.toBe(before);
+      });
+      const { stdout } = await exec(resolve("../../target/debug/rup"), ["--json", "deliverable", "publish", `message-${turn}`, "Same title", "--agent", maker.id, "--target", JSON.stringify({ kind: "external", url: `https://example.com/message-${turn}` })], { env: { ...process.env, RUPD_SOCKET: source.socket } });
+      publications.push(JSON.parse(stdout));
+    }
+
+    // The process restart discards every in-memory notification before D11 reconnects.
+    await source.restart();
+    const reopened = createServedApp(source.base);
+    const seen: ProjectEvent[] = [];
+    const head = await reopened.subscribe(event => seen.push(event), { after: baseline });
+    await waitFor(() => expect(seen.at(-1)?.seq).toBe(head));
+    const completions = seen.filter(event => event.name === "agent.completed");
+    const facts = seen.filter(event => event.name === "deliverable.published");
+    expect(completions.map(event => event.data)).toEqual(identities);
+    expect(new Set(completions.map(event => JSON.stringify(event.data))).size).toBe(3);
+    expect(new Set(completions.map(event => event.data.attempt)).size).toBe(1);
+    expect(facts.map(event => event.data.record)).toEqual(publications);
+    expect(facts.map(event => event.data.completion)).toEqual([...identities.slice(0, 2), null, null]);
+    expect(completions.every(event => event.data.maker === maker.id)).toBe(true);
+    expect(seen.map(event => event.seq)).toEqual([...new Set(seen.map(event => event.seq))].sort((a, b) => a! - b!));
+    expect(facts.slice(0, 2).every((fact, index) => fact.seq! > completions[index]!.seq!)).toBe(true);
+    const prompts = await readFile(log, "utf8");
+    const before = await reopened.rpc("rail.tree", null);
+    const asks = await reopened.rpc("ask.list", null);
+    const messages = await reopened.rpc("message.list", { to: maker.id, status: null });
+    const repeated: ProjectEvent[] = [];
+    await reopened.subscribe(event => repeated.push(event), { after: baseline });
+    await waitFor(() => expect(repeated.at(-1)?.seq).toBe(head));
+    expect(repeated).toEqual(seen);
+    expect(await readFile(log, "utf8")).toBe(prompts);
+    expect(await reopened.rpc("rail.tree", null)).toEqual(before);
+    expect(await reopened.rpc("ask.list", null)).toEqual(asks);
+    expect(await reopened.rpc("message.list", { to: maker.id, status: null })).toEqual(messages);
+
+    for (const [index, fact] of facts.entries()) {
+      const { project, id } = fact.data.record;
+      expect(await reopened.rpc("deliverable.get", { project, id })).toEqual(fact.data.record);
+      expect(await reopened.rpc("deliverable.resolve", { project, id })).toEqual({ kind: "external", url: `https://example.com/${["turn-1", "turn-2", "message-1", "message-2"][index]}`, availability: "not-checked" });
+    }
+  } finally {
+    window.dispatchEvent(new Event("pagehide"));
+    await source.stop();
+    await rm(logs, { recursive: true, force: true });
+  }
+}, 120_000);
