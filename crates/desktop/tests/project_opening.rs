@@ -2,14 +2,20 @@
 use super::*;
 
 #[test]
-fn s8_opening_a_path_whose_daemon_runs_returns_it_and_starts_nothing() {
+fn a5765c_opening_an_alias_returns_the_canonical_project_and_starts_nothing() {
     let fx = Fixture::new(TWO_DAEMONS);
     fx.serve_real_daemon_named("my-project");
     let (_app, webview) = app(fx.config.clone(), None);
-    let first = open(&webview, &fx.project);
+    let alias = fx.dir.path().join("project-alias");
+    std::os::unix::fs::symlink(&fx.project, &alias).unwrap();
+    let first = open(&webview, &alias);
+    assert_eq!(first["path"], fx.project.canonicalize().unwrap().display().to_string());
 
     let again = open(&webview, &fx.project);
 
     assert_eq!(again, first);
+    let listed = invoke(&webview, "projects", json!({})).unwrap();
+    assert_eq!(listed.as_array().unwrap().len(), 1);
+    assert_eq!(listed[0]["path"], first["path"]);
     assert_eq!(fx.file("sockets").lines().count(), 1);
 }
