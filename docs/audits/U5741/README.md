@@ -12,7 +12,15 @@ The audit must prevent missed conditional offers, unsupported claims of non-use/
 ## Evidence
 
 | Artifact | Holds |
+| [rendered-shelf-followup.json](rendered-shelf-followup.json) | Nineteen independent Shelf openings, resolving reserved maximization and keyboard width/reset observation gaps |
+| [catalogues/shelf-followup-source.json](catalogues/shelf-followup-source.json) | Independent sources, dated direction and exact replay with archival naming |
+| [shelf.md](shelf.md) | Twenty-six independent Shelf/frame/selection/deletion/recovery decisions and explicit unfinished comparisons |
+| [catalogues/shelf-source.json](catalogues/shelf-source.json) | Pinned source, direction, public mappings and reproducible isolated observer |
+| [rendered-shelf.json](rendered-shelf.json) | Dark 1512×950 Shelf/list/selection/deletion observations and observer limits |
 | --- | --- |
+| [attention-import.md](attention-import.md) | Requested attention, Work progress and Import decision rows; explicit remaining comparisons and conditional states |
+| [catalogues/attention-import-source.json](catalogues/attention-import-source.json) | Current inspected source hashes, exact direction, public mappings and archived observer |
+| [rendered-attention-import.json](rendered-attention-import.json) | Fresh isolated dark Import, attention failure and progress/evidence openings |
 | [terminals.md](terminals.md) | Thirty-one Terminal/control rows, explicit unfinished protocol decisions and protected access boundary |
 | [catalogues/terminal-source.json](catalogues/terminal-source.json) | Inspected source hashes, exact direction and reproducible isolated observer |
 | [rendered-terminals.json](rendered-terminals.json) | Twelve fresh Terminal/shell/Find/rename/close/dense openings and Checks |
@@ -58,3 +66,5 @@ Project entry continuation: main `4dfcec6fd757600df568ecbe414e503d5d2af064`. [pr
 No owner choices have been requested or received. The single final request must include every verified candidate, in consecutive batches of at most ten, with keep / delete and dated accepted-direction reversals. The implementation Issue remains open.
 
 Terminal continuation: main `20576d304c07acb4010a54c8ced66f1e86c255e8`. [terminals.md](terminals.md) separates protected access from optional controls and preserves unresolved equivalence, source-only states and unfinished protocol rows. Final all-feature reconciliation remains required.
+
+Shelf continuation: main `eaa391d9d2f9eb7d9aaeb874590ec20e4ad805a8`. [shelf.md](shelf.md) separates presentation and reversible item operations; Todo/Pad content decisions remain separate. Dense maximization observation failed and is not a pass. All earlier evidence retains its own revision; final all-feature reconciliation remains unfinished.
