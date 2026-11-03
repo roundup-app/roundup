@@ -398,14 +398,15 @@ jobs:
       - name: Refresh prepared runtime for this checkout
         if: runner.environment == 'self-hosted'
         run: just build-debug
-      # Hosted runners ship Google Chrome at /opt/google/chrome/chrome, which `chromePage.ts` finds; the prepared boxd
-      # image holds only agent-browser's Chrome for Testing, so name it, and fail unless there is exactly one.
+      # Hosted runners ship Google Chrome at /opt/google/chrome/chrome, which `chromePage.ts` and agent-browser find; the
+      # prepared boxd image holds only agent-browser's Chrome for Testing, under the HOME that `loop/app-data.py` replaces.
+      # Name it for both, and fail unless there is exactly one.
       - name: Name the prepared browser
         if: runner.environment == 'self-hosted'
         run: |
           chrome=("$HOME"/.agent-browser/browsers/chrome-*/chrome)
           [ "${#chrome[@]}" = 1 ] && [ -x "${chrome[0]}" ] || { echo "::error::expected one prepared Chrome, found: ${chrome[*]}"; exit 1; }
-          echo "CHROME_PATH=${chrome[0]}" >>"$GITHUB_ENV"
+          printf 'CHROME_PATH=%s\nAGENT_BROWSER_EXECUTABLE_PATH=%s\n' "${chrome[0]}" "${chrome[0]}" >>"$GITHUB_ENV"
       - name: CI5330a disk before tests
         run: bash .github/actions/setup/disk.sh report before
       - name: C9c production desktop size
