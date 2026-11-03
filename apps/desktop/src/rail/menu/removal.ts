@@ -36,6 +36,8 @@ export const judgeRemoval = async (app: AppSeam, nodes: readonly RailNode[], id:
   const staying = new Set<string>();
 
   for (const node of below(nodes, id)) {
+    if (node.kind === "group") continue;
+
     if (node.kind !== "agent") {
       removal.removedIds.push(node.id);
       continue;

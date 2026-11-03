@@ -52,6 +52,7 @@ impl Agents {
         let role = match kind {
             NodeKind::Workstream => Role::Door,
             NodeKind::Agent => Role::Agent,
+            NodeKind::Group => return Err(RpcError::conflict("a Group has no model")),
         };
         let pair = models::resolve(&self.project_models()?, role, model, effort);
         let parked = self.shared.node(id)?;

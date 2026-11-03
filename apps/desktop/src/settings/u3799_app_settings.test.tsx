@@ -22,7 +22,7 @@ it("u3799_the_event_and_cmd_comma_open_app_settings_in_the_center_with_four_grou
   fireEvent.keyDown(window, { key: ",", code: "Comma", metaKey: true });
   const view = await screen.findByRole("region", { name: "Settings" });
   expect(within(screen.getByRole("region", { name: "Centre" })).getByRole("region", { name: "Settings" })).toBe(view);
-  expect(within(view).getAllByRole("tab").map(item => item.textContent)).toEqual(["Agents", "Terminal", "Shortcuts", "Appearance", "Alerts"]);
+  expect(within(view).getAllByRole("tab").map(item => item.textContent)).toEqual(["Agents", "Terminal", "Shortcuts", "Appearance", "Alerts", "Pads"]);
   expect(screen.queryByRole("dialog")).toBeNull();
   expect(screen.queryByRole("button", { name: /^Engine / })).toBeNull();
   expect(screen.queryByRole("button", { name: /^Model / })).toBeNull();
@@ -255,31 +255,36 @@ it.each([false, true])("u4277a_sections_work_by_pointer_and_keyboard_project_%s"
   window.dispatchEvent(new Event("open-app-settings"));
   const view = await screen.findByRole("region", { name: "Settings" });
 
-  for (const name of ["Agents", "Terminal", "Shortcuts", "Appearance", "Alerts"]) {
-    fireEvent.click(within(view).getByRole("tab", { name }));
-    await waitFor(() => expect(within(view).getByRole("tabpanel").getAttribute("aria-labelledby")).toBe(within(view).getByRole("tab", { name }).id));
+  const visiblePanel = () => view.querySelector('[role="tabpanel"]:not([hidden])');
+  const tabs = new Map(within(view).getAllByRole("tab").map(tab => [tab.getAttribute("data-value"), tab]));
+
+  for (const name of ["Agents", "Terminal", "Shortcuts", "Appearance", "Alerts", "Pads"]) {
+    fireEvent.click(tabs.get(name)!);
+    await waitFor(() => expect(visiblePanel()?.getAttribute("aria-labelledby")).toBe(tabs.get(name)!.id));
   }
 
-  const pages = ["Agents", "Terminal", "Shortcuts", "Appearance", "Alerts"];
-  within(view).getByRole("tab", { name: "Agents" }).focus();
+  const pages = ["Agents", "Terminal", "Shortcuts", "Appearance", "Alerts", "Pads"];
+  tabs.get("Agents")!.focus();
   await Promise.resolve();
 
   for (const [key, names] of [["ArrowDown", pages.slice(1)], ["ArrowUp", pages.slice(0, -1).reverse()]] as const) {
     for (const name of names) {
       fireEvent.keyDown(document.activeElement!, { key });
-      const tab = within(view).getByRole("tab", { name });
+      const tab = tabs.get(name)!;
       await waitFor(() => expect(document.activeElement).toBe(tab));
       await waitFor(() => expect(tab.getAttribute("aria-selected")).toBe("true"));
-      await waitFor(() => expect(within(view).getByRole("tabpanel").getAttribute("aria-labelledby")).toBe(tab.id));
+      await waitFor(() => expect(visiblePanel()?.getAttribute("aria-labelledby")).toBe(tab.id));
     }
   }
 
-  fireEvent.click(within(view).getByRole("tab", { name: "Appearance" }));
-  const panel = await within(view).findByRole("tabpanel", { name: "Appearance" });
-  const appearanceChoice = within(panel).getByRole("radio", { name: "System" });
-  appearanceChoice.focus();
-  await waitFor(() => expect(within(view).getByRole("tabpanel").contains(appearanceChoice)).toBe(true));
-  expect(document.activeElement).toBe(appearanceChoice);
+  for (const [page, choice] of [["Appearance", "System"], ["Pads", "Narrow"]] as const) {
+    fireEvent.click(tabs.get(page)!);
+    const panel = await within(view).findByRole("tabpanel", { name: page });
+    const control = within(panel).getByRole("radio", { name: choice });
+    control.focus();
+    await waitFor(() => expect(panel.contains(control)).toBe(true));
+    expect(document.activeElement).toBe(control);
+  }
 
 });
 
