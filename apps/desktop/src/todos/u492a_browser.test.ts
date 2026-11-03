@@ -27,7 +27,7 @@ describe.each([[1512, "dark"], [1512, "light"]] as const)("u492a at %i %s", (wid
       }
       return true;
     })()`);
-    await lane.until("!document.querySelector('.shelf .todo-list [aria-level=\"2\"]')");
+    await lane.until("!document.querySelector('.shelf .todo-list').querySelector('[aria-level=\"2\"]')");
     await lane.resetCalls();
 
     const initial = await lane.order();
