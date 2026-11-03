@@ -1,4 +1,4 @@
-import { createMemo, createRoot, createSignal } from "solid-js";
+import { batch, createMemo, createRoot, createSignal } from "solid-js";
 import { treeRows, rowTopology, treeCollection, planDrop } from "./todoView";
 import { createDependencyGroups, groupFacts, type DependencyGroupRetention } from "./dependencyGroups";
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
@@ -7,7 +7,7 @@ import { SCOPE_ROW, USER } from "../testing/nodes";
 import { RpcError } from "../app/seam";
 import { mountTodos, todo, todoCallsTo as callsTo, todoEvent, todoRowOf as rowOf } from "./testHarness";
 
-afterEach(cleanup);
+afterEach(() => batch(cleanup));
 
 const levelOf = (id: number) => Number(rowOf(id).closest("[role=treeitem]")?.getAttribute("aria-level"));
 

@@ -302,26 +302,8 @@ jobs:
         with:
           save-cache: 'true'
           # CI5458c: run 41349105933 spent 44 s installing Node packages and 50 s saving their cache.
-          # Only the main-only S1 packaging commands need them.
-          node: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && 'true' || 'false' }}
-      - name: C9b native release size
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        run: |
-          cargo build --locked --release -p rupd
-          mkdir -p target/release-evidence
-          git rev-parse HEAD > target/release-evidence/commit.txt
-          rustc -Vv > target/release-evidence/toolchain.txt
-          uname -a > target/release-evidence/host.txt
-          cp Cargo.toml target/release-evidence/Cargo.toml
-          python3 tools/release/check.py binary target/release/rupd | tee target/release-evidence/size.json
-      - name: C9 native evidence
-        if: always() && github.event_name == 'push' && github.ref == 'refs/heads/main'
-        uses: actions/upload-artifact@v4
-        with:
-          name: release-${{ runner.os }}-${{ github.run_attempt }}
-          path: target/release-evidence/
-          if-no-files-found: error
-          retention-days: 30
+          # S1 packaging installs them in mac-package instead.
+          node: 'false'
       # L89: a failed check leaves later steps running, so one run reports every failure.
       - name: test-rust
         run: python3 loop/app-data.py just test-rust-since "$BASE" --profile mac
@@ -340,6 +322,41 @@ jobs:
           python3 loop/app-data.py python3 loop/app-data.test.py
           python3 loop/app-data.py python3 loop/launch-sites.test.py
 
+  # CI5458d: main-only release builds run beside the full-test lane to keep each macOS job below 25 min.
+  mac-package:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: macos-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 2
+          # CI5458c: run 41353339920 spent 108 s checking out 2.3 GB of historical perf evidence.
+          # Keep every build/test input; these archives are not inputs to this lane's commands.
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /*
+            !/crates/perf/evidence/
+      - id: setup
+        uses: ./.github/actions/setup
+      - name: C9b native release size
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          cargo build --locked --release -p rupd
+          mkdir -p target/release-evidence
+          git rev-parse HEAD > target/release-evidence/commit.txt
+          rustc -Vv > target/release-evidence/toolchain.txt
+          uname -a > target/release-evidence/host.txt
+          cp Cargo.toml target/release-evidence/Cargo.toml
+          python3 tools/release/check.py binary target/release/rupd | tee target/release-evidence/size.json
+      - name: C9 native evidence
+        if: always() && github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ runner.os }}-${{ github.run_attempt }}
+          path: target/release-evidence/
+          if-no-files-found: error
+          retention-days: 30
       - name: S1 macOS App bundle
         id: app-bundle
         if: ${{ !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.setup.outcome == 'success' }}
@@ -534,7 +551,7 @@ jobs:
   # creates its own `check` only after its lanes end, so a skipped draft `check` on the same head let #5430 merge red.
   check:
     name: ${{ github.event_name == 'pull_request' && github.event.pull_request.draft && 'check (draft)' || 'check' }}
-    needs: [plan, rust, mac-clippy, mac, web, chromium]
+    needs: [plan, rust, mac-clippy, mac, mac-package, web, chromium]
     if: ${{ !cancelled() && (github.event_name != 'pull_request' || !github.event.pull_request.draft) }}
     runs-on: ubuntu-24.04
     steps:
