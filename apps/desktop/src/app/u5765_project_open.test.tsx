@@ -98,7 +98,12 @@ it("u5765_open_failure_returns_its_cause_and_visible_recovery", async () => {
   const reply = mounted.answer(request(51));
   await screen.findByRole("dialog");
   fireEvent.click(screen.getByRole("button", { name: "Open" }));
-  expect(await reply).toMatchObject({ id: 51, error: { code: -32001, message: "Folder unavailable" } });
+  const result = await reply;
+  expect(result).toMatchObject({ id: 51, error: { code: -32001, message: expect.stringContaining("Folder unavailable") } });
+
+  if (!("error" in result)) throw new Error("opening must report its failure");
+  expect(result.error.message).toContain(TARGET);
+  expect(result.error.message).toContain("try again");
   expect(await screen.findByRole("dialog", { description: /Folder unavailable/ })).toBeDefined();
 });
 
