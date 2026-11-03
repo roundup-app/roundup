@@ -107,7 +107,6 @@ These source owners account for the production keyboard census. The excerpts in 
 | `rail/Rail.tsx::Rail` | ContextMenu / Shift+F10; collection selection keys; local focus listeners | Open focused row/root menu; selection/typeahead; keydown clears pointer-menu bookkeeping. Door control stops propagation so it does not select another row. |
 | `rail/RailRow.tsx`, `rail/SpawnPromptField.tsx` | Enter / Escape in name/prompt fields; unmodified nonrepeat F2 on row | Commit/cancel edit or submit/cancel Agent prompt; draft policy still applies. |
 | `rail/drag.ts`, `rail/rows.ts`, `rail/RailFooter.tsx` | Space lifts row; Enter selects; control key propagation stopped | Keyboard drag versus selection; footer key listener records keyboard opening for focus placement only. |
-| `reactions/Reactions.tsx` | Inherited collection keys | Excluded #5740. No indirect retirement through shared key plumbing. |
 | `settings/AppSettings.tsx::AppSettings` | Raw ⌘, / ⌘[ / ⌘]; Enter numeric/custom font; search Escape/↓ | Open/Back/Forward; commit setting; clear query before closing, or focus search result. These raw bindings are not proof `rup do settings.open` succeeds. |
 | `settings/SettingsShell.tsx::SettingsShell` | Unhandled Escape | Close settings; composition/default-prevented keys do not close it. |
 | `settings/ShortcutSetting.tsx::ShortcutSettings` | Escape; any nonmodifier while recording or finding | Cancel; record/conflict-check/reset chosen action or inspect key owner; export overrides uses its own Save to file control. |

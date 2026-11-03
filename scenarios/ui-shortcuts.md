@@ -146,3 +146,5 @@ Rendered observer (policy): implementation uses the existing isolated headless U
 | 6 | `docs/design-system.md`, heading “The checks”, D6; `apps/desktop/src/testing/checks.ts`, `runChecks`: focus, states and hit areas |
 
 Validation (policy): specification runs `loop/rules.sh vocab`, `loop/rules.sh scenario-ids` and `just ready`; run `python3 loop/orders.py check <body-file>` before writing the Issue. Implementation runs `just ready`, changed-file related Vitest tests and the named rendered observer/captures. Record actual command results on #4692, with one row per failure containing command, exit code and failed assertion or observer/setup failure. This specification claims no new test already exists. Keep #4692 open in `Mode: implement` until its implementation acceptance passes; this specification PR references it without closing it.
+
+Policy retirement — U5740a (`scenarios/delete-reactions.md`): retire only U2239's Reactions list/detail/firing/Message-view actions and capture requirements. All remaining Ask, import, publication, draft recovery, navigation and shared Message acceptance stays in force.

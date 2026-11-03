@@ -149,17 +149,6 @@
       ]
     },
     {
-      "file": "reactions/nr9_rendered.test.ts",
-      "tests": [
-        "nr9_cli_mcp_and_app_share_authority",
-        "p3557c_failure_lifetime_reactions_rendered"
-      ],
-      "path": [
-        "reactions/nr9_rendered.test.ts",
-        "testing/realDaemonFixture.ts"
-      ]
-    },
-    {
       "file": "shelf/u460_real_daemon.test.tsx",
       "tests": [
         "u460_bulk_todo_delete_preserves_t6_across_homes",
@@ -439,7 +428,6 @@
     "header/u184_close.test.tsx",
     "orders/q2_surfaces.test.tsx",
     "pads/u3732_real_daemon_agent_owner.test.tsx",
-    "reactions/nr9_rendered.test.ts",
     "shelf/u460_real_daemon.test.tsx",
     "terminal/u3016_browser.test.ts",
     "terminal/u59_real_daemon.test.ts",

@@ -42,7 +42,6 @@ The locked default does not construct Show All, Bring All to Front, Paste and Ma
 | N21 | Create group | `App.tsx::menuItems`: creation actions classified by `taskKeys`; new Agent/Agent with prompt/Workstream/Mode/Terminal and Choose Project use the same captured action as their keys. Disabled actions keep their position. |
 | N22 | Navigate group | Same projection: leader actions, Ask/Find/attention, applicable row/editor/Triage actions. `captureActions(menuFocus())` binds the target and availability to the focused region. Exact names/defaults are in the 60-row action census. |
 | N23 | Resources | `App.tsx::views/menuItems`: show/hide resource inspection; enabled only for a selected Agent or started Workstream. It is not a permanent resting resource meter. |
-| N24 | Reactions | Same view projection; excluded from candidate decisions by #5740. |
 | N25 | Made | Same view projection: opens/closes published-work inspection. P12 and the Review stage apply. It is not permission to retire output discovery. |
 | N26 | Recover notes | Same view projection: opens/closes retained line-note recovery, including when no note editor is mounted. P11 applies. |
 | N27 | Import Claude Code work… | `menu.rs::{select_project_menu,app_chosen}`, `App.tsx::App`: emits `open-project-page` with the selected Project and `import-work`; opens `importer/ImportPanel`. |

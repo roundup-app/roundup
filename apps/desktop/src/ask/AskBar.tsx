@@ -6,7 +6,7 @@ import { useDialog } from "@ark-ui/solid/dialog";
 import { captureFocus, queueFocus } from "../keys/focus";
 import { createCopyLabels } from "../ui/CopyButton";
 import { writeText } from "../app/clipboard";
-import { batch, untrack, createComputed, createEffect, createMemo, createSignal, For, lazy, onCleanup, onMount, Show } from "solid-js";
+import { batch, untrack, createComputed, createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import * as v from "valibot";
 import { createStore, reconcile } from "solid-js/store";
 import type { AskSubmission } from "../state/asks";
@@ -29,17 +29,13 @@ import type { Deliverable } from "@contracts/deliverable/Deliverable";
 import { shelfScope } from "../shelf/scope";
 import type { RailNode } from "@contracts/agent/RailNode";
 import { AskRows } from "./AskRows";
-import { createReactions } from "../reactions/state";
 import { ToolCallLine } from "./ToolCallLine";
 import "./styles.css";
-
-// R3800: load the reactions screen and its Ark form controls only when requested.
-const Reactions = lazy(() => import("../reactions/Reactions").then(module => ({ default: module.Reactions })));
 
 /** The leading `@` and the letters after it, while the user has not yet typed the space that ends the name (U504). */
 const mentionOf = (text: string): string | null => /^@(\S*)$/.exec(text)?.[1] ?? null;
 
-const optionalViews = ["reactions", "made"];
+const optionalViews = ["made"];
 
 /** U504: the Ask bar and its rows. The Project's home screen while the Rail selects no Workstream, and `⌘/` opens it over anything else; Escape closes that and returns focus. */
 
@@ -53,7 +49,6 @@ export const AskBar = (props: {
   const connected = useConnectedProject();
   const { asks, rail, daemonExit, drafts } = connected;
   const deliverables = createDeliverables();
-  const reactions = createReactions();
   const inbox = createInbox();
 
   const [opening, setOpening] = createSignal<"home-focus" | "over" | null>(null);
@@ -309,11 +304,10 @@ export const AskBar = (props: {
   const sections = createMemo(() => [
           { id: "attention", label: copy.needsYou, records: inbox.records, actions: <span class="inbox-count" data-state="attention" aria-live="polite" aria-atomic="true">{inbox.records().length || ""}</span>, content: () => <Show when={connected.hasView("workstreams")} fallback={<Inbox state={inbox} />}><ProjectOverview /></Show> },
           { id: "asks", label: copy.askRows, records: () => asks.entries().flatMap(entry => entry.parts.map((_part, index) => ({ id: entry.key + ":" + index, at: entry.at ?? Number.MAX_SAFE_INTEGER }))), content: () => <><Show when={asks.entries().length === 0}><p class="overview-quiet">{copy.askEmpty}</p></Show><AskRows keys={scope} onOpened={() => close(false)} /></> },
-          { id: "reactions", label: copy.reactions, records: () => reactions.read().list.map(record => ({ id: record.id, at: Date.parse(record.created_at) })), content: () => <Reactions state={reactions} /> },
           { id: "made", label: copy.deliverables, records: () => deliverables.records().map(record => ({ id: record.id, at: record.published_at })), content: () => <Deliverables state={deliverables} /> },
         ]);
 
-  const overview = <OverviewSections ready={treeReady() && inbox.loaded() && asks.loadState() !== "loading" && !reactions.read.loading && !deliverables.loading()} items={sections()} />;
+  const overview = <OverviewSections ready={treeReady() && inbox.loaded() && asks.loadState() !== "loading" && !deliverables.loading()} items={sections()} />;
 
   return (<>
     <Show when={shown()}>
@@ -593,7 +587,7 @@ const Deliverables = (props: { state: ReturnType<typeof createDeliverables> }) =
             <span class="made-title">{copied().get(record.id)?.copied() ? copy.copied : record.title}</span>
             <span class="made-status" data-state={record.target.kind}>{status(record)}</span>
             <span id={`made-details-${record.id}`} class="made-details">{copy.deliverableAttribution(record.maker_name, home(record))}</span>
-            <time id={`made-time-${record.id}`} class="made-details" datetime={new Date(record.published_at).toISOString()}>{copy.reactionWhen(new Date(record.published_at).toISOString())}</time>
+            <time id={`made-time-${record.id}`} class="made-details" datetime={new Date(record.published_at).toISOString()}>{copy.publishedWhen(new Date(record.published_at).toISOString())}</time>
           </span>
           <Icon name="right" />
         </button>}</Tip>
