@@ -10,6 +10,8 @@ import { outcomeOf, RpcError } from "../../app/seam";
 import type { AppSeam } from "../../app/seam";
 import type { ExitState, RailState } from "../../state/rail";
 import type { QueueView } from "../../state/queue";
+import { goesLine, staysLine } from "./removal";
+import { railOrder } from "../layout";
 import { judgeRemoval } from "./removal";
 import type { Removal } from "./removal";
 import { contextMenu, linkEntries } from "../../ui/contextMenu";
@@ -24,6 +26,9 @@ type MenuState = {
   /** U367: what removing a Workstream goes and stays, once read; `null` while it is read. */
   removal?: Removal | null | undefined;
   losses?: string[];
+  selection?: RailNode[];
+  summary?: string;
+  reversible?: boolean;
 };
 
 const NOT_FOUND = -32001;
@@ -38,6 +43,7 @@ const needsConfirmation = ({ node, exit }: MenuState) =>
 
 export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (message: string, item?: string) => void, acknowledge: (item: string) => void, storage: ConnectedProject["drafts"], rename: (id: string) => void, queue: QueueView, extra: (node: RailNode) => MenuEntry[] = () => [], feedback: (id: string) => ReturnType<typeof createCopyFeedback> | undefined = () => undefined) => {
   const [state, setState] = createSignal<MenuState | null>(null);
+  let removingSelection = false;
   const resuming = new Set<string>();
   const [restarts, setRestarts] = createStore<Record<string, { request: string; pending: boolean } | undefined>>({});
 
@@ -141,6 +147,8 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
 
     if (!current) return;
 
+    if (current.selection) return removeSelection(current);
+
     if (current.confirming) return remove(current, scope);
     void judge(current);
   };
@@ -195,6 +203,70 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
     if (state()?.confirming) return;
     setState({ node: { ...node }, exit, confirming: false, action: "remove", removed });
     chooseRemove();
+  };
+
+  const removeSelection = async (current: MenuState) => {
+    if (removingSelection || !current.selection) return;
+    removingSelection = true;
+
+    try {
+      const ids = current.selection.map(node => node.id);
+
+      if (!current.reversible) {
+        const result = await applying(() => app.rpc("rail.removeSelection", { ids }));
+
+        if (result.kind === "refused") throw result.error;
+
+        if (result.kind === "pending") {
+          for (const id of ids) rail.keepAsked(id, { kind: "remove" });
+        } else current.removed?.();
+      } else {
+        const removed = await storage.todoUndo.removeRailSelection(ids, current.selection.map(node => node.name).join(", "), "rail");
+
+        if (removed) current.removed?.();
+        else {
+          if (storage.todoUndo.failure() && !storage.todoUndo.blocked()) onFailure(storage.todoUndo.failure()!, current.node.id);
+
+          return;
+        }
+      }
+
+      acknowledge(current.node.id);
+    } catch (error) {
+      if (!(error instanceof Error)) throw error;
+      onFailure(error.message, current.node.id);
+    } finally { close(); removingSelection = false; }
+  };
+
+  const requestRemoveSelection = async (nodes: RailNode[], removed: () => void) => {
+    if (state()?.confirming || removingSelection) return;
+    const ids = new Set(nodes.map(node => node.id));
+    const chosen = nodes.map(node => ({ ...node }));
+    const first = chosen[0];
+
+    if (!first) return;
+    const current: MenuState = { node: first, exit: rail.exitOf(first), confirming: true, action: "remove", selection: chosen, removed, removal: null };
+    setState(current);
+
+    try {
+      const judgments = await Promise.all(chosen.flatMap(node => node.kind === "workstream" ? [(async () => ({ node, removal: await judgeRemoval(app, rail.nodes, node.id, ids) }))()] : []));
+      const affected = new Set([...chosen.map(node => node.id), ...judgments.flatMap(({ removal }) => removal.removedIds)]);
+
+      const losses = railOrder(rail.nodes).filter(node => affected.has(node.id)).flatMap(node => [
+        ...(node.worktree ? [copy.removeWorktreeLoss(node.name)] : []),
+        ...((node.terminal_id !== null && rail.exitOf(node) === null) || rail.terminals().some(t => t.running && t.owner === node.id) ? [copy.removeProcessLoss(node.name)] : []),
+      ]);
+
+      const summary = [chosen.map(node => node.name).join("\n"), ...judgments.flatMap(({ node, removal }) => [goesLine(removal, node.name), staysLine(removal), ...removal.unread.map(list => copy.listUnread(list))]), ...losses].filter(Boolean).join("\n");
+      const unread = judgments.flatMap(({ removal }) => removal.unread);
+
+      if (state() === current) setState({ ...current, losses, summary, removal: undefined, reversible: losses.length === 0 && unread.length === 0 });
+    } catch (error) {
+      close();
+
+      if (!(error instanceof Error)) throw error;
+      onFailure(error.message, first.id);
+    }
   };
 
   /** U2694d: `agent.resume {id, mode}` restarts the same session, running or exited; a failure shows U80's line. */
@@ -306,6 +378,7 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
     chooseStop,
     chooseRemove,
     requestRemove,
+    requestRemoveSelection,
     restartSession,
     makeWorkstream,
     restartPending: (id: string) => restarts[id]?.pending ?? false,
