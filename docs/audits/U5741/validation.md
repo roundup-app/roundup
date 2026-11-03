@@ -912,3 +912,16 @@ Audited main `daa930055bd538a2fafce2960dbdb6825c0c7b93`. Documentation only: fou
 | First `just ready` | 1 | Spelling scan flagged unquoted abbreviated SHA in entry-points.md. Replaced with pinned-main wording; full repeat follows. Web checks, migration guard and N7 had passed. |
 
 PostCSS missing-from and Solid computation-disposal warnings occurred in the isolated harness; no clean-console claim. No behavior test file changed; no report-text test added. Before push, self-review checks independent decisions, exact names, archive integrity, historic versus current public offers, retained failed observers, only scoped documentation files and no false completion/deletion claim. Final required-check/integrity outcomes follow below.
+
+
+Merged `origin/main` at `20c374201` without conflicts; `git show --remerge-diff` is empty. All 32 inspected source archives are byte-identical on the audited and merged revisions; this does not promote older public runtime offers or complete the whole-App inventory. Integrity, vocabulary, scenario ids, merge-loss, spelling, size and whitespace checks pass (0). Self-review corrected diagnostic rows to recognize information-based repair outside a Toast, without inventing a retry on the card. The own diff contains only the six declared documentation paths. The isolated browser closed (0); deliberately terminating only this run's Vite ended its harness with 143.
+
+
+| Additional validation failure | Exit | Disposition |
+| --- | ---: | --- |
+| Second `just ready` and final standalone spelling scan | 1 each | Merge-comparison prose in source catalogue contained another abbreviated SHA flagged as a word. Replaced with audited-revision wording; stored full hashes remain exact. Repeating full required observer. |
+
+
+| Historical-text spelling failure | Exit | Disposition |
+| --- | ---: | --- |
+| Corrected standalone spelling scan | 1 | Raw archived owner quote contains a historical misspelling. Losslessly archived full direction records as JSON/zlib/base64 with hashes, preserving the exact quote without adding spelling exceptions. |
