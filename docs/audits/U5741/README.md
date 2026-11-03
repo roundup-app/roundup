@@ -13,6 +13,9 @@ The audit must prevent missed conditional offers, unsupported claims of non-use/
 
 | Artifact | Holds |
 | --- | --- |
+| [terminals.md](terminals.md) | Thirty-one Terminal/control rows, explicit unfinished protocol decisions and protected access boundary |
+| [catalogues/terminal-source.json](catalogues/terminal-source.json) | Inspected source hashes, exact direction and reproducible isolated observer |
+| [rendered-terminals.json](rendered-terminals.json) | Eleven fresh Terminal/shell/Find/rename/close/dense openings and Checks |
 | [rail-structure.md](rail-structure.md) | Twenty-one separate structure/secondary-control rows, conditional scope and unfinished comparisons |
 | [catalogues/rail-structure-source.json](catalogues/rail-structure-source.json) | Revision-pinned sources, direction and public mappings |
 | [rendered-rail-structure.json](rendered-rail-structure.json) | Fresh isolated disclosure, rename, move, path/link and creator-Todo openings |
@@ -53,3 +56,5 @@ Project entry continuation: main `4dfcec6fd757600df568ecbe414e503d5d2af064`. [pr
 ## Decision status
 
 No owner choices have been requested or received. The single final request must include every verified candidate, in consecutive batches of at most ten, with keep / delete and dated accepted-direction reversals. The implementation Issue remains open.
+
+Terminal continuation: main `20576d304c07acb4010a54c8ced66f1e86c255e8`. [terminals.md](terminals.md) separates protected access from optional controls and preserves unresolved equivalence, source-only states and unfinished protocol rows. Final all-feature reconciliation remains required.
