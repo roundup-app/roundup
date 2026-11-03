@@ -80,15 +80,7 @@
       ]
     },
     {
-      "file": "artifacts/ux/U5558e/reaction-reload-failed.checks.json",
-      "failed": []
-    },
-    {
       "file": "artifacts/ux/U5558e/import-reload-failed.checks.json",
-      "failed": []
-    },
-    {
-      "file": "artifacts/ux/U5558e/reaction-evidence-missing.checks.json",
       "failed": []
     }
   ]
