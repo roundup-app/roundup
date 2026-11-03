@@ -553,7 +553,7 @@ export const App = (props: {
 
         return {
           id: action?.value ?? `action:${"press" in row ? "leader" : "chord"}:${row.keys}`,
-          label: copy.projectMenuLabels.get(row.name) ?? row.what,
+          label: copy.projectMenuLabel(row.name, row.what),
           shortcut: "press" in row ? `⌘K ${row.keys}` : action?.press ? shortcutLabel(action.press) : row.keys,
           group: index < 6 ? "create" : "navigate",
           enabled: available && action !== undefined,

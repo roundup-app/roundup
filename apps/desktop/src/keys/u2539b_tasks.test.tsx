@@ -140,7 +140,8 @@ it.each(["ask", "agent", "terminal", "todo", "attention", "items", "inbox", "ass
     press("Enter");
     await waitFor(() => expect(store.todos.some(row => row.title === "Capture me")).toBe(true));
   } else if (task === "attention") {
-    command("action:chord:⌃⌘J", "KeyJ", { ctrlKey: true, metaKey: true });
+    if (source === "native-menu") command("action:chord:⌃⌘J", "KeyJ", { ctrlKey: true, metaKey: true });
+    else runLeader("KeyJ");
     await waitFor(() => expect(connected().rail.selected()).toBe("a0"));
     await waitFor(() => expect(document.activeElement?.getAttribute("data-terminal")).toBe("t-a0"));
   } else if (task === "items") {
