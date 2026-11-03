@@ -129,14 +129,30 @@ impl Rail {
             .iter()
             .position(|s| s == id)
             .expect("Workstream is a sibling");
-        ids.splice(
-            at..=at,
-            removal
-                .kept
+        // Organizational Groups have no lifecycle. Preserve them when their Workstream
+        // disappears, alongside the Agents its existing default cascade keeps.
+        let mut retained: Vec<_> = removal
+            .kept
+            .iter()
+            .filter(|item| item.kind == contracts::agent::RemovalKind::Agent)
+            .map(|item| item.id.clone())
+            .collect();
+        retained.extend(
+            nodes
                 .iter()
-                .filter(|i| i.kind == contracts::agent::RemovalKind::Agent)
-                .map(|i| i.id.clone()),
+                .filter(|candidate| {
+                    candidate.kind == NodeKind::Group
+                        && candidate.parent.as_deref().is_some_and(|parent| {
+                            parent == id
+                                || removal.removed.iter().any(|item| {
+                                    item.kind == contracts::agent::RemovalKind::Agent
+                                        && item.id == parent
+                                })
+                        })
+                })
+                .map(|candidate| candidate.id.clone()),
         );
+        ids.splice(at..=at, retained);
         place(db, node.parent.as_deref(), &ids)?;
         for item in removal.removed.iter().rev() {
             if item.kind == contracts::agent::RemovalKind::Agent {

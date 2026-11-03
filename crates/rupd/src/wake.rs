@@ -51,6 +51,7 @@ pub struct Waker {
 
 pub(crate) fn is_agent(node: &RailNode) -> bool {
     match node.kind {
+        NodeKind::Group => false,
         NodeKind::Agent => true,
         NodeKind::Workstream => node.attempt.is_some(),
     }
@@ -86,7 +87,7 @@ impl Waker {
         }
         let mut gate = self.gate.lock().await;
         // The head is read before the Rail, so a finish between the two is replayed below.
-        let head = self.bus.subscribe_after(None)?.head();
+        let head = self.bus.subscribe_after(Default::default())?.head();
         let world = self.reader.world().await?;
         if ids.iter().any(|id| kind_of(&world, id).is_none()) {
             return Err(RpcError::not_found("an Agent that is gone"));

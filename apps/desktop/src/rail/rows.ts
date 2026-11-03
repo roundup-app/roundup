@@ -13,5 +13,6 @@ export type RowActions = {
   editor: () => void;
 } & (
   | { kind: "workstream"; restart?: { pending: boolean; run: () => void; menu: (click: MouseEvent) => void }; add: { disabled: boolean; shortcut?: boolean; run: () => void } }
+  | { kind: "group" }
   | { kind: "agent"; stop?: () => void; resume?: () => void }
 );
