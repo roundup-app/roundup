@@ -274,6 +274,35 @@ impl Agents {
         state
     }
 
+    /// B5763b: the receiving peer session used for durable inbox comparison.
+    pub fn inbox_session(&self, id: &str) -> Option<String> {
+        self.launcher.inbox_session(id)
+    }
+
+    /// B5763c: recover the current peer's last admitted entry when durable history is absent.
+    pub fn inbox_previous(&self, id: &str) -> Result<Option<String>, contracts::agent::Inbox> {
+        let path = self
+            .shared
+            .events
+            .inbox
+            .transcripts
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .get(id)
+            .map(|(path, _)| path.clone());
+        match path {
+            Some(path) => self.launcher.inbox_previous(id, &path),
+            None => Ok(None),
+        }
+    }
+
+    /// B5763b: the exact content the current receiving permission mode will write.
+    pub fn inbox_content(&self, id: &str, note: &claude_code::inbox::Entry) -> String {
+        let runs = self.shared.runs();
+        let yolo = matches!(runs.get(id), Some(Slot::Running(run)) if run.yolo);
+        self.launcher.inbox_content(id, note, yolo)
+    }
+
     /// B50: write notes to Agent `id`'s Claude inbox; a failure is the state they stay pending under,
     /// and is the Rail fact too.
     pub fn inbox_write(
