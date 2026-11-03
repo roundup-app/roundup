@@ -283,3 +283,44 @@ Observer correction before commit: the first CI fixture used `failure`, outside 
 The standalone spelling command initially exited 2 because the pinned tool had not been installed in this new worktree. `python3 tools/lint/setup.py web` installed the checksum-verified tools (exit 0); the subsequent `python3 tools/lint/scan.py typos` passed (exit 0). No baseline or rule changed.
 
 Final checks: both `just ready` runs pass (exit 0), including B4522's migration guard, web lint/typecheck, Rust lints, `ALL PROOFS CHECK` and N7 launch sites. Main `0c060bfd8` was merged without conflicts; every inspected source file remains byte-identical to the pinned observer source. `loop/rules.sh merge-loss`, vocabulary, scenario ids, final spelling, JSON/source/editor/menu reconciliation and whitespace checks pass (exit 0). There are no changed behavior tests to run in this documentation-only slice. The complete inventory and final owner ask remain open on #5758.
+
+
+## Rail lifecycle continuation — builder-41579716823
+
+Product main `a3a760a66f4e2bf91a613636640e649695e6dc65`; isolated worktree `/tmp/roundup-audit-41579716823`. #5741 is closed after its specification merged. #5758's validated body adds the exact documentary slice before edits. No product, scenario, contract, test or frozen-loop change; U5741 uses policy observers, so no report-text test is added. B4522 is observed through the unchanged migration guard in `just ready`.
+
+Successful commands (exit 0): `git fetch origin main`; own branch/worktree creation; `python3 loop/orders.py check /tmp/5758-body.md`; `gh issue edit 5758 --body-file /tmp/5758-body.md`; `pnpm install --frozen-lockfile`; `agent-browser skills get core`; `just harness tree-40 5223` served successfully (long-running server, not a completed test); `node_modules/.bin/claude --version` and `--help`; linked #4547/#5214/#4452/#3194 direction retrieval.
+
+Thirteen actual openings at 1512×950, dark, fresh headless profile `/tmp/u5741-rail-profile-41579716823`, dedicated session `u5741-rail-41579716823`, pass all recorded D Checks. Fonts, viewport and dark preference are checked on each capture. PNG files and raw snapshots remain uncommitted under `artifacts/ux/U5741/rail/` for workflow attachment. Visually inspected New Mode and middle-Queue images agree with their openings. Native Stop/Keep is observed at the existing question boundary, not drawn as a web dialog. No real launch, permission change, native macOS render or Message delivery is claimed.
+
+Eight additional exact native menu models are observed without `menu=1` through the existing menuProbe. Each top-level label reconciles to its corresponding projected-menu accessibility snapshot; first/middle/last Queue menus differ in the expected directional offers. The source catalogue retains complete nested models, fixture drivers and checksummed inspected source. The generated JSON uses compact serialization as the existing evidence does; it is not handwritten product machinery.
+
+| Failed command / observer | Exit | Failure / disposition |
+| --- | ---: | --- |
+| Initial `pwd && git status --short && ls -d .codegraph` | 2 | No codegraph index exists; normal source search used. |
+| `rg ... testing/harness.tsx testing/seeds.ts testing/fake.ts` | 2 | Guessed fake.ts absent; located and read actual fakeApp.ts. |
+| `rg ... testing/FakeApp.ts` | 2 | Case-sensitive filename mismatch; actual fakeApp.ts inspected. |
+| `rg ... scenarios/workstreams.md` | 2 | Guessed plural path absent; actual workstream.md and workstream-queue.md inspected. |
+| `cat apps/desktop/src/rail/move.ts` | 1 | Guessed module absent; actual MovePicker.tsx inspected. |
+| `python3 /tmp/rail-observe.py` / exact menuitem Mode locator | 1 | Actual accessible name includes its chord. Snapshot ref selected Mode; New Mode dialog then independently captured. Earlier valid captures retained. |
+| `rg ... crates/rup/src/mcp.rs crates/rup/src/cli/*.rs` for literal owner-only method names | 1 | No literal registrations there; shared annotations in crates/contracts/src/declarations.rs inspected. No absence inferred from the failed search. |
+| `rg ... /tmp/rail-claude-help.txt` for slash-command names | 1 | Help does not list those built-ins. Official interactive reference is the source for them; help proves only the flags it actually prints. |
+| Replacement of original FakeApp.showContextMenu after mount | 0, observer invalid | Decorated App retained its menu boundary; interception arrays stayed empty. Null values discarded; exact menu models independently recaptured using menuProbe without menu=1. This is not a successful interception claim. |
+
+The remaining complete inventory, Q1 gaps, conditional states, dated direction and all-feature revision reconciliation stay on #5758. There is no owner ask or deletion permission. Older-Project successful reopening remains mandatory for any later retirement.
+
+Additional command failures:
+
+| Command | Exit | Failure / repair |
+| --- | ---: | --- |
+| `python3 tools/lint/scan.py rust` before setup | 2 | Dependency scan required the pinned cargo-deny binary. `just ready` installs it through the existing setup. This command was not a spelling scan. |
+| `python3 tools/lint/scan.py web` first standalone run | 1 | Spelling scan rejected a misspelling in the copied #3194 owner quotation. Retained the linked source body hash and exact accepted-choice/outcome excerpt instead of copying unrelated original wording. No spelling exception or product change. |
+
+Merged `origin/main` at `9f948f124` without conflicts; `git show --remerge-diff` has no resolution changes and `loop/rules.sh merge-loss` passes. Every inspected source hash remains identical to the audit pin. The full all-feature audit remains revision-unreconciled; this check covers only this slice's inspected paths.
+
+| Further failed command | Exit | Failure / repair |
+| --- | ---: | --- |
+| `just ready` first run | 1 | Web lint/typecheck and N7 passed; repository spelling scan rejected the copied #3194 misspelling before the source excerpt repair. Rerun after repair; no product or lint-rule change. |
+| Temporary aggregate report assertion (Python) | 1 | Counted decision ids again in the public-mapping table. Restricted counting to the independent-decision table; 22 rows, thirteen rendered openings, eight menu models and every inspected source hash then reconciled (exit 0). |
+
+Final `just ready` passes (exit 0): B4522 migration guard, web lint/typecheck, repository and Rust lints, `ALL PROOFS CHECK` and N7 launch sites. Vocabulary, scenario ids, merge-loss, whitespace, all 33 inspected source hashes, eight exact menu models and thirteen rendered openings pass (exit 0). Own diff review is clean after correcting the existing `RailRow::NameField` reference and naming each applicable action id. No behavior tests changed; no local `just check` ran. The dedicated browser session was closed.
