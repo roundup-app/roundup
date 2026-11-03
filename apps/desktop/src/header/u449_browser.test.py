@@ -289,7 +289,8 @@ try:
                     if variant == "head":
                         browser("wait", "--fn", "document.querySelector('.tablist').scrollWidth > document.querySelector('.tablist').clientWidth")
                     browser("wait", "--fn", "document.querySelector('[data-id=\"'+window.__longWorkstream+'\"]') !== null")
-                    evaluate("document.querySelector('[data-id=\"'+window.__longWorkstream+'\"]').click()")
+                    browser("click", '.rail-row[data-id="long-workstream"] .name')
+                    browser("wait", "--fn", "document.querySelector('.window-title').getAttribute('aria-label').includes('W'.repeat(300))")
                     browser("hover", ".window-title")
                     browser("wait", "[role=tooltip][data-state=open]")
                     capture(prefix + "-overflow")
