@@ -32,5 +32,5 @@
   "host": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39",
   "gzip": "Python gzip.compress level 9 mtime 0; recursive manifest static imports counted once",
   "ceiling": 437814,
-  "base_equivalent_app_revision": "a8912caabbcc030532a946473b924974d782632c"
+  "base_equivalent_app_revision": "478101ba9808020db0357242efc5460f1b64d9bc"
 }

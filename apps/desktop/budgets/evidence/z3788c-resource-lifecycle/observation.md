@@ -1,4 +1,4 @@
-Z3788c ResourceStrip visibility row, Linux/Chromium, 2026-10-26. Base `d330caaab7f0881ee57f94597021b05edbf76ba4`; production head `96efce89800a0f31e544d2a83563b524f6c7f325`.
+Z3788c ResourceStrip visibility row, Linux/Chromium, 2026-10-26. Base `62d030fbe7c4c331fc726e58b360c95e8e512a0d`; production head `b70ad173d5a7f1f8710efe2134590c7ff6b9d9f4`.
 
 | Observer | Result |
 | --- | --- |

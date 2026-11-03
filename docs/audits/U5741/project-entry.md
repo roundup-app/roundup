@@ -1,6 +1,6 @@
 # U5741 Project entry, tabs and recovery
 
-Audited main: `4dfcec6fd757600df568ecbe414e503d5d2af064`, 2026-11-03. Continues #5758's reviewed inventory; this is neither the complete audit nor a deletion request. No deletion is authorized.
+Audited main: `44d48fc91026e15ee19fe5f71084f66ce964a2cb`, 2026-11-03. Continues #5758's reviewed inventory; this is neither the complete audit nor a deletion request. No deletion is authorized.
 
 [Inspected sources and provenance](catalogues/project-source.json) pin the App, native host and contract declarations. [Rendered openings](rendered-project.json) retain the isolated headless 1512×950 dark observer, snapshots, native question boundary and Check results. PNG files remain uncommitted under `artifacts/ux/U5741/project/`. Fake-Daemon renders establish webview reachability, not real native chooser execution, process recovery or durable storage.
 

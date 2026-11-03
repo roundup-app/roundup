@@ -52,7 +52,7 @@ The second `just ready` exited 1: all web checks and launch-sites passed, but th
 
 ## Continuation on builder-41533806779
 
-The evidence remains pinned to main `092fcafbf910f292d7180c97d35bd381aff984b3`. The continuation's isolated worktree merges main `b7ce9aef7` for branch validation; it does not silently repin the older runtime census or claim its offers cover methods added later. Browser observations run against the unchanged audited checkout on port 5218, in a new headless session/profile. No user browser, Agent process or native App was used.
+The evidence remains pinned to main `e97b71b0cf59d0cab56543d192c9ecf148f56fa7`. The continuation's isolated worktree merges main `b7ce9aef7` for branch validation; it does not silently repin the older runtime census or claim its offers cover methods added later. Browser observations run against the unchanged audited checkout on port 5218, in a new headless session/profile. No user browser, Agent process or native App was used.
 
 | Command / observer | Exit | Result |
 | --- | ---: | --- |
@@ -95,7 +95,7 @@ No owner choice has been requested. The remaining work is the full App/local-lib
 
 ## Keyboard evidence continuation — builder-41540564606
 
-The source observer stays pinned to main `092fcafbf910f292d7180c97d35bd381aff984b3`; the documentary continuation branches from `d1c8a3cc90ab96eab7c57d3c300c5bddd97570e3`. The two checkouts are separate worktrees. No current-main product source is substituted into the old audit. No product, scenario, Principle, contract or frozen-loop file changes.
+The source observer stays pinned to main `e97b71b0cf59d0cab56543d192c9ecf148f56fa7`; the documentary continuation branches from `d5886f964c7cfe7d277218a001d30bbccd542674`. The two checkouts are separate worktrees. No current-main product source is substituted into the old audit. No product, scenario, Principle, contract or frozen-loop file changes.
 
 `pnpm install --frozen-lockfile` passed in both worktrees (exit 0). The keyboard census retains 67 production files / 146 matching sites, 21 locked-library files and 60 actual named-action rows. The observer driver and reconciliation scripts are temporary audit tools, not product machinery or committed report-wording tests. `agent-browser skills get core` was read before browser commands. The headless session is `u5741-41540564606`, with a fresh test profile; only this run's isolated pages and fake Project were edited.
 
@@ -155,7 +155,7 @@ No new test duplicates the compiler's global-allocator uniqueness check (rule 10
 
 ## Settings evidence — builder-41556795106
 
-Product source remains `092fcafbf910f292d7180c97d35bd381aff984b3`; documentation continues from main `df38b366e772e810592e7d19b3b8d04adb8419c7`. Own branch/worktree and a separate detached product-source worktree preserve that boundary. The new catalogue lists product changes between them, not an audited disposition of that delta.
+Product source remains `e97b71b0cf59d0cab56543d192c9ecf148f56fa7`; documentation continues from main `ab1ebdf0f0658d3b43eb45d897d47b1f0ccf487d`. Own branch/worktree and a separate detached product-source worktree preserve that boundary. The new catalogue lists product changes between them, not an audited disposition of that delta.
 
 Passed: `pnpm install --frozen-lockfile` in both worktrees (exit 0); `cargo build -p rup -p rupd` at the audited source (exit 0); `python3 loop/orders.py check /tmp/u5741-5758-41556795106.md` (exit 0) before the authorized documentation scope update. Rebuilt binary hashes and the isolated real Daemon's actual `models.list` request/reply are in `catalogues/settings-source.json`. No Agent is launched. Ten settings openings at 1512×950 in dark pass every recorded D Check, including D2/D5/D6. PNG files and raw snapshots stay under `artifacts/ux/U5741/settings/`; exact controls/values and Checks are in `rendered-settings.json`.
 
@@ -201,7 +201,7 @@ The final documentary checks and `just ready` result are recorded below. Final s
 
 Harness process log also reported four `ResizeObserver loop completed with undelivered notifications` errors during navigation; these remain observer diagnostics, not a product fix or a native behavior pass. The final ten retained screens each independently passed their recorded Checks. Browser and both isolated serving processes were closed by this run after collection.
 
-Fetched and merged main `b0562bd815f4f986b981b1c024e989328dd1489f` without conflicts; `loop/rules.sh merge-loss` passes (exit 0). Pinned product source and its observations remain unchanged. The production-path delta catalogue is refreshed through this merge.
+Fetched and merged main `f7998b3431cf887cd10976d64a02d898e9ed2cb0` without conflicts; `loop/rules.sh merge-loss` passes (exit 0). Pinned product source and its observations remain unchanged. The production-path delta catalogue is refreshed through this merge.
 
 | Command | Exit | Result |
 | --- | --- | --- |
@@ -213,7 +213,7 @@ Final reconciliation passed (exit 0): sixty unique configuration rows match the 
 
 ## Required-check repair — builder-41563179878
 
-CI run `41560029671` on `29c2f339ea44b8f4366f33fe7038060b55dcf670` failed `lint` (exit 1): Clippy could not compile the agents unit tests (E0425) because the shared `crate::ALLOCATOR` was absent. The dependent `pre` gate failed too. Restore exactly one test-only allocator using the already installed `stats_alloc`; keep every allocation observer and threshold unchanged. Production builds do not register this allocator.
+CI run `41560029671` on `e877b816ca91bdc39abb51eecd9c66d7a90221f3` failed `lint` (exit 1): Clippy could not compile the agents unit tests (E0425) because the shared `crate::ALLOCATOR` was absent. The dependent `pre` gate failed too. Restore exactly one test-only allocator using the already installed `stats_alloc`; keep every allocation observer and threshold unchanged. Production builds do not register this allocator.
 
 | Command / observer | Exit | Result |
 | --- | ---: | --- |
@@ -225,7 +225,7 @@ CI run `41560029671` on `29c2f339ea44b8f4366f33fe7038060b55dcf670` failed `lint`
 
 ## Required-check repair — builder-41567182937
 
-CI runs `41565024004` and `41565023990` on `fa9b5c63ca140e8bcbf28ba5364e44638eed1846` failed lint and the macOS/Rust test lanes before tests ran: their merge checkout contained two `ALLOCATOR` declarations (E0428). Main's independently merged #5828 already supplies the shared test allocator. Merge main `fc8f38711` and delete this branch's duplicate; `crates/agents/src/lib.rs` then equals main. Allocation observers and thresholds remain unchanged, and the net PR changes only audit documentation.
+CI runs `41565024004` and `41565023990` on `093a3a0b6c553e0cd9116538b4f13f6711172b7b` failed lint and the macOS/Rust test lanes before tests ran: their merge checkout contained two `ALLOCATOR` declarations (E0428). Main's independently merged #5828 already supplies the shared test allocator. Merge main `fc8f38711` and delete this branch's duplicate; `crates/agents/src/lib.rs` then equals main. Allocation observers and thresholds remain unchanged, and the net PR changes only audit documentation.
 
 | Command / observer | Exit | Result |
 | --- | ---: | --- |
@@ -236,7 +236,7 @@ CI runs `41565024004` and `41565023990` on `fa9b5c63ca140e8bcbf28ba5364e44638eed
 
 ## Required-check repair — builder-41568471071
 
-CI run `41568393992` on `f8495ca8decd9244e0cc8d88307d812e2e9cafba` failed the B4522 filename guard before tests: main contains both `0044-inbox-entry.sql` and `0044-start-attribution.sql`. Carry the exact independently approved repair from PR #5833 (`85f61e537cb70d2cdd923ce947338438ce0071d2`): rename the latter to `0045-start-attribution.sql`. Issue #5758 records this scope expansion; #5837 owns the upstream collision. Neither the guard nor its recorded exceptions change.
+CI run `41568393992` on `6c4d33df8d49599f616673e0ab651ff4f8cddeb7` failed the B4522 filename guard before tests: main contains both `0044-inbox-entry.sql` and `0044-start-attribution.sql`. Carry the exact independently approved repair from PR #5833 (`0c4b208a60d8eefdb2140d2f147a9098a2446461`): rename the latter to `0045-start-attribution.sql`. Issue #5758 records this scope expansion; #5837 owns the upstream collision. Neither the guard nor its recorded exceptions change.
 
 | Command / observer | Exit | Result |
 | --- | ---: | --- |
@@ -249,7 +249,7 @@ CI run `41568393992` on `f8495ca8decd9244e0cc8d88307d812e2e9cafba` failed the B4
 
 ## Changes and resources continuation — builder-41575207304
 
-This documentation slice observes main `f87a3ddd158ec53a311d29265fa6414d6efa4434`, not an unrecorded promotion of the earlier product revision. The changes/resources report and source catalogue reconcile the relevant current declarations, menu projection and inspected implementation hashes. Other production delta and the complete audit remain pending. No product, scenario, Principle, contract, test or frozen-loop file changes; no deletion or owner choice.
+This documentation slice observes main `3466a2241a589e28125beb40ab266800176f8a3e`, not an unrecorded promotion of the earlier product revision. The changes/resources report and source catalogue reconcile the relevant current declarations, menu projection and inspected implementation hashes. Other production delta and the complete audit remain pending. No product, scenario, Principle, contract, test or frozen-loop file changes; no deletion or owner choice.
 
 | Command / observer | Exit | Result |
 | --- | ---: | --- |
@@ -285,7 +285,7 @@ Final checks: both `just ready` runs pass (exit 0), including B4522's migration 
 
 ## Rail lifecycle continuation — builder-41579716823
 
-Product main `a3a760a66f4e2bf91a613636640e649695e6dc65`; isolated worktree `/tmp/roundup-audit-41579716823`. #5741 is closed after its specification merged. #5758's validated body adds the exact documentary slice before edits. No product, scenario, contract, test or frozen-loop change; U5741 uses policy observers, so no report-text test is added. B4522 is observed through the unchanged migration guard in `just ready`.
+Product main `9e90a8434abbfd21a03b3e6a1d8b1d87e9e1f491`; isolated worktree `/tmp/roundup-audit-41579716823`. #5741 is closed after its specification merged. #5758's validated body adds the exact documentary slice before edits. No product, scenario, contract, test or frozen-loop change; U5741 uses policy observers, so no report-text test is added. B4522 is observed through the unchanged migration guard in `just ready`.
 
 Successful commands (exit 0): `git fetch origin main`; own branch/worktree creation; `python3 loop/orders.py check /tmp/5758-body.md`; `gh issue edit 5758 --body-file /tmp/5758-body.md`; `pnpm install --frozen-lockfile`; `agent-browser skills get core`; `just harness tree-40 5223` served successfully (long-running server, not a completed test); `node_modules/.bin/claude --version` and `--help`; linked #4547/#5214/#4452/#3194 direction retrieval.
 
@@ -325,7 +325,7 @@ Final `just ready` passes (exit 0): B4522 migration guard, web lint/typecheck, r
 
 ## Project entry continuation — builder-41583532350
 
-Audited main `4dfcec6fd757600df568ecbe414e503d5d2af064`; own worktree `/tmp/roundup-u5741-41583532350`. The specification is merged and #5741 is closed. #5758's body was expanded with the exact documentary scope after `python3 loop/orders.py check /tmp/u5741-body.md` passed (exit 0), before edits. No product, scenario, test, contract or frozen-loop change; no policy-report wording test is added. No deletion, partial owner ask or Mac-only observation is requested.
+Audited main `44d48fc91026e15ee19fe5f71084f66ce964a2cb`; own worktree `/tmp/roundup-u5741-41583532350`. The specification is merged and #5741 is closed. #5758's body was expanded with the exact documentary scope after `python3 loop/orders.py check /tmp/u5741-body.md` passed (exit 0), before edits. No product, scenario, test, contract or frozen-loop change; no policy-report wording test is added. No deletion, partial owner ask or Mac-only observation is requested.
 
 Successful commands (exit 0): `git fetch origin main`; own branch/worktree creation; validated Issue edit; `pnpm install --frozen-lockfile`; `agent-browser skills get core`; installed `node_modules/.bin/claude --version` and `--help`; linked #1093 body/comments and #5741 state retrieval. `just harness tree-40 5227` subsequently served successfully (long-running observer, not a completed test).
 
@@ -350,7 +350,7 @@ The temporary observer drivers are retained as provenance in the source catalogu
 
 Final capture reconciliation: fifteen unique openings, each dark 1512×950, all recorded Checks pass. Visual inspection of tab draft recovery agrees with the retained exact authored name. Visual inspection of `reopen-failed.png` shows the cause shortened to `Cannot reopen Project. Check …` in the Rail's failure line while Reopen remains visible; automated Checks do not detect this missing full failure text. This is an unresolved rendered limitation, not a full failure-readability pass. Full cause bytes are retained in the snapshot/body. Final inventory reconciliation must resolve failure readability, not infer a passing visual observer from Check status alone.
 
-Main `9c782fc17c78cb3c86dad633d5c84d646e2f58be` merged without conflicts; merge-loss passes (exit 0) and remerge-diff contains no manual resolution. The 33 inspected source hashes still match the observer pin. Main's new shared Menu code is outside that inspected list; rendered menu evidence stays pinned to its original revision. No all-feature revision promotion is claimed.
+Main `a289264937fa92bb44f855cded42ec5f848fcd80` merged without conflicts; merge-loss passes (exit 0) and remerge-diff contains no manual resolution. The 33 inspected source hashes still match the observer pin. Main's new shared Menu code is outside that inspected list; rendered menu evidence stays pinned to its original revision. No all-feature revision promotion is claimed.
 
 Additional failed source lookup: `rg ... crates/rupd/src/rpc/project.rs` exits 2 because no such module exists. The authoritative declarations and earlier endpoint census supply the public mapping; no runtime behavior or absence was inferred from the guessed path.
 
@@ -366,7 +366,7 @@ Final `just ready` passes (exit 0): B4522 migration guard, 193 lint-behavior che
 
 ## Rail structure continuation — builder-41586912445
 
-Source main `4525b6ce563888c08b0b8bba3806449cf3b9c1f8`. Documentation only. RS01–RS19 (with RS17a/b/c) extend the reviewed inventory; R16 still owns error dismissal. No owner ask, answer or deletion is inferred. P1/P3/P6/P9/P11 gates preserve direct access, attention, Home, intentional work and drafts; rendered/action evidence is scoped to the fake seam, not production mutation.
+Source main `ed2bac6a9f8055f84e72624792b975411f15b0b7`. Documentation only. RS01–RS19 (with RS17a/b/c) extend the reviewed inventory; R16 still owns error dismissal. No owner ask, answer or deletion is inferred. P1/P3/P6/P9/P11 gates preserve direct access, attention, Home, intentional work and drafts; rendered/action evidence is scoped to the fake seam, not production mutation.
 
 Fresh isolated `agent-browser --session u5741-415869`, default headless, no personal profile or external browser connection; dark 1512×950, existing tree-40 harness on port 5231. Ten openings retain screenshots under `artifacts/ux/U5741/rail-structure/`. Raw accessibility snapshots are losslessly compressed to avoid spelling checks treating clipped labels as authored prose: `zlib.decompress(base64.b64decode(page['snapshotZlibBase64']))`, UTF-8; compare SHA-256 to `snapshotSha256`. Native menu models use the existing menuProbe in a separate nonprojected opening. No native appearance/launch/Message-delivery claim.
 
@@ -407,11 +407,11 @@ The final observer runs the unchanged `just ready` in a detached shell, retainin
 
 Final detached `just ready` passes, exit 0: B4522 migration guard, web lint/styles/type checks, repository and Rust lints, `ALL PROOFS CHECK`, and N7 launch-sites. The complete log is `/tmp/u5741-ready-detached.log`; exit file `/tmp/u5741-ready-detached.exit` holds `0`. No local `just check` ran. No behavior test was authored or changed by this slice.
 
-Main `d26af47b9e1fea792c4e7a9fd48f83070a3fdf9b` was merged without conflicts during validation; the source catalogue holds its exact resolved SHA and merge SHA. All 36 inspected sources still equal the audit pin. The final web source lint/type checks and repository/Rust/proof/N7 stages read the merged checkout; historical rendered evidence keeps its original pin. Vocabulary, scenario ids, whitespace, lossless snapshot/direction round trips, native alert models and merge-loss pass. Scope is six audit documents only; no image, video, product or frozen-loop file is committed. #5758 remains open for the unfinished inventory and later owner choices/retirements.
+Main `b12db4973f04cf586a6154519cc018d400ed0819` was merged without conflicts during validation; the source catalogue holds its exact resolved SHA and merge SHA. All 36 inspected sources still equal the audit pin. The final web source lint/type checks and repository/Rust/proof/N7 stages read the merged checkout; historical rendered evidence keeps its original pin. Vocabulary, scenario ids, whitespace, lossless snapshot/direction round trips, native alert models and merge-loss pass. Scope is six audit documents only; no image, video, product or frozen-loop file is committed. #5758 remains open for the unfinished inventory and later owner choices/retirements.
 
 ## Rail structure completion — builder-41588674845
 
-PR #5859’s inherited evidence slice is verified against audited main `4525b6ce563888c08b0b8bba3806449cf3b9c1f8`: all 32 inspected source hashes match the checkout, all ten stored accessibility snapshots decode to their recorded SHA-256, and all ten environments are dark 1512×950. The independent-decision table contains 21 rows. No policy-report test was added.
+PR #5859’s inherited evidence slice is verified against audited main `ed2bac6a9f8055f84e72624792b975411f15b0b7`: all 32 inspected source hashes match the checkout, all ten stored accessibility snapshots decode to their recorded SHA-256, and all ten environments are dark 1512×950. The independent-decision table contains 21 rows. No policy-report test was added.
 
 Recreated all ten accepted openings with the recorded driver’s successful paths in dedicated headless session `fix5859`, fresh profile `/tmp/fix5859-profile`, isolated harness port 5233. Explicit App appearance is dark; every recorded Check passes. Fresh PNG files remain uncommitted under `artifacts/ux/U5741/rail-structure/`; fresh snapshots, Checks and command logs are retained there too. The known unavailable projected Alerts submenu was skipped; its full production model was reproduced separately: all four complete native menu models match the recorded models (exit 0). Screens establish reachability only: the creator control was captured before Todo rows loaded; the concurrent run’s loaded capture supersedes it and proves creator-based reveal within owner groups, not an exclusive filter. Rename and Move picker openings supply R12/R13’s pending rendered entry points, without establishing mutation or drag success.
 
@@ -422,7 +422,7 @@ Recreated all ten accepted openings with the recorded driver’s successful path
 
 The complete inventory, vendor comparisons, conditional states, final revision reconciliation and single owner request remain on #5758. No owner choice, retirement, product change or native effect is inferred.
 
-Merged main `d26af47b9e1fea792c4e7a9fd48f83070a3fdf9b` without conflicts; remerge-diff is empty and merge-loss passes. Its test-only changes leave all 32 inspected sources unchanged; earlier rendered evidence remains pinned to its original revision.
+Merged main `b12db4973f04cf586a6154519cc018d400ed0819` without conflicts; remerge-diff is empty and merge-loss passes. Its test-only changes leave all 32 inspected sources unchanged; earlier rendered evidence remains pinned to its original revision.
 
 | Failed command | Exit | Failure / repair |
 | --- | ---: | --- |
@@ -450,7 +450,7 @@ Post-integration `just ready` passes (exit 0), including all 193 lint-behavior c
 
 ## Terminal controls continuation — builder-41592285096
 
-Main `20576d304c07acb4010a54c8ced66f1e86c255e8`: documentation only, no product/contract/scenario/test change. `terminals.md` records 31 controls and boundaries with three criteria, remaining unknowns and independent protocol work. Source catalogue pins 40 inspected files, exact linked direction and the losslessly archived observer driver. Decode archive fields with base64 then zlib and compare SHA-256. `rendered-terminals.json` retains twelve fresh isolated headless real-xterm/fake-Daemon openings; all recorded Checks pass at 1512×950 with explicit dark App mode. The observer reloads after setting dark mode so initial emulator Tokens are dark too. Initial captures from before that reload were superseded. Running/exited close confirmation payloads are observed at the App boundary, not rendered native dialogs. PNG files stay under `artifacts/ux/U5741/terminals/` uncommitted.
+Main `db6e931a36215f457171a1d7e3b7b049f71da948`: documentation only, no product/contract/scenario/test change. `terminals.md` records 31 controls and boundaries with three criteria, remaining unknowns and independent protocol work. Source catalogue pins 40 inspected files, exact linked direction and the losslessly archived observer driver. Decode archive fields with base64 then zlib and compare SHA-256. `rendered-terminals.json` retains twelve fresh isolated headless real-xterm/fake-Daemon openings; all recorded Checks pass at 1512×950 with explicit dark App mode. The observer reloads after setting dark mode so initial emulator Tokens are dark too. Initial captures from before that reload were superseded. Running/exited close confirmation payloads are observed at the App boundary, not rendered native dialogs. PNG files stay under `artifacts/ux/U5741/terminals/` uncommitted.
 
 `pnpm install`, vocabulary, scenario ids, merge-loss, whitespace and evidence checks pass. The evidence check validates all source hashes, all three archive fields, twelve lossless accessibility snapshots, dark viewport and every recorded Check. No local `just check`, new behavior test, native outcome, real clipboard effect or older-data reopen is claimed. Full all-feature revision reconciliation and owner request remain unfinished; #5758 stays open.
 
@@ -486,7 +486,7 @@ Final fix-run `just ready` passes (exit 0), including all 193 lint-behavior chec
 
 ## Requested attention, progress and Import — builder-41603063123
 
-Documentation-only slice pinned to main `b021117d063f663008f9a692be5e7496b2eebbe1`. No product/scenario/contract/test/frozen-loop changes, owner request or deletion. `attention-import.md` records A01–A10, W01–W09 and I01–I15 separately. Source catalogue retains inspected hashes, exact direction replies, installed Claude 2.1.300 help, gh run view help and reproducible isolated driver. Current source public mappings are distinguished from earlier actual role offers; no fresh tools/list is claimed.
+Documentation-only slice pinned to main `6296fc98884e3b7c73a26f630b668ff63d540613`. No product/scenario/contract/test/frozen-loop changes, owner request or deletion. `attention-import.md` records A01–A10, W01–W09 and I01–I15 separately. Source catalogue retains inspected hashes, exact direction replies, installed Claude 2.1.300 help, gh run view help and reproducible isolated driver. Current source public mappings are distinguished from earlier actual role offers; no fresh tools/list is claimed.
 
 Observer: existing isolated App harness, fresh named browser/profile, headless Chromium, dark 1512×950. Fake Daemon openings prove webview controls and calls only. Captures remain uncommitted under `artifacts/ux/U5741/attention-import/`. Existing unavailable/error states are retained with Check readings; no native, real import/Message, clipboard or older-data reopening claim. Remaining conditional/equivalence/runtime/revision gaps remain on #5758.
 
@@ -528,7 +528,7 @@ Final detached `just ready` passed (exit 0): all 193 lint-behavior checks, packa
 
 ## Independent fix-run verification — builder-41604993438
 
-Integrated the original builder's concurrent head `840a525bb0fcb01dd0a9be9cde2a12c55e541b90` by fast-forward, retaining its 34 rows, conditional observer limits, source/refusal distinction and corrected archived driver. Main remains the audited `b021117d063f663008f9a692be5e7496b2eebbe1`; no merge resolution or product change was needed.
+Integrated the original builder's concurrent head `8258b42016c5791d33eb5ea10fa849d25e50cfd1` by fast-forward, retaining its 34 rows, conditional observer limits, source/refusal distinction and corrected archived driver. Main remains the audited `6296fc98884e3b7c73a26f630b668ff63d540613`; no merge resolution or product change was needed.
 
 Independently verified all 34 source hashes, every archived payload and all seventeen stored snapshot checksums. Replayed the updated driver in a fresh headless profile/session on isolated port 5247: all seventeen openings reproduce the recorded Check statuses, with dark media and App appearance at 1512×950. Visually inspected the final diagnostic PNG: the full cause and recovery stay visible. Corrected the report's D4 reading to 41 initially and 42 after expanding earlier versions; the underlying observations are unchanged. Captures and the independent manifest remain uncommitted under the workflow checkout's `artifacts/ux/U5741/attention-import/`.
 
@@ -540,7 +540,7 @@ Independent `pnpm install --frozen-lockfile` and `just ready` pass (exit 0), inc
 
 ## Shelf evidence — builder-41608283605
 
-Source: main `eaa391d9d2f9eb7d9aaeb874590ec20e4ad805a8`, own worktree `/tmp/roundup-41608283605`. Scope expansion validated with `python3 loop/orders.py check /tmp/u5741-body.md` (0) before writing #5758. No `.codegraph/` index exists; ordinary source search used. Read installed dependencies/platform and existing Shelf/Ark/receipt implementations; no library, machinery or product code added. No scenario or test changes; U5741 clauses are policy observers.
+Source: main `19412c0e4d2429f0579c9835c04eba72ffcd1db7`, own worktree `/tmp/roundup-41608283605`. Scope expansion validated with `python3 loop/orders.py check /tmp/u5741-body.md` (0) before writing #5758. No `.codegraph/` index exists; ordinary source search used. Read installed dependencies/platform and existing Shelf/Ark/receipt implementations; no library, machinery or product code added. No scenario or test changes; U5741 clauses are policy observers.
 
 The source catalogue retains inspected hashes, four full direction Issue records, public mappings and the exact isolated observer. Historical actual CLI/MCP replies retain their original revision; no fresh both-role runtime claim is made. Source-only and unverified comparisons remain listed in shelf.md. Documentation changes move no product Check; each accepted opening records all Check results. No local `just check`, deletion or owner choice is inferred. P3/P6/P11/P12 gates have no changed product path; later retirements still require their behavioral observers and successful older-Project reopening.
 
@@ -581,7 +581,7 @@ Final `just ready` live PTY repeat: exit **0**, confirmed both by the completed 
 
 ## Shelf fix-run evidence — builder-41609532898
 
-Independently observed the Shelf on PR #5868 as a documentation-only evidence slice pinned to main `eaa391d9d2f9eb7d9aaeb874590ec20e4ad805a8`. The concurrent head 1454b5428 supplies 26 S-prefixed decision rows. This integration retains them and separates per-target dismissal, uncertain-operation dismissal and width reset as S27–S29, and preserves the independently observed completed-Todo fold as S30; they can have different keep/delete choices. The preliminary SH-prefixed table was superseded when integrating that head. Every row distinguishes its three criteria; all vendor-equivalence comparisons and unrendered conditional branches remain explicitly unverified. No product, contract, scenario, behavior test or frozen-loop change. #5758 stays open for the complete inventory, owner choices and authorized retirements.
+Independently observed the Shelf on PR #5868 as a documentation-only evidence slice pinned to main `19412c0e4d2429f0579c9835c04eba72ffcd1db7`. The concurrent head 1454b5428 supplies 26 S-prefixed decision rows. This integration retains them and separates per-target dismissal, uncertain-operation dismissal and width reset as S27–S29, and preserves the independently observed completed-Todo fold as S30; they can have different keep/delete choices. The preliminary SH-prefixed table was superseded when integrating that head. Every row distinguishes its three criteria; all vendor-equivalence comparisons and unrendered conditional branches remain explicitly unverified. No product, contract, scenario, behavior test or frozen-loop change. #5758 stays open for the complete inventory, owner choices and authorized retirements.
 
 Observed through the existing fake-Daemon harness in an isolated worktree and a fresh dedicated headless Chromium profile/session, at 1512×950 with dark media and App appearance. Source hashes, complete #4966/#4533 direction replies and the compressed reproducible driver are in `catalogues/shelf-followup-source.json`. `rendered-shelf-followup.json` retains snapshots, call payloads, local storage and Check readings. Media stays uncommitted under `artifacts/ux/U5741/shelf-followup/`; it proves webview actions only, never native menus, actual store mutation or older-Project reopening.
 
@@ -625,7 +625,7 @@ Combined-head verification after both concurrent integrations: `just ready` comp
 
 ## Pad editing continuation — builder-41616125355
 
-Audited main `93982da434256d5942ead8db7e4efd38710e9ebd`. Documentation only. `pads.md` records independent list/document/recovery/formatting decisions and explicit unfinished comparisons. `catalogues/pads-source.json` retains 48 source archives/hashes, four full direction replies, prior actual fourteen-tool Pad lists for each role and exact current declaration lines. Earlier runtime evidence is not repinned. The archived replay opens the actual production Pad components on the existing fake-Daemon harness, never a user's browser or native App.
+Audited main `aac76a0ce2dda2648e9e2071a91cbc3e8db5dae6`. Documentation only. `pads.md` records independent list/document/recovery/formatting decisions and explicit unfinished comparisons. `catalogues/pads-source.json` retains 48 source archives/hashes, four full direction replies, prior actual fourteen-tool Pad lists for each role and exact current declaration lines. Earlier runtime evidence is not repinned. The archived replay opens the actual production Pad components on the existing fake-Daemon harness, never a user's browser or native App.
 
 | Command / observer | Exit | Result |
 | --- | ---: | --- |
@@ -686,7 +686,7 @@ The earlier Pad replay and integrity rows establish nine retained records, not n
 
 ## Todo detail continuation — builder-41624068513
 
-Audited main `8ceee0830512da2835a7de61fb46967888e0bce5`. Documentation only. `todos.md` records forty independent detail decisions with Q1/Q2/Q3 evidence, explicit unresolved comparisons, dated direction and a source-only/rendered coverage ledger. `catalogues/todos-source.json` retains 42 inspected source archives, original-revision actual fifteen-tool Todo replies for both roles, exact current declarations, five full direction Issue replies, versioned vendor help and the exact successful replay. No runtime reply is repinned to current main.
+Audited main `6e690adceb4d3d265777222b6f5838fa8a348064`. Documentation only. `todos.md` records forty independent detail decisions with Q1/Q2/Q3 evidence, explicit unresolved comparisons, dated direction and a source-only/rendered coverage ledger. `catalogues/todos-source.json` retains 42 inspected source archives, original-revision actual fifteen-tool Todo replies for both roles, exact current declarations, five full direction Issue replies, versioned vendor help and the exact successful replay. No runtime reply is repinned to current main.
 
 | Command / observer | Exit | Result |
 | --- | ---: | --- |
@@ -735,7 +735,7 @@ The complete evidence commit is on PR #5875. This slice leaves #5758 open and re
 
 ## Todo capture and triage continuation — builder-41630122849
 
-Audited main `6629a9640a1c279b5e398a2c4f4e90a6bfcfff99`; independent worktree `/tmp/roundup-audit-416301`. Documentation only. The source checkout serving the harness has that identical SHA and no product edits. `todo-intake.md` adds TI01–TI31 without changing acceptance, behavior, contracts, tests or frozen loop files. Sources, direction Issues, exact observer and commands are archived in catalogues/todo-intake-source.json; actual snapshots/Checks/calls are in rendered-todo-intake.json. Missing comparisons and conditional openings remain explicit.
+Audited main `75039c88790d04eed1d41ba11c6a69f8638f42cf`; independent worktree `/tmp/roundup-audit-416301`. Documentation only. The source checkout serving the harness has that identical SHA and no product edits. `todo-intake.md` adds TI01–TI31 without changing acceptance, behavior, contracts, tests or frozen loop files. Sources, direction Issues, exact observer and commands are archived in catalogues/todo-intake-source.json; actual snapshots/Checks/calls are in rendered-todo-intake.json. Missing comparisons and conditional openings remain explicit.
 
 | Command / observer | Exit | Result |
 | --- | --- | --- |
@@ -774,7 +774,7 @@ First complete `just ready` exited 1: its required Rust lint includes the reposi
 
 ## Made/publication/link continuation — builder-41641079399
 
-Source main: `cca472d3d8f5ce3808869ed6da6a4464e348169c`; own worktree `/tmp/roundup-u5741`. Documentation only. `outputs.md` records O01–O36; sources and role/CLI provenance stay in `catalogues/outputs-source.json`. Fifteen retained openings use a fresh isolated headless session/profile, dark 1512×950, `tree-40`, thirteen publications, duplicate titles, all target kinds, stopped maker, missing-Home source variant and a long multilingual title. Fixtures and driver are archived; screenshots remain uncommitted under `artifacts/ux/U5741/outputs-*`.
+Source main: `05263fecb94094861577d86e6785baf5ecccce73`; own worktree `/tmp/roundup-u5741`. Documentation only. `outputs.md` records O01–O36; sources and role/CLI provenance stay in `catalogues/outputs-source.json`. Fifteen retained openings use a fresh isolated headless session/profile, dark 1512×950, `tree-40`, thirteen publications, duplicate titles, all target kinds, stopped maker, missing-Home source variant and a long multilingual title. Fixtures and driver are archived; screenshots remain uncommitted under `artifacts/ux/U5741/outputs-*`.
 
 All retained openings pass every recorded Check, including D2/D5/D6. The dense refused-open PNG was visually inspected: complete short cause and next action are visible. This establishes webview actions and fake calls only. The native menu projection disables nested recipients; actual Send, native opening, OS clipboard, vendor behavior and persistence remain unproved. Empty/loading/failure and conditional source-only branches are identified separately in the report. No older-data reopen or selected deletion is claimed.
 
@@ -825,11 +825,11 @@ Current publication offers: locked `cargo build -p rup --bin rup --locked` and `
 
 Harness stderr also reported a PostCSS missing-from warning and `ResizeObserver loop completed with undelivered notifications` at 13:15:48, 13:21:06, 13:21:09 and 13:23:08 UTC. These are retained observer/runtime diagnostics, not a clean-console claim. The fifteen retained mounted states, calls, image hashes and Check results remain recorded independently. Closing the isolated browser exits 0; intentional server shutdown exits 143.
 
-Main advanced to `f2514c06d5fb546b52a8a78c45d7199afb6a0354` with only Pad test/realDaemonFixture optimizations. Merged without conflicts; `loop/rules.sh merge-loss` exits 0, own diff remains six documentary files. The audit remains pinned to `cca472d3d8f5ce3808869ed6da6a4464e348169c`; no older evidence is promoted to the merge revision. The final whole-App revision reconciliation remains required. An ad hoc integrity observer exits 0 for all 47 source archives, four direction archives, fifteen image hashes/Check sets, seven publication tool schemas per current role and every recorded runtime/help command.
+Main advanced to `06dcaffd8e78055e778c41c535045eeb04f3ea57` with only Pad test/realDaemonFixture optimizations. Merged without conflicts; `loop/rules.sh merge-loss` exits 0, own diff remains six documentary files. The audit remains pinned to `05263fecb94094861577d86e6785baf5ecccce73`; no older evidence is promoted to the merge revision. The final whole-App revision reconciliation remains required. An ad hoc integrity observer exits 0 for all 47 source archives, four direction archives, fifteen image hashes/Check sets, seven publication tool schemas per current role and every recorded runtime/help command.
 
 ## Made/publication verification — builder-41646073376
 
-Merged main `7874f9949` without conflicts into this documentation slice. Both branch merges have empty remerge diffs; `loop/rules.sh merge-loss` passes. All 47 inspected source paths still equal the pinned audit revision `cca472d3d8f5ce3808869ed6da6a4464e348169c`. The evidence remains pinned there; this is no whole-App revision reconciliation.
+Merged main `7874f9949` without conflicts into this documentation slice. Both branch merges have empty remerge diffs; `loop/rules.sh merge-loss` passes. All 47 inspected source paths still equal the pinned audit revision `05263fecb94094861577d86e6785baf5ecccce73`. The evidence remains pinned there; this is no whole-App revision reconciliation.
 
 | Observer | Exit | Result |
 | --- | ---: | --- |
@@ -856,7 +856,7 @@ Final `just ready` passes with exit 0, including all 193 lint-behavior fixtures,
 
 ## Pad conditional/library continuation — builder-41652209190
 
-Audited main `ecf788ebdc146bb66cd26acebe020c1874950b39`. Documentation only; `pad-controls.md` adds fifteen independent operations and corrects PF22/PF27/PF28 observation coverage while preserving the older failed capture. No behavior/test/scenario/contract/frozen-loop change or owner choice. #5758 remains open; no partial candidate request or deletion. Older-Project reopening remains mandatory for any later selected persisted retirement.
+Audited main `52538bc2c9597113cf7ae51aec1b11861011a671`. Documentation only; `pad-controls.md` adds fifteen independent operations and corrects PF22/PF27/PF28 observation coverage while preserving the older failed capture. No behavior/test/scenario/contract/frozen-loop change or owner choice. #5758 remains open; no partial candidate request or deletion. Older-Project reopening remains mandatory for any later selected persisted retirement.
 
 Observer: `pnpm install` (0), dedicated headless agent-browser session and fresh test profile, `just harness tree-40 5278`, dark 1512×950. Ten retained openings, exact snapshots/calls/disclosure states/image hashes in `rendered-pad-controls.json`; reproducible driver and 37 source archives in `catalogues/pad-controls-source.json`. Nine openings pass every Check; Link editor fails D2/D6/D8/D10, retained explicitly. Table handle submenu opening failed; source-only operations are not rendered successes. Full rejected-save diagnostic and retained text are visible in the densest seed. images remain uncommitted under `artifacts/ux/U5741/pad-controls/`.
 
@@ -897,7 +897,7 @@ Final `just ready`: exit 0, including all 193 lint-behavior fixtures, web/packag
 
 ## Toast continuation — builder-41660399130
 
-Audited main `daa930055bd538a2fafce2960dbdb6825c0c7b93`. Documentation only: fourteen independently assessed Toast controls, exact source/public mappings and dated #1111/#3313/#5255 direction, thirteen fresh isolated headless dark 1512×950 openings. Every recorded Check passes, including D2/D5/D6. Images remain uncommitted under `artifacts/ux/U5741/toasts/`; source-only states, external equivalents and final current all-feature reconciliation remain explicit. No partial candidate request, owner answer, retirement, product/test/contract/frozen-loop change or local `just check`.
+Audited main `197edb930603845118fbea4b4f68e648614849a3`. Documentation only: fourteen independently assessed Toast controls, exact source/public mappings and dated #1111/#3313/#5255 direction, thirteen fresh isolated headless dark 1512×950 openings. Every recorded Check passes, including D2/D5/D6. Images remain uncommitted under `artifacts/ux/U5741/toasts/`; source-only states, external equivalents and final current all-feature reconciliation remain explicit. No partial candidate request, owner answer, retirement, product/test/contract/frozen-loop change or local `just check`.
 
 `pnpm install` passed (0). The fresh dedicated browser/profile used production App composition and existing fake-Daemon controls; this proves neither real delivery/persistence nor native focus/audio. Corrected replay passed (0). The observed target-open failure says the target is gone and exposes Close; no retry or successful-open claim is inferred. Compressed JSON fields preserve all original values and decoded hashes.
 
@@ -931,7 +931,7 @@ Final `just ready` on the merged checkout passes (0): all 193 lint-behavior fixt
 
 ## Draft recovery evidence — builder-41667382041
 
-Audited main `ada406b500d9fa415e7777d201ad6f6130f9f946`; documentation only. `recovery.md`, `catalogues/recovery-source.json` and `rendered-recovery.json` reconcile fifteen requested-panel/Rail controls. `pnpm install` in the isolated worktree passes (0). `python3 loop/orders.py check /tmp/u5741-updated-issue.md` passes (0) before the Issue Scope update. The original checkout serves the identical pinned App through `just harness tree-40 5284`; a fresh dedicated headless session/profile supplies fake Daemon/browser storage, dark 1512×950. No native durability, real delivery or host clipboard claim. No changed tests and no local `just check`.
+Audited main `919327e7d5c2604f282ff04463dea528e81c1f0d`; documentation only. `recovery.md`, `catalogues/recovery-source.json` and `rendered-recovery.json` reconcile fifteen requested-panel/Rail controls. `pnpm install` in the isolated worktree passes (0). `python3 loop/orders.py check /tmp/u5741-updated-issue.md` passes (0) before the Issue Scope update. The original checkout serves the identical pinned App through `just harness tree-40 5284`; a fresh dedicated headless session/profile supplies fake Daemon/browser storage, dark 1512×950. No native durability, real delivery or host clipboard claim. No changed tests and no local `just check`.
 
 Fourteen openings retain image hashes and exact Check readings. Thirteen pass all Checks; the settled Todo creation opening fails D8 (Todo shelf-row inset 28, expected 44) and aggregate D10, while D2/D5/D6 pass. This is the pinned unchanged App, not a regression introduced by documentation. The original premature Todo destination capture remains explicitly limited. Full source and observer archives carry decoded-byte hashes. Images stay uncommitted in the workflow workspace under `artifacts/ux/U5741/recovery/`.
 
@@ -951,7 +951,7 @@ The second complete `just ready` passes (0): all 193 lint-behavior fixtures, pac
 
 ## Public command reconciliation — builder-41674352370
 
-Audited main `59f67922447ce40b2a76492611117ad44da28578`; six documentation paths only. Rebuilt `rup` and `rupd` successfully (0), then used a disposable Project/data/config/socket and real Daemon. Created one unstarted Workstream under an explicit isolated Agent identity; no vendor Agent session or App was started. Actual API, all descriptions, both real MCP role offers, all 98 shared leaf help paths, explicit dispatch probes, exact source bytes, vendor versions/help, linked direction and replay are retained in `catalogues/public-current.json`. `public-commands.md` separates 23 decisions. No rendered App change, native claim, host install, owner choice, retirement or local `just check`; no behavior test changed or invented for policy acceptance.
+Audited main `0ff0b698e2cc3768a6ae316b9f829e52b20808f7`; six documentation paths only. Rebuilt `rup` and `rupd` successfully (0), then used a disposable Project/data/config/socket and real Daemon. Created one unstarted Workstream under an explicit isolated Agent identity; no vendor Agent session or App was started. Actual API, all descriptions, both real MCP role offers, all 98 shared leaf help paths, explicit dispatch probes, exact source bytes, vendor versions/help, linked direction and replay are retained in `catalogues/public-current.json`. `public-commands.md` separates 23 decisions. No rendered App change, native claim, host install, owner choice, retirement or local `just check`; no behavior test changed or invented for policy acceptance.
 
 Both original and isolated-worktree `pnpm install` pass (0). Issue Scope body validation and update pass (0). Corrected runtime replay passes (0); original invalid attempts remain recorded. All 167 declarations match actual methods, every offered CLI/MCP entry maps, and all 167 descriptions succeed. Historical raw replies contain 163/85/92 methods/Agent tools/Door tools, correcting the earlier prose's 169/91/98; preserve original archives. Whole-App revision reconciliation and unfinished vendor/per-method/conditional evidence remain open.
 
@@ -977,7 +977,7 @@ The isolated Daemon is deliberately terminated after each replay (signal 15); MC
 
 Commit hook first attempt: exit 1, pretty-printed generated public catalogue exceeded 1,000 lines. Re-serialized the same JSON with one top-level field per line, matching existing catalogue archival layout; no data removed or hook skipped. Integrity rerun confirms identical decoded content.
 
-Merged main `0cfb3fdee8b0c3bbcb72497246992c49578b7d4b` without conflicts; remerge diff is empty and merge-loss passes (0). Its four test-disposal changes leave all 19 inspected source bytes identical; the runtime audit remains pinned to its original revision. Integrity, vocabulary, scenario ids, size, spelling and whitespace checks pass (0).
+Merged main `246f003256705319c4422f4728c5a1cc56344587` without conflicts; remerge diff is empty and merge-loss passes (0). Its four test-disposal changes leave all 19 inspected source bytes identical; the runtime audit remains pinned to its original revision. Integrity, vocabulary, scenario ids, size, spelling and whitespace checks pass (0).
 
 Final `just ready` passes (0) on the merged checkout: all 193 lint fixtures, package/web type checks, repository/Rust lints, file-size guard, migration guard, `ALL PROOFS CHECK` and N7. Final archive/source/offer integrity, spelling, size, vocabulary, scenario ids, merge-loss and whitespace observers pass (0). No new behavior test or App capture was needed for these six documentation paths. #5758 remains open for every unfinished inventory/owner/retirement requirement.
 
