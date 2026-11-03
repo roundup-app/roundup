@@ -236,3 +236,7 @@ Given the complete authored stylesheet set after the audit, when `pnpm lint:styl
 
 
 **U3480 Terminal pane menu acceptance is retired.** Policy: #3529 removes the pane Copy/Paste/Send Menu entirely, including its reopening and note regressions, tests and captures. U3295b's surviving shared Menu/Dialog dismissal and Dialog-owned controls remain required; no Terminal Menu is kept to exercise them. U3529a–d in `ui-text-selection.md` govern selection, gestures and retained old notes.
+
+Policy retirement — U5740a (`scenarios/delete-reactions.md`): retire only U3299b/U5014a's Reactions list/detail/firing/Message-view actions and capture requirements. All remaining Ask, import, publication, draft recovery, navigation and shared Message acceptance stays in force.
+
+Policy retirement — U5740a: remove only the Reactions reader from U3807 failure-row coverage, its U86 controls and U3787c/d list/field inventory. Remaining readers, Message progress, literal input, keyboard selection and failure/clearing behavior retain their observers.
