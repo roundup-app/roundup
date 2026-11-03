@@ -58,7 +58,6 @@ it.skipIf(!captureDir("U5463c")).each(["tree-40", "agents-10", "bubbles"])("u546
   };
 
   await lane.seedTodos(["Review changes", "Update notes", "Check build", "Read report", "Open result", "Inspect tests", "Verify state", "Finish review"], true, seed);
-  const origin = await lane.evaluate<string>("location.origin");
   await capture("shelf");
   await lane.browser("find", "first", ".shelf .todo-row-button", "click");
   await lane.until("document.activeElement?.matches('.todo-row-button')");
@@ -80,7 +79,6 @@ it.skipIf(!captureDir("U5463c"))("u5463c_shared_editor_and_recovery_surfaces", a
     await lane.browser("screenshot", `${file}.png`);
   };
 
-  const origin = await lane.evaluate<string>("location.origin");
     await lane.browser("open", `${origin}/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40&menu=1`);
     await lane.until("!!document.querySelector('#shelf-tab-pads')");
     await lane.browser("click", "#shelf-tab-pads");
