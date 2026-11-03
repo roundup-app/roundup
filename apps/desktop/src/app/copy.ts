@@ -68,6 +68,7 @@ export const copy = {
   theAppAndTheDaemonDiffer2: (value1: CopyValue, value2: CopyValue) => `${value1}: The versions differ. ${value2}`,
   /** @prose */
   projectStartRecovery: (name: string, stage: string, cause: string) => `${name}: ${stage} failed: ${cause}. Inspect it before retrying.`,
+  projectStartStage: "start",
   /** @prose */
   projectStartFailed: (path: string, id: string, stage: string, cause: string) => `${path}: row ${id} was created; ${stage} failed: ${cause}. Inspect it before retrying.`,
   close: sharedCopy.close,
