@@ -2,7 +2,8 @@ import { test } from "vitest";
 import { warmApp } from "./appServer";
 import { execFile, spawn, spawnSync } from "node:child_process";
 import type { ChildProcess, SpawnOptions } from "node:child_process";
-import { mkdir, mkdtemp, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { promisify } from "node:util";
 import { createServedApp } from "./realSeam";
@@ -32,8 +33,19 @@ const served = async (base: string) => {
 
 const LOCK = join(tmpdir(), "roundup-cargo-build.lock");
 
-/** Workers build in parallel and a fresh toolchain installs itself on first use, so one worker at a time builds. */
+/** Reuses CI setup's completed build; otherwise serializes workers while a fresh toolchain installs itself. */
 const buildOnce = async () => {
+  // CI setup already builds this checkout and joins its build before testing. N5's
+  // run 41635899534 spent another 34.81 s rebuilding those same binaries here.
+  const receipt = process.env.GITHUB_ACTIONS === "true" && process.env.RUNNER_TEMP ? join(process.env.RUNNER_TEMP, "daemon.status") : undefined;
+
+  if (receipt && existsSync(receipt)) {
+    if ((await readFile(receipt, "utf8")).trim() !== "0") throw new Error("CI setup failed to build rupd and rup");
+    await Promise.all(["rupd", "rup"].map(binary => stat(join(REPO, "target/debug", binary))));
+
+    return;
+  }
+
   for (;;) {
     try {
       await mkdir(LOCK);
