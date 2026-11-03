@@ -526,7 +526,11 @@ impl<R: BufRead> Read for &ReceiptLine<R> {
             };
             *offset = 0;
             *length = if byte == b'"' {
-                self.string(buffer)?
+                let length = self.string(buffer)?;
+                if length == 0 {
+                    self.valid.set(false);
+                }
+                length
             } else {
                 buffer[0] = byte;
                 1
