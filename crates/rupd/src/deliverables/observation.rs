@@ -45,11 +45,21 @@ async fn u5502_publication_observation_names_only_committed_membership_changes()
         observed.try_recv().is_err(),
         "idempotent replay published another observation"
     );
-    assert!(daemon.route(&mut conn, "deliverable.publish", json!({"key":"bad", "title":"", "target":{"kind":"external","url":"https://example.com"}})).await.is_err());
-    assert!(
-        observed.try_recv().is_err(),
-        "failed publication was observed"
-    );
+    for refused in [
+        json!({"key":"bad", "title":"", "target":{"kind":"external","url":"https://example.com"}}),
+        json!({"key":"unsafe", "title":"Result", "target":{"kind":"external","url":"javascript:bad"}}),
+    ] {
+        assert!(
+            daemon
+                .route(&mut conn, "deliverable.publish", refused)
+                .await
+                .is_err()
+        );
+        assert!(
+            observed.try_recv().is_err(),
+            "failed publication was observed"
+        );
+    }
     let home = daemon
         .route(
             &mut conn,
