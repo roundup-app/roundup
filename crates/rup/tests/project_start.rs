@@ -98,7 +98,7 @@ async fn a5765a_an_agent_starts_each_kind_in_open_b_and_gets_its_id() {
     let logs = tempfile::tempdir().unwrap();
     let input = logs.path().join("input.jsonl");
     let launch = logs.path().join("launch.jsonl");
-    let target = daemon::start(&[
+    let mut target = daemon::start(&[
         ("FAKE_CLAUDE_PROMPT_LOG", input.to_str().unwrap()),
         ("FAKE_CLAUDE_LAUNCH_LOG", launch.to_str().unwrap()),
         ("FAKE_CLAUDE_EXACT_PROMPTS", "1"),
@@ -132,6 +132,8 @@ async fn a5765a_an_agent_starts_each_kind_in_open_b_and_gets_its_id() {
     let mut requests = app.take_requests().unwrap();
     app.request("action.serve", Value::Null).await.unwrap();
     let target_client = target.client().await;
+    let alias = target.dir.path().join("alias");
+    std::os::unix::fs::symlink(target.dir.path(), &alias).unwrap();
     let cases = ["auto", "yolo"].into_iter().flat_map(|source_mode| {
         [Some("acceptEdits"), None]
             .into_iter()
@@ -153,7 +155,8 @@ async fn a5765a_an_agent_starts_each_kind_in_open_b_and_gets_its_id() {
         let normal = permission
             .map(|mode| json!({"permissionMode":mode}))
             .unwrap_or_else(|| json!({}));
-        let params = json!({"path":target.dir.path(),"kind":kind,"name":format!("target-{kind}"),"prompt":prompt});
+        let params =
+            json!({"path":alias,"kind":kind,"name":format!("target-{kind}"),"prompt":prompt});
         let call = caller.request("project.start", params);
         tokio::pin!(call);
         let request = loop {
@@ -263,6 +266,29 @@ async fn a5765a_an_agent_starts_each_kind_in_open_b_and_gets_its_id() {
             }
         );
     }
+    let before = target_client
+        .request("rail.tree", Value::Null)
+        .await
+        .unwrap();
+    user.request("agent.stop", json!({"id":node["id"]}))
+        .await
+        .unwrap();
+    target.close().await;
+    let socket_after = target.dir.path().join("reload.sock");
+    let reload = common::serve(target.dir.path(), &socket_after);
+    let reopened = Client::connect(&socket_after).await.unwrap();
+    let after = reopened.request("rail.tree", Value::Null).await.unwrap();
+    for row in before.as_array().unwrap() {
+        let loaded = after
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|loaded| loaded["id"] == row["id"])
+            .unwrap();
+        assert_eq!(loaded["start_attribution"], row["start_attribution"]);
+        assert_eq!(loaded["opening_prompt"], row["opening_prompt"]);
+    }
+    reload.abort();
     let launches = std::fs::read_to_string(launch).unwrap();
     assert_eq!(launches.lines().count(), 12);
     for (index, line) in launches.lines().enumerate() {
@@ -289,4 +315,63 @@ async fn a5765a_an_agent_starts_each_kind_in_open_b_and_gets_its_id() {
             .len(),
         1
     );
+}
+
+#[tokio::test]
+async fn a5765f_agent_launch_failure_reports_the_retained_identity() {
+    let project = tempfile::tempdir().unwrap();
+    for args in [
+        vec!["init", "-b", "main"],
+        vec![
+            "-c",
+            "user.name=Test",
+            "-c",
+            "user.email=test@example.com",
+            "commit",
+            "--allow-empty",
+            "-m",
+            "base",
+        ],
+        vec!["worktree", "add", "--detach", "prepared", "HEAD"],
+    ] {
+        let output = std::process::Command::new("git")
+            .args(args)
+            .current_dir(project.path())
+            .output()
+            .unwrap();
+        assert!(output.status.success(), "{output:?}");
+    }
+    let socket = project.path().join("target.sock");
+    let server = common::serve(project.path(), &socket);
+    let user = Client::connect(&socket).await.unwrap();
+    user.request("project.setWorktrees", json!({"on":true,"check":null}))
+        .await
+        .unwrap();
+    user.request("project.setPrepared", json!({"enrolled":[project.path().join("prepared")],"readiness":"printf retained > user-work; exit 1","timeout_ms":1000,"setup":null})).await.unwrap();
+    let error = user.request("agent.spawn", json!({"cwd":project.path(),"name":"worker","prompt":"work","start_attribution":{"project":"/source","project_name":"Source","agent":"1","agent_name":"builder"}})).await.unwrap_err();
+    let rows = user.request("rail.tree", Value::Null).await.unwrap();
+    let rows = rows.as_array().unwrap();
+    assert_eq!(
+        rows.len(),
+        1,
+        "failed cleanup must retain the dirty Worktree's row"
+    );
+    let id = rows[0]["id"].as_str().unwrap();
+    assert!(
+        error.message.contains(id),
+        "missing retained row {id}: {error}"
+    );
+    assert!(
+        error.message.contains(project.path().to_str().unwrap()),
+        "missing target path: {error}"
+    );
+    assert!(
+        error.message.contains("start failed"),
+        "missing failed stage: {error}"
+    );
+    assert_eq!(
+        std::fs::read_to_string(project.path().join("prepared/user-work")).unwrap(),
+        "retained"
+    );
+    server.abort();
 }
