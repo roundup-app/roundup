@@ -23,7 +23,7 @@ describe("u365 recognised text", () => {
       expect(findTargets(path)[0]?.printed).toEqual({ kind: "path", path, line: null });
     }
 
-    for (const token of ["hello", "1.5", "/", "/clear", "/context", "/hope:compose", "/word", "/word:word", "/LICENSE", "/word:42", "/word:42:7", "/word.1", "/word.é", "/word.a_b"]) {
+    for (const token of ["hello", "1.5", "/", "/clear", "/context", "/hope:compose", "/word", "/word:word", "/LICENSE", "/tmp", "(/clear).", "/root.ts:word", "/word:42", "/word:42:7", "/word.1", "/word.é", "/word.a_b", "/word.a-b"]) {
       expect(printed(token), token).toEqual([]);
     }
 
@@ -169,5 +169,6 @@ describe("u365 opening", () => {
   it("u365_paths_fold_dots_and_trailing_slashes", () => {
     expect(absolutePath("/a/b/", "/p")).toBe("/a/b");
     expect(absolutePath("../x", "/p/q")).toBe("/p/x");
+    expect(absolutePath("./LICENSE", "/")).toBe("/LICENSE");
   });
 });
