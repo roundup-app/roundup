@@ -267,10 +267,11 @@ describe("u3789a connected browser rows", () => {
         window.fetch = (...args) => { if (String(args[0]).endsWith('/__daemon/rpc')) window.__rowCalls.push(JSON.parse(args[1].body)); return fetch(...args); };
       })()`);
       await browser("click", `.rail-row[data-id="${child.id}"] .name`);
-      await until(`document.activeElement?.closest('[data-id]')?.dataset.id === '${child.id}'`);
+      await until("document.activeElement?.closest('.pane-screen')");
       expect(await evaluate("window.__rowCalls.filter(call => ['agent.spawn','agent.resume','rail.startDoor'].includes(call.method))")).toEqual([]);
       expect(await evaluate("!!document.querySelector('.bubble:not([hidden])')")).toBe(false);
-      await evaluate("document.activeElement.dispatchEvent(new KeyboardEvent('keydown', {key:'Enter',code:'Enter',bubbles:true,cancelable:true}))");
+      await browser("focus", `.rail-row[data-id="${child.id}"]`);
+      await browser("press", "Enter");
       await until("document.activeElement?.closest('.pane-screen')");
       await browser("focus", `.rail-row[data-id="${home.id}"]`);
       await until(`document.activeElement?.matches('.rail-row[data-id="${home.id}"]')`);

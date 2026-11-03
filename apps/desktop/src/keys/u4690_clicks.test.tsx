@@ -259,7 +259,8 @@ it.each(["M", "D", "E", "Esc", "O"].flatMap(keys => (["key", "pointer"] as const
 
 it("u4690b_leader_clicks_and_keys_share_one_wait: competing A owners pointer", async () => {
   const source = "pointer";
-  const { app } = seedApp("tree-40", 0);
+  const { app, setStatus } = seedApp("tree-40", 0);
+  setStatus("migrate", "working", "working");
   // CI timed out in this forty-row fixture; the competing owners need one Workstream and its Agent.
   const tree = await app.handlers["rail.tree"]!(null);
   app.handlers["rail.tree"] = () => tree.filter(node => node.id === "backend" || node.id === "migrate");
