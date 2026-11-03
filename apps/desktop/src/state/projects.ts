@@ -179,7 +179,7 @@ export const createProjectsState = (app: App, saved = openTabStorage()): Project
         return await openPath(path);
       } catch (error) {
         if (!(error instanceof Error)) throw error;
-        setFailure(`${error.message}; open the folder from Add Project to try again.`);
+        setFailure(error.message);
         throw error;
       }
     },

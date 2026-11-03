@@ -2,3 +2,9 @@
   width: var(--ask-width);
   overflow-wrap: anywhere;
 }
+
+.project-opening-path {
+  display: block;
+  margin-top: var(--space-2);
+  font-family: var(--font-mono); /* taste-skill-ignore: design-system.md requires mono for paths. */
+}

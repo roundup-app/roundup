@@ -47,6 +47,9 @@ it("u5765_open_confirmation_and_failure_are_visible_on_tree_40", async () => {
   await page.until("window.openResult?.error?.code === -32002 && !document.querySelector('[role=dialog]')");
   await page.until("document.activeElement?.matches('.ask-input')");
   await page.capture("U5765", "refused");
+});
+
+it("u5765_open_failure_exposes_the_cause_and_recovery", async () => {
   await page.evaluate(`(() => {
     const app = window.__fake.app;
     app.opened.failure = window.__fake.refusal(-32001, 'The folder is unavailable. Choose an existing folder and try again.');
@@ -61,6 +64,12 @@ it("u5765_open_confirmation_and_failure_are_visible_on_tree_40", async () => {
   await page.capture("U5765", "failure");
   await page.browser("press", "Escape");
   await page.until("!document.querySelector('[role=dialog]')");
+});
+
+it("u5765_open_failure_exposes_the_cause_and_recovery", async () => {
+});
+
+it("u5765_keyboard_open_completes_the_request", async () => {
   await page.evaluate(`(() => {
     const app = window.__fake.app;
     app.opened.failure = null;
