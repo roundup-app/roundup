@@ -1,3 +1,4 @@
+import { batch } from "solid-js";
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it, vi } from "vitest";
 import { App } from "../App";
@@ -18,7 +19,7 @@ const press = (code: string, options: KeyboardEventInit = {}) => {
   return event;
 };
 
-afterEach(() => { cleanup(); endLeader(); localStorage.clear(); });
+afterEach(() => { batch(cleanup); endLeader(); localStorage.clear(); });
 
 const chords = ["agent", "prompt", "terminal", "capture", "leader", "ask", "help"] as const;
 

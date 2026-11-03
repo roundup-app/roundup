@@ -14,6 +14,7 @@ const dash = "—";
 const removalPlurals = new Intl.PluralRules("en");
 
 export const copy = {
+  startedBy: (agent: string, project: string) => `by ${agent} (${project})`,
   create: sharedCopy.create,
   thatIsGone: sharedCopy.thatIsGone,
   alerts: sharedCopy.alerts,
@@ -116,7 +117,7 @@ export const copy = {
   doorStopped: sharedCopy.doorStopped,
   doorStoppedWithExit: sharedCopy.doorStoppedWithExit,
   worktreeCiText: sharedCopy.worktreeCiText,
-  worktreeCiGlyph: (state: WorktreeCiState) => ({ passed: "✓", failed: "✗", running: "…", "no-ci": dash, conflicts: "!", error: "⚠", unknown: sharedCopy.questionMark }[state]),
+  worktreeCiGlyph: (state: WorktreeCiState) => ({ passed: "✓" /* taste-skill-ignore: existing worktree CI check is a state glyph, not decoration. */, failed: "✗", running: "…", "no-ci": dash, conflicts: "!", error: "⚠", unknown: sharedCopy.questionMark }[state]),
   ci: sharedCopy.ci,
   worktreePrText: sharedCopy.worktreePrText,
   worktreeStale: staleSuffix,

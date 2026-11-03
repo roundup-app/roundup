@@ -1,3 +1,4 @@
+import { realpath } from "node:fs/promises";
 import { connect } from "node:net";
 import type { SubscribeParams } from "@contracts/SubscribeParams";
 import type { Socket } from "node:net";
@@ -268,6 +269,13 @@ const serve = (daemon: RealDaemon, request: IncomingMessage, response: ServerRes
     if (!terminal || terminal.length > 256) return json(response, 400, { error: "terminal required" });
 
     return output(daemon, response, terminal);
+  }
+
+  if (path === "canonical-project-path" && request.method === "GET") {
+    return void realpath(daemon.project).then(
+      resolved => json(response, 200, { result: resolved }),
+      error => json(response, 200, { error: { code: INTERNAL, message: String(error) } }),
+    );
   }
 
   if (path === "open" && request.method === "GET") return json(response, 200, { project: { name: basename(daemon.project), path: daemon.project } });

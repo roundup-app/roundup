@@ -450,6 +450,7 @@ export const createXtermEmulators = (
     };
 
     // xterm redraws both renderers after DPR/cell metrics change; host observers miss equal CSS bounds.
+    // During an edge drag, Pane refits on release; a live-output redraw must not fit the intermediate width.
     const refit = () => {
       if (!opened || disposed || !fontsReady || resizeDragging() || !element.parentElement || element.closest("[hidden]")) return;
 

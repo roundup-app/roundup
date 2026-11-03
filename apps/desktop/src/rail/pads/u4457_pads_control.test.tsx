@@ -1,3 +1,4 @@
+import { batch } from "solid-js";
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import type { Actor } from "@contracts/Actor";
@@ -9,7 +10,7 @@ import { padHandlers, todoHandlers } from "../../testing/stores";
 import { showShelfTab } from "../../testing/shelfTabs";
 import { path, renderTabs, tab } from "../../header/stripFixture";
 
-afterEach(cleanup);
+afterEach(() => batch(cleanup));
 
 const by = (id: string): Actor => ({ kind: "agent", id, parent: null });
 
