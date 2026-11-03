@@ -348,4 +348,16 @@ Fresh dedicated headless session `u5741-project-415835`, profile `/tmp/u5741-pro
 | Apple canonical Recent Items page retrieval | unavailable | Full page could not be retrieved; search excerpt alone is insufficient. Its Q1 comparison remains unverified. |
 | Literal public-rename lookup in keys/chords.ts | 1 | No such named tab action exists; focused F2 is a local binding in ProjectTab.tsx. Report corrected. |
 
-The temporary observer drivers are retained as provenance in the source catalogue, not installed as product machinery. PNGs and Check readings remain under the checkout's `artifacts/ux/U5741/project/` for attachment; JSON report retains snapshots and evidence. Existing policy observers, not new source-text tests, judge U5741. B4522's unchanged migration guard is included by `just ready`. No local `just check` runs.
+The temporary observer drivers are retained as provenance in the source catalogue, not installed as product machinery. PNG files and Check readings remain under the checkout's `artifacts/ux/U5741/project/` for attachment; JSON report retains snapshots and evidence. Existing policy observers, not new source-text tests, judge U5741. B4522's unchanged migration guard is included by `just ready`. No local `just check` runs.
+
+Final capture reconciliation: fifteen unique openings, each dark 1512×950, all recorded Checks pass. Visual inspection of tab draft recovery agrees with the retained exact authored name. Visual inspection of `reopen-failed.png` shows the cause shortened to `Cannot reopen Project. Check …` in the Rail's failure line while Reopen remains visible; automated Checks do not detect this missing full failure text. This is an unresolved rendered limitation, not a full failure-readability pass. Full cause bytes are retained in the snapshot/body. Final inventory reconciliation must resolve failure readability, not infer a passing visual observer from Check status alone.
+
+Main `9c782fc17c78cb3c86dad633d5c84d646e2f58be` merged without conflicts; merge-loss passes (exit 0) and remerge-diff contains no manual resolution. The 33 inspected source hashes still match the observer pin. Main's new shared Menu code is outside that inspected list; rendered menu evidence stays pinned to its original revision. No all-feature revision promotion is claimed.
+
+Additional failed source lookup: `rg ... crates/rupd/src/rpc/project.rs` exits 2 because no such module exists. The authoritative declarations and earlier endpoint census supply the public mapping; no runtime behavior or absence was inferred from the guessed path.
+
+| Further failed command | Exit | Failure / repair |
+| --- | ---: | --- |
+| First `python3 tools/lint/scan.py typos` | 2 | Pinned spelling binary not installed; `python3 tools/lint/setup.py web` passed (exit 0). |
+| Standalone spelling scans and first `just ready` | 1 | Generated accessibility labels split a clipped Project name into an apparent misspelling; report prose also used a plural abbreviation rejected by the scanner. Corrected prose; raw snapshots now retain exact original bytes in gzip/base64 with SHA-256 and documented decoding. Body, question and Checks stay plain JSON; no baseline, lint rule or observed string changed. |
+| Temporary spelling-diagnostic extraction | 1 | Diagnostic lines carry a trailing location after JSON; repaired the temporary extractor with JSONDecoder.raw_decode. No product observer affected. |
