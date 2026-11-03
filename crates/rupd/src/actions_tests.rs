@@ -316,3 +316,24 @@ async fn na9_a_run_the_app_never_answered_is_unknown_outcome_and_not_retried() {
     assert_eq!(reply["error"]["code"], code::UNKNOWN_OUTCOME);
     assert_eq!(fixture.runs.lock().unwrap().len(), 2);
 }
+
+#[tokio::test]
+async fn a5765f_open_without_or_losing_the_app() {
+    let fixture = daemon().await;
+    let target = tempfile::tempdir().unwrap();
+    let params = json!({"path": target.path()});
+    let reply = fixture.user().await.call("project.open", params.clone()).await;
+    assert_eq!(reply["error"]["code"], code::APP_CLOSED);
+
+    let mut app = fixture.user().await;
+    app.call("action.serve", Value::Null).await;
+    let mut caller = fixture.user().await;
+    caller.send(json!({"jsonrpc":"2.0","id":2,"method":"project.open","params":params})).await;
+    let request = app.next().await.unwrap();
+    assert_eq!(request["method"], "project.open");
+    assert_eq!(request["params"]["path"], json!(target.path()));
+    let mut replacement = fixture.user().await;
+    replacement.call("action.serve", Value::Null).await;
+    let reply = caller.next().await.unwrap();
+    assert_eq!(reply["error"]["code"], code::UNKNOWN_OUTCOME);
+}
