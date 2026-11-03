@@ -265,15 +265,29 @@ async fn i5765_project_open_failures_print_no_success_and_exit_one() {
 #[tokio::test]
 async fn i5765_invalid_usage_calls_nothing() {
     let world = World::new().await;
-    let output = tokio::process::Command::new(env!("CARGO_BIN_EXE_rup"))
-        .args(["project", "open", "/tmp", "--yolo"])
-        .env("RUPD_SOCKET", &world.socket)
-        .env("ROUNDUP_AGENT", &world.id)
-        .output()
-        .await
-        .unwrap();
-    assert_eq!(output.status.code(), Some(2));
-    assert!(output.stdout.is_empty());
+    for args in [
+        vec!["project", "open", "/tmp", "--yolo"],
+        vec![
+            "project", "start", "/tmp", "--kind", "bad", "--name", "worker", "--prompt", "work",
+        ],
+        vec![
+            "project", "start", "/tmp", "--kind", "agent", "--name", "worker",
+        ],
+        vec![
+            "project", "start", "/tmp", "--kind", "agent", "--name", "worker", "--prompt", "work",
+            "--yolo",
+        ],
+    ] {
+        let output = tokio::process::Command::new(env!("CARGO_BIN_EXE_rup"))
+            .args(args)
+            .env("RUPD_SOCKET", &world.socket)
+            .env("ROUNDUP_AGENT", &world.id)
+            .output()
+            .await
+            .unwrap();
+        assert_eq!(output.status.code(), Some(2), "{output:?}");
+        assert!(output.stdout.is_empty());
+    }
     // The identified connection still answers normally after invalid CLI usage.
     let caller = Client::connect(&world.socket).await.unwrap();
     caller
@@ -354,4 +368,136 @@ async fn a5765f_closed_app_and_old_registration_cannot_complete_a_new_open() {
     assert_eq!(output.status.code(), Some(1));
     assert!(output.stdout.is_empty());
     assert!(String::from_utf8_lossy(&output.stderr).contains("open it and retry"));
+}
+
+#[tokio::test]
+async fn i5765_stdin_preserves_the_prompt_and_cli_start_returns_the_identity() {
+    let mut world = World::new().await;
+    let target = tempfile::tempdir().unwrap();
+    let prompt = " exact é\n  first prompt\n";
+    let mut child = tokio::process::Command::new(env!("CARGO_BIN_EXE_rup"))
+        .args(["project", "start"])
+        .arg(target.path())
+        .args([
+            "--kind",
+            "mode",
+            "--name",
+            "target-worker",
+            "--prompt",
+            "-",
+            "--json",
+        ])
+        .env("RUPD_SOCKET", &world.socket)
+        .env("ROUNDUP_AGENT", &world.id)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .kill_on_drop(true)
+        .spawn()
+        .unwrap();
+    child
+        .stdin
+        .take()
+        .unwrap()
+        .write_all(prompt.as_bytes())
+        .await
+        .unwrap();
+    let request = world.next().await;
+    assert_eq!(request["method"], "project.start");
+    assert_eq!(request["params"]["prompt"], prompt);
+    assert_eq!(request["params"]["kind"], "mode");
+    let result = json!({"path":target.path(),"kind":"mode","id":"42"});
+    world.answer(&request, result.clone()).await;
+    let output = child.wait_with_output().await.unwrap();
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        serde_json::from_slice::<Value>(&output.stdout).unwrap(),
+        result
+    );
+}
+
+#[tokio::test]
+async fn i5765_cli_and_mcp_share_the_project_contract() {
+    let mut world = World::new().await;
+    let target = tempfile::tempdir().unwrap();
+    let shim = spawn_shim(&world.socket, &world.id).await;
+    let tools = shim.client.list_all_tools().await.unwrap();
+    assert!(tools.iter().any(|tool| tool.name == "project_start"));
+    let params = json!({"path":target.path(),"kind":"agent","name":"worker","prompt":"exact work"});
+    let call = shim.call("project_start", params.clone());
+    tokio::pin!(call);
+    let request = tokio::select! {
+        result = &mut call => panic!("MCP answered before the App: {result:?}"),
+        request = world.next() => request,
+    };
+    assert_eq!(request["method"], "project.start");
+    for key in ["path", "kind", "name", "prompt"] {
+        assert_eq!(request["params"][key], params[key]);
+    }
+    let result = json!({"path":target.path(),"kind":"agent","id":"43"});
+    world.answer(&request, result.clone()).await;
+    let output = call.await;
+    assert_eq!(output.is_error, Some(false));
+    assert_eq!(text(&output), result);
+}
+
+#[tokio::test]
+async fn i5765_start_results_and_failures_keep_the_final_outcome() {
+    let mut world = World::new().await;
+    let target = tempfile::tempdir().unwrap();
+    for kind in ["agent", "workstream", "mode"] {
+        for error in [
+            None,
+            Some((-32002, "The user refused the folder")),
+            Some((-32011, "Open roundup and retry")),
+            Some((
+                -32603,
+                "Target launch failed; inspect row 42 before retrying",
+            )),
+            Some((
+                -32004,
+                "Unknown outcome; inspect the target before retrying",
+            )),
+        ] {
+            let child = tokio::process::Command::new(env!("CARGO_BIN_EXE_rup"))
+                .args(["project", "start"])
+                .arg(target.path())
+                .args(["--kind", kind, "--name", "worker", "--prompt", "work"])
+                .env("RUPD_SOCKET", &world.socket)
+                .env("ROUNDUP_AGENT", &world.id)
+                .stdout(Stdio::piped())
+                .stderr(Stdio::piped())
+                .kill_on_drop(true)
+                .spawn()
+                .unwrap();
+            let request = world.next().await;
+            assert_eq!(request["method"], "project.start");
+            if let Some((code, cause)) = error {
+                world.app.reply(&json!({"jsonrpc":"2.0","id":request["id"],"error":{"code":code,"message":cause}})).await.unwrap();
+            } else {
+                world
+                    .answer(
+                        &request,
+                        json!({"path":target.path(),"kind":kind,"id":"42"}),
+                    )
+                    .await;
+            }
+            let output = child.wait_with_output().await.unwrap();
+            if let Some((_, cause)) = error {
+                assert_eq!(output.status.code(), Some(1));
+                assert!(output.stdout.is_empty());
+                assert!(String::from_utf8_lossy(&output.stderr).contains(cause));
+            } else {
+                assert!(output.status.success(), "{output:?}");
+                let stdout = String::from_utf8_lossy(&output.stdout);
+                for value in [target.path().to_str().unwrap(), kind, "42"] {
+                    assert!(stdout.contains(value), "{stdout}");
+                }
+            }
+        }
+    }
 }

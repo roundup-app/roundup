@@ -95,7 +95,7 @@ const Connection = (props: {
   onConnected: (path: string, connection: ConnectedProject | Error | null) => void;
   onRecovered: (path: string, generation: number) => void;
   onRequested: (request: Requested) => void;
-  onOpen: (request: Extract<ActionRequest, { method: "project.open" }>, signal: AbortSignal) => Promise<ActionReply>;
+  onOpen: (request: Extract<ActionRequest, { method: "project.open" | "project.start" }>, signal: AbortSignal) => Promise<ActionReply>;
   toasts: ToastQueue;
   alerts: StateAlerts;
   active: () => boolean;
@@ -123,7 +123,7 @@ const Connection = (props: {
       const calls = props.app.forProject(path);
 
       const next = await connectProject({ ...calls, serveActions: async (answer, invalidated) => {
-        await calls.serveActions?.(request => request.method === "project.open"
+        await calls.serveActions?.(request => (request.method === "project.open" || request.method === "project.start")
           ? props.onOpen(request, captured.signal) : answer(request), () => { captured.abort(); invalidated?.(); });
       } }, first.project, props.reducedMotion, props.now, () => props.tab()?.generation === generation ? props.tab()?.exit ?? null : { code: null, recovery: "connecting" }, railStorage(path), props.drafts(path), props.viewing, props.clock);
 
@@ -361,7 +361,7 @@ export const App = (props: {
     return outcome;
   };
 
-  const opening = createProjectOpening(projects);
+  const opening = createProjectOpening(projects, path => props.app.forProject(path));
   const answer = (request: Requested) => void renameProject(request.path, request.name);
 
   const tabOf = (path: string) => () => projects.tabs().find((tab) => tab.project.path === path);

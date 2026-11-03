@@ -331,29 +331,44 @@ async fn na9_a_run_the_app_never_answered_is_unknown_outcome_and_not_retried() {
 
 #[tokio::test]
 async fn a5765f_open_without_or_losing_the_app() {
-    let fixture = daemon().await;
-    let target = tempfile::tempdir().unwrap();
-    let params = json!({"path": target.path()});
-    let reply = fixture
-        .user()
-        .await
-        .call("project.open", params.clone())
-        .await;
-    assert_eq!(reply["error"]["code"], code::APP_CLOSED);
-
-    let mut app = fixture.user().await;
-    app.call("action.serve", Value::Null).await;
-    let mut caller = fixture.user().await;
-    caller
-        .send(json!({"jsonrpc":"2.0","id":2,"method":"project.open","params":params}))
-        .await;
-    let request = app.project().await;
-    assert_eq!(request["method"], "project.open");
-    assert_eq!(request["params"]["path"], json!(target.path()));
-    let mut replacement = fixture.user().await;
-    replacement.call("action.serve", Value::Null).await;
-    let reply = caller.next().await.unwrap();
-    assert_eq!(reply["error"]["code"], code::UNKNOWN_OUTCOME);
+    for method in ["project.open", "project.start"] {
+        let fixture = daemon().await;
+        let target = tempfile::tempdir().unwrap();
+        let mut params = json!({"path": target.path()});
+        if method == "project.start" {
+            params["kind"] = json!("agent");
+            params["name"] = json!("worker");
+            params["prompt"] = json!("work");
+        }
+        let mut caller = fixture.user().await;
+        let door = caller
+            .call("rail.createWorkstream", json!({"name":"builder"}))
+            .await;
+        caller
+            .call(
+                "daemon.identify",
+                json!({"actor":{"kind":"agent","id":door["result"]["id"],"parent":null}}),
+            )
+            .await;
+        assert_eq!(
+            caller.call(method, params.clone()).await["error"]["code"],
+            code::APP_CLOSED
+        );
+        let mut app = fixture.user().await;
+        app.call("action.serve", Value::Null).await;
+        caller
+            .send(json!({"jsonrpc":"2.0","id":2,"method":method,"params":params}))
+            .await;
+        let request = app.project().await;
+        assert_eq!(request["method"], method);
+        assert_eq!(request["params"]["path"], json!(target.path()));
+        let mut replacement = fixture.user().await;
+        replacement.call("action.serve", Value::Null).await;
+        assert_eq!(
+            caller.next().await.unwrap()["error"]["code"],
+            code::UNKNOWN_OUTCOME
+        );
+    }
 }
 
 #[tokio::test(start_paused = true)]
@@ -373,24 +388,35 @@ async fn a5765b_open_confirmation_outlives_the_action_timeout() {
             json!({"actor":{"kind":"agent","id":id,"parent":null}}),
         )
         .await;
-    caller
-        .send(
-            json!({"jsonrpc":"2.0","id":2,"method":"project.open","params":{"path":target.path()}}),
-        )
-        .await;
-    let request = app.project().await;
-    assert_eq!(request["method"], "project.open");
-    assert_eq!(
-        request["params"]["agent"],
-        json!({"id":id,"name":"builder"})
-    );
-    tokio::time::advance(Duration::from_secs(11)).await;
-    app.send(json!({"jsonrpc":"2.0","id":request["id"],"result":{"path":target.path()}}))
-        .await;
-    assert_eq!(
-        caller.next().await.unwrap()["result"],
-        json!({"path":target.path()})
-    );
+    for kind in [None, Some("agent"), Some("workstream"), Some("mode")] {
+        let method = if kind.is_some() {
+            "project.start"
+        } else {
+            "project.open"
+        };
+        let mut params = json!({"path":target.path()});
+        let result = if let Some(kind) = kind {
+            params["kind"] = json!(kind);
+            params["name"] = json!("worker");
+            params["prompt"] = json!("exact work");
+            json!({"path":target.path(),"kind":kind,"id":"created"})
+        } else {
+            json!({"path":target.path()})
+        };
+        caller
+            .send(json!({"jsonrpc":"2.0","id":2,"method":method,"params":params}))
+            .await;
+        let request = app.project().await;
+        assert_eq!(request["method"], method);
+        assert_eq!(
+            request["params"]["agent"],
+            json!({"id":id,"name":"builder"})
+        );
+        tokio::time::advance(Duration::from_secs(11)).await;
+        app.send(json!({"jsonrpc":"2.0","id":request["id"],"result":result}))
+            .await;
+        assert_eq!(caller.next().await.unwrap()["result"], result);
+    }
     assert!(!target.path().join(".roundup").exists());
 }
 
