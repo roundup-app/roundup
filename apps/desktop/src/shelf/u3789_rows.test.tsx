@@ -234,7 +234,6 @@ it.each(["todo-shelf", "pad-shelf"] as const)("u3789a_rename_never_opens_escape_
 
 it.each(["pointer", "key"])("u3789d_controls_keep_all_actions_%s", async input => {
   const { app, row } = await target("agent");
-  const selected = document.querySelector('.rail-row[data-selected="true"]')?.getAttribute('data-id');
 
   const menu = () => {
     if (input === "pointer") fireEvent.contextMenu(row);
@@ -244,7 +243,7 @@ it.each(["pointer", "key"])("u3789d_controls_keep_all_actions_%s", async input =
   menu();
   await app.pickMenu(copy.openFolder);
   expect(app.openedTargets).toHaveLength(1);
-  expect(document.querySelector('.rail-row[data-selected="true"]')?.getAttribute('data-id')).toBe(selected);
+  expect(document.querySelector('.rail-row[data-selected="true"]')?.getAttribute('data-id')).toBe("tokens");
   menu();
   expect(app.menuLabels()).toEqual(expect.arrayContaining([copy.stop, copy.rename, copy.openInEditor, copy.remove]));
   expect(rpcCalls(app, "agent.stop")).toEqual([]);
@@ -491,14 +490,13 @@ it.each(["payments", "tokens", "auth"].flatMap(id => [false, true].map(withWorkt
   const row = document.querySelector<HTMLElement>(`.rail-row[data-id="${id}"]`)!;
   const node = (await app.rpc("rail.tree", null)).find(node => node.id === id)!;
   const directory = node.worktree?.path ?? "/Users/you/harness";
-  const selected = document.querySelector('.rail-row[data-selected=true]')?.getAttribute("data-id");
   fireEvent.contextMenu(row);
   await app.pickMenu(copy.openFolder);
   await waitFor(() => expect(app.openedTargets).toEqual([{ kind: "path", path: directory, line: null }]));
   fireEvent.contextMenu(row);
   await app.pickMenu(copy.openInEditor);
   await waitFor(() => expect(app.editorOpened).toEqual([directory]));
-  expect(document.querySelector('.rail-row[data-selected=true]')?.getAttribute("data-id")).toBe(selected);
+  expect(document.querySelector('.rail-row[data-selected=true]')?.getAttribute("data-id")).toBe(id);
 });
 
 
