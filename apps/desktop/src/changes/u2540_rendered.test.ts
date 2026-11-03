@@ -1,3 +1,4 @@
+import { agentBrowserExecutable } from "../testing/chromePage";
 import { execFile } from "node:child_process";
 import type { ExecFileException } from "node:child_process";
 import { promisify } from "node:util";
@@ -18,7 +19,7 @@ let profile: string;
 let session: string;
 
 const browser = async (...args: string[]) => {
-  const { stdout } = await exec("agent-browser", ["--session", session, "--json", ...args], { timeout: 60_000, maxBuffer: 8 * 1024 * 1024 }).catch((error: ExecFileException & { stdout?: string; stderr?: string }) => {
+  const { stdout } = await exec(agentBrowserExecutable, ["--session", session, "--json", ...args], { timeout: 60_000, maxBuffer: 8 * 1024 * 1024 }).catch((error: ExecFileException & { stdout?: string; stderr?: string }) => {
     if (error instanceof Error && "stdout" in error && "stderr" in error) throw new Error(`${error.message}\n${String(error.stdout)}\n${String(error.stderr)}`);
 
     throw error;

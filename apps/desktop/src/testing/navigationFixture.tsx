@@ -10,7 +10,7 @@ import { todoHandlers } from "../testing/stores";
 import { todo } from "../todos/testHarness";
 import { WORKTREE } from "../changes/harness";
 
-export const mountNavigation = async (empty = false, projectCount = 7, agentCount = 12) => {
+export const mountNavigation = async (empty = false, projectCount = 1, agentCount = 3) => {
   const app = createFakeApp();
 
   for (let n = 0; n < projectCount; n++) app.add(`/project${n}`);

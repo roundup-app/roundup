@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it, vi } from "vitest";
 import * as registry from "../keys/registry";
-import { createSignal } from "solid-js";
+import { batch, createSignal } from "solid-js";
 import { answerQuestion, questionDialog } from "../shelf/bulkQuestionHarness";
 import { RpcError } from "../app/seam";
 import { questionProbe } from "../testing/menuProbe";
@@ -22,7 +22,7 @@ import { useBrowserStorage } from "../state/storage";
 import { agent, event, info, workstream } from "../testing/nodes";
 import { field, mountSwitcher, openSwitcher, switcherKey } from "../switcher/switcherFixture";
 
-afterEach(() => { Object.defineProperty(questionProbe, "shown", { configurable: true, writable: true, value: null }); cleanup(); vi.restoreAllMocks(); localStorage.clear(); sessionStorage.clear(); });
+afterEach(() => { Object.defineProperty(questionProbe, "shown", { configurable: true, writable: true, value: null }); batch(cleanup); vi.restoreAllMocks(); localStorage.clear(); sessionStorage.clear(); });
 
 type Pending = { resolve: () => void; reject: (error: Error) => void };
 
@@ -516,7 +516,7 @@ it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $
       await waitFor(() => expect(document.querySelector('.rail-actions button[aria-label="Create"]')?.getAttribute("aria-disabled")).toBeNull());
       const recovery = connected.rail.commandFailure.retry();
 
-      if (row.owner !== "App") cleanup();
+      if (row.owner !== "App") batch(cleanup);
       expect(connected.rail.commandFailure.retry()).toBe(recovery);
 
       if (submitted) {

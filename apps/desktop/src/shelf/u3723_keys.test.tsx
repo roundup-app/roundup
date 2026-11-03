@@ -1,6 +1,7 @@
 import { openProjectPage, projectMenu, questionProbe } from "../testing/menuProbe";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
+import { batch } from "solid-js";
 import { RequestedApp as App } from "../testing/requestedApp";
 import { fakeEmulators } from "../terminal/paneHarness";
 import { seedApp } from "../testing/seeds";
@@ -9,7 +10,7 @@ import { stubDialogLayout } from "./bulkQuestionHarness";
 import { captureActions } from "../keys/registry";
 import { CHORDS } from "../keys/chords";
 
-afterEach(() => { cleanup(); localStorage.clear(); });
+afterEach(() => { batch(cleanup); localStorage.clear(); });
 
 stubDialogLayout();
 

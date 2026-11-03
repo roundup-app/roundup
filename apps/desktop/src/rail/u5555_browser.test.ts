@@ -7,7 +7,7 @@ import { captureDir } from "../testing/captures";
 let lane: LaneBrowser;
 
 beforeAll(async () => {
-  lane = await openLane(1512, "dark", "u5555");
+  lane = await openLane(1512, "dark", "u5555", false, null);
   const recording = captureDir("U5629") ? join(captureDir("U5629")!, process.env.ROUNDUP_CAPTURE_PHASE ?? "head") : captureDir("U5555");
 
   if (recording) {
