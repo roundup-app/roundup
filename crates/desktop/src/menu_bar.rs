@@ -71,12 +71,6 @@ fn aged(label: &str, since: i64, now: i64) -> String {
     format!("{label} · {age}")
 }
 
-fn now() -> i64 {
-    // Current epoch milliseconds fit i64; time exposes its nanosecond precision as i128.
-    i64::try_from(time::OffsetDateTime::now_utc().unix_timestamp_nanos() / 1_000_000)
-        .expect("current epoch milliseconds fit i64")
-}
-
 fn refresh_ages<R: Runtime>(app: &AppHandle<R>) {
     for (item, label, since) in app
         .state::<MenuBar<R>>()
@@ -85,7 +79,7 @@ fn refresh_ages<R: Runtime>(app: &AppHandle<R>) {
         .expect("menu-bar age lock")
         .iter()
     {
-        if let Err(error) = item.set_text(aged(label, *since, now())) {
+        if let Err(error) = item.set_text(aged(label, *since, provenance::now_ms())) {
             crate::diagnostics::failure("refresh menu-bar ages", &error);
         }
     }
@@ -172,7 +166,7 @@ pub(crate) fn set_menu_bar<R: Runtime>(
     for (index, entry) in menu.entries.iter().enumerate() {
         let label = entry.since.map_or_else(
             || entry.label.clone(),
-            |since| aged(&entry.label, since, now()),
+            |since| aged(&entry.label, since, provenance::now_ms()),
         );
         let item = MenuItem::with_id(
             &app,
@@ -251,7 +245,7 @@ fn install_dock<R: Runtime>(app: &AppHandle<R>) -> Result<(), RpcError> {
                             (
                                 entry.since.map_or_else(
                                     || entry.label.clone(),
-                                    |since| aged(&entry.label, since, now()),
+                                    |since| aged(&entry.label, since, provenance::now_ms()),
                                 ),
                                 entry.action.as_ref().map(|action| {
                                     serde_json::to_string(action).expect("menu action serializes")

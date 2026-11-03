@@ -1027,6 +1027,7 @@ dependencies = [
  "native",
  "objc2-app-kit",
  "objc2-foundation",
+ "provenance",
  "rpc",
  "rupd",
  "serde",
