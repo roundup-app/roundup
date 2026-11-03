@@ -52,7 +52,7 @@ Native capture and web capture have different dismissal semantics; TI07 records 
 | TI27 | Start when free radio (default); same functions; U3743/A3195/A3196/P9 | No (G1/G2): no local Workstream cap/Queue authority | Yes: J1 need not queue Todo conversion | No: sets queued choice; new-workstream-default; queue-start not observed |
 | TI28 | Start after Todo radio; same functions; U3743/A3195/A3196/P9 | No (G1/G2): no local Todo-triggered Door start | Yes: J1 need not delay conversion by dependency | No: reveals required predecessor choice; start-after-unpicked |
 | TI29 | Choose a Todo / searchable WaitFor popover, Escape closes picker only; `WaitFor`, `others`, `chosen`; U3743 | No (G1/G2): foreign Issue is not this start dependency | Yes: J1 needs no deferred-conversion dependency | No: filters other open Todos and selects exact id; wait-for-picker; actual selection not claimed |
-| TI30 | Create button / name Enter; `NewWorkstream::create`; U3743/A3194/P9 | No (G1/G2): cannot atomically create local Workstream, move/assign Todo and apply authorized start | Yes: J1 can start Workstream without Todo conversion | No: one `todo.startWorkstream` call; refusal cause visible, name retained; new-workstream-refused |
+| TI30 | Create button / name Enter; `NewWorkstream::create`; U3743/A3194/P9 | No (G1/G2): cannot atomically create local Workstream, move/assign Todo and apply authorized start | Yes: J1 can start Workstream without Todo conversion | No: one `todo.startWorkstream` call; refusal cause visible, name retained; new-workstream-actionable |
 | TI31 | Close / Escape cancellation; `NewWorkstream` Dialog close; U3743 | Unverified: no exact identity/focus cancellation equivalent pinned | Yes: optional conversion is not required by journey | No: abandons dialog without RPC; source-only cancellation result |
 
 Rows are decision evidence, not a ballot. Q2 yes establishes candidate reasons for optional controls without settling their unresolved Q1 comparisons. Recoverable work on retained paths stays required. This slice has not completed every rendered branch or vendor comparison, so it does not issue the final owner ask.
@@ -75,3 +75,21 @@ No stored representation or acceptance changes. Before an authorized deletion af
 ## Remaining coverage
 
 Complete source-only capture leader, Shift+Enter success, first-run chooser, Agent/Workstream destinations, pending placeholder restrictions, move-refused retry, native panel and recovery branches. Finish successful triage mutations, nesting eligibility/refusals, empty/exhausted mode, Help offers, modal/typing guards and exact cancellation focus; these renders do not replace their existing behavior tests. Finish actual WaitFor selection/search-empty, disabled-name explanation, pending/success start states and cancel. Todo detail conditional gaps remain in todos.md; Made/outputs, Pad library/conditional controls, all remaining entry-point worklist gaps, vendor comparisons and one current all-feature revision reconciliation still block the complete owner request. Real Agent Terminals, direct access, native continuation and Ask remain protected. Overview and Reactions remain excluded. #5758 stays open.
+
+
+## Rendered coverage ledger
+
+| Retained opening | Observed rows / limit |
+| --- | --- |
+| capture-blank, capture-text | TI01/TI04/TI06; focused main field and Project-root destination, optional submit control |
+| capture-refused, capture-actionable | TI08; explicit refusal preserves exact active draft. Long diagnostic truncates visually; capture-actionable contains a short fully visible cause and next step |
+| inline-add, inline-refused, inline-actionable | TI12–TI14; scoped title field, exact retained failed draft, actionable short refusal. Long diagnostic remains recorded without claiming its remedy fits |
+| triage-on, triage-next | TI15/TI16/TI23; pressed mode, actual focused row and its next row, current quiet key hints |
+| triage-owners, triage-homes | TI17/TI18; menus offered for current row; no assignment/move mutation proved |
+| triage-comment | TI22; actual chosen Todo composer; no comment sent |
+| new-workstream-default | TI24/TI25/TI27; keyboard-opened dialog, prefilled todo 5, queued selected by default |
+| start-now, start-after-unpicked | TI26/TI28; checked states asserted, predecessor choice revealed and Create unavailable until chosen |
+| wait-for-picker | TI29; real candidate list; no selection or filtering mutation claimed |
+| new-workstream-actionable | TI25/TI30; name retained after keyboard submit, queued todo.startWorkstream call and fully visible refusal cause/next step |
+
+TI02/TI03/TI05/TI09–TI11/TI19–TI21/TI31 and unlisted conditional branches stay source-only. Pointer New Workstream selection and pointer Create did not establish their intended result in this observer; keyboard opening/submission supplies only the recorded keyboard reachability. All recorded Checks passing does not establish that a long diagnostic is fully visible, nor does a fake call establish real Queue/launch/storage behavior.
