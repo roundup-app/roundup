@@ -1,12 +1,12 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { copy } from "./copy";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createSignal, Show } from "solid-js";
+import { batch, createSignal, Show } from "solid-js";
 import { Combobox } from "../ui/Combobox";
 import { info } from "../testing/nodes";
 import { openSwitcher, field, mountSwitcher, switcherKey as press, rows } from "./switcherFixture";
 
-afterEach(() => { cleanup(); localStorage.clear(); vi.restoreAllMocks(); });
+afterEach(() => { batch(cleanup); localStorage.clear(); vi.restoreAllMocks(); });
 
 const type = (text: string) => fireEvent.input(field()!, { target: { value: text } });
 
@@ -146,7 +146,7 @@ it("u2773a_queries_restores_exact_work", async () => {
   expect(connected.rail.selected()).toBe("ann");
   expect(app.calls.length).toBe(calls);
 
-  cleanup();
+  batch(cleanup);
   const reopened = await mountSwitcher("ann");
   const origin = document.querySelector<HTMLElement>('[role="tree"] [tabindex="0"]')!;
   origin.focus();
