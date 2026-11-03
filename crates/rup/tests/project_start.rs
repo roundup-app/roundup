@@ -186,7 +186,12 @@ async fn a5765a_an_agent_starts_each_kind_in_open_b_and_gets_its_id() {
                     .ok()
                     .is_some_and(|text| {
                         text.lines().any(|line| {
-                            serde_json::from_str::<Value>(line).unwrap()["prompt"] == prompt
+                            serde_json::from_str::<Value>(line).unwrap()["prompt"]
+                                .as_str()
+                                .unwrap()
+                                .split("\n\n<roundup-context>\n")
+                                .next()
+                                == Some(prompt.as_str())
                         })
                     })
                     .then_some(())
@@ -453,7 +458,12 @@ async fn a5765b_unopened_c_has_no_effect_until_open() {
             || {
                 std::fs::read_to_string(&input).ok().filter(|text| {
                     text.lines().any(|line| {
-                        serde_json::from_str::<Value>(line).unwrap()["prompt"] == prompt
+                        serde_json::from_str::<Value>(line).unwrap()["prompt"]
+                            .as_str()
+                            .unwrap()
+                            .split("\n\n<roundup-context>\n")
+                            .next()
+                            == Some(prompt.as_str())
                     })
                 })
             },
