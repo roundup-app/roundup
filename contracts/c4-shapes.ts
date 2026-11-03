@@ -262,6 +262,7 @@ type BeforeSelectors = { [K in keyof Before]: K extends SelectorInputs ? WithOwn
   : K extends "EventData" ? WithoutOpenEvent<Before[K]> | AutomaticChanges
     : K extends "Event" ? WithoutOpenEvent<Before[K]> | (Pick<Before["Event"], "seq" | "actor"> & AutomaticChanges)
       : K extends "project/Requested" ? RenameRequest
+      : K extends "RpcErrorData" ? Before[K] | { kind: "start-failed"; path: string; id: string; cause: string }
       : K extends "agent/StartDoorParams" ? Before[K] & { prompt?: string }
       : Before[K] };
 
