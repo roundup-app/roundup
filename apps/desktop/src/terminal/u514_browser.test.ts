@@ -53,7 +53,7 @@ it.each([false, true])("u2680b_a_click_clears_browser_and_terminal_selections_st
 const app = async (base = false, mac = false, items = true) => {
   const seed = process.env.ROUNDUP_CAPTURES ? "tree-40" : "selection";
 
-  const views = `tabs=1${items ? "&view=workstreams&items=1" : ""}`;
+  const views = `tabs=1${process.env.ROUNDUP_CAPTURES ? "&view=workstreams" : ""}${items ? "&items=1" : ""}`;
 
   await batch(
     ["eval", "localStorage.clear()"],
@@ -147,7 +147,11 @@ const placement = async (where: "agent" | "door" | "user" | "bubble", mac = fals
   const selector = where === "bubble" || where === "user" ? ".bubble:not([hidden]) .xterm-screen" : ".pane-screen .xterm-screen";
 
   await batch(
-    ["wait", "--fn", `!!document.querySelector(${JSON.stringify(selector)})`],
+    ["wait", "--fn", `(() => {
+      const screen = document.querySelector(${JSON.stringify(selector)});
+      const bubble = screen?.closest('.bubble');
+      return !!screen && (!bubble || window.__terminals.has(bubble.dataset.bubble));
+    })()`],
     ["eval", String.raw`(() => {
     const id = ${where === 'bubble' || where === 'user' ? "document.querySelector('.bubble:not([hidden])').dataset.bubble" : JSON.stringify(where === 'agent' ? 't-migrate' : 't-payments')};
     window.__emu = window.__terminals.get(id);
