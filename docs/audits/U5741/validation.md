@@ -980,3 +980,7 @@ Commit hook first attempt: exit 1, pretty-printed generated public catalogue exc
 Merged main `0cfb3fdee8b0c3bbcb72497246992c49578b7d4b` without conflicts; remerge diff is empty and merge-loss passes (0). Its four test-disposal changes leave all 19 inspected source bytes identical; the runtime audit remains pinned to its original revision. Integrity, vocabulary, scenario ids, size, spelling and whitespace checks pass (0).
 
 Final `just ready` passes (0) on the merged checkout: all 193 lint fixtures, package/web type checks, repository/Rust lints, file-size guard, migration guard, `ALL PROOFS CHECK` and N7. Final archive/source/offer integrity, spelling, size, vocabulary, scenario ids, merge-loss and whitespace observers pass (0). No new behavior test or App capture was needed for these six documentation paths. #5758 remains open for every unfinished inventory/owner/retirement requirement.
+
+## GitHub tool decisions — builder-41680665676
+
+[validation-github.md](validation-github.md) records the pinned source/runtime/gh observers, each failed command and final required checks for GH01–GH05. Split by this independent slice because this log approaches its file-size cap; earlier observations remain intact. No product change, partial owner request or deletion.
