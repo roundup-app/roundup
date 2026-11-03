@@ -22,13 +22,13 @@ export const storageCopy = {
 export const copy = {
   openProjectFailed: "Opening failed",
   /** @prose */
-  openProjectRecovery: (path: string, cause: string) => `${path}: ${cause} Use Add Project to try again.`,
+  openProjectRecovery: (path: string, cause: string) => `${path}: ${cause} Use Open Project to try again.`,
   openUser: sharedCopy.you,
   openProjectTitle: "Open Project?",
   openProjectChoice: sharedCopy.openDraft,
   refuseProject: "Refuse",
   /** @prose */
-  openProjectQuestion: (agent: string, source: string, path: string) => `${agent} in ${source} asks to open ${path}`,
+  openProjectQuestion: (agent: string, source: string) => `${agent} in ${source} asks to open`,
   openRefused: (path: string) => `The user refused to open ${path}. Ask the user before trying again.`,
   openConnectionLost: (path: string) => `The App connection was lost while opening ${path}. Check open Projects before retrying.`,
   claudeBinary: (version: string, path: string) => `claude ${version}  ${path}`,
