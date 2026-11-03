@@ -79,7 +79,10 @@ it("u5808b_colour_palette_capture", { retry: 0, timeout: 180000 }, async () => {
   await opening("scrolled-pointer", "pointer");
   expect(await evaluate("window.__fake.app.calls.filter(call => call.method === 'pad.write').length")).toBe(0);
 
-  await evaluate(`(() => { const editor = document.querySelector('.drawer .ProseMirror'); editor.focus(); const text = editor.querySelector('p').firstChild; window.getSelection().setBaseAndExtent(text, 0, text, 0); return true; })()`);
+  await evaluate("document.querySelector('.drawer .pad-editor').scrollTop = 0; true");
+  await settle();
+  await browser("click", ".drawer .ProseMirror p:nth-of-type(3)");
+  await browser("press", "Home");
   await evaluate("window.__fake.failNext(-32000, 'Pad save rejected: disk is full. Free space and retry.'); true");
   await browser("keyboard", "type", "Retained review draft ");
   await browser("click", ".pad-head-name");
