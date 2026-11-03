@@ -902,11 +902,11 @@ mod tests {
 }
 
 #[cfg(test)]
-mod selection_tests;
-#[cfg(test)]
 mod redo_tests;
 #[cfg(test)]
 mod restoration_tests;
+#[cfg(test)]
+mod selection_tests;
 
 #[cfg(test)]
 mod refusal_tests;
