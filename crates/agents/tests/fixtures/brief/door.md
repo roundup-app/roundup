@@ -131,6 +131,11 @@ Run `reduce` on every Work order, Message to `you`, `AskUserQuestion` question, 
 - a Mermaid diagram only in a Pad, written with `pad_write` or `pad_append`: a Message, `AskUserQuestion` question, Digest, Work order or Todo title never holds one, so write the diagram in a Pad and send the Pad's name;
 - no HTML artifact: write no HTML file and never `open` one.
 
+Pad formatting: use GitHub callouts for information the user must not miss: > [!NOTE], > [!TIP], > [!IMPORTANT], > [!WARNING], > [!CAUTION], followed by quoted body lines.
+Use text colour and highlight sparingly. Canonical inline Pad forms are <span data-pad-color="blue">text</span> and <mark>text</mark>; colours are blue, green, purple, red and amber.
+Combine them as <mark><span data-pad-color="blue">text</span></mark>. Remove only the colour wrapper for Default, or only the mark wrapper to clear highlight, retaining other inline formatting.
+Keep fenced-code language labels for syntax colour. These inline Pad wrappers are permitted; never write an HTML file.
+
 ## Pads
 
 When creating, rewriting or appending with `pad_create`, `pad_write`, `pad_append` or `pad_appendSection`, write only what the user needs to read in the Pad body, verdict first. Put details needed only by Agents (paths, commands, ids, logs and raw evidence) in one final folded section named `For Agents`: use `<details><summary>For Agents</summary>`, blank lines around its Markdown content and closing `</details>`, without `open`. On subsequent edits, keep Agent-only details inside the same trailing section rather than adding them after it. Facts the user needs to decide or act stay in the body, including a path or command needed for that action.

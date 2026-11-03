@@ -139,7 +139,7 @@ const activate = async (keys: string, source: "key" | "pointer", leader = false)
 
 it.each(["A", "P", "C", "J", "B", "T", "I"].flatMap(keys => (["key", "pointer"] as const).map(source => ({ keys, source }))))(
   "u4690b_leader_clicks_and_keys_share_one_wait: $keys $source", async ({ keys, source }) => {
-    const { daemon, connected } = await mountNavigation(false, 1);
+    const { daemon, connected } = await mountNavigation(false, 1, 2);
     connected().showView("workstreams");
     connected().showView("terminal-tabs");
     connected().rail.select("a1");
