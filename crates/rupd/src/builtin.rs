@@ -67,12 +67,12 @@ pub(crate) fn ping_json(daemon: &Daemon) -> String {
 
 /// D11: a bad `after` fails here, before any Event is sent.
 fn subscribe(daemon: &Daemon, conn: &Conn, args: &Value) -> Result<Value, RpcError> {
-    let SubscribeParams { after } = if args.is_null() {
+    let params: SubscribeParams = if args.is_null() {
         SubscribeParams::default()
     } else {
         params(args.clone())?
     };
-    let mut events = daemon.bus.subscribe_after(after)?;
+    let mut events = daemon.bus.subscribe_after(params)?;
     let head = events.head();
     let frames = conn.events.clone();
     tokio::spawn(async move {
