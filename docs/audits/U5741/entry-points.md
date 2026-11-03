@@ -96,3 +96,7 @@ Independent Shelf follow-up: rendered-shelf-followup.json adds successful reserv
 ## Agent lifecycle continuation
 
 [agent-lifecycle.md](agent-lifecycle.md) reconciles `agent.stop`, `agent.prompt`, `agent.interrupt`, `agent.land`, `agent.discard` and `agent.wake` (AL01–AL06). Only `agent.stop` has a production App caller. Remaining undecided methods are listed there; no owner choice or deletion.
+
+## Agent start and configuration continuation
+
+[agent-start-config.md](agent-start-config.md) reconciles `agent.spawn`, `agent.resume`, `agent.run`, `agent.setOrder` and `agent.setVisibility` (AS01–AS05) on main `fbc754cf50339cb73c744f3a4e714375444cd659`. Spawn and resume have production App callers; the other three have none by exact-string search. No candidate on this evidence; no owner choice or deletion.

@@ -12,6 +12,7 @@ The audit must prevent missed conditional offers, unsupported claims of non-use/
 ## Evidence
 
 | Artifact | Holds |
+| [agent-start-config.md](agent-start-config.md) | Five Agent start/resume/run/order/visibility decisions, criteria and remaining gaps |
 | [todos.md](todos.md) | Forty independent Todo detail decisions, criteria, direction and explicit unfinished controls |
 | [catalogues/todos-source.json](catalogues/todos-source.json) | Current pinned sources, historical actual role offers, vendor help and exact observer |
 | [rendered-todos.json](rendered-todos.json) | Fresh isolated dark 1512×950 Todo detail/menu/editor/failure openings |
