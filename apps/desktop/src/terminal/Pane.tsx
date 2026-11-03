@@ -1,3 +1,4 @@
+import { siblingsOf } from "../rail/layout";
 import { EmptyState } from "../ink/EmptyState";
 import { makeEventListener } from "@solid-primitives/event-listener";
 import { makeResizeObserver } from "@solid-primitives/resize-observer";
@@ -6,7 +7,7 @@ import { copy } from "./copy";
 import { shelfSliding } from "../shelf/sliding";
 import { drawerSliding } from "../drawer/sliding";
 import { resizeDragging } from "../resize/dragging";
-import { createEffect, createMemo, createSignal, on, onCleanup, Show, untrack } from "solid-js";
+import { createEffect, createMemo, createSignal, on, onCleanup, Show, For, untrack } from "solid-js";
 import { ReservedLine } from "../ink/ReservedLine";
 import { Icon } from "../ink/Icon";
 import { doorStateOf, doorStateText } from "../rail/doorState";
@@ -220,12 +221,12 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
   createEffect(on(terminalId, () => setFinding(false), { defer: true }));
 
   registerKeys({ kind: "region", element: screen }, [
-    { chord: "⌘=", chords: ["Meta+[Shift]+=", "Meta+[Shift]++"], run: resize("grow") },
-    { chord: "⌘-", chords: ["Meta+-"], run: resize("shrink") },
-    { chord: "⌘0", chords: ["Meta+0"], run: resize("reset") },
-    { chord: "⌘F", chords: undefined, run: () => setFinding(true) },
+    { chord: "terminal.text-larger", chords: ["Meta+[Shift]+=", "Meta+[Shift]++"], run: resize("grow") },
+    { chord: "terminal.text-smaller", chords: ["Meta+-"], run: resize("shrink") },
+    { chord: "terminal.text-reset", chords: ["Meta+0"], run: resize("reset") },
+    { chord: "terminal.find", chords: undefined, run: () => setFinding(true) },
   ].map(({ chord, chords, run }) => ({
-    action: CHORDS.find(action => action.keys === chord)!,
+    action: CHORDS.find(action => action.name === chord)!,
     ...chords && { chords },
     repeat: true as const,
     when: (event: KeyboardEvent) => terminalId() !== null && inScreen(event.target instanceof Element ? event.target : null) && connected.daemonExit() === null,
@@ -323,6 +324,9 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
         <div class="pane-screen" ref={element => { setScreen(element); resizeObserver?.observe(element); }} />
         <Show when={!preparing() && selected()?.kind === "agent" && terminalId() === null && (notice() === null || notice()?.kind === "command")}>
           <EmptyState art="sitting-reading" {...{ title: copy.noOutputKeptFromAnEarlierRun }} line={copy.emptyOutputLine} />
+        </Show>
+        <Show when={selected()?.kind === "group"}>
+          <nav class="pane-group" aria-label={selected()!.name}><h3>{selected()!.name}</h3><div class="pane-group-children"><For each={siblingsOf(rail.topology(), selected()!.id)}>{child => <button type="button" class="word pane-action" onClick={() => rail.select(child.id)}>{child.name}</button>}</For></div></nav>
         </Show>
         <Show when={doorState()}>
           {(state) => (

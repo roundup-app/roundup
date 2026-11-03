@@ -2,6 +2,7 @@ import pRetry from "p-retry";
 import * as v from "valibot";
 import type { RpcErrorData } from "@contracts/RpcErrorData";
 import type { IdleEvidence } from "../perf/idle.ts";
+import type { SubscribeParams } from "@contracts/SubscribeParams";
 import type { Event as DaemonEvent } from "@contracts/Event";
 import type { RpcMethodName, RpcMethods } from "@contracts/methods";
 
@@ -81,10 +82,10 @@ export type ProjectCalls = {
     params: RpcMethods[M]["params"],
   ): Promise<RpcMethods[M]["result"]>;
   /**
-   * Every Event the Project's Daemon emits from now on arrives at `onEvent`, in the Daemon's order; with `after`, every saved Event numbered above it arrives first (D11).
+   * Every Event the Project's Daemon emits from now on arrives at `onEvent`, in the Daemon's order; with `after`, every saved Event numbered above it arrives first; with `kept`, every Event still kept arrives first (D11).
    * Resolves the Daemon's `head`, the highest Event number saved when it accepted.
    */
-  subscribe(onEvent: (event: DaemonEvent) => void, after?: number): Promise<number>;
+  subscribe(onEvent: (event: DaemonEvent) => void, params?: SubscribeParams): Promise<number>;
   /** NA6: registers this window as the Project's action answerer; each request line the Daemon relays goes to `answer`, whose line goes back. */
   serveActions?(answer: (request: ActionRequest) => Promise<ActionReply>): Promise<void>;
   /** Delivers the raw output of the Terminal `id`, and of no other, to `listener` in order; a second call for the same Terminal replaces the first. Rejects NOT_FOUND for an unknown or exited Terminal. */

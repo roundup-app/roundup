@@ -1,6 +1,17 @@
 import { appSettings } from "../settings/preferences";
 import { copy } from "./copy";
 
+declare const keyText: unique symbol;
+
+/** Key text created only by the key registry or its recorded-press formatter. */
+export type KeyText = string & { readonly [keyText]: true };
+
+// SAFETY: this private constructor brands only this module's registry text.
+const textOf = (text: string): KeyText => text as KeyText;
+
+// SAFETY: preserve each original row (including its live getters), adding only the private type brand.
+const withKeyText = <T extends { keys: string }>(row: T): T & { keys: KeyText } => row as T & { keys: KeyText };
+
 /** NA3: a value an action argument holds once parsed. */
 export type ActionValue = string | number | boolean;
 
@@ -12,7 +23,7 @@ export type ActionArg = { key: string; required?: true; press?: (value: ActionVa
 );
 
 /** One line of Help (U54): the chord as shown, what it does, and every key press it stands for as `<mods>+<code>`, mods in the order `ctrl+alt+meta+shift`. `inFirstRun` keeps a chord in first-run Help only; `inRail` marks a chord only a focused Rail row binds (U358); `inTerminals` marks the scoped Agent/Bubble/tab switch; the rest bind from the pane too. */
-export type Chord = { name: string; args?: readonly ActionArg[]; keys: string; what: string; presses: readonly string[]; inFirstRun?: true; inRail?: true; inTerminals?: true; inShelf?: true; inEditor?: true; /** U3751: a key of Todo triage mode, bound only while the mode is on. */ inTriage?: true; hint?: Hint };
+export type Chord = { name: string; args?: readonly ActionArg[]; keys: KeyText; what: string; presses: readonly string[]; inFirstRun?: true; inRail?: true; inTerminals?: true; inShelf?: true; inEditor?: true; /** U3751: a key of Todo triage mode, bound only while the mode is on. */ inTriage?: true; hint?: Hint };
 
 /** Where focus can sit for the hint line (U2230a): a Rail row, watched Agent, Bubble, Pad, Drawer, Switcher or Editor. */
 export type HintPlace = "rail" | "agent" | "bubble" | "pad" | "drawer" | "switcher" | "editor" | "shelf";
@@ -22,7 +33,7 @@ export type Hint = { label: string; at: Partial<Record<HintPlace, number>> };
 
 /** Commands bound in the webview, including focused Terminal actions, in Help's order (U54, U2241). Only `⌘N`, `⇧⌘N`, `⌥⌘N`, `⇧⌘M`, `⌘T`, `⇧⌘T`, `⌘K`, `⇧⌘P`, `⌘/` and `⌃⌘J` bind at App scope; every other `⌃`, `⌥` and `⌘` key reaches the Terminal. `⌘B` switches only between the selected Agent emulator and an eligible Bubble/tab (U2742c). The Terminal's own `⌘C`, `⌘V`, `⌘=`, `⌘-` and `⌘0` act only in a Terminal screen, where `?` never opens Help. */
 /** The label and the binding are derived from the same saved physical press. */
-export const shortcutLabel = (press: string, keyName = ""): string => {
+export const shortcutLabel = (press: string, keyName = ""): KeyText => {
   const parts = press.split("+");
   const code = parts.at(-1) ?? "";
   const key = code.replace(/^Key|^Digit/, "");
@@ -30,10 +41,12 @@ export const shortcutLabel = (press: string, keyName = ""): string => {
   const label = [...Object.entries(copy.shortcutKeys), ...Object.entries(copy.shortcutSymbols)].find(([name]) => name === code)?.[1];
 
 
-  return `${parts.includes("ctrl") ? "⌃" : ""}${parts.includes("alt") ? "⌥" : ""}${parts.includes("shift") ? "⇧" : ""}${parts.includes("meta") ? "⌘" : ""}${label ?? (known ? key : keyName || key)}`;
+  // SAFETY: physical presses and saved key names enter the display registry here.
+  return `${parts.includes("ctrl") ? "⌃" : ""}${parts.includes("alt") ? "⌥" : ""}${parts.includes("shift") ? "⇧" : ""}${parts.includes("meta") ? "⌘" : ""}${label ?? (known ? key : keyName || key)}` as KeyText;
 };
 
-export const CHORDS: readonly Chord[] = [
+// SAFETY: only this registry creates KeyText; satisfies checks every other row field.
+export const CHORDS: readonly Chord[] = ([
   { name: "agent.new", keys: "⌘N", what: copy.newAgent, presses: ["meta+KeyN"] },
   { name: "agent.new-with-prompt", keys: "⇧⌘N", what: copy.newAgentWithAPrompt, args: [{ key: "prompt", type: "string" }], presses: ["meta+shift+KeyN"] },
   { name: "workstream.new", keys: "⌥⌘N", what: copy.newWorkstreamTitle, presses: ["alt+meta+KeyN"] },
@@ -53,7 +66,7 @@ export const CHORDS: readonly Chord[] = [
   { name: "agent.restart-mode", keys: "R", what: copy.restartMode, presses: ["KeyR"], inRail: true },
   { name: "rail.remove", keys: "⌘⌫", what: copy.remove, presses: ["meta+Backspace"], inRail: true, hint: { label: copy.remove, at: { rail: 2 } } },
   { name: "ask.open", keys: "⌘/", what: copy.askBarShortcut, presses: ["meta+Slash"], hint: { label: copy.askBarShortcut, at: { rail: 4, agent: 3, bubble: 2, pad: 2, drawer: 2, shelf: 6 } } },
-  { name: "todo.assign-slot", keys: "1–9", what: copy.todoAssignDigit, presses: Array.from({ length: 9 }, (_, at) => `Digit${at + 1}`), args: [{ key: "slot", type: "integer", min: 1, max: 9, required: true, press: slot => `Digit${slot}` }], inShelf: true, hint: { label: copy.assign, at: { shelf: 2 } } },
+  { name: "todo.assign-slot", keys: "1–9", what: copy.todoAssignDigit, presses: Array.from({ length: 9 }, (_, at) => `Digit${at + 1}`), args: [{ key: "slot", type: "integer", min: 1, max: 9, required: true, press: (slot: ActionValue) => `Digit${slot}` }], inShelf: true, hint: { label: copy.assign, at: { shelf: 2 } } },
   { name: "todo.open-draft", keys: "⏎", what: copy.openDraft, presses: ["Enter"], inShelf: true },
 
   { name: "todo.add", keys: "N", what: copy.addTodo, presses: ["KeyN"], inShelf: true },
@@ -79,7 +92,7 @@ export const CHORDS: readonly Chord[] = [
   { name: "settings.forward", keys: "⌘]", what: copy.settingsForward, presses: ["meta+BracketRight"], inRail: true },
   // U3751 to U3753: past the four hints a Shelf row shows, so the mode's own line lists them.
   { name: "todo.triage-enter", keys: "T", what: copy.triageEnter, presses: ["KeyT"], inShelf: true, hint: { label: copy.triageEnter, at: { shelf: 7 } } },
-  { name: "todo.triage-move", keys: "J K", what: copy.triageMove, presses: ["KeyJ", "KeyK"], args: [{ key: "direction", type: "choice", options: ["up", "down"], required: true, press: direction => direction === "down" ? "KeyJ" : "KeyK" }], inShelf: true, inTriage: true },
+  { name: "todo.triage-move", keys: "J K", what: copy.triageMove, presses: ["KeyJ", "KeyK"], args: [{ key: "direction", type: "choice", options: ["up", "down"], required: true, press: (direction: ActionValue) => direction === "down" ? "KeyJ" : "KeyK" }], inShelf: true, inTriage: true },
   { name: "todo.triage-assign", keys: "A", what: copy.triageAssign, presses: ["KeyA"], inShelf: true, inTriage: true },
   { name: "todo.triage-workstream", keys: "W", what: copy.triageWorkstream, presses: ["KeyW"], inShelf: true, inTriage: true },
   { name: "todo.triage-nest", keys: "Tab", what: copy.triageNest, presses: ["Tab"], inShelf: true, inTriage: true },
@@ -89,7 +102,7 @@ export const CHORDS: readonly Chord[] = [
   { name: "todo.triage-leave", keys: "Esc", what: copy.triageLeave, presses: ["Escape"], inShelf: true, inTriage: true },
   // U4464: first-run-only; preserve the existing Project chord order.
   { name: "project.choose-folder", keys: "⌘O", what: copy.chooseFolder, presses: ["meta+KeyO"], inFirstRun: true },
-];
+] satisfies readonly (Omit<Chord, "keys"> & { keys: string })[]).map(withKeyText);
 
 /** U5239b: the default label of each action a saved override can move, so a caller naming an action by its default keys still finds it. */
 const DEFAULT_KEYS = new Map<string, string>();
@@ -132,9 +145,10 @@ for (const chord of CHORDS) {
 
 /** One key `⌘K` takes next (U2239), by key position, read by Help (U54) and the leader panel (U2240). */
 /** `what` is Help's line; `short` is the panel's, which fits the six keys on one line of the header band (U2240). */
-export type LeaderKey = { name: string; args?: readonly ActionArg[]; keys: string; what: string; short: string; press: string };
+export type LeaderKey = { name: string; args?: readonly ActionArg[]; keys: KeyText; what: string; short: string; press: string };
 
-export const LEADER: readonly LeaderKey[] = [
+// SAFETY: these registry-owned literals carry the private KeyText brand.
+export const LEADER: readonly LeaderKey[] = ([
   { name: "leader.assign", keys: "A", what: copy.leaderAssignOrAsk, short: copy.leaderShortAssignOrAsk, press: "KeyA" },
   { name: "leader.project", keys: "P", what: copy.switchProject, short: copy.projects, press: "KeyP" },
   { name: "leader.changes", keys: "C", what: copy.reviewChanges, short: copy.reviewChanges, press: "KeyC" },
@@ -146,12 +160,12 @@ export const LEADER: readonly LeaderKey[] = [
   { name: "leader.shelf", keys: "B", what: copy.openShelf, short: copy.leaderShortShelf, press: "KeyB" },
   { name: "leader.capture", keys: "T", what: copy.captureATodo, short: copy.leaderShortCapture, press: "KeyT" },
   { name: "leader.inbox", keys: "I", what: copy.openTheInbox, short: copy.leaderShortInbox, press: "KeyI" },
-];
+] satisfies readonly (Omit<LeaderKey, "keys"> & { keys: string })[]).map(withKeyText);
 
 /** Help's rows: the chords, with the leader's keys after `⌘K` (U2241). */
-export const HELP_ROWS: readonly { keys: string; what: string }[] = [
+export const HELP_ROWS: readonly { keys: KeyText; what: string }[] = [
   ...CHORDS.slice(0, 4),
-  ...LEADER.map((key) => ({ keys: `${copy.leaderChord} ${key.keys}`, what: key.what })),
+  ...LEADER.map((key) => ({ keys: leaderKeys(key), what: key.what })),
   ...CHORDS.slice(4),
 ];
 
@@ -162,7 +176,7 @@ export const ACTION_ROWS: readonly (Chord | LeaderKey)[] = [...CHORDS.slice(0, 4
 export const leaderChord = (keys: string): readonly string[] => [LEADER.find((key) => key.keys === keys)!.press];
 
 /** The hints of `place`, in the order the table gives them (U2230a). */
-export const hintsFor = (place: HintPlace): readonly { keys: string; label: string }[] => {
+export const hintsFor = (place: HintPlace): readonly { keys: KeyText; label: string }[] => {
   const hints = CHORDS.flatMap((chord) => chord.hint?.at[place] === undefined ? [] : [{ keys: chord.keys, label: chord.hint.label, at: chord.hint.at[place] }])
     .sort((a, b) => a.at - b.at)
     .map(({ keys, label }) => ({ keys, label }));
@@ -195,7 +209,8 @@ export const SWITCHER_CLOSE = "Escape".split(" ");
 export const SWITCHER_RECORD = [["Meta", "Enter"].join("+")];
 
 /** U5240c: the keys the Switcher's footer lists, read by its bindings above (`⌘⏎` joins while its row can take a key). */
-export const SWITCHER_KEYS = { move: "↑ ↓", choose: "⏎", close: "Esc", record: "⌘⏎" } as const;
+// SAFETY: navigation text is defined only in this registry.
+export const SWITCHER_KEYS = { move: textOf("↑ ↓"), choose: textOf("⏎"), close: textOf("Esc"), record: textOf("⌘⏎") };
 
 export const ASK_CLOSE = "Escape".split(" ");
 
@@ -219,3 +234,13 @@ export const ariaChord = (chord: Chord | undefined): string | undefined => {
 
   return [...Object.entries(names).filter(([part]) => parts.includes(part)).map(([, name]) => name), parts.at(-1)!.replace(/^Key/, "")].join("+");
 };
+
+/** A leader sequence retains its two press boundaries. */
+export function leaderKeys(row: LeaderKey): KeyText {
+  // SAFETY: both parts already carry the private registry brand.
+  return `${CHORDS.find(chord => chord.name === "leader.open")!.keys} ${row.keys}` as KeyText;
+}
+
+/** Navigation hints share the registry source without claiming an action binding. */
+// SAFETY: navigation text is defined only in this registry.
+export const SHELF_KEYS = { adjacent: textOf("↑ / ↓"), toggle: textOf("⌘⏎"), range: textOf("⇧↑ / ⇧↓"), cancel: textOf([copy.shortcutSymbols.Backspace, "/", "Esc"].join(" ")) };

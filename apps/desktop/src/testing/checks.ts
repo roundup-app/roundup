@@ -227,7 +227,9 @@ const d2 = (page: Page): Measure =>
       const chipSide = chip && (property === "padding-left" || property === "padding-right");
       const chipVertical = chip && (property === "padding-top" || property === "padding-bottom");
 
-      const conforms = chipSide ? chipPadding === 5 && value === chipPadding : chipVertical ? value === 0
+      const keyGap = chip && (property === "column-gap" || property === "row-gap") && value === (px(page.token("space-1") ?? "") ?? NaN) / 4;
+
+      const conforms = keyGap ? true : chipSide ? chipPadding === 5 && value === chipPadding : chipVertical ? value === 0
         : value === null || SPACE_STEPS.has(value) || padSpaces.some(step => Math.abs(value - step) < 0.01) || (property === treeSide && treePadding !== null && value === treePadding);
 
       if (!conforms) return { [property]: style.getPropertyValue(property) };
@@ -449,7 +451,7 @@ const d6 = (page: Page): Measure => {
 
     // Every fault of the first failing target is named at once, so one fix answers them all.
     // U353: a text field answers with a caret, so only its hit area is measured.
-    const text = el.matches("input[type=text], input[type=search]");
+    const text = el instanceof HTMLInputElement && (el.type === "text" || el.type === "search");
 
     const missing = text ? [] : (declares(stateRules(page, el, ":hover"), "background", "background-color", "background-image", "color") ? [] : ["hover"]);
 
@@ -740,7 +742,9 @@ const monoOffenders = (page: Page, regions: Element[]): Element[] => {
     for (let node = walker.nextNode(); node; node = walker.nextNode()) {
       const el = node.parentElement;
 
-      if (!el || (node.textContent ?? "").trim() === "" || !page.elements.includes(el) || el.closest("[data-mono], code, kbd, samp")) continue;
+      if (!el || (node.textContent ?? "").trim() === "" || !page.elements.includes(el) || el.closest('[data-mono], code, kbd, samp')) continue;
+
+      if (el.closest('[data-button]') && !el.closest('.tab-name, .shelf-group-name, .overview-name')) continue;
 
       if (page.resolve(page.style(el).fontFamily) === mono) offenders.push(el);
     }

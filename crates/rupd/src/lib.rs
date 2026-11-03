@@ -20,6 +20,8 @@ mod event_log;
 mod evidence;
 mod extensions;
 mod github;
+#[cfg(test)]
+mod group_tests;
 mod guards;
 mod link;
 #[cfg(test)]
