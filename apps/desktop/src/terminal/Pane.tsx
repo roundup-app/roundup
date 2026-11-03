@@ -171,8 +171,11 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
       screens.resize(id, screens.show(id, host, false));
 
       if (!rail.restored() && !doorNotRunning) {
-        // Selection also dismisses a full-centre Drawer; focus after its inert state settles.
-        queueMicrotask(() => focusPermission(() => screens.emulatorFor(id).focus()));
+        // A mounted Drawer may still cover the centre until its dismissal effects settle.
+        const focus = () => focusPermission(() => screens.emulatorFor(id).focus());
+
+        if (host.closest(".window")?.querySelector('.drawer[data-mounted="true"]')) queueMicrotask(focus);
+        else focus();
       }
     });
   });
