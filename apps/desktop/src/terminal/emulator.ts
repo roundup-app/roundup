@@ -4,7 +4,7 @@ import tokens from "../tokens.css?inline";
 import { createRoot, createEffect, on } from "solid-js";
 import { terminalType, followAppAppearance } from "../settings/preferences";
 import { DEFAULT_FONT_SIZE } from "./fontSize";
-import { createLinkProvider } from "./linkProvider";
+import { attachLinkGestures } from "./linkGestures";
 import type { Printed } from "./links";
 import { terminalThemeFor } from "./theme";
 import { attachTurns } from "./turns";
@@ -50,7 +50,7 @@ export type Emulator = {
   inputEncoding?: ((bytes: readonly number[]) => void) | undefined;
   /** K1's optional probe: Screens calls this after encoding its input batch, before dispatch. */
   inputEncoded?: ((bytes: readonly number[]) => void) | undefined;
-  /** U365: a Cmd+click on a web link or path printed in the Terminal; one call per click. */
+  /** U365: a plain click on a web link or path printed in the Terminal; one call per click. */
   onLink(listener: (printed: Printed) => void): void;
   /** Parsed output only, at the grid SerializeAddon requires for restoration. */
   serialize?(): Size & { data: string };
@@ -219,12 +219,12 @@ export const createXtermEmulators = (
       readText: () => "",
       writeText: (selection, text) => selection === "c" ? copy?.(text) : undefined,
     }));
-    // Bound each Terminal's decoded cache and decoder workspace, including idle Agents.
+    // Bound each Terminal's decoded cache (16 MB) and decoder workspace (4 Mpx), including idle Agents.
     terminal.loadAddon(new ImageAddon({
-      storageLimit: 1,
-      pixelLimit: 262_144,
+      storageLimit: 16,
+      pixelLimit: 4_194_304,
       sixelSizeLimit: 1_048_576,
-      iipSizeLimit: 1_048_576,
+      iipSizeLimit: 2_097_152,
       enableSizeReports: false,
     }));
     terminal.loadAddon(new Unicode11Addon());
@@ -319,16 +319,7 @@ export const createXtermEmulators = (
       return false;
     });
 
-    let cmdDown = false;
     let linkListener: (printed: Printed) => void = () => {};
-
-    const trackCmd = (event: Pick<KeyboardEvent, "metaKey">) => {
-      cmdDown = event.metaKey;
-    };
-
-    const dropCmd = () => {
-      cmdDown = false;
-    };
 
     // Capture reaches Bubble resize edges even when their handlers stop propagation.
     const clearOldSelection = (event: MouseEvent) => {
@@ -339,12 +330,7 @@ export const createXtermEmulators = (
     };
 
     window.addEventListener("pointerdown", clearOldSelection, true);
-    window.addEventListener("keydown", trackCmd);
-    window.addEventListener("keyup", trackCmd);
-    window.addEventListener("blur", dropCmd);
-    // A pressed Cmd shows on mouse movement too, so a Cmd pressed before the window took focus is not missed.
-    element.addEventListener("mousemove", trackCmd);
-    terminal.registerLinkProvider(createLinkProvider(terminal, () => cmdDown, (printed) => linkListener(printed)));
+    const stopLinks = attachLinkGestures(terminal, element, printed => linkListener(printed));
 
     const shellTurns = attachTurns(terminal, (first, last) => terminal.selectLines(first, last));
 
@@ -754,9 +740,7 @@ export const createXtermEmulators = (
         stopScheme();
         stopFont();
         window.removeEventListener("pointerdown", clearOldSelection, true);
-        window.removeEventListener("keydown", trackCmd);
-        window.removeEventListener("keyup", trackCmd);
-        window.removeEventListener("blur", dropCmd);
+        stopLinks();
         disposers.forEach((dispose) => dispose());
         shellTurns.dispose();
         fontViewport?.dispose();

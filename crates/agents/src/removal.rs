@@ -52,10 +52,7 @@ impl Shared {
             let mut below = Vec::new();
             collect_below(&tree, id, &mut below);
             let mut judged = Vec::new();
-            for node in below
-                .into_iter()
-                .filter(|n| scope == RemoveScope::All || n.kind == NodeKind::Agent)
-            {
+            for node in below.into_iter().filter(|n| n.kind == NodeKind::Agent) {
                 let reason = if scope == RemoveScope::All {
                     None
                 } else {
@@ -135,7 +132,7 @@ impl Shared {
                 let expected: Vec<_> = judged.iter().map(|(n, _)| &n.id).collect();
                 let actual: Vec<_> = current_below
                     .iter()
-                    .filter(|n| scope == RemoveScope::All || n.kind == NodeKind::Agent)
+                    .filter(|n| n.kind == NodeKind::Agent)
                     .map(|n| &n.id)
                     .collect();
                 if expected != actual {
@@ -334,7 +331,7 @@ impl Agents {
         let mut below = Vec::new();
         collect_below(&tree, id, &mut below);
         if node.kind == NodeKind::Workstream {
-            for child in &below {
+            for child in below.iter().filter(|node| node.kind == NodeKind::Agent) {
                 if let Some(reason) = shared.keep_reason(child).await? {
                     removal.kept.push(kept_agent(child, reason));
                 } else {

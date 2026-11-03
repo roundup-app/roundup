@@ -125,6 +125,9 @@ impl Shared {
         rail: &rail::Rail,
         finished: u64,
     ) -> Result<RailNode, RpcError> {
+        if node.kind == NodeKind::Group {
+            return Ok(node);
+        }
         node.final_text = match runs.get(&node.id) {
             Some(Slot::Running(run)) => {
                 run.adapter.turn().map(|turn| contracts::agent::FinalText {
@@ -403,3 +406,27 @@ pub(super) fn valid_order(order: &Order) -> Result<(), RpcError> {
 
 #[cfg(test)]
 mod tests;
+
+/// U5531c: only current, authoritative known-empty completed turns permit internal.
+pub(super) fn visibility_reason(node: &RailNode) -> Option<&'static str> {
+    if matches!(node.work, Some(Order::Clarification { .. })) {
+        return Some("Clarification order is active");
+    }
+    let empty = node.final_text.as_ref().is_some_and(|text| {
+        text.kind == contracts::agent::FinalTextKind::Empty
+            && Some(&text.attempt) == node.attempt.as_ref()
+            && Some(&text.finished) == node.status.as_ref().map(|s| &s.finished)
+    });
+    visibility_protection(node.status.as_ref().map(|s| s.kind), empty)
+}
+
+pub(super) fn visibility_protection(kind: Option<Kind>, empty: bool) -> Option<&'static str> {
+    match kind {
+        Some(Kind::NeedsYou) => Some("native attention is active"),
+        Some(Kind::Error) => Some("error is active"),
+        Some(Kind::Idle | Kind::Done | Kind::Blocked) if !empty => {
+            Some("completed-turn protection is active")
+        }
+        _ => None,
+    }
+}

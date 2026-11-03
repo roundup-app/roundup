@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
@@ -12,41 +13,47 @@ beforeAll(async () => {
   await browser("wait", "--fn", "document.querySelector('#root')?.dataset.ready === 'true'");
 }, 90_000);
 
+const phase = process.env.ROUNDUP_CAPTURE_PHASE ?? "head";
+
+const baseline = phase === "base";
+
+const selected = captureDir("U5560a") ?? captureDir("U4698b");
+
+const output = selected ? join(selected, phase) : null;
+
 const ownerSample = readFileSync(join(process.cwd(), "src/pads/owner-sample.md"), "utf8");
 
 const structureSample = readFileSync(join(process.cwd(), "src/pads/structure-sample.md"), "utf8");
-
-const output = captureDir("U4698b");
-
-const menuOutput = captureDir("U5631");
 
 const typographyOutputs = [captureDir("U5574a"), captureDir("U5574b")].filter((path): path is string => path !== null);
 
 const capture = async (name: string) => {
   if (!output) return;
+  await browser("wait", "--fn", "typeof window.__checks === 'function'");
   await browser("screenshot", join(output, `${name}.png`));
   writeFileSync(join(output, `${name}.checks.json`), JSON.stringify(await evaluate("window.__checks()")));
 };
 
-it.skipIf(typographyOutputs.length > 0)("u4698b_expand_keeps_the_long_pad_and_all_formats_reachable", { retry: 0, timeout: output ? 240_000 : 90_000 }, async () => {
-  await openShelf("tree-40", 288, 320, 1512, "dark");
+it.skipIf(typographyOutputs.length > 0 || Boolean(captureDir("U5705"))).each([[1512, 950], [1280, 820]])("u4698b_expand_keeps_the_long_pad_and_all_formats_reachable %s", { retry: 0, timeout: output ? 240_000 : 90_000 }, async (viewportWidth, viewportHeight) => {
+  const viewports = [[viewportWidth, viewportHeight]];
+  await openShelf("tree-40", 288, 320, viewportWidth, "dark");
 
-  await browser("set", "viewport", "1512", "950");
+  await browser("set", "viewport", String(viewportWidth), String(viewportHeight));
 
   if (output) {
     mkdirSync(output, { recursive: true });
-    await browser("record", "start", join(output, "reading.webm"));
-    await browser("wait", ".shelf-tabs");
-    await browser("set", "media", "dark");
-  }
-
-  for (const [width, height] of [[1512, 950], [1280, 820]]) {
-    await browser("set", "viewport", String(width), String(height));
     await settle();
-    await capture(`before-editor-${width}`);
+    await capture(`before-editor-${viewportWidth}`);
   }
 
   const openTodo = async () => {
+    if (await evaluate("!document.querySelector('#shelf-tab-todos')")) {
+      await browser("press", "Meta+k");
+      await browser("press", "b");
+      await browser("wait", "#shelf-tab-todos");
+      await settle();
+    }
+
     if (await evaluate("document.querySelector('#shelf-tab-todos').getAttribute('aria-expanded') !== 'true'")) {
       await browser("click", "#shelf-tab-todos");
     }
@@ -60,19 +67,20 @@ it.skipIf(typographyOutputs.length > 0)("u4698b_expand_keeps_the_long_pad_and_al
     await settle();
   };
 
-  await openTodo();
-
-  for (const [width, height] of [[1512, 950], [1280, 820]]) {
-    await browser("set", "viewport", String(width), String(height));
+  if (output) {
+    await openTodo();
+    await capture(`todo-before-editor-${viewportWidth}`);
+    await browser("click", ".drawer .close");
     await settle();
-    await capture(`todo-before-editor-${width}`);
+
+    // Recording pins the viewport; finish the setup captures before starting it.
+    await browser("record", "start", join(output, `reading-${viewportWidth}.webm`));
+    await browser("wait", ".shelf-tabs");
+    await browser("set", "media", "dark");
   }
 
-  await browser("click", ".drawer .close");
-  await settle();
-
   const name = "Document reading and formatting ".repeat(7).slice(0, 200);
-  const table = `| Decision | Owner | Context |\n| --- | --- | --- |\n| ${"LongUnbrokenWord".repeat(12)} | Ada | ${"Table prose wraps across multiple lines. ".repeat(15)} |`;
+  const table = `| Decision | Owner | Context |\n| --- | --- | --- |\n| ${"x".repeat(500)} | Ada | ${"Table prose wraps across multiple lines. ".repeat(15)} |`;
   const text = `# Plan for the next release\n\nA document with **structure**, *emphasis*, \`code\` and [a useful link](https://example.com).\n\n${table}\n\n## Scope\n\n- First deliverable\n- Second deliverable\n\n### Details\n\n> A readable quote.\n\n#### Deeper heading\n\n##### Further detail\n\n###### Last heading\n\n${Array.from({ length: 200 }, (_, i) => `Paragraph ${i + 1}. ${"Reading should remain comfortable as the document grows. ".repeat(7)}`).join("\n\n")}`;
 
   await evaluate(`(async () => {
@@ -93,20 +101,59 @@ it.skipIf(typographyOutputs.length > 0)("u4698b_expand_keeps_the_long_pad_and_al
     await settle();
     await browser("click", '.drawer [aria-label="Maximise"]');
     await settle();
-    await browser("record", "stop");
   }
 
-  for (const [width, height] of [[1512, 950], [1280, 820]]) {
-    await browser("set", "viewport", String(width), String(height));
+  if (captureDir("U5560a")) {
+    await browser("click", "#shelf-tab-pads");
     await settle();
+  }
+
+  for (const [width, height] of viewports) {
+    await browser("set", "viewport", String(width), String(height));
+    await browser("wait", "--fn", `innerWidth === ${width} && innerHeight === ${height}`);
+    await settle();
+
     expect(await evaluate("document.querySelectorAll('.drawer [aria-label=Restore], .drawer [aria-label=Maximise]').length")).toBe(1);
 
+    if (captureDir("U5560a")) {
+      for (const choice of ["Narrow", "Wide", "Full"]) {
+        if (!baseline) await browser("click", `.pad-width-control input[value="${choice.toLowerCase()}"]`);
+        await settle();
+        await capture(`${choice.toLowerCase()}-${width}`);
+
+        if (!baseline) await browser("focus", `.pad-width-control input[value="${choice.toLowerCase()}"]`);
+        await capture(`${choice.toLowerCase()}-focus-${width}`);
+        await evaluate("document.querySelector('.pad-editor').scrollTop = 650; true");
+        await settle();
+        await capture(`${choice.toLowerCase()}-scrolled-${width}`);
+        await evaluate("document.querySelector('.pad-editor').scrollTop = 0; true");
+        await settle();
+      }
+    }
+
+    if (captureDir("U5560a") && !baseline) {
+      await browser("focus", ".top-bar-heading-button");
+
+      for (let step = 0; step < 18 && !(await evaluate("!!document.activeElement.closest('.pad-width-control')")); step++) await browser("press", "Tab");
+      expect(await evaluate("!!document.activeElement.closest('.pad-width-control')")).toBe(true);
+
+      for (const choice of ["narrow", "wide", "full"]) {
+        await browser("press", "ArrowRight");
+        await browser("wait", "--fn", `document.querySelector('.pad-width-control input[value="${choice}"]').checked`);
+      }
+
+      await capture(`keyboard-${width}`);
+    }
+
     await capture(`worst-${width}`);
-    await browser("click", '.top-bar-heading-button');
-    await settle();
-    await capture(`heading-menu-${width}`);
-    await browser("click", '.top-bar-heading-button');
-    await settle();
+
+    if (output) {
+      await browser("click", '.top-bar-heading-button');
+      await settle();
+      await capture(`heading-menu-${width}`);
+      await browser("click", '.top-bar-heading-button');
+      await settle();
+    }
 
     await browser("click", '.drawer [aria-label="Restore"]');
     await settle();
@@ -117,12 +164,13 @@ it.skipIf(typographyOutputs.length > 0)("u4698b_expand_keeps_the_long_pad_and_al
     await browser("click", '.drawer [aria-label="Maximise"]');
     await settle();
     expect(await evaluate("document.querySelector('.pad-head-name').textContent")).toBe(name);
+
   }
 
   if (output) {
     await evaluate("document.querySelector('.pad-editor').scrollTop = 650; true");
     await settle();
-    await capture("scrolled-1280");
+    await capture(`scrolled-${viewportWidth}`);
     await browser("focus", ".drawer .ProseMirror");
     await browser("press", "Control+End");
     await evaluate("window.__fake.failNext(-32000, 'The Pad could not be saved'); true");
@@ -130,18 +178,48 @@ it.skipIf(typographyOutputs.length > 0)("u4698b_expand_keeps_the_long_pad_and_al
     await browser("wait", ".drawer [data-pad-dismiss]");
     await evaluate("document.querySelector('.pad-editor').scrollTop = 0; true");
     await settle();
-    await capture("save-failure-1280");
+    await capture(`save-failure-${viewportWidth}`);
+    await browser("click", ".drawer [data-pad-dismiss]");
+    await evaluate(`(async () => {
+      const pad = await window.__fake.app.rpc('pad.read', {name: ${JSON.stringify(name)}});
+      window.__fake.actAs({kind:'agent',id:'agent-3',parent:null});
+      await window.__fake.app.rpc('pad.write', {name:pad.name,text:pad.text + ${JSON.stringify("\n\nExternal change")},expectedRevision:pad.revision,expectedIncarnation:pad.incarnation});
+      window.__fake.actAs({kind:'user',id:'you',parent:null});
+      return true;
+    })()`);
+    await browser("wait", "--fn", "[...document.querySelectorAll('.drawer button')].some(button => button.textContent === 'Keep mine')");
+    await capture(`conflict-${viewportWidth}`);
   }
 
   await browser("click", ".drawer .close");
   await settle();
 
+  if (captureDir("U5560a") && !baseline) {
+    await evaluate("window.dispatchEvent(new Event('open-app-settings')); true");
+    await browser("click", '[role=tab][data-value="Pads"]');
+    await browser("wait", "--fn", "!!document.querySelector('.settings-content input[value=\"full\"]')");
+    await browser("click", '.settings-content input[value="full"]');
+    await browser("wait", "--fn", "JSON.parse(localStorage.getItem('roundup:app-settings')).padWidth === 'full'");
+    await browser("click", ".settings-back");
+  }
+
+  if (output) await browser("record", "stop");
+
   await openTodo();
 
-  for (const [width, height] of [[1512, 950], [1280, 820]]) {
+  for (const [width, height] of viewports) {
     await browser("set", "viewport", String(width), String(height));
+
+    await browser("wait", "--fn", `innerWidth === ${width} && innerHeight === ${height}`);
     await settle();
     await capture(`todo-after-editor-${width}`);
+    expect(await evaluate("document.querySelectorAll('.pad-width-control [role=radiogroup]').length")).toBe(0);
+    await browser("click", '.drawer [aria-label="Restore"]');
+    await settle();
+    await capture(`todo-collapsed-${width}`);
+    await browser("click", '.drawer [aria-label="Maximise"]');
+    await settle();
+
   }
 });
 
@@ -367,6 +445,110 @@ it.skipIf(typographyOutputs.length === 0)("u5574b_empty_document_remains_editabl
 
   for (const output of typographyOutputs.slice(1)) copyFileSync(join(dir, "complete-recovery.webm"), join(output, revision, "complete-recovery.webm"));
 });
+
+const todoWidthOutput = captureDir("U5705");
+
+it.skipIf(!todoWidthOutput)("u5705_observe_nonempty_todo_and_pad_reading_columns", { retry: 0, timeout: 240_000 }, async () => {
+  const revision = process.env.ROUNDUP_PAD_BASELINE ? "base" : "head";
+  const dir = join(todoWidthOutput!, revision);
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, "metadata.json"), JSON.stringify({
+    sha: execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim(),
+    seed: "tree-40", viewport: [1512, 950], scheme: "dark", interfaceScale: 1,
+    tokens: { todo: "--reading-width", pad: "--pad-reading-width", gutter: "--reading-gutter" },
+  }, null, 2));
+  const prose = Array.from({ length: 5 }, (_, i) => `Paragraph ${i + 1}. ${"The release review keeps the original context beside the work so everyone can read the outcome and decide what happens next. ".repeat(4)}`).join("\n\n");
+
+  const save = async (name: string) => {
+    await settle();
+    await browser("screenshot", join(dir, `${name}.png`));
+    writeFileSync(join(dir, `${name}.checks.json`), JSON.stringify(await evaluate("window.__checks()")));
+
+    const widths = await evaluate(`(() => {
+      const editor = document.querySelector('.drawer .ProseMirror');
+      const ancestors = [];
+      for (let node = editor; node && !node.matches('.window'); node = node.parentElement) {
+        const style = getComputedStyle(node), rect = node.getBoundingClientRect();
+        ancestors.push({class: node.className, width: rect.width, x: rect.x, maxWidth: style.maxWidth, fontSize: style.fontSize, lineHeight: style.lineHeight, paddingInline: style.paddingInline, readingWidth: style.getPropertyValue('--reading-width'), padReadingWidth: style.getPropertyValue('--pad-reading-width'), gutter: style.getPropertyValue('--reading-gutter')});
+      }
+      const edges = [...document.querySelectorAll('.drawer .todo-detail-title, .drawer .pad-head, .drawer .milkdown-top-bar, .drawer .ProseMirror')].map(node => {
+        const rect = node.getBoundingClientRect(), style = getComputedStyle(node);
+        return {class: node.className, x: rect.x, width: rect.width, paddingInline: style.paddingInline};
+      });
+      return {edges, viewport: [innerWidth, innerHeight], focus: document.activeElement?.outerHTML.slice(0, 300), ancestors};
+    })()`);
+
+    writeFileSync(join(dir, `${name}-widths.json`), JSON.stringify(widths, null, 2));
+  };
+
+  await openShelf("tree-40", 288, 320, 1512, "dark");
+  await browser("set", "viewport", "1512", "950");
+  await evaluate(`(async () => {
+    await window.__fake.app.rpc('todo.update', {id: 1, body: ${JSON.stringify(prose)}});
+    await window.__fake.app.rpc('todo.assign', {id: 1, owner: null});
+    await window.__fake.app.rpc('pad.create', {name: 'Reading review', text: ${JSON.stringify(prose)}});
+    return true;
+  })()`);
+
+  const openTodo = async () => {
+    if (await evaluate("document.querySelector('#shelf-tab-todos').getAttribute('aria-expanded') !== 'true'")) await browser("click", "#shelf-tab-todos");
+    await browser("wait", '.todos-tab [data-shelf-group="unassigned"]');
+    await evaluate(`(() => { const group = document.querySelector('.todos-tab [data-shelf-group="unassigned"] [data-part="branch-control"]'); if (group?.getAttribute('data-state') === 'closed') group.click(); return true; })()`);
+    await browser("wait", '[data-todo="1"] .todo-row-button');
+    await browser("focus", '[data-todo="1"] .todo-row-button');
+    await browser("press", "Enter");
+    await browser("wait", ".drawer .ProseMirror");
+    await settle();
+
+    if (await evaluate("Boolean(document.querySelector('.drawer [aria-label=Maximise]'))")) await browser("click", '.drawer [aria-label="Maximise"]');
+    await settle();
+    await browser("focus", ".drawer .ProseMirror");
+    await browser("wait", ".drawer .ProseMirror:focus");
+  };
+
+  await openTodo();
+  await save("todo-expanded");
+  await browser("click", '.drawer [aria-label="Restore"]');
+  await settle();
+  await browser("focus", ".drawer .ProseMirror");
+  await save("todo-minimised");
+  await browser("click", '.drawer [aria-label="Maximise"]');
+  await settle();
+  await browser("focus", ".drawer .ProseMirror");
+  await save("todo-reexpanded");
+  await browser("click", ".drawer .close");
+  await settle();
+  await browser("click", "#shelf-tab-pads");
+  await browser("wait", '[data-shelf-group="unassigned"]');
+  await evaluate(`(() => { const group = document.querySelector('[data-shelf-group="unassigned"] [data-part="branch-control"]'); if (group?.getAttribute('data-state') === 'closed') group.click(); return true; })()`);
+  await browser("wait", ".pad-name");
+  await evaluate("[...document.querySelectorAll('.pad-name')].find(row => row.textContent === 'Reading review').focus(); true");
+  await browser("press", "Enter");
+  await browser("wait", ".drawer .ProseMirror");
+  await settle();
+  await browser("focus", ".drawer .ProseMirror");
+  await save("pad-expanded");
+  await browser("click", '.drawer [aria-label="Restore"]');
+  await settle();
+  await browser("focus", ".drawer .ProseMirror");
+  await save("pad-minimised");
+  await browser("click", '.drawer [aria-label="Maximise"]');
+  await settle();
+  await browser("focus", ".drawer .ProseMirror");
+  await evaluate("window.__fake.failNext(-32000, 'Pad save rejected: disk is full. Free space and retry.'); true");
+  await browser("press", "Control+End");
+  await browser("keyboard", "type", "Retained review draft");
+  await browser("click", ".pad-head-name");
+  await browser("wait", "--fn", "document.body.textContent.includes('disk is full')");
+  await evaluate("document.querySelector('.pad-editor').scrollTop = 0; true");
+  await save("pad-save-rejected");
+  await browser("click", ".drawer .close");
+  await settle();
+  await openTodo();
+  await save("todo-after-pad");
+});
+
+const menuOutput = captureDir("U5631");
 
 describe("U5631 Todo block menus", () => {
   beforeEach(async ({ task }) => {

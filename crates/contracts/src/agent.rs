@@ -23,6 +23,7 @@ pub fn parse_positive_ordinal(value: &str) -> Option<i64> {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 #[serde(rename_all = "kebab-case")]
 pub enum NodeKind {
+    Group,
     Workstream,
     Agent,
 }
@@ -398,6 +399,9 @@ pub const TITLE_CAP: usize = 6;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct RailNode {
+    #[serde(default)]
+    #[specta(optional)]
+    pub visibility: RailVisibility,
     /// U5501: authoritative per-Agent choice; a Workstream stores its Door choice.
     #[serde(default)]
     #[specta(optional)]
@@ -881,6 +885,14 @@ pub struct SetOrderParams {
     pub captured: Option<CapturedOrder>,
 }
 
+/// U5690c: collect exact identities, deduplicated in pre-action Rail order.
+/// The Group is placed before the first affected branch at the nearest unselected
+/// common ancestor. Siblings use the first selected sibling's position.
+#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
+pub struct GroupParams {
+    pub ids: Vec<String>,
+}
+
 /// Re-parent and position a node. `parent: None` moves it to the root.
 #[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 pub struct MoveParams {
@@ -961,4 +973,19 @@ pub struct ToolCallEvent {
 #[derive(Serialize, Deserialize, Type, JsonSchema)]
 pub struct SpawnPrompt {
     pub prompt: Option<String>,
+}
+
+/// U5531a: presentation only; never changes execution or Home.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
+#[serde(rename_all = "lowercase")]
+pub enum RailVisibility {
+    #[default]
+    Shown,
+    Internal,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
+pub struct SetVisibilityParams {
+    pub id: String,
+    pub visibility: RailVisibility,
 }

@@ -26,8 +26,8 @@ pub(crate) const CALL_TIMEOUT: Duration = Duration::from_secs(10);
 #[macro_use]
 mod agent_tools;
 use agent_tools::{
-    agent_context, agent_digest, agent_extras, agent_extras_add, agent_set_order, agent_spawn,
-    agent_wake, workstream_rewind,
+    agent_context, agent_digest, agent_extras, agent_extras_add, agent_set_order,
+    agent_set_visibility, agent_spawn, agent_wake, workstream_rewind,
 };
 
 const TOOLS_TTL_MS: u64 = 3_600_000;
@@ -220,7 +220,7 @@ fn events_stream() -> Offered {
         stream: true,
         ..offered::<contracts::SubscribeParams>(
             "events.subscribe",
-            "Print the Events saved after a number, one JSON object per line, then stop at the end of the log. `--follow` keeps streaming new ones; without `--after` it starts at the end.",
+            "Print the Events saved after a number, one JSON object per line, then stop at the end of the log. `--follow` keeps streaming new ones; `--kept` starts at the oldest kept Event, otherwise without `--after` it starts at the end.",
         )
     }
 }

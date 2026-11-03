@@ -1,3 +1,9 @@
+import { createRoot } from "solid-js";
+import { connectProject } from "../state/connectedProject";
+import { createFakeApp } from "../testing/fakeApp";
+import { agent, workstream, NOW } from "../testing/nodes";
+import * as topology from "./topology";
+import { createRailTree } from "./railTree";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { captureDir } from "../testing/captures";
@@ -31,8 +37,9 @@ const folded = async (id: string, value: "true" | "false"): Promise<void> => {
 
 
 const capture = async (step: string) => {
-  for (const id of ["U5483a", "U5483b", "U5483c"]) {
-    const dir = captureDir(id);
+  for (const id of ["U5483a", "U5483b", "U5483c", "U5645a", "U5645b", "U5645c"]) {
+    const target = captureDir(id);
+    const dir = target && (id.startsWith("U5645") ? join(target, process.env["ROUNDUP_CAPTURE_PHASE"] ?? "head") : target);
 
     if (!dir) continue;
     mkdirSync(dir, { recursive: true });
@@ -186,4 +193,46 @@ run("u5483 folded children", () => {
     await at("fold:auth");
   });
 
+});
+
+// Exercise the same owner/projection Rail mounts; getters charge only its source reads.
+it("u5645a_one_topology_serves_rows_and_collection_at_40_and_400", async () => {
+  const construction = vi.spyOn(topology, "railTopology");
+
+  for (const size of [40, 400]) {
+    construction.mockClear();
+
+    const chain = Array.from({ length: size - 4 }, (_, at) => workstream(`chain-${at}`, {
+      parent: at === 0 ? null : `chain-${at - 1}`, order: at,
+    }));
+
+    const expected = [...chain.map(node => node.id), "earlier", "later", "mode", "root-agent"];
+
+    const source = [...chain.toReversed(), workstream("later", { order: 8 }),
+      agent("root-agent", "working", "x"), workstream("mode", { opening_prompt: "Go" }), workstream("earlier", { order: 7 })];
+
+    let parents = 0;
+
+    const counted = source.map(node => ({ ...node, get parent() { parents += 1;
+
+ return node.parent; } }));
+
+    const app = createFakeApp();
+    app.handlers["rail.tree"] = () => counted;
+    const connected = await connectProject(app, { path: "/p", name: "p" }, () => true, () => NOW);
+    createRoot(dispose => {
+      const tree = createRailTree(connected, () => new Set(), () => undefined);
+      expect(tree.rows().map(row => row.key)).toEqual(expected.map(id => `node:${id}`));
+      expect(tree.collection().getValues().filter(id => !id.startsWith("section:"))).toEqual(expected);
+      expect(tree.sectionRows().map(section => section.id)).toEqual(["workstreams", "modes", "agents"]);
+      expect(tree.topology().nodes.every(node => connected.rail.nodes.includes(node))).toBe(true);
+      tree.treeRows();
+      tree.expanded();
+      expect(construction.mock.results.filter(result => result.type === "return" && result.value.nodes.length === size)).toHaveLength(1);
+      expect(parents).toBe(size);
+      dispose();
+    });
+  }
+
+  construction.mockRestore();
 });

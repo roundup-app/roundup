@@ -28,11 +28,13 @@ const output = (id: string, bytes: number[] | Buffer, offset = 0) => JSON.string
 
 const gap = (id: string, from: number, to: number) => JSON.stringify({ jsonrpc: "2.0", method: "terminal.gap", params: { id, from, to } }) + "\n";
 
-const fixture = async (offset = 0, failure?: { code: number; message: string; data: RpcErrorData }) => {
+const fixture = async (offset = 0, failure?: { code: number; message: string; data: RpcErrorData }, head = 0) => {
   const dir = await mkdtemp(join(tmpdir(), "x14-relay-"));
   const path = join(dir, "daemon.sock");
   const sockets = new Set<Socket>();
   const subscriptions: Socket[] = [];
+  const eventSubscriptions: Socket[] = [];
+  const subscribeParams: unknown[] = [];
   const responses: ServerResponse[] = [];
   const activeResponses = new Set<ServerResponse>();
 
@@ -51,10 +53,15 @@ const fixture = async (offset = 0, failure?: { code: number; message: string; da
 
       if (frame.method === "events.subscribe" || frame.method === "terminal.output") subscriptions.push(socket);
 
+      if (frame.method === "events.subscribe") {
+        eventSubscriptions.push(socket);
+        subscribeParams.push(frame.params);
+      }
+
       // The Daemon answers a Terminal subscription with the offset of its first byte; an unknown Terminal is NOT_FOUND.
       const answer = failure ? { error: failure } : frame.method === "terminal.output"
         ? frame.params.id === "missing" ? { error: { code: -32001, message: "not found: terminal missing" } } : { result: { offset } }
-        : { result: frame.method === "events.subscribe" ? null : "control-reply" };
+        : { result: frame.method === "events.subscribe" ? { head } : "control-reply" };
 
       socket.write(JSON.stringify({ jsonrpc: "2.0", id: frame.id, ...answer }) + "\n");
     });
@@ -112,8 +119,17 @@ const fixture = async (offset = 0, failure?: { code: number; message: string; da
     return { response, socket: subscriptions[count]! };
   };
 
-  return { dir, base, subscriptions, responses, select, close };
+  return { dir, base, subscriptions, eventSubscriptions, subscribeParams, responses, select, close };
 };
+
+it("d11_served_subscribe_passes_kept_and_returns_the_accepted_head", async () => {
+  const real = await fixture(0, undefined, 37);
+
+  try {
+    const head = await createServedApp(real.base).subscribe(() => {}, { kept: true });
+    expect({ head, params: real.subscribeParams }).toEqual({ head: 37, params: [{ kept: true }] });
+  } finally { await real.close(); }
+});
 
 it("u144_closing_the_socket_fires_daemon_exited", async () => {
   const real = await fixture();
@@ -129,18 +145,18 @@ it("u144_closing_the_socket_fires_daemon_exited", async () => {
   } finally { await real.close(); }
 });
 
-it("u3791b_served_rpc_preserves_event_error_data_and_identity", async () => {
+it("u3791b_served_calls_preserve_event_error_data_and_identity", async () => {
   const failure = { code: -32009, message: "arbitrary diagnostic", data: { kind: "events-expired" as const, oldest: 6 } };
   const real = await fixture(0, failure);
 
   try {
-    const rejected = await createServedApp(real.base).rpc("daemon.ping", null).then(
-      () => null,
-      (error: RpcError) => error,
-    );
+    const app = createServedApp(real.base);
 
-    expect(rejected).toBeInstanceOf(RpcError);
-    expect(rejected).toMatchObject(failure);
+    for (const call of [() => app.rpc("daemon.ping", null), () => app.subscribe(() => {}, { after: 0 })]) {
+      const rejected = await call().then(() => null, (error: RpcError) => error);
+      expect(rejected).toBeInstanceOf(RpcError);
+      expect(rejected).toMatchObject(failure);
+    }
   } finally { await real.close(); }
 });
 
@@ -242,7 +258,7 @@ it("x14_harness_output_relay_cancellation_is_isolated", async () => {
     const other = await real.select("B");
     const otherBytes: Buffer[] = [];
     other.response.on("data", (chunk: Buffer) => otherBytes.push(chunk));
-    const global = await bound(fetch(`${real.base}/__daemon/events`));
+    const global = await bound(fetch(`${real.base}/__daemon/events`, { method: "POST", headers: { "Content-Type": "application/json" }, body: "null" }));
     const events = global.body!.getReader();
     const ready = await bound(events.read());
     expect(new TextDecoder().decode(ready.value)).toContain('"ready":true');
@@ -308,7 +324,8 @@ it("u2773a_harness_page_lifecycle_releases_and_restores_streams", async () => {
 
       if (cycle === 1) page.dispatchEvent(new Event("pageshow"));
       await expect.poll(() => real.subscriptions.length).toBe(4 + cycle * 2);
-      const [eventSocket, outputSocket] = real.subscriptions.slice(-2);
+      const eventSocket = real.eventSubscriptions.at(-1)!;
+      const outputSocket = real.subscriptions.slice(-2).find(socket => socket !== eventSocket)!;
       eventSocket!.write([1, 2].map(seq => JSON.stringify({jsonrpc:"2.0", method:"event", params:{seq: cycle * 2 + seq, actor:{kind:"user",id:"you",parent:null}, name:"rail.changed"}}) + "\n").join(""));
       outputSocket!.write(output("A", [67 + cycle], 0));
       await expect.poll(() => events.length).toBe((cycle + 1) * 2);
@@ -326,6 +343,7 @@ it("u2773a_harness_page_lifecycle_releases_and_restores_streams", async () => {
     await expect.poll(() => real.subscriptions.length).toBe(7);
     real.subscriptions[6]!.write(JSON.stringify({jsonrpc:"2.0", method:"event", params:{seq:5, actor:{kind:"user",id:"you",parent:null}, name:"rail.changed"}}) + "\n");
     await expect.poll(() => events.length).toBe(5);
+    expect(real.subscribeParams).toEqual([null, { after: 0 }, { after: 2 }, { after: 4 }]);
     expect(messages).toHaveLength(5);
     expect(exits).toEqual([]);
     expect(await app.rpc("daemon.ping", null)).toBe("control-reply");

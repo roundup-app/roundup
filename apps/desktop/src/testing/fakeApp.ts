@@ -1,10 +1,11 @@
 import { projectMenu } from "./menuProbe";
+import type { SubscribeParams } from "@contracts/SubscribeParams";
 import type { Event as DaemonEvent } from "@contracts/Event";
 import type { RpcMethodName, RpcMethods } from "@contracts/methods";
 import { OWN_CONTRACT } from "../app/contractMatch";
 import { RpcError } from "../app/seam";
 import { menuProbe, probeQuestion, probeRemovalQuestion, questionProbe } from "./menuProbe";
-import type { AppSeam, RemovalQuestion, RemovalAnswer, NativeOpen, NativeQuestion, DaemonExit, DaemonExited, FileDrop, MenuItem, OpenTarget, OutputMessage, PastedImage, Project, StateAlert } from "../app/seam";
+import type { AppSeam, RemovalQuestion, RemovalAnswer, NativeOpen, NativeQuestion, DaemonExit, DaemonExited, FileDrop, MenuItem, OpenTarget, OutputMessage, PastedImage, Project, StateAlert, MenuBar, MenuBarAction } from "../app/seam";
 
 const CONFLICT = -32003;
 
@@ -45,6 +46,8 @@ const emptyReads: Handlers = {
 export type FakeOutputSubscription = { id: string; offset: number; listener: (message: OutputMessage) => void; released: boolean };
 
 export type FakeApp = AppSeam & {
+  menuBar: MenuBar | null;
+  menuBarAction(action: MenuBarAction): void;
   nativeOpen(request: NativeOpen): void;
   questions: NativeQuestion[];
   removalQuestions: RemovalQuestion[];
@@ -55,8 +58,8 @@ export type FakeApp = AppSeam & {
   calls: { method: RpcMethodName; params: unknown }[];
   handlers: Handlers;
   emit(event: DaemonEvent): void;
-  /** Every `subscribe` call so far with the `after` it asked to replay from, and the `head` the Daemon answers. */
-  subscribed: { after: number | undefined }[];
+  /** Every `subscribe` call so far with the replay it requested, and the `head` the Daemon answers. */
+  subscribed: SubscribeParams[];
   head: number;
   /** Every `selectOutput` call so far, in call order. */
   outputSubscriptions: FakeOutputSubscription[];
@@ -78,6 +81,7 @@ export type FakeApp = AppSeam & {
   dropFiles(drop: FileDrop): void;
   /** Every target `open_target` was called with, in order; `openFailure` is what it rejects with. */
   openedTargets: OpenTarget[];
+  attemptedTargets: OpenTarget[];
   openFailure: RpcError | null;
   /** Every path `open_in_editor` was called with, in order; `editorFailure` is what it rejects with. */
   editorOpened: string[];
@@ -125,6 +129,7 @@ export type FakeApp = AppSeam & {
 const folderOf = (path: string): string => path.split("/").pop() ?? path;
 
 export const createFakeApp = (): FakeApp => {
+  const menuBarListeners = new Set<(action: MenuBarAction) => void>();
   const nativeListeners = new Set<(request: NativeOpen) => void>();
   let onEvent: ((event: DaemonEvent) => void) | null = null;
   const live = new Map<string, FakeOutputSubscription>();
@@ -141,6 +146,15 @@ export const createFakeApp = (): FakeApp => {
   let naming = { automaticRenaming: true, namingGuide: "Use three hyphen-separated words: role-verb-object, within 32 characters." };
 
   const app: FakeApp = {
+    menuBar: null,
+    showWindow: async () => {},
+    setMenuBar: async menu => { app.menuBar = menu; },
+    onMenuBarAction: async listener => {
+      menuBarListeners.add(listener);
+
+      return () => { menuBarListeners.delete(listener); };
+    },
+    menuBarAction: action => menuBarListeners.forEach(listener => listener(action)),
     recentProjects: async () => [],
     claudeBinary: async () => ({ path: "/fake/claude", version: "1.0.0" }),
     onNativeOpen: async listener => {
@@ -168,6 +182,7 @@ export const createFakeApp = (): FakeApp => {
     windowOperations: [],
     windowTitleHandler: null,
     openedTargets: [],
+    attemptedTargets: [],
     openFailure: null,
     editorOpened: [],
     editorCalls: [],
@@ -307,6 +322,9 @@ export const createFakeApp = (): FakeApp => {
         ask: app.ask,
         askRemoval: app.askRemoval,
         setDockBadge: app.setDockBadge,
+        showWindow: app.showWindow,
+        setMenuBar: app.setMenuBar,
+        onMenuBarAction: app.onMenuBarAction,
         stateAlert: app.stateAlert,
         onStateAlertClicked: app.onStateAlertClicked,
         setWindowTitle: app.setWindowTitle,
@@ -386,9 +404,9 @@ export const createFakeApp = (): FakeApp => {
 
       return handler(params);
     },
-    subscribe: async (listener, after) => {
+    subscribe: async (listener, params) => {
       onEvent = listener;
-      app.subscribed.push({ after });
+      app.subscribed.push(params ?? {});
 
       return app.head;
     },
@@ -410,6 +428,8 @@ export const createFakeApp = (): FakeApp => {
       };
     },
     openTarget: async (target) => {
+      app.attemptedTargets.push(target);
+
       if (app.openFailure) throw app.openFailure;
 
       app.openedTargets.push(target);

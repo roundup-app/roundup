@@ -20,6 +20,8 @@ mod event_log;
 mod evidence;
 mod extensions;
 mod github;
+#[cfg(test)]
+mod group_tests;
 mod guards;
 mod link;
 #[cfg(test)]
@@ -437,7 +439,7 @@ fn test_daemon_with_agents(
 }
 
 /// Process-free domain fixture, using the existing lifecycle and inbox traits.
-#[cfg(feature = "test-support")]
+#[cfg(any(test, feature = "test-support"))]
 pub mod test_support {
     use super::*;
     use async_trait::async_trait;
@@ -448,6 +450,7 @@ pub mod test_support {
     #[derive(Default)]
     pub struct ReplyState {
         bus: Bus,
+        pub messages: std::sync::OnceLock<std::sync::Weak<messages::Messages>>,
         pub nodes: Mutex<Vec<RailNode>>,
         pub entries: Mutex<Vec<(String, u32, String, String)>>,
         pub written: tokio::sync::Notify,
@@ -572,6 +575,8 @@ pub mod test_support {
             .unwrap(),
         );
         messages.set_inbox(state.clone());
+        assert!(state.messages.set(Arc::downgrade(&messages)).is_ok());
+        messages.listen();
         daemon.register(messages);
         daemon.register(state.clone());
         daemon.start_pushes();

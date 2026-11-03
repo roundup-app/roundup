@@ -1,6 +1,6 @@
 import { expect, it } from "vitest";
 import { readFileSync } from "node:fs";
-import { checkCopy } from "./guard.mjs";
+import { checkCopy, checkKeys } from "./guard.mjs";
 
 const ROOT = new URL("../src/", import.meta.url).pathname;
 
@@ -249,4 +249,89 @@ it("u471_copy_guard_accepts_the_recovery_name", () => {
 it("u5205_copy_guard_exempts_only_the_named_long_label", () => {
   expect(rules(fixture('message: "Quick add from any app"'))).not.toContain("label-length");
   expect(rules(fixture('message: "Quick add from every app"'))).toContain("label-length");
+});
+
+it.each([
+  'const view = <button aria-keyshortcuts="Meta+N" />;',
+  'const copied = "Meta+N"; const view = <button aria-keyshortcuts={copied} />;',
+  'const view = <kbd>N</kbd>;',
+  'const view = <KeyChip keys={shortcutLabel("meta+KeyN")} />;',
+  'const copied = "meta+KeyN"; const view = <KeyChip keys={shortcutLabel(copied)} />;',
+  'const copied = "⌘N"; const row = CHORDS.find(row => row.keys === copied);',
+  'import { CHORDS as rows } from "../keys/chords"; const row = rows.find(row => row.keys === "⌘N");',
+  'const rows = CHORDS; const row = rows.find(row => row.keys === "⌘N");',
+  'const row = [...CHORDS].find(row => row.keys === "⌘N")!;',
+  'import { CHORDS as chords } from "../keys/chords"; const rows = [...chords]; const row = rows.find(({ keys }) => keys === "⌘N");',
+  'const row = CHORDS.slice().find(row => row.keys === "⌘N");',
+  'const row = Array.from(CHORDS).find(row => row.keys === "⌘N");',
+  'const row = Array.of(...CHORDS).find(row => row.keys === "⌘N");',
+  'const row = copyRows(CHORDS).find(row => row.keys === "⌘N");',
+  'const row = ([...CHORDS] as readonly Chord[]).find(row => row.keys === "⌘N");',
+  'const row = [].concat(CHORDS).find(row => row.keys === "⌘N");',
+  'const row = CHORDS.concat([]).find(row => row.keys === "⌘N");',
+  'const row = CHORDS.toSorted().toReversed().find(row => row.keys === "⌘N");',
+  'const row = CHORDS.filter(row => row.inShelf).find(row => row.keys === "⌘N");',
+  'const row = CHORDS.find(row => defaultKeys(row) === "⌘N");',
+  'const row = CHORDS.find(({ keys }) => keys === "⌘N");',
+  'const row = CHORDS.find(({ keys: display }) => display === "⌘N");',
+  'const row = CHORDS.filter(row => row.keys === "⌘N")[0];',
+  'const row = CHORDS.filter(({ keys }) => keys === "⌘N")[0];',
+  'const matches = (row: Chord) => row.keys === "⌘N"; const row = CHORDS.find(matches)!;',
+  'function matches({ keys }: Chord) { return keys === "⌘N"; } const row = CHORDS.filter(matches)[0];',
+  'import { matches } from "./selectors"; const row = CHORDS.find(matches);',
+  'const matches = (row: Chord) => row.keys === "⌘N"; const row = CHORDS.find(row => matches(row));',
+  'const format = (press: string) => shortcutLabel(press); const view = <KeyChip keys={format("meta+KeyN")} />;',
+  'const shortcut = ariaChord({...chordNamed("agent.new")!, presses: ["meta+KeyN"]});',
+])("u5557b_rejects_copied_shortcuts_or_a_second_renderer %s", source => {
+  expect(checkKeys({ 'app/view.tsx': source }).map(row => row.rule)).toContain('key-source');
+});
+
+it.each([
+  'const view = <button aria-keyshortcuts={ariaChord(chordNamed("agent.new"))} />;',
+  'const row = CHORDS.find(({ name }) => name === "agent.new");',
+  'const row = [...CHORDS].find(row => row.name === "agent.new");',
+  'const row = CHORDS.slice().find(row => row.name === "agent.new");',
+  'const row = Array.from(CHORDS).find(row => row.name === "agent.new");',
+  'const row = [].concat(CHORDS).find(row => row.name === "agent.new");',
+  'const row = CHORDS.toSorted().toReversed().find(row => row.name === "agent.new");',
+  'const row = CHORDS.filter(row => row.inShelf).find(row => row.name === "agent.new");',
+  'const rows = [{ keys: "text" }]; const row = rows.find(row => row.keys === "text");',
+  'const rows = CHORDS.filter(row => row.inShelf && row.name !== "todo.triage-enter");',
+  'const rows = CHORDS.filter(row => ["edit.undo", "edit.redo"].includes(row.name));',
+  'const row = CHORDS.find(row => row.presses.includes(press));',
+])("u5557b_accepts_live_registry_shortcuts %s", source => {
+  expect(checkKeys({ 'app/view.tsx': source })).toEqual([]);
+});
+
+const namespaceLookups = [
+  ['registry', 'registry.CHORDS', ''],
+  ['shortcuts', 'shortcuts.CHORDS', ''],
+  ['registry', 'rows', 'const rows = registry.CHORDS;'],
+];
+
+it.each(namespaceLookups)("u5728a_namespace_display_lookups_are_rejected %s %s", (binding, rows, alias) => {
+  const source = `import * as ${binding} from "../keys/chords";
+${alias}
+const row = ${rows}.find(row => row.keys === "⌘N")!;
+const view = <KeyChip keys={row.keys} />;`;
+
+  expect(checkKeys({ 'app/view.tsx': source })).toEqual([
+    { rule: 'key-source', message: 'app/view.tsx:3: keys must come from the registry; only KeyChip emits kbd' },
+  ]);
+});
+
+it.each(namespaceLookups)("u5728b_namespace_action_name_lookups_are_accepted %s %s", (binding, rows, alias) => {
+  const source = `import * as ${binding} from "../keys/chords";
+${alias}
+const row = ${rows}.find(row => row.name === "agent.new")!;
+const view = <KeyChip keys={row.keys} />;`;
+
+  expect(checkKeys({ 'app/view.tsx': source })).toEqual([]);
+});
+
+it.each([
+  'import * as registry from "./chords"; const row = registry.CHORDS.find(row => row.keys === "text");',
+  'import * as registry from "../keys/chords"; function local(registry) { return registry.CHORDS.find(row => row.keys === "text"); }',
+])("u5728b_namespace_checks_preserve_unrelated_bindings %s", source => {
+  expect(checkKeys({ 'app/view.tsx': source })).toEqual([]);
 });

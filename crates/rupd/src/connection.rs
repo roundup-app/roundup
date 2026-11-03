@@ -134,6 +134,7 @@ pub(crate) async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Resul
             Some(
                 "daemon.getNaming"
                     | "daemon.setNaming"
+                    | "rail.group"
                     | "rail.rename"
                     | "rail.setAlertLevel"
                     | "workstream.setAuto"
@@ -142,6 +143,7 @@ pub(crate) async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Resul
                     | "agent.interrupt"
                     | "agent.prompt"
                     | "agent.setOrder"
+                    | "agent.setVisibility"
                     | "agent.resume"
                     | "agent.instructions"
             )

@@ -46,7 +46,7 @@ struct Field {
 
 impl Field {
     fn flag(&self) -> String {
-        self.name.replace('_', "-")
+        kebab(&self.name)
     }
 }
 
@@ -451,6 +451,7 @@ fn tree(specs: &[Spec]) -> Command {
     for noun in nouns {
         let mut group = Command::new(noun.to_owned())
             .about(format!("Commands on {noun}s"))
+            .flatten_help(true)
             .after_help(NAMES_HELP)
             .subcommand_required(true);
         let mut inner: Vec<Command> = Vec::new();
@@ -932,6 +933,7 @@ async fn events(spec: &Spec, leaf: &ArgMatches) -> ExitCode {
         Err(_) => return bad_usage("--after takes an Event number, 0 or more"),
     };
     let follow = leaf.get_flag("follow");
+    let kept = leaf.get_flag("kept");
     let subscribe = async {
         let socket = rpc::socket_path().map_err(|err| Failure::Gone(err.to_string()))?;
         let shown = socket.display().to_string();
@@ -939,7 +941,7 @@ async fn events(spec: &Spec, leaf: &ArgMatches) -> ExitCode {
             .await
             .map_err(|err| gone(&shown, err))?;
         let answer = client
-            .request(spec.method, contracts::SubscribeParams { after })
+            .request(spec.method, contracts::SubscribeParams { after, kept })
             .await
             .map_err(Failure::Rpc)?;
         Ok::<_, Failure>((client, answer))
@@ -957,7 +959,7 @@ async fn events(spec: &Spec, leaf: &ArgMatches) -> ExitCode {
         Err(failure) => return fail(spec, &failure),
     };
     let head = answer["head"].as_u64().unwrap_or_default();
-    let mut last = after;
+    let mut last = after.or(kept.then_some(0));
     if !follow && last.is_none_or(|last| last >= head) {
         return ExitCode::from(DONE);
     }

@@ -21,12 +21,13 @@ import type { Kind } from "@contracts/Kind";
 import { Icon } from "../ink/Icon";
 import { mergeProps } from "@zag-js/solid";
 import { StatusTip } from "../ink/StatusTip";
+import { byUrgency } from "../ink/glyph";
 import { KindGlyph } from "../ink/KindGlyph";
 import { FailureLine } from "../ink/FailureLine";
-import { agentKindsBelow, isWorkstream } from "./layout";
+import { agentKindsBelow, descendantsOf, isWorkstream } from "./layout";
 import { Trunks } from "../ui/TreeView";
-import type { NodeRow } from "./layout";
-import { createAgentPads, PadsControl } from "./pads/AgentPads";
+import type { NodeRow, RailTopology } from "./layout";
+import { PadsControl } from "./pads/AgentPads";
 import { draftsOf } from "./persist/storage";
 
 /** What Ark's item and branch control take for the row's own element. */
@@ -111,6 +112,7 @@ const NameField = (props: { node: RailNode; onCommit: (name: string) => Promise<
 
 export const RailRowView = (props: {
   actions: RowActions; doorAction?: JSX.Element;
+  topology: RailTopology; todoCount: number;
   row: NodeRow; rootDivider?: boolean; selected: boolean; multiple: boolean; tabbable: boolean; branch: boolean;
   copyWith?: (feedback: ReturnType<typeof createCopyFeedback>) => () => void;
   editing: boolean; onEditing: (editing: boolean) => void; onToggle: () => void;
@@ -121,7 +123,6 @@ export const RailRowView = (props: {
   onOpenMenu: (x: number, y: number) => void;
 }) => {
   const connected = useConnectedProject();
-  const pads = createAgentPads(() => props.row.node);
   const copied = createCopyFeedback();
   const unregisterCopy = props.copyWith?.(copied);
   onCleanup(() => unregisterCopy?.());
@@ -134,10 +135,13 @@ export const RailRowView = (props: {
   const workstream = () => isWorkstream(props.row.node);
   const cutName = createCutTitle(() => props.row.node.name);
 
-  const kind = (): Kind | null => {
-    const kinds = [connected.rail.dismissed(props.row.node) ? "idle" as const : props.row.node.status?.kind, ...(workstream() && props.row.collapsed !== null ? agentKindsBelow(connected.rail.nodes, props.row.node.id, connected.rail.dismissed) : [])];
+  const isGroup = () => props.row.node.kind === "group";
+  const isContainer = () => workstream() || isGroup();
 
-    return (["error", "needs-you", "blocked", "working", "done", "idle"] as const).find(kind => kinds.includes(kind)) ?? null;
+  const kind = (): Kind | null => {
+    const kinds = [connected.rail.dismissed(props.row.node) ? "idle" as const : props.row.node.status?.kind, ...(isContainer() && props.row.collapsed !== null ? agentKindsBelow(props.topology, props.row.node.id, connected.rail.dismissed) : [])];
+
+    return byUrgency(kinds.filter((kind): kind is Kind => kind !== undefined))[0] ?? null;
   };
 
   const statusLabel = () => {
@@ -146,7 +150,7 @@ export const RailRowView = (props: {
     return status?.kind === "error" && connected.rail.dismissed(props.row.node) ? copy.dismissedFailure(status.label) : status?.label ?? "";
   };
 
-  const unread = () => connected.unseen.of(props.row.node.id) || (workstream() && props.row.collapsed !== null && connected.unseen.below(props.row.node.id));
+  const unread = () => connected.unseen.of(props.row.node.id) || (isContainer() && props.row.collapsed !== null && descendantsOf(props.topology, props.row.node.id).some(node => connected.unseen.of(node.id)));
 
   const queuedBadge = () => {
     const queued = workstream() ? connected.queue.entryOf(props.row.node.id) : null;
@@ -192,7 +196,7 @@ export const RailRowView = (props: {
       <Show when={workstream()}><IconButton class="rail-chevron row-control" aria-label={props.row.collapsed ? copy.expand : copy.collapse} aria-expanded={!props.row.collapsed} {...ownKeys} onClick={event => { event.stopPropagation(); props.onToggle(); }}><Icon name={props.row.collapsed ? "right" : "down"} /></IconButton></Show>
       <span class="row-state"><KindGlyph kind={kind() ?? "idle"} /></span>
       {name()}
-      <Show when={alertLevel(connected.rail.nodes, props.row.node) !== "default" && alertLevel(connected.rail.nodes, props.row.node)}>{level => <span class="alert-level" data-state="alert-level">{level()}</span>}</Show>
+      <Show when={alertLevel(props.topology, props.row.node) !== "default" && alertLevel(props.topology, props.row.node)}>{level => <span class="alert-level" data-state="alert-level">{level()}</span>}</Show>
       <Show when={props.row.collapsed?.agents.length}>{hidden => <span class="hidden-agents" data-state="collapsed" role="img" aria-label={copy.hiddenAgents(hidden())}>{hidden()}</span>}</Show>
       <Show when={unread()}><span class="unread-dot row-secondary" data-state="" role="img" aria-label={copy.unreadResult} /></Show>
       <Show when={queuedBadge()}>{badge => <span class="light queue-badge row-secondary">{badge()}</span>}</Show>
@@ -203,9 +207,10 @@ export const RailRowView = (props: {
         <Show when={worktreeFailure()}><span class="worktree-chip" data-state="unavailable" role="img" aria-label={copy.worktreeUnavailable}>{copy.worktreeUnavailableMark}</span></Show>
       </span></Show>
       <span class="row-tail">
-        <RowIcons actions={props.actions}>{props.doorAction}</RowIcons>
-        <Show when={!workstream()}><span class="row-controls"><span class="row-control-slot"><PadsControl pads={pads} agent={props.row.node.id} /></span></span></Show>
+        <Show when={!isGroup()}><RowIcons actions={props.actions}>{props.doorAction}</RowIcons></Show>
+        <Show when={!isContainer()}><span class="row-controls"><span class="row-control-slot"><PadsControl count={props.todoCount} agent={props.row.node.id} /></span></span></Show>
         <Show when={props.draggable}><Sortable.Handle label={copy.moveItem(props.row.node.name)} ref={props.handleRef} /></Show>
+        <Show when={isGroup()}><IconButton class="rail-group-chevron" aria-label={props.row.collapsed ? copy.expand : copy.collapse} aria-expanded={!props.row.collapsed} {...ownKeys} onClick={event => { event.stopPropagation(); props.onToggle(); }}><Icon name={props.row.collapsed ? "right" : "down"} /></IconButton></Show>
       </span>
     </p>
     <Show when={!workstream() && (props.selected || !connected.rail.dismissed(props.row.node))}><FailureLine status={props.row.node.status} dismissed={connected.rail.dismissed(props.row.node)} /></Show>

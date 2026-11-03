@@ -1,3 +1,4 @@
+import { createAgentPads } from "./pads/AgentPads";
 import { createMove, MovePicker } from "./MovePicker";
 import { WorkProgress } from "../orders/WorkProgress";
 import { EmptyRail } from "../app/FirstRun";
@@ -49,6 +50,7 @@ export const Rail = () => {
   const { app, project, rail, daemonExit } = connected;
   const recoveryEntries = useRecoveryMenu();
 
+  const todoCount = createAgentPads();
   const attention = createMemo(() => attentionCount(rail.nodes, rail.dismissed));
   const [scrolled, setScrolled] = createSignal(false);
   const collapsed = rail.collapsed;
@@ -166,7 +168,7 @@ export const Rail = () => {
 
   const endCompose = () => setComposing(false);
 
-  const { sectionRows, rows, collection, expanded, entryOf, nodeRows, nodeIds, indexOf, treeRows, byKey } = createRailTree(connected, unfolded, id => rowElement(id));
+  const { topology, sectionRows, rows, collection, expanded, entryOf, nodeRows, nodeIds, indexOf, treeRows, byKey } = createRailTree(connected, unfolded, id => rowElement(id));
 
 
   /** U38: mounting follows the first tree answer; fetch failure takes precedence. */
@@ -199,7 +201,7 @@ export const Rail = () => {
     const visible = current.some(row => row.kind === "node" ? row.node.id === id : row.key === id);
 
     if (visible) return;
-    const ancestors = id.startsWith("fold:") ? [id.slice(5), ...ancestorsOf(rail.nodes, id.slice(5))] : ancestorsOf(rail.nodes, id);
+    const ancestors = id.startsWith("fold:") ? [id.slice(5), ...ancestorsOf(topology(), id.slice(5))] : ancestorsOf(topology(), id);
     const parent = ancestors.find(ancestor => current.some(row => row.kind === "node" && row.node.id === ancestor));
 
     if (!parent) return;
@@ -209,10 +211,14 @@ export const Rail = () => {
   }));
 
   const openRow = (id: string) => {
+    if (rail.nodes.some(node => node.id === id && node.kind === "group")) { rail.select(id);
+
+ return; }
+
     const node = rail.nodes.find(each => each.id === id);
 
     const attention = node?.kind === "workstream" && node.status?.kind !== "needs-you"
-      ? rail.nodes.find(each => each.status?.kind === "needs-you" && ancestorsOf(rail.nodes, each.id).includes(id)) : undefined;
+      ? rail.nodes.find(each => each.status?.kind === "needs-you" && ancestorsOf(topology(), each.id).includes(id)) : undefined;
 
     rail.select(attention?.id ?? id);
     queueMicrotask(() => document.querySelector<HTMLElement>(".pane-screen textarea, .pane-screen [tabindex]")?.focus());
@@ -279,7 +285,7 @@ export const Rail = () => {
 
     const anchor = treeRows().filter((row) => row.parent === parent && row.id !== id)[shown - 1];
 
-    return anchor === undefined ? shown : siblingsOf(rail.nodes, parent).filter((node) => node.id !== id).findIndex((node) => node.id === anchor.id) + 1;
+    return anchor === undefined ? shown : siblingsOf(topology(), parent).filter((node) => node.id !== id).findIndex((node) => node.id === anchor.id) + 1;
   };
 
   const moveTo = ({ id, parent, index }: SortableMove) => {
@@ -380,6 +386,8 @@ export const Rail = () => {
 
       return actions;
     }
+
+    if (node.kind === "group") return { ...base, kind: "group" };
 
     const exit = rail.exitOf(node);
     const actions: Extract<RowActions, { kind: "agent" }> = { ...base, kind: "agent" };
@@ -508,12 +516,12 @@ export const Rail = () => {
 
   /** U32, U33: `⌘N` adds an Agent or returns to the open field; `⇧⌘N` opens the field. A kept key acts once. U31, U56, U358: the row menu and `⌘⌫` act on a focused row only; the keys of a control inside a row are its own. */
   registerKeys({ kind: "app" }, [
-    { action: CHORDS.find(row => row.keys === "M" && row.inRail)!, when: press => moveAgent.available(focusedRowId(press)), capture: focus => {
+    { action: CHORDS.find(row => row.name === "rail.move")!, when: press => moveAgent.available(focusedRowId(press)), capture: focus => {
       const id = focus instanceof HTMLElement && focus.matches(ROW) ? focus.closest<HTMLElement>("[data-id]")?.dataset.id : undefined;
 
       return { available: () => !!id && !!focus?.isConnected && moveAgent.available(id), invoke: () => { if (id) moveAgent.open(id); } };
     } },
-    { action: CHORDS.find(row => row.keys === "R" && row.inRail)!, when: press => rail.nodes.some(node => node.id === focusedRowId(press) && node.kind === "workstream" && !!node.opening_prompt?.trim()), capture: focus => {
+    { action: CHORDS.find(row => row.name === "agent.restart-mode")!, when: press => rail.nodes.some(node => node.id === focusedRowId(press) && node.kind === "workstream" && !!node.opening_prompt?.trim()), capture: focus => {
       const id = focus instanceof HTMLElement && focus.matches(ROW) ? focus.closest<HTMLElement>("[data-id]")?.dataset.id : undefined;
 
       return {
@@ -521,19 +529,19 @@ export const Rail = () => {
         invoke: () => { if (id) void menu.restartSession(id); },
       };
     } },
-    { action: CHORDS.find((row) => row.keys === "⌘N")!, match: "key", capture: () => ({ available: () => composing() || canSpawn(), invoke: () => {
+    { action: CHORDS.find((row) => row.name === "agent.new")!, match: "key", capture: () => ({ available: () => composing() || canSpawn(), invoke: () => {
       if (composing()) field()?.focus();
       else spawnAgent();
     } }) },
-    { action: { ...CHORDS.find((row) => row.keys === "⇧⌘N")!, get what() { return isEmpty() ? copy.newWorkstreamTitle : copy.newAgentWithAPrompt; } }, match: "key", capture: () => ({ available: canSpawn, invoke: args => { if (isEmpty()) guarded(() => rail.createWorkstream()); else openCompose(args?.prompt); } }) },
-    { action: CHORDS.find(row => row.keys === "⌥⌘N")!, capture: () => ({ available: canSpawn, invoke: createWorkstream }) },
-    { action: CHORDS.find(row => row.keys === "⇧⌘M")!, capture: () => ({ available: canSpawn, invoke: () => setCreatingMode(true) }) },
+    { action: { ...CHORDS.find((row) => row.name === "agent.new-with-prompt")!, get what() { return isEmpty() ? copy.newWorkstreamTitle : copy.newAgentWithAPrompt; } }, match: "key", capture: () => ({ available: canSpawn, invoke: args => { if (isEmpty()) guarded(() => rail.createWorkstream()); else openCompose(args?.prompt); } }) },
+    { action: CHORDS.find(row => row.name === "workstream.new")!, capture: () => ({ available: canSpawn, invoke: createWorkstream }) },
+    { action: CHORDS.find(row => row.name === "mode.new")!, capture: () => ({ available: canSpawn, invoke: () => setCreatingMode(true) }) },
     { chords: ["ContextMenu", "Shift+F10"], when: (press) => focusedRowId(press) !== undefined, run: openMenuAtFocusedRow },
     { chords: ["ContextMenu", "Shift+F10"], when: (press) => press.target instanceof HTMLElement && press.target.matches("[data-todo-root]"), run: openOverviewMenu },
-    { action: CHORDS.find((row) => row.keys === "⌘⌫")!, when: (press) => focusedRowId(press) !== undefined, capture: (focus) => ({ available: () => focus instanceof HTMLElement && focus.isConnected && focus.matches(ROW) && rail.nodes.some((node) => node.id === rail.selected()) && daemonExit() === null, invoke: () => removeSelected(false) }) },
+    { action: CHORDS.find((row) => row.name === "rail.remove")!, when: (press) => focusedRowId(press) !== undefined, capture: (focus) => ({ available: () => focus instanceof HTMLElement && focus.isConnected && focus.matches(ROW) && rail.nodes.some((node) => node.id === rail.selected()) && daemonExit() === null, invoke: () => removeSelected(false) }) },
   ]);
 
-  registerKeys({ kind: "region", element: container }, [{ action: CHORDS.find(row => row.keys === "F2")!, capture: focus => {
+  registerKeys({ kind: "region", element: container }, [{ action: CHORDS.find(row => row.name === "rail.rename")!, capture: focus => {
     const id = focus instanceof HTMLElement && focus.matches(ROW) ? focus.closest<HTMLElement>("[data-id]")?.dataset.id : undefined;
 
     return {
@@ -567,7 +575,7 @@ export const Rail = () => {
 
   return (
     <>
-    <MovePicker target={moveAgent.target()} destinations={moveAgent.destinations()} close={moveAgent.close} choose={(id, parent) => { void moveAgent.move({ id, parent, index: siblingsOf(rail.nodes, parent).length }); }} />
+    <MovePicker target={moveAgent.target()} destinations={moveAgent.destinations()} close={moveAgent.close} choose={(id, parent) => { void moveAgent.move({ id, parent, index: siblingsOf(topology(), parent).length }); }} />
     <button
       type="button"
       data-button="quiet"
@@ -710,6 +718,8 @@ export const Rail = () => {
                         <Sortable.Item id={view().node.id} index={indexOf().get(view().node.id) ?? 0} disabled={daemonExit() !== null}>{(parts) =>
                         <RailRowView
                           row={view()}
+                          topology={topology()}
+                          todoCount={todoCount(view().node.id)}
                           actions={actionsOf(view().node)}
                           doorAction={<Show when={isWorkstream(view().node) && !view().node.opening_prompt?.trim() && rail.exitOf(view().node) !== null && !connected.queue.entryOf(view().node.id)}><IconButton aria-label={rail.doorFailure(view().node.id) ? copy.retryDoor : copy.startDoor} aria-disabled={rail.doorPending(view().node.id)} onKeyDown={event => event.stopPropagation()} onClick={event => { event.stopPropagation(); failure.clear(); rail.clearWorkstreamFailure(); void rail.startDoor(view().node.id); }}><Icon name="play" /></IconButton></Show>}
                           rootDivider={collection().isBranchNode(entryOf(view().node.id).node) && view().key !== sectionRows().find(each => each.id === section.id)?.rows[0]?.key}

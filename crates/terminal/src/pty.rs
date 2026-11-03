@@ -138,15 +138,14 @@ impl Shared {
         }
     }
 
-    /// X17: one reply per query, in the order asked, from the scheme the App last set.
+    /// X17: one reply per query, in the order asked; all but XTVERSION wait for the scheme the App last set.
     pub(super) fn answer(&self, number: u64, requests: &[scheme::Request]) {
-        let Some(palette) = *self.scheme.lock().expect("terminal scheme lock") else {
-            return;
-        };
+        let palette = *self.scheme.lock().expect("terminal scheme lock");
         let replies: Vec<u8> = requests
             .iter()
             .filter_map(|request| match request {
-                scheme::Request::Ask(query) => Some(palette.answer(*query)),
+                scheme::Request::Ask(scheme::Query::Version) => Some(scheme::version()),
+                scheme::Request::Ask(query) => palette.map(|palette| palette.answer(*query)),
                 scheme::Request::Notices(_) => None,
             })
             .flatten()

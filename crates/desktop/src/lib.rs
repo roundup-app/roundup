@@ -9,6 +9,7 @@ mod facts;
 mod idle;
 mod launch;
 mod menu;
+mod menu_bar;
 mod open;
 mod paste;
 mod state;
@@ -61,6 +62,7 @@ pub fn build<R: Runtime>(
         .manage(AppState::new(config))
         .manage(menu::Choice::default())
         .manage(menu::ProjectMenu::default())
+        .manage(menu_bar::MenuBar::<R>::default())
         .menu(menu::app_menu)
         .on_menu_event(|app, event| handle_menu_event(app, &event))
         .invoke_handler(invoke_handler())
@@ -122,6 +124,7 @@ fn invoke_handler<R: Runtime>() -> impl Fn(tauri::ipc::Invoke<R>) -> bool + Send
         open_in_editor,
         alert::state_alert,
         save_pasted_image,
+        menu_bar::set_menu_bar,
         menu::select_project_menu,
         menu::show_context_menu
     ];
@@ -245,9 +248,9 @@ async fn subscribe(
     state: State<'_, AppState>,
     path: String,
     channel: Channel<Event>,
-    after: Option<u64>,
+    params: Option<contracts::SubscribeParams>,
 ) -> Result<u64, RpcError> {
-    state.subscribe(&path, channel, after).await
+    state.subscribe(&path, channel, params).await
 }
 
 /// NA6: the webview answers the Daemon's relayed `action.list` and `action.run`.

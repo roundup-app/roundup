@@ -5,7 +5,7 @@ import { toggleStrongCommand, toggleEmphasisCommand, toggleInlineCodeCommand, wr
 import { captureFocus } from "../keys/focus";
 import { ReservedLine } from "../ink/ReservedLine";
 import { copy } from "./copy";
-import { createEffect, createSignal, createUniqueId, onCleanup, onMount, useContext } from "solid-js";
+import { Show, createEffect, createSignal, createUniqueId, onCleanup, onMount, useContext } from "solid-js";
 import { Portal } from "solid-js/web";
 import { CrepeBuilder } from "@milkdown/crepe/builder";
 import { blockEdit } from "@milkdown/crepe/feature/block-edit";
@@ -26,6 +26,7 @@ import { getMarkdown, replaceAll } from "@milkdown/kit/utils";
 import { sourceForDocument } from "./sourceForDocument";
 import { visualBlocks } from "./visualBlocks";
 import { agentDetailsRemark, agentDetailsNode, agentDetailsView } from "./agentDetails";
+import { headingFolds } from "./headingFolds";
 import { visualKinds } from "./visualKinds";
 import "./editor.css";
 import "../ui/reading.styles.css";
@@ -64,13 +65,13 @@ const topBarNames = new Map([
 const toolbarKeys = new Set(["heading-selector", "bold", "italic", "code", "link", "bullet-list", "ordered-list", "task-list", "quote", "code-block", "table"]);
 
 const toolbarCommands = [
-  { key: "bold", action: CHORDS.find(action => action.keys === "⌘B")!, label: copy.bold, command: toggleStrongCommand },
-  { key: "italic", action: CHORDS.find(action => action.keys === "⌘I")!, label: copy.italic, command: toggleEmphasisCommand },
-  { key: "quote", action: CHORDS.find(action => action.keys === "⇧⌘B")!, label: copy.quote, command: wrapInBlockquoteCommand },
-  { key: "bullet-list", action: CHORDS.find(action => action.keys === "⌥⌘8")!, label: copy.bulletList, command: wrapInBulletListCommand },
-  { key: "ordered-list", action: CHORDS.find(action => action.keys === "⌥⌘7")!, label: copy.numberedList, command: wrapInOrderedListCommand },
-  { key: "code-block", action: CHORDS.find(action => action.keys === "⌥⌘C")!, label: copy.codeBlock, command: createCodeBlockCommand, clearTextInCurrentBlockCommand },
-  { key: "code", action: CHORDS.find(action => action.keys === "⌘E")!, label: copy.inlineCode, command: toggleInlineCodeCommand },
+  { key: "bold", action: CHORDS.find(action => action.name === "terminal.switch")!, label: copy.bold, command: toggleStrongCommand },
+  { key: "italic", action: CHORDS.find(action => action.name === "editor.italic")!, label: copy.italic, command: toggleEmphasisCommand },
+  { key: "quote", action: CHORDS.find(action => action.name === "editor.quote")!, label: copy.quote, command: wrapInBlockquoteCommand },
+  { key: "bullet-list", action: CHORDS.find(action => action.name === "editor.bullet-list")!, label: copy.bulletList, command: wrapInBulletListCommand },
+  { key: "ordered-list", action: CHORDS.find(action => action.name === "editor.numbered-list")!, label: copy.numberedList, command: wrapInOrderedListCommand },
+  { key: "code-block", action: CHORDS.find(action => action.name === "editor.code-block")!, label: copy.codeBlock, command: createCodeBlockCommand, clearTextInCurrentBlockCommand },
+  { key: "code", action: CHORDS.find(action => action.name === "editor.inline-code")!, label: copy.inlineCode, command: toggleInlineCodeCommand },
 ];
 
 const normalHeading = (text: string) => text.replace(/^#+/, "").split(/\s+/).filter(Boolean).join(" ").toLowerCase();
@@ -87,9 +88,11 @@ export default function PadRichEditor(props: {
   onText: (text: string) => void;
   onBlur: (next: EventTarget | null) => void;
   onReady: (editor: PadEditorHandle) => void;
+  toolbar?: import("solid-js").JSX.Element;
   onSelection?: () => void;
 }) {
   const mountExpand = useContext(DrawerExpandContext);
+  const [toolbarHost, setToolbarHost] = createSignal<HTMLElement>();
   const menuId = createUniqueId();
   let menuObserver: MutationObserver | undefined;
   let host: HTMLDivElement | undefined;
@@ -132,30 +135,34 @@ export default function PadRichEditor(props: {
       buildMenu: (builder) => {
         if (props.item === "todo") return;
 
-        builder.getGroup("advanced").addItem("for-agents", {
-          label: copy.forAgents,
+        for (const shortcut of [false, true]) builder.getGroup("advanced").addItem(shortcut ? "for-agents" : "toggle", {
+          label: shortcut ? copy.forAgents : copy.toggle,
           icon: "",
           onRun: (ctx) => {
             const view = ctx.get(editorViewCtx);
             ctx.get(commandsCtx).call(clearTextInCurrentBlockCommand.key);
             const { $from } = view.state.selection;
             const tr = view.state.tr;
-            let found = false;
-            view.state.doc.forEach(node => { if (node.type.name === "pad_agent_details") found = true; });
+            let found: number | undefined;
+            view.state.doc.forEach((node, pos) => {
+              if (shortcut && node.type.name === "pad_agent_details" && /^<details>\s*<summary>For Agents<\/summary>/.test(node.textContent)) found = pos;
+            });
+            const label = shortcut ? copy.forAgents : copy.toggle;
+            let at = found ?? (shortcut ? view.state.doc.content.size : $from.before());
 
-            if (!found) {
-              const node = agentDetailsNode.type(ctx).create(null, view.state.schema.text(`<details>\n<summary>${copy.forAgents}</summary>\n\n\n\n</details>`));
-              tr.insert(view.state.doc.content.size, node);
+            if (found === undefined) {
+              const node = agentDetailsNode.type(ctx).create(null, view.state.schema.text(`<details>\n<summary>${label}</summary>\n\n\n\n</details>`));
+              tr.insert(at, node);
             }
 
-            if ($from.parent.type.name === "paragraph" && $from.parent.content.size === 0) tr.delete($from.before(), $from.after());
+            if ($from.parent.type.name === "paragraph" && $from.parent.content.size === 0) tr.delete(tr.mapping.map($from.before()), tr.mapping.map($from.after(), -1));
+            at = tr.mapping.map(at, -1);
             view.dispatch(tr);
+            const section = view.nodeDOM(at);
 
-            const section = view.dom.querySelector<HTMLDetailsElement>("details[data-pad-agents]");
-
-            if (section) {
+            if (section instanceof HTMLDetailsElement) {
               section.open = true;
-              section.querySelector("textarea")?.focus();
+              section.querySelector<HTMLElement>(shortcut ? "textarea" : "input")?.focus();
             }
           },
         });
@@ -243,7 +250,10 @@ export default function PadRichEditor(props: {
       ),
     );
 
-    crepe.editor.use(agentDetailsRemark).use(agentDetailsNode).use(agentDetailsView);
+    if (!props.label) {
+      crepe.editor.use(agentDetailsRemark).use(agentDetailsNode).use(agentDetailsView);
+      crepe.editor.use($prose(headingFolds));
+    }
 
     crepe.editor.use($prose(() => visualBlocks(visualKinds(), () => props.readonly)));
 
@@ -287,7 +297,9 @@ export default function PadRichEditor(props: {
 
       if (!field) throw new Error(copy.padEditorDidNotOpen);
 
-      mountExpand?.(host.querySelector<HTMLElement>(".milkdown-top-bar") ?? undefined);
+      const toolbar = host.querySelector<HTMLElement>(".milkdown-top-bar") ?? undefined;
+      setToolbarHost(toolbar);
+      mountExpand?.(toolbar);
 
       const buttons = host.querySelectorAll<HTMLButtonElement>(".milkdown-top-bar .top-bar-item");
 
@@ -507,6 +519,7 @@ export default function PadRichEditor(props: {
 
   return (
     <>
+      <Show when={toolbarHost()}>{target => <Portal mount={target()}><div class="pad-width-control">{props.toolbar}</div></Portal>}</Show>
       <Portal>
         <div class="pad-rich-editor pad-block-menu">
           <div class="milkdown" ref={(element) => (menuHost = element)} />

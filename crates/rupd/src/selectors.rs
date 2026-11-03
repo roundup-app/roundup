@@ -14,6 +14,7 @@ fn select(
     kind: NodeKind,
 ) -> Result<String, RpcError> {
     let (label, accepts): (&str, fn(&RailNode) -> bool) = match kind {
+        NodeKind::Group => ("Group", |node| node.kind == NodeKind::Group),
         NodeKind::Agent => ("Agent", is_agent),
         NodeKind::Workstream => ("Workstream", |node| node.kind == NodeKind::Workstream),
     };
@@ -188,7 +189,13 @@ impl Daemon {
             "todo.hand" => fields.push(("agent", false)),
             "message.send" | "message.list" => fields.push(("to", true)),
             "route.set" => {
-                fields.push(("from", true));
+                // Reserved sender identities keep their meaning even when an Agent shares the name.
+                if !params["from"]
+                    .as_str()
+                    .is_some_and(|from| from == Actor::daemon().id || from.starts_with("ext:"))
+                {
+                    fields.push(("from", true));
+                }
                 fields.push(("to", true));
             }
             "message.progress"
