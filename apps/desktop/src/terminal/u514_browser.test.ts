@@ -50,13 +50,15 @@ it.each([false, true])("u2680b_a_click_clears_browser_and_terminal_selections_st
   expect(await read<{ terminal: string; browser: boolean }>("({ terminal: window.__emu.selection(), browser: getSelection().isCollapsed })")).toEqual({ terminal: "", browser: true });
 }, 90_000);
 
-const app = async (base = false, mac = false) => {
+const app = async (base = false, mac = false, items = true) => {
   const seed = process.env.ROUNDUP_CAPTURES ? "tree-40" : "selection";
+
+  const views = `tabs=1${items ? "&view=workstreams&items=1" : ""}`;
 
   await batch(
     ["eval", "localStorage.clear()"],
-    ["open", url(mac ? `/src/terminal/u514.html?app&mac&seed=${seed}&renderer=dom&view=workstreams&items=1&tabs=1` : `/harness.html?seed=${seed}&renderer=dom`, base)],
-    ["wait", "--fn", "!!document.querySelector('.shelf-tabs')"]
+    ["open", url(mac ? `/src/terminal/u514.html?app&mac&seed=${seed}&renderer=dom&${views}` : `/harness.html?rest=1&seed=${seed}&renderer=dom&${views}`, base)],
+    ["wait", "--fn", items ? "!!document.querySelector('.shelf-tabs')" : "!!document.querySelector('.rail-row') && !!document.querySelector('.terminal-new')"]
   );
 };
 
@@ -123,7 +125,7 @@ it.each(["drag", "double-click"])(
   }, 60_000);
 
 it.each(["pane-across-shelf", "blank-bubbles-into-pane"])("u2680c_chrome_drag_and_double_click_leave_no_browser_selection_%s", async (surface) => {
-  const selector = await placement("bubble");
+  const selector = await placement("bubble", false, undefined, true);
 
   const from = surface === "pane-across-shelf" ? await point(".pane") : await read<{ x: number; y: number }>(`(() => {
     const box = document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect();
@@ -134,8 +136,8 @@ it.each(["pane-across-shelf", "blank-bubbles-into-pane"])("u2680c_chrome_drag_an
   expect(await read<boolean>("getSelection().isCollapsed")).toBe(true);
 }, 90_000);
 
-const placement = async (where: "agent" | "door" | "user" | "bubble", mac = false, text = "alpha bravo charlie ".repeat(256)) => {
-  await app(false, mac);
+const placement = async (where: "agent" | "door" | "user" | "bubble", mac = false, text = "alpha bravo charlie ".repeat(256), items = false) => {
+  await app(false, mac, items || !!process.env.ROUNDUP_CAPTURES);
 
   if (where === "bubble" || where === "user") {
     if (where === "bubble") await selectRow("payments");
@@ -213,7 +215,7 @@ const editorKinds = ["pad", "rename"] as const;
 
 const editor = async (kind: typeof editorKinds[number] | "pad-source" | "diff" | "ask", base = false) => {
   if (kind === "diff") await browser("eval", "localStorage.clear()");
-  else await app(base);
+  else await app(base, false, !!process.env.ROUNDUP_CAPTURES || kind === "pad" || kind === "pad-source");
 
   let selector: string;
 
