@@ -6,7 +6,7 @@ Scope: web test mounts and queries under `apps/desktop/`, the existing reporting
 
 ## Checks on main
 
-1. Full web workload and required aggregate gate: `.github/workflows/check.yml`, `jobs.plan`, `jobs.web` and `jobs.check`. A main push runs all seven web partitions on `ubuntu-24.04`; `test-web` has a 15-minute timeout and the job has a 35-minute timeout.
+1. Full web workload and required aggregate gate: `.github/workflows/check.yml`, `jobs.plan`, `jobs.web` and `jobs.check`. A main push runs all seven web partitions on `ubuntu-24.04`; `test-web` has a 20-minute timeout and the job has a 35-minute timeout.
 2. Existing reports and elapsed measurement: `tools/e14/observe.py`, `run`, `web_rows` and `evidence`; `tools/e14/reporter.mjs.in`, `LifecycleReporter.onTestRunEnd`; `apps/desktop/vite.config.ts`, `defineConfig` test reporters. Reports retain test identities, results and timing; Actions records the whole step interval separately from the observer's child-command interval.
 3. File timing including hooks: `loop/web-durations.py`, module docstring and stdin parser; `justfile`, `web-durations`. Prefer Vitest's printed file duration, which includes file hooks, to its JSON assertion interval, which omits them.
 4. Existing shard assignment: `apps/desktop/src/testing/shardSequencer.ts`, `TimedSequencer`; `apps/desktop/src/testing/shardDurations.json`; `justfile`, `test-web-since`. A full observation uses an empty base, not a PR's affected selection.

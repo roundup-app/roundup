@@ -380,7 +380,7 @@ jobs:
       matrix:
         partition: ${{ fromJSON(needs.plan.outputs.web_shards || '[1]') }}
     runs-on: ${{ fromJSON((vars.BOXD_CHECK == '1' || contains(fromJSON(vars.BOXD_CHECK || '[]'), github.event.pull_request.number)) && format('["self-hosted","boxd","roundup-check-web-{0}-{1}-{2}"]', github.run_id, github.run_attempt, matrix.partition) || '"ubuntu-24.04"') }}
-    # A cold Rust cache restore under a full runner pool makes setup build `rupd` for up to 16 min (2026-10-22); the test step has its own 15 min limit for a hung test.
+    # A cold Rust cache restore under a full runner pool makes setup build `rupd` for up to 16 min (2026-10-22); the test step has its own 20 min limit for a hung test.
     timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
@@ -426,7 +426,9 @@ jobs:
       - name: U26 concurrent cold Chromium
         run: python3 loop/app-data.py python3 tools/chromium-faults/observe.py --log "$RUNNER_TEMP/chromium-cold-faults-${{ matrix.partition }}.jsonl" -- node --experimental-strip-types tools/chromium-faults/cold.mts "$RUNNER_TEMP/chromium-cold-${{ matrix.partition }}.jsonl"
       - name: test-web
-        timeout-minutes: 15
+        # A full shard's vitest run takes about 890 s on ubuntu-24.04 (2026-11-03): 21 PR lanes in 6 h hit a 15 min
+        # limit while their tests still ran normally. CI5527 brings shards back under 10 min; the limit still stops a hung test.
+        timeout-minutes: 20
         run: |
           python3 -m pip install -r tools/e14/requirements.txt
           python3 tools/e14/observe.py run --lane web${{ matrix.partition }} --shards ${{ strategy.job-total }} --base "$BASE" --memory-log "$RUNNER_TEMP/e14-memory.jsonl" --output "$RUNNER_TEMP/e14/web${{ matrix.partition }}" --cache-state "setup action; restore outcomes in the run's setup log"
