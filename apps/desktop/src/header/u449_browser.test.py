@@ -4,6 +4,7 @@ from pathlib import Path
 import subprocess
 import sys
 import uuid
+from tempfile import TemporaryDirectory
 
 session = "builder-1104-" + uuid.uuid4().hex
 origin, output, native_output = sys.argv[1:4]
@@ -11,10 +12,11 @@ variant = sys.argv[4] if len(sys.argv) > 4 else "head"
 if variant not in ("head", "base"):
     raise ValueError("variant must be head or base")
 records = []
+profile = TemporaryDirectory(prefix="u449-")
 
 
 def browser(*args):
-    result = subprocess.run(["agent-browser", "--session", session, "--json", *args],
+    result = subprocess.run(["agent-browser", "--session", session, "--profile", profile.name, "--json", *args],
                             text=True, capture_output=True, timeout=40)
     if result.returncode or not result.stdout:
         raise RuntimeError(f"{args}: {result.stderr or result.stdout}")
@@ -37,12 +39,12 @@ read = r"""(() => {
   if(title)titleRange.selectNodeContents(title);
   const titleCss=title ? getComputedStyle(title) : null;
   const controls=[...document.querySelectorAll('.strip button,.tab-rename,.strip-edge,.tab-tip')].map(e=>({box:e.getBoundingClientRect().toJSON(),visible:getComputedStyle(e).visibility!=='hidden',name:e.className}));
-  return {width:innerWidth,bar:box('.header'),reserved:box('.traffic-lights'),title:box('.window-title'),titleText:title?.textContent ?? "",titleName:title?.getAttribute('aria-label') ?? "",titleTip:title?.title ?? "",
+  return {width:innerWidth,bar:box('.header'),reserved:box('.traffic-lights'),title:box('.window-title'),windowTitle:window.__fake.app.windowOperations.filter(op=>op.kind==='title').at(-1)?.title ?? "",titleName:title?.getAttribute('aria-label') ?? "",titleTip:document.getElementById(title?.getAttribute('aria-describedby'))?.textContent ?? "",
     titleStyle:{overflow:title ? getComputedStyle(title).textOverflow : "",whiteSpace:title ? getComputedStyle(title).whiteSpace : ""},
     titleTextWidth:title ? titleRange.getBoundingClientRect().width : 0,titlePadding:titleCss ? parseFloat(titleCss.paddingLeft)+parseFloat(titleCss.paddingRight) : 0,
     strip:box('.strip'),rail:box('.rail'),centre:box('.centre'),shelf:box('.shelf'),drawer:box('.drawer'),close:box('.drawer .close'),menu:box('.tab-menu'),
     centreSurfaces:[...document.querySelectorAll('.centre .order-line,.centre .thread-header')].map(e=>e.getBoundingClientRect().toJSON()),
-    checks:window.__checks(),controls,plus:box('.strip-add'),scroll:{width:document.querySelector('.tablist').clientWidth,total:document.querySelector('.tablist').scrollWidth}};
+    checks:window.__checks(),controls,plus:box('.strip-add'),scroll:{width:document.querySelector('.tablist')?.clientWidth ?? 0,total:document.querySelector('.tablist')?.scrollWidth ?? 0}};
 })()"""
 
 
@@ -50,7 +52,7 @@ def capture(name):
     result = evaluate(read)
     result["case"] = name
     records.append(result)
-    if output:
+    if output and evaluate("matchMedia('(prefers-color-scheme: dark)').matches"):
         directory = Path(output) / variant
         directory.mkdir(parents=True, exist_ok=True)
         (directory / (name + ".geometry.json")).write_text(json.dumps(result, separators=(",", ":")) + "\n")
@@ -209,8 +211,8 @@ try:
             browser("set", "media", scheme)
             for seed in ("first-run", "agents-10", "tabs-8", "tree-40"):
                 evaluate("localStorage.clear()")
-                browser("open", origin + "harness.html?seed=" + seed)
-                browser("wait", ".strip")
+                browser("open", origin + "harness.html?view=workstreams&items=1&tabs=1&renderer=dom&seed=" + seed)
+                browser("wait", ".window-bar" if seed == "first-run" else ".strip")
                 browser("wait", "--fn", "document.querySelector('.shelf').getBoundingClientRect().left < innerWidth")
                 if seed != "first-run":
                     browser("wait", ".rail [data-todo-root]")
@@ -277,7 +279,10 @@ try:
                         browser("wait", "--fn", "document.querySelector('.tablist').scrollWidth > document.querySelector('.tablist').clientWidth")
                     browser("wait", "--fn", "document.querySelector('[data-id=\"'+window.__longWorkstream+'\"]') !== null")
                     evaluate("document.querySelector('[data-id=\"'+window.__longWorkstream+'\"]').click()")
+                    browser("hover", ".window-title")
+                    browser("wait", "[role=tooltip][data-state=open]")
                     capture(prefix + "-overflow")
+                    browser("hover", ".centre")
                     evaluate("const list=document.querySelector('.tablist'),tab=list.querySelector('.tab-mark').closest('[role=tab]');list.scrollLeft=tab.closest('.project-tab').offsetLeft+20;tab.focus({preventScroll:true})")
                     browser("wait", ".tab-tip")
                     capture(prefix + "-tooltip")
