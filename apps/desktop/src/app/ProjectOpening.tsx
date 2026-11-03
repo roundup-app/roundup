@@ -89,7 +89,7 @@ export const createProjectOpening = (projects: ProjectsState, forProject: (path:
       if (!(error instanceof Error)) throw error;
 
       const retained = error instanceof RpcError && error.data?.kind === "start-failed" ? error.data : undefined;
-      const partial = created ?? (retained ? { ...retained, stage: "start" as const } : undefined);
+      const partial = created ?? (retained ? { ...retained, stage: copy.projectStartStage } : undefined);
       const cause = retained?.cause ?? error.message;
       const resultCause = partial ? copy.projectStartFailed(partial.path, partial.id, partial.stage, cause) : cause;
       const message = partial && request.method === "project.start" ? copy.projectStartRecovery(request.params.name, partial.stage, cause) : cause;
