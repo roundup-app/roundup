@@ -246,3 +246,4 @@ CI run `41568393992` on `f8495ca8decd9244e0cc8d88307d812e2e9cafba` failed the B4
 | Ordered Project SQL comparison against `origin/main` | 0 | All 49 bytewise-sorted SQL contents match exactly; the migration count and applied positions are unchanged. |
 | `git diff --check`, `loop/rules.sh merge-loss` | 0 each | Exact rename; no whitespace or inherited merge-loss defect. |
 | `cargo nextest run -p rupd --lib -E 'test(r3696c_a_fresh_project_db_equals_the_migrated_one_with_its_own_identity) \| test(n5467)'` | 0 | Four existing observers pass: fresh schema/image equality, older-store refusal without changes, old Project data refusal with retained worktrees, and incomplete reaction-record refusal. |
+| `just ready` | 0 | Web lint and typecheck, workspace Clippy, repository guards, `ALL PROOFS CHECK` and N7 launch-sites pass. No local `just check` ran. |
