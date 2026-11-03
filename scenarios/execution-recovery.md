@@ -1,5 +1,7 @@
 # Resume unfinished work
 
+Policy: U5740b retires only the Reaction side of U3078e: firing/continuation deduplication. Decision retry, concurrent acceptance and successor Message identity remain required and are proved by `u3078e_resume_replay_shares_one_successor` and `u3078f_decision_and_successor_are_one_commit`.
+
 Module: `crates/agents` (Work order and Attempt identity), `crates/messages` (retained evidence and continuation-to-Message acceptance), `crates/rupd` (reconciliation and public registration), `crates/rup` (public CLI/MCP observers), `apps/desktop` (existing work surface). Ids: U3078a–U3078j. Work order: #3078. Baseline: `de22e186d` on `origin/main`.
 
 Acceptance specification, not feature delivery. The user's direction is recovery above opaque vendor Agents on their subscription: see confirmed progress, what remains and what needs checking, then explicitly resume unfinished work. Implement → review → repair → check is one example, not a mandatory sequence or a restriction to coding. #3078 stays open until implementation and observation meet this acceptance.

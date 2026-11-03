@@ -552,85 +552,20 @@ export type project_Worktrees = { on: boolean,
 
 check: string | null, };
 
-export type reaction_Condition = { "kind": "agents", ids: Array<string>, any?: boolean, } | { "kind": "pr-checks", repository: string, number: number, } | { "kind": "instant", at: string, late: reaction_LatePolicy, };
 
-export type reaction_CreateParams = { 
 
-operation: string, 
 
-name: string, reason: string, 
 
-target: string, 
 
-instruction: string, condition: reaction_Condition, 
 
-max_firings?: number, 
 
-rearm?: boolean, 
 
-expires_at: string, };
 
-export type reaction_Firing = { id: string, ordinal: number, message: number, matched: boolean, 
 
-evidence: string, 
 
-definition: string, 
 
-outcome: string, };
 
-export type reaction_LatePolicy = "once-before-expiry" | "skip";
 
-export type reaction_Observation = { 
-
-health_code: reaction_ObservationHealth, 
-
-cause_code: reaction_ObservationCause, 
-
-gap_code: reaction_ObservationGap, 
-
-recovery_code: reaction_ObservationRecovery, health: string, cursor: number | null, 
-
-gap: string | null, 
-
-recovery: string | null, 
-
-evidence: string | null, 
-
-pinned_head?: string, 
-
-cause?: string, };
-
-export type reaction_ObservationCause = "head-moved" | "agent-unavailable" | "authority-refused" | "checks-failed" | "checks-pending" | "checks-unavailable" | "worktree-read-failed" | "pr-missing" | "evidence-missing" | "evidence-stale" | "forge-read-failed" | "head-missing" | "repository-mismatch" | "unsupported" | "firings-read-failed" | "cursor-missing" | "acceptance-failed" | "observation-save-failed" | "unknown";
-
-export type reaction_ObservationGap = "history-expired" | "agent-read-failed" | "events-read-failed" | "firings-read-failed" | "cursor-missing" | "agent-unavailable" | "authority-refused" | "unknown";
-
-export type reaction_ObservationHealth = "fired" | "fired-late" | "expired" | "skipped" | "observing" | "not-observing" | "unavailable" | "waiting" | "matched" | "invalidated" | "acceptance-failed" | "write-failed" | "observation-save-failed" | "unknown";
-
-export type reaction_ObservationRecovery = "check" | "reconciled" | "replace-agent" | "replace-target" | "restore-evidence" | "retry-acceptance" | "retry-storage" | "reconcile" | "unknown";
-
-export type reaction_Preview = { at: string, utc: string, offset: string, };
-
-export type reaction_PreviewParams = { 
-
-date: string, 
-
-time: string, 
-
-offset: string, };
-
-export type reaction_Reaction = { project: string, id: string, name: string, 
-
-actor: Actor, reason: string | null, 
-
-home: string | null, target: string, instruction: string, condition: reaction_Condition, max_firings: number, remaining: number, rearm: boolean, 
-
-expires_at: string, created_at: string, state: reaction_State, observation: reaction_Observation, firings: Array<reaction_Firing>, };
-
-export type reaction_ReactionId = { id: string, };
-
-export type reaction_RunParams = { id: string, operation: string, };
-
-export type reaction_State = "active" | "stopped" | "invalidated";
 
 export type terminal_ExitedEvent = { id: string, 
 
@@ -1013,21 +948,6 @@ export type Before = {
   "project/Resources": project_Resources;
   "project/RoleModels": project_RoleModels;
   "project/Worktrees": project_Worktrees;
-  "reaction/Condition": reaction_Condition;
-  "reaction/CreateParams": reaction_CreateParams;
-  "reaction/Firing": reaction_Firing;
-  "reaction/LatePolicy": reaction_LatePolicy;
-  "reaction/Observation": reaction_Observation;
-  "reaction/ObservationCause": reaction_ObservationCause;
-  "reaction/ObservationGap": reaction_ObservationGap;
-  "reaction/ObservationHealth": reaction_ObservationHealth;
-  "reaction/ObservationRecovery": reaction_ObservationRecovery;
-  "reaction/Preview": reaction_Preview;
-  "reaction/PreviewParams": reaction_PreviewParams;
-  "reaction/Reaction": reaction_Reaction;
-  "reaction/ReactionId": reaction_ReactionId;
-  "reaction/RunParams": reaction_RunParams;
-  "reaction/State": reaction_State;
   "terminal/ExitedEvent": terminal_ExitedEvent;
   "terminal/Match": terminal_Match;
   "terminal/OpenParams": terminal_OpenParams;
@@ -1170,12 +1090,6 @@ export type BeforeRpcMethods = {
   "agent.skills": { params: agent_NodeId; result: agent_Skills };
   "agent.digest": { params: agent_NodeId; result: agent_Digest };
   "agent.wake": { params: agent_WakeParams; result: agent_Woken };
-  "reaction.create": { params: reaction_CreateParams; result: reaction_Reaction };
-  "reaction.preview": { params: reaction_PreviewParams; result: reaction_Preview };
-  "reaction.list": { params: null; result: reaction_Reaction[] };
-  "reaction.get": { params: reaction_ReactionId; result: reaction_Reaction };
-  "reaction.stop": { params: reaction_ReactionId; result: reaction_Reaction };
-  "reaction.run": { params: reaction_RunParams; result: reaction_Reaction };
   "agent.spawnPrompt": { params: agent_NodeId; result: { prompt: string | null } };
   "agent.setOrder": { params: agent_SetOrderParams; result: agent_RailNode };
   "agent.instructions": { params: agent_NodeId; result: agent_Instructions };

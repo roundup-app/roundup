@@ -42,9 +42,7 @@ export type EventData = { "name": "workstream.updated", "data": AutoParams } | {
 	previous_name: string,
 } } | { "name": "pad.deleted", "data": PadName } | { "name": "message.sent", "data": Message } | { "name": "message.delivered", "data": Message } | { "name": "message.dropped", "data": Message } | { "name": "route.changed", "data": Route } | { "name": "agent.status", "data": StatusEvent } | { "name": "agent.channel", "data": ChannelEvent } | { "name": "agent.stray", "data": StrayEvent } | { "name": "agent.toolCall", "data": ToolCallEvent } | 
 /**  Publication metadata committed; read `deliverable.list`. */
-{ "name": "deliverable.changed" } | 
-/**  Saved Reaction, observation or firing changed; read `reaction.list`. */
-{ "name": "reaction.changed" } | { "name": "rail.changed" } | 
+{ "name": "deliverable.changed" } | { "name": "rail.changed" } | 
 /**  A2741a: the exact destination and name committed under the Rail mutation lock. */
 { "name": "rail.renamed", "data": {
 	id: string,
