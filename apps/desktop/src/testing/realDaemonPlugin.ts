@@ -1,4 +1,5 @@
 import { connect } from "node:net";
+import type { SubscribeParams } from "@contracts/SubscribeParams";
 import type { Socket } from "node:net";
 import { pipeline } from "node:stream";
 import { homedir } from "node:os";
@@ -123,14 +124,14 @@ const json = (response: ServerResponse, status: number, body: Outcome | { error:
 };
 
 /** Streams `{ready}`, one `{event}` per Daemon Event, then `{exited}` when the socket closes. */
-const stream = (daemon: RealDaemon, response: ServerResponse) => {
+const stream = (daemon: RealDaemon, response: ServerResponse, params: SubscribeParams | null) => {
   const socket = connect(daemon.socket);
-  const send = (frame: { event: unknown } | { ready: true } | { exited: null }) => response.write(`${JSON.stringify(frame)}\n`);
+  const send = (frame: { event: unknown } | { ready: true; head: number } | { exited: null } | { error: v.InferOutput<typeof rpcFailureSchema> }) => response.write(`${JSON.stringify(frame)}\n`);
   let subscribed = false;
 
   response.writeHead(200, { "Content-Type": "application/x-ndjson", "Cache-Control": "no-store" });
   response.on("close", () => socket.destroy());
-  socket.on("connect", () => socket.write(`${JSON.stringify({ jsonrpc: "2.0", id: 1, method: "events.subscribe", params: null })}\n`));
+  socket.on("connect", () => socket.write(`${JSON.stringify({ jsonrpc: "2.0", id: 1, method: "events.subscribe", params })}\n`));
   lines(
     socket,
     (line) => {
@@ -138,9 +139,17 @@ const stream = (daemon: RealDaemon, response: ServerResponse) => {
         const frame = v.parse(replySchema, JSON.parse(line));
 
         if (frame.method === "event") send({ event: frame.params });
-        else if (frame.id === 1 && !frame.error && !subscribed) {
+        else if (frame.id === 1 && !subscribed) {
+          if (frame.error) {
+            send({ error: frame.error });
+            response.end();
+
+            return;
+          }
+
+          const { head } = v.parse(v.object({ head: v.number() }), frame.result);
           subscribed = true;
-          send({ ready: true });
+          send({ ready: true, head });
         }
       } catch {
         // A line that is not JSON is dropped, as the Rust client drops it.
@@ -263,7 +272,17 @@ const serve = (daemon: RealDaemon, request: IncomingMessage, response: ServerRes
 
   if (path === "open" && request.method === "GET") return json(response, 200, { project: { name: basename(daemon.project), path: daemon.project } });
 
-  if (path === "events" && request.method === "GET") return stream(daemon, response);
+  if (path === "events" && request.method === "POST") {
+    if (!request.headers["content-type"]?.startsWith("application/json")) return json(response, 415, { error: "application/json only" });
+
+    return void readBody(request).then(body => {
+      try {
+        stream(daemon, response, v.parse(v.nullable(v.object({ after: v.exactOptional(v.number()), kept: v.exactOptional(v.boolean()) })), JSON.parse(body)));
+      } catch {
+        json(response, 400, { error: "not subscription params" });
+      }
+    });
+  }
 
   if (path === "rpc" && request.method === "POST") {
     if (!request.headers["content-type"]?.startsWith("application/json")) return json(response, 415, { error: "application/json only" });
