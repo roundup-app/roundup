@@ -373,7 +373,8 @@ impl Rail {
                             })
                 })
                 .collect();
-            reconnect.sort_by_key(|node| node.order);
+            // Following restored siblings must be in place before they anchor earlier ones.
+            reconnect.sort_by_key(|node| std::cmp::Reverse(node.order));
             for node in reconnect {
                 affected.push(node.parent.clone());
                 if let Some(previous) = current.iter().find(|live| live.id == node.id) {
