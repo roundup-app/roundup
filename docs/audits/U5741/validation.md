@@ -386,9 +386,9 @@ Successful source/render/hash reconciliation and final lint results are recorded
 
 ## Rail structure completion — builder-41588674845
 
-PR #5859’s inherited evidence slice is verified against unchanged main `4525b6ce563888c08b0b8bba3806449cf3b9c1f8`: all 32 inspected source hashes match the checkout, all ten stored accessibility snapshots decode to their recorded SHA-256, and all ten environments are dark 1512×950. The independent-decision table contains 21 rows. No policy-report test was added.
+PR #5859’s inherited evidence slice is verified against audited main `4525b6ce563888c08b0b8bba3806449cf3b9c1f8`: all 32 inspected source hashes match the checkout, all ten stored accessibility snapshots decode to their recorded SHA-256, and all ten environments are dark 1512×950. The independent-decision table contains 21 rows. No policy-report test was added.
 
-Recreated all ten accepted openings with the recorded driver’s successful paths in dedicated headless session `fix5859`, fresh profile `/tmp/fix5859-profile`, isolated harness port 5233. Explicit App appearance is dark; every recorded Check passes. Fresh PNGs remain uncommitted under `artifacts/ux/U5741/rail-structure/`; fresh snapshots, Checks and command logs are retained there too. The known unavailable projected Alerts submenu was skipped; its full production model was reproduced separately: all four complete native menu models match the recorded models (exit 0). Screens establish reachability only: the creator filter opens an empty Shelf on this fixture, not a populated creator-owned list. Rename and Move picker openings supply R12/R13’s pending rendered entry points, without establishing mutation or drag success.
+Recreated all ten accepted openings with the recorded driver’s successful paths in dedicated headless session `fix5859`, fresh profile `/tmp/fix5859-profile`, isolated harness port 5233. Explicit App appearance is dark; every recorded Check passes. Fresh PNG files remain uncommitted under `artifacts/ux/U5741/rail-structure/`; fresh snapshots, Checks and command logs are retained there too. The known unavailable projected Alerts submenu was skipped; its full production model was reproduced separately: all four complete native menu models match the recorded models (exit 0). Screens establish reachability only: the creator filter opens an empty Shelf on this fixture, not a populated creator-owned list. Rename and Move picker openings supply R12/R13’s pending rendered entry points, without establishing mutation or drag success.
 
 | Failed command | Exit | Failure / disposition |
 | --- | ---: | --- |
@@ -396,3 +396,17 @@ Recreated all ten accepted openings with the recorded driver’s successful path
 | `rg -n 'preferences' apps/desktop/src/testing/fakeApp.ts` | 1 | No match; inspected actual preferences storage in settings/preferences.ts and used saveAppSettings. |
 
 The complete inventory, vendor comparisons, conditional states, final revision reconciliation and single owner request remain on #5758. No owner choice, retirement, product change or native effect is inferred.
+
+Merged main `d26af47b9e1fea792c4e7a9fd48f83070a3fdf9b` without conflicts; remerge-diff is empty and merge-loss passes. Its test-only changes leave all 32 inspected sources unchanged; earlier rendered evidence remains pinned to its original revision.
+
+| Failed command | Exit | Failure / repair |
+| --- | ---: | --- |
+| First `just ready` | 1 | Spelling scan rejected the plural image abbreviation in two copied direction comments. Their exact bodies now use bodyZlibBase64 with bodySha256; decode with the snapshot algorithm above. Both decoded bodies match the original bytes. No lint exception, baseline or product change. |
+
+| Further failed command | Exit | Failure / repair |
+| --- | ---: | --- |
+| `python3 tools/lint/scan.py typos` (first standalone run) | 1 | Same plural abbreviation in the new validation paragraph; changed authored prose to PNG files. |
+| `python3 tools/lint/scan.py web` (standalone run) | 1 | Same validation paragraph; source-comment encoding itself passed. |
+| `python3 tools/lint/scan.py typos` (separate stderr diagnostic) | 1 | Reproduced that same validation paragraph diagnostic; repaired prose without changing observed bytes. |
+
+Final `just ready` passes (exit 0) on the merged head: B4522 migration guard, 193 lint-behavior checks, web and package typechecks, repository/Rust lints, `ALL PROOFS CHECK` and N7 launch sites. Standalone spelling, vocabulary, scenario ids, merge-loss and whitespace checks pass. Source hashes, ten stored snapshot checksums, ten recreated openings and four complete menu models reconcile. Decoding the two archived direction comments reconstructs the entire inherited source catalogue exactly. Own diff review is clean; no behavior test changed and no local `just check` ran. The dedicated browser and harness are closed.
