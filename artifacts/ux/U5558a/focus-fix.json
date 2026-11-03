@@ -1,9 +1,9 @@
 {
-  "commit": "251209853e6c672f23389c726055da4887fd0081",
+  "commit": "990826e5538173f94de16c792a9ef02d86104d18",
   "viewport": "1512x950",
   "media": "dark",
   "observer": "isolated headless Chromium; fresh agent-browser session/profile",
-  "regression": "u5558a_automatic_reload_preserves_focused_publication failed on a769313f228b94e37462921ee072f9cff0bc1b43 with focus on body; passes after keyed reconciliation",
+  "regression": "u5558a_automatic_reload_preserves_focused_publication failed on 0f859feddf5e0f1718cbc7b31d40b641ccc3e996 with focus on body; passes after keyed reconciliation",
   "focused_seeds": [
     "agents-10",
     "tree-40"

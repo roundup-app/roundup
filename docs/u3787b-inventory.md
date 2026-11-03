@@ -48,7 +48,7 @@ responder integration remains an engineering task. Preserve #4278 grouping and
 shortcut alignment and the existing context-menu construction.
 
 Main check [40816406986](https://github.com/roundup-app/roundup/actions/runs/40816406986)
-at `c51582653069dc50ff66451a5c8341c073070b54` passed mac and mac-clippy. These establish
+at `8d4157eb5b615a78023869654473917eb8f3088c` passed mac and mac-clippy. These establish
 compilation/plugin coverage, not native displayed-key, responder availability or
 AppKit-accelerator/webview exactly-once dispatch. #4278's recorded evidence remains
 on that Issue; the older #3843 launch/link observation is not menu evidence.
@@ -74,7 +74,7 @@ editor/Terminal ownership proof now also checks menu refusal. The ordinary
 `u2241_no_other_chord_is_taken_at_app_scope` modifier sweep remains unchanged.
 
 macOS CI [40832209878](https://github.com/roundup-app/roundup/actions/runs/40832209878)
-at `0c29b966db434106efbc5ec5ab717ed1bb93d3a9` passed `mac` and `mac-clippy`.
+at `cdf579455246cf0e9c452971b46a518017b849ae` passed `mac` and `mac-clippy`.
 It is compilation/CI evidence only. Preserve earlier native evidence on #4278;
 this continuation claims no AppKit displayed-key, responder or combined-dispatch
 observation. Remaining native observations follow the complete implementation,
@@ -106,7 +106,7 @@ registry accepts these existing logical aliases and repeat policy directly,
 using tinykeys rather than another keyboard listener.
 
 macOS CI [40843663089](https://github.com/roundup-app/roundup/actions/runs/40843663089)
-at `626a412ebc62c185c754885872ffdc744d34a673` passed `mac` and `mac-clippy`.
+at `722a8b87f898f7b40b4d3990d36f0738c06f7732` passed `mac` and `mac-clippy`.
 Installed Tauri 2.12.1 `menu::Menu::default` includes predefined Close Window;
 muda 0.20.0 sends its `performClose:` responder action. Neither is replaced here.
 Neither CI nor Chromium observes native font key equivalents or combined
@@ -188,7 +188,7 @@ with their controls.
 
 Read current main macOS CI:
 [40916673952](https://github.com/roundup-app/roundup/actions/runs/40916673952),
-`c7cf55de270fcdf9c0c2490df607b5a2113f0bc6`: `mac` and `mac-clippy` both passed.
+`20ce2ced2c4227831435beb060a48e541e669bdd`: `mac` and `mac-clippy` both passed.
 Earlier macOS compilation records and #4278 native evidence above remain valid
 for their recorded SHAs. This run makes no new native dispatch claim.
 
@@ -235,7 +235,7 @@ complete Shelf/triage inventory (including assignment and nesting), library/nati
 inventory and responder Find/Close availability, then native displayed-key and
 combined dispatch observations against the complete implementation SHA. No native
 completion is claimed. macOS check 40941756743 at
-`d780754c8e12a9cf4e81e25cee8ff682a8986a8c` passed mac and mac-clippy; earlier native
+`eaac946b1d60b98b49cfb7bd96750d732c00858e` passed mac and mac-clippy; earlier native
 records retain their original scope and SHA.
 
 ## Captured Todo nesting
@@ -257,7 +257,7 @@ for two Projects. This extends the accepted #4877 work through main's merged
 continuations, without changing accepted menu grouping or context menus.
 
 Main check [40981393565](https://github.com/roundup-app/roundup/actions/runs/40981393565)
-at `7595b070bbb91dae1c3c2fc5d2d2970f48461250` passed mac and mac-clippy.
+at `aa4dad4dab7e08abe1da36960d3abbe46d562f29` passed mac and mac-clippy.
 This is CI evidence only; earlier native observations keep their original scope.
 Complete assignment/library/native inventory, responder Find/Close availability
 and final native displayed-key/combined-dispatch observations remain on #4308.
@@ -291,7 +291,7 @@ Read installed Tauri 2.12.1 `Menu::default` and muda 0.20.0's Close Window actio
 Close Window remains the platform `performClose:` responder. Tauri still supplies
 no Find predefined item; native responder integration remains required.
 
-Main check 40981393565, SHA `7595b070bbb91dae1c3c2fc5d2d2970f48461250`,
+Main check 40981393565, SHA `aa4dad4dab7e08abe1da36960d3abbe46d562f29`,
 has passing `mac` and `mac-clippy` jobs. This is compilation evidence only.
 Earlier #4278 native evidence retains its original scope and SHA. Remaining on
 #4308: named row Open/Rename and add-row callers that still use raw handlers
@@ -326,7 +326,7 @@ or retired; existing U3789 and U3787c observers retain selection and rename
 cancellation.
 
 Main check [41018682543](https://github.com/roundup-app/roundup/actions/runs/41018682543)
-at `3eb7454cd284bf09dcf5199ad3202d3683b54f1b` passed mac and mac-clippy. This is
+at `2ae378b1624181fd66ca12480cacc9d67e465146` passed mac and mac-clippy. This is
 compilation evidence, with no new native dispatch claim. Remaining #4308 work:
 Pad/add-row command coverage, complete library/native inventory, responder
 Find/Close availability and final native displayed-key/combined-dispatch
@@ -334,7 +334,7 @@ observations. This continuation closes neither #4308 nor #3843.
 
 Rendered comparison: `artifacts/ux/U3787b/open-rename/{base,head}/`, dark
 1512×950, tree-40/tabs-8/conflict, base `997b1e5a6`, implementation
-`aaec581772e66868b1edaaa09102d0b61ba920b9`. All D1–D14 and D16 readings
+`37ad63dc8a8c867adba2184449f958f9d3ec3cef`. All D1–D14 and D16 readings
 pass; D2/D5/D6 retain their baseline. Interaction captures show focused Rename,
 Escape then Open, and full actionable rename failure beside retained input.
 Images and the interaction recording stay uncommitted. These observe Chromium
@@ -370,7 +370,7 @@ existing inventory observer includes Pad focus. Existing Tauri
 plain hints. No test is removed or retired. U3789a and U3787c retain their draft,
 rename cancellation and list-navigation proofs; U2241 retains Terminal ownership.
 
-Main check 41018682543 at `3eb7454cd284bf09dcf5199ad3202d3683b54f1b`
+Main check 41018682543 at `2ae378b1624181fd66ca12480cacc9d67e465146`
 passed mac and mac-clippy; current-main checks were pending when read. This is
 compilation evidence only. Earlier #4278 native observations retain their scope
 and SHA. Add-row, complete library/native inventory, responder Find/Close
@@ -382,9 +382,9 @@ focus the Pad row before Return/F2, preserving all behavioral assertions. No tes
 is cut; only unused browser imports from the edited export observer are removed.
 
 Rendered comparison: `artifacts/ux/U3787b/pad-commands/`, base
-`655a3934664bfc5d52dc34188ecbd758fb0c73a9`, implementation
-`30811ff3b6373435326f39888b1f9f05ed47a596`, with export setup repair
-`9fedc02bf1e36da3d74032d579fcd0d9b439e0e3`. Dark 1512×950 resting
+`8b209702b3e94cd6f7ab00fac398ca60e837fa34`, implementation
+`815d3b94571e72b299ceac1e3ee94a25210df2b5`, with export setup repair
+`d9bec8435bea0039a6d4329151efc15fd3875d3c`. Dark 1512×950 resting
 tree-40/tabs-8/conflict and Rename pass D1–D14/D16. Pad Open retains
 main's D2 margin-right failure in `div.pad-head` and consequent D10 failure;
 `delta` records no regression. The dense tree-40 refusal capture maximises the
@@ -411,7 +411,7 @@ scope changes. The existing inventory observer covers its registration on Todo
 rows; no test or behavioral assertion is removed or retired.
 
 Main check [41039086603](https://github.com/roundup-app/roundup/actions/runs/41039086603)
-at `5774c480097657f2ab5d0aa2a49e95ed846b4aa9` passed mac and mac-clippy.
+at `161619eba5bc3efaf0385ec67405f604127048f6` passed mac and mac-clippy.
 This is compilation evidence only; earlier native evidence keeps its recorded
 scope and SHA. Complete library/native inventory, responder Find/Close Window
 availability and final native displayed-key/combined-dispatch observations remain
@@ -419,8 +419,8 @@ on #4308. This slice closes neither #4308 nor #3843.
 
 
 Rendered comparison: `artifacts/ux/U3787b/add-todo/{base,head}/`, baseline
-`7059c8523c4ba824ec484fcf02220dbc6dd14104`, production integration
-`a192137dc` (unchanged by clean main merge `8fac8724630ca5edbc996005aa6de5e3f9a84b75`).
+`b8d85f647d35811f08a5e7cd9ff3245f69e5d265`, production integration
+`a192137dc` (unchanged by clean main merge `f3f1e6861a13f6ca0e4fd111c9815298ede21d0b`).
 Dark 1512×950 tree-40/tabs-8/conflict preserve D1–D14/D16; `delta` passes.
 The dark interaction recording shows N opening the existing form and the retained
 draft after rejection; the maximised dense Shelf exposes the full actionable
@@ -433,7 +433,7 @@ creation, placement, input ownership and refusal assertions remain intact.
 
 ## Native responder menu prerequisite (#5108)
 
-Implementation: `136436470b07a0c5a0cb87b8969f44481591f33f` (PR #5111). The existing native menu owner adds
+Implementation: `7dbfb657723376d0d1fde1c8837152e550eb3733` (PR #5111). The existing native menu owner adds
 Edit > Find > Find… with `performTextFinderAction:`, nil target and the standard
 Show Find Interface tag. Its submenu uses AppKit automatic validation. File's
 standard Close Window uses the same native validation and `performClose:`.
@@ -464,7 +464,7 @@ macOS CI must run this implementation before native success is recorded. Earlier
 #4278 native observations and #4965 failed alignment observations keep their
 recorded SHAs; this work supplies no alignment evidence. #4308/#3843 remain open.
 
-Native rendered observer, on build `136436470b07a0c5a0cb87b8969f44481591f33f`:
+Native rendered observer, on build `7dbfb657723376d0d1fde1c8837152e550eb3733`:
 
 1. Build with `pnpm install` and `just app <a disposable Project folder>` on macOS;
    no Claude login is needed. Focus a native editor, open Edit > Find and compare
@@ -509,7 +509,7 @@ behavioral assertion or timeout is removed or changed.
 
 Native prerequisite evidence has advanced: main check
 [41078101697](https://github.com/roundup-app/roundup/actions/runs/41078101697),
-SHA `b059d3caff608510c6af775b888ef1b449e1d17d`, passed `mac` and `mac-clippy`.
+SHA `6891eb40813caa8f0193391515e9eb3a67768c6c`, passed `mac` and `mac-clippy`.
 Its `native::u3787b_native_responder_find_and_close_follow_availability` passed
 in 1.803 seconds, exercising actual AppKit objects and responder dispatch.
 This proves that native observer's behavior, beyond compilation; it does not
@@ -524,8 +524,8 @@ as Mod-b and Mod-i; Project-tab coverage does not claim those are projected.
 Keep ordinary text/list navigation control-owned. #4308 and #3843 remain open.
 
 Rendered comparison: `artifacts/ux/U3787b/project-rename/{base,head}/`, base
-`b059d3caff608510c6af775b888ef1b449e1d17d` (production sources match the
-`72d06639d848f3beb60cc812cd46d8c1155910b3` branch base), implementation
+`6891eb40813caa8f0193391515e9eb3a67768c6c` (production sources match the
+`52b5f2d10f229a4a4b63038ad221af93895147dd` branch base), implementation
 `5af082bd8`. Dark 1512×950 tree-40/tabs-8/conflict resting screens and the dense
 retained-name rejection pass D1–D14. The existing Rename input has the same D6
 missing-hover failure and consequent D10 failure on base and head; delta passes,
@@ -561,13 +561,13 @@ Plain Enter, Backspace, Delete, Tab and cell/list navigation remain library-owne
 This slice does not complete #4308 or #3843.
 
 Main macOS check [41084830368](https://github.com/roundup-app/roundup/actions/runs/41084830368)
-at `bf80a4c7a8a7983279735875b7a1cf9c09587a81` passed mac/mac-clippy and the actual
+at `6ee13e4b42e7076fc289d6e55abfafb3a6f91517` passed mac/mac-clippy and the actual
 `u3787b_native_responder_find_and_close_follow_availability` probe (1.084 s).
 It does not establish native displayed-key/alignment or complete-App combined
 dispatch. Prior native evidence retains its original scope and SHA.
 
-Rendered observer: baseline `ea7a644e36aa8779605e825323343e90df5eebed` and
-implementation `9e9514ea0c6e08561610bac88c2f1506419c508d`, isolated headless
+Rendered observer: baseline `28018d90bf01534a88b78af6f62b3c25f510fc6c` and
+implementation `3b4f18c72f08a8d967acb9d3e33d933d4398add8`, isolated headless
 Chromium at 1512×950 dark. All D1–D14/D16 readings pass for tree-40, tabs-8,
 conflict, Pad Open/Bold, dense save refusal and Help. Full refusal cause/fix and
 the retained edit are visible. The 21.4-second keyboard recording and PNG images stay
@@ -591,7 +591,7 @@ native accelerator observers include all four chords. No existing test,
 assertion or timeout is removed or changed.
 
 Read main macOS CI [41116240329](https://github.com/roundup-app/roundup/actions/runs/41116240329),
-SHA `6956be9102c67dc05dfd4728b15a54d0239ee7b4`: mac and mac-clippy pass;
+SHA `ec531df799057a703e1a851518c267d66e4ee2a2`: mac and mac-clippy pass;
 `u3787b_native_responder_find_and_close_follow_availability` passes in 1.637 s.
 This records actual AppKit responder behavior; it supplies no displayed-key,
 alignment or complete-App combined-dispatch observation. Earlier native evidence
@@ -602,8 +602,8 @@ library/native inventory and native Edit availability, followed by final native
 displayed-key/combined-dispatch observations. Ordinary editing/list navigation
 remains control-owned. This continuation closes neither #4308 nor #3843.
 
-Rendered comparison: base `14aa05d8681c2c9c1d2fe8cbfa64004fa615608a`,
-implementation `52982e269ab751dbb84a4fe7bce5e76c98d103c6`, isolated headless
+Rendered comparison: base `19ac5740c03f65f8130fd0969e206a43b6bd0bc0`,
+implementation `fa9e622e458167e4024f224ed8659f4fe84589aa`, isolated headless
 Chromium at 1512×950 dark. Tree-40, tabs-8, conflict, Help, Pad editor, Quote
 and dense save refusal preserve every baseline-passing Check (D1–D14);
 `loop/rules.sh delta` passes. The full save cause/recovery and retained draft are
