@@ -1,3 +1,4 @@
+import { batch } from "solid-js";
 import { copy } from "../copy";
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -13,7 +14,7 @@ import { mountApp, rpcCalls, select } from "../../testing/appFixture";
 import { openTabs, tab } from "../../header/stripFixture";
 import { openLane } from "../../todos/laneBrowser";
 
-afterEach(cleanup);
+afterEach(() => batch(cleanup));
 
 const open = (name: string) => fireEvent.contextMenu(rowOf(name), { clientX: 120, clientY: 80 });
 
@@ -193,7 +194,7 @@ it("u3515a_source_identity_follows_the_object_not_selection", async () => {
       await app.closeMenu();
     }
 
-    cleanup(); window.localStorage.clear();
+    batch(cleanup); window.localStorage.clear();
   }
 });
 
@@ -235,7 +236,7 @@ it("u3515d_exhausted_targets_preserve_picker_policy_and_native_omission", async 
         await waitFor(() => expect(document.querySelector('[data-dnd-placeholder]')).toBeNull());
         expect(actionCalls(app)).toEqual([]);
       } finally {
-        cleanup();
+        batch(cleanup);
 
         if (animations) Object.defineProperty(document, "getAnimations", animations);
         else Reflect.deleteProperty(document, "getAnimations");
@@ -382,7 +383,7 @@ it("u3515d_exhausted_targets_preserve_picker_policy_and_native_omission", async 
   for (const each of cases) {
     try { await each.run(); }
     catch (error) { throw new Error(each.name, { cause: error }); }
-    finally { cleanup(); window.localStorage.clear(); }
+    finally { batch(cleanup); window.localStorage.clear(); }
   }
 }, 60_000);
 

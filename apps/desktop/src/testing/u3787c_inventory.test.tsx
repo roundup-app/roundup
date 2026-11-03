@@ -1,5 +1,6 @@
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it, vi } from "vitest";
+import { batch } from "solid-js";
 import { renderTabs, path } from "../header/stripFixture";
 import { agent, door, workstream, USER } from "./nodes";
 import { padHandlers, todoHandlers } from "./stores";
@@ -17,7 +18,7 @@ const names = ["Alpha", "Bravo", "Charlie", "Delta", "Éclair"];
 
 const owner = { kind: "agent", id: "a", parent: null } as const;
 
-afterEach(() => { cleanup(); localStorage.clear(); });
+afterEach(() => { batch(cleanup); localStorage.clear(); });
 
 const openShelf = async (tab: typeof shelf[number]) => {
   const { app } = renderTabs({ p: [agent("a", "idle", "ready", { name: "owner" })] });

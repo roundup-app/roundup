@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { createServer } from "vite";
-import { chromePath } from "../testing/chromePage";
+import { agentBrowserExecutable, chromePath } from "../testing/chromePage";
 import { afterAll, beforeAll, expect, it } from "vitest";
 
 // The real Layout plus installed Ark, served by Vite in an isolated headless session.
@@ -21,7 +21,7 @@ const executable = chromePath();
 
 if (executable) env.AGENT_BROWSER_EXECUTABLE_PATH = executable;
 
-const browser = (...args: string[]) => promisify(execFile)("agent-browser", ["--session", session, "--profile", profile, ...args], { encoding: "utf8", timeout: 60_000, env }).then(result => result.stdout);
+const browser = (...args: string[]) => promisify(execFile)(agentBrowserExecutable, ["--session", session, "--profile", profile, ...args], { encoding: "utf8", timeout: 60_000, env }).then(result => result.stdout);
 
 const evaluate = async <T,>(script: string): Promise<T> => JSON.parse(await browser("--json", "eval", script)).data.result;
 

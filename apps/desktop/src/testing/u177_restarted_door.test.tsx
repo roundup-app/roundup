@@ -1,3 +1,4 @@
+import { batch } from "solid-js";
 import { chooseFooter } from "../rail/railFixture";
 import { resolve } from "node:path";
 import { copy } from "./copy";
@@ -22,7 +23,7 @@ describe("u177 a stopped Door starts again on the real Daemon", () => {
   }, 120_000);
 
   afterEach(async () => {
-    cleanup();
+    batch(cleanup);
     await real?.stop();
   });
 
@@ -59,7 +60,7 @@ describe("u177 a stopped Door starts again on the real Daemon", () => {
     await waitFor(async () => expect(await messages(first)).toContainEqual(["ship a", "delivered"]), { timeout: 90_000 });
     await waitFor(async () => expect((await first.rpc("todo.list", null)).map((todo) => todo.title)).toContain("ship a"), { timeout: 30_000 });
 
-    cleanup();
+    batch(cleanup);
     await real.restart();
 
     const app = mount();

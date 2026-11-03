@@ -116,6 +116,8 @@ pub struct ClaudeCode {
     /// PS9.1: false only for an Agent whose Kind comes from its Terminal's program status.
     hooked: bool,
     final_text: FinalTextKind,
+    /// Status changes (including permission resumption) do not start a new turn.
+    /// Only UserPromptSubmit replaces the identity used for completion and publication.
     prompt_id: Option<String>,
 }
 
@@ -201,7 +203,6 @@ impl ClaudeCode {
         }
         if kind == Kind::Working && self.status.as_ref().is_none_or(|s| s.kind != Kind::Working) {
             self.final_text = FinalTextKind::Unknown;
-            self.prompt_id = None;
         }
         let since = match &self.status {
             Some(current) if current.kind == kind => current.since,
