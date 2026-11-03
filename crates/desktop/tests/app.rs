@@ -345,18 +345,6 @@ fn s8_opening_a_second_path_starts_a_second_daemon() {
     );
 }
 
-#[test]
-fn s8_opening_a_path_whose_daemon_runs_returns_it_and_starts_nothing() {
-    let fx = Fixture::new(TWO_DAEMONS);
-    fx.serve_real_daemon_named("my-project");
-    let (_app, webview) = app(fx.config.clone(), None);
-    let first = open(&webview, &fx.project);
-
-    let again = open(&webview, &fx.project);
-
-    assert_eq!(again, first);
-    assert_eq!(fx.file("sockets").lines().count(), 1);
-}
 
 #[test]
 fn s1_started_as_roundup_project_opens_that_project() {
@@ -1901,3 +1889,5 @@ fn s5_reopening_starts_rupd_on_a_socket_path_unique_to_the_new_run() {
 
 #[path = "project_names/mod.rs"]
 mod project_names;
+
+mod project_opening;
