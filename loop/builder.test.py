@@ -430,7 +430,7 @@ class Pick(unittest.TestCase):
         from contextlib import redirect_stderr, redirect_stdout
         out, err = io.StringIO(), io.StringIO()
         with patch.object(builder.orders, 'read_orders', return_value=[invalid_row(1)]), patch.object(builder, 'busy', return_value=set()), \
-             patch.object(builder.orders, 'gh', return_value=[]), redirect_stdout(out), redirect_stderr(err):
+             patch.object(builder.orders, 'gh', return_value=[]), patch.object(builder.orders, 'reviewing', return_value=set()), redirect_stdout(out), redirect_stderr(err):
             builder.pick(5)
         self.assertEqual(json.loads(out.getvalue()), [dict(issue=1, slug='repair-1', repair=True)])
         self.assertIn('invalid orders: 1', err.getvalue())
@@ -485,7 +485,7 @@ class Pick(unittest.TestCase):
     def test_l23_a_pr_with_a_live_fix_run_gets_no_second(self):
         prs = [pr(number=2), pr(number=3)]
         sent, errors = [], io.StringIO()
-        with patch.object(builder.orders, 'gh', return_value=prs), patch.object(builder, 'fixing', return_value=[]), \
+        with patch.object(builder.orders, 'gh', return_value=prs), patch.object(builder, 'fixing', return_value=[]), patch.object(builder.orders, 'reviewing', return_value=set()), \
                 patch.object(builder, 'fix_prs', return_value={2}), patch.object(builder, 'codex_slots', return_value=(set(), 5)), \
                 patch.object(builder, 'repairs', side_effect=lambda prs, now, taken: [(p['number'], HEAD, 'check') for p in prs]), \
                 patch.object(builder, 'dispatch_fix', side_effect=lambda n, head, cause: sent.append(n)), \
@@ -507,7 +507,7 @@ class Pick(unittest.TestCase):
         rows = [dict(issue=31, slug='U31', state='ready')]
         output, errors = io.StringIO(), io.StringIO()
         failure = subprocess.CalledProcessError(1, ['gh', 'api'])
-        with patch.object(builder.orders, 'gh', return_value=[pr(number=2)]), patch.object(builder, 'fixing', return_value=[]), \
+        with patch.object(builder.orders, 'gh', return_value=[pr(number=2)]), patch.object(builder, 'fixing', return_value=[]), patch.object(builder.orders, 'reviewing', return_value=set()), \
                 patch.object(builder, 'fix_prs', return_value=set()), patch.object(builder, 'codex_slots', return_value=(set(), 5)), \
                 patch.object(builder, 'repairs', return_value=[]), patch.object(builder, 'unreviewed', return_value=[(2, '77')]), \
                 patch.object(builder, 'rerun_review', side_effect=failure), \
@@ -523,7 +523,7 @@ class Pick(unittest.TestCase):
             output, errors = io.StringIO(), io.StringIO()
             sent = []
             with self.subTest(free=free), patch.object(builder.orders, 'gh', return_value=prs), \
-                    patch.object(builder, 'fixing', return_value=[]), patch.object(builder, 'fix_prs', return_value=set()), \
+                    patch.object(builder, 'fixing', return_value=[]), patch.object(builder.orders, 'reviewing', return_value=set()), patch.object(builder, 'fix_prs', return_value=set()), \
                     patch.object(builder, 'codex_slots', return_value=(set(), free)), \
                     patch.object(builder, 'repairs', side_effect=lambda prs, now, taken: [(p['number'], HEAD, 'check') for p in prs]), \
                     patch.object(builder, 'dispatch_fix', side_effect=lambda n, head, cause: sent.append(n)), \
@@ -545,7 +545,7 @@ class Pick(unittest.TestCase):
         slots.assert_called_once_with(2, [(5, 7)])
         task.assert_not_called()
         self.assertIn('every Codex slot', errors.getvalue())
-        with patch.object(builder, 'fixing', return_value=[]), patch.object(builder, 'codex_slots', return_value=(set(), 1)), \
+        with patch.object(builder, 'fixing', return_value=[]), patch.object(builder.orders, 'reviewing', return_value=set()), patch.object(builder, 'codex_slots', return_value=(set(), 1)), \
                 patch.object(builder, 'fix_task', return_value='Fix it.') as task, \
                 patch.dict(os.environ, GITHUB_RUN_ID='8', CODEX_RUNS='2', GITHUB_OUTPUT=os.devnull), redirect_stdout(io.StringIO()):
             self.assertEqual(builder.main(['fix-task', '9', HEAD, 'check']), 0)
@@ -1641,9 +1641,9 @@ class Review(unittest.TestCase):
                pr(number=3, statusCheckRollup=passed(run=56) + [review]), pr(number=4, statusCheckRollup=passed() + [review, critic]),
                pr(number=5, statusCheckRollup=passed() + [dict(workflowName='review', status='IN_PROGRESS')]), pr(number=6, statusCheckRollup=passed(ago=60)),
                pr(number=7, isDraft=True, statusCheckRollup=passed()), pr(number=8, isCrossRepository=True, statusCheckRollup=passed()),
-               pr(number=9, statusCheckRollup=[dict(passed()[0], conclusion='FAILURE')]), pr(number=10, statusCheckRollup=[review])]
+               pr(number=9, statusCheckRollup=[dict(passed()[0], conclusion='FAILURE')]), pr(number=10, statusCheckRollup=[review]), pr(number=11, headRefName='build/reviewing', statusCheckRollup=passed())]
         with patch.object(builder.orders, 'touches_desktop', side_effect=lambda number: number == 3):
-            self.assertEqual(builder.stranded(prs, NOW), [(1, '55'), (3, '56')])
+            self.assertEqual(builder.stranded(prs, NOW, {'build/reviewing'}), [(1, '55'), (3, '56')])
 
     def test_l24_a_review_that_did_no_model_work_in_every_rerun_asks_the_user(self):
         with GitHub(run=dict(status='completed', attempt=builder.RERUNS, url='https://x/actions/runs/77')) as github:
