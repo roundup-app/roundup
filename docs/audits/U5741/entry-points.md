@@ -71,3 +71,12 @@ Independent Shelf follow-up: rendered-shelf-followup.json adds successful reserv
 ## Public command continuation
 
 [public-commands.md](public-commands.md) and [catalogues/public-current.json](catalogues/public-current.json) reconcile all 167 declarations with the current actual API, both real MCP roles and 98 shared command/stream paths on pinned main. Exact tool schemas and all API descriptions are retained; zero unmatched CLI/MCP offers remain in this census. Explicit help/ping/MCP/signal/context/memory/skill/actions/do dispatch paths are separately assessed as RC01–RC23. Source-only hook effects, unverified vendor comparisons, per-method decisions and existing conditional App gaps remain; this census does not complete their Q1/Q2/Q3 evidence or promote historical renders to current main.
+
+## GitHub operation continuation
+
+[github-tools.md](github-tools.md) adds GH01–GH05 for each GitHub operation's three criteria, exact CLI/Door MCP mappings, authority differences and the 2026-10-30 owner-direction reversal. [catalogues/github-source.json](catalogues/github-source.json) retains fresh current descriptions/role lists/help, two successful live reads, versioned vendor help, source hashes and replay. Other per-method decisions and existing conditional App gaps remain; this does not complete the inventory or send a partial owner request.
+
+
+## Provenance query continuation
+
+[provenance.md](provenance.md) assesses PV01/PV02, the exact item-history and Actor-history CLI/MCP queries, on main `7ae759f2bc7f8e8e58a02a11f88488480364db41`. [catalogues/provenance-source.json](catalogues/provenance-source.json) retains current actual offers, isolated live queries, 28 pinned sources, vendor comparisons, direction and replay. Both queries are candidates on the journey criterion, not permission to erase Touches or shared unread/attribution state. Dependent App attribution choices, other public methods, conditional App evidence and final whole-App revision reconciliation remain unfinished; no partial owner request or deletion. [validation-provenance.md](validation-provenance.md) records commands and limits.

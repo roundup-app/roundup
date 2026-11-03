@@ -5,7 +5,7 @@ use std::process::{Child, Command, Stdio};
 use std::sync::Arc;
 
 use contracts::Actor;
-use contracts::terminal::{SpawnParams, TerminalInfo};
+use contracts::terminal::{SchemeParams, SpawnParams, TerminalInfo};
 use rpc::{Bus, Client, Ctx, Module, OpenError, RpcError};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -39,7 +39,7 @@ impl TerminalOwner {
         project: &Path,
         params: SpawnParams,
     ) -> Result<(Self, Child), OpenError> {
-        Self::start_with(helper, project, params, &[])
+        Self::start_with(helper, project, params, &[], None)
     }
 
     pub(super) fn start_with(
@@ -47,6 +47,7 @@ impl TerminalOwner {
         project: &Path,
         mut params: SpawnParams,
         clean_env: &[String],
+        scheme: Option<SchemeParams>,
     ) -> Result<(Self, Child), OpenError> {
         params.env.retain(|name, _| !clean_env.contains(name));
         let project = project.canonicalize()?;
@@ -66,7 +67,7 @@ impl TerminalOwner {
         let (ready, record) = std::sync::mpsc::sync_channel(1);
         let bootstrap = std::thread::spawn(move || {
             let result = (|| -> Result<Self, OpenError> {
-                serde_json::to_writer(stdin, &params)?;
+                serde_json::to_writer(stdin, &(params, scheme))?;
                 let mut line = String::new();
                 std::io::BufReader::new(stdout).read_line(&mut line)?;
                 let owner: Self = serde_json::from_str(&line)?;
@@ -136,7 +137,11 @@ impl Terminals {
     /// existing-Terminal RPC operations. The owner outlives all disconnected clients. When the
     /// original program ends, stop accepting clients and drain accepted connections before exit.
     /// `project` is the canonical Project data directory, not necessarily the program's cwd.
-    pub async fn serve_owner(project: &Path, params: SpawnParams) -> Result<(), OpenError> {
+    pub async fn serve_owner(
+        project: &Path,
+        params: SpawnParams,
+        scheme: Option<SchemeParams>,
+    ) -> Result<(), OpenError> {
         let project = project.canonicalize()?;
         let directory = tempfile::Builder::new()
             .prefix("terminal-")
@@ -159,6 +164,10 @@ impl Terminals {
         // Adopt only this helper's descendants so explicit stop can reap the whole PTY group.
         #[cfg(target_os = "linux")]
         nix::sys::prctl::set_child_subreaper(true)?;
+        // Queries can arrive as soon as the program starts, before any client attaches.
+        if let Some(scheme) = scheme {
+            terminals.set_scheme(scheme).await?;
+        }
         let spawned = terminals.spawn(params).await?;
         let info = terminals
             .list()
