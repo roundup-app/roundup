@@ -147,7 +147,11 @@ const placement = async (where: "agent" | "door" | "user" | "bubble", mac = fals
   const selector = where === "bubble" || where === "user" ? ".bubble:not([hidden]) .xterm-screen" : ".pane-screen .xterm-screen";
 
   await batch(
-    ["wait", "--fn", `!!document.querySelector(${JSON.stringify(selector)})`],
+    ["wait", "--fn", `(() => {
+      const screen = document.querySelector(${JSON.stringify(selector)});
+      const bubble = screen?.closest('.bubble');
+      return !!screen && (!bubble || window.__terminals.has(bubble.dataset.bubble));
+    })()`],
     ["eval", String.raw`(() => {
     const id = ${where === 'bubble' || where === 'user' ? "document.querySelector('.bubble:not([hidden])').dataset.bubble" : JSON.stringify(where === 'agent' ? 't-migrate' : 't-payments')};
     window.__emu = window.__terminals.get(id);
