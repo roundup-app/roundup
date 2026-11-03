@@ -215,7 +215,7 @@ const gesture = (target: Element, ctrl: boolean, early: boolean, distance = 0) =
 
 const cases = [false, true].flatMap((ctrl) => [false, true].flatMap((early) => ["w", "branch", "leaf"].flatMap((id) => [false, true].map((isSelected) => ({ ctrl, early, id, isSelected, distance: ctrl && early ? 12 : 0 })))));
 
-it.each(cases)("u2694g_context_click_requests_only_the_target_rows_menu: $ctrl $early $id $isSelected", async ({ ctrl, early, id, isSelected, distance }) => {
+it.each(cases)("u5690a_context_click_selects_only_its_target_without_activation: $ctrl $early $id $isSelected", async ({ ctrl, early, id, isSelected, distance }) => {
   const { app, emulators } = await mountApp("tree-40", true);
   const chosen = isSelected ? id : id === "w" ? "branch" : "w";
   fireEvent.click(row(chosen));
@@ -233,13 +233,13 @@ it.each(cases)("u2694g_context_click_requests_only_the_target_rows_menu: $ctrl $
 
   expect(app.shownMenus).toHaveLength(1);
   await app.closeMenu();
-  expect(selected()).toBe(chosen);
+  expect(selected()).toBe(id);
   expect(branches()).toEqual(beforeBranches);
   expect(pane()).toEqual(beforePane);
   expect(app.calls.slice(calls).filter((call) => /^(terminal\.(open|write)|agent\.(spawn|resume)|rail\.(move|startDoor)|message\.send)$/.test(call.method))).toEqual([]);
 });
 
-it("u2694g_dismissal_keeps_the_prior_selection_and_pane", async () => {
+it("u5690a_dismissal_keeps_the_context_target_and_prior_pane", async () => {
   const { app } = await mountApp("bubbles");
   fireEvent.click(row("runner"));
   const tab = await screen.findByRole("button", { name: "cargo test" });
@@ -249,7 +249,7 @@ it("u2694g_dismissal_keeps_the_prior_selection_and_pane", async () => {
   expect(before.some(([, hidden]) => hidden)).toBe(true);
   gesture(row("first-workstream"), true, true);
   await app.closeMenu();
-  expect(selected()).toBe("runner");
+  expect(selected()).toBe("first-workstream");
   expect(pane()).toEqual(before);
 });
 

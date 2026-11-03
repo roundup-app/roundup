@@ -13,6 +13,8 @@ export const RailConfirm = (props: { menu: RailMenuModel; rowElement: (id: strin
     const kept = current();
     const removal = kept?.removal;
 
+    if (kept?.selection) return { title: copy.removeSelectionQuestion, message: kept.summary ?? "", okLabel: copy.removeAll, cancelLabel: copy.keep };
+
     if (kept?.action === "remove" && removal) return removalQuestion(removal, kept.node.name);
 
     return {
