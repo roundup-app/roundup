@@ -90,3 +90,5 @@ Independent Shelf follow-up: rendered-shelf-followup.json adds successful reserv
 ## Message result continuation
 
 [message-results.md](message-results.md) assesses MR01–MR05 (`message.get`, `report`, `acceptResult`, `verifyResult`, `resolveResult`) from source and declarations on main `f966e5b580ab4ed8205d350a80d003d656e1c70b`. MR02–MR05 are Q2 candidates sharing stored reports; MR01 is not. Vendor Q1 is not established, no fresh rendering or runtime replay is claimed, and the other undecided methods plus final whole-App reconciliation remain open. No partial owner request or deletion.
+
+[agent-context.md](agent-context.md) reconciles seven Agent read/extras methods (AC01–AC07). Remaining undecided methods are listed there; no owner choice or deletion.
