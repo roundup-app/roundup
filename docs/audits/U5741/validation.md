@@ -984,3 +984,8 @@ Final `just ready` passes (0) on the merged checkout: all 193 lint fixtures, pac
 ## GitHub tool decisions — builder-41680665676
 
 [validation-github.md](validation-github.md) records the pinned source/runtime/gh observers, each failed command and final required checks for GH01–GH05. Split by this independent slice because this log approaches its file-size cap; earlier observations remain intact. No product change, partial owner request or deletion.
+
+
+## Provenance query continuation — builder-41703528722
+
+See [validation-provenance.md](validation-provenance.md) for current query/offer/source observers, named store checks, command failures and remaining limits. Historical observer records above retain their original revisions. No product or test changed; no local `just check`.
