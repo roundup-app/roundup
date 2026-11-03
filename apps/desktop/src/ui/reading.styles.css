@@ -96,6 +96,22 @@
   --reading-gutter: var(--space-4);
 }
 
+[data-pad-color="blue"], .reading [data-pad-callout="note"] { color: var(--pad-blue); }
+[data-pad-color="green"], .reading [data-pad-callout="tip"] { color: var(--pad-green); }
+[data-pad-color="purple"], .reading [data-pad-callout="important"] { color: var(--pad-purple); }
+[data-pad-color="red"], .reading [data-pad-callout="caution"] { color: var(--red); }
+[data-pad-color="amber"], .reading [data-pad-callout="warning"] { color: var(--pad-amber); }
+.reading mark { color: var(--pad-highlight-ink); background: var(--pad-highlight); }
+
+/* Either nesting order retains the authored colour with readable ink on highlight. */
+mark[data-pad-color="blue"], mark [data-pad-color="blue"], [data-pad-color="blue"] mark { color: var(--blue-12); }
+mark[data-pad-color="green"], mark [data-pad-color="green"], [data-pad-color="green"] mark { color: var(--green-12); }
+mark[data-pad-color="purple"], mark [data-pad-color="purple"], [data-pad-color="purple"] mark { color: var(--purple-12); }
+mark[data-pad-color="red"], mark [data-pad-color="red"], [data-pad-color="red"] mark { color: var(--red-12); }
+mark[data-pad-color="amber"], mark [data-pad-color="amber"], [data-pad-color="amber"] mark { color: var(--amber-12); }
+.reading [data-pad-callout] { border: 0; padding: var(--space-3); background: var(--sunken); }
+.pad-callout-label { font-weight: 600; margin-block-end: var(--space-2); }
+
 /* U5574: Pad documents only. The shared editor also serves Todo bodies. */
 .pad-body {
   font-size: var(--pad-text-body);
@@ -154,3 +170,6 @@
 .pad-body .crepe-placeholder::before {
   content: none;
 }
+
+/* Callout padding already supplies the final paragraph’s trailing space. */
+[data-pad-callout] :last-child { margin-block-end: 0; }
