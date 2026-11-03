@@ -37,13 +37,16 @@ it.each(["Blue", "Green", "Purple", "Red", "Amber"])("u5562b_selection_colour_an
   const field = await openPad("note");
   field.setSelectionRange(8, 12, "forward");
   fireEvent.click(screen.getByRole("button", { name: "Text colour" }));
-  fireEvent.click(await screen.findByRole("menuitem", { name: colour }));
+  const menu = await screen.findByRole("menu");
+  expect(document.getElementById(menu.getAttribute("aria-labelledby") ?? "")).toBe(screen.getByRole("button", { name: "Text colour" }));
+  fireEvent.click(await screen.findByRole("menuitemradio", { name: colour }));
   await waitFor(() => expect(field.value).toBe(`before <span data-pad-color="${colour.toLowerCase()}">word</span> after`));
   await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
   fireEvent.click(screen.getByRole("button", { name: "Highlight" }));
   await waitFor(() => expect(field.value).toBe(`before <mark><span data-pad-color="${colour.toLowerCase()}">word</span></mark> after`));
   fireEvent.click(screen.getByRole("button", { name: "Text colour" }));
-  fireEvent.click(await screen.findByRole("menuitem", { name: "Default" }));
+  expect(await screen.findByRole("menuitemradio", { name: colour, checked: true })).toBeDefined();
+  fireEvent.click(await screen.findByRole("menuitemradio", { name: "Default" }));
   await waitFor(() => expect(field.value).toBe("before <mark>word</mark> after"));
   await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
   fireEvent.click(screen.getByRole("button", { name: "Highlight" }));
@@ -57,7 +60,7 @@ it("u5562b_colour_action_saves_and_reopens", async () => {
   const field = await openPad("note");
   field.setSelectionRange(1, 5, "forward");
   fireEvent.click(screen.getByRole("button", { name: "Text colour" }));
-  fireEvent.click(await screen.findByRole("menuitem", { name: "Blue" }));
+  fireEvent.click(await screen.findByRole("menuitemradio", { name: "Blue" }));
   await waitFor(() => expect(field.value).toBe('<span data-pad-color="blue">word</span>'));
   await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
   fireEvent.click(screen.getByRole("button", { name: "Highlight" }));

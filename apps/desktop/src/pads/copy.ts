@@ -30,7 +30,6 @@ export const copy = {
   useTheirs: "Use theirs",
   textColour: "Text colour",
   highlight: "Highlight",
-  highlightIcon: "H",
   colours: { default: sharedCopy.defaultChoice, blue: "Blue", green: "Green", purple: "Purple", red: "Red", amber: "Amber" },
   calloutKinds: { NOTE: "NOTE", TIP: "TIP", IMPORTANT: "IMPORTANT", WARNING: "WARNING", CAUTION: "CAUTION" },
   languages: { typescript: "TypeScript", javascript: "JavaScript", python: "Python" },

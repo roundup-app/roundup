@@ -1,3 +1,8 @@
+import { animate } from "motion";
+import { createReducedMotion, ReducedMotionContext } from "../app/reducedMotion";
+import Highlighter from "lucide-solid/icons/highlighter";
+import Check from "lucide-solid/icons/check";
+import { isFocusVisible, trackFocusVisible } from "@zag-js/focus-visible";
 import { Tip } from "../ui/Tip";
 import { Menu } from "../ui/Menu";
 import { DrawerExpandContext } from "../drawer/DrawerHost";
@@ -96,6 +101,50 @@ export default function PadRichEditor(props: {
 }) {
   const mountExpand = useContext(DrawerExpandContext);
   const menuId = createUniqueId();
+  const colourTriggerId = createUniqueId();
+  const [paletteMotion, setPaletteMotion] = createSignal(false);
+  const [paletteOpen, setPaletteOpen] = createSignal(false);
+  const [palettePresent, setPalettePresent] = createSignal(false);
+  const [paletteContent, setPaletteContent] = createSignal<HTMLElement>();
+  const reduced = useContext(ReducedMotionContext) ?? (window.matchMedia ? createReducedMotion(query => window.matchMedia(query)) : () => true);
+  let paletteAnimation: ReturnType<typeof animate> | undefined;
+  let previousPalette: HTMLElement | undefined;
+
+  createEffect(() => {
+    const open = paletteOpen();
+    const element = paletteContent();
+    const animated = paletteMotion();
+    const reduce = reduced();
+    paletteAnimation?.stop();
+    paletteAnimation = undefined;
+
+    if (!element?.isConnected) return;
+    const entering = element !== previousPalette;
+    previousPalette = element;
+
+    if (!animated) {
+      element.style.opacity = open ? "1" : "0";
+      element.style.transform = "none";
+
+      if (!open) setPalettePresent(false);
+
+      return;
+    }
+
+    const tokens = getComputedStyle(element);
+    const scale = tokens.getPropertyValue("--scale-menu").trim();
+    const duration = tokens.getPropertyValue(reduce ? "--duration-reduced" : open ? "--duration-menu-in" : "--duration-menu-out");
+    const curve = tokens.getPropertyValue("--easing-out").match(/[\d.]+/g) ?? [];
+    const ease: [number, number, number, number] = [Number(curve[0]), Number(curve[1]), Number(curve[2]), Number(curve[3])];
+    const opacity = [entering ? 0 : Number(tokens.opacity), open ? 1 : 0];
+
+    if (reduce) element.style.transform = "none";
+    const frames = reduce ? { opacity } : { opacity, transform: [entering ? `scale(${scale})` : tokens.transform, open ? "scale(1)" : `scale(${scale})`] };
+    const animation = animate(element, frames, { duration: parseFloat(duration) / 1000, ease });
+    paletteAnimation = animation;
+    void animation.then(() => { if (paletteAnimation === animation && !paletteOpen()) setPalettePresent(false); });
+  });
+  onCleanup(() => paletteAnimation?.stop());
   let menuObserver: MutationObserver | undefined;
   let host: HTMLDivElement | undefined;
   let menuHost: HTMLDivElement | undefined;
@@ -125,9 +174,27 @@ export default function PadRichEditor(props: {
     }) : false;
   });
 
+  const currentColour = createMemo(() => {
+    commandState();
+
+    return ready && crepe ? crepe.editor.action(ctx => {
+      const { doc, selection, storedMarks } = ctx.get(editorViewCtx).state;
+      const type = padColour.type(ctx);
+      const colours = new Set<string>();
+
+      if (selection.empty) colours.add(type.isInSet(storedMarks ?? selection.$from.marks())?.attrs.colour ?? "default");
+      else doc.nodesBetween(selection.from, selection.to, node => {
+        if (node.isText) colours.add(type.isInSet(node.marks)?.attrs.colour ?? "default");
+      });
+
+      return colours.size === 1 ? [...colours][0] : undefined;
+    }) : "default";
+  });
+
   const [failure, setFailure] = createSignal<string | null>(null);
 
   onMount(() => {
+    onCleanup(trackFocusVisible());
     const focus = props.initialFocus ?? captureFocus();
 
     if (!host || !menuHost) throw new Error(copy.padEditorHostIsMissing);
@@ -554,7 +621,12 @@ export default function PadRichEditor(props: {
     <>
       <Show when={formatHost()}>{mount => <Portal mount={mount()}>
         <div class="pad-rich-editor pad-format-controls">
-          <Menu.Root onSelect={({ value }) => crepe?.editor.action(ctx => {
+          <Menu.Root ids={{ trigger: colourTriggerId }} open={paletteOpen()} present={palettePresent()} onOpenChange={({ open }) => {
+            setPaletteMotion(!isFocusVisible());
+
+            if (open) setPalettePresent(true);
+            setPaletteOpen(open);
+          }} onSelect={({ value }) => crepe?.editor.action(ctx => {
             const view = ctx.get(editorViewCtx);
             const { from, to } = view.state.selection;
             const type = padColour.type(ctx);
@@ -565,21 +637,21 @@ export default function PadRichEditor(props: {
             view.dispatch(tr);
             view.focus();
           })}>
-            <Tip text={copy.textColour}>{trigger => {
-              // Menu owns its trigger value; the tooltip needs no native button value.
-              const [, attributes] = splitProps(trigger(), ["value"]);
+            <Tip text={copy.textColour} ids={{ trigger: colourTriggerId }}>{trigger => {
+              // Both primitives resolve the same button; Menu retains its own identity and value.
+              const [, attributes] = splitProps(trigger(), ["value", "id"]);
 
               return <Menu.Trigger {...attributes} class="top-bar-heading-button" aria-label={copy.textColour}>{copy.textColour}</Menu.Trigger>;
             }}</Tip>
-            <Portal><Menu.Positioner class="pad-rich-editor"><Menu.Content>
-              <For each={["default" as const, ...padColours]}>{colour => <Menu.Item value={colour}>{copy.colours[colour]}</Menu.Item>}</For>
+            <Portal><Menu.Positioner class="pad-rich-editor"><Menu.Content ref={setPaletteContent} class="pad-colour-menu" inert={!paletteOpen()} onKeyDown={() => setPaletteMotion(false)}>
+              <Menu.RadioItemGroup value={currentColour() ?? ""}><For each={["default" as const, ...padColours]}>{colour => <Menu.RadioItem value={colour}><Menu.ItemText>{copy.colours[colour]}</Menu.ItemText><Menu.ItemIndicator><Check class="icon" aria-hidden="true" /></Menu.ItemIndicator></Menu.RadioItem>}</For></Menu.RadioItemGroup>
             </Menu.Content></Menu.Positioner></Portal>
           </Menu.Root>
           <Tip text={copy.highlight}>{trigger => <button {...trigger()} type="button" class="top-bar-item" aria-label={copy.highlight} aria-pressed={highlighted()} classList={{ active: highlighted() }} onPointerDown={event => event.preventDefault()} onClick={() => crepe?.editor.action(ctx => {
             const view = ctx.get(editorViewCtx);
             toggleMark(padHighlight.type(ctx))(view.state, view.dispatch);
             view.focus();
-          })}>{copy.highlightIcon}</button>}</Tip>
+          })}><Highlighter class="icon" aria-hidden="true" /></button>}</Tip>
         </div>
       </Portal>}</Show>
       <Portal>
