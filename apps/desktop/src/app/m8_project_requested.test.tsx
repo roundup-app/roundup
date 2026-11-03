@@ -6,7 +6,6 @@ import { createProjectDrafts } from "../state/connectedProject";
 import { RequestedApp as App } from "../testing/requestedApp";
 import { createFakeApp } from "../testing/fakeApp";
 import type { FakeApp } from "../testing/fakeApp";
-import { RpcError } from "./seam";
 import { openRecovery, recoveryLabel } from "../testing/recovery";
 
 const FIRST = { name: "payments-api", path: "/Users/me/repos/payments-api" };
