@@ -115,9 +115,37 @@ it("u5562b_selection_colour_and_highlight_in_the_real_editor", { retry: 0, timeo
   await browser("click", 'button[aria-label="Highlight"]');
   await browser("wait", ".ProseMirror mark");
   expect(await evaluate('document.querySelector(\'button[aria-label="Highlight"]\').getAttribute("aria-pressed")')).toBe("true");
+  const paletteOutput = captureDir("U5562b");
+
+  if (paletteOutput) await evaluate(`(() => {
+    window.__paletteFrames = [];
+    window.__paletteReady = new Promise(resolve => {
+      const sample = time => {
+        const menu = document.querySelector('.pad-colour-menu');
+        if (menu) {
+          const style = getComputedStyle(menu);
+          const trigger = document.querySelector('button[aria-label="Text colour"]');
+          window.__paletteFrames.push({ time, opacity: style.opacity, transform: style.transform, menu: menu.getBoundingClientRect().toJSON(), trigger: trigger.getBoundingClientRect().toJSON() });
+          if (style.opacity === '1' && !menu.getAnimations().some(animation => animation.playState === 'running')) { resolve(true); return; }
+        }
+        requestAnimationFrame(sample);
+      };
+      requestAnimationFrame(sample);
+    });
+    return true;
+  })()`);
   await browser("click", 'button[aria-label="Text colour"]');
   await browser("wait", '[role="menu"]');
-  await browser("click", '[role="menuitem"][data-value="default"]');
+  expect(await evaluate(`document.querySelector('[role="menuitemradio"][data-value="amber"]').getAttribute("aria-checked")`)).toBe("true");
+
+  if (paletteOutput) {
+    await evaluate("window.__paletteReady");
+    await browser("screenshot", join(paletteOutput, "palette-pointer.png"));
+    writeFileSync(join(paletteOutput, "palette-pointer.checks.json"), JSON.stringify(await evaluate("window.__checks()")));
+    writeFileSync(join(paletteOutput, "palette-pointer-frames.json"), JSON.stringify(await evaluate("window.__paletteFrames")));
+  }
+
+  await browser("click", '[role="menuitemradio"][data-value="default"]');
   expect(await evaluate("document.querySelector('.ProseMirror [data-pad-color]')")).toBeNull();
   expect(await evaluate("!!document.querySelector('.ProseMirror strong mark')")).toBe(true);
   await browser("click", 'button[aria-label="Highlight"]');
@@ -126,4 +154,23 @@ it("u5562b_selection_colour_and_highlight_in_the_real_editor", { retry: 0, timeo
   await browser("click", ".drawer .close");
   await settle();
   expect(await evaluate("window.__fake.app.calls.filter(call => call.method === 'pad.write').at(-1).params.text")).toBe("before **word** after");
+
+  const recoveryOutput = captureDir("U5562d");
+
+  if (recoveryOutput) {
+    mkdirSync(recoveryOutput, { recursive: true });
+    await evaluate(`(() => { [...document.querySelectorAll('.pad-name')].find(row => row.textContent === 'Selection colours').focus(); return true; })()`);
+    await browser("press", "Enter");
+    await browser("wait", ".ProseMirror[contenteditable=true]");
+    await evaluate(`(() => { document.querySelector('.drawer [aria-label="Restore"]')?.click(); return true; })()`);
+    await settle();
+    await browser("focus", ".ProseMirror");
+    await evaluate("window.__fake.failNext(-32000, 'Pad save rejected: disk is full. Free space and retry.'); true");
+    await browser("press", "Control+End");
+    await browser("keyboard", "type", "Retained review draft");
+    await browser("click", ".pad-head-name");
+    await browser("wait", "--fn", "document.querySelector('.pad-body [role=alert]')?.textContent.includes('Free space and retry.')");
+    await browser("screenshot", join(recoveryOutput, "rejected-save-restored.png"));
+    writeFileSync(join(recoveryOutput, "rejected-save-restored.checks.json"), JSON.stringify(await evaluate("window.__checks()")));
+  }
 });
