@@ -322,3 +322,5 @@ Merged `origin/main` at `9f948f124` without conflicts; `git show --remerge-diff`
 | --- | ---: | --- |
 | `just ready` first run | 1 | Web lint/typecheck and N7 passed; repository spelling scan rejected the copied #3194 misspelling before the source excerpt repair. Rerun after repair; no product or lint-rule change. |
 | Temporary aggregate report assertion (Python) | 1 | Counted decision ids again in the public-mapping table. Restricted counting to the independent-decision table; 22 rows, thirteen rendered openings, eight menu models and every inspected source hash then reconciled (exit 0). |
+
+Final `just ready` passes (exit 0): B4522 migration guard, web lint/typecheck, repository and Rust lints, `ALL PROOFS CHECK` and N7 launch sites. Vocabulary, scenario ids, merge-loss, whitespace, all 33 inspected source hashes, eight exact menu models and thirteen rendered openings pass (exit 0). Own diff review is clean after correcting the existing `RailRow::NameField` reference and naming each applicable action id. No behavior tests changed; no local `just check` ran. The dedicated browser session was closed.
