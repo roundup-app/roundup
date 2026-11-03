@@ -542,3 +542,92 @@ Independently verified all 34 source hashes, every archived payload and all seve
 | `just harness import-candidates 5247` shutdown | 130 | Deliberately stopped only this run's harness after observation; its dedicated browser closed successfully. |
 
 Independent `pnpm install --frozen-lockfile` and `just ready` pass (exit 0), including all 193 lint-behavior checks, package typechecks, repository/Rust lints, B4522, `ALL PROOFS CHECK` and N7. Final spelling, vocabulary, scenario ids, merge-loss and whitespace checks pass. No local `just check` or changed behavior tests. #5758 remains open for the documented inventory gaps, owner choices and authorized retirements; older-Project reopening remains mandatory.
+
+## Shelf evidence — builder-41608283605
+
+Source: main `eaa391d9d2f9eb7d9aaeb874590ec20e4ad805a8`, own worktree `/tmp/roundup-41608283605`. Scope expansion validated with `python3 loop/orders.py check /tmp/u5741-body.md` (0) before writing #5758. No `.codegraph/` index exists; ordinary source search used. Read installed dependencies/platform and existing Shelf/Ark/receipt implementations; no library, machinery or product code added. No scenario or test changes; U5741 clauses are policy observers.
+
+The source catalogue retains inspected hashes, four full direction Issue records, public mappings and the exact isolated observer. Historical actual CLI/MCP replies retain their original revision; no fresh both-role runtime claim is made. Source-only and unverified comparisons remain listed in shelf.md. Documentation changes move no product Check; each accepted opening records all Check results. No local `just check`, deletion or owner choice is inferred. P3/P6/P11/P12 gates have no changed product path; later retirements still require their behavioral observers and successful older-Project reopening.
+
+| Failed command / observer | Exit / status | Failure and disposition |
+| --- | --- | --- |
+| `cat apps/desktop/src/app/ShelfFrame.tsx` | 1 | Guessed module absent; read actual shelf/frame.ts and app/Layout.tsx. |
+| `cat apps/desktop/src/shelf/history.ts` | 1 | No such module; read App history registration and todos/deleteTodos.ts. |
+| `rg ... apps/desktop/src/keys/history.ts ...` | 2 | Guessed path absent; App.tsx and keys/focus.ts own scoped history. |
+| `sed ... apps/desktop/src/todos/undo.ts` | 2 | Guessed path absent; actual deleteTodos.ts inspected. |
+| `rg --files apps/desktop/src/drafts` | 2 | Directory absent; existing state/connectedProject.ts owns drafts/undo. |
+| `cat scenarios/ui-shelf-scope.md` / later `rg` including same path | 1 / 2 | Scope acceptance is U2744a in ui-shelf.md; actual file inspected. |
+| `rg` including testing/harness.ts and testing/fake.ts | 2 | Actual harness.tsx and fakeApp.ts inspected. |
+| `sed ... apps/desktop/src/pads/groups.ts` | 2 | Actual padGroups is in shownPads.ts; source/citations corrected. |
+| `sed ... apps/desktop/src/pads/padGroups.ts` | 2 | Same mistaken path; inspected actual shownPads.ts. |
+| First `just harness tree-40 5251` | 254 | Install had not finished; Vite unavailable. pnpm install completed (0), relaunched successfully. |
+| Initial driver `wait .todo-row-button` | 1 | Omitted explicit harness items opening; discarded and corrected query. |
+| Second driver `wait .todo-row-button` | 1 | Unassigned group folded; discarded and disclosed actual group before capture. |
+| Dense Maximise `wait --fn ...shelfMaximised` | 1 | State timed out after activation; no maximization pass claimed. |
+| Reduced-motion Maximise `wait --fn ...shelfMaximised` | 1 | Same failed observer; omitted this unresolved branch from successful replay. |
+| Driver click `#shelf-tab-pads` after Close | 1 | Closed panel unmounts its tabs in this harness; reopen through actual leader B. |
+| Driver return to Todos `wait .todo-row-button` | 1 | Remounted owner group folded; disclose before waiting for rows. |
+| Driver initial group click | 1 | Group not loaded yet; bounded group-control wait replaces premature click. |
+| Apple selection-guide direct retrieval | HTTP 429 | Search excerpt is not a full equivalence proof; exact comparison stays unverified. |
+
+The timed-out maximization probes do not establish a product cause. The final replay uses reduced motion and no timing claim. Repeated captures supersede earlier failed attempts; images remain uncommitted for workflow attachment. Continue the explicit worklist before the final all-candidate request.
+
+Additional failed observers: `ls artifacts/ux/U5741/shelf` from the original checkout (2), rerun in the owning worktree; initial Pad post-delete zero-row wait (1), because retained root Pads become visible after the selected group disappears, corrected to selected-set/count observation; Pad Redo count wait (1), because the existing fake store does not implement pad.redoDelete, now recorded as unavailable rather than fabricated success. A diagnostic eval accidentally requested the focused body HTML and produced oversized output (0); subsequent reads select only ids, counters and bounded text.
+
+The initial attached `just ready` ended with process exit 143 despite its log reaching successful B4522, web/type checks, repository/Rust lints, all 193 lint-behavior checks, `ALL PROOFS CHECK` and N7. That is not a complete pass. A detached repeat with a persistent explicit exit-code file supplies the final observer below. Standalone spelling passes (0).
+
+Final evidence integrity: 41 inspected source hashes, twelve dark 1512×950 openings, every recorded Check, all four direction archives, exact observer archive and twelve accessibility-snapshot hashes pass. Each image has a recorded SHA-256. The full first deletion diagnostic is visible in delete-full-diagnostic; other target diagnostics remain independently inspectable, not all simultaneously visible. No positive Pad Redo observer is claimed: the fake-store method-not-found is retained in pads-redo-unavailable. PNG files are uncommitted.
+
+The first detached repeat ended before completion without an exit file; no pass is inferred. A live PTY repeat preserves explicit status. The initial exit-file read failed (1) because its process had ended without writing it. Final required-command status follows after completion.
+
+
+
+Isolated browser closed successfully (0); this run's harness session ended by SIGTERM (143) after captures, with no native browser fallback. Twelve accepted PNG files were copied to the workflow checkout under artifacts/ux/U5741/shelf/ for attachment. Source and observer archives are lossless; no image/video is committed. Self-review checked duplicate decisions, code/user-label naming, placement, every claimed capture and the explicit failed/unavailable branches. Main remains the audited eaa391d9d revision after the final fetch; no merge resolution was needed.
+
+Final `just ready` live PTY repeat: exit **0**, confirmed both by the completed process and /tmp/u5741-ready-live.exit. B4522 migration guard, all 193 lint-behavior checks, package type checks, repository/Rust lints, formal proofs and N7 pass. Final vocabulary, scenario ids, merge-loss, spelling and whitespace pass. No behavior test changed or local just check ran; CI judges the implementation head. This evidence slice is complete; the full U5741 inventory, vendor/conditional reconciliation and owner request remain unfinished on #5758.
+
+
+## Shelf fix-run evidence — builder-41609532898
+
+Independently observed the Shelf on PR #5868 as a documentation-only evidence slice pinned to main `eaa391d9d2f9eb7d9aaeb874590ec20e4ad805a8`. The concurrent head 1454b5428 supplies 26 S-prefixed decision rows. This integration retains them and separates per-target dismissal, uncertain-operation dismissal and width reset as S27–S29, and preserves the independently observed completed-Todo fold as S30; they can have different keep/delete choices. The preliminary SH-prefixed table was superseded when integrating that head. Every row distinguishes its three criteria; all vendor-equivalence comparisons and unrendered conditional branches remain explicitly unverified. No product, contract, scenario, behavior test or frozen-loop change. #5758 stays open for the complete inventory, owner choices and authorized retirements.
+
+Observed through the existing fake-Daemon harness in an isolated worktree and a fresh dedicated headless Chromium profile/session, at 1512×950 with dark media and App appearance. Source hashes, complete #4966/#4533 direction replies and the compressed reproducible driver are in `catalogues/shelf-followup-source.json`. `rendered-shelf-followup.json` retains snapshots, call payloads, local storage and Check readings. Media stays uncommitted under `artifacts/ux/U5741/shelf-followup/`; it proves webview actions only, never native menus, actual store mutation or older-Project reopening.
+
+| Failed command / observer | Exit | Failure and repair |
+| --- | ---: | --- |
+| `rg` including `scenarios/ui-shelf-selection.md` | 2 | Guessed scenario path absent; read ui-shelf-delete.md instead. |
+| `rg` over `todos/deletion*.ts*` | 2 | Guessed module absent; actual deletion implementation is todos/deleteTodos.ts. |
+| `rg` including `state/unfinishedWork.ts` | 2 | Guessed path absent; connectedProject.ts identifies createTodoUndo in deleteTodos.ts. |
+| First isolated driver, `.todo-row-button` wait | 143 | Stopped the driver and its wait: initial Unassigned group is folded. Wait for mounted scope and explicitly unfold it. No capture accepted. |
+| Second isolated driver, all-animation settle | 143 | Stopped driver and evaluator: indefinite Terminal cursor animation never finishes. Existing Shelf observer filters relevant surface animations; adopted that filter. No capture accepted. |
+| Third isolated driver, exact Restore button | 1 | Unscoped Maximise matched a centre control; repaired to .shelf-controls and explicit maximised-state waits. Superseded captures discarded. |
+| Fourth isolated driver, `[data-id="auth-refactor"]` | 1 | Display name is not identity; inspected DOM and used auth/tokens ids. Superseded captures discarded. |
+| Fifth isolated driver, exact Overview Project root button | 1 | Accessible name also includes current attention counts. Use its stable todo-project-root selector. Superseded captures discarded. |
+| Sixth isolated driver, closed tab click | 1 | Closed layout does not expose that trigger for this state. Reopen through the existing ⌘K B action; final replay supersedes the partial manifest. |
+
+`pnpm install --frozen-lockfile` passed. No test file changed; U5741's policy observer requires evidence rather than tests of report wording. Required lint and final evidence reconciliation results follow below. No local `just check` ran.
+
+| Additional failed command | Exit | Disposition |
+| --- | ---: | --- |
+| Mid-replay manifest inspection for delete-failed | 1 | The new manifest had not reached that opening yet; inspected only the complete final record afterward. |
+
+Final replay retains nineteen openings, each passing every recorded Check, including D2/D5/D6. Visually inspected the deletion-failure image: the cause, original-work guidance and originating recovery controls remain visible. The refusal is an injected fake reply; no real storage failure is asserted. All source hashes match the pinned main bytes; archived driver/snapshot checksums, dark media/appearance, viewport, successful command records and image presence reconcile. All nineteen media files are copied to the workflow checkout for attachment, without committing images.
+
+The final observer additionally exercises keyboard resize and Enter width reset, bringing the total to nineteen passing openings, including S07 resizing and S29 width reset. Pointer resize and double-click reset remain explicit source-only branches. `just ready` passed (exit 0), including all 193 lint-behavior checks, styles, package typechecks, repository/Rust lints, B4522, `ALL PROOFS CHECK` and N7. Final spelling, vocabulary, scenario ids, merge-loss and whitespace checks pass. No local `just check` or added/changed behavior tests.
+
+
+| Integration / shutdown command | Exit | Disposition |
+| --- | ---: | --- |
+| `just harness tree-40 5251` shutdown | 1 (Vite 143) | Deliberately terminated only this run's harness after final observation; dedicated browser closed successfully. |
+| `git push origin HEAD:build/app-feature-audit-implementation` | 1 | Remote advanced concurrently to 1454b5428; fetched and integrated it without force. |
+| `git merge --no-commit origin/build/app-feature-audit-implementation` | 1 | Expected documentary conflicts; retained the concurrent canonical report/catalogues and all original evidence, moving independent observations into distinct follow-up archives. |
+
+The follow-up media has its own shelf-followup directory to avoid replacing the original run's captures. Its exact executed driver retains the original output names; the bootstrap documents the archival rename. Source hashes/snapshot bytes and observation values are unchanged. The combined head receives another required lint pass below.
+
+The integrated public mapping uses exact MCP spellings `pad_getDeletion` and `pad_redoDelete`: `crates/rup/src/mcp.rs::tool_name` preserves camelCase outside github methods. CLI verbs still use kebab-case in cli.rs. This corrects source-map spelling, without claiming fresh tools/list replies.
+
+The second concurrent advance only appended its completed validation/cleanup record (911bc66ef and 046f897f6); both paragraphs are retained. Its merge returned 1 for a validation-footer conflict, resolved by keeping both records. No product file or baseline source changed.
+
+`loop/rules.sh merge-loss` initially returned 1 because the two follow-up files first appeared through a merge commit. A normal own commit now records useful image SHA-256 values and the explicit driver-to-archive path mapping in those files; no evidence is discarded. Final merge-loss is checked again before push.
+
+Combined-head verification after both concurrent integrations: `just ready` completed with exit 0, including all 193 lint-behavior checks, package typechecks, repository/Rust lints, B4522, formal proofs (`ALL PROOFS CHECK`) and N7. Both source catalogues (41 and 38 entries), both exact observer archives, all 31 snapshots and every recorded Check set verify. The nineteen independent image hashes match the retained media. Final standalone spelling, vocabulary, scenario ids, merge-loss and whitespace pass. The scope addition for the two follow-up evidence files was validated with loop/orders.py (0) and recorded on #5758. No behavior tests changed and no local just check ran.
