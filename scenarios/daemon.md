@@ -67,8 +67,8 @@ D11 caller audit (policy; implementation updates every affected caller together)
 | `crates/perf/src/idle_native.rs`, `Native::phase` | Live-only initial subscription; final replay after its recorded `subscribed.head` | Keep the exact measurement cursor. Expiration invalidates the measurement visibly; never retry from the oldest retained number and report a complete interval. |
 | Timeline log | Retired by U4454b (`scenarios/remove-time-timeline.md`) | No caller to migrate; do not restore it. |
 | `crates/rupd/src/route.rs`, `Daemon::route_inner` | Visibility drains `{kept: true}` replay through its captured `head` | Bounds and retained replay share the append lock; no separate bounds-to-cursor round trip or expiration retry. |
-| `crates/rupd/src/wake.rs`, `Waker::replay`; `crates/rupd/src/reaction.rs`, `Evaluator::decide` | Persisted decision cursors passed to `Bus::saved_after` | Keep B44's current-Kind reconciliation and NR5's recorded gap with condition-specific evidence. Neither retries with an error's oldest number. |
-| Daemon live observers in `open`, `reaction` and `wake`; D12 reconnect fixture | Live-only `subscribe_after`, saved activation heads, or the last received number N | Keep live-only setup and exact resume identities; expiration follows the owning scenario, never becomes a derived oldest-number retry. |
+| `crates/rupd/src/wake.rs`, `Waker::replay` | Persisted decision cursors passed to `Bus::saved_after` | Keep B44's current-Kind reconciliation. It never retries with an error's oldest number. |
+| Daemon live observers in `open` and `wake`; D12 reconnect fixture | Live-only `subscribe_after`, saved activation heads, or the last received number N | Keep live-only setup and exact resume identities; expiration follows the owning scenario, never becomes a derived oldest-number retry. |
 
 Policy: `events-expired.oldest` describes the failed request's bounds; it is not a stable cursor for a later request. A caller wanting retained history uses the atomic kept request. A caller requiring a complete interval keeps its original number and exposes expiration or its scenario's explicit reconciliation.
 
@@ -78,7 +78,7 @@ D11 checks on main:
 2. `crates/rupd/src/event_log.rs`, `SqliteLog::append`, `d11_a_subscribe_for_every_kept_event_never_expires`, `d11_an_after_older_than_the_window_names_the_oldest_kept`: pruning and the existing retained-window observers.
 3. `apps/desktop/src/app/u1_calls_and_events.test.ts`, `d11_connect_events_requests_every_kept_event_once_before_live_events`: one App kept request and listener delivery.
 4. `crates/rup/tests/i9.rs`, `i9_an_after_older_than_the_window_exits_1_with_the_daemons_error`: explicit resume expiration remains visible.
-5. `scenarios/door-child-visibility.md`, **U5531a the Door sets a child's Rail visibility**; `scenarios/messages.md`, **B44 a Wake request survives a Daemon restart and fires once**; `scenarios/named-reactions.md`, **NR5 observation failure and history gaps**: existing authority, attention and reconciliation requirements remain in force.
+5. `scenarios/door-child-visibility.md`, **U5531a the Door sets a child's Rail visibility**; `scenarios/messages.md`, **B44 a Wake request survives a Daemon restart and fires once**: existing authority, attention and reconciliation requirements remain in force.
 
 Policy — gate and observer: P13 forbids treating missing source history as a successful match; the caller audit preserves B44/NR5 reconciliation rather than silently moving their cursors. The observers above compare exact Event numbers, RPC outcomes and selected identities. This change claims no layout, motion or native Mac behavior; no rendered capture is required for the specification.
 

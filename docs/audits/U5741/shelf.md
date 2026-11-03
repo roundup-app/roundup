@@ -1,6 +1,6 @@
 # U5741 Shelf decisions
 
-Audited main: `eaa391d9d2f9eb7d9aaeb874590ec20e4ad805a8`. This continues the existing inventory; it is not an owner request or deletion authorization. Todo/Pad content editing, toolbar choices and output delivery remain separate work. Ask and real Agent Terminals remain protected; Overview and Reactions remain excluded.
+Audited main: `eaa391d9d2f9eb7d9aaeb874590ec20e4ad805a8`. This continues the existing inventory; it is not an owner request or deletion authorization. Todo/Pad content editing, toolbar choices and output delivery remain separate work. Ask and real Agent Terminals remain protected; Overview remain excluded.
 
 Observer: reconcile production `App`, `Layout`, Shelf frame, scope, groups, selection and reversible-deletion callers with isolated dark 1512×950 openings. All three candidate questions must have evidence; unverified comparisons remain unfinished, never counted as no. No usage measurements are assumed.
 
@@ -70,7 +70,6 @@ Every later selected retirement must inventory pre-deletion data and name existi
 Rendered limits: the first opening omitted the explicit items query; the corrected opening initially waited for rows inside folded Unassigned. Both timed out and were discarded. After explicit group disclosure the loaded screen is accepted. Dense Maximise activation made subsequent state observation time out twice; its cause is unresolved, and no maximization observer passes in that original sequence. The independent follow-up below now establishes reserved maximization. Closing removes the panel tabs from the DOM in this harness; reopening uses leader B, not a fabricated hidden-tab click. Captures use reduced motion for the remaining controls and make no timing claim.
 
 Accepted rendered sequence: loaded Todos, closed Shelf, loaded Pads, disclosed Project-root Pad group, Todo selection/clear/refusal, full refusal tooltip, Pad selection/delete/Undo and unavailable Redo. Deletion acts only on the two visible selected payments Pads; the two root Pads remain. Undo restores four total. The fake store has no `pad.redoDelete` handler, so the recorded Redo refusal is a fixture boundary, not a product defect or successful replay. Failure text is ellipsized at rest; the tooltip exposes the complete first cause. Full failure readability for every target and other conditional states remains unfinished.
-
 
 ## Independent rendered follow-up — builder-41609532898
 

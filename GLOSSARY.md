@@ -67,11 +67,6 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Wake request (`agent.wake`) | same | — |
 | GitHub tool (`github.prGet`, `github.issueGet`, `github.prSetBody`, `github.prReady`, `github.prAutoMerge`; the Door's tools `github_pr_get`, `github_issue_get`, `github_pr_set_body`, `github_pr_ready`, `github_pr_auto_merge`) | same | — |
 | Quiet Digest (`is_quiet_digest`) | same | — |
-| Reaction (`reaction.create`, `.list`, `.get`, `.stop`, `.run`; authenticated maker in `actor`, required one-line `reason`) | Reaction | — |
-| Reaction observation identity (`ObservationCause`, `ObservationGap`, `ObservationRecovery`, `ObservationHealth`) | same | — |
-| Preview (`reaction.preview`) | Time preview | — |
-| Firing (a Reaction's `firings`) | same | — |
-| Observation (a Reaction's `observation`; `reaction_watch`, `project.db` migration 0010) | same | — |
 | Rewind (`workstream.rewind`, `RewindTurn`; the provider's own rewind, M5159b) | same | roll back |
 | Block | same | — |
 | Rollup | same | — |
@@ -344,7 +339,6 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Placement call (`PlacementCall`, `Agents::placement_call`) | same | — |
 | Deliverable | Made | — |
 | Publication change (`DeliverableChanged`, `deliverable.changed`) | same | — |
-| Saved Reaction change (`ReactionChanged`, `reaction.changed`) | same | — |
 | Publication target (`PublicationTarget`) | same | — |
 | Published target (`PublishedTarget`, `ExternalAvailability`) | same | — |
 | Resolution (`Resolution`, `UnavailableCause`) | same | — |
