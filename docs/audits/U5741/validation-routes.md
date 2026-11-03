@@ -19,6 +19,7 @@ The catalogue compares the 33 inspected sources with the earlier public census a
 
 | Command / observer | Exit | Failure and disposition |
 | --- | ---: | --- |
+| First standalone `python3 tools/lint/scan.py typos` | 2 | Pinned tool not installed yet; ran `python3 tools/lint/setup.py web` before retry. |
 | Initial `test -d .codegraph` probe | 1 | No index in checkout; ordinary repository discovery used. Surrounding shell completed successfully. |
 | `cat .claude/sound/resilience/fail-loud.md` | 1 | Guessed rule path absent; `rg --files .claude/sound/resilience` located the actual files. No product or observer conclusion follows. |
 | `rg -n 'struct SpawnParams\|struct CreateWorkstreamParams' crates/contracts/src/agent.rs` | 1 | Definitions are re-exported from `agent/launch.rs`, as the corrected registration search finds; no missing-contract claim. |
@@ -28,3 +29,5 @@ The catalogue compares the 33 inspected sources with the earlier public census a
 | Corrected `rup route set you 1 drop --agent 1 --json` | 1 | Expected real Daemon refusal: `route-audit may not set a Route to itself (FORBIDDEN)`. Following list equals the pre-refusal state. This is a passing refusal observer, not successful mutation or proof of every ownership branch. |
 
 No failed or misclassified probe is promoted to a pass. The named existing store/Daemon tests additionally check user-route ownership, Reach, default behavior, pending preservation and reopening; they do not prove a future deletion opens older Projects. No owner choice or deletion is made.
+
+Replay: extract `replay` and `integrityObserver` from the checked-in catalogue to Python files and substitute the worktree root in each. The runtime replay reads dated direction and failed-attempt records from that existing catalogue, so it needs no untracked temporary evidence files. Build the pinned binaries and install dependencies first. Runtime state/timestamps are freshly observed; archived direction and failures remain historical.
