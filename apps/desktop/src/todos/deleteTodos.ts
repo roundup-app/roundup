@@ -95,7 +95,7 @@ export function createTodoUndo() {
   let padRegion = "";
   const [padPending, setPadPending] = createSignal<{ name: string; incarnation: string; operation: string }[]>([]);
   let padReceipts: PadDeletion[] = [];
-  const [railPending, setRailPending] = createSignal<{ id: string; name: string; project: string; operation: string; region: string }>();
+  const [railPending, setRailPending] = createSignal<{ ids: string[]; name: string; project: string; operation: string; region: string }>();
 
   const unconfirmedName = () => {
     const redo = redoes().find(action => action.state === "unknown");
@@ -122,14 +122,16 @@ export function createTodoUndo() {
 
   const unconfirmed = () => redoUnknown() || !!uncertain() || padPending().length > 0 || !!railPending();
 
-  const removeRail = async (id: string, name: string, region = "") => {
+  const removeRailSelection = async (ids: readonly string[], name: string, region = "") => {
+    const selected = [...new Set(ids)].sort();
+
     if (pending() || redoUnknown() || !connection || uncertain() || padPending().length) {
       block();
 
       return false;
     }
 
-    if (railPending() && railPending()!.id !== id) {
+    if (railPending() && JSON.stringify(railPending()!.ids) !== JSON.stringify(selected)) {
       block();
 
       return false;
@@ -140,13 +142,15 @@ export function createTodoUndo() {
     setFailure(null);
 
     try {
-      const chosen = railPending() ?? { id, name, project: (await app.rpc("daemon.ping", null)).projectKey, operation: crypto.randomUUID(), region };
+      const chosen = railPending() ?? { ids: selected, name, project: (await app.rpc("daemon.ping", null)).projectKey, operation: crypto.randomUUID(), region };
       const retry = !!railPending();
       setRailPending(chosen);
       let receipt = retry ? await app.rpc("rail.deletion", { project: chosen.project, operation: chosen.operation }) : null;
 
       if (!receipt) {
-        const removed = await applying(() => app.rpc("rail.remove", { id: chosen.id, operation: chosen.operation }));
+        const removed = await applying(() => chosen.ids.length === 1
+          ? app.rpc("rail.remove", { id: chosen.ids[0]!, operation: chosen.operation })
+          : app.rpc("rail.removeSelection", { ids: chosen.ids, operation: chosen.operation }));
 
         if (removed.kind === "applied") receipt = removed.value;
         else {
@@ -522,7 +526,8 @@ export function createTodoUndo() {
       connection = app;
       forwarding ??= { ...app, rpc: (method, params) => connection!.rpc(method, params) };
     },
-    remove, removePads, removeRail,
+    remove, removePads, removeRailSelection,
+    removeRail: (id: string, name: string, region = "") => removeRailSelection([id], name, region),
     removeTodos: async (ids: readonly number[], region = "") => {
       await remove([...ids], region);
 
@@ -573,7 +578,7 @@ export function createTodoUndo() {
       return action ? copy.redoAction(actionName(action)) : copy.redo;
     },
     available, redoAvailable,
-    retryDelete: () => redoUnknown() ? redo(redoes().findLast(action => action.state === "unknown")!.regions[0]) : railPending() ? removeRail(railPending()!.id, railPending()!.name) : padPending().length ? removePads(padPending()) : uncertain() ? remove(uncertain()!) : Promise.resolve(false),
+    retryDelete: () => redoUnknown() ? redo(redoes().findLast(action => action.state === "unknown")!.regions[0]) : railPending() ? removeRailSelection(railPending()!.ids, railPending()!.name) : padPending().length ? removePads(padPending()) : uncertain() ? remove(uncertain()!) : Promise.resolve(false),
     uncertain: () => redoUnknown() || !!uncertain() || padPending().length > 0 || !!railPending(),
     ids: () => uncertain() ?? [],
   };

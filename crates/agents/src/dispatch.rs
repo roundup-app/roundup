@@ -774,6 +774,17 @@ impl Agents {
         }
     }
 
+    async fn rpc_rail_remove_selection(
+        &self,
+        _ctx: &Ctx,
+        _method: &str,
+        _value: Value,
+    ) -> Result<Value, RpcError> {
+        Err(RpcError::forbidden(
+            "selection removal requires the Project Daemon",
+        ))
+    }
+
     async fn rpc_rail_remove(
         &self,
         ctx: &Ctx,
