@@ -17,7 +17,7 @@ def browser(*args):
     result = subprocess.run(["agent-browser", "--session", session, "--json", *args],
                             text=True, capture_output=True, timeout=40)
     if result.returncode or not result.stdout:
-        raise RuntimeError(result.stderr or result.stdout)
+        raise RuntimeError(f"{args}: {result.stderr or result.stdout}")
     reply = json.loads(result.stdout)
     if not reply["success"]:
         raise RuntimeError(reply)
