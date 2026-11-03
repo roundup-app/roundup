@@ -61,6 +61,24 @@ pub struct Entry {
     pub one_line: bool,
 }
 
+impl Entry {
+    /// B5763a: the entire string the peer compares, excluding the transport Message id.
+    /// Questions include their reply identity; notes use their rendered text and labels.
+    pub fn content(&self, from: &str, permission_mode: &str) -> String {
+        let text = if self.kind == MessageKind::Question {
+            format!("[question, replyTo: {}] {}", self.id, self.text)
+        } else if self.one_line {
+            one_line(&self.text)
+        } else {
+            self.text.clone()
+        };
+        format!(
+            "<cross-session-message from=\"{from}\" from-name=\"{}\" from-mode=\"{permission_mode}\">\n{text}\n</cross-session-message>",
+            attribute(&self.from),
+        )
+    }
+}
+
 const MSG_ID_PREFIX: &str = "00000000-0000-4000-8000-";
 
 /// The `msg_id` of Message `id`: Claude Code wants a UUID and drops a second line carrying one it
@@ -99,6 +117,7 @@ fn attribute(name: &str) -> String {
 
 /// A live session's listing: the `peerProtocol` it names and its `peerToken`.
 struct Session {
+    id: String,
     protocol: Option<u64>,
     token: String,
 }
@@ -129,7 +148,7 @@ impl Launcher {
         let socket = socket.canonicalize().ok()?;
         let sessions = self.conversation_dir.join("sessions");
         let files: Vec<_> = std::fs::read_dir(&sessions).ok()?.flatten().collect();
-        let (pid, protocol) = files.iter().find_map(|file| {
+        let (pid, protocol, id) = files.iter().find_map(|file| {
             let name = file.file_name().into_string().ok()?;
             let pid = name.strip_suffix(".json")?;
             let session: Value = serde_json::from_slice(&std::fs::read(file.path()).ok()?).ok()?;
@@ -138,8 +157,9 @@ impl Launcher {
                 .ok()?;
             let alive = rustix::process::Pid::from_raw(session["pid"].as_i64()?.try_into().ok()?)
                 .is_some_and(|pid| rustix::process::test_kill_process(pid).is_ok());
+            let id = session["sessionId"].as_str()?.to_owned();
             (listening == socket && alive)
-                .then(|| (pid.to_owned(), session["peerProtocol"].as_u64()))
+                .then(|| (pid.to_owned(), session["peerProtocol"].as_u64(), id))
         })?;
         let token = files.iter().find_map(|file| {
             let name = file.file_name().into_string().ok()?;
@@ -148,7 +168,11 @@ impl Launcher {
             let key: Value = serde_json::from_slice(&std::fs::read(file.path()).ok()?).ok()?;
             key["peerToken"].as_str().map(str::to_owned)
         })?;
-        Some(Session { protocol, token })
+        Some(Session {
+            id,
+            protocol,
+            token,
+        })
     }
 
     /// B51: the state of Agent `agent`'s inbox: `missing` when its session is not listening on
@@ -161,11 +185,30 @@ impl Launcher {
         }
     }
 
-    /// B50(a), B50(c): sends one line per note over `agent`'s socket. A failure, which may come
-    /// after some notes went, names `missing`; sending the batch again is safe, since Claude Code
-    /// drops a `msg_id` it has taken up.
-    pub fn inbox_write(&self, agent: &str, notes: &[Entry], yolo: bool) -> Result<(), Inbox> {
-        let permission_mode = if yolo {
+    /// B5763b: the actual peer session, independent of Daemon restart or Agent labels.
+    pub fn inbox_session(&self, agent: &str) -> Option<String> {
+        self.session(&self.socket_path(agent))
+            .map(|session| session.id)
+    }
+
+    /// B5763c: only the live receiving session and rupd's own peer origin establish history.
+    pub fn inbox_previous(&self, agent: &str, path: &Path) -> Result<Option<String>, Inbox> {
+        let session = self.inbox_session(agent).ok_or(Inbox::Missing)?;
+        let from = format!("uds:{}", self.socket_dir().join("rupd").display());
+        previous(path, &session, &from).map_err(|error| {
+            eprintln!("inbox: cannot recover {}: {error}", path.display());
+            Inbox::Missing
+        })
+    }
+
+    /// B5763b: use exactly the renderer and permission mode of the physical inbox write.
+    pub fn inbox_content(&self, agent: &str, note: &Entry, yolo: bool) -> String {
+        let from = format!("uds:{}", self.socket_dir().join("rupd").display());
+        note.content(&from, &self.inbox_mode(agent, yolo))
+    }
+
+    fn inbox_mode(&self, agent: &str, yolo: bool) -> String {
+        if yolo {
             "bypassPermissions".to_owned()
         } else {
             self.modes
@@ -174,7 +217,14 @@ impl Launcher {
                 .get(agent)
                 .map(|mode| mode.effective.clone())
                 .unwrap_or_else(|| "default".into())
-        };
+        }
+    }
+
+    /// B50(a), B50(c): sends one line per note over `agent`'s socket. A failure, which may come
+    /// after some notes went, names `missing`; sending the batch again is safe, since Claude Code
+    /// drops a `msg_id` it has taken up.
+    pub fn inbox_write(&self, agent: &str, notes: &[Entry], yolo: bool) -> Result<(), Inbox> {
+        let permission_mode = self.inbox_mode(agent, yolo);
         let socket = self.socket_path(agent);
         let token = self.session(&socket).ok_or(Inbox::Missing)?.token;
         let mut stream = UnixStream::connect(&socket).map_err(|_| Inbox::Missing)?;
@@ -184,17 +234,7 @@ impl Launcher {
         let from = format!("uds:{}", self.socket_dir().join("rupd").display());
         let mut lines = vec![json!({ "type": "auth", "token": token })];
         for note in notes {
-            let text = if note.kind == MessageKind::Question {
-                format!("[question, replyTo: {}] {}", note.id, note.text)
-            } else if note.one_line {
-                one_line(&note.text)
-            } else {
-                note.text.clone()
-            };
-            let content = format!(
-                "<cross-session-message from=\"{from}\" from-name=\"{}\" from-mode=\"{permission_mode}\">\n{text}\n</cross-session-message>",
-                attribute(&note.from),
-            );
+            let content = note.content(&from, &permission_mode);
             lines.push(json!({
                 "msgV": 1, "msg_id": msg_id(note.id), "type": "user",
                 "message": { "role": "user", "content": content },
@@ -208,6 +248,73 @@ impl Launcher {
         }
         stream.write_all(&body).map_err(|_| Inbox::Missing)
     }
+}
+
+/// B5763c: read admitted content in transcript order, never Message allocation order.
+/// Native input and other peer origins do not change rupd's last admitted entry.
+pub fn previous(path: &Path, session: &str, sender: &str) -> std::io::Result<Option<String>> {
+    #[derive(serde::Deserialize)]
+    struct Origin {
+        kind: String,
+        from: String,
+    }
+    #[derive(serde::Deserialize)]
+    struct Message {
+        content: serde_json::Value,
+    }
+    #[derive(serde::Deserialize)]
+    struct Attachment {
+        origin: Option<Origin>,
+        prompt: Option<String>,
+    }
+    #[derive(serde::Deserialize)]
+    struct Record {
+        #[serde(rename = "sessionId")]
+        session: Option<String>,
+        origin: Option<Origin>,
+        message: Option<Message>,
+        attachment: Option<Attachment>,
+    }
+    let file = match std::fs::File::open(path) {
+        Ok(file) => file,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(error) => return Err(error),
+    };
+    let mut reader = BufReader::new(file);
+    let mut line = String::new();
+    let mut last = None;
+    loop {
+        line.clear();
+        if reader.read_line(&mut line)? == 0 || !line.ends_with('\n') {
+            break;
+        }
+        let record: Record = serde_json::from_str(&line)
+            .map_err(|error| std::io::Error::new(std::io::ErrorKind::InvalidData, error))?;
+        if record.session.as_deref() != Some(session) {
+            continue;
+        }
+        let (origin, text) = match record.attachment {
+            Some(attachment) => (attachment.origin, attachment.prompt),
+            None => (
+                record.origin,
+                record
+                    .message
+                    .and_then(|message| message.content.as_str().map(str::to_owned)),
+            ),
+        };
+        if let (Some(origin), Some(text)) = (origin, text)
+            && origin.kind == "peer"
+            && origin.from == sender
+        {
+            let start = text.find("<cross-session-message ");
+            let end = text.rfind("</cross-session-message>");
+            last = start.zip(end).and_then(|(start, end)| {
+                text.get(start..end + "</cross-session-message>".len())
+                    .map(str::to_owned)
+            });
+        }
+    }
+    Ok(last)
 }
 
 /// The Message ids the transcript at `path` records as another session's message, from byte

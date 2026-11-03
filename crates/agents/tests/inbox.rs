@@ -349,3 +349,207 @@ async fn b2706_note_mode_is_the_users_default_mode() {
         }
     }
 }
+
+#[test]
+fn b5763a_rendered_content_preserves_peer_comparison_identity() {
+    let sender = "uds:/tmp/rup-fixture/rupd";
+    let first = note(41, "same", false);
+    let second = note(42, "same", false);
+    assert_eq!(
+        first.content(sender, "default"),
+        second.content(sender, "default")
+    );
+    assert_eq!(
+        first.content(sender, "default"),
+        "<cross-session-message from=\"uds:/tmp/rup-fixture/rupd\" from-name=\"rupd\" from-mode=\"default\">\nsame\n</cross-session-message>"
+    );
+    assert_ne!(
+        first.content(sender, "default"),
+        first.content(sender, "plan")
+    );
+    let mut renamed = note(43, "same", false);
+    renamed.from = "different".into();
+    assert_ne!(
+        first.content(sender, "default"),
+        renamed.content(sender, "default")
+    );
+    let long = format!("[digest] {}", "é".repeat(150));
+    assert_eq!(
+        note(44, &(long.clone() + "a"), true).content(sender, "default"),
+        note(45, &(long + "b"), true).content(sender, "default")
+    );
+    let mut question = note(46, "same", false);
+    question.kind = contracts::message::MessageKind::Question;
+    let before = question.content(sender, "default");
+    question.id = 47;
+    assert_ne!(before, question.content(sender, "default"));
+}
+
+struct RecordedRail;
+
+#[async_trait::async_trait]
+impl rpc::Module for RecordedRail {
+    fn namespaces(&self) -> &'static [&'static str] {
+        &["rail"]
+    }
+    async fn call(&self, _: &rpc::Ctx, method: &str, _: Value) -> Result<Value, rpc::RpcError> {
+        assert_eq!(method, "rail.tree");
+        Ok(serde_json::json!([{
+            "id":"receiver", "kind":"agent", "name":"receiver", "parent":null,
+            "order":0, "status":{"kind":"idle","label":"","since":0,"finished":"0"},
+            "attempt":"1", "status_revision":"1", "terminal_id":"test-terminal",
+            "worktree":null,"can_resume":false,"channel":null,"work":null,
+            "stray":[],"model":null,"effort":null
+        }]))
+    }
+}
+
+struct RecordedInbox {
+    envelopes: Vec<Value>,
+    written: std::sync::Mutex<Vec<u32>>,
+}
+
+#[async_trait::async_trait]
+impl messages::NoteInbox for RecordedInbox {
+    async fn check(&self, _: &str) -> Inbox {
+        Inbox::Ok
+    }
+    fn session(&self, _: &str) -> Option<String> {
+        Some("recorded-session".into())
+    }
+    fn content(&self, _: &str, entry: &Entry) -> String {
+        let envelope = &self.envelopes[entry.id as usize - 1];
+        let recorded = envelope["message"]["content"].as_str().unwrap();
+        let name = recorded
+            .split("from-name=\"")
+            .nth(1)
+            .unwrap()
+            .split('"')
+            .next()
+            .unwrap();
+        let rendered = Entry {
+            id: entry.id,
+            kind: entry.kind,
+            from: name.into(),
+            text: entry.text.clone(),
+            one_line: entry.one_line,
+        }
+        .content(envelope["from"].as_str().unwrap(), "default");
+        assert_eq!(rendered, recorded);
+        rendered
+    }
+    fn write(&self, _: &str, entries: &[Entry]) -> Result<(), Inbox> {
+        self.written
+            .lock()
+            .unwrap()
+            .extend(entries.iter().map(|e| e.id));
+        Ok(())
+    }
+}
+
+#[tokio::test(start_paused = true)]
+async fn b5763a_recorded_peer_repeats_match_the_inbox_rule() {
+    use rpc::Module;
+    use std::sync::Arc;
+    for version in ["2.1.302", "2.1.316"] {
+        let fixture: Value = serde_json::from_str(
+            &std::fs::read_to_string(fixtures(version).join("repeats.json")).unwrap(),
+        )
+        .unwrap();
+        let envelopes: Vec<Value> = fixture["operations"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter_map(|op| op.get("envelope").cloned())
+            .filter(|e| e["from"] == "uds:/tmp/rup-fixture/rupd")
+            .collect();
+        let expected: Vec<u32> = envelopes
+            .iter()
+            .enumerate()
+            .filter(|(_, envelope)| {
+                fixture["admittedIds"]
+                    .as_array()
+                    .unwrap()
+                    .contains(&envelope["msg_id"])
+            })
+            .map(|(i, _)| u32::try_from(i + 1).unwrap())
+            .collect();
+        let inbox = Arc::new(RecordedInbox {
+            envelopes,
+            written: Default::default(),
+        });
+        let dir = tempfile::tempdir().unwrap();
+        let bus = rpc::Bus::new();
+        let messages =
+            messages::Messages::open(dir.path(), bus.clone(), Arc::new(RecordedRail)).unwrap();
+        messages.set_inbox(inbox.clone());
+        let ctx = rpc::Ctx {
+            actor: contracts::Actor::user(),
+            touches: Arc::new(provenance::Touches::in_memory().unwrap()),
+            bus,
+        };
+        for (index, envelope) in inbox.envelopes.iter().enumerate() {
+            let content = envelope["message"]["content"].as_str().unwrap();
+            let text = content
+                .split_once('\n')
+                .unwrap()
+                .1
+                .rsplit_once('\n')
+                .unwrap()
+                .0;
+            let result = messages
+                .call(
+                    &ctx,
+                    "message.send",
+                    serde_json::json!({"to":"receiver","kind":"note","body":text}),
+                )
+                .await
+                .unwrap();
+            let id = u32::try_from(index + 1).unwrap();
+            assert_eq!(result["id"], id);
+            let message = messages
+                .call(&ctx, "message.get", serde_json::json!({"id":id}))
+                .await
+                .unwrap();
+            assert_eq!(message["body"], text);
+            if expected.contains(&id) {
+                assert_eq!(message["status"], "pending");
+                assert!(message["reason"].is_null());
+            } else {
+                assert_eq!(message["status"], "delivered");
+                assert_eq!(message["reason"], "repeat of last inbox entry");
+            }
+            let prefix: Vec<u32> = expected
+                .iter()
+                .copied()
+                .filter(|sent| *sent <= id)
+                .collect();
+            assert_eq!(
+                *inbox.written.lock().unwrap(),
+                prefix,
+                "{version}, entry {id}"
+            );
+        }
+    }
+}
+
+// Rejects receipt-only or Message-id ordering as the source of legacy peer history.
+#[test]
+fn b5763c_legacy_history_uses_the_last_admitted_rupd_entry_in_its_session() {
+    let path = fixtures("2.1.302").join("transcript.jsonl");
+    let session = "77e8d837-17fb-4103-9626-145fd3dec0c4";
+    let last = agents::claude_code::inbox::previous(&path, session, "uds:/tmp/rup-x/rupd")
+        .unwrap()
+        .unwrap();
+    assert!(last.contains("say only BRAVO"));
+    assert!(!last.contains("slow"));
+    assert_eq!(
+        agents::claude_code::inbox::previous(&path, "another-session", "uds:/tmp/rup-x/rupd")
+            .unwrap(),
+        None
+    );
+    assert_eq!(
+        agents::claude_code::inbox::previous(&path, session, "uds:/another-peer").unwrap(),
+        None
+    );
+}

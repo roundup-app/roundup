@@ -251,7 +251,8 @@ async fn b2693b_note_mode_matches_the_receiver_attempt() {
     let pid = std::process::id();
     std::fs::write(
         sessions.join(format!("{pid}.json")),
-        json!({"pid":pid,"messagingSocketPath":socket,"peerProtocol":1}).to_string(),
+        json!({"pid":pid,"sessionId":CONVERSATION,"messagingSocketPath":socket,"peerProtocol":1})
+            .to_string(),
     )
     .unwrap();
     std::fs::write(

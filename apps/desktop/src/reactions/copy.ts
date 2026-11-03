@@ -74,7 +74,9 @@ const reactionReasons: Record<Reason, string> = {
   "receiver gone": "The original Agent is no longer available. Choose an available Agent for new work.",
   "not accepted": "The Agent did not accept this Message. Check the Agent before retrying.",
   "removed": "This Message was removed before delivery.",
-  "merged": "A newer summary includes it."
+  "merged": "A newer summary includes it.",
+
+  "repeat of last inbox entry": "The Agent already received the same Message."
 };
 
 export const copy = {
