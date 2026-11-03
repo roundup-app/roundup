@@ -925,3 +925,5 @@ Merged `origin/main` at `20c374201` without conflicts; `git show --remerge-diff`
 | Historical-text spelling failure | Exit | Disposition |
 | --- | ---: | --- |
 | Corrected standalone spelling scan | 1 | Raw archived owner quote contains a historical misspelling. Losslessly archived full direction records as JSON/zlib/base64 with hashes, preserving the exact quote without adding spelling exceptions. |
+
+Final `just ready` on the merged checkout passes (0): all 193 lint-behavior fixtures, web/package type checks, repository/Rust lints, migration guard, `ALL PROOFS CHECK` and N7. Final standalone spelling, size, vocabulary, scenario ids, merge-loss, whitespace and archive/image integrity pass (0). No changed behavior tests or local `just check`. This six-file evidence slice is ready for independent review; #5758 stays open for the complete inventory, owner choices and chosen retirements.
