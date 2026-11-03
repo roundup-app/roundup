@@ -38,8 +38,7 @@ fold or settings change cannot replace a later baseline. `*-rest`, `*-hover`
 and `*-focus` are explicit states for Todo summary/Rail, Todo rows, all Kinds,
 Ask and the Rail menu; `todo-selected` and `rail-selected` retain selection.
 The long Todo title wraps in `wrapped-todo-drawer`; the compact Shelf itself
-retains its existing single-line truncation. `made-controls` and
-`reaction-controls` cover further on-demand centre surfaces.
+retains its existing single-line truncation. `made-controls` covers the on-demand centre surface.
 
 The observer also records hover and keyboard focus for each revealed icon-labelled
 control in the Drawer, pickers, tabs, floating panels, import and Work progress.

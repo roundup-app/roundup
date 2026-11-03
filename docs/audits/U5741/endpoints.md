@@ -165,12 +165,6 @@ The Door omits Terminal-starting tools under M16. CLI includes them: CLI dispatc
 | `agent.skills` | — | — | — | `contracts::agent::NodeId` |
 | `agent.digest` | `rup agent digest` | — | `agent_digest` | `contracts::agent::NodeId` |
 | `agent.wake` | `rup agent wake` | `agent_wake` | `agent_wake` | `contracts::agent::WakeParams` |
-| `reaction.create` | `rup reaction create` | `reaction_create` | `reaction_create` | `contracts::reaction::CreateParams` |
-| `reaction.preview` | `rup reaction preview` | `reaction_preview` | `reaction_preview` | `contracts::reaction::PreviewParams` |
-| `reaction.list` | `rup reaction list` | `reaction_list` | `reaction_list` | `()` |
-| `reaction.get` | `rup reaction get` | `reaction_get` | `reaction_get` | `contracts::reaction::ReactionId` |
-| `reaction.stop` | `rup reaction stop` | `reaction_stop` | `reaction_stop` | `contracts::reaction::ReactionId` |
-| `reaction.run` | `rup reaction run` | `reaction_run` | `reaction_run` | `contracts::reaction::RunParams` |
 | `project.resources` | — | — | — | `()` |
 | `message.progress` | `rup message progress` | `message_progress` | `message_progress` | `contracts::message::ProgressParams` |
 | `message.report` | `rup message report` | `message_report` | `message_report` | `contracts::message::ReportParams` |

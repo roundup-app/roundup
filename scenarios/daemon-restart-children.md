@@ -18,4 +18,4 @@ Module: `crates/agents` (owner reattach, resume), `crates/rupd` (startup). Ids: 
 
 ## Gates
 
-Applies P4, P9 and P13: reopen starts no program, an Attempt that may have spent tokens is never repeated, and an uncertain restart leaves the child as it was. This specification changes no App surface, so no visual Check applies.
+Applies P4 and P9: reopen starts no program, an Attempt that may have spent tokens is never repeated, and an uncertain restart leaves the child as it was. This specification changes no App surface, so no visual Check applies.

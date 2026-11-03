@@ -197,11 +197,11 @@ test("u4590_mixed_capture_ids_do_not_start_unrelated_Claude_observers", async ()
 });
 
 test("u4590_capture_selection_activates_a_shared_observer_for_an_individual_id", async () => {
-  named("U3299b");
+  named("U3299c");
   const { loadConfigFromFile } = await import("vite");
 
   await loadConfigFromFile({ command: "serve", mode: "test" }, resolve("vite.config.ts"));
-  expect(process.env.ROUNDUP_CAPTURES?.split(",")).toEqual(expect.arrayContaining(["U3299a", "U3299b"]));
+  expect(process.env.ROUNDUP_CAPTURES?.split(",")).toEqual(expect.arrayContaining(["U3299a", "U3299c"]));
 });
 
 test("u4590_every_captureDir_id_in_an_observer_file_has_a_table_entry", () => {
