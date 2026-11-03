@@ -74,12 +74,13 @@ it("p2544e_reopen_saved_agent_work", async () => {
   const { tmpdir } = await import("node:os");
   const { startRealDaemon } = await import("./realDaemonFixture");
   const { createServedApp } = await import("./realSeam");
+  const { agentBrowserExecutable } = await import("./chromePage");
   const report = await mkdtemp(join(tmpdir(), "p2544e-tool-"));
 
   const profile = join(report, "browser");
   const execute = promisify(execFile);
   const session = `p2544e-${process.pid}`;
-  const browser = async (...args: string[]) => (await execute("agent-browser", ["--session", session, ...args], { timeout: 60_000 })).stdout;
+  const browser = async (...args: string[]) => (await execute(agentBrowserExecutable, ["--session", session, ...args], { timeout: 60_000 })).stdout;
   const evaluate = async (source: string) => JSON.parse(await browser("eval", source));
   const visualSource = 'Agent prose.\n\n```mermaid\ngraph LR\nA-->B\n```\n\n```excalidraw\n{"type":"excalidraw","elements":[]}\n```\n\nTail prose.\n';
 
@@ -113,8 +114,9 @@ it("p2544e_reopen_saved_agent_work", async () => {
       const { App } = await import('/src/App.tsx');
       const { createServedApp } = await import('/src/testing/realSeam.ts');
       const { useBrowserStorage } = await import('/src/state/storage.ts');
-      const { runChecks } = await import('/src/testing/checks.ts');
       await Promise.all(['/src/tokens.css', '/src/styles.css', '/src/scrollbar.css'].map(path => import(path)));
+      // Restore Pads directly so the unused default Todos tab never mounts.
+      localStorage.setItem(${JSON.stringify(`roundup:shelf:${real.dir}`)}, JSON.stringify({ open: true, tab: 'pads', maximised: false }));
       useBrowserStorage(localStorage);
       const served = createServedApp(location.origin);
       const app = { ...served, ask: async () => true, closeProject: async () => {}, chooseProjectPath: async () => ${JSON.stringify(real.dir)} };
@@ -122,7 +124,6 @@ it("p2544e_reopen_saved_agent_work", async () => {
       const root = document.createElement('div');
       document.body.append(root);
       render(() => App({ app, initialShelfOpen: true, reducedMotion: () => true, clock: Date.now }), root);
-      window.__checks = () => runChecks();
       return true;
     })()`);
 
@@ -186,7 +187,7 @@ it("p2544e_reopen_saved_agent_work", async () => {
       await writeFile(join(evidence, "real-daemon-reopened.json"), JSON.stringify({
         agent: agent.id, workstream: home.id,
         pad: await app.rpc("pad.read", { name: currentName }),
-        checks: await evaluate("window.__checks()"), native_claim: false,
+        checks: await evaluate("(async () => (await import('/src/testing/checks.ts')).runChecks())()"), native_claim: false,
       }));
     }
   } finally {
