@@ -220,7 +220,7 @@ fn events_stream() -> Offered {
         stream: true,
         ..offered::<contracts::SubscribeParams>(
             "events.subscribe",
-            "Print the Events saved after a number, one JSON object per line, then stop at the end of the log. `--follow` keeps streaming new ones; without `--after` it starts at the end.",
+            "Print the Events saved after a number, one JSON object per line, then stop at the end of the log. `--follow` keeps streaming new ones; `--kept` starts at the oldest kept Event, otherwise without `--after` it starts at the end.",
         )
     }
 }
