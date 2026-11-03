@@ -191,9 +191,6 @@ it.skipIf(!captureDir("U86"))("u86_capture_icon_text_pairs", { retry: 0, timeout
       await load("tree-40", "&view=made");
       await snap("made-controls");
       await controls("made-controls-control", ".made");
-      await load("tree-40", "&view=reactions");
-      await snap("reaction-controls");
-      await controls("reaction-controls-control", ".reactions");
     }
 
     if (!process.env.U86_WORKTREE_ONLY) {

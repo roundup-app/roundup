@@ -353,7 +353,7 @@ it.each(["rail", "ask", "bench", "drawer", "agent-terminal", "shell-terminal", "
     await waitFor(() => expect(document.activeElement).toBe(heading));
     expect(connected().rail.selected()).toBeNull();
     expect(connected().drawer.content()).toBeNull();
-    expect(["Needs you", "Asks", "Reactions", "Made"].map(name => overview().getByRole("button", { name }).getAttribute("aria-expanded"))).toEqual(["true", "false", "false", "false"]);
+    expect(["Needs you", "Asks", "Made"].map(name => overview().getByRole("button", { name }).getAttribute("aria-expanded"))).toEqual(["true", "false", "false"]);
 
     if (from.startsWith("empty") || from.startsWith("idle")) {
       const inbox = screen.getByRole("region", { name: "Needs you" });

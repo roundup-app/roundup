@@ -92,9 +92,9 @@ it.skipIf(!captureDir("U4464"))("u5606_capture_empty_views_in_both_themes", { ti
       await wait(`!!document.querySelector('.inbox .overview-quiet')`);
       await snap(`${theme}-inbox`);
 
-      for (const view of ["made", "reactions"]) {
+      for (const view of ["made"]) {
         await load("empty-project", view);
-        await wait(view === "made" ? `!!document.querySelector('.made .overview-quiet')` : `!!document.querySelector('.reactions .overview-quiet')`);
+        await wait(`!!document.querySelector('.made .overview-quiet')`);
         await snap(`${theme}-${view}`);
       }
 
@@ -275,3 +275,56 @@ it.skipIf(!captureDir("U401"))("u401_capture_shared_glyphs_for_the_critic", asyn
     rmSync(profile, { recursive: true, force: true });
   }
 }, 60_000);
+
+it.skipIf(!captureDir("U5740a"))("u5740a_capture_remaining_app_surfaces", { timeout: 240_000, retry: 0 }, async () => {
+  const { openLane } = await import("../todos/laneBrowser");
+  const lane = await openLane(1512, "dark", "u5740a", false, null);
+  const server = await appServer();
+  const dir = captureDir("U5740a")!;
+  mkdirSync(dir, { recursive: true });
+
+  try {
+    await lane.browser("open", `${server.resolvedUrls.local[0]}harness.html?seed=agents-10`);
+    await lane.until("!!document.querySelector('.ask-input')");
+    await lane.browser("record", "start", join(dir, "navigation.webm"));
+    await lane.browser("set", "media", "dark");
+
+    for (const seed of ["empty-project", "agents-10"]) {
+      await lane.browser("open", `${server.resolvedUrls.local[0]}harness.html?seed=${seed}`);
+      await lane.until("!!document.querySelector('.ask-input')");
+      await lane.capture("U5740a", `${seed}-overview`);
+      await lane.evaluate(`(async () => {
+        const { projectMenu } = await import('/src/testing/menuProbe.ts');
+        window.__u5740menu = projectMenu.items;
+        window.dispatchEvent(new CustomEvent('open-project-page', {detail:{path:projectMenu.path,command:'view:made'}}));
+      })()`);
+      await lane.until("document.querySelector('[data-part=item-trigger][id$=made]')?.getAttribute('aria-expanded') === 'true'");
+      writeFileSync(join(dir, `${seed}-menu.json`), JSON.stringify(await lane.evaluate("window.__u5740menu")));
+      await lane.capture("U5740a", `${seed}-menu-made`);
+      await lane.browser("fill", ".ask-input", "keep exact unfinished 🧭  ");
+      await lane.browser("focus", "[data-todo-root]");
+      await lane.browser("press", "Shift+?");
+      await lane.until("!!document.querySelector('.help')");
+      await lane.capture("U5740a", `${seed}-help`);
+      await lane.browser("press", "Escape");
+      await lane.browser("press", "Meta+k");
+      await lane.browser("press", "k");
+      await lane.until("!!document.querySelector('[role=combobox]')");
+      await lane.capture("U5740a", `${seed}-switcher`);
+      await lane.browser("press", "Escape");
+      expect(await lane.evaluate("document.querySelector('.ask-input').value")).toBe("keep exact unfinished 🧭  ");
+      await lane.capture("U5740a", `${seed}-draft-focus`);
+
+      if (seed === "agents-10") {
+        await lane.evaluate(`(() => {
+          window.__fake.app.handlers['deliverable.list'] = () => { throw new Error('Project results unavailable: read refused. Restore Project access, then reopen Made.'); };
+          window.__fake.emit({actor:{kind:'user',id:'you',parent:null},name:'deliverable.changed'});
+        })()`);
+        await lane.until("document.querySelector('.made [role=alert]')?.textContent.includes('read refused')");
+        await lane.capture("U5740a", "agents-10-failure");
+      }
+    }
+  } finally {
+    try { await lane.browser("record", "stop"); } finally { await lane.close(); await server.close(); }
+  }
+});

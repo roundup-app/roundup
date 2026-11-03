@@ -26,7 +26,6 @@ The eleven scenes total 105,681 bytes. No runtime optimizer ships.
 | plant.svg | Rail: grow a team |
 | meditating.svg | Centre and stopped Door: pause before starting |
 | sitting-reading.svg | Earlier output: inspect past work |
-| loving.svg | Named reactions: respond to an event |
 | reading.svg | Ask history: revisit earlier requests |
 | clumsy.svg | Draft recovery and note drafts: gather unfinished papers |
 
