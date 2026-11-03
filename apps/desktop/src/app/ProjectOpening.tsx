@@ -21,32 +21,35 @@ export const createProjectOpening = (projects: ProjectsState) => {
     const lost = () => reply({ code: -32004, message: copy.openConnectionLost(params.path) });
 
     if (signal.aborted) return lost();
-    const source = projects.tabs().find(tab => tab.project.path === params.source);
 
-    if (!source) return lost();
-    const known = projects.tabs().some(tab => tab.project.path === params.path && !tab.exit);
+    try {
+      const source = await projects.opened(params.source);
 
-    if (!known) {
-      const allowed = await new Promise<boolean>(resolve => {
-        const choose = (open: boolean) => {
-          signal.removeEventListener("abort", abort);
-          setPending(all => all.filter(item => item.request !== request));
-          resolve(open);
-        };
-
-        const abort = () => choose(false);
-        signal.addEventListener("abort", abort, { once: true });
-        setPending(all => [...all, { kind: "confirmation", request, sourceName: source.project.name, choose }]);
-      });
+      if (!source) return lost();
+      const known = await projects.opened(params.path);
 
       if (signal.aborted) return lost();
 
-      if (!allowed) return reply({ code: -32002, message: copy.openRefused(params.path) });
-    }
+      if (!known) {
+        const allowed = await new Promise<boolean>(resolve => {
+          const choose = (open: boolean) => {
+            signal.removeEventListener("abort", abort);
+            setPending(all => all.filter(item => item.request !== request));
+            resolve(open);
+          };
 
-    if (signal.aborted) return lost();
+          const abort = () => choose(false);
+          signal.addEventListener("abort", abort, { once: true });
+          setPending(all => [...all, { kind: "confirmation", request, sourceName: source.name, choose }]);
+        });
 
-    try {
+        if (signal.aborted) return lost();
+
+        if (!allowed) return reply({ code: -32002, message: copy.openRefused(params.path) });
+      }
+
+      if (signal.aborted) return lost();
+
       const opened = await projects.openRequested(params.path);
 
       if (signal.aborted) return lost();

@@ -272,6 +272,7 @@ export const createFakeApp = (): FakeApp => {
     dropFiles: (drop) => {
       for (const listener of dropListeners) listener(drop);
     },
+    canonicalProjectPath: async path => path,
     projects: async () => open.map((project) => ({ ...project, running: !exited.has(project.path) })),
     add: (path, name) => {
       exited.delete(path);
@@ -319,6 +320,7 @@ export const createFakeApp = (): FakeApp => {
       // The Project-wide calls are the one App's; only the Daemon's own calls, events are this Project's.
       Object.assign(other, {
         projects: app.projects,
+        canonicalProjectPath: (path: string) => app.canonicalProjectPath(path),
         add: app.add,
         openProject: app.openProject,
         closeProject: app.closeProject,

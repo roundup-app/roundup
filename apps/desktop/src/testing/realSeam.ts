@@ -186,6 +186,15 @@ export const createServedApp = (base: string, choice?: () => "choose" | "cancel"
 
         return { ...project };
       }),
+    canonicalProjectPath: path => reach(async () => {
+      if (path !== (await open).project.path) throw new RpcError(-32003, "Project is not open");
+      const response = await fetch(`${base}/__daemon/canonical-project-path`);
+      const outcome = v.parse(outcomeSchema, await response.json());
+
+      if ("error" in outcome) throw new RpcError(outcome.error.code, outcome.error.message);
+
+      return v.parse(v.string(), outcome.result);
+    }),
     forProject: () => app,
     openProject: (path) =>
       reach(async () => {

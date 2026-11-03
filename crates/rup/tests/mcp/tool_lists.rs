@@ -8,6 +8,8 @@ pub const NO_TOOL: &[&str] = &[
     // D8: the App's Resource strip
     "close_project",
     "projects",
+    // A5765c: the App compares filesystem identities; this read grants no Agent authority.
+    "canonical_project_path",
     // S6, U52: first-run facts belong to the App; Agents reach only their own Project's Daemon.
     "recent_projects",
     "claude_binary",

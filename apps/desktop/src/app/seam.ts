@@ -105,6 +105,7 @@ export const SEAM_COMMANDS = [
   "set_menu_bar",
   "select_project_menu",
   "open_project",
+  "canonical_project_path",
   "close_project",
   "rename_project",
   "rpc",
@@ -203,6 +204,8 @@ export type App = {
   /** The open Projects in tab order. */
   projects(): Promise<ListedProject[]>;
   openProject(path: string): Promise<Project>;
+  /** Resolves filesystem aliases without opening a Project or changing its saved path. */
+  canonicalProjectPath(path: string): Promise<string>;
   /** Ends the Project's Daemon and its Agents and Terminals. */
   closeProject(path: string): Promise<void>;
   /** Stores `name` for the Project; an empty name returns it to its folder's name (S10). */

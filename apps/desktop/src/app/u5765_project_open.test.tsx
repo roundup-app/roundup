@@ -10,11 +10,12 @@ const SOURCE = { name: "Renamed source Project", path: "/repos/source" };
 
 const TARGET = "/repos/target";
 
-const request = (id: number, path = TARGET): ActionRequest => ({ id, method: "project.open", params: { path, source: SOURCE.path, agent: { id: "1", name: "builder" } } });
+const request = (id: number, path = TARGET, source = SOURCE.path): ActionRequest => ({ id, method: "project.open", params: { path, source, agent: { id: "1", name: "builder" } } });
 
-const mount = async () => {
+const mount = async (canonicalPath = SOURCE.path) => {
   const app = createFakeApp();
   app.opened.project = SOURCE;
+  app.canonicalProjectPath = async () => canonicalPath;
   let answer: Parameters<NonNullable<ProjectCalls["serveActions"]>>[0] | undefined;
   let invalidate: (() => void) | undefined;
   app.serveActions = async (handler, invalidated) => { answer = handler; invalidate = invalidated; };
@@ -77,16 +78,16 @@ it("u5765_stale_registration_invalidates_its_confirmation", async () => {
   expect(screen.queryByRole("dialog")).toBeNull();
 });
 
-it("u5765_open_b_preserves_the_selected_project_without_an_extra_open", async () => {
-  const mounted = await mount();
+it.each([SOURCE.path, "/repos/real-source"])("u5765_open_b_preserves_the_selected_project_without_an_extra_open: %s", async canonicalPath => {
+  const mounted = await mount(canonicalPath);
   const holder = mounted.drafts(SOURCE.path);
   const destination = { surface: "terminal_selection", object: "original", recipient: "builder" };
   const draft = holder.edit(destination, { note: " exact é \u{1f469}\u{1f3fd}\u200d\u{1f4bb}\n  unfinished ", excerpt: "source bytes" }, null, "ordinary");
   await draft.retained;
   const before = holder.list();
-  const reply: ActionReply = await mounted.answer(request(41, SOURCE.path));
+  const reply: ActionReply = await mounted.answer(request(41, canonicalPath, canonicalPath));
   expect(holder.list()).toEqual(before);
-  expect(reply).toMatchObject({ id: 41, result: { path: SOURCE.path } });
+  expect(reply).toMatchObject({ id: 41, result: { path: canonicalPath } });
   expect(mounted.opening).not.toHaveBeenCalled();
   expect(screen.getByRole("tab", { name: SOURCE.name }).getAttribute("aria-selected")).toBe("true");
   expect(screen.queryByRole("dialog")).toBeNull();

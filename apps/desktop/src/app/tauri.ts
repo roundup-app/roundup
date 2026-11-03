@@ -121,6 +121,7 @@ export const createTauriApp = (): App => {
     claudeBinary: () => parsedCommand(v.nullable(claudeBinarySchema), "claude_binary", {}),
     projects: () => parsedCommand(v.array(listedProjectSchema), "projects", {}),
     openProject: (path) => parsedCommand(projectSchema, "open_project", { path }),
+    canonicalProjectPath: path => parsedCommand(v.string(), "canonical_project_path", { path }),
     closeProject: async (path) => {
       await command("close_project", { path });
     },
