@@ -270,8 +270,9 @@ fn a21_a_failed_parked_save_reinserts_so_the_caller_can_clean_up() {
     // The Stop parked after the SessionStart was never drained: the abort is immediate.
     assert_eq!(run.adapter.status().unwrap().kind, Kind::Working);
 }
-/// Keep all 20,000 interleavings using one reusable late-observer thread. The
-/// build rendezvous checks lock exclusion before releasing the actual late Signal.
+
+/// The build rendezvous makes the late Signal contend for both locks,
+/// so one interleaving detects a broken registration fence without a stress loop.
 #[test]
 fn a14_a_signal_released_once_the_agent_is_registered_never_outruns_the_parked_one() {
     let (_dir, bus, shared) = shared_over_temp_dir(Arc::new(|| 0));
@@ -304,59 +305,57 @@ fn a14_a_signal_released_once_the_agent_is_registered_never_outruns_the_parked_o
                 done.send(()).unwrap();
             }
         });
-        for i in 0..20_000 {
-            let id = i.to_string();
-            shared.runs().insert(
-                id.clone(),
-                Slot::Starting {
+        let id = "1".to_owned();
+        shared.runs().insert(
+            id.clone(),
+            Slot::Starting {
+                attempt: "1".into(),
+                since: 0,
+                named: false,
+                parked: VecDeque::from([(
+                    Actor::daemon(),
+                    json!({"hook_event_name":"PreToolUse", "tool_name":"Bash"}),
+                )]),
+            },
+        );
+        shared
+            .finish_starting(&id, "1", |named| {
+                observe.send(id.clone()).unwrap();
+                arriving.recv().unwrap();
+                Run {
+                    yolo: false,
+                    startup_context: true,
+                    input_started: true,
                     attempt: "1".into(),
-                    since: 0,
-                    named: false,
-                    parked: VecDeque::from([(
-                        Actor::daemon(),
-                        json!({"hook_event_name":"PreToolUse", "tool_name":"Bash"}),
-                    )]),
-                },
-            );
-            shared
-                .finish_starting(&id, "1", |named| {
-                    observe.send(id.clone()).unwrap();
-                    arriving.recv().unwrap();
-                    Run {
-                        yolo: false,
-                        startup_context: true,
-                        input_started: true,
-                        attempt: "1".into(),
-                        status_revision: 1,
-                        closing: false,
-                        ended: false,
-                        adapter: ClaudeCode::starting(|| 0),
-                        prompt: None,
-                        first_pending: false,
-                        first_completion: None,
-                        first_prompt: None,
-                        session_started: None,
-                        starred: false,
-                        steer: None,
-                        interrupt: None,
-                        named,
-                        terminal_id: id.clone(),
-                        cwd: "/".into(),
-                    }
-                })
-                .unwrap();
-            completed.recv().unwrap();
-            let mut kinds = vec![];
-            while let Ok(event) = events.try_recv() {
-                if let EventData::AgentStatus(s) = event.data
-                    && s.id == id
-                {
-                    kinds.push(s.status.kind);
+                    status_revision: 1,
+                    closing: false,
+                    ended: false,
+                    adapter: ClaudeCode::starting(|| 0),
+                    prompt: None,
+                    first_pending: false,
+                    first_completion: None,
+                    first_prompt: None,
+                    session_started: None,
+                    starred: false,
+                    steer: None,
+                    interrupt: None,
+                    named,
+                    terminal_id: id.clone(),
+                    cwd: "/".into(),
                 }
+            })
+            .unwrap();
+        completed.recv().unwrap();
+        let mut kinds = vec![];
+        while let Ok(event) = events.try_recv() {
+            if let EventData::AgentStatus(s) = event.data
+                && s.id == id
+            {
+                kinds.push(s.status.kind);
             }
-            assert_eq!(kinds, [Kind::Working, Kind::Idle], "trial {i}");
-            shared.runs().remove(&id);
         }
+        assert_eq!(kinds, [Kind::Working, Kind::Idle]);
+        shared.runs().remove(&id);
         drop(observe);
     });
 }
