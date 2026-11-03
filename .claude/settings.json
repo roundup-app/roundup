@@ -1,6 +1,9 @@
 {
   "autoCompactWindow": 280000,
   "awaySummaryEnabled": false,
+  "attribution": {
+    "commit": ""
+  },
   "enabledPlugins": {
     "sound@moo.md": true
   }
