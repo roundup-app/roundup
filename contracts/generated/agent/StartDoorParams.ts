@@ -3,6 +3,8 @@
 import type * as agent$PermissionMode from "./PermissionMode";
 /**  A36: `rail.startDoor`, with the Door's own Model and Effort when the caller sets them. */
 export type StartDoorParams = {
+	/**  A5765: exact first prompt for a fresh Door; omission retains the normal order. */
+	prompt?: string,
 	/**  U4590: initial PTY columns; absent keeps the hostless 80-column default. */
 	cols?: number,
 	/**  U4590: initial PTY rows; absent keeps the hostless 24-row default. */

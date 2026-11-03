@@ -751,12 +751,12 @@ def rerun_review(pr, run):
     call('run', 'rerun', run)
 
 
-def stranded(prs, now):
-    """(pr, `pre` run id) for each ready same-repository PR, no run going, whose `pre` passed STRANDED+ seconds ago with no
-    `review` status (or `critic`, under `apps/desktop/src/`): rerunning `pre` restarts the dead run, which itself can't rerun."""
+def stranded(prs, now, going=frozenset()):
+    """(pr, `pre` run id) for each ready same-repository PR, no run going on it or its branch (`going`), whose `pre` passed STRANDED+
+    seconds ago with no `review` status (or `critic`, under `apps/desktop/src/`): rerunning `pre` restarts the dead run."""
     found = []
     for pr in prs:
-        if pr['isDraft'] or pr['isCrossRepository'] or pr['headRefName'].startswith('dependabot/') or orders.running(pr):
+        if pr['isDraft'] or pr['isCrossRepository'] or pr['headRefName'].startswith('dependabot/') or pr['headRefName'] in going or orders.running(pr):
             continue
         checks = pr.get('statusCheckRollup') or []
         passed = [check for check in checks if check.get('name') == 'pre' and check.get('conclusion') == 'SUCCESS'
@@ -785,7 +785,7 @@ def pick(most):
         dispatch_fix(pr, head, cause)
         free -= 1
     try:
-        reruns = unreviewed(prs) + stranded(prs, time.time())
+        reruns = unreviewed(prs) + stranded(prs, time.time(), orders.reviewing())
     except subprocess.CalledProcessError as error:  # reading a PR's files must not stop the build matrix
         print(f'::error::Finding review runs to rerun failed: {error}', file=sys.stderr)
         reruns = unreviewed(prs)

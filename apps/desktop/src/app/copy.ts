@@ -66,6 +66,11 @@ export const copy = {
   theDaemonIsNewerThanTheApp: (value1: CopyValue) => `This App is older than the connected version. ${value1}`,
   theAppAndTheDaemonDiffer: (value1: CopyValue) => `The versions differ. ${value1}`,
   theAppAndTheDaemonDiffer2: (value1: CopyValue, value2: CopyValue) => `${value1}: The versions differ. ${value2}`,
+  /** @prose */
+  projectStartRecovery: (name: string, stage: string, cause: string) => `${name}: ${stage} failed: ${cause}. Inspect it before retrying.`,
+  projectStartStage: "start",
+  /** @prose */
+  projectStartFailed: (path: string, id: string, stage: string, cause: string) => `${path}: row ${id} was created; ${stage} failed: ${cause}. Inspect it before retrying.`,
   close: sharedCopy.close,
   closeShelf: sharedCopy.closeShelf,
   openShelf: sharedCopy.openShelf,
