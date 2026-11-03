@@ -24,10 +24,18 @@ pub(crate) fn startup<T>(result: tauri::Result<T>) -> tauri::Result<T> {
 pub(crate) fn failure(operation: &'static str, error: &tauri::Error) {
     match error {
         tauri::Error::Io(error) | tauri::Error::CurrentDir(error) => {
-            log::warn!(target: "roundup::shell", "{operation}: IO {:?}", error.kind());
+            report(operation, &format!("IO {:?}", error.kind()));
         }
         tauri::Error::Json(error) => {
-            log::warn!(target: "roundup::shell", "{operation}: JSON {:?} at {}:{}", error.classify(), error.line(), error.column());
+            report(
+                operation,
+                &format!(
+                    "JSON {:?} at {}:{}",
+                    error.classify(),
+                    error.line(),
+                    error.column()
+                ),
+            );
         }
         error => {
             let cause = match error {
@@ -41,9 +49,32 @@ pub(crate) fn failure(operation: &'static str, error: &tauri::Error) {
                 tauri::Error::InvalidAppDirectoriesOverride(_, _) => "invalid application folder",
                 _ => "shell operation failed (unclassified Tauri error)",
             };
-            log::warn!(target: "roundup::shell", "{operation}: {cause}");
+            report(operation, cause);
         }
     }
+}
+
+/// Only App-owned causes or the typed foreign causes above may enter this destination.
+pub(crate) fn report(operation: &str, cause: &str) -> String {
+    let message = format!("{operation}: {cause}");
+    eprintln!("{message}");
+    log::warn!(target: "roundup::shell", "{message}");
+    log::logger().flush();
+    message
+}
+
+pub(crate) fn message<R: Runtime>(app: &tauri::AppHandle<R>, message: String, code: Option<i32>) {
+    use tauri_plugin_dialog::DialogExt;
+    let app = app.clone();
+    app.clone()
+        .dialog()
+        .message(message)
+        .title("Cannot open roundup")
+        .show(move |_| {
+            if let Some(code) = code {
+                app.exit(code);
+            }
+        });
 }
 
 #[cfg(test)]
