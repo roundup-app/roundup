@@ -40,7 +40,7 @@ beforeAll(async () => {
   await browser("wait", "--fn", `!!window.__fake && document.querySelectorAll('.rail-row').length > 2`);
   await browser("eval", `document.querySelector('#shelf-tab-todos[aria-expanded=false]')?.click()`);
   await browser("wait", "--fn", `!!document.querySelector('.shelf .todo-row-button')`);
-  await browser("eval", `document.querySelector('.rail-add').closest('.rail-row').querySelector('.name').click()`);
+  await browser("eval", `document.querySelector('.rail-row[data-id=auth] .name').click()`);
   await browser("wait", "--fn", `!!document.querySelector('.rail-add[aria-keyshortcuts]')`);
 }, 90_000);
 
