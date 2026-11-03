@@ -53,7 +53,7 @@ it.each([false, true])("u2680b_a_click_clears_browser_and_terminal_selections_st
 const app = async (base = false, mac = false, items = true) => {
   const seed = process.env.ROUNDUP_CAPTURES ? "tree-40" : "selection";
 
-  const views = `tabs=1${items ? "&view=workstreams&items=1" : ""}`;
+  const views = `tabs=1${process.env.ROUNDUP_CAPTURES ? "&view=workstreams" : ""}${items ? "&items=1" : ""}`;
 
   await batch(
     ["eval", "localStorage.clear()"],
