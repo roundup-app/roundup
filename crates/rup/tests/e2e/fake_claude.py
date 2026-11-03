@@ -171,12 +171,10 @@ def play_prompts():
             pass
     while hold and not os.path.exists(hold):
         time.sleep(0.02)
-    server = listen()
-    if "--resume" in sys.argv:
-        # U177: a reopened Door is acknowledged by a SessionStart that names the conversation it resumed.
-        hook("SessionStart", {"session_id": flag("--resume"), "source": "resume"})
-    else:
-        hook("SessionStart", {"session_id": "00000000-0000-4000-8000-000000000146", "source": "startup"})
+    session = flag("--resume") if "--resume" in sys.argv else "00000000-0000-4000-8000-000000000146"
+    server = listen(session)
+    # U177: a reopened Door acknowledges the same conversation its inbox lists.
+    hook("SessionStart", {"session_id": session, "source": "resume" if "--resume" in sys.argv else "startup"})
     sys.stdout.write("\033]0;\u2733 claude\007")  # the star title that opens H19's gate, after SessionStart, so an idle child already has its conversation saved
     sys.stdout.flush()
     turns = threading.Lock()
@@ -205,7 +203,7 @@ def play_prompts():
         turn(prompt)
 
 
-def listen():
+def listen(session):
     """B50: listens on `--messaging-socket-path` and lists the session with its `peerToken`, in
     `$CLAUDE_CONFIG_DIR/sessions`, as Claude Code does at launch."""
     path = flag("--messaging-socket-path")
@@ -216,7 +214,7 @@ def listen():
     os.makedirs(sessions, exist_ok=True)
     pid = os.getpid()
     with open(os.path.join(sessions, f"{pid}.json"), "w") as out:
-        json.dump({"pid": pid, "version": "2.1.300", "peerProtocol": 1, "messagingSocketPath": path}, out)
+        json.dump({"pid": pid, "sessionId": session, "version": "2.1.300", "peerProtocol": 1, "messagingSocketPath": path}, out)
     with open(os.path.join(sessions, f"{pid}.{token()}.key"), "w") as out:
         json.dump({"peerToken": token()}, out)
     return server

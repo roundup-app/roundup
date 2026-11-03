@@ -206,7 +206,11 @@ async fn name_of(user: &rpc::Client, id: &str) -> String {
 async fn b47_a_replay_of_status_flips_starts_no_door_turn() {
     let logs = tempfile::tempdir().unwrap();
     let prompts = logs.path().join("prompts.jsonl");
-    let project = start(&env(&prompts));
+    let comparisons = logs.path().join("comparisons.jsonl");
+    let project = start(&[
+        ("FAKE_CLAUDE_PROMPT_LOG", prompts.to_str().unwrap()),
+        ("RUPD_DIGEST_OBSERVER", comparisons.to_str().unwrap()),
+    ]);
     let user = project.client().await;
     let mut startup = project.subscribed().await;
     let door = super::start_door(&user).await;
@@ -253,6 +257,31 @@ async fn b47_a_replay_of_status_flips_starts_no_door_turn() {
         .await
         .unwrap();
     assert_eq!(digest["children"][0]["last"], "found it");
+    let revision = super::daemon::rail_tree(&user)
+        .await
+        .into_iter()
+        .find(|node| node.id == child)
+        .unwrap()
+        .status_revision;
+    // A digest read can overtake an older background comparison. Its acknowledgement
+    // bounds every setup push before message.list is used to await their delivery.
+    h21_poll("the child's working Digest comparison", async || {
+        std::fs::read_to_string(&comparisons)
+            .unwrap()
+            // An unterminated row is still being written, not an acknowledgement.
+            .split_inclusive('\n')
+            .filter(|line| line.ends_with('\n'))
+            .any(|line| {
+                let snapshot: Value = serde_json::from_str(line).unwrap();
+                snapshot["nodes"].as_array().unwrap().iter().any(|node| {
+                    node["id"] == child
+                        && node["status_revision"] == json!(revision)
+                        && node["status"]["kind"] == "working"
+                })
+            })
+            .then_some(())
+    })
+    .await;
     h21_poll("all setup notes to be delivered", async || {
         let listed = user
             .request("message.list", json!({ "to": door }))
