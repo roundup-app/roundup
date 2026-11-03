@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, it } from "vitest";
 import { shelfBrowser } from "../shelf/u371Browser";
@@ -84,11 +84,17 @@ it("u5808b_colour_palette_capture", { retry: 0, timeout: 180000 }, async () => {
   await browser("keyboard", "type", "Retained review draft ");
   await browser("click", ".pad-head-name");
   await browser("wait", "--fn", "document.querySelector('.pad-body [role=alert]')?.textContent.includes('Free space and retry.')");
+  await evaluate("document.querySelector('.drawer .pad-editor').scrollTop = 0; true");
+  await settle();
   const writes = await evaluate("window.__fake.app.calls.filter(call => call.method === 'pad.write').length");
   await opening("rejected-save", "Enter");
   expect(await evaluate("window.__fake.app.calls.filter(call => call.method === 'pad.write').length")).toBe(writes);
 
   for (const dir of directories) writeFileSync(join(dir, "fixture.json"), JSON.stringify({ appSha: process.env.ROUNDUP_CAPTURE_SHA ?? execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim(), observerHash: createHash("sha256").update(readFileSync(new URL(import.meta.url))).digest("hex"), seed: "tree-40", viewport: [1512, 950], scheme: "dark", title, source }));
 
-  if (directories[0]) await browser("record", "stop");
+  if (directories[0]) {
+    await browser("record", "stop");
+
+    for (const dir of directories.slice(1)) copyFileSync(join(directories[0], "interactions.webm"), join(dir, "interactions.webm"));
+  }
 });
