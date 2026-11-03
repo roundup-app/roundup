@@ -891,3 +891,5 @@ Integrity observer (0): all 37 source archives match their checksums and pinned 
 | Required-check size failure | Exit | Disposition |
 | --- | ---: | --- |
 | Second `just ready` and standalone file-size guard | 1 each | Manifest was 1,059,173 bytes, above the 1,000,000-byte Git blob cap. Losslessly archived repeated focused-element/table DOM JSON with hashes; round trips preserve every value. Committed smaller blob before repeating, since this guard reads HEAD. Other checks, proofs and N7 passed. |
+
+Final `just ready`: exit 0, including all 193 lint-behavior fixtures, web/package type checks, repository/Rust lints, `ALL PROOFS CHECK` and N7. The committed blob-size guard passes. Final spelling, vocabulary, scenario ids, merge-loss, whitespace and lossless archive/snapshot/image integrity checks pass. No local `just check` or changed behavior tests. This slice is ready for independent review; #5758 remains open for the complete inventory and all selected retirements.
