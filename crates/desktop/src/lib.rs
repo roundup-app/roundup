@@ -206,16 +206,17 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
     let builder = tauri::Builder::default();
     #[cfg(target_os = "macos")]
     let builder = builder.plugin(tauri_plugin_single_instance::init(launch::second_launch));
-    diagnostics::startup(
+    diagnostics::startup(|| {
         build_with_feedback(
             builder.plugin(diagnostics::plugin()),
             config,
             project_dir,
             diagnostics::message,
         )
-        .build(context),
-    )?
-    .run(|app, event| handle_run_event(app, &event));
+        .build(context)?
+        .run(|app, event| handle_run_event(app, &event));
+        Ok(())
+    })?;
     Ok(())
 }
 

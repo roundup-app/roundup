@@ -50,7 +50,7 @@ pub(crate) fn u3787f_logs_report_causes_without_private_content() {
                 .build(),
         )
         .build(mock_context(noop_assets()));
-    assert!(super::startup(failed).is_err());
+    assert!(super::startup(|| failed).is_err());
     log::error!(target: "third_party", "{private} input_tokens=987654 cost_usd=123456");
     log::logger().flush();
     let logs = std::fs::read_dir(app.path().app_log_dir().unwrap())
@@ -378,11 +378,15 @@ fn s5810c_fatal_startup_stages_report_before_exit() {
                     builder
                 };
                 let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                    let mut app = super::startup(builder.build(context)).unwrap();
-                    #[allow(deprecated)]
-                    app.run_iteration(|_, _| {});
+                    super::startup(|| {
+                        let mut app = builder.build(context)?;
+                        #[allow(deprecated)]
+                        app.run_iteration(|_, _| {});
+                        Ok(())
+                    })
                 }));
                 assert!(outcome.is_err(), "the fatal runtime failure must propagate");
+                assert!(!logs(&logger).contains("foreign-private-SENTINEL"));
                 assert!(
                     logs(&logger)
                         .contains("run shell: native runtime or application setup panicked")
@@ -397,7 +401,7 @@ fn s5810c_fatal_startup_stages_report_before_exit() {
                     }
                     _ => panic!("unknown stage"),
                 };
-                assert!(super::startup::<()>(Err(error)).is_err());
+                assert!(super::startup(|| Err::<(), _>(error)).is_err());
                 assert!(logs(&logger).contains("start shell:"));
             }
         }
