@@ -382,3 +382,17 @@ Fresh isolated `agent-browser --session u5741-415869`, default headless, no pers
 | Apple Open With guide open | HTTP 429 | Same limit; no configured-directory editor equivalence claimed. |
 
 Successful source/render/hash reconciliation and final lint results are recorded below after completion. Every remaining vendor comparison, conditional opening, other App/endpoint decision and final all-feature revision reconciliation stays on #5758. No local `just check` or behavior-test suite ran; policy U5741 forbids report-text tests.
+
+The first creator-Todo screenshot preceded loaded rows; it was superseded by a bounded `.todos-tab [data-todo]` wait and loaded capture. Source and screenshot show creator-matching reveal within owner groups, with other Todos still visible; no exclusive filter pass is claimed. Ten final openings pass every recorded Check; fake clipboard writes the exact `roundup://agent/tokens?project=project-0000000000000000`, and directory/editor boundaries receive `/Users/you/harness` (Project fallback, not a real Worktree observation).
+
+| Additional command failure | Exit | Repair |
+| --- | --- | --- |
+| `python3 tools/lint/scan.py typos` before setup | 2 | Pinned binary absent in fresh worktree; `python3 tools/lint/setup.py web` installed the required tools. |
+
+Self-review removed a duplicate error-dismissal row (R16 already owns it), separated Workstream bulk All/Default/Quiet into RS17a/b/c, corrected the creator reveal description and fixed the README table delimiter. The final inventory contains 21 unique decisions, ten unique rendered states, four exact native models and 37 inspected source hashes. All final Check readings pass. Error-seed labels are fixture evidence only; full actionable real-failure readability remains part of the unfinished audit.
+
+| Further spelling scan failures | Exit | Repair |
+| --- | --- | --- |
+| Standalone `python3 tools/lint/scan.py typos` (two runs) | 1 each | Exact quoted Issue direction contained the historical plural image abbreviation. Retained its complete JSON losslessly as directionArchive (zlib/base64, decoded-byte SHA-256); readable direction findings stay in the report. No baseline or spelling exception changed. |
+
+Decode the linked direction archive using the same zlib/base64 operation as snapshots, then JSON-decode. Its SHA-256 verifies the complete preserved Issue bodies/comments, including exact owner quotes.
