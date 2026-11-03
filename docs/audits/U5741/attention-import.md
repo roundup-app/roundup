@@ -69,7 +69,7 @@ Paths are relative to `apps/desktop/src/`. A01 records an existing route only; t
 
 ## Rendered findings
 
-Seventeen openings use dark 1512×950 with the isolated fake Daemon. Every recorded D2/D5/D6 passes. All twelve Import/attention openings pass every recorded Check. The five dense progress openings fail D4 (`li.progress-row`, row reading 41), with D10 propagating D4; source is unchanged from audited main. `progress-full-diagnostic` opens the retained error tooltip so the underlying cause and recovery can be read. These are current observations, not a pass for native rendering or a new product change.
+Seventeen openings use dark 1512×950 with the isolated fake Daemon. Every recorded D2/D5/D6 passes. All twelve Import/attention openings pass every recorded Check. The five dense progress openings fail D4 (`li.progress-row`, row reading 41 initially and 42 after expansion), with D10 propagating D4; source is unchanged from audited main. `progress-full-diagnostic` opens the retained error tooltip so the underlying cause and recovery can be read. These are current observations, not a pass for native rendering or a new product change.
 
 ## Public mappings and unfinished coverage
 
