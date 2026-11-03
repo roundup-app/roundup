@@ -153,23 +153,23 @@ async fn a5765c_open_b_is_already_complete() {
 }
 
 #[tokio::test]
-async fn i5765_project_open_refusal_prints_no_success_and_exits_one() {
+async fn i5765_project_open_failures_print_no_success_and_exit_one() {
     let mut world = World::new().await;
     let target = tempfile::tempdir().unwrap();
-    let cli = world.cli(target.path(), false);
-    let request = world.next().await;
-    let message = format!("The user refused to open {}", target.path().display());
-    world
-        .app
-        .reply(
-            &json!({"jsonrpc":"2.0","id":request["id"],"error":{"code":-32002,"message":message}}),
-        )
-        .await
-        .unwrap();
-    let output = cli.wait_with_output().await.unwrap();
-    assert_eq!(output.status.code(), Some(1));
-    assert!(output.stdout.is_empty());
-    assert!(String::from_utf8_lossy(&output.stderr).contains(&message));
+    for (code, cause) in [
+        (-32002, "The user refused to open"),
+        (-32001, "Folder unavailable"),
+        (-32603, "Project could not be opened"),
+    ] {
+        let cli = world.cli(target.path(), false);
+        let request = world.next().await;
+        let message = format!("{cause}: {}", target.path().display());
+        world.app.reply(&json!({"jsonrpc":"2.0","id":request["id"],"error":{"code":code,"message":message}})).await.unwrap();
+        let output = cli.wait_with_output().await.unwrap();
+        assert_eq!(output.status.code(), Some(1));
+        assert!(output.stdout.is_empty());
+        assert!(String::from_utf8_lossy(&output.stderr).contains(&message));
+    }
 }
 
 #[tokio::test]
@@ -209,4 +209,59 @@ async fn i5765_invalid_usage_calls_nothing() {
             .len(),
         1
     );
+}
+
+#[tokio::test]
+async fn a5765f_closed_app_and_old_registration_cannot_complete_a_new_open() {
+    let mut world = World::new().await;
+    let target = tempfile::tempdir().unwrap();
+    let first = world.cli(target.path(), true);
+    let old = world.next().await;
+    let mut replacement = Client::connect(&world.socket).await.unwrap();
+    let mut requests = replacement.take_requests().unwrap();
+    replacement
+        .request("action.serve", Value::Null)
+        .await
+        .unwrap();
+    let output = first.wait_with_output().await.unwrap();
+    assert_eq!(output.status.code(), Some(1));
+    assert!(output.stdout.is_empty());
+    assert!(String::from_utf8_lossy(&output.stderr).contains("connection was lost"));
+    loop {
+        let invalidation = world.asked.recv().await.unwrap();
+        if invalidation["method"] == "action.closed" {
+            break;
+        }
+    }
+    let mut second = world.cli(target.path(), true);
+    let current = loop {
+        let request = requests.recv().await.unwrap();
+        if request["method"] == "project.open" {
+            break request;
+        }
+        replacement
+            .reply(&json!({"jsonrpc":"2.0","id":request["id"],"result":[]}))
+            .await
+            .unwrap();
+    };
+    // Even a forged current id from the old connection cannot answer the replacement's request.
+    world.answer(&old, json!({"path":target.path()})).await;
+    world.answer(&current, json!({"path":target.path()})).await;
+    world.app.request("rail.tree", Value::Null).await.unwrap();
+    assert!(second.try_wait().unwrap().is_none());
+    drop(replacement);
+    let output = second.wait_with_output().await.unwrap();
+    assert_eq!(output.status.code(), Some(1));
+    assert!(output.stdout.is_empty());
+    assert!(String::from_utf8_lossy(&output.stderr).contains("connection was lost"));
+    assert!(!target.path().join(".roundup").exists());
+    // The prior UNKNOWN_OUTCOME is an acknowledgement that the registration has ended.
+    let output = world
+        .cli(target.path(), false)
+        .wait_with_output()
+        .await
+        .unwrap();
+    assert_eq!(output.status.code(), Some(1));
+    assert!(output.stdout.is_empty());
+    assert!(String::from_utf8_lossy(&output.stderr).contains("open it and retry"));
 }
