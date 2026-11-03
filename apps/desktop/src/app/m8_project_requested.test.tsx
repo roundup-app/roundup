@@ -6,12 +6,9 @@ import { createProjectDrafts } from "../state/connectedProject";
 import { RequestedApp as App } from "../testing/requestedApp";
 import { createFakeApp } from "../testing/fakeApp";
 import type { FakeApp } from "../testing/fakeApp";
-import { RpcError } from "./seam";
 import { openRecovery, recoveryLabel } from "../testing/recovery";
 
 const FIRST = { name: "payments-api", path: "/Users/me/repos/payments-api" };
-
-const SECOND = "/Users/me/repos/ledger";
 
 const request = (app: FakeApp, data: Requested) => {
   app.emit({ actor: { kind: "user", id: "you", parent: null }, name: "project.requested", data });
@@ -32,23 +29,6 @@ const started = async () => {
 afterEach(() => { cleanup(); vi.restoreAllMocks(); window.localStorage.clear(); });
 
 describe("m8 an Agent opens and renames Projects", () => {
-  it("m8_the_webview_answers_a_requested_open_with_open_project", async () => {
-    const app = await started();
-
-    request(app, { kind: "open", path: SECOND });
-
-    await within(await screen.findByLabelText("Projects", { selector: '[role="tablist"]' })).findByRole("tab", { name: "ledger" });
-  });
-
-  it("m8_a_failed_open_shows_the_error_line", async () => {
-    const app = await started();
-
-    app.opened.failure = new RpcError(-32000, "not a folder");
-    request(app, { kind: "open", path: SECOND });
-
-    await screen.findByText(/not a folder/);
-  });
-
   it("m8_a_requested_rename_calls_rename_project", async () => {
     const app = await started();
 

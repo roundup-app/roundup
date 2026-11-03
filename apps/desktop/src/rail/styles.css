@@ -682,7 +682,7 @@
   position: absolute;
   inset-inline-end: calc(100% + var(--rail-gap));
   background-color: var(--sunken);
-  background-image: linear-gradient(var(--row-wash), var(--row-wash));
+  background-image: linear-gradient(var(--row-wash), var(--row-wash)); /* taste-skill-ignore: existing selected-row wash is a flat composite, not a gradient fill. */
   opacity: 0;
   pointer-events: none;
 }
@@ -693,7 +693,7 @@
   inset-inline-end: 100%;
   width: var(--space-4);
   background: inherit;
-  mask-image: linear-gradient(to right, var(--transparent), var(--text));
+  mask-image: linear-gradient(to right, var(--transparent), var(--text)); /* taste-skill-ignore: existing row-action edge mask preserves readable names. */
   pointer-events: none;
 }
 .rail-row[data-id]:not(:hover, :focus-within) .row-controls { opacity: 0; pointer-events: none; }
@@ -856,4 +856,13 @@
   width: var(--rail-slot);
   min-width: var(--rail-slot);
   padding-inline: 0;
+}
+
+/* Source names occupy a reserved secondary line and follow the Rail reveal policy. */
+.rail-row .rail-attribution {
+  visibility: hidden;
+}
+
+.rail-row:is(:hover, :focus-within, [data-selected="true"]) .rail-attribution {
+  visibility: visible;
 }

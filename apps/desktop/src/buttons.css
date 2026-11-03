@@ -172,7 +172,7 @@ button[aria-disabled="true"] {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  font-family: var(--font-mono);
+  font-family: var(--font-mono); /* taste-skill-ignore: design-system.md requires mono for action captions. */
   font-size: var(--text-row);
   font-weight: 400;
   color: var(--text);
@@ -215,7 +215,7 @@ button[aria-disabled="true"] {
 }
 
 /* U3512c: the existing kinds gain filled variants only on floating surfaces. */
-:is(.app-dialog, .app-popover, .app-menu, .bubble, .empty-state) button[data-button] {
+:is(.app-dialog:not(.project-opening), .app-popover, .app-menu, .bubble, .empty-state) button[data-button] {
   --button-radius: var(--radius-pill);
   --button-inline: var(--space-3);
   --button-surface: var(--button-neutral);
@@ -223,38 +223,38 @@ button[aria-disabled="true"] {
   background-color: var(--button-surface);
 }
 
-:is(.app-dialog, .app-popover, .app-menu, .bubble, .empty-state) button[data-button="primary"] {
+:is(.app-dialog:not(.project-opening), .app-popover, .app-menu, .bubble, .empty-state) button[data-button="primary"] {
   --button-surface: var(--button-accent-fill);
   color: var(--button-accent-ink);
 }
 
-:is(.app-dialog, .app-popover, .app-menu, .bubble, .empty-state) button[data-button]:hover:not(:disabled, [aria-disabled="true"]) {
+:is(.app-dialog:not(.project-opening), .app-popover, .app-menu, .bubble, .empty-state) button[data-button]:hover:not(:disabled, [aria-disabled="true"]) {
   color: var(--grey);
   background-color: var(--button-surface);
 }
 
-:is(.app-dialog, .app-popover, .app-menu, .bubble, .empty-state) button[data-button="primary"]:hover:not(:disabled, [aria-disabled="true"]) {
+:is(.app-dialog:not(.project-opening), .app-popover, .app-menu, .bubble, .empty-state) button[data-button="primary"]:hover:not(:disabled, [aria-disabled="true"]) {
   color: var(--button-key-ink);
 }
 
-:is(.app-dialog, .app-popover, .app-menu, .bubble, .empty-state) button[data-button][data-pressed="true"]:not(:disabled, [aria-disabled="true"], [data-disabled]) {
+:is(.app-dialog:not(.project-opening), .app-popover, .app-menu, .bubble, .empty-state) button[data-button][data-pressed="true"]:not(:disabled, [aria-disabled="true"], [data-disabled]) {
   color: var(--text);
 }
 
-:is(.app-dialog, .app-popover, .app-menu, .bubble, .empty-state) button[data-button="primary"][data-pressed="true"]:not(:disabled, [aria-disabled="true"], [data-disabled]) {
+:is(.app-dialog:not(.project-opening), .app-popover, .app-menu, .bubble, .empty-state) button[data-button="primary"][data-pressed="true"]:not(:disabled, [aria-disabled="true"], [data-disabled]) {
   color: var(--button-accent-ink);
 }
 
-:is(.app-dialog, .app-popover, .app-menu, .bubble, .empty-state) button[data-button="icon"] {
+:is(.app-dialog:not(.project-opening), .app-popover, .app-menu, .bubble, .empty-state) button[data-button="icon"] {
   --button-inline: 0;
 }
 
-:is(.app-dialog, .app-popover, .app-menu, .bubble, .empty-state) button[data-button][data-feedback="ink"]:is(:hover, [data-pressed="true"]) {
+:is(.app-dialog:not(.project-opening), .app-popover, .app-menu, .bubble, .empty-state) button[data-button][data-feedback="ink"]:is(:hover, [data-pressed="true"]) {
   background-color: var(--button-surface);
 }
 
 /* Disabled floating actions keep readable ink on a neutral surface. */
-:is(.app-dialog, .app-popover, .app-menu, .bubble) button[data-button][aria-disabled="true"] {
+:is(.app-dialog:not(.project-opening), .app-popover, .app-menu, .bubble) button[data-button][aria-disabled="true"] {
   --button-surface: var(--button-neutral);
   color: var(--grey);
 }
@@ -268,10 +268,15 @@ input:is(.todo-tick, [type="range"])[data-pressed="true"]:not(:disabled, [aria-d
 /* U5557c: action captions share mono; content rows and names retain UI type. */
 [data-button], [data-button] *,
 .hint-line .hint-action, .hint-action * {
-  font-family: var(--font-mono);
+  font-family: var(--font-mono); /* taste-skill-ignore: design-system.md requires mono for action captions. */
 }
 
 /* A content name keeps the same face inside an action or navigation control. */
 .tab-name, .tab-name *, .shelf-group-name, .overview-name {
   font-family: var(--font-ui);
+}
+
+/* Project consent keeps its actions unboxed; only the Dialog is rounded. */
+.project-opening button[data-button] {
+  --button-radius: 0;
 }

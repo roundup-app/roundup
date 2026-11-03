@@ -63,46 +63,6 @@ impl World {
 }
 
 #[tokio::test]
-async fn m8_project_open_validates_and_emits_the_event_once() {
-    let mut w = world().await;
-    let folder = w.dir.path().join("other");
-    std::fs::create_dir(&folder).unwrap();
-    let file = w.dir.path().join("file");
-    std::fs::write(&file, "").unwrap();
-
-    let relative = w
-        .caller
-        .request("project.open", json!({"path": "other"}))
-        .await;
-    let missing = w
-        .caller
-        .request("project.open", json!({"path": w.dir.path().join("gone")}))
-        .await;
-    let not_a_directory = w
-        .caller
-        .request("project.open", json!({"path": file}))
-        .await;
-    assert_eq!(relative.unwrap_err().code, code::INVALID_PARAMS);
-    assert_eq!(missing.unwrap_err().code, code::NOT_FOUND);
-    assert_eq!(not_a_directory.unwrap_err().code, code::NOT_FOUND);
-    assert!(w.requested().await.is_empty());
-
-    let ok = w
-        .caller
-        .request("project.open", json!({"path": folder}))
-        .await
-        .unwrap();
-
-    assert_eq!(ok, Value::Null);
-    assert_eq!(
-        w.requested().await,
-        vec![Requested::Open {
-            path: folder.to_string_lossy().into_owned()
-        }]
-    );
-}
-
-#[tokio::test]
 async fn m8_project_rename_validates_the_name_like_s10() {
     let mut w = world().await;
 
@@ -127,9 +87,7 @@ async fn m8_project_rename_validates_the_name_like_s10() {
 
     let seen = w.requested().await;
     assert_eq!(seen.len(), 2);
-    let Requested::Rename { path, name } = &seen[1] else {
-        panic!("a rename request");
-    };
+    let Requested::Rename { path, name } = &seen[1];
     assert_eq!(name, "Shop");
     assert_eq!(Path::new(path), w.dir.path());
 }
@@ -137,15 +95,12 @@ async fn m8_project_rename_validates_the_name_like_s10() {
 #[tokio::test]
 async fn m8_the_event_is_a_touch_by_the_agent() {
     let w = world().await;
-    let folder = w.dir.path().join("other");
-    std::fs::create_dir(&folder).unwrap();
-
     w.caller
-        .request("project.open", json!({"path": folder}))
+        .request("project.rename", json!({"name": "Shop"}))
         .await
         .unwrap();
 
-    let item = format!("project:{}", folder.display());
+    let item = format!("project:{}", w.dir.path().display());
     let history = w
         .client
         .request("provenance.history", json!({"item": item}))
