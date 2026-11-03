@@ -372,7 +372,7 @@ fn s5810c_fatal_startup_stages_report_before_exit() {
                         .app
                         .windows
                         .push(tauri::utils::config::WindowConfig {
-                            label: "invalid/foreign-private-SENTINEL".into(),
+                            label: "invalid foreign-private-SENTINEL".into(),
                             ..Default::default()
                         });
                     builder
