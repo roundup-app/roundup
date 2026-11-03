@@ -1,5 +1,6 @@
 import { test } from "vitest";
-import { warmApp } from "./appServer";
+import { appServer } from "./appServer";
+import type { AppServer } from "./appServer";
 import { execFile, spawn, spawnSync } from "node:child_process";
 import type { ChildProcess, SpawnOptions } from "node:child_process";
 import { mkdir, mkdtemp, rm, stat, writeFile } from "node:fs/promises";
@@ -92,6 +93,7 @@ export const startRealDaemon = async (env: Record<string, string>, inBrowser = f
   let release: (() => Promise<void>) | undefined;
   let daemon: ChildProcess | undefined;
   let server: ViteDevServer | undefined;
+  let frontend: AppServer | undefined;
   let cacheDir: string | undefined;
   let stopped: Promise<void> | undefined;
 
@@ -99,6 +101,7 @@ export const startRealDaemon = async (env: Record<string, string>, inBrowser = f
     (stopped ??= (async () => {
       if (daemon) await ended(daemon);
       await server?.close();
+      await frontend?.close();
       await model?.stop();
       await release?.();
 
@@ -145,6 +148,10 @@ export const startRealDaemon = async (env: Record<string, string>, inBrowser = f
 
     await start();
 
+    // CI5527b: the Pad round trip spent 47,679 ms in its private fixture.
+    // Reuse the compiled App; /__daemon/ stays on this Project's private server.
+    if (inBrowser) frontend = await appServer();
+
     // Its own cache: servers sharing node_modules/.vite/deps delete one another's on start.
     cacheDir = await mkdtemp(join(tmpdir(), "vite-cache-"));
 
@@ -154,14 +161,12 @@ export const startRealDaemon = async (env: Record<string, string>, inBrowser = f
       cacheDir,
       logLevel: "silent",
       plugins: [realDaemon({ project: dir, socket })],
-      server: { host: "127.0.0.1", port: 0 },
-      // A real browser page needs the bundled dependencies; the jsdom tests do not.
-      optimizeDeps: inBrowser ? {} : { noDiscovery: true, include: [] },
+      server: { host: "127.0.0.1", port: 0, proxy: frontend ? { "^(?!/__daemon(?:/|$))": { target: frontend.resolvedUrls.local[0]!, timeout: 20_000, proxyTimeout: 20_000 } } : {} },
+      // Browser modules are bundled by the shared App server, not this private relay.
+      optimizeDeps: { noDiscovery: true, include: [] },
     });
 
     await server.listen();
-
-    if (inBrowser) await warmApp(server);
 
     base = server.resolvedUrls!.local[0]!.replace(/\/$/, "");
     await served(base);
