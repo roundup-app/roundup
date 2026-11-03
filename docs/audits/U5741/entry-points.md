@@ -85,3 +85,8 @@ Independent Shelf follow-up: rendered-shelf-followup.json adds successful reserv
 ## Route control continuation
 
 [routes.md](routes.md) reconciles Route controls RT01–RT03 with the connected `route.list` declaration and actual public offers. There is no mounted Route editor in the inspected App source; no rendered absence or new native observation is claimed. Independent Auto/Drop/list choices retain default delivery and ownership dependencies. Remaining conditional App evidence, other method decisions and final whole-App revision reconciliation stay open.
+
+
+## Message result continuation
+
+[message-results.md](message-results.md) assesses MR01–MR05 (`message.get`, `report`, `acceptResult`, `verifyResult`, `resolveResult`) from source and declarations on main `f966e5b580ab4ed8205d350a80d003d656e1c70b`. MR02–MR05 are Q2 candidates sharing stored reports; MR01 is not. Vendor Q1 is not established, no fresh rendering or runtime replay is claimed, and the other undecided methods plus final whole-App reconciliation remain open. No partial owner request or deletion.

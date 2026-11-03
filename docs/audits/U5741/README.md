@@ -98,3 +98,5 @@ GitHub tool continuation: [github-tools.md](github-tools.md) pins main `f7471659
 ## Route control continuation
 
 [routes.md](routes.md) adds RT01–RT03 for explicit Auto, Drop and stored Route inspection, with dated owner direction. [catalogues/route-source.json](catalogues/route-source.json) holds pinned source/public evidence and replay; [validation-routes.md](validation-routes.md) records outcomes and corrections. These are candidate assessments, not owner choices or deletion permission.
+
+[message-results.md](message-results.md) adds MR01–MR05 for Message read, Result report, acceptance, verification and resolution, assessed from source and declarations on main `f966e5b58`. They are candidate assessments, not owner choices or deletion permission.
