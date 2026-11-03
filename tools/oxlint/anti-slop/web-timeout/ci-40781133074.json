@@ -274,8 +274,6 @@
  "src/rail/u6_rows.test.tsx": 1,
  "src/rail/u8_folding.test.tsx": 1,
  "src/rail/u9_actions.test.tsx": 3,
- "src/reactions/nr9_reactions.test.tsx": 29,
- "src/reactions/nr9_rendered.test.ts": 184,
  "src/resize/u389_resize.test.tsx": 9,
  "src/resize/u4459_widths.test.tsx": 1,
  "src/resize/u502_browser.test.ts": 28,

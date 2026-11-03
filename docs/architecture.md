@@ -21,7 +21,7 @@ The Rust workspace's `crates/*` members are:
 | `crates/provenance` | `Touches`, the append-only SQLite Touch log |
 | `crates/terminal` | `Terminals`, PTYs through portable-pty, screen state and Output streams |
 | `crates/agents` | Rail, Worktrees, Agent lifecycle and `AgentAdapter`; Claude Code integration in `src/claude_code/` |
-| `crates/messages` | `Messages`, Routes, inbox delivery, Digests, reactions and result history |
+| `crates/messages` | `Messages`, Routes, inbox delivery, Digests and result history |
 | `crates/todos` | `Todos`, SQLite persistence and blocker graph |
 | `crates/pads` | `Pads`, SQLite contents and index, optional Markdown files |
 | `crates/rupd` | `Daemon`, socket server, Project storage, Event log and module wiring |
