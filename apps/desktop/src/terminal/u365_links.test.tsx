@@ -18,7 +18,18 @@ describe("u365 recognised text", () => {
     expect(findTargets("/abs/path/a.ts")[0]?.printed).toEqual({ kind: "path", path: "/abs/path/a.ts", line: null });
     expect(findTargets("at src/a.ts:42:7")[0]?.printed).toEqual({ kind: "path", path: "src/a.ts", line: 42 });
     expect(findTargets("README.md")[0]?.printed).toEqual({ kind: "path", path: "README.md", line: null });
-    expect(printed("hello world 1.5 / done")).toEqual([]);
+
+    for (const path of ["/tmp/moo-identity/taste/heading-logo-board.png", "/abs/folder", "/abs/folder/", "/tmp/", "./LICENSE", "/a.c", "/a.Z9", "/.env"]) {
+      expect(findTargets(path)[0]?.printed).toEqual({ kind: "path", path, line: null });
+    }
+
+    for (const token of ["hello", "1.5", "/", "/clear", "/context", "/hope:compose", "/word", "/word:word", "/LICENSE", "/tmp", "(/clear).", "/root.ts:word", "/word:42", "/word:42:7", "/word.1", "/word.é", "/word.a_b", "/word.a-b"]) {
+      expect(printed(token), token).toEqual([]);
+    }
+
+    for (const token of ["(/root.ts:42:7).", "'/root.ts:42',"]) {
+      expect(findTargets(token)[0]?.printed).toEqual({ kind: "path", path: "/root.ts", line: 42 });
+    }
   });
 
   it("u365_trailing_punctuation_is_not_part_of_a_link", () => {
@@ -158,5 +169,6 @@ describe("u365 opening", () => {
   it("u365_paths_fold_dots_and_trailing_slashes", () => {
     expect(absolutePath("/a/b/", "/p")).toBe("/a/b");
     expect(absolutePath("../x", "/p/q")).toBe("/p/x");
+    expect(absolutePath("./LICENSE", "/")).toBe("/LICENSE");
   });
 });
