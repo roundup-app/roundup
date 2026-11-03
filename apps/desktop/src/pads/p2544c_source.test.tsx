@@ -47,6 +47,7 @@ const open = async (source: string) => {
 const table = "| A    | B    |\n| ---- | ---- |\n| one  | two  |";
 
 it.each([
+  { name: "edited multiline callout body", source: "> [!TIP]\n> Keep this\n> and this\n\n* untouched  source\n", edit: "> [!TIP]\n> Changed body\n> and this\n\n* untouched  source", expected: "> [!TIP]\n> Changed body\n> and this\n\n* untouched  source\n" },
   { name: "neighbouring table and list", source: `first\n\n* keep this marker\n\n${table}\n\nlast\n\n`, edit: `changed\n\n* keep this marker\n\n${table}\n\nlast`, expected: `changed\n\n* keep this marker\n\n${table}\n\nlast\n\n` },
   { name: "two separated edits", source: `one\n\n${table}\n\nthree`, edit: `ONE\n\n${table}\n\nTHREE`, expected: `ONE\n\n${table}\n\nTHREE` },
   { name: "insertion", source: "first\n\nlast", edit: "first\n\nnew\n\nlast", expected: "first\n\nnew\n\nlast" },

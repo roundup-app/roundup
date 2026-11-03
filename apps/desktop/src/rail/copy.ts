@@ -17,7 +17,7 @@ export const copy = {
   create: sharedCopy.create,
   thatIsGone: sharedCopy.thatIsGone,
   alerts: sharedCopy.alerts,
-  alertLevels: { all: "All", default: sharedCopy.defaultLevel, quiet: "Quiet" },
+  alertLevels: { all: "All", default: sharedCopy.defaultChoice, quiet: "Quiet" },
   held: (count: number) => `${count} held`,
   time: (at: number) => new Date(at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
   addAgentWord: " Agent",

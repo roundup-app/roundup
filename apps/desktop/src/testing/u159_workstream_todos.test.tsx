@@ -4,7 +4,7 @@ import { afterEach, expect, it } from "vitest";
 import { createFakeApp } from "../testing/fakeApp";
 import { node, workstream, event, info, USER } from "../testing/nodes";
 import { todoHandlers, padHandlers } from "../testing/stores";
-import { todo } from "../todos/testHarness";
+import { todo, todoRowOf as rowOf } from "../todos/testHarness";
 import { connectProject, ConnectedProjectContext } from "../state/connectedProject";
 import { Shelf, ProjectShelfTabs, createShelfTabs } from "../shelf/Shelf";
 import { createShelfFrame } from "../shelf/frame";
@@ -16,7 +16,8 @@ afterEach(cleanup);
 
 const by = (id: string) => ({ kind: "agent" as const, id, parent: null });
 
-const mount = async (project = "p") => {
+const mount = async (withSwitcher = false) => {
+  const project = "p";
   const app = createFakeApp();
   const tree = [workstream("w"), node("a", { parent: "w" }), workstream("v", { order: 1 }), node("b", { parent: "v" }), node("r", { order: 2 })];
 
@@ -39,7 +40,7 @@ const mount = async (project = "p") => {
     const frame = createShelfFrame(() => null, () => true, () => {});
     const tabs = createShelfTabs(frame);
 
-    return <DisplayClockContext.Provider value={now.subscribe}><ConnectedProjectContext.Provider value={connected}><Tabs.RootProvider value={tabs}><ProjectShelfTabs frame={frame} onToggle={() => {}} /><Shelf open={() => true} /><Switcher onFailure={() => {}} onOpen={() => {}} /></Tabs.RootProvider></ConnectedProjectContext.Provider></DisplayClockContext.Provider>;
+    return <DisplayClockContext.Provider value={now.subscribe}><ConnectedProjectContext.Provider value={connected}><Tabs.RootProvider value={tabs} lazyMount><ProjectShelfTabs frame={frame} onToggle={() => {}} /><Shelf open={() => true} />{withSwitcher && <Switcher onFailure={() => {}} onOpen={() => {}} />}</Tabs.RootProvider></ConnectedProjectContext.Provider></DisplayClockContext.Provider>;
   });
 
   return { app, connected, store, pads, tree };
@@ -61,7 +62,7 @@ it("u2744a_shelf_scope_agent_lists_only_its_own", async () => {
 });
 
 const tab = async (name: "Todos" | "Pads") => {
-  fireEvent.click(screen.getByRole("tab", { name: new RegExp(`^${name}`) }));
+  fireEvent.click(within(document.querySelector<HTMLElement>(".shelf-tabs")!).getByText(name, { exact: true }).closest<HTMLElement>('[role="tab"]')!);
   await waitFor(() => expect(document.querySelector(name === "Todos" ? "[data-shelf-scope] [aria-label^=\"Add Todo: \"]" : "[data-shelf-scope] [aria-label=\"Add Pad\"]")).not.toBeNull());
 };
 
@@ -71,12 +72,12 @@ const disclosure = (id: string) => document.querySelector<HTMLElement>(`.shelf-p
 
 const groupIds = () => [...document.querySelectorAll('.shelf-panel:not([hidden]) [data-shelf-group]')].map(el => el.getAttribute('data-shelf-group'));
 
-const count = (name: string) => screen.getByRole("tab", { name: new RegExp(`^${name}`) }).querySelector('.shelf-count')?.textContent ?? "0";
+const count = (name: "Todos" | "Pads") => document.getElementById(`shelf-tab-${name.toLowerCase()}`)!.querySelector(".shelf-count")?.textContent ?? "0";
 
 const ownTodos = (id: string) => [...document.querySelectorAll(`[data-shelf-group="${id}"] [data-todo]`)].flatMap(el => el.closest('[data-shelf-group]')?.getAttribute('data-shelf-group') === id ? [Number(el.getAttribute('data-todo'))] : []);
 
 it("u2744a_pads_remain_project_wide_across_rail_selections", async () => {
-  const { connected } = await mount();
+  const { connected } = await mount(true);
   await tab("Pads");
   const expected = Array.from({ length: 12 }, (_, i) => `pad-${i + 1}`).sort();
   connected.rail.toggleCollapsed("w");
@@ -127,7 +128,7 @@ it("u2744a_shelf_scope_unassigned_starts_folded", async () => {
     expect(connected.rail.selected()).toBeNull();
   }
 
-  expect(screen.getByRole("button", { name: /^(?:Idle|Blocked|Done) #2 / })).toBeTruthy();
+  expect(within(rowOf(2)).getByRole("button", { name: /^(?:Idle|Blocked|Done) #2 / })).toBeTruthy();
 });
 
 // The Todo scope clause moved to u3717_scope_still_selects_by_home_and_maker; this keeps the counts.
@@ -139,7 +140,7 @@ it("u2744a_shelf_scope_counts_follow_the_scope", async () => {
   expect([count("Todos"), count("Pads")]).toEqual(["11", "12"]);
   connected.rail.select("w");
   await waitFor(() => expect([count("Todos"), count("Pads")]).toEqual(["5", "12"]));
-  expect(screen.getByRole("button", { name: /1 done/ })).toBeTruthy();
+  expect(within(document.querySelector<HTMLElement>(".todos-tab")!).getByRole("button", { name: /1 done/ })).toBeTruthy();
   connected.rail.select("a");
   await waitFor(() => expect([count("Todos"), count("Pads")]).toEqual(["2", "12"]));
 });
@@ -195,7 +196,7 @@ it("u2744a_shelf_scope_empty_pad_groups_are_omitted", async () => {
   await app.rpc("pad.delete", { name: "pad-3" });
   await tab("Pads");
   await waitFor(() => expect(groupIds()).not.toContain("v"));
-  expect(screen.getByRole("button", { name: /Add Pad/ })).toBeTruthy();
+  expect(within(document.querySelector<HTMLElement>("[data-shelf-scope]")!).getByRole("button", { name: /Add Pad/ })).toBeTruthy();
 });
 
 it("u2744a_pad_events_relocate_without_filtering", async () => {
@@ -227,20 +228,20 @@ const chooseTerminal = async (title: string) => {
 };
 
 it.each([[null, null, null], ["w", "w", null], ["a", "w", null], ["r", null, null], [null, "w", "work shell"], [null, null, "root shell"]] as const)("u2744a_shelf_scope_add_uses_selected_workstream %s", async (selected, home, terminal) => {
-  const { connected, app } = await mount();
+  const { connected, app } = await mount(terminal !== null);
   connected.rail.select(selected);
 
   if (terminal) await chooseTerminal(terminal);
   fireEvent.click(await within(document.querySelector<HTMLElement>("[data-shelf-scope]")!).findByRole("button", { name: /add todo:/i }));
-  const title = await screen.findByRole("textbox", { name: /New Todo title/ });
+  const title = await within(document.querySelector<HTMLElement>(".todos-tab")!).findByRole("textbox", { name: /New Todo title/ });
   fireEvent.input(title, { target: { value: "new scope item" } });
   fireEvent.keyDown(title, { key: "Enter" });
   await waitFor(() => expect(app.calls.filter(call => call.method === "todo.create")).toHaveLength(1));
   await waitFor(() => expect(app.calls.filter(call => call.method === "todo.move").map(call => call.params)).toEqual(home ? [{ id: 13, home }] : []));
   expect((await app.rpc("todo.list", null)).find(todo => todo.id === 13)?.creator).toEqual(USER);
   await tab("Pads");
-  fireEvent.click(screen.getByRole("button", { name: /Add Pad/ }));
-  const name = await screen.findByRole("textbox", { name: /Pad name/ });
+  fireEvent.click(within(document.querySelector<HTMLElement>("[data-shelf-scope]")!).getByRole("button", { name: /Add Pad/ }));
+  const name = await within(document.querySelector<HTMLElement>(".pads-tab")!).findByRole("textbox", { name: /Pad name/ });
   fireEvent.input(name, { target: { value: "new-pad" } });
   fireEvent.keyDown(name, { key: "Enter" });
   await waitFor(() => expect(app.calls.filter(call => call.method === "pad.create")).toHaveLength(1));
@@ -249,7 +250,7 @@ it.each([[null, null, null], ["w", "w", null], ["a", "w", null], ["r", null, nul
 
 
 it.each([["work shell", "w", [1, 2, 6, 8, 12], 12], ["root shell", null, [1, 2, 5, 3, 4, 6, 7, 8, 9, 10, 12], 12]] as const)("u2744a_shelf_scope_terminal_follows_its_owner %s", async (title, owner, expected, padCount) => {
-  const { connected } = await mount();
+  const { connected } = await mount(true);
   connected.rail.select("a");
   await chooseTerminal(title);
   await waitFor(() => expect(connected.rail.selected()).toBe(owner));
@@ -260,7 +261,7 @@ it.each([["work shell", "w", [1, 2, 6, 8, 12], 12], ["root shell", null, [1, 2, 
 
 it("u2744a_shelf_scope_overview_groups_every_item_once_after_reorder", async () => {
   const { app } = await mount();
-  const row = await screen.findByRole("button", { name: /^(?:Idle|Blocked|Done) #2 / });
+  const row = await waitFor(() => within(rowOf(2)).getByRole("button", { name: /^(?:Idle|Blocked|Done) #2 / }));
   row.focus();
   fireEvent.keyDown(row, { key: "ArrowDown", altKey: true });
   await waitFor(() => expect(app.calls.filter(call => call.method === "todo.reorder").map(call => call.params)).toEqual([{ id: 2, before: 6 }]));
@@ -270,9 +271,9 @@ it("u2744a_shelf_scope_overview_groups_every_item_once_after_reorder", async () 
 
 it("u458_grouped_ranges_follow_visible_order", async () => {
   await mount();
-  const first = await screen.findByRole("button", { name: /^(?:Idle|Blocked|Done) #1 / });
-  const second = await screen.findByRole("button", { name: /^(?:Idle|Blocked|Done) #2 / });
-  const fifth = await screen.findByRole("button", { name: /^(?:Idle|Blocked|Done) #5 / });
+  const first = await waitFor(() => within(rowOf(1)).getByRole("button", { name: /^(?:Idle|Blocked|Done) #1 / }));
+  const second = await waitFor(() => within(rowOf(2)).getByRole("button", { name: /^(?:Idle|Blocked|Done) #2 / }));
+  const fifth = await waitFor(() => within(rowOf(5)).getByRole("button", { name: /^(?:Idle|Blocked|Done) #5 / }));
   fireEvent.click(first, { metaKey: true });
   fireEvent.click(fifth, { shiftKey: true });
   expect([...document.querySelectorAll('[data-todo][data-selected=true]')].map(row => Number(row.getAttribute('data-todo')))).toEqual([1, 2, 5]);
@@ -312,5 +313,5 @@ it("u3736_pads_group_by_home_once_each", async () => {
   app.emit(event({ name: "pad.changed", data: { name: "root-cross" } }));
   await waitFor(() => expect(groupIds()).toEqual([]));
   expect(names()).toEqual([]);
-  expect(screen.getByRole("button", { name: /Add Pad/ })).toBeTruthy();
+  expect(within(document.querySelector<HTMLElement>("[data-shelf-scope]")!).getByRole("button", { name: /Add Pad/ })).toBeTruthy();
 });

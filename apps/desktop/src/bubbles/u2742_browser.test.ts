@@ -38,7 +38,7 @@ const key = async () => { await browser("press", "Meta+b"); };
 beforeAll(async () => {
   server = await appServer();
   origin = server.resolvedUrls.local[0]!;
-  await browser("--profile", profile, "open", new URL("/harness.html?view=workstreams&items=1&tabs=1&seed=bubbles", origin).href);
+  await browser("--profile", profile, "open", new URL("/src/ui/u498.html", origin).href);
   await browser("set", "viewport", "1512", "950");
 }, 90_000);
 
