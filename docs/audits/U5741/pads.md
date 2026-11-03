@@ -96,3 +96,7 @@ Before any selected persisted retirement, record real pre-deletion data: `pads`,
 ## Remaining coverage
 
 Finish conditional Pad creation/conflict/retention/read failure/deleted/rename/export/link recipient states; library block/table/link/drawing menus and bindings; pending/invalid creation recovery variants and independently removable format controls; runtime public endpoint decisions, exact vendor comparisons and dated direction reconciliation. Todo editing, Made/outputs and other worklist gaps remain. Finally reconcile every source/offer and observation against one current main before the single all-candidates ask, in batches of at most ten. Real Agent Terminals, Ask and native continuation remain protected; Overview remain excluded. #5758 stays open.
+
+## Conditional/library continuation
+
+[pad-controls.md](pad-controls.md), [source archive](catalogues/pad-controls-source.json) and [fresh observations](rendered-pad-controls.json) continue on main `ecf788ebdc146bb66cd26acebe020c1874950b39`. They correct PF22/PF27/PF28 expanded/edit coverage while preserving the original failed capture, separate PC01–PC15 and reconcile slash choices with enabled library features. They do not establish the remaining conditional/native/storage paths or complete the inventory.
