@@ -106,6 +106,7 @@ export default function PadRichEditor(props: {
   const [paletteOpen, setPaletteOpen] = createSignal(false);
   const [palettePresent, setPalettePresent] = createSignal(false);
   const [paletteContent, setPaletteContent] = createSignal<HTMLElement>();
+  const [palettePositioned, setPalettePositioned] = createSignal(false);
   const reduced = useContext(ReducedMotionContext) ?? (window.matchMedia ? createReducedMotion(query => window.matchMedia(query)) : () => true);
   let paletteAnimation: ReturnType<typeof animate> | undefined;
   let previousPalette: HTMLElement | undefined;
@@ -115,10 +116,18 @@ export default function PadRichEditor(props: {
     const element = paletteContent();
     const animated = paletteMotion();
     const reduce = reduced();
+    const positioned = palettePositioned();
     paletteAnimation?.stop();
     paletteAnimation = undefined;
 
     if (!element?.isConnected) return;
+
+    if (animated && open && !positioned) {
+      element.style.opacity = "0";
+
+      return;
+    }
+
     const entering = element !== previousPalette;
     previousPalette = element;
 
@@ -621,7 +630,7 @@ export default function PadRichEditor(props: {
     <>
       <Show when={formatHost()}>{mount => <Portal mount={mount()}>
         <div class="pad-rich-editor pad-format-controls">
-          <Menu.Root ids={{ trigger: colourTriggerId }} open={paletteOpen()} present={palettePresent()} onOpenChange={({ open }) => {
+          <Menu.Root ids={{ trigger: colourTriggerId }} positioning={{ onPositioned: ({ placed }) => setPalettePositioned(placed) }} open={paletteOpen()} present={palettePresent()} onOpenChange={({ open }) => {
             setPaletteMotion(!isFocusVisible());
 
             if (open) setPalettePresent(true);
