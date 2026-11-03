@@ -1,3 +1,4 @@
+import { batch } from "solid-js";
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { path, tab } from "../header/stripFixture";
@@ -18,7 +19,7 @@ import { copy } from "./copy";
 // Actual App openings, rather than a fixture containing representative fields.
 const inventory = ["Project rename", "Agent rename", "Workstream rename", "Todo rename", "Pad rename", "Capture", "Import prompt", "Font family", "Switcher query", "Ask prompt", "Spawn prompt", "Opening prompt", "New Todo", "New Pad", "Todo title", "Todo body", "Todo comment", "Terminal rename", "New Workstream", "Project query", "Engine query", "Model query", "Owner query", "Blocker query", "Wait-for query", "Change note"] as const;
 
-afterEach(() => { cleanup(); localStorage.clear(); });
+afterEach(() => { batch(cleanup); localStorage.clear(); });
 
 it.each(inventory)("u3787d_each_field_keeps_literal_input %s", async opening => {
   const app = createFakeApp();

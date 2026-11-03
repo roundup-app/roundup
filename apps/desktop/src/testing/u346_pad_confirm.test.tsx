@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { batch } from "solid-js";
 import { cleanup, fireEvent, waitFor, within } from "@solidjs/testing-library";
 import { expect, it } from "vitest";
 import { openPad, openShelf, waitForReload } from "../pads/padsFixture";
@@ -62,7 +63,7 @@ it("p2544d_stale_write_without_event_keeps_draft", async () => {
     ]));
     expect(calls.filter((call) => call.method === "pad.read")).toHaveLength(1);
   } finally {
-    cleanup();
+    batch(cleanup);
   }
 }, 180_000);
 

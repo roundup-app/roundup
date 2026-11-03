@@ -1,3 +1,4 @@
+import { batch } from "solid-js";
 import { cleanup, render, screen } from "@solidjs/testing-library";
 import { afterAll, beforeAll, afterEach, describe, expect, it } from "vitest";
 import { RequestedApp as App } from "../testing/requestedApp";
@@ -8,7 +9,7 @@ import type { Checks } from "./checks";
 import { seedApp } from "./seeds";
 
 afterEach(() => {
-  cleanup();
+  batch(cleanup);
   document.querySelectorAll("style[data-u137]").forEach((sheet) => sheet.remove());
 });
 
