@@ -655,3 +655,16 @@ The browser replay proves webview offers and actions only. It does not prove nat
 | `pgrep -af 'vitest\|just capture\|pnpm -r'` | 1 | No leftover matching process after unsupported capture. |
 
 No owner choices requested, deletion authorized or complete-inventory claim made. Continue Todo/Pad conditional/library controls, Made, other worklist gaps, exact comparisons and final current all-feature/runtime reconciliation before the single complete owner request. Older owner Project reopening is mandatory for every selected persisted retirement.
+
+| Additional observer failure | Exit / status | Disposition |
+| --- | --- | --- |
+| `python3 tools/lint/scan.py typos` (two early standalone attempts) | 2 each | Pinned spelling executable not installed yet; ran `python3 tools/lint/setup.py web` before repeating. |
+| Primary Apple tables page, regional URL | HTTP 429 | Full canonical Apple page opened successfully; report cites that page. No equivalence claim rests only on a search excerpt. |
+
+| Final evidence check | Exit | Result |
+| --- | ---: | --- |
+| Source/archive/snapshot/image verification | 0 | All 48 archived source files equal audited git blobs; all nine snapshots and image hashes agree; every recorded Check passes. 52 unique decision row ids. |
+| Vocabulary, scenario ids, merge-loss, whitespace | 0 each | No unmatched id, merge loss or whitespace defect. Self-review corrected MCP camel-case suffixes, actual Wide label and the local-only Pad width choice. |
+| `python3 tools/lint/setup.py web` / final spelling scan | 0 each | Installed pinned tools; no new spelling debt. |
+| Browser close | 0 | Only this run's dedicated session closed; nine captures copied to workflow checkout under `artifacts/ux/U5741/pads/`, uncommitted. |
+| Harness deliberate shutdown | Vite 143, wrapper 1 | Sent SIGTERM only to this run's Vite process after captures; not a failed opening or product defect. |
