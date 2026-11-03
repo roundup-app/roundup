@@ -50,8 +50,14 @@ impl EventLog for SqliteLog {
 
     fn read(&self, after: u64, limit: usize) -> Result<Vec<Event>, RpcError> {
         let db = self.db();
+        // Keep persisted numbers intact while excluding retired notifications from replay.
+        // Filter before LIMIT so a page of retired rows cannot hide later ordinary Events.
         let mut statement = db
-            .prepare_cached("SELECT id, event FROM events WHERE id > ?1 ORDER BY id LIMIT ?2")
+            .prepare_cached(
+                "SELECT id, event FROM events WHERE id > ?1
+                 AND json_extract(event, '$.name') IS NOT 'reaction.changed'
+                 ORDER BY id LIMIT ?2",
+            )
             .map_err(RpcError::internal)?;
         let rows = statement
             .query_map(params![after as i64, limit as i64], |row| {

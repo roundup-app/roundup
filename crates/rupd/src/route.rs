@@ -54,7 +54,6 @@ impl Daemon {
                 conn.actor = actor;
             }
         } else if method.starts_with("deliverable.")
-            || method.starts_with("reaction.")
             || matches!(method, "project.open" | "project.start")
             || crate::actions::is_action(method)
             || matches!(
