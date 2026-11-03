@@ -85,14 +85,14 @@ it.each([[1280, 820], [1512, 950]])("u5119_partial_activity_rendered_%sx%s", { r
           await browser("wait", '.todo-status-summary[aria-expanded="true"]');
         }
 
-        await evaluate("document.querySelector('.todo-comments [role=alert]').scrollIntoView({block:'center'}); true");
+        await evaluate("document.querySelector('.todo-comments').querySelector('[role=alert]').scrollIntoView({block:'center'}); true");
         await capture(`${failed}-${expanded ? 'open' : 'closed'}-failure`);
         await evaluate("window.__fake.recoverActivity(); true");
         await browser("focus", ".todo-comment-field");
-        await evaluate("document.querySelector('.todo-comments [role=alert]').scrollIntoView({block:'center'}); true");
+        await evaluate("document.querySelector('.todo-comments').querySelector('[role=alert]').scrollIntoView({block:'center'}); true");
         await settle();
         await browser("click", '.todo-comments > .reserved-line:not([data-empty]) > .reserved-content > .reserved-actions > button:not([data-dismiss-failure])');
-        await browser("wait", "--fn", "!document.querySelector('.todo-comments [role=alert]')");
+        await browser("wait", "--fn", "!document.querySelector('.todo-comments').querySelector('[role=alert]')");
         expect(await evaluate("document.activeElement === document.querySelector('.todo-comment-field')")).toBe(true);
         await capture(`${failed}-${expanded ? 'open' : 'closed'}-recovered`);
         await evaluate("document.querySelector('.todo-comment-field').scrollIntoView({block:'center'}); true");

@@ -5,14 +5,19 @@ import { expect, it } from "vitest";
 import { captureDir } from "../testing/captures";
 import { shelfBrowser } from "../shelf/u371Browser";
 
-const { browser, evaluate, settle, openShelf } = shelfBrowser();
+const { browser, evaluate, settle, rig } = shelfBrowser(`
+  localStorage.clear();
+  localStorage.setItem('roundup:widths:/Users/you/harness', JSON.stringify({rail:288, shelf:320}));
+`);
 
 const output = captureDir("U4698d");
 
 const title = "UnbrokenTitle".repeat(16).slice(0, 200);
 
 const openDocument = async (width: number, height: number, recording = false) => {
-  await openShelf("tree-40", 288, 320, 1512, "dark", false);
+  await browser("set", "media", "dark");
+  await browser("open", `${rig.server.resolvedUrls.local[0]}harness.html?view=workstreams&items=1&seed=tree-40`);
+  await browser("wait", ".shelf-tabs");
 
   // Screenshots during recording restore its starting viewport. Size that context first.
   await browser("set", "viewport", String(width), String(height));
