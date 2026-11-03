@@ -1,3 +1,4 @@
+import { batch } from "solid-js";
 import { chooseFooter } from "../rail/railFixture";
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
@@ -7,7 +8,7 @@ import { openSwitcher } from "../switcher/switcherFixture";
 import { answerQuestion } from "../shelf/bulkQuestionHarness";
 import { agent, door, info } from "../testing/nodes";
 
-afterEach(() => { cleanup(); localStorage.clear(); sessionStorage.clear(); });
+afterEach(() => { batch(cleanup); localStorage.clear(); sessionStorage.clear(); });
 
 // U4707: the tab bar reads the 44px --row-text-inset Token (U5147d).
 it.each(["keyboard", "menu", "bar"].flatMap(source => ["home", "a1", null, "empty"].map(selection => ({ source, selection }))))("u4313a_bar_plus_opens_once_and_focuses: $source $selection", async ({ source, selection }) => {
