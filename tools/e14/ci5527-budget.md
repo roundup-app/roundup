@@ -58,3 +58,53 @@ Controlled production guard exit: 1
 
 Shell exit: **1**. Supplied fixture times are guard evidence only, never a
 CI5527b performance observation.
+
+## Full main observation (CI5527b)
+
+The first full main run after the implementation merge is
+[41666975963](https://github.com/roundup-app/roundup/actions/runs/41666975963),
+a push run created at 2026-11-03T15:44:18Z. Its seven web steps passed the
+720-second guard. **CI5527b fails:** five full step intervals exceed its separate,
+strictly-below-600-second target. Keep #5666 open and repair forward.
+
+These are Actions `test-web` step timestamps, including preparation, execution
+and reporting, not whole-job or observer child-command intervals.
+
+| Shard / job | Commit | Start (UTC) | Finish (UTC) | Seconds | Conclusion / CI5527b |
+| --- | --- | --- | --- | ---: | --- |
+| [web 1](https://github.com/roundup-app/roundup/actions/runs/41666975963/job/126025100821) | `5e17263fe6109206a6545740e2e03f48c70b20e2` | 2026-11-03T15:50:25Z | 2026-11-03T16:01:46Z | 681 | success; FAIL <600s |
+| [web 2](https://github.com/roundup-app/roundup/actions/runs/41666975963/job/126025100668) | `5e17263fe6109206a6545740e2e03f48c70b20e2` | 2026-11-03T15:50:59Z | 2026-11-03T16:02:16Z | 677 | success; FAIL <600s |
+| [web 3](https://github.com/roundup-app/roundup/actions/runs/41666975963/job/126025100860) | `5e17263fe6109206a6545740e2e03f48c70b20e2` | 2026-11-03T15:51:00Z | 2026-11-03T16:00:46Z | 586 | success; pass <600s |
+| [web 4](https://github.com/roundup-app/roundup/actions/runs/41666975963/job/126025100863) | `5e17263fe6109206a6545740e2e03f48c70b20e2` | 2026-11-03T15:50:22Z | 2026-11-03T15:59:37Z | 555 | success; pass <600s |
+| [web 5](https://github.com/roundup-app/roundup/actions/runs/41666975963/job/126025100813) | `5e17263fe6109206a6545740e2e03f48c70b20e2` | 2026-11-03T15:50:34Z | 2026-11-03T16:02:24Z | 710 | success; FAIL <600s |
+| [web 6](https://github.com/roundup-app/roundup/actions/runs/41666975963/job/126025100835) | `5e17263fe6109206a6545740e2e03f48c70b20e2` | 2026-11-03T15:50:38Z | 2026-11-03T16:01:24Z | 646 | success; FAIL <600s |
+| [web 7](https://github.com/roundup-app/roundup/actions/runs/41666975963/job/126025100760) | `5e17263fe6109206a6545740e2e03f48c70b20e2` | 2026-11-03T15:50:30Z | 2026-11-03T16:01:53Z | 683 | success; FAIL <600s |
+
+All seven downloaded `e14-web<N>-1` artifacts have `lane.json` with
+`full: true`, `exit_code: 0`, and the merge commit above. Their commands include
+`test-web-since` with an empty base and their respective `--shard=<N>/7`.
+The run retains the hook-inclusive `web.json` reports and step logs.
+
+At 2026-11-03T16:06:04Z the overall run was still in progress, waiting on its
+Mac job. This is a complete web-step observation, **not yet a claim of the
+first green full check run**. Its target failure must remain recorded even if
+a later run succeeds. Read the aggregate conclusion before calling it green.
+
+## Repair prerequisite
+
+[#5911](https://github.com/roundup-app/roundup/issues/5911) blocks #5666 and scopes
+four remaining unbatched teardown hooks found in these reports. It requires
+unchanged behavior, explicit observer runs, required lints and CI evidence of
+improvement. This report makes no claim that batching alone will bring every
+shard below 600 seconds. After repairs merge, observe the full main run again;
+retain this failed performance observation and all intervening failures.
+
+| Current executed file | Shard | Hook-inclusive ms | Existing teardown |
+| --- | --- | ---: | --- |
+| `src/todos/u3751_triage.test.tsx` | web6 | 53850.913992999995 | `afterEach(cleanup)` |
+| `src/testing/u159_workstream_todos.test.tsx` | web6 | 43612.653556 | `afterEach(cleanup)` |
+| `src/todos/u3708_nesting.test.tsx` | web1 | 29304.937266000004 | `afterEach(cleanup)` |
+| `src/bubbles/u4274_navigation.test.tsx` | web2 | 53651.094965000004 | `cleanup()` before storage clearing |
+
+The raw durations identify repair candidates, not a measured improvement.
+No local observer duration is CI5527b evidence.
