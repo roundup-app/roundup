@@ -168,9 +168,15 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
     }
 
     untrack(() => {
-      const show = (focus: boolean) => screens.resize(id, screens.show(id, host, focus));
+      screens.resize(id, screens.show(id, host, false));
 
-      if (rail.restored() || doorNotRunning || !focusPermission(() => show(true))) show(false);
+      if (!rail.restored() && !doorNotRunning) {
+        // A mounted Drawer may still cover the centre until its dismissal effects settle.
+        const focus = () => focusPermission(() => screens.emulatorFor(id).focus());
+
+        if (host.closest(".window")?.querySelector('.drawer[data-mounted="true"]')) queueMicrotask(focus);
+        else focus();
+      }
     });
   });
 

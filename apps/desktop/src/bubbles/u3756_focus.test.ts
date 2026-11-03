@@ -91,13 +91,14 @@ const fresh = async (seed = "tree-40") => {
   await wait(`!!window.__fake && !!document.querySelector('.terminal-new')`);
 };
 
-const openRow = async (selector: string) => {
-  const target = JSON.stringify(selector);
-  await read(`document.querySelector(${target}).closest('[data-shelf-group][data-state=closed]')?.querySelector('[data-part=branch-control]').click()`);
-  await wait(`!document.querySelector(${target}).closest('[data-shelf-group][data-state=closed]')`);
-  await read(`document.querySelector(${target}).click()`);
-  await wait(`document.activeElement === document.querySelector(${target})`);
-  await read(`document.activeElement.dispatchEvent(new KeyboardEvent('keydown', {key:'Enter',code:'Enter',bubbles:true,cancelable:true}))`);
+const openTodo = async (title: string) => {
+  await read(`(async () => {
+    const app = window.__fake.app;
+    const made = await app.rpc('todo.create', {title:${JSON.stringify(title)},body:null,blockers:null});
+    app.handlers['link.read'] = () => ({kind:'todo',id:String(made.id),todo:made});
+    app.nativeOpen({kind:'link',url:'roundup://todo/'+made.id+'?project=project-0000000000000000'});
+  })()`);
+  await wait(`!!document.querySelector('.drawer[data-open=true] .todo-detail-title p[tabindex]')`);
 };
 
 const newer = async (choice: string) => {
@@ -108,23 +109,7 @@ const newer = async (choice: string) => {
     await browser("press", "Meta+/");
     await wait(`document.activeElement?.matches('.ask-field') || !!document.activeElement?.closest('.ask-bar')`);
   } else if (choice === "drawer") {
-    if (await read(`!!document.querySelector('.rail-row[data-id=backend]')`)) {
-      await browser("click", ".rail-row[data-id=backend] .name");
-      await wait(`document.querySelector('.rail-row[data-id=backend]')?.dataset.selected === 'true'`);
-    }
-
-    await read(`(async () => {
-      const app = window.__fake.app;
-      const made = await app.rpc('todo.create', {title:'Newer Drawer',body:null,blockers:null});
-      window.newTodo = made.id;
-      const selected = document.querySelector('.rail-row[data-selected=true]')?.closest('[data-id]')?.dataset.id;
-      if (selected) await app.rpc('todo.move', {id:made.id,home:selected});
-      const tab = [...document.querySelectorAll('[role=tab]')].find(t => t.textContent.startsWith('Todos')); if (tab.getAttribute('aria-expanded') !== 'true') tab.click();
-    })()`);
-    await read(`document.querySelector('.shelf [data-shelf-group=unassigned][data-state=closed] [data-part=branch-control]')?.click()`);
-    await wait(`!!document.querySelector('[data-todo="' + window.newTodo + '"] .todo-row-button')`);
-    await openRow(`[data-todo="${await read<number>('window.newTodo')}"] .todo-row-button`);
-    await wait(`!!document.querySelector('.drawer[data-open=true]')`);
+    await openTodo("Newer Drawer");
     await wait(`!!document.querySelector('.drawer .todo-add-notes')`);
     await read(`document.querySelector('.drawer .todo-add-notes').click()`);
     await wait(`!!document.querySelector('.drawer textarea')`);
@@ -192,7 +177,8 @@ it("u3756d_initial_and_explicit_terminal_focus_still_work", async () => {
   await newer("bubble");
   await read(`window.originalRow = document.querySelector('.rail-row[data-selected=true]'); document.querySelector('[data-todo-root]').click()`);
   await wait(`!document.querySelector('.rail-row[data-selected=true]')`);
-  await openRow(`.rail-row[data-id="${await read<string>("window.originalRow.dataset.id")}"]`);
+  await browser("focus", `.rail-row[data-id="${await read<string>("window.originalRow.dataset.id")}"]`);
+  await browser("press", "Enter");
   await wait(`!!document.activeElement?.closest('.pane-screen')`);
   await browser("keyboard", "type", "selected");
   await wait(`window.__fake.app.calls.filter(c => c.method === 'terminal.write').map(c => atob(c.params.data)).join('') === 'initialselected'`);
@@ -209,7 +195,11 @@ for (const intervene of [false, true]) {
       const tab = [...document.querySelectorAll('[role=tab]')].find(t => t.textContent.startsWith('Pads')); if (tab.getAttribute('aria-expanded') !== 'true') tab.click();
     })()`);
     await wait(`!!document.querySelector('.pad-name')`);
-    await openRow('[data-pad="pad-3"] .pad-name');
+    await read(`document.querySelector('[data-pad="pad-3"] .pad-name').closest('[data-shelf-group][data-state=closed]')?.querySelector('[data-part=branch-control]').click()`);
+    await wait(`!document.querySelector('[data-pad="pad-3"] .pad-name').closest('[data-shelf-group][data-state=closed]')`);
+    await browser("click", '[data-pad="pad-3"] .pad-name');
+    await wait(`document.activeElement === document.querySelector('[data-pad="pad-3"] .pad-name')`);
+    await browser("press", "Enter");
     await wait(`!!window.finishPad`);
 
     if (intervene) await newer("bubble");
@@ -365,17 +355,7 @@ it("u3756b_a_terminal_name_return_frame_yields_to_the_newer_ask_bar", async () =
 
 it("u3756c_a_new_drawer_editor_mount_keeps_body_unclaimed_by_the_older_terminal", async () => {
   await load();
-  await read(`(async () => {
-    const app = window.__fake.app;
-    const made = await app.rpc('todo.create', {title:'Mounted editor',body:null,blockers:null});
-    window.newTodo = made.id;
-    await app.rpc('todo.move', {id:made.id,home:document.querySelector('.rail-row[data-selected=true]').dataset.id});
-    const tab = [...document.querySelectorAll('[role=tab]')].find(t => t.textContent.startsWith('Todos')); if (tab.getAttribute('aria-expanded') !== 'true') tab.click();
-  })()`);
-  await read(`document.querySelector('.shelf [data-shelf-group=unassigned][data-state=closed] [data-part=branch-control]')?.click()`);
-  await wait(`!!document.querySelector('[data-todo="' + window.newTodo + '"] .todo-row-button')`);
-  await openRow(`[data-todo="${await read<number>('window.newTodo')}"] .todo-row-button`);
-  await wait(`!!document.querySelector('.drawer .todo-detail-title p[tabindex]')`);
+  await openTodo("Mounted editor");
   await read(`(() => {
     const queue = window.queueMicrotask, queued = [];
     window.queueMicrotask = task => queued.push(task);
