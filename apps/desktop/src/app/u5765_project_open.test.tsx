@@ -99,7 +99,7 @@ it("u5765_open_failure_returns_its_cause_and_visible_recovery", async () => {
   await screen.findByRole("dialog");
   fireEvent.click(screen.getByRole("button", { name: "Open" }));
   expect(await reply).toMatchObject({ id: 51, error: { code: -32001, message: "Folder unavailable" } });
-  expect(await screen.findByText(/Folder unavailable/)).toBeDefined();
+  expect(await screen.findByRole("dialog", { description: /Folder unavailable/ })).toBeDefined();
 });
 
 it("u5765_escape_refuses_and_restores_the_original_focus", async () => {

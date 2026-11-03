@@ -7,7 +7,9 @@ import { copy } from "./copy";
 
 type OpenRequest = Extract<ActionRequest, { method: "project.open" }>;
 
-type Confirmation = { request: OpenRequest; sourceName: string; choose: (open: boolean) => void };
+type Confirmation =
+  | { kind: "confirmation"; request: OpenRequest; sourceName: string; choose: (open: boolean) => void }
+  | { kind: "failure"; request: OpenRequest; message: string; dismiss: () => void };
 
 /** One FIFO of request-bound decisions, owned by the App rather than the selected Project. */
 export const createProjectOpening = (projects: ProjectsState) => {
@@ -34,7 +36,7 @@ export const createProjectOpening = (projects: ProjectsState) => {
 
         const abort = () => choose(false);
         signal.addEventListener("abort", abort, { once: true });
-        setPending(all => [...all, { request, sourceName: source.project.name, choose }]);
+        setPending(all => [...all, { kind: "confirmation", request, sourceName: source.project.name, choose }]);
       });
 
       if (signal.aborted) return lost();
@@ -53,6 +55,11 @@ export const createProjectOpening = (projects: ProjectsState) => {
     } catch (error) {
       if (!(error instanceof Error)) throw error;
 
+      if (!signal.aborted) setPending(all => [...all, {
+        kind: "failure", request, message: error.message,
+        dismiss: () => setPending(all => all.filter(item => item.request !== request)),
+      }]);
+
       return reply({ code: error instanceof RpcError ? error.code : -32603, message: error.message });
     }
   };
@@ -61,13 +68,20 @@ export const createProjectOpening = (projects: ProjectsState) => {
 };
 
 export const ProjectOpening = (props: { opening: ReturnType<typeof createProjectOpening> }) => <Show when={props.opening.pending()} keyed>{pending =>
-  <Dialog.Root open instant onOpenChange={details => { if (!details.open) pending.choose(false); }}>
+  <Dialog.Root open instant onOpenChange={details => { if (!details.open) {
+    if (pending.kind === "confirmation") pending.choose(false);
+    else pending.dismiss();
+  } }}>
     <Dialog.Positioner><Dialog.Content class="app-dialog-form project-opening">
-      <Dialog.Title>{copy.openProjectTitle}</Dialog.Title>
-      <Dialog.Description>{copy.openProjectQuestion(pending.request.params.agent?.name ?? copy.openUser, pending.sourceName, pending.request.params.path)}</Dialog.Description>
+      <Dialog.Title>{pending.kind === "confirmation" ? copy.openProjectTitle : copy.openProjectFailed}</Dialog.Title>
+      <Dialog.Description>{pending.kind === "confirmation"
+        ? copy.openProjectQuestion(pending.request.params.agent?.name ?? copy.openUser, pending.sourceName, pending.request.params.path)
+        : copy.openProjectRecovery(pending.request.params.path, pending.message)}</Dialog.Description>
       <footer class="app-dialog-actions">
-        <button type="button" onClick={() => pending.choose(false)}>{copy.refuseProject}</button>
-        <button type="button" class="accent" onClick={() => pending.choose(true)}>{copy.openProjectChoice}</button>
+        <Show when={pending.kind === "confirmation" ? pending : null} fallback={<button type="button" onClick={() => { if (pending.kind === "failure") pending.dismiss(); }}>{copy.close}</button>}>{confirmation => <>
+          <button type="button" onClick={() => confirmation().choose(false)}>{copy.refuseProject}</button>
+          <button type="button" class="accent" onClick={() => confirmation().choose(true)}>{copy.openProjectChoice}</button>
+        </>}</Show>
       </footer>
     </Dialog.Content></Dialog.Positioner>
   </Dialog.Root>

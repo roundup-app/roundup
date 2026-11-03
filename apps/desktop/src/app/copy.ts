@@ -20,6 +20,9 @@ export const storageCopy = {
 } as const;
 
 export const copy = {
+  openProjectFailed: "Could not open Project",
+  /** @prose */
+  openProjectRecovery: (path: string, cause: string) => `${path}: ${cause} Open the folder from Add Project to try again.`,
   openUser: "You",
   openProjectTitle: "Open Project?",
   openProjectChoice: "Open",
