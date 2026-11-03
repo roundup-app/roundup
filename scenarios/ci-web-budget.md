@@ -82,7 +82,6 @@ The remaining files are sorted by descending baseline duration, path as tie-brea
 | `src/testing/u177_restarted_door.test.tsx` | 7 | 64130 | 1 |
 | `src/ui/u484_browser.test.ts` | 5 | 63977 | 4 |
 | `src/todos/u492a_browser.test.ts` | 5 | 62965 | 4 |
-| `src/reactions/nr9_reactions.test.tsx` | 7 | 62847 | 40 |
 | `src/header/u183_rename.test.tsx` | 7 | 62511 | 46 |
 | `src/todos/u461_rendered.test.ts` | 6 | 60680 | 10 |
 | `src/keys/u4690_browser.test.ts` | 2 | 59806 | 10 |

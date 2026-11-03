@@ -20,12 +20,12 @@ describe("u504 the Ask bar", () => {
 
     const headings = await waitFor(() => {
       const buttons = [...document.querySelectorAll<HTMLButtonElement>(".overview-sections [data-part=item-trigger]")];
-      expect(buttons).toHaveLength(4);
+      expect(buttons).toHaveLength(3);
 
       return buttons;
     });
 
-    await waitFor(() => expect(headings.map(button => button.getAttribute("aria-expanded"))).toEqual(["true", "false", "false", "false"]));
+    await waitFor(() => expect(headings.map(button => button.getAttribute("aria-expanded"))).toEqual(["true", "false", "false"]));
     type("keep @ops exact\n unfinished");
 
     for (const button of headings) {
@@ -37,7 +37,7 @@ describe("u504 the Ask bar", () => {
       expect(input()!.value).toBe("keep @ops exact\n unfinished");
     }
 
-    expect(app.calls.filter(call => ["ask.send", "agent.start", "reaction.run", "terminal.write"].includes(call.method))).toEqual([]);
+    expect(app.calls.filter(call => ["ask.send", "agent.start", "terminal.write"].includes(call.method))).toEqual([]);
   });
 
   it("u504_the_home_screen_is_the_ask_bar", async () => {
