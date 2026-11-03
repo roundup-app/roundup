@@ -23,3 +23,13 @@ The source/offer observer verifies 18 pinned source archives byte-for-byte again
 No new rendered opening is claimed: the five operations have no direct production App call site in the recorded search; its matches are library URLs, not RPC consumers. The existing changed-work/PR links remain independently inventoried. Write semantics are inspected in source and the existing named behavior observers; help does not establish remote mutation success. No native or real-conversation observation, owner usage assumption, partial candidate request or deletion is claimed. Every remaining per-method/App/equivalence gap and final current whole-App reconciliation stays open on #5758.
 
 Final `just ready`: exit 0, including migration guard, all 193 lint fixtures, package type checks, repository/Rust lints, `ALL PROOFS CHECK` and N7. Standalone spelling (after setup), archive/source/offer integrity, file-size cap, vocabulary, scenario ids, merge-loss and whitespace checks pass (0). Self-review corrected the report's body argument to match actual positional CLI help. No upstream merge was needed; no inspected source changed during validation. Independent required CI and review judge the pushed head.
+
+## CI timeout repair — builder-41686294061
+
+| Command / observer | Exit / result | Evidence and disposition |
+| --- | --- | --- |
+| `pre` run `41683567869`, lint job `126083258429` | Cancelled; aggregate `pre` exits 1 | The 15-minute job limit expired. Fetch ran from 17:22:47 to 17:30:21 UTC; setup ended at 17:36:42. Lints ran about 43 seconds before cancellation at 17:37:26, during dependency compilation. No lint diagnostic established a source defect; this run is not a pass. |
+
+Merged `origin/main` at `f364d79c84ffc01f8fd10a227b2f544d1f4d53f7` without conflicts. The archived integrity observer passes (0): all 18 pinned sources still match the checkout, with five mappings, both recorded roles, two recorded reads, direction, vendor help and search classifications intact. This rechecks archived evidence; it does not claim new live reads or a new whole-App audit revision. `pnpm install --frozen-lockfile`, merge-loss and whitespace checks pass (0). The push starts fresh required CI; no gate or timeout is changed.
+
+Fix validation: `just ready` passes (0), including 193 lint fixtures, web/package type checks, repository/Rust lints, `ALL PROOFS CHECK` and N7. No behavior test file changed and the failed task names no failing behavior test. The original sixteen `a5168` passes remain the behavior observation for this documentary slice.
