@@ -210,7 +210,6 @@
  "src/pads/u4698b_toolbar.test.tsx": 8,
  "src/pads/u5561a_browser.test.ts": 166,
  "src/pads/u5561c_real_browser.test.ts": 33,
-
  "src/pads/u67_editor_cleanup.test.tsx": 1,
  "src/perf/k1_opt_in.test.ts": 26,
  "src/perf/k2_keystrokes.test.ts": 1,
@@ -578,5 +577,9 @@
  "src/ui/u5247_browser.test.ts": 1,
  "src/ui/u535_browser.test.ts": 36,
  "src/ui/z3788d_row_focus.test.tsx": 1,
- "src/ui/z3799e_open_surfaces.test.tsx": 1
+ "src/ui/z3799e_open_surfaces.test.tsx": 1,
+ "src/pads/u5562ab_formats.test.tsx": 7,
+ "src/pads/u5562c_browser.test.ts": 76,
+ "src/pads/u5562c_language.test.tsx": 1,
+ "src/pads/u5562d_real_browser.test.ts": 49
 }
