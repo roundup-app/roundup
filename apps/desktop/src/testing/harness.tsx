@@ -85,6 +85,13 @@ if (query.has("storage-recovery")) {
 
 
 const mount = (app: AppSeam) => {
+  if (query.has("project-open")) {
+    const source = window.__fake.app.opened.project;
+
+    if (!source) throw new Error("The Project-open observer requires an open source Project");
+    window.__fake.app.opened.project = { ...source, name: "Payments and reconciliation workspace" };
+  }
+
   // Chromium has no native host menu; expose that same seam with the installed Ark primitive.
   const [nativeMenu, setNativeMenu] = createSignal<{ items: MenuItem[]; x: number; y: number; answer: (id: string | null) => void } | null>(null);
 
