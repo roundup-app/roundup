@@ -36,6 +36,7 @@ const capture = async (name: string): Promise<void> => {
   if (baseline && name === "bar-1280-light") writeFileSync(join(dir, "main-observer.json"), JSON.stringify(JSON.parse(readFileSync(baseline, "utf8"))));
 };
 
+// Both seeds are needed: the empty bar and a populated owner have different keyboard tab sequences.
 it.each(["empty-project", "bubbles"].flatMap(seed => [["Enter", "Enter"], [" ", "Space"]].map(([key, code]) => ({ seed, key: key!, code: code! }))))("u469_every_tab_close_and_plus_is_named_and_keyboard_reachable: $seed $code", async ({ seed, key, code }) => {
   await page.load(`/harness.html?seed=${seed}`);
   await page.until(`() => Boolean(window.__fake && document.querySelector('.terminal-new'))`);
