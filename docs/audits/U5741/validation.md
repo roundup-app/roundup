@@ -450,3 +450,40 @@ The push was rejected (exit 1) because the branch advanced to 30de64f7d. Merging
 Combined evidence reconciliation passes: all 36 inspected source hashes, ten stored snapshot checksums and the complete direction archive’s decoded SHA-256. A second fresh headless profile and isolated port 5234 reproduce the loaded Todo opening after waiting for actual rows: all eight recorded Todo ids are visible, with creator-matching rows revealed in their owner group. The updated creator-todos PNG and loaded-completion-observations.json supersede this run’s earlier loading-state capture. Every recorded Check passes. The extra browser and harness are closed.
 
 Post-integration `just ready` passes (exit 0), including all 193 lint-behavior checks, package typechecks, repository/Rust lints, `ALL PROOFS CHECK` and N7. Vocabulary, scenario ids, merge-loss and whitespace pass on the combined head. Self-review preserves the concurrent loaded-Todo correction and every main-side product/test change. No local `just check` ran.
+
+## Terminal controls continuation — builder-41592285096
+
+Main `20576d304c07acb4010a54c8ced66f1e86c255e8`: documentation only, no product/contract/scenario/test change. `terminals.md` records 31 controls and boundaries with three criteria, remaining unknowns and independent protocol work. Source catalogue pins 40 inspected files, exact linked direction and the losslessly archived observer driver. Decode archive fields with base64 then zlib and compare SHA-256. `rendered-terminals.json` retains twelve fresh isolated headless real-xterm/fake-Daemon openings; all recorded Checks pass at 1512×950 with explicit dark App mode. The observer reloads after setting dark mode so initial emulator Tokens are dark too. Initial captures from before that reload were superseded. Running/exited close confirmation payloads are observed at the App boundary, not rendered native dialogs. PNG files stay under `artifacts/ux/U5741/terminals/` uncommitted.
+
+`pnpm install`, vocabulary, scenario ids, merge-loss, whitespace and evidence checks pass. The evidence check validates all source hashes, all three archive fields, twelve lossless accessibility snapshots, dark viewport and every recorded Check. No local `just check`, new behavior test, native outcome, real clipboard effect or older-data reopen is claimed. Full all-feature revision reconciliation and owner request remain unfinished; #5758 stays open.
+
+| Failed command / observer | Exit | Failure / disposition |
+| --- | ---: | --- |
+| Initial `ls -d .codegraph` | 2 | No index; ordinary source search used. |
+| `cat .../bubbles/close.ts` | 1 | Actual module is close.tsx; read before judging confirmation. |
+| `sed .../testing/seeds/bubbles.ts` | 2 | Seeds are in testing/seeds.ts; inspected actual fixture. |
+| `rg ... settings/schema.ts ...` | 2 | Guessed schema module absent; inspected preferences.ts and settings definitions. |
+| Initial `python3 /tmp/u5741-terminal-observe.py` | 1 | Dark-mode assertion rejected guessed appearance preference; no capture accepted. Replaced with actual mode setting. |
+| `rg ... crates/contracts/src/methods/*.rs` | 2 | Declarations are in declarations.rs and role filtering in rup/src/mcp.rs; inspected both. |
+| Initial standalone `python3 tools/lint/scan.py typos` | 2 | Pinned tool absent in fresh worktree; existing setup installs it before rerun. |
+
+The successful observer subsequently reloaded the App before selecting the Agent, reran all twelve openings and overwrote every previous capture and reading. Native text services, marked output, input/library variants, conditional failures and protocol comparisons remain engineering gaps; neither source-only evidence nor missing vendor parity is treated as a negative candidate answer.
+
+The twelfth opening adds a chosen-Terminal close refusal on the eight-Run seed: full failure text and Retry remain visible, the tab stays, and all Checks pass. Its continuation driver is archived separately in terminal-source.json and uses the same isolated session. This establishes fake-seam readability, not a real Daemon outcome.
+
+Final `just ready` passes (exit 0): B4522 migration filename guard, all 193 lint-behavior checks, styles, typechecks, repository/Rust lints, formal proof mutation checks (`ALL PROOFS CHECK`) and N7. Final evidence validation passes for all 40 source hashes, three archives and twelve dark viewport/snapshot/Check records, including the full dense close-refusal text. Main remains the audit pin; no merge or product delta occurred. Self-review restored the earlier changes/resource capture count accidentally touched by report wording replacement. Isolated browser and harness processes are closed; final media is also copied into the run checkout's artifacts path for workflow attachment. No local `just check` ran.
+
+
+## Fix-run verification — builder-41594280547
+
+Integrated remote head `c2ca0523e` by fast-forward; it had already made #5861 ready with auto-merge enabled. Independently verified all 40 pinned source hashes, three decoded archives and twelve stored snapshot hashes, dark viewport records and passing Checks. Replayed both archived observer drivers using a fresh isolated headless session against the unchanged App at the audit pin: all twelve openings pass every recorded Check, including readable dense close-refusal text and Retry. Recreated PNG files, Check readings and the replay manifest remain uncommitted under `artifacts/ux/U5741/terminals/`, also copied to the run checkout for attachment. Original checked-in observations remain unchanged. The isolated browser and harness are closed.
+
+| Failed command | Exit | Failure / disposition |
+| --- | ---: | --- |
+| `ls artifacts/ux/U5741/terminals` | 2 | This fresh checkout lacked prior uncommitted media. Replayed the archived observer and recreated all twelve captures in an isolated session. |
+| `python3 tools/lint/scan.py typos` (two attempts before setup completed) | 2 each | Pinned spelling tool was absent in the fresh worktree; the required ready recipe installs it before scanning. |
+| `just ready` (first fix-run attempt) | 1 | Spelling rejected the plural image-format abbreviation in the new validation paragraph. Reworded it without changing evidence. |
+
+`pnpm install`, vocabulary, scenario ids, merge-loss and whitespace checks pass. No product, contract, scenario or behavior test changed; #5758 remains open for the complete inventory and later owner request.
+
+Final fix-run `just ready` passes (exit 0), including all 193 lint-behavior checks, styles, package typechecks, repository/Rust lints, B4522, `ALL PROOFS CHECK` and N7. The corrected standalone spelling scan also passes. No local `just check` ran.
