@@ -6,7 +6,7 @@ import { Todos } from "../todos/Todos";
 import { Pads } from "./Pads";
 import type { ConnectedProject } from "../state/connectedProject";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import type { AppSeam } from "../app/seam";
 import { DrawerHost } from "../drawer/DrawerHost";
 import { connectProject, ConnectedProjectContext } from "../state/connectedProject";
@@ -383,8 +383,10 @@ it.each(["todos", "pads"] as const)("u3787a_handoff_redo_clears_only_the_destina
 describe("U3787a connected App regions", () => {
   let real: StartedDaemon;
 
-  beforeEach(async () => { real = await startRealDaemon({}); }, 120_000);
-  afterEach(async () => { await real?.stop(); });
+  // Each case clears the chosen data below and mounts a fresh App/history owner;
+  // share the served Daemon instead of mounting eight identical Vite servers.
+  beforeAll(async () => { real = await startRealDaemon({}); }, 120_000);
+  afterAll(async () => { await real?.stop(); });
 
 it.each(["todos", "pads", "shelf-todos", "shelf-pads", "clear-done", "drawer-todo", "drawer-pad"])("u3787a_%s_delete_undo_redo_without_feedback", async kind => {
   const app = createServedApp(real.base);
@@ -408,9 +410,9 @@ it.each(["todos", "pads", "shelf-todos", "shelf-pads", "clear-done", "drawer-tod
   let connected: ConnectedProject | undefined;
   render(() => <App app={app} reducedMotion={() => true} clock={() => 0} initialShelfOpen={kind !== "todos" && kind !== "pads"} createEmulator={fakeEmulators().factory} prepareIdle={open => { connected = open; open.showView("workstreams"); }} />);
   await waitFor(() => expect(connected !== undefined).toBe(true));
-  await showEverythingInApp(undefined, isPad ? "Pads" : "Todos");
 
   if (kind === "todos" || kind === "pads") {
+    await connected!.rail.settled();
     connected!.rail.select(null);
     connected!.drawer.open(() => isPad ? <Pads /> : <Todos />, "key");
     await waitFor(() => {
@@ -420,6 +422,8 @@ it.each(["todos", "pads", "shelf-todos", "shelf-pads", "clear-done", "drawer-tod
       for (const control of controls) if (control.closest('[role="treeitem"]')?.getAttribute("aria-expanded") === "false") fireEvent.click(control);
     });
   }
+
+  if (kind !== "todos" && kind !== "pads") await showEverythingInApp(undefined, isPad ? "Pads" : "Todos");
 
   const owner = kind === "todos" || kind === "pads" ? within(screen.getByLabelText("Drawer", { selector: "aside" })) : screen;
   const row = kind === "clear-done" ? await screen.findByText("Clear done", { selector: "button" }) : isPad ? (await owner.findByText(name, { selector: ".pad-name .shelf-title" })).closest<HTMLElement>(".pad-name")! : await owner.findByLabelText(new RegExp(`^(?:Idle|Blocked|Done) #${todo!.id} `));
