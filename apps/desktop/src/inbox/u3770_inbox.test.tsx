@@ -299,7 +299,7 @@ it("u3770a_comment_only_attention_opens_needs_you_without_marking_read", async (
 
 
 it.each(["rail", "ask", "bench", "drawer", "agent-terminal", "shell-terminal", "empty-key", "empty-menu", "idle-key", "idle-menu", "menu"])("u3770e_inbox_route_opens_overview_needs_you_once: %s", async from => {
-  const { connected, daemon, shells } = await mountNavigation(from.startsWith("empty"), 0);
+  const { connected, daemon, shells } = await mountNavigation(from.startsWith("empty"), 0, 1);
   const overview = () => within(document.querySelector<HTMLElement>(".overview-sections")!);
 
   if (from.startsWith("idle")) {
