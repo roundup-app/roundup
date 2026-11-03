@@ -33,7 +33,6 @@ const shared = async () => {
   return live;
 };
 
-// Keep tree-40 for scope counts and Terminal ownership; controls-only probes opt into empty-project below.
 const mountApp = async (seed: SeedName = "tree-40", reducedMotion = true) => {
   window.matchMedia ??= (query) => ({ matches: false, media: query, onchange: null, addListener() {}, removeListener() {}, addEventListener() {}, removeEventListener() {}, dispatchEvent: () => false });
   const controls = seedApp(seed, Date.now());
