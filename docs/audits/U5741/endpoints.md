@@ -216,3 +216,8 @@ These commands bypass the shared method-to-command catalogue. Their production o
 ## Provenance query continuation
 
 [provenance.md](provenance.md) assesses PV01/PV02, the exact item-history and Actor-history CLI/MCP queries, on main `7ae759f2bc7f8e8e58a02a11f88488480364db41`. [catalogues/provenance-source.json](catalogues/provenance-source.json) retains current actual offers, isolated live queries, 28 pinned sources, vendor comparisons, direction and replay. Both queries are candidates on the journey criterion, not permission to erase Touches or shared unread/attribution state. Dependent App attribution choices, other public methods, conditional App evidence and final whole-App revision reconciliation remain unfinished; no partial owner request or deletion. [validation-provenance.md](validation-provenance.md) records commands and limits.
+
+
+## Route control continuation
+
+[routes.md](routes.md) assesses RT01–RT03, explicit Auto, Drop and stored Route inspection, on main `ed0924b8e962e9f0e3d08ac7d17e2eb4e35c9d65`. [catalogues/route-source.json](catalogues/route-source.json) retains 33 pinned sources, actual CLI help and both MCP lists, six isolated user RPC writes, CLI reads/refusal, dated #671/#1182/#5726 direction and replay. Each control is a journey-criterion candidate, never permission to change default delivery, stored Messages or user authority. [validation-routes.md](validation-routes.md) preserves observer failures and corrections. Other methods, earlier conditional/equivalence gaps and final whole-App revision reconciliation remain unfinished. No partial owner request or deletion.
