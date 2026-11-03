@@ -13,7 +13,7 @@ export type Collapsed = { agents: readonly Kind[] };
 
 export type RailRow =
   | { kind: "node"; key: string; depth: number; node: RailNode; collapsed: Collapsed | null; trail: readonly boolean[]; /** Rows of its own children follow it (U402): its trunk drops from its mark. */ children: boolean }
-  | { kind: "fold"; key: string; depth: number; parent: string; count: number; open: boolean; trail: readonly boolean[] };
+  | { kind: "fold"; key: string; depth: number; parent: string; group: "idle" | "internal"; status: Kind; count: number; open: boolean; trail: readonly boolean[] };
 
 export type NodeRow = Extract<RailRow, { kind: "node" }>;
 
@@ -109,23 +109,35 @@ export const layoutRail = (source: RailSource, view: RailView, section?: RailSec
     const parentId = tree.nodes[parent]?.id ?? null;
     const canFold = parent !== -1 && isWorkstream(tree.nodes[parent]!);
     const folded: number[] = [];
+    const internal: number[] = [];
     const shown: number[] = [];
 
-    for (const at of siblings) (canFold && isFoldedAgent(tree.nodes[at]!, view) ? folded : shown).push(at);
+    for (const at of siblings) {
+      const node = tree.nodes[at]!;
 
-    const unfolded = view.unfolded.has(parentId);
-    const foldShown = folded.length > 0;
+      const destination = canFold && node.kind === "agent" && node.visibility === "internal"
+        ? internal : canFold && isFoldedAgent(node, view) ? folded : shown;
+
+      destination.push(at);
+    }
+
+    const groups = [{ group: "internal" as const, members: internal, id: `internal:${parentId}` },
+      { group: "idle" as const, members: folded, id: parentId }].filter(group => group.members.length > 0);
 
     const nodeRows = shown.flatMap((at, position): RailRow[] =>
-      rowsOfNode(at, depth, depth === 0 ? [] : [...trail, position < shown.length - 1 || foldShown]));
+      rowsOfNode(at, depth, depth === 0 ? [] : [...trail, position < shown.length - 1 || groups.length > 0]));
 
-    const foldRow: RailRow[] = parentId !== null && foldShown
-      ? [{ kind: "fold", key: `fold:${parentId}`, depth, parent: parentId, count: folded.length, open: unfolded, trail },
-        ...(unfolded ? folded.flatMap((at, position) =>
-          rowsOfNode(at, depth + 1, [...trail, false, position < folded.length - 1])) : [])]
-      : [];
+    const foldRows = groups.flatMap(({ group, members, id }, position): RailRow[] => {
+      if (parentId === null) return [];
+      const open = view.unfolded.has(id);
+      const continues = position < groups.length - 1;
 
-    return [...nodeRows, ...foldRow];
+      return [{ kind: "fold", key: `fold:${id}`, depth, parent: parentId, group, status: group === "idle" ? "idle" : byUrgency(members.flatMap(at => tree.nodes[at]!.status ? [tree.nodes[at]!.status!.kind] : []))[0] ?? "idle", count: members.length, open, trail },
+        ...(open ? members.flatMap((at, child) =>
+          rowsOfNode(at, depth + 1, [...trail, continues, child < members.length - 1])) : [])];
+    });
+
+    return [...nodeRows, ...foldRows];
   };
 
   const rowsOfNode = (at: number, depth: number, trail: readonly boolean[]): RailRow[] => {
