@@ -5,6 +5,7 @@ import type * as agent$KeptItem from "./KeptItem";
 import type * as agent$RemovedItem from "./RemovedItem";
 /**  A34: what `rail.remove` of a Workstream returns. */
 export type Removal = {
+	selection?: string[],
 	removed: agent$RemovedItem.RemovedItem[],
 	kept: agent$KeptItem.KeptItem[],
 	deletion?: agent$Deletion.Deletion | null,
