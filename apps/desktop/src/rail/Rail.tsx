@@ -215,6 +215,10 @@ export const Rail = () => {
   }));
 
   const openRow = (id: string) => {
+    if (rail.nodes.some(node => node.id === id && node.kind === "group")) { rail.select(id);
+
+ return; }
+
     const node = rail.nodes.find(each => each.id === id);
 
     const attention = node?.kind === "workstream" && node.status?.kind !== "needs-you"
@@ -386,6 +390,8 @@ export const Rail = () => {
 
       return actions;
     }
+
+    if (node.kind === "group") return { ...base, kind: "group" };
 
     const exit = rail.exitOf(node);
     const actions: Extract<RowActions, { kind: "agent" }> = { ...base, kind: "agent" };
