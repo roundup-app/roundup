@@ -893,3 +893,22 @@ Integrity observer (0): all 37 source archives match their checksums and pinned 
 | Second `just ready` and standalone file-size guard | 1 each | Manifest was 1,059,173 bytes, above the 1,000,000-byte Git blob cap. Losslessly archived repeated focused-element/table DOM JSON with hashes; round trips preserve every value. Committed smaller blob before repeating, since this guard reads HEAD. Other checks, proofs and N7 passed. |
 
 Final `just ready`: exit 0, including all 193 lint-behavior fixtures, web/package type checks, repository/Rust lints, `ALL PROOFS CHECK` and N7. The committed blob-size guard passes. Final spelling, vocabulary, scenario ids, merge-loss, whitespace and lossless archive/snapshot/image integrity checks pass. No local `just check` or changed behavior tests. This slice is ready for independent review; #5758 remains open for the complete inventory and all selected retirements.
+
+
+## Toast continuation — builder-41660399130
+
+Audited main `daa930055bd538a2fafce2960dbdb6825c0c7b93`. Documentation only: fourteen independently assessed Toast controls, exact source/public mappings and dated #1111/#3313/#5255 direction, thirteen fresh isolated headless dark 1512×950 openings. Every recorded Check passes, including D2/D5/D6. Images remain uncommitted under `artifacts/ux/U5741/toasts/`; source-only states, external equivalents and final current all-feature reconciliation remain explicit. No partial candidate request, owner answer, retirement, product/test/contract/frozen-loop change or local `just check`.
+
+`pnpm install` passed (0). The fresh dedicated browser/profile used production App composition and existing fake-Daemon controls; this proves neither real delivery/persistence nor native focus/audio. Corrected replay passed (0). The observed target-open failure says the target is gone and exposes Close; no retry or successful-open claim is inferred. Compressed JSON fields preserve all original values and decoded hashes.
+
+| Failed command / observer | Exit | Failure and disposition |
+| --- | ---: | --- |
+| Initial optional `.codegraph` directory probe | 1 | No index exists; ordinary source discovery used. |
+| Source search including absent `scenarios/*toast*` and guessed `apps/desktop/src/harness*` paths | 2 | Actual `scenarios/ui-toasts.md` and `testing/harness.tsx` read; no absence inferred from failed glob. |
+| `sed` guessed `apps/desktop/src/harness.tsx` | 2 | Read actual `apps/desktop/src/testing/harness.tsx`. |
+| First `just harness tree-40 5283` | 254 | Dependency install was still running, Vite unavailable. Completed install and launched successfully. |
+| First Toast replay, `wait .app-toast-action` | 1 | Reload restored selected Agent, correctly suppressing duplicate Toast. Replay now clears isolated saved selection before each opening; failed attempt retained in source catalogue. |
+| Second Toast replay, `wait .todo-title` | 1 | Incorrect observer selector; actual `.todo-detail` used. Failed attempt retained; third complete replay succeeds. |
+| First `just ready` | 1 | Spelling scan flagged unquoted abbreviated SHA in entry-points.md. Replaced with pinned-main wording; full repeat follows. Web checks, migration guard and N7 had passed. |
+
+PostCSS missing-from and Solid computation-disposal warnings occurred in the isolated harness; no clean-console claim. No behavior test file changed; no report-text test added. Before push, self-review checks independent decisions, exact names, archive integrity, historic versus current public offers, retained failed observers, only scoped documentation files and no false completion/deletion claim. Final required-check/integrity outcomes follow below.
