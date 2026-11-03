@@ -23,6 +23,7 @@ pub fn parse_positive_ordinal(value: &str) -> Option<i64> {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 #[serde(rename_all = "kebab-case")]
 pub enum NodeKind {
+    Group,
     Workstream,
     Agent,
 }
@@ -882,6 +883,14 @@ pub struct SetOrderParams {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[specta(optional, type = CapturedOrder)]
     pub captured: Option<CapturedOrder>,
+}
+
+/// U5690c: collect exact identities, deduplicated in pre-action Rail order.
+/// The Group is placed before the first affected branch at the nearest unselected
+/// common ancestor. Siblings use the first selected sibling's position.
+#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
+pub struct GroupParams {
+    pub ids: Vec<String>,
 }
 
 /// Re-parent and position a node. `parent: None` moves it to the root.
