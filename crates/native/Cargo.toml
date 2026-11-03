@@ -11,7 +11,7 @@ harness = false
 idle-perf = []
 
 [dependencies]
-tauri = { version = "2", default-features = false, features = ["wry"] }
+tauri = { version = "2", default-features = false, features = ["wry", "tray-icon"] }
 
 [target.'cfg(target_vendor = "apple")'.dependencies]
 log = "0.4"

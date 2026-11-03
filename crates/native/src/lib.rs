@@ -61,4 +61,12 @@ pub use webview_data::webview_data_path;
 #[cfg(target_os = "macos")]
 mod dock;
 #[cfg(target_os = "macos")]
-pub use dock::DockMenu;
+pub use dock::{DockMenu, Row};
+
+#[cfg(target_os = "macos")]
+mod rows;
+#[cfg(target_os = "macos")]
+pub use rows::{apply as apply_rows, style_tray};
+
+mod look;
+pub use look::{Look, Tone};

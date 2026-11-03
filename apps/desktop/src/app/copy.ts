@@ -103,6 +103,7 @@ export const menuBarCopy = {
   empty: "Nothing for you",
   open: "Open roundup",
   more: (count: number) => `${count} more…`,
+  earlier: (count: number) => `${count} earlier…`,
   /** @prose */
-  row: (glyph: string, name: string, project: string | null, live: string) => `${glyph} ${name}${project === null ? "" : ` · ${project}`} · ${live}`,
+  subtitle: (live: string, project: string | null) => (project === null ? live : `${live} · ${project}`),
 };
