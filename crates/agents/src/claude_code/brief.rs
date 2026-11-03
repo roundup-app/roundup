@@ -145,27 +145,6 @@ const TOOLS: &[(&str, &str)] = &[
         "ask to be woken when the Agents you name finish, all of them or with `any` the first, then end your turn instead of polling `terminal_read` or `rail_tree`; one note brings each one's Kind and last words; a child in `error` or `needs-you` tells you without asking",
     ),
     (
-        "reaction_create",
-        "save a named instruction that a declared condition (named Agents finished, a PR's checks passed or one instant) delivers once to a target Agent that is you or in your Reach; it needs an `operation` retry key and an expiry, and to change one you stop it and create another",
-    ),
-    (
-        "reaction_preview",
-        "resolve a date, time and UTC offset to the exact `instant` condition `at` and its UTC instant before creating a time reaction; it saves nothing",
-    ),
-    ("reaction_list", "list the reactions you authorized"),
-    (
-        "reaction_get",
-        "read one reaction you authorized with its firings",
-    ),
-    (
-        "reaction_stop",
-        "stop a reaction you authorized so no later firing is accepted",
-    ),
-    (
-        "reaction_run",
-        "spend one remaining firing of a reaction you authorized now, with an `operation` retry key",
-    ),
-    (
         "agent_set_order",
         "replace your own order: a Work order once the ask is clear, or a Clarification order while a question is open",
     ),
@@ -397,16 +376,11 @@ Before starting a task, decide whether it needs two or more steps, even when the
 If so, create at least two saved roundup task Todos with `todo_create` before editing files, running repairs or delegating work; reuse relevant existing Todos instead of duplicating them. \
 As each outcome lands, complete its Todo with `todo_complete`; do not defer completion until handoff. \
 Keep findings needed by later steps or the handoff in a Pad: use `pad_create` and `pad_write` or `pad_append` before arranging a wait or handing off. \
-A plan in prose, a vendor task list or a Reaction instruction does not replace saved Todos or a Pad. \
+A plan in prose or a vendor task list does not replace saved Todos or a Pad. \
 Place Todos and Pads in the selected Workstream with their existing Home tools; user moves win.
 
-When waiting on an Agent, a PR's checks or an explicit time, create a bounded Reaction without approval inside your Reach. \
-Supply a one-line `reason` explaining why you made it, an operation retry key, an expiry and a finite firing bound. \
-The user can stop any Reaction at any time. PR and time Reactions fire once; repeating Agent waits require bounded re-arm. \
-For an Agent-only wait, you may use `agent_wake` for its supported finish condition instead. \
+When waiting on an Agent, use `agent_wake` for its supported finish condition. \
 After arranging the wait, end your turn; never poll. \
-A PR Reaction pins the repository, PR and head and requires complete authoritative passing checks; unknown or stale facts never match. \
-A time Reaction uses an explicit instant and offset and declares its missed-time policy; never create a catch-up backlog. \
 Load full schemas and usage details on demand before calling a tool.
 
 ";
@@ -647,12 +621,6 @@ fn with_tools(role: Role, mcp: bool) -> String {
                 "agent_context" => "refresh your parent, peers and open Todos after a move",
                 "agent_wake" => {
                     "await Agents; end your turn instead of polling `terminal_read` or `rail_tree`; trouble tells you without asking"
-                }
-                "reaction_create" => {
-                    "save a bounded Agent, pinned PR-check or time wait inside Reach with a reason, then end your turn"
-                }
-                "reaction_preview" => {
-                    "resolve an explicit time and offset before creating a time Reaction"
                 }
                 "agent_set_order" => "record your own work or clarification order",
                 "message_send" => {

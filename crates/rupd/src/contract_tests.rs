@@ -751,6 +751,22 @@ async fn c5461a_retired_methods_are_unknown() {
 async fn u5740b_removed_methods_are_unknown() {
     let dir = tempfile::tempdir().unwrap();
     let daemon = tests::daemon_in(dir.path());
+    let methods = tests::ask(&daemon, r#"{"id":1,"method":"daemon.methods"}"#).await;
+    let descriptions = tests::ask(&daemon, r#"{"id":2,"method":"api.list"}"#).await;
+    assert!(
+        methods["result"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|name| !name.as_str().unwrap().starts_with("reaction."))
+    );
+    assert!(
+        descriptions["result"]["methods"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|row| !row["name"].as_str().unwrap().starts_with("reaction."))
+    );
     let baseline = tests::ask(&daemon, r#"{"id":1,"method":"retired.unknown"}"#).await;
     for method in [
         "reaction.create",
