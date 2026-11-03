@@ -1,3 +1,4 @@
+import { batch } from "solid-js";
 import { renderTabs, path, tab, projectTabs } from "../header/stripFixture";
 import { notesFor } from "./notes";
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
@@ -7,7 +8,7 @@ import { RpcError } from "../app/seam";
 import { message } from "../testing/centreFixture";
 import { COMPARISON, openDiff, openFile, saveNote } from "./noteHarness";
 
-afterEach(() => { cleanup(); vi.restoreAllMocks(); localStorage.clear(); });
+afterEach(() => { batch(cleanup); vi.restoreAllMocks(); localStorage.clear(); });
 
 it("u2540c_one_message_contains_all_original_context", async () => {
   const { app } = await openDiff();
