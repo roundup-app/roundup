@@ -17,6 +17,7 @@ import { RpcError } from "../app/seam";
 import { padHandlers } from "../testing/stores";
 import { openPad } from "./padsFixture";
 
+// Keep the real Daemon: restore receipts and incarnation authority cannot be proved by the fake alone.
 let real: StartedDaemon;
 
 beforeAll(async () => { real = await startRealDaemon({}); }, 120_000);
