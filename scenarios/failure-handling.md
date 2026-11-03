@@ -1,5 +1,7 @@
 # Failure handling
 
+Policy amendment — U5740a (#5750): retire only the Reactions App surface and its portions of mixed clauses below, including its empty/loading/failure views, navigation, inspection, copy, selection, links and rendered captures. Shared Ask, Made, import, diff, Terminal, navigation and Message behavior remains required; backend Reaction acceptance remains until U5740b. See `scenarios/delete-reactions.md`.
+
 Acceptance for Issue #3791, using its owner-approved E1–E3. This specification delivers no runtime behavior. Implementation work and dependencies live on GitHub Issues, not here. The referenced `docs/quality-target.md` is absent on main; the Issue's Acceptance is the authority.
 
 ## Ownership and seams

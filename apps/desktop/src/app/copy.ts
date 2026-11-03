@@ -64,7 +64,6 @@ export const copy = {
   newWorkstreamTitle: sharedCopy.newWorkstreamTitle,
   rail: sharedCopy.rail,
   shelfLabel: sharedCopy.shelfLabel,
-  reactions: sharedCopy.reactions,
   switcherPlaceholder: sharedCopy.switcherPlaceholder,
   noMatch: sharedCopy.noMatch,
   restartModeInRail: "Restart · Rail",

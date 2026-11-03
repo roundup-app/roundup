@@ -1,5 +1,7 @@
 # UI: motion contract
 
+Policy amendment — U5740a (#5750): retire only the Reactions App surface and its portions of mixed clauses below, including its empty/loading/failure views, navigation, inspection, copy, selection, links and rendered captures. Shared Ask, Made, import, diff, Terminal, navigation and Message behavior remains required; backend Reaction acceptance remains until U5740b. See `scenarios/delete-reactions.md`.
+
 Acceptance for #3790 and its dependent implementation. This specification changes no production effect, dependency, Token, Check implementation or performance baseline. U3010a–d below replace their previous clauses; U3010e onward retain their recorder obligations. Existing App/fake-App and U26 rendered observers remain the seams. No RPC, renderer, loop or permission change is authorized.
 
 ## Specification

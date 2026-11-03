@@ -25,7 +25,7 @@ const rpcFailures = new Map<number, string>([
   [-32011, "The roundup App is not open. Open it and try again."],
 ]);
 
-export const draftSurfaceLabels = new Map(Object.entries({ "mode-create": word.newMode, "opening-prompt": word.firstPrompt, "row-name": word.name, rail: "Project item", agent: word.agent, workstream: "Workstream", terminal: word.terminal, orders: "Order", pads: word.pad, todos: word.todo, thread: "Thread", brief: "Brief", notes: "Notes", steer: "Steer", ask: word.ask, header: "Project name", bubbles: "Terminal name", changes: "Agent notes", terminal_selection: "Terminal selection", queries: "Search", reactions: "Reaction" }));
+export const draftSurfaceLabels = new Map(Object.entries({ "mode-create": word.newMode, "opening-prompt": word.firstPrompt, "row-name": word.name, rail: "Project item", agent: word.agent, workstream: "Workstream", terminal: word.terminal, orders: "Order", pads: word.pad, todos: word.todo, thread: "Thread", brief: "Brief", notes: "Notes", steer: "Steer", ask: word.ask, header: "Project name", bubbles: "Terminal name", changes: "Agent notes", terminal_selection: "Terminal selection", queries: "Search" }));
 
 export const draftProblem = (cause: string) => `${cause === "write" ? "Storage could not save unfinished work for reload." : cause === "capacity" ? "Storage for unfinished work is full." : cause === "changed" ? "Another window has changed stored unfinished work." : cause === "unreadable" ? "Could not read stored unfinished work." : "Could not restore stored unfinished work."} Stored data has been preserved.`;
 
@@ -183,9 +183,7 @@ export const copy = {
   worktreePrText: (number: number, stale: boolean) => `#${number}${stale ? staleSuffix : ""}`,
   worktreeReadUnavailable: "Worktree state is unavailable.",
   shelfLabel: word.bench,
-  reactions: "Reactions",
-  reactionsEmpty: "Agents create Reactions. Ask for one above.",
-  reactionWhen: (at: string) => new Date(at).toLocaleString(undefined, { year: "numeric", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }),
+  publishedWhen: (at: string) => new Date(at).toLocaleString(undefined, { year: "numeric", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }),
   askBarLabel: word.ask,
   terminal: word.terminal,
   todos: word.todos,
@@ -226,4 +224,3 @@ export const copy = {
   moveTo: "Move to…",
   inlineCodeAction: "Inline code",
 } as const;
-

@@ -1,5 +1,7 @@
 # UI: opening links and paths from a Terminal (U365)
 
+Policy amendment — U5740a (#5750): retire only the Reactions App surface and its portions of mixed clauses below, including its empty/loading/failure views, navigation, inspection, copy, selection, links and rendered captures. Shared Ask, Made, import, diff, Terminal, navigation and Message behavior remains required; backend Reaction acceptance remains until U5740b. See `scenarios/delete-reactions.md`.
+
 Module: `apps/desktop` (the webview). Ids: U365.
 
 **U365 a plain click on a web link or file path in a Terminal opens it.** Owner amendment #5582 replaces Cmd+click with an unmodified primary click. Applies to every Agent, Door and shell Terminal, including Bubbles. Reuse the existing `findTargets`, path resolution and `openTarget` App seam; no new RPC, App seam command, Token or domain term is specified (policy). Ask-row and Overview Message acceptance extends U505 (`scenarios/ask-bar.md`) and NR9 (`scenarios/named-reactions.md`) below. Acceptance only; this specification claims no implementation. Given a Terminal that printed `https://example.com`, `/abs/path/a.ts` and `src/a.ts:42`, then:

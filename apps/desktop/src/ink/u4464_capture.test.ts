@@ -91,9 +91,9 @@ it.skipIf(!captureDir("U4464"))("u5606_capture_empty_views_in_both_themes", { ti
       await wait(`!!document.querySelector('.inbox .overview-quiet')`);
       await snap(`${theme}-inbox`);
 
-      for (const view of ["made", "reactions"]) {
+      for (const view of ["made"]) {
         await load("empty-project", view);
-        await wait(view === "made" ? `!!document.querySelector('.made .overview-quiet')` : `!!document.querySelector('.reactions .overview-quiet')`);
+        await wait(`!!document.querySelector('.made .overview-quiet')`);
         await snap(`${theme}-${view}`);
       }
 

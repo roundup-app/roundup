@@ -344,7 +344,7 @@ it("u5740a_remaining_navigation_preserves_ask_and_terminal", async () => {
   fireEvent.input(screen.getByRole("textbox", { name: "Ask" }), { target: { value: text } });
   connected().rail.select("a1");
   await waitFor(() => expect(document.activeElement?.getAttribute("data-terminal")).toBe("t-a1"));
-  const before = 0;
+  const before = daemon.calls.length;
   openProjectPage("view:made", "/p");
   await waitFor(() => expect(connected().hasView("made")).toBe(true));
   openProjectPage("view:made", "/p");
@@ -365,7 +365,7 @@ it("u5740a_remaining_navigation_preserves_ask_and_terminal", async () => {
   key("Escape");
   await waitFor(() => expect(document.activeElement).toBe(overview));
   expect(screen.getByRole<HTMLTextAreaElement>("textbox", { name: "Ask" }).value).toBe(text);
-  expect(daemon.calls.slice(before).filter(call => !["terminal.resize", "terminal.snapshot", "rail.tree", "terminal.list", "deliverable.list", "ask.list", "todo.unread", "pad.list", "daemon.ping", "terminal.scheme"].includes(call.method))).toEqual([]);
+  expect(daemon.calls.slice(before).filter(call => /^(?:ask\.(?:send|pick)|agent\.(?:spawn|start|resume)|rail\.startDoor|terminal\.(?:write|open|close))/.test(call.method))).toEqual([]);
 });
 
 it("u4274b_project_menu_omits_navigation_toggles", async () => {

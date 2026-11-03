@@ -65,7 +65,6 @@ Read these current `apps/desktop/src/` callers and every additional `writeText` 
 | Order draft title/ask/done | `orders/OrderDrawer.tsx`, `OrderDrawer` | Activate each field independently; only that label changes |
 | Pad recovery draft | `pads/Pads.tsx`, `Pads` | Exact clipboard payload and local success/refusal |
 | Project header copies (both) | `header/ProjectTab.tsx`, `ProjectTab` | Each conditional caller retains its identity/payload |
-| Reaction draft | `reactions/Reactions.tsx`, `Reactions` | Local label; failure line stays visible |
 | Import failure details | `importer/ImportPanel.tsx`, `ImportPanel` | Copy details without clearing import failure |
 | Rail draft | `rail/Rail.tsx`, `Rail` | Copy without sending/restoring the draft |
 | Todo history | `todos/TodoHistory.tsx`, `TodoHistory` | Existing JSON payload, local acknowledgement |
