@@ -271,6 +271,9 @@ fn s5810b_restore_reports_each_refusal_without_losing_projects() {
             .unwrap();
         #[allow(deprecated)]
         app.run_iteration(|_, _| {});
+        let _webview = tauri::WebviewWindowBuilder::new(&app, "main", tauri::WebviewUrl::default())
+            .build()
+            .unwrap();
         let listed = app.state::<crate::AppState>().projects().unwrap();
         assert_eq!(
             listed.iter().map(|p| p.path.clone()).collect::<Vec<_>>(),
@@ -324,7 +327,7 @@ fn s5810c_fatal_startup_stages_report_before_exit() {
                     std::fs::create_dir_all(config.data_dir.as_ref().unwrap()).unwrap();
                     std::fs::write(
                         config.data_dir.as_ref().unwrap().join("projects.json"),
-                        "{broken",
+                        r#"{"private-preference-SENTINEL":true}"#,
                     )
                     .unwrap();
                 }
@@ -408,6 +411,7 @@ fn s5810c_fatal_startup_stages_report_before_exit() {
         let output = command.output().unwrap();
         let stderr = String::from_utf8_lossy(&output.stderr);
         assert!(output.status.success(), "{stage}: {stderr}");
+        assert!(!stderr.contains("private-preference-SENTINEL"), "{stderr}");
         let report = stderr
             .find(expected)
             .unwrap_or_else(|| panic!("{stage}: {stderr}"));
