@@ -55,7 +55,8 @@ jobs:
         with:
           fetch-depth: 2
       # The lint ratchets diff against `git merge-base HEAD origin/main`; recent `main` history is all they read.
-      - run: git fetch --no-tags --depth=200 origin +refs/heads/main:refs/remotes/origin/main
+      # Through merges, depth 200 spans thousands of commits that hold the 2.5 GB of evidence #5484 removed; blobs load on demand.
+      - run: git fetch --no-tags --depth=200 --filter=blob:none origin +refs/heads/main:refs/remotes/origin/main
       - uses: ./.github/actions/setup
       - run: python3 loop/app-data.py just lint-rust
 
@@ -70,7 +71,8 @@ jobs:
         with:
           fetch-depth: 2
       # The lint ratchets diff against `git merge-base HEAD origin/main`; recent `main` history is all they read.
-      - run: git fetch --no-tags --depth=200 origin +refs/heads/main:refs/remotes/origin/main
+      # Through merges, depth 200 spans thousands of commits that hold the 2.5 GB of evidence #5484 removed; blobs load on demand.
+      - run: git fetch --no-tags --depth=200 --filter=blob:none origin +refs/heads/main:refs/remotes/origin/main
       - uses: ./.github/actions/setup
         with:
           rust: 'false'
