@@ -212,8 +212,8 @@ export const startWorktreeProject = async (files: Record<string, string>, env: R
 };
 
 /** One isolated Project whose Daemon and data are released after the observer, including failures. */
-export const withProject = async (observe: (real: StartedDaemon) => Promise<void>, inBrowser = true, env: Record<string, string> = {}): Promise<void> => {
-  const real = await startRealDaemon(env, inBrowser);
+export const withProject = async (observe: (real: StartedDaemon) => Promise<void>, inBrowser = true, env: Record<string, string> = {}, runtime?: FixtureRuntime): Promise<void> => {
+  const real = await startRealDaemon(env, inBrowser, runtime);
 
   try {
     await observe(real);
