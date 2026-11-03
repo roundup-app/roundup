@@ -7,7 +7,7 @@ import { captureDir } from "../../testing/captures";
 let lane: LaneBrowser;
 
 beforeAll(async () => {
-  lane = await openLane(1512, "dark", "rail-u3787a");
+  lane = await openLane(1512, "dark", "rail-u3787a", false, captureDir("U3787a") ? "tree-40" : null);
   const dir = captureDir("U3787a");
 
   if (dir) { mkdirSync(dir, { recursive: true }); await lane.browser("record", "start", join(dir, "rail-undo.webm")); }
