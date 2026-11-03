@@ -11,7 +11,7 @@ afterEach(() => { cleanup(); localStorage.clear(); sessionStorage.clear(); });
 
 // U4707: the tab bar reads the 44px --row-text-inset Token (U5147d).
 it.each(["keyboard", "menu", "bar"].flatMap(source => ["home", "a1", null, "empty"].map(selection => ({ source, selection }))))("u4313a_bar_plus_opens_once_and_focuses: $source $selection", async ({ source, selection }) => {
-  const { daemon, connected, shells, emulators } = await mountNavigation(selection === "empty", 0);
+  const { daemon, connected, shells, emulators } = await mountNavigation(selection === "empty", 0, 2);
 
   if (selection !== "empty") connected().rail.select(selection);
 
@@ -33,7 +33,7 @@ it.each(["keyboard", "menu", "bar"].flatMap(source => ["home", "a1", null, "empt
 
 // U4707: the tab bar reads the 44px --row-text-inset Token (U5147d).
 it("u4313a_empty_terminal_bar_keeps_new_terminal_available", async () => {
-  const { connected, daemon, shells, emulators } = await mountNavigation(true, 0);
+  const { connected, daemon, shells, emulators } = await mountNavigation(true, 0, 2);
   const portal = document.querySelector(".resource-agent");
   const initial = screen.getByLabelText("Terminals", { selector: '[role="group"]' });
   expect(within(initial).getAllByRole("button")).toEqual([within(initial).getByRole("button", { name: "New Terminal" })]);
@@ -59,7 +59,7 @@ it("u4313a_empty_terminal_bar_keeps_new_terminal_available", async () => {
 });
 
 it("u4274c_terminal_bar_follows_eligible_terminals_on_selection", async () => {
-  const { connected, daemon, nodes, shells } = await mountNavigation(false, 0);
+  const { connected, daemon, nodes, shells } = await mountNavigation(false, 0, 2);
   shells.push(info("shell", { owner: "home" }));
   nodes.push({ ...nodes[0]!, id: "other", name: "Other", order: 20 });
   await connected().rail.refresh({ terminals: true });
@@ -75,7 +75,7 @@ it("u4274c_terminal_bar_follows_eligible_terminals_on_selection", async () => {
 });
 
 it("u524_a_failed_empty_project_open_can_be_retried", async () => {
-  const { daemon, shells } = await mountNavigation(true, 0);
+  const { daemon, shells } = await mountNavigation(true, 0, 2);
   daemon.handlers["terminal.open"] = () => { throw new Error("cannot open"); };
 
   const action = document.querySelector<HTMLButtonElement>(".terminal-new")!;
@@ -95,7 +95,7 @@ it("u524_a_failed_empty_project_open_can_be_retried", async () => {
 });
 
 it("u4313a_closing_the_last_terminal_returns_focus_to_plus", async () => {
-  const { connected, daemon, shells } = await mountNavigation(true, 0);
+  const { connected, daemon, shells } = await mountNavigation(true, 0, 2);
   shells.push(info("shell", { owner: "/p" }));
   await connected().rail.refresh({ terminals: true });
   daemon.handlers["terminal.close"] = () => { shells.splice(0);
@@ -112,7 +112,7 @@ it("u4313a_closing_the_last_terminal_returns_focus_to_plus", async () => {
 });
 
 it.each(["keyboard", "footer"].flatMap(source => ["home", "a1", null, "empty"].map(selection => ({ source, selection }))))("u4313a_rail_agent_uses_the_new_agent_action: $source $selection", async ({ source, selection }) => {
-  const { daemon, connected, nodes } = await mountNavigation(selection === "empty", 0);
+  const { daemon, connected, nodes } = await mountNavigation(selection === "empty", 0, 2);
 
   if (selection !== "empty") connected().rail.select(selection);
   const parent = selection === "home" ? "home" : null;
@@ -133,7 +133,7 @@ it.each(["keyboard", "footer"].flatMap(source => ["home", "a1", null, "empty"].m
 });
 
 it("u4277c_hidden_project_terminals_never_report_empty", async () => {
-  const { connected, shells } = await mountNavigation(true, 0);
+  const { connected, shells } = await mountNavigation(true, 0, 2);
   shells.push(info("shell", { owner: "other" }));
   await connected().rail.refresh({ terminals: true });
   const bar = await screen.findByLabelText("Terminals", { selector: '[role="group"]' });
@@ -141,7 +141,7 @@ it("u4277c_hidden_project_terminals_never_report_empty", async () => {
 });
 
 it.each(["home", "a1", null, "empty", "root-agent"])("u4453c_command_menu_opens_once_and_focuses: %s", async selection => {
-  const { connected, daemon, nodes, shells, emulators } = await mountNavigation(selection === "empty" || selection === "root-agent", 0);
+  const { connected, daemon, nodes, shells, emulators } = await mountNavigation(selection === "empty" || selection === "root-agent", 0, 2);
 
   if (selection === "root-agent") {
     nodes.push(agent("root-agent", "idle", "ready"));
@@ -183,7 +183,7 @@ it.each(["home", "a1", null, "empty", "root-agent"])("u4453c_command_menu_opens_
 });
 
 it.each(["agent", "door", "workstream", "ask", "inbox", "resources"].flatMap(view => [false, true].map(populated => ({ view, populated }))))("u4453c_terminal_bar_stays_in_every_view: $view $populated", async ({ view, populated }) => {
-  const { connected, nodes, shells } = await mountNavigation(!populated, 0);
+  const { connected, nodes, shells } = await mountNavigation(!populated, 0, 2);
 
   if (populated) {
     nodes.push(door("supervisor", "idle", "Ready", { parent: "home" }));
@@ -200,14 +200,14 @@ it.each(["agent", "door", "workstream", "ask", "inbox", "resources"].flatMap(vie
 });
 
 it("u4453c_tabs_and_saved_drafts_stay_reachable", async () => {
-  const { connected, shells, daemon } = await mountNavigation(false, 0);
+  const { connected, shells, daemon } = await mountNavigation(false, 0, 2);
   shells.push(info("saved", { owner: "home", title: "zsh" }));
   await connected().rail.refresh({ terminals: true });
   connected().rail.select("home");
   const tab = document.querySelector<HTMLElement>('.terminal-tab[data-bubble="saved"]')!;
   fireEvent.dblClick(tab);
   const field = await screen.findByLabelText("Terminal name", { selector: "input" });
-  const text = "  saved e\u0301 🫧  ";
+  const text = "  saved e\u0301 🫧  "; // taste-skill-ignore: Unicode draft preservation probe.
   fireEvent.input(field, { target: { value: text } });
   fireEvent.keyDown(field, { key: "Escape" });
   await waitFor(() => expect(document.activeElement?.getAttribute("data-bubble")).toBe("saved"));
