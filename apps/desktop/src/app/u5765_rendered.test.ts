@@ -30,6 +30,22 @@ afterAll(async () => {
 });
 
 it("u5765_escape_refuses_and_restores_ask_focus_on_tree_40", async () => {
+  await page.evaluate(`(async () => {
+    const app = window.__fake.app;
+    const tree = await app.rpc("rail.tree", null);
+    app.handlers['rail.tree'] = () => tree.map(node => ['backend', 'auth', 'migrate'].includes(node.id)
+      ? {...node, ...(node.id === 'auth' ? {opening_prompt: 'Review the requested changes'} : {}), start_attribution: {project: '/source', agent: 'builder-source', project_name: 'moo.md', agent_name: 'builder'}} : node);
+    window.__fake.emit({actor:{kind:'user',id:'you',parent:null},name:'rail.changed'});
+    return true;
+  })()`);
+  await page.until("document.querySelector('.rail-row[data-id=backend]') !== null");
+
+  for (const id of ["backend", "auth", "migrate"]) {
+    await page.browser("click", `.rail-row[data-id="${id}"] .name`);
+    await page.capture("U5765", `attribution-${id}`);
+  }
+
+  await page.browser("click", "[data-todo-root]");
   await page.browser("focus", ".ask-input");
   await page.capture("U5765", "before");
   await page.evaluate(`(() => {
@@ -107,6 +123,7 @@ it("u5765_keyboard_queue_handoff_keeps_choices_reachable_and_returns_to_ask", as
 });
 
 it("u5765_keyboard_open_completes_the_request", async () => {
+  await page.browser("focus", ".ask-input");
   await page.evaluate(`(() => {
     const app = window.__fake.app;
     app.opened.failure = null;
@@ -119,6 +136,8 @@ it("u5765_keyboard_open_completes_the_request", async () => {
   await page.browser("press", "Enter");
   await page.until("window.openResult?.result?.path === '/Users/you/Projects/keyboard-target' && !document.querySelector('[role=dialog]')");
   expect(await page.evaluate("window.openResult")).toEqual({ jsonrpc: "2.0", id: 5767, result: { path: "/Users/you/Projects/keyboard-target" } });
+  await page.until("document.activeElement?.matches('[role=tab][aria-selected=true]')");
+  await page.capture("U5765", "keyboard-open-focus");
 });
 
 
