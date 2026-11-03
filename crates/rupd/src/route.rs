@@ -55,7 +55,7 @@ impl Daemon {
             }
         } else if method.starts_with("deliverable.")
             || method.starts_with("reaction.")
-            || method == "project.open"
+            || matches!(method, "project.open" | "project.start")
             || crate::actions::is_action(method)
             || matches!(
                 method,

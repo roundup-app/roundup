@@ -186,6 +186,9 @@ impl Agents {
                 return Err(err);
             }
         };
+        if params.start_attribution.is_some() {
+            Self::touch_creation(ctx, &id, params.start_attribution.as_ref())?;
+        }
         ctx.emit(EventData::RailChanged);
         self.shared.node(&id)
     }

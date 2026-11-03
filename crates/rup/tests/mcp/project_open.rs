@@ -355,3 +355,80 @@ async fn a5765f_closed_app_and_old_registration_cannot_complete_a_new_open() {
     assert!(output.stdout.is_empty());
     assert!(String::from_utf8_lossy(&output.stderr).contains("open it and retry"));
 }
+
+#[tokio::test]
+async fn i5765_stdin_preserves_the_prompt_and_cli_start_returns_the_identity() {
+    let mut world = World::new().await;
+    let target = tempfile::tempdir().unwrap();
+    let prompt = " exact é\n  first prompt\n";
+    let mut child = tokio::process::Command::new(env!("CARGO_BIN_EXE_rup"))
+        .args(["project", "start"])
+        .arg(target.path())
+        .args([
+            "--kind",
+            "mode",
+            "--name",
+            "target-worker",
+            "--prompt",
+            "-",
+            "--json",
+        ])
+        .env("RUPD_SOCKET", &world.socket)
+        .env("ROUNDUP_AGENT", &world.id)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .kill_on_drop(true)
+        .spawn()
+        .unwrap();
+    child
+        .stdin
+        .take()
+        .unwrap()
+        .write_all(prompt.as_bytes())
+        .await
+        .unwrap();
+    let request = world.next().await;
+    assert_eq!(request["method"], "project.start");
+    assert_eq!(request["params"]["prompt"], prompt);
+    assert_eq!(request["params"]["kind"], "mode");
+    let result = json!({"path":target.path(),"kind":"mode","id":"42"});
+    world.answer(&request, result.clone()).await;
+    let output = child.wait_with_output().await.unwrap();
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        serde_json::from_slice::<Value>(&output.stdout).unwrap(),
+        result
+    );
+}
+
+#[tokio::test]
+async fn i5765_cli_and_mcp_share_the_project_contract() {
+    let mut world = World::new().await;
+    let target = tempfile::tempdir().unwrap();
+    let shim = spawn_shim(&world.socket, &world.id).await;
+    let tools = shim.client.list_all_tools().await.unwrap();
+    assert!(tools.iter().any(|tool| tool.name == "project_start"));
+    let params = json!({"path":target.path(),"kind":"agent","name":"worker","prompt":"exact work"});
+    let call = shim.call("project_start", params.clone());
+    tokio::pin!(call);
+    let request = loop {
+        tokio::select! {
+            result = &mut call => panic!("MCP answered before the App: {result:?}"),
+            request = world.next() => break request,
+        }
+    };
+    assert_eq!(request["method"], "project.start");
+    for key in ["path", "kind", "name", "prompt"] {
+        assert_eq!(request["params"][key], params[key]);
+    }
+    let result = json!({"path":target.path(),"kind":"agent","id":"43"});
+    world.answer(&request, result.clone()).await;
+    let output = call.await;
+    assert_eq!(output.is_error, Some(false));
+    assert_eq!(text(&output), result);
+}

@@ -128,6 +128,7 @@
     Method { name: "github.prReady", params: "github_Number", result: "github_Pr" },
     Method { name: "github.prAutoMerge", params: "github_Number", result: "github_Pr" },
     Method { name: "project.open", params: "project_OpenParams", result: "project_Opened" },
+    Method { name: "project.start", params: "project_StartParams", result: "project_Started" },
     Method { name: "action.serve", params: "null", result: "null" },
     Method { name: "action.list", params: "null", result: "action_ActionRow[]" },
     Method { name: "action.userList", params: "null", result: "action_ActionRow[]" },
