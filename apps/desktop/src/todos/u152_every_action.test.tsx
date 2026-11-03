@@ -26,7 +26,7 @@ const press = (target: HTMLElement, by: "pointer" | "keyboard") => {
 const rowText = (id: number) => rowOf(id).textContent;
 
 const openDrawerOf = async (id: number) => {
-  const row = await screen.findByRole("button", { name: new RegExp(`^(Idle|Blocked) #${id} `) });
+  const row = await waitFor(() => within(rowOf(id)).getByRole("button", { name: new RegExp(`^(Idle|Blocked) #${id} `) }));
   row.focus();
   fireEvent.keyDown(row, { key: "Enter", code: "Enter" });
   await within(drawer()).findByRole("button", { name: /^Blocked by/ });
@@ -112,12 +112,12 @@ for (const by of ["pointer", "keyboard"] as const) {
     it(`u152_complete_from_the_row_${by}`, async () => {
       const mounted = await mountTodos([todo(1), todo(2)]);
 
-      await screen.findByRole("button", { name: /^Idle #2 / });
+      await within(rowOf(2)).findByRole("button", { name: /^Idle #2 / });
 
       if (by === "pointer") fireEvent.mouseEnter(rowOf(2));
-      else (await screen.findByRole("button", { name: /^Idle #2 / })).focus();
+      else (await within(rowOf(2)).findByRole("button", { name: /^Idle #2 / })).focus();
 
-      press(await screen.findByRole("checkbox", { name: "Complete todo 2" }), by);
+      press(await within(rowOf(2)).findByRole("checkbox", { name: "Complete todo 2" }), by);
       await waitFor(() => expect(callsTo(mounted.app, "todo.complete")).toEqual([{ method: "todo.complete", params: { id: 2 } }]));
       refetch(mounted);
 

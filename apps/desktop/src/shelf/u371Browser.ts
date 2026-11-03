@@ -51,7 +51,7 @@ export function shelfBrowser(initScript?: string) {
     await browser("set", "media", scheme);
     const url = `${rig.server.resolvedUrls.local[0]}harness.html?view=workstreams&items=1&tabs=1&seed=${seed}`;
     // Seed on the small fixture to avoid mounting and discarding a full App.
-    await browser("open", new URL("src/ui/u498.html", rig.server.resolvedUrls.local[0]).href);
+    await browser("open", `${rig.server.resolvedUrls.local[0]}src/ui/u498.html`);
     await browser("wait", "[data-fixture=tabs]");
     await evaluate(`(() => { localStorage.clear(); localStorage.setItem('roundup:widths:/Users/you/harness', JSON.stringify({rail:${rail}, shelf:${shelf}})); return true; })()`);
     await browser("open", url);
