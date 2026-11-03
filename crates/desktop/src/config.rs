@@ -94,7 +94,7 @@ impl Config {
 
     pub fn from_env() -> Result<Self, String> {
         let exe = std::env::current_exe()
-            .map_err(|err| format!("cannot find the App's own executable: {err}"))?;
+            .map_err(|err| format!("cannot find the App's own executable: IO {:?}", err.kind()))?;
         let mut config = Self::locate(
             std::env::var_os("ROUNDUP_RUPD_BIN"),
             &exe,
@@ -112,16 +112,39 @@ fn check_limit(socket: &Path) -> Result<(), String> {
     let bytes = socket.as_os_str().len();
     if bytes >= SOCKET_PATH_LIMIT {
         return Err(format!(
-            "the Daemon socket path {} is {bytes} bytes; a unix socket path must be under {SOCKET_PATH_LIMIT}",
-            socket.display()
+            "the Daemon socket path is {bytes} bytes; a unix socket path must be under {SOCKET_PATH_LIMIT}"
         ));
     }
     Ok(())
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
+
+    // The startup observers share the existing classified Daemon launch site (N7).
+    pub(crate) fn startup_config(dir: &Path, missing: bool) -> Config {
+        let daemon = std::env::current_exe()
+            .unwrap()
+            .parent()
+            .unwrap()
+            .parent()
+            .unwrap()
+            .join("rupd");
+        assert!(daemon.is_file(), "build rupd before this observer");
+        let mut config = Config::locate(
+            Some(daemon.into()),
+            &dir.join("roundup"),
+            dir,
+            std::process::id(),
+        )
+        .unwrap();
+        config.data_dir = Some(dir.join("data"));
+        if missing {
+            config.rupd_bin = dir.join("missing-executable");
+        }
+        config
+    }
 
     #[test]
     fn r20_perf_data_override_keeps_saved_tabs_untouched() {

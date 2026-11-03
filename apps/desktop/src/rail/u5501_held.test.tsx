@@ -119,6 +119,10 @@ it.each([
   expect(app.stateAlerts).toEqual([]);
   expect(chime).not.toHaveBeenCalled();
   expect(app.calls.filter(call => ["message.send", "agent.resume", "terminal.write"].includes(call.method))).toEqual([]);
+  await waitFor(() => expect(document.activeElement?.getAttribute("data-terminal")).toBe("t-a"));
+  expect(document.activeElement?.closest(".pane-screen")).not.toBeNull();
+  emulators.made.get("t-a")!.type(new TextEncoder().encode("marker"));
+  await waitFor(() => expect(app.calls.filter(call => call.method === "terminal.write").map(call => call.params)).toEqual([{ id: "t-a", data: "bWFya2Vy" }]));
 });
 
 it.each([

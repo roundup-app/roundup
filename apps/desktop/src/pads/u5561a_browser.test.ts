@@ -70,6 +70,7 @@ it("u5561a_pad_disclosure_toggles_without_writing", { retry: 0, timeout: 90_000 
 });
 
 it.each(["pointer", "Return"].flatMap(input => [false, true].map(present => ({ input, present }))))("u5561b_block_menu_adds_agent_details $input $present", { retry: 0, timeout: 90_000 }, async ({ input, present }) => {
+  await browser("set", "viewport", "1512", "950");
   await browser("set", "media", "dark");
   await browser("open", url("/harness.html?seed=tree-40"));
   await wait("!!window.__fake && !!document.querySelector('#shelf-tab-pads')");
@@ -79,6 +80,24 @@ it.each(["pointer", "Return"].flatMap(input => [false, true].map(present => ({ i
   if (await read("document.querySelector('#shelf-tab-pads').getAttribute('aria-expanded') !== 'true'")) await browser("click", "#shelf-tab-pads");
   await wait("!!document.querySelector('.pad-name')");
   await read(`(() => { [...document.querySelectorAll('.pad-name')].find(row => row.textContent === 'pad-3').focus(); return true; })()`);
+  await browser("press", "Enter");
+  await wait("!!document.querySelector('.ProseMirror')");
+  // U5631: the Pad-only action must survive a Todo → Pad return.
+  await browser("click", ".drawer .close");
+  await wait("!document.querySelector('.drawer .ProseMirror')");
+  await browser("click", "#shelf-tab-todos");
+  await wait("!!document.querySelector('[data-shelf-group=unassigned] [data-part=branch-control]')");
+
+  if (await read("document.querySelector('.todos-tab [data-shelf-group=unassigned]').getAttribute('aria-expanded') === 'false'")) await browser("click", '.todos-tab [data-shelf-group=unassigned] [data-part=branch-control]');
+  await wait("!!document.querySelector('.todo-row-button')");
+  await browser("focus", ".todo-row-button");
+  await browser("press", "Enter");
+  await wait("!!document.querySelector('.todo-detail-title')");
+  await browser("click", ".drawer .close");
+  await wait("!document.querySelector('.drawer .todo-detail-title')");
+  await browser("click", "#shelf-tab-pads");
+  await wait("!!document.querySelector('.pad-name')");
+  await read("(() => { [...document.querySelectorAll('.pad-name')].find(row => row.textContent === 'pad-3').focus(); return true; })()");
   await browser("press", "Enter");
   await wait("!!document.querySelector('.ProseMirror')");
   await browser("focus", ".ProseMirror");
