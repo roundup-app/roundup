@@ -60,7 +60,7 @@ export const createProjectOpening = (projects: ProjectsState) => {
         dismiss: () => setPending(all => all.filter(item => item.request !== request)),
       }]);
 
-      return reply({ code: error instanceof RpcError ? error.code : -32603, message: error.message });
+      return reply({ code: error instanceof RpcError ? error.code : -32603, message: copy.openProjectRecovery(params.path, error.message) });
     }
   };
 
