@@ -373,24 +373,35 @@ async fn a5765b_open_confirmation_outlives_the_action_timeout() {
             json!({"actor":{"kind":"agent","id":id,"parent":null}}),
         )
         .await;
-    caller
-        .send(
-            json!({"jsonrpc":"2.0","id":2,"method":"project.open","params":{"path":target.path()}}),
-        )
-        .await;
-    let request = app.project().await;
-    assert_eq!(request["method"], "project.open");
-    assert_eq!(
-        request["params"]["agent"],
-        json!({"id":id,"name":"builder"})
-    );
-    tokio::time::advance(Duration::from_secs(11)).await;
-    app.send(json!({"jsonrpc":"2.0","id":request["id"],"result":{"path":target.path()}}))
-        .await;
-    assert_eq!(
-        caller.next().await.unwrap()["result"],
-        json!({"path":target.path()})
-    );
+    for kind in [None, Some("agent"), Some("workstream"), Some("mode")] {
+        let method = if kind.is_some() {
+            "project.start"
+        } else {
+            "project.open"
+        };
+        let mut params = json!({"path":target.path()});
+        let result = if let Some(kind) = kind {
+            params["kind"] = json!(kind);
+            params["name"] = json!("worker");
+            params["prompt"] = json!("exact work");
+            json!({"path":target.path(),"kind":kind,"id":"created"})
+        } else {
+            json!({"path":target.path()})
+        };
+        caller
+            .send(json!({"jsonrpc":"2.0","id":2,"method":method,"params":params}))
+            .await;
+        let request = app.project().await;
+        assert_eq!(request["method"], method);
+        assert_eq!(
+            request["params"]["agent"],
+            json!({"id":id,"name":"builder"})
+        );
+        tokio::time::advance(Duration::from_secs(11)).await;
+        app.send(json!({"jsonrpc":"2.0","id":request["id"],"result":result}))
+            .await;
+        assert_eq!(caller.next().await.unwrap()["result"], result);
+    }
     assert!(!target.path().join(".roundup").exists());
 }
 
