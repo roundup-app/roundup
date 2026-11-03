@@ -44,6 +44,10 @@ const mount = async (nodes: RailNode[] = [door("a", "working", "building", { wor
   const clock = vi.fn(() => Date.now());
   const view = render(() => <App app={app} clock={clock} reducedMotion={() => true} prepareIdle={open => open.showView("resources")} createEmulator={createEmulator ?? fakeEmulators().factory} />);
   await settle();
+
+  // The resources view is a lazy chunk; a cold import needs real I/O turns, which fake timers do not give.
+  for (let i = 0; i < 400 && !document.querySelector(".resource-strip"); i++) { await new Promise(resolve => setImmediate(resolve)); await settle(); }
+
   expect(document.querySelector(".resource-strip")).not.toBeNull();
   const row = document.querySelector(`.rail-row[data-id="${nodes[0]?.id}"]`);
 
@@ -136,16 +140,14 @@ it("r17_resume_reads_current_time_without_catch_up", async () => {
   visibility("visible");
   status(app, "a", "working");
   expect(intervals.size).toBe(2);
-  // U5959b: the menu bar's hour cut reads the clock once when the status change recomputes it.
-  expect(clock).toHaveBeenCalledTimes(reads + 2);
+  expect(clock).toHaveBeenCalledTimes(reads + 1);
   await vi.advanceTimersByTimeAsync(15_000);
-  expect(clock).toHaveBeenCalledTimes(reads + 3);
+  expect(clock).toHaveBeenCalledTimes(reads + 2);
   view.unmount();
   expect(intervals.size).toBe(0);
-  const unmounted = clock.mock.calls.length;
   visibility("hidden");
   visibility("visible");
-  expect(clock).toHaveBeenCalledTimes(unmounted);
+  expect(clock).toHaveBeenCalledTimes(reads + 2);
 });
 
 it("r17_blur_is_not_hide", async () => {

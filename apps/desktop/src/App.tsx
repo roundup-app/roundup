@@ -403,7 +403,7 @@ export const App = (props: {
       railOf(path)!.select(agent);
       setFocus(document.hasFocus() ? "focused" : "blurred");
     }),
-    missing: copy.thatIsGone, fail: setMenuBarFailure, now: props.clock,
+    missing: copy.thatIsGone, fail: setMenuBarFailure,
   }));
 
   const stripTabs = createMemo<StripTab[]>(() =>

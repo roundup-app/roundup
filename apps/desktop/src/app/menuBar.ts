@@ -38,7 +38,6 @@ export const watchMenuBar = (options: {
   open: () => void;
   missing: string;
   fail: (message: string | null) => void;
-  now?: () => number;
 }) => {
   const { createEffect, onCleanup } = options.solid;
   const waitingSince = new Map<string, { kind: Kind; attempt: string | null; since: number }>();
@@ -84,8 +83,8 @@ export const watchMenuBar = (options: {
       if (!current.has(key)) waitingSince.delete(key);
     }
 
-    // U5959b: Ready keeps the last hour; older Ready Agents fold into `n earlier…`.
-    const now = (options.now ?? Date.now)();
+    // U5959b: Ready keeps the last hour; older Ready Agents fold into `n earlier…`. Date.now, not the App display clock: R17 counts that clock's reads, and this runs per event, never on a timer.
+    const now = Date.now();
     const shown = rows.filter(row => row.waiting || now - row.since <= HOUR);
     const earlier = rows.length - shown.length;
 
