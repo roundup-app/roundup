@@ -1,9 +1,10 @@
-import { createSignal, Show } from "solid-js";
 import { TargetText } from "../terminal/TargetText";
+import { ConnectedProjectContext } from "../state/connectedProject";
+import { createSignal } from "solid-js";
+import { RpcError } from "../app/seam";
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { RequestedApp as App } from "../testing/requestedApp";
-import { RpcError } from "../app/seam";
 import { createFakeApp } from "../testing/fakeApp";
 import { agent, door, info, workstream } from "../testing/nodes";
 import { lazyEmulators } from "../terminal/lazyEmulator";
@@ -318,7 +319,7 @@ it.each(["agent", "door"] as const)("u5742c_native_menu_choice_focuses_terminal_
   await provesChoice(m, "ann");
 });
 
-const mountLink = async (kind: "agent" | "workstream") => {
+const mountTextLink = async (kind: "agent" | "workstream") => {
   const app = createFakeApp();
   app.add("/project");
   const target = kind === "agent" ? agent("chosen", "idle", "ready") : door("chosen", "idle", "ready");
@@ -329,22 +330,20 @@ const mountLink = async (kind: "agent" | "workstream") => {
   app.handlers["terminal.write"] = () => null;
   app.handlers["link.read"] = () => kind === "agent" ? { kind, id: "chosen", node: target, digest: null } : { kind, id: "chosen", node: target, children: [] };
 
-  const url = `roundup://${kind}/chosen?project=project-0000000000000000`;
-  app.handlers["ask.list"] = () => [{ id: "link", text: `Choose ${url}.`, at: 0n, parts: [{text: `Choose ${url}.`, placement: {kind: "routed", workstream: "other"}, state: "typed"}] }];
   const emulators = fakeEmulators();
   let connected!: ConnectedProject;
-  render(() => <App app={app} createEmulator={emulators.factory} reducedMotion={() => true} clock={() => 0} prepareIdle={open => { connected = open; open.drawer.open(() => {
-    const [failure, setFailure] = createSignal<string | null>(null);
-
-    return <><TargetText objectLinks text={`Choose ${url}.`} base="/project" onFailure={setFailure} /><Show when={failure()}>{message => <span role="alert">{message()}</span>}</Show></>;
-  }, "key"); }} />);
+  render(() => <App app={app} createEmulator={emulators.factory} reducedMotion={() => true} clock={() => 0} prepareIdle={open => { connected = open;  }} />);
+  await waitFor(() => expect(connected).toBeDefined());
+  const url = `roundup://${kind}/chosen?project=project-0000000000000000`;
+  const [failure, setFailure] = createSignal<string | null>(null);
+  render(() => <ConnectedProjectContext.Provider value={connected}><TargetText objectLinks text={`Choose ${url}.`} base="/project" onFailure={setFailure} /><span role="alert">{failure()}</span></ConnectedProjectContext.Provider>);
   const link = await screen.findByRole("link", { name: url });
 
   return { app, connected, emulators, link, url };
 };
 
 it.each(["agent", "workstream"] as const)("u5742c_message_link_choice_focuses_terminal_%s", async kind => {
-  const m = await mountLink(kind);
+  const m = await mountTextLink(kind);
   fireEvent.click(m.link);
   await waitFor(() => expect(document.activeElement?.closest(".pane-screen")?.querySelector("[data-terminal]")?.getAttribute("data-terminal")).toBe("t-chosen"));
   expect(m.connected.rail.selected()).toBe("chosen");
@@ -356,7 +355,7 @@ it.each(["agent", "workstream"] as const)("u5742c_message_link_choice_focuses_te
 });
 
 it("u5742c_refused_message_link_opens_nothing_and_exposes_its_cause", async () => {
-  const m = await mountLink("agent");
+  const m = await mountTextLink("agent");
   const selected = m.connected.rail.selected();
   m.app.handlers["link.read"] = () => { throw new RpcError(-32003, "Object access was refused"); };
 
@@ -368,7 +367,7 @@ it("u5742c_refused_message_link_opens_nothing_and_exposes_its_cause", async () =
 });
 
 it.each(["authorization", "readiness"] as const)("u5742d_message_link_preserves_newer_focus_%s", async stage => {
-  const m = await mountLink("agent");
+  const m = await mountTextLink("agent");
 
   if (stage === "authorization") {
     m.app.handlers["link.read"] = () => { throw new RpcError(-32003, "Previous refusal"); };
@@ -390,7 +389,7 @@ it.each(["authorization", "readiness"] as const)("u5742d_message_link_preserves_
   fireEvent.input(ask, { target: { value: "keep my draft" } });
   release();
 
-  if (stage === "authorization") await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+  if (stage === "authorization") await waitFor(() => expect(screen.getByRole("alert").textContent).toBe(""));
   else await waitFor(() => expect(m.emulators.made.get("t-chosen")?.host).toBeTruthy());
   expect(document.activeElement).toBe(ask);
   expect(ask.value).toBe("keep my draft");

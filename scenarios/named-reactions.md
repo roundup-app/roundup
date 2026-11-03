@@ -1,6 +1,5 @@
 # Named Project reactions
 
-Policy amendment — U2539b (`scenarios/ui-worktree-changes.md`, #3786) narrows NR9's mounting: the Reactions section/detail opens on request from the Project menu, not automatically on the resting landing. Authority, inspection/stop/run, failure and draft semantics are unchanged. `u2539b_landing_opens_requested_surfaces_and_returns` proves access; retain NR9's action observers inside that requested surface.
 
 Specification for #2775; feature delivery remains in dependent implementation Issues. Baseline: `2c2a5cbf9` on `origin/main`. P13 governs this feature; P4, P6, P9, P10 and P11 also apply. The owner direction in #2775 is acceptance authority; preserve its dated quotations in every child Issue.
 
@@ -54,17 +53,21 @@ Every then-clause below names its planned behavioral observer; these tests do no
 
 **NR8 normal Message delivery.** Given accepted firings with busy/stopped receivers, permission loss and Attempt changes, normal pending/delivered/dropped rules, batching, Reach and provenance apply. Recovery starts no program. Inspection distinguishes matched condition, accepted firing and Message outcome; delivery never becomes verified work. Agent-authored results are labeled reported. Planned test: `nr8_existing_delivery_guards_and_reported_outcomes`, reusing existing B32/B39/B40/B46 proofs and adding only reaction-to-Message identity assertions. Laws M1–M10 remain unchanged; implementation updates `docs/messages.md` and `proofs/messages` together if their delivery descriptions need extension.
 
+**NR9 App inspection retired.** Policy: U5740a (`scenarios/delete-reactions.md`) removes the Reactions screen, inspection, Stop/Run controls and firing/Message drill-down. All backend acceptance remains until U5740b. Shared link behavior remains under U365 and U5742c/d.
+
 **NR11 Agent creation records maker and reason.** Given an Agent needing to wait on another Agent, a pinned PR's checks or an explicit instant, when it calls `reaction_create` within NR1's Reach and bounds, then the Reaction is saved immediately without an approval request, with maker taken from the authenticated connection's existing `Reaction.actor` and a required `reason` string on create and Reaction reads. The reason explains why the Agent made it, independently of the delivered instruction. Trim outer whitespace; reject empty/whitespace-only or embedded CR/LF with `INVALID_PARAMS`, saving nothing. Retried create with the same operation and normalized definition returns the same maker/reason; a changed reason with that operation refuses. List/get and reopened Project data retain the reason and maker, even when its Agent has stopped or been removed; do not invent a new maker from a name. New client-supplied maker authority is not accepted. N5467d (`scenarios/local-data-retirement.md`, #5467) retires saved-Reaction reads from before the reason field and `nr11_legacy_reason_is_absent`; current unknown-authority safeguards remain. Planned tests in the existing real-Daemon reaction suite: `nr11_agent_creation_retains_maker_and_reason` (create/list/get/reopen); `nr11_invalid_reason_saves_nothing` (table of refusal paths); `nr11_reason_retry_preserves_definition`. Existing NR1 authority tests continue to prove Reach refusal and user control; no expanded authority is granted (policy).
 
 Policy — NR11 Contract recipe: add `reason` to `reaction.create` and Reaction reads in `crates/contracts`, regenerate `contracts/generated/`, update persistence, RPC, public CLI/MCP schemas/descriptions, App callers and fixtures atomically, and record the field in the Reaction glossary entry. Keep `actor` as maker rather than duplicate authority. No historical read compatibility is required; the new create field remains required. No Message/Route/Held/Takeover type or law M1–M10 changes; if implementation needs one, name the laws and update `proofs/messages` and `docs/messages.md` together. NR3's frozen accepted definition/evidence includes maker/reason; extend its existing observer rather than duplicate its transaction proof.
 
-## App acceptance retired by U5740a
-
-Policy: NR9 and U4276a–c are retired by `scenarios/delete-reactions.md`, U5740a. No App screen, section, manual form, menu, Help or shortcut for Reactions remains. NR1–NR8 and NR10–NR11 retain their backend acceptance until U5740b. Shared Ask, navigation, link and delivery behavior is retained in its owning suites.
-
-## Historical section direction (#4966)
+## Reactions section acceptance (#4966)
 
 These clauses replace #4276's full-height list, Close Named reactions, New reaction form/action, form field/keyboard/time-preview UI and empty-state creation offer. NR1–NR8's backend bounds, authority, time preview and delivery proofs remain unchanged; this specification retires only their manual App form observers. User requests for Reactions go through Ask; Agents create them. Code terms remain Reaction/reaction as in `GLOSSARY.md` (policy).
+
+**U4276a App navigation retired.** Policy: U5740a replaces the Reactions menu/section with its remaining-navigation, exact Ask draft and Terminal selection observer.
+
+**U4276b App creation retired.** Policy: U5740a removes the Reactions surface; ordinary exact Ask submission remains under U504.
+
+**U4276c App labels and facts retired.** Policy: U5740a removes the screen and its rendered labels/facts. Backend recorded authority and Message identity remain until U5740b.
 
 ## Regression checks on main
 
@@ -94,7 +97,6 @@ Regression Checks on main for #4973:
 
 1. `crates/rup/tests/e2e/reaction.rs`, `nr1_authority_and_retry_preserve_exact_definition`, `nr1_invalid_bounds_save_nothing` and `nr1_agent_access_requires_current_reach_while_user_access_remains`: existing bounded authority, retry identity and user access.
 2. `crates/rup/tests/e2e/reaction.rs`, `nr4_bounds_rearm_stop_and_target_races`: stop serialization and finite firing identity.
-3. `apps/desktop/src/reactions/nr9_reactions.test.tsx`, `nr9_create_inspect_stop_run_and_focus`: retain exact inspection/stop/run behavior; U4276b retires only form assertions.
 4. `scenarios/awareness.md`, headings E3/E9; `scenarios/lean-child-start.md`, heading LC17; `scenarios/agent-naming.md`, headings A4688c/A4688d: hook delivery, role-shared cache and naming constraints survive the Workstream guidance.
 
 | Specification validation | Pass | Failure row (one per failure) |

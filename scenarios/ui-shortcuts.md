@@ -1,7 +1,5 @@
 # UI: scoped shortcuts (U479 to U481) and the ⌘K leader (U2238 to U2241)
 
-Policy amendment — U5740a (#5750): retire only the Reactions App surface and its portions of mixed clauses below, including its empty/loading/failure views, navigation, inspection, copy, selection, links and rendered captures. Shared Ask, Made, import, diff, Terminal, navigation and Message behavior remains required; backend Reaction acceptance remains until U5740b. See `scenarios/delete-reactions.md`.
-
 Policy: U3787b (`scenarios/ui-mac-expectations.md`) adds menu-bar discoverability without widening App key ownership. U3787a owns ⌘Z and ⇧⌘Z for the focused region’s undo/redo outside editors and Terminals; their own undo/redo remains untouched. Empty histories do not fall through to another region; the Edit menu names available actions and Help lists both chords.
 
 The keyboard layer serves the Enter and Intervene stages of `.agents/data/journey.md`: opening Help must not change the user's selected Agent or place in the centre. This specification defines implementation acceptance; it claims no shipped registry.
@@ -148,3 +146,5 @@ Rendered observer (policy): implementation uses the existing isolated headless U
 | 6 | `docs/design-system.md`, heading “The checks”, D6; `apps/desktop/src/testing/checks.ts`, `runChecks`: focus, states and hit areas |
 
 Validation (policy): specification runs `loop/rules.sh vocab`, `loop/rules.sh scenario-ids` and `just ready`; run `python3 loop/orders.py check <body-file>` before writing the Issue. Implementation runs `just ready`, changed-file related Vitest tests and the named rendered observer/captures. Record actual command results on #4692, with one row per failure containing command, exit code and failed assertion or observer/setup failure. This specification claims no new test already exists. Keep #4692 open in `Mode: implement` until its implementation acceptance passes; this specification PR references it without closing it.
+
+Policy retirement — U5740a (`scenarios/delete-reactions.md`): retire only U2239's Reactions list/detail/firing/Message-view actions and capture requirements. All remaining Ask, import, publication, draft recovery, navigation and shared Message acceptance stays in force.
