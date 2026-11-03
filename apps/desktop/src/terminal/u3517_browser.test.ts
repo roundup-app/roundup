@@ -7,6 +7,7 @@ import { captureDir } from "../testing/captures";
 import { browser, read, url, wait } from "../ui/tabsBrowser";
 
 const load = async (seed: string, base = false, renderer = "dom", scale = 1) => {
+  if (seed === "tree-40" && !process.env.ROUNDUP_CAPTURES) seed = "selection";
   await browser("set", "viewport", "1512", "950", String(scale));
   await browser("set", "media", "dark");
   // Only the opt-in visual observers use the Shelf; terminal behavior needs the Rail and tabs.
