@@ -13,7 +13,7 @@ useBrowserStorage(window.localStorage);
 const controls = seedApp("tree-40", Date.now());
 window.__fake = controls;
 window.__checks = runChecks;
-const links = "Review /tmp/moo-identity/taste/heading-logo-board.png then open src/a.ts:42 and https://example.com before continuing. " + Array.from({length:17}, (_,i) => `/tmp/target${i}.ts`).join(" ") + " /tmp/" + "missing-directory/".repeat(16) + "result.png";
+const links = "/clear /context /hope:compose /word /word:word src/gone.ts Review /tmp/moo-identity/taste/heading-logo-board.png then open src/a.ts:42 and https://example.com before continuing. " + Array.from({length:17}, (_,i) => `/tmp/target${i}.ts`).join(" ") + " /tmp/" + "missing-directory/".repeat(16) + "result.png";
 controls.app.handlers["ask.list"] = () => [{id:"links", text:links, at:1, parts:[{text:links, placement:{kind:"routed",workstream:"payments"}, state:"typed"}]}];
 render(() => createComponent(App, { app: controls.app, reducedMotion: () => true, clock: Date.now, prepareIdle: connected => {
   connected.rail.select(null);
