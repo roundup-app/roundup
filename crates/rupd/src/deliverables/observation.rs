@@ -50,6 +50,33 @@ async fn u5502_publication_observation_names_only_committed_membership_changes()
         observed.try_recv().is_err(),
         "failed publication was observed"
     );
+    let home = daemon
+        .route(
+            &mut conn,
+            "rail.createWorkstream",
+            json!({"name":"Home", "parent":null}),
+        )
+        .await
+        .unwrap();
+    while let Ok(event) = observed.try_recv() {
+        assert!(!matches!(
+            event.data,
+            EventData::DeliverablePublished { .. } | EventData::AgentCompleted(_)
+        ));
+    }
+    daemon
+        .route(
+            &mut conn,
+            "deliverable.move",
+            json!({"project":record["project"], "id":record["id"], "home":home["id"]}),
+        )
+        .await
+        .unwrap();
+    assert!(matches!(
+        observed.try_recv().unwrap().data,
+        EventData::DeliverableChanged
+    ));
+    assert!(observed.try_recv().is_err());
     daemon
         .route(
             &mut conn,
@@ -62,6 +89,7 @@ async fn u5502_publication_observation_names_only_committed_membership_changes()
         observed.try_recv().unwrap().data,
         EventData::DeliverableChanged
     ));
+    assert!(observed.try_recv().is_err());
     assert_eq!(
         daemon
             .route(&mut conn, "deliverable.list", json!({}))
