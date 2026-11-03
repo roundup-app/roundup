@@ -163,6 +163,8 @@ run("u502 resize edges use Ark Splitter", () => {
     // emulator.ts resolves ready after loading and measuring the effective font;
     // that initial fit must finish before measuring only the user's drag.
     await page.call(`() => window.__terminals.get('t-agent-4').ready`);
+    // Font readiness in screens.ts sends the first fit after xterm mounts; frames alone can count it as a drag refit.
+    await page.until(`() => window.__fake.app.calls.some((call) => call.method === "terminal.resize" && call.params.id === "t-agent-4")`);
 
     const frames = () => page.call(`() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done)))`);
     const resizes = () => page.call<number>(`() => window.__fake.app.calls.filter((call) => call.method === "terminal.resize").length`);
@@ -174,6 +176,9 @@ run("u502 resize edges use Ark Splitter", () => {
       const before = await resizes();
 
       await drag(edge, by, "release", async () => {
+        // Live output redraws xterm during a drag; its render callback must obey the same fit guard as the host observer.
+        await page.call(`() => window.__fake.app.emitOutput("t-agent-4", "U502 ${edge.label}\\r\\n")`);
+        await page.until(`() => window.__terminals.get("t-agent-4").serialize().data.includes("U502 ${edge.label}")`);
         await frames();
         expect(await resizes() - before).toBe(0);
       });

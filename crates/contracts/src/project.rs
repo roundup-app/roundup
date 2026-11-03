@@ -82,8 +82,15 @@ pub struct ProjectModels {
 
 /// M8: ask the App to open the Project at `path`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct OpenParams {
     /// An absolute path to an existing folder.
+    pub path: String,
+}
+
+/// A5765b: the canonical folder the App has established is open.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
+pub struct Opened {
     pub path: String,
 }
 
@@ -93,11 +100,10 @@ pub struct RenameParams {
     pub name: String,
 }
 
-/// M8: what the Daemon asks of the App, which no Daemon can reach but by an Event.
+/// M8: a rename request delivered to the App as an Event.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 #[serde(tag = "kind", rename_all = "lowercase")]
 pub enum Requested {
-    Open { path: String },
     Rename { path: String, name: String },
 }
 
