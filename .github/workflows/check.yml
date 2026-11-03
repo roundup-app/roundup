@@ -544,8 +544,8 @@ jobs:
             ${{ runner.temp }}/chromium-cold.jsonl
           retention-days: 7
 
-  # Keep the required check name. A failed lane cannot turn it green; a skipped lane can only on a PR, where `plan` (which must
-  # itself succeed) skipped it (L89). L82: when a newer push cancels
+  # Keep the required check name. `plan` must succeed; only PRs accept planned lane skips (L89), plus dispatch accepts the
+  # push-only `mac-package` skip (CI5915a). Failed or cancelled lanes never pass. L82: when a newer push cancels
   # this run, the gate ends `cancelled`: it blocks merge, starts no fix run and leaves `main` unjudged.
   # L46: a draft run's skipped job takes another name. GitHub counts a skipped required check as passed, and the ready run
   # creates its own `check` only after its lanes end, so a skipped draft `check` on the same head let #5430 merge red.
@@ -559,4 +559,4 @@ jobs:
           NEEDS: ${{ toJSON(needs) }}
           EVENT: ${{ github.event_name }}
         run: |
-          jq -e --arg event "$EVENT" 'map_values(.result) | ., (.plan == "success" and all(.[]; . == "success" or ($event == "pull_request" and . == "skipped")))' <<<"$NEEDS"
+          jq -e --arg event "$EVENT" 'map_values(.result) | ., (.plan == "success" and all(to_entries[]; .value == "success" or (.value == "skipped" and ($event == "pull_request" or ($event == "workflow_dispatch" and .key == "mac-package")))))' <<<"$NEEDS"
