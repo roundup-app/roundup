@@ -192,12 +192,11 @@ class E14(unittest.TestCase):
 
 
 class CI5527(unittest.TestCase):
-    def invoke(self, elapsed, code=0, modules=None, raw=None, base="origin/main", setup=2):
+    def invoke(self, elapsed, code=0, modules=None, raw=None, base="origin/main", setup=2, reporting=0):
         with tempfile.TemporaryDirectory() as temporary:
             output = Path(temporary) / "lane"
-            args = SimpleNamespace(lane="web2", base=base, output=output, shards=7,
-                                   cache_state="fixture", memory_log=None, build_observation=False,
-                                   install_dependencies=True)
+            argv = ["observe.py", "run", "--install-dependencies", "--lane", "web2",
+                    "--base", base, "--output", str(output), "--cache-state", "fixture"]
             clock = [0]
 
             def install(*_args, **_kwargs):
@@ -214,17 +213,26 @@ class CI5527(unittest.TestCase):
                     (output / "web.json").write_text(raw if raw is not None else json.dumps(dict(modules=modules, errors=[])))
                 return SimpleNamespace(poll=lambda: code, returncode=code)
 
+            original_report = observer.report_flaky
+
+            def report(*args):
+                original_report(*args)
+                clock[0] += reporting
+
             stream = io.StringIO()
             with contextlib.ExitStack() as stack:
                 stack.enter_context(patch.object(observer.platform, "platform", return_value="Linux fixture"))
                 stack.enter_context(patch.object(observer.platform, "processor", return_value="fixture CPU"))
                 stack.enter_context(patch.object(observer.subprocess, "check_output", side_effect=["a" * 40, ""]))
                 stack.enter_context(patch.object(observer.subprocess, "Popen", side_effect=launch))
+                stack.enter_context(patch.object(observer, "report_flaky", side_effect=report))
                 stack.enter_context(patch.object(observer.subprocess, "run", side_effect=install))
                 stack.enter_context(patch.object(observer.time, "monotonic", side_effect=lambda: clock[0]))
                 stack.enter_context(patch.object(observer.time, "time", return_value=1.5))
                 stack.enter_context(contextlib.redirect_stdout(stream))
-                result = observer.run(args)
+                stack.enter_context(contextlib.redirect_stderr(stream))
+                stack.enter_context(patch.object(sys, "argv", argv))
+                result = observer.main()
             return result, stream.getvalue()
 
     def test_ci5527c_web_budget_controls_the_exit_result(self):
@@ -236,6 +244,11 @@ class CI5527(unittest.TestCase):
 
     def test_ci5527c_setup_crossing_the_boundary_fails(self):
         result, diagnostic = self.invoke(721, setup=721)
+        self.assertEqual(result, 1, diagnostic)
+        self.assertIn("721.000 seconds", diagnostic)
+
+    def test_ci5527c_reporting_crossing_the_boundary_fails(self):
+        result, diagnostic = self.invoke(719, reporting=2)
         self.assertEqual(result, 1, diagnostic)
         self.assertIn("721.000 seconds", diagnostic)
 
@@ -255,17 +268,22 @@ class CI5527(unittest.TestCase):
                 self.assertEqual([line.strip() for line in diagnostic.splitlines() if " ms" in line], expected)
 
     def test_ci5527c_missing_or_invalid_report_cannot_pass(self):
-        for raw in ("absent", "{", "{}", '{"modules": [], "errors": []}'):
+        for raw, cause in (("absent", "web.json"), ("{", "Expecting property"),
+                           ("{}", "modules"), ("null", "not subscriptable"),
+                           ('{"modules": [], "errors": []}', "timing evidence")):
             with self.subTest(raw=raw):
-                with self.assertRaises((OSError, ValueError, KeyError)):
-                    self.invoke(1, raw=raw)
+                result, diagnostic = self.invoke(1, raw=raw)
+                self.assertEqual(result, 1, diagnostic)
+                self.assertIn("E14 observation FAILED", diagnostic)
+                self.assertIn(cause, diagnostic)
         for duration in (None, -1, float("nan"), "10", True):
             with self.subTest(duration=duration):
                 modules = [dict(id="bad.test.ts", state="passed", duration_ms=duration,
                                 tests=[dict(id="bad", status="passed", retries=0, repeats=0,
                                             start=1500, end=1500, real=False)])]
-                with self.assertRaisesRegex(ValueError, "duration"):
-                    self.invoke(1, modules=modules)
+                result, diagnostic = self.invoke(1, modules=modules)
+                self.assertEqual(result, 1, diagnostic)
+                self.assertIn("invalid file duration for bad.test.ts", diagnostic)
 
 
 class CI3781(unittest.TestCase):
