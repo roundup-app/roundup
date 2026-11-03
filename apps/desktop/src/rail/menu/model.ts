@@ -30,7 +30,7 @@ const NOT_FOUND = -32001;
 
 /** U68: an Agent runs while its Terminal does, whatever its Kind; a Workstream keeps U56's Kind rule. */
 const isRunning = (node: RailNode, exit: ExitState | null) =>
-  exit === null && (node.kind === "agent" ? true : node.status?.kind !== "done");
+  node.kind !== "group" && exit === null && (node.kind === "agent" ? true : node.status?.kind !== "done");
 
 const needsConfirmation = ({ node, exit }: MenuState) =>
   isRunning(node, exit) &&
@@ -237,6 +237,8 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
         },
       })),
     };
+
+    if (node.kind === "group") return [{ id: "rename", label: copy.rename, shortcut: copy.renameChord, run: () => rename(node.id) }, ...extra(node)];
 
     const remove: MenuEntry = { id: "remove", label: copy.remove, shortcut: "⌘⌫", run: () => requestRemove(node, exit, removed) };
 

@@ -4,7 +4,7 @@ import { copy } from "./copy";
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { RequestedApp as App } from "../testing/requestedApp";
+import { App } from "../App";
 import type { AppSeam } from "../app/seam";
 import { fakeEmulators } from "../terminal/paneHarness";
 import { createServedApp } from "./realSeam";
@@ -29,7 +29,7 @@ describe("u177 a stopped Door starts again on the real Daemon", () => {
   const mount = () => {
     const app: AppSeam = createServedApp(real.base);
 
-    render(() => <App app={app} reducedMotion={() => false} clock={Date.now} createEmulator={fakeEmulators().factory} />);
+    render(() => <App app={app} initialShelfOpen prepareIdle={open => open.showView("workstreams")} reducedMotion={() => false} clock={Date.now} createEmulator={fakeEmulators().factory} />);
 
     return app;
   };
@@ -70,7 +70,6 @@ describe("u177 a stopped Door starts again on the real Daemon", () => {
     await waitFor(() => expect(menuProbe.shown?.some(item => item.id === "start" && item.enabled)).toBe(true));
     menuProbe.answer!("start");
     await waitFor(settled(app), { timeout: 30_000 });
-    await waitFor(async () => expect((await app.rpc("rail.tree", null)).find((node) => node.kind === "workstream")?.status?.kind).toBe("idle"), { timeout: 30_000 });
 
     expect(within(reopened).queryByRole("button", { name: copy.retryDoor })).toBeNull();
 

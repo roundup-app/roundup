@@ -15,6 +15,9 @@ impl Agents {
         mode: Option<contracts::agent::ResumeMode>,
         permission_mode: Option<contracts::agent::PermissionMode>,
     ) -> Result<RailNode, RpcError> {
+        if self.shared.rail().node(id)?.kind == NodeKind::Group {
+            return Err(RpcError::conflict("a Group has no program to resume"));
+        }
         models::check_permissions(&ctx.actor, permission_mode)?;
         // A5335b: a child with no run in this Daemon finished before it opened (a restart ends
         // every Attempt), so only the user starts it again; an Agent's resume would spend tokens.
@@ -33,6 +36,7 @@ impl Agents {
             let node = rail.node(id)?;
             match (node.kind, mode) {
                 (_, Some(mode)) => Some(mode),
+                (NodeKind::Group, _) => return Err(RpcError::conflict("a Group has no program")),
                 (NodeKind::Agent, None) => None,
                 (NodeKind::Workstream, None) => {
                     if matches!(self.shared.runs().get(id), Some(Slot::Running(run)) if !run.ended)

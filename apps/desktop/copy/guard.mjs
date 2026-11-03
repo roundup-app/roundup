@@ -615,6 +615,15 @@ export const checkKeys = files => Object.entries(files).filter(([file]) => produ
 
   const namesRegistry = (path, name, seen = new Set()) => {
     if (name === 'CHORDS') {
+      if (path.isMemberExpression() && keyOf(path.node.property) === name
+        && (!path.node.computed || path.get('property').isStringLiteral())) {
+        const object = path.get('object');
+        const binding = object.isIdentifier() ? object.scope.getBinding(object.node.name) : null;
+
+        return binding?.path.isImportNamespaceSpecifier()
+          && posix.normalize(posix.join(posix.dirname(file), binding.path.parent.source.value)).replace(/\.tsx?$/, '') === 'keys/chords';
+      }
+
       if (path.isArrayExpression()) return path.get('elements').some(element =>
         element.isSpreadElement() && namesRegistry(element.get('argument'), name, new Set(seen)));
 

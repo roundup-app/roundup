@@ -619,6 +619,7 @@ fn newest_pad(child: &RailNode, from: &Projection) -> i64 {
 /// An Agent, or a Workstream whose Door has run.
 fn is_agent(node: &RailNode) -> bool {
     match node.kind {
+        NodeKind::Group => false,
         NodeKind::Agent => true,
         NodeKind::Workstream => node.attempt.is_some(),
     }
