@@ -56,7 +56,7 @@
     "src/ui/u499_browser.test.ts"
   ],
   "ROUNDUP_CAPTURES": "DV6,U3021c,U3049a,U3299a,U3813,U3814,U3799,U4277c,U3741,U3760,P3557c,U3774,U3776,U461,U462,U461a,U461b,U3728,U3295a,U3295b,U3517f",
-  "source": "43bdb108e61ebb662dd52ac6ac47842d746436b6",
+  "source": "db876b342b18c1a28ca75399fce7b4a806969841",
   "run": "https://github.com/roundup-app/roundup/actions/runs/40787527679",
   "concurrent_work": "just ready, targeted Ask and Settings diagnostics; see repair-4712.md",
   "wrapper_exit": 1,

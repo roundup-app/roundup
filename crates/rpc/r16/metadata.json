@@ -8,8 +8,8 @@
   "rust": "rustc 1.99.0 (b940084d7 2026-09-28)\nbinary: rustc\ncommit-hash: b940084d7eb6a299eb4bfeb8e34901bc051e7ac4\ncommit-date: 2026-09-28\nhost: x86_64-unknown-linux-gnu\nrelease: 1.99.0\nLLVM version: 23.1.1\n",
   "cargo": "cargo 1.99.0 (5f94df478 2026-08-27)\n",
   "shell": "GNU bash, version 5.2.21(1)-release (x86_64-pc-linux-gnu)\nCopyright (C) 2022 Free Software Foundation, Inc.\nLicense GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>\n\nThis is free software; you are free to change and redistribute it.\nThere is NO WARRANTY, to the extent permitted by law.\n",
-  "historical": "1d1618d2d9bb5c0f25ecb6b32de1cde20bfad6d0\n",
-  "current": "04b78aa4a55c1fe25a6a9a669a6ddc533574ee26\n",
+  "historical": "607da1b0661c778a47ae448c371f0df59ae94d6c\n",
+  "current": "4693cc501826c906a623df4c2ebbd4213a8c438e\n",
   "profile": "Default cargo --release, committed Cargo.lock for each reference; no RUSTFLAGS override",
   "shell_workload": "Unchanged compatible probe: ten login-shell Terminals; SHELL inherited as recorded",
   "env": {
@@ -21,7 +21,7 @@
   "warmups": 100,
   "median": "Arithmetic mean of the two middle sorted samples; nearest-rank p95",
   "original_profile_note": "before.txt is the earlier run, upper-middle median convention; original machine/toolchain metadata was not committed by that run and is available only in Issue #1374 comments, not inferred here",
-  "original_production": "b015b9b01190c2721397aaec0627647a4e950f3b",
+  "original_production": "e607f520622a2bb0f82411c032c5b4e034f0d16e",
   "fixture_note": "Client fixture identical before/after, complete 40-row pre-rendered results, equality asserted outside clock. Historical typed fixture adapts kind=group and meta=false to actual historical RailNode; additional input properties ignored by serde and omitted by typed reply conversion. Schema attribution is not identical payload acceptance.",
   "probe_note": "Fresh compatible-probe rebuild hashes differ from earlier Issue comment; these runs freeze the actual recorded bytes and use identical repaired bytes across both references. Probe-client.patch changes ownership only; compatibility patch changes method adaptation and R15 pacing only.",
   "production_build_note": "Release binaries built from the uncommitted source snapshot subsequently committed as 04b78aa4, then frozen; recorded source hashes establish the snapshot, not an assertion that embedded provenance names that later commit."

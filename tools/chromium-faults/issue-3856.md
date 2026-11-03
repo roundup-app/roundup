@@ -2,7 +2,7 @@
 
 Runner: Ubuntu 26.04.1 LTS (Resolute), x86_64,
 Linux 7.0.0-1017-azure, bpftrace v0.25.0 (Ubuntu 0.25.0-1ubuntu1),
-LLVM 21.1.8. Baseline: `a284e11af9d48e9fad4f83fba29bfc757019e3e3`.
+LLVM 21.1.8. Baseline: `8fc32098118dbe86c96bd1410558345dbf7cb0f5`.
 
 The unchanged tracer aborts before attachment:
 

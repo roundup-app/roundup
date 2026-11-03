@@ -14,6 +14,6 @@
   "env": {
     "VITEST_MAX_WORKERS": "2"
   },
-  "validated_head": "4b678d57ce0ff6b0da45c881a9446566d01e5b0c",
+  "validated_head": "226b1d53f668028179ae71c0e72b096b77ba5020",
   "merged_main": "7f675e9d"
 }

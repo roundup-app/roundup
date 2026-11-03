@@ -1,6 +1,6 @@
 {
-  "baseline": "eeb3ee6f19f04982a825560be3de92956421e68d",
-  "runtime": "500cb69ae433ed7125f29ef25d18ff439496edba",
+  "baseline": "32af734bff8c1dfebc4bafd628ccafe9c4aea222",
+  "runtime": "bed25ab0767160f682913c8483fa9d6e37a5f3bf",
   "renderer": "isolated headless Chromium",
   "viewport": [
     1512,

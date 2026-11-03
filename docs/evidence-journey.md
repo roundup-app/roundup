@@ -4,7 +4,7 @@ Result summaries retained under L112. Each audit describes its recorded revision
 
 ## J1
 
-Main: `84599c39a7cf08114c22859d0a53f1d3a1a4ea0b`. Open PRs: #354 (H18), #352 (B1–B18), #349 (U134, U135), #330 (F7 re-run). Chromium on the same Mac, light theme, `just harness <seed> 5199` (Vite on the fake Daemon), agent-browser, 1280×800 and 700×800. `<stage>-<width>.png` and `.checks.json` (the complete `window.__checks()`) are in this directory. Seeds: `first-run`, `empty-project`, `door-stopped`, `conflict` (Enter), `agents-10` (Understand). Nothing here ran a real Daemon, a real `claude` or the native App.
+Main: `80ae618f61a1ef2eb2bb990c0c783f4bbd0a2009`. Open PRs: #354 (H18), #352 (B1–B18), #349 (U134, U135), #330 (F7 re-run). Chromium on the same Mac, light theme, `just harness <seed> 5199` (Vite on the fake Daemon), agent-browser, 1280×800 and 700×800. `<stage>-<width>.png` and `.checks.json` (the complete `window.__checks()`) are in this directory. Seeds: `first-run`, `empty-project`, `door-stopped`, `conflict` (Enter), `agents-10` (Understand). Nothing here ran a real Daemon, a real `claude` or the native App.
 
 | Stage | Recorded result |
 | --- | --- |
@@ -16,7 +16,7 @@ Main: `84599c39a7cf08114c22859d0a53f1d3a1a4ea0b`. Open PRs: #354 (H18), #352 (B1
 
 ## J2
 
-Main: `4649c5f07822feedacbd27e3ba3adeefa49983c0` (holds U83, H18, U143; open PRs #393 U113, #396 B1–B18, #349 U134/U135, #330 F7 re-run). Same method as J1: `just harness <seed> 5199`, agent-browser, Chromium, light, 1280×800 and 700×800, all twelve seeds-by-width read with `window.__checks()`. New captures: `j2-earlier-run-*` and `j2-agents-10-*` (`.png` and `.checks.json`). The J1 captures of `first-run`, `empty-project`, `door-stopped` and `conflict` were repeated and read the same: `first-run` fails D1, D10; `empty-project` and `conflict` fail D1, D2, D10; `door-stopped` additionally fails D6 and D7 (`textarea.xterm-helper-textarea`: no hover state, no pressed state) at both widths. Nothing here ran a real Daemon, a real `claude` or the native App.
+Main: `f142d33d5f943338687d9b5b669d026df81ef6df` (holds U83, H18, U143; open PRs #393 U113, #396 B1–B18, #349 U134/U135, #330 F7 re-run). Same method as J1: `just harness <seed> 5199`, agent-browser, Chromium, light, 1280×800 and 700×800, all twelve seeds-by-width read with `window.__checks()`. New captures: `j2-earlier-run-*` and `j2-agents-10-*` (`.png` and `.checks.json`). The J1 captures of `first-run`, `empty-project`, `door-stopped` and `conflict` were repeated and read the same: `first-run` fails D1, D10; `empty-project` and `conflict` fail D1, D2, D10; `door-stopped` additionally fails D6 and D7 (`textarea.xterm-helper-textarea`: no hover state, no pressed state) at both widths. Nothing here ran a real Daemon, a real `claude` or the native App.
 
 | Stage | Recorded result |
 | --- | --- |
@@ -28,7 +28,7 @@ Main: `4649c5f07822feedacbd27e3ba3adeefa49983c0` (holds U83, H18, U143; open PRs
 
 ## J3
 
-Main: `caf55898dfa1c910afe9988bd9b27978cd0ba062` (holds U144; open PRs #461 and #468 are loop machinery only). Method: `rupd <tmp project> --attached` with the fake `claude` and `RUPD_SOCKET`, then `just harness-real <project> 5199`, agent-browser (Chromium, light) at 1280×800 and 700×800, `window.__checks()` read after each step. Captures: `j3-enter-room-1280`, `j3-request-1280.png`, `j3-daemon-gone-1280.png`, `j3-review-reopen-*` (`.png`, with `.checks.json` where a Check ran). Nothing here ran a real `claude` or the native App.
+Main: `cbe9d85faaa57adad621c42cd4b98d5df90167aa` (holds U144; open PRs #461 and #468 are loop machinery only). Method: `rupd <tmp project> --attached` with the fake `claude` and `RUPD_SOCKET`, then `just harness-real <project> 5199`, agent-browser (Chromium, light) at 1280×800 and 700×800, `window.__checks()` read after each step. Captures: `j3-enter-room-1280`, `j3-request-1280.png`, `j3-daemon-gone-1280.png`, `j3-review-reopen-*` (`.png`, with `.checks.json` where a Check ran). Nothing here ran a real `claude` or the native App.
 
 | Stage | Recorded result |
 | --- | --- |
@@ -40,7 +40,7 @@ Main: `caf55898dfa1c910afe9988bd9b27978cd0ba062` (holds U144; open PRs #461 and 
 
 ## J4
 
-Main: `b2a7560860cb859ec8ba44e09da03761cf5b0327` (holds U146; open PR #515 is U150 only). Method: `rupd <tmp project>` (not attached) with `RUPD_SOCKET`, `ROUNDUP_CLAUDE_BIN` the fake `claude` and `FAKE_CLAUDE_ON_PROMPT='{"name":"todo_create","arguments":{"title":"$prompt"}}'`, then `just harness-real`'s Vite on port 5199, agent-browser (Chromium, light), `window.__checks()` read after each step. `u146_a_message_to_a_started_door_is_delivered_and_its_todo_shows` passes on this main (`pnpm exec vitest run src/testing/u146_door_answers.test.tsx`). Captures: `j4-request-1280.png` and `.checks.json`, `j4-review-todo-1280.png`, `j4-review-reopen-1280` and `j4-review-reopen-700` (`.png` and `.checks.json`). The Request step was captured at 1280 only. Nothing here ran a real `claude` or the native App.
+Main: `27fc0bb4a335fb9db89a881820c7179b285ae03b` (holds U146; open PR #515 is U150 only). Method: `rupd <tmp project>` (not attached) with `RUPD_SOCKET`, `ROUNDUP_CLAUDE_BIN` the fake `claude` and `FAKE_CLAUDE_ON_PROMPT='{"name":"todo_create","arguments":{"title":"$prompt"}}'`, then `just harness-real`'s Vite on port 5199, agent-browser (Chromium, light), `window.__checks()` read after each step. `u146_a_message_to_a_started_door_is_delivered_and_its_todo_shows` passes on this main (`pnpm exec vitest run src/testing/u146_door_answers.test.tsx`). Captures: `j4-request-1280.png` and `.checks.json`, `j4-review-todo-1280.png`, `j4-review-reopen-1280` and `j4-review-reopen-700` (`.png` and `.checks.json`). The Request step was captured at 1280 only. Nothing here ran a real `claude` or the native App.
 
 | Stage | Recorded result |
 | --- | --- |
@@ -64,7 +64,7 @@ Main: `0a507eea270985527bfb65487b301b66c60dbbb4` (holds T12, T13, T14, U157, U15
 
 ## J6
 
-Main: `b3a16d4a97d5d5acc00e7313c45e19f1b27742e5` (holds U160 and U113; open PRs #548 and #550 are other work). Method: `rupd <tmp project> --attached` with `RUPD_SOCKET`, `ROUNDUP_CLAUDE_BIN` the fake `claude`, `FAKE_CLAUDE_PAYLOADS=spikes/hooks-state/log.run1.jsonl`, `FAKE_CLAUDE_EVENTS=SessionStart,PermissionRequest` and `FAKE_CLAUDE_ON_PROMPT='{"name":"message_send","arguments":{"to":"you","kind":"note","body":"done $prompt"}}'`, then `just harness-real`'s Vite on port 5199, agent-browser (headless Chromium, light, isolated session), `window.__checks()` read after each step. Captures: `j6-decision-1280`, `j6-room2-decision-1280` and `-700`, `j6-room1-decision-1280`, `j6-both-answered-1280`, `j6-room1-thread-1280` and `-700`, `j6-room2-thread-1280` and `-700` (`.png` and `.checks.json`), `j6-room1-thread.txt`, `j6-room2-thread.txt`. Nothing here ran a real `claude` or the native App. Not driven: ten Agents (J2's `agents-10` stands) and routine-progress silence.
+Main: `1da1df3177581e8d1bd8836cb64d74457425b972` (holds U160 and U113; open PRs #548 and #550 are other work). Method: `rupd <tmp project> --attached` with `RUPD_SOCKET`, `ROUNDUP_CLAUDE_BIN` the fake `claude`, `FAKE_CLAUDE_PAYLOADS=spikes/hooks-state/log.run1.jsonl`, `FAKE_CLAUDE_EVENTS=SessionStart,PermissionRequest` and `FAKE_CLAUDE_ON_PROMPT='{"name":"message_send","arguments":{"to":"you","kind":"note","body":"done $prompt"}}'`, then `just harness-real`'s Vite on port 5199, agent-browser (headless Chromium, light, isolated session), `window.__checks()` read after each step. Captures: `j6-decision-1280`, `j6-room2-decision-1280` and `-700`, `j6-room1-decision-1280`, `j6-both-answered-1280`, `j6-room1-thread-1280` and `-700`, `j6-room2-thread-1280` and `-700` (`.png` and `.checks.json`), `j6-room1-thread.txt`, `j6-room2-thread.txt`. Nothing here ran a real `claude` or the native App. Not driven: ten Agents (J2's `agents-10` stands) and routine-progress silence.
 
 | Stage | Recorded result |
 | --- | --- |
@@ -84,7 +84,7 @@ Main: `83b5e7f340d1803060efa18edda9bcd4e7e4bf25` (holds U166 and U167; open PRs 
 
 ## J8
 
-Main: `0d8310b31d68d8041af6894a405b97811156c147` (holds U176, U177 and U178). Method: `rupd <tmp project> --attached` with `RUPD_SOCKET`, `ROUNDUP_CLAUDE_BIN` the fake `claude`, `FAKE_CLAUDE_ON_PROMPT_ASK={"tool_name":"Bash","tool_input":{"command":"echo $prompt"}}` and `FAKE_CLAUDE_ON_PROMPT={"name":"todo_create","arguments":{"title":"$prompt"}}`, then `just harness-real`'s Vite on port 5199 (with `RUPD_SOCKET` set), agent-browser (headless Chromium, light, isolated session `j8`), `window.__checks()` read after each capture. Captures (`.png` and `.checks.json`): `j8-ws2-card-1280`, `j8-long-decision-covered-1280` and `-700`, `j8-two-agents-1280` and `-700`, `j8-agent-selected-1280`, `j8-ws2-this-one-1280`, `j8-ws2-thread-1280` and `-700`, `j8-restarted-1280`, `j8-restarted-card-1280`, `j8-restarted-agent-1280`, `j8-agent-menu-1280`, `j8-ws1-card-1280`, `j8-ws1-settled-1280` and `-700`; the Threads are `j8-ws1-thread.txt` and `j8-ws2-thread.txt`. Nothing here ran a real `claude` or the native App. Not driven: ten Agents (J2's `agents-10` stands).
+Main: `0dcc22fcabc3271dd9352b26a2c639e6c3a78d17` (holds U176, U177 and U178). Method: `rupd <tmp project> --attached` with `RUPD_SOCKET`, `ROUNDUP_CLAUDE_BIN` the fake `claude`, `FAKE_CLAUDE_ON_PROMPT_ASK={"tool_name":"Bash","tool_input":{"command":"echo $prompt"}}` and `FAKE_CLAUDE_ON_PROMPT={"name":"todo_create","arguments":{"title":"$prompt"}}`, then `just harness-real`'s Vite on port 5199 (with `RUPD_SOCKET` set), agent-browser (headless Chromium, light, isolated session `j8`), `window.__checks()` read after each capture. Captures (`.png` and `.checks.json`): `j8-ws2-card-1280`, `j8-long-decision-covered-1280` and `-700`, `j8-two-agents-1280` and `-700`, `j8-agent-selected-1280`, `j8-ws2-this-one-1280`, `j8-ws2-thread-1280` and `-700`, `j8-restarted-1280`, `j8-restarted-card-1280`, `j8-restarted-agent-1280`, `j8-agent-menu-1280`, `j8-ws1-card-1280`, `j8-ws1-settled-1280` and `-700`; the Threads are `j8-ws1-thread.txt` and `j8-ws2-thread.txt`. Nothing here ran a real `claude` or the native App. Not driven: ten Agents (J2's `agents-10` stands).
 
 | Stage | Recorded result |
 | --- | --- |
@@ -94,7 +94,7 @@ Main: `0d8310b31d68d8041af6894a405b97811156c147` (holds U176, U177 and U178). Me
 
 ## J9
 
-Main: `6f317c9f50ad4deec14d623afc7963a70560ff0d` (holds U194). Method: as J8 (`rupd <tmp project> --attached`, `RUPD_SOCKET`, the fake `claude`, `FAKE_CLAUDE_ON_PROMPT_ASK={"tool_name":"Bash","tool_input":{"command":"echo $prompt"}}`, `FAKE_CLAUDE_ON_PROMPT={"name":"todo_create","arguments":{"title":"$prompt"}}`, `just harness-real`'s Vite on port 5199, agent-browser headless Chromium, light, isolated session `j9`, `window.__checks()` read after each capture). Two Workstreams, five Agents added by `+ agent` to each. Captures (`.png`, and `.checks.json` where a Check ran): `j9-ten-agents-1280` and `-700`, `j9-mixed-1280`, `j9-ws1-this-one-1280`, `j9-ws2-this-one-1280`, `j9-long-decision-700`, `j9-long-answered-1280`, `j9-restarted-1280` and `-700`. Nothing here ran a real `claude` or the native App.
+Main: `dc18c311c62e33aeaf0cdf35aa79ecc03a1ab5f6` (holds U194). Method: as J8 (`rupd <tmp project> --attached`, `RUPD_SOCKET`, the fake `claude`, `FAKE_CLAUDE_ON_PROMPT_ASK={"tool_name":"Bash","tool_input":{"command":"echo $prompt"}}`, `FAKE_CLAUDE_ON_PROMPT={"name":"todo_create","arguments":{"title":"$prompt"}}`, `just harness-real`'s Vite on port 5199, agent-browser headless Chromium, light, isolated session `j9`, `window.__checks()` read after each capture). Two Workstreams, five Agents added by `+ agent` to each. Captures (`.png`, and `.checks.json` where a Check ran): `j9-ten-agents-1280` and `-700`, `j9-mixed-1280`, `j9-ws1-this-one-1280`, `j9-ws2-this-one-1280`, `j9-long-decision-700`, `j9-long-answered-1280`, `j9-restarted-1280` and `-700`. Nothing here ran a real `claude` or the native App.
 
 | Stage | Recorded result |
 | --- | --- |
@@ -104,7 +104,7 @@ Main: `6f317c9f50ad4deec14d623afc7963a70560ff0d` (holds U194). Method: as J8 (`r
 
 ## J10
 
-Main: `5490d16d4f81ec6abf2531c55a811734b347b9db` (holds U351 and #836). Method: as J9 (`rupd /tmp/j10/proj --attached` with `RUPD_SOCKET`, `ROUNDUP_CLAUDE_BIN` the fake `claude`, `FAKE_CLAUDE_KINDS` of `working, idle, needs-you, working, idle` for the first Workstream and `error, needs-you, working, error, needs-you` for the second, `FAKE_CLAUDE_ON_PROMPT` a `todo_create`, `just harness-real`'s Vite on port 5199, agent-browser headless Chromium, light, isolated session `j10`, `window.__checks()` read after each capture). Two Workstreams, five Agents added by `+ agent` to each, then a Terminal by `+ terminal`. Captures: `j10-ten-1280`, `j10-ten-700`, `j10-jump-error-1280`, `j10-terminal-1280` and `-700`, `j10-restarted-1280` (`.png`, and `.checks.json` where a Check ran). Nothing here ran a real `claude` or the native App.
+Main: `67a26fdf2cbc597b98312e4f850ccf6c159621ed` (holds U351 and #836). Method: as J9 (`rupd /tmp/j10/proj --attached` with `RUPD_SOCKET`, `ROUNDUP_CLAUDE_BIN` the fake `claude`, `FAKE_CLAUDE_KINDS` of `working, idle, needs-you, working, idle` for the first Workstream and `error, needs-you, working, error, needs-you` for the second, `FAKE_CLAUDE_ON_PROMPT` a `todo_create`, `just harness-real`'s Vite on port 5199, agent-browser headless Chromium, light, isolated session `j10`, `window.__checks()` read after each capture). Two Workstreams, five Agents added by `+ agent` to each, then a Terminal by `+ terminal`. Captures: `j10-ten-1280`, `j10-ten-700`, `j10-jump-error-1280`, `j10-terminal-1280` and `-700`, `j10-restarted-1280` (`.png`, and `.checks.json` where a Check ran). Nothing here ran a real `claude` or the native App.
 
 | Stage | Recorded result |
 | --- | --- |
@@ -124,7 +124,7 @@ Main: `83809015bd82e4f4099e88e0a2d7f2ada04427fa` (holds A33). Method: as J10 (`r
 
 ## J12
 
-Main: `2b0cf1e19c005980a3f7f6b33bb171ee4889876a` (holds U356). Method: the real `rupd` with the fake `claude`, as `u356_` starts it (`FAKE_CLAUDE_KINDS` of `blocked, working, idle, working, idle` for the first Workstream and `error, needs-you, blocked, error, needs-you` for the second, `FAKE_CLAUDE_ON_PROMPT` a `todo_create`), `just harness-real`'s page at `harness.html?daemon=1`, headless Chromium on a fresh profile through `chromePage` (never the user's browser), light, 1280×800 and 700×800. Both Workstreams and all ten Agents were started by pointer; `window.__checks()` was read in each capture. Captures: `j12-ten-1280`, `j12-ten-700`, `j12-jump-1280`, `j12-collapsed-1280`, `j12-collapsed-700` and `j12-workstream-todos-1280` (`.png` and `.checks.json`). The driver was a throwaway test and is not kept. Nothing here ran a real `claude` or the native App.
+Main: `fda9664a7b443e52c342e9bb8358083dae04b625` (holds U356). Method: the real `rupd` with the fake `claude`, as `u356_` starts it (`FAKE_CLAUDE_KINDS` of `blocked, working, idle, working, idle` for the first Workstream and `error, needs-you, blocked, error, needs-you` for the second, `FAKE_CLAUDE_ON_PROMPT` a `todo_create`), `just harness-real`'s page at `harness.html?daemon=1`, headless Chromium on a fresh profile through `chromePage` (never the user's browser), light, 1280×800 and 700×800. Both Workstreams and all ten Agents were started by pointer; `window.__checks()` was read in each capture. Captures: `j12-ten-1280`, `j12-ten-700`, `j12-jump-1280`, `j12-collapsed-1280`, `j12-collapsed-700` and `j12-workstream-todos-1280` (`.png` and `.checks.json`). The driver was a throwaway test and is not kept. Nothing here ran a real `claude` or the native App.
 
 | Stage | Recorded result |
 | --- | --- |

@@ -1,6 +1,6 @@
 # U5741 Todo capture and triage decision evidence
 
-Audited main: `6629a9640a1c279b5e398a2c4f4e90a6bfcfff99`. This continues the inventory; no owner answer or retirement. [todos.md](todos.md) owns detail editing, [shelf.md](shelf.md) owns Shelf selection/deletion, and [rail-lifecycle.md](rail-lifecycle.md) owns Queue administration. Those decisions are not bundled into capture or triage.
+Audited main: `f37bbc72e9cbdd500d8822cb6303fae13768a8ba`. This continues the inventory; no owner answer or retirement. [todos.md](todos.md) owns detail editing, [shelf.md](shelf.md) owns Shelf selection/deletion, and [rail-lifecycle.md](rail-lifecycle.md) owns Queue administration. Those decisions are not bundled into capture or triage.
 
 ## Evidence and interpretation
 

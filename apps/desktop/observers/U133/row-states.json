@@ -1,7 +1,7 @@
 {
   "scenario": "U133",
-  "baseline": "8b1b4144b7fb676a511a166740bf108a9f0145ae",
-  "implementation": "0a603f25e9b0ab937a66fced88c3844f38b20872",
+  "baseline": "5bee206306e800069ad324c7eade79d2303cdf54",
+  "implementation": "b262e5913516263ea1a896cd2400016489df7b3a",
   "observer": {"dark": true, "pixelRatio": 1, "renderer": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/155.0.0.0 Safari/537.36", "viewport": [1512, 950]},
   "captures": "artifacts/ux/U133/row-cues/{base,head}/",
   "checkScope": "Existing U137 Check duties only. New D4/D7/D8/D9/D10 duties remain work in #3824. No native pass or performance result.",
@@ -50,6 +50,6 @@
     {"state":"workstream-focused-row","baseline":[{"background":"rgba(0, 0, 0, 0)","before":{"background":"rgba(0, 0, 0, 0)","content":"none","width":"auto"},"class":"rail-row","color":"rgb(245, 245, 247)","dragged":false,"focused":true,"id":"backend","image":"none","opacity":"1","outline":"rgb(245, 245, 247) none 3px","radius":"0px","selected":null,"shadow":"none","tag":"DIV","title":{"color":"rgb(245, 245, 247)","opacity":"1"},"weight":"400"}],"head":[{"background":"rgba(0, 0, 0, 0)","before":{"background":"rgba(0, 0, 0, 0)","content":"none","width":"auto"},"class":"rail-row","color":"rgb(245, 245, 247)","dragged":false,"focused":true,"id":"backend","image":"linear-gradient(rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.1))","opacity":"1","outline":"rgb(245, 245, 247) none 3px","radius":"0px","selected":null,"shadow":"none","tag":"DIV","title":{"color":"rgb(245, 245, 247)","opacity":"1"},"weight":"400"}]}
   ],
   "failureInput": "Storage offline. Retry.",
-  "integrationChecked": "6ffc9ac28fb6788cbdb194624b024fe83d5f4cca",
+  "integrationChecked": "5957dd765458d28ea6bb0759b969ac0f2bfae71d",
   "validation": {"focused": {"passed": 17, "failed": 0, "retry": 0}, "fullCapture": {"passed": 3797, "failed": 4, "skipped": 57}, "fullCaptureFailures": "All four pass in the final focused run. The U348 cleanup timeout also reproduces on unchanged baseline and passes in a quiet rerun."}
 }

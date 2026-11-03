@@ -1,8 +1,8 @@
 # U26 hosted bpftrace acceptance
 
-Observed on main `e70c57f55f5ddb094fd2bfa2950dde23210a0d12`, after
+Observed on main `57a0c09a02643ea9360a085794b85838f9b1759a`, after
 [#3863](https://github.com/roundup-app/roundup/pull/3863) merged compatibility
-commit `61eb23822ac31dc1b6dfc18ebf32189da1fa533b`.
+commit `7f0946513ef2a60a946e70c63ca2904be65e3561`.
 
 Runner: Ubuntu 24.04.5 LTS (Noble), x86_64, Linux 6.17.0-1022-azure,
 `bpftrace v0.20.2`. The workspace and fixture backing files are on ext4.

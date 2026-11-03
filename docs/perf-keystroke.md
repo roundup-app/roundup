@@ -49,7 +49,7 @@ The [retained reports](perf-keystroke-mac-observations.json) include the owner's
 complete comments, console output, source links and JSON, including the failures.
 
 The recorder repairs in #3694 and #3717 merged before a further native run at
-`01dacd91ce7b1e5ffd874202df4ada323e114d5c`. The command above exited 2: all
+`0bb77682de87202fd31a2555db5a1776fbe794aa`. The command above exited 2: all
 three reports contained `{"probe":"roundup-keystroke-probe","error":"no key was echoed and rendered after the warm-up"}`.
 The machine was an M4 Max MacBook Pro, 16 CPUs, macOS 26.0.1, AC power at
 100% charge, Low Power Mode off, unlocked, with the owner not touching the
@@ -68,7 +68,7 @@ repeat at `7ce598e5a` still failed all three runs with the same warm-up error
 
 ### Successful idle observation on #3755 (2026-10-24)
 
-At `853f9440b8269b943dab07c9fa1dae79d060a204`, based on `59cff55ca`, the
+At `f64a8acf78724d7ed9ded3f4657a84cf2f6db51d`, based on `59cff55ca`, the
 owner ran the command above on an M4 Max MacBook Pro, 16 CPUs, macOS 26.0.1,
 AC power, Low Power Mode off. Exit: 0. Each run reports 1000 measured keys,
 zero drops, WebGL, 1 ms timer resolution and device pixel ratio 2.
@@ -151,7 +151,7 @@ proofs. The native observations above are unchanged; #3550 still owns full-chain
 native evidence and the production repair.
 
 The [2026-10-25 full-chain attempt](https://github.com/roundup-app/roundup/issues/3550#issuecomment-6396746360)
-at `477a3ce93f937cb734b4a69d6a0cb710ebfd3293` exited 2: all three quiet-Mac
+at `fcfc9e0e2496dd52b4fc5410769b77f909217842` exited 2: all three quiet-Mac
 runs timed out collecting a complete PERF line. Its complete report and console
 output are retained in [the observations](perf-keystroke-mac-observations.json).
 No hop timings or latency verdict can be derived from it.
@@ -169,7 +169,7 @@ These are recorder repairs; #3550 remains open for full-chain observations,
 the measured production repair, shared Agent/shell input proof and idle/flood acceptance.
 
 The [2026-10-25 unlocked-screen attempt](https://github.com/roundup-app/roundup/issues/3550#issuecomment-6399443183)
-at `e4bfc80bc2bd3437d43f284c0b64aed1c08fbd8d` delivered all three reports, but
+at `fa7611e78a80eca1fb3a742a8fbeb08765e0776b` delivered all three reports, but
 exited 2: each Daemon hop had zero samples. The full owner report and all three
 run diagnostic directories' text are retained in
 [the observations](perf-keystroke-mac-observations.json).
@@ -196,7 +196,7 @@ remain retained; the first valid full-chain observation follows.
 ### Valid full-chain idle baseline (2026-10-25)
 
 After #4047 merged, the [Mac observation at
-`e2c9e2db8f94f3fc16841ed453cb5c7dfe613024`](https://github.com/roundup-app/roundup/issues/3550#issuecomment-6399945881)
+`0b8a221c290c7b7737e313dac8963ffc8bcd1c28`](https://github.com/roundup-app/roundup/issues/3550#issuecomment-6399945881)
 exited 0. The [retained observations](perf-keystroke-mac-observations.json)
 include the complete report, console output and all three diagnostic directories'
 text. All earlier observations remain. The command was

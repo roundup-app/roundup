@@ -1,6 +1,6 @@
 # U5741 Todo editing decision evidence
 
-Audited main: `8ceee0830512da2835a7de61fb46967888e0bce5`. Documentation only; independent Todo controls continue the existing inventory. No owner choice, deletion or complete-inventory claim.
+Audited main: `7c9d0512f7006d1cd915a0951257681682cc6f28`. Documentation only; independent Todo controls continue the existing inventory. No owner choice, deletion or complete-inventory claim.
 
 The observer is source reconciliation plus fresh isolated headless dark 1512×950 App openings using the existing fake-Daemon harness. Runtime role evidence remains pinned to its original revision. Native clipboard, real storage and vendor behavior are not established by a harness response.
 

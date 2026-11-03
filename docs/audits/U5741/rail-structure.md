@@ -1,6 +1,6 @@
 # U5741 Rail structure and secondary controls
 
-Audited main: `4525b6ce563888c08b0b8bba3806449cf3b9c1f8`, 2026-11-03. Continue the existing inventory. This is neither the complete inventory nor an owner decision request; no deletion is authorized.
+Audited main: `7a5e44b72f4631aeea880af4a250d1fb48c74444`, 2026-11-03. Continue the existing inventory. This is neither the complete inventory nor an owner decision request; no deletion is authorized.
 
 [Inspected sources and direction](catalogues/rail-structure-source.json) pin this slice independently of earlier evidence. [Rendered openings](rendered-rail-structure.json) use a fresh isolated headless session, the existing fake Daemon and dark 1512×950. They establish webview reachability and boundary calls, not real filesystem/editor/clipboard effects, native appearance, Message delivery or persisted reopening.
 

@@ -1,7 +1,7 @@
 {
-  "continuedFrom": "07189f34309cc8f2504e39a7eb78e9b844ca21de",
-  "main": "02dd471273080db813e6dfcc55582dfd2e80b01b",
-  "source": "da27247dfd948b6b3ff02215db587a3cd9cb9281",
+  "continuedFrom": "05311ed350923dddc891b8884c557ae7f3312c86",
+  "main": "a8d0639dbc474e58a1dd6c9fccc438a61b78be4e",
+  "source": "44581b010fb4bf8fe3931a2f3129e027571cecf3",
   "authorAgent": "builder-40429733966",
   "freshNpmCi": true,
   "freshHeadlessBrowserProfile": true,
@@ -18,8 +18,8 @@
   "probeSha256": "de009130c9a3fa7fbe25ffc737aaaaba623755a5e7b99d0774d0428e443a34f7",
   "browserClosed": true,
   "ownedServerStopped": true,
-  "mergedMain": "eb7397cfb921315bc33b37eb4cf69b773bd5257a",
-  "validatedHead": "e488fa4a5b608c695e7ffa931e674df9c7cdb92c",
+  "mergedMain": "4052efc340c3a7ea330136e882b4dfc27fed637c",
+  "validatedHead": "5c3deb596aa1b1153d7d14a95ca3343324ac6b96",
   "gates": {
     "just ready": 0,
     "loop/rules.sh merge-loss": 0,
@@ -41,9 +41,9 @@
   ],
   "fixRun": {
     "authorAgent": "builder-40432838164",
-    "failedHead": "7dc58c64cd500000f91652a6116db128ca62ecf6",
+    "failedHead": "e551be687d4cd79e268eb47f6ee31a3ab59cfbc6",
     "failedCheck": "https://github.com/roundup-app/roundup/actions/runs/40431297227",
-    "mainWithSameFailures": "eb7397cfb921315bc33b37eb4cf69b773bd5257a",
+    "mainWithSameFailures": "4052efc340c3a7ea330136e882b4dfc27fed637c",
     "failedMainCheck": "https://github.com/roundup-app/roundup/actions/runs/40430430021",
     "appSourceEqualsFailedMain": true,
     "commonFailedCases": [
@@ -80,8 +80,8 @@
     "prOnlyFailedCases": [
       "src/terminal/u514_browser.test.ts > u3529a_text_keeps_its_webview_menu_rename"
     ],
-    "mergedMain": "bae255acbcafbc039d33f2c7c70ab478f7107bb6",
-    "mergeHead": "5b30893870927822947378cd810a040c540ceb7c",
+    "mergedMain": "de8cedae1a3ccc08d58591af7670b2f2f5f48930",
+    "mergeHead": "eb346ddf9756e1bf08bc0b9f8817558169d2c48d",
     "regression": {
       "command": "pnpm --filter desktop exec vitest run src/terminal/u102_emulator.test.ts src/terminal/u103_snapshot.test.tsx src/terminal/u103_webgl_reflow.test.tsx",
       "tests": 29,
@@ -189,7 +189,7 @@
   },
   "osc52Runtime": {
     "source": "c695f8acb",
-    "base": "a635310794b15170126fc9d4320e7d830f114cff",
+    "base": "ffee84e483b82278cc08c2c5c9daf8788c5c8b03",
     "testsPassed": 35,
     "compatibilityChecksPassed": 40,
     "productionBuildExit": 0,

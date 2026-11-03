@@ -10,7 +10,7 @@ The supported 9V74 candidate profiles in `candidates-growth.jsonl` retain three 
 
 ## Supported 7763 continuation
 
-`continuation-7763/` retains new observations after the previous run ended. Ubuntu 24.04, x86_64, four online/available CPUs and unrestricted 0–3 affinity select the 7763 class. These are not 9V74 baselines. Historical source is `1d1618d2d9bb5c0f25ecb6b32de1cde20bfad6d0`; repaired source is `b856ae9a` (production parser `8bb34848`, main merged at `0698c9f1`). The original Client fixture uses `0698c9f1` without staging. Each reference uses its committed lockfile and default release settings.
+`continuation-7763/` retains new observations after the previous run ended. Ubuntu 24.04, x86_64, four online/available CPUs and unrestricted 0–3 affinity select the 7763 class. These are not 9V74 baselines. Historical source is `607da1b0661c778a47ae448c371f0df59ae94d6c`; repaired source is `b856ae9a` (production parser `8bb34848`, main merged at `0698c9f1`). The original Client fixture uses `0698c9f1` without staging. Each reference uses its committed lockfile and default release settings.
 
 Parser-only medians on this host are 84.337–84.403 µs staged versus 96.760–97.402 µs for Value parsing. Socket-inclusive real-Client original/repaired medians are 170.954/155.620, 162.278/157.699 and 160.018/159.588 µs. The diminishing difference is retained; these observations do not establish a stable end-to-end saving. Typed historical/current conversion is 22.041/48.590 µs; the historical payload has 8 fields per row versus the required current 17. Envelope moving and frame rendering remain separately attributed.
 

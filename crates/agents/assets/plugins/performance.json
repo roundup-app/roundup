@@ -1,5 +1,5 @@
 {
-  "branch_commit": "98c2c5a96d934924e3b6b5fe00b7ba726bd33586",
+  "branch_commit": "9d304cc43ac12c5dd8f75e3b2aab9fad6212e7da",
   "build": "cargo build --release -p rupd -p rup -p perf; unchanged workspace release profile",
   "workload": "11 fresh Daemons; 1000 calls; ten login-shell Terminals; 200 rup signal calls",
   "host": {
@@ -165,7 +165,7 @@
       "skipped": []
     }
   },
-  "main_commit": "9bfe7fb9f4f638564e939aff24e950ac88b4d8dd",
+  "main_commit": "0f91fe587cb45004e61afc5d30edd1bd6fac33d3",
   "main": {
     "exit": 1,
     "report": {

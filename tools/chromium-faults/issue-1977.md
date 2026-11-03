@@ -30,7 +30,7 @@ kill "$load_pid"
 wait "$load_pid"
 ```
 
-Before: 962dac2e4e789652b98a2525bcc03b7239b6c57f, 20000 ms startup/reply cap. After: 581a48af (full SHA recorded in each raw row), 60000 ms startup/20000 ms reply cap. All times below are cumulative milliseconds from each openPage call; answer/close include the call's outer timing. Values are the actual `() => 42` result. Exit is the pair command's exit status. Each pair has two rows, so no failure can be hidden in an aggregate.
+Before: 0053533932d23bf770cf9a45ed2c7e94579ca9b7, 20000 ms startup/reply cap. After: 581a48af (full SHA recorded in each raw row), 60000 ms startup/20000 ms reply cap. All times below are cumulative milliseconds from each openPage call; answer/close include the call's outer timing. Values are the actual `() => 42` result. Exit is the pair command's exit status. Each pair has two rows, so no failure can be hidden in an aggregate.
 
 | Version | Pair | Call | Read EOF | Server | Launch | Target ack | Page ready | Answer | Close | Value | Exit |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |

@@ -5,7 +5,7 @@ owner_evidence=$(cd "$(dirname "$0")" && pwd)
 owner_output=$(realpath -m "${1:?fresh output directory required}")
 owner_repaired=${2:-dd980f90}
 # R5460 retired the lookup; reproduce its diagnostic script from the historical checkout.
-owner_before=4b75b448378a626ec630fb192e2a10e124675c6b
+owner_before=3bea84f12f5ec07fda6c556b3cfb71ac5e993187
 test ! -e "$owner_output"
 mkdir -p "$owner_output"
 git show 7e2607e54:crates/agents/r16/owner-read/instrument.py > "$owner_output/instrument.py"

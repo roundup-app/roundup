@@ -408,7 +408,7 @@ These choices supersede decision 11's Group/Door framing for a Workstream: its D
 
 ### Capability matrix and next proof
 
-Current evidence is the source at `a1f4d5eae322470951bb4906b31412af564bed15`; a scenario is an intended behavior, not evidence that every clause has shipped.
+Current evidence is the source at `6b8f55181e2805318bd08430f57e665200c3cc91`; a scenario is an intended behavior, not evidence that every clause has shipped.
 
 | Capability | Desired behavior | Observed foundation | Gap and next observer |
 |---|---|---|---|

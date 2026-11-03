@@ -137,7 +137,7 @@ Three separately launched diagnostic Daemons retain over 135,000 presentation-no
 ]
 ```
 
-Regression tests cross the existing Rail RPC seam, plus the internal Rail seam whose returned rows feed it. The initial loaded-availability test was committed red (`4ef9c1df6b30f657e8be75728c88b42ad2acbb6c`, exit 101); the repair is `0f9c3712863d15009096d06deb94d2fa6117ec9c`.
+Regression tests cross the existing Rail RPC seam, plus the internal Rail seam whose returned rows feed it. The initial loaded-availability test was committed red (`e998abf4865c7772f479a780d6a4f068ccd05f5a`, exit 101); the repair is `8388cfcfeb6def7893c720a873c04bd9f40b07d6`.
 
 | Test | Invariant |
 |---|---|
@@ -208,8 +208,8 @@ Busy/failed invocations are retained with their qualification reason and repeate
   },
   "profile": "default release, committed lockfiles, no instrumentation",
   "refs": {
-    "historical": "1d1618d2d9bb5c0f25ecb6b32de1cde20bfad6d0",
-    "repaired": "0f9c3712863d15009096d06deb94d2fa6117ec9c"
+    "historical": "607da1b0661c778a47ae448c371f0df59ae94d6c",
+    "repaired": "8388cfcfeb6def7893c720a873c04bd9f40b07d6"
   },
   "hashes": {
     "/tmp/rail-historical/target/release/perf": "a35e5a3b16a6169ccb025a955ad382fb0f08ec3f098229604780c993bf7c3558",
@@ -264,8 +264,8 @@ All release builds use the same Rust toolchain and default committed profiles/lo
 
 ```sh
 git worktree add /tmp/rail-presentation -b build/rail-presentation-latency-regression origin/main
-# origin/main = 6189fcc15e0327b8800325e237b137e573926505
-git worktree add --detach /tmp/rail-historical 1d1618d2d9bb5c0f25ecb6b32de1cde20bfad6d0
+# origin/main = 48230a6a5076c6feba705d2de6467acf1b6ed6f8
+git worktree add --detach /tmp/rail-historical 607da1b0661c778a47ae448c371f0df59ae94d6c
 cd /tmp/rail-presentation
 cargo build --release -p rupd -p rup -p perf
 cp target/release/rupd /tmp/rail-evidence/rupd-before
@@ -309,10 +309,10 @@ pkill -CONT -f '^python3 /tmp/rail-evidence/compare.py$'
 
 # Main advanced only loop/web-test files; no Daemon source, dependency or build-setting changes.
 git merge origin/main
-# Merge head: 9717d898b4b80cd1b0181838ae20605e7fe8042e
+# Merge head: eccd2b411f3d1113ee407ccfe8e596048d61bfe0
 pnpm install
 just check
-git diff 0f9c3712863d15009096d06deb94d2fa6117ec9c HEAD -- crates Cargo.toml Cargo.lock .cargo rust-toolchain.toml
+git diff 8388cfcfeb6def7893c720a873c04bd9f40b07d6 HEAD -- crates Cargo.toml Cargo.lock .cargo rust-toolchain.toml
 # The diff above is empty.
 
 ```

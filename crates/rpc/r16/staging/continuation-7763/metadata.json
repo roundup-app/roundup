@@ -54,10 +54,10 @@
       "rev-parse",
       "HEAD"
     ],
-    "output": "b856ae9aa252579758423f9a9f55748099c56f5f\n"
+    "output": "8d6f380c4afe274dea3ba9efab309b97af42107d\n"
   },
-  "historical": "1d1618d2d9bb5c0f25ecb6b32de1cde20bfad6d0",
-  "original": "0698c9f1a52039f5d408d5d3a37f4d269962d485",
+  "historical": "607da1b0661c778a47ae448c371f0df59ae94d6c",
+  "original": "2aa2daac80ba87474090c4982eb209d4d3c75fc9",
   "profile": "Default release, committed reference lockfiles, no overridden compiler flags",
   "workers": "VITEST_MAX_WORKERS=1 for check only",
   "env": {

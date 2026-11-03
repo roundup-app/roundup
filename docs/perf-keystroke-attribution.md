@@ -150,7 +150,7 @@ is requested here.
 
 ### Flood recorder frame wait (2026-10-25)
 
-The [Mac attempt at `7fbf5d6ff7bbc2702f152112caad01caca45daa0`](https://github.com/roundup-app/roundup/issues/3550#issuecomment-6400874363)
+The [Mac attempt at `e60647c6a8a70ac5fe0dc78eb13e7c1c649835a4`](https://github.com/roundup-app/roundup/issues/3550#issuecomment-6400874363)
 retains all three failed runs and the immediate idle control. Each flood run
 exited 2 at the 10 s display-frame setup bound, before its first activity sample;
 the same build's idle runs reported p95 11/11/11 ms and zero drops. Empty activity

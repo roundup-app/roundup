@@ -1,7 +1,7 @@
 {
-  "baselineSha": "9eac3e6302cc3e6f35ad14b1c2b45737da3c8b15",
-  "headSha": "a3beb440fde55a2d478c2865a86169e489f4cfc8",
-  "observerSha": "a3beb440fde55a2d478c2865a86169e489f4cfc8",
+  "baselineSha": "a3d60217e5d3a759df5cb64562b97b5c8e807efc",
+  "headSha": "34c4d077e898b10c560626efef58f52d31da91a6",
+  "observerSha": "34c4d077e898b10c560626efef58f52d31da91a6",
   "observerFiles": {
     "apps/desktop/src/pads/u4698b_browser.test.ts": "ca6fc9b29f1ceddfbcc8b345e58cee6b0e0e91c8ea840c78a80a790815f1ecd7",
     "apps/desktop/src/pads/u5561a_browser.test.ts": "42dd6ad87571e73064ec26fc10584bd4cccb2240f9837d471cd4f257146c6031",

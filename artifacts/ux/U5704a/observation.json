@@ -2,10 +2,10 @@
   "scenario": "U5704a",
   "status": "complete",
   "recorded_at_utc": "2026-11-02T20:00:17Z",
-  "observer_revision": "028032168410a2fd8bfe735f4c908525136605ce",
+  "observer_revision": "647b538a60ae28f63ed19832da2d7b0abf99c426",
   "sizing_repair": {
     "pr": 5700,
-    "commit": "f5b68e892f281539d30fdf49b03e514edb94db8f"
+    "commit": "e16d832d4797ed3fd27f46da8cc0f91d3277c5a5"
   },
   "viewport": [
     1512,
@@ -16,7 +16,7 @@
     "base": {
       "capture_pairs": 97,
       "product_revisions": [
-        "138e421008cfa38c7802238f8230cf1c885a7353"
+        "7bf08ce5f7657767179fa7bb795465e751943b6b"
       ],
       "minimum_recorded_hit_height": 24,
       "states_complete": true,
@@ -71,7 +71,7 @@
     "head": {
       "capture_pairs": 97,
       "product_revisions": [
-        "028032168410a2fd8bfe735f4c908525136605ce"
+        "647b538a60ae28f63ed19832da2d7b0abf99c426"
       ],
       "minimum_recorded_hit_height": 24,
       "states_complete": true,
