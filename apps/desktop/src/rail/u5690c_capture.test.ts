@@ -1,8 +1,11 @@
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
+import { spawn } from "node:child_process";
+import { createServer, mergeConfig } from "vite";
 import { afterAll, beforeAll, it, expect } from "vitest";
 import { openLane, type LaneBrowser } from "../todos/laneBrowser";
-import { withProject } from "../testing/realDaemonFixture";
+import { startRealDaemon } from "../testing/realDaemonFixture";
+import { appServer } from "../testing/appServer";
 import { createServedApp } from "../testing/realSeam";
 import { captureDir } from "../testing/captures";
 
@@ -60,7 +63,18 @@ it("u5690c_rendered_group_keeps_children_reachable_without_lifecycle_actions", a
 
 
 it("u5690c_public_group_renders_and_opens_its_children", async () => {
-  await withProject(async real => {
+  const frontend = await appServer();
+
+  const real = await startRealDaemon({}, false, {
+    spawn,
+    // CI 41639412981 spent 49.8 s here: reuse the compiled App while keeping
+    // this Project's /__daemon routes on its own server and origin.
+    createServer: config => createServer(mergeConfig(config ?? {}, { server: {
+      proxy: { "^/(?!__daemon(?:/|$))": frontend.resolvedUrls.local[0]! },
+    } })),
+  });
+
+  try {
     const app = createServedApp(real.base);
     const nodes = [];
 
@@ -82,5 +96,8 @@ it("u5690c_public_group_renders_and_opens_its_children", async () => {
     expect(await app.rpc("terminal.list", null)).toEqual([]);
     expect((await app.rpc("rail.tree", null)).find(node => node.id === group.id)?.kind).toBe("group");
     await lane.capture("U5690c", "public-group-child");
-  });
+  } finally {
+    await real.stop();
+    await frontend.close();
+  }
 }, 360_000);
