@@ -50,10 +50,20 @@ impl Answerer {
 
     /// A second registration replaces the first (NA6 policy).
     fn register(&self, frames: mpsc::UnboundedSender<Frame>) {
-        *self.app.lock().expect("action answerer poisoned") = Some(App {
-            frames,
-            pending: Pending::new(),
-        });
+        let previous = self
+            .app
+            .lock()
+            .expect("action answerer poisoned")
+            .replace(App {
+                frames,
+                pending: Pending::new(),
+            });
+        if let Some(previous) = previous {
+            // A closed old connection has no live confirmation left to invalidate.
+            let _ = previous
+                .frames
+                .send(json!({"jsonrpc":"2.0", "method":"action.closed"}).into());
+        }
     }
 
     /// The App's connection closed: its registration ends and its pending calls are lost.
@@ -101,8 +111,17 @@ impl Answerer {
             }
             app.pending.insert(id, tx);
         }
-        match tokio::time::timeout(self.timeout.unwrap_or(CALL_TIMEOUT), rx).await {
-            Ok(Ok(answer)) => Relay::Answer(answer),
+        let answer = if method == "project.open" {
+            // Consent has no clock deadline; losing the registered connection ends the wait.
+            rx.await.ok()
+        } else {
+            tokio::time::timeout(self.timeout.unwrap_or(CALL_TIMEOUT), rx)
+                .await
+                .ok()
+                .and_then(Result::ok)
+        };
+        match answer {
+            Some(answer) => Relay::Answer(answer),
             _ => {
                 if let Some(app) = self.app.lock().expect("action answerer poisoned").as_mut() {
                     app.pending.remove(&id);
@@ -125,6 +144,76 @@ fn invalid(message: String) -> RpcError {
 }
 
 impl Daemon {
+    pub(super) async fn rpc_project_open(
+        &self,
+        conn: &mut Conn,
+        _method: &str,
+        params: Value,
+    ) -> Result<Value, RpcError> {
+        let contracts::project::OpenParams { path } = rpc::params(params)?;
+        let folder = std::path::Path::new(&path);
+        if !folder.is_absolute() {
+            return Err(invalid(format!("path {path} is not absolute")));
+        }
+        if !folder.is_dir() {
+            return Err(RpcError::not_found(format!("directory {path}")));
+        }
+        let path = folder
+            .canonicalize()
+            .map_err(RpcError::internal)?
+            .to_string_lossy()
+            .into_owned();
+        let agent = match conn.actor.kind {
+            ActorKind::Agent => {
+                let nodes = self.rail().await?;
+                let node = nodes
+                    .iter()
+                    .find(|node| {
+                        node.id == conn.actor.id
+                            && matches!(
+                                node.kind,
+                                contracts::agent::NodeKind::Agent
+                                    | contracts::agent::NodeKind::Workstream
+                            )
+                    })
+                    .ok_or_else(|| {
+                        RpcError::forbidden("Project opening requires an existing Agent or Door")
+                    })?;
+                Some(json!({"id": node.id, "name": node.name}))
+            }
+            ActorKind::User => None,
+            ActorKind::Ext => {
+                return Err(RpcError::forbidden(
+                    "only the user or an existing Agent opens a Project",
+                ));
+            }
+        };
+        let request = json!({"path": path, "source": self.project, "agent": agent});
+        match self.actions.relay("project.open", request).await {
+            Relay::NoApp => Err(app_closed()),
+            Relay::Lost => Err(RpcError::new(
+                code::UNKNOWN_OUTCOME,
+                format!(
+                    "the App connection was lost while opening {path}; inspect open Projects before retrying"
+                ),
+            )),
+            Relay::Answer(answer) => {
+                let value = answer?;
+                let opened: contracts::project::Opened =
+                    serde_json::from_value(value).map_err(RpcError::internal)?;
+                if opened.path != path {
+                    return Err(RpcError::new(
+                        code::UNKNOWN_OUTCOME,
+                        "the App answered with a different Project; inspect open Projects before retrying",
+                    ));
+                }
+                self.ctx(conn.actor.clone())
+                    .touch(Verb::Wrote, &format!("project:{}", opened.path))?;
+                rpc::reply(&opened)
+            }
+        }
+    }
+
     pub(super) async fn rpc_action(
         &self,
         conn: &mut Conn,
