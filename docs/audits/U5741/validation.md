@@ -783,7 +783,7 @@ All retained openings pass every recorded Check, including D2/D5/D6. The dense r
 | `python3 loop/orders.py check /tmp/u5741-expanded.md` | 0 | Exact documentation slice scope validated before updating #5758. |
 | `pnpm install --frozen-lockfile` | 0 | Pinned dependencies installed in the isolated worktree. |
 | `agent-browser skills get core` | 0 | Isolated browser instructions read before use. |
-| `just harness tree-40 5291` | running observer | Served the pinned App; no user browser/profile/desktop connection. |
+| `just harness tree-40 5291` | 143 on deliberate shutdown | Served the pinned App, then only this run Vite PID was terminated after closing its browser. No user browser/profile/desktop connection. |
 | Final `python3 /tmp/u5741-outputs-observe.py` | 0 | Fifteen retained openings; all recorded Checks pass. Pointer Overview reset works; keyboard-only reset below is not promoted to a pass. |
 | `gh --version`, `gh release view --help`, `gh release download --help`, `gh pr view --help` | 0 each | Versioned remote-object comparison evidence retained; does not establish equivalent local publication authority. |
 | `git diff --check` | 0 | No whitespace errors. |
@@ -817,4 +817,12 @@ Current publication offers: locked `cargo build -p rup --bin rup --locked` and `
 
 | Failed command | Exit | Repair |
 | --- | ---: | --- |
-| First `just ready` | 1 | `just lint-rust origin/main` → `lint-repo`: new spelling matches in exact archived owner text (`tthat`, `desogned`, screenshot abbreviation) and one report abbreviation. Original Issue records preserved byte-for-byte as compressed source evidence, as the other source archives are; report says screenshots. Web lint/typecheck and N7 launch-sites passed. No production or lint-policy change. |
+| First `just ready` | 1 | `just lint-rust origin/main` → `lint-repo`: new spelling matches in exact archived owner text (misspelled owner words and a screenshot abbreviation) and one report abbreviation. Original Issue records preserved byte-for-byte as compressed source evidence, as the other source archives are; report says screenshots. Web lint/typecheck and N7 launch-sites passed. No production or lint-policy change. |
+
+| Further failed command | Exit | Repair |
+| --- | ---: | --- |
+| Pre-merge retry of `just ready` | 1 | The failure-log row repeated two misspelled owner words verbatim, so lint-repo flagged that report row. Rephrased only the diagnostic description; compressed original evidence remains exact. The post-merge run validates the repair. |
+
+Harness stderr also reported a PostCSS missing-from warning and `ResizeObserver loop completed with undelivered notifications` at 13:15:48, 13:21:06, 13:21:09 and 13:23:08 UTC. These are retained observer/runtime diagnostics, not a clean-console claim. The fifteen retained mounted states, calls, image hashes and Check results remain recorded independently. Closing the isolated browser exits 0; intentional server shutdown exits 143.
+
+Main advanced to `f2514c06d5fb546b52a8a78c45d7199afb6a0354` with only Pad test/realDaemonFixture optimizations. Merged without conflicts; `loop/rules.sh merge-loss` exits 0, own diff remains six documentary files. The audit remains pinned to `cca472d3d8f5ce3808869ed6da6a4464e348169c`; no older evidence is promoted to the merge revision. The final whole-App revision reconciliation remains required. An ad hoc integrity observer exits 0 for all 47 source archives, four direction archives, fifteen image hashes/Check sets, seven publication tool schemas per current role and every recorded runtime/help command.
