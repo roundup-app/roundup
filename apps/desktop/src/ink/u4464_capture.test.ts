@@ -48,10 +48,11 @@ it.skipIf(!captureDir("U4464") && !captureDir("U5163"))("u5606_capture_empty_vie
         const probe = document.createElement('span');
         probe.hidden = true;
         probe.style.color = 'var(--doodle-ground)';
-        probe.style.backgroundColor = 'var(--ground)';
-        room.append(probe);
+        (scene?.parentElement ?? room).append(probe);
         const fillColour = getComputedStyle(probe).color;
-        const groundColour = getComputedStyle(probe).backgroundColor;
+        let painted = room;
+        while (getComputedStyle(painted).backgroundColor === 'rgba(0, 0, 0, 0)' && painted.parentElement) painted = painted.parentElement;
+        const groundColour = getComputedStyle(painted).backgroundColor;
         probe.remove();
         const ground = getComputedStyle(room).getPropertyValue('--ground').trim();
         return {name:el.querySelector('h3')?.textContent,room:box(room),scene:scene ? box(scene) : null,visibleTop:scene ? Math.max(box(scene).y,box(room).y) : null,lowestContentBottom,fillColour,groundColour,fill:style?.getPropertyValue('--doodle-ground').trim(),ground,hitTargets:content.map(node => {const r=box(node); const hit=document.elementFromPoint(r.x+r.width/2,r.y+r.height/2);return {text:node.textContent,hit:hit===node || node.contains(hit)};}),pointerEvents:style?.pointerEvents,animation:style?.animationName};
