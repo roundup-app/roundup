@@ -106,7 +106,7 @@ impl Run {
         for (sender, body) in [
             ("agent", format!("peer {round}")),
             ("daemon", digest),
-            ("daemon", format!("accepted reaction {round}")),
+            ("daemon", format!("accepted Daemon Note {round}")),
         ] {
             if sender == "daemon" {
                 self.sender

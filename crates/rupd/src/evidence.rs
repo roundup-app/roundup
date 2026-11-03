@@ -355,14 +355,14 @@ impl Daemon {
                         "the declared PR/head does not name this exact target/output version",
                     );
                 }
-                let read = crate::reaction_checks::read(
+                let read = crate::pr_checks::read(
                     &self.agents,
                     &self.ctx(conn.actor.clone()),
                     &report.request.id,
                 )
                 .await;
-                match crate::reaction_checks::decide(head, repository, *number, &read) {
-                    crate::reaction_checks::Verdict::Match => {
+                match crate::pr_checks::decide(head, repository, *number, &read) {
+                    crate::pr_checks::Verdict::Match => {
                         let Some(revision) =
                             read.ok().and_then(|r| r.evidence).and_then(|e| e.revision)
                         else {
@@ -370,8 +370,8 @@ impl Daemon {
                         };
                         ResultObservation::Passed { revision }
                     }
-                    crate::reaction_checks::Verdict::Invalidate(_, cause)
-                    | crate::reaction_checks::Verdict::Wait(_, cause) => unknown(cause),
+                    crate::pr_checks::Verdict::Invalidate(cause)
+                    | crate::pr_checks::Verdict::Wait(cause) => unknown(cause),
                 }
             }
             ResultCheck::Unsupported { source } => {

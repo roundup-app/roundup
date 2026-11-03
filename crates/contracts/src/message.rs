@@ -290,7 +290,7 @@ pub struct ContinuationAction {
     pub output: String,
     pub instruction: String,
     pub next: String,
-    /// The accepted decision (or reaction firing) that already holds this action.
+    /// The accepted decision that already holds this action.
     pub decision: Option<String>,
 }
 
