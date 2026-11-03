@@ -17,6 +17,9 @@ The audit must prevent missed conditional offers, unsupported claims of non-use/
 | [keyboard.md](keyboard.md) | Named actions, local bindings, inherited editor keys and remaining widget coverage |
 | [catalogues/keyboard-source.json](catalogues/keyboard-source.json) | Pinned keyboard source excerpts, library provenance and runtime action catalogue |
 | [rendered-keyboard.json](rendered-keyboard.json) | Additional actual keyboard/editor openings and Check readings |
+| [settings-evidence.md](settings-evidence.md) | Per-channel equivalence, all 60 shortcut configuration rows, conditional offers and dated direction |
+| [catalogues/settings-source.json](catalogues/settings-source.json) | Inspected source hashes, runtime configuration rows and post-audit production delta |
+| [rendered-settings.json](rendered-settings.json) | Additional isolated settings openings and Check readings |
 | [settings.md](settings.md) | Individual controls, defaults, actions and unresolved criteria |
 | [entry-points.md](entry-points.md) | Production App composition and remaining reconciliation |
 | [direction.md](direction.md) | Recovered Orca/Paseo/Bise accepted direction |
