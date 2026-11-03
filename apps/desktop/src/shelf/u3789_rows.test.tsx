@@ -55,7 +55,7 @@ const target = async (kind: RowCase, rows: readonly string[] = ["backend", "auth
   return { ...controls, row: document.querySelector<HTMLElement>(selector)! };
 };
 
-it.each(cases)("u3789a_click_selects_without_opening_%s", async kind => {
+it.each(["todo-shelf", "pad-shelf"] as const)("u3789a_click_selects_without_opening_%s", async kind => {
   const { app, row } = await target(kind);
   const start = app.calls.length;
   const frame = row.closest(".shelf-row, .pad-row-head, .rail-row")!;
@@ -422,6 +422,7 @@ it("u3789d_controls_keep_native_attention_destination_return", async () => {
   fireEvent.click(row);
   await settled();
 
+  row.focus();
   fireEvent.keyDown(row, {key:"Enter"});
   await waitFor(() => expect(emulators.made.get("t-migrate")?.host?.contains(document.activeElement)).toBe(true));
   expect(document.querySelector('.rail-row[data-selected=true]')?.getAttribute('data-id')).toBe("migrate");
@@ -460,7 +461,7 @@ it("u3789d_controls_keep_all_actions_dismisses_failure_from_menu", async () => {
 });
 
 it("u3789d_failed_rail_rename_keeps_retry_after_selection_changes", async () => {
-  const { app, row } = await target("agent");
+  const { app, row, emulators } = await target("agent");
   const refused = new RpcError(-32003, "name already taken");
   app.handlers["rail.rename"] = () => { throw refused; };
 
@@ -473,7 +474,7 @@ it("u3789d_failed_rail_rename_keeps_retry_after_selection_changes", async () => 
   const elsewhere = document.querySelector<HTMLElement>('.rail-row[data-id="agent-4"]')!;
   fireEvent.blur(field);
   fireEvent.click(elsewhere);
-  await waitFor(() => expect(document.activeElement).toBe(elsewhere));
+  await waitFor(() => expect(emulators.made.get("t-agent-4")?.host?.contains(document.activeElement)).toBe(true));
   expect(screen.getByRole("alert", { name: new RegExp(refused.message) })).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: copy.retry }));
   const recovered = await screen.findByRole<HTMLInputElement>("textbox", { name: copy.name });

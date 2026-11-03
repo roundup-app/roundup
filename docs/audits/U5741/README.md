@@ -13,6 +13,12 @@ The audit must prevent missed conditional offers, unsupported claims of non-use/
 
 | Artifact | Holds |
 | --- | --- |
+| [rail-lifecycle.md](rail-lifecycle.md) | Independent lifecycle, creation and Queue controls, criteria and dated Mode/conversion direction |
+| [catalogues/rail-source.json](catalogues/rail-source.json) | Current inspected source hashes, exact conditional native menu models and observer provenance |
+| [rendered-rail.json](rendered-rail.json) | Thirteen isolated Rail/menu/dialog/native-question boundary openings at current main |
+| [changes-resources.md](changes-resources.md) | Independent changes/resource controls, criteria, dated direction and remaining gaps |
+| [catalogues/changes-source.json](catalogues/changes-source.json) | Current source hashes, exact fixture, editor/menu probes and vendor help |
+| [rendered-changes.json](rendered-changes.json) | Eleven corrected isolated openings; note forms retain D2/D10 failures |
 | [endpoints.md](endpoints.md) | Complete public method/CLI/MCP census and explicit CLI dispatch |
 | [keyboard.md](keyboard.md) | Named actions, local bindings, inherited editor keys and remaining widget coverage |
 | [catalogues/keyboard-source.json](catalogues/keyboard-source.json) | Pinned keyboard source excerpts, library provenance and runtime action catalogue |
@@ -31,6 +37,10 @@ The audit must prevent missed conditional offers, unsupported claims of non-use/
 | [validation.md](validation.md) | Command outcomes and observer failures |
 
 `rendered.json` holds accessibility snapshots and D-check readings from the existing isolated harness at 1512×950, dark, on the audited source. The continuation uses a fresh headless session/profile against the same audited source. It establishes the Inbox command opens Needs you, a loaded Pads list and editor, top-level context menus and additional dialogs; it does not establish native submenu rendering. Images remain uncommitted under `artifacts/ux/U5741/`. Eleven follow-up openings pass every recorded D check; Project rename retains a pre-existing D6/D10 observer failure tracked in [#5786](https://github.com/roundup-app/roundup/issues/5786). Fake-Daemon renders establish webview reachability only, never native behavior or a real Agent action.
+
+Current changes/resource continuation: main `f87a3ddd158ec53a311d29265fa6414d6efa4434`. [changes-resources.md](changes-resources.md) adds independent controls, current source/offer reconciliation, linked direction and eleven isolated openings; [rendered-changes.json](rendered-changes.json) retains failed as well as passing Checks. Earlier observations remain pinned to their own source, not silently promoted to this revision. The final inventory still needs one reconciled current revision.
+
+Rail lifecycle continuation: main `a3a760a66f4e2bf91a613636640e649695e6dc65`. [rail-lifecycle.md](rail-lifecycle.md) separates 22 creation/lifecycle/Queue decisions and preserves unknown equivalence and conditional coverage. This reads the newer Rail choice/focus behavior from #5742; the final all-feature revision reconciliation remains unfinished.
 
 ## Decision status
 
