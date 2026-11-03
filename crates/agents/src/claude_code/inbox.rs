@@ -61,6 +61,24 @@ pub struct Entry {
     pub one_line: bool,
 }
 
+impl Entry {
+    /// B5763a: the entire string the peer compares, excluding the transport Message id.
+    /// Questions include their reply identity; notes use their rendered text and labels.
+    pub fn content(&self, from: &str, permission_mode: &str) -> String {
+        let text = if self.kind == MessageKind::Question {
+            format!("[question, replyTo: {}] {}", self.id, self.text)
+        } else if self.one_line {
+            one_line(&self.text)
+        } else {
+            self.text.clone()
+        };
+        format!(
+            "<cross-session-message from=\"{from}\" from-name=\"{}\" from-mode=\"{permission_mode}\">\n{text}\n</cross-session-message>",
+            attribute(&self.from),
+        )
+    }
+}
+
 const MSG_ID_PREFIX: &str = "00000000-0000-4000-8000-";
 
 /// The `msg_id` of Message `id`: Claude Code wants a UUID and drops a second line carrying one it
@@ -99,6 +117,7 @@ fn attribute(name: &str) -> String {
 
 /// A live session's listing: the `peerProtocol` it names and its `peerToken`.
 struct Session {
+    id: String,
     protocol: Option<u64>,
     token: String,
 }
@@ -129,7 +148,7 @@ impl Launcher {
         let socket = socket.canonicalize().ok()?;
         let sessions = self.conversation_dir.join("sessions");
         let files: Vec<_> = std::fs::read_dir(&sessions).ok()?.flatten().collect();
-        let (pid, protocol) = files.iter().find_map(|file| {
+        let (pid, protocol, id) = files.iter().find_map(|file| {
             let name = file.file_name().into_string().ok()?;
             let pid = name.strip_suffix(".json")?;
             let session: Value = serde_json::from_slice(&std::fs::read(file.path()).ok()?).ok()?;
@@ -138,8 +157,9 @@ impl Launcher {
                 .ok()?;
             let alive = rustix::process::Pid::from_raw(session["pid"].as_i64()?.try_into().ok()?)
                 .is_some_and(|pid| rustix::process::test_kill_process(pid).is_ok());
+            let id = session["sessionId"].as_str()?.to_owned();
             (listening == socket && alive)
-                .then(|| (pid.to_owned(), session["peerProtocol"].as_u64()))
+                .then(|| (pid.to_owned(), session["peerProtocol"].as_u64(), id))
         })?;
         let token = files.iter().find_map(|file| {
             let name = file.file_name().into_string().ok()?;
@@ -148,7 +168,11 @@ impl Launcher {
             let key: Value = serde_json::from_slice(&std::fs::read(file.path()).ok()?).ok()?;
             key["peerToken"].as_str().map(str::to_owned)
         })?;
-        Some(Session { protocol, token })
+        Some(Session {
+            id,
+            protocol,
+            token,
+        })
     }
 
     /// B51: the state of Agent `agent`'s inbox: `missing` when its session is not listening on
@@ -161,11 +185,30 @@ impl Launcher {
         }
     }
 
-    /// B50(a), B50(c): sends one line per note over `agent`'s socket. A failure, which may come
-    /// after some notes went, names `missing`; sending the batch again is safe, since Claude Code
-    /// drops a `msg_id` it has taken up.
-    pub fn inbox_write(&self, agent: &str, notes: &[Entry], yolo: bool) -> Result<(), Inbox> {
-        let permission_mode = if yolo {
+    /// B5763b: the actual peer session, independent of Daemon restart or Agent labels.
+    pub fn inbox_session(&self, agent: &str) -> Option<String> {
+        self.session(&self.socket_path(agent))
+            .map(|session| session.id)
+    }
+
+    /// B5763c: only the live receiving session and rupd's own peer origin establish history.
+    pub fn inbox_previous(&self, agent: &str, path: &Path) -> Result<Option<String>, Inbox> {
+        let session = self.inbox_session(agent).ok_or(Inbox::Missing)?;
+        let from = format!("uds:{}", self.socket_dir().join("rupd").display());
+        previous(path, &session, &from).map_err(|error| {
+            eprintln!("inbox: cannot recover {}: {error}", path.display());
+            Inbox::Missing
+        })
+    }
+
+    /// B5763b: use exactly the renderer and permission mode of the physical inbox write.
+    pub fn inbox_content(&self, agent: &str, note: &Entry, yolo: bool) -> String {
+        let from = format!("uds:{}", self.socket_dir().join("rupd").display());
+        note.content(&from, &self.inbox_mode(agent, yolo))
+    }
+
+    fn inbox_mode(&self, agent: &str, yolo: bool) -> String {
+        if yolo {
             "bypassPermissions".to_owned()
         } else {
             self.modes
@@ -174,7 +217,14 @@ impl Launcher {
                 .get(agent)
                 .map(|mode| mode.effective.clone())
                 .unwrap_or_else(|| "default".into())
-        };
+        }
+    }
+
+    /// B50(a), B50(c): sends one line per note over `agent`'s socket. A failure, which may come
+    /// after some notes went, names `missing`; sending the batch again is safe, since Claude Code
+    /// drops a `msg_id` it has taken up.
+    pub fn inbox_write(&self, agent: &str, notes: &[Entry], yolo: bool) -> Result<(), Inbox> {
+        let permission_mode = self.inbox_mode(agent, yolo);
         let socket = self.socket_path(agent);
         let token = self.session(&socket).ok_or(Inbox::Missing)?.token;
         let mut stream = UnixStream::connect(&socket).map_err(|_| Inbox::Missing)?;
@@ -184,17 +234,7 @@ impl Launcher {
         let from = format!("uds:{}", self.socket_dir().join("rupd").display());
         let mut lines = vec![json!({ "type": "auth", "token": token })];
         for note in notes {
-            let text = if note.kind == MessageKind::Question {
-                format!("[question, replyTo: {}] {}", note.id, note.text)
-            } else if note.one_line {
-                one_line(&note.text)
-            } else {
-                note.text.clone()
-            };
-            let content = format!(
-                "<cross-session-message from=\"{from}\" from-name=\"{}\" from-mode=\"{permission_mode}\">\n{text}\n</cross-session-message>",
-                attribute(&note.from),
-            );
+            let content = note.content(&from, &permission_mode);
             lines.push(json!({
                 "msgV": 1, "msg_id": msg_id(note.id), "type": "user",
                 "message": { "role": "user", "content": content },
@@ -208,6 +248,73 @@ impl Launcher {
         }
         stream.write_all(&body).map_err(|_| Inbox::Missing)
     }
+}
+
+/// B5763c: read admitted content in transcript order, never Message allocation order.
+/// Native input and other peer origins do not change rupd's last admitted entry.
+pub fn previous(path: &Path, session: &str, sender: &str) -> std::io::Result<Option<String>> {
+    #[derive(serde::Deserialize)]
+    struct Origin {
+        kind: String,
+        from: String,
+    }
+    #[derive(serde::Deserialize)]
+    struct Message {
+        content: serde_json::Value,
+    }
+    #[derive(serde::Deserialize)]
+    struct Attachment {
+        origin: Option<Origin>,
+        prompt: Option<String>,
+    }
+    #[derive(serde::Deserialize)]
+    struct Record {
+        #[serde(rename = "sessionId")]
+        session: Option<String>,
+        origin: Option<Origin>,
+        message: Option<Message>,
+        attachment: Option<Attachment>,
+    }
+    let file = match std::fs::File::open(path) {
+        Ok(file) => file,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(error) => return Err(error),
+    };
+    let mut reader = BufReader::new(file);
+    let mut line = String::new();
+    let mut last = None;
+    loop {
+        line.clear();
+        if reader.read_line(&mut line)? == 0 || !line.ends_with('\n') {
+            break;
+        }
+        let record: Record = serde_json::from_str(&line)
+            .map_err(|error| std::io::Error::new(std::io::ErrorKind::InvalidData, error))?;
+        if record.session.as_deref() != Some(session) {
+            continue;
+        }
+        let (origin, text) = match record.attachment {
+            Some(attachment) => (attachment.origin, attachment.prompt),
+            None => (
+                record.origin,
+                record
+                    .message
+                    .and_then(|message| message.content.as_str().map(str::to_owned)),
+            ),
+        };
+        if let (Some(origin), Some(text)) = (origin, text)
+            && origin.kind == "peer"
+            && origin.from == sender
+        {
+            let start = text.find("<cross-session-message ");
+            let end = text.rfind("</cross-session-message>");
+            last = start.zip(end).and_then(|(start, end)| {
+                text.get(start..end + "</cross-session-message>".len())
+                    .map(str::to_owned)
+            });
+        }
+    }
+    Ok(last)
 }
 
 /// The Message ids the transcript at `path` records as another session's message, from byte
@@ -611,382 +718,5 @@ impl Launcher {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::claude_code::toolcall::tests::measured;
-    use std::io::Cursor;
-
-    struct Counted<R> {
-        inner: R,
-        bytes: usize,
-        fail: Option<usize>,
-    }
-    impl<R: Read> Read for Counted<R> {
-        fn read(&mut self, out: &mut [u8]) -> std::io::Result<usize> {
-            if self.fail.is_some_and(|limit| self.bytes >= limit) {
-                return Err(std::io::Error::other("injected read"));
-            }
-            let max = self
-                .fail
-                .map_or(out.len(), |limit| out.len().min(limit - self.bytes));
-            let n = self.inner.read(&mut out[..max])?;
-            self.bytes += n;
-            Ok(n)
-        }
-    }
-    impl<R: Seek> Seek for Counted<R> {
-        fn seek(&mut self, pos: SeekFrom) -> std::io::Result<u64> {
-            self.inner.seek(pos)
-        }
-    }
-    fn line(id: u32) -> String {
-        format!(
-            "{{\"origin\":{{\"kind\":\"peer\",\"msg_id\":\"00000000-0000-4000-8000-{id:012x}\"}}}}\n"
-        )
-    }
-
-    #[test]
-    fn b5718a_oversized_complete_records_keep_receipts_with_bounded_allocations() {
-        let peer = line(7);
-        let peer = peer
-            .trim()
-            .strip_prefix('{')
-            .unwrap()
-            .strip_suffix('}')
-            .unwrap();
-        let attachment = format!("\"attachment\":{{{peer}}}");
-        let mut cases = vec![
-            (format!("{{\"before\":\"$\",{peer},\"after\":\"$\"}}\n"), vec![7]),
-            (format!("{{\"attachment\":{{\"before\":\"$\",{peer},\"after\":\"$\"}}}}\n"), vec![7]),
-            (format!("{{\"origin\":{{\"kind\":\"local\"}},{attachment},\"unused\":\"$\"}}\n"), vec![]),
-            (format!("{{{peer},{},\"unused\":\"$\"}}\n", attachment.replace("000007", "00000b")), vec![7]),
-            (format!("{{\"origin\":null,{attachment},\"unused\":\"$\"}}\n"), vec![7]),
-            (format!("{{{peer},\"unused\":\"$\",!}}\n{}", line(11)), vec![11]),
-            ("{\"unused\":\"$\\\"origin\\\":{\\\"kind\\\":\\\"peer\\\",\\\"msg_id\\\":\\\"00000000-0000-4000-8000-000000000007\\\"}\"}\n".into(), vec![]),
-        ];
-        let mut escaped_cases = vec![(cases.last().unwrap().0.clone(), vec![])];
-        for invalid in ["\\q", "\\uD800", "\\uDC00", "\t"] {
-            cases.push((
-                format!("{{{peer},\"unused\":\"${invalid}\"}}\n{}", line(11)),
-                vec![11],
-            ));
-        }
-        cases.push((
-            format!("{{{peer},\"unused\":\"$é🦀\\uD83D\\uDE00\"}}\n"),
-            vec![7],
-        ));
-        for nested in [false, true] {
-            for before in [false, true] {
-                let fields = peer
-                    .strip_prefix("\"origin\":{")
-                    .unwrap()
-                    .strip_suffix('}')
-                    .unwrap();
-                let origin = if before {
-                    format!("\"origin\":{{\"unused\":\"$\",{fields}}}")
-                } else {
-                    format!("\"origin\":{{{fields},\"unused\":\"$\"}}")
-                };
-                cases.push((
-                    if nested {
-                        format!("{{\"attachment\":{{{origin}}}}}\n")
-                    } else {
-                        format!("{{{origin}}}\n")
-                    },
-                    vec![7],
-                ));
-            }
-        }
-        for (field, escaped) in [
-            ("\"unused\":\"$\"", true),
-            ("\"$\":null", false),
-            ("\"unused\":{\"array\":[{\"text\":\"$\"}]}", false),
-        ] {
-            for before in [false, true] {
-                let template = if before {
-                    format!("{{{field},{peer}}}\n")
-                } else {
-                    format!("{{{peer},{field}}}\n")
-                };
-                if escaped {
-                    escaped_cases.push((template.clone(), vec![7]));
-                }
-                cases.push((template, vec![7]));
-            }
-        }
-        let mut maximum = 0;
-        for size in [1, 16, 64] {
-            for escaped in [false, true] {
-                let large = if escaped {
-                    let pattern = format!("\\\\\\u0061{}", "x".repeat(56));
-                    pattern.repeat(size * 1024 * 1024 / 64)
-                } else {
-                    "x".repeat(size * 1024 * 1024)
-                };
-                let mut transcript = tempfile::NamedTempFile::new().unwrap();
-                for (template, want) in if escaped { &escaped_cases } else { &cases } {
-                    // B5718a took 7.059 s in CI. Reuse the file and write template
-                    // parts directly so fixture copies don't consume the test budget.
-                    let file = transcript.as_file_mut();
-                    file.rewind().unwrap();
-                    let mut parts = template.split('$');
-                    file.write_all(parts.next().unwrap().as_bytes()).unwrap();
-                    for part in parts {
-                        file.write_all(large.as_bytes()).unwrap();
-                        file.write_all(part.as_bytes()).unwrap();
-                    }
-                    let end = file.stream_position().unwrap();
-                    file.set_len(end).unwrap();
-                    let (result, allocated) = measured(|| recorded(transcript.path(), 0));
-                    assert_eq!(result, (want.clone(), end), "{template}");
-                    assert!(
-                        allocated <= 256 * 1024,
-                        "{size} MiB escaped={escaped}: {allocated} bytes, {template}"
-                    );
-                    maximum = maximum.max(allocated);
-                }
-            }
-        }
-        eprintln!("B5718a maximum allocated per scan: {maximum} bytes");
-    }
-
-    #[test]
-    fn b5718b_unfinished_records_complete_without_unbounded_allocations() {
-        let mut maximum = 0;
-        for size in [1, 16, 64] {
-            let large = "x".repeat(size * 1024 * 1024);
-            for before in [false, true] {
-                for inside_string in [false, true] {
-                    let peer = line(7);
-                    let peer = peer
-                        .trim()
-                        .strip_prefix('{')
-                        .unwrap()
-                        .strip_suffix('}')
-                        .unwrap();
-                    let prefix = line(3);
-                    let tail = if before {
-                        format!("{{{peer},\"unused\":\"{large}")
-                    } else {
-                        format!("{{\"unused\":\"{large}")
-                    };
-                    let suffix = if before {
-                        "\"}".to_owned()
-                    } else {
-                        format!("\",{peer}}}")
-                    };
-                    let fixture = if inside_string {
-                        format!("{prefix}{tail}")
-                    } else {
-                        format!("{prefix}{tail}{suffix}")
-                    };
-                    let transcript = tempfile::NamedTempFile::new().unwrap();
-                    std::fs::write(transcript.path(), fixture).unwrap();
-                    let mut cursor = 0;
-                    for scan in 0..3 {
-                        let (result, allocated) = measured(|| recorded(transcript.path(), cursor));
-                        assert_eq!(
-                            result,
-                            (
-                                if scan == 0 { vec![3] } else { vec![] },
-                                prefix.len() as u64
-                            )
-                        );
-                        assert!(allocated <= 256 * 1024, "{size} MiB: {allocated} bytes");
-                        maximum = maximum.max(allocated);
-                        cursor = result.1;
-                    }
-                    let mut counted = Counted {
-                        inner: std::fs::File::open(transcript.path()).unwrap(),
-                        bytes: 0,
-                        fail: None,
-                    };
-                    let tail_bytes = transcript.as_file().metadata().unwrap().len() - cursor;
-                    assert_eq!(recorded_from(&mut counted, cursor), (vec![], cursor));
-                    assert_eq!(counted.bytes as u64, tail_bytes);
-                    let finish = if inside_string {
-                        format!("{suffix}\n")
-                    } else {
-                        "\n".into()
-                    };
-                    std::fs::OpenOptions::new()
-                        .append(true)
-                        .open(transcript.path())
-                        .unwrap()
-                        .write_all(finish.as_bytes())
-                        .unwrap();
-                    let end = transcript.as_file().metadata().unwrap().len();
-                    let (result, allocated) = measured(|| recorded(transcript.path(), cursor));
-                    assert_eq!(result, (vec![7], end));
-                    assert!(allocated <= 256 * 1024, "completion: {allocated} bytes");
-                    maximum = maximum.max(allocated);
-                    counted.bytes = 0;
-                    assert_eq!(recorded_from(&mut counted, end), (vec![], end));
-                    assert_eq!(counted.bytes, 0);
-                }
-            }
-        }
-        eprintln!("B5718b maximum allocated per scan: {maximum} bytes");
-    }
-
-    #[test]
-    fn b5718b_malformed_unfinished_records_rescan_with_bounded_allocations() {
-        let prefix = line(3);
-        let peer = line(7);
-        for size in [1, 16, 64] {
-            let large = "x".repeat(size * 1024 * 1024);
-            for (tail, completion) in [("\\q", "\"}"), ("\"}\"", "")] {
-                let fixture = format!(
-                    "{prefix}{{{},\"unused\":\"{large}{tail}",
-                    peer.trim()
-                        .strip_prefix('{')
-                        .unwrap()
-                        .strip_suffix('}')
-                        .unwrap()
-                );
-                let transcript = tempfile::NamedTempFile::new().unwrap();
-                std::fs::write(transcript.path(), fixture).unwrap();
-                let mut cursor = 0;
-                for scan in 0..3 {
-                    let (result, allocated) = measured(|| recorded(transcript.path(), cursor));
-                    assert_eq!(
-                        result,
-                        (
-                            if scan == 0 { vec![3] } else { vec![] },
-                            prefix.len() as u64
-                        ),
-                        "malformed unfinished string, {size} MiB, scan {scan}"
-                    );
-                    assert!(
-                        allocated <= 256 * 1024,
-                        "malformed unfinished string, {size} MiB, scan {scan}: {allocated} bytes, bound 256 KiB"
-                    );
-                    cursor = result.1;
-                }
-                let finish = format!("{completion}\n{}", line(11));
-                std::fs::OpenOptions::new()
-                    .append(true)
-                    .open(transcript.path())
-                    .unwrap()
-                    .write_all(finish.as_bytes())
-                    .unwrap();
-                let end = transcript.as_file().metadata().unwrap().len();
-                let (result, allocated) = measured(|| recorded(transcript.path(), cursor));
-                assert_eq!(result, (vec![11], end), "malformed recovery, {size} MiB");
-                assert!(
-                    allocated <= 256 * 1024,
-                    "malformed recovery, {size} MiB: {allocated} bytes, bound 256 KiB"
-                );
-            }
-        }
-    }
-
-    #[test]
-    fn b5635a_receipt_reads_only_appended_bytes() {
-        let record = format!(
-            "{{\"unused\":\"{}\",\"nested\":{{\"array\":[1,2,3]}}}}\n",
-            "x".repeat(900)
-        );
-        let fixture = record.repeat((30 * 1024 * 1024) / record.len() + 1);
-        let transcript = tempfile::NamedTempFile::new().unwrap();
-        std::fs::write(transcript.path(), fixture).unwrap();
-        let mut file = Counted {
-            inner: std::fs::File::open(transcript.path()).unwrap(),
-            bytes: 0,
-            fail: None,
-        };
-        let ((ids, mut offset), allocated) = measured(|| recorded_from(&mut file, 0));
-        assert!(ids.is_empty());
-        assert!(
-            allocated <= 256 * 1024,
-            "initial scan {allocated} bytes, bound 256 KiB"
-        );
-        file.bytes = 0;
-        let (_, allocated) = measured(|| recorded_from(&mut file, offset));
-        assert_eq!(file.bytes, 0);
-        assert!(
-            allocated <= 64 * 1024,
-            "unchanged scan {allocated} bytes, bound 64 KiB"
-        );
-        let mut appended = 0;
-        for id in 1..=100 {
-            let line = line(id);
-            appended += line.len();
-            std::fs::OpenOptions::new()
-                .append(true)
-                .open(transcript.path())
-                .unwrap()
-                .write_all(line.as_bytes())
-                .unwrap();
-            let (ids, next) = recorded_from(&mut file, offset);
-            assert_eq!(ids, [id]);
-            assert_eq!(next - offset, line.len() as u64);
-            offset = next;
-        }
-        assert_eq!(file.bytes, appended);
-    }
-
-    #[test]
-    fn b5635a_receipt_fields_and_cursor_failures() {
-        for (prefix, want) in [
-            ("null", vec![7]),
-            ("{}", vec![]),
-            ("{\"kind\":\"local\"}", vec![]),
-        ] {
-            let nested = line(7);
-            let record = format!("{{\"origin\":{prefix},\"attachment\":{}}}\n", nested.trim());
-            assert_eq!(recorded_from(Cursor::new(record.as_bytes()), 0).0, want);
-        }
-        for record in [
-            "bad\n",
-            "{}\n",
-            "{\"origin\":{\"kind\":\"peer\",\"msg_id\":\"foreign\"}}\n",
-        ] {
-            assert_eq!(
-                recorded_from(Cursor::new(record), 0),
-                (vec![], record.len() as u64)
-            );
-        }
-        let mut bytes = line(9).into_bytes();
-        let complete = bytes.len() as u64;
-        bytes.extend_from_slice(b"\xf0\x9f");
-        assert_eq!(recorded_from(Cursor::new(&bytes), 0), (vec![9], complete));
-        assert_eq!(recorded_from(Cursor::new(b"{}\n"), 99), (vec![], 3));
-        let bytes = line(9) + &line(10);
-        let mut file = Counted {
-            inner: Cursor::new(bytes),
-            bytes: 0,
-            fail: Some(complete as usize),
-        };
-        assert_eq!(recorded_from(&mut file, 0), (vec![], 0));
-        let prefix = line(3);
-        let oversized = prefix.clone()
-            + &line(7)
-            + &format!("{{\"unused\":\"{}\"}}\n", "x".repeat(1024 * 1024));
-        let mut file = Counted {
-            inner: Cursor::new(oversized),
-            bytes: 0,
-            fail: Some(16 * 1024),
-        };
-        assert_eq!(
-            recorded_from(&mut file, prefix.len() as u64),
-            (vec![], prefix.len() as u64)
-        );
-        struct FailedSeek;
-        impl Read for FailedSeek {
-            fn read(&mut self, _: &mut [u8]) -> std::io::Result<usize> {
-                unreachable!()
-            }
-        }
-        impl Seek for FailedSeek {
-            fn seek(&mut self, _: SeekFrom) -> std::io::Result<u64> {
-                Err(std::io::Error::other("seek"))
-            }
-        }
-        assert_eq!(recorded_from(FailedSeek, 17), (vec![], 17));
-        assert_eq!(
-            recorded(Path::new("/absent/receipt.jsonl"), 17),
-            (vec![], 17)
-        );
-    }
-}
+#[path = "inbox_tests.rs"]
+mod tests;

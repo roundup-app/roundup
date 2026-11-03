@@ -20,6 +20,7 @@ export function captureDir(id: string): string | null {
 // Named observers, including ids passed through capture helpers. Vitest owns discovery
 // and scheduling; this table only names the existing observer files.
 const observerTable = {
+  "src/rail/u5531_capture.test.ts": ["U5531b", "U5531c"],
   "src/rail/u5690c_capture.test.ts": ["U5690c"],
   "src/app/u5502_rendered.test.ts": ["U5502"],
   "src/pads/u5561a_browser.test.ts": ["U5561a", "U5561b", "U5575a", "U5704a"],
@@ -60,7 +61,7 @@ const observerTable = {
   "src/keys/u4692_attention.test.tsx": ["U4692", "U4692a"],
   "src/keys/u4690_browser.test.ts": ["U4690", "U4690a", "U4690b", "U4690c", "U4690d", "U4690e"],
   "src/orders/u3078i_rendered.test.ts": ["P3557c", "U3078i", "U3791b", "U4453b"],
-  "src/pads/u4698b_browser.test.ts": ["U4698b", "U5574a", "U5574b", "U5705"],
+  "src/pads/u4698b_browser.test.ts": ["U4698b", "U5560a", "U5574a", "U5574b", "U5705"],
   "src/pads/p2544a_browser.test.ts": ["U3021c", "U5559a", "U5559b"],
   "src/pads/u3732_real_daemon_agent_owner.test.tsx": ["U3736"],
   "src/rail/menu/u3787a_browser.test.ts": ["U3787a", "U150", "U459", "U460", "U486", "U3512a"],
@@ -75,12 +76,12 @@ const observerTable = {
   "src/rail/u4896_capture.test.ts": { ids: ["U4896", "U4898", "U447"], aliases: { U447: "U4898" } },
   "src/rail/u522_browser.test.ts": ["U522"],
   "src/rail/u520_tree_walk.test.ts": ["U5483a", "U5483b", "U5483c", "U5645a", "U5645b", "U5645c"],
-  "src/reactions/nr9_rendered.test.ts": ["U5558a", "U5558b", "U5558c", "U5558d", "U5558e","NR9", "P3557c", "U3787c", "U3791b", "U4276a", "U4276b", "U4276c"],
+  "src/reactions/nr9_rendered.test.ts": ["U5742c", "U5558a", "U5558b", "U5558c", "U5558d", "U5558e","NR9", "P3557c", "U3787c", "U3791b", "U4276a", "U4276b", "U4276c"],
   "src/settings/u3799_app_settings.test.tsx": ["U3813", "U3814", "U3815"],
   "src/settings/u3799_rendered.test.ts": ["U3799", "U3805", "U4277c"],
   "src/settings/u4687_capture.test.ts": ["U4687a"],
   "src/settings/u4688_rendered.test.ts": ["U4688a", "U4688b"],
-  "src/settings/u4277_rendered.test.ts": ["U4277a", "U4277b", "U4277c"],
+  "src/settings/u4277_rendered.test.ts": ["U4277a", "U4277b", "U4277c", "U5560b"],
   "src/shelf/u371_reserved_modes.test.ts": ["U2892"],
   "src/shelf/u3787c_browser.test.ts": ["U3787c"],
   "src/shelf/u3789_browser.test.ts": { ids: ["U3800a", "U4908", "U4708", "U4709a", "U4709b", "U4709c"], aliases: {} },

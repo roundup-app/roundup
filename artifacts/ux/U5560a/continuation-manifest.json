@@ -1,0 +1,86 @@
+{
+  "scenario": "U5560a",
+  "date": "2026-11-02",
+  "baseApp": "138e421008cfa38c7802238f8230cf1c885a7353",
+  "headApp": "92e1d60b4e01c1bcb2cf4e9887e4180e14ab755a",
+  "observerCommit": "92e1d60b4e01c1bcb2cf4e9887e4180e14ab755a",
+  "observerFile": "apps/desktop/src/pads/u4698b_browser.test.ts",
+  "observerSha256": "e8d827b94af9a668ecf2f4fc900520be0b1f4cf8d7ea3450ec80199358d9fd98",
+  "sameObserverOnBothApps": true,
+  "renderer": "isolated headless Chromium 156.0.8078.80",
+  "scheme": "dark",
+  "viewports": [
+    [
+      1512,
+      950
+    ],
+    [
+      1280,
+      820
+    ]
+  ],
+  "fixtures": [
+    "tree-40"
+  ],
+  "pairedDirectories": [
+    "base",
+    "head"
+  ],
+  "earlierEvidence": "manifest.json",
+  "baseObserverCommit": "92e1d60b4e01c1bcb2cf4e9887e4180e14ab755a",
+  "validation": "All changed behavior files pass: 226 focused tests, one inherited skip, no retry in final passing results. All 52 head screens pass D2/D5/D6; no paired Check regression. just ready passed 193 lint fixtures and web/type/copy checks; Rust Clippy is compiling, with no passing result claimed. Required CI judges the push.",
+  "pairedScreens": 38,
+  "headOnlyScreens": [
+    "keyboard-1280",
+    "keyboard-1512"
+  ],
+  "failedCommands": [
+    {
+      "command": "pnpm install --frozen-lockfile (cold temporary install)",
+      "exit": 130,
+      "failure": "Interrupted to reuse stable disk dependencies; subsequent frozen installation passed."
+    },
+    {
+      "command": "just ready (first attempt)",
+      "exit": 130,
+      "failure": "Interrupted to remove contention with browser captures; final run recorded below."
+    },
+    {
+      "command": "vitest run (initial six changed files)",
+      "exit": 130,
+      "failure": "Interrupted to remove contention; subsequent serial run verified each file."
+    },
+    {
+      "command": "just capture U5560a,U5560b (head)",
+      "exit": 143,
+      "failure": "SIGTERM after both Pad tests passed; standalone Settings passed; standalone Pad rerun recorded below."
+    },
+    {
+      "command": "vitest run (ten focused files); preferences-only rerun; preview-only diagnostic rerun",
+      "exit": 1,
+      "failure": "Vite denied OverlayScrollbars CSS outside the temporary worktree through symlinked dependencies. Original-checkout preferences and Drawer files passed all 32 tests."
+    },
+    {
+      "command": "app-mode taste lint including test sources",
+      "exit": 1,
+      "failure": "Fixture-only example URLs and emoji; all changed product sources pass app-mode lint, with inherited code-font and Token-shadow warnings."
+    },
+    {
+      "command": "delta on all Pad screens",
+      "exit": 2,
+      "failure": "Two new keyboard screens have no main equivalent. The 38 common pairs pass delta; both head-only screens pass D2/D5/D6."
+    },
+    {
+      "command": "just capture U5560a (redundant final rerun)",
+      "exit": 130,
+      "failure": "Interrupted before the run deadline; retained complete earlier Pad observation (both viewport tests passed) and standalone Settings result instead of partial new media."
+    }
+  ],
+  "focusedTests": {
+    "passed": 226,
+    "skipped": 1,
+    "newCases": 19,
+    "slowestNewCaseMs": 1094,
+    "retriesInFinalResults": 0
+  }
+}

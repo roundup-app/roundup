@@ -413,6 +413,41 @@ impl Store {
             .map_err(RpcError::internal)
     }
 
+    /// B5763b: only a successful write establishes comparison history for this session.
+    pub(crate) fn last_inbox(
+        &self,
+        receiver: &str,
+        session: &str,
+    ) -> Result<Option<String>, RpcError> {
+        self.db
+            .query_row(
+                "SELECT content FROM message_inbox_last WHERE receiver=? AND session=?",
+                params![receiver, session],
+                |r| r.get(0),
+            )
+            .optional()
+            .map_err(RpcError::internal)
+    }
+
+    pub(crate) fn record_inbox(
+        &self,
+        receiver: &str,
+        session: &str,
+        content: &str,
+    ) -> Result<(), RpcError> {
+        self.db.execute("INSERT INTO message_inbox_last(receiver,session,content) VALUES(?,?,?) ON CONFLICT(receiver,session) DO UPDATE SET content=excluded.content", params![receiver,session,content]).map_err(RpcError::internal)?;
+        Ok(())
+    }
+
+    /// A repeat is an explicit delivery outcome, never a fabricated transcript receipt.
+    pub(crate) fn deliver_repeat(&mut self, id: u32) -> Result<Option<Message>, RpcError> {
+        self.atomically(|store| {
+            let changed = store.db.execute("UPDATE messages SET status='delivered',reason=? WHERE id=? AND status='pending'", params![text_of(Reason::InboxRepeat),id]).map_err(RpcError::internal)?;
+            store.clear_flight(id)?;
+            if changed == 0 { Ok(None) } else { store.get(id) }
+        })
+    }
+
     /// B39: saves the in-flight record of `id` (prompt `prompt`), only if it is still `pending`
     /// (B2's one conditional write). `None` when it was not `pending` any more.
     pub(crate) fn record_flight(&self, id: u32, prompt: u32) -> Result<Option<Message>, RpcError> {

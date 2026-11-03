@@ -92,3 +92,63 @@ These discovery/observer failures were repaired without changing product behavio
 The Project rename input omits its type attribute. `testing/checks.ts::d6` tests the explicit type attribute instead of the browser's effective text type and demands button hover/cursor behavior. [#5786](https://github.com/roundup-app/roundup/issues/5786) owns this observer repair under U133. The audit does not change that observer or add button styling to a text field.
 
 No owner choice has been requested. The remaining work is the full App/local-library key reconciliation, per-row three-criterion assessment and linked owner direction. This evidence slice keeps #5758 open; it is not retirement permission or complete U5741 acceptance.
+
+## Keyboard evidence continuation — builder-41540564606
+
+The source observer stays pinned to main `092fcafbf910f292d7180c97d35bd381aff984b3`; the documentary continuation branches from `d1c8a3cc90ab96eab7c57d3c300c5bddd97570e3`. The two checkouts are separate worktrees. No current-main product source is substituted into the old audit. No product, scenario, Principle, contract or frozen-loop file changes.
+
+`pnpm install --frozen-lockfile` passed in both worktrees (exit 0). The keyboard census retains 67 production files / 146 matching sites, 21 locked-library files and 60 actual named-action rows. The observer driver and reconciliation scripts are temporary audit tools, not product machinery or committed report-wording tests. `agent-browser skills get core` was read before browser commands. The headless session is `u5741-41540564606`, with a fresh test profile; only this run's isolated pages and fake Project were edited.
+
+Failed commands and observations are retained below, including discovery mistakes. A command chain's exit is the reported shell exit; no result following its failed `&&` was inferred. The rendered report retains individual failed browser commands too.
+
+| Command / observer | Exit / status | Failure and disposition |
+| --- | --- | --- |
+| Initial `pwd && git status --short && git rev-parse HEAD && test -d .codegraph && echo codegraph-present` | 1 | No `.codegraph` directory; normal source discovery used. |
+| `cat ... pads/PadRichEditor.tsx pads/editor.ts keys/Help.tsx` | 1 | Guessed editor.ts absent; actual implementation is PadRichEditor.tsx and its installed dependencies. |
+| `rg ... milkdown/preset-commonmark/src` before dependency installation | 2 | Package not installed yet. Installed the pinned lockfile, then read actual sources. |
+| `cat docs/audits/U5741/rendered-followup.json` in the older source worktree | 1 | Evidence was added after the audited product revision; read it from the continuation checkout instead. |
+| `cat apps/desktop/src/keys/menu.ts` | 1 | Guessed path absent; native projection is documented in native-menus.md and the actual App/native sources. |
+| GitHub connector `github_update_issue` (two attempts) | HTTP 403 | Integration cannot update Issues. `gh issue edit ... --body-file /tmp/u5741-issue-5758.md` succeeded after `python3 loop/orders.py check` exit 0. |
+| `sed ... keys/projectMenu.ts` | 2 | Guessed module absent; inspected the actual Strip, App and menu projection. |
+| `sed ... ui/RowCollection.tsx` | 2 | Actual module is RowCollection.ts; read before documenting inherited collection behavior. |
+| `just harness tree-40 5216` before installation finished | 1 | Vite executable unavailable during install. Restarted after installation; Vite served the pinned source. |
+| First `agent-browser wait .rail` | 1 | Timed out during initial dependency compilation/navigation. Reopened and waited for mounted App; no pass based on blank page. |
+| `rg ... apps/desktop/src/undo` | 2 | Guessed directory absent; actual focused history bindings are in App.tsx. |
+| `rg ... scenarios/ui-switcher*` | 2 | Guessed scenario glob absent; located acceptance through the real scenario file census. |
+| `rg ... apps/desktop/src/terminal/key*` | 2 | Guessed module glob absent; actual editing-byte rules are in terminal/emulator.ts. |
+| `python3 /tmp/u5741-render-more-keys.py`, first attempt | 1 | `.rail-root` focus target absent. No Help capture accepted. |
+| Same driver, second attempt | 1 | `h1` focus target absent while Drawer was open. Used the actual Drawer Close control, then the ordinary Help key. |
+| Same driver, third attempt | 1 | Guessed `Find key` label absent. Inspected snapshot and used actual `Find a key`. Earlier independently captured surfaces retained only after dark-mode recapture. |
+| `python3 /tmp/u5741-render-recording.py` | 1 | Exact New Agent label locator failed after leaving find-key mode. No action-recording capture or successful recording claimed. |
+| `python3 /tmp/u5741-verify-report.py`, first attempt | 1 | Whole-report token count included prose references as well as action rows. Repaired observer to count table rows. |
+| Same verifier, second attempt | 1 | Browser evaluator returned nested serialized state. Parsed the state object before checking it. |
+| Same verifier, third attempt | 1 | Independent scheme assertion found initial images were light: `set media --color-scheme dark` was silently ineffective. Read CLI help; discarded those images/readings and recaptured using documented `set media dark`. |
+| `python3 /tmp/u5741-render-dark.py`, first attempt | 1 | Shelf toggle closed an already-open Shelf; tabs wait timed out. No dark pass accepted. |
+| Same dark driver, second attempt | 1 | Assumed `items=1` left Shelf open; Open pad-3 was unavailable. Inspected actual closed state, opened via real leader keys, then used mounted Shelf and visible Pad Open. |
+| Same dark driver, third attempt | 1 | Reclicked the active Pads tab and closed Shelf; no capture accepted. Subsequent driver checks actual Shelf/tab state before acting. |
+| Same dark driver, fourth attempt | 1 | Nested serialization hid the closed state from the conditional; timed out waiting for open Shelf. Read the raw attribute correctly and retried. |
+| `agent-browser snapshot -i -s .pads-tab` during that closed state | 1 | Selector absent because Shelf was closed; no Pad reachability inferred. |
+
+The single complete owner request, all three criteria per independent feature, configured-widget and source-only key probes, other App states and endpoint/direction assessments remain work on #5758. This slice requests no keep/delete choices and retires nothing. Older-Project reopening remains mandatory for each later owner-selected deletion.
+
+Final keyboard observer: seven openings at 1512×950 with actual dark media, each with every recorded D Check passing. The verifier requires exactly seven pages, maps all 60 action table names once, checks all 67 App and 21 library full-file hashes, and asserts dimensions, dark state, capture presence and no failing Check (exit 0). Source-only offers remain explicitly unverified. No behavior test was added: U5741 makes this documentary acceptance policy and prohibits report-wording tests.
+
+The dark driver also required distinguishing the already-selected Pads tab from an unopened tab: selecting the active tab closes the Shelf. Its final successful run reads that actual selected/open state before acting. Two shell-driver attempts exited 1 on the same unavailable Pad Open locator and one on the open-Shelf wait before those state/serialization repairs; the rendered report preserves the individual failures. Empty page collections are refused by the final seven-page verifier.
+
+The GitHub connector also refused `github_create_pull_request` with HTTP 403; `gh pr create --draft --body-file /tmp/u5741-pr-body-41540564606.md` succeeded, opening #5796. No automatic approval review rejected an action; these were API integration permissions. The Issue scope edit and draft PR used the already-authorized repository workflow.
+
+Final code-recipe checks: `just ready` passed (exit 0), including web lint/typecheck, Rust lint/proofs and N7's launch-site observer. `loop/rules.sh vocab`, `loop/rules.sh scenario-ids`, `loop/rules.sh merge-loss` and `git diff --check` passed (exit 0). No local `just check`, whole behavior suite or native Mac observer ran. The documentation-only diff adds no public function or behavior test. Final diff review checked source/registry ownership, duplication, placement and explicit limits; it corrected stale acceptance citations for Mode restart, owner assignment and Terminal text keys.
+
+## Required-check repair — builder-41546242110
+
+PR #5796's `pre` run [41543913546](https://github.com/roundup-app/roundup/actions/runs/41543913546) failed in Clippy: `crates/agents/src/lib.rs` defined the test global allocator twice (E0428 and “cannot define multiple global allocators”; recipe exit 101). The duplicate is inherited from main, also tracked by #5798. This continuation merges main `fc5d51ad8` cleanly and removes only the second declaration. The retained shared allocator, allocation observers and thresholds are unchanged. #5758's scope records the required-check repair; audit sources remain pinned to their original revision.
+
+| Command / observer | Exit | Result |
+| --- | ---: | --- |
+| `pnpm install --frozen-lockfile` | 0 | Installed the unchanged lockfile in the isolated continuation worktree. |
+| `cargo check -p agents --tests` | 0 | The formerly failing test target compiles with one global allocator. |
+| `cargo nextest run -p agents -E 'test(r5636e_nested_rail_allocated_bytes) \| test(r5636e_scan_allocated_bytes) \| test(b5635b_preview_allocations_stay_bounded)'` | 0 | All three existing allocation observers pass; no other behavior tests ran. |
+| `just ready` | 0 | Web lint/typecheck, workspace Clippy, Rust policy scans, `ALL PROOFS CHECK` and N7 launch-site observer pass. |
+| Vocabulary, scenario ids, merge-loss and whitespace checks | 0 | No vocabulary, scenario identity, main-only merge loss or whitespace violation. |
+
+No new test duplicates the compiler's global-allocator uniqueness check (rule 10). No UI behavior, scenario, contract or frozen-loop change was authored. Diff review confirmed the deletion preserves every allocator caller and introduces no new machinery.
