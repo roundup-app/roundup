@@ -18,7 +18,7 @@ fn statements(sql: &str) -> Vec<String> {
 fn rejected(sql: &str, existing: &HashSet<String>) -> Vec<String> {
     let table_of = |rest: &str| {
         rest.trim_start_matches("IF NOT EXISTS ")
-            .split(|c: char| c == ' ' || c == '(')
+            .split([' ', '('])
             .next()
             .unwrap_or("")
             .trim_matches(|c| c == '"' || c == '`' || c == '[' || c == ']')
@@ -101,7 +101,7 @@ fn mg1_the_changes_own_migrations_are_additive() {
             "migrations/project",
         ])
         .output();
-    let Ok(listed) = listed.map(|o| o).and_then(|o| {
+    let Ok(listed) = listed.and_then(|o| {
         if o.status.success() {
             Ok(o)
         } else {
