@@ -12,6 +12,16 @@ afterEach(cleanup);
 
 const empty = { attempt: "1", turn: "1", finished: "1", kind: "empty" as const };
 
+it("u5940a_settled_children_fold_without_final_text_protection", async () => {
+  await mountRail([workstream("stream"),
+    agent("done", "done", "Terminal closed", { parent: "stream" }),
+    agent("idle", "idle", "idle", { parent: "stream", status: { kind: "idle", label: "idle", since: NOW - 60_000, finished: "1" }, final_text: { ...empty, kind: "present" } }),
+    agent("busy", "working", "working", { parent: "stream" }),
+  ]);
+  await settled();
+  expect(rowNames()).toEqual(["stream", "busy"]);
+});
+
 it("u5483a_working_idle_five_minutes_then_working_returns", async () => {
   const child = agent("child", "working", "working", { parent: "stream", final_text: empty });
   const { app, rail, setNow } = await mountRail([workstream("stream"), child, agent("busy", "working", "working", { parent: "stream", order: 1 })]);
