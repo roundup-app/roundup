@@ -56,6 +56,64 @@ fn hex(bytes: &str) -> String {
 }
 
 #[tokio::test]
+async fn x17_an_owner_started_after_the_scheme_answers_at_once() {
+    let dir = tempfile::tempdir().unwrap();
+    let terminals = owner_terminals(&dir);
+    terminals.set_scheme(params(Scheme::Light)).await.unwrap();
+    let mut spawned = terminals
+        .spawn(sh(dir.path(), &script(r"\033[c\033]11;?\033\\")))
+        .await
+        .unwrap();
+    assert_eq!(
+        typed_back(&mut spawned).await,
+        hex("\x1b[?62;22c\x1b]11;rgb:ffff/ffff/ffff\x1b\\")
+    );
+}
+
+fn owner_terminals(dir: &tempfile::TempDir) -> terminal::Terminals {
+    let (terminals, _) = open(dir);
+    let helper = std::env::var_os("ROUNDUP_TEST_APP_BIN")
+        .map(|dir| std::path::PathBuf::from(dir).join("terminal-owner"))
+        .unwrap_or_else(|| env!("CARGO_BIN_EXE_terminal-owner").into());
+    terminals.with_terminal_owner(&helper)
+}
+
+#[tokio::test]
+async fn x17_a_reattached_owner_answers_in_the_daemons_scheme() {
+    for (scheme, background) in [
+        (Scheme::Light, "ffff/ffff/ffff"),
+        (Scheme::Dark, "1c1c/1c1c/1e1e"),
+    ] {
+        let dir = tempfile::tempdir().unwrap();
+        let original = owner_terminals(&dir);
+        let program = format!(
+            "stty raw -echo min 0 time 30; echo ready; dd bs=1 count=1 >/dev/null 2>&1; {}",
+            script(r"\033[c\033]11;?\033\\")
+        );
+        let mut spawned = original.spawn(sh(dir.path(), &program)).await.unwrap();
+        until_ready(&mut spawned).await;
+        let owner = original.terminal_owners().pop().unwrap();
+        drop(spawned);
+        drop(original);
+
+        let (terminals, _) = open(&dir);
+        terminals.set_scheme(params(Scheme::Light)).await.unwrap();
+        let mut spawned = terminals.reattach_owner(&owner).await.unwrap();
+        if scheme == Scheme::Dark {
+            terminals.set_scheme(params(scheme)).await.unwrap();
+        }
+        terminals
+            .write_completed(&spawned.id, vec![b'x'])
+            .await
+            .unwrap();
+        assert_eq!(
+            typed_back(&mut spawned).await,
+            hex(&format!("\x1b[?62;22c\x1b]11;rgb:{background}\x1b\\"))
+        );
+    }
+}
+
+#[tokio::test]
 async fn x17_a_colour_query_gets_one_reply_in_the_current_scheme() {
     let dir = tempfile::tempdir().unwrap();
     let (terminals, _) = open(&dir);
