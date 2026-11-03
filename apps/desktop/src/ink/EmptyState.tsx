@@ -30,9 +30,13 @@ export const EmptyState = (props: { art: keyof typeof scenes; title: string; lin
     const bounds = surface.getBoundingClientRect();
     const unit = parseFloat(getComputedStyle(box).getPropertyValue("--space-6"));
     const content = [...surface.querySelectorAll<HTMLElement>(".empty-state-content,h3,p,button,li,[role=alert]")];
-    const bottom = Math.max(...content.flatMap(el => { const rect = el.getBoundingClientRect();
 
- return rect.height > 0 ? [rect.bottom] : []; }));
+    const bottom = Math.max(...content.flatMap(el => {
+      const rect = el.getBoundingClientRect();
+
+      return rect.height > 0 ? [rect.bottom] : [];
+    }));
+
     const top = Math.max(bounds.top, bounds.bottom - unit * 10.5);
     setVisible(bounds.height >= unit * 26 && top >= bottom + unit
       && surface.querySelectorAll(".empty-state").length + Number(surface.matches(".empty-state")) === 1
@@ -51,7 +55,7 @@ export const EmptyState = (props: { art: keyof typeof scenes; title: string; lin
   });
 
   return <div ref={el => { box = el; }} class="empty-state" role="group" aria-labelledby={title}>
-    <Show when={visible()}><Portal mount={room()} ref={el => { el.classList.add("empty-state-ground"); el.setAttribute("aria-hidden", "true"); }}><svg viewBox="0 0 1024 768" aria-hidden="true"><use href={`${scenes[props.art]}#scene`} width="1024" height="768" /></svg></Portal></Show>
+    <Show when={visible()}><Portal mount={room()!} ref={el => { el.classList.add("empty-state-ground"); el.setAttribute("aria-hidden", "true"); }}><svg viewBox="0 0 1024 768" aria-hidden="true"><use href={`${scenes[props.art]}#scene`} width="1024" height="768" /></svg></Portal></Show>
     <div class="empty-state-content">
       <h3 id={title} class="empty-state-title">{props.title}</h3>
       <Show when={props.line}>{line => <p class="empty-state-line">{line()}</p>}</Show>
