@@ -607,10 +607,10 @@ async fn u5740c_current_project_drops_only_retired_tables() {
         WITH RECURSIVE numbers(id) AS (
             SELECT 2 UNION ALL SELECT id+1 FROM numbers WHERE id<1026
         ) INSERT INTO events(id,event)
-            SELECT id,'{"actor":{"kind":"ext","id":"rupd"},"name":"reaction.changed"}' FROM numbers;
+            SELECT id,'{"actor":{"kind":"user","id":"you"},"name":"reaction.changed"}' FROM numbers;
         INSERT INTO events(id,event) VALUES
             (1027,'{"actor":{"kind":"user","id":"you"},"name":"rail.changed"}'),
-            (1028,'{"actor":{"kind":"ext","id":"rupd"},"name":"reaction.changed"}');
+            (1028,'{"actor":{"kind":"user","id":"you"},"name":"reaction.changed"}');
     "#,
     )
     .unwrap();
