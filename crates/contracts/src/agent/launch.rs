@@ -122,6 +122,11 @@ pub struct ExtrasAddParams {
 /// A36: `rail.startDoor`, with the Door's own Model and Effort when the caller sets them.
 #[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 pub struct StartDoorParams {
+    /// A5765: exact first prompt for a fresh Door; omission retains the normal order.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[specta(optional, type = String)]
+    #[schemars(skip)]
+    pub prompt: Option<String>,
     /// U4590: initial PTY columns; absent keeps the hostless 80-column default.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[specta(optional, type = u16)]
