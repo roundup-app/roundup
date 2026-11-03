@@ -480,3 +480,67 @@ it.skipIf(!captureDir("U5558a"))("u5558e_open_surfaces_update_and_keep_failed_re
     } finally { await lane.close(); await server.close(); }
   }
 }, 90_000);
+
+
+it.skipIf(!captureDir("U5742c"))("u5742c_message_object_link_rendered", { timeout: 60_000, retry: 0 }, async () => {
+  const lane = await reactionBrowser();
+  const server = await appServer();
+  const dir = join(captureDir("U5742c")!, process.env.ROUNDUP_CAPTURE_PHASE ?? "head");
+  await mkdir(dir, { recursive: true });
+
+  const capture = async (step: string) => {
+    const checks: Checks = await lane.evaluate("window.__checks()");
+    await writeFile(join(dir, `${step}.checks.json`), JSON.stringify(checks));
+    await lane.browser("screenshot", join(dir, `${step}.png`));
+
+    for (const id of CHECK_IDS) expect(checks[id], `${step} ${id}`).toMatchObject({ status: "pass" });
+  };
+
+  try {
+    await lane.browser("set", "viewport", "1512", "950");
+    await lane.browser("set", "media", "dark");
+    await lane.browser("open", `${server.resolvedUrls.local[0]}harness.html?seed=tree-40`);
+    await lane.wait("!!window.__fake && !!document.querySelector('.project-tab[data-selected=true]')");
+    await lane.evaluate('localStorage.setItem("roundup:app-settings", JSON.stringify({mode:"dark"}))');
+    await lane.browser("reload");
+    await lane.wait("!!window.__fake && document.documentElement.dataset.mode === 'dark'");
+    await lane.evaluate(`(async () => {
+  localStorage.setItem('roundup:app-settings', JSON.stringify({mode:'dark'}));
+  const path = document.querySelector('.project-tab[data-selected=true]').dataset.path;
+  const app = window.__fake.app.of(path);
+  const nodes = await app.rpc('rail.tree', null);
+  const target = nodes.find(n => n.kind === 'agent' && n.terminal_id);
+  window.__objectTarget = target;
+  const r = {project:'p',reason:'Review the output',id:'r',name:'Review saved work',actor:{kind:'user',id:'you',parent:null},home:null,target:target.id,instruction:'Review changes',condition:{kind:'agents',ids:[target.id],any:false},max_firings:1,remaining:0,rearm:false,expires_at:'2099-01-01T09:00:00Z',created_at:'2026-11-01T09:00:00Z',state:'stopped',observation:{health:'observing',health_code:'observing',cause_code:'unknown',gap_code:'unknown',recovery_code:'unknown',cursor:null,gap:null,recovery:null,evidence:null},firings:[{id:'f',ordinal:1,message:42,matched:true,evidence:'finished',definition:'{}',outcome:'delivered'}]};
+  const url = 'roundup://agent/'+target.id+'?project=project-0000000000000000';
+  app.handlers['reaction.list']=()=>[r];
+  app.handlers['message.get']=()=>({id:42,from:r.actor,to:target.id,body:'Review '+url+' alongside https://example.com and src/a.ts:42.',kind:'note',replyTo:null,status:'delivered',reason:null,at:0});
+  app.handlers['link.read']=()=>({kind:'agent',id:target.id,node:target,digest:null});
+  window.dispatchEvent(new CustomEvent('open-project-page',{detail:{path,command:'view:reactions'}}));
+  window.__fake.emit({actor:r.actor,name:'reaction.changed'});
+  return target.id;
+})()`);
+    await lane.wait("!!document.querySelector('[data-reaction-opener=r]')");
+    await lane.browser("click", "[data-reaction-opener=r]");
+    await lane.wait("!!document.querySelector('[data-firing-message=\"42\"]')");
+    await lane.browser("click", "[data-firing-message=\"42\"]");
+    await lane.wait("!!document.querySelector('.reaction-instruction')");
+    await capture("message-link");
+
+    if (process.env.ROUNDUP_CAPTURE_PHASE === "base") return;
+    await lane.wait("!!document.querySelector('a[data-native-link]')");
+    await lane.evaluate(`(() => {
+      const path = document.querySelector('.project-tab[data-selected=true]').dataset.path;
+      const app = window.__fake.app.of(path);
+      window.__authorizedLink = app.handlers['link.read'];
+      app.handlers['link.read'] = () => { throw new Error('Object access was refused. Restore access to this Agent, then try the saved link again.'); };
+    })()`);
+    await lane.browser("click", "a[data-native-link]");
+    await lane.wait("!!document.querySelector('.centre-notice [role=alert]')");
+    await capture("link-refused");
+    await lane.evaluate(`window.__fake.app.of(document.querySelector('.project-tab[data-selected=true]').dataset.path).handlers['link.read'] = window.__authorizedLink`);
+    await lane.browser("click", "a[data-native-link]");
+    await lane.wait("!!document.activeElement.closest('.pane-screen')");
+    await capture("destination-focus");
+  } finally { await lane.close(); await server.close(); }
+});
