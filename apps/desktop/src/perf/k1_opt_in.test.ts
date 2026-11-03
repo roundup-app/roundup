@@ -6,7 +6,10 @@ const bundled = async (): Promise<string[]> => {
     root: ".",
     configFile: "vite.config.ts",
     logLevel: "silent",
-    build: { write: false },
+    // CI5527i: three full dependency bundles took 43,203 ms on web 4 (run 41575179006).
+    // Probe guards live in App modules: keep their production transforms and tree-shaking,
+    // but leave installed dependencies out of the chunks these assertions search.
+    build: { write: false, rolldownOptions: { external: [/\/node_modules\//] } },
   });
 
   const outputs = [built].flat();
