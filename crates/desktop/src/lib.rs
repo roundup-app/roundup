@@ -26,26 +26,26 @@ pub use state::{AppState, Listed, Project};
 use tauri::ipc::{Channel, InvokeResponseBody};
 use tauri::{AppHandle, Builder, Manager, RunEvent, Runtime, State};
 
-/// `exit` observes a refused start on runtimes that cannot exit. Native `run` uses the same
-/// builder with dialog feedback, deferring its exit until dismissal.
+/// Build with stderr feedback and an observable fatal exit. The native entry point additionally
+/// presents dialogs through `build_with_feedback`; mock runtimes never open OS dialogs here.
 pub fn build<R: Runtime>(
     builder: Builder<R>,
     config: Config,
     project_dir: Option<PathBuf>,
-    exit: impl Fn(&AppHandle<R>, i32) + Send + Sync + 'static,
+    exit: impl Fn(&AppHandle<R>, i32) + Send + 'static,
 ) -> Builder<R> {
-    build_reporting(builder, config, project_dir, move |app, _, fatal| {
-        if fatal {
-            exit(app, 1);
+    build_with_feedback(builder, config, project_dir, move |app, _, code| {
+        if let Some(code) = code {
+            exit(app, code);
         }
     })
 }
 
-fn build_reporting<R: Runtime>(
+fn build_with_feedback<R: Runtime>(
     builder: Builder<R>,
     config: Config,
     project_dir: Option<PathBuf>,
-    feedback: impl Fn(&AppHandle<R>, String, bool) + Send + Sync + 'static,
+    feedback: impl Fn(&AppHandle<R>, String, Option<i32>) + Send + 'static,
 ) -> Builder<R> {
     let builder = builder.manage(std::sync::Mutex::new(launch::Delivery::default()));
     #[cfg(target_os = "macos")]
@@ -72,7 +72,6 @@ fn build_reporting<R: Runtime>(
                 .build(),
         )
         .plugin(window::plugin())
-        .manage(diagnostics::Feedback(Box::new(feedback)))
         .manage(AppState::new(config))
         .manage(menu::Choice::default())
         .manage(menu::ProjectMenu::default())
@@ -91,26 +90,24 @@ fn build_reporting<R: Runtime>(
                 .path()
                 .app_data_dir()
                 .map_err(|error| {
-                    diagnostics::failure("locate App data folder", &error);
-                    RpcError::internal("App data folder unavailable")
+                    RpcError::internal({
+                        diagnostics::failure("locate App data folder", &error);
+                        "App data folder unavailable".to_owned()
+                    })
                 })
                 .and_then(|dir| state.use_data_dir(dir));
             if let Err(error) = initialized {
-                diagnostics::feedback(
-                    app.handle(),
-                    "refuse Project preferences",
-                    &error.message,
-                    true,
-                );
+                let message = diagnostics::report("refuse Project preferences", &error.message);
+                feedback(app.handle(), message, Some(1));
                 return Ok(());
             }
-            if let Err(error) = tauri::async_runtime::block_on(state.restore(app.handle())) {
-                diagnostics::feedback(
-                    app.handle(),
-                    "restore Project preferences",
-                    &error.message,
-                    true,
-                );
+            if let Err(error) = tauri::async_runtime::block_on(
+                state.restore_with_feedback(app.handle(), |message| {
+                    feedback(app.handle(), message, None)
+                }),
+            ) {
+                let message = diagnostics::report("restore Project preferences", &error.message);
+                feedback(app.handle(), message, Some(1));
                 return Ok(());
             }
             if let Some(ref project_dir) = project_dir
@@ -118,13 +115,9 @@ fn build_reporting<R: Runtime>(
                     tauri::async_runtime::block_on(state.open_project(app.handle(), project_dir))
             {
                 // An Err from setup makes Tauri panic (SIGABRT); a refused start is not a bug.
-                state.report_project_failure(
-                    app.handle(),
-                    "open startup Project",
-                    project_dir,
-                    &err,
-                    true,
-                );
+                let message =
+                    state.report_project_failure("open startup Project", project_dir, &err)?;
+                feedback(app.handle(), message, Some(1));
                 return Ok(());
             }
             if let Some(path) = project_dir {
@@ -193,16 +186,14 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
         std::env::var_os("ROUNDUP_DATA_DIR").as_deref(),
         std::env::var_os("ROUNDUP_IDLE_EVIDENCE_DIR").as_deref(),
     )
-    .inspect_err(|_| {
-        diagnostics::report(
-            "start idle observer",
-            "window permission or evidence folder unavailable",
-        )
+    .inspect_err(|cause| {
+        diagnostics::report("check idle performance profile", cause);
     })?;
-    let config =
-        Config::from_env().inspect_err(|error| diagnostics::report("configure App", error))?;
+    let config = Config::from_env().inspect_err(|cause| {
+        diagnostics::report("configure App", cause);
+    })?;
     let context = config.context().inspect_err(|error| {
-        diagnostics::report("create App context", &format!("IO {:?}", error.kind()))
+        diagnostics::report("resolve App context", &format!("IO {:?}", error.kind()));
     })?;
     let project_dir = std::env::args_os()
         .nth(1)
@@ -210,31 +201,17 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
         .map(std::path::absolute)
         .transpose()
         .inspect_err(|error| {
-            diagnostics::report(
-                "resolve startup Project argument",
-                &format!("IO {:?}", error.kind()),
-            )
+            diagnostics::report("resolve startup Project", &format!("IO {:?}", error.kind()));
         })?;
     let builder = tauri::Builder::default();
     #[cfg(target_os = "macos")]
     let builder = builder.plugin(tauri_plugin_single_instance::init(launch::second_launch));
     diagnostics::startup(
-        build_reporting(
+        build_with_feedback(
             builder.plugin(diagnostics::plugin()),
             config,
             project_dir,
-            |app, message, fatal| {
-                use tauri_plugin_dialog::DialogExt;
-                let refused = app.clone();
-                app.dialog()
-                    .message(message)
-                    .title("Cannot open roundup")
-                    .show(move |_| {
-                        if fatal {
-                            refused.exit(1);
-                        }
-                    });
-            },
+            diagnostics::message,
         )
         .build(context),
     )?

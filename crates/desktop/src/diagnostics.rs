@@ -16,31 +16,6 @@ pub(crate) fn plugin<R: Runtime>() -> TauriPlugin<R> {
         .build()
 }
 
-/// App-owned causes only; arbitrary foreign Display implementations are never passed here.
-pub(crate) fn report(operation: &str, cause: &str) {
-    use std::io::Write;
-    let mut stderr = std::io::stderr().lock();
-    // A closed stderr must not prevent the independent shell-log report.
-    let _ = writeln!(stderr, "{operation}: {cause}");
-    let _ = stderr.flush();
-    log::warn!(target: "roundup::shell", "{operation}: {cause}");
-    log::logger().flush();
-}
-
-type FeedbackHandler<R> = dyn Fn(&tauri::AppHandle<R>, String, bool) + Send + Sync;
-pub(crate) struct Feedback<R: Runtime>(pub Box<FeedbackHandler<R>>);
-
-pub(crate) fn feedback<R: Runtime>(
-    app: &tauri::AppHandle<R>,
-    operation: &str,
-    cause: &str,
-    fatal: bool,
-) {
-    use tauri::Manager;
-    report(operation, cause);
-    (app.state::<Feedback<R>>().0)(app, format!("{operation}: {cause}"), fatal);
-}
-
 /// Preserve the original error for the caller; only its typed cause reaches the sink.
 pub(crate) fn startup<T>(result: tauri::Result<T>) -> tauri::Result<T> {
     result.inspect_err(|error| failure("start shell", error))
@@ -77,6 +52,29 @@ pub(crate) fn failure(operation: &'static str, error: &tauri::Error) {
             report(operation, cause);
         }
     }
+}
+
+/// Only App-owned causes or the typed foreign causes above may enter this destination.
+pub(crate) fn report(operation: &str, cause: &str) -> String {
+    let message = format!("{operation}: {cause}");
+    eprintln!("{message}");
+    log::warn!(target: "roundup::shell", "{message}");
+    log::logger().flush();
+    message
+}
+
+pub(crate) fn message<R: Runtime>(app: &tauri::AppHandle<R>, message: String, code: Option<i32>) {
+    use tauri_plugin_dialog::DialogExt;
+    let app = app.clone();
+    app.clone()
+        .dialog()
+        .message(message)
+        .title("Cannot open roundup")
+        .show(move |_| {
+            if let Some(code) = code {
+                app.exit(code);
+            }
+        });
 }
 
 #[cfg(test)]
