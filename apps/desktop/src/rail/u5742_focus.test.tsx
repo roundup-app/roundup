@@ -139,6 +139,14 @@ it("u5742b_modifier_selection_and_arrows_keep_rail_focus", async () => {
   await provesChoice(m, "bea");
 });
 
+it("u5742c_group_child_choice_focuses_terminal", async () => {
+  const group = { ...workstream("group"), kind: "group" as const, status: null, work: null };
+  const m = await mount([group, agent("ann", "idle", "ready", { parent: "group" })]);
+  fireEvent.click(row("group"));
+  fireEvent.click(await screen.findByRole("button", { name: "ann" }));
+  await provesChoice(m, "ann");
+});
+
 it("u5742c_toast_choice_focuses_terminal", async () => {
   const m = await mount([agent("ann", "working", "busy", { alert_level: "all" })]);
   const { status } = await import("../toasts/toastFixture");
