@@ -18,13 +18,15 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Code term | User label | Avoid |
 |---|---|---|
 | Project | same | — |
+| Project start (`StartParams`, `StartKind`, `StartedRow`, `project.start`, `rpc_project_request`, `StartFailed`) | same | — |
 | Opened Project (`Opened`, `project.open`, `openRequested`) | same | — |
-| Project opening (`createProjectOpening`, `ProjectOpening`, `OpenRequest`, `Confirmation`) | Open Project | — |
+| Project opening (`createProjectOpening`, `ProjectOpening`, `ProjectRequest`, `Confirmation`) | Open Project | — |
 | App registration (`registration`, `action.closed`) | none | — |
 | Project name base (`base`, `ProjectsState.base`) | same | — |
 | Project data | same | — |
 | Engine (`engine`, `ModelList.engines`) | same | — |
 | Permission mode (`PermissionMode`, `permissionMode` on launch calls) | same | — |
+| Agent name (`agent_name`) | same | — |
 | Agent | same | bot, worker; and session for an Agent. |
 | Terminal | same | process, console |
 | Terminal preparation (`TerminalPreparation`, `prepareTerminal`, `prepare`, `bind`) | none | — |
@@ -67,11 +69,6 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Wake request (`agent.wake`) | same | — |
 | GitHub tool (`github.prGet`, `github.issueGet`, `github.prSetBody`, `github.prReady`, `github.prAutoMerge`; the Door's tools `github_pr_get`, `github_issue_get`, `github_pr_set_body`, `github_pr_ready`, `github_pr_auto_merge`) | same | — |
 | Quiet Digest (`is_quiet_digest`) | same | — |
-| Reaction (`reaction.create`, `.list`, `.get`, `.stop`, `.run`; authenticated maker in `actor`, required one-line `reason`) | Reaction | — |
-| Reaction observation identity (`ObservationCause`, `ObservationGap`, `ObservationRecovery`, `ObservationHealth`) | same | — |
-| Preview (`reaction.preview`) | Time preview | — |
-| Firing (a Reaction's `firings`) | same | — |
-| Observation (a Reaction's `observation`; `reaction_watch`, `project.db` migration 0010) | same | — |
 | Rewind (`workstream.rewind`, `RewindTurn`; the provider's own rewind, M5159b) | same | roll back |
 | Block | same | — |
 | Rollup | same | — |
@@ -224,7 +221,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Markdown | same | — |
 | Owner selector (`Owner`) | owner | — |
 | Actor | same | — |
-| Start attribution (`StartAttribution`, `start_attribution`) | started by | — |
+| Start attribution (`StartAttribution`, `start_attribution`, `touch_creation`) | started by | — |
 | Output stream (`Output`, `OutputStream`, `Terminals::subscribe_output`, `terminal.output`, `terminal.outputStop`, `OutputStarted`, `OutputEvent`, `OutputGap`, `terminal.gap`) | same | — |
 | Terminal scheme (`terminal.scheme`, `SchemeParams`, `Scheme`) | same | — |
 | RPC output intake (`Client::take_output`, `OutputFrame`) | same | — |
@@ -344,7 +341,6 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Placement call (`PlacementCall`, `Agents::placement_call`) | same | — |
 | Deliverable | Made | — |
 | Publication change (`DeliverableChanged`, `deliverable.changed`) | same | — |
-| Saved Reaction change (`ReactionChanged`, `reaction.changed`) | same | — |
 | Publication target (`PublicationTarget`) | same | — |
 | Published target (`PublishedTarget`, `ExternalAvailability`) | same | — |
 | Resolution (`Resolution`, `UnavailableCause`) | same | — |

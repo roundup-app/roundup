@@ -117,6 +117,14 @@ def running(pr):
             if check.get('workflowName') and check.get('status') != 'COMPLETED'}
 
 
+def reviewing():
+    """The branches with a review or critic run that has not ended. Those runs start from `pre` on `main`'s copy of their
+    workflow, so they show on no PR head and `running` misses them."""
+    runs = [run for status in ('queued', 'in_progress') for run in
+            gh('api', f'repos/{{owner}}/{{repo}}/actions/runs?event=workflow_run&status={status}&per_page=100')['workflow_runs']]
+    return {run['display_title'].split(' ', 1)[1] for run in runs if run['display_title'].startswith(('Review ', 'Critic '))}
+
+
 def touches_desktop(pr):
     """Whether PR `pr` changes a file under `apps/desktop/src/` (rule 8). Reads the PR's files list, which answers past
     the 300 files where GitHub refuses `gh pr diff`."""

@@ -26,7 +26,6 @@ Source: the owner studied Rex (Superlogical's Mac terminal multiplexer; https://
 
 **U5232k an alert sent while the prompt is open is not lost.** Given macOS has not yet allowed roundup's banners and the permission prompt is open and unanswered (U5232j), when a `stateAlert` with `alert` true runs, then it waits for the prompt's answer as U5232j says and never returns Ok without a banner: on allow, it raises its own banner once; on a refusal or the timeout, it returns that cause (U5232g). The same holds for the first call and for a second one during the wait: each raises one banner on allow, and none is dropped. `sound` alone still plays at once. Tests: `u5232k_an_alert_during_the_prompt_is_raised_on_allow`, `u5232k_an_alert_during_the_prompt_returns_the_refusal`, `u5232k_no_alert_returns_ok_without_a_banner`. Observer: `cargo nextest run -p desktop` against a fake notifier whose permission answer is held by the test.
 
-
 ## Per-Agent alert levels
 
 Acceptance for #5501. Journey: Understand and Intervene — silence chosen Agents, inspect what was held, and open the original requesting Terminal. This is a specification; its merge delivers no alert-level implementation. Existing U5232 behavior remains except for the explicit level overrides below. Implementation adds any new code names to `GLOSSARY.md` in its Contract PR; the labels here are App copy, not new RPC identifiers.
@@ -51,7 +50,7 @@ Policy: U5501 supersedes B3563f's literal `held` ban only for the held-alert sym
 
 - **Rendered observer.** Policy: use existing `ui/` primitives wrapping Ark UI for webview interactions, the existing native context-menu builder and Tokens only. Agent rows at non-Default show the secondary word `all` or `quiet`, alongside their existing Kind glyph; Default has no level word. A Workstream shows that word only when all its covered Agents agree on the same non-Default level; a mixed or empty Workstream shows no level word. The level is a setting, never a second Kind glyph. This explicitly adds the setting word to the normal resting-row budget while preserving quick-action reveal and current failure feedback. At 1512×950 in dark mode, inspect `tree-40` with mixed levels, long names, several held rows and a refused choice visible, plus `agents-10` with all Kinds. D2, D5 and D6 hold, and no Check passing on main regresses. Run `just capture U5501`; leave PNGs/videos under `artifacts/ux/U5501/`, never committed. The headless observer proves webview behavior and the native-menu model only; the user reports native appearance/banner/sound behavior on the Mac. No Mac observation is needed to merge this specification.
 
-Applicable Principle gates and observers (policy): P3 — only user-enabled state choices/levels interrupt, Quiet dispatches nothing, and a native request still opens its original Terminal; observe connected-App output counts and the real-Daemon continuation above. P1 — direct Agent access remains possible and neither choosing a level nor reading held rows writes a Message into a Terminal; observe navigation identities and zero delivery/input calls. No new editable surface, published deliverable or named reaction is introduced.
+Applicable Principle gates and observers (policy): P3 — only user-enabled state choices/levels interrupt, Quiet dispatches nothing, and a native request still opens its original Terminal; observe connected-App output counts and the real-Daemon continuation above. P1 — direct Agent access remains possible and neither choosing a level nor reading held rows writes a Message into a Terminal; observe navigation identities and zero delivery/input calls. No new editable surface or published deliverable is introduced.
 
 Checks (existing on `origin/main`; numbered references for implementation and review):
 
@@ -130,7 +129,6 @@ All entries cite existing main files and headings/functions/tests; proposed U550
 4. `apps/desktop/src/rail/DockBadge.tsx`, `DockBadge`; `apps/desktop/src/toasts/u5232_state_alerts.test.tsx`, `u5232c_load_repeat_and_idle_raise_nothing`: keep badge choices and banner/sound exclusions independent of the mark.
 5. `scenarios/deliverables.md`, DV1 and DV5; `crates/rupd/src/deliverables.rs`, `deliverable_call`: deliberate, committed, Project/maker-scoped publication remains the source; scratch edits, Messages and current Terminal text do not publish results.
 6. `docs/design-system.md`, “The checks”; `apps/desktop/src/testing/checks.ts`, `runChecks`; `.agents/data/journey.md`, “What must work” and “The viewport”: D2/D5/D6 and the Understand/Intervene/Review journey remain required. Native rendering is observed natively, never passed by a DOM check that cannot see it.
-
 
 ## Dock right-click list
 
