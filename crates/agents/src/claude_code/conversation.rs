@@ -472,6 +472,15 @@ mod tests {
 
     #[test]
     fn u3082d_io_errors_name_their_paths() {
+        let root = tempfile::tempdir().unwrap();
+        let launcher = Launcher::new(
+            "unused",
+            root.path().join("config.json"),
+            "unused".into(),
+            None,
+        );
+        let (_, ownership) = launcher.prepare_conversation(root.path(), b"{}\n").unwrap();
+        let copy = RetainedCopy::read(&ownership).unwrap();
         for operation in [
             "create directory",
             "create temporary file",
@@ -487,15 +496,6 @@ mod tests {
             "remove owner",
             "sync directory",
         ] {
-            let root = tempfile::tempdir().unwrap();
-            let launcher = Launcher::new(
-                "unused",
-                root.path().join("config.json"),
-                "unused".into(),
-                None,
-            );
-            let (_, ownership) = launcher.prepare_conversation(root.path(), b"{}\n").unwrap();
-            let copy = RetainedCopy::read(&ownership).unwrap();
             if operation.starts_with("read ") || operation.starts_with("remove ") {
                 launcher.write_conversation(&ownership).unwrap();
             }
@@ -537,6 +537,12 @@ mod tests {
                     error.message.contains(".tmp") && error.message.contains(".jsonl"),
                     "{error:?}"
                 );
+            }
+            // A partial write from this fault must not mask the next injected failure.
+            for path in [&copy.path, &copy.owner] {
+                if path.try_exists().unwrap() {
+                    std::fs::remove_file(path).unwrap();
+                }
             }
         }
     }

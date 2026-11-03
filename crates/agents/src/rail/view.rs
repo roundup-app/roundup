@@ -35,6 +35,7 @@ fn load_with<T>(
     let rows = query
         .query_map([], |row| {
             let kind = match row.get_ref(1)?.as_str()? {
+                "group" => NodeKind::Group,
                 "workstream" => NodeKind::Workstream,
                 _ => NodeKind::Agent,
             };
@@ -53,6 +54,7 @@ fn load_with<T>(
             let work = match kind {
                 NodeKind::Workstream => Some(stored.unwrap_or_else(workstream_order)),
                 NodeKind::Agent => stored,
+                NodeKind::Group => None,
             };
             let node = RailNode {
                 start_attribution: row
