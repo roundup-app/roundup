@@ -8,7 +8,7 @@ import { captureDir } from "../testing/captures";
 
 let lane: LaneBrowser;
 
-beforeAll(async () => { lane = await openLane(1512, "dark", "u5690c"); }, 60_000);
+beforeAll(async () => { lane = await openLane(1512, "dark", "u5690c", false, null); }, 60_000);
 
 afterAll(async () => { await lane?.close(); }, 60_000);
 
