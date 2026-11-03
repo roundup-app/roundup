@@ -409,6 +409,11 @@
   overflow: visible;
 }
 
+.pad-rich-editor .pad-syntax-keyword { color: var(--red); }
+.pad-rich-editor .pad-syntax-string { color: var(--accent); }
+.pad-rich-editor .pad-syntax-number { color: var(--pad-amber); }
+.pad-rich-editor .pad-syntax-comment { color: var(--grey); }
+
 .pad-rich-editor details[data-pad-agents] {
   margin-block: var(--space-4);
 }
@@ -479,3 +484,9 @@ details[data-pad-heading] summary:focus-visible,
 details[data-pad-agents] summary:focus-visible {
   color: var(--text);
 }
+
+.pad-format-controls { display: flex; align-items: center; gap: var(--space-1); flex-shrink: 0; order: 1; }
+.pad-format-controls .icon { fill: none; }
+
+.pad-colour-menu { transform-origin: var(--transform-origin); }
+.pad-colour-menu [data-part="item"] { display: flex; align-items: center; gap: var(--space-2); }
