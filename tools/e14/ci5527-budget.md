@@ -85,10 +85,22 @@ All seven downloaded `e14-web<N>-1` artifacts have `lane.json` with
 `test-web-since` with an empty base and their respective `--shard=<N>/7`.
 The run retains the hook-inclusive `web.json` reports and step logs.
 
-At 2026-11-03T16:06:04Z the overall run was still in progress, waiting on its
-Mac job. This is a complete web-step observation, **not yet a claim of the
-first green full check run**. Its target failure must remain recorded even if
-a later run succeeds. Read the aggregate conclusion before calling it green.
+The completed run's aggregate `check` failed after its Mac job was cancelled.
+It therefore cannot satisfy the first-green-full-run requirement. The seven
+successful web-step intervals above remain evidence of the missed target,
+even if a later run succeeds.
+
+## Evidence PR check failure
+
+On PR #5909 head `29c8e87231a584492f8a1fd9b1b06a90f77a0eb7`,
+[lint job 126038438623](https://github.com/roundup-app/roundup/actions/runs/41670836334/job/126038438623)
+was cancelled during `git fetch --no-tags --depth=200 origin
++refs/heads/main:refs/remotes/origin/main`. The step started at
+2026-11-03T16:07:17Z and ended at 2026-11-03T16:22:22Z with
+`The operation was canceled.` Setup and lint execution were skipped; `pre`
+then failed because its lint dependency was cancelled. This run supplies no
+lint result or new performance observation. Preserve the required gates and
+retry CI on the updated evidence head.
 
 ## Repair prerequisite
 
