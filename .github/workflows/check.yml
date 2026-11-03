@@ -157,6 +157,14 @@ jobs:
           fetch-depth: ${{ env.CI3781_CACHE != '' && '0' || '2' }}
           # Repeated experiment pushes retain their source tree despite unrelated main merges.
           ref: ${{ env.CI3781_CACHE != '' && github.event.pull_request.head.sha || '' }}
+      # Hosted runners set SHELL; the boxd runner starts with a filtered environment without it, so rupd's Terminal
+      # would start /bin/sh instead of the login shell a user's session names. Name it as a session does.
+      - name: Name the login shell
+        if: runner.environment == 'self-hosted'
+        run: |
+          shell=$(getent passwd "$(id -un)" | cut -d: -f7)
+          [ -x "$shell" ] || { echo "::error::no login shell for $(id -un): '$shell'"; exit 1; }
+          echo "SHELL=$shell" >>"$GITHUB_ENV"
       - name: E14 whole-runner memory observer
         run: |
           python3 -m pip install -r tools/e14/requirements.txt
@@ -387,6 +395,14 @@ jobs:
         with:
           clean: ${{ runner.environment != 'self-hosted' }}
           fetch-depth: 2
+      # Hosted runners set SHELL; the boxd runner starts with a filtered environment without it, so rupd's Terminal
+      # would start /bin/sh instead of the login shell a user's session names. Name it as a session does.
+      - name: Name the login shell
+        if: runner.environment == 'self-hosted'
+        run: |
+          shell=$(getent passwd "$(id -un)" | cut -d: -f7)
+          [ -x "$shell" ] || { echo "::error::no login shell for $(id -un): '$shell'"; exit 1; }
+          echo "SHELL=$shell" >>"$GITHUB_ENV"
       - name: E14 whole-runner memory observer
         run: |
           python3 -m pip install -r tools/e14/requirements.txt
