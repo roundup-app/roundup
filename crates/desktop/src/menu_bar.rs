@@ -40,12 +40,14 @@ pub(crate) struct Entry {
 pub(crate) struct Presentation {
     mark: Mark,
     entries: Vec<Entry>,
+    dock: Vec<Entry>,
 }
 
 /// Native ids retain original identities while labels change; removed actions disappear.
 pub(crate) struct MenuBar<R: Runtime> {
     dispatch: Mutex<Dispatch>,
     ages: Mutex<Vec<(MenuItem<R>, String, i64)>>,
+    dock: Mutex<Vec<Entry>>,
 }
 
 impl<R: Runtime> Default for MenuBar<R> {
@@ -53,6 +55,7 @@ impl<R: Runtime> Default for MenuBar<R> {
         Self {
             dispatch: Mutex::new(Dispatch::default()),
             ages: Mutex::new(Vec::new()),
+            dock: Mutex::new(Vec::new()),
         }
     }
 }
@@ -146,10 +149,14 @@ fn chosen<R: Runtime>(app: &AppHandle<R>, id: &str) {
         .lock()
         .expect("menu-bar lock")
         .chosen(id, |action| {
-            if let Err(error) = app.emit("menu-bar-action", action) {
-                crate::diagnostics::failure("open menu-bar selection", &error);
-            }
+            deliver(app, action);
         });
+}
+
+fn deliver<R: Runtime>(app: &AppHandle<R>, action: &Action) {
+    if let Err(error) = app.emit("menu-bar-action", action) {
+        crate::diagnostics::failure("open native menu selection", &error);
+    }
 }
 
 #[tauri::command]
@@ -210,7 +217,75 @@ pub(crate) fn set_menu_bar<R: Runtime>(
     }
     *holder.ages.lock().expect("menu-bar age lock") = ages;
     *dispatch = next;
+    drop(dispatch);
+    *holder.dock.lock().expect("Dock presentation lock") = menu.dock;
+    #[cfg(target_os = "macos")]
+    install_dock(&app)?;
     Ok(())
+}
+
+// AppKit and Muda require main-thread ownership; no native pointer leaves this thread.
+#[cfg(target_os = "macos")]
+thread_local! {
+    static DOCK: std::cell::RefCell<Option<native::DockMenu>> = const { std::cell::RefCell::new(None) };
+}
+
+#[cfg(target_os = "macos")]
+fn install_dock<R: Runtime>(app: &AppHandle<R>) -> Result<(), RpcError> {
+    DOCK.with_borrow_mut(|owner| {
+        if owner.is_some() {
+            return Ok(());
+        }
+        let refresh = app.clone();
+        let failure = app.clone();
+        *owner = Some(
+            native::DockMenu::install(
+                move || {
+                    refresh
+                        .state::<MenuBar<R>>()
+                        .dock
+                        .lock()
+                        .expect("Dock presentation lock")
+                        .iter()
+                        .map(|entry| {
+                            (
+                                entry.since.map_or_else(
+                                    || entry.label.clone(),
+                                    |since| aged(&entry.label, since, now()),
+                                ),
+                                entry.action.as_ref().map(|action| {
+                                    serde_json::to_string(action).expect("menu action serializes")
+                                }),
+                            )
+                        })
+                        .collect()
+                },
+                move |message| {
+                    if let Err(error) = failure.emit(
+                        "menu-bar-action",
+                        serde_json::json!({"kind": "failure", "message": message}),
+                    ) {
+                        crate::diagnostics::failure("report Dock menu failure", &error);
+                    }
+                },
+            )
+            .map_err(internal)?,
+        );
+        Ok(())
+    })
+}
+
+#[cfg(target_os = "macos")]
+pub(crate) fn dock_chosen<R: Runtime>(app: &AppHandle<R>, id: &str) {
+    DOCK.with_borrow(|owner| {
+        if let Some(action) = owner.as_ref().and_then(|menu| menu.chosen(id)) {
+            // The displayed Dock row retains its original identity while tracking. The
+            // connected App reports a removed Agent instead of silently choosing another.
+            let action: Action =
+                serde_json::from_str(&action).expect("Dock action was serialized by this adapter");
+            deliver(app, &action);
+        }
+    });
 }
 
 #[cfg(test)]
