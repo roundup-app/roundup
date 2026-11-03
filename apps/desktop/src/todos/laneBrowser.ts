@@ -10,6 +10,7 @@ import type { Checks } from "../testing/checks";
 
 const exec = promisify(execFile);
 
+export { agentBrowserExecutable as executable } from "../testing/chromePage";
 
 /** One headless Chromium on a fresh profile, driven by `agent-browser` on the shared U26 harness server; never the user's browser. */
 export type LaneBrowser = {
