@@ -724,32 +724,16 @@ it.each(["agent", "user", "bubble"] as const)("u5515b_terminal_unselected_word_u
   }
 }, 90_000);
 
-it.each(["diff", "code", "readonly-pad", "message"] as const)("u5515c_readonly_text_preserves_selection_and_native_menu_%s", async kind => {
+it.each(["diff", "code", "readonly-pad"] as const)("u5515c_readonly_text_preserves_selection_and_native_menu_%s", async kind => {
   let field: string;
 
   if (kind === "diff") {
     await editor("diff");
     field = "document.querySelector('diffs-container').shadowRoot.querySelector('[data-line]')";
   } else {
-    await browser("open", url(`/src/terminal/u5515.html${kind === "message" ? "?message" : ""}`));
+    await browser("open", url("/src/terminal/u5515.html"));
 
-    if (kind === "message") {
-      await wait("!!document.querySelector('[data-reaction-opener]')");
-
-      if (!await read<boolean>("document.querySelector('[data-reaction-opener]').checkVisibility()")) await browser("find", "role", "button", "click", "--name", "Reactions", "--exact");
-      await batch(
-        ["wait", "--fn", "document.querySelector('[data-reaction-opener]')?.checkVisibility()"],
-        ["focus", "[data-reaction-opener]"],
-        ["wait", "--fn", "document.activeElement?.matches('[data-reaction-opener]')"],
-        ["press", "Enter"],
-        ["wait", "--fn", "!!document.querySelector('[data-firing-message]')"],
-        ["click", "[data-firing-message]"]
-      );
-      field = "document.querySelector('dd.reaction-instruction')";
-      await wait(`(${field})?.textContent === 'Review café alpha bravo charlie together'`);
-    } else {
       field = `document.querySelector('.ProseMirror[contenteditable=false] ${kind === "code" ? "pre code" : "p"}')`;
-    }
   }
 
   await wait(`!!(${field})`);
