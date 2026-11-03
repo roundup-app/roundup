@@ -33,6 +33,8 @@ export type ProjectsState = {
   open(path: string): Promise<void>;
   /** Completes an Agent's authorized open, preserving failure identity for its caller. */
   openRequested(path: string): Promise<Project>;
+  /** Finds a running Project by canonical identity without changing its tab or draft key. */
+  opened(path: string): Promise<Project | undefined>;
   /** Starts a new Daemon for an exited Project (U37); a failure keeps the exit and records why. */
   reopen(path: string): Promise<void>;
   /** True from a `reopen` call until it answers, so a second click cannot ask for a second Daemon. */
@@ -128,7 +130,21 @@ export const createProjectsState = (app: App, saved = openTabStorage()): Project
     return project;
   };
 
+  const opened = async (path: string): Promise<Project | undefined> => {
+    const live = tabs().filter(tab => !tab.exit);
+    const exact = live.find(tab => tab.project.path === path);
+
+    if (exact) return exact.project;
+
+    for (const tab of live) {
+      if (await app.canonicalProjectPath(tab.project.path) === path) return tab.project;
+    }
+
+    return undefined;
+  };
+
   return {
+    opened,
     loaded,
     tabs,
     active,
@@ -155,9 +171,9 @@ export const createProjectsState = (app: App, saved = openTabStorage()): Project
       }
     },
     openRequested: async (path) => {
-      const known = tabs().find(tab => tab.project.path === path && !tab.exit);
+      const known = await opened(path);
 
-      if (known) return known.project;
+      if (known) return { ...known, path };
 
       try {
         return await openPath(path);

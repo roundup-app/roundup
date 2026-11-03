@@ -112,6 +112,7 @@ fn invoke_handler<R: Runtime>() -> impl Fn(tauri::ipc::Invoke<R>) -> bool + Send
         recent_projects,
         claude_binary,
         open_project,
+        canonical_project_path,
         close_project,
         rename_project,
         rpc,
@@ -218,6 +219,19 @@ async fn open_project<R: Runtime>(
     path: String,
 ) -> Result<Project, RpcError> {
     state.open_project(&app, Path::new(&path)).await
+}
+
+#[tauri::command]
+fn canonical_project_path(path: String) -> Result<String, RpcError> {
+    Path::new(&path)
+        .canonicalize()
+        .map(|resolved| resolved.display().to_string())
+        .map_err(|error| {
+            RpcError::new(
+                rpc::code::INVALID_PARAMS,
+                format!("cannot resolve Project folder {path}: {error}"),
+            )
+        })
 }
 
 #[tauri::command]

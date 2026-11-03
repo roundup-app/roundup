@@ -355,6 +355,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Result resolution (`ResultResolution`, `ResultOutcome`, `ResolveResultParams`, `message.resolveResult`) | same | — |
 | Progress (`Progress`, `ProgressParams`, `ResultProgress`, `message.progress`) | same | — |
 | Collapsible | same | — |
+| Canonical Project path (`canonicalProjectPath`, `canonical_project_path`, `ProjectsState.opened`) | same | — |
 | Project menu (`MenuHints`, `ProjectMenu`, `projectMenu`, `select_project_menu`, `selectProjectMenu`, `onProjectPage`, `projectPageSchema`, `project_menu_hints`) | same | — |
 | Exit button (`ExitButton`) | same | — |
 | Native question (`NativeQuestion`, `App.ask`, `NativeAlert`, `RemovalQuestion`, `RemovalAnswer`, `App.askRemoval`, `ask_removal`, `removal_alert`) | same | — |

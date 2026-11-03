@@ -345,7 +345,6 @@ fn s8_opening_a_second_path_starts_a_second_daemon() {
     );
 }
 
-
 #[test]
 fn s1_started_as_roundup_project_opens_that_project() {
     let fx = Fixture::new(SERVE_AND_WAIT);
