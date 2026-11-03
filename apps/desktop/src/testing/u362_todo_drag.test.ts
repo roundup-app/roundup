@@ -20,7 +20,7 @@ type Point = {x: number; y: number};
 type Checks = Record<string, {status: string; value: unknown}>;
 
 const setup = async (worst = false, origin = "", width = 1280, height = 820) => {
-  await page.load(`${origin}/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40${worst ? '&todos=worst' : ''}`, width, height);
+  await page.load(`${origin}/harness.html?view=workstreams&items=1&seed=tree-40${worst ? '&todos=worst' : ''}`, width, height);
   await page.until(`() => Boolean(document.querySelector('.shelf-tabs [role=tab]')) && Boolean(document.querySelector('[data-part="branch"][aria-expanded] > .rail-row')) && Boolean(window.__fake)`);
   await page.call(`() => {
     const tab = document.querySelector('#shelf-tab-todos');
