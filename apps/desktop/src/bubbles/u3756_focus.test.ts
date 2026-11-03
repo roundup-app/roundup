@@ -84,7 +84,7 @@ it.each(["empty-project", "tree-40"])("u3756a_late_door_terminal_keeps_the_newer
   } finally { if (recording) await browser("record", "stop"); }
 }, 90_000);
 
-const fresh = async (seed = "tree-40") => {
+const fresh = async (seed = "selection") => {
   await browser("set", "viewport", "1512", "950");
   await browser("set", "media", "dark");
   await browser("open", url(`/harness.html?seed=${seed}&renderer=dom`, process.env.U3756_BASELINE === "1"));
