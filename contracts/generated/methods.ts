@@ -22,6 +22,7 @@ import type { RailNode as agent_RailNode } from "./agent/RailNode";
 import type { RedoParams as agent_RedoParams } from "./agent/RedoParams";
 import type { Removal as agent_Removal } from "./agent/Removal";
 import type { RemoveParams as agent_RemoveParams } from "./agent/RemoveParams";
+import type { RemoveSelectionParams as agent_RemoveSelectionParams } from "./agent/RemoveSelectionParams";
 import type { RenameParams as agent_RenameParams } from "./agent/RenameParams";
 import type { ResumeParams as agent_ResumeParams } from "./agent/ResumeParams";
 import type { RunParams as agent_RunParams } from "./agent/RunParams";
@@ -215,6 +216,7 @@ export type RpcMethods = {
   "models.list": { params: null; result: project_ModelList };
   "project.open": { params: project_OpenParams; result: null };
   "project.rename": { params: project_RenameParams; result: null };
+  "rail.removeSelection": { params: agent_RemoveSelectionParams; result: agent_Removal };
   "rail.remove": { params: agent_RemoveParams; result: agent_Removal | null };
   "agent.resume": { params: agent_ResumeParams; result: agent_RailNode };
   "agent.makeWorkstream": { params: agent_NodeId; result: agent_RailNode };

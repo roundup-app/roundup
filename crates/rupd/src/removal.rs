@@ -3,20 +3,164 @@
 use std::sync::Arc;
 
 use contracts::{Actor, agent::RemoveScope};
-use rpc::RpcError;
+use rpc::{Module, RpcError};
 use rusqlite::params;
 use serde_json::Value;
 
 use crate::Daemon;
 
 impl Daemon {
+    pub(crate) async fn remove_selection(
+        &self,
+        actor: &Actor,
+        mut p: contracts::agent::RemoveSelectionParams,
+    ) -> Result<Value, RpcError> {
+        use contracts::agent::{NodeKind, Removal, RemovalKind, RemovedItem};
+        if actor.kind != contracts::ActorKind::User {
+            return Err(RpcError::forbidden("only the user removes Rail selections"));
+        }
+        p.ids.sort();
+        p.ids.dedup();
+        if p.ids.is_empty() {
+            return Err(RpcError::new(
+                rpc::code::INVALID_PARAMS,
+                "empty Rail selection",
+            ));
+        }
+        if let Some(operation) = &p.operation {
+            if operation.is_empty() || operation.len() > 96 {
+                return Err(RpcError::new(
+                    rpc::code::INVALID_PARAMS,
+                    "removal needs a key of 1–96 bytes",
+                ));
+            }
+            if let Some(receipt) = self.agents.rail_deletion(actor, operation)? {
+                let ids = if receipt.selection.is_empty() {
+                    vec![
+                        receipt
+                            .deletion
+                            .as_ref()
+                            .expect("retained operation")
+                            .id
+                            .clone(),
+                    ]
+                } else {
+                    receipt.selection.clone()
+                };
+                if ids != p.ids {
+                    return Err(RpcError::conflict("removal key names another selection"));
+                }
+                return rpc::reply(&receipt);
+            }
+        }
+        let tree = self.rail().await?;
+        for id in &p.ids {
+            if !tree.iter().any(|n| n.id == *id) {
+                return Err(RpcError::not_found("Rail selection target"));
+            }
+        }
+        if let Some(operation) = p.operation {
+            let homes: Vec<_> = tree
+                .iter()
+                .filter(|n| p.ids.contains(&n.id) && n.kind == NodeKind::Workstream)
+                .map(|n| n.id.clone())
+                .collect();
+            let todos = Arc::clone(&self.todos);
+            let pads = Arc::clone(&self.pads);
+            let caller = actor.clone();
+            let retention = operation.clone();
+            let selected = p.ids.clone();
+            let (removal, (files, events, owners)) = self.agents.remove_reversible_with(actor.clone(), p.ids, &operation, move |db, removal| {
+                todos::Todos::retain_workstream_in(db, &caller, &retention, &homes)?;
+                let mut files = Vec::new();
+                let mut events = Vec::new();
+                for home in &homes {
+                    db.execute("INSERT INTO rail_removal_items(operation,kind,id,home) SELECT ?1,'deliverable-home',id,home FROM deliverables WHERE home=?2 AND removed=0", params![retention,home]).map_err(RpcError::internal)?;
+                    pads.retain_workstream(db, &caller, &retention, home, removal)?;
+                    events.extend(todos.remove_workstream(db, home, &caller, removal, RemoveScope::This)?);
+                    let (guard, changes) = pads.remove_workstream(db, home, removal)?;
+                    files.push(guard);
+                    events.extend(changes);
+                    if db.execute("UPDATE deliverables SET home=NULL,record=json_set(record,'$.home',NULL) WHERE home=? AND removed=0", [home]).map_err(RpcError::internal)? > 0 { events.push(contracts::EventData::DeliverableChanged); }
+                }
+                let mut removed = selected.clone();
+                removed.extend(removal.removed.iter().filter(|i| i.kind == RemovalKind::Agent).map(|i| i.id.clone()));
+                let owners = todos::Todos::remove_owners_in(db, &Actor::daemon(), &retention, &removed)?;
+                removal_touch(db, &caller, &selected[0], Some(&retention), removal)?;
+                Ok((files,events,owners))
+            }).await?;
+            for file in files {
+                file.commit();
+            }
+            self.publish_removal(events, owners)?;
+            return rpc::reply(&removal);
+        }
+        let mut result = Removal::default();
+        // Ancestors first: their default cascades may already remove explicit descendants.
+        fn depth(tree: &[contracts::agent::RailNode], id: &str) -> usize {
+            tree.iter()
+                .find(|n| n.id == id)
+                .and_then(|n| n.parent.as_deref())
+                .map_or(0, |parent| 1 + depth(tree, parent))
+        }
+        p.ids.sort_by_key(|id| depth(&tree, id));
+        for id in &p.ids {
+            if result
+                .removed
+                .iter()
+                .any(|item| item.kind == RemovalKind::Agent && item.id == *id)
+            {
+                continue;
+            }
+            let node = tree
+                .iter()
+                .find(|n| n.id == *id)
+                .expect("validated selection");
+            if node.kind == NodeKind::Workstream {
+                let removal: Removal = serde_json::from_value(
+                    self.remove_workstream(actor, id, RemoveScope::This).await?,
+                )
+                .map_err(RpcError::internal)?;
+                result.removed.extend(removal.removed);
+                result.kept.extend(removal.kept);
+            } else {
+                self.agents
+                    .call(
+                        &self.ctx(actor.clone()),
+                        "rail.remove",
+                        serde_json::json!({"id":id}),
+                    )
+                    .await?;
+                self.reset_orphaned_homes().await?;
+                self.reset_orphaned_owners().await?;
+                self.reset_orphaned_pad_homes().await?;
+            }
+            result.removed.push(RemovedItem {
+                id: id.clone(),
+                kind: RemovalKind::Agent,
+                name: node.name.clone(),
+            });
+        }
+        let mut seen = std::collections::HashSet::new();
+        result
+            .removed
+            .retain(|item| seen.insert((item.id.clone(), std::mem::discriminant(&item.kind))));
+        result.kept.retain(|item| {
+            !result
+                .removed
+                .iter()
+                .any(|removed| removed.kind == item.kind && removed.id == item.id)
+        });
+        rpc::reply(&result)
+    }
+
     pub(crate) async fn remove_workstream(
         &self,
         actor: &Actor,
         id: &str,
         scope: RemoveScope,
     ) -> Result<Value, RpcError> {
-        self.remove_workstream_observed(actor, id, scope, None, |_| {})
+        self.remove_workstream_observed(actor, id, scope, |_| {})
             .await
     }
 
@@ -25,7 +169,6 @@ impl Daemon {
         actor: &Actor,
         id: &str,
         scope: RemoveScope,
-        operation: Option<&str>,
         observe: impl Fn(&str) + Send + Sync + 'static,
     ) -> Result<Value, RpcError> {
         let observe = Arc::new(observe);
@@ -34,7 +177,6 @@ impl Daemon {
         let pads = Arc::clone(&self.pads);
         let home = id.to_owned();
         let caller = actor.clone();
-        let retention = operation.map(str::to_owned);
         let apply = move |db: &rusqlite::Connection, removal: &mut contracts::agent::Removal| {
             let workstream: bool = db
                 .query_row(
@@ -43,18 +185,6 @@ impl Daemon {
                     |r| r.get(0),
                 )
                 .map_err(RpcError::internal)?;
-            if let Some(operation) = &retention {
-                todos::Todos::retain_workstream_in(
-                    db,
-                    &caller,
-                    operation,
-                    workstream.then_some(home.as_str()),
-                )?;
-                if workstream {
-                    db.execute("INSERT INTO rail_removal_items(operation,kind,id,home) SELECT ?1,'deliverable-home',id,home FROM deliverables WHERE home=?2 AND removed=0",params![operation,home]).map_err(RpcError::internal)?;
-                    pads.retain_workstream(db, &caller, operation, &home, removal)?;
-                }
-            }
             let (files, events) = if workstream {
                 let mut events = todos.remove_workstream(db, &home, &caller, removal, scope)?;
                 let (files, pad_events) = pads.remove_workstream(db, &home, removal)?;
@@ -64,36 +194,18 @@ impl Daemon {
             } else {
                 (pads::RemovalFiles::default(), Vec::new())
             };
-            let owners = if let Some(operation) = &retention {
-                let mut removed = vec![home.clone()];
-                removed.extend(
-                    removal
-                        .removed
-                        .iter()
-                        .filter(|i| i.kind == contracts::agent::RemovalKind::Agent)
-                        .map(|i| i.id.clone()),
-                );
-                todos::Todos::remove_owners_in(db, &Actor::daemon(), operation, &removed)?
-            } else {
-                Vec::new()
-            };
             // Every participant's write record rolls back with the Project graph.
-            removal_touch(db, &caller, &home, retention.as_deref(), removal)?;
+            removal_touch(db, &caller, &home, None, removal)?;
             before("before_commit");
-            Ok((files, events, owners))
+            Ok((files, events))
         };
-        let (removal, (files, events, owners)) = if let Some(operation) = operation {
-            self.agents
-                .remove_reversible_with(actor.clone(), id, operation, apply)
-                .await?
-        } else {
-            self.agents
-                .remove_workstream_with(actor.clone(), id, scope, apply)
-                .await?
-        };
+        let (removal, (files, events)) = self
+            .agents
+            .remove_workstream_with(actor.clone(), id, scope, apply)
+            .await?;
         observe("after_commit");
         files.commit();
-        self.publish_removal(events, owners)?;
+        self.publish_removal(events, Vec::new())?;
         rpc::reply(&removal)
     }
 }
@@ -104,31 +216,20 @@ impl Daemon {
         actor: &Actor,
         p: contracts::agent::RemoveParams,
     ) -> Result<Value, RpcError> {
-        use contracts::ActorKind;
         if p.scope == Some(RemoveScope::All) {
             return Err(RpcError::new(
                 rpc::code::INVALID_PARAMS,
                 "scope all cannot retain a removal operation",
             ));
         }
-        if actor.kind != ActorKind::User {
-            return Err(RpcError::forbidden("only the user retains a Rail removal"));
-        }
-        let operation = p.operation.expect("reversible request");
-        if operation.is_empty() || operation.len() > 96 {
-            return Err(RpcError::new(
-                rpc::code::INVALID_PARAMS,
-                "removal needs a key of 1–96 bytes",
-            ));
-        }
-        if let Some(result) = self.agents.rail_deletion(actor, &operation)? {
-            if result.deletion.as_ref().expect("retained operation").id != p.id {
-                return Err(RpcError::conflict("removal key already names another node"));
-            }
-            return rpc::reply(&result);
-        }
-        self.remove_workstream_observed(actor, &p.id, RemoveScope::This, Some(&operation), |_| {})
-            .await
+        self.remove_selection(
+            actor,
+            contracts::agent::RemoveSelectionParams {
+                ids: vec![p.id],
+                operation: p.operation,
+            },
+        )
+        .await
     }
 
     pub(super) async fn rail_deletion_call(
@@ -662,20 +763,14 @@ mod tests {
             let stage = std::env::var("ROUNDUP_REMOVAL_STAGE").unwrap();
             let id = std::env::var("ROUNDUP_REMOVAL_ID").unwrap();
             daemon
-                .remove_workstream_observed(
-                    &Actor::user(),
-                    &id,
-                    RemoveScope::This,
-                    None,
-                    move |phase| {
-                        if phase == stage {
-                            println!("REMOVAL_GATE");
-                            std::io::stdout().flush().unwrap();
-                            let mut release = String::new();
-                            std::io::stdin().read_line(&mut release).unwrap();
-                        }
-                    },
-                )
+                .remove_workstream_observed(&Actor::user(), &id, RemoveScope::This, move |phase| {
+                    if phase == stage {
+                        println!("REMOVAL_GATE");
+                        std::io::stdout().flush().unwrap();
+                        let mut release = String::new();
+                        std::io::stdin().read_line(&mut release).unwrap();
+                    }
+                })
                 .await
                 .unwrap();
             panic!("parent must kill at the acknowledged commit gate");
