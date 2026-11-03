@@ -13,6 +13,9 @@ The audit must prevent missed conditional offers, unsupported claims of non-use/
 
 | Artifact | Holds |
 | --- | --- |
+| [changes-resources.md](changes-resources.md) | Independent changes/resource controls, criteria, dated direction and remaining gaps |
+| [catalogues/changes-source.json](catalogues/changes-source.json) | Current source hashes, exact fixture, editor/menu probes and vendor help |
+| [rendered-changes.json](rendered-changes.json) | Eleven corrected isolated openings; note forms retain D2/D10 failures |
 | [endpoints.md](endpoints.md) | Complete public method/CLI/MCP census and explicit CLI dispatch |
 | [keyboard.md](keyboard.md) | Named actions, local bindings, inherited editor keys and remaining widget coverage |
 | [catalogues/keyboard-source.json](catalogues/keyboard-source.json) | Pinned keyboard source excerpts, library provenance and runtime action catalogue |

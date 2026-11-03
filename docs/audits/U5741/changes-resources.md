@@ -60,7 +60,7 @@ The linked endpoint census remains the actual runtime offer evidence at its earl
 
 ## Accepted direction and reversals
 
-These sources were reread in full, including comments; their body hashes and dates are retained in the catalogue. Creation dates identify work orders, not every later body edit.
+Bodies and comments were retrieved for the linked owner Issues, extending the existing direction report; body hashes and dates are retained in the catalogue. Final per-candidate direction reconciliation remains part of the complete audit. Creation dates identify work orders, not every later body edit.
 
 | Rows | Reversal required if selected in the final request |
 | --- | --- |
