@@ -381,12 +381,8 @@ it.each(["todos", "pads"] as const)("u3787a_handoff_redo_clears_only_the_destina
 }, 120_000);
 
 describe("U3787a connected App regions", () => {
-  let real: StartedDaemon;
-
-  // Each case clears the chosen data below and mounts a fresh App/history owner;
-  // share the served Daemon instead of mounting eight identical Vite servers.
-  beforeAll(async () => { real = await startRealDaemon({}); }, 120_000);
-  afterAll(async () => { await real?.stop(); });
+  // The file already owns a served Daemon. Each case clears its data below and
+  // mounts a fresh App/history owner; a second Daemon and Vite server prove nothing.
 
 it.each(["todos", "pads", "shelf-todos", "shelf-pads", "clear-done", "drawer-todo", "drawer-pad"])("u3787a_%s_delete_undo_redo_without_feedback", async kind => {
   const app = createServedApp(real.base);
