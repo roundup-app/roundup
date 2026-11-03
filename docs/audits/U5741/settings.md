@@ -59,6 +59,6 @@ The complete 60-row configuration inventory and its criteria now live in [settin
 
 `ShortcutSettings` renders Record only for eligible single-press actions, read-only references for others, Reset only for an override, and the separate S12/S13 quick-add recorders for todo.capture. The supplemental source catalogue records that distinction for every row. No second pending action table is maintained here.
 
-## Direction still to reconcile
+## Direction
 
-[Settings work order #3281](https://github.com/roundup-app/roundup/issues/3281), created 2026-10-22, records the owner's App-wide Settings and dark/light/system request; the current body was updated 2026-10-23. Retiring requested settings requires naming that direction; creation time alone does not date every later body clause. [State choices #5232](https://github.com/roundup-app/roundup/issues/5232), created 2026-10-31, records the accepted per-state choice outcome. Neither is proof of usage. Exact owner-comment dates and further linked direction remain to be checked before the final ask.
+The dated Settings, typography, naming, channel and shortcut reversals are in [settings-evidence.md](settings-evidence.md), “Owner direction”, with their source/date boundaries. Further linked direction remains for S06, S13, S17/S18 and S21 before the final ask. Neither the recorded requests nor candidate status is evidence of owner usage or permission to delete.
