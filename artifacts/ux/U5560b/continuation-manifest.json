@@ -1,0 +1,31 @@
+{
+  "scenario": "U5560b",
+  "date": "2026-11-02",
+  "baseApp": "138e421008cfa38c7802238f8230cf1c885a7353",
+  "headApp": "92e1d60b4e01c1bcb2cf4e9887e4180e14ab755a",
+  "observerCommit": "92e1d60b4e01c1bcb2cf4e9887e4180e14ab755a",
+  "observerFile": "apps/desktop/src/settings/u4277_rendered.test.ts",
+  "observerSha256": "361757d03b01fa385305fd8d41b63e221e5a3358358b35ea1e3748be9d35b814",
+  "sameObserverOnBothApps": true,
+  "renderer": "isolated headless Chromium 156.0.8078.80",
+  "scheme": "dark",
+  "viewports": [
+    [
+      1512,
+      950
+    ]
+  ],
+  "fixtures": [
+    "first-run",
+    "tree-40"
+  ],
+  "pairedDirectories": [
+    "base",
+    "head"
+  ],
+  "earlierEvidence": "manifest.json",
+  "baseObserverCommit": "92e1d60b4e01c1bcb2cf4e9887e4180e14ab755a",
+  "validation": "All changed behavior files pass: 226 focused tests, one inherited skip, no retry in final passing results. All 52 head screens pass D2/D5/D6; no paired Check regression. just ready passed 193 lint fixtures and web/type/copy checks; Rust Clippy is compiling, with no passing result claimed. Required CI judges the push.",
+  "pairedScreens": 12,
+  "headOnlyScreens": []
+}
