@@ -683,3 +683,52 @@ The earlier Pad replay and integrity rows establish nine retained records, not n
 | Verification-note failure | Exit | Disposition |
 | --- | ---: | --- |
 | `python3 tools/lint/scan.py typos` (two attempts after final note) | 1 each | The abbreviated main commit hash was flagged as a spelling error. Removed the unnecessary abbreviation; the merge commit retains its exact parent. Repeated spelling scan passes. |
+
+## Todo detail continuation — builder-41624068513
+
+Audited main `8ceee0830512da2835a7de61fb46967888e0bce5`. Documentation only. `todos.md` records forty independent detail decisions with Q1/Q2/Q3 evidence, explicit unresolved comparisons, dated direction and a source-only/rendered coverage ledger. `catalogues/todos-source.json` retains 42 inspected source archives, original-revision actual fifteen-tool Todo replies for both roles, exact current declarations, five full direction Issue replies, versioned vendor help and the exact successful replay. No runtime reply is repinned to current main.
+
+| Command / observer | Exit | Result |
+| --- | ---: | --- |
+| `python3 loop/orders.py check /tmp/u5741-scope.md` then `gh issue edit 5758 --body-file /tmp/u5741-scope.md` | 0 each | Exact documentary scope recorded before writing files. |
+| `pnpm install --frozen-lockfile` | 0 | Pinned dependencies installed in this run's own worktree. |
+| `agent-browser skills get core` | 0 | Read before dedicated headless session/profile launch. |
+| `python3 /tmp/todos-observer.py` final replay | 0 | Ten fresh isolated dark 1512×950 openings; every recorded Check passes including D2/D5/D6. History expansion and exact rejected comment draft asserted. |
+| Source catalogue construction | 0 | All 42 inspected source bytes equal git blobs at audited main; actual historical role replies and original provenance retained. |
+
+The error capture was visually inspected: full read-only cause and instruction to reopen with write access and retry are visible beside the originating composer; exact submitted text remains. This is an injected fake-Daemon failure, not a real storage refusal or ordinary-path defect. The captures establish offers only, not clipboard/native/real storage effects. No product or test changed, no report-wording test added, and no local `just check`, whole crate or behavior suite ran. The capture command below rejected its id before test collection.
+
+| Failed command / observer | Exit | Disposition |
+| --- | ---: | --- |
+| `rg … testing/fake.ts … crates/rupd/src/methods.rs` | 2 | Guessed paths absent; used actual testing/stores.ts and contracts/src/declarations.rs. |
+| `rg … crates/rupd/src/dispatch*` and `rg … scenarios/ui-todos.md` | 2 each | Guessed paths absent; inspected contracts declarations and actual Todo scenario files. |
+| `rg … crates/rupd/src/rpc/*.rs` | 2 | Directory absent; declarations own the public registry. |
+| `agent-browser … eval` containing await in a non-async object | 1 | SyntaxError; corrected to async expression, no product action occurred. |
+| First `python3 /tmp/todos-observer.py` | 1 | Waited for nonexistent combobox after Assign; actual OwnerPicker is a menu. Corrected selector and replayed. |
+| Second `python3 /tmp/todos-observer.py` | 1 | Expected Move · Overview; actual menu names Move · Project root. Corrected exact label and replayed. |
+| Third `python3 /tmp/todos-observer.py` | 1 | Wait used lowercase title accessible name; actual textarea label is Title. Corrected and replayed. |
+| `just capture U5741` | 1 | Existing capture registry rejects unsupported U5741 during config load, before any test collection. Exact archived dedicated harness replay supplies these audit openings; no capture registry/frozen-loop edits. |
+
+Only the successful final replay supplies rendered-todos.json. Earlier partial images are not evidence. No early owner request or deletion. Continue unresolved Todo conditional/capture/triage branches, Pad/library states, Made, other worklist gaps and final one-revision public/runtime reconciliation before the single complete candidate request. Successful older Project reopening remains mandatory before any selected persisted retirement.
+
+| Additional validation failure | Exit | Disposition |
+| --- | ---: | --- |
+| First and repeated standalone spelling scan | 1 each | Exact archived owner text contains a historical misspelling. Compressed the full unaltered Issue replies with checksums, matching the existing source-archive convention; no owner evidence changed. Repeated final spelling scan below. |
+
+| Evidence and cleanup checks | Exit | Result |
+| --- | ---: | --- |
+| Archive/snapshot/image integrity verification | 0 | All 42 source bytes equal audited git blobs; driver checksum and ten snapshots/images match; all recorded Checks pass. |
+| Final standalone spelling scan | 0 | Preserved original direction bytes in checksum-verified archives without adding spelling exceptions. |
+| Dedicated browser close | 0 | Only this run session closed; ten images copied to workflow checkout under artifacts/ux/U5741/todos for attachment, uncommitted. |
+| Harness shutdown | Vite 143 / wrapper 1 | Deliberate SIGTERM to this run's port-5271 Vite process after browser close and capture verification; no observer failed. |
+
+| Required-check interruption | Exit | Disposition |
+| --- | ---: | --- |
+| First `just ready` | 143 | All 193 lint-behavior fixtures passed, but the parent terminated before remaining lints. Not counted as a pass; reran after harness shutdown. Cause of parent termination unverified. |
+
+| Final required validation | Exit | Result |
+| --- | ---: | --- |
+| Second complete `just ready` | 0 | B4522 migration guard, all 193 lint-behavior fixtures, web/package type checks, repository/Rust scans, formatting/dependency checks, proof setup/mutation observers (`ALL PROOFS CHECK`) and N7 pass. Existing affected-path observer skips Clippy because no Rust crate reaches this documentation diff. |
+| Vocabulary, scenario ids, merge-loss, whitespace | 0 each | Self-review found no duplicate row id, misplaced product change, naming drift or merge loss. All forty row ids are unique; ten retained records have only successful commands. |
+
+The complete evidence commit is on PR #5875. This slice leaves #5758 open and requests no owner choices. No product, scenario, contract, test or frozen-loop file changed; no local just check ran.
