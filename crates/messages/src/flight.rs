@@ -8,6 +8,7 @@ pub(crate) fn confirm_ids(inner: &Inner, agent: &str, ids: &[u32]) -> bool {
         Ok((mut messages, repeated)) => {
             messages.sort_by_key(|m| m.id);
             for message in messages {
+                lock(&inner.inbox_written).remove(&message.id);
                 inner
                     .bus
                     .emit(Actor::daemon(), EventData::MessageDelivered(message.into()));
