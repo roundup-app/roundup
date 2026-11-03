@@ -170,6 +170,16 @@ def report_flaky(lane, output):
             summary.write(f"### Flaky ({lane})\n\n" + "".join(f"- `{test}`\n" for test in flaky) + "\n")
 
 
+def report_budget_failure(headline, lines):
+    """CI5527c: main runs failed the budget with only "exit code 1" in the job log, because the web step's trailing stdout never
+    reached it. Write the message to stderr, flushed before the process exits, and to the job summary, which is a file."""
+    text = "\n".join([headline, *lines]) + "\n"
+    print(text, end="", file=sys.stderr, flush=True)
+    if "GITHUB_STEP_SUMMARY" in os.environ:
+        with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as summary:
+            summary.write("### Web budget exceeded\n\n```\n" + text + "```\n\n")
+
+
 def run(args):
     # This is the first operation in test-web: include dependency setup and all reporting,
     # rather than only the child command's E14 interval.
@@ -197,9 +207,9 @@ def run(args):
     metadata = json.loads(metadata_path.read_text())
     elapsed = time.monotonic() - started
     if elapsed > WEB_BUDGET_SECONDS:
-        print(f"{args.lane}: {elapsed:.3f} seconds exceeds {WEB_BUDGET_SECONDS}-second budget; slowest files:")
-        for path, duration in sorted(executed, key=lambda row: (-row[1], row[0]))[:5]:
-            print(f"  {path}: {duration:g} ms")
+        slowest = sorted(executed, key=lambda row: (-row[1], row[0]))[:5]
+        report_budget_failure(f"{args.lane}: {elapsed:.3f} seconds exceeds {WEB_BUDGET_SECONDS}-second budget; slowest files:",
+                              [f"  {path}: {duration:g} ms" for path, duration in slowest])
         result = result or 1
     metadata.update(web_step_elapsed_seconds=elapsed, exit_code=result)
     metadata_path.write_text(json.dumps(metadata, indent=2) + "\n")
