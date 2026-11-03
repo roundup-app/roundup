@@ -12,7 +12,7 @@ import { createSettingsView } from "./state/settingsView";
 import { appSettings, applyAppAppearance } from "./settings/preferences";
 import { captureActions, registerKeys } from "./keys/registry";
 import { Combobox } from "./ui/Combobox";
-import { CHORDS, LEADER, defaultKeys, shortcutLabel } from "./keys/chords";
+import { CHORDS, LEADER, leaderKeys, shortcutLabel } from "./keys/chords";
 import { copy } from "./app/copy";
 import "./buttons.css";
 import { batch, lazy, createEffect, createMemo, createResource, createSignal, createUniqueId, For, getOwner, on, onCleanup, onMount, runWithOwner, Show, untrack } from "solid-js";
@@ -530,11 +530,6 @@ export const App = (props: {
     ["made", copy.deliverables], ["notes", copy.recoverNotes],
   ] as const;
 
-  const taskKeys = new Set(["M", "R", "⌘O", "⌘F", "⌘N", "⇧⌘N", "⌥⌘N", "⇧⌘M", "⌘T", "⌘/", "⌃⌘J", "J", "I", "A", "P", "C", "T"]);
-
-  // U5244a: plain list and text-editing keys, Triage's keys and Settings (App menu) stay native: listed only while something binds them (U3787b).
-  const nativeKeys = new Set(["⌘,", "?", "⏎", "Esc", "Tab", "⇧Tab", "J K"]);
-
   const menuItems = createMemo(() => {
     menuFocus();
     const actions = captureActions(menuFocus());
@@ -549,34 +544,22 @@ export const App = (props: {
 
         return { id: `action:chord:${keys}`, label: history ? (redo ? history.redoLabel(region) : history.undoLabel(region)) : redo ? copy.redo : copy.todoUndo, shortcut: keys, group: "edit" as const, enabled: available && !!history && !history.pending() && (redo ? history.redoAvailable(region) : history.available(region)) };
       }) : []),
-      ...views.map(([id, label]) => ({ id: `view:${id}`, label: id === "notes" ? (available && connected.hasView(id) ? copy.closeView(label) : label) : id === "resources" ? copy.showView(label, available && connected.hasView(id)) : available && connected.hasView(id) ? copy.closeView(label) : copy.openEvidence(label), group: "views" as const, enabled: available && (id !== "resources" || connected.rail.nodes.some(node => node.id === connected.rail.selected() && (node.kind === "agent" || node.kind === "workstream" && node.attempt !== null))) })),
-      ...[...CHORDS.filter(row => !["leader.open", "edit.undo", "edit.redo"].includes(row.name)), ...LEADER.filter(row => row.keys !== "T")].flatMap(row => {
-        const id = `action:${"press" in row ? "leader" : "chord"}:${row.keys}`;
-        const label = (what: string) => row.keys === "M" && "inRail" in row && row.inRail ? copy.moveToInRail : row.keys === "R" && "inRail" in row && row.inRail ? copy.restartModeInRail : "press" in row && row.keys === "B" ? (frame.open() ? copy.closeShelf : copy.openShelf) : what;
-        const group = "press" in row || defaultKeys(row) === "⌘/" || defaultKeys(row) === "⌘F" || defaultKeys(row) === "⌃⌘J" || !taskKeys.has(defaultKeys(row)) && row.what !== copy.captureATodo ? "navigate" as const : "create" as const;
-        const live = actions.filter(action => action.name === row.name && action.available());
+      ...[
+        ...["agent.new", "agent.new-with-prompt", "workstream.new", "mode.new", "terminal.new", "todo.capture", "attention.jump"].map(name => CHORDS.find(row => row.name === name)!),
+        ...["leader.changes", "leader.project"].map(name => LEADER.find(row => row.name === name)!),
+        CHORDS.find(row => row.name === "project.choose-folder")!,
+      ].map((row, index): MenuItem => {
+        const action = actions.find(action => action.name === row.name && action.available());
 
-        if (!live.length && "keys" in row && (nativeKeys.has(row.keys) || "inTriage" in row && row.inTriage)) return [];
-
-        // U5244b: a command that cannot act now keeps its place, label and key, disabled.
-        const items = (live.length ? live : [null]).map(action => {
-          const item: MenuItem = { id: action?.value ?? id, label: label(action?.label ?? row.what), group, enabled: action !== null && (available || defaultKeys(row) === "⌘O") };
-
-          item.shortcut = "press" in row ? `⌘K ${row.keys}` : action?.press ? shortcutLabel(action.press) : row.keys;
-
-          return item;
-        });
-
-        return defaultKeys(row) === "1–9" ? [{ id, label: copy.assignTo(""), group: "navigate" as const, enabled: available && live.length > 0, children: live.length ? items : [] }] : items;
+        return {
+          id: action?.value ?? `action:${"press" in row ? "leader" : "chord"}:${row.keys}`,
+          label: copy.projectMenuLabel(row.name, row.what),
+          shortcut: "press" in row ? leaderKeys(row) : action?.press ? shortcutLabel(action.press) : row.keys,
+          group: index < 6 ? "create" : "navigate",
+          enabled: available && action !== undefined,
+        };
       }),
-    ].reduce<MenuItem[]>((kept, item) => {
-      const at = kept.findIndex(other => other.id === item.id);
-
-      if (at < 0) kept.push(item);
-      else if (!kept[at]!.enabled && item.enabled) kept[at] = item;
-
-      return kept;
-    }, []);
+    ];
   });
 
   let menuWriting = false;

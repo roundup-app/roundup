@@ -2,7 +2,7 @@ import { cleanup, fireEvent, waitFor } from "@solidjs/testing-library";
 import { batch, createRoot } from "solid-js";
 import { afterEach, expect, it } from "vitest";
 import { mountNavigation } from "../testing/navigationFixture";
-import { openProjectPage, projectMenu } from "../testing/menuProbe";
+import { openProjectPage } from "../testing/menuProbe";
 import { ACTION_ROWS, CHORDS, HELP_ROWS } from "./chords";
 import { listActions, runAction } from "./actions";
 import { captureActions, registerKeys } from "./registry";
@@ -52,20 +52,17 @@ it("na1_every_entry_has_a_unique_stable_name", () => {
 
 it("na2_menu_key_and_switcher_run_one_action_by_name", async () => {
   const { terminal } = await mountTerminal();
-  const calls = probe(terminal);
-  await waitFor(() => expect(projectMenu.items.find(item => item.id === "action:chord:⌘F")?.enabled).toBe(true));
-  const switcher = captureActions(terminal).find(action => action.name === "terminal.find")!;
-  const menu = projectMenu.items.find(item => item.id === "action:chord:⌘F")!;
-  expect([menu.label, menu.shortcut]).toEqual([switcher.label, switcher.keys]);
+  const calls = probe(terminal, "terminal.new");
+  const switcher = captureActions(terminal).find(action => action.name === "terminal.new")!;
   expect(HELP_ROWS.some(row => row.keys === switcher.keys && row.what === switcher.label)).toBe(true);
 
-  fireEvent.keyDown(terminal, { code: "KeyF", key: "f", metaKey: true });
+  fireEvent.keyDown(terminal, { code: "KeyT", key: "t", metaKey: true });
   expect(calls).toHaveLength(1);
-  openProjectPage("action:chord:⌘F", "/p");
+  openProjectPage("action:chord:⌘T", "/p");
   expect(calls).toHaveLength(2);
   switcher.run();
   expect(calls).toHaveLength(3);
-  expect(runAction("terminal.find", [], terminal)).toEqual({ status: "done" });
+  expect(runAction("terminal.new", [], terminal)).toEqual({ status: "done" });
   expect(calls).toHaveLength(4);
 });
 

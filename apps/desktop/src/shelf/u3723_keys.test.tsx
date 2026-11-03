@@ -1,4 +1,4 @@
-import { openProjectPage, projectMenu, questionProbe } from "../testing/menuProbe";
+import { openProjectPage, questionProbe } from "../testing/menuProbe";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { batch } from "solid-js";
@@ -151,18 +151,14 @@ it.each(["naming", "drawer"])("u3723_keys_are_inert_in_the_%s_field", async plac
 it("u3787b_shelf_row_commands_are_menu_hints_that_act_once_on_the_focused_row", async () => {
   const { app, rows } = await open();
   rows[0]!.focus();
-  await waitFor(() => expect(projectMenu.items.find(item => item.id === "action:chord:D")?.shortcut).toBe("D"));
-  expect(projectMenu.items.find(item => item.id === "action:chord:E")?.enabled).toBe(false);
   expect(document.activeElement).toBe(rows[0]);
-  openProjectPage("action:chord:D");
+  fireEvent.keyDown(rows[0]!, { key: "d", code: "KeyD" });
   await waitFor(() => expect(app.calls.filter(call => call.method === "todo.delete")).toHaveLength(1));
   fireEvent.click(screen.getByRole("button", { name: "Add Todo: Overview" }));
   screen.getByLabelText("New Todo title").focus();
-  await waitFor(() => expect(projectMenu.items.some(item => item.id === "action:chord:D" && item.enabled)).toBe(false));
 });
 
-
-it.each(["A", "W", "X", "C"].flatMap(key => ["key", "menu"].map(source => ({ key, source }))))("u3787b_triage_commands_share_the_focused_todo: $key from $source", async ({ key, source }) => {
+it.each(["A", "W", "X", "C"])("u3787b_triage_commands_share_the_focused_todo: %s from key", async key => {
   const { app, rows } = await open();
   rows[0]!.focus();
   fireEvent.click(screen.getByRole("button", { name: "Triage" }));
@@ -170,14 +166,9 @@ it.each(["A", "W", "X", "C"].flatMap(key => ["key", "menu"].map(source => ({ key
   const focused = document.activeElement!;
   const id = Number(focused.closest("[data-todo]")!.getAttribute("data-todo"));
 
-  for (const key of ["A", "W", "X", "C"]) {
-    await waitFor(() => expect(projectMenu.items.find(item => item.id === `action:chord:${key}`)?.shortcut).toBe(key));
-  }
-
   expect(document.activeElement).toBe(focused);
 
-  if (source === "key") fireEvent.keyDown(focused, { key: key.toLowerCase(), code: `Key${key}` });
-  else openProjectPage(`action:chord:${key}`);
+  fireEvent.keyDown(focused, { key: key.toLowerCase(), code: `Key${key}` });
 
   if (key === "X") await waitFor(() => expect(app.calls.filter(call => call.method === "todo.complete").map(call => call.params)).toEqual([{ id }]));
   else if (key === "C") {
@@ -195,69 +186,58 @@ it("u3787b_triage_menu_refuses_an_owner_after_leaving_the_mode", async () => {
   const { app, rows } = await open();
   rows[0]!.focus();
   fireEvent.click(screen.getByRole("button", { name: "Triage" }));
-  await waitFor(() => expect(projectMenu.items.some(item => item.id === "action:chord:X" && item.enabled)).toBe(true));
   const captured = captureActions(document.activeElement).find(action => action.value === "action:chord:X")!;
   fireEvent.keyDown(document.activeElement!, { key: "Escape", code: "Escape" });
-  await waitFor(() => expect(projectMenu.items.some(item => item.id === "action:chord:X" && item.enabled)).toBe(false));
   expect(fireEvent.keyDown(document.activeElement!, { key: "x", code: "KeyX" })).toBe(true);
   openProjectPage("action:chord:X");
   captured.run();
   expect(app.calls.filter(call => call.method === "todo.complete")).toEqual([]);
 });
 
-
-it.each([false, true].flatMap(out => ["key", "menu"].map(source => ({ out, source }))))("u3787b_nesting_captures_the_focused_todo_once: out=$out from $source", async ({ out, source }) => {
+it.each([false, true])("u3787b_nesting_captures_the_focused_todo_once: out=%s from key", async out => {
   const { app } = await open(false, out);
   const row = document.querySelector<HTMLButtonElement>('[data-todo="2"] .todo-row-button[aria-pressed]')!;
   row.focus();
   const chord = out ? "⇧Tab" : "Tab";
-  await waitFor(() => expect(projectMenu.items.find(item => item.id === `action:chord:${chord}`)?.shortcut).toBe(chord));
   const captured = captureActions(row).find(action => action.keys === chord)!;
   expect(document.activeElement).toBe(row);
 
-  if (source === "key") fireEvent.keyDown(row, { key: "Tab", code: "Tab", shiftKey: out });
-  else openProjectPage(`action:chord:${chord}`);
+  fireEvent.keyDown(row, { key: "Tab", code: "Tab", shiftKey: out });
 
   await waitFor(() => expect(app.calls.filter(call => call.method === "todo.setBlockers").map(call => call.params)).toEqual([{ id: 2, blockers: out ? [] : [1] }]));
   fireEvent.click(screen.getByRole("button", { name: "Add Todo: Overview" }));
   screen.getByLabelText("New Todo title").focus();
-  await waitFor(() => expect(projectMenu.items.some(item => item.id === `action:chord:${chord}` && item.enabled)).toBe(false));
   captured.run();
   openProjectPage(`action:chord:${chord}`);
   expect(app.calls.filter(call => call.method === "todo.setBlockers")).toHaveLength(1);
 });
 
-it.each(["key", "menu"])("u3787b_todo_open_uses_the_focused_row: %s", async source => {
+it("u3787b_todo_open_uses_the_focused_row: key", async () => {
   const { app, rows } = await open();
   fireEvent.click(rows[1]!);
   rows[0]!.focus();
   const id = Number(rows[0]!.closest("[data-todo]")!.getAttribute("data-todo"));
-  await waitFor(() => expect(projectMenu.items.find(item => item.id === "action:chord:⏎")?.shortcut).toBe("⏎"));
   expect(document.activeElement).toBe(rows[0]);
   const reads = app.calls.filter(call => call.method === "todo.comments").length;
 
-  if (source === "key") fireEvent.keyDown(rows[0]!, { key: "Enter", code: "Enter" });
-  else openProjectPage("action:chord:⏎");
+  fireEvent.keyDown(rows[0]!, { key: "Enter", code: "Enter" });
 
   await waitFor(() => expect(app.calls.filter(call => call.method === "todo.comments").slice(reads).map(call => call.params)).toEqual([{ id }]));
   expect(document.querySelectorAll(".todo-detail")).toHaveLength(1);
 });
 
-it.each(["key", "menu"])("u3787b_todo_rename_keeps_the_captured_row: %s", async source => {
+it("u3787b_todo_rename_keeps_the_captured_row: key", async () => {
   const { app, rows } = await open();
   fireEvent.click(rows[1]!);
   rows[0]!.focus();
-  await waitFor(() => expect(projectMenu.items.find(item => item.id === "action:chord:F2")?.shortcut).toBe("F2"));
   const target = rows[0]!.closest("[data-todo]");
   const captured = captureActions(rows[0]!).find(action => action.keys === "F2")!;
   expect(document.activeElement).toBe(rows[0]);
 
-  if (source === "key") fireEvent.keyDown(rows[0]!, { key: "F2", code: "F2" });
-  else openProjectPage("action:chord:F2");
+  fireEvent.keyDown(rows[0]!, { key: "F2", code: "F2" });
 
   const field = await screen.findByRole("textbox", { name: "Name" });
   expect(field.closest("[data-todo]")).toBe(target);
-  await waitFor(() => expect(projectMenu.items.some(item => item.id === "action:chord:F2" && item.enabled)).toBe(false));
   captured.run();
   openProjectPage("action:chord:F2");
   expect(screen.getAllByRole("textbox", { name: "Name" })).toEqual([field]);
