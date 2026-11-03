@@ -66,3 +66,8 @@ Independent Shelf follow-up: rendered-shelf-followup.json adds successful reserv
 ## Recovery continuation
 
 `recovery.md` separates the requested panel from Rail-owned edits at main `ada406b500d9fa415e7777d201ad6f6130f9f946`. DR15 is a candidate on the separate risk-age annotation, never permission to discard work. `catalogues/recovery-source.json` preserves sources/direction/fixture/replay and `rendered-recovery.json` preserves isolated dark openings, failed selector and premature destination evidence. Specific Pad/Todo/name/credential and storage variants, vendor comparisons, fresh public role census and final current-revision reconciliation remain unfinished.
+
+
+## Public command continuation
+
+[public-commands.md](public-commands.md) and [catalogues/public-current.json](catalogues/public-current.json) reconcile all 167 declarations with the current actual API, both real MCP roles and 98 shared command/stream paths on pinned main. Exact tool schemas and all API descriptions are retained; zero unmatched CLI/MCP offers remain in this census. Explicit help/ping/MCP/signal/context/memory/skill/actions/do dispatch paths are separately assessed as RC01–RC23. Source-only hook effects, unverified vendor comparisons, per-method decisions and existing conditional App gaps remain; this census does not complete their Q1/Q2/Q3 evidence or promote historical renders to current main.
