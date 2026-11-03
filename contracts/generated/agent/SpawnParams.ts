@@ -4,7 +4,10 @@ import type * as agent$Extras from "./Extras";
 import type * as agent$Order from "./Order";
 import type * as agent$PermissionMode from "./PermissionMode";
 import type * as agent$RailVisibility from "./RailVisibility";
+import type * as agent$StartAttribution from "./StartAttribution";
 export type SpawnParams = {
+	/**  A5765e: immutable source names and identities, supplied only by the target user connection. */
+	start_attribution?: agent$StartAttribution.StartAttribution,
 	visibility?: agent$RailVisibility.RailVisibility,
 	/**  U4590: initial PTY columns; absent keeps the hostless 80-column default. */
 	cols?: number,
