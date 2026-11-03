@@ -280,12 +280,14 @@ type BeforeSelectors = { [K in keyof Before]: K extends SelectorInputs ? WithOwn
   : K extends "EventData" ? WithoutOpenEvent<Before[K]> | AutomaticChanges
     : K extends "Event" ? WithoutOpenEvent<Before[K]> | (Pick<Before["Event"], "seq" | "actor"> & AutomaticChanges)
       : K extends "project/Requested" ? RenameRequest
+      : K extends "agent/StartDoorParams" ? Before[K] & { prompt?: string }
       : K extends "reaction/Reaction" ? CurrentReaction : Before[K] };
 
 type SelectorMethods = "todo.assign" | "todo.create";
 
 type BeforeMethodSelectors = { [K in keyof BeforeRpcMethods]: K extends SelectorMethods
   ? { params: WithOwnerSelector<BeforeRpcMethods[K]["params"]>; result: BeforeRpcMethods[K]["result"] }
+  : K extends "rail.startDoor" ? { params: BeforeRpcMethods[K]["params"] & { prompt?: string }; result: BeforeRpcMethods[K]["result"] }
   : K extends "project.open" ? { params: BeforeRpcMethods[K]["params"]; result: { path: string } }
   : K extends "reaction.create" | "reaction.get" | "reaction.run" | "reaction.stop"
     ? { params: BeforeRpcMethods[K]["params"]; result: CurrentReaction }

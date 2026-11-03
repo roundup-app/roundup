@@ -18,13 +18,15 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Code term | User label | Avoid |
 |---|---|---|
 | Project | same | — |
+| Project start (`StartParams`, `StartKind`, `Started`, `project.start`, `rpc_project_request`) | same | — |
 | Opened Project (`Opened`, `project.open`, `openRequested`) | same | — |
-| Project opening (`createProjectOpening`, `ProjectOpening`, `OpenRequest`, `Confirmation`) | Open Project | — |
+| Project opening (`createProjectOpening`, `ProjectOpening`, `ProjectRequest`, `Confirmation`) | Open Project | — |
 | App registration (`registration`, `action.closed`) | none | — |
 | Project name base (`base`, `ProjectsState.base`) | same | — |
 | Project data | same | — |
 | Engine (`engine`, `ModelList.engines`) | same | — |
 | Permission mode (`PermissionMode`, `permissionMode` on launch calls) | same | — |
+| Agent name (`agent_name`) | same | — |
 | Agent | same | bot, worker; and session for an Agent. |
 | Terminal | same | process, console |
 | Terminal preparation (`TerminalPreparation`, `prepareTerminal`, `prepare`, `bind`) | none | — |
@@ -224,7 +226,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Markdown | same | — |
 | Owner selector (`Owner`) | owner | — |
 | Actor | same | — |
-| Start attribution (`StartAttribution`, `start_attribution`) | started by | — |
+| Start attribution (`StartAttribution`, `start_attribution`, `touch_creation`) | started by | — |
 | Output stream (`Output`, `OutputStream`, `Terminals::subscribe_output`, `terminal.output`, `terminal.outputStop`, `OutputStarted`, `OutputEvent`, `OutputGap`, `terminal.gap`) | same | — |
 | Terminal scheme (`terminal.scheme`, `SchemeParams`, `Scheme`) | same | — |
 | RPC output intake (`Client::take_output`, `OutputFrame`) | same | — |

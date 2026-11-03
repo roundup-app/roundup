@@ -111,7 +111,7 @@ impl Answerer {
             }
             app.pending.insert(id, tx);
         }
-        let answer = if method == "project.open" {
+        let answer = if matches!(method, "project.open" | "project.start") {
             // Consent has no clock deadline; losing the registered connection ends the wait.
             rx.await.ok()
         } else {
@@ -144,13 +144,32 @@ fn invalid(message: String) -> RpcError {
 }
 
 impl Daemon {
-    pub(super) async fn rpc_project_open(
+    pub(super) async fn rpc_project_request(
         &self,
         conn: &mut Conn,
-        _method: &str,
+        method: &str,
         params: Value,
     ) -> Result<Value, RpcError> {
-        let contracts::project::OpenParams { path } = rpc::params(params)?;
+        let start = if method == "project.start" {
+            let mut start: contracts::project::StartParams = rpc::params(params.clone())?;
+            start.name =
+                agents::agent_name(&start.name).map_err(|reason| invalid(reason.into()))?;
+            if start.prompt.trim().is_empty() {
+                return Err(invalid("start requires a nonblank prompt".into()));
+            }
+            if start.kind == contracts::project::StartKind::Mode
+                && start.prompt.chars().count() > contracts::workstream::OPENING_PROMPT_MAX
+            {
+                return Err(invalid("the opening prompt is too long".into()));
+            }
+            Some(start)
+        } else {
+            None
+        };
+        let path = match &start {
+            Some(start) => start.path.clone(),
+            None => rpc::params::<contracts::project::OpenParams>(params)?.path,
+        };
         let folder = std::path::Path::new(&path);
         if !folder.is_absolute() {
             return Err(invalid(format!("path {path} is not absolute")));
@@ -181,15 +200,25 @@ impl Daemon {
                     })?;
                 Some(json!({"id": node.id, "name": node.name}))
             }
-            ActorKind::User => None,
+            ActorKind::User if start.is_none() => None,
+            ActorKind::User => {
+                return Err(RpcError::forbidden(
+                    "Project start requires an existing Agent or Door",
+                ));
+            }
             ActorKind::Ext => {
                 return Err(RpcError::forbidden(
                     "only the user or an existing Agent opens a Project",
                 ));
             }
         };
-        let request = json!({"path": path, "source": self.project, "agent": agent});
-        match self.actions.relay("project.open", request).await {
+        let mut request = json!({"path": path, "source": self.project, "agent": agent});
+        if let Some(start) = &start {
+            request["kind"] = json!(start.kind);
+            request["name"] = json!(start.name);
+            request["prompt"] = json!(start.prompt);
+        }
+        match self.actions.relay(method, request).await {
             Relay::NoApp => Err(app_closed()),
             Relay::Lost => Err(RpcError::new(
                 code::UNKNOWN_OUTCOME,
@@ -199,6 +228,18 @@ impl Daemon {
             )),
             Relay::Answer(answer) => {
                 let value = answer?;
+                if let Some(start) = start {
+                    let started: contracts::project::Started =
+                        serde_json::from_value(value).map_err(RpcError::internal)?;
+                    if started.path != path || started.kind != start.kind || started.id.is_empty() {
+                        return Err(RpcError::unknown_outcome(
+                            "the App answered with a different Project or start kind; inspect the target before retrying",
+                        ));
+                    }
+                    self.ctx(conn.actor.clone())
+                        .touch(Verb::Wrote, &format!("project:{}", started.path))?;
+                    return rpc::reply(&started);
+                }
                 let opened: contracts::project::Opened =
                     serde_json::from_value(value).map_err(RpcError::internal)?;
                 if opened.path != path {

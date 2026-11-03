@@ -117,6 +117,8 @@ import type { ProjectModels as project_ProjectModels } from "./project/ProjectMo
 import type { ProjectSettings as project_ProjectSettings } from "./project/ProjectSettings";
 import type { RenameParams as project_RenameParams } from "./project/RenameParams";
 import type { Resources as project_Resources } from "./project/Resources";
+import type { StartParams as project_StartParams } from "./project/StartParams";
+import type { Started as project_Started } from "./project/Started";
 import type { Worktrees as project_Worktrees } from "./project/Worktrees";
 import type { CreateParams as reaction_CreateParams } from "./reaction/CreateParams";
 import type { Preview as reaction_Preview } from "./reaction/Preview";
@@ -305,6 +307,7 @@ export type RpcMethods = {
   "github.prReady": { params: github_Number; result: github_Pr };
   "github.prAutoMerge": { params: github_Number; result: github_Pr };
   "project.open": { params: project_OpenParams; result: project_Opened };
+  "project.start": { params: project_StartParams; result: project_Started };
   "action.serve": { params: null; result: null };
   "action.list": { params: null; result: action_ActionRow[] };
   "action.userList": { params: null; result: action_ActionRow[] };

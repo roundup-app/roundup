@@ -2,26 +2,28 @@ import "./ProjectOpening.css";
 import { createComputed, createSignal, Show } from "solid-js";
 import { Dialog } from "../ui/Dialog";
 import type { ProjectsState } from "../state/projects";
-import { RpcError, type ActionRequest, type ActionReply } from "./seam";
+import { RpcError, type ActionRequest, type ActionReply, type AppSeam } from "./seam";
+import { withAppSettings } from "../settings/preferences";
 import { copy } from "./copy";
 
-type OpenRequest = Extract<ActionRequest, { method: "project.open" }>;
+type ProjectRequest = Extract<ActionRequest, { method: "project.open" | "project.start" }>;
 
 type Confirmation =
-  | { kind: "confirmation"; request: OpenRequest; sourceName: string; choose: (open: boolean) => void }
-  | { kind: "opening"; request: OpenRequest }
-  | { kind: "failure"; request: OpenRequest; message: string; dismiss: () => void };
+  | { kind: "confirmation"; request: ProjectRequest; sourceName: string; choose: (open: boolean) => void }
+  | { kind: "opening"; request: ProjectRequest }
+  | { kind: "failure"; request: ProjectRequest; message: string; dismiss: () => void };
 
 /** One FIFO of request-bound decisions, owned by the App rather than the selected Project. */
-export const createProjectOpening = (projects: ProjectsState) => {
+export const createProjectOpening = (projects: ProjectsState, forProject: (path: string) => AppSeam) => {
   const [pending, setPending] = createSignal<Confirmation[]>([]);
 
-  const answer = async (request: OpenRequest, signal: AbortSignal): Promise<ActionReply> => {
+  const answer = async (request: ProjectRequest, signal: AbortSignal): Promise<ActionReply> => {
     const { id, params } = request;
     const reply = (error: { code: number; message: string }): ActionReply => ({ jsonrpc: "2.0", id, error });
     const lost = () => reply({ code: -32004, message: copy.openConnectionLost(params.path) });
 
     if (signal.aborted) return lost();
+    let created: { path: string; id: string; stage: "save" | "start" } | undefined;
 
     try {
       const source = await projects.opened(params.source);
@@ -55,16 +57,46 @@ export const createProjectOpening = (projects: ProjectsState) => {
 
       if (signal.aborted) return lost();
 
+      if (request.method === "project.start") {
+        const { kind, name, prompt, agent } = request.params;
+        const target = await projects.opened(opened.path);
+
+        if (!target || signal.aborted) return lost();
+        const calls = withAppSettings(forProject(target.path), () => false);
+        const start_attribution = { project: params.source, project_name: source.name, agent: agent.id, agent_name: agent.name };
+
+        const node = kind === "agent"
+          ? await calls.rpc("agent.spawn", { cwd: opened.path, parent: null, name, prompt, model: null, effort: null, start_attribution })
+          : await calls.rpc("rail.createWorkstream", { name, parent: null, start_attribution });
+
+        created = { path: opened.path, id: node.id, stage: kind === "mode" ? "save" : "start" };
+
+        if (kind !== "agent") {
+          if (kind === "mode") await calls.rpc("workstream.setOpeningPrompt", { id: node.id, prompt });
+
+          if (signal.aborted) return lost();
+          created.stage = "start";
+          await calls.rpc("rail.startDoor", { id: node.id, prompt });
+        }
+
+        if (signal.aborted) return lost();
+
+        return { jsonrpc: "2.0", id, result: { path: opened.path, kind, id: node.id } };
+      }
+
       return { jsonrpc: "2.0", id, result: { path: opened.path } };
     } catch (error) {
       if (!(error instanceof Error)) throw error;
 
+      const resultCause = created ? copy.projectStartFailed(created.path, created.id, created.stage, error.message) : error.message;
+      const message = created && request.method === "project.start" ? copy.projectStartRecovery(request.params.name, created.stage, error.message) : error.message;
+
       if (!signal.aborted) setPending(all => [...all, {
-        kind: "failure", request, message: error.message,
+        kind: "failure", request, message,
         dismiss: () => setPending(all => all.filter(item => item.request !== request)),
       }]);
 
-      return reply({ code: error instanceof RpcError ? error.code : -32603, message: copy.openProjectRecovery(params.path, error.message) });
+      return reply({ code: error instanceof RpcError ? error.code : -32603, message: copy.openProjectRecovery(params.path, resultCause) });
     } finally {
       setPending(all => all.filter(item => item.request !== request || item.kind === "failure"));
     }
