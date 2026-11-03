@@ -490,7 +490,7 @@ Final fix-run `just ready` passes (exit 0), including all 193 lint-behavior chec
 
 ## Requested attention, progress and Import — builder-41603063123
 
-Documentation-only slice pinned to main `b021117d063f663008f9a692be5e7496b2eebbe1`. No product/scenario/contract/test/frozen-loop changes, owner request or deletion. `attention-import.md` records A01–A10, W01–W08 and I01–I15 separately. Source catalogue retains inspected hashes, exact direction replies, installed Claude 2.1.300 help, gh run view help and reproducible isolated driver. Current source public mappings are distinguished from earlier actual role offers; no fresh tools/list is claimed.
+Documentation-only slice pinned to main `b021117d063f663008f9a692be5e7496b2eebbe1`. No product/scenario/contract/test/frozen-loop changes, owner request or deletion. `attention-import.md` records A01–A10, W01–W09 and I01–I15 separately. Source catalogue retains inspected hashes, exact direction replies, installed Claude 2.1.300 help, gh run view help and reproducible isolated driver. Current source public mappings are distinguished from earlier actual role offers; no fresh tools/list is claimed.
 
 Observer: existing isolated App harness, fresh named browser/profile, headless Chromium, dark 1512×950. Fake Daemon openings prove webview controls and calls only. Captures remain uncommitted under `artifacts/ux/U5741/attention-import/`. Existing unavailable/error states are retained with Check readings; no native, real import/Message, clipboard or older-data reopening claim. Remaining conditional/equivalence/runtime/revision gaps remain on #5758.
 
@@ -510,6 +510,22 @@ Observer: existing isolated App harness, fresh named browser/profile, headless C
 
 `pnpm install --frozen-lockfile`, work-order validation and Issue scope update passed (exit 0). Full lint and final source/render/archive reconciliation results follow below. No local `just check`; unchanged behavior files add no tests under U5741's policy observer.
 
-Additional failed inspection commands: `rg` with an unescaped opening brace exited 2 (invalid regular expression; read the actual importState block instead). A Python rendered-manifest inspection from the original checkout exited 1 (new file belongs to the isolated worktree; reran there). Neither affected product state or observer results.
+| Additional command / observer | Exit | Failure and repair |
+| --- | ---: | --- |
+| `rg` over importState with an unescaped opening brace | 2 | Invalid regular expression; read the actual implementation block instead. |
+| Python rendered-manifest inspection in the original checkout | 1 | New file belongs to the isolated worktree; reran there. |
+| First `just ready` | 143 | Terminated during proof-command fixture checks, after web/Rust lints. No complete pass; reran detached with an explicit exit-code file. |
+| `gh pr checks 5867` | 8 | Draft checks pending/skipped; no required-gate pass claimed. |
+| Isolated `just harness import-candidates 5243` shutdown | 130 | Deliberately stopped this run's harness after all captures; browser session closed separately. |
 
 Seventeen final openings retained: twelve Import/attention screens pass every recorded Check; five dense progress screens preserve D4's `li.progress-row` reading 41 and dependent D10 failure. Every D2/D5/D6 passes. The full-diagnostic screen opens the resume failure tooltip. Fake refusal/unknown replies exercise controls, not a production failure claim. All earlier failed driver runs are superseded, not combined with the final run.
+
+Self-review corrected two observer limits before finalization: the fake seeded Import has no listing Agent, so the report distinguishes its source/revision refusal from the production branch adding a retained listing Agent. The final driver preserves the pointer on the diagnostic tooltip instead of moving it away before capture, and sets dark media as well as App dark appearance. The earlier tooltip capture is superseded.
+
+The detached lint run records its final result independently of the interactive command lifetime. Only its explicit exit-code file establishes completion.
+
+The final row review marks Q3 unverified for unrendered conditional variants (shell/comment attention, selected Copy, read/copy failures and Import conflict/storage recovery). Their implemented actions are recorded as source evidence; missing renders are not silently counted as negative criterion answers.
+
+The final inventory separates read Retry from read-error Clear (W08/W09), yielding 34 independent rows. Error dismissal is optional to the five-stage result even where its owning scenario remains active; the rows no longer claim that a required retry/open outcome needs a separate dismissal control. This is candidate evidence only, not permission to remove one.
+
+Final detached `just ready` passed (exit 0): all 193 lint-behavior checks, package typechecks, repository/Rust lints, formal proofs (`ALL PROOFS CHECK`) and N7's launch-site observer. Final source/archive/snapshot reconciliation, dark media/appearance/viewport checks, D2/D5/D6, vocabulary, scenario ids, merge-loss, spelling and whitespace checks passed (exit 0). No local `just check` or added/changed behavior tests. Browser session and only this run's harness are closed. All seventeen final PNG files are also copied to the workflow checkout's `artifacts/ux/U5741/attention-import/` for attachment; none is committed.
