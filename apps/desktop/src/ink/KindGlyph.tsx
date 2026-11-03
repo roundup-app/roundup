@@ -14,7 +14,6 @@ const curve = (tokens: CSSStyleDeclaration, name: string): [number, number, numb
 /** M9/M10: only the current working arc turns; an outgoing arc keeps its displayed angle. */
 const WorkingArc = (props: { frozen?: string | undefined }) => {
   let path!: SVGPathElement;
-  let turned = false;
 
   const reduced = props.frozen === undefined
     ? useContext(ReducedMotionContext) ?? (window.matchMedia ? createReducedMotion(query => window.matchMedia(query)) : () => true)
@@ -30,12 +29,6 @@ const WorkingArc = (props: { frozen?: string | undefined }) => {
     const tokens = getComputedStyle(document.documentElement);
 
     if (reduced()) {
-      if (turned) {
-        const fade = animate(path, { opacity: [0, 1] }, { duration: parseFloat(tokens.getPropertyValue("--duration-reduced")) / 1000, ease: curve(tokens, "--easing-glyph-in") });
-
-        onCleanup(() => fade.cancel());
-      }
-
       return;
     }
 
@@ -45,7 +38,6 @@ const WorkingArc = (props: { frozen?: string | undefined }) => {
     if (!(seconds > 0)) return;
     const turn = animate(path, { transform: ["rotate(0deg)", "rotate(360deg)"] }, { duration: seconds, ease: curve(tokens, "--easing-working"), repeat: Infinity });
 
-    turned = true;
     onCleanup(() => turn.cancel());
   });
 
@@ -76,6 +68,7 @@ const Mark = (props: { kind: Kind; frozen?: string; ref?: (svg: SVGSVGElement) =
 
 /** M9: a Kind change on a mounted Glyph crossfades over the 150 ms fade preset; the latest Kind wins and the old mark is inert. */
 export const KindGlyph = (props: { kind: Kind; decorative?: boolean; label?: string; class?: string }) => {
+  const reduced = useContext(ReducedMotionContext) ?? (window.matchMedia ? createReducedMotion(query => window.matchMedia(query)) : () => true);
   const [leaving, setLeaving] = createSignal<{ kind: Kind; from: number; turn: string }>();
   let current: SVGSVGElement | undefined;
   let outgoing: HTMLElement | undefined;
@@ -94,10 +87,17 @@ export const KindGlyph = (props: { kind: Kind; decorative?: boolean; label?: str
     const turn = current?.querySelector(".working-arc") ? getComputedStyle(current.querySelector(".working-arc")!).transform : "none";
 
     stop();
-    setLeaving({ kind: previous, from, turn });
+    setLeaving(reduced() ? undefined : { kind: previous, from, turn });
   }, { defer: true }));
 
-  createEffect(on(leaving, mark => {
+  createEffect(on(() => [leaving(), reduced()] as const, ([mark, reduce]) => {
+    if (reduce) {
+      stop();
+      setLeaving(undefined);
+
+      return;
+    }
+
     const tokens = getComputedStyle(document.documentElement);
     const seconds = parseFloat(tokens.getPropertyValue("--duration-reduced")) / 1000;
 
