@@ -1,3 +1,4 @@
+import { batch } from "solid-js";
 import { createNow, DisplayClockContext } from "../state/clock";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
@@ -12,7 +13,7 @@ import { Switcher } from "../switcher/Switcher";
 import { leaderKey } from "../keys/leaderFixture";
 import { Tabs } from "../ui/Tabs";
 
-afterEach(cleanup);
+afterEach(() => batch(cleanup));
 
 const by = (id: string) => ({ kind: "agent" as const, id, parent: null });
 
