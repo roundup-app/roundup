@@ -357,6 +357,36 @@ fn s5810c_fatal_startup_stages_report_before_exit() {
                 } else {
                     "cannot start"
                 }));
+            } else if stage == "setup" || stage == "window" {
+                let config = crate::config::tests::startup_config(dir.path(), false);
+                let builder =
+                    crate::build_with_feedback(mock_builder(), config, None, |_, _, _| {
+                        panic!("a fatal Tauri failure must not reach Project feedback")
+                    });
+                let mut context = mock_context(noop_assets());
+                let builder = if stage == "setup" {
+                    builder.setup(|_| Err("foreign-private-SENTINEL".into()))
+                } else {
+                    context
+                        .config_mut()
+                        .app
+                        .windows
+                        .push(tauri::utils::config::WindowConfig {
+                            label: "invalid/foreign-private-SENTINEL".into(),
+                            ..Default::default()
+                        });
+                    builder
+                };
+                let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                    let mut app = super::startup(builder.build(context)).unwrap();
+                    #[allow(deprecated)]
+                    app.run_iteration(|_, _| {});
+                }));
+                assert!(outcome.is_err(), "the fatal runtime failure must propagate");
+                assert!(
+                    logs(&logger)
+                        .contains("run shell: native runtime or application setup panicked")
+                );
             } else {
                 let error = match stage.as_str() {
                     "io" => {
@@ -365,9 +395,6 @@ fn s5810c_fatal_startup_stages_report_before_exit() {
                     "json" => {
                         tauri::Error::Json(serde_json::from_str::<u32>("\"private\"").unwrap_err())
                     }
-                    "setup" => tauri::Error::Setup(
-                        Box::<dyn std::error::Error>::from("foreign private cause").into(),
-                    ),
                     _ => panic!("unknown stage"),
                 };
                 assert!(super::startup::<()>(Err(error)).is_err());
@@ -393,7 +420,14 @@ fn s5810c_fatal_startup_stages_report_before_exit() {
         ("missing-daemon", "cannot start"),
         ("io", "start shell: IO PermissionDenied"),
         ("json", "start shell: JSON Data"),
-        ("setup", "start shell: application setup failed"),
+        (
+            "setup",
+            "run shell: native runtime or application setup panicked",
+        ),
+        (
+            "window",
+            "run shell: native runtime or application setup panicked",
+        ),
     ]) {
         let mut command = std::process::Command::new(std::env::current_exe().unwrap());
         command
@@ -412,6 +446,7 @@ fn s5810c_fatal_startup_stages_report_before_exit() {
         let stderr = String::from_utf8_lossy(&output.stderr);
         assert!(output.status.success(), "{stage}: {stderr}");
         assert!(!stderr.contains("private-preference-SENTINEL"), "{stderr}");
+        assert!(!stderr.contains("foreign-private-SENTINEL"), "{stderr}");
         let report = stderr
             .find(expected)
             .unwrap_or_else(|| panic!("{stage}: {stderr}"));
