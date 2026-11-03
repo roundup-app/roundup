@@ -70,6 +70,7 @@ it("u5561a_pad_disclosure_toggles_without_writing", { retry: 0, timeout: 90_000 
 });
 
 it.each(["pointer", "Return"].flatMap(input => [false, true].map(present => ({ input, present }))))("u5561b_block_menu_adds_agent_details $input $present", { retry: 0, timeout: 90_000 }, async ({ input, present }) => {
+  await browser("set", "viewport", "1512", "950");
   await browser("set", "media", "dark");
   await browser("open", url("/harness.html?seed=tree-40"));
   await wait("!!window.__fake && !!document.querySelector('#shelf-tab-pads')");
