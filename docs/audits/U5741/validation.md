@@ -472,3 +472,18 @@ The successful observer subsequently reloaded the App before selecting the Agent
 The twelfth opening adds a chosen-Terminal close refusal on the eight-Run seed: full failure text and Retry remain visible, the tab stays, and all Checks pass. Its continuation driver is archived separately in terminal-source.json and uses the same isolated session. This establishes fake-seam readability, not a real Daemon outcome.
 
 Final `just ready` passes (exit 0): B4522 migration filename guard, all 193 lint-behavior checks, styles, typechecks, repository/Rust lints, formal proof mutation checks (`ALL PROOFS CHECK`) and N7. Final evidence validation passes for all 40 source hashes, three archives and twelve dark viewport/snapshot/Check records, including the full dense close-refusal text. Main remains the audit pin; no merge or product delta occurred. Self-review restored the earlier changes/resource capture count accidentally touched by report wording replacement. Isolated browser and harness processes are closed; final media is also copied into the run checkout's artifacts path for workflow attachment. No local `just check` ran.
+
+
+## Fix-run verification — builder-41594280547
+
+Integrated remote head `c2ca0523e` by fast-forward; it had already made #5861 ready with auto-merge enabled. Independently verified all 40 pinned source hashes, three decoded archives and twelve stored snapshot hashes, dark viewport records and passing Checks. Replayed both archived observer drivers using a fresh isolated headless session against the unchanged App at the audit pin: all twelve openings pass every recorded Check, including readable dense close-refusal text and Retry. Recreated PNG files, Check readings and the replay manifest remain uncommitted under `artifacts/ux/U5741/terminals/`, also copied to the run checkout for attachment. Original checked-in observations remain unchanged. The isolated browser and harness are closed.
+
+| Failed command | Exit | Failure / disposition |
+| --- | ---: | --- |
+| `ls artifacts/ux/U5741/terminals` | 2 | This fresh checkout lacked prior uncommitted media. Replayed the archived observer and recreated all twelve captures in an isolated session. |
+| `python3 tools/lint/scan.py typos` (two attempts before setup completed) | 2 each | Pinned spelling tool was absent in the fresh worktree; the required ready recipe installs it before scanning. |
+| `just ready` (first fix-run attempt) | 1 | Spelling rejected the plural image-format abbreviation in the new validation paragraph. Reworded it without changing evidence. |
+
+`pnpm install`, vocabulary, scenario ids, merge-loss and whitespace checks pass. No product, contract, scenario or behavior test changed; #5758 remains open for the complete inventory and later owner request.
+
+Final fix-run `just ready` passes (exit 0), including all 193 lint-behavior checks, styles, package typechecks, repository/Rust lints, B4522, `ALL PROOFS CHECK` and N7. The corrected standalone spelling scan also passes. No local `just check` ran.
