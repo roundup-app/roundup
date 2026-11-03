@@ -270,15 +270,23 @@ type AutomaticChanges = { name: "deliverable.changed" } | { name: "reaction.chan
 // N5467b/NR11 retire nullable historical Reaction reasons; all other saved fields stay exact.
 type CurrentReaction = Omit<Before["reaction/Reaction"], "reason"> & { reason: string };
 
+// A5765b removes only open Events and replaces open's null result with completion.
+type RenameRequest = Extract<Before["project/Requested"], { kind: "rename" }>;
+
+type WithoutOpenEvent<T> = T extends { name: "project.requested" }
+  ? Omit<T, "data"> & { data: RenameRequest } : T;
+
 type BeforeSelectors = { [K in keyof Before]: K extends SelectorInputs ? WithOwnerSelector<Before[K]>
-  : K extends "EventData" ? Before[K] | AutomaticChanges
-    : K extends "Event" ? Before[K] | (Pick<Before["Event"], "seq" | "actor"> & AutomaticChanges)
+  : K extends "EventData" ? WithoutOpenEvent<Before[K]> | AutomaticChanges
+    : K extends "Event" ? WithoutOpenEvent<Before[K]> | (Pick<Before["Event"], "seq" | "actor"> & AutomaticChanges)
+      : K extends "project/Requested" ? RenameRequest
       : K extends "reaction/Reaction" ? CurrentReaction : Before[K] };
 
 type SelectorMethods = "todo.assign" | "todo.create";
 
 type BeforeMethodSelectors = { [K in keyof BeforeRpcMethods]: K extends SelectorMethods
   ? { params: WithOwnerSelector<BeforeRpcMethods[K]["params"]>; result: BeforeRpcMethods[K]["result"] }
+  : K extends "project.open" ? { params: BeforeRpcMethods[K]["params"]; result: { path: string } }
   : K extends "reaction.create" | "reaction.get" | "reaction.run" | "reaction.stop"
     ? { params: BeforeRpcMethods[K]["params"]; result: CurrentReaction }
   : K extends "reaction.list"
