@@ -210,3 +210,15 @@ Fetched and merged main `b0562bd815f4f986b981b1c024e989328dd1489f` without confl
 Final reconciliation passed (exit 0): sixty unique configuration rows match the runtime catalogue; inspected files match their pinned hashes; the real model reply names only Claude Code; all ten nonempty retained pages pass every recorded Check and have paired PNG files; the actual Alerts snapshot contains fifteen switches and the actual recorder says Press a shortcut. No override image remains. Vocabulary, scenario ids, whitespace and post-merge merge-loss pass (exit 0). Standalone `just lint-rust origin/main` passes (exit 0), including `ALL PROOFS CHECK`; its first successful run installed the existing pinned Lean toolchain. No test file was changed or newly required by this documentation-only slice.
 
 `just ready` final rerun passes (exit 0) on the merged checkout: web lint, typecheck, Rust/repository lint, proofs and N7 launch-sites. The only subsequent change records this result. No local `just check` ran; CI judges the pushed head.
+
+## Required-check repair — builder-41563179878
+
+CI run `41560029671` on `29c2f339ea44b8f4366f33fe7038060b55dcf670` failed `lint` (exit 1): Clippy could not compile the agents unit tests (E0425) because the shared `crate::ALLOCATOR` was absent. The dependent `pre` gate failed too. Restore exactly one test-only allocator using the already installed `stats_alloc`; keep every allocation observer and threshold unchanged. Production builds do not register this allocator.
+
+| Command / observer | Exit | Result |
+| --- | ---: | --- |
+| `pnpm install --frozen-lockfile` | 0 | Installed the pinned dependencies in the isolated repair worktree. |
+| `cargo nextest run -p agents --lib -E 'test(b5635b_preview_allocations_stay_bounded) \| test(b5635a_receipt_reads_only_appended_bytes) \| test(r5636e_scan_allocated_bytes) \| test(r5636e_nested_rail_allocated_bytes)'` | 0 | All four existing allocation observers pass. No new test duplicates compiler coverage. |
+| `git diff --check`, `loop/rules.sh vocab`, `loop/rules.sh merge-loss` | 0 each | No whitespace, vocabulary or inherited merge-loss defect. |
+| `just ready` (first repair attempt) | 1 | Started before dependency installation exited; early web checks could not find Babel, Stylelint or TypeScript. Rust lint, proofs and N7 passed. Rerun after installation completed. |
+| `just ready` (final repair attempt) | 0 | Web lint/typecheck, workspace Clippy, repository guards, `ALL PROOFS CHECK` and N7 launch-sites pass. No local `just check` ran. |
