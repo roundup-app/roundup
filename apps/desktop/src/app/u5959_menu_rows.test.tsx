@@ -22,7 +22,7 @@ const finishAt = (app: FakeApp, project: string, id: string, at: number, round =
 const labels = (app: FakeApp) => app.menuBar?.entries.map(entry => entry.label);
 
 it("u5959a_rows_project_title_badge_and_subtitle", async () => {
-  const { app } = await openTabs({ api: [agent("fix-the-ÉLAN-bug", "needs-you", "question"), agent("😀-party", "error", "failure"), agent("日本語", "working", "running")] });
+  const { app } = await openTabs({ api: [agent("fix-the-ÉLAN-bug", "needs-you", "question"), agent("😀-party", "error", "failure"), agent("日本語", "working", "running")] }, false, Date.now);
 
   await waitFor(() => expect(labels(app)).toEqual(["Waiting", "Fix the ÉLAN bug", "😀 party", "Open roundup"]));
   // One open Project: its name and the separator are omitted.
@@ -33,14 +33,14 @@ it("u5959a_rows_project_title_badge_and_subtitle", async () => {
 });
 
 it("u5959a_the_project_name_follows_the_live_line_with_two_projects", async () => {
-  const { app } = await openTabs({ api: [agent("a", "needs-you", "question")], web: [agent("b", "needs-you", "answer")] });
+  const { app } = await openTabs({ api: [agent("a", "needs-you", "question")], web: [agent("b", "needs-you", "answer")] }, false, Date.now);
 
   await waitFor(() => expect(app.menuBar?.entries.map(entry => entry.subtitle)).toEqual([undefined, "question · api", "answer · web", undefined]));
 });
 
 it("u5959b_ready_rows_keep_the_last_hour", async () => {
   const now = 2 * HOUR;
-  const { app } = await openTabs({ api: ["fresh", "edge", "stale", "old", "tick"].map(id => agent(id, "working", "running")).concat(agent("waits", "needs-you", "question", { status: { kind: "needs-you", label: "question", since: 1, finished: "0" } })) });
+  const { app } = await openTabs({ api: ["fresh", "edge", "stale", "old", "tick"].map(id => agent(id, "working", "running")).concat(agent("waits", "needs-you", "question", { status: { kind: "needs-you", label: "question", since: 1, finished: "0" } })) }, false, Date.now);
   finishAt(app, "api", "fresh", now - 59 * 60_000);
   finishAt(app, "api", "edge", now - HOUR);
   finishAt(app, "api", "stale", now - 61 * 60_000);
@@ -53,7 +53,7 @@ it("u5959b_ready_rows_keep_the_last_hour", async () => {
 });
 
 it("u5959b_limit_and_commands_after_the_cut", async () => {
-  const { app } = await openTabs({ api: ["a", "b"].map(id => agent(id, "working", "running")) });
+  const { app } = await openTabs({ api: ["a", "b"].map(id => agent(id, "working", "running")) }, false, Date.now);
   finishAt(app, "api", "a", 10);
   finishAt(app, "api", "b", 20);
   vi.setSystemTime(3 * HOUR);
@@ -66,7 +66,7 @@ it("u5959b_limit_and_commands_after_the_cut", async () => {
 
 it("u5959c_dock_applies_the_hour_cut_and_five_row_limit", async () => {
   const ids = ["a", "b", "c", "d", "e", "f", "g"];
-  const { app } = await openTabs({ api: ids.map(id => agent(id, "working", "running")).concat(agent("old", "working", "running")) });
+  const { app } = await openTabs({ api: ids.map(id => agent(id, "working", "running")).concat(agent("old", "working", "running")) }, false, Date.now);
   finishAt(app, "api", "old", 0);
 
   for (const id of ids) finishAt(app, "api", id, 2 * HOUR);

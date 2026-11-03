@@ -32,8 +32,8 @@ export const renderTabs = (trees: Record<string, RailNode[]>, keepStorage = fals
 };
 
 /** `renderTabs`, once no tab is busy, so every Project's Rail and Tab mark is current (U181). */
-export const openTabs = async (trees: Record<string, RailNode[]>, keepStorage = false) => {
-  const opened = renderTabs(trees, keepStorage);
+export const openTabs = async (trees: Record<string, RailNode[]>, keepStorage = false, clock?: () => number) => {
+  const opened = renderTabs(trees, keepStorage, clock);
 
   await waitFor(() => expect(projectTabs().map((tab) => tab.getAttribute("aria-busy"))).toEqual(Object.keys(trees).map(() => "false")));
 
