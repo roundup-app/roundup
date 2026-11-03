@@ -934,3 +934,45 @@ async fn u504_completion_requires_matched_turn_and_ignores_repeated_stop() {
         })
     );
 }
+
+#[tokio::test]
+async fn u504_native_permission_resumption_preserves_completion_identity() {
+    let (dir, bus, shared) = shared_over_temp_dir(Arc::new(|| 0));
+    let id = running_agent(&shared, None);
+    let agents = crate::Agents {
+        shared: Arc::clone(&shared),
+        dir: dir.path().to_owned(),
+        launcher: shared.rail_view.launcher.clone(),
+    };
+    let mut events = bus.subscribe();
+    let mut observed_turns = Vec::new();
+    for line in include_str!("../../../../spikes/hooks-state/log.run7.jsonl").lines() {
+        let row: Value = serde_json::from_str(line).unwrap();
+        let payload = row["payload"].clone();
+        let stopped = payload["hook_event_name"] == "Stop";
+        shared
+            .observe(Actor::daemon(), &id, "1", Observation::Signal(payload))
+            .unwrap();
+        if stopped {
+            observed_turns.push(agents.turn_identity(&id));
+        }
+    }
+    let expected = [
+        "8c433b99-a653-47b7-be67-897955b007d6",
+        "02f1980e-3fda-4565-bb58-4cc3fb4dbd70",
+        "39f57d39-5ac7-4661-84f0-3314f727ea45",
+    ]
+    .map(|turn| contracts::event::Completion {
+        maker: id.clone(),
+        attempt: "1".into(),
+        turn: turn.into(),
+    });
+    let mut completed = Vec::new();
+    while let Ok(event) = events.try_recv() {
+        if let EventData::AgentCompleted(completion) = event.data {
+            completed.push(completion);
+        }
+    }
+    assert_eq!(completed, expected);
+    assert_eq!(observed_turns, expected.map(Some));
+}
