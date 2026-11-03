@@ -433,11 +433,6 @@ impl Daemon {
         let (result, out) = self
             .agents
             .redo_reversible_with(actor, p, move |db, removal| {
-                let mut events =
-                    todos::Todos::redo_workstream_in(db, &caller, &source, &operation)?;
-                let (files, pad_events) =
-                    pads.redo_workstream_in(db, &caller, &source, &operation)?;
-                events.extend(pad_events);
                 let id: String = db
                     .query_row(
                         "SELECT node FROM rail_deletions WHERE operation=?",
@@ -447,6 +442,11 @@ impl Daemon {
                     .map_err(RpcError::internal)?;
                 let mut owners=vec![id.clone()];
                 owners.extend(removal.removed.iter().filter(|item|item.kind==contracts::agent::RemovalKind::Agent).map(|item|item.id.clone()));
+                let mut events =
+                    todos::Todos::redo_workstream_in(db, &caller, &source, &operation, &owners)?;
+                let (files, pad_events) =
+                    pads.redo_workstream_in(db, &caller, &source, &operation, &owners)?;
+                events.extend(pad_events);
                 todos::Todos::remove_owners_in(db,&Actor::daemon(),&operation,&owners)?;
                 db.execute("INSERT INTO rail_removal_items(operation,kind,id,home) SELECT ?2,kind,id,home FROM rail_removal_items r WHERE operation=?1 AND kind='deliverable-home' AND EXISTS(SELECT 1 FROM deliverables d WHERE d.id=r.id AND d.home=r.home AND d.removed=0)",params![source,operation]).map_err(RpcError::internal)?;
                 db.execute("INSERT OR IGNORE INTO rail_removal_items(operation,kind,id,home) SELECT ?1,'deliverable-home',id,home FROM deliverables WHERE home=?2 AND removed=0",params![operation,id]).map_err(RpcError::internal)?;
@@ -905,6 +905,8 @@ mod tests {
 mod redo_tests;
 #[cfg(test)]
 mod restoration_tests;
+#[cfg(test)]
+mod selection_tests;
 
 #[cfg(test)]
 mod refusal_tests;

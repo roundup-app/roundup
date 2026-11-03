@@ -1,11 +1,17 @@
 import { execFileSync } from "node:child_process";
 import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { expect, it } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { captureDir } from "../testing/captures";
 import { shelfBrowser } from "../shelf/u371Browser";
 
-const { browser, evaluate, settle, openShelf } = shelfBrowser();
+const { rig, browser, evaluate, settle, openShelf } = shelfBrowser();
+
+// The App lazy-loads Crepe. Compile its real fixture before the interaction budget starts.
+beforeAll(async () => {
+  await browser("open", `${rig.server.resolvedUrls.local[0]}src/pads/u5561a.html`);
+  await browser("wait", "--fn", "document.querySelector('#root')?.dataset.ready === 'true'");
+}, 90_000);
 
 const phase = process.env.ROUNDUP_CAPTURE_PHASE ?? "head";
 
@@ -75,7 +81,7 @@ it.skipIf(typographyOutputs.length > 0 || Boolean(captureDir("U5705"))).each([[1
 
   const name = "Document reading and formatting ".repeat(7).slice(0, 200);
   const table = `| Decision | Owner | Context |\n| --- | --- | --- |\n| ${"x".repeat(500)} | Ada | ${"Table prose wraps across multiple lines. ".repeat(15)} |`;
-  const text = `# Plan for the next release\n\nA document with **structure**, *emphasis*, \`code\` and [a useful link](https://example.com).\n\n${table}\n\n## Scope\n\n- First deliverable\n- Second deliverable\n\n### Details\n\n> A readable quote.\n\n#### Deeper heading\n\n##### Further detail\n\n###### Last heading\n\n${Array.from({ length: 200 }, (_, i) => `Paragraph ${i + 1}. ${"Reading should remain comfortable as the document grows. ".repeat(7)}`).join("\n\n")}`;
+  const text = `# Plan for the next release\n\nA document with **structure**, *emphasis*, \`code\` and [a useful link](https://example.com).\n\n${table}\n\n## Scope\n\n- First deliverable\n- Second deliverable\n\n### Details\n\n> A readable quote.\n\n#### Deeper heading\n\n##### Further detail\n\n###### Last heading\n\n${Array.from({ length: 200 }, (_, i) => `Paragraph ${i + 1}. ${"Reading should remain comfortable as the document grows. ".repeat(7)}`).join("\n\n")}`; // taste-skill-ignore: Fixed link fixture exercises rich-format preservation; it is not product copy.
 
   await evaluate(`(async () => {
     await window.__fake.app.rpc('pad.create', ${JSON.stringify({ name, text })});
@@ -540,4 +546,135 @@ it.skipIf(!todoWidthOutput)("u5705_observe_nonempty_todo_and_pad_reading_columns
   await settle();
   await openTodo();
   await save("todo-after-pad");
+});
+
+const menuOutput = captureDir("U5631");
+
+describe("U5631 Todo block menus", () => {
+  beforeEach(async ({ task }) => {
+    await browser("set", "viewport", "1512", "950");
+
+    // Recording retains the previous context; keep a second App from rendering.
+    if (menuOutput) {
+      await browser("open", "about:blank");
+      mkdirSync(menuOutput, { recursive: true });
+      await browser("record", "start", join(menuOutput, `${task.name}.webm`));
+    }
+
+    await openShelf("tree-40", 288, 320, 1512, "dark");
+    await browser("set", "viewport", "1512", "950");
+  }, 90_000);
+
+it.each(["plus", "slash"].flatMap(entry => [false, true].map(afterPad => ({ entry, afterPad }))))("u5631_todo_block_menu_excludes_agent_details $entry afterPad=$afterPad", { retry: 0, timeout: 90_000 }, async ({ entry, afterPad }) => {
+  const name = `todo-${entry}-${afterPad}`;
+
+  try {
+    const shot = async (stage: string) => {
+      if (!menuOutput) return;
+      await settle();
+      await browser("screenshot", join(menuOutput, `${name}-${stage}.png`));
+      writeFileSync(join(menuOutput, `${name}-${stage}.checks.json`), JSON.stringify(await evaluate("window.__checks()")));
+    };
+
+    if (afterPad) {
+      await browser("click", "#shelf-tab-pads");
+      await browser("wait", '.pads-tab [data-shelf-group=unassigned] [data-part=branch-control]');
+
+      if (await evaluate("document.querySelector('.pads-tab [data-shelf-group=unassigned]').getAttribute('aria-expanded') === 'false'")) await browser("click", '.pads-tab [data-shelf-group=unassigned] [data-part=branch-control]');
+      await browser("wait", ".pad-name");
+      await settle();
+      await browser("focus", ".pad-name");
+      await browser("press", "Enter");
+      await browser("wait", ".drawer .ProseMirror");
+      await browser("focus", ".drawer .ProseMirror");
+      await browser("press", "Control+End");
+      await settle();
+      await browser("press", "Enter");
+      await settle();
+      await browser("keyboard", "type", "/For Agents");
+      await browser("wait", ".milkdown-slash-menu[data-show=true] li[data-index]");
+      await browser("press", "Escape");
+      await settle();
+      await browser("click", ".drawer .close");
+      await settle();
+    }
+
+    const body = "Exact Todo prose — 日本語 café. " + "Keep the existing body and identity. ".repeat(24).trimEnd();
+    await evaluate(`(async () => {
+      await window.__fake.app.rpc('todo.update', { id: 1, title: ${JSON.stringify("Long Todo title ".repeat(12))}, body: ${JSON.stringify(body)} });
+      await window.__fake.app.rpc('todo.assign', { id: 1, owner: null });
+      return true;
+    })()`);
+
+    if (await evaluate("document.querySelector('#shelf-tab-todos').getAttribute('aria-expanded') !== 'true'")) await browser("click", "#shelf-tab-todos");
+    await browser("wait", '[data-shelf-group="unassigned"] [data-part="branch-control"]');
+
+    if (await evaluate("document.querySelector('.todos-tab [data-shelf-group=unassigned]').getAttribute('aria-expanded') === 'false'")) await browser("click", '.todos-tab [data-shelf-group="unassigned"] [data-part="branch-control"]');
+    await browser("wait", '[data-todo="1"] .todo-row-button');
+    await browser("focus", '[data-todo="1"] .todo-row-button');
+    await browser("press", "Enter");
+    await browser("wait", ".drawer .ProseMirror");
+    await browser("click", ".drawer .ProseMirror");
+    await browser("wait", ".todo-detail-body button.word");
+    await settle();
+    await browser("focus", ".drawer .ProseMirror");
+    await settle();
+    await evaluate("window.__fake.app.calls.length = 0; true");
+
+    if (entry === "plus") {
+      await browser("hover", ".drawer .ProseMirror p:first-child");
+      await browser("wait", ".milkdown-block-handle[data-show=true]");
+      await browser("click", ".milkdown-block-handle .operation-item:first-child");
+    } else {
+      await browser("focus", ".drawer .ProseMirror");
+      await browser("press", "Control+End");
+      await settle();
+      await browser("press", "Enter");
+      await settle();
+      await browser("keyboard", "type", "/For Agents");
+    }
+
+    await settle();
+    await shot("menu");
+    const actions = () => evaluate<string[]>("[...document.querySelectorAll('.milkdown-slash-menu[data-show=true] li[data-index]')].map(item => item.textContent.trim())");
+    const offered = await actions();
+    const draft = await evaluate<string>("document.querySelector('.drawer .ProseMirror').textContent");
+    expect(draft).toBe(body + (entry === "slash" ? "/For Agents" : ""));
+    const count = offered.length;
+
+    if (entry === "plus") expect(count).toBeGreaterThan(0);
+
+    const selection = "document.querySelector('.milkdown-slash-menu[data-show=true] [aria-selected=true]')";
+    await evaluate("window.__u5631Selected = []; true");
+
+    // Crepe's menu/component.tsx clamps ArrowDown at the last item. PadRichEditor.updateMenu
+    // mirrors that selection into aria-selected, which acknowledges each key before the next.
+    if (count) await browser("batch", "--bail", ...Array.from({ length: count }, (_, index) => [
+      ...(index ? ["press ArrowDown"] : []),
+      "wait --fn " + JSON.stringify(`${selection}?.getAttribute('data-index') === '${index}'`),
+      "eval " + JSON.stringify(`window.__u5631Selected.push(${selection}.textContent.trim()); true`),
+    ]).flat());
+    const selected = await evaluate<string[]>("window.__u5631Selected");
+    expect(selected).toEqual(offered);
+
+    const retained = () => evaluate("JSON.parse(localStorage.getItem('roundup:drafts:/Users/you/harness') ?? '{\"drafts\":[]}').drafts.filter(draft => draft.destination.surface === 'todos').map(draft => ({ destination: draft.destination, text: draft.value.text }))");
+    const unfinished = await retained();
+
+    if (entry === "slash") expect(unfinished).toEqual([{ destination: { surface: "todos", object: "1", recipient: "body" }, text: body + "\n\n/For Agents" }]);
+
+    await browser("press", "Escape");
+    await settle();
+    expect.soft(await retained()).toEqual(unfinished);
+    expect.soft(await evaluate("document.querySelector('.drawer .ProseMirror').textContent")).toBe(draft);
+    expect(await evaluate("document.querySelectorAll('.drawer details[data-pad-agents]').length")).toBe(0);
+    await shot("dismissed");
+    expect(await evaluate("window.__fake.app.calls.filter(call => ['todo.update', 'pad.write'].includes(call.method))")).toEqual([]);
+    expect(offered.includes("For Agents")).toBe(false);
+    expect(selected.includes("For Agents")).toBe(false);
+
+  } finally {
+    if (menuOutput) await browser("record", "stop");
+  }
+});
+
 });
