@@ -51,6 +51,10 @@ pub mod worktree;
 
 use claude_code::{ClaudeCode, Launcher, Pair, Role};
 
+#[cfg(test)]
+#[global_allocator]
+static ALLOCATOR: &stats_alloc::StatsAlloc<std::alloc::System> = &stats_alloc::INSTRUMENTED_SYSTEM;
+
 /// One input an adapter reads about its Agent.
 pub enum Observation {
     /// A structured event the Agent's own tooling pushed; for Claude Code, a hook payload.
