@@ -25,6 +25,13 @@ impl Daemon {
                 "specialist requires an Agent's scout: true start",
             ));
         }
+        if typed.start_attribution.is_some() {
+            // Reuse the Agents boundary before a cache hit can bypass its attribution refusal.
+            return self
+                .agents
+                .call(&self.ctx(actor.clone()), "agent.spawn", params)
+                .await;
+        }
         let name = typed.specialist.clone().expect("specialist spawn");
         if name.trim().is_empty() {
             return Err(RpcError::new(
