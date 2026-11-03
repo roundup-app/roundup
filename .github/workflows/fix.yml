@@ -109,6 +109,8 @@ jobs:
         with:
           ref: ${{ needs.task.outputs.branch }}
           fetch-depth: 0
+          # Blobs load on demand: history still holds the 2.5 GB of evidence #5484 removed from the tree.
+          filter: blob:none
           clean: false
           persist-credentials: false
       # main picks the runner setup and runs the end of the job; the PR's copies may be stale or changed.
