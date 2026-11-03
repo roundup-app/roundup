@@ -1,0 +1,23 @@
+{
+  "app": "29f4cfc73c4f37382c9312f806ad1fbc7e03a3e6",
+  "viewport": [
+    1512,
+    950
+  ],
+  "scheme": "dark",
+  "observer": "src/ink/u4464_capture.test.ts::u5740a_capture_remaining_app_surfaces",
+  "result": "All emitted Checks pass on all eleven screens, including D2/D5/D6, with exact draft text and visible Made failure. Native menu projection is read through the App seam; Chromium screenshots show the underlying App.",
+  "screens": [
+    "1512x950-dark-agents-10-draft-focus.checks.json",
+    "1512x950-dark-agents-10-failure.checks.json",
+    "1512x950-dark-agents-10-help.checks.json",
+    "1512x950-dark-agents-10-menu-made.checks.json",
+    "1512x950-dark-agents-10-overview.checks.json",
+    "1512x950-dark-agents-10-switcher.checks.json",
+    "1512x950-dark-empty-project-draft-focus.checks.json",
+    "1512x950-dark-empty-project-help.checks.json",
+    "1512x950-dark-empty-project-menu-made.checks.json",
+    "1512x950-dark-empty-project-overview.checks.json",
+    "1512x950-dark-empty-project-switcher.checks.json"
+  ]
+}

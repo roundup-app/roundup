@@ -186,7 +186,7 @@ const reads = new Set<RpcMethodName>([
   "message.get", "message.list",
   "message.progress", "message.reconcileWork", "route.list", "ask.list",
   "deliverable.list", "deliverable.get", "deliverable.resolve", "link.read",
-  "provenance.history", "provenance.touched", "reaction.list", "reaction.get", "reaction.preview",
+  "provenance.history", "provenance.touched",
   "workstream.queue",
 ]);
 

@@ -144,33 +144,27 @@ it.skipIf(!captureDir("U365"))("u365_rendered_links_and_failures", async () => {
       await capture("U365", seed + (alternate ? "-alternate" : "") + "-hover");
     }
 
-    for (const mode of ["ask", "message"]) {
+    for (const mode of ["ask"]) {
       await browser("open", url(`/src/terminal/u365.html?mode=${mode}`, base));
 
-      if (mode === "message") {
-        await wait("!!document.querySelector('[data-reaction-opener]')");
-        await browser("click", "[data-reaction-opener]");
-        await wait("!!document.querySelector('[data-firing-message]')");
-        await browser("click", "[data-firing-message]");
-      }
 
-      await wait(mode === "ask" ? "!!document.querySelector('.ask-row')" : "!!document.querySelector('section[aria-label=Message] .reaction-instruction')");
-      await capture(mode === "ask" ? "U505" : "NR9", mode + "-links");
+      await wait("!!document.querySelector('.ask-row')");
+      await capture("U505", mode + "-links");
 
       if (!base) {
         await read("(async () => { const {RpcError}=await import('/src/app/seam.ts'); window.__fake.app.openFailure=new RpcError(-32001, 'not found'); })()");
         await browser("click", ".target-link:first-of-type");
         await wait("!!document.querySelector('[role=alert]')");
-        await capture(mode === "ask" ? "U505" : "NR9", mode + "-missing-path");
+        await capture("U505", mode + "-missing-path");
         await browser("focus", ".target-link[href='https://example.com']");
         await wait("document.activeElement?.getAttribute('href') === 'https://example.com'");
-        await capture(mode === "ask" ? "U505" : "NR9", mode + "-focused-url");
+        await capture("U505", mode + "-focused-url");
         // U505 truncates long Ask text; Tab/focus can still reach its clipped links.
         await browser("focus", ".target-link:last-of-type");
         await browser("press", "Enter");
         await wait("document.querySelector('[role=alert]')?.textContent.includes('missing-directory')");
         await read("document.querySelector('.target-failure').scrollIntoView({block: 'nearest'})");
-        await capture(mode === "ask" ? "U505" : "NR9", mode + "-long-path-failure");
+        await capture("U505", mode + "-long-path-failure");
       }
     }
   }

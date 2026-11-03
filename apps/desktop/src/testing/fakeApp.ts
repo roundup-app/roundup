@@ -35,7 +35,6 @@ const emptyReads: Handlers = {
   "message.list": () => [],
   "pad.list": () => [],
   "ask.list": () => [],
-  "reaction.list": () => [],
   "deliverable.list": () => [],
   "provenance.history": () => [],
   "message.progress": () => ({ instructions: { project: "/project", home: null, current: null, revisions: [], deliveries: [] }, results: [] }),
