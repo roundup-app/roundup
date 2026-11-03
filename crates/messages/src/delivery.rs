@@ -27,6 +27,7 @@ fn spawn_push_clock(inner: std::sync::Weak<Inner>) {
                 break;
             };
             pushes::flush(&inner).await;
+            failure::sweep(&inner).await;
             #[cfg(test)]
             let _ = inner.completed.send("clock");
         }

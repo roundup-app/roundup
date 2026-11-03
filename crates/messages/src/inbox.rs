@@ -166,7 +166,10 @@ pub(crate) async fn send(
     if previous.is_none() {
         previous = match inbox.previous(agent) {
             Ok(previous) => previous,
-            Err(_) => return true,
+            Err(_) => {
+                failure::record(inner, agent, failure::UNREADABLE);
+                return true;
+            }
         };
         if let Some(content) = &previous {
             lock(&inner.store)
@@ -244,6 +247,7 @@ pub(crate) async fn send(
         _ => Ok(()),
     };
     if written.is_err() {
+        failure::record(inner, agent, failure::WRITE_FAILED);
         // A failed batch may have written a prefix; its previous comparison value is uncertain.
         lock(&inner.store)
             .db

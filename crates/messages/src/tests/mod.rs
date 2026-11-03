@@ -15,6 +15,7 @@ mod b_hop_tests;
 mod b_idle_tests;
 mod b_push_tests;
 mod b_resume_tests;
+mod dcl_tests;
 mod inv_tests;
 mod routes;
 mod send;
