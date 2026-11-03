@@ -159,6 +159,7 @@ impl Agents {
     ) -> Result<RailNode, RpcError> {
         let parked = self.shared.node(id)?;
         let params = StartDoorParams {
+            prompt: None,
             id: id.to_owned(),
             model: parked.model,
             effort: parked.effort,
@@ -226,9 +227,15 @@ impl Agents {
     pub(super) async fn start_door(
         &self,
         ctx: &Ctx,
-        params: StartDoorParams,
+        mut params: StartDoorParams,
     ) -> Result<RailNode, RpcError> {
-        self.start_door_with(ctx, params, None, true).await
+        if params.prompt.is_some() && ctx.actor.kind != ActorKind::User {
+            return Err(RpcError::forbidden(
+                "only the user connection supplies a Door first prompt",
+            ));
+        }
+        let first = params.prompt.take();
+        self.start_door_with(ctx, params, first, true).await
     }
 
     /// `first` requests a fresh conversation, replacing the saved order as its first prompt.
@@ -236,6 +243,7 @@ impl Agents {
         &self,
         ctx: &Ctx,
         StartDoorParams {
+            prompt: _,
             id,
             model,
             effort,

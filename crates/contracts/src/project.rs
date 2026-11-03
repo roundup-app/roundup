@@ -94,6 +94,33 @@ pub struct Opened {
     pub path: String,
 }
 
+/// A5765a: the root row to create in the target Project.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
+#[serde(rename_all = "lowercase")]
+pub enum StartKind {
+    Agent,
+    Workstream,
+    Mode,
+}
+
+/// A5765: start work through the registered App and the target Project's normal Add policy.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct StartParams {
+    pub path: String,
+    pub kind: StartKind,
+    pub name: String,
+    pub prompt: String,
+}
+
+/// A5765a: the created target row, qualified by its canonical Project path.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
+pub struct StartedRow {
+    pub path: String,
+    pub kind: StartKind,
+    pub id: String,
+}
+
 /// M8: ask the App to give this Project another name (S10's rule, but never empty).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct RenameParams {
