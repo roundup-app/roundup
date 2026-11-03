@@ -52,16 +52,20 @@ const CODES = { ArrowDown: "ArrowDown", ArrowUp: "ArrowUp", ArrowLeft: "ArrowLef
 
 const press = (key: keyof typeof CODES): Promise<void> => page.press(key, CODES[key]);
 
+// Both walks reload the harness per test; one isolated browser/server serves the file.
+beforeAll(async () => {
+  if (!found) {
+    if (process.env["CI"]) throw new Error("U520 needs a Chrome binary: set CHROME_PATH");
+
+    return;
+  }
+
+  page = await openPage(found);
+}, 90_000);
+
+afterAll(async () => { await page?.close(); });
+
 run("u520 the Rail is a tree", () => {
-  beforeAll(async () => {
-    if (!found) throw new Error("U520 needs a Chrome binary: set CHROME_PATH");
-
-    page = await openPage(found);
-  }, 90_000);
-
-  afterAll(async () => {
-    await page?.close();
-  });
 
   vi.setConfig({ testTimeout: 60_000 });
 
@@ -126,8 +130,6 @@ run("u520 the Rail is a tree", () => {
 
 
 run("u5483 folded children", () => {
-  beforeAll(async () => { if (found) page = await openPage(found); }, 90_000);
-  afterAll(async () => { await page?.close(); });
   it("u5483b_keyboard_walk_enters_only_open_children", async () => {
     await page.scheme("dark");
     await page.load("/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40", 1512, 950);
