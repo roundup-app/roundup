@@ -4,7 +4,7 @@ import { cleanup, render, fireEvent, screen, waitFor, within } from "@solidjs/te
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { RequestedApp as App } from "../testing/requestedApp";
 import { fakeEmulators } from "../terminal/paneHarness";
-import { createRoot, createSignal } from "solid-js";
+import { batch, createRoot, createSignal } from "solid-js";
 import { createProjectDrafts, ProjectDraftsContext } from "../state/connectedProject";
 import { createFakeApp } from "../testing/fakeApp";
 import { Tabs } from "../ui/Tabs";
@@ -13,7 +13,7 @@ import { createProjectsState } from "../state/projects";
 import { RpcError } from "../app/seam";
 import { renderTabs, openTabs, path, tab, projectTabs } from "./stripFixture";
 
-afterEach(() => { cleanup(); vi.restoreAllMocks(); });
+afterEach(() => { batch(cleanup); vi.restoreAllMocks(); });
 
 const field = () => screen.getByLabelText<HTMLInputElement>("Project name", { selector: "input" });
 
