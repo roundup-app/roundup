@@ -11,7 +11,7 @@ const load = async (seed: string, width: number, scheme: "light" | "dark") => {
   await browser("set", "media", scheme);
   const path = `/harness.html?seed=${seed}`;
   await browser("set", "viewport", String(width), "950");
-  await browser("open", url(path));
+  await browser("open", url(`${path}&rest=1&view=workstreams&tabs=1`));
   await wait(`document.querySelectorAll('.rail-row').length >= 9`);
 };
 
@@ -66,7 +66,7 @@ it.skipIf(!!process.env.ROUNDUP_CAPTURES && !captureDir("U350")).each(["tree-40"
   try {
     await browser("set", "media", "dark");
     await browser("set", "viewport", "1512", "950");
-    await browser("open", url(`/harness.html?seed=${seed}`));
+    await browser("open", url(`/harness.html?seed=${seed}&rest=1&view=workstreams&tabs=1`));
     await wait(`document.querySelector('.rail-row')`);
     const id = await read<string>(`document.querySelector('.rail-row:has(.rail-chevron)')?.dataset.id ?? document.querySelector('.rail-row').dataset.id`);
     const selector = `.rail-row[data-id="${id}"]`;
