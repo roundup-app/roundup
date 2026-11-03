@@ -12,7 +12,7 @@ import { createSettingsView } from "./state/settingsView";
 import { appSettings, applyAppAppearance } from "./settings/preferences";
 import { captureActions, registerKeys } from "./keys/registry";
 import { Combobox } from "./ui/Combobox";
-import { CHORDS, LEADER, shortcutLabel } from "./keys/chords";
+import { CHORDS, LEADER, leaderKeys, shortcutLabel } from "./keys/chords";
 import { copy } from "./app/copy";
 import "./buttons.css";
 import { batch, lazy, createEffect, createMemo, createResource, createSignal, createUniqueId, For, getOwner, on, onCleanup, onMount, runWithOwner, Show, untrack } from "solid-js";
@@ -554,7 +554,7 @@ export const App = (props: {
         return {
           id: action?.value ?? `action:${"press" in row ? "leader" : "chord"}:${row.keys}`,
           label: copy.projectMenuLabel(row.name, row.what),
-          shortcut: "press" in row ? `⌘K ${row.keys}` : action?.press ? shortcutLabel(action.press) : row.keys,
+          shortcut: "press" in row ? leaderKeys(row) : action?.press ? shortcutLabel(action.press) : row.keys,
           group: index < 6 ? "create" : "navigate",
           enabled: available && action !== undefined,
         };

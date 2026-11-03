@@ -83,5 +83,6 @@ it("u5919b_project_sequences_track_the_configured_leader", async () => {
   row.focus();
   fireEvent.keyDown(row, { key: "T", code: "KeyT", metaKey: true, shiftKey: true });
   fireEvent.keyDown(row, { key: "p", code: "KeyP" });
-  expect(document.activeElement).toBe(await screen.findByRole("combobox", { name: "Switch Project" }));
+  const picker = await screen.findByRole("combobox", { name: "Switch Project" });
+  await waitFor(() => expect(document.activeElement).toBe(picker));
 });
