@@ -7,16 +7,23 @@ import { browser, read, url, wait } from "../ui/tabsBrowser";
 
 beforeAll(async () => { await browser("set", "viewport", "1512", "950"); });
 
+// CI5527e: the rejected head spent 330091 ms driving these same sequential commands.
+// The installed CLI batches them without changing the session, inputs or readiness bounds.
+const batch = (...commands: string[][]) => browser("batch", "--bail", ...commands.map(command => command.map(arg => "'" + arg.replaceAll("'", "'\\''") + "'").join(" ")));
+
 const load = async (query = "") => {
-  await browser("open", url(`/src/terminal/u514.html${query}`));
-  await wait("document.body.dataset.ready === '1' && document.querySelectorAll('.turn-gutter').length >= 0");
+  await batch(
+    ["open", url(`/src/terminal/u514.html${query}`)],
+    ["wait", "--fn", "document.body.dataset.ready === '1' && document.querySelectorAll('.turn-gutter').length >= 0"]
+  );
 };
 
 it("u514_browser_the_gutters_select_turns", async () => {
   await load();
-  await wait("document.querySelectorAll('.turn-gutter').length === 3");
-
-  await browser("click", ".turn-gutter:first-of-type");
+  await batch(
+    ["wait", "--fn", "document.querySelectorAll('.turn-gutter').length === 3"],
+    ["click", ".turn-gutter:first-of-type"]
+  );
   expect(await read<string>("window.__emu.selection()")).toBe("$ one\n1");
   await browser("eval", "document.querySelectorAll('.turn-gutter')[2].dispatchEvent(new MouseEvent('click', { bubbles: true, shiftKey: true }))");
   expect(await read<string>("window.__emu.selection()")).toBe("$ one\n1\n$ two\n2\n$ three\n3");
@@ -44,16 +51,22 @@ it.each([false, true])("u2680b_a_click_clears_browser_and_terminal_selections_st
 }, 90_000);
 
 const app = async (base = false, mac = false) => {
-  await browser("eval", "localStorage.clear()");
-  await browser("open", url(mac ? "/src/terminal/u514.html?app&mac&seed=tree-40&renderer=dom&view=workstreams&items=1&tabs=1" : "/harness.html?seed=tree-40&renderer=dom", base));
-  await wait("!!document.querySelector('.shelf-tabs')");
+  const seed = process.env.ROUNDUP_CAPTURES ? "tree-40" : "selection";
+
+  await batch(
+    ["eval", "localStorage.clear()"],
+    ["open", url(mac ? `/src/terminal/u514.html?app&mac&seed=${seed}&renderer=dom&view=workstreams&items=1&tabs=1` : `/harness.html?seed=${seed}&renderer=dom`, base)],
+    ["wait", "--fn", "!!document.querySelector('.shelf-tabs')"]
+  );
 };
 
 const selectRow = async (id: string) => {
-  await browser("focus", `.rail-row[data-id="${id}"]`);
-  await wait(`document.activeElement?.matches('.rail-row[data-id="${id}"]')`);
-  await browser("press", "Enter");
-  await wait(`document.querySelector('.rail-row[data-id="${id}"]')?.dataset.selected === 'true'`);
+  await batch(
+    ["focus", `.rail-row[data-id="${id}"]`],
+    ["wait", "--fn", `document.activeElement?.matches('.rail-row[data-id="${id}"]')`],
+    ["press", "Enter"],
+    ["wait", "--fn", `document.querySelector('.rail-row[data-id="${id}"]')?.dataset.selected === 'true'`]
+  );
 };
 
 const point = (selector: string, end = false) => read<{ x: number; y: number }>(`(() => {
@@ -62,11 +75,16 @@ const point = (selector: string, end = false) => read<{ x: number; y: number }>(
 })()`);
 
 const drag = async (from: { x: number; y: number }, to: { x: number; y: number }) => {
-  await browser("mouse", "move", String(from.x), String(from.y));
-  await browser("mouse", "down");
+  await batch(
+    ["mouse", "move", String(from.x), String(from.y)],
+    ["mouse", "down"],
+    ...Array.from({ length: 5 }, (_, index) => {
+      const step = index + 1;
 
-  for (let step = 1; step <= 5; step++) await browser("mouse", "move", String(Math.round(from.x + (to.x - from.x) * step / 5)), String(Math.round(from.y + (to.y - from.y) * step / 5)));
-  await browser("mouse", "up");
+      return ["mouse", "move", String(Math.round(from.x + (to.x - from.x) * step / 5)), String(Math.round(from.y + (to.y - from.y) * step / 5))];
+    }),
+    ["mouse", "up"]
+  );
 };
 
 // agent-browser's input stream supports a click count at a text coordinate, including WebGL cells.
@@ -116,7 +134,7 @@ it.each(["pane-across-shelf", "blank-bubbles-into-pane"])("u2680c_chrome_drag_an
   expect(await read<boolean>("getSelection().isCollapsed")).toBe(true);
 }, 90_000);
 
-const placement = async (where: "agent" | "door" | "user" | "bubble", mac = false) => {
+const placement = async (where: "agent" | "door" | "user" | "bubble", mac = false, text = "alpha bravo charlie ".repeat(256)) => {
   await app(false, mac);
 
   if (where === "bubble" || where === "user") {
@@ -126,13 +144,15 @@ const placement = async (where: "agent" | "door" | "user" | "bubble", mac = fals
 
   const selector = where === "bubble" || where === "user" ? ".bubble:not([hidden]) .xterm-screen" : ".pane-screen .xterm-screen";
 
-  await wait(`!!document.querySelector(${JSON.stringify(selector)})`);
-  await browser("eval", String.raw`(() => {
+  await batch(
+    ["wait", "--fn", `!!document.querySelector(${JSON.stringify(selector)})`],
+    ["eval", String.raw`(() => {
     const id = ${where === 'bubble' || where === 'user' ? "document.querySelector('.bubble:not([hidden])').dataset.bubble" : JSON.stringify(where === 'agent' ? 't-migrate' : 't-payments')};
     window.__emu = window.__terminals.get(id);
-    window.__emu.write(new TextEncoder().encode('\x1b[2J\x1b[H' + 'alpha bravo charlie '.repeat(1000)), () => { window.__selectionReady = true; });
-  })()`);
-  await wait("window.__selectionReady === true");
+    window.__emu.write(new TextEncoder().encode('\x1b[2J\x1b[H' + ${JSON.stringify(text)}), () => { window.__selectionReady = true; });
+  })()`],
+    ["wait", "--fn", "window.__selectionReady === true"]
+  );
 
   return selector;
 };
@@ -180,9 +200,11 @@ it.each(["agent", "bubble"] as const)("u2680b_a_click_clears_browser_and_termina
       return { x: Math.round(host.left + 1), y: Math.round(host.top + 12) };
     })()`) : await point(target === "output" ? selector : target);
 
-    await browser("mouse", "move", String(at.x), String(at.y));
-    await browser("mouse", "down");
-    await browser("mouse", "up");
+    await batch(
+      ["mouse", "move", String(at.x), String(at.y)],
+      ["mouse", "down"],
+      ["mouse", "up"]
+    );
     expect(await read<{ terminal: string; browser: boolean }>("({ terminal: window.__emu.selection(), browser: getSelection().isCollapsed })"), target).toEqual({ terminal: "", browser: true });
   }
 }, 60_000);
@@ -198,36 +220,45 @@ const editor = async (kind: typeof editorKinds[number] | "pad-source" | "diff" |
   if (kind === "ask") {
     await browser("click", "[data-todo-root]");
     selector = 'textarea[aria-label="Ask"]';
-    await wait(`!!document.querySelector(${JSON.stringify(selector)})`);
-    await browser("fill", selector, "Keep this selected draft");
+    await batch(
+      ["wait", "--fn", `!!document.querySelector(${JSON.stringify(selector)})`],
+      ["fill", selector, "Keep this selected draft"]
+    );
   } else if (kind === "diff") {
-    await browser("open", url("/src/changes/u2540.html"));
-    await wait("!!document.querySelector('.worktree-control')");
-    await browser("click", ".worktree-control");
-    await wait("!!document.querySelector('file-tree-container')?.shadowRoot?.querySelector('[data-item-type=file]')");
-    await browser("eval", "document.querySelector('file-tree-container').shadowRoot.querySelector('[data-item-type=file]').click()");
-    await browser("find", "role", "button", "click", "--name", "View diff", "--exact");
-    await wait("!!document.querySelector('diffs-container')?.shadowRoot?.querySelector('[data-line]')");
+    await batch(
+      ["open", url("/src/changes/u2540.html")],
+      ["wait", "--fn", "!!document.querySelector('.worktree-control')"],
+      ["click", ".worktree-control"],
+      ["wait", "--fn", "!!document.querySelector('file-tree-container')?.shadowRoot?.querySelector('[data-item-type=file]')"],
+      ["eval", "document.querySelector('file-tree-container').shadowRoot.querySelector('[data-item-type=file]').click()"],
+      ["find", "role", "button", "click", "--name", "View diff", "--exact"],
+      ["wait", "--fn", "!!document.querySelector('diffs-container')?.shadowRoot?.querySelector('[data-line]')"]
+    );
     selector = ".diff-content";
   } else if (kind === "pad" || kind === "pad-source") {
     const source = kind === "pad-source" ? "```mermaid\ngraph LR\nA-->B\n```" : "alpha [bravo](https://example.com) charlie delta echo foxtrot";
 
     await browser("eval", `window.__fake.app.rpc('pad.write', { name: 'pad-3', text: ${JSON.stringify(source)} })`);
     await selectRow("payments");
-    await browser("click", "#shelf-tab-pads");
-    await wait("document.querySelector('#shelf-tab-pads')?.getAttribute('aria-selected') === 'true'");
-    await browser("eval", "document.querySelector('.pads-tab [data-shelf-group=unassigned][data-state=closed] [data-part=branch-control]')?.click()");
-    await wait("[...document.querySelectorAll('[data-shelf-row] .pad-name')].some(row => row.textContent === 'pad-3')");
-    await browser("eval", "[...document.querySelectorAll('[data-shelf-row] .pad-name')].find(row => row.textContent === 'pad-3').focus()");
-    await wait("document.activeElement?.matches('.pad-name')");
-    await browser("press", "Enter");
-    await wait("!!document.querySelector('.ProseMirror[contenteditable=true]')");
+    await batch(
+      ["click", "#shelf-tab-pads"],
+      ["wait", "--fn", "document.querySelector('#shelf-tab-pads')?.getAttribute('aria-selected') === 'true'"],
+      ["wait", "--fn", "document.querySelector('.pads-tab [data-shelf-group=unassigned] [data-part=branch-control]')?.checkVisibility()"],
+    ["eval", "document.querySelector('.pads-tab [data-shelf-group=unassigned][data-state=closed] [data-part=branch-control]')?.click()"],
+      ["wait", "--fn", "document.querySelector('[data-pad=pad-3] .pad-name')?.textContent === 'pad-3'"],
+      ["eval", "document.querySelector('[data-pad=pad-3] .pad-name').focus()"],
+      ["wait", "--fn", "document.activeElement?.matches('.pad-name')"],
+      ["press", "Enter"],
+      ["wait", "--fn", "!!document.querySelector('.ProseMirror[contenteditable=true]')"]
+    );
     selector = ".ProseMirror";
 
     if (kind === "pad-source") {
-      await wait("!!document.querySelector('.visual-block')");
-      await browser("click", ".visual-block");
-      await wait("!!document.querySelector('.visual-source.is-open')");
+      await batch(
+        ["wait", "--fn", "!!document.querySelector('.visual-block')"],
+        ["click", ".visual-block"],
+        ["wait", "--fn", "!!document.querySelector('.visual-source.is-open')"]
+      );
       selector = ".visual-source.is-open";
     }
   } else {
@@ -247,9 +278,11 @@ it.each([{ kind: "pad", gesture: "double-click" }, { kind: "rename", gesture: "d
 
   if (gesture === "drag") {
     // Rename initially selects its full name; collapse it before starting a new pointer selection.
-    await wait(`document.activeElement === document.querySelector(${JSON.stringify(selector)})`);
-    await browser("press", "Home");
-    await wait(`document.querySelector(${JSON.stringify(selector)}).selectionStart === document.querySelector(${JSON.stringify(selector)}).selectionEnd`);
+    await batch(
+      ["wait", "--fn", `document.activeElement === document.querySelector(${JSON.stringify(selector)})`],
+      ["press", "Home"],
+      ["wait", "--fn", `document.querySelector(${JSON.stringify(selector)}).selectionStart === document.querySelector(${JSON.stringify(selector)}).selectionEnd`]
+    );
 
     const from = await read<{ x: number; y: number }>(`(() => {
       const editor = document.querySelector(${JSON.stringify(selector)});
@@ -279,8 +312,10 @@ it.each([{ kind: "pad", gesture: "double-click" }, { kind: "rename", gesture: "d
   await browser("click", ".window-title");
   expect(await read<string>(selected)).toBe("");
   expect(await read<string>("window.__editor.value ?? window.__editor.textContent")).toBe(before);
-  await browser("eval", "(() => { const input = document.createElement('input'); input.id = 'copy-result'; input.style.position = 'fixed'; input.style.top = '50px'; document.body.append(input); input.focus(); })()");
-  await browser("press", "Control+V");
+  await batch(
+    ["eval", "(() => { const input = document.createElement('input'); input.id = 'copy-result'; input.style.position = 'fixed'; input.style.top = '50px'; document.body.append(input); input.focus(); })()"],
+    ["press", "Control+V"]
+  );
   expect(await read<string>("document.querySelector('#copy-result').value"), `${kind} ${gesture}`).toBe(text);
   await browser("eval", "document.querySelector('#copy-result').remove(); window.__editor.focus()");
 
@@ -290,11 +325,15 @@ it("u2680b_minimising_and_restoring_does_not_restore_selection", async () => {
   const selector = await placement("bubble");
   await browser("dblclick", selector);
   expect(await read<string>("window.__emu.selection()")).not.toBe("");
-  await browser("click", ".window-title");
-  await wait("!document.querySelector('.bubble:not([hidden])')");
+  await batch(
+    ["click", ".window-title"],
+    ["wait", "--fn", "!document.querySelector('.bubble:not([hidden])')"]
+  );
   expect(await read<string>("window.__emu.selection()")).toBe("");
-  await browser("click", ".terminal-tab");
-  await wait("!!document.querySelector('.bubble:not([hidden])')");
+  await batch(
+    ["click", ".terminal-tab"],
+    ["wait", "--fn", "!!document.querySelector('.bubble:not([hidden])')"]
+  );
   expect(await read<string>("window.__emu.selection()")).toBe("");
 }, 90_000);
 
@@ -302,13 +341,16 @@ it("u2680b_minimising_and_restoring_does_not_restore_selection", async () => {
 it("u2680c_readonly_content_keeps_native_selection_and_copy_pad", async () => {
   await app();
   await selectRow("agent-1");
-  await browser("click", "#shelf-tab-pads");
-  await wait("document.querySelector('#shelf-tab-pads')?.getAttribute('aria-selected') === 'true'");
-  await browser("eval", "document.querySelector('.pads-tab [data-shelf-group=unassigned][data-state=closed] [data-part=branch-control]')?.click()");
-  await wait("[...document.querySelectorAll('[data-shelf-row] .pad-name')].some(row => row.textContent === 'pad-0')");
-  await browser("eval", "[...document.querySelectorAll('[data-shelf-row] .pad-name')].find(row => row.textContent === 'pad-0').focus()");
-    await wait("document.activeElement?.matches('.pad-name')");
-    await browser("press", "Enter");
+  await batch(
+    ["click", "#shelf-tab-pads"],
+    ["wait", "--fn", "document.querySelector('#shelf-tab-pads')?.getAttribute('aria-selected') === 'true'"],
+    ["wait", "--fn", "document.querySelector('.pads-tab [data-shelf-group=unassigned] [data-part=branch-control]')?.checkVisibility()"],
+    ["eval", "document.querySelector('.pads-tab [data-shelf-group=unassigned][data-state=closed] [data-part=branch-control]')?.click()"],
+    ["wait", "--fn", "document.querySelector('[data-pad=pad-0] .pad-name')?.textContent === 'pad-0'"],
+    ["eval", "document.querySelector('[data-pad=pad-0] .pad-name').focus()"],
+    ["wait", "--fn", "document.activeElement?.matches('.pad-name')"],
+    ["press", "Enter"]
+  );
   const selector = '.pad-rich-editor .ProseMirror p';
 
   await wait(`!!document.querySelector(${JSON.stringify(selector)})`);
@@ -324,27 +366,38 @@ it("u2680c_readonly_content_keeps_native_selection_and_copy_pad", async () => {
   const text = await read<string>("getSelection().toString()");
 
   expect(text).not.toBe("");
-  await browser("clipboard", "copy");
-  await browser("eval", "(() => { const input = document.createElement('input'); input.id = 'copy-result'; input.style.position = 'fixed'; input.style.top = '50px'; document.body.append(input); input.focus(); })()");
-  await browser("press", "Control+V");
+  await batch(
+    ["clipboard", "copy"],
+    ["eval", "(() => { const input = document.createElement('input'); input.id = 'copy-result'; input.style.position = 'fixed'; input.style.top = '50px'; document.body.append(input); input.focus(); })()"],
+    ["press", "Control+V"]
+  );
   expect(await read<string>("document.querySelector('#copy-result').value")).toBe(text);
 }, 120_000);
 
 // U2680a and U3529b share one Bubble: real pointer selection, then the mode/byte journal.
 it.each(["bubble"] as const)("u3529b_terminal_gestures_match_plain_xterm_%s", async where => {
   const selector = await placement(where);
-  const at = await point(selector);
-  const from = { x: at.x + 3, y: await read<number>(`Math.round(document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect().top + 8)`) };
+
+  const from = await read<{ x: number; y: number }>(`(() => {
+    const box = document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect();
+    return { x: Math.round(box.left + 2) + 3, y: Math.round(box.top + 8) };
+  })()`);
 
   await drag(from, { x: from.x + 110, y: from.y });
-  expect(await read<string>("window.__emu.selection()")).not.toBe("");
-  expect(await read<boolean>("getSelection().isCollapsed")).toBe(true);
-  await doubleAt({ x: from.x + 20, y: from.y });
-  expect(await read<string>("window.__emu.selection()")).not.toBe("");
-  expect(await read<boolean>("getSelection().isCollapsed")).toBe(true);
+  const [dragSelection, dragCollapsed] = await read<[string, boolean]>("[window.__emu.selection(), getSelection().isCollapsed]");
 
-  const before = await read<string>("JSON.stringify([...document.querySelectorAll('.bubble')].map(b => [b.dataset.bubble,b.hidden,b.getAttribute('style')]))");
-  const calls = await read<number>("window.__fake.app.calls.length");
+  expect(dragSelection).not.toBe("");
+  expect(dragCollapsed).toBe(true);
+  await doubleAt({ x: from.x + 20, y: from.y });
+
+  const [doubleSelection, doubleCollapsed, before, calls] = await read<[string, boolean, string, number]>(`[
+    window.__emu.selection(), getSelection().isCollapsed,
+    JSON.stringify([...document.querySelectorAll('.bubble')].map(b => [b.dataset.bubble,b.hidden,b.getAttribute('style')])),
+    window.__fake.app.calls.length
+  ]`);
+
+  expect(doubleSelection).not.toBe("");
+  expect(doubleCollapsed).toBe(true);
   const appOff = await journal(selector, false);
   const appOn = await journal(selector, true);
   const count = appOn.bytes.flat().length;
@@ -360,10 +413,12 @@ it.each(["bubble"] as const)("u3529b_terminal_gestures_match_plain_xterm_%s", as
 
   const { from: selectedFrom, cells } = await reportingSelection(where, 1000);
   await rightAt({ x: Math.round(selectedFrom.x + cells.width * 7), y: selectedFrom.y });
-  await browser("press", "Escape");
-  await browser("mouse", "move", String(selectedFrom.x), String(selectedFrom.y));
-  await browser("mouse", "down");
-  await browser("mouse", "up");
+  await batch(
+    ["press", "Escape"],
+    ["mouse", "move", String(selectedFrom.x), String(selectedFrom.y)],
+    ["mouse", "down"],
+    ["mouse", "up"]
+  );
   expect(await read("window.__emu.selection()")).toBe("");
   const afterCalls = await read<number>("window.__fake.app.calls.length");
   const afterOn = await journal(selector, true);
@@ -401,18 +456,25 @@ it.each([...editorKinds, "pad-source", "diff", "ask"] as const)("u3529a_text_kee
   })()`);
 
   await rightAt(at);
-  expect(await read<boolean>("window.__context.cancelled")).toBe(false);
-  expect(await read<boolean>("window.__context.editable")).toBe(kind !== "diff");
-  expect(await read<string>(`(() => {
+
+  const [context, selection, controls, calls] = await read<[{ cancelled: boolean; editable: boolean }, string, number, number]>(`(() => {
     const field = ${field};
-    return field instanceof HTMLInputElement || field instanceof HTMLTextAreaElement ? field.value.slice(field.selectionStart, field.selectionEnd) : getSelection().toString();
-  })()`)).toBe(selected);
-  expect(await read<number>("[...document.querySelectorAll('[role=dialog], [role=menu], .milkdown-toolbar, .milkdown-link-preview[data-show=true], .app-popover')].filter(e => !window.__textBefore.includes(e)).length")).toBe(0);
-  expect(await read<number>("window.__fake.app.calls.slice(window.__textCalls).filter(c => c.method === 'message.send').length")).toBe(0);
+    return [window.__context,
+      field instanceof HTMLInputElement || field instanceof HTMLTextAreaElement ? field.value.slice(field.selectionStart, field.selectionEnd) : getSelection().toString(),
+      [...document.querySelectorAll('[role=dialog], [role=menu], .milkdown-toolbar, .milkdown-link-preview[data-show=true], .app-popover')].filter(e => !window.__textBefore.includes(e)).length,
+      window.__fake.app.calls.slice(window.__textCalls).filter(c => c.method === 'message.send').length];
+  })()`);
+
+  expect(context.cancelled).toBe(false);
+  expect(context.editable).toBe(kind !== "diff");
+  expect(selection).toBe(selected);
+  expect(controls).toBe(0);
+  expect(calls).toBe(0);
 }, 90_000);
 
 const rightAt = async (at: { x: number; y: number }) => {
-  await browser("eval", `(() => {
+  await batch(
+    ["eval", `(() => {
     window.__context = null;
     document.addEventListener('contextmenu', event => {
       const path = event.composedPath();
@@ -422,21 +484,24 @@ const rightAt = async (at: { x: number; y: number }) => {
         selected: getSelection().toString(),
       };
     }, { once: true, capture: true });
-  })()`);
-  await browser("mouse", "move", String(at.x), String(at.y));
-  await browser("mouse", "down", "right");
-  await browser("eval", "window.__selectionBeforeRelease = getSelection().rangeCount ? getSelection().getRangeAt(0).toString() : ''");
-  await browser("mouse", "up", "right");
-  await wait("window.__context !== null");
-  await browser("eval", "window.__context.cancelled = window.__contextEvent.defaultPrevented; window.__context.selected = getSelection().toString()");
+  })()`],
+    ["mouse", "move", String(at.x), String(at.y)],
+    ["mouse", "down", "right"],
+    ["eval", "window.__selectionBeforeRelease = getSelection().rangeCount ? getSelection().getRangeAt(0).toString() : ''"],
+    ["mouse", "up", "right"],
+    ["wait", "--fn", "window.__context !== null"],
+    ["eval", "window.__context.cancelled = window.__contextEvent.defaultPrevented; window.__context.selected = getSelection().toString()"]
+  );
 };
 
 // agent-browser's mouse CLI omits pressed modifiers; its input stream carries them.
 const optionDrag = async (from: { x: number; y: number }, to: { x: number; y: number }) => {
   // SAFETY: the isolated browser exposes its documented numeric stream port.
   const status = JSON.parse(await browser("stream", "status")) as { data: { port: number } };
-  await browser("eval", "window.__dragReleased = false; document.addEventListener('mouseup', () => { window.__dragReleased = true; }, {once:true, capture:true})");
-  await browser("keydown", "Alt");
+  await batch(
+    ["eval", "window.__dragReleased = false; document.addEventListener('mouseup', () => { window.__dragReleased = true; }, {once:true, capture:true})"],
+    ["keydown", "Alt"]
+  );
   await promisify(execFile)(process.execPath, ["--input-type=module", "-e", `
     const socket = new WebSocket('ws://127.0.0.1:' + process.argv[1]);
     socket.onerror = () => process.exit(1);
@@ -449,21 +514,28 @@ const optionDrag = async (from: { x: number; y: number }, to: { x: number; y: nu
       socket.close();
     };
   `, String(status.data.port), JSON.stringify([from, to])], { timeout: 10_000 });
-  await wait("window.__dragReleased");
-  await browser("keyup", "Alt");
+  await batch(
+    ["wait", "--fn", "window.__dragReleased"],
+    ["keyup", "Alt"]
+  );
 };
 
-const reportingSelection = async (where: "agent" | "user" | "bubble", mode: number, before?: () => Promise<void>) => {
-  const selector = await placement(where, true);
+const reportingSelection = async (where: "agent" | "user" | "bubble", mode: number, before?: () => Promise<void>, mounted?: string) => {
+  const selector = mounted ?? await placement(where, true, "");
   expect(await read<string>("navigator.platform")).toBe("MacIntel");
-  await browser("eval", `(() => {
+  await batch(
+    ["eval", `(() => {
     window.__parsed = false;
     window.__input = [];
     window.__probeCalls = window.__fake.app.calls.length;
-    window.__emu.onInput(bytes => window.__input.push(...bytes));
+    if (window.__reportingEmulator !== window.__emu) {
+      window.__emu.onInput(bytes => window.__input.push(...bytes));
+      window.__reportingEmulator = window.__emu;
+    }
     window.__emu.write(new TextEncoder().encode(${JSON.stringify("\x1b[2J\x1b[Hcafé alpha bravo charlie\r\n日本語 delta echo foxtrot")} + '\x1b[?${mode}h\x1b[?1006h'), () => { window.__parsed = true; });
-  })()`);
-  await wait("window.__parsed");
+  })()`],
+    ["wait", "--fn", "window.__parsed"]
+  );
 
   const cells = await read<{ x: number; y: number; width: number; height: number }>(`(() => {
     const box = document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect();
@@ -472,32 +544,47 @@ const reportingSelection = async (where: "agent" | "user" | "bubble", mode: numb
   })()`);
 
   const from = { x: Math.round(cells.x + cells.width * 0.2), y: Math.round(cells.y + cells.height * 0.5) };
-  await browser("mouse", "move", String(from.x), String(from.y));
-  await browser("mouse", "down");
-  await browser("mouse", "up");
-  await wait("window.__input.length > 0");
-  await wait("window.__fake.app.calls.slice(window.__probeCalls).filter(c => c.method === 'terminal.write').reduce((n,c) => n + atob(c.params.data).length, 0) === window.__input.length");
+  await batch(
+    ["mouse", "move", String(from.x), String(from.y)],
+    ["mouse", "down"],
+    ["mouse", "up"],
+    ["wait", "--fn", "window.__input.length > 0"],
+    ["wait", "--fn", "window.__fake.app.calls.slice(window.__probeCalls).filter(c => c.method === 'terminal.write').reduce((n,c) => n + atob(c.params.data).length, 0) === window.__input.length"]
+  );
   await before?.();
-  await browser("eval", "window.__input = []; window.__calls = window.__fake.app.calls.length; window.__mouseModifiers = []; document.addEventListener('mousedown', e => window.__mouseModifiers.push([e.altKey, e.shiftKey]), true)");
+  await browser("eval", "window.__input = []; window.__calls = window.__fake.app.calls.length; window.__mouseModifiers = []; document.addEventListener('mousedown', e => window.__mouseModifiers.push([e.altKey, e.shiftKey]), { once: true, capture: true })");
   await optionDrag(from, { x: Math.round(cells.x + cells.width * 12.2), y: Math.round(cells.y + cells.height * 1.5) });
 
   return { from, cells };
 };
 
 it.each(["agent", "user", "bubble"] as const)("u5549a_option_drag_selects_without_mouse_bytes_%s", async where => {
+  const selector = await placement(where, true, "");
+
   for (const mode of [1000, 1002]) {
-    await reportingSelection(where, mode);
-    expect(await read("window.__mouseModifiers")).toEqual([[true, false]]);
-    expect(await read<string>("window.__emu.selection()")).toBe("café alpha bravo charlie\n日本語 delta");
-    expect(await read<boolean>("getSelection().isCollapsed")).toBe(true);
-    expect(await read<number[]>("window.__input")).toEqual([]);
-    expect(await read("window.__fake.app.calls.slice(window.__calls).filter(c => c.method === 'terminal.write')")).toEqual([]);
+    await reportingSelection(where, mode, undefined, selector);
+
+    const [modifiers, selection, browserCollapsed, input, calls] = await read<unknown[]>(`[
+      window.__mouseModifiers,
+      window.__emu.selection(),
+      getSelection().isCollapsed,
+      window.__input,
+      window.__fake.app.calls.slice(window.__calls).filter(c => c.method === 'terminal.write')
+    ]`);
+
+    expect(modifiers).toEqual([[true, false]]);
+    expect(selection).toBe("café alpha bravo charlie\n日本語 delta");
+    expect(browserCollapsed).toBe(true);
+    expect(input).toEqual([]);
+    expect(calls).toEqual([]);
   }
 }, 120_000);
 
 it.each(["agent", "user", "bubble"] as const)("u5549b_reporting_selection_keeps_readonly_menu_%s", async where => {
+  const selector = await placement(where, true, "");
+
   for (const mode of [1000, 1002]) {
-    const { from, cells } = await reportingSelection(where, mode);
+    const { from, cells } = await reportingSelection(where, mode, undefined, selector);
     const selected = await read<string>("window.__emu.selection()");
     expect(selected).toBe("café alpha bravo charlie\n日本語 delta");
     await browser("eval", `(() => {
@@ -509,26 +596,41 @@ it.each(["agent", "user", "bubble"] as const)("u5549b_reporting_selection_keeps_
       document.elementFromPoint(${from.x}, ${from.y}).closest('.xterm').addEventListener('contextmenu', () => { window.__contextSelection = { terminal: window.__emu.selection(), browser: getSelection().toString() }; }, { once: true, capture: true });
     })()`);
     await rightAt({ x: Math.round(from.x + cells.width * 7), y: from.y });
-    expect(await read("window.__context")).toEqual({ editable: false, cancelled: false, selected });
-    expect(await read("window.__pressSelection")).toBe(selected);
-    expect(await read("window.__contextSelection")).toEqual({ terminal: selected, browser: selected });
-    expect(await read("window.__selectionBeforeRelease")).toBe(selected);
-    expect(await read("({ terminal: window.__emu.selection(), browser: getSelection().toString() })")).toEqual({ terminal: selected, browser: selected });
-    expect(await read("window.__input")).toEqual([]);
-    expect(await read("window.__fake.app.calls.slice(window.__calls).filter(c => ['terminal.write', 'message.send', 'agent.spawn', 'terminal.open'].includes(c.method))")).toEqual([]);
-    expect(await read("window.__fake.app.clipboardWrites.length - window.__clipboard")).toBe(0);
-    expect(await read("[...document.querySelectorAll('[role=menu], [role=dialog], .app-popover')].filter(node => !window.__controls.includes(node)).length")).toBe(0);
+
+    const [context, pressSelection, contextSelection, selectionBeforeRelease, selection, input, calls, clipboardWrites, controls] = await read<unknown[]>(`[
+      window.__context,
+      window.__pressSelection,
+      window.__contextSelection,
+      window.__selectionBeforeRelease,
+      ({ terminal: window.__emu.selection(), browser: getSelection().toString() }),
+      window.__input,
+      window.__fake.app.calls.slice(window.__calls).filter(c => ['terminal.write', 'message.send', 'agent.spawn', 'terminal.open'].includes(c.method)),
+      window.__fake.app.clipboardWrites.length - window.__clipboard,
+      [...document.querySelectorAll('[role=menu], [role=dialog], .app-popover')].filter(node => !window.__controls.includes(node)).length
+    ]`);
+
+    expect(context).toEqual({ editable: false, cancelled: false, selected });
+    expect(pressSelection).toBe(selected);
+    expect(contextSelection).toEqual({ terminal: selected, browser: selected });
+    expect(selectionBeforeRelease).toBe(selected);
+    expect(selection).toEqual({ terminal: selected, browser: selected });
+    expect(input).toEqual([]);
+    expect(calls).toEqual([]);
+    expect(clipboardWrites).toBe(0);
+    expect(controls).toBe(0);
   }
 }, 120_000);
 
 const optionText = async () => {
-  await browser("eval", "window.__input = []; window.__typingCalls = window.__fake?.app.calls.length ?? 0");
-  await browser("press", "Alt+e");
-  await browser("keyboard", "inserttext", "é");
-  await wait("new TextDecoder().decode(new Uint8Array(window.__input)).includes('é')");
-  const bytes = await read<number[]>("window.__input");
+  await batch(
+    ["eval", "window.__input = []; window.__typingCalls = window.__fake?.app.calls.length ?? 0"],
+    ["press", "Alt+e"],
+    ["keyboard", "inserttext", "é"],
+    ["wait", "--fn", "new TextDecoder().decode(new Uint8Array(window.__input)).includes('é')"]
+  );
+  const [bytes, appMounted] = await read<[number[], boolean]>("[window.__input, !!window.__fake]");
 
-  if (await read<boolean>("!!window.__fake")) {
+  if (appMounted) {
     await wait(`window.__fake.app.calls.slice(window.__typingCalls).filter(c => c.method === 'terminal.write').reduce((n,c) => n + atob(c.params.data).length, 0) === ${bytes.length}`);
     expect(await read("window.__fake.app.calls.slice(window.__typingCalls).filter(c => c.method === 'terminal.write').flatMap(c => [...atob(c.params.data)].map(ch => ch.charCodeAt(0)))")).toEqual(bytes);
   }
@@ -540,15 +642,19 @@ it.each(["agent", "user", "bubble"] as const)("u5549c_option_typing_survives_sel
   let before: number[] = [];
   const { from, cells } = await reportingSelection(where, 1002, async () => { before = await optionText(); });
   await rightAt({ x: Math.round(from.x + cells.width * 7), y: from.y });
-  await browser("press", "Escape");
-  await browser("mouse", "move", String(from.x), String(from.y));
-  await browser("mouse", "down");
-  await browser("mouse", "up");
+  await batch(
+    ["press", "Escape"],
+    ["mouse", "move", String(from.x), String(from.y)],
+    ["mouse", "down"],
+    ["mouse", "up"]
+  );
   expect(await read("window.__emu.selection()")).toBe("");
   const after = await optionText();
   await load("?plain&mac");
-  await browser("click", ".xterm-screen");
-  await browser("eval", "window.__input = []; window.__emu.onInput(bytes => window.__input.push(...bytes))");
+  await batch(
+    ["click", ".xterm-screen"],
+    ["eval", "window.__input = []; window.__emu.onInput(bytes => window.__input.push(...bytes))"]
+  );
   const plain = await optionText();
   // Chromium sends the physical Alt+e as e; the committed character probes text input separately.
   expect(plain).toEqual([...new TextEncoder().encode("eé")]);
@@ -558,37 +664,50 @@ it.each(["agent", "user", "bubble"] as const)("u5549c_option_typing_survives_sel
 
 it.each(["agent", "user", "bubble"] as const)("u5515a_terminal_right_click_preserves_the_whole_selection_%s", async where => {
   const selector = await placement(where);
-  await browser("eval", String.raw`(() => {
+  await batch(
+    ["eval", String.raw`(() => {
     window.__selectionReady = false;
     window.__emu.write(new TextEncoder().encode('\x1b[2J\x1b[Hcafé alpha bravo charlie\r\n日本語 delta echo foxtrot'), () => { window.__selectionReady = true; });
-  })()`);
-  await wait("window.__selectionReady");
-  await browser("eval", `(() => {
+  })()`],
+    ["wait", "--fn", "window.__selectionReady"],
+    ["eval", `(() => {
     window.__menuCalls = window.__fake.app.calls.length;
     window.__menuClipboard = window.__fake.app.clipboardWrites.length;
     window.__menuInput = [];
     window.__emu.onInput(bytes => window.__menuInput.push(...bytes));
     window.__menuControls = [...document.querySelectorAll('[role=menu], [role=dialog], .app-popover')];
-  })()`);
+  })()`]
+  );
 
-  const from = await read<{ x: number; y: number }>(`(() => {
+  const { from, rowHeight } = await read<{ from: { x: number; y: number }; rowHeight: number }>(`(() => {
     const box = document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect();
-    return { x: Math.round(box.left + 2), y: Math.round(box.top + 8) };
+    return { from: { x: Math.round(box.left + 2), y: Math.round(box.top + 8) }, rowHeight: box.height / window.__emu.fit().rows };
   })()`);
 
-  const rowHeight = await read<number>(`document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect().height / window.__emu.fit().rows`);
   await drag(from, { x: from.x + 150, y: from.y + rowHeight });
   const selected = await read<string>("window.__emu.selection()");
   expect(selected).toContain("café alpha bravo charlie\n日本語");
   await rightAt({ x: from.x + 30, y: from.y });
-  expect(await read("window.__context")).toEqual({ editable: false, cancelled: false, selected });
-  expect(await read<string>("window.__emu.selection()")).toBe(selected);
-  expect(await read<string>("window.__selectionBeforeRelease")).toBe(selected);
-  expect(await read<string>("getSelection().getRangeAt(0).toString()")).toBe(selected);
-  expect(await read<number[]>("window.__menuInput")).toEqual([]);
-  expect(await read<number>("window.__fake.app.clipboardWrites.length - window.__menuClipboard")).toBe(0);
-  expect(await read<string[]>("window.__fake.app.calls.slice(window.__menuCalls).filter(c => ['terminal.write', 'message.send', 'agent.spawn'].includes(c.method)).map(c => c.method)")).toEqual([]);
-  expect(await read<number>("[...document.querySelectorAll('[role=menu], [role=dialog], .app-popover')].filter(node => !window.__menuControls.includes(node)).length")).toBe(0);
+
+  const [context, selection, selectionBeforeRelease, browserSelection, input, clipboardWrites, calls, controls] = await read<unknown[]>(`[
+    window.__context,
+    window.__emu.selection(),
+    window.__selectionBeforeRelease,
+    getSelection().getRangeAt(0).toString(),
+    window.__menuInput,
+    window.__fake.app.clipboardWrites.length - window.__menuClipboard,
+    window.__fake.app.calls.slice(window.__menuCalls).filter(c => ['terminal.write', 'message.send', 'agent.spawn'].includes(c.method)).map(c => c.method),
+    [...document.querySelectorAll('[role=menu], [role=dialog], .app-popover')].filter(node => !window.__menuControls.includes(node)).length
+  ]`);
+
+  expect(context).toEqual({ editable: false, cancelled: false, selected });
+  expect(selection).toBe(selected);
+  expect(selectionBeforeRelease).toBe(selected);
+  expect(browserSelection).toBe(selected);
+  expect(input).toEqual([]);
+  expect(clipboardWrites).toBe(0);
+  expect(calls).toEqual([]);
+  expect(controls).toBe(0);
 }, 90_000);
 
 it.each(["agent", "user", "bubble"] as const)("u5515b_terminal_unselected_word_uses_a_readonly_target_%s", async where => {
@@ -598,8 +717,10 @@ it.each(["agent", "user", "bubble"] as const)("u5515b_terminal_unselected_word_u
   for (const selected of [false, true]) {
     if (selected) await browser("dblclick", selector);
     await rightAt(at);
-    expect(await read<boolean>("window.__context.editable || window.__context.cancelled")).toBe(false);
-    expect(await read<string>("window.__context.selected")).toBe(await read<string>("window.__emu.selection()"));
+    const [editableOrCancelled, contextSelection, terminalSelection] = await read<[boolean, string, string]>("[window.__context.editable || window.__context.cancelled, window.__context.selected, window.__emu.selection()]");
+
+    expect(editableOrCancelled).toBe(false);
+    expect(contextSelection).toBe(terminalSelection);
   }
 }, 90_000);
 
@@ -616,12 +737,14 @@ it.each(["diff", "code", "readonly-pad", "message"] as const)("u5515c_readonly_t
       await wait("!!document.querySelector('[data-reaction-opener]')");
 
       if (!await read<boolean>("document.querySelector('[data-reaction-opener]').checkVisibility()")) await browser("find", "role", "button", "click", "--name", "Reactions", "--exact");
-      await wait("document.querySelector('[data-reaction-opener]')?.checkVisibility()");
-      await browser("focus", "[data-reaction-opener]");
-      await wait("document.activeElement?.matches('[data-reaction-opener]')");
-      await browser("press", "Enter");
-      await wait("!!document.querySelector('[data-firing-message]')");
-      await browser("click", "[data-firing-message]");
+      await batch(
+        ["wait", "--fn", "document.querySelector('[data-reaction-opener]')?.checkVisibility()"],
+        ["focus", "[data-reaction-opener]"],
+        ["wait", "--fn", "document.activeElement?.matches('[data-reaction-opener]')"],
+        ["press", "Enter"],
+        ["wait", "--fn", "!!document.querySelector('[data-firing-message]')"],
+        ["click", "[data-firing-message]"]
+      );
       field = "document.querySelector('dd.reaction-instruction')";
       await wait(`(${field})?.textContent === 'Review café alpha bravo charlie together'`);
     } else {
@@ -663,20 +786,23 @@ it.each(["agent", "user", "bubble"] as const)("u5515d_terminal_input_survives_re
   expect(selected).toContain(" ");
   await rightAt({ x: at.x + 30, y: at.y });
   // Headless Chromium opens no OS menu: the next key follows the completed gesture.
-  await browser("press", "Meta+c");
-  await wait("window.__fake.app.clipboardWrites.length === 1");
+  await batch(
+    ["press", "Meta+c"],
+    ["wait", "--fn", "window.__fake.app.clipboardWrites.length === 1"]
+  );
   expect(await read<string[]>("window.__fake.app.clipboardWrites")).toEqual([selected]);
-  await browser("eval", `(() => {
+  await batch(
+    ["eval", `(() => {
     window.__inputStart = window.__fake.app.calls.length;
     window.__input = [];
     window.__emu.onInput(bytes => window.__input.push(...bytes));
     window.__inputReady = false;
     window.__emu.write(new TextEncoder().encode('\\x1b[?2004h'), () => { window.__inputReady = true; });
-  })()`);
-  await wait("window.__inputReady");
-  await browser("press", "a");
-  await wait("window.__input.length === 1");
-  await browser("eval", `(() => {
+  })()`],
+    ["wait", "--fn", "window.__inputReady"],
+    ["press", "a"],
+    ["wait", "--fn", "window.__input.length === 1"],
+    ["eval", `(() => {
     const input = document.activeElement;
     input.value = '';
     input.dispatchEvent(new KeyboardEvent('keydown', {bubbles:true,composed:true,key:'Process',keyCode:229,isComposing:true}));
@@ -684,21 +810,24 @@ it.each(["agent", "user", "bubble"] as const)("u5515d_terminal_input_survives_re
     input.dispatchEvent(new CompositionEvent('compositionupdate', {bubbles:true,data:'n'}));
     input.value = 'n';
     input.dispatchEvent(new InputEvent('input', {bubbles:true,composed:true,isComposing:true,inputType:'insertCompositionText',data:'n'}));
-  })()`);
+  })()`]
+  );
   expect(await read<number[]>("window.__input")).toEqual([97]);
-  await browser("eval", `(() => {
+  await batch(
+    ["eval", `(() => {
     const input = document.activeElement;
     input.dispatchEvent(new CompositionEvent('compositionupdate', {bubbles:true,data:'日本語'}));
     input.value = '日本語';
     input.dispatchEvent(new CompositionEvent('compositionend', {bubbles:true,data:'日本語'}));
     input.dispatchEvent(new InputEvent('input', {bubbles:true,composed:true,isComposing:false,inputType:'insertText',data:'日本語'}));
     input.dispatchEvent(new KeyboardEvent('keyup', {bubbles:true,composed:true,key:'Process',keyCode:229}));
-  })()`);
-  await wait("new TextDecoder().decode(new Uint8Array(window.__input)) === 'a日本語'");
-  await browser("clipboard", "write", "pasted text");
-  // Chromium on Linux reserves Ctrl+V for the program; its native paste chord is Ctrl+Shift+V.
-  await browser("press", "Control+Shift+V");
-  await wait("new TextDecoder().decode(new Uint8Array(window.__input)).includes('pasted text')");
+  })()`],
+    ["wait", "--fn", "new TextDecoder().decode(new Uint8Array(window.__input)) === 'a日本語'"],
+    // Chromium on Linux reserves Ctrl+V for the program; its native paste chord is Ctrl+Shift+V.
+    ["clipboard", "write", "pasted text"],
+    ["press", "Control+Shift+V"],
+    ["wait", "--fn", "new TextDecoder().decode(new Uint8Array(window.__input)).includes('pasted text')"]
+  );
   const expected = "a日本語\x1b[200~pasted text\x1b[201~";
   expect(await read<string>("new TextDecoder().decode(new Uint8Array(window.__input))")).toBe(expected);
   await wait(`window.__fake.app.calls.slice(window.__inputStart).filter(c => c.method === 'terminal.write').reduce((n,c) => n + atob(c.params.data).length, 0) === ${new TextEncoder().encode(expected).length}`);
