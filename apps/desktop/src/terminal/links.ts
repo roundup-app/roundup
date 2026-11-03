@@ -13,7 +13,8 @@ const PATH = /^(.+?)(?::(\d+)(?::\d+)?)?$/;
 
 const EXTENSION = /\.[A-Za-z][A-Za-z0-9]*$/;
 
-const urlAt = (token: string): string | null => /^https?:\/\/\S/i.test(token) ? token.replace(TRAILING, "") : null;
+const urlAt = (token: string, objectLinks: boolean): string | null =>
+  (/^https?:\/\/\S/i.test(token) || (objectLinks && /^roundup:\/\/\S/i.test(token))) ? token.replace(TRAILING, "") : null;
 
 const pathAt = (token: string): Printed | null => {
   const parts = PATH.exec(token);
@@ -29,14 +30,14 @@ const pathAt = (token: string): Printed | null => {
 };
 
 /** U365: every web link and path in `text`, by character range; a token that is neither is no link. */
-export const findTargets = (text: string): Found[] => {
+export const findTargets = (text: string, objectLinks = false): Found[] => {
   const found: Found[] = [];
 
   for (const match of text.matchAll(/\S+/g)) {
     const lead = LEADING.exec(match[0])?.[0].length ?? 0;
     const token = match[0].slice(lead);
     const start = match.index + lead;
-    const url = urlAt(token);
+    const url = urlAt(token, objectLinks);
 
     if (url !== null) {
       found.push({ start, end: start + url.length, printed: { kind: "url", url } });

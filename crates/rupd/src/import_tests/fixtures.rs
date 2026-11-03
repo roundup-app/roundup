@@ -23,6 +23,31 @@ pub(crate) fn import_source(config: &Path, cwd: &Path, number: usize, timestamp:
     file
 }
 
+pub(super) fn import_files(dir: &Path) -> Vec<(PathBuf, Vec<u8>)> {
+    let mut files = Vec::new();
+    for entry in std::fs::read_dir(dir).unwrap() {
+        let path = entry.unwrap().path();
+        if path.is_dir() {
+            files.extend(import_files(&path));
+        } else {
+            let bytes = std::fs::read(&path).unwrap();
+            files.push((path, bytes));
+        }
+    }
+    files
+}
+
+pub(super) fn import_added_files(
+    dir: &Path,
+    before: &[(PathBuf, Vec<u8>)],
+) -> Vec<(PathBuf, Vec<u8>)> {
+    // The SDK may retain the copy in a different bucket (for example a configured name).
+    import_files(dir)
+        .into_iter()
+        .filter(|(path, _)| !before.iter().any(|(original, _)| original == path))
+        .collect()
+}
+
 pub(crate) async fn import_rpc(daemon: &Daemon, method: &str, params: Value) -> Value {
     ask(
         daemon,
