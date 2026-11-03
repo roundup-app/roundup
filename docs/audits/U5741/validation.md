@@ -853,3 +853,21 @@ The replay wrote its temporary manifest under `/tmp/5895-evidence/`; it did not 
 Self-review checked the six-file own diff, empty merge-resolution diffs, independent decision rows O01–O36, evidence provenance and overlap with earlier inventories. No product, scenario, contract or behavior-test changes. No local `just check`.
 
 Final `just ready` passes with exit 0, including all 193 lint-behavior fixtures, web/style/type/dependency checks, repository/Rust lints, migration guard, `ALL PROOFS CHECK` and N7. Standalone repository scan, vocabulary, scenario ids, merge-loss and whitespace pass. No behavior test changed and no local `just check` ran.
+
+## Pad conditional/library continuation — builder-41652209190
+
+Audited main `ecf788ebdc146bb66cd26acebe020c1874950b39`. Documentation only; `pad-controls.md` adds fifteen independent operations and corrects PF22/PF27/PF28 observation coverage while preserving the older failed capture. No behavior/test/scenario/contract/frozen-loop change or owner choice. #5758 remains open; no partial candidate request or deletion. Older-Project reopening remains mandatory for any later selected persisted retirement.
+
+Observer: `pnpm install` (0), dedicated headless agent-browser session and fresh test profile, `just harness tree-40 5278`, dark 1512×950. Ten retained openings, exact snapshots/calls/disclosure states/image hashes in `rendered-pad-controls.json`; reproducible driver and 37 source archives in `catalogues/pad-controls-source.json`. Nine openings pass every Check; Link editor fails D2/D6/D8/D10, retained explicitly. Table handle submenu opening failed; source-only operations are not rendered successes. Full rejected-save diagnostic and retained text are visible in the densest seed. PNGs remain uncommitted under `artifacts/ux/U5741/pad-controls/`.
+
+| Failed command / observer | Exit / status | Failure and disposition |
+| --- | --- | --- |
+| Initial `test -d .codegraph` | 1 | Optional index absent; ordinary source discovery used. |
+| `sed -n ... apps/desktop/src/drawer/PadRichEditor.tsx` | 2 | Wrong guessed directory; actual `pads/PadRichEditor.tsx` read. |
+| Apple `web open` guessed TextEdit links page | Tool retrieval error; no process exit | No equivalent-link claim made from the unavailable page. Table guide retrieved successfully. |
+| `python3 /tmp/pad-controls-observer.py`, decimal mouse coordinates | 1 | agent-browser rejects decimal `mouse move` arguments. Rounded actual measured coordinates; no menu consequence claimed. |
+| Repeat observer interrupted with Ctrl-C | 1 | Stopped the obsolete repeat before replaying corrected coordinate arguments. |
+| Corrected observer, column submenu wait | 1 | `[data-role=col-drag-handle] .button-group[data-show=true]` timed out after activation. Source mapping retained, submenu/mutation observations remain unverified. Final fresh-profile driver omits this failed step. |
+| Intermediate manifest inspection | 1 | `KeyError: details` while reading the earlier manifest before corrected replay completed. Final manifest includes explicit disclosure fields. |
+
+No changed behavior test file exists; none was invented for documentary acceptance. No local `just check`. Required-check result and final integrity validation follow below.
