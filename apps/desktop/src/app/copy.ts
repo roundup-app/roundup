@@ -19,10 +19,13 @@ export const storageCopy = {
   },
 } as const;
 
+const openProjectRetry = "Use Open Project to try again.";
+
 export const copy = {
+  openProjectRetry,
   openProjectFailed: "Opening failed",
   /** @prose */
-  openProjectRecovery: (path: string, cause: string) => `${path}: ${cause} Use Open Project to try again.`,
+  openProjectRecovery: (path: string, cause: string) => `${path}: ${cause} ${openProjectRetry}`,
   openUser: sharedCopy.you,
   openProjectTitle: "Open Project?",
   openProjectChoice: sharedCopy.openDraft,

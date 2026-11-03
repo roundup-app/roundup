@@ -9,6 +9,7 @@ type OpenRequest = Extract<ActionRequest, { method: "project.open" }>;
 
 type Confirmation =
   | { kind: "confirmation"; request: OpenRequest; sourceName: string; choose: (open: boolean) => void }
+  | { kind: "opening"; request: OpenRequest }
   | { kind: "failure"; request: OpenRequest; message: string; dismiss: () => void };
 
 /** One FIFO of request-bound decisions, owned by the App rather than the selected Project. */
@@ -34,7 +35,7 @@ export const createProjectOpening = (projects: ProjectsState) => {
         const allowed = await new Promise<boolean>(resolve => {
           const choose = (open: boolean) => {
             signal.removeEventListener("abort", abort);
-            setPending(all => all.filter(item => item.request !== request));
+            setPending(all => open ? all.map(item => item.request === request ? { kind: "opening", request } : item) : all.filter(item => item.request !== request));
             resolve(open);
           };
 
@@ -64,6 +65,8 @@ export const createProjectOpening = (projects: ProjectsState) => {
       }]);
 
       return reply({ code: error instanceof RpcError ? error.code : -32603, message: copy.openProjectRecovery(params.path, error.message) });
+    } finally {
+      setPending(all => all.filter(item => item.request !== request || item.kind === "failure"));
     }
   };
 
@@ -81,13 +84,13 @@ export const ProjectOpening = (props: { opening: ReturnType<typeof createProject
     if (pending && focused instanceof HTMLElement && focused !== document.body && !focused.closest('[role="dialog"]')) returnFocus = focused;
   });
 
-  return <Dialog.Root finalFocusEl={() => returnFocus?.isConnected ? returnFocus : null} open={props.opening.pending() !== undefined} instant onOpenChange={details => {
+  return <Dialog.Root finalFocusEl={() => returnFocus?.isConnected && returnFocus.checkVisibility() ? returnFocus : document.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]')} open={props.opening.pending() !== undefined} instant onOpenChange={details => {
     const pending = props.opening.pending();
 
     if (details.open || !pending) return;
 
     if (pending.kind === "confirmation") pending.choose(false);
-    else pending.dismiss();
+    else if (pending.kind === "failure") pending.dismiss();
   }}>
     <Show when={props.opening.pending()}>{pending => {
       const confirmation = () => { const current = pending();
@@ -99,17 +102,15 @@ export const ProjectOpening = (props: { opening: ReturnType<typeof createProject
  return current.kind === "failure" ? current : undefined; };
 
       return <Dialog.Positioner><Dialog.Content class="app-dialog-form project-opening">
-        <Dialog.Title>{pending().kind === "confirmation" ? copy.openProjectTitle : copy.openProjectFailed}</Dialog.Title>
+        <Dialog.Title>{pending().kind === "failure" ? copy.openProjectFailed : copy.openProjectTitle}</Dialog.Title>
         <Dialog.Description>
-          <Show when={confirmation()} fallback={copy.openProjectRecovery(pending().request.params.path, failure()?.message ?? "")}>
-            {confirmation => <>
-              {copy.openProjectQuestion(confirmation().request.params.agent?.name ?? copy.openUser, confirmation().sourceName)}
-              <span class="project-opening-path">{pending().request.params.path}</span>
-            </>}
+          <Show when={confirmation()} fallback={<Show when={failure()}>{failure => <>{failure().message} {copy.openProjectRetry}</>}</Show>}>
+            {confirmation => copy.openProjectQuestion(confirmation().request.params.agent?.name ?? copy.openUser, confirmation().sourceName)}
           </Show>
+          <span class="project-opening-path">{pending().request.params.path}</span>
         </Dialog.Description>
         <footer class="app-dialog-actions">
-          <Show when={confirmation()} keyed fallback={<button type="button" data-button="quiet" onClick={() => failure()?.dismiss()}>{copy.close}</button>}>{confirmation => <>
+          <Show when={confirmation()} keyed fallback={<Show when={failure()}><button type="button" data-button="quiet" onClick={() => failure()?.dismiss()}>{copy.close}</button></Show>}>{confirmation => <>
             <button type="button" data-button="quiet" onClick={() => confirmation.choose(false)}>{copy.refuseProject}</button>
             <button type="button" data-button="primary" onClick={() => confirmation.choose(true)}>{copy.openProjectChoice}</button>
           </>}</Show>
