@@ -244,10 +244,11 @@ try:
                                 evaluate("document.querySelector('.shelf [data-shelf-group=unassigned][data-state=closed] [data-part=branch-control]')?.click()")
                                 browser("wait", ".shelf .todo-row-button")
                                 selector = ".shelf [data-todo] .todo-open"
-                            if not shelf_open:
-                                evaluate(f"document.querySelector({json.dumps(tab_selector)}).click()")
-                                browser("wait", tab_selector + '[aria-expanded="false"]')
                             frames = observe_slide(selector)
+                            if not shelf_open:
+                                # Closing the Shelf now unmounts its tabs and rows; keep the opened Drawer for this state.
+                                evaluate(f"document.querySelector({json.dumps(tab_selector)}).click()")
+                                browser("wait", ".window[data-shelf=closed]")
                             if kind == "Pad":
                                 browser("wait", ".pad-body .ProseMirror")
                             opened = capture(prefix + f"-{kind}-{'open' if shelf_open else 'closed'}-shelf")
@@ -257,8 +258,9 @@ try:
                                 directory = Path(output) / variant
                                 (directory / (opened["case"] + ".geometry.json")).write_text(json.dumps(opened, separators=(",", ":")) + "\n")
                             if not shelf_open:
-                                evaluate(f"document.querySelector({json.dumps(tab_selector)}).click()")
-                                browser("wait", tab_selector + '[aria-expanded="true"]')
+                                browser("press", "Meta+k")
+                                browser("press", "b")
+                                browser("wait", ".window[data-shelf=open]")
                     # Selection identifies the Workstream in the bar, independent of Shelf width.
                     evaluate("document.querySelector('[role=treeitem]').click()")
                     capture(prefix + "-selected")
