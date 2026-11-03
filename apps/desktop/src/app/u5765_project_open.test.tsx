@@ -123,3 +123,25 @@ it("u5765_navigation_preserves_the_asking_project_and_request", async () => {
   expect(await reply).toMatchObject({ id: 71, error: { code: -32002 } });
   expect(mounted.opening).toHaveBeenCalledExactlyOnceWith("/repos/navigation");
 });
+
+it.each(["agent", "workstream", "mode"] as const)("u5765_start_%s_waits_for_consent_then_uses_target_calls", async kind => {
+  const mounted = await mount();
+  const prompt = " exact first prompt\n  é ";
+  const reply = mounted.answer({ id: 61, method: "project.start", params: { path: TARGET, source: SOURCE.path, agent: { id: "1", name: "builder" }, kind, name: "target-worker", prompt } });
+  await screen.findByRole("dialog");
+  expect(mounted.app.calls.filter(call => ["agent.spawn", "rail.createWorkstream"].includes(call.method))).toEqual([]);
+  fireEvent.click(screen.getByRole("button", { name: "Open" }));
+  const result = await reply;
+  expect(result).toMatchObject({ id: 61, result: { path: TARGET, kind, id: expect.any(String) } });
+  const target = mounted.app.of(TARGET);
+  const created = target.calls.find(call => call.method === (kind === "agent" ? "agent.spawn" : "rail.createWorkstream"));
+  expect(created?.params).toMatchObject({ name: "target-worker", start_attribution: { project: SOURCE.path, project_name: SOURCE.name, agent: "1", agent_name: "builder" } });
+  if (kind === "agent") expect(created?.params).toMatchObject({ cwd: TARGET, prompt });
+  else {
+    const launch = target.calls.find(call => call.method === "rail.startDoor");
+    expect(launch?.params).toMatchObject({ prompt });
+    const saved = target.calls.findIndex(call => call.method === "workstream.setOpeningPrompt");
+    if (kind === "mode") expect(saved).toBeLessThan(target.calls.findIndex(call => call.method === "rail.startDoor"));
+    else expect(saved).toBe(-1);
+  }
+});
