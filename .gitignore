@@ -5,7 +5,7 @@ dist
 .roundup/
 __pycache__/
 proofs/.tools/
-# Run output lives in CI artifacts, never in the tracked tree.
+# Raw run output lives in CI artifacts. Only artifacts/ux/**/*.json readings may be force-added.
 /artifacts/
 /crates/perf/evidence/
 .closed-issues.json

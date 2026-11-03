@@ -28,7 +28,7 @@
       "exit": 0
     }
   },
-  "delta": "All five focus-fix-delta.txt comparisons exit 0; no passing baseline Check regresses. Published baseline is compared with agents-10-focused-after-publication. Additional focused-state readings all pass. Diff D2/D10 failures match baseline.",
+  "delta": "All five focus-fix comparisons (text reports lived in the producing job's CI artifact) exit 0; no passing baseline Check regresses. Published baseline is compared with agents-10-focused-after-publication. Additional focused-state readings all pass. Diff D2/D10 failures match baseline.",
   "checks": [
     {
       "file": "artifacts/ux/U5558a/agents-10-focused-after-publication.checks.json",
