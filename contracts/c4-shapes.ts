@@ -187,21 +187,6 @@ type After = {
   "project/Resources": import("./generated/project/Resources").Resources;
   "project/RoleModels": import("./generated/project/RoleModels").RoleModels;
   "project/Worktrees": import("./generated/project/Worktrees").Worktrees;
-  "reaction/Condition": import("./generated/reaction/Condition").Condition;
-  "reaction/CreateParams": import("./generated/reaction/CreateParams").CreateParams;
-  "reaction/Firing": import("./generated/reaction/Firing").Firing;
-  "reaction/LatePolicy": import("./generated/reaction/LatePolicy").LatePolicy;
-  "reaction/Observation": import("./generated/reaction/Observation").Observation;
-  "reaction/ObservationCause": import("./generated/reaction/ObservationCause").ObservationCause;
-  "reaction/ObservationGap": import("./generated/reaction/ObservationGap").ObservationGap;
-  "reaction/ObservationHealth": import("./generated/reaction/ObservationHealth").ObservationHealth;
-  "reaction/ObservationRecovery": import("./generated/reaction/ObservationRecovery").ObservationRecovery;
-  "reaction/Preview": import("./generated/reaction/Preview").Preview;
-  "reaction/PreviewParams": import("./generated/reaction/PreviewParams").PreviewParams;
-  "reaction/Reaction": import("./generated/reaction/Reaction").Reaction;
-  "reaction/ReactionId": import("./generated/reaction/ReactionId").ReactionId;
-  "reaction/RunParams": import("./generated/reaction/RunParams").RunParams;
-  "reaction/State": import("./generated/reaction/State").State;
   "terminal/ExitedEvent": import("./generated/terminal/ExitedEvent").ExitedEvent;
   "terminal/Match": import("./generated/terminal/Match").Match;
   "terminal/OpenParams": import("./generated/terminal/OpenParams").OpenParams;
@@ -265,24 +250,17 @@ type WithOwnerSelector<T> = { [K in keyof T]: K extends "owner" ? T[K] | string 
 type SelectorInputs = "todo/AssignParams" | "todo/CreateParams";
 
 // U5558 adds commit notifications; every existing Event and payload remains exact.
-type AutomaticChanges = { name: "deliverable.changed" } | { name: "reaction.changed" };
-
-// N5467b/NR11 retire nullable historical Reaction reasons; all other saved fields stay exact.
-type CurrentReaction = Omit<Before["reaction/Reaction"], "reason"> & { reason: string };
+type AutomaticChanges = { name: "deliverable.changed" };
 
 type BeforeSelectors = { [K in keyof Before]: K extends SelectorInputs ? WithOwnerSelector<Before[K]>
   : K extends "EventData" ? Before[K] | AutomaticChanges
     : K extends "Event" ? Before[K] | (Pick<Before["Event"], "seq" | "actor"> & AutomaticChanges)
-      : K extends "reaction/Reaction" ? CurrentReaction : Before[K] };
+      : Before[K] };
 
 type SelectorMethods = "todo.assign" | "todo.create";
 
 type BeforeMethodSelectors = { [K in keyof BeforeRpcMethods]: K extends SelectorMethods
   ? { params: WithOwnerSelector<BeforeRpcMethods[K]["params"]>; result: BeforeRpcMethods[K]["result"] }
-  : K extends "reaction.create" | "reaction.get" | "reaction.run" | "reaction.stop"
-    ? { params: BeforeRpcMethods[K]["params"]; result: CurrentReaction }
-  : K extends "reaction.list"
-    ? { params: BeforeRpcMethods[K]["params"]; result: CurrentReaction[] }
   : BeforeRpcMethods[K] };
 
 // U5690c adds exactly one Rail NodeKind; nested Rail replies keep every other field.

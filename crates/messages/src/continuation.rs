@@ -26,11 +26,6 @@ CREATE TABLE continuation_actions (
     decision TEXT NOT NULL REFERENCES continuation_decisions(id)
 );";
 
-/// The operation a reaction fires with to accept the same continuation as an explicit resume.
-pub fn operation(action: &str) -> String {
-    format!("continue:{action}")
-}
-
 /// One decision to accept: `body` goes to `agent` as a Message from the Daemon.
 pub struct Continue {
     pub agent: String,
@@ -56,11 +51,10 @@ pub struct Choice {
     pub evidence: String,
 }
 
-/// Where an action was already accepted: by a decision, or by a reaction firing.
+/// Where an action was already accepted: by a decision.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Covered {
-    pub decision: Option<String>,
-    pub firing: Option<String>,
+    pub decision: String,
     pub message: u32,
 }
 
@@ -77,26 +71,9 @@ impl Store {
             .optional()
             .map_err(RpcError::internal)?;
         if let Some((decision, message)) = decided {
-            return Ok(Some(Covered {
-                decision: Some(decision),
-                firing: None,
-                message,
-            }));
+            return Ok(Some(Covered { decision, message }));
         }
-        self.db
-            .query_row(
-                "SELECT id, message FROM reaction_firings WHERE operation = ?1 ORDER BY ordinal LIMIT 1",
-                params![operation(action)],
-                |r| {
-                    Ok(Covered {
-                        decision: None,
-                        firing: Some(r.get(0)?),
-                        message: r.get(1)?,
-                    })
-                },
-            )
-            .optional()
-            .map_err(RpcError::internal)
+        Ok(None)
     }
 
     fn decision(&self, sql: &str, key: &[&str]) -> Result<Option<Choice>, RpcError> {
@@ -165,26 +142,20 @@ impl Store {
     }
 
     /// The decision that already accepts every action of `c`, whether by this request, an earlier
-    /// one or a reaction firing; `None` when some action is still unaccepted.
+    /// one; `None` when some action is still unaccepted.
     pub(crate) fn accepted(&self, c: &Continue) -> Result<Option<Choice>, RpcError> {
         if let Some(decision) = self.requested(&c.agent, &c.request, &c.payload)? {
             return Ok(Some(decision));
         }
-        let mut message = None;
         for action in &c.actions {
-            match self.covered(action)? {
-                None => return Ok(None),
-                Some(covered) => message = message.or(Some(covered)),
+            if self.covered(action)?.is_none() {
+                return Ok(None);
             }
         }
-        let Some(first) = message else {
-            return Ok(None);
-        };
-        if first.decision.is_some() {
-            return self.decision_of(&c.actions[0]);
+        match c.actions.first() {
+            Some(action) => self.decision_of(action),
+            None => Ok(None),
         }
-        // Only a reaction firing accepted it: the decision binds to that firing's Message.
-        self.insert_decision(c, first.message).map(Some)
     }
 
     fn insert_decision(&self, c: &Continue, message: u32) -> Result<Choice, RpcError> {
@@ -225,7 +196,7 @@ impl Store {
 impl Messages {
     /// In one write, accepts the decision and creates its successor Message under the same delivery
     /// rules as any Message from the Daemon. A retry, a fresh request id for an accepted action, a
-    /// concurrent observer and a reaction firing of the same action all return the first decision
+    /// concurrent observer of the same action all return the first decision
     /// and its Message; nothing more is sent.
     pub async fn continue_work(&self, c: Continue) -> Result<(Choice, Message), RpcError> {
         if c.actions.is_empty() {
@@ -248,7 +219,7 @@ impl Messages {
             reply_to: None,
         };
         let sent = self
-            .send_message_with(&ctx, params, false, None, None, Some(&c))
+            .send_message_with(&ctx, params, false, None, Some(&c))
             .await;
         let message = match sent {
             Ok(message) => message,
@@ -320,30 +291,5 @@ impl Messages {
             .get(decision.message)?
             .ok_or_else(|| RpcError::internal("an accepted decision lost its Message"))?;
         Ok(Some((decision, message)))
-    }
-
-    /// Reaction side of the same identity: an explicit run whose operation names an accepted
-    /// continuation records its firing against that decision's Message and sends nothing.
-    pub(crate) fn firing_of_continuation(
-        &self,
-        fire: &crate::reaction::Fire,
-    ) -> Result<Option<(crate::reaction::Firing, Message)>, RpcError> {
-        let Some(action) = fire.operation.strip_prefix("continue:") else {
-            return Ok(None);
-        };
-        let Some((decision, message)) = self.decision_of(action)? else {
-            return Ok(None);
-        };
-        let mut store = self.store()?;
-        store.atomically(|store| {
-            store.check_firing(fire)?;
-            store.accept_firing(fire, decision.message)
-        })?;
-        let firing = store
-            .firings(&fire.reaction)?
-            .into_iter()
-            .find(|f| f.operation == fire.operation && f.matched == fire.matched)
-            .ok_or_else(|| RpcError::internal("accepted firing vanished"))?;
-        Ok(Some((firing, message)))
     }
 }

@@ -45,19 +45,16 @@ impl Messages {
         p: SendParams,
         merge: bool,
     ) -> Result<Message, RpcError> {
-        self.send_message_with(ctx, p, merge, None, None, None)
-            .await
+        self.send_message_with(ctx, p, merge, None, None).await
     }
 
     /// `send_message`; with `wake`, the Wake request of that number is fired in the same write (B42);
-    /// with `reaction`, the firing is accepted in the same write (NR3).
     pub(super) async fn send_message_with(
         &self,
         ctx: &Ctx,
         p: SendParams,
         merge: bool,
         wake: Option<u32>,
-        reaction: Option<&reaction::Fire>,
         continuation: Option<&continuation::Continue>,
     ) -> Result<Message, RpcError> {
         if is_receiver(&ctx.actor, &p.to) {
@@ -103,9 +100,6 @@ impl Messages {
                 if let Some(wake) = wake {
                     self.fire_inside(store, wake)?;
                 }
-                if let Some(fire) = reaction {
-                    store.check_firing(fire)?;
-                }
                 if let Some(c) = continuation
                     && store.accepted(c)?.is_some()
                 {
@@ -113,7 +107,6 @@ impl Messages {
                 }
                 if !digest
                     && wake.is_none()
-                    && reaction.is_none()
                     && continuation.is_none()
                     && store.count_open(&p.to)? >= OPEN_BOUND
                 {
@@ -170,10 +163,6 @@ impl Messages {
                 )?;
                 if wake.is_some() {
                     (self.inner.fault)("wake").map_err(RpcError::internal)?;
-                }
-                if let Some(fire) = reaction {
-                    store.accept_firing(fire, message.id)?;
-                    (self.inner.fault)("reaction").map_err(RpcError::internal)?;
                 }
                 if let Some(c) = continuation {
                     store.accept_continuation(c, message.id)?;

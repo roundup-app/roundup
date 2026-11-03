@@ -1,13 +1,38 @@
 //! Current schema creation for standalone stores; the Daemon initializes `project.db`.
 use rusqlite::Connection;
-use rusqlite_migration::M;
+use rusqlite_migration::{M, Migrations};
 use std::path::Path;
 
 pub fn open(db: &mut Connection, path: &Path) -> rusqlite::Result<()> {
     if path.file_name().is_some_and(|name| name == "project.db") {
         return Ok(());
     }
-    provenance::migration::migrate(db, path, migrations())
+    let sequence = migrations();
+    let stored: i64 = db.pragma_query_value(None, "user_version", |r| r.get(0))?;
+    if stored == sequence.len() as i64 - 1 {
+        let run = || -> rusqlite::Result<()> {
+            let mut reference = Connection::open_in_memory()?;
+            Migrations::new(sequence[..sequence.len() - 1].to_vec())
+                .to_latest(&mut reference)
+                .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
+            if let Some(difference) = provenance::migration::difference(db, &reference)? {
+                return Err(rusqlite::Error::InvalidParameterName(
+                    provenance::migration::divergence(&difference, stored, sequence.len()),
+                ));
+            }
+            Migrations::new(sequence)
+                .to_latest(db)
+                .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))
+        };
+        return run().map_err(|e| {
+            rusqlite::Error::InvalidParameterName(format!(
+                "{}: {e} To start fresh, close roundup and delete {}.",
+                path.display(),
+                path.parent().unwrap_or(path).display()
+            ))
+        });
+    }
+    provenance::migration::migrate(db, path, sequence)
 }
 
 fn migrations() -> Vec<M<'static>> {
@@ -26,6 +51,7 @@ fn migrations() -> Vec<M<'static>> {
         M::up(include_str!("../migrations/007/up.sql")),
         M::up(include_str!("../migrations/008/up.sql")),
         M::up(include_str!("../migrations/009/up.sql")),
+        M::up(include_str!("../migrations/010/up.sql")),
     ]
 }
 
@@ -131,7 +157,7 @@ mod retirement_tests {
         for prefix in if migrations().len() == 1 {
             vec![0]
         } else {
-            vec![0, migrations().len() - 1]
+            vec![0, migrations().len() - 2]
         } {
             let dir = tempfile::tempdir().unwrap();
             let path = dir.path().join("messages.db");
@@ -184,6 +210,57 @@ mod retirement_tests {
                     "keep me"
                 );
             }
+        }
+    }
+}
+
+#[cfg(test)]
+mod deletion_tests {
+    use super::*;
+
+    #[test]
+    fn u5740c_standalone_drops_only_retired_tables() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("messages.db");
+        let mut db = Connection::open(&path).unwrap();
+        let sequence = migrations();
+        Migrations::new(sequence[..sequence.len() - 1].to_vec())
+            .to_latest(&mut db)
+            .unwrap();
+        db.execute_batch(r#"INSERT INTO messages(id,from_actor,to_id,kind,body,status,at) VALUES(77,'{"kind":"user","id":"you","parent":null}','you','note','keep exact','delivered',42);
+        INSERT INTO reactions(id,actor_key,operation,request,record) VALUES('saved','user:you','op','request','{}');
+        INSERT INTO reaction_firings(id,reaction,operation,ordinal,message,matched,definition,evidence) VALUES('fired','saved','op',1,77,0,'{}','kept');
+        INSERT INTO continuation_decisions(id,agent,request,payload,message,evidence) VALUES('decision','agent','request','payload',77,'evidence');
+        INSERT INTO continuation_actions(action,decision) VALUES('action','decision');"#).unwrap();
+        let mut reference = Connection::open_in_memory().unwrap();
+        Migrations::new(migrations())
+            .to_latest(&mut reference)
+            .unwrap();
+        for _ in 0..2 {
+            open(&mut db, &path).unwrap();
+            assert_eq!(
+                provenance::migration::difference(&db, &reference).unwrap(),
+                None
+            );
+            assert_eq!(
+                db.query_row("SELECT id,body,status,at FROM messages", [], |r| Ok((
+                    r.get::<_, i64>(0)?,
+                    r.get::<_, String>(1)?,
+                    r.get::<_, String>(2)?,
+                    r.get::<_, i64>(3)?
+                )))
+                .unwrap(),
+                (77, "keep exact".into(), "delivered".into(), 42)
+            );
+            assert_eq!(
+                db.query_row(
+                    "SELECT action,decision FROM continuation_actions",
+                    [],
+                    |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?))
+                )
+                .unwrap(),
+                ("action".into(), "decision".into())
+            );
         }
     }
 }

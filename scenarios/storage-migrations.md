@@ -1,5 +1,7 @@
 # Storage migration order
 
+Policy: U5740c (`scenarios/delete-reactions.md`, #5740/#5863) supersedes historical-open permissions and refusals below only for deletion of the retired feature. Project and standalone Messages accept fresh/current stores and the full-schema-verified immediate production predecessor only. Earlier prefixes, nonempty unversioned, divergent and newer stores are refused unchanged. The installed `rusqlite_migration` runs only the appended deletion suffix transactionally; no historical record decoding, repair or import is permitted. N5809a/b now cover only that immediate Project predecessor; N5809c retains its transactional rollback observer. All other refusal boundaries remain binding.
+
 Specifications for #4522, #5088, #5420 and #5809. Terms: Project, Project data, Pad, Daemon (`GLOSSARY.md`). These scenarios govern migration ordering, schema refusal and matching saved-Project upgrades; they add no RPC, App seam, migration engine or general pre-release adoption promise (policy).
 
 **B4522 migration additions never move an applied position.**

@@ -76,7 +76,6 @@ for line in sys.stdin:
         waits: Default::default(),
         resources: Default::default(),
         publications: crate::deliverables::Publications::in_memory(dir.join("deliverables")),
-        reactions: std::sync::Arc::new(crate::reaction::Reactions::in_memory()),
         prompt_effect_gate: None,
         actions: Default::default(),
         extensions: crate::extensions::Host::new(std::path::PathBuf::new()),
@@ -520,12 +519,6 @@ async fn a5556b_automatic_delivery_waits_for_first_user_input() {
             .await
             .unwrap();
         assert!(IdleDoor::read(&source_socket).is_empty());
-        run.call("reaction.create", json!({
-        "operation":"idle-admission", "name":"Continue later", "reason":"Observe delivery before first input",
-        "target":id, "instruction":"reaction firing", "condition":{"kind":"agents","ids":[source]},
-        "expires_at":"2099-01-01T00:00:00Z"
-    })).await;
-        pending.push(produced(&mut observed, "reaction firing").await);
         for tick in 0..3 {
             run.idle(&id, tick).await;
         }

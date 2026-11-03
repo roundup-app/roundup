@@ -117,12 +117,6 @@ import type { ProjectSettings as project_ProjectSettings } from "./project/Proje
 import type { RenameParams as project_RenameParams } from "./project/RenameParams";
 import type { Resources as project_Resources } from "./project/Resources";
 import type { Worktrees as project_Worktrees } from "./project/Worktrees";
-import type { CreateParams as reaction_CreateParams } from "./reaction/CreateParams";
-import type { Preview as reaction_Preview } from "./reaction/Preview";
-import type { PreviewParams as reaction_PreviewParams } from "./reaction/PreviewParams";
-import type { Reaction as reaction_Reaction } from "./reaction/Reaction";
-import type { ReactionId as reaction_ReactionId } from "./reaction/ReactionId";
-import type { RunParams as reaction_RunParams } from "./reaction/RunParams";
 import type { SkillFiles as skill_SkillFiles } from "./skill/SkillFiles";
 import type { CatchUp as terminal_CatchUp } from "./terminal/CatchUp";
 import type { CatchUpParams as terminal_CatchUpParams } from "./terminal/CatchUpParams";
@@ -326,12 +320,6 @@ export type RpcMethods = {
   "agent.skills": { params: agent_NodeId; result: agent_Skills };
   "agent.digest": { params: agent_NodeId; result: agent_Digest };
   "agent.wake": { params: agent_WakeParams; result: agent_Woken };
-  "reaction.create": { params: reaction_CreateParams; result: reaction_Reaction };
-  "reaction.preview": { params: reaction_PreviewParams; result: reaction_Preview };
-  "reaction.list": { params: null; result: reaction_Reaction[] };
-  "reaction.get": { params: reaction_ReactionId; result: reaction_Reaction };
-  "reaction.stop": { params: reaction_ReactionId; result: reaction_Reaction };
-  "reaction.run": { params: reaction_RunParams; result: reaction_Reaction };
   "project.resources": { params: null; result: project_Resources };
   "message.progress": { params: message_ProgressParams; result: message_Progress };
   "message.report": { params: message_ReportParams; result: message_ResultReport };
