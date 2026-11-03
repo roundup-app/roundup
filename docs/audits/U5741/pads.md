@@ -16,7 +16,7 @@ Paths below are relative to `apps/desktop/src/` unless rooted at `crates/`. Each
 
 | Row | Entry point and implementation | Owner | Q1 | Q2, journey/action rationale | Q3, action on information |
 | --- | --- | --- | --- | --- | --- |
-| PA01 | `+ Pad`; `pads/Pads::Pads`, creation field, Enter/Escape/blur; `pad.create` | U19, P1, P11 | Unverified: a vendor file is not demonstrated as a shared Pad creation | No/R: create a shared place for findings | No: enter a name, create; error identifies why creation failed |
+| PA01 | `+ Pad`; `pads/Pads::Pads`, creation field, Enter/Escape/blur; `pad.create` | U19, P1, P11 | Unverified: a vendor file is not demonstrated as a shared Pad creation | Yes/O: Agent-created findings remain readable/editable without the user’s + Pad creation control | No: enter a name, create; error identifies why creation failed |
 | PA02 | Pad name/Open/Return, double-click; `Pads::PadRow`, Switcher `registerOpener`, `PadContent::PadDrawer`; `pad.list/read` | U18/U20, U3789f, U5240b | Unverified: external file discovery does not establish Project/Home access | No/R: discover/open the findings in this Workstream | No: choose a named item and read/edit it |
 | PA03 | F2/context Rename; `Pads::PadRow` `NameField`; `pad.rename` | U3789a, P16, U5172a | Unverified: file rename has different retained identity/link rules | Yes/O: findings can be read and edited under their existing name | No: name identifies the item to rename; failed rename stays on it |
 | PA04 | Shelf grip; `Pads::reorder`; `pad.reorder` | U3800a | Unverified: no same scoped ordering comparison verified | Yes/O: retained discovery does not require manual order | No: move the chosen Pad before another in its Home |
