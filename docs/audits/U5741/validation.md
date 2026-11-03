@@ -542,3 +542,40 @@ Independently verified all 34 source hashes, every archived payload and all seve
 | `just harness import-candidates 5247` shutdown | 130 | Deliberately stopped only this run's harness after observation; its dedicated browser closed successfully. |
 
 Independent `pnpm install --frozen-lockfile` and `just ready` pass (exit 0), including all 193 lint-behavior checks, package typechecks, repository/Rust lints, B4522, `ALL PROOFS CHECK` and N7. Final spelling, vocabulary, scenario ids, merge-loss and whitespace checks pass. No local `just check` or changed behavior tests. #5758 remains open for the documented inventory gaps, owner choices and authorized retirements; older-Project reopening remains mandatory.
+
+## Shelf evidence — builder-41608283605
+
+Source: main `eaa391d9d2f9eb7d9aaeb874590ec20e4ad805a8`, own worktree `/tmp/roundup-41608283605`. Scope expansion validated with `python3 loop/orders.py check /tmp/u5741-body.md` (0) before writing #5758. No `.codegraph/` index exists; ordinary source search used. Read installed dependencies/platform and existing Shelf/Ark/receipt implementations; no library, machinery or product code added. No scenario or test changes; U5741 clauses are policy observers.
+
+The source catalogue retains inspected hashes, four full direction Issue records, public mappings and the exact isolated observer. Historical actual CLI/MCP replies retain their original revision; no fresh both-role runtime claim is made. Source-only and unverified comparisons remain listed in shelf.md. Documentation changes move no product Check; each accepted opening records all Check results. No local `just check`, deletion or owner choice is inferred. P3/P6/P11/P12 gates have no changed product path; later retirements still require their behavioral observers and successful older-Project reopening.
+
+| Failed command / observer | Exit / status | Failure and disposition |
+| --- | --- | --- |
+| `cat apps/desktop/src/app/ShelfFrame.tsx` | 1 | Guessed module absent; read actual shelf/frame.ts and app/Layout.tsx. |
+| `cat apps/desktop/src/shelf/history.ts` | 1 | No such module; read App history registration and todos/deleteTodos.ts. |
+| `rg ... apps/desktop/src/keys/history.ts ...` | 2 | Guessed path absent; App.tsx and keys/focus.ts own scoped history. |
+| `sed ... apps/desktop/src/todos/undo.ts` | 2 | Guessed path absent; actual deleteTodos.ts inspected. |
+| `rg --files apps/desktop/src/drafts` | 2 | Directory absent; existing state/connectedProject.ts owns drafts/undo. |
+| `cat scenarios/ui-shelf-scope.md` / later `rg` including same path | 1 / 2 | Scope acceptance is U2744a in ui-shelf.md; actual file inspected. |
+| `rg` including testing/harness.ts and testing/fake.ts | 2 | Actual harness.tsx and fakeApp.ts inspected. |
+| `sed ... apps/desktop/src/pads/groups.ts` | 2 | Actual padGroups is in shownPads.ts; source/citations corrected. |
+| `sed ... apps/desktop/src/pads/padGroups.ts` | 2 | Same mistaken path; inspected actual shownPads.ts. |
+| First `just harness tree-40 5251` | 254 | Install had not finished; Vite unavailable. pnpm install completed (0), relaunched successfully. |
+| Initial driver `wait .todo-row-button` | 1 | Omitted explicit harness items opening; discarded and corrected query. |
+| Second driver `wait .todo-row-button` | 1 | Unassigned group folded; discarded and disclosed actual group before capture. |
+| Dense Maximise `wait --fn ...shelfMaximised` | 1 | State timed out after activation; no maximization pass claimed. |
+| Reduced-motion Maximise `wait --fn ...shelfMaximised` | 1 | Same failed observer; omitted this unresolved branch from successful replay. |
+| Driver click `#shelf-tab-pads` after Close | 1 | Closed panel unmounts its tabs in this harness; reopen through actual leader B. |
+| Driver return to Todos `wait .todo-row-button` | 1 | Remounted owner group folded; disclose before waiting for rows. |
+| Driver initial group click | 1 | Group not loaded yet; bounded group-control wait replaces premature click. |
+| Apple selection-guide direct retrieval | HTTP 429 | Search excerpt is not a full equivalence proof; exact comparison stays unverified. |
+
+The timed-out maximization probes do not establish a product cause. The final replay uses reduced motion and no timing claim. Repeated captures supersede earlier failed attempts; images remain uncommitted for workflow attachment. Continue the explicit worklist before the final all-candidate request.
+
+Additional failed observers: `ls artifacts/ux/U5741/shelf` from the original checkout (2), rerun in the owning worktree; initial Pad post-delete zero-row wait (1), because retained root Pads become visible after the selected group disappears, corrected to selected-set/count observation; Pad Redo count wait (1), because the existing fake store does not implement pad.redoDelete, now recorded as unavailable rather than fabricated success. A diagnostic eval accidentally requested the focused body HTML and produced oversized output (0); subsequent reads select only ids, counters and bounded text.
+
+The initial attached `just ready` ended with process exit 143 despite its log reaching successful B4522, web/type checks, repository/Rust lints, all 193 lint-behavior checks, `ALL PROOFS CHECK` and N7. That is not a complete pass. A detached repeat with a persistent explicit exit-code file supplies the final observer below. Standalone spelling passes (0).
+
+Final evidence integrity: 41 inspected source hashes, twelve dark 1512×950 openings, every recorded Check, all four direction archives, exact observer archive and twelve accessibility-snapshot hashes pass. Each image has a recorded SHA-256. The full first deletion diagnostic is visible in delete-full-diagnostic; other target diagnostics remain independently inspectable, not all simultaneously visible. No positive Pad Redo observer is claimed: the fake-store method-not-found is retained in pads-redo-unavailable. PNG files are uncommitted.
+
+The first detached repeat ended before completion without an exit file; no pass is inferred. A live PTY repeat preserves explicit status. The initial exit-file read failed (1) because its process had ended without writing it. Final required-command status follows after completion.
