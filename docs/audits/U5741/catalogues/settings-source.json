@@ -1,0 +1,784 @@
+{
+  "auditedMain": "092fcafbf910f292d7180c97d35bd381aff984b3",
+  "settingsActionRows": [
+    {
+      "keys": "\u2318N",
+      "label": "New Agent",
+      "leader": false,
+      "name": "agent.new",
+      "recordable": true
+    },
+    {
+      "keys": "\u21e7\u2318N",
+      "label": "Agent with prompt",
+      "leader": false,
+      "name": "agent.new-with-prompt",
+      "recordable": true
+    },
+    {
+      "keys": "\u2325\u2318N",
+      "label": "New Workstream",
+      "leader": false,
+      "name": "workstream.new",
+      "recordable": true
+    },
+    {
+      "keys": "\u21e7\u2318M",
+      "label": "New Mode",
+      "leader": false,
+      "name": "mode.new",
+      "recordable": true
+    },
+    {
+      "keys": "A",
+      "label": "Assign / Ask",
+      "leader": true,
+      "name": "leader.assign",
+      "recordable": false
+    },
+    {
+      "keys": "P",
+      "label": "Switch Project",
+      "leader": true,
+      "name": "leader.project",
+      "recordable": false
+    },
+    {
+      "keys": "C",
+      "label": "Review changes",
+      "leader": true,
+      "name": "leader.changes",
+      "recordable": false
+    },
+    {
+      "keys": "J",
+      "label": "Next needs you",
+      "leader": true,
+      "name": "leader.attention",
+      "recordable": false
+    },
+    {
+      "keys": "\u21e7J",
+      "label": "Needs you elsewhere",
+      "leader": true,
+      "name": "leader.attention-other-project",
+      "recordable": false
+    },
+    {
+      "keys": "K",
+      "label": "Find row",
+      "leader": true,
+      "name": "leader.row",
+      "recordable": false
+    },
+    {
+      "keys": "M",
+      "label": "Minimise Bubble",
+      "leader": true,
+      "name": "leader.bubble-minimise",
+      "recordable": false
+    },
+    {
+      "keys": "W",
+      "label": "Close the Bubble",
+      "leader": true,
+      "name": "leader.bubble-close",
+      "recordable": false
+    },
+    {
+      "keys": "B",
+      "label": "Open the Bench",
+      "leader": true,
+      "name": "leader.shelf",
+      "recordable": false
+    },
+    {
+      "keys": "T",
+      "label": "Capture a Todo",
+      "leader": true,
+      "name": "leader.capture",
+      "recordable": false
+    },
+    {
+      "keys": "I",
+      "label": "Open the Inbox",
+      "leader": true,
+      "name": "leader.inbox",
+      "recordable": false
+    },
+    {
+      "keys": "\u2318T",
+      "label": "New Terminal",
+      "leader": false,
+      "name": "terminal.new",
+      "recordable": true
+    },
+    {
+      "keys": "\u2318K",
+      "label": "More keys\u2026",
+      "leader": false,
+      "name": "leader.open",
+      "recordable": true
+    },
+    {
+      "keys": "\u21e7\u2318P",
+      "label": "Find anything",
+      "leader": false,
+      "name": "switcher.open",
+      "recordable": true
+    },
+    {
+      "keys": "\u2303\u2318J",
+      "label": "Next needs you",
+      "leader": false,
+      "name": "attention.jump",
+      "recordable": true
+    },
+    {
+      "keys": "\u21e7\u2318T",
+      "label": "Capture a Todo",
+      "leader": false,
+      "name": "todo.capture",
+      "recordable": false
+    },
+    {
+      "keys": "\u2318B",
+      "label": "Switch Agent / Terminal",
+      "leader": false,
+      "name": "terminal.switch",
+      "recordable": true
+    },
+    {
+      "keys": "\u2190 \u2192",
+      "label": "Collapse / expand",
+      "leader": false,
+      "name": "rail.collapse-expand",
+      "recordable": false
+    },
+    {
+      "keys": "M",
+      "label": "Move to\u2026",
+      "leader": false,
+      "name": "rail.move",
+      "recordable": true
+    },
+    {
+      "keys": "F2",
+      "label": "Rename",
+      "leader": false,
+      "name": "rail.rename",
+      "recordable": true
+    },
+    {
+      "keys": "?",
+      "label": "Help",
+      "leader": false,
+      "name": "help.open",
+      "recordable": false
+    },
+    {
+      "keys": "R",
+      "label": "Restart Mode",
+      "leader": false,
+      "name": "agent.restart-mode",
+      "recordable": true
+    },
+    {
+      "keys": "\u2318\u232b",
+      "label": "Remove",
+      "leader": false,
+      "name": "rail.remove",
+      "recordable": true
+    },
+    {
+      "keys": "\u2318/",
+      "label": "Focus Ask bar",
+      "leader": false,
+      "name": "ask.open",
+      "recordable": true
+    },
+    {
+      "keys": "1\u20139",
+      "label": "Assign",
+      "leader": false,
+      "name": "todo.assign-slot",
+      "recordable": false
+    },
+    {
+      "keys": "\u23ce",
+      "label": "Open",
+      "leader": false,
+      "name": "todo.open-draft",
+      "recordable": true
+    },
+    {
+      "keys": "N",
+      "label": "Add Todo",
+      "leader": false,
+      "name": "todo.add",
+      "recordable": true
+    },
+    {
+      "keys": "O",
+      "label": "Assign",
+      "leader": false,
+      "name": "todo.assign",
+      "recordable": true
+    },
+    {
+      "keys": "M",
+      "label": "Maximise",
+      "leader": false,
+      "name": "shelf.maximise",
+      "recordable": true
+    },
+    {
+      "keys": "D",
+      "label": "Delete row",
+      "leader": false,
+      "name": "todo.delete",
+      "recordable": true
+    },
+    {
+      "keys": "E",
+      "label": "Export .md",
+      "leader": false,
+      "name": "todo.export",
+      "recordable": true
+    },
+    {
+      "keys": "Esc",
+      "label": "Close",
+      "leader": false,
+      "name": "shelf.close",
+      "recordable": true
+    },
+    {
+      "keys": "\u2318=",
+      "label": "Larger Terminal text",
+      "leader": false,
+      "name": "terminal.text-larger",
+      "recordable": true
+    },
+    {
+      "keys": "\u2318-",
+      "label": "Smaller Terminal text",
+      "leader": false,
+      "name": "terminal.text-smaller",
+      "recordable": true
+    },
+    {
+      "keys": "\u23180",
+      "label": "Reset text size",
+      "leader": false,
+      "name": "terminal.text-reset",
+      "recordable": true
+    },
+    {
+      "keys": "\u21e7\u2318B",
+      "label": "Quote",
+      "leader": false,
+      "name": "editor.quote",
+      "recordable": true
+    },
+    {
+      "keys": "\u2325\u23188",
+      "label": "Bullet list",
+      "leader": false,
+      "name": "editor.bullet-list",
+      "recordable": true
+    },
+    {
+      "keys": "\u2325\u23187",
+      "label": "Numbered list",
+      "leader": false,
+      "name": "editor.numbered-list",
+      "recordable": true
+    },
+    {
+      "keys": "\u2325\u2318C",
+      "label": "Code block",
+      "leader": false,
+      "name": "editor.code-block",
+      "recordable": true
+    },
+    {
+      "keys": "\u2318I",
+      "label": "Italic",
+      "leader": false,
+      "name": "editor.italic",
+      "recordable": true
+    },
+    {
+      "keys": "\u2318E",
+      "label": "Inline code",
+      "leader": false,
+      "name": "editor.inline-code",
+      "recordable": true
+    },
+    {
+      "keys": "\u2318F",
+      "label": "Find\u2026",
+      "leader": false,
+      "name": "terminal.find",
+      "recordable": true
+    },
+    {
+      "keys": "\u2318Z",
+      "label": "Undo",
+      "leader": false,
+      "name": "edit.undo",
+      "recordable": true
+    },
+    {
+      "keys": "\u21e7\u2318Z",
+      "label": "Redo",
+      "leader": false,
+      "name": "edit.redo",
+      "recordable": true
+    },
+    {
+      "keys": "\u2318,",
+      "label": "Settings",
+      "leader": false,
+      "name": "settings.open",
+      "recordable": true
+    },
+    {
+      "keys": "\u2318]",
+      "label": "Forward \u2192",
+      "leader": false,
+      "name": "settings.forward",
+      "recordable": true
+    },
+    {
+      "keys": "T",
+      "label": "Triage Todos",
+      "leader": false,
+      "name": "todo.triage-enter",
+      "recordable": true
+    },
+    {
+      "keys": "J K",
+      "label": "Move",
+      "leader": false,
+      "name": "todo.triage-move",
+      "recordable": false
+    },
+    {
+      "keys": "A",
+      "label": "Assign",
+      "leader": false,
+      "name": "todo.triage-assign",
+      "recordable": true
+    },
+    {
+      "keys": "W",
+      "label": "Workstream",
+      "leader": false,
+      "name": "todo.triage-workstream",
+      "recordable": true
+    },
+    {
+      "keys": "Tab",
+      "label": "Nest",
+      "leader": false,
+      "name": "todo.triage-nest",
+      "recordable": true
+    },
+    {
+      "keys": "\u21e7Tab",
+      "label": "Un-nest",
+      "leader": false,
+      "name": "todo.triage-unnest",
+      "recordable": true
+    },
+    {
+      "keys": "X",
+      "label": "Done",
+      "leader": false,
+      "name": "todo.triage-done",
+      "recordable": true
+    },
+    {
+      "keys": "C",
+      "label": "Comment",
+      "leader": false,
+      "name": "todo.triage-comment",
+      "recordable": true
+    },
+    {
+      "keys": "Esc",
+      "label": "Leave",
+      "leader": false,
+      "name": "todo.triage-leave",
+      "recordable": true
+    },
+    {
+      "keys": "\u2318O",
+      "label": "Choose Project\u2026",
+      "leader": false,
+      "name": "project.choose-folder",
+      "recordable": true
+    }
+  ],
+  "source": [
+    {
+      "path": "apps/desktop/src/settings/AppSettings.tsx",
+      "sha256": "f2016674dbbf18845d2ad717485dbebb045802da9351f846e5024be6fef5f04a"
+    },
+    {
+      "path": "apps/desktop/src/settings/preferences.ts",
+      "sha256": "24d6852c098ce4f881ac62865589466ddbf98ac8852820a9caea84e28812b363"
+    },
+    {
+      "path": "apps/desktop/src/settings/NamingSettings.tsx",
+      "sha256": "6b56e39607c378433994a6b6b6b382375e2550c9174c3f59e5dcdd8b66b7ffa1"
+    },
+    {
+      "path": "apps/desktop/src/settings/SkillSetting.tsx",
+      "sha256": "636f0f74bb8e31d70445ad5fe3238f50eb4e8d81cd5eb3b92df50f6da0938766"
+    },
+    {
+      "path": "apps/desktop/src/settings/ShortcutSetting.tsx",
+      "sha256": "dc8cf84ad7b4610db7ea2611c8cbb8fe0dd0025ceb879ed9cb23da22876a25e4"
+    },
+    {
+      "path": "apps/desktop/src/settings/shortcutRules.ts",
+      "sha256": "a14ae1fe48e44799b38fe81b7cf60d533a68340e5c0e261c2fdde80f51bf2b22"
+    },
+    {
+      "path": "apps/desktop/src/keys/chords.ts",
+      "sha256": "0670ffd627b217cbb22963a9d4bfb106bfb324af6f7fb9023af4c20bbbd7571c"
+    },
+    {
+      "path": "apps/desktop/src/rail/ProjectSettings.tsx",
+      "sha256": "e842b7cb87c4ebcdd329bd2edac610a9585941a6a6cfdc2768863f820f47f81e"
+    },
+    {
+      "path": "apps/desktop/src/rail/stateAlerts.ts",
+      "sha256": "90b29c5f155e7c22268b04c7ececd1d7126df341e3e96c902b5d4ee38b4dc011"
+    },
+    {
+      "path": "apps/desktop/src/rail/DockBadge.tsx",
+      "sha256": "25b3ab2e7a9fbaabce5d4debc0c1f8b1b663a13cf8545bd15eefc6bb75361609"
+    },
+    {
+      "path": "apps/desktop/src/toasts/watch.tsx",
+      "sha256": "e26d804f9835f6d72d2fb30d6c2366f73352c6594b11c2487d5e3125036cf90e"
+    },
+    {
+      "path": "crates/agents/src/claude_code/models.rs",
+      "sha256": "460e5b12a8e57a4b74dda4ebc1ad884eda9670c6862d54fc195d767a508186ef"
+    },
+    {
+      "path": "crates/agents/src/models.rs",
+      "sha256": "21abfb6b9a1125b2141eef9f9f2c793f0edf3f48a40a897a46f6c2ce85caaf6a"
+    },
+    {
+      "path": "crates/agents/src/dispatch.rs",
+      "sha256": "7c2f2865a7c64628c7a1f436516052abcbd1d4e05519a414fc5c38a7207d67c8"
+    },
+    {
+      "path": "crates/agents/src/claude_code/launch.rs",
+      "sha256": "a987a3aff7260f910e150c6e68ad18e5dd5be5c5afd5edba7de4e1dabdba3dcd"
+    },
+    {
+      "path": "crates/rup/src/mcp.rs",
+      "sha256": "9df826771e9d2f8c6faac4af38c95244733e284a28b62750480d084cded561b7"
+    }
+  ],
+  "continuationMain": "b0562bd815f4f986b981b1c024e989328dd1489f",
+  "direction": [
+    {
+      "issue": 3281,
+      "url": "https://github.com/roundup-app/roundup/issues/3281",
+      "author": "saadshahd",
+      "createdAt": "2026-10-22T07:58:32Z",
+      "bodySha256": "4726809fc2520bf02e73e26862111591d20fdcd9dec8b1f3be254661032b55f4",
+      "dateBoundary": "Creation date of owner-filed Issue; not proof of later body edits or every detailed clause."
+    },
+    {
+      "issue": 4687,
+      "url": "https://github.com/roundup-app/roundup/issues/4687",
+      "author": "saadshahd",
+      "createdAt": "2026-10-28T22:37:54Z",
+      "bodySha256": "53da4f05bd69ba8db926206d86f1b9fc63a12dfac2697abf5d0704cf66a0a5be",
+      "dateBoundary": "Creation date of owner-filed Issue; not proof of later body edits or every detailed clause."
+    },
+    {
+      "issue": 4688,
+      "url": "https://github.com/roundup-app/roundup/issues/4688",
+      "author": "saadshahd",
+      "createdAt": "2026-10-28T22:37:55Z",
+      "bodySha256": "fb425cd3158264c4b16ae8814f3975a0e035132052e5fb33ea79457c4fa8688a",
+      "dateBoundary": "Creation date of owner-filed Issue; not proof of later body edits or every detailed clause."
+    },
+    {
+      "issue": 5232,
+      "url": "https://github.com/roundup-app/roundup/issues/5232",
+      "author": "saadshahd",
+      "createdAt": "2026-10-31T02:45:30Z",
+      "bodySha256": "a452f910f9f1877f333f0502ec14bbd443c9eff119e6d4c7e89e6a9789a35469",
+      "dateBoundary": "Creation date of owner-filed Issue; not proof of later body edits or every detailed clause."
+    },
+    {
+      "issue": 5239,
+      "url": "https://github.com/roundup-app/roundup/issues/5239",
+      "author": "saadshahd",
+      "createdAt": "2026-10-31T02:45:39Z",
+      "bodySha256": "f8572c298eca6319b4ea05e00906e5eb9340cbd4a03640b82f47d7f0796e69da",
+      "dateBoundary": "Creation date of owner-filed Issue; not proof of later body edits or every detailed clause."
+    }
+  ],
+  "modelsRuntime": {
+    "command": "cargo build -p rup -p rupd; isolated rupd; newline JSON-RPC models.list over its Unix socket",
+    "request": {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "method": "models.list",
+      "params": null
+    },
+    "reply": {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "result": {
+        "engines": [
+          {
+            "id": "claude-code",
+            "label": "Claude Code"
+          }
+        ],
+        "models": [
+          {
+            "id": "fable",
+            "label": "Fable"
+          },
+          {
+            "id": "opus",
+            "label": "Opus"
+          },
+          {
+            "id": "sonnet",
+            "label": "Sonnet"
+          },
+          {
+            "id": "haiku",
+            "label": "Haiku"
+          }
+        ],
+        "efforts": [
+          {
+            "id": "low",
+            "label": "Low"
+          },
+          {
+            "id": "medium",
+            "label": "Medium"
+          },
+          {
+            "id": "high",
+            "label": "High"
+          },
+          {
+            "id": "xhigh",
+            "label": "Extra high"
+          },
+          {
+            "id": "max",
+            "label": "Max"
+          }
+        ]
+      }
+    },
+    "project": "/tmp/u5741-runtime-41556795106/project",
+    "data": "/tmp/u5741-runtime-41556795106/data",
+    "source": "092fcafbf910f292d7180c97d35bd381aff984b3",
+    "binaries": {
+      "rup": "5504a4e6d2ce938dc5b1389456c6a2e839a89bccf2e8a2dccaf7b497b9460f3b",
+      "rupd": "5bf55076adf4ace6293e17fc788ea5fa05dd26a8a8dc3053d7035c57ad025c2f"
+    }
+  },
+  "changedProductPathsSinceAudit": [
+    "apps/desktop/src/App.tsx",
+    "apps/desktop/src/app/FirstRun.tsx",
+    "apps/desktop/src/app/copy.ts",
+    "apps/desktop/src/app/events.ts",
+    "apps/desktop/src/app/nativeOpen.tsx",
+    "apps/desktop/src/app/seam.ts",
+    "apps/desktop/src/app/tauri.ts",
+    "apps/desktop/src/app/u1_calls_and_events.test.ts",
+    "apps/desktop/src/app/u37_reopen.test.tsx",
+    "apps/desktop/src/ask/AskBar.tsx",
+    "apps/desktop/src/ask/AskRows.tsx",
+    "apps/desktop/src/ask/p3557c_failure_lifetime.test.tsx",
+    "apps/desktop/src/ask/styles.css",
+    "apps/desktop/src/ask/u365_links.test.tsx",
+    "apps/desktop/src/bubbles/Bubbles.tsx",
+    "apps/desktop/src/buttons.css",
+    "apps/desktop/src/changes/u2539b_rendered.test.ts",
+    "apps/desktop/src/drawer/DrawerHost.tsx",
+    "apps/desktop/src/drawer/u4458_browser.test.ts",
+    "apps/desktop/src/header/ProjectTab.tsx",
+    "apps/desktop/src/header/stripFixture.tsx",
+    "apps/desktop/src/ink/EmptyState.tsx",
+    "apps/desktop/src/ink/styles.css",
+    "apps/desktop/src/ink/u4464_empty_state.test.tsx",
+    "apps/desktop/src/keys/Help.tsx",
+    "apps/desktop/src/keys/HintLine.tsx",
+    "apps/desktop/src/keys/KeyChip.tsx",
+    "apps/desktop/src/keys/KeyHint.tsx",
+    "apps/desktop/src/keys/Leader.tsx",
+    "apps/desktop/src/keys/chords.ts",
+    "apps/desktop/src/keys/copy.ts",
+    "apps/desktop/src/keys/registry.ts",
+    "apps/desktop/src/keys/styles.css",
+    "apps/desktop/src/keys/u2539b_tasks.test.tsx",
+    "apps/desktop/src/keys/u5244_menu.test.tsx",
+    "apps/desktop/src/keys/u5557_browser.test.ts",
+    "apps/desktop/src/pads/PadDrawer.tsx",
+    "apps/desktop/src/pads/PadRichEditor.tsx",
+    "apps/desktop/src/pads/Pads.tsx",
+    "apps/desktop/src/pads/copy.ts",
+    "apps/desktop/src/pads/styles.css",
+    "apps/desktop/src/pads/u4698b_browser.test.ts",
+    "apps/desktop/src/pads/u5560_width.test.tsx",
+    "apps/desktop/src/pads/u5561aBrowser.tsx",
+    "apps/desktop/src/pads/u5561a_browser.test.ts",
+    "apps/desktop/src/rail/AttentionKey.tsx",
+    "apps/desktop/src/rail/Rail.tsx",
+    "apps/desktop/src/rail/RailFooter.tsx",
+    "apps/desktop/src/rail/RailRow.tsx",
+    "apps/desktop/src/rail/RowIcons.tsx",
+    "apps/desktop/src/rail/collection.ts",
+    "apps/desktop/src/rail/copy.ts",
+    "apps/desktop/src/rail/layout.ts",
+    "apps/desktop/src/rail/menu/model.ts",
+    "apps/desktop/src/rail/menu/removal.ts",
+    "apps/desktop/src/rail/menu/u3787a_browser.test.ts",
+    "apps/desktop/src/rail/railTree.ts",
+    "apps/desktop/src/rail/rows.ts",
+    "apps/desktop/src/rail/styles.css",
+    "apps/desktop/src/rail/u3566_unseen.test.tsx",
+    "apps/desktop/src/rail/u426_rendered.test.ts",
+    "apps/desktop/src/rail/u427_workstream_icons.test.tsx",
+    "apps/desktop/src/rail/u428_agent_icons.test.tsx",
+    "apps/desktop/src/rail/u4547a_browser.test.ts",
+    "apps/desktop/src/rail/u4547e_browser.test.ts",
+    "apps/desktop/src/rail/u4896_capture.test.ts",
+    "apps/desktop/src/rail/u5217_create_keys.test.tsx",
+    "apps/desktop/src/rail/u5531_capture.test.ts",
+    "apps/desktop/src/rail/u5531_real_daemon.test.tsx",
+    "apps/desktop/src/rail/u5531_visibility.test.tsx",
+    "apps/desktop/src/rail/u5557_chips.test.tsx",
+    "apps/desktop/src/rail/u5690c_capture.test.ts",
+    "apps/desktop/src/rail/u5690c_group.test.tsx",
+    "apps/desktop/src/reactions/Reactions.tsx",
+    "apps/desktop/src/reactions/nr9_rendered.test.ts",
+    "apps/desktop/src/reactions/u365_links.test.tsx",
+    "apps/desktop/src/reactions/u5742_message_link.test.tsx",
+    "apps/desktop/src/settings/AppSettings.tsx",
+    "apps/desktop/src/settings/ShortcutSetting.tsx",
+    "apps/desktop/src/settings/copy.ts",
+    "apps/desktop/src/settings/preferences.ts",
+    "apps/desktop/src/settings/u3799_app_settings.test.tsx",
+    "apps/desktop/src/settings/u3806_preferences.test.tsx",
+    "apps/desktop/src/settings/u4277_rendered.test.ts",
+    "apps/desktop/src/settings/u5239_shortcut_settings.test.tsx",
+    "apps/desktop/src/settings/u5242_native_settings.test.tsx",
+    "apps/desktop/src/settings/u5560_pad_width.test.tsx",
+    "apps/desktop/src/sharedCopy.ts",
+    "apps/desktop/src/shelf/keys.ts",
+    "apps/desktop/src/shelf/scope.ts",
+    "apps/desktop/src/shelf/styles.css",
+    "apps/desktop/src/shelf/u3789_rows.test.tsx",
+    "apps/desktop/src/state/connectedProject.ts",
+    "apps/desktop/src/state/rail.test.ts",
+    "apps/desktop/src/state/rail.ts",
+    "apps/desktop/src/state/unseen.ts",
+    "apps/desktop/src/switcher/Switcher.tsx",
+    "apps/desktop/src/terminal/Pane.tsx",
+    "apps/desktop/src/terminal/TargetText.tsx",
+    "apps/desktop/src/terminal/emulator.ts",
+    "apps/desktop/src/terminal/linkGestures.ts",
+    "apps/desktop/src/terminal/linkProvider.ts",
+    "apps/desktop/src/terminal/links.ts",
+    "apps/desktop/src/terminal/styles.css",
+    "apps/desktop/src/terminal/u365.html",
+    "apps/desktop/src/terminal/u365_browser.test.ts",
+    "apps/desktop/src/terminal/u365_links.test.tsx",
+    "apps/desktop/src/testing/captures.ts",
+    "apps/desktop/src/testing/checks.ts",
+    "apps/desktop/src/testing/chromePage.ts",
+    "apps/desktop/src/testing/fakeApp.ts",
+    "apps/desktop/src/testing/realDaemonFixture.ts",
+    "apps/desktop/src/testing/realDaemonPlugin.ts",
+    "apps/desktop/src/testing/realSeam.ts",
+    "apps/desktop/src/testing/seeds.ts",
+    "apps/desktop/src/testing/shardDurations.json",
+    "apps/desktop/src/testing/u137_checks.test.tsx",
+    "apps/desktop/src/testing/u176_agent_names.test.tsx",
+    "apps/desktop/src/testing/x14_output_relay.test.ts",
+    "apps/desktop/src/todos/RowButton.tsx",
+    "apps/desktop/src/todos/TodoHeader.tsx",
+    "apps/desktop/src/todos/Todos.tsx",
+    "apps/desktop/src/todos/drawer.styles.css",
+    "apps/desktop/src/todos/laneBrowser.ts",
+    "apps/desktop/src/todos/ownerAssignment.ts",
+    "apps/desktop/src/todos/u3513a_footer.test.tsx",
+    "apps/desktop/src/todos/u490a_browser.test.ts",
+    "apps/desktop/src/tokens.css",
+    "apps/desktop/src/ui/reading.styles.css",
+    "apps/desktop/src/ui/u474_foundation.test.tsx",
+    "apps/desktop/src/ui/u535_browser.test.ts",
+    "crates/agents/migrations/020/up.sql",
+    "crates/agents/src/claude_code/brief.rs",
+    "crates/agents/src/claude_code/conversation.rs",
+    "crates/agents/src/claude_code/inbox.rs",
+    "crates/agents/src/claude_code/launch.rs",
+    "crates/agents/src/dispatch.rs",
+    "crates/agents/src/events.rs",
+    "crates/agents/src/events/tests.rs",
+    "crates/agents/src/lib.rs",
+    "crates/agents/src/model_wiring.rs",
+    "crates/agents/src/owners.rs",
+    "crates/agents/src/rail.rs",
+    "crates/agents/src/rail/alert.rs",
+    "crates/agents/src/rail/placement.rs",
+    "crates/agents/src/rail/removal.rs",
+    "crates/agents/src/rail/view.rs",
+    "crates/agents/src/rail_view.rs",
+    "crates/agents/src/registration.rs",
+    "crates/agents/src/removal.rs",
+    "crates/agents/src/resume.rs",
+    "crates/agents/src/schema.rs",
+    "crates/agents/src/spawn.rs",
+    "crates/agents/src/store.rs",
+    "crates/agents/tests/conversation_overview.rs",
+    "crates/agents/tests/fixtures/brief/door.md",
+    "crates/agents/tests/launch/briefs.rs",
+    "crates/agents/tests/launch/lean/memory.rs",
+    "crates/agents/tests/scenarios/rail.rs",
+    "crates/contracts/src/agent.rs",
+    "crates/contracts/src/agent/launch.rs",
+    "crates/contracts/src/common.rs",
+    "crates/contracts/src/declarations.rs",
+    "crates/desktop/src/lib.rs",
+    "crates/desktop/src/state.rs",
+    "crates/desktop/tests/h18.rs",
+    "crates/rup/src/cli.rs",
+    "crates/rup/src/mcp.rs",
+    "crates/rup/src/mcp/agent_tools.rs",
+    "crates/rup/src/mcp/c4_policy.rs",
+    "crates/rup/src/mcp/fixtures/c4-before.json",
+    "crates/rup/tests/cli/tool_catalogue.rs",
+    "crates/rup/tests/common/served.rs",
+    "crates/rup/tests/e2e/daemon.rs",
+    "crates/rup/tests/e2e/notes.rs",
+    "crates/rup/tests/environment.rs",
+    "crates/rup/tests/i9.rs",
+    "crates/rup/tests/mcp.rs",
+    "crates/rup/tests/mcp/children.rs",
+    "crates/rup/tests/yolo_modes.rs"
+  ]
+}

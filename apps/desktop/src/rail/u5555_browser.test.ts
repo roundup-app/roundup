@@ -113,6 +113,8 @@ it("u5555_rendered_unavailable_menu_and_failure_retry", async () => {
 
 it.each(["pointer", "Enter", "Space"])("u5629_rendered_failed_start_recovery_%s", async opening => {
   await fresh("tree-40");
+  // Failed-start recovery begins at a Workstream without requesting descendants.
+  await lane.evaluate("window.__fake.setStatus('migrate', 'idle', 'idle'); true");
   await lane.browser("click", '[data-id="backend"][data-part="branch-control"]');
   await lane.until("!!document.querySelector('[role=treeitem][data-id=backend][aria-selected=true]')");
   await lane.evaluate("(() => { const app = window.__fake.app; const spawn = app.handlers['agent.spawn']; app.handlers['agent.spawn'] = params => { app.handlers['agent.spawn'] = spawn; throw window.__fake.refusal(-32003, 'Spawn refused. Check setup and retry.'); }; return true; })()");
@@ -158,6 +160,7 @@ it.each(["pointer", "Enter", "Space"])("u5629_rendered_failed_start_recovery_%s"
   expect(retried[1]).toEqual(original[0]);
   await capture("retry");
   await fresh("tree-40");
+  await lane.evaluate("window.__fake.setStatus('migrate', 'idle', 'idle'); true");
   await lane.browser("click", '[data-id="backend"][data-part="branch-control"]');
   await lane.until("!!document.querySelector('[role=treeitem][data-id=backend][aria-selected=true]')");
   await lane.evaluate("(() => { const app = window.__fake.app; const spawn = app.handlers['agent.spawn']; app.handlers['agent.spawn'] = params => { app.handlers['agent.spawn'] = spawn; throw window.__fake.refusal(-32003, 'Spawn refused. Check setup and retry.'); }; return true; })()");

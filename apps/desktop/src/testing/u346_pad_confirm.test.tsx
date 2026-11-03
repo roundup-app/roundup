@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
+import { cleanup, fireEvent, waitFor, within } from "@solidjs/testing-library";
 import { expect, it } from "vitest";
 import { openPad, openShelf, waitForReload } from "../pads/padsFixture";
 import { RpcError } from "../app/seam";
@@ -23,13 +23,14 @@ it("p2544d_stale_write_without_event_keeps_draft", async () => {
 
   try {
     const field = await openPad("notes");
+    const drawer = within(document.querySelector<HTMLElement>(".drawer")!);
 
     // No pad.changed Event precedes either stale reply.
     app.handlers["pad.list"] = () => [remote];
     fireEvent.input(field, { target: { value: "my draft" } });
     fireEvent.focusOut(field);
-    await screen.findByText("Use theirs");
-    await waitFor(() => expect(screen.queryByText(/pad notes is at revision/)).toBeNull());
+    await drawer.findByText("Use theirs");
+    await waitFor(() => expect(drawer.queryByText(/pad notes is at revision/)).toBeNull());
     await waitForReload(app);
     expect(field.value).toBe("my draft");
     expect(calls.filter((call) => call.method === "pad.write")).toEqual([
@@ -38,9 +39,9 @@ it("p2544d_stale_write_without_event_keeps_draft", async () => {
     app.handlers["pad.list"] = () => [intervening];
     app.handlers["pad.write"] = () => { throw new RpcError(-32003, "pad notes is at revision 3"); };
 
-    fireEvent.click(screen.getByText("Keep mine"));
+    fireEvent.click(drawer.getByText("Keep mine"));
     await waitForReload(app, 2);
-    expect(screen.queryByText(/pad notes is at revision/)).toBeNull();
+    expect(drawer.queryByText(/pad notes is at revision/)).toBeNull();
     expect(calls.filter((call) => call.method === "pad.write").at(-1)?.params).toEqual({
       name: "notes", text: "my draft", expectedRevision: 2, expectedIncarnation: pad.incarnation,
     });
@@ -48,9 +49,9 @@ it("p2544d_stale_write_without_event_keeps_draft", async () => {
     // Observation window: PadDrawer.tsx debounces autosave at 500 ms; a conflict must suppress it.
     await new Promise((done) => setTimeout(done, 550));
     expect(calls.filter((call) => call.method === "pad.write")).toHaveLength(2);
-    fireEvent.click(screen.getByText("Use theirs"));
+    fireEvent.click(drawer.getByText("Use theirs"));
     await waitFor(() => expect(field.value).toBe("original remote intervening"));
-    expect(screen.queryByText(/pad notes is at revision/)).toBeNull();
+    expect(drawer.queryByText(/pad notes is at revision/)).toBeNull();
     app.handlers["pad.write"] = () => ({ ...intervening, text: "after choice", revision: 4 });
     fireEvent.input(field, { target: { value: "after choice" } });
     fireEvent.focusOut(field);
@@ -73,12 +74,13 @@ it("p2544e_reopen_saved_agent_work", async () => {
   const { tmpdir } = await import("node:os");
   const { startRealDaemon } = await import("./realDaemonFixture");
   const { createServedApp } = await import("./realSeam");
+  const { agentBrowserExecutable } = await import("./chromePage");
   const report = await mkdtemp(join(tmpdir(), "p2544e-tool-"));
 
   const profile = join(report, "browser");
   const execute = promisify(execFile);
   const session = `p2544e-${process.pid}`;
-  const browser = async (...args: string[]) => (await execute("agent-browser", ["--session", session, ...args], { timeout: 60_000 })).stdout;
+  const browser = async (...args: string[]) => (await execute(agentBrowserExecutable, ["--session", session, ...args], { timeout: 60_000 })).stdout;
   const evaluate = async (source: string) => JSON.parse(await browser("eval", source));
   const visualSource = 'Agent prose.\n\n```mermaid\ngraph LR\nA-->B\n```\n\n```excalidraw\n{"type":"excalidraw","elements":[]}\n```\n\nTail prose.\n';
 
@@ -103,10 +105,31 @@ it("p2544e_reopen_saved_agent_work", async () => {
       { name: "agent-work", home: home.id, text: visualSource, revision: 1 },
     ]);
 
+    // Mount once on the existing seam so editing and reopening use the same App.
+    // The fixture owns the real Daemon's shutdown/restart; native close is accepted here.
+    await browser("open", `${real.base}/__daemon/open`);
+    await evaluate(`(async () => {
+      const source = await (await fetch('/src/App.tsx')).text();
+      const { render } = await import(source.split('"').find(path => path.includes('/deps/solid-js_web.js')));
+      const { App } = await import('/src/App.tsx');
+      const { createServedApp } = await import('/src/testing/realSeam.ts');
+      const { useBrowserStorage } = await import('/src/state/storage.ts');
+      await Promise.all(['/src/tokens.css', '/src/styles.css', '/src/scrollbar.css'].map(path => import(path)));
+      // Restore Pads directly so the unused default Todos tab never mounts.
+      localStorage.setItem(${JSON.stringify(`roundup:shelf:${real.dir}`)}, JSON.stringify({ open: true, tab: 'pads', maximised: false }));
+      useBrowserStorage(localStorage);
+      const served = createServedApp(location.origin);
+      const app = { ...served, ask: async () => true, closeProject: async () => {}, chooseProjectPath: async () => ${JSON.stringify(real.dir)} };
+      document.body.replaceChildren();
+      const root = document.createElement('div');
+      document.body.append(root);
+      render(() => App({ app, initialShelfOpen: true, reducedMotion: () => true, clock: Date.now }), root);
+      return true;
+    })()`);
+
     let currentName = "agent-work";
 
-    const openRealPad = async (visit = true) => {
-      if (visit) await browser("open", `${real.base}/harness.html?view=workstreams&items=1&tabs=1&daemon=1`);
+    const openRealPad = async () => {
       await browser("wait", `[data-id='${home.id}'] [data-part=branch-control]`);
 
       if (await evaluate("document.querySelector('#shelf-tab-pads').getAttribute('aria-expanded')") !== "true") await browser("click", "#shelf-tab-pads");
@@ -146,33 +169,12 @@ it("p2544e_reopen_saved_agent_work", async () => {
     const destination = await app.rpc("rail.createWorkstream", { name: "Reviewed", parent: null });
     await app.rpc("pad.move", { name: currentName, home: destination.id });
     await browser("wait", "--fn", `document.querySelector('[data-pad="reviewed-work"]')?.closest('[data-shelf-group]')?.dataset.shelfGroup === ${JSON.stringify(destination.id)}`);
-    // The harness's served adapter refuses native close. Embed the same App on its
-    // existing seam: the fixture owns the real Daemon's shutdown/restart below.
-    await browser("open", `${real.base}/__daemon/open`);
-    await evaluate(`(async () => {
-      const source = await (await fetch('/src/App.tsx')).text();
-      const { render } = await import(source.split('"').find(path => path.includes('/deps/solid-js_web.js')));
-      const { App } = await import('/src/App.tsx');
-      const { createServedApp } = await import('/src/testing/realSeam.ts');
-      const { useBrowserStorage } = await import('/src/state/storage.ts');
-      const { runChecks } = await import('/src/testing/checks.ts');
-      await Promise.all(['/src/tokens.css', '/src/styles.css', '/src/scrollbar.css'].map(path => import(path)));
-      useBrowserStorage(localStorage);
-      const served = createServedApp(location.origin);
-      const app = { ...served, ask: async () => true, closeProject: async () => {}, chooseProjectPath: async () => ${JSON.stringify(real.dir)} };
-      document.body.replaceChildren();
-      const root = document.createElement('div');
-      document.body.append(root);
-      render(() => App({ app, initialShelfOpen: true, reducedMotion: () => true, clock: Date.now }), root);
-      window.__checks = () => runChecks();
-      return true;
-    })()`);
     await browser("wait", `[data-path='${real.dir}']`);
     await browser("click", `[data-path='${real.dir}'] button[aria-label^='Close ']`);
     await browser("wait", "--fn", "!document.querySelector('.project-tab')");
     await real.restart();
     await browser("find", "role", "button", "click", "--name", "Choose Project…", "--exact");
-    await openRealPad(false);
+    await openRealPad();
     await browser("wait", ".visual-mermaid svg");
     await browser("wait", ".visual-drawing .excalidraw");
     expect(await evaluate("document.querySelector('.ProseMirror p')?.textContent")).toBe(expected.split("\n")[0]);
@@ -185,7 +187,7 @@ it("p2544e_reopen_saved_agent_work", async () => {
       await writeFile(join(evidence, "real-daemon-reopened.json"), JSON.stringify({
         agent: agent.id, workstream: home.id,
         pad: await app.rpc("pad.read", { name: currentName }),
-        checks: await evaluate("window.__checks()"), native_claim: false,
+        checks: await evaluate("(async () => (await import('/src/testing/checks.ts')).runChecks())()"), native_claim: false,
       }));
     }
   } finally {

@@ -63,6 +63,8 @@ const observeName = async (run: (observer: NameObserver) => Promise<void>) => {
     await browser("set", "viewport", "1280", "800");
     await browser("set", "media", "dark");
     await browser("wait", "--fn", "!!window.__fake && !!document.querySelector('.rail-row[data-id=backend]')");
+    // This observer tests actions in backend, independently of native attention routing.
+    await read("window.__fake.setStatus('migrate', 'idle', 'idle')");
     await browser("click", ".rail-row[data-id=backend]");
     await browser("wait", "--fn", "document.querySelector('.rail-row[data-id=backend]')?.dataset.selected==='true'");
     await run({ browser, read, active, options, open, capture });
