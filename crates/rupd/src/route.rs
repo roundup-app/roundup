@@ -80,6 +80,7 @@ impl Daemon {
                 "daemon.getNaming"
                     | "daemon.setNaming"
                     | "rail.group"
+                    | "rail.removeSelection"
                     | "rail.rename"
                     | "rail.setAlertLevel"
                     | "workstream.setAuto"
@@ -218,6 +219,11 @@ impl Daemon {
                 return rpc::reply(&());
             }
         }
+        if method == "rail.removeSelection" {
+            return self
+                .remove_selection(&conn.actor, rpc::params(params)?)
+                .await;
+        }
         if method == "rail.remove" {
             let removal: contracts::agent::RemoveParams = rpc::params(params.clone())?;
             if removal.operation.is_some() {
@@ -260,10 +266,25 @@ impl Daemon {
                     .reader()
                     .call("message", "message.list", json!({}), Actor::user())
                     .await?;
-                let head = self.bus.subscribe_after(Default::default())?.head();
-                let (events, _) = self
-                    .bus
-                    .saved_after(head.saturating_sub(rpc::EVENT_WINDOW))?;
+                let mut history = self.bus.subscribe_after(contracts::SubscribeParams {
+                    kept: true,
+                    after: None,
+                })?;
+                let mut events = Vec::new();
+                // The kept replay is already captured under the append lock. Stop at its head:
+                // visibility decides from this snapshot, never from later live Events.
+                if history.head() != 0 {
+                    loop {
+                        let event = history.next().await.ok_or_else(|| {
+                            RpcError::internal("retained Event replay closed before its head")
+                        })?;
+                        let at_head = event.seq == Some(history.head());
+                        events.push(event);
+                        if at_head {
+                            break;
+                        }
+                    }
+                }
                 let mut previous = None;
                 let mut resumed = None;
                 for event in &events {

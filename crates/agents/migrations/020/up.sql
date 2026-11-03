@@ -7,3 +7,4 @@ CREATE VIEW instruction_placement AS
   WHERE c.kind <> 'workstream'
  ) SELECT agent,CAST(id AS TEXT) AS home FROM chain WHERE kind='workstream';
 ALTER TABLE nodes ADD COLUMN visibility TEXT NOT NULL DEFAULT 'shown' CHECK (visibility IN ('shown','internal'));
+ALTER TABLE nodes ADD COLUMN start_attribution TEXT;

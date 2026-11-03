@@ -6,7 +6,7 @@ use super::*;
 const PREPARING: &str = "SELECT EXISTS(SELECT 1 FROM closed_sources WHERE published=0)";
 const NODES: &str = "SELECT id, kind, name, parent, ord, attempt, terminal_id,
                 worktree_path, worktree_branch, worktree_base, work, model, effort,
-                conversation_id, conversation_cwd, auto, finished, opening_prompt, alert_level, visibility FROM nodes";
+                conversation_id, conversation_cwd, auto, finished, opening_prompt, alert_level, start_attribution, visibility FROM nodes";
 
 pub(super) fn load_nodes(
     db: &Connection,
@@ -57,7 +57,19 @@ fn load_with<T>(
                 NodeKind::Group => None,
             };
             let node = RailNode {
-                visibility: match row.get_ref(19)?.as_str()? {
+                start_attribution: row
+                    .get_ref(19)?
+                    .as_str_or_null()?
+                    .map(serde_json::from_str)
+                    .transpose()
+                    .map_err(|error| {
+                        rusqlite::Error::FromSqlConversionFailure(
+                            19,
+                            rusqlite::types::Type::Text,
+                            Box::new(error),
+                        )
+                    })?,
+                visibility: match row.get_ref(20)?.as_str()? {
                     "internal" => contracts::agent::RailVisibility::Internal,
                     _ => contracts::agent::RailVisibility::Shown,
                 },
@@ -323,8 +335,9 @@ mod tests {
             })
             .sum();
         eprintln!("forty Workstreams: {steps} SQLite instructions");
+        // Start attribution adds one projected column: one instruction per row.
         assert!(
-            steps <= 900,
+            steps <= 940,
             "Rail read executed {steps} SQLite instructions for forty Workstreams"
         );
     }
