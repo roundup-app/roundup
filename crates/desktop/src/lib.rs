@@ -26,8 +26,8 @@ pub use state::{AppState, Listed, Project};
 use tauri::ipc::{Channel, InvokeResponseBody};
 use tauri::{AppHandle, Builder, Manager, RunEvent, Runtime, State};
 
-/// `exit` ends the App with a code; `run` passes `AppHandle::exit`. It is a parameter because the
-/// mock runtime cannot exit and a test must see that a refused start asks for it.
+/// `exit` observes a refused start on runtimes that cannot exit. Native `run` uses the same
+/// builder with dialog feedback, deferring its exit until dismissal.
 pub fn build<R: Runtime>(
     builder: Builder<R>,
     config: Config,
@@ -72,7 +72,7 @@ fn build_reporting<R: Runtime>(
                 .build(),
         )
         .plugin(window::plugin())
-        .manage(diagnostics::Feedback(std::sync::Arc::new(feedback)))
+        .manage(diagnostics::Feedback(Box::new(feedback)))
         .manage(AppState::new(config))
         .manage(menu::Choice::default())
         .manage(menu::ProjectMenu::default())
