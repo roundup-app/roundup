@@ -114,23 +114,38 @@ fn action_id(action: &Action) -> String {
     )
 }
 
-/// An 18px transparent monochrome template. Alpha alone supplies the three static looks;
+/// The mark's side in pixels: the menu bar's 18 pt at 2x. macOS scales it to 18 pt.
+const SIDE: u32 = 36;
+
+/// The 🤌 glyph's alpha, one byte per pixel, row by row (`icons/README.md`).
+const GLYPH: &[u8; (SIDE * SIDE) as usize] = include_bytes!("../icons/menu-bar-glyph.gray");
+
+/// Where the fingertips hold the state dot, in pixels from the top-left corner.
+const FINGERTIPS: (f64, f64) = (25.2, 5.04);
+
+/// A transparent monochrome template: the 🤌 glyph with the state dot at its fingertips.
+/// A clear halo parts the dot from the fingers. Alpha alone supplies the three static looks;
 /// macOS supplies the ink for the current menu-bar appearance.
 fn image(mark: Mark) -> Image<'static> {
-    let mut rgba = vec![0; 18 * 18 * 4];
-    for y in 0..18 {
-        for x in 0..18 {
-            let radius = ((f64::from(x) - 8.5).powi(2) + (f64::from(y) - 8.5).powi(2)).sqrt();
-            let alpha = match mark {
-                Mark::Waiting => (6.0 - radius).clamp(0.0, 1.0),
-                Mark::Ready => (3.0 - radius).clamp(0.0, 1.0),
-                Mark::Empty => (6.0 - radius).clamp(0.0, 1.0) * (radius - 4.0).clamp(0.0, 1.0),
+    let mut rgba = vec![0; GLYPH.len() * 4];
+    for y in 0..SIDE {
+        for x in 0..SIDE {
+            let distance =
+                (f64::from(x) + 0.5 - FINGERTIPS.0).hypot(f64::from(y) + 0.5 - FINGERTIPS.1);
+            let inside = |radius: f64| (radius - distance + 0.5).clamp(0.0, 1.0);
+            let (halo, dot) = match mark {
+                Mark::Waiting => (6.48, inside(4.32)),
+                Mark::Ready => (4.68, inside(2.52)),
+                Mark::Empty => (6.48, inside(4.32) - inside(2.16)),
             };
-            // The loop indices are 0..18; alpha is clamped to 0..1 before scaling to a byte.
-            rgba[(y as usize * 18 + x as usize) * 4 + 3] = (alpha * 255.0) as u8;
+            // x and y are below SIDE, so the index is inside both buffers.
+            let index = (y * SIDE + x) as usize;
+            let glyph = f64::from(GLYPH[index]) / 255.0 * (1.0 - inside(halo));
+            // alpha is clamped to 0..1 before scaling to a byte.
+            rgba[index * 4 + 3] = (glyph.max(dot) * 255.0).round() as u8;
         }
     }
-    Image::new_owned(rgba, 18, 18)
+    Image::new_owned(rgba, SIDE, SIDE)
 }
 
 fn internal(error: impl ToString) -> RpcError {
