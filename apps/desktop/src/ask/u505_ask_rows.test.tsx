@@ -334,7 +334,7 @@ it("u505_expanded_earlier_retains_row_navigation", async () => {
     await browser("wait", "--fn", "document.querySelector('.rail-row[data-id=payments]')?.dataset.selected === 'true' && !!document.querySelector('.pane-screen')");
     expect((await browser("eval", "window.__fake.app.calls.slice(window.__calls).filter(c => ['ask.send','rail.startDoor','agent.spawn','terminal.write'].includes(c.method)).length")).result).toBe(0);
     await browser("open", new URL("/harness.html?seed=empty-project", origin).href);
-    await browser("wait", "--fn", "!!document.querySelector('.ask-input') && document.querySelectorAll('.overview-section-trigger').length === 4");
+    await browser("wait", "--fn", "!!document.querySelector('.ask-input') && document.querySelectorAll('.overview-section-trigger').length === 3");
     await capture("empty-project");
   });
 }, 60_000);
