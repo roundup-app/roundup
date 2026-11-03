@@ -45,7 +45,9 @@ it.each([false, true])("u2680b_a_click_clears_browser_and_terminal_selections_st
 
 const app = async (base = false, mac = false) => {
   await browser("eval", "localStorage.clear()");
-  await browser("open", url(mac ? "/src/terminal/u514.html?app&mac&seed=tree-40&renderer=dom&view=workstreams&items=1&tabs=1" : "/harness.html?seed=tree-40&renderer=dom", base));
+  const seed = process.env.ROUNDUP_CAPTURES ? "tree-40" : "selection";
+
+  await browser("open", url(mac ? `/src/terminal/u514.html?app&mac&seed=${seed}&renderer=dom&view=workstreams&items=1&tabs=1` : `/harness.html?seed=${seed}&renderer=dom`, base));
   await wait("!!document.querySelector('.shelf-tabs')");
 };
 
@@ -116,7 +118,7 @@ it.each(["pane-across-shelf", "blank-bubbles-into-pane"])("u2680c_chrome_drag_an
   expect(await read<boolean>("getSelection().isCollapsed")).toBe(true);
 }, 90_000);
 
-const placement = async (where: "agent" | "door" | "user" | "bubble", mac = false) => {
+const placement = async (where: "agent" | "door" | "user" | "bubble", mac = false, text = "alpha bravo charlie ".repeat(1000)) => {
   await app(false, mac);
 
   if (where === "bubble" || where === "user") {
@@ -130,7 +132,7 @@ const placement = async (where: "agent" | "door" | "user" | "bubble", mac = fals
   await browser("eval", String.raw`(() => {
     const id = ${where === 'bubble' || where === 'user' ? "document.querySelector('.bubble:not([hidden])').dataset.bubble" : JSON.stringify(where === 'agent' ? 't-migrate' : 't-payments')};
     window.__emu = window.__terminals.get(id);
-    window.__emu.write(new TextEncoder().encode('\x1b[2J\x1b[H' + 'alpha bravo charlie '.repeat(1000)), () => { window.__selectionReady = true; });
+    window.__emu.write(new TextEncoder().encode('\x1b[2J\x1b[H' + ${JSON.stringify(text)}), () => { window.__selectionReady = true; });
   })()`);
   await wait("window.__selectionReady === true");
 
@@ -453,14 +455,17 @@ const optionDrag = async (from: { x: number; y: number }, to: { x: number; y: nu
   await browser("keyup", "Alt");
 };
 
-const reportingSelection = async (where: "agent" | "user" | "bubble", mode: number, before?: () => Promise<void>) => {
-  const selector = await placement(where, true);
+const reportingSelection = async (where: "agent" | "user" | "bubble", mode: number, before?: () => Promise<void>, mounted?: string) => {
+  const selector = mounted ?? await placement(where, true, "");
   expect(await read<string>("navigator.platform")).toBe("MacIntel");
   await browser("eval", `(() => {
     window.__parsed = false;
     window.__input = [];
     window.__probeCalls = window.__fake.app.calls.length;
-    window.__emu.onInput(bytes => window.__input.push(...bytes));
+    if (window.__reportingEmulator !== window.__emu) {
+      window.__emu.onInput(bytes => window.__input.push(...bytes));
+      window.__reportingEmulator = window.__emu;
+    }
     window.__emu.write(new TextEncoder().encode(${JSON.stringify("\x1b[2J\x1b[Hcafé alpha bravo charlie\r\n日本語 delta echo foxtrot")} + '\x1b[?${mode}h\x1b[?1006h'), () => { window.__parsed = true; });
   })()`);
   await wait("window.__parsed");
@@ -478,15 +483,17 @@ const reportingSelection = async (where: "agent" | "user" | "bubble", mode: numb
   await wait("window.__input.length > 0");
   await wait("window.__fake.app.calls.slice(window.__probeCalls).filter(c => c.method === 'terminal.write').reduce((n,c) => n + atob(c.params.data).length, 0) === window.__input.length");
   await before?.();
-  await browser("eval", "window.__input = []; window.__calls = window.__fake.app.calls.length; window.__mouseModifiers = []; document.addEventListener('mousedown', e => window.__mouseModifiers.push([e.altKey, e.shiftKey]), true)");
+  await browser("eval", "window.__input = []; window.__calls = window.__fake.app.calls.length; window.__mouseModifiers = []; document.addEventListener('mousedown', e => window.__mouseModifiers.push([e.altKey, e.shiftKey]), { once: true, capture: true })");
   await optionDrag(from, { x: Math.round(cells.x + cells.width * 12.2), y: Math.round(cells.y + cells.height * 1.5) });
 
   return { from, cells };
 };
 
 it.each(["agent", "user", "bubble"] as const)("u5549a_option_drag_selects_without_mouse_bytes_%s", async where => {
+  const selector = await placement(where, true, "");
+
   for (const mode of [1000, 1002]) {
-    await reportingSelection(where, mode);
+    await reportingSelection(where, mode, undefined, selector);
     expect(await read("window.__mouseModifiers")).toEqual([[true, false]]);
     expect(await read<string>("window.__emu.selection()")).toBe("café alpha bravo charlie\n日本語 delta");
     expect(await read<boolean>("getSelection().isCollapsed")).toBe(true);
@@ -496,8 +503,10 @@ it.each(["agent", "user", "bubble"] as const)("u5549a_option_drag_selects_withou
 }, 120_000);
 
 it.each(["agent", "user", "bubble"] as const)("u5549b_reporting_selection_keeps_readonly_menu_%s", async where => {
+  const selector = await placement(where, true, "");
+
   for (const mode of [1000, 1002]) {
-    const { from, cells } = await reportingSelection(where, mode);
+    const { from, cells } = await reportingSelection(where, mode, undefined, selector);
     const selected = await read<string>("window.__emu.selection()");
     expect(selected).toBe("café alpha bravo charlie\n日本語 delta");
     await browser("eval", `(() => {
