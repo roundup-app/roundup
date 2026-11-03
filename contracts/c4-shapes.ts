@@ -285,19 +285,24 @@ type BeforeMethodSelectors = { [K in keyof BeforeRpcMethods]: K extends Selector
     ? { params: BeforeRpcMethods[K]["params"]; result: CurrentReaction[] }
   : BeforeRpcMethods[K] };
 
+// U5690c adds exactly one Rail NodeKind; nested Rail replies keep every other field.
+type WithGroups<T> = [T] extends [Before["agent/NodeKind"]]
+  ? ([Before["agent/NodeKind"]] extends [T] ? T | "group" : T)
+  : T extends object ? { [K in keyof T]: WithGroups<T[K]> } : T;
+
 // Both directions retain optionality, nulls, numeric types, tags and flattened fields.
 type Assert<T extends true> = T;
 
 export type C4ExportedContractsMatchExistingContracts = Assert<
-  [After] extends [BeforeSelectors] ? ([BeforeSelectors] extends [After] ? true : false) : false
+  [After] extends [WithGroups<BeforeSelectors>] ? ([WithGroups<BeforeSelectors>] extends [After] ? true : false) : false
 >;
 
 
 type ExistingMethods = Pick<import("./generated/methods").RpcMethods, keyof BeforeRpcMethods>;
 
 export type C4MethodContracts = Assert<
-  [ExistingMethods] extends [BeforeMethodSelectors]
-    ? ([BeforeMethodSelectors] extends [ExistingMethods] ? true : false) : false
+  [ExistingMethods] extends [WithGroups<BeforeMethodSelectors>]
+    ? ([WithGroups<BeforeMethodSelectors>] extends [ExistingMethods] ? true : false) : false
 >;
 
 // Invalid callers must stay invalid, independently of the bidirectional comparison.
