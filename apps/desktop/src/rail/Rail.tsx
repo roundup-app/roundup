@@ -238,11 +238,10 @@ export const Rail = () => {
   const removeSelection = (chosen = selectedNodes()) => {
     const before = nodeIds();
     const last = Math.max(...chosen.map(node => before.indexOf(node.id)));
-    const first = Math.min(...chosen.map(node => before.indexOf(node.id)));
     void menu.requestRemoveSelection(chosen, () => {
       void rail.refresh().then(() => {
         const survivors = new Set(nodeIds());
-        const next = before.slice(last + 1).find(id => survivors.has(id)) ?? before.slice(0, first).findLast(id => survivors.has(id));
+        const next = before.slice(last + 1).find(id => survivors.has(id)) ?? before.slice(0, last).findLast(id => survivors.has(id));
         selection.selection.setSelectedValues(next ? [next] : []);
         rail.select(next ?? null);
 
