@@ -123,7 +123,7 @@ export default function PadRichEditor(props: {
     if (!element?.isConnected) return;
 
     if (animated && open && !positioned) {
-      element.style.opacity = "0";
+      if (element !== previousPalette) element.style.opacity = "0";
 
       return;
     }
