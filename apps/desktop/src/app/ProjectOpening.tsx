@@ -89,24 +89,32 @@ export const ProjectOpening = (props: { opening: ReturnType<typeof createProject
     if (pending.kind === "confirmation") pending.choose(false);
     else pending.dismiss();
   }}>
-    <Show when={props.opening.pending()} keyed>{pending =>
-      <Dialog.Positioner><Dialog.Content class="app-dialog-form project-opening">
-        <Dialog.Title>{pending.kind === "confirmation" ? copy.openProjectTitle : copy.openProjectFailed}</Dialog.Title>
+    <Show when={props.opening.pending()}>{pending => {
+      const confirmation = () => { const current = pending();
+
+ return current.kind === "confirmation" ? current : undefined; };
+
+      const failure = () => { const current = pending();
+
+ return current.kind === "failure" ? current : undefined; };
+
+      return <Dialog.Positioner><Dialog.Content class="app-dialog-form project-opening">
+        <Dialog.Title>{pending().kind === "confirmation" ? copy.openProjectTitle : copy.openProjectFailed}</Dialog.Title>
         <Dialog.Description>
-          <Show when={pending.kind === "confirmation" ? pending : null} fallback={copy.openProjectRecovery(pending.request.params.path, pending.kind === "failure" ? pending.message : "")}>
+          <Show when={confirmation()} fallback={copy.openProjectRecovery(pending().request.params.path, failure()?.message ?? "")}>
             {confirmation => <>
               {copy.openProjectQuestion(confirmation().request.params.agent?.name ?? copy.openUser, confirmation().sourceName)}
-              <span class="project-opening-path">{pending.request.params.path}</span>
+              <span class="project-opening-path">{pending().request.params.path}</span>
             </>}
           </Show>
         </Dialog.Description>
         <footer class="app-dialog-actions">
-          <Show when={pending.kind === "confirmation" ? pending : null} fallback={<button type="button" data-button="quiet" onClick={() => { if (pending.kind === "failure") pending.dismiss(); }}>{copy.close}</button>}>{confirmation => <>
+          <Show when={confirmation()} fallback={<button type="button" data-button="quiet" onClick={() => failure()?.dismiss()}>{copy.close}</button>}>{confirmation => <>
             <button type="button" data-button="quiet" onClick={() => confirmation().choose(false)}>{copy.refuseProject}</button>
             <button type="button" data-button="primary" onClick={() => confirmation().choose(true)}>{copy.openProjectChoice}</button>
           </>}</Show>
         </footer>
-      </Dialog.Content></Dialog.Positioner>
-    }</Show>
+      </Dialog.Content></Dialog.Positioner>;
+    }}</Show>
   </Dialog.Root>;
 };

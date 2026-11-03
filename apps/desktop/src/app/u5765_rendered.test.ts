@@ -41,6 +41,8 @@ it("u5765_escape_refuses_and_restores_ask_focus_on_tree_40", async () => {
   })()`);
   await page.until("document.querySelector('[role=dialog]') !== null");
   await page.capture("U5765", "confirmation");
+  await page.browser("hover", "[role=dialog] button:last-child");
+  await page.capture("U5765", "confirmation-hover");
   expect(await page.evaluate("window.openResult")).toBeNull();
   // A real keyboard Escape refuses the actual registered App handler.
   await page.browser("press", "Escape");
