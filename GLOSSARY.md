@@ -215,7 +215,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Browser data location (`webview_data_path`) | same | — |
 | Saved work (`storedValue`, `storageSchema`, `initializeStorage`, `storageProblems`, `useBrowserStorage`, `storageCopy`) | same | — |
 | Draft (`draftStorage`) | Unfinished work | — |
-| Reason | same | — |
+| Reason (`InboxRepeat`: equal to the last entry in the receiving inbox session) | same | — |
 | Card | same | popup |
 | Markdown | same | — |
 | Owner selector (`Owner`) | owner | — |
