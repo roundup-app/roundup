@@ -268,7 +268,7 @@ impl Evaluator {
         let _gate = self.reactions.gate.lock().await;
         let head = self
             .bus
-            .subscribe_after(None)
+            .subscribe_after(Default::default())
             .map_or(0, |events| events.head());
         let Ok(watch) = self.reactions.watch(&reaction.id) else {
             return;
