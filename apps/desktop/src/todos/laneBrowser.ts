@@ -1,6 +1,6 @@
+import { agentBrowserExecutable } from "../testing/chromePage";
 import { execFile } from "node:child_process";
-import { existsSync, mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
-import { createRequire } from "node:module";
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
@@ -10,11 +10,6 @@ import type { Checks } from "../testing/checks";
 
 const exec = promisify(execFile);
 
-// PR #2973: 20 --version calls cost 4.038 s through the npm wrapper,
-// versus 0.156 s for the bundled CLI. Hundreds of inputs repeat that startup.
-const native = join(createRequire(import.meta.url).resolve("agent-browser/package.json"), "..", "bin", `agent-browser-${process.platform}-${process.arch}${process.platform === "win32" ? ".exe" : ""}`);
-
-const executable = existsSync(native) ? native : "agent-browser";
 
 /** One headless Chromium on a fresh profile, driven by `agent-browser` on the shared U26 harness server; never the user's browser. */
 export type LaneBrowser = {
@@ -39,12 +34,13 @@ export type LaneBrowser = {
   close: () => Promise<void>;
 };
 
-export const openLane = async (width: number, scheme: "light" | "dark", name: string, reduced = false): Promise<LaneBrowser> => {
+/** `initialSeed: null` leaves the page blank for callers whose first action is `seedTodos`. */
+export const openLane = async (width: number, scheme: "light" | "dark", name: string, reduced = false, initialSeed: string | null = "tree-40"): Promise<LaneBrowser> => {
   const profile = mkdtempSync(join(tmpdir(), `${name}-browser-`));
   const server = await appServer();
 
   const session = `${name}-${process.pid}-${width}-${scheme}`;
-  const browser = async (...args: string[]) => (await exec(executable, ["--session", session, "--profile", profile, ...args], { timeout: 60_000 })).stdout;
+  const browser = async (...args: string[]) => (await exec(agentBrowserExecutable, ["--session", session, "--profile", profile, ...args], { timeout: 60_000 })).stdout;
   // SAFETY: agent-browser prints the JSON value of the evaluated expression.
   const evaluate = async <T,>(script: string): Promise<T> => JSON.parse(await browser("eval", script)) as T;
   const until = async (predicate: string) => { await browser("wait", "--fn", predicate); };
@@ -59,7 +55,7 @@ export const openLane = async (width: number, scheme: "light" | "dark", name: st
     await browser("wait", ".shelf-tabs");
   };
 
-  await reload();
+  if (initialSeed !== null) await reload(initialSeed);
 
   const focused = () => evaluate<string>("(() => { const el = document.activeElement; const row = el.closest('.todo-row'); return `${el.getAttribute('aria-label') ?? el.textContent.trim()}${row?.dataset.id ? '@' + row.dataset.id : ''}`; })()");
 

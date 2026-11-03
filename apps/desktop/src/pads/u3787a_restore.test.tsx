@@ -514,3 +514,32 @@ it("u3787a_rail_delete_undo_redo_without_feedback", async () => {
 });
 
 });
+
+
+it("u5690d_reversible_selection_is_one_undo_step", async () => {
+  const app = createServedApp(real.base);
+  const connected = await connectProject(app, { name: "selection-history", path: real.dir }, () => true, () => 0);
+  const undo = connected.drafts.todoUndo;
+
+  try {
+    const first = await app.rpc("rail.createWorkstream", { name: "selection-first", parent: null });
+    const second = await app.rpc("rail.createWorkstream", { name: "selection-second", parent: null });
+    const other = await app.rpc("rail.createWorkstream", { name: "selection-other", parent: null });
+    const ids = [first.id, second.id];
+    const before = await app.rpc("rail.tree", null);
+    expect(await undo.removeRailSelection(ids, "selected work", "rail")).toBe(true);
+    expect((await app.rpc("rail.tree", null)).filter(node => ids.includes(node.id))).toEqual([]);
+    expect(undo.available("pads")).toBe(false);
+    expect(undo.available("rail")).toBe(true);
+    await undo.undo("rail");
+    expect(await app.rpc("rail.tree", null)).toEqual(before);
+    expect(undo.available("rail")).toBe(false);
+    await undo.redo("rail");
+    const redone = await app.rpc("rail.tree", null);
+    expect(redone.filter(node => ids.includes(node.id))).toEqual([]);
+    expect(redone.some(node => node.id === other.id)).toBe(true);
+    await undo.undo("rail");
+    expect(await app.rpc("rail.tree", null)).toEqual(before);
+    expect(undo.available("rail")).toBe(false);
+  } finally { connected.stopTerminalScheme(); }
+}, 120_000);
