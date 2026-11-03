@@ -1,4 +1,5 @@
 import { projectMenu } from "./menuProbe";
+import type { SubscribeParams } from "@contracts/SubscribeParams";
 import type { Event as DaemonEvent } from "@contracts/Event";
 import type { RpcMethodName, RpcMethods } from "@contracts/methods";
 import { OWN_CONTRACT } from "../app/contractMatch";
@@ -57,8 +58,8 @@ export type FakeApp = AppSeam & {
   calls: { method: RpcMethodName; params: unknown }[];
   handlers: Handlers;
   emit(event: DaemonEvent): void;
-  /** Every `subscribe` call so far with the `after` it asked to replay from, and the `head` the Daemon answers. */
-  subscribed: { after: number | undefined }[];
+  /** Every `subscribe` call so far with the replay it requested, and the `head` the Daemon answers. */
+  subscribed: SubscribeParams[];
   head: number;
   /** Every `selectOutput` call so far, in call order. */
   outputSubscriptions: FakeOutputSubscription[];
@@ -403,9 +404,9 @@ export const createFakeApp = (): FakeApp => {
 
       return handler(params);
     },
-    subscribe: async (listener, after) => {
+    subscribe: async (listener, params) => {
       onEvent = listener;
-      app.subscribed.push({ after });
+      app.subscribed.push(params ?? {});
 
       return app.head;
     },

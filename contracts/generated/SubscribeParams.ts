@@ -2,4 +2,6 @@
 /**  `events.subscribe`: with `after`, replay every saved Event numbered above it, then stream live (D11). */
 export type SubscribeParams = {
 	after?: number,
+	/**  Replay every kept Event, decided atomically with appends. Cannot be combined with `after`. */
+	kept?: boolean,
 };
