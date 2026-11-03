@@ -12,6 +12,11 @@ impl Agents {
         ctx: &Ctx,
         mut params: SpawnParams,
     ) -> Result<RailNode, RpcError> {
+        if params.start_attribution.is_some() && ctx.actor.kind != ActorKind::User {
+            return Err(RpcError::forbidden(
+                "only the user connection supplies start attribution",
+            ));
+        }
         if params.visibility == Some(contracts::agent::RailVisibility::Internal) {
             let rail = self.shared.rail();
             if ctx.actor.kind == ActorKind::Agent
@@ -132,6 +137,7 @@ impl Agents {
                 params.parent.as_deref(),
                 None,
                 order.as_ref(),
+                params.start_attribution.as_ref(),
             )?;
             rail.set_visibility(&node.id, params.visibility.unwrap_or_default())?;
             if let Some(prompt) = &spawn_prompt {
@@ -601,6 +607,7 @@ mod idle_tests {
                     parent.then_some(home.id.as_str()),
                     None,
                     restart.then_some(&Order::work("stored order")),
+                    None,
                 )
                 .unwrap();
             if restart {
@@ -671,6 +678,7 @@ mod idle_tests {
                 None,
                 None,
                 Some(&Order::work("retained")),
+                None,
             )
             .unwrap();
         let mut earlier = Run::starting(

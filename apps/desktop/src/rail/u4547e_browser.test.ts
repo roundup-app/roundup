@@ -10,7 +10,13 @@ beforeAll(async () => { lane = await openLane(1512, "dark", "u4547e"); }, 60_000
 afterAll(async () => { await lane?.close(); }, 60_000);
 
 const seed = async () => {
-  await lane.seedTodos([], false, "agents-10");
+  const page = await lane.evaluate<string>(`(() => {
+    localStorage.clear();
+    return new URL('/harness.html?view=workstreams&tabs=1&seed=agents-10', location.href).href;
+  })()`);
+
+  await lane.browser("open", page);
+  await lane.until("document.querySelector('.rail-row[data-id=agent-4]') !== null");
 
   return lane.evaluate<{ plain: string; mode: string }>(`(async () => {
     const plain = await window.__fake.app.rpc('rail.createWorkstream', {name:'Research',parent:null});
