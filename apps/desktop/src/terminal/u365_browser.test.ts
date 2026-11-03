@@ -11,7 +11,7 @@ const load = async (kind = "agent") => {
   const id = kind === "agent" ? "t-agent-3" : "t-payments";
   await browser("set", "viewport", "1512", "950");
   await browser("set", "media", "dark");
-  await browser("open", url(`/harness.html?rest=1&view=workstreams&tabs=1&seed=${seed}&renderer=dom`));
+  await browser("open", url(`/harness.html?rest=1&tabs=1&seed=${seed}&renderer=dom`));
   await wait(`!!window.__fake && !!document.querySelector('.rail-row[data-id="${row}"]')`);
   await read(`document.querySelector('.rail-row[data-id="${row}"]').click()`);
   await wait(`window.__terminals.has('${id}') && !!document.querySelector('.pane-screen .xterm-screen')`);

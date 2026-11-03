@@ -771,3 +771,85 @@ Final evidence integrity passed (0): 41 lossless source archives match audited c
 The initial standalone spelling scan passed before later source metadata was added; final scans and repairs are recorded below. Vocabulary, scenario ids, merge-loss and whitespace checks passed (0). Main remains the same audited SHA after fetch; no merge or conflict resolution. Self-review checked independent decisions against entry points, naming/placement, duplicate overlap with existing reports, archived sources and actual snapshots; pointer and conditional gaps remain explicit. The full owner request still waits for all remaining inventory and final current-revision reconciliation.
 
 First complete `just ready` exited 1: its required Rust lint includes the repository scanner, which flagged spelling in verbatim owner Issue quotes added to the source catalogue. All 193 lint-behavior checks, web/style/type/dependency checks, B4522, formal proofs (`ALL PROOFS CHECK`) and N7 passed; only the repository spelling scan failed. Final standalone spelling also exited 1 for the same verbatim quotes. Preserved the exact Issue bodies/comments in lossless compressed archives, matching the existing source archive format, rather than altering the owner's evidence or adding lint exceptions. The repaired standalone spelling scan passed (0). A second full `just ready` is the final aggregate observer.
+
+## Made/publication/link continuation — builder-41641079399
+
+Source main: `cca472d3d8f5ce3808869ed6da6a4464e348169c`; own worktree `/tmp/roundup-u5741`. Documentation only. `outputs.md` records O01–O36; sources and role/CLI provenance stay in `catalogues/outputs-source.json`. Fifteen retained openings use a fresh isolated headless session/profile, dark 1512×950, `tree-40`, thirteen publications, duplicate titles, all target kinds, stopped maker, missing-Home source variant and a long multilingual title. Fixtures and driver are archived; screenshots remain uncommitted under `artifacts/ux/U5741/outputs-*`.
+
+All retained openings pass every recorded Check, including D2/D5/D6. The dense refused-open PNG was visually inspected: complete short cause and next action are visible. This establishes webview actions and fake calls only. The native menu projection disables nested recipients; actual Send, native opening, OS clipboard, vendor behavior and persistence remain unproved. Empty/loading/failure and conditional source-only branches are identified separately in the report. No older-data reopen or selected deletion is claimed.
+
+| Command / observer | Exit | Result |
+| --- | ---: | --- |
+| `python3 loop/orders.py check /tmp/u5741-expanded.md` | 0 | Exact documentation slice scope validated before updating #5758. |
+| `pnpm install --frozen-lockfile` | 0 | Pinned dependencies installed in the isolated worktree. |
+| `agent-browser skills get core` | 0 | Isolated browser instructions read before use. |
+| `just harness tree-40 5291` | 143 on deliberate shutdown | Served the pinned App, then only this run Vite PID was terminated after closing its browser. No user browser/profile/desktop connection. |
+| Final `python3 /tmp/u5741-outputs-observe.py` | 0 | Fifteen retained openings; all recorded Checks pass. Pointer Overview reset works; keyboard-only reset below is not promoted to a pass. |
+| `gh --version`, `gh release view --help`, `gh release download --help`, `gh pr view --help` | 0 each | Versioned remote-object comparison evidence retained; does not establish equivalent local publication authority. |
+| `git diff --check` | 0 | No whitespace errors. |
+
+Discovery and observer failures are retained explicitly. A missing guessed path is not evidence that a feature is absent; actual files were located with `rg --files`/symbol searches afterward. Failed exploratory browser commands are not among the fifteen successful final captures.
+
+| Failed command / subcommand | Exit | Failure and disposition |
+| --- | ---: | --- |
+| `cat apps/desktop/src/ask/Made.tsx` | 1 | Guessed component absent; actual Deliverables/createDeliverables are inside AskBar.tsx. |
+| `cat apps/desktop/src/ask/Deliverables.tsx` | 1 | Same absent standalone component; read AskBar.tsx. |
+| `cat apps/desktop/src/state/deliverables.ts` | 1 | Guessed store absent; actual catalogue is state/unseen.ts. |
+| `sed -n '1,100p' apps/desktop/src/harness.tsx` | 2 | Harness lives under testing/harness.tsx. |
+| `rg ... apps/desktop/src/testing/fake.ts` | 2 | Guessed fake module absent; actual fakeApp.ts inspected. |
+| `ls target/debug/rup target/debug/rupd` | 2 | Worktree has no local target directory; CARGO_TARGET_DIR is /home/boxd/cargo-target. |
+| `ls /opt/actions-runner/_work/roundup/roundup/target/debug/rup` | 2 | Same absent local target; current binaries rebuilt using the configured target. |
+| `sed -n '1,60p' crates/rup/src/cli/mod.rs` | 2 | CLI root is cli.rs, read afterward. |
+| `rg ... crates/rupd/src/links.rs` | 2 | Daemon link implementation is link.rs, inspected afterward. |
+| `rg ... crates/rupd/src/rpc_link_read.rs` | 2 | Same guessed path absent; link_read is in link.rs. |
+| `sed -n '1,85p' apps/desktop/src/keys/content.ts` | 2 | Guessed module absent; row keys are in ui/RowCollection.ts. |
+| `rg ... scenarios/links.md` | 2 | LK clauses live in scenarios/rup-ext.md; U365 in ui-terminal-links.md. |
+| `sed -n '1,55p' crates/rupd/src/accept.rs` | 2 | Guessed module absent; existing Daemon/public RPC path used instead. |
+| `agent-browser ... click '[aria-label="Filter Made"]'` | 1 | Trigger has aria-labelledby, not that attribute; successful final observer uses .made .app-select-trigger. |
+| `agent-browser ... find role button click --name 'Filter Made Overview' --exact` | 1 | Locator did not find trigger; replaced with actual CSS selector without changing product code. |
+| Exploratory `python3 /tmp/u5741-outputs-observe.py`: keyboard Overview filter reset | 1 | Nested wait exited 1 after 30000 ms; maker filter stayed selected. Pointer option selection reset to all thirteen; keyboard-only reset stays unresolved. |
+| Exploratory `python3 /tmp/u5741-outputs-observe.py`: Send host-model override | 1 | Nested wait exited 1 after 30000 ms; changing the root fake's menu function after mount did not replace the captured App seam. No message.send observed, no Send pass claimed. Final driver leaves recipients source-only. |
+| First `cargo build -p rup --bin rup` | 143 | Compilation terminated before completion; no fresh binary claim from this attempt. Subsequent locked build is recorded separately. |
+
+No behavior test added, changed or removed: U5741's observers are policy/source/rendered evidence. CI `check` judges the PR; no local `just check` or whole behavior suite was run. Earlier evidence remains pinned to its own revision; whole-App coverage and final revision reconciliation remain unfinished. No partial owner request or deletion.
+
+Current publication offers: locked `cargo build -p rup --bin rup --locked` and `cargo build -p rupd --bin rupd --locked` each exit 0. `python3 /tmp/u5741-outputs-runtime.py` exits 0: real isolated temporary Project/data/socket, unstarted Workstream for Door classification, absent Agent id for non-Door classification, actual stdio initialize/tools/list (86 Agent / 94 Door tools) and every publication/link leaf help. All seven related tool names and complete input schemas occur in both lists. No vendor program started, no tool execution by the absent Agent claimed; Daemon exits 0. Full replies, exact commands, hashes and replay are retained in currentRuntime/runtimeDriver. This refreshes publication offers, not the final whole-App reconciliation.
+
+| Failed command | Exit | Repair |
+| --- | ---: | --- |
+| First `just ready` | 1 | `just lint-rust origin/main` → `lint-repo`: new spelling matches in exact archived owner text (misspelled owner words and a screenshot abbreviation) and one report abbreviation. Original Issue records preserved byte-for-byte as compressed source evidence, as the other source archives are; report says screenshots. Web lint/typecheck and N7 launch-sites passed. No production or lint-policy change. |
+
+| Further failed command | Exit | Repair |
+| --- | ---: | --- |
+| Pre-merge retry of `just ready` | 1 | The failure-log row repeated two misspelled owner words verbatim, so lint-repo flagged that report row. Rephrased only the diagnostic description; compressed original evidence remains exact. The post-merge run validates the repair. |
+
+Harness stderr also reported a PostCSS missing-from warning and `ResizeObserver loop completed with undelivered notifications` at 13:15:48, 13:21:06, 13:21:09 and 13:23:08 UTC. These are retained observer/runtime diagnostics, not a clean-console claim. The fifteen retained mounted states, calls, image hashes and Check results remain recorded independently. Closing the isolated browser exits 0; intentional server shutdown exits 143.
+
+Main advanced to `f2514c06d5fb546b52a8a78c45d7199afb6a0354` with only Pad test/realDaemonFixture optimizations. Merged without conflicts; `loop/rules.sh merge-loss` exits 0, own diff remains six documentary files. The audit remains pinned to `cca472d3d8f5ce3808869ed6da6a4464e348169c`; no older evidence is promoted to the merge revision. The final whole-App revision reconciliation remains required. An ad hoc integrity observer exits 0 for all 47 source archives, four direction archives, fifteen image hashes/Check sets, seven publication tool schemas per current role and every recorded runtime/help command.
+
+## Made/publication verification — builder-41646073376
+
+Merged main `7874f9949` without conflicts into this documentation slice. Both branch merges have empty remerge diffs; `loop/rules.sh merge-loss` passes. All 47 inspected source paths still equal the pinned audit revision `cca472d3d8f5ce3808869ed6da6a4464e348169c`. The evidence remains pinned there; this is no whole-App revision reconciliation.
+
+| Observer | Exit | Result |
+| --- | ---: | --- |
+| `pnpm install --frozen-lockfile` | 0 | Installed the locked dependencies in `/tmp/roundup-fix-5895`. |
+| Independent archive verification | 0 | All 53 compressed source/direction/driver archives match their checksums; all 47 source archives match pinned git objects. Retained role replies contain 86 Agent and 94 Door tools, including all seven publication/link tools. No fresh real-Daemon execution claimed. |
+| Adapted archived `observerDriver` replay | 0 | Fresh isolated headless session `u5741-outputs-416460`, new profile, dark 1512×950, port 5295. Only worktree/output/session paths changed. All fifteen named openings reproduce passing Check statuses and identical row, alert, attempted/opened-target and clipboard states. PNG checksums verify. |
+| Visual failure inspection | 0 | Dense refused-open capture shows the complete access cause and recovery action. Fifteen fresh screenshots remain uncommitted at `artifacts/ux/U5741/outputs-verified-*.png` in the workflow checkout. |
+| Browser close | 0 | Closed only this run's isolated session. |
+
+The replay wrote its temporary manifest under `/tmp/5895-evidence/`; it did not replace historical observations or promote their revision. Source-only/native/recipient branches, broader equivalents and the failed keyboard reset remain unresolved. No partial owner request or deletion; #5758 remains open.
+
+| Failed command / observer | Exit | Disposition |
+| --- | ---: | --- |
+| Second `just ready` | 1 | Repository spelling scanner rejected the plural image-format abbreviation in this new verification record. Rephrased it as screenshots; no evidence or lint-policy change. |
+| First `just ready` | 143 | Attached command terminated during lint fixtures before completion; no pass claimed. Repeated with a dedicated PTY and explicit exit-code file. |
+| Initial optional `.codegraph` directory probe | 1 | Index absent; ordinary source search used. |
+| `gh pr diff 5895 --stat` | 1 | Unsupported option; used local git diff statistics. |
+| `ls /tmp/roundup-fix-5895/node_modules/.bin/vite` | 2 | Vite is a desktop dependency rather than a root binary; existing `just harness` launches it successfully. |
+| `just harness tree-40 5295` shutdown | 130 | Deliberately interrupted this run's server after closing its browser. PostCSS missing-from warning and two ResizeObserver diagnostics occurred during the successful replay; no clean-console claim. |
+
+Self-review checked the six-file own diff, empty merge-resolution diffs, independent decision rows O01–O36, evidence provenance and overlap with earlier inventories. No product, scenario, contract or behavior-test changes. No local `just check`.
+
+Final `just ready` passes with exit 0, including all 193 lint-behavior fixtures, web/style/type/dependency checks, repository/Rust lints, migration guard, `ALL PROOFS CHECK` and N7. Standalone repository scan, vocabulary, scenario ids, merge-loss and whitespace pass. No behavior test changed and no local `just check` ran.

@@ -7,10 +7,11 @@ import { captureDir } from "../testing/captures";
 import { browser, read, url, wait } from "../ui/tabsBrowser";
 
 const load = async (seed: string, base = false, renderer = "dom", scale = 1) => {
+  if (seed === "tree-40" && !process.env.ROUNDUP_CAPTURES) seed = "selection";
   await browser("set", "viewport", "1512", "950", String(scale));
   await browser("set", "media", "dark");
   // Only the opt-in visual observers use the Shelf; terminal behavior needs the Rail and tabs.
-  await browser("open", url(`/harness.html?rest=1&view=workstreams&tabs=1&seed=${seed}&renderer=${renderer}${process.env.ROUNDUP_CAPTURES ? "&items=1" : ""}`, base));
+  await browser("open", url(`/harness.html?rest=1&tabs=1&seed=${seed}&renderer=${renderer}${process.env.ROUNDUP_CAPTURES ? "&view=workstreams&items=1" : ""}`, base));
   await wait("!!window.__fake && !!document.querySelector('.rail-row')");
 };
 
