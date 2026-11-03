@@ -33,13 +33,165 @@ pub struct Sources<'a> {
     pub messages: &'a [Message],
 }
 
+/// B5641: event-local columns replace the multiplied joins measured by the cost observer.
+/// Payloads remain borrowed; no index survives the supplied Sources.
+struct Projection<'a> {
+    message_text: Vec<&'a Message>,
+    nodes: Vec<&'a RailNode>,
+    ids: HashMap<&'a str, usize>,
+    children: Vec<(usize, usize)>,
+    ranges: Vec<std::ops::Range<usize>>,
+    todos: Vec<u32>,
+    pad_names: Vec<&'a str>,
+    pad_times: Vec<i64>,
+    writers: Vec<(usize, usize)>,
+    messages: HashMap<(usize, &'a str), (u32, usize)>,
+    // The greatest question time answers any turn-start lower bound, across all recipients.
+    questions: Vec<Option<i64>>,
+    completed: Vec<Option<&'a (String, i64, i64, String)>>,
+}
+
+impl<'a> Projection<'a> {
+    fn new(source: &'a Sources<'a>) -> Self {
+        let mut nodes = Vec::new();
+        let mut ids = HashMap::new();
+        for node in source.nodes.iter().inspect(|_| cost(0)) {
+            if is_agent(node) {
+                ids.entry(node.id.as_str()).or_insert(nodes.len());
+                nodes.push(node);
+            }
+        }
+        let n = nodes.len();
+        let mut children = Vec::new();
+        for (index, node) in nodes.iter().enumerate() {
+            if node.status.is_some()
+                && let Some(parent) = node.parent.as_deref().and_then(|id| ids.get(id))
+            {
+                children.push((*parent, index));
+            }
+        }
+        children.sort_unstable();
+        let ranges = (0..n)
+            .map(|parent| {
+                children.partition_point(|&(p, _)| p < parent)
+                    ..children.partition_point(|&(p, _)| p <= parent)
+            })
+            .collect();
+        let mut todos = vec![0_u32; n];
+        for todo in source.todos.iter().inspect(|_| cost(1)) {
+            if !todo.done
+                && todo.creator.kind == ActorKind::Agent
+                && let Some(&index) = ids.get(todo.creator.id.as_str())
+            {
+                todos[index] = todos[index].saturating_add(1);
+            }
+        }
+        let mut pad_names = Vec::with_capacity(source.pads.len());
+        let mut pad_times = Vec::with_capacity(source.pads.len());
+        let mut keys = Vec::with_capacity(source.pads.len());
+        for pad in source.pads.iter().inspect(|_| cost(2)) {
+            cost(6);
+            keys.push((format!("pad:{}", pad.name), pad_times.len()));
+            pad_names.push(pad.name.as_str());
+            pad_times.push(pad.updated_at);
+        }
+        keys.sort_unstable();
+        let mut writers = Vec::new();
+        for touch in source.touches.iter().inspect(|_| cost(3)) {
+            if touch.verb != contracts::Verb::Wrote {
+                continue;
+            }
+            let Some(&writer) = ids.get(touch.actor.id.as_str()) else {
+                continue;
+            };
+            let first = keys.partition_point(|(key, _)| key < &touch.item);
+            for (_, pad) in keys[first..]
+                .iter()
+                .take_while(|(key, _)| key == &touch.item)
+            {
+                writers.push((writer, *pad));
+            }
+        }
+        writers.sort_unstable();
+        writers.dedup();
+        // Pad index breaks timestamp ties in supplied Pad order, including the newest-four cut.
+        writers.sort_unstable_by_key(|&(writer, pad)| (writer, pad_times[pad], pad));
+        let mut messages: HashMap<(usize, &str), (u32, usize)> = HashMap::new();
+        let mut message_text = Vec::new();
+        let mut questions: Vec<Option<i64>> = vec![None; n];
+        for message in source.messages.iter().inspect(|_| cost(4)) {
+            if message.from.kind != ActorKind::Agent {
+                continue;
+            }
+            let Some(&child) = ids.get(message.from.id.as_str()) else {
+                continue;
+            };
+            if message.kind == contracts::message::MessageKind::Question {
+                questions[child] =
+                    Some(questions[child].map_or(message.at, |at| at.max(message.at)));
+            }
+            let candidate = messages
+                .entry((child, message.to.as_str()))
+                .or_insert_with(|| {
+                    message_text.push(message);
+                    (message.id, message_text.len() - 1)
+                });
+            if candidate.0 <= message.id {
+                candidate.0 = message.id;
+                message_text[candidate.1] = message;
+            }
+        }
+        let mut completed = vec![None; n];
+        for (id, text) in source.completed.iter().inspect(|_| cost(5)) {
+            if let Some(&child) = ids.get(id.as_str()) {
+                completed[child] = Some(text);
+            }
+        }
+        Self {
+            message_text,
+            nodes,
+            ids,
+            children,
+            ranges,
+            todos,
+            pad_names,
+            pad_times,
+            writers,
+            messages,
+            questions,
+            completed,
+        }
+    }
+
+    fn node(&self, id: &str) -> Option<&'a RailNode> {
+        self.ids.get(id).map(|&index| self.nodes[index])
+    }
+
+    fn children(&self, id: &str) -> &[(usize, usize)] {
+        self.ids
+            .get(id)
+            .map_or(&[], |&index| &self.children[self.ranges[index].clone()])
+    }
+
+    fn pairs(&self) -> impl Iterator<Item = (&'a RailNode, &'a RailNode)> + '_ {
+        self.children
+            .iter()
+            .map(|&(parent, child)| (self.nodes[parent], self.nodes[child]))
+    }
+
+    fn written(&self, child: &RailNode) -> &[(usize, usize)] {
+        let index = self.ids[child.id.as_str()];
+        let first = self.writers.partition_point(|&(writer, _)| writer < index);
+        let end = self.writers.partition_point(|&(writer, _)| writer <= index);
+        &self.writers[first..end]
+    }
+}
+
 /// What a Door was last told about a child, to see whether a change alters the entry (B21).
 #[derive(Clone, PartialEq, Eq)]
 struct Told {
     binding: crate::store::Binding,
     completed: Option<String>,
-    kind: Kind,
-    todos: u32,
     /// The newest Pad write seen then, named or not.
     pads: i64,
     /// The entry as it was then, for the last push when the child leaves the Rail (B23).
@@ -139,15 +291,15 @@ impl Seen {
 
     /// B20: the digest of Door `id`, asked for by `caller`.
     pub fn ask(&self, caller: &Actor, id: &str, from: &Sources) -> Result<Digest, RpcError> {
+        let projection = Projection::new(from);
+        let from = &projection;
         let allowed = match caller.kind {
             ActorKind::User => true,
             ActorKind::Agent => caller.id == id,
             ActorKind::Ext => false,
         };
         let name = |id: &str| {
-            from.nodes
-                .iter()
-                .find(|node| node.id == id && is_agent(node))
+            from.node(id)
                 .map_or("an Agent that is gone", |node| node.name.as_str())
         };
         if !allowed {
@@ -161,18 +313,15 @@ impl Seen {
                 name(id)
             )));
         }
-        let node = from
-            .nodes
-            .iter()
-            .find(|node| node.id == id && is_agent(node))
-            .ok_or_else(|| RpcError::not_found(name(id)))?;
+        let node = from.node(id).ok_or_else(|| RpcError::not_found(name(id)))?;
         if node.kind != NodeKind::Workstream {
             return Err(RpcError::conflict(format!("{} is no Door", node.name)));
         }
-        let children = children_of(id, from);
+        let children = from.children(id);
         let mut book = self.book();
         let mut items: Vec<DigestItem> = Vec::new();
-        for child in children.iter().take(CHILDREN) {
+        for &(_, index) in children.iter().take(CHILDREN) {
+            let child = from.nodes[index];
             let key = (id.to_owned(), child.id.clone());
             let after = book.named.get(&key).copied();
             let (entry, newest) = entry(child, id, from, after, false);
@@ -195,10 +344,9 @@ impl Seen {
     /// records it as told and its Pads as named, as a digest read by the parent would, so no push
     /// repeats it.
     pub fn entry_of(&self, child: &str, from: &Sources, tell: bool) -> Option<DigestEntry> {
-        let node = from
-            .nodes
-            .iter()
-            .find(|node| node.id == child && is_agent(node) && node.status.is_some())?;
+        let projection = Projection::new(from);
+        let from = &projection;
+        let node = from.node(child).filter(|node| node.status.is_some())?;
         let parent = node.parent.clone().unwrap_or_default();
         let mut book = self.book();
         let key = (parent.clone(), child.to_owned());
@@ -216,8 +364,10 @@ impl Seen {
     /// B21: what the Daemon records as told without sending it, so that only a change after now
     /// is pushed. Children that already have an entry keep it.
     pub fn baseline(&self, from: &Sources) {
+        let projection = Projection::new(from);
+        let from = &projection;
         let mut book = self.book();
-        for (meta, child) in pairs(from) {
+        for (meta, child) in from.pairs() {
             let key = (meta.id.clone(), child.id.clone());
             if !book.told.contains_key(&key) {
                 let after = book.named.get(&key).copied();
@@ -233,9 +383,11 @@ impl Seen {
     /// is none. Each one is recorded as told and its Pads as named before it is returned, under one
     /// lock, so no digest can name them again while the Message is sent.
     pub fn changed(&self, from: &Sources) -> Vec<Push> {
+        let projection = Projection::new(from);
+        let from = &projection;
         let mut book = self.book();
         let mut pushes = Vec::new();
-        for (meta, child) in pairs(from) {
+        for (meta, child) in from.pairs() {
             let key = (meta.id.clone(), child.id.clone());
             let after = book.named.get(&key).copied();
             let (entry, newest) = entry(child, &meta.id, from, after, false);
@@ -257,30 +409,41 @@ impl Seen {
                 continue;
             }
             // B43: the change into `error` or `needs-you` is the parent's note, not a push.
-            let attention = matches!(now.kind, Kind::Error | Kind::NeedsYou);
-            let question_turn = from
-                .completed
-                .get(&child.id)
+            let attention = matches!(now.entry.kind, Kind::Error | Kind::NeedsYou);
+            let question_turn = from.completed[from.ids[child.id.as_str()]]
+                .as_ref()
                 .is_some_and(|(_, started, _, _)| question_since(child, from, *started));
             let moved = book.told.get(&key).is_none_or(|was| {
-                (was.kind != now.kind
+                (was.entry.kind != now.entry.kind
                     && !is_flip(was, &now)
                     && !attention
-                    && !(question_turn && matches!(now.kind, Kind::Idle | Kind::Working)))
+                    && !(question_turn && matches!(now.entry.kind, Kind::Idle | Kind::Working)))
                     || (now.completed.is_some() && was.completed != now.completed)
-                    || was.todos != now.todos
+                    || was.entry.todos != now.entry.todos
                     || (!entry.pads.is_empty() && now.pads > was.pads)
             });
-            if !moved && attention && book.told.get(&key).is_some_and(|was| was.kind != now.kind) {
+            if !moved
+                && attention
+                && book
+                    .told
+                    .get(&key)
+                    .is_some_and(|was| was.entry.kind != now.entry.kind)
+            {
                 book.told.insert(key.clone(), now.clone());
             }
             if moved {
                 // B47(c): the end note of a Kind the last note already told is not made again.
-                let repeated = now.kind == Kind::Done
-                    && book.told.get(&key).is_none_or(|was| was.kind != Kind::Done)
+                let repeated = now.entry.kind == Kind::Done
+                    && book
+                        .told
+                        .get(&key)
+                        .is_none_or(|was| was.entry.kind != Kind::Done)
                     && book.noted.insert(key.clone(), Kind::Done) == Some(Kind::Done);
                 // B49: the change into an end carries the child's own summary.
-                let ends = book.told.get(&key).is_none_or(|was| was.kind != now.kind);
+                let ends = book
+                    .told
+                    .get(&key)
+                    .is_none_or(|was| was.entry.kind != now.entry.kind);
                 let pushed = if ends {
                     self::entry(child, &meta.id, from, after, true).0
                 } else {
@@ -392,7 +555,7 @@ pub(crate) fn parse_entry(head: &str, rest: &[&str]) -> Option<DigestEntry> {
 /// the same.
 fn is_flip(was: &Told, now: &Told) -> bool {
     let flips = |kind| matches!(kind, Kind::Idle | Kind::Working);
-    flips(was.kind) && flips(now.kind) && was.entry.last == now.entry.last
+    flips(was.entry.kind) && flips(now.entry.kind) && was.entry.last == now.entry.last
 }
 
 /// B21, B33: the body of a pushed digest.
@@ -401,12 +564,10 @@ pub fn push_body(entry: &DigestEntry) -> String {
     format!("[digest] {}", entry_text(entry))
 }
 
-fn told(entry: &DigestEntry, child: &RailNode, from: &Sources) -> Told {
+fn told(entry: &DigestEntry, child: &RailNode, from: &Projection) -> Told {
     Told {
         binding: crate::binding(child),
         completed: final_text(child, from).map(|(turn, _, _, _)| turn.clone()),
-        kind: entry.kind,
-        todos: entry.todos,
         pads: newest_pad(child, from),
         entry: entry.clone(),
     }
@@ -415,12 +576,8 @@ fn told(entry: &DigestEntry, child: &RailNode, from: &Sources) -> Told {
 /// B23: one last push for each child told of that no longer has a node, to its Door if that
 /// is still a Door, with the entry as it was last told; none when that already said the child
 /// ended (`done`, `error`). A child that only moved to another Door has nothing to say.
-fn farewells(book: &mut Book, from: &Sources) -> Vec<Push> {
-    let child_of = |key: &(String, String)| {
-        from.nodes
-            .iter()
-            .find(|node| node.id == key.1 && is_agent(node))
-    };
+fn farewells(book: &mut Book, from: &Projection) -> Vec<Push> {
+    let child_of = |key: &(String, String)| from.node(&key.1);
     let stale: Vec<(String, String)> = book
         .told
         .keys()
@@ -437,10 +594,9 @@ fn farewells(book: &mut Book, from: &Sources) -> Vec<Push> {
             continue;
         }
         let door = from
-            .nodes
-            .iter()
-            .any(|node| node.id == key.0 && node.kind == NodeKind::Workstream && is_agent(node));
-        if door && !matches!(told.kind, Kind::Done | Kind::Error) {
+            .node(&key.0)
+            .is_some_and(|node| node.kind == NodeKind::Workstream);
+        if door && !matches!(told.entry.kind, Kind::Done | Kind::Error) {
             pushes.push(Push {
                 meta: key.0.clone(),
                 entry: told.entry.clone(),
@@ -454,45 +610,16 @@ fn farewells(book: &mut Book, from: &Sources) -> Vec<Push> {
     pushes
 }
 
-fn newest_pad(child: &RailNode, from: &Sources) -> i64 {
-    from.pads
-        .iter()
-        .filter(|pad| {
-            from.touches.iter().any(|touch| {
-                touch.verb == contracts::Verb::Wrote
-                    && touch.actor.id == child.id
-                    && touch.item == format!("pad:{}", pad.name)
-            })
-        })
-        .map(|pad| pad.updated_at)
-        .max()
-        .unwrap_or(i64::MIN)
-}
-
-/// The direct children of Door `id` that have a Status, in Rail order.
-fn children_of<'a>(id: &str, from: &'a Sources) -> Vec<&'a RailNode> {
-    from.nodes
-        .iter()
-        .filter(|child| child.parent.as_deref() == Some(id) && is_agent(child))
-        .filter(|child| child.status.is_some())
-        .collect()
-}
-
-/// Every coordinating Agent and direct child on the Rail, including non-Door parents (A5482c).
-fn pairs<'a>(from: &'a Sources) -> impl Iterator<Item = (&'a RailNode, &'a RailNode)> {
-    from.nodes
-        .iter()
-        .filter(|node| is_agent(node))
-        .flat_map(|meta| {
-            children_of(&meta.id, from)
-                .into_iter()
-                .map(move |child| (meta, child))
-        })
+fn newest_pad(child: &RailNode, from: &Projection) -> i64 {
+    from.written(child)
+        .last()
+        .map_or(i64::MIN, |&(_, pad)| from.pad_times[pad])
 }
 
 /// An Agent, or a Workstream whose Door has run.
 fn is_agent(node: &RailNode) -> bool {
     match node.kind {
+        NodeKind::Group => false,
         NodeKind::Agent => true,
         NodeKind::Workstream => node.attempt.is_some(),
     }
@@ -503,22 +630,18 @@ fn is_agent(node: &RailNode) -> bool {
 fn entry(
     child: &RailNode,
     meta: &str,
-    from: &Sources,
+    from: &Projection,
     after: Option<i64>,
     end: bool,
 ) -> (DigestEntry, Option<i64>) {
     let Some(status) = child.status.as_ref() else {
         unreachable!("the caller keeps only children that have a Status");
     };
+    let index = from.ids[child.id.as_str()];
     let told = from
         .messages
-        .iter()
-        .filter(|message| {
-            message.from.kind == ActorKind::Agent
-                && message.from.id == child.id
-                && message.to == meta
-        })
-        .max_by_key(|message| message.id);
+        .get(&(index, meta))
+        .map(|&(_, index)| from.message_text[index]);
     // B49: an end note carries the child's own summary, whole, or says there was none.
     let end = end && is_end(child);
     let final_reply = (!end)
@@ -537,43 +660,32 @@ fn entry(
     } else {
         last.to_owned()
     };
-    let todos = from
-        .todos
-        .iter()
-        .filter(|todo| {
-            !todo.done && todo.creator.kind == ActorKind::Agent && todo.creator.id == child.id
-        })
-        .count();
-    let mut written: Vec<&Pad> = from
-        .pads
-        .iter()
-        .filter(|pad| {
-            from.touches.iter().any(|touch| {
-                touch.verb == contracts::Verb::Wrote
-                    && touch.actor.id == child.id
-                    && touch.item == format!("pad:{}", pad.name)
-            })
-        })
-        .filter(|pad| after.is_none_or(|after| pad.updated_at > after))
-        .collect();
-    written.sort_by_key(|pad| pad.updated_at);
-    let newest = written.last().map(|pad| pad.updated_at);
+    let todos = from.todos[index];
+    let written = from.written(child);
+    let first = written
+        .partition_point(|&(_, pad)| after.is_some_and(|after| from.pad_times[pad] <= after));
+    let written = &written[first..];
+    let newest = written.last().map(|&(_, pad)| from.pad_times[pad]);
     let mut pads: Vec<String> = Vec::new();
     if written.len() > PADS {
         pads.extend(
             written[written.len() - PADS..]
                 .iter()
-                .map(|pad| cut(&pad.name, PAD_NAME_BYTES)),
+                .map(|&(_, pad)| cut(from.pad_names[pad], PAD_NAME_BYTES)),
         );
         pads.push(CUT.to_owned());
     } else {
-        pads.extend(written.iter().map(|pad| cut(&pad.name, PAD_NAME_BYTES)));
+        pads.extend(
+            written
+                .iter()
+                .map(|&(_, pad)| cut(from.pad_names[pad], PAD_NAME_BYTES)),
+        );
     }
     let entry = DigestEntry {
         name: child.name.clone(),
         kind: status.kind,
         last: cut(&last, if end { END_LAST_BYTES } else { LAST_BYTES }),
-        todos: u32::try_from(todos).unwrap_or(u32::MAX),
+        todos,
         pads,
     };
     (
@@ -583,11 +695,14 @@ fn entry(
 }
 
 /// Explicit question Messages already carry this turn's choice; never duplicate them as fallback.
-fn final_text<'a>(child: &RailNode, from: &'a Sources) -> Option<&'a (String, i64, i64, String)> {
+fn final_text<'a>(
+    child: &RailNode,
+    from: &'a Projection,
+) -> Option<&'a (String, i64, i64, String)> {
     if is_end(child) {
         return None;
     }
-    let text = from.completed.get(&child.id)?;
+    let text = from.completed[from.ids[child.id.as_str()]]?;
     if !text
         .0
         .starts_with(&format!("{}:", child.attempt.as_deref()?))
@@ -597,13 +712,8 @@ fn final_text<'a>(child: &RailNode, from: &'a Sources) -> Option<&'a (String, i6
     (!question_since(child, from, text.1)).then_some(text)
 }
 
-fn question_since(child: &RailNode, from: &Sources, started: i64) -> bool {
-    from.messages.iter().any(|message| {
-        message.from.kind == ActorKind::Agent
-            && message.from.id == child.id
-            && message.kind == contracts::message::MessageKind::Question
-            && message.at >= started
-    })
+fn question_since(child: &RailNode, from: &Projection, started: i64) -> bool {
+    from.questions[from.ids[child.id.as_str()]].is_some_and(|at| at >= started)
 }
 
 /// `text` as is when it fits `max` bytes, else a prefix ending in `[cut]`, whole at most `max`.
@@ -661,3 +771,17 @@ pub(crate) fn fit(mut entry: DigestEntry, max: usize) -> DigestEntry {
 
 #[cfg(test)]
 mod tests;
+
+// B5641a counts source visits at the loops, never inferred from capacities.
+#[inline]
+fn cost(column: usize) {
+    #[cfg(test)]
+    COST.with(|counts| counts.borrow_mut()[column] += 1);
+    #[cfg(not(test))]
+    let _ = column;
+}
+
+#[cfg(test)]
+thread_local! {
+    static COST: std::cell::RefCell<[usize; 7]> = const { std::cell::RefCell::new([0; 7]) };
+}

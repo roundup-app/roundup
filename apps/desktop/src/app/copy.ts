@@ -40,7 +40,6 @@ export const copy = {
   todoDeleteRetry: sharedCopy.todoDeleteRetry,
   openAFolderToStart: "Choose a Project",
   chooseFolder: sharedCopy.chooseFolder,
-  emptyFolderLine: "Bring your work together in one place.",
   emptyRailTitle: "No Agents yet",
   emptyRailLine: "Start a Workstream or an Agent.",
   emptyTodosLine: sharedCopy.emptyTodosLine,
@@ -59,7 +58,6 @@ export const copy = {
   maximise: sharedCopy.maximise,
   restore: sharedCopy.restore,
   newAgent: sharedCopy.newAgent,
-  leaderChord: sharedCopy.leaderChord,
   captureATodo: sharedCopy.captureATodo,
   retry: sharedCopy.retry,
   start: sharedCopy.start,
@@ -83,3 +81,13 @@ export const copy = {
   daemonExit: (exit: string) => `Disconnected: ${exit}`,
   moveToInRail: "Move · Rail",
 } as const;
+
+export const menuBarCopy = {
+  waiting: "Waiting",
+  ready: "Ready",
+  empty: "Nothing for you",
+  open: "Open roundup",
+  more: (count: number) => `${count} more…`,
+  /** @prose */
+  row: (glyph: string, name: string, project: string | null, live: string) => `${glyph} ${name}${project === null ? "" : ` · ${project}`} · ${live}`,
+};

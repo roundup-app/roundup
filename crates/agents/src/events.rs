@@ -36,12 +36,14 @@ impl Drop for State {
 /// B50, B51: told the Message ids an Agent's transcript records as received from another session.
 pub type InboxObserver = Arc<dyn Fn(&str, &[u32]) + Send + Sync>;
 
+type ReadCursor = (PathBuf, Arc<Mutex<u64>>);
+
 #[derive(Default)]
 pub(super) struct InboxState {
     /// B51: the latest check of each Agent's inbox, the Rail fact `inbox`.
     pub(super) facts: Mutex<HashMap<String, contracts::agent::Inbox>>,
     /// B50(c): the transcript file of each Agent and how far it has been read.
-    pub(super) transcripts: Mutex<HashMap<String, (PathBuf, u64)>>,
+    pub(super) transcripts: Mutex<HashMap<String, ReadCursor>>,
     /// B50(c): a watch on the folder of each Agent's transcript; the file system says when the file
     /// grew, so no timer decides `delivered`.
     watches: Mutex<HashMap<String, notify::RecommendedWatcher>>,
@@ -67,11 +69,15 @@ impl InboxState {
     /// B50(c): read the transcript again from its start, for an entry that Claude Code took up
     /// before the Message it carries was in flight.
     pub(super) fn rescan(self: &Arc<Self>, agent: &str) {
-        {
-            let mut files = self.transcripts.lock().unwrap_or_else(|e| e.into_inner());
-            if let Some((_, offset)) = files.get_mut(agent) {
-                *offset = 0;
-            }
+        let file = self
+            .transcripts
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .get(agent)
+            .map(|(_, offset)| Arc::clone(offset));
+        if let Some(file) = file {
+            let mut file = file.lock().unwrap_or_else(|e| e.into_inner());
+            *file = 0;
         }
         self.scan(agent, &serde_json::Value::Null);
     }
@@ -118,33 +124,39 @@ impl InboxState {
 
     /// B50(c): on an Agent's Signal, tell the observer the ids its transcript newly records.
     pub(super) fn scan(self: &Arc<Self>, agent: &str, payload: &serde_json::Value) {
+        self.scan_using(agent, payload, claude_code::inbox::recorded);
+    }
+
+    fn scan_using(
+        self: &Arc<Self>,
+        agent: &str,
+        payload: &serde_json::Value,
+        read: impl FnOnce(&Path, u64) -> (Vec<u32>, u64),
+    ) {
         let Some(observer) = self.observer.get() else {
             return;
         };
-        let (ids, ..) = {
+        let file = {
             let mut files = self.transcripts.lock().unwrap_or_else(|e| e.into_inner());
+            // Each transcript owns its I/O lock; the registry never waits for a scan.
             if let Some(path) = claude_code::inbox::transcript_of(payload) {
-                match files.get(agent) {
-                    Some((known, _)) if *known == path => {}
-                    _ => {
-                        self.watches
-                            .lock()
-                            .unwrap_or_else(|e| e.into_inner())
-                            .remove(agent);
-                        files.insert(agent.to_owned(), (path, 0));
-                    }
+                let same = files.get(agent).is_some_and(|(known, _)| *known == path);
+                if !same {
+                    self.watches
+                        .lock()
+                        .unwrap_or_else(|e| e.into_inner())
+                        .remove(agent);
+                    files.insert(agent.to_owned(), (path, Arc::new(Mutex::new(0))));
                 }
             }
-            if let Some((path, _)) = files.get(agent) {
-                self.watch(agent, path);
-            }
-            let Some((path, offset)) = files.get_mut(agent) else {
-                return;
-            };
-            let (ids, next) = claude_code::inbox::recorded(path, *offset);
-            *offset = next;
-            (ids, next)
+            files.get(agent).cloned()
         };
+        let Some((path, offset)) = file else { return };
+        let mut offset = offset.lock().unwrap_or_else(|e| e.into_inner());
+        self.watch(agent, &path);
+        let (ids, next) = read(&path, *offset);
+        *offset = next;
+        drop(offset);
         if !ids.is_empty() {
             observer(agent, &ids);
         }
@@ -363,7 +375,9 @@ impl Shared {
         }
         if matches!(&observation, Observation::Signal(payload)
             if claude_code::submitted_prompt(payload).is_some())
+            && !run.input_started
         {
+            self.save_input_started(id, &run.attempt)?;
             run.input_started = true;
         }
         // H11: the Steer's wait ends with the Signal that names it, or with the Agent.
@@ -431,8 +445,8 @@ impl Shared {
         let was_finished = run.adapter.finished();
         let was_final_text = run.adapter.final_text();
         let signal = matches!(observation, Observation::Signal(_));
-        let was_completed = signal.then(|| run.adapter.completed_text().cloned());
-        let changed = run.adapter.observe(observation).or_else(|| {
+        let (changed, completion_changed) = run.adapter.observe_completion(observation);
+        let changed = changed.or_else(|| {
             if !exited || run.ended {
                 return None;
             }
@@ -440,9 +454,16 @@ impl Shared {
             status.since = provenance::now_ms().max(0);
             Some(status)
         });
-        if was_final_text != run.adapter.final_text()
-            || was_completed.is_some_and(|before| before.as_ref() != run.adapter.completed_text())
+        let empty = run.adapter.turn().is_some()
+            && run.adapter.final_text() == contracts::agent::FinalTextKind::Empty;
+        if super::rail_view::visibility_protection(run.adapter.status().map(|s| s.kind), empty)
+            .is_some()
+            && let Some(rail) = rail.as_deref_mut()
+            && rail.set_visibility(id, contracts::agent::RailVisibility::Shown)?
         {
+            self.bus.emit(actor.clone(), EventData::RailChanged);
+        }
+        if was_final_text != run.adapter.final_text() || completion_changed {
             self.bus.emit(actor.clone(), EventData::RailChanged);
         }
         if signal

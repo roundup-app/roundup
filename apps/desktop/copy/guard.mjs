@@ -605,3 +605,105 @@ export function checkCopy(files, { glossary = '', baseline = [], previous = base
 
   return { inventory: inventory(diagnostics), diagnostics: applyBaseline(diagnostics, baseline, previous).filter(row => !rules || rules.includes(row.rule)) };
 }
+
+/** U5557b: the type checker owns chip text; this guard owns JSX's otherwise-string shortcut attribute and renderer ownership. */
+export const checkKeys = files => Object.entries(files).filter(([file]) => production(file) && file !== 'keys/chords.ts').flatMap(([file, source]) => {
+  const diagnostics = [];
+  const fail = node => diagnostics.push({ rule: 'key-source', message: `${file}:${node.loc.start.line}: keys must come from the registry; only KeyChip emits kbd` });
+  const tree = parse(source, { sourceType: 'module', plugins: ['typescript', 'jsx'] });
+  const fromRegistry = node => node?.type === 'CallExpression' && node.callee.type === 'Identifier' && node.callee.name === 'ariaChord';
+
+  const namesRegistry = (path, name, seen = new Set()) => {
+    if (name === 'CHORDS') {
+      if (path.isMemberExpression() && keyOf(path.node.property) === name
+        && (!path.node.computed || path.get('property').isStringLiteral())) {
+        const object = path.get('object');
+        const binding = object.isIdentifier() ? object.scope.getBinding(object.node.name) : null;
+
+        return binding?.path.isImportNamespaceSpecifier()
+          && posix.normalize(posix.join(posix.dirname(file), binding.path.parent.source.value)).replace(/\.tsx?$/, '') === 'keys/chords';
+      }
+
+      if (path.isArrayExpression()) return path.get('elements').some(element =>
+        element.isSpreadElement() && namesRegistry(element.get('argument'), name, new Set(seen)));
+
+      if (path.isSpreadElement() || path.isTSAsExpression() || path.isTSSatisfiesExpression() || path.isTSNonNullExpression()) {
+        return namesRegistry(path.get(path.isSpreadElement() ? 'argument' : 'expression'), name, seen);
+      }
+
+      // Copies and derived arrays retain their registry source regardless of the copying API.
+      if (path.isCallExpression()) {
+        const callee = path.get('callee');
+
+        return (callee.isMemberExpression() && namesRegistry(callee.get('object'), name, new Set(seen)))
+          || path.get('arguments').some(argument => namesRegistry(argument, name, new Set(seen)));
+      }
+    }
+
+    if (!path.isIdentifier() || seen.has(path.node.name)) return false;
+    seen.add(path.node.name);
+    const binding = path.scope.getBinding(path.node.name);
+
+    if (!binding) return path.node.name === name;
+
+    if (binding.path.isImportSpecifier()) return keyOf(binding.path.node.imported) === name;
+
+    if (binding.path.isVariableDeclarator()) return namesRegistry(binding.path.get('init'), name, seen);
+
+    return false;
+  };
+
+  traverse(tree, {
+    StringLiteral(path) {
+      // Saved shortcut defaults and reservation rules belong to Settings; UI call sites cannot type physical presses.
+      if (/^(?:(?:ctrl|alt|meta|shift)\+)+(?:Key[A-Z]|Digit[0-9]|[A-Z][a-zA-Z]+)$/.test(path.node.value)
+        && !['settings/preferences.ts', 'settings/shortcutRules.ts', 'settings/ShortcutSetting.tsx'].includes(file)
+        && !path.findParent(parent => parent.isObjectProperty() && keyOf(parent.node.key) === 'presses')) fail(path.node);
+    },
+    CallExpression(path) {
+      const callee = path.node.callee;
+
+      if (namesRegistry(path.get('callee'), 'shortcutLabel') && path.get('arguments.0').evaluate().confident) fail(path.node);
+
+      if (callee.type === 'MemberExpression' && namesRegistry(path.get('callee.object'), 'CHORDS') && ['find', 'findLast', 'filter', 'findIndex', 'findLastIndex'].includes(keyOf(callee.property))) {
+        const selector = path.get('arguments.0');
+
+        // Keep selectors inline so this guard can inspect every registry lookup.
+        if (!selector.isArrowFunctionExpression() && !selector.isFunctionExpression()) {
+          fail(path.node);
+
+          return;
+        }
+
+        let displayLookup = false;
+        selector.traverse({
+          MemberExpression(inner) { if (keyOf(inner.node.property) === 'keys') displayLookup = true; },
+          ObjectProperty(inner) { if (inner.parentPath.isObjectPattern() && keyOf(inner.node.key) === 'keys') displayLookup = true; },
+          CallExpression(inner) {
+            const call = inner.node.callee;
+
+            const membership = call.type === 'MemberExpression' && keyOf(call.property) === 'includes'
+              && (call.object.type === 'ArrayExpression' || (call.object.type === 'MemberExpression' && keyOf(call.object.property) === 'presses'));
+
+            if (!membership) displayLookup = true;
+          },
+        });
+
+        if (displayLookup) fail(path.node);
+      }
+    },
+    ObjectProperty(path) {
+      if (keyOf(path.node.key) === 'presses') fail(path.node);
+
+      if (keyOf(path.node.key) === 'aria-keyshortcuts' && !fromRegistry(path.node.value)) fail(path.node);
+    },
+    JSXOpeningElement(path) {
+      if (path.node.name.name === 'kbd' && file !== 'keys/KeyChip.tsx') fail(path.node);
+    },
+    JSXAttribute(path) {
+      if (path.node.name.name === 'aria-keyshortcuts' && !fromRegistry(path.node.value?.expression)) fail(path.node);
+    },
+  });
+
+  return diagnostics;
+});

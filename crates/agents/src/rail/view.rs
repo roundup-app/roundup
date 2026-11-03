@@ -1,16 +1,12 @@
 //! Loading stored Rail nodes, before live Agent facts are applied.
 use super::*;
 
-// R3696c: the empty-history predicate inside the node loop costs 1292 VM steps
-// for forty Workstreams. CROSS JOIN keeps the visibility gate outside that loop.
-const NODES: &str = "WITH visible AS (
- SELECT nodes.* FROM (SELECT 1 WHERE ?1 OR NOT EXISTS (SELECT 1 FROM closed_sources)) CROSS JOIN nodes
- UNION ALL
- SELECT nodes.* FROM (SELECT 1 WHERE NOT ?1 AND EXISTS (SELECT 1 FROM closed_sources)) CROSS JOIN nodes
- WHERE NOT EXISTS (SELECT 1 FROM closed_sources WHERE published=0 AND (workstream=nodes.id OR agent=nodes.id))
-) SELECT id, kind, name, parent, ord, attempt, terminal_id,
+// R3696c: adding visibility made the compound empty-history read cost 915 VM steps.
+// Test the preparation gate once, then read the ordinary rows without per-node predicates.
+const PREPARING: &str = "SELECT EXISTS(SELECT 1 FROM closed_sources WHERE published=0)";
+const NODES: &str = "SELECT id, kind, name, parent, ord, attempt, terminal_id,
                 worktree_path, worktree_branch, worktree_base, work, model, effort,
-                conversation_id, conversation_cwd, auto, finished, opening_prompt, alert_level FROM visible";
+                conversation_id, conversation_cwd, auto, finished, opening_prompt, alert_level, visibility FROM nodes";
 
 pub(super) fn load_nodes(
     db: &Connection,
@@ -25,10 +21,21 @@ fn load_with<T>(
     capacity: usize,
     mut map: impl FnMut(RailNode, u64) -> T,
 ) -> Result<Vec<T>, RpcError> {
-    let mut query = db.prepare_cached(NODES).map_err(sql)?;
+    let all = include_preparation
+        || !db
+            .prepare_cached(PREPARING)
+            .map_err(sql)?
+            .query_row([], |row| row.get::<_, bool>(0))
+            .map_err(sql)?;
+    let mut query = if all {
+        db.prepare_cached(NODES)
+    } else {
+        db.prepare_cached(&format!("{NODES} WHERE NOT EXISTS (SELECT 1 FROM closed_sources WHERE published=0 AND (workstream=nodes.id OR agent=nodes.id))"))
+    }.map_err(sql)?;
     let rows = query
-        .query_map([include_preparation], |row| {
+        .query_map([], |row| {
             let kind = match row.get_ref(1)?.as_str()? {
+                "group" => NodeKind::Group,
                 "workstream" => NodeKind::Workstream,
                 _ => NodeKind::Agent,
             };
@@ -47,8 +54,13 @@ fn load_with<T>(
             let work = match kind {
                 NodeKind::Workstream => Some(stored.unwrap_or_else(workstream_order)),
                 NodeKind::Agent => stored,
+                NodeKind::Group => None,
             };
             let node = RailNode {
+                visibility: match row.get_ref(19)?.as_str()? {
+                    "internal" => contracts::agent::RailVisibility::Internal,
+                    _ => contracts::agent::RailVisibility::Shown,
+                },
                 alert_level: serde_json::from_str(row.get_ref(18)?.as_str()?).map_err(|error| {
                     rusqlite::Error::FromSqlConversionFailure(
                         18,
@@ -120,7 +132,7 @@ impl Rail {
         // reply allocate 290 times. Keep the count beside its node during traversal.
         // R3696c: growing this buffer costs 19,968 bytes per forty-node reply.
         // A previous length reserves space without the count query that regressed timing.
-        let mut flat = load_with(
+        let flat = load_with(
             &self.db,
             false,
             self.tree_capacity.get(),
@@ -128,21 +140,7 @@ impl Rail {
         )?;
         // Retain no nodes; bound speculative space after a large tree is removed.
         self.tree_capacity.set(flat.len().min(256));
-        // Sibling orders are unique (A6); equal orders across parents need no stability.
-        // R3696c: avoid the stable sort's scratch copy of these large nodes.
-        flat.sort_unstable_by_key(|(node, _)| node.order);
-        // R3696c: forty root Workstreams allocated 132,294 bytes and scanned
-        // for descendants once per node. A flat tree can reuse the loaded buffer.
-        if flat.iter().all(|(node, _)| node.parent.is_none()) {
-            return flat
-                .into_iter()
-                .map(|(node, finished)| present(node, finished))
-                .collect();
-        }
-        let mut out = Vec::with_capacity(flat.len());
-        let mut flat: Vec<_> = flat.into_iter().map(Some).collect();
-        descend(&mut flat, None, &mut out, &mut present)?;
-        Ok(out)
+        ordered(flat, &mut present)
     }
 
     /// U3566c: the Agent's published finishes; `0` for a node never counted.
@@ -193,32 +191,105 @@ impl Rail {
     }
 }
 
-// R3696c: a forty-Workstream reply allocated 530 times (181 KB). Move the
-// loaded nodes into traversal order rather than cloning their strings and Orders.
-fn descend(
-    nodes: &mut [Option<(RailNode, u64)>],
-    parent: Option<&str>,
-    out: &mut Vec<RailNode>,
-    present: &mut impl FnMut(RailNode, u64) -> Result<RailNode, RpcError>,
-) -> Result<(), RpcError> {
-    for index in 0..nodes.len() {
-        if !nodes[index]
-            .as_ref()
-            .is_some_and(|(node, _)| node.parent.as_deref() == parent)
-        {
-            continue;
-        }
-        let (node, finished) = nodes[index].take().expect("selected node");
-        let mut node = present(node, finished)?;
-        // Keep the id locally during recursion so neither it nor the node is copied.
-        let id = std::mem::take(&mut node.id);
-        let at = out.len();
-        out.push(node);
-        descend(nodes, Some(&id), out, present)?;
-        out[at].id = id;
-    }
-    Ok(())
+struct Topology {
+    id: i64,
+    parent: Option<i64>,
+    order: u32,
+    payload: usize,
+    children: std::ops::Range<usize>,
 }
+
+fn ordered(
+    mut flat: Vec<(RailNode, u64)>,
+    present: &mut impl FnMut(RailNode, u64) -> Result<RailNode, RpcError>,
+) -> Result<Vec<RailNode>, RpcError> {
+    // R3696c's root-only allocation bound needs no topology or second payload buffer.
+    if flat.iter().all(|(node, _)| node.parent.is_none()) {
+        flat.sort_unstable_by_key(|(node, _)| node.order);
+        return flat
+            .into_iter()
+            .map(|(node, finished)| present(node, finished))
+            .collect();
+    }
+    let topology = topology(&flat);
+    walk(flat, topology, present)
+}
+
+struct Walk {
+    topology: Vec<Topology>,
+    slots: Vec<usize>,
+    pending: Vec<usize>,
+}
+
+fn topology(flat: &[(RailNode, u64)]) -> Walk {
+    let mut topology: Vec<_> = flat
+        .iter()
+        .enumerate()
+        .map(|(payload, (node, _))| Topology {
+            // These ids originate as SQLite integers in load_with, never arbitrary RPC text.
+            id: node.id.parse().expect("stored Rail id"),
+            parent: node
+                .parent
+                .as_ref()
+                .map(|id| id.parse().expect("stored Rail parent")),
+            order: node.order,
+            payload,
+            children: 0..0,
+        })
+        .collect();
+    topology.sort_unstable_by_key(|row| (row.parent, row.order));
+    for at in 0..topology.len() {
+        let parent = Some(topology[at].id);
+        let start = topology.partition_point(|row| row.parent < parent);
+        let end = topology.partition_point(|row| row.parent <= parent);
+        topology[at].children = start..end;
+    }
+    // R5636e: reuse the loaded payload allocation instead of allocating another
+    // node-sized output buffer. slots keeps moved payload locations current.
+    let mut slots = vec![0; flat.len()];
+    for (index, row) in topology.iter().enumerate() {
+        slots[row.payload] = index;
+    }
+    let mut pending = Vec::with_capacity(flat.len());
+    pending.extend((0..topology.partition_point(|row| row.parent.is_none())).rev());
+    Walk {
+        topology,
+        slots,
+        pending,
+    }
+}
+
+fn walk(
+    mut flat: Vec<(RailNode, u64)>,
+    prepared: Walk,
+    present: &mut impl FnMut(RailNode, u64) -> Result<RailNode, RpcError>,
+) -> Result<Vec<RailNode>, RpcError> {
+    let Walk {
+        mut topology,
+        mut slots,
+        mut pending,
+    } = prepared;
+    let mut emitted = 0;
+    while let Some(index) = pending.pop() {
+        #[cfg(test)]
+        WALKED.with(|count| count.set(count.get() + 1));
+        let source = topology[index].payload;
+        let displaced = slots[emitted];
+        flat.swap(source, emitted);
+        slots.swap(source, emitted);
+        topology[displaced].payload = source;
+        topology[index].payload = emitted;
+        emitted += 1;
+        pending.extend(topology[index].children.clone().rev());
+    }
+    flat.truncate(emitted);
+    flat.into_iter()
+        .map(|(node, finished)| present(node, finished))
+        .collect()
+}
+
+#[cfg(test)]
+thread_local! { static WALKED: std::cell::Cell<usize> = const { std::cell::Cell::new(0) }; }
 
 #[cfg(test)]
 mod tests {
@@ -234,21 +305,151 @@ mod tests {
                 .unwrap();
         }
         rail.tree().unwrap();
-        rail.db
-            .prepare_cached(NODES)
-            .unwrap()
-            .reset_status(StatementStatus::VmStep);
+        for query in [PREPARING, NODES] {
+            rail.db
+                .prepare_cached(query)
+                .unwrap()
+                .reset_status(StatementStatus::VmStep);
+        }
         let tree = rail.tree().unwrap();
         assert_eq!(tree.len(), 40);
-        let steps = rail
-            .db
-            .prepare_cached(NODES)
-            .unwrap()
-            .get_status(StatementStatus::VmStep);
+        let steps: i32 = [PREPARING, NODES]
+            .into_iter()
+            .map(|query| {
+                rail.db
+                    .prepare_cached(query)
+                    .unwrap()
+                    .get_status(StatementStatus::VmStep)
+            })
+            .sum();
         eprintln!("forty Workstreams: {steps} SQLite instructions");
         assert!(
             steps <= 900,
             "Rail read executed {steps} SQLite instructions for forty Workstreams"
         );
+    }
+    fn nested(count: usize, branching: bool) -> Vec<(RailNode, u64)> {
+        // Payload construction is outside the measured traversal, with no database/process.
+        let template: RailNode = serde_json::from_value(serde_json::json!({
+            "id":"1", "kind":"workstream", "name":"payload", "order":0,
+            "can_resume":false, "can_make_workstream":false, "can_save_as_mode":false,
+            "yolo":false, "stray":[], "alert_level":"default"
+        }))
+        .unwrap();
+        (0..count)
+            .rev()
+            .map(|index| {
+                let mut node = template.clone();
+                node.id = (i64::MAX - i64::try_from(index).unwrap()).to_string();
+                node.parent = (index > 0).then(|| {
+                    let parent = if branching {
+                        (index - 1) / 3
+                    } else {
+                        index - 1
+                    };
+                    (i64::MAX - i64::try_from(parent).unwrap()).to_string()
+                });
+                node.order = u32::try_from(index).unwrap();
+                (node, u64::try_from(index).unwrap())
+            })
+            .collect()
+    }
+
+    #[test]
+    fn r5636e_nested_rail_allocated_bytes() {
+        for count in [40, 400] {
+            for branching in [false, true] {
+                let flat = nested(count, branching);
+                let region = stats_alloc::Region::new(crate::ALLOCATOR);
+                let topology = topology(&flat);
+                let prepared = region.change();
+                let out = walk(flat, topology, &mut |node, _| Ok(node)).unwrap();
+                let total = region.change();
+                eprintln!(
+                    "RAIL count={count} branching={branching} prep={prepared:?} walk={:?} total={total:?}",
+                    total - prepared
+                );
+                // Base 767fa083: 920 bytes/node (36,800 / 368,000) for both shapes.
+                assert!(total.bytes_allocated < count * 256);
+                std::hint::black_box(out);
+            }
+        }
+    }
+    #[test]
+    fn r5636c_nested_order_keeps_payloads_and_finish_counts() {
+        let mut flat = nested(4, false);
+        // Two roots, with an earlier-ordered child that must follow its parent.
+        flat[0].0.parent = None;
+        flat[0].0.order = 99;
+        flat[1].0.parent = Some(i64::MAX.to_string());
+        flat[1].0.order = 0;
+        flat[2].0.parent = Some(i64::MAX.to_string());
+        flat[2].0.order = 5;
+        let expected: Vec<_> = [0, 2, 1, 3]
+            .into_iter()
+            .map(|i| {
+                let (node, finished) = &flat[3 - i];
+                let mut node = node.clone();
+                node.name = format!("finished-{finished}");
+                node
+            })
+            .collect();
+        let out = ordered(flat, &mut |mut node, finished| {
+            node.name = format!("finished-{finished}");
+            Ok(node)
+        })
+        .unwrap();
+        assert_eq!(out, expected);
+    }
+
+    #[test]
+    fn r5636c_missing_parents_stay_unreachable() {
+        let mut flat = nested(4, false);
+        flat[2].0.parent = Some("17".into());
+        let out = ordered(flat, &mut |node, _| Ok(node)).unwrap();
+        assert_eq!(
+            out.into_iter().map(|node| node.id).collect::<Vec<_>>(),
+            [i64::MAX.to_string()]
+        );
+    }
+
+    fn expected_order(count: usize, branching: bool) -> Vec<usize> {
+        fn branch(at: usize, count: usize, out: &mut Vec<usize>) {
+            if at >= count {
+                return;
+            }
+            out.push(at);
+            for child in 1..=3 {
+                branch(at * 3 + child, count, out);
+            }
+        }
+        let mut out = Vec::new();
+        if branching {
+            branch(0, count, &mut out);
+        } else {
+            out.extend(0..count);
+        }
+        out
+    }
+
+    #[test]
+    fn r5636c_nested_walk_visits_each_emitted_node_once() {
+        for count in [40, 400] {
+            for branching in [false, true] {
+                let flat = nested(count, branching);
+                let topology = topology(&flat);
+                WALKED.set(0);
+                let out = walk(flat, topology, &mut |node, _| Ok(node)).unwrap();
+                assert_eq!(WALKED.get(), count);
+                let expected: Vec<_> = expected_order(count, branching)
+                    .into_iter()
+                    .map(|i| (i64::MAX - i64::try_from(i).unwrap()).to_string())
+                    .collect();
+                assert_eq!(
+                    out.into_iter().map(|node| node.id).collect::<Vec<_>>(),
+                    expected
+                );
+            }
+        }
     }
 }

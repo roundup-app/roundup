@@ -9,10 +9,11 @@ import { startRealDaemon } from "../testing/realDaemonFixture";
 import { createServedApp } from "../testing/realSeam";
 import { openLane, type LaneBrowser } from "./laneBrowser";
 
-const openHistory = async (lane: LaneBrowser) => {
+const openHistory = async (lane: LaneBrowser, selector: string) => {
   // Blurring the body editor moves the controls, so focus the disclosure before activating it.
-  await lane.browser("focus", ".todo-history-line");
-  await lane.until("document.activeElement?.matches('.todo-history-line')");
+  await lane.until(`!!document.querySelector('${selector}')`);
+  await lane.browser("focus", selector);
+  await lane.until(`document.activeElement?.matches('${selector}')`);
   await lane.browser("press", "Enter");
 };
 
@@ -239,15 +240,15 @@ it.skipIf(Boolean(captureDir("U4698e")) && !captureDir("U3311"))("u3311_real_dae
     await observe(moved.id, agents[0]!.id);
     await lane.browser("click", ".todo-add-notes");
     await lane.until("!!document.querySelector('.todo-detail-body .ProseMirror[aria-label=Body]')");
-    await lane.browser("fill", ".todo-detail-body .ProseMirror[aria-label=Body]", "Exact body é 🧪 次の行");
+    await lane.browser("fill", ".todo-detail-body .ProseMirror[aria-label=Body]", "Exact body é 🧪 次の行"); // taste-skill-ignore: Unicode draft probe, not interface decoration.
     await lane.browser("press", "Control+Enter");
-    await expect.poll(async () => (await app.rpc("todo.get", { id: moved.id })).body).toBe("Exact body é 🧪 次の行");
+    await expect.poll(async () => (await app.rpc("todo.get", { id: moved.id })).body).toBe("Exact body é 🧪 次の行"); // taste-skill-ignore: Exact Unicode round-trip assertion.
     await lane.until("document.activeElement !== document.body && !!document.querySelector('.todo-detail-body .ProseMirror')");
-    saved.set(moved.id, { title: "Release notes revised", body: "Exact body é 🧪 次の行" });
+    saved.set(moved.id, { title: "Release notes revised", body: "Exact body é 🧪 次の行" }); // taste-skill-ignore: Expected Unicode draft value.
     await observe(moved.id, agents[0]!.id);
     // U4698e: user comments join the persisted resulting work in its Activity.
-    await lane.until("!!document.querySelector('.todo-history-line')");
-    await openHistory(lane);
+    await lane.until("!!document.querySelector('.todo-comments .todo-history-line')");
+    await openHistory(lane, ".todo-comments[aria-label=Activity] .todo-history-line");
     await lane.until("!!document.querySelector('.todo-comments[aria-label=Activity] [data-change]')");
     await lane.browser("fill", ".todo-comment-field", "Reviewed release notes é 雪");
     await lane.browser("press", "Enter");
@@ -268,6 +269,7 @@ it.skipIf(Boolean(captureDir("U4698e")) && !captureDir("U3311"))("u3311_real_dae
     await capture("empty-agent");
     expect(lostFocus).toEqual([]);
   } catch (error) {
+    console.error(error);
     console.error(await lane.evaluate("document.body.innerText"));
     console.error(await app.rpc("message.list", { to: null, status: null }));
     console.error(await readFile(target + ".log", "utf8").catch(() => "no child log"));
@@ -347,8 +349,8 @@ print(json.dumps({'todo':todo,'pad':pad}))
 
     await selectHome();
     await openTodo();
-    await lane.until("!!document.querySelector('.todo-history-line')");
-    await openHistory(lane);
+    await lane.until("!!document.querySelector('.todo-comments .todo-history-line')");
+    await openHistory(lane, ".todo-comments .todo-history-line");
     await lane.until("!!document.querySelector('[data-change]')");
     await lane.browser("dblclick", ".todo-detail-title .todo-editable p");
     await lane.browser("fill", '.todo-detail-title textarea', "Reviewed release result");

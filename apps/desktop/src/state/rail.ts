@@ -3,13 +3,14 @@ import { captureFocus } from "../keys/focus";
 import { createItemFailure } from "../rail/itemFailure";
 import { copy } from "./copy";
 import { applying } from "../app/pending";
-import { batch, createSignal } from "solid-js";
+import { batch, createMemo, createSignal } from "solid-js";
 import { createStore, reconcile } from "solid-js/store";
 import type { Actor } from "@contracts/Actor";
 import type { Event as DaemonEvent } from "@contracts/Event";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { TerminalInfo } from "@contracts/terminal/TerminalInfo";
 import { defaultWorkstreamName } from "../rail/defaultName";
+import { railTopology, type RailTopology } from "../rail/topology";
 import { ancestorsOf, isWorkstream } from "../rail/layout";
 import type { RailSection, RailStorage, ResumptionStorage } from "../rail/persist/storage";
 import type { Events } from "../app/events";
@@ -36,6 +37,8 @@ export type RailState = {
   commandFailure: ReturnType<typeof createItemFailure>;
   /** Rows in the Daemon's order; only a `rail.tree` call adds or removes one. */
   readonly nodes: readonly RailNode[];
+  /** One structural index shared by selection and every mounted Rail projection. */
+  topology(): RailTopology;
   /** U5483c: latest accepted working start in milliseconds; retained across Project connections for the same Attempt. */
   resumedAt(id: string): number | undefined;
   /** `null` while the node's program runs, and for a Workstream (one with no program). */
@@ -68,7 +71,9 @@ export type RailState = {
   unsavedDismissal(): string | null;
   retryDismissal(): void;
   clearUnsavedDismissal(): void;
-  select(id: string | null): void;
+  select(id: string | null, intent?: "open", focus?: ReturnType<typeof captureFocus>): void;
+  /** Whether showing the selection acknowledges its Agent’s alerts. */
+  shouldAcknowledgeAlerts(): boolean;
   nameOf(actor: Actor): string;
   /** U5172a: the change asked of Row `id` that the Daemon has not yet confirmed, or `null`. */
   pendingOf(id: string): PendingChange | null;
@@ -121,6 +126,10 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
     exited: {},
   });
 
+  // Solid tracks membership and structural fields, including reconciled in-place edits.
+  // Status, selection, disclosure, questions and clocks never enter this memo.
+  const topology = createMemo(() => railTopology(model.tree));
+
   const [resumed, setResumed] = createStore<Parameters<ResumptionStorage["write"]>[0]>(resumptions?.read() ?? {});
 
   const recordResumption = (node: RailNode): boolean => {
@@ -136,6 +145,7 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
   const [dismissedKeys, setDismissedKeys] = createSignal<ReadonlySet<string>>(new Set(dismissals?.read() ?? []));
   const [selected, setSelected] = createSignal<string | null>(null);
   const [terminalFocus, setTerminalFocus] = createSignal(captureFocus());
+  const [selectionIntent, setSelectionIntent] = createSignal<"select" | "open">("select");
   const [failure, setFailure] = createSignal<string | null>(null);
   const [workstreamCreating, setWorkstreamCreating] = createSignal(false);
   /** The id `rail.createWorkstream` returned, until `rail.tree` shows its row. */
@@ -167,7 +177,7 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
   const reveal = (id: string | null) => {
     if (id === null) return;
 
-    const above = new Set(ancestorsOf(model.tree, id));
+    const above = new Set(ancestorsOf(topology(), id));
 
     setCollapsed((closed) => new Set([...closed].filter((workstream) => !above.has(workstream))));
   };
@@ -205,10 +215,11 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
   let queued: DaemonEvent[] = [];
   let latest: Promise<void> = Promise.resolve();
 
-  const select = (id: string | null, focus = captureFocus(true)): void => {
+  const select = (id: string | null, focus = captureFocus(true), intent?: "open"): void => {
     selectionRevision++;
     batch(() => {
       setTerminalFocus(() => focus);
+      setSelectionIntent(intent ?? "select");
       setRestored(false);
       setSelected(id !== null && model.tree.some((node) => node.id === id) ? id : null);
       reveal(selected());
@@ -260,7 +271,7 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
         if (saved) {
           setClosedSections(new Set(saved.sections ?? []));
           setSelected(tree.some((node) => node.id === saved.selected) ? saved.selected : null);
-          setCollapsed(new Set(saved.collapsed.filter((id) => tree.some((node) => node.id === id && isWorkstream(node)))));
+          setCollapsed(new Set(saved.collapsed.filter((id) => tree.some((node) => node.id === id && (isWorkstream(node) || node.kind === "group")))));
           reveal(selected());
           setRestored(selected() !== null);
           save();
@@ -469,6 +480,7 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
     createNamedWorkstream: name => makeWorkstream(name),
     workstreamCreating,
     clearWorkstreamFailure: () => commandFailure.acknowledge(null),
+    topology,
     get nodes() {
       return model.tree;
     },
@@ -538,7 +550,8 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
       setCollapsed((closed) => new Set(closed.has(id) ? [...closed].filter((each) => each !== id) : [...closed, id]));
       save();
     },
-    select,
+    select: (id, intent, focus = captureFocus(true)) => select(id, focus, intent),
+    shouldAcknowledgeAlerts: () => !restored() && (selectionIntent() === "open" || model.tree.some(node => node.id === selected() && node.kind === "agent")),
     nameOf: (actor) =>
       actor.kind === "user"
         ? "you"

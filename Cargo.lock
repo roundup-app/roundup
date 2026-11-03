@@ -659,7 +659,7 @@ checksum = "157a8ba7b480713b56f4c09fd13fc3e0a22a5dfab8097ba61cbc5feef950788a"
 dependencies = [
  "glob",
  "libc",
- "libloading 0.8.9",
+ "libloading",
 ]
 
 [[package]]
@@ -2890,11 +2890,9 @@ dependencies = [
 [[package]]
 name = "libappindicator-sys"
 version = "0.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6e9ec52138abedcc58dc17a7c6c0c00a2bdb4f3427c7f63fa97fd0d859155caf"
 dependencies = [
  "gtk-sys",
- "libloading 0.7.4",
+ "libloading",
  "once_cell",
 ]
 
@@ -2923,16 +2921,6 @@ dependencies = [
  "libc",
  "libz-sys",
  "pkg-config",
-]
-
-[[package]]
-name = "libloading"
-version = "0.7.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b67380fd3b2fbe7527a606e18729d21c6f3951633d0500574c4dc22d2d638b9f"
-dependencies = [
- "cfg-if",
- "winapi",
 ]
 
 [[package]]
@@ -3082,6 +3070,7 @@ name = "messages"
 version = "0.0.0"
 dependencies = [
  "agents",
+ "allocation-counter",
  "async-trait",
  "contracts",
  "provenance",
@@ -3182,6 +3171,7 @@ version = "0.0.0"
 dependencies = [
  "block2",
  "log",
+ "muda",
  "objc2",
  "objc2-app-kit",
  "objc2-foundation",

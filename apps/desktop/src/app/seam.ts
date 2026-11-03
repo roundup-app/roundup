@@ -2,6 +2,7 @@ import pRetry from "p-retry";
 import * as v from "valibot";
 import type { RpcErrorData } from "@contracts/RpcErrorData";
 import type { IdleEvidence } from "../perf/idle.ts";
+import type { SubscribeParams } from "@contracts/SubscribeParams";
 import type { Event as DaemonEvent } from "@contracts/Event";
 import type { RpcMethodName, RpcMethods } from "@contracts/methods";
 
@@ -81,10 +82,10 @@ export type ProjectCalls = {
     params: RpcMethods[M]["params"],
   ): Promise<RpcMethods[M]["result"]>;
   /**
-   * Every Event the Project's Daemon emits from now on arrives at `onEvent`, in the Daemon's order; with `after`, every saved Event numbered above it arrives first (D11).
+   * Every Event the Project's Daemon emits from now on arrives at `onEvent`, in the Daemon's order; with `after`, every saved Event numbered above it arrives first; with `kept`, every Event still kept arrives first (D11).
    * Resolves the Daemon's `head`, the highest Event number saved when it accepted.
    */
-  subscribe(onEvent: (event: DaemonEvent) => void, after?: number): Promise<number>;
+  subscribe(onEvent: (event: DaemonEvent) => void, params?: SubscribeParams): Promise<number>;
   /** NA6: registers this window as the Project's action answerer; each request line the Daemon relays goes to `answer`, whose line goes back. */
   serveActions?(answer: (request: ActionRequest) => Promise<ActionReply>): Promise<void>;
   /** Delivers the raw output of the Terminal `id`, and of no other, to `listener` in order; a second call for the same Terminal replaces the first. Rejects NOT_FOUND for an unknown or exited Terminal. */
@@ -101,6 +102,7 @@ export const SEAM_COMMANDS = [
   "claude_binary",
   "record_idle_evidence",
   "state_alert",
+  "set_menu_bar",
   "select_project_menu",
   "open_project",
   "close_project",
@@ -166,6 +168,19 @@ export type NativeQuestion = { title: string; message: string; okLabel: string; 
 /** The Tauri commands of `scenarios/app.md` and `scenarios/project-tabs.md`, plus the macOS choosers and the Dock badge; the only door from the webview to Tauri. */
 export const claudeBinarySchema = v.object({ path: v.string(), version: v.string() });
 
+/** U5502: native menu activation retains the original Project and Agent. */
+export const menuBarActionSchema = v.variant("kind", [
+  v.object({ kind: v.literal("agent"), path: v.string(), agent: v.string() }),
+  v.object({ kind: v.literal("open") }),
+]);
+
+export type MenuBarAction = v.InferOutput<typeof menuBarActionSchema>;
+
+export type MenuBar = {
+  mark: "waiting" | "ready" | "empty";
+  entries: { label: string; action: MenuBarAction | null; since?: number }[];
+};
+
 export type StateAlert = { agent: string; title: string; body: string; alert: boolean; sound: boolean };
 
 export const stateAlertClickedSchema = v.object({ agent: v.string() });
@@ -197,6 +212,12 @@ export type App = {
   chooseSavePath(suggestedName: string): Promise<string | null>;
   /** Shows `count` on the Dock icon; zero clears the badge. */
   setDockBadge(count: number): Promise<void>;
+  /** U5502: replaces the passive native template image and flat menu; never activates the window. */
+  setMenuBar(menu: MenuBar): Promise<void>;
+  /** Restores and focuses the window after its menu selection has been applied. */
+  showWindow(): Promise<void>;
+  /** U5502: emits an enabled action before the App requests window activation. */
+  onMenuBarAction(listener: (action: MenuBarAction) => void): Promise<Unsubscribe>;
   /** U5232f: shows one macOS banner naming the Agent when `alert`, plays one system sound when `sound`; both false rejects INVALID_PARAMS, a refused permission rejects FORBIDDEN with its cause (and a sound still plays). */
   stateAlert(alert: StateAlert): Promise<void>;
   /** U5232e: a click on a State alert's banner; the window is already in front. */

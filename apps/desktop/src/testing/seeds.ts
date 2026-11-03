@@ -28,7 +28,7 @@ const NOT_FOUND = -32001;
 
 const KINDS: Kind[] = ["error", "needs-you", "blocked", "working", "idle", "done"];
 
-export const SEEDS = ["first-run", "first-run-five", "first-run-missing-binary", "agents-10", "tree-40", "daemon-exits", "conflict", "empty-project", "door-stopped", "door-report", "earlier-run", "context-bar", "tabs-8", "bubbles", "resources", "import-candidates", "note-queue"] as const;
+export const SEEDS = ["first-run", "first-run-five", "first-run-missing-binary", "agents-10", "menu-bar-10", "tree-40", "daemon-exits", "conflict", "empty-project", "door-stopped", "door-report", "earlier-run", "context-bar", "tabs-8", "bubbles", "resources", "import-candidates", "note-queue"] as const;
 
 export type SeedName = (typeof SEEDS)[number];
 
@@ -508,8 +508,8 @@ const installDaemon = (app: FakeApp, tree: RailNode[], now: number, withShelf: b
 /** Runs `action` once the App has subscribed and its first reads have settled. */
 const afterFirstLoad = (app: FakeApp, action: () => void) => {
   const subscribe = app.subscribe;
-  app.subscribe = async (listener, after) => {
-    const head = await subscribe(listener, after);
+  app.subscribe = async (listener, params) => {
+    const head = await subscribe(listener, params);
     setTimeout(action, 0);
 
     return head;
@@ -553,8 +553,20 @@ export const seedApp = (name: SeedName, now: number): Controls => {
       ? [door("first-workstream", "done", "finished", { name: "first workstream", status: statusAt(now, "done", "finished", 0) })]
       : tree;
 
+  if (name === "menu-bar-10") {
+    nodes.splice(0, nodes.length, door("menu-door", "needs-you", "Which revision?", { name: "Review the published revision 🌿" }),
+      ...cyclingAgents(now, 4, () => null).map(node => ({ ...node, name: `日本語 👩🏽‍💻 ${node.name} ${"long name ".repeat(5).trimEnd()}` })));
+  }
+
   const controls = installDaemon(app, nodes, now, name === "tree-40" || name === "conflict" || name === "import-candidates", name === "bubbles", name === "import-candidates");
   app.opened.project = name.startsWith("first-run") ? null : PROJECT;
+
+  if (name === "menu-bar-10") {
+    app.of(PROJECT.path);
+
+    const background = app.add("/Users/you/background");
+    installDaemon(app.of(background.path), cyclingAgents(now, 5, () => null), now, false);
+  }
 
   if (name === "tree-40") {
     // U3744, U3745: a cap of 3 and the first Workstream whose Door never started waiting for a slot.

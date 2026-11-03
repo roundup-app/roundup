@@ -13,7 +13,7 @@ import { Switch } from "../ui/Switch";
 import { Select } from "../ui/Select";
 import * as v from "valibot";
 import { draftStorage } from "../state/storage";
-import { createSettingsView } from "../state/settingsView";
+import { createSettingsView, type SettingsViewState } from "../state/settingsView";
 import { alertChoices, alertStates, appSettings, saveAppSettings, terminalRanges, terminalType } from "./preferences";
 import { SettingsGroup, SettingsResults, SettingsShell } from "./SettingsShell";
 import { NamingSettings } from "./NamingSettings";
@@ -21,8 +21,8 @@ import { SkillSetting } from "./SkillSetting";
 import { ShortcutSetting, ShortcutSettings } from "./ShortcutSetting";
 
 /** One App-wide center view, available even before a Project is open. */
-export const AppSettings = (props: { app: App; project: () => string | null; onOpenChange?: (open: boolean) => void; navigation?: () => string }) => {
-  const view = createSettingsView();
+export const AppSettings = (props: { app: App; project: () => string | null; onOpenChange?: (open: boolean) => void; view?: SettingsViewState; navigation?: () => string }) => {
+  const view = props.view ?? createSettingsView();
   const [section, setSection] = createSignal<string>(copy.settingsAgents);
   const [failure, setFailure] = createSignal<string | null>(null);
   const [numericFailure, setNumericFailure] = createSignal<Record<string, string | null>>({});
@@ -264,6 +264,7 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
 
  if (weight === 300 || weight === 400 || weight === 500 || weight === 600) void chooseType({ fontWeight: weight }); }} />
     ),
+    padWidth: () => <SegmentGroup label={copy.defaultWidth} description={copy.defaultWidthHint} segments={copy.padWidths} value={appSettings().padWidth} onValueChange={padWidth => void save({ padWidth })} />,
     quickAdd: () => <ShortcutSetting field="quickAdd" capture={props.app.capture} onFailure={setFailure} />,
     quickAddAnywhere: () => <ShortcutSetting field="quickAddAnywhere" capture={props.app.capture} onFailure={setFailure} />,
     mode: () => (
@@ -300,6 +301,7 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
       ...numericFields.map(({ name, label, hint }) => ({ id: name, page: copy.settingsTerminal, group: copy.groupFont, label, description: hint })),
       { id: "quickAdd", page: copy.settingsShortcuts, group: copy.groupQuickAdd, label: copy.quickAddTodo, description: copy.quickAddHint },
       { id: "quickAddAnywhere", page: copy.settingsShortcuts, group: copy.groupQuickAdd, label: copy.quickAddAnywhere, description: copy.quickAddAnywhereHint },
+      { id: "padWidth", page: copy.settingsPads, group: copy.settingsPads, label: copy.defaultWidth, description: copy.defaultWidthHint },
       { id: "mode", page: copy.settingsAppearance, group: copy.groupTheme, label: copy.settingsAppearance, description: copy.modeHint },
       { id: "interfaceScale", page: copy.settingsAppearance, group: copy.groupTheme, label: copy.interfaceScale, description: copy.interfaceScaleHint },
       { id: "focusMarkers", page: copy.settingsAppearance, group: copy.groupFocus, label: copy.focusMarkers, description: copy.focusMarkersHint, hiddenHint: true },
@@ -352,6 +354,7 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
           <Tabs.Trigger value="Shortcuts">{copy.settingsShortcuts}</Tabs.Trigger>
           <Tabs.Trigger value="Appearance">{copy.settingsAppearance}</Tabs.Trigger>
           <Tabs.Trigger value="Alerts">{copy.settingsAlerts}</Tabs.Trigger>
+          <Tabs.Trigger value="Pads">{copy.settingsPads}</Tabs.Trigger>
         </Tabs.List>
         </Show>
         </aside>
@@ -382,6 +385,7 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
         </section>
         {controls.focusMarkers()}
       </SettingsGroup></Tabs.Content>
+      <Tabs.Content value="Pads"><SettingsGroup name={copy.settingsPads}>{controls.padWidth()}</SettingsGroup></Tabs.Content>
       <Tabs.Content value="Alerts"><SettingsGroup name={copy.settingsAlerts}>
         <For each={alertStates}>{state => <div class="settings-alert-row" role="group" aria-label={stateLabel(state)}>
           <For each={alertChoices}>{choice => <Switch checked={appSettings().stateAlerts[state][choice]}

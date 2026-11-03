@@ -106,7 +106,7 @@
 .shelf-panel :is(.todos-tab, .pads-tab) { gap: var(--space-2); }
 
 .shelf-add {
-  font-family: var(--font-ui);
+  font-family: var(--font-mono);
 }
 
 .shelf-panel p {
@@ -308,4 +308,10 @@
 .shelf-row.row-wash:is(.todo-row, .todo-inset, .pad-inset),
 .shelf-groups .shelf-group-control[data-part="branch-control"] {
   padding-inline-start: calc(var(--row-text-inset) - var(--space-4) * 2 - var(--space-2) + var(--todo-depth, 0) * var(--tree-step));
+}
+
+/* Keep nested Todo padding on the tree scale without moving the title edge. */
+.shelf-row.row-wash.todo-inset {
+  padding-inline-start: calc(var(--space-2) + var(--todo-depth, 0) * var(--tree-step));
+  column-gap: var(--space-1);
 }

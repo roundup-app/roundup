@@ -12,6 +12,7 @@ import type { Digest as agent_Digest } from "./agent/Digest";
 import type { Extras as agent_Extras } from "./agent/Extras";
 import type { ExtrasAddParams as agent_ExtrasAddParams } from "./agent/ExtrasAddParams";
 import type { FileComparison as agent_FileComparison } from "./agent/FileComparison";
+import type { GroupParams as agent_GroupParams } from "./agent/GroupParams";
 import type { Instructions as agent_Instructions } from "./agent/Instructions";
 import type { Landed as agent_Landed } from "./agent/Landed";
 import type { MoveParams as agent_MoveParams } from "./agent/MoveParams";
@@ -28,6 +29,7 @@ import type { SaveAsModeParams as agent_SaveAsModeParams } from "./agent/SaveAsM
 import type { SetAlertLevelParams as agent_SetAlertLevelParams } from "./agent/SetAlertLevelParams";
 import type { SetModelParams as agent_SetModelParams } from "./agent/SetModelParams";
 import type { SetOrderParams as agent_SetOrderParams } from "./agent/SetOrderParams";
+import type { SetVisibilityParams as agent_SetVisibilityParams } from "./agent/SetVisibilityParams";
 import type { SignalOutcome as agent_SignalOutcome } from "./agent/SignalOutcome";
 import type { SignalParams as agent_SignalParams } from "./agent/SignalParams";
 import type { Skills as agent_Skills } from "./agent/Skills";
@@ -187,6 +189,7 @@ export type RpcMethods = {
   "agent.discard": { params: agent_NodeId; result: null };
   "agent.spawnPrompt": { params: agent_NodeId; result: agent_SpawnPrompt };
   "agent.setOrder": { params: agent_SetOrderParams; result: agent_RailNode };
+  "agent.setVisibility": { params: agent_SetVisibilityParams; result: agent_RailNode };
   "agent.instructions": { params: agent_NodeId; result: agent_Instructions };
   "agent.channelUp": { params: agent_NodeId; result: null };
   "agent.signal": { params: agent_SignalParams; result: agent_SignalOutcome | null };
@@ -194,6 +197,7 @@ export type RpcMethods = {
   "workstream.setAuto": { params: workstream_AutoParams; result: null };
   "workstream.setOpeningPrompt": { params: workstream_OpeningPromptParams; result: null };
   "rail.createWorkstream": { params: agent_CreateWorkstreamParams; result: agent_RailNode };
+  "rail.group": { params: agent_GroupParams; result: agent_RailNode };
   "rail.move": { params: agent_MoveParams; result: null };
   "rail.rename": { params: agent_RenameParams; result: agent_RailNode };
   "rail.startDoor": { params: agent_StartDoorParams; result: agent_RailNode };

@@ -5,7 +5,7 @@ import { ReservedLine } from "../ink/ReservedLine";
 import { Icon } from "../ink/Icon";
 import { KIND_ICON } from "../ink/kindIcon";
 import { KeyChip } from "../keys/KeyChip";
-import { CHORDS, ariaShortcut } from "../keys/chords";
+import { ariaChord, chordNamed } from "../keys/chords";
 import { activationSource, captureActions } from "../keys/registry";
 import { useConnectedProject } from "../state/connectedProject";
 import { copy } from "./copy";
@@ -30,7 +30,7 @@ export const RailFooter = (props: {
   const [pointer, setPointer] = createSignal(false);
 
   const choices = [
-    { kind: "agent", name: "agent.new", label: copy.addAgentWord.trim(), run: () => captureActions(document.activeElement).find(action => action.value === "action:chord:⌘N")?.run() },
+    { kind: "agent", name: "agent.new", label: copy.addAgentWord.trim(), run: () => captureActions(document.activeElement).find(action => action.name === "agent.new")?.run() },
     { kind: "workstream", name: "workstream.new", label: copy.addWorkstreamWord.trim(), run: createWorkstream },
     { kind: "mode", name: "mode.new", label: copy.modeWord, run: props.openCreateMode },
   ] as const;
@@ -56,7 +56,7 @@ export const RailFooter = (props: {
               return;
             }
 
-            rail.select(row.agent);
+            rail.select(row.agent, "open");
           }}><KindGlyph kind={row.kind} /><span class="held-content"><span>{row.name}</span><span class="held-line">{row.line}</span></span><time dateTime={new Date(row.at).toISOString()}>{copy.time(row.at)}</time></button>}</For>
         </Disclosure></Show>
         <div class="rail-actions">
@@ -64,9 +64,9 @@ export const RailFooter = (props: {
             <Menu.Trigger onPointerDown={() => setPointer(true)} onKeyDown={() => setPointer(false)} onClick={event => setPointer(activationSource(event) === "pointer")} data-button="add" aria-label={copy.create} aria-disabled={canSpawn() ? undefined : true}><Icon name="plus" /></Menu.Trigger>
             <Portal><Menu.Positioner><Menu.Content aria-label={copy.create} class="rail-create-menu" data-pointer={pointer() || undefined}>
               <For each={choices}>{choice => {
-                const keys = CHORDS.find(chord => chord.name === choice.name)!.keys;
+                const chord = () => chordNamed(choice.name)!;
 
-                return <Menu.Item value={choice.kind} disabled={!canSpawn()} aria-keyshortcuts={ariaShortcut(keys)}><Icon name={KIND_ICON[choice.kind]} />{choice.label}<KeyChip keys={keys} /></Menu.Item>;
+                return <Menu.Item value={choice.kind} disabled={!canSpawn()} aria-keyshortcuts={ariaChord(chord())}><Icon name={KIND_ICON[choice.kind]} />{choice.label}<KeyChip keys={chord().keys} /></Menu.Item>;
               }}</For>
             </Menu.Content></Menu.Positioner></Portal>
           </Menu.Root>

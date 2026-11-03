@@ -2,6 +2,10 @@ import type { Kind } from "@contracts/Kind";
 import { copy as sharedCopy } from "../sharedCopy";
 
 export const copy = {
+  settingsPads: sharedCopy.pads,
+  defaultWidth: "Default width",
+  defaultWidthHint: "Width used when a Pad opens expanded.",
+  padWidths: sharedCopy.padWidths,
   automaticRenaming: "Automatic renaming",
   automaticRenamingHint: "Allow Agents to name themselves from their work.",
   skill: "Teach other Claude Code sessions about roundup",
@@ -30,7 +34,7 @@ export const copy = {
   settingsSearch: "Search settings",
   settingsNoResults: "No settings match.",
   settingsResults: "Search results",
-  settingsPlace: (page: string, group: string) => `${page} › ${group}`,
+  settingsPlace: (page: string, group: string) => page === group ? page : `${page} › ${group}`,
   groupPermissions: "Permissions",
   groupEngine: "Engine and model",
   groupNaming: "Naming",
