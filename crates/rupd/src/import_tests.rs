@@ -1,9 +1,8 @@
 use super::*;
-use std::path::PathBuf;
 use std::time::Duration;
 
 mod fixtures;
-use fixtures::import_git;
+use fixtures::{import_added_files, import_files, import_git};
 pub(super) use fixtures::{
     import_daemon, import_fixture, import_rpc, import_source, import_tree_with_overviews,
 };
@@ -28,19 +27,8 @@ fn import_daemon_with_clock(project: &Path, launcher: agents::claude_code::Launc
 }
 
 async fn import_resources(daemon: &Daemon, root: &Path) -> Value {
-    fn files(dir: &Path, out: &mut Vec<(PathBuf, Vec<u8>)>) {
-        for entry in std::fs::read_dir(dir).unwrap() {
-            let path = entry.unwrap().path();
-            if path.is_dir() {
-                files(&path, out);
-            } else {
-                out.push((path.clone(), std::fs::read(path).unwrap()));
-            }
-        }
-    }
     let project = root.join("project");
-    let mut retained = Vec::new();
-    files(&root.join("config"), &mut retained);
+    let mut retained = import_files(&root.join("config"));
     retained.sort_by(|a, b| a.0.cmp(&b.0));
     let db = rusqlite::Connection::open(project.join(".roundup/project.db")).unwrap();
     let mut statement = db.prepare("SELECT id, conversation_id, conversation_cwd, worktree_path, worktree_owner FROM nodes ORDER BY id").unwrap();
@@ -164,6 +152,8 @@ async fn u3082a_non_directory_entries_do_not_break_import() {
     let config = root.path().join("config");
     let project = root.path().join("project");
     std::fs::create_dir(&project).unwrap();
+    // TMPDIR may sit inside a checkout; its parent repository must not relate our fixtures.
+    import_git(&project, &["init", "-b", "main"]);
     let at = time::OffsetDateTime::now_utc()
         .format(&time::format_description::well_known::Rfc3339)
         .unwrap();
@@ -205,8 +195,15 @@ async fn u3082a_non_directory_entries_do_not_break_import() {
     }));
     let daemon = import_daemon(&project, launcher);
     let found = import_rpc(&daemon, "project.importDiscover", json!({"period":"week"})).await;
-    let candidate = &found["result"]["candidates"][0];
+    let candidates = found["result"]["candidates"].as_array().unwrap();
+    assert_eq!(candidates.len(), 1, "{found}");
+    let candidate = &candidates[0];
+    assert_eq!(
+        candidate["source"],
+        selected.file_stem().unwrap().to_str().unwrap()
+    );
     let selection = json!({"source":candidate["source"], "revision":candidate["revision"]});
+    let before = import_files(&config);
     opened.lock().unwrap().clear();
     let commit = import_rpc(
         &daemon,
@@ -229,14 +226,10 @@ async fn u3082a_non_directory_entries_do_not_break_import() {
     )
     .await;
     assert_eq!(replay, commit);
-    let retained: Vec<_> = std::fs::read_dir(selected.parent().unwrap())
-        .unwrap()
-        .map(|entry| entry.unwrap().path())
-        .filter(|path| path != &selected)
-        .collect();
+    let retained = import_added_files(&config, &before);
     assert_eq!(retained.len(), 1);
     let mut original: Value = serde_json::from_slice(&std::fs::read(&selected).unwrap()).unwrap();
-    let mut copied: Value = serde_json::from_slice(&std::fs::read(&retained[0]).unwrap()).unwrap();
+    let mut copied: Value = serde_json::from_slice(&retained[0].1).unwrap();
     original.as_object_mut().unwrap().remove("sessionId");
     copied.as_object_mut().unwrap().remove("sessionId");
     assert_eq!(copied, original);
@@ -405,6 +398,7 @@ async fn u3037b_commit_reads_only_selected_contents() {
     let selection = json!({"source":candidate["source"], "revision":candidate["revision"]});
     // Malformed unrelated history would make a rescan fail, but is never read.
     std::fs::write(&other, vec![b'x'; 1024 * 1024]).unwrap();
+    let before = import_files(&config);
     opened.lock().unwrap().clear();
     let committed = import_rpc(
         &daemon,
@@ -423,15 +417,11 @@ async fn u3037b_commit_reads_only_selected_contents() {
         std::slice::from_ref(&selected)
     );
     let source = std::fs::read(&selected).unwrap();
-    let retained: Vec<PathBuf> = std::fs::read_dir(selected.parent().unwrap())
-        .unwrap()
-        .map(|p| p.unwrap().path())
-        .filter(|p| p != &selected && p != &other)
-        .collect();
+    let retained = import_added_files(&config, &before);
     assert_eq!(retained.len(), 1);
     // The existing continuation copier changes identity and cwd, retaining the complete record.
     assert!(
-        std::fs::read_to_string(&retained[0])
+        std::str::from_utf8(&retained[0].1)
             .unwrap()
             .contains("timestamp")
     );

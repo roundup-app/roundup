@@ -43,6 +43,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Terminal catch-up (`CatchUpParams`, `CatchUp`, `terminal.catchUp`, `Terminals::catch_up`) | same | — |
 | Snapshot | same | — |
 | Workstream | same | room, folder |
+| Group (`NodeKind::Group`, `GroupParams`, `rail.group`, `Rail::group`) | same | — |
 | Mode | same | — |
 | Make a Workstream (`agent.makeWorkstream`, `Agents::make_workstream`) | Make a Workstream | — |
 | Save as Mode (`agent.saveAsMode`, `SaveAsModeParams`, `Agents::save_as_mode`) | Save as Mode… | — |
@@ -223,6 +224,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Terminal scheme (`terminal.scheme`, `SchemeParams`, `Scheme`) | same | — |
 | RPC output intake (`Client::take_output`, `OutputFrame`) | same | — |
 | Event log | same | — |
+| Kept Events (`SubscribeParams.kept`) | same | — |
 | Rail visibility (`RailVisibility`, `SetVisibilityParams`, `agent.setVisibility`, `agent_set_visibility`) | shown, internal | — |
 | Rail rename (`rail.renamed`, `RailRenamed`) | same | — |
 | Event number (`seq`) | same | — |

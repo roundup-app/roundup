@@ -79,6 +79,7 @@ impl Daemon {
                 method,
                 "daemon.getNaming"
                     | "daemon.setNaming"
+                    | "rail.group"
                     | "rail.rename"
                     | "rail.setAlertLevel"
                     | "workstream.setAuto"
@@ -259,7 +260,7 @@ impl Daemon {
                     .reader()
                     .call("message", "message.list", json!({}), Actor::user())
                     .await?;
-                let head = self.bus.subscribe_after(None)?.head();
+                let head = self.bus.subscribe_after(Default::default())?.head();
                 let (events, _) = self
                     .bus
                     .saved_after(head.saturating_sub(rpc::EVENT_WINDOW))?;

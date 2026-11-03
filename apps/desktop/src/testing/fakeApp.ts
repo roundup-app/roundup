@@ -1,4 +1,5 @@
 import { projectMenu } from "./menuProbe";
+import type { SubscribeParams } from "@contracts/SubscribeParams";
 import type { Event as DaemonEvent } from "@contracts/Event";
 import type { RpcMethodName, RpcMethods } from "@contracts/methods";
 import { OWN_CONTRACT } from "../app/contractMatch";
@@ -57,8 +58,8 @@ export type FakeApp = AppSeam & {
   calls: { method: RpcMethodName; params: unknown }[];
   handlers: Handlers;
   emit(event: DaemonEvent): void;
-  /** Every `subscribe` call so far with the `after` it asked to replay from, and the `head` the Daemon answers. */
-  subscribed: { after: number | undefined }[];
+  /** Every `subscribe` call so far with the replay it requested, and the `head` the Daemon answers. */
+  subscribed: SubscribeParams[];
   head: number;
   /** Every `selectOutput` call so far, in call order. */
   outputSubscriptions: FakeOutputSubscription[];
@@ -80,6 +81,7 @@ export type FakeApp = AppSeam & {
   dropFiles(drop: FileDrop): void;
   /** Every target `open_target` was called with, in order; `openFailure` is what it rejects with. */
   openedTargets: OpenTarget[];
+  attemptedTargets: OpenTarget[];
   openFailure: RpcError | null;
   /** Every path `open_in_editor` was called with, in order; `editorFailure` is what it rejects with. */
   editorOpened: string[];
@@ -180,6 +182,7 @@ export const createFakeApp = (): FakeApp => {
     windowOperations: [],
     windowTitleHandler: null,
     openedTargets: [],
+    attemptedTargets: [],
     openFailure: null,
     editorOpened: [],
     editorCalls: [],
@@ -401,9 +404,9 @@ export const createFakeApp = (): FakeApp => {
 
       return handler(params);
     },
-    subscribe: async (listener, after) => {
+    subscribe: async (listener, params) => {
       onEvent = listener;
-      app.subscribed.push({ after });
+      app.subscribed.push(params ?? {});
 
       return app.head;
     },
@@ -425,6 +428,8 @@ export const createFakeApp = (): FakeApp => {
       };
     },
     openTarget: async (target) => {
+      app.attemptedTargets.push(target);
+
       if (app.openFailure) throw app.openFailure;
 
       app.openedTargets.push(target);
