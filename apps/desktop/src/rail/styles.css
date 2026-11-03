@@ -851,3 +851,9 @@
 .rail-footer [data-scope="collapsible"][data-part="content"] { max-height: calc(var(--space-6) * 6); overflow-y: auto; overscroll-behavior: contain; }
 
 .alert-level, .held-line { color: var(--grey); font-size: var(--text-caption); }
+
+.rail-row .rail-group-chevron {
+  width: var(--rail-slot);
+  min-width: var(--rail-slot);
+  padding-inline: 0;
+}

@@ -3,30 +3,61 @@
 use agents::claude_code::Launcher;
 use serde_json::{Value, json};
 
+const ID: &str = "11111111-1111-1111-1111-111111111111";
+
+struct Conversation {
+    _dir: tempfile::TempDir,
+    cwd: std::path::PathBuf,
+    path: std::path::PathBuf,
+    launcher: Launcher,
+}
+
+impl Conversation {
+    fn new() -> Self {
+        let dir = tempfile::tempdir().unwrap();
+        let cwd = dir.path().canonicalize().unwrap();
+        let project: String = cwd
+            .to_string_lossy()
+            .chars()
+            .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
+            .collect();
+        let path = dir
+            .path()
+            .join("projects")
+            .join(project)
+            .join(format!("{ID}.jsonl"));
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::File::create(&path).unwrap();
+        let launcher = Launcher::new(
+            "unused",
+            dir.path().join("claude.json"),
+            dir.path().join("rup"),
+            None,
+        );
+        Self {
+            _dir: dir,
+            cwd,
+            path,
+            launcher,
+        }
+    }
+
+    fn append(&self, records: &[Value]) -> Value {
+        use std::io::Write;
+
+        let mut file = std::fs::OpenOptions::new()
+            .append(true)
+            .open(&self.path)
+            .unwrap();
+        for record in records {
+            writeln!(file, "{record}").unwrap();
+        }
+        serde_json::to_value(self.launcher.read_overview(&self.cwd, ID).unwrap()).unwrap()
+    }
+}
+
 fn conversation_overview(records: &[Value]) -> Value {
-    let dir = tempfile::tempdir().unwrap();
-    let cwd = dir.path().canonicalize().unwrap();
-    let project: String = cwd
-        .to_string_lossy()
-        .chars()
-        .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
-        .collect();
-    let id = "11111111-1111-1111-1111-111111111111";
-    let path = dir
-        .path()
-        .join("projects")
-        .join(project)
-        .join(format!("{id}.jsonl"));
-    std::fs::create_dir_all(path.parent().unwrap()).unwrap();
-    let text: String = records.iter().map(|v| format!("{v}\n")).collect();
-    std::fs::write(path, text).unwrap();
-    let launcher = Launcher::new(
-        "unused",
-        dir.path().join("claude.json"),
-        dir.path().join("rup"),
-        None,
-    );
-    serde_json::to_value(launcher.read_overview(&cwd, id).unwrap()).unwrap()
+    Conversation::new().append(records)
 }
 
 #[test]
@@ -41,6 +72,7 @@ fn a2681b_last_reply_context_sums_three_counts() {
 
 #[test]
 fn a2681b_context_limit_comes_from_reply_model() {
+    let conversation = Conversation::new();
     // Claude Code model-config#extended-context (2026-10-18): 4.6 needs [1m];
     // Opus >=4.7, Sonnet >=5, Fable and Haiku 5.5 have native 1M windows.
     for (model, limit) in [
@@ -66,7 +98,7 @@ fn a2681b_context_limit_comes_from_reply_model() {
         ("unknown", None),
         ("claude-future[1m]", None),
     ] {
-        let overview = conversation_overview(&[
+        let overview = conversation.append(&[
             json!({"type":"assistant", "message":{"model":"claude-haiku-4-5", "usage":{"input_tokens":90000}}}),
             json!({"type":"assistant", "message":{"model":model}}),
         ]);
