@@ -56,7 +56,7 @@ it("u2580a_instant_actions_release_slide_and_fit_once", async () => {
 const load = async (reduced = false) => {
   await browser("set", "viewport", "1512", "950");
   await browser("set", "media", "light", ...(reduced ? ["reduced-motion"] : []));
-  const url = `${rig.server.resolvedUrls.local[0]}harness.html?view=workstreams&items=1&tabs=1&seed=tree-40`;
+  const url = `${rig.server.resolvedUrls.local[0]}harness.html?view=workstreams&items=1&tabs=1&seed=selection`;
   await browser("open", url);
   await browser("wait", ".shelf-tabs");
   await browser("wait", "--fn", `!!document.querySelector('.shelf [data-shelf-group="unassigned"] [data-part="branch-control"], .shelf [data-todo] button')`);
