@@ -1,10 +1,11 @@
+import { batch } from "solid-js";
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { event, workstream, USER } from "../testing/nodes";
 import { RpcError } from "../app/seam";
 import { mountTodos, todo, todoCallsTo as callsTo, todoEvent, todoRowOf as rowOf } from "./testHarness";
 
-afterEach(() => { cleanup(); vi.restoreAllMocks(); });
+afterEach(() => { batch(cleanup); vi.restoreAllMocks(); });
 
 type Mounted = Awaited<ReturnType<typeof mountTodos>>;
 
