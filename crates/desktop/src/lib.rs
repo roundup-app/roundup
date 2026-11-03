@@ -171,6 +171,8 @@ pub fn context<R: Runtime>() -> tauri::Context<R> {
 /// Dispatch the native menu event through the same path used by the App builder.
 pub fn handle_menu_event<R: Runtime>(app: &AppHandle<R>, event: &tauri::menu::MenuEvent) {
     menu::app_chosen(app, event);
+    #[cfg(target_os = "macos")]
+    menu_bar::dock_chosen(app, event.id().as_ref());
 }
 
 pub fn handle_run_event<R: Runtime>(app: &AppHandle<R>, event: &RunEvent) {
