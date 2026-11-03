@@ -1,6 +1,6 @@
 # U5741 public endpoint census
 
-Audited source and runtime: `092fcafbf` (full revision in `runtime-provenance.json`). Both binaries were rebuilt here; no vendor Agent was started. A real isolated Daemon stored one unstarted Workstream to exercise the Door role. The non-Door id is classified by the production `is_door` lookup, not a fabricated role reply.
+Historical source and runtime: `092fcafbf910f292d7180c97d35bd381aff984b3` (`runtime-provenance.json` field in [catalogues/public-seams.json](catalogues/public-seams.json)). Both binaries were rebuilt here; no vendor Agent was started. A real isolated Daemon stored one unstarted Workstream to exercise the Door role. The non-Door id is classified by the production `is_door` lookup, not a fabricated role reply.
 
 Correction from retained raw replies: this historical capture has 163 `api list` results, 85 non-Door tools and 92 Door tools. The original 169/91/98 headline was incorrect; the original replies remain in `catalogues/public-seams.json`. See the fresh [public command reconciliation](public-commands.md) for current counts and exact mappings. All captured methods match their declarations, with no unmatched method. Every declared CLI offer is present in observed `rup help`. Both real stdio `tools/list` replies, including exact input schemas and descriptions, are retained in `mcp-agent.json` and `mcp-door.json`.
 
