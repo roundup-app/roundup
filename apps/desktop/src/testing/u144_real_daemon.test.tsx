@@ -80,7 +80,7 @@ describe("u2540 inspection and notes on the real Daemon", () => {
       await openFile("same.ts");
       const comparison = await connected.app.rpc("agent.compareFile", { id: node.id, path: "same.ts" });
       expect(comparison.new).toMatchObject({ kind: "text", text: node.id === first.id ? "first source\n" : "second source\n" });
-      fireEvent.click(screen.getByRole("button", { name: "Close changes" }));
+      fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Close changes" }));
       await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     }
 
@@ -121,7 +121,7 @@ describe("u2540 inspection and notes on the real Daemon", () => {
             fireEvent.click(screen.getByRole("button", { name: "Save" }));
           }
 
-          fireEvent.click(screen.getByRole("button", { name: "Close changes" }));
+          fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Close changes" }));
           await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
         }
 
@@ -158,7 +158,7 @@ describe("u2773 Project draft integration on real Projects", () => {
   const openRecovery = async () => {
     await openMenu();
 
-    return screen.findByRole("region", { name: "Unfinished work" });
+    return screen.findByLabelText("Unfinished work");
   };
 
   const mount = (emulators = fakeEmulators()) => render(() => <App app={app} drafts={drafts} reducedMotion={() => true} clock={() => 0} createEmulator={emulators.factory} />);
@@ -356,7 +356,7 @@ describe("u2773 closed-Project draft lifetime through the App seam", () => {
     const openRecovery = async () => {
       await openMenu();
 
-      return screen.findByRole("region", { name: "Unfinished work" });
+      return screen.findByLabelText("Unfinished work");
     };
 
     const key = `roundup:drafts:${first.dir}`;
@@ -429,13 +429,13 @@ describe("u2773 closed-Project draft lifetime through the App seam", () => {
     expect(holder.list()).toEqual([saved, headerSaved]);
 
     if (kind === "surface") {
-      fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+      fireEvent.click(within(screen.getByLabelText("Unfinished work")).getByRole("button", { name: "Try again" }));
       expect(localStorage.getItem(key)).toBe(bytes);
       expect(within(screen.getByLabelText("Unfinished work")).getByRole("alert")).toBeTruthy();
       localStorage.setItem(key, JSON.stringify({ version: 1, drafts: [] }));
     }
 
-    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+    fireEvent.click(within(screen.getByLabelText("Unfinished work")).getByRole("button", { name: "Try again" }));
     await waitFor(() => expect(within(screen.getByLabelText("Unfinished work")).queryByRole("alert")).toBeNull());
     expect(createProjectDrafts()(first.dir).list()).toEqual([saved, headerSaved]);
     const methods = calls.flatMap(spy => spy.mock.calls.map(([method]) => method));
