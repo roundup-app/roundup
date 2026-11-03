@@ -201,11 +201,15 @@ export const Rail = () => {
     const visible = current.some(row => row.kind === "node" ? row.node.id === id : row.key === id);
 
     if (visible) return;
-    const ancestors = id.startsWith("fold:") ? [id.slice(5), ...ancestorsOf(topology(), id.slice(5))] : ancestorsOf(topology(), id);
+    const ancestors = id.startsWith("fold:") ? [id.slice(5).replace(/^internal:/, ""), ...ancestorsOf(topology(), id.slice(5).replace(/^internal:/, ""))] : ancestorsOf(topology(), id);
     const parent = ancestors.find(ancestor => current.some(row => row.kind === "node" && row.node.id === ancestor));
 
     if (!parent) return;
-    const target = current.some(row => row.kind === "fold" && row.parent === parent) ? `fold:${parent}` : parent;
+
+    const branch = id.startsWith("fold:") ? undefined : current.find(row => row.kind === "fold" && row.parent === parent &&
+      row.group === (rail.nodes.find(node => node.id === id)?.visibility === "internal" ? "internal" : "idle"));
+
+    const target = branch?.key ?? parent;
     setFocused(target);
     queueMicrotask(() => rowElement(target)?.focus());
   }));
@@ -757,10 +761,10 @@ export const Rail = () => {
                     <Show when={fold()}>
                       {(view) => (
                         <TreeView.NodeProvider node={entryOf(view().key).node} indexPath={entryOf(view().key).indexPath}>
-                          <TreeView.Branch data-id={view().key} aria-label={`${view().count}${copy.idleCount}`}>
-                            <TreeView.BranchControl class="rail-fold row-wash" style={{ "--indent": `calc(${view().depth} * var(--rail-step) + var(--rail-inset))` }} onClick={() => setUnfolded(open => toggled(open, view().parent))}>
+                          <TreeView.Branch data-id={view().key} aria-label={`${view().count}${view().group === "internal" ? copy.internalCount : copy.idleCount}`}>
+                            <TreeView.BranchControl class="rail-fold row-wash" style={{ "--indent": `calc(${view().depth} * var(--rail-step) + var(--rail-inset))` }} onClick={() => setUnfolded(open => toggled(open, view().key.slice(5)))}>
                               <Trunks depth={view().depth} trail={[...view().trail, false]} stem={view().open} />
-                              <span class="rail-fold-content"><KindGlyph kind="idle" decorative /><span class="rail-fold-name">{view().count}{copy.idleCount}</span></span>
+                              <span class="rail-fold-content"><KindGlyph kind={view().status} decorative /><span class="rail-fold-name">{view().count}{view().group === "internal" ? copy.internalCount : copy.idleCount}</span></span>
                               <TreeView.BranchIndicator><Icon name="right" /></TreeView.BranchIndicator>
                             </TreeView.BranchControl>
                           </TreeView.Branch>
