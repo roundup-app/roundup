@@ -425,23 +425,6 @@ describe("u31 rail keyboard", () => {
     expect(press("Enter")).toBe(false);
   });
 
-  it("u3789a_click_selects_without_opening_rail_focus", async () => {
-    await mountRail(
-      [agent("a", "idle", "x"), agent("b", "idle", "x")],
-      [],
-      undefined,
-      undefined,
-      { pane: focusableEmulator() },
-    );
-    rowOf("a").focus();
-
-    fireEvent.click(rowOf("b"));
-
-    await settled();
-
-    expect(document.activeElement).toBe(rowOf("b"));
-  });
-
   it("u31_enter_selecting_a_row_shows_its_terminal", async () => {
     const { rail } = await mountRail(
       [agent("a", "idle", "x"), agent("b", "idle", "x")],

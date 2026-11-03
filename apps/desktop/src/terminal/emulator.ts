@@ -325,7 +325,7 @@ export const createXtermEmulators = (
     const clearOldSelection = (event: MouseEvent) => {
       if (event.button !== 0 || event.ctrlKey) return;
 
-      window.getSelection()?.removeAllRanges();
+      if (!(event.target instanceof Element && event.target.closest(".pad-rich-editor"))) window.getSelection()?.removeAllRanges();
       terminal.clearSelection();
     };
 

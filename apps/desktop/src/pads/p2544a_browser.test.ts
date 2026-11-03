@@ -177,7 +177,7 @@ it("u3021c_open_restores_exact_revision_without_rpc_browser_focus", async () => 
   await browser("set", "media", "dark");
   await browser("wait", "#shelf-tab-pads");
   await browser("eval", `(async () => {
-    const moduleSource = await (await fetch('/src/pads/PadDrawer.tsx')).text();
+    const moduleSource = await (await fetch('/src/pads/PadContent.tsx')).text();
     const dependencies = moduleSource.split('"').filter(path => path.includes('/deps/'));
     const { createComponent } = await import(dependencies.find(path => path.includes('/solid-js.js')));
     const { render } = await import(dependencies.find(path => path.includes('/solid-js_web.js')));

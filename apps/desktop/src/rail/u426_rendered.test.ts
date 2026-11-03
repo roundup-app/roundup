@@ -68,6 +68,9 @@ it.skipIf(!!process.env.ROUNDUP_CAPTURES && !captureDir("U350")).each(["tree-40"
     await browser("set", "viewport", "1512", "950");
     await browser("open", url(`/harness.html?seed=${seed}&rest=1&view=workstreams&tabs=1`));
     await wait(`document.querySelector('.rail-row')`);
+
+    // Exercise Workstream actions without the unrelated seeded attention redirect.
+    if (seed === "tree-40") await read("window.__fake.setStatus('migrate', 'idle', 'idle')");
     const id = await read<string>(`document.querySelector('.rail-row:has(.rail-chevron)')?.dataset.id ?? document.querySelector('.rail-row').dataset.id`);
     const selector = `.rail-row[data-id="${id}"]`;
     await clickName(selector);

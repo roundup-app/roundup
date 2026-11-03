@@ -1,11 +1,18 @@
+import { animate } from "motion";
+import { createReducedMotion, ReducedMotionContext } from "../app/reducedMotion";
+import Highlighter from "lucide-solid/icons/highlighter";
+import Check from "lucide-solid/icons/check";
+import { isFocusVisible, trackFocusVisible } from "@zag-js/focus-visible";
+import { Tip } from "../ui/Tip";
+import { Menu } from "../ui/Menu";
 import { DrawerExpandContext } from "../drawer/DrawerHost";
 import { registerKeys } from "../keys/registry";
 import { CHORDS, chordsFor } from "../keys/chords";
-import { toggleStrongCommand, toggleEmphasisCommand, toggleInlineCodeCommand, wrapInBlockquoteCommand, wrapInBulletListCommand, wrapInOrderedListCommand, createCodeBlockCommand, clearTextInCurrentBlockCommand } from "@milkdown/kit/preset/commonmark";
+import { clearTextInCurrentBlockCommand, toggleStrongCommand, toggleEmphasisCommand, toggleInlineCodeCommand, wrapInBlockquoteCommand, wrapInBulletListCommand, wrapInOrderedListCommand, createCodeBlockCommand } from "@milkdown/kit/preset/commonmark";
 import { captureFocus } from "../keys/focus";
 import { ReservedLine } from "../ink/ReservedLine";
 import { copy } from "./copy";
-import { Show, createEffect, createSignal, createUniqueId, onCleanup, onMount, useContext } from "solid-js";
+import { createEffect, createMemo, createSignal, For, Show, createUniqueId, onCleanup, onMount, splitProps, useContext } from "solid-js";
 import { Portal } from "solid-js/web";
 import { CrepeBuilder } from "@milkdown/crepe/builder";
 import { blockEdit } from "@milkdown/crepe/feature/block-edit";
@@ -14,13 +21,16 @@ import { linkTooltip } from "@milkdown/crepe/feature/link-tooltip";
 import { linkPreviewTooltip } from "@milkdown/kit/component/link-tooltip";
 import { listItem } from "@milkdown/crepe/feature/list-item";
 import { placeholder } from "@milkdown/crepe/feature/placeholder";
+import { padFormatMarkdown, padCallout, padColour, padHighlight, calloutKinds, padColours } from "./padFormats";
+import { toggleMark } from "@milkdown/kit/prose/commands";
+import { codeColours } from "./codeColours";
 import { table } from "@milkdown/crepe/feature/table";
 import { topBar } from "@milkdown/crepe/feature/top-bar";
 import { commandsCtx, editorViewCtx, remarkStringifyOptionsCtx } from "@milkdown/kit/core";
 import { $prose } from "@milkdown/kit/utils";
 import { trailingConfig } from "@milkdown/kit/plugin/trailing";
 import type { Node as DocumentNode } from "@milkdown/kit/prose/model";
-import { Plugin, TextSelection } from "@milkdown/kit/prose/state";
+import { type EditorState, Plugin, TextSelection } from "@milkdown/kit/prose/state";
 import { Decoration, DecorationSet } from "@milkdown/kit/prose/view";
 import { getMarkdown, replaceAll } from "@milkdown/kit/utils";
 import { sourceForDocument } from "./sourceForDocument";
@@ -48,18 +58,18 @@ export type PadEditorHandle = {
   unchanged(): boolean;
 };
 
-const topBarNames = new Map([
-  ["bold", copy.bold],
-  ["italic", copy.italic],
-  ["code", copy.inlineCode],
-  ["bullet-list", copy.bulletList],
-  ["ordered-list", copy.numberedList],
-  ["task-list", copy.checklist],
-  ["link", copy.link],
-  ["code-block", copy.codeBlock],
-  ["quote", copy.quote],
-  ["table", copy.table],
-]);
+const topBarNames = new Map(Object.entries({
+  "bold": copy.bold,
+  "italic": copy.italic,
+  "code": copy.inlineCode,
+  "bullet-list": copy.bulletList,
+  "ordered-list": copy.numberedList,
+  "task-list": copy.checklist,
+  "link": copy.link,
+  "code-block": copy.codeBlock,
+  "quote": copy.quote,
+  "table": copy.table,
+}));
 
 /** U4698b: the toolbar is these eleven formats; Crepe's other items (strikethrough, rule) are removed before it renders. */
 const toolbarKeys = new Set(["heading-selector", "bold", "italic", "code", "link", "bullet-list", "ordered-list", "task-list", "quote", "code-block", "table"]);
@@ -78,6 +88,7 @@ const normalHeading = (text: string) => text.replace(/^#+/, "").split(/\s+/).fil
 
 /** U147: the Pad's one surface. `readonly` prevents editing unavailable content; `onChange` fires on every document change the user makes, `onText` follows with the settled Markdown. */
 export default function PadRichEditor(props: {
+  item?: "pad" | "todo";
   autofocus?: boolean;
   label?: string;
   initialFocus?: ReturnType<typeof captureFocus> | undefined;
@@ -93,6 +104,59 @@ export default function PadRichEditor(props: {
   const mountExpand = useContext(DrawerExpandContext);
   const [toolbarHost, setToolbarHost] = createSignal<HTMLElement>();
   const menuId = createUniqueId();
+  const colourTriggerId = createUniqueId();
+  const [paletteMotion, setPaletteMotion] = createSignal(false);
+  const [paletteOpen, setPaletteOpen] = createSignal(false);
+  const [palettePresent, setPalettePresent] = createSignal(false);
+  const [paletteContent, setPaletteContent] = createSignal<HTMLElement>();
+  const [palettePositioned, setPalettePositioned] = createSignal(false);
+  const reduced = useContext(ReducedMotionContext) ?? (window.matchMedia ? createReducedMotion(query => window.matchMedia(query)) : () => true);
+  let paletteAnimation: ReturnType<typeof animate> | undefined;
+  let previousPalette: HTMLElement | undefined;
+
+  createEffect(() => {
+    const open = paletteOpen();
+    const element = paletteContent();
+    const animated = paletteMotion();
+    const reduce = reduced();
+    const positioned = palettePositioned();
+    paletteAnimation?.stop();
+    paletteAnimation = undefined;
+
+    if (!element?.isConnected) return;
+
+    if (animated && open && !positioned) {
+      if (element !== previousPalette) element.style.opacity = "0";
+
+      return;
+    }
+
+    const entering = element !== previousPalette;
+    previousPalette = element;
+
+    if (!animated) {
+      element.style.opacity = open ? "1" : "0";
+      element.style.transform = "none";
+
+      if (!open) setPalettePresent(false);
+
+      return;
+    }
+
+    const tokens = getComputedStyle(element);
+    const scale = tokens.getPropertyValue("--scale-menu").trim();
+    const duration = tokens.getPropertyValue(reduce ? "--duration-reduced" : open ? "--duration-menu-in" : "--duration-menu-out");
+    const curve = tokens.getPropertyValue("--easing-out").match(/[\d.]+/g) ?? [];
+    const ease: [number, number, number, number] = [Number(curve[0]), Number(curve[1]), Number(curve[2]), Number(curve[3])];
+    const opacity = [entering ? 0 : Number(tokens.opacity), open ? 1 : 0];
+
+    if (reduce) element.style.transform = "none";
+    const frames = reduce ? { opacity } : { opacity, transform: [entering ? `scale(${scale})` : tokens.transform, open ? "scale(1)" : `scale(${scale})`] };
+    const animation = animate(element, frames, { duration: parseFloat(duration) / 1000, ease });
+    paletteAnimation = animation;
+    void animation.then(() => { if (paletteAnimation === animation && !paletteOpen()) setPalettePresent(false); });
+  });
+  onCleanup(() => paletteAnimation?.stop());
   let menuObserver: MutationObserver | undefined;
   let host: HTMLDivElement | undefined;
   let menuHost: HTMLDivElement | undefined;
@@ -109,10 +173,39 @@ export default function PadRichEditor(props: {
 
   let ready = false;
   let topBarItems: { label: string; keys: string | undefined }[] = [];
-  const [commandState, setCommandState] = createSignal(0);
+  const [commandState, setCommandState] = createSignal<EditorState>();
+
+  const highlighted = createMemo(() => {
+    const state = commandState();
+
+    return !props.label && state && crepe ? crepe.editor.action(ctx => {
+      const { doc, selection } = state;
+
+      return doc.rangeHasMark(selection.from, selection.to, padHighlight.type(ctx));
+    }) : false;
+  });
+
+  const currentColour = createMemo(() => {
+    const state = commandState();
+
+    return !props.label && state && crepe ? crepe.editor.action(ctx => {
+      const { doc, selection, storedMarks } = state;
+      const type = padColour.type(ctx);
+      const colours = new Set<string>();
+
+      if (selection.empty) colours.add(type.isInSet(storedMarks ?? selection.$from.marks())?.attrs.colour ?? "default");
+      else doc.nodesBetween(selection.from, selection.to, node => {
+        if (node.isText) colours.add(type.isInSet(node.marks)?.attrs.colour ?? "default");
+      });
+
+      return colours.size === 1 ? [...colours][0] : undefined;
+    }) : "default";
+  });
+
   const [failure, setFailure] = createSignal<string | null>(null);
 
   onMount(() => {
+    onCleanup(trackFocusVisible());
     const focus = props.initialFocus ?? captureFocus();
 
     if (!host || !menuHost) throw new Error(copy.padEditorHostIsMissing);
@@ -131,11 +224,27 @@ export default function PadRichEditor(props: {
       },
       slashMenu: { root: menuHost },
       textGroup: { divider: null },
-      buildMenu: (builder) => {
-        if (props.label) return;
+      buildMenu: builder => {
+        if (props.item === "todo") return;
+        const group = builder.addGroup("callouts", copy.callouts);
+
+        for (const kind of calloutKinds) group.addItem(kind, {
+          label: kind, icon: "!", onRun: (ctx: import("@milkdown/kit/ctx").Ctx) => {
+            ctx.get(commandsCtx).call(clearTextInCurrentBlockCommand.key);
+            const view = ctx.get(editorViewCtx);
+            const start = view.state.selection.$from.before();
+            const type = padCallout.type(ctx);
+            const body = view.state.schema.nodes.paragraph!.create();
+            const tr = view.state.tr.replaceSelectionWith(type.create({ kind }, body));
+            tr.setSelection(TextSelection.near(tr.doc.resolve(start + 2)));
+            view.dispatch(tr.scrollIntoView());
+            view.focus();
+          },
+        });
 
         for (const shortcut of [false, true]) builder.getGroup("advanced").addItem(shortcut ? "for-agents" : "toggle", {
           label: shortcut ? copy.forAgents : copy.toggle,
+
           icon: "",
           onRun: (ctx) => {
             const view = ctx.get(editorViewCtx);
@@ -236,7 +345,7 @@ export default function PadRichEditor(props: {
             },
             view: () => ({
               update: (view, previous) => {
-                if (view.state !== previous) setCommandState(now => now + 1);
+                if (view.state !== previous) setCommandState(view.state);
 
                 if (!applying && !closed && !view.state.doc.eq(previous.doc)) {
                   restored = null;
@@ -250,6 +359,8 @@ export default function PadRichEditor(props: {
     );
 
     if (!props.label) {
+      crepe.editor.use(padFormatMarkdown).use(padCallout).use(padHighlight).use(padColour);
+      crepe.editor.use($prose(() => codeColours()));
       crepe.editor.use(agentDetailsRemark).use(agentDetailsNode).use(agentDetailsView);
       crepe.editor.use($prose(headingFolds));
     }
@@ -297,8 +408,6 @@ export default function PadRichEditor(props: {
       if (!field) throw new Error(copy.padEditorDidNotOpen);
 
       const toolbar = host.querySelector<HTMLElement>(".milkdown-top-bar") ?? undefined;
-      setToolbarHost(toolbar);
-      mountExpand?.(toolbar);
 
       const buttons = host.querySelectorAll<HTMLButtonElement>(".milkdown-top-bar .top-bar-item");
 
@@ -313,12 +422,17 @@ export default function PadRichEditor(props: {
         button.title = item.keys ? `${item.label} (${item.keys})` : item.label;
       });
 
-      const heading = host.querySelector<HTMLButtonElement>(".milkdown-top-bar .top-bar-heading-button");
+      const selectors = host.querySelectorAll<HTMLButtonElement>(".milkdown-top-bar .top-bar-heading-button");
+      const heading = selectors[0];
 
       if (heading) {
         heading.setAttribute("aria-label", copy.heading);
         heading.title = copy.heading;
       }
+
+      // Label Crepe's controls before mounting ours into the same toolbar.
+      setToolbarHost(toolbar);
+      mountExpand?.(toolbar);
 
       field.setAttribute("role", "textbox");
       field.setAttribute("aria-label", props.label ?? copy.padBody);
@@ -518,6 +632,42 @@ export default function PadRichEditor(props: {
 
   return (
     <>
+      <Show when={!props.label && toolbarHost()}>{mount => <Portal mount={mount()}>
+        <div class="pad-rich-editor pad-format-controls">
+          <Menu.Root ids={{ trigger: colourTriggerId }} positioning={{ updatePosition: async ({ updatePosition }) => { await updatePosition(); setPalettePositioned(true); } }} open={paletteOpen()} present={palettePresent()} onOpenChange={({ open }) => {
+            setPaletteMotion(!isFocusVisible());
+
+            if (open) { setPalettePositioned(false); setPalettePresent(true); }
+
+            setPaletteOpen(open);
+          }} onSelect={({ value }) => crepe?.editor.action(ctx => {
+            const view = ctx.get(editorViewCtx);
+            const { from, to } = view.state.selection;
+            const type = padColour.type(ctx);
+            const tr = view.state.tr.removeMark(from, to, type);
+            const colour = padColours.find(colour => colour === value);
+
+            if (colour) tr.addMark(from, to, type.create({ colour }));
+            view.dispatch(tr);
+            view.focus();
+          })}>
+            <Tip text={copy.textColour} ids={{ trigger: colourTriggerId }}>{trigger => {
+              // Both primitives resolve the same button; Menu retains its own identity and value.
+              const [, attributes] = splitProps(trigger(), ["value", "id"]);
+
+              return <Menu.Trigger {...attributes} class="top-bar-heading-button" aria-label={copy.textColour}>{copy.textColour}</Menu.Trigger>;
+            }}</Tip>
+            <Portal><Menu.Positioner class="pad-rich-editor"><Menu.Content ref={setPaletteContent} class="pad-colour-menu" inert={!paletteOpen()} onKeyDown={() => setPaletteMotion(false)}>
+              <Menu.RadioItemGroup value={currentColour() ?? ""}><For each={["default" as const, ...padColours]}>{colour => <Menu.RadioItem value={colour}><Menu.ItemText>{copy.colours[colour]}</Menu.ItemText><Menu.ItemIndicator><Check class="icon" aria-hidden="true" /></Menu.ItemIndicator></Menu.RadioItem>}</For></Menu.RadioItemGroup>
+            </Menu.Content></Menu.Positioner></Portal>
+          </Menu.Root>
+          <Tip text={copy.highlight}>{trigger => <button {...trigger()} type="button" class="top-bar-item" aria-label={copy.highlight} aria-pressed={highlighted()} classList={{ active: highlighted() }} onPointerDown={event => event.preventDefault()} onClick={() => crepe?.editor.action(ctx => {
+            const view = ctx.get(editorViewCtx);
+            toggleMark(padHighlight.type(ctx))(view.state, view.dispatch);
+            view.focus();
+          })}><Highlighter class="icon" aria-hidden="true" /></button>}</Tip>
+        </div>
+      </Portal>}</Show>
       <Show when={toolbarHost()}>{target => <Portal mount={target()}><div class="pad-width-control">{props.toolbar}</div></Portal>}</Show>
       <Portal>
         <div class="pad-rich-editor pad-block-menu">

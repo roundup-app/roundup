@@ -215,17 +215,15 @@ export const Rail = () => {
   }));
 
   const openRow = (id: string) => {
-    if (rail.nodes.some(node => node.id === id && node.kind === "group")) { rail.select(id);
-
- return; }
-
     const node = rail.nodes.find(each => each.id === id);
 
     const attention = node?.kind === "workstream" && node.status?.kind !== "needs-you"
       ? rail.nodes.find(each => each.status?.kind === "needs-you" && ancestorsOf(topology(), each.id).includes(id)) : undefined;
 
-    rail.select(attention?.id ?? id);
-    queueMicrotask(() => document.querySelector<HTMLElement>(".pane-screen textarea, .pane-screen [tabindex]")?.focus());
+    const destination = attention?.id ?? id;
+    selection.selection.replace(destination);
+    anchorAt(destination);
+    rail.select(destination);
   };
 
   const focusRow = (id: string) => rowElement(id)?.focus();
@@ -640,11 +638,6 @@ export const Rail = () => {
       expandedValue={expanded()}
       selectedValue={selection.selection.selectedValues()}
       expandOnClick={false}
-      onSelectionChange={(details) => {
-        const id = details.selectedValue.at(-1);
-
-        if (id !== undefined && rail.nodes.some(node => node.id === id)) { selection.selection.replace(id); anchorAt(id); rail.select(id); queueMicrotask(() => rowElement(id)?.focus()); }
-      }}
       onExpandedChange={(details) => {
         const open = new Set(details.expandedValue);
 
@@ -739,6 +732,7 @@ export const Rail = () => {
                           tabbable={tabbableId() === view().node.id}
                           branch={collection().isBranchNode(entryOf(view().node.id).node)}
                           onToggle={() => rail.toggleCollapsed(view().node.id)}
+                          onOpen={() => openRow(view().node.id)}
                           onFailure={(message) => {
                             const id = view().node.id;
                             failure.show(message, id, "rail", () => setEditingName(id));

@@ -26,13 +26,26 @@ pub use state::{AppState, Listed, Project};
 use tauri::ipc::{Channel, InvokeResponseBody};
 use tauri::{AppHandle, Builder, Manager, RunEvent, Runtime, State};
 
-/// `exit` ends the App with a code; `run` passes `AppHandle::exit`. It is a parameter because the
-/// mock runtime cannot exit and a test must see that a refused start asks for it.
+/// Build with stderr feedback and an observable fatal exit. The native entry point additionally
+/// presents dialogs through `build_with_feedback`; mock runtimes never open OS dialogs here.
 pub fn build<R: Runtime>(
     builder: Builder<R>,
     config: Config,
     project_dir: Option<PathBuf>,
     exit: impl Fn(&AppHandle<R>, i32) + Send + 'static,
+) -> Builder<R> {
+    build_with_feedback(builder, config, project_dir, move |app, _, code| {
+        if let Some(code) = code {
+            exit(app, code);
+        }
+    })
+}
+
+fn build_with_feedback<R: Runtime>(
+    builder: Builder<R>,
+    config: Config,
+    project_dir: Option<PathBuf>,
+    feedback: impl Fn(&AppHandle<R>, String, Option<i32>) + Send + 'static,
 ) -> Builder<R> {
     let builder = builder.manage(std::sync::Mutex::new(launch::Delivery::default()));
     #[cfg(target_os = "macos")]
@@ -67,21 +80,34 @@ pub fn build<R: Runtime>(
         .on_menu_event(|app, event| handle_menu_event(app, &event))
         .invoke_handler(invoke_handler())
         .setup(move |app| {
-            app.manage(std::sync::Arc::new(alert::Alerts::new(Box::new(alert::Plugin(app.handle().clone())))));
+            app.manage(std::sync::Arc::new(alert::Alerts::new(Box::new(
+                alert::Plugin(app.handle().clone()),
+            ))));
             #[cfg(target_vendor = "apple")]
             native::project_menu_hints(app.handle(), Vec::new())?;
             let state = app.state::<AppState>();
-            let initialized = app.path().app_data_dir()
-                .map_err(|error| RpcError::internal(format!("Cannot locate the App data folder: {error}")))
+            let initialized = app
+                .path()
+                .app_data_dir()
+                .map_err(|error| {
+                    RpcError::internal({
+                        diagnostics::failure("locate App data folder", &error);
+                        "App data folder unavailable".to_owned()
+                    })
+                })
                 .and_then(|dir| state.use_data_dir(dir));
             if let Err(error) = initialized {
-                log::warn!(target: "roundup::shell", "refuse Project preferences: RPC failure code {}", error.code);
-                exit(app.handle(), 1);
+                let message = diagnostics::report("refuse Project preferences", &error.message);
+                feedback(app.handle(), message, Some(1));
                 return Ok(());
             }
-            if let Err(error) = tauri::async_runtime::block_on(state.restore(app.handle())) {
-                log::warn!(target: "roundup::shell", "restore Project preferences: RPC failure code {}", error.code);
-                exit(app.handle(), 1);
+            if let Err(error) = tauri::async_runtime::block_on(
+                state.restore_with_feedback(app.handle(), |message| {
+                    feedback(app.handle(), message, None)
+                }),
+            ) {
+                let message = diagnostics::report("restore Project preferences", &error.message);
+                feedback(app.handle(), message, Some(1));
                 return Ok(());
             }
             if let Some(ref project_dir) = project_dir
@@ -89,8 +115,10 @@ pub fn build<R: Runtime>(
                     tauri::async_runtime::block_on(state.open_project(app.handle(), project_dir))
             {
                 // An Err from setup makes Tauri panic (SIGABRT); a refused start is not a bug.
-                log::warn!(target: "roundup::shell", "open startup Project: RPC failure code {}", err.code);
-                exit(app.handle(), 1);
+                let message =
+                    state.report_project_failure("open startup Project", project_dir, &err)?;
+                feedback(app.handle(), message, Some(1));
+                return Ok(());
             }
             if let Some(path) = project_dir {
                 launch::deliver(
@@ -159,38 +187,38 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
         std::env::var("ROUNDUP_ALLOW_WINDOW").ok().as_deref(),
         std::env::var_os("ROUNDUP_DATA_DIR").as_deref(),
         std::env::var_os("ROUNDUP_IDLE_EVIDENCE_DIR").as_deref(),
-    )?;
-    let config = Config::from_env()?;
-    let context = config.context()?;
+    )
+    .inspect_err(|cause| {
+        diagnostics::report("check idle performance profile", cause);
+    })?;
+    let config = Config::from_env().inspect_err(|cause| {
+        diagnostics::report("configure App", cause);
+    })?;
+    let context = config.context().inspect_err(|error| {
+        diagnostics::report("resolve App context", &format!("IO {:?}", error.kind()));
+    })?;
     let project_dir = std::env::args_os()
         .nth(1)
         .filter(|argument| !argument.to_string_lossy().contains("://"))
         .map(std::path::absolute)
-        .transpose()?;
+        .transpose()
+        .inspect_err(|error| {
+            diagnostics::report("resolve startup Project", &format!("IO {:?}", error.kind()));
+        })?;
     let builder = tauri::Builder::default();
     #[cfg(target_os = "macos")]
     let builder = builder.plugin(tauri_plugin_single_instance::init(launch::second_launch));
-    diagnostics::startup(
-        build(
+    diagnostics::startup(|| {
+        build_with_feedback(
             builder.plugin(diagnostics::plugin()),
             config,
             project_dir,
-            |app, code| {
-                if let Err(error) = app.state::<AppState>().recent_projects() {
-                    use tauri_plugin_dialog::DialogExt;
-                    let refused = app.clone();
-                    app.dialog()
-                        .message(error.message)
-                        .title("Cannot open roundup")
-                        .show(move |_| refused.exit(code));
-                    return;
-                }
-                app.exit(code);
-            },
+            diagnostics::message,
         )
-        .build(context),
-    )?
-    .run(|app, event| handle_run_event(app, &event));
+        .build(context)?
+        .run(|app, event| handle_run_event(app, &event));
+        Ok(())
+    })?;
     Ok(())
 }
 

@@ -56,9 +56,15 @@ opt-level = 3
 opt-level = 3
 
 # U3082b: scanning 400 MB with IgnoredAny took 2.29–2.57 s in the test profile.
-# Keep the JSON scanner optimised, as with the Terminal parsers above; the Adapter
-# and its tests remain unoptimised and keep the two-second preview budget.
+# Keep JSON scanning optimised, as with the Terminal parsers above, within
+# the two-second preview budget.
 [profile.dev.package.serde_json]
+opt-level = 3
+
+# B5718a/b scan every byte of 1/16/64 MiB receipt fixtures; unoptimised
+# Adapter validation took 40.807 s and 13.531 s in CI. Optimise it alongside
+# serde_json so allocation observers keep all fixtures within rule 10's 5 s.
+[profile.dev.package.agents]
 opt-level = 3
 
 # DV2's 32 real 32 MiB publications took 27.339 s with unoptimised SHA-256.

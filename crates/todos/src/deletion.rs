@@ -666,6 +666,7 @@ impl Todos {
         actor: &Actor,
         source: &str,
         operation: &str,
+        removed: &[String],
     ) -> Result<Vec<EventData>, RpcError> {
         let prior: String = db
             .query_row(
@@ -705,7 +706,7 @@ impl Todos {
             !previous.deleted.is_empty(),
         )?;
         db.execute("INSERT INTO rail_removal_items(operation,kind,id,home,owner) SELECT ?2,kind,id,home,owner FROM rail_removal_items r WHERE operation=?1 AND ((kind='todo-home' AND EXISTS(SELECT 1 FROM todos t WHERE CAST(t.id AS TEXT)=r.id AND t.home=r.home)) OR (kind='todo-owner' AND EXISTS(SELECT 1 FROM todos t WHERE CAST(t.id AS TEXT)=r.id AND t.owner=r.owner)))",params![source,operation]).map_err(RpcError::internal)?;
-        db.execute("INSERT OR IGNORE INTO rail_removal_items(operation,kind,id,home) SELECT ?2,'todo-home',CAST(id AS TEXT),home FROM todos WHERE home=(SELECT node FROM rail_deletions WHERE operation=?1)",params![source,operation]).map_err(RpcError::internal)?;
+        db.execute("INSERT OR IGNORE INTO rail_removal_items(operation,kind,id,home) SELECT ?2,'todo-home',CAST(id AS TEXT),home FROM todos WHERE home IN (SELECT value FROM json_each(?1))",params![serde_json::to_string(removed).map_err(RpcError::internal)?,operation]).map_err(RpcError::internal)?;
         db.execute("UPDATE todos SET home=NULL WHERE CAST(id AS TEXT) IN (SELECT id FROM rail_removal_items WHERE operation=? AND kind='todo-home')",[operation]).map_err(RpcError::internal)?;
         let mut q=db.prepare("SELECT CAST(id AS INTEGER) FROM rail_removal_items WHERE operation=? AND kind='todo-owner'").map_err(RpcError::internal)?;
         let ids = q

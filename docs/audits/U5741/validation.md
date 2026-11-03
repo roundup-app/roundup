@@ -152,3 +152,134 @@ PR #5796's `pre` run [41543913546](https://github.com/roundup-app/roundup/action
 | Vocabulary, scenario ids, merge-loss and whitespace checks | 0 | No vocabulary, scenario identity, main-only merge loss or whitespace violation. |
 
 No new test duplicates the compiler's global-allocator uniqueness check (rule 10). No UI behavior, scenario, contract or frozen-loop change was authored. Diff review confirmed the deletion preserves every allocator caller and introduces no new machinery.
+
+## Settings evidence — builder-41556795106
+
+Product source remains `092fcafbf910f292d7180c97d35bd381aff984b3`; documentation continues from main `df38b366e772e810592e7d19b3b8d04adb8419c7`. Own branch/worktree and a separate detached product-source worktree preserve that boundary. The new catalogue lists product changes between them, not an audited disposition of that delta.
+
+Passed: `pnpm install --frozen-lockfile` in both worktrees (exit 0); `cargo build -p rup -p rupd` at the audited source (exit 0); `python3 loop/orders.py check /tmp/u5741-5758-41556795106.md` (exit 0) before the authorized documentation scope update. Rebuilt binary hashes and the isolated real Daemon's actual `models.list` request/reply are in `catalogues/settings-source.json`. No Agent is launched. Ten settings openings at 1512×950 in dark pass every recorded D Check, including D2/D5/D6. PNG files and raw snapshots stay under `artifacts/ux/U5741/settings/`; exact controls/values and Checks are in `rendered-settings.json`.
+
+The existing fake App has separate `of("")` global calls: changing a Project's skill handler does not supply Settings' global installation read. The corrected observer supplies only that isolated global fixture. It establishes actual outdated/foreign presentation, never a real file installation. The New Agent recorder opens, but neither the CLI chord nor the single evaluated key saved an override; Reset/export rendering remains unverified. Earlier labels claiming an override were discarded and their image removed. No product behavior change or bug conclusion rests on these observer failures.
+
+Each failed command below failed; later unrelated commands in a shell do not convert it into a pass. Temporary drivers are observers outside the product tree, not new product helpers.
+
+| Command / observer | Exit / status | Failure and disposition |
+| --- | --- | --- |
+| Initial `ls -d .codegraph .claude/sound` | 2 | No codegraph index; sound directory exists. Normal source search used. |
+| `cat .../settings/pages.ts` in the first settings read | 1 | Guessed module absent; actual control registry is in AppSettings.tsx and was read. |
+| `rg ... claude_code/*naming* ... app/notifications.ts` | 2 | Guessed paths absent; actual naming delivery and rail/stateAlerts.ts found from the file census. |
+| Python catalogue read in the detached product-source worktree | 1 | Audit reports postdate the product revision; loaded them from the continuation checkout instead. |
+| `rg ... claude_code/hooks*` | 2 | Guessed glob absent; no equivalence conclusion depends on it. |
+| `cat .../app/stateAlerts.ts` | 1 | Actual module is rail/stateAlerts.ts. |
+| `cat .../settings/ShortcutRow.tsx .../app/alerts.ts` | 1 | Both guessed modules absent; actual owners are ShortcutSetting.tsx and rail/stateAlerts.ts. |
+| `cat .../toasts/watch.ts .../toasts/policy.ts` | 1 | Actual watch is watch.tsx; no policy module inferred. |
+| `rg ... scenarios/ui-agent-naming.md ... scenarios/ui-settings*` | 2 | Guessed path/glob absent; actual naming and settings scenarios located by file census and read. |
+| Python `rendered-keyboard.json['pages'][0]` discovery | 1 | Pages is a name-keyed object, not an array; no evidence accepted from that expression. |
+| `cat docs/audits/U5741/rendered-keyboard.json` in the pinned source worktree | 1 | Report does not exist at that older product revision; read it from the continuation checkout. |
+| `rg --files /tmp` discovery | 2 | Unrelated private directories unreadable. Shared Cargo target was read directly from CARGO_TARGET_DIR. |
+| `agent-browser find role button click --name 'Engine Use the default' --exact` | 1 | Exact composite accessible-name locator failed. Actual mounted trigger selected through its popover attributes. |
+| `agent-browser find nth '.settings-content button[aria-haspopup=dialog]' 0 click` | 1 | Arguments reversed; corrected documented order to index then selector. |
+| `agent-browser find role button click --name 'New Agent ⌘N' --exact` | 1 | Composite name locator failed. Actual current snapshot ref used; Press a shortcut state captured. |
+| `agent-browser find role button click --name Reset --exact` | 1 | No Reset existed. The preceding text wait matched Reset text size, not a Reset control; that override image was discarded. |
+| `python3 /tmp/u5741-settings-rest.py` initial discovery | 1 | Reset ref search returned none; no Reset behavior or capture accepted. |
+| `agent-browser wait --fn 'Array.from(document.querySelectorAll(".settings-content button")).some(e=>e.textContent==="Reset")'` | 1 | Timed out; supplied chord left the recorder active. No saved override or export pass claimed. |
+| `agent-browser wait --fn 'Array.from(document.querySelectorAll("button")).some(e=>e.textContent==="Update")'` | 1 | Timed out because fixture changed the Project handler instead of global `of("")`; corrected fixture yielded actual Update. |
+| `rupd --help` | 1 | Daemon takes a positional Project; it treated --help as a nonexistent directory and refused. Read main.rs/data.rs before starting an isolated Project with dedicated data and socket. |
+| `rup models list` | 2 | No CLI leaf named models; source registry exposes models.list as RPC. Used the existing newline JSON-RPC socket seam, preserving its actual reply. |
+| `rg ... crates/rupd/src/config.rs` | 2 | Actual data configuration lives in data.rs; read before isolated launch. |
+| `rg ... crates/rupd/src/server.rs` | 2 | Guessed server path absent; request framing verified in rpc/src/client.rs. |
+| Apple notification page open, canonical URL | HTTP 429 | Browser tool could not fetch. Primary Apple search result and alternate regional source establish only app-scoped controls; no native observation claimed. |
+| Apple notification page open, UK regional URL | HTTP 429 | Same access failure; not a second successful source. |
+| First report reconciliation Python assertion | 1 | DOM control census included hidden lazy-mounted tabs; classified it explicitly as mountedControls. Actual accessibility snapshot has the fifteen visible alert switches. No visibility pass inferred from the broader census. |
+| First `git commit` | 1 | Pretty-printed generated readings exceeded the 1000-line file gate. Serialized the readings compactly, matching rendered-keyboard.json; hook then passed, with no rule change. |
+
+The final documentary checks and `just ready` result are recorded below. Final self-review retained E7 as unverified: Apple supports rebinding existing menu commands, so different preference storage cannot justify a negative equivalence answer. Menu titles and native/webview scope still need per-row reconciliation. No local `just check`, whole test suite or report-text test runs.
+
+| Command | Exit | Result |
+| --- | --- | --- |
+| `just ready` (first run) | 1 | lint-repo spelling scan rejected the plural image abbreviation in this log. Replaced it with PNG files; web lint/typecheck and launch-sites passed. Required rerun recorded below. |
+
+Harness process log also reported four `ResizeObserver loop completed with undelivered notifications` errors during navigation; these remain observer diagnostics, not a product fix or a native behavior pass. The final ten retained screens each independently passed their recorded Checks. Browser and both isolated serving processes were closed by this run after collection.
+
+Fetched and merged main `b0562bd815f4f986b981b1c024e989328dd1489f` without conflicts; `loop/rules.sh merge-loss` passes (exit 0). Pinned product source and its observations remain unchanged. The production-path delta catalogue is refreshed through this merge.
+
+| Command | Exit | Result |
+| --- | --- | --- |
+| `just ready` (second run) | 1 | Spelling scan found the same plural image abbreviation in settings-evidence.md. Replaced every new occurrence; web lint/typecheck and launch-sites passed. No baseline, spelling exception or product change. |
+
+Final reconciliation passed (exit 0): sixty unique configuration rows match the runtime catalogue; inspected files match their pinned hashes; the real model reply names only Claude Code; all ten nonempty retained pages pass every recorded Check and have paired PNG files; the actual Alerts snapshot contains fifteen switches and the actual recorder says Press a shortcut. No override image remains. Vocabulary, scenario ids, whitespace and post-merge merge-loss pass (exit 0). Standalone `just lint-rust origin/main` passes (exit 0), including `ALL PROOFS CHECK`; its first successful run installed the existing pinned Lean toolchain. No test file was changed or newly required by this documentation-only slice.
+
+`just ready` final rerun passes (exit 0) on the merged checkout: web lint, typecheck, Rust/repository lint, proofs and N7 launch-sites. The only subsequent change records this result. No local `just check` ran; CI judges the pushed head.
+
+## Required-check repair — builder-41563179878
+
+CI run `41560029671` on `29c2f339ea44b8f4366f33fe7038060b55dcf670` failed `lint` (exit 1): Clippy could not compile the agents unit tests (E0425) because the shared `crate::ALLOCATOR` was absent. The dependent `pre` gate failed too. Restore exactly one test-only allocator using the already installed `stats_alloc`; keep every allocation observer and threshold unchanged. Production builds do not register this allocator.
+
+| Command / observer | Exit | Result |
+| --- | ---: | --- |
+| `pnpm install --frozen-lockfile` | 0 | Installed the pinned dependencies in the isolated repair worktree. |
+| `cargo nextest run -p agents --lib -E 'test(b5635b_preview_allocations_stay_bounded) \| test(b5635a_receipt_reads_only_appended_bytes) \| test(r5636e_scan_allocated_bytes) \| test(r5636e_nested_rail_allocated_bytes)'` | 0 | All four existing allocation observers pass. No new test duplicates compiler coverage. |
+| `git diff --check`, `loop/rules.sh vocab`, `loop/rules.sh merge-loss` | 0 each | No whitespace, vocabulary or inherited merge-loss defect. |
+| `just ready` (first repair attempt) | 1 | Started before dependency installation exited; early web checks could not find Babel, Stylelint or TypeScript. Rust lint, proofs and N7 passed. Rerun after installation completed. |
+| `just ready` (final repair attempt) | 0 | Web lint/typecheck, workspace Clippy, repository guards, `ALL PROOFS CHECK` and N7 launch-sites pass. No local `just check` ran. |
+
+## Required-check repair — builder-41567182937
+
+CI runs `41565024004` and `41565023990` on `fa9b5c63ca140e8bcbf28ba5364e44638eed1846` failed lint and the macOS/Rust test lanes before tests ran: their merge checkout contained two `ALLOCATOR` declarations (E0428). Main's independently merged #5828 already supplies the shared test allocator. Merge main `fc8f38711` and delete this branch's duplicate; `crates/agents/src/lib.rs` then equals main. Allocation observers and thresholds remain unchanged, and the net PR changes only audit documentation.
+
+| Command / observer | Exit | Result |
+| --- | ---: | --- |
+| `pnpm install --frozen-lockfile` | 0 | Pinned dependencies installed before `just ready`. |
+| `git diff --check`, `loop/rules.sh vocab`, `loop/rules.sh merge-loss` | 0 each | No whitespace, vocabulary or inherited merge-loss defect. Main merged without conflicts; its merge has no remerge diff. |
+| Targeted `cargo nextest run -p agents --lib` allocation observers | 0 | All six pass: `b5635b_preview_allocations_stay_bounded`, `r5636e_scan_allocated_bytes`, `r5636e_nested_rail_allocated_bytes`, `b5635a_receipt_reads_only_appended_bytes`, `b5635c_unrelated_hooks_do_not_copy_completed_text` and `b5635c_completion_changes_are_reported_once`. |
+| `just ready` | 1 | Only `just migrations origin/main` fails: main already contains both `0044-inbox-entry.sql` and `0044-start-attribution.sql`. Existing repair PR #5833 and Issue #5837 own this collision. Web lint/typecheck, Rust/repository guards, `ALL PROOFS CHECK` and N7 launch-sites pass. Clippy skips the documentation-only net diff; the targeted Nextest runs compile the agents unit tests. No local `just check` ran. |
+
+
+## Required-check repair — builder-41568471071
+
+CI run `41568393992` on `f8495ca8decd9244e0cc8d88307d812e2e9cafba` failed the B4522 filename guard before tests: main contains both `0044-inbox-entry.sql` and `0044-start-attribution.sql`. Carry the exact independently approved repair from PR #5833 (`85f61e537cb70d2cdd923ce947338438ce0071d2`): rename the latter to `0045-start-attribution.sql`. Issue #5758 records this scope expansion; #5837 owns the upstream collision. Neither the guard nor its recorded exceptions change.
+
+| Command / observer | Exit | Result |
+| --- | ---: | --- |
+| `pnpm install --frozen-lockfile` | 0 | Pinned dependencies installed before `just ready`. |
+| `just migrations origin/main` | 0 | Filename guard and all nine existing fixture tests pass. |
+| Ordered Project SQL comparison against `origin/main` | 0 | All 49 bytewise-sorted SQL contents match exactly; the migration count and applied positions are unchanged. |
+| `git diff --check`, `loop/rules.sh merge-loss` | 0 each | Exact rename; no whitespace or inherited merge-loss defect. |
+| `cargo nextest run -p rupd --lib -E 'test(r3696c_a_fresh_project_db_equals_the_migrated_one_with_its_own_identity) \| test(n5467)'` | 0 | Four existing observers pass: fresh schema/image equality, older-store refusal without changes, old Project data refusal with retained worktrees, and incomplete reaction-record refusal. |
+| `just ready` | 0 | Web lint and typecheck, workspace Clippy, repository guards, `ALL PROOFS CHECK` and N7 launch-sites pass. No local `just check` ran. |
+
+## Changes and resources continuation — builder-41575207304
+
+This documentation slice observes main `f87a3ddd158ec53a311d29265fa6414d6efa4434`, not an unrecorded promotion of the earlier product revision. The changes/resources report and source catalogue reconcile the relevant current declarations, menu projection and inspected implementation hashes. Other production delta and the complete audit remain pending. No product, scenario, Principle, contract, test or frozen-loop file changes; no deletion or owner choice.
+
+| Command / observer | Exit | Result |
+| --- | ---: | --- |
+| `pnpm install --frozen-lockfile` | 0 | Installed pinned dependencies in this run's own worktree. |
+| `python3 loop/orders.py check /tmp/u5741-scope-415752.md` | 0 | Validated exact documentary scope before editing #5758. |
+| `gh issue edit 5758 --body-file /tmp/u5741-scope-415752.md` | 0 | Added the permitted evidence files and reasons to the canonical work order. |
+| `just harness resources 5234` | running observer | Isolated fake-Daemon App from this recorded source, loopback only. |
+| `python3 /tmp/u5741-changes-observe.py` and `...-run.py` | 0 each | Fresh dedicated headless session/profile, actual tree opening and requested resource inspection. |
+| `python3 /tmp/u5741-changes-more.py` after locator repair | 0 | Diff, source-note fields, saved batch and edit openings retained. A final guessed button hit Old rather than Close; no close pass was inferred from it. Correct action used subsequently. |
+| `python3 /tmp/u5741-changes-recovery.py` | 0 | Existing native Project command opens the actual recoverable forms/notes and actions. |
+| `python3 /tmp/u5741-changes-failures.py` | 0 | Actionable failed Worktree read, stale resource samples, finished selection and absent measurements. Eleven distinct pages in rendered-changes.json. Nine pass all Checks; note form/edit retain existing D2/D10 failures on resolved automatic margin. |
+| `python3 /tmp/u5741-editor-probe.py`, `.../u5741-probes.py` | 0 each | Real tree selection plus Enter reaches the editor seam with the selected Worktree path and line 1; no native editor execution claimed. Catalogue retains exact menu projection and editorCalls. |
+| `gh --version`, `gh pr diff/checks/view/review --help` | 0 each | Vendor version and exact supported commands retained; no review posted. |
+| `loop/rules.sh vocab`, `loop/rules.sh scenario-ids`, `git diff --check` | 0 each | Documentary vocabulary, ids and whitespace pass. |
+
+| Failed command / observer | Exit / status | Failure / disposition |
+| --- | --- | --- |
+| Initial `ls -d .codegraph .claude/sound` | 2 | No graph index; sound rules exist. Normal source search used. |
+| `sed ... apps/desktop/src/changes/ChangedTree.ts` | 2 | Actual source is ChangedTree.tsx; read it before completing reconciliation. |
+| First `python3 /tmp/u5741-changes-more.py` | 1 | Exact semantic locator could not address the shadow tree row. Fresh snapshot ref selected the actual file, then View diff opened it. |
+| `python3 /tmp/u5741-changes-states.py` | 1 | Recover notes trigger was no longer open when `.note-recovery` was observed. No trigger pass claimed. Project command observer subsequently opened actual recovery. |
+| `python3 /tmp/u5741-changes-final-render.py` | 1 | Resource-value recapture completed, but guessed shadow path attribute wait timed out. No editor pass inferred; actual row ref plus Enter subsequently recorded the correct path/line. |
+| `rg ... apps/desktop/src/rail/Worktree*` | 2 | No module matches the guessed glob; chips live in RailRow.tsx, which was read and recorded. |
+| Primary Apple process-guide page retrieval | HTTP 429 | Full-page retrieval unavailable. Search excerpt does not prove Agent-tree or directory-size equivalence; Q1 stays unverified. |
+
+PNG files and paired readings remain under artifacts/ux/U5741 in this run's worktree, uncommitted. The final inventory and owner request remain pending, including every unverified row and conditional opening named in changes-resources.md. An existing Check failure is retained as evidence, never converted to a pass. No local `just check` ran.
+
+Observer correction before commit: the first CI fixture used `failure`, outside WorktreeCiState's `failed` variant. All eleven first-session readings and images were discarded. `python3 /tmp/u5741-changes-recapture-rest.py` (exit 0), in fresh session/profile `u5741-415752-r2`, replaces every retained page using the valid contract value; CI reads Failed and PR reads #42. The first recapture attempt (`.../u5741-changes-recapture.py`, exit 1) waited for a CI chip before the shared Worktree read refreshed. Opening the actual Worktree control refreshed the shared state, then the continuation captured it; no chip pass is based on the timed-out wait. This is an observer repair, not a product fix. All eleven final pages have a verified dark 1512×950 environment and no undefined label; nine pass every Check and the two note forms retain D2/D10 only.
+
+The standalone spelling command initially exited 2 because the pinned tool had not been installed in this new worktree. `python3 tools/lint/setup.py web` installed the checksum-verified tools (exit 0); the subsequent `python3 tools/lint/scan.py typos` passed (exit 0). No baseline or rule changed.
+
+Final checks: both `just ready` runs pass (exit 0), including B4522's migration guard, web lint/typecheck, Rust lints, `ALL PROOFS CHECK` and N7 launch sites. Main `0c060bfd8` was merged without conflicts; every inspected source file remains byte-identical to the pinned observer source. `loop/rules.sh merge-loss`, vocabulary, scenario ids, final spelling, JSON/source/editor/menu reconciliation and whitespace checks pass (exit 0). There are no changed behavior tests to run in this documentation-only slice. The complete inventory and final owner ask remain open on #5758.

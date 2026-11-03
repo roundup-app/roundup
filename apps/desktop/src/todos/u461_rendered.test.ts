@@ -127,7 +127,7 @@ it.skipIf(!captureDir("U3021c"))("u3021c_open_restores_exact_revision_without_rp
 
   try {
     await browser("set", "viewport", "1512", "950");
-    await browser("open", `${server.resolvedUrls.local[0]}harness.html?view=workstreams&items=1&tabs=1&seed=tree-40`);
+    await browser("open", `${server.resolvedUrls.local[0]}harness.html?view=workstreams&items=1&tabs=1&renderer=dom&seed=tree-40`);
     await browser("set", "media", "dark");
     await browser("wait", "#shelf-tab-todos");
     await browser("eval", `(async () => {
@@ -259,7 +259,7 @@ describe("u3789a connected browser rows", () => {
       await app.rpc("pad.move", { name: pad.name, home: home.id });
       await browser("set", "viewport", "1512", "950");
       await browser("set", "media", "dark");
-      await browser("open", `${real.base}/harness.html?view=workstreams&items=1&tabs=1&daemon=1`);
+      await browser("open", `${real.base}/harness.html?view=workstreams&items=1&tabs=1&renderer=dom&daemon=1`);
       await until(`document.querySelector('.rail-row[data-id="${home.id}"]')`);
       await evaluate(`(() => {
         window.__rowCalls = [];
@@ -267,10 +267,11 @@ describe("u3789a connected browser rows", () => {
         window.fetch = (...args) => { if (String(args[0]).endsWith('/__daemon/rpc')) window.__rowCalls.push(JSON.parse(args[1].body)); return fetch(...args); };
       })()`);
       await browser("click", `.rail-row[data-id="${child.id}"] .name`);
-      await until(`document.activeElement?.closest('[data-id]')?.dataset.id === '${child.id}'`);
+      await until("document.activeElement?.closest('.pane-screen')");
       expect(await evaluate("window.__rowCalls.filter(call => ['agent.spawn','agent.resume','rail.startDoor'].includes(call.method))")).toEqual([]);
       expect(await evaluate("!!document.querySelector('.bubble:not([hidden])')")).toBe(false);
-      await evaluate("document.activeElement.dispatchEvent(new KeyboardEvent('keydown', {key:'Enter',code:'Enter',bubbles:true,cancelable:true}))");
+      await browser("focus", `.rail-row[data-id="${child.id}"]`);
+      await browser("press", "Enter");
       await until("document.activeElement?.closest('.pane-screen')");
       await browser("focus", `.rail-row[data-id="${home.id}"]`);
       await until(`document.activeElement?.matches('.rail-row[data-id="${home.id}"]')`);
