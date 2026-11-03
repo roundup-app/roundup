@@ -1,7 +1,5 @@
 import type { Event as DaemonEvent } from "@contracts/Event";
-import { RpcError, type AppSeam, type Unsubscribe } from "./seam";
-
-const EVENTS_EXPIRED = -32009;
+import type { AppSeam, Unsubscribe } from "./seam";
 
 export type Events = {
   /**
@@ -12,7 +10,7 @@ export type Events = {
 };
 
 /**
- * Opens the single Daemon subscription, replaying the saved Events (`after: 0`, or from the oldest the log still keeps), and fans it out; resolves once the Daemon is sending, so a caller that fetches next misses nothing.
+ * Opens the single Daemon subscription, replaying every Event the log still keeps (`kept: true`), and fans it out; resolves once the Daemon is sending, so a caller that fetches next misses nothing.
  * The Daemon answers its `head`: an Event numbered at or below it was saved before the subscription and is replay, which only a `replay` listener hears.
  */
 export const connectEvents = async (app: AppSeam): Promise<Events> => {
@@ -34,16 +32,7 @@ export const connectEvents = async (app: AppSeam): Promise<Events> => {
     else deliver(event);
   };
 
-  try {
-    head = await app.subscribe(onEvent, 0);
-  } catch (error) {
-    // The log keeps only its last Events: replay from the oldest one it names, so the older span stays unknown.
-    const oldest = error instanceof RpcError && error.code === EVENTS_EXPIRED && error.data?.kind === "events-expired" ? error.data.oldest : undefined;
-
-    if (oldest === undefined) throw error;
-
-    head = await app.subscribe(onEvent, oldest - 1);
-  }
+  head = await app.subscribe(onEvent, { kept: true });
 
   return {
     subscribe: (listener, options) => {

@@ -142,7 +142,7 @@ export const layoutRail = (source: RailSource, view: RailView, section?: RailSec
 
   const rowsOfNode = (at: number, depth: number, trail: readonly boolean[]): RailRow[] => {
     const node = tree.nodes[at]!;
-    const collapsed = isWorkstream(node) && view.collapsed.has(node.id);
+    const collapsed = (isWorkstream(node) || node.kind === "group") && view.collapsed.has(node.id);
     const below = collapsed ? [] : rowsOf(at, depth + 1, trail);
 
     const row: RailRow = {
