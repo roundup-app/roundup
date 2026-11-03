@@ -13,6 +13,9 @@ The audit must prevent missed conditional offers, unsupported claims of non-use/
 
 | Artifact | Holds |
 | --- | --- |
+| [rail-structure.md](rail-structure.md) | Twenty-one separate structure/secondary-control rows, conditional scope and unfinished comparisons |
+| [catalogues/rail-structure-source.json](catalogues/rail-structure-source.json) | Revision-pinned sources, direction and public mappings |
+| [rendered-rail-structure.json](rendered-rail-structure.json) | Fresh isolated disclosure, rename, move, path/link and creator-Todo openings |
 | [project-entry.md](project-entry.md) | Twenty-one independent Project entry, tab and recovery decisions, criteria, direction and remaining conditional gaps |
 | [catalogues/project-source.json](catalogues/project-source.json) | Current source hashes, historical role offers explicitly pinned to their original revision, vendor help and direction provenance |
 | [rendered-project.json](rendered-project.json) | Fresh isolated first-run, tab, draft recovery, close and startup/Daemon failure openings |
