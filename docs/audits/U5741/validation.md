@@ -668,3 +668,7 @@ No owner choices requested, deletion authorized or complete-inventory claim made
 | `python3 tools/lint/setup.py web` / final spelling scan | 0 each | Installed pinned tools; no new spelling debt. |
 | Browser close | 0 | Only this run's dedicated session closed; nine captures copied to workflow checkout under `artifacts/ux/U5741/pads/`, uncommitted. |
 | Harness deliberate shutdown | Vite 143, wrapper 1 | Sent SIGTERM only to this run's Vite process after captures; not a failed opening or product defect. |
+
+| Required local check | Exit | Result |
+| --- | ---: | --- |
+| `just ready` | 0 | B4522 migration guard and its nine tests, all 193 lint-behavior fixtures, web/package type checks, repository/Rust lints, formal proof command/mutation checks (`ALL PROOFS CHECK`) and N7 pass. Documentation diff reaches no Rust crate, so clippy is correctly skipped by the existing affected-path check. No local `just check` or additional behavior suite. |
