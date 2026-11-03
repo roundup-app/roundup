@@ -114,6 +114,16 @@ The same main-branch fetch completed locally in under one second during
 investigation; no persistent fetch failure was reproduced. Retry on the
 updated evidence head, retaining the job limit and every required gate.
 
+On head `c8bc3c971ecba36c75a55b84468c0ffdb3fb70ad`,
+[lint job 126073056181](https://github.com/roundup-app/roundup/actions/runs/41680418298/job/126073056181)
+again exhausted the job limit during the main-branch fetch. The fetch started
+at 2026-11-03T17:05:20.5398429Z and was cancelled at
+17:19:59.8891368Z (879.349 seconds). Setup and lint execution were skipped;
+`pre` failed because lint was cancelled. This supplies no lint result or
+performance observation. Local fetching completed successfully, but does not
+establish why the hosted fetch stalled. Merge current main and retry the
+required CI gates; no timeout, workflow or gate is changed.
+
 ## Repair prerequisite
 
 [#5911](https://github.com/roundup-app/roundup/issues/5911) blocks #5666 and scopes
