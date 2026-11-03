@@ -157,10 +157,22 @@ it.each([false, true].flatMap(editable => ["Evidence", "For Agents"].map(label =
       if (input === "pointer") await browser("click", `${section} summary`);
       else await browser("press", input === "Return" ? "Enter" : "Space");
       await wait(`document.querySelector(${query}).open === ${open}`);
-      expect(await read(`document.querySelector(${query}).querySelector('summary').getAttribute('aria-expanded')`)).toBe(String(open));
-      expect(await read(`document.querySelector(${query}).querySelector('textarea').checkVisibility()`)).toBe(open);
-      expect(await read(`document.activeElement === document.querySelector(${query}).querySelector('summary')`)).toBe(true);
-      expect(await read(`[...document.querySelectorAll('details[data-pad-agents]')].filter(d => d !== document.querySelector(${query})).every(d => !d.open)`)).toBe(true);
+
+      const state = await read<{ expanded: string; visible: boolean; focused: boolean; othersClosed: boolean }>(`(() => {
+        const section = document.querySelector(${query});
+        const summary = section.querySelector('summary');
+        return {
+          expanded: summary.getAttribute('aria-expanded'),
+          visible: section.querySelector('textarea').checkVisibility(),
+          focused: document.activeElement === summary,
+          othersClosed: [...section.closest('.ProseMirror').querySelectorAll('details[data-pad-agents]')].filter(d => d !== section).every(d => !d.open),
+        };
+      })()`);
+
+      expect(state.expanded).toBe(String(open));
+      expect(state.visible).toBe(open);
+      expect(state.focused).toBe(true);
+      expect(state.othersClosed).toBe(true);
     }
 
     await browser("press", "Tab");
@@ -227,7 +239,6 @@ it.each([false, true])("u5575a_headings_fold_only_their_sections editable=%s", {
   expect(await read("document.querySelectorAll('details[data-pad-heading]').length")).toBe(8);
   expect(await read("[...document.querySelectorAll('details[data-pad-heading]')].every(d => d.open)")).toBe(true);
   const heading = (name: string) => `details[data-pad-heading] summary[aria-label="${name}"]`;
-  const visible = (name: string) => read<boolean>(`document.querySelector(${JSON.stringify(heading(name))}).checkVisibility()`);
   const dir = captureDir("U5575a");
   const sizingDir = captureDir("U5704a");
 
@@ -276,17 +287,30 @@ it.each([false, true])("u5575a_headings_fold_only_their_sections editable=%s", {
         if (input === "pointer") await browser("click", selector);
         else await browser("press", input === "Return" ? "Enter" : "Space");
         await wait(`document.querySelector(${JSON.stringify(selector)}).getAttribute('aria-expanded') === '${open}'`);
-        expect(await read(`document.activeElement.matches(${JSON.stringify(selector)})`)).toBe(true);
-        expect(await visible("Reference")).toBe(true);
+
+        // Read one settled editor state per input, with all queries scoped to that editor.
+        const state = await read<{ focused: boolean; headings: Record<string, boolean>; agents: boolean; review: boolean }>(`(() => {
+          const summary = document.querySelector(${JSON.stringify(selector)});
+          const editor = summary.closest('.ProseMirror');
+          return {
+            focused: document.activeElement === summary,
+            headings: Object.fromEntries([...editor.querySelectorAll('details[data-pad-heading] summary')].map(s => [s.ariaLabel, s.checkVisibility()])),
+            agents: editor.querySelector('details[data-pad-agents]').checkVisibility(),
+            review: [...editor.querySelectorAll(':scope > p')].find(p => p.textContent === 'Review.').checkVisibility(),
+          };
+        })()`);
+
+        expect(state.focused).toBe(true);
+        expect(state.headings.Reference).toBe(true);
 
         if (name === "Result") {
-          expect(await visible("Verification")).toBe(open);
-          expect(await visible("Next step")).toBe(open);
+          expect(state.headings.Verification).toBe(open);
+          expect(state.headings["Next step"]).toBe(open);
         }
 
         if (name === "Verification") {
-          expect(await read("document.querySelector('details[data-pad-agents]').checkVisibility()")).toBe(open);
-          expect(await visible("Next step")).toBe(true);
+          expect(state.agents).toBe(open);
+          expect(state.headings["Next step"]).toBe(true);
 
           if (!open) {
             await browser("press", "Tab");
@@ -295,9 +319,9 @@ it.each([false, true])("u5575a_headings_fold_only_their_sections editable=%s", {
           }
         }
 
-        if (name === "Next step") expect(await read("[...document.querySelectorAll('.ProseMirror > p')].find(p => p.textContent === 'Review.').checkVisibility()")).toBe(open);
+        if (name === "Next step") expect(state.review).toBe(open);
 
-        if (name === "Reference") expect(await visible("Third")).toBe(open);
+        if (name === "Reference") expect(state.headings.Third).toBe(open);
 
         if (input === "pointer") await captureHeadingTargets(name, open);
 
