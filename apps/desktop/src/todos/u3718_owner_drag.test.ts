@@ -64,7 +64,7 @@ describe("u3718 a Todo dragged to another owner's group", () => {
 
     const [one] = await lane.order();
     const owner = await lane.evaluate(`window.__fake.app.rpc('todo.list', null).then(todos => todos.find(todo => todo.id === ${one}).owner)`);
-    const destination = await lane.evaluate<string>(`document.querySelector('[data-part="branch"][aria-expanded] > .rail-row').dataset.id`);
+    const destination = await lane.evaluate<string>(`document.querySelector('.rail').querySelector('[data-part="branch"][aria-expanded] > .rail-row').dataset.id`);
     const from = await lift(lane, one!);
     const to = await centre(lane, `[data-part="branch"][aria-expanded] > .rail-row`);
 
