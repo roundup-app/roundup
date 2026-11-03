@@ -3,7 +3,7 @@ import { leaderKey } from "../keys/leaderFixture";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
 import { Layout } from "../app/Layout";
-import { RequestedApp as App } from "../testing/requestedApp";
+import { App } from "../App";
 import { fakeEmulators } from "../terminal/paneHarness";
 import { seedApp } from "../testing/seeds";
 import type { SeedName } from "../testing/seeds";
@@ -37,7 +37,7 @@ const mountApp = async (seed: SeedName = "tree-40", reducedMotion = true) => {
   window.matchMedia ??= (query) => ({ matches: false, media: query, onchange: null, addListener() {}, removeListener() {}, addEventListener() {}, removeEventListener() {}, dispatchEvent: () => false });
   const controls = seedApp(seed, Date.now());
 
-  render(() => <App app={controls.app} reducedMotion={() => reducedMotion} clock={Date.now} createEmulator={fakeEmulators().factory} />);
+  render(() => <App initialShelfOpen prepareIdle={open => open.showView("workstreams")} app={controls.app} reducedMotion={() => reducedMotion} clock={Date.now} createEmulator={fakeEmulators().factory} />);
   await waitFor(() => expect(document.querySelector('[aria-label="Ask"]')).not.toBeNull());
 
   if (shelf().hidden) chord();
@@ -48,7 +48,7 @@ const mountApp = async (seed: SeedName = "tree-40", reducedMotion = true) => {
 
 const shelf = () => document.querySelector<HTMLElement>(".shelf")!;
 
-const tabs = () => within(screen.getByRole("tablist", { name: "Bench" })).getAllByRole("tab");
+const tabs = () => within(within(shelf()).getByRole("tablist", { name: "Bench" })).getAllByRole("tab");
 
 const tabNamed = (name: string) => tabs().find((tab) => tab.textContent!.startsWith(name))!;
 
@@ -196,21 +196,21 @@ describe("u373 the Shelf has two tabs", () => {
   });
 
   it("u373_the_open_tab_survives_a_restart_per_project", async () => {
-    const first = await mountApp();
+    const first = await mountApp("empty-project");
     const chosen = tabNamed("Pads").id;
 
     fireEvent.click(tabNamed("Pads"));
     await waitFor(() => expect(JSON.parse(localStorage.getItem(Object.keys(localStorage).find((key) => key.startsWith("roundup:shelf:"))!)!).tab).toBe("pads"));
 
     batch(cleanup);
-    render(() => <App app={first.app} reducedMotion={() => true} clock={Date.now} createEmulator={fakeEmulators().factory} />);
-    await screen.findAllByRole("treeitem");
-    expect(within(screen.getByRole("tablist", { name: "Bench" })).getByRole("tab", { selected: true }).id).toBe(chosen);
+    render(() => <App initialShelfOpen prepareIdle={open => open.showView("workstreams")} app={first.app} reducedMotion={() => true} clock={Date.now} createEmulator={fakeEmulators().factory} />);
+    await screen.findByLabelText("Ask", { selector: '[role="region"]' });
+    expect(within(within(shelf()).getByRole("tablist", { name: "Bench" })).getByRole("tab", { selected: true }).id).toBe(chosen);
   });
 
   it("u373_a_bad_stored_value_means_todos", async () => {
     localStorage.setItem("roundup:shelf:/Users/you/harness", JSON.stringify({ open: true, tab: 7 }));
-    await mountApp();
+    await mountApp("empty-project");
 
     expect(document.getElementById("shelf-tab-todos")?.getAttribute("aria-selected")).toBe("true");
   });
@@ -231,13 +231,13 @@ describe("u373 the Shelf has two tabs", () => {
 describe("u370 the Shelf closes and opens", () => {
 
   it("u370_the_state_survives_a_restart_per_project", async () => {
-    const first = await mountApp();
+    const first = await mountApp("empty-project");
 
     chord();
     await waitFor(() => expect(JSON.parse(localStorage.getItem("roundup:shelf:/Users/you/harness") ?? "null")?.open).toBe(false));
     batch(cleanup);
-    render(() => <App app={first.app} reducedMotion={() => true} clock={Date.now} createEmulator={fakeEmulators().factory} />);
-    await screen.findAllByRole("treeitem");
+    render(() => <App initialShelfOpen prepareIdle={open => open.showView("workstreams")} app={first.app} reducedMotion={() => true} clock={Date.now} createEmulator={fakeEmulators().factory} />);
+    await screen.findByLabelText("Ask", { selector: '[role="region"]' });
     expect(shelf().hidden).toBe(true);
     expect(shelf().getAttribute("data-animated")).toBe("false");
   });
