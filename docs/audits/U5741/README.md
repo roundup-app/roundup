@@ -104,3 +104,7 @@ GitHub tool continuation: [github-tools.md](github-tools.md) pins main `f7471659
 ## Agent context continuation
 
 [agent-context.md](agent-context.md) adds AC01–AC07 for Agent Brief, skills, context, digest, instruction and extras operations, assessed from source and declarations on main `a743b75fe`. They are candidate assessments, not owner choices or deletion permission.
+
+## Agent lifecycle continuation
+
+[agent-lifecycle.md](agent-lifecycle.md) adds AL01–AL06 for Agent stop, prompt, interrupt, land, discard and wake, assessed from source, declarations and scenarios on main `058c00704`. AL06 is a Q2 candidate with dated #2218 direction; the rest are not candidates on this evidence. No runtime or vendor probe is claimed; candidate assessments, not owner choices or deletion permission.
