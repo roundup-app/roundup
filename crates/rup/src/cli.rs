@@ -283,6 +283,12 @@ fn specs(door: bool) -> Vec<Spec> {
                 }
                 fields.sort_by_key(|field| !field.positional);
             }
+            if offer.method == "project.start" {
+                for field in &mut fields {
+                    field.positional = field.name == "path";
+                }
+                fields.sort_by_key(|field| !field.positional);
+            }
             if offer.method == "terminal.read" {
                 // `rup terminal read 3 --after 120`: a read without it returns what is new since your last read (X16).
                 for field in fields.iter_mut().filter(|field| field.name == "after") {

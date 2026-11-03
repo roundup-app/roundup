@@ -47,9 +47,7 @@ Read-only recovery textareas in Capture, CapturePanel and Rail, and recovery `pr
 values in Project/Terminal dialogs, cannot edit text. Restoring an editable revision
 uses the original holder above, with its same attributes. Numeric fields are
 ProjectSettings' Workstreams-at-once textarea, Settings font size, NoteForm start/end
-line and reaction PR/firing counts. Reaction civil dates/time and zone choice are
-structured scheduling controls, not names or prompts; Form.Text already disables
-assistance for its free-text time field. Checkboxes, hidden Ark selection inputs,
+line. Checkboxes, hidden Ark selection inputs,
 radio, switches and non-editable select triggers are not text editing surfaces.
 Fixture-only fields (`*Fixture.tsx`) are not production controls.
 
@@ -61,7 +59,7 @@ No existing test is deleted. U16/U19 creation tests retain submission semantics;
 U183/U511a retain Enter and click-away rename; U3787c retains cancellation with no
 rename and exact recoverable work. `shelf/u3789_rows.test.tsx`,
 `todos/u2773_unfinished_input.test.tsx`, `rail/u2773_drafts.test.tsx`,
-`keys/u3713_capture.test.tsx`, `reactions/nr9_reactions.test.tsx` and
+`keys/u3713_capture.test.tsx` and
 `changes/u2540b_notes.test.tsx` retain rejected-submit, revision and identity proofs.
 `header/u184_close.test.tsx` and `bubbles/u511a_browser.test.ts` retain real-Project
 and real-Terminal reload/ended-original observations. Import's three baseline

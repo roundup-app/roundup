@@ -6,7 +6,7 @@ Module: `apps/desktop`, plus its dependency lockfile and the two inventory docum
 
 | Item, relative to `apps/desktop/src/` | Required result |
 |---|---|
-| `ui/Form.tsx` | Removed, together with its otherwise unused `reaction-field`, `reaction-label`, `reaction-group`, `reaction-legend` and `reaction-agents` styles in `reactions/styles.css`. |
+| `ui/Form.tsx` | Removed. |
 | `ui/Listbox.css` | Removed; the unused `.app-listbox-item` selector in `ui/Row.css` is also removed. |
 | `ui/Toggle.tsx` | Removed, with its fixture-only import and case in `ui/u133Fixture.tsx` and only its Toggle rows in `ui/u133_press.test.ts`. The Button, Checkbox, Switch and Tab cases remain. |
 | `keys/places.ts` | Removed with its own-only tests of `placeOf` and `FocusPlace`; these clauses are retired because no production caller uses this classification. |
@@ -27,7 +27,7 @@ requested-empty switcher-recovery switcher-recovery-actions diff-selection
 worktree-none import-failure progress-failure pad-editor-failure
 pad-retained-status pad-retention pad-retention-shelf pad-saved door-action
 door-action-label rail-name-error rail-retention rail-task-target row-name-state
-reaction-preview reaction-time-fields reaction-when shelf-group-add draft-detail
+shelf-group-add draft-detail
 draft-object draft-status project-attention pane-shortcuts capture-native-failure
 todo-history-head todo-blockers todo-now todo-tooltip item-description
 ```
@@ -38,9 +38,9 @@ Policy: remove only the dead name from a shared selector list, retaining each li
 
 Given ordinary Ask activation and Bubble closing, when the existing actions run in order, then Ask still selects its Workstream and focuses its pane, and closing a focused Bubble still returns focus without an extra Terminal write. Assert through the existing behavioral tests in checks 1 and 2; extend those only if the shared-helper change exposes a clause they do not assert. Do not add a source-text test for consolidation.
 
-Given the cleaned inventories, then `docs/design-system.md`, **Icon meaning and inventory (U4898)**, and `docs/u3787d-inventory.md`, **U3787d literal editing inventory**, no longer name `Form.tsx` (policy: inspect both documents). Preserve any still-rendered reaction fields' inventory under their actual owner rather than erasing the fields' acceptance.
+Given the cleaned inventories, then `docs/design-system.md`, **Icon meaning and inventory (U4898)**, and `docs/u3787d-inventory.md`, **U3787d literal editing inventory**, no longer name `Form.tsx` (policy: inspect both documents).
 
-Given the same dark harness seed and viewport on main and head, when opening the affected live surfaces, then every visual Check passing on main still passes (policy: design critic and paired rendered observations). No Check is intentionally moved; in particular D2 spacing, D5 contrast and D6 hit areas and keyboard focus remain. Use `tree-40`, `agents-10` and `bubbles` at 1512×950, opening the affected Drawer, Shelf, reaction and failure/recovery surfaces as applicable to each edited shared selector. Show failure text on the densest seed. Run `just capture U5463c`, adding capture coverage if needed, and leave paired PNG files and readings under `artifacts/ux/U5463c/base/` and `artifacts/ux/U5463c/head/` per the harness Captures heading; commit no image or video. Use an isolated headless browser and fresh profile. Linux/Chromium is the observer; the user reports what they meet on the Mac.
+Given the same dark harness seed and viewport on main and head, when opening the affected live surfaces, then every visual Check passing on main still passes (policy: design critic and paired rendered observations). No Check is intentionally moved; in particular D2 spacing, D5 contrast and D6 hit areas and keyboard focus remain. Use `tree-40`, `agents-10` and `bubbles` at 1512×950, opening the affected Drawer, Shelf and failure/recovery surfaces as applicable to each edited shared selector. Show failure text on the densest seed. Run `just capture U5463c`, adding capture coverage if needed, and leave paired PNG files and readings under `artifacts/ux/U5463c/base/` and `artifacts/ux/U5463c/head/` per the harness Captures heading; commit no image or video. Use an isolated headless browser and fresh profile. Linux/Chromium is the observer; the user reports what they meet on the Mac.
 
 ## Regression checks on main
 
@@ -63,5 +63,3 @@ Policy: no new test that merely rereads removed source, stylesheet or dependency
 | `loop/rules.sh delta artifacts/ux/U5463c/base artifacts/ux/U5463c/head` (repo root) | A passing Check regressed: 1. Missing or incomparable readings: 2. |
 
 Specification validation: `loop/rules.sh vocab` and `loop/rules.sh scenario-ids`. The specification PR leaves Issue #5463 open for implementation.
-
-Policy retirement — U5740a: U5463c no longer visits Reactions or injects its read failure. Its Shelf, Drawer, shared editor and draft recovery captures remain required.

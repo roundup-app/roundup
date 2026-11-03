@@ -5,7 +5,7 @@ Audited main: `092fcafbf910f292d7180c97d35bd381aff984b3`.
 
 This is an evidence collection in progress, not the complete inventory or an owner deletion request. No feature is authorized for deletion. Continue from this evidence; do not turn unresolved equivalence or reachability into a negative candidate answer.
 
-The observer is reconciliation of production composition, every entry-point registry, actual CLI help and both MCP role offers, and isolated Chromium renders. Static catalogue extraction alone establishes neither reachability nor absence. Real Agent Terminals, direct access, native continuation and the Ask are protected. Reactions (#5740) and Overview (#5730) are excluded from candidate decisions.
+The observer is reconciliation of production composition, every entry-point registry, actual CLI help and both MCP role offers, and isolated Chromium renders. Static catalogue extraction alone establishes neither reachability nor absence. Real Agent Terminals, direct access, native continuation and the Ask are protected. Overview (#5730) are excluded from candidate decisions.
 
 The audit must prevent missed conditional offers, unsupported claims of non-use/equivalence, and loss of older Project identities or retained work. Every eventual deletion must successfully reopen older Projects; reset/refusal is not an owner option.
 
@@ -73,3 +73,5 @@ Terminal continuation: main `20576d304c07acb4010a54c8ced66f1e86c255e8`. [termina
 Shelf continuation: main `eaa391d9d2f9eb7d9aaeb874590ec20e4ad805a8`. [shelf.md](shelf.md) separates presentation and reversible item operations; Todo/Pad content decisions remain separate. Dense maximization observation failed and is not a pass. All earlier evidence retains its own revision; final all-feature reconciliation remains unfinished.
 
 Pad editing continuation: main `93982da434256d5942ead8db7e4efd38710e9ebd`. [pads.md](pads.md) adds independent list/document/recovery and formatting decisions, explicit dated Orca/folding/colour reversals, exact public spellings and nine fresh isolated dark openings in [rendered-pads.json](rendered-pads.json). [catalogues/pads-source.json](catalogues/pads-source.json) pins inspected sources and replay. Conditional/library choices, unverified comparisons and final current all-feature reconciliation remain unfinished; no partial owner request or deletion.
+
+Todo capture/triage continuation: main `6629a9640a1c279b5e398a2c4f4e90a6bfcfff99`. [todo-intake.md](todo-intake.md) separates 31 capture, inline-add, triage and New Workstream controls. [catalogues/todo-intake-source.json](catalogues/todo-intake-source.json) archives sources/direction/replay; [rendered-todo-intake.json](rendered-todo-intake.json) retains isolated openings. Conditional/native states, vendor comparisons and final all-feature revision reconciliation remain unfinished; no partial candidate ask or deletion.

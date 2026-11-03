@@ -2,7 +2,7 @@
 
 Every design and UX choice serves these. A PR body names the ids it serves; the Reviewer answers each gate from the diff, and every answer must be "no" (a goal's gate is advisory).
 
-New capabilities in P11–P13 remain goals until their behavioral observers pass. Their gates apply to changed paths; an unrelated existing gap is not a new regression. A policy merge alone delivers none of these features.
+New capabilities in P11–P12 remain goals until their behavioral observers pass. Their gates apply to changed paths; an unrelated existing gap is not a new regression. A policy merge alone delivers none of these features.
 
 ## P1 Single front door
 
@@ -87,13 +87,6 @@ Every published user-facing deliverable has a stable Project-scoped record ident
 
 - Gate: does a declared publication lack stable Project/maker/Home/title/target identity; disappear with its maker or Worktree; open/send a substituted target or revision; conflate a mutable current link with a published revision; hide unavailability or its cause; override removal, revocation or a user Home move; publish undeclared scratch work; or duplicate an existing authoring/storage system or introduce a custom Agent conversation UI?
 - Observer: Publish distinct same-titled targets in two Projects, stop their makers and remove source Worktrees, then discover/open/send by recorded identity. Apply the deliverable probes in `scenarios/product-continuity.md`, checking exact revision or explicit unavailability, permissions, user moves/removal and no publication from scratch files.
-
-## P13 Named reactions (goal)
-
-A named reaction records its authorizer, Project, target identity, instruction, declared observed-event condition or explicit time condition, and finite firing/expiry bound. It can be inspected, stopped and explicitly run within the same authority. Event conditions use authoritative observed facts and source revisions/cursors; unknown or stale facts are not a successful match, and an unsupported event source fails visibly. The condition itself spends no Model turn. Each accepted match/firing identity creates one durable Message through existing delivery, batching, inbox, Attempt, Reach and permission rules; replay, duplicate notifications, an unchanged true condition and overlapping checks do not create another firing of that identity. A stopped reaction accepts no later firing; already accepted or delivered work is reported honestly and is not promised to be undone. Repeat firings require a declared re-arm rule and bound. A restart starts no program by itself; a retired or replaced target is not silently substituted. This guarantees reaction-to-Message identity, not exactly-once external side effects. A time condition declares its missed-time policy; waking applies it once without an unbounded catch-up backlog. Time is another declared trigger, not a reason to poll Agents for conditions already available as Events.
-
-- Gate: does a reaction omit its recorded authority, Project, target, instruction, declared trigger or finite bound; prevent inspection/stop/authorized explicit run; match stale/unknown facts or hide an unsupported source; spend a Model turn evaluating conditions; leave an accepted firing without its one durable Message; duplicate a firing Message on replay or overlapping checks; accept a firing after stop or promise to undo accepted work; repeat without bounded re-arm or create an unbounded missed-time backlog; omit or ignore the declared missed-time policy; start a program on restart; substitute a target; bypass normal Message guards; or poll Agents for facts already available as Events?
-- Observer: Use authoritative source fixtures through the real Daemon and public MCP/CLI seams, counting durable Messages by accepted firing identity and fake-vendor prompts. Run the reaction probes in `scenarios/product-continuity.md`, including crash/replay, stale revisions, simultaneous clauses, cancellation races, sleep/missed time and guarded delivery. No fixture may use a Model to decide a condition.
 
 ## P14 roundup computes and shows no cost, price or token counts
 
