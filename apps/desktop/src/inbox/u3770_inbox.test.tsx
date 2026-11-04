@@ -354,7 +354,7 @@ it.each(["rail", "ask", "bench", "drawer", "agent-terminal", "shell-terminal", "
     expect(connected().hasView("made")).toBe(false);
 
     if (from.startsWith("empty") || from.startsWith("idle")) {
-      const inbox = screen.getByRole("region", { name: "Needs you" });
+      const inbox = await screen.findByRole("region", { name: "Needs you" });
       expect(within(inbox).queryAllByRole("listitem")).toHaveLength(0);
       await waitFor(() => expect(inbox.textContent?.trim()).not.toBe(""));
     }
