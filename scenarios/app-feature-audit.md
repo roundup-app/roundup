@@ -77,3 +77,7 @@ These numbered checks are source anchors, not claims the audit already passes. R
 8. `scenarios/local-data-retirement.md`, N5467a–d: the refusal/no-reader clauses affected deletion PRs must amend to require older-Project reopening, retaining unrelated current/fresh safety.
 
 Policy: specification validation is `loop/rules.sh vocab` and `loop/rules.sh scenario-ids`, each exit 0, plus verification that these file/symbol/heading anchors exist on `origin/main`. Review verifies coverage against #5741; a green vocabulary check alone does not demonstrate acceptance.
+
+## Retirements
+
+Policy: the owner's 2026-11-04 picks (#5758) retire one feature per PR. **P11 Copy Project metadata** is retired: a Project tab's menu offers Rename and Close only. Retired then-clauses: the Copy clause of U3299d for a Project (`scenarios/ui-visual.md`) and U2694a's Copy row for a Project tab. Removed tests: `u3299d_copy_uses_selected_item_project` (retired clause) and `p3557c_failure_lifetime_header_menu_%s` (its failure source is the menu Copy; `p3557c_failure_lifetime_header_retention_%s` and the `u475_browser` header capture still prove the failure lifetime through the recovery dialog's Copy name). `u2694a_each_object_builds_its_items` asserts the two remaining items. No stored data changes, so older Projects open unchanged.

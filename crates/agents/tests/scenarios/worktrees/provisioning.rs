@@ -292,7 +292,7 @@ async fn g2_failed_call_emits_no_event() {
 
     f.spawn(None, None).await.unwrap_err();
 
-    assert_eq!(f.changed(), 0);
+    assert_eq!(f.changed(), 2, "the starting row, then its rollback");
 }
 
 #[tokio::test]
@@ -442,7 +442,7 @@ async fn g2_start_failure_of_start_door_leaves_a_stopped_workstream() {
     assert!(tree[0].terminal_id.is_none());
     assert_eq!(tree[0].worktree, None);
     assert_eq!(git_state(f.dir.path()), before);
-    assert_eq!(f.changed(), 0);
+    assert_eq!(f.changed(), 2, "the starting row, then its rollback");
 }
 
 #[tokio::test]

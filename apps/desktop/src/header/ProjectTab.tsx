@@ -114,9 +114,7 @@ export const ProjectTab = (props: {
   let panel: HTMLDivElement | undefined;
   registerKeys({ kind: "layer", element: () => panel, active: recovering, modal: true }, []);
 
-  const nativeCopy = createCopyFeedback();
   const nameCopy = createCopyFeedback();
-  createEffect(on(createMemo(() => props.tab.path), nativeCopy.reset));
   createEffect(on(createMemo(() => shown()?.revision), nameCopy.reset));
 
   const copyName = async () => {
@@ -187,12 +185,6 @@ export const ProjectTab = (props: {
         const app = props.app;
 
         if (app) openOnRelease(press, (x, y) => void contextMenu(app, [
-          { id: "copy", label: copy.copy, run: async () => {
-            const copied = shown();
-            const details = records().length ? { name: props.tab.name, path: props.tab.path, drafts: records() } : { name: props.tab.name, path: props.tab.path };
-
-            await nativeCopy.run(() => writeText(app, JSON.stringify(details, null, 2)), () => failCopy(null), error => { failCopy({ project: details.path, revision: copied?.revision ?? null, message: copy.copyDraftFailure(error instanceof Error ? error.message : String(error)) }); recover(true); });
-          } },
           { id: "rename", label: copy.rename, shortcut: "F2", run: edit },
           { id: "close", label: copy.close, run: () => props.onClose() },
         ], x, y));
@@ -236,7 +228,7 @@ export const ProjectTab = (props: {
                     props.onMark();
                   }
                 }}>
-                <span class="tab-name" onDblClick={() => edit()}><Show when={nativeCopy.copied()} fallback={<><span class="tab-head">{parts()[0]}</span><span class="tab-tail">{parts()[1]}</span></>}>{copy.copied}</Show></span>
+                <span class="tab-name" onDblClick={() => edit()}><span class="tab-head">{parts()[0]}</span><span class="tab-tail">{parts()[1]}</span></span>
                 <span class="tab-mark-slot"><Show when={mark()}>{(shown) => <span class="tab-mark ink" data-tone={MARKS[shown()].tone} data-kind={shown()} role="img" aria-label={MARKS[shown()].label} />}</Show></span>
               </Tabs.Trigger>
           }

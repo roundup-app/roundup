@@ -17,7 +17,7 @@ Module: `apps/desktop` (the webview) and `crates/desktop` (the Tauri host, one A
 |---|---|
 | Workstream row | Rename `F2` (U140), Restart, Start YOLO, Stop, Resume, Send to Agent ▸, Copy Link, Remove `⌘⌫` |
 | Agent row (an Agent, a Door, a Subagent) | Rename `F2`, Restart, Start YOLO, Stop, Resume, Send to Agent ▸, Copy Link, Remove `⌘⌫` |
-| Project tab (U180) | Rename `F2` (U183), Copy Link is absent (a Project has no link kind), Close (U184) |
+| Project tab (U180) | Rename `F2` (U183), Close (U184); no Copy (retired by the owner's P11 pick, #5758) |
 | Terminal tab | Rename (U511a), Send to Agent ▸, Copy Link, Close `⌘K W` for the focused Bubble |
 | Pad | Rename, Send to Agent ▸, Copy Link, Delete (U460's confirm) |
 | Todo | Complete (U361), Send to Agent ▸, Copy Link, Delete (U461) |

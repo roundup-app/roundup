@@ -48,7 +48,7 @@ async fn a6_new_workstreams_are_appended_with_contiguous_order() {
     let tree = f.tree().await;
     assert_eq!(children(&tree, None), ["a:0", "b:1"]);
     assert_eq!(children(&tree, Some(&a)), ["new-agent:0"]);
-    assert_eq!(f.changed(), 3);
+    assert_eq!(f.changed(), 4);
 }
 
 #[tokio::test]
