@@ -33,10 +33,10 @@ const open = async (first = false, nodes = [
   workstream("nested", { parent: "home" }),
   agent("need", "error", "Fix this", { parent: "nested" }),
   agent("next", "needs-you", "Answer", { parent: "home" }),
-]) => {
+], other = false) => {
   const app = createFakeApp();
 
-  if (!first) { app.add("/other"); app.add("/p"); }
+  if (!first) { if (other) app.add("/other"); app.add("/p"); }
 
   const daemon = first ? app : app.of("/p");
   daemon.handlers["rail.tree"] = () => nodes;
@@ -46,7 +46,8 @@ const open = async (first = false, nodes = [
   daemon.handlers["terminal.write"] = () => null;
   Object.assign(daemon.handlers, todoHandlers({ todos: [todo(1, { title: "Work", home: "home" })] }, () => {}));
   Object.assign(daemon.handlers, padHandlers({ pads: [{ incarnation: "notes-1", name: "notes", text: draft, updated_at: 0, revision: 1, home: "home" }], history: [] }, () => {}));
-  app.of("/other").handlers["rail.tree"] = () => [agent("other-need", "needs-you", "Answer")];
+
+  if (other) app.of("/other").handlers["rail.tree"] = () => [agent("other-need", "needs-you", "Answer")];
   let connection: ConnectedProject | undefined;
   const emulators = fakeEmulators();
   render(() => <App app={app} reducedMotion={() => true} clock={() => 0} prepareIdle={value => { connection = value; value.showView("terminal-tabs"); }} createEmulator={id => {
@@ -164,7 +165,7 @@ it("u4692_only_the_exact_physical_chord_jumps", async () => {
 });
 
 it("u4692_project_switch_uses_only_current_attention", async () => {
-  const { connected } = await open();
+  const { connected } = await open(false, undefined, true);
   press(); await destination();
   fireEvent.click(screen.getByRole("tab", { name: /^other/ }));
   await waitFor(() => expect(connected().project.path).toBe("/other"));
