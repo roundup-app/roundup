@@ -108,6 +108,7 @@ export const SEAM_COMMANDS = [
   "open_project",
   "canonical_project_path",
   "close_project",
+  "exit_for_update",
   "rename_project",
   "rpc",
   "subscribe",

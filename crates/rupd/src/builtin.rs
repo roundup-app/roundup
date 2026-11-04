@@ -56,8 +56,12 @@ pub(crate) fn call(
 pub(crate) fn ping_json(daemon: &Daemon) -> String {
     static CONTRACT: std::sync::LazyLock<String> =
         std::sync::LazyLock::new(|| json!({ "fingerprint": methods::fingerprint() }).to_string());
+    let colour = daemon
+        .fork_colour
+        .map(|c| format!(r#","forkColour":{}"#, json!(c)))
+        .unwrap_or_default();
     format!(
-        r#"{{"pong":true,"pid":{},"project":{},"projectKey":{},"contract":{}}}"#,
+        r#"{{"pong":true,"pid":{},"project":{},"projectKey":{},"contract":{}{colour}}}"#,
         std::process::id(),
         json!(daemon.project),
         json!(daemon.project_key),

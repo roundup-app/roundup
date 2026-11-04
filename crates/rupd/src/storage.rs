@@ -120,7 +120,10 @@ pub(crate) fn open(dir: &Path) -> rusqlite::Result<Connection> {
         let mut db = Connection::open(&path)?;
         refuse_divergent(&db)?;
         db.pragma_update(None, "journal_mode", "WAL")?;
-        apply(&mut db, migrations())?;
+        let stored: i64 = db.pragma_query_value(None, "user_version", |row| row.get(0))?;
+        if stored <= migrations().len() as i64 {
+            apply(&mut db, migrations())?;
+        }
         Ok(db)
     };
     run().map_err(|e| {
@@ -161,9 +164,13 @@ fn refuse_divergent(db: &Connection) -> rusqlite::Result<()> {
         return Err(error("Local data is incompatible with this build."));
     }
     if stored > known as i64 {
-        return Err(error(format!(
-            "database version {stored}; this build supports through {known}. This database came from a newer or branch build. Use the build that wrote it, or reset this disposable pre-release database after closing roundup."
-        )));
+        // MG3: a database ahead by additive migrations still holds everything this build knows.
+        return match provenance::migration::missing(db, &reference()?)? {
+            None => Ok(()),
+            Some(difference) => Err(error(format!(
+                "database version {stored}; this build supports through {known}. This database lacks what this build needs ({difference}); it came from a newer or branch build. Use the build that wrote it, or reset this disposable pre-release database after closing roundup."
+            ))),
+        };
     }
     if stored == 0 {
         return Ok(());
@@ -356,3 +363,7 @@ mod retirement_tests {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "migration_additive_tests.rs"]
+mod migration_additive_tests;

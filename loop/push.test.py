@@ -70,7 +70,7 @@ class Save(unittest.TestCase):
     def test_l23_work_a_killed_run_left_uncommitted_is_committed_but_not_its_captures_or_ignored_files(self):
         with tempfile.TemporaryDirectory() as path:
             _, work = Land().moved_head(path, 'theirs.txt')
-            (Path(work) / '.gitignore').write_text('ignored.log\n')
+            (Path(work) / '.gitignore').write_text('ignored.log\n/artifacts/\n')  # as the repository's own
             (Path(work) / 'ignored.log').write_text('x\n')
             (Path(work) / 'run.txt').write_text('edited\n')
             (Path(work) / 'artifacts/ux/U1').mkdir(parents=True)
@@ -82,7 +82,7 @@ class Save(unittest.TestCase):
                              ['claude[bot]|Save the work the run ended with uncommitted', 't|the run'])
             self.assertEqual(git(work, 'show', '--name-only', '--format=', 'HEAD').split(), ['.gitignore', 'run.txt'])
             self.assertTrue(git(work, 'log', '-1', '--format=%B').endswith('\n\nAuthor-Agent: builder-77'))
-            self.assertEqual(git(work, 'status', '--porcelain', '--ignored', '--', '.', ':!artifacts/ux').split(), ['!!', 'ignored.log'])
+            self.assertEqual(git(work, 'status', '--porcelain', '--ignored').split(), ['!!', 'artifacts/', '!!', 'ignored.log'])
 
 
 if __name__ == '__main__':

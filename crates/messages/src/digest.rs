@@ -188,7 +188,7 @@ impl<'a> Projection<'a> {
 }
 
 /// What a Door was last told about a child, to see whether a change alters the entry (B21).
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 struct Told {
     binding: crate::store::Binding,
     completed: Option<String>,
@@ -203,12 +203,75 @@ struct Book {
     /// For each (Door, child), the newest `updated_at` among the child's Pads that an
     /// envelope already named, so the next envelope names only Pads written after it (B19).
     named: HashMap<(String, String), i64>,
-    told: HashMap<(String, String), Told>,
+    told: TellMap,
     /// For each (parent, child), the Kind of the last note of `done`, `error` or `needs-you` made
     /// about it (B47(c)); a push of any other Kind (B21, B35) or a `[wake]` note is none of these.
     noted: HashMap<(String, String), Kind>,
     /// `named` written through, so a restart keeps it (B23); `None` for a `Seen` kept in memory.
     db: Option<rusqlite::Connection>,
+}
+
+/// What each Door was told about each child, written through to `door_told` so that a restart
+/// keeps it: no told fact is queued again and no untold fact is marked told (DCL8).
+#[derive(Default)]
+struct TellMap {
+    map: HashMap<(String, String), Told>,
+    db: Option<rusqlite::Connection>,
+}
+
+impl TellMap {
+    fn get(&self, key: &(String, String)) -> Option<&Told> {
+        self.map.get(key)
+    }
+
+    fn contains_key(&self, key: &(String, String)) -> bool {
+        self.map.contains_key(key)
+    }
+
+    fn keys(&self) -> impl Iterator<Item = &(String, String)> {
+        self.map.keys()
+    }
+
+    /// DCL10a: a refused write is returned and leaves the map as it was, so the fact stays
+    /// untold in memory as in storage.
+    fn insert(&mut self, key: (String, String), told: Told) -> rusqlite::Result<Option<Told>> {
+        if let Some(db) = &self.db {
+            let json = serde_json::to_string(&told)
+                .map_err(|err| rusqlite::Error::ToSqlConversionFailure(Box::new(err)))?;
+            db.execute(
+                "INSERT OR REPLACE INTO door_told (door, child, told) VALUES (?1, ?2, ?3)",
+                rusqlite::params![key.0, key.1, json],
+            )?;
+        }
+        Ok(self.map.insert(key, told))
+    }
+
+    fn insert_absent(&mut self, key: (String, String), told: Told) -> rusqlite::Result<()> {
+        if !self.map.contains_key(&key) {
+            self.insert(key, told)?;
+        }
+        Ok(())
+    }
+
+    fn remove(&mut self, key: &(String, String)) -> rusqlite::Result<Option<Told>> {
+        if let Some(db) = &self.db {
+            db.execute(
+                "DELETE FROM door_told WHERE door = ?1 AND child = ?2",
+                rusqlite::params![key.0, key.1],
+            )?;
+        }
+        Ok(self.map.remove(key))
+    }
+
+    /// Records `told`, logging a refused write once, naming the Door and child (DCL10a).
+    fn record(&mut self, key: (String, String), told: Told) -> bool {
+        let at = format!("{}/{}", key.0, key.1);
+        let Err(err) = self.insert(key, told) else {
+            return true;
+        };
+        crate::log_failure("told", &format!("{at}: {err}"));
+        false
+    }
 }
 
 impl Book {
@@ -266,9 +329,28 @@ impl Seen {
             .prepare("SELECT door, child, newest FROM pad_cursors")?
             .query_map([], |row| Ok(((row.get(0)?, row.get(1)?), row.get(2)?)))?
             .collect::<rusqlite::Result<HashMap<_, _>>>()?;
+        let stored = db
+            .prepare("SELECT door, child, told FROM door_told")?
+            .query_map([], |row| {
+                Ok((
+                    (row.get::<_, String>(0)?, row.get::<_, String>(1)?),
+                    row.get::<_, String>(2)?,
+                ))
+            })?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
+        // A row this build cannot read is dropped: its child is baselined as unseen.
+        let told = stored
+            .into_iter()
+            .filter_map(|(key, json)| Some((key, serde_json::from_str(&json).ok()?)))
+            .collect();
+        let tell_db = rusqlite::Connection::open(path)?;
+        tell_db.pragma_update(None, "journal_mode", "WAL")?;
         Ok(Self(Mutex::new(Book {
             named,
-            told: HashMap::new(),
+            told: TellMap {
+                map: told,
+                db: Some(tell_db),
+            },
             noted: HashMap::new(),
             db: Some(db),
         })))
@@ -329,7 +411,7 @@ impl Seen {
                 if let Some(newest) = newest {
                     book.name(&key, newest);
                 }
-                book.told.insert(key, told(&entry, child, from));
+                book.told.record(key, told(&entry, child, from));
             }
             items.push(DigestItem::Child(entry));
         }
@@ -356,9 +438,15 @@ impl Seen {
             if let Some(newest) = newest {
                 book.name(&key, newest);
             }
-            book.told.insert(key, told(&entry, node, from));
+            book.told.record(key, told(&entry, node, from));
         }
         Some(entry)
+    }
+
+    /// DCL10: whether the stored told book holds any fact, so startup compares with it instead of
+    /// recording every child as told.
+    pub fn has_told(&self) -> bool {
+        !self.book().told.map.is_empty()
     }
 
     /// B21: what the Daemon records as told without sending it, so that only a change after now
@@ -373,7 +461,7 @@ impl Seen {
                 let after = book.named.get(&key).copied();
                 let (entry, _) = entry(child, &meta.id, from, after, false);
                 let seen = told(&entry, child, from);
-                book.told.insert(key, seen);
+                book.told.record(key, seen);
             }
         }
     }
@@ -429,9 +517,10 @@ impl Seen {
                     .get(&key)
                     .is_some_and(|was| was.entry.kind != now.entry.kind)
             {
-                book.told.insert(key.clone(), now.clone());
+                book.told.record(key.clone(), now.clone());
             }
             if moved {
+                let noted = book.noted.get(&key).copied();
                 // B47(c): the end note of a Kind the last note already told is not made again.
                 let repeated = now.entry.kind == Kind::Done
                     && book
@@ -450,10 +539,17 @@ impl Seen {
                     entry
                 };
                 let before = (after, book.told.get(&key).cloned());
+                // DCL10a: a refused write leaves the change untold, to be offered again.
+                if !book.told.record(key.clone(), now.clone()) {
+                    match noted {
+                        Some(kind) => book.noted.insert(key, kind),
+                        None => book.noted.remove(&key),
+                    };
+                    continue;
+                }
                 if let Some(newest) = newest {
                     book.name(&key, newest);
                 }
-                book.told.insert(key.clone(), now.clone());
                 if repeated {
                     continue;
                 }
@@ -476,7 +572,10 @@ impl Seen {
     pub fn release(&self, push: Push) {
         let mut book = self.book();
         if push.gone {
-            book.told.entry(push.key).or_insert(push.told);
+            let at = format!("{}/{}", push.key.0, push.key.1);
+            if let Err(err) = book.told.insert_absent(push.key, push.told) {
+                crate::log_failure("told", &format!("{at}: {err}"));
+            }
             return;
         }
         if book.told.get(&push.key) != Some(&push.told) {
@@ -486,10 +585,14 @@ impl Seen {
             Some(named) => book.name(&push.key, named),
             None => book.forget(&push.key),
         }
-        match push.before.1 {
-            Some(told) => book.told.insert(push.key, told),
-            None => book.told.remove(&push.key),
+        let at = format!("{}/{}", push.key.0, push.key.1);
+        let undone = match push.before.1 {
+            Some(told) => book.told.insert(push.key, told).map(drop),
+            None => book.told.remove(&push.key).map(drop),
         };
+        if let Err(err) = undone {
+            crate::log_failure("told", &format!("{at}: {err}"));
+        }
     }
 }
 
@@ -586,7 +689,14 @@ fn farewells(book: &mut Book, from: &Projection) -> Vec<Push> {
         .collect();
     let mut pushes = Vec::new();
     for key in stale {
-        let Some(told) = book.told.remove(&key) else {
+        let removed = book.told.remove(&key);
+        let Some(told) = (match removed {
+            Ok(told) => told,
+            Err(err) => {
+                crate::log_failure("told", &format!("{}/{}: {err}", key.0, key.1));
+                continue;
+            }
+        }) else {
             continue;
         };
         book.forget(&key);
@@ -769,6 +879,8 @@ pub(crate) fn fit(mut entry: DigestEntry, max: usize) -> DigestEntry {
     entry
 }
 
+#[cfg(test)]
+mod reopen_tests;
 #[cfg(test)]
 mod tests;
 

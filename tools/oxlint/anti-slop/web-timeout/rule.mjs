@@ -1,3 +1,4 @@
+import { realpathSync } from "node:fs";
 import { relative } from "node:path";
 import { defineRule } from "@oxlint/plugins";
 
@@ -214,7 +215,8 @@ export const boundedTestTimeoutRule = defineRule({
   },
   create(context) {
     const source = context.sourceCode;
-    const file = relative(context.cwd, context.filename).replaceAll("\\", "/");
+    // A path through a symlink, as macOS's /var to /private/var, names the same file as the real cwd.
+    const file = relative(realpathSync(context.cwd), realpathSync(context.filename)).replaceAll("\\", "/");
     const exceptions = context.options[0]?.exceptions ?? [];
     const calls = [];
     const configs = [];

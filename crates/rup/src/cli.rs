@@ -15,9 +15,9 @@ use serde_json::{Map, Value};
 use crate::mcp::{self, CALL_TIMEOUT, Offered};
 
 mod actions;
+mod data;
 mod describe;
 mod help;
-
 pub use help::help_text;
 use help::{example, first_sentence, help, usage_error};
 
@@ -497,6 +497,9 @@ const BAD_USAGE: u8 = 2;
 pub async fn run(args: Vec<String>) -> ExitCode {
     if let Some((which, rest)) = actions::command(&args) {
         return actions::run_command(which, &rest).await;
+    }
+    if let Some(rest) = data::command(&args) {
+        return data::run(&rest).await;
     }
     let tree_specs = specs(true);
     let mut root = tree(&tree_specs);

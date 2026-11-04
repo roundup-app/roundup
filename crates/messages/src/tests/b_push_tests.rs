@@ -767,3 +767,30 @@ async fn b49_an_end_note_in_a_rollup_keeps_the_512_byte_entry() {
     assert!(kept[0].last.len() <= 120 && kept[0].last.ends_with("[cut]"));
     assert!(digest::entry_text(&kept[0]).len() <= 512);
 }
+
+#[tokio::test]
+async fn dcl10a_a_refused_ledger_write_keeps_the_entry_waiting() {
+    let dir = tempfile::tempdir().unwrap();
+    let h = Pushes::new(dir.path());
+    door_terminal(&h, None);
+    let path = dir.path().join(if dir.path().join("project.db").exists() {
+        "project.db"
+    } else {
+        "messages.db"
+    });
+    let other = rusqlite::Connection::open(&path).unwrap();
+    other
+        .execute(
+            "CREATE TRIGGER refuse_slots BEFORE INSERT ON push_slots \
+             BEGIN SELECT RAISE(ABORT, 'database or disk is full'); END",
+            [],
+        )
+        .unwrap();
+    h.push(&entry("a", 1)).await;
+    assert_eq!(h.messages.inner.pushes.lock().await.waiting_count("top"), 1);
+    assert_eq!(pushes::Ledger::load(&other).waiting_count("top"), 0);
+    other.execute("DROP TRIGGER refuse_slots", []).unwrap();
+    h.at(1).await;
+    assert_eq!(h.messages.inner.pushes.lock().await.waiting_count("top"), 1);
+    assert_eq!(pushes::Ledger::load(&other).waiting_count("top"), 1);
+}
