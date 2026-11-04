@@ -140,8 +140,9 @@ impl Daemon {
         self.with_waiting(reply).await
     }
 
-    /// DCL10: each Workstream's waiting count, read from the stored backlog on every reply. A
-    /// reply passes through untouched when no Door has one.
+    /// DCL10, DCL10c: each stopped Door's waiting count, read from the stored backlog on every
+    /// reply; a Workstream whose Door has a live program carries none. A reply passes through
+    /// untouched when no Door has one.
     async fn with_waiting(&self, reply: rpc::Reply) -> Result<rpc::Reply, RpcError> {
         let Some(messages) = self.sender.get() else {
             return Ok(reply);
@@ -157,7 +158,10 @@ impl Daemon {
         .map_err(RpcError::internal)?;
         for node in &mut nodes {
             if node.kind == contracts::agent::NodeKind::Workstream {
-                node.waiting = counts.get(&node.id).copied().filter(|n| *n > 0);
+                node.waiting = counts
+                    .get(&node.id)
+                    .copied()
+                    .filter(|n| *n > 0 && messages::ended(node));
             }
         }
         Ok(rpc::Reply::Value(rpc::reply(&nodes)?))

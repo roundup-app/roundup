@@ -23,8 +23,7 @@
 /* U5153b: every unread or attention dot is one filled circle of --space-1, never a text character. */
 .unread-dot,
 .tab-mark,
-.terminal-tab-unseen,
-.overview-unseen {
+.terminal-tab-unseen {
   flex: none;
   display: inline-block;
   width: var(--space-1);

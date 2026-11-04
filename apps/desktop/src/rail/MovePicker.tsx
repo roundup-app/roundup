@@ -1,3 +1,4 @@
+import { movedTo } from "../state/rail";
 import { applying } from "../app/pending";
 import type { ConnectedProject } from "../state/connectedProject";
 import type { SortableMove } from "../ui/sortable";
@@ -57,7 +58,11 @@ export const createMove = ({ app, rail, daemonExit }: Pick<ConnectedProject, "ap
 
     try {
       const base = rail.placeOf(params.id);
+      const lift = rail.draw(tree => movedTo(tree, params.id, { parent: params.parent, index: params.index }));
       const result = await applying(() => app.rpc("rail.move", params));
+
+      if (result.kind === "applied") rail.keepApplied(params.id, { parent: params.parent, index: params.index });
+      lift();
 
       if (result.kind === "refused") throw result.error;
 
@@ -76,6 +81,8 @@ export const createMove = ({ app, rail, daemonExit }: Pick<ConnectedProject, "ap
     } catch (error) {
       if (!(error instanceof Error)) throw error;
       rail.commandFailure.show(error.message, params.id, "rail", () => { void move(params); });
+      // U5991a: the drawn move remounted the Row; the refusal returns focus to the Row that stays in its Home.
+      focus?.(() => rowElement(params.id)?.focus({ preventScroll: true }));
     }
   };
 

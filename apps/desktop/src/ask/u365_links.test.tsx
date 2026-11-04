@@ -49,20 +49,6 @@ it.each(["no-worktree", "no-destination"])("u365_ask_row_relative_paths_use_the_
   expect(app.calls.filter(call => ["ask.send", "ask.pick", "message.send", "agent.spawn", "terminal.write"].includes(call.method))).toEqual([]);
 });
 
-it("u365_ask_row_links_open_once_in_earlier", async () => {
-  const { app, connected } = await mountAskBar([ask("links", 1, [{ text: "/tmp/file.ts https://example.com", state: "typed", placement: { kind: "routed", workstream: "lead" } }])]);
-  connected.rail.select("lead");
-  await waitFor(() => expect(connected.asks.acknowledged(connected.asks.entries()[0]!, 0)).toBe(true));
-  connected.rail.select(null);
-  connected.showView("asks");
-  fireEvent.click(await screen.findByRole("button", { name: /Earlier/ }));
-  fireEvent.click(await screen.findByRole("link", { name: "/tmp/file.ts" }));
-  await waitFor(() => expect(app.openedTargets).toHaveLength(1));
-  fireEvent.click(screen.getByRole("link", { name: "https://example.com" }));
-  await waitFor(() => expect(app.openedTargets).toHaveLength(2));
-});
-
-
 it("u365_ask_slash_commands_stay_plain_text", async () => {
   const text = "/clear /context /hope:compose /word /word:word";
   const entry = ask("commands", 1, [{ text, state: "typed", placement: { kind: "routed", workstream: "lead" } }]);

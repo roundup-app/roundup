@@ -277,7 +277,6 @@ it.each(["fold", "add-agent", "door-action", "menu"])("u5742b_controls_do_not_ac
 it("u5742c_ask_result_choice_focuses_terminal", async () => {
   const m = await mount([door("ann", "idle", "ready")]);
   m.app.emit({ actor: { kind: "user", id: "you", parent: null }, name: "ask.changed", data: { ask: { id: "asked", at: 1n, text: "review this", parts: [{ text: "review this", placement: { kind: "routed", workstream: "ann" }, state: "typed" }] } } });
-  fireEvent.click(await screen.findByRole("button", { name: /^Asks/ }));
   fireEvent.click(await screen.findByRole("button", { name: /review this/ }));
   await provesChoice(m, "ann");
 });

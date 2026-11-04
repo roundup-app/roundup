@@ -101,8 +101,9 @@ describe("u68 resume from the Rail menu", () => {
     app.handlers["agent.resume"] = () => new Promise<RailNode>((resolve) => { finish = resolve; });
     openAt("a");
     await app.pickMenu("Resume");
+    // U5991a: the row already shows running, so a second activation has no Resume to choose.
     openAt("a");
-    await app.pickMenu("Resume");
+    expect(labels()).not.toContain("Resume");
 
     expect(railCallsTo(app, "agent.resume")).toEqual([{ id: "a" }]);
     finish(resumable("a"));

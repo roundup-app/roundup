@@ -23,7 +23,7 @@ import { mergeProps } from "@zag-js/solid";
 import { StatusTip } from "../ink/StatusTip";
 import { byUrgency } from "../ink/glyph";
 import { KindGlyph } from "../ink/KindGlyph";
-import { FailureLine } from "../ink/FailureLine";
+import { FailureLine, Line as FailureCause } from "../ink/FailureLine";
 import { agentKindsBelow, descendantsOf, isWorkstream } from "./layout";
 import { Trunks } from "../ui/TreeView";
 import type { NodeRow, RailTopology } from "./layout";
@@ -221,6 +221,7 @@ export const RailRowView = (props: {
       </span>
     </p>
     <Show when={workstream() && props.row.node.waiting}>{count => <ReservedLine class="rail-waiting" status={copy.doorStoppedWaiting(count())} />}</Show>
+    <Show when={workstream() && connected.rail.doorFailure(props.row.node.id)}>{cause => <FailureCause label={cause()} class="rail-door-failure" />}</Show>
     <Show when={props.row.node.start_attribution}>{source => <ReservedLine class="rail-attribution" status={copy.startedBy(source().agent_name, source().project_name)} />}</Show>
     <Show when={!workstream() && (props.selected || !connected.rail.dismissed(props.row.node))}><FailureLine status={props.row.node.status} dismissed={connected.rail.dismissed(props.row.node)} /></Show>
   </div>}</StatusTip>;
