@@ -267,10 +267,12 @@ async fn fk5977c_a_fork_racing_a_writer_is_whole_and_holds_every_finished_row() 
     )
     .unwrap();
     let stop = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let (started, wrote) = std::sync::mpsc::channel();
     let handle = std::thread::spawn({
         let (stop, db) = (stop.clone(), db.clone());
         move || {
             let writer = Connection::open(&db).unwrap();
+            let mut rows = 0;
             while !stop.load(std::sync::atomic::Ordering::Relaxed) {
                 writer
                     .execute(
@@ -278,11 +280,15 @@ async fn fk5977c_a_fork_racing_a_writer_is_whole_and_holds_every_finished_row() 
                         [],
                     )
                     .unwrap();
-                std::thread::sleep(std::time::Duration::from_millis(1));
+                rows += 1;
+                if rows == 50 {
+                    started.send(()).unwrap();
+                }
+                std::thread::yield_now();
             }
         }
     });
-    std::thread::sleep(std::time::Duration::from_millis(200));
+    wrote.recv().unwrap();
     let finished = count(&db, "todos");
     let folder = live.fork_dir("race");
     let reply = fork(&live, &folder, json!({})).await;

@@ -18,7 +18,6 @@ mod actions;
 mod data;
 mod describe;
 mod help;
-
 pub use help::help_text;
 use help::{example, first_sentence, help, usage_error};
 
