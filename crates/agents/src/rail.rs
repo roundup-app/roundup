@@ -154,6 +154,39 @@ impl Rail {
         Ok(false)
     }
 
+    /// DCL9: record the role an Agent's spawn gave node `id`.
+    pub fn set_role(
+        &mut self,
+        id: &str,
+        role: contracts::agent::SpawnRole,
+    ) -> Result<(), RpcError> {
+        self.node(id)?;
+        self.db
+            .execute(
+                "UPDATE nodes SET role = ? WHERE id = ?",
+                params![role.as_str(), id],
+            )
+            .map_err(sql)?;
+        Ok(())
+    }
+
+    /// DCL9: the role stored for `id`; `None` for the user's own Agents. `NOT_FOUND` for an unknown id.
+    pub fn role(&self, id: &str) -> Result<Option<contracts::agent::SpawnRole>, RpcError> {
+        use contracts::agent::SpawnRole;
+        self.node(id)?;
+        let stored: Option<String> = self
+            .db
+            .query_row("SELECT role FROM nodes WHERE id = ?", params![id], |row| {
+                row.get(0)
+            })
+            .map_err(sql)?;
+        Ok(stored.and_then(|role| match role.as_str() {
+            "job" => Some(SpawnRole::Job),
+            "consult" => Some(SpawnRole::Consult),
+            _ => None,
+        }))
+    }
+
     /// O8: keep the prompt an Agent's spawn gave beside its order.
     pub fn set_spawn_prompt(&mut self, id: &str, prompt: &str) -> Result<(), RpcError> {
         self.node(id)?;

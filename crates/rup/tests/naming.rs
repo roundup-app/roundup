@@ -126,7 +126,7 @@ async fn a4688c_launch_and_spawn_receive_the_guide() {
         spawn_description(&tools)
     );
     let mut call = rmcp::model::CallToolRequestParams::new("agent_spawn");
-    call.arguments = Some(json!({"cwd": project.dir.path(), "name": "reviewer-checks-tests", "order": {"kind":"work", "title":"Check tests", "ask":"Check tests", "done":"Tests checked", "limits":["Read only"]}}).as_object().unwrap().clone());
+    call.arguments = Some(json!({"cwd": project.dir.path(), "name": "reviewer-checks-tests", "role":"job","order": {"kind":"work", "title":"Check tests", "ask":"Check tests", "done":"Tests checked", "limits":["Read only"]}}).as_object().unwrap().clone());
     let result = mcp.call_tool(call).await.unwrap();
     assert_ne!(result.is_error, Some(true), "{result:?}");
     let rail = user.request("rail.tree", ()).await.unwrap();
@@ -153,7 +153,7 @@ async fn a4688c_launch_and_spawn_receive_the_guide() {
     assert!(text.contains("keep it"), "{text}");
     for scout in [false, true] {
         let mut call = rmcp::model::CallToolRequestParams::new("agent_spawn");
-        call.arguments = Some(json!({"cwd":project.dir.path(), "scout":scout, "order":{"kind":"work","title":"Check tests","ask":"Check tests","done":"Tests checked","limits":["Read only"]}}).as_object().unwrap().clone());
+        call.arguments = Some(json!({"cwd":project.dir.path(), "scout":scout, "role":"job","order":{"kind":"work","title":"Check tests","ask":"Check tests","done":"Tests checked","limits":["Read only"]}}).as_object().unwrap().clone());
         let result = mcp.call_tool(call).await.unwrap();
         assert_ne!(result.is_error, Some(true), "{result:?}");
     }
@@ -208,7 +208,7 @@ async fn a4688c_launch_and_spawn_receive_the_guide() {
     .unwrap();
     let before_off = user.request("rail.tree", ()).await.unwrap();
     let mut call = rmcp::model::CallToolRequestParams::new("agent_spawn");
-    call.arguments = Some(json!({"cwd":project.dir.path(),"order":{"kind":"work","title":"Keep current name","ask":"Keep current name","done":"Checked","limits":["Read only"]}}).as_object().unwrap().clone());
+    call.arguments = Some(json!({"cwd":project.dir.path(),"role":"job","order":{"kind":"work","title":"Keep current name","ask":"Keep current name","done":"Checked","limits":["Read only"]}}).as_object().unwrap().clone());
     let result = mcp.call_tool(call).await.unwrap();
     assert_ne!(result.is_error, Some(true), "{result:?}");
     let after_off = user.request("rail.tree", ()).await.unwrap();
@@ -275,7 +275,7 @@ async fn a4688c_launch_and_spawn_receive_the_guide() {
     let (door_mcp, _door_shim) = shim(&project, door_id).await;
     for scout in [false, true] {
         let mut call = rmcp::model::CallToolRequestParams::new("agent_spawn");
-        call.arguments = Some(json!({"cwd":project.dir.path(),"name": if scout {"scout-keeps-guide"} else {"reader-keeps-guide"},"scout":scout,"order":{"kind":"work","title":"Read guide","ask":"Read guide","done":"Read","limits":["Read only"]}}).as_object().unwrap().clone());
+        call.arguments = Some(json!({"cwd":project.dir.path(),"name": if scout {"scout-keeps-guide"} else {"reader-keeps-guide"},"scout":scout,"role":"job","order":{"kind":"work","title":"Read guide","ask":"Read guide","done":"Read","limits":["Read only"]}}).as_object().unwrap().clone());
         let result = door_mcp.call_tool(call).await.unwrap();
         assert_ne!(result.is_error, Some(true), "{result:?}");
     }
@@ -349,7 +349,7 @@ async fn a4688d_guide_is_fixed_for_each_session() {
     assert!(spawn_description(&tools).contains(G2));
     assert!(!spawn_description(&tools).contains(G1));
     let mut call = rmcp::model::CallToolRequestParams::new("agent_spawn");
-    call.arguments = Some(json!({"cwd":project.dir.path(),"name":"reader-checks-guide","order":{"kind":"work","title":"Read guide","ask":"Read guide","done":"Read","limits":["Read only"]}}).as_object().unwrap().clone());
+    call.arguments = Some(json!({"cwd":project.dir.path(),"name":"reader-checks-guide","role":"job","order":{"kind":"work","title":"Read guide","ask":"Read guide","done":"Read","limits":["Read only"]}}).as_object().unwrap().clone());
     let result = next.call_tool(call).await.unwrap();
     assert_ne!(result.is_error, Some(true), "{result:?}");
     let tree = user.request("rail.tree", ()).await.unwrap();

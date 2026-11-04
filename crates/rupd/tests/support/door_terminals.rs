@@ -30,7 +30,7 @@ pub async fn order_child() -> (Run, Arc<Client>) {
     let child = caller
         .request(
             "agent.spawn",
-            json!({"name":"ordered child","cwd":run.dir.path()}),
+            json!({"name":"ordered child","cwd":run.dir.path(),"role":"job"}),
         )
         .await
         .unwrap();

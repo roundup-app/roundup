@@ -348,7 +348,7 @@ async fn family() -> (Run, Peer, Peer) {
         .client
         .request(
             "agent.spawn",
-            json!({"name":"builder","cwd":run.dir.path()}),
+            json!({"name":"builder","cwd":run.dir.path(),"role":"job"}),
         )
         .await
         .unwrap();

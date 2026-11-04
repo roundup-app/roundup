@@ -35,7 +35,7 @@
           {
             "id": "toolu_a26_child",
             "name": "mcp__roundup__agent_spawn",
-            "arguments": "{\"cwd\": \".\", \"order\": {\"kind\": \"work\", \"title\": \"Child work\", \"ask\": \"A26 start grandchild\", \"done\": \"grandchild started\", \"limits\": []}, \"parent\": \"999\"}"
+            "arguments": "{\"role\": \"job\", \"cwd\": \".\", \"order\": {\"kind\": \"work\", \"title\": \"Child work\", \"ask\": \"A26 start grandchild\", \"done\": \"grandchild started\", \"limits\": []}, \"parent\": \"999\"}"
           }
         ]
       }
@@ -58,7 +58,7 @@
           {
             "id": "toolu_a26_grandchild",
             "name": "mcp__roundup__agent_spawn",
-            "arguments": "{\"cwd\": \".\", \"order\": {\"kind\": \"work\", \"title\": \"Grandchild work\", \"ask\": \"A26 grandchild finish\", \"done\": \"finished\", \"limits\": []}}"
+            "arguments": "{\"role\": \"job\", \"cwd\": \".\", \"order\": {\"kind\": \"work\", \"title\": \"Grandchild work\", \"ask\": \"A26 grandchild finish\", \"done\": \"finished\", \"limits\": []}}"
           }
         ]
       }

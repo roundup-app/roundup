@@ -408,7 +408,10 @@ async fn a36_an_agents_spawn_takes_any_listed_model_and_no_effort() {
         .unwrap_err();
     assert_eq!(effort.code, rpc::code::INVALID_PARAMS);
     let child = agent
-        .request("agent.spawn", json!({ "cwd": run.cwd(), "model": "haiku" }))
+        .request(
+            "agent.spawn",
+            json!({ "cwd": run.cwd(), "model": "haiku", "role": "job" }),
+        )
         .await
         .unwrap();
     assert_eq!(child["model"], "haiku");

@@ -185,6 +185,7 @@ async fn agent_env(method: &str) -> String {
                     cwd,
                     prompt: None,
                     parent: None,
+                    role: None,
                     order: None,
                     name: None,
                     model: None,

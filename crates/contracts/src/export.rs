@@ -294,6 +294,7 @@ pub fn types() -> specta::Types {
         .register::<crate::common::HistoryParams>()
         .register::<crate::common::TouchedParams>()
         .register::<crate::agent::SpawnParams>()
+        .register::<crate::agent::SpawnRole>()
         .register::<crate::agent::Extras>()
         .register::<crate::agent::ExtrasAddParams>()
         .register::<crate::agent::StartDoorParams>()

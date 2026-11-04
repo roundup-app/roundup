@@ -198,13 +198,12 @@ impl Run {
                 .await
                 .unwrap();
         }
-        let node = caller
-            .request(
-                "agent.spawn",
-                json!({"name":"child","cwd":self.dir.path(),"scout":self.scout,"prompt":prompt}),
-            )
-            .await
-            .unwrap();
+        let mut params =
+            json!({"name":"child","cwd":self.dir.path(),"scout":self.scout,"prompt":prompt});
+        if self.scout {
+            params["role"] = json!("job");
+        }
+        let node = caller.request("agent.spawn", params).await.unwrap();
         self.child = node["id"].as_str().unwrap().to_owned();
         self.terminal = node["terminal_id"].clone();
         self.attempt = node["attempt"].clone();
