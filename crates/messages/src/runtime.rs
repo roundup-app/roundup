@@ -70,13 +70,12 @@ impl Messages {
         env: Env,
     ) -> Result<Self, OpenError> {
         let events = bus.subscribe();
-        let path = dir.join(if dir.join("project.db").exists() {
+        let store = Store::open(&dir.join(if dir.join("project.db").exists() {
             "project.db"
         } else {
             "messages.db"
-        });
-        let store = Store::open(&path)?;
-        let pushes = pushes::Ledger::open(&path)?;
+        }))?;
+        let pushes = pushes::Ledger::load(&store.db);
         let inner = Arc::new(Inner {
             store: Mutex::new(store),
             agents,

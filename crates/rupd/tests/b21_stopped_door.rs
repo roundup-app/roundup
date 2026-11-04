@@ -457,9 +457,7 @@ async fn dcl10_reopen_keeps_told_and_push_accounting() {
     run.daemon = daemon;
     run.log = log;
     run.user = Client::connect(&run.daemon.socket).await.unwrap();
-    // The reopened Daemon compares the stored told book with the Rail once, queues nothing again
-    // and launches nothing.
-    wait(|| !snapshots(run.dir.path()).is_empty()).await;
+    // The reopened Daemon queues nothing again and launches nothing before the explicit start.
     run.assert_silent().await;
     assert_eq!(run.digests().await.len(), before);
     run.start_door().await;

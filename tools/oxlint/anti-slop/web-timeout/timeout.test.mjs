@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { appendFileSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { appendFileSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { relative, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { test } from "node:test";
@@ -123,7 +123,11 @@ const cases = [
 
 for (const [name, source, status, diagnostic, exceptions = [], filename = "fixture.test.tsx"] of cases) {
   test(`t3779a_timeout_boundary: ${name}`, () => {
-    const dir = mkdtempSync(resolve(tmpdir(), ".timeout-fixture-"));
+    // The fixture sits behind a symlink, as macOS's tmpdir does (/var is /private/var), so every OS catches a rule
+    // that compares a symlinked path with the real cwd (T6011c).
+    const real = mkdtempSync(resolve(tmpdir(), ".timeout-fixture-"));
+    const dir = `${real}-link`;
+    symlinkSync(real, dir, "dir");
     const file = resolve(dir, filename);
     const config = resolve(dir, "config.json");
     const entries = exceptions.map(entry => ({ ...entry, file: entry.file === "fixture.test.tsx" ? relative(dir, file) : entry.file }));
@@ -146,6 +150,7 @@ for (const [name, source, status, diagnostic, exceptions = [], filename = "fixtu
       if (process.env.TIMEOUT_FIXTURE_REPORT) appendFileSync(process.env.TIMEOUT_FIXTURE_REPORT, JSON.stringify({ name, filename, source, exitCode: result.status, diagnostics: diagnostics.map(item => item.message) }) + "\n");
     } finally {
       rmSync(dir, { recursive: true, force: true });
+      rmSync(real, { recursive: true, force: true });
     }
   });
 }

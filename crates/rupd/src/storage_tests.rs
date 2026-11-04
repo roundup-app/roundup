@@ -93,6 +93,22 @@ fn saved_prefix() -> (tempfile::TempDir, Connection, usize) {
     (dir, db, prefix)
 }
 
+// The prefix just before 0046-delete-reactions, the migration these tests retire tables with.
+fn saved_prefix_before_reactions_retire() -> (tempfile::TempDir, Connection, usize) {
+    let dir = tempfile::tempdir().unwrap();
+    let mut db = Connection::open(dir.path().join("project.db")).unwrap();
+    let prefix = migrations().len() - 2;
+    Migrations::new(migrations()[..prefix].to_vec())
+        .to_latest(&mut db)
+        .unwrap();
+    db.execute_batch(
+        "INSERT INTO nodes(id,kind,name,ord) VALUES(5809,'workstream','saved work',7);
+         INSERT INTO nodes(id,kind,name,ord) VALUES(5810,'workstream','more work',9);",
+    )
+    .unwrap();
+    (dir, db, prefix)
+}
+
 fn saved_rows(db: &Connection) -> Vec<(i64, String, String, i64)> {
     db.prepare("SELECT id,kind,name,ord FROM nodes WHERE id IN (5809,5810) ORDER BY id")
         .unwrap()
@@ -578,7 +594,7 @@ fn r3696c_idle_project_stores_do_not_read_the_schema_on_open() {
 
 #[tokio::test]
 async fn u5740c_current_project_drops_only_retired_tables() {
-    let (dir, db, _) = saved_prefix();
+    let (dir, mut db, _) = saved_prefix_before_reactions_retire();
     db.execute_batch(r#"
         INSERT INTO nodes(id,kind,name,ord) VALUES(5900,'agent','Retained Agent',10);
         INSERT INTO todos(id,title,body,created_at) VALUES(5900,'Keep Todo','exact body',42);
@@ -622,9 +638,13 @@ async fn u5740c_current_project_drops_only_retired_tables() {
                 "reaction_firings",
                 "reactions",
                 "reaction_project",
+                "door_told",
+                "push_slots",
             ],
         )
     };
+    // A Daemon opens a project at most one migration behind, so 0046 runs here and the open adds 0047.
+    apply(&mut db, migrations()[..migrations().len() - 1].to_vec()).unwrap();
     let before = retained(&db);
     drop(db);
     for _ in 0..2 {
@@ -697,7 +717,7 @@ fn json_definition(db: &Connection) -> String {
 fn u5740c_other_representations_are_unchanged_on_refusal() {
     let dir = tempfile::tempdir().unwrap();
     let mut db = Connection::open(dir.path().join("project.db")).unwrap();
-    let prefix = migrations().len() - 2;
+    let prefix = migrations().len() - 3;
     apply(&mut db, migrations()[..prefix].to_vec()).unwrap();
     db.execute_batch(
         "INSERT INTO nodes(id,kind,name,ord) VALUES(5900,'workstream','keep sentinel',3)",
