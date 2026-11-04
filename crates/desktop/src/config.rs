@@ -27,6 +27,8 @@ pub struct Config {
     pub call_bound: Duration,
     /// Where names and the open list are kept (S10); `None` until the App resolves its own data folder.
     pub data_dir: Option<PathBuf>,
+    /// `ROUNDUP_DEV_PORT` (S13): the Vite port `just app` gave this run; `devUrl` follows it.
+    pub dev_port: Option<u16>,
 }
 
 impl Config {
@@ -53,6 +55,7 @@ impl Config {
             ready_bound: READY_BOUND,
             call_bound: CALL_BOUND,
             data_dir: None,
+            dev_port: None,
         })
     }
 
@@ -77,6 +80,13 @@ impl Config {
 
     pub(crate) fn context<R: tauri::Runtime>(&self) -> std::io::Result<tauri::Context<R>> {
         let mut context = crate::context();
+        if let (Some(port), true) = (self.dev_port, cfg!(debug_assertions)) {
+            context.config_mut().build.dev_url = Some(
+                format!("http://localhost:{port}")
+                    .parse()
+                    .expect("a port makes a URL"),
+            );
+        }
         if let Some(dir) = &self.data_dir {
             let dir = std::path::absolute(dir)?;
             // R20: a directory override alone leaves the macOS single-instance socket
@@ -104,6 +114,9 @@ impl Config {
         config.claude_bin = std::env::var_os("ROUNDUP_CLAUDE_BIN");
         config.search_path = std::env::var_os("PATH").unwrap_or_default();
         config.data_dir = std::env::var_os("ROUNDUP_DATA_DIR").map(PathBuf::from);
+        config.dev_port = std::env::var("ROUNDUP_DEV_PORT")
+            .ok()
+            .and_then(|port| port.parse().ok());
         Ok(config)
     }
 }
@@ -121,6 +134,32 @@ fn check_limit(socket: &Path) -> Result<(), String> {
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;
+
+    fn bare() -> Config {
+        Config::locate(None, Path::new("/x/app"), Path::new("/tmp"), 1).unwrap()
+    }
+
+    #[test]
+    fn s13_the_launch_sets_dev_url_from_the_dev_port_and_keeps_the_config_without_it() {
+        let mut config = bare();
+        let kept = config
+            .context::<tauri::test::MockRuntime>()
+            .unwrap()
+            .config()
+            .build
+            .dev_url
+            .clone();
+        assert_eq!(kept.unwrap().as_str(), "http://localhost:5173/");
+        config.dev_port = Some(5180);
+        let url = config
+            .context::<tauri::test::MockRuntime>()
+            .unwrap()
+            .config()
+            .build
+            .dev_url
+            .clone();
+        assert_eq!(url.unwrap().as_str(), "http://localhost:5180/");
+    }
 
     // The startup observers share the existing classified Daemon launch site (N7).
     pub(crate) fn startup_config(dir: &Path, missing: bool) -> Config {
