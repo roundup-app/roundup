@@ -747,7 +747,7 @@ async fn agent_in_as(project: &Project, caller: &str) -> String {
     let node = as_caller
         .request(
             "agent.spawn",
-            json!({ "cwd": project.dir.path(), "prompt": null, "parent": null }),
+            json!({ "cwd": project.dir.path(), "prompt": null, "parent": null, "role": "job" }),
         )
         .await
         .unwrap();

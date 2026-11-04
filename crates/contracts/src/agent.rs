@@ -11,8 +11,8 @@ mod alert;
 pub use alert::{AlertLevel, SetAlertLevelParams};
 mod launch;
 pub use launch::{
-    CreateWorkstreamParams, Extras, ExtrasAddParams, PermissionMode, SpawnParams, StartAttribution,
-    StartDoorParams,
+    CreateWorkstreamParams, Extras, ExtrasAddParams, PermissionMode, SpawnParams, SpawnRole,
+    StartAttribution, StartDoorParams,
 };
 
 /// Parse the wire ordinal without accepting aliases such as leading zeroes or signs.
@@ -974,10 +974,14 @@ pub struct ToolCallEvent {
     pub call: ToolCall,
 }
 
-/// The existing optional first prompt returned by agent.spawnPrompt.
+/// The optional first prompt and role an Agent's spawn gave, returned by agent.spawnPrompt.
 #[derive(Serialize, Deserialize, Type, JsonSchema)]
 pub struct SpawnPrompt {
     pub prompt: Option<String>,
+    /// DCL9: the role the spawning Agent gave; absent for the user's own Agents.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[specta(optional, type = SpawnRole)]
+    pub role: Option<SpawnRole>,
 }
 
 /// U5531a: presentation only; never changes execution or Home.

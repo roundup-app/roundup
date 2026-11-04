@@ -59,7 +59,7 @@ mod lean_specialists {
             }
         }
         async fn spawn(&self, name: Option<&str>, scout: bool) -> Result<RailNode, rpc::RpcError> {
-            let value = self.door.request("agent.spawn", json!({"cwd":self.dir.path(), "scout":scout,"specialist":name,"name":"reader", "order":{"kind":"work","title":"Read repository","ask":"Read repository","done":"Report findings","limits":["Read only"]}})).await?;
+            let value = self.door.request("agent.spawn", json!({"cwd":self.dir.path(), "scout":scout,"specialist":name,"name":"reader", "order":{"kind":"work","title":"Read repository","ask":"Read repository","done":"Report findings","limits":["Read only"]},"role":"job"})).await?;
             Ok(serde_json::from_value(value).unwrap())
         }
         async fn tree(&self) -> Vec<RailNode> {
@@ -125,7 +125,7 @@ mod lean_specialists {
         let child = door
             .request(
                 "agent.spawn",
-                json!({"cwd":run.dir.path(),"scout":true,"specialist":"repo"}),
+                json!({"cwd":run.dir.path(),"scout":true,"specialist":"repo","role":"job"}),
             )
             .await
             .unwrap();

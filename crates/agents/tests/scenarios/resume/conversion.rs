@@ -89,7 +89,7 @@ async fn lean_child(f: &Fixture, lead: &str, extra: Value) -> RailNode {
         id: lead.to_owned(),
         parent: None,
     };
-    let mut params = json!({"cwd": f.dir.path(), "parent": lead});
+    let mut params = json!({"cwd": f.dir.path(), "parent": lead, "role": "job"});
     params
         .as_object_mut()
         .unwrap()

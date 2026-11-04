@@ -4,6 +4,7 @@ import type * as agent$Extras from "./Extras";
 import type * as agent$Order from "./Order";
 import type * as agent$PermissionMode from "./PermissionMode";
 import type * as agent$RailVisibility from "./RailVisibility";
+import type * as agent$SpawnRole from "./SpawnRole";
 import type * as agent$StartAttribution from "./StartAttribution";
 export type SpawnParams = {
 	/**  A5765e: immutable source names and identities, supplied only by the target user connection. */
@@ -20,6 +21,11 @@ export type SpawnParams = {
 	cwd: string,
 	prompt: string | null,
 	parent: string | null,
+	/**
+	 *  DCL9: an Agent's spawn names the Subagent's role, `job` or `consult`; without one the call
+	 *  is refused. The user's own spawn has no role.
+	 */
+	role?: agent$SpawnRole.SpawnRole,
 	/**
 	 *  O2: replaces `prompt` for a user's spawn; an Agent's spawn gives both, and `prompt` alone is
 	 *  `INVALID_PARAMS` (O8).

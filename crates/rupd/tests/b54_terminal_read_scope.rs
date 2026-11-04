@@ -90,13 +90,11 @@ impl World {
     }
 
     async fn spawn(&self, by: &Client, parent: &str) -> String {
-        let node = by
-            .request(
-                "agent.spawn",
-                json!({"cwd":self.dir.path(),"prompt":null,"parent":parent}),
-            )
-            .await
-            .unwrap();
+        let mut params = json!({"cwd":self.dir.path(),"prompt":null,"parent":parent});
+        if !std::ptr::eq(by, &self.user) {
+            params["role"] = json!("job");
+        }
+        let node = by.request("agent.spawn", params).await.unwrap();
         node["id"].as_str().unwrap().to_owned()
     }
 

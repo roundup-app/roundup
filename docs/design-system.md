@@ -47,6 +47,14 @@ Starting values. The thresholds in the checks are fixed; a value that fails a th
 | `--disabled` | `#707070` | `#999999` | the label of a button that cannot act (4.5:1 on `--ground` and `--sunken`) |
 | `--press-opacity` | `0.9` | same | immediate button feedback, including filled buttons and independently coloured Glyphs |
 | `--accent` | `#b23300` | `#fc6a3e` | Glyph tone of `working`, the primary action |
+| `--fork-red` | `#cb0011` | `#fe6a74` | the red swatch of the Fork sheet (FS5979c); the `--accent` of the red Fork colour |
+| `--fork-orange` | `#b23300` | `#fc6a3e` | the orange swatch of the Fork sheet (FS5979c); the `--accent` of the orange Fork colour |
+| `--fork-amber` | `#905b00` | `#fcbd4f` | the amber swatch of the Fork sheet (FS5979c); the `--accent` of the amber Fork colour |
+| `--fork-green` | `#007531` | `#4ffc97` | the green swatch of the Fork sheet (FS5979c); the `--accent` of the green Fork colour |
+| `--fork-teal` | `#007168` | `#4ffcee` | the teal swatch of the Fork sheet (FS5979c); the `--accent` of the teal Fork colour |
+| `--fork-blue` | `#0057d1` | `#4f97fc` | the blue swatch of the Fork sheet (FS5979c); the `--accent` of the blue Fork colour |
+| `--fork-violet` | `#6200d1` | `#bd85fd` | the violet swatch of the Fork sheet (FS5979c); the `--accent` of the violet Fork colour |
+| `--fork-pink` | `#c40069` | `#fc4fac` | the pink swatch of the Fork sheet (FS5979c); the `--accent` of the pink Fork colour |
 | `--amber` | `var(--amber-11)` | `var(--amber-11)` | `needs-you` |
 | `--red` | `var(--red-11)` | `var(--red-11)` | `error` |
 | `--hairline` | `rgba(0,0,0,.10)` | `rgba(255,255,255,.12)` | the one permitted border |
