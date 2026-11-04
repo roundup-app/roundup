@@ -277,6 +277,13 @@
     "kind": "indirect",
     "sha256": "ac21e5550d19ac685f64c5650f51489a7bfa96e5e032bd1fd731c69c8e867b07"
   },
+  "crates/desktop/tests/update_exit/mod.rs": {
+    "cleanup": "Fixture Drop closes the Project and the App; S5981 tests assert the recorded rupd and terminal-owner pids are gone before the temporary folders are removed.",
+    "data": "Fixture::new's wrapper script runs rupd with an absolute TempDir data folder and Project, with a fake claude as the Agent program.",
+    "issue": 5981,
+    "kind": "indirect",
+    "sha256": "ce625eb84dfe53f815599456716470b650f9d26b3f623cb196eff18626ec8063"
+  },
   "crates/messages/src/digest_schema.rs": {
     "cleanup": "No separate built-Daemon launch site.",
     "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
