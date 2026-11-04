@@ -74,6 +74,9 @@ pub fn apply(menu: &NSMenu, looks: &[Look], mtm: MainThreadMarker) {
                     item.setBadge(badge.as_deref());
                 }
                 item.setImage(disc(symbol, *tone, dark).as_deref());
+                // AppKit caches an item's height from its last layout; without this a row that was
+                // measured as one line keeps that height and clips its two lines (U5959a).
+                menu.itemChanged(&item);
             }
         }
     }
@@ -92,4 +95,36 @@ pub fn style_tray<R: tauri::Runtime>(
             apply(&menu, &looks, mtm);
         }
     })
+}
+
+#[cfg(test)]
+pub(crate) mod tests {
+    use super::*;
+    use crate::look::Tone;
+
+    pub(crate) fn u5959a_a_two_line_look_grows_a_measured_row() {
+        let main = MainThreadMarker::new().expect("main-thread harness");
+        let menu = NSMenu::new(main);
+        menu.setAutoenablesItems(false);
+        let item = NSMenuItem::new(main);
+        item.setTitle(&NSString::from_str("Logo Design"));
+        menu.addItem(&item);
+        // `size` makes AppKit lay the menu out, so the item is measured as one line.
+        let one_line = menu.size().height;
+        apply(
+            &menu,
+            &[Look::Agent {
+                subtitle: "Terminal closed; resume…".into(),
+                badge: Some("5m".into()),
+                symbol: "checkmark.circle.fill",
+                tone: Tone::Accent,
+            }],
+            main,
+        );
+        let two_lines = menu.size().height;
+        assert!(
+            two_lines > one_line,
+            "the measured row kept its one-line height: {one_line} then {two_lines}"
+        );
+    }
 }
