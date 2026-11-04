@@ -15,10 +15,11 @@ const capture = async (id: string, step: string) => {
   await writeFile(join(dir, `${step}.checks.json`), JSON.stringify(await read(`window.__checks()`), null, 2));
 };
 
+// One CLI connection for the three setup commands; each still runs in order and a failed one stops the batch.
+const opened = (seed: string) => browser("batch", "--bail", "set viewport 1512 950", "set media dark", `open '${url(`/harness.html?seed=${seed}&renderer=dom`, process.env.U3756_BASELINE === "1")}'`);
+
 const load = async (seed = "empty-project", recording?: string) => {
-  await browser("set", "viewport", "1512", "950");
-  await browser("set", "media", "dark");
-  await browser("open", url(`/harness.html?seed=${seed}&renderer=dom`, process.env.U3756_BASELINE === "1"));
+  await opened(seed);
 
   // agent-browser start creates a new context and drops media emulation; restart records this dark context.
   if (recording) await browser("record", "restart", recording);
@@ -85,9 +86,7 @@ it.each(["empty-project", "tree-40"])("u3756a_late_door_terminal_keeps_the_newer
 }, 90_000);
 
 const fresh = async (seed = "selection") => {
-  await browser("set", "viewport", "1512", "950");
-  await browser("set", "media", "dark");
-  await browser("open", url(`/harness.html?seed=${seed}&renderer=dom`, process.env.U3756_BASELINE === "1"));
+  await opened(seed);
   await wait(`!!window.__fake && !!document.querySelector('.terminal-new')`);
 };
 
