@@ -66,10 +66,24 @@ const contractNotice = (reported: ReportedContract): string | null => {
   return copy.theAppAndTheDaemonDiffer(REMEDY);
 };
 
-/** Asks the Project's Daemon once at connect; a failed ping says nothing here, since every later call fails and says why. */
+const forkColourOf = v.safeParser(v.object({ forkColour: v.picklist(["red", "orange", "amber", "green", "teal", "blue", "violet", "pink"]) }));
+
+/** U6044a: the root wears the colour of the Fork the Daemon runs on; a Daemon on the live data folder reports none, and the root keeps the live Tokens. */
+const applyForkColour = (pong: Pong): void => {
+  const parsed = forkColourOf(pong);
+
+  if (parsed.success) document.documentElement.dataset.forkColour = parsed.output.forkColour;
+  else delete document.documentElement.dataset.forkColour;
+};
+
+/** Asks the Project's Daemon once at connect; a failed ping says nothing here, since every later call fails and says why. The same answer sets the Fork colour on the root. */
 export const checkContract = async (app: AppSeam): Promise<string | null> => {
   try {
-    const reported = reportedContract(await app.rpc("daemon.ping", null));
+    const pong = await app.rpc("daemon.ping", null);
+
+    applyForkColour(pong);
+
+    const reported = reportedContract(pong);
 
     if (!reported || reported.fingerprint === OWN_CONTRACT.fingerprint) return contractNotice(reported);
 

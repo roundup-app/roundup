@@ -40,6 +40,16 @@ fn resolved(path: &Path) -> Result<PathBuf, RpcError> {
     Ok(missing.iter().rev().fold(base, |acc, name| acc.join(name)))
 }
 
+/// U6044a: the colour of the Fork whose Project data folder is `project_dir`
+/// (`<fork>/projects/<key>`); `None` when `<fork>/fork.json` is absent or unreadable.
+pub(crate) fn colour_of(project_dir: &Path) -> Option<contracts::data::ForkColour> {
+    let root = project_dir.parent()?.parent()?;
+    let text = fs::read_to_string(root.join("fork.json")).ok()?;
+    serde_json::from_str::<ForkRecord>(&text)
+        .ok()
+        .map(|r| r.colour)
+}
+
 /// Copy the live `root` into `params.path`; on failure remove what this call wrote.
 pub(crate) fn fork(root: &Path, params: &ForkParams) -> Result<ForkResult, RpcError> {
     let name = params.name.as_str();

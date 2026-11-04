@@ -91,6 +91,8 @@ pub struct Daemon {
     project_key: String,
     /// FK5977: this Project's data folder, `<data>/projects/<key>`.
     data_dir: std::path::PathBuf,
+    /// U6044a: the colour `fork.json` names, read once at open.
+    fork_colour: Option<contracts::data::ForkColour>,
     touches: Arc<Touches>,
     /// B19: which Pads each Door's earlier digests already named.
     digests: Arc<messages::digest::Seen>,

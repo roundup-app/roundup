@@ -140,6 +140,14 @@ pub struct Ping {
     #[serde(rename = "projectKey")]
     pub project_key: String,
     pub contract: ContractFingerprint,
+    /// U6044a: the Fork's colour, from `fork.json`; absent on the live data folder.
+    #[serde(
+        rename = "forkColour",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    #[specta(optional, type = crate::data::ForkColour)]
+    pub fork_colour: Option<crate::data::ForkColour>,
 }
 
 #[derive(Serialize, Deserialize, Type, JsonSchema)]

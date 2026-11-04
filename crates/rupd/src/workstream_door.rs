@@ -71,6 +71,7 @@ for line in sys.stdin:
         project: dir.to_path_buf(),
         project_key: String::new(),
         data_dir: dir.to_path_buf(),
+        fork_colour: None,
         touches,
         digests: Default::default(),
         pushes: Default::default(),
