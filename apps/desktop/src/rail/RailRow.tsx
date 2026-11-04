@@ -221,6 +221,7 @@ export const RailRowView = (props: {
       </span>
     </p>
     <Show when={workstream() && props.row.node.waiting}>{count => <ReservedLine class="rail-waiting" status={copy.doorStoppedWaiting(count())} />}</Show>
+    <Show when={workstream() && connected.rail.doorFailure(props.row.node.id)}>{cause => <ReservedLine class="rail-door-failure" message={cause()} />}</Show>
     <Show when={props.row.node.start_attribution}>{source => <ReservedLine class="rail-attribution" status={copy.startedBy(source().agent_name, source().project_name)} />}</Show>
     <Show when={!workstream() && (props.selected || !connected.rail.dismissed(props.row.node))}><FailureLine status={props.row.node.status} dismissed={connected.rail.dismissed(props.row.node)} /></Show>
   </div>}</StatusTip>;
