@@ -840,7 +840,7 @@ async fn n7_launch_sites_clean_on_success_and_failure() {
 }
 
 impl Run {
-    /// Every Message stored for the Door, oldest first, with its status.
+    /// Every Message stored for the Door, oldest first, with its status; the Daemon's own initial order is not one.
     async fn thread(&self) -> Vec<Value> {
         let mut all: Vec<Value> = self
             .user
@@ -851,7 +851,9 @@ impl Run {
             .unwrap()
             .iter()
             .filter(|m| {
-                m["to"] == self.door && !m["body"].as_str().unwrap().starts_with("[digest]")
+                m["to"] == self.door
+                    && m["from"]["kind"] != "ext"
+                    && !m["body"].as_str().unwrap().starts_with("[digest]")
             })
             .cloned()
             .collect();
