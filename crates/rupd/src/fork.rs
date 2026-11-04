@@ -50,10 +50,7 @@ pub(crate) fn fork(root: &Path, params: &ForkParams) -> Result<ForkResult, RpcEr
     }
     let folder = Path::new(&params.path);
     if !folder.is_absolute() {
-        return Err(invalid(format!(
-            "{} is not an absolute path",
-            params.path
-        )));
+        return Err(invalid(format!("{} is not an absolute path", params.path)));
     }
     let source = root.canonicalize().map_err(|e| failed(root, e))?;
     let target = resolved(folder)?;
