@@ -638,16 +638,6 @@ impl Agents {
         }
     }
 
-    async fn rpc_project_get_prepared(
-        &self,
-        _ctx: &Ctx,
-        _method: &str,
-        _value: Value,
-    ) -> Result<Value, RpcError> {
-        let shared = &self.shared;
-        reply(&shared.rail().get_prepared()?)
-    }
-
     async fn rpc_project_prepare_directory(
         &self,
         _ctx: &Ctx,

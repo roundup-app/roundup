@@ -85,7 +85,6 @@ export const CONTRACT = {
     "pad.setStorage": "8c74d5bf421a56c9",
     "pad.write": "199ebeaeca039911",
     "project.get": "9e13168ca3fdc9f9",
-    "project.getPrepared": "d01f2f236f8dbf2b",
     "project.importCommit": "4e0b7f511051067a",
     "project.importDiscover": "5e6586583f8fc491",
     "project.open": "62e397d20a7fe6d1",
