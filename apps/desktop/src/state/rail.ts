@@ -3,7 +3,7 @@ import { captureFocus } from "../keys/focus";
 import { createItemFailure } from "../rail/itemFailure";
 import { copy } from "./copy";
 import { applying } from "../app/pending";
-import { batch, createMemo, createSignal, untrack } from "solid-js";
+import { batch, createMemo, createSignal } from "solid-js";
 import { createStore, reconcile } from "solid-js/store";
 import type { Actor } from "@contracts/Actor";
 import type { Event as DaemonEvent } from "@contracts/Event";
@@ -150,7 +150,7 @@ const provisionalRow = (tree: readonly RailNode[], kind: "agent" | "workstream",
   name,
   parent,
   order: tree.reduce((next, each) => each.parent === parent ? Math.max(next, each.order + 1) : next, 0),
-  status: { kind: kind === "agent" ? "working" : "done", label: kind === "agent" ? "starting" : "terminal gone", since: Date.now(), finished: "0" },
+  status: { kind: "working", label: "starting", since: Date.now(), finished: "0" },
   attempt: null,
   status_revision: null,
   terminal_id: null,
@@ -179,8 +179,7 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
   const removedRows: RailNode[][] = [];
   const redoneRows: RailNode[][] = [];
   const renaming = new Map<string, () => void>();
-  const exitMarks = new Map<string, { exit: ExitState | null }>();
-  const [exitsDrawn, setExitsDrawn] = createSignal<ReadonlyMap<string, ExitState | null>>(new Map());
+  const [exitsDrawn, setExitsDrawn] = createSignal<ReadonlyMap<string, { exit: ExitState | null }>>(new Map());
 
   const view = createMemo(() => {
     const shown = hidden().size === 0 ? model.tree : model.tree.filter(node => !hidden().has(node.id));
@@ -555,22 +554,25 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
       return () => setDrawn(changes => changes.filter(each => each !== change));
     },
     keepRemoved: ids => {
-      const rows = untrack(() => model.tree).flatMap(node => ids.includes(node.id) ? [{ ...node }] : []);
+      const rows = model.tree.filter(node => ids.includes(node.id)).map(node => ({ ...node }));
 
       if (rows.length > 0) removedRows.push(rows);
     },
     drawHistory: direction => {
-      const from = direction === "undo" ? removedRows : redoneRows;
-      const to = direction === "undo" ? redoneRows : removedRows;
+      const [from, to] = direction === "undo" ? [removedRows, redoneRows] : [redoneRows, removedRows];
       const rows = from.pop();
 
       if (rows === undefined) return async () => undefined;
       to.push(rows);
-      const ids = new Set(rows.map(node => node.id));
-      const lift = state.draw(tree => direction === "undo" ? [...tree.filter(node => !ids.has(node.id)), ...rows] : tree.filter(node => !ids.has(node.id)));
+
+      const lift = state.draw(tree => {
+        const kept = tree.filter(node => !rows.some(row => row.id === node.id));
+
+        return direction === "undo" ? [...kept, ...rows] : kept;
+      });
 
       return async kept => {
-        if (!kept) { to.splice(to.indexOf(rows), 1); from.push(rows); }
+        if (!kept) { to.pop(); from.push(rows); }
 
         try { await state.refresh(); } finally { lift(); }
       };
@@ -580,24 +582,21 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
       const first = tree.find(each => ids.includes(each.id));
       const row = { ...provisionalRow(tree, "workstream", name, first?.parent ?? null), order: first?.order ?? 0 };
 
-      return [...tree.map(each => ids.includes(each.id) ? { ...each, parent: row.id, order: each.order } : each), row];
+      return [...tree.map(each => ids.includes(each.id) ? { ...each, parent: row.id } : each), row];
     }),
     drawExit: (id, exit) => {
       const mark = { exit };
 
-      exitMarks.set(id, mark);
-      setExitsDrawn(new Map(Array.from(exitMarks, ([key, each]) => [key, each.exit])));
+      setExitsDrawn(marks => new Map(marks).set(id, mark));
 
-      return () => {
-        if (exitMarks.get(id) !== mark) return;
-        exitMarks.delete(id);
-        setExitsDrawn(new Map(Array.from(exitMarks, ([key, each]) => [key, each.exit])));
-      };
+      return () => setExitsDrawn(marks => marks.get(id) !== mark ? marks : new Map([...marks].filter(([key]) => key !== id)));
     },
     keepApplied: (id, place) => setModel("tree", reconcile(movedTo(model.tree, id, place), { key: "id" })),
     unhide: ids => setHidden(rows => new Set([...rows].filter(id => !ids.includes(id)))),
     exitOf: (node) => {
-      if (exitsDrawn().has(node.id)) return exitsDrawn().get(node.id)!;
+      const drawnExit = exitsDrawn().get(node.id);
+
+      if (drawnExit !== undefined) return drawnExit.exit;
 
       if (node.terminal_id === null) return { kind: "unknown" };
 
@@ -623,8 +622,6 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
 
       if (result.kind === "pending") state.keepAsked(id, { kind: "rename", asked: name, base });
       lift();
-
-      if (renaming.get(id) === lift) renaming.delete(id);
 
       if (result.kind === "refused") throw result.error;
     },

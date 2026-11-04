@@ -4,7 +4,7 @@ import { RpcError } from "../../app/seam";
 import { todo } from "../../todos/testHarness";
 import { agent, event, info, workstream } from "../../testing/nodes";
 import { mountRail, railCallsTo, rowOf, settled } from "../railFixture";
-import { actions, gone, nextFrame, removeByKey } from "./u5991Actions";
+import { actions, gone, nextFrame, removeByKey } from "./u5991Harness";
 
 afterEach(cleanup);
 

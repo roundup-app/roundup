@@ -10,7 +10,7 @@ import { type createCopyFeedback } from "../ui/CopyButton";
 import * as v from "valibot";
 import { attentionCount } from "./attention";
 import { copy } from "./copy";
-import { createEffect, createMemo, createSignal, createUniqueId, For, on, onCleanup, onMount, Show } from "solid-js";
+import { createEffect, createMemo, createSignal, createUniqueId, For, lazy, on, onCleanup, onMount, Show } from "solid-js";
 import { ReservedLine } from "../ink/ReservedLine";
 import { SectionHead } from "../ink/SectionHead";
 import { KindGlyph } from "../ink/KindGlyph";
@@ -22,7 +22,6 @@ import { Sortable, type SortableMove } from "../ui/sortable";
 import { TreeView, Trunks } from "../ui/TreeView";
 import { useConnectedProject } from "../state/connectedProject";
 import { doorStateOf } from "./doorState";
-import { CreateMode } from "./CreateMode";
 import { OpeningPrompt } from "./OpeningPrompt";
 import { SaveAsMode } from "./SaveAsMode";
 import { RailConfirm } from "./menu/RailConfirm";
@@ -43,6 +42,8 @@ import { createRailTree, sections } from "./railTree";
 import { RailRecovery } from "./RailRecovery";
 import { RailFooter } from "./RailFooter";
 import "./styles.css";
+
+const CreateMode = lazy(() => import("./CreateMode").then(module => ({ default: module.CreateMode })));
 
 const toggled = <T,>(set: ReadonlySet<T>, member: T): ReadonlySet<T> =>
   new Set(set.has(member) ? [...set].filter((each) => each !== member) : [...set, member]);

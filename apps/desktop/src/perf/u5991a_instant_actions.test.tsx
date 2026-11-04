@@ -1,6 +1,6 @@
 import { cleanup, screen } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
-import { actions } from "../rail/menu/u5991Actions";
+import { actions } from "../rail/menu/u5991Harness";
 import { percentile } from "./keystrokes";
 
 afterEach(cleanup);
