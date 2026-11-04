@@ -12,6 +12,7 @@ The audit must prevent missed conditional offers, unsupported claims of non-use/
 ## Evidence
 
 | Artifact | Holds |
+| [agent-hooks-model.md](agent-hooks-model.md) | Four Agent hook/channel/Model/Spawn prompt decisions AH01-AH04, criteria and remaining gaps |
 | [project-config-methods.md](project-config-methods.md) | Five Project configuration method decisions PC01-PC05, criteria and remaining gaps |
 | [terminal-stream.md](terminal-stream.md) | Four Terminal stream/scheme/keystroke-probe decisions TP01-TP04, criteria and remaining gaps |
 | [worktree-reads.md](worktree-reads.md) | Three Worktree read decisions AW01-AW03, criteria, direction and remaining gaps |
