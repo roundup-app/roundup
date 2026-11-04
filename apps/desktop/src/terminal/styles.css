@@ -79,7 +79,8 @@
 
 /* U3517c: the viewport and the surrounding inset share the canvas ground; the doubled class outranks the lazy xterm.css whatever order the sheets load in. */
 .pane-screen,
-.pane .xterm-viewport.xterm-viewport,
+.pane .xterm.xterm,
+.pane .xterm:not(.allow-transparency) .xterm-viewport.xterm-viewport,
 .pane .xterm-scrollable-element.xterm-scrollable-element {
   background-color: var(--terminal-background);
 }

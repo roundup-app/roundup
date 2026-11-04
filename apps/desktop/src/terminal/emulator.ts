@@ -156,6 +156,8 @@ export const xtermOptions: ITerminalOptions = {
   fontWeight: Number.parseInt(/--weight-terminal:\s*([^;]+);/.exec(tokens)![1]!, 10),
   lineHeight: Number.parseFloat(/--line-terminal:\s*([^;]+);/.exec(tokens)![1]!),
   letterSpacing: Number.parseFloat(/--letter-terminal:\s*([^;]+);/.exec(tokens)![1]!),
+  // WebGL draws box borders across the full cell even with extra line height.
+  customGlyphs: true,
   macOptionClickForcesSelection: true,
   scrollback: SCROLLBACK_LINES,
   // Read per Terminal: a module-level read is stale for every Terminal opened after the window's scheme changes.
@@ -178,18 +180,22 @@ export type EchoProbe = {
   renderer(webgl: boolean, id: string): void;
 };
 
-/** xterm paints the scroll element's background inline from the theme; the stylesheet paints it from `--terminal-background`, so the inline copy is dropped (D1) each time xterm writes it. */
+/** xterm paints the root, viewport and scroll element backgrounds inline from the theme; the stylesheet paints them from `--terminal-background`, so each inline copy is dropped (D1) every time xterm writes it. */
 export const dropInlineGround = (element: HTMLElement, disposers: (() => void)[]): void => {
-  const scroller = element.querySelector<HTMLElement>(".xterm-scrollable-element");
+  const grounds = [
+    element.matches(".xterm") ? element : element.querySelector<HTMLElement>(".xterm"),
+    element.querySelector<HTMLElement>(".xterm-viewport"),
+    element.querySelector<HTMLElement>(".xterm-scrollable-element"),
+  ].filter((ground): ground is HTMLElement => ground !== null);
 
-  if (!scroller) return;
+  for (const ground of grounds) {
+    const drop = () => ground.style.removeProperty("background-color");
+    const observer = new MutationObserver(drop);
 
-  const drop = () => scroller.style.removeProperty("background-color");
-  const observer = new MutationObserver(drop);
-
-  drop();
-  observer.observe(scroller, { attributes: true, attributeFilter: ["style"] });
-  disposers.push(() => observer.disconnect());
+    drop();
+    observer.observe(ground, { attributes: true, attributeFilter: ["style"] });
+    disposers.push(() => observer.disconnect());
+  }
 };
 
 const ARABIC = "\u0600-\u06FF\u0750-\u077F\uFB50-\uFDFF\uFE70-\uFEFF";

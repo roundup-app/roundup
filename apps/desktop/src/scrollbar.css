@@ -43,7 +43,7 @@
 }
 
 /* Removing scrollback must hide immediately, even during the idle delay. */
-.xterm .xterm-scrollbar.invisible {
+.xterm .xterm-scrollbar.xterm-invisible {
   visibility: hidden;
 }
 
