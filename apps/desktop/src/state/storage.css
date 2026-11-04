@@ -26,6 +26,8 @@
 .centre-failures .centre-notice,
 .centre-failures .storage-failure {
   pointer-events: auto;
+  padding: var(--space-3);
+  background: var(--ground);
 }
 
 .storage-failure {
