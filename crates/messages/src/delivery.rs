@@ -327,7 +327,8 @@ pub(super) fn binding(node: &RailNode) -> store::Binding {
     )
 }
 
-pub(super) fn ended(node: &RailNode) -> bool {
+/// Whether the node's program is not running: never started, finished, or failed with no Terminal.
+pub fn ended(node: &RailNode) -> bool {
     ((node.status_revision.is_none() || node.status.is_none()) && node.terminal_id.is_none())
         || node.status.as_ref().is_some_and(|s| {
             s.kind == Kind::Done || (s.kind == Kind::Error && node.terminal_id.is_none())
