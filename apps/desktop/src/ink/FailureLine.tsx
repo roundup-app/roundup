@@ -5,7 +5,8 @@ import { Tip } from "../ui/Tip";
 import { copy } from "./copy";
 import "./failureLine.css";
 
-const Line = (props: { label: string; class?: string | undefined }) => {
+/** The failure text with its cut Tip, for a cause that is not an Agent Status. */
+export const Line = (props: { label: string; class?: string | undefined }) => {
   const [ref, cut] = createCut(() => props.label);
 
   return (
