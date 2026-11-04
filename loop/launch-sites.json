@@ -736,6 +736,16 @@
     "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
     "kind": "reference"
   },
+  "crates/rupd/src/fork_tests.rs": {
+    "cleanup": "In-process test runtime owns these Daemons; no built executable launch.",
+    "data": "Unit observers call Daemon::open on explicit TempDir paths; no production fallback resolver.",
+    "kind": "in-process"
+  },
+  "crates/rup/tests/fork.rs": {
+    "cleanup": "Serves a stub socket inside the test runtime on a TempDir path; no rupd executable launch.",
+    "data": "Owned absolute TempDir socket; the stub holds no data folder.",
+    "kind": "in-process"
+  },
   "crates/rupd/src/import_tests.rs": {
     "cleanup": "In-process test runtime owns these Daemons; no built executable launch.",
     "data": "Unit observers call Daemon::open on explicit TempDir paths; no production fallback resolver.",
