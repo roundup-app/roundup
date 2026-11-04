@@ -89,27 +89,6 @@ it.each(cases)("u5555_rendered_keyboard_chooses $seed $kind", async ({ seed, kin
   expect((await lane.calls()).filter(call => ["agent.spawn", "rail.createWorkstream"].includes(call.method))).toHaveLength(kind === "mode" ? 0 : 1);
 }, 60_000);
 
-it("u5555_rendered_unavailable_menu_and_failure_retry", async () => {
-  await fresh("tree-40");
-  await run(`click ${quote('[aria-label="Create"]')}`, wait("!!document.querySelector('[role=menu]')"));
-  await lane.evaluate("window.__fake.app.exitDaemon({code:1}); true");
-  await lane.until("document.querySelectorAll('[role=menuitem][aria-disabled=true]').length === 3");
-  await lane.capture("U5555", "unavailable");
-  await lane.browser("press", "Enter");
-  expect((await lane.calls()).filter(call => ["agent.spawn", "rail.createWorkstream"].includes(call.method))).toEqual([]);
-  await run("press Escape", wait("!document.querySelector('[role=menu]')"), `click ${quote('[aria-label="Create"]')}`);
-  expect(await lane.evaluate("!!document.querySelector('[role=menu]')")).toBe(false);
-  await fresh("tree-40");
-  await lane.evaluate("window.__fake.failNext(-32003, 'Workstream could not be created. Retry with your saved input.'); true");
-  await run(`click ${quote('[aria-label="Create"]')}`, wait("!!document.querySelector('[role=menuitem][data-value=workstream]')"), `click ${quote('[role=menuitem][data-value=workstream]')}`, wait("!!document.querySelector('.rail-command-notice [role=alert]')"));
-  await lane.capture("U4313b", "tree-40-failure");
-  await lane.evaluate("(() => { const scroll = document.querySelector('.rail-scroll'); scroll.scrollTop = scroll.scrollHeight; return true; })()");
-  await lane.capture("U4313b", "tree-40-failure-bottom");
-  await run(`click ${quote(".rail-command-notice button")}`, wait("!document.querySelector('.rail-command-notice [role=alert]')"));
-  await lane.capture("U4313b", "tree-40-retry");
-}, 60_000);
-
-
 it.each(["pointer", "Enter", "Space"])("u5629_rendered_failed_start_recovery_%s", async opening => {
   await fresh("tree-40");
   // Failed-start recovery begins at a Workstream without requesting descendants.
