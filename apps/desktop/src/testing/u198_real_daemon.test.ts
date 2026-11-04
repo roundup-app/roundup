@@ -13,7 +13,7 @@ import { createServedApp } from "../testing/realSeam";
 import { Rail } from "../rail/Rail";
 import { rowNames } from "../rail/railFixture";
 
-it("u5483c_adapter_question_stays_visible_until_work_resumes", async () => {
+it("u5940a_adapter_text_and_questions_do_not_protect_a_settled_child", async () => {
   // Use the same vendor as rupd's b50_note_inbox observer: a real PTY,
   // messaging socket, hook commands and a byte log, with no model involved.
   const vendor = await mkdtemp(join(tmpdir(), "u5483-vendor-"));
@@ -76,7 +76,7 @@ it("u5483c_adapter_question_stays_visible_until_work_resumes", async () => {
       });
       const node = connected.rail.nodes.find(node => node.id === child.id)!;
       setNow(node.status!.since + 300_000);
-      await waitFor(() => expect(rowNames().includes("Child")).toBe(reply !== ""));
+      await waitFor(() => expect(rowNames()).not.toContain("Child"));
     }
 
     expect(await typed()).toEqual(before);

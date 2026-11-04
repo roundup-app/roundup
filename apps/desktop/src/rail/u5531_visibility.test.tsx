@@ -72,25 +72,11 @@ it.each(["internal", "idle"] as const)("u5531b_disappearing_focused_branch_retur
   await waitFor(() => expect(document.activeElement).toBe(rowOf("stream")));
 });
 
-it.each(["needs-you", "error", "question", "clarification", "final-text", "unknown-text"] as const)("u5531c_attention_promotes_internal_children_without_a_timer %s", async reason => {
+it.each(["needs-you", "error"] as const)("u5531c_attention_promotes_internal_children_without_a_timer %s", async kind => {
   const child = agent("helper", "working", "working", { parent: "stream", visibility: "internal" });
   const { app, rail } = await mountRail([workstream("stream"), child]);
   await waitFor(() => expect(rowNames()).toEqual(["stream"]));
-  const { message } = await import("../testing/centreFixture");
-
-  if (reason === "question") {
-    const question = message(1, { from: { kind: "agent", id: "helper", parent: "stream" }, to: "you", kind: "question" });
-    app.handlers["message.list"] = () => [question];
-    app.emit(event({ name: "message.sent", data: question }));
-  }
-
-  const kind = reason === "needs-you" || reason === "error" ? reason : "done";
-  const promoted = agent("helper", kind, kind, { parent: "stream", visibility: "shown" });
-
-  if (reason === "clarification") promoted.work = { kind: "clarification", question: "Choose scope" };
-
-  if (reason === "final-text" || reason === "question") promoted.final_text = { attempt: "1", turn: "1", finished: "0", kind: reason === "question" ? "empty" : "present" };
-  app.handlers["rail.tree"] = () => [workstream("stream"), promoted];
+  app.handlers["rail.tree"] = () => [workstream("stream"), agent("helper", kind, kind, { parent: "stream", visibility: "shown" })];
   app.emit(event({ name: "rail.changed" }));
   await waitFor(() => expect(rowNames()).toEqual(["stream", "helper"]));
   expect(rail.nodes.find(node => node.id === "helper")?.visibility).toBe("shown");
@@ -98,13 +84,17 @@ it.each(["needs-you", "error", "question", "clarification", "final-text", "unkno
   expect(screen.queryByRole("treeitem", { name: / idle$/ })).toBeNull();
 });
 
-it("u5531c_known_empty_settled_internal_child_stays_internal", async () => {
-  await mountRail([workstream("stream"), agent("helper", "done", "done", { parent: "stream", visibility: "internal", final_text: { attempt: "1", turn: "1", finished: "0", kind: "empty" } })]);
+it.each(["absent", "unknown", "present"] as const)("u5940a_settled_internal_children_stay_internal %s", async text => {
+  const final_text = text === "absent" ? {} : { final_text: { attempt: "1", turn: "1", finished: "0", kind: text } };
+  await mountRail([workstream("stream"),
+    agent("done", "done", "done", { parent: "stream", visibility: "internal", ...final_text }),
+    agent("idle", "idle", "idle", { parent: "stream", visibility: "internal", status: { kind: "idle", label: "idle", since: 0, finished: "0" }, ...final_text }),
+  ]);
   await settled();
   expect(rowNames()).toEqual(["stream"]);
-  expect(screen.queryByRole("treeitem", { name: /idle/ })).toBeNull();
+  expect(screen.queryByRole("treeitem", { name: /idle$/ })).toBeNull();
   fireEvent.click(screen.getByRole("treeitem", { name: / internal$/ }).querySelector("[data-part=branch-control]")!);
-  await waitFor(() => expect(rowNames()).toEqual(["stream", "helper"]));
+  await waitFor(() => expect(rowNames()).toEqual(["stream", "done", "idle"]));
 });
 
 it("u5531b_direct_message_terminal_and_draft_keep_the_child_identity", async () => {

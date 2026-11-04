@@ -240,6 +240,86 @@ async fn fk5977b_each_pick_leaves_out_exactly_what_it_names() {
     assert_eq!(count(&db, "todos"), 1);
 }
 
+/// A Fork of the first live Project keeping only its first Agent, after `extra` ran on the live
+/// folder; returns the live folder, the copied database and the kept Agent's id.
+async fn fork_keeping_first(extra: &str) -> (Live, PathBuf, i64) {
+    let live = live();
+    let key = &live.keys[0];
+    let db = live.project(key).join("project.db");
+    let conn = Connection::open(&db).unwrap();
+    let ids: Vec<i64> = conn
+        .prepare("SELECT id FROM nodes WHERE kind='agent' ORDER BY id")
+        .unwrap()
+        .query_map([], |r| r.get(0))
+        .unwrap()
+        .map(Result::unwrap)
+        .collect();
+    let (kept, left) = (ids[0], ids[1]);
+    let actor = |id: i64| format!("{{\"kind\":\"agent\",\"id\":\"{id}\",\"parent\":null}}");
+    conn.execute("DELETE FROM todos", []).unwrap();
+    conn.execute("DELETE FROM messages", []).unwrap();
+    for (n, owner) in [(0, Some(left)), (1, Some(kept)), (2, None)] {
+        conn.execute(
+            "INSERT INTO todos(title,body,created_at,owner,pos) VALUES(?1,'b',1,?2,?3)",
+            rusqlite::params![format!("todo {n}"), owner.map(actor), n],
+        )
+        .unwrap();
+    }
+    for (from, to) in [(left, kept), (kept, left), (kept, kept)] {
+        conn.execute(
+            "INSERT INTO messages(from_actor,to_id,kind,body,status,at) VALUES(?1,?2,'note',?3,'delivered',1)",
+            rusqlite::params![actor(from), to.to_string(), extra],
+        )
+        .unwrap();
+    }
+    drop(conn);
+    let folder = live.fork_dir("left-out");
+    let picks = json!({"projects":[{"key":key,"agents":[kept.to_string()]}]});
+    let reply = fork(&live, &folder, picks).await;
+    assert!(reply.get("error").is_none(), "{reply}");
+    let copy = folder.join("projects").join(key).join("project.db");
+    (live, copy, kept)
+}
+
+#[tokio::test]
+async fn fop5978e_left_out_agent_todo_is_unassigned() {
+    let (_live, db, kept) = fork_keeping_first("m").await;
+    let rows: Vec<(String, Option<String>)> = Connection::open(db)
+        .unwrap()
+        .prepare("SELECT title, owner FROM todos ORDER BY pos")
+        .unwrap()
+        .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))
+        .unwrap()
+        .map(Result::unwrap)
+        .collect();
+    assert_eq!(rows.len(), 3);
+    assert_eq!(rows[0], ("todo 0".into(), None));
+    assert!(
+        rows[1]
+            .1
+            .as_deref()
+            .unwrap()
+            .contains(&format!("\"{kept}\""))
+    );
+    assert_eq!(rows[2], ("todo 2".into(), None));
+}
+
+#[tokio::test]
+async fn fop5978e_left_out_agent_messages_are_dropped() {
+    let (_live, db, kept) = fork_keeping_first("m").await;
+    let rows: Vec<(String, String)> = Connection::open(db)
+        .unwrap()
+        .prepare("SELECT from_actor, to_id FROM messages")
+        .unwrap()
+        .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))
+        .unwrap()
+        .map(Result::unwrap)
+        .collect();
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0].1, kept.to_string());
+    assert!(rows[0].0.contains(&format!("\"{kept}\"")));
+}
+
 #[tokio::test]
 async fn fk5977b_an_unknown_key_or_agent_is_refused_and_writes_nothing() {
     let live = live();

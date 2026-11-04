@@ -792,7 +792,7 @@ async fn b5635c_completion_changes_are_reported_once() {
 }
 
 #[tokio::test]
-async fn u5531c_native_and_completed_turn_evidence_promotes_durably() {
+async fn u5531c_native_attention_promotes_durably() {
     use contracts::agent::RailVisibility::{Internal, Shown};
     let (_dir, _, shared) = shared_over_temp_dir(Arc::new(|| 0));
     let id = running_agent(&shared, None);
@@ -804,9 +804,9 @@ async fn u5531c_native_and_completed_turn_evidence_promotes_durably() {
         ),
         (
             json!({"hook_event_name":"Stop","prompt_id":"turn","last_assistant_message":"All done"}),
-            true,
+            false,
         ),
-        (json!({"hook_event_name":"Stop","prompt_id":"turn"}), true),
+        (json!({"hook_event_name":"Stop","prompt_id":"turn"}), false),
         (
             json!({"hook_event_name":"Stop","prompt_id":"turn","last_assistant_message":""}),
             false,
@@ -900,6 +900,7 @@ async fn u504_native_permission_resumption_preserves_completion_identity() {
         shared: Arc::clone(&shared),
         dir: dir.path().to_owned(),
         launcher: shared.rail_view.launcher.clone(),
+        forked: false,
     };
     let mut events = bus.subscribe();
     let mut observed_turns = Vec::new();
@@ -946,6 +947,7 @@ async fn u504_a_turn_without_prompt_identity_does_not_reuse_the_previous_complet
             shared: Arc::clone(&shared),
             dir: dir.path().to_owned(),
             launcher: shared.rail_view.launcher.clone(),
+            forked: false,
         };
         let mut events = bus.subscribe();
         for payload in [

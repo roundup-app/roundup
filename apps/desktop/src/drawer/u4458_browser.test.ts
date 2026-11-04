@@ -35,16 +35,12 @@ it("u4458_maximised_drawer_hides_the_centre_without_unmounting_it", { retry: 0, 
     if (kind === "todo") await evaluate(`(() => { const group = document.querySelector('.shelf [data-shelf-group="unassigned"] [data-part="branch-control"]'); if (group?.getAttribute('data-state') === 'closed') group.click(); return true; })()`);
     const row = kind === "pad" ? ".shelf .pad-name" : ".shelf .todo-row-button";
     await browser("wait", row);
-    await browser("focus", row);
-    await browser("press", "Enter");
-    await browser("wait", kind === "pad" ? ".drawer .ProseMirror" : ".drawer .todo-detail-title");
+    await browser("batch", "--bail", `focus '${row}'`, "press Enter", `wait '${kind === "pad" ? ".drawer .ProseMirror" : ".drawer .todo-detail-title"}'`);
     await settle();
 
     if (kind === "pad") {
       const before = await evaluate<string>("document.querySelector('.drawer .ProseMirror').textContent");
-      await browser("focus", ".drawer .ProseMirror");
-      await browser("press", "Control+End");
-      await browser("press", "m");
+      await browser("batch", "--bail", "focus '.drawer .ProseMirror'", "press Control+End", "press m");
       expect(await evaluate("document.querySelector('.drawer .ProseMirror').textContent")).toBe(before + "m");
     }
 
@@ -89,13 +85,24 @@ it("u4458_maximised_drawer_hides_the_centre_without_unmounting_it", { retry: 0, 
 
 
 const cycle = async (lane: LaneBrowser, covered: boolean, shelf: boolean) => {
-  await lane.evaluate("document.querySelectorAll('.rail [data-part=branch-control][data-depth=\"1\"][data-state=open]').forEach(el => el.click())");
-  await lane.evaluate("document.querySelectorAll('.shelf [data-part=branch-control][data-state=open]').forEach(el => el.click()); window.__cycle = { nodes: [], regions: [], ends: [] }");
+  const run = async (...commands: string[]) => {
+    const replies: { success: boolean; error?: string }[] = JSON.parse(await lane.browser("--json", "batch", "--bail", ...commands));
+    const failed = replies.find(reply => !reply.success);
+
+    if (failed) throw new Error(failed.error);
+  };
+
+  const quote = (expression: string) => "eval '" + expression.replaceAll("'", "'\\''") + "'";
+
+  // CI5527b: one CLI connection for the two folds, so the first key's focus and start reading follow without a spawn each.
+  await run(
+    quote("document.querySelectorAll('.rail [data-part=branch-control][data-depth=\"1\"][data-state=open]').forEach(el => el.click())"),
+    quote("document.querySelectorAll('.shelf [data-part=branch-control][data-state=open]').forEach(el => el.click()); window.__cycle = { nodes: [], regions: [], ends: [] }")
+  );
 
   // Milkdown owns Tab inside its editor. Opposite sweeps meet there without editing the Pad.
   for (const key of covered ? ["Tab", "Shift+Tab"] : ["Tab"]) {
-    await lane.browser("focus", covered ? "[data-todo-root]" : ".rail-actions button:last-child");
-    await lane.evaluate("window.__cycle.start = document.activeElement");
+    await run(`focus '${covered ? "[data-todo-root]" : ".rail-actions button:last-child"}'`, quote("window.__cycle.start = document.activeElement"));
     let complete = false;
 
     for (let step = 0; step < 160; step++) {
@@ -112,7 +119,7 @@ const cycle = async (lane: LaneBrowser, covered: boolean, shelf: boolean) => {
       })()`;
 
       const replies: { success: boolean; error?: string; result: { result: { complete: boolean; centre: boolean } } }[] = JSON.parse(await lane.browser(
-        "--json", "batch", "--bail", `press ${key}`, "eval '" + expression.replaceAll("'", "'\\''") + "'"
+        "--json", "batch", "--bail", `press ${key}`, quote(expression)
       ));
 
       const failed = replies.find(reply => !reply.success);
@@ -141,7 +148,8 @@ const cycle = async (lane: LaneBrowser, covered: boolean, shelf: boolean) => {
   if (covered) expect(await lane.evaluate("window.__cycle.regions")).toEqual(expect.arrayContaining(shelf ? ["rail", "drawer", "shelf"] : ["rail", "drawer"]));
 };
 
-vi.setConfig({ maxConcurrency: 3 });
+// CI5527b: four cases at three slots ran in two waves (50 s, then 39 s); four slots run them in one.
+vi.setConfig({ maxConcurrency: 4 });
 
 // One case per background state, alternating the item kind: the exclusion is the same Drawer-fill state for Todo and Pad, and each case costs ~50 s of per-key browser round trips.
 const cases = [
@@ -200,7 +208,7 @@ it.concurrent.each(cases)(
       await lane.browser("click", '.rail-create-menu [data-value="workstream"]');
       await lane.until("!!document.querySelector('.rail-command-notice button')");
       await lane.browser("click", '.project-tab[data-path="/Users/you/harness"] [role=tab]');
-      target = ".storage-center > .reserved-line:not(.todo-undo) button:last-child";
+      target = ".centre-failures > .reserved-line button:last-child";
     } else {
       if (background === "app-settings") await lane.evaluate("window.dispatchEvent(new Event('open-app-settings'))");
       else await lane.evaluate("window.dispatchEvent(new CustomEvent('open-project-page', {detail:{path:'/Users/you/harness',command:'project-settings'}}))");

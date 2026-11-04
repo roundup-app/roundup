@@ -38,6 +38,7 @@ it("a33_the_row_reads_blocked_with_its_waits_on_line_then_idle_when_the_blocker_
   expect(await rowStatusLabel(row)).toBe(blocked.status!.label);
 
   const idle = agent(blocked.id, "idle", "ready", { parent: "home", status_revision: "2" });
+  idle.status!.since = Date.now();
 
   app.handlers["rail.tree"] = () => [workstream("home"), idle];
   app.emit(event({ name: "agent.status", data: { id: idle.id, attempt: idle.attempt!, status_revision: idle.status_revision!, status: idle.status! } }));
