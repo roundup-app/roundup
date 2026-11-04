@@ -431,6 +431,36 @@ async fn send_digest(inner: &Arc<Inner>, meta: &str, body: String) -> Result<(),
     Ok(())
 }
 
+/// DCL10: per Door, the changes it has not received, read from storage: pending Messages
+/// (a pushed digest standing for its weight) plus the ledger's waiting entries, a change counted
+/// once when a pending digest already holds its entry.
+pub(crate) async fn waiting_counts(inner: &Arc<Inner>) -> Result<HashMap<String, u32>, RpcError> {
+    let ledger = inner.pushes.lock().await;
+    let pending = lock(&inner.store).pending_all()?;
+    let mut counts: HashMap<String, u32> = HashMap::new();
+    let mut digested: HashMap<&str, Vec<DigestEntry>> = HashMap::new();
+    for message in &pending {
+        let digest = is_digest(&message.from, &message.body);
+        *counts.entry(message.to.clone()).or_default() +=
+            if digest { weight(&message.body) } else { 1 };
+        if digest {
+            digested
+                .entry(&message.to)
+                .or_default()
+                .extend(entries_of(&message.body));
+        }
+    }
+    for (door, slot) in &ledger.metas {
+        let digested = digested.get(door.as_str());
+        for (_, entry, weight) in &slot.waiting {
+            if !digested.is_some_and(|digested| digested.contains(entry)) {
+                *counts.entry(door.clone()).or_default() += weight;
+            }
+        }
+    }
+    Ok(counts)
+}
+
 impl Messages {
     /// B21, B22: accepts one change of the Subagent's entry. `subagent` is its stable Rail id,
     /// not its mutable display name. Waiting changes compact to the newest entry per id while
@@ -444,6 +474,11 @@ impl Messages {
         entry: &contracts::agent::DigestEntry,
     ) {
         pushes::push(&self.inner, meta, subagent, entry).await
+    }
+
+    /// DCL10: per Door, how many changes it has not received, read from the stored backlog.
+    pub async fn waiting_counts(&self) -> Result<HashMap<String, u32>, RpcError> {
+        waiting_counts(&self.inner).await
     }
 }
 

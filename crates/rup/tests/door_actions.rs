@@ -1,4 +1,4 @@
-//! A26, A39, A41, B37, F3, M9, M16, Q11: what a real Claude Door does through its tools.
+//! A26, A39, A41, B37, F3, M9, M16, Q11, U5991e: what a real Claude Door does through its tools.
 #[path = "e2e/daemon.rs"]
 #[allow(dead_code)]
 mod daemon;
@@ -931,4 +931,69 @@ async fn b4699a_real_claude_spawns_one_shaping_child_in_the_existing_workstream(
         );
     }
     model.assert_matched();
+}
+
+/// U5991e: the bound A16 and A17 stop under, `CLEAN_EXIT_BOUND` plus `KILL_WAIT_BOUND`.
+const U5991E_EXIT_BOUND: Duration = Duration::from_secs(7);
+
+#[tokio::test]
+async fn u5991e_a_real_removal_hides_the_row_and_the_program_exits() {
+    let project = daemon::start_real("u5991e_removal", &[]);
+    let mut client = project.subscribed().await;
+    let agent: contracts::agent::RailNode = serde_json::from_value(
+        client
+            .request(
+                "agent.spawn",
+                json!({"cwd": project.dir.path(), "prompt": "U5991E"}),
+            )
+            .await
+            .unwrap(),
+    )
+    .unwrap();
+    let terminal = agent
+        .terminal_id
+        .clone()
+        .expect("a running Agent has a Terminal");
+    for kind in [Kind::Working, Kind::Idle] {
+        project
+            .next(&mut client, |event| match event {
+                EventData::AgentStatus(status)
+                    if status.id == agent.id && status.status.kind == kind =>
+                {
+                    Some(())
+                }
+                _ => None,
+            })
+            .await;
+    }
+    assert!(
+        project
+            .rail_tree(&client)
+            .await
+            .iter()
+            .any(|node| node.id == agent.id),
+        "the Agent is on the Rail before removal"
+    );
+    let began = std::time::Instant::now();
+    client
+        .request("rail.remove", json!({"id": agent.id}))
+        .await
+        .unwrap();
+    assert!(
+        project
+            .rail_tree(&client)
+            .await
+            .iter()
+            .all(|node| node.id != agent.id),
+        "the removed Agent's row is gone from rail.tree"
+    );
+    tokio::time::timeout(
+        U5991E_EXIT_BOUND.saturating_sub(began.elapsed()),
+        project.next(&mut client, |event| match event {
+            EventData::TerminalExited(exited) if exited.id == terminal => Some(()),
+            _ => None,
+        }),
+    )
+    .await
+    .expect("the program exits within CLEAN_EXIT_BOUND plus KILL_WAIT_BOUND");
 }

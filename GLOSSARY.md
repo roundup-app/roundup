@@ -206,6 +206,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Mcp | same | — |
 | Tool call | same | — |
 | Stray | same | — |
+| Waiting count (`RailNode.waiting`, `Messages::waiting_counts`) | `Door stopped · N waiting` | — |
 | Shim | same | — |
 | Model | same | — |
 | Effort | same | — |

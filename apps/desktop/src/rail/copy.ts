@@ -14,6 +14,7 @@ const dash = "—";
 const removalPlurals = new Intl.PluralRules("en");
 
 export const copy = {
+  doorStoppedWaiting: (count: number) => `Door stopped · ${count} waiting`,
   startedBy: (agent: string, project: string) => `by ${agent} (${project})`,
   create: sharedCopy.create,
   thatIsGone: sharedCopy.thatIsGone,

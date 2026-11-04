@@ -14,6 +14,8 @@ Module: `apps/desktop` (a new `fork/` directory, `ui/TreeView.tsx`, the applicat
 
 **Seam.** `fork_branch`: none → the name of the git branch the live App's source checkout is on, or `fork` when it has none. `fork_make`: `{name, colour, projects}` → `null`; the host chooses the Fork's folder under `$ROUNDUP_HOME`, makes it with `data.fork`, starts the branch's App on it (its own port, `.app` and identity are #5980's and the launcher's work) and rejects with the failure's text. It touches no running Agent, Terminal or Worktree of the live App (FK5977e). Policy, Mac observer: the user reports the branch's App opening on the Fork after a real `Fork for development…`; Chromium cannot show the native menu or the second App.
 
+**FS6102a the Fork's folder is its own subfolder whatever the name.** Given `fork_make` with a name holding no ASCII letter or digit (such as `日本`) and no `forks` folder under `$ROUNDUP_HOME`, when the host chooses the Fork's folder, then the folder is a new subfolder of `$ROUNDUP_HOME/forks` named `fork`, never `$ROUNDUP_HOME/forks` itself; a second such name gets `fork-2`, never `-2`. A name with ASCII letters or digits keeps its slug, and a taken folder name still gets the next `-N` suffix. Tests (`fs6102a_`, Rust, on the host's folder-choosing function): `日本` on an empty home returns `forks/fork`; two such names return `forks/fork` and `forks/fork-2`; `my fix` returns `forks/my-fix`.
+
 ### Main regression checks
 
 1. `scenarios/data-fork.md`, FK5977a–FK5977f: the Fork the sheet asks for.
