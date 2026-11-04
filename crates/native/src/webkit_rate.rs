@@ -187,6 +187,10 @@ pub(crate) mod tests {
     pub(crate) fn run() {
         let tests: &[(&str, fn())] = &[
             (
+                "u5959a_a_two_line_look_grows_a_measured_row",
+                crate::rows::tests::u5959a_a_two_line_look_grows_a_measured_row,
+            ),
+            (
                 "u5503_native_dock_menu_dispatches_the_chosen_action",
                 crate::dock::tests::u5503_native_dock_menu_dispatches_the_chosen_action,
             ),

@@ -83,7 +83,7 @@ pub(super) fn agent_extras_add() -> Offered {
 pub(super) fn agent_set_visibility() -> Offered {
     let mut offer = offered::<agent::SetVisibilityParams>(
         "agent.setVisibility",
-        "Choose shown or internal for a direct child. Internal is refused while attention or completed-turn protection is active.",
+        "Choose shown or internal for a direct child. Internal is refused while the child needs you or has an error.",
     );
     offer.tool.name = "agent_set_visibility".into();
     offer

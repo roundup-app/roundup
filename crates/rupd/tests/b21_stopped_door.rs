@@ -31,6 +31,13 @@ struct Run {
 
 impl Run {
     async fn start() -> Self {
+        let run = Self::start_live().await;
+        run.stop_door().await;
+        run
+    }
+
+    /// The Daemon with its Door started and idle.
+    async fn start_live() -> Self {
         let dir = tempfile::tempdir().unwrap();
         let data = tempfile::tempdir().unwrap();
         std::fs::write(dir.path().join("clock"), "0").unwrap();
@@ -89,8 +96,31 @@ impl Run {
         // Door keeps a conversation `claude --resume` cannot find.
         run.idle(&run.door, 4).await;
         wait(|| written(&run.dir.path().join("config"), DOOR_PROMPT)).await;
-        run.stop_door().await;
         run
+    }
+
+    /// A stopped Door that holds two pending Messages: they are sent while the live Door's
+    /// session is off the list (Claude Code not listening, B50), so they stay pending, and the
+    /// Door is stopped after.
+    async fn start_with_backlog() -> (Self, Vec<Value>) {
+        let run = Self::start_live().await;
+        for file in std::fs::read_dir(run.dir.path().join("config/sessions")).unwrap() {
+            std::fs::remove_file(file.unwrap().path()).unwrap();
+        }
+        for (from, body) in [
+            (&run.user, "first retained"),
+            (&run.agent, "second retained"),
+        ] {
+            from.request(
+                "message.send",
+                json!({"to":run.door,"kind":"note","body":body}),
+            )
+            .await
+            .unwrap();
+        }
+        let stored = run.thread().await;
+        run.stop_door().await;
+        (run, stored)
     }
 
     /// `id` reads idle at `revision` or later: a Door's initial order's turn ends Idle at 4 (Starting
@@ -807,4 +837,137 @@ async fn n7_launch_sites_clean_on_success_and_failure() {
         assert!(!data.exists());
         assert!(!project.exists());
     }
+}
+
+impl Run {
+    /// Every Message stored for the Door, oldest first, with its status; the initial order `start_door` sends after a Start is not one.
+    async fn thread(&self) -> Vec<Value> {
+        let mut all: Vec<Value> = self
+            .user
+            .request("message.list", json!({}))
+            .await
+            .unwrap()
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|m| {
+                m["to"] == self.door
+                    && !m["body"].as_str().unwrap().starts_with(DOOR_PROMPT)
+                    && !m["body"].as_str().unwrap().starts_with("[digest]")
+            })
+            .cloned()
+            .collect();
+        all.sort_by_key(|m| m["id"].as_u64().unwrap());
+        all
+    }
+}
+
+fn identity(thread: &[Value]) -> Vec<(u64, Value, Value, Value)> {
+    thread
+        .iter()
+        .map(|m| {
+            (
+                m["id"].as_u64().unwrap(),
+                m["from"].clone(),
+                m["body"].clone(),
+                m["kind"].clone(),
+            )
+        })
+        .collect()
+}
+
+#[tokio::test]
+async fn dcl10_start_replays_one_ordered_batch() {
+    let (run, stored) = Run::start_with_backlog().await;
+    assert_eq!(stored.len(), 2, "{stored:?}");
+    assert!(
+        stored.iter().all(|m| m["status"] == "pending"),
+        "{stored:?}"
+    );
+    run.assert_silent().await;
+    let mut events = subscribe(&run).await;
+    run.start_door().await;
+    wait_delivered(&mut events, &stored).await;
+    let after = run.thread().await;
+    assert_eq!(identity(&after), identity(&stored));
+    assert!(
+        after.iter().all(|m| m["status"] == "delivered"),
+        "{after:?}"
+    );
+    let written = transcript(run.dir.path().join("config").as_path());
+    let first = written.find("first retained").expect("first in transcript");
+    let second = written
+        .find("second retained")
+        .expect("second in transcript");
+    assert!(first < second, "stored order");
+    assert_eq!(
+        user_turns_with(&written, "first retained"),
+        1,
+        "delivered once"
+    );
+}
+
+#[tokio::test]
+async fn dcl10_failed_start_preserves_backlog_and_cause() {
+    let (run, stored) = Run::start_with_backlog().await;
+    let fake = run.dir.path().join("rup");
+    let saved = run.dir.path().join("saved-rup");
+    std::fs::rename(&fake, &saved).unwrap();
+    let failed = run
+        .user
+        .request("rail.startDoor", json!({"id":run.door}))
+        .await;
+    let cause = failed.expect_err("launch fails").to_string();
+    assert!(!cause.is_empty());
+    let kept = run.thread().await;
+    assert_eq!(
+        kept, stored,
+        "every Message unchanged after the failed Start"
+    );
+    run.assert_silent().await;
+    std::fs::rename(saved, fake).unwrap();
+    let mut events = subscribe(&run).await;
+    run.start_door().await;
+    wait_delivered(&mut events, &stored).await;
+    let after = run.thread().await;
+    assert_eq!(identity(&after), identity(&stored));
+    let written = transcript(run.dir.path().join("config").as_path());
+    assert_eq!(
+        user_turns_with(&written, "first retained"),
+        1,
+        "same batch once"
+    );
+}
+
+async fn wait_delivered(events: &mut Client, stored: &[Value]) {
+    for message in stored {
+        delivered(events, message["id"].as_u64().unwrap()).await;
+    }
+}
+
+async fn subscribe(run: &Run) -> Client {
+    let events = Client::connect(&run.daemon.socket).await.unwrap();
+    events.request("events.subscribe", json!({})).await.unwrap();
+    events
+}
+
+/// Conversation entries of type `user` that carry `text`; Claude Code also logs the same request as an `api-request-blob` entry.
+fn user_turns_with(written: &str, text: &str) -> usize {
+    written
+        .lines()
+        .filter_map(|line| serde_json::from_str::<Value>(line).ok())
+        .filter(|entry| entry["type"] == "user" && entry.to_string().contains(text))
+        .count()
+}
+
+/// Every conversation file Claude Code wrote under `config`, joined.
+fn transcript(config: &Path) -> String {
+    std::fs::read_dir(config.join("projects"))
+        .into_iter()
+        .flatten()
+        .flatten()
+        .flat_map(|p| std::fs::read_dir(p.path()).into_iter().flatten().flatten())
+        .filter(|f| f.path().extension().is_some_and(|e| e == "jsonl"))
+        .filter_map(|f| std::fs::read_to_string(f.path()).ok())
+        .collect()
 }

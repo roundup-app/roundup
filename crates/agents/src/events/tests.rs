@@ -792,7 +792,7 @@ async fn b5635c_completion_changes_are_reported_once() {
 }
 
 #[tokio::test]
-async fn u5531c_native_and_completed_turn_evidence_promotes_durably() {
+async fn u5531c_native_attention_promotes_durably() {
     use contracts::agent::RailVisibility::{Internal, Shown};
     let (_dir, _, shared) = shared_over_temp_dir(Arc::new(|| 0));
     let id = running_agent(&shared, None);
@@ -804,9 +804,9 @@ async fn u5531c_native_and_completed_turn_evidence_promotes_durably() {
         ),
         (
             json!({"hook_event_name":"Stop","prompt_id":"turn","last_assistant_message":"All done"}),
-            true,
+            false,
         ),
-        (json!({"hook_event_name":"Stop","prompt_id":"turn"}), true),
+        (json!({"hook_event_name":"Stop","prompt_id":"turn"}), false),
         (
             json!({"hook_event_name":"Stop","prompt_id":"turn","last_assistant_message":""}),
             false,
