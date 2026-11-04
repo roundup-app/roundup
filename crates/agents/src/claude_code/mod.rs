@@ -2,6 +2,7 @@
 //! (ADR 0006); `session`, `hook` and `transcript` are Claude Code's own words, so they must not
 //! leak out of this module into public names.
 
+pub mod background;
 mod brief;
 mod conversation;
 mod discovery;
@@ -119,6 +120,10 @@ pub struct ClaudeCode {
     /// A new turn without UserPromptSubmit must not inherit an earlier completion.
     /// Native permission resumption continues the same authoritative turn.
     prompt_id: Option<String>,
+    /// DCL3: work still running after the foreground turn.
+    background: background::Background,
+    /// A foreground `Stop` came and no prompt has followed.
+    stopped: bool,
 }
 
 impl ClaudeCode {
@@ -138,6 +143,8 @@ impl ClaudeCode {
             hooked: true,
             final_text: FinalTextKind::Unknown,
             prompt_id: None,
+            background: background::Background::default(),
+            stopped: false,
         }
     }
 
@@ -291,7 +298,12 @@ impl ClaudeCode {
 
     fn signal(&mut self, payload: &Value, completion_changed: &mut bool) -> Option<Status> {
         let event = payload["hook_event_name"].as_str();
+        self.background.hook(payload);
+        if event == Some("SubagentStop") {
+            return self.release_hold();
+        }
         if event == Some("UserPromptSubmit") {
+            self.stopped = false;
             self.turn_started = (self.clock)();
             self.final_text = FinalTextKind::Unknown;
         }
@@ -327,7 +339,14 @@ impl ClaudeCode {
                 self.final_text = next;
             }
         }
-        let (kind, label) = hook_status(payload)?;
+        let (mut kind, mut label) = hook_status(payload)?;
+        if event == Some("Stop") {
+            self.stopped = true;
+        }
+        // DCL3: a Stop while background work runs does not finish the Agent.
+        if self.stopped && kind == Kind::Idle && self.background.holds() {
+            (kind, label) = (Kind::Working, "working".into());
+        }
         self.after_pre_tool_use = event == Some("PreToolUse");
         self.star_parked_since = None;
         self.spinner_at = None;
@@ -360,6 +379,43 @@ impl ClaudeCode {
             }
         }
         changed
+    }
+
+    /// DCL3: the work the Agent still has after a foreground Stop.
+    pub fn background(&self) -> &background::Background {
+        &self.background
+    }
+
+    /// DCL3: adopt retained task facts after a Daemon reopen, before the next snapshot.
+    pub fn resume_background(&mut self, facts: background::Background) {
+        self.background = facts;
+    }
+
+    /// DCL3: reconcile with a process snapshot of the program rooted at `root`. Work found after
+    /// a Stop holds Working; work gone releases the hold, so completion lands once.
+    pub fn observe_processes(
+        &mut self,
+        root: u32,
+        snapshot: Result<&[background::Process], String>,
+        services: &[String],
+    ) -> Option<Status> {
+        if self.ending != Ending::Running {
+            return None;
+        }
+        self.background.observe(root, snapshot, services);
+        if self.stopped && self.background.holds() {
+            return self.settle(Kind::Working, "working".into());
+        }
+        self.release_hold()
+    }
+
+    /// The Stop held by background work is over once nothing runs.
+    fn release_hold(&mut self) -> Option<Status> {
+        if self.stopped && !self.background.holds() && self.ending == Ending::Running {
+            self.stopped = false;
+            return self.settle(Kind::Idle, "idle".into());
+        }
+        None
     }
 
     pub(crate) fn completed_text(&self) -> Option<&(String, i64, i64, String)> {
