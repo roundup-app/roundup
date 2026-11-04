@@ -106,6 +106,22 @@ pub(super) async fn on_status(
     );
     // StopFailure ends a turn, not its Terminal. Read authoritative liveness so a late
     // error cannot reopen an exited Attempt or close a resumed one.
+    // A Door's pending Messages outlive its Attempts: read the Rail where an ending or a new
+    // Attempt would otherwise apply B9.
+    let new_attempt = lock(&inner.store)
+        .generation(agent)
+        .expect("message store")
+        .is_none_or(|state| state.attempt < at.0);
+    let retained = if new_attempt || matches!(kind, Kind::Done | Kind::Error) {
+        let Ok(nodes) = load_rail_nodes(inner).await else {
+            return;
+        };
+        nodes
+            .iter()
+            .any(|node| node.id == agent && node.kind == contracts::agent::NodeKind::Workstream)
+    } else {
+        false
+    };
     let (closed, ready) = if kind == Kind::Error {
         let Ok(nodes) = load_rail_nodes(inner).await else {
             return;
@@ -130,7 +146,19 @@ pub(super) async fn on_status(
         if let Err(cause) = (inner.fault)("on_status") {
             panic!("{cause}");
         }
-        reconcile(inner, &mut store, agent, at, closed, false, false).expect("message store");
+        reconcile(
+            inner,
+            &mut store,
+            agent,
+            at,
+            Ending {
+                closed,
+                permanent: false,
+                retained,
+                restart: false,
+            },
+        )
+        .expect("message store");
     }
     if !closed && ready {
         on_idle(inner, agent, at, Pick::Next).await;
@@ -170,9 +198,12 @@ pub(super) async fn resync(inner: &Arc<Inner>) -> bool {
                 &mut store,
                 &id,
                 (attempt, i64::MAX),
-                true,
-                true,
-                false,
+                Ending {
+                    closed: true,
+                    permanent: true,
+                    retained: false,
+                    restart: false,
+                },
             )
             .expect("message store");
         }
@@ -352,9 +383,12 @@ fn reconcile_node(
         store,
         &node.id,
         at,
-        ended(node),
-        permanently_ended(node),
-        restart,
+        Ending {
+            closed: ended(node),
+            permanent: permanently_ended(node),
+            retained: node.kind == contracts::agent::NodeKind::Workstream,
+            restart,
+        },
     )
 }
 
@@ -392,17 +426,25 @@ pub(super) fn accept_reservation(
     }
 }
 
+/// What ended at a binding: the Attempt (`closed`), its Terminal for good (`permanent`), whether
+/// the receiver is a Door still on the Rail (`retained`, DCL8), and a Daemon reopen (`restart`).
+#[derive(Clone, Copy)]
+pub(super) struct Ending {
+    pub(super) closed: bool,
+    pub(super) permanent: bool,
+    pub(super) retained: bool,
+    pub(super) restart: bool,
+}
+
 pub(super) fn reconcile(
     inner: &Inner,
     store: &mut Store,
     agent: &str,
     at: store::Binding,
-    closed: bool,
-    permanent: bool,
-    restart: bool,
+    end: Ending,
 ) -> Result<(), RpcError> {
     let mut events = Vec::new();
-    let result = reconcile_into(store, agent, at, closed, permanent, restart, &mut events);
+    let result = reconcile_into(store, agent, at, end, &mut events);
     for event in events {
         inner.bus.emit(Actor::daemon(), event);
     }
@@ -413,11 +455,15 @@ fn reconcile_into(
     store: &mut Store,
     agent: &str,
     at: store::Binding,
-    closed: bool,
-    permanent: bool,
-    restart: bool,
+    end: Ending,
     events: &mut Vec<EventData>,
 ) -> Result<(), RpcError> {
+    let Ending {
+        closed,
+        permanent,
+        retained,
+        restart,
+    } = end;
     let previous = store.generation(agent)?;
     let reserved = store.is_reserved(agent)?;
     let retiring = store.retirement(agent)?.is_some();
@@ -431,6 +477,23 @@ fn reconcile_into(
         None
     };
     if let Some(through) = through.filter(|_| {
+        !retiring && matches!(step::door_event(retained, Event::ReceiverExit), Event::Busy)
+    }) {
+        // DCL8: a Door on the Rail is a logical receiver that outlives its Attempts. A stopped
+        // or crashed Attempt drops nothing; the pending Messages wait, in id order, and move to
+        // the next Attempt once it exists.
+        if through.0 < at.0 {
+            store.atomically(|store| {
+                for message in store.list_pending_to(agent)? {
+                    if store.bound(message.id)? <= through {
+                        store.bind(message.id, (at.0, 0))?;
+                        store.clear_flight(message.id)?;
+                    }
+                }
+                Ok(())
+            })?;
+        }
+    } else if let Some(through) = through.filter(|_| {
         matches!(
             step::retirement_event(retiring, step::restart_event(reserved, Event::ReceiverExit)),
             Event::ReceiverExit
@@ -673,7 +736,19 @@ mod dcl_tests {
         let (a, b) = (send("one"), send("two"));
         for _ in 0..2 {
             let mut store = lock(&messages.inner.store);
-            reconcile(&messages.inner, &mut store, "m", (1, 9), true, true, false).unwrap();
+            reconcile(
+                &messages.inner,
+                &mut store,
+                "m",
+                (1, 9),
+                Ending {
+                    closed: true,
+                    permanent: true,
+                    retained: false,
+                    restart: false,
+                },
+            )
+            .unwrap();
             assert!(store.list_pending_to("m").unwrap().is_empty());
         }
         let store = lock(&messages.inner.store);
@@ -720,7 +795,19 @@ mod dcl_tests {
             .collect();
         for _ in 0..2 {
             let mut store = lock(&messages.inner.store);
-            reconcile(&messages.inner, &mut store, "m", (1, 9), true, true, false).unwrap();
+            reconcile(
+                &messages.inner,
+                &mut store,
+                "m",
+                (1, 9),
+                Ending {
+                    closed: true,
+                    permanent: true,
+                    retained: false,
+                    restart: false,
+                },
+            )
+            .unwrap();
         }
         (dir, messages, ids)
     }

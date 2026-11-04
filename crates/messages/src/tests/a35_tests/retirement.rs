@@ -1,11 +1,11 @@
 use super::*;
 
 #[tokio::test]
-async fn a35_a_previously_stopped_retained_agent_can_restart_without_reviving_final_messages() {
+async fn a35_a_previously_stopped_door_restarts_with_its_retained_messages() {
     let dir = tempfile::tempdir().unwrap();
     let h = RestartHarness::new(dir.path());
     let gone = h
-        .send(Actor::user(), "door", "ordinary stop drops this")
+        .send(Actor::user(), "door", "retained across the stop")
         .await;
     h.status("1", "2", Kind::Done).await;
     h.rail.0.lock().unwrap()[0].status.as_mut().unwrap().kind = Kind::Done;
@@ -19,9 +19,9 @@ async fn a35_a_previously_stopped_retained_agent_can_restart_without_reviving_fi
             .iter()
             .map(|m| (m.id, m.status, m.reason))
             .collect::<Vec<_>>(),
-        vec![(gone.id, MessageStatus::Dropped, Some(Reason::ReceiverGone))]
+        vec![(gone.id, MessageStatus::Delivered, None)]
     );
-    assert!(h.inbox.written().is_empty());
+    assert_eq!(h.inbox.written().len(), 1);
 }
 
 #[tokio::test]
@@ -259,16 +259,13 @@ async fn a35_a_stopped_later_agent_retires_without_reviving_final_messages() {
         }),
         status_revision: None,
         terminal_id: None,
+        kind: NodeKind::Workstream,
         ..agent_node("door", Kind::Done)
     };
     let before = h.messages.thread("door").unwrap();
     assert_eq!(
         (before[0].id, before[0].status, before[0].reason),
-        (
-            pending.id,
-            MessageStatus::Dropped,
-            Some(Reason::ReceiverGone)
-        )
+        (pending.id, MessageStatus::Pending, None)
     );
     h.messages.reserve_retirement("door", "c").await.unwrap();
     h.rail.0.lock().unwrap().retain(|n| n.id != "door");

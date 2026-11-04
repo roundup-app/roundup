@@ -70,14 +70,14 @@ impl Messages {
         env: Env,
     ) -> Result<Self, OpenError> {
         let events = bus.subscribe();
+        let store = Store::open(&dir.join(if dir.join("project.db").exists() {
+            "project.db"
+        } else {
+            "messages.db"
+        }))?;
+        let pushes = pushes::Ledger::load(&store.db);
         let inner = Arc::new(Inner {
-            store: Mutex::new(Store::open(&dir.join(
-                if dir.join("project.db").exists() {
-                    "project.db"
-                } else {
-                    "messages.db"
-                },
-            ))?),
+            store: Mutex::new(store),
             agents,
             bus,
             listener_started: std::sync::Once::new(),
@@ -87,7 +87,7 @@ impl Messages {
             fault: env.fault,
             #[cfg(test)]
             completed: tokio::sync::broadcast::channel(32).0,
-            pushes: tokio::sync::Mutex::default(),
+            pushes: tokio::sync::Mutex::new(pushes),
             delivery: tokio::sync::RwLock::default(),
             typing: Mutex::default(),
             inbox_written: Mutex::default(),
