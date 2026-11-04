@@ -29,11 +29,16 @@ export const connectEvents = async (app: AppSeam): Promise<Events> => {
   };
 
   const onEvent = (event: DaemonEvent) => {
-    if (head === null) { kept.push(event); return; }
+    if (head === null) {
+      kept.push(event);
+
+      return;
+    }
 
     if (isReplay(event)) kept.push(event);
 
     if (pending && isReplay(event)) return;
+
     deliver(event);
   };
 

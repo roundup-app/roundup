@@ -14,11 +14,17 @@ import { AskRows, unresolvedParts } from "./AskRows";
 const arrows = (event: KeyboardEvent & { currentTarget: HTMLElement }) => {
   if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
   const actions = [...event.currentTarget.querySelectorAll<HTMLElement>("button.change-action")];
-  const next = actions[actions.indexOf(event.target as HTMLElement) + (event.key === "ArrowDown" ? 1 : -1)];
+  // SAFETY: a keydown target is an Element; indexOf returns -1 for a non-action and then lands on no row.
+  const from = actions.indexOf(event.target as HTMLElement);
+  const next = actions[from + (event.key === "ArrowDown" ? 1 : -1)];
 
-  if (next) { event.preventDefault(); next.focus(); }
+  if (next) {
+    event.preventDefault();
+    next.focus();
+  }
 };
 
+// SAFETY: "⏎" is the Return chip's KeyText.
 const RETURN = "⏎" as KeyText;
 
 /** One change: a kind mark, a name, a short state phrase and its single action (U504). */
@@ -63,14 +69,28 @@ export const Changes = (props: { ready: boolean; keys: KeyScope; onOpened: () =>
   const finished = createMemo(() => lower() === null ? [] : finishedSince(visits.saved(), lower()!.seq));
   const unresolved = createMemo(() => unresolvedParts(asks));
   const [failures, setFailures] = createSignal<ReadonlyMap<string, string>>(new Map());
-  const fail = (id: string, cause: string | null) => setFailures(all => { const next = new Map(all); if (cause === null) next.delete(id); else next.set(id, cause); return next; });
+
+  const fail = (id: string, cause: string | null) => setFailures(all => {
+    const next = new Map(all);
+
+    if (cause === null) next.delete(id);
+    else next.set(id, cause);
+
+    return next;
+  });
 
   const nameOf = (row: Finished) => rail.nodes.find(node => node.id === row.maker)?.name ?? row.published.at(-1)?.maker_name ?? row.maker;
 
   const openFinished = (row: Finished) => {
     const newest = row.published.at(-1);
 
-    if (!newest) { rail.select(row.maker); props.onOpened(); return; }
+    if (!newest) {
+      rail.select(row.maker);
+      props.onOpened();
+
+      return;
+    }
+
     fail(row.key, null);
     void openDeliverable(connected.app, newest.project, newest.id).then(cause => fail(row.key, cause), error => fail(row.key, error instanceof Error ? error.message : String(error)));
   };

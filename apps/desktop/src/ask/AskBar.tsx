@@ -29,7 +29,6 @@ import { contextMenu, linkEntries, openOnRelease } from "../ui/contextMenu";
 import type { Deliverable } from "@contracts/deliverable/Deliverable";
 import { shelfScope } from "../shelf/scope";
 import type { RailNode } from "@contracts/agent/RailNode";
-import { AskRows } from "./AskRows";
 import { ToolCallLine } from "./ToolCallLine";
 import "./styles.css";
 
