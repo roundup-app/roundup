@@ -2,7 +2,7 @@ import { answerQuestion } from "../shelf/bulkQuestionHarness";
 import { nameOf } from "./places";
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { event, info } from "../testing/nodes";
+import { agent, event, info, workstream } from "../testing/nodes";
 import { bubbleNames, bubbleCalls, mountBubbles, TERMINALS } from "./bubblesFixture";
 import { clamped, MIN_HEIGHT, MIN_WIDTH } from "./places";
 
@@ -12,6 +12,9 @@ beforeEach(() => {
 });
 
 afterEach(cleanup);
+
+/** U6119c: output marks only the tab of a Terminal whose owner is no Workstream child, so these tests own a top-level Agent. */
+const TOP_LEVEL = [workstream("w"), agent("a", "working", "busy"), agent("b", "working", "busy", { parent: "w", order: 1 }), workstream("other", { order: 1 })];
 
 const bubble = (id: string): HTMLElement => document.querySelector<HTMLElement>(`.bubble[data-bubble="${id}"]`)!;
 
@@ -162,7 +165,7 @@ describe("u164 a bubble floats over the centre pane", () => {
   });
 
   it("u3704_output_while_the_bubble_is_folded_marks_the_tab_and_viewing_clears_it", async () => {
-    const mounted = await mountBubbles("a");
+    const mounted = await mountBubbles("a", [info("1", { owner: "a", title: "cargo test" }), info("2", { owner: "a", title: "zsh" })], TOP_LEVEL);
     await waitFor(() => bubble("1"));
 
     const tab = (id: string) => document.querySelector<HTMLElement>(`.terminal-tab[data-bubble="${id}"]`)!;
@@ -179,7 +182,7 @@ describe("u164 a bubble floats over the centre pane", () => {
   });
 
   it("u3704_output_of_a_terminal_whose_owner_is_not_selected_marks_its_tab_once_shown", async () => {
-    const mounted = await mountBubbles("other");
+    const mounted = await mountBubbles("other", TERMINALS, TOP_LEVEL);
 
     await waitFor(() => expect(mounted.app.outputSubscriptions.some((subscription) => subscription.id === "1")).toBe(true));
     mounted.app.emitOutput("1", "building");

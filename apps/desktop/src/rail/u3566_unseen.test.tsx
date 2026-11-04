@@ -74,7 +74,7 @@ describe("u3566 a finish waits to be read", () => {
   });
 
   it("u3566a_navigation_without_opening_keeps_unseen", async () => {
-    const { app } = await openTabs({ api: [workstream("w"), agent("a", "idle", "x", { parent: "w" }), agent("b", "working", "x", { parent: "w" })], web: [agent("c", "idle", "x")] });
+    const { app } = await openTabs({ api: [agent("a", "idle", "x"), agent("b", "working", "x")], web: [agent("c", "idle", "x")] });
 
     fireEvent.click(tab("api"));
     await waitFor(() => expect(row("a")).not.toBeNull());
@@ -95,7 +95,7 @@ describe("u3566b summaries retain every unread child", () => {
   it("u3566b_summaries_follow_their_unseen_agents", async () => {
     const { app } = await openTabs({
       api: [
-        workstream("w1"), agent("a", "idle", "x", { parent: "w1" }), agent("b", "working", "x", { parent: "w1" }),
+        door("w1", "working", "x"), agent("a", "idle", "x", { parent: "w1" }), agent("b", "working", "x", { parent: "w1" }),
         door("w2", "working", "x"), agent("c", "idle", "x", { parent: "w2" }),
       ],
       web: [agent("a", "working", "x")],
@@ -104,9 +104,9 @@ describe("u3566b summaries retain every unread child", () => {
     fireEvent.click(tab("api"));
     await waitFor(() => expect(row("c")).not.toBeNull());
     fireEvent.click(row("c"));
-    finish(app, "api", "b", 2, "idle", "1");
+    finish(app, "api", "w1", 2, "idle", "1");
     finish(app, "web", "a", 2, "idle", "1");
-    await waitFor(() => expect(unread(row("b"))).toBe(true));
+    await waitFor(() => expect(unread(row("w1"))).toBe(true));
     expect(unread(tab("web"))).toBe(false);
     expect(unread(tab("api"))).toBe(false);
 
