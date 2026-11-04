@@ -214,6 +214,11 @@ impl Agents {
         }
 
         let verified = match &worktree {
+            // FOP5978d: continuing in a Worktree of the live Project folder is not a Fork's to do.
+            Some(_) if self.forked => Err(RpcError::new(
+                rpc::code::INVALID_PARAMS,
+                "This Fork cannot resume an Agent that had a Worktree of the live Project folder.",
+            )),
             Some(worktree) => {
                 let (git, project, worktree) = (
                     self.shared.git.bounded(),

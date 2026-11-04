@@ -5,6 +5,7 @@ mod a34;
 mod common;
 mod dcl9;
 mod door;
+mod fork_open;
 mod interrupt;
 mod landing;
 mod m7;

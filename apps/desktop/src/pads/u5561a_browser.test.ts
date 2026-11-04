@@ -2,7 +2,7 @@ import { execFileSync } from "node:child_process";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { expect, it } from "vitest";
-import { browser, read, url, wait } from "../ui/tabsBrowser";
+import { batch, browser, read, url, wait } from "../ui/tabsBrowser";
 import type { Checks } from "../testing/checks";
 import { captureDir } from "../testing/captures";
 
@@ -18,20 +18,24 @@ const headingHitAreas = `Array.from(document.querySelectorAll('details[data-pad-
         return { name: s.ariaLabel, level: s.closest('h1,h2,h3,h4,h5,h6').tagName, expanded: s.getAttribute('aria-expanded'), height: r.height, hitHeight, focused: s.matches(':focus-visible'), hovered: s.matches(':hover') };
       })`;
 
+// One CLI connection for the three setup commands; each still runs in order and a failed one stops the batch.
+const opened = (path: string) => browser("batch", "--bail", "set viewport 1512 950", "set media dark", `open '${url(path)}'`);
+
+const focusPad = `(() => { document.querySelector('.pads-tab [data-pad="pad-3"] .pad-name').focus(); return true; })()`;
+
+// Focus the pad-3 row, open it and wait for the page condition in one CLI connection.
+const openPad = (until: string) => batch([["eval", focusPad], ["press", "Enter"], ["wait", "--fn", until]]);
+
 const source = "Ready to review.\n\n<details>\n<summary>For Agents</summary>\n\nPath: `日本語/café`\n\n<img src=x onerror=alert(1)>\n<script>alert(1)</script>\n[unsafe](javascript:alert(1))\n\n~~~text\nraw evidence\n~~~\n\n</details>";
 
 it("u5561a_pad_disclosure_toggles_without_writing", { retry: 0, timeout: 90_000 }, async () => {
-  await browser("set", "viewport", "1512", "950");
-  await browser("set", "media", "dark");
-  await browser("open", url("/harness.html?seed=tree-40"));
+  await opened("/harness.html?seed=tree-40");
   await wait("!!window.__fake && !!document.querySelector('#shelf-tab-pads')");
   await read(`window.__fake.app.rpc('pad.write', ${JSON.stringify({ name: "pad-3", text: source })})`);
 
   if (await read("document.querySelector('#shelf-tab-pads').getAttribute('aria-expanded') !== 'true'")) await browser("click", "#shelf-tab-pads");
   await wait("!!document.querySelector('.pad-name')");
-  await read(`(() => { document.querySelector('.pads-tab [data-pad="pad-3"] .pad-name').focus(); return true; })()`);
-  await browser("press", "Enter");
-  await wait("!!document.querySelector('details[data-pad-agents] summary')");
+  await openPad("!!document.querySelector('details[data-pad-agents] summary')");
   const count = await read<number>("window.__fake.app.calls.filter(call => call.method === 'pad.write').length");
   const section = "details[data-pad-agents]";
 
@@ -70,18 +74,14 @@ it("u5561a_pad_disclosure_toggles_without_writing", { retry: 0, timeout: 90_000 
 });
 
 it.each(["pointer", "Return"].flatMap(input => [false, true].map(present => ({ input, present }))))("u5561b_block_menu_adds_agent_details $input $present", { retry: 0, timeout: 90_000 }, async ({ input, present }) => {
-  await browser("set", "viewport", "1512", "950");
-  await browser("set", "media", "dark");
-  await browser("open", url("/harness.html?seed=tree-40"));
+  await opened("/harness.html?seed=tree-40");
   await wait("!!window.__fake && !!document.querySelector('#shelf-tab-pads')");
   const initial = present ? source : "Ready to review.";
   await read(`window.__fake.app.rpc('pad.write', ${JSON.stringify({ name: "pad-3", text: initial })})`);
 
   if (await read("document.querySelector('#shelf-tab-pads').getAttribute('aria-expanded') !== 'true'")) await browser("click", "#shelf-tab-pads");
   await wait("!!document.querySelector('.pad-name')");
-  await read(`(() => { document.querySelector('.pads-tab [data-pad="pad-3"] .pad-name').focus(); return true; })()`);
-  await browser("press", "Enter");
-  await wait("!!document.querySelector('.ProseMirror')");
+  await openPad("!!document.querySelector('.ProseMirror')");
   // U5631: the Pad-only action must survive a Todo → Pad return.
   await browser("click", ".drawer .close");
   await wait("!document.querySelector('.drawer .ProseMirror')");
@@ -97,9 +97,7 @@ it.each(["pointer", "Return"].flatMap(input => [false, true].map(present => ({ i
   await wait("!document.querySelector('.drawer .todo-detail-title')");
   await browser("click", "#shelf-tab-pads");
   await wait("!!document.querySelector('.pad-name')");
-  await read("(() => { document.querySelector('.pads-tab [data-pad=\"pad-3\"] .pad-name').focus(); return true; })()");
-  await browser("press", "Enter");
-  await wait("!!document.querySelector('.ProseMirror')");
+  await openPad("!!document.querySelector('.ProseMirror')");
   await browser("focus", ".ProseMirror");
   // Insert the menu command before the optional trailing section.
   await browser("press", "Control+Home");
@@ -133,9 +131,7 @@ it.each(["pointer", "Return"].flatMap(input => [false, true].map(present => ({ i
   await wait("!document.querySelector('.drawer .ProseMirror')");
   const saved = await read<string>("window.__fake.app.rpc('pad.read', {name:'pad-3'}).then(pad => pad.text)");
   expect(saved).toBe("Ready to review.\n\n<details>\n<summary>For Agents</summary>\n\n Agent evidence saved. \n\n</details>");
-  await read(`(() => { document.querySelector('.pads-tab [data-pad="pad-3"] .pad-name').focus(); return true; })()`);
-  await browser("press", "Enter");
-  await wait("!!document.querySelector('details[data-pad-agents]')");
+  await openPad("!!document.querySelector('details[data-pad-agents]')");
   expect(await read("document.querySelector('details[data-pad-agents]').open")).toBe(false);
   await browser("click", ".drawer .close");
   await wait("!document.querySelector('.drawer .ProseMirror')");
@@ -154,11 +150,10 @@ it.each([false, true].flatMap(editable => ["Evidence", "For Agents"].map(label =
     await browser("focus", `${section} summary`);
 
     for (const open of [true, false]) {
-      if (input === "pointer") await browser("click", `${section} summary`);
-      else await browser("press", input === "Return" ? "Enter" : "Space");
-      await wait(`document.querySelector(${query}).open === ${open}`);
-
-      const state = await read<{ expanded: string; visible: boolean; focused: boolean; othersClosed: boolean }>(`(() => {
+      const [, , reading] = await batch([
+        input === "pointer" ? ["click", `${section} summary`] : ["press", input === "Return" ? "Enter" : "Space"],
+        ["wait", "--fn", `document.querySelector(${query}).open === ${open} && document.querySelector(${query}).querySelector('summary').getAttribute('aria-expanded') === '${open}'`],
+        ["eval", `(() => {
         const section = document.querySelector(${query});
         const summary = section.querySelector('summary');
         return {
@@ -167,7 +162,11 @@ it.each([false, true].flatMap(editable => ["Evidence", "For Agents"].map(label =
           focused: document.activeElement === summary,
           othersClosed: [...section.closest('.ProseMirror').querySelectorAll('details[data-pad-agents]')].filter(d => d !== section).every(d => !d.open),
         };
-      })()`);
+      })()`],
+      ]);
+
+      // SAFETY: the batched eval returns the JSON of the constant expression above.
+      const state = reading!.result.result as { expanded: string; visible: boolean; focused: boolean; othersClosed: boolean };
 
       expect(state.expanded).toBe(String(open));
       expect(state.visible).toBe(open);
@@ -184,22 +183,17 @@ it.each([false, true].flatMap(editable => ["Evidence", "For Agents"].map(label =
 });
 
 it("u5561b_failed_save_keeps_the_edited_agent_details", { retry: 0, timeout: 90_000 }, async () => {
-  await browser("set", "viewport", "1512", "950");
-  await browser("set", "media", "dark");
-
   const failureSource = captureDir("U5704a")
     ? `# ${"A long wrapping heading with review evidence ".repeat(5)}\n\n## Second\n\n### Third\n\n#### Fourth\n\n##### Fifth\n\n###### Sixth\n\n${source}`
     : source;
 
-  await browser("open", url("/harness.html?seed=tree-40"));
+  await opened("/harness.html?seed=tree-40");
   await wait("!!window.__fake && !!document.querySelector('#shelf-tab-pads')");
   await read(`window.__fake.app.rpc('pad.write', ${JSON.stringify({ name: "pad-3", text: failureSource })})`);
 
   if (await read("document.querySelector('#shelf-tab-pads').getAttribute('aria-expanded') !== 'true'")) await browser("click", "#shelf-tab-pads");
   await wait("!!document.querySelector('.pad-name')");
-  await read(`(() => { document.querySelector('.pads-tab [data-pad="pad-3"] .pad-name').focus(); return true; })()`);
-  await browser("press", "Enter");
-  await wait("!!document.querySelector('details[data-pad-agents]')");
+  await openPad("!!document.querySelector('details[data-pad-agents]')");
   await browser("click", "details[data-pad-agents] summary");
   await wait("document.querySelector('details[data-pad-agents]').open");
   await read("window.__fake.failNext(-32603, 'Pad not saved: restore write access, then Resume.')");
@@ -224,17 +218,13 @@ it("u5561b_failed_save_keeps_the_edited_agent_details", { retry: 0, timeout: 90_
 
   await browser("click", ".drawer .close");
   await wait("!document.querySelector('.drawer .ProseMirror')");
-  await read(`(() => { document.querySelector('.pads-tab [data-pad="pad-3"] .pad-name').focus(); return true; })()`);
-  await browser("press", "Enter");
-  await wait("!!document.querySelector('details[data-pad-agents]')");
+  await openPad("!!document.querySelector('details[data-pad-agents]')");
   expect(await read("document.querySelector('details[data-pad-agents] textarea').value")).toBe(draft);
 });
 
 
 it.each([false, true])("u5575a_headings_fold_only_their_sections editable=%s", { retry: 0, timeout: 180_000 }, async (editable) => {
-  await browser("set", "viewport", "1512", "950");
-  await browser("set", "media", "dark");
-  await browser("open", url(`/src/pads/u5561a.html${editable ? "?editable" : ""}`));
+  await opened(`/src/pads/u5561a.html${editable ? "?editable" : ""}`);
   await wait("document.querySelector('#root').dataset.ready === 'true'");
   expect(await read("document.querySelectorAll('details[data-pad-heading]').length")).toBe(8);
   expect(await read("[...document.querySelectorAll('details[data-pad-heading]')].every(d => d.open)")).toBe(true);
@@ -284,12 +274,11 @@ it.each([false, true])("u5575a_headings_fold_only_their_sections editable=%s", {
       await browser("focus", selector);
 
       for (const open of [false, true]) {
-        if (input === "pointer") await browser("click", selector);
-        else await browser("press", input === "Return" ? "Enter" : "Space");
-        await wait(`document.querySelector(${JSON.stringify(selector)}).getAttribute('aria-expanded') === '${open}'`);
-
-        // Read one settled editor state per input, with all queries scoped to that editor.
-        const state = await read<{ focused: boolean; headings: Record<string, boolean>; agents: boolean; review: boolean }>(`(() => {
+        // Act, settle and read one editor state per input in one connection, with all queries scoped to that editor.
+        const [, , reading] = await batch([
+          input === "pointer" ? ["click", selector] : ["press", input === "Return" ? "Enter" : "Space"],
+          ["wait", "--fn", `document.querySelector(${JSON.stringify(selector)}).getAttribute('aria-expanded') === '${open}'`],
+          ["eval", `(() => {
           const summary = document.querySelector(${JSON.stringify(selector)});
           const editor = summary.closest('.ProseMirror');
           return {
@@ -298,7 +287,11 @@ it.each([false, true])("u5575a_headings_fold_only_their_sections editable=%s", {
             agents: editor.querySelector('details[data-pad-agents]').checkVisibility(),
             review: [...editor.querySelectorAll(':scope > p')].find(p => p.textContent === 'Review.').checkVisibility(),
           };
-        })()`);
+        })()`],
+        ]);
+
+        // SAFETY: the batched eval returns the JSON of the constant expression above.
+      const state = reading!.result.result as { focused: boolean; headings: Record<string, boolean>; agents: boolean; review: boolean };
 
         expect(state.focused).toBe(true);
         expect(state.headings.Reference).toBe(true);
@@ -347,9 +340,7 @@ it("u5561b_block_menu_inserts_two_labelled_toggles", { retry: 0, timeout: 120_00
 
   if (await read("document.querySelector('#shelf-tab-pads').getAttribute('aria-expanded') !== 'true'")) await browser("click", "#shelf-tab-pads");
   await wait("!!document.querySelector('.pad-name')");
-  await read("document.querySelector('.pads-tab [data-pad=\"pad-3\"] .pad-name').focus()");
-  await browser("press", "Enter");
-  await wait("!!document.querySelector('.ProseMirror')");
+  await openPad("!!document.querySelector('.ProseMirror')");
 
   for (const [label, body] of [["Before", "First evidence."], ["After", "Second evidence."]] as const) {
     await browser("click", ".ProseMirror > p:last-child");
@@ -377,8 +368,6 @@ it("u5561b_block_menu_inserts_two_labelled_toggles", { retry: 0, timeout: 120_00
   await wait("!document.querySelector('.drawer .ProseMirror')");
   const saved = await read<string>("window.__fake.app.rpc('pad.read', {name:'pad-3'}).then(pad => pad.text)");
   expect(saved).toBe("<details>\n<summary>Before</summary>\n\nFirst evidence.\n\n</details>\n\nBetween.\n\n<details>\n<summary>Toggle</summary>\n\nSecond evidence.\n\n</details>");
-  await read("document.querySelector('.pads-tab [data-pad=\"pad-3\"] .pad-name').focus()");
-  await browser("press", "Enter");
-  await wait("document.querySelectorAll('details[data-pad-agents]').length === 2");
+  await openPad("document.querySelectorAll('details[data-pad-agents]').length === 2");
   expect(await read("[...document.querySelectorAll('details[data-pad-agents]')].every(d => !d.open)")).toBe(true);
 });
