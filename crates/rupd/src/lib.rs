@@ -19,6 +19,9 @@ mod digest;
 mod event_log;
 mod evidence;
 mod extensions;
+mod fork;
+#[cfg(test)]
+mod fork_tests;
 mod github;
 #[cfg(test)]
 mod group_tests;
@@ -86,6 +89,8 @@ pub struct Daemon {
     project: std::path::PathBuf,
     /// LK1: the Project's key, the name of its data folder (`data::project_data`).
     project_key: String,
+    /// FK5977: this Project's data folder, `<data>/projects/<key>`.
+    data_dir: std::path::PathBuf,
     touches: Arc<Touches>,
     /// B19: which Pads each Door's earlier digests already named.
     digests: Arc<messages::digest::Seen>,
