@@ -340,6 +340,23 @@ Native confirmations use the system's appearance. Every remaining web modal, anc
 
 The existing primary kind uses `--button-accent-fill` (#b23300 in both schemes) and `--button-accent-ink`; the existing quiet kind uses `--button-neutral` and `--text`. Both use `--radius-pill`, 24 px minimum targets and space Tokens. Hover changes ink only. Menu items retain their menu semantics. This scoped exception supersedes the ink-only/no-control-radius rule within these floating surfaces and empty-view action rows; other controls keep it. The shared backdrop uses the existing `--scrim` in both schemes and never blurs. The Terminal Bubble retains its existing background-Agent treatment.
 
+### Fork colour accents
+
+An App running on a Fork (FK5977d) takes its Fork colour as the app accent (U130, Fork colour accent). Each `ForkColour` has its own set of the Tokens below, defined in `tokens.css` in a `[data-fork-colour="<colour>"]` block on the root; the live App sets no such attribute and keeps the rows of the Token table above. `--button-accent-fill` is the light `--accent` in both schemes; `--button-accent-ink` stays `#ffffff`. Each set is shades of one hue: the Hue column is the colour's hue angle, and the Dock icon plate tone of #5980 uses the same hue (within 6°), so icon and accent read as one colour. The orange row equals the live App's values, except that its hue is the existing plate hue.
+
+| `ForkColour` | Hue | `--accent` light | `--accent` dark | `--button-accent-fill` | `--button-key-ink` | `--selected` light / hover | `--selected` dark / hover |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `red` | 355° | `#cb0011` | `#fe6a74` | `#cb0011` | `#fcd9dc` | `rgba(203,0,17,.07)` / `.10` | `rgba(254,106,116,.08)` / `.10` |
+| `orange` | 17° | `#b23300` | `#fc6a3e` | `#b23300` | `#fbe2da` | `rgba(178,51,0,.07)` / `.10` | `rgba(252,106,62,.08)` / `.10` |
+| `amber` | 38° | `#905b00` | `#fcbd4f` | `#905b00` | `#fcefd9` | `rgba(144,91,0,.07)` / `.10` | `rgba(252,189,79,.08)` / `.10` |
+| `green` | 145° | `#007531` | `#4ffc97` | `#007531` | `#d9fce8` | `rgba(0,117,49,.07)` / `.10` | `rgba(79,252,151,.08)` / `.10` |
+| `teal` | 175° | `#007168` | `#4ffcee` | `#007168` | `#d9fcf9` | `rgba(0,113,104,.07)` / `.10` | `rgba(79,252,238,.08)` / `.10` |
+| `blue` | 215° | `#0057d1` | `#4f97fc` | `#0057d1` | `#d9e8fc` | `rgba(0,87,209,.07)` / `.10` | `rgba(79,151,252,.08)` / `.10` |
+| `violet` | 268° | `#6200d1` | `#bd85fd` | `#6200d1` | `#e9d9fc` | `rgba(98,0,209,.07)` / `.10` | `rgba(189,133,253,.08)` / `.10` |
+| `pink` | 328° | `#c40069` | `#fc4fac` | `#c40069` | `#fcd9ec` | `rgba(196,0,105,.07)` / `.10` | `rgba(252,79,172,.08)` / `.10` |
+
+Contrast (D5), measured against `--ground`, `--sunken` and the selected band over each: `--accent` 4.5:1 text and 3:1 Glyph, white ink on `--button-accent-fill` 4.5:1, `--button-key-ink` on the fill 4.5:1, in light, dark and increased contrast.
+
 
 ### Terminal Tokens (U3517)
 
