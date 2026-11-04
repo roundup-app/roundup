@@ -409,7 +409,7 @@ impl ClaudeCode {
         self.release_hold()
     }
 
-    /// The Stop held by background work is over once nothing runs.
+    /// The Stop kept Working by background work is over once nothing runs.
     fn release_hold(&mut self) -> Option<Status> {
         if self.stopped && !self.background.holds() && self.ending == Ending::Running {
             self.stopped = false;

@@ -85,12 +85,19 @@ impl Background {
 fn service(process: &Process, services: &[String]) -> bool {
     let name = |arg: &str| arg.rsplit('/').next().unwrap_or(arg).to_owned();
     let program = process.command.first().map(|p| name(p)).unwrap_or_default();
-    let rup = program == "rup"
-        && process
-            .command
-            .get(1)
-            .is_some_and(|arg| matches!(arg.as_str(), "mcp" | "signal" | "context"));
-    rup || services.contains(&program)
+    let rup_args = |args: &[String]| {
+        args.get(1)
+            .is_some_and(|arg| matches!(arg.as_str(), "mcp" | "signal" | "context"))
+    };
+    let rup = program == "rup" && rup_args(&process.command);
+    // A hook runs through a shell: `sh -c "rup signal 7"` is the hook, not work.
+    let hook_shell = matches!(program.as_str(), "sh" | "bash" | "zsh")
+        && process.command.get(1).is_some_and(|flag| flag == "-c")
+        && process.command.get(2).is_some_and(|script| {
+            let words: Vec<String> = script.split_whitespace().map(|w| name(w)).collect();
+            words.first().is_some_and(|w| w == "rup") && rup_args(&words)
+        });
+    rup || hook_shell || services.contains(&program)
 }
 
 /// Whether `process` descends from `root` through no service.
@@ -198,7 +205,7 @@ mod tests {
         hook(&mut a, json!({"hook_event_name":"Stop"}));
         let only_services = [
             proc(2, 1, 1, &["/usr/bin/rup", "mcp"]),
-            proc(3, 1, 1, &["sh", "-c", "x"]),
+            proc(3, 1, 1, &["sh", "-c", "/usr/bin/rup signal 7"]),
             proc(4, 3, 1, &["/usr/bin/rup", "signal", "7"]),
             proc(5, 1, 1, &["node", "server.js"]),
             proc(6, 5, 1, &["node", "child.js"]),
@@ -233,8 +240,8 @@ mod tests {
         let mut b = agent();
         hook(&mut b, json!({"hook_event_name":"Stop"}));
         b.resume_background(facts);
-        let held = b.observe_processes(1, Err("no process table".into()), &[]);
-        assert_eq!(held.unwrap().kind, Kind::Working);
+        let kept = b.observe_processes(1, Err("no process table".into()), &[]);
+        assert_eq!(kept.unwrap().kind, Kind::Working);
         assert_eq!(
             b.background().unavailable.as_deref(),
             Some("no process table")
@@ -243,7 +250,7 @@ mod tests {
         let reused = [proc(10, 99, 77, &["vim"])];
         b.observe_processes(1, Ok(&reused), &[]);
         assert!(b.background().processes.is_empty());
-        // Only the lost SubagentStop keeps the Agent held, never the reused PID.
+        // Only the lost SubagentStop keeps the Agent Working, never the reused PID.
         assert_eq!(b.background().agents.len(), 1);
         hook(&mut b, json!({"hook_event_name":"SessionStart"}));
         assert_eq!(kind(&b), Kind::Idle);
