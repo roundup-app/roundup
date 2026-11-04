@@ -75,6 +75,14 @@
   --disabled: #707070;
   --press-opacity: 0.9;
   --accent: #b23300;
+  --fork-red: #cb0011;
+  --fork-orange: #b23300;
+  --fork-amber: #905b00;
+  --fork-green: #007531;
+  --fork-teal: #007168;
+  --fork-blue: #0057d1;
+  --fork-violet: #6200d1;
+  --fork-pink: #c40069;
   --doodle-ground: color-mix(in srgb, var(--ground) 95%, #000000);
   --amber: var(--amber-11);
   --red: var(--red-11);
@@ -290,6 +298,14 @@
     --elevation-contact: 0 2px 4px 0 rgba(0, 0, 0, 0.28);
     --elevation-ambient: 0 12px 24px 0 rgba(0, 0, 0, 0.40);
     --elevation-ring: 0 0 0 .5px rgba(255, 255, 255, 0.20);
+    --fork-red: #fe6a74;
+    --fork-orange: #fc6a3e;
+    --fork-amber: #fcbd4f;
+    --fork-green: #4ffc97;
+    --fork-teal: #4ffcee;
+    --fork-blue: #4f97fc;
+    --fork-violet: #bd85fd;
+    --fork-pink: #fc4fac;
     --shadow-scroll: inset 0 8px 8px -8px rgba(0, 0, 0, 0.6);
   }
 }
@@ -352,6 +368,14 @@ button, file-tree-container, diffs-container {
   --cache-write: var(--gray-9);
   --disabled: #707070;
   --accent: #b23300;
+  --fork-red: #cb0011;
+  --fork-orange: #b23300;
+  --fork-amber: #905b00;
+  --fork-green: #007531;
+  --fork-teal: #007168;
+  --fork-blue: #0057d1;
+  --fork-violet: #6200d1;
+  --fork-pink: #c40069;
   --doodle-ground: color-mix(in srgb, var(--ground) 95%, #000000);
   --amber: var(--amber-11);
   --red: var(--red-11);
@@ -407,6 +431,14 @@ button, file-tree-container, diffs-container {
     --elevation-contact: 0 2px 4px 0 rgba(0, 0, 0, 0.28);
     --elevation-ambient: 0 12px 24px 0 rgba(0, 0, 0, 0.40);
     --elevation-ring: 0 0 0 .5px rgba(255, 255, 255, 0.20);
+    --fork-red: #fe6a74;
+    --fork-orange: #fc6a3e;
+    --fork-amber: #fcbd4f;
+    --fork-green: #4ffc97;
+    --fork-teal: #4ffcee;
+    --fork-blue: #4f97fc;
+    --fork-violet: #bd85fd;
+    --fork-pink: #fc4fac;
     --shadow-scroll: inset 0 8px 8px -8px rgba(0, 0, 0, 0.6);
 }
 

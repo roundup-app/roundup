@@ -760,12 +760,10 @@ fn failure_label(code: Option<&str>) -> String {
             "inspect its Terminal, then retry",
         ),
         other => {
-            return format!(
-                "Claude failed with {other}; inspect its Terminal, then retry. The next turn replaces this mark."
-            );
+            return format!("Claude failed with {other}; inspect its Terminal, then retry.");
         }
     };
-    format!("{cause}; {next}. The next turn replaces this mark.")
+    format!("{cause}; {next}.")
 }
 
 /// The question being asked; else the tool name, with its command when it has one.

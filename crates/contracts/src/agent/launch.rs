@@ -45,6 +45,11 @@ pub struct SpawnParams {
     pub cwd: String,
     pub prompt: Option<String>,
     pub parent: Option<String>,
+    /// DCL9: an Agent's spawn names the Subagent's role, `job` or `consult`; without one the call
+    /// is refused. The user's own spawn has no role.
+    #[serde(default)]
+    #[specta(optional, type = SpawnRole)]
+    pub role: Option<SpawnRole>,
     /// O2: replaces `prompt` for a user's spawn; an Agent's spawn gives both, and `prompt` alone is
     /// `INVALID_PARAMS` (O8).
     #[serde(default)]
@@ -79,6 +84,25 @@ pub struct SpawnParams {
     #[serde(default)]
     #[specta(optional, type = Extras)]
     pub extras: Option<Extras>,
+}
+
+/// DCL9: what a Subagent is for. A Job owns one bounded outcome and ends with a report; a Consult
+/// answers questions and rests when idle.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
+#[serde(rename_all = "lowercase")]
+pub enum SpawnRole {
+    Job,
+    Consult,
+}
+
+impl SpawnRole {
+    /// The stored and wire spelling.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Job => "job",
+            Self::Consult => "consult",
+        }
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]

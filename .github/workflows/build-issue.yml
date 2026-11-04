@@ -41,6 +41,9 @@ jobs:
       SLUG: ${{ inputs.slug }}
       # L23: the switch; set, Claude Code runs on API credit (`loop/builder.py` `claude_env`).
       CLAUDE_API: ${{ vars.CLAUDE_API }}
+      # L23: the slots; `engine` starts a run on Claude Code when its id modulo their sum is below `CLAUDE_RUNS`.
+      CODEX_RUNS: ${{ vars.CODEX_RUNS }}
+      CLAUDE_RUNS: ${{ vars.CLAUDE_RUNS }}
     steps:
       - uses: actions/checkout@v5
         with:

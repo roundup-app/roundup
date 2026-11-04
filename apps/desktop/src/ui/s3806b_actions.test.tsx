@@ -114,14 +114,18 @@ const BUBBLE_ROWS: Row[] = [
     } },
 ];
 
-const mountApp = async (capture?: import("../app/seam").CapturePort, empty = false) => {
+type MountedApp = { app: FakeApp; connected: ConnectedProject; other?: FakeApp };
+
+const mountApp = async (capture?: import("../app/seam").CapturePort, empty = false, second = true) => {
   useBrowserStorage(localStorage);
   const app = createFakeApp();
   app.capture = capture;
   app.add(path("first"));
-  app.add(path("second"));
+
+  if (second) app.add(path("second"));
   app.of(path("first")).handlers["rail.tree"] = () => empty ? [] : [workstream("ops"), workstream("elsewhere", { order: 1 })];
-  app.of(path("second")).handlers["rail.tree"] = () => [workstream("other")];
+
+  if (second) app.of(path("second")).handlers["rail.tree"] = () => [workstream("other")];
   app.of(path("first")).handlers["terminal.list"] = () => empty ? [] : [info("7", { owner: "ops", title: "original" })];
   let original: ConnectedProject | undefined;
   const emulators = fakeEmulators();
@@ -138,7 +142,11 @@ const mountApp = async (capture?: import("../app/seam").CapturePort, empty = fal
   original!.showView("terminal-tabs");
   await settled();
 
-  return { app: app.of(path("first")), connected: original!, other: app.of(path("second")) };
+  const mounted: MountedApp = { app: app.of(path("first")), connected: original! };
+
+  if (second) mounted.other = app.of(path("second"));
+
+  return mounted;
 };
 
 const CAPTURE_ROW: Row = {
@@ -174,7 +182,7 @@ it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $
   } : undefined;
 
   const [daemonExit, setDaemonExit] = createSignal<{ code: number | null } | null>(null);
-  const mounted = row.owner !== "Rail" ? await mountApp(native, row === WORKSTREAM_ROW) : await mountSwitcher(row.selected, undefined, undefined, daemonExit);
+  const mounted = row.owner !== "Rail" ? await mountApp(native, row === WORKSTREAM_ROW, !["dismiss", "cancel", "stale-selection", "removed-target", "unavailable"].includes(outcome)) : await mountSwitcher(row.selected, undefined, undefined, daemonExit);
   const { app, connected } = mounted;
 
   if (native) {
@@ -373,7 +381,7 @@ it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $
 
     expect(connected.drafts.list()).toEqual(drafts);
     expect(drafts.filter(entry => entry.destination.surface === "switcher")).toEqual(queryDraft);
-    expect("other" in mounted && mounted.other.calls.filter(call => [row.method, "rail.startDoor", "agent.prompt", "terminal.write", "message.send"].includes(call.method))).toEqual([]);
+    expect(("other" in mounted ? mounted.other : undefined)?.calls.filter(call => [row.method, "rail.startDoor", "agent.prompt", "terminal.write", "message.send"].includes(call.method)) ?? []).toEqual([]);
     expect(app.calls.slice(before).filter(call => ["agent.prompt", "terminal.write", "message.send"].includes(call.method))).toEqual([]);
     expect(app.badges.filter(count => count > 0)).toEqual([]);
 
@@ -408,7 +416,7 @@ it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $
     expect(connected.drafts.list()).toEqual(drafts);
     expect(nativeCalls).toHaveLength(outcome === "resolve" ? 1 : 2);
     expect(app.calls.slice(before).filter(call => ["todo.create", "message.send", "agent.spawn", "agent.prompt", "terminal.write"].includes(call.method))).toEqual([]);
-    expect("other" in mounted && mounted.other.calls.filter(call => ["todo.create", "message.send", "agent.spawn", "agent.prompt", "terminal.write"].includes(call.method))).toEqual([]);
+    expect(("other" in mounted ? mounted.other : undefined)?.calls.filter(call => ["todo.create", "message.send", "agent.spawn", "agent.prompt", "terminal.write"].includes(call.method)) ?? []).toEqual([]);
     expect(app.badges.filter(count => count > 0)).toEqual([]);
     fireEvent.click(tab("first"));
     await screen.findByText("ops", { selector: ".name" });
@@ -452,7 +460,7 @@ it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $
     }
 
     expect(connected.drafts.list()).toEqual(drafts);
-    expect("other" in mounted && mounted.other.calls.filter(call => [row.method, "message.send", "agent.spawn", "agent.prompt", "terminal.write"].includes(call.method))).toEqual([]);
+    expect(("other" in mounted ? mounted.other : undefined)?.calls.filter(call => [row.method, "message.send", "agent.spawn", "agent.prompt", "terminal.write"].includes(call.method)) ?? []).toEqual([]);
     expect(app.calls.slice(before).filter(call => ["message.send", "agent.spawn", "agent.prompt", "terminal.write"].includes(call.method))).toEqual([]);
     expect(app.badges.filter(count => count > 0)).toEqual([]);
 
@@ -499,7 +507,7 @@ it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $
         expect(notice.textContent).toContain(`${row.label} rejected by the Daemon`);
         expect(ofMethod()).toHaveLength(1);
         expect(connected.drafts.list().filter(entry => entry.destination.surface === "switcher")).toEqual(queryDraft);
-        expect("other" in mounted && mounted.other.calls.filter(call => call.method === row.method || call.method === "message.send" || call.method === "terminal.write")).toEqual([]);
+        expect(("other" in mounted ? mounted.other : undefined)?.calls.filter(call => call.method === row.method || call.method === "message.send" || call.method === "terminal.write") ?? []).toEqual([]);
         expect(app.badges.filter(count => count > 0)).toEqual([]);
         fireEvent.click(within(document.querySelector<HTMLElement>(".centre-notice")!).getByRole("button", { name: "Open first" }));
         await waitFor(() => expect(document.querySelector(row.origin)).not.toBeNull());
@@ -563,7 +571,7 @@ it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $
   expect(app.calls.slice(before).filter((call) => call.method === "terminal.write")).toEqual([]);
 
   if (row.owner === "App") {
-    expect("other" in mounted && mounted.other.calls.filter(call => call.method === row.method)).toEqual([]);
+    expect(("other" in mounted ? mounted.other : undefined)?.calls.filter(call => call.method === row.method) ?? []).toEqual([]);
     fireEvent.click(tab("first"));
     await waitFor(() => expect(document.querySelector(row.origin)).not.toBeNull());
   }
@@ -693,6 +701,6 @@ it.each(reviewCases)("s3806b_action_survives_surface_close: Review changes $read
 
   expect(connected.drafts.list()).toEqual(drafts);
   expect(notes.list("reviewed")).toEqual(originalNotes);
-  expect(other.calls.filter(call => call.method === method)).toEqual([]);
+  expect(other!.calls.filter(call => call.method === method)).toEqual([]);
   expect(app.calls.slice(before).filter(call => ["terminal.write", "agent.prompt"].includes(call.method))).toEqual([]);
 });

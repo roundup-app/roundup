@@ -13,7 +13,7 @@ import type { QueueView } from "../../state/queue";
 import { goesLine, staysLine } from "./removal";
 import { railOrder } from "../layout";
 import { judgeRemoval } from "./removal";
-import type { Removal } from "./removal";
+import type { Known, Removal } from "./removal";
 import { contextMenu, linkEntries } from "../../ui/contextMenu";
 import type { MenuEntry } from "../../ui/contextMenu";
 
@@ -41,7 +41,7 @@ const needsConfirmation = ({ node, exit }: MenuState) =>
   isRunning(node, exit) &&
   (node.status?.kind === "working" || node.status?.kind === "needs-you" || node.status?.kind === "blocked");
 
-export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (message: string, item?: string) => void, acknowledge: (item: string) => void, storage: ConnectedProject["drafts"], rename: (id: string) => void, queue: QueueView, extra: (node: RailNode) => MenuEntry[] = () => [], feedback: (id: string) => ReturnType<typeof createCopyFeedback> | undefined = () => undefined) => {
+export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (message: string, item?: string) => void, acknowledge: (item: string) => void, storage: ConnectedProject["drafts"], rename: (id: string) => void, queue: QueueView, extra: (node: RailNode) => MenuEntry[] = () => [], feedback: (id: string) => ReturnType<typeof createCopyFeedback> | undefined = () => undefined, known: () => Known | null = () => null) => {
   const [state, setState] = createSignal<MenuState | null>(null);
   let removingSelection = false;
   const resuming = new Set<string>();
@@ -168,11 +168,32 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
       else current.removed?.();
     }, current.node.id);
 
+  /** U5991a: the rows leave at once; the call, its receipt and a failure's return of the rows follow in the queue. */
+  const removeAtOnce = (ids: string[], name: string, current: MenuState, leaving: string[] = ids) => {
+    current.removed?.();
+    rail.hide(leaving);
+    close();
+
+    void storage.todoUndo.removeRailSelection(ids, name, "rail").then(async removed => {
+      if (removed) {
+        await rail.refresh();
+        rail.unhide(leaving);
+        acknowledge(current.node.id);
+      } else {
+        // The row returns first: a failure line about a row the Rail does not show would clear itself.
+        rail.unhide(leaving);
+        const failure = storage.todoUndo.failure();
+
+        if (failure) onFailure(failure, current.node.id);
+      }
+    });
+  };
+
   const judge = async (current: MenuState) => {
     setState({ ...current, confirming: true, removal: null });
 
     try {
-      const removal = current.node.kind === "workstream" ? await judgeRemoval(app, rail.nodes, current.node.id) : undefined;
+      const removal = current.node.kind === "workstream" ? await judgeRemoval(app, rail.nodes, current.node.id, new Set(), known()) : undefined;
       const chosen = [current.node, ...rail.nodes.filter(node => removal?.removedIds.includes(node.id))];
 
       const losses = lossesOf(chosen);
@@ -185,13 +206,8 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
         return;
       }
 
-      const removed = await storage.todoUndo.removeRail(current.node.id, current.node.name, "rail");
-      close();
-
-      if (removed) {
-        current.removed?.();
-        acknowledge(current.node.id);
-      } else if (storage.todoUndo.failure() && !storage.todoUndo.blocked()) onFailure(storage.todoUndo.failure()!, current.node.id);
+      // Clean: the Workstream and what goes with it leave now; Agents that stay keep their rows.
+      removeAtOnce([current.node.id], current.node.name, current, [current.node.id, ...(removal?.removedIds ?? [])]);
     } catch (error) {
       close();
 
@@ -223,14 +239,9 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
           for (const id of ids) rail.keepAsked(id, { kind: "remove" });
         } else current.removed?.();
       } else {
-        const removed = await storage.todoUndo.removeRailSelection(ids, current.selection.map(node => node.name).join(", "), "rail");
+        removeAtOnce(ids, current.selection.map(node => node.name).join(", "), current);
 
-        if (removed) current.removed?.();
-        else {
-          if (storage.todoUndo.failure() && !storage.todoUndo.blocked()) onFailure(storage.todoUndo.failure()!, current.node.id);
-
-          return;
-        }
+        return;
       }
 
       acknowledge(current.node.id);
@@ -251,7 +262,7 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
     setState(current);
 
     try {
-      const judgments = await Promise.all(chosen.flatMap(node => node.kind === "workstream" ? [judgeRemoval(app, rail.nodes, node.id, ids).then(removal => ({ node, removal }))] : []));
+      const judgments = await Promise.all(chosen.flatMap(node => node.kind === "workstream" ? [judgeRemoval(app, rail.nodes, node.id, ids, known()).then(removal => ({ node, removal }))] : []));
       const affected = new Set([...chosen.map(node => node.id), ...judgments.flatMap(({ removal }) => removal.removedIds)]);
 
       const losses = lossesOf(railOrder(rail.nodes).filter(node => affected.has(node.id)));

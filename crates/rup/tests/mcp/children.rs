@@ -363,7 +363,10 @@ async fn u5531a_visibility_authority_is_enforced_by_the_daemon() {
         .to_owned();
     let child_rpc = client_as(&fx.served.socket(), agent(&fx.child)).await;
     let nested = child_rpc
-        .request("agent.spawn", json!({"cwd":fx.served.dir.path()}))
+        .request(
+            "agent.spawn",
+            json!({"cwd":fx.served.dir.path(),"role":"job"}),
+        )
         .await
         .unwrap()["id"]
         .as_str()
@@ -499,7 +502,7 @@ async fn u5531a_spawn_visibility_is_atomic_and_defaults_shown() {
         (json!("shown"), "shown"),
         (json!("internal"), "internal"),
     ] {
-        let mut args = json!({"cwd":fx.served.dir.path(),"name":"helper"});
+        let mut args = json!({"cwd":fx.served.dir.path(),"name":"helper","role":"job"});
         if !input.is_null() {
             args["visibility"] = input;
         }
@@ -528,7 +531,7 @@ async fn u5531a_spawn_visibility_is_atomic_and_defaults_shown() {
         child
             .request(
                 "agent.spawn",
-                json!({"cwd":fx.served.dir.path(),"visibility":"internal"})
+                json!({"cwd":fx.served.dir.path(),"visibility":"internal","role":"job"})
             )
             .await
             .unwrap_err()

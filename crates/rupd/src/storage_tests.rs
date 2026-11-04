@@ -97,7 +97,7 @@ fn saved_prefix() -> (tempfile::TempDir, Connection, usize) {
 fn saved_prefix_before_reactions_retire() -> (tempfile::TempDir, Connection, usize) {
     let dir = tempfile::tempdir().unwrap();
     let mut db = Connection::open(dir.path().join("project.db")).unwrap();
-    let prefix = migrations().len() - 2;
+    let prefix = migrations().len() - 3;
     Migrations::new(migrations()[..prefix].to_vec())
         .to_latest(&mut db)
         .unwrap();
@@ -643,8 +643,8 @@ async fn u5740c_current_project_drops_only_retired_tables() {
             ],
         )
     };
-    // A Daemon opens a project at most one migration behind, so 0046 runs here and the open adds 0047.
-    apply(&mut db, migrations()[..migrations().len() - 1].to_vec()).unwrap();
+    // 0046 runs here with the later migrations, so the open leaves the retained tables as they stand.
+    apply(&mut db, migrations()).unwrap();
     let before = retained(&db);
     drop(db);
     for _ in 0..2 {

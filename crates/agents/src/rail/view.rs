@@ -57,6 +57,7 @@ fn load_with<T>(
                 NodeKind::Group => None,
             };
             let node = RailNode {
+                waiting: None,
                 start_attribution: row
                     .get_ref(19)?
                     .as_str_or_null()?

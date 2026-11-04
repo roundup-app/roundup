@@ -56,12 +56,17 @@ it("u5561a_pad_disclosure_toggles_without_writing", { retry: 0, timeout: 90_000 
     if (input !== "pointer") await browser("focus", `${section} summary`);
 
     for (const open of [true, false]) {
-      if (input === "pointer") await browser("click", `${section} summary`);
-      else await browser("press", input === "Space" ? "Space" : "Enter");
-      await wait(`document.querySelector('${section}').open === ${open}`);
-      expect(await read(`document.querySelector('${section} textarea').checkVisibility({contentVisibilityAuto:true})`)).toBe(open);
+      // Act, settle and read both observations in one CLI connection.
+      const [, , visible, focused] = await batch([
+        input === "pointer" ? ["click", `${section} summary`] : ["press", input === "Space" ? "Space" : "Enter"],
+        ["wait", "--fn", `document.querySelector('${section}').open === ${open}`],
+        ["eval", `document.querySelector('${section} textarea').checkVisibility({contentVisibilityAuto:true})`],
+        ["eval", `document.activeElement.matches('${section} summary')`],
+      ]);
 
-      if (input !== "pointer") expect(await read(`document.activeElement.matches('${section} summary')`)).toBe(true);
+      expect(visible!.result.result).toBe(open);
+
+      if (input !== "pointer") expect(focused!.result.result).toBe(true);
       await capture(`${input}-${open}`);
     }
   }

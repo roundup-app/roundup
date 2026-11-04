@@ -803,13 +803,10 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* U5151a: the failure line sits in the name column under the name, two lines at most; the row tooltip holds the full text. */
+/* U5151a: the failure line sits in the name column under the name, wraps to its full length, however long and unbroken (U5151h). */
 .rail-row .failure-line {
   padding-inline-start: var(--length-zero);
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  overflow: hidden;
+  overflow-wrap: anywhere;
 }
 
 /* The idle branch uses the same Token columns as ordinary Rail rows. */

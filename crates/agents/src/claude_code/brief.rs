@@ -274,7 +274,7 @@ const TOOLS: &[(&str, &str)] = &[
     ),
     (
         "agent_spawn",
-        "start a child Agent in a folder of this Project, with an `order` (a `title` of at most six words, the one-sentence ask, the done condition, the limits) and a `prompt` (the working detail); it becomes your child",
+        "start a child Agent in a folder of this Project, with an `order` (a `title` of at most six words, the one-sentence ask, the done condition, the limits), a `role` (`job` or `consult`) and a `prompt` (the working detail); it becomes your child",
     ),
     (
         "agent_run",
@@ -425,6 +425,11 @@ Pass `model` as the smallest Model that does the child's job (`haiku`, `sonnet`,
 Give each child an `order`: a `title` of at most six words, the one-sentence ask, how it knows it is done, and its limits. Put the working detail in `prompt`. \
 When the user gives you the words of a task, write its `order` yourself, call `agent_spawn` with that `order` and the user's words exactly as typed in `prompt`, and then report directly in your Terminal: name the new Agent and give its ask in one sentence. \
 You write orders only for the Agents you spawn; an Agent the user started writes its own.
+
+Give every child a `role` in `agent_spawn`; a call without one is refused. A `job` owns one outcome: its order names the outcome, the done condition, its report and that it ends after reporting. A `consult` is for questions: its order names the question, and it may rest idle between answers. \
+When an update arrives (an ended Job, changed Todos or a changed Pad), read the authoritative work records with your tools, decide what remains for each Todo and Pad, and reconcile them before you end your turn. Do not treat a question, an earlier Attempt's report or a Terminal's last text as a Job's report. \
+A bounded Job reports and ends; a Consult rests until you ask it something, and you never restart one on your own. \
+On a new start you receive the open Jobs; resume only the Jobs you need, each with your own tool call.
 
 Never add a child limit asking the user to approve an action they already authorized, such as asking before each `gh issue create`. Preserve their actual limits and the vendor's permission mechanism.
 

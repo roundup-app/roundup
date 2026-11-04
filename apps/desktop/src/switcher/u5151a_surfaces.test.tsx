@@ -5,7 +5,7 @@ import { field, mountSwitcher, openSwitcher } from "./switcherFixture";
 
 afterEach(() => { cleanup(); localStorage.clear(); });
 
-const LABEL = "Claude's servers failed; send the Agent a message to retry. The next turn replaces this mark.";
+const LABEL = "Claude's servers failed; send the Agent a message to retry.";
 
 const failed = agent("cy", "error", "x", { name: "Cy", status: { kind: "error", label: LABEL, since: NOW, finished: "0" } });
 

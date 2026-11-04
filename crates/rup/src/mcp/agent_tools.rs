@@ -55,7 +55,7 @@ pub(super) fn workstream_rewind() -> Offered {
 pub(super) fn agent_spawn() -> Offered {
     offered::<agent::SpawnParams>(
         "agent.spawn",
-        "Start a child Agent in a folder of this Project. Put a `title` of at most six words, the one-sentence ask, the done condition and the limits in `order`, and the working detail in `prompt`; a `prompt` without an `order` is refused. Name the child after its task. The child's Home is you.",
+        "Start a child Agent in a folder of this Project. Put a `title` of at most six words, the one-sentence ask, the done condition and the limits in `order`, and the working detail in `prompt`; a `prompt` without an `order` is refused. Name its `role`: `job` for one bounded outcome that ends with a report, `consult` for a child that answers questions and rests when idle; a call without a role is refused. Name the child after its task. The child's Home is you.",
     )
 }
 
