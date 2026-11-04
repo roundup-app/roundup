@@ -6,7 +6,7 @@ import type { Events } from "../app/events";
 import type { Deliverable } from "@contracts/deliverable/Deliverable";
 import type { Status } from "@contracts/Status";
 import type { RailNode } from "@contracts/agent/RailNode";
-import { descendantsOf } from "../rail/layout";
+import { descendantsOf, isWorkstreamChild } from "../rail/layout";
 import { storageSchema, storedValue } from "./storage";
 
 /** U3566c: the finish count the user has read, per Agent id, of one original Project. */
@@ -181,13 +181,17 @@ export const createUnseen = (
   const of = (id: string): boolean => {
     const node = nodes().find((each) => each.id === id);
 
-    return baselined() && node !== undefined && finishes(node) > BigInt(read()[id] ?? "0");
+    return baselined() && node !== undefined && !isWorkstreamChild(nodes(), node) && finishes(node) > BigInt(read()[id] ?? "0");
   };
 
   return {
     of,
     finishAt: id => finishTimes()[id]?.at ?? 0,
     publicationAt: id => {
+      const node = nodes().find(each => each.id === id);
+
+      if (node && isWorkstreamChild(nodes(), node)) return null;
+
       const times = (catalogue() ?? []).filter(record => record.maker.kind === "agent" && record.maker.id === id && seenPublications()?.[record.id] === false).map(record => record.published_at);
 
       return times.length ? Math.max(...times) : null;
