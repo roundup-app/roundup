@@ -3,7 +3,7 @@ import { captureFocus } from "../keys/focus";
 import { createItemFailure } from "../rail/itemFailure";
 import { copy } from "./copy";
 import { applying } from "../app/pending";
-import { batch, createMemo, createSignal } from "solid-js";
+import { batch, createMemo, createSignal, untrack } from "solid-js";
 import { createStore, reconcile } from "solid-js/store";
 import type { Actor } from "@contracts/Actor";
 import type { Event as DaemonEvent } from "@contracts/Event";
@@ -44,6 +44,14 @@ export type RailState = {
   keepApplied(id: string, place: RailPlace): void;
   /** U5991a: show Row `id`'s program as stopped (`exit`) or running (`null`) at once; the returned call lifts it. */
   drawExit(id: string, exit: ExitState | null): () => void;
+  /** U5991a: show a new Row of `kind` named `name` under `parent` at once; the returned call lifts it once the refreshed tree holds the Daemon's Row. */
+  drawNew(kind: "agent" | "workstream", name: string, parent: string | null): () => void;
+  /** U5991a: show Rows `ids` grouped under a new Workstream at the first one's place at once. */
+  drawGroup(ids: readonly string[], name: string): () => void;
+  /** U5991a: remember the Rows `ids` that a removal took, as they stood, for the undo that returns them. */
+  keepRemoved(ids: readonly string[]): void;
+  /** U5991a: show the last removal undone (`undo`) or redone at once; the returned call refreshes, then lifts the drawing; `kept` false puts the memory back, since the call failed. */
+  drawHistory(direction: "undo" | "redo"): (kept: boolean) => Promise<void>;
   /** U5991a: show `change` of the tree at once; the returned call lifts it once the Daemon's reply or Event holds the result. */
   draw(change: (tree: readonly RailNode[]) => readonly RailNode[]): () => void;
   /** One structural index shared by selection and every mounted Rail projection. */
@@ -129,6 +137,28 @@ export const movedTo = (tree: readonly RailNode[], id: string, place: RailPlace)
 /** A24: how long the App waits for `rail.startDoor`, the Daemon's own bound of 10 000 ms. */
 const DOOR_START_BOUND_MS = 10_000;
 
+let provisionalCount = 0;
+
+/** U5991a: the Row a new Agent or Workstream shows until the Daemon's own arrives; it carries no Terminal. */
+const provisionalRow = (tree: readonly RailNode[], kind: "agent" | "workstream", name: string, parent: string | null): RailNode => ({
+  id: `provisional-${++provisionalCount}`,
+  kind,
+  name,
+  parent,
+  order: tree.reduce((next, each) => each.parent === parent ? Math.max(next, each.order + 1) : next, 0),
+  status: { kind: kind === "agent" ? "working" : "done", label: kind === "agent" ? "starting" : "terminal gone", since: Date.now(), finished: "0" },
+  attempt: null,
+  status_revision: null,
+  terminal_id: null,
+  worktree: null,
+  can_resume: false, can_make_workstream: false, can_save_as_mode: false, yolo: false,
+  channel: null,
+  stray: [],
+  model: null,
+  effort: null,
+  work: null,
+});
+
 const identity = (tree: readonly RailNode[]): readonly RailNode[] => tree;
 
 export const createRailState = (app: AppSeam, events: Events, storage?: RailStorage, dismissals?: DismissalStorage, resumptions?: ResumptionStorage): RailState => {
@@ -142,6 +172,8 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
   // U5991a: rows a Rail action removed before its call answered; the Daemon's reply or failure lifts the hold.
   const [hidden, setHidden] = createSignal<ReadonlySet<string>>(new Set());
   const [drawn, setDrawn] = createSignal<readonly (typeof identity)[]>([]);
+  const removedRows: RailNode[][] = [];
+  const redoneRows: RailNode[][] = [];
   const renaming = new Map<string, () => void>();
   const exitMarks = new Map<string, { exit: ExitState | null }>();
   const [exitsDrawn, setExitsDrawn] = createSignal<ReadonlyMap<string, ExitState | null>>(new Map());
@@ -450,6 +482,8 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
     const create = async (): Promise<string | null> => {
       if (workstreamCreating()) return null;
       setWorkstreamCreating(true);
+      // U5991a: the Row shows now; the refreshed tree or a failure lifts it.
+      const lift = state.drawNew("workstream", params.name, null);
 
       try {
         if (workstreamUnknown !== null && !await app.ask({ title: copy.newWorkstreamTitle, message: `${copy.terminalOutcomeUnknown}${workstreamUnknown}`, okLabel: copy.newWorkstreamTitle, cancelLabel: copy.keep })) return workstreamUnknown;
@@ -459,7 +493,7 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
         wantedWorkstream = (await app.rpc("rail.createWorkstream", params)).id;
         workstreamUnknown = null;
         commandFailure.acknowledge(null);
-        fetching(fetchTree);
+        await state.refresh();
 
         return null;
       } catch (error) {
@@ -472,6 +506,8 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
 
         return error.message;
       } finally {
+        lift();
+
         if (wantedWorkstream === null) setWorkstreamCreating(false);
       }
     };
@@ -514,6 +550,34 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
 
       return () => setDrawn(changes => changes.filter(each => each !== change));
     },
+    keepRemoved: ids => {
+      const rows = untrack(() => model.tree).flatMap(node => ids.includes(node.id) ? [{ ...node }] : []);
+
+      if (rows.length > 0) removedRows.push(rows);
+    },
+    drawHistory: direction => {
+      const from = direction === "undo" ? removedRows : redoneRows;
+      const to = direction === "undo" ? redoneRows : removedRows;
+      const rows = from.pop();
+
+      if (rows === undefined) return async () => undefined;
+      to.push(rows);
+      const ids = new Set(rows.map(node => node.id));
+      const lift = state.draw(tree => direction === "undo" ? [...tree.filter(node => !ids.has(node.id)), ...rows] : tree.filter(node => !ids.has(node.id)));
+
+      return async kept => {
+        if (!kept) { to.splice(to.indexOf(rows), 1); from.push(rows); }
+
+        try { await state.refresh(); } finally { lift(); }
+      };
+    },
+    drawNew: (kind, name, parent) => state.draw(tree => [...tree, provisionalRow(tree, kind, name, parent)]),
+    drawGroup: (ids, name) => state.draw(tree => {
+      const first = tree.find(each => ids.includes(each.id));
+      const row = { ...provisionalRow(tree, "workstream", name, first?.parent ?? null), order: first?.order ?? 0 };
+
+      return [...tree.map(each => ids.includes(each.id) ? { ...each, parent: row.id, order: each.order } : each), row];
+    }),
     drawExit: (id, exit) => {
       const mark = { exit };
 

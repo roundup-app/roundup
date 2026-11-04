@@ -183,6 +183,7 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
 
     void storage.todoUndo.removeRailSelection(ids, name, "rail").then(async removed => {
       if (removed) {
+        rail.keepRemoved(leaving);
         await rail.refresh();
         rail.unhide(leaving);
         acknowledge(current.node.id);

@@ -280,8 +280,15 @@ export const Rail = () => {
 
     return contextMenu(app, [
       { id: "group", label: copy.group, run: () => attempt(async () => {
-        const group = await app.rpc("rail.group", { ids: chosen.map(each => each.id) });
-        await rail.refresh();
+        // U5991a: the Rows show grouped now; the refreshed tree or a failure lifts the drawing.
+        const lift = rail.drawGroup(chosen.map(each => each.id), copy.newWorkstreamTitle);
+        let group: Awaited<ReturnType<typeof app.rpc<"rail.group">>>;
+
+        try {
+          group = await app.rpc("rail.group", { ids: chosen.map(each => each.id) });
+          await rail.refresh();
+        } finally { lift(); }
+
 
         if (rail.collapsed().has(group.id)) rail.toggleCollapsed(group.id);
         rail.select(group.id);
@@ -393,6 +400,8 @@ export const Rail = () => {
       guarded(async () => {
         const focus = captureFocus(true);
         let prepared: Awaited<ReturnType<NonNullable<typeof rail.prepareTerminal>>> | undefined;
+        // U5991a: the Row shows now; the refreshed tree or a failure lifts it.
+        const lift = rail.drawNew("agent", copy.newAgent, under);
 
         try {
           prepared = await rail.prepareTerminal?.();
@@ -407,7 +416,7 @@ export const Rail = () => {
 
           if (error.name === "AbortError") return;
           failure.show(`${copy.newAgent}: ${error.message}`, null, "rail", run);
-        } finally { prepared?.dispose(); }
+        } finally { lift(); prepared?.dispose(); }
       });
     };
 
