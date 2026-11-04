@@ -21,12 +21,13 @@ def worktree(branch):
 
 def save(branch, account):
     """A run killed at its deadline leaves edits in its worktree that die with the runner. Commit what `branch`'s
-    worktree holds uncommitted or untracked, as `account`, bar the untracked captures of `artifacts/ux/` and anything
-    ignored, so the push that follows keeps it."""
-    tree, bar, (name, email) = str(worktree(branch)), ':!artifacts/ux', account
-    if not git('-C', tree, 'status', '--porcelain', '--untracked-files=all', '--', '.', bar).stdout:
+    worktree holds uncommitted or untracked, as `account`, bar anything ignored, such as the captures under
+    `artifacts/`, so the push that follows keeps it. An exclude pathspec naming an ignored folder makes `git add` fail,
+    so `.gitignore` alone bars them."""
+    tree, (name, email) = str(worktree(branch)), account
+    if not git('-C', tree, 'status', '--porcelain', '--untracked-files=all').stdout:
         return
-    for step in (('add', '-A', '--', '.', bar),
+    for step in (('add', '-A'),
                  ('-c', f'user.name={name}', '-c', f'user.email={email}', 'commit', '--no-verify', '-m',
                   'Save the work the run ended with uncommitted', '-m',
                   'The run ended with this work uncommitted; the next run finishes it.', '-m',
