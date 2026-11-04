@@ -120,9 +120,22 @@ export function createTodoUndo() {
     return message;
   };
 
+  /** U5991b: Rail removals, undos and redos run one after another in the order fired; none is refused for coming second. */
+  let tail: Promise<unknown> = Promise.resolve();
+  let waiting = 0;
+
+  const serial = <A extends unknown[], T>(run: (...args: A) => Promise<T>) => (...args: A): Promise<T> => {
+    // An idle queue starts the call in the same tick; a busy one starts it when the earlier calls have answered.
+    const next = waiting === 0 ? run(...args) : tail.then(() => run(...args));
+    waiting += 1;
+    tail = next.catch(() => undefined).finally(() => { waiting -= 1; });
+
+    return next;
+  };
+
   const unconfirmed = () => redoUnknown() || !!uncertain() || padPending().length > 0 || !!railPending();
 
-  const removeRailSelection = async (ids: readonly string[], name: string, region = "") => {
+  const removeRailNow = async (ids: readonly string[], name: string, region = "") => {
     const selected = [...new Set(ids)].sort();
 
     if (pending() || redoUnknown() || !connection || uncertain() || padPending().length) {
@@ -182,6 +195,8 @@ export function createTodoUndo() {
       return false;
     } finally { setPending(false); }
   };
+
+  const removeRailSelection = serial(removeRailNow);
 
   const remove = async (ids: number[], region = ""): Promise<boolean> => {
     if (pending() || redoUnknown() || !forwarding || padPending().length || railPending()) {
@@ -297,7 +312,7 @@ export function createTodoUndo() {
     return failed;
   };
 
-  const undo = async (region?: string) => {
+  const undoNow = async (region?: string) => {
     const operation = stack().findLast(action => region === undefined || action.regions.includes(region));
 
     if (!operation) return;
@@ -401,7 +416,7 @@ export function createTodoUndo() {
   };
 
   // The request keys live with the retained action: an unknown reply retries that exact attempt.
-  const redo = async (region?: string) => {
+  const redoNow = async (region?: string) => {
     const action = redoes().findLast(item => region === undefined || item.regions.includes(region));
 
     if (!action) return;
@@ -517,6 +532,9 @@ export function createTodoUndo() {
       setFailure({ kind: "restore", message: error.message });
     } finally { setPending(false); }
   };
+
+  const undo = serial(undoNow);
+  const redo = serial(redoNow);
 
   const available = (region?: string) => stack().some(action => region === undefined || action.regions.includes(region)) && !redoUnknown() && !uncertain() && !padPending().length && !railPending();
   const redoAvailable = (region?: string) => redoes().some(action => region === undefined || action.regions.includes(region)) && !pending() && !uncertain() && !padPending().length && !railPending();

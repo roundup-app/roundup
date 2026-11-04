@@ -2,6 +2,7 @@ import { alertLevel } from "../alertLevel";
 import type { createCopyFeedback } from "../../ui/CopyButton";
 import type { ConnectedProject } from "../../state/connectedProject";
 import { copy } from "../copy";
+import { copy as todoCopy } from "../../todos/copy";
 import { createSignal } from "solid-js";
 import { createStore } from "solid-js/store";
 import type { RailNode } from "@contracts/agent/RailNode";
@@ -168,6 +169,22 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
       else current.removed?.();
     }, current.node.id);
 
+  /** U5991a: the rows leave at once; the call, its receipt and a failure's return of the rows follow in the queue. */
+  const removeAtOnce = (ids: string[], name: string, current: MenuState) => {
+    current.removed?.();
+    rail.hide(ids);
+    close();
+
+    void storage.todoUndo.removeRailSelection(ids, name, "rail").then(async removed => {
+      if (removed) {
+        await rail.refresh();
+        acknowledge(current.node.id);
+      } else onFailure(storage.todoUndo.failure() ?? todoCopy.deleteBusy, current.node.id);
+
+      rail.unhide(ids);
+    });
+  };
+
   const judge = async (current: MenuState) => {
     setState({ ...current, confirming: true, removal: null });
 
@@ -181,6 +198,12 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
 
       if (losses.length || removal?.unread.length) {
         setState({ ...current, confirming: true, removal, losses });
+
+        return;
+      }
+
+      if (!rail.nodes.some(node => node.parent === current.node.id)) {
+        removeAtOnce([current.node.id], current.node.name, current);
 
         return;
       }
@@ -223,14 +246,9 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
           for (const id of ids) rail.keepAsked(id, { kind: "remove" });
         } else current.removed?.();
       } else {
-        const removed = await storage.todoUndo.removeRailSelection(ids, current.selection.map(node => node.name).join(", "), "rail");
+        removeAtOnce(ids, current.selection.map(node => node.name).join(", "), current);
 
-        if (removed) current.removed?.();
-        else {
-          if (storage.todoUndo.failure() && !storage.todoUndo.blocked()) onFailure(storage.todoUndo.failure()!, current.node.id);
-
-          return;
-        }
+        return;
       }
 
       acknowledge(current.node.id);

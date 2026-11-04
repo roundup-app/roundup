@@ -205,7 +205,12 @@ export const Rail = () => {
     const ancestors = id.startsWith("fold:") ? [id.slice(5).replace(/^internal:/, ""), ...ancestorsOf(topology(), id.slice(5).replace(/^internal:/, ""))] : ancestorsOf(topology(), id);
     const parent = ancestors.find(ancestor => current.some(row => row.kind === "node" && row.node.id === ancestor));
 
-    if (!parent) return;
+    if (!parent) {
+      // U5991a: a row that left at once takes its focus with it; the first row left keeps the Rail's key history.
+      queueMicrotask(() => container()?.querySelector<HTMLElement>(ROW)?.focus());
+
+      return;
+    }
 
     const branch = id.startsWith("fold:") ? undefined : current.find(row => row.kind === "fold" && row.parent === parent &&
       row.group === (rail.nodes.find(node => node.id === id)?.visibility === "internal" ? "internal" : "idle"));
