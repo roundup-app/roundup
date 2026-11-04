@@ -1,12 +1,18 @@
 import { cleanup, render, screen, waitFor } from "@solidjs/testing-library";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { RequestedApp as App } from "../testing/requestedApp";
 import { runAxe } from "./axe";
 import { fakeEmulators } from "../terminal/paneHarness";
 import { seedApp } from "./seeds";
 import type { SeedName } from "./seeds";
 
+// The shared canvas stub lets xterm open; axe reads a working canvas as measurable colour, so these tests see jsdom's own null context.
+beforeEach(() => {
+  vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(null);
+});
+
 afterEach(() => {
+  vi.restoreAllMocks();
   cleanup();
   document.body.innerHTML = "";
 });
