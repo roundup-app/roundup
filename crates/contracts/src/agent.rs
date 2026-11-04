@@ -123,8 +123,7 @@ pub struct DeletionParams {
 }
 
 /// Reapply only the retained restored boundary. Read `restoration` from the successful
-/// restore/deletion receipt; retry the same request after an unknown reply. Conflicting
-/// placement, identity or authority refuses atomically and leaves the source retryable.
+/// restore/deletion receipt; retry the same request after an unknown reply. Conflicting placement, identity or authority refuses atomically and leaves the source retryable.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct RedoParams {
     pub project: String,
