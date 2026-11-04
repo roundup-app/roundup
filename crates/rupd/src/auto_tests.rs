@@ -348,7 +348,7 @@ async fn a3308_a_subagent_start_obeys_the_cap() {
     )
     .await;
     let todo = todo(&daemon, &home, "Delegate this", Value::Null).await;
-    let child = as_door(&daemon, &home, "agent.spawn", json!({"cwd":dir.path(),"order":{"kind":"work","ask":"Implement the Todo","done":"The Todo is implemented","limits":[]}})).await;
+    let child = as_door(&daemon, &home, "agent.spawn", json!({"cwd":dir.path(),"role":"job","order":{"kind":"work","ask":"Implement the Todo","done":"The Todo is implemented","limits":[]}})).await;
     as_door(
         &daemon,
         &home,
@@ -430,7 +430,7 @@ async fn a3308_an_idle_auto_workstream_cannot_start_over_the_cap() {
         events,
         output: None,
     };
-    let result = daemon.route(&mut conn, "agent.spawn", json!({"cwd":dir.path(),"order":{"kind":"work","ask":"Implement the Todo","done":"The Todo is implemented","limits":[]}})).await;
+    let result = daemon.route(&mut conn, "agent.spawn", json!({"cwd":dir.path(),"role":"job","order":{"kind":"work","ask":"Implement the Todo","done":"The Todo is implemented","limits":[]}})).await;
     assert_eq!(result.unwrap_err().code, code::CONFLICT);
     assert_eq!(
         call(&daemon, "rail.tree", Value::Null)
@@ -444,7 +444,7 @@ async fn a3308_an_idle_auto_workstream_cannot_start_over_the_cap() {
 }
 
 async fn subagent(daemon: &Daemon, home: &str, cwd: &std::path::Path) -> Value {
-    as_door(daemon, home, "agent.spawn", json!({"cwd":cwd,"order":{"kind":"work","ask":"Implement the Todo","done":"The Todo is implemented","limits":[]}})).await
+    as_door(daemon, home, "agent.spawn", json!({"cwd":cwd,"role":"job","order":{"kind":"work","ask":"Implement the Todo","done":"The Todo is implemented","limits":[]}})).await
 }
 
 #[tokio::test]

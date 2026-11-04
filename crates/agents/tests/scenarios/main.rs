@@ -3,6 +3,7 @@ mod a26;
 mod a33;
 mod a34;
 mod common;
+mod dcl9;
 mod door;
 mod interrupt;
 mod landing;
