@@ -945,11 +945,7 @@ async fn dcl10_failed_start_preserves_backlog_and_cause() {
     let before = run.digests().await.len();
     assert_eq!(run.thread().await, stored, "Messages kept");
     run.assert_silent().await;
-    assert_eq!(
-        run.digests().await.len(),
-        before,
-        "untold facts still waiting"
-    );
+    assert_eq!(run.digests().await.len(), before, "untold facts waiting");
     std::fs::rename(saved, fake).unwrap();
     let mut events = subscribe(&run).await;
     run.start_door().await;
@@ -957,19 +953,9 @@ async fn dcl10_failed_start_preserves_backlog_and_cause() {
     let after = run.thread().await;
     assert_eq!(identity(&after), identity(&stored));
     assert_eq!(after[1]["kind"], "question", "{after:?}");
-    let newest = run.newest().await;
-    assert!(
-        newest["body"]
-            .as_str()
-            .unwrap()
-            .contains("[2 updates kept back]"),
-        "N unchanged by the failed Start: {newest}"
-    );
-    assert_eq!(
-        run.digests().await.len(),
-        before + 1,
-        "no fact queued twice"
-    );
+    let body = run.newest().await["body"].to_string();
+    assert!(body.contains("[2 updates kept back]"), "N changed: {body}");
+    assert_eq!(run.digests().await.len(), before + 1, "fact queued twice");
     let written = transcript(run.dir.path().join("config").as_path());
     assert_eq!(
         user_turns_with(&written, "first retained"),
