@@ -90,6 +90,7 @@ impl Terminals {
             cols: params.cols,
             rows: params.rows,
             scheme_notices: false,
+            kitty: Default::default(),
             status: Default::default(),
         }));
         let (program_arrival, program_arrives) = mpsc::channel::<Program>();

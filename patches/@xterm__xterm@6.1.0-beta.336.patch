@@ -1,11 +1,10 @@
 diff --git a/css/xterm.css b/css/xterm.css
-index 819654e4537eeb7b64364249e52274b7197b9c8a..a99ef7c9703387aa0b14316856b5a28b12d22005 100644
 --- a/css/xterm.css
 +++ b/css/xterm.css
-@@ -235,12 +235,9 @@
+@@ -242,12 +242,9 @@
  }
  
- .xterm .xterm-scrollable-element > .visible {
+ .xterm .xterm-scrollable-element > .xterm-visible {
 -	opacity: 1;
 -
  	/* Background rule added for IE9 - to allow clicks on dom node */
@@ -15,13 +14,13 @@ index 819654e4537eeb7b64364249e52274b7197b9c8a..a99ef7c9703387aa0b14316856b5a28b
  	/* In front of peek view */
  	z-index: 11;
  }
-@@ -248,9 +245,6 @@
+@@ -255,9 +252,6 @@
  	opacity: 0;
  	pointer-events: none;
  }
--.xterm .xterm-scrollable-element > .invisible.fade {
+-.xterm .xterm-scrollable-element > .xterm-invisible.xterm-fade {
 -	transition: opacity 800ms linear;
 -}
  
  /* Scrollable Content Inset Shadow */
- .xterm .xterm-scrollable-element > .shadow {
+ .xterm .xterm-scrollable-element > .xterm-shadow {

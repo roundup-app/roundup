@@ -13,6 +13,9 @@ import { absolutePath } from "./links";
 import type { Printed } from "./links";
 import type { Emulator, EmulatorFactory, Size, TerminalPreparation } from "./emulator";
 
+/** An emulator reply of `OK` to a Kitty graphics command. */
+const isKittyOk = (text: string): boolean => text.startsWith("\x1b_G") && text.endsWith("\x1b\\") && /^i=\d+;OK$/.test(text.slice(3, -2));
+
 export type Screens = {
   prepare(host: HTMLElement, settled?: () => boolean, signal?: AbortSignal): Promise<TerminalPreparation>;
   /** The Terminal's emulator, created on first call; it receives output only while the Terminal is shown. */
@@ -655,6 +658,9 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
     emulator.onScroll(() => setAtBottom(emulator.isAtBottom()));
     emulator.onInput((bytes, userInput = true) => {
       if ((userInput && !isFocused(id)) || exited(id) || daemonExit() !== null) return;
+
+      // U5984: the Daemon answers a Kitty query in stream order, ahead of DA1; the emulator's own `OK` would reach the program twice.
+      if (!userInput && isKittyOk(String.fromCharCode(...bytes))) return;
 
       if (userInput) returnToBottom();
 

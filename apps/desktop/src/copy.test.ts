@@ -18,7 +18,7 @@ const files = () => readdirSync(ROOT, { recursive: true, encoding: "utf8" }).fil
 
 const catalogue = (file: string) => /(?:^|\/)copy\.ts$|^sharedCopy\.ts$/.test(file);
 
-const production = (file: string) => !/(\.test\.|Fixture|Browser|Harness|^testing\/|^perf\/|\.d\.ts$)/.test(file);
+const production = (file: string) => !/(\.test\.|Fixture|Browser|Harness|^testing\/|^perf\/|\.d\.ts$|^terminal\/drawnImages\.ts$)/.test(file);
 
 const sources = () => files().filter((file) => production(file) && !catalogue(file));
 
