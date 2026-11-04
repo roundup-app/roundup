@@ -7,6 +7,8 @@ pub const NO_TOOL: &[&str] = &[
     "ask_removal",
     // D8: the App's Resource strip
     "close_project",
+    // S5981a: only the user quits the App for an update; an Agent cannot end the Daemons.
+    "exit_for_update",
     "projects",
     // A5765c: the App compares filesystem identities; this read grants no Agent authority.
     "canonical_project_path",
