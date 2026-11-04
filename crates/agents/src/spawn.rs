@@ -170,6 +170,8 @@ impl Agents {
             }
             (node.id, attempt)
         };
+        // U6000e: the starting row is published before the worktree, config and launch steps.
+        ctx.emit(EventData::RailChanged);
         match self
             .run_agent(
                 &id,
@@ -206,6 +208,8 @@ impl Agents {
                         Self::touch_creation(ctx, &id, params.start_attribution.as_ref())?;
                     }
                 }
+                drop((rail, runs));
+                ctx.emit(EventData::RailChanged);
                 return Err(err);
             }
         };

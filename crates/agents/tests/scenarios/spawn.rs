@@ -5,7 +5,7 @@ use contracts::agent::NodeKind;
 use rpc::code;
 use serde_json::{Value, json};
 
-use crate::common::{Fixture, status_of, until_file};
+use crate::common::{Fixture, hold_starts, release, status_of, until_file};
 
 #[tokio::test]
 async fn a4_spawn_runs_claude_with_the_agents_settings_and_lists_an_agent() {
@@ -17,7 +17,7 @@ async fn a4_spawn_runs_claude_with_the_agents_settings_and_lists_an_agent() {
     assert!(node.terminal_id.is_some());
     assert_eq!(node.status.as_ref().map(|s| s.kind), Some(Kind::Working));
     assert_eq!(f.tree().await, std::slice::from_ref(&node));
-    assert_eq!(f.changed(), 1);
+    assert_eq!(f.changed(), 2, "the starting row, then the started one");
 
     let argv = until_file(&f.dir.path().join("argv")).await;
     let settings = argv
@@ -245,4 +245,44 @@ async fn u4590_invalid_launch_size_leaves_no_agent_or_terminal() {
             assert_eq!(f.terminals.list().await.len(), terminals);
         }
     }
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn u6000e_spawn_held_at_the_worktree_step_already_lists_a_starting_node() {
+    let mut f = Fixture::running("sleep 30");
+    f.changed();
+    let f = std::sync::Arc::new(f);
+    let config = hold_starts(&f);
+    let spawning = {
+        let f = std::sync::Arc::clone(&f);
+        tokio::spawn(async move { f.spawn(None, None).await })
+    };
+    let tree = f.until(|t| !t.is_empty()).await;
+
+    assert_eq!(status_of(&tree, &tree[0].id).label, "starting");
+    let mut f = std::sync::Arc::into_inner(f).unwrap_or_else(|| panic!("spawn holds the Fixture"));
+    assert_eq!(f.changed(), 1, "published before the launch steps");
+
+    release(config).await;
+    spawning.await.unwrap().unwrap();
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn u6000e_a_failed_spawn_leaves_no_starting_node() {
+    let f = std::sync::Arc::new(Fixture::running("sleep 30"));
+    let config = hold_starts(&f);
+    let spawning = {
+        let f = std::sync::Arc::clone(&f);
+        tokio::spawn(async move { f.spawn(None, None).await })
+    };
+    f.until(|t| {
+        t.iter()
+            .any(|n| n.status.as_ref().is_some_and(|s| s.label == "starting"))
+    })
+    .await;
+    std::fs::remove_file(f.dir.path().join("fake-claude")).unwrap();
+    release(config).await;
+    spawning.await.unwrap().unwrap_err();
+
+    assert!(f.tree().await.is_empty());
 }
