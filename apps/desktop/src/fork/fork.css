@@ -1,0 +1,57 @@
+/* FS5979: the Fork sheet. Only Tokens: spacing, text, accent and the eight --fork-* swatches (U130). */
+.fork-sheet {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.fork-tree {
+  max-height: 40vh;
+  overflow-y: auto;
+}
+
+.fork-box {
+  display: inline-grid;
+  place-items: center;
+  width: var(--space-4);
+  height: var(--space-4);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-chip);
+  color: var(--text);
+}
+
+.fork-box svg {
+  width: var(--space-3);
+  height: var(--space-3);
+}
+
+.fork-box[data-state="checked"],
+.fork-box[data-state="indeterminate"] {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.fork-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.fork-swatches .app-radio-mark {
+  background: var(--swatch);
+  border-color: var(--swatch);
+}
+
+.fork-swatches [data-choice="red"] { --swatch: var(--fork-red); }
+.fork-swatches [data-choice="orange"] { --swatch: var(--fork-orange); }
+.fork-swatches [data-choice="amber"] { --swatch: var(--fork-amber); }
+.fork-swatches [data-choice="green"] { --swatch: var(--fork-green); }
+.fork-swatches [data-choice="teal"] { --swatch: var(--fork-teal); }
+.fork-swatches [data-choice="blue"] { --swatch: var(--fork-blue); }
+.fork-swatches [data-choice="violet"] { --swatch: var(--fork-violet); }
+.fork-swatches [data-choice="pink"] { --swatch: var(--fork-pink); }
+
+.fork-failure {
+  margin-inline-end: auto;
+  color: var(--text);
+}

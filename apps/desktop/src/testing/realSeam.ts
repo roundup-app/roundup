@@ -315,6 +315,13 @@ export const createServedApp = (base: string, choice?: () => "choose" | "cancel"
 
       return () => window.removeEventListener("open-project-page", receive);
     },
+    forkBranch: async () => "fork",
+    forkMake: async () => {},
+    onForkSheet: async (listener) => {
+      window.addEventListener("open-fork-sheet", listener);
+
+      return () => window.removeEventListener("open-fork-sheet", listener);
+    },
     onAppSettings: async (listener) => {
       window.addEventListener("open-app-settings", listener);
 

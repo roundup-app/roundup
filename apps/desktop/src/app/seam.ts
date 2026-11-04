@@ -4,6 +4,7 @@ import type { RpcErrorData } from "@contracts/RpcErrorData";
 import type { IdleEvidence } from "../perf/idle.ts";
 import type { SubscribeParams } from "@contracts/SubscribeParams";
 import type { Event as DaemonEvent } from "@contracts/Event";
+import type { ForkColour } from "@contracts/data/ForkColour";
 import type { RpcMethodName, RpcMethods } from "@contracts/methods";
 
 /** Hand-written App seam types (`scenarios/app.md`), not generated from Rust, so the adapter parses them. */
@@ -109,6 +110,8 @@ export const SEAM_COMMANDS = [
   "canonical_project_path",
   "close_project",
   "exit_for_update",
+  "fork_branch",
+  "fork_make",
   "rename_project",
   "rpc",
   "subscribe",
@@ -186,6 +189,9 @@ export type MenuBar = {
   dock: MenuBar["entries"];
 };
 
+/** FS5979d: what the Fork sheet keeps of one Project: `key` is the Project's folder, which the host turns into `data.fork`'s key. */
+export type ForkPick = { key: string; agents: "all" | "none" | string[] };
+
 export type StateAlert = { agent: string; title: string; body: string; alert: boolean; sound: boolean };
 
 export const stateAlertClickedSchema = v.object({ agent: v.string() });
@@ -249,6 +255,12 @@ export type App = {
   selectProjectMenu(path: string | null, items?: MenuItem[]): Promise<void>;
   /** Native commands carry the selected Project captured by the host at activation. */
   onProjectPage(listener: (page: { path: string; command: string }) => void): Promise<Unsubscribe>;
+  /** FS5979: the name of the branch the live App's source checkout is on, or `fork`. */
+  forkBranch(): Promise<string>;
+  /** FS5979: makes the Fork and opens the branch's App on it; rejects with the failure's text. */
+  forkMake(params: { name: string; colour: ForkColour; projects: ForkPick[] }): Promise<void>;
+  /** FS5979a: the application menu's `Fork for development…`; no payload. */
+  onForkSheet(listener: () => void): Promise<Unsubscribe>;
   /** Opens the app-wide center settings view; no payload. */
   onAppSettings(listener: () => void): Promise<Unsubscribe>;
   onDaemonExited(listener: (exit: DaemonExited) => void): Promise<Unsubscribe>;

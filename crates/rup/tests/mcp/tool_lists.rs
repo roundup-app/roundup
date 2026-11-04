@@ -9,6 +9,9 @@ pub const NO_TOOL: &[&str] = &[
     "close_project",
     // S5981a: only the user quits the App for an update; an Agent cannot end the Daemons.
     "exit_for_update",
+    // FS5979: only the user forks their data; the Fork sheet is the one caller.
+    "fork_branch",
+    "fork_make",
     "projects",
     // A5765c: the App compares filesystem identities; this read grants no Agent authority.
     "canonical_project_path",

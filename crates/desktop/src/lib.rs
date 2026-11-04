@@ -5,6 +5,7 @@ mod config;
 mod daemon;
 mod diagnostics;
 mod facts;
+mod fork;
 #[cfg(any(test, feature = "idle-perf"))]
 mod idle;
 mod launch;
@@ -144,6 +145,8 @@ fn invoke_handler<R: Runtime>() -> impl Fn(tauri::ipc::Invoke<R>) -> bool + Send
         canonical_project_path,
         close_project,
         exit_for_update,
+        fork_branch,
+        fork_make,
         rename_project,
         rpc,
         subscribe,
@@ -282,6 +285,43 @@ async fn exit_for_update<R: Runtime>(
         app.exit(0);
     });
     Ok(())
+}
+
+/// FS5979: the branch the live App's source checkout is on.
+#[tauri::command]
+async fn fork_branch() -> Result<String, RpcError> {
+    Ok(
+        tokio::task::spawn_blocking(|| fork::branch(&fork::checkout()))
+            .await
+            .map_err(RpcError::internal)?,
+    )
+}
+
+/// FS5979: makes the Fork with `data.fork` through an open Project's Daemon, then starts the branch's App on it.
+#[tauri::command]
+async fn fork_make(
+    state: State<'_, AppState>,
+    name: String,
+    colour: contracts::data::ForkColour,
+    projects: Vec<fork::Pick>,
+) -> Result<(), RpcError> {
+    let home = update::home().ok_or_else(|| RpcError::internal("no home folder for the Fork"))?;
+    let live = state
+        .projects()?
+        .into_iter()
+        .find(|listed| listed.running)
+        .ok_or_else(|| RpcError::internal("open a Project to fork"))?;
+    let first = projects
+        .first()
+        .map(|pick| pick.key.clone())
+        .ok_or_else(|| RpcError::new(rpc::code::INVALID_PARAMS, "tick at least one Project"))?;
+    let folder = fork::folder(&home, &name);
+    let params = fork::params(name, colour, &projects, &folder)?;
+    let reply = state
+        .rpc(&live.path, "data.fork", serde_json::json!(params))
+        .await?;
+    serde_json::from_value::<contracts::data::ForkResult>(reply).map_err(RpcError::internal)?;
+    fork::open(&fork::checkout(), &folder, &first)
 }
 
 #[tauri::command]

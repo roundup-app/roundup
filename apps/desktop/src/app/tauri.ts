@@ -157,6 +157,11 @@ export const createTauriApp = (): App => {
     onFileDrop: tauriFileDrop(getCurrentWebview, () => dropScale(navigator.platform, window.devicePixelRatio)),
     selectProjectMenu: (path, items) => command("select_project_menu", { path, items }),
     onProjectPage: (listener) => guarded(() => listen("open-project-page", event => listener(v.parse(projectPageSchema, event.payload)))),
+    forkBranch: () => parsedCommand(v.string(), "fork_branch", {}),
+    forkMake: async (params) => {
+      await command("fork_make", params);
+    },
+    onForkSheet: (listener) => guarded(() => listen("open-fork-sheet", listener)),
     onAppSettings: (listener) => guarded(() => listen("open-app-settings", listener)),
     onDaemonExited: (listener) =>
       guarded(() => listen("daemon-exited", (event) => listener(v.parse(daemonExitedSchema, event.payload)))),
