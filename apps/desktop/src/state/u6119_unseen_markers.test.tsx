@@ -68,6 +68,7 @@ describe("u6119 a Workstream's child shows no dot", () => {
     const dot = (id: string) => document.querySelector(`.terminal-tab[data-bubble="${id}"] [data-state]`);
 
     for (const id of ["1", "3"]) await waitFor(() => expect(mounted.app.outputSubscriptions.some((subscription) => subscription.id === id)).toBe(true));
+
     for (const id of ["1", "3"]) mounted.app.emitOutput(id, "building");
 
     mounted.connected.rail.select("top");
