@@ -373,7 +373,7 @@ it.skipIf(!captureDir("U3299a")).each(["names", "retention"] as const)("u5014a_u
         const { projectMenu } = await import('/src/testing/menuProbe.ts');
         window.dispatchEvent(new CustomEvent('open-project-page', {detail:{path:projectMenu.path,command:'view:made'}}));
       })()`);
-      await lane.until("document.querySelector('[data-part=item-trigger][id$=made]')?.getAttribute('aria-expanded') === 'true' && document.querySelectorAll('.made-row').length === 2");
+      await lane.until("(() => { const made = document.querySelector('.made'); return !!made && !made.closest('[hidden]'); })() && document.querySelectorAll('.made-row').length === 2");
 
       if (phase === "names") {
         await capture("U3299d", side!, "publications");

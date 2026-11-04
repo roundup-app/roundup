@@ -60,6 +60,7 @@ it.each([["KeyY", "y", "⌃⇧Y"], ["Numpad1", "1", "⌃⇧1"], ["F13", "F13", "
   fireEvent.click(recorder);
   expect(recorder.getAttribute("aria-pressed")).toBe("true");
   fireEvent.keyDown(window, { key, code, ctrlKey: true, shiftKey: true });
+  await waitFor(() => expect(recorder.getAttribute("aria-pressed")).toBe("false"));
   fireEvent.click(within(screen.getByRole("region", { name: "Settings" })).getByRole("button", { name: "← Back" }));
   fireEvent.keyDown(window, { key: "T", code: "KeyT", metaKey: true, shiftKey: true });
   expect(screen.queryByRole("dialog")).toBeNull();

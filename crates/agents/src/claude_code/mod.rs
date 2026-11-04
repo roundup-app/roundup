@@ -393,6 +393,18 @@ impl ClaudeCode {
         &self.background
     }
 
+    /// DCL3c: the task facts a Daemon reopen keeps; `None` when no background work is open.
+    pub(crate) fn retained(&self) -> Option<background::Retained> {
+        background::Retained::new(&self.background, self.turn_started)
+    }
+
+    /// DCL3c: adopt the facts `retained` kept across a Daemon reopen; the first process snapshot
+    /// then decides what still runs.
+    pub(crate) fn resume_background(&mut self, kept: background::Retained) {
+        self.turn_started = kept.turn_started();
+        *self.background = kept.reopen();
+    }
+
     /// DCL3: reconcile with a process snapshot of the program rooted at `root`. Work found after
     /// a Stop holds Working; work gone releases the hold, so completion lands once.
     pub fn observe_processes(
@@ -673,7 +685,9 @@ fn hook_status(payload: &Value) -> Option<(Kind, String)> {
         "PermissionRequest" => Some((Kind::NeedsYou, permission_label(payload))),
         "StopFailure" => Some((Kind::Error, failure_label(payload["error"].as_str()))),
         "SessionEnd" => Some((Kind::Done, session_end_label(text("reason").as_deref()))),
-        "Notification" | "SubagentStop" | "MessageDisplay" | "PostToolBatch" => None,
+        "Notification" | "SubagentStart" | "SubagentStop" | "MessageDisplay" | "PostToolBatch" => {
+            None
+        }
         other => {
             eprintln!("agents: ignoring an unrecognised hook event {other}");
             None

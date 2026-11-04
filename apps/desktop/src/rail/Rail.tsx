@@ -10,7 +10,7 @@ import { type createCopyFeedback } from "../ui/CopyButton";
 import * as v from "valibot";
 import { attentionCount } from "./attention";
 import { copy } from "./copy";
-import { createEffect, createMemo, createSignal, createUniqueId, For, on, onCleanup, onMount, Show } from "solid-js";
+import { createEffect, createMemo, createSignal, createUniqueId, For, lazy, on, onCleanup, onMount, Show } from "solid-js";
 import { ReservedLine } from "../ink/ReservedLine";
 import { SectionHead } from "../ink/SectionHead";
 import { KindGlyph } from "../ink/KindGlyph";
@@ -22,7 +22,6 @@ import { Sortable, type SortableMove } from "../ui/sortable";
 import { TreeView, Trunks } from "../ui/TreeView";
 import { useConnectedProject } from "../state/connectedProject";
 import { doorStateOf } from "./doorState";
-import { CreateMode } from "./CreateMode";
 import { OpeningPrompt } from "./OpeningPrompt";
 import { SaveAsMode } from "./SaveAsMode";
 import { RailConfirm } from "./menu/RailConfirm";
@@ -43,6 +42,8 @@ import { createRailTree, sections } from "./railTree";
 import { RailRecovery } from "./RailRecovery";
 import { RailFooter } from "./RailFooter";
 import "./styles.css";
+
+const CreateMode = lazy(() => import("./CreateMode").then(module => ({ default: module.CreateMode })));
 
 const toggled = <T,>(set: ReadonlySet<T>, member: T): ReadonlySet<T> =>
   new Set(set.has(member) ? [...set].filter((each) => each !== member) : [...set, member]);
@@ -280,8 +281,15 @@ export const Rail = () => {
 
     return contextMenu(app, [
       { id: "group", label: copy.group, run: () => attempt(async () => {
-        const group = await app.rpc("rail.group", { ids: chosen.map(each => each.id) });
-        await rail.refresh();
+        // U5991a: the Rows show grouped now; the refreshed tree or a failure lifts the drawing.
+        const lift = rail.drawGroup(chosen.map(each => each.id), copy.newWorkstreamTitle);
+        let group: Awaited<ReturnType<typeof app.rpc<"rail.group">>>;
+
+        try {
+          group = await app.rpc("rail.group", { ids: chosen.map(each => each.id) });
+          await rail.refresh();
+        } finally { lift(); }
+
 
         if (rail.collapsed().has(group.id)) rail.toggleCollapsed(group.id);
         rail.select(group.id);
@@ -393,6 +401,8 @@ export const Rail = () => {
       guarded(async () => {
         const focus = captureFocus(true);
         let prepared: Awaited<ReturnType<NonNullable<typeof rail.prepareTerminal>>> | undefined;
+        // U5991a: the Row shows now; the refreshed tree or a failure lifts it.
+        const lift = rail.drawNew("agent", copy.newAgent, under);
 
         try {
           prepared = await rail.prepareTerminal?.();
@@ -407,7 +417,7 @@ export const Rail = () => {
 
           if (error.name === "AbortError") return;
           failure.show(`${copy.newAgent}: ${error.message}`, null, "rail", run);
-        } finally { prepared?.dispose(); }
+        } finally { lift(); prepared?.dispose(); }
       });
     };
 

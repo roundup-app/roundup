@@ -99,14 +99,20 @@ impl Run {
         run
     }
 
-    /// A stopped Door that holds two pending Messages: they are sent while the live Door's
-    /// session is off the list (Claude Code not listening, B50), so they stay pending, and the
-    /// Door is stopped after.
+    /// A `kind` Message `from` sends the Door while its session is off the list (Claude Code not listening, B50), so it stays pending.
+    async fn pend(&self, from: &Client, kind: &str, body: &str) {
+        let sessions = self.dir.path().join("config/sessions");
+        std::fs::read_dir(sessions)
+            .unwrap()
+            .for_each(|f| std::fs::remove_file(f.unwrap().path()).unwrap());
+        let message = json!({"to":self.door,"kind":kind,"body":body});
+        from.request("message.send", message).await.unwrap();
+    }
+
+    /// A stopped Door that holds two pending Messages, stopped after `pend` sent them.
     async fn start_with_backlog(open_job: bool) -> (Self, Vec<Value>) {
         let run = Self::start_live().await;
-        for file in std::fs::read_dir(run.dir.path().join("config/sessions")).unwrap() {
-            std::fs::remove_file(file.unwrap().path()).unwrap();
-        }
+        run.pend(&run.user, "note", "first retained").await;
         if open_job {
             // DCL8: the Door's open Job, which has not reported, is in the snapshot a Start carries.
             let door = Client::connect(&run.daemon.socket).await.unwrap();
@@ -125,21 +131,8 @@ impl Run {
             .await
             .unwrap();
         }
-        for (from, kind, body) in [
-            (&run.user, "note", "first retained"),
-            (
-                &run.agent,
-                if open_job { "question" } else { "note" },
-                "second retained",
-            ),
-        ] {
-            from.request(
-                "message.send",
-                json!({"to":run.door,"kind":kind,"body":body}),
-            )
-            .await
-            .unwrap();
-        }
+        let kind = if open_job { "question" } else { "note" };
+        run.pend(&run.agent, kind, "second retained").await;
         let stored = run.thread().await;
         run.stop_door().await;
         (run, stored)
@@ -877,6 +870,17 @@ async fn dcl10_waiting_count_follows_stored_backlog_without_double_count() {
     (run.daemon, run.log) = launch(run.dir.path(), run.data.path(), &run.model);
     run.user = Client::connect(&run.daemon.socket).await.unwrap();
     assert_eq!(waiting(&run).await, json!(4));
+}
+
+#[tokio::test]
+async fn dcl10c_running_door_with_a_pending_message_has_no_waiting_count() {
+    let run = Run::start_live().await;
+    run.pend(&run.user, "note", "first retained").await;
+    assert_eq!(waiting(&run).await, Value::Null, "the Door program runs");
+    run.stop_door().await;
+    assert_eq!(waiting(&run).await, json!(1));
+    run.start_door().await;
+    assert_eq!(waiting(&run).await, Value::Null);
 }
 
 impl Run {

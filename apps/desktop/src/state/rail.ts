@@ -40,6 +40,20 @@ export type RailState = {
   /** U5991a: take rows off the Rail at once; `unhide` returns whatever the Daemon still holds. */
   hide(ids: readonly string[]): void;
   unhide(ids: readonly string[]): void;
+  /** U5991a: the Daemon applied the move of Row `id`; the tree holds it before the drawing lifts. */
+  keepApplied(id: string, place: RailPlace): void;
+  /** U5991a: show Row `id`'s program as stopped (`exit`) or running (`null`) at once; the returned call lifts it. */
+  drawExit(id: string, exit: ExitState | null): () => void;
+  /** U5991a: show a new Row of `kind` named `name` under `parent` at once; the returned call lifts it once the refreshed tree holds the Daemon's Row. */
+  drawNew(kind: "agent" | "workstream", name: string, parent: string | null): () => void;
+  /** U5991a: show Rows `ids` grouped under a new Workstream at the first one's place at once. */
+  drawGroup(ids: readonly string[], name: string): () => void;
+  /** U5991a: remember the Rows `ids` that a removal took, as they stood, for the undo that returns them. */
+  keepRemoved(ids: readonly string[]): void;
+  /** U5991a: show the last removal undone (`undo`) or redone at once; the returned call refreshes, then lifts the drawing; `kept` false puts the memory back, since the call failed. */
+  drawHistory(direction: "undo" | "redo"): (kept: boolean) => Promise<void>;
+  /** U5991a: show `change` of the tree at once; the returned call lifts it once the Daemon's reply or Event holds the result. */
+  draw(change: (tree: readonly RailNode[]) => readonly RailNode[]): () => void;
   /** One structural index shared by selection and every mounted Rail projection. */
   topology(): RailTopology;
   /** U5483c: latest accepted working start in milliseconds; retained across Project connections for the same Attempt. */
@@ -107,7 +121,7 @@ const placeOf = (tree: readonly RailNode[], id: string): RailPlace | null => {
 };
 
 /** U5172a: `tree` with Row `id` put at `place`: before the child of `place.parent` now at that index, else after the parent's last child (or its parent Row). */
-const movedTo = (tree: readonly RailNode[], id: string, place: RailPlace): RailNode[] => {
+export const movedTo = (tree: readonly RailNode[], id: string, place: RailPlace): RailNode[] => {
   const node = tree.find(each => each.id === id);
 
   if (node === undefined) return [...tree];
@@ -117,11 +131,39 @@ const movedTo = (tree: readonly RailNode[], id: string, place: RailPlace): RailN
   const last = siblings.at(-1);
   const at = before !== undefined ? rest.indexOf(before) : last !== undefined ? rest.indexOf(last) + 1 : place.parent === null ? rest.length : rest.findIndex(each => each.id === place.parent) + 1;
 
-  return [...rest.slice(0, at), { ...node, parent: place.parent }, ...rest.slice(at)];
+  const moved = [...rest.slice(0, at), { ...node, parent: place.parent }, ...rest.slice(at)];
+  // Siblings show in `order`, so the new sequence renumbers it.
+  const sequence = moved.flatMap(each => each.parent === place.parent ? [each.id] : []);
+
+  return moved.map(each => each.parent === place.parent ? { ...each, order: sequence.indexOf(each.id) } : each);
 };
 
 /** A24: how long the App waits for `rail.startDoor`, the Daemon's own bound of 10 000 ms. */
 const DOOR_START_BOUND_MS = 10_000;
+
+let provisionalCount = 0;
+
+/** U5991a: the Row a new Agent or Workstream shows until the Daemon's own arrives; it carries no Terminal. */
+const provisionalRow = (tree: readonly RailNode[], kind: "agent" | "workstream", name: string, parent: string | null): RailNode => ({
+  id: `provisional-${++provisionalCount}`,
+  kind,
+  name,
+  parent,
+  order: tree.reduce((next, each) => each.parent === parent ? Math.max(next, each.order + 1) : next, 0),
+  status: { kind: "working", label: "starting", since: Date.now(), finished: "0" },
+  attempt: null,
+  status_revision: null,
+  terminal_id: null,
+  worktree: null,
+  can_resume: false, can_make_workstream: false, can_save_as_mode: false, yolo: false,
+  channel: null,
+  stray: [],
+  model: null,
+  effort: null,
+  work: null,
+});
+
+const identity = (tree: readonly RailNode[]): readonly RailNode[] => tree;
 
 export const createRailState = (app: AppSeam, events: Events, storage?: RailStorage, dismissals?: DismissalStorage, resumptions?: ResumptionStorage): RailState => {
   const [model, setModel] = createStore<{ tree: RailNode[]; exited: Record<string, number | null> }>({
@@ -133,7 +175,18 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
   // Status, selection, disclosure, questions and clocks never enter this memo.
   // U5991a: rows a Rail action removed before its call answered; the Daemon's reply or failure lifts the hold.
   const [hidden, setHidden] = createSignal<ReadonlySet<string>>(new Set());
-  const view = createMemo(() => hidden().size === 0 ? model.tree : model.tree.filter(node => !hidden().has(node.id)));
+  const [drawn, setDrawn] = createSignal<readonly (typeof identity)[]>([]);
+  const removedRows: RailNode[][] = [];
+  const redoneRows: RailNode[][] = [];
+  const renaming = new Map<string, () => void>();
+  const [exitsDrawn, setExitsDrawn] = createSignal<ReadonlyMap<string, { exit: ExitState | null }>>(new Map());
+
+  const view = createMemo(() => {
+    const shown = hidden().size === 0 ? model.tree : model.tree.filter(node => !hidden().has(node.id));
+
+    return drawn().reduce<readonly RailNode[]>((tree, change) => change(tree), shown);
+  });
+
   const topology = createMemo(() => railTopology(view()));
 
   const [resumed, setResumed] = createStore<Parameters<ResumptionStorage["write"]>[0]>(resumptions?.read() ?? {});
@@ -432,6 +485,8 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
     const create = async (): Promise<string | null> => {
       if (workstreamCreating()) return null;
       setWorkstreamCreating(true);
+      // U5991a: the Row shows now; the refreshed tree or a failure lifts it.
+      const lift = state.drawNew("workstream", params.name, null);
 
       try {
         if (workstreamUnknown !== null && !await app.ask({ title: copy.newWorkstreamTitle, message: `${copy.terminalOutcomeUnknown}${workstreamUnknown}`, okLabel: copy.newWorkstreamTitle, cancelLabel: copy.keep })) return workstreamUnknown;
@@ -441,7 +496,7 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
         wantedWorkstream = (await app.rpc("rail.createWorkstream", params)).id;
         workstreamUnknown = null;
         commandFailure.acknowledge(null);
-        fetching(fetchTree);
+        await state.refresh();
 
         return null;
       } catch (error) {
@@ -454,6 +509,8 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
 
         return error.message;
       } finally {
+        lift();
+
         if (wantedWorkstream === null) setWorkstreamCreating(false);
       }
     };
@@ -491,8 +548,56 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
       return view();
     },
     hide: ids => setHidden(rows => new Set([...rows, ...ids])),
+    draw: change => {
+      setDrawn(changes => [...changes, change]);
+
+      return () => setDrawn(changes => changes.filter(each => each !== change));
+    },
+    keepRemoved: ids => {
+      const rows = model.tree.filter(node => ids.includes(node.id)).map(node => ({ ...node }));
+
+      if (rows.length > 0) removedRows.push(rows);
+    },
+    drawHistory: direction => {
+      const [from, to] = direction === "undo" ? [removedRows, redoneRows] : [redoneRows, removedRows];
+      const rows = from.pop();
+
+      if (rows === undefined) return async () => undefined;
+      to.push(rows);
+
+      const lift = state.draw(tree => {
+        const kept = tree.filter(node => !rows.some(row => row.id === node.id));
+
+        return direction === "undo" ? [...kept, ...rows] : kept;
+      });
+
+      return async kept => {
+        if (!kept) { to.pop(); from.push(rows); }
+
+        try { await state.refresh(); } finally { lift(); }
+      };
+    },
+    drawNew: (kind, name, parent) => state.draw(tree => [...tree, provisionalRow(tree, kind, name, parent)]),
+    drawGroup: (ids, name) => state.draw(tree => {
+      const first = tree.find(each => ids.includes(each.id));
+      const row = { ...provisionalRow(tree, "workstream", name, first?.parent ?? null), order: first?.order ?? 0 };
+
+      return [...tree.map(each => ids.includes(each.id) ? { ...each, parent: row.id } : each), row];
+    }),
+    drawExit: (id, exit) => {
+      const mark = { exit };
+
+      setExitsDrawn(marks => new Map(marks).set(id, mark));
+
+      return () => setExitsDrawn(marks => marks.get(id) !== mark ? marks : new Map([...marks].filter(([key]) => key !== id)));
+    },
+    keepApplied: (id, place) => setModel("tree", reconcile(movedTo(model.tree, id, place), { key: "id" })),
     unhide: ids => setHidden(rows => new Set([...rows].filter(id => !ids.includes(id)))),
     exitOf: (node) => {
+      const drawnExit = exitsDrawn().get(node.id);
+
+      if (drawnExit !== undefined) return drawnExit.exit;
+
       if (node.terminal_id === null) return { kind: "unknown" };
 
       if (!(node.terminal_id in model.exited)) return null;
@@ -505,11 +610,20 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
     placeOf: (id) => placeOf(model.tree, id),
     rename: async (id, name) => {
       const base = model.tree.find(node => node.id === id)?.name ?? "";
+      // The newest name asked is the one drawn: it supersedes an older drawing still waiting on its reply.
+      renaming.get(id)?.();
+      const lift = state.draw(tree => tree.map(node => node.id === id ? { ...node, name } : node));
+
+      renaming.set(id, lift);
       const result = await applying(() => app.rpc("rail.rename", { id, name }));
 
-      if (result.kind === "refused") throw result.error;
+      // The read holds the Daemon's name before the drawing lifts, so the row never shows the old one between them.
+      if (result.kind === "applied") await state.refresh();
 
       if (result.kind === "pending") state.keepAsked(id, { kind: "rename", asked: name, base });
+      lift();
+
+      if (result.kind === "refused") throw result.error;
     },
     keepAsked: (id, change) => {
       setAsked(id, change);

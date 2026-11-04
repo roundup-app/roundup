@@ -357,7 +357,7 @@ it.skipIf(!captureDir("U5740a"))("u5740a_capture_remaining_app_surfaces", { time
         window.__u5740menu = projectMenu.items;
         window.dispatchEvent(new CustomEvent('open-project-page', {detail:{path:projectMenu.path,command:'view:made'}}));
       })()`);
-      await lane.until("document.querySelector('[data-part=item-trigger][id$=made]')?.getAttribute('aria-expanded') === 'true'");
+      await lane.until("(() => { const made = document.querySelector('.made'); return !!made && !made.closest('[hidden]'); })()");
       writeFileSync(join(dir, `${seed}-menu.json`), JSON.stringify(await lane.evaluate("window.__u5740menu")));
       await lane.capture("U5740a", `${seed}-menu-made`);
       await lane.browser("fill", ".ask-input", "keep exact unfinished 🧭  ");

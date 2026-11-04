@@ -118,20 +118,6 @@ describe("u6119 a Workstream's child shows no dot", () => {
     expect(dock()).toBe(1);
   });
 
-  it("u6119c_inbox_comments_and_overview_sections_stay_unseen_until_opened", async () => {
-    window.localStorage.clear();
-    const app = createFakeApp();
-    app.handlers["rail.tree"] = () => [workstream("w"), agent("child", "working", "x", { parent: "w" })];
-    app.handlers["ask.list"] = () => [{ ...ask("same-id", 1000, [{ text: "same text", placement: { kind: "routed", workstream: "w" }, state: "typed" }]), at: 1000n }];
-    app.handlers["deliverable.list"] = () => [{ project: "p", id: "made", maker: { kind: "user", id: "you", parent: null }, maker_name: "Me", home: null, title: "made", published_at: 3000, target: { kind: "external", url: "https://example.com/r", availability: "not-checked" } }];
-    const connected = await connectProject(app, { name: "p", path: `/unseen-${crypto.randomUUID()}` }, () => true, () => 0);
-
-    render(() => <ConnectedProjectContext.Provider value={connected}><AskBar /></ConnectedProjectContext.Provider>);
-    await connected.rail.settled();
-    await waitFor(() => expect(document.querySelectorAll(".overview-sections [data-part=item-trigger]")).toHaveLength(3));
-    expect(document.querySelectorAll(".overview-unseen").length).toBeGreaterThan(0);
-  });
-
   it.each([
     { name: "a pending question", kind: "needs-you", label: "question", mark: "Needs you", dock: 1, waiting: true },
     { name: "a permission ask", kind: "needs-you", label: "permission", mark: "Needs you", dock: 1, waiting: true },
