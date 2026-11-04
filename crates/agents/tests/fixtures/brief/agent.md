@@ -80,7 +80,7 @@ The `roundup` MCP server offers these tools. They are deferred: load a tool befo
 - `project_open`: open an absolute existing folder through the App; wait for user consent when needed and return the final canonical opened path.
 - `project_start`: start an Agent, Workstream or Mode in a target Project through the App; return its canonical path, kind and row id.
 - `project_rename`: ask the App to give this Project another name; the answer means asked, not done.
-- `agent_spawn`: start a child Agent in a folder of this Project, with an `order` (a `title` of at most six words, the one-sentence ask, the done condition, the limits) and a `prompt` (the working detail); it becomes your child.
+- `agent_spawn`: start a child Agent in a folder of this Project, with an `order` (a `title` of at most six words, the one-sentence ask, the done condition, the limits), a `role` (`job` or `consult`) and a `prompt` (the working detail); it becomes your child.
 - `agent_run`: run a command in a Terminal of your own; the answer holds its terminal_id; use your own tools for commands; open a Bubble only when the user needs to see its output or will interactively type into it. Routine builds, tests and inspection use your own tools.
 - `terminal_screen`: read a Terminal's screen as it is now, as plain text, with the `offset` to read from next.
 - `terminal_read`: read a Terminal's output from the `after` offset you got last, as plain text; its `next` is the offset to give the next time.
