@@ -73,6 +73,35 @@ fn columns(db: &Connection, table: &str) -> rusqlite::Result<Vec<(String, String
         .collect()
 }
 
+/// MG2: the first table, column (with its declared type) or index of `previous` that `db` lacks or
+/// retypes, or `None` when `db` holds all of them and anything more.
+pub fn missing(db: &Connection, previous: &Connection) -> rusqlite::Result<Option<String>> {
+    let (have, want) = (objects(db)?, objects(previous)?);
+    for (name, kind) in want.keys() {
+        if kind != "table" && kind != "index" {
+            continue;
+        }
+        if !have.contains_key(&(name.clone(), kind.clone())) {
+            return Ok(Some(format!("{kind} `{name}` is missing")));
+        }
+        if kind == "table" {
+            let have = columns(db, name)?;
+            for (column, declared) in columns(previous, name)? {
+                match have.iter().find(|(c, _)| *c == column) {
+                    None => return Ok(Some(format!("table `{name}` lacks column `{column}`"))),
+                    Some((_, t)) if *t != declared => {
+                        return Ok(Some(format!(
+                            "table `{name}` column `{column}` is `{t}`, not `{declared}`"
+                        )));
+                    }
+                    _ => {}
+                }
+            }
+        }
+    }
+    Ok(None)
+}
+
 /// The first object (by name, then type) that `db` and `reference` hold differently, or `None`.
 pub fn difference(db: &Connection, reference: &Connection) -> rusqlite::Result<Option<String>> {
     let (have, want) = (objects(db)?, objects(reference)?);
@@ -126,6 +155,37 @@ mod tests {
             .to_latest(&mut db)
             .unwrap();
         db
+    }
+
+    #[test]
+    fn mg2_new_tables_columns_and_indexes_pass() {
+        let previous = built(&["CREATE TABLE a(x INTEGER); CREATE INDEX ax ON a(x);"]);
+        let more = built(&[
+            "CREATE TABLE a(x INTEGER); CREATE INDEX ax ON a(x); ALTER TABLE a ADD COLUMN w; CREATE TABLE b(y);",
+        ]);
+        assert_eq!(missing(&more, &previous).unwrap(), None);
+    }
+
+    #[test]
+    fn mg2_a_table_rebuilt_without_a_column_fails() {
+        let previous = built(&["CREATE TABLE a(x INTEGER); CREATE INDEX ax ON a(x);"]);
+        let dropped = built(&["CREATE TABLE a(w); CREATE INDEX ax ON a(w);"]);
+        assert_eq!(
+            missing(&dropped, &previous).unwrap().unwrap(),
+            "table `a` lacks column `x`"
+        );
+        let retyped = built(&["CREATE TABLE a(x TEXT); CREATE INDEX ax ON a(x);"]);
+        assert!(
+            missing(&retyped, &previous)
+                .unwrap()
+                .unwrap()
+                .contains("not `INTEGER`")
+        );
+        let unindexed = built(&["CREATE TABLE a(x INTEGER);"]);
+        assert_eq!(
+            missing(&unindexed, &previous).unwrap().unwrap(),
+            "index `ax` is missing"
+        );
     }
 
     #[test]

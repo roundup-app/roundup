@@ -9,11 +9,15 @@ let focused = true;
 beforeEach(() => {
   focused = true;
   vi.spyOn(document, "hasFocus").mockImplementation(() => focused);
+  // U5959b: Ready rows keep the last hour of Date.now; the fixtures' small clocks need it at 0.
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(0);
 });
 
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
+  vi.useRealTimers();
 });
 
 const row = (id: string) => document.querySelector<HTMLElement>(`[role=treeitem][data-id="${id}"]`)!;
@@ -209,7 +213,7 @@ it.each([1, 2])("u5541_first_read_failure_keeps_gap_publications_unread (%s reje
   await screen.findByText("Publication read 1 failed");
   now = 2_000;
   records.push({
-    project: "api-key", id: "gap", maker: { kind: "agent", id: "b", parent: null }, maker_name: "b", home: null, title: "Gap result", published_at: 1_500,
+    project: "api-key", id: "gap", maker: { kind: "agent", id: "b", parent: null }, maker_name: "b", home: null, title: "Gap result", published_at: Date.now(),
     target: { kind: "external", url: "https://github.com/roundup-app/roundup/issues/5541", availability: "not-checked" },
   });
 

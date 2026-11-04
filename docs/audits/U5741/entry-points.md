@@ -106,3 +106,7 @@ Independent Shelf follow-up: rendered-shelf-followup.json adds successful reserv
 ## Terminal read continuation
 
 [terminal-reads.md](terminal-reads.md) assesses TR01–TR06 (`terminal.list`, `snapshot`, `catchUp`, `screen`, `read`, `search`) from source, declarations and scenarios on main `6c9ebd997a409c6af4c532462a1fb64b9c24f3e3`. No row is a candidate; no fresh rendering or runtime replay is claimed. Other undecided methods and final whole-App reconciliation remain open. No partial owner request or deletion.
+
+## Project configuration continuation
+
+[project-config-methods.md](project-config-methods.md) assesses `project.setMcp`, `setPrepared`, `getPrepared`, `prepareDirectory` and `setModels` (PC01–PC05) from source, declarations and scenarios on main `b66cfd2c549d2bb6da59f431090d258ca6aa199c`. None has an App caller, CLI command or MCP tool; only `project.getPrepared` meets one criterion and it is not offered alone. No fresh rendering or runtime replay is claimed. Other undecided methods and final whole-App reconciliation remain open. No partial owner request or deletion.

@@ -75,3 +75,13 @@ it("u5959c_dock_applies_the_hour_cut_and_five_row_limit", async () => {
   expect(app.menuBar?.entries.map(entry => entry.label)).toContain("1 earlier…");
   expect(app.menuBar?.dock.filter(entry => entry.state).every(entry => entry.subtitle === "settled")).toBe(true);
 });
+
+it("u5959c_dock_rows_share_the_menu_bar_look", async () => {
+  const { app } = await openTabs({ api: [agent("a-b", "working", "running")] }, false, Date.now);
+  finishAt(app, "api", "a-b", 0);
+  vi.setSystemTime(HOUR / 2);
+  finishAt(app, "api", "a-b", HOUR / 2, 2);
+
+  await waitFor(() => expect(app.menuBar?.dock).toEqual(app.menuBar?.entries));
+  expect(app.menuBar?.dock[1]).toMatchObject({ label: "A b", subtitle: "settled", state: "ready", since: HOUR / 2 });
+});

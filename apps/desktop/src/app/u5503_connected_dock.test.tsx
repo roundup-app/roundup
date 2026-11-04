@@ -4,13 +4,20 @@ import { openTabs, path, tab } from "../header/stripFixture";
 import { agent, door, event, workstream } from "../testing/nodes";
 import type { FakeApp } from "../testing/fakeApp";
 
-afterEach(() => { cleanup(); localStorage.clear(); vi.restoreAllMocks(); });
+afterEach(() => { cleanup(); localStorage.clear(); vi.restoreAllMocks(); vi.useRealTimers(); });
 
-beforeEach(() => { vi.spyOn(document, "hasFocus").mockReturnValue(true); });
+// U5959b: Ready rows keep the last hour of Date.now, so the fixtures' small `since` values need a clock at 0.
+beforeEach(() => {
+  vi.spyOn(document, "hasFocus").mockReturnValue(true);
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(0);
+});
+
+const recent = Date.now();
 
 const rows = (app: FakeApp, surface: "dock" | "entries" = "dock") => app.menuBar?.[surface]?.flatMap(entry => entry.action?.kind === "agent" ? [entry] : []) ?? [];
 
-const finish = (app: FakeApp, project: string, id: string, count = "1") => app.of(path(project)).emit(event({ name: "agent.status", data: { id, attempt: "1", status_revision: String(Number(count) + 1), status: { kind: "idle", label: "settled", since: 10 * Number(count), finished: count } } }));
+const finish = (app: FakeApp, project: string, id: string, count = "1") => app.of(path(project)).emit(event({ name: "agent.status", data: { id, attempt: "1", status_revision: String(Number(count) + 1), status: { kind: "idle", label: "settled", since: recent + Number(count), finished: count } } }));
 
 it.each([0, 1, 5, 6, 8, 10])("u5503_five_rows_share_one_limit (%s)", async count => {
   const { app } = await openTabs({ api: Array.from({ length: count }, (_, index) => agent(String(index), "needs-you", "question")) });
@@ -103,7 +110,7 @@ it.each([false, true])("u5503_menu_changes_leave_badge_behavior_unchanged (badge
       await waitFor(() => expect(rows(app)).toHaveLength(1));
     }
 
-    app.of(path("api")).emit(event({ name: "agent.status", data: { id: "waiting", attempt: "1", status_revision: "2", status: { kind: "idle", label: "resting", since: 30, finished: "0" } } }));
+    app.of(path("api")).emit(event({ name: "agent.status", data: { id: "waiting", attempt: "1", status_revision: "2", status: { kind: "idle", label: "resting", since: recent, finished: "0" } } }));
     await waitFor(() => expect(app.badges.at(-1)).toBe(0));
     const badges = [...app.badges];
     cleanup();
