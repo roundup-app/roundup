@@ -374,6 +374,8 @@ pub struct Agents {
     shared: Arc<Shared>,
     dir: PathBuf,
     launcher: Launcher,
+    /// FOP5978: the data folder is a Fork's.
+    forked: bool,
 }
 
 mod dispatch;

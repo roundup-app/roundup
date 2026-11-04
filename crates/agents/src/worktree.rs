@@ -52,6 +52,7 @@ pub struct Git {
     /// G2542c: directories a preparation is running in.
     busy: Arc<Mutex<Vec<PathBuf>>>,
     deadline: Option<Instant>,
+    forked: Arc<std::sync::atomic::AtomicBool>,
 }
 
 impl Git {
@@ -66,6 +67,7 @@ impl Git {
             enrolled: Arc::new(RwLock::new(Vec::new())),
             busy: Arc::new(Mutex::new(Vec::new())),
             deadline: None,
+            forked: Arc::default(),
         }
     }
 
@@ -161,6 +163,7 @@ impl Git {
     }
 
     pub fn provision(&self, project: &Path, plan: &Provision) -> Result<Worktree, RpcError> {
+        self.refuse_in_fork()?;
         let input = format!(
             "start\ncreate refs/heads/{} {}\ncreate {} {}\nprepare\ncommit\n",
             plan.worktree.branch, plan.commit, plan.owner, plan.commit
@@ -226,6 +229,7 @@ impl Git {
     }
 
     pub fn finish(&self, project: &Path, plan: &Provision) -> Result<(), RpcError> {
+        self.refuse_in_fork()?;
         if let Some(owner) = self.reference(project, &plan.owner)? {
             if owner != plan.commit {
                 return Err(failed("provisioning ownership changed"));
@@ -237,6 +241,7 @@ impl Git {
     }
 
     pub fn recover(&self, project: &Path, plan: &Provision) -> Result<(), RpcError> {
+        self.refuse_in_fork()?;
         if self.is_enrolled(&plan.worktree.path) {
             return self.recover_prepared(project, plan);
         }
@@ -535,6 +540,7 @@ impl Git {
     /// G5: delete the Worktree's directory and branch whatever their state; a directory already
     /// gone is not an error, and only git's record of it is removed.
     pub fn discard(&self, project: &Path, worktree: &Worktree) -> Result<(), RpcError> {
+        self.refuse_in_fork()?;
         if self.is_enrolled(&worktree.path) {
             return self.discard_prepared(project, worktree);
         }
@@ -662,6 +668,7 @@ impl Git {
     }
 
     pub fn remove_landed(&self, project: &Path, worktree: &Worktree) -> Result<(), RpcError> {
+        self.refuse_in_fork()?;
         let reference = format!("refs/heads/{}", worktree.branch);
         let expected = self.reference(project, &reference)?;
         self.remove_at_tip(project, worktree, expected.as_deref(), RemoveScope::This)

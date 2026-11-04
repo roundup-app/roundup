@@ -200,7 +200,7 @@ it.concurrent.each(cases)(
       await lane.browser("click", '.rail-create-menu [data-value="workstream"]');
       await lane.until("!!document.querySelector('.rail-command-notice button')");
       await lane.browser("click", '.project-tab[data-path="/Users/you/harness"] [role=tab]');
-      target = ".storage-center > .reserved-line:not(.todo-undo) button:last-child";
+      target = ".centre-failures > .reserved-line button:last-child";
     } else {
       if (background === "app-settings") await lane.evaluate("window.dispatchEvent(new Event('open-app-settings'))");
       else await lane.evaluate("window.dispatchEvent(new CustomEvent('open-project-page', {detail:{path:'/Users/you/harness',command:'project-settings'}}))");
