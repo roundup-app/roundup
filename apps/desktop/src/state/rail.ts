@@ -131,7 +131,11 @@ export const movedTo = (tree: readonly RailNode[], id: string, place: RailPlace)
   const last = siblings.at(-1);
   const at = before !== undefined ? rest.indexOf(before) : last !== undefined ? rest.indexOf(last) + 1 : place.parent === null ? rest.length : rest.findIndex(each => each.id === place.parent) + 1;
 
-  return [...rest.slice(0, at), { ...node, parent: place.parent }, ...rest.slice(at)];
+  const moved = [...rest.slice(0, at), { ...node, parent: place.parent }, ...rest.slice(at)];
+  // Siblings show in `order`, so the new sequence renumbers it.
+  const sequence = moved.flatMap(each => each.parent === place.parent ? [each.id] : []);
+
+  return moved.map(each => each.parent === place.parent ? { ...each, order: sequence.indexOf(each.id) } : each);
 };
 
 /** A24: how long the App waits for `rail.startDoor`, the Daemon's own bound of 10 000 ms. */
