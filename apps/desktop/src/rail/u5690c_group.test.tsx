@@ -7,7 +7,7 @@ afterEach(cleanup);
 
 it("u5690c_existing_clients_traverse_and_rename_a_group_without_launching", async () => {
   const group = { ...workstream("group"), kind: "group" as const, status: null, work: null };
-  const { app, rail } = await mountRail([group, workstream("home", { parent: "group" }), agent("child", "done", "finished", { parent: "home", terminal_id: null })]);
+  const { app, rail } = await mountRail([group, workstream("home", { parent: "group" }), agent("child", "working", "Working", { parent: "home", terminal_id: null })]);
   app.handlers["rail.rename"] = ({ name }) => ({ ...group, name });
   const row = rowOf("group");
   row.focus();

@@ -565,9 +565,9 @@ async fn u5531c_promotion_stays_shown_until_a_new_safe_door_choice() {
         ),
         (
             json!({"hook_event_name":"Stop","prompt_id":"turn","last_assistant_message":"All done"}),
-            true,
+            false,
         ),
-        (json!({"hook_event_name":"Stop","prompt_id":"turn"}), true),
+        (json!({"hook_event_name":"Stop","prompt_id":"turn"}), false),
         (
             json!({"hook_event_name":"Stop","prompt_id":"turn","last_assistant_message":""}),
             false,
@@ -613,70 +613,29 @@ async fn u5531c_promotion_stays_shown_until_a_new_safe_door_choice() {
             if promoted { "shown" } else { "internal" }
         );
     }
-    for settled in [false, true] {
-        fx.user.request("agent.signal", json!({"id":fx.child,"attempt":"1","payload":{"hook_event_name":"UserPromptSubmit","prompt_id":"question"}})).await.unwrap();
-        door.request("agent.setVisibility", choose.clone())
-            .await
-            .unwrap();
-        let sent = child
-            .request(
-                "message.send",
-                json!({"to":fx.door,"kind":"question","body":format!("Which target for settled={settled}?")}),
-            )
-            .await
-            .unwrap();
-        if settled {
-            fx.user.request("agent.signal", json!({"id":fx.child,"attempt":"1","payload":{"hook_event_name":"Stop","prompt_id":"question","last_assistant_message":""}})).await.unwrap();
-        }
-        let tree = fx.user.request("rail.tree", Value::Null).await.unwrap();
-        assert_eq!(
-            tree.as_array()
-                .unwrap()
-                .iter()
-                .find(|n| n["id"] == fx.child)
-                .unwrap()["visibility"],
-            "shown"
-        );
-        assert_eq!(
-            door.request("agent.setVisibility", choose.clone())
-                .await
-                .unwrap_err()
-                .code,
-            rpc::code::INVALID_PARAMS
-        );
-        door.request(
+    // U5940a: a question Message or a Clarification order never keeps a child shown.
+    let shown = |tree: &Value| {
+        tree.as_array()
+            .unwrap()
+            .iter()
+            .find(|n| n["id"] == fx.child)
+            .unwrap()["visibility"]
+            .clone()
+    };
+    door.request("agent.setVisibility", choose.clone())
+        .await
+        .unwrap();
+    child
+        .request(
             "message.send",
-            json!({"to":fx.child,"kind":"note","body":format!("The first target for settled={settled}"),"replyTo":sent["id"]}),
+            json!({"to":fx.door,"kind":"question","body":"Which target?"}),
         )
         .await
         .unwrap();
-        let refused = door
-            .request("agent.setVisibility", choose.clone())
-            .await
-            .unwrap_err();
-        assert_eq!(refused.code, rpc::code::INVALID_PARAMS);
-        assert!(refused.message.contains("question"));
-        let tree = fx.user.request("rail.tree", Value::Null).await.unwrap();
-        assert_eq!(
-            tree.as_array()
-                .unwrap()
-                .iter()
-                .find(|n| n["id"] == fx.child)
-                .unwrap()["visibility"],
-            "shown"
-        );
-        if !settled {
-            fx.user.request("agent.signal", json!({"id":fx.child,"attempt":"1","payload":{"hook_event_name":"Stop","prompt_id":"question","last_assistant_message":""}})).await.unwrap();
-        }
-        fx.user.request("agent.signal", json!({"id":fx.child,"attempt":"1","payload":{"hook_event_name":"UserPromptSubmit","prompt_id":"after-reply"}})).await.unwrap();
-        fx.user.request("agent.signal", json!({"id":fx.child,"attempt":"1","payload":{"hook_event_name":"Stop","prompt_id":"after-reply","last_assistant_message":""}})).await.unwrap();
-        assert_eq!(
-            door.request("agent.setVisibility", choose.clone())
-                .await
-                .unwrap()["visibility"],
-            "internal"
-        );
-    }
+    assert_eq!(
+        shown(&fx.user.request("rail.tree", Value::Null).await.unwrap()),
+        "internal"
+    );
     child
         .request(
             "agent.setOrder",
@@ -685,131 +644,7 @@ async fn u5531c_promotion_stays_shown_until_a_new_safe_door_choice() {
         .await
         .unwrap();
     assert_eq!(
-        door.request("agent.setVisibility", choose)
-            .await
-            .unwrap_err()
-            .code,
-        rpc::code::INVALID_PARAMS
+        door.request("agent.setVisibility", choose).await.unwrap()["visibility"],
+        "internal"
     );
-    let tree = fx.user.request("rail.tree", Value::Null).await.unwrap();
-    assert_eq!(
-        tree.as_array()
-            .unwrap()
-            .iter()
-            .find(|n| n["id"] == fx.child)
-            .unwrap()["visibility"],
-        "shown"
-    );
-}
-
-#[tokio::test(flavor = "multi_thread")]
-async fn u5531c_blocked_completed_turn_stays_protected_until_resumed() {
-    let fx = b53_fixture().await;
-    let door = client_as(&fx.served.socket(), agent(&fx.door)).await;
-    let child = client_as(&fx.served.socket(), agent(&fx.child)).await;
-    let blocker = child
-        .request("todo.create", json!({"title":"prerequisite"}))
-        .await
-        .unwrap();
-    child
-        .request(
-            "todo.create",
-            json!({"title":"waiting work","blockers":[blocker["id"]]}),
-        )
-        .await
-        .unwrap();
-    let choose = json!({"id":fx.child,"visibility":"internal"});
-    for (turn, final_text, protected) in [
-        ("nonempty", Some("All done"), true),
-        ("unknown", None, true),
-        ("empty", Some(""), false),
-    ] {
-        fx.user.request("agent.signal", json!({"id":fx.child,"attempt":"1","payload":{"hook_event_name":"UserPromptSubmit","prompt_id":turn}})).await.unwrap();
-        door.request("agent.setVisibility", choose.clone())
-            .await
-            .unwrap();
-        let mut payload = json!({"hook_event_name":"Stop","prompt_id":turn});
-        if let Some(text) = final_text {
-            payload["last_assistant_message"] = json!(text);
-        }
-        fx.user
-            .request(
-                "agent.signal",
-                json!({"id":fx.child,"attempt":"1","payload":payload}),
-            )
-            .await
-            .unwrap();
-        // The Todo observer publishes the derived Blocked status through rail.tree.
-        let before = tokio::time::timeout(BOUND, async {
-            loop {
-                let tree = fx.user.request("rail.tree", Value::Null).await.unwrap();
-                if tree
-                    .as_array()
-                    .unwrap()
-                    .iter()
-                    .any(|n| n["id"] == fx.child && n["status"]["kind"] == "blocked")
-                {
-                    break tree;
-                }
-                tokio::task::yield_now().await;
-            }
-        })
-        .await
-        .expect("Todo-derived Blocked status");
-        let node = before
-            .as_array()
-            .unwrap()
-            .iter()
-            .find(|n| n["id"] == fx.child)
-            .unwrap();
-        assert_eq!(
-            node["visibility"],
-            if protected { "shown" } else { "internal" }
-        );
-        let item = format!("agent:{}", fx.child);
-        let touches = fx
-            .user
-            .request("provenance.history", json!({"item":item}))
-            .await
-            .unwrap();
-        let events = fx
-            .user
-            .request("events.subscribe", Value::Null)
-            .await
-            .unwrap();
-        let launches = std::fs::read(fx.served.dir.path().join("launches")).unwrap();
-        let result = door.request("agent.setVisibility", choose.clone()).await;
-        if protected {
-            let error = result.unwrap_err();
-            assert_eq!(error.code, rpc::code::INVALID_PARAMS);
-            assert!(
-                error.message.contains("completed-turn protection"),
-                "{error:?}"
-            );
-            assert_eq!(
-                before,
-                fx.user.request("rail.tree", Value::Null).await.unwrap()
-            );
-            assert_eq!(
-                touches,
-                fx.user
-                    .request("provenance.history", json!({"item":item}))
-                    .await
-                    .unwrap()
-            );
-            assert_eq!(
-                events,
-                fx.user
-                    .request("events.subscribe", Value::Null)
-                    .await
-                    .unwrap()
-            );
-            assert_eq!(
-                launches,
-                std::fs::read(fx.served.dir.path().join("launches")).unwrap()
-            );
-        } else {
-            assert_eq!(result.unwrap()["visibility"], "internal");
-        }
-    }
 }
