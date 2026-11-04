@@ -290,8 +290,7 @@ pub enum FileContent {
 }
 
 /// Merge-base versus current disk content, never the index (U2540a).
-/// Each side is capped at 4 MiB; oversized or special files fail explicitly.
-/// Status is null when no change remains against the merge base.
+/// Each side is capped at 4 MiB; oversized or special files fail explicitly. Status is null when no change remains against the merge base.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct FileComparison {
@@ -883,8 +882,7 @@ pub struct CapturedOrder {
 }
 
 /// O4, U2773c: replace the Order of Agent or Door `id`.
-/// With `captured`, compare and replace atomically at execution. A mismatch is CONFLICT; a removed id is NOT_FOUND.
-/// Omit `captured` for an unconditional write.
+/// With `captured`, compare and replace atomically at execution. A mismatch is CONFLICT; a removed id is NOT_FOUND. Omit `captured` for an unconditional write.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct SetOrderParams {
     pub id: String,
@@ -895,8 +893,7 @@ pub struct SetOrderParams {
 }
 
 /// U5690c: collect exact identities, deduplicated in pre-action Rail order.
-/// The Group is placed before the first affected branch at the nearest unselected
-/// common ancestor. Siblings use the first selected sibling's position.
+/// The Group is placed before the first affected branch at the nearest unselected common ancestor. Siblings use the first selected sibling's position.
 #[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 pub struct GroupParams {
     pub ids: Vec<String>,
