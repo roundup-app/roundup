@@ -36,15 +36,16 @@ describe("u428 an Agent row's icons", () => {
   });
 
   it("u428_the_icon_and_the_menu_share_one_stop_path", async () => {
-    const { app } = await mountRail([agent("a", "idle", "idle")]);
+    const { app } = await mountRail([agent("a", "idle", "idle"), agent("b", "idle", "idle")]);
     app.handlers["agent.stop"] = () => null;
 
+    // U5991a: a stopped row is drawn stopped at once, so the menu path takes the other row.
     fireEvent.click(within(rowOf("a")).getByRole("button", { name: "Stop" }));
     await waitFor(() => expect(railCallsTo(app, "agent.stop")).toHaveLength(1));
-    fireEvent.contextMenu(rowOf("a"), { clientX: 1, clientY: 1 });
+    fireEvent.contextMenu(rowOf("b"), { clientX: 1, clientY: 1 });
     await app.pickMenu("Stop");
 
-    await waitFor(() => expect(railCallsTo(app, "agent.stop")).toEqual([{ id: "a" }, { id: "a" }]));
+    await waitFor(() => expect(railCallsTo(app, "agent.stop")).toEqual([{ id: "a" }, { id: "b" }]));
   });
 
   it("u428_no_stop_icon_on_a_stopped_agent", async () => {

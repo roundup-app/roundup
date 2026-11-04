@@ -242,6 +242,8 @@ export const connectProject = async (
     return createRailState(app, events, storage, dismissalStorage(project.path), resumptionStorage(project.path));
   });
 
+  drafts.todoUndo.bindRail(direction => rail.drawHistory(direction));
+
   if (ended) stopRail();
 
   await rail.settled();
