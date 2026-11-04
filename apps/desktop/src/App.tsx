@@ -8,8 +8,6 @@ import { storageProblems } from "./state/storage";
 import "./state/storage.css";
 import { textTarget } from "./ui/contextMenu";
 import { AppSettings } from "./settings/AppSettings";
-import { ForkSheet } from "./fork/ForkSheet";
-import { forkRows } from "./fork/forkTicks";
 import { createSettingsView } from "./state/settingsView";
 import { appSettings, applyAppAppearance } from "./settings/preferences";
 import { captureActions, registerKeys } from "./keys/registry";
@@ -71,6 +69,7 @@ import { Shelf, createShelfTabs, ShelfTabs, ProjectShelfTabs } from "./shelf/She
 import { shelfKeys } from "./shelf/keys";
 import { createWidths } from "./resize/widths";
 
+const ForkSheet = lazy(() => import("./fork/ForkSheet").then(module => ({ default: module.ForkSheet })));
 const TodoHost = lazy(() => import("./todos/TodoDrawer").then(module => ({ default: module.TodoHost })));
 
 const PadHost = lazy(() => import("./pads/PadDrawer").then(module => ({ default: module.PadHost })));
@@ -601,9 +600,10 @@ export const App = (props: {
 
   // FS5979a: one sheet, and only with a Project open; a second request while it is open changes nothing.
   const [forkOpen, setForkOpen] = createSignal(false);
+  const [forkAsked, setForkAsked] = createSignal(false);
   let forkEnded = false;
   let stopFork: (() => void) | undefined;
-  void props.app.onForkSheet(() => { if (projects.tabs().length > 0) setForkOpen(true); }).then(stop => { if (forkEnded) stop(); else stopFork = stop; });
+  void props.app.onForkSheet(() => { if (projects.tabs().length > 0) { setForkAsked(true); setForkOpen(true); } }).then(stop => { if (forkEnded) stop(); else stopFork = stop; });
   onCleanup(() => { forkEnded = true; stopFork?.(); });
   const forkSources = () => projects.tabs().map(tab => ({ path: tab.project.path, name: tab.project.name, nodes: railOf(tab.project.path)?.nodes ?? [] }));
 
@@ -767,7 +767,7 @@ export const App = (props: {
             </InProject>
           </Show>
           </div>
-          <ForkSheet app={props.app} open={forkOpen()} rows={() => forkRows(forkSources())} onClose={() => setForkOpen(false)} />
+          <Show when={forkAsked()}><ForkSheet app={props.app} open={forkOpen()} sources={forkSources} onClose={() => setForkOpen(false)} /></Show>
           <AppSettings app={props.app} project={() => projects.active()} view={settingsView} navigation={() => {
             const open = activeConnection();
 

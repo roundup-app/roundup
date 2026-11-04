@@ -290,11 +290,9 @@ async fn exit_for_update<R: Runtime>(
 /// FS5979: the branch the live App's source checkout is on.
 #[tauri::command]
 async fn fork_branch() -> Result<String, RpcError> {
-    Ok(
-        tokio::task::spawn_blocking(|| fork::branch(&fork::checkout()))
-            .await
-            .map_err(RpcError::internal)?,
-    )
+    tokio::task::spawn_blocking(|| fork::branch(&fork::checkout()))
+        .await
+        .map_err(RpcError::internal)
 }
 
 /// FS5979: makes the Fork with `data.fork` through an open Project's Daemon, then starts the branch's App on it.

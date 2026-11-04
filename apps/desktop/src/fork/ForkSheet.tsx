@@ -9,9 +9,8 @@ import { Dialog } from "../ui/Dialog";
 import { Field } from "../ui/Field";
 import { RadioGroup } from "../ui/RadioGroup";
 import { TreeView } from "../ui/TreeView";
-import { copy } from "../rail/copy";
 import { forkCopy } from "./copy";
-import { createForkTicks, type ForkRow } from "./forkTicks";
+import { createForkTicks, forkRows, type ForkRow, type ForkSource } from "./forkTicks";
 
 const COLOURS: readonly ForkColour[] = ["red", "orange", "amber", "green", "teal", "blue", "violet", "pink"];
 
@@ -21,6 +20,7 @@ const validName = (name: string): boolean => [...name].length >= 1 && [...name].
 const Rows = (props: { rows: ForkRow[]; path: number[]; state: (id: string) => boolean | "indeterminate"; toggle: (id: string) => void }) => (
   <For each={props.rows}>{(row, at) => {
     const indexPath = () => [...props.path, at()];
+
     const box = () => (
       <TreeView.NodeCheckbox class="fork-box" aria-label={row.name} aria-checked={props.state(row.id) === "indeterminate" ? "mixed" : props.state(row.id) ? "true" : "false"}
         data-state={props.state(row.id) === "indeterminate" ? "indeterminate" : props.state(row.id) ? "checked" : "unchecked"}
@@ -95,24 +95,24 @@ const Form = (props: { app: App; rows: ForkRow[]; onClose: () => void }) => {
       </TreeView.Root>
     </div>
     <Field.Root invalid={!validName(name())}>
-      <Field.Label>{copy.name}</Field.Label>
+      <Field.Label>{forkCopy.name}</Field.Label>
       <Field.Input ref={input} type="text" value={name()} onInput={event => setName(event.currentTarget.value)} />
       <Field.ErrorText>{forkCopy.invalidName}</Field.ErrorText>
     </Field.Root>
     <RadioGroup class="fork-swatches" label={forkCopy.colour} choices={COLOURS.map(value => ({ value, label: value }))} value={colour()} onValueChange={setColour} />
     <div class="app-dialog-actions">
       <Show when={failure()}>{text => <span role="alert" class="fork-failure">{text()}</span>}</Show>
-      <Dialog.CloseTrigger type="button" data-button="quiet">{copy.close}</Dialog.CloseTrigger>
+      <Dialog.CloseTrigger type="button" data-button="quiet">{forkCopy.close}</Dialog.CloseTrigger>
       <button type="submit" data-button="primary" disabled={busy()}>{forkCopy.make}</button>
     </div>
   </form>;
 };
 
 /** FS5979: the Fork sheet; it holds the Rail tree of every open Project with all rows ticked each time it opens. */
-export const ForkSheet = (props: { app: App; open: boolean; rows: () => ForkRow[]; onClose: () => void }) => (
+export const ForkSheet = (props: { app: App; open: boolean; sources: () => readonly ForkSource[]; onClose: () => void }) => (
   <Dialog.Root open={props.open} onOpenChange={({ open }) => { if (!open) props.onClose(); }}>
     <Dialog.Positioner><Dialog.Content class="app-dialog-form">
-      <Form app={props.app} rows={props.rows()} onClose={props.onClose} />
+      <Form app={props.app} rows={forkRows(props.sources())} onClose={props.onClose} />
     </Dialog.Content></Dialog.Positioner>
   </Dialog.Root>
 );

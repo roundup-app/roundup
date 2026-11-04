@@ -5,10 +5,27 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { App } from "../App";
 import { createFakeApp } from "../testing/fakeApp";
 import { agent, door } from "../testing/nodes";
+import { forkCopy } from "./copy";
 import { ForkSheet } from "./ForkSheet";
-import { forkRows } from "./forkTicks";
+
+const inputOf = (element: HTMLElement): HTMLInputElement => {
+  if (!(element instanceof HTMLInputElement)) throw new Error("expected an input");
+
+  return element;
+};
+
+const makeButton = (): HTMLButtonElement => {
+  const button = screen.getByRole("button", { name: forkCopy.make });
+
+  if (!(button instanceof HTMLButtonElement)) throw new Error("expected a button");
+
+  return button;
+};
+
+const FULL_DISK = new Error("no space left");
 
 const FIRST = { name: "payments-api", path: "/Users/me/repos/payments-api" };
+
 const SECOND = { name: "docs", path: "/Users/me/repos/docs" };
 
 const tree = [
@@ -18,7 +35,7 @@ const tree = [
   agent("a3", "working", "three", { name: "Agent three", order: 1 }),
 ];
 
-const rows = () => forkRows([{ path: FIRST.path, name: FIRST.name, nodes: tree }, { path: SECOND.path, name: SECOND.name, nodes: [] }]);
+const sources = () => [{ path: FIRST.path, name: FIRST.name, nodes: tree }, { path: SECOND.path, name: SECOND.name, nodes: [] }];
 
 afterEach(() => { batch(cleanup); vi.restoreAllMocks(); window.localStorage.clear(); });
 
@@ -26,7 +43,7 @@ const sheet = async (override: (app: ReturnType<typeof createFakeApp>) => void =
   const app = createFakeApp();
 
   override(app);
-  render(() => <ForkSheet app={app} open rows={rows} onClose={() => {}} />);
+  render(() => <ForkSheet app={app} open sources={sources} onClose={() => {}} />);
   await screen.findByRole("dialog");
 
   return app;
@@ -48,7 +65,7 @@ describe("fs5979a the application menu offers the sheet", () => {
     await Promise.resolve();
 
     expect(screen.getAllByRole("dialog")).toHaveLength(1);
-    expect(await screen.findByRole("checkbox", { name: "Agent two" })).toBeTruthy();
+    await waitFor(() => expect(screen.getAllByRole("checkbox")).toHaveLength(5));
   });
 });
 
@@ -80,12 +97,12 @@ describe("fs5979b the sheet is the Rail tree with every row ticked", () => {
 
   it("fs5979b_opening_again_shows_every_row_ticked", async () => {
     const app = createFakeApp();
-    const view = render(() => <ForkSheet app={app} open rows={rows} onClose={() => {}} />);
+    const view = render(() => <ForkSheet app={app} open sources={sources} onClose={() => {}} />);
 
     await screen.findByRole("dialog");
     fireEvent.click(box(SECOND.name));
     view.unmount();
-    render(() => <ForkSheet app={app} open rows={rows} onClose={() => {}} />);
+    render(() => <ForkSheet app={app} open sources={sources} onClose={() => {}} />);
     await screen.findByRole("dialog");
 
     expect(box(SECOND.name).getAttribute("aria-checked")).toBe("true");
@@ -95,15 +112,15 @@ describe("fs5979b the sheet is the Rail tree with every row ticked", () => {
 describe("fs5979c the name and the colour", () => {
   it("fs5979c_the_name_is_the_branch_selected_and_teal_is_chosen_first", async () => {
     await sheet(app => { app.forkBranch = async () => "build/login"; });
-    const field = await screen.findByLabelText("Name") as HTMLInputElement;
+    const field = inputOf(await screen.findByLabelText("Name"));
 
     await waitFor(() => expect(field.value).toBe("build/login"));
     expect([field.selectionStart, field.selectionEnd]).toEqual([0, "build/login".length]);
     expect(screen.getAllByRole("radio")).toHaveLength(8);
-    await waitFor(() => expect((screen.getByRole("radio", { name: "teal" }) as HTMLInputElement).checked).toBe(true));
+    await waitFor(() => expect(inputOf(screen.getByRole("radio", { name: "teal" })).checked).toBe(true));
     screen.getByRole("radio", { name: "teal" }).focus();
     await userEvent.setup().keyboard("{ArrowRight}");
-    await waitFor(() => expect((screen.getByRole("radio", { name: "blue" }) as HTMLInputElement).checked).toBe(true));
+    await waitFor(() => expect(inputOf(screen.getByRole("radio", { name: "blue" })).checked).toBe(true));
   });
 
   it.each(["", "x".repeat(41), "a\u0007b"])("fs5979c_an_invalid_name_makes_no_fork", async (bad) => {
@@ -111,7 +128,7 @@ describe("fs5979c the name and the colour", () => {
     await sheet(app => { app.forkMake = forkMake; });
     const field = await screen.findByLabelText("Name");
 
-    await waitFor(() => expect((field as HTMLInputElement).value).toBe("fork"));
+    await waitFor(() => expect(inputOf(field).value).toBe("fork"));
     fireEvent.input(field, { target: { value: bad } });
     fireEvent.submit(field.closest("form")!);
     await Promise.resolve();
@@ -123,15 +140,16 @@ describe("fs5979c the name and the colour", () => {
 describe("fs5979d Enter makes the Fork", () => {
   it("fs5979d_sends_the_picks_once_and_closes_after_the_call", async () => {
     let finish: () => void = () => {};
+
     const forkMake = vi.fn(() => new Promise<void>(resolve => { finish = resolve; }));
     const onClose = vi.fn();
     const app = createFakeApp();
 
     app.forkMake = forkMake;
-    render(() => <ForkSheet app={app} open rows={rows} onClose={onClose} />);
+    render(() => <ForkSheet app={app} open sources={sources} onClose={onClose} />);
     const field = await screen.findByLabelText("Name");
 
-    await waitFor(() => expect((field as HTMLInputElement).value).toBe("fork"));
+    await waitFor(() => expect(inputOf(field).value).toBe("fork"));
     fireEvent.click(box("Agent one"));
     fireEvent.click(box(SECOND.name));
     fireEvent.submit(field.closest("form")!);
@@ -139,7 +157,7 @@ describe("fs5979d Enter makes the Fork", () => {
 
     expect(forkMake).toHaveBeenCalledTimes(1);
     expect(forkMake).toHaveBeenCalledWith({ name: "fork", colour: "teal", projects: [{ key: FIRST.path, agents: ["d1", "a2", "a3"] }] });
-    expect((screen.getByRole("button", { name: "Make Fork" }) as HTMLButtonElement).disabled).toBe(true);
+    expect(makeButton().disabled).toBe(true);
     expect(onClose).not.toHaveBeenCalled();
     finish();
     await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
@@ -150,7 +168,7 @@ describe("fs5979d Enter makes the Fork", () => {
     await sheet(app => { app.forkMake = forkMake; });
     const field = await screen.findByLabelText("Name");
 
-    await waitFor(() => expect((field as HTMLInputElement).value).toBe("fork"));
+    await waitFor(() => expect(inputOf(field).value).toBe("fork"));
     fireEvent.submit(field.closest("form")!);
     await waitFor(() => expect(forkMake).toHaveBeenCalledTimes(1));
     expect(forkMake.mock.calls[0]).toEqual([{ name: "fork", colour: "teal", projects: [{ key: FIRST.path, agents: "all" }, { key: SECOND.path, agents: "all" }] }]);
@@ -159,24 +177,24 @@ describe("fs5979d Enter makes the Fork", () => {
 
 describe("fs5979e a failed Fork stays on the sheet", () => {
   it("fs5979e_a_rejection_keeps_the_choices_and_a_retry_closes", async () => {
-    const forkMake = vi.fn().mockRejectedValueOnce(new Error("no space left")).mockResolvedValueOnce(undefined);
+    const forkMake = vi.fn().mockRejectedValueOnce(FULL_DISK).mockResolvedValueOnce(undefined);
     const onClose = vi.fn();
     const app = createFakeApp();
 
     app.forkMake = forkMake;
-    render(() => <ForkSheet app={app} open rows={rows} onClose={onClose} />);
+    render(() => <ForkSheet app={app} open sources={sources} onClose={onClose} />);
     const field = await screen.findByLabelText("Name");
 
-    await waitFor(() => expect((field as HTMLInputElement).value).toBe("fork"));
+    await waitFor(() => expect(inputOf(field).value).toBe("fork"));
     fireEvent.click(box("Agent one"));
     fireEvent.input(field, { target: { value: "mine" } });
     fireEvent.submit(field.closest("form")!);
 
-    expect((await screen.findByRole("alert")).textContent).toBe("no space left");
+    expect((await screen.findByRole("alert")).textContent).toBe(FULL_DISK.message);
     expect(onClose).not.toHaveBeenCalled();
     expect(box("Agent one").getAttribute("aria-checked")).toBe("false");
-    expect((field as HTMLInputElement).value).toBe("mine");
-    expect((screen.getByRole("button", { name: "Make Fork" }) as HTMLButtonElement).disabled).toBe(false);
+    expect(inputOf(field).value).toBe("mine");
+    expect(makeButton().disabled).toBe(false);
     fireEvent.submit(field.closest("form")!);
     await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
     expect(forkMake).toHaveBeenCalledTimes(2);
