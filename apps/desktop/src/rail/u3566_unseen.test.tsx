@@ -9,15 +9,11 @@ let focused = true;
 beforeEach(() => {
   focused = true;
   vi.spyOn(document, "hasFocus").mockImplementation(() => focused);
-  // U5959b: Ready rows keep the last hour of Date.now; the fixtures' small clocks need it at 0.
-  vi.useFakeTimers({ toFake: ["Date"] });
-  vi.setSystemTime(0);
 });
 
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
-  vi.useRealTimers();
 });
 
 const row = (id: string) => document.querySelector<HTMLElement>(`[role=treeitem][data-id="${id}"]`)!;
