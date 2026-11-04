@@ -432,7 +432,10 @@ fn prune(conn: &Connection, keep: &Keep) -> rusqlite::Result<Counts> {
             conn.execute("DELETE FROM nodes WHERE id = ?1", [id])?;
             // FOP5978e: a Todo the Agent owned stays, unassigned.
             if has_table(conn, "todos")? {
-                conn.execute("UPDATE todos SET owner = NULL WHERE owner = ?1", [&text])?;
+                conn.execute(
+                    "UPDATE todos SET owner = NULL WHERE json_valid(owner) AND json_extract(owner, '$.kind') = 'agent' AND json_extract(owner, '$.id') = ?1",
+                    [&text],
+                )?;
             }
             if has_table(conn, "messages")? {
                 conn.execute(

@@ -553,6 +553,7 @@ pub(super) mod tests {
                 dir.join("rup"),
                 None,
             ),
+            forked: false,
         }
     }
 

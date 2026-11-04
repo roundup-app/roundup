@@ -235,8 +235,13 @@ async fn fop5978d_fork_never_removes_a_live_worktree() {
     let id = spawn_in(&f, project.path()).await.unwrap().id;
     let db = rusqlite::Connection::open(folder.data.join("agents.db")).unwrap();
     db.execute(
-        "UPDATE nodes SET worktree_path=?1, worktree_branch='agent', worktree_base='main'",
-        [tree.to_str().unwrap()],
+        "UPDATE nodes SET worktree_path=?1, worktree_branch='agent', worktree_base='main',
+         conversation_id=?2, conversation_cwd=?3",
+        [
+            tree.to_str().unwrap(),
+            CONVERSATION,
+            project.path().to_str().unwrap(),
+        ],
     )
     .unwrap();
     f.call("agent.stop", json!({"id": id})).await.unwrap();
