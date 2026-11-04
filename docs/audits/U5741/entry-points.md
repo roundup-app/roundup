@@ -122,3 +122,7 @@ Independent Shelf follow-up: rendered-shelf-followup.json adds successful reserv
 ## Pad read, Worktrees, Project start, Naming and transport continuation
 
 [daemon-project-pad.md](daemon-project-pad.md) assesses `pad.read`, `project.setWorktrees`, `project.start`, `daemon.getNaming`/`setNaming`, `daemon.ping`/`methods`/`identify` and `events.subscribe` (DP01–DP06) from source, declarations and scenarios on main `8cdbebf0804c4e8c81725348fd26ab8b52e5903a`. No row is a candidate; `project.setWorktrees` has no App caller but fails Q3 and Q1. No fresh rendering or runtime replay is claimed. Other undecided methods and final whole-App reconciliation remain open. No partial owner request or deletion.
+
+## Named action and skill continuation
+
+[actions-skill.md](actions-skill.md) assesses `action.serve`, `action.list`, `action.userList`, `action.run`, `skill.status`, `skill.setup` and `skill.remove` (AK01–AK04, SK01–SK03) from source, declarations and scenarios on main `01299e96848802dc5b4d7999453a0ffb0ebd89a9`. No row is a candidate; AK01 and AK04 are protected. No fresh rendering or runtime replay is claimed. Other undecided methods and final whole-App reconciliation remain open. No partial owner request or deletion.
