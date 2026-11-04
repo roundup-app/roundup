@@ -162,10 +162,11 @@ impl Dispatch {
     }
 }
 
-/// The one-line title: native rows replace it with line one; other platforms show both lines.
-fn title(entry: &Entry) -> String {
-    match (&entry.subtitle, cfg!(target_os = "macos")) {
-        (Some(subtitle), false) => format!("{} · {subtitle}", entry.label),
+/// The one-line title: the tray's native rows replace it with line one; other platforms
+/// and the Dock, which draws only a plain title, show both lines.
+fn title(entry: &Entry, two_lines: bool) -> String {
+    match &entry.subtitle {
+        Some(subtitle) if !two_lines => format!("{} · {subtitle}", entry.label),
         _ => entry.label.clone(),
     }
 }
@@ -247,7 +248,7 @@ pub(crate) fn set_menu_bar<R: Runtime>(
                 .action
                 .as_ref()
                 .map_or_else(|| format!("menu-bar:head:{index}"), action_id),
-            title(entry),
+            title(entry, cfg!(target_os = "macos")),
             entry.action.is_some(),
             None::<&str>,
         )
@@ -318,13 +319,11 @@ fn install_dock<R: Runtime>(app: &AppHandle<R>) -> Result<(), RpcError> {
                         .clone();
                     entries
                         .iter()
-                        .zip(looks(&entries, provenance::now_ms()))
-                        .map(|(entry, look)| native::Row {
-                            title: title(entry),
+                        .map(|entry| native::Row {
+                            title: title(entry, false),
                             action: entry.action.as_ref().map(|action| {
                                 serde_json::to_string(action).expect("menu action serializes")
                             }),
-                            look,
                         })
                         .collect()
                 },
@@ -478,6 +477,17 @@ mod tests {
         };
         assert_eq!(subtitle, "question · api");
         assert_eq!(badge.as_deref(), Some("2m"));
+    }
+
+    #[test]
+    fn u5959c_dock_rows_are_plain_label_and_subtitle_titles() {
+        assert_eq!(
+            title(&row(Some(State::Ready), false, Some(0)), false),
+            "Ada · question · api"
+        );
+        let mut bare = row(Some(State::Ready), false, None);
+        bare.subtitle = None;
+        assert_eq!(title(&bare, false), "Ada");
     }
 
     #[test]
