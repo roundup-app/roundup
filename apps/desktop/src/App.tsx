@@ -394,7 +394,7 @@ export const App = (props: {
   }));
 
   createEffect(() => menuBar()?.watchMenuBar({
-    solid: { createEffect, onCleanup }, app: props.app, tabs: projects.tabs,
+    solid: { createEffect, createSignal, onCleanup }, app: props.app, tabs: projects.tabs,
     connection: connectionOf, open: () => setFocus("menu"),
     select: (path, agent) => batch(() => {
       settingsView.close(false);
