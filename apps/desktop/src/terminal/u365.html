@@ -17,6 +17,5 @@ const links = "/clear /context /hope:compose /word /word:word src/gone.ts Review
 controls.app.handlers["ask.list"] = () => [{id:"links", text:links, at:1, parts:[{text:links, placement:{kind:"routed",workstream:"payments"}, state:"typed"}]}];
 render(() => createComponent(App, { app: controls.app, reducedMotion: () => true, clock: Date.now, prepareIdle: connected => {
   connected.rail.select(null);
-  connected.showView("asks");
 } }), document.getElementById("root"));
 </script></body></html>

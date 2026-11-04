@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { event, workstream } from "../testing/nodes";
+import { door, event, workstream } from "../testing/nodes";
 import { RpcError } from "../app/seam";
 import type { Deliverable } from "@contracts/deliverable/Deliverable";
 import type { Ask } from "@contracts/ask/Ask";
@@ -14,29 +14,49 @@ const type = (text: string) => fireEvent.input(input()!, { target: { value: text
 const sent = (app: { calls: { method: string; params: unknown }[] }) => app.calls.filter((call) => call.method === "ask.send").map((call) => call.params);
 
 describe("u504 the Ask bar", () => {
-  it("u504_sections_toggle_as_one_accordion", async () => {
-    const { app, connected } = await mountAskBar();
+  it("u504_changes_have_one_action", async () => {
+    const { app, connected } = await mountAskBar([], null, [workstream("a", { status: null }), door("w", "needs-you", "permission", { name: "Waiting", parent: "a" }), door("m", "working", "busy", { name: "Maker", parent: "a" })]);
     connected.showView(null);
+    const actor = { kind: "user", id: "you", parent: null } as const;
+    const record = (id: string): Deliverable => ({ project: "original-project", id, maker: { kind: "agent", id: "m", parent: null }, maker_name: "Maker", home: null, title: "same title", published_at: 1, target: { kind: "external", url: `https://example.com/${id}`, availability: "not-checked" } });
 
-    const headings = await waitFor(() => {
-      const buttons = [...document.querySelectorAll<HTMLButtonElement>(".overview-sections [data-part=item-trigger]")];
-      expect(buttons).toHaveLength(3);
+    app.handlers["deliverable.resolve"] = ({ id }) => ({ kind: "external", availability: "not-checked", url: `https://example.com/${id}` });
+    // The first visit's baseline is the Event head once the list has rendered; changes after it are rows.
+    await waitFor(() => expect(document.querySelector(".changes")?.getAttribute("aria-busy")).toBe("false"));
+    app.emit({ seq: 1000, actor, name: "agent.completed", data: { maker: "m", attempt: "a1", turn: "t1" } });
+    app.emit({ seq: 1001, actor, name: "deliverable.published", data: { record: record("r1"), completion: { maker: "m", attempt: "a1", turn: "t1" } } });
+    app.emit({ seq: 1002, actor, name: "deliverable.published", data: { record: record("r2"), completion: { maker: "m", attempt: "a1", turn: "t1" } } });
+    app.emit({ seq: 1002, actor, name: "deliverable.published", data: { record: record("r2"), completion: { maker: "m", attempt: "a1", turn: "t1" } } });
 
-      return buttons;
+    // One row per change, each with one action: the pinned attention row, then the finished turn once.
+    const rows = await waitFor(() => {
+      const found = [...document.querySelectorAll<HTMLElement>(".change-row")];
+      expect(found).toHaveLength(2);
+
+      return found;
     });
 
-    await waitFor(() => expect(headings.map(button => button.getAttribute("aria-expanded"))).toEqual(["true", "false", "false"]));
-    type("keep @ops exact\n unfinished");
+    expect(rows.map(row => within(row).getAllByRole("button").length)).toEqual([1, 1]);
+    fireEvent.click(within(rows[1]!).getByRole("button"));
+    await waitFor(() => expect(app.openedTargets).toEqual([{ kind: "url", url: "https://example.com/r2" }]));
+    fireEvent.click(within(rows[0]!).getByRole("button"));
+    expect(connected.rail.selected()).toBe("w");
+    expect(app.calls.filter(call => ["ask.send", "agent.start", "terminal.write"].includes(call.method))).toEqual([]);
+  });
 
-    for (const button of headings) {
-      button.focus();
-      await waitFor(() => expect(button.hasAttribute("data-focus")).toBe(true));
-      const wasOpen = button.getAttribute("aria-expanded") === "true";
-      fireEvent.click(button);
-      await waitFor(() => expect(headings.filter(head => head.getAttribute("aria-expanded") === "true")).toEqual(wasOpen ? [] : [button]));
-      expect(input()!.value).toBe("keep @ops exact\n unfinished");
-    }
+  it("u504_quiet_return_names_last_visit", async () => {
+    const { app, connected } = await mountAskBar([], null, [workstream("a", { status: null })]);
+    connected.showView(null);
 
+    const quiet = await waitFor(() => {
+      const line = document.querySelector<HTMLElement>(".overview-quiet[data-last-visit]");
+      expect(line).not.toBeNull();
+
+      return line!;
+    });
+
+    expect(quiet.dataset.lastVisit).toBe("first");
+    expect(document.querySelectorAll(".change-row")).toHaveLength(0);
     expect(app.calls.filter(call => ["ask.send", "agent.start", "terminal.write"].includes(call.method))).toEqual([]);
   });
 
