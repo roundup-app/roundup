@@ -259,6 +259,8 @@ impl From<PromptError> for RpcError {
 pub const SCAN_INTERVAL: Duration = Duration::from_millis(2000);
 
 /// A node's place in `Shared::runs`.
+// Slots live in one map and are matched in place; boxing `Run` would add an indirection at every site.
+#[allow(clippy::large_enum_variant)]
 enum Slot {
     /// Its Terminal is starting; `since` is when, on `clock`, it was marked.
     Starting {

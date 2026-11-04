@@ -11,7 +11,9 @@ use serde_json::Value;
 
 /// Hook events that open and close a background Agent. Apart from `STATE_EVENTS`: H15's replay
 /// rule covers the events that move a Kind, and these move only this fact.
-pub const BACKGROUND_EVENTS: [&str; 2] = ["SubagentStart", "SubagentStop"];
+/// DCL5's `PostCompact` rides along: the vendor's completed-compaction event, with `PreCompact`
+/// deliberately not hooked since a start is not a completion.
+pub const BACKGROUND_EVENTS: [&str; 3] = ["SubagentStart", "SubagentStop", "PostCompact"];
 
 /// `ps` reports a process's age in whole seconds.
 const START_SLACK_MS: i64 = 1500;
@@ -360,5 +362,29 @@ mod tests {
         // A dropped SubagentStop keeps the Agent Working until the session restarts.
         hook(&mut a, json!({"hook_event_name":"SessionStart"}));
         assert!(a.background().agents.is_empty());
+    }
+
+    /// DCL5: a compaction is finished by the vendor's own event, once per compaction; its start
+    /// and the usage a turn carries never count.
+    #[test]
+    fn dcl5_completed_compaction_is_reported_once() {
+        let mut a = agent();
+        hook(&mut a, json!({"hook_event_name":"UserPromptSubmit"}));
+        let start = json!({"hook_event_name":"PreCompact","trigger":"auto"});
+        let done = json!({"hook_event_name":"PostCompact","trigger":"auto","compact_summary":"s1"});
+        hook(&mut a, start);
+        hook(
+            &mut a,
+            json!({"hook_event_name":"PostToolUse","usage":{"input_tokens":1,"cache_read_input_tokens":900000}}),
+        );
+        assert_eq!(a.compactions(), 0, "start and usage are not completion");
+        hook(&mut a, done.clone());
+        hook(&mut a, done);
+        assert_eq!(a.compactions(), 1, "a replay is the same compaction");
+        hook(
+            &mut a,
+            json!({"hook_event_name":"PostCompact","trigger":"manual","compact_summary":"s2"}),
+        );
+        assert_eq!(a.compactions(), 2);
     }
 }
