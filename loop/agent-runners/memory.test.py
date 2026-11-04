@@ -25,7 +25,7 @@ AGENT.loader.exec_module(agent)
 class WebShards(unittest.TestCase):
     def test_l121_web_shards_do_not_run_boxd_controller_tests(self):
         result = subprocess.run(['pnpm', '-r', '--filter', '@roundup/agent-runners', '--if-present', 'test',
-                                 '--shard=4/7', '--config', '/nonexistent/vitest-ci-config.mjs'],
+                                 '--shard=4/9', '--config', '/nonexistent/vitest-ci-config.mjs'],
                                 cwd=Path(__file__).resolve().parents[2], capture_output=True, text=True, timeout=30)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertNotIn('TAP version', result.stdout + result.stderr)
