@@ -795,7 +795,19 @@ mod dcl_tests {
             .collect();
         for _ in 0..2 {
             let mut store = lock(&messages.inner.store);
-            reconcile(&messages.inner, &mut store, "m", (1, 9), true, true, false).unwrap();
+            reconcile(
+                &messages.inner,
+                &mut store,
+                "m",
+                (1, 9),
+                Ending {
+                    closed: true,
+                    permanent: true,
+                    retained: false,
+                    restart: false,
+                },
+            )
+            .unwrap();
         }
         (dir, messages, ids)
     }
