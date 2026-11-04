@@ -191,7 +191,7 @@ async fn touches_of(client: &Client, agent: &str) -> Vec<Touch> {
 async fn spawn_with(shim: &Shim, run: &Run, model: Option<&str>) -> CallToolResult {
     let mut arguments = json!({
         "cwd": run.cwd(),
-        "order": {"kind": "work", "ask": "fix the build", "limits": []},
+        "role": "job", "order": {"kind": "work", "ask": "fix the build", "limits": []},
     });
     if let Some(model) = model {
         arguments["model"] = json!(model);

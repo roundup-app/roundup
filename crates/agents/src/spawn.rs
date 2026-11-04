@@ -72,6 +72,20 @@ impl Agents {
                 &lean.extras,
             )?;
         }
+        // DCL9: an Agent's spawn names Job or Consult; refuse before anything starts.
+        if by_agent && params.role.is_none() {
+            return Err(RpcError::new(
+                code::INVALID_PARAMS,
+                "an Agent's spawn needs a `role`: `job` for one bounded outcome that ends with a \
+                 report, `consult` for a Subagent that answers questions and rests",
+            ));
+        }
+        if !by_agent && params.role.is_some() {
+            return Err(RpcError::new(
+                code::INVALID_PARAMS,
+                "`role` is for an Agent's spawn",
+            ));
+        }
         let pair = self.choose(
             &ctx.actor,
             Role::Agent,
@@ -139,6 +153,9 @@ impl Agents {
             }
             if by_agent {
                 rail.set_spawner(&node.id, &ctx.actor.id)?;
+            }
+            if let Some(role) = params.role {
+                rail.set_role(&node.id, role)?;
             }
             rail.set_pair(&node.id, pair.model.as_deref(), pair.effort.as_deref())?;
             if let Some(lean) = &lean {

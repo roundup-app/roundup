@@ -69,8 +69,8 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Contract fingerprint | same | — |
 | Door | none | meta-agent, parent agent, lead |
 | Subagent | same | child agent, sub-agent, meta-agent, parent agent |
-| Job | same | — |
-| Consult | same | — |
+| Job (`SpawnRole::Job`, wire `job`, `SpawnParams.role`, `Rail::role`) | same | — |
+| Consult (`SpawnRole::Consult`, wire `consult`) | same | — |
 | Stalled | stalled | — |
 | Settled note | none | — |
 | Digest | same | — |

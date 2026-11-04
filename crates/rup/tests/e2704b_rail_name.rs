@@ -103,7 +103,7 @@ async fn e2704b_real_claude_answers_with_current_rail_name() {
             let parent = user.request("agent.spawn", json!({"name":"parent","cwd":project.dir.path(),"model":"sonnet","effort":"low"})).await.unwrap();
             idle(project.bound(), &user, parent["id"].as_str().unwrap()).await;
             let caller = as_door(&project, parent["id"].as_str().unwrap()).await;
-            let scout = caller.request("agent.spawn", json!({"name":"sad","cwd":project.dir.path(),"scout":true,"model":"sonnet","order":{"kind":"work","title":"Identity observation","ask":"who are you? Answer in one short sentence.","done":"Identity answered","limits":["Read only"]}})).await.unwrap();
+            let scout = caller.request("agent.spawn", json!({"name":"sad","cwd":project.dir.path(),"scout":true,"model":"sonnet","role":"job","order":{"kind":"work","title":"Identity observation","ask":"who are you? Answer in one short sentence.","done":"Identity answered","limits":["Read only"]}})).await.unwrap();
             user.request("agent.stop", json!({"id":parent["id"]}))
                 .await
                 .unwrap();

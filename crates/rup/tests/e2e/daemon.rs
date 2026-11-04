@@ -213,6 +213,7 @@ impl Project {
             order: None,
             name: None,
             parent: None,
+            role: None,
             model: None,
             effort: None,
             scout: None,

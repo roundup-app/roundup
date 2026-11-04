@@ -601,7 +601,7 @@ async fn a28_an_mcp_spawn_with_a_name_shows_it_on_the_rail() {
     let spawned = shim
         .call(
             "agent_spawn",
-            json!({"cwd": cwd, "order": {"kind": "work", "ask": "fix the build", "limits": []}, "name": "fix refresh race"}),
+            json!({"cwd": cwd, "role":"job","order": {"kind": "work", "ask": "fix the build", "limits": []}, "name": "fix refresh race"}),
         )
         .await;
     assert_eq!(spawned.is_error, Some(false), "{spawned:?}");

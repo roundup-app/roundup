@@ -84,9 +84,15 @@ async fn u5501_levels_survive_reopen_restart_and_home_move() {
 }
 
 async fn spawn(p: &daemon::Project, c: &Client, parent: &str) -> String {
-    c.request("agent.spawn", json!({"cwd":p.dir.path(),"parent":parent}))
-        .await
-        .unwrap()["id"]
+    spawn_with(c, json!({"cwd":p.dir.path(),"parent":parent})).await
+}
+
+async fn spawn_as_agent(p: &daemon::Project, c: &Client, parent: &str) -> String {
+    spawn_with(c, json!({"cwd":p.dir.path(),"parent":parent,"role":"job"})).await
+}
+
+async fn spawn_with(c: &Client, params: serde_json::Value) -> String {
+    c.request("agent.spawn", params).await.unwrap()["id"]
         .as_str()
         .unwrap()
         .into()
@@ -110,7 +116,7 @@ async fn u5501_workstream_bulk_change_includes_its_door_and_nested_agents() {
         )
         .await
         .unwrap();
-    let b = spawn(&p, &agent, &a).await;
+    let b = spawn_as_agent(&p, &agent, &a).await;
     let other = spawn(&p, &c, &outside).await;
     let before = daemon::rail_tree(&c).await;
     set(&p, &c, &home, "all").await.unwrap();

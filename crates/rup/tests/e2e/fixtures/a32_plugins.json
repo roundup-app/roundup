@@ -151,7 +151,7 @@
           {
             "id": "toolu_a32_child",
             "name": "mcp__roundup__agent_spawn",
-            "arguments": "{\"cwd\": \".\", \"order\": {\"kind\": \"work\", \"title\": \"Child work\", \"ask\": \"A32 start grandchild\", \"done\": \"grandchild started\", \"limits\": []}}"
+            "arguments": "{\"role\": \"job\", \"cwd\": \".\", \"order\": {\"kind\": \"work\", \"title\": \"Child work\", \"ask\": \"A32 start grandchild\", \"done\": \"grandchild started\", \"limits\": []}}"
           },
           {
             "id": "toolu_q11_initial_door_0",
@@ -179,7 +179,7 @@
           {
             "id": "toolu_a32_grandchild",
             "name": "mcp__roundup__agent_spawn",
-            "arguments": "{\"cwd\": \".\", \"order\": {\"kind\": \"work\", \"title\": \"Grandchild work\", \"ask\": \"A32 grandchild finish\", \"done\": \"finished\", \"limits\": []}}"
+            "arguments": "{\"role\": \"job\", \"cwd\": \".\", \"order\": {\"kind\": \"work\", \"title\": \"Grandchild work\", \"ask\": \"A32 grandchild finish\", \"done\": \"finished\", \"limits\": []}}"
           },
           {
             "id": "toolu_q11_initial_child_0",
