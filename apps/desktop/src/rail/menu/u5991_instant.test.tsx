@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { RpcError } from "../../app/seam";
-import { agent } from "../../testing/nodes";
+import { agent, info, workstream } from "../../testing/nodes";
 import { mountRail, railCallsTo, rowOf, settled } from "../railFixture";
 
 afterEach(cleanup);
@@ -55,7 +55,7 @@ it("u5991b_ten_removals_and_an_undo_reach_the_daemon_once_in_order", async () =>
 
   await Promise.all([...removals, restored]);
   // SAFETY: every rail.remove call carries the `id` the handler above reads.
-  expect(railCallsTo(app, "rail.remove").map(call => (call as { id: string }).id)).toEqual(all);
+  expect(removedIds(app)).toEqual(all);
   expect(app.calls.filter(call => call.method === "rail.restore")).toHaveLength(1);
 });
 
@@ -69,4 +69,60 @@ it.each([["refused", new RpcError(-32003, "Cannot remove: refused")], ["timed ou
   removeByKey("first");
   await screen.findByText(failure.message);
   expect(rowOf("first")).toBeTruthy();
+});
+
+// SAFETY: every rail.remove call in these tests carries the `id` of the row removed.
+const removedIds = (app: Awaited<ReturnType<typeof mountRail>>["app"]) => railCallsTo(app, "rail.remove").map(call => (call as { id: string }).id);
+
+const removeWorkstream = async (app: Awaited<ReturnType<typeof mountRail>>["app"], name: string) => {
+  fireEvent.contextMenu(rowOf(name));
+  await app.pickMenu("Remove");
+};
+
+it("u5991c_a_failed_workstream_call_returns_it_with_its_children_and_queued_actions_run_after", async () => {
+  const { app } = await mountRail([workstream("chosen"), agent("child", "done", "finished", { parent: "chosen", terminal_id: null, worktree: null }), agent("other", "done", "finished", { terminal_id: null })]);
+  let release = () => undefined as void;
+  const queued = new Promise<void>(resolve => { release = resolve; });
+
+  app.handlers["rail.remove"] = async ({ id }) => {
+    if (id === "chosen") throw new RpcError(-32003, "Cannot remove: refused");
+    await queued;
+
+    return { removed: [], kept: [] };
+  };
+
+  app.handlers["rail.deletion"] = () => null;
+  await settled();
+  fireEvent.click(rowOf("chosen"));
+  await screen.findByText("child", { selector: ".name" });
+  await removeWorkstream(app, "chosen");
+  await screen.findByText("Cannot remove: refused");
+  removeByKey("other");
+  expect(rowOf("chosen")).toBeTruthy();
+  await screen.findByText("child", { selector: ".name" });
+  release();
+  await waitFor(() => expect(removedIds(app)).toEqual(["chosen", "other"]));
+  expect(gone("other")).toBe(true);
+});
+
+it("u5991d_a_loss_question_precedes_the_optimistic_removal", async () => {
+  const { app } = await mountRail([workstream("chosen"), agent("running", "working", "busy", { parent: "chosen" })], [info("live-shell", { owner: "chosen" })]);
+  await settled();
+  await removeWorkstream(app, "chosen");
+  await waitFor(() => expect(app.answerRemoval).toBeTypeOf("function"));
+  expect(rowOf("chosen")).toBeTruthy();
+  expect(rowOf("running")).toBeTruthy();
+  app.answerRemoval!("cancel");
+  await waitFor(() => expect(document.activeElement).toBe(rowOf("chosen")));
+  expect(railCallsTo(app, "rail.remove")).toEqual([]);
+});
+
+it("u5991d_a_clean_workstream_leaves_in_the_next_frame_while_its_call_is_pending", async () => {
+  const { app } = await mountRail([workstream("chosen"), agent("child", "done", "finished", { parent: "chosen", terminal_id: null, worktree: null })]);
+  app.handlers["rail.remove"] = () => new Promise<never>(() => undefined);
+  await settled();
+  await removeWorkstream(app, "chosen");
+  await waitFor(() => expect(gone("chosen")).toBe(true));
+  expect(gone("child")).toBe(true);
+  await waitFor(() => expect(railCallsTo(app, "rail.remove")).toHaveLength(1));
 });

@@ -170,19 +170,19 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
     }, current.node.id);
 
   /** U5991a: the rows leave at once; the call, its receipt and a failure's return of the rows follow in the queue. */
-  const removeAtOnce = (ids: string[], name: string, current: MenuState) => {
+  const removeAtOnce = (ids: string[], name: string, current: MenuState, leaving: string[] = ids) => {
     current.removed?.();
-    rail.hide(ids);
+    rail.hide(leaving);
     close();
 
     void storage.todoUndo.removeRailSelection(ids, name, "rail").then(async removed => {
       if (removed) {
         await rail.refresh();
-        rail.unhide(ids);
+        rail.unhide(leaving);
         acknowledge(current.node.id);
       } else {
         // The row returns first: a failure line about a row the Rail does not show would clear itself.
-        rail.unhide(ids);
+        rail.unhide(leaving);
         onFailure(storage.todoUndo.failure() ?? todoCopy.deleteBusy, current.node.id);
       }
     });
@@ -205,19 +205,8 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
         return;
       }
 
-      if (!rail.nodes.some(node => node.parent === current.node.id)) {
-        removeAtOnce([current.node.id], current.node.name, current);
-
-        return;
-      }
-
-      const removed = await storage.todoUndo.removeRail(current.node.id, current.node.name, "rail");
-      close();
-
-      if (removed) {
-        current.removed?.();
-        acknowledge(current.node.id);
-      } else if (storage.todoUndo.failure() && !storage.todoUndo.blocked()) onFailure(storage.todoUndo.failure()!, current.node.id);
+      // Clean: the Workstream and what goes with it leave now; Agents that stay keep their rows.
+      removeAtOnce([current.node.id], current.node.name, current, [current.node.id, ...(removal?.removedIds ?? [])]);
     } catch (error) {
       close();
 
