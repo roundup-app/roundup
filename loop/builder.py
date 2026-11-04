@@ -361,10 +361,10 @@ def api_flags(budget, effort):
 
 
 def slot_count():
-    """The build and fix slots: `CLAUDE_API` when set, which must be a positive integer, else `CODEX_RUNS`."""
+    """The build and fix slots: `CLAUDE_API` when set, which must be a positive integer, else `CODEX_RUNS` plus `CLAUDE_RUNS`."""
     given = os.environ.get('CLAUDE_API', '')
     if not given:
-        return int(os.environ['CODEX_RUNS'])
+        return int(os.environ['CODEX_RUNS']) + int(os.environ.get('CLAUDE_RUNS') or 0)
     if not (given.isdigit() and int(given) > 0):
         raise SystemExit(f'::error::CLAUDE_API must be the positive number of build and fix slots, not {given!r}')
     return int(given)
@@ -516,11 +516,10 @@ def codex(login, prompt, model, schema, output, rights=RUN_RIGHTS, effort=CODEX_
 
 
 def engine(prompt, schema, output, rights=RUN_RIGHTS, effort=CODEX_BUILD_EFFORT):
-    """L23: run `prompt` on Codex and, when that model used no tool (a usage limit or a setup failure such as a
-    broken ChatGPT login, as `worked` reads it, so the checkout is untouched), on Claude Code. With `CLAUDE_API` set Codex
-    never starts: Claude Code runs on API credit at once. The ChatGPT login leaves the
-    environment first, so a Claude Code run's shell never holds it. With `CODEX_ONLY` set there is no Claude Code: a Codex
-    run that did no work fails. `rights` is as `stream` reads it; `effort` is Codex's reasoning effort. Returns the exit code of the run that was last."""
+    """L23: run `prompt` on Codex or, in a run whose id modulo `slot_count()` is below `CLAUDE_RUNS`, on Claude Code, and when that model used no tool (a usage limit or a
+    setup failure such as a broken ChatGPT login, as `worked` reads it, so the checkout is untouched), on the other. With `CLAUDE_API` set Codex never starts: Claude Code
+    runs on API credit at once. The ChatGPT login leaves the environment first, so a Claude Code run's shell never holds it. With `CODEX_ONLY` set there is no Claude
+    Code: a Codex run that did no work fails. `rights` is as `stream` reads it; `effort` is Codex's reasoning effort. Returns the exit code of the run that was last."""
     login = os.environ.pop('CODEX_AUTH', '')
     image_tools.sync_index()
     if switched():
@@ -535,15 +534,16 @@ def engine(prompt, schema, output, rights=RUN_RIGHTS, effort=CODEX_BUILD_EFFORT)
 
     engines = {'Claude Code': (lambda: claude(prompt, CLAUDE_MODEL, schema, output), Path(os.environ['RUNNER_TEMP']) / 'claude' / 'events.jsonl'),
                'Codex': (codex_or_none, codex_directory() / 'events.jsonl')}
-    run, events = engines['Codex']
-    code = run()
-    if worked(events):
+    share = 0 if os.environ.get('CODEX_ONLY') else int(os.environ.get('CLAUDE_RUNS') or 0)
+    first, second = ('Claude Code', 'Codex') if share and int(os.environ['GITHUB_RUN_ID']) % slot_count() < share else ('Codex', 'Claude Code')
+    code = engines[first][0]()
+    if worked(engines[first][1]):
         return code
     if os.environ.get('CODEX_ONLY'):
         print('::error::Codex did no work and CODEX_ONLY forbids Claude Code', file=sys.stderr)
         return code or 1
-    print('engine: Codex did no work; falling back to Claude Code', file=sys.stderr)
-    return engines['Claude Code'][0]()
+    print(f'engine: {first} did no work; falling back to {second}', file=sys.stderr)
+    return engines[second][0]()
 
 
 def keep(branch, issue, run_url):
