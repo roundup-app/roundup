@@ -1,7 +1,7 @@
 //! X6014: the owner keeps output written while no client is attached.
 use contracts::terminal::{CatchUp, SpawnParams};
 use std::collections::BTreeMap;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 use terminal::{TerminalOwner, Terminals};
 
 const LOG_BYTES: u64 = 1_048_576;
@@ -61,21 +61,17 @@ async fn x6014a_output_written_while_detached_is_replayed_in_order() {
     // The gap: several ticks pass with no client.
     tokio::time::sleep(Duration::from_millis(600)).await;
     let (second, id) = attach(dir.path(), &owner).await;
-    let deadline = Instant::now() + Duration::from_secs(10);
-    let text = loop {
-        let read = second
-            .read(&contracts::terminal::ReadParams {
-                id: id.clone(),
-                after: Some(0),
-                reader: None,
-                max: None,
-            })
-            .unwrap();
-        if read.text.lines().any(|line| line == "40") || Instant::now() > deadline {
-            break read.text;
-        }
-        tokio::time::sleep(Duration::from_millis(50)).await;
-    };
+    // The program ends its count 2 s after it starts; one wait covers the rest, with margin.
+    tokio::time::sleep(Duration::from_secs(4)).await;
+    let text = second
+        .read(&contracts::terminal::ReadParams {
+            id: id.clone(),
+            after: Some(0),
+            reader: None,
+            max: None,
+        })
+        .unwrap()
+        .text;
     let numbers: Vec<u32> = text
         .lines()
         .filter_map(|line| line.trim().parse().ok())

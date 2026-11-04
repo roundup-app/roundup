@@ -4,7 +4,7 @@
 mod rupd_harness;
 
 use std::path::Path;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use rpc::Client;
 use serde_json::{Value, json};
@@ -72,27 +72,23 @@ fn s5981a_output_written_between_exit_and_reopen_is_replayed_in_order() {
     let daemon = start();
     let text = runtime.block_on(async {
         let user = Client::connect(&daemon.socket).await.unwrap();
-        let deadline = Instant::now() + Duration::from_secs(15);
-        loop {
-            let listed: Value = user.request("terminal.list", json!({})).await.unwrap();
-            let mut text = String::new();
-            for terminal in listed
-                .as_array()
-                .unwrap()
-                .iter()
-                .filter(|t| t["running"] == true)
-            {
-                let read = user
-                    .request("terminal.read", json!({"id":terminal["id"],"after":0}))
-                    .await
-                    .unwrap();
-                text.push_str(read["text"].as_str().unwrap());
-            }
-            if text.lines().any(|line| line == "n60") || Instant::now() > deadline {
-                break text;
-            }
-            tokio::time::sleep(Duration::from_millis(100)).await;
+        // The count ends 6 s after it starts; one wait covers it, with margin.
+        tokio::time::sleep(Duration::from_secs(8)).await;
+        let listed: Value = user.request("terminal.list", json!({})).await.unwrap();
+        let mut text = String::new();
+        for terminal in listed
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|t| t["running"] == true)
+        {
+            let read = user
+                .request("terminal.read", json!({"id":terminal["id"],"after":0}))
+                .await
+                .unwrap();
+            text.push_str(read["text"].as_str().unwrap());
         }
+        text
     });
     // The owners outlive the Daemon, so stop them here.
     runtime.block_on(async {
