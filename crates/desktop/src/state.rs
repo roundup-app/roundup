@@ -46,7 +46,7 @@ struct DaemonExited {
 }
 
 /// How long `exit_for_update` waits for each Daemon to answer and then to be gone.
-const UPDATE_BOUND: Duration = Duration::from_secs(5);
+const UPDATE_BOUND: Duration = Duration::from_secs(3);
 
 /// The longest name `rename_project` stores (S10).
 const NAME_LIMIT: usize = 40;
