@@ -274,7 +274,18 @@ impl Messages {
             return Err(RpcError::conflict("matching restarted Attempt not live"));
         }
         let mut store = self.store()?;
-        reconcile(&self.inner, &mut store, agent, at, false, false, false)?;
+        reconcile(
+            &self.inner,
+            &mut store,
+            agent,
+            at,
+            Ending {
+                closed: false,
+                permanent: false,
+                retained: false,
+                restart: false,
+            },
+        )?;
         store.require_generation(agent, at)?;
         Ok(at)
     }

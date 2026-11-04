@@ -38,6 +38,12 @@ and M10 (eligible-idle progress). Unknown Status projects to a busy live receive
 not ReceiverExit. The model and laws need no changes; real-store B5551a observers prove
 this distinction and `just proofs` continues to check the unchanged laws.
 
+## DCL8: a Door's logical receiver outlives its Attempts
+
+M7's receiver is the logical receiver: for an Agent it is the Attempt, for a Door (a Workstream on the Rail) it lasts until the Door is removed. A stopped or crashed Door Attempt, and a Daemon reopen with the Door stopped, project to `Busy`, never `ReceiverExit` (`step::door_event`): pending Messages stay `pending` with their original ids, senders, bodies and order, and nothing is typed. When a new Attempt appears they rebind to it and any stale in-flight record clears, so the next eligible idle writes them as one inbox batch and only receipts mark them delivered. A failed Start has no new Attempt and so clears nothing. Removing a Door, and a Subagent's ending, still apply B9 (DCL4's return note to a sender that is a stopped Door is retained the same way).
+
+M1/M4/M5/M6/M9/M10 are unchanged: the Message records are untouched by an Attempt ending. M7 is unchanged and unweakened: `gone` holds exactly when the logical receiver ended, and the model needs no new event. `LAWS.bend` is byte-identical; `just proofs` still checks it. Rust wiring is proved by `dcl8_stopped_and_crashed_door_keep_backlog_across_restart` on the real store.
+
 ## B50 to B52: authenticated sender selects transport
 
 For an Agent receiver, both `note` and `question` use this table; authenticated identity, never a caller-supplied sender or body, selects the row:
@@ -90,7 +96,7 @@ Attempt. B9 still applies to `done`, an ended Attempt or receiver removal.
 | New Message while already delivery-ready | `Send` with the current Route and sender; the ready state permits delivery immediately. |
 | Route `auto` or `drop` | `Send` makes the Message pending or drops it respectively; readiness bypasses neither Route. `UserDrop` drops a `pending` Message the user sent that has no in-flight record: it leaves the queue as `dropped` (reason `removed`) and nothing is typed (U3782). |
 | Current Attempt is not ready, or typing is refused as `Busy` | `Busy`: no Type effect; keep the batch pending. Rust undoes its pre-typing delivery record on refusal; the model's atomic record-and-Type step represents only accepted typing. A newer readiness revision supplies `Idle` again, including when its handler ran before the Busy completion: Rust re-reads authoritative readiness after rollback and retries only at a strictly newer revision of the same Attempt. An unchanged revision does not retry. |
-| Current Attempt actually ends, even with last Kind `error`; Kind `done`; or receiver is removed | `ReceiverExit`: drop pending Messages as receiver-gone in id order and refuse later sends. A later `Idle` cannot clear `gone`. |
+| Current Attempt actually ends, even with last Kind `error`; Kind `done`; or receiver is removed | `ReceiverExit`: drop pending Messages as receiver-gone in id order and refuse later sends. A later `Idle` cannot clear `gone`. Exception (DCL8): a Door still on the Rail ends only its Attempt; see below. |
 | Observation belongs to an older Attempt or a stale Status revision | No model event for the current receiver: neither `Idle` nor `ReceiverExit`. An older `StopFailure` cannot reopen an exited receiver or close a resumed Attempt. |
 
 A resumed Attempt has a new receiver generation; its predecessor's final Messages
