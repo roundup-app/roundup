@@ -113,7 +113,7 @@ struct Keep {
 }
 
 fn agent_ids(db: &Path) -> Result<BTreeSet<String>, RpcError> {
-    let conn = Connection::open(db).map_err(|e| failed(db, e))?;
+    let conn = open_read(db)?;
     let mut statement = conn
         .prepare("SELECT id FROM nodes WHERE kind = 'agent'")
         .map_err(|e| failed(db, e))?;
@@ -224,13 +224,37 @@ fn copy_all(
     })
 }
 
+/// Opens `db` to read. A database at rest has no `-wal`; opening it normally would create that
+/// file and a `-shm` in the live folder, so it opens `immutable`, which touches nothing.
+fn open_read(db: &Path) -> Result<Connection, RpcError> {
+    let at_rest = ["-wal", "-shm"].iter().all(|suffix| {
+        let mut side = db.as_os_str().to_owned();
+        side.push(suffix);
+        !Path::new(&side).exists()
+    });
+    let mut flags =
+        rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX;
+    let target = if at_rest {
+        flags |= rusqlite::OpenFlags::SQLITE_OPEN_URI;
+        let encoded: String = db
+            .to_string_lossy()
+            .bytes()
+            .map(|b| match b {
+                b'/' | b'-' | b'_' | b'.' | b'~' => (b as char).to_string(),
+                b if b.is_ascii_alphanumeric() => (b as char).to_string(),
+                b => format!("%{b:02X}"),
+            })
+            .collect();
+        PathBuf::from(format!("file:{encoded}?immutable=1"))
+    } else {
+        db.to_path_buf()
+    };
+    Connection::open_with_flags(&target, flags).map_err(|e| failed(db, e))
+}
+
 /// `VACUUM INTO`: one read snapshot of `from`, whose `-wal` is part of it, written whole to `to`.
 fn snapshot(from: &Path, to: &Path) -> Result<(), RpcError> {
-    let conn = Connection::open_with_flags(
-        from,
-        rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX,
-    )
-    .map_err(|e| failed(from, e))?;
+    let conn = open_read(from)?;
     conn.busy_timeout(std::time::Duration::from_secs(10))
         .map_err(|e| failed(from, e))?;
     if let Some(parent) = to.parent() {
