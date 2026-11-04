@@ -123,7 +123,8 @@ pub struct DeletionParams {
 }
 
 /// Reapply only the retained restored boundary. Read `restoration` from the successful
-/// restore/deletion receipt; retry the same request after an unknown reply. Conflicting placement, identity or authority refuses atomically and leaves the source retryable.
+/// restore/deletion receipt; retry the same request after an unknown reply. Conflicting
+/// placement, identity or authority refuses atomically and leaves the source retryable.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct RedoParams {
     pub project: String,
@@ -289,7 +290,8 @@ pub enum FileContent {
 }
 
 /// Merge-base versus current disk content, never the index (U2540a).
-/// Each side is capped at 4 MiB; oversized or special files fail explicitly. Status is null when no change remains against the merge base.
+/// Each side is capped at 4 MiB; oversized or special files fail explicitly.
+/// Status is null when no change remains against the merge base.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct FileComparison {
@@ -454,28 +456,23 @@ pub struct RailNode {
     /// saved conversation that is no child of a Workstream, running or exited.
     #[serde(default)]
     pub can_make_workstream: bool,
-    /// A5287: true exactly when `agent.saveAsMode` would not refuse the node: an Agent roundup
-    /// started.
+    /// A5287: true exactly when `agent.saveAsMode` would not refuse the node: an Agent roundup started.
     #[serde(default)]
     pub can_save_as_mode: bool,
     /// Permission prompts are off for the last acknowledged Attempt; cleared on reopen.
     #[serde(default)]
     pub yolo: bool,
-    /// E6: whether the Agent's `rup mcp` has reported to the Daemon. `None` for a Workstream that is
-    /// no Door, a Terminal, and an Agent with no live Terminal.
+    /// E6: whether the Agent's `rup mcp` has reported to the Daemon. `None` for a Workstream that is no Door, a Terminal, and an Agent with no live Terminal.
     pub channel: Option<Channel>,
-    /// O1: the order of an Agent or a Workstream's Door; `None` for a Terminal. Named `work` because
-    /// `order` is the position among siblings.
+    /// O1: the order of an Agent or a Workstream's Door; `None` for a Terminal. Named `work` because `order` is the position among siblings.
     pub work: Option<Order>,
-    /// F5: processes in a Door's Terminal tree that carry a vendor program's name and that the
-    /// Daemon did not register. Empty for every other node, and for a Door with none.
+    /// F5: processes in a Door's Terminal tree that carry a vendor program's name and that the Daemon did not register. Empty for every other node, and for a Door with none.
     pub stray: Vec<Stray>,
     /// A36: the Model the Agent runs on; `None` passes none. `None` for a Terminal.
     pub model: Option<String>,
     /// A36: the Effort the Agent runs on; `None` passes none. `None` for a Terminal.
     pub effort: Option<String>,
-    /// B51: whether the Claude inbox a `note` is written to is usable, from the Agent's latest
-    /// check; absent before the first check and on a Terminal.
+    /// B51: whether the Claude inbox a `note` is written to is usable, from the Agent's latest check; absent before the first check and on a Terminal.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[specta(optional, type = Inbox)]
     pub inbox: Option<Inbox>,
@@ -881,7 +878,8 @@ pub struct CapturedOrder {
 }
 
 /// O4, U2773c: replace the Order of Agent or Door `id`.
-/// With `captured`, compare and replace atomically at execution. A mismatch is CONFLICT; a removed id is NOT_FOUND. Omit `captured` for an unconditional write.
+/// With `captured`, compare and replace atomically at execution. A mismatch is CONFLICT; a removed id is NOT_FOUND.
+/// Omit `captured` for an unconditional write.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct SetOrderParams {
     pub id: String,
@@ -892,7 +890,8 @@ pub struct SetOrderParams {
 }
 
 /// U5690c: collect exact identities, deduplicated in pre-action Rail order.
-/// The Group is placed before the first affected branch at the nearest unselected common ancestor. Siblings use the first selected sibling's position.
+/// The Group is placed before the first affected branch at the nearest unselected
+/// common ancestor. Siblings use the first selected sibling's position.
 #[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 pub struct GroupParams {
     pub ids: Vec<String>,

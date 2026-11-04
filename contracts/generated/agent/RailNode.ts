@@ -51,36 +51,21 @@ export type RailNode = {
 	 *  saved conversation that is no child of a Workstream, running or exited.
 	 */
 	can_make_workstream: boolean,
-	/**
-	 *  A5287: true exactly when `agent.saveAsMode` would not refuse the node: an Agent roundup
-	 *  started.
-	 */
+	/**  A5287: true exactly when `agent.saveAsMode` would not refuse the node: an Agent roundup started. */
 	can_save_as_mode: boolean,
 	/**  Permission prompts are off for the last acknowledged Attempt; cleared on reopen. */
 	yolo: boolean,
-	/**
-	 *  E6: whether the Agent's `rup mcp` has reported to the Daemon. `None` for a Workstream that is
-	 *  no Door, a Terminal, and an Agent with no live Terminal.
-	 */
+	/**  E6: whether the Agent's `rup mcp` has reported to the Daemon. `None` for a Workstream that is no Door, a Terminal, and an Agent with no live Terminal. */
 	channel: agent$Channel.Channel | null,
-	/**
-	 *  O1: the order of an Agent or a Workstream's Door; `None` for a Terminal. Named `work` because
-	 *  `order` is the position among siblings.
-	 */
+	/**  O1: the order of an Agent or a Workstream's Door; `None` for a Terminal. Named `work` because `order` is the position among siblings. */
 	work: agent$Order.Order | null,
-	/**
-	 *  F5: processes in a Door's Terminal tree that carry a vendor program's name and that the
-	 *  Daemon did not register. Empty for every other node, and for a Door with none.
-	 */
+	/**  F5: processes in a Door's Terminal tree that carry a vendor program's name and that the Daemon did not register. Empty for every other node, and for a Door with none. */
 	stray: agent$Stray.Stray[],
 	/**  A36: the Model the Agent runs on; `None` passes none. `None` for a Terminal. */
 	model: string | null,
 	/**  A36: the Effort the Agent runs on; `None` passes none. `None` for a Terminal. */
 	effort: string | null,
-	/**
-	 *  B51: whether the Claude inbox a `note` is written to is usable, from the Agent's latest
-	 *  check; absent before the first check and on a Terminal.
-	 */
+	/**  B51: whether the Claude inbox a `note` is written to is usable, from the Agent's latest check; absent before the first check and on a Terminal. */
 	inbox?: agent$Inbox.Inbox,
 	/**  U3780a: the Agent's current or last tool call; absent until its first. */
 	tool_call?: agent$ToolCall.ToolCall,
