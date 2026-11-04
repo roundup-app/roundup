@@ -34,7 +34,7 @@
           {
             "id": "toolu_m16_spawn",
             "name": "mcp__roundup__agent_spawn",
-            "arguments": "{\"cwd\": \".\", \"order\": {\"kind\": \"work\", \"title\": \"Run the test\", \"ask\": \"run the test\", \"done\": \"the test ran\", \"limits\": []}, \"parent\": \"999\"}"
+            "arguments": "{\"role\": \"job\", \"cwd\": \".\", \"order\": {\"kind\": \"work\", \"title\": \"Run the test\", \"ask\": \"run the test\", \"done\": \"the test ran\", \"limits\": []}, \"parent\": \"999\"}"
           }
         ]
       }
