@@ -44,6 +44,7 @@ impl Agents {
     /// dropped and its Agent stays `done` (A8). Call once after `Agents::open`.
     pub async fn reattach_owners(&self) -> Vec<String> {
         let mut kept = Vec::new();
+        let forked = self.forked;
         let Ok(entries) = std::fs::read_dir(self.dir.join("owners")) else {
             return kept;
         };
@@ -52,6 +53,11 @@ impl Agents {
             let Some(id) = path.file_stem().and_then(|s| s.to_str()).map(str::to_owned) else {
                 continue;
             };
+            // FOP5978b: a Fork joins no Terminal of the live App and drops the records.
+            if forked {
+                let _ = std::fs::remove_file(&path);
+                continue;
+            }
             let stored = std::fs::read(&path)
                 .ok()
                 .and_then(|body| serde_json::from_slice::<Stored>(&body).ok());
@@ -71,6 +77,9 @@ impl Agents {
     /// The sockets the kept owners' programs inherited as `RUPD_SOCKET` (S1, S3): the reopened
     /// Daemon also answers there, so their hooks and MCP reach the reopened Project unchanged.
     pub fn retained_sockets(&self) -> Vec<PathBuf> {
+        if self.forked {
+            return Vec::new();
+        }
         let Ok(entries) = std::fs::read_dir(self.dir.join("owners")) else {
             return Vec::new();
         };

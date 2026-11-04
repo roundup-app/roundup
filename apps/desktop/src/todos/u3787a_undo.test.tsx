@@ -25,7 +25,7 @@ afterEach(() => batch(cleanup));
 
 let histories: Map<string, ConnectedProject>;
 
-const mount = async (done = false) => {
+const mount = async (done = false, other = false) => {
   localStorage.clear();
   document.body.tabIndex = -1;
   useBrowserStorage(localStorage);
@@ -33,7 +33,7 @@ const mount = async (done = false) => {
   const connections = new Map<string, ConnectedProject>();
   histories = connections;
 
-  for (const path of ["/a", "/b"]) {
+  for (const path of other ? ["/a", "/b"] : ["/a"]) {
     app.add(path);
     const daemon = app.of(path);
     Object.assign(daemon.handlers, padHandlers({ pads: [padOf("first", AGENT, "original"), padOf("second", USER, "other")], history: [] }, data => daemon.emit({ actor: USER, ...data })));
@@ -46,9 +46,9 @@ const mount = async (done = false) => {
   }
 
   render(() => <App app={app} reducedMotion={() => true} clock={() => 0} createEmulator={fakeEmulators().factory} prepareIdle={open => { connections.set(open.project.path, open); open.showView("workstreams"); }} />);
-  await waitFor(() => expect(connections.has("/b")).toBe(true));
+  await waitFor(() => expect(connections.has(other ? "/b" : "/a")).toBe(true));
   fireEvent.click(document.querySelector<HTMLElement>('.project-tab[data-path="/a"] [role="tab"]')!);
-  await waitFor(() => expect(connections.size).toBe(2));
+  await waitFor(() => expect(connections.size).toBe(other ? 2 : 1));
 
   const remove = async (path: string, id = 5) => {
     fireEvent.click(document.querySelector<HTMLElement>(`.project-tab[data-path="${path}"] [role="tab"]`)!);
@@ -103,7 +103,7 @@ it.each(["key", "menu"])("u3787a_delete_has_no_question_and_freezes_targets_u378
 
 // The deletion receipt is authoritative; its event still drives the production list reader.
 const failedDeletionRefresh = async () => {
-  const mounted = await mount();
+  const mounted = await mount(false, true);
   const daemon = mounted.app.of("/a");
   await showEverythingInApp();
   const remove = daemon.handlers["todo.delete"]!;
@@ -193,7 +193,7 @@ const pressUndo = () => {
 const undoKey = () => fireEvent.keyDown(document.activeElement ?? document.body, { key: "z", code: "KeyZ", metaKey: true });
 
 it("u3787a_undo_stays_with_its_project", async () => {
-  const { app, remove, connections } = await mount();
+  const { app, remove, connections } = await mount(false, true);
 
   for (const path of ["/a", "/b"]) {
     await remove(path, 5);
@@ -602,7 +602,7 @@ const openSeventh = async (connections: Map<string, ConnectedProject>) => {
 };
 
 const unconfirmed = async () => {
-  const mounted = await mount();
+  const mounted = await mount(false, true);
   const daemon = mounted.app.of("/a");
 
   daemon.handlers["todo.delete"] = () => { throw new Error("reply lost"); };
@@ -701,7 +701,7 @@ it("u3787g_recovery_keeps_the_original_target_and_requires_a_new_delete", async 
 });
 
 const restoring = async () => {
-  const mounted = await mount();
+  const mounted = await mount(false, true);
   await mounted.remove("/a");
   await waitFor(() => expect(mounted.connections.get("/a")!.drawer.content()).toBe(null));
   const opened = await openSeventh(mounted.connections);

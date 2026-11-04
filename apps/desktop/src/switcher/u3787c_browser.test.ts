@@ -1,5 +1,5 @@
 import { executable } from "../todos/laneBrowser";
-import { execFile } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
 import { promisify } from "node:util";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -12,6 +12,8 @@ const exec = promisify(execFile);
 
 type NameObserver = {
   browser: (...args: string[]) => Promise<string>;
+  batch: (commands: string[][]) => Promise<{ result: { result?: unknown } }[]>;
+  highlighted: (value: string) => string[];
   read: <T>(expression: string) => Promise<T>;
   active: (value: string) => Promise<void>;
   options: () => Promise<string[]>;
@@ -34,9 +36,29 @@ const observeName = async (run: (observer: NameObserver) => Promise<void>) => {
     return result.data.result;
   };
 
-  const active = async (value: string) => {
-    await browser("wait", "--fn", `(() => { const f=document.querySelector('.switcher input'); const rows=[...document.querySelector('.switcher').querySelectorAll('[data-highlighted]')]; return rows.length===1 && rows[0].dataset.value===${JSON.stringify(value)} && f?.getAttribute('aria-activedescendant')===rows[0].id; })()`);
-  };
+  // One CLI connection for several commands, run in order and stopped at the first failure.
+  const batch = (commands: string[][]) => new Promise<{ result: { result?: unknown } }[]>((resolve, reject) => {
+    const child = spawn(executable, ["--session", session, "--json", "batch", "--bail"], { timeout: 25_000 });
+    let stdout = "";
+
+    child.stdout.on("data", chunk => { stdout += chunk; });
+    child.on("error", reject);
+    child.on("close", () => {
+      try {
+        // SAFETY: agent-browser prints one JSON reply per batched command.
+        const replies = JSON.parse(stdout) as { success: boolean; error?: string; result: { result?: unknown } }[];
+        const failed = replies.find(reply => !reply.success);
+
+        if (failed) reject(new Error(failed.error));
+        else resolve(replies);
+      } catch (error) { reject(error); }
+    });
+    child.stdin.end(JSON.stringify(commands));
+  });
+
+  const highlighted = (value: string) => ["wait", "--fn", `(() => { const f=document.querySelector('.switcher input'); const rows=[...document.querySelector('.switcher').querySelectorAll('[data-highlighted]')]; return rows.length===1 && rows[0].dataset.value===${JSON.stringify(value)} && f?.getAttribute('aria-activedescendant')===rows[0].id; })()`];
+
+  const active = async (value: string) => { await browser(...highlighted(value)); };
 
   const options = () => read<string[]>("[...document.querySelector('.switcher').querySelectorAll('[role=option]')].map(e=>e.dataset.value)");
 
@@ -67,7 +89,7 @@ const observeName = async (run: (observer: NameObserver) => Promise<void>) => {
     await read("window.__fake.setStatus('migrate', 'idle', 'idle')");
     await browser("click", ".rail-row[data-id=backend]");
     await browser("wait", "--fn", "document.querySelector('.rail-row[data-id=backend]')?.dataset.selected==='true'");
-    await run({ browser, read, active, options, open, capture });
+    await run({ browser, batch, highlighted, read, active, options, open, capture });
   } finally {
     try { await browser("close"); }
     finally { rmSync(profile, { recursive: true, force: true }); await server.close(); }
@@ -80,7 +102,7 @@ const effects = "window.__fake.app.calls.filter(c=>/\\.(spawn|create|open|write|
 const selection = "[...document.querySelectorAll('.rail-row[data-selected=true]')].map(e=>e.dataset.id)";
 
 it("u4682_name_opens_with_the_first_row_and_navigates_without_selection", async () => {
-  await observeName(async ({ browser, read, active, options, open, capture }) => {
+  await observeName(async ({ browser, batch, highlighted, read, options, open, capture }) => {
     const before = await read(effects);
     await open();
     const values = await options();
@@ -94,9 +116,9 @@ it("u4682_name_opens_with_the_first_row_and_navigates_without_selection", async 
       ["ArrowUp", [...values.slice(0, -1).reverse(), values[0]!]],
     ] as const) {
       for (const value of order) {
-        await browser("press", key);
-        await active(value);
-        expect(await read(`({ focused: document.activeElement?.matches('.switcher input'), selected: ${selection}, content: document.querySelector('.switcher').querySelectorAll('[aria-selected=true]').length, effects: ${effects} })`)).toEqual({ focused: true, selected: ["backend"], content: 0, effects: before });
+        const [, , reading] = await batch([["press", key], highlighted(value), ["eval", `({ focused: document.activeElement?.matches('.switcher input'), selected: ${selection}, content: document.querySelector('.switcher').querySelectorAll('[aria-selected=true]').length, effects: ${effects} })`]]);
+
+        expect(reading!.result.result).toEqual({ focused: true, selected: ["backend"], content: 0, effects: before });
 
         if (key === "ArrowDown" && value === values[boundary]) await capture("boundary");
 
@@ -107,7 +129,7 @@ it("u4682_name_opens_with_the_first_row_and_navigates_without_selection", async 
     await browser("set", "viewport", "1512", "950");
     await capture("journey-opening");
     await browser("fill", ".switcher input", "New Terminal");
-    await active("action:chord:⌘T");
+    await browser(...highlighted("action:chord:⌘T"));
     await read("window.__fake.failNext(-32003,'Terminal creation rejected: choose another name and try again')");
     await browser("press", "Enter");
     await browser("wait", "--fn", "!document.querySelector('.switcher') && [...document.querySelectorAll('[role=alert]')].some(e=>e.textContent.includes('Terminal creation rejected'))");
@@ -116,7 +138,7 @@ it("u4682_name_opens_with_the_first_row_and_navigates_without_selection", async 
 }, 180_000);
 
 it.each(["destination", "action"] as const)("u4682_enter_activates_only_the_row_reached_from_name: %s", async choice => {
-  await observeName(async ({ browser, read, active, options, open }) => {
+  await observeName(async ({ browser, batch, highlighted, read, options, open }) => {
     const before = await read(effects);
     await open();
     const values = await options();
@@ -126,12 +148,10 @@ it.each(["destination", "action"] as const)("u4682_enter_activates_only_the_row_
 
     // Approach from both directions, so Enter cannot accidentally use a stale down-arrow row.
     for (const value of values.slice(1, index + 2)) {
-      await browser("press", "ArrowDown");
-      await active(value);
+      await batch([["press", "ArrowDown"], highlighted(value)]);
     }
 
-    await browser("press", "ArrowUp");
-    await active(target);
+    await batch([["press", "ArrowUp"], highlighted(target)]);
     expect(await read(selection)).toEqual(["backend"]);
     expect(await read(effects)).toEqual(before);
     await browser("press", "Enter");
@@ -152,7 +172,7 @@ it.each(["destination", "action"] as const)("u4682_enter_activates_only_the_row_
 }, 180_000);
 
 it("u4682_pointer_preserves_keyboard_highlight_and_query_caret", async () => {
-  await observeName(async ({ browser, read, active, options, open }) => {
+  await observeName(async ({ browser, batch, highlighted, read, active, options, open }) => {
     await open();
     await browser("fill", ".switcher input", "agent");
     const values = await options();
@@ -165,12 +185,7 @@ it("u4682_pointer_preserves_keyboard_highlight_and_query_caret", async () => {
     const calls = await read(effects);
 
     for (const [key, value] of [["ArrowDown", values[1]!], ["ArrowUp", values[0]!]]) {
-      await browser("press", key!);
-      await active(value!);
-      await browser("hover", `.switcher [data-value=${JSON.stringify(values[2])}]`);
-      await active(value!);
-      await browser("mouse", "move", "0", "0");
-      await active(value!);
+      await batch([["press", key!], highlighted(value!), ["hover", `.switcher [data-value=${JSON.stringify(values[2])}]`], highlighted(value!), ["mouse", "move", "0", "0"], highlighted(value!)]);
       expect(await read("document.activeElement?.matches('.switcher input')")).toBe(true);
       expect(await read("[document.activeElement.value,document.activeElement.selectionStart,document.activeElement.selectionEnd]")).toEqual(before);
       expect(await read(selection)).toEqual(["backend"]);
