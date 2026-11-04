@@ -1,7 +1,6 @@
 import { Dynamic } from "solid-js/web";
 import { findTargets } from "../terminal/links";
 import { focusPane } from "../bubbles/focus";
-import { Disclosure } from "../ui/Disclosure";
 import { createMemo, createSignal, For, Show } from "solid-js";
 import { TargetText } from "../terminal/TargetText";
 import type { AskPart } from "@contracts/ask/AskPart";
@@ -29,6 +28,13 @@ const STATE_WORDS: Record<AskPart["state"], string> = {
   failed: copy.askFailed,
   dropped: copy.askDropped,
 };
+
+const isUnresolved = (asks: ReturnType<typeof useConnectedProject>["asks"], entry: AskEntry, index: number, part: AskPart) =>
+  part.state !== "dropped" && !asks.acknowledged(entry, index);
+
+/** U504: the Ask parts that stay in the change list: not dropped and not yet acknowledged by a view of their Terminal. */
+export const unresolvedParts = (asks: ReturnType<typeof useConnectedProject>["asks"]) =>
+  asks.entries().flatMap(entry => entry.parts.flatMap((part, index) => isUnresolved(asks, entry, index, part) ? [{ entry, part, index }] : []));
 
 /** U505, U506: one row for each part of each Ask, newest first. */
 export const AskRows = (props: { onOpened: () => void; keys: KeyScope }) => {
@@ -66,19 +72,17 @@ export const AskRows = (props: { onOpened: () => void; keys: KeyScope }) => {
     focusPane();
   };
 
-  const live = () => parts().filter(row => !asks.acknowledged(row.entry, row.index));
-  const earlier = () => parts().filter(row => asks.acknowledged(row.entry, row.index));
+  const live = () => parts().filter(row => isUnresolved(asks, row.entry, row.index, row.part));
 
   const rows = (items: ReturnType<typeof parts>) => <ul class="ask-rows" aria-label={copy.askRows}>
     <For each={items}>{({ entry, part, index, live }) => <AskRow linkFailure={linkFailure()} onLinkFailure={setLinkFailure} live={live} keys={props.keys} entry={entry} part={part} index={index} where={where(part)} workstream={workstreamOf(part)} open={open} />}</For>
   </ul>;
 
-  return <Show when={parts().length > 0}><div class="ask-content">
+  return <Show when={live().length > 0}><div class="ask-content">
     <Show when={live().length > 0}><section class="ask-parts" aria-label={copy.askRows}>
 
       {rows(live())}
     </section></Show>
-    <Show when={earlier().length > 0}><Disclosure class="ask-earlier" label={copy.askEarlier(earlier().length)}>{rows(earlier())}</Disclosure></Show>
     <ReservedLine class="target-failure" message={linkFailure()} content={linkFailure()} />
   </div></Show>;
 };

@@ -108,7 +108,11 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
   const chooseStop = () => {
     const current = state();
 
-    if (current) void attempt(async () => { await stop(current.node); }, current.node.id);
+    if (!current) return;
+    // U5991a: the row shows stopped now; the Daemon's reply or failure lifts the drawing.
+    const lift = rail.drawExit(current.node.id, { kind: "signal" });
+
+    void attempt(async () => { try { await stop(current.node); await rail.refresh({ terminals: true }); } finally { lift(); } }, current.node.id);
   };
 
   /** U428: the Rail's stop icon. A `working`, `needs-you` or `blocked` Agent asks first, any other running Agent stops at once. */
@@ -126,6 +130,8 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
 
     resuming.add(id);
     const release = rail.launch(id);
+    // U5991a: the row shows running now; the refresh or a failure lifts the drawing.
+    const lift = rail.drawExit(id, null);
 
     try {
       await app.rpc("agent.resume", { id });
@@ -144,6 +150,7 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
         if (error instanceof RpcError && error.code === NOT_FOUND) await rail.refresh();
       }
     } finally {
+      lift();
       resuming.delete(id);
       release();
     }
@@ -180,6 +187,7 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
 
     void storage.todoUndo.removeRailSelection(ids, name, "rail").then(async removed => {
       if (removed) {
+        rail.keepRemoved(leaving);
         await rail.refresh();
         rail.unhide(leaving);
         acknowledge(current.node.id);

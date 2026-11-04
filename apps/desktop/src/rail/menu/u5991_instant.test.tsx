@@ -4,29 +4,27 @@ import { RpcError } from "../../app/seam";
 import { todo } from "../../todos/testHarness";
 import { agent, event, info, workstream } from "../../testing/nodes";
 import { mountRail, railCallsTo, rowOf, settled } from "../railFixture";
+import { actions, gone, nextFrame, removeByKey } from "./u5991Harness";
 
 afterEach(cleanup);
 
 const names = (count: number) => Array.from({ length: count }, (_, index) => `agent-${index}`);
 
-const gone = (name: string) => screen.queryByText(name, { selector: ".name" }) === null;
-
-const removeByKey = (name: string) => {
-  fireEvent.click(rowOf(name));
-  rowOf(name).focus();
-  fireEvent.keyDown(rowOf(name), { key: "Backspace", code: "Backspace", metaKey: true });
-};
 
 it("u5991a_every_rail_action_renders_before_its_call_answers", async () => {
-  const { app } = await mountRail([agent("first", "done", "finished", { terminal_id: null }), agent("second", "done", "finished", { terminal_id: null })]);
-  app.handlers["rail.remove"] = () => new Promise<never>(() => undefined);
-  await settled();
-  removeByKey("first");
-  // The call is still pending, yet the row is already gone and its sibling stays.
-  expect(gone("first")).toBe(true);
-  expect(rowOf("second")).toBeTruthy();
-  await waitFor(() => expect(railCallsTo(app, "rail.remove")).toEqual([{ id: "first", operation: expect.any(String) }]));
-  expect(screen.queryByRole("progressbar")).toBeNull();
+  for (const action of actions) {
+    cleanup();
+    const mounted = await action.mount();
+    mounted.app.handlers[action.method] = () => new Promise<never>(() => undefined);
+    mounted.app.handlers["rail.deletion"] = () => null;
+    await settled();
+    await action.prepare?.(mounted);
+    await action.fire(mounted);
+    await nextFrame();
+    action.shown(mounted);
+    expect(screen.queryByRole("progressbar"), action.name).toBeNull();
+    await waitFor(() => expect(railCallsTo(mounted.app, action.method), action.name).toEqual([action.call]));
+  }
 });
 
 it("u5991b_ten_removals_and_an_undo_reach_the_daemon_once_in_order", async () => {

@@ -33,7 +33,7 @@ const mount = async (command: string | null, selector: string) => {
   app.handlers["deliverable.resolve"] = ({ id }) => ({ kind: "external", availability: "not-checked", url: `https://example.com/${id}` });
   const { factory } = fakeEmulators();
   render(() => <App app={app} reducedMotion={() => true} clock={() => 0} createEmulator={factory} prepareIdle={open => { if (command === "view:workstreams") open.showView("workstreams"); }} />);
-  await screen.findByRole("region", { name: command === "view:workstreams" ? "Project overview" : "Needs you" });
+  await (command === "view:workstreams" ? screen.findByRole("region", { name: "Project overview" }) : screen.findByRole("textbox", { name: "Ask" }));
 
   if (command === "view:made") openProjectPage(command, "/p");
   await waitFor(() => expect(document.querySelectorAll(selector).length).toBe(command === "view:workstreams" ? 9 : 8));
@@ -105,20 +105,12 @@ it.each(inventory)("u3787c_reopening_keeps_the_existing_list_lifetime $opening",
   if (command !== "view:made") openProjectPage("view:made", "/p");
   await screen.findByRole("region", { name: copy.deliverables });
   await waitFor(() => expect(screen.queryByRole("region", { name: copy.projectOverview })).toBeNull());
-  const madeHeading = screen.getByRole("button", { name: copy.deliverables });
-  madeHeading.focus();
-  await waitFor(() => expect(madeHeading.hasAttribute("data-focus")).toBe(true));
-  fireEvent.click(madeHeading);
+  const close = screen.getByRole("button", { name: copy.closeView(copy.deliverables) });
+  close.focus();
+  fireEvent.click(close);
   await waitFor(() => expect(screen.queryByRole("region", { name: copy.deliverables })).toBeNull());
 
   if (command === "view:made") openProjectPage(command, "/p");
-  else {
-    const heading = screen.getByRole("button", { name: copy.needsYou });
-    heading.focus();
-    await waitFor(() => expect(heading.hasAttribute("data-focus")).toBe(true));
-    fireEvent.click(heading);
-  }
-
   await waitFor(() => expect(document.querySelectorAll(selector).length).toBe(command === "view:workstreams" ? 9 : 8));
   expect(selected([...document.querySelectorAll<HTMLButtonElement>(selector)]).map(row => row.textContent)).toEqual([rows[1]!.textContent]);
   expect(app.openedTargets).toEqual([]);
