@@ -148,6 +148,21 @@ async fn b41_an_already_finished_agent_fires_at_once() {
 }
 
 #[tokio::test]
+async fn dcl3_a_stop_over_background_work_holds_agent_wake_until_it_ends() {
+    let s = scene(&[]).await;
+    let start = json!({"hook_event_name": "SubagentStart", "agent_id": "C"});
+    signal(&s.user, &s.a, start).await;
+    drive(&s.user, &s.a, STOP).await;
+    let reply = ask(&s.as_w, &[&s.a], false).await.unwrap();
+    assert_eq!(reply["fired"], false, "background work holds the request");
+    still(&s.user, &s.w, "[wake]", 0).await;
+    let stop = json!({"hook_event_name": "SubagentStop", "agent_id": "C"});
+    signal(&s.user, &s.a, stop).await;
+    assert_eq!(notes(&s.user, &s.w, "[wake]", 1).await.len(), 1);
+    still(&s.user, &s.w, "[wake]", 1).await;
+}
+
+#[tokio::test]
 async fn b41_all_waits_for_every_named_agent_and_keeps_a_flip_finished() {
     let s = scene(&[]).await;
     ask(&s.as_w, &[&s.a, &s.b], false).await.unwrap();

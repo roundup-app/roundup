@@ -166,6 +166,7 @@ fn clone_observation(observation: &Observation) -> Observation {
         Observation::Signal(payload) => Observation::Signal(payload.clone()),
         Observation::Title(title) => Observation::Title(title.clone()),
         Observation::Tick
+        | Observation::Processes { .. }
         | Observation::Stopped
         | Observation::Exit { .. }
         | Observation::Program(_) => {
