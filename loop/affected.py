@@ -42,9 +42,9 @@ BOXD_READS = ('loop/agent-runners/', 'loop/builder.py', 'loop/affected.py',
               'AGENTS.md', 'scenarios/loop-boxd.md')
 
 
-# A web shard costs about four minutes of setup, so one is worth about this many test files; a full run has 7 shards.
+# A web shard costs about four minutes of setup, so one is worth about this many test files; a full run has 9 shards.
 FILES_PER_SHARD = 50
-MAX_SHARDS = 7
+MAX_SHARDS = 9
 
 
 def shards(files):
