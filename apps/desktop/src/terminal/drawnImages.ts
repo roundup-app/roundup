@@ -44,12 +44,12 @@ export const recordDrawnImages = (terminal: Terminal, scrollback: number) => {
 
     drawn.push({ marker, col: buffer.cursorX, replay: replayOf(transfer) });
 
-    let held = 0;
+    let total = 0;
 
     for (let index = drawn.length - 1; index >= 0; index--) {
-      held += drawn[index]!.replay.length;
+      total += drawn[index]!.replay.length;
 
-      if (held > RETAINED_BASE64_LIMIT || drawn[index]!.marker.isDisposed) drawn.splice(index, 1);
+      if (total > RETAINED_BASE64_LIMIT || drawn[index]!.marker.isDisposed) drawn.splice(index, 1);
     }
   };
 

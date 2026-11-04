@@ -148,21 +148,6 @@ impl KittyScan {
     }
 }
 
-#[cfg(test)]
-mod kitty_tests {
-    use super::*;
-
-    #[test]
-    fn a_query_split_across_chunks_is_found_and_a_transfer_is_not() {
-        let mut scan = KittyScan::default();
-        let mut out = Vec::new();
-        scan.feed(b"x\x1b_Gi=31,s=1,v=1,a", &mut out);
-        scan.feed(b"=q,t=d,f=24;AAAA\x1b", &mut out);
-        scan.feed(b"\\\x1b_Ga=T,i=2,f=100;a=q\x1b\\", &mut out);
-        assert!(matches!(out.as_slice(), [Request::Kitty(31)]));
-    }
-}
-
 fn osc_colour(code: u8, [r, g, b]: [u8; 3]) -> Vec<u8> {
     // X11 colour syntax with 16 bits a channel; a byte repeated is how xterm widens one.
     format!("\x1b]{code};rgb:{r:02x}{r:02x}/{g:02x}{g:02x}/{b:02x}{b:02x}\x1b\\").into_bytes()
@@ -210,5 +195,20 @@ pub(crate) fn from_csi(
             Some(Request::Notices(last == 'h'))
         }
         _ => None,
+    }
+}
+
+#[cfg(test)]
+mod kitty_tests {
+    use super::*;
+
+    #[test]
+    fn a_query_split_across_chunks_is_found_and_a_transfer_is_not() {
+        let mut scan = KittyScan::default();
+        let mut out = Vec::new();
+        scan.feed(b"x\x1b_Gi=31,s=1,v=1,a", &mut out);
+        scan.feed(b"=q,t=d,f=24;AAAA\x1b", &mut out);
+        scan.feed(b"\\\x1b_Ga=T,i=2,f=100;a=q\x1b\\", &mut out);
+        assert!(matches!(out.as_slice(), [Request::Kitty(31)]));
     }
 }
