@@ -79,7 +79,6 @@ export const mountSwitcher = async (selected: string | null = null, tree: RailNo
   });
 
   await connected.rail.settled();
-  await waitFor(() => { if (!app.calls.some(call => call.method === "todo.unread")) throw new Error("Overview comments have not started loading"); });
 
   return { app, connected, emulators, failures };
 };

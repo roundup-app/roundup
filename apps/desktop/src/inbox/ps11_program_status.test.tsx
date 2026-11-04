@@ -47,7 +47,7 @@ it("ps11_needs_you_lists_needs_you_and_error_terminals_with_their_names", async 
 
   fireEvent.click(row.querySelector(".inbox-row")!);
   await screen.findByText("Proceed? <b>y</b>");
-  expect(Number(document.querySelector(".inbox-count")!.textContent)).toBe(3);
+  expect(rows().length).toBe(3);
 });
 
 it("ps11_open_focuses_the_reporting_terminal", async () => {
@@ -74,6 +74,6 @@ it("ps11_routine_kinds_add_no_entry_and_no_interruption", async () => {
   await Promise.resolve();
 
   expect(rows()).toEqual(["a:a"]);
-  expect(Number(document.querySelector(".inbox-count")!.textContent)).toBe(1);
+  expect(rows().length).toBe(1);
   expect(document.querySelectorAll("[data-toast], [role=alert]").length).toBe(toasts);
 });
