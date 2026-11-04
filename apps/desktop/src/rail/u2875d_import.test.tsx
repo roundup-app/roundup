@@ -210,7 +210,7 @@ describe("u2875d the import panel is an ordinary Rail action", () => {
   });
 
   it("u2875d_success_opens_the_created_workstream_with_resume_and_start_supervisor", async () => {
-    const { app } = await mountRail([workstream("w1"), agent("a1", "done", "done", { parent: "w1", can_resume: true })], [exitedTerminal("a1", 0)]);
+    const { app } = await mountRail([workstream("w1"), agent("a1", "idle", "ready", { parent: "w1", can_resume: true })], [exitedTerminal("a1", 0)]);
     app.handlers["project.importDiscover"] = () => found();
     app.handlers["project.importCommit"] = () => ({ outcomes: [{ source: "s1", workstream: "w1", agent: "a1", error: null }] });
 
