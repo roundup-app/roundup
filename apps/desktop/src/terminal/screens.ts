@@ -1,3 +1,4 @@
+import { isWorkstreamChild } from "../rail/layout";
 import { throttle } from "@solid-primitives/scheduled";
 import { captureFocus } from "../keys/focus";
 import { forgetScrollback, restoreScrollback, retainScrollback } from "./scrollback";
@@ -201,6 +202,9 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
   };
 
   const markUnseen = (id: string, on: boolean): void => {
+    // U6119c: a Workstream child's Terminal draws no unseen output.
+    if (on && rail.nodes.some((node) => node.terminal_id === id && isWorkstreamChild(rail.nodes, node))) return;
+
     setUnseenIds((current) => {
       if (current.has(id) === on) return current;
 
