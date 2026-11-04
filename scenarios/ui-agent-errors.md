@@ -37,7 +37,7 @@ Policy: code inventory verified against the official [Claude Code StopFailure in
 
 **U5151c clear the mark without buying another turn.** Given an Agent showing a last-turn error, then:
 
-- Its explanation states that the next turn's status replaces the failure mark. Sending a new message remains an explicit user action through existing delivery; no automatic retry is introduced. A subsequent working/idle/done Status removes the old error explanation and mark from every active presentation. Planned observer: `u5151c_next_status_replaces_the_failure`, using ordered Status events through the App seam and checking no unsolicited command.
+- Its explanation ends after its next action and does not say the next turn replaces the mark (U5151h). Sending a new message remains an explicit user action through existing delivery; no automatic retry is introduced. A subsequent working/idle/done Status removes the old error explanation and mark from every active presentation. Planned observer: `u5151c_next_status_replaces_the_failure`, using ordered Status events through the App seam and checking no unsolicited command.
 - The Agent's existing menu offers Dismiss error while that failure is current. It clears that failure's error mark and attention contribution throughout the App, including aggregate counts and jump-to-attention; it sends no Message, prompt, Terminal input, interrupt, stop or restart and changes no authoritative Kind to a fabricated success. Keep the last failure and its explanation inspectable from the Agent's opened destination, labelled as dismissed. Planned observer: `u5151c_dismissal_clears_only_the_chosen_failure`, with two failed Agents, an independent native request, the menu action, aggregate/jump behavior, inspectable dismissed reason and zero turn-producing calls.
 - Dismissal binds to Project, Agent, Attempt and Status revision. It survives navigation, Project switching and App reload for that same failure. A later error, even with the same code, appears again; dismissing one Agent/Project never hides another's failure. Planned observer: `u5151c_dismissal_is_scoped_to_one_failure`, covering remount, two Projects and a later revision/Attempt. Policy: use existing App persistence and failure handling; introduce no second status store or process supervisor.
 
@@ -58,6 +58,14 @@ Policy: this amends only the unconditional inclusion of an explicitly dismissed 
 
 - The line for A stays while A's dismissal is unsaved, and names A only; a write that stores the full dismissed set including A's key removes A's line, and B's own acknowledged write shows no line of its own. Planned observer: `u5151g_later_saved_dismissal_clears_the_earlier_line`, through the production state module with a storage double that rejects once then accepts, asserting the line's presence after A, its absence after B, and both keys stored.
 - If B's write also rejects, one line per unsaved Agent remains, and Retry on either writes the full dismissed set. Planned observer: `u5151g_each_unsaved_dismissal_keeps_its_line`. Policy: reuse the existing failure line and persistence; no second store.
+
+**U5151h a Rail row shows its whole error.** Given a Rail row of an Agent showing a last-turn error, at the Rail's narrowest width, when the row renders, then:
+
+- The failure text wraps to its full length: no line clamp and no "…". Its name, error mark and drag grip keep their place. Planned observer: `u5151h_rail_failure_line_shows_whole_text`, rendered Rail test asserting the failure line's computed style carries no line clamp or text overflow cut and its text equals the label.
+- The Adapter's failure label for every U5151b code ends after its next action, "{cause}; {next}.", with no trailing sentence about the next turn. Planned observer: extend `u5151b_failure_codes_have_actionable_labels` and `u5151b_unrecognized_and_missing_errors_remain_actionable` to assert cause, next action and no trailing sentence.
+- An unrecognised code, kept verbatim (U5151b), wraps inside the row however long and unbroken. Policy: no other surface gains a clamp or a cut.
+
+Policy: implementation moves D2, D5, D6. Run `just capture U5151h` at 1512×950 in dark mode, Rail narrowest, one Agent per U5151b code plus a long unknown code; the design critic judges that each error reads whole.
 
 **U5151d audit every Agent status label.** Given the App's complete set of Status producers and presentation consumers, then:
 

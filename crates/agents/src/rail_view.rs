@@ -407,26 +407,15 @@ pub(super) fn valid_order(order: &Order) -> Result<(), RpcError> {
 #[cfg(test)]
 mod tests;
 
-/// U5531c: only current, authoritative known-empty completed turns permit internal.
+/// U5531c: only native attention or error keeps a child shown; settled turns, questions and orders never do.
 pub(super) fn visibility_reason(node: &RailNode) -> Option<&'static str> {
-    if matches!(node.work, Some(Order::Clarification { .. })) {
-        return Some("Clarification order is active");
-    }
-    let empty = node.final_text.as_ref().is_some_and(|text| {
-        text.kind == contracts::agent::FinalTextKind::Empty
-            && Some(&text.attempt) == node.attempt.as_ref()
-            && Some(&text.finished) == node.status.as_ref().map(|s| &s.finished)
-    });
-    visibility_protection(node.status.as_ref().map(|s| s.kind), empty)
+    visibility_protection(node.status.as_ref().map(|s| s.kind))
 }
 
-pub(super) fn visibility_protection(kind: Option<Kind>, empty: bool) -> Option<&'static str> {
+pub(super) fn visibility_protection(kind: Option<Kind>) -> Option<&'static str> {
     match kind {
         Some(Kind::NeedsYou) => Some("native attention is active"),
         Some(Kind::Error) => Some("error is active"),
-        Some(Kind::Idle | Kind::Done | Kind::Blocked) if !empty => {
-            Some("completed-turn protection is active")
-        }
         _ => None,
     }
 }

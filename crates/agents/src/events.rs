@@ -455,10 +455,7 @@ impl Shared {
             status.since = provenance::now_ms().max(0);
             Some(status)
         });
-        let empty = run.adapter.turn().is_some()
-            && run.adapter.final_text() == contracts::agent::FinalTextKind::Empty;
-        if super::rail_view::visibility_protection(run.adapter.status().map(|s| s.kind), empty)
-            .is_some()
+        if super::rail_view::visibility_protection(run.adapter.status().map(|s| s.kind)).is_some()
             && let Some(rail) = rail.as_deref_mut()
             && rail.set_visibility(id, contracts::agent::RailVisibility::Shown)?
         {

@@ -82,6 +82,7 @@ pub struct Launcher {
     user_defaults: BTreeSet<&'static str>,
     /// LC14: true only for a Launcher made `without_intent_skill`; the bundle is read at a Door's start.
     lacks_intent: bool,
+    pub(crate) fork_session: bool,
     plugins: Arc<OnceCell<Delivery>>,
     /// B50: the private folder each Agent's messaging socket is made in, made at the first
     /// launch; gone with the Launcher.
@@ -178,6 +179,7 @@ impl Launcher {
             home,
             user_defaults: BTreeSet::new(),
             lacks_intent: false,
+            fork_session: false,
             plugins: Arc::new(OnceCell::new()),
             sockets: Arc::new(std::sync::OnceLock::new()),
             retained_inboxes: Default::default(),
@@ -573,6 +575,7 @@ impl Launcher {
         if let Some(conversation_id) = resume {
             argv.push("--resume".into());
             argv.push(conversation_id.to_owned());
+            argv.extend(self.fork_session.then(|| "--fork-session".to_owned()));
         }
         Ok(argv)
     }
