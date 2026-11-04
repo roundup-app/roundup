@@ -2,6 +2,8 @@ import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-li
 import { afterEach, expect, it } from "vitest";
 import { RpcError } from "../../app/seam";
 import { agent, door, workstream } from "../../testing/nodes";
+import { mountRailAndPane } from "../../terminal/paneHarness";
+import { copy } from "../copy";
 import { chooseAction, chooseFooter, itemOf, mountRail, railCallsTo, rowOf, settled } from "../railFixture";
 
 afterEach(cleanup);
@@ -82,14 +84,23 @@ it("u6000b_starting_stays_until_the_daemon_reports_a_later_status", async () => 
   expect(startingOf(mounted, "old")).toBe(false);
 });
 
-it.each([["refused", new RpcError(-32003, "Cannot start: refused")]] as const)("u6000c_a_refused_start_shows_the_failure_text_and_retry_without_starting_%s", async (_name, failure) => {
+it.each([
+  ["refused", new RpcError(-32003, "Cannot start: refused")],
+  ["timed out", new RpcError(-32001, "Cannot start: timed out")],
+  ["Daemon gone", new Error("the Daemon is gone")],
+] as const)("u6000c_a_refused_start_shows_the_failure_text_and_retry_without_starting_%s", async (_name, failure) => {
   const mounted = await mountRail([exited("old")]);
 
-  mounted.app.handlers["agent.resume"] = () => { throw failure; };
+  mounted.app.handlers["agent.resume"] = () => {
+    // A Daemon that is gone answers neither the call nor the read that follows it.
+    if (!(failure instanceof RpcError)) mounted.app.handlers["rail.tree"] = () => { throw failure; };
+
+    throw failure;
+  };
 
   await settled();
   await chooseAction(mounted.app, "old", "Resume");
-  await screen.findByText(failure.message);
+  await screen.findByText(failure instanceof RpcError ? failure.message : copy.resumeOutcomeUnknownTheDaemonMayHaveResumed);
   expect(rowOf("old")).toBeTruthy();
   expect(startingOf(mounted, "old")).toBe(false);
 });
@@ -130,4 +141,16 @@ it("u6000a_every_launch_renders_starting_before_its_call_answers_new_workstream"
   await chooseFooter("Workstream");
 
   await waitFor(() => expect(mounted.rail.nodes.some(node => node.kind === "workstream" && node.status?.label === "starting")).toBe(true));
+});
+
+it("u6000a_a_launching_row_shows_starting_in_the_pane_and_for_a_workstream_that_is_not_selected", async () => {
+  const { app, connected } = await mountRailAndPane([workstream("ws"), workstream("other")]);
+
+  app.handlers["rail.startDoor"] = never;
+  connected.rail.select("ws");
+  void connected.rail.startDoor("ws");
+  void connected.rail.startDoor("other");
+
+  await screen.findByText(copy.startingDoor("ws"));
+  expect(connected.rail.nodes.find(node => node.id === "other")?.status?.label).toBe("starting");
 });
