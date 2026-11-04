@@ -808,3 +808,40 @@ async fn n7_launch_sites_clean_on_success_and_failure() {
         assert!(!project.exists());
     }
 }
+
+async fn waiting(run: &Run) -> Value {
+    let tree = run.user.request("rail.tree", json!({})).await.unwrap();
+    let door = tree
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|n| n["id"] == run.door)
+        .unwrap()
+        .clone();
+    door["waiting"].clone()
+}
+
+#[tokio::test]
+async fn dcl10_waiting_count_follows_stored_backlog_without_double_count() {
+    let mut run = Run::start().await;
+    assert_eq!(waiting(&run).await, Value::Null);
+    run.user
+        .request(
+            "message.send",
+            json!({"to":run.door,"kind":"note","body":"for later"}),
+        )
+        .await
+        .unwrap();
+    run.change("first").await;
+    run.change("second").await;
+    run.assert_silent().await;
+    // One pending Message plus two kept-back changes of one child: each fact once.
+    assert_eq!(waiting(&run).await, json!(3));
+    drop(run.daemon.stdin.take());
+    run.daemon.child.wait().unwrap();
+    let (daemon, log) = launch(run.dir.path(), run.data.path(), &run.model);
+    run.daemon = daemon;
+    run.log = log;
+    run.user = Client::connect(&run.daemon.socket).await.unwrap();
+    assert_eq!(waiting(&run).await, json!(3));
+}

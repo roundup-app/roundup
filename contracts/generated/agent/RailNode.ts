@@ -84,6 +84,11 @@ export type RailNode = {
 	inbox?: agent$Inbox.Inbox,
 	/**  U3780a: the Agent's current or last tool call; absent until its first. */
 	tool_call?: agent$ToolCall.ToolCall,
+	/**
+	 *  DCL10: on a Workstream, the changes its Door has not received, from the stored backlog;
+	 *  absent when none.
+	 */
+	waiting?: number,
 	/**  A2681a: available conversation parts, only after the Agent's program exits. */
 	overview?: agent$ConversationOverview.ConversationOverview,
 };
