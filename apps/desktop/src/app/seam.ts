@@ -181,7 +181,7 @@ export type MenuBarAction = v.InferOutput<typeof menuBarActionSchema>;
 
 export type MenuBar = {
   mark: "waiting" | "ready" | "empty";
-  entries: { label: string; action: Exclude<MenuBarAction, { kind: "failure" }> | null; since?: number }[];
+  entries: { label: string; subtitle?: string; state?: "needs-you" | "error" | "ready"; head?: true; action: Exclude<MenuBarAction, { kind: "failure" }> | null; since?: number }[];
   dock: MenuBar["entries"];
 };
 

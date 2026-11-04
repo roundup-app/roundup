@@ -102,3 +102,11 @@ Independent Shelf follow-up: rendered-shelf-followup.json adds successful reserv
 [agent-start-config.md](agent-start-config.md) reconciles `agent.spawn`, `agent.resume`, `agent.run`, `agent.setOrder` and `agent.setVisibility` (AS01–AS05) on main `fbc754cf50339cb73c744f3a4e714375444cd659`. Spawn and resume have production App callers; the other three have none by exact-string search. No candidate on this evidence; no owner choice or deletion.
 
 [worktree-reads.md](worktree-reads.md) reconciles `agent.worktreeState`, `agent.changedFiles` and `agent.compareFile` (AW01–AW03) at main `842e70e14162ac5311df8869810aa09a42c17e5e`. Remaining undecided methods are listed there; no owner choice or deletion.
+
+## Terminal read continuation
+
+[terminal-reads.md](terminal-reads.md) assesses TR01–TR06 (`terminal.list`, `snapshot`, `catchUp`, `screen`, `read`, `search`) from source, declarations and scenarios on main `6c9ebd997a409c6af4c532462a1fb64b9c24f3e3`. No row is a candidate; no fresh rendering or runtime replay is claimed. Other undecided methods and final whole-App reconciliation remain open. No partial owner request or deletion.
+
+## Project configuration continuation
+
+[project-config-methods.md](project-config-methods.md) assesses `project.setMcp`, `setPrepared`, `getPrepared`, `prepareDirectory` and `setModels` (PC01–PC05) from source, declarations and scenarios on main `b66cfd2c549d2bb6da59f431090d258ca6aa199c`. None has an App caller, CLI command or MCP tool; only `project.getPrepared` meets one criterion and it is not offered alone. No fresh rendering or runtime replay is claimed. Other undecided methods and final whole-App reconciliation remain open. No partial owner request or deletion.

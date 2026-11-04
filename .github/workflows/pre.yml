@@ -11,10 +11,10 @@ on:
   push:
     branches: [main]
 
-# L82: a newer push cancels an older run; a draft's run has its own group, as `check`'s has, and a push to `main` a group
-# per commit, so a merge never cancels the run of the commit before it.
+# L82: a newer push cancels an older run; a draft's run has its own group, as `check`'s has. A push to `main` cancels the
+# `main` run before it, running or waiting (scenarios/ci-mac.md).
 concurrency:
-  group: pre-${{ github.event_name == 'push' && format('push-{0}', github.sha) || (github.event.pull_request.draft && format('draft-{0}', github.ref) || github.ref) }}
+  group: pre-${{ github.event_name == 'push' && 'push-main' || (github.event.pull_request.draft && format('draft-{0}', github.ref) || github.ref) }}
   cancel-in-progress: true
 
 # L89: a PR's lints run only where its diff reaches (`loop/affected.py`), as `check`'s lanes do; an empty base, on a push to
