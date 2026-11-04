@@ -107,8 +107,9 @@ Tests: `l97` in `loop/rules.test.sh`; observer: `just check` fails a PR that add
 - *No run picks loop work.* A work Issue whose Specification is a `scenarios/loop-*.md` file is `waiting` with the reason `loop machinery; only the user changes it (L118)` and starts no build run; the user's own open PR for it shows it `in-flight` (`test_l118_a_loop_machinery_issue_waits_on_the_user_and_never_runs`, `test_l118_the_user_s_open_pr_for_a_loop_issue_shows_it_in_flight`).
 - *A stall is an alarm.* A stall Issue (L94) is loop work: it reports the stall and asks the user after six hours, and no Builder works it (`test_l94_first_stall_opens_one_issue_only_the_user_works`).
 - No Retro or Care workflow runs (policy).
+- *A dispatch the Builder cannot make.* `observe-dispatch.yml` holds Actions write and runs from `main` on a user's dispatch or on a merge that edits it, never on an Issue, comment or PR event; a build run's token stays Actions read-only (`l118_only_the_observer_holds_actions_write_and_nothing_a_run_starts_starts_it`). It dispatches `check.yml` on `main` and comments on the Issue (#5915) with the run URL, head SHA, event and every job conclusion; the observation passes only when `plan`, every `rust` and `web` lane, `mac-clippy`, `mac`, `chromium` and `check` succeeded, `mac-package` was skipped, the event was `workflow_dispatch` and the head holds #5936's merge, and otherwise the job fails with the evidence posted (`l118_a_dispatch_passes_only_with_the_packaging_skip_and_every_other_job_green`, `l118_the_observer_dispatches_main_and_posts_the_run_s_evidence`).
 
-Tests: `l118` in `loop/orders.test.py`; `l94` in `loop/stall.test.py`.
+Tests: `l118` in `loop/orders.test.py` and `loop/observe-dispatch.test.py`; `l94` in `loop/stall.test.py`.
 
 **L119 tests earn their place.** Rule 10 applies the user's test-value direction to Builder and review runs. Scope: `AGENTS.md`. It cuts tests only in a test file a PR adds or edits.
 - *A kept test catches a break* (policy). A test stays only if it fails when the behaviour its scenario names breaks, and no other test already fails for that break.

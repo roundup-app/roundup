@@ -48,6 +48,8 @@ jobs:
         if: ${{ !cancelled() }}
       - run: python3 loop/stall.test.py
         if: ${{ !cancelled() }}
+      - run: python3 loop/observe-dispatch.test.py
+        if: ${{ !cancelled() }}
       - name: Select boxd regressions
         id: boxd-changes
         if: ${{ !cancelled() }}

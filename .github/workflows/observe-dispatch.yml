@@ -1,0 +1,45 @@
+name: observe-dispatch
+run-name: Dispatch check on main and record it
+
+# L23, L118, CI5915a: a build run's token reads Actions only (`loop/builder.py` RUN_RIGHTS), so it cannot dispatch `check`.
+# This job can: it runs from `main`'s definition, starts only on a user's dispatch or on a merge that edits this
+# observer, runs no model, and comments on the Issue with the run's URL, head SHA, event and every job conclusion.
+on:
+  workflow_dispatch:
+    inputs:
+      issue:
+        description: The Issue that records the observation
+        default: '5915'
+        required: true
+        type: string
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/observe-dispatch.yml
+      - loop/observe-dispatch.py
+
+permissions:
+  actions: write
+  contents: read
+  issues: write
+
+# L98: bash -eo pipefail, so a failure left of a pipe fails the step.
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  observe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    concurrency:
+      group: observe-dispatch
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: main
+      - run: python3 loop/observe-dispatch.py "$ISSUE"
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE: ${{ inputs.issue || '5915' }}
