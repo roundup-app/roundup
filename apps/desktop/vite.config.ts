@@ -212,8 +212,8 @@ export default defineConfig({
       ],
     },
   },
-  // tauri.conf.json's devUrl names this port; moving off it must fail, not open a blank window.
-  server: { port: 5173, strictPort: true },
+  // S13: `just app` hands each checkout its own port and the App's devUrl follows it; moving off it must fail, not open a blank window.
+  server: { port: Number(process.env.ROUNDUP_DEV_PORT ?? 5173), strictPort: true },
   test: {
     environment: "jsdom",
     ...captureSelection,
