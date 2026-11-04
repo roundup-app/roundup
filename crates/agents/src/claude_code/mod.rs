@@ -122,6 +122,10 @@ pub struct ClaudeCode {
     prompt_id: Option<Box<str>>,
     /// DCL3: work still running after the foreground turn.
     background: Box<background::Background>,
+    /// DCL5: compactions the vendor reported finished, and the last one's payload, so a replay of
+    /// the same event is not a second compaction.
+    compactions: u64,
+    last_compaction: Option<Box<str>>,
 }
 
 impl ClaudeCode {
@@ -142,6 +146,8 @@ impl ClaudeCode {
             final_text: FinalTextKind::Unknown,
             prompt_id: None,
             background: Box::default(),
+            compactions: 0,
+            last_compaction: None,
         }
     }
 
@@ -299,6 +305,16 @@ impl ClaudeCode {
 
     fn signal(&mut self, payload: &Value, completion_changed: &mut bool) -> Option<Status> {
         let event = payload["hook_event_name"].as_str();
+        // DCL5: only the vendor's completed-compaction event counts; `PreCompact` is a start and
+        // usage says nothing.
+        if event == Some("PostCompact") {
+            let seen = payload.to_string();
+            if self.last_compaction.as_deref() != Some(seen.as_str()) {
+                self.compactions += 1;
+                self.last_compaction = Some(seen.into());
+            }
+            return None;
+        }
         self.background.hook(payload);
         if event == Some("SubagentStop") {
             return self.release_hold();
@@ -380,6 +396,12 @@ impl ClaudeCode {
             }
         }
         changed
+    }
+
+    /// DCL5: how many compactions the vendor has reported finished; the supervisor publishes one
+    /// fact for each rise.
+    pub fn compactions(&self) -> u64 {
+        self.compactions
     }
 
     /// DCL3: a Stop came, so the process table decides whether work outlives it.
