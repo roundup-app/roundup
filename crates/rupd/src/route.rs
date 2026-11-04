@@ -134,8 +134,33 @@ impl Daemon {
             .modules
             .get("rail")
             .ok_or_else(|| RpcError::method_not_found("rail.tree"))?;
-        rail.call_reply(&self.ctx(conn.actor.clone()), "rail.tree", Value::Null)
-            .await
+        let reply = rail
+            .call_reply(&self.ctx(conn.actor.clone()), "rail.tree", Value::Null)
+            .await?;
+        self.with_waiting(reply).await
+    }
+
+    /// DCL10: each Workstream's waiting count, read from the stored backlog on every reply. A
+    /// reply passes through untouched when no Door has one.
+    async fn with_waiting(&self, reply: rpc::Reply) -> Result<rpc::Reply, RpcError> {
+        let Some(messages) = self.sender.get() else {
+            return Ok(reply);
+        };
+        let counts = messages.waiting_counts().await?;
+        if counts.is_empty() {
+            return Ok(reply);
+        }
+        let mut nodes: Vec<contracts::agent::RailNode> = match reply {
+            rpc::Reply::Value(value) => serde_json::from_value(value),
+            rpc::Reply::Json(json) => serde_json::from_str(&json),
+        }
+        .map_err(RpcError::internal)?;
+        for node in &mut nodes {
+            if node.kind == contracts::agent::NodeKind::Workstream {
+                node.waiting = counts.get(&node.id).copied().filter(|n| *n > 0);
+            }
+        }
+        Ok(rpc::Reply::Value(rpc::reply(&nodes)?))
     }
 
     pub(crate) async fn route_inner(

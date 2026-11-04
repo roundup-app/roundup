@@ -413,6 +413,17 @@ impl Store {
             .map_err(RpcError::internal)
     }
 
+    /// Every `pending` Message, oldest first.
+    pub(crate) fn pending_all(&self) -> Result<Vec<Message>, RpcError> {
+        self.db
+            .prepare(
+                "SELECT id, from_actor, to_id, kind, body, reply_to, status, reason, at
+                 FROM messages WHERE status = 'pending' ORDER BY id",
+            )
+            .and_then(|mut stmt| stmt.query_map([], row_to_message)?.collect())
+            .map_err(RpcError::internal)
+    }
+
     /// B5763b: only a successful write establishes comparison history for this session.
     pub(crate) fn last_inbox(
         &self,

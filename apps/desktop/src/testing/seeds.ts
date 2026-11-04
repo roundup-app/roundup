@@ -550,7 +550,7 @@ export const seedApp = (name: SeedName, now: number): Controls => {
           agent("dense", "working", "eight Runs", { name: "dense", parent: "first-workstream", order: 1, status: statusAt(now, "working", "eight Runs", 1) }),
         ]
       : name === "door-stopped"
-      ? [door("first-workstream", "done", "finished", { name: "first workstream", status: statusAt(now, "done", "finished", 0) })]
+      ? [door("first-workstream", "done", "finished", { name: "first workstream", waiting: 3, status: statusAt(now, "done", "finished", 0) })]
       : tree;
 
   if (name === "selection") nodes.splice(0, nodes.length, ...nodes.filter(node => ["backend", "payments", "migrate", "agent-1"].includes(node.id)));

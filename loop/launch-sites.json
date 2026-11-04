@@ -282,6 +282,13 @@
     "kind": "indirect",
     "sha256": "ac21e5550d19ac685f64c5650f51489a7bfa96e5e032bd1fd731c69c8e867b07"
   },
+  "crates/desktop/tests/project_opening/mod.rs": {
+    "cleanup": "Test's TempDir drops after the refused open; rupd refuses the Project and exits, so no Daemon outlives the test.",
+    "data": "Config data_dir is a run-owned absolute folder inside the test's TempDir, outside the Project.",
+    "issue": 6123,
+    "kind": "real",
+    "sha256": "b1b4dd73afa012b5ebb60236d3fc8232e9ecaa219288de48efac3c2119fa5cfe"
+  },
   "crates/desktop/tests/update_exit/mod.rs": {
     "cleanup": "Fixture Drop closes the Project and the App; S5981 tests assert the recorded rupd and terminal-owner pids are gone before the temporary folders are removed.",
     "data": "Fixture::new's wrapper script runs rupd with an absolute TempDir data folder and Project, with a fake claude as the Agent program.",

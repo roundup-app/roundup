@@ -160,7 +160,7 @@ fn refuse_divergent(db: &Connection) -> rusqlite::Result<()> {
         "SELECT NOT EXISTS(SELECT 1 FROM sqlite_schema WHERE name NOT LIKE 'sqlite\\_%' ESCAPE '\\')",
         [], |r| r.get(0),
     )?;
-    if stored < known as i64 - 1 && !(stored == 0 && empty) {
+    if stored <= 0 && !(stored == 0 && empty) {
         return Err(error("Local data is incompatible with this build."));
     }
     if stored > known as i64 {
