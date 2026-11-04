@@ -127,8 +127,11 @@ export function createTodoUndo() {
   const serial = <A extends unknown[], T>(run: (...args: A) => Promise<T>) => (...args: A): Promise<T> => {
     // An idle queue starts the call in the same tick; a busy one starts it when the earlier calls have answered.
     const next = waiting === 0 ? run(...args) : tail.then(() => run(...args));
+    const settle = () => { waiting -= 1; };
+
     waiting += 1;
-    tail = next.catch(() => undefined).finally(() => { waiting -= 1; });
+    // The caller owns `next`'s rejection; the queue only learns that the call is over.
+    tail = next.then(settle, settle);
 
     return next;
   };

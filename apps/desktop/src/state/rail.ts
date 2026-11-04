@@ -490,8 +490,8 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
     get nodes() {
       return view();
     },
-    hide: ids => setHidden(held => new Set([...held, ...ids])),
-    unhide: ids => setHidden(held => new Set([...held].filter(id => !ids.includes(id)))),
+    hide: ids => setHidden(rows => new Set([...rows, ...ids])),
+    unhide: ids => setHidden(rows => new Set([...rows].filter(id => !ids.includes(id)))),
     exitOf: (node) => {
       if (node.terminal_id === null) return { kind: "unknown" };
 

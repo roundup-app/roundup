@@ -52,7 +52,8 @@ it("u5991b_ten_removals_and_an_undo_reach_the_daemon_once_in_order", async () =>
   }
 
   await Promise.all([...removals, restored]);
-  expect(railCallsTo(app, "rail.remove").map(call => call.id)).toEqual(all);
+  // SAFETY: every rail.remove call carries the `id` the handler above reads.
+  expect(railCallsTo(app, "rail.remove").map(call => (call as { id: string }).id)).toEqual(all);
   expect(app.calls.filter(call => call.method === "rail.restore")).toHaveLength(1);
 });
 

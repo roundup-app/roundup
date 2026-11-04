@@ -57,7 +57,7 @@ it.each(["menu", "key", "unknown", "pending"].flatMap(entry => ["agent", "workst
 
   if (entry === "pending") {
     // U5991a: the row is already gone while the call is pending.
-    expect(screen.queryByText("chosen", { selector: ".name" })).toBeNull();
+    expect(() => rowOf("chosen")).toThrow();
     finish!(receipt!);
   }
 
