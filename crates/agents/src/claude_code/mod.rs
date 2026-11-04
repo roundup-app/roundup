@@ -239,7 +239,7 @@ impl ClaudeCode {
     pub fn tick_at(&self) -> Option<i64> {
         let star = self.star_parked_since.map(|since| since + STAR_HOLD);
         let spinner = self.spinner_at.map(|at| at + SPINNER_HOLD);
-        // DCL3: work held after a Stop is looked at again until it is gone.
+        // DCL3: work still running after a Stop is looked at again until it is gone.
         let work =
             (self.ending == Ending::Running && self.background.stopped && self.background.holds())
                 .then(|| (self.clock)() + background::POLL_MS);
