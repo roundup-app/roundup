@@ -112,12 +112,11 @@ impl Background {
     }
 
     /// Replace the process facts with what `snapshot` shows under `root`; an `Err` keeps them and
-    /// records the cause. `services` names programs (by file name) that are not work.
+    /// records the cause. `rup` calls and hook shells are services, not work.
     pub fn observe(
         &mut self,
         root: u32,
         snapshot: Result<&[Process], String>,
-        services: &[String],
         since: i64,
     ) {
         let snapshot = match snapshot {
@@ -134,7 +133,7 @@ impl Background {
             // A process older than the turn (an MCP server) is a service, not work.
             if process.pid == root
                 || process.started + START_SLACK_MS < since
-                || !under(root, process, &by_pid, services)
+                || !under(root, process, &by_pid)
             {
                 continue;
             }
@@ -145,7 +144,7 @@ impl Background {
     }
 }
 
-fn service(process: &Process, services: &[String]) -> bool {
+fn service(process: &Process) -> bool {
     let name = |arg: &str| arg.rsplit('/').next().unwrap_or(arg).to_owned();
     let program = process.command.first().map(|p| name(p)).unwrap_or_default();
     let rup_args = |args: &[String]| {
@@ -160,7 +159,7 @@ fn service(process: &Process, services: &[String]) -> bool {
             let words: Vec<String> = script.split_whitespace().map(name).collect();
             words.first().is_some_and(|w| w == "rup") && rup_args(&words)
         });
-    rup || hook_shell || services.contains(&program)
+    rup || hook_shell
 }
 
 /// Whether `process` descends from `root` through no service.
@@ -168,11 +167,10 @@ fn under(
     root: u32,
     process: &Process,
     by_pid: &BTreeMap<u32, &Process>,
-    services: &[String],
 ) -> bool {
     let mut at = process;
     for _ in 0..by_pid.len() + 1 {
-        if service(at, services) {
+        if service(at) {
             return false;
         }
         if at.parent == root {
@@ -242,21 +240,21 @@ mod tests {
         assert_eq!(kind(&a), Kind::Working);
         // The Agent ends but a shell and its sleep still run under the program.
         let shell = [proc(10, 1, 5, &["bash"]), proc(11, 10, 6, &["sleep", "15"])];
-        a.observe_processes(1, Ok(&shell), &[]);
+        a.observe_processes(1, Ok(&shell));
         hook(
             &mut a,
             json!({"hook_event_name":"SubagentStop","agent_id":"C"}),
         );
         assert_eq!(kind(&a), Kind::Working, "the shell still runs");
         assert_eq!(a.status().unwrap().finished, finished);
-        let done = a.observe_processes(1, Ok(&[]), &[]).expect("released");
+        let done = a.observe_processes(1, Ok(&[])).expect("released");
         assert_eq!(done.kind, Kind::Idle);
         assert_eq!(
             done.finished,
             (finished.parse::<u64>().unwrap() + 1).to_string()
         );
         assert!(
-            a.observe_processes(1, Ok(&[]), &[]).is_none(),
+            a.observe_processes(1, Ok(&[])).is_none(),
             "completes once"
         );
     }
@@ -270,11 +268,8 @@ mod tests {
             proc(2, 1, 1, &["/usr/bin/rup", "mcp"]),
             proc(3, 1, 1, &["sh", "-c", "/usr/bin/rup signal 7"]),
             proc(4, 3, 1, &["/usr/bin/rup", "signal", "7"]),
-            proc(5, 1, 1, &["node", "server.js"]),
-            proc(6, 5, 1, &["node", "child.js"]),
         ];
-        let services = vec!["node".to_owned()];
-        a.observe_processes(1, Ok(&only_services), &services);
+        a.observe_processes(1, Ok(&only_services));
         assert_eq!(kind(&a), Kind::Idle);
         assert!(!a.background().holds());
         // An MCP server of any name that started before the turn is a service, not work; a
@@ -283,7 +278,7 @@ mod tests {
         hook(&mut b, json!({"hook_event_name":"UserPromptSubmit"}));
         hook(&mut b, json!({"hook_event_name":"Stop"}));
         let table = "  2     1 05:00 npx some-mcp\n  3     1    00:02 sleep 30\n";
-        b.observe_processes(1, Ok(&snapshot(table, 410_000)), &[]);
+        b.observe_processes(1, Ok(&snapshot(table, 410_000)));
         assert_eq!(b.background().processes.keys().collect::<Vec<_>>(), [&3]);
         assert_eq!(etime_seconds("1-02:03:04"), Some(93_784));
     }
@@ -305,26 +300,27 @@ mod tests {
         hook(&mut a, json!({"hook_event_name":"Stop"}));
         assert_eq!(kind(&a), Kind::Working);
         let work = [proc(10, 1, 5, &["sleep", "9"])];
-        a.observe_processes(1, Ok(&work), &[]);
-        // Daemon reopen: the retained facts alone rebuild the hold, the dropped
-        // SubagentStop notwithstanding.
-        let facts = a.background().clone();
+        a.observe_processes(1, Ok(&work));
+        // Daemon reopen: a fresh adapter that sees a Stop holds Working until the first
+        // snapshot, then rebuilds the hold from the process table alone.
         let mut b = agent();
         hook(&mut b, json!({"hook_event_name":"Stop"}));
-        b.resume_background(facts);
-        let kept = b.observe_processes(1, Err("no process table".into()), &[]);
-        assert_eq!(kept.unwrap().kind, Kind::Working);
+        assert_eq!(kind(&b), Kind::Working, "no snapshot yet is not no work");
+        b.observe_processes(1, Err("no process table".into()));
+        assert_eq!(kind(&b), Kind::Working);
         assert_eq!(
             b.background().unavailable.as_deref(),
             Some("no process table")
         );
+        b.observe_processes(1, Ok(&work));
+        assert_eq!(b.background().processes.len(), 1);
         // PID 10 now belongs to an unrelated process outside the program: the old work ended.
         let reused = [proc(10, 99, 77, &["vim"])];
-        b.observe_processes(1, Ok(&reused), &[]);
+        b.observe_processes(1, Ok(&reused));
         assert!(b.background().processes.is_empty());
-        // Only the lost SubagentStop keeps the Agent Working, never the reused PID.
-        assert_eq!(b.background().agents.len(), 1);
-        hook(&mut b, json!({"hook_event_name":"SessionStart"}));
-        assert_eq!(kind(&b), Kind::Idle);
+        assert_eq!(kind(&b), Kind::Idle, "a reused PID holds nothing");
+        // A dropped SubagentStop keeps the Agent Working until the session restarts.
+        hook(&mut a, json!({"hook_event_name":"SessionStart"}));
+        assert!(a.background().agents.is_empty());
     }
 }

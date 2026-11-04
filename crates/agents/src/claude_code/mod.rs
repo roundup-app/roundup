@@ -343,6 +343,10 @@ impl ClaudeCode {
         let (mut kind, mut label) = hook_status(payload)?;
         if event == Some("Stop") {
             self.background.stopped = true;
+            // The process table has not been read since this Stop: work is not known to have ended.
+            self.background
+                .unavailable
+                .get_or_insert_with(|| "process table not read yet".into());
         }
         // DCL3: a Stop while background work runs does not finish the Agent.
         if self.background.stopped && kind == Kind::Idle && self.background.holds() {
@@ -388,13 +392,9 @@ impl ClaudeCode {
     }
 
     /// DCL3: the work the Agent still has after a foreground Stop.
-    pub fn background(&self) -> &background::Background {
+    #[cfg(test)]
+    pub(crate) fn background(&self) -> &background::Background {
         &self.background
-    }
-
-    /// DCL3: adopt retained task facts after a Daemon reopen, before the next snapshot.
-    pub fn resume_background(&mut self, facts: background::Background) {
-        *self.background = facts;
     }
 
     /// DCL3: reconcile with a process snapshot of the program rooted at `root`. Work found after
@@ -403,13 +403,12 @@ impl ClaudeCode {
         &mut self,
         root: u32,
         snapshot: Result<&[background::Process], String>,
-        services: &[String],
     ) -> Option<Status> {
         if self.ending != Ending::Running {
             return None;
         }
         self.background
-            .observe(root, snapshot, services, self.turn_started);
+            .observe(root, snapshot, self.turn_started);
         if self.background.stopped && self.background.holds() {
             return self.settle(Kind::Working, "working".into());
         }
@@ -495,7 +494,7 @@ impl ClaudeCode {
             }
             Observation::Tick => self.tick(),
             Observation::Processes { root, table } => {
-                self.observe_processes(root, table.as_deref().map_err(Clone::clone), &[])
+                self.observe_processes(root, table.as_deref().map_err(Clone::clone))
             }
             Observation::Signal(payload) => self.signal(&payload, &mut completion_changed),
             Observation::Title(title) => self.retitle(&title),

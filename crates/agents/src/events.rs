@@ -674,10 +674,19 @@ impl Shared {
             if run.ended || !run.adapter.needs_processes() {
                 return Ok(tick_at);
             }
-            let Some(root) = self.terminals.program_pid(&run.terminal_id) else {
-                return Ok(tick_at);
-            };
-            root
+            // A program that is gone has no work; its Exit follows.
+            self.terminals.program_pid(&run.terminal_id)
+        };
+        let Some(root) = root else {
+            return self.observe(
+                Actor::daemon(),
+                id,
+                attempt,
+                Observation::Processes {
+                    root: 0,
+                    table: Ok(Vec::new()),
+                },
+            );
         };
         let table = match tokio::task::spawn_blocking(claude_code::background::read_table).await {
             Ok(Ok(table)) => Ok(claude_code::background::snapshot(&table, (self.clock)())),
