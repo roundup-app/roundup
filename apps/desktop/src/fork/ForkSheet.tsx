@@ -19,9 +19,9 @@ const COLOURS: readonly ForkColour[] = ["red", "orange", "amber", "green", "teal
 const validName = (name: string): boolean => [...name].length >= 1 && [...name].length <= 40 && !/\p{Cc}/u.test(name);
 
 /** The tree's keys: arrows, Home, End, Space and Enter belong to the focused row. */
-const TREE_KEYS = new Set(["ArrowDown", "ArrowUp", "ArrowLeft", "ArrowRight", "Home", "End", " ", "Enter"]);
+const TREE_KEYS = /^(Arrow(Down|Up|Left|Right)|Home|End| |Enter)$/;
 
-const claim = (element: HTMLElement) => claimKeys(element, event => TREE_KEYS.has(event.key) && !event.metaKey && !event.ctrlKey && !event.altKey);
+const claim = (element: HTMLElement) => claimKeys(element, event => TREE_KEYS.test(event.key) && !event.metaKey && !event.ctrlKey && !event.altKey);
 
 const Rows = (props: { rows: ForkRow[]; path: number[]; state: (id: string) => boolean | "indeterminate"; toggle: (id: string) => void }) => (
   <For each={props.rows}>{(row, at) => {
