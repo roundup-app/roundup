@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { appendFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { appendFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { test } from "node:test";
@@ -86,7 +86,11 @@ for (const change of ["unchanged", "removed with entry", "additional", "duplicat
     ? "t4448a_rekey_cannot_authorize_edited_assertion"
     : `t3779b_assertion_boundary: baseline ${change}`;
   test(name, () => {
-    const dir = mkdtempSync(resolve(tmpdir(), ".baseline-fixture-"));
+    // The fixture sits behind a symlink, as macOS's tmpdir does (/var is /private/var), so every OS catches a rule
+    // that compares a symlinked path with the real cwd (T6011c).
+    const real = mkdtempSync(resolve(tmpdir(), ".baseline-fixture-"));
+    const dir = `${real}-link`;
+    symlinkSync(real, dir, "dir");
     const file = resolve(dir, "fixture.test.tsx");
     const config = resolve(dir, "config.json");
     const baseline = resolve(dir, directory, "baseline.jsonl");
@@ -143,6 +147,7 @@ for (const change of ["unchanged", "removed with entry", "additional", "duplicat
       if (process.env.ASSERTION_FIXTURE_REPORT) appendFileSync(process.env.ASSERTION_FIXTURE_REPORT, JSON.stringify({ name: `baseline ${change}`, source: readFileSync(file, "utf8"), exitCode: result.status, diagnostics: report.diagnostics.map(item => item.message) }) + "\n");
     } finally {
       rmSync(dir, { recursive: true, force: true });
+      rmSync(real, { recursive: true, force: true });
     }
   });
 }
