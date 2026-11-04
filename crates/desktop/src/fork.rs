@@ -83,7 +83,7 @@ pub(crate) fn params(
 }
 
 /// A new folder name for the Fork under `$ROUNDUP_HOME/forks`.
-pub(crate) fn folder(home: &Path, name: &str) -> PathBuf {
+pub(crate) fn fork_path(home: &Path, name: &str) -> PathBuf {
     let slug: String = name
         .chars()
         .map(|c| {

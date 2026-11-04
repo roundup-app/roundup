@@ -315,7 +315,7 @@ async fn fork_make(
         .first()
         .map(|pick| pick.key.clone())
         .ok_or_else(|| RpcError::new(rpc::code::INVALID_PARAMS, "tick at least one Project"))?;
-    let folder = fork::folder(&home, &name);
+    let folder = fork::fork_path(&home, &name);
     let params = fork::params(name, colour, &projects, &folder)?;
     let reply = state
         .rpc(&live.path, "data.fork", serde_json::json!(params))
