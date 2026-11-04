@@ -52,8 +52,11 @@ export const ChangeList = (props: { ready: boolean; keys: KeyScope; onOpened: ()
 
   const retain = () => void visits.retain({ seq: visits.head(), at: Date.now() }).then(setRetainFailure);
 
+  // A failed read proves nothing: no boundary is frozen or retained and the list never claims quiet (U504).
+  const observed = () => props.ready && asks.loadState() === "ready" && rail.failure() === null;
+
   createEffect(() => {
-    if (!props.ready) return;
+    if (!observed()) return;
 
     if (lower() === null) {
       const previous = visits.previous();
@@ -96,7 +99,11 @@ export const ChangeList = (props: { ready: boolean; keys: KeyScope; onOpened: ()
     void openDeliverable(connected.app, newest.project, newest.id).then(cause => fail(row.key, cause), error => fail(row.key, error instanceof Error ? error.message : String(error)));
   };
 
-  const quiet = () => props.ready && pinned().length === 0 && finished().length === 0 && unresolved().length === 0;
+  // The cause and its one retry: the Rail's read, else the boundary's write.
+  const problem = () => rail.failure() !== null ? { message: rail.failure()!, retry: () => void rail.refresh() }
+    : retainFailure() !== null ? { message: copy.visitNotSaved(retainFailure()!), retry: retain } : null;
+
+  const quiet = () => observed() && pinned().length === 0 && finished().length === 0 && unresolved().length === 0;
 
   const quietLine = () => {
     const at = lower()?.at;
@@ -114,6 +121,8 @@ export const ChangeList = (props: { ready: boolean; keys: KeyScope; onOpened: ()
     </ul>
     <AskRows keys={props.keys} onOpened={props.onOpened} />
     <Show when={quiet()}><p class="overview-quiet" data-last-visit={lower()?.at ?? "first"}>{quietLine()}</p></Show>
-    <ReservedLine message={retainFailure() && copy.visitNotSaved(retainFailure()!)}><button type="button" data-button="quiet" onClick={retain}>{copy.retry}</button></ReservedLine>
+    <ReservedLine message={problem()?.message} status={lower() !== null && visits.expired(lower()!.seq) ? copy.historyUnavailable : null}>
+      <Show when={problem()}>{each => <button type="button" data-button="quiet" onClick={() => each().retry()}>{copy.retry}</button>}</Show>
+    </ReservedLine>
   </section>;
 };

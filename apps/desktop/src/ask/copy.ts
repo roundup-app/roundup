@@ -67,6 +67,7 @@ export const copy = {
   finishedPublished: (count: number) => count === 1 ? "Published a result" : `Published ${count} results`,
   firstVisit: "You have not been here before. Changes appear here.",
   quietSince: (at: string) => `Nothing has changed since ${new Date(at).toLocaleString()}.`,
+  historyUnavailable: "Part of the change history is no longer kept. Showing what remains.",
   visitNotSaved: (cause: string) => `Could not save this visit. ${cause}`,
   retry: sharedCopy.retry,
   noWorkstreamYet: "No Workstream yet",

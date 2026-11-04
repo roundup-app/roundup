@@ -18,9 +18,12 @@ export const visitStorage = (path: string) => storedValue(`roundup:last-visit:${
 export const createVisits = (events: Events, storage: ReturnType<typeof visitStorage>) => {
   const [saved, setSaved] = createSignal<Event[]>([]);
   const [head, setHead] = createSignal(0);
+  const [oldest, setOldest] = createSignal<number | null>(null);
 
   events.subscribe(event => {
     if (event.seq !== undefined && event.seq > head()) setHead(event.seq);
+
+    if (event.seq !== undefined && (oldest() === null || event.seq < oldest()!)) setOldest(event.seq);
 
     if (event.name === "agent.completed" || event.name === "deliverable.published") setSaved(all => [...all, event]);
   }, { replay: true });
@@ -28,10 +31,12 @@ export const createVisits = (events: Events, storage: ReturnType<typeof visitSto
   return {
     saved,
     head,
+    /** Whether the log no longer keeps the Event after `boundary`: Event numbers are contiguous, so the oldest replayed one shows the gap. */
+    expired: (boundary: number) => boundary > 0 && oldest() !== null && oldest()! > boundary + 1,
     /** The previous successfully retained visit, or null on a first visit. */
     previous: (): Visit | null => storage.read() ?? null,
-    /** Retain the Event number a rendered list covered; resolves to the failure cause, or null. */
-    retain: (visit: Visit): Promise<string | null> => storage.write(visit),
+    /** Retain the Event number a rendered list covered, never lower than the one kept; resolves to the failure cause, or null. */
+    retain: (visit: Visit): Promise<string | null> => storage.write({ ...visit, seq: Math.max(visit.seq, storage.read()?.seq ?? 0) }),
   };
 };
 
