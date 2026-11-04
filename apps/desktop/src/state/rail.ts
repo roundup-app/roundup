@@ -159,9 +159,14 @@ const once = (run: () => void): (() => void) => {
 
 let provisionalCount = 0;
 
+const PROVISIONAL = "provisional-";
+
+/** U5991a: whether `node` is a drawn Row that the Daemon does not hold yet. */
+export const isProvisional = (node: RailNode): boolean => node.id.startsWith(PROVISIONAL);
+
 /** U5991a: the Row a new Agent or Workstream shows until the Daemon's own arrives; it carries no Terminal. */
 const provisionalRow = (tree: readonly RailNode[], kind: "agent" | "workstream", name: string, parent: string | null): RailNode => ({
-  id: `provisional-${++provisionalCount}`,
+  id: `${PROVISIONAL}${++provisionalCount}`,
   kind,
   name,
   parent,
