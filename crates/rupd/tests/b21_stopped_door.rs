@@ -4,6 +4,8 @@
 mod aimock;
 #[path = "support/rupd_harness.rs"]
 mod rupd_harness;
+#[path = "support/transcripts.rs"]
+mod transcripts;
 
 use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
@@ -13,6 +15,7 @@ use std::time::Duration;
 use contracts::EventData;
 use rpc::Client;
 use serde_json::{Value, json};
+use transcripts::{latest_snapshot, snapshots, transcript, user_turns_with, written};
 
 const BOUND: Duration = Duration::from_secs(30);
 
@@ -335,48 +338,8 @@ fn launch(
     (daemon, log)
 }
 
-fn snapshots(project: &Path) -> Vec<Value> {
-    std::fs::read_to_string(project.join("comparisons"))
-        .unwrap_or_default()
-        .lines()
-        .filter_map(|line| serde_json::from_str(line).ok())
-        .collect()
-}
-
-// The burst's Todos only accumulate, so its newest complete comparison acknowledges every
-// earlier Todo too. Parsing the full history for each input repeatedly decodes all earlier Todos.
-fn latest_snapshot(project: &Path) -> Option<Value> {
-    std::fs::read_to_string(project.join("comparisons"))
-        .unwrap_or_default()
-        .lines()
-        .rev()
-        .find_map(|line| serde_json::from_str(line).ok())
-}
-
 /// The Door's first prompt, as `tests/fixtures/b21_stopped_door.json` matches it.
 const DOOR_PROMPT: &str = "What is this Workstream for?";
-
-/// Whether Claude Code, configured in `config`, has written a conversation whose user message
-/// holds `prompt`.
-fn written(config: &Path, prompt: &str) -> bool {
-    std::fs::read_dir(config.join("projects"))
-        .into_iter()
-        .flatten()
-        .flatten()
-        .flat_map(|project| {
-            std::fs::read_dir(project.path())
-                .into_iter()
-                .flatten()
-                .flatten()
-        })
-        .filter(|file| file.path().extension().is_some_and(|ext| ext == "jsonl"))
-        .filter_map(|file| std::fs::read_to_string(file.path()).ok())
-        .any(|conversation| {
-            conversation
-                .lines()
-                .any(|line| line.contains(r#""type":"user""#) && line.contains(prompt))
-        })
-}
 
 async fn wait(ready: impl Fn() -> bool) {
     tokio::time::timeout(BOUND, async {
@@ -1011,26 +974,4 @@ async fn subscribe(run: &Run) -> Client {
     let events = Client::connect(&run.daemon.socket).await.unwrap();
     events.request("events.subscribe", json!({})).await.unwrap();
     events
-}
-
-/// Conversation entries of type `user` that carry `text`; Claude Code also logs the same request as an `api-request-blob` entry.
-fn user_turns_with(written: &str, text: &str) -> usize {
-    written
-        .lines()
-        .filter_map(|line| serde_json::from_str::<Value>(line).ok())
-        .filter(|entry| entry["type"] == "user" && entry.to_string().contains(text))
-        .count()
-}
-
-/// The conversation file of the Door, the one that holds the retained Messages.
-fn transcript(config: &Path) -> String {
-    std::fs::read_dir(config.join("projects"))
-        .into_iter()
-        .flatten()
-        .flatten()
-        .flat_map(|p| std::fs::read_dir(p.path()).into_iter().flatten().flatten())
-        .filter(|f| f.path().extension().is_some_and(|e| e == "jsonl"))
-        .filter_map(|f| std::fs::read_to_string(f.path()).ok())
-        .filter(|written| written.contains("first retained"))
-        .collect()
 }
