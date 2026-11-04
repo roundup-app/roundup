@@ -9,6 +9,7 @@ use std::sync::Mutex;
 use rpc::RpcError;
 use serde::{Deserialize, Serialize};
 use tauri::image::Image;
+#[cfg(not(target_os = "macos"))]
 use tauri::menu::{Menu, MenuItem};
 use tauri::tray::{MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::{AppHandle, Emitter, Manager, Runtime};
@@ -239,30 +240,27 @@ pub(crate) fn set_menu_bar<R: Runtime>(
     let holder = app.state::<MenuBar<R>>();
     let mut dispatch = holder.dispatch.lock().expect("menu-bar lock");
     let next = dispatch.replacement(&menu.entries);
-    let native = Menu::new(&app).map_err(internal)?;
-    for (index, entry) in menu.entries.iter().enumerate() {
-        let item = MenuItem::with_id(
-            &app,
-            entry
+    let rows: Vec<(String, String, bool)> = menu
+        .entries
+        .iter()
+        .enumerate()
+        .map(|(index, entry)| {
+            let id = entry
                 .action
                 .as_ref()
-                .map_or_else(|| format!("menu-bar:head:{index}"), action_id),
-            title(entry),
-            entry.action.is_some(),
-            None::<&str>,
-        )
-        .map_err(internal)?;
-        native.append(&item).map_err(internal)?;
-    }
-    if let Some(tray) = app.tray_by_id(TRAY) {
-        tray.set_menu(Some(native)).map_err(internal)?;
-        tray.set_icon(Some(image(menu.mark))).map_err(internal)?;
-        tray.set_icon_as_template(true).map_err(internal)?;
-    } else {
-        TrayIconBuilder::with_id(TRAY)
+                .map_or_else(|| format!("menu-bar:head:{index}"), action_id);
+            (id, title(entry), entry.action.is_some())
+        })
+        .collect();
+    let tray = match app.tray_by_id(TRAY) {
+        Some(tray) => {
+            tray.set_icon(Some(image(menu.mark))).map_err(internal)?;
+            tray.set_icon_as_template(true).map_err(internal)?;
+            tray
+        }
+        None => TrayIconBuilder::with_id(TRAY)
             .icon(image(menu.mark))
             .icon_as_template(true)
-            .menu(&native)
             .show_menu_on_left_click(true)
             .on_menu_event(|app, event| chosen(app, event.id().as_ref()))
             .on_tray_icon_event(|tray, event| {
@@ -280,12 +278,23 @@ pub(crate) fn set_menu_bar<R: Runtime>(
                 }
             })
             .build(&app)
-            .map_err(internal)?;
+            .map_err(internal)?,
+    };
+    #[cfg(target_os = "macos")]
+    native::set_tray_menu(&tray, rows, looks(&menu.entries, provenance::now_ms()))
+        .map_err(internal)?;
+    #[cfg(not(target_os = "macos"))]
+    {
+        let native = Menu::new(&app).map_err(internal)?;
+        for (id, title, enabled) in rows {
+            let item =
+                MenuItem::with_id(&app, id, title, enabled, None::<&str>).map_err(internal)?;
+            native.append(&item).map_err(internal)?;
+        }
+        tray.set_menu(Some(native)).map_err(internal)?;
     }
     *dispatch = next;
     drop(dispatch);
-    #[cfg(target_os = "macos")]
-    style_tray(&app, &menu.entries);
     *holder.entries.lock().expect("menu-bar entries lock") = menu.entries;
     *holder.dock.lock().expect("Dock presentation lock") = menu.dock;
     #[cfg(target_os = "macos")]
