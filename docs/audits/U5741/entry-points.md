@@ -118,3 +118,7 @@ Independent Shelf follow-up: rendered-shelf-followup.json adds successful reserv
 ## Agent hook, Model and Spawn prompt continuation
 
 [agent-hooks-model.md](agent-hooks-model.md) assesses `agent.channelUp`, `agent.signal`, `agent.setModel` and `agent.spawnPrompt` (AH01–AH04) from source, declarations and scenarios on main `e7a69af5294c52a11cf819cc20f6864269a3a65d`. No row is a candidate; AH04 has no App reader and awaits Q1. No fresh rendering or runtime replay is claimed. Other undecided methods and final whole-App reconciliation remain open. No partial owner request or deletion.
+
+## Pad read, Worktrees, Project start, Naming and transport continuation
+
+[daemon-project-pad.md](daemon-project-pad.md) assesses `pad.read`, `project.setWorktrees`, `project.start`, `daemon.getNaming`/`setNaming`, `daemon.ping`/`methods`/`identify` and `events.subscribe` (DP01–DP06) from source, declarations and scenarios on main `8cdbebf0804c4e8c81725348fd26ab8b52e5903a`. No row is a candidate; `project.setWorktrees` has no App caller but fails Q3 and Q1. No fresh rendering or runtime replay is claimed. Other undecided methods and final whole-App reconciliation remain open. No partial owner request or deletion.
