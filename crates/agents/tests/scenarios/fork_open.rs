@@ -1,6 +1,6 @@
 //! FOP5978a–d: an Agents opened on a Fork's data folder (`<fork>/fork.json` beside
 //! `<fork>/projects/<key>`) starts every Agent stopped, attaches no owner, turns Auto off,
-//! resumes as a new branch and never changes a Worktree. FOP5978e is `crates/rupd/src/fork_tests.rs`.
+//! resumes as a new branch and never changes a Worktree. FOP5978e is in the Daemon crate's `fork_tests.rs`.
 
 use std::path::{Path, PathBuf};
 use std::process::Command;
