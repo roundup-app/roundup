@@ -711,6 +711,7 @@ export const App = (props: {
               <button data-button="quiet" type="button" onClick={undo.dismiss}>{copy.dismissFailure}</button>
             </ReservedLine>;
           }}</For>
+          <div class="centre-failures">
           <For each={keys()}>{path => {
             const failure = () => connectionOf(path)?.rail.commandFailure;
             const message = () => projects.active() !== path && failure()?.surface() === "rail" ? failure()?.message() : null;
@@ -725,6 +726,7 @@ export const App = (props: {
           <Show when={storageFailures().length > 0}><div class="storage-failure"><ReservedLine message={storageCopy.failure(storageFailures())}>
             <button data-button="quiet" type="button" onClick={() => void Promise.all(storageFailures().map(problem => problem.retry()))}>{storageCopy.saveRetry}</button>
           </ReservedLine></div></Show>
+          </div>
           <div class="centre-frame">
           <div class="settings-center">
           <div class="settings-center-content" inert={settingsOpen()} style={{ visibility: settingsOpen() ? "hidden" : "visible" }}>

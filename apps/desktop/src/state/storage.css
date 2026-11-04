@@ -12,6 +12,21 @@
   block-size: auto;
 }
 
+/* U6073c: failures float over the centre's top edge, out of flow, never pushing it or the Terminal. */
+.centre-failures {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline: 0;
+  z-index: var(--layer-toast);
+  display: flex;
+  flex-direction: column;
+  pointer-events: none;
+}
+
+.centre-failures > * {
+  pointer-events: auto;
+}
+
 .storage-failure {
   flex: none;
   padding: var(--space-3);
