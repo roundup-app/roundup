@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
+import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { agent, workstream, NOW, event } from "../testing/nodes";
 import { mountRail, rowNames, rowOf, settled } from "./railFixture";
@@ -19,6 +19,7 @@ it("u5940a_settled_children_fold_without_final_text_protection", async () => {
 
 it.each(["absent", "unknown", "empty", "present"] as const)("u5940a_settled_children_fold_whatever_the_final_text %s", async text => {
   const final_text = text === "absent" ? {} : { final_text: { ...empty, finished: "0", kind: text } };
+
   const { setNow } = await mountRail([workstream("stream"),
     agent("done", "done", "finished", { parent: "stream", ...final_text }),
     agent("idle", "idle", "idle", { parent: "stream", status: { kind: "idle", label: "idle", since: NOW, finished: "0" }, ...final_text }),
@@ -32,6 +33,16 @@ it.each(["absent", "unknown", "empty", "present"] as const)("u5940a_settled_chil
   setNow(NOW + 60_000);
   await settled();
   expect(rowNames()).toEqual(["stream", "busy"]);
+});
+
+it("u5940a_collapsed_workstream_counts_only_children_in_progress", async () => {
+  const { rail } = await mountRail([workstream("stream"),
+    agent("done", "done", "finished", { parent: "stream" }),
+    agent("busy", "working", "working", { parent: "stream" }),
+  ]);
+
+  rail.toggleCollapsed("stream");
+  await waitFor(() => expect(screen.getAllByRole("img", { name: /^1 hidden/ })).toHaveLength(1));
 });
 
 it("u5940a_working_idle_one_minute_then_working_returns", async () => {

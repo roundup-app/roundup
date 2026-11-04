@@ -87,8 +87,8 @@ export const railOrder = (source: RailSource): RailNode[] => {
 };
 
 /** U403: the Kinds of the Agents below `id`, most urgent first. */
-export const agentKindsBelow = (source: RailSource, id: string, dismissed: (node: RailNode) => boolean = () => false): Kind[] =>
-  byUrgency(descendantsOf(source, id).flatMap((node) => (node.kind === "agent" && node.alert_level !== "quiet" && node.status && !dismissed(node) ? [node.status.kind] : [])));
+export const agentKindsBelow = (source: RailSource, id: string, dismissed: (node: RailNode) => boolean = () => false, settled: (node: RailNode) => boolean = () => false): Kind[] =>
+  byUrgency(descendantsOf(source, id).flatMap((node) => (node.kind === "agent" && node.alert_level !== "quiet" && node.status && !dismissed(node) && !settled(node) ? [node.status.kind] : [])));
 
 const isFoldedAgent = (node: RailNode, view: RailView): boolean =>
   node.kind === "agent" &&
@@ -136,6 +136,13 @@ export const layoutRail = (source: RailSource, view: RailView, section?: RailSec
     return [...nodeRows, ...foldRows];
   };
 
+  /** U5940a: a collapsed row counts only the children in progress, as its expanded Workstream shows them. */
+  const settledChild = (node: RailNode): boolean => {
+    const parent = node.parent === null ? undefined : tree.nodes[tree.index.get(node.parent) ?? -1];
+
+    return parent !== undefined && isWorkstream(parent) && node.visibility !== "internal" && isFoldedAgent(node, view);
+  };
+
   const rowsOfNode = (at: number, depth: number, trail: readonly boolean[]): RailRow[] => {
     const node = tree.nodes[at]!;
     const collapsed = (isWorkstream(node) || node.kind === "group") && view.collapsed.has(node.id);
@@ -144,7 +151,7 @@ export const layoutRail = (source: RailSource, view: RailView, section?: RailSec
     const row: RailRow = {
       kind: "node", key: `node:${node.id}`, depth, node, trail,
       children: below.length > 0,
-      collapsed: collapsed ? { agents: agentKindsBelow(tree, node.id) } : null,
+      collapsed: collapsed ? { agents: agentKindsBelow(tree, node.id, undefined, settledChild) } : null,
     };
 
     return [row, ...below];
