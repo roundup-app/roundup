@@ -69,6 +69,8 @@ import { Shelf, createShelfTabs, ShelfTabs, ProjectShelfTabs } from "./shelf/She
 import { shelfKeys } from "./shelf/keys";
 import { createWidths } from "./resize/widths";
 
+const ForkSheet = lazy(() => import("./fork/ForkSheet").then(module => ({ default: module.ForkSheet })));
+
 const TodoHost = lazy(() => import("./todos/TodoDrawer").then(module => ({ default: module.TodoHost })));
 
 const PadHost = lazy(() => import("./pads/PadDrawer").then(module => ({ default: module.PadHost })));
@@ -597,6 +599,15 @@ export const App = (props: {
   }).then(stop => { if (menuEnded) stop(); else stopMenu = stop; });
   onCleanup(() => { menuEnded = true; stopMenu?.(); });
 
+  // FS5979a: one sheet, and only with a Project open; a second request while it is open changes nothing.
+  const [forkOpen, setForkOpen] = createSignal(false);
+  const [forkAsked, setForkAsked] = createSignal(false);
+  let forkEnded = false;
+  let stopFork: (() => void) | undefined;
+  void props.app.onForkSheet(() => { if (projects.tabs().length > 0) { setForkAsked(true); setForkOpen(true); } }).then(stop => { if (forkEnded) stop(); else stopFork = stop; });
+  onCleanup(() => { forkEnded = true; stopFork?.(); });
+  const forkSources = () => projects.tabs().map(tab => ({ path: tab.project.path, name: tab.project.name, nodes: railOf(tab.project.path)?.nodes ?? [] }));
+
   /** U181: that Project opens and its most urgent Agent is selected, as leader `J` does. */
   const jumpTo = (path: string) => {
     projects.select(path);
@@ -757,6 +768,7 @@ export const App = (props: {
             </InProject>
           </Show>
           </div>
+          <Show when={forkAsked()}><ForkSheet app={props.app} open={forkOpen()} sources={forkSources} onClose={() => setForkOpen(false)} /></Show>
           <AppSettings app={props.app} project={() => projects.active()} view={settingsView} navigation={() => {
             const open = activeConnection();
 
