@@ -2,10 +2,12 @@ import { cleanup, fireEvent, screen } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { chooseAction, mountRail, rowOf, settled } from "./railFixture";
 import { agent, NOW, workstream } from "../testing/nodes";
+import postcss from "postcss";
+import railCss from "./styles.css?inline";
 
 afterEach(cleanup);
 
-const LABEL = "Claude's servers failed; send the Agent a message to retry. The next turn replaces this mark.";
+const LABEL = "Claude's servers failed; send the Agent a message to retry.";
 
 describe("U5151a", () => {
   it("u5151a_stop_failure_reaches_the_rail", async () => {
@@ -14,6 +16,23 @@ describe("U5151a", () => {
     await mountRail([boom]);
 
     expect(rowOf("boom").textContent).toContain(boom.status!.label);
+  });
+});
+
+describe("U5151h", () => {
+  it("u5151h_rail_failure_line_shows_whole_text", async () => {
+    const long = `Claude failed with ${"x".repeat(200)}; inspect its Terminal, then retry.`;
+    await mountRail([agent("boom", "error", "x", { status: { kind: "error", label: long, since: NOW, finished: "0" } })]);
+
+    const line = rowOf("boom").querySelector(".failure-line")!;
+    const cuts: string[] = [];
+    postcss.parse(railCss).walkRules((rule) => {
+      if (!rule.selectors.some((selector) => line.matches(selector))) return;
+      rule.walkDecls(/^(-webkit-)?line-clamp$|^text-overflow$|^overflow$/, (decl) => { if (!/^(none|clip|visible|auto)$/.test(decl.value)) cuts.push(`${rule.selector} ${decl.prop}: ${decl.value}`); });
+    });
+
+    expect(line.textContent).toBe(long);
+    expect(cuts).toEqual([]);
   });
 });
 
