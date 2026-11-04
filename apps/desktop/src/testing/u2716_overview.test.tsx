@@ -13,7 +13,7 @@ it("u2716a_click_opens_the_project_overview", async () => {
   await waitFor(() => expect(band.getAttribute("aria-pressed")).toBe("false"));
   fireEvent.click(band);
   await waitFor(() => expect(band.getAttribute("aria-pressed")).toBe("true"));
-  expect(document.querySelector(".centre .overview-sections")).not.toBeNull();
+  expect(document.querySelector(".centre .changes")).not.toBeNull();
 });
 
 it("u2716a_attention_name_follows_tree_and_status", async () => {
@@ -25,25 +25,19 @@ it("u2716a_attention_name_follows_tree_and_status", async () => {
   await waitFor(() => expect(band.getAttribute("aria-pressed")).toBe("false"));
   expect(screen.getByRole("button", { name: /Overview.*Project root$/ })).toBe(band);
   fireEvent.click(band);
-  const attention = await screen.findByRole("button", { name: /Needs you/ });
-  attention.focus();
-  await waitFor(() => expect(attention.hasAttribute("data-focus")).toBe(true));
-
-  if (attention.getAttribute("aria-expanded") !== "true") fireEvent.click(attention);
-
-  await waitFor(() => expect(document.querySelector(".overview-sections [data-part=item-trigger][aria-expanded=true]")).not.toBeNull());
-  expect(document.querySelectorAll(".overview-sections .inbox-row")).toHaveLength(0);
+  await waitFor(() => expect(document.querySelector(".changes")).not.toBeNull());
+  expect(document.querySelectorAll(".changes .change-row")).toHaveLength(0);
 
   daemon.handlers["rail.tree"] = () => [door("home", "error", "failed"), agent("worker", "needs-you", "permission"), terminal("shell")];
   daemon.emit(event({ name: "rail.changed" }));
-  await waitFor(() => expect(document.querySelectorAll(".overview-sections .inbox-row")).toHaveLength(2));
+  await waitFor(() => expect(document.querySelectorAll(".changes .change-row")).toHaveLength(2));
   fireEvent.click(document.querySelector<HTMLElement>('.rail-row[data-id="worker"]')!);
   await screen.findByRole("button", { name: /Overview.*Project root.*\b2\b/ });
   fireEvent.click(band);
-  await waitFor(() => expect(document.querySelectorAll(".overview-sections .inbox-row")).toHaveLength(2));
+  await waitFor(() => expect(document.querySelectorAll(".changes .change-row")).toHaveLength(2));
 
   daemon.emit(event({ name: "agent.status", data: { id: "worker", attempt: "1", status_revision: "2", status: { kind: "working", label: "busy", since: 40, finished: "0" } } }));
-  await waitFor(() => expect(document.querySelectorAll(".overview-sections .inbox-row")).toHaveLength(1));
+  await waitFor(() => expect(document.querySelectorAll(".changes .change-row")).toHaveLength(1));
   fireEvent.click(document.querySelector<HTMLElement>('.rail-row[data-id="worker"]')!);
   await screen.findByRole("button", { name: /Overview.*Project root.*\b1\b/ });
 });
