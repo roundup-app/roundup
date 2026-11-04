@@ -101,7 +101,7 @@ pub struct ClaudeCode {
     /// A5482c: completed turn identity, start/end times and final assistant text.
     completed: Option<Box<(String, i64, i64, String)>>,
     turn_started: i64,
-    completed_turn: Option<String>,
+    completed_turn: Option<Box<str>>,
     status: Option<Status>,
     ending: Ending,
     /// The latest recognised Signal was `PreToolUse`: a dialog may be about to open.
@@ -119,11 +119,9 @@ pub struct ClaudeCode {
     final_text: FinalTextKind,
     /// A new turn without UserPromptSubmit must not inherit an earlier completion.
     /// Native permission resumption continues the same authoritative turn.
-    prompt_id: Option<String>,
+    prompt_id: Option<Box<str>>,
     /// DCL3: work still running after the foreground turn.
-    background: background::Background,
-    /// A foreground `Stop` came and no prompt has followed.
-    stopped: bool,
+    background: Box<background::Background>,
 }
 
 impl ClaudeCode {
@@ -143,8 +141,7 @@ impl ClaudeCode {
             hooked: true,
             final_text: FinalTextKind::Unknown,
             prompt_id: None,
-            background: background::Background::default(),
-            stopped: false,
+            background: Box::default(),
         }
     }
 
@@ -303,7 +300,7 @@ impl ClaudeCode {
             return self.release_hold();
         }
         if event == Some("UserPromptSubmit") {
-            self.stopped = false;
+            self.background.stopped = false;
             self.turn_started = (self.clock)();
             self.final_text = FinalTextKind::Unknown;
         }
@@ -318,7 +315,7 @@ impl ClaudeCode {
                 (self.prompt_id.as_deref(), payload["prompt_id"].as_str())
                 && current == incoming
             {
-                self.completed_turn = Some(current.to_owned());
+                self.completed_turn = Some(current.into());
             }
             // Without matching turn identity, an empty reply is not evidence of this turn.
             let next = match (
@@ -341,10 +338,10 @@ impl ClaudeCode {
         }
         let (mut kind, mut label) = hook_status(payload)?;
         if event == Some("Stop") {
-            self.stopped = true;
+            self.background.stopped = true;
         }
         // DCL3: a Stop while background work runs does not finish the Agent.
-        if self.stopped && kind == Kind::Idle && self.background.holds() {
+        if self.background.stopped && kind == Kind::Idle && self.background.holds() {
             (kind, label) = (Kind::Working, "working".into());
         }
         self.after_pre_tool_use = event == Some("PreToolUse");
@@ -352,7 +349,7 @@ impl ClaudeCode {
         self.spinner_at = None;
         let changed = self.settle(kind, label);
         if event == Some("UserPromptSubmit") {
-            self.prompt_id = payload["prompt_id"].as_str().map(str::to_owned);
+            self.prompt_id = payload["prompt_id"].as_str().map(Into::into);
         }
         if event == Some("Stop")
             && let Some(text) = payload["last_assistant_message"].as_str()
@@ -388,7 +385,7 @@ impl ClaudeCode {
 
     /// DCL3: adopt retained task facts after a Daemon reopen, before the next snapshot.
     pub fn resume_background(&mut self, facts: background::Background) {
-        self.background = facts;
+        *self.background = facts;
     }
 
     /// DCL3: reconcile with a process snapshot of the program rooted at `root`. Work found after
@@ -403,7 +400,7 @@ impl ClaudeCode {
             return None;
         }
         self.background.observe(root, snapshot, services);
-        if self.stopped && self.background.holds() {
+        if self.background.stopped && self.background.holds() {
             return self.settle(Kind::Working, "working".into());
         }
         self.release_hold()
@@ -411,8 +408,8 @@ impl ClaudeCode {
 
     /// The Stop kept Working by background work is over once nothing runs.
     fn release_hold(&mut self) -> Option<Status> {
-        if self.stopped && !self.background.holds() && self.ending == Ending::Running {
-            self.stopped = false;
+        if self.background.stopped && !self.background.holds() && self.ending == Ending::Running {
+            self.background.stopped = false;
             return self.settle(Kind::Idle, "idle".into());
         }
         None

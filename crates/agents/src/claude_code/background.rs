@@ -30,6 +30,8 @@ pub struct Background {
     pub processes: BTreeMap<u32, u64>,
     /// Why the last process observation failed; work is then not known to have ended.
     pub unavailable: Option<String>,
+    /// A foreground `Stop` came and no prompt has followed.
+    pub stopped: bool,
 }
 
 impl Background {
@@ -94,7 +96,7 @@ fn service(process: &Process, services: &[String]) -> bool {
     let hook_shell = matches!(program.as_str(), "sh" | "bash" | "zsh")
         && process.command.get(1).is_some_and(|flag| flag == "-c")
         && process.command.get(2).is_some_and(|script| {
-            let words: Vec<String> = script.split_whitespace().map(|w| name(w)).collect();
+            let words: Vec<String> = script.split_whitespace().map(name).collect();
             words.first().is_some_and(|w| w == "rup") && rup_args(&words)
         });
     rup || hook_shell || services.contains(&program)
