@@ -191,6 +191,18 @@ pub(crate) mod tests {
                 crate::rows::tests::u5959a_a_two_line_look_grows_a_measured_row,
             ),
             (
+                "u5959a_looks_past_the_last_item_are_ignored",
+                crate::rows::tests::u5959a_looks_past_the_last_item_are_ignored,
+            ),
+            (
+                "u5959a_a_refresh_after_install_keeps_every_row_height",
+                crate::rows::tests::u5959a_a_refresh_after_install_keeps_every_row_height,
+            ),
+            (
+                "u5959c_dock_agent_rows_hold_their_subtitle_and_badge",
+                crate::dock::tests::u5959c_dock_agent_rows_hold_their_subtitle_and_badge,
+            ),
+            (
                 "u5503_native_dock_menu_dispatches_the_chosen_action",
                 crate::dock::tests::u5503_native_dock_menu_dispatches_the_chosen_action,
             ),

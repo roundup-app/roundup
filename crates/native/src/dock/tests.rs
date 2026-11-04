@@ -164,3 +164,33 @@ pub(crate) fn u5503_native_dock_menu_dispatches_the_chosen_action() {
         Some("The application delegate already implements an incompatible Dock callback")
     );
 }
+
+pub(crate) fn u5959c_dock_agent_rows_hold_their_subtitle_and_badge() {
+    use crate::look::Tone;
+    let main = MainThreadMarker::new().unwrap();
+    let mut section = Section {
+        refresh: Box::new(|| {
+            vec![Row {
+                title: "Logo Design".into(),
+                action: Some("/api:a".into()),
+                look: Look::Agent {
+                    subtitle: "Ready · Acme".into(),
+                    badge: Some("5m".into()),
+                    symbol: "checkmark.circle.fill",
+                    tone: Tone::Accent,
+                },
+            }]
+        }),
+        failure: Box::new(|error| panic!("Dock refresh failed: {error}")),
+        menu: Menu::new(),
+        actions: HashMap::new(),
+    };
+    section.refresh().unwrap();
+    // SAFETY: Muda's accessor is a live NSMenu while `section.menu` is alive, on this thread.
+    let native = unsafe { Retained::retain(section.menu.ns_menu().cast::<NSMenu>()) }.unwrap();
+    let item = native.itemAtIndex(0).unwrap();
+    assert_eq!(item.subtitle().unwrap().to_string(), "Ready · Acme");
+    assert!(item.badge().is_some(), "the Dock row lost its badge");
+    assert!(item.image().is_some(), "the Dock row lost its disc");
+    let _ = main;
+}

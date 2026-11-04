@@ -33,16 +33,22 @@ fn disc(symbol: &str, tone: Tone, dark: bool) -> Option<Retained<NSImage>> {
     ))
 }
 
-/// Style `menu`'s items by position. Repeatable: the badge, appearance-resolved tone and head
-/// are rebuilt each call, so a refresh at menu opening keeps ages and light/dark current.
-pub fn apply(menu: &NSMenu, looks: &[Look], mtm: MainThreadMarker) {
+/// Style `menu`'s items by position; looks past the last item are ignored, since `itemAtIndex:`
+/// raises for them. Repeatable: the badge, appearance-resolved tone and head are rebuilt each
+/// call, so a refresh at menu opening keeps ages and light/dark current. Returns whether a row
+/// changed height (a new or different subtitle) and so needs the menu measured again.
+pub fn apply(menu: &NSMenu, looks: &[Look], mtm: MainThreadMarker) -> bool {
     let dark = dark(mtm);
+    let mut regrown = false;
     for (index, look) in looks.iter().enumerate() {
         let Ok(position) = isize::try_from(index) else {
-            return;
+            break;
         };
+        if position >= menu.numberOfItems() {
+            break;
+        }
         let Some(item) = menu.itemAtIndex(position) else {
-            return;
+            break;
         };
         match look {
             Look::Plain => {}
@@ -61,8 +67,15 @@ pub fn apply(menu: &NSMenu, looks: &[Look], mtm: MainThreadMarker) {
                 tone,
             } => {
                 // Older systems lack these selectors; they keep the one-line title.
+                let mut taller = false;
                 if item.respondsToSelector(sel!(setSubtitle:)) {
-                    item.setSubtitle(Some(&NSString::from_str(subtitle)));
+                    let next = NSString::from_str(subtitle);
+                    taller = item
+                        .subtitle()
+                        .is_none_or(|held| !held.isEqualToString(&next));
+                    if taller {
+                        item.setSubtitle(Some(&next));
+                    }
                 }
                 if item.respondsToSelector(sel!(setBadge:)) {
                     let badge = badge.as_deref().map(|text| {
@@ -76,10 +89,16 @@ pub fn apply(menu: &NSMenu, looks: &[Look], mtm: MainThreadMarker) {
                 item.setImage(disc(symbol, *tone, dark).as_deref());
                 // AppKit caches an item's height from its last layout; without this a row that was
                 // measured as one line keeps that height and clips its two lines (U5959a).
-                menu.itemChanged(&item);
+                // Only a changed subtitle changes the height; a badge or tone keeps it, so an
+                // open menu is not re-measured under the user.
+                if taller {
+                    menu.itemChanged(&item);
+                    regrown = true;
+                }
             }
         }
     }
+    regrown
 }
 
 /// Style the menu of a Tauri tray icon on the main thread; used at set time and at each opening.
@@ -101,6 +120,39 @@ pub fn style_tray<R: tauri::Runtime>(
 pub(crate) mod tests {
     use super::*;
     use crate::look::Tone;
+
+    fn agent(subtitle: &str) -> Look {
+        Look::Agent {
+            subtitle: subtitle.into(),
+            badge: Some("5m".into()),
+            symbol: "checkmark.circle.fill",
+            tone: Tone::Accent,
+        }
+    }
+
+    pub(crate) fn u5959a_looks_past_the_last_item_are_ignored() {
+        let main = MainThreadMarker::new().expect("main-thread harness");
+        let menu = NSMenu::new(main);
+        let item = NSMenuItem::new(main);
+        item.setTitle(&NSString::from_str("Logo Design"));
+        menu.addItem(&item);
+        apply(&menu, &[agent("one"), agent("two"), Look::Head], main);
+        assert_eq!(menu.numberOfItems(), 1);
+    }
+
+    pub(crate) fn u5959a_a_refresh_after_install_keeps_every_row_height() {
+        let main = MainThreadMarker::new().expect("main-thread harness");
+        let menu = NSMenu::new(main);
+        let item = NSMenuItem::new(main);
+        item.setTitle(&NSString::from_str("Logo Design"));
+        menu.addItem(&item);
+        let looks = [agent("Ready · Acme")];
+        assert!(apply(&menu, &looks, main), "install sets the subtitle");
+        assert!(
+            !apply(&menu, &looks, main),
+            "the opening refresh regrew a row"
+        );
+    }
 
     pub(crate) fn u5959a_a_two_line_look_grows_a_measured_row() {
         let main = MainThreadMarker::new().expect("main-thread harness");
