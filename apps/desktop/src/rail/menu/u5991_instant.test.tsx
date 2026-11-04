@@ -48,6 +48,8 @@ it("u5991b_ten_removals_and_an_undo_reach_the_daemon_once_in_order", async () =>
     await waitFor(() => expect(finish).toHaveLength(index + 1));
     // The next call has not been sent while this one is pending.
     expect(railCallsTo(app, "rail.remove")).toHaveLength(index + 1);
+    // The undo waits in the queue for every removal's receipt.
+    expect(app.calls.filter(call => call.method === "rail.restore")).toHaveLength(0);
     finish[index]!();
   }
 

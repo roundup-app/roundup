@@ -56,8 +56,10 @@ it.each(["menu", "key", "unknown", "pending"].flatMap(entry => ["agent", "workst
   expect(daemon.questions).toEqual([]);
 
   if (entry === "pending") {
-    // U5991a: the row is already gone while the call is pending.
+    // U5991a: the row is already gone while the call is pending; a second press on it does nothing.
     expect(() => rowOf("chosen")).toThrow();
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: "Backspace", code: "Backspace", metaKey: true });
+    expect([screen.queryByText("Deleted chosen")]).toEqual([null]);
     finish!(receipt!);
   }
 
