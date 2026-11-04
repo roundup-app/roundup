@@ -102,18 +102,40 @@ impl Run {
     /// A stopped Door that holds two pending Messages: they are sent while the live Door's
     /// session is off the list (Claude Code not listening, B50), so they stay pending, and the
     /// Door is stopped after.
-    async fn start_with_backlog() -> (Self, Vec<Value>) {
+    async fn start_with_backlog(open_job: bool) -> (Self, Vec<Value>) {
         let run = Self::start_live().await;
         for file in std::fs::read_dir(run.dir.path().join("config/sessions")).unwrap() {
             std::fs::remove_file(file.unwrap().path()).unwrap();
         }
-        for (from, body) in [
-            (&run.user, "first retained"),
-            (&run.agent, "second retained"),
+        if open_job {
+            // DCL8: the Door's open Job, which has not reported, is in the snapshot a Start carries.
+            let door = Client::connect(&run.daemon.socket).await.unwrap();
+            door.request(
+                "daemon.identify",
+                json!({"actor":{"kind":"agent","id":run.door,"parent":null}}),
+            )
+            .await
+            .unwrap();
+            door.request(
+                "agent.spawn",
+                json!({"name":"open-job","parent":run.door,"cwd":run.dir.path(),"role":"job",
+                    "prompt":"Do the one thing.",
+                    "order":{"kind":"work","ask":"Do the one thing.","limits":[]}}),
+            )
+            .await
+            .unwrap();
+        }
+        for (from, kind, body) in [
+            (&run.user, "note", "first retained"),
+            (
+                &run.agent,
+                if open_job { "question" } else { "note" },
+                "second retained",
+            ),
         ] {
             from.request(
                 "message.send",
-                json!({"to":run.door,"kind":"note","body":body}),
+                json!({"to":run.door,"kind":kind,"body":body}),
             )
             .await
             .unwrap();
@@ -844,7 +866,7 @@ async fn waiting(run: &Run) -> Value {
 
 #[tokio::test]
 async fn dcl10_waiting_count_follows_stored_backlog_without_double_count() {
-    let (mut run, _) = Run::start_with_backlog().await;
+    let (mut run, _) = Run::start_with_backlog(false).await;
     assert_eq!(waiting(&run).await, json!(2));
     run.change("first").await;
     run.change("second").await;
@@ -896,7 +918,7 @@ fn identity(thread: &[Value]) -> Vec<(u64, Value, Value, Value)> {
 
 #[tokio::test]
 async fn dcl10_start_replays_one_ordered_batch() {
-    let (run, stored) = Run::start_with_backlog().await;
+    let (run, stored) = Run::start_with_backlog(true).await;
     assert_eq!(stored.len(), 2, "{stored:?}");
     assert!(
         stored.iter().all(|m| m["status"] == "pending"),
@@ -912,7 +934,9 @@ async fn dcl10_start_replays_one_ordered_batch() {
         after.iter().all(|m| m["status"] == "delivered"),
         "{after:?}"
     );
-    let written = transcript(run.dir.path().join("config").as_path());
+    let config = run.dir.path().join("config");
+    wait(|| transcript(&config).contains("[open jobs]")).await;
+    let written = transcript(&config);
     let first = written.find("first retained").expect("first in transcript");
     let second = written
         .find("second retained")
@@ -923,11 +947,20 @@ async fn dcl10_start_replays_one_ordered_batch() {
         1,
         "delivered once"
     );
+    assert!(
+        second < written.find("[open jobs]").expect("snapshot"),
+        "after the Messages"
+    );
+    assert!(
+        written.contains(&format!("replyTo: {}", stored[1]["id"])),
+        "question identity"
+    );
+    assert_eq!(user_turns_with(&written, "[open jobs]"), 1, "snapshot once");
 }
 
 #[tokio::test]
 async fn dcl10_failed_start_preserves_backlog_and_cause() {
-    let (run, stored) = Run::start_with_backlog().await;
+    let (run, stored) = Run::start_with_backlog(true).await;
     let fake = run.dir.path().join("rup");
     let saved = run.dir.path().join("saved-rup");
     std::fs::rename(&fake, &saved).unwrap();
@@ -949,12 +982,19 @@ async fn dcl10_failed_start_preserves_backlog_and_cause() {
     wait_delivered(&mut events, &stored).await;
     let after = run.thread().await;
     assert_eq!(identity(&after), identity(&stored));
-    let written = transcript(run.dir.path().join("config").as_path());
+    let config = run.dir.path().join("config");
+    wait(|| transcript(&config).contains("[open jobs]")).await;
+    let written = transcript(&config);
     assert_eq!(
         user_turns_with(&written, "first retained"),
         1,
         "same batch once"
     );
+    assert!(
+        written.contains(&format!("replyTo: {}", stored[1]["id"])),
+        "question identity"
+    );
+    assert_eq!(user_turns_with(&written, "[open jobs]"), 1, "snapshot once");
 }
 
 async fn wait_delivered(events: &mut Client, stored: &[Value]) {
@@ -978,7 +1018,7 @@ fn user_turns_with(written: &str, text: &str) -> usize {
         .count()
 }
 
-/// Every conversation file Claude Code wrote under `config`, joined.
+/// The conversation file of the Door, the one that holds the retained Messages.
 fn transcript(config: &Path) -> String {
     std::fs::read_dir(config.join("projects"))
         .into_iter()
@@ -987,5 +1027,6 @@ fn transcript(config: &Path) -> String {
         .flat_map(|p| std::fs::read_dir(p.path()).into_iter().flatten().flatten())
         .filter(|f| f.path().extension().is_some_and(|e| e == "jsonl"))
         .filter_map(|f| std::fs::read_to_string(f.path()).ok())
+        .filter(|written| written.contains("first retained"))
         .collect()
 }
