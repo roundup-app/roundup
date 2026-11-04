@@ -156,6 +156,8 @@ export const xtermOptions: ITerminalOptions = {
   fontWeight: Number.parseInt(/--weight-terminal:\s*([^;]+);/.exec(tokens)![1]!, 10),
   lineHeight: Number.parseFloat(/--line-terminal:\s*([^;]+);/.exec(tokens)![1]!),
   letterSpacing: Number.parseFloat(/--letter-terminal:\s*([^;]+);/.exec(tokens)![1]!),
+  // WebGL draws box borders across the full cell even with extra line height.
+  customGlyphs: true,
   macOptionClickForcesSelection: true,
   scrollback: SCROLLBACK_LINES,
   // Read per Terminal: a module-level read is stale for every Terminal opened after the window's scheme changes.
