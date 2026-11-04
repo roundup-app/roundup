@@ -6,6 +6,7 @@
 use std::collections::HashMap;
 use std::sync::Mutex;
 
+use contracts::data::ForkColour;
 use rpc::RpcError;
 use serde::{Deserialize, Serialize};
 use tauri::image::Image;
@@ -232,6 +233,13 @@ fn deliver<R: Runtime>(app: &AppHandle<R>, action: &Action) {
         crate::diagnostics::failure("open native menu selection", &error);
     }
 }
+/// FA5980d: the mark and whether it is a template: the live mark is, a Fork's is drawn in its colour.
+fn presented(mark: Mark, fork: Option<ForkColour>) -> (Image<'static>, bool) {
+    match fork {
+        Some(colour) => (crate::fork_app::tint(&image(mark), colour), false),
+        None => (image(mark), true),
+    }
+}
 
 #[tauri::command]
 pub(crate) fn set_menu_bar<R: Runtime>(
@@ -257,15 +265,21 @@ pub(crate) fn set_menu_bar<R: Runtime>(
             )
         })
         .collect();
+    let fork = app
+        .state::<crate::fork_app::Identity>()
+        .0
+        .as_ref()
+        .map(|fork| fork.colour);
+    let (shown, template) = presented(menu.mark, fork);
     let tray = match app.tray_by_id(TRAY) {
         Some(tray) => {
-            tray.set_icon(Some(image(menu.mark))).map_err(internal)?;
-            tray.set_icon_as_template(true).map_err(internal)?;
+            tray.set_icon(Some(shown.clone())).map_err(internal)?;
+            tray.set_icon_as_template(template).map_err(internal)?;
             tray
         }
         None => TrayIconBuilder::with_id(TRAY)
-            .icon(image(menu.mark))
-            .icon_as_template(true)
+            .icon(shown)
+            .icon_as_template(template)
             .show_menu_on_left_click(true)
             .on_menu_event(|app, event| chosen(app, event.id().as_ref()))
             .on_tray_icon_event(|tray, event| {
@@ -467,6 +481,26 @@ mod tests {
             head,
             action: None,
             since,
+        }
+    }
+
+    #[test]
+    fn fa5980d_a_fork_mark_is_coloured_and_the_live_mark_a_template() {
+        let (live, template) = presented(Mark::Ready, None);
+        assert!(template);
+        assert_eq!(live.rgba(), image(Mark::Ready).rgba());
+        for colour in [ForkColour::Red, ForkColour::Teal, ForkColour::Pink] {
+            let (fork, template) = presented(Mark::Ready, Some(colour));
+            assert!(!template);
+            let want = crate::fork_app::accent(colour);
+            let opaque: Vec<_> = fork
+                .rgba()
+                .as_chunks::<4>()
+                .0
+                .iter()
+                .filter(|p| p[3] > 0)
+                .collect();
+            assert!(!opaque.is_empty() && opaque.iter().all(|p| p[..3] == want));
         }
     }
 

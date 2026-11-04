@@ -165,3 +165,25 @@ pub fn watch_fullscreen<R: Runtime>(
         }
     })
 }
+
+/// FA5980c: sets the Dock and ⌘-Tab icon from PNG bytes; the live App never calls it.
+pub fn set_application_icon(png: &[u8]) {
+    let Some(_main) = MainThreadMarker::new() else {
+        return;
+    };
+    let (Some(application), Some(image)) =
+        (AnyClass::get(c"NSApplication"), AnyClass::get(c"NSImage"))
+    else {
+        return;
+    };
+    let data = objc2_foundation::NSData::with_bytes(png);
+    // SAFETY: both classes are AppKit's; the calls run on the main thread, and a nil image is refused.
+    unsafe {
+        let application: Retained<AnyObject> = msg_send![application, sharedApplication];
+        let allocated: *mut AnyObject = msg_send![image, alloc];
+        let image: Option<Retained<AnyObject>> = msg_send![allocated, initWithData: &*data];
+        if let Some(image) = image {
+            let _: () = msg_send![&*application, setApplicationIconImage: &*image];
+        }
+    }
+}
