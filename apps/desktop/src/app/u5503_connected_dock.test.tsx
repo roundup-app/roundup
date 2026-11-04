@@ -4,9 +4,14 @@ import { openTabs, path, tab } from "../header/stripFixture";
 import { agent, door, event, workstream } from "../testing/nodes";
 import type { FakeApp } from "../testing/fakeApp";
 
-afterEach(() => { cleanup(); localStorage.clear(); vi.restoreAllMocks(); });
+afterEach(() => { cleanup(); localStorage.clear(); vi.restoreAllMocks(); vi.useRealTimers(); });
 
-beforeEach(() => { vi.spyOn(document, "hasFocus").mockReturnValue(true); });
+// U5959b: Ready rows keep the last hour of Date.now, so the fixtures' small `since` values need a clock at 0.
+beforeEach(() => {
+  vi.spyOn(document, "hasFocus").mockReturnValue(true);
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(0);
+});
 
 const recent = Date.now();
 
