@@ -7,6 +7,7 @@ import { mountRail, railCallsTo, rowOf, settled } from "../railFixture";
 afterEach(cleanup);
 
 const names = (count: number) => Array.from({ length: count }, (_, index) => `agent-${index}`);
+
 const gone = (name: string) => screen.queryByText(name, { selector: ".name" }) === null;
 
 const removeByKey = (name: string) => {
@@ -59,6 +60,8 @@ it.each([["refused", new RpcError(-32003, "Cannot remove: refused")], ["timed ou
   const { app } = await mountRail([agent("first", "done", "finished", { terminal_id: null }), agent("second", "done", "finished", { terminal_id: null })]);
 
   app.handlers["rail.remove"] = () => { throw failure; };
+
+  app.handlers["rail.deletion"] = () => null;
   await settled();
   removeByKey("first");
   await screen.findByText(failure.message);
