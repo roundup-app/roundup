@@ -590,8 +590,9 @@ impl AppState {
     }
 
     /// Ends every Daemon without the stdin-close shutdown, so no Agent or Terminal owner is
-    /// stopped (S5981a). Each Daemon must first answer `daemon.ping` within `UPDATE_BOUND`; if one
-    /// does not, nothing is ended and the call fails naming its Project. Daemons it ended are not
+    /// stopped (S5981a). The Daemon writes each Rail and owner record as it changes (D6), so a
+    /// `rail.tree` answered within `UPDATE_BOUND` after every earlier call shows them saved; if one
+    /// Daemon does not answer, nothing is ended and the call fails naming its Project. Daemons it ended are not
     /// restarted.
     pub async fn exit_for_update(&self) -> Result<(), RpcError> {
         let open: Vec<(String, Arc<Client>)> = self
@@ -603,7 +604,7 @@ impl AppState {
             })
             .collect();
         for (path, client) in &open {
-            match timeout(UPDATE_BOUND, client.request("daemon.ping", Value::Null)).await {
+            match timeout(UPDATE_BOUND, client.request("rail.tree", Value::Null)).await {
                 Ok(Ok(_)) => {}
                 Ok(Err(err)) => {
                     return Err(RpcError::internal(format!(
