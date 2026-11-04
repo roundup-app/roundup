@@ -694,9 +694,7 @@ fn failure_label(code: Option<&str>) -> String {
             "inspect its Terminal, then retry",
         ),
         other => {
-            return format!(
-                "Claude failed with {other}; inspect its Terminal, then retry."
-            );
+            return format!("Claude failed with {other}; inspect its Terminal, then retry.");
         }
     };
     format!("{cause}; {next}.")
