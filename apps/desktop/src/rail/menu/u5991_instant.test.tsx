@@ -20,7 +20,6 @@ const removeByKey = (name: string) => {
 /** One frame after the action: the Rail has drawn and Solid has flushed, while the fake call stays pending. */
 const nextFrame = () => new Promise<void>(resolve => requestAnimationFrame(() => setTimeout(resolve)));
 
-
 type Mounted = Awaited<ReturnType<typeof mountRail>>;
 
 type Action = { name: string; mount: () => Promise<Mounted>; method: "rail.remove" | "rail.rename" | "rail.move" | "agent.stop" | "agent.resume"; fire: (mounted: Mounted) => Promise<void> | void; shown: (mounted: Mounted) => void; call: unknown };
@@ -87,16 +86,19 @@ const actions: Action[] = [
   },
 ];
 
-it.each(actions)("u5991a_every_rail_action_renders_before_its_call_answers_$name", async action => {
-  const mounted = await action.mount();
-  mounted.app.handlers[action.method] = () => new Promise<never>(() => undefined);
-  mounted.app.handlers["rail.deletion"] = () => null;
-  await settled();
-  await action.fire(mounted);
-  await nextFrame();
-  action.shown(mounted);
-  expect(screen.queryByRole("progressbar")).toBeNull();
-  await waitFor(() => expect(railCallsTo(mounted.app, action.method)).toEqual([action.call]));
+it("u5991a_every_rail_action_renders_before_its_call_answers", async () => {
+  for (const action of actions) {
+    cleanup();
+    const mounted = await action.mount();
+    mounted.app.handlers[action.method] = () => new Promise<never>(() => undefined);
+    mounted.app.handlers["rail.deletion"] = () => null;
+    await settled();
+    await action.fire(mounted);
+    await nextFrame();
+    action.shown(mounted);
+    expect(screen.queryByRole("progressbar"), action.name).toBeNull();
+    await waitFor(() => expect(railCallsTo(mounted.app, action.method), action.name).toEqual([action.call]));
+  }
 });
 
 it("u5991b_ten_removals_and_an_undo_reach_the_daemon_once_in_order", async () => {
