@@ -1,8 +1,8 @@
-import { createEffect, createSignal, untrack } from "solid-js";
+import { createEffect, createMemo, createSignal, untrack } from "solid-js";
 import type { QueueEntry } from "@contracts/workstream/QueueEntry";
 import type { Events } from "../app/events";
 import type { AppSeam } from "../app/seam";
-import type { RailState } from "./rail";
+import { isProvisional, type RailState } from "./rail";
 
 /** U3744: the Workstreams waiting to start, in the Daemon's order. */
 export type QueueView = {
@@ -24,11 +24,14 @@ export const createQueue = (app: AppSeam, events: Events, rail: RailState): Queu
 
   events.subscribe(event => { if (event.name === "workstream.queueChanged") void refresh(); });
 
-  // Only a Workstream whose Door never started can be queued, so no such row means nothing to ask.
-  createEffect(() => {
-    const waiting = rail.nodes.some(node => node.kind === "workstream" && node.attempt === null);
+  // Only a Workstream whose Door never started can be queued, so none waiting means nothing to ask.
+  // A Row drawn before the Daemon holds it (U5991a) is not one, and a drawing alone asks nothing.
+  const waiting = createMemo(() => rail.nodes.filter(node => node.kind === "workstream" && node.attempt === null && !isProvisional(node)).map(node => node.id).join());
 
-    untrack(() => { if (waiting) void refresh(); else setEntries([]); });
+  createEffect(() => {
+    const ids = waiting();
+
+    untrack(() => { if (ids !== "") void refresh(); else setEntries([]); });
   });
 
   return {
