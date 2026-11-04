@@ -403,3 +403,62 @@ async fn fk5977e_the_live_folder_is_unchanged_by_a_fork_and_by_a_write_in_it() {
     assert!(added.get("error").is_none(), "{added}");
     same(&checksums(&data), &before, "after a write in the Fork");
 }
+
+#[tokio::test]
+async fn fk5977f_a_database_at_rest_gains_no_wal_or_shm_from_a_fork() {
+    let Live {
+        data,
+        keys,
+        _tmp,
+        daemon,
+        _others,
+    } = live();
+    drop((daemon, _others));
+    // Checkpoint and close every database so only the `.db` files remain.
+    let mut dbs = vec![];
+    for key in &keys {
+        for entry in std::fs::read_dir(data.join("projects").join(key)).unwrap() {
+            let path = entry.unwrap().path();
+            if path.extension().is_some_and(|e| e == "db") {
+                dbs.push(path);
+            }
+        }
+    }
+    for db in &dbs {
+        let conn = Connection::open(db).unwrap();
+        conn.query_row("PRAGMA wal_checkpoint(TRUNCATE)", [], |_| Ok(()))
+            .unwrap();
+        // The Daemon's handles outlive its drop here; the truncated side files hold nothing.
+        for suffix in ["-wal", "-shm"] {
+            let mut side = db.as_os_str().to_owned();
+            side.push(suffix);
+            let _ = std::fs::remove_file(side);
+        }
+    }
+    let before = checksums(&data);
+    assert!(
+        before.keys().all(|k| {
+            let name = k.to_string_lossy();
+            !name.ends_with("-wal") && !name.ends_with("-shm")
+        }),
+        "fixture still holds a side file: {before:?}"
+    );
+    let picked = vec![serde_json::from_value(json!({"key":keys[0],"agents":"all"})).unwrap()];
+    for (name, projects) in [("full", None), ("picked", Some(picked))] {
+        let params = contracts::data::ForkParams {
+            name: "Try".into(),
+            colour: contracts::data::ForkColour::Teal,
+            path: _tmp
+                .path()
+                .join("forks")
+                .join(name)
+                .to_string_lossy()
+                .into_owned(),
+            projects,
+        };
+        crate::fork::fork(&data, &params).unwrap();
+        assert_eq!(checksums(&data), before, "{name}");
+    }
+    let copy = _tmp.path().join("forks/full/projects").join(&keys[0]);
+    assert_eq!(count(&copy.join("project.db"), "nodes"), 2);
+}

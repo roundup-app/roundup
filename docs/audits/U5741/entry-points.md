@@ -110,3 +110,19 @@ Independent Shelf follow-up: rendered-shelf-followup.json adds successful reserv
 ## Project configuration continuation
 
 [project-config-methods.md](project-config-methods.md) assesses `project.setMcp`, `setPrepared`, `getPrepared`, `prepareDirectory` and `setModels` (PC01–PC05) from source, declarations and scenarios on main `b66cfd2c549d2bb6da59f431090d258ca6aa199c`. None has an App caller, CLI command or MCP tool; only `project.getPrepared` meets one criterion and it is not offered alone. No fresh rendering or runtime replay is claimed. Other undecided methods and final whole-App reconciliation remain open. No partial owner request or deletion.
+
+## Terminal stream continuation
+
+[terminal-stream.md](terminal-stream.md) assesses `terminal.output`, `terminal.outputStop`, `terminal.scheme` and `terminal.measure` (TP01–TP04) from source, declarations and scenarios on main `c03abf5e014d9b903b1881d873e465351188a4b9`. No row is a candidate; TP04 alone meets Q2 and Q3 but is the rule 7 keystroke observer. No fresh rendering or runtime replay is claimed. Other undecided methods and final whole-App reconciliation remain open. No partial owner request or deletion.
+
+## Agent hook, Model and Spawn prompt continuation
+
+[agent-hooks-model.md](agent-hooks-model.md) assesses `agent.channelUp`, `agent.signal`, `agent.setModel` and `agent.spawnPrompt` (AH01–AH04) from source, declarations and scenarios on main `e7a69af5294c52a11cf819cc20f6864269a3a65d`. No row is a candidate; AH04 has no App reader and awaits Q1. No fresh rendering or runtime replay is claimed. Other undecided methods and final whole-App reconciliation remain open. No partial owner request or deletion.
+
+## Pad read, Worktrees, Project start, Naming and transport continuation
+
+[daemon-project-pad.md](daemon-project-pad.md) assesses `pad.read`, `project.setWorktrees`, `project.start`, `daemon.getNaming`/`setNaming`, `daemon.ping`/`methods`/`identify` and `events.subscribe` (DP01–DP06) from source, declarations and scenarios on main `8cdbebf0804c4e8c81725348fd26ab8b52e5903a`. No row is a candidate; `project.setWorktrees` has no App caller but fails Q3 and Q1. No fresh rendering or runtime replay is claimed. Other undecided methods and final whole-App reconciliation remain open. No partial owner request or deletion.
+
+## Named action and skill continuation
+
+[actions-skill.md](actions-skill.md) assesses `action.serve`, `action.list`, `action.userList`, `action.run`, `skill.status`, `skill.setup` and `skill.remove` (AK01–AK04, SK01–SK03) from source, declarations and scenarios on main `01299e96848802dc5b4d7999453a0ffb0ebd89a9`. No row is a candidate; AK01 and AK04 are protected. No fresh rendering or runtime replay is claimed. Other undecided methods and final whole-App reconciliation remain open. No partial owner request or deletion.
