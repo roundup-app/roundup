@@ -23,7 +23,8 @@
   pointer-events: none;
 }
 
-.centre-failures > * {
+.centre-failures .centre-notice,
+.centre-failures .storage-failure {
   pointer-events: auto;
 }
 

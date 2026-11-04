@@ -17,7 +17,7 @@ const mount = async (nativeFails = false) => {
     const subscription = Promise.resolve(() => {});
     // The App reports a failed subscription through `catch` and releases through `then`.
     vi.spyOn(subscription, "catch").mockImplementation(report => {
-      void report(new Error("native open failed"));
+      void report?.(new Error("native open failed"));
 
       return subscription;
     });
