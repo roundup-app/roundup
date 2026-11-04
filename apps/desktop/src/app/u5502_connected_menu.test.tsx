@@ -312,3 +312,46 @@ it.each(["app", "project"])("u5502_row_opens_the_original_agents_terminal_from_%
   expect(document.querySelector('[role=treeitem][data-id="a"]')?.getAttribute("aria-selected")).toBe("true");
   await waitFor(() => expect(actions(app)).toHaveLength(0));
 });
+
+const finishNow = (app: FakeApp, round = 1) => app.of(path("api")).emit(event({ name: "agent.status", data: {
+  id: "ready", attempt: "1", status_revision: String(round + 1), status: { kind: "idle", label: "settled", since: Date.now(), finished: String(round) },
+} }));
+
+it("u5970_ready_row_folds_when_the_hour_passes", async () => {
+  const { app } = await openTabs({ api: [agent("ready", "working", "running")], web: [] });
+  vi.useFakeTimers({ toFake: ["Date", "setTimeout", "clearTimeout"] });
+  vi.setSystemTime(60_000);
+  finishNow(app);
+  await vi.advanceTimersByTimeAsync(0);
+  expect(actions(app)).toHaveLength(1);
+
+  await vi.advanceTimersByTimeAsync(50 * 60_000);
+  await vi.advanceTimersByTimeAsync(10 * 60_000);
+  expect(actions(app)).toHaveLength(1);
+  await vi.advanceTimersByTimeAsync(1);
+
+  const labelsOf = (entries: NonNullable<FakeApp["menuBar"]>["entries"]) => entries.map(entry => entry.label);
+  expect(labelsOf(app.menuBar!.entries)).toEqual(["Nothing for you", "1 earlier…", "Open roundup"]);
+  expect(labelsOf(app.menuBar!.dock)).toEqual(["Nothing for you", "1 earlier…", "Open roundup"]);
+  expect(app.menuBar?.mark).toBe("ready");
+});
+
+it("u5970_the_next_cut_is_scheduled_not_polled", async () => {
+  const { app } = await openTabs({ api: [agent("ready", "working", "running")], web: [] });
+  vi.useFakeTimers({ toFake: ["Date", "setTimeout", "clearTimeout"] });
+  vi.setSystemTime(60_000);
+  expect(vi.getTimerCount()).toBe(0);
+  finishNow(app);
+  await vi.advanceTimersByTimeAsync(0);
+  expect(actions(app)).toHaveLength(1);
+  const timers = vi.getTimerCount();
+  expect(timers).toBeGreaterThan(0);
+
+  await vi.advanceTimersByTimeAsync(30 * 60_000);
+  finishNow(app, 2);
+  await vi.advanceTimersByTimeAsync(31 * 60_000);
+  expect(actions(app)).toHaveLength(1);
+  await vi.advanceTimersByTimeAsync(30 * 60_000);
+  expect(actions(app)).toHaveLength(0);
+  expect(vi.getTimerCount()).toBe(0);
+});

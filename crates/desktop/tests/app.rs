@@ -369,13 +369,13 @@ fn tauri_config() -> Value {
 }
 
 #[test]
-fn s4_the_dev_window_loads_the_dev_server_on_the_port_vite_is_pinned_to() {
+fn s13_vite_takes_its_port_from_the_environment_and_stays_strict() {
     let vite = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../apps/desktop/vite.config.ts");
     let vite = std::fs::read_to_string(vite).unwrap();
 
     assert_eq!(tauri_config()["build"]["devUrl"], "http://localhost:5173");
     assert!(
-        vite.contains("port: 5173") && vite.contains("strictPort: true"),
+        vite.contains("process.env.ROUNDUP_DEV_PORT ?? 5173") && vite.contains("strictPort: true"),
         "vite must fail rather than move off the port devUrl names"
     );
 }
