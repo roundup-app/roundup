@@ -31,6 +31,8 @@ export const CreateMode = (props: { onClose: () => void; onCreated: (id: string,
     setBusy(true);
     let submitted = revision.revision;
     const saved = value();
+    // U5991a: the Mode's Row shows now; the refreshed tree or a failure lifts it.
+    const lift = saved.id === null ? rail.drawNew("workstream", saved.name.trim(), null) : null;
 
     try {
       if (!await drafts.submit(submitted)) return;
@@ -57,7 +59,7 @@ export const CreateMode = (props: { onClose: () => void; onCreated: (id: string,
 
       if (!(error instanceof Error)) throw error;
       setFailure(error.message);
-    } finally { setBusy(false); }
+    } finally { lift?.(); setBusy(false); }
   };
 
   return <Dialog.Root open={open()} finalFocusEl={() => created === null ? null : props.finalFocus(created)} onOpenChange={({ open }) => { if (!open) { setOpen(false); props.onClose(); } }}>

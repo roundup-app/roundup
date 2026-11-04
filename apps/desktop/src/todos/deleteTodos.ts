@@ -72,6 +72,9 @@ export function createTodoUndo() {
 
   type Redo = ({ kind: "todos"; receipt: Deletion; operation: string } | { kind: "rail"; receipt: RailDeletion; name: string; operation: string } | { kind: "pads"; source: Extract<Operation, { kind: "pads" }>; members: PadRedo[] }) & { state: "ready" | "unknown"; regions: string[] };
 
+  /** U5991a: the Rail's drawing of an undo or redo, bound by the Project's Rail state; a call lifts it once the Rail holds the Daemon's result. */
+  let railDrawing: ((direction: "undo" | "redo") => (kept: boolean) => Promise<void>) | null = null;
+
   const [redoes, setRedoes] = createSignal<Redo[]>([]);
   const redoUnknown = () => redoes().some(action => action.state === "unknown");
 
@@ -332,23 +335,29 @@ export function createTodoUndo() {
 
     try {
       if (operation.kind === "rail") {
-        const { project, operation: key } = operation.receipt;
-        const params = { project, operation: key };
-        let restored = await app.rpc("rail.deletion", params);
+        const lift = railDrawing?.("undo");
+        let kept = false;
 
-        if (!restored?.deletion?.restored) {
-          try { restored = await app.rpc("rail.restore", params); }
-          catch (error) {
-            const retained = await app.rpc("rail.deletion", params);
+        try {
+          const { project, operation: key } = operation.receipt;
+          const params = { project, operation: key };
+          let restored = await app.rpc("rail.deletion", params);
 
-            if (!retained?.deletion?.restored) throw error;
-            restored = retained;
+          if (!restored?.deletion?.restored) {
+            try { restored = await app.rpc("rail.restore", params); }
+            catch (error) {
+              const retained = await app.rpc("rail.deletion", params);
+
+              if (!retained?.deletion?.restored) throw error;
+              restored = retained;
+            }
           }
-        }
 
-        if (!restored.deletion?.restored) throw new Error(copy.todoRestoreUnknown);
-        setRedoes(all => [...all, { kind: "rail", receipt: restored.deletion!, name: operation.name, operation: crypto.randomUUID(), state: "ready", regions: operation.regions }]);
-        setStack(all => all.filter(item => item !== operation));
+          if (!restored.deletion?.restored) throw new Error(copy.todoRestoreUnknown);
+          setRedoes(all => [...all, { kind: "rail", receipt: restored.deletion!, name: operation.name, operation: crypto.randomUUID(), state: "ready", regions: operation.regions }]);
+          setStack(all => all.filter(item => item !== operation));
+          kept = true;
+        } finally { await lift?.(kept); }
 
         return;
       }
@@ -453,23 +462,29 @@ export function createTodoUndo() {
         if (receipt.state !== "deleted") throw new Error(copy.todoRestoreUnknown);
         setStack(all => [...all, { kind: "todos", receipt, regions: action.regions }]);
       } else if (action.kind === "rail") {
-        const restoration = action.receipt.restoration;
-        const params = { project: action.receipt.project, operation: action.operation };
+        const lift = railDrawing?.("redo");
+        let kept = false;
 
-        if (!restoration) throw new Error(copy.todoRestoreUnknown);
-        let receipt = await app.rpc("rail.deletion", params);
+        try {
+          const restoration = action.receipt.restoration;
+          const params = { project: action.receipt.project, operation: action.operation };
 
-        if (!receipt) {
-          try { receipt = await app.rpc("rail.redo", { ...params, source: action.receipt.operation, restoration }); }
-          catch (error) {
-            receipt = await app.rpc("rail.deletion", params);
+          if (!restoration) throw new Error(copy.todoRestoreUnknown);
+          let receipt = await app.rpc("rail.deletion", params);
 
-            if (!receipt) throw error;
+          if (!receipt) {
+            try { receipt = await app.rpc("rail.redo", { ...params, source: action.receipt.operation, restoration }); }
+            catch (error) {
+              receipt = await app.rpc("rail.deletion", params);
+
+              if (!receipt) throw error;
+            }
           }
-        }
 
-        if (!receipt.deletion || receipt.deletion.restored) throw new Error(copy.todoRestoreUnknown);
-        setStack(all => [...all, { kind: "rail", receipt: receipt.deletion!, name: action.name, regions: action.regions }]);
+          if (!receipt.deletion || receipt.deletion.restored) throw new Error(copy.todoRestoreUnknown);
+          setStack(all => [...all, { kind: "rail", receipt: receipt.deletion!, name: action.name, regions: action.regions }]);
+          kept = true;
+        } finally { await lift?.(kept); }
       } else {
         const failed: PadRedo[] = [];
         const causes: Error[] = [];
@@ -599,6 +614,7 @@ export function createTodoUndo() {
       return action ? copy.redoAction(actionName(action)) : copy.redo;
     },
     available, redoAvailable,
+    bindRail: (drawing: NonNullable<typeof railDrawing>) => { railDrawing = drawing; },
     retryDelete: () => redoUnknown() ? redo(redoes().findLast(action => action.state === "unknown")!.regions[0]) : railPending() ? removeRailSelection(railPending()!.ids, railPending()!.name) : padPending().length ? removePads(padPending()) : uncertain() ? remove(uncertain()!) : Promise.resolve(false),
     uncertain: () => redoUnknown() || !!uncertain() || padPending().length > 0 || !!railPending(),
     ids: () => uncertain() ?? [],

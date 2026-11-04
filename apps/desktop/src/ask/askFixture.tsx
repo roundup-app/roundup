@@ -41,7 +41,6 @@ export const mountAskBar = async (asks: Ask[] = [], selected: string | null = nu
 
   connected.showView("workstreams");
 
-  if (selected === null && asks.length) connected.showView("asks");
 
   if (tree instanceof Promise) {
     app.handlers["rail.tree"] = () => tree;
@@ -63,7 +62,6 @@ export const mountAskBar = async (asks: Ask[] = [], selected: string | null = nu
 
   await connected.rail.settled();
 
-  if (selected === null && asks.length) connected.showView("asks");
 
 
 
