@@ -105,7 +105,7 @@ fn parse(args: &[String]) -> Result<Parsed, String> {
             params: ForkParams {
                 name: String::new(),
                 colour: ForkColour::Red,
-                folder: String::new(),
+                path: String::new(),
                 projects: None,
             },
             json,
@@ -118,7 +118,7 @@ fn parse(args: &[String]) -> Result<Parsed, String> {
         params: ForkParams {
             name: name.ok_or("--name is required")?,
             colour: colour(&colour_word.ok_or("--colour is required")?)?,
-            folder: folder.to_string_lossy().into_owned(),
+            path: folder.to_string_lossy().into_owned(),
             projects: (!projects.is_empty()).then_some(projects),
         },
         json,
@@ -173,7 +173,7 @@ pub(super) async fn run(args: &[String]) -> ExitCode {
     }
     match serde_json::from_value::<ForkResult>(result) {
         Ok(done) => {
-            println!("forked into {}", done.folder);
+            println!("forked into {}", done.path);
             for p in done.projects {
                 println!(
                     "{}: {} agents, {} todos, {} pads, {} messages, {} history",

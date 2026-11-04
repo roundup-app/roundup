@@ -96,7 +96,7 @@ fn live() -> Live {
 }
 
 async fn fork(live: &Live, folder: &Path, extra: Value) -> Value {
-    let mut params = json!({"name":"Try","colour":"teal","folder":folder});
+    let mut params = json!({"name":"Try","colour":"teal","path":folder});
     params
         .as_object_mut()
         .unwrap()
@@ -371,7 +371,7 @@ async fn fk5977e_the_live_folder_is_unchanged_by_a_fork_and_by_a_write_in_it() {
         contracts::data::ForkParams {
             name: "Try".into(),
             colour: contracts::data::ForkColour::Teal,
-            folder: _tmp
+            path: _tmp
                 .path()
                 .join("forks")
                 .join(name)

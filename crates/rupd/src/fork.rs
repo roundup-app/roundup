@@ -40,7 +40,7 @@ fn resolved(path: &Path) -> Result<PathBuf, RpcError> {
     Ok(missing.iter().rev().fold(base, |acc, name| acc.join(name)))
 }
 
-/// Copy the live `root` into `params.folder`; on failure remove what this call wrote.
+/// Copy the live `root` into `params.path`; on failure remove what this call wrote.
 pub(crate) fn fork(root: &Path, params: &ForkParams) -> Result<ForkResult, RpcError> {
     let name = params.name.as_str();
     if name.is_empty() || name.chars().count() > 40 || name.chars().any(char::is_control) {
@@ -48,11 +48,11 @@ pub(crate) fn fork(root: &Path, params: &ForkParams) -> Result<ForkResult, RpcEr
             "A Fork name is 1 to 40 characters with no control character.",
         ));
     }
-    let folder = Path::new(&params.folder);
+    let folder = Path::new(&params.path);
     if !folder.is_absolute() {
         return Err(invalid(format!(
             "{} is not an absolute path",
-            params.folder
+            params.path
         )));
     }
     let source = root.canonicalize().map_err(|e| failed(root, e))?;
@@ -224,7 +224,7 @@ fn copy_all(
     let path = target.join("fork.json");
     fs::write(&path, text + "\n").map_err(|e| failed(&path, e))?;
     Ok(ForkResult {
-        folder: target.to_string_lossy().into_owned(),
+        path: target.to_string_lossy().into_owned(),
         projects,
     })
 }

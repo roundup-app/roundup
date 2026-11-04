@@ -3,12 +3,12 @@
 import type * as data$ForkColour from "./ForkColour";
 import type * as data$ForkProject from "./ForkProject";
 /**
- *  FK5977a: `folder` must not exist or be empty, and lie neither inside the live folder nor around it.
+ *  FK5977a: `path` must not exist or be empty, and lie neither inside the live folder nor around it.
  *  With no `projects` the Fork keeps everything.
  */
 export type ForkParams = {
 	name: string,
 	colour: data$ForkColour.ForkColour,
-	folder: string,
+	path: string,
 	projects?: data$ForkProject.ForkProject[],
 };

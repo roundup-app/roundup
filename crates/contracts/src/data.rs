@@ -59,14 +59,14 @@ fn all_agents() -> ForkAgents {
     ForkAgents::Keyword(ForkAgentsAll::All)
 }
 
-/// FK5977a: `folder` must not exist or be empty, and lie neither inside the live folder nor around it.
+/// FK5977a: `path` must not exist or be empty, and lie neither inside the live folder nor around it.
 /// With no `projects` the Fork keeps everything.
 #[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ForkParams {
     pub name: String,
     pub colour: ForkColour,
-    pub folder: String,
+    pub path: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[specta(optional, type = Vec<ForkProject>)]
     pub projects: Option<Vec<ForkProject>>,
@@ -83,14 +83,14 @@ pub struct Forked {
     pub history: u32,
 }
 
-/// FK5977a: the Fork's folder and each Project it holds.
+/// FK5977a: the Fork's data path and each Project it holds.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct ForkResult {
-    pub folder: String,
+    pub path: String,
     pub projects: Vec<Forked>,
 }
 
-/// FK5977d: `<folder>/fork.json`.
+/// FK5977d: `<path>/fork.json`.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ForkRecord {
     pub name: String,

@@ -67,7 +67,7 @@ async fn rup(socket: &std::path::Path, args: &[&str]) -> std::process::Output {
 async fn fk5977d_the_flags_send_the_picks_and_the_result_is_printed() {
     let dir = tempfile::tempdir().unwrap();
     let socket = dir.path().join("rupd.sock");
-    let result = json!({"folder":"/f","projects":[{"key":"a-1","agents":["3"],"todos":2,"pads":1,"messages":4,"history":5}]});
+    let result = json!({"path":"/f","projects":[{"key":"a-1","agents":["3"],"todos":2,"pads":1,"messages":4,"history":5}]});
     let mut log = daemon(&socket, Some(result));
     let output = rup(
         &socket,
@@ -87,7 +87,7 @@ async fn fk5977d_the_flags_send_the_picks_and_the_result_is_printed() {
     assert_eq!(output.status.code(), Some(0), "{output:?}");
     assert_eq!(
         log.recv().await.unwrap(),
-        json!({"name":"Try","colour":"teal","folder":"/f","projects":[{"key":"a-1","agents":["3"],"todos":true,"pads":false,"messages":true,"history":true}]})
+        json!({"name":"Try","colour":"teal","path":"/f","projects":[{"key":"a-1","agents":["3"],"todos":true,"pads":false,"messages":true,"history":true}]})
     );
     let text = String::from_utf8(output.stdout).unwrap();
     assert!(
