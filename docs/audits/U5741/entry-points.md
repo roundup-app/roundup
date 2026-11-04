@@ -110,3 +110,7 @@ Independent Shelf follow-up: rendered-shelf-followup.json adds successful reserv
 ## Project configuration continuation
 
 [project-config-methods.md](project-config-methods.md) assesses `project.setMcp`, `setPrepared`, `getPrepared`, `prepareDirectory` and `setModels` (PC01–PC05) from source, declarations and scenarios on main `b66cfd2c549d2bb6da59f431090d258ca6aa199c`. None has an App caller, CLI command or MCP tool; only `project.getPrepared` meets one criterion and it is not offered alone. No fresh rendering or runtime replay is claimed. Other undecided methods and final whole-App reconciliation remain open. No partial owner request or deletion.
+
+## Terminal stream continuation
+
+[terminal-stream.md](terminal-stream.md) assesses `terminal.output`, `terminal.outputStop`, `terminal.scheme` and `terminal.measure` (TP01–TP04) from source, declarations and scenarios on main `c03abf5e014d9b903b1881d873e465351188a4b9`. No row is a candidate; TP04 alone meets Q2 and Q3 but is the rule 7 keystroke observer. No fresh rendering or runtime replay is claimed. Other undecided methods and final whole-App reconciliation remain open. No partial owner request or deletion.
