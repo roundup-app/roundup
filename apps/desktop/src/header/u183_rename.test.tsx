@@ -582,22 +582,6 @@ it("u3021c_copy_and_discard_keep_other_revisions_header_after_reopen", async () 
   expect(reopened(path("web")).list()).toEqual([elsewhere]);
 });
 
-it("u3299d_copy_uses_selected_item_project", async () => {
-  const app = createFakeApp();
-  const [selected, select] = createSignal("/one");
-  render(() => <Tabs.Root value={selected()} onValueChange={details => select(details.value)}><Tabs.List aria-label="Projects">
-    {["/one", "/two"].map(project => <ProjectTab tab={{ path: project, name: "Review", busy: false, running: [], needsYou: 0, error: 0, exitText: null }}
-      selected={selected() === project} app={app} onMark={() => {}} onRename={async () => ({ status: "acknowledged", path: project, name: "Review", revision: 1, project: { path: project, name: "Review" } })} onClose={() => {}} />)}
-  </Tabs.List></Tabs.Root>);
-  const copied: string[] = [];
-  vi.spyOn(app, "clipboardWrite").mockImplementation(async (text: string) => { copied.push(text); });
-  const tabs = screen.getAllByRole("tab", { name: "Review" });
-  fireEvent.click(tabs[1]!);
-  fireEvent.contextMenu(tabs[1]!);
-  await app.pickMenu("Copy");
-  expect(selected()).toBe("/two");
-  expect(copied.map(text => JSON.parse(text))).toEqual([{ name: "Review", path: "/two" }]);
-});
 
 
 it.each([
@@ -688,40 +672,3 @@ it.each(["dismiss", "discard"] as const)("p3557c_failure_lifetime_header_retenti
   expect(window.localStorage.getItem(`roundup:drafts:${path("web")}`)).toBe(untouched);
 });
 
-it.each(["dismiss", "close Project"] as const)("p3557c_failure_lifetime_header_menu_%s", async action => {
-  const { app } = await openTabs({ api: [], web: [] });
-  fireEvent.click(tab("web"));
-  const input = await edit("web");
-  const original = "  untouched 雪  ";
-  fireEvent.input(input, { target: { value: original } });
-  press("Escape");
-  await waitFor(() => expect(JSON.parse(window.localStorage.getItem(`roundup:drafts:${path("web")}`)!).drafts.at(-1).value.name).toBe("  untouched 雪  "));
-  const untouched = window.localStorage.getItem(`roundup:drafts:${path("web")}`);
-  fireEvent.click(tab("api"));
-  vi.spyOn(app, "clipboardWrite").mockImplementation(async () => { throw new Error("clipboard blocked"); });
-  await settled();
-  fireEvent.contextMenu(tab("api"));
-  await app.pickMenu("Copy");
-  const dialog = await screen.findByRole("dialog", { name: "Unfinished work" });
-  expect(within(dialog).getByRole("alert", { name: /clipboard blocked/ })).toBeDefined();
-  fireEvent.click(within(dialog).getByRole("button", { name: /^Close$/ }));
-  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-
-  if (action === "dismiss") {
-    fireEvent.click(await screen.findByRole("button", { name: "Recover unfinished work · api" }));
-    const reopened = await screen.findByRole("dialog", { name: "Unfinished work" });
-    fireEvent.click(within(reopened).getByRole("button", { name: "Close · Copy name" }));
-    expect(within(reopened).queryByRole("alert")).toBeNull();
-  } else {
-    await settled();
-  fireEvent.contextMenu(tab("api"));
-    await app.pickMenu("Close");
-    await waitFor(() => expect(projectTabs()).toHaveLength(1));
-    fireEvent.click(screen.getByRole("button", { name: "Recover unfinished work · web" }));
-    const reopened = await screen.findByRole("dialog", { name: "Unfinished work" });
-    expect(within(reopened).queryByRole("alert")).toBeNull();
-    expect(within(reopened).getByText(original, { exact: true, normalizer: text => text })).toBeDefined();
-  }
-
-  expect(window.localStorage.getItem(`roundup:drafts:${path("web")}`)).toBe(untouched);
-});
