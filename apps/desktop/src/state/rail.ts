@@ -6,6 +6,7 @@ import { applying } from "../app/pending";
 import { batch, createMemo, createSignal } from "solid-js";
 import { createStore, reconcile } from "solid-js/store";
 import type { Actor } from "@contracts/Actor";
+import type { Status } from "@contracts/Status";
 import type { Event as DaemonEvent } from "@contracts/Event";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { TerminalInfo } from "@contracts/terminal/TerminalInfo";
@@ -50,6 +51,10 @@ export type RailState = {
   terminals(): readonly TerminalInfo[];
   /** How Terminal `id` ended, or `null` while it runs or when it is unknown. */
   terminalExit(id: string): ExitState | null;
+  /** U6000a: show row `id` as `starting` until the returned release runs. */
+  launch(id: string): () => void;
+  /** U6000a: show a `starting` Agent row under `parent` until the returned release runs or the Daemon lists the node. */
+  launchNew(parent: string | null, kind?: "agent" | "workstream"): () => void;
   doorPending(id: string): boolean;
   doorFailure(id: string): string | null;
   startDoor(id: string): Promise<void>;
@@ -120,8 +125,23 @@ const movedTo = (tree: readonly RailNode[], id: string, place: RailPlace): RailN
   return [...rest.slice(0, at), { ...node, parent: place.parent }, ...rest.slice(at)];
 };
 
+type Placeholder = { node: RailNode; parent: string | null; known: ReadonlySet<string> };
+
+/** The Daemon's own `starting` Status, drawn before it reports one. */
+const startingStatus = (since: number | undefined): Status => ({ kind: "working", label: "starting", since: since ?? Date.now(), finished: "0" });
+
 /** A24: how long the App waits for `rail.startDoor`, the Daemon's own bound of 10 000 ms. */
 const DOOR_START_BOUND_MS = 10_000;
+
+const once = (run: () => void): (() => void) => {
+  let done = false;
+
+  return () => {
+    if (done) return;
+    done = true;
+    run();
+  };
+};
 
 export const createRailState = (app: AppSeam, events: Events, storage?: RailStorage, dismissals?: DismissalStorage, resumptions?: ResumptionStorage): RailState => {
   const [model, setModel] = createStore<{ tree: RailNode[]; exited: Record<string, number | null> }>({
@@ -133,7 +153,26 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
   // Status, selection, disclosure, questions and clocks never enter this memo.
   // U5991a: rows a Rail action removed before its call answered; the Daemon's reply or failure lifts the hold.
   const [hidden, setHidden] = createSignal<ReadonlySet<string>>(new Set());
-  const view = createMemo(() => hidden().size === 0 ? model.tree : model.tree.filter(node => !hidden().has(node.id)));
+  // U6000a: rows whose program is starting. An existing row shows `starting` while its call is pending; a new Agent has no id yet, so a placeholder stands in until the Daemon lists its node.
+  const [launches, setLaunches] = createSignal<readonly string[]>([]);
+  const [placeholders, setPlaceholders] = createSignal<readonly Placeholder[]>([]);
+  let placeholderCount = 0;
+  const view = createMemo(() => {
+    const shown = hidden().size === 0 ? model.tree : model.tree.filter(node => !hidden().has(node.id));
+    const starting = launches();
+    const added = placeholders().filter((each, index, all) => {
+      const earlier = all.slice(0, index).filter(other => other.parent === each.parent).length;
+
+      return shown.filter(node => node.parent === each.parent && !each.known.has(node.id)).length <= earlier;
+    });
+
+    if (starting.length === 0 && added.length === 0) return shown;
+
+    return [
+      ...shown.map(node => starting.includes(node.id) ? { ...node, status: startingStatus(node.status?.since) } : node),
+      ...added.map(each => each.node),
+    ];
+  });
   const topology = createMemo(() => railTopology(view()));
 
   const [resumed, setResumed] = createStore<Parameters<ResumptionStorage["write"]>[0]>(resumptions?.read() ?? {});
@@ -156,6 +195,7 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
   const [workstreamCreating, setWorkstreamCreating] = createSignal(false);
   /** The id `rail.createWorkstream` returned, until `rail.tree` shows its row. */
   let wantedWorkstream: string | null = null;
+  let releaseWorkstream = () => undefined as void;
   let workstreamUnknown: string | null = null;
   let workstreamFocus = captureFocus();
   let selectionRevision = 0;
@@ -298,6 +338,7 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
 
     if (wanted !== null && tree.some((node) => node.id === wanted)) {
       wantedWorkstream = null;
+      releaseWorkstream();
 
       if (selectionRevision === workstreamSelection) select(wanted, workstreamFocus);
 
@@ -397,6 +438,7 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
       setRestored(false);
     });
     setDoors(id, { pending: true, observedLive: false, failure: null });
+    const release = state.launch(id);
 
     let prepared: TerminalPreparation | undefined;
 
@@ -421,6 +463,7 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
     } finally {
       prepared?.dispose();
       setDoors(id, "pending", false);
+      release();
     }
   };
 
@@ -432,6 +475,7 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
     const create = async (): Promise<string | null> => {
       if (workstreamCreating()) return null;
       setWorkstreamCreating(true);
+      releaseWorkstream = state.launchNew(null, "workstream");
 
       try {
         if (workstreamUnknown !== null && !await app.ask({ title: copy.newWorkstreamTitle, message: `${copy.terminalOutcomeUnknown}${workstreamUnknown}`, okLabel: copy.newWorkstreamTitle, cancelLabel: copy.keep })) return workstreamUnknown;
@@ -454,7 +498,10 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
 
         return error.message;
       } finally {
-        if (wantedWorkstream === null) setWorkstreamCreating(false);
+        if (wantedWorkstream === null) {
+          setWorkstreamCreating(false);
+          releaseWorkstream();
+        }
       }
     };
 
@@ -479,7 +526,30 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
 
       return code === null ? { kind: "signal" } : { kind: "code", code };
     },
-    doorPending: (id) => doors[id]?.pending ?? false,
+    launch: id => {
+      setLaunches(each => [...each, id]);
+
+      return once(() => setLaunches(each => { const at = each.indexOf(id); return at < 0 ? each : each.toSpliced(at, 1); }));
+    },
+    launchNew: (parent, kind = "agent") => {
+      const siblings = model.tree.filter(node => node.parent === parent);
+      const stand: Placeholder = {
+        parent,
+        known: new Set(model.tree.map(node => node.id)),
+        node: {
+          id: `launching-${++placeholderCount}`, kind, name: kind === "agent" ? "new-agent" : defaultWorkstreamName(model.tree), parent,
+          order: siblings.reduce((last, node) => Math.max(last, node.order), 0) + 1,
+          status: startingStatus(undefined), attempt: null, status_revision: null, terminal_id: null, worktree: null,
+          can_resume: false, can_make_workstream: false, can_save_as_mode: false, yolo: false,
+          channel: null, work: null, stray: [], model: null, effort: null,
+        },
+      };
+
+      setPlaceholders(each => [...each, stand]);
+
+      return once(() => setPlaceholders(each => each.filter(other => other !== stand)));
+    },
+    doorPending: (id) => (doors[id]?.pending ?? false) || launches().includes(id),
     doorFailure: (id) => doors[id]?.failure?.message ?? null,
     startDoor,
     createWorkstream,

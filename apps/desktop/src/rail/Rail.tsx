@@ -364,12 +364,9 @@ export const Rail = () => {
     void moveAgent.move({ id, parent, index: trueIndex(id, parent, index) });
   };
 
-  const [pending, setPending] = createSignal(false);
-
-  /** Runs one of the add actions; a second click while the Daemon is still answering would add a second row. */
+  /** Runs one of the add actions; U6000d: a second one fired while the Daemon is still answering is not refused. */
   const guarded = <T,>(call: () => Promise<T>): void => {
-    setPending(true);
-    void attempt(call).finally(() => setPending(false));
+    void attempt(call);
   };
 
   const parent = (): string | null => {
@@ -377,6 +374,8 @@ export const Rail = () => {
 
     return selected?.kind === "workstream" ? selected.id : null;
   };
+
+  let sendOrder: Promise<void> = Promise.resolve();
 
   const spawnAgentWith = (prompt: string | null, under: string | null = parent()) => {
     const params: SpawnParams = { cwd: project.path, prompt, parent: under, model: null, effort: null };
@@ -390,13 +389,23 @@ export const Rail = () => {
         return;
       }
 
-      guarded(async () => {
+      // U6000a, U6000d: the row shows `starting` at once; launches fired while one is pending reach the Daemon in the order fired.
+      const release = rail.launchNew(under);
+      const turn = sendOrder;
+      let sent!: () => void;
+
+      sendOrder = new Promise<void>(resolve => { sent = resolve; });
+      void attempt(async () => {
         const focus = captureFocus(true);
         let prepared: Awaited<ReturnType<NonNullable<typeof rail.prepareTerminal>>> | undefined;
 
         try {
+          await turn;
           prepared = await rail.prepareTerminal?.();
-          const spawned = await app.rpc("agent.spawn", { ...params, ...prepared?.size });
+          const call = app.rpc("agent.spawn", { ...params, ...prepared?.size });
+
+          sent();
+          const spawned = await call;
 
           if (spawned.terminal_id) prepared?.bind(spawned.terminal_id);
           await rail.refresh();
@@ -407,7 +416,7 @@ export const Rail = () => {
 
           if (error.name === "AbortError") return;
           failure.show(`${copy.newAgent}: ${error.message}`, null, "rail", run);
-        } finally { prepared?.dispose(); }
+        } finally { sent(); prepared?.dispose(); release(); }
       });
     };
 
@@ -545,7 +554,7 @@ export const Rail = () => {
     });
   };
 
-  const canSpawn = () => !pending() && !rail.workstreamCreating() && !rail.doorPending(rail.selected() ?? "") && daemonExit() === null;
+  const canSpawn = () => !rail.workstreamCreating() && !rail.doorPending(rail.selected() ?? "") && daemonExit() === null;
 
   onMount(() => {
     const clear = (event: MouseEvent) => {
