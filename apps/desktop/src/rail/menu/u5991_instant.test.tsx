@@ -80,9 +80,8 @@ const removeWorkstream = async (app: Awaited<ReturnType<typeof mountRail>>["app"
 };
 
 it("u5991c_a_failed_workstream_call_returns_it_with_its_children_and_queued_actions_run_after", async () => {
-  const { app } = await mountRail([workstream("chosen"), agent("child", "done", "finished", { parent: "chosen", terminal_id: null, worktree: null }), agent("other", "done", "finished", { terminal_id: null })]);
-  let release = () => undefined as void;
-  const queued = new Promise<void>(resolve => { release = resolve; });
+  const { app } = await mountRail([workstream("chosen"), agent("child", "idle", "idle", { parent: "chosen", terminal_id: null, worktree: null }), agent("other", "done", "finished", { terminal_id: null })]);
+  const { promise: queued, resolve: release } = Promise.withResolvers<void>();
 
   app.handlers["rail.remove"] = async ({ id }) => {
     if (id === "chosen") throw new RpcError(-32003, "Cannot remove: refused");
@@ -93,7 +92,6 @@ it("u5991c_a_failed_workstream_call_returns_it_with_its_children_and_queued_acti
 
   app.handlers["rail.deletion"] = () => null;
   await settled();
-  fireEvent.click(rowOf("chosen"));
   await screen.findByText("child", { selector: ".name" });
   await removeWorkstream(app, "chosen");
   await screen.findByText("Cannot remove: refused");
@@ -118,9 +116,10 @@ it("u5991d_a_loss_question_precedes_the_optimistic_removal", async () => {
 });
 
 it("u5991d_a_clean_workstream_leaves_in_the_next_frame_while_its_call_is_pending", async () => {
-  const { app } = await mountRail([workstream("chosen"), agent("child", "done", "finished", { parent: "chosen", terminal_id: null, worktree: null })]);
+  const { app } = await mountRail([workstream("chosen"), workstream("child", { parent: "chosen" })]);
   app.handlers["rail.remove"] = () => new Promise<never>(() => undefined);
   await settled();
+  await screen.findByText("child", { selector: ".name" });
   await removeWorkstream(app, "chosen");
   await waitFor(() => expect(gone("chosen")).toBe(true));
   expect(gone("child")).toBe(true);
