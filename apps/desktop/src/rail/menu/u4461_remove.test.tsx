@@ -77,8 +77,10 @@ it.each([false, true])("u4601_buttons_follow_what_stays_empty_answer_%s", async 
   expect(app.removalQuestions).toEqual([]);
   expect(railCallsTo(app, "rail.remove")).toEqual([]);
   app.answerQuestion!(answer);
+
   if (answer) await waitFor(() => expect(railCallsTo(app, "rail.remove")).toEqual([{ id: "chosen" }]));
   else await waitFor(() => expect(document.activeElement).toBe(rowOf("chosen")));
+
   expect(railCallsTo(app, "rail.remove")).toEqual(answer ? [{ id: "chosen" }] : []);
 });
 
