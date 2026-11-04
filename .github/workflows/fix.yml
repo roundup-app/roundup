@@ -8,6 +8,7 @@ run-name: "${{ format('Fix PR #{0}: {1}', inputs.pr || github.event.workflow_run
 # A reject answered with no push (a body edit) has `after` rerun its review run, since no `pre` run ends to start one.
 # A check, pre or rules run that a newer run on the same head superseded starts no fix run and counts no attempt, and neither
 # does a plumbing cause (a conflict, a `rules` failure about PR shape): it gets a run with no comment, up to six per PR.
+# A failed `pre` on a Builder PR or on `main` first gets the `lint-fix` job's safe lint fixes, with no model run.
 on:
   workflow_run:
     workflows: [check, loop, pre]
@@ -44,11 +45,67 @@ defaults:
     shell: bash
 
 jobs:
-  task:
+  # L82: a `pre` failure on a Builder PR or on `main` first gets `just fix`'s safe lint fixes, which `loop/lint-fix.py`
+  # commits and pushes with no model run: onto the PR's branch, or for `main` onto `lint-fix/main-<sha>` with a PR that
+  # merges once its checks pass. When they changed a file, `task` starts no fix run and no attempt counts; `pre` judges
+  # the new head. A head that already is such a commit gets none, so fixes that do not hold reach the model.
+  lint-fix:
     if: >-
-      github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'failure' &&
-      github.event.workflow_run.event == 'pull_request' && startsWith(github.event.workflow_run.head_branch, 'build/') &&
-      github.event.workflow_run.head_repository.full_name == github.repository)
+      github.event.workflow_run.name == 'pre' && github.event.workflow_run.conclusion == 'failure' &&
+      github.event.workflow_run.head_repository.full_name == github.repository &&
+      ((github.event.workflow_run.event == 'pull_request' && startsWith(github.event.workflow_run.head_branch, 'build/')) ||
+      (github.event.workflow_run.event == 'push' && github.event.workflow_run.head_branch == 'main'))
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      issues: read
+      pull-requests: read
+      id-token: write
+    outputs:
+      fixed: ${{ steps.fix.outputs.fixed }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 0
+          # Blobs load on demand: history still holds the 2.5 GB of evidence #5484 removed from the tree.
+          filter: blob:none
+          persist-credentials: false
+      # main picks the runner setup and runs the script; the PR's copies may be stale or changed.
+      - uses: actions/checkout@v5
+        with:
+          ref: main
+          path: .loop-main
+          sparse-checkout: |
+            .github/actions/setup
+            loop
+          persist-credentials: false
+      # rustup installs the toolchain `rust-toolchain.toml` pins when `cargo fmt` first runs.
+      - uses: ./.loop-main/.github/actions/setup
+        with:
+          rust: 'false'
+      - id: fix
+        env:
+          BRANCH: ${{ github.event.workflow_run.head_branch }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # A lint with no fixer fails `just fix` too; `pre` and the model answer what it leaves.
+          just fix || echo "just fix failed; committing what it changed"
+          code=0
+          python3 .loop-main/loop/lint-fix.py "$BRANCH" "$SHA" || code=$?
+          if [ "$code" = 0 ]; then echo "fixed=true" >>"$GITHUB_OUTPUT"; fi
+          # 3: nothing to push.
+          [ "$code" = 0 ] || [ "$code" = 3 ] || exit "$code"
+
+  task:
+    needs: lint-fix
+    if: >-
+      !cancelled() && needs.lint-fix.outputs.fixed != 'true' && (github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'failure' && github.event.workflow_run.event == 'pull_request' &&
+      startsWith(github.event.workflow_run.head_branch, 'build/') &&
+      github.event.workflow_run.head_repository.full_name == github.repository))
     runs-on: ${{ fromJSON(vars.BOXD_LIGHT == '1' && format('["self-hosted","boxd","roundup-light-task-{0}-{1}"]', github.run_id, github.run_attempt) || '["ubuntu-24.04"]') }}
     permissions:
       contents: write
@@ -91,7 +148,8 @@ jobs:
 
   fix-run:
     needs: task
-    if: needs.task.outputs.pr != ''
+    # Explicit: the implicit success() also reads `lint-fix`, and a skipped or failed `lint-fix` would skip this job.
+    if: ${{ !cancelled() && needs.task.result == 'success' && needs.task.outputs.pr != '' }}
     runs-on: ${{ fromJSON(contains(fromJSON(vars.BOXD_PRS || '[]'), fromJSON(needs.task.outputs.pr || '0')) && format('["self-hosted","boxd","roundup-fix-{0}-{1}-{2}"]', needs.task.outputs.pr, github.run_id, github.run_attempt) || '["ubuntu-24.04"]') }}
     timeout-minutes: 60
     permissions:

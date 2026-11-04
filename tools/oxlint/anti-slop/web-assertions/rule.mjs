@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { realpathSync } from "node:fs";
 import { relative } from "node:path";
 import { baselineEntries, assertionKey } from "./baseline.mjs";
 import { browserEvidence, dimensions, geometry, text } from "./browser.mjs";
@@ -128,7 +129,8 @@ return defineRule({
   create(context) {
     if (!/\.[cm]?[jt]sx?$/.test(context.filename)) return {};
     const source = context.sourceCode;
-    const file = relative(context.cwd, context.filename).replaceAll("\\", "/");
+    // A path through a symlink, as macOS's /var to /private/var, names the same file as the real cwd.
+    const file = relative(realpathSync(context.cwd), realpathSync(context.filename)).replaceAll("\\", "/");
     const remaining = new Map((enforce ? baselineEntries(context.cwd) : []).filter(entry => entry.file === file).map(entry => [assertionKey(entry), entry]));
 
     function evidence(root) {

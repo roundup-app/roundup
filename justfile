@@ -82,6 +82,12 @@ check-web base="":
     just lint-web
     just test-web-since {{quote(base)}}
 
+# T6011a: the safe fixes of `lint-web` and `lint-rust`, by Oxlint's and rustfmt's own fix modes on the whole tree; `fix.yml` runs it before any model (L82).
+[script('loop/keep-going.sh')]
+fix:
+    pnpm exec oxlint --fix
+    cargo fmt
+
 # The web checks that run no test; CI runs them in the `lint-web` job (L89).
 [script('loop/keep-going.sh')]
 lint-web:
