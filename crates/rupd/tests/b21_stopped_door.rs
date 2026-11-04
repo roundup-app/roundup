@@ -873,8 +873,9 @@ async fn dcl10_start_replays_one_ordered_batch() {
         "{stored:?}"
     );
     run.assert_silent().await;
+    let mut events = subscribe(&run).await;
     run.start_door().await;
-    wait_delivered(&run).await;
+    wait_delivered(&mut events, &stored).await;
     let after = run.thread().await;
     assert_eq!(identity(&after), identity(&stored));
     assert!(
@@ -914,8 +915,9 @@ async fn dcl10_failed_start_preserves_backlog_and_cause() {
     );
     run.assert_silent().await;
     std::fs::rename(saved, fake).unwrap();
+    let mut events = subscribe(&run).await;
     run.start_door().await;
-    wait_delivered(&run).await;
+    wait_delivered(&mut events, &stored).await;
     let after = run.thread().await;
     assert_eq!(identity(&after), identity(&stored));
     let written = transcript(run.dir.path().join("config").as_path());
@@ -926,18 +928,16 @@ async fn dcl10_failed_start_preserves_backlog_and_cause() {
     );
 }
 
-async fn wait_delivered(run: &Run) {
-    tokio::time::timeout(BOUND, async {
-        loop {
-            let thread = run.thread().await;
-            if thread.iter().all(|m| m["status"] == "delivered") {
-                return;
-            }
-            tokio::time::sleep(Duration::from_millis(10)).await;
-        }
-    })
-    .await
-    .expect("retained Messages delivered");
+async fn wait_delivered(events: &mut Client, stored: &[Value]) {
+    for message in stored {
+        delivered(events, message["id"].as_u64().unwrap()).await;
+    }
+}
+
+async fn subscribe(run: &Run) -> Client {
+    let events = Client::connect(&run.daemon.socket).await.unwrap();
+    events.request("events.subscribe", json!({})).await.unwrap();
+    events
 }
 
 /// Every conversation file Claude Code wrote under `config`, joined.
