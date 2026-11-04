@@ -57,17 +57,27 @@ impl Ledger {
         Self { metas }
     }
 
-    /// Writes each slot through, and drops the rows of those that are gone.
-    fn save(&self, inner: &Inner) {
+    /// Writes each slot through, and drops the rows of those that are gone. A refused write
+    /// is returned and leaves the stored rows as they were (DCL10a).
+    fn save(&self, inner: &Inner) -> rusqlite::Result<()> {
         let store = lock(&inner.store);
-        let _ = store.db.execute("DELETE FROM push_slots", []);
+        let tx = store.db.unchecked_transaction()?;
+        tx.execute("DELETE FROM push_slots", [])?;
         for (meta, slot) in &self.metas {
-            if let Ok(json) = serde_json::to_string(slot) {
-                let _ = store.db.execute(
-                    "INSERT INTO push_slots (door, slot) VALUES (?1, ?2)",
-                    rusqlite::params![meta, json],
-                );
-            }
+            let json = serde_json::to_string(slot)
+                .map_err(|err| rusqlite::Error::ToSqlConversionFailure(Box::new(err)))?;
+            tx.execute(
+                "INSERT INTO push_slots (door, slot) VALUES (?1, ?2)",
+                rusqlite::params![meta, json],
+            )?;
+        }
+        tx.commit()
+    }
+
+    /// `save`, logging a refused write; the entries stay waiting in memory.
+    fn persist(&self, inner: &Inner) {
+        if let Err(err) = self.save(inner) {
+            crate::log_failure("push ledger", &err.to_string());
         }
     }
 }
@@ -323,13 +333,13 @@ pub(crate) async fn push(inner: &Arc<Inner>, meta: &str, subagent: &str, entry: 
         .map_or(1, |at| slot.waiting.remove(at).2 + 1);
     slot.waiting
         .push((subagent.to_owned(), entry.clone(), weight));
-    ledger.save(inner);
+    ledger.persist(inner);
     let slot = ledger.metas.entry(meta.to_owned()).or_default();
     match crate::load_rail_nodes(inner).await {
         Ok(nodes) => roll_up(inner, meta, slot, now, plain, &nodes).await,
         Err(err) => crate::log_failure("push", &format!("{meta}: {}", err.message)),
     }
-    ledger.save(inner);
+    ledger.persist(inner);
 }
 
 /// B22(a): at the window's end, the changes kept back go out as one Message.
@@ -354,7 +364,7 @@ pub(crate) async fn flush(inner: &Arc<Inner>) {
     ledger
         .metas
         .retain(|_, slot| !slot.sent.is_empty() || !slot.waiting.is_empty());
-    ledger.save(inner);
+    ledger.persist(inner);
 }
 
 async fn roll_up(
