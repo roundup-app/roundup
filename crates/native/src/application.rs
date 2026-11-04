@@ -181,8 +181,8 @@ pub fn set_application_icon(png: &[u8]) {
     unsafe {
         let application: Retained<AnyObject> = msg_send![application, sharedApplication];
         let allocated: *mut AnyObject = msg_send![image, alloc];
-        let image: Option<Retained<AnyObject>> = msg_send![allocated, initWithData: &*data];
-        if let Some(image) = image {
+        let image: *mut AnyObject = msg_send![allocated, initWithData: &*data];
+        if let Some(image) = Retained::from_raw(image) {
             let _: () = msg_send![&*application, setApplicationIconImage: &*image];
         }
     }
