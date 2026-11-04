@@ -127,8 +127,10 @@ pub(crate) fn sync<R: Runtime>(
 pub(crate) fn watch<R: Runtime>(app: &AppHandle<R>, application: Submenu<R>, running: String) {
     let app = app.clone();
     tauri::async_runtime::spawn(async move {
+        let mut every = tokio::time::interval(Duration::from_secs(30));
+        every.tick().await;
         loop {
-            tokio::time::sleep(Duration::from_secs(30)).await;
+            every.tick().await;
             if let Some(home) = home()
                 && let Err(error) = sync(&app, &application, &update_status(&home, &running))
             {
