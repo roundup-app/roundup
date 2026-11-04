@@ -30,7 +30,7 @@ const short = (text: string) => {
 
 /** U5502: only the connected App owns membership; the native shell presents literal rows. */
 export const watchMenuBar = (options: {
-  solid: Pick<typeof Solid, "createEffect" | "onCleanup">;
+  solid: Pick<typeof Solid, "createEffect" | "createSignal" | "onCleanup">;
   app: App;
   tabs: () => OpenTab[];
   connection: (path: string) => ConnectedProject | undefined;
@@ -39,9 +39,11 @@ export const watchMenuBar = (options: {
   missing: string;
   fail: (message: string | null) => void;
 }) => {
-  const { createEffect, onCleanup } = options.solid;
+  const { createEffect, createSignal, onCleanup } = options.solid;
+  const [turn, setTurn] = createSignal(0);
   const waitingSince = new Map<string, { kind: Kind; attempt: string | null; since: number }>();
   createEffect(() => {
+    turn();
     const tabs = options.tabs();
     const current = new Set<string>();
 
@@ -83,10 +85,18 @@ export const watchMenuBar = (options: {
       if (!current.has(key)) waitingSince.delete(key);
     }
 
-    // U5959b: Ready keeps the last hour; older Ready Agents fold into `n earlier…`. Date.now, not the App display clock: R17 counts that clock's reads, and this runs per event, never on a timer.
+    // U5959b: Ready keeps the last hour; older Ready Agents fold into `n earlier…`. Date.now, not the App display clock: R17 counts that clock's reads; U5970 re-runs this on one timer.
     const now = Date.now();
     const shown = rows.filter(row => row.waiting || now - row.since <= HOUR);
     const earlier = rows.length - shown.length;
+
+    // U5970: one timer for the first moment a kept Ready row passes the hour; each projection re-arms it.
+    const fresh = shown.filter(row => !row.waiting).map(row => row.since + HOUR + 1 - now);
+
+    if (fresh.length) {
+      const timer = setTimeout(() => setTurn(count => count + 1), Math.min(...fresh));
+      onCleanup(() => clearTimeout(timer));
+    }
 
     const entries = (limit: number): MenuBar["entries"] => {
       const result: MenuBar["entries"] = [];
