@@ -1,3 +1,4 @@
+import { movedTo } from "../state/rail";
 import { applying } from "../app/pending";
 import type { ConnectedProject } from "../state/connectedProject";
 import type { SortableMove } from "../ui/sortable";
@@ -57,7 +58,11 @@ export const createMove = ({ app, rail, daemonExit }: Pick<ConnectedProject, "ap
 
     try {
       const base = rail.placeOf(params.id);
+      const lift = rail.draw(tree => movedTo(tree, params.id, { parent: params.parent, index: params.index }));
       const result = await applying(() => app.rpc("rail.move", params));
+
+      if (result.kind === "applied") rail.keepApplied(params.id, { parent: params.parent, index: params.index });
+      lift();
 
       if (result.kind === "refused") throw result.error;
 

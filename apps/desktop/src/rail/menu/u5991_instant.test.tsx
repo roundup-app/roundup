@@ -3,7 +3,7 @@ import { afterEach, expect, it } from "vitest";
 import { RpcError } from "../../app/seam";
 import { todo } from "../../todos/testHarness";
 import { agent, event, info, workstream } from "../../testing/nodes";
-import { mountRail, railCallsTo, rowOf, settled } from "../railFixture";
+import { chooseAction, exitedTerminal, itemOf, mountRail, railCallsTo, rowOf, settled } from "../railFixture";
 
 afterEach(cleanup);
 
@@ -17,16 +17,86 @@ const removeByKey = (name: string) => {
   fireEvent.keyDown(rowOf(name), { key: "Backspace", code: "Backspace", metaKey: true });
 };
 
-it("u5991a_every_rail_action_renders_before_its_call_answers", async () => {
-  const { app } = await mountRail([agent("first", "done", "finished", { terminal_id: null }), agent("second", "done", "finished", { terminal_id: null })]);
-  app.handlers["rail.remove"] = () => new Promise<never>(() => undefined);
+/** One frame after the action: the Rail has drawn and Solid has flushed, while the fake call stays pending. */
+const nextFrame = () => new Promise<void>(resolve => requestAnimationFrame(() => setTimeout(resolve)));
+
+
+type Mounted = Awaited<ReturnType<typeof mountRail>>;
+
+type Action = { name: string; mount: () => Promise<Mounted>; method: "rail.remove" | "rail.rename" | "rail.move" | "agent.stop" | "agent.resume"; fire: (mounted: Mounted) => Promise<void> | void; shown: (mounted: Mounted) => void; call: unknown };
+
+const resumable = (id: string) => agent(id, "done", "done", { can_resume: true });
+
+const menuLabels = (app: Mounted["app"]) => (app.shownMenus.at(-1)?.items ?? []).filter(item => item.enabled).map(item => item.label);
+
+let level: string | null = null;
+
+const actions: Action[] = [
+  {
+    name: "remove",
+    mount: () => mountRail([agent("first", "done", "finished", { terminal_id: null }), agent("second", "done", "finished", { terminal_id: null })]),
+    method: "rail.remove",
+    fire: () => removeByKey("first"),
+    // The row is gone and its sibling stays.
+    shown: () => { expect(gone("first")).toBe(true); expect(rowOf("second")).toBeTruthy(); },
+    call: { id: "first", operation: expect.any(String) },
+  },
+  {
+    name: "rename",
+    mount: () => mountRail([agent("a", "idle", "ready", { name: "Original" })]),
+    method: "rail.rename",
+    fire: () => {
+      fireEvent.dblClick(screen.getByText("Original"));
+      const field = screen.getByLabelText<HTMLInputElement>("Name");
+      fireEvent.input(field, { target: { value: "Renamed" } });
+      fireEvent.keyDown(field, { key: "Enter" });
+    },
+    // The name field stays open while its draft is pending (U2773b); the Rail's row data and the field already hold the new name.
+    shown: ({ rail }) => { expect(rail.nodes.map(node => node.name)).toEqual(["Renamed"]); expect(screen.getByLabelText<HTMLInputElement>("Name").value).toBe("Renamed"); },
+    call: { id: "a", name: "Renamed" },
+  },
+  {
+    name: "move",
+    mount: () => mountRail([workstream("Research"), agent("free", "idle", "ready", { terminal_id: null })]),
+    method: "rail.move",
+    fire: async ({ app }) => {
+      level = itemOf("free").getAttribute("aria-level");
+      await chooseAction(app, "free", "Move to…");
+      fireEvent.click(await screen.findByRole("option", { name: "Research" }));
+    },
+    // The Agent sits under the Workstream, one level deeper.
+    shown: () => expect(Number(itemOf("free").getAttribute("aria-level"))).toBe(Number(level) + 1),
+    call: { id: "free", parent: "Research", index: 0 },
+  },
+  {
+    name: "stop",
+    mount: () => mountRail([resumable("a")], [info("t-a", { owner: "a" })]),
+    method: "agent.stop",
+    fire: async ({ app }) => { fireEvent.contextMenu(rowOf("a")); await app.pickMenu("Stop"); },
+    // The row now offers Resume, not Stop.
+    shown: ({ app }) => { fireEvent.contextMenu(rowOf("a")); expect(menuLabels(app)).toContain("Resume"); expect(menuLabels(app)).not.toContain("Stop"); },
+    call: { id: "a" },
+  },
+  {
+    name: "resume",
+    mount: () => mountRail([resumable("a")], [exitedTerminal("a", 0)]),
+    method: "agent.resume",
+    fire: async ({ app }) => { fireEvent.contextMenu(rowOf("a")); await app.pickMenu("Resume"); },
+    shown: ({ app }) => { fireEvent.contextMenu(rowOf("a")); expect(menuLabels(app)).toContain("Stop"); expect(menuLabels(app)).not.toContain("Resume"); },
+    call: { id: "a" },
+  },
+];
+
+it.each(actions)("u5991a_every_rail_action_renders_before_its_call_answers_$name", async action => {
+  const mounted = await action.mount();
+  mounted.app.handlers[action.method] = () => new Promise<never>(() => undefined);
+  mounted.app.handlers["rail.deletion"] = () => null;
   await settled();
-  removeByKey("first");
-  // The call is still pending, yet the row is already gone and its sibling stays.
-  expect(gone("first")).toBe(true);
-  expect(rowOf("second")).toBeTruthy();
-  await waitFor(() => expect(railCallsTo(app, "rail.remove")).toEqual([{ id: "first", operation: expect.any(String) }]));
+  await action.fire(mounted);
+  await nextFrame();
+  action.shown(mounted);
   expect(screen.queryByRole("progressbar")).toBeNull();
+  await waitFor(() => expect(railCallsTo(mounted.app, action.method)).toEqual([action.call]));
 });
 
 it("u5991b_ten_removals_and_an_undo_reach_the_daemon_once_in_order", async () => {

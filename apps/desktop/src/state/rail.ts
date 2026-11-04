@@ -40,6 +40,12 @@ export type RailState = {
   /** U5991a: take rows off the Rail at once; `unhide` returns whatever the Daemon still holds. */
   hide(ids: readonly string[]): void;
   unhide(ids: readonly string[]): void;
+  /** U5991a: show `change` of the tree at once; the returned call lifts it once the Daemon's reply or Event holds the result. */
+  /** U5991a: the Daemon applied the move of Row `id`; the tree holds it before the drawing lifts. */
+  keepApplied(id: string, place: RailPlace): void;
+  /** U5991a: show Row `id`'s program as stopped (`exit`) or running (`null`) at once; the returned call lifts it. */
+  drawExit(id: string, exit: ExitState | null): () => void;
+  draw(change: (tree: readonly RailNode[]) => readonly RailNode[]): () => void;
   /** One structural index shared by selection and every mounted Rail projection. */
   topology(): RailTopology;
   /** U5483c: latest accepted working start in milliseconds; retained across Project connections for the same Attempt. */
@@ -107,7 +113,7 @@ const placeOf = (tree: readonly RailNode[], id: string): RailPlace | null => {
 };
 
 /** U5172a: `tree` with Row `id` put at `place`: before the child of `place.parent` now at that index, else after the parent's last child (or its parent Row). */
-const movedTo = (tree: readonly RailNode[], id: string, place: RailPlace): RailNode[] => {
+export const movedTo = (tree: readonly RailNode[], id: string, place: RailPlace): RailNode[] => {
   const node = tree.find(each => each.id === id);
 
   if (node === undefined) return [...tree];
@@ -123,6 +129,8 @@ const movedTo = (tree: readonly RailNode[], id: string, place: RailPlace): RailN
 /** A24: how long the App waits for `rail.startDoor`, the Daemon's own bound of 10 000 ms. */
 const DOOR_START_BOUND_MS = 10_000;
 
+const identity = (tree: readonly RailNode[]): readonly RailNode[] => tree;
+
 export const createRailState = (app: AppSeam, events: Events, storage?: RailStorage, dismissals?: DismissalStorage, resumptions?: ResumptionStorage): RailState => {
   const [model, setModel] = createStore<{ tree: RailNode[]; exited: Record<string, number | null> }>({
     tree: [],
@@ -133,7 +141,17 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
   // Status, selection, disclosure, questions and clocks never enter this memo.
   // U5991a: rows a Rail action removed before its call answered; the Daemon's reply or failure lifts the hold.
   const [hidden, setHidden] = createSignal<ReadonlySet<string>>(new Set());
-  const view = createMemo(() => hidden().size === 0 ? model.tree : model.tree.filter(node => !hidden().has(node.id)));
+  const [drawn, setDrawn] = createSignal<readonly (typeof identity)[]>([]);
+  const renaming = new Map<string, () => void>();
+  const exitMarks = new Map<string, { exit: ExitState | null }>();
+  const [exitsDrawn, setExitsDrawn] = createSignal<ReadonlyMap<string, ExitState | null>>(new Map());
+
+  const view = createMemo(() => {
+    const shown = hidden().size === 0 ? model.tree : model.tree.filter(node => !hidden().has(node.id));
+
+    return drawn().reduce<readonly RailNode[]>((tree, change) => change(tree), shown);
+  });
+
   const topology = createMemo(() => railTopology(view()));
 
   const [resumed, setResumed] = createStore<Parameters<ResumptionStorage["write"]>[0]>(resumptions?.read() ?? {});
@@ -491,8 +509,28 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
       return view();
     },
     hide: ids => setHidden(rows => new Set([...rows, ...ids])),
+    draw: change => {
+      setDrawn(changes => [...changes, change]);
+
+      return () => setDrawn(changes => changes.filter(each => each !== change));
+    },
+    drawExit: (id, exit) => {
+      const mark = { exit };
+
+      exitMarks.set(id, mark);
+      setExitsDrawn(new Map(Array.from(exitMarks, ([key, each]) => [key, each.exit])));
+
+      return () => {
+        if (exitMarks.get(id) !== mark) return;
+        exitMarks.delete(id);
+        setExitsDrawn(new Map(Array.from(exitMarks, ([key, each]) => [key, each.exit])));
+      };
+    },
+    keepApplied: (id, place) => setModel("tree", reconcile(movedTo(model.tree, id, place), { key: "id" })),
     unhide: ids => setHidden(rows => new Set([...rows].filter(id => !ids.includes(id)))),
     exitOf: (node) => {
+      if (exitsDrawn().has(node.id)) return exitsDrawn().get(node.id)!;
+
       if (node.terminal_id === null) return { kind: "unknown" };
 
       if (!(node.terminal_id in model.exited)) return null;
@@ -505,11 +543,22 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
     placeOf: (id) => placeOf(model.tree, id),
     rename: async (id, name) => {
       const base = model.tree.find(node => node.id === id)?.name ?? "";
+      // The newest name asked is the one drawn: it supersedes an older drawing still waiting on its reply.
+      renaming.get(id)?.();
+      const lift = state.draw(tree => tree.map(node => node.id === id ? { ...node, name } : node));
+
+      renaming.set(id, lift);
       const result = await applying(() => app.rpc("rail.rename", { id, name }));
 
-      if (result.kind === "refused") throw result.error;
+      // The read holds the Daemon's name before the drawing lifts, so the row never shows the old one between them.
+      if (result.kind === "applied") await state.refresh();
 
       if (result.kind === "pending") state.keepAsked(id, { kind: "rename", asked: name, base });
+      lift();
+
+      if (renaming.get(id) === lift) renaming.delete(id);
+
+      if (result.kind === "refused") throw result.error;
     },
     keepAsked: (id, change) => {
       setAsked(id, change);
