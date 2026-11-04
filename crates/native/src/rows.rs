@@ -72,7 +72,7 @@ pub fn apply(menu: &NSMenu, looks: &[Look], mtm: MainThreadMarker) -> bool {
                     let next = NSString::from_str(subtitle);
                     taller = item
                         .subtitle()
-                        .is_none_or(|held| !held.isEqualToString(&next));
+                        .is_none_or(|shown| !shown.isEqualToString(&next));
                     if taller {
                         item.setSubtitle(Some(&next));
                     }
