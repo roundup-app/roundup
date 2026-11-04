@@ -257,6 +257,7 @@ export const Rail = () => {
       anchorAt(node.id);
     }
 
+    focusRow(node.id);
     const chosen = selectedNodes();
 
     if (chosen.length < 2) return menu.open(node, rail.exitOf(node), x, y);
@@ -300,8 +301,10 @@ export const Rail = () => {
     const ids = nodeIds();
     const next = ids[ids.indexOf(node.id) + 1] ?? ids[ids.indexOf(node.id) - 1];
     menu.requestRemove(node, rail.exitOf(node), () => {
-      if (next === undefined || rail.selected() !== node.id) return;
+      if (next === undefined || rail.selected() !== node.id && !selection.selection.isSelected(node.id)) return;
 
+      selection.selection.replace(next);
+      anchorAt(next);
       rail.select(next);
       focusRow(next);
     });

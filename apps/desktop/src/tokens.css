@@ -20,8 +20,8 @@
   --pad-purple: var(--purple-11);
   --pad-highlight: var(--amber-4);
   --pad-highlight-ink: var(--amber-12);
-  --button-accent-fill: #1f6b62;
-  --button-key-ink: #d4e6e2;
+  --button-accent-fill: #b23300;
+  --button-key-ink: #fbe2da;
   --text-selection: var(--button-accent-fill);
   --text-selection-ink: var(--button-accent-ink);
   color-scheme: light dark;
@@ -57,8 +57,8 @@
   --ground: var(--gray-1);
   --sunken: var(--gray-2);
   --hover: rgba(0, 0, 0, 0.04);
-  --selected: rgba(31, 107, 98, 0.07);
-  --selected-hover: rgba(31, 107, 98, 0.10);
+  --selected: rgba(178, 51, 0, 0.07);
+  --selected-hover: rgba(178, 51, 0, 0.10);
   --blur-bubble-backdrop: 12px;
   --scrim: rgba(0, 0, 0, 0.4);
   /* U3295a: the one order of floating surfaces, lowest first. */
@@ -74,7 +74,7 @@
   /* Disabled neutral tones sit between Radix gray 10 and 11 and keep 4.5:1. */
   --disabled: #707070;
   --press-opacity: 0.9;
-  --accent: #1a6b61;
+  --accent: #b23300;
   --doodle-ground: color-mix(in srgb, var(--ground) 95%, #000000);
   --amber: var(--amber-11);
   --red: var(--red-11);
@@ -275,13 +275,13 @@
     --key-chip-fill: var(--gray-3);
     --sunken: var(--terminal-background);
     --hover: rgba(255, 255, 255, 0.06);
-    --selected: rgba(92, 199, 181, 0.08);
-    --selected-hover: rgba(92, 199, 181, 0.10);
+    --selected: rgba(252, 106, 62, 0.08);
+    --selected-hover: rgba(252, 106, 62, 0.10);
     --text: var(--gray-12);
     --grey: var(--gray-11);
     --cache-write: var(--gray-9);
     --disabled: #999999;
-    --accent: #5cc7b5;
+    --accent: #fc6a3e;
     --doodle-ground: color-mix(in srgb, var(--ground) 95%, #ffffff);
     --amber: var(--amber-11);
     --red: var(--red-11);
@@ -344,14 +344,14 @@ button, file-tree-container, diffs-container {
   --key-chip-fill: var(--gray-3);
   --sunken: var(--gray-2);
   --hover: rgba(0, 0, 0, 0.04);
-  --selected: rgba(31, 107, 98, 0.07);
-  --selected-hover: rgba(31, 107, 98, 0.10);
+  --selected: rgba(178, 51, 0, 0.07);
+  --selected-hover: rgba(178, 51, 0, 0.10);
   --pressed: var(--gray-6);
   --text: var(--gray-12);
   --grey: var(--gray-11);
   --cache-write: var(--gray-9);
   --disabled: #707070;
-  --accent: #1a6b61;
+  --accent: #b23300;
   --doodle-ground: color-mix(in srgb, var(--ground) 95%, #000000);
   --amber: var(--amber-11);
   --red: var(--red-11);
@@ -391,14 +391,14 @@ button, file-tree-container, diffs-container {
     --key-chip-fill: var(--gray-3);
     --sunken: var(--terminal-background);
     --hover: rgba(255, 255, 255, 0.06);
-    --selected: rgba(92, 199, 181, 0.08);
-    --selected-hover: rgba(92, 199, 181, 0.10);
+    --selected: rgba(252, 106, 62, 0.08);
+    --selected-hover: rgba(252, 106, 62, 0.10);
     --pressed: var(--gray-6);
     --text: var(--gray-12);
     --grey: var(--gray-11);
     --cache-write: var(--gray-9);
     --disabled: #999999;
-    --accent: #5cc7b5;
+    --accent: #fc6a3e;
     --doodle-ground: color-mix(in srgb, var(--ground) 95%, #ffffff);
     --amber: var(--amber-11);
     --red: var(--red-11);

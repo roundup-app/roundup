@@ -6,9 +6,14 @@ import { unseenStorage } from "../state/unseen";
 import { chooseAction, settled } from "../rail/railFixture";
 import type { FakeApp } from "../testing/fakeApp";
 
-afterEach(() => { cleanup(); localStorage.clear(); vi.restoreAllMocks(); });
+afterEach(() => { cleanup(); localStorage.clear(); vi.restoreAllMocks(); vi.useRealTimers(); });
 
-beforeEach(() => { vi.spyOn(document, "hasFocus").mockReturnValue(true); });
+// U5959b: Ready keeps the last hour, so the Agents' fixed `since` values sit a minute before this clock.
+beforeEach(() => {
+  vi.spyOn(document, "hasFocus").mockReturnValue(true);
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(60_000);
+});
 
 const actions = (app: FakeApp) => app.menuBar?.entries.flatMap(entry => entry.action?.kind === "agent" ? [entry.action] : []) ?? [];
 
