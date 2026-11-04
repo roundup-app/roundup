@@ -61,13 +61,13 @@ pub(crate) fn u5503_native_dock_menu_dispatches_the_chosen_action() {
             move || {
                 openings.set(openings.get() + 1);
                 if closed.get() {
-                    vec![("Open roundup".into(), Some("open".into()))]
+                    vec![Row::plain("Open roundup", Some("open".into()))]
                 } else {
                     vec![
-                        ("Waiting".into(), None),
-                        ("Ada".into(), Some("/api:same".into())),
-                        ("Ada".into(), Some("/web:same".into())),
-                        ("Open roundup".into(), Some("open".into())),
+                        Row::plain("Waiting", None),
+                        Row::plain("Ada", Some("/api:same".into())),
+                        Row::plain("Ada", Some("/web:same".into())),
+                        Row::plain("Open roundup", Some("open".into())),
                     ]
                 }
             }
