@@ -126,10 +126,30 @@ pub async fn start(
     )))
 }
 
-/// Calls `on_exit` with the Daemon's exit code, `None` when a signal ended it.
-pub fn watch_exit(mut child: Child, on_exit: impl FnOnce(Option<i32>) + Send + 'static) {
+/// Sent to `watch_exit` to end the Daemon by SIGKILL, which runs none of its stop (S5981a); the
+/// receiver is answered once the process is gone.
+pub type Leave = tokio::sync::oneshot::Sender<tokio::sync::oneshot::Sender<()>>;
+
+/// Calls `on_exit` with the Daemon's exit code, `None` when a signal ended it. The returned
+/// `Leave` kills the Daemon without closing its stdin.
+pub fn watch_exit(mut child: Child, on_exit: impl FnOnce(Option<i32>) + Send + 'static) -> Leave {
+    let (leave, left) = tokio::sync::oneshot::channel::<tokio::sync::oneshot::Sender<()>>();
     tauri::async_runtime::spawn(async move {
-        match child.wait().await {
+        let mut ack = None;
+        let waited = tokio::select! {
+            waited = child.wait() => waited,
+            Ok(answer) = left => {
+                if let Err(err) = child.start_kill() {
+                    log::warn!(target: "roundup::shell", "kill Daemon for update: IO {:?}", err.kind());
+                }
+                ack = Some(answer);
+                child.wait().await
+            }
+        };
+        if let Some(ack) = ack {
+            let _ = ack.send(());
+        }
+        match waited {
             Ok(status) => on_exit(status.code()),
             Err(err) => {
                 log::warn!(target: "roundup::shell", "wait for Daemon exit: IO {:?}", err.kind());
@@ -137,6 +157,7 @@ pub fn watch_exit(mut child: Child, on_exit: impl FnOnce(Option<i32>) + Send + '
             }
         }
     });
+    leave
 }
 
 fn describe(status: ExitStatus) -> String {
