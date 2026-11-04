@@ -379,27 +379,21 @@ const RequestedViews = (props: { ready: boolean; deliverables: ReturnType<typeof
   // A request made from a Terminal brings the Overview forward first, as the Project menu's Made does.
   createEffect(() => { if (connected.hasView("attention")) untrack(() => connected.rail.select(null)); });
 
-  // A requested list keeps its selection while another is up: once opened it stays mounted, hidden when it is not the one asked for.
-  const [mounted, setMounted] = createSignal<readonly string[]>([]);
-
-  createEffect(() => {
-    for (const id of ["workstreams", "attention", "made"]) if (connected.hasView(id) && !untrack(mounted).includes(id)) setMounted(all => [...all, id]);
-  });
+  // A requested list keeps its selection while another is up: once asked for it stays mounted, hidden when it is not the one asked for.
+  const opened = (id: string) => createMemo<boolean>(seen => seen || connected.hasView(id), false);
+  const seen = { workstreams: opened("workstreams"), attention: opened("attention"), made: opened("made") };
 
   const wanted = (id: string) => connected.hasView(id) && (id === "made" || !connected.hasView("made"));
 
-  const panel = (id: string, label: string, content: () => JSX.Element) => <Show when={mounted().includes(id)}>
+  const panel = (id: "attention" | "made", label: string, content: () => JSX.Element) => <Show when={seen[id]()}>
     <div hidden={!wanted(id)}>
       <div class="made-heading"><h2 class="overview-heading">{label}</h2><button type="button" data-button="quiet" onClick={() => { connected.hideView(id); queueFocus(() => document.querySelector<HTMLElement>(".ask-input")?.focus()); }}>{copy.closeView(label)}</button></div>
       {content()}
     </div>
   </Show>;
 
-  // A request made from a Terminal brings the Overview forward first.
-  createEffect(() => { if (connected.hasView("attention")) untrack(() => connected.rail.select(null)); });
-
   return <>
-    <div hidden={!(props.ready && wanted("workstreams"))}><Show when={props.ready && mounted().includes("workstreams")}><ProjectOverview /></Show></div>
+    <div hidden={!(props.ready && wanted("workstreams"))}><Show when={props.ready && seen.workstreams()}><ProjectOverview /></Show></div>
     {panel("attention", copy.needsYou, () => <Inbox />)}
     {panel("made", copy.deliverables, () => <Deliverables state={props.deliverables} />)}
   </>;

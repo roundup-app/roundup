@@ -104,7 +104,7 @@ export const Changes = (props: { ready: boolean; keys: KeyScope; onOpened: () =>
   };
 
   return <section class="changes" aria-label={copy.overview} aria-busy={!props.ready} onKeyDown={arrows}>
-    <ul class="change-list">
+    <ul class="change-list" aria-live="polite">
       <For each={pinned()}>{node => <ChangeRow id={`${node.id}:${node.attempt}:${node.status_revision}`} mark={() => node.status} name={node.name} phrase={node.status ? LABELS[node.status.kind] : ""}
         action={copy.open} label={`${copy.open} ${node.name}`} run={() => { rail.select(node.id); props.onOpened(); }} />}</For>
       <For each={finished()}>{row => <ChangeRow id={row.key} mark={() => null} name={nameOf(row)} phrase={row.published.length > 0 ? copy.finishedPublished(row.published.length) : copy.finished}
