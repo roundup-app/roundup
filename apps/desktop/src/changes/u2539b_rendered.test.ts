@@ -63,8 +63,8 @@ it.each(["tree-40", "agents-10", "tabs-8", "empty-project", "resources"])("u2539
       await capture(lane, `${seed}-landing`);
 
       if (lane === "head" && seed === "agents-10") {
-        await browser("focus", '.inbox-item:has([aria-label="Needs-you"]) .inbox-row');
-        await browser("click", '.inbox-item:has([aria-label="Needs-you"]) .inbox-actions button');
+        await browser("focus", '.change-row:has([aria-label="Needs-you"]) .change-action');
+        await browser("click", '.change-row:has([aria-label="Needs-you"]) .change-action');
         await until("!!document.querySelector('.pane-screen')");
         await capture(lane, "agents-10-selected-agent");
         await browser("click", ".todo-project-root");
