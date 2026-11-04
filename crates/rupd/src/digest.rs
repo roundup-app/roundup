@@ -89,9 +89,7 @@ impl Reader {
             .await
     }
 
-    /// The Rail, the Todos, the Pads and every Message. The Adapter sets a turn's final text and
-    /// its Status under one lock, so `completed` is read before the Rail: a Rail never shows an
-    /// older Status than the final text beside it.
+    /// The Rail, the Todos, the Pads and every Message.
     pub async fn world(&self) -> Result<World, RpcError> {
         let daemon = Actor::daemon;
         let pads: Vec<contracts::pad::Pad> =
@@ -104,19 +102,17 @@ impl Reader {
                     .map_err(RpcError::internal)?,
             );
         }
-        let completed = self
-            .agents
-            .as_ref()
-            .map_or_else(HashMap::new, |agents| agents.completed_text());
-        let nodes = self.rail().await?;
         Ok(World {
-            nodes,
+            nodes: self.rail().await?,
             todos: self
                 .call("todo", "todo.list", Value::Null, daemon())
                 .await?,
             pads,
             touches,
-            completed,
+            completed: self
+                .agents
+                .as_ref()
+                .map_or_else(HashMap::new, |agents| agents.completed_text()),
             // The user sees every Message; `message.list` shows the Daemon only its own.
             messages: self
                 .call("message", "message.list", json!({}), Actor::user())
@@ -177,8 +173,14 @@ pub async fn push_changes(
     seen: Arc<messages::digest::Seen>,
     mut events: tokio::sync::broadcast::Receiver<contracts::Event>,
 ) {
-    // What is already there is not news: record it as told before the first event is judged.
-    if let Ok(world) = reader.world().await {
+    // DCL10: a stored told book is compared with the Rail, so a fact told before the stop stays
+    // told and one changed while stopped is queued once. With none, what is there is not news:
+    // record it as told before the first event is judged.
+    if seen.has_told() {
+        if let Err(err) = push_once(&reader, &messages, &seen).await {
+            eprintln!("rupd: digest push failed: {err}");
+        }
+    } else if let Ok(world) = reader.world().await {
         seen.baseline(&world.sources());
         reader.observed(&world);
     }

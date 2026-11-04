@@ -443,6 +443,12 @@ impl Seen {
         Some(entry)
     }
 
+    /// DCL10: whether the stored told book holds any fact, so startup compares with it instead of
+    /// recording every child as told.
+    pub fn has_told(&self) -> bool {
+        !self.book().told.map.is_empty()
+    }
+
     /// B21: what the Daemon records as told without sending it, so that only a change after now
     /// is pushed. Children that already have an entry keep it.
     pub fn baseline(&self, from: &Sources) {
