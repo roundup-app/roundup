@@ -86,6 +86,7 @@ it.each([["refused", new RpcError(-32003, "Cannot start: refused")]] as const)("
   const mounted = await mountRail([exited("old")]);
 
   mounted.app.handlers["agent.resume"] = () => { throw failure; };
+
   await settled();
   await chooseAction(mounted.app, "old", "Resume");
   await screen.findByText(failure.message);
@@ -97,6 +98,7 @@ it("u6000b_no_row_shows_starting_after_the_program_is_up_or_a_failure", async ()
   const mounted = await mountRail([workstream("ws")]);
 
   mounted.app.handlers["agent.spawn"] = () => { throw new Error("refused"); };
+
   await settled();
   chord("n");
   await screen.findByText(/refused/);

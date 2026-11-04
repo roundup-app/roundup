@@ -157,9 +157,11 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
   const [launches, setLaunches] = createSignal<readonly string[]>([]);
   const [placeholders, setPlaceholders] = createSignal<readonly Placeholder[]>([]);
   let placeholderCount = 0;
+
   const view = createMemo(() => {
     const shown = hidden().size === 0 ? model.tree : model.tree.filter(node => !hidden().has(node.id));
     const starting = launches();
+
     const added = placeholders().filter((each, index, all) => {
       const earlier = all.slice(0, index).filter(other => other.parent === each.parent).length;
 
@@ -173,6 +175,7 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
       ...added.map(each => each.node),
     ];
   });
+
   const topology = createMemo(() => railTopology(view()));
 
   const [resumed, setResumed] = createStore<Parameters<ResumptionStorage["write"]>[0]>(resumptions?.read() ?? {});
@@ -195,7 +198,7 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
   const [workstreamCreating, setWorkstreamCreating] = createSignal(false);
   /** The id `rail.createWorkstream` returned, until `rail.tree` shows its row. */
   let wantedWorkstream: string | null = null;
-  let releaseWorkstream = () => undefined as void;
+  let releaseWorkstream: () => void = () => undefined;
   let workstreamUnknown: string | null = null;
   let workstreamFocus = captureFocus();
   let selectionRevision = 0;
@@ -529,10 +532,15 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
     launch: id => {
       setLaunches(each => [...each, id]);
 
-      return once(() => setLaunches(each => { const at = each.indexOf(id); return at < 0 ? each : each.toSpliced(at, 1); }));
+      return once(() => setLaunches(each => {
+        const at = each.indexOf(id);
+
+        return at < 0 ? each : each.toSpliced(at, 1);
+      }));
     },
     launchNew: (parent, kind = "agent") => {
       const siblings = model.tree.filter(node => node.parent === parent);
+
       const stand: Placeholder = {
         parent,
         known: new Set(model.tree.map(node => node.id)),
