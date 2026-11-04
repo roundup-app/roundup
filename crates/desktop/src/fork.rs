@@ -94,7 +94,10 @@ pub(crate) fn fork_path(home: &Path, name: &str) -> PathBuf {
             }
         })
         .collect();
-    let slug = slug.trim_matches('-');
+    let slug = match slug.trim_matches('-') {
+        "" => "fork",
+        slug => slug,
+    };
     let forks = home.join("forks");
 
     (1..)
@@ -157,5 +160,16 @@ mod tests {
             )
             .is_err()
         );
+    }
+
+    #[test]
+    fn fs6102a_a_name_without_ascii_letters_still_gets_its_own_subfolder() {
+        let tmp = tempfile::tempdir().unwrap();
+        let forks = tmp.path().join("forks");
+        let first = fork_path(tmp.path(), "日本");
+        assert_eq!(first, forks.join("fork"));
+        std::fs::create_dir_all(&first).unwrap();
+        assert_eq!(fork_path(tmp.path(), "日本"), forks.join("fork-2"));
+        assert_eq!(fork_path(tmp.path(), "my fix"), forks.join("my-fix"));
     }
 }
