@@ -1,6 +1,7 @@
 import { createEffect, createMemo, createSignal, For, Show } from "solid-js";
 import type { RailNode } from "@contracts/agent/RailNode";
 import { KindGlyph, LABELS } from "../ink/KindGlyph";
+import { ReservedLine } from "../ink/ReservedLine";
 import { KeyChip } from "../keys/KeyChip";
 import type { KeyText } from "../keys/chords";
 import { attentionOrder } from "../rail/attention";
@@ -43,7 +44,7 @@ const ChangeRow = (props: { id: string; mark: () => RailNode["status"] | null; n
  * U504: what waits on the user, then what finished since the last visit, then Ask parts not yet resolved.
  * A visit starts once its reads are in and the list is rendered; the lower boundary stays fixed while it is visible.
  */
-export const Changes = (props: { ready: boolean; keys: KeyScope; onOpened: () => void }) => {
+export const ChangeList = (props: { ready: boolean; keys: KeyScope; onOpened: () => void }) => {
   const connected = useConnectedProject();
   const { rail, visits, asks } = connected;
   const [lower, setLower] = createSignal<{ seq: number; at: number | null } | null>(null);
@@ -113,6 +114,6 @@ export const Changes = (props: { ready: boolean; keys: KeyScope; onOpened: () =>
     </ul>
     <AskRows keys={props.keys} onOpened={props.onOpened} />
     <Show when={quiet()}><p class="overview-quiet" data-last-visit={lower()?.at ?? "first"}>{quietLine()}</p></Show>
-    <Show when={retainFailure()}>{cause => <p class="overview-quiet" role="status">{copy.visitNotSaved(cause())}<button type="button" data-button="quiet" onClick={retain}>{copy.retry}</button></p>}</Show>
+    <ReservedLine message={retainFailure() && copy.visitNotSaved(retainFailure()!)}><button type="button" data-button="quiet" onClick={retain}>{copy.retry}</button></ReservedLine>
   </section>;
 };

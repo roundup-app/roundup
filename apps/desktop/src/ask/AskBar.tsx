@@ -1,7 +1,7 @@
 import "../ui/Row.css";
 import { createRowCollection, rowKey } from "../ui/RowCollection";
 import { Inbox } from "../inbox/Inbox";
-import { Changes } from "./Changes";
+import { ChangeList } from "./ChangeList";
 import { useDialog } from "@ark-ui/solid/dialog";
 import { captureFocus, queueFocus } from "../keys/focus";
 import { createCopyLabels } from "../ui/CopyButton";
@@ -299,11 +299,6 @@ export const AskBar = (props: {
     if (picked === null) send();
   };
 
-  const overview = <>
-    <Changes ready={treeReady() && asks.loadState() !== "loading"} keys={scope} onOpened={() => close(false)} />
-    <RequestedViews ready={treeReady()} deliverables={deliverables} />
-  </>;
-
   return (<>
     <Show when={shown()}>
       <section {...(over() ? dialog().getContentProps() : {})} role={over() ? "dialog" : "region"} class="ask-bar" data-mode={over() ? "over" : "home"} aria-label={copy.askBarLabel} ref={(element) => { panel = element; }}
@@ -366,7 +361,10 @@ export const AskBar = (props: {
         </Show>
         </ReservedLine>
         </div>
-        <Show when={!over()}>{overview}</Show>
+        <Show when={!over()}>
+          <ChangeList ready={treeReady() && asks.loadState() !== "loading"} keys={scope} onOpened={() => close(false)} />
+          <RequestedViews ready={treeReady()} deliverables={deliverables} />
+        </Show>
       </section>
     </Show>
   </>);
@@ -377,7 +375,7 @@ const RequestedViews = (props: { ready: boolean; deliverables: ReturnType<typeof
   const connected = useConnectedProject();
 
   // A request made from a Terminal brings the Overview forward first, as the Project menu's Made does.
-  createEffect(() => { if (connected.hasView("attention")) untrack(() => connected.rail.select(null)); });
+  createEffect(() => { if (connected.hasView("attention") || connected.hasView("made")) untrack(() => connected.rail.select(null)); });
 
   // A requested list keeps its selection while another is up: once asked for it stays mounted, hidden when it is not the one asked for.
   const opened = (id: string) => createMemo<boolean>(seen => seen || connected.hasView(id), false);
@@ -385,17 +383,17 @@ const RequestedViews = (props: { ready: boolean; deliverables: ReturnType<typeof
 
   const wanted = (id: string) => connected.hasView(id) && (id === "made" || !connected.hasView("made"));
 
-  const panel = (id: "attention" | "made", label: string, content: () => JSX.Element) => <Show when={seen[id]()}>
-    <div hidden={!wanted(id)}>
-      <div class="made-heading"><h2 class="overview-heading">{label}</h2><button type="button" data-button="quiet" onClick={() => { connected.hideView(id); queueFocus(() => document.querySelector<HTMLElement>(".ask-input")?.focus()); }}>{copy.closeView(label)}</button></div>
-      {content()}
+  const Requested = (own: { id: "attention" | "made"; label: string; children: JSX.Element }) => <Show when={seen[own.id]()}>
+    <div hidden={!wanted(own.id)}>
+      <div class="made-heading"><h2 class="overview-heading">{own.label}</h2><button type="button" data-button="quiet" onClick={() => { connected.hideView(own.id); queueFocus(() => document.querySelector<HTMLElement>(".ask-input")?.focus()); }}>{copy.closeView(own.label)}</button></div>
+      {own.children}
     </div>
   </Show>;
 
   return <>
     <div hidden={!(props.ready && wanted("workstreams"))}><Show when={props.ready && seen.workstreams()}><ProjectOverview /></Show></div>
-    {panel("attention", copy.needsYou, () => <Inbox />)}
-    {panel("made", copy.deliverables, () => <Deliverables state={props.deliverables} />)}
+    <Requested id="attention" label={copy.needsYou}><Inbox /></Requested>
+    <Requested id="made" label={copy.deliverables}><Deliverables state={props.deliverables} /></Requested>
   </>;
 };
 

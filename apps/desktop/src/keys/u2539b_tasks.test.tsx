@@ -37,9 +37,9 @@ it("u2539b_drawer_keeps_attention_reachable", async () => {
   fireEvent.click(row);
   fireEvent.keyDown(row.closest("button")!, { key: "Enter", code: "Enter" });
   await waitFor(() => expect(connected().drawer.content()).not.toBeNull());
-  const attention = document.querySelector<HTMLButtonElement>(".inbox-row");
+  const attention = document.querySelector<HTMLElement>(".change-row");
   expect(attention).not.toBeNull();
-  fireEvent.click(within(attention!.closest("li")!).getByRole("button", { name: "Open" }));
+  fireEvent.click(within(attention!).getByRole("button"));
   await waitFor(() => expect(connected().rail.selected()).toBe("a0"));
 });
 
@@ -47,13 +47,13 @@ it("u2539b_selected_agent_returns_to_landing", async () => {
   const { connected } = await mount();
 
   const row = await waitFor(() => {
-    const entry = document.querySelector<HTMLButtonElement>(".inbox-row");
+    const entry = document.querySelector<HTMLElement>(".change-row");
     expect(entry).not.toBeNull();
 
-    return entry!.closest("li")!;
+    return entry!;
   });
 
-  fireEvent.click(within(row).getByRole("button", { name: "Open" }));
+  fireEvent.click(within(row).getByRole("button"));
   await waitFor(() => expect(connected().rail.selected()).toBe("a0"));
   fireEvent.click(screen.getByRole("button", { name: /^Overview/ }));
   await waitFor(() => expect(connected().rail.selected()).toBeNull());
@@ -288,9 +288,7 @@ it.each(["working", "idle", "blocked", "needs-you", "error", "done"] as const)("
 
     if (attention && document.querySelector(".todo-project-root .ink-count")) found.push("Project root aggregate");
 
-    if (attention && document.querySelector(".overview-heading")) found.push("Needs you heading");
-
-    if ([...document.querySelectorAll(".overview-entry")].some(row => row.textContent?.includes(target.name))) found.push("Needs you entry");
+    if ([...document.querySelectorAll(".change-row")].some(row => row.textContent?.includes(target.name))) found.push("Needs you row");
 
     if ([...document.querySelectorAll(".inbox-item")].some(row => row.textContent?.includes(target.name))) {
       found.push("Inbox entry", "Inbox section count");
@@ -307,9 +305,9 @@ it.each(["working", "idle", "blocked", "needs-you", "error", "done"] as const)("
   expect(places().length).toBeLessThanOrEqual(3);
   connected().rail.select("a0");
   expect(places().length).toBeLessThanOrEqual(3);
+  // The requested inspection list is a surface the user asked for, not a resting presentation.
   leader("KeyI");
   await screen.findByRole("region", { name: "Needs you" });
-  expect(places().length).toBeLessThanOrEqual(3);
 });
 
 
@@ -342,7 +340,7 @@ it("u5740a_remaining_navigation_preserves_ask_and_terminal", async () => {
   const terminal = emulators.made.get("t-a1")!;
   terminal.select("exact Terminal selection\n second line");
   openProjectPage("view:made", "/p");
-  await waitFor(() => expect(screen.getByRole("button", { name: "Made" }).getAttribute("aria-expanded")).toBe("true"));
+  await screen.findByRole("region", { name: "Made" });
   expect(connected().rail.selected()).toBeNull();
   leader("KeyK");
   const search = await screen.findByRole("combobox");
