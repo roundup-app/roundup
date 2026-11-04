@@ -288,7 +288,10 @@ fn a4_the_settings_hold_one_command_per_state_event_and_two_at_start() {
             };
             ((*event).to_owned(), hook.clone())
         })
-        .chain(["SubagentStart", "SubagentStop", "PostCompact"].map(|event| (event.to_owned(), entry.clone())))
+        .chain(
+            ["SubagentStart", "SubagentStop", "PostCompact"]
+                .map(|event| (event.to_owned(), entry.clone())),
+        )
         .collect();
     // The late Notification is not among the events; DCL3's background pair and DCL5's PostCompact join them.
     assert_eq!(
