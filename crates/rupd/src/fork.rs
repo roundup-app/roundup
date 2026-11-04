@@ -212,9 +212,7 @@ fn copy_all(
         name: params.name.clone(),
         colour: params.colour,
         source: source.to_string_lossy().into_owned(),
-        created_ms: std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map_or(0, |d| d.as_millis() as u64),
+        created_ms: u64::try_from(provenance::now_ms()).unwrap_or(0),
         projects: params.projects.clone(),
     };
     let text = serde_json::to_string_pretty(&record).map_err(RpcError::internal)?;

@@ -258,14 +258,15 @@ async fn fk5977b_an_unknown_key_or_agent_is_refused_and_writes_nothing() {
 async fn fk5977c_a_fork_racing_a_writer_is_whole_and_holds_every_finished_row() {
     let live = live();
     let db = live.project(&live.keys[0]).join("project.db");
-    // Held open without checkpoints, so the WAL holds committed rows the main file lacks.
-    let held = Connection::open(&db).unwrap();
-    held.pragma_update(None, "wal_autocheckpoint", 0).unwrap();
-    held.execute(
-        "INSERT INTO todos(title,body,created_at) VALUES('wal','b',1)",
-        [],
-    )
-    .unwrap();
+    // Kept open without checkpoints, so the WAL holds committed rows the main file lacks.
+    let pinned = Connection::open(&db).unwrap();
+    pinned.pragma_update(None, "wal_autocheckpoint", 0).unwrap();
+    pinned
+        .execute(
+            "INSERT INTO todos(title,body,created_at) VALUES('wal','b',1)",
+            [],
+        )
+        .unwrap();
     let stop = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
     let (started, wrote) = std::sync::mpsc::channel();
     let handle = std::thread::spawn({
