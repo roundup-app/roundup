@@ -830,6 +830,7 @@ impl Launcher {
         ] }]);
         let hooks: Map<String, Value> = STATE_EVENTS
             .iter()
+            .chain(&super::background::BACKGROUND_EVENTS)
             .map(|event| {
                 let hook = match *event {
                     "SessionStart" => &session_start,

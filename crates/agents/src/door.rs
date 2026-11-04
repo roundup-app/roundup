@@ -327,6 +327,8 @@ impl Agents {
             );
             attempt
         };
+        // U6000e: the Door's starting row is published before the launch steps.
+        ctx.emit(EventData::RailChanged);
         let project = self.project_dir().to_owned();
         if let Err(err) = self
             .run_agent(
@@ -346,6 +348,8 @@ impl Agents {
                 runs.remove(id);
                 rail.detach_terminal(id)?;
             }
+            drop((rail, runs));
+            ctx.emit(EventData::RailChanged);
             return Err(err);
         }
         ctx.emit(EventData::RailChanged);

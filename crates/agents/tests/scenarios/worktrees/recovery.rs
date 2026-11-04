@@ -159,7 +159,7 @@ async fn g2_a_failed_start_door_emits_no_event() {
 
     start_door(&f, &workstream).await.unwrap_err();
 
-    assert_eq!(f.changed(), 0);
+    assert_eq!(f.changed(), 2, "the starting row, then its rollback");
 }
 
 #[tokio::test]

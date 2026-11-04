@@ -2,6 +2,7 @@
 //! (ADR 0006); `session`, `hook` and `transcript` are Claude Code's own words, so they must not
 //! leak out of this module into public names.
 
+pub mod background;
 mod brief;
 mod conversation;
 mod discovery;
@@ -100,7 +101,7 @@ pub struct ClaudeCode {
     /// A5482c: completed turn identity, start/end times and final assistant text.
     completed: Option<Box<(String, i64, i64, String)>>,
     turn_started: i64,
-    completed_turn: Option<String>,
+    completed_turn: Option<Box<str>>,
     status: Option<Status>,
     ending: Ending,
     /// The latest recognised Signal was `PreToolUse`: a dialog may be about to open.
@@ -118,7 +119,9 @@ pub struct ClaudeCode {
     final_text: FinalTextKind,
     /// A new turn without UserPromptSubmit must not inherit an earlier completion.
     /// Native permission resumption continues the same authoritative turn.
-    prompt_id: Option<String>,
+    prompt_id: Option<Box<str>>,
+    /// DCL3: work still running after the foreground turn.
+    background: Box<background::Background>,
 }
 
 impl ClaudeCode {
@@ -138,6 +141,7 @@ impl ClaudeCode {
             hooked: true,
             final_text: FinalTextKind::Unknown,
             prompt_id: None,
+            background: Box::default(),
         }
     }
 
@@ -235,7 +239,11 @@ impl ClaudeCode {
     pub fn tick_at(&self) -> Option<i64> {
         let star = self.star_parked_since.map(|since| since + STAR_HOLD);
         let spinner = self.spinner_at.map(|at| at + SPINNER_HOLD);
-        star.into_iter().chain(spinner).min()
+        // DCL3: work still running after a Stop is looked at again until it is gone.
+        let work =
+            (self.ending == Ending::Running && self.background.stopped && self.background.holds())
+                .then(|| (self.clock)() + background::POLL_MS);
+        star.into_iter().chain(spinner).chain(work).min()
     }
 
     /// Claude Code spins ◐/◑ while it works and shows ✳ whenever it is not, a permission dialog
@@ -291,7 +299,12 @@ impl ClaudeCode {
 
     fn signal(&mut self, payload: &Value, completion_changed: &mut bool) -> Option<Status> {
         let event = payload["hook_event_name"].as_str();
+        self.background.hook(payload);
+        if event == Some("SubagentStop") {
+            return self.release_hold();
+        }
         if event == Some("UserPromptSubmit") {
+            self.background.stopped = false;
             self.turn_started = (self.clock)();
             self.final_text = FinalTextKind::Unknown;
         }
@@ -306,7 +319,7 @@ impl ClaudeCode {
                 (self.prompt_id.as_deref(), payload["prompt_id"].as_str())
                 && current == incoming
             {
-                self.completed_turn = Some(current.to_owned());
+                self.completed_turn = Some(current.into());
             }
             // Without matching turn identity, an empty reply is not evidence of this turn.
             let next = match (
@@ -327,13 +340,20 @@ impl ClaudeCode {
                 self.final_text = next;
             }
         }
-        let (kind, label) = hook_status(payload)?;
+        let (mut kind, mut label) = hook_status(payload)?;
+        if event == Some("Stop") {
+            self.background.stopped = true;
+        }
+        // DCL3: a Stop while background work runs does not finish the Agent.
+        if self.background.stopped && kind == Kind::Idle && self.background.holds() {
+            (kind, label) = (Kind::Working, "working".into());
+        }
         self.after_pre_tool_use = event == Some("PreToolUse");
         self.star_parked_since = None;
         self.spinner_at = None;
         let changed = self.settle(kind, label);
         if event == Some("UserPromptSubmit") {
-            self.prompt_id = payload["prompt_id"].as_str().map(str::to_owned);
+            self.prompt_id = payload["prompt_id"].as_str().map(Into::into);
         }
         if event == Some("Stop")
             && let Some(text) = payload["last_assistant_message"].as_str()
@@ -360,6 +380,43 @@ impl ClaudeCode {
             }
         }
         changed
+    }
+
+    /// DCL3: a Stop came, so the process table decides whether work outlives it.
+    pub(crate) fn needs_processes(&self) -> bool {
+        self.ending == Ending::Running && self.background.stopped
+    }
+
+    /// DCL3: the work the Agent still has after a foreground Stop.
+    #[cfg(test)]
+    pub(crate) fn background(&self) -> &background::Background {
+        &self.background
+    }
+
+    /// DCL3: reconcile with a process snapshot of the program rooted at `root`. Work found after
+    /// a Stop holds Working; work gone releases the hold, so completion lands once.
+    pub fn observe_processes(
+        &mut self,
+        root: u32,
+        snapshot: Result<&[background::Process], String>,
+    ) -> Option<Status> {
+        if self.ending != Ending::Running {
+            return None;
+        }
+        self.background.observe(root, snapshot, self.turn_started);
+        if self.background.stopped && self.background.holds() {
+            return self.settle(Kind::Working, "working".into());
+        }
+        self.release_hold()
+    }
+
+    /// The Stop kept Working by background work is over once nothing runs.
+    fn release_hold(&mut self) -> Option<Status> {
+        if self.background.stopped && !self.background.holds() && self.ending == Ending::Running {
+            self.background.stopped = false;
+            return self.settle(Kind::Idle, "idle".into());
+        }
+        None
     }
 
     pub(crate) fn completed_text(&self) -> Option<&(String, i64, i64, String)> {
@@ -424,12 +481,16 @@ impl ClaudeCode {
             Observation::Signal(_)
             | Observation::Title(_)
             | Observation::Tick
+            | Observation::Processes { .. }
             | Observation::Program(_)
                 if self.ending != Ending::Running =>
             {
                 None
             }
             Observation::Tick => self.tick(),
+            Observation::Processes { root, table } => {
+                self.observe_processes(root, table.as_deref().map_err(Clone::clone))
+            }
             Observation::Signal(payload) => self.signal(&payload, &mut completion_changed),
             Observation::Title(title) => self.retitle(&title),
             Observation::Program(status) => self.settle(status.kind, status.label),
