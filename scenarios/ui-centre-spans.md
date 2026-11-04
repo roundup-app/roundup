@@ -10,7 +10,7 @@ Policy: widens U4454a (`scenarios/remove-time-timeline.md`, "no navigation row i
 
 **U6073c each failure floats and keeps its text, actions and announcement.** Given another Project's Rail failure, the native failure and the storage failure shown in turn, when each shows and clears, then it floats over the centre's top edge, out of flow, with its text, title and announcement unchanged, and its Open and Dismiss (Rail failure) or Retry (storage failure) reachable by role. Dismiss and Retry act as before. Asserted by planned connected-App test `u6073c_failures_float_with_actions_and_announcement` in `apps/desktop/src/`, asserting roles, live-region text, call counts and zero `terminal.resize` calls.
 
-Policy — rendered observer: `just capture U6073a,U6073b,U6073c` at 1512×950 in dark mode, after Back from Settings and then with each failure shown, leaving PNGs under `artifacts/ux/<id>/` uncommitted. The design critic judges D2, D5 and D6: the centre's rectangle matches the capture with none of them, nothing covers the Project tabs or the Terminal bar, and no Check passing on main regresses.
+Policy — rendered observer: `just capture U6073a,U6073b,U6073c` at 1512×950 in dark mode, after Back from Settings and then with each failure shown, leaving images under `artifacts/ux/<id>/` uncommitted. The design critic judges D2, D5 and D6: the centre's rectangle matches the capture with none of them, nothing covers the Project tabs or the Terminal bar, and no Check passing on main regresses.
 
 Checks on main:
 
