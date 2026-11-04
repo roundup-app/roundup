@@ -4,8 +4,9 @@ import { questionDialog, answerQuestion } from "./bulkQuestionHarness";
 import { settled } from "../rail/railFixture";
 import { mountTodos, todo } from "../todos/testHarness";
 import type { CreateParams } from "@contracts/todo/CreateParams";
-import { fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
-import { expect, it, vi } from "vitest";
+import { batch } from "solid-js";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
+import { afterEach, expect, it, vi } from "vitest";
 import { NOW_TICK_MS } from "../state/clock";
 import { RpcError } from "../app/seam";
 import { USER } from "../testing/nodes";
@@ -16,6 +17,9 @@ import { seedApp } from "../testing/seeds";
 import { showEverythingInApp } from "../testing/showEverything";
 import { createProjectDrafts } from "../state/connectedProject";
 import { gate, rpcCalls } from "../testing/appFixture";
+
+// Dispose the mounted Apps in one batch, as the neighbouring observers do.
+afterEach(() => batch(cleanup));
 
 const open = async (seed: SeedName = "tree-40", rows: readonly string[] = ["backend", "auth", "payments", "migrate", "tokens", "logins", "docs", "agent-1", "agent-4"], withWorktree = false, tab: "Todos" | "Pads" = copy.todos, clock = () => 0, prepare?: (controls: ReturnType<typeof seedApp>) => Promise<void>) => {
   const controls = seedApp(seed, 0);
