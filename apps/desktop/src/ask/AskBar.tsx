@@ -1,11 +1,12 @@
 import "../ui/Row.css";
 import { createRowCollection, rowKey } from "../ui/RowCollection";
-import { Inbox, createInbox } from "../inbox/Inbox";
-import { OverviewSections } from "./OverviewSections";
+import { Inbox } from "../inbox/Inbox";
+import { Changes } from "./Changes";
 import { useDialog } from "@ark-ui/solid/dialog";
 import { captureFocus, queueFocus } from "../keys/focus";
 import { createCopyLabels } from "../ui/CopyButton";
 import { writeText } from "../app/clipboard";
+import type { JSX } from "solid-js";
 import { batch, untrack, createComputed, createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import * as v from "valibot";
 import { createStore, reconcile } from "solid-js/store";
@@ -49,7 +50,6 @@ export const AskBar = (props: {
   const connected = useConnectedProject();
   const { asks, rail, daemonExit, drafts } = connected;
   const deliverables = createDeliverables();
-  const inbox = createInbox();
 
   const [opening, setOpening] = createSignal<"home-focus" | "over" | null>(null);
   const over = () => opening() === "over" || (opening() === "home-focus" && rail.selected() !== null);
@@ -263,7 +263,6 @@ export const AskBar = (props: {
     const request: AskSubmission = { text: value, submission: draft.revision };
 
     if (workstream.success) request.workstream = workstream.output;
-    connected.showView("asks");
     void asks.send(request).then((outcome) => {
       drafts.settle(draft.revision, outcome.kind === "refused" ? "failed" : outcome.kind);
 
@@ -301,13 +300,10 @@ export const AskBar = (props: {
     if (picked === null) send();
   };
 
-  const sections = createMemo(() => [
-          { id: "attention", label: copy.needsYou, records: inbox.records, actions: <span class="inbox-count" data-state="attention" aria-live="polite" aria-atomic="true">{inbox.records().length || ""}</span>, content: () => <Show when={connected.hasView("workstreams")} fallback={<Inbox state={inbox} />}><ProjectOverview /></Show> },
-          { id: "asks", label: copy.askRows, records: () => asks.entries().flatMap(entry => entry.parts.map((_part, index) => ({ id: entry.key + ":" + index, at: entry.at ?? Number.MAX_SAFE_INTEGER }))), content: () => <><Show when={asks.entries().length === 0}><p class="overview-quiet">{copy.askEmpty}</p></Show><AskRows keys={scope} onOpened={() => close(false)} /></> },
-          { id: "made", label: copy.deliverables, records: () => deliverables.records().map(record => ({ id: record.id, at: record.published_at })), content: () => <Deliverables state={deliverables} /> },
-        ]);
-
-  const overview = <OverviewSections ready={treeReady() && inbox.loaded() && asks.loadState() !== "loading" && !deliverables.loading()} items={sections()} />;
+  const overview = <>
+    <Changes ready={treeReady() && asks.loadState() !== "loading"} keys={scope} onOpened={() => close(false)} />
+    <RequestedViews ready={treeReady()} deliverables={deliverables} />
+  </>;
 
   return (<>
     <Show when={shown()}>
@@ -375,6 +371,39 @@ export const AskBar = (props: {
       </section>
     </Show>
   </>);
+};
+
+/** On-demand lists: Made, the full attention inspection and the Workstreams view (U504). Each closes back to the Ask input. */
+const RequestedViews = (props: { ready: boolean; deliverables: ReturnType<typeof createDeliverables> }) => {
+  const connected = useConnectedProject();
+
+  // A request made from a Terminal brings the Overview forward first, as the Project menu's Made does.
+  createEffect(() => { if (connected.hasView("attention")) untrack(() => connected.rail.select(null)); });
+
+  // A requested list keeps its selection while another is up: once opened it stays mounted, hidden when it is not the one asked for.
+  const [mounted, setMounted] = createSignal<readonly string[]>([]);
+
+  createEffect(() => {
+    for (const id of ["workstreams", "attention", "made"]) if (connected.hasView(id) && !untrack(mounted).includes(id)) setMounted(all => [...all, id]);
+  });
+
+  const wanted = (id: string) => connected.hasView(id) && (id === "made" || !connected.hasView("made"));
+
+  const panel = (id: string, label: string, content: () => JSX.Element) => <Show when={mounted().includes(id)}>
+    <div hidden={!wanted(id)}>
+      <div class="made-heading"><h2 class="overview-heading">{label}</h2><button type="button" data-button="quiet" onClick={() => { connected.hideView(id); queueFocus(() => document.querySelector<HTMLElement>(".ask-input")?.focus()); }}>{copy.closeView(label)}</button></div>
+      {content()}
+    </div>
+  </Show>;
+
+  // A request made from a Terminal brings the Overview forward first.
+  createEffect(() => { if (connected.hasView("attention")) untrack(() => connected.rail.select(null)); });
+
+  return <>
+    <div hidden={!(props.ready && wanted("workstreams"))}><Show when={props.ready && mounted().includes("workstreams")}><ProjectOverview /></Show></div>
+    {panel("attention", copy.needsYou, () => <Inbox />)}
+    {panel("made", copy.deliverables, () => <Deliverables state={props.deliverables} />)}
+  </>;
 };
 
 const ProjectOverview = () => {

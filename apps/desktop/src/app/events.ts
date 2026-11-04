@@ -16,8 +16,9 @@ export type Events = {
 export const connectEvents = async (app: AppSeam): Promise<Events> => {
   const listeners = new Map<(event: DaemonEvent) => void, boolean>();
   let head: number | null = null;
-  // Events that arrive before the Daemon has answered, and replay no `replay` listener has taken yet.
-  let kept: DaemonEvent[] | null = [];
+  // Every saved Event, kept so each `replay` listener hears all of them, whenever it subscribes (U504).
+  const kept: DaemonEvent[] = [];
+  let pending = true;
 
   const isReplay = (event: DaemonEvent) => head !== null && event.seq !== undefined && event.seq <= head;
 
@@ -28,8 +29,12 @@ export const connectEvents = async (app: AppSeam): Promise<Events> => {
   };
 
   const onEvent = (event: DaemonEvent) => {
-    if (head === null || (kept !== null && isReplay(event))) kept?.push(event);
-    else deliver(event);
+    if (head === null) { kept.push(event); return; }
+
+    if (isReplay(event)) kept.push(event);
+
+    if (pending && isReplay(event)) return;
+    deliver(event);
   };
 
   head = await app.subscribe(onEvent, { kept: true });
@@ -38,12 +43,10 @@ export const connectEvents = async (app: AppSeam): Promise<Events> => {
     subscribe: (listener, options) => {
       listeners.set(listener, options?.replay === true);
 
-      if (options?.replay === true && kept !== null) {
-        const pending = kept;
+      if (options?.replay === true) {
+        pending = false;
 
-        kept = null;
-
-        for (const event of pending) listener(event);
+        for (const event of kept) listener(event);
       }
 
       return () => listeners.delete(listener);
