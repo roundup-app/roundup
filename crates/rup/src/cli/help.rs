@@ -141,6 +141,9 @@ pub fn help_text() -> String {
         "    rup actions [--json]\n        List the App's named actions.\n        Example: rup actions\n    \
          rup do <name> [key=value]...\n        Run a named action of the App.\n        Example: rup do agent.new-with-prompt prompt=\"Fix login\"\n",
     );
+    text.push_str(
+        "\n  data\n    rup data fork <folder> --name <name> --colour <colour> [--project <key>[:option]...]...\n        Copy the live data folder into a new Fork data folder.\n        Example: rup data fork ~/forks/login --name Login --colour teal\n",
+    );
     text.push_str("\n  other\n");
     for (usage, what) in OTHER {
         text.push_str(&format!("    {usage}\n        {what}.\n"));
@@ -167,6 +170,10 @@ pub(super) fn help(root: &mut Command, path: &[String]) -> ExitCode {
     match path {
         [one] if one == "actions" => {
             print!("{}", super::actions::ACTIONS_HELP);
+            return ExitCode::from(DONE);
+        }
+        [one, two] if one == "data" && two == "fork" => {
+            print!("{}", super::data::DATA_HELP);
             return ExitCode::from(DONE);
         }
         [one] if one == "do" => {
