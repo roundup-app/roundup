@@ -40,7 +40,10 @@ const section = async (name: string) => {
   await waitFor(() => expect(tab.getAttribute("aria-selected")).toBe("true"));
 
   // Wait for Ark to mount the selected page without scanning hidden pages for visibility.
-  return within(await screen.findByLabelText(name, { selector: '[role="tabpanel"]' }));
+  const panel = await screen.findByLabelText(name, { selector: '[role="tabpanel"]' });
+  await waitFor(() => expect(panel.querySelector('[aria-busy="true"]')).toBeNull());
+
+  return within(panel);
 };
 
 const select = async (label: string, value: string) => {

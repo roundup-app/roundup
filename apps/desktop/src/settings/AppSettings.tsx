@@ -8,7 +8,6 @@ import { Combobox } from "../ui/Combobox";
 import { Tabs } from "../ui/Tabs";
 import { Field } from "../ui/Field";
 import { Deferred } from "../ui/Deferred";
-import { SegmentGroup } from "../ui/SegmentGroup";
 import { Switch } from "../ui/Switch";
 import { Select } from "../ui/Select";
 import * as v from "valibot";
@@ -16,9 +15,10 @@ import { draftStorage } from "../state/storage";
 import { createSettingsView, type SettingsViewState } from "../state/settingsView";
 import { alertChoices, alertStates, appSettings, saveAppSettings, terminalRanges, terminalType } from "./preferences";
 import { SettingsGroup, SettingsResults, SettingsShell } from "./SettingsShell";
-import { NamingSettings } from "./NamingSettings";
-import { SkillSetting } from "./SkillSetting";
-import { ShortcutSetting, ShortcutSettings } from "./ShortcutSetting";
+
+/** The segment control loads with the first page that shows one, not with the App. */
+const SegmentGroup = <V extends string>(props: Parameters<typeof import("../ui/SegmentGroup").SegmentGroup<V>>[0]) =>
+  <Deferred load={() => import("../ui/SegmentGroup")} label={props.label}>{module => <module.SegmentGroup {...props} />}</Deferred>;
 
 /** One App-wide center view, available even before a Project is open. */
 export const AppSettings = (props: { app: App; project: () => string | null; onOpenChange?: (open: boolean) => void; view?: SettingsViewState; navigation?: () => string }) => {
@@ -248,8 +248,8 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
             items={[...defaults, ...(offered()?.list?.models ?? []).map(item => ({ value: item.id, label: item.label }))]}
             onSelect={model => save({ model, modelLabel: offered()?.list?.models.find(item => item.id === model)?.label ?? "" })} /><Field.HelperText>{copy.modelHint}</Field.HelperText></Field.Root>
     ),
-    naming: () => <NamingSettings app={props.app} />,
-    skill: () => <SkillSetting app={props.app} />,
+    naming: () => <Deferred load={() => import("./NamingSettings")} label={copy.automaticRenaming}>{module => <module.NamingSettings app={props.app} />}</Deferred>,
+    skill: () => <Deferred load={() => import("./SkillSetting")} label={copy.skill}>{module => <module.SkillSetting app={props.app} />}</Deferred>,
     fontFamily: () => <>
         <Select label={copy.fontFamily} description={copy.fontFamilyHint} value={appSettings().fontFamily}
           choices={[{ value: "", label: copy.settingsDefault }, ...[...new Set(["Fira Code", "Menlo", "Monaco", "monospace", appSettings().fontFamily].filter(Boolean))].map(value => ({ value, label: value }))]}
@@ -265,8 +265,8 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
  if (weight === 300 || weight === 400 || weight === 500 || weight === 600) void chooseType({ fontWeight: weight }); }} />
     ),
     padWidth: () => <SegmentGroup label={copy.defaultWidth} description={copy.defaultWidthHint} segments={copy.padWidths} value={appSettings().padWidth} onValueChange={padWidth => void save({ padWidth })} />,
-    quickAdd: () => <ShortcutSetting field="quickAdd" capture={props.app.capture} onFailure={setFailure} />,
-    quickAddAnywhere: () => <ShortcutSetting field="quickAddAnywhere" capture={props.app.capture} onFailure={setFailure} />,
+    quickAdd: () => <Deferred load={() => import("./ShortcutSetting")} label={copy.quickAddTodo}>{module => <module.ShortcutSetting field="quickAdd" capture={props.app.capture} onFailure={setFailure} />}</Deferred>,
+    quickAddAnywhere: () => <Deferred load={() => import("./ShortcutSetting")} label={copy.quickAddAnywhere}>{module => <module.ShortcutSetting field="quickAddAnywhere" capture={props.app.capture} onFailure={setFailure} />}</Deferred>,
     mode: () => (
         <SegmentGroup description={copy.modeHint} label={copy.settingsAppearance} segments={[{ value: "dark", label: copy.modeDark }, { value: "light", label: copy.modeLight }, { value: "system", label: copy.modeSystem }]} value={appSettings().mode}
           onValueChange={mode => void chooseAppearance({ mode })} />
@@ -373,7 +373,7 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
         {controls.fontSize()}{controls.lineHeight()}{controls.letterSpacing()}
         <Deferred load={() => import("./TerminalPreview")} label={copy.terminalPreview}>{module => <module.TerminalPreview type={preview()} />}</Deferred>
       </SettingsGroup></Tabs.Content>
-      <Tabs.Content value="Shortcuts"><SettingsGroup name={copy.settingsShortcuts}><ShortcutSettings capture={props.app.capture} app={props.app} onFailure={setFailure} /></SettingsGroup></Tabs.Content>
+      <Tabs.Content value="Shortcuts"><SettingsGroup name={copy.settingsShortcuts}><Deferred load={() => import("./ShortcutSetting")} label={copy.settingsShortcuts}>{module => <module.ShortcutSettings capture={props.app.capture} app={props.app} onFailure={setFailure} />}</Deferred></SettingsGroup></Tabs.Content>
       <Tabs.Content value="Appearance"><SettingsGroup name={copy.settingsAppearance}>
         {controls.mode()}
         {controls.interfaceScale()}
