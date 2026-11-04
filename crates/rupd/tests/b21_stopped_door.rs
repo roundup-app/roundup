@@ -107,19 +107,22 @@ impl Run {
         for file in std::fs::read_dir(run.dir.path().join("config/sessions")).unwrap() {
             std::fs::remove_file(file.unwrap().path()).unwrap();
         }
-        for (from, body) in [
-            (&run.user, "first retained"),
-            (&run.agent, "second retained"),
+        for (from, kind, body) in [
+            (&run.user, "note", "first retained"),
+            (&run.agent, "question", "second retained"),
         ] {
             from.request(
                 "message.send",
-                json!({"to":run.door,"kind":"note","body":body}),
+                json!({"to":run.door,"kind":kind,"body":body}),
             )
             .await
             .unwrap();
         }
         let stored = run.thread().await;
         run.stop_door().await;
+        // Two untold child facts, kept back while the Door is stopped.
+        run.change("first").await;
+        run.change("second").await;
         (run, stored)
     }
 
@@ -890,6 +893,8 @@ async fn dcl10_start_replays_one_ordered_batch() {
     wait_delivered(&mut events, &stored).await;
     let after = run.thread().await;
     assert_eq!(identity(&after), identity(&stored));
+    assert_eq!(after[1]["kind"], "question", "{after:?}");
+    assert_eq!(after[1]["id"], stored[1]["id"]);
     assert!(
         after.iter().all(|m| m["status"] == "delivered"),
         "{after:?}"
@@ -920,17 +925,37 @@ async fn dcl10_failed_start_preserves_backlog_and_cause() {
     let cause = failed.expect_err("launch fails").to_string();
     assert!(!cause.is_empty());
     let kept = run.thread().await;
+    let before = run.digests().await.len();
     assert_eq!(
         kept, stored,
         "every Message unchanged after the failed Start"
     );
     run.assert_silent().await;
+    assert_eq!(
+        run.digests().await.len(),
+        before,
+        "untold facts still waiting"
+    );
     std::fs::rename(saved, fake).unwrap();
     let mut events = subscribe(&run).await;
     run.start_door().await;
     wait_delivered(&mut events, &stored).await;
     let after = run.thread().await;
     assert_eq!(identity(&after), identity(&stored));
+    assert_eq!(after[1]["kind"], "question", "{after:?}");
+    let newest = run.newest().await;
+    assert!(
+        newest["body"]
+            .as_str()
+            .unwrap()
+            .contains("[2 updates kept back]"),
+        "N unchanged by the failed Start: {newest}"
+    );
+    assert_eq!(
+        run.digests().await.len(),
+        before + 1,
+        "no fact queued twice"
+    );
     let written = transcript(run.dir.path().join("config").as_path());
     assert_eq!(
         user_turns_with(&written, "first retained"),
