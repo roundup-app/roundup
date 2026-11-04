@@ -305,9 +305,9 @@ it.each(["working", "idle", "blocked", "needs-you", "error", "done"] as const)("
   expect(places().length).toBeLessThanOrEqual(3);
   connected().rail.select("a0");
   expect(places().length).toBeLessThanOrEqual(3);
-  // The requested inspection list is a surface the user asked for, not a resting presentation.
   leader("KeyI");
   await screen.findByRole("region", { name: "Needs you" });
+  expect(places().length).toBeLessThanOrEqual(3);
 });
 
 

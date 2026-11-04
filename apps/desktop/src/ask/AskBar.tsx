@@ -3,6 +3,7 @@ import { createRowCollection, rowKey } from "../ui/RowCollection";
 import { Inbox } from "../inbox/Inbox";
 import { ChangeList } from "./ChangeList";
 import { useDialog } from "@ark-ui/solid/dialog";
+import { Presence } from "@ark-ui/solid/presence";
 import { captureFocus, queueFocus } from "../keys/focus";
 import { createCopyLabels } from "../ui/CopyButton";
 import { writeText } from "../app/clipboard";
@@ -377,21 +378,16 @@ const RequestedViews = (props: { ready: boolean; deliverables: ReturnType<typeof
   // A request made from a Terminal brings the Overview forward first, as the Project menu's Made does.
   createEffect(() => { if (connected.hasView("attention") || connected.hasView("made")) untrack(() => connected.rail.select(null)); });
 
-  // A requested list keeps its selection while another is up: once asked for it stays mounted, hidden when it is not the one asked for.
-  const opened = (id: string) => createMemo<boolean>(seen => seen || connected.hasView(id), false);
-  const seen = { workstreams: opened("workstreams"), attention: opened("attention"), made: opened("made") };
-
+  // A requested list keeps its selection while another is up: Presence mounts it on the first request and then only hides it.
   const wanted = (id: string) => connected.hasView(id) && (id === "made" || !connected.hasView("made"));
 
-  const Requested = (own: { id: "attention" | "made"; label: string; children: JSX.Element }) => <Show when={seen[own.id]()}>
-    <div hidden={!wanted(own.id)}>
-      <div class="made-heading"><h2 class="overview-heading">{own.label}</h2><button type="button" data-button="quiet" onClick={() => { connected.hideView(own.id); queueFocus(() => document.querySelector<HTMLElement>(".ask-input")?.focus()); }}>{copy.closeView(own.label)}</button></div>
-      {own.children}
-    </div>
-  </Show>;
+  const Requested = (own: { id: "attention" | "made"; label: string; children: JSX.Element }) => <Presence lazyMount present={wanted(own.id)}>
+    <div class="made-heading"><h2 class="overview-heading">{own.label}</h2><button type="button" data-button="quiet" onClick={() => { connected.hideView(own.id); queueFocus(() => document.querySelector<HTMLElement>(".ask-input")?.focus()); }}>{copy.closeView(own.label)}</button></div>
+    {own.children}
+  </Presence>;
 
   return <>
-    <div hidden={!(props.ready && wanted("workstreams"))}><Show when={props.ready && seen.workstreams()}><ProjectOverview /></Show></div>
+    <Presence lazyMount present={props.ready && wanted("workstreams")}><ProjectOverview /></Presence>
     <Requested id="attention" label={copy.needsYou}><Inbox /></Requested>
     <Requested id="made" label={copy.deliverables}><Deliverables state={props.deliverables} /></Requested>
   </>;

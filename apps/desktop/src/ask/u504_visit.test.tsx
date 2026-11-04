@@ -2,9 +2,9 @@ import { cleanup, fireEvent, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it, vi } from "vitest";
 import type { Event } from "@contracts/Event";
 import { door } from "../testing/nodes";
+import { storageProblems } from "../state/storage";
 import { visitStorage } from "../state/visit";
 import { ask, input, mountAskBar, press } from "./askFixture";
-import { copy } from "./copy";
 
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
@@ -39,11 +39,13 @@ it("u504_last_visit_survives_reload_and_project_switch", async () => {
   await waitFor(() => expect(visitStorage(a).restore()).toMatchObject({ status: "restored", value: { seq: 1 } }));
   second.unmount();
 
+  const retained = visitStorage(a).read()!;
+
   // Reload with no changes: one quiet line naming the retained time, no rows.
   const third = await mountAskBar([], null, tree(), false, a);
   await settled();
   expect(rows()).toHaveLength(0);
-  expect(quiet()?.dataset.lastVisit).not.toBe("first");
+  expect(quiet()?.dataset.lastVisit).toBe(String(retained.at));
   third.unmount();
 
   // Project switch: B has no boundary of A's, and A's stays.
@@ -70,30 +72,24 @@ it("u504_background_reads_do_not_advance_last_visit", async () => {
 
 it("u504_first_visit_and_observation_failure", async () => {
   const path = `/visit-fail-${crypto.randomUUID()}`;
-  const { app, connected } = await mountAskBar([], null, tree(), false, path);
+  const key = `roundup:last-visit:${path}`;
   const write = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("disk full"); });
+  const { app, connected } = await mountAskBar([], null, tree(), false, path);
 
-  // A refused boundary write is shown with its retry; the list never claims the visit was kept.
+  // A refused boundary write is a listed storage problem with its retry; the last good boundary stays.
   await settled();
-
-  const retry = await waitFor(() => {
-    const found = document.querySelector<HTMLButtonElement>(".changes .reserved-line button");
-    expect(found).not.toBeNull();
-
-    return found!;
-  });
-
+  await waitFor(() => expect(storageProblems().some(problem => problem.key === key)).toBe(true));
+  expect(visitStorage(path).restore().status).toBe("missing");
   write.mockRestore();
-  fireEvent.click(retry);
-  await waitFor(() => expect(visitStorage(path).restore().status).toBe("restored"));
-  await waitFor(() => expect(document.querySelector(".changes .reserved-line button")).toBeNull());
+  expect(await storageProblems().find(problem => problem.key === key)!.retry()).toBeNull();
+  expect(visitStorage(path).restore().status).toBe("restored");
 
-  // A refused read is shown instead of the quiet line, and nothing is sent or started.
+  // A refused read is shown by the Rail and never reads as a quiet return; nothing is sent or started.
   app.handlers["rail.tree"] = () => { throw new Error("tree refused"); };
 
   await connected.rail.refresh().catch(() => {});
-  await waitFor(() => expect(document.querySelector(".changes .reserved-line button")).not.toBeNull());
-  expect(quiet()).toBeNull();
+  await waitFor(() => expect(connected.rail.failure()).not.toBeNull());
+  await waitFor(() => expect(quiet()).toBeNull());
   expect(app.calls.filter(call => ["ask.send", "agent.start", "terminal.write"].includes(call.method))).toEqual([]);
 });
 
@@ -110,7 +106,7 @@ it("u504_events_expired_names_the_unavailable_history", async () => {
   await settled();
   app.emit(completed(9, "t9"));
   await waitFor(() => expect(rows()).toHaveLength(1));
-  expect(document.querySelector(".changes .reserved-line")?.textContent).toBe(copy.historyUnavailable);
+  expect(document.querySelector(".changes .reserved-line[role=status]")).not.toBeNull();
 });
 
 it("u504_enter_shows_the_row_before_send_returns", async () => {

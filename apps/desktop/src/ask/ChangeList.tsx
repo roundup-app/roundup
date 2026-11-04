@@ -48,9 +48,30 @@ export const ChangeList = (props: { ready: boolean; keys: KeyScope; onOpened: ()
   const connected = useConnectedProject();
   const { rail, visits, asks } = connected;
   const [lower, setLower] = createSignal<{ seq: number; at: number | null } | null>(null);
-  const [retainFailure, setRetainFailure] = createSignal<string | null>(null);
 
-  const retain = () => void visits.retain({ seq: visits.head(), at: Date.now() }).then(setRetainFailure);
+  // One write in flight and at most one trailing write: a burst of Events must not queue a store save each.
+  // A refused write is a storage problem the App already lists with its retry; the boundary keeps its last good value.
+  let writing = false;
+  let queued = false;
+
+  const retain = async () => {
+    if (writing) {
+      queued = true;
+
+      return;
+    }
+
+    writing = true;
+
+    try {
+      do {
+        queued = false;
+        await visits.retain({ seq: visits.head(), at: Date.now() });
+      } while (queued);
+    } finally {
+      writing = false;
+    }
+  };
 
   // A failed read proves nothing: no boundary is frozen or retained and the list never claims quiet (U504).
   const observed = () => props.ready && asks.loadState() === "ready" && rail.failure() === null;
@@ -66,10 +87,12 @@ export const ChangeList = (props: { ready: boolean; keys: KeyScope; onOpened: ()
 
     // Live Events advance what the next visit starts from; this visit's rows stay.
     visits.head();
-    queueMicrotask(retain);
+    queueMicrotask(() => void retain());
   });
 
-  const pinned = createMemo(() => attentionOrder(rail.nodes, rail.dismissed));
+  const attention = createMemo(() => attentionOrder(rail.nodes, rail.dismissed));
+  // The requested Needs you list shows these Agents itself; a second row for each would repeat it.
+  const pinned = () => connected.hasView("attention") ? [] : attention();
   const finished = createMemo(() => lower() === null ? [] : finishedSince(visits.saved(), lower()!.seq));
   const unresolved = createMemo(() => unresolvedParts(asks));
   const [failures, setFailures] = createSignal<ReadonlyMap<string, string>>(new Map());
@@ -99,11 +122,9 @@ export const ChangeList = (props: { ready: boolean; keys: KeyScope; onOpened: ()
     void openDeliverable(connected.app, newest.project, newest.id).then(cause => fail(row.key, cause), error => fail(row.key, error instanceof Error ? error.message : String(error)));
   };
 
-  // The cause and its one retry: the Rail's read, else the boundary's write.
-  const problem = () => rail.failure() !== null ? { message: rail.failure()!, retry: () => void rail.refresh() }
-    : retainFailure() !== null ? { message: copy.visitNotSaved(retainFailure()!), retry: retain } : null;
+  const historyGap = () => lower() !== null && visits.expired(lower()!.seq);
 
-  const quiet = () => observed() && pinned().length === 0 && finished().length === 0 && unresolved().length === 0;
+  const quiet = () => observed() && attention().length === 0 && finished().length === 0 && unresolved().length === 0;
 
   const quietLine = () => {
     const at = lower()?.at;
@@ -121,8 +142,6 @@ export const ChangeList = (props: { ready: boolean; keys: KeyScope; onOpened: ()
     </ul>
     <AskRows keys={props.keys} onOpened={props.onOpened} />
     <Show when={quiet()}><p class="overview-quiet" data-last-visit={lower()?.at ?? "first"}>{quietLine()}</p></Show>
-    <ReservedLine message={problem()?.message} status={lower() !== null && visits.expired(lower()!.seq) ? copy.historyUnavailable : null}>
-      <Show when={problem()}>{each => <button type="button" data-button="quiet" onClick={() => each().retry()}>{copy.retry}</button>}</Show>
-    </ReservedLine>
+    <Show when={historyGap()}><ReservedLine status={copy.historyUnavailable} /></Show>
   </section>;
 };
