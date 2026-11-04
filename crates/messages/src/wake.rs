@@ -41,7 +41,9 @@ impl Wake {
     }
 }
 
-/// B41: a Kind is finished when the Agent has nothing running for the one who waits.
+/// B41: a Kind is finished when the Agent has nothing running for the one who waits. DCL3a: the
+/// Adapter reports `Working`, never `Idle`, while background work outlives a Stop, so work still
+/// running is already unfinished here.
 #[must_use]
 pub fn finished(kind: Kind) -> bool {
     matches!(kind, Kind::Idle | Kind::Done | Kind::Error | Kind::NeedsYou)
