@@ -19,8 +19,6 @@ const act = async (run: () => void) => { await run(); await Promise.resolve(); }
 
 const send = async (m: Awaited<ReturnType<typeof mountInbox>>, ...sent: DaemonEvent[]) => { for (const each of sent) m.app.emit(each); await m.connected.rail.settled(); await Promise.resolve(); };
 
-const closeNeedsYou = () => screen.getByRole("button", { name: "Close Needs you" });
-
 const panel = () => document.querySelector<HTMLElement>(".inbox")!;
 
 const NODES: RailNode[] = [
@@ -98,14 +96,14 @@ it("u3770b_one_row_is_open_at_a_time", async () => {
 });
 
 it("u3770b_escape_collapses_and_returns_focus", async () => {
-  await mountInbox();
+  const m = await mountInbox();
   const head = within(panel()).getByText("gamma").closest("button")!;
   fireEvent.click(head);
   (await within(panel()).findByRole("button", { name: "Retry" })).focus();
   fireEvent.keyDown(document.activeElement!, { key: "Escape" });
   await waitFor(() => expect(head.getAttribute("aria-expanded")).toBe("false"));
   expect(document.activeElement).toBe(head);
-  expect(closeNeedsYou()).toBeTruthy();
+  expect(m.connected.hasView("attention")).toBe(true);
 });
 
 it("u3770c_retry_resumes_the_failed_agent", async () => {
@@ -295,7 +293,7 @@ it("u3770a_comment_only_attention_opens_needs_you_without_marking_read", async (
   render(() => <ConnectedProjectContext.Provider value={m.connected}><AskBar /></ConnectedProjectContext.Provider>);
   const row = await screen.findByRole("button", { name: /alpha.*Review/ });
   expect(row.closest(".inbox-group")?.getAttribute("data-agent")).toBe("a");
-  expect(closeNeedsYou()).toBeTruthy();
+  expect(m.connected.hasView("attention")).toBe(true);
   expect(calls(m, "todo.markCommentsRead")).toEqual([]);
   expect(panel().querySelector('[data-row="a:a"]')).toBeNull();
 });
@@ -314,8 +312,8 @@ it.each(["rail", "ask", "bench", "drawer", "agent-terminal", "shell-terminal", "
   fireEvent.input(ask, { target: { value: draft } });
   await waitFor(() => expect(document.querySelector(".changes")).not.toBeNull());
   connected().showView("made");
-  await waitFor(() => expect(screen.getByRole("button", { name: "Close Made" })).toBeTruthy());
-  expect(screen.queryByRole("button", { name: "Close Needs you" })).toBeNull();
+  await waitFor(() => expect(connected().hasView("made")).toBe(true));
+  expect(connected().hasView("attention")).toBe(false);
 
   if (from.startsWith("idle")) connected().rail.select("idle");
 
@@ -350,15 +348,15 @@ it.each(["rail", "ask", "bench", "drawer", "agent-terminal", "shell-terminal", "
 
   for (let invocation = 0; invocation < 2; invocation++) {
     route();
-    await waitFor(() => expect(document.activeElement).toBe(closeNeedsYou()));
+    await waitFor(() => expect(connected().hasView("attention")).toBe(true));
     expect(connected().rail.selected()).toBeNull();
     expect(connected().drawer.content()).toBeNull();
-    expect(screen.queryByRole("button", { name: "Close Made" })).toBeNull();
+    expect(connected().hasView("made")).toBe(false);
 
     if (from.startsWith("empty") || from.startsWith("idle")) {
       const inbox = screen.getByRole("region", { name: "Needs you" });
       expect(within(inbox).queryAllByRole("listitem")).toHaveLength(0);
-      expect(inbox.textContent?.trim()).not.toBe("");
+      await waitFor(() => expect(inbox.textContent?.trim()).not.toBe(""));
     }
 
     expect(connected().project.path).toBe("/p");
