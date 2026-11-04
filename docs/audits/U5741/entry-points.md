@@ -114,3 +114,7 @@ Independent Shelf follow-up: rendered-shelf-followup.json adds successful reserv
 ## Terminal stream continuation
 
 [terminal-stream.md](terminal-stream.md) assesses `terminal.output`, `terminal.outputStop`, `terminal.scheme` and `terminal.measure` (TP01–TP04) from source, declarations and scenarios on main `c03abf5e014d9b903b1881d873e465351188a4b9`. No row is a candidate; TP04 alone meets Q2 and Q3 but is the rule 7 keystroke observer. No fresh rendering or runtime replay is claimed. Other undecided methods and final whole-App reconciliation remain open. No partial owner request or deletion.
+
+## Agent hook, Model and Spawn prompt continuation
+
+[agent-hooks-model.md](agent-hooks-model.md) assesses `agent.channelUp`, `agent.signal`, `agent.setModel` and `agent.spawnPrompt` (AH01–AH04) from source, declarations and scenarios on main `e7a69af5294c52a11cf819cc20f6864269a3a65d`. No row is a candidate; AH04 has no App reader and awaits Q1. No fresh rendering or runtime replay is claimed. Other undecided methods and final whole-App reconciliation remain open. No partial owner request or deletion.
