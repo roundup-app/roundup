@@ -379,9 +379,7 @@ async fn b21_a_reopened_door_waits_until_explicit_start() {
     drop(run.daemon.stdin.take());
     run.daemon.child.wait().unwrap();
     std::fs::write(run.dir.path().join("comparisons"), "").unwrap();
-    let (daemon, log) = launch(run.dir.path(), run.data.path(), &run.model);
-    run.daemon = daemon;
-    run.log = log;
+    (run.daemon, run.log) = launch(run.dir.path(), run.data.path(), &run.model);
     run.user = Client::connect(&run.daemon.socket).await.unwrap();
     run.agent = Client::connect(&run.daemon.socket).await.unwrap();
     run.agent
@@ -483,9 +481,7 @@ async fn dcl10_reopen_keeps_told_and_push_accounting() {
     run.daemon.child.wait().unwrap();
     std::fs::write(run.dir.path().join("comparisons"), "").unwrap();
     std::fs::write(run.dir.path().join("attempts"), "").unwrap();
-    let (daemon, log) = launch(run.dir.path(), run.data.path(), &run.model);
-    run.daemon = daemon;
-    run.log = log;
+    (run.daemon, run.log) = launch(run.dir.path(), run.data.path(), &run.model);
     run.user = Client::connect(&run.daemon.socket).await.unwrap();
     // The reopened Daemon queues nothing again and launches nothing before the explicit start.
     run.assert_silent().await;
@@ -841,14 +837,9 @@ async fn n7_launch_sites_clean_on_success_and_failure() {
 
 async fn waiting(run: &Run) -> Value {
     let tree = run.user.request("rail.tree", json!({})).await.unwrap();
-    let door = tree
-        .as_array()
-        .unwrap()
-        .iter()
-        .find(|n| n["id"] == run.door)
-        .unwrap()
-        .clone();
-    door["waiting"].clone()
+    let nodes = tree.as_array().unwrap();
+    let node = nodes.iter().find(|n| n["id"] == run.door).unwrap();
+    node["waiting"].clone()
 }
 
 #[tokio::test]
@@ -865,13 +856,10 @@ async fn dcl10_waiting_count_follows_stored_backlog_without_double_count() {
     run.change("first").await;
     run.change("second").await;
     run.assert_silent().await;
-    // One pending Message plus two kept-back changes of one child: each fact once.
     assert_eq!(waiting(&run).await, json!(3));
     drop(run.daemon.stdin.take());
     run.daemon.child.wait().unwrap();
-    let (daemon, log) = launch(run.dir.path(), run.data.path(), &run.model);
-    run.daemon = daemon;
-    run.log = log;
+    (run.daemon, run.log) = launch(run.dir.path(), run.data.path(), &run.model);
     run.user = Client::connect(&run.daemon.socket).await.unwrap();
     assert_eq!(waiting(&run).await, json!(3));
 }

@@ -485,8 +485,7 @@ pub struct RailNode {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[specta(optional, type = ToolCall)]
     pub tool_call: Option<ToolCall>,
-    /// DCL10: on a Workstream, the changes its Door has not received, from the stored backlog;
-    /// absent when none.
+    /// DCL10: on a Workstream, the changes its Door has not received (stored backlog); absent when none.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[specta(optional, type = u32)]
     pub waiting: Option<u32>,
