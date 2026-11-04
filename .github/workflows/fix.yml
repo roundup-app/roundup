@@ -167,6 +167,7 @@ jobs:
           HEAD: ${{ inputs.head || github.event.workflow_run.head_sha }}
           CAUSE: ${{ inputs.cause || (github.event.workflow_run.name == 'loop' && 'rules' || 'check') }}
           CODEX_RUNS: ${{ vars.CODEX_RUNS }}
+          CLAUDE_RUNS: ${{ vars.CLAUDE_RUNS }}
           CLAUDE_API: ${{ vars.CLAUDE_API }}
         run: |
           code=0
@@ -199,6 +200,9 @@ jobs:
     env:
       # L23: the switch; set, Claude Code runs on API credit (`loop/builder.py` `claude_env`).
       CLAUDE_API: ${{ vars.CLAUDE_API }}
+      # L23: the slots; `engine` starts a run on Claude Code when its id modulo their sum is below `CLAUDE_RUNS`.
+      CODEX_RUNS: ${{ vars.CODEX_RUNS }}
+      CLAUDE_RUNS: ${{ vars.CLAUDE_RUNS }}
     steps:
       - uses: actions/checkout@v5
         with:
