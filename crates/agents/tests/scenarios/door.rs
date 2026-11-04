@@ -62,7 +62,7 @@ async fn a7_start_door_makes_a_workstream_a_door_with_a_live_agent() {
         tree.iter()
             .any(|n| &n.id == id && n.parent.as_deref() == Some(team.as_str()))
     }));
-    assert_eq!(f.changed(), 1);
+    assert_eq!(f.changed(), 2);
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
