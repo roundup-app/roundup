@@ -68,7 +68,7 @@ it("u5242c_forward_reopens_settings_after_back_and_clears_on_other_navigation", 
   fireEvent.input(await screen.findByRole("spinbutton", { name: "Font size" }), { target: { value: "17" } });
   fireEvent.click(screen.getByRole("button", { name: "← Back" }));
   await waitFor(() => expect(() => screen.getByRole("region", { name: "Settings" })).toThrow());
-  fireEvent.click(screen.getByRole("button", { name: "Forward →" }));
+  fireEvent.keyDown(window, { key: "]", code: "BracketRight", metaKey: true });
   await screen.findByRole("region", { name: "Settings" });
   expect(screen.getByRole("tab", { name: "Terminal" }).getAttribute("aria-selected")).toBe("true");
   expect((await screen.findByRole<HTMLInputElement>("spinbutton", { name: "Font size" })).value).toBe("17");
@@ -78,18 +78,31 @@ it("u5242c_forward_reopens_settings_after_back_and_clears_on_other_navigation", 
   fireEvent.keyDown(window, { key: "]", code: "BracketRight", metaKey: true });
   await screen.findByRole("region", { name: "Settings" });
   fireEvent.click(screen.getByRole("button", { name: "← Back" }));
-  await screen.findByRole("button", { name: "Forward →" });
+  await waitFor(() => expect(() => screen.getByRole("region", { name: "Settings" })).toThrow());
   window.dispatchEvent(new CustomEvent("open-project-page", { detail: { path: "/other", command: "project-settings" } }));
-  await waitFor(() => expect(() => screen.getByRole("button", { name: "Forward →" })).toThrow());
+  fireEvent.keyDown(window, { key: "]", code: "BracketRight", metaKey: true });
+  await new Promise(resolve => setTimeout(resolve, 0));
+  expect(() => screen.getByRole("region", { name: "Settings" })).toThrow();
+});
+
+it("u6073b_no_forward_control_after_back_and_cmd_bracket_reopens", async () => {
+  await mount();
+  await section("Terminal");
+  fireEvent.click(screen.getByRole("button", { name: "← Back" }));
+  await waitFor(() => expect(() => screen.getByRole("region", { name: "Settings" })).toThrow());
+  expect(() => screen.getByRole("button", { name: "Forward →" })).toThrow();
+  fireEvent.keyDown(window, { key: "]", code: "BracketRight", metaKey: true });
+  await screen.findByRole("region", { name: "Settings" });
+  expect(screen.getByRole("tab", { name: "Terminal" }).getAttribute("aria-selected")).toBe("true");
 });
 
 it("u5242c_forward_clears_when_the_user_selects_another_view", async () => {
   const [selected, select] = createSignal("a");
   await mount(selected);
   fireEvent.click(screen.getByRole("button", { name: "← Back" }));
-  await screen.findByRole("button", { name: "Forward →" });
+  await waitFor(() => expect(() => screen.getByRole("region", { name: "Settings" })).toThrow());
   select("b");
-  await waitFor(() => expect(() => screen.getByRole("button", { name: "Forward →" })).toThrow());
+  await Promise.resolve();
   fireEvent.keyDown(window, { key: "]", code: "BracketRight", metaKey: true });
   await waitFor(() => expect(() => screen.getByRole("region", { name: "Settings" })).toThrow());
 });
