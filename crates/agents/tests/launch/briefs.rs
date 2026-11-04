@@ -326,3 +326,18 @@ fn u5531d_door_brief_explains_internal_helpers() {
     }
     assert!(!brief(&s, "7014", Role::Agent).contains("agent_set_visibility"));
 }
+
+#[test]
+fn dcl7_the_door_brief_names_roles_and_reconciliation() {
+    let s = setup();
+    let door = brief(&s, "7", Role::Door);
+    for needle in [
+        "Give every child a `role`",
+        "reconcile them before you end your turn",
+        "a Consult rests until you ask it something",
+        "resume only the Jobs you need",
+    ] {
+        assert!(door.contains(needle), "{needle}");
+    }
+    assert!(!brief(&s, "8", Role::Agent).contains("Give every child a `role`"));
+}

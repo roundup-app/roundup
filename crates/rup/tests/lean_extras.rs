@@ -176,8 +176,10 @@ async fn lc4_an_agents_scout_and_worker_start_lean() {
     let parent = run.spawn(&user, json!({})).await.unwrap();
     run.idle(&user, &parent.id).await;
     let door = as_agent(&run.project, &parent).await;
-    run.spawn(&door, json!({ "scout": true })).await.unwrap();
-    run.spawn(&door, json!({})).await.unwrap();
+    run.spawn(&door, json!({ "scout": true, "role": "job" }))
+        .await
+        .unwrap();
+    run.spawn(&door, json!({ "role": "job" })).await.unwrap();
     let launches = run.launches_after(3).await;
     // The fake `claude` processes start together, so their log order is not the spawn order.
     let (mut scout, mut worker): (Vec<_>, Vec<_>) = launches[..3]
@@ -217,7 +219,7 @@ async fn lc7_a_known_extra_joins_the_start() {
     );
     run.spawn(
         &door,
-        json!({ "scout": true, "extras": {
+        json!({ "scout": true, "role": "job", "extras": {
             "skills": ["zzskill"], "plugins": ["zzplug"], "mcp": ["zzserver"] } }),
     )
     .await
@@ -279,7 +281,10 @@ async fn lc8_a_missing_extra_relaunches_with_resume_and_snapshot_off() {
     let parent = run.spawn(&user, json!({})).await.unwrap();
     run.idle(&user, &parent.id).await;
     let door = as_agent(&run.project, &parent).await;
-    let child = run.spawn(&door, json!({ "scout": true })).await.unwrap();
+    let child = run
+        .spawn(&door, json!({ "scout": true, "role": "job" }))
+        .await
+        .unwrap();
     run.idle(&user, &child.id).await;
 
     let err = door

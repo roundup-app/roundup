@@ -14,20 +14,16 @@ use objc2::{
 };
 use objc2_app_kit::{NSApplication, NSMenu};
 
-use crate::look::Look;
-use crate::rows::apply;
-
 // The process has one application delegate. Weak ownership makes a dropped adapter inert.
 thread_local! {
     static CURRENT: RefCell<Weak<RefCell<Section>>> = const { RefCell::new(Weak::new()) };
 }
 
-/// One Dock row: its title, the identity of its original action (`None` makes an inert head)
-/// and its U5959 look.
+/// One Dock row: its plain title (the Dock's NSMenu draws nothing else, U5959c) and the
+/// identity of its original action (`None` makes an inert head).
 pub struct Row {
     pub title: String,
     pub action: Option<String>,
-    pub look: Look,
 }
 
 impl Row {
@@ -35,7 +31,6 @@ impl Row {
         Self {
             title: title.into(),
             action,
-            look: Look::Plain,
         }
     }
 }
@@ -53,7 +48,6 @@ impl Section {
     fn refresh(&mut self) -> Result<(), String> {
         let menu = Menu::new();
         let mut actions = HashMap::new();
-        let mut looks = Vec::new();
         for row in (self.refresh)() {
             // Muda allocates a fresh native identity, so even retained old targets are stale.
             let item = MenuItem::new(row.title.replace('&', "&&"), row.action.is_some(), None);
@@ -61,13 +55,6 @@ impl Section {
                 actions.insert(item.id().as_ref().to_owned(), action);
             }
             menu.append(&item).map_err(|error| error.to_string())?;
-            looks.push(row.look);
-        }
-        if let Some(main) = MainThreadMarker::new() {
-            // SAFETY: Muda's accessor is a live NSMenu while `menu` is alive, on this thread.
-            if let Some(native) = unsafe { Retained::retain(menu.ns_menu().cast::<NSMenu>()) } {
-                apply(&native, &looks, main);
-            }
         }
         self.menu = menu;
         self.actions = actions;
@@ -76,7 +63,7 @@ impl Section {
 }
 
 /// Main-thread owner of roundup's flat Dock section. No native pointer escapes.
-/// Keep this owner alive while installed. Rows are `Row`s: title, original action identity and look;
+/// Keep this owner alive while installed. Rows are `Row`s: plain title and original action identity;
 /// no action makes an inert group head. Refresh runs synchronously at each native opening.
 /// Consume existing Tauri menu events through `chosen`; no global event handler is replaced.
 pub struct DockMenu {

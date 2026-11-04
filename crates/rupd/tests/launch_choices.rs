@@ -244,7 +244,7 @@ async fn u3801_an_agent_restart_keeps_the_users_permission_choice() {
         )
         .await
         .unwrap();
-    let child = agent.request("agent.spawn", json!({"cwd":run.dir.path(), "order":{"kind":"work","title":"Read repository","ask":"Read repository","done":"Report findings","limits":["Read only"]}})).await.unwrap();
+    let child = agent.request("agent.spawn", json!({"cwd":run.dir.path(), "order":{"kind":"work","title":"Read repository","ask":"Read repository","done":"Report findings","limits":["Read only"]},"role":"job"})).await.unwrap();
     run.node(&child["id"]).await;
     run.user
         .request(

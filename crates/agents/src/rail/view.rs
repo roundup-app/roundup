@@ -193,6 +193,14 @@ impl Rail {
             .map_err(sql)
     }
 
+    /// FOP5978b: turn every Auto off.
+    pub(crate) fn clear_all_auto(&mut self) -> Result<(), RpcError> {
+        self.db
+            .execute("UPDATE nodes SET auto=0 WHERE auto!=0", [])
+            .map(|_| ())
+            .map_err(sql)
+    }
+
     pub(crate) fn set_auto(&mut self, id: &str, auto: bool) -> Result<bool, RpcError> {
         self.db
             .execute(

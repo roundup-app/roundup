@@ -208,7 +208,7 @@ async fn spawned_by(f: &Fixture, touches: &Arc<Touches>, door: &str) -> String {
         .call(
             &actor,
             "agent.spawn",
-            json!({"cwd": f.dir.path(), "order": work("child", &[]), "prompt": "details"}),
+            json!({"cwd": f.dir.path(), "role": "job", "order": work("child", &[]), "prompt": "details"}),
         )
         .await
         .unwrap();
@@ -517,7 +517,7 @@ fn full_order() -> Order {
 /// `agent.spawn` as the Agent `by`, whose child sits under it.
 async fn spawn_by(f: &Fixture, by: &str, extra: Value) -> Result<RailNode, RpcError> {
     let touches = Arc::new(Touches::in_memory().unwrap());
-    let mut params = json!({"cwd": f.dir.path(), "parent": null});
+    let mut params = json!({"cwd": f.dir.path(), "parent": null, "role": "job"});
     params
         .as_object_mut()
         .unwrap()
@@ -695,12 +695,12 @@ async fn o8_an_agents_spawn_stores_order_and_prompt() {
     assert_eq!(both.parent.as_deref(), Some(parent.as_str()));
     assert_eq!(order_of(&f.tree().await, &both.id), Some(full_order()));
     assert_eq!(
-        spawn_prompt(&f, &both.id).await.unwrap(),
-        json!({"prompt": prompt})
+        spawn_prompt(&f, &both.id).await.unwrap()["prompt"],
+        json!(prompt)
     );
     assert_eq!(
-        spawn_prompt(&f, &order_only.id).await.unwrap(),
-        json!({"prompt": null})
+        spawn_prompt(&f, &order_only.id).await.unwrap()["prompt"],
+        json!(null)
     );
 }
 
@@ -769,8 +769,8 @@ async fn o8_the_prompt_survives_a_reopen_and_a_resume() {
         }
     });
     assert_eq!(
-        spawn_prompt(&f, &child).await.unwrap(),
-        json!({"prompt": "the detail"})
+        spawn_prompt(&f, &child).await.unwrap()["prompt"],
+        json!("the detail")
     );
     let error = f
         .call("agent.resume", json!({"id": child}))
@@ -788,8 +788,8 @@ async fn o8_the_prompt_survives_a_reopen_and_a_resume() {
             .all(|terminal| !terminal.running)
     );
     assert_eq!(
-        spawn_prompt(&f, &child).await.unwrap(),
-        json!({"prompt": "the detail"})
+        spawn_prompt(&f, &child).await.unwrap()["prompt"],
+        json!("the detail")
     );
 
     let team = f.workstream("team", None).await;
@@ -800,8 +800,8 @@ async fn o8_the_prompt_survives_a_reopen_and_a_resume() {
     .await
     .unwrap();
     assert_eq!(
-        spawn_prompt(&f, &child).await.unwrap(),
-        json!({"prompt": "the detail"})
+        spawn_prompt(&f, &child).await.unwrap()["prompt"],
+        json!("the detail")
     );
 
     f.call("rail.remove", json!({"id": child})).await.unwrap();
