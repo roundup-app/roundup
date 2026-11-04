@@ -7,6 +7,9 @@ const keys = new WeakMap<Element, (event: KeyboardEvent) => boolean>();
 export const rowKey = (event: KeyboardEvent) => event.target instanceof Element
   && keys.get(event.target)?.(event) === true;
 
+/** A modal passes these keys to the focused element's own handler (Ark's tree view) instead of swallowing them. */
+export const claimKeys = (element: Element, claims: (event: KeyboardEvent) => boolean) => { keys.set(element, claims); };
+
 // Shortcut guards and the row handler consult the same library search for one press.
 const searches = new WeakMap<Element, (event: KeyboardEvent) => string | null>();
 

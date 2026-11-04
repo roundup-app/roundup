@@ -6,6 +6,7 @@ import { createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import type { ForkColour } from "@contracts/data/ForkColour";
 import type { App } from "../app/seam";
 import { Dialog } from "../ui/Dialog";
+import { claimKeys } from "../ui/RowCollection";
 import { Field } from "../ui/Field";
 import { RadioGroup } from "../ui/RadioGroup";
 import { TreeView } from "../ui/TreeView";
@@ -16,6 +17,11 @@ const COLOURS: readonly ForkColour[] = ["red", "orange", "amber", "green", "teal
 
 /** FS5979c: 1 to 40 characters with no control character. */
 const validName = (name: string): boolean => [...name].length >= 1 && [...name].length <= 40 && !/\p{Cc}/u.test(name);
+
+/** The tree's keys: arrows, Home, End, Space and Enter belong to the focused row. */
+const TREE_KEYS = new Set(["ArrowDown", "ArrowUp", "ArrowLeft", "ArrowRight", "Home", "End", " ", "Enter"]);
+
+const claim = (element: HTMLElement) => claimKeys(element, event => TREE_KEYS.has(event.key) && !event.metaKey && !event.ctrlKey && !event.altKey);
 
 const Rows = (props: { rows: ForkRow[]; path: number[]; state: (id: string) => boolean | "indeterminate"; toggle: (id: string) => void }) => (
   <For each={props.rows}>{(row, at) => {
@@ -30,9 +36,9 @@ const Rows = (props: { rows: ForkRow[]; path: number[]; state: (id: string) => b
     );
 
     return <TreeView.NodeProvider node={row} indexPath={indexPath()}>
-      <Show when={row.children.length > 0} fallback={<TreeView.Item data-kind={row.kind}>{box()}<TreeView.ItemText>{row.name}</TreeView.ItemText></TreeView.Item>}>
+      <Show when={row.children.length > 0} fallback={<TreeView.Item data-kind={row.kind} ref={claim}>{box()}<TreeView.ItemText>{row.name}</TreeView.ItemText></TreeView.Item>}>
         <TreeView.Branch data-kind={row.kind}>
-          <TreeView.BranchControl>{box()}<TreeView.BranchText>{row.name}</TreeView.BranchText></TreeView.BranchControl>
+          <TreeView.BranchControl ref={claim}>{box()}<TreeView.BranchText>{row.name}</TreeView.BranchText></TreeView.BranchControl>
           <TreeView.BranchContent><Rows rows={row.children} path={indexPath()} state={props.state} toggle={props.toggle} /></TreeView.BranchContent>
         </TreeView.Branch>
       </Show>
@@ -40,7 +46,7 @@ const Rows = (props: { rows: ForkRow[]; path: number[]; state: (id: string) => b
   }}</For>
 );
 
-const Form = (props: { app: App; rows: ForkRow[]; onClose: () => void }) => {
+const Form = (props: { app: App; rows: ForkRow[]; onClose: () => void; inputRef: (element: HTMLInputElement) => void }) => {
   const ticks = createForkTicks(() => props.rows);
   const [name, setName] = createSignal("");
   const [colour, setColour] = createSignal<ForkColour>("teal");
@@ -62,7 +68,7 @@ const Form = (props: { app: App; rows: ForkRow[]; onClose: () => void }) => {
 
     // Space on a focused row toggles it through the same tick model as a click.
     const space = (event: KeyboardEvent) => {
-      const row = event.target instanceof HTMLElement ? event.target.closest<HTMLElement>("[role=treeitem]") : null;
+      const row = event.target instanceof HTMLElement ? event.target.closest<HTMLElement>("[data-part=branch-control], [data-part=item]") : null;
 
       if (event.key !== " " || !row?.dataset.value) return;
       event.preventDefault();
@@ -96,7 +102,7 @@ const Form = (props: { app: App; rows: ForkRow[]; onClose: () => void }) => {
     </div>
     <Field.Root invalid={!validName(name())}>
       <Field.Label>{forkCopy.name}</Field.Label>
-      <Field.Input ref={input} type="text" value={name()} onInput={event => setName(event.currentTarget.value)} />
+      <Field.Input ref={element => { input = element; props.inputRef(element); }} type="text" value={name()} onInput={event => setName(event.currentTarget.value)} />
       <Field.ErrorText>{forkCopy.invalidName}</Field.ErrorText>
     </Field.Root>
     <RadioGroup class="fork-swatches" label={forkCopy.colour} choices={COLOURS.map(value => ({ value, label: value }))} value={colour()} onValueChange={setColour} />
@@ -109,10 +115,14 @@ const Form = (props: { app: App; rows: ForkRow[]; onClose: () => void }) => {
 };
 
 /** FS5979: the Fork sheet; it holds the Rail tree of every open Project with all rows ticked each time it opens. */
-export const ForkSheet = (props: { app: App; open: boolean; sources: () => readonly ForkSource[]; onClose: () => void }) => (
-  <Dialog.Root open={props.open} onOpenChange={({ open }) => { if (!open) props.onClose(); }}>
+export const ForkSheet = (props: { app: App; open: boolean; sources: () => readonly ForkSource[]; onClose: () => void }) => {
+  let input: HTMLInputElement | undefined;
+
+  return (
+  <Dialog.Root open={props.open} initialFocusEl={() => input ?? null} onOpenChange={({ open }) => { if (!open) props.onClose(); }}>
     <Dialog.Positioner><Dialog.Content class="app-dialog-form">
-      <Form app={props.app} rows={forkRows(props.sources())} onClose={props.onClose} />
+      <Form app={props.app} rows={forkRows(props.sources())} onClose={props.onClose} inputRef={element => { input = element; }} />
     </Dialog.Content></Dialog.Positioner>
   </Dialog.Root>
-);
+  );
+};

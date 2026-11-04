@@ -95,6 +95,19 @@ describe("fs5979b the sheet is the Rail tree with every row ticked", () => {
     expect(["Agent two", "Door", FIRST.name].map(name => box(name).getAttribute("aria-checked"))).toEqual(["true", "mixed", "mixed"]);
   });
 
+  it("fs5979b_arrows_move_between_rows_and_space_ticks_the_focused_one", async () => {
+    await sheet();
+    const user = userEvent.setup();
+    const control = (name: string) => screen.getByText(name).closest<HTMLElement>("[data-part=branch-control], [data-part=item]")!;
+
+    control(FIRST.name).focus();
+    await user.keyboard("{ArrowDown}");
+    expect(document.activeElement).not.toBe(control(FIRST.name));
+    control(SECOND.name).focus();
+    await user.keyboard(" ");
+    expect(box(SECOND.name).getAttribute("aria-checked")).toBe("false");
+  });
+
   it("fs5979b_opening_again_shows_every_row_ticked", async () => {
     const app = createFakeApp();
     const view = render(() => <ForkSheet app={app} open sources={sources} onClose={() => {}} />);
@@ -115,6 +128,7 @@ describe("fs5979c the name and the colour", () => {
     const field = inputOf(await screen.findByLabelText("Name"));
 
     await waitFor(() => expect(field.value).toBe("build/login"));
+    expect(document.activeElement).toBe(field);
     expect([field.selectionStart, field.selectionEnd]).toEqual([0, "build/login".length]);
     expect(screen.getAllByRole("radio")).toHaveLength(8);
     await waitFor(() => expect(inputOf(screen.getByRole("radio", { name: "teal" })).checked).toBe(true));
