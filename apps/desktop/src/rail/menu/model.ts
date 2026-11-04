@@ -2,7 +2,6 @@ import { alertLevel } from "../alertLevel";
 import type { createCopyFeedback } from "../../ui/CopyButton";
 import type { ConnectedProject } from "../../state/connectedProject";
 import { copy } from "../copy";
-import { copy as todoCopy } from "../../todos/copy";
 import { createSignal } from "solid-js";
 import { createStore } from "solid-js/store";
 import type { RailNode } from "@contracts/agent/RailNode";
@@ -183,7 +182,9 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
       } else {
         // The row returns first: a failure line about a row the Rail does not show would clear itself.
         rail.unhide(leaving);
-        onFailure(storage.todoUndo.failure() ?? todoCopy.deleteBusy, current.node.id);
+        const failure = storage.todoUndo.failure();
+
+        if (failure) onFailure(failure, current.node.id);
       }
     });
   };

@@ -207,7 +207,13 @@ export const Rail = () => {
 
     if (!parent) {
       // U5991a: a row that left at once takes its focus with it; the first row left keeps the Rail's key history.
-      queueMicrotask(() => container()?.querySelector<HTMLElement>(ROW)?.focus());
+      queueMicrotask(() => {
+        const active = document.activeElement;
+
+        // Focus already moved to a surviving row (the removal's own advance): leave it.
+        if (active instanceof HTMLElement && active !== document.body && container()?.contains(active) && active.isConnected) return;
+        container()?.querySelector<HTMLElement>(ROW)?.focus();
+      });
 
       return;
     }
