@@ -89,7 +89,9 @@ impl Reader {
             .await
     }
 
-    /// The Rail, the Todos, the Pads and every Message.
+    /// The Rail, the Todos, the Pads and every Message. The Adapter sets a turn's final text and
+    /// its Status under one lock, so `completed` is read before the Rail: a Rail never shows an
+    /// older Status than the final text beside it.
     pub async fn world(&self) -> Result<World, RpcError> {
         let daemon = Actor::daemon;
         let pads: Vec<contracts::pad::Pad> =
@@ -102,17 +104,19 @@ impl Reader {
                     .map_err(RpcError::internal)?,
             );
         }
+        let completed = self
+            .agents
+            .as_ref()
+            .map_or_else(HashMap::new, |agents| agents.completed_text());
+        let nodes = self.rail().await?;
         Ok(World {
-            nodes: self.rail().await?,
+            nodes,
             todos: self
                 .call("todo", "todo.list", Value::Null, daemon())
                 .await?,
             pads,
             touches,
-            completed: self
-                .agents
-                .as_ref()
-                .map_or_else(HashMap::new, |agents| agents.completed_text()),
+            completed,
             // The user sees every Message; `message.list` shows the Daemon only its own.
             messages: self
                 .call("message", "message.list", json!({}), Actor::user())
