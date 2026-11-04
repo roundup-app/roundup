@@ -13,7 +13,7 @@ import type { QueueView } from "../../state/queue";
 import { goesLine, staysLine } from "./removal";
 import { railOrder } from "../layout";
 import { judgeRemoval } from "./removal";
-import type { Removal } from "./removal";
+import type { Held, Removal } from "./removal";
 import { contextMenu, linkEntries } from "../../ui/contextMenu";
 import type { MenuEntry } from "../../ui/contextMenu";
 
@@ -41,7 +41,7 @@ const needsConfirmation = ({ node, exit }: MenuState) =>
   isRunning(node, exit) &&
   (node.status?.kind === "working" || node.status?.kind === "needs-you" || node.status?.kind === "blocked");
 
-export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (message: string, item?: string) => void, acknowledge: (item: string) => void, storage: ConnectedProject["drafts"], rename: (id: string) => void, queue: QueueView, extra: (node: RailNode) => MenuEntry[] = () => [], feedback: (id: string) => ReturnType<typeof createCopyFeedback> | undefined = () => undefined) => {
+export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (message: string, item?: string) => void, acknowledge: (item: string) => void, storage: ConnectedProject["drafts"], rename: (id: string) => void, queue: QueueView, extra: (node: RailNode) => MenuEntry[] = () => [], feedback: (id: string) => ReturnType<typeof createCopyFeedback> | undefined = () => undefined, held: () => Held | null = () => null) => {
   const [state, setState] = createSignal<MenuState | null>(null);
   let removingSelection = false;
   const resuming = new Set<string>();
@@ -193,7 +193,7 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
     setState({ ...current, confirming: true, removal: null });
 
     try {
-      const removal = current.node.kind === "workstream" ? await judgeRemoval(app, rail.nodes, current.node.id) : undefined;
+      const removal = current.node.kind === "workstream" ? await judgeRemoval(app, rail.nodes, current.node.id, new Set(), held()) : undefined;
       const chosen = [current.node, ...rail.nodes.filter(node => removal?.removedIds.includes(node.id))];
 
       const losses = lossesOf(chosen);
@@ -262,7 +262,7 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
     setState(current);
 
     try {
-      const judgments = await Promise.all(chosen.flatMap(node => node.kind === "workstream" ? [judgeRemoval(app, rail.nodes, node.id, ids).then(removal => ({ node, removal }))] : []));
+      const judgments = await Promise.all(chosen.flatMap(node => node.kind === "workstream" ? [judgeRemoval(app, rail.nodes, node.id, ids, held()).then(removal => ({ node, removal }))] : []));
       const affected = new Set([...chosen.map(node => node.id), ...judgments.flatMap(({ removal }) => removal.removedIds)]);
 
       const losses = lossesOf(railOrder(rail.nodes).filter(node => affected.has(node.id)));

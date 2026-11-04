@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { RpcError } from "../../app/seam";
+import { todo } from "../../todos/testHarness";
 import { agent, info, workstream } from "../../testing/nodes";
 import { mountRail, railCallsTo, rowOf, settled } from "../railFixture";
 
@@ -104,12 +105,27 @@ it("u5991c_a_failed_workstream_call_returns_it_with_its_children_and_queued_acti
 });
 
 it("u5991d_a_loss_question_precedes_the_optimistic_removal", async () => {
-  const { app } = await mountRail([workstream("chosen"), agent("running", "working", "busy", { parent: "chosen" })], [info("live-shell", { owner: "chosen" })]);
+  const { app } = await mountRail([
+    workstream("chosen"),
+    agent("running", "working", "busy", { parent: "chosen" }),
+    agent("clean", "done", "finished", { parent: "chosen", terminal_id: null, worktree: null }),
+  ], [info("live-shell", { owner: "chosen" })]);
+
+  app.handlers["todo.list"] = () => [todo(1, { home: "chosen" })];
+  app.handlers["pad.list"] = () => [];
+  app.emit({ actor: { kind: "user" }, name: "todo.updated", data: { id: 1 } });
+  app.emit({ actor: { kind: "user" }, name: "pad.changed", data: { name: "n" } });
   await settled();
+  // The App holds the lists and the children's state: the Daemon is asked for none of it.
+  const never = () => new Promise<never>(() => undefined);
+  app.handlers["todo.list"] = never;
+  app.handlers["pad.list"] = never;
+  app.handlers["agent.worktreeState"] = never;
   await removeWorkstream(app, "chosen");
   await waitFor(() => expect(app.answerRemoval).toBeTypeOf("function"));
   expect(rowOf("chosen")).toBeTruthy();
   expect(rowOf("running")).toBeTruthy();
+  expect(app.removalQuestions[0]?.message).toContain("running");
   app.answerRemoval!("cancel");
   await waitFor(() => expect(document.activeElement).toBe(rowOf("chosen")));
   expect(railCallsTo(app, "rail.remove")).toEqual([]);
