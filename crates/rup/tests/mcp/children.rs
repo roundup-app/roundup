@@ -648,4 +648,3 @@ async fn u5531c_promotion_stays_shown_until_a_new_safe_door_choice() {
         "internal"
     );
 }
-
