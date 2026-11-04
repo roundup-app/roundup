@@ -438,21 +438,22 @@ pub(crate) async fn waiting_counts(inner: &Arc<Inner>) -> Result<HashMap<String,
     let ledger = inner.pushes.lock().await;
     let pending = lock(&inner.store).pending_all()?;
     let mut counts: HashMap<String, u32> = HashMap::new();
-    let mut held: HashMap<&str, Vec<DigestEntry>> = HashMap::new();
+    let mut digested: HashMap<&str, Vec<DigestEntry>> = HashMap::new();
     for message in &pending {
         let digest = is_digest(&message.from, &message.body);
         *counts.entry(message.to.clone()).or_default() +=
             if digest { weight(&message.body) } else { 1 };
         if digest {
-            held.entry(&message.to)
+            digested
+                .entry(&message.to)
                 .or_default()
                 .extend(entries_of(&message.body));
         }
     }
     for (door, slot) in &ledger.metas {
-        let held = held.get(door.as_str());
+        let digested = digested.get(door.as_str());
         for (_, entry, weight) in &slot.waiting {
-            if !held.is_some_and(|held| held.contains(entry)) {
+            if !digested.is_some_and(|digested| digested.contains(entry)) {
                 *counts.entry(door.clone()).or_default() += weight;
             }
         }
