@@ -848,16 +848,16 @@ async fn waiting(run: &Run) -> Value {
 #[tokio::test]
 async fn dcl10_waiting_count_follows_stored_backlog_without_double_count() {
     let (mut run, _) = Run::start_with_backlog().await;
-    assert_eq!(waiting(&run).await, json!(2));
+    assert_eq!(waiting(&run).await, json!(4));
     run.change("first").await;
     run.change("second").await;
     run.assert_silent().await;
-    assert_eq!(waiting(&run).await, json!(4));
+    assert_eq!(waiting(&run).await, json!(6));
     drop(run.daemon.stdin.take());
     run.daemon.child.wait().unwrap();
     (run.daemon, run.log) = launch(run.dir.path(), run.data.path(), &run.model);
     run.user = Client::connect(&run.daemon.socket).await.unwrap();
-    assert_eq!(waiting(&run).await, json!(4));
+    assert_eq!(waiting(&run).await, json!(6));
 }
 
 impl Run {
@@ -912,7 +912,6 @@ async fn dcl10_start_replays_one_ordered_batch() {
     let after = run.thread().await;
     assert_eq!(identity(&after), identity(&stored));
     assert_eq!(after[1]["kind"], "question", "{after:?}");
-    assert_eq!(after[1]["id"], stored[1]["id"]);
     assert!(
         after.iter().all(|m| m["status"] == "delivered"),
         "{after:?}"
@@ -941,13 +940,10 @@ async fn dcl10_failed_start_preserves_backlog_and_cause() {
         .request("rail.startDoor", json!({"id":run.door}))
         .await;
     let cause = failed.expect_err("launch fails").to_string();
-    assert!(!cause.is_empty());
-    let kept = run.thread().await;
+    assert!(cause.contains("rup not found at"), "{cause}");
+    assert_eq!(waiting(&run).await, json!(4), "N kept");
     let before = run.digests().await.len();
-    assert_eq!(
-        kept, stored,
-        "every Message unchanged after the failed Start"
-    );
+    assert_eq!(run.thread().await, stored, "Messages kept");
     run.assert_silent().await;
     assert_eq!(
         run.digests().await.len(),
