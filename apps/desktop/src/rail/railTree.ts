@@ -1,7 +1,6 @@
-import { createMemo, createSignal, onCleanup, type Accessor } from "solid-js";
+import { createMemo, type Accessor } from "solid-js";
 import { createTreeCollection } from "@ark-ui/solid/tree-view";
 import { KIND_ICON } from "../ink/kindIcon";
-import type { Message } from "@contracts/message/Message";
 import type { ConnectedProject } from "../state/connectedProject";
 import { railCollection } from "./collection";
 import { copy } from "./copy";
@@ -17,52 +16,12 @@ export const sections: { id: RailSection; label: string; icon: typeof KIND_ICON[
 export const createRailTree = (connected: ConnectedProject, unfolded: Accessor<ReadonlySet<string | null>>, rowElement: (id: string) => HTMLElement | undefined) => {
   const { rail, now } = connected;
   const collapsed = rail.collapsed;
-  // Until the complete Message list arrives, absence of a question is unknown.
-  const [messages, setMessages] = createSignal<readonly Message[] | null>(null);
-  let revision = 0;
-  let stopped = false;
-
-  const refreshQuestions = async () => {
-    const request = ++revision;
-
-    try {
-      const listed = await connected.app.rpc("message.list", { to: null, status: null });
-
-      if (stopped || request !== revision) return;
-      setMessages(listed);
-    } catch (error) {
-      if (!(error instanceof Error)) throw error;
-
-      if (!stopped && request === revision) setMessages(null);
-    }
-  };
-
-  const stopQuestions = connected.events.subscribe(event => {
-    if (event.name.startsWith("message.")) {
-      setMessages(null);
-      void refreshQuestions();
-    }
-  });
-
-  onCleanup(() => { stopped = true; stopQuestions(); });
-  void refreshQuestions();
-
-  const protectedIds = createMemo(() => {
-    const listed = messages();
-
-    return new Set(listed === null ? rail.nodes.map(node => node.id) : listed
-      .filter(message => message.kind === "question" && message.from.kind === "agent")
-      .filter(question => !listed.some(reply => reply.replyTo === question.id && reply.to === question.from.id &&
-        (rail.resumedAt(question.from.id) ?? 0) > reply.at))
-      .map(message => message.from.id));
-  });
-
   const topology = rail.topology;
   const presentSections = createMemo(() => sections.filter(section => topology().section.includes(section.id)));
 
   const sectionRows = createMemo(() => presentSections().map(section => ({
     ...section,
-    rows: rail.closedSections().has(section.id) ? [] : layoutRail(topology(), { collapsed: collapsed(), unfolded: unfolded(), now: now(), protected: protectedIds() }, section.id),
+    rows: rail.closedSections().has(section.id) ? [] : layoutRail(topology(), { collapsed: collapsed(), unfolded: unfolded(), now: now() }, section.id),
   })));
 
   const rows = createMemo(() => sectionRows().flatMap(section => section.rows));
@@ -73,7 +32,7 @@ export const createRailTree = (connected: ConnectedProject, unfolded: Accessor<R
 
     const children = presentSections().map(section => ({
       id: `section:${section.id}`, name: section.label,
-      children: railCollection(layoutRail(topology(), { collapsed: new Set(), unfolded: allUnfolded, now: now(), protected: protectedIds() }, section.id)).rootNode.children ?? [],
+      children: railCollection(layoutRail(topology(), { collapsed: new Set(), unfolded: allUnfolded, now: now() }, section.id)).rootNode.children ?? [],
     }));
 
     return createTreeCollection({
