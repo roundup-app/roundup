@@ -14,6 +14,7 @@ mod open;
 mod paste;
 mod state;
 mod store;
+mod update;
 mod window;
 
 use std::path::{Path, PathBuf};
