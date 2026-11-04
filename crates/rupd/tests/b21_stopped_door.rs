@@ -852,7 +852,7 @@ impl Run {
             .iter()
             .filter(|m| {
                 m["to"] == self.door
-                    && m["body"] != DOOR_PROMPT
+                    && !m["body"].as_str().unwrap().starts_with(DOOR_PROMPT)
                     && !m["body"].as_str().unwrap().starts_with("[digest]")
             })
             .cloned()
@@ -901,7 +901,7 @@ async fn dcl10_start_replays_one_ordered_batch() {
         .expect("second in transcript");
     assert!(first < second, "stored order");
     assert_eq!(
-        written.matches("first retained").count(),
+        user_turns_with(&written, "first retained"),
         1,
         "delivered once"
     );
@@ -933,7 +933,7 @@ async fn dcl10_failed_start_preserves_backlog_and_cause() {
     assert_eq!(identity(&after), identity(&stored));
     let written = transcript(run.dir.path().join("config").as_path());
     assert_eq!(
-        written.matches("first retained").count(),
+        user_turns_with(&written, "first retained"),
         1,
         "same batch once"
     );
@@ -949,6 +949,15 @@ async fn subscribe(run: &Run) -> Client {
     let events = Client::connect(&run.daemon.socket).await.unwrap();
     events.request("events.subscribe", json!({})).await.unwrap();
     events
+}
+
+/// Conversation entries of type `user` that carry `text`; Claude Code also logs the same request as an `api-request-blob` entry.
+fn user_turns_with(written: &str, text: &str) -> usize {
+    written
+        .lines()
+        .filter_map(|line| serde_json::from_str::<Value>(line).ok())
+        .filter(|entry| entry["type"] == "user" && entry.to_string().contains(text))
+        .count()
 }
 
 /// Every conversation file Claude Code wrote under `config`, joined.
