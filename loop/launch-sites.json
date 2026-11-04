@@ -282,7 +282,7 @@
     "data": "Fixture::new's wrapper script runs rupd with an absolute TempDir data folder and Project, with a fake claude as the Agent program.",
     "issue": 5981,
     "kind": "indirect",
-    "sha256": "ce625eb84dfe53f815599456716470b650f9d26b3f623cb196eff18626ec8063"
+    "sha256": "fda24f7d3782b4768c590b46740cd7f6c3475884a2fcea2051507a425cbc2a77"
   },
   "crates/messages/src/digest_schema.rs": {
     "cleanup": "No separate built-Daemon launch site.",

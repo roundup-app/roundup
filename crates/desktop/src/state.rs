@@ -592,8 +592,7 @@ impl AppState {
     /// Ends every Daemon without the stdin-close shutdown, so no Agent or Terminal owner is
     /// stopped (S5981a). The Daemon writes each Rail and owner record as it changes (D6), so a
     /// `rail.tree` answered within `UPDATE_BOUND` after every earlier call shows them saved; if one
-    /// Daemon does not answer, nothing is ended and the call fails naming its Project. Daemons it ended are not
-    /// restarted.
+    /// Daemon does not answer, nothing is ended and the call fails naming its Project.
     pub async fn exit_for_update(&self) -> Result<(), RpcError> {
         let open: Vec<(String, Arc<Client>)> = self
             .entries()

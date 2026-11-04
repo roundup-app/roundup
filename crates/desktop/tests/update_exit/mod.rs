@@ -138,28 +138,27 @@ impl Real {
     }
 
     fn program_pid(&self, agent: &str) -> u32 {
-        let start = Instant::now();
-        loop {
+        let found = std::cell::Cell::new(None);
+        eventually("the Agent's program", || {
             let nodes = self.rpc("rail.tree", Value::Null).unwrap();
-            let terminal = nodes
+            let Some(terminal) = nodes
                 .as_array()
                 .and_then(|nodes| nodes.iter().find(|node| node["id"] == agent))
-                .and_then(|node| node["terminal_id"].as_str().map(str::to_owned));
-            if let Some(terminal) = terminal {
-                let list = self.rpc("terminal.list", Value::Null).unwrap();
-                if let Some(pid) = list
-                    .as_array()
+                .and_then(|node| node["terminal_id"].as_str().map(str::to_owned))
+            else {
+                return false;
+            };
+            let list = self.rpc("terminal.list", Value::Null).unwrap();
+            found.set(
+                list.as_array()
                     .into_iter()
                     .flatten()
                     .find(|t| t["id"] == terminal.as_str())
-                    .and_then(|t| t["program_pid"].as_u64())
-                {
-                    return pid as u32;
-                }
-            }
-            assert!(start.elapsed() < WAIT, "the Agent never ran a program");
-            std::thread::sleep(Duration::from_millis(50));
-        }
+                    .and_then(|t| t["program_pid"].as_u64()),
+            );
+            found.get().is_some()
+        });
+        found.get().unwrap() as u32
     }
 
     fn launches(&self) -> usize {
