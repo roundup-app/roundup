@@ -58,6 +58,17 @@ pub(crate) fn app_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>>
         &MenuItem::with_id(app, "app-settings", "Settings…", true, Some("CmdOrCtrl+,"))?,
         3,
     )?;
+    // FS5979a: disabled until a Project is open (`select_project_menu` enables it).
+    application.insert(
+        &MenuItem::with_id(
+            app,
+            "fork-sheet",
+            "Fork for development…",
+            false,
+            None::<&str>,
+        )?,
+        4,
+    )?;
     // SU5982e: only a slot-launched App (`ROUNDUP_SLOT`) offers Restart to update.
     if let Ok(running) = std::env::var("ROUNDUP_SLOT") {
         if let Some(home) = crate::update::home() {
@@ -218,6 +229,10 @@ pub(crate) fn app_chosen<R: Runtime>(app: &AppHandle<R>, event: &MenuEvent) {
         if let Err(error) = app.emit("open-app-settings", ()) {
             crate::diagnostics::failure("open Settings", &error);
         }
+    } else if event.id().0 == "fork-sheet" {
+        if let Err(error) = app.emit("open-fork-sheet", ()) {
+            crate::diagnostics::failure("open the Fork sheet", &error);
+        }
     } else if matches!(event.id().0.as_str(), "import-work" | "project-settings")
         || event.id().0.starts_with("view:")
         || event.id().0.starts_with("action:")
@@ -284,6 +299,12 @@ pub fn select_project_menu<R: Runtime>(
         project.remove(&item).map_err(internal)?;
     }
     project.set_enabled(true).map_err(internal)?;
+    if let Some(MenuItemKind::Submenu(application)) =
+        menu.items().map_err(internal)?.into_iter().next()
+        && let Some(MenuItemKind::MenuItem(fork)) = application.get("fork-sheet")
+    {
+        fork.set_enabled(path.is_some()).map_err(internal)?;
+    }
     let mut items = items.unwrap_or_default();
     if path.is_none() {
         for item in &mut items {

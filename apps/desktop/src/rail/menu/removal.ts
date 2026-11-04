@@ -27,11 +27,17 @@ const below = (nodes: readonly RailNode[], id: string): RailNode[] =>
 const unlanded = (state: WorktreeState): string | null =>
   state.ahead > 0 ? copy.unlandedWorkAhead(state.ahead) : state.dirty ? copy.unlandedWorkUncommittedChanges : null;
 
+/** U5991d: the Todos and Pads the App already holds, read from its shared lists; `null` where they have not answered. */
+export type Known = { todos: readonly Todo[]; pads: readonly Pad[] };
+
 /** Reads what `rail.remove` of Workstream `id` will judge: its Agents by Status and Worktree, its Todos by `done`, its Pads by Home. Writes nothing. */
-export const judgeRemoval = async (app: AppSeam, nodes: readonly RailNode[], id: string, selected: ReadonlySet<string> = new Set()): Promise<Removal> => {
-  const [todoRead, padRead] = await Promise.allSettled([app.rpc("todo.list", null), app.rpc("pad.list", null)]);
-  const todos: Todo[] = todoRead.status === "fulfilled" ? todoRead.value : [];
-  const pads: Pad[] = padRead.status === "fulfilled" ? padRead.value : [];
+export const judgeRemoval = async (app: AppSeam, nodes: readonly RailNode[], id: string, selected: ReadonlySet<string> = new Set(), known: Known | null = null): Promise<Removal> => {
+  const [todoRead, padRead] = known
+    ? [{ status: "fulfilled" as const, value: known.todos }, { status: "fulfilled" as const, value: known.pads }]
+    : await Promise.allSettled([app.rpc("todo.list", null), app.rpc("pad.list", null)]);
+
+  const todos: readonly Todo[] = todoRead.status === "fulfilled" ? todoRead.value : [];
+  const pads: readonly Pad[] = padRead.status === "fulfilled" ? padRead.value : [];
   const removal: Removal = { affectedIds: below(nodes, id).map(node => node.id), removedIds: [], goes: { agents: [], todos: 0, pads: 0 }, stays: { agents: [], todos: 0, pads: 0 }, unread: [...(todoRead.status === "rejected" ? ["todo" as const] : []), ...(padRead.status === "rejected" ? ["pad" as const] : [])] };
   const staying = new Set<string>();
 

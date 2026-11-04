@@ -383,6 +383,8 @@ mod door;
 mod ending;
 mod events;
 mod import_work;
+mod jobs;
+pub use jobs::{JobStop, OpenJob};
 mod model_wiring;
 mod owners;
 mod rail_view;

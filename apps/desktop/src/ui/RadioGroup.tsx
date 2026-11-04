@@ -7,6 +7,7 @@ export type RadioChoice<V extends string> = { value: V; label: string };
 
 /** A labelled one-of-many choice over Ark's RadioGroup; arrows move and select, Tab leaves the group, and the caller owns the value. */
 export const RadioGroup = <V extends string>(props: {
+  class?: string;
   label: string;
   disabled?: boolean;
   invalid?: boolean;
@@ -17,10 +18,10 @@ export const RadioGroup = <V extends string>(props: {
   const label = createUniqueId();
 
   return (
-  <ArkRadioGroup.Root ids={{ label }} class="app-radio-group" disabled={props.disabled} invalid={props.invalid} value={props.value} onValueChange={(details) => props.onValueChange(props.choices.find((choice) => choice.value === details.value)?.value ?? props.value)}>
+  <ArkRadioGroup.Root ids={{ label }} class={`app-radio-group ${props.class ?? ""}`} disabled={props.disabled} invalid={props.invalid} value={props.value} onValueChange={(details) => props.onValueChange(props.choices.find((choice) => choice.value === details.value)?.value ?? props.value)}>
     <ArkRadioGroup.Label class="app-radio-label">{props.label}</ArkRadioGroup.Label>
     <For each={props.choices}>{(choice) => (
-      <ArkRadioGroup.Item value={choice.value} class="app-radio">
+      <ArkRadioGroup.Item value={choice.value} class="app-radio" data-choice={choice.value}>
         <ArkRadioGroup.ItemControl class="app-radio-mark" />
         <ArkRadioGroup.ItemText>{choice.label}</ArkRadioGroup.ItemText>
         <ArkRadioGroup.ItemHiddenInput asChild={(input) => <input {...input()} style="" />} />

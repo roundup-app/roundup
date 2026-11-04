@@ -315,10 +315,8 @@ class Engine(unittest.TestCase):
             tool.chmod(0o755)
         Path(path, 'temp').mkdir()
         output = Path(path, 'output')
-        with patch.dict(os.environ, {**dict(CODEX_AUTH=login, CLAUDE_CODE_OAUTH_TOKEN='max', CLAUDE_MODE=claude_mode,
-                                            CODEX_MODE=codex_mode, ISSUE=str(item), RUNNER_TEMP=f'{path}/temp',
-                                            SEEN=f'{path}/seen', SEEN_CLAUDE=f'{path}/seen-claude', EXIT='0',
-                                            PATH=f"{bin}:{os.environ['PATH']}"), **(env or {})}), \
+        with patch.dict(os.environ, {**dict(CODEX_AUTH=login, CLAUDE_CODE_OAUTH_TOKEN='max', CLAUDE_MODE=claude_mode, CODEX_MODE=codex_mode, ISSUE=str(item),
+                                            RUNNER_TEMP=f'{path}/temp', SEEN=f'{path}/seen', SEEN_CLAUDE=f'{path}/seen-claude', EXIT='0', PATH=f"{bin}:{os.environ['PATH']}"), **(env or {})}), \
                 patch.object(builder, 'app_token', return_value='fresh') as self.token, \
                 redirect_stdout(io.StringIO()) as log, \
                 redirect_stderr(io.StringIO()) as errors:
@@ -327,7 +325,7 @@ class Engine(unittest.TestCase):
         seen = lambda name: json.loads(Path(path, name).read_text()) if Path(path, name).exists() else None
         return output.read_text(), seen('seen-claude'), seen('seen')
 
-    def test_l23_every_item_starts_on_codex_and_falls_back_to_claude_code_when_it_did_no_work(self):
+    def test_l23_an_item_starts_on_its_engine_and_falls_back_to_the_other_when_it_did_no_work(self):
         for issue in (7, 8):
             with self.subTest(issue=issue):
                 with tempfile.TemporaryDirectory() as path:
@@ -339,10 +337,13 @@ class Engine(unittest.TestCase):
                 with tempfile.TemporaryDirectory() as path:
                     output, claude, codex = self.run_engine(path, issue, codex_mode='limit')
                 self.assertEqual(claude['args'][:4], ['-p', '--model', 'claude-sonnet-5-5', '--output-format'])
-                self.assertEqual(claude['env'], dict(CLAUDE_CODE_OAUTH_TOKEN='max', CODEX_AUTH=None, GH_TOKEN='fresh',
-                                                     GIT_AUTHOR_NAME='claude[bot]', ANTHROPIC_API_KEY=None))
+                self.assertEqual(claude['env'], dict(CLAUDE_CODE_OAUTH_TOKEN='max', CODEX_AUTH=None, GH_TOKEN='fresh', GIT_AUTHOR_NAME='claude[bot]', ANTHROPIC_API_KEY=None))
                 self.assertEqual(output.count('execution_file='), 2)
                 self.assertIn('{"ask": "from claude"}', output)
+                for run, first in (('20', 'claude'), ('21', 'codex')):  # 20 % 12 = 8 is below CLAUDE_RUNS' 9; 21 % 12 = 9 is not
+                    with tempfile.TemporaryDirectory() as path:
+                        output, claude, codex = self.run_engine(path, issue, env=dict(GITHUB_RUN_ID=run, CODEX_RUNS='3', CLAUDE_RUNS='9'))
+                    self.assertEqual((claude is None, codex is None), (first == 'codex', first == 'claude'))
 
     def test_l23_a_broken_codex_login_is_a_setup_failure_that_falls_back_to_claude_code_and_is_annotated(self):
         with tempfile.TemporaryDirectory() as path:
@@ -363,8 +364,7 @@ class Engine(unittest.TestCase):
         with tempfile.TemporaryDirectory() as path:
             output, claude, codex = self.run_engine(path, 8, env=switch)
         self.assertIsNone(codex)
-        self.assertEqual(claude['env'], dict(CLAUDE_CODE_OAUTH_TOKEN=None, CODEX_AUTH=None, GH_TOKEN='fresh',
-                                             GIT_AUTHOR_NAME='claude[bot]', ANTHROPIC_API_KEY='key'))
+        self.assertEqual(claude['env'], dict(CLAUDE_CODE_OAUTH_TOKEN=None, CODEX_AUTH=None, GH_TOKEN='fresh', GIT_AUTHOR_NAME='claude[bot]', ANTHROPIC_API_KEY='key'))
         self.assertEqual(claude['args'][claude['args'].index('--max-budget-usd') + 1], '3')
         self.assertEqual(claude['args'][claude['args'].index('--effort') + 1], 'medium')
         for broken, why in ((dict(ANTHROPIC_API_KEY=''), 'ANTHROPIC_API_KEY'),
@@ -381,8 +381,8 @@ class Engine(unittest.TestCase):
         for bad in ('0', 'yes', '-1'):
             with patch.dict(os.environ, CODEX_RUNS='2', CLAUDE_API=bad), self.assertRaises(SystemExit):
                 builder.slot_count()
-        with patch.dict(os.environ, CODEX_RUNS='2', CLAUDE_API=''):
-            self.assertEqual(builder.slot_count(), 2)
+        with patch.dict(os.environ, CODEX_RUNS='2', CLAUDE_RUNS='9', CLAUDE_API=''):
+            self.assertEqual(builder.slot_count(), 11)
 
     def test_l23_a_claude_code_run_that_used_no_tool_annotates_what_it_said(self):
         with tempfile.TemporaryDirectory() as path:

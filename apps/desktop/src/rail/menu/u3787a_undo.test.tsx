@@ -56,7 +56,9 @@ it.each(["menu", "key", "unknown", "pending"].flatMap(entry => ["agent", "workst
   expect(daemon.questions).toEqual([]);
 
   if (entry === "pending") {
-    fireEvent.keyDown(rowOf("chosen"), { key: "Backspace", code: "Backspace", metaKey: true });
+    // U5991a: the row is already gone while the call is pending; a second press on it does nothing.
+    expect(() => rowOf("chosen")).toThrow();
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: "Backspace", code: "Backspace", metaKey: true });
     expect([screen.queryByText("Deleted chosen")]).toEqual([null]);
     finish!(receipt!);
   }
@@ -93,7 +95,7 @@ it.each(["menu", "key", "unknown", "pending"].flatMap(entry => ["agent", "workst
   daemon.handlers["rail.restore"] = () => ({ ...receipt!, deletion: { ...receipt!.deletion!, restored: true } });
   fireEvent.keyDown(document.activeElement ?? document.body, { key: "z", code: "KeyZ", metaKey: true });
   await waitFor(() => expect([screen.queryByText("Deleted chosen")]).toEqual([null]));
-  expect(daemon.calls.filter(c => c.method === "rail.restore").map(c => c.params)).toEqual([receipt!.deletion, receipt!.deletion].map(d => ({ project: d!.project, operation: d!.operation })));
+  await waitFor(() => expect(daemon.calls.filter(c => c.method === "rail.restore").map(c => c.params)).toEqual([receipt!.deletion, receipt!.deletion].map(d => ({ project: d!.project, operation: d!.operation }))));
   expect(daemon.calls.filter(c => c.method === "rail.remove")).toHaveLength(1);
   expect(daemon.calls.filter(c => ["agent.resume", "terminal.create"].includes(c.method))).toEqual([]);
 });

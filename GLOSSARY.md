@@ -71,6 +71,8 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Subagent | same | child agent, sub-agent, meta-agent, parent agent |
 | Job (`SpawnRole::Job`, wire `job`, `SpawnParams.role`, `Rail::role`) | same | — |
 | Consult (`SpawnRole::Consult`, wire `consult`) | same | — |
+| Open Job (`OpenJob`, `Agents::open_jobs`) | none | — |
+| Job stop (`JobStop`, `Agents::idle_stop`) | none | — |
 | Stalled | stalled | — |
 | Settled note | none | — |
 | Digest | same | — |
