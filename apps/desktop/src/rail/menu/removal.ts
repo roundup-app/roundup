@@ -28,12 +28,12 @@ const unlanded = (state: WorktreeState): string | null =>
   state.ahead > 0 ? copy.unlandedWorkAhead(state.ahead) : state.dirty ? copy.unlandedWorkUncommittedChanges : null;
 
 /** U5991d: the Todos and Pads the App already holds, read from its shared lists; `null` where they have not answered. */
-export type Held = { todos: readonly Todo[]; pads: readonly Pad[] };
+export type Known = { todos: readonly Todo[]; pads: readonly Pad[] };
 
 /** Reads what `rail.remove` of Workstream `id` will judge: its Agents by Status and Worktree, its Todos by `done`, its Pads by Home. Writes nothing. */
-export const judgeRemoval = async (app: AppSeam, nodes: readonly RailNode[], id: string, selected: ReadonlySet<string> = new Set(), held: Held | null = null): Promise<Removal> => {
-  const [todoRead, padRead] = held
-    ? [{ status: "fulfilled" as const, value: held.todos }, { status: "fulfilled" as const, value: held.pads }]
+export const judgeRemoval = async (app: AppSeam, nodes: readonly RailNode[], id: string, selected: ReadonlySet<string> = new Set(), known: Known | null = null): Promise<Removal> => {
+  const [todoRead, padRead] = known
+    ? [{ status: "fulfilled" as const, value: known.todos }, { status: "fulfilled" as const, value: known.pads }]
     : await Promise.allSettled([app.rpc("todo.list", null), app.rpc("pad.list", null)]);
 
   const todos: readonly Todo[] = todoRead.status === "fulfilled" ? todoRead.value : [];

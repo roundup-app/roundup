@@ -2,7 +2,7 @@ import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { RpcError } from "../../app/seam";
 import { todo } from "../../todos/testHarness";
-import { agent, info, workstream } from "../../testing/nodes";
+import { agent, event, info, workstream } from "../../testing/nodes";
 import { mountRail, railCallsTo, rowOf, settled } from "../railFixture";
 
 afterEach(cleanup);
@@ -113,8 +113,8 @@ it("u5991d_a_loss_question_precedes_the_optimistic_removal", async () => {
 
   app.handlers["todo.list"] = () => [todo(1, { home: "chosen" })];
   app.handlers["pad.list"] = () => [];
-  app.emit({ actor: { kind: "user" }, name: "todo.updated", data: { id: 1 } });
-  app.emit({ actor: { kind: "user" }, name: "pad.changed", data: { name: "n" } });
+  app.emit(event({ name: "todo.updated", data: todo(1, { home: "chosen" }) }));
+  app.emit(event({ name: "pad.changed", data: { name: "n" } }));
   await settled();
   // The App holds the lists and the children's state: the Daemon is asked for none of it.
   const never = () => new Promise<never>(() => undefined);

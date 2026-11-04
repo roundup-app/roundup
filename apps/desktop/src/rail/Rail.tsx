@@ -69,8 +69,8 @@ export const Rail = () => {
 
   const moveAgent = createMove(connected, id => rowElement(id));
 
-  const heldTodos = useTodoList();
-  const heldPads = usePadList();
+  const knownTodos = useTodoList();
+  const knownPads = usePadList();
 
   const menu = createRailMenu(app, rail, failure.show, failure.acknowledge, connected.drafts, (id) => {
     setEditingName(id);
@@ -100,7 +100,7 @@ export const Rail = () => {
       ] },
         ...(rail.exitOf(node) !== null && !connected.queue.entryOf(node.id) ? [{ id: "start", label: rail.doorFailure(node.id) ? copy.retryDoor : copy.startDoor, enabled: !rail.doorPending(node.id), run: () => { failure.clear(); rail.clearWorkstreamFailure(); void rail.startDoor(node.id); } }] : [])] : []),
     ];
-  }, id => copied.get(id), () => heldTodos.isLoaded() && !heldTodos.failure() && heldPads.loaded() && !heldPads.failure() ? { todos: heldTodos.all(), pads: heldPads.pads() } : null);
+  }, id => copied.get(id), () => knownTodos.isLoaded() && !knownTodos.failure() && knownPads.loaded() && !knownPads.failure() ? { todos: knownTodos.all(), pads: knownPads.pads() } : null);
 
 
   const [wanted, setWanted] = createSignal<{ id: string; focus: ReturnType<typeof captureFocus> } | null>(null);
