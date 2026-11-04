@@ -41,10 +41,10 @@
 }
 
 /* The colour word stays as the accessible name; the dot is the visible choice. */
-.fork-swatches .app-radio [data-part="item-text"] {
+.fork-swatches [data-part="item-text"] {
   position: absolute;
-  width: 1px;
-  height: 1px;
+  inline-size: 0;
+  block-size: 0;
   overflow: hidden;
   clip-path: inset(50%);
   white-space: nowrap;
