@@ -58,6 +58,18 @@ class Commit(unittest.TestCase):
             self.assertFalse(lint_fix.commit('build/issue-1'))
             self.assertEqual(git(path, 'rev-list', '--count', 'HEAD'), '2')
 
+    def test_l82_lint_fix_refuses_a_change_no_fixer_rewrites(self):
+        with tempfile.TemporaryDirectory() as path, chdir(path):
+            self.checkout(path)
+            Path(path, 'a.ts').write_text('fixed\n')
+            Path(path, 'package.json').write_text('{}\n')
+            git(path, 'add', 'package.json')
+            git(path, 'commit', '--quiet', '-m', 'Manifest')
+            Path(path, 'package.json').write_text('{"scripts": {}}\n')
+            with self.assertRaises(SystemExit):
+                lint_fix.commit('build/issue-1')
+            self.assertEqual(git(path, 'log', '-1', '--format=%s'), 'Manifest')
+
 
 if __name__ == '__main__':
     unittest.main()

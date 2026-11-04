@@ -11,13 +11,19 @@ import push
 
 SUBJECT = 'Apply the safe lint fixes pre failed on'
 MAIN_BRANCHES = 'lint-fix/main-'
+# The files Oxlint's and rustfmt's fixers rewrite; the diff comes from a run of the failed head's own code.
+FIXED = ('.js', '.jsx', '.ts', '.tsx', '.mjs', '.mts', '.cjs', '.cts', '.rs')
 
 
 def commit(branch):
     """Commit the tracked files `just fix` changed onto `branch`, created at HEAD, as the Claude App. False when it
-    changed none, or when HEAD already is such a commit: fixes that did not hold go to a model, not round again."""
+    changed none, or when HEAD already is such a commit: fixes that did not hold go to a model, not round again.
+    A changed file no fixer rewrites ends the run naming it."""
     if not builder.git('diff', '--quiet').returncode:
         return False
+    if outside := [path for path in builder.git('diff', '--name-only', '-z').stdout.split('\0')
+                   if path and not path.endswith(FIXED)]:
+        sys.exit(f"the lint fixes change files no fixer rewrites: {' '.join(outside)}")
     if builder.git('log', '-1', '--format=%s').stdout.strip() == SUBJECT:
         print('HEAD already holds lint fixes pre still failed on; a model answers this failure', file=sys.stderr)
         return False

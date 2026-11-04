@@ -30,7 +30,7 @@ Policy — the observer creates an isolated temporary Git repository with this c
 
 **T5456b CI rejects spacing violations without changing files.** Given the same otherwise lint-clean source fixture with the blank line missing, when the non-fixing lint entry point used by `lint-web` runs on it, then it exits 1, reports `anti-slop/require-readable-spacing`, and leaves the file bytes unchanged. Running that entry point on the fixed fixture exits 0. Test: planned `t5456b_ci_rejects_unfixed_spacing_without_writing` in `tools/oxlint/pre-commit.test.mjs`. This observes the CI lint seam directly; no hook bypass or push is needed to construct the unfixed fixture.
 
-Policy — `justfile`'s `lint-web` keeps invoking non-fixing lint. No rule is disabled or weakened, no CI lint job writes or pushes fixes (only `fix.yml`'s `lint-fix` job pushes what `just fix` changed, T6011a and L82), and no instructions recommend bypassing hooks. No workflow or frozen loop machinery changes are needed.
+Policy — `justfile`'s `lint-web` keeps invoking non-fixing lint. No rule is disabled or weakened, no CI lint job writes or pushes fixes (only `fix.yml`'s `lint-push` job pushes what `just fix` changed, T6011a and L82), and no instructions recommend bypassing hooks. No workflow or frozen loop machinery changes are needed.
 
 **T5456c a small commit adds less than five seconds.** Given installed dependencies on a Linux runner and three staged, otherwise lint-clean web source files of at most 100 lines each, one with the T5456a spacing violation, when an ordinary commit runs the installed hook, then the added hook time is strictly below 5000 ms. Test: planned `t5456c_small_commit_hook_stays_under_five_seconds` in `tools/oxlint/pre-commit.test.mjs`.
 
