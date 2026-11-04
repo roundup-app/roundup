@@ -288,9 +288,13 @@ fn a4_the_settings_hold_one_command_per_state_event_and_two_at_start() {
             };
             ((*event).to_owned(), hook.clone())
         })
+        .chain(["SubagentStart", "SubagentStop"].map(|event| (event.to_owned(), entry.clone())))
         .collect();
-    // The late Notification and the spurious SubagentStop are not among the events.
-    assert_eq!(settings["hooks"].as_object().unwrap().len(), EVENTS.len());
+    // The late Notification is not among the events; DCL3's background pair joins them.
+    assert_eq!(
+        settings["hooks"].as_object().unwrap().len(),
+        EVENTS.len() + 2
+    );
     for (event, hook) in &expected {
         assert_eq!(&settings["hooks"][event], hook, "{event}");
     }

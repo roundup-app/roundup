@@ -239,7 +239,11 @@ impl ClaudeCode {
     pub fn tick_at(&self) -> Option<i64> {
         let star = self.star_parked_since.map(|since| since + STAR_HOLD);
         let spinner = self.spinner_at.map(|at| at + SPINNER_HOLD);
-        star.into_iter().chain(spinner).min()
+        // DCL3: work held after a Stop is looked at again until it is gone.
+        let work =
+            (self.ending == Ending::Running && self.background.stopped && self.background.holds())
+                .then(|| (self.clock)() + background::POLL_MS);
+        star.into_iter().chain(spinner).chain(work).min()
     }
 
     /// Claude Code spins ◐/◑ while it works and shows ✳ whenever it is not, a permission dialog
@@ -378,6 +382,11 @@ impl ClaudeCode {
         changed
     }
 
+    /// DCL3: a Stop came, so the process table decides whether work outlives it.
+    pub(crate) fn needs_processes(&self) -> bool {
+        self.ending == Ending::Running && self.background.stopped
+    }
+
     /// DCL3: the work the Agent still has after a foreground Stop.
     pub fn background(&self) -> &background::Background {
         &self.background
@@ -399,7 +408,8 @@ impl ClaudeCode {
         if self.ending != Ending::Running {
             return None;
         }
-        self.background.observe(root, snapshot, services);
+        self.background
+            .observe(root, snapshot, services, self.turn_started);
         if self.background.stopped && self.background.holds() {
             return self.settle(Kind::Working, "working".into());
         }
@@ -477,12 +487,16 @@ impl ClaudeCode {
             Observation::Signal(_)
             | Observation::Title(_)
             | Observation::Tick
+            | Observation::Processes { .. }
             | Observation::Program(_)
                 if self.ending != Ending::Running =>
             {
                 None
             }
             Observation::Tick => self.tick(),
+            Observation::Processes { root, table } => {
+                self.observe_processes(root, table.as_deref().map_err(Clone::clone), &[])
+            }
             Observation::Signal(payload) => self.signal(&payload, &mut completion_changed),
             Observation::Title(title) => self.retitle(&title),
             Observation::Program(status) => self.settle(status.kind, status.label),

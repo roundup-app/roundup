@@ -4,6 +4,7 @@
 //! process snapshot. Services of the program itself never count as work.
 
 use std::collections::{BTreeMap, BTreeSet};
+use std::process::{Command, Stdio};
 
 use serde_json::Value;
 
@@ -11,12 +12,67 @@ use serde_json::Value;
 /// rule covers the events that move a Kind, and these move only this fact.
 pub const BACKGROUND_EVENTS: [&str; 2] = ["SubagentStart", "SubagentStop"];
 
-/// One process of a snapshot. `started` tells a reused PID from the process first seen.
+/// `ps` reports a process's age in whole seconds.
+const START_SLACK_MS: i64 = 1500;
+
+/// How often work that outlives a Stop is looked at again.
+pub const POLL_MS: i64 = 2000;
+
+/// The process table with each process's age, as `ps` prints it on macOS and Linux.
+pub(crate) fn read_table() -> std::io::Result<String> {
+    let out = Command::new("ps")
+        .args(["-ax", "-ww", "-o", "pid=,ppid=,etime=,args="])
+        .stdin(Stdio::null())
+        .stderr(Stdio::null())
+        .output()?;
+    if !out.status.success() {
+        return Err(std::io::Error::other(format!("ps exited {}", out.status)));
+    }
+    Ok(String::from_utf8_lossy(&out.stdout).into_owned())
+}
+
+/// The processes of a `read_table` listing taken at `now` (Unix milliseconds); a row that is not
+/// `pid ppid etime args` is skipped.
+pub(crate) fn snapshot(table: &str, now: i64) -> Vec<Process> {
+    table
+        .lines()
+        .filter_map(|line| {
+            let mut words = line.split_whitespace();
+            let (pid, parent) = (words.next()?.parse().ok()?, words.next()?.parse().ok()?);
+            let age = etime_seconds(words.next()?)?;
+            Some(Process {
+                pid,
+                parent,
+                started: now - age * 1000,
+                command: words.map(str::to_owned).collect(),
+            })
+        })
+        .collect()
+}
+
+/// `[[dd-]hh:]mm:ss` in seconds.
+fn etime_seconds(etime: &str) -> Option<i64> {
+    let (days, clock) = etime.split_once('-').unwrap_or(("0", etime));
+    let mut seconds = days.parse::<i64>().ok()? * 86_400;
+    let parts: Vec<&str> = clock.split(':').collect();
+    if parts.len() > 3 {
+        return None;
+    }
+    let mut unit = 1;
+    for part in parts.iter().rev() {
+        seconds += part.parse::<i64>().ok()? * unit;
+        unit *= 60;
+    }
+    Some(seconds)
+}
+
+/// One process of a snapshot. `started` (Unix milliseconds) tells work of this turn from a service
+/// that was already running, and a reused PID from the process first seen.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Process {
     pub pid: u32,
     pub parent: u32,
-    pub started: u64,
+    pub started: i64,
     /// The command line, program first.
     pub command: Vec<String>,
 }
@@ -27,7 +83,7 @@ pub struct Background {
     /// Open background Agents by their id: retained across a Daemon reopen.
     pub agents: BTreeSet<String>,
     /// Work processes by PID and the start time they were first seen with.
-    pub processes: BTreeMap<u32, u64>,
+    pub processes: BTreeMap<u32, i64>,
     /// Why the last process observation failed; work is then not known to have ended.
     pub unavailable: Option<String>,
     /// A foreground `Stop` came and no prompt has followed.
@@ -62,6 +118,7 @@ impl Background {
         root: u32,
         snapshot: Result<&[Process], String>,
         services: &[String],
+        since: i64,
     ) {
         let snapshot = match snapshot {
             Ok(snapshot) => snapshot,
@@ -74,7 +131,11 @@ impl Background {
         let by_pid: BTreeMap<u32, &Process> = snapshot.iter().map(|p| (p.pid, p)).collect();
         let mut work = BTreeMap::new();
         for process in snapshot {
-            if process.pid == root || !under(root, process, &by_pid, services) {
+            // A process older than the turn (an MCP server) is a service, not work.
+            if process.pid == root
+                || process.started + START_SLACK_MS < since
+                || !under(root, process, &by_pid, services)
+            {
                 continue;
             }
             // Keyed by PID with its start time, so a reused PID is the new process it is.
@@ -133,7 +194,7 @@ mod tests {
     use crate::claude_code::ClaudeCode;
     use contracts::Kind;
 
-    fn proc(pid: u32, parent: u32, started: u64, command: &[&str]) -> Process {
+    fn proc(pid: u32, parent: u32, started: i64, command: &[&str]) -> Process {
         Process {
             pid,
             parent,
@@ -216,6 +277,15 @@ mod tests {
         a.observe_processes(1, Ok(&only_services), &services);
         assert_eq!(kind(&a), Kind::Idle);
         assert!(!a.background().holds());
+        // An MCP server of any name that started before the turn is a service, not work; a
+        // `ps` listing gives each process's age.
+        let mut b = ClaudeCode::new(|| 400_000);
+        hook(&mut b, json!({"hook_event_name":"UserPromptSubmit"}));
+        hook(&mut b, json!({"hook_event_name":"Stop"}));
+        let table = "  2     1 05:00 npx some-mcp\n  3     1    00:02 sleep 30\n";
+        b.observe_processes(1, Ok(&snapshot(table, 410_000)), &[]);
+        assert_eq!(b.background().processes.keys().collect::<Vec<_>>(), [&3]);
+        assert_eq!(etime_seconds("1-02:03:04"), Some(93_784));
     }
 
     #[test]
