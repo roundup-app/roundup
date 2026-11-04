@@ -20,7 +20,7 @@ it("u176_two_agents_added_to_one_workstream_are_told_apart_in_the_rail", async (
   const home = workstream("home");
   const tree = [home];
   app.handlers["rail.tree"] = () => tree;
-  app.handlers["agent.spawn"] = () => agent(`child-${tree.length}`, "idle", "ready", { parent: home.id });
+  app.handlers["agent.spawn"] = () => agent(`child-${tree.length}`, "working", "ready", { parent: home.id });
   render(() => <App app={app} reducedMotion={() => false} clock={Date.now} createEmulator={fakeEmulators().factory} />);
   const rail = await screen.findByRole("region", { name: "Rail" });
 
@@ -32,7 +32,7 @@ it("u176_two_agents_added_to_one_workstream_are_told_apart_in_the_rail", async (
     await waitFor(() => expect(app.calls.filter(call => call.method === "agent.spawn")).toHaveLength(index + 1));
     // Production naming is proved by agents::u176_agents_with_one_prompt_are_numbered_among_their_siblings.
     // Here the Daemon supplies names; the App must show each on its own row.
-    tree.push(agent(`child-${index + 1}`, "idle", "ready", { parent: home.id, name }));
+    tree.push(agent(`child-${index + 1}`, "working", "ready", { parent: home.id, name }));
     app.emit(event({ name: "rail.changed" }));
     await within(rail).findByText(name, { selector: `.rail-row[data-id="child-${index + 1}"] .name` });
   }
@@ -65,7 +65,7 @@ describe("u2773 Rail task destinations", () => {
     otherTree = [workstream(other, { name: "same" })];
     leftApp.handlers["rail.tree"] = () => tree;
     rightApp.handlers["rail.tree"] = () => otherTree;
-    leftApp.handlers["agent.spawn"] = () => agent("accepted", "idle", "ready", { parent: home });
+    leftApp.handlers["agent.spawn"] = () => agent("accepted", "working", "ready", { parent: home });
     left = leftApp;
     right = rightApp;
     app = fake;
@@ -100,7 +100,7 @@ describe("u2773 Rail task destinations", () => {
   };
 
   it("u2773a_rail_restores_exact_work_on_project_agent_switch_and_events", async () => {
-    const sibling = agent("sibling", "idle", "ready", { parent: home, name: "same" });
+    const sibling = agent("sibling", "working", "ready", { parent: home, name: "same" });
     tree.push(sibling);
     const replays: (() => void)[] = [];
 

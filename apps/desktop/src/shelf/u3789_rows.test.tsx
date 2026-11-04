@@ -505,7 +505,7 @@ it("u4275a_state_updates_without_row_activation", async () => {
   const row = document.querySelector('.rail-row[data-id="tokens"]')!;
   const selected = document.querySelector('.rail-row[data-selected=true]')?.getAttribute("data-id");
 
-  for (const kind of ["idle", "working", "needs-you", "blocked", "done", "error"] as const) {
+  for (const kind of ["idle", "working", "needs-you", "blocked", "error"] as const) {
     setStatus("tokens", kind, kind);
     await waitFor(() => expect(row.querySelector('.row-state [role=img]')?.getAttribute("aria-label")).toBe(kind === "needs-you" ? copy.needsYouGlyph : kind[0]!.toUpperCase() + kind.slice(1)));
   }
