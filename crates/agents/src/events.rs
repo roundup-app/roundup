@@ -444,6 +444,7 @@ impl Shared {
         let was_kind = run.adapter.status().map(|status| status.kind);
         let was_finished = run.adapter.finished();
         let was_final_text = run.adapter.final_text();
+        let was_completed = run.adapter.completed_turn().map(str::to_owned);
         let signal = matches!(observation, Observation::Signal(_));
         let (changed, completion_changed) = run.adapter.observe_completion(observation);
         let changed = changed.or_else(|| {
@@ -465,6 +466,18 @@ impl Shared {
         }
         if was_final_text != run.adapter.final_text() || completion_changed {
             self.bus.emit(actor.clone(), EventData::RailChanged);
+        }
+        if let Some(turn) = run.adapter.completed_turn()
+            && was_completed.as_deref() != Some(turn)
+        {
+            self.bus.emit(
+                actor.clone(),
+                EventData::AgentCompleted(contracts::event::Completion {
+                    maker: id.to_owned(),
+                    attempt: run.attempt.clone(),
+                    turn: turn.to_owned(),
+                }),
+            );
         }
         if signal
             && (session_start
@@ -642,6 +655,22 @@ pub(super) async fn watch(
 mod tests;
 
 impl Agents {
+    /// U504: the observed maker turn at publication capture; absence must never be guessed.
+    pub fn turn_identity(&self, maker: &str) -> Option<contracts::event::Completion> {
+        let runs = self.shared.runs();
+        let Slot::Running(run) = runs.get(maker)? else {
+            return None;
+        };
+        if run.ended || run.closing {
+            return None;
+        }
+        Some(contracts::event::Completion {
+            maker: maker.to_owned(),
+            attempt: run.attempt.clone(),
+            turn: run.adapter.turn()?.to_owned(),
+        })
+    }
+
     /// A5482c: live Rail id to (Attempt/turn identity, turn start/end in Unix milliseconds, final text).
     /// The Adapter supplies the text; this reads no Terminal and parses no vendor records.
     pub fn completed_text(&self) -> HashMap<String, (String, i64, i64, String)> {

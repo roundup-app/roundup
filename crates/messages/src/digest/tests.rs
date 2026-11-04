@@ -2,7 +2,7 @@ use super::*;
 use contracts::message::{MessageKind, MessageStatus};
 use contracts::{Kind, Status};
 
-fn status(kind: Kind, label: &str) -> Status {
+pub(super) fn status(kind: Kind, label: &str) -> Status {
     Status {
         kind,
         label: label.into(),
@@ -21,7 +21,7 @@ fn node(id: &str, kind: NodeKind, parent: Option<&str>, label: &str) -> RailNode
     }
 }
 
-fn todo(id: u32, creator: &str, done: bool) -> Todo {
+pub(super) fn todo(id: u32, creator: &str, done: bool) -> Todo {
     let creator = serde_json::json!({"kind": "agent", "id": creator, "parent": null});
     serde_json::from_value(serde_json::json!({
         "id": id, "title": format!("todo {id}"), "body": "", "done": done, "blockers": [],
@@ -59,7 +59,7 @@ fn sent(id: u32, from: &str, to: &str, body: &str) -> Message {
     }
 }
 
-fn rail() -> Vec<RailNode> {
+pub(super) fn rail() -> Vec<RailNode> {
     vec![
         node("m", NodeKind::Workstream, None, "coordinating"),
         node("a", NodeKind::Agent, Some("m"), "reading"),
@@ -378,7 +378,7 @@ fn b2705a_digest_errors_use_rail_names() {
     }
 }
 
-fn sources<'a>(
+pub(super) fn sources<'a>(
     nodes: &'a [RailNode],
     todos: &'a [Todo],
     pads: &'a [Pad],

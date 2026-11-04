@@ -20,10 +20,8 @@
   --pad-purple: var(--purple-11);
   --pad-highlight: var(--amber-4);
   --pad-highlight-ink: var(--amber-12);
-  --button-accent-fill: #1f6b62;
-  --button-key-ink: #d4e6e2;
-  --doodle-patch: #2f8f80;
-  --doodle-offset: translate(14px, 10px);
+  --button-accent-fill: #b23300;
+  --button-key-ink: #fbe2da;
   --text-selection: var(--button-accent-fill);
   --text-selection-ink: var(--button-accent-ink);
   color-scheme: light dark;
@@ -59,8 +57,8 @@
   --ground: var(--gray-1);
   --sunken: var(--gray-2);
   --hover: rgba(0, 0, 0, 0.04);
-  --selected: rgba(31, 107, 98, 0.07);
-  --selected-hover: rgba(31, 107, 98, 0.10);
+  --selected: rgba(178, 51, 0, 0.07);
+  --selected-hover: rgba(178, 51, 0, 0.10);
   --blur-bubble-backdrop: 12px;
   --scrim: rgba(0, 0, 0, 0.4);
   /* U3295a: the one order of floating surfaces, lowest first. */
@@ -76,9 +74,8 @@
   /* Disabled neutral tones sit between Radix gray 10 and 11 and keep 4.5:1. */
   --disabled: #707070;
   --press-opacity: 0.9;
-  --accent: #1a6b61;
-  --doodle-line: #5a4a3e;
-  --doodle-blend: multiply;
+  --accent: #b23300;
+  --doodle-ground: color-mix(in srgb, var(--ground) 95%, #000000);
   --amber: var(--amber-11);
   --red: var(--red-11);
   --hairline: rgba(0, 0, 0, 0.1);
@@ -278,15 +275,14 @@
     --key-chip-fill: var(--gray-3);
     --sunken: var(--terminal-background);
     --hover: rgba(255, 255, 255, 0.06);
-    --selected: rgba(92, 199, 181, 0.08);
-    --selected-hover: rgba(92, 199, 181, 0.10);
+    --selected: rgba(252, 106, 62, 0.08);
+    --selected-hover: rgba(252, 106, 62, 0.10);
     --text: var(--gray-12);
     --grey: var(--gray-11);
     --cache-write: var(--gray-9);
     --disabled: #999999;
-    --accent: #5cc7b5;
-    --doodle-line: #e6cfbb;
-    --doodle-blend: screen;
+    --accent: #fc6a3e;
+    --doodle-ground: color-mix(in srgb, var(--ground) 95%, #ffffff);
     --amber: var(--amber-11);
     --red: var(--red-11);
     --hairline: rgba(255, 255, 255, 0.12);
@@ -348,16 +344,15 @@ button, file-tree-container, diffs-container {
   --key-chip-fill: var(--gray-3);
   --sunken: var(--gray-2);
   --hover: rgba(0, 0, 0, 0.04);
-  --selected: rgba(31, 107, 98, 0.07);
-  --selected-hover: rgba(31, 107, 98, 0.10);
+  --selected: rgba(178, 51, 0, 0.07);
+  --selected-hover: rgba(178, 51, 0, 0.10);
   --pressed: var(--gray-6);
   --text: var(--gray-12);
   --grey: var(--gray-11);
   --cache-write: var(--gray-9);
   --disabled: #707070;
-  --accent: #1a6b61;
-  --doodle-line: #5a4a3e;
-  --doodle-blend: multiply;
+  --accent: #b23300;
+  --doodle-ground: color-mix(in srgb, var(--ground) 95%, #000000);
   --amber: var(--amber-11);
   --red: var(--red-11);
   --hairline: rgba(0, 0, 0, 0.1);
@@ -396,16 +391,15 @@ button, file-tree-container, diffs-container {
     --key-chip-fill: var(--gray-3);
     --sunken: var(--terminal-background);
     --hover: rgba(255, 255, 255, 0.06);
-    --selected: rgba(92, 199, 181, 0.08);
-    --selected-hover: rgba(92, 199, 181, 0.10);
+    --selected: rgba(252, 106, 62, 0.08);
+    --selected-hover: rgba(252, 106, 62, 0.10);
     --pressed: var(--gray-6);
     --text: var(--gray-12);
     --grey: var(--gray-11);
     --cache-write: var(--gray-9);
     --disabled: #999999;
-    --accent: #5cc7b5;
-    --doodle-line: #e6cfbb;
-    --doodle-blend: screen;
+    --accent: #fc6a3e;
+    --doodle-ground: color-mix(in srgb, var(--ground) 95%, #ffffff);
     --amber: var(--amber-11);
     --red: var(--red-11);
     --hairline: rgba(255, 255, 255, 0.12);
@@ -501,6 +495,15 @@ button, file-tree-container, diffs-container {
   box-shadow: none
 }
 
+/* Resolve on the scene container so local grounds do not inherit a root-resolved mix. */
+.empty-state-ground {
+  --doodle-ground: color-mix(in srgb, var(--ground) 95%, light-dark(#000000, #ffffff));
+}
+
+:is(.rail, .shelf) .empty-state-ground {
+  --ground: var(--sunken);
+}
+
 /* U3512b: one recipe for web modals, anchored panels and the movable Terminal Bubble. */
 :is(.app-dialog, .app-menu, .app-popover, .app-select-list, .bubble, .terminal-find, .milkdown-slash-menu, .top-bar-heading-dropdown, .link-preview, .link-edit, .cell-handle .button-group) {
   color: var(--text);
@@ -577,3 +580,277 @@ button, file-tree-container, diffs-container {
 :root[data-interface-scale="large"] { --interface-scale: var(--scale-large); }
 :root[data-focus-markers="false"] { --region-marker: none; }
 
+
+/* U130: Fork colour accents (docs/design-system.md, "Fork colour accents"). The live App sets no data-fork-colour. */
+
+:root[data-fork-colour="red"] {
+  --accent: #cb0011;
+  --button-accent-fill: #cb0011;
+  --button-key-ink: #fcd9dc;
+  --selected: rgba(203, 0, 17, 0.07);
+  --selected-hover: rgba(203, 0, 17, 0.10);
+}
+
+:root[data-fork-colour="red"][data-mode="light"] {
+  --accent: #cb0011;
+  --button-accent-fill: #cb0011;
+  --button-key-ink: #fcd9dc;
+  --selected: rgba(203, 0, 17, 0.07);
+  --selected-hover: rgba(203, 0, 17, 0.10);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root[data-fork-colour="red"]:not([data-mode="light"]) {
+    --accent: #fe6a74;
+    --button-accent-fill: #cb0011;
+    --button-key-ink: #fcd9dc;
+    --selected: rgba(254, 106, 116, 0.08);
+    --selected-hover: rgba(254, 106, 116, 0.10);
+  }
+}
+
+:root[data-fork-colour="red"][data-mode="dark"] {
+  --accent: #fe6a74;
+  --button-accent-fill: #cb0011;
+  --button-key-ink: #fcd9dc;
+  --selected: rgba(254, 106, 116, 0.08);
+  --selected-hover: rgba(254, 106, 116, 0.10);
+}
+
+:root[data-fork-colour="orange"] {
+  --accent: #b23300;
+  --button-accent-fill: #b23300;
+  --button-key-ink: #fbe2da;
+  --selected: rgba(178, 51, 0, 0.07);
+  --selected-hover: rgba(178, 51, 0, 0.10);
+}
+
+:root[data-fork-colour="orange"][data-mode="light"] {
+  --accent: #b23300;
+  --button-accent-fill: #b23300;
+  --button-key-ink: #fbe2da;
+  --selected: rgba(178, 51, 0, 0.07);
+  --selected-hover: rgba(178, 51, 0, 0.10);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root[data-fork-colour="orange"]:not([data-mode="light"]) {
+    --accent: #fc6a3e;
+    --button-accent-fill: #b23300;
+    --button-key-ink: #fbe2da;
+    --selected: rgba(252, 106, 62, 0.08);
+    --selected-hover: rgba(252, 106, 62, 0.10);
+  }
+}
+
+:root[data-fork-colour="orange"][data-mode="dark"] {
+  --accent: #fc6a3e;
+  --button-accent-fill: #b23300;
+  --button-key-ink: #fbe2da;
+  --selected: rgba(252, 106, 62, 0.08);
+  --selected-hover: rgba(252, 106, 62, 0.10);
+}
+
+:root[data-fork-colour="amber"] {
+  --accent: #905b00;
+  --button-accent-fill: #905b00;
+  --button-key-ink: #fcefd9;
+  --selected: rgba(144, 91, 0, 0.07);
+  --selected-hover: rgba(144, 91, 0, 0.10);
+}
+
+:root[data-fork-colour="amber"][data-mode="light"] {
+  --accent: #905b00;
+  --button-accent-fill: #905b00;
+  --button-key-ink: #fcefd9;
+  --selected: rgba(144, 91, 0, 0.07);
+  --selected-hover: rgba(144, 91, 0, 0.10);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root[data-fork-colour="amber"]:not([data-mode="light"]) {
+    --accent: #fcbd4f;
+    --button-accent-fill: #905b00;
+    --button-key-ink: #fcefd9;
+    --selected: rgba(252, 189, 79, 0.08);
+    --selected-hover: rgba(252, 189, 79, 0.10);
+  }
+}
+
+:root[data-fork-colour="amber"][data-mode="dark"] {
+  --accent: #fcbd4f;
+  --button-accent-fill: #905b00;
+  --button-key-ink: #fcefd9;
+  --selected: rgba(252, 189, 79, 0.08);
+  --selected-hover: rgba(252, 189, 79, 0.10);
+}
+
+:root[data-fork-colour="green"] {
+  --accent: #007531;
+  --button-accent-fill: #007531;
+  --button-key-ink: #d9fce8;
+  --selected: rgba(0, 117, 49, 0.07);
+  --selected-hover: rgba(0, 117, 49, 0.10);
+}
+
+:root[data-fork-colour="green"][data-mode="light"] {
+  --accent: #007531;
+  --button-accent-fill: #007531;
+  --button-key-ink: #d9fce8;
+  --selected: rgba(0, 117, 49, 0.07);
+  --selected-hover: rgba(0, 117, 49, 0.10);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root[data-fork-colour="green"]:not([data-mode="light"]) {
+    --accent: #4ffc97;
+    --button-accent-fill: #007531;
+    --button-key-ink: #d9fce8;
+    --selected: rgba(79, 252, 151, 0.08);
+    --selected-hover: rgba(79, 252, 151, 0.10);
+  }
+}
+
+:root[data-fork-colour="green"][data-mode="dark"] {
+  --accent: #4ffc97;
+  --button-accent-fill: #007531;
+  --button-key-ink: #d9fce8;
+  --selected: rgba(79, 252, 151, 0.08);
+  --selected-hover: rgba(79, 252, 151, 0.10);
+}
+
+:root[data-fork-colour="teal"] {
+  --accent: #007168;
+  --button-accent-fill: #007168;
+  --button-key-ink: #d9fcf9;
+  --selected: rgba(0, 113, 104, 0.07);
+  --selected-hover: rgba(0, 113, 104, 0.10);
+}
+
+:root[data-fork-colour="teal"][data-mode="light"] {
+  --accent: #007168;
+  --button-accent-fill: #007168;
+  --button-key-ink: #d9fcf9;
+  --selected: rgba(0, 113, 104, 0.07);
+  --selected-hover: rgba(0, 113, 104, 0.10);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root[data-fork-colour="teal"]:not([data-mode="light"]) {
+    --accent: #4ffcee;
+    --button-accent-fill: #007168;
+    --button-key-ink: #d9fcf9;
+    --selected: rgba(79, 252, 238, 0.08);
+    --selected-hover: rgba(79, 252, 238, 0.10);
+  }
+}
+
+:root[data-fork-colour="teal"][data-mode="dark"] {
+  --accent: #4ffcee;
+  --button-accent-fill: #007168;
+  --button-key-ink: #d9fcf9;
+  --selected: rgba(79, 252, 238, 0.08);
+  --selected-hover: rgba(79, 252, 238, 0.10);
+}
+
+:root[data-fork-colour="blue"] {
+  --accent: #0057d1;
+  --button-accent-fill: #0057d1;
+  --button-key-ink: #d9e8fc;
+  --selected: rgba(0, 87, 209, 0.07);
+  --selected-hover: rgba(0, 87, 209, 0.10);
+}
+
+:root[data-fork-colour="blue"][data-mode="light"] {
+  --accent: #0057d1;
+  --button-accent-fill: #0057d1;
+  --button-key-ink: #d9e8fc;
+  --selected: rgba(0, 87, 209, 0.07);
+  --selected-hover: rgba(0, 87, 209, 0.10);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root[data-fork-colour="blue"]:not([data-mode="light"]) {
+    --accent: #4f97fc;
+    --button-accent-fill: #0057d1;
+    --button-key-ink: #d9e8fc;
+    --selected: rgba(79, 151, 252, 0.08);
+    --selected-hover: rgba(79, 151, 252, 0.10);
+  }
+}
+
+:root[data-fork-colour="blue"][data-mode="dark"] {
+  --accent: #4f97fc;
+  --button-accent-fill: #0057d1;
+  --button-key-ink: #d9e8fc;
+  --selected: rgba(79, 151, 252, 0.08);
+  --selected-hover: rgba(79, 151, 252, 0.10);
+}
+
+:root[data-fork-colour="violet"] {
+  --accent: #6200d1;
+  --button-accent-fill: #6200d1;
+  --button-key-ink: #e9d9fc;
+  --selected: rgba(98, 0, 209, 0.07);
+  --selected-hover: rgba(98, 0, 209, 0.10);
+}
+
+:root[data-fork-colour="violet"][data-mode="light"] {
+  --accent: #6200d1;
+  --button-accent-fill: #6200d1;
+  --button-key-ink: #e9d9fc;
+  --selected: rgba(98, 0, 209, 0.07);
+  --selected-hover: rgba(98, 0, 209, 0.10);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root[data-fork-colour="violet"]:not([data-mode="light"]) {
+    --accent: #bd85fd;
+    --button-accent-fill: #6200d1;
+    --button-key-ink: #e9d9fc;
+    --selected: rgba(189, 133, 253, 0.08);
+    --selected-hover: rgba(189, 133, 253, 0.10);
+  }
+}
+
+:root[data-fork-colour="violet"][data-mode="dark"] {
+  --accent: #bd85fd;
+  --button-accent-fill: #6200d1;
+  --button-key-ink: #e9d9fc;
+  --selected: rgba(189, 133, 253, 0.08);
+  --selected-hover: rgba(189, 133, 253, 0.10);
+}
+
+:root[data-fork-colour="pink"] {
+  --accent: #c40069;
+  --button-accent-fill: #c40069;
+  --button-key-ink: #fcd9ec;
+  --selected: rgba(196, 0, 105, 0.07);
+  --selected-hover: rgba(196, 0, 105, 0.10);
+}
+
+:root[data-fork-colour="pink"][data-mode="light"] {
+  --accent: #c40069;
+  --button-accent-fill: #c40069;
+  --button-key-ink: #fcd9ec;
+  --selected: rgba(196, 0, 105, 0.07);
+  --selected-hover: rgba(196, 0, 105, 0.10);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root[data-fork-colour="pink"]:not([data-mode="light"]) {
+    --accent: #fc4fac;
+    --button-accent-fill: #c40069;
+    --button-key-ink: #fcd9ec;
+    --selected: rgba(252, 79, 172, 0.08);
+    --selected-hover: rgba(252, 79, 172, 0.10);
+  }
+}
+
+:root[data-fork-colour="pink"][data-mode="dark"] {
+  --accent: #fc4fac;
+  --button-accent-fill: #c40069;
+  --button-key-ink: #fcd9ec;
+  --selected: rgba(252, 79, 172, 0.08);
+  --selected-hover: rgba(252, 79, 172, 0.10);
+}

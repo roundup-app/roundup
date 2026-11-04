@@ -28,12 +28,58 @@ pub(crate) struct Ledger {
     metas: HashMap<String, Slot>,
 }
 
-#[derive(Default)]
+#[derive(Default, serde::Serialize, serde::Deserialize)]
 struct Slot {
-    /// When the pushes of the last window went out, oldest first.
+    /// When the pushes of the last window went out, oldest first; B23: a restart starts the
+    /// window again, so it is not stored.
+    #[serde(skip)]
     sent: VecDeque<i64>,
     /// The entries of the changes kept back, oldest first.
     waiting: Vec<(String, DigestEntry, u32)>,
+}
+
+impl Ledger {
+    /// The slots stored in `push_slots`, as they were when the Daemon last ran (DCL8): a change
+    /// `Seen` recorded as told and kept back here is sent after a restart, not lost.
+    pub(crate) fn load(db: &rusqlite::Connection) -> Self {
+        let metas = db
+            .prepare("SELECT door, slot FROM push_slots")
+            .and_then(|mut stmt| {
+                stmt.query_map([], |row| {
+                    Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+                })?
+                .collect::<rusqlite::Result<Vec<_>>>()
+            })
+            .unwrap_or_default()
+            .into_iter()
+            .filter_map(|(meta, json)| Some((meta, serde_json::from_str(&json).ok()?)))
+            .collect();
+        Self { metas }
+    }
+
+    /// Writes each slot through, and drops the rows of those that are gone. A refused write
+    /// is returned and leaves the stored rows as they were (DCL10a).
+    fn save(&self, inner: &Inner) -> rusqlite::Result<()> {
+        let store = lock(&inner.store);
+        let tx = store.db.unchecked_transaction()?;
+        tx.execute("DELETE FROM push_slots", [])?;
+        for (meta, slot) in &self.metas {
+            let json = serde_json::to_string(slot)
+                .map_err(|err| rusqlite::Error::ToSqlConversionFailure(Box::new(err)))?;
+            tx.execute(
+                "INSERT INTO push_slots (door, slot) VALUES (?1, ?2)",
+                rusqlite::params![meta, json],
+            )?;
+        }
+        tx.commit()
+    }
+
+    /// `save`, logging a refused write; the entries stay waiting in memory.
+    fn persist(&self, inner: &Inner) {
+        if let Err(err) = self.save(inner) {
+            crate::log_failure("push ledger", &err.to_string());
+        }
+    }
 }
 
 #[cfg(test)]
@@ -287,10 +333,13 @@ pub(crate) async fn push(inner: &Arc<Inner>, meta: &str, subagent: &str, entry: 
         .map_or(1, |at| slot.waiting.remove(at).2 + 1);
     slot.waiting
         .push((subagent.to_owned(), entry.clone(), weight));
+    ledger.persist(inner);
+    let slot = ledger.metas.entry(meta.to_owned()).or_default();
     match crate::load_rail_nodes(inner).await {
         Ok(nodes) => roll_up(inner, meta, slot, now, plain, &nodes).await,
         Err(err) => crate::log_failure("push", &format!("{meta}: {}", err.message)),
     }
+    ledger.persist(inner);
 }
 
 /// B22(a): at the window's end, the changes kept back go out as one Message.
@@ -315,6 +364,7 @@ pub(crate) async fn flush(inner: &Arc<Inner>) {
     ledger
         .metas
         .retain(|_, slot| !slot.sent.is_empty() || !slot.waiting.is_empty());
+    ledger.persist(inner);
 }
 
 async fn roll_up(
@@ -463,6 +513,23 @@ mod tests {
         flush(&messages.inner).await;
         assert_eq!(rail.reads.load(Ordering::SeqCst), 1);
         assert!(messages.inner.pushes.lock().await.metas.is_empty());
+    }
+
+    /// DCL8: changes kept back for a stopped Door and the window's sends survive a reopen.
+    #[tokio::test(start_paused = true)]
+    async fn dcl8_kept_back_changes_survive_a_reopen() {
+        let dir = tempfile::tempdir().unwrap();
+        let (messages, rail, _) = setup(dir.path());
+        let mut stopped = live("stopped");
+        stopped.terminal_id = None;
+        lock(&rail.nodes).push(stopped);
+        push(&messages.inner, "stopped", "child-id", &entry()).await;
+        push(&messages.inner, "stopped", "child-id", &entry()).await;
+        drop(messages);
+        let (messages, _, _) = setup(dir.path());
+        let ledger = messages.inner.pushes.lock().await;
+        assert_eq!(ledger.metas["stopped"].waiting.len(), 1);
+        assert_eq!(ledger.metas["stopped"].waiting[0].2, 2);
     }
 
     #[tokio::test(start_paused = true)]

@@ -44,6 +44,8 @@ pub(super) struct Inner {
     pub(super) typing: Mutex<std::collections::HashSet<u32>>,
     /// Successful writes in this Daemon run; recovered flights may need repeat closure.
     pub(super) inbox_written: Mutex<std::collections::HashSet<u32>>,
+    /// DCL1: the delivery failures of each receiver.
+    pub(super) failures: Mutex<failure::Failures>,
     /// B50: the transport of every Message to an Agent; without one nothing is delivered.
     pub(super) inbox: std::sync::OnceLock<Arc<dyn NoteInbox>>,
 }
@@ -68,14 +70,14 @@ impl Messages {
         env: Env,
     ) -> Result<Self, OpenError> {
         let events = bus.subscribe();
+        let store = Store::open(&dir.join(if dir.join("project.db").exists() {
+            "project.db"
+        } else {
+            "messages.db"
+        }))?;
+        let pushes = pushes::Ledger::load(&store.db);
         let inner = Arc::new(Inner {
-            store: Mutex::new(Store::open(&dir.join(
-                if dir.join("project.db").exists() {
-                    "project.db"
-                } else {
-                    "messages.db"
-                },
-            ))?),
+            store: Mutex::new(store),
             agents,
             bus,
             listener_started: std::sync::Once::new(),
@@ -85,10 +87,11 @@ impl Messages {
             fault: env.fault,
             #[cfg(test)]
             completed: tokio::sync::broadcast::channel(32).0,
-            pushes: tokio::sync::Mutex::default(),
+            pushes: tokio::sync::Mutex::new(pushes),
             delivery: tokio::sync::RwLock::default(),
             typing: Mutex::default(),
             inbox_written: Mutex::default(),
+            failures: Mutex::default(),
             inbox: std::sync::OnceLock::new(),
         });
         Ok(Self { inner })

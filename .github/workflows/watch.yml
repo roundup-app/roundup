@@ -3,6 +3,7 @@ run-name: Watch the loop
 
 # L123: every 15 minutes, with no model. GitHub skips most `build.yml` schedule ticks and a quiet loop has no event to start a build, so this kicks
 # one after 70 minutes without a build run; reruns the failed jobs of a red `main` push run once; and files one work Issue when the rerun fails too.
+# A red `pre` waits while `fix.yml`'s lint-fix PR for `main` (L82) is under two hours old, and closes it after.
 on:
   schedule:
     - cron: '7,22,37,52 * * * *'
@@ -11,6 +12,7 @@ on:
 permissions:
   actions: write
   issues: write
+  pull-requests: write
   contents: read
 
 # L98: bash -eo pipefail, so a failure left of a pipe fails the step.
@@ -47,6 +49,19 @@ jobs:
             [ -n "$run" ] || continue
             [ "$(jq -r .status <<<"$run")" = completed ] && [ "$(jq -r .conclusion <<<"$run")" = failure ] || continue
             id=$(jq -r .databaseId <<<"$run")
+            # L82: a red pre gets two hours for the open lint-fix PR to merge; a lint-fix PR still open then is stuck.
+            if [ "$workflow" = pre ]; then
+              fixing=$(gh pr list --state open --json number,headRefName,createdAt \
+                --jq '[.[] | select(.headRefName | startswith("lint-fix/main-"))] | first // empty')
+              if [ -n "$fixing" ]; then
+                pr=$(jq -r .number <<<"$fixing")
+                if [ $(( $(date -u +%s) - $(date -u -d "$(jq -r .createdAt <<<"$fixing")" +%s) )) -lt 7200 ]; then
+                  echo "red pre waits on lint-fix PR #$pr" >>"$GITHUB_STEP_SUMMARY"
+                  continue
+                fi
+                gh pr close "$pr" --comment 'Closed: its checks did not pass within two hours, so a Red main Issue repairs main.'
+              fi
+            fi
             if [ "$(jq -r .attempt <<<"$run")" -le 1 ]; then
               gh run rerun "$id" --failed
               echo "reran failed jobs of $workflow run $id" >>"$GITHUB_STEP_SUMMARY"

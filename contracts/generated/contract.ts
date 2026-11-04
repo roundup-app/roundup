@@ -42,6 +42,7 @@ export const CONTRACT = {
     "daemon.methods": "66d25dfb6448c541",
     "daemon.ping": "f73359c9574810b0",
     "daemon.setNaming": "478dcdbeae538301",
+    "data.fork": "ca27591fab90a3ea",
     "deliverable.get": "61cfff90cfe5766f",
     "deliverable.list": "e90e2a3db3efeb1d",
     "deliverable.move": "c0bc47257c05f0db",

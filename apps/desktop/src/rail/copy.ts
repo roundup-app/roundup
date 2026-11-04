@@ -170,6 +170,8 @@ export const copy = {
   unreadResult: sharedCopy.unreadResult,
   stopQuestion: (name: string) => `Stop ${name}?`,
   stopAndRemoveQuestion: (name: string) => `Stop and remove ${name}?`,
+  group: "Group",
+  removeSelectionQuestion: "Remove selected rows?",
   removeQuestion: (name: string) => `Remove ${name}?`,
   moveTo: sharedCopy.moveTo,
 } as const;

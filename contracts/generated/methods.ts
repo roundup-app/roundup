@@ -50,6 +50,8 @@ import type { SubscribeParams as common_SubscribeParams } from "./SubscribeParam
 import type { SubscribeResult as common_SubscribeResult } from "./SubscribeResult";
 import type { Touch as common_Touch } from "./Touch";
 import type { TouchedParams as common_TouchedParams } from "./TouchedParams";
+import type { ForkParams as data_ForkParams } from "./data/ForkParams";
+import type { ForkResult as data_ForkResult } from "./data/ForkResult";
 import type { Deliverable as deliverable_Deliverable } from "./deliverable/Deliverable";
 import type { DeliverableId as deliverable_DeliverableId } from "./deliverable/DeliverableId";
 import type { ListParams as deliverable_ListParams } from "./deliverable/ListParams";
@@ -283,6 +285,7 @@ export type RpcMethods = {
   "ask.pick": { params: ask_PickParams; result: ask_Ask };
   "daemon.getNaming": { params: null; result: project_NamingSettings };
   "daemon.setNaming": { params: project_NamingSettings; result: null };
+  "data.fork": { params: data_ForkParams; result: data_ForkResult };
   "skill.status": { params: null; result: skill_SkillFiles };
   "skill.setup": { params: null; result: skill_SkillFiles };
   "skill.remove": { params: null; result: skill_SkillFiles };

@@ -608,3 +608,66 @@ async fn a35_acknowledged_first_prompt_can_be_recorded_after_its_attempt_stopped
 }
 
 mod retirement;
+
+/// DCL8: a stopped or crashed Door's Attempt ends, not its logical receiver; a Daemon reopen
+/// changes nothing, and the next Attempt receives the original ids in order.
+#[tokio::test]
+async fn dcl8_stopped_and_crashed_door_keep_backlog_across_restart() {
+    let dir = tempfile::tempdir().unwrap();
+    let h = RestartHarness::new(dir.path());
+    let first = h.send(Actor::user(), "door", "one").await;
+    let second = h.send(Actor::user(), "door", "two").await;
+    let stopped = |kind| RailNode {
+        visibility: Default::default(),
+        kind: NodeKind::Workstream,
+        terminal_id: None,
+        ..agent_node("door", kind)
+    };
+    let pending = |h: &RestartHarness| {
+        h.messages
+            .thread("door")
+            .unwrap()
+            .iter()
+            .map(|m| (m.id, m.status))
+            .collect::<Vec<_>>()
+    };
+    let backlog = vec![
+        (first.id, MessageStatus::Pending),
+        (second.id, MessageStatus::Pending),
+    ];
+    // Stop, then crash.
+    for kind in [Kind::Done, Kind::Error] {
+        h.rail.0.lock().unwrap()[0] = stopped(kind);
+        h.status("1", "2", kind).await;
+        assert_eq!(pending(&h), backlog, "{kind:?}");
+    }
+    drop(h);
+    // Daemon reopen on the same store, the Door still stopped.
+    let h = RestartHarness::new(dir.path());
+    h.rail.0.lock().unwrap()[0] = stopped(Kind::Done);
+    h.ctx.bus.emit(Actor::daemon(), EventData::RailChanged);
+    h.status("1", "3", Kind::Done).await;
+    assert_eq!(pending(&h), backlog);
+    assert!(h.inbox.written().is_empty());
+    // The next Attempt gets the same ids, in order, as one batch.
+    h.rail.0.lock().unwrap()[0] = RailNode {
+        kind: NodeKind::Workstream,
+        attempt: Some("2".into()),
+        status_revision: Some("2".into()),
+        ..agent_node("door", Kind::Idle)
+    };
+    h.status("2", "2", Kind::Idle).await;
+    assert_eq!(texts(&h.inbox), ["one", "two"]);
+    assert_eq!(
+        h.messages
+            .thread("door")
+            .unwrap()
+            .iter()
+            .map(|m| (m.id, m.status))
+            .collect::<Vec<_>>(),
+        vec![
+            (first.id, MessageStatus::Delivered),
+            (second.id, MessageStatus::Delivered)
+        ]
+    );
+}

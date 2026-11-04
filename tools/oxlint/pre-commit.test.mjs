@@ -19,8 +19,8 @@ const env = Object.fromEntries(Object.entries(process.env).filter(([name]) => !n
 
 env.PATH = resolve(repo, "node_modules/.bin") + ":" + env.PATH;
 
-function run(cwd, command, args) {
-  const result = spawnSync(command, args, { cwd, env, encoding: "utf8", timeout: 30_000 });
+function run(cwd, command, args, extra = {}) {
+  const result = spawnSync(command, args, { cwd, env: { ...env, ...extra }, encoding: "utf8", timeout: 30_000 });
 
   if (result.error) throw result.error;
 
@@ -190,4 +190,59 @@ test("t5496a_partial_staging_preserves_unstaged_hunks", t => {
   assert.equal(git(cwd, "diff", "--cached"), "");
   assert.equal(git(cwd, "diff", "--no-ext-diff", "--no-color", "--unified=0", "--", path).replace(/^index .*\n/m, ""), "diff --git a/source with spaces.ts b/source with spaces.ts\n" +
     "--- a/source with spaces.ts\t\n+++ b/source with spaces.ts\t\n@@ -12 +12 @@ export function other() {\n-  return 10;\n+  return 20;\n");
+});
+
+test("t6011a_fix_applies_the_safe_fixes_and_a_second_run_changes_nothing", t => {
+  const cwd = fixture(t);
+
+  for (const path of ["justfile", "loop/keep-going.sh"]) cpSync(resolve(repo, path), resolve(cwd, path));
+  write(cwd, "Cargo.toml", '[package]\nname = "fixture"\nversion = "0.0.0"\nedition = "2024"\n');
+  write(cwd, "src/lib.rs", "pub fn answer()->u32{42}\n");
+  write(cwd, "source.ts", unfixed);
+  const first = run(cwd, "just", ["fix"]);
+  assert.equal(first.status, 0, first.stdout + first.stderr);
+  assert.equal(readFileSync(resolve(cwd, "source.ts"), "utf8"), fixed);
+  const checked = lint(cwd, "source.ts");
+  assert.equal(checked.status, 0, checked.stdout + checked.stderr);
+  const formatted = run(cwd, "cargo", ["fmt", "--check"]);
+  assert.equal(formatted.status, 0, formatted.stdout + formatted.stderr);
+  const rust = readFileSync(resolve(cwd, "src/lib.rs"), "utf8");
+  const second = run(cwd, "just", ["fix"]);
+  assert.equal(second.status, 0, second.stdout + second.stderr);
+  assert.equal(readFileSync(resolve(cwd, "source.ts"), "utf8"), fixed);
+  assert.equal(readFileSync(resolve(cwd, "src/lib.rs"), "utf8"), rust);
+});
+
+function builder(t, cwd) {
+  const temp = mkdtempSync(resolve(tmpdir(), "roundup-runner-"));
+  t.after(() => rmSync(temp, { recursive: true, force: true }));
+  const stamped = run(cwd, "bash", [resolve(repo, "loop/author.sh"), "builder-7"], { RUNNER_TEMP: temp });
+  assert.equal(stamped.status, 0, stamped.stdout + stamped.stderr);
+}
+
+test("t6011b_builder_commit_contains_the_spacing_fix", t => {
+  const cwd = fixture(t);
+  builder(t, cwd);
+  write(cwd, "source.ts", unfixed);
+  git(cwd, "add", "source.ts");
+  git(cwd, "commit", "--quiet", "-m", "Builder commit");
+  assert.equal(git(cwd, "show", "HEAD:source.ts"), fixed);
+  assert.equal(git(cwd, "log", "-1", "--format=%(trailers:key=Author-Agent,valueonly)"), "builder-7\n\n");
+});
+
+test("t6011b_builder_merge_commits_main_as_it_is", t => {
+  const cwd = fixture(t);
+  git(cwd, "switch", "--quiet", "-c", "build/fixture");
+  git(cwd, "switch", "--quiet", "-");
+  // main holds a file over the size cap, as one merged past `pre` would.
+  write(cwd, "main.ts", fixed + "\n".repeat(996));
+  git(cwd, "add", "main.ts");
+  git(cwd, "commit", "--quiet", "--no-verify", "-m", "Main grows a file past the cap");
+  git(cwd, "switch", "--quiet", "build/fixture");
+  builder(t, cwd);
+  // A merge git makes runs no pre-commit hook; one a run finishes by `git commit`, as after a conflict, does.
+  git(cwd, "merge", "--quiet", "--no-ff", "--no-commit", "-");
+  const merged = run(cwd, "git", ["commit", "--no-edit"]);
+  assert.equal(merged.status, 0, merged.stdout + merged.stderr);
+  assert.equal(git(cwd, "rev-list", "--count", "--merges", "HEAD"), "1\n");
 });

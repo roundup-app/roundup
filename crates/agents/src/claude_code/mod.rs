@@ -100,6 +100,7 @@ pub struct ClaudeCode {
     /// A5482c: completed turn identity, start/end times and final assistant text.
     completed: Option<Box<(String, i64, i64, String)>>,
     turn_started: i64,
+    completed_turn: Option<String>,
     status: Option<Status>,
     ending: Ending,
     /// The latest recognised Signal was `PreToolUse`: a dialog may be about to open.
@@ -115,6 +116,8 @@ pub struct ClaudeCode {
     /// PS9.1: false only for an Agent whose Kind comes from its Terminal's program status.
     hooked: bool,
     final_text: FinalTextKind,
+    /// A new turn without UserPromptSubmit must not inherit an earlier completion.
+    /// Native permission resumption continues the same authoritative turn.
     prompt_id: Option<String>,
 }
 
@@ -124,6 +127,7 @@ impl ClaudeCode {
         Self {
             completed: None,
             turn_started: (clock)(),
+            completed_turn: None,
             status: None,
             ending: Ending::Running,
             after_pre_tool_use: false,
@@ -153,6 +157,10 @@ impl ClaudeCode {
 
     pub(crate) fn turn(&self) -> Option<&str> {
         self.prompt_id.as_deref()
+    }
+
+    pub(crate) fn completed_turn(&self) -> Option<&str> {
+        self.completed_turn.as_deref()
     }
 
     pub(crate) fn final_text(&self) -> FinalTextKind {
@@ -195,7 +203,13 @@ impl ClaudeCode {
         }
         if kind == Kind::Working && self.status.as_ref().is_none_or(|s| s.kind != Kind::Working) {
             self.final_text = FinalTextKind::Unknown;
-            self.prompt_id = None;
+            if self
+                .status
+                .as_ref()
+                .is_none_or(|s| s.kind != Kind::NeedsYou)
+            {
+                self.prompt_id = None;
+            }
         }
         let since = match &self.status {
             Some(current) if current.kind == kind => current.since,
@@ -287,6 +301,12 @@ impl ClaudeCode {
                 && current != incoming
             {
                 return None;
+            }
+            if let (Some(current), Some(incoming)) =
+                (self.prompt_id.as_deref(), payload["prompt_id"].as_str())
+                && current == incoming
+            {
+                self.completed_turn = Some(current.to_owned());
             }
             // Without matching turn identity, an empty reply is not evidence of this turn.
             let next = match (

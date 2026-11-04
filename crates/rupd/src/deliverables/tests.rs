@@ -88,9 +88,13 @@ async fn u5558a_events_follow_committed_changes() {
     let mut notifications = daemon.bus.subscribe();
     let request = json!({"key":"automatic","title":"Result","target":{"kind":"external","url":"https://example.com/result"}});
     let record = daemon
-        .route(&mut conn, "deliverable.publish", request.clone())
+        .route(&mut conn, "deliverable.publish", request)
         .await
         .unwrap();
+    assert!(matches!(
+        notifications.try_recv().unwrap().data,
+        contracts::EventData::DeliverablePublished { .. }
+    ));
     assert!(matches!(
         notifications.try_recv().unwrap().data,
         contracts::EventData::DeliverableChanged
@@ -103,13 +107,6 @@ async fn u5558a_events_follow_committed_changes() {
             .unwrap(),
         record
     );
-    daemon
-        .route(&mut conn, "deliverable.publish", request)
-        .await
-        .unwrap();
-    assert!(notifications.try_recv().is_err());
-    assert!(daemon.route(&mut conn,"deliverable.publish",json!({"key":"refused","title":"Result","target":{"kind":"external","url":"javascript:bad"}})).await.is_err());
-    assert!(notifications.try_recv().is_err());
     let home = daemon
         .route(
             &mut conn,

@@ -12,9 +12,9 @@ on:
     branches: [main]
 
 # L82: a newer push cancels an older run, on a PR and on `main` alike: only the newest `main` commit's run goes on.
-# A push to `main` has its own group per commit, so a merge never cancels the run of the commit before it.
+# A push to `main` cancels the `main` run before it, running or waiting (scenarios/ci-mac.md).
 concurrency:
-  group: check-${{ github.event_name == 'push' && format('push-{0}', github.sha) || (github.event_name == 'pull_request' && github.event.pull_request.draft && format('draft-{0}', github.ref) || github.ref) }}
+  group: check-${{ github.event_name == 'push' && 'push-main' || (github.event_name == 'pull_request' && github.event.pull_request.draft && format('draft-{0}', github.ref) || github.ref) }}
   cancel-in-progress: true
 
 # L24: on a PR, the lanes start with the push, alongside `pre`, the review run and the design critic run. Merge waits for
@@ -51,6 +51,18 @@ jobs:
           # Depth 2 holds HEAD and HEAD^1, all that BASE, affected.py and the migration guard read; a full fetch of
           # every branch took 1 to 47 min on 2026-10-28.
           fetch-depth: 2
+      # SZ5455h: a branch revived from a PR closed before the 2026-11-03 history rewrite holds the old history.
+      - name: SZ5455h the PR builds on main's history
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RANGE: ${{ github.event.pull_request.base.sha }}...${{ github.event.pull_request.head.sha }}
+        run: |
+          ahead=$(gh api "repos/$GITHUB_REPOSITORY/compare/$RANGE?per_page=1" --jq .ahead_by)
+          if [ "$ahead" -gt 1000 ]; then
+            echo "::error::The branch is $ahead commits ahead of main: it holds the history from before the 2026-11-03 rewrite. Merge origin/main into it, then replace the branch with one commit: git commit-tree 'HEAD^{tree}' -p \"\$(git merge-base HEAD origin/main)\" -m '<subject>'"
+            exit 1
+          fi
       - name: B4522 migration filename boundaries
         run: |
           guard=tools/migrations/guard.py

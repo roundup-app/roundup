@@ -108,6 +108,7 @@ export const SEAM_COMMANDS = [
   "open_project",
   "canonical_project_path",
   "close_project",
+  "exit_for_update",
   "rename_project",
   "rpc",
   "subscribe",
@@ -181,7 +182,7 @@ export type MenuBarAction = v.InferOutput<typeof menuBarActionSchema>;
 
 export type MenuBar = {
   mark: "waiting" | "ready" | "empty";
-  entries: { label: string; action: Exclude<MenuBarAction, { kind: "failure" }> | null; since?: number }[];
+  entries: { label: string; subtitle?: string; state?: "needs-you" | "error" | "ready"; head?: true; action: Exclude<MenuBarAction, { kind: "failure" }> | null; since?: number }[];
   dock: MenuBar["entries"];
 };
 

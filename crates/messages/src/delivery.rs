@@ -27,6 +27,7 @@ fn spawn_push_clock(inner: std::sync::Weak<Inner>) {
                 break;
             };
             pushes::flush(&inner).await;
+            failure::sweep(&inner).await;
             #[cfg(test)]
             let _ = inner.completed.send("clock");
         }
@@ -105,6 +106,22 @@ pub(super) async fn on_status(
     );
     // StopFailure ends a turn, not its Terminal. Read authoritative liveness so a late
     // error cannot reopen an exited Attempt or close a resumed one.
+    // A Door's pending Messages outlive its Attempts: read the Rail where an ending or a new
+    // Attempt would otherwise apply B9.
+    let new_attempt = lock(&inner.store)
+        .generation(agent)
+        .expect("message store")
+        .is_none_or(|state| state.attempt < at.0);
+    let retained = if new_attempt || matches!(kind, Kind::Done | Kind::Error) {
+        let Ok(nodes) = load_rail_nodes(inner).await else {
+            return;
+        };
+        nodes
+            .iter()
+            .any(|node| node.id == agent && node.kind == contracts::agent::NodeKind::Workstream)
+    } else {
+        false
+    };
     let (closed, ready) = if kind == Kind::Error {
         let Ok(nodes) = load_rail_nodes(inner).await else {
             return;
@@ -129,7 +146,19 @@ pub(super) async fn on_status(
         if let Err(cause) = (inner.fault)("on_status") {
             panic!("{cause}");
         }
-        reconcile(inner, &mut store, agent, at, closed, false, false).expect("message store");
+        reconcile(
+            inner,
+            &mut store,
+            agent,
+            at,
+            Ending {
+                closed,
+                permanent: false,
+                retained,
+                restart: false,
+            },
+        )
+        .expect("message store");
     }
     if !closed && ready {
         on_idle(inner, agent, at, Pick::Next).await;
@@ -169,9 +198,12 @@ pub(super) async fn resync(inner: &Arc<Inner>) -> bool {
                 &mut store,
                 &id,
                 (attempt, i64::MAX),
-                true,
-                true,
-                false,
+                Ending {
+                    closed: true,
+                    permanent: true,
+                    retained: false,
+                    restart: false,
+                },
             )
             .expect("message store");
         }
@@ -351,9 +383,12 @@ fn reconcile_node(
         store,
         &node.id,
         at,
-        ended(node),
-        permanently_ended(node),
-        restart,
+        Ending {
+            closed: ended(node),
+            permanent: permanently_ended(node),
+            retained: node.kind == contracts::agent::NodeKind::Workstream,
+            restart,
+        },
     )
 }
 
@@ -391,17 +426,25 @@ pub(super) fn accept_reservation(
     }
 }
 
+/// What ended at a binding: the Attempt (`closed`), its Terminal for good (`permanent`), whether
+/// the receiver is a Door still on the Rail (`retained`, DCL8), and a Daemon reopen (`restart`).
+#[derive(Clone, Copy)]
+pub(super) struct Ending {
+    pub(super) closed: bool,
+    pub(super) permanent: bool,
+    pub(super) retained: bool,
+    pub(super) restart: bool,
+}
+
 pub(super) fn reconcile(
     inner: &Inner,
     store: &mut Store,
     agent: &str,
     at: store::Binding,
-    closed: bool,
-    permanent: bool,
-    restart: bool,
+    end: Ending,
 ) -> Result<(), RpcError> {
     let mut events = Vec::new();
-    let result = reconcile_into(store, agent, at, closed, permanent, restart, &mut events);
+    let result = reconcile_into(store, agent, at, end, &mut events);
     for event in events {
         inner.bus.emit(Actor::daemon(), event);
     }
@@ -412,11 +455,15 @@ fn reconcile_into(
     store: &mut Store,
     agent: &str,
     at: store::Binding,
-    closed: bool,
-    permanent: bool,
-    restart: bool,
+    end: Ending,
     events: &mut Vec<EventData>,
 ) -> Result<(), RpcError> {
+    let Ending {
+        closed,
+        permanent,
+        retained,
+        restart,
+    } = end;
     let previous = store.generation(agent)?;
     let reserved = store.is_reserved(agent)?;
     let retiring = store.retirement(agent)?.is_some();
@@ -430,6 +477,23 @@ fn reconcile_into(
         None
     };
     if let Some(through) = through.filter(|_| {
+        !retiring && matches!(step::door_event(retained, Event::ReceiverExit), Event::Busy)
+    }) {
+        // DCL8: a Door on the Rail is a logical receiver that outlives its Attempts. A stopped
+        // or crashed Attempt drops nothing; the pending Messages wait, in id order, and move to
+        // the next Attempt once it exists.
+        if through.0 < at.0 {
+            store.atomically(|store| {
+                for message in store.list_pending_to(agent)? {
+                    if store.bound(message.id)? <= through {
+                        store.bind(message.id, (at.0, 0))?;
+                        store.clear_flight(message.id)?;
+                    }
+                }
+                Ok(())
+            })?;
+        }
+    } else if let Some(through) = through.filter(|_| {
         matches!(
             step::retirement_event(retiring, step::restart_event(reserved, Event::ReceiverExit)),
             Event::ReceiverExit
@@ -438,15 +502,25 @@ fn reconcile_into(
         // B8: a Message written and not confirmed waits for the Agent to be resumed.
         let rebind = (through.0 < at.0).then_some((at.0, 0));
         let keep = Some(rebind);
-        for message in store.drop_all_pending(
-            agent,
-            Reason::ReceiverGone,
-            through,
-            gone_drops,
-            keep,
-            restart,
-        )? {
+        // DCL4: the drops and each sender's one return note commit together, so a crash and
+        // replay find either both or neither; a replay drops nothing and so notes nothing.
+        let (dropped, notes) = store.atomically(|store| {
+            let dropped = store.drop_all_pending(
+                agent,
+                Reason::ReceiverGone,
+                through,
+                gone_drops,
+                keep,
+                restart,
+            )?;
+            let notes = return_notes(store, agent, &dropped)?;
+            Ok((dropped, notes))
+        })?;
+        for message in dropped {
             events.push(EventData::MessageDropped(message.into()));
+        }
+        for note in notes {
+            events.push(EventData::MessageSent(note.into()));
         }
     }
     if previous.is_some_and(|state| state.attempt > at.0) {
@@ -467,6 +541,82 @@ fn reconcile_into(
     }
     state.closed |= retiring || (permanent && !reserved);
     store.set_generation(agent, state)
+}
+
+const NOTE_IDS: usize = 32;
+const NOTE_CAUSE_BYTES: usize = 512;
+
+/// RN1 RN2: the note body lists at most 32 ids, counts the rest, and cuts the cause at a
+/// character boundary at or before byte 512, so it stays under B1's 8192-byte body limit.
+fn return_note_body(ids: &[u32], name: &str, cause: &str) -> String {
+    let list = |ids: &[u32]| {
+        ids.iter()
+            .map(|id| format!("#{id}"))
+            .collect::<Vec<_>>()
+            .join(" ")
+    };
+    let cause = if cause.len() > NOTE_CAUSE_BYTES {
+        let end = (0..=NOTE_CAUSE_BYTES)
+            .rev()
+            .find(|&i| cause.is_char_boundary(i))
+            .unwrap_or(0);
+        format!("{} [cut]", &cause[..end])
+    } else {
+        cause.to_owned()
+    };
+    if ids.len() <= NOTE_IDS {
+        return format!("[return] {} never reached {name}: {cause}", list(ids));
+    }
+    let (head, rest) = ids.split_at(NOTE_IDS);
+    format!(
+        "[return] {}\n[+{} more: #{} to #{}]\nnever reached {name}: {cause}",
+        list(head),
+        rest.len(),
+        rest[0],
+        rest[rest.len() - 1]
+    )
+}
+
+/// DCL4: one pending note from the Daemon to each Agent sender whose Messages `dropped` closed
+/// at `agent`, listing the original ids. The originals keep their identity and are never reset.
+fn return_notes(
+    store: &mut Store,
+    agent: &str,
+    dropped: &[Message],
+) -> Result<Vec<Message>, RpcError> {
+    let mut senders: Vec<&Actor> = Vec::new();
+    for message in dropped {
+        if message.from.kind == ActorKind::Agent && !senders.contains(&&message.from) {
+            senders.push(&message.from);
+        }
+    }
+    let name = store.sender_name(agent)?;
+    let mut notes = Vec::new();
+    for sender in senders {
+        let mut ids: Vec<u32> = dropped
+            .iter()
+            .filter(|m| &m.from == sender)
+            .map(|m| m.id)
+            .collect();
+        ids.sort_unstable();
+        let body = return_note_body(&ids, &name, "it ended before they were read");
+        let at = dropped.iter().map(|m| m.at).max().unwrap_or(0);
+        let binding = store
+            .generation(&sender.id)?
+            .map_or((0, 0), |state| (state.attempt, state.revision));
+        notes.push(store.insert(
+            &Actor::daemon(),
+            &sender.id,
+            MessageKind::Note,
+            &body,
+            None,
+            MessageStatus::Pending,
+            None,
+            at,
+            binding,
+        )?);
+    }
+    Ok(notes)
 }
 
 impl Messages {
@@ -550,5 +700,144 @@ mod tests {
         on_idle(&messages.inner, "m", (1, 2), Pick::Next).await;
         assert_eq!(lock(&inbox.batches).len(), 1);
         // BatchRail rejects every method but rail.tree: no Terminal write or prompt is possible.
+    }
+}
+
+#[cfg(test)]
+mod dcl_tests {
+    use super::*;
+    use crate::inbox::tests::setup;
+
+    #[tokio::test(start_paused = true)]
+    async fn dcl4_killed_subagent_returns_pending_messages_once() {
+        let dir = tempfile::tempdir().unwrap();
+        let (messages, _, _) = setup(dir.path());
+        let door = Actor {
+            kind: ActorKind::Agent,
+            id: "door".into(),
+            parent: None,
+        };
+        let send = |body: &str| {
+            lock(&messages.inner.store)
+                .insert(
+                    &door,
+                    "m",
+                    MessageKind::Note,
+                    body,
+                    None,
+                    MessageStatus::Pending,
+                    None,
+                    5,
+                    (1, 1),
+                )
+                .unwrap()
+                .id
+        };
+        let (a, b) = (send("one"), send("two"));
+        for _ in 0..2 {
+            let mut store = lock(&messages.inner.store);
+            reconcile(
+                &messages.inner,
+                &mut store,
+                "m",
+                (1, 9),
+                Ending {
+                    closed: true,
+                    permanent: true,
+                    retained: false,
+                    restart: false,
+                },
+            )
+            .unwrap();
+            assert!(store.list_pending_to("m").unwrap().is_empty());
+        }
+        let store = lock(&messages.inner.store);
+        for id in [a, b] {
+            let m = store.get(id).unwrap().unwrap();
+            assert_eq!(m.status, MessageStatus::Dropped);
+            assert_eq!(m.reason, Some(Reason::ReceiverGone));
+        }
+        let notes = store.list_pending_to("door").unwrap();
+        assert_eq!(notes.len(), 1);
+        assert_eq!(notes[0].from, Actor::daemon());
+        assert!(
+            notes[0].body.contains(&format!("#{a} #{b} never reached")),
+            "{}",
+            notes[0].body
+        );
+    }
+
+    fn kill_with_pending(count: usize) -> (tempfile::TempDir, Messages, Vec<u32>) {
+        let dir = tempfile::tempdir().unwrap();
+        let (messages, _, _) = setup(dir.path());
+        let door = Actor {
+            kind: ActorKind::Agent,
+            id: "door".into(),
+            parent: None,
+        };
+        let ids: Vec<u32> = (0..count)
+            .map(|_| {
+                lock(&messages.inner.store)
+                    .insert(
+                        &door,
+                        "m",
+                        MessageKind::Note,
+                        "x",
+                        None,
+                        MessageStatus::Pending,
+                        None,
+                        5,
+                        (1, 1),
+                    )
+                    .unwrap()
+                    .id
+            })
+            .collect();
+        for _ in 0..2 {
+            let mut store = lock(&messages.inner.store);
+            reconcile(
+                &messages.inner,
+                &mut store,
+                "m",
+                (1, 9),
+                Ending {
+                    closed: true,
+                    permanent: true,
+                    retained: false,
+                    restart: false,
+                },
+            )
+            .unwrap();
+        }
+        (dir, messages, ids)
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn rn1_a_return_note_lists_32_ids_and_counts_the_rest() {
+        let (_dir, messages, ids) = kill_with_pending(40);
+        let store = lock(&messages.inner.store);
+        for id in &ids {
+            assert_eq!(
+                store.get(*id).unwrap().unwrap().status,
+                MessageStatus::Dropped
+            );
+        }
+        let notes = store.list_pending_to("door").unwrap();
+        assert_eq!(notes.len(), 1);
+        let lines: Vec<&str> = notes[0].body.lines().collect();
+        let listed: Vec<String> = ids[..32].iter().map(|id| format!("#{id}")).collect();
+        assert_eq!(lines[0], format!("[return] {}", listed.join(" ")));
+        assert_eq!(lines[1], format!("[+8 more: #{} to #{}]", ids[32], ids[39]));
+        assert!(lines[2].starts_with("never reached "));
+    }
+
+    #[test]
+    fn rn2_a_return_note_with_a_long_cause_stays_within_8192_bytes() {
+        let ids: Vec<u32> = (1000..1040).collect();
+        let body = return_note_body(&ids, "m", &"é".repeat(10_000));
+        assert!(body.len() <= 8192, "{}", body.len());
+        assert!(body.ends_with("é [cut]"));
+        assert!(body.contains("[+8 more: #1032 to #1039]"));
+        assert!(body.contains("#1031\n"));
     }
 }

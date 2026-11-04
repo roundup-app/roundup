@@ -75,3 +75,54 @@ Independent Shelf follow-up: rendered-shelf-followup.json adds successful reserv
 ## GitHub operation continuation
 
 [github-tools.md](github-tools.md) adds GH01–GH05 for each GitHub operation's three criteria, exact CLI/Door MCP mappings, authority differences and the 2026-10-30 owner-direction reversal. [catalogues/github-source.json](catalogues/github-source.json) retains fresh current descriptions/role lists/help, two successful live reads, versioned vendor help, source hashes and replay. Other per-method decisions and existing conditional App gaps remain; this does not complete the inventory or send a partial owner request.
+
+
+## Provenance query continuation
+
+[provenance.md](provenance.md) assesses PV01/PV02, the exact item-history and Actor-history CLI/MCP queries, on main `7ae759f2bc7f8e8e58a02a11f88488480364db41`. [catalogues/provenance-source.json](catalogues/provenance-source.json) retains current actual offers, isolated live queries, 28 pinned sources, vendor comparisons, direction and replay. Both queries are candidates on the journey criterion, not permission to erase Touches or shared unread/attribution state. Dependent App attribution choices, other public methods, conditional App evidence and final whole-App revision reconciliation remain unfinished; no partial owner request or deletion. [validation-provenance.md](validation-provenance.md) records commands and limits.
+
+
+## Route control continuation
+
+[routes.md](routes.md) reconciles Route controls RT01–RT03 with the connected `route.list` declaration and actual public offers. There is no mounted Route editor in the inspected App source; no rendered absence or new native observation is claimed. Independent Auto/Drop/list choices retain default delivery and ownership dependencies. Remaining conditional App evidence, other method decisions and final whole-App revision reconciliation stay open.
+
+
+## Message result continuation
+
+[message-results.md](message-results.md) assesses MR01–MR05 (`message.get`, `report`, `acceptResult`, `verifyResult`, `resolveResult`) from source and declarations on main `f966e5b580ab4ed8205d350a80d003d656e1c70b`. MR02–MR05 are Q2 candidates sharing stored reports; MR01 is not. Vendor Q1 is not established, no fresh rendering or runtime replay is claimed, and the other undecided methods plus final whole-App reconciliation remain open. No partial owner request or deletion.
+
+[agent-context.md](agent-context.md) reconciles seven Agent read/extras methods (AC01–AC07). Remaining undecided methods are listed there; no owner choice or deletion.
+
+## Agent lifecycle continuation
+
+[agent-lifecycle.md](agent-lifecycle.md) reconciles `agent.stop`, `agent.prompt`, `agent.interrupt`, `agent.land`, `agent.discard` and `agent.wake` (AL01–AL06). Only `agent.stop` has a production App caller. Remaining undecided methods are listed there; no owner choice or deletion.
+
+## Agent start and configuration continuation
+
+[agent-start-config.md](agent-start-config.md) reconciles `agent.spawn`, `agent.resume`, `agent.run`, `agent.setOrder` and `agent.setVisibility` (AS01–AS05) on main `fbc754cf50339cb73c744f3a4e714375444cd659`. Spawn and resume have production App callers; the other three have none by exact-string search. No candidate on this evidence; no owner choice or deletion.
+
+[worktree-reads.md](worktree-reads.md) reconciles `agent.worktreeState`, `agent.changedFiles` and `agent.compareFile` (AW01–AW03) at main `842e70e14162ac5311df8869810aa09a42c17e5e`. Remaining undecided methods are listed there; no owner choice or deletion.
+
+## Terminal read continuation
+
+[terminal-reads.md](terminal-reads.md) assesses TR01–TR06 (`terminal.list`, `snapshot`, `catchUp`, `screen`, `read`, `search`) from source, declarations and scenarios on main `6c9ebd997a409c6af4c532462a1fb64b9c24f3e3`. No row is a candidate; no fresh rendering or runtime replay is claimed. Other undecided methods and final whole-App reconciliation remain open. No partial owner request or deletion.
+
+## Project configuration continuation
+
+[project-config-methods.md](project-config-methods.md) assesses `project.setMcp`, `setPrepared`, `getPrepared`, `prepareDirectory` and `setModels` (PC01–PC05) from source, declarations and scenarios on main `b66cfd2c549d2bb6da59f431090d258ca6aa199c`. None has an App caller, CLI command or MCP tool; only `project.getPrepared` meets one criterion and it is not offered alone. No fresh rendering or runtime replay is claimed. Other undecided methods and final whole-App reconciliation remain open. No partial owner request or deletion.
+
+## Terminal stream continuation
+
+[terminal-stream.md](terminal-stream.md) assesses `terminal.output`, `terminal.outputStop`, `terminal.scheme` and `terminal.measure` (TP01–TP04) from source, declarations and scenarios on main `c03abf5e014d9b903b1881d873e465351188a4b9`. No row is a candidate; TP04 alone meets Q2 and Q3 but is the rule 7 keystroke observer. No fresh rendering or runtime replay is claimed. Other undecided methods and final whole-App reconciliation remain open. No partial owner request or deletion.
+
+## Agent hook, Model and Spawn prompt continuation
+
+[agent-hooks-model.md](agent-hooks-model.md) assesses `agent.channelUp`, `agent.signal`, `agent.setModel` and `agent.spawnPrompt` (AH01–AH04) from source, declarations and scenarios on main `e7a69af5294c52a11cf819cc20f6864269a3a65d`. No row is a candidate; AH04 has no App reader and awaits Q1. No fresh rendering or runtime replay is claimed. Other undecided methods and final whole-App reconciliation remain open. No partial owner request or deletion.
+
+## Pad read, Worktrees, Project start, Naming and transport continuation
+
+[daemon-project-pad.md](daemon-project-pad.md) assesses `pad.read`, `project.setWorktrees`, `project.start`, `daemon.getNaming`/`setNaming`, `daemon.ping`/`methods`/`identify` and `events.subscribe` (DP01–DP06) from source, declarations and scenarios on main `8cdbebf0804c4e8c81725348fd26ab8b52e5903a`. No row is a candidate; `project.setWorktrees` has no App caller but fails Q3 and Q1. No fresh rendering or runtime replay is claimed. Other undecided methods and final whole-App reconciliation remain open. No partial owner request or deletion.
+
+## Named action and skill continuation
+
+[actions-skill.md](actions-skill.md) assesses `action.serve`, `action.list`, `action.userList`, `action.run`, `skill.status`, `skill.setup` and `skill.remove` (AK01–AK04, SK01–SK03) from source, declarations and scenarios on main `01299e96848802dc5b4d7999453a0ffb0ebd89a9`. No row is a candidate; AK01 and AK04 are protected. No fresh rendering or runtime replay is claimed. Other undecided methods and final whole-App reconciliation remain open. No partial owner request or deletion.

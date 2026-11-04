@@ -128,8 +128,15 @@ mod tests {
         let dir = project();
         let bus = open(dir.path());
         let mut live = bus.subscribe();
-        bus.emit(Actor::user(), EventData::RailChanged);
-        bus.emit(Actor::daemon(), EventData::RailChanged);
+        bus.emit(Actor::user(), EventData::DeliverableChanged);
+        bus.emit(
+            Actor::daemon(),
+            EventData::AgentCompleted(contracts::event::Completion {
+                maker: "7".into(),
+                attempt: "2".into(),
+                turn: "completed-turn".into(),
+            }),
+        );
 
         let seen: Vec<_> = (0..2).map(|_| live.try_recv().unwrap().seq).collect();
         assert_eq!(seen, [Some(1), Some(2)]);
@@ -138,10 +145,13 @@ mod tests {
             saved.iter().map(|e| e.seq).collect::<Vec<_>>(),
             [Some(1), Some(2)]
         );
-        assert!(
-            saved
-                .iter()
-                .all(|e| matches!(e.data, EventData::RailChanged))
+        assert!(matches!(saved[0].data, EventData::DeliverableChanged));
+        let EventData::AgentCompleted(completion) = &saved[1].data else {
+            panic!("completion survived reopen")
+        };
+        assert_eq!(
+            (&*completion.maker, &*completion.attempt, &*completion.turn),
+            ("7", "2", "completed-turn")
         );
     }
 

@@ -130,6 +130,16 @@ export default defineConfig({
           },
         },
         {
+          // The `?inline` copies of tokens.css only read terminal numbers and fonts, so they carry no Fork colour sets (R3800).
+          postcssPlugin: "roundup-inline-tokens-without-fork-colours",
+          Once(root, { result }) {
+            if (!result.opts.from?.endsWith("/tokens.css?inline")) return;
+
+            root.walkRules(rule => { if (rule.selector.includes("data-fork-colour")) rule.remove(); });
+            root.walkAtRules("media", media => { if (!media.nodes?.length) media.remove(); });
+          },
+        },
+        {
           postcssPlugin: "roundup-vendor-control-feedback",
           Once(root) {
             root.walkDecls(/^(?:animation|transition)(?:-.+)?$/, declaration => {
@@ -212,8 +222,8 @@ export default defineConfig({
       ],
     },
   },
-  // tauri.conf.json's devUrl names this port; moving off it must fail, not open a blank window.
-  server: { port: 5173, strictPort: true },
+  // S13: `just app` hands each checkout its own port and the App's devUrl follows it; moving off it must fail, not open a blank window.
+  server: { port: Number(process.env.ROUNDUP_DEV_PORT ?? 5173), strictPort: true },
   test: {
     environment: "jsdom",
     ...captureSelection,

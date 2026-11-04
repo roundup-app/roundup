@@ -192,6 +192,7 @@ p.ink[role="alert"] {
 
 /* U38: the empty list sits centred in the room under the add button, in `--grey` only. */
 .empty-state {
+  position: relative;
   flex: 1;
   display: grid;
   align-content: safe center;
@@ -207,6 +208,8 @@ p.ink[role="alert"] {
 }
 
 .empty-state-content {
+  position: relative;
+  z-index: 1;
   width: 100%;
   display: flex;
   flex-direction: column;
@@ -214,16 +217,28 @@ p.ink[role="alert"] {
   gap: var(--space-3);
 }
 
-.empty-state-art {
-  width: min(100%, calc(var(--space-6) * 6));
-  height: calc(var(--space-6) * 4);
-  flex: 0 0 auto;
+:is(.choose-project, .shelf-area, .note-recovery, .draft-recovery):has(.empty-state) {
+  position: relative;
 }
 
-.empty-state-art svg {
-  display: block;
-  width: 100%;
-  height: 100%;
+/* Keep xterm’s link canvas below the empty message and its actions. */
+.pane-body:has(.empty-state) .pane-screen { isolation: isolate; }
+
+.empty-state-ground {
+  position: absolute;
+  inset: 0;
+  overflow: clip;
+  pointer-events: none;
+}
+
+.empty-state-ground svg {
+  position: absolute;
+  width: calc(var(--space-6) * 16);
+  height: calc(var(--space-6) * 12);
+  max-width: none;
+  right: calc(var(--space-6) * -2.5);
+  bottom: calc(var(--space-6) * -1.5);
+  pointer-events: none;
 }
 
 .empty-state-title { color: var(--text); font-size: var(--text-title); font-weight: 500; }

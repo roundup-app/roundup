@@ -173,8 +173,14 @@ pub async fn push_changes(
     seen: Arc<messages::digest::Seen>,
     mut events: tokio::sync::broadcast::Receiver<contracts::Event>,
 ) {
-    // What is already there is not news: record it as told before the first event is judged.
-    if let Ok(world) = reader.world().await {
+    // DCL10: a stored told book is compared with the Rail, so a fact told before the stop stays
+    // told and one changed while stopped is queued once. With none, what is there is not news:
+    // record it as told before the first event is judged.
+    if seen.has_told() {
+        if let Err(err) = push_once(&reader, &messages, &seen).await {
+            eprintln!("rupd: digest push failed: {err}");
+        }
+    } else if let Ok(world) = reader.world().await {
         seen.baseline(&world.sources());
         reader.observed(&world);
     }

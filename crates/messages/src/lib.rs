@@ -10,6 +10,7 @@ pub mod digest;
 pub mod digest_schema;
 mod dispatch;
 pub mod evidence;
+mod failure;
 mod flight;
 mod inbox;
 mod pushes;
@@ -43,7 +44,7 @@ use contracts::{Actor, ActorKind, EventData, Kind, Verb};
 #[cfg(test)]
 use delivery::on_status;
 use delivery::{
-    Pick, accept_receiver, accept_reservation, binding, deliver_pending as nudge, ended,
+    Ending, Pick, accept_receiver, accept_reservation, binding, deliver_pending as nudge, ended,
     load_rail_nodes, reconcile, start_listener,
 };
 use dispatch::{is_receiver, item, require_user, send_params};

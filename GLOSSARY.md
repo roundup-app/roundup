@@ -24,6 +24,8 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | App registration (`registration`, `action.closed`) | none | — |
 | Project name base (`base`, `ProjectsState.base`) | same | — |
 | Project data | same | — |
+| Fork (`data.fork`, `ForkColour`, `fork.json`) | same | — |
+| Build slot (`slots/`, `good`, `failed.json`) | Restart to update | —|
 | Engine (`engine`, `ModelList.engines`) | same | — |
 | Permission mode (`PermissionMode`, `permissionMode` on launch calls) | same | — |
 | Agent name (`agent_name`) | same | — |
@@ -39,6 +41,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Turn | command | — |
 | ReservedLine | none | — |
 | Terminal owner (`terminal::TerminalOwner`, `Terminals::serve_owner`, `Terminals::attach_owner`, `Terminals::with_terminal_owner`, `Terminals::terminal_owners`) | same | — |
+| Update exit (`exit_for_update`) | Restart to update | — |
 | Cached rows (`Connection::with_cached_rows`) | same | — |
 | Bubble | same | overlay, popup |
 | Bubble focus (`closeFocused`) | none | — |
@@ -48,6 +51,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Terminal catch-up (`CatchUpParams`, `CatchUp`, `terminal.catchUp`, `Terminals::catch_up`) | same | — |
 | Snapshot | same | — |
 | Workstream | same | room, folder |
+| Workstream state | same | — |
 | Group (`NodeKind::Group`, `GroupParams`, `rail.group`, `Rail::group`) | same | — |
 | Mode | same | — |
 | Make a Workstream (`agent.makeWorkstream`, `Agents::make_workstream`) | Make a Workstream | — |
@@ -65,6 +69,10 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Contract fingerprint | same | — |
 | Door | none | meta-agent, parent agent, lead |
 | Subagent | same | child agent, sub-agent, meta-agent, parent agent |
+| Job | same | — |
+| Consult | same | — |
+| Stalled | stalled | — |
+| Settled note | none | — |
 | Digest | same | — |
 | Wake request (`agent.wake`) | same | — |
 | GitHub tool (`github.prGet`, `github.issueGet`, `github.prSetBody`, `github.prReady`, `github.prAutoMerge`; the Door's tools `github_pr_get`, `github_issue_get`, `github_pr_set_body`, `github_pr_ready`, `github_pr_auto_merge`) | same | — |
@@ -257,7 +265,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 
 | Code term | User label | Avoid |
 |---|---|---|
-| Token (`--button-accent-fill`, `--button-key-ink`, `--doodle-line`, `--doodle-patch`, `--doodle-offset`, `--doodle-blend`) | same | — |
+| Token (`--button-accent-fill`, `--button-key-ink`, `--doodle-ground`) | same | — |
 | Text selection Token (`--text-selection`, `--text-selection-ink`) | same | — |
 | Section head | same | — |
 | Signifier | same | — |
@@ -340,6 +348,8 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Placement request (`placement::Request`, `EarlierAsk`) | same | — |
 | Placement call (`PlacementCall`, `Agents::placement_call`) | same | — |
 | Deliverable | Made | — |
+| Completion (`Completion`, `AgentCompleted`, `agent.completed`, `Agents::turn_identity`) | same | — |
+| Publication fact (`DeliverablePublished`, `deliverable.published`) | same | — |
 | Publication change (`DeliverableChanged`, `deliverable.changed`) | same | — |
 | Publication target (`PublicationTarget`) | same | — |
 | Published target (`PublishedTarget`, `ExternalAvailability`) | same | — |

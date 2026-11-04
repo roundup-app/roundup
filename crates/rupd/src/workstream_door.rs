@@ -70,6 +70,8 @@ for line in sys.stdin:
         bus: bus.clone(),
         project: dir.to_path_buf(),
         project_key: String::new(),
+        data_dir: dir.to_path_buf(),
+        fork_colour: None,
         touches,
         digests: Default::default(),
         pushes: Default::default(),
@@ -212,7 +214,7 @@ for line in sys.stdin:
     })
     .await
     .unwrap();
-    for (message, expected) in [(&old, "dropped"), (&new, "pending"), (&from_ext, "pending")] {
+    for (message, expected) in [(&old, "pending"), (&new, "pending"), (&from_ext, "pending")] {
         let found = client
             .request("message.get", json!({"id":message["id"]}))
             .await

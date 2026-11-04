@@ -12,6 +12,11 @@ The audit must prevent missed conditional offers, unsupported claims of non-use/
 ## Evidence
 
 | Artifact | Holds |
+| [agent-hooks-model.md](agent-hooks-model.md) | Four Agent hook/channel/Model/Spawn prompt decisions AH01-AH04, criteria and remaining gaps |
+| [project-config-methods.md](project-config-methods.md) | Five Project configuration method decisions PC01-PC05, criteria and remaining gaps |
+| [terminal-stream.md](terminal-stream.md) | Four Terminal stream/scheme/keystroke-probe decisions TP01-TP04, criteria and remaining gaps |
+| [worktree-reads.md](worktree-reads.md) | Three Worktree read decisions AW01-AW03, criteria, direction and remaining gaps |
+| [agent-start-config.md](agent-start-config.md) | Five Agent start/resume/run/order/visibility decisions, criteria and remaining gaps |
 | [todos.md](todos.md) | Forty independent Todo detail decisions, criteria, direction and explicit unfinished controls |
 | [catalogues/todos-source.json](catalogues/todos-source.json) | Current pinned sources, historical actual role offers, vendor help and exact observer |
 | [rendered-todos.json](rendered-todos.json) | Fresh isolated dark 1512×950 Todo detail/menu/editor/failure openings |
@@ -88,3 +93,23 @@ Draft recovery continuation: [recovery.md](recovery.md) pins main `919327e7d5c26
 Public command continuation: [public-commands.md](public-commands.md) pins main `0ff0b698e2cc3768a6ae316b9f829e52b20808f7`, separates 23 discovery/transport/stream/action/hook controls and records exact current method/CLI/MCP mappings. [catalogues/public-current.json](catalogues/public-current.json) retains 167 actual method descriptions, both role replies (86 Agent / 94 Door tools), 98 successful shared command/stream help paths, source archives, direction and replay. It corrects the older headline counts from their retained replies without replacing historical evidence. Remaining per-method, vendor and App evidence plus final whole-App revision reconciliation stay explicit. No partial owner request or deletion.
 
 GitHub tool continuation: [github-tools.md](github-tools.md) pins main `f7471659e2d3669818163a538cdfc2a7dc20b946` and separates five public read/body/ready/auto-merge operations. [catalogues/github-source.json](catalogues/github-source.json) retains fresh actual offers, live read results, installed gh help, source provenance and the owner's dated #5168 direction. Each operation overlaps gh while retaining a distinct shell-less Door path; all five are candidates, never deletion permission. Other per-method/App evidence and final whole-App revision reconciliation remain. No partial owner request or deletion.
+
+
+## Provenance query continuation
+
+[provenance.md](provenance.md) assesses PV01/PV02, the exact item-history and Actor-history CLI/MCP queries, on main `7ae759f2bc7f8e8e58a02a11f88488480364db41`. [catalogues/provenance-source.json](catalogues/provenance-source.json) retains current actual offers, isolated live queries, 28 pinned sources, vendor comparisons, direction and replay. Both queries are candidates on the journey criterion, not permission to erase Touches or shared unread/attribution state. Dependent App attribution choices, other public methods, conditional App evidence and final whole-App revision reconciliation remain unfinished; no partial owner request or deletion. [validation-provenance.md](validation-provenance.md) records commands and limits.
+
+
+## Route control continuation
+
+[routes.md](routes.md) adds RT01–RT03 for explicit Auto, Drop and stored Route inspection, with dated owner direction. [catalogues/route-source.json](catalogues/route-source.json) holds pinned source/public evidence and replay; [validation-routes.md](validation-routes.md) records outcomes and corrections. These are candidate assessments, not owner choices or deletion permission.
+
+[message-results.md](message-results.md) adds MR01–MR05 for Message read, Result report, acceptance, verification and resolution, assessed from source and declarations on main `f966e5b58`. They are candidate assessments, not owner choices or deletion permission.
+
+## Agent context continuation
+
+[agent-context.md](agent-context.md) adds AC01–AC07 for Agent Brief, skills, context, digest, instruction and extras operations, assessed from source and declarations on main `a743b75fe`. They are candidate assessments, not owner choices or deletion permission.
+
+## Agent lifecycle continuation
+
+[agent-lifecycle.md](agent-lifecycle.md) adds AL01–AL06 for Agent stop, prompt, interrupt, land, discard and wake, assessed from source, declarations and scenarios on main `058c00704`. AL06 is a Q2 candidate with dated #2218 direction; the rest are not candidates on this evidence. No runtime or vendor probe is claimed; candidate assessments, not owner choices or deletion permission.

@@ -984,3 +984,15 @@ Final `just ready` passes (0) on the merged checkout: all 193 lint fixtures, pac
 ## GitHub tool decisions — builder-41680665676
 
 [validation-github.md](validation-github.md) records the pinned source/runtime/gh observers, each failed command and final required checks for GH01–GH05. Split by this independent slice because this log approaches its file-size cap; earlier observations remain intact. No product change, partial owner request or deletion.
+
+
+## Provenance query continuation — builder-41703528722
+
+See [validation-provenance.md](validation-provenance.md) for current query/offer/source observers, named store checks, command failures and remaining limits. Historical observer records above retain their original revisions. No product or test changed; no local `just check`.
+
+
+Route-control continuation: [validation-routes.md](validation-routes.md) records builder-41707897567 command outcomes, failed exploratory calls and observer limits on main `ed0924b8e962e9f0e3d08ac7d17e2eb4e35c9d65`; [routes.md](routes.md) and [catalogues/route-source.json](catalogues/route-source.json) retain the three decisions and exact replay. No owner request or retirement.
+
+## Terminal stream continuation — builder-41770183406
+
+[terminal-stream.md](terminal-stream.md) records TP01–TP04 from exact-string symbol searches, `declarations.rs`, GLOSSARY and scenario text on the stated main. No product code or test changed; no local `just check`. Remaining coverage is listed there.

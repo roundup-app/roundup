@@ -277,6 +277,13 @@
     "kind": "indirect",
     "sha256": "ac21e5550d19ac685f64c5650f51489a7bfa96e5e032bd1fd731c69c8e867b07"
   },
+  "crates/desktop/tests/update_exit/mod.rs": {
+    "cleanup": "Fixture Drop closes the Project and the App; S5981 tests assert the recorded rupd and terminal-owner pids are gone before the temporary folders are removed.",
+    "data": "Fixture::new's wrapper script runs rupd with an absolute TempDir data folder and Project, with a fake claude as the Agent program.",
+    "issue": 5981,
+    "kind": "indirect",
+    "sha256": "fda24f7d3782b4768c590b46740cd7f6c3475884a2fcea2051507a425cbc2a77"
+  },
   "crates/messages/src/digest_schema.rs": {
     "cleanup": "No separate built-Daemon launch site.",
     "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
@@ -736,6 +743,16 @@
     "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
     "kind": "reference"
   },
+  "crates/rupd/src/fork_tests.rs": {
+    "cleanup": "In-process test runtime owns these Daemons; no built executable launch.",
+    "data": "Unit observers call Daemon::open on explicit TempDir paths; no production fallback resolver.",
+    "kind": "in-process"
+  },
+  "crates/rup/tests/fork.rs": {
+    "cleanup": "Serves a stub socket inside the test runtime on a TempDir path; no rupd executable launch.",
+    "data": "Owned absolute TempDir socket; the stub holds no data folder.",
+    "kind": "in-process"
+  },
   "crates/rupd/src/import_tests.rs": {
     "cleanup": "In-process test runtime owns these Daemons; no built executable launch.",
     "data": "Unit observers call Daemon::open on explicit TempDir paths; no production fallback resolver.",
@@ -848,6 +865,11 @@
   "spikes/rex-client/src/bin/spike/measure.rs": {
     "cleanup": "Destroys the Rex sessions and closes streams; the shared Server guard stops its owned Rex child and the spike removes its temporary directory.",
     "data": "Names rupd when comparing in-process Terminals measurements with Rex; delegates Rex and fake-agent launches to the audited spike harness. Starts no real rupd.",
+    "kind": "reference"
+  },
+  "crates/rupd/tests/s5981a_owner_gap.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
     "kind": "reference"
   }
 }
