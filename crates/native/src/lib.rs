@@ -6,7 +6,7 @@ pub use webkit_rate::{Missing, Preferences, plugin};
 #[cfg(target_vendor = "apple")]
 mod application;
 #[cfg(target_vendor = "apple")]
-pub use application::{watch, watch_fullscreen};
+pub use application::{set_application_icon, watch, watch_fullscreen};
 
 #[cfg(target_vendor = "apple")]
 mod capture;

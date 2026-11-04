@@ -23,6 +23,8 @@ fn native_material<R: Runtime>(window: Window<R>) -> bool {
 
 #[tauri::command]
 fn set_window_title<R: Runtime>(window: Window<R>, title: String) -> Result<(), RpcError> {
+    let title =
+        crate::fork_app::window_title(window.state::<crate::fork_app::Identity>().name(), &title);
     window
         .set_title(&title)
         .map_err(|error| RpcError::new(code::INTERNAL, error.to_string()))

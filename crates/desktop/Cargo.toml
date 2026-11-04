@@ -35,6 +35,7 @@ tauri-plugin-store = { version = "=2.5.0", path = "vendor/tauri-plugin-store-2.5
 time = "0.3.55"
 which = "8.0.6"
 tokio = { workspace = true, features = ["process", "io-util"] }
+icns = { version = "0.5.0", default-features = false, features = ["pngio"] }
 
 [[test]]
 name = "s2297a"
