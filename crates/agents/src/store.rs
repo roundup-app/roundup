@@ -40,6 +40,17 @@ impl Agents {
         launcher: Launcher,
         git: worktree::Git,
     ) -> Result<Self, OpenError> {
+        // FOP5978: `<fork>/fork.json` marks `<fork>/projects/<key>` as a Fork's data folder.
+        let forked = dir
+            .parent()
+            .and_then(Path::parent)
+            .is_some_and(|root| root.join("fork.json").is_file());
+        let launcher = if forked {
+            git.set_forked();
+            launcher.with_fork_session()
+        } else {
+            launcher
+        };
         let mut rail = rail::Rail::open(&dir.join(if dir.join("project.db").exists() {
             "project.db"
         } else {
@@ -47,8 +58,13 @@ impl Agents {
         }))?;
         let enrolled = rail.get_prepared()?.enrolled;
         git.set_enrolled(&enrolled.iter().map(PathBuf::from).collect::<Vec<_>>());
+        if forked {
+            // FOP5978b: every Auto reads off until the owner turns it on.
+            rail.clear_all_auto()?;
+        }
         let recovery = git.bounded();
-        for preparation in rail.unfinished_closed()? {
+        // FOP5978d: a Fork's recovery would change Worktrees of the live Project folder.
+        for preparation in rail.unfinished_closed()?.into_iter().filter(|_| !forked) {
             let source = preparation.source;
             if let Err(error) = crate::worktree_wiring::reconcile_closed(
                 &mut rail, &recovery, project, dir, &launcher, &source,
@@ -56,7 +72,7 @@ impl Agents {
                 eprintln!("agents: closed source {source}: {}; kept", error.message);
             }
         }
-        for (source, copy) in rail.closed_copies()? {
+        for (source, copy) in rail.closed_copies()?.into_iter().filter(|_| !forked) {
             match launcher.finish_conversation(&copy) {
                 Ok(()) => rail.release_closed_copy(&source)?,
                 Err(error) => eprintln!(
@@ -65,7 +81,7 @@ impl Agents {
                 ),
             }
         }
-        for (node, plan, ready) in rail.provisioning()? {
+        for (node, plan, ready) in rail.provisioning()?.into_iter().filter(|_| !forked) {
             // Refused unpublished resources stay hidden and reserved, even when readiness
             // completed before interruption. Only source recovery may reclaim them.
             if rail
@@ -143,6 +159,7 @@ impl Agents {
             }),
             dir: dir.to_owned(),
             launcher,
+            forked,
         })
     }
 
