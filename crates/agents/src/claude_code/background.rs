@@ -6,11 +6,14 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::process::{Command, Stdio};
 
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 /// Hook events that open and close a background Agent. Apart from `STATE_EVENTS`: H15's replay
 /// rule covers the events that move a Kind, and these move only this fact.
-pub const BACKGROUND_EVENTS: [&str; 2] = ["SubagentStart", "SubagentStop"];
+/// DCL5's `PostCompact` rides along: the vendor's completed-compaction event, with `PreCompact`
+/// deliberately not hooked since a start is not a completion.
+pub const BACKGROUND_EVENTS: [&str; 3] = ["SubagentStart", "SubagentStop", "PostCompact"];
 
 /// `ps` reports a process's age in whole seconds.
 const START_SLACK_MS: i64 = 1500;
@@ -88,6 +91,44 @@ pub struct Background {
     pub unavailable: Option<String>,
     /// A foreground `Stop` came and no prompt has followed.
     pub stopped: bool,
+}
+
+/// The task facts a Daemon reopen keeps (A12a's owner record): which background Agents are open
+/// and the turn they belong to. Process facts are not kept: the reopened Daemon reads liveness
+/// from the process table again.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Retained {
+    agents: BTreeSet<String>,
+    stopped: bool,
+    /// Unix milliseconds; work older than this is a service, so a reopen must not move it.
+    turn_started: i64,
+}
+
+impl Retained {
+    pub(super) fn new(background: &Background, turn_started: i64) -> Option<Self> {
+        (background.stopped || !background.agents.is_empty()).then(|| Self {
+            agents: background.agents.clone(),
+            stopped: background.stopped,
+            turn_started,
+        })
+    }
+
+    pub(super) fn turn_started(&self) -> i64 {
+        self.turn_started
+    }
+
+    /// The facts as a reopened `Background`: after a Stop, work is not known to have ended until
+    /// the first snapshot is read.
+    pub(super) fn reopen(self) -> Background {
+        Background {
+            agents: self.agents,
+            processes: BTreeMap::new(),
+            unavailable: self
+                .stopped
+                .then(|| "process table not read since the Daemon reopened".into()),
+            stopped: self.stopped,
+        }
+    }
 }
 
 impl Background {
@@ -289,29 +330,61 @@ mod tests {
         assert_eq!(kind(&a), Kind::Working);
         let work = [proc(10, 1, 5, &["sleep", "9"])];
         a.observe_processes(1, Ok(&work));
-        // Daemon reopen: a fresh adapter rebuilds the hold from the process table alone.
-        let mut b = agent();
-        hook(&mut b, json!({"hook_event_name":"Stop"}));
-        assert_eq!(
-            kind(&b),
-            Kind::Idle,
-            "a Stop with no open work finishes at once"
-        );
-        b.observe_processes(1, Err("no process table".into()));
-        assert_eq!(kind(&b), Kind::Working);
-        assert_eq!(
-            b.background().unavailable.as_deref(),
-            Some("no process table")
-        );
+        // Daemon reopen: a fresh adapter adopts the kept task facts and reads liveness again.
+        let kept = a.retained().expect("C is open after the Stop");
+        let mut b = ClaudeCode::starting(|| 0);
+        b.resume_background(kept);
+        assert_eq!(kind(&b), Kind::Working, "work is not known to have ended");
+        assert!(b.background().unavailable.is_some());
         b.observe_processes(1, Ok(&work));
         assert_eq!(b.background().processes.len(), 1);
+        // A stale stop of another id ends no unrelated work; C's own stop ends only C.
+        hook(
+            &mut b,
+            json!({"hook_event_name":"SubagentStop","agent_id":"other"}),
+        );
+        assert_eq!(b.background().agents.len(), 1);
+        hook(
+            &mut b,
+            json!({"hook_event_name":"SubagentStop","agent_id":"C"}),
+        );
+        assert_eq!(kind(&b), Kind::Working, "the process still runs");
         // PID 10 now belongs to an unrelated process outside the program: the old work ended.
         let reused = [proc(10, 99, 77, &["vim"])];
         b.observe_processes(1, Ok(&reused));
         assert!(b.background().processes.is_empty());
         assert_eq!(kind(&b), Kind::Idle, "a reused PID holds nothing");
+        assert!(b.retained().is_none(), "nothing is left to keep");
+        // A Stop with no open work finishes at once.
+        let mut c = agent();
+        hook(&mut c, json!({"hook_event_name":"Stop"}));
+        assert_eq!(kind(&c), Kind::Idle);
         // A dropped SubagentStop keeps the Agent Working until the session restarts.
         hook(&mut a, json!({"hook_event_name":"SessionStart"}));
         assert!(a.background().agents.is_empty());
+    }
+
+    /// DCL5: a compaction is finished by the vendor's own event, once per compaction; its start
+    /// and the usage a turn carries never count.
+    #[test]
+    fn dcl5_completed_compaction_is_reported_once() {
+        let mut a = agent();
+        hook(&mut a, json!({"hook_event_name":"UserPromptSubmit"}));
+        let start = json!({"hook_event_name":"PreCompact","trigger":"auto"});
+        let done = json!({"hook_event_name":"PostCompact","trigger":"auto","compact_summary":"s1"});
+        hook(&mut a, start);
+        hook(
+            &mut a,
+            json!({"hook_event_name":"PostToolUse","usage":{"input_tokens":1,"cache_read_input_tokens":900000}}),
+        );
+        assert_eq!(a.compactions(), 0, "start and usage are not completion");
+        hook(&mut a, done.clone());
+        hook(&mut a, done);
+        assert_eq!(a.compactions(), 1, "a replay is the same compaction");
+        hook(
+            &mut a,
+            json!({"hook_event_name":"PostCompact","trigger":"manual","compact_summary":"s2"}),
+        );
+        assert_eq!(a.compactions(), 2);
     }
 }

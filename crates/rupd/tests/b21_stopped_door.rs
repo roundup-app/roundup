@@ -99,25 +99,21 @@ impl Run {
         run
     }
 
-    /// A stopped Door that holds two pending Messages: they are sent while the live Door's
-    /// session is off the list (Claude Code not listening, B50), so they stay pending, and the
-    /// Door is stopped after.
+    /// A Message `from` sends the Door while its session is off the list (Claude Code not listening, B50), so it stays pending.
+    async fn pend(&self, from: &Client, body: &str) {
+        let sessions = self.dir.path().join("config/sessions");
+        std::fs::read_dir(sessions)
+            .unwrap()
+            .for_each(|f| std::fs::remove_file(f.unwrap().path()).unwrap());
+        let note = json!({"to":self.door,"kind":"note","body":body});
+        from.request("message.send", note).await.unwrap();
+    }
+
+    /// A stopped Door that holds two pending Messages, stopped after `pend` sent them.
     async fn start_with_backlog() -> (Self, Vec<Value>) {
         let run = Self::start_live().await;
-        for file in std::fs::read_dir(run.dir.path().join("config/sessions")).unwrap() {
-            std::fs::remove_file(file.unwrap().path()).unwrap();
-        }
-        for (from, body) in [
-            (&run.user, "first retained"),
-            (&run.agent, "second retained"),
-        ] {
-            from.request(
-                "message.send",
-                json!({"to":run.door,"kind":"note","body":body}),
-            )
-            .await
-            .unwrap();
-        }
+        run.pend(&run.user, "first retained").await;
+        run.pend(&run.agent, "second retained").await;
         let stored = run.thread().await;
         run.stop_door().await;
         (run, stored)
@@ -855,6 +851,17 @@ async fn dcl10_waiting_count_follows_stored_backlog_without_double_count() {
     (run.daemon, run.log) = launch(run.dir.path(), run.data.path(), &run.model);
     run.user = Client::connect(&run.daemon.socket).await.unwrap();
     assert_eq!(waiting(&run).await, json!(4));
+}
+
+#[tokio::test]
+async fn dcl10c_running_door_with_a_pending_message_has_no_waiting_count() {
+    let run = Run::start_live().await;
+    run.pend(&run.user, "first retained").await;
+    assert_eq!(waiting(&run).await, Value::Null, "the Door program runs");
+    run.stop_door().await;
+    assert_eq!(waiting(&run).await, json!(1));
+    run.start_door().await;
+    assert_eq!(waiting(&run).await, Value::Null);
 }
 
 impl Run {

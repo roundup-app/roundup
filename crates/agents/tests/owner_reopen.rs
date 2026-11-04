@@ -6,9 +6,9 @@ use std::sync::Arc;
 use agents::Agents;
 use agents::claude_code::Launcher;
 use agents::worktree::Git;
-use contracts::Kind;
 use contracts::agent::RailNode;
 use contracts::terminal::TerminalInfo;
+use contracts::{EventData, Kind};
 use rpc::{Bus, Ctx, Module};
 use serde_json::{Value, json};
 use terminal::Terminals;
@@ -254,4 +254,75 @@ async fn a5335d_reopen_keeps_each_launch_count_at_one() {
             }
         }
     }
+}
+
+/// DCL3c: an open background Agent survives a Daemon reopen with its owner, so the stop that
+/// follows the reopen ends it; a stop for an Agent never started ends nothing.
+#[tokio::test]
+async fn dcl3c_reopen_keeps_open_background_agent_until_its_own_stop() {
+    let dir = tempfile::tempdir().unwrap();
+    let data = dir.path().canonicalize().unwrap();
+    let script = data.join("fake-claude");
+    std::fs::write(&script, "#!/bin/sh\nif [ \"$1\" = plugin ] && [ \"$2\" = test ]; then echo 'Q11 runtime hook closure: 1 pass'; exit 0; fi\nexec sleep 30\n").unwrap();
+    std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let bus = Bus::new();
+
+    let (agents, _terminals) = open(&data, &bus);
+    let cwd = data.to_string_lossy().into_owned();
+    let spawned: RailNode =
+        serde_json::from_value(call(&agents, &bus, "agent.spawn", json!({"cwd": cwd})).await)
+            .unwrap();
+    let signal = async |agents: &Agents, event: Value| {
+        let payload = json!({"id": spawned.id, "attempt": "1", "payload": event});
+        call(agents, &bus, "agent.signal", payload).await
+    };
+    for event in [
+        json!({"hook_event_name":"SessionStart","source":"startup"}),
+        json!({"hook_event_name":"UserPromptSubmit"}),
+        json!({"hook_event_name":"SubagentStart","agent_id":"C"}),
+        json!({"hook_event_name":"Stop"}),
+    ] {
+        signal(&agents, event).await;
+    }
+    assert_eq!(kind(&agents, &bus).await, Kind::Working, "held by C");
+    drop(agents);
+
+    let (agents, terminals) = open(&data, &bus);
+    let mut events = bus.subscribe();
+    assert_eq!(
+        agents.reattach_owners().await,
+        std::slice::from_ref(&spawned.id)
+    );
+    // The dropped SubagentStop of another id (ADR 0006) ends nothing.
+    signal(
+        &agents,
+        json!({"hook_event_name":"SubagentStop","agent_id":"other"}),
+    )
+    .await;
+    assert_eq!(kind(&agents, &bus).await, Kind::Working);
+    signal(
+        &agents,
+        json!({"hook_event_name":"SubagentStop","agent_id":"C"}),
+    )
+    .await;
+    // The first process snapshot of the reopened Daemon, or this stop, releases the hold.
+    let idle = async {
+        loop {
+            if let Ok(event) = events.recv().await
+                && matches!(&event.data, EventData::AgentStatus(s) if s.status.kind == Kind::Idle)
+            {
+                break;
+            }
+        }
+    };
+    tokio::time::timeout(std::time::Duration::from_secs(15), idle)
+        .await
+        .expect("the stop of the retained Agent ends the hold");
+    assert_eq!(kind(&agents, &bus).await, Kind::Idle);
+    let terminal = tree(&agents, &bus).await.remove(0).terminal_id.unwrap();
+    terminals.kill(&terminal).await.unwrap();
+}
+
+async fn kind(agents: &Agents, bus: &Bus) -> Kind {
+    tree(agents, bus).await[0].status.as_ref().unwrap().kind
 }

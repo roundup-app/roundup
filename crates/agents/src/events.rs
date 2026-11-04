@@ -446,6 +446,7 @@ impl Shared {
         let was_finished = run.adapter.finished();
         let was_final_text = run.adapter.final_text();
         let was_completed = run.adapter.completed_turn().map(str::to_owned);
+        let was_background = run.adapter.retained();
         let signal = matches!(observation, Observation::Signal(_));
         let (changed, completion_changed) = run.adapter.observe_completion(observation);
         let changed = changed.or_else(|| {
@@ -512,6 +513,11 @@ impl Shared {
             if let Some(rail) = rail.as_deref_mut() {
                 rail.detach_terminal(id)?;
             }
+        }
+        // DCL3c: background work is saved before its Status is published, so a reopen finds it.
+        let background = run.adapter.retained();
+        if background != was_background {
+            self.save_background(id, &run.attempt, background)?;
         }
         // U3566c: a counted finish is saved before its Status is published.
         if run.adapter.finished() != was_finished
@@ -619,7 +625,12 @@ pub(super) async fn watch(
     attempt: String,
     mut events: Receiver<Arc<EventData>>,
 ) {
-    let mut tick: Option<Instant> = None;
+    // DCL3c: an Agent reattached after a Daemon reopen may hold work the first Stop left running.
+    let mut tick = match shared.poll_processes(&id, &attempt, None).await {
+        Ok(tick_at) => tick_after(&shared, tick_at),
+        Err(err) if matches!(err.code, code::NOT_FOUND | code::CONFLICT) => return,
+        Err(err) => panic!("{REGISTERED}: {err}"),
+    };
     loop {
         let observation = tokio::select! {
             event = events.recv() => match event.map(Arc::unwrap_or_clone) {
@@ -647,11 +658,16 @@ pub(super) async fn watch(
             Err(err) if matches!(err.code, code::NOT_FOUND | code::CONFLICT) => return,
             Err(err) => panic!("{REGISTERED}: {err}"),
         };
-        tick = tick_at.map(|at| {
-            let wait = u64::try_from(at - (shared.clock)()).unwrap_or(0);
-            Instant::now() + Duration::from_millis(wait)
-        });
+        tick = tick_after(&shared, tick_at);
     }
+}
+
+/// The instant of the adapter's wanted Tick at `tick_at` (Unix milliseconds), if it wants one.
+fn tick_after(shared: &Shared, tick_at: Option<i64>) -> Option<Instant> {
+    tick_at.map(|at| {
+        let wait = u64::try_from(at - (shared.clock)()).unwrap_or(0);
+        Instant::now() + Duration::from_millis(wait)
+    })
 }
 
 #[cfg(test)]
