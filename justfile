@@ -41,6 +41,7 @@ lint-rust base="": lint-repo
     tools/retired-words.test.sh
     tools/retired-words.sh
     tools/library-reuse.test.sh
+    tools/update/update.test.sh
     tools/library-reuse.sh
     just proofs
 
@@ -151,6 +152,10 @@ harness-real project port="5199":
 build-debug:
     cargo build -p rupd -p rup -p terminal
     tools/sidecar/bundle.sh target/debug/sidecar --local-node
+
+# SU5982: builds the new main into the spare Build slot and names it `good` once a Fork of the live data opens on it. `--rollback` restores the earlier `good`.
+update *args:
+    tools/update/update.sh {{args}}
 
 # Opens the development App only after its imports transform; an HTML response alone can hide a Vite error.
 app project:

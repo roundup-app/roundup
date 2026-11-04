@@ -58,6 +58,17 @@ pub(crate) fn app_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>>
         &MenuItem::with_id(app, "app-settings", "Settings…", true, Some("CmdOrCtrl+,"))?,
         3,
     )?;
+    // SU5982e: only a slot-launched App (`ROUNDUP_SLOT`) offers Restart to update.
+    if let Ok(running) = std::env::var("ROUNDUP_SLOT") {
+        if let Some(home) = crate::update::home() {
+            crate::update::sync(
+                app,
+                &application,
+                &crate::update::update_status(&home, &running),
+            )?;
+        }
+        crate::update::watch(app, application.clone(), running);
+    }
     // Keep the standard native editing commands; only history changes with region focus.
     let edit_position = menu
         .items()?
@@ -190,6 +201,19 @@ pub(crate) fn app_chosen<R: Runtime>(app: &AppHandle<R>, event: &MenuEvent) {
                 log::warn!(target: "roundup::shell", "copy info: clipboard write failed");
             }
         });
+    } else if event.id().0 == crate::update::ITEM {
+        if let (Ok(running), Some(home)) = (std::env::var("ROUNDUP_SLOT"), crate::update::home())
+            && crate::update::choose(&crate::update::update_status(&home, &running), |slot| {
+                if let Err(error) = crate::update::relaunch_into(&home, slot) {
+                    crate::diagnostics::failure(
+                        "relaunch into the new build",
+                        &tauri::Error::Io(error),
+                    );
+                }
+            })
+        {
+            app.exit(0);
+        }
     } else if event.id().0 == "app-settings" {
         if let Err(error) = app.emit("open-app-settings", ()) {
             crate::diagnostics::failure("open Settings", &error);
