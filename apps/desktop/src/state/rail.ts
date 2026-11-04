@@ -40,11 +40,11 @@ export type RailState = {
   /** U5991a: take rows off the Rail at once; `unhide` returns whatever the Daemon still holds. */
   hide(ids: readonly string[]): void;
   unhide(ids: readonly string[]): void;
-  /** U5991a: show `change` of the tree at once; the returned call lifts it once the Daemon's reply or Event holds the result. */
   /** U5991a: the Daemon applied the move of Row `id`; the tree holds it before the drawing lifts. */
   keepApplied(id: string, place: RailPlace): void;
   /** U5991a: show Row `id`'s program as stopped (`exit`) or running (`null`) at once; the returned call lifts it. */
   drawExit(id: string, exit: ExitState | null): () => void;
+  /** U5991a: show `change` of the tree at once; the returned call lifts it once the Daemon's reply or Event holds the result. */
   draw(change: (tree: readonly RailNode[]) => readonly RailNode[]): () => void;
   /** One structural index shared by selection and every mounted Rail projection. */
   topology(): RailTopology;
