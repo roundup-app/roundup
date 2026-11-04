@@ -21,7 +21,7 @@ RUST_SUITES = json.loads(Path(__file__).with_name("rust-suites.json").read_text(
 MEMORY_LIMIT_SECONDS = 40 * 60
 WEB_BUDGET_SECONDS = 720
 
-LANES = [f"rust{i}" for i in range(1, 6)] + [f"web{i}" for i in range(1, 8)]
+LANES = [f"rust{i}" for i in range(1, 6)] + [f"web{i}" for i in range(1, 10)]
 
 
 def overlap(rows):

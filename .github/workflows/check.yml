@@ -402,7 +402,7 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-  # L89: the web tests in seven shards; `--shard` goes through the sequencer of `apps/desktop/src/testing/shardSequencer.ts`,
+  # L89: the web tests in nine shards; `--shard` goes through the sequencer of `apps/desktop/src/testing/shardSequencer.ts`,
   # which gives each test file, longest first, to the shard it makes finish soonest by the durations measured on `main`
   # (`just web-durations`), a file with none weighing the median. A full run is about 24 runner-minutes of tests; a PR's
   # diff usually reaches far fewer.

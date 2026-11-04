@@ -183,8 +183,8 @@ class E14(unittest.TestCase):
             command = [sys.executable, str(Path(__file__).with_name("observe.py")), "compare", str(directory / "baseline"), str(directory / "head")]
             passed = subprocess.run(command, capture_output=True, text=True)
             self.assertEqual(passed.returncode, 0, passed.stderr)
-            self.assertIn("| head | " + "b" * 40 + " | web7 |", passed.stdout)
-            (directory / "head/web7/lane.json").unlink()
+            self.assertIn("| head | " + "b" * 40 + " | web9 |", passed.stdout)
+            (directory / "head/web9/lane.json").unlink()
             failed = subprocess.run(command, capture_output=True, text=True)
             self.assertEqual(failed.returncode, 1)
             self.assertIn("E14 observation FAILED", failed.stderr)
