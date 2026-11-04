@@ -94,12 +94,19 @@ pub(crate) fn fork_path(home: &Path, name: &str) -> PathBuf {
             }
         })
         .collect();
-    let stamp = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map_or(0, |d| d.as_secs());
+    let slug = slug.trim_matches('-');
+    let forks = home.join("forks");
 
-    home.join("forks")
-        .join(format!("{}-{stamp}", slug.trim_matches('-')))
+    (1..)
+        .map(|n| {
+            forks.join(if n == 1 {
+                slug.to_string()
+            } else {
+                format!("{slug}-{n}")
+            })
+        })
+        .find(|path| !path.exists())
+        .expect("an unused folder name")
 }
 
 /// Starts the branch's App on the Fork, from the source checkout, opening the first picked Project.
