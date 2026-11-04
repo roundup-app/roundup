@@ -31,6 +31,13 @@ struct Run {
 
 impl Run {
     async fn start() -> Self {
+        let run = Self::start_live().await;
+        run.stop_door().await;
+        run
+    }
+
+    /// The Daemon with its Door started and idle.
+    async fn start_live() -> Self {
         let dir = tempfile::tempdir().unwrap();
         let data = tempfile::tempdir().unwrap();
         std::fs::write(dir.path().join("clock"), "0").unwrap();
@@ -89,8 +96,31 @@ impl Run {
         // Door keeps a conversation `claude --resume` cannot find.
         run.idle(&run.door, 4).await;
         wait(|| written(&run.dir.path().join("config"), DOOR_PROMPT)).await;
-        run.stop_door().await;
         run
+    }
+
+    /// A stopped Door that holds two pending Messages: they are sent while the live Door's
+    /// session is off the list (Claude Code not listening, B50), so they stay pending, and the
+    /// Door is stopped after.
+    async fn start_with_backlog() -> (Self, Vec<Value>) {
+        let run = Self::start_live().await;
+        for file in std::fs::read_dir(run.dir.path().join("config/sessions")).unwrap() {
+            std::fs::remove_file(file.unwrap().path()).unwrap();
+        }
+        for (from, body) in [
+            (&run.user, "first retained"),
+            (&run.agent, "second retained"),
+        ] {
+            from.request(
+                "message.send",
+                json!({"to":run.door,"kind":"note","body":body}),
+            )
+            .await
+            .unwrap();
+        }
+        let stored = run.thread().await;
+        run.stop_door().await;
+        (run, stored)
     }
 
     /// `id` reads idle at `revision` or later: a Door's initial order's turn ends Idle at 4 (Starting
@@ -828,25 +858,6 @@ impl Run {
         all.sort_by_key(|m| m["id"].as_u64().unwrap());
         all
     }
-
-    /// Two Messages sent while the Door is stopped; they stay pending.
-    async fn send_while_stopped(&self) -> Vec<Value> {
-        self.user
-            .request(
-                "message.send",
-                json!({"to":self.door,"kind":"note","body":"first retained"}),
-            )
-            .await
-            .unwrap();
-        self.agent
-            .request(
-                "message.send",
-                json!({"to":self.door,"kind":"note","body":"second retained"}),
-            )
-            .await
-            .unwrap();
-        self.thread().await
-    }
 }
 
 fn identity(thread: &[Value]) -> Vec<(u64, Value, Value, Value)> {
@@ -865,8 +876,7 @@ fn identity(thread: &[Value]) -> Vec<(u64, Value, Value, Value)> {
 
 #[tokio::test]
 async fn dcl10_start_replays_one_ordered_batch() {
-    let run = Run::start().await;
-    let stored = run.send_while_stopped().await;
+    let (run, stored) = Run::start_with_backlog().await;
     assert_eq!(stored.len(), 2, "{stored:?}");
     assert!(
         stored.iter().all(|m| m["status"] == "pending"),
@@ -897,8 +907,7 @@ async fn dcl10_start_replays_one_ordered_batch() {
 
 #[tokio::test]
 async fn dcl10_failed_start_preserves_backlog_and_cause() {
-    let run = Run::start().await;
-    let stored = run.send_while_stopped().await;
+    let (run, stored) = Run::start_with_backlog().await;
     let fake = run.dir.path().join("rup");
     let saved = run.dir.path().join("saved-rup");
     std::fs::rename(&fake, &saved).unwrap();
