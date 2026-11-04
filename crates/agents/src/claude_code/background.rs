@@ -113,12 +113,7 @@ impl Background {
 
     /// Replace the process facts with what `snapshot` shows under `root`; an `Err` keeps them and
     /// records the cause. `rup` calls and hook shells are services, not work.
-    pub fn observe(
-        &mut self,
-        root: u32,
-        snapshot: Result<&[Process], String>,
-        since: i64,
-    ) {
+    pub fn observe(&mut self, root: u32, snapshot: Result<&[Process], String>, since: i64) {
         let snapshot = match snapshot {
             Ok(snapshot) => snapshot,
             Err(cause) => {
@@ -163,11 +158,7 @@ fn service(process: &Process) -> bool {
 }
 
 /// Whether `process` descends from `root` through no service.
-fn under(
-    root: u32,
-    process: &Process,
-    by_pid: &BTreeMap<u32, &Process>,
-) -> bool {
+fn under(root: u32, process: &Process, by_pid: &BTreeMap<u32, &Process>) -> bool {
     let mut at = process;
     for _ in 0..by_pid.len() + 1 {
         if service(at) {
@@ -253,10 +244,7 @@ mod tests {
             done.finished,
             (finished.parse::<u64>().unwrap() + 1).to_string()
         );
-        assert!(
-            a.observe_processes(1, Ok(&[])).is_none(),
-            "completes once"
-        );
+        assert!(a.observe_processes(1, Ok(&[])).is_none(), "completes once");
     }
 
     #[test]

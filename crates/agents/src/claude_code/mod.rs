@@ -407,8 +407,7 @@ impl ClaudeCode {
         if self.ending != Ending::Running {
             return None;
         }
-        self.background
-            .observe(root, snapshot, self.turn_started);
+        self.background.observe(root, snapshot, self.turn_started);
         if self.background.stopped && self.background.holds() {
             return self.settle(Kind::Working, "working".into());
         }
