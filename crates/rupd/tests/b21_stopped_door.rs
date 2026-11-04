@@ -844,24 +844,17 @@ async fn waiting(run: &Run) -> Value {
 
 #[tokio::test]
 async fn dcl10_waiting_count_follows_stored_backlog_without_double_count() {
-    let mut run = Run::start().await;
-    assert_eq!(waiting(&run).await, Value::Null);
-    run.user
-        .request(
-            "message.send",
-            json!({"to":run.door,"kind":"note","body":"for later"}),
-        )
-        .await
-        .unwrap();
+    let (mut run, _) = Run::start_with_backlog().await;
+    assert_eq!(waiting(&run).await, json!(2));
     run.change("first").await;
     run.change("second").await;
     run.assert_silent().await;
-    assert_eq!(waiting(&run).await, json!(3));
+    assert_eq!(waiting(&run).await, json!(4));
     drop(run.daemon.stdin.take());
     run.daemon.child.wait().unwrap();
     (run.daemon, run.log) = launch(run.dir.path(), run.data.path(), &run.model);
     run.user = Client::connect(&run.daemon.socket).await.unwrap();
-    assert_eq!(waiting(&run).await, json!(3));
+    assert_eq!(waiting(&run).await, json!(4));
 }
 
 impl Run {
