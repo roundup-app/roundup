@@ -15,6 +15,7 @@ import { SerializeAddon } from "@xterm/addon-serialize";
 import { FitAddon } from "@xterm/addon-fit";
 import { Unicode11Addon } from "@xterm/addon-unicode11";
 import { ImageAddon } from "@xterm/addon-image";
+import { recordDrawnImages } from "./drawnImages";
 import { ClipboardAddon } from "@xterm/addon-clipboard";
 import { LigaturesAddon } from "@xterm/addon-ligatures";
 import { WebglAddon } from "@xterm/addon-webgl";
@@ -155,8 +156,6 @@ export const xtermOptions: ITerminalOptions = {
   fontWeight: Number.parseInt(/--weight-terminal:\s*([^;]+);/.exec(tokens)![1]!, 10),
   lineHeight: Number.parseFloat(/--line-terminal:\s*([^;]+);/.exec(tokens)![1]!),
   letterSpacing: Number.parseFloat(/--letter-terminal:\s*([^;]+);/.exec(tokens)![1]!),
-  // WebGL draws box borders across the full cell even with extra line height.
-  customGlyphs: true,
   macOptionClickForcesSelection: true,
   scrollback: SCROLLBACK_LINES,
   // Read per Terminal: a module-level read is stale for every Terminal opened after the window's scheme changes.
@@ -179,18 +178,22 @@ export type EchoProbe = {
   renderer(webgl: boolean, id: string): void;
 };
 
-/** xterm paints the scroll element's background inline from the theme; the stylesheet paints it from `--terminal-background`, so the inline copy is dropped (D1) each time xterm writes it. */
+/** xterm paints the root, viewport and scroll element backgrounds inline from the theme; the stylesheet paints them from `--terminal-background`, so each inline copy is dropped (D1) every time xterm writes it. */
 export const dropInlineGround = (element: HTMLElement, disposers: (() => void)[]): void => {
-  const scroller = element.querySelector<HTMLElement>(".xterm-scrollable-element");
+  const grounds = [
+    element.matches(".xterm") ? element : element.querySelector<HTMLElement>(".xterm"),
+    element.querySelector<HTMLElement>(".xterm-viewport"),
+    element.querySelector<HTMLElement>(".xterm-scrollable-element"),
+  ].filter((ground): ground is HTMLElement => ground !== null);
 
-  if (!scroller) return;
+  for (const ground of grounds) {
+    const drop = () => ground.style.removeProperty("background-color");
+    const observer = new MutationObserver(drop);
 
-  const drop = () => scroller.style.removeProperty("background-color");
-  const observer = new MutationObserver(drop);
-
-  drop();
-  observer.observe(scroller, { attributes: true, attributeFilter: ["style"] });
-  disposers.push(() => observer.disconnect());
+    drop();
+    observer.observe(ground, { attributes: true, attributeFilter: ["style"] });
+    disposers.push(() => observer.disconnect());
+  }
 };
 
 const ARABIC = "\u0600-\u06FF\u0750-\u077F\uFB50-\uFDFF\uFE70-\uFEFF";
@@ -226,8 +229,12 @@ export const createXtermEmulators = (
       pixelLimit: 4_194_304,
       sixelSizeLimit: 1_048_576,
       iipSizeLimit: 2_097_152,
+      // U5984: Claude Code draws a picture only when the Terminal answers its Kitty graphics query.
+      kittySizeLimit: 8_388_608,
       enableSizeReports: false,
     }));
+    const drawnImages = recordDrawnImages(terminal, SCROLLBACK_LINES);
+    // A Terminal that reopens from saved output draws its images again.
     terminal.loadAddon(new Unicode11Addon());
     terminal.unicode.activeVersion = "11";
     const fitter = new FitAddon();
@@ -716,7 +723,7 @@ export const createXtermEmulators = (
       onLink: (listener) => {
         linkListener = listener;
       },
-      serialize: () => ({ cols: terminal.cols, rows: terminal.rows, data: serializer.serialize({ scrollback: SCROLLBACK_LINES }) }),
+      serialize: () => ({ cols: terminal.cols, rows: terminal.rows, data: drawnImages.serialized(serializer.serialize({ scrollback: SCROLLBACK_LINES })) }),
       selection: () => terminal.getSelection(),
       find: (query, backwards = false) => query !== "" && (backwards ? searcher.findPrevious(query) : searcher.findNext(query)),
       turns: shellTurns.turns,

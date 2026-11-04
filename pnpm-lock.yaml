@@ -37,9 +37,12 @@ patchedDependencies:
   '@xterm/addon-fit@0.11.0':
     hash: 8629216bffa6aa81367f9476aba262cb0741846e755ef9d307d84a89fec43272
     path: patches/@xterm__addon-fit@0.11.0.patch
-  '@xterm/xterm@6.0.0':
-    hash: 45cf2cfb0dd377ef06a31b4b064047fff9f43326651817481162b636083279bf
-    path: patches/@xterm__xterm@6.0.0.patch
+  '@xterm/addon-image@0.10.0-beta.331':
+    hash: 323ce482cb1d5aa9ef9a61e28135f5636e1edf6069e49c2bb5bec28af806e115
+    path: patches/@xterm__addon-image@0.10.0-beta.331.patch
+  '@xterm/xterm@6.1.0-beta.336':
+    hash: 1a86d65ec3cad8a4d8f9df27c5f65e19c4e40237e6d9d6cc92d631e86e7e8802
+    path: patches/@xterm__xterm@6.1.0-beta.336.patch
   '@zag-js/dialog@1.45.0':
     hash: 851f971178c3c90cc82fbd576f682e0d4b740c0f58cd8ba4fc1d1b44d5fc7495
     path: patches/@zag-js__dialog@1.45.0.patch
@@ -181,8 +184,8 @@ importers:
         specifier: ^0.11.0
         version: 0.11.0(patch_hash=8629216bffa6aa81367f9476aba262cb0741846e755ef9d307d84a89fec43272)
       '@xterm/addon-image':
-        specifier: 0.9.0
-        version: 0.9.0
+        specifier: 0.10.0-beta.331
+        version: 0.10.0-beta.331(patch_hash=323ce482cb1d5aa9ef9a61e28135f5636e1edf6069e49c2bb5bec28af806e115)(@xterm/xterm@6.1.0-beta.336(patch_hash=1a86d65ec3cad8a4d8f9df27c5f65e19c4e40237e6d9d6cc92d631e86e7e8802))
       '@xterm/addon-ligatures':
         specifier: 0.10.0
         version: 0.10.0
@@ -199,8 +202,8 @@ importers:
         specifier: ^0.19.0
         version: 0.19.0
       '@xterm/xterm':
-        specifier: ^6.0.0
-        version: 6.0.0(patch_hash=45cf2cfb0dd377ef06a31b4b064047fff9f43326651817481162b636083279bf)
+        specifier: 6.1.0-beta.336
+        version: 6.1.0-beta.336(patch_hash=1a86d65ec3cad8a4d8f9df27c5f65e19c4e40237e6d9d6cc92d631e86e7e8802)
       '@zag-js/combobox':
         specifier: 1.45.0
         version: 1.45.0
@@ -2752,8 +2755,10 @@ packages:
   '@xterm/addon-fit@0.11.0':
     resolution: {integrity: sha512-jYcgT6xtVYhnhgxh3QgYDnnNMYTcf8ElbxxFzX0IZo+vabQqSPAjC3c1wJrKB5E19VwQei89QCiZZP86DCPF7g==}
 
-  '@xterm/addon-image@0.9.0':
-    resolution: {integrity: sha512-oYWA8/QAr5/Emwl1xL7WCoOqeG3IZfpzEz/OVq1j4Oi9934TQmHiyubClikRf0D/jL3JNiNuz/Lsqx0kXQ02BA==}
+  '@xterm/addon-image@0.10.0-beta.331':
+    resolution: {integrity: sha512-ShBTb3QF0ul/i55lfRdJpcu0hlA4aJdqRdzzHdOCws2WUzSsG0SCfMhLjzaoO1dVUGNj2Z7PNLqiXnlyqOinbg==}
+    peerDependencies:
+      '@xterm/xterm': ^6.1.0-beta.336
 
   '@xterm/addon-ligatures@0.10.0':
     resolution: {integrity: sha512-/Few8ZSHMib7sGjRJoc5l7bCtEB9XJfkNofvPpOcWADxKaUl8og8P172j67OoACSNJAXqeCLIuvj8WFCBkcTxg==}
@@ -2771,8 +2776,8 @@ packages:
   '@xterm/addon-webgl@0.19.0':
     resolution: {integrity: sha512-b3fMOsyLVuCeNJWxolACEUED0vm7qC0cy4wRvf3oURSzDTYVQiGPhTnhWZwIHdvC48Y+oLhvYXnY4XDXPoJo6A==}
 
-  '@xterm/xterm@6.0.0':
-    resolution: {integrity: sha512-TQwDdQGtwwDt+2cgKDLn0IRaSxYu1tSUjgKarSDkUM0ZNiSRXFpjxEsvc/Zgc5kq5omJ+V0a8/kIM2WD3sMOYg==}
+  '@xterm/xterm@6.1.0-beta.336':
+    resolution: {integrity: sha512-QrvZZsffXsLW4Z3sba9GqimLvVwlb8b3W1NwZ+l6DdRnpH5pg5cFGWg2ceIburmfaGQ07YJHNekwxxlTcHZ3BA==}
 
   '@zag-js/accordion@1.45.0':
     resolution: {integrity: sha512-q29KwigVLWWM6PbZwmwPxmecKIUYpWwOK5k28mX4NdRACKEonxdkvZQePhcAD5FIKbCvacB4POE6OOCy/E3JSQ==}
@@ -9228,7 +9233,9 @@ snapshots:
 
   '@xterm/addon-fit@0.11.0(patch_hash=8629216bffa6aa81367f9476aba262cb0741846e755ef9d307d84a89fec43272)': {}
 
-  '@xterm/addon-image@0.9.0': {}
+  '@xterm/addon-image@0.10.0-beta.331(patch_hash=323ce482cb1d5aa9ef9a61e28135f5636e1edf6069e49c2bb5bec28af806e115)(@xterm/xterm@6.1.0-beta.336(patch_hash=1a86d65ec3cad8a4d8f9df27c5f65e19c4e40237e6d9d6cc92d631e86e7e8802))':
+    dependencies:
+      '@xterm/xterm': 6.1.0-beta.336(patch_hash=1a86d65ec3cad8a4d8f9df27c5f65e19c4e40237e6d9d6cc92d631e86e7e8802)
 
   '@xterm/addon-ligatures@0.10.0':
     dependencies:
@@ -9243,7 +9250,7 @@ snapshots:
 
   '@xterm/addon-webgl@0.19.0': {}
 
-  '@xterm/xterm@6.0.0(patch_hash=45cf2cfb0dd377ef06a31b4b064047fff9f43326651817481162b636083279bf)': {}
+  '@xterm/xterm@6.1.0-beta.336(patch_hash=1a86d65ec3cad8a4d8f9df27c5f65e19c4e40237e6d9d6cc92d631e86e7e8802)': {}
 
   '@zag-js/accordion@1.45.0':
     dependencies:
