@@ -343,10 +343,6 @@ impl ClaudeCode {
         let (mut kind, mut label) = hook_status(payload)?;
         if event == Some("Stop") {
             self.background.stopped = true;
-            // The process table has not been read since this Stop: work is not known to have ended.
-            self.background
-                .unavailable
-                .get_or_insert_with(|| "process table not read yet".into());
         }
         // DCL3: a Stop while background work runs does not finish the Agent.
         if self.background.stopped && kind == Kind::Idle && self.background.holds() {

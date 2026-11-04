@@ -289,11 +289,14 @@ mod tests {
         assert_eq!(kind(&a), Kind::Working);
         let work = [proc(10, 1, 5, &["sleep", "9"])];
         a.observe_processes(1, Ok(&work));
-        // Daemon reopen: a fresh adapter that sees a Stop holds Working until the first
-        // snapshot, then rebuilds the hold from the process table alone.
+        // Daemon reopen: a fresh adapter rebuilds the hold from the process table alone.
         let mut b = agent();
         hook(&mut b, json!({"hook_event_name":"Stop"}));
-        assert_eq!(kind(&b), Kind::Working, "no snapshot yet is not no work");
+        assert_eq!(
+            kind(&b),
+            Kind::Idle,
+            "a Stop with no open work finishes at once"
+        );
         b.observe_processes(1, Err("no process table".into()));
         assert_eq!(kind(&b), Kind::Working);
         assert_eq!(
