@@ -60,7 +60,7 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
   const doorState = createMemo(() => {
     const workstream = selected();
 
-    return workstream?.kind === "workstream" ? doorStateOf(workstream, rail.exitOf(workstream), rail.doorPending(workstream.id), rail.doorFailure(workstream.id) !== null) : null;
+    return workstream?.kind === "workstream" ? doorStateOf(workstream, rail.exitOf(workstream), rail.launching(workstream.id), rail.doorFailure(workstream.id) !== null) : null;
   });
 
   const terminalId = createMemo(() => selected()?.terminal_id ?? null);
@@ -336,7 +336,7 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
         </Show>
         <Show when={doorState()}>
           {(state) => (
-            <div class="pane-door"><EmptyState art="meditating" {...{ title: doorStateText(state(), selected()!.name) }} line={copy.emptyOutputLine} action={<button data-button="primary" class="word pane-action" aria-disabled={rail.doorPending(selected()!.id) || connected.daemonExit() !== null ? true : undefined} onClick={() => { if (!rail.doorPending(selected()!.id) && connected.daemonExit() === null) void rail.startDoor(selected()!.id); }}>
+            <div class="pane-door"><EmptyState art="meditating" {...{ title: doorStateText(state(), selected()!.name) }} line={copy.emptyOutputLine} action={<button data-button="primary" class="word pane-action" aria-disabled={rail.launching(selected()!.id) || connected.daemonExit() !== null ? true : undefined} onClick={() => { if (!rail.launching(selected()!.id) && connected.daemonExit() === null) void rail.startDoor(selected()!.id); }}>
                 <Icon name="play" />
                 {rail.doorFailure(selected()!.id) ? copy.retry : copy.start}
               </button>} />

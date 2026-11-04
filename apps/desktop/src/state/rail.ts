@@ -67,6 +67,9 @@ export type RailState = {
   terminalExit(id: string): ExitState | null;
   /** U6000a: show row `id` as `starting` until the returned release runs. */
   launch(id: string): () => void;
+  /** U6000a: true while a launch holds row `id` at `starting`; a pending `rail.startDoor` is one. */
+  launching(id: string): boolean;
+  /** True while a `rail.startDoor` call for Workstream `id` is pending. */
   doorPending(id: string): boolean;
   doorFailure(id: string): string | null;
   startDoor(id: string): Promise<void>;
@@ -572,7 +575,8 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
         return at < 0 ? each : each.toSpliced(at, 1);
       }));
     },
-    doorPending: (id) => (doors[id]?.pending ?? false) || launches().includes(id),
+    launching: id => launches().includes(id),
+    doorPending: (id) => doors[id]?.pending ?? false,
     doorFailure: (id) => doors[id]?.failure?.message ?? null,
     startDoor,
     createWorkstream,

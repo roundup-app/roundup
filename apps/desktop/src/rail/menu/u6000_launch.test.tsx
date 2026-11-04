@@ -60,7 +60,7 @@ it("u6000a_every_launch_renders_starting_before_its_call_answers_new_agent", asy
   await settled();
   chord("n");
 
-  await waitFor(() => expect(itemOf("new-agent").getAttribute("aria-label")).toContain("starting"));
+  await waitFor(() => expect(itemOf(copy.newAgent).getAttribute("aria-label")).toContain("starting"));
 });
 
 it("u6000b_starting_stays_until_the_daemon_reports_a_later_status", async () => {
@@ -117,7 +117,8 @@ it("u6000b_no_row_shows_starting_after_the_program_is_up_or_a_failure", async ()
 });
 
 it("u6000d_launches_fired_while_one_is_pending_all_reach_the_daemon_in_order", async () => {
-  const mounted = await mountRail([workstream("ws"), exited("old")]);
+  const mounted = await mountRail([workstream("ws"), exited("old"), exited("other")]);
+  const launched = () => mounted.app.calls.map(call => call.method).filter(method => method === "agent.spawn" || method === "agent.resume");
 
   mounted.app.handlers["agent.spawn"] = never;
   mounted.app.handlers["agent.resume"] = never;
@@ -126,11 +127,26 @@ it("u6000d_launches_fired_while_one_is_pending_all_reach_the_daemon_in_order", a
   chord("n");
   await waitFor(() => expect(railCallsTo(mounted.app, "agent.spawn")).toHaveLength(2));
   await chooseAction(mounted.app, "old", "Resume");
-  await chooseAction(mounted.app, "old", "Resume");
-  await waitFor(() => expect(railCallsTo(mounted.app, "agent.resume")).toHaveLength(1));
-  expect(railCallsTo(mounted.app, "agent.spawn")).toHaveLength(2);
-  expect(mounted.app.calls.map(call => call.method).filter(method => method.startsWith("agent.")).slice(0, 3)).toEqual(["agent.spawn", "agent.spawn", "agent.resume"]);
-  expect(screen.getAllByRole("treeitem").filter(row => row.getAttribute("aria-label")?.startsWith("new-agent")).length).toBe(2);
+  await chooseAction(mounted.app, "other", "Resume");
+  // A New Agent fired while the selected row's own resume is pending.
+  mounted.rail.select("old");
+  chord("n");
+
+  await waitFor(() => expect(launched()).toEqual(["agent.spawn", "agent.spawn", "agent.resume", "agent.resume", "agent.spawn"]));
+  expect(railCallsTo(mounted.app, "agent.resume")).toEqual([expect.objectContaining({ id: "old" }), expect.objectContaining({ id: "other" })]);
+  expect(screen.getAllByRole("treeitem").filter(row => row.getAttribute("aria-label")?.startsWith(copy.newAgent)).length).toBe(3);
+});
+
+it("u6000a_a_starting_door_row_no_longer_reads_door_stopped", async () => {
+  const mounted = await mountRail([workstream("ws", { waiting: 3 })]);
+
+  mounted.app.handlers["rail.startDoor"] = never;
+  await settled();
+  expect(rowOf("ws").querySelector(".rail-waiting")).not.toBeNull();
+  void mounted.rail.startDoor("ws");
+
+  await waitFor(() => expect(startingOf(mounted, "ws")).toBe(true));
+  expect(rowOf("ws").querySelector(".rail-waiting")).toBeNull();
 });
 
 it("u6000a_every_launch_renders_starting_before_its_call_answers_new_workstream", async () => {
