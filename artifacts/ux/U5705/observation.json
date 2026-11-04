@@ -1,0 +1,139 @@
+{
+  "baseline": "2d819d30b3c8ebde1e5f28b6e8b6497b35104902",
+  "observedHead": "32df7f0a24e0752cb416605d0e591b281497a3e1",
+  "seed": "tree-40",
+  "viewport": [
+    1512,
+    950
+  ],
+  "scheme": "dark",
+  "interfaceScale": 1,
+  "unchangedStyleBlobs": {
+    "apps/desktop/src/ui/reading.styles.css": "906e15ea8a39386210f9be5b236c11060db3d583",
+    "apps/desktop/src/pads/styles.css": "629d262acea922be56c83a54f6605d9544472736",
+    "apps/desktop/src/pads/editor.css": "7cebeb3b46ad4d91a575c3eb6e8f9623d45d8ef3",
+    "apps/desktop/src/todos/drawer.styles.css": "2cedf6fb9f4294d33a9b257ae5c80ef6c88498d0"
+  },
+  "observations": [
+    {
+      "step": "pad-expanded",
+      "base": {
+        "editor": 579.34375,
+        "gutter": "32px",
+        "fontSize": "15px",
+        "lineHeight": "24px",
+        "failedChecks": []
+      },
+      "head": {
+        "editor": 579.34375,
+        "gutter": "32px",
+        "fontSize": "15px",
+        "lineHeight": "24px",
+        "failedChecks": []
+      }
+    },
+    {
+      "step": "pad-minimised",
+      "base": {
+        "editor": 527,
+        "gutter": "16px",
+        "fontSize": "15px",
+        "lineHeight": "24px",
+        "failedChecks": []
+      },
+      "head": {
+        "editor": 527,
+        "gutter": "16px",
+        "fontSize": "15px",
+        "lineHeight": "24px",
+        "failedChecks": []
+      }
+    },
+    {
+      "step": "pad-save-rejected",
+      "base": {
+        "editor": 579.34375,
+        "gutter": "32px",
+        "fontSize": "15px",
+        "lineHeight": "24px",
+        "failedChecks": []
+      },
+      "head": {
+        "editor": 579.34375,
+        "gutter": "32px",
+        "fontSize": "15px",
+        "lineHeight": "24px",
+        "failedChecks": []
+      }
+    },
+    {
+      "step": "todo-after-pad",
+      "base": {
+        "editor": 712.953125,
+        "gutter": "32px",
+        "fontSize": "15px",
+        "lineHeight": "24px",
+        "failedChecks": []
+      },
+      "head": {
+        "editor": 712.953125,
+        "gutter": "32px",
+        "fontSize": "15px",
+        "lineHeight": "24px",
+        "failedChecks": []
+      }
+    },
+    {
+      "step": "todo-expanded",
+      "base": {
+        "editor": 712.953125,
+        "gutter": "32px",
+        "fontSize": "15px",
+        "lineHeight": "24px",
+        "failedChecks": []
+      },
+      "head": {
+        "editor": 712.953125,
+        "gutter": "32px",
+        "fontSize": "15px",
+        "lineHeight": "24px",
+        "failedChecks": []
+      }
+    },
+    {
+      "step": "todo-minimised",
+      "base": {
+        "editor": 559,
+        "gutter": "16px",
+        "fontSize": "15px",
+        "lineHeight": "24px",
+        "failedChecks": []
+      },
+      "head": {
+        "editor": 559,
+        "gutter": "16px",
+        "fontSize": "15px",
+        "lineHeight": "24px",
+        "failedChecks": []
+      }
+    },
+    {
+      "step": "todo-reexpanded",
+      "base": {
+        "editor": 712.953125,
+        "gutter": "32px",
+        "fontSize": "15px",
+        "lineHeight": "24px",
+        "failedChecks": []
+      },
+      "head": {
+        "editor": 712.953125,
+        "gutter": "32px",
+        "fontSize": "15px",
+        "lineHeight": "24px",
+        "failedChecks": []
+      }
+    }
+  ],
+  "conclusion": "Main already isolates the Pad measure. Todo remains at the shared reading measure before and after Pad, and after minimise/expand. All recorded Checks pass. Images and complete ancestor readings remain uncommitted alongside this report."
+}

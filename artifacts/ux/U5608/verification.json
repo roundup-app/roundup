@@ -1,0 +1,134 @@
+{
+  "base": "1f353b15c",
+  "source": "9ea6b85b779258508f6ce5df12153fdf63889738",
+  "viewport": [
+    1512,
+    950
+  ],
+  "scheme": "dark",
+  "seeds": [
+    "tree-40",
+    "first-run"
+  ],
+  "checks": {
+    "base": {
+      "first-run.checks": {
+        "D1": "pass",
+        "D10": "pass",
+        "D11": "pass",
+        "D12": "pass",
+        "D13": "pass",
+        "D14": "pass",
+        "D16": "pass",
+        "D2": "pass",
+        "D3": "pass",
+        "D4": "pass",
+        "D5": "pass",
+        "D6": "pass",
+        "D7": "pass",
+        "D8": "pass",
+        "D9": "pass"
+      },
+      "todo-5-collapsed.checks": {
+        "D1": "pass",
+        "D10": "fail",
+        "D11": "pass",
+        "D12": "pass",
+        "D13": "pass",
+        "D14": "pass",
+        "D16": "pass",
+        "D2": "fail",
+        "D3": "pass",
+        "D4": "pass",
+        "D5": "pass",
+        "D6": "pass",
+        "D7": "pass",
+        "D8": "pass",
+        "D9": "pass"
+      },
+      "todo-5-expanded.checks": {
+        "D1": "pass",
+        "D10": "fail",
+        "D11": "pass",
+        "D12": "pass",
+        "D13": "pass",
+        "D14": "pass",
+        "D16": "pass",
+        "D2": "fail",
+        "D3": "pass",
+        "D4": "pass",
+        "D5": "pass",
+        "D6": "pass",
+        "D7": "pass",
+        "D8": "pass",
+        "D9": "pass"
+      }
+    },
+    "head": {
+      "first-run.checks": {
+        "D1": "pass",
+        "D10": "pass",
+        "D11": "pass",
+        "D12": "pass",
+        "D13": "pass",
+        "D14": "pass",
+        "D16": "pass",
+        "D2": "pass",
+        "D3": "pass",
+        "D4": "pass",
+        "D5": "pass",
+        "D6": "pass",
+        "D7": "pass",
+        "D8": "pass",
+        "D9": "pass"
+      },
+      "todo-5-collapsed.checks": {
+        "D1": "pass",
+        "D10": "pass",
+        "D11": "pass",
+        "D12": "pass",
+        "D13": "pass",
+        "D14": "pass",
+        "D16": "pass",
+        "D2": "pass",
+        "D3": "pass",
+        "D4": "pass",
+        "D5": "pass",
+        "D6": "pass",
+        "D7": "pass",
+        "D8": "pass",
+        "D9": "pass"
+      },
+      "todo-5-expanded.checks": {
+        "D1": "pass",
+        "D10": "pass",
+        "D11": "pass",
+        "D12": "pass",
+        "D13": "pass",
+        "D14": "pass",
+        "D16": "pass",
+        "D2": "pass",
+        "D3": "pass",
+        "D4": "pass",
+        "D5": "pass",
+        "D6": "pass",
+        "D7": "pass",
+        "D8": "pass",
+        "D9": "pass"
+      }
+    }
+  },
+  "activity_mounted_entries_before_expansion": {
+    "base": 1,
+    "head": 0
+  },
+  "behavior_tests": {
+    "passed": 115,
+    "files": 7,
+    "configured_retries": [
+      "u17_leaving_a_field_untouched_after_another_actor_renamed_the_todo_calls_nothing_and_shows_their_title",
+      "u4698e_activity_merges_sources_and_keeps_read_boundaries"
+    ]
+  },
+  "limitations": "Linux Chromium observations; required Import and rendered-file verification remains incomplete."
+}

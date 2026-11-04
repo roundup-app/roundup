@@ -1,0 +1,157 @@
+{
+  "scenario": "U5704a",
+  "status": "complete",
+  "recorded_at_utc": "2026-11-02T20:00:17Z",
+  "observer_revision": "b6035bd03d0241696aa310230763a44d1061d27d",
+  "sizing_repair": {
+    "pr": 5700,
+    "commit": "d3c7fea5e8ca9b44c3ab5aeb1f727884363ef066"
+  },
+  "viewport": [
+    1512,
+    950
+  ],
+  "scheme": "dark",
+  "phases": {
+    "base": {
+      "capture_pairs": 97,
+      "product_revisions": [
+        "b731bad4de3f37ca7873404a8b2480dc356cc0c7"
+      ],
+      "minimum_recorded_hit_height": 24,
+      "states_complete": true,
+      "hosts": {
+        "editor": {
+          "captures": 48,
+          "levels": [
+            "H1",
+            "H2",
+            "H3",
+            "H4",
+            "H5",
+            "H6"
+          ],
+          "minimum_hit_height": 24,
+          "folded_and_unfolded": true,
+          "rest_hover_and_keyboard_focus": true
+        },
+        "readonly": {
+          "captures": 48,
+          "levels": [
+            "H1",
+            "H2",
+            "H3",
+            "H4",
+            "H5",
+            "H6"
+          ],
+          "minimum_hit_height": 24,
+          "folded_and_unfolded": true,
+          "rest_hover_and_keyboard_focus": true
+        }
+      },
+      "dense_save_failure_checks": {
+        "D1": "pass",
+        "D10": "pass",
+        "D11": "pass",
+        "D12": "pass",
+        "D13": "pass",
+        "D14": "pass",
+        "D16": "pass",
+        "D2": "pass",
+        "D3": "pass",
+        "D4": "pass",
+        "D5": "pass",
+        "D6": "pass",
+        "D7": "pass",
+        "D8": "pass",
+        "D9": "pass"
+      }
+    },
+    "head": {
+      "capture_pairs": 97,
+      "product_revisions": [
+        "b6035bd03d0241696aa310230763a44d1061d27d"
+      ],
+      "minimum_recorded_hit_height": 24,
+      "states_complete": true,
+      "hosts": {
+        "editor": {
+          "captures": 48,
+          "levels": [
+            "H1",
+            "H2",
+            "H3",
+            "H4",
+            "H5",
+            "H6"
+          ],
+          "minimum_hit_height": 24,
+          "folded_and_unfolded": true,
+          "rest_hover_and_keyboard_focus": true
+        },
+        "readonly": {
+          "captures": 48,
+          "levels": [
+            "H1",
+            "H2",
+            "H3",
+            "H4",
+            "H5",
+            "H6"
+          ],
+          "minimum_hit_height": 24,
+          "folded_and_unfolded": true,
+          "rest_hover_and_keyboard_focus": true
+        }
+      },
+      "dense_save_failure_checks": {
+        "D1": "pass",
+        "D10": "pass",
+        "D11": "pass",
+        "D12": "pass",
+        "D13": "pass",
+        "D14": "pass",
+        "D16": "pass",
+        "D2": "pass",
+        "D3": "pass",
+        "D4": "pass",
+        "D5": "pass",
+        "D6": "pass",
+        "D7": "pass",
+        "D8": "pass",
+        "D9": "pass"
+      }
+    }
+  },
+  "verified": {
+    "just_ready": "passed",
+    "targeted_regressions": 243,
+    "browser_file": "passed, all 13 tests",
+    "readonly_heading_observer": "passed",
+    "editable_heading_observer": "passed",
+    "dense_save_failure": "passed, all design Checks pass",
+    "static_ui_lint": "passed, 0 FAIL and 0 WARN",
+    "proofs": "passed, all eight mutation checks",
+    "capture_command": "just capture U5704a passed, all 13 tests"
+  },
+  "baseline_fixture_failures": [
+    "D2: default root font is 16 px",
+    "D4: App press binding absent",
+    "D6: editable fixture has a 20 px Milkdown toolbar button; heading targets meet the minimum",
+    "D10: aggregates the existing fixture failures"
+  ],
+  "native_mac_observation": "not claimed",
+  "baseline_protocol": "The same observer and fixture instrumentation was transplanted onto origin/main; product styles and behavior were not changed.",
+  "comparison": {
+    "command": "loop/rules.sh delta artifacts/ux/U5704a/base artifacts/ux/U5704a/head",
+    "exit_code": 0,
+    "still_passing": 1022,
+    "still_failing": 336,
+    "regressions": 0
+  },
+  "recovered_observer_failures": [
+    "An initial concurrent run hit a browser navigation timeout. After moving the baseline checkout off tmpfs, the complete browser file and capture command passed.",
+    "An initial just ready run ended on SIGTERM. The unchanged rerun passed."
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "head": "6d294c9e64982d23f493fbaaf2f6d8cc9db41bef",
+  "baseline": "66920a2dc55eea200078d148b46c9f2361742473",
+  "renderer": "isolated headless Chromium 156.0.8078.80",
+  "seed": "tree-40",
+  "viewport": [
+    1512,
+    950
+  ],
+  "observer": "All five GitHub alert kinds, Body; explicit saveAppSettings mode, normal and real prefers-contrast:more. Existing u4698b readonly mounting seam uses the production PadRichEditor with readonly:true. The only product Pad renderer is PadContent/PadRichEditor; readonly uses the same renderer.",
+  "measurement": "Computed foreground; root-to-element RGBA background composition, no rounding before existing contrastRgb. Observer refuses background images, filters or opacity. No visual assertions added to behavior tests.",
+  "checks": "All 15 Checks pass on all eight mode/view screens and both rejected-save screens. Product sources are byte-identical to baseline; registration and observation evidence only.",
+  "sources": {
+    "apps/desktop/src/tokens.css": "de1da8456437492034597d397d4ac090bb2967a46962f941a4742d05ff98e7b3",
+    "apps/desktop/src/ui/reading.styles.css": "21dca4968a777f1877d9c0f17270b748c1fcf6240eb0f8aac059cb44abad64f3",
+    "apps/desktop/src/pads/PadRichEditor.tsx": "750a6d95b90a2855ff5041a2e1dad859924c51c02dd4d67c029fc01370791806",
+    "apps/desktop/src/pads/padFormats.ts": "393b4f691a0b4fdf7a9fa8144316099156b61bea9f210619202ee339fde976ed",
+    "apps/desktop/src/pads/editor.css": "5f0aad8bc86648f10bf0c14fbbc9a079c3f7cd7c0459a2cdc809344c07d3edd3",
+    "apps/desktop/src/pads/styles.css": "8f27d5bdfeb102836e1eb4a7db39b521777829e1562507ad3c0297275f27b347"
+  }
+}

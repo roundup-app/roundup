@@ -1,0 +1,210 @@
+{
+  "base": "21c65afaab6e8582d0fbbe497dd0435ec104d7e9",
+  "head": "73659f606f84daf35d83e5947c25bdd6dc0a6091",
+  "renderer": "isolated headless Chromium 156.0.8078.80",
+  "seed": "tree-40; Todo #5; empty states set its body to empty through todo.update",
+  "scheme": "dark",
+  "viewport": [
+    1512,
+    950
+  ],
+  "shelf": "closed",
+  "observations": [
+    {
+      "state": "todo-body-collapsed.checks",
+      "regressed": [],
+      "D2": "pass",
+      "D10": "pass",
+      "base": {
+        "actions": {
+          "marginInlineEnd": "0px",
+          "maxWidth": "none",
+          "width": 111.65625
+        },
+        "editor": {
+          "marginInlineEnd": "0px",
+          "maxWidth": "712.955px",
+          "width": 559
+        },
+        "title": {
+          "marginInlineEnd": "0px",
+          "maxWidth": "712.955px",
+          "width": 559
+        },
+        "viewport": [
+          1512,
+          950
+        ]
+      },
+      "head": {
+        "actions": {
+          "marginInlineEnd": "0px",
+          "maxWidth": "none",
+          "width": 111.65625
+        },
+        "editor": {
+          "marginInlineEnd": "0px",
+          "maxWidth": "712.955px",
+          "width": 559
+        },
+        "title": {
+          "marginInlineEnd": "0px",
+          "maxWidth": "712.955px",
+          "width": 559
+        },
+        "viewport": [
+          1512,
+          950
+        ]
+      }
+    },
+    {
+      "state": "todo-body-expanded.checks",
+      "regressed": [],
+      "D2": "pass",
+      "D10": "pass",
+      "base": {
+        "actions": {
+          "marginInlineEnd": "0px",
+          "maxWidth": "none",
+          "width": 111.65625
+        },
+        "editor": {
+          "marginInlineEnd": "0px",
+          "maxWidth": "712.955px",
+          "width": 712.953125
+        },
+        "title": {
+          "marginInlineEnd": "0px",
+          "maxWidth": "712.955px",
+          "width": 712.953125
+        },
+        "viewport": [
+          1512,
+          950
+        ]
+      },
+      "head": {
+        "actions": {
+          "marginInlineEnd": "0px",
+          "maxWidth": "none",
+          "width": 111.65625
+        },
+        "editor": {
+          "marginInlineEnd": "0px",
+          "maxWidth": "712.955px",
+          "width": 712.953125
+        },
+        "title": {
+          "marginInlineEnd": "0px",
+          "maxWidth": "712.955px",
+          "width": 712.953125
+        },
+        "viewport": [
+          1512,
+          950
+        ]
+      }
+    },
+    {
+      "state": "todo-empty-collapsed-bench-closed.checks",
+      "regressed": [],
+      "D2": "pass",
+      "D10": "pass",
+      "base": {
+        "actions": {
+          "marginInlineEnd": "0px",
+          "maxWidth": "none",
+          "width": 111.65625
+        },
+        "editor": null,
+        "title": {
+          "marginInlineEnd": "0px",
+          "maxWidth": "712.955px",
+          "width": 559
+        },
+        "viewport": [
+          1512,
+          950
+        ]
+      },
+      "head": {
+        "actions": {
+          "marginInlineEnd": "0px",
+          "maxWidth": "none",
+          "width": 111.65625
+        },
+        "editor": null,
+        "title": {
+          "marginInlineEnd": "0px",
+          "maxWidth": "712.955px",
+          "width": 559
+        },
+        "viewport": [
+          1512,
+          950
+        ]
+      }
+    },
+    {
+      "state": "todo-empty-expanded-bench-closed.checks",
+      "regressed": [],
+      "D2": "pass",
+      "D10": "pass",
+      "base": {
+        "actions": {
+          "marginInlineEnd": "0px",
+          "maxWidth": "none",
+          "width": 111.65625
+        },
+        "editor": null,
+        "title": {
+          "marginInlineEnd": "0px",
+          "maxWidth": "712.955px",
+          "width": 712.953125
+        },
+        "viewport": [
+          1512,
+          950
+        ]
+      },
+      "head": {
+        "actions": {
+          "marginInlineEnd": "0px",
+          "maxWidth": "none",
+          "width": 111.65625
+        },
+        "editor": null,
+        "title": {
+          "marginInlineEnd": "0px",
+          "maxWidth": "712.955px",
+          "width": 712.953125
+        },
+        "viewport": [
+          1512,
+          950
+        ]
+      }
+    }
+  ],
+  "fullCapture": {
+    "command": "just capture U5560a",
+    "result": "passed; both viewports, without retries",
+    "pairsAgainstExistingBaseline": 38,
+    "regressions": [],
+    "baselineSource": "../manifest.json records this older baseline; the four focused pairs use current main",
+    "screenshots": 40,
+    "headOnly": [
+      "keyboard-1280.checks.json",
+      "keyboard-1512.checks.json"
+    ],
+    "head": "783e0b012f11f85f28680450bd781f3da984215f",
+    "checks": {
+      "stillPassing": 460,
+      "fixed": 12,
+      "stillFailing": 60,
+      "regressed": 0
+    }
+  },
+  "visualReview": "Todo titles and bodies share the same left edge and measure; empty headers keep navigation clear of expand/close. Pad width choices, keyboard focus, table scrolling and visible save/conflict feedback were inspected at both scenario viewports."
+}
