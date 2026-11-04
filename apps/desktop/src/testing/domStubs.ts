@@ -33,3 +33,8 @@ CSSStyleSheet.prototype.replaceSync ??= () => undefined;
 Object.defineProperty(HTMLElement.prototype, "offsetWidth", { configurable: true, get() {
   return this.isConnected && this.closest('.switcher[data-scope="dialog"], .ask-bar[data-scope="dialog"]') && !this.closest("[hidden]") ? 1 : 0;
 } });
+
+// xterm 6.1 builds its image canvas on open; jsdom has no canvas, so `getContext` answers null and xterm throws.
+const context = Object.assign(Object.create(null), { measureText: () => ({ width: 0 }), clearRect() {}, drawImage() {}, fillRect() {}, putImageData() {}, getImageData: () => ({ data: new Uint8ClampedArray(4) }), createImageData: () => ({ data: new Uint8ClampedArray(4) }) });
+
+HTMLCanvasElement.prototype.getContext = () => context;

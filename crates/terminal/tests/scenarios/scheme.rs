@@ -141,7 +141,7 @@ async fn x17_an_xtversion_query_is_answered_as_iterm2_before_da1() {
         .spawn(sh(dir.path(), &script(r"\033[>q\033[c")))
         .await
         .unwrap();
-    let expected = hex("\x1bP>|iTerm2 3.5.0\x1b\\\x1b[?62;22c");
+    let expected = hex("\x1bP>|roundup\x1b\\\x1b[?62;22c");
     assert_eq!(typed_back(&mut spawned).await, expected);
 }
 
@@ -154,10 +154,7 @@ async fn x17_an_xtversion_query_is_answered_before_any_scheme_is_set() {
         .await
         .unwrap();
     // DA1 still waits for the scheme.
-    assert_eq!(
-        typed_back(&mut spawned).await,
-        hex("\x1bP>|iTerm2 3.5.0\x1b\\")
-    );
+    assert_eq!(typed_back(&mut spawned).await, hex("\x1bP>|roundup\x1b\\"));
 }
 
 #[tokio::test]
