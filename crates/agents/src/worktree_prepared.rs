@@ -321,3 +321,22 @@ impl Git {
             .map_err(|err| failed(format!("{err}; {instructions}")))
     }
 }
+
+impl Git {
+    /// FOP5978d: mark this Git as a Fork's, which never makes or removes a Worktree in a Project folder.
+    pub(crate) fn set_forked(&self) {
+        self.forked
+            .store(true, std::sync::atomic::Ordering::Relaxed);
+    }
+
+    /// FOP5978d: refuse a change to a Worktree of a Project folder the live App owns.
+    pub(super) fn refuse_in_fork(&self) -> Result<(), RpcError> {
+        if self.forked.load(std::sync::atomic::Ordering::Relaxed) {
+            return Err(RpcError::new(
+                rpc::code::INVALID_PARAMS,
+                "This is a Fork: it makes and removes no Worktree in a Project folder the live App owns.",
+            ));
+        }
+        Ok(())
+    }
+}

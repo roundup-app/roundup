@@ -1,5 +1,4 @@
 use super::*;
-use contracts::EventData;
 
 /// The `owner` of a `todo.create` or `todo.assign`.
 #[derive(serde::Deserialize)]
@@ -135,8 +134,33 @@ impl Daemon {
             .modules
             .get("rail")
             .ok_or_else(|| RpcError::method_not_found("rail.tree"))?;
-        rail.call_reply(&self.ctx(conn.actor.clone()), "rail.tree", Value::Null)
-            .await
+        let reply = rail
+            .call_reply(&self.ctx(conn.actor.clone()), "rail.tree", Value::Null)
+            .await?;
+        self.with_waiting(reply).await
+    }
+
+    /// DCL10: each Workstream's waiting count, read from the stored backlog on every reply. A
+    /// reply passes through untouched when no Door has one.
+    async fn with_waiting(&self, reply: rpc::Reply) -> Result<rpc::Reply, RpcError> {
+        let Some(messages) = self.sender.get() else {
+            return Ok(reply);
+        };
+        let counts = messages.waiting_counts().await?;
+        if counts.is_empty() {
+            return Ok(reply);
+        }
+        let mut nodes: Vec<contracts::agent::RailNode> = match reply {
+            rpc::Reply::Value(value) => serde_json::from_value(value),
+            rpc::Reply::Json(json) => serde_json::from_str(&json),
+        }
+        .map_err(RpcError::internal)?;
+        for node in &mut nodes {
+            if node.kind == contracts::agent::NodeKind::Workstream {
+                node.waiting = counts.get(&node.id).copied().filter(|n| *n > 0);
+            }
+        }
+        Ok(rpc::Reply::Value(rpc::reply(&nodes)?))
     }
 
     pub(crate) async fn route_inner(
@@ -261,77 +285,6 @@ impl Daemon {
                     "only a Door may choose visibility for its direct Agent children",
                 ));
             }
-            if p.visibility == contracts::agent::RailVisibility::Internal {
-                let messages: Vec<contracts::message::Message> = self
-                    .reader()
-                    .call("message", "message.list", json!({}), Actor::user())
-                    .await?;
-                let mut history = self.bus.subscribe_after(contracts::SubscribeParams {
-                    kept: true,
-                    after: None,
-                })?;
-                let mut events = Vec::new();
-                // The kept replay is already captured under the append lock. Stop at its head:
-                // visibility decides from this snapshot, never from later live Events.
-                if history.head() != 0 {
-                    loop {
-                        let event = history.next().await.ok_or_else(|| {
-                            RpcError::internal("retained Event replay closed before its head")
-                        })?;
-                        let at_head = event.seq == Some(history.head());
-                        events.push(event);
-                        if at_head {
-                            break;
-                        }
-                    }
-                }
-                let mut previous = None;
-                let mut resumed = None;
-                for event in &events {
-                    if let EventData::AgentStatus(status) = &event.data
-                        && status.id == p.id
-                        && Some(&status.attempt) == node.attempt.as_ref()
-                    {
-                        if status.status.kind == contracts::Kind::Working
-                            && previous != Some(contracts::Kind::Working)
-                        {
-                            resumed = Some((previous.and(event.seq), status.status.since));
-                        }
-                        previous = Some(status.status.kind);
-                    }
-                }
-                if messages.iter().any(|q| {
-                    q.kind == contracts::message::MessageKind::Question
-                        && q.from.kind == ActorKind::Agent
-                        && q.from.id == p.id
-                        && !messages.iter().any(|r| {
-                            r.reply_to == Some(q.id)
-                                && r.to == q.from.id
-                                && resumed.is_some_and(|(working_seq, since)| {
-                                    let reply_seq =
-                                        events.iter().find_map(|event| match &event.data {
-                                            EventData::MessageSent(message)
-                                                if message.id == r.id =>
-                                            {
-                                                event.seq
-                                            }
-                                            _ => None,
-                                        });
-                                    // Sequence order also proves resumption within one millisecond.
-                                    // Pruned reply history requires a strictly later working timestamp.
-                                    match (working_seq, reply_seq) {
-                                        (Some(working), Some(reply)) => working > reply,
-                                        _ => since > r.at,
-                                    }
-                                })
-                        })
-                }) {
-                    return Err(RpcError::new(
-                        code::INVALID_PARAMS,
-                        "outgoing question awaits a reply and resumed work",
-                    ));
-                }
-            }
         }
         let outcome = if method == "agent.spawn" && params["specialist"].is_string() {
             self.spawn_specialist(&conn.actor, params.clone()).await
@@ -340,26 +293,6 @@ impl Daemon {
                 .call(&self.ctx(conn.actor.clone()), method, params.clone())
                 .await
         };
-        if method == "message.send"
-            && let Ok(value) = &outcome
-        {
-            let message: contracts::message::Message =
-                serde_json::from_value(value.clone()).map_err(RpcError::internal)?;
-            if message.kind == contracts::message::MessageKind::Question
-                && message.from.kind == ActorKind::Agent
-                && self.rail().await?.iter().any(|node| {
-                    node.id == message.from.id && node.kind == contracts::agent::NodeKind::Agent
-                })
-            {
-                self.agents
-                    .call(
-                        &self.ctx(Actor::daemon()),
-                        "agent.setVisibility",
-                        json!({"id":message.from.id,"visibility":"shown"}),
-                    )
-                    .await?;
-            }
-        }
         if outcome.is_ok()
             && (method == "message.send"
                 || (method == "agent.signal" && params["payload"]["hook_event_name"] == "Stop"))

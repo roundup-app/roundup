@@ -79,9 +79,13 @@ fn r3696c_a_fresh_project_db_equals_the_migrated_one_with_its_own_identity() {
 
 // Real production prefixes; no owner data or copied migration inventory.
 fn saved_prefix() -> (tempfile::TempDir, Connection, usize) {
+    saved_prefix_behind(1)
+}
+
+fn saved_prefix_behind(behind: usize) -> (tempfile::TempDir, Connection, usize) {
     let dir = tempfile::tempdir().unwrap();
     let mut db = Connection::open(dir.path().join("project.db")).unwrap();
-    let prefix = migrations().len() - 1;
+    let prefix = migrations().len() - behind;
     Migrations::new(migrations()[..prefix].to_vec())
         .to_latest(&mut db)
         .unwrap();
@@ -97,7 +101,7 @@ fn saved_prefix() -> (tempfile::TempDir, Connection, usize) {
 fn saved_prefix_before_reactions_retire() -> (tempfile::TempDir, Connection, usize) {
     let dir = tempfile::tempdir().unwrap();
     let mut db = Connection::open(dir.path().join("project.db")).unwrap();
-    let prefix = migrations().len() - 2;
+    let prefix = migrations().len() - 3;
     Migrations::new(migrations()[..prefix].to_vec())
         .to_latest(&mut db)
         .unwrap();
@@ -120,7 +124,13 @@ fn saved_rows(db: &Connection) -> Vec<(i64, String, String, i64)> {
 
 #[test]
 fn n5809a_matching_project_upgrades_and_keeps_rows() {
-    let (dir, db, _) = saved_prefix();
+    for behind in [1, 7] {
+        matching_prefix_upgrades(behind);
+    }
+}
+
+fn matching_prefix_upgrades(behind: usize) {
+    let (dir, db, _) = saved_prefix_behind(behind);
     let rows = saved_rows(&db);
     drop(db);
     for _ in 0..2 {
@@ -140,7 +150,13 @@ fn n5809a_matching_project_upgrades_and_keeps_rows() {
 
 #[test]
 fn n5809b_divergent_project_names_column_without_changes() {
-    let (dir, db, prefix) = saved_prefix();
+    for behind in [1, 7] {
+        divergent_prefix_refuses(behind);
+    }
+}
+
+fn divergent_prefix_refuses(behind: usize) {
+    let (dir, db, prefix) = saved_prefix_behind(behind);
     db.execute_batch("ALTER TABLE nodes ADD COLUMN n5809_extra TEXT")
         .unwrap();
     let before = dump(&db);
@@ -643,8 +659,8 @@ async fn u5740c_current_project_drops_only_retired_tables() {
             ],
         )
     };
-    // A Daemon opens a project at most one migration behind, so 0046 runs here and the open adds 0047.
-    apply(&mut db, migrations()[..migrations().len() - 1].to_vec()).unwrap();
+    // 0046 runs here with the later migrations, so the open leaves the retained tables as they stand.
+    apply(&mut db, migrations()).unwrap();
     let before = retained(&db);
     drop(db);
     for _ in 0..2 {
@@ -716,12 +732,9 @@ fn json_definition(db: &Connection) -> String {
 #[test]
 fn u5740c_other_representations_are_unchanged_on_refusal() {
     let dir = tempfile::tempdir().unwrap();
-    let mut db = Connection::open(dir.path().join("project.db")).unwrap();
-    let prefix = migrations().len() - 3;
-    apply(&mut db, migrations()[..prefix].to_vec()).unwrap();
-    db.execute_batch(
-        "INSERT INTO nodes(id,kind,name,ord) VALUES(5900,'workstream','keep sentinel',3)",
-    )
+    let db = Connection::open(dir.path().join("project.db")).unwrap();
+    let prefix = 0;
+    db.execute_batch("CREATE TABLE nodes(id INTEGER PRIMARY KEY, kind TEXT, name TEXT, ord INTEGER); INSERT INTO nodes VALUES(5900,'workstream','keep sentinel',3)")
     .unwrap();
     let before = dump(&db);
     drop(db);

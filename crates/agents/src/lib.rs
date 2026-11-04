@@ -64,6 +64,11 @@ pub enum Observation {
     Title(String),
     /// The clock reached the time the adapter asked for (see `ClaudeCode::tick_at`).
     Tick,
+    /// DCL3: the processes under the Agent's program (`root`), or why they could not be read.
+    Processes {
+        root: u32,
+        table: Result<Vec<claude_code::background::Process>, String>,
+    },
     /// Roundup stopped the Agent's program on purpose.
     Stopped,
     /// The Agent's program ended. `None` when it was killed by a signal.
@@ -374,6 +379,8 @@ pub struct Agents {
     shared: Arc<Shared>,
     dir: PathBuf,
     launcher: Launcher,
+    /// FOP5978: the data folder is a Fork's.
+    forked: bool,
 }
 
 mod dispatch;
@@ -381,6 +388,8 @@ mod door;
 mod ending;
 mod events;
 mod import_work;
+mod jobs;
+pub use jobs::{JobStop, OpenJob};
 mod model_wiring;
 mod owners;
 mod rail_view;

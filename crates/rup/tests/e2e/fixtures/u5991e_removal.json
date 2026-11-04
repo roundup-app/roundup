@@ -1,0 +1,12 @@
+{
+  "fixtures": [
+    {
+      "match": {
+        "userMessage": "U5991E"
+      },
+      "response": {
+        "content": "Ready."
+      }
+    }
+  ]
+}

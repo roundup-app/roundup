@@ -13,6 +13,7 @@ pub(super) struct ScreenState {
     pub(super) rows: u16,
     /// X17: the program turned on mode 2031 and gets a notice when the scheme changes.
     pub(super) scheme_notices: bool,
+    pub(super) kitty: super::scheme::KittyScan,
     /// PS1–PS6: the records the program's reports made.
     pub(super) status: status::Mirror,
 }

@@ -6,7 +6,7 @@ import { byUrgency } from "../ink/glyph";
 
 export type { RailTopology } from "./topology";
 
-const IDLE_FOLD_MS = 5 * 60_000;
+const IDLE_FOLD_MS = 60_000;
 
 /** U403: what a folded Workstream shows at its right: the Kinds of the Agents below it, most urgent first, whose length is the Agent count. */
 export type Collapsed = { agents: readonly Kind[] };
@@ -22,10 +22,13 @@ export type RailView = {
   /** Workstreams whose idle branch the user opened. */
   unfolded: ReadonlySet<string | null>;
   now: number;
-  protected?: ReadonlySet<string>;
 };
 
 export const isWorkstream = (node: RailNode): boolean => node.kind === "workstream";
+
+/** U6119: an Agent whose parent is a Workstream is the Door's to handle, so it draws no unseen marker of its own. */
+export const isWorkstreamChild = (nodes: readonly RailNode[], node: RailNode): boolean =>
+  node.kind === "agent" && node.parent !== null && nodes.some((each) => each.id === node.parent && isWorkstream(each));
 
 /** U145's resolution: `selected` when it is a Workstream, else the nearest Workstream above it, else `null`. */
 export const resolvedWorkstream = (nodes: readonly RailNode[], selected: string | null): string | null => {
@@ -88,14 +91,11 @@ export const railOrder = (source: RailSource): RailNode[] => {
 };
 
 /** U403: the Kinds of the Agents below `id`, most urgent first. */
-export const agentKindsBelow = (source: RailSource, id: string, dismissed: (node: RailNode) => boolean = () => false): Kind[] =>
-  byUrgency(descendantsOf(source, id).flatMap((node) => (node.kind === "agent" && node.alert_level !== "quiet" && node.status && !dismissed(node) ? [node.status.kind] : [])));
+export const agentKindsBelow = (source: RailSource, id: string, dismissed: (node: RailNode) => boolean = () => false, settled: (node: RailNode) => boolean = () => false): Kind[] =>
+  byUrgency(descendantsOf(source, id).flatMap((node) => (node.kind === "agent" && node.alert_level !== "quiet" && node.status && !dismissed(node) && !settled(node) ? [node.status.kind] : [])));
 
 const isFoldedAgent = (node: RailNode, view: RailView): boolean =>
   node.kind === "agent" &&
-  !view.protected?.has(node.id) && node.work?.kind !== "clarification" &&
-  node.final_text?.kind === "empty" && node.final_text.attempt === node.attempt &&
-  node.final_text.finished === node.status?.finished &&
   (node.status?.kind === "done" || node.status?.kind === "idle" && view.now - node.status.since >= IDLE_FOLD_MS);
 
 /** Rows in tree order, with eligible Workstream children behind one reversible idle branch. */
@@ -140,6 +140,13 @@ export const layoutRail = (source: RailSource, view: RailView, section?: RailSec
     return [...nodeRows, ...foldRows];
   };
 
+  /** U5940a: a collapsed row counts only the children in progress, as its expanded Workstream shows them. */
+  const settledChild = (node: RailNode): boolean => {
+    const parent = node.parent === null ? undefined : tree.nodes[tree.index.get(node.parent) ?? -1];
+
+    return parent !== undefined && isWorkstream(parent) && node.visibility !== "internal" && isFoldedAgent(node, view);
+  };
+
   const rowsOfNode = (at: number, depth: number, trail: readonly boolean[]): RailRow[] => {
     const node = tree.nodes[at]!;
     const collapsed = (isWorkstream(node) || node.kind === "group") && view.collapsed.has(node.id);
@@ -148,7 +155,7 @@ export const layoutRail = (source: RailSource, view: RailView, section?: RailSec
     const row: RailRow = {
       kind: "node", key: `node:${node.id}`, depth, node, trail,
       children: below.length > 0,
-      collapsed: collapsed ? { agents: agentKindsBelow(tree, node.id) } : null,
+      collapsed: collapsed ? { agents: agentKindsBelow(tree, node.id, undefined, settledChild) } : null,
     };
 
     return [row, ...below];

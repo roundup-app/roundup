@@ -401,7 +401,7 @@ async fn m7_run_validation_keeps_x11_errors_for_an_agent() {
 impl World {
     async fn prompt_child(&self) -> String {
         let node = self.call(agent(&self.door), "agent.spawn", json!({
-            "cwd": self.f.dir.path(),
+            "cwd": self.f.dir.path(), "role": "job",
             "prompt": "  private instructions\nfor this Workstream only\n",
             "order": {"kind": "work", "ask": "read the instructions", "done": "instructions read", "limits": []}
         })).await.unwrap();
@@ -454,8 +454,8 @@ async fn m7_a_spawn_prompt_is_readable_by_self_reach_user_or_extension() {
             .await
             .unwrap();
         assert_eq!(
-            prompt,
-            json!({"prompt": "  private instructions\nfor this Workstream only\n"})
+            prompt["prompt"],
+            json!("  private instructions\nfor this Workstream only\n")
         );
     }
 }

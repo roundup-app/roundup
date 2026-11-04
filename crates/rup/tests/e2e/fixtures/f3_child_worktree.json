@@ -35,7 +35,7 @@
           {
             "id": "toolu_f3_spawn",
             "name": "mcp__roundup__agent_spawn",
-            "arguments": "{\"cwd\": \".\", \"order\": {\"kind\": \"work\", \"title\": \"Child work\", \"ask\": \"do it\", \"done\": \"the work is complete\", \"limits\": []}, \"parent\": \"999\"}"
+            "arguments": "{\"role\": \"job\", \"cwd\": \".\", \"order\": {\"kind\": \"work\", \"title\": \"Child work\", \"ask\": \"do it\", \"done\": \"the work is complete\", \"limits\": []}, \"parent\": \"999\"}"
           }
         ]
       }

@@ -1,3 +1,5 @@
+import { useTodoList } from "../todos/todoList";
+import { usePadList } from "./pads/padList";
 import { createAgentPads } from "./pads/AgentPads";
 import { createMove, MovePicker } from "./MovePicker";
 import { WorkProgress } from "../orders/WorkProgress";
@@ -67,6 +69,9 @@ export const Rail = () => {
 
   const moveAgent = createMove(connected, id => rowElement(id));
 
+  const knownTodos = useTodoList();
+  const knownPads = usePadList();
+
   const menu = createRailMenu(app, rail, failure.show, failure.acknowledge, connected.drafts, (id) => {
     setEditingName(id);
   }, connected.queue, node => {
@@ -95,7 +100,7 @@ export const Rail = () => {
       ] },
         ...(rail.exitOf(node) !== null && !connected.queue.entryOf(node.id) ? [{ id: "start", label: rail.doorFailure(node.id) ? copy.retryDoor : copy.startDoor, enabled: !rail.doorPending(node.id), run: () => { failure.clear(); rail.clearWorkstreamFailure(); void rail.startDoor(node.id); } }] : [])] : []),
     ];
-  }, id => copied.get(id));
+  }, id => copied.get(id), () => knownTodos.isLoaded() && !knownTodos.failure() && knownPads.loaded() && !knownPads.failure() ? { todos: knownTodos.all(), pads: knownPads.pads() } : null);
 
 
   const [wanted, setWanted] = createSignal<{ id: string; focus: ReturnType<typeof captureFocus> } | null>(null);
@@ -205,7 +210,18 @@ export const Rail = () => {
     const ancestors = id.startsWith("fold:") ? [id.slice(5).replace(/^internal:/, ""), ...ancestorsOf(topology(), id.slice(5).replace(/^internal:/, ""))] : ancestorsOf(topology(), id);
     const parent = ancestors.find(ancestor => current.some(row => row.kind === "node" && row.node.id === ancestor));
 
-    if (!parent) return;
+    if (!parent) {
+      // U5991a: a row that left at once takes its focus with it; the first row left keeps the Rail's key history.
+      queueMicrotask(() => {
+        const active = document.activeElement;
+
+        // Focus already moved to a surviving row (the removal's own advance): leave it.
+        if (active instanceof HTMLElement && active !== document.body && container()?.contains(active) && active.isConnected) return;
+        container()?.querySelector<HTMLElement>(ROW)?.focus();
+      });
+
+      return;
+    }
 
     const branch = id.startsWith("fold:") ? undefined : current.find(row => row.kind === "fold" && row.parent === parent &&
       row.group === (rail.nodes.find(node => node.id === id)?.visibility === "internal" ? "internal" : "idle"));

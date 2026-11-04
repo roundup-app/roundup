@@ -31,7 +31,7 @@ it("u3530a_terminal_scrollbar_tracks_scrollable_content", async () => {
   await page.load("/harness.html?view=workstreams&items=1&tabs=1&seed=door-stopped");
   await page.until("() => Boolean(window.__fake && document.querySelector('.terminal-new'))");
   await page.call("() => document.querySelector('.terminal-new').click()");
-  await page.until("() => Boolean(document.querySelector('.bubble:not([hidden]) .xterm-scrollable-element .slider'))");
+  await page.until("() => Boolean(document.querySelector('.bubble:not([hidden]) .xterm-scrollable-element .xterm-slider'))");
 
   const rows = await page.call<number>(`() => {
     window.scrollbarTerminal = [...window.__terminals.keys()].at(-1);
@@ -41,7 +41,7 @@ it("u3530a_terminal_scrollbar_tracks_scrollable_content", async () => {
   const point = await page.call<{ x: number; y: number }>(`() => {
     const box = document.querySelector('.bubble:not([hidden]) .xterm-screen').getBoundingClientRect();
     window.thumbVisible = () => {
-      let el = document.querySelector('.bubble:not([hidden]) .scrollbar.vertical .slider');
+      let el = document.querySelector('.bubble:not([hidden]) .xterm-scrollbar.xterm-vertical .xterm-slider');
       if (!el || !el.getBoundingClientRect().height) return false;
       while (el) {
         const style = getComputedStyle(el);

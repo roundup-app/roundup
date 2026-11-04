@@ -23,6 +23,8 @@ pub(crate) enum Request {
     Ask(Query),
     /// Mode 2031: the program does (true) or does not (false) want a notice on each scheme change.
     Notices(bool),
+    /// U5984: a Kitty graphics query with this image id.
+    Kitty(u32),
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -70,10 +72,80 @@ impl Palette {
     }
 }
 
-/// XTVERSION: claims iTerm2 so programs pick their iTerm2 paths (images, no xterm.js wheel handling).
+/// XTVERSION: names roundup, never another terminal, so a program takes only the paths the Terminal draws.
 /// It needs no scheme, so it is answered before the App sets one.
 pub(crate) fn version() -> Vec<u8> {
-    b"\x1bP>|iTerm2 3.5.0\x1b\\".to_vec()
+    b"\x1bP>|roundup\x1b\\".to_vec()
+}
+
+/// U5984: the Daemon answers a Kitty graphics query (`ESC _ G ... a=q ... ESC \`) in the stream's
+/// order, so its `OK` reaches the program before DA1's reply; the App's emulator draws the images.
+pub(crate) fn kitty_ok(id: u32) -> Vec<u8> {
+    format!("\x1b_Gi={id};OK\x1b\\").into_bytes()
+}
+
+#[derive(Default)]
+enum Apc {
+    #[default]
+    Ground,
+    Escape,
+    Body,
+    BodyEscape,
+}
+
+/// Finds Kitty graphics queries across chunk boundaries, keeping only each command's control keys.
+#[derive(Default)]
+pub(crate) struct KittyScan {
+    phase: Apc,
+    keys: Vec<u8>,
+    payload: bool,
+}
+
+const KEYS_MAX: usize = 128;
+
+impl KittyScan {
+    pub(crate) fn feed(&mut self, bytes: &[u8], out: &mut Vec<Request>) {
+        for &byte in bytes {
+            self.phase = match (&self.phase, byte) {
+                (Apc::Ground | Apc::Escape, 0x1b) => Apc::Escape,
+                (Apc::Escape, b'_') => {
+                    self.keys.clear();
+                    self.payload = false;
+                    Apc::Body
+                }
+                (Apc::Body | Apc::BodyEscape, 0x1b) => Apc::BodyEscape,
+                (Apc::BodyEscape, b'\\') => {
+                    out.extend(self.finish());
+                    Apc::Ground
+                }
+                (Apc::Body | Apc::BodyEscape, byte) => {
+                    if byte == b';' || self.keys.len() >= KEYS_MAX {
+                        self.payload = true;
+                    }
+                    if !self.payload {
+                        self.keys.push(byte);
+                    }
+                    Apc::Body
+                }
+                _ => Apc::Ground,
+            };
+        }
+    }
+
+    fn finish(&mut self) -> Option<Request> {
+        let keys = std::mem::take(&mut self.keys);
+        let rest = keys.strip_prefix(b"G")?;
+        let mut query = false;
+        let mut id = 0u32;
+        for pair in rest.split(|byte| *byte == b',') {
+            match pair {
+                b"a=q" => query = true,
+                [b'i', b'=', digits @ ..] => id = std::str::from_utf8(digits).ok()?.parse().ok()?,
+                _ => {}
+            }
+        }
+        query.then_some(Request::Kitty(id))
+    }
 }
 
 fn osc_colour(code: u8, [r, g, b]: [u8; 3]) -> Vec<u8> {
@@ -123,5 +195,20 @@ pub(crate) fn from_csi(
             Some(Request::Notices(last == 'h'))
         }
         _ => None,
+    }
+}
+
+#[cfg(test)]
+mod kitty_tests {
+    use super::*;
+
+    #[test]
+    fn a_query_split_across_chunks_is_found_and_a_transfer_is_not() {
+        let mut scan = KittyScan::default();
+        let mut out = Vec::new();
+        scan.feed(b"x\x1b_Gi=31,s=1,v=1,a", &mut out);
+        scan.feed(b"=q,t=d,f=24;AAAA\x1b", &mut out);
+        scan.feed(b"\\\x1b_Ga=T,i=2,f=100;a=q\x1b\\", &mut out);
+        assert!(matches!(out.as_slice(), [Request::Kitty(31)]));
     }
 }

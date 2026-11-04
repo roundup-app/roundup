@@ -73,7 +73,7 @@ pub(super) fn read(
                 offset,
                 bytes: Arc::from(&chunk[..read]),
             });
-            let seen = match parsed {
+            let mut seen = match parsed {
                 Some(Ok(seen)) => {
                     for request in &seen.requests {
                         if let scheme::Request::Notices(on) = request {
@@ -89,6 +89,7 @@ pub(super) fn read(
                 }
                 None => Seen::default(),
             };
+            state.kitty.feed(&chunk[..read], &mut seen.requests);
             (seen, reported)
         };
         if shared.answer_status_query.load(Ordering::Relaxed) && !reported.reply.is_empty() {
@@ -147,6 +148,7 @@ impl Shared {
                 scheme::Request::Ask(scheme::Query::Version) => Some(scheme::version()),
                 scheme::Request::Ask(query) => palette.map(|palette| palette.answer(*query)),
                 scheme::Request::Notices(_) => None,
+                scheme::Request::Kitty(id) => Some(scheme::kitty_ok(*id)),
             })
             .flatten()
             .collect();

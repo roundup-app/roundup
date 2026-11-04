@@ -120,10 +120,16 @@ pub async fn start(
     }
     // The drain ends when the pipe closes; if it does not, the tail is as complete as it will get.
     let _ = timeout(STDERR_DRAIN_BOUND, drain).await;
-    Err(RpcError::internal(format!(
-        "rupd {failure}; its last stderr lines:\n{}",
-        tail.text()
-    )))
+    Err(RpcError::internal(failure_text(&failure, &tail.text())))
+}
+
+/// The error's first line is all the App shows, so it leads with the Daemon's last stderr line
+/// (its cause) and then the failure; the whole tail follows on the lines after it (S6123a).
+fn failure_text(failure: &str, tail: &str) -> String {
+    match tail.lines().rev().find(|line| !line.trim().is_empty()) {
+        Some(last) => format!("{}; rupd {failure}\n{tail}", last.trim()),
+        None => format!("rupd {failure}"),
+    }
 }
 
 /// Sent to `watch_exit` to end the Daemon by SIGKILL, which runs none of its stop (S5981a); the
@@ -210,6 +216,24 @@ async fn drain(stderr: ChildStderr, tail: StderrTail) {
 #[cfg(test)]
 pub(crate) mod tests {
     use std::path::Path;
+
+    #[test]
+    fn s6123a_first_line_leads_with_the_last_stderr_line() {
+        let failure = "exited before it answered (exit code 1)";
+        let refusal = "rupd: refusing to start: x: Local data is incompatible with this build.";
+        let tail = format!("warming up\n{refusal}");
+        let text = super::failure_text(failure, &tail);
+        let first = text.lines().next().unwrap();
+        assert!(
+            first.contains(refusal) && first.contains("exit code 1"),
+            "{first}"
+        );
+        assert!(text.contains(&tail));
+
+        let empty = super::failure_text(failure, "");
+        assert!(empty.contains("exit code 1") && !empty.contains("stderr lines"));
+        assert_eq!(empty.lines().count(), 1);
+    }
 
     // Keep attempted launches at the audited Daemon owner, using only the caller's temp folder.
     pub(crate) fn refuse_missing_executable(

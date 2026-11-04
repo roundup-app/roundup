@@ -57,6 +57,7 @@ fn load_with<T>(
                 NodeKind::Group => None,
             };
             let node = RailNode {
+                waiting: None,
                 start_attribution: row
                     .get_ref(19)?
                     .as_str_or_null()?
@@ -189,6 +190,14 @@ impl Rail {
                 params![prompt, id],
             )
             .map(|changed| changed != 0)
+            .map_err(sql)
+    }
+
+    /// FOP5978b: turn every Auto off.
+    pub(crate) fn clear_all_auto(&mut self) -> Result<(), RpcError> {
+        self.db
+            .execute("UPDATE nodes SET auto=0 WHERE auto!=0", [])
+            .map(|_| ())
             .map_err(sql)
     }
 

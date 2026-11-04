@@ -37,6 +37,9 @@ export type RailState = {
   commandFailure: ReturnType<typeof createItemFailure>;
   /** Rows in the Daemon's order; only a `rail.tree` call adds or removes one. */
   readonly nodes: readonly RailNode[];
+  /** U5991a: take rows off the Rail at once; `unhide` returns whatever the Daemon still holds. */
+  hide(ids: readonly string[]): void;
+  unhide(ids: readonly string[]): void;
   /** One structural index shared by selection and every mounted Rail projection. */
   topology(): RailTopology;
   /** U5483c: latest accepted working start in milliseconds; retained across Project connections for the same Attempt. */
@@ -128,7 +131,10 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
 
   // Solid tracks membership and structural fields, including reconciled in-place edits.
   // Status, selection, disclosure, questions and clocks never enter this memo.
-  const topology = createMemo(() => railTopology(model.tree));
+  // U5991a: rows a Rail action removed before its call answered; the Daemon's reply or failure lifts the hold.
+  const [hidden, setHidden] = createSignal<ReadonlySet<string>>(new Set());
+  const view = createMemo(() => hidden().size === 0 ? model.tree : model.tree.filter(node => !hidden().has(node.id)));
+  const topology = createMemo(() => railTopology(view()));
 
   const [resumed, setResumed] = createStore<Parameters<ResumptionStorage["write"]>[0]>(resumptions?.read() ?? {});
 
@@ -482,8 +488,10 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
     clearWorkstreamFailure: () => commandFailure.acknowledge(null),
     topology,
     get nodes() {
-      return model.tree;
+      return view();
     },
+    hide: ids => setHidden(rows => new Set([...rows, ...ids])),
+    unhide: ids => setHidden(rows => new Set([...rows].filter(id => !ids.includes(id)))),
     exitOf: (node) => {
       if (node.terminal_id === null) return { kind: "unknown" };
 

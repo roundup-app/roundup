@@ -33,7 +33,6 @@ export const copy = {
     ? value2 === 1 ? "1 needs you; 1 has an error." : `1 needs you; ${value2} have errors.`
     : value2 === 1 ? `${value1} need you; 1 has an error.` : `${value1} need you; ${value2} have errors.`,
   copied: sharedCopy.copied,
-  copy: sharedCopy.copy,
   comma: sharedCopy.comma,
   runningAgents: (count: number, verb: string, names: string, more: string) => `${count} ${verb}: ${names}${more}.`,
   unreadResult: sharedCopy.unreadResult,

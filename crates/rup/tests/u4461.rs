@@ -22,7 +22,7 @@ async fn u4461_remove_all_stops_and_removes_a_running_agent_with_its_todos_and_p
         )
         .await
         .unwrap();
-    let nested = child_client.request("agent.spawn", json!({"cwd":project.dir.path(),"parent":agent,"prompt":"nested", "order":{"kind":"work","ask":"nested","limits":[]}})).await.unwrap()["id"].as_str().unwrap().to_owned();
+    let nested = child_client.request("agent.spawn", json!({"cwd":project.dir.path(),"parent":agent,"prompt":"nested", "role":"job","order":{"kind":"work","ask":"nested","limits":[]}})).await.unwrap()["id"].as_str().unwrap().to_owned();
     let open = todo_in(&client, "open", Some(&ws), false).await;
     let done = todo_in(&client, "done", Some(&ws), true).await;
     pad_in(&client, "owned", &ws, Some(&agent)).await;

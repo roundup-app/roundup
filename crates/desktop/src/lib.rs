@@ -5,6 +5,8 @@ mod config;
 mod daemon;
 mod diagnostics;
 mod facts;
+mod fork;
+mod fork_app;
 #[cfg(any(test, feature = "idle-perf"))]
 mod idle;
 mod launch;
@@ -48,6 +50,7 @@ fn build_with_feedback<R: Runtime>(
     project_dir: Option<PathBuf>,
     feedback: impl Fn(&AppHandle<R>, String, Option<i32>) + Send + 'static,
 ) -> Builder<R> {
+    let data_dir = config.data_dir.clone();
     let builder = builder.manage(std::sync::Mutex::new(launch::Delivery::default()));
     #[cfg(target_os = "macos")]
     let builder = builder
@@ -73,6 +76,7 @@ fn build_with_feedback<R: Runtime>(
                 .build(),
         )
         .plugin(window::plugin())
+        .manage(fork_app::Identity::of(config.data_dir.as_deref()))
         .manage(AppState::new(config))
         .manage(menu::Choice::default())
         .manage(menu::ProjectMenu::default())
@@ -84,6 +88,7 @@ fn build_with_feedback<R: Runtime>(
             app.manage(std::sync::Arc::new(alert::Alerts::new(Box::new(
                 alert::Plugin(app.handle().clone()),
             ))));
+            show_fork(app, data_dir.as_deref());
             #[cfg(target_vendor = "apple")]
             native::project_menu_hints(app.handle(), Vec::new())?;
             let state = app.state::<AppState>();
@@ -133,6 +138,26 @@ fn build_with_feedback<R: Runtime>(
         })
 }
 
+/// FA5980c, FA5980d: a Fork App sets its own Dock icon and window title; the live App sets neither.
+fn show_fork<R: Runtime>(app: &mut tauri::App<R>, data_dir: Option<&Path>) {
+    let identity = app.state::<fork_app::Identity>();
+    let Some(fork) = identity.0.clone() else {
+        return;
+    };
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.set_title(&fork_app::window_title(Some(&fork.name), "roundup"));
+    }
+    #[cfg(not(target_vendor = "apple"))]
+    let _ = data_dir;
+    #[cfg(target_vendor = "apple")]
+    if let Some(png) = data_dir
+        .and_then(fork_app::fork_icon)
+        .and_then(|image| fork_app::png(&image))
+    {
+        native::set_application_icon(&png);
+    }
+}
+
 fn invoke_handler<R: Runtime>() -> impl Fn(tauri::ipc::Invoke<R>) -> bool + Send + Sync + 'static {
     let handler: fn(tauri::ipc::Invoke<R>) -> bool = tauri::generate_handler![
         launch::native_open,
@@ -144,6 +169,8 @@ fn invoke_handler<R: Runtime>() -> impl Fn(tauri::ipc::Invoke<R>) -> bool + Send
         canonical_project_path,
         close_project,
         exit_for_update,
+        fork_branch,
+        fork_make,
         rename_project,
         rpc,
         subscribe,
@@ -282,6 +309,48 @@ async fn exit_for_update<R: Runtime>(
         app.exit(0);
     });
     Ok(())
+}
+
+/// FS5979: the branch the live App's source checkout is on.
+#[tauri::command]
+async fn fork_branch() -> Result<String, RpcError> {
+    tokio::task::spawn_blocking(|| fork::branch(&fork::checkout()))
+        .await
+        .map_err(RpcError::internal)
+}
+
+/// FS5979: makes the Fork with `data.fork` through an open Project's Daemon, then starts the branch's App on it.
+#[tauri::command]
+async fn fork_make(
+    state: State<'_, AppState>,
+    name: String,
+    colour: contracts::data::ForkColour,
+    projects: Vec<fork::Pick>,
+) -> Result<(), RpcError> {
+    let home = update::home().ok_or_else(|| RpcError::internal("no home folder for the Fork"))?;
+    let live = state
+        .projects()?
+        .into_iter()
+        .find(|listed| listed.running)
+        .ok_or_else(|| RpcError::internal("open a Project to fork"))?;
+    let first = projects
+        .first()
+        .map(|pick| pick.key.clone())
+        .ok_or_else(|| RpcError::new(rpc::code::INVALID_PARAMS, "tick at least one Project"))?;
+    let folder = fork::fork_path(&home, &name);
+    let params = fork::params(name, colour, &projects, &folder)?;
+    let reply = state
+        .rpc(&live.path, "data.fork", serde_json::json!(params))
+        .await?;
+    serde_json::from_value::<contracts::data::ForkResult>(reply).map_err(RpcError::internal)?;
+    // FA5980b: a failed make leaves no bundle and does not stop the Fork from opening plain.
+    if let Err(error) = std::env::current_exe()
+        .map_err(|error| error.to_string())
+        .and_then(|binary| fork_app::make(&folder, &binary))
+    {
+        log::warn!("make the Fork's .app: {error}");
+    }
+    fork::open(&fork::checkout(), &folder, &first)
 }
 
 #[tauri::command]

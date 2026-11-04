@@ -11,8 +11,8 @@ mod alert;
 pub use alert::{AlertLevel, SetAlertLevelParams};
 mod launch;
 pub use launch::{
-    CreateWorkstreamParams, Extras, ExtrasAddParams, PermissionMode, SpawnParams, StartAttribution,
-    StartDoorParams,
+    CreateWorkstreamParams, Extras, ExtrasAddParams, PermissionMode, SpawnParams, SpawnRole,
+    StartAttribution, StartDoorParams,
 };
 
 /// Parse the wire ordinal without accepting aliases such as leading zeroes or signs.
@@ -456,28 +456,23 @@ pub struct RailNode {
     /// saved conversation that is no child of a Workstream, running or exited.
     #[serde(default)]
     pub can_make_workstream: bool,
-    /// A5287: true exactly when `agent.saveAsMode` would not refuse the node: an Agent roundup
-    /// started.
+    /// A5287: true exactly when `agent.saveAsMode` would not refuse the node: an Agent roundup started.
     #[serde(default)]
     pub can_save_as_mode: bool,
     /// Permission prompts are off for the last acknowledged Attempt; cleared on reopen.
     #[serde(default)]
     pub yolo: bool,
-    /// E6: whether the Agent's `rup mcp` has reported to the Daemon. `None` for a Workstream that is
-    /// no Door, a Terminal, and an Agent with no live Terminal.
+    /// E6: whether the Agent's `rup mcp` has reported to the Daemon. `None` for a Workstream that is no Door, a Terminal, and an Agent with no live Terminal.
     pub channel: Option<Channel>,
-    /// O1: the order of an Agent or a Workstream's Door; `None` for a Terminal. Named `work` because
-    /// `order` is the position among siblings.
+    /// O1: the order of an Agent or a Workstream's Door; `None` for a Terminal. Named `work` because `order` is the position among siblings.
     pub work: Option<Order>,
-    /// F5: processes in a Door's Terminal tree that carry a vendor program's name and that the
-    /// Daemon did not register. Empty for every other node, and for a Door with none.
+    /// F5: processes in a Door's Terminal tree that carry a vendor program's name and that the Daemon did not register. Empty for every other node, and for a Door with none.
     pub stray: Vec<Stray>,
     /// A36: the Model the Agent runs on; `None` passes none. `None` for a Terminal.
     pub model: Option<String>,
     /// A36: the Effort the Agent runs on; `None` passes none. `None` for a Terminal.
     pub effort: Option<String>,
-    /// B51: whether the Claude inbox a `note` is written to is usable, from the Agent's latest
-    /// check; absent before the first check and on a Terminal.
+    /// B51: whether the Claude inbox a `note` is written to is usable, from the Agent's latest check; absent before the first check and on a Terminal.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[specta(optional, type = Inbox)]
     pub inbox: Option<Inbox>,
@@ -485,6 +480,10 @@ pub struct RailNode {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[specta(optional, type = ToolCall)]
     pub tool_call: Option<ToolCall>,
+    /// DCL10: on a Workstream, the changes its Door has not received (stored backlog); absent when none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[specta(optional, type = u32)]
+    pub waiting: Option<u32>,
     /// A2681a: available conversation parts, only after the Agent's program exits.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[specta(optional, type = ConversationOverview)]
@@ -974,10 +973,14 @@ pub struct ToolCallEvent {
     pub call: ToolCall,
 }
 
-/// The existing optional first prompt returned by agent.spawnPrompt.
+/// The optional first prompt and role an Agent's spawn gave, returned by agent.spawnPrompt.
 #[derive(Serialize, Deserialize, Type, JsonSchema)]
 pub struct SpawnPrompt {
     pub prompt: Option<String>,
+    /// DCL9: the role the spawning Agent gave; absent for the user's own Agents.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[specta(optional, type = SpawnRole)]
+    pub role: Option<SpawnRole>,
 }
 
 /// U5531a: presentation only; never changes execution or Home.

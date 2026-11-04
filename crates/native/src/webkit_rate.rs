@@ -187,6 +187,10 @@ pub(crate) mod tests {
     pub(crate) fn run() {
         let tests: &[(&str, fn())] = &[
             (
+                "u5959a_looks_past_the_last_item_are_ignored",
+                crate::rows::tests::u5959a_looks_past_the_last_item_are_ignored,
+            ),
+            (
                 "u5503_native_dock_menu_dispatches_the_chosen_action",
                 crate::dock::tests::u5503_native_dock_menu_dispatches_the_chosen_action,
             ),

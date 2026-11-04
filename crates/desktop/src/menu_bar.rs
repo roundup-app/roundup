@@ -6,9 +6,11 @@
 use std::collections::HashMap;
 use std::sync::Mutex;
 
+use contracts::data::ForkColour;
 use rpc::RpcError;
 use serde::{Deserialize, Serialize};
 use tauri::image::Image;
+#[cfg(not(target_os = "macos"))]
 use tauri::menu::{Menu, MenuItem};
 use tauri::tray::{MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::{AppHandle, Emitter, Manager, Runtime};
@@ -162,10 +164,11 @@ impl Dispatch {
     }
 }
 
-/// The one-line title: native rows replace it with line one; other platforms show both lines.
-fn title(entry: &Entry) -> String {
-    match (&entry.subtitle, cfg!(target_os = "macos")) {
-        (Some(subtitle), false) => format!("{} · {subtitle}", entry.label),
+/// The one-line title: the tray's native rows replace it with line one; other platforms
+/// and the Dock, which draws only a plain title, show both lines.
+fn title(entry: &Entry, two_lines: bool) -> String {
+    match &entry.subtitle {
+        Some(subtitle) if !two_lines => format!("{} · {subtitle}", entry.label),
         _ => entry.label.clone(),
     }
 }
@@ -230,6 +233,13 @@ fn deliver<R: Runtime>(app: &AppHandle<R>, action: &Action) {
         crate::diagnostics::failure("open native menu selection", &error);
     }
 }
+/// FA5980d: the mark and whether it is a template: the live mark is, a Fork's is drawn in its colour.
+fn presented(mark: Mark, fork: Option<ForkColour>) -> (Image<'static>, bool) {
+    match fork {
+        Some(colour) => (crate::fork_app::tint(&image(mark), colour), false),
+        None => (image(mark), true),
+    }
+}
 
 #[tauri::command]
 pub(crate) fn set_menu_bar<R: Runtime>(
@@ -239,30 +249,37 @@ pub(crate) fn set_menu_bar<R: Runtime>(
     let holder = app.state::<MenuBar<R>>();
     let mut dispatch = holder.dispatch.lock().expect("menu-bar lock");
     let next = dispatch.replacement(&menu.entries);
-    let native = Menu::new(&app).map_err(internal)?;
-    for (index, entry) in menu.entries.iter().enumerate() {
-        let item = MenuItem::with_id(
-            &app,
-            entry
+    let rows: Vec<(String, String, bool)> = menu
+        .entries
+        .iter()
+        .enumerate()
+        .map(|(index, entry)| {
+            let id = entry
                 .action
                 .as_ref()
-                .map_or_else(|| format!("menu-bar:head:{index}"), action_id),
-            title(entry),
-            entry.action.is_some(),
-            None::<&str>,
-        )
-        .map_err(internal)?;
-        native.append(&item).map_err(internal)?;
-    }
-    if let Some(tray) = app.tray_by_id(TRAY) {
-        tray.set_menu(Some(native)).map_err(internal)?;
-        tray.set_icon(Some(image(menu.mark))).map_err(internal)?;
-        tray.set_icon_as_template(true).map_err(internal)?;
-    } else {
-        TrayIconBuilder::with_id(TRAY)
-            .icon(image(menu.mark))
-            .icon_as_template(true)
-            .menu(&native)
+                .map_or_else(|| format!("menu-bar:head:{index}"), action_id);
+            (
+                id,
+                title(entry, cfg!(target_os = "macos")),
+                entry.action.is_some(),
+            )
+        })
+        .collect();
+    let fork = app
+        .state::<crate::fork_app::Identity>()
+        .0
+        .as_ref()
+        .map(|fork| fork.colour);
+    let (shown, template) = presented(menu.mark, fork);
+    let tray = match app.tray_by_id(TRAY) {
+        Some(tray) => {
+            tray.set_icon(Some(shown.clone())).map_err(internal)?;
+            tray.set_icon_as_template(template).map_err(internal)?;
+            tray
+        }
+        None => TrayIconBuilder::with_id(TRAY)
+            .icon(shown)
+            .icon_as_template(template)
             .show_menu_on_left_click(true)
             .on_menu_event(|app, event| chosen(app, event.id().as_ref()))
             .on_tray_icon_event(|tray, event| {
@@ -280,12 +297,23 @@ pub(crate) fn set_menu_bar<R: Runtime>(
                 }
             })
             .build(&app)
-            .map_err(internal)?;
+            .map_err(internal)?,
+    };
+    #[cfg(target_os = "macos")]
+    native::set_tray_menu(&tray, rows, looks(&menu.entries, provenance::now_ms()))
+        .map_err(internal)?;
+    #[cfg(not(target_os = "macos"))]
+    {
+        let native = Menu::new(&app).map_err(internal)?;
+        for (id, title, enabled) in rows {
+            let item =
+                MenuItem::with_id(&app, id, title, enabled, None::<&str>).map_err(internal)?;
+            native.append(&item).map_err(internal)?;
+        }
+        tray.set_menu(Some(native)).map_err(internal)?;
     }
     *dispatch = next;
     drop(dispatch);
-    #[cfg(target_os = "macos")]
-    style_tray(&app, &menu.entries);
     *holder.entries.lock().expect("menu-bar entries lock") = menu.entries;
     *holder.dock.lock().expect("Dock presentation lock") = menu.dock;
     #[cfg(target_os = "macos")]
@@ -318,13 +346,11 @@ fn install_dock<R: Runtime>(app: &AppHandle<R>) -> Result<(), RpcError> {
                         .clone();
                     entries
                         .iter()
-                        .zip(looks(&entries, provenance::now_ms()))
-                        .map(|(entry, look)| native::Row {
-                            title: title(entry),
+                        .map(|entry| native::Row {
+                            title: title(entry, false),
                             action: entry.action.as_ref().map(|action| {
                                 serde_json::to_string(action).expect("menu action serializes")
                             }),
-                            look,
                         })
                         .collect()
                 },
@@ -459,6 +485,26 @@ mod tests {
     }
 
     #[test]
+    fn fa5980d_a_fork_mark_is_coloured_and_the_live_mark_a_template() {
+        let (live, template) = presented(Mark::Ready, None);
+        assert!(template);
+        assert_eq!(live.rgba(), image(Mark::Ready).rgba());
+        for colour in [ForkColour::Red, ForkColour::Teal, ForkColour::Pink] {
+            let (fork, template) = presented(Mark::Ready, Some(colour));
+            assert!(!template);
+            let want = crate::fork_app::accent(colour);
+            let opaque: Vec<_> = fork
+                .rgba()
+                .as_chunks::<4>()
+                .0
+                .iter()
+                .filter(|p| p[3] > 0)
+                .collect();
+            assert!(!opaque.is_empty() && opaque.iter().all(|p| p[..3] == want));
+        }
+    }
+
+    #[test]
     fn u5959a_heads_are_native_section_headers() {
         assert_eq!(
             looks(&[row(None, true, None), row(None, false, None)], 0),
@@ -478,6 +524,17 @@ mod tests {
         };
         assert_eq!(subtitle, "question · api");
         assert_eq!(badge.as_deref(), Some("2m"));
+    }
+
+    #[test]
+    fn u5959c_dock_rows_are_plain_label_and_subtitle_titles() {
+        assert_eq!(
+            title(&row(Some(State::Ready), false, Some(0)), false),
+            "Ada · question · api"
+        );
+        let mut bare = row(Some(State::Ready), false, None);
+        bare.subtitle = None;
+        assert_eq!(title(&bare, false), "Ada");
     }
 
     #[test]

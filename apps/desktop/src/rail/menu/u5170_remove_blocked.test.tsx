@@ -48,8 +48,21 @@ it("u5170a_remove_renamed_workstream_sends_rail_remove", async () => {
   expect(removes()).toBe(1);
 });
 
-it.each(["hold", "lose", "offline"] as const)("u5170a_blocked_remove_says_what_blocks_it_%s", async mode => {
-  const { undo, removes, release } = harness(mode);
+it("u5991b_a_removal_behind_a_pending_one_queues_instead_of_refusing", async () => {
+  const { undo, removes, release } = harness("hold");
+  const first = undo.removeRail("a", "First", "rail");
+  const second = undo.removeRail("b", "Second", "rail");
+  await new Promise(resolve => setTimeout(resolve, 0));
+  expect(removes()).toBe(1);
+  release();
+  expect(await first).toBe(false);
+  // The first call's outcome is unknown, so the queued second one waits for it and then meets U5170a's gate.
+  expect(await second).toBe(false);
+  expect(removes()).toBe(1);
+});
+
+it.each(["lose", "offline"] as const)("u5170a_blocked_remove_says_what_blocks_it_%s", async mode => {
+  const { undo, removes } = harness(mode);
   const first = undo.removeRail("a", "First", "rail");
   await Promise.resolve();
   expect(await undo.removeRail("b", "Second", "rail")).toBe(false);
@@ -57,7 +70,6 @@ it.each(["hold", "lose", "offline"] as const)("u5170a_blocked_remove_says_what_b
   expect(message).toBeTruthy();
   expect(removes()).toBe(mode === "offline" ? 0 : 1);
 
-  if (mode === "hold") release();
   await first;
 });
 

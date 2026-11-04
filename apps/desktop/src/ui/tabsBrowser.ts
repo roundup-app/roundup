@@ -1,5 +1,5 @@
 import { executable } from "../todos/laneBrowser";
-import { execFile } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
 import { promisify } from "node:util";
 import { mkdtempSync } from "node:fs";
 import { rm } from "node:fs/promises";
@@ -35,6 +35,25 @@ export const browser = async (...args: string[]) => {
 
   return stdout;
 };
+
+/** One CLI connection for several commands, run in order and stopped at the first failure; each reply is its command's JSON result. */
+export const batch = (commands: string[][]) => new Promise<{ success: boolean; result: { result?: unknown } }[]>((resolve, reject) => {
+  const child = spawn(executable, ["--session", session, "--json", "batch", "--bail"], { timeout: 25_000 });
+  let stdout = "";
+
+  child.stdout.on("data", chunk => { stdout += chunk; });
+  child.on("error", reject);
+  child.on("close", () => {
+    try {
+      const replies: { success: boolean; error?: string; result: { result?: unknown } }[] = JSON.parse(stdout);
+      const failed = replies.find(reply => !reply.success);
+
+      if (failed) reject(new Error(failed.error));
+      else resolve(replies);
+    } catch (error) { reject(error); }
+  });
+  child.stdin.end(JSON.stringify(commands));
+});
 
 export const read = async <T,>(expression: string): Promise<T> => {
   // SAFETY: the isolated browser returns the JSON result of the caller's constant expression.

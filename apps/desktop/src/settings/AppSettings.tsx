@@ -317,9 +317,6 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
   let searchInput: HTMLInputElement | undefined;
 
   return <>
-    <Show when={!view.open() && forward()}>
-      <button data-button="quiet" class="settings-forward word" type="button" onClick={show}>{copy.settingsForward}</button>
-    </Show>
     <Show when={view.open()}>
     <SettingsShell heading={copy.settings} hideHeading onClose={back}>
       <Tabs.Root lazyMount value={section()} onValueChange={({ value }) => setSection(value)} onFocusChange={({ focusedValue }) => { if (focusedValue !== null) setSection(focusedValue); }} activationMode="automatic" orientation="vertical" class="settings-sections">

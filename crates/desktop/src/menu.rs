@@ -8,7 +8,6 @@ use serde::Deserialize;
 use tauri::Emitter;
 use tauri::menu::{Menu, MenuEvent, MenuItem, MenuItemKind, Submenu};
 use tauri::{AppHandle, LogicalPosition, Manager, Runtime, State, WebviewWindow};
-use tauri_plugin_clipboard_manager::ClipboardExt;
 use tokio::sync::oneshot;
 
 /// U3799: extend Tauri's standard application menu without replacing its native actions.
@@ -35,28 +34,19 @@ pub(crate) fn app_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>>
         submenu
     };
     application.insert(
-        &MenuItem::with_id(
-            app,
-            "copy-version-info",
-            "Copy Version Info",
-            true,
-            None::<&str>,
-        )?,
+        &MenuItem::with_id(app, "app-settings", "Settings…", true, Some("CmdOrCtrl+,"))?,
         1,
     )?;
+    // FS5979a: disabled until a Project is open (`select_project_menu` enables it).
     application.insert(
         &MenuItem::with_id(
             app,
-            "copy-debug-info",
-            "Copy Debug Info",
-            true,
+            "fork-sheet",
+            "Fork for development…",
+            false,
             None::<&str>,
         )?,
         2,
-    )?;
-    application.insert(
-        &MenuItem::with_id(app, "app-settings", "Settings…", true, Some("CmdOrCtrl+,"))?,
-        3,
     )?;
     // SU5982e: only a slot-launched App (`ROUNDUP_SLOT`) offers Restart to update.
     if let Ok(running) = std::env::var("ROUNDUP_SLOT") {
@@ -102,106 +92,8 @@ pub(crate) fn app_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>>
     Ok(menu)
 }
 
-/// U5244d: the one line `roundup <App version> (<build>)`.
-fn version_info(version: &str, build: &str) -> String {
-    format!("roundup {version} ({build})")
-}
-
-/// U5244e: exactly four lines, each a fact about the install; no Project, path or usage value.
-fn debug_info(version: &str, build: &str, macos: &str, daemon_reachable: bool) -> String {
-    let (daemon_version, reachability) = if daemon_reachable {
-        // The Daemon ships in the App bundle, so it runs the App's own version.
-        (version, "reachable")
-    } else {
-        ("unknown", "unreachable")
-    };
-    format!(
-        "roundup {version} ({build})\nDaemon {daemon_version}\nmacOS {macos}\nDaemon {reachability}"
-    )
-}
-
-fn macos_version() -> String {
-    std::fs::read_to_string("/System/Library/CoreServices/SystemVersion.plist")
-        .ok()
-        .and_then(|plist| {
-            let (_, rest) = plist.split_once("<key>ProductVersion</key>")?;
-            let (_, rest) = rest.split_once("<string>")?;
-            Some(rest.split_once("</string>")?.0.to_owned())
-        })
-        .unwrap_or_else(|| "unknown".to_owned())
-}
-
-/// U5244e: the Daemon is reachable when an open Project's Daemon answers `daemon.ping`.
-async fn daemon_reachable<R: Runtime>(app: &AppHandle<R>) -> bool {
-    let Some(state) = app.try_state::<crate::AppState>() else {
-        return false;
-    };
-    let Ok(projects) = state.projects() else {
-        return false;
-    };
-    let paths: Vec<String> = projects
-        .into_iter()
-        .filter(|project| project.running)
-        .map(|project| project.path)
-        .collect();
-    any_answers(paths, |path| {
-        let state = &state;
-        async move {
-            state
-                .rpc(&path, "daemon.ping", serde_json::Value::Null)
-                .await
-                .is_ok()
-        }
-    })
-    .await
-}
-
-/// True once any of `paths` has a Daemon whose `ping` answers.
-async fn any_answers<F, Fut>(paths: Vec<String>, ping: F) -> bool
-where
-    F: Fn(String) -> Fut,
-    Fut: std::future::Future<Output = bool>,
-{
-    for path in paths {
-        if ping(path).await {
-            return true;
-        }
-    }
-    false
-}
-
-/// The text a Copy item writes, or `None` for any other id.
-fn info_text<R: Runtime>(app: &AppHandle<R>, id: &str, daemon_reachable: bool) -> Option<String> {
-    let version = app.package_info().version.to_string();
-    let build = env!("ROUNDUP_BUILD");
-    match id {
-        "copy-version-info" => Some(version_info(&version, build)),
-        "copy-debug-info" => Some(debug_info(
-            &version,
-            build,
-            &macos_version(),
-            daemon_reachable,
-        )),
-        _ => None,
-    }
-}
-
 pub(crate) fn app_chosen<R: Runtime>(app: &AppHandle<R>, event: &MenuEvent) {
-    if matches!(
-        event.id().0.as_str(),
-        "copy-version-info" | "copy-debug-info"
-    ) {
-        let app = app.clone();
-        let id = event.id().0.clone();
-        tauri::async_runtime::spawn(async move {
-            let reachable = daemon_reachable(&app).await;
-            if let Some(text) = info_text(&app, &id, reachable)
-                && app.clipboard().write_text(text).is_err()
-            {
-                log::warn!(target: "roundup::shell", "copy info: clipboard write failed");
-            }
-        });
-    } else if event.id().0 == crate::update::ITEM {
+    if event.id().0 == crate::update::ITEM {
         if let (Ok(running), Some(home)) = (std::env::var("ROUNDUP_SLOT"), crate::update::home())
             && crate::update::choose(&crate::update::update_status(&home, &running), |slot| {
                 if let Err(error) = crate::update::relaunch_into(&home, slot) {
@@ -217,6 +109,10 @@ pub(crate) fn app_chosen<R: Runtime>(app: &AppHandle<R>, event: &MenuEvent) {
     } else if event.id().0 == "app-settings" {
         if let Err(error) = app.emit("open-app-settings", ()) {
             crate::diagnostics::failure("open Settings", &error);
+        }
+    } else if event.id().0 == "fork-sheet" {
+        if let Err(error) = app.emit("open-fork-sheet", ()) {
+            crate::diagnostics::failure("open the Fork sheet", &error);
         }
     } else if matches!(event.id().0.as_str(), "import-work" | "project-settings")
         || event.id().0.starts_with("view:")
@@ -284,6 +180,12 @@ pub fn select_project_menu<R: Runtime>(
         project.remove(&item).map_err(internal)?;
     }
     project.set_enabled(true).map_err(internal)?;
+    if let Some(MenuItemKind::Submenu(application)) =
+        menu.items().map_err(internal)?.into_iter().next()
+        && let Some(MenuItemKind::MenuItem(fork)) = application.get("fork-sheet")
+    {
+        fork.set_enabled(path.is_some()).map_err(internal)?;
+    }
     let mut items = items.unwrap_or_default();
     if path.is_none() {
         for item in &mut items {

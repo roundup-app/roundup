@@ -26,12 +26,6 @@ impl Agents {
                     "only a Door may start internal children",
                 ));
             }
-            if matches!(params.order, Some(Order::Clarification { .. })) {
-                return Err(RpcError::new(
-                    code::INVALID_PARAMS,
-                    "Clarification order is active",
-                ));
-            }
         }
         let size = terminal::window(params.cols.unwrap_or(80), params.rows.unwrap_or(24))?;
         models::check_engine(params.engine.as_deref())?;
@@ -77,6 +71,20 @@ impl Agents {
                 &self.launcher.extras_sources(self.project_dir()),
                 &lean.extras,
             )?;
+        }
+        // DCL9: an Agent's spawn names Job or Consult; refuse before anything starts.
+        if by_agent && params.role.is_none() {
+            return Err(RpcError::new(
+                code::INVALID_PARAMS,
+                "an Agent's spawn needs a `role`: `job` for one bounded outcome that ends with a \
+                 report, `consult` for a Subagent that answers questions and rests",
+            ));
+        }
+        if !by_agent && params.role.is_some() {
+            return Err(RpcError::new(
+                code::INVALID_PARAMS,
+                "`role` is for an Agent's spawn",
+            ));
         }
         let pair = self.choose(
             &ctx.actor,
@@ -146,6 +154,9 @@ impl Agents {
             if by_agent {
                 rail.set_spawner(&node.id, &ctx.actor.id)?;
             }
+            if let Some(role) = params.role {
+                rail.set_role(&node.id, role)?;
+            }
             rail.set_pair(&node.id, pair.model.as_deref(), pair.effort.as_deref())?;
             if let Some(lean) = &lean {
                 Launcher::save_lean(&self.dir, &node.id, lean)?;
@@ -159,6 +170,8 @@ impl Agents {
             }
             (node.id, attempt)
         };
+        // U6000e: the starting row is published before the worktree, config and launch steps.
+        ctx.emit(EventData::RailChanged);
         match self
             .run_agent(
                 &id,
@@ -195,6 +208,8 @@ impl Agents {
                         Self::touch_creation(ctx, &id, params.start_attribution.as_ref())?;
                     }
                 }
+                drop((rail, runs));
+                ctx.emit(EventData::RailChanged);
                 return Err(err);
             }
         };

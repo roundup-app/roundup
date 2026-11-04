@@ -433,7 +433,11 @@ impl Agents {
         {
             let NodeId { id } = params(value)?;
             shared.guard_reach(&ctx.actor, &id, true)?;
-            reply(&serde_json::json!({ "prompt": shared.rail().spawn_prompt(&id)? }))
+            let rail = shared.rail();
+            reply(&contracts::agent::SpawnPrompt {
+                prompt: rail.spawn_prompt(&id)?,
+                role: rail.role(&id)?,
+            })
         }
     }
 

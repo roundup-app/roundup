@@ -423,7 +423,7 @@ it.each([
   },
   {
     name: "Project tab",
-    expected: [["copy", "4"], ["rename", "5"], ["close", "7"]],
+    expected: [["rename", "5"], ["close", "7"]],
     receivers: [],
     mount: async () => {
       const { app } = await openTabs({ api: [agent("a", "idle", "ready")] });

@@ -7,6 +7,7 @@ impl Observation {
             Self::Signal(payload) => claude_code::event_name(payload),
             Self::Title(_) => "title",
             Self::Tick => "tick",
+            Self::Processes { .. } => "processes",
             Self::Stopped => "stop",
             Self::Exit { .. } => "exit",
             Self::Program(_) => "program status",
@@ -455,10 +456,7 @@ impl Shared {
             status.since = provenance::now_ms().max(0);
             Some(status)
         });
-        let empty = run.adapter.turn().is_some()
-            && run.adapter.final_text() == contracts::agent::FinalTextKind::Empty;
-        if super::rail_view::visibility_protection(run.adapter.status().map(|s| s.kind), empty)
-            .is_some()
+        if super::rail_view::visibility_protection(run.adapter.status().map(|s| s.kind)).is_some()
             && let Some(rail) = rail.as_deref_mut()
             && rail.set_visibility(id, contracts::agent::RailVisibility::Shown)?
         {
@@ -644,6 +642,11 @@ pub(super) async fn watch(
         if exited {
             return;
         }
+        let tick_at = match shared.poll_processes(&id, &attempt, tick_at).await {
+            Ok(tick_at) => tick_at,
+            Err(err) if matches!(err.code, code::NOT_FOUND | code::CONFLICT) => return,
+            Err(err) => panic!("{REGISTERED}: {err}"),
+        };
         tick = tick_at.map(|at| {
             let wait = u64::try_from(at - (shared.clock)()).unwrap_or(0);
             Instant::now() + Duration::from_millis(wait)
@@ -653,6 +656,51 @@ pub(super) async fn watch(
 
 #[cfg(test)]
 mod tests;
+
+impl Shared {
+    /// DCL3: after a Stop, read the process table and fold it in, until no work holds the Agent;
+    /// returns when the adapter wants its next Tick.
+    async fn poll_processes(
+        &self,
+        id: &str,
+        attempt: &str,
+        tick_at: Option<i64>,
+    ) -> Result<Option<i64>, RpcError> {
+        let root = {
+            let runs = self.runs();
+            let Some(Slot::Running(run)) = runs.get(id) else {
+                return Ok(tick_at);
+            };
+            if run.ended || !run.adapter.needs_processes() {
+                return Ok(tick_at);
+            }
+            // A program that is gone has no work; its Exit follows.
+            self.terminals.program_pid(&run.terminal_id)
+        };
+        let Some(root) = root else {
+            return self.observe(
+                Actor::daemon(),
+                id,
+                attempt,
+                Observation::Processes {
+                    root: 0,
+                    table: Ok(Vec::new()),
+                },
+            );
+        };
+        let table = match tokio::task::spawn_blocking(claude_code::background::read_table).await {
+            Ok(Ok(table)) => Ok(claude_code::background::snapshot(&table, (self.clock)())),
+            Ok(Err(err)) => Err(format!("cannot read the process table: {err}")),
+            Err(err) => Err(format!("the process scan stopped: {err}")),
+        };
+        self.observe(
+            Actor::daemon(),
+            id,
+            attempt,
+            Observation::Processes { root, table },
+        )
+    }
+}
 
 impl Agents {
     /// U504: the observed maker turn at publication capture; absence must never be guessed.
