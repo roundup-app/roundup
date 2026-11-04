@@ -808,3 +808,146 @@ async fn n7_launch_sites_clean_on_success_and_failure() {
         assert!(!project.exists());
     }
 }
+
+impl Run {
+    /// Every Message stored for the Door, oldest first, with its status.
+    async fn thread(&self) -> Vec<Value> {
+        let mut all: Vec<Value> = self
+            .user
+            .request("message.list", json!({}))
+            .await
+            .unwrap()
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|m| {
+                m["to"] == self.door && !m["body"].as_str().unwrap().starts_with("[digest]")
+            })
+            .cloned()
+            .collect();
+        all.sort_by_key(|m| m["id"].as_u64().unwrap());
+        all
+    }
+
+    /// Two Messages sent while the Door is stopped; they stay pending.
+    async fn send_while_stopped(&self) -> Vec<Value> {
+        self.user
+            .request(
+                "message.send",
+                json!({"to":self.door,"kind":"note","body":"first retained"}),
+            )
+            .await
+            .unwrap();
+        self.agent
+            .request(
+                "message.send",
+                json!({"to":self.door,"kind":"note","body":"second retained"}),
+            )
+            .await
+            .unwrap();
+        self.thread().await
+    }
+}
+
+fn identity(thread: &[Value]) -> Vec<(u64, Value, Value, Value)> {
+    thread
+        .iter()
+        .map(|m| {
+            (
+                m["id"].as_u64().unwrap(),
+                m["from"].clone(),
+                m["body"].clone(),
+                m["kind"].clone(),
+            )
+        })
+        .collect()
+}
+
+#[tokio::test]
+async fn dcl10_start_replays_one_ordered_batch() {
+    let run = Run::start().await;
+    let stored = run.send_while_stopped().await;
+    assert_eq!(stored.len(), 2, "{stored:?}");
+    assert!(
+        stored.iter().all(|m| m["status"] == "pending"),
+        "{stored:?}"
+    );
+    run.assert_silent().await;
+    run.start_door().await;
+    wait_delivered(&run).await;
+    let after = run.thread().await;
+    assert_eq!(identity(&after), identity(&stored));
+    assert!(
+        after.iter().all(|m| m["status"] == "delivered"),
+        "{after:?}"
+    );
+    let written = transcript(run.dir.path().join("config").as_path());
+    let first = written.find("first retained").expect("first in transcript");
+    let second = written
+        .find("second retained")
+        .expect("second in transcript");
+    assert!(first < second, "stored order");
+    assert_eq!(
+        written.matches("first retained").count(),
+        1,
+        "delivered once"
+    );
+}
+
+#[tokio::test]
+async fn dcl10_failed_start_preserves_backlog_and_cause() {
+    let run = Run::start().await;
+    let stored = run.send_while_stopped().await;
+    let fake = run.dir.path().join("rup");
+    let saved = run.dir.path().join("saved-rup");
+    std::fs::rename(&fake, &saved).unwrap();
+    let failed = run
+        .user
+        .request("rail.startDoor", json!({"id":run.door}))
+        .await;
+    let cause = failed.expect_err("launch fails").to_string();
+    assert!(!cause.is_empty());
+    let kept = run.thread().await;
+    assert_eq!(
+        kept, stored,
+        "every Message unchanged after the failed Start"
+    );
+    run.assert_silent().await;
+    std::fs::rename(saved, fake).unwrap();
+    run.start_door().await;
+    wait_delivered(&run).await;
+    let after = run.thread().await;
+    assert_eq!(identity(&after), identity(&stored));
+    let written = transcript(run.dir.path().join("config").as_path());
+    assert_eq!(
+        written.matches("first retained").count(),
+        1,
+        "same batch once"
+    );
+}
+
+async fn wait_delivered(run: &Run) {
+    tokio::time::timeout(BOUND, async {
+        loop {
+            let thread = run.thread().await;
+            if thread.iter().all(|m| m["status"] == "delivered") {
+                return;
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .expect("retained Messages delivered");
+}
+
+/// Every conversation file Claude Code wrote under `config`, joined.
+fn transcript(config: &Path) -> String {
+    std::fs::read_dir(config.join("projects"))
+        .into_iter()
+        .flatten()
+        .flatten()
+        .flat_map(|p| std::fs::read_dir(p.path()).into_iter().flatten().flatten())
+        .filter(|f| f.path().extension().is_some_and(|e| e == "jsonl"))
+        .filter_map(|f| std::fs::read_to_string(f.path()).ok())
+        .collect()
+}
