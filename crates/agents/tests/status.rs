@@ -123,7 +123,8 @@ fn u5151b_failure_codes_have_actionable_labels() {
             label.contains(cause) && label.contains(next),
             "{code}: {label}"
         );
-        assert!(label.contains("next turn replaces"), "{code}: {label}");
+        assert!(!label.contains("next turn"), "{code}: {label}");
+        assert!(label.ends_with('.'), "{code}: {label}");
         assert!(!label.contains('_'), "{code} leaked raw: {label}");
     }
 }
