@@ -13,6 +13,7 @@ The audit must prevent missed conditional offers, unsupported claims of non-use/
 
 | Artifact | Holds |
 | [project-config-methods.md](project-config-methods.md) | Five Project configuration method decisions PC01-PC05, criteria and remaining gaps |
+| [terminal-stream.md](terminal-stream.md) | Four Terminal stream/scheme/keystroke-probe decisions TP01-TP04, criteria and remaining gaps |
 | [worktree-reads.md](worktree-reads.md) | Three Worktree read decisions AW01-AW03, criteria, direction and remaining gaps |
 | [agent-start-config.md](agent-start-config.md) | Five Agent start/resume/run/order/visibility decisions, criteria and remaining gaps |
 | [todos.md](todos.md) | Forty independent Todo detail decisions, criteria, direction and explicit unfinished controls |
