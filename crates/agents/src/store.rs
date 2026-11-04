@@ -45,12 +45,11 @@ impl Agents {
             .parent()
             .and_then(Path::parent)
             .is_some_and(|root| root.join("fork.json").is_file());
-        let launcher = if forked {
+        let mut launcher = launcher;
+        if forked {
             git.set_forked();
-            launcher.with_fork_session()
-        } else {
-            launcher
-        };
+            launcher.fork_session = true;
+        }
         let mut rail = rail::Rail::open(&dir.join(if dir.join("project.db").exists() {
             "project.db"
         } else {

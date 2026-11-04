@@ -82,8 +82,7 @@ pub struct Launcher {
     user_defaults: BTreeSet<&'static str>,
     /// LC14: true only for a Launcher made `without_intent_skill`; the bundle is read at a Door's start.
     lacks_intent: bool,
-    /// FOP5978c: a Fork's resume starts a new branch of the conversation.
-    fork_session: bool,
+    pub(crate) fork_session: bool,
     plugins: Arc<OnceCell<Delivery>>,
     /// B50: the private folder each Agent's messaging socket is made in, made at the first
     /// launch; gone with the Launcher.
@@ -194,13 +193,6 @@ impl Launcher {
     #[must_use]
     pub fn without_intent_skill(mut self) -> Self {
         self.lacks_intent = true;
-        self
-    }
-
-    /// FOP5978c: resume as a new branch of the conversation, never in place.
-    #[must_use]
-    pub(crate) fn with_fork_session(mut self) -> Self {
-        self.fork_session = true;
         self
     }
 
@@ -583,9 +575,7 @@ impl Launcher {
         if let Some(conversation_id) = resume {
             argv.push("--resume".into());
             argv.push(conversation_id.to_owned());
-            if self.fork_session {
-                argv.push("--fork-session".into());
-            }
+            argv.extend(self.fork_session.then(|| "--fork-session".to_owned()));
         }
         Ok(argv)
     }

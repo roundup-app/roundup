@@ -52,7 +52,6 @@ pub struct Git {
     /// G2542c: directories a preparation is running in.
     busy: Arc<Mutex<Vec<PathBuf>>>,
     deadline: Option<Instant>,
-    /// FOP5978d: set on a Fork, which never makes or removes a Worktree in a Project folder.
     forked: Arc<std::sync::atomic::AtomicBool>,
 }
 
@@ -70,23 +69,6 @@ impl Git {
             deadline: None,
             forked: Arc::default(),
         }
-    }
-
-    /// FOP5978d: mark this Git as a Fork's.
-    pub(crate) fn set_forked(&self) {
-        self.forked
-            .store(true, std::sync::atomic::Ordering::Relaxed);
-    }
-
-    /// FOP5978d: refuse a change to a Worktree of a Project folder the live App owns.
-    fn refuse_in_fork(&self) -> Result<(), RpcError> {
-        if self.forked.load(std::sync::atomic::Ordering::Relaxed) {
-            return Err(RpcError::new(
-                rpc::code::INVALID_PARAMS,
-                "This is a Fork: it makes and removes no Worktree in a Project folder the live App owns.",
-            ));
-        }
-        Ok(())
     }
 
     pub(super) fn collection_permitted(&self, project: &Path) -> Result<bool, RpcError> {

@@ -136,19 +136,14 @@ async fn resumed_argv(folder: &Folder) -> String {
         .unwrap()
         .id
         .clone();
-    let before = folder.launches().len();
+    std::fs::write(&folder.log, "").unwrap();
     let resuming = tokio::spawn({
         let f = std::sync::Arc::clone(&f);
         async move { f.call("agent.resume", json!({"id": id})).await }
     });
-    let line = loop {
-        if let Some(line) = folder.launches().get(before) {
-            break line.clone();
-        }
-        tokio::time::sleep(std::time::Duration::from_millis(20)).await;
-    };
+    let line = crate::common::until_file(&folder.log).await;
     resuming.abort();
-    line
+    line.trim_end().to_owned()
 }
 
 #[tokio::test]
