@@ -213,7 +213,7 @@ for line in sys.stdin:
     })
     .await
     .unwrap();
-    for (message, expected) in [(&old, "dropped"), (&new, "pending"), (&from_ext, "pending")] {
+    for (message, expected) in [(&old, "pending"), (&new, "pending"), (&from_ext, "pending")] {
         let found = client
             .request("message.get", json!({"id":message["id"]}))
             .await

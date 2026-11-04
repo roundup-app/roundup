@@ -52,7 +52,7 @@ Regression checks on `main` (policy: preserve these while adding the verdict):
 - M2 and M3 are retired by #3563 with Message holds and Takeover, and M8 by `scenarios/remove-bubbling.md` (B3692c); no law replaces them.
 - `m5_terminal_states_are_absorbing`: `delivered` and `dropped` never change, and Message ids are unique and rise by one.
 - `m6_no_silent_loss`: every Message is `delivered`, `dropped` with a reason, or still `pending`.
-- `m7_receiver_gone`: after a Kind of `done` or `error` no `pending` Message to that Agent remains, and a later send is `CONFLICT`.
+- `m7_receiver_gone`: once the logical receiver is gone (an Agent's ending, or a Door's removal; a Door's stopped Attempt is not, DCL8) no `pending` Message to it remains, and a later send is `CONFLICT`.
 - `m4_no_overtaking`: typed order is the order in which Messages became deliverable, ties by id.
 - `m9_restart_is_a_replay`: the state after a crash and reopen equals the replay of the stored records (B8, D6).
 - `m10_pending_to_idle_is_eventually_typed`: a `pending` Message to an Agent that becomes `idle` is eventually typed, under the stated fairness assumption that an `idle` Agent is eventually delivered to, with a comment saying what breaks without it.

@@ -140,6 +140,16 @@ pub(crate) fn restart_event(reserved: bool, event: Event) -> Event {
     }
 }
 
+/// DCL8: a Door is a logical receiver that outlives its Attempts. Its Attempt ending (stop or
+/// crash) projects to `Busy`, never ReceiverExit, so M7's `gone` is the Door's removal only.
+pub(crate) fn door_event(retained: bool, event: Event) -> Event {
+    if retained && matches!(event, Event::ReceiverExit) {
+        Event::Busy
+    } else {
+        event
+    }
+}
+
 /// A35: selected retirement is an enduring ineligible receiver, including after final removal.
 /// Preserve its ledger on automatic lifecycle/replay inputs, refuse new sends.
 pub(crate) fn retirement_event(retiring: bool, event: Event) -> Event {

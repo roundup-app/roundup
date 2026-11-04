@@ -859,5 +859,10 @@
     "cleanup": "Destroys the Rex sessions and closes streams; the shared Server guard stops its owned Rex child and the spike removes its temporary directory.",
     "data": "Names rupd when comparing in-process Terminals measurements with Rex; delegates Rex and fake-agent launches to the audited spike harness. Starts no real rupd.",
     "kind": "reference"
+  },
+  "crates/rupd/tests/s5981a_owner_gap.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
   }
 }
