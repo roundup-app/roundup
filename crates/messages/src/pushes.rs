@@ -26,14 +26,64 @@ const MORE_BYTES: usize = 512;
 #[derive(Default)]
 pub(crate) struct Ledger {
     metas: HashMap<String, Slot>,
+    /// `metas` written through to `project.db`, so a reopen keeps what waits and what was sent (DCL10).
+    db: Option<rusqlite::Connection>,
 }
 
-#[derive(Default)]
+#[derive(Default, serde::Serialize, serde::Deserialize)]
 struct Slot {
     /// When the pushes of the last window went out, oldest first.
     sent: VecDeque<i64>,
     /// The entries of the changes kept back, oldest first.
     waiting: Vec<(String, DigestEntry, u32)>,
+}
+
+impl Ledger {
+    /// The ledger stored in `path` when it is `project.db`, else one kept in memory.
+    pub(crate) fn open(path: &std::path::Path) -> rusqlite::Result<Self> {
+        if path.file_name().is_none_or(|name| name != "project.db") {
+            return Ok(Self::default());
+        }
+        let db = rusqlite::Connection::open(path)?;
+        db.pragma_update(None, "journal_mode", "WAL")?;
+        db.execute_batch(
+            "CREATE TABLE IF NOT EXISTS push_ledger (meta TEXT PRIMARY KEY, slot TEXT NOT NULL)",
+        )?;
+        let metas = db
+            .prepare("SELECT meta, slot FROM push_ledger")?
+            .query_map([], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+            })?
+            .collect::<rusqlite::Result<Vec<_>>>()?
+            .into_iter()
+            .filter_map(|(meta, slot)| Some((meta, serde_json::from_str(&slot).ok()?)))
+            .collect();
+        Ok(Self {
+            metas,
+            db: Some(db),
+        })
+    }
+
+    /// Writes the slots through; a slot with nothing to remember is deleted.
+    fn save(&self) {
+        let Some(db) = &self.db else { return };
+        let write = || -> rusqlite::Result<()> {
+            db.execute("DELETE FROM push_ledger", [])?;
+            for (meta, slot) in &self.metas {
+                if slot.sent.is_empty() && slot.waiting.is_empty() {
+                    continue;
+                }
+                db.execute(
+                    "INSERT INTO push_ledger (meta, slot) VALUES (?1, ?2)",
+                    rusqlite::params![meta, serde_json::to_string(slot).unwrap_or_default()],
+                )?;
+            }
+            Ok(())
+        };
+        if let Err(err) = write() {
+            crate::log_failure("push", &format!("ledger write failed: {err}"));
+        }
+    }
 }
 
 #[cfg(test)]
@@ -291,6 +341,7 @@ pub(crate) async fn push(inner: &Arc<Inner>, meta: &str, subagent: &str, entry: 
         Ok(nodes) => roll_up(inner, meta, slot, now, plain, &nodes).await,
         Err(err) => crate::log_failure("push", &format!("{meta}: {}", err.message)),
     }
+    ledger.save();
 }
 
 /// B22(a): at the window's end, the changes kept back go out as one Message.
@@ -315,6 +366,7 @@ pub(crate) async fn flush(inner: &Arc<Inner>) {
     ledger
         .metas
         .retain(|_, slot| !slot.sent.is_empty() || !slot.waiting.is_empty());
+    ledger.save();
 }
 
 async fn roll_up(
@@ -463,6 +515,21 @@ mod tests {
         flush(&messages.inner).await;
         assert_eq!(rail.reads.load(Ordering::SeqCst), 1);
         assert!(messages.inner.pushes.lock().await.metas.is_empty());
+    }
+
+    #[test]
+    fn dcl10_ledger_reopens_with_its_waiting_and_sent() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("project.db");
+        let mut ledger = Ledger::open(&path).unwrap();
+        ledger.metas.insert("door".into(), full(5, true));
+        ledger.save();
+        drop(ledger);
+        let reopened = Ledger::open(&path).unwrap();
+        let slot = &reopened.metas["door"];
+        assert_eq!(slot.sent.len(), PUSHES);
+        assert_eq!(slot.waiting[0].2, 7);
+        assert_eq!(reopened.waiting_count("door"), 1);
     }
 
     #[tokio::test(start_paused = true)]

@@ -442,6 +442,39 @@ async fn b21_a_failed_start_keeps_the_entries_waiting() {
     run.model.assert_matched();
 }
 
+#[tokio::test]
+async fn dcl10_reopen_keeps_told_and_push_accounting() {
+    let mut run = Run::start().await;
+    let before = run.digests().await.len();
+    run.change("first").await;
+    run.change("second").await;
+    run.assert_silent().await;
+    drop(run.daemon.stdin.take());
+    run.daemon.child.wait().unwrap();
+    std::fs::write(run.dir.path().join("comparisons"), "").unwrap();
+    std::fs::write(run.dir.path().join("attempts"), "").unwrap();
+    let (daemon, log) = launch(run.dir.path(), run.data.path(), &run.model);
+    run.daemon = daemon;
+    run.log = log;
+    run.user = Client::connect(&run.daemon.socket).await.unwrap();
+    // The reopened Daemon compares the stored told book with the Rail once, queues nothing again
+    // and launches nothing.
+    wait(|| !snapshots(run.dir.path()).is_empty()).await;
+    run.assert_silent().await;
+    assert_eq!(run.digests().await.len(), before);
+    run.start_door().await;
+    let newest = run.newest().await;
+    assert!(
+        newest["body"]
+            .as_str()
+            .unwrap()
+            .contains("[2 updates kept back]"),
+        "{newest}"
+    );
+    assert_eq!(run.digests().await.len(), before + 1);
+    run.model.assert_matched();
+}
+
 fn weight(message: &Value) -> u32 {
     let body = message["body"].as_str().unwrap();
     if let Some(header) = body.strip_prefix("[digest] [") {

@@ -188,7 +188,7 @@ impl<'a> Projection<'a> {
 }
 
 /// What a Door was last told about a child, to see whether a change alters the entry (B21).
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 struct Told {
     binding: crate::store::Binding,
     completed: Option<String>,
@@ -212,6 +212,32 @@ struct Book {
 }
 
 impl Book {
+    /// Records `told` for `key`, written through so a reopen keeps what each Door was told (DCL10).
+    fn tell(&mut self, key: (String, String), told: Told) -> Option<Told> {
+        if let Some(db) = &self.db {
+            let stored = serde_json::to_string(&told).unwrap_or_default();
+            if let Err(err) = db.execute(
+                "INSERT OR REPLACE INTO digest_told (door, child, told) VALUES (?1, ?2, ?3)",
+                rusqlite::params![key.0, key.1, stored],
+            ) {
+                eprintln!("rupd: told write failed for {}/{}: {err}", key.0, key.1);
+            }
+        }
+        self.told.insert(key, told)
+    }
+
+    fn untell(&mut self, key: &(String, String)) -> Option<Told> {
+        if let Some(Err(err)) = self.db.as_ref().map(|db| {
+            db.execute(
+                "DELETE FROM digest_told WHERE door = ?1 AND child = ?2",
+                rusqlite::params![key.0, key.1],
+            )
+        }) {
+            eprintln!("rupd: told write failed for {}/{}: {err}", key.0, key.1);
+        }
+        self.told.remove(key)
+    }
+
     fn name(&mut self, key: &(String, String), newest: i64) {
         self.named.insert(key.clone(), newest);
         if let Some(db) = &self.db {
@@ -262,16 +288,49 @@ impl Seen {
         let mut db = rusqlite::Connection::open(path)?;
         db.pragma_update(None, "journal_mode", "WAL")?;
         crate::digest_schema::open(&mut db, path)?;
+        // DCL10: additive, so a Project that predates it opens with no migration step.
+        let stored = path.file_name().is_some_and(|name| name == "project.db");
+        if stored {
+            db.execute_batch(
+                "CREATE TABLE IF NOT EXISTS digest_told (
+                    door TEXT NOT NULL, child TEXT NOT NULL, told TEXT NOT NULL,
+                    PRIMARY KEY (door, child))",
+            )?;
+        }
+        let told = if stored {
+            db.prepare("SELECT door, child, told FROM digest_told")?
+                .query_map([], |row| {
+                    Ok((
+                        row.get::<_, String>(0)?,
+                        row.get::<_, String>(1)?,
+                        row.get::<_, String>(2)?,
+                    ))
+                })?
+                .collect::<rusqlite::Result<Vec<_>>>()?
+                .into_iter()
+                .filter_map(|(door, child, told)| {
+                    Some(((door, child), serde_json::from_str(&told).ok()?))
+                })
+                .collect()
+        } else {
+            HashMap::new()
+        };
         let named = db
             .prepare("SELECT door, child, newest FROM pad_cursors")?
             .query_map([], |row| Ok(((row.get(0)?, row.get(1)?), row.get(2)?)))?
             .collect::<rusqlite::Result<HashMap<_, _>>>()?;
         Ok(Self(Mutex::new(Book {
             named,
-            told: HashMap::new(),
+            told,
             noted: HashMap::new(),
             db: Some(db),
         })))
+    }
+
+    /// DCL10: whether the stored told book holds any fact, so startup compares with it instead of
+    /// recording every child as told.
+    pub fn has_told(&self) -> bool {
+        !self.book().told.is_empty()
     }
 
     /// B47(c): whether the note of `kind` about `child` to `parent` repeats the last one of its
@@ -329,7 +388,7 @@ impl Seen {
                 if let Some(newest) = newest {
                     book.name(&key, newest);
                 }
-                book.told.insert(key, told(&entry, child, from));
+                book.tell(key, told(&entry, child, from));
             }
             items.push(DigestItem::Child(entry));
         }
@@ -356,7 +415,7 @@ impl Seen {
             if let Some(newest) = newest {
                 book.name(&key, newest);
             }
-            book.told.insert(key, told(&entry, node, from));
+            book.tell(key, told(&entry, node, from));
         }
         Some(entry)
     }
@@ -373,7 +432,7 @@ impl Seen {
                 let after = book.named.get(&key).copied();
                 let (entry, _) = entry(child, &meta.id, from, after, false);
                 let seen = told(&entry, child, from);
-                book.told.insert(key, seen);
+                book.tell(key, seen);
             }
         }
     }
@@ -429,7 +488,7 @@ impl Seen {
                     .get(&key)
                     .is_some_and(|was| was.entry.kind != now.entry.kind)
             {
-                book.told.insert(key.clone(), now.clone());
+                book.tell(key.clone(), now.clone());
             }
             if moved {
                 // B47(c): the end note of a Kind the last note already told is not made again.
@@ -453,7 +512,7 @@ impl Seen {
                 if let Some(newest) = newest {
                     book.name(&key, newest);
                 }
-                book.told.insert(key.clone(), now.clone());
+                book.tell(key.clone(), now.clone());
                 if repeated {
                     continue;
                 }
@@ -476,7 +535,9 @@ impl Seen {
     pub fn release(&self, push: Push) {
         let mut book = self.book();
         if push.gone {
-            book.told.entry(push.key).or_insert(push.told);
+            if !book.told.contains_key(&push.key) {
+                book.tell(push.key, push.told);
+            }
             return;
         }
         if book.told.get(&push.key) != Some(&push.told) {
@@ -487,8 +548,8 @@ impl Seen {
             None => book.forget(&push.key),
         }
         match push.before.1 {
-            Some(told) => book.told.insert(push.key, told),
-            None => book.told.remove(&push.key),
+            Some(told) => book.tell(push.key, told),
+            None => book.untell(&push.key),
         };
     }
 }
@@ -586,7 +647,7 @@ fn farewells(book: &mut Book, from: &Projection) -> Vec<Push> {
         .collect();
     let mut pushes = Vec::new();
     for key in stale {
-        let Some(told) = book.told.remove(&key) else {
+        let Some(told) = book.untell(&key) else {
             continue;
         };
         book.forget(&key);
