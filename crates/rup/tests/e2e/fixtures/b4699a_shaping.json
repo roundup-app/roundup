@@ -45,7 +45,7 @@
           {
             "id": "toolu_b4699a_spawn",
             "name": "mcp__roundup__agent_spawn",
-            "arguments": "{\"cwd\": \".\", \"name\": \"Shape feedback\", \"order\": {\"kind\": \"work\", \"title\": \"Shape feedback\", \"ask\": \"Shape the feedback ask with the user.\", \"done\": \"The user has a clear feedback ask.\", \"limits\": [\"Change no files.\", \"Report blocks to the Door with message_send.\"]}, \"prompt\": \"Help me shape an ask for filing Workstream behavior feedback\"}"
+            "arguments": "{\"role\": \"job\", \"cwd\": \".\", \"name\": \"Shape feedback\", \"order\": {\"kind\": \"work\", \"title\": \"Shape feedback\", \"ask\": \"Shape the feedback ask with the user.\", \"done\": \"The user has a clear feedback ask.\", \"limits\": [\"Change no files.\", \"Report blocks to the Door with message_send.\"]}, \"prompt\": \"Help me shape an ask for filing Workstream behavior feedback\"}"
           }
         ]
       }

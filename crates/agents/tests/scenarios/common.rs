@@ -230,7 +230,7 @@ impl Fixture {
             id: caller.to_owned(),
             parent: None,
         };
-        let params = json!({"cwd": cwd, "parent": parent});
+        let params = json!({"cwd": cwd, "parent": parent, "role": "job"});
         let node = self.agents.call(&ctx, "agent.spawn", params).await?;
         Ok(serde_json::from_value(node).unwrap())
     }
