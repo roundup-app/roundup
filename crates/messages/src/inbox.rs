@@ -149,6 +149,7 @@ fn open_job_snapshot(inner: &Arc<Inner>, agent: &str, at: store::Binding) -> Opt
 /// B50(a), B50(c): writes `notes` to `agent`'s inbox when `state` is `ok` and leaves them
 /// `pending` otherwise. A note already written and not yet recorded is not written again. `false`
 /// when the batch must not go on (a stale revision or a Message no longer `pending`).
+
 pub(crate) async fn send(
     inner: &Arc<Inner>,
     agent: &str,
@@ -203,7 +204,7 @@ pub(crate) async fn send(
                 || notes.iter().any(|n| n.id == m.id)
         })
     };
-    { use std::io::Write; let mut f = std::fs::OpenOptions::new().create(true).append(true).open("/tmp/send.log").unwrap(); writeln!(f, "SEND last={last} {:?} snap={}", notes.iter().map(|n| n.id).collect::<Vec<_>>(), open_job_snapshot(inner, agent, at).is_some()).unwrap(); }
+    { use std::io::Write; let mut f = std::fs::OpenOptions::new().create(true).append(true).open(format!("/tmp/dbg.{}", std::process::id())).unwrap(); writeln!(f, "last={last} ids={:?} snapped={:?}", notes.iter().map(|n| n.id).collect::<Vec<_>>(), lock(&inner.snapshotted)).unwrap(); }
     let snapshot = if last {
         open_job_snapshot(inner, agent, at)
     } else {
