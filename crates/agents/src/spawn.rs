@@ -26,12 +26,6 @@ impl Agents {
                     "only a Door may start internal children",
                 ));
             }
-            if matches!(params.order, Some(Order::Clarification { .. })) {
-                return Err(RpcError::new(
-                    code::INVALID_PARAMS,
-                    "Clarification order is active",
-                ));
-            }
         }
         let size = terminal::window(params.cols.unwrap_or(80), params.rows.unwrap_or(24))?;
         models::check_engine(params.engine.as_deref())?;

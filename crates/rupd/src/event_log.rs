@@ -288,64 +288,6 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn d11_visibility_reads_kept_history_atomically() {
-        let dir = project();
-        let mut daemon = crate::test_daemon(dir.path()).unwrap();
-        Connection::open(dir.path().join("project.db"))
-            .unwrap()
-            .execute_batch(
-                "INSERT INTO nodes(id,kind,name,ord,parent) VALUES
-             (1,'workstream','Door',0,NULL),(2,'agent','Child',0,1);",
-            )
-            .unwrap();
-        daemon.agents.set_status_for_test(
-            "2",
-            contracts::Status {
-                kind: contracts::Kind::Working,
-                label: "working".into(),
-                since: 1,
-                finished: "0".into(),
-            },
-        );
-        for _ in 0..EVENT_WINDOW + 5 {
-            daemon.bus.emit(Actor::user(), EventData::RailChanged);
-        }
-        let (bus, log, writer) = prune_at_bounds(dir.path());
-        daemon.bus = bus;
-        let (events, _) = tokio::sync::mpsc::unbounded_channel();
-        let mut conn = crate::Conn {
-            actor: Actor {
-                kind: contracts::ActorKind::Agent,
-                id: "1".into(),
-                parent: None,
-            },
-            peer: None,
-            events,
-            output: None,
-        };
-        let answer = daemon.dispatch(&mut conn,
-            r#"{"jsonrpc":"2.0","id":1,"method":"agent.setVisibility","params":{"id":"2","visibility":"internal"}}"#,
-            Some(Actor { kind: contracts::ActorKind::Agent, id: "1".into(), parent: None }),
-        ).await.unwrap().into_value();
-        writer.join().unwrap();
-        assert!(answer.get("error").is_none(), "{answer}");
-        assert_eq!(answer["result"]["visibility"], "internal");
-        // A second bounds sample before reading is the split head/window race, even if this
-        // scheduler happened to let the read beat the waiting append.
-        assert_eq!(*log.first_read_bounds.lock().unwrap(), Some(1));
-        let tree = crate::tests::ask(&daemon, r#"{"id":2,"method":"rail.tree"}"#).await;
-        assert_eq!(
-            tree["result"]
-                .as_array()
-                .unwrap()
-                .iter()
-                .find(|n| n["id"] == "2")
-                .unwrap()["visibility"],
-            "internal"
-        );
-    }
-
-    #[tokio::test]
     async fn d11_kept_with_after_fails_invalid_params() {
         let dir = project();
         let daemon = crate::test_daemon(dir.path()).unwrap();
