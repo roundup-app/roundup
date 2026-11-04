@@ -30,6 +30,27 @@ impl Daemon {
         rpc::reply(&())
     }
 
+    /// FK5977: only the user forks the data folder; the copy runs off the connection's task.
+    pub(super) async fn rpc_data_fork(
+        &self,
+        conn: &mut Conn,
+        _method: &str,
+        params: Value,
+    ) -> Result<Value, RpcError> {
+        if conn.actor.kind != contracts::ActorKind::User {
+            return Err(RpcError::forbidden("only the user forks the data folder"));
+        }
+        let params: contracts::data::ForkParams = rpc::params(params)?;
+        let root = crate::data::naming_path(&self.data_dir)
+            .parent()
+            .map(std::path::Path::to_path_buf)
+            .unwrap_or_else(|| self.data_dir.clone());
+        let result = tokio::task::spawn_blocking(move || crate::fork::fork(&root, &params))
+            .await
+            .map_err(RpcError::internal)??;
+        rpc::reply(&result)
+    }
+
     pub(super) async fn rpc_skill(
         &self,
         conn: &mut Conn,

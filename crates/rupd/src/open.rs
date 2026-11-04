@@ -127,6 +127,7 @@ impl Daemon {
             touches,
             bus: bus.clone(),
             project: std::path::absolute(project).unwrap_or_else(|_| project.to_path_buf()),
+            data_dir: dir.to_path_buf(),
             project_key: dir
                 .file_name()
                 .map(|name| name.to_string_lossy().into_owned())

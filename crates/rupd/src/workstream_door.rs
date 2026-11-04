@@ -70,6 +70,7 @@ for line in sys.stdin:
         bus: bus.clone(),
         project: dir.to_path_buf(),
         project_key: String::new(),
+        data_dir: dir.to_path_buf(),
         touches,
         digests: Default::default(),
         pushes: Default::default(),
