@@ -249,9 +249,8 @@ async fn u4590_invalid_launch_size_leaves_no_agent_or_terminal() {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn u6000e_spawn_held_at_the_worktree_step_already_lists_a_starting_node() {
-    let mut f = Fixture::running("sleep 30");
-    f.changed();
-    let f = std::sync::Arc::new(f);
+    let f = std::sync::Arc::new(Fixture::running("sleep 30"));
+    let mut events = f.bus.subscribe();
     let config = hold_starts(&f);
     let spawning = {
         let f = std::sync::Arc::clone(&f);
@@ -260,8 +259,10 @@ async fn u6000e_spawn_held_at_the_worktree_step_already_lists_a_starting_node() 
     let tree = f.until(|t| !t.is_empty()).await;
 
     assert_eq!(status_of(&tree, &tree[0].id).label, "starting");
-    let mut f = std::sync::Arc::into_inner(f).unwrap_or_else(|| panic!("spawn holds the Fixture"));
-    assert_eq!(f.changed(), 1, "published before the launch steps");
+    let changed = std::iter::from_fn(|| events.try_recv().ok())
+        .filter(|event| matches!(event.data, contracts::EventData::RailChanged))
+        .count();
+    assert_eq!(changed, 1, "published before the launch steps");
 
     release(config).await;
     spawning.await.unwrap().unwrap();
