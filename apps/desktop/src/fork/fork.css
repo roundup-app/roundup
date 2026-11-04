@@ -17,7 +17,6 @@
   width: var(--space-4);
   height: var(--space-4);
   border: var(--hairline-width) solid var(--hairline);
-  border-radius: var(--radius-chip);
   color: var(--text);
 }
 
@@ -26,16 +25,29 @@
   height: var(--space-3);
 }
 
-.fork-box[data-state="checked"],
-.fork-box[data-state="indeterminate"] {
-  border-color: var(--accent);
-  color: var(--accent);
+.app-radio-group.fork-swatches {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
 }
 
-.fork-swatches {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
+.fork-swatches .app-radio-label {
+  flex-basis: 100%;
+}
+
+.fork-swatches .app-radio-mark[data-state="checked"]::after {
+  background: var(--ground);
+}
+
+/* The colour word stays as the accessible name; the dot is the visible choice. */
+.fork-swatches .app-radio [data-part="item-text"] {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 .fork-swatches .app-radio-mark {
