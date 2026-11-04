@@ -1,4 +1,4 @@
-//! S4: development App preparation and startup refusal.
+//! S4 and S13: development App preparation and startup refusal.
 use std::os::unix::fs::PermissionsExt;
 use std::os::unix::process::CommandExt;
 use std::path::Path;
@@ -7,24 +7,21 @@ use std::time::Duration;
 use tempfile::TempDir;
 
 #[test]
-fn s4_just_app_refuses_to_start_when_something_already_answers_on_the_dev_port() {
-    // A bind failure means another server already holds the port, which is the condition under test.
-    let _occupant = std::net::TcpListener::bind("[::1]:5173")
-        .ok()
-        .inspect(|listener| {
-            let listener = listener.try_clone().unwrap();
-            std::thread::spawn(move || {
-                for mut stream in listener.incoming().flatten() {
-                    use std::io::Write;
-                    let _ = stream.write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n");
-                }
-            });
-        });
+fn s13_a_user_named_dev_port_that_answers_is_refused() {
+    let occupant = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let port = occupant.local_addr().unwrap().port();
+    std::thread::spawn(move || {
+        for mut stream in occupant.incoming().flatten() {
+            use std::io::Write;
+            let _ = stream.write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n");
+        }
+    });
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
     let project = TempDir::new().unwrap();
     let just = Command::new("just")
         .arg("app")
         .arg(project.path())
+        .env("ROUNDUP_DEV_PORT", port.to_string())
         .current_dir(root)
         .process_group(0)
         .stderr(std::process::Stdio::piped())
@@ -49,7 +46,7 @@ fn s4_just_app_refuses_to_start_when_something_already_answers_on_the_dev_port()
         .unwrap();
     let stderr = String::from_utf8(output.stderr).unwrap();
     assert!(!output.status.success());
-    assert!(stderr.contains("already answers on :5173"));
+    assert!(stderr.contains(&format!("already answers on :{port}")));
 }
 
 fn app_recipe(pnpm: &str, curl: &str) -> std::process::Output {
@@ -110,4 +107,14 @@ fn s4_just_app_does_not_open_the_window_when_imports_fail() {
             .contains("missing-s4-dependency")
     );
     assert!(!stderr.contains("cargo run"), "{stderr}");
+}
+
+#[test]
+fn s13_just_app_takes_the_next_free_port_when_5173_answers() {
+    let output = app_recipe(
+        "[ \"$1\" = install ] && exit 0\necho \"vite $ROUNDUP_DEV_PORT\" >&2\nexec sleep 30",
+        "case \"$*\" in *localhost:5173*) exit 0;; *__roundup_ready*) exit 0;; *localhost:5174*) [ -f answered ] && exit 0; touch answered; exit 1;; esac\nexit 1",
+    );
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(stderr.contains("vite 5174"), "{stderr}");
 }
