@@ -363,7 +363,10 @@ async fn u5531a_visibility_authority_is_enforced_by_the_daemon() {
         .to_owned();
     let child_rpc = client_as(&fx.served.socket(), agent(&fx.child)).await;
     let nested = child_rpc
-        .request("agent.spawn", json!({"cwd":fx.served.dir.path(),"role":"job"}))
+        .request(
+            "agent.spawn",
+            json!({"cwd":fx.served.dir.path(),"role":"job"}),
+        )
         .await
         .unwrap()["id"]
         .as_str()
