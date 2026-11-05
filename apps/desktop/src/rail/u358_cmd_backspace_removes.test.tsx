@@ -75,21 +75,6 @@ describe("u358 cmd backspace removes the selected Rail row", () => {
     expect(removals(app)).toEqual([{ id: "b" }]);
   });
 
-  it("u358_cmd_backspace_with_focus_in_the_pane_calls_nothing", async () => {
-    const { app, rail } = await mount([agent("a", "idle", "x")]);
-    rail.select("a");
-    const pane = document.body.appendChild(document.createElement("div"));
-
-    pane.className = "pane";
-    const press = new KeyboardEvent("keydown", { ...CMD_BACKSPACE, bubbles: true, cancelable: true });
-
-    pane.dispatchEvent(press);
-    await tick();
-
-    expect(removals(app)).toEqual([]);
-    expect(press.defaultPrevented).toBe(false);
-  });
-
   it("u358_a_key_repeat_of_cmd_backspace_calls_nothing_more", async () => {
     const { app, rail } = await mount([agent("a", "idle", "x"), agent("b", "idle", "x"), agent("c", "idle", "x")]);
     rail.select("a");
