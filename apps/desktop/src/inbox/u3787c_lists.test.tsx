@@ -111,7 +111,7 @@ it("u3787c_reopening_resets_Inbox_selection", async () => {
   fireEvent.keyDown(row("a:a"), { key: "Escape" });
   expect(selected()).toEqual([]);
   expect(document.querySelector(".inbox")).toBeTruthy();
-  fireEvent.click(document.querySelector<HTMLButtonElement>('.overview-section-trigger[aria-expanded="true"]')!);
+  fireEvent.click(document.querySelector<HTMLButtonElement>('.made-heading button')!);
   inventory[0]!.open();
   await waitFor(() => expect(row("a:a")).toBeTruthy());
   expect(selected()).toEqual([]);

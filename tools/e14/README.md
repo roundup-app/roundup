@@ -1,7 +1,7 @@
 # E14 full-run observer
 
 `observe.py run` runs one **complete** Linux CI test lane. It keeps the existing
-five nextest profiles, four Rust test threads, seven Vitest shards, package tests,
+five nextest profiles, four Rust test threads, nine Vitest shards, package tests,
 contract freshness check, Chromium fault observer (`--fault-log`, hosted lanes only) and all configured reporters.
 The temporary nextest configuration copies the checkout's entire configuration
 and adds JUnit output plus a Nextest run-wrapper for precise timestamps. The temporary web configuration adds one reporter.
@@ -45,7 +45,7 @@ python3 /tmp/e14-observer/observe.py run --lane rust1 \
   --output /tmp/e14/baseline/rust1 --cache-state 'cold: fresh runner, no restored target or pnpm cache'
 ```
 
-Run `rust1` through `rust5` and `web1` through `web7`, each on an equivalently
+Run `rust1` through `rust5` and `web1` through `web9`, each on an equivalently
 prepared runner, writing `/tmp/e14/baseline/<lane>`. Repeat on head into
 `/tmp/e14/head/<lane>`. Replace the example cache description with the actual
 preparation or restore hits/misses and keys. Warm and cold measurements are not

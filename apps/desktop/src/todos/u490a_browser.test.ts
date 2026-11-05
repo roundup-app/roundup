@@ -239,6 +239,11 @@ it("u4275b_tab_reaches_quick_actions", async () => {
   await page.until(`() => document.activeElement?.getAttribute('aria-label') === 'Stop'`);
   await page.press("Enter", "Enter");
   await page.until(`() => window.__fake.app.calls.filter(c => c.method === 'agent.stop').length === 1`);
+  // U5991a: the row drew stopped at once, so the Stop button the key pressed was replaced; Tab reaches the restored one.
+  await page.until(`() => document.querySelector('.rail-row[data-id="tokens"] .row-state [aria-label="Idle"]')`);
+  await page.call(`() => document.querySelector('.rail-row[data-id="tokens"]').focus()`);
+  await page.press("Tab", "Tab");
+  await page.until(`() => document.activeElement?.getAttribute('aria-label') === 'Stop'`);
   await page.press(" ", "Space");
   await page.until(`() => window.__fake.app.calls.filter(c => c.method === 'agent.stop').length === 2`);
   expect(await page.call(`() => window.__fake.app.calls.filter(c => c.method === 'agent.stop').map(c => c.params)`)).toEqual([{ id: "tokens" }, { id: "tokens" }]);

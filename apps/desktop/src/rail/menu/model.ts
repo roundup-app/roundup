@@ -55,6 +55,7 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
   const restartSession = async (id: string, request = restarts[id]?.request ?? crypto.randomUUID()): Promise<{ kind: "acknowledged" | "pending" } | { kind: "failed" | "unknown"; message: string }> => {
     if (restarts[id]?.pending) return { kind: "pending" };
     setRestarts(id, { request, pending: true });
+    const release = rail.launch(id);
 
     try {
       await app.rpc("workstream.restart", { id, request });
@@ -70,6 +71,7 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
       return { kind: outcomeOf(error), message: error.message };
     } finally {
       if (restarts[id]) setRestarts(id, { request, pending: false });
+      release();
     }
   };
 
@@ -106,7 +108,11 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
   const chooseStop = () => {
     const current = state();
 
-    if (current) void attempt(async () => { await stop(current.node); }, current.node.id);
+    if (!current) return;
+    // U5991a: the row shows stopped now; the Daemon's reply or failure lifts the drawing.
+    const lift = rail.drawExit(current.node.id, { kind: "signal" });
+
+    void attempt(async () => { try { await stop(current.node); await rail.refresh({ terminals: true }); } finally { lift(); } }, current.node.id);
   };
 
   /** U428: the Rail's stop icon. A `working`, `needs-you` or `blocked` Agent asks first, any other running Agent stops at once. */
@@ -123,6 +129,9 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
     if (resuming.has(id)) return;
 
     resuming.add(id);
+    const release = rail.launch(id);
+    // U5991a: the row shows running now; the refresh or a failure lifts the drawing.
+    const lift = rail.drawExit(id, null);
 
     try {
       await app.rpc("agent.resume", { id });
@@ -141,7 +150,9 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
         if (error instanceof RpcError && error.code === NOT_FOUND) await rail.refresh();
       }
     } finally {
+      lift();
       resuming.delete(id);
+      release();
     }
   };
 
@@ -176,6 +187,7 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
 
     void storage.todoUndo.removeRailSelection(ids, name, "rail").then(async removed => {
       if (removed) {
+        rail.keepRemoved(leaving);
         await rail.refresh();
         rail.unhide(leaving);
         acknowledge(current.node.id);
@@ -281,6 +293,8 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
 
   /** U2694d: `agent.resume {id, mode}` restarts the same session, running or exited; a failure shows U80's line. */
   const restart = async (node: RailNode, mode: "normal" | "yolo") => {
+    const release = rail.launch(node.id);
+
     try {
       await app.rpc("agent.resume", { id: node.id, mode });
       await rail.refresh();
@@ -291,6 +305,8 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
       onFailure(error.message, node.id);
 
       if (error.code === NOT_FOUND) await rail.refresh();
+    } finally {
+      release();
     }
   };
 

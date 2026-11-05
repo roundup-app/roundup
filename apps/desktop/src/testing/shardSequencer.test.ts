@@ -11,7 +11,7 @@ const time = (shard: string[]) => shardTime(shard.map((file) => durations[file] 
 
 // L89: the web shards are balanced by measured time and drop no file.
 test("t_l89_web_shards_hold_every_file_once_and_stay_balanced", () => {
-  for (const count of [5, 6, 7]) {
+  for (const count of [5, 9]) {
     const shards = assignShards(files, durations, count);
 
     expect(shards.flat().sort()).toEqual([...files].sort());

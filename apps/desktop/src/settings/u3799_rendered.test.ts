@@ -119,15 +119,13 @@ it.skipIf(!captureDir("U4277c")).each(["tree-40", "tabs-8"].flatMap(seed =>
 
         // U4274b/c: Rail and Terminal navigation are primary; their visibility commands were retired.
         if (view === "ask-history") {
-          const trigger = '.overview-section-trigger[id$=":asks"]';
-
-          if (await lane.evaluate(`document.querySelector('${trigger}')?.getAttribute('aria-expanded') !== 'true'`)) await lane.browser("click", trigger);
+          // The Overview list is the centre view; nothing to open.
         } else if (view !== "workstreams" && view !== "terminal-tabs") await command(view === "import-work" ? view : `view:${view}`);
-        const selector = {"ask-history":".overview-sections [data-part=item-content]:not([hidden])",made:".ask-bar",resources:".resource-inspection",workstreams:".rail","terminal-tabs":".terminal-tabs","import-work":".import-panel"}[view];
+        const selector = {"ask-history":".changes",made:".ask-bar",resources:".resource-inspection",workstreams:".rail","terminal-tabs":".terminal-tabs","import-work":".import-panel"}[view];
         await lane.until(view === "terminal-tabs" && !filled ? "!document.querySelector('.terminal-tab')" : `!!document.querySelector('${selector}')`);
         expect((await lane.calls()).filter(call => ["agent.spawn", "rail.startDoor", "ask.send", "terminal.write", "project.importCommit"].includes(call.method))).toEqual([]);
 
-        if (view === "ask-history") await lane.until(filled ? "!!document.querySelector('.ask-row')" : "!!document.querySelector('.overview-sections [data-part=item-content]:not([hidden]) .overview-quiet')");
+        if (view === "ask-history") await lane.until(filled ? "!!document.querySelector('.ask-row')" : "!!document.querySelector('.changes .overview-quiet')");
 
         if (view === "made") await lane.until("document.querySelector('.made')?.getAttribute('aria-busy') === 'false'");
 

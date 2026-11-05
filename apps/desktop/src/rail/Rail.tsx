@@ -10,7 +10,7 @@ import { type createCopyFeedback } from "../ui/CopyButton";
 import * as v from "valibot";
 import { attentionCount } from "./attention";
 import { copy } from "./copy";
-import { createEffect, createMemo, createSignal, createUniqueId, For, on, onCleanup, onMount, Show } from "solid-js";
+import { createEffect, createMemo, createSignal, createUniqueId, For, lazy, on, onCleanup, onMount, Show } from "solid-js";
 import { ReservedLine } from "../ink/ReservedLine";
 import { SectionHead } from "../ink/SectionHead";
 import { KindGlyph } from "../ink/KindGlyph";
@@ -22,7 +22,6 @@ import { Sortable, type SortableMove } from "../ui/sortable";
 import { TreeView, Trunks } from "../ui/TreeView";
 import { useConnectedProject } from "../state/connectedProject";
 import { doorStateOf } from "./doorState";
-import { CreateMode } from "./CreateMode";
 import { OpeningPrompt } from "./OpeningPrompt";
 import { SaveAsMode } from "./SaveAsMode";
 import { RailConfirm } from "./menu/RailConfirm";
@@ -43,6 +42,8 @@ import { createRailTree, sections } from "./railTree";
 import { RailRecovery } from "./RailRecovery";
 import { RailFooter } from "./RailFooter";
 import "./styles.css";
+
+const CreateMode = lazy(() => import("./CreateMode").then(module => ({ default: module.CreateMode })));
 
 const toggled = <T,>(set: ReadonlySet<T>, member: T): ReadonlySet<T> =>
   new Set(set.has(member) ? [...set].filter((each) => each !== member) : [...set, member]);
@@ -98,7 +99,7 @@ export const Rail = () => {
         { id: "add-pad", label: copy.pad, enabled: daemonExit() === null, run: () => connected.createIn("pad", node.id) },
         { id: "add-terminal", label: copy.addTerminalMenu, enabled: daemonExit() === null, run: () => connected.createIn("terminal", node.id) },
       ] },
-        ...(rail.exitOf(node) !== null && !connected.queue.entryOf(node.id) ? [{ id: "start", label: rail.doorFailure(node.id) ? copy.retryDoor : copy.startDoor, enabled: !rail.doorPending(node.id), run: () => { failure.clear(); rail.clearWorkstreamFailure(); void rail.startDoor(node.id); } }] : [])] : []),
+        ...(rail.exitOf(node) !== null && !connected.queue.entryOf(node.id) ? [{ id: "start", label: rail.doorFailure(node.id) ? copy.retryDoor : copy.startDoor, enabled: !rail.launching(node.id), run: () => { failure.clear(); rail.clearWorkstreamFailure(); void rail.startDoor(node.id); } }] : [])] : []),
     ];
   }, id => copied.get(id), () => knownTodos.isLoaded() && !knownTodos.failure() && knownPads.loaded() && !knownPads.failure() ? { todos: knownTodos.all(), pads: knownPads.pads() } : null);
 
@@ -159,7 +160,7 @@ export const Rail = () => {
 
     const original = rail.nodes.find((node) => node.id === taskDestination());
 
-    return original !== undefined && doorStateOf(original, rail.exitOf(original), rail.doorPending(original.id), rail.doorFailure(original.id) !== null) === null ? "note" : "spawn";
+    return original !== undefined && doorStateOf(original, rail.exitOf(original), rail.launching(original.id), rail.doorFailure(original.id) !== null) === null ? "note" : "spawn";
   };
 
   const openCompose = (prompt?: ActionValue) => {
@@ -280,8 +281,15 @@ export const Rail = () => {
 
     return contextMenu(app, [
       { id: "group", label: copy.group, run: () => attempt(async () => {
-        const group = await app.rpc("rail.group", { ids: chosen.map(each => each.id) });
-        await rail.refresh();
+        // U5991a: the Rows show grouped now; the refreshed tree or a failure lifts the drawing.
+        const lift = rail.drawGroup(chosen.map(each => each.id), copy.newWorkstreamTitle);
+        let group: Awaited<ReturnType<typeof app.rpc<"rail.group">>>;
+
+        try {
+          group = await app.rpc("rail.group", { ids: chosen.map(each => each.id) });
+          await rail.refresh();
+        } finally { lift(); }
+
 
         if (rail.collapsed().has(group.id)) rail.toggleCollapsed(group.id);
         rail.select(group.id);
@@ -364,12 +372,9 @@ export const Rail = () => {
     void moveAgent.move({ id, parent, index: trueIndex(id, parent, index) });
   };
 
-  const [pending, setPending] = createSignal(false);
-
-  /** Runs one of the add actions; a second click while the Daemon is still answering would add a second row. */
+  /** Runs one of the add actions; U6000d: a second one fired while the Daemon is still answering is not refused. */
   const guarded = <T,>(call: () => Promise<T>): void => {
-    setPending(true);
-    void attempt(call).finally(() => setPending(false));
+    void attempt(call);
   };
 
   const parent = (): string | null => {
@@ -377,6 +382,8 @@ export const Rail = () => {
 
     return selected?.kind === "workstream" ? selected.id : null;
   };
+
+  let sendOrder: Promise<void> = Promise.resolve();
 
   const spawnAgentWith = (prompt: string | null, under: string | null = parent()) => {
     const params: SpawnParams = { cwd: project.path, prompt, parent: under, model: null, effort: null };
@@ -390,13 +397,24 @@ export const Rail = () => {
         return;
       }
 
-      guarded(async () => {
+      // U6000a, U6000d: the row (drawn below) shows `starting` at once; launches fired while one is pending reach the Daemon in the order fired.
+      const turn = sendOrder;
+      let sent!: () => void;
+
+      sendOrder = new Promise<void>(resolve => { sent = resolve; });
+      void attempt(async () => {
         const focus = captureFocus(true);
         let prepared: Awaited<ReturnType<NonNullable<typeof rail.prepareTerminal>>> | undefined;
+        // U5991a: the Row shows now; the refreshed tree or a failure lifts it.
+        const lift = rail.drawNew("agent", copy.newAgent, under);
 
         try {
+          await turn;
           prepared = await rail.prepareTerminal?.();
-          const spawned = await app.rpc("agent.spawn", { ...params, ...prepared?.size });
+          const call = app.rpc("agent.spawn", { ...params, ...prepared?.size });
+
+          sent();
+          const spawned = await call;
 
           if (spawned.terminal_id) prepared?.bind(spawned.terminal_id);
           await rail.refresh();
@@ -407,7 +425,7 @@ export const Rail = () => {
 
           if (error.name === "AbortError") return;
           failure.show(`${copy.newAgent}: ${error.message}`, null, "rail", run);
-        } finally { prepared?.dispose(); }
+        } finally { sent(); lift(); prepared?.dispose(); }
       });
     };
 
@@ -545,7 +563,7 @@ export const Rail = () => {
     });
   };
 
-  const canSpawn = () => !pending() && !rail.workstreamCreating() && !rail.doorPending(rail.selected() ?? "") && daemonExit() === null;
+  const canSpawn = () => !rail.workstreamCreating() && !rail.doorPending(rail.selected() ?? "") && daemonExit() === null;
 
   onMount(() => {
     const clear = (event: MouseEvent) => {
@@ -787,7 +805,7 @@ export const Rail = () => {
                           topology={topology()}
                           todoCount={todoCount(view().node.id)}
                           actions={actionsOf(view().node)}
-                          doorAction={<Show when={isWorkstream(view().node) && !view().node.opening_prompt?.trim() && rail.exitOf(view().node) !== null && !connected.queue.entryOf(view().node.id)}><IconButton aria-label={rail.doorFailure(view().node.id) ? copy.retryDoor : copy.startDoor} aria-disabled={rail.doorPending(view().node.id)} onKeyDown={event => event.stopPropagation()} onClick={event => { event.stopPropagation(); failure.clear(); rail.clearWorkstreamFailure(); void rail.startDoor(view().node.id); }}><Icon name="play" /></IconButton></Show>}
+                          doorAction={<Show when={isWorkstream(view().node) && !view().node.opening_prompt?.trim() && rail.exitOf(view().node) !== null && !connected.queue.entryOf(view().node.id)}><IconButton aria-label={rail.doorFailure(view().node.id) ? copy.retryDoor : copy.startDoor} aria-disabled={rail.launching(view().node.id)} onKeyDown={event => event.stopPropagation()} onClick={event => { event.stopPropagation(); failure.clear(); rail.clearWorkstreamFailure(); void rail.startDoor(view().node.id); }}><Icon name="play" /></IconButton></Show>}
                           rootDivider={collection().isBranchNode(entryOf(view().node.id).node) && view().key !== sectionRows().find(each => each.id === section.id)?.rows[0]?.key}
                           copyWith={feedback => {
                             const id = view().node.id;

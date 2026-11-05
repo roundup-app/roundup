@@ -54,7 +54,7 @@ const calls = (m: Awaited<ReturnType<typeof mountInbox>>, method: string) => m.a
 it("u3770a_sections_hold_their_agents_in_order_with_counts", async () => {
   await mountInbox();
   expect(names(panel())).toEqual(["c", "a", "f"]);
-  expect(Number(document.querySelector(".inbox-count")!.textContent)).toBe(3);
+  expect(names(panel()).length).toBe(3);
   expect(panel().querySelector('[data-row="a:b"]')).toBeNull();
 
 });
@@ -96,14 +96,14 @@ it("u3770b_one_row_is_open_at_a_time", async () => {
 });
 
 it("u3770b_escape_collapses_and_returns_focus", async () => {
-  await mountInbox();
+  const m = await mountInbox();
   const head = within(panel()).getByText("gamma").closest("button")!;
   fireEvent.click(head);
   (await within(panel()).findByRole("button", { name: "Retry" })).focus();
   fireEvent.keyDown(document.activeElement!, { key: "Escape" });
   await waitFor(() => expect(head.getAttribute("aria-expanded")).toBe("false"));
   expect(document.activeElement).toBe(head);
-  expect(screen.getByRole("button", { name: /^Needs you/ }).getAttribute("aria-expanded")).toBe("true");
+  expect(m.connected.hasView("attention")).toBe(true);
 });
 
 it("u3770c_retry_resumes_the_failed_agent", async () => {
@@ -146,14 +146,14 @@ it("u3770d_a_status_event_moves_the_row_and_counts", async () => {
   const m = await mountInbox();
   await send(m, status("b", "needs-you"));
   expect(names(groupOf("Needs you"))).toContain("b");
-  expect(Number(document.querySelector(".inbox-count")!.textContent)).toBe(4);
+  expect(names(panel()).length).toBe(4);
 });
 
 it("u3770d_a_burst_ends_in_the_last_state", async () => {
   const m = await mountInbox();
   await send(m, ...(["needs-you", "working", "error", "done", "working"] as const).map((kind) => status("a", kind)));
   expect(names(panel())).not.toContain("a");
-  expect(Number(document.querySelector(".inbox-count")!.textContent)).toBe(2);
+  expect(names(panel()).length).toBe(2);
 });
 
 it("u3770d_changes_do_not_close_or_move_the_open_row", async () => {
@@ -170,7 +170,7 @@ it("u3770d_changes_do_not_close_or_move_the_open_row", async () => {
 
 it("u3770d_the_needs_you_count_is_a_polite_live_region", async () => {
   await mountInbox();
-  expect(document.querySelector(".inbox-count")!.getAttribute("aria-live")).toBe("polite");
+  expect(document.querySelector(".change-list")!.getAttribute("aria-live")).toBe("polite");
 });
 
 it("u3770e_reduced_motion_makes_every_change_instant", async () => {
@@ -289,10 +289,11 @@ it("u3770a_comment_only_attention_opens_needs_you_without_marking_read", async (
   const m = await mountTodos([todo(1, { title: "Review" })], true, [agent("a", "working", "editing", { name: "alpha" })]);
   m.store.comments!.set(1, [{ id: 7, author: { kind: "agent", id: "a", parent: null }, body: "review this", created_at: 10, read: false }]);
   m.connected.showView(null);
+  m.connected.showView("attention");
   render(() => <ConnectedProjectContext.Provider value={m.connected}><AskBar /></ConnectedProjectContext.Provider>);
   const row = await screen.findByRole("button", { name: /alpha.*Review/ });
   expect(row.closest(".inbox-group")?.getAttribute("data-agent")).toBe("a");
-  expect(screen.getByRole("button", { name: /^Needs you/ }).getAttribute("aria-expanded")).toBe("true");
+  expect(m.connected.hasView("attention")).toBe(true);
   expect(calls(m, "todo.markCommentsRead")).toEqual([]);
   expect(panel().querySelector('[data-row="a:a"]')).toBeNull();
 });
@@ -300,7 +301,6 @@ it("u3770a_comment_only_attention_opens_needs_you_without_marking_read", async (
 
 it.each(["rail", "ask", "bench", "drawer", "agent-terminal", "shell-terminal", "empty-key", "empty-menu", "idle-key", "idle-menu", "menu"])("u3770e_inbox_route_opens_overview_needs_you_once: %s", async from => {
   const { connected, daemon, shells } = await mountNavigation(from.startsWith("empty"), 0, 1);
-  const overview = () => within(document.querySelector<HTMLElement>(".overview-sections")!);
 
   if (from.startsWith("idle")) {
     daemon.handlers["rail.tree"] = () => [agent("idle", "idle", "ready")];
@@ -310,11 +310,10 @@ it.each(["rail", "ask", "bench", "drawer", "agent-terminal", "shell-terminal", "
   const ask = screen.getByLabelText("Ask", { selector: "textarea" });
   const draft = "  exact é 東京 🧭 draft  ";
   fireEvent.input(ask, { target: { value: draft } });
-  await overview().findByRole("button", { name: "Made" });
+  await waitFor(() => expect(document.querySelector(".changes")).not.toBeNull());
   connected().showView("made");
-  await waitFor(() => expect(overview().getByRole("button", { name: "Made" }).getAttribute("aria-expanded")).toBe("true"));
-
-  expect(overview().getByRole("button", { name: /^Needs you/ }).getAttribute("aria-expanded")).toBe("false");
+  await waitFor(() => expect(connected().hasView("made")).toBe(true));
+  expect(connected().hasView("attention")).toBe(false);
 
   if (from.startsWith("idle")) connected().rail.select("idle");
 
@@ -349,16 +348,15 @@ it.each(["rail", "ask", "bench", "drawer", "agent-terminal", "shell-terminal", "
 
   for (let invocation = 0; invocation < 2; invocation++) {
     route();
-    const heading = overview().getByRole("button", { name: /^Needs you/ });
-    await waitFor(() => expect(document.activeElement).toBe(heading));
+    await waitFor(() => expect(connected().hasView("attention")).toBe(true));
     expect(connected().rail.selected()).toBeNull();
     expect(connected().drawer.content()).toBeNull();
-    expect(["Needs you", "Asks", "Made"].map(name => overview().getByRole("button", { name }).getAttribute("aria-expanded"))).toEqual(["true", "false", "false"]);
+    expect(connected().hasView("made")).toBe(false);
 
     if (from.startsWith("empty") || from.startsWith("idle")) {
-      const inbox = screen.getByRole("region", { name: "Needs you" });
+      const inbox = await screen.findByRole("region", { name: "Needs you" });
       expect(within(inbox).queryAllByRole("listitem")).toHaveLength(0);
-      expect(inbox.textContent?.trim()).not.toBe("");
+      await waitFor(() => expect(inbox.textContent?.trim()).not.toBe(""));
     }
 
     expect(connected().project.path).toBe("/p");

@@ -1,6 +1,6 @@
 # UI: an image an Agent draws shows in its Terminal (U5984)
 
-Module: `apps/desktop` (the webview). Ids: U5984, U5985. Source: the owner's report in #5984: an Agent Terminal shows `cmp.png` as a boxed file name, not the picture. Terms: Agent, Terminal, Door, Bubble, Thread, Pad (`GLOSSARY.md`). Acceptance only.
+Module: `apps/desktop` (the webview). Ids: U5984, U5985, U6144, U6145, U6146. Source: the owner's report in #5984: an Agent Terminal shows `cmp.png` as a boxed file name, not the picture. Terms: Agent, Terminal, Door, Bubble, Thread, Pad (`GLOSSARY.md`). Acceptance only.
 
 **U5984 the Terminal answers Kitty graphics and stores the image.** Claude Code 2.1.316 draws a picture inline only when the terminal answers its Kitty graphics query (`a=q`); it takes the iTerm2 path only when XTVERSION names iTerm2 3.5 or later. The App's emulator (`apps/desktop/src/terminal/emulator.ts`) answers neither today, so Claude Code draws the alt text in a box. Given an Agent Terminal on the App's emulator, then:
 
@@ -23,3 +23,29 @@ Observer: Vitest against the App's emulator, in `just check` (a cheap test, no p
 - No surface loads a remote URL, and a path outside the Project and the Agent's own temporary files is never read for display. Test: `u5985_a_remote_or_foreign_path_is_not_loaded`.
 
 Observer: Vitest in `apps/desktop/src`, in `just check`; the audit table is in the PR body.
+
+**U6144 a Unicode-placeholder picture shows as pixels.** Source: the owner's report of 2026-11-04 in #6144: a picture Claude Code 2.1.316 draws through its `Image` element shows as a box holding the file name, though U5984 closed. Claude Code sends the picture as `ESC _G a=T,U=1,q=2,f=100,i=<id>,c=<columns>,r=<rows> ; <base64> ESC \`, then writes `r` rows of U+10EEEE cells, each followed by diacritics naming its row and column, in a foreground colour that names the image id (the Kitty graphics spec, "Unicode placeholders"). Given an Agent Terminal on the App's emulator, then:
+
+- *Draw.* That transmission and its rows of placeholder cells leave one placement of the image, `columns` by `rows` cells, over exactly those cells. The cells show pixels, not the placeholder glyph. Test: `u6144_a_placeholder_transmission_places_one_image`, in `apps/desktop/src/terminal/u6144_placeholder_images.test.ts`, writes the fixture to the emulator and asserts the placement.
+- *Fixture.* The fixture is Claude Code's own byte form (`U=1` plus placeholder cells), recorded from Claude Code 2.1.316 or built to the spec's placeholder rules (a row diacritic and a column diacritic per cell, the id in the foreground colour, a continuation cell omitting both); no hand-made `a=T,f=100` placement stands in for it. Test: the same.
+- *Scroll and reopen.* The placement scrolls with the output and is drawn again when the Terminal reopens from its saved output, as U5984 says. Test: `u6144_a_placeholder_image_scrolls_and_reopens`.
+- *Bounds.* The 16 MB decoded cache and 4 Mpx per Terminal hold for a placeholder image, which is dropped with the text intact; rule 7's budgets hold (`just perf`). Test: `u6144_an_oversized_placeholder_image_is_dropped`.
+
+Integration, for the implementation's `Reuse:` section (rule 9): research xtermjs/xterm.js#6198 "Support kitty unicode placeholders (U=1) in addon-image" (open, addon-image only) first and apply it through `patches/@xterm__addon-image@0.10.0-beta.331.patch`. If no library path draws placeholders, the Daemon answers the Kitty query with an error and XTVERSION names iTerm2 3.5 so Claude Code takes the iTerm2 path the addon draws; that reverses U5984's *No spoofing* clause (`u5984_xtversion_never_names_iterm2` and U6146's XTVERSION row change in the same PR).
+
+Observer: Vitest against the App's emulator, in `just check`. The real-`claude` observer: a real `claude` in an Agent Terminal reads a PNG and draws pixels, not its alt text, on the implementation's revision; the run's `--debug` "Terminal capabilities" line is recorded in the PR. Only the user's Mac has a logged-in real `claude` (L46). Moves D2, D5, D6 only if a visible state changes; Tokens only.
+
+**U6145 a query gets no `OK` for a medium the Terminal does not read.** Claude Code's file query (`a=q,t=f`) draws nothing when answered `OK`, and the addon answers `EINVAL:unsupported transmission medium` for it. Given a Kitty query whose `t` is `f`, `t` (temporary file) or `s` (shared memory), then neither the Daemon (`crates/terminal/src/scheme.rs`) nor the emulator replies `OK`; the reply is the error the emulator itself gives, or none, never both an `OK` and an error. A query with `t=d` still gets `OK` for its id (U5984), and a query for a medium the emulator does read gets `OK` only after the emulator can draw it. Tests: `u6145_a_file_query_gets_no_ok` (`crates/terminal`, scheme tests) and `u6145_the_emulator_answers_each_medium` (`apps/desktop/src/terminal/`).
+
+**U6146 every reply to a terminal query claims only what the emulator draws or does.** Given an Agent Terminal, when a program sends each query below, then the reply, or its absence, matches what the emulator handles; the implementation's PR lists each query, its reply and the test:
+
+- XTVERSION names roundup (or iTerm2 3.5 only under U6144's fallback).
+- DA1 lists only features the emulator has.
+- The Kitty graphics query, per medium (U6145).
+- The Kitty keyboard query (`CSI ? u`) is answered only if the emulator reports and obeys the flags.
+- DECRPM for modes 2026 and 1016 reports each mode as the emulator supports it: set, reset, or not recognized.
+- OSC 11 reports the Terminal's background.
+- `CSI 16 t` reports a cell size only if the emulator knows its cell size.
+- OSC 7501 is answered only if the App handles it.
+
+A reply that claims a feature the emulator lacks is changed or removed in the same PR. Tests: `u6146_<query>_reply_matches_the_emulator`, one per query, in `apps/desktop/src/terminal/` or `crates/terminal` where the Daemon answers. Observer: Vitest and `cargo nextest`, in `just check`.
