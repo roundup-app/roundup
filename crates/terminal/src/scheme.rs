@@ -80,6 +80,8 @@ pub(crate) fn version() -> Vec<u8> {
 
 /// U5984: the Daemon answers a Kitty graphics query (`ESC _ G ... a=q ... ESC \`) in the stream's
 /// order, so its `OK` reaches the program before DA1's reply; the App's emulator draws the images.
+/// U6145: only a query for the direct medium (`t=d`, the default) is answered; the emulator reads no
+/// file or shared memory and replies with its own error to one.
 pub(crate) fn kitty_ok(id: u32) -> Vec<u8> {
     format!("\x1b_Gi={id};OK\x1b\\").into_bytes()
 }
@@ -136,15 +138,17 @@ impl KittyScan {
         let keys = std::mem::take(&mut self.keys);
         let rest = keys.strip_prefix(b"G")?;
         let mut query = false;
+        let mut direct = true;
         let mut id = 0u32;
         for pair in rest.split(|byte| *byte == b',') {
             match pair {
                 b"a=q" => query = true,
+                [b't', b'=', medium @ ..] => direct = medium == b"d",
                 [b'i', b'=', digits @ ..] => id = std::str::from_utf8(digits).ok()?.parse().ok()?,
                 _ => {}
             }
         }
-        query.then_some(Request::Kitty(id))
+        (query && direct).then_some(Request::Kitty(id))
     }
 }
 
@@ -210,5 +214,26 @@ mod kitty_tests {
         scan.feed(b"=q,t=d,f=24;AAAA\x1b", &mut out);
         scan.feed(b"\\\x1b_Ga=T,i=2,f=100;a=q\x1b\\", &mut out);
         assert!(matches!(out.as_slice(), [Request::Kitty(31)]));
+    }
+
+    #[test]
+    fn u6145_a_file_query_gets_no_ok() {
+        let mut scan = KittyScan::default();
+        let mut out = Vec::new();
+        for medium in ["f", "t", "s"] {
+            scan.feed(
+                format!("\x1b_Gi=7,s=1,v=1,a=q,t={medium},f=24;AAAA\x1b\\").as_bytes(),
+                &mut out,
+            );
+        }
+        assert!(out.is_empty());
+        scan.feed(
+            b"\x1b_Gi=8,a=q;AAAA\x1b\\\x1b_Gi=9,a=q,t=d;AAAA\x1b\\",
+            &mut out,
+        );
+        assert!(matches!(
+            out.as_slice(),
+            [Request::Kitty(8), Request::Kitty(9)]
+        ));
     }
 }
