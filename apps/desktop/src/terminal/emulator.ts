@@ -340,6 +340,13 @@ export const createXtermEmulators = (
     };
 
     window.addEventListener("pointerdown", clearOldSelection, true);
+    // U365b: an OSC 8 hyperlink opens through the same handler when http or https, never xterm's confirm/window.open.
+    terminal.options.linkHandler = {
+      allowNonHttpProtocols: false,
+      activate: (event, uri) => {
+        if (event.button === 0 && /^https?:\/\/\S/i.test(uri)) linkListener({ kind: "url", url: uri });
+      },
+    };
     const stopLinks = attachLinkGestures(terminal, element, printed => linkListener(printed));
 
     const shellTurns = attachTurns(terminal, (first, last) => terminal.selectLines(first, last));

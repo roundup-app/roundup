@@ -6,11 +6,10 @@ import { clipboardFailure, readPaste } from "../app/clipboard";
 import { copy as appCopy } from "./copy";
 import { createEffect, createSignal } from "solid-js";
 import type { Accessor } from "solid-js";
-import { RpcError } from "../app/seam";
 import type { OutputMessage, OutputSubscription } from "../app/seam";
 import type { ConnectedProject } from "../state/connectedProject";
 import { fromBase64, toBase64 } from "./base64";
-import { absolutePath } from "./links";
+import { openPrinted } from "./links";
 import type { Printed } from "./links";
 import type { Emulator, EmulatorFactory, Size, TerminalPreparation } from "./emulator";
 
@@ -125,8 +124,6 @@ const newestFailure = (state: TerminalFailures | undefined): FailureEntry | null
     null,
   );
 };
-
-const NOT_FOUND = -32001;
 
 export const createScreens = (connected: ConnectedProject, createEmulator: EmulatorFactory): Screens => {
   const { app, rail, daemonExit, project } = connected;
@@ -601,16 +598,9 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
   /** U365: a Door's Terminal and a worktree-less Agent's resolve against the Project folder; an Agent's against its Worktree. */
   const open = async (id: string, printed: Printed): Promise<void> => {
     const node = rail.nodes.find((candidate) => candidate.terminal_id === id);
-    const path = printed.kind === "path" ? absolutePath(printed.path, node?.kind === "agent" ? node.worktree?.path ?? project.path : project.path) : "";
+    const failure = await openPrinted((target) => app.openTarget(target), printed, node?.kind === "agent" ? node.worktree?.path ?? project.path : project.path, appCopy.doesNotExist);
 
-    try {
-      await app.openTarget(printed.kind === "url" ? printed : { kind: "path", path, line: printed.line });
-      setFailure(id, "link", null);
-    } catch (thrown) {
-      if (!(thrown instanceof Error)) throw thrown;
-
-      setFailure(id, "link", thrown instanceof RpcError && thrown.code === NOT_FOUND ? appCopy.doesNotExist(path) : thrown.message);
-    }
+    setFailure(id, "link", failure);
   };
 
   const isFocused = (id: string): boolean => {

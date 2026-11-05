@@ -3,9 +3,10 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { Terminal } from "@xterm/xterm";
 import type { ILink } from "@xterm/xterm";
 import { RpcError } from "../app/seam";
+import type { OpenTarget } from "../app/seam";
 import { door, info, node } from "../testing/nodes";
 import { createLinkProvider } from "./linkProvider";
-import { absolutePath, findTargets } from "./links";
+import { absolutePath, findTargets, openPrinted } from "./links";
 import { mountPane } from "./paneHarness";
 
 afterEach(cleanup);
@@ -170,5 +171,99 @@ describe("u365 opening", () => {
     expect(absolutePath("/a/b/", "/p")).toBe("/a/b");
     expect(absolutePath("../x", "/p/q")).toBe("/p/x");
     expect(absolutePath("./LICENSE", "/")).toBe("/LICENSE");
+  });
+});
+
+describe("u365b bare domains", () => {
+  const target = (text: string) => findTargets(text)[0]?.printed;
+
+  it("u365b_a_bare_domain_is_a_link", () => {
+    for (const [text, path] of [
+      ["legislation.gov.uk", "legislation.gov.uk"],
+      ["www.example.com/a", "www.example.com/a"],
+      ["example.co.uk/x?y=1", "example.co.uk/x?y=1"],
+      ["example.com?y=1.", "example.com?y=1"],
+      ["(example.org#top)", "example.org#top"],
+    ] as const) {
+      expect(target(text), text).toEqual({ kind: "path", path, line: null });
+    }
+
+    expect(printed("example.com?y=1")).toEqual(["example.com?y=1"]);
+  });
+
+  it("u365b_a_non_suffix_token_stays_plain_text", () => {
+    for (const token of ["foo.notatld?x=1", "a.b#c", "v1.2", "a@b.co", "mailto:a@b.co", "example.com:80?x"]) {
+      expect(printed(token), token).toEqual([]);
+    }
+
+    expect(target("file.txt")).toEqual({ kind: "path", path: "file.txt", line: null });
+  });
+
+  const open = (failures: Record<string, RpcError>) => {
+    const calls: OpenTarget[] = [];
+    const openTarget = async (t: OpenTarget) => {
+      calls.push(t);
+
+      const failure = failures[t.kind === "url" ? t.url : t.path];
+
+      if (failure) throw failure;
+    };
+
+    return { calls, run: (text: string) => openPrinted(openTarget, target(text)!, "/p", (path) => `${path} does not exist.`) };
+  };
+
+  it("u365b_an_existing_file_named_like_a_domain_opens_the_file", async () => {
+    const { calls, run } = open({});
+
+    expect(await run("notes.io")).toBeNull();
+    expect(calls).toEqual([{ kind: "path", path: "/p/notes.io", line: null }]);
+  });
+
+  it("u365b_a_missing_file_falls_back_to_https", async () => {
+    const { calls, run } = open({ "/p/legislation.gov.uk": new RpcError(-32001, "not found") });
+
+    expect(await run("legislation.gov.uk")).toBeNull();
+    expect(calls).toEqual([{ kind: "path", path: "/p/legislation.gov.uk", line: null }, { kind: "url", url: "https://legislation.gov.uk" }]);
+  });
+
+  it("u365b_a_refused_fallback_shows_its_cause", async () => {
+    const { run } = open({ "/p/a.gov.uk": new RpcError(-32001, "not found"), "https://a.gov.uk": new RpcError(-32002, "only http and https links open") });
+
+    expect(await run("a.gov.uk")).toBe("only http and https links open");
+  });
+
+  it("u365b_every_link_form_maps_to_its_target", async () => {
+    const rows: [string, unknown][] = [
+      ["https://example.com/a", { kind: "url", url: "https://example.com/a" }],
+      ["/abs/a.ts", { kind: "path", path: "/abs/a.ts", line: null }],
+      ["src/a.ts", { kind: "path", path: "/p/src/a.ts", line: null }],
+      ["README.md", { kind: "path", path: "/p/README.md", line: null }],
+      ["~/notes/a.md", { kind: "path", path: "~/notes/a.md", line: null }],
+      ["~/", { kind: "path", path: "~/", line: null }],
+      ["src/a.ts:42", { kind: "path", path: "/p/src/a.ts", line: 42 }],
+      ["src/a.ts:42:7", { kind: "path", path: "/p/src/a.ts", line: 42 }],
+    ];
+
+    for (const [text, expected] of rows) {
+      const { calls, run } = open({});
+
+      await run(text);
+      expect(calls, text).toEqual([expected]);
+    }
+
+    for (const none of ["mailto:a@b.co", "a@b.co"]) expect(printed(none), none).toEqual([]);
+  });
+
+  it("u365b_osc8_http_opens_through_open_target", async () => {
+    const { app, emulators } = await mountPane([node("n")], [info("t-n")]).then(async (mounted) => {
+      mounted.connected.rail.select("n");
+      await Promise.resolve();
+
+      return mounted;
+    });
+
+    emulators.get("t-n")!.clickLink({ kind: "url", url: "https://example.com/osc" });
+
+    await vi.waitFor(() => expect(app.openedTargets).toEqual([{ kind: "url", url: "https://example.com/osc" }]));
   });
 });
