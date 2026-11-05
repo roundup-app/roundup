@@ -12,13 +12,13 @@ export const copy = {
   noCapture: "Capture unavailable. Allow Screen Recording for roundup in macOS Privacy settings",
   facts: "Sent with it",
   /** @prose */
-  log: (count: number) => `App log with ${count} lines, closed`,
+  log: (count: number) => `App log with ${count} lines`,
   send: keysCopy.sendFeedback,
   close: sharedCopy.close,
   /** @prose */
   posted: "Your report is posted. Select to open it.",
   /** @prose */
-  keptRetry: (folder: string) => `I kept it in ${folder}. Select to retry.`,
+  keptRetry: (folder: string) => `Kept in ${folder}. Select to retry.`,
   /** @prose */
   notSent: "Your report was not sent.",
   setting: "Feedback Issue",
