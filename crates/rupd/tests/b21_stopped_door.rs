@@ -958,6 +958,7 @@ async fn dcl10_failed_start_preserves_backlog_and_cause() {
     let after = run.thread().await;
     assert_eq!(identity(&after), identity(&stored));
     assert_eq!(after[1]["kind"], "question", "{after:?}");
+    run.newest().await;
     let digests = run.digests().await;
     let review = digests
         .iter()
