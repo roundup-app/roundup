@@ -493,6 +493,10 @@ pub struct RailNode {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[specta(optional, type = u32)]
     pub waiting: Option<u32>,
+    /// DCL1: why Messages to this Agent, or to a Workstream's Door, have not reached it (`inbox write failed`); absent when none is failing.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[specta(optional, type = String)]
+    pub unreachable: Option<String>,
     /// A2681a: available conversation parts, only after the Agent's program exits.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[specta(optional, type = ConversationOverview)]

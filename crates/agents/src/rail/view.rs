@@ -59,6 +59,7 @@ fn load_with<T>(
             let node = RailNode {
                 workstream_state: None,
                 waiting: None,
+                unreachable: None,
                 start_attribution: row
                     .get_ref(19)?
                     .as_str_or_null()?

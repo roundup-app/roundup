@@ -208,6 +208,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Tool call | same | — |
 | Stray | same | — |
 | Waiting count (`RailNode.waiting`, `Messages::waiting_counts`) | `Door stopped · N waiting` | — |
+| Unreachable cause (`RailNode.unreachable`, `Messages::delivery_failure`) | `can't reach <Agent>: <cause>` | — |
 | Shim | same | — |
 | Model | same | — |
 | Effort | same | — |

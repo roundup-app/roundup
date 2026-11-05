@@ -819,7 +819,7 @@ export const Rail = () => {
                           tabbable={tabbableId() === view().node.id}
                           branch={collection().isBranchNode(entryOf(view().node.id).node)}
                           onToggle={() => rail.toggleCollapsed(view().node.id)}
-                          onOpen={() => openRow(view().node.id)}
+                          onOpen={id => openRow(id ?? view().node.id)}
                           onFailure={(message) => {
                             const id = view().node.id;
                             failure.show(message, id, "rail", () => setEditingName(id));

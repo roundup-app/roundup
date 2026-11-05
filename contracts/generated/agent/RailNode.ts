@@ -77,6 +77,8 @@ export type RailNode = {
 	tool_call?: agent$ToolCall.ToolCall,
 	/**  DCL10: on a Workstream, the changes its Door has not received (stored backlog); absent when none. */
 	waiting?: number,
+	/**  DCL1: why Messages to this Agent, or to a Workstream's Door, have not reached it (`inbox write failed`); absent when none is failing. */
+	unreachable?: string,
 	/**  A2681a: available conversation parts, only after the Agent's program exits. */
 	overview?: agent$ConversationOverview.ConversationOverview,
 };

@@ -5,6 +5,7 @@ pub(crate) fn node(id: &str, kind: NodeKind, _door: bool, status: Option<Status>
     RailNode {
         workstream_state: None,
         waiting: None,
+        unreachable: None,
         start_attribution: None,
         visibility: Default::default(),
         alert_level: Default::default(),
