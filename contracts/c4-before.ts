@@ -1105,7 +1105,6 @@ export type BeforeRpcMethods = {
   "project.setWorktrees": { params: project_Worktrees; result: null };
   "project.setMcp": { params: project_Mcp; result: null };
   "project.setPrepared": { params: project_Prepared; result: null };
-  "project.getPrepared": { params: null; result: project_Prepared };
   "project.importDiscover": { params: project_ImportDiscoverParams; result: project_ImportDiscovery };
   "import.list": { params: project_ImportListParams; result: project_ImportList };
   "project.importCommit": { params: project_ImportCommitParams; result: project_ImportResult };

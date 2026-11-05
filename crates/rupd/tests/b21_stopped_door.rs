@@ -4,6 +4,8 @@
 mod aimock;
 #[path = "support/rupd_harness.rs"]
 mod rupd_harness;
+#[path = "support/transcripts.rs"]
+mod transcripts;
 
 use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
@@ -13,6 +15,7 @@ use std::time::Duration;
 use contracts::EventData;
 use rpc::Client;
 use serde_json::{Value, json};
+use transcripts::{latest_snapshot, snapshots, transcript, user_turns_with, written};
 
 const BOUND: Duration = Duration::from_secs(30);
 
@@ -99,23 +102,48 @@ impl Run {
         run
     }
 
-    /// A Message `from` sends the Door while its session is off the list (Claude Code not listening, B50), so it stays pending.
-    async fn pend(&self, from: &Client, body: &str) {
+    /// A `kind` Message `from` sends the Door while its session is off the list (Claude Code not listening, B50), so it stays pending.
+    async fn pend(&self, from: &Client, kind: &str, body: &str) {
         let sessions = self.dir.path().join("config/sessions");
         std::fs::read_dir(sessions)
             .unwrap()
             .for_each(|f| std::fs::remove_file(f.unwrap().path()).unwrap());
-        let note = json!({"to":self.door,"kind":"note","body":body});
-        from.request("message.send", note).await.unwrap();
+        let message = json!({"to":self.door,"kind":kind,"body":body});
+        from.request("message.send", message).await.unwrap();
     }
 
     /// A stopped Door that holds two pending Messages, stopped after `pend` sent them.
-    async fn start_with_backlog() -> (Self, Vec<Value>) {
+    async fn start_with_backlog(open_job: bool) -> (Self, Vec<Value>) {
         let run = Self::start_live().await;
-        run.pend(&run.user, "first retained").await;
-        run.pend(&run.agent, "second retained").await;
+        run.pend(&run.user, "note", "first retained").await;
+        if open_job {
+            // DCL8: the Door's open Job, which has not reported, is in the snapshot a Start carries.
+            let door = Client::connect(&run.daemon.socket).await.unwrap();
+            door.request(
+                "daemon.identify",
+                json!({"actor":{"kind":"agent","id":run.door,"parent":null}}),
+            )
+            .await
+            .unwrap();
+            let job = door
+                .request(
+                    "agent.spawn",
+                    json!({"name":"open-job","parent":run.door,"cwd":run.dir.path(),"role":"job",
+                    "prompt":"Do the one thing.",
+                    "order":{"kind":"work","ask":"Do the one thing.","limits":[]}}),
+                )
+                .await
+                .unwrap();
+            // Settle the Job's own traffic before the Door stops, so only the backlog is counted.
+            run.idle(job["id"].as_str().unwrap(), 2).await;
+        }
+        let kind = if open_job { "question" } else { "note" };
+        run.pend(&run.agent, kind, "second retained").await;
         let stored = run.thread().await;
         run.stop_door().await;
+        // Two untold child facts, kept back while the Door is stopped.
+        run.change("first").await;
+        run.change("second").await;
         (run, stored)
     }
 
@@ -316,48 +344,8 @@ fn launch(
     (daemon, log)
 }
 
-fn snapshots(project: &Path) -> Vec<Value> {
-    std::fs::read_to_string(project.join("comparisons"))
-        .unwrap_or_default()
-        .lines()
-        .filter_map(|line| serde_json::from_str(line).ok())
-        .collect()
-}
-
-// The burst's Todos only accumulate, so its newest complete comparison acknowledges every
-// earlier Todo too. Parsing the full history for each input repeatedly decodes all earlier Todos.
-fn latest_snapshot(project: &Path) -> Option<Value> {
-    std::fs::read_to_string(project.join("comparisons"))
-        .unwrap_or_default()
-        .lines()
-        .rev()
-        .find_map(|line| serde_json::from_str(line).ok())
-}
-
 /// The Door's first prompt, as `tests/fixtures/b21_stopped_door.json` matches it.
 const DOOR_PROMPT: &str = "What is this Workstream for?";
-
-/// Whether Claude Code, configured in `config`, has written a conversation whose user message
-/// holds `prompt`.
-fn written(config: &Path, prompt: &str) -> bool {
-    std::fs::read_dir(config.join("projects"))
-        .into_iter()
-        .flatten()
-        .flatten()
-        .flat_map(|project| {
-            std::fs::read_dir(project.path())
-                .into_iter()
-                .flatten()
-                .flatten()
-        })
-        .filter(|file| file.path().extension().is_some_and(|ext| ext == "jsonl"))
-        .filter_map(|file| std::fs::read_to_string(file.path()).ok())
-        .any(|conversation| {
-            conversation
-                .lines()
-                .any(|line| line.contains(r#""type":"user""#) && line.contains(prompt))
-        })
-}
 
 async fn wait(ready: impl Fn() -> bool) {
     tokio::time::timeout(BOUND, async {
@@ -840,23 +828,23 @@ async fn waiting(run: &Run) -> Value {
 
 #[tokio::test]
 async fn dcl10_waiting_count_follows_stored_backlog_without_double_count() {
-    let (mut run, _) = Run::start_with_backlog().await;
-    assert_eq!(waiting(&run).await, json!(2));
+    let (mut run, _) = Run::start_with_backlog(false).await;
+    assert_eq!(waiting(&run).await, json!(4));
     run.change("first").await;
     run.change("second").await;
     run.assert_silent().await;
-    assert_eq!(waiting(&run).await, json!(4));
+    assert_eq!(waiting(&run).await, json!(6));
     drop(run.daemon.stdin.take());
     run.daemon.child.wait().unwrap();
     (run.daemon, run.log) = launch(run.dir.path(), run.data.path(), &run.model);
     run.user = Client::connect(&run.daemon.socket).await.unwrap();
-    assert_eq!(waiting(&run).await, json!(4));
+    assert_eq!(waiting(&run).await, json!(6));
 }
 
 #[tokio::test]
 async fn dcl10c_running_door_with_a_pending_message_has_no_waiting_count() {
     let run = Run::start_live().await;
-    run.pend(&run.user, "first retained").await;
+    run.pend(&run.user, "note", "first retained").await;
     assert_eq!(waiting(&run).await, Value::Null, "the Door program runs");
     run.stop_door().await;
     assert_eq!(waiting(&run).await, json!(1));
@@ -903,7 +891,7 @@ fn identity(thread: &[Value]) -> Vec<(u64, Value, Value, Value)> {
 
 #[tokio::test]
 async fn dcl10_start_replays_one_ordered_batch() {
-    let (run, stored) = Run::start_with_backlog().await;
+    let (run, stored) = Run::start_with_backlog(true).await;
     assert_eq!(stored.len(), 2, "{stored:?}");
     assert!(
         stored.iter().all(|m| m["status"] == "pending"),
@@ -915,11 +903,14 @@ async fn dcl10_start_replays_one_ordered_batch() {
     wait_delivered(&mut events, &stored).await;
     let after = run.thread().await;
     assert_eq!(identity(&after), identity(&stored));
+    assert_eq!(after[1]["kind"], "question", "{after:?}");
     assert!(
         after.iter().all(|m| m["status"] == "delivered"),
         "{after:?}"
     );
-    let written = transcript(run.dir.path().join("config").as_path());
+    let config = run.dir.path().join("config");
+    wait(|| transcript(&config).contains("[open jobs]")).await;
+    let written = transcript(&config);
     let first = written.find("first retained").expect("first in transcript");
     let second = written
         .find("second retained")
@@ -930,38 +921,61 @@ async fn dcl10_start_replays_one_ordered_batch() {
         1,
         "delivered once"
     );
+    assert!(
+        second < written.find("[open jobs]").expect("snapshot"),
+        "after the Messages"
+    );
+    assert!(
+        written.contains(&format!("replyTo: {}", stored[1]["id"])),
+        "question identity"
+    );
+    assert_eq!(user_turns_with(&written, "[open jobs]"), 1, "snapshot once");
 }
 
 #[tokio::test]
 async fn dcl10_failed_start_preserves_backlog_and_cause() {
-    let (run, stored) = Run::start_with_backlog().await;
+    let (run, stored) = Run::start_with_backlog(true).await;
     let fake = run.dir.path().join("rup");
     let saved = run.dir.path().join("saved-rup");
     std::fs::rename(&fake, &saved).unwrap();
+    let n = waiting(&run).await;
     let failed = run
         .user
         .request("rail.startDoor", json!({"id":run.door}))
         .await;
     let cause = failed.expect_err("launch fails").to_string();
-    assert!(!cause.is_empty());
-    let kept = run.thread().await;
-    assert_eq!(
-        kept, stored,
-        "every Message unchanged after the failed Start"
-    );
+    assert!(cause.contains("rup not found at"), "{cause}");
+    assert_eq!(waiting(&run).await, n, "N kept");
+    let before = run.digests().await.len();
+    assert_eq!(run.thread().await, stored, "Messages kept");
     run.assert_silent().await;
+    assert_eq!(run.digests().await.len(), before, "untold facts waiting");
     std::fs::rename(saved, fake).unwrap();
     let mut events = subscribe(&run).await;
     run.start_door().await;
     wait_delivered(&mut events, &stored).await;
     let after = run.thread().await;
     assert_eq!(identity(&after), identity(&stored));
-    let written = transcript(run.dir.path().join("config").as_path());
+    assert_eq!(after[1]["kind"], "question", "{after:?}");
+    let digests = run.digests().await;
+    let review = digests
+        .iter()
+        .filter(|d| d["body"].as_str().unwrap().contains("open todos: 2"))
+        .count();
+    assert_eq!(review, 1, "fact queued twice: {digests:?}");
+    let config = run.dir.path().join("config");
+    wait(|| transcript(&config).contains("[open jobs]")).await;
+    let written = transcript(&config);
     assert_eq!(
         user_turns_with(&written, "first retained"),
         1,
         "same batch once"
     );
+    assert!(
+        written.contains(&format!("replyTo: {}", stored[1]["id"])),
+        "question identity"
+    );
+    assert_eq!(user_turns_with(&written, "[open jobs]"), 1, "snapshot once");
 }
 
 async fn wait_delivered(events: &mut Client, stored: &[Value]) {
@@ -974,25 +988,4 @@ async fn subscribe(run: &Run) -> Client {
     let events = Client::connect(&run.daemon.socket).await.unwrap();
     events.request("events.subscribe", json!({})).await.unwrap();
     events
-}
-
-/// Conversation entries of type `user` that carry `text`; Claude Code also logs the same request as an `api-request-blob` entry.
-fn user_turns_with(written: &str, text: &str) -> usize {
-    written
-        .lines()
-        .filter_map(|line| serde_json::from_str::<Value>(line).ok())
-        .filter(|entry| entry["type"] == "user" && entry.to_string().contains(text))
-        .count()
-}
-
-/// Every conversation file Claude Code wrote under `config`, joined.
-fn transcript(config: &Path) -> String {
-    std::fs::read_dir(config.join("projects"))
-        .into_iter()
-        .flatten()
-        .flatten()
-        .flat_map(|p| std::fs::read_dir(p.path()).into_iter().flatten().flatten())
-        .filter(|f| f.path().extension().is_some_and(|e| e == "jsonl"))
-        .filter_map(|f| std::fs::read_to_string(f.path()).ok())
-        .collect()
 }

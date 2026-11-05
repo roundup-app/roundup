@@ -18,7 +18,7 @@ const answerRun = async (run: { name: string; args: { key: string; value: string
 
 afterEach(cleanup);
 
-const CMD_BACKSPACE = { key: "Backspace", code: "Backspace", metaKey: true };
+const CMD_BACKSPACE = { key: "Backspace", code: "Backspace", metaKey: true, shiftKey: true };
 
 const mount = async () => {
   const mounted = await mountRail([agent("a", "working", "busy"), agent("b", "idle", "x")]);

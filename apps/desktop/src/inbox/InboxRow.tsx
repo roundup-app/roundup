@@ -10,6 +10,8 @@ import { KindGlyph } from "../ink/KindGlyph";
 import { FailureLine } from "../ink/FailureLine";
 import { StatusTip } from "../ink/StatusTip";
 import { Collapsible } from "../ui/Collapsible";
+import { TargetText } from "../terminal/TargetText";
+import { useConnectedProject } from "../state/connectedProject";
 
 /** One entry: an Agent's `node`, or a Terminal whose program reported (PS11.1). */
 export type AgentRow = { key: string; arrived: boolean } & ({ node: RailNode; terminal?: undefined } | { terminal: TerminalInfo; node?: undefined });
@@ -20,10 +22,12 @@ export type RowActions = {
   busy(row: AgentRow): boolean;
   failure(row: AgentRow): string | null;
   dismiss(row: AgentRow): void;
+  fail(row: AgentRow, message: string | null): void;
 };
 
 /** U3770b: one Agent's row. Any row opens in place to the Agent's last step and the one action that fits its state. */
 export const InboxRow = (props: { row: AgentRow; open: boolean; selected: boolean; toggle(): void; actions: RowActions; head(element: HTMLElement): void }) => {
+  const { project } = useConnectedProject();
   const name = createUniqueId();
   const node = () => props.row.node;
   const terminal = () => props.row.terminal;
@@ -52,7 +56,7 @@ export const InboxRow = (props: { row: AgentRow; open: boolean; selected: boolea
       <FailureLine status={node()?.status} class="inbox-failure" />
       <Collapsible.Content>
         <div class="inbox-body">
-          <p class="inbox-step"><Show when={node()}><span class="light">{copy.inboxLastStep}</span> </Show>{step()}</p>
+          <p class="inbox-step"><Show when={node()}><span class="light">{copy.inboxLastStep}</span> </Show><TargetText objectLinks text={step() ?? ""} base={project.path} onFailure={message => props.actions.fail(props.row, message)} /></p>
           <ReservedLine message={failure()}>
             <button type="button" data-button="quiet" class="word" aria-describedby={name} onClick={() => props.actions.dismiss(props.row)}>{copy.inboxDismiss}</button>
           </ReservedLine>

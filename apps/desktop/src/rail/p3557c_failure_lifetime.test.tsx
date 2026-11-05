@@ -28,7 +28,7 @@ const failedRemove = async (pane = false) => {
   mounted.app.handlers["terminal.resize"] = () => null;
   mounted.rail.select("a");
   rowOf("a").focus();
-  fireEvent.keyDown(rowOf("a"), { key: "Backspace", code: "Backspace", metaKey: true });
+  fireEvent.keyDown(rowOf("a"), { key: "Backspace", code: "Backspace", metaKey: true, shiftKey: true });
   await answerQuestion(true);
   await waitFor(() => expect(screen.getByText(new RegExp(REFUSED))).toBeTruthy());
 
@@ -72,7 +72,7 @@ describe("p3557c an item failure in the Rail goes with its item", () => {
   it("p3557c_failure_lifetime_rail_acknowledged_retry_clears", async () => {
     const { app } = await failedRemove();
     app.handlers["rail.remove"] = () => null;
-    fireEvent.keyDown(rowOf("a"), { key: "Backspace", code: "Backspace", metaKey: true });
+    fireEvent.keyDown(rowOf("a"), { key: "Backspace", code: "Backspace", metaKey: true, shiftKey: true });
     await answerQuestion(true);
     await waitFor(() => expect(screen.queryByText(new RegExp(REFUSED))).toBeNull());
   });

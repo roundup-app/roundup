@@ -158,7 +158,7 @@ describe("u2230 shortcut hints", () => {
 
     expect(press(document.activeElement!, chord!.presses[0]!), `${place} ${hint.keys} is bound`).toBe(true);
 
-    if (hint.keys === "⌘⌫") await answerQuestion(true);
+    if (hint.keys === "⇧⌘⌫") await answerQuestion(true);
 
     if (hint.keys === "⌃⌘J") await waitFor(() => expect(document.activeElement).toBe(document.querySelector(".pane-screen textarea")));
     else if (hint.keys === "⌘K") expect(document.querySelector('[role="status"].leader')).not.toBeNull();
@@ -182,7 +182,7 @@ describe("u2230 shortcut hints", () => {
     fireEvent.pointerDown(button);
     fireEvent.click(button);
 
-    if (hint.keys === "⌘⌫") await answerQuestion(true);
+    if (hint.keys === "⇧⌘⌫") await answerQuestion(true);
 
     if (hint.keys === "⌃⌘J") await waitFor(() => expect(rowOf("a").getAttribute("aria-selected")).toBe("true"));
     else if (hint.keys === "⌘K") expect(document.querySelector('[role="status"].leader')).not.toBeNull();

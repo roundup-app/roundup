@@ -92,7 +92,7 @@ Research checked 2026-10-17; release dates are evidence of maintenance, not test
 
 ### Delivery and observation
 
-Implemented in `crates/agents` (`prepared.rs`, `worktree_prepared.rs`, `project.setPrepared`, `project.getPrepared`, `project.prepareDirectory`); the observer's procedure is `docs/prepared-observer.md`.
+Implemented in `crates/agents` (`prepared.rs`, `worktree_prepared.rs`, `project.setPrepared`, `project.prepareDirectory`); the observer's procedure is `docs/prepared-observer.md`.
 
 [G2542a–G2542e](../scenarios/worktrees.md#prepared-directories-specification-implementation-pending) name the planned tests and observer. Independent Node, Rust and Python fixtures must run real ecosystem smoke tests; Python includes an absolute-path environment executable. All retain ignored dependency and local configuration paths with identical device/inode and bytes across assignments.
 

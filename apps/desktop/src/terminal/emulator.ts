@@ -309,10 +309,12 @@ export const createXtermEmulators = (
     });
 
     // X17: the Daemon answers a program's colour query and DA1 from the App's scheme, shown or not; a second reply from here would reach the program twice.
+    // U6146: so does XTVERSION, where xterm.js would name itself beside the Daemon's `roundup`.
     for (const handler of [
       terminal.parser.registerOscHandler(10, (data) => data === "?"),
       terminal.parser.registerOscHandler(11, (data) => data === "?"),
       terminal.parser.registerCsiHandler({ final: "c" }, () => true),
+      terminal.parser.registerCsiHandler({ prefix: ">", final: "q" }, () => true),
     ]) disposers.push(() => handler.dispose());
 
     // xterm also asks about the keypress that follows a keydown it did not handle, so both are refused.

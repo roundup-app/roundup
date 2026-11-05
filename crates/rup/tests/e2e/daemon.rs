@@ -480,3 +480,25 @@ pub async fn start_door(client: &rpc::Client) -> String {
         .unwrap();
     id
 }
+
+/// B33: the entry that the text of a plain push spells, as the JSON of B19's entry.
+pub fn entry_of(text: &str) -> Value {
+    let mut lines = text.lines();
+    let head = lines.next().unwrap();
+    let (head, link) = head
+        .strip_suffix(')')
+        .and_then(|head| head.rsplit_once(" ("))
+        .map_or((head, None), |(head, link)| (head, Some(link)));
+    let (name, kind) = head.rsplit_once(" is ").unwrap();
+    let (mut last, mut todos, mut pads) = (String::new(), 0, Vec::new());
+    for line in lines {
+        if let Some(rest) = line.strip_prefix("  last: ") {
+            last = rest.to_owned();
+        } else if let Some(rest) = line.strip_prefix("  open todos: ") {
+            todos = rest.parse::<u32>().unwrap();
+        } else if let Some(rest) = line.strip_prefix("  pads: ") {
+            pads = rest.split(", ").map(str::to_owned).collect();
+        }
+    }
+    json!({"name": name, "kind": kind, "link": link, "last": last, "todos": todos, "pads": pads})
+}

@@ -562,6 +562,7 @@ fn auto_fixture(
         Bus::new(),
         Arc::new(provenance::Touches::in_memory().unwrap()),
         None,
+        String::new(),
     );
     (fixture, reader)
 }
@@ -699,6 +700,7 @@ async fn ec5637d_auto_required_reads_propagate() {
             Bus::new(),
             Arc::new(provenance::Touches::in_memory().unwrap()),
             None,
+            String::new(),
         );
         assert!(auto::tell(&reader).await.is_err(), "{method}");
         assert!(fixture.sent.lock().unwrap().is_empty(), "{method}");

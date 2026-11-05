@@ -44,6 +44,8 @@ pub(super) struct Inner {
     pub(super) typing: Mutex<std::collections::HashSet<u32>>,
     /// Successful writes in this Daemon run; recovered flights may need repeat closure.
     pub(super) inbox_written: Mutex<std::collections::HashSet<u32>>,
+    /// DCL8: the Attempts of a Door whose batch already carried the open-Job snapshot.
+    pub(super) snapshotted: Mutex<std::collections::HashSet<(String, i64)>>,
     /// DCL1: the delivery failures of each receiver.
     pub(super) failures: Mutex<failure::Failures>,
     /// B50: the transport of every Message to an Agent; without one nothing is delivered.
@@ -91,6 +93,7 @@ impl Messages {
             delivery: tokio::sync::RwLock::default(),
             typing: Mutex::default(),
             inbox_written: Mutex::default(),
+            snapshotted: Mutex::default(),
             failures: Mutex::default(),
             inbox: std::sync::OnceLock::new(),
         });
