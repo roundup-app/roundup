@@ -246,10 +246,7 @@ async fn dcl7_restart_resumes_only_jobs_selected_by_door() {
         .unwrap()
         .tool_result("toolu_dcl7_resume")
         .await;
-    assert!(
-        result["is_error"] != true,
-        "{result}"
-    );
+    assert!(result["is_error"] != true, "{result}");
     let tree = project.rail_tree(&user).await;
     assert_ne!(node(&tree, &job).attempt, job_before.attempt);
     let consult_after = node(&tree, &consult);
