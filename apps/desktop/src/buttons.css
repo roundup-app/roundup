@@ -22,6 +22,12 @@ button {
   cursor: pointer;
 }
 
+/* U6264a: an action caption stays on one line at its own width; the message or name beside it gives way. */
+[data-button] {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
 /* primary: the one action of a state. */
 [data-button="primary"] {
   color: var(--accent);
