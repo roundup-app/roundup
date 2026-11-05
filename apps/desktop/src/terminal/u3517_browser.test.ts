@@ -104,6 +104,23 @@ it("u3517b_loaded_metrics_drive_terminal_resize", async () => {
   expect(await sent()).toEqual({ id: "t-agent-3", ...await read<object>("window.__terminals.get('t-agent-3').fit()") });
 }, 60_000);
 
+// U3517b's band, read at the ratios Linux CI (1) and the owner's Retina display (2) draw at.
+it.each([1, 2])("u3517b_default_row_pitch_is_solos_at_ratio_%i", async scale => {
+  await load("agents-10", false, "dom", scale);
+  await select("agent-3", "t-agent-3");
+
+  const pitch = await read<number>(`(() => {
+    const { rows } = window.__terminals.get('t-agent-3').fit();
+    return document.querySelector('.pane .xterm-screen').getBoundingClientRect().height / rows;
+  })()`);
+
+  // U3517b explicitly commissions this one pitch band guard (#6222).
+  // oxlint-disable-next-line anti-slop/no-new-web-assertions
+  expect(pitch).toBeGreaterThanOrEqual(18);
+  // oxlint-disable-next-line anti-slop/no-new-web-assertions
+  expect(pitch).toBeLessThanOrEqual(20);
+}, 60_000);
+
 it("u3517d_rendering_changes_keep_input_and_scrollback", async () => {
   await load("agents-10");
   await select("agent-3", "t-agent-3");

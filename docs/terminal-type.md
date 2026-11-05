@@ -16,7 +16,7 @@ keeps its existing stack. U4592 selects regular weight 300 through `--weight-ter
 | --- | --- | --- |
 | `--font-terminal` | `fontFamily` | `"Fira Code", ui-monospace, "SF Mono", Menlo, monospace` |
 | `--text-terminal` | `fontSize` | 11 CSS px |
-| `--line-terminal` | `lineHeight` | 1.7, unitless (22 CSS px rows) |
+| `--line-terminal` | `lineHeight` | 1.45, unitless (18 CSS px rows, Solo's; #6222) |
 | `--letter-terminal` | `letterSpacing` | 0 CSS px (U4592 / #4627) |
 | `--weight-terminal` | `fontWeight` | 300 (Light); bold remains 700 |
 
@@ -278,8 +278,8 @@ The diagnostic PNG files and metrics are retained, uncommitted, under
 The owner’s 2026-10-28 decision supersedes the fractional Token request:
 `--letter-terminal: 0px` reaches xterm’s public `letterSpacing` option. Fira Code,
 11px size, normal/bold 400/700 and every colour are unchanged in this prerequisite;
-#4619 / PR #4624 owns the lighter 300 face. `--line-terminal: 1.7` retains the
-required 22px rows. The earlier 19px calibration above is historical.
+#4619 / PR #4624 owns the lighter 300 face. The 22px rows this section once
+retained were never measured on Solo; #6222 supersedes them (below).
 
 Reuse: the installed xterm 6.0.0 / WebGL 0.19.0 public whole-pixel option already
 supplies the narrower advance; no custom renderer is needed. For joining, the
@@ -302,7 +302,7 @@ released 2022-01-07, parses font ligatures but supplies no xterm lifecycle or
 rendering integration; the maintained official addon already owns that adapter.
 It is an addon dependency, not a reason to write a second joiner. The stable,
 beta and DOM tracking candidates above remain rejected for fractional tracking;
-DOM also lacks the custom glyphs needed for continuous 22px boxes. The installed
+DOM also lacks the custom glyphs needed for continuous full-cell boxes. The installed
 WebGL renderer and its existing fallback/context-loss path remain in use.
 
 The U4592 observer replays identical bytes into Agent, Door and shell surfaces
@@ -496,3 +496,19 @@ retained font hashes and focused checks. Fresh screenshots on both the previous 
 head and this fix have blank WebGL canvases, including a software-rendering
 retry: this is an observer failure, not new visual evidence. The prior reviewed
 capture readings above remain unchanged.
+
+## Row pitch equals Solo's (#6222)
+
+The owner measured Claude Code's welcome header on a Retina display: Solo draws
+rows 36 device px (18 CSS px) apart, roundup 43 (21.5 CSS px), so cell-filling
+glyphs such as the mascot drew about 19% taller at the same width. xterm's
+`lineHeight` multiplies the font's measured cell height (Fira Code at 11px,
+about 12.7 CSS px), not `fontSize`, so 1.7 gave 21.5 to 22 CSS px, not the
+11 x 1.7 = 18.7 that U4456a assumed. The "22 CSS px rows" of U4592 came from
+that 1.7 reading, not from Solo. `--line-terminal: 1.45` gives 18 CSS px at
+device ratio 1 and 18.5 at ratio 2 in Chromium, inside U3517b's 18-20 band;
+`u3517b_default_row_pitch_is_solos_at_ratio_1` and `_2` read the rendered pitch
+and fail outside it. Font size, tracking, face, `customGlyphs` and the WebGL
+renderer are unchanged, so box and block glyphs still fill the cell. The
+Settings line-height control applies the same multiplier, so its default now
+reads 1.45; a saved explicit value is kept.
