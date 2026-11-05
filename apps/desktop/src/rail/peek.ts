@@ -1,9 +1,7 @@
-import { makeEventListener } from "@solid-primitives/event-listener";
-import { debounce } from "@solid-primitives/scheduled";
 import { createEffect, createSignal, on, type Accessor } from "solid-js";
 import { CHORDS } from "../keys/chords";
 import { registerKeys } from "../keys/registry";
-import { createEdgePeek, OPEN_LAYER, PEEK_DWELL } from "../ui/edgePeek";
+import { createEdgePeek, OPEN_LAYER } from "../ui/edgePeek";
 
 const STRIP = ".rail-strip";
 
@@ -14,19 +12,7 @@ export const createRailPeek = (collapsed: Accessor<boolean>, region: () => Eleme
   const unpeek = () => setOpen(false);
   const peek = () => { if (collapsed()) setOpen(true); };
 
-  const dwell = debounce(peek, PEEK_DWELL);
-
-  createEdgePeek({ edge: "leading", region, state: { peeking, peek, unpeek } });
-
-  // The strip is not at the window's edge in the module's sense, so a rest on it dwells here too.
-  makeEventListener(document, "pointermove", (event) => {
-    // By position, not target: a tooltip over a mark takes the pointer's target without the pointer leaving the strip.
-    const box = document.querySelector(STRIP)?.getBoundingClientRect();
-    const onStrip = box !== undefined && event.clientX >= box.left && event.clientX < box.right && event.clientY >= box.top && event.clientY < box.bottom;
-
-    if (!peeking() && onStrip && event.pointerType === "mouse" && event.buttons === 0 && document.querySelector(OPEN_LAYER) === null) dwell();
-    else dwell.clear();
-  });
+  createEdgePeek({ edge: "leading", region, sensor: () => document.querySelector(STRIP), state: { peeking, peek, unpeek } });
 
   // Escape closes a peek from anywhere, the Terminal included, unless a Drawer, dialog or menu owns the key.
   registerKeys({ kind: "app" }, [{ action: CHORDS.find(row => row.name === "rail.close-peek")!, searchable: false,
