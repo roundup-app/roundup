@@ -7,13 +7,12 @@ import { IconButton } from "../ui/IconButton";
 import { TreeView } from "../ui/TreeView";
 import { captureActions } from "../keys/registry";
 import { useConnectedProject } from "../state/connectedProject";
-import { attentionCount } from "./attention";
 import { copy } from "./copy";
 import { isWorkstream, layoutRail, resolvedWorkstream } from "./layout";
 import { markKind, rowAttention, rowKind, rowUnread } from "./rollup";
 import "./strip.css";
 
-/** U6228: the collapsed Rail (its marks carry names for assistive technology only; the peek shows them, so no tooltips): one mark per Workstream, in the Rail's order, each with the state glyph and needs-you count its row rolls up from its Agents; the Overview mark carries the Project's count. */
+/** U6228: the collapsed Rail (its marks carry names for assistive technology only; the peek shows them, so no tooltips): one mark per Workstream, in the Rail's order, each with the state glyph and needs-you count its row rolls up from its Agents. */
 export const RailStrip = (props: { expand: () => void }) => {
   const { rail, unseen } = useConnectedProject();
   const dismissed = (node: Parameters<typeof rail.dismissed>[0]) => rail.dismissed(node);
@@ -27,16 +26,11 @@ export const RailStrip = (props: { expand: () => void }) => {
   }));
 
   const current = () => resolvedWorkstream(rail.nodes, rail.selected());
-  const attention = createMemo(() => attentionCount(rail.nodes, rail.dismissed));
   const add = () => captureActions(document.activeElement).find(action => action.name === "workstream.new")?.run();
 
   return (
     <nav class="rail-strip" aria-label={copy.railStrip}>
       <IconButton bare class="rail-strip-expand" aria-label={copy.expandRail} onClick={props.expand}><Icon name="right" /></IconButton>
-      <button type="button" data-button="quiet" class="rail-mark" data-overview="" aria-pressed={rail.selected() === null} aria-label={copy.overviewMark(attention())} onClick={() => rail.select(null)}>
-        <Icon name="layout-dashboard" />
-        <Show when={attention() > 0}><span class="ink-count" data-state="" data-tone="amber" aria-hidden="true">{attention()}</span></Show>
-      </button>
       <div class="rail-strip-scroll">
         <TreeView.Root collection={collection()} selectedValue={current() === null ? [] : [current()!]} expandOnClick={false}>
           <TreeView.Tree aria-label={copy.railStrip}>

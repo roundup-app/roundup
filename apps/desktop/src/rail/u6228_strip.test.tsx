@@ -48,12 +48,6 @@ it("u6228_a_mark_rolls_up_the_state_its_rail_row_shows", async () => {
   expect(mark(strip, "calm").getAttribute("aria-label")).toBe(copy.markName("calm", "Working", 0, false));
 });
 
-it("u6228_what_needs_you_outside_a_workstream_reaches_the_overview_mark", async () => {
-  const { strip } = await mountBoth();
-
-  await waitFor(() => expect(strip.querySelector("[data-overview]")?.getAttribute("aria-label")).toBe(copy.overviewMark(4)));
-});
-
 it("u6228_a_mark_selects_its_door", async () => {
   const { strip, rail } = await mountBoth();
 
