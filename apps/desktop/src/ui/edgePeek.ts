@@ -11,7 +11,7 @@ export const PEEK_DWELL = 250;
 export const PEEK_GRACE = 350;
 
 /** A Drawer, dialog, menu or drag owns the pointer wherever it is; no panel peeks under one. */
-const OPEN_LAYER = '.drawer[data-open="true"], [role=dialog], [role=alertdialog], [role=menu], [data-dnd-dragging]';
+export const OPEN_LAYER = '.drawer[data-open="true"], [role=dialog], [role=alertdialog], [role=menu], [data-dnd-dragging]';
 
 export type EdgePeek = {
   /** Which window edge the panel slides in from. */

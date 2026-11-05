@@ -1,5 +1,7 @@
 # UI: Needs you in the Overview
 
+Policy amendment — owner decision of 2026-11-05 (#6244, `scenarios/ui-project-root-overview.md`): U3770's pointer to U504's landing rows retires with the Overview; the requested Inbox and the Rail's Kind carry attention.
+
 Owner amendment #4966 retires U3770's Inbox Drawer, its opener/Close/slide, Running and Done catalogues, and duplicate attention list. Module: `apps/desktop/src/inbox/` and the connected Overview. Journey: Understand and Intervene. Inbox remains a code term; these clauses specify requested attention inspection; U504 separately defines pinned landing rows. No RPC or permission change.
 
 Policy amendment #5730: U504's landing list contains pinned native attention/error rows with one direct Terminal action; the full Inbox remains on demand through its existing menu/key action and list implementation, including unread comments and guarded Retry. The requested Inbox uses the existing optional-view mechanism, preserving the prior surface, Terminal lifetime, Project and exact Ask draft; Close returns to the prior surface/focus. The clauses below retain their membership, row inspection, authority and failure behavior inside that requested list. U504 replaces only the former outer Overview accordion/heading/dot presentation. Tests extend `u3770e_inbox_route_opens_overview_needs_you_once` for requested-list access, close/return and repeated invocation without unrelated calls; the rendered observer is U504's #5730 observer.
