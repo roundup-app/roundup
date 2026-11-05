@@ -158,6 +158,21 @@ describe("u504 the Ask bar", () => {
     }
   });
 
+  it.each(["home", "over"])("u6175c_escape_from_the_home_ask_input_leaves_it: %s", async (mode) => {
+    await mountAskBar();
+
+    // Stands in for the Overview row the Rail selects while no Workstream is.
+    const overview = document.body.appendChild(Object.assign(document.createElement("button"), { className: "rail-row" }));
+
+    overview.dataset.selected = "true";
+
+    if (mode === "over") press("/", { metaKey: true }, document.querySelector<HTMLElement>(".outside")!);
+    input()!.focus();
+    expect(press("Escape", {}, input()!).defaultPrevented).toBe(true);
+    await waitFor(() => expect(document.activeElement).toBe(overview));
+    overview.remove();
+  });
+
   it("u504_click_picks_a_workstream", async () => {
     await mountAskBar();
     input()!.focus();

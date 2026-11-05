@@ -47,7 +47,10 @@ export const SpawnPromptField = (props: {
       if (press.key === "Enter" && !press.shiftKey && !press.isComposing) {
         press.preventDefault();
         props.onSubmit(promptOf(press.currentTarget.value));
-      } else if (press.key === "Escape") props.onCancel();
+      } else if (press.key === "Escape") {
+        press.preventDefault();
+        props.onCancel();
+      }
     }}
   />
 );

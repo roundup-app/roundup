@@ -2,7 +2,7 @@ import { applied } from "../app/pending";
 import { currentOwner } from "../state/rail";
 import { appDark } from "../settings/preferences";
 import { outcomeOf } from "../app/seam";
-import { queueFocus } from "../keys/focus";
+import { queueFocus, returnFocus } from "../keys/focus";
 import { writeText } from "../app/clipboard";
 import { CopyButton } from "../ui/CopyButton";
 import * as v from "valibot";
@@ -139,7 +139,7 @@ export const Capture = (props: { onFile: (() => void) | undefined; onNativeOpen?
       return;
     }
 
-    if (returnTo instanceof HTMLElement && returnTo.isConnected) returnTo.focus({ preventScroll: true });
+    returnFocus(returnTo);
   };
 
   const discard = () => {

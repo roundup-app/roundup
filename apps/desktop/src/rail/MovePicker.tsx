@@ -25,7 +25,7 @@ export const MovePicker = (props: {
     queueFocus(() => target.anchor.focus({ preventScroll: true }));
   };
 
-  return <Popover.Root open closeOnEscape closeOnInteractOutside finalFocusEl={() => target.anchor}
+  return <Popover.Root open closeOnInteractOutside finalFocusEl={() => target.anchor}
     onOpenChange={({ open }) => { if (!open) close(); }}
     positioning={{ placement: "bottom-start", strategy: "fixed", getAnchorRect: () => target.anchor.getBoundingClientRect() }}>
     <Portal><Popover.Positioner><Popover.Content class="choice-picker" ref={element => { panel = element; }} aria-label={copy.moveTo}>

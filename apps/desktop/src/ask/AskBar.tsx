@@ -207,12 +207,17 @@ export const AskBar = (props: {
     if (!list.some((item) => item.value === highlighted())) setHighlighted(list[0]?.value ?? null);
   });
 
+  /** At home the Ask input is part of the page, so Esc has no panel to close: it leaves the input for the Rail's selected row. */
+  const leaveHome = () => queueFocus(() => document.querySelector<HTMLElement>('.rail-row[data-selected="true"]')?.focus());
+
   const close = (restore: boolean): void => {
     if (optionalViews.some(connected.hasView)) optionalViews.forEach(connected.hideView);
     selectedPane = !restore;
     batch(() => { setOpening(null); setSelected(null); });
 
     if (field?.isConnected) restoreSelection(field);
+
+    if (restore && rail.selected() === null) leaveHome();
   };
 
   createEffect(() => { if (over() && modalOutside(panel)) close(false); });
@@ -287,6 +292,13 @@ export const AskBar = (props: {
       event.preventDefault();
       event.stopPropagation();
       setDismissed(true);
+
+      return;
+    }
+
+    if (event.key === "Escape" && !over() && !event.isComposing) {
+      event.preventDefault();
+      leaveHome();
 
       return;
     }

@@ -1,5 +1,5 @@
 import { createProjectOpening, ProjectOpening } from "./app/ProjectOpening";
-import { historyRegion } from "./keys/focus";
+import { historyRegion, returnFocus } from "./keys/focus";
 import Hourglass from "lucide-solid/icons/hourglass";
 import { ReducedMotionContext } from "./app/reducedMotion";
 import { pressFeedback } from "./ui/pressFeedback";
@@ -658,10 +658,19 @@ export const App = (props: {
   const [projectQuery, setProjectQuery] = createSignal("");
   const [projectHighlight, setProjectHighlight] = createSignal<string | null>(null);
   let projectPanel: HTMLElement | undefined;
+  let projectOpener: Element | null = null;
+
+  /** Esc or a dismissal returns focus to where it was before the picker opened; choosing a Project moves focus itself. */
+  const dismissProjectPicker = () => {
+    setProjectPicker(false);
+    returnFocus(projectOpener);
+  };
+
   const projectMatches = () => projects.tabs().filter(tab => tab.project.name.toLowerCase().includes(projectQuery().toLowerCase())).map(tab => ({ value: tab.project.path, label: tab.project.name }));
+
   createEffect(() => { if (!projectMatches().some(item => item.value === projectHighlight())) setProjectHighlight(projectMatches()[0]?.value ?? null); });
-  registerKeys({ kind: "leader" }, [{ action: LEADER.find(row => row.keys === "P")!, capture: () => ({ available: () => projects.tabs().length > 1, invoke: () => { setProjectQuery(""); setProjectPicker(true); } }) }]);
-  registerKeys({ kind: "layer", element: () => projectPanel, active: projectPicker, modal: true }, [{ chords: ["Escape"], run: () => setProjectPicker(false) }]);
+  registerKeys({ kind: "leader" }, [{ action: LEADER.find(row => row.keys === "P")!, capture: () => ({ available: () => projects.tabs().length > 1, invoke: () => { projectOpener = document.activeElement; setProjectQuery(""); setProjectPicker(true); } }) }]);
+  registerKeys({ kind: "layer", element: () => projectPanel, active: projectPicker, modal: true }, [{ chords: ["Escape"], run: dismissProjectPicker }]);
 
   const emulators = () => props.createEmulator ?? lazyXtermEmulators();
 
@@ -819,7 +828,7 @@ export const App = (props: {
               )}
             </InProject>
             <Show when={projectPicker()}><section class="switcher" ref={projectPanel}>
-              <Combobox.Root items={projectMatches()} inputValue={projectQuery()} onInput={setProjectQuery} highlightedValue={projectHighlight()} onHighlightChange={setProjectHighlight} label={copy.switchProject} placeholder={copy.switcherPlaceholder} empty={copy.noMatch} row={item => item.label} focusScope={() => projectPanel} onDismiss={() => setProjectPicker(false)} onSelect={path => { setProjectPicker(false); projects.select(path); }} />
+              <Combobox.Root items={projectMatches()} inputValue={projectQuery()} onInput={setProjectQuery} highlightedValue={projectHighlight()} onHighlightChange={setProjectHighlight} label={copy.switchProject} placeholder={copy.switcherPlaceholder} empty={copy.noMatch} row={item => item.label} focusScope={() => projectPanel} onDismiss={dismissProjectPicker} onSelect={path => { setProjectPicker(false); projects.select(path); }} />
             </section></Show>
             <InProject open={captureOwner()}>{(open) => <Capture onReady={show => setCaptureShow(() => show)} onNativeOpen={shown => setCaptureConnection(shown ? open : undefined)} onFile={() => { if (!frame.open()) shelfFocus.toggle("key"); frame.setTab("todos"); }} />}</InProject>
             <Help projectOpen={activeConnection() != null} shelfOpen={frame.open()} />
