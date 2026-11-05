@@ -863,3 +863,18 @@
 .rail-row:is(:hover, :focus-within, [data-selected="true"]) .rail-attribution {
   visibility: visible;
 }
+
+/* DCL1: a delivery failure reads in the error tone, like the failure lines beside it. */
+.rail-unreachable .reserved-status {
+  color: var(--red);
+}
+/* The cause is what the user acts on, so it wraps under Open instead of ending in an ellipsis. */
+.rail-unreachable.reserved-line {
+  block-size: auto;
+  max-block-size: none;
+}
+.rail-unreachable .reserved-content { flex-wrap: wrap; }
+.rail-unreachable .reserved-status {
+  flex-basis: 100%;
+  white-space: normal;
+}

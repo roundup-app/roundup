@@ -167,6 +167,12 @@ impl Daemon {
         }
         .map_err(RpcError::internal)?;
         for node in &mut nodes {
+            // DCL1: the cause rides the Agent's row and, through its Door, the Workstream's.
+            let cause = self
+                .sender
+                .get()
+                .and_then(|messages| messages.delivery_failure(&node.id));
+            node.unreachable = cause.map(str::to_owned);
             if node.kind == contracts::agent::NodeKind::Workstream {
                 node.waiting = counts
                     .get(&node.id)

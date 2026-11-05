@@ -15,6 +15,8 @@ const removalPlurals = new Intl.PluralRules("en");
 
 export const copy = {
   doorStoppedWaiting: (count: number) => `Door stopped · ${count} waiting`,
+  cantReach: (agent: string, cause: string) => `can't reach ${agent}: ${cause}`,
+  openUnreachable: () => sharedCopy.openDraft,
   startedBy: (agent: string, project: string) => `by ${agent} (${project})`,
   create: sharedCopy.create,
   thatIsGone: sharedCopy.thatIsGone,

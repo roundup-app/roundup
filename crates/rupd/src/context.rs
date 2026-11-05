@@ -215,6 +215,7 @@ mod tests {
         RailNode {
             workstream_state: None,
             waiting: None,
+            unreachable: None,
             start_attribution: None,
             visibility: Default::default(),
             alert_level: Default::default(),

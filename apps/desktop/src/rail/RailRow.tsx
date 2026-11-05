@@ -110,12 +110,15 @@ const NameField = (props: { node: RailNode; onCommit: (name: string) => Promise<
 };
 
 
+/** DCL2: the Kind a Workstream state shows; `idle` and `settled` add nothing to the Door's own Kind. */
+const STATE_KIND: Record<NonNullable<RailNode["workstream_state"]>, Kind | undefined> = { "needs-you": "needs-you", error: "error", stalled: "working", working: "working", waiting: "blocked", idle: undefined, settled: undefined };
+
 export const RailRowView = (props: {
   actions: RowActions; doorAction?: JSX.Element;
   topology: RailTopology; todoCount: number;
   row: NodeRow; rootDivider?: boolean; selected: boolean; multiple: boolean; tabbable: boolean; branch: boolean;
   copyWith?: (feedback: ReturnType<typeof createCopyFeedback>) => () => void;
-  editing: boolean; onEditing: (editing: boolean) => void; onToggle: () => void; onOpen: () => void;
+  editing: boolean; onEditing: (editing: boolean) => void; onToggle: () => void; onOpen: (id?: string) => void;
   onRename: (name: string) => Promise<void>; onFailure: (message: string) => void;
   lifted: boolean; sortRef: (element: HTMLElement | undefined) => void;
   handleRef: (element: HTMLButtonElement | undefined) => void;
@@ -138,11 +141,27 @@ export const RailRowView = (props: {
   const isGroup = () => props.row.node.kind === "group";
   const isContainer = () => workstream() || isGroup();
 
+  /** DCL2: the Daemon's Workstream state, as the Kind that glyph shows; `idle` and `settled` add nothing to the Door's own Kind. */
+  const stateKind = (): Kind | undefined => {
+    const own = connected.rail.dismissed(props.row.node) ? "idle" : props.row.node.status?.kind;
+    const shown: Kind | undefined = STATE_KIND[props.row.node.workstream_state ?? "idle"];
+
+    if (shown === undefined) return undefined;
+
+    // A dismissed or quiet failure below no longer reads as urgent.
+    const urgent = shown === "error" || shown === "needs-you";
+
+    return urgent && shown !== own && !agentKindsBelow(props.topology, props.row.node.id, connected.rail.dismissed).includes(shown) ? undefined : shown;
+  };
+
   const kind = (): Kind | null => {
-    const kinds = [connected.rail.dismissed(props.row.node) ? "idle" as const : props.row.node.status?.kind, ...(isContainer() && props.row.collapsed !== null ? agentKindsBelow(props.topology, props.row.node.id, connected.rail.dismissed) : [])];
+    const kinds = [connected.rail.dismissed(props.row.node) ? "idle" as const : props.row.node.status?.kind, ...(workstream() && props.row.node.workstream_state !== undefined ? [stateKind()] : isContainer() && props.row.collapsed !== null ? agentKindsBelow(props.topology, props.row.node.id, connected.rail.dismissed) : [])];
 
     return byUrgency(kinds.filter((kind): kind is Kind => kind !== undefined))[0] ?? null;
   };
+
+  /** DCL1: the first Agent, the row's own, its direct child, or any below it while the row is folded, whose Messages have not reached it, with the Daemon's cause. */
+  const unreachable = () => [props.row.node, ...(isContainer() ? descendantsOf(props.topology, props.row.node.id).filter(node => props.row.collapsed || node.parent === props.row.node.id) : [])].find(node => node.unreachable);
 
   const statusLabel = () => {
     const status = props.row.node.status;
@@ -221,6 +240,7 @@ export const RailRowView = (props: {
       </span>
     </p>
     <Show when={workstream() && !connected.rail.launching(props.row.node.id) && props.row.node.waiting}>{count => <ReservedLine class="rail-waiting" status={copy.doorStoppedWaiting(count())} />}</Show>
+    <Show when={unreachable()}>{reached => <ReservedLine class="rail-unreachable" status={copy.cantReach(reached().name, reached().unreachable!)}><button type="button" data-button="quiet" aria-label={`${copy.openUnreachable()} ${reached().name}`} onClick={event => { event.stopPropagation(); props.onOpen(reached().id); }}>{copy.openUnreachable()}</button></ReservedLine>}</Show>
     <Show when={workstream() && connected.rail.doorFailure(props.row.node.id)}>{cause => <FailureCause label={cause()} class="rail-door-failure" />}</Show>
     <Show when={props.row.node.start_attribution}>{source => <ReservedLine class="rail-attribution" status={copy.startedBy(source().agent_name, source().project_name)} />}</Show>
     <Show when={!workstream() && (props.selected || !connected.rail.dismissed(props.row.node))}><FailureLine status={props.row.node.status} dismissed={connected.rail.dismissed(props.row.node)} /></Show>
