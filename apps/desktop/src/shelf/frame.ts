@@ -25,9 +25,22 @@ const frameSchema = storageSchema("roundup:shelf", v.object({
 /** U373, U370: what the webview keeps per Project, as U100 keeps layout; a stored tab that is neither tab means `todos`, a missing state means open; a surface with no stored size starts as `maximisedByDefault` says (U4698a). */
 const storageOf = (path: string, surface: string) => storedValue(surface === "shelf" ? `roundup:shelf:${path}` : `roundup:shelf:${path}:${surface}`, frameSchema);
 
+/** U6224: closed, peeking in from the trailing edge without being used, or open. */
+type ShelfPhase = "closed" | "peeking" | "open";
+
 export type ShelfFrame = {
-  /** Whether the user has the Shelf open. */
+  /** Whether the user has the Shelf open; a peek is not open. */
   open: Accessor<boolean>;
+  /** U6224: the Shelf covers the centre at the pointer's request and nothing is saved. */
+  peeking: Accessor<boolean>;
+  /** U6224: a peek is in the layout, sliding in, resting or sliding back; it never reserves width. */
+  covering: Accessor<boolean>;
+  /** U6224: slide in over the centre without saving anything. */
+  peek: () => void;
+  /** U6224: slide a peek back without saving anything. */
+  unpeek: () => void;
+  /** U6224: use turns a peek into the open Shelf, in place and saved. */
+  promote: () => void;
   /** Whether its box is in the layout: false once the close has ended (U369). */
   rendered: Accessor<boolean>;
   /** Whether it sits at its open position; one frame behind `open` while it slides in. */
@@ -49,7 +62,11 @@ export type ShelfFrame = {
 /** U370, U373: the Shelf's open state and open tab for the active Project, restored in the frame the Project first shows. */
 export const createShelfFrame = (path: Accessor<string | null>, reducedMotion: Accessor<boolean>, reflow: (() => void) | undefined, initialOpen = true, surface: Accessor<string> = () => "shelf", maximisedByDefault: (surface: string) => boolean = () => false): ShelfFrame => {
   const [maximised, setMaximised] = createSignal(false);
-  const [open, setOpen] = createSignal(initialOpen);
+  const [phase, setPhase] = createSignal<ShelfPhase>(initialOpen ? "open" : "closed");
+  // A peek keeps covering the centre while it slides back, so the layout does not reserve width for a Shelf that never opened.
+  const [covered, setCovered] = createSignal(false);
+  const open = () => phase() === "open";
+  const peeking = () => phase() === "peeking";
   const [element, setElement] = createSignal<HTMLElement>();
   const lifetime = createSlideLifetime(() => [element()]);
   const [shown, setShown] = createSignal(initialOpen);
@@ -79,7 +96,8 @@ export const createShelfFrame = (path: Accessor<string | null>, reducedMotion: A
       setMaximised(stored?.maximised ?? maximisedByDefault(side));
       setAnimated(false);
       lifetime.settle();
-      setOpen(restored);
+      setPhase(restored ? "open" : "closed");
+      setCovered(false);
       setShown(restored);
       setTabSignal(stored?.tab ?? "todos");
     }),
@@ -93,19 +111,20 @@ export const createShelfFrame = (path: Accessor<string | null>, reducedMotion: A
     lifetime.settle();
   }, { defer: true }));
 
-  const toggle = (source: ActivationSource = "pointer") => {
-    const next = !open();
-    const slides = source !== "key" && !reducedMotion();
+  const rendered = () => phase() !== "closed" || lifetime.exiting();
 
-    // One update: `rendered` must never read false between the open flag and the exit retention changing.
+  const move = (to: ShelfPhase, slides: boolean, remember: boolean) => {
+    // One update: `rendered` must never read false between the phase and the exit retention changing.
     batch(() => {
       setAnimated(slides);
-      setOpen(next);
-      lifetime.retarget(next, slides);
+      setCovered(to === "peeking" || (to === "closed" && covered()));
+      setPhase(to);
+      lifetime.retarget(to !== "closed", slides);
     });
-    save();
 
-    if (!next) {
+    if (remember) save();
+
+    if (to === "closed") {
       setShown(false);
 
       return;
@@ -116,15 +135,55 @@ export const createShelfFrame = (path: Accessor<string | null>, reducedMotion: A
     setShown(true);
   };
 
+  const toggle = (source: ActivationSource = "pointer") => {
+    // U6224: the bar tab, `⌘K B` and the close button turn a peek into the open Shelf where it stands.
+    if (peeking()) {
+      promote();
+
+      return;
+    }
+
+    move(open() ? "closed" : "open", source !== "key" && !reducedMotion(), true);
+  };
+
+  const promote = () => {
+    if (!peeking()) return;
+
+    batch(() => {
+      lifetime.settle();
+      setAnimated(false);
+      setCovered(false);
+      setPhase("open");
+    });
+    save();
+  };
+
+  const peek = () => {
+    if (path() === null || phase() !== "closed") return;
+
+    move("peeking", !reducedMotion(), false);
+  };
+
+  const unpeek = () => {
+    if (!peeking()) return;
+
+    move("closed", !reducedMotion(), false);
+  };
+
   return {
     open,
+    peeking,
+    covering: () => covered() && rendered(),
+    peek,
+    unpeek,
+    promote,
     maximised,
     toggleMaximise: (source = "pointer") => {
       setAnimated(source !== "key" && !reducedMotion());
       setMaximised(value => !value);
       save();
     },
-    rendered: () => open() || lifetime.exiting(),
+    rendered,
     shown,
     animated,
     tab,
