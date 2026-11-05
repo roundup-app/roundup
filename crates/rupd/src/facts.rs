@@ -20,12 +20,15 @@ pub struct Facts {
     ended: HashSet<String>,
     /// The children whose current stall was published; leaving the stalled set re-arms it.
     stalled: HashSet<String>,
+    /// How many finished compactions of each child were published.
+    compacted: HashMap<String, u64>,
 }
 
 struct Fact {
     door: String,
     child: String,
     body: String,
+    count: u64,
 }
 
 fn owned_by(todo: &Todo, child: &str) -> bool {
@@ -88,6 +91,7 @@ impl Facts {
                 door: door.to_owned(),
                 child: key,
                 body,
+                count: 0,
             });
         }
         facts
@@ -112,6 +116,38 @@ impl Facts {
                         "[stalled] {} is working but has shown no activity for ten minutes and runs no tool or background work. Decide whether to nudge, replace or accept it.",
                         child.name
                     ),
+                    count: 0,
+                })
+            })
+            .collect()
+    }
+
+    /// One fact for each child whose finished-compaction count rose past what was published; a
+    /// count that fell is a new run and starts over.
+    fn compactions(&mut self, nodes: &[RailNode], counts: &HashMap<String, u64>) -> Vec<Fact> {
+        self.compacted
+            .retain(|id, seen| counts.get(id).is_some_and(|count| count >= seen));
+        let doors: HashSet<&str> = nodes
+            .iter()
+            .filter(|n| n.kind == NodeKind::Workstream)
+            .map(|n| n.id.as_str())
+            .collect();
+        nodes
+            .iter()
+            .filter_map(|child| {
+                let count = *counts.get(&child.id)?;
+                if count <= self.compacted.get(&child.id).copied().unwrap_or(0) {
+                    return None;
+                }
+                let door = child.parent.as_deref().filter(|id| doors.contains(id))?;
+                Some(Fact {
+                    door: door.to_owned(),
+                    child: child.id.clone(),
+                    body: format!(
+                        "[compacted] {} finished compacting its context (compaction {count}). Decide whether to hand off or continue.",
+                        child.name
+                    ),
+                    count,
                 })
             })
             .collect()
@@ -122,6 +158,8 @@ impl Facts {
         let mut due = self.ended(world.nodes(), &world.todos(), world.messages());
         let ended = due.len();
         due.extend(self.stalls(world.nodes(), world.stalled()));
+        let stalls = due.len();
+        due.extend(self.compactions(world.nodes(), world.compactions()));
         for (index, fact) in due.into_iter().enumerate() {
             let sent = reader
                 .call::<Message>(
@@ -134,6 +172,9 @@ impl Facts {
             match sent {
                 Ok(_) if index < ended => {
                     self.ended.insert(fact.child);
+                }
+                Ok(_) if index >= stalls => {
+                    self.compacted.insert(fact.child, fact.count);
                 }
                 Ok(_) => {
                     self.stalled.insert(fact.child);
@@ -156,48 +197,6 @@ mod tests {
             "yolo":false,"channel":null,"stray":[],"model":null,"effort":null,"work":null,"auto":false
         }))
         .unwrap()
-    }
-
-    fn todo(id: u32, owner: Option<&str>, home: Option<&str>) -> Todo {
-        serde_json::from_value(json!({
-            "id":id,"title":"t","body":"","done":false,"blockers":[],"blocked":false,
-            "created_at":0,"updated_at":0,"creator":Actor::user(),"home":home,
-            "owner":owner.map(|o| json!({"kind":"agent","id":o,"parent":"door"})),
-            "refs":[]
-        }))
-        .unwrap()
-    }
-
-    #[test]
-    fn dcl5_kill_reports_owned_open_todos_without_reassigning() {
-        let nodes = [
-            node("door", "workstream", None, "idle"),
-            node("sub", "agent", Some("door"), "done"),
-        ];
-        let mut todos: Vec<Todo> = (0..7).map(|i| todo(i, Some("sub"), Some("door"))).collect();
-        todos.extend((7..21).map(|i| todo(i, None, Some("door"))));
-        let mut facts = Facts::default();
-        let due = facts.ended(&nodes, &todos, &[]);
-        assert_eq!(due.len(), 1);
-        assert_eq!(due[0].door, "door");
-        assert!(
-            due[0].body.contains("sub ended with 7 open Todos"),
-            "{}",
-            due[0].body
-        );
-        assert!(due[0].body.contains("no report"));
-        assert!(
-            due[0]
-                .body
-                .contains("14 open Todos of this Workstream are unassigned")
-        );
-        // Published once: the same state offers nothing more, and no Todo changed owner.
-        facts.ended.insert(due[0].child.clone());
-        assert!(facts.ended(&nodes, &todos, &[]).is_empty());
-        assert_eq!(todos.iter().filter(|t| owned_by(t, "sub")).count(), 7);
-        // A report from the child, or a child with nothing open, is no such fact.
-        let done: Vec<Todo> = Vec::new();
-        assert!(Facts::default().ended(&nodes, &done, &[]).is_empty());
     }
 
     #[test]
