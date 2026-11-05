@@ -16,7 +16,7 @@ export const copy = {
   newAgent: sharedCopy.newAgent,
   noSelectionTitle: "Nothing selected",
   noSelectionLine: "Pick an Agent in the Rail, or start one.",
-  ask: "Ask",
+  ask: sharedCopy.askBarLabel,
   emptyOutputLine: "Output from this Agent appears here while it runs.",
   newTerminal: sharedCopy.newTerminal,
   retry: sharedCopy.retry,

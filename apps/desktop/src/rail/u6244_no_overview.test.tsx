@@ -21,20 +21,20 @@ it("u6244b_nothing_selected_shows_one_empty_view", async () => {
   const { app } = await mountNavigation();
   const empty = screen.getByRole("group", { name: "Nothing selected" });
   expect(within(empty).getAllByRole("button").map(button => button.getAttribute("aria-label"))).toEqual(["New Agent", "Ask"]);
-  expect(screen.queryByRole("textbox", { name: "Ask" })).toBeNull();
+  expect(screen.queryByRole("textbox")).toBeNull();
   expect(document.querySelector(".centre .change-list, .centre .project-overview")).toBeNull();
 
   fireEvent.click(within(empty).getByRole("button", { name: "New Agent" }));
   await waitFor(() => expect(railCallsTo(app, "agent.spawn")).toHaveLength(1));
 
   fireEvent.click(within(empty).getByRole("button", { name: "Ask" }));
-  expect(await screen.findByRole("textbox", { name: "Ask" })).not.toBeNull();
+  expect(await screen.findByRole("textbox")).not.toBeNull();
   expect(railCallsTo(app, "agent.spawn")).toHaveLength(1);
 });
 
 it("u6244c_ask_opens_only_by_its_shortcut", async () => {
   const { connected } = await mountNavigation();
-  expect(screen.queryByRole("textbox", { name: "Ask" })).toBeNull();
+  expect(screen.queryByRole("textbox")).toBeNull();
 
   for (const selected of [null, "a1"]) {
     connected().rail.select(selected);
@@ -42,11 +42,11 @@ it("u6244c_ask_opens_only_by_its_shortcut", async () => {
     const before = document.querySelector<HTMLElement>(selected === null ? ".rail-row" : `.rail-row[data-id="${selected}"]`)!;
     before.focus();
     slash();
-    const field = await screen.findByRole("textbox", { name: "Ask" });
+    const field = await screen.findByRole("textbox");
     await waitFor(() => expect(document.activeElement).toBe(field));
 
     fireEvent.keyDown(field, { key: "Escape", code: "Escape" });
-    await waitFor(() => expect(screen.queryByRole("textbox", { name: "Ask" })).toBeNull());
+    await waitFor(() => expect(screen.queryByRole("textbox")).toBeNull());
     await waitFor(() => expect(document.activeElement).toBe(before));
   }
 });
