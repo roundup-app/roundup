@@ -305,4 +305,6 @@ fn claim_only_this_emulator(command: &mut CommandBuilder) {
         command.env_remove(name);
     }
     command.env("TERM", "xterm-256color");
+    // U6144c: Claude Code names no other switch for the Kitty placeholders this emulator draws.
+    command.env("CLAUDE_CODE_FORCE_TERMINAL_IMAGES", "1");
 }

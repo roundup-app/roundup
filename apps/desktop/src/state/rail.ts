@@ -73,6 +73,8 @@ export type RailState = {
   doorPending(id: string): boolean;
   doorFailure(id: string): string | null;
   startDoor(id: string): Promise<void>;
+  /** DCL1a: asks the Daemon for one delivery pass for Agent `id`; resolves `null` once it ran, else the failure message. */
+  retryDelivery(id: string): Promise<string | null>;
   /** U9/U62: creates a root Workstream, then selects it and starts its Door once `rail.tree` returns it. */
   createWorkstream(): Promise<void>;
   /** U5241: creates a root Workstream named `name`; resolves `null` once the Daemon made it, else the failure message, shown nowhere on the Rail. */
@@ -579,6 +581,7 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
     doorPending: (id) => doors[id]?.pending ?? false,
     doorFailure: (id) => doors[id]?.failure?.message ?? null,
     startDoor,
+    retryDelivery: id => app.rpc("message.retryDelivery", { id }).then(() => null, (error: Error) => error.message),
     createWorkstream,
     createNamedWorkstream: name => makeWorkstream(name),
     workstreamCreating,

@@ -4,7 +4,7 @@ import { ReducedMotionContext } from "../app/reducedMotion";
 import { clearPress } from "./pressFeedback";
 import { captureFocus } from "../keys/focus";
 import "./sortable.css";
-import { Accessibility, Cursor, Feedback, PointerActivationConstraints, PointerSensor, type Draggable } from "@dnd-kit/dom";
+import { Accessibility, AutoScroller, Cursor, Feedback, PointerActivationConstraints, PointerSensor, type Draggable } from "@dnd-kit/dom";
 import { RestrictToElement } from "@dnd-kit/dom/modifiers";
 import { ProxiedElements } from "@dnd-kit/dom/utilities";
 import { effect } from "@dnd-kit/state";
@@ -90,6 +90,10 @@ type RootProps<T extends ExternalTarget> = Omit<JSX.HTMLAttributes<HTMLDivElemen
   external?: External<T> | undefined;
   /** The handles are buttons that keep their own meaning: the library adds no live region and no `aria-pressed`, `aria-grabbed`, `aria-disabled`, role description or description to them. */
   plain?: boolean;
+  /** The rows run left to right: the landing slot takes the dragged row's width as well as its height, shows as a gap with no outline, and the list does not auto-scroll under the pointer (U6220c). */
+  horizontal?: boolean;
+  /** The list element, for a caller that also measures or scrolls it. */
+  ref?: ((element: HTMLDivElement) => void) | undefined;
   /** Called with true when a drag of one of this list's rows starts and false when it ends. */
   onDrag?: ((active: boolean) => void) | undefined;
 };
@@ -174,7 +178,7 @@ const swallowNextClick = (): (() => void) => {
 
 const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
   const reduced = useContext(ReducedMotionContext) ?? (() => matchMedia("(prefers-reduced-motion: reduce)").matches);
-  const [local, rest] = splitProps(props, ["ids", "onOrderChange", "tree", "external", "plain", "onDrag", "children"]);
+  const [local, rest] = splitProps(props, ["ids", "onOrderChange", "tree", "external", "plain", "horizontal", "ref", "onDrag", "children"]);
   let over: T | null = null;
   let list: HTMLDivElement | undefined;
   let sourceRow: HTMLElement | null = null;
@@ -336,6 +340,8 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
       slot.setAttribute("data-dnd-placeholder", "");
       slot.setAttribute("aria-hidden", "true");
       slot.style.height = `${box.height}px`;
+
+      if (local.horizontal) slot.style.width = `${box.width}px`;
       slot.dataset.keyboard = String(keyboardLift);
       sourceRow.insertAdjacentElement("afterend", slot);
       placeSlot(null);
@@ -393,7 +399,7 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
 
     window.addEventListener("keydown", turn, { capture: true });
     stopListening = () => window.removeEventListener("keydown", turn, { capture: true });
-  }} plugins={(defaults) => defaults.filter((plugin) => plugin !== Cursor && !(local.plain && plugin === Accessibility)).map((plugin) => plugin === Feedback ? Feedback.configure({ dropAnimation: null, keyboardTransition: null }) : plugin)} onDragMove={(event) => {
+  }} plugins={(defaults) => defaults.filter((plugin) => plugin !== Cursor && !(local.plain && plugin === Accessibility) && !(local.horizontal && plugin === AutoScroller)).map((plugin) => plugin === Feedback ? Feedback.configure({ dropAnimation: null, keyboardTransition: null }) : plugin)} onDragMove={(event) => {
     const { source, position } = event.operation;
 
     // The library dispatches dragmove before it applies the move, so the destination is `to`, else the current position plus `by`.
@@ -478,7 +484,7 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
     if (moved === undefined) return;
     order.splice(index ?? source.initialIndex, 0, moved);
     local.onOrderChange?.(order, String(source.id));
-  }}><div {...rest} ref={list} data-plain={local.plain ? "" : undefined}>{local.children}</div><DragOverlay class="sortable-overlay" dropAnimation={null}>{null}</DragOverlay></DragDropProvider>;
+  }}><div {...rest} ref={element => { list = element; local.ref?.(element); }} data-plain={local.plain ? "" : undefined} data-horizontal={local.horizontal ? "" : undefined}>{local.children}</div><DragOverlay class="sortable-overlay" dropAnimation={null}>{null}</DragOverlay></DragDropProvider>;
 };
 
 type ItemProps = Pick<UseSortableInput, "id" | "index" | "disabled"> & {
@@ -486,6 +492,9 @@ type ItemProps = Pick<UseSortableInput, "id" | "index" | "disabled"> & {
   pressable?: boolean;
   children: (parts: ReturnType<typeof useSortable>) => JSX.Element;
 };
+
+/** What `Item` hands its row: the refs of the row and its handle, and the library's sortable. */
+export type SortableParts = ReturnType<typeof useSortable>;
 
 const Item = (props: ItemProps) => {
   const sortable = useSortable(mergeProps(props, { transition: { duration: 0 } }, props.pressable ? { sensors: [pointerSensor()] } : {}));

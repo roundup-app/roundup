@@ -11,6 +11,12 @@
   pointer-events: none;
 }
 
+/* A horizontal list marks the drop with one gap, no outline or box (U6220c). */
+[data-horizontal] .sortable-source::after,
+[data-horizontal] .sortable-slot::after {
+  border: 0;
+}
+
 /* Feedback still measures the library overlay for collisions and drag completion. */
 .sortable-overlay {
   visibility: hidden;

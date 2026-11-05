@@ -56,6 +56,7 @@
   --transparent: transparent;
   --ground: var(--gray-1);
   --sunken: var(--gray-2);
+  --rail-ground: var(--sunken);
   --hover: rgba(0, 0, 0, 0.04);
   --selected: rgba(178, 51, 0, 0.07);
   --selected-hover: rgba(178, 51, 0, 0.10);
@@ -187,7 +188,7 @@
   --mono: var(--font-mono);
   --font-terminal: "Fira Code", ui-monospace, "SF Mono", Menlo, monospace;
   --text-terminal: 11px;
-  --line-terminal: 1.7;
+  --line-terminal: 1.45;
   --line-terminal-min: 1;
   --line-terminal-max: 2;
   --letter-terminal-min: 0px;
@@ -283,6 +284,7 @@
     --button-accent-ink: #ffffff;
     --key-chip-fill: var(--gray-3);
     --sunken: var(--terminal-background);
+    --rail-ground: var(--gray-1);
     --hover: rgba(255, 255, 255, 0.06);
     --selected: rgba(252, 106, 62, 0.08);
     --selected-hover: rgba(252, 106, 62, 0.10);
@@ -360,6 +362,7 @@ button, file-tree-container, diffs-container {
   --ground: var(--gray-1);
   --key-chip-fill: var(--gray-3);
   --sunken: var(--gray-2);
+  --rail-ground: var(--sunken);
   --hover: rgba(0, 0, 0, 0.04);
   --selected: rgba(178, 51, 0, 0.07);
   --selected-hover: rgba(178, 51, 0, 0.10);
@@ -415,6 +418,7 @@ button, file-tree-container, diffs-container {
     --ground: var(--terminal-background);
     --key-chip-fill: var(--gray-3);
     --sunken: var(--terminal-background);
+    --rail-ground: var(--gray-1);
     --hover: rgba(255, 255, 255, 0.06);
     --selected: rgba(252, 106, 62, 0.08);
     --selected-hover: rgba(252, 106, 62, 0.10);
@@ -533,6 +537,11 @@ button, file-tree-container, diffs-container {
   --doodle-ground: color-mix(in srgb, var(--ground) 95%, light-dark(#000000, #ffffff));
 }
 
+/* U6230: the Rail and the Shelf sit on --rail-ground; inside them --sunken follows it, so their rows, footer, fields and tree read on the region's own ground. */
+:is(.rail, .shelf) {
+  --sunken: var(--rail-ground);
+}
+
 :is(.rail, .shelf) .empty-state-ground {
   --ground: var(--sunken);
 }
@@ -555,7 +564,6 @@ button, file-tree-container, diffs-container {
 /* U4456c: floating labels and disabled controls keep a distinct dark fill;
    Light retains its sunken fill. Root aliases prevent a local self-reference. */
 .app-tooltip,
-.tab-tip,
 :is([data-scope="field"], [data-scope="number-input"], [data-scope="date-picker"]):is([data-part="input"], [data-part="textarea"]):disabled,
 .app-dialog-form textarea:disabled,
 .import-prompt:disabled,

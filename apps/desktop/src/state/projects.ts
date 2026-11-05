@@ -18,7 +18,7 @@ export type OpenTab = {
 export type ProjectsState = {
   /** False until `projects` has answered. */
   loaded: Accessor<boolean>;
-  /** The open Projects, in the order they were opened (U179). */
+  /** The open Projects, in the order the user left them (U6220c); one not yet placed follows the placed ones, in the order it opened. */
   tabs: Accessor<OpenTab[]>;
   /** The path of the Project on screen, or `null` with none open. */
   active: Accessor<string | null>;
@@ -27,6 +27,8 @@ export type ProjectsState = {
   readFailure: Accessor<string | null>;
   reload(): Promise<void>;
   select(path: string): void;
+  /** U6220c: puts the tabs in `paths` order, keeps that order for the next start, and leaves a tab `paths` omits after the rest. */
+  reorder(paths: readonly string[]): void;
   /** Asks the macOS chooser for a folder and opens it as a tab; a cancel changes nothing. */
   choose(): Promise<void>;
   /** Opens `path` as a tab as `choose` does, without the chooser. */
@@ -57,9 +59,25 @@ const openTabSchema = storageSchema("roundup:open-tab", v.string());
 
 const openTabStorage = () => storedValue("roundup:open-tab", openTabSchema);
 
+/** The tab order, as the user left it, kept in the webview's saved state (U6220c). */
+const tabOrderSchema = storageSchema("roundup:tab-order", v.array(v.string()));
+
+const tabOrderStorage = () => storedValue("roundup:tab-order", tabOrderSchema);
+
+/** `tabs` in `order`; a tab `order` omits keeps its relative place after the rest. */
+const inOrder = (tabs: OpenTab[], order: readonly string[]): OpenTab[] => {
+  const rank = (tab: OpenTab) => {
+    const at = order.indexOf(tab.project.path);
+
+    return at === -1 ? order.length : at;
+  };
+
+  return [...tabs].sort((a, b) => rank(a) - rank(b));
+};
+
 const folderOf = (path: string): string => path.split("/").filter(Boolean).at(-1) ?? path;
 
-export const createProjectsState = (app: App, saved = openTabStorage()): ProjectsState => {
+export const createProjectsState = (app: App, saved = openTabStorage(), order = tabOrderStorage()): ProjectsState => {
   const [loaded, setLoaded] = createSignal(false);
   const [tabs, setTabs] = createSignal<OpenTab[]>([]);
   const [active, setActive] = createSignal<string | null>(null);
@@ -86,13 +104,14 @@ export const createProjectsState = (app: App, saved = openTabStorage()): Project
     try {
       const listed = await retryRead(() => app.projects());
 
-      setTabs(
+      setTabs(inOrder(
         listed.map(({ name, path, running }) => {
           const known = tabs().find(tab => tab.project.path === path);
 
           return known ?? { project: { name, path }, exit: running ? null : { code: null }, reopenFailure: null, generation: 0 };
         }),
-      );
+        order.read() ?? [],
+      ));
 
       const last = active() ?? saved.read();
       setReadFailure(null);
@@ -155,6 +174,12 @@ export const createProjectsState = (app: App, saved = openTabStorage()): Project
     connected: (path, generation) => update(path, tab => tab.generation === generation && tab.exit?.recovery !== "waiting" ? { ...tab, exit: null, reopenFailure: null } : tab),
     select: (path) => {
       if (tabs().some((tab) => tab.project.path === path)) show(path);
+    },
+    reorder: (paths) => {
+      const next = inOrder(tabs(), paths);
+
+      setTabs(next);
+      void order.write(next.map(tab => tab.project.path));
     },
     choose: async () => {
       try {

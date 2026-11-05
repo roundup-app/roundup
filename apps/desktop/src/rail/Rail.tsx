@@ -5,7 +5,7 @@ import { createMove, MovePicker } from "./MovePicker";
 import { WorkProgress } from "../orders/WorkProgress";
 import { EmptyRail } from "../app/FirstRun";
 import { outcomeOf } from "../app/seam";
-import { captureFocus } from "../keys/focus";
+import { captureFocus, returnFocus } from "../keys/focus";
 import { type createCopyFeedback } from "../ui/CopyButton";
 import * as v from "valibot";
 import { attentionCount } from "./attention";
@@ -164,10 +164,13 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
     return original !== undefined && doorStateOf(original, rail.exitOf(original), rail.launching(original.id), rail.doorFailure(original.id) !== null) === null ? "note" : "spawn";
   };
 
+  let composeOpener: Element | null = null;
+
   const openCompose = (prompt?: ActionValue) => {
     captureFocus(true);
 
-    if (!composing()) setTaskDestination(parent());
+    if (!composing()) { composeOpener = document.activeElement; setTaskDestination(parent()); }
+
     setComposing(true);
 
     if (prompt !== undefined) keepDraft(String(prompt));
@@ -755,7 +758,7 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
           onSubmit={(prompt) => {
             if (canSpawn()) submitPrompt(prompt);
           }}
-          onCancel={() => setComposing(false)}
+          onCancel={() => { setComposing(false); returnFocus(composeOpener); }}
         />
       </Show>
       <Sortable.Root

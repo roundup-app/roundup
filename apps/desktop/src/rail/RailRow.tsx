@@ -220,7 +220,23 @@ export const RailRowView = (props: {
       </span>
     </p>
     <Show when={workstream() && !connected.rail.launching(props.row.node.id) && props.row.node.waiting}>{count => <ReservedLine class="rail-waiting" status={copy.doorStoppedWaiting(count())} />}</Show>
-    <Show when={unreachable()}>{reached => <ReservedLine class="rail-unreachable" status={copy.cantReach(reached().name, reached().unreachable!)}><button type="button" data-button="quiet" aria-label={`${copy.openUnreachable()} ${reached().name}`} onClick={event => { event.stopPropagation(); props.onOpen(reached().id); }}>{copy.openUnreachable()}</button></ReservedLine>}</Show>
+    <Show when={unreachable()}>{reached => {
+      // DCL1a: only the Agent's transcript can be inspected for an unreadable one; every other cause offers another delivery pass.
+      const retry = () => reached().unreachable !== "transcript unreadable";
+      const label = () => retry() ? copy.retryUnreachable() : copy.openUnreachable();
+
+      const act = async (event: MouseEvent) => {
+        event.stopPropagation();
+
+        if (!retry()) return props.onOpen(reached().id);
+
+        const failed = await connected.rail.retryDelivery(reached().id);
+
+        if (failed !== null) props.onFailure(copy.failed(label(), failed));
+      };
+
+      return <ReservedLine class="rail-unreachable" status={copy.cantReach(reached().name, reached().unreachable!)}><button type="button" data-button="quiet" aria-label={`${label()} ${reached().name}`} onClick={act}>{label()}</button></ReservedLine>;
+    }}</Show>
     <Show when={workstream() && connected.rail.doorFailure(props.row.node.id)}>{cause => <FailureCause label={cause()} class="rail-door-failure" />}</Show>
     <Show when={props.row.node.start_attribution}>{source => <ReservedLine class="rail-attribution" status={copy.startedBy(source().agent_name, source().project_name)} />}</Show>
     <Show when={!workstream() && (props.selected || !connected.rail.dismissed(props.row.node))}><FailureLine status={props.row.node.status} dismissed={connected.rail.dismissed(props.row.node)} /></Show>

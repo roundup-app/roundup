@@ -339,6 +339,7 @@ export type RpcMethods = {
   "message.resolveResult": { params: message_ResolveResultParams; result: message_ResultObservation };
   "message.reconcileWork": { params: message_ProgressParams; result: message_Reconciliation };
   "message.resumeWork": { params: message_ResumeWorkParams; result: message_ResumeWork };
+  "message.retryDelivery": { params: agent_NodeId; result: null };
   "workstream.rewind": { params: workstream_RewindParams; result: workstream_Rewind };
   "workstream.restart": { params: workstream_RestartParams; result: agent_RailNode };
   "todo.startWorkstream": { params: workstream_StartWorkstreamParams; result: agent_RailNode };

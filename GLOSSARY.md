@@ -189,6 +189,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Toast | same | — |
 | Held alert (`createHeld`, `ConnectedProject.held`) | held | — |
 | Alert level (`alertLevel`, `AlertLevel`, `RailNode.alert_level`, `SetAlertLevelParams`, `rail.setAlertLevel`, `Rail::set_alert_level`) | Alerts: Default, All, Quiet | — |
+| Project alert level (`ProjectAlerts`, `projectAlerts`, `mayRaise`) | Alerts: All, Needs you only, Off | — |
 | State alert (`StateAlert`, `stateAlert`, `state_alert`, `state-alert-clicked`) | same | notification |
 | Work order | same | — |
 | Instruction (`Instruction`, `InstructionRevision`, `Instructions`, `agent.instructions`, `agent_instructions`) | same | — |
@@ -365,6 +366,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Result acceptance (`ResultAcceptance`, `AcceptResultParams`, `message.acceptResult`) | same | — |
 | Result check (`ResultCheck`, `ResultObservation`, `message.verifyResult`) | same | — |
 | Continuation (`ContinuationAction`, `ContinuationChoice`, `Reconciliation`, `ResumeWorkParams`, `message.reconcileWork`, `message.resumeWork`) | same | — |
+| Delivery retry (`message.retryDelivery`) | Retry | — |
 | Result resolution (`ResultResolution`, `ResultOutcome`, `ResolveResultParams`, `message.resolveResult`) | same | — |
 | Progress (`Progress`, `ProgressParams`, `ResultProgress`, `message.progress`) | same | — |
 | Collapsible | same | — |

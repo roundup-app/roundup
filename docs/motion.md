@@ -7,7 +7,7 @@ Accepted implementation target: U3010a–d in `scenarios/ui-motion.md`, commissi
 | Requirement | Trigger and result | Observer |
 | --- | --- | --- |
 | M1 | Keys, keyboard list moves, tab switches and Return/Space activation: final state/focus by next frame, no timed effect, even during pointer motion | U3010b behavioral App seam plus rendered key interruption |
-| M2 | Enabled pointer press: scale 1→0.97 in 100 ms; release/cancel/blur returns to 1 in 100 ms; no added background | U3010b rendered press/cancel; disabled action regression |
+| M2 | Enabled pointer press: scale 1→0.97 in 100 ms; release/cancel/blur returns to 1 in 100 ms; no added background; a Project tab stays still (U6220b) | U3010b rendered press/cancel; disabled action regression |
 | M3 | Pointer Drawer, Shelf and Terminal Bubble: Motion spring, duration target 250 ms, bounce ≤0.1, retarget displayed position and velocity | U3010b continuity trace; existing focus/resize regressions |
 | M4 | Pointer App-rendered menu/popover: trigger-corner scale 0.96→1 and opacity 0→1, 150 ms enter, 100 ms exit | U3010b rendered placement/exit; Ark focus/action test |
 | M5 | Pointer/incoming reorder, nest, add/remove: Motion layout, 200 ms; no height keyframes | U3010c measured Solid layout probe and source review |

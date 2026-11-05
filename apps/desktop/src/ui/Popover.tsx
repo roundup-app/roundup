@@ -6,7 +6,7 @@ import "./Popover.css";
 
 const Owner = createContext<{ setElement: (element: HTMLElement) => void; focus: () => ReturnType<typeof captureFocus>; close: () => void }>();
 
-/** A popover that never takes the keyboard on opening and closes on outside interaction or a modal opening. */
+/** A popover that never takes the keyboard on opening and closes on Escape, outside interaction or a modal opening. */
 export const Popover = {
   ...ArkPopover,
   initialFocus: () => useContext(Owner)?.focus(),
@@ -23,7 +23,7 @@ export const Popover = {
       else finalFocus = captureFocus();
     }));
 
-    return <Owner.Provider value={{ setElement, focus: () => initialFocus, close: () => { if (control.open()) { returnFocus = false; control.change({ open: false }); } } }}><ArkPopover.Root lazyMount unmountOnExit autoFocus={false} modal={false} closeOnEscape={false} {...props} open={control.open()} onOpenChange={control.change}
+    return <Owner.Provider value={{ setElement, focus: () => initialFocus, close: () => { if (control.open()) { returnFocus = false; control.change({ open: false }); } } }}><ArkPopover.Root lazyMount unmountOnExit autoFocus={false} modal={false} closeOnEscape {...props} open={control.open()} onOpenChange={control.change}
       initialFocusEl={() => {
         let target: HTMLElement | null | false = false;
         initialFocus(() => { target = props.initialFocusEl?.() ?? null; });

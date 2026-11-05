@@ -1,11 +1,10 @@
-import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
+import { cleanup, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { mountRail, settled } from "./railFixture";
 import { attentionHolders, attentionCounts } from "./attention";
 import { sectionsOf } from "../inbox/rows";
 import { agent, event, info } from "../testing/nodes";
 import { renderTabs, path, tab } from "../header/stripFixture";
-import { copy as headerCopy } from "../header/copy";
 
 afterEach(cleanup);
 
@@ -34,7 +33,7 @@ describe("ps12 Terminals count toward attention", () => {
     expect(needsYou + error).toBe(4);
   });
 
-  it("ps12_the_tab_tooltip_counts_a_free_blocked_terminal", async () => {
+  it("ps12_the_tab_mark_counts_a_free_blocked_terminal", async () => {
     const { app } = renderTabs({ api: [agent("a", "working", "x")], web: [] });
 
     app.of(path("api")).handlers["terminal.list"] = () => [info("free", { status: blocked })];
@@ -44,8 +43,6 @@ describe("ps12 Terminals count toward attention", () => {
     await settled();
     await settled();
 
-    fireEvent.pointerOver(tab("api"), { pointerType: "mouse" });
-
-    await waitFor(() => expect(screen.getByRole("tooltip").textContent).toContain(headerCopy.needYouError(1, 0)));
+    await waitFor(() => expect(tab("api").querySelector(".tab-mark")?.getAttribute("data-kind")).toBe("needs-you"));
   });
 });

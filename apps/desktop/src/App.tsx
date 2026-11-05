@@ -1,5 +1,5 @@
 import { createProjectOpening, ProjectOpening } from "./app/ProjectOpening";
-import { historyRegion } from "./keys/focus";
+import { historyRegion, returnFocus } from "./keys/focus";
 import Hourglass from "lucide-solid/icons/hourglass";
 import { ReducedMotionContext } from "./app/reducedMotion";
 import { pressFeedback } from "./ui/pressFeedback";
@@ -35,6 +35,8 @@ import { exitText } from "./ink/exitText";
 import { AttentionKey } from "./rail/AttentionKey";
 import { attentionCounts, attentionHolders, nextAttention } from "./rail/attention";
 import { DockBadge } from "./rail/DockBadge";
+import { createProjectAlerts } from "./state/projectAlerts";
+import type { ProjectAlerts } from "./state/projectAlerts";
 import { createStateAlerts } from "./rail/stateAlerts";
 import type { StateAlerts } from "./rail/stateAlerts";
 import { railStorage } from "./rail/persist/storage";
@@ -104,6 +106,8 @@ const Connection = (props: {
   onOpen: (request: Extract<ActionRequest, { method: "project.open" | "project.start" }>, signal: AbortSignal) => Promise<ActionReply>;
   toasts: ToastQueue;
   alerts: StateAlerts;
+  /** U6220d: the open Project's alert level. */
+  projectAlerts: () => ProjectAlerts;
   active: () => boolean;
   /** U3566: this Project is on screen in a visible, focused window. */
   viewing: () => boolean;
@@ -187,7 +191,7 @@ const Connection = (props: {
     if (!open || open instanceof Error) return;
 
     // Untracked: watchProject reads the Rail's nodes, and each Status change would else rebuild the watch with that change already seen.
-    onCleanup(untrack(() => watchProject(open, props.toasts.push, props.show, props.active, props.toasts.settle, props.alerts, props.toasts.suppress)));
+    onCleanup(untrack(() => watchProject(open, props.toasts.push, props.show, props.active, props.toasts.settle, props.alerts, props.toasts.suppress, props.projectAlerts)));
   });
 
   createEffect(() => {
@@ -325,6 +329,7 @@ export const App = (props: {
   const [menuBarFailure, setMenuBarFailure] = createSignal<string | null>(null);
   const [alertFailure, setAlertFailure] = createSignal<string | null>(null);
   const alerts = createStateAlerts(alert => props.app.stateAlert(alert), inFront, setAlertFailure);
+  const projectAlerts = createProjectAlerts();
   const capture = props.app.capture;
   onMount(() => {
     void capture?.configure(appSettings().quickAddAnywhere || null).catch(error => setWindowFailure(String(error)));
@@ -668,20 +673,29 @@ export const App = (props: {
   const [projectQuery, setProjectQuery] = createSignal("");
   const [projectHighlight, setProjectHighlight] = createSignal<string | null>(null);
   let projectPanel: HTMLElement | undefined;
+  let projectOpener: Element | null = null;
+
+  /** Esc or a dismissal returns focus to where it was before the picker opened; choosing a Project moves focus itself. */
+  const dismissProjectPicker = () => {
+    setProjectPicker(false);
+    returnFocus(projectOpener);
+  };
+
   const projectMatches = () => projects.tabs().filter(tab => tab.project.name.toLowerCase().includes(projectQuery().toLowerCase())).map(tab => ({ value: tab.project.path, label: tab.project.name }));
+
   createEffect(() => { if (!projectMatches().some(item => item.value === projectHighlight())) setProjectHighlight(projectMatches()[0]?.value ?? null); });
-  registerKeys({ kind: "leader" }, [{ action: LEADER.find(row => row.keys === "P")!, capture: () => ({ available: () => projects.tabs().length > 1, invoke: () => { setProjectQuery(""); setProjectPicker(true); } }) }]);
-  registerKeys({ kind: "layer", element: () => projectPanel, active: projectPicker, modal: true }, [{ chords: ["Escape"], run: () => setProjectPicker(false) }]);
+  registerKeys({ kind: "leader" }, [{ action: LEADER.find(row => row.keys === "P")!, capture: () => ({ available: () => projects.tabs().length > 1, invoke: () => { projectOpener = document.activeElement; setProjectQuery(""); setProjectPicker(true); } }) }]);
+  registerKeys({ kind: "layer", element: () => projectPanel, active: projectPicker, modal: true }, [{ chords: ["Escape"], run: dismissProjectPicker }]);
 
   const emulators = () => props.createEmulator ?? lazyXtermEmulators();
 
   return (
     <ReducedMotionContext.Provider value={props.reducedMotion}><DisplayClockContext.Provider value={now.subscribe}><ProjectDraftsContext.Provider value={drafts}><Show when={projects.loaded()}>
       <For each={keys()}>
-        {(key) => <Connection drafts={drafts} app={dropTargets.app} tab={tabOf(key)} reducedMotion={props.reducedMotion} now={pollingNow} clock={props.clock} onConnected={connect} onRecovered={projects.connected} onRequested={answer} onOpen={opening.answer} toasts={toasts} alerts={alerts} active={() => projects.active() === key} viewing={() => projects.active() === key && visible() && focus() === "focused" && !settingsOpen()} show={() => projects.select(key)} />}
+        {(key) => <Connection drafts={drafts} app={dropTargets.app} tab={tabOf(key)} reducedMotion={props.reducedMotion} now={pollingNow} clock={props.clock} onConnected={connect} onRecovered={projects.connected} onRequested={answer} onOpen={opening.answer} toasts={toasts} alerts={alerts} projectAlerts={() => projectAlerts.level(key)} active={() => projects.active() === key} viewing={() => projects.active() === key && visible() && focus() === "focused" && !settingsOpen()} show={() => projects.select(key)} />}
       </For>
       <ProjectOpening opening={opening} />
-      <DockBadge app={props.app} rails={() => [...connections().values()].flatMap((connection) => (connection instanceof Error ? [] : [attentionHolders(connection.rail.nodes, connection.rail.terminals(), connection.rail.dismissed)]))} onFailure={setBadgeFailure} />
+      <DockBadge app={props.app} rails={() => [...connections()].flatMap(([path, connection]) => (connection instanceof Error ? [] : [{ alerts: projectAlerts.level(path), nodes: attentionHolders(connection.rail.nodes, connection.rail.terminals(), connection.rail.dismissed) }]))} onFailure={setBadgeFailure} />
       <Tabs.Root id={tabsId} value={projects.active()} onValueChange={({ value }) => projects.select(value)} activationMode="manual" style={{ display: "contents" }}
         ids={{
           trigger: (path) => `tabs:${tabsId}:trigger-${encodeURIComponent(path)}`,
@@ -708,6 +722,8 @@ export const App = (props: {
               onMark={jumpTo}
               onRename={renameProject}
               onClose={(path) => projects.close(path)}
+              onReorder={projects.reorder}
+              alerts={projectAlerts}
               onChoose={() => void projects.choose()}
               app={props.app}
             /></Show>
@@ -829,7 +845,7 @@ export const App = (props: {
               )}
             </InProject>
             <Show when={projectPicker()}><section class="switcher" ref={projectPanel}>
-              <Combobox.Root items={projectMatches()} inputValue={projectQuery()} onInput={setProjectQuery} highlightedValue={projectHighlight()} onHighlightChange={setProjectHighlight} label={copy.switchProject} placeholder={copy.switcherPlaceholder} empty={copy.noMatch} row={item => item.label} focusScope={() => projectPanel} onDismiss={() => setProjectPicker(false)} onSelect={path => { setProjectPicker(false); projects.select(path); }} />
+              <Combobox.Root items={projectMatches()} inputValue={projectQuery()} onInput={setProjectQuery} highlightedValue={projectHighlight()} onHighlightChange={setProjectHighlight} label={copy.switchProject} placeholder={copy.switcherPlaceholder} empty={copy.noMatch} row={item => item.label} focusScope={() => projectPanel} onDismiss={dismissProjectPicker} onSelect={path => { setProjectPicker(false); projects.select(path); }} />
             </section></Show>
             <InProject open={captureOwner()}>{(open) => <Capture onReady={show => setCaptureShow(() => show)} onNativeOpen={shown => setCaptureConnection(shown ? open : undefined)} onFile={() => { if (!frame.open()) shelfFocus.toggle("key"); frame.setTab("todos"); }} />}</InProject>
             <Help projectOpen={activeConnection() != null} shelfOpen={frame.open()} />

@@ -32,7 +32,8 @@ export function pressFeedback(doc: Document, reduced: Accessor<boolean> = () => 
 
     const move = (el: Element, down: boolean) => {
       // Full-width rows keep their tree inset, guides and hairline fixed; shared CSS supplies instant ink feedback.
-      if (reduced() || el.matches('[role=treeitem], .rail-row, .todo-row, .todo-row-button')) return;
+      // A Project tab and its controls answer a click at once, with ink only (U6220b).
+      if (reduced() || el.closest('.project-tab') || el.matches('[role=treeitem], .rail-row, .todo-row, .todo-row-button')) return;
 
       if (!(el instanceof HTMLElement) || !("animate" in el)) return;
       const visual = el.matches("input") ? el.closest<HTMLElement>(".app-checkbox, .app-radio, .app-segment") ?? el : el;

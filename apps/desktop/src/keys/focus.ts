@@ -97,6 +97,9 @@ export const queueFocus = (move: () => void): void => {
   queueMicrotask(() => focus(move));
 };
 
+/** Return focus to `element`, the one a surface took it from, unless the user has chosen another focus first or it left the page. */
+export const returnFocus = (element: Element | null): void => queueFocus(() => { if (element instanceof HTMLElement && element.isConnected) element.focus({ preventScroll: true }); });
+
 /** The innermost item region owns history; an unscoped destination has only explicitly handed-off work. */
 export const historyRegion = (focus: Element | null): string => {
   const region = focus?.closest<HTMLElement>("[data-history-region]")
