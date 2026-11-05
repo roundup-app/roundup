@@ -116,6 +116,11 @@ pub(super) async fn sweep(inner: &Arc<Inner>) {
 }
 
 impl Messages {
+    /// DCL1a: one delivery pass for `agent` at once; a fault that persists keeps its cause and every pending Message.
+    pub async fn retry_delivery(&self, agent: &str) {
+        delivery::deliver_pending(&self.inner, agent).await;
+    }
+
     /// DCL1: why Messages to `agent` have not reached it, or `None` when none is failing.
     pub fn delivery_failure(&self, agent: &str) -> Option<&'static str> {
         lock(&self.inner.failures).cause.get(agent).copied()
