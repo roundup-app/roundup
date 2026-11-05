@@ -1,5 +1,5 @@
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
-import { menuBarActionSchema, claudeBinarySchema, nativeOpenSchema, captureActionSchema, captureStateSchema, projectPageSchema } from "./seam";
+import { feedbackReportSchema, menuBarActionSchema, claudeBinarySchema, nativeOpenSchema, captureActionSchema, captureStateSchema, projectPageSchema } from "./seam";
 import { Channel, invoke } from "@tauri-apps/api/core";
 import type { InvokeArgs, InvokeOptions } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
@@ -145,6 +145,7 @@ export const createTauriApp = (): App => {
     setWindowTitle: (title) => command<void>("plugin:window-bar|set_window_title", { title }),
     dragWindow: () => command<void>("plugin:window-bar|drag_window", {}),
     zoomWindow: () => command<void>("plugin:window-bar|zoom_window", {}),
+    feedbackCapture: () => parsedCommand(feedbackReportSchema, "feedback_capture", {}),
     openTarget: async (target) => {
       await command("open_target", { target });
     },

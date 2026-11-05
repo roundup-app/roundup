@@ -1,0 +1,49 @@
+.feedback-form form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.feedback-form {
+  width: min(calc(var(--dialog-min-width) * 2), calc(100vw - var(--space-6)));
+}
+
+.feedback-sent h3 {
+  margin: 0 0 var(--space-1);
+  font-size: var(--text-small);
+  font-weight: 600;
+}
+
+.feedback-form textarea {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.feedback-shot {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.feedback-shot img {
+  max-width: var(--dialog-min-width);
+  max-height: calc(var(--dialog-min-width) / 2);
+  border: var(--hairline-width) solid var(--hairline);
+}
+
+.feedback-noshot {
+  margin: 0;
+  color: var(--text);
+}
+
+.feedback-facts,
+.feedback-log {
+  margin: 0;
+  max-height: calc(var(--dialog-min-width) / 2);
+  overflow: auto;
+  overscroll-behavior: contain;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-family: var(--font-mono);
+  font-size: var(--text-small);
+}

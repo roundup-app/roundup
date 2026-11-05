@@ -1,0 +1,78 @@
+{
+  "fixtures": [
+    {
+      "match": {
+        "userMessage": "<session>\nFollow this instruction: What is this Workstream for?"
+      },
+      "response": {
+        "content": "{\"title\":\"Workstream planning\"}"
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "toolu_dcl7_pad",
+        "toolResultContains": "notes"
+      },
+      "response": {
+        "content": "Reconciled."
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "toolu_dcl7_todo",
+        "toolResultContains": "job ended"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "toolu_dcl7_pad",
+            "name": "mcp__roundup__pad_write",
+            "arguments": "{\"name\": \"notes\", \"text\": \"after the update\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "[stopped]",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "toolu_dcl7_todo",
+            "name": "mcp__roundup__todo_update",
+            "arguments": "{\"id\": 2, \"body\": \"job ended\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "What is this Workstream for?",
+        "hasToolResult": false
+      },
+      "response": {
+        "content": "Ready."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Do the one thing.",
+        "hasToolResult": false
+      },
+      "response": {
+        "content": "Finished."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "[digest]",
+        "hasToolResult": false
+      },
+      "response": {
+        "content": "Noted."
+      }
+    }
+  ]
+}

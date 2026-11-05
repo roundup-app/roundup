@@ -127,3 +127,12 @@
     transition: none;
   }
 }
+
+/* An error names its cause and its fix: both wrap rather than cut. */
+.app-toast[data-type="error"] [data-part="title"],
+.app-toast[data-type="error"] [data-part="description"] {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}

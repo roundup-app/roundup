@@ -406,45 +406,10 @@ async fn read_resolution(
             "use an HTTPS receipt source without embedded credentials or fragments (literal loopback HTTP is supported)",
         );
     }
-    let client = match reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(5))
-        .redirect(reqwest::redirect::Policy::none())
-        .no_proxy()
-        .build()
-    {
-        Ok(client) => client,
-        Err(_) => return unknown("the authoritative source reader could not start"),
+    let bytes = match fetch_receipt(url.as_str()).await {
+        Ok(bytes) => bytes,
+        Err(cause) => return unknown(cause),
     };
-    let mut response = match client
-        .get(url)
-        .header("Cache-Control", "no-cache")
-        .send()
-        .await
-    {
-        Ok(response) if response.status().is_success() => response,
-        Ok(response) => {
-            return unknown(format!(
-                "the authoritative source returned HTTP {}",
-                response.status()
-            ));
-        }
-        Err(_) => {
-            return unknown(
-                "the authoritative source was unavailable or did not answer within five seconds",
-            );
-        }
-    };
-    let mut bytes = Vec::new();
-    loop {
-        match response.chunk().await {
-            Ok(Some(chunk)) if bytes.len() + chunk.len() <= 65536 => {
-                bytes.extend_from_slice(&chunk)
-            }
-            Ok(Some(_)) => return unknown("the authoritative receipt exceeds 64 KiB"),
-            Ok(None) => break,
-            Err(_) => return unknown("the authoritative receipt could not be read completely"),
-        }
-    }
     let Ok(evidence) = serde_json::from_slice::<ResultResolution>(&bytes) else {
         return unknown("the authoritative source did not return a supported receipt");
     };
@@ -468,4 +433,65 @@ async fn read_resolution(
         authorizer: authorizer.clone(),
         evidence,
     }
+}
+
+/// The platform's `curl` makes the one GET: no config file, no proxy, no redirect, five seconds,
+/// success status only, at most 64 KiB of body.
+async fn fetch_receipt(url: &str) -> Result<Vec<u8>, String> {
+    use tokio::io::AsyncReadExt;
+    const LIMIT: usize = 65536;
+    let mut child = tokio::process::Command::new("curl")
+        .args([
+            "-q",
+            "--silent",
+            "--max-time",
+            "5",
+            "--noproxy",
+            "*",
+            "--proto",
+            "=http,https",
+            "--header",
+            "Cache-Control: no-cache",
+            "--write-out",
+            "%{stderr}%{http_code}",
+            "--url",
+            url,
+        ])
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .kill_on_drop(true)
+        .spawn()
+        .map_err(|_| "the authoritative source reader could not start".to_string())?;
+    let (mut out, mut err) = (child.stdout.take().unwrap(), child.stderr.take().unwrap());
+    let mut body = Vec::new();
+    let read = (&mut out)
+        .take(LIMIT as u64 + 1)
+        .read_to_end(&mut body)
+        .await;
+    if body.len() > LIMIT {
+        return Err("the authoritative receipt exceeds 64 KiB".into());
+    }
+    let mut tail = Vec::new();
+    let _ = err.read_to_end(&mut tail).await;
+    let status = child.wait().await;
+    let code = String::from_utf8_lossy(&tail);
+    let code = code
+        .trim()
+        .rsplit(|c: char| !c.is_ascii_digit())
+        .next()
+        .unwrap_or("");
+    let code: u16 = code.parse().unwrap_or(0);
+    if !status.is_ok_and(|s| s.success()) || code == 0 {
+        return Err(
+            "the authoritative source was unavailable or did not answer within five seconds".into(),
+        );
+    }
+    if !(200..300).contains(&code) {
+        return Err(format!("the authoritative source returned HTTP {code}"));
+    }
+    if read.is_err() {
+        return Err("the authoritative receipt could not be read completely".into());
+    }
+    Ok(body)
 }

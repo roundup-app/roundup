@@ -61,6 +61,7 @@ import { watchProject } from "./toasts/watch";
 import { Bubbles } from "./bubbles/Bubbles";
 import { AskBar } from "./ask/AskBar";
 import { Switcher } from "./switcher/Switcher";
+import { Feedback } from "./feedback/Feedback";
 import { Pane } from "./terminal/Pane";
 import type { Screens } from "./terminal/screens";
 import { ResourceStrip } from "./resources/ResourceStrip";
@@ -755,6 +756,7 @@ export const App = (props: {
                     <div class="project-center-content" inert={open.settingsView.open()} style={{ visibility: open.settingsView.open() ? "hidden" : "visible" }}>
                     <Pane observeTerminal={props.observeTerminal ? id => props.observeTerminal?.(open.project.path, id) : undefined} notice={open.rail.failure() ?? jumpFailure() ?? open.contractNotice} retryNotice={open.rail.failure() !== null ? () => void open.rail.refresh({ terminals: true }) : undefined} createEmulator={tracked} screensRef={setScreens} openObject={url => routeNativeOpen({ kind: "link", url })} />
                     <AskBar viewLabel={id => views.find(([view]) => view === id)?.[1]} />
+                    <Feedback notify={toasts.notify} />
                     <Switcher notify={toasts.notify} onFailure={setJumpFailure} onOpen={() => { if (document.querySelector('.window[data-shelf="open"][data-shelf-mode="overlay"]')) shelfFocus.toggle("key"); }} />
                     </div>
                     <ProjectSettingsView />
