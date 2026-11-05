@@ -2,7 +2,7 @@ import { applied } from "../app/pending";
 import { EmptyState } from "../ink/EmptyState";
 import { NameField } from "../ui/Editable";
 import { CopyButton } from "../ui/CopyButton";
-import { ReservedLine } from "../ink/ReservedLine";
+import { DISMISS_ONLY, ReservedLine } from "../ink/ReservedLine";
 import type { ActivationSource } from "../keys/registry";
 import { useConnectedProject } from "../state/connectedProject";
 import type { MenuEntry } from "../ui/contextMenu";
@@ -109,9 +109,9 @@ const DraftRecoveryPanel = () => {
 
   return <section class="draft-recovery" aria-label={copy.unfinishedWork}>
     <h2>{copy.unfinishedWork}</h2>
-    <ReservedLine message={(drafts.problem() && !drafts.problem()!.destination?.surface.startsWith("rail-") ? copy.draftProblem(drafts.problem()!.cause) : null)}>
+    <ReservedLine message={(drafts.problem() && !drafts.problem()!.destination?.surface.startsWith("rail-") ? copy.draftProblem(drafts.problem()!.cause) : null)} clearedBy={drafts.problem} action={
 <Show when={drafts.problem()}><button data-button="quiet" type="button" onClick={() => drafts.retry()}>{copy.tryAgain}</button></Show>
-      </ReservedLine>
+      } />
     <Show when={work.rows().length} fallback={<EmptyState art="clumsy" {...{ title: copy.noUnfinishedWork }} line={copy.emptyDraftsLine} />}>
       <ul class="draft-revisions">
         <For each={work.rows()}>{(row) => <li data-revision={row.draft.revision}>
@@ -120,9 +120,7 @@ const DraftRecoveryPanel = () => {
             <div class="draft-text">
               <span class="draft-name">{copy.draftTitle(title(row).place, title(row).name)}</span>
               <span class="draft-cause">{copy.riskLine(copy.riskCause[row.cause], copy.riskTime(Math.floor((Date.now() - row.since) / 60000)))}</span>
-              <Show when={failures()[row.draft.revision]}>{message => <ReservedLine message={message()}>
-                <button data-button="quiet" type="button" onClick={() => clear(row.draft.revision)}>{copy.dismissCopyFailure}</button>
-              </ReservedLine>}</Show>
+              <Show when={failures()[row.draft.revision]}>{message => <ReservedLine message={message()} action={DISMISS_ONLY} onDismiss={() => clear(row.draft.revision)} />}</Show>
             </div>
           </div>
           <div class="draft-actions">

@@ -2,7 +2,7 @@ import type { KeyText } from "../keys/chords";
 import { useDialog } from "@ark-ui/solid/dialog";
 import { captureFocus, queueFocus } from "../keys/focus";
 import { writeText } from "../app/clipboard";
-import { ReservedLine } from "../ink/ReservedLine";
+import { DISMISS_ONLY, ReservedLine } from "../ink/ReservedLine";
 import { lazy, batch, createEffect, createMemo, createResource, createSignal, For, on, onCleanup, Show } from "solid-js";
 import { createCopyFeedback } from "../ui/CopyButton";
 import * as v from "valibot";
@@ -11,7 +11,7 @@ import type { ActionRow } from "@contracts/action/ActionRow";
 import { copy } from "./copy";
 import { KindGlyph } from "../ink/KindGlyph";
 import { StatusTip } from "../ink/StatusTip";
-import { FailureLine, shownKind } from "../ink/FailureLine";
+import { AgentError, shownKind } from "../ink/FailureLine";
 import { Combobox } from "../ui/Combobox";
 import { trackSurface } from "../ui/openSurfaces";
 import { useConnectedProject } from "../state/connectedProject";
@@ -431,12 +431,12 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
               <Show when={entry.todo !== undefined || entry.pad !== undefined}><span class="switcher-kind">{entry.todo !== undefined ? copy.kindTodo : copy.kindPad}</span></Show>
               <span class="switcher-name">{entry.label}</span>
               <Show when={entry.owner}><span class="switcher-owner">{entry.owner}</span></Show>
-              <Show when={entry.node && !rail.dismissed(entry.node)}><FailureLine status={entry.node?.status} /></Show>
+              <Show when={entry.node && !rail.dismissed(entry.node)}><AgentError status={entry.node?.status} /></Show>
             </span>}</StatusTip>;
           }} />
-        <ReservedLine message={makeFailure()} />
+        <ReservedLine message={makeFailure()} action={DISMISS_ONLY} onDismiss={() => setMakeFailure(null)} />
         <p class="switcher-footer"><For each={footer()}>{key => <span class="switcher-footer-key"><KeyChip keys={key.keys} /> {key.label}</span>}</For></p>
-        <ReservedLine message={retentionProblem() ? copy.switcherRetentionFailure(retentionProblem()!.operation, project.name) : null}>
+        <ReservedLine message={retentionProblem() ? copy.switcherRetentionFailure(retentionProblem()!.operation, project.name) : null} clearedBy={retentionProblem} action={<>
           <Show when={text() !== "" && !copyFailure()}>
             <button data-button="quiet" ref={restoreFocusOnRemoval} onClick={copyQuery}>{copied() ? copy.queryCopied : copy.copyQuery}</button>
           </Show>
@@ -449,12 +449,12 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
               setText("");
             }}>{copy.discardQuery}</button>
           </Show>
-        </ReservedLine>
-        <ReservedLine message={copyFailure() ? copy.switcherCopyFailure : null}>
+        </>} />
+        <ReservedLine message={copyFailure() ? copy.switcherCopyFailure : null} clearedBy={copyFailure} action={<>
           <button data-button="quiet" ref={restoreFocusOnRemoval} onClick={copyQuery}>{copied() ? copy.queryCopied : copy.copyQuery}</button>
           <button data-button="quiet" ref={restoreFocusOnRemoval} onClick={() => { setCopyFailure(null); }}>{copy.close}</button>
-        </ReservedLine>
-        <Show when={refusal()}>{shown => <ReservedLine message={shown().cause} />}</Show>
+        </>} />
+        <Show when={refusal()}>{shown => <ReservedLine status={shown().cause} />}</Show>
       </section>
     </Show>
   );

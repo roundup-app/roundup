@@ -3,7 +3,7 @@ import { copy } from "./copy";
 import { useConnectedProject } from "../state/connectedProject";
 import { Dialog } from "../ui/Dialog";
 import { Field } from "../ui/Field";
-import { ReservedLine } from "../ink/ReservedLine";
+import { DISMISS_ONLY, ReservedLine } from "../ink/ReservedLine";
 
 /** A5214b: ask for the Mode's name, then `agent.saveAsMode`; the Agent row stays as it was. */
 export const SaveAsMode = (props: { id: string; onClose: () => void; finalFocus: () => HTMLElement | null }) => {
@@ -34,7 +34,7 @@ export const SaveAsMode = (props: { id: string; onClose: () => void; finalFocus:
       <Dialog.Title>{copy.saveAsModeTitle}</Dialog.Title>
       <form onSubmit={event => { event.preventDefault(); void submit(); }}>
         <Field.Root disabled={busy()}><Field.Label>{copy.name}</Field.Label><Field.Input type="text" value={name()} onInput={event => setName(event.currentTarget.value)} /></Field.Root>
-        <ReservedLine message={failure()} />
+        <ReservedLine message={failure()} action={DISMISS_ONLY} onDismiss={() => setFailure(null)} />
         <div class="app-dialog-actions"><Dialog.CloseTrigger type="button" data-button="quiet">{copy.close}</Dialog.CloseTrigger><button type="submit" data-button="primary" aria-disabled={busy() || !name().trim()}>{copy.saveMode}</button></div>
       </form>
     </Dialog.Content></Dialog.Positioner>

@@ -119,9 +119,9 @@ export const createTodoHistory = (props: { id: number; saved?: (() => number) | 
 
   return {
     changes: () => loaded()?.changes,
-    feedback: <ReservedLine message={copyFailure() ?? failure()}>
+    feedback: <ReservedLine message={copyFailure() ?? failure()} clearedBy={() => copyFailure() ?? failure()} action={<>
       <button data-button="quiet" class="word" type="button" onMouseDown={event => event.preventDefault()} onClick={() => void refresh()}>{copy.retryHistory}</button><button data-dismiss-failure onMouseDown={event => event.preventDefault()} data-button="quiet" class="word" type="button" onClick={() => { failCopy(null); setFailure(null); }}>{copy.dismissFailure}</button>
-    </ReservedLine>,
+    </>} />,
     copy: <Show when={loaded()}>{record => <CopyButton app={app} text={JSON.stringify({
       lines: record().changes.flatMap(change => lines(change, id => rail.nodes.find(node => node.id === id)?.name ?? copy.missingAgent, now())),
       history: record(), failure: failure(),

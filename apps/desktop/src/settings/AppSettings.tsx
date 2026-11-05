@@ -2,7 +2,7 @@ import fuzzysort from "fuzzysort";
 import { createEffect, createResource, createSignal, createMemo, For, on, onCleanup, Show, type JSX } from "solid-js";
 import type { App } from "../app/seam";
 import { copy, stateLabel } from "./copy";
-import { ReservedLine } from "../ink/ReservedLine";
+import { DISMISS_ONLY, ReservedLine } from "../ink/ReservedLine";
 import { registerKeys } from "../keys/registry";
 import { Combobox } from "../ui/Combobox";
 import { Tabs } from "../ui/Tabs";
@@ -109,7 +109,7 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
     { chords: ["Meta+BracketRight"], when: () => forward() && !view.open(), run: event => { event.preventDefault(); show(); } },
   ]);
 
-  const [offered] = createResource(() => view.open() && props.project(), async path => {
+  const [offered, { refetch: refetchOffered }] = createResource(() => view.open() && props.project(), async path => {
     try {
       return { list: await props.app.forProject(path).rpc("models.list", null), failure: null };
     } catch (error) {
@@ -223,7 +223,7 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
               onKeyDown={event => { if (event.key === "Enter" && !event.isComposing) { event.preventDefault(); commitNumber(name, label); } }} />
           </module.NumberInput.Root>}</Deferred>
           <Show when={hint}><Field.HelperText>{hint}</Field.HelperText></Show>
-          <ReservedLine message={numericFailure()[name]} />
+          <ReservedLine status={numericFailure()[name]} />
         </Field.Root>
   </>;
 
@@ -369,7 +369,7 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
         {controls.naming()}
         {controls.skill()}
         {controls.feedbackIssue()}
-        <ReservedLine message={offered()?.failure} />
+        <ReservedLine message={offered()?.failure} clearedBy={offered} action={<button data-button="quiet" type="button" onClick={() => void refetchOffered()}>{copy.storageRetry}</button>} />
       </SettingsGroup></Tabs.Content>
       <Tabs.Content value="Terminal"><SettingsGroup hideHeading name={copy.settingsTerminal}>
         {controls.fontFamily()}
@@ -394,13 +394,13 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
         </div>}</For>
       </SettingsGroup></Tabs.Content>
       </Show>
-      <ReservedLine message={failure()} />
-      <ReservedLine message={numericFields.some(({ name }) => conflicted(name)) ? copy.settingsConflict : null}>
+      <ReservedLine message={failure()} action={DISMISS_ONLY} onDismiss={() => setFailure(null)} />
+      <ReservedLine message={numericFields.some(({ name }) => conflicted(name)) ? copy.settingsConflict : null} clearedBy={() => numericFields.some(({ name }) => conflicted(name))} action={<>
         <For each={numericFields.filter(({ name }) => conflicted(name))}>{({ name, label }) => <button data-button="quiet" type="button" onClick={() => { const draft = current(name);
 
  if (draft) void drafts.discard(draft.revision); }}>{copy.discardSettingsEdit(label)}</button>}</For>
-      </ReservedLine>
-      <ReservedLine message={drafts.problem() ? copy.draftRetention(copy.settings, copy.settingsTerminal, drafts.problem()!.cause) : null}><button data-button="quiet" type="button" onClick={() => drafts.retry()}>{copy.storageRetry}</button></ReservedLine>
+      </>} />
+      <ReservedLine message={drafts.problem() ? copy.draftRetention(copy.settings, copy.settingsTerminal, drafts.problem()!.cause) : null} clearedBy={drafts.problem} action={<button data-button="quiet" type="button" onClick={() => drafts.retry()}>{copy.storageRetry}</button>} />
       </div></Tabs.Root>
     </SettingsShell>
     </Show>

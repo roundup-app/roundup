@@ -63,7 +63,7 @@ export const TodoDraftRecovery = (props: { object: string; active?: boolean; inD
   return <Show when={!drawer.content() || props.inDrawer}><section class="todo-draft-recovery" data-in-drawer={props.inDrawer ? "" : undefined} aria-label={copy.draftIdentity(surface, props.object)} onMouseDown={event => {
     if (event.target instanceof Element && event.target.closest("button")) event.preventDefault();
   }}>
-    <ReservedLine overlay={!props.inDrawer && props.object !== "new"} message={failure() ?? (problem() ? copy.draftRetention(project.name, copy.draftSurface(surface), problem()!.cause) : null)} status={records().length > 0 ? label(records()[records().length - 1]!) : null}>
+    <ReservedLine overlay={!props.inDrawer && props.object !== "new"} message={failure() ?? (problem() ? copy.draftRetention(project.name, copy.draftSurface(surface), problem()!.cause) : null)} status={records().length > 0 ? label(records()[records().length - 1]!) : null} clearedBy={() => failure() ?? problem()} action={<>
     <Show when={failure()}><button data-dismiss-failure onMouseDown={event => event.preventDefault()} data-button="quiet" class="word" type="button" onClick={() => setFailure(null)}>{copy.dismissFailure}</button></Show>
     <Show when={problem()}><button data-button="quiet" class="word" type="button" onClick={() => drafts.retry()}>{copy.storageRetry}</button></Show>
     <For each={records().map(draft => draft.revision)}>{revision => {
@@ -83,7 +83,7 @@ export const TodoDraftRecovery = (props: { object: string; active?: boolean; inD
         </div>
       </div>}</Show>;
     }}</For>
-    </ReservedLine>
+    </>} />
   </section></Show>;
 };
 
@@ -382,7 +382,7 @@ export const EditableText = (props: {
 
   return (
     <div class="todo-editable" ref={container}>
-    <ReservedLine overlay message={retentionFailure() || (!props.onFailure && failure())}><Show when={!retentionFailure()}><button data-dismiss-failure onMouseDown={event => event.preventDefault()} data-button="quiet" class="word" type="button" onClick={() => setFailure(null)}>{copy.dismissFailure}</button></Show></ReservedLine>
+    <ReservedLine overlay message={retentionFailure() || (!props.onFailure && failure())} clearedBy={() => retentionFailure() || failure()} action={<Show when={!retentionFailure()}><button data-dismiss-failure onMouseDown={event => event.preventDefault()} data-button="quiet" class="word" type="button" onClick={() => setFailure(null)}>{copy.dismissFailure}</button></Show>} />
     <Show
       when={editing()}
       fallback={
@@ -410,7 +410,7 @@ export const EditableText = (props: {
       keyed
     >
       {(started) => (<>
-        <ReservedLine message={(props.captured() && props.captured()?.seq !== started.form.expected_change) || (props.revision !== undefined && props.todo[props.name] !== started.form.base) ? copy.changedTodo(props.todo.title) : null} />
+        <ReservedLine status={(props.captured() && props.captured()?.seq !== started.form.expected_change) || (props.revision !== undefined && props.todo[props.name] !== started.form.base) ? copy.changedTodo(props.todo.title) : null} />
         <Show when={props.multiline} fallback={<textarea spellcheck={false} autocorrect="off" autocapitalize="off"
           ref={field(started)}
           aria-label={props.name === "title" ? copy.title : copy.body}

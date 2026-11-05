@@ -67,12 +67,12 @@ export const CapturePanel = (props: { port: CapturePort }) => {
         if (event.key === "Enter" && !event.isComposing) { event.preventDefault(); file(event.shiftKey); }
       }} />
     <p class="capture-target"><span>{state()?.owner}</span><span>{state()?.home}</span></p>
-    <ReservedLine message={failure() ?? state()?.failure}>
+    <ReservedLine message={failure() ?? state()?.failure} clearedBy={() => failure() ?? state()?.failure} action={
       <Show when={state()?.retention}><button data-button="quiet" onClick={() => {
           const current = state();
 
           if (current) void send({ kind: "retry", session: current.session }); }}>{copy.retry}</button></Show>
-    </ReservedLine>
+    } />
     <For each={state()?.recovered}>{draft => <div class="capture-recovery">
       <span class="ink" data-state={draft.status}>{draft.label}</span>
       <textarea class="capture-field" aria-label={copy.recoveredCaptureDraft} rows={1} readOnly value={draft.text} />

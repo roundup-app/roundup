@@ -7,7 +7,7 @@ import { statusText } from "../terminal/programStatus";
 import { copy } from "./copy";
 import { ReservedLine } from "../ink/ReservedLine";
 import { KindGlyph } from "../ink/KindGlyph";
-import { FailureLine } from "../ink/FailureLine";
+import { AgentError } from "../ink/FailureLine";
 import { StatusTip } from "../ink/StatusTip";
 import { Collapsible } from "../ui/Collapsible";
 import { TargetText } from "../terminal/TargetText";
@@ -53,13 +53,13 @@ export const InboxRow = (props: { row: AgentRow; open: boolean; selected: boolea
         </Collapsible.Trigger>}</StatusTip>
         <div class="inbox-actions">{actions()}</div>
       </div>
-      <FailureLine status={node()?.status} class="inbox-failure" />
+      <AgentError status={node()?.status} class="inbox-failure" />
       <Collapsible.Content>
         <div class="inbox-body">
           <p class="inbox-step"><Show when={node()}><span class="light">{copy.inboxLastStep}</span> </Show><TargetText objectLinks text={step() ?? ""} base={project.path} onFailure={message => props.actions.fail(props.row, message)} /></p>
-          <ReservedLine message={failure()}>
+          <ReservedLine message={failure()} clearedBy={failure} action={
             <button type="button" data-button="quiet" class="word" aria-describedby={name} onClick={() => props.actions.dismiss(props.row)}>{copy.inboxDismiss}</button>
-          </ReservedLine>
+          } />
         </div>
       </Collapsible.Content>
     </Collapsible.Root>

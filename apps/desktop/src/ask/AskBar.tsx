@@ -15,14 +15,14 @@ import type { AskSubmission } from "../state/asks";
 import { copy } from "./copy";
 import { openDeliverable } from "./openDeliverable";
 import { Icon } from "../ink/Icon";
-import { ReservedLine } from "../ink/ReservedLine";
+import { DISMISS_ONLY, ReservedLine } from "../ink/ReservedLine";
 import { ASK_CLOSE, CHORDS, chordsFor } from "../keys/chords";
 import { modalOpen, modalOutside, registerKeys, type KeyScope } from "../keys/registry";
 import { useConnectedProject } from "../state/connectedProject";
 import { Combobox } from "../ui/Combobox";
 import { Mentions } from "../ui/Mentions";
 import { KindGlyph, LABELS } from "../ink/KindGlyph";
-import { FailureLine, shownKind } from "../ink/FailureLine";
+import { AgentError, shownKind } from "../ink/FailureLine";
 import { attentionOrder } from "../rail/attention";
 import { selectedRailRow } from "../rail/selectedRow";
 import { descendantsOf, resolvedWorkstream, siblingsOf } from "../rail/layout";
@@ -343,11 +343,11 @@ export const AskBar = (props: {
 
             const dismissed = () => node() !== undefined && rail.dismissed(node()!);
 
-            return <><KindGlyph decorative kind={shownKind(node()?.status, dismissed())} /><Tip text={item.label} cut={cut}>{trigger => <span {...trigger()} ref={name} class="app-mention-name">{item.label.slice(0, start())}<mark>{item.label.slice(start(), end())}</mark>{item.label.slice(end())}</span>}</Tip><Show when={parent()}>{name => <span class="app-mention-parent">{name()}</span>}</Show><Show when={!dismissed()}><FailureLine status={node()?.status} /></Show></>;
+            return <><KindGlyph decorative kind={shownKind(node()?.status, dismissed())} /><Tip text={item.label} cut={cut}>{trigger => <span {...trigger()} ref={name} class="app-mention-name">{item.label.slice(0, start())}<mark>{item.label.slice(start(), end())}</mark>{item.label.slice(end())}</span>}</Tip><Show when={parent()}>{name => <span class="app-mention-parent">{name()}</span>}</Show><Show when={!dismissed()}><AgentError status={node()?.status} /></Show></>;
           }} /></Show>
         </Mentions.Root>
         <ReservedLine overlay class="ask-send-status" message={problem() ? copy.draftRetention(connected.project.name, copy.draftSurface("ask"), problem()!.cause) : failure()?.message ?? (records().some(draft => draft.status === "unknown") ? null : asks.failure())}
-          status={records().some(draft => draft.status === "unknown") ? copy.askUnknownState : null}>
+          status={records().some(draft => draft.status === "unknown") ? copy.askUnknownState : null} clearedBy={() => [problem(), failure(), asks.listFailure(), asks.intakeFailure()]} action={<>
         <For each={records().filter(draft => draft.status === "unknown").map(draft => draft.revision)}>{revision => {
           const [cause, setCause] = createSignal<string | null>(null);
           const label = () => String(records().find(draft => draft.revision === revision)?.value.text ?? "");
@@ -373,7 +373,7 @@ export const AskBar = (props: {
             <button type="button" data-button="quiet" onClick={dismissSend}>{copy.dismiss}</button>
           </Show>
         </Show>
-        </ReservedLine>
+        </>} />
         </div>
         <Show when={!over()}>
           <ChangeList ready={treeReady() && asks.loadState() !== "loading"} keys={scope} onOpened={() => close(false)} />
@@ -481,7 +481,7 @@ const OverviewEntry = (props: { node: RailNode; status: boolean; waiting: boolea
         </span>
       }</Tip>
       <span {...tip} ref={name} class={props.waiting ? "overview-name ink" : "overview-name"}>{props.node.name}</span>
-      <FailureLine status={status()} />
+      <AgentError status={status()} />
     </button>;
   }}</Tip>;
 };
@@ -602,7 +602,7 @@ const Deliverables = (props: { state: ReturnType<typeof createDeliverables> }) =
 
   return <section ref={section} on:click={{ capture: true, handleEvent: content.click }} on:keydown={{ capture: true, handleEvent: rowKey }} class="made" aria-label={copy.deliverables} aria-busy={pending() !== null || props.state.loading()}>
       <Combobox.Picker label={copy.deliverablesFilter} value={filter()} items={choices()} onSelect={setFilter} />
-      <ReservedLine message={props.state.failure()} status={props.state.loading() ? copy.deliverablesLoading : null} />
+      <ReservedLine status={props.state.failure() ?? (props.state.loading() ? copy.deliverablesLoading : null)} />
       <Show when={!props.state.loading() && props.state.failure() === null && records().length === 0}><p class="overview-quiet">{copy.deliverablesEmpty}</p></Show>
       <ul class="made-list"><For each={records()}>{record => <li class="made-row" data-deliverable={record.id} data-overview-item={record.id} data-selected={content.selection.isEmpty() ? selected() === record.id : content.selection.isSelected(record.id)}
         onContextMenu={event => openOnRelease(event, (x, y) => openMenu(record, x, y))}>
@@ -620,7 +620,7 @@ const Deliverables = (props: { state: ReturnType<typeof createDeliverables> }) =
           </span>
           <Icon name="right" />
         </button>}</Tip>
-        <ReservedLine overlay message={failure(record.id)}><button type="button" data-button="quiet" onClick={() => clear(record.id)}>{copy.dismiss}</button></ReservedLine>
+        <ReservedLine overlay message={failure(record.id)} action={DISMISS_ONLY} onDismiss={() => clear(record.id)} />
       </li>}</For></ul>
     </section>;
 };

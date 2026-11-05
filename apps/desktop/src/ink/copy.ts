@@ -10,6 +10,8 @@ export const copy = {
   },
   statusReveal: sharedCopy.dotted,
   error: sharedCopy.error,
+  retry: sharedCopy.retry,
+  dismissFailure: sharedCopy.dismissFailure,
   dismissedFailure: sharedCopy.dismissedFailure,
   needsYouGlyph: sharedCopy.needsYouGlyph,
   blocked: sharedCopy.blocked,

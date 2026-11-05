@@ -111,6 +111,6 @@ export const NameField = (props: {
 
       if (event.key === "Escape") { event.preventDefault(); props.close(); }
     }} onBlur={() => props.close(false)} />
-    <ReservedLine overlay message={conflict() ? copy.railDraftConflict : null} />
+    <ReservedLine overlay status={conflict() ? copy.railDraftConflict : null} />
   </Editable.Root>;
 };

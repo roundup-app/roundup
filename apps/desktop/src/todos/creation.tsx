@@ -4,7 +4,7 @@ import type { Actor } from "@contracts/Actor";
 import { applied } from "../app/pending";
 import { outcomeOf } from "../app/seam";
 import { EntryRow } from "../ink/EntryRow";
-import { ReservedLine } from "../ink/ReservedLine";
+import { DISMISS_ONLY, ReservedLine } from "../ink/ReservedLine";
 import { registerKeys } from "../keys/registry";
 import { todoCreationKeys } from "../shelf/keys";
 import { useConnectedProject, useCreation } from "../state/connectedProject";
@@ -169,7 +169,7 @@ export const createTodoCreation = (inputs: {
           if (reason !== "blur") plusButton()?.focus();
         }}
       />
-      <ReservedLine message={createFailure()} content={createFailure() ? <>{copy.failed(copy.addTodo, "")}<span>{createFailure()}</span></> : undefined} />
+      <ReservedLine message={createFailure()} action={DISMISS_ONLY} onDismiss={() => setCreateFailure(null)} content={createFailure() ? <>{copy.failed(copy.addTodo, "")}<span>{createFailure()}</span></> : undefined} />
     </div>
   );
 

@@ -237,14 +237,14 @@ export const Pads = (props: {
           <span>{copy.pad}</span>
         </button>
       </ScopeAction>
-      <ReservedLine content={itemFailure() ? <>{copy.failed(itemFailure()!.action, "")}<span>{itemFailure()!.message}</span></> : undefined} message={itemFailure()?.message ?? failure.message() ?? list.failure() ?? (retentionProblem() ? copy.draftRetention(connected.project.name, copy.pad, retentionProblem()!.cause) : null)}>
+      <ReservedLine content={itemFailure() ? <>{copy.failed(itemFailure()!.action, "")}<span>{itemFailure()!.message}</span></> : undefined} message={itemFailure()?.message ?? failure.message() ?? list.failure() ?? (retentionProblem() ? copy.draftRetention(connected.project.name, copy.pad, retentionProblem()!.cause) : null)} clearedBy={itemFailure} action={<>
         <Show when={itemFailure()}><button data-button="quiet" type="button" onClick={() => setItemFailure(null)}>{copy.dismiss}</button></Show>
         <Show when={retentionProblem()}>
         <button data-button="primary" type="button" onClick={() => connected.drafts.retry()}>{copy.storageRetry}</button>
         <CopyButton app={connected.app} text={name()} onSuccess={() => failure.clear()} onFailure={error => failure.show(copy.copyDraftFailure(String(error)))}>{nameLabel}</CopyButton>
         <button data-button="quiet" type="button" onClick={() => { if (revision) connected.drafts.discard(revision); revision = undefined; captured = null; setName(""); setInvalid(false); }}>{copy.discardRevision}</button>
 
-      </Show></ReservedLine>
+      </Show></>} />
       <Show when={isEmpty() && !naming() && !failure.message() && !list.failure() && !itemFailure()}>
         <EmptyState art="reading-side" {...{ title: copy.noPadsYet }} line={copy.emptyPadsLine} action={<button type="button" data-button="primary" onClick={() => openField()}>{copy.addPadWord}</button>} />
       </Show>

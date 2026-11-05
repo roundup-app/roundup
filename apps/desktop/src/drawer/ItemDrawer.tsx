@@ -60,15 +60,15 @@ const ItemDrawerBody = <Value,>(props: Props<Value>) => {
 
   return (
     <ErrorBoundary fallback={(error: Error, reset) => (
-      <ReservedLine message={error.message}>
+      <ReservedLine message={error.message} clearedBy={() => error} action={
         <button data-button="quiet" type="button" onClick={() => { void refetch(); reset(); }}>{copy.tryAgain}</button>
-      </ReservedLine>
+      } />
     )}>
       <Show when={loaded()}>
         {(item) => (
           <>
             {props.children(item().value)}
-            <ReservedLine message={failure()}><button data-button="quiet" type="button" onClick={() => void refreshHistory()}>{copy.tryAgain}</button></ReservedLine>
+            <ReservedLine message={failure()} clearedBy={failure} action={<button data-button="quiet" type="button" onClick={() => void refreshHistory()}>{copy.tryAgain}</button>} />
             <Show when={newer() ?? item().line}>
               {(line) => (
                 <p class="light" style={props.sentence ? { "font-family": "var(--font-ui)" } : { "white-space": "pre" }}>

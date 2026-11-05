@@ -7,9 +7,9 @@ import type { AskPart } from "@contracts/ask/AskPart";
 import type { Target } from "@contracts/ask/Target";
 import { copy } from "./copy";
 import { createCut } from "../ink/Tip";
-import { ReservedLine } from "../ink/ReservedLine";
+import { DISMISS_ONLY, ReservedLine } from "../ink/ReservedLine";
 import { KindGlyph, LABELS } from "../ink/KindGlyph";
-import { FailureLine, shownKind } from "../ink/FailureLine";
+import { AgentError, shownKind } from "../ink/FailureLine";
 import { useConnectedProject } from "../state/connectedProject";
 import type { AskEntry } from "../state/asks";
 import { registerKeys, type KeyScope } from "../keys/registry";
@@ -83,7 +83,7 @@ export const AskRows = (props: { onOpened: () => void; keys: KeyScope }) => {
 
       {rows(live())}
     </section></Show>
-    <ReservedLine class="target-failure" message={linkFailure()} content={linkFailure()} />
+    <ReservedLine class="target-failure" message={linkFailure()} content={linkFailure()} action={DISMISS_ONLY} onDismiss={() => setLinkFailure(null)} />
   </div></Show>;
 };
 
@@ -164,7 +164,7 @@ const AskRow = (props: { linkFailure: string | null; onLinkFailure: (message: st
           {line(tip)}
         </Dynamic>;
       }}</Tip>
-      <Show when={!dismissed()}><FailureLine status={status()} /></Show>
+      <Show when={!dismissed()}><AgentError status={status()} /></Show>
       <Show when={asking()}>
         <div class="ask-back">
           <p class="ask-reason">{props.part.reason ?? (props.part.placement.kind === "unclear" ? props.part.placement.question : "")}</p>
@@ -179,7 +179,9 @@ const AskRow = (props: { linkFailure: string | null; onLinkFailure: (message: st
             <button type="button" data-button="quiet" disabled={busy()} onClick={() => pick({ kind: "new" })}>{copy.askNewWorkstream}</button>
             <button type="button" data-button="quiet" disabled={busy()} onClick={() => pick({ kind: "drop" })}>{copy.askDrop}</button>
           </div>
-          <ReservedLine message={failure()?.message}><Show when={failure()}>{(each) => <button type="button" data-button="quiet" onClick={() => asks.dismiss(each())}>{copy.dismiss}</button>}</Show></ReservedLine>
+          <ReservedLine message={failure()?.message} action={DISMISS_ONLY} onDismiss={() => { const each = failure();
+
+ if (each) asks.dismiss(each); }} />
         </div>
       </Show>
     </li>

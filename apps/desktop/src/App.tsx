@@ -30,7 +30,7 @@ import { WindowBar } from "./header/WindowBar";
 import { Strip } from "./header/Strip";
 import type { StripTab } from "./header/tab";
 import { ReservedLine } from "./ink/ReservedLine";
-import { failureLine } from "./ink/ReservedLine";
+import { DISMISS_ONLY, failureLine } from "./ink/ReservedLine";
 import { exitText } from "./ink/exitText";
 import { AttentionKey } from "./rail/AttentionKey";
 import { attentionCounts, attentionHolders, nextAttention } from "./rail/attention";
@@ -733,10 +733,10 @@ export const App = (props: {
         railStrip={<InProject open={activeConnection()}>{() => <RailStrip expand={() => setRailCollapsed(false)} />}</InProject>}
         rail={
           <>
-            <ReservedLine overlay message={windowFailure() ?? (activeTab()?.exit ? activeTab()?.reopenFailure ?? daemonExitText(activeTab()!.exit!) : null) ?? (projects.tabs().length > 0 ? projects.failure() : null) ?? badgeFailure() ?? alertFailure() ?? menuBarFailure()}>
+            <ReservedLine overlay message={windowFailure() ?? (activeTab()?.exit ? activeTab()?.reopenFailure ?? daemonExitText(activeTab()!.exit!) : null) ?? (projects.tabs().length > 0 ? projects.failure() : null) ?? badgeFailure() ?? alertFailure() ?? menuBarFailure()} clearedBy={() => [windowFailure(), activeTab()?.exit, activeTab()?.reopenFailure, projects.failure(), badgeFailure(), alertFailure(), menuBarFailure()]} action={<>
               <Show when={projects.readFailure() && projects.tabs().length > 0 && !windowFailure() && !activeTab()?.exit}><button data-button="quiet" type="button" onClick={() => void projects.reload()}>{copy.retry}</button></Show>
               <Show when={activeTab()?.exit && !activeTab()?.exit?.recovery}><Reopen onReopen={() => void projects.reopen(activeTab()!.project.path)} busy={projects.reopening()} /></Show>
-            </ReservedLine>
+            </>} />
             <Show when={projects.tabs().length > 0} fallback={<EmptyRail />}>
               <InProject open={activeConnection()}>
                 {() => (
@@ -756,10 +756,7 @@ export const App = (props: {
 
             const failure = () => projects.active() === path ? undo.feedbackFailure() : null;
 
-            return <ReservedLine class="todo-undo" overlay message={failure()}>
-              <Show when={undo.uncertain()}><button data-button="quiet" type="button" disabled={undo.pending()} onClick={() => void undo.retryDelete()}>{copy.todoDeleteRetry}</button></Show>
-              <button data-button="quiet" type="button" onClick={undo.dismiss}>{copy.dismissFailure}</button>
-            </ReservedLine>;
+            return <ReservedLine class="todo-undo" overlay message={failure()} onDismiss={undo.dismiss} action={<Show when={undo.uncertain()}><button data-button="quiet" type="button" disabled={undo.pending()} onClick={() => void undo.retryDelete()}>{copy.todoDeleteRetry}</button></Show>} />;
           }}</For>
           <div class="centre-failures">
             <For each={keys()}>{path => {
@@ -767,21 +764,16 @@ export const App = (props: {
               const message = () => projects.active() !== path && failure()?.surface() === "rail" ? failure()?.message() : null;
               const name = () => tabOf(path)()?.project.name ?? "";
   
-              return <Show when={message()}>{message => <ReservedLine class="centre-notice" message={`${name()}: ${message()}`}>
-                <button data-button="quiet" type="button" onClick={() => projects.select(path)}>{copy.openDraft} {name()}</button>
-                <button data-button="quiet" type="button" onClick={() => failure()?.clear()}>{copy.dismiss}</button>
-              </ReservedLine>}</Show>;
+              return <Show when={message()}>{message => <ReservedLine class="centre-notice" message={`${name()}: ${message()}`} onDismiss={() => failure()?.clear()} action={<button data-button="quiet" type="button" onClick={() => projects.select(path)}>{copy.openDraft} {name()}</button>} />}</Show>;
             }}</For>
-            <Show when={nativeFailure()}>{message => <ReservedLine class="centre-notice" message={message()} />}</Show>
-            <Show when={storageFailures().length > 0}><div class="storage-failure"><ReservedLine message={storageCopy.failure(storageFailures())}>
-              <button data-button="quiet" type="button" onClick={() => void Promise.all(storageFailures().map(problem => problem.retry()))}>{storageCopy.saveRetry}</button>
-            </ReservedLine></div></Show>
+            <Show when={nativeFailure()}>{message => <ReservedLine class="centre-notice" message={message()} action={DISMISS_ONLY} onDismiss={() => setNativeFailure(null)} />}</Show>
+            <Show when={storageFailures().length > 0}><div class="storage-failure"><ReservedLine message={storageCopy.failure(storageFailures())} clearedBy={storageFailures} action={<button data-button="quiet" type="button" onClick={() => void Promise.all(storageFailures().map(problem => problem.retry()))}>{storageCopy.saveRetry}</button>} /></div></Show>
           </div>
           <div class="centre-frame">
           <div class="settings-center">
           <div class="settings-center-content" inert={settingsOpen()} style={{ visibility: settingsOpen() ? "hidden" : "visible" }}>
           <Show when={projects.tabs().length > 0} fallback={<ChooseProject app={props.app} onOpen={path => void projects.open(path)} failure={projects.failure()} onChoose={() => void projects.choose()} onRetry={projects.readFailure() ? () => void projects.reload() : undefined} />}>
-            <InProject open={activeConnection()} failed={failureLine} pending={<div role="img" aria-label={copy.loadingProject} class="light" style={{ padding: "var(--space-4)" }}><Hourglass class="icon" aria-hidden="true" /></div>}>
+            <InProject open={activeConnection()} failed={failure => failureLine(failure, () => void projects.reopen(projects.active()!))} pending={<div role="img" aria-label={copy.loadingProject} class="light" style={{ padding: "var(--space-4)" }}><Hourglass class="icon" aria-hidden="true" /></div>}>
               {(open) => {
                 const tracked = emulators();
                 const [screens, setScreens] = createSignal<Screens>();

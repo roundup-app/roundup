@@ -40,7 +40,7 @@ const Fixture = () => {
         <RadioGroup label="Mode" choices={choices} value={value()} disabled={disabled} invalid={invalid} onValueChange={setValue} />
         <NumberInput.Root disabled={disabled} invalid={invalid} defaultValue="12"><NumberInput.Label>Font size</NumberInput.Label><NumberInput.Input /></NumberInput.Root>
         <Field.Root disabled={disabled} invalid={invalid}><Field.Label>Model</Field.Label><Combobox.Picker label="Model" items={choices} value={value()} onSelect={setValue} /><Field.ErrorText>Choose an available model.</Field.ErrorText></Field.Root>
-        <ReservedLine message={invalid && "Correct the marked choices."} />
+        <ReservedLine status={invalid && "Correct the marked choices."} />
       </section>;
     }}</For>
   </main>;

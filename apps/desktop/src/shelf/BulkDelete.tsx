@@ -208,13 +208,13 @@ export const createBulkDelete = <Id,>(props: {
         <Show when={owners().some(owner => owner.live)}>
           <p>{copy.agentsMayStillBeWritingDeletingDoesNot(owners().filter(owner => owner.live).map(owner => owner.name).join(copy.comma))}</p>
         </Show>
-        <ReservedLine data-deletion-pending={question()?.kind === "pending"} aria-busy={question()?.kind === "pending"} status={question()?.kind === "pending" ? copy.draftStatus.pending : null} message={readFailure() ?? (shown().length > 0 ? failureText(shown()[0]!) : null)}>
+        <ReservedLine data-deletion-pending={question()?.kind === "pending"} aria-busy={question()?.kind === "pending"} status={question()?.kind === "pending" ? copy.draftStatus.pending : null} message={readFailure() ?? (shown().length > 0 ? failureText(shown()[0]!) : null)} clearedBy={() => [readFailure(), shown()[0]]} action={
           <Show when={readFailure() !== null} fallback={shown().length > 0 ? clearButton(shown()[0]!) : null}>
             <button data-button="quiet" type="button" onClick={() => void readback?.()}>{copy.retry}</button>
           </Show>
-        </ReservedLine>
+        } />
         <For each={shown().slice(1)}>{failure => (
-          <ReservedLine message={failureText(failure)}>{clearButton(failure)}</ReservedLine>
+          <ReservedLine message={failureText(failure)} clearedBy={() => failure} action={clearButton(failure)} />
         )}</For>
       </div>
     </Show>

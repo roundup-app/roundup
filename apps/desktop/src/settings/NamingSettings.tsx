@@ -5,7 +5,7 @@ import { copy } from "./copy";
 import { draftStorage } from "../state/storage";
 import { Field } from "../ui/Field";
 import { Switch } from "../ui/Switch";
-import { ReservedLine } from "../ink/ReservedLine";
+import { DISMISS_ONLY, ReservedLine } from "../ink/ReservedLine";
 
 /** Global naming preferences use the existing RPC seam even before a Project is open. */
 export const NamingSettings = (props: { app: App }) => {
@@ -58,10 +58,10 @@ export const NamingSettings = (props: { app: App }) => {
         }} />
         <Field.HelperText>{copy.namingGuideHint}</Field.HelperText>
         <button class="word" data-button="quiet" type="button" disabled={saving()} onClick={() => void save(value().automaticRenaming, text(), draft()?.revision)}>{copy.save}</button>
-        <Field.ErrorText asChild={error => <div {...error()}><ReservedLine message={failure()} /></div>} />
+        <Field.ErrorText asChild={error => <div {...error()}><ReservedLine message={failure()} action={DISMISS_ONLY} onDismiss={() => setFailure(null)} /></div>} />
       </Field.Root>
     </>}</Show>
-    <Show when={!settings() && failure()}><ReservedLine message={failure()}><button data-button="quiet" type="button" onClick={() => void refetch()}>{copy.storageRetry}</button></ReservedLine></Show>
-    <ReservedLine message={drafts.problem() ? copy.draftRetention(copy.settings, copy.namingGuide, drafts.problem()!.cause) : null}><button data-button="quiet" type="button" onClick={() => drafts.retry()}>{copy.storageRetry}</button></ReservedLine>
+    <Show when={!settings() && failure()}><ReservedLine message={failure()} clearedBy={failure} action={<button data-button="quiet" type="button" onClick={() => void refetch()}>{copy.storageRetry}</button>} /></Show>
+    <ReservedLine message={drafts.problem() ? copy.draftRetention(copy.settings, copy.namingGuide, drafts.problem()!.cause) : null} clearedBy={drafts.problem} action={<button data-button="quiet" type="button" onClick={() => drafts.retry()}>{copy.storageRetry}</button>} />
   </>;
 };
