@@ -1,6 +1,6 @@
-# A Door names an Agent with its link, and every Terminal makes the link clickable (AL1 to AL5)
+# A Door names an Agent with its link, and every Terminal makes the link clickable (AL1 to AL6)
 
-Module: `crates/messages`, `crates/agents`, `crates/rup`, `apps/desktop/src`. Ids: AL1, AL2, AL3, AL4, AL5. Acceptance for [#6173](https://github.com/roundup-app/roundup/issues/6173). Terms: Door, Agent, Terminal, Rail, link (`GLOSSARY.md`). Source: the owner, 2026-11-04, on a Door that wrote "open the researcher-checks-free-routes pane" in plain text. No implementation is claimed by this specification.
+Module: `crates/messages`, `crates/agents`, `crates/rup`, `apps/desktop/src`. Ids: AL1, AL2, AL3, AL4, AL5, AL6. Acceptance for [#6173](https://github.com/roundup-app/roundup/issues/6173). Terms: Door, Agent, Terminal, Rail, link (`GLOSSARY.md`). Source: the owner, 2026-11-04, on a Door that wrote "open the researcher-checks-free-routes pane" in plain text. No implementation is claimed by this specification.
 
 Policy, Must not: no new link scheme, contract field or RPC method beyond what carrying the link in the digest needs (a contract change follows the Contract recipe of `.agents/builder.md`); `http(s)` and path links keep working as U365 says (`scenarios/ui-terminal-links.md`); LK1's form is the only link form (`scenarios/rup-ext.md`).
 
@@ -14,7 +14,9 @@ Policy, Must not: no new link scheme, contract field or RPC method beyond what c
 
 **AL5 every surface that shows a Door's or an Agent's text makes the links clickable.** Given the Door and Agent Terminals, the Inbox, the Overview and notifications, when each shows text holding a LK1 link, then the link is clickable by AL3's route; a surface that cannot hold a link (a native notification) shows the object's name and its click opens that object. The PR records the audit as a table, one row per surface, with the test or the stated reason. Asserted in planned `al5_inbox_and_overview_text_links_open_the_object` in `apps/desktop/src/ask/u365_links.test.tsx`.
 
-Observer: AL1 to AL5 in Vitest and cargo tests above, using the fake App and mounted real xterm in isolated headless Chromium (a dedicated agent-browser session, a fresh profile); test behaviour, selections, call counts and contracts only (AGENTS.md rule 10). One real run on this revision, by the user on the Mac (a logged-in real `claude`): a real Door whose Agent waits on a permission ask names it with a link, and clicking the link shows the ask.
+**AL6 a failed link lookup returns the reply without links.** Found by the review of PR #6182. Given a Door tool reply that succeeded and names an Agent, when the extra read AL1 needs for its links (`rail.tree`, or `daemon.ping` for the Project key) fails, times out within `CALL_TIMEOUT` or returns data that does not parse, then the Door gets the reply as the tool produced it, without links, and not an error; the call's effect is not reported as failed. A later reply, once the read answers, carries its links again. Asserted in planned `al6_a_failed_link_lookup_returns_the_reply_without_links` in `crates/rup/tests/e2e.rs`, with a fake Daemon whose `daemon.ping` never answers and a second run whose `rail.tree` errors; assert the reply text and `isError: false`, never timing beyond `CALL_TIMEOUT` plus a margin.
+
+Observer: AL1 to AL6 in Vitest and cargo tests above, using the fake App and mounted real xterm in isolated headless Chromium (a dedicated agent-browser session, a fresh profile); test behaviour, selections, call counts and contracts only (AGENTS.md rule 10). One real run on this revision, by the user on the Mac (a logged-in real `claude`): a real Door whose Agent waits on a permission ask names it with a link, and clicking the link shows the ask.
 
 Regression Checks on main:
 
