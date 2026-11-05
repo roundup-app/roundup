@@ -200,3 +200,16 @@ it("u6238b_the_row_returns_when_selection_moves", async () => {
   await settled();
   expect(rowNames()).toEqual(["stream", "busy", "a", "b"]);
 });
+
+it("u6238a_lifted_agent_is_a_direct_child_the_arrow_walk_passes_through", async () => {
+  const { rail } = await mountRail(foldedStream());
+  await settled();
+  rail.select("a");
+  await settled();
+  const row = (id: string) => document.querySelector<HTMLElement>(`[data-id="${id}"]`)!;
+  expect(row("a").getAttribute("aria-level")).toBe(row("busy").getAttribute("aria-level"));
+  row("busy").focus();
+  fireEvent.keyDown(row("busy"), { key: "ArrowUp" });
+  await settled();
+  expect(row("a").contains(document.activeElement)).toBe(true);
+});
