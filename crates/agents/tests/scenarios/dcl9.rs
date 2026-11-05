@@ -159,6 +159,7 @@ async fn dcl9_restart_preserves_roles_without_launching_agents() {
     let before = attempts_of(&f, &ids).await;
     let done_attempt = before[1].clone();
 
+    let workstream = f.workstream("w", None).await;
     let f = f.reopen();
     let reported = reports(&[(done.as_str(), vec![done_attempt.as_str()])]);
     let open = f.agents.open_jobs(&reported).unwrap();
@@ -168,6 +169,9 @@ async fn dcl9_restart_preserves_roles_without_launching_agents() {
         "the unreported Job is open; a reported Job and a Consult are not"
     );
     assert_eq!(role_of(&f, &consult).await, json!("consult"));
+    // DCL8: only the Door's batch carries the snapshot; a Job's or Consult's never does.
+    assert!(f.agents.is_door(&workstream));
+    assert!(!f.agents.is_door(&job) && !f.agents.is_door(&consult));
     assert_eq!(
         attempts_of(&f, &ids).await,
         before,
