@@ -155,7 +155,7 @@ export const RailRowView = (props: {
   };
 
   const kind = (): Kind | null => {
-    const kinds = [connected.rail.dismissed(props.row.node) ? "idle" as const : props.row.node.status?.kind, ...(workstream() ? [stateKind()] : isContainer() && props.row.collapsed !== null ? agentKindsBelow(props.topology, props.row.node.id, connected.rail.dismissed) : [])];
+    const kinds = [connected.rail.dismissed(props.row.node) ? "idle" as const : props.row.node.status?.kind, ...(workstream() && props.row.node.workstream_state !== undefined ? [stateKind()] : isContainer() && props.row.collapsed !== null ? agentKindsBelow(props.topology, props.row.node.id, connected.rail.dismissed) : [])];
 
     return byUrgency(kinds.filter((kind): kind is Kind => kind !== undefined))[0] ?? null;
   };
