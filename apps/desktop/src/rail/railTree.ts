@@ -4,7 +4,7 @@ import { KIND_ICON } from "../ink/kindIcon";
 import type { ConnectedProject } from "../state/connectedProject";
 import { railCollection } from "./collection";
 import { copy } from "./copy";
-import { foldGroupOf, isWorkstream, layoutRail, type NodeRow } from "./layout";
+import { foldIdOf, layoutRail, type NodeRow } from "./layout";
 import type { RailSection } from "./persist/storage";
 
 export const sections: { id: RailSection; label: string; icon: typeof KIND_ICON[keyof typeof KIND_ICON] }[] = [
@@ -32,8 +32,7 @@ export const createRailTree = (connected: ConnectedProject, unfolded: Accessor<R
     const selected = rail.selected();
     const chosen = selected === null ? undefined : topology().nodes[topology().index.get(selected) ?? -1];
     const parent = chosen?.parent == null ? undefined : topology().nodes[topology().index.get(chosen.parent) ?? -1];
-    const group = chosen && parent && isWorkstream(parent) ? foldGroupOf(chosen, { collapsed: collapsed(), unfolded: unfolded(), now: now() }) : null;
-    const foldId = group === null || !parent ? null : group === "idle" ? parent.id : `internal:${parent.id}`;
+    const foldId = chosen && parent ? foldIdOf(chosen, parent.id, { collapsed: collapsed(), unfolded: unfolded(), now: now() }) : null;
 
     // U6238a: a closed fold lifts the selected Agent, so the collection holds it beside its siblings, as the rows do.
     if (foldId !== null && !unfolded().has(foldId)) allUnfolded.delete(foldId);

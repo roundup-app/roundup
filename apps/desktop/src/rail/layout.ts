@@ -100,9 +100,9 @@ const isFoldedAgent = (node: RailNode, view: RailView): boolean =>
   node.kind === "agent" &&
   (node.status?.kind === "done" || node.status?.kind === "idle" && view.now - node.status.since >= IDLE_FOLD_MS);
 
-/** The fold branch a Workstream's child belongs to, when the Workstream folds it. */
-export const foldGroupOf = (node: RailNode, view: RailView): "internal" | "idle" | null =>
-  node.kind === "agent" && node.visibility === "internal" ? "internal" : isFoldedAgent(node, view) ? "idle" : null;
+/** The id of the fold branch a Workstream's child belongs to, when the Workstream folds it. */
+export const foldIdOf = (node: RailNode, parentId: string | null, view: RailView): string | null =>
+  node.kind === "agent" && node.visibility === "internal" ? `internal:${parentId}` : isFoldedAgent(node, view) ? parentId : null;
 
 /** Rows in tree order, with eligible Workstream children behind one reversible idle branch. */
 export const layoutRail = (source: RailSource, view: RailView, section?: RailSection): RailRow[] => {
@@ -121,9 +121,9 @@ export const layoutRail = (source: RailSource, view: RailView, section?: RailSec
     for (const at of siblings) {
       const node = tree.nodes[at]!;
 
-      const group = canFold ? foldGroupOf(node, view) : null;
-      const lifted = group !== null && node.id === view.selected && !view.unfolded.has(group === "idle" ? parentId : `internal:${parentId}`);
-      const destination = group === null || lifted ? shown : group === "internal" ? internal : folded;
+      const foldId = canFold ? foldIdOf(node, parentId, view) : null;
+      const lifted = node.id === view.selected && !view.unfolded.has(foldId);
+      const destination = foldId === null || lifted ? shown : node.visibility === "internal" ? internal : folded;
 
       destination.push(at);
     }
