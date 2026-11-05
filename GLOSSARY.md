@@ -119,11 +119,12 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Rail deletion redo (`RedoParams`, `rail.redo`, `Deletion.restoration`, `Agents::redo_reversible_with`, `Agents::acknowledge_restoration_in`, `Todos::redo_workstream_in`, `Pads::redo_workstream_in`) | Redo | — |
 | Rail selection removal (`RemoveSelectionParams`, `rail.removeSelection`, `Removal.selection`, `Todos::retain_workstream_in`) | Remove | — |
 | Rail removal operation (`agent::RemoveParams`, `agent::Deletion`, `agent::DeletionParams`, `Removal.deletion`, `rail.remove`, `rail.deletion`, `rail.restore`, `Agents::rail_deletion`, `Agents::remove_reversible_with`, `Agents::restore_reversible_with`, `Agents::restore_reversible_in`) | same | — |
+| Rail strip (`RailStrip`, `Widths.collapsed`, `STRIP_WIDTH`, `--rail-strip-width`) | Collapse the Rail, Expand the Rail | — |
 | Remove this (`agent::RemoveScope::This`) | Remove this | — |
 | Remove all (`agent::RemoveScope::All`) | Remove all | — |
 | Hint line | same | — |
 | Shelf | Bench | — |
-| Peek (`ShelfFrame.peek`, `ShelfFrame.unpeek`, `ShelfFrame.peeking`, `ShelfFrame.promote`, `createEdgePeek`) | none | — |
+| Peek (`ShelfFrame.peek`, `ShelfFrame.unpeek`, `ShelfFrame.peeking`, `ShelfFrame.promote`, `createEdgePeek`, `createRailPeek`) | none | — |
 | Scrim | same | — |
 | Resize edge | same | — |
 | Inbox | same | — |

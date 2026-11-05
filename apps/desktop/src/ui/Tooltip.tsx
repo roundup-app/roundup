@@ -1,6 +1,7 @@
 import { Tooltip as ArkTooltip, useTooltipContext } from "@ark-ui/solid/tooltip";
 import { floatingControl } from "./Dialog";
-import { createContext, createSignal, Show, splitProps, useContext } from "solid-js";
+import { anchorBox } from "./anchorBox";
+import { createContext, createEffect, createSignal, onCleanup, Show, splitProps, useContext } from "solid-js";
 import type { Chord } from "../keys/chords";
 import { KeyHint } from "../keys/KeyHint";
 import "./Tooltip.css";
@@ -13,7 +14,8 @@ const Root = (props: ArkTooltip.RootProps & { anchor?: Anchor | undefined }) => 
   const [owner, setOwner] = createSignal<HTMLElement>();
   const control = floatingControl(props, () => props.anchor?.() ?? owner());
   let pointer: { x: number; y: number } | undefined;
-  const rect = () => (props.anchor ? props.anchor() : owner())?.getBoundingClientRect() ?? null;
+  // U6236a: a re-render replaces the trigger's element; its id finds the replacement.
+  const rect = () => props.anchor ? anchorBox(props.anchor()) : anchorBox(owner(), () => document.getElementById(owner()?.id ?? ""));
 
   const ownership = {
     pointer: (event: PointerEvent) => {
@@ -28,6 +30,14 @@ const Root = (props: ArkTooltip.RootProps & { anchor?: Anchor | undefined }) => 
       pointer = undefined;
     },
   };
+
+  createEffect(() => {
+    if (!control.open()) return;
+    const watch = new MutationObserver(() => rect() || control.change({ open: false }));
+
+    watch.observe(document.body, { childList: true, subtree: true });
+    onCleanup(() => watch.disconnect());
+  });
 
   return <Ownership.Provider value={ownership}><ArkTooltip.Root lazyMount unmountOnExit {...props}
     open={control.open()} disabled={props.disabled || control.blocked()}

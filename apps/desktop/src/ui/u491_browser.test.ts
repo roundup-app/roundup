@@ -43,11 +43,11 @@ it("u491_drag_preview_end_and_escape", async () => {
   await browser("mouse", "down");
   await browser("mouse", "move", "416", "200");
   await wait(`document.querySelector('[data-layout-panel=rail]').getBoundingClientRect().width > 400`);
-  expect(await read<string>(`document.querySelector('[aria-label=Ends]').textContent`)).toBe("0");
+  await wait(`document.querySelector('[aria-label=Ends]').textContent === '0'`);
   await browser("press", "Escape");
   await wait(`document.querySelector('[data-layout-panel=rail]').getBoundingClientRect().width === 288`);
   await browser("mouse", "up");
-  expect(await read<string>(`document.querySelector('[aria-label=Ends]').textContent`)).toBe("0");
+  await wait(`document.querySelector('[aria-label=Ends]').textContent === '0'`);
   await browser("mouse", "move", "286", "200");
   await browser("mouse", "down");
   await browser("mouse", "move", "900", "200");
@@ -57,13 +57,14 @@ it("u491_drag_preview_end_and_escape", async () => {
   await browser("mouse", "move", "478", "200");
   await browser("mouse", "down");
   await browser("mouse", "move", "0", "200");
-  await wait(`document.querySelector('[data-layout-panel=rail]').getBoundingClientRect().width === 252`);
+  // U6228: a drag below the minimum collapses the Rail to its 56 px strip.
+  await wait(`document.querySelector('[data-layout-panel=rail]').getBoundingClientRect().width === 56`);
   await browser("mouse", "up");
   await wait(`document.querySelector('[aria-label=Ends]').textContent === '2'`);
-  expect(await read<unknown>(`(() => {
+  await wait(`(() => {
     const draft = document.querySelector('[aria-label=Draft]');
-    return [draft.value, draft.selectionStart, draft.selectionEnd, document.querySelector('.centre > div').scrollTop];
-  })()`)).toEqual(["Kept draft", 2, 8, 120]);
+    return draft.value === 'Kept draft' && draft.selectionStart === 2 && draft.selectionEnd === 8 && document.querySelector('.centre > div').scrollTop === 120;
+  })()`);
 }, 90_000);
 
 
