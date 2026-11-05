@@ -18,6 +18,8 @@ export type EdgePeek = {
   edge: "leading" | "trailing";
   /** The panel that slides in; a pointer inside it holds the peek. Null while it is not mounted. */
   region: () => Element | null;
+  /** A strip that also starts the dwell: a pointer whose position lies in its box counts as at the edge, whatever element takes the event. */
+  sensor?: () => Element | null;
   /** The panel's phase: `peek` slides it in over the centre, `unpeek` slides it back; neither saves anything. */
   state: { peeking: () => boolean; peek: () => void; unpeek: () => void };
   /** Called with the target of a press, key, focus or drag inside a peeking panel; absent, such use changes nothing. */
@@ -34,8 +36,14 @@ export const createEdgePeek = (peek: EdgePeek) => {
 
   const inside = (target: EventTarget | null) => target instanceof Element && peek.region()?.contains(target) === true;
 
+  const onSensor = (event: PointerEvent) => {
+    const box = peek.sensor?.()?.getBoundingClientRect();
+
+    return box !== undefined && event.clientX >= box.left && event.clientX < box.right && event.clientY >= box.top && event.clientY < box.bottom;
+  };
+
   const atEdge = (event: PointerEvent) => event.pointerType === "mouse" && event.buttons === 0
-    && (peek.edge === "leading" ? event.clientX < PEEK_EDGE : event.clientX >= document.documentElement.clientWidth - PEEK_EDGE)
+    && (peek.edge === "leading" ? event.clientX < PEEK_EDGE : event.clientX >= document.documentElement.clientWidth - PEEK_EDGE || onSensor(event))
     && document.querySelector(OPEN_LAYER) === null;
 
   const use = (event: Event) => {
