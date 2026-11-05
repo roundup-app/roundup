@@ -5,6 +5,7 @@ mod config;
 mod daemon;
 mod diagnostics;
 mod facts;
+mod feedback;
 mod fork;
 mod fork_app;
 #[cfg(any(test, feature = "idle-perf"))]
@@ -182,6 +183,7 @@ fn invoke_handler<R: Runtime>() -> impl Fn(tauri::ipc::Invoke<R>) -> bool + Send
         open_in_editor,
         alert::state_alert,
         save_pasted_image,
+        feedback::feedback_capture,
         menu_bar::set_menu_bar,
         menu::select_project_menu,
         menu::show_context_menu

@@ -178,6 +178,7 @@ export const Inbox = (props: { state?: ReturnType<typeof createInbox> }) => {
     },
     busy: (row) => busy().has(row.key),
     failure: (row) => failures().get(row.key) ?? null,
+    fail: (row, message) => fail(row.key, message),
     dismiss: (row) => { fail(row.key, null); heads.get(row.key)?.focus(); },
   };
 

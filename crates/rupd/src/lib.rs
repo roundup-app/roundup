@@ -19,6 +19,7 @@ mod digest;
 mod event_log;
 mod evidence;
 mod extensions;
+mod facts;
 mod feedback;
 mod fork;
 #[cfg(test)]

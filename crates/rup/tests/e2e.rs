@@ -20,7 +20,8 @@ use contracts::pad::Pad;
 use contracts::todo::Todo;
 use contracts::{Actor, ActorKind, EventData, IdentifyParams, Kind, Touch};
 use daemon::{
-    Project, TEN_IDLE_BOUND, h21_poll, next, next_kind, rail_tree, signal, start, wait_until_idle,
+    Project, TEN_IDLE_BOUND, entry_of, h21_poll, next, next_kind, rail_tree, signal, start,
+    wait_until_idle,
 };
 use serde_json::{Value, json};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
@@ -831,23 +832,6 @@ async fn b23_a_pad_already_told_is_not_named_again_after_a_restart() {
     assert_eq!(digest_of(&user, &rail.m).await.unwrap(), asked);
 }
 
-/// B33: the entry that the text of a plain push spells, as the JSON of B19's entry.
-fn entry_of(text: &str) -> Value {
-    let mut lines = text.lines();
-    let (name, kind) = lines.next().unwrap().rsplit_once(" is ").unwrap();
-    let (mut last, mut todos, mut pads) = (String::new(), 0, Vec::new());
-    for line in lines {
-        if let Some(rest) = line.strip_prefix("  last: ") {
-            last = rest.to_owned();
-        } else if let Some(rest) = line.strip_prefix("  open todos: ") {
-            todos = rest.parse::<u32>().unwrap();
-        } else if let Some(rest) = line.strip_prefix("  pads: ") {
-            pads = rest.split(", ").map(str::to_owned).collect();
-        }
-    }
-    json!({"name": name, "kind": kind, "last": last, "todos": todos, "pads": pads})
-}
-
 /// The Messages the Daemon sent to `to`, each with its pushed entry.
 async fn digest_pushes(client: &rpc::Client, to: &str) -> Vec<(Value, Value)> {
     let listed = client
@@ -922,7 +906,7 @@ async fn b21_a_childs_kind_pad_and_todo_changes_each_push_one_entry_to_its_door(
     assert_eq!(message["from"]["id"], "rupd");
     let mut keys: Vec<_> = entry.as_object().unwrap().keys().cloned().collect();
     keys.sort();
-    assert_eq!(keys, ["kind", "last", "name", "pads", "todos"]);
+    assert_eq!(keys, ["kind", "last", "link", "name", "pads", "todos"]);
 
     // A Pad.
     let as_a = client_as(&project, actor(ActorKind::Agent, &rail.a)).await;

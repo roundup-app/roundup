@@ -1,10 +1,15 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
-import { afterEach, expect, it } from "vitest";
+import { createRoot } from "solid-js";
+import * as Solid from "solid-js";
+import { afterEach, expect, it, vi } from "vitest";
 import { ConnectedProjectContext } from "../state/connectedProject";
 import { TargetText } from "../terminal/TargetText";
 import { RpcError } from "../app/seam";
-import { door } from "../testing/nodes";
+import { agent, door } from "../testing/nodes";
+import { watchNativeOpen } from "../app/nativeOpen";
 import { ask, mountAskBar } from "./askFixture";
+import { AskBar } from "./AskBar";
+import { mountTodos } from "../todos/testHarness";
 
 afterEach(cleanup);
 
@@ -72,4 +77,46 @@ it("u365_ask_slash_commands_stay_plain_text", async () => {
   expect(connected.asks.entries()[0]?.parts[0]?.placement).toEqual(entry.parts[0]!.placement);
   expect(draft).toHaveProperty("value", "exact unsent draft");
   expect(app.attemptedTargets).toEqual([]);
+});
+
+/** The App's one route for a `roundup://` link, on a mounted Project. */
+const routeLinks = (app: Awaited<ReturnType<typeof mountAskBar>>["app"], connected: Awaited<ReturnType<typeof mountAskBar>>["connected"], ann: ReturnType<typeof agent>) => {
+  app.add(connected.project.path);
+  app.handlers["link.read"] = () => ({ kind: "agent", id: "ann", node: ann, digest: null });
+  // SAFETY: a link to an Agent reads only `projects.select`.
+  createRoot(() => watchNativeOpen({
+    solid: Solid, app, projects: { select: vi.fn() } as never, connectionOf: () => connected,
+    item: () => document.createElement("div"), fail: vi.fn(),
+  }));
+};
+
+const url = "roundup://agent/ann?project=project-0000000000000000";
+
+const reads = (app: Awaited<ReturnType<typeof mountAskBar>>["app"]) => app.calls.filter(call => call.method === "link.read").map(call => call.params);
+
+it("al5_inbox_and_overview_text_links_open_the_object", async () => {
+  const ann = agent("ann", "idle", "ready", { name: "Ann" });
+
+  const overview = await mountAskBar(
+    [ask("links", 1, [{ text: `Open ${url}.`, state: "typed", placement: { kind: "routed", workstream: "lead" } }])],
+    null, [door("lead", "idle", "ready"), ann]);
+
+  routeLinks(overview.app, overview.connected, ann);
+  fireEvent.click(await screen.findByRole("link", { name: url }));
+  await waitFor(() => expect(overview.connected.rail.selected()).toBe("ann"));
+  expect(reads(overview.app)).toEqual([{ url }]);
+  expect(overview.app.openedTargets).toEqual([]);
+  cleanup();
+
+  const inbox = await mountTodos([], true, [ann, agent("asker", "needs-you", `Read ${url} next`, { name: "Asker" })]);
+  render(() => <ConnectedProjectContext.Provider value={inbox.connected}><AskBar /></ConnectedProjectContext.Provider>);
+  inbox.connected.showView(null);
+  inbox.connected.showView("attention");
+  await screen.findByRole("region", { name: "Needs you" });
+  routeLinks(inbox.app, inbox.connected, ann);
+  fireEvent.click(document.querySelector<HTMLElement>('[data-row="a:asker"] .inbox-row')!);
+  fireEvent.click(await screen.findByRole("link", { name: url }));
+  await waitFor(() => expect(inbox.connected.rail.selected()).toBe("ann"));
+  expect(reads(inbox.app)).toEqual([{ url }]);
+  expect(inbox.app.openedTargets).toEqual([]);
 });

@@ -125,19 +125,25 @@ impl Run {
             )
             .await
             .unwrap();
-            door.request(
-                "agent.spawn",
-                json!({"name":"open-job","parent":run.door,"cwd":run.dir.path(),"role":"job",
+            let job = door
+                .request(
+                    "agent.spawn",
+                    json!({"name":"open-job","parent":run.door,"cwd":run.dir.path(),"role":"job",
                     "prompt":"Do the one thing.",
                     "order":{"kind":"work","ask":"Do the one thing.","limits":[]}}),
-            )
-            .await
-            .unwrap();
+                )
+                .await
+                .unwrap();
+            // Settle the Job's own traffic before the Door stops, so only the backlog is counted.
+            run.idle(job["id"].as_str().unwrap(), 2).await;
         }
         let kind = if open_job { "question" } else { "note" };
         run.pend(&run.agent, kind, "second retained").await;
         let stored = run.thread().await;
         run.stop_door().await;
+        // Two untold child facts, kept back while the Door is stopped.
+        run.change("first").await;
+        run.change("second").await;
         (run, stored)
     }
 
@@ -823,16 +829,16 @@ async fn waiting(run: &Run) -> Value {
 #[tokio::test]
 async fn dcl10_waiting_count_follows_stored_backlog_without_double_count() {
     let (mut run, _) = Run::start_with_backlog(false).await;
-    assert_eq!(waiting(&run).await, json!(2));
+    assert_eq!(waiting(&run).await, json!(4));
     run.change("first").await;
     run.change("second").await;
     run.assert_silent().await;
-    assert_eq!(waiting(&run).await, json!(4));
+    assert_eq!(waiting(&run).await, json!(6));
     drop(run.daemon.stdin.take());
     run.daemon.child.wait().unwrap();
     (run.daemon, run.log) = launch(run.dir.path(), run.data.path(), &run.model);
     run.user = Client::connect(&run.daemon.socket).await.unwrap();
-    assert_eq!(waiting(&run).await, json!(4));
+    assert_eq!(waiting(&run).await, json!(6));
 }
 
 #[tokio::test]
@@ -897,6 +903,7 @@ async fn dcl10_start_replays_one_ordered_batch() {
     wait_delivered(&mut events, &stored).await;
     let after = run.thread().await;
     assert_eq!(identity(&after), identity(&stored));
+    assert_eq!(after[1]["kind"], "question", "{after:?}");
     assert!(
         after.iter().all(|m| m["status"] == "delivered"),
         "{after:?}"
@@ -931,24 +938,31 @@ async fn dcl10_failed_start_preserves_backlog_and_cause() {
     let fake = run.dir.path().join("rup");
     let saved = run.dir.path().join("saved-rup");
     std::fs::rename(&fake, &saved).unwrap();
+    let n = waiting(&run).await;
     let failed = run
         .user
         .request("rail.startDoor", json!({"id":run.door}))
         .await;
     let cause = failed.expect_err("launch fails").to_string();
-    assert!(!cause.is_empty());
-    let kept = run.thread().await;
-    assert_eq!(
-        kept, stored,
-        "every Message unchanged after the failed Start"
-    );
+    assert!(cause.contains("rup not found at"), "{cause}");
+    assert_eq!(waiting(&run).await, n, "N kept");
+    let before = run.digests().await.len();
+    assert_eq!(run.thread().await, stored, "Messages kept");
     run.assert_silent().await;
+    assert_eq!(run.digests().await.len(), before, "untold facts waiting");
     std::fs::rename(saved, fake).unwrap();
     let mut events = subscribe(&run).await;
     run.start_door().await;
     wait_delivered(&mut events, &stored).await;
     let after = run.thread().await;
     assert_eq!(identity(&after), identity(&stored));
+    assert_eq!(after[1]["kind"], "question", "{after:?}");
+    let digests = run.digests().await;
+    let review = digests
+        .iter()
+        .filter(|d| d["body"].as_str().unwrap().contains("open todos: 2"))
+        .count();
+    assert_eq!(review, 1, "fact queued twice: {digests:?}");
     let config = run.dir.path().join("config");
     wait(|| transcript(&config).contains("[open jobs]")).await;
     let written = transcript(&config);

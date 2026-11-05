@@ -564,6 +564,12 @@
     "kind": "in-process",
     "sha256": "7f5c5cac9ef14836751ebdd124cb936e279c5e67d7508e63e2779102ce9de2cf"
   },
+  "crates/rupd/src/facts.rs": {
+    "cleanup": "No process or Daemon is launched; the file only names rupd in a log line.",
+    "data": "Unit observers use in-memory facts; no data directory is opened.",
+    "kind": "reference",
+    "sha256": "727d771c227290c7ce1c57af10229bf7cfb185a6aace115c63afbf34a158f6dd"
+  },
   "crates/rupd/src/feedback.rs": {
     "cleanup": "In-process test runtime owns this Daemon; no built executable launch.",
     "data": "Unit observers call Daemon::open_project on explicit TempDir paths; no production fallback resolver.",

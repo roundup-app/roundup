@@ -46,7 +46,7 @@ it("ps11_needs_you_lists_needs_you_and_error_terminals_with_their_names", async 
   const row = document.querySelector<HTMLElement>('[data-row="a:terminal:1"]')!;
 
   fireEvent.click(row.querySelector(".inbox-row")!);
-  await screen.findByText("Proceed? <b>y</b>");
+  await screen.findByText((_, element) => element?.classList.contains("inbox-step") === true && element.textContent === "Proceed? <b>y</b>");
   expect(rows().length).toBe(3);
 });
 
