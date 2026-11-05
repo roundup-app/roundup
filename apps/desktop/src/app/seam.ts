@@ -195,6 +195,15 @@ export type ForkPick = { key: string; agents: "all" | "none" | string[] };
 
 export type StateAlert = { agent: string; title: string; body: string; alert: boolean; sound: boolean };
 
+/** FB2, FB3: the shot of the window and the App's own facts, as the `feedback_capture` command answers. */
+export const feedbackReportSchema = v.object({
+  shot: v.nullable(v.string()),
+  shot_error: v.nullable(v.string()),
+  facts: v.object({ version: v.string(), commit: v.string(), macos: v.string(), log: v.array(v.string()) }),
+});
+
+export type FeedbackReport = v.InferOutput<typeof feedbackReportSchema>;
+
 export const stateAlertClickedSchema = v.object({ agent: v.string() });
 
 export type App = {
@@ -242,6 +251,8 @@ export type App = {
   dragWindow(): Promise<void>;
   /** Toggles native zoom of the current window; rejects as RpcError on failure. */
   zoomWindow(): Promise<void>;
+  /** FB2: takes the shot of the window as drawn now (base64 PNG, or none with its cause) and reads the App's facts. */
+  feedbackCapture?(): Promise<FeedbackReport>;
   /** Opens a web link in the default browser, or an absolute path in its default app (a folder in Finder). Rejects NOT_FOUND for a missing path and FORBIDDEN for a scheme but http and https (U365). */
   openTarget(target: OpenTarget): Promise<void>;
   /** Opens the absolute directory or file `path` in the user's code editor, a file at `line` when the editor takes one (U429, U2539c). Rejects NOT_FOUND for a missing path or when no editor is found, and CONFLICT for a relative path. */
