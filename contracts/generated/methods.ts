@@ -61,6 +61,9 @@ import type { Resolution as deliverable_Resolution } from "./deliverable/Resolut
 import type { DescribeParams as describe_DescribeParams } from "./describe/DescribeParams";
 import type { MethodDescription as describe_MethodDescription } from "./describe/MethodDescription";
 import type { MethodList as describe_MethodList } from "./describe/MethodList";
+import type { RetryParams as feedback_RetryParams } from "./feedback/RetryParams";
+import type { SendParams as feedback_SendParams } from "./feedback/SendParams";
+import type { Sent as feedback_Sent } from "./feedback/Sent";
 import type { Issue as github_Issue } from "./github/Issue";
 import type { Number as github_Number } from "./github/Number";
 import type { Pr as github_Pr } from "./github/Pr";
@@ -303,6 +306,8 @@ export type RpcMethods = {
   "github.prSetBody": { params: github_SetBodyParams; result: github_Pr };
   "github.prReady": { params: github_Number; result: github_Pr };
   "github.prAutoMerge": { params: github_Number; result: github_Pr };
+  "feedback.send": { params: feedback_SendParams; result: feedback_Sent };
+  "feedback.retry": { params: feedback_RetryParams; result: feedback_Sent };
   "project.open": { params: project_OpenParams; result: project_Opened };
   "project.start": { params: project_StartParams; result: project_StartedRow };
   "action.serve": { params: null; result: null };
