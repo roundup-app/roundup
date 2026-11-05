@@ -534,6 +534,21 @@ pub mod test_support {
 
     /// Open stores before entering Tokio so background readers see the configured modules.
     pub fn reply_daemon(dir: &Path, door: bool) -> (Daemon, Arc<ReplyState>) {
+        let (daemon, state, _) =
+            reply_daemon_with(dir, door, Arc::new(|| 1000), Arc::new(|_| Ok(())));
+        daemon.start_pushes();
+        (daemon, state)
+    }
+
+    /// `reply_daemon` on a chosen Messages clock and fault hook, returning its Messages and
+    /// starting no watcher, so a test runs `push_changes` on them itself. A Project reopened on
+    /// the same `dir` keeps its stored accounting.
+    pub fn reply_daemon_with(
+        dir: &Path,
+        door: bool,
+        clock: messages::Clock,
+        fault: messages::Fault,
+    ) -> (Daemon, Arc<ReplyState>, Arc<messages::Messages>) {
         let dir = dir.to_path_buf();
         let mut daemon = std::thread::spawn(move || Daemon::open_in(&dir, &dir).unwrap())
             .join()
@@ -552,7 +567,7 @@ pub mod test_support {
             // Publication authorization reads maker identity from the authoritative Project store.
             let db = rusqlite::Connection::open(daemon.project.join("project.db")).unwrap();
             db.execute(
-                "INSERT INTO nodes(id,kind,name,ord) VALUES(?1,?2,?1,0)",
+                "INSERT OR IGNORE INTO nodes(id,kind,name,ord) VALUES(?1,?2,?1,0)",
                 rusqlite::params![
                     id,
                     if door && id == "1" {
@@ -572,8 +587,8 @@ pub mod test_support {
                 state.clone(),
                 messages::Env {
                     touches: daemon.touches.clone(),
-                    clock: Arc::new(|| 1000),
-                    fault: Arc::new(|_| Ok(())),
+                    clock,
+                    fault,
                 },
             )
             .unwrap(),
@@ -581,9 +596,8 @@ pub mod test_support {
         messages.set_inbox(state.clone());
         assert!(state.messages.set(Arc::downgrade(&messages)).is_ok());
         messages.listen();
-        daemon.register(messages);
+        daemon.register(messages.clone());
         daemon.register(state.clone());
-        daemon.start_pushes();
-        (daemon, state)
+        (daemon, state, messages)
     }
 }

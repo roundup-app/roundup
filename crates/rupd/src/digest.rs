@@ -323,4 +323,157 @@ mod tests {
         task.abort();
         assert!(repaired.is_some());
     }
+
+    /// One Daemon life on a runtime of its own: dropping it ends every task at its next await
+    /// with nothing flushed, as a kill does, while storage keeps what was committed.
+    struct Life {
+        rt: tokio::runtime::Runtime,
+        daemon: crate::Daemon,
+        state: Arc<crate::test_support::ReplyState>,
+        killed: Arc<tokio::sync::Notify>,
+    }
+
+    impl Life {
+        /// The Door "1" with `children` children, idle, `kill_at` naming the Messages operation
+        /// at which the life ends.
+        fn open(
+            dir: &std::path::Path,
+            clock: &Arc<std::sync::atomic::AtomicI64>,
+            kill_at: Option<&'static str>,
+            children: usize,
+        ) -> Self {
+            use std::sync::atomic::{AtomicBool, Ordering};
+            let rt = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .unwrap();
+            let _entered = rt.enter();
+            let killed = Arc::new(tokio::sync::Notify::new());
+            let (hook, armed) = (Arc::clone(&killed), AtomicBool::new(true));
+            let clock = Arc::clone(clock);
+            let (daemon, state, messages) = crate::test_support::reply_daemon_with(
+                dir,
+                true,
+                Arc::new(move || clock.load(Ordering::SeqCst)),
+                Arc::new(move |op| {
+                    if Some(op) == kill_at && armed.swap(false, Ordering::SeqCst) {
+                        hook.notify_one();
+                        std::panic::resume_unwind(Box::new("killed"));
+                    }
+                    Ok(())
+                }),
+            );
+            tokio::spawn(push_changes(
+                daemon.reader(),
+                messages,
+                Arc::clone(&daemon.digests),
+                daemon.bus.subscribe(),
+            ));
+            let life = Self {
+                rt,
+                daemon,
+                state,
+                killed,
+            };
+            life.state.status("1", contracts::Kind::Idle);
+            life.add_children(0, children);
+            life
+        }
+
+        fn add_children(&self, from: usize, to: usize) {
+            let mut nodes = self.state.nodes.lock().unwrap();
+            for i in from..to {
+                let mut node = nodes[1].clone();
+                node.id = format!("c{i}");
+                node.name = node.id.clone();
+                node.parent = Some("1".into());
+                node.terminal_id = Some(format!("t-c{i}"));
+                nodes.push(node);
+            }
+        }
+
+        fn told_rows(&self) -> i64 {
+            rusqlite::Connection::open(self.daemon.project.join("project.db"))
+                .unwrap()
+                .query_row("SELECT count(*) FROM door_told", [], |row| row.get(0))
+                .unwrap()
+        }
+
+        /// What the Door's digests account for: each kept digest weighs the changes it holds.
+        async fn accounted(&self) -> u32 {
+            let listed = crate::tests::ask(
+                &self.daemon,
+                &json!({"id":1,"method":"message.list","params":{"to":"1"}}).to_string(),
+            )
+            .await;
+            listed["result"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .filter(|m| m["status"] != "dropped")
+                .filter_map(|m| m["body"].as_str()?.strip_prefix("[digest] ["))
+                .map(|head| head.split(' ').next().unwrap().parse().unwrap_or(1))
+                .sum()
+        }
+    }
+
+    /// DCL4: a Daemon killed at each delivery boundary of a burst recovers every child fact once,
+    /// with no event after the reopen.
+    #[test]
+    fn dcl4_burst_crash_at_each_delivery_boundary_replays_all_facts() {
+        use std::sync::atomic::{AtomicI64, Ordering};
+        const FACTS: usize = 100;
+        // (a) told, not queued; (b) queued, not written to the inbox; (c) written, no receipt.
+        for kill_at in [Some("push.queue"), Some("push"), None] {
+            let dir = tempfile::tempdir().unwrap();
+            let clock = Arc::new(AtomicI64::new(1000));
+            // The first life records `c0` as told: a later start then compares with it.
+            let first = Life::open(dir.path(), &clock, None, 1);
+            first.rt.block_on(async {
+                while first.told_rows() == 0 {
+                    tokio::task::yield_now().await;
+                }
+            });
+            drop(first.rt);
+            drop(first.daemon);
+            // The stored facts arrive in a life that is killed while it delivers them.
+            let second = Life::open(dir.path(), &clock, kill_at, 1);
+            second.add_children(1, FACTS + 1);
+            second.rt.block_on(async {
+                tokio::time::timeout(Duration::from_secs(5), async {
+                    match kill_at {
+                        Some(_) => second.killed.notified().await,
+                        None => second.state.written.notified().await,
+                    }
+                })
+                .await
+                .unwrap_or_else(|_| panic!("the life reaches its delivery boundary at {kill_at:?}"));
+            });
+            drop(second.rt);
+            drop(second.daemon);
+            // The same Project reopens and no event follows: its start recovers every fact.
+            let third = Life::open(dir.path(), &clock, None, FACTS + 1);
+            let accounted = third.rt.block_on(async {
+                tokio::time::timeout(Duration::from_secs(5), async {
+                    loop {
+                        clock.fetch_add(60_001, Ordering::SeqCst);
+                        let total = third.accounted().await;
+                        if total >= u32::try_from(FACTS).unwrap() {
+                            break total;
+                        }
+                        tokio::time::sleep(Duration::from_millis(100)).await;
+                    }
+                })
+                .await
+                .unwrap_or(0)
+            });
+            assert_eq!(accounted, 100, "kill at {kill_at:?}");
+            // Further passes duplicate nothing.
+            third.rt.block_on(async {
+                clock.fetch_add(60_001, Ordering::SeqCst);
+                tokio::time::sleep(Duration::from_millis(1100)).await;
+                assert_eq!(third.accounted().await, 100, "kill at {kill_at:?} repeated");
+            });
+        }
+    }
 }

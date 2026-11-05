@@ -321,6 +321,9 @@ fn rollup_body(waiting: &[(String, DigestEntry, u32)]) -> String {
 
 /// B21, B22: accepts one changed entry, retaining it until its Door can receive it.
 pub(crate) async fn push(inner: &Arc<Inner>, meta: &str, subagent: &str, entry: &DigestEntry) {
+    // DCL4's observer ends the Daemon here, after the change was recorded as told and before it is
+    // queued; the hook refuses nothing.
+    let _ = crate::trip(inner, "push.queue");
     let mut ledger = inner.pushes.lock().await;
     let now = (inner.clock)();
     let slot = ledger.metas.entry(meta.to_owned()).or_default();
