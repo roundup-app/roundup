@@ -125,6 +125,10 @@ impl Reader {
                 .agents
                 .as_ref()
                 .map_or_else(Default::default, |agents| agents.stalled(STALL_MS)),
+            compactions: self
+                .agents
+                .as_ref()
+                .map_or_else(HashMap::new, |agents| agents.compactions()),
             // The user sees every Message; `message.list` shows the Daemon only its own.
             messages: self
                 .call("message", "message.list", json!({}), Actor::user())
@@ -135,6 +139,7 @@ impl Reader {
 }
 
 pub struct World {
+    compactions: HashMap<String, u64>,
     stalled: std::collections::HashSet<String>,
     completed: HashMap<String, (String, i64, i64, String)>,
     nodes: Vec<contracts::agent::RailNode>,
@@ -152,6 +157,10 @@ impl World {
 
     pub(crate) fn messages(&self) -> &[Message] {
         &self.messages
+    }
+
+    pub(crate) fn compactions(&self) -> &HashMap<String, u64> {
+        &self.compactions
     }
 
     pub(crate) fn stalled(&self) -> &std::collections::HashSet<String> {
@@ -201,6 +210,15 @@ pub async fn push_changes(
     settlements: Arc<crate::settlement::Settlements>,
     mut events: tokio::sync::broadcast::Receiver<contracts::Event>,
 ) {
+    // DCL4: a change told before the Daemon ended and never queued is queued now, once; the
+    // ledger's write removes its intent.
+    for intent in seen.intents() {
+        for _ in 0..intent.weight {
+            messages
+                .push_digest(&intent.door, &intent.child, &intent.entry)
+                .await;
+        }
+    }
     // DCL10: a stored told book is compared with the Rail, so a fact told before the stop stays
     // told and one changed while stopped is queued once. With none, what is there is not news:
     // record it as told before the first event is judged.
@@ -367,5 +385,192 @@ mod tests {
         let repaired = snapshots.recv().await;
         task.abort();
         assert!(repaired.is_some());
+    }
+
+    /// One Daemon life on a runtime of its own: dropping it ends every task at its next await
+    /// with nothing flushed, as a kill does, while storage keeps what was committed.
+    struct Life {
+        rt: tokio::runtime::Runtime,
+        daemon: crate::Daemon,
+        state: Arc<crate::test_support::ReplyState>,
+        killed: Arc<tokio::sync::Notify>,
+        messages: Arc<messages::Messages>,
+    }
+
+    impl Life {
+        /// The Door "1" with `children` children, idle, `kill_at` naming the Messages operation
+        /// at which the life ends.
+        fn open(
+            dir: &std::path::Path,
+            clock: &Arc<std::sync::atomic::AtomicI64>,
+            kill_at: Option<&'static str>,
+            children: usize,
+        ) -> Self {
+            use std::sync::atomic::{AtomicBool, Ordering};
+            let rt = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .unwrap();
+            let _entered = rt.enter();
+            let killed = Arc::new(tokio::sync::Notify::new());
+            let (hook, armed) = (Arc::clone(&killed), AtomicBool::new(true));
+            let clock = Arc::clone(clock);
+            let (daemon, state, messages) = crate::test_support::reply_daemon_with(
+                dir,
+                true,
+                Arc::new(move || clock.load(Ordering::SeqCst)),
+                Arc::new(move |op| {
+                    if Some(op) == kill_at && armed.swap(false, Ordering::SeqCst) {
+                        hook.notify_one();
+                        std::panic::resume_unwind(Box::new("killed"));
+                    }
+                    Ok(())
+                }),
+            );
+            tokio::spawn(push_changes(
+                daemon.reader(),
+                Arc::clone(&messages),
+                Arc::clone(&daemon.digests),
+                daemon.bus.subscribe(),
+            ));
+            let life = Self {
+                rt,
+                daemon,
+                state,
+                killed,
+                messages,
+            };
+            life.state.status("1", contracts::Kind::Idle);
+            life.add_children(0, children);
+            life
+        }
+
+        fn add_children(&self, from: usize, to: usize) {
+            let mut nodes = self.state.nodes.lock().unwrap();
+            for i in from..to {
+                let mut node = nodes[1].clone();
+                node.id = format!("c{i}");
+                node.name = node.id.clone();
+                node.parent = Some("1".into());
+                node.terminal_id = Some(format!("t-c{i}"));
+                // An error is news: a quiet digest would wait in the inbox queue unwritten (B5168f).
+                node.status = Some(contracts::Status {
+                    kind: contracts::Kind::Error,
+                    label: String::new(),
+                    since: 0,
+                    finished: "0".into(),
+                });
+                nodes.push(node);
+            }
+        }
+
+        fn told_rows(&self) -> i64 {
+            rusqlite::Connection::open(self.daemon.project.join("project.db"))
+                .unwrap()
+                .query_row("SELECT count(*) FROM door_told", [], |row| row.get(0))
+                .unwrap()
+        }
+
+        /// What the Door's digests account for: each kept digest weighs the changes it holds.
+        async fn accounted(&self) -> u32 {
+            // Not through `dispatch`, which would start the Daemon's own push watcher beside this one.
+            let listed = self
+                .messages
+                .call(
+                    &self.daemon.ctx(Actor::user()),
+                    "message.list",
+                    json!({"to":"1"}),
+                )
+                .await
+                .unwrap();
+            listed
+                .as_array()
+                .unwrap()
+                .iter()
+                .filter(|m| m["status"] != "dropped")
+                .filter_map(|m| m["body"].as_str()?.strip_prefix("[digest] "))
+                .map(|body| {
+                    // A rollup or merge states its count first; a plain push stands for one.
+                    body.strip_prefix('[')
+                        .and_then(|head| head.split(' ').next()?.parse().ok())
+                        .unwrap_or(1)
+                })
+                .sum()
+        }
+    }
+
+    /// DCL4: a Daemon killed at each delivery boundary of a burst recovers every child fact once,
+    /// with no event after the reopen.
+    #[test]
+    fn dcl4_burst_crash_at_each_delivery_boundary_replays_all_facts() {
+        use std::sync::atomic::{AtomicI64, Ordering};
+        const FACTS: usize = 100;
+        // (a) told, not queued; (b) queued, not written to the inbox; (c) written, no receipt.
+        for kill_at in [Some("push.queue"), Some("push"), None] {
+            let dir = tempfile::tempdir().unwrap();
+            let clock = Arc::new(AtomicI64::new(1000));
+            // The first life records `c0` as told: a later start then compares with it.
+            let first = Life::open(dir.path(), &clock, None, 1);
+            first.rt.block_on(async {
+                while first.told_rows() == 0 {
+                    tokio::task::yield_now().await;
+                }
+            });
+            drop(first.rt);
+            drop(first.daemon);
+            // The stored facts arrive in a life that is killed while it delivers them.
+            let second = Life::open(dir.path(), &clock, kill_at, 1);
+            second.add_children(1, FACTS + 1);
+            second.rt.block_on(async {
+                let reached = tokio::time::timeout(Duration::from_secs(5), async {
+                    match kill_at {
+                        Some(_) => second.killed.notified().await,
+                        // The Door's next idle takes the pending digests to its inbox.
+                        None => loop {
+                            second.state.status("1", contracts::Kind::Working);
+                            second.state.status("1", contracts::Kind::Idle);
+                            let written = second.state.written.notified();
+                            if tokio::time::timeout(Duration::from_millis(50), written)
+                                .await
+                                .is_ok()
+                            {
+                                break;
+                            }
+                        },
+                    }
+                })
+                .await;
+                reached.unwrap_or_else(|_| {
+                    panic!("the life reaches its delivery boundary at {kill_at:?}")
+                });
+            });
+            drop(second.rt);
+            drop(second.daemon);
+            // The same Project reopens and no event follows: its start recovers every fact.
+            let third = Life::open(dir.path(), &clock, None, FACTS + 1);
+            let accounted = third.rt.block_on(async {
+                tokio::time::timeout(Duration::from_secs(5), async {
+                    loop {
+                        clock.fetch_add(60_001, Ordering::SeqCst);
+                        let total = third.accounted().await;
+                        if total >= u32::try_from(FACTS).unwrap() {
+                            break total;
+                        }
+                        tokio::task::yield_now().await;
+                    }
+                })
+                .await
+                .unwrap_or(0)
+            });
+            assert_eq!(accounted, 100, "kill at {kill_at:?}");
+            // Further passes duplicate nothing.
+            third.rt.block_on(async {
+                clock.fetch_add(60_001, Ordering::SeqCst);
+                for _ in 0..1000 {
+                    tokio::task::yield_now().await;
+                }
+                assert_eq!(third.accounted().await, 100, "kill at {kill_at:?} repeated");
+            });
+        }
     }
 }

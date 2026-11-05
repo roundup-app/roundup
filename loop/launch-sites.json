@@ -570,6 +570,11 @@
     "kind": "reference",
     "sha256": "727d771c227290c7ce1c57af10229bf7cfb185a6aace115c63afbf34a158f6dd"
   },
+  "crates/rupd/src/feedback.rs": {
+    "cleanup": "In-process test runtime owns this Daemon; no built executable launch.",
+    "data": "Unit observers call Daemon::open_project on explicit TempDir paths; no production fallback resolver.",
+    "kind": "in-process"
+  },
   "crates/rupd/src/lib.rs": {
     "cleanup": "In-process test runtime owns these Daemons; no built executable launch.",
     "data": "Unit observers call Daemon::open on explicit TempDir paths; no production fallback resolver.",
@@ -889,5 +894,15 @@
     "cleanup": "No separate built-Daemon launch site.",
     "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
     "kind": "reference"
+  },
+  "crates/rupd/src/dcl5_tests.rs": {
+    "cleanup": "In-process test runtime owns these Daemons; no built executable launch.",
+    "data": "Daemon::open_stores receives an explicit TempDir path; no production fallback resolver.",
+    "kind": "in-process"
+  },
+  "crates/rupd/tests/dcl5_facts.rs": {
+    "cleanup": "In-process test runtime owns the Daemon and its served socket; the TempDir project is removed on drop; no built executable launch.",
+    "data": "daemon_with_clock receives an explicit TempDir path; the socket lives under that project; no production fallback resolver.",
+    "kind": "in-process"
   }
 }

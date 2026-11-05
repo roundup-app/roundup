@@ -12,6 +12,8 @@ mod contract_handlers;
 #[cfg(test)]
 mod contract_tests;
 pub mod data;
+#[cfg(test)]
+mod dcl5_tests;
 mod deliverables;
 #[cfg(test)]
 mod describe_tests;
@@ -20,6 +22,7 @@ mod event_log;
 mod evidence;
 mod extensions;
 mod facts;
+mod feedback;
 mod fork;
 #[cfg(test)]
 mod fork_tests;
@@ -534,8 +537,48 @@ pub mod test_support {
         }
     }
 
+    /// A Daemon over `data` whose Agents launch `launcher` and read `clock` for stall timing.
+    pub fn daemon_with_clock(
+        project: &Path,
+        data: &Path,
+        launcher: agents::claude_code::Launcher,
+        clock: impl Fn() -> i64 + Send + Sync + 'static,
+    ) -> Daemon {
+        assert!(data.is_absolute(), "test data directory must be absolute");
+        Daemon::open_stores(project, data, |_| {
+            let bus = Bus::new();
+            let terminals = Arc::new(terminal::Terminals::open(data, bus.clone()).unwrap());
+            agents::Agents::open_in(
+                project,
+                data,
+                bus,
+                terminals,
+                launcher,
+                agents::worktree::Git::from_env(),
+            )
+            .unwrap()
+            .with_clock(clock)
+        })
+        .unwrap()
+    }
+
     /// Open stores before entering Tokio so background readers see the configured modules.
     pub fn reply_daemon(dir: &Path, door: bool) -> (Daemon, Arc<ReplyState>) {
+        let (daemon, state, _) =
+            reply_daemon_with(dir, door, Arc::new(|| 1000), Arc::new(|_| Ok(())));
+        daemon.start_pushes();
+        (daemon, state)
+    }
+
+    /// `reply_daemon` on a chosen Messages clock and fault hook, returning its Messages and
+    /// starting no watcher, so a test runs `push_changes` on them itself. A Project reopened on
+    /// the same `dir` keeps its stored accounting.
+    pub fn reply_daemon_with(
+        dir: &Path,
+        door: bool,
+        clock: messages::Clock,
+        fault: messages::Fault,
+    ) -> (Daemon, Arc<ReplyState>, Arc<messages::Messages>) {
         let dir = dir.to_path_buf();
         let mut daemon = std::thread::spawn(move || Daemon::open_in(&dir, &dir).unwrap())
             .join()
@@ -554,7 +597,7 @@ pub mod test_support {
             // Publication authorization reads maker identity from the authoritative Project store.
             let db = rusqlite::Connection::open(daemon.project.join("project.db")).unwrap();
             db.execute(
-                "INSERT INTO nodes(id,kind,name,ord) VALUES(?1,?2,?1,0)",
+                "INSERT OR IGNORE INTO nodes(id,kind,name,ord) VALUES(?1,?2,?1,0)",
                 rusqlite::params![
                     id,
                     if door && id == "1" {
@@ -574,8 +617,8 @@ pub mod test_support {
                 state.clone(),
                 messages::Env {
                     touches: daemon.touches.clone(),
-                    clock: Arc::new(|| 1000),
-                    fault: Arc::new(|_| Ok(())),
+                    clock,
+                    fault,
                 },
             )
             .unwrap(),
@@ -583,9 +626,8 @@ pub mod test_support {
         messages.set_inbox(state.clone());
         assert!(state.messages.set(Arc::downgrade(&messages)).is_ok());
         messages.listen();
-        daemon.register(messages);
+        daemon.register(messages.clone());
         daemon.register(state.clone());
-        daemon.start_pushes();
-        (daemon, state)
+        (daemon, state, messages)
     }
 }

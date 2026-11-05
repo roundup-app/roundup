@@ -65,7 +65,11 @@ fn first_line_hiding(stderr: &str, secrets: Vec<String>) -> String {
     line
 }
 
-async fn gh(dir: &std::path::Path, args: &[&str], stdin: Option<&str>) -> Result<String, RpcError> {
+pub(crate) async fn gh(
+    dir: &std::path::Path,
+    args: &[&str],
+    stdin: Option<&str>,
+) -> Result<String, RpcError> {
     run(&program(), dir, args, stdin).await
 }
 
@@ -288,13 +292,13 @@ impl Daemon {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use serde_json::json;
     use std::os::unix::fs::PermissionsExt;
 
     thread_local! {
-        pub(super) static FAKE: std::cell::RefCell<Option<std::path::PathBuf>> = const { std::cell::RefCell::new(None) };
+        pub(crate) static FAKE: std::cell::RefCell<Option<std::path::PathBuf>> = const { std::cell::RefCell::new(None) };
     }
 
     const PR_JSON: &str = r#"{"number":7,"url":"https://github.com/o/r/pull/7","title":"T","body":"B","state":"OPEN","isDraft":true,"autoMergeRequest":null,"headRefOid":"abc","mergedAt":null}"#;
@@ -432,7 +436,7 @@ mod tests {
     }
 
     /// A fake `gh` that records its argv, directory and stdin, then runs `body`.
-    fn fake_gh(dir: &std::path::Path, body: &str) -> std::path::PathBuf {
+    pub(crate) fn fake_gh(dir: &std::path::Path, body: &str) -> std::path::PathBuf {
         let script = dir.join("gh");
         std::fs::write(
             &script,
