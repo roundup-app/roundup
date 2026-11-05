@@ -118,12 +118,12 @@ pub(crate) fn told_of(nodes: &[RailNode]) -> Told {
         .collect()
 }
 
-/// U6243a: the last told values, and a nudge for the one change that sends no event: a hook that
+/// U6243a: the last told values, and a recheck for the one change that sends no event: a hook that
 /// leaves a status as it was but clears a stall.
 #[derive(Default)]
 pub(crate) struct Tell {
     pub(crate) told: Mutex<Told>,
-    pub(crate) nudge: tokio::sync::Notify,
+    pub(crate) recheck: tokio::sync::Notify,
 }
 
 /// U6243a: how often a pass compares the derived values with what was told, event or none, so a
@@ -184,7 +184,7 @@ pub(crate) async fn tell_changes(
     loop {
         tokio::select! {
             _ = timer.tick() => {}
-            () = tell.nudge.notified() => {}
+            () = tell.recheck.notified() => {}
             received = events.recv() => match received {
                 Ok(event) if moves_a_derived_value(&event.data) => {
                     // A burst is judged once.

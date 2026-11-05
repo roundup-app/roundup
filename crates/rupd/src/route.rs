@@ -108,7 +108,7 @@ impl Daemon {
             if method == "agent.signal"
                 && let Some(tell) = self.rail_told.get()
             {
-                tell.nudge.notify_one();
+                tell.recheck.notify_one();
             }
             routed.map(rpc::Reply::Value)
         };
