@@ -40,9 +40,10 @@ impl Default for Failures {
             written: HashSet::new(),
             misses: HashMap::new(),
             jitter: (!cfg!(test)).then(|| {
-                std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .map_or(0, |d| d.as_nanos() as u64)
+                use std::hash::{BuildHasher, Hasher};
+                std::collections::hash_map::RandomState::new()
+                    .build_hasher()
+                    .finish()
             }),
         }
     }
@@ -78,7 +79,7 @@ pub(crate) fn wrote(inner: &Inner, agent: &str) {
 }
 
 /// The send path's own rules: whether the inbox takes this Message now (A5556a's first-input
-/// gate). The send and the sweep both decide through it, so a held Message is never a failure.
+/// gate). The send and the sweep both decide through it, so a Message that waits on its target is never a failure.
 pub(crate) fn admitted(inner: &Inner, agent: &str, message: &Message) -> bool {
     inner
         .inbox
@@ -137,12 +138,12 @@ pub(super) async fn sweep(inner: &Arc<Inner>) {
     };
     let now = (inner.clock)();
     for agent in waiting {
-        let held = lock(&inner.store)
+        let parked = lock(&inner.store)
             .list_pending_to(&agent)
             .expect("message store")
             .iter()
             .all(|m| !admitted(inner, &agent, m));
-        let eligible = !held
+        let eligible = !parked
             && nodes.iter().any(|node| {
                 node.id == agent
                     && !delivery::ended(node)
@@ -182,7 +183,7 @@ pub(super) async fn sweep(inner: &Arc<Inner>) {
                     false
                 }
             } else {
-                // Busy, stopped, asking for a permission or held: that time does not count.
+                // Busy, stopped, or asking for a permission: that time does not count.
                 failures.since.remove(&agent);
                 false
             }

@@ -69,7 +69,7 @@ fn writes(inbox: &Gated) -> Vec<Vec<u32>> {
 }
 
 #[tokio::test]
-async fn u6248a_held_messages_are_not_delivery_failures() {
+async fn u6248a_waiting_messages_are_not_delivery_failures() {
     let dir = tempfile::tempdir().unwrap();
     let (messages, inbox, now) = open(dir.path());
     let note = pending(&messages, &Actor::daemon(), "from daemon");
