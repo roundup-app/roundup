@@ -1,72 +1,8 @@
-import * as xtermModule from "@xterm/xterm";
-import * as imageModule from "@xterm/addon-image";
 import { afterEach, expect, it, vi } from "vitest";
-import { createXtermEmulators } from "./emulator";
 import { renderMarkdown } from "../plain/renderMarkdown";
+import { ESC, kitty, open, png } from "./imageHarness";
 
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
-
-const ESC = "\x1b";
-
-const png = (width: number, height: number): string => {
-  const bytes = new Uint8Array(32);
-  const view = new DataView(bytes.buffer);
-
-  bytes.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
-  view.setUint32(16, width);
-  view.setUint32(20, height);
-
-  return btoa(String.fromCharCode(...bytes));
-};
-
-type Bitmap = { width: number; height: number };
-
-/** jsdom decodes no image: read the size from the PNG header, as a browser's decoder reports it. */
-const stubDecoder = () => vi.stubGlobal("createImageBitmap", async (
-  source: Blob | Bitmap, first?: number | { resizeWidth?: number; resizeHeight?: number }, _y?: number, cropWidth?: number, cropHeight?: number,
-): Promise<Bitmap & { close(): void }> => {
-  let width = 0;
-  let height = 0;
-
-  if (source instanceof Blob) {
-    const header = new DataView(await source.arrayBuffer());
-
-    width = header.getUint32(16);
-    height = header.getUint32(20);
-  } else ({ width, height } = source);
-
-  if (cropWidth !== undefined && cropHeight !== undefined) [width, height] = [cropWidth, cropHeight];
-
-  const resize = first instanceof Object ? first : {};
-
-  return { width: resize.resizeWidth ?? width, height: resize.resizeHeight ?? height, close() {} };
-});
-
-const factory = () => createXtermEmulators(undefined, () => ({
-  activate() {}, dispose() {}, onContextLoss() { return { dispose() {} }; },
-}));
-
-const open = (id = "t-img") => {
-  stubDecoder();
-  const terminals = vi.spyOn(xtermModule, "Terminal");
-  const addons = vi.spyOn(imageModule, "ImageAddon");
-  const emulator = factory()(id);
-  const terminal = terminals.mock.instances.at(-1)!;
-  const addon = addons.mock.instances.at(-1)!;
-
-  terminals.mockRestore();
-  addons.mockRestore();
-  const replies: string[] = [];
-
-  emulator.onInput(bytes => replies.push(new TextDecoder().decode(bytes)));
-
-  const write = (text: string) => new Promise<void>(resolve => emulator.write(new TextEncoder().encode(text), resolve));
-  const settle = () => new Promise(resolve => setTimeout(resolve, 100));
-
-  return { emulator, terminal, addon, replies, write, settle };
-};
-
-const kitty = (control: string, payload?: string) => `${ESC}_G${control}${payload === undefined ? "" : `;${payload}`}${ESC}\\`;
 
 const chunks = (data: string) => [data.slice(0, 16), data.slice(16, 32), data.slice(32)];
 

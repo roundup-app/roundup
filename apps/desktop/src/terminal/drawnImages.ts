@@ -19,11 +19,12 @@ const keysOf = (control: string): Map<string, string> => {
   return keys;
 };
 
-/** The command that draws a whole transfer in one piece, at the cursor, without moving it. */
+/** The command that draws a whole transfer in one piece, at the cursor, without moving it. A Unicode-placeholder transfer (U6144) keeps its image and placement ids: the placeholder cells name them. */
 const replayOf = (transfer: Transfer): string => {
   const keys = keysOf(transfer.control);
+  const placeholder = keys.get("U") === "1";
 
-  for (const key of ["m", "i", "I", "p", "q", "C"]) keys.delete(key);
+  for (const key of placeholder ? ["m", "I", "q", "C"] : ["m", "i", "I", "p", "q", "C"]) keys.delete(key);
 
   return `\x1b_G${[...[...keys].map(([key, value]) => `${key}=${value}`), "q=2", "C=1"].join(",")};${transfer.payload}\x1b\\`;
 };

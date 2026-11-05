@@ -30,7 +30,7 @@ it("u5690b_selection_menu_has_group_then_remove_all", async () => {
   select("e", "a", "c");
   fireEvent.contextMenu(rowOf("c"));
   expect(menuProbe.shown?.map(item => item.id)).toEqual(["group", "remove-selection"]);
-  expect(menuProbe.shown?.[1]?.shortcut).toBe("⌘⌫");
+  expect(menuProbe.shown?.[1]?.shortcut).toBe("⇧⌘⌫");
   await app.closeMenu();
 });
 
@@ -40,7 +40,7 @@ it.each(["menu", "key"])("u5690d_remove_menu_and_chord_share_one_selection_quest
   expect(rail.selected()).toBeNull();
 
   if (entry === "menu") { fireEvent.contextMenu(rowOf("c")); await app.pickMenu("Remove all"); }
-  else fireEvent.keyDown(rowOf("a"), { key: "Backspace", code: "Backspace", metaKey: true });
+  else fireEvent.keyDown(rowOf("a"), { key: "Backspace", code: "Backspace", metaKey: true, shiftKey: true });
   await waitFor(() => expect(questionProbe.shown).not.toBeNull());
   expect(questionProbe.shown?.message).toContain("a\nc\ne");
   expect(railCallsTo(app, "rail.removeSelection")).toEqual([]);
@@ -62,7 +62,7 @@ it.each([
   select(...ids);
   const target = rowOf(ids[0]!);
   target.focus();
-  const key = { key: "Backspace", code: "Backspace", metaKey: true };
+  const key = { key: "Backspace", code: "Backspace", metaKey: true, shiftKey: true };
   fireEvent.keyDown(target, key);
   await waitFor(() => expect(questionProbe.shown).not.toBeNull());
   fireEvent.keyDown(target, { ...key, repeat: true });

@@ -7,7 +7,7 @@ import { endLeader } from "./registry";
 
 afterEach(cleanup);
 
-const KEPT = ["meta+KeyN", "meta+shift+KeyN", "alt+meta+KeyN", "meta+shift+KeyM", "meta+KeyT", "meta+KeyK", "meta+shift+KeyP", "ctrl+meta+KeyJ", "meta+shift+KeyT", "meta+Slash", "meta+KeyZ", "meta+shift+KeyZ", "meta+Comma"];
+const KEPT = ["meta+KeyN", "meta+shift+KeyN", "alt+meta+KeyN", "meta+shift+KeyM", "meta+KeyT", "meta+KeyK", "meta+shift+KeyP", "ctrl+meta+KeyJ", "meta+shift+KeyT", "meta+shift+Backspace", "meta+Slash", "meta+KeyZ", "meta+shift+KeyZ", "meta+Comma"];
 
 /** The Terminal's own `⌘C`, `⌘V`, `⌘=`, `⌘-` and `⌘0` act in the Terminal screen (U101, U102), not at App scope. */
 const TERMINALS_OWN = ["meta+KeyC", "meta+KeyV", "meta+Equal", "meta+Minus", "meta+Digit0", "meta+shift+Equal"];
@@ -51,4 +51,12 @@ it("u2241_no_other_chord_is_taken_at_app_scope", async () => {
   expect(taken).toEqual([]);
   expect(reached).toEqual(sent);
   terminal.remove();
+});
+
+/** U6171c: the Terminal's editing presses (U2242) are never App chords. */
+it("u6171c_no_terminal_scoped_chord_equals_a_terminal_editing_press", () => {
+  const editing = ["meta+Backspace", "meta+ArrowLeft", "meta+ArrowRight", "alt+Backspace", "alt+ArrowLeft", "alt+ArrowRight"];
+  const bound = CHORDS.filter(row => !row.inRail && !row.inShelf && !row.inEditor && !row.inTriage && !row.inFirstRun).flatMap(row => row.presses);
+
+  expect(bound.filter(press => editing.includes(press))).toEqual([]);
 });
