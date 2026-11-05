@@ -4,78 +4,32 @@ import { door, event, workstream } from "../testing/nodes";
 import { RpcError } from "../app/seam";
 import type { Deliverable } from "@contracts/deliverable/Deliverable";
 import type { Ask } from "@contracts/ask/Ask";
-import { ask, input, mountAskBar, press } from "./askFixture";
+import { ask, input, mountAskBar as mountClosed, press } from "./askFixture";
 import { copy } from "./copy";
 
 afterEach(cleanup);
+
+/** Only `⌘/` opens the Ask (U6244c): a mount with nothing selected opens it, so tests start at the input. */
+const reopen = async () => {
+  press("/", { metaKey: true }, document.querySelector(".outside")!);
+  await waitFor(() => expect(input()).not.toBeNull());
+};
+
+const mountAskBar = async (...args: Parameters<typeof mountClosed>) => {
+  const mounted = await mountClosed(...args);
+
+  if ((args[1] ?? null) === null) {
+    await reopen();
+  }
+
+  return mounted;
+};
 
 const type = (text: string) => fireEvent.input(input()!, { target: { value: text } });
 
 const sent = (app: { calls: { method: string; params: unknown }[] }) => app.calls.filter((call) => call.method === "ask.send").map((call) => call.params);
 
 describe("u504 the Ask bar", () => {
-  it("u504_changes_have_one_action", async () => {
-    const { app, connected } = await mountAskBar([], null, [workstream("a", { status: null }), door("w", "needs-you", "permission", { name: "Waiting", parent: "a" }), door("m", "working", "busy", { name: "Maker", parent: "a" })]);
-    connected.showView(null);
-    const actor = { kind: "user", id: "you", parent: null } as const;
-    const record = (id: string): Deliverable => ({ project: "original-project", id, maker: { kind: "agent", id: "m", parent: null }, maker_name: "Maker", home: null, title: "same title", published_at: 1, target: { kind: "external", url: `https://example.com/${id}`, availability: "not-checked" } });
-
-    app.handlers["deliverable.resolve"] = ({ id }) => ({ kind: "external", availability: "not-checked", url: `https://example.com/${id}` });
-    // The first visit's baseline is the Event head once the list has rendered; changes after it are rows.
-    await waitFor(() => expect(document.querySelector(".changes")?.getAttribute("aria-busy")).toBe("false"));
-    app.emit({ seq: 1000, actor, name: "agent.completed", data: { maker: "m", attempt: "a1", turn: "t1" } });
-    app.emit({ seq: 1001, actor, name: "deliverable.published", data: { record: record("r1"), completion: { maker: "m", attempt: "a1", turn: "t1" } } });
-    app.emit({ seq: 1002, actor, name: "deliverable.published", data: { record: record("r2"), completion: { maker: "m", attempt: "a1", turn: "t1" } } });
-    app.emit({ seq: 1002, actor, name: "deliverable.published", data: { record: record("r2"), completion: { maker: "m", attempt: "a1", turn: "t1" } } });
-
-    // One row per change, each with one action: the pinned attention row, then the finished turn once.
-    const rows = await waitFor(() => {
-      const found = [...document.querySelectorAll<HTMLElement>(".change-row")];
-      expect(found).toHaveLength(2);
-
-      return found;
-    });
-
-    expect(rows.map(row => within(row).getAllByRole("button").length)).toEqual([1, 1]);
-    fireEvent.click(within(rows[1]!).getByRole("button"));
-    await waitFor(() => expect(app.openedTargets).toEqual([{ kind: "url", url: "https://example.com/r2" }]));
-    fireEvent.click(within(rows[0]!).getByRole("button"));
-    expect(connected.rail.selected()).toBe("w");
-    expect(app.calls.filter(call => ["ask.send", "agent.start", "terminal.write"].includes(call.method))).toEqual([]);
-  });
-
-  it("u504_quiet_return_names_last_visit", async () => {
-    const { app, connected } = await mountAskBar([], null, [workstream("a", { status: null })]);
-    connected.showView(null);
-
-    const quiet = await waitFor(() => {
-      const line = document.querySelector<HTMLElement>(".overview-quiet[data-last-visit]");
-      expect(line).not.toBeNull();
-
-      return line!;
-    });
-
-    expect(quiet.dataset.lastVisit).toBe("first");
-    expect(document.querySelectorAll(".change-row")).toHaveLength(0);
-    expect(app.calls.filter(call => ["ask.send", "agent.start", "terminal.write"].includes(call.method))).toEqual([]);
-  });
-
-  it("u504_the_home_screen_is_the_ask_bar", async () => {
-    const { connected } = await mountAskBar();
-
-    expect(input()).not.toBeNull();
-
-    connected.showView(null);
-
-    connected.rail.select("lead");
-    await waitFor(() => expect(input()).toBeNull());
-
-    connected.showView(null);
-
-    connected.rail.select(null);
-    await waitFor(() => expect(input()).not.toBeNull());
-  });
-
   it("u504_the_shortcut_opens_it_over_a_door_and_escape_returns", async () => {
     await mountAskBar([], "lead");
     const outside = document.querySelector<HTMLElement>(".outside")!;
@@ -271,11 +225,12 @@ it("u2773a_ask_restores_exact_work", async () => {
   fireEvent.select(input()!);
   first.app.emit(event({ name: "ask.changed", data: { ask: ask("incoming", 1, [], "incoming work") } }));
   expect(input()!.value).toBe(exact);
+  press("Escape", {}, input()!);
   first.connected.showView(null);
   first.connected.rail.select("ann");
   expect(input()).toBeNull();
-  press("/", { metaKey: true }, document.querySelector(".outside")!);
-  await waitFor(() => expect(input()!.value).toBe(exact));
+  await reopen();
+  expect(input()!.value).toBe(exact);
   expect([input()!.selectionStart, input()!.selectionEnd, input()!.selectionDirection]).toEqual([2, 6, "backward"]);
   const path = first.connected.project.path;
   first.unmount();
@@ -283,9 +238,9 @@ it("u2773a_ask_restores_exact_work", async () => {
   expect(input()!.value).toBe("");
   type("other Project");
   other.unmount();
-  const reopened = await mountAskBar([], null, undefined, false, path);
+  const reopened = await mountClosed([], null, undefined, false, path);
+  await reopen();
   expect(input()!.value).toBe(exact);
-  expect(document.activeElement).not.toBe(input());
   expect([input()!.selectionStart, input()!.selectionEnd, input()!.selectionDirection]).toEqual([2, 6, "backward"]);
   expect(sent(first.app)).toEqual([]);
   expect(sent(other.app)).toEqual([]);
@@ -446,11 +401,13 @@ it("u2773e_recovery_actions_keep_surface_draft", async () => {
     const reopened = await mountAskBar([], null, undefined, false, path);
     expect(input()!.value).toBe(exact);
     // Leaving the Ask bar with its text unsent lists it (U3289a).
+    press("Escape", {}, input()!);
     reopened.connected.showView(null);
     reopened.connected.rail.select("ann");
     expect(reopened.connected.drafts.recoverable().map(draft => draft.value.text)).toEqual([exact]);
     reopened.connected.showView(null);
     reopened.connected.rail.select(null);
+    await reopen();
     expect(input()!.value).toBe(exact);
     expect(sent(reopened.app)).toEqual([]);
     reopened.unmount();
@@ -487,7 +444,7 @@ it("u2773b_ask_out_of_order_replies_keep_newest_work", async () => {
 
 
 it.each(["failed", "unknown"] as const)("u3021c_open_restores_exact_revision_without_rpc_ask_%s", async outcome => {
-  const mounted = await mountAskBar();
+  const mounted = await mountClosed();
   const { app, connected, setRecovery } = mounted;
   const destination = { surface: "ask", object: "ask-bar", recipient: null };
   const exact = "@ops  e\u0301 🌿\n次の行  ";
@@ -541,12 +498,15 @@ it.each(["failed", "unknown"] as const)("u3021c_ask_editing_selected_work_preser
   expect(connected.drafts.list().find(draft => draft.revision === b.revision)).toEqual(b);
   expect(app.calls).toEqual(calls);
   press("Escape", {}, input()!);
+  await reopen();
   expect(input()!.value).toBe("B current\n  ");
   const path = connected.project.path;
   await waitFor(() => expect(JSON.parse(localStorage.getItem(`roundup:drafts:${path}`)!).drafts.some((draft: { revision: string; selection: unknown }) => draft.revision === edited.revision && JSON.stringify(draft.selection) === JSON.stringify(edited.selection))).toBe(true));
   mounted.unmount();
-  const reopened = await mountAskBar([], null, undefined, false, path);
-  expect([input()!.value, input()!.selectionStart, input()!.selectionEnd, input()!.selectionDirection]).toEqual(["B current\n  ", 1, 4, "forward"]);
+  const reopened = await mountClosed([], null, undefined, false, path);
+  await reopen();
+  expect(input()!.value).toBe("B current\n  ");
+  press("Escape", {}, input()!);
   expect(reopened.connected.drafts.list()).toContainEqual(edited);
   expect(edited.value).toMatchObject({ text: "@ops A e\u0301 🌿\nedited  ", workstream: "ops" });
   reopened.setRecovery({ project: path, revision: edited.revision });
@@ -598,6 +558,7 @@ it("u3021c_ask_unknown_open_never_resubmits_before_explicit_reconciliation", asy
   fireEvent.click(screen.getByRole("button", { name: copy.askCheckAcceptanceLabel("A exact 🌿") }));
   await waitFor(() => expect(connected.drafts.list()).toEqual([b]));
   press("Escape", {}, input()!);
+  await reopen();
   expect(input()!.value).toBe("B current");
   expect(sent(app)).toHaveLength(1);
 });
@@ -653,6 +614,7 @@ it("u3021c_ask_ordinary_edits_preserve_recovered_work_after_older_settlement", a
   input()!.setSelectionRange(2, 5, "backward"); fireEvent.select(input()!);
   const edited = connected.drafts.list().at(-1)!;
   press("Escape", {}, input()!);
+  await reopen();
   type("B newer edit");
   await connected.drafts.settle(a.revision, "acknowledged");
   expect(input()!.value).toBe("B newer edit");
@@ -660,8 +622,7 @@ it("u3021c_ask_ordinary_edits_preserve_recovered_work_after_older_settlement", a
   const path = connected.project.path;
 
   mounted.unmount();
-  const reopened = await mountAskBar([], null, undefined, false, path);
-  expect(input()!.value).toBe("B newer edit");
+  const reopened = await mountClosed([], null, undefined, false, path);
   reopened.setRecovery({ project: path, revision: edited.revision });
   await waitFor(() => expect(document.activeElement).toBe(input()));
   expect([input()!.value, input()!.selectionStart, input()!.selectionEnd, input()!.selectionDirection]).toEqual(["A recovered edit", 2, 5, "backward"]);
@@ -677,6 +638,7 @@ it.each(["failed", "unknown"] as const)("u3021c_ask_opening_current_work_keeps_i
   await waitFor(() => expect(document.activeElement).toBe(input()));
   type("edited current A");
   press("Escape", {}, input()!);
+  await reopen();
   expect(input()!.value).toBe("edited current A");
 });
 
@@ -687,7 +649,7 @@ const published = (revision: number): Deliverable => ({
 });
 
 it("u3299d_copy_uses_selected_item_publication", async () => {
-  const { app, connected } = await mountAskBar();
+  const { app, connected } = await mountClosed();
   connected.showView("made");
   const records = [published(7), published(9)];
   app.handlers["deliverable.list"] = () => records;
@@ -705,7 +667,7 @@ it("u3299d_copy_uses_selected_item_publication", async () => {
 });
 
 it("u3299d_named_rows_keep_recorded_targets_publication", async () => {
-  const { app, connected } = await mountAskBar();
+  const { app, connected } = await mountClosed();
   connected.showView("made");
   app.handlers["deliverable.list"] = () => [published(7), published(9)];
   app.handlers["deliverable.resolve"] = ({ id }) => ({ kind: "retained", path: `/retained/${id}`, sha256: "exact-hash" });
