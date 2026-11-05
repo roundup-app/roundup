@@ -149,7 +149,10 @@ fn due(
         let finished = children
             .iter()
             .any(|c| c.status.as_ref().is_some_and(|s| s.finished != "0"));
+        // A stopped Door is told nothing; its changes wait for the start, as B21's entries do.
+        let stopped = door.status.as_ref().is_some_and(|s| s.kind == Kind::Done);
         if !finished
+            || stopped
             || pending
             || waiting.get(&door.id).is_some_and(|n| *n > 0)
             || busy(door)
