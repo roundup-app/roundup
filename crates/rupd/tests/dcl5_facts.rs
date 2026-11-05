@@ -80,7 +80,7 @@ impl Run {
                 if let Some(note) = self.notes(tag).await.into_iter().find(|b| b.contains(name)) {
                     return note;
                 }
-                tokio::time::sleep(Duration::from_millis(20)).await;
+                tokio::task::yield_now().await;
             }
         })
         .await
