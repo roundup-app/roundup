@@ -54,10 +54,13 @@ it("u5940a_working_idle_one_minute_then_working_returns", async () => {
   setNow(NOW + 59_999);
   expect(rowNames()).toContain("child");
   setNow(NOW + 60_000);
+  await settled();
+  expect(rowNames()).toEqual(["stream", "child", "busy"]);
+  rail.select("busy");
   await waitFor(() => expect(rowNames()).toEqual(["stream", "busy"]));
   app.emit(event({ name: "agent.status", data: { id: "child", attempt: "1", status_revision: "3", status: { kind: "working", label: "working", since: NOW + 60_000, finished: "1" } } }));
   expect(rowNames()).toEqual(["stream", "child", "busy"]);
-  expect(rail.selected()).toBe("child");
+  expect(rail.selected()).toBe("busy");
   expect(app.calls.slice(calls).filter(call => !["message.list", "pad.list", "todo.list"].includes(call.method))).toEqual([]);
 });
 
@@ -160,4 +163,40 @@ it("u5483a_workstreams_keep_separate_folds", async () => {
   fireEvent.click(document.querySelector('[data-id="fold:first"] [data-part="branch-control"]')!);
   await waitFor(() => expect(rowNames()).toContain("first-child"));
   expect(rowNames()).not.toContain("second-child");
+});
+
+const foldedStream = () => [workstream("stream"),
+  agent("a", "done", "done", { parent: "stream" }),
+  agent("b", "done", "done", { parent: "stream" }),
+  agent("hidden", "idle", "idle", { parent: "stream", visibility: "internal" }),
+  agent("busy", "working", "working", { parent: "stream" }),
+];
+
+const folds = () => [...document.querySelectorAll(".rail-fold-name")].map(fold => fold.textContent);
+
+it.each(["a", "hidden"])("u6238a_closed_fold_lifts_out_the_selected_agent %s", async id => {
+  const { rail } = await mountRail(foldedStream());
+  await settled();
+  expect(folds()).toEqual(["1 internal", "2 idle"]);
+  rail.select(id);
+  await settled();
+  expect(rowNames()).toContain(id);
+  expect(folds()).toEqual(id === "a" ? ["1 internal", "1 idle"] : ["2 idle"]);
+  expect(rail.selected()).toBe(id);
+});
+
+it("u6238b_the_row_returns_when_selection_moves", async () => {
+  const { rail } = await mountRail(foldedStream());
+  await settled();
+  rail.select("a");
+  await settled();
+  rail.select("busy");
+  await settled();
+  expect(rowNames()).toEqual(["stream", "busy"]);
+  expect(folds()).toEqual(["1 internal", "2 idle"]);
+  rail.select("a");
+  await settled();
+  fireEvent.click(document.querySelector('[data-id="fold:stream"] [data-part=branch-control]')!);
+  await settled();
+  expect(rowNames()).toEqual(["stream", "busy", "a", "b"]);
 });

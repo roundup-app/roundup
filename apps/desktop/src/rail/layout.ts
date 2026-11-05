@@ -22,6 +22,8 @@ export type RailView = {
   /** Workstreams whose idle branch the user opened. */
   unfolded: ReadonlySet<string | null>;
   now: number;
+  /** U6238a: the selected row; a closed fold never holds it. */
+  selected?: string | null;
 };
 
 export const isWorkstream = (node: RailNode): boolean => node.kind === "workstream";
@@ -115,8 +117,9 @@ export const layoutRail = (source: RailSource, view: RailView, section?: RailSec
     for (const at of siblings) {
       const node = tree.nodes[at]!;
 
-      const destination = canFold && node.kind === "agent" && node.visibility === "internal"
-        ? internal : canFold && isFoldedAgent(node, view) ? folded : shown;
+      const group = canFold && node.kind === "agent" && node.visibility === "internal" ? "internal" : canFold && isFoldedAgent(node, view) ? "idle" : null;
+      const lifted = group !== null && node.id === view.selected && !view.unfolded.has(group === "idle" ? parentId : `internal:${parentId}`);
+      const destination = group === null || lifted ? shown : group === "internal" ? internal : folded;
 
       destination.push(at);
     }

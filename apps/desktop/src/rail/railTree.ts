@@ -21,7 +21,7 @@ export const createRailTree = (connected: ConnectedProject, unfolded: Accessor<R
 
   const sectionRows = createMemo(() => presentSections().map(section => ({
     ...section,
-    rows: rail.closedSections().has(section.id) ? [] : layoutRail(topology(), { collapsed: collapsed(), unfolded: unfolded(), now: now() }, section.id),
+    rows: rail.closedSections().has(section.id) ? [] : layoutRail(topology(), { collapsed: collapsed(), unfolded: unfolded(), now: now(), selected: rail.selected() }, section.id),
   })));
 
   const rows = createMemo(() => sectionRows().flatMap(section => section.rows));
