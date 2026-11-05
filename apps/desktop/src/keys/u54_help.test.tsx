@@ -1,3 +1,4 @@
+import { copy as feedbackCopy } from "../feedback/copy";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { RequestedApp as App } from "../testing/requestedApp";
@@ -124,6 +125,13 @@ const boundPresses = async (from: Element, modSets: readonly KeyboardEventInit[]
 
         // `⇧⌘N` opens the spawn prompt, which would stop `⌘K` from opening the switcher.
         document.querySelector(".spawn-prompt-field:not([readonly])")?.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
+
+        // `⇧⌘F` opens the Feedback form, a modal layer that would take every later probe.
+        if (press.defaultPrevented && code === "KeyF" && mods.metaKey && mods.shiftKey) {
+          await waitFor(() => expect(screen.queryByRole("dialog", { name: feedbackCopy.title })).not.toBeNull(), { timeout: 1000 });
+          fireEvent.click(within(screen.getByRole("dialog", { name: feedbackCopy.title })).getByRole("button", { name: feedbackCopy.close }));
+          await waitFor(() => expect(screen.queryByRole("dialog", { name: feedbackCopy.title })).toBeNull());
+        }
 
         // `⇧⌘P` opens the Switcher, a modal layer that would take every later probe.
         if (press.defaultPrevented && code === "KeyP" && mods.metaKey && mods.shiftKey) {

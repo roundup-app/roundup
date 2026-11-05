@@ -38,6 +38,7 @@ export const labels = new Map([
  ]);
 
 export const copy = {
+  feedback: "Feedback",
   defaultChoice: "Default",
   padWidths: [{ value: "narrow", label: "Narrow" }, { value: "wide", label: "Wide" }, { value: "full", label: "Full" }] as const,
   alerts: "Alerts",

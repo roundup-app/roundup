@@ -4,7 +4,7 @@ import { createToaster, Toaster, Toast, type ToastStatusChangeDetails } from "@a
 import { onCleanup, Show, type JSX } from "solid-js";
 import "./Toast.css";
 
-type Card = { id: string; label?: string; name: JSX.Element; content: JSX.Element; glyph?: JSX.Element; duration?: number; /** Replaces the activation button, for a card nothing opens. */ body?: () => JSX.Element; /** Not counted against the limit. */ extra?: boolean };
+type Card = { id: string; label?: string; name: JSX.Element; content: JSX.Element; glyph?: JSX.Element; duration?: number; /** Replaces the activation button, for a card nothing opens. */ body?: () => JSX.Element; /** Not counted against the limit. */ extra?: boolean; /** Ark's data-type on the card, for the CSS that keys on it. */ type?: "error" | undefined };
 
 const DURATION = 5000;
 
@@ -49,7 +49,7 @@ export function createToast(policy: {
         for (const old of visible.filter((value) => !value.meta?.extra).slice(Math.max(0, policy.limit - 1))) store.remove(old.id);
       }
 
-      store.create({ id: card.id, title: card.name, description: card.content, duration: card.duration ?? DURATION, meta: { glyph: card.glyph, label: card.label, body: card.body, extra: card.extra, duration: card.duration ?? DURATION }, onStatusChange(details: ToastStatusChangeDetails) {
+      store.create({ id: card.id, type: card.type ?? "info", title: card.name, description: card.content, duration: card.duration ?? DURATION, meta: { glyph: card.glyph, label: card.label, body: card.body, extra: card.extra, duration: card.duration ?? DURATION }, onStatusChange(details: ToastStatusChangeDetails) {
         if (details.status === "dismissing") {
           closing.add(card.id);
           policy.onDismiss?.(card.id);

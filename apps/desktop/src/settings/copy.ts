@@ -39,6 +39,12 @@ export const copy = {
   groupEngine: "Engine and model",
   groupNaming: "Naming",
   groupSkill: "Claude Code",
+  groupFeedback: sharedCopy.feedback,
+  feedbackIssue: "Feedback Issue",
+  /** @prose */
+  feedbackIssueHint: "The Issue that receives each report, as a GitHub URL.",
+  /** @prose */
+  feedbackIssueInvalid: "Enter an Issue URL.",
   groupFont: "Font",
   groupQuickAdd: "Quick add",
   groupTheme: "Theme",
