@@ -853,7 +853,7 @@ async fn dcl10c_running_door_with_a_pending_message_has_no_waiting_count() {
 }
 
 impl Run {
-    /// Every Message stored for the Door, oldest first, with its status; the initial order `start_door` sends after a Start is not one.
+    /// Every Message stored for the Door, oldest first, with its status; the initial order `start_door` sends after a Start and the settled note of the Door's Job are not part of the backlog.
     async fn thread(&self) -> Vec<Value> {
         let mut all: Vec<Value> = self
             .user
@@ -867,6 +867,7 @@ impl Run {
                 m["to"] == self.door
                     && !m["body"].as_str().unwrap().starts_with(DOOR_PROMPT)
                     && !m["body"].as_str().unwrap().starts_with("[digest]")
+                    && !m["body"].as_str().unwrap().starts_with("[settled]")
             })
             .cloned()
             .collect();
