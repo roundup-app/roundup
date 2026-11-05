@@ -505,6 +505,7 @@ async fn a5556b_automatic_delivery_waits_for_first_user_input() {
                     kind: Kind::Error,
                     last: "result needs attention".into(),
                     todos: 1,
+                    link: None,
                     pads: vec![],
                 },
             )

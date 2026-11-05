@@ -22,6 +22,7 @@ pub struct Reader {
     bus: Bus,
     touches: Arc<provenance::Touches>,
     observer: Option<PathBuf>,
+    project_key: String,
 }
 
 impl Reader {
@@ -30,6 +31,7 @@ impl Reader {
         bus: Bus,
         touches: Arc<provenance::Touches>,
         observer: Option<PathBuf>,
+        project_key: String,
     ) -> Self {
         let modules = ["rail", "todo", "pad", "message"]
             .iter()
@@ -41,6 +43,7 @@ impl Reader {
             bus,
             touches,
             observer,
+            project_key,
         }
     }
 
@@ -117,6 +120,7 @@ impl Reader {
             messages: self
                 .call("message", "message.list", json!({}), Actor::user())
                 .await?,
+            project_key: self.project_key.clone(),
         })
     }
 }
@@ -128,6 +132,7 @@ pub struct World {
     pads: Vec<contracts::pad::Pad>,
     touches: Vec<contracts::Touch>,
     messages: Vec<Message>,
+    project_key: String,
 }
 
 impl World {
@@ -147,6 +152,7 @@ impl World {
             pads: &self.pads,
             touches: self.touches.clone(),
             messages: &self.messages,
+            project_key: &self.project_key,
         }
     }
 }
@@ -272,7 +278,13 @@ mod tests {
         let mut modules = daemon.modules.clone();
         modules.insert("pad", pads.clone());
         let bus = Bus::new();
-        let reader = Reader::new(&modules, bus.clone(), daemon.touches.clone(), None);
+        let reader = Reader::new(
+            &modules,
+            bus.clone(),
+            daemon.touches.clone(),
+            None,
+            String::new(),
+        );
         let task = tokio::spawn(push_changes(
             reader,
             daemon.sender.get().unwrap().clone(),
@@ -309,7 +321,13 @@ mod tests {
         let mut modules = daemon.modules.clone();
         modules.insert("pad", pads.clone());
         let bus = Bus::new();
-        let reader = Reader::new(&modules, bus.clone(), daemon.touches.clone(), None);
+        let reader = Reader::new(
+            &modules,
+            bus.clone(),
+            daemon.touches.clone(),
+            None,
+            String::new(),
+        );
         let task = tokio::spawn(push_changes(
             reader,
             daemon.sender.get().unwrap().clone(),

@@ -101,6 +101,7 @@ impl Run {
             kind: contracts::Kind::Done,
             last: format!("completed result {round}"),
             todos: 0,
+            link: None,
             pads: vec![],
         });
         for (sender, body) in [

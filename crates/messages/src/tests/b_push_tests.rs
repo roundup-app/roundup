@@ -28,6 +28,7 @@ fn entry(name: &str, todos: u32) -> DigestEntry {
         kind: Kind::Working,
         last: "x".into(),
         todos,
+        link: None,
         pads: vec![],
     }
 }
@@ -591,6 +592,7 @@ async fn b21_two_stopped_changes_release_one_newest_entry_of_weight_two() {
     let mut todos = Vec::new();
     seen.baseline(&digest::Sources {
         completed: std::collections::HashMap::new(),
+        project_key: "",
         touches: Vec::new(),
         nodes: &nodes,
         todos: &todos,
@@ -615,6 +617,7 @@ async fn b21_two_stopped_changes_release_one_newest_entry_of_weight_two() {
         });
         let changes = seen.changed(&digest::Sources {
             completed: std::collections::HashMap::new(),
+            project_key: "",
             touches: Vec::new(),
             nodes: &nodes,
             todos: &todos,
@@ -740,6 +743,7 @@ fn end_entry(name: &str) -> DigestEntry {
         kind: Kind::Done,
         last: format!("{}[cut]", "s".repeat(595)),
         todos: 0,
+        link: None,
         pads: vec![],
     }
 }
