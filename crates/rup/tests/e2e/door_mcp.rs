@@ -107,8 +107,9 @@ async fn model_saw(project: &Project, needle: &str) {
             .collect::<Vec<_>>()
     };
     let seen = tokio::time::timeout(project.bound(), async {
+        let mut tick = tokio::time::interval(Duration::from_millis(25));
         while !asked().iter().any(|body| body.contains(needle)) {
-            tokio::time::sleep(Duration::from_millis(25)).await;
+            tick.tick().await;
         }
     })
     .await;
@@ -246,7 +247,7 @@ async fn dcl7_restart_resumes_only_jobs_selected_by_door() {
         .tool_result("toolu_dcl7_resume")
         .await;
     assert!(
-        !result["content"].as_str().unwrap().contains("rror"),
+        result["is_error"] != true,
         "{result}"
     );
     let tree = project.rail_tree(&user).await;
