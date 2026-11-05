@@ -507,6 +507,14 @@ export const Todos = (props: {
     if (id !== undefined) queueFocus(() => triageRowOf(id)?.focus());
   };
 
+  // U6236b: a picker whose Todo is gone has no row to sit against, so it closes.
+  createEffect(() => { const id = picking()?.id;
+
+ if (id !== undefined && !todos.byId().has(id)) stopPicking(); });
+  createEffect(() => { const id = moving()?.id;
+
+ if (id !== undefined && !todos.byId().has(id)) stopMoving(); });
+
   const enterTriage = () => {
     const buttons = triageButtons();
     const kept = idOfRow(document.activeElement);

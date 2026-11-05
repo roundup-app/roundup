@@ -1,8 +1,9 @@
-import { cleanup, fireEvent, render, screen } from "@solidjs/testing-library";
+import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { createSignal, Show } from "solid-js";
 import { afterEach, expect, it, vi } from "vitest";
 import { Tip } from "./Tip";
-import { anchorBox } from "./anchorBox";
+import { agent, event } from "../testing/nodes";
+import { mountTodos, todo } from "../todos/testHarness";
 
 afterEach(() => { Reflect.deleteProperty(HTMLElement.prototype, "checkVisibility"); cleanup(); vi.restoreAllMocks(); vi.useRealTimers(); });
 
@@ -50,17 +51,15 @@ it("u6236a_replaced_trigger_keeps_the_tooltip_on_its_trigger", async () => {
   expect(screen.queryByRole("tooltip")).toBeNull();
 });
 
-it("u6236b_replaced_row_keeps_the_picker_on_its_row", () => {
-  browserBoxes();
-  const old = document.body.appendChild(document.createElement("button"));
-  const replacement = document.createElement("button");
+it("u6236b_removed_row_closes_the_owner_picker", async () => {
+  const { app, store } = await mountTodos([todo(1, { title: "Ship the login fix" })], true, [agent("a", "idle", "A", { name: "alpha" })]);
+  const row = await screen.findByRole("button", { name: /^(?:Idle|Blocked|Done) #1 Ship the login fix/ });
 
-  expect(anchorBox(old)?.width).toBe(40);
-  old.remove();
-  expect(anchorBox(old)).toBeNull();
-  document.body.appendChild(replacement);
-  expect(anchorBox(old, () => replacement)?.width).toBe(40);
-  replacement.remove();
-  expect(anchorBox(old, () => replacement)).toBeNull();
-  expect(anchorBox(old, () => null)).toBeNull();
+  row.focus();
+  fireEvent.keyDown(row, { key: "o", code: "KeyO" });
+  expect(await screen.findByRole("menu")).toBeTruthy();
+
+  store.todos = [];
+  app.emit(event({ name: "todo.deleted", data: { id: 1 } }));
+  await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
 });
