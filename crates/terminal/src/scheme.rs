@@ -106,8 +106,10 @@ pub(crate) struct KittyScan {
 const KEYS_MAX: usize = 128;
 
 impl KittyScan {
-    pub(crate) fn feed(&mut self, bytes: &[u8], out: &mut Vec<Request>) {
-        for &byte in bytes {
+    /// Each query comes with the offset just past its terminator, so a caller can place it among the
+    /// requests the screen parser finds in the same bytes (U6144a).
+    pub(crate) fn feed(&mut self, bytes: &[u8], out: &mut Vec<(usize, Request)>) {
+        for (at, &byte) in bytes.iter().enumerate() {
             self.phase = match (&self.phase, byte) {
                 (Apc::Ground | Apc::Escape, 0x1b) => Apc::Escape,
                 (Apc::Escape, b'_') => {
@@ -117,7 +119,7 @@ impl KittyScan {
                 }
                 (Apc::Body | Apc::BodyEscape, 0x1b) => Apc::BodyEscape,
                 (Apc::BodyEscape, b'\\') => {
-                    out.extend(self.finish());
+                    out.extend(self.finish().map(|request| (at + 1, request)));
                     Apc::Ground
                 }
                 (Apc::Body | Apc::BodyEscape, byte) => {
@@ -213,7 +215,7 @@ mod kitty_tests {
         scan.feed(b"x\x1b_Gi=31,s=1,v=1,a", &mut out);
         scan.feed(b"=q,t=d,f=24;AAAA\x1b", &mut out);
         scan.feed(b"\\\x1b_Ga=T,i=2,f=100;a=q\x1b\\", &mut out);
-        assert!(matches!(out.as_slice(), [Request::Kitty(31)]));
+        assert!(matches!(out.as_slice(), [(1, Request::Kitty(31))]));
     }
 
     #[test]
@@ -233,7 +235,7 @@ mod kitty_tests {
         );
         assert!(matches!(
             out.as_slice(),
-            [Request::Kitty(8), Request::Kitty(9)]
+            [(_, Request::Kitty(8)), (_, Request::Kitty(9))]
         ));
     }
 }
