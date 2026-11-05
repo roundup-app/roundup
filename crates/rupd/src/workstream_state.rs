@@ -101,7 +101,6 @@ pub(crate) type Told =
 pub(crate) fn told_of(nodes: &[RailNode]) -> Told {
     nodes
         .iter()
-        .filter(|n| n.kind == NodeKind::Workstream || n.unreachable.is_some())
         .map(|n| {
             let stalled = n.kind == NodeKind::Workstream
                 && n.status.as_ref().is_some_and(|s| s.label == "stalled");
@@ -200,7 +199,10 @@ pub(crate) async fn tell_changes(
         };
         let changed = {
             let mut last = tell.told.lock().unwrap_or_else(|p| p.into_inner());
-            let changed = *last != now;
+            // A row that came or went is the Rail's shape, which `rail.changed` already told.
+            let changed = now
+                .iter()
+                .any(|(id, value)| last.get(id).is_some_and(|v| v != value));
             *last = now;
             changed
         };
