@@ -17,14 +17,14 @@ use crate::common::{Fixture, status_of, until_file};
 const ACKS: &str = "stty raw -echo; echo 1 > \"$(dirname \"$0\")/ready\"; \
     dd bs=1 count=1 > \"$(dirname \"$0\")/typed\" 2>/dev/null; \
     printf '\\033]0;\\342\\234\\263 Claude Code\\007'; \
-    cat >> \"$(dirname \"$0\")/typed\"";
+    exec cat >> \"$(dirname \"$0\")/typed\"";
 /// The same Terminal, ignoring the Esc: no title follows it.
 const IGNORES: &str = "stty raw -echo; echo 1 > \"$(dirname \"$0\")/ready\"; \
     cat > \"$(dirname \"$0\")/typed\"";
 /// Ignores the Esc, and sets the star title once the test creates `go`.
 const LATE: &str = "stty raw -echo; echo 1 > \"$(dirname \"$0\")/ready\"; \
     while [ ! -f \"$(dirname \"$0\")/go\" ]; do sleep 0.05; done; \
-    printf '\\033]0;\\342\\234\\263 Claude Code\\007'; sleep 30";
+    printf '\\033]0;\\342\\234\\263 Claude Code\\007'; exec sleep 30";
 const BOUND: Duration = Duration::from_millis(400);
 
 fn typed(f: &Fixture) -> PathBuf {
