@@ -54,6 +54,8 @@ run("u6239 Project tab drag", () => {
 
       await page.pointer("move", x, from.y);
       await page.call(`() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))`);
+      // U6239a explicitly commissions this one pointer-hit guard (#6239).
+      // oxlint-disable-next-line anti-slop/no-new-web-assertions
       expect(await hit(x, from.y, lifted)).toEqual({ lifted: true, slots: 0 });
     }
 

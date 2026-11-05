@@ -353,7 +353,6 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
         // WAAPI belongs to this lift: re-inserting the slot at another gap cannot restart its entrance.
         if (!keyboardLift && !reduced()) slot.animate([{ opacity: 0 }, { opacity: 1 }], { duration, easing });
         ProxiedElements.set(sourceRow, slot);
-
       }
 
       const target = isSortable(source) ? source.sortable.target : undefined;
