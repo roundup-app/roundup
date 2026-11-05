@@ -465,7 +465,10 @@ async fn fetch_receipt(url: &str) -> Result<Vec<u8>, String> {
         .map_err(|_| "the authoritative source reader could not start".to_string())?;
     let (mut out, mut err) = (child.stdout.take().unwrap(), child.stderr.take().unwrap());
     let mut body = Vec::new();
-    let read = (&mut out).take(LIMIT as u64 + 1).read_to_end(&mut body).await;
+    let read = (&mut out)
+        .take(LIMIT as u64 + 1)
+        .read_to_end(&mut body)
+        .await;
     if body.len() > LIMIT {
         return Err("the authoritative receipt exceeds 64 KiB".into());
     }
@@ -473,7 +476,11 @@ async fn fetch_receipt(url: &str) -> Result<Vec<u8>, String> {
     let _ = err.read_to_end(&mut tail).await;
     let status = child.wait().await;
     let code = String::from_utf8_lossy(&tail);
-    let code = code.trim().rsplit(|c: char| !c.is_ascii_digit()).next().unwrap_or("");
+    let code = code
+        .trim()
+        .rsplit(|c: char| !c.is_ascii_digit())
+        .next()
+        .unwrap_or("");
     let code: u16 = code.parse().unwrap_or(0);
     if !status.is_ok_and(|s| s.success()) || code == 0 {
         return Err(
