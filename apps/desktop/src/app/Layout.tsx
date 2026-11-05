@@ -30,6 +30,8 @@ export const Layout = (props: {
   tabs?: JSX.HTMLAttributes<HTMLDivElement>;
   busy?: boolean;
   rail: JSX.Element;
+  /** U6228: the Rail's collapsed form; it shows in place of `rail` while `widths.collapsed()` holds, and `rail` stays mounted, hidden. */
+  railStrip?: JSX.Element;
   railOpen?: boolean;
   centre: JSX.Element;
   shelf: JSX.Element;
@@ -133,8 +135,9 @@ export const Layout = (props: {
     <header class="header">{props.header}</header>
     <div {...props.tabs} style={{ display: "grid", "grid-area": "2 / 1", "min-height": "0", "min-width": "0" }}>
     <div class="columns" style={{ "grid-area": "1 / 1" }}>
-      <section {...binding("rail")} class="rail" aria-busy={props.busy || undefined} data-layout-panel="rail" aria-label={copy.rail}>
-        {props.rail}
+      <section {...binding("rail")} class="rail" aria-busy={props.busy || undefined} data-collapsed={props.widths?.collapsed() || undefined} data-layout-panel="rail" aria-label={copy.rail}>
+        <Show when={props.widths?.collapsed()}>{props.railStrip}</Show>
+        <div class="rail-body" inert={props.widths?.collapsed() || undefined}>{props.rail}</div>
       </section>
       <section {...binding("centre")} class="centre" aria-busy={props.busy || undefined} data-layout-panel="centre" aria-label={copy.centreRegion}>
         {props.centre}

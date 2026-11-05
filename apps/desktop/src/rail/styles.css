@@ -878,3 +878,13 @@
   flex-basis: 100%;
   white-space: normal;
 }
+
+/* U6228: the Rail's head holds the collapse button at the trailing edge, one row high. */
+.rail-head {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: var(--space-4);
+  min-height: var(--space-6);
+}

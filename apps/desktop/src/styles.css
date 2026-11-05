@@ -105,6 +105,19 @@ p {
   padding-left: var(--space-4);
 }
 
+/* U6228: the Rail's content in one box, so a collapsed Rail can hide it whole while it stays mounted and keeps its keys. */
+.rail-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+}
+
+.rail[data-collapsed] .rail-body {
+  display: none;
+}
+
 .rail-scroll {
   padding-left: 0;
   padding-right: 0;

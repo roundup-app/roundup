@@ -9,6 +9,9 @@ type Limits = { min: number; max: number; fallback: number };
 /** U389, U390: each width's minimum, maximum and default in px; tokens.css holds the same two defaults. */
 const RAIL: Limits = { min: 252, max: 480, fallback: 288 };
 
+/** U6228: the collapsed Rail's width in px; tokens.css holds the same value as `--rail-strip-width`. */
+export const STRIP_WIDTH = 56;
+
 const SHELF: Limits = { min: 240, max: 560, fallback: 320 };
 
 const limited = (px: number, limits: Limits): number => Math.min(limits.max, Math.max(limits.min, px));
@@ -21,7 +24,7 @@ export const shelfEffective = (stored: number): number => limited(stored, SHELF)
 
 const finite = (fallback: number) => v.fallback(v.pipe(v.number(), v.finite()), fallback);
 
-const widthsSchema = storageSchema("roundup:widths", v.object({ rail: finite(RAIL.fallback), shelf: finite(SHELF.fallback) }));
+const widthsSchema = storageSchema("roundup:widths", v.object({ rail: finite(RAIL.fallback), shelf: finite(SHELF.fallback), collapsed: v.optional(v.fallback(v.boolean(), false), false) }));
 
 /** U389, U390: what the webview keeps per Project, as U100 keeps layout; a stored width that is not a finite number means the default. */
 const storageOf = (path: string) => storedValue(`roundup:widths:${path}`, widthsSchema);
@@ -40,10 +43,16 @@ export type Side = {
   preview: (px: number) => void;
   /** Keeps a width. */
   commit: (px: number) => void;
+  /** U6228: the width at which this side is collapsed to a strip; a drag, key or reset reaching it collapses, a larger width expands. */
+  collapsedAt?: number;
 };
 
 export type Widths = {
   rail: Side;
+  /** U6228: whether the Rail is the strip of Workstream marks. */
+  collapsed: Accessor<boolean>;
+  /** U6228: collapse or expand the Rail, keeping its last width for the expand. */
+  setCollapsed: (collapsed: boolean) => void;
   shelf: Side;
   /** The two widths in px as CSS values, for the window's style. */
   style: () => Record<string, string>;
@@ -57,6 +66,8 @@ export const createWidths = (path: Accessor<string | null>): Widths => {
 
   const [shelf, setShelf] = createSignal(SHELF.fallback);
 
+  const [collapsed, setCollapsedSignal] = createSignal(false);
+
   let element: HTMLElement | undefined;
 
   createComputed(
@@ -65,17 +76,18 @@ export const createWidths = (path: Accessor<string | null>): Widths => {
 
       setRail(stored?.rail ?? RAIL.fallback);
       setShelf(stored?.shelf ?? SHELF.fallback);
+      setCollapsedSignal(stored?.collapsed ?? false);
     }),
   );
 
-  const railNow = () => railEffective(rail());
+  const railNow = () => collapsed() ? STRIP_WIDTH : railEffective(rail());
 
   const shelfNow = () => shelfEffective(shelf());
 
   const save = () => {
     const at = path();
 
-    if (at !== null) storageOf(at).write({ rail: rail(), shelf: shelf() });
+    if (at !== null) storageOf(at).write({ rail: rail(), shelf: shelf(), collapsed: collapsed() });
   };
 
   const write = (railPx: number, shelfPx: number) => {
@@ -84,6 +96,11 @@ export const createWidths = (path: Accessor<string | null>): Widths => {
   };
 
   return {
+    collapsed,
+    setCollapsed: (next) => {
+      setCollapsedSignal(next);
+      save();
+    },
     rail: {
       label: copy.resizeRail,
       direction: 1,
@@ -91,13 +108,15 @@ export const createWidths = (path: Accessor<string | null>): Widths => {
       fallback: RAIL.fallback,
       now: railNow,
       room: () => RAIL.max,
-      preview: (px) => {
-        const next = railEffective(px);
-
-        write(next, shelfEffective(shelf()));
-      },
+      collapsedAt: STRIP_WIDTH,
+      preview: (px) => write(px <= STRIP_WIDTH ? STRIP_WIDTH : railEffective(px), shelfEffective(shelf())),
       commit: (px) => {
-        setRail(limited(px, RAIL));
+        if (px <= STRIP_WIDTH) setCollapsedSignal(true);
+        else {
+          setCollapsedSignal(false);
+          setRail(limited(px, RAIL));
+        }
+
         save();
       },
     },

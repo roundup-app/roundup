@@ -39,6 +39,7 @@ import { createStateAlerts } from "./rail/stateAlerts";
 import type { StateAlerts } from "./rail/stateAlerts";
 import { railStorage } from "./rail/persist/storage";
 import { Rail } from "./rail/Rail";
+import { RailStrip } from "./rail/RailStrip";
 import { ProjectSettingsView } from "./rail/ProjectSettings";
 import { Help } from "./keys/Help";
 import { Leader } from "./keys/Leader";
@@ -522,6 +523,18 @@ export const App = (props: {
     if (!frame.open()) frame.toggle("key");
   });
   const widths = createWidths(projects.active);
+
+  // U6228: the Rail folds to a strip of Workstream marks; focus follows the control the user pressed, and `⌘K R` toggles it.
+  const setRailCollapsed = (collapsed: boolean, focus = true) => {
+    widths.setCollapsed(collapsed);
+
+    if (focus) queueMicrotask(() => document.querySelector<HTMLElement>(collapsed ? ".rail-strip-expand" : ".rail-collapse")?.focus());
+  };
+
+  registerKeys({ kind: "leader" }, [{ action: LEADER.find(row => row.keys === "R")!, capture: () => ({
+    available: () => activeConnection() != null,
+    invoke: () => setRailCollapsed(!widths.collapsed(), false),
+  }) }]);
   const shelfTabs = createShelfTabs(frame);
   const shelfFocus = shelfKeys({ frame, shelf: shelfElement });
 
@@ -695,6 +708,7 @@ export const App = (props: {
             /></Show>
           </WindowBar>
         }
+        railStrip={<InProject open={activeConnection()}>{() => <RailStrip expand={() => setRailCollapsed(false)} />}</InProject>}
         rail={
           <>
             <ReservedLine overlay message={windowFailure() ?? (activeTab()?.exit ? activeTab()?.reopenFailure ?? daemonExitText(activeTab()!.exit!) : null) ?? (projects.tabs().length > 0 ? projects.failure() : null) ?? badgeFailure() ?? alertFailure() ?? menuBarFailure()}>
@@ -706,7 +720,7 @@ export const App = (props: {
                 {() => (
                   <>
                     <AttentionKey />
-                    <Rail />
+                    <Rail collapse={() => setRailCollapsed(true)} />
                   </>
                 )}
               </InProject>

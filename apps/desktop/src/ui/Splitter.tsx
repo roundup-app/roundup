@@ -21,7 +21,8 @@ export function Splitter(props: { side: Side; class?: string; disabled?: boolean
   const index = () => props.side.direction === 1 ? 0 : 2;
   const rootId = () => host()?.id ?? id;
   const maximum = () => Math.max(props.side.min, Math.min(props.side.room(), extent() - other()));
-  const clamp = (px: number) => Math.max(props.side.min, Math.min(maximum(), px));
+  // U6228: a side that collapses reads any width under its minimum as its collapsed width.
+  const clamp = (px: number) => props.side.collapsedAt !== undefined && px < props.side.min ? props.side.collapsedAt : Math.max(props.side.min, Math.min(maximum(), px));
   const percent = (px: number) => px / (host()?.getBoundingClientRect().width || extent()) * 100;
 
   const sizes = () => {
@@ -48,6 +49,8 @@ export function Splitter(props: { side: Side; class?: string; disabled?: boolean
         id: panel,
         resizeBehavior: at === 1 ? "preserve-relative-size" as const : "preserve-pixel-size" as const,
         minSize: at === index() ? `${props.side.min}px` : at === 1 ? 0 : `${other()}px`,
+        collapsible: at === index() && props.side.collapsedAt !== undefined,
+        collapsedSize: at === index() && props.side.collapsedAt !== undefined ? `${props.side.collapsedAt}px` : undefined,
         maxSize: at === index() ? `${maximum()}px` : at === 1 ? 100 : `${other()}px`,
       }));
     },
@@ -228,6 +231,6 @@ export function Splitter(props: { side: Side; class?: string; disabled?: boolean
 
   return <div {...trigger()} ref={(element) => { edge = element; }} class={`resize-edge app-splitter ${props.class ?? ""}`} hidden={props.hidden}
     tabIndex={props.disabled || props.hidden ? -1 : 0}
-    aria-label={props.side.label} aria-orientation="vertical" aria-valuenow={pixels()} aria-valuemin={props.side.min} aria-valuemax={maximum()}
+    aria-label={props.side.label} aria-orientation="vertical" aria-valuenow={pixels()} aria-valuemin={props.side.collapsedAt !== undefined && pixels() <= props.side.collapsedAt ? props.side.collapsedAt : props.side.min} aria-valuemax={maximum()}
     onPointerDown={pointerDown} onKeyDown={keyDown} onDblClick={reset} />;
 }

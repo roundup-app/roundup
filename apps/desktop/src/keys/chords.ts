@@ -159,6 +159,7 @@ export const LEADER: readonly LeaderKey[] = ([
   { name: "leader.bubble-minimise", keys: "M", what: copy.minimiseOrRestoreTheBubble, short: copy.leaderShortMinimise, press: "KeyM" },
   { name: "leader.bubble-close", keys: "W", what: copy.closeTheBubble, short: copy.leaderShortClose, press: "KeyW" },
   { name: "leader.shelf", keys: "B", what: copy.openShelf, short: copy.leaderShortShelf, press: "KeyB" },
+  { name: "leader.rail", keys: "R", what: copy.collapseOrExpandTheRail, short: copy.rail, press: "KeyR" },
   { name: "leader.capture", keys: "T", what: copy.captureATodo, short: copy.leaderShortCapture, press: "KeyT" },
   { name: "leader.inbox", keys: "I", what: copy.openTheInbox, short: copy.leaderShortInbox, press: "KeyI" },
 ] satisfies readonly (Omit<LeaderKey, "keys"> & { keys: string })[]).map(withKeyText);

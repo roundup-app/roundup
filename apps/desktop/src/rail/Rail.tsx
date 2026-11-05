@@ -48,7 +48,8 @@ const CreateMode = lazy(() => import("./CreateMode").then(module => ({ default: 
 const toggled = <T,>(set: ReadonlySet<T>, member: T): ReadonlySet<T> =>
   new Set(set.has(member) ? [...set].filter((each) => each !== member) : [...set, member]);
 
-export const Rail = () => {
+/** `collapse` is the Rail head's button: it folds the Rail to the strip (U6228). */
+export const Rail = (props: { collapse?: () => void } = {}) => {
   const connected = useConnectedProject();
   const { app, project, rail, daemonExit } = connected;
   const recoveryEntries = useRecoveryMenu();
@@ -663,6 +664,7 @@ export const Rail = () => {
 
   return (
     <>
+    <Show when={props.collapse}>{collapse => <div class="rail-head"><IconButton class="rail-collapse" aria-label={copy.collapseRail} onClick={collapse()}><Icon name="left" /></IconButton></div>}</Show>
     <MovePicker target={moveAgent.target()} destinations={moveAgent.destinations()} close={moveAgent.close} choose={(id, parent) => { void moveAgent.move({ id, parent, index: siblingsOf(topology(), parent).length }); }} />
     <button
       type="button"
