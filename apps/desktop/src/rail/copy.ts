@@ -93,7 +93,6 @@ export const copy = {
   assign: sharedCopy.assign,
   overview: sharedCopy.overview,
   projectRoot: sharedCopy.projectRoot,
-  overviewWaiting: (count: number) => `${count} waiting`,
   modesHead: "MODES",
   agentsHead: "AGENTS",
   workstreamsHead: "WORKSTREAMS",

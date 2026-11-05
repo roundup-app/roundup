@@ -13,7 +13,8 @@ import { Icon } from "../ink/Icon";
 import { doorStateOf, doorStateText } from "../rail/doorState";
 import { useConnectedProject } from "../state/connectedProject";
 import { registerKeys } from "../keys/registry";
-import { CHORDS } from "../keys/chords";
+import { CHORDS, chordNamed } from "../keys/chords";
+import { captureActions } from "../keys/registry";
 import { Find } from "./Find";
 import { lazyXtermEmulators } from "./lazyEmulator";
 import type { EmulatorFactory } from "./emulator";
@@ -330,6 +331,12 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
         <div class="pane-screen" ref={element => { setScreen(element); resizeObserver?.observe(element); }} />
         <Show when={!preparing() && selected()?.kind === "agent" && terminalId() === null && (notice() === null || notice()?.kind === "command")}>
           <EmptyState art="sitting-reading" {...{ title: copy.noOutputKeptFromAnEarlierRun }} line={copy.emptyOutputLine} />
+        </Show>
+        <Show when={selected() === null && !["attention", "workstreams", "made"].some(connected.hasView)}>
+          <EmptyState art="strolling" {...{ title: copy.noSelectionTitle }} line={copy.noSelectionLine} actions={[
+            { label: copy.newAgent, chord: chordNamed("agent.new")!, run: () => captureActions(document.activeElement).find(action => action.value === "action:chord:⌘N")?.run() },
+            { label: copy.ask, chord: chordNamed("ask.open")!, run: () => captureActions(document.activeElement).find(action => action.value === "action:chord:⌘/")?.run() },
+          ]} />
         </Show>
         <Show when={selected()?.kind === "group"}>
           <nav class="pane-group" aria-label={selected()!.name}><h3>{selected()!.name}</h3><div class="pane-group-children"><For each={siblingsOf(rail.topology(), selected()!.id)}>{child => <button type="button" class="word pane-action" onClick={() => rail.select(child.id)}>{child.name}</button>}</For></div></nav>

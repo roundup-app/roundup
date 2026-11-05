@@ -8,15 +8,14 @@ import { outcomeOf } from "../app/seam";
 import { captureFocus, returnFocus } from "../keys/focus";
 import { type createCopyFeedback } from "../ui/CopyButton";
 import * as v from "valibot";
-import { attentionCount } from "./attention";
 import { copy } from "./copy";
-import { createEffect, createMemo, createSignal, createUniqueId, For, lazy, on, onCleanup, onMount, Show } from "solid-js";
+import { createEffect, createMemo, createSignal, For, lazy, on, onCleanup, onMount, Show } from "solid-js";
 import { ReservedLine } from "../ink/ReservedLine";
 import { SectionHead } from "../ink/SectionHead";
 import { KindGlyph } from "../ink/KindGlyph";
 import { IconButton } from "../ui/IconButton";
 import { Icon } from "../ink/Icon";
-import { CHORDS, LEADER, type ActionValue } from "../keys/chords";
+import { CHORDS, type ActionValue } from "../keys/chords";
 import { captureActions, registerKeys } from "../keys/registry";
 import { Sortable, type SortableMove } from "../ui/sortable";
 import { TreeView, Trunks } from "../ui/TreeView";
@@ -33,8 +32,7 @@ import { SpawnPromptField } from "./SpawnPromptField";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { ExitState } from "../state/rail";
 import type { SpawnParams } from "@contracts/agent/SpawnParams";
-import { useRecoveryMenu } from "../drawer/DraftRecovery";
-import { contextMenu, openOnRelease } from "../ui/contextMenu";
+import { contextMenu } from "../ui/contextMenu";
 import { draftsOf } from "./persist/storage";
 import { createRailDrag } from "./drag";
 import { createRailSelection } from "./selection";
@@ -51,11 +49,8 @@ const toggled = <T,>(set: ReadonlySet<T>, member: T): ReadonlySet<T> =>
 export const Rail = () => {
   const connected = useConnectedProject();
   const { app, project, rail, daemonExit } = connected;
-  const recoveryEntries = useRecoveryMenu();
 
   const todoCount = createAgentPads();
-  const attention = createMemo(() => attentionCount(rail.nodes, rail.dismissed));
-  const [scrolled, setScrolled] = createSignal(false);
   const collapsed = rail.collapsed;
   const [unfolded, setUnfolded] = createSignal<ReadonlySet<string | null>>(new Set());
   const failure = rail.commandFailure;
@@ -196,7 +191,6 @@ export const Rail = () => {
     }
   };
 
-  let overview: HTMLButtonElement | undefined;
   const [container, setContainer] = createSignal<HTMLElement>();
   const [field, setField] = createSignal<HTMLTextAreaElement>();
 
@@ -266,7 +260,7 @@ export const Rail = () => {
         rail.select(next ?? null);
 
         if (next) focusRow(next);
-        else overview?.focus();
+        else container()?.focus();
       });
     });
   };
@@ -346,15 +340,6 @@ export const Rail = () => {
       const box = row.getBoundingClientRect();
       void openSelectionMenu(node, box.left, box.bottom);
     }
-  };
-
-  const openOverviewMenu = (press: KeyboardEvent) => {
-    const entries = recoveryEntries("key");
-
-    if (entries.length === 0 || !(press.target instanceof HTMLElement)) return;
-
-    const box = press.target.getBoundingClientRect();
-    void contextMenu(app, entries, box.left, box.bottom);
   };
 
   const { railStep, pointerOutside, placeDrop } = createRailDrag(rail, container, openRow, focusRow);
@@ -585,26 +570,6 @@ export const Rail = () => {
     onCleanup(() => document.removeEventListener("click", clear, true));
   });
 
-  // U4453b: leader `A` and the Overview row both return to Ask.
-  const isAskReturnAllowed = () => !(connected.settingsView.open() && connected.settingsView.page() === "import-work" && connected.importing.pending());
-
-  const backToAsk = () => {
-    if (!isAskReturnAllowed()) return;
-    connected.importing.cancel();
-    connected.settingsView.close(false);
-    connected.showView(null);
-    rail.select(null);
-  };
-
-  createEffect(() => {
-    if (rail.selected() === null && !connected.settingsView.open()) return;
-
-    registerKeys({ kind: "leader" }, [{ action: LEADER.find(row => row.keys === "A")!, capture: () => ({
-      available: isAskReturnAllowed,
-      invoke: backToAsk,
-    }) }]);
-  });
-
   /** U32, U33: `⌘N` adds an Agent or returns to the open field; `⇧⌘N` opens the field. A kept key acts once. U31, U56, U358: the row menu acts on a focused row only; the keys of a control inside a row are its own. */
   registerKeys({ kind: "app" }, [
     { action: CHORDS.find(row => row.name === "rail.move")!, when: press => moveAgent.available(focusedRowId(press)), capture: focus => {
@@ -628,7 +593,6 @@ export const Rail = () => {
     { action: CHORDS.find(row => row.name === "workstream.new")!, capture: () => ({ available: canSpawn, invoke: createWorkstream }) },
     { action: CHORDS.find(row => row.name === "mode.new")!, capture: () => ({ available: canSpawn, invoke: () => setCreatingMode(true) }) },
     { chords: ["ContextMenu", "Shift+F10"], when: (press) => focusedRowId(press) !== undefined, run: openMenuAtFocusedRow },
-    { chords: ["ContextMenu", "Shift+F10"], when: (press) => press.target instanceof HTMLElement && press.target.matches("[data-todo-root]"), run: openOverviewMenu },
     { action: CHORDS.find((row) => row.name === "rail.remove")!, capture: () => ({ available: () => (selectedNodes().length > 0 || rail.nodes.some((node) => node.id === rail.selected())) && daemonExit() === null, invoke: () => removeSelected(false) }) },
   ]);
 
@@ -659,44 +623,11 @@ export const Rail = () => {
     }
   });
 
-  const overviewName = createUniqueId();
-  const overviewRoot = createUniqueId();
-  const overviewWaiting = createUniqueId();
-  const waitingShown = () => rail.selected() !== null && attention() > 0;
-
   return (
     <>
     <MovePicker target={moveAgent.target()} destinations={moveAgent.destinations()} close={moveAgent.close} choose={(id, parent) => { void moveAgent.move({ id, parent, index: siblingsOf(topology(), parent).length }); }} />
-    <button
-      type="button"
-      data-button="quiet"
-      data-todo-root
-      ref={element => { overview = element; }}
-      data-history-region="rail"
-      aria-pressed={rail.selected() === null}
-      data-selected={rail.selected() === null ? "true" : undefined}
-      aria-labelledby={`${overviewName} ${overviewRoot}${waitingShown() ? ` ${overviewWaiting}` : ""}`}
-      data-scrolled={scrolled()}
-      class="todo-project-root"
-      onClick={backToAsk}
-      onContextMenu={(press: MouseEvent) => openOnRelease(press, (x, y) => {
-        const entries = recoveryEntries();
-
-        if (entries.length > 0) void contextMenu(app, entries, x, y);
-      })}
-    >
-      <span class="overview-tile"><Icon name="layout-dashboard" /></span>
-      <span id={overviewName}>{copy.overview}</span>
-      <span id={overviewRoot} class="rail-label">{copy.projectRoot}</span>
-      <Show when={waitingShown()}><span id={overviewWaiting} class="rail-label">{copy.overviewWaiting(attention())}</span></Show>
-      <Show when={attention() > 0 && rail.selected() !== null && connected.drawer.content() === null}>
-        <span class="ink-count" data-state="" data-tone="amber" aria-hidden="true">
-          <KindGlyph kind="needs-you" decorative /> {attention()}
-        </span>
-      </Show>
-    </button>
     <Show when={isEmpty()}><EmptyRail onNew={() => captureActions(document.activeElement).find(action => action.value === "action:chord:⌘N")?.run()} onWorkstream={() => captureActions(document.activeElement).find(action => action.value === "action:chord:⇧⌘N")?.run()} available={canSpawn()} /></Show>
-    <div class="rail-scroll" onScroll={(event) => setScrolled(event.currentTarget.scrollTop > 0)}>
+    <div class="rail-scroll">
     <TreeView.Root
       class="rail-tree" data-history-region="rail"
       ref={(element) => {

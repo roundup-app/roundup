@@ -99,7 +99,7 @@ p {
   overflow: clip;
 }
 
-.rail :is(.todo-project-root, .rail-recovery, .rail-command-notice) {
+.rail :is(.rail-recovery, .rail-command-notice) {
   box-sizing: border-box;
   padding-right: var(--space-4);
   padding-left: var(--space-4);
