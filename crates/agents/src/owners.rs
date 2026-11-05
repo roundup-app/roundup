@@ -16,6 +16,9 @@ struct Stored {
     /// The socket the retained program's hooks and MCP inherited as `RUPD_SOCKET`.
     #[serde(default)]
     socket: Option<PathBuf>,
+    /// DCL3c: the background work open when the Daemon last looked.
+    #[serde(default)]
+    background: Option<claude_code::background::Retained>,
 }
 
 impl Agents {
@@ -33,6 +36,7 @@ impl Agents {
             inbox: Some(self.launcher.socket_path(id)),
             owner,
             socket: rpc::socket_path().ok(),
+            background: None,
         })
         .map_err(RpcError::internal)?;
         std::fs::create_dir_all(file.parent().expect("owners dir")).map_err(RpcError::internal)?;
@@ -114,6 +118,11 @@ impl Agents {
             |(_, cwd)| cwd,
         );
         let clock = Arc::clone(&self.shared.clock);
+        let mut adapter = ClaudeCode::starting(move || clock());
+        adapter.set_finished(self.shared.rail().finished(id).unwrap_or_default());
+        if let Some(kept) = stored.background {
+            adapter.resume_background(kept);
+        }
         let run = Run {
             yolo: false,
             startup_context: false,
@@ -122,7 +131,7 @@ impl Agents {
             status_revision: 1,
             closing: false,
             ended: false,
-            adapter: ClaudeCode::starting(move || clock()),
+            adapter,
             prompt: None,
             first_pending: false,
             first_completion: None,
@@ -174,6 +183,34 @@ impl Shared {
 
     /// Keep admission beside the verified owner, fenced to its original Attempt.
     pub(super) fn save_input_started(&self, id: &str, attempt: &str) -> Result<(), RpcError> {
+        self.update_owner(id, attempt, |stored| {
+            !std::mem::replace(&mut stored.input_started, true)
+        })
+    }
+
+    /// DCL3c: keep the open background work beside the verified owner, fenced to its Attempt.
+    pub(super) fn save_background(
+        &self,
+        id: &str,
+        attempt: &str,
+        background: Option<claude_code::background::Retained>,
+    ) -> Result<(), RpcError> {
+        self.update_owner(id, attempt, |stored| {
+            stored.background != background && {
+                stored.background = background;
+                true
+            }
+        })
+    }
+
+    /// Rewrite the owner record of `id` when `change` reports a change; no record, or one of
+    /// another Attempt, stays as it is.
+    fn update_owner(
+        &self,
+        id: &str,
+        attempt: &str,
+        change: impl FnOnce(&mut Stored) -> bool,
+    ) -> Result<(), RpcError> {
         let path = self.owner_file(id);
         let body = match std::fs::read(&path) {
             Ok(body) => body,
@@ -181,10 +218,9 @@ impl Shared {
             Err(error) => return Err(RpcError::internal(error)),
         };
         let mut stored: Stored = serde_json::from_slice(&body).map_err(RpcError::internal)?;
-        if stored.attempt != attempt || stored.input_started {
+        if stored.attempt != attempt || !change(&mut stored) {
             return Ok(());
         }
-        stored.input_started = true;
         let mut file = tempfile::NamedTempFile::new_in(path.parent().expect("owners directory"))
             .map_err(RpcError::internal)?;
         serde_json::to_writer(&mut file, &stored).map_err(RpcError::internal)?;
