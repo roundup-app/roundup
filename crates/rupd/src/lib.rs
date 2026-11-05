@@ -12,6 +12,8 @@ mod contract_handlers;
 #[cfg(test)]
 mod contract_tests;
 pub mod data;
+#[cfg(test)]
+mod dcl5_tests;
 mod deliverables;
 #[cfg(test)]
 mod describe_tests;

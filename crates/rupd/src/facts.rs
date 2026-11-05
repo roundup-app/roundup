@@ -158,48 +158,6 @@ mod tests {
         .unwrap()
     }
 
-    fn todo(id: u32, owner: Option<&str>, home: Option<&str>) -> Todo {
-        serde_json::from_value(json!({
-            "id":id,"title":"t","body":"","done":false,"blockers":[],"blocked":false,
-            "created_at":0,"updated_at":0,"creator":Actor::user(),"home":home,
-            "owner":owner.map(|o| json!({"kind":"agent","id":o,"parent":"door"})),
-            "refs":[]
-        }))
-        .unwrap()
-    }
-
-    #[test]
-    fn dcl5_kill_reports_owned_open_todos_without_reassigning() {
-        let nodes = [
-            node("door", "workstream", None, "idle"),
-            node("sub", "agent", Some("door"), "done"),
-        ];
-        let mut todos: Vec<Todo> = (0..7).map(|i| todo(i, Some("sub"), Some("door"))).collect();
-        todos.extend((7..21).map(|i| todo(i, None, Some("door"))));
-        let mut facts = Facts::default();
-        let due = facts.ended(&nodes, &todos, &[]);
-        assert_eq!(due.len(), 1);
-        assert_eq!(due[0].door, "door");
-        assert!(
-            due[0].body.contains("sub ended with 7 open Todos"),
-            "{}",
-            due[0].body
-        );
-        assert!(due[0].body.contains("no report"));
-        assert!(
-            due[0]
-                .body
-                .contains("14 open Todos of this Workstream are unassigned")
-        );
-        // Published once: the same state offers nothing more, and no Todo changed owner.
-        facts.ended.insert(due[0].child.clone());
-        assert!(facts.ended(&nodes, &todos, &[]).is_empty());
-        assert_eq!(todos.iter().filter(|t| owned_by(t, "sub")).count(), 7);
-        // A report from the child, or a child with nothing open, is no such fact.
-        let done: Vec<Todo> = Vec::new();
-        assert!(Facts::default().ended(&nodes, &done, &[]).is_empty());
-    }
-
     #[test]
     fn dcl5_a_stall_is_published_once_until_activity_clears_it() {
         let nodes = [
