@@ -36,7 +36,7 @@ export const copy = {
   helpRowScope: { O: sharedCopy.assign, D: "Delete focused item", E: "Export focused Pad" },
   closeShelf: sharedCopy.closeShelf,
   openShelf: sharedCopy.openShelf,
-  collapseOrExpandTheRail: sharedCopy.collapseOrExpandTheRail,
+  toggleTheRail: sharedCopy.toggleTheRail,
   rail: sharedCopy.rail,
   maximise: sharedCopy.maximise,
   restore: sharedCopy.restore,

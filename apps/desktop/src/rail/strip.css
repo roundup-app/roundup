@@ -55,7 +55,7 @@
   display: inline-flex;
 }
 
-.rail-mark-state .glyph svg {
+.rail-mark-state svg {
   width: var(--space-3);
   height: var(--space-3);
 }

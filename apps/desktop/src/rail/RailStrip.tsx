@@ -8,6 +8,7 @@ import { TreeView } from "../ui/TreeView";
 import { captureActions } from "../keys/registry";
 import { useConnectedProject } from "../state/connectedProject";
 import { attentionCount } from "./attention";
+import { copy as sharedCopy } from "../sharedCopy";
 import { copy } from "./copy";
 import { isWorkstream, layoutRail, resolvedWorkstream } from "./layout";
 import { rowAttention, rowKind, rowUnread } from "./rollup";
@@ -31,7 +32,7 @@ export const RailStrip = (props: { expand: () => void }) => {
   const add = () => captureActions(document.activeElement).find(action => action.name === "workstream.new")?.run();
 
   return (
-    <nav class="rail-strip" aria-label={copy.railStrip}>
+    <nav class="rail-strip" aria-label={sharedCopy.workstreams}>
       <IconButton class="rail-strip-expand" aria-label={copy.expandRail} onClick={props.expand}><Icon name="right" /></IconButton>
       <button type="button" data-button="quiet" class="rail-mark" data-overview="" aria-pressed={rail.selected() === null} aria-label={copy.overviewMark(attention())} onClick={() => rail.select(null)}>
         <Icon name="layout-dashboard" />
@@ -39,12 +40,15 @@ export const RailStrip = (props: { expand: () => void }) => {
       </button>
       <div class="rail-strip-scroll">
         <TreeView.Root collection={collection()} selectedValue={current() === null ? [] : [current()!]} expandOnClick={false}>
-          <TreeView.Tree aria-label={copy.railStrip}>
+          <TreeView.Tree aria-label={sharedCopy.workstreams}>
             <For each={marks()}>{(node, at) => {
               const kind = () => rowKind(rail.topology(), node, dismissed, true);
-              const needs = () => { const counts = rowAttention(rail.topology(), node, dismissed);
 
- return counts.needsYou + counts.error; };
+              const needs = () => {
+                const counts = rowAttention(rail.topology(), node, dismissed);
+
+                return counts.needsYou + counts.error;
+              };
 
               const unread = () => rowUnread(rail.topology(), node, id => unseen.of(id), true);
 
