@@ -24,6 +24,7 @@ import { Mentions } from "../ui/Mentions";
 import { KindGlyph, LABELS } from "../ink/KindGlyph";
 import { FailureLine, shownKind } from "../ink/FailureLine";
 import { attentionOrder } from "../rail/attention";
+import { selectedRailRow } from "../rail/selectedRow";
 import { descendantsOf, resolvedWorkstream, siblingsOf } from "../rail/layout";
 import { Tip } from "../ui/Tip";
 import { contextMenu, linkEntries, openOnRelease } from "../ui/contextMenu";
@@ -171,11 +172,11 @@ export const AskBar = (props: {
       return field;
     }),
     finalFocusEl: () => homeFocus
-      ? document.querySelector<HTMLElement>('.rail-row[data-selected="true"]')
+      ? selectedRailRow()
       : selectedPane
       ? document.querySelector<HTMLElement>('.thread[data-mode="thread"] .thread-composer textarea:not(:disabled)')
         ?? document.querySelector<HTMLElement>(".pane-screen textarea")
-        ?? document.querySelector<HTMLElement>('.rail-row[data-selected="true"]')
+        ?? selectedRailRow()
       : null,
     // Background layers may close while Ask remains the newer focus owner.
     onRequestDismiss: event => event.preventDefault(),
@@ -208,7 +209,7 @@ export const AskBar = (props: {
   });
 
   /** At home the Ask input is part of the page, so Esc has no panel to close: it leaves the input for the Rail's selected row. */
-  const leaveHome = () => queueFocus(() => document.querySelector<HTMLElement>('.rail-row[data-selected="true"]')?.focus());
+  const leaveHome = () => queueFocus(() => selectedRailRow()?.focus());
 
   const close = (restore: boolean): void => {
     if (optionalViews.some(connected.hasView)) optionalViews.forEach(connected.hideView);
