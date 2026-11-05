@@ -35,7 +35,7 @@ const hit = (x: number, y: number, lifted: string) => page.call<{ lifted: boolea
 }`, x, y, lifted);
 
 run("u6239 Project tab drag", () => {
-  it("u6239a_the_held_tab_is_under_the_pointer", async () => {
+  it("u6239a_the_dragged_tab_is_under_the_pointer", async () => {
     await page.scheme("dark");
     await page.load("/harness.html?seed=tabs-8", 1512, 950);
     await page.until(`() => document.querySelectorAll('.app-tabs-list .project-tab').length >= 6`);
