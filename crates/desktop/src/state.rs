@@ -19,6 +19,7 @@ use tokio::time::{Duration, sleep, timeout};
 
 use crate::config::Config;
 use crate::daemon::{self, OwnedSocket};
+use crate::reopen::{self, GIVE_UP};
 use crate::store::Store;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
@@ -47,7 +48,6 @@ struct DaemonExited {
 
 /// How long `exit_for_update` waits for each Daemon to answer and then to be gone.
 const UPDATE_BOUND: Duration = Duration::from_secs(3);
-
 /// The longest name `rename_project` stores (S10).
 const NAME_LIMIT: usize = 40;
 
@@ -300,13 +300,13 @@ impl AppState {
                     let Some(failure) = self.record_failure(&key, &lifetime) else {
                         return Err(not_open(&key));
                     };
-                    if failure == 3 {
+                    let Some(wait) = reopen::wait(failure) else {
                         return Err(err);
-                    }
+                    };
                     tokio::select! {
                         biased;
                         _ = cancel.changed() => return Err(not_open(&key)),
-                        _ = sleep(Duration::from_millis(250 * u64::from(failure))) => {}
+                        _ = sleep(wait) => {}
                     }
                 }
             }
@@ -741,7 +741,7 @@ impl AppState {
         let entry = entries
             .iter_mut()
             .find(|entry| entry.path == path && Arc::ptr_eq(&entry.lifetime, lifetime))?;
-        entry.failures = (entry.failures + 1).min(3);
+        entry.failures = (entry.failures + 1).min(GIVE_UP);
         Some(entry.failures)
     }
 
@@ -761,14 +761,15 @@ impl AppState {
             return;
         }
         entry.phase = Phase::Exited;
-        entry.failures = (entry.failures + 1).min(3);
+        entry.failures = (entry.failures + 1).min(GIVE_UP);
         let failures = entry.failures;
         let lifetime = entry.lifetime.clone();
         let cancel = entry.cancel.subscribe();
         // Emit while holding the entry: close/reopen cannot overtake its exit notification.
-        Self::notify(app, path, code, (failures < 3).then_some("waiting"), cause);
+        let recovery = (failures < GIVE_UP).then_some("waiting");
+        Self::notify(app, path, code, recovery, cause);
         drop(entries);
-        if failures < 3 {
+        if failures < GIVE_UP {
             Self::recover(app.clone(), path.to_owned(), lifetime, cancel, failures);
         }
     }
@@ -801,11 +802,11 @@ impl AppState {
         mut failures: u8,
     ) {
         tauri::async_runtime::spawn(async move {
-            loop {
+            while let Some(wait) = reopen::wait(failures) {
                 tokio::select! {
                     biased;
                     _ = cancel.changed() => return,
-                    _ = sleep(Duration::from_millis(250 * u64::from(failures))) => {}
+                    _ = sleep(wait) => {}
                 }
                 let state = app.state::<AppState>();
                 let starting = tokio::select! {
@@ -852,12 +853,9 @@ impl AppState {
                             &app,
                             &path,
                             None,
-                            (failures < 3).then_some("waiting"),
+                            (failures < GIVE_UP).then_some("waiting"),
                             Some(err.message),
                         );
-                        if failures == 3 {
-                            return;
-                        }
                     }
                 }
             }

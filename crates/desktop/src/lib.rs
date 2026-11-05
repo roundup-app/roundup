@@ -15,6 +15,7 @@ mod menu;
 mod menu_bar;
 mod open;
 mod paste;
+mod reopen;
 mod state;
 mod store;
 mod update;
