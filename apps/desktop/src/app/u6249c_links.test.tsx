@@ -85,7 +85,7 @@ it("u6249c_link_failure_has_one_surface", async () => {
 });
 
 it("u6249c_project_key_matches_the_daemons", async () => {
-  // `printf '%s' /Users/x/closed | shasum -a 256` starts 9c99096382081341; `project_data` in crates/rupd/src/data.rs builds the key the same way.
+  // `printf '%s' /Users/x/closed | shasum -a 256` starts 9c99096382081341; the Daemon builds its Project key the same way.
   expect(await keyOfPath("/Users/x/closed")).toBe("closed-9c99096382081341");
 });
 
