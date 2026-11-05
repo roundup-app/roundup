@@ -1,4 +1,4 @@
-import { captureFocus } from "./focus";
+import { captureFocus, returnFocus } from "./focus";
 import { KeyHint } from "./KeyHint";
 import { copy } from "./copy";
 import { createSignal, For, Show } from "solid-js";
@@ -46,7 +46,7 @@ export const Help = (props: { projectOpen?: boolean; shelfOpen?: boolean }) => {
   const close = (): void => {
     setOpen(false);
 
-    if (returnTo instanceof HTMLElement && returnTo.isConnected) returnTo.focus({ preventScroll: true });
+    returnFocus(returnTo);
   };
 
   registerKeys({ kind: "app" }, [{ action: CHORDS.find(row => row.name === "help.open")!, chords: HELP_KEYS, when: press => opensFrom(press.target), capture: focus => ({
