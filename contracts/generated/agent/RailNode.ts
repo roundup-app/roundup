@@ -12,8 +12,14 @@ import type * as agent$RailVisibility from "./RailVisibility";
 import type * as agent$StartAttribution from "./StartAttribution";
 import type * as agent$Stray from "./Stray";
 import type * as agent$ToolCall from "./ToolCall";
+import type * as agent$WorkstreamState from "./WorkstreamState";
 import type * as agent$Worktree from "./Worktree";
 export type RailNode = {
+	/**
+	 *  DCL2: on a Workstream, the most urgent state among its Door and all its descendant Agents;
+	 *  apart from the Door's own `status`. Absent on every other node.
+	 */
+	workstream_state?: agent$WorkstreamState.WorkstreamState,
 	/**  A5765e: captured foreign source identity, descriptive only; absent for ordinary Add. */
 	start_attribution?: agent$StartAttribution.StartAttribution,
 	visibility?: agent$RailVisibility.RailVisibility,

@@ -51,7 +51,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Terminal catch-up (`CatchUpParams`, `CatchUp`, `terminal.catchUp`, `Terminals::catch_up`) | same | — |
 | Snapshot | same | — |
 | Workstream | same | room, folder |
-| Workstream state | same | — |
+| Workstream state (`WorkstreamState`, `RailNode.workstream_state`; apart from the Door's own Status Kind) | same | — |
 | Group (`NodeKind::Group`, `GroupParams`, `rail.group`, `Rail::group`) | same | — |
 | Mode | same | — |
 | Make a Workstream (`agent.makeWorkstream`, `Agents::make_workstream`) | Make a Workstream | — |

@@ -203,6 +203,11 @@ async fn name_of(user: &rpc::Client, id: &str) -> String {
         .name
 }
 
+/// The notes made for `to` and the prompts typed.
+async fn turns(user: &rpc::Client, to: &str, prompts: &std::path::Path) -> (Vec<String>, usize) {
+    (made(user, to).await, typed(prompts, 0).await.len())
+}
+
 #[tokio::test]
 async fn b47_a_replay_of_status_flips_starts_no_door_turn() {
     let logs = tempfile::tempdir().unwrap();
@@ -296,16 +301,15 @@ async fn b47_a_replay_of_status_flips_starts_no_door_turn() {
             .then_some(())
     })
     .await;
-    let before = (made(&user, &door).await, typed(&prompts, 0).await.len());
+    let before = turns(&user, &door, &prompts).await;
     for _ in 0..5 {
         drive(&user, &child, STOP).await;
         drive(&user, &child, WORK).await;
     }
     // Observation window: a forbidden extra Digest/turn has no completion event.
     tokio::time::sleep(Duration::from_secs(1)).await;
-    let after = (made(&user, &door).await, typed(&prompts, 0).await.len());
-    assert_eq!(after.0, before.0);
-    assert_eq!(after.1, before.1);
+    let after = turns(&user, &door, &prompts).await;
+    assert_eq!(after, before);
 }
 
 #[tokio::test]

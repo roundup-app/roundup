@@ -140,19 +140,27 @@ impl Daemon {
         self.with_waiting(reply).await
     }
 
-    /// DCL10, DCL10c: each stopped Door's waiting count, read from the stored backlog on every
-    /// reply; a Workstream whose Door has a live program carries none. A reply passes through
-    /// untouched when no Door has one.
+    /// `rail.tree` as a connection reads it: the Rail with each Workstream's state and waiting count.
+    pub(crate) async fn presented_rail(
+        &self,
+        conn: &Conn,
+    ) -> Result<Vec<contracts::agent::RailNode>, RpcError> {
+        match self.rail_reply(conn).await? {
+            rpc::Reply::Value(value) => serde_json::from_value(value),
+            rpc::Reply::Json(json) => serde_json::from_str(&json),
+        }
+        .map_err(RpcError::internal)
+    }
+
+    /// DCL2, DCL10, DCL10c: each Workstream's state, and each stopped Door's waiting count, read from the stored backlog on every
+    /// reply; a Workstream whose Door has a live program carries none.
     async fn with_waiting(&self, reply: rpc::Reply) -> Result<rpc::Reply, RpcError> {
-        let Some(messages) = self.sender.get() else {
-            return Ok(reply);
+        let counts = match self.sender.get() {
+            Some(messages) => messages.waiting_counts().await?,
+            None => Default::default(),
         };
-        let counts = messages.waiting_counts().await?;
         // DCL5: a stalled Door shows its own stall on its row; it is sent no Message about it.
         let stalled = self.agents.stalled(crate::facts::STALL_MS);
-        if counts.is_empty() && stalled.is_empty() {
-            return Ok(reply);
-        }
         let mut nodes: Vec<contracts::agent::RailNode> = match reply {
             rpc::Reply::Value(value) => serde_json::from_value(value),
             rpc::Reply::Json(json) => serde_json::from_str(&json),
@@ -171,6 +179,7 @@ impl Daemon {
                 }
             }
         }
+        crate::workstream_state::derive(&mut nodes, &stalled);
         Ok(rpc::Reply::Value(rpc::reply(&nodes)?))
     }
 
@@ -197,6 +206,9 @@ impl Daemon {
         }
         if matches!(method, "todo.restore" | "todo.redo") && conn.actor.kind != ActorKind::User {
             return Err(RpcError::forbidden("only the user restores deleted Todos"));
+        }
+        if method == "rail.tree" {
+            return rpc::reply(&self.presented_rail(conn).await?);
         }
         let owner = contracts::methods::owner_namespace(method).unwrap_or(namespace);
         if owner == "daemon" {
