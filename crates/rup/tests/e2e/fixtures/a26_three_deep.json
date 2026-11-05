@@ -2,6 +2,22 @@
   "fixtures": [
     {
       "match": {
+        "userMessage": "from-name=\"rupd\" from-mode=\"default\">\n[stopped]"
+      },
+      "response": {
+        "content": "Stopped noted."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "from-name=\"rupd\" from-mode=\"default\">\n[settled]"
+      },
+      "response": {
+        "content": "Settled noted."
+      }
+    },
+    {
+      "match": {
         "userMessage": "<session>\nFollow this instruction: What is this Workstream for?"
       },
       "response": {

@@ -2,6 +2,22 @@
   "fixtures": [
     {
       "match": {
+        "userMessage": "from-name=\"rupd\" from-mode=\"default\">\n[stopped]"
+      },
+      "response": {
+        "content": "Stopped noted."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "from-name=\"rupd\" from-mode=\"default\">\n[settled]"
+      },
+      "response": {
+        "content": "Settled noted."
+      }
+    },
+    {
+      "match": {
         "toolCallId": "toolu_q11_resume_2_2",
         "toolResultContains": "Launching skill: hold:grasp"
       },
