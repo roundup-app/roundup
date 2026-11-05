@@ -570,6 +570,11 @@
     "kind": "reference",
     "sha256": "727d771c227290c7ce1c57af10229bf7cfb185a6aace115c63afbf34a158f6dd"
   },
+  "crates/rupd/src/feedback.rs": {
+    "cleanup": "In-process test runtime owns this Daemon; no built executable launch.",
+    "data": "Unit observers call Daemon::open_project on explicit TempDir paths; no production fallback resolver.",
+    "kind": "in-process"
+  },
   "crates/rupd/src/lib.rs": {
     "cleanup": "In-process test runtime owns these Daemons; no built executable launch.",
     "data": "Unit observers call Daemon::open on explicit TempDir paths; no production fallback resolver.",

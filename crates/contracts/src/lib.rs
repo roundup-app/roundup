@@ -14,6 +14,7 @@ pub mod deliverable;
 pub mod describe;
 pub mod event;
 pub mod export;
+pub mod feedback;
 pub mod github;
 pub mod link;
 pub mod message;

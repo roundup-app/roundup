@@ -268,10 +268,42 @@ impl TellMap {
         Ok(self.map.remove(key))
     }
 
-    /// Records `told`, logging a refused write once, naming the Door and child (DCL10a).
-    fn record(&mut self, key: (String, String), told: Told) -> bool {
+    /// `insert`, with the change the Door is to be told kept in `push_intents` in the same
+    /// transaction (DCL4): a kill before the push reaches the ledger leaves it to be queued.
+    fn insert_queued(
+        &mut self,
+        key: (String, String),
+        told: Told,
+        entry: &DigestEntry,
+    ) -> rusqlite::Result<Option<Told>> {
+        if let Some(db) = &self.db {
+            let to_sql = |err| rusqlite::Error::ToSqlConversionFailure(Box::new(err));
+            let json = serde_json::to_string(&told).map_err(to_sql)?;
+            let entry = serde_json::to_string(entry).map_err(to_sql)?;
+            let tx = db.unchecked_transaction()?;
+            tx.execute(
+                "INSERT OR REPLACE INTO door_told (door, child, told) VALUES (?1, ?2, ?3)",
+                rusqlite::params![key.0, key.1, json],
+            )?;
+            tx.execute(
+                "INSERT INTO push_intents (door, child, entry, weight) VALUES (?1, ?2, ?3, 1) \
+                 ON CONFLICT (door, child) DO UPDATE SET entry = ?3, weight = weight + 1",
+                rusqlite::params![key.0, key.1, entry],
+            )?;
+            tx.commit()?;
+        }
+        Ok(self.map.insert(key, told))
+    }
+
+    /// Records `told`, logging a refused write once, naming the Door and child (DCL10a); with
+    /// `push`, the change is also queued for the Door in the same transaction (DCL4).
+    fn record(&mut self, key: (String, String), told: Told, push: Option<&DigestEntry>) -> bool {
         let at = format!("{}/{}", key.0, key.1);
-        let Err(err) = self.insert(key, told) else {
+        let result = match push {
+            Some(entry) => self.insert_queued(key, told, entry),
+            None => self.insert(key, told),
+        };
+        let Err(err) = result else {
             return true;
         };
         crate::log_failure("told", &format!("{at}: {err}"));
@@ -318,6 +350,15 @@ impl Push {
     pub fn subagent(&self) -> &str {
         &self.key.1
     }
+}
+
+/// A change `Seen` recorded as told that no push ledger holds yet (DCL4).
+pub struct Intent {
+    pub door: String,
+    pub child: String,
+    pub entry: DigestEntry,
+    /// How many changes it stands for.
+    pub weight: u32,
 }
 
 #[derive(Default)]
@@ -416,7 +457,7 @@ impl Seen {
                 if let Some(newest) = newest {
                     book.name(&key, newest);
                 }
-                book.told.record(key, told(&entry, child, from));
+                book.told.record(key, told(&entry, child, from), None);
             }
             items.push(DigestItem::Child(entry));
         }
@@ -443,7 +484,7 @@ impl Seen {
             if let Some(newest) = newest {
                 book.name(&key, newest);
             }
-            book.told.record(key, told(&entry, node, from));
+            book.told.record(key, told(&entry, node, from), None);
         }
         Some(entry)
     }
@@ -466,7 +507,7 @@ impl Seen {
                 let after = book.named.get(&key).copied();
                 let (entry, _) = entry(child, &meta.id, from, after, false);
                 let seen = told(&entry, child, from);
-                book.told.record(key, seen);
+                book.told.record(key, seen, None);
             }
         }
     }
@@ -522,7 +563,7 @@ impl Seen {
                     .get(&key)
                     .is_some_and(|was| was.entry.kind != now.entry.kind)
             {
-                book.told.record(key.clone(), now.clone());
+                book.told.record(key.clone(), now.clone(), None);
             }
             if moved {
                 let noted = book.noted.get(&key).copied();
@@ -545,7 +586,8 @@ impl Seen {
                 };
                 let before = (after, book.told.get(&key).cloned());
                 // DCL10a: a refused write leaves the change untold, to be offered again.
-                if !book.told.record(key.clone(), now.clone()) {
+                let queued = (!repeated).then_some(&pushed);
+                if !book.told.record(key.clone(), now.clone(), queued) {
                     match noted {
                         Some(kind) => book.noted.insert(key, kind),
                         None => book.noted.remove(&key),
@@ -570,6 +612,38 @@ impl Seen {
         }
         pushes.extend(farewells(&mut book, from));
         pushes
+    }
+
+    /// DCL4: the changes recorded as told whose push never reached the push ledger, because the
+    /// Daemon ended between the two; the ledger's own write removes each one.
+    pub fn intents(&self) -> Vec<Intent> {
+        let book = self.book();
+        let Some(db) = &book.db else {
+            return Vec::new();
+        };
+        db.prepare("SELECT door, child, entry, weight FROM push_intents ORDER BY rowid")
+            .and_then(|mut stmt| {
+                stmt.query_map([], |row| {
+                    Ok((
+                        row.get::<_, String>(0)?,
+                        row.get::<_, String>(1)?,
+                        row.get::<_, String>(2)?,
+                        row.get::<_, u32>(3)?,
+                    ))
+                })?
+                .collect::<rusqlite::Result<Vec<_>>>()
+            })
+            .unwrap_or_default()
+            .into_iter()
+            .filter_map(|(door, child, entry, weight)| {
+                Some(Intent {
+                    door,
+                    child,
+                    entry: serde_json::from_str(&entry).ok()?,
+                    weight,
+                })
+            })
+            .collect()
     }
 
     /// B21: the Message for `push` was not sent, so its entry is as untold as it was, unless a
