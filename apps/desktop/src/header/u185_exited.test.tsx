@@ -8,25 +8,22 @@ import { openTabs, path, tab } from "./stripFixture";
 afterEach(cleanup);
 
 describe("u185 a Daemon gone, in a tab", () => {
-  it("u185_a_code_exit_marks_the_tab_error_with_the_code_in_the_tooltip", async () => {
+  it("u185_a_code_exit_marks_the_tab_error", async () => {
     const { app } = await openTabs({ api: [agent("a", "idle", "x")], web: [] });
 
     app.exitDaemon({ code: 3 }, path("api"));
 
     await waitFor(() => expect(tab("api").querySelector(".tab-mark")?.getAttribute("data-kind")).toBe("error"));
-
-    fireEvent.pointerOver(tab("api"), { pointerType: "mouse" });
-
-    expect((await screen.findByRole("tooltip")).textContent).toBe(`api${appCopy.daemonExit("exited 3")}`);
   });
 
   it("u185_a_signal_exit_reads_by_signal", async () => {
     const { app } = await openTabs({ api: [], web: [] });
 
     app.exitDaemon({ code: null }, path("api"));
-    fireEvent.pointerOver(tab("api"), { pointerType: "mouse" });
+    await waitFor(() => expect(tab("api").querySelector(".tab-mark")?.getAttribute("data-kind")).toBe("error"));
+    fireEvent.click(tab("api"));
 
-    expect((await screen.findByRole("tooltip")).textContent).toBe(`api${appCopy.daemonExit("exited by signal")}`);
+    expect(await within(screen.getByRole("region", { name: "Rail" })).findByText(appCopy.daemonExit("exited by signal"))).toBeDefined();
   });
 
   it("u185_the_header_text_shows_for_the_open_project_only", async () => {

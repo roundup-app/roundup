@@ -5,44 +5,21 @@ import { openTabs, tab } from "./stripFixture";
 
 afterEach(cleanup);
 
-describe("u182 hover tells the count", () => {
-  it.each([
-    [[agent("a", "needs-you", "x"), agent("b", "needs-you", "x")], [2, 0]],
-    [[agent("a", "error", "x")], [0, 1]],
-    [[agent("a", "error", "x"), agent("b", "needs-you", "x"), agent("c", "idle", "x")], [1, 1]],
-  ])("u182_the_text_for_each_mix_%#", async (nodes, counts) => {
-    await openTabs({ api: nodes, web: [] });
+describe("u182 a Project tab has no hover label", () => {
+  it("u6220a_hover_and_focus_show_no_tooltip_on_a_marked_or_plain_tab", async () => {
+    await openTabs({ api: [agent("a", "needs-you", "x")], web: [agent("b", "idle", "x")] });
 
-    fireEvent.pointerOver(tab("api"), { pointerType: "mouse" });
+    for (const name of ["api", "web"]) {
+      fireEvent.pointerOver(tab(name), { pointerType: "mouse" });
+      fireEvent.keyDown(document.body, { key: "Tab" });
+      tab(name).focus();
+      // Past Ark's 400 ms open delay.
+      await new Promise(resolve => setTimeout(resolve, 500));
 
-    expect((await screen.findByRole("tooltip")).textContent?.match(/\d+/g)?.map(Number)).toEqual(counts);
-    expect(tab("api").getAttribute("aria-describedby")).toBe(screen.getByRole("tooltip").id);
-
-    fireEvent.pointerLeave(tab("api"));
-
-    await waitFor(() => expect(screen.queryByRole("tooltip")).toBeNull());
-  });
-
-  it("u3299d_a_tab_with_no_mark_preserves_its_name", async () => {
-    await openTabs({ api: [agent("a", "idle", "x")] });
-
-    fireEvent.pointerOver(tab("api"), { pointerType: "mouse" });
-
-    expect((await screen.findByRole("tooltip")).textContent).toBe("api");
-  });
-
-  it("u182_keyboard_focus_shows_it_and_blur_hides_it", async () => {
-    await openTabs({ api: [agent("a", "needs-you", "x")], web: [] });
-
-    fireEvent.keyDown(document.body, { key: "Tab" });
-    tab("api").focus();
-
-    const tooltip = await screen.findByRole("tooltip");
-    await waitFor(() => expect(tab("api").getAttribute("aria-describedby")).toBe(tooltip.id));
-
-    tab("api").blur();
-
-    await waitFor(() => expect(screen.queryByRole("tooltip")).toBeNull());
+      expect(screen.queryByRole("tooltip")).toBeNull();
+      expect(tab(name).hasAttribute("aria-describedby")).toBe(false);
+      expect(tab(name).closest(".project-tab")!.querySelectorAll("[title]")).toHaveLength(0);
+    }
   });
 
   it("u182_the_dock_badge_is_the_sum_over_every_project", async () => {
@@ -50,6 +27,4 @@ describe("u182 hover tells the count", () => {
 
     await waitFor(() => expect(app.badges.at(-1)).toBe(3));
   });
-
-
 });

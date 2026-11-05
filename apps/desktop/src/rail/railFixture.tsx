@@ -54,7 +54,7 @@ export const mountRail = async (
     return (
       <ConnectedProjectContext.Provider value={connected}>
         <AttentionKey />
-        <DockBadge app={app} rails={() => [attentionHolders(connected.rail.nodes, connected.rail.terminals(), connected.rail.dismissed)]} onFailure={() => {}} />
+        <DockBadge app={app} rails={() => [{ alerts: "all", nodes: attentionHolders(connected.rail.nodes, connected.rail.terminals(), connected.rail.dismissed) }]} onFailure={() => {}} />
         <Rail />
         <Show when={neighbors.pane}>
           <Pane createEmulator={neighbors.pane === true ? undefined : neighbors.pane} />

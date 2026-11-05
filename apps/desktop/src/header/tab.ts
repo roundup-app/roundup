@@ -26,9 +26,6 @@ export const MARKS: Record<Mark, { label: string; tone: "red" | "amber" }> = {
   "needs-you": { label: copy.needsYou, tone: "amber" },
 };
 
-/** U182: both counts always; an exited Daemon says so instead (U185). */
-export const tipOf = (tab: StripTab): string => tab.exitText ?? copy.needYouError(tab.needsYou, tab.error);
-
 /** U382: a name's last characters stay fixed, so when its start is clipped to `…` the characters that tell twins apart remain. */
 const TAIL = 3;
 

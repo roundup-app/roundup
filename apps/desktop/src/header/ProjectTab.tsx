@@ -13,12 +13,14 @@ import { FlatTab } from "../ui/FlatTab";
 import { IconButton } from "../ui/IconButton";
 import { Tabs } from "../ui/Tabs";
 import { Dialog } from "../ui/Dialog";
+import type { SortableParts } from "../ui/sortable";
 import { Tip } from "../ui/Tip";
 import { contextMenu, openOnRelease } from "../ui/contextMenu";
 import type { App } from "../app/seam";
 import { modalOpen, registerKeys } from "../keys/registry";
 import { CHORDS } from "../keys/chords";
-import { MARKS, markOf, nameParts, tipOf } from "./tab";
+import { MARKS, markOf, nameParts } from "./tab";
+import { PROJECT_ALERTS, type ProjectAlerts } from "../state/projectAlerts";
 import type { StripTab } from "./tab";
 
 /** Rename keeps authored keystrokes out of Project shortcuts while leaving native text editing intact. */
@@ -69,6 +71,11 @@ export const ProjectTab = (props: {
   selected: boolean;
   suppressed?: boolean;
   closeFocus?: boolean;
+  /** U6220c: the sortable the strip lifts this tab with; a tab without one stays where it is. */
+  sort?: SortableParts | undefined;
+  /** U6220d: this Project's alert level, and the menu's way to change it. */
+  alerts: ProjectAlerts;
+  onAlerts: (level: ProjectAlerts) => void;
   /** Opens only this Project's retained revision with its captured base; absent/foreign,
    * pending and legacy records stay copy/discard-only. Opening never sends or reads.
    */
@@ -147,6 +154,9 @@ export const ProjectTab = (props: {
 
   createEffect(on(() => props.selected, selected => { if (!selected) setEditing(null); }));
 
+  // A rename field holds the pointer's drags for its text selection.
+  createEffect(() => { if (props.sort) props.sort.sortable.disabled = editing() !== null; });
+
   const edit = (selected?: { project: string; revision: string }) => {
     const retained = selected ? records().find(draft => draft.revision === selected.revision)
       : current() ?? records().filter(draft => draft.status === "failed").at(-1);
@@ -175,10 +185,10 @@ export const ProjectTab = (props: {
     },
   ]);
 
-  return <Tabs.Context>{(tabs) => <>
+  return <>
     <FlatTab class="project-tab" selected={props.selected} role="presentation" data-path={props.tab.path} data-unfinished={records().length || problem() || copyFailure() ? "true" : undefined}
       style={editing() === null ? undefined : { width: `${editing()?.width}px` }}
-      ref={(element) => { wrap = element; props.ref?.(element); }}
+      ref={(element) => { wrap = element; props.ref?.(element); props.sort?.ref(element); }}
       onPointerEnter={handlers.onMouseEnter} onPointerLeave={handlers.onMouseLeave}
       onFocusIn={handlers.onFocusIn} onFocusOut={handlers.onFocusOut}
       onContextMenu={(press: MouseEvent) => {
@@ -186,6 +196,7 @@ export const ProjectTab = (props: {
 
         if (app) openOnRelease(press, (x, y) => void contextMenu(app, [
           { id: "rename", label: copy.rename, shortcut: "F2", run: edit },
+          { id: "alerts", label: copy.alerts, children: PROJECT_ALERTS.map(level => ({ id: `alerts:${level}`, label: copy.alertLevels[level], checked: props.alerts === level, run: () => props.onAlerts(level) })) },
           { id: "close", label: copy.close, run: () => props.onClose() },
         ], x, y));
       }}>
@@ -218,21 +229,18 @@ export const ProjectTab = (props: {
           });
         }
       }} />}</Show>}>
-        <Tip ids={{ trigger: tabs().getTriggerProps({ value: props.tab.path }).id }} class="tab-tip" content={<>{props.tab.name}<Show when={mark()}><br />{tipOf(props.tab)}</Show><Show when={shown()}>{draft => <><br />{copy.draftIdentity(copy.unfinishedWork, String(draft().value.name ?? ""))}</>}</Show></>}>
-          {(tooltip) =>
-              <Tabs.Trigger {...tooltip({})} value={props.tab.path} class="tab-name-button"
-                aria-description={records().length || problem() || copyFailure() ? copy.unfinishedWork : undefined} data-selected={props.selected ? "true" : undefined} aria-busy={props.tab.busy} ref={(element) => (button = element)}
-                onClick={(click) => {
-                  if (click.target instanceof Element && click.target.closest('.tab-mark')) {
-                    click.preventDefault();
-                    props.onMark();
-                  }
-                }}>
-                <span class="tab-name" onDblClick={() => edit()}><span class="tab-head">{parts()[0]}</span><span class="tab-tail">{parts()[1]}</span></span>
-                <span class="tab-mark-slot"><Show when={mark()}>{(shown) => <span class="tab-mark ink" data-tone={MARKS[shown()].tone} data-kind={shown()} role="img" aria-label={MARKS[shown()].label} />}</Show></span>
-              </Tabs.Trigger>
-          }
-        </Tip>
+        <Tabs.Trigger value={props.tab.path} class="tab-name-button"
+          aria-description={records().length || problem() || copyFailure() ? copy.unfinishedWork : undefined} data-selected={props.selected ? "true" : undefined} aria-busy={props.tab.busy}
+          ref={(element) => { button = element; props.sort?.handleRef(element); onCleanup(() => props.sort?.handleRef(undefined)); }}
+          onClick={(click) => {
+            if (click.target instanceof Element && click.target.closest('.tab-mark')) {
+              click.preventDefault();
+              props.onMark();
+            }
+          }}>
+          <span class="tab-name" onDblClick={() => edit()}><span class="tab-head">{parts()[0]}</span><span class="tab-tail">{parts()[1]}</span></span>
+          <span class="tab-mark-slot"><Show when={mark()}>{(shown) => <span class="tab-mark ink" data-tone={MARKS[shown()].tone} data-kind={shown()} role="img" aria-label={MARKS[shown()].label} />}</Show></span>
+        </Tabs.Trigger>
         <div class="tab-actions">
         <Show when={records().length || problem() || copyFailure()}>
           <Tip text={copy.recoverDrafts}>{trigger => <IconButton {...trigger()} class="tab-recover" data-visible={near() || props.selected} tabIndex={props.selected ? 0 : -1} aria-label={copy.draftIdentity(copy.recoverDrafts, props.tab.name)} onClick={() => recover(true)}><Icon name="edit" /></IconButton>}</Tip>
@@ -262,5 +270,5 @@ export const ProjectTab = (props: {
         <Dialog.CloseTrigger data-button="quiet">{copy.close}</Dialog.CloseTrigger></div>
       </Dialog.Content></Dialog.Positioner></Portal>
     </Dialog.Root>
-  </>}</Tabs.Context>;
+  </>;
 };

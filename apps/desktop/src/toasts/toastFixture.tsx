@@ -15,6 +15,7 @@ import { createToastQueue } from "./queue";
 import { Toasts } from "./Toasts";
 import { watchProject } from "./watch";
 import { createStateAlerts } from "../rail/stateAlerts";
+import type { ProjectAlerts } from "../state/projectAlerts";
 
 export const TOAST_AGENT: Actor = { kind: "agent", id: "a", parent: null };
 
@@ -31,7 +32,7 @@ export const status = (id: string, kind: Kind) =>
 export const by = (actor: Actor, data: Parameters<typeof event>[0]) => ({ ...event(data), actor });
 
 /** The Toasts on a fake Daemon: `front` is whether roundup is the app in front, `sounds` counts the chimes. */
-export const mountToasts = async (tree: RailNode[], options: { todos?: Todo[]; pads?: Pad[]; selected?: string | null; reducedMotion?: boolean; front?: boolean } = {}) => {
+export const mountToasts = async (tree: RailNode[], options: { todos?: Todo[]; pads?: Pad[]; selected?: string | null; reducedMotion?: boolean; front?: boolean; project?: ProjectAlerts } = {}) => {
   const app = createFakeApp();
 
   app.handlers["rail.tree"] = () => tree;
@@ -51,7 +52,7 @@ export const mountToasts = async (tree: RailNode[], options: { todos?: Todo[]; p
 
   const view = render(() => {
     queue = createToastQueue(front, () => sounds.push(Date.now()));
-    watchProject(connected, queue.push, () => shown.push("/p"), () => true, queue.settle, createStateAlerts(alert => app.stateAlert(alert), front, message => alertFailures.push(message)), queue.suppress);
+    watchProject(connected, queue.push, () => shown.push("/p"), () => true, queue.settle, createStateAlerts(alert => app.stateAlert(alert), front, message => alertFailures.push(message)), queue.suppress, () => options.project ?? "all");
 
     return (
       <ConnectedProjectContext.Provider value={connected}>

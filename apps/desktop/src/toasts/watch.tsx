@@ -9,6 +9,7 @@ import type { Unsubscribe } from "../app/seam";
 import type { ConnectedProject } from "../state/connectedProject";
 import type { Candidate } from "./queue";
 import type { StateAlerts } from "../rail/stateAlerts";
+import type { ProjectAlerts } from "../state/projectAlerts";
 
 const TodoHost = lazy(() => import("../todos/TodoDrawer").then(module => ({ default: module.TodoHost })));
 
@@ -23,7 +24,7 @@ const todoItem = (id: number) => `todo:${id}`;
 const padItem = (name: string) => `pad:${name}`;
 
 /** U410: the Events of one open Project that make a Toast, as Candidates. `select` is how a click reaches the Agent's row, `show` the Project's tab. */
-export const watchProject = (connected: ConnectedProject, pushCandidate: (candidate: Candidate) => void, show: () => void, isActive: () => boolean, settleItem: (item: string) => void, alerts?: StateAlerts, suppress: (key: string) => void = () => {}): Unsubscribe => {
+export const watchProject = (connected: ConnectedProject, pushCandidate: (candidate: Candidate) => void, show: () => void, isActive: () => boolean, settleItem: (item: string) => void, alerts?: StateAlerts, suppress: (key: string) => void = () => {}, project: () => ProjectAlerts = () => "all"): Unsubscribe => {
   const { rail, events, app, drawer } = connected;
   const owned = (item: string) => JSON.stringify([connected.project.path, item]);
   const settle = (item: string) => settleItem(owned(item));
@@ -57,6 +58,8 @@ export const watchProject = (connected: ConnectedProject, pushCandidate: (candid
       name: rail.nameOf(actor),
       line,
       selected: isActive() && rail.selected() === actor.id,
+      // A Todo edit is no `needs-you` or `error`: a Project narrowed below `all` raises no Sound for it.
+      silent: project() !== "all",
       open,
     };
   };
@@ -111,7 +114,7 @@ export const watchProject = (connected: ConnectedProject, pushCandidate: (candid
       }
 
       const selected = isActive() && rail.selected() === id;
-      const raised = alerts?.changed({ key: owned(id), id, name: node?.name ?? id, kind: status.kind, selected, level: node?.alert_level ?? "default" });
+      const raised = alerts?.changed({ key: owned(id), id, name: node?.name ?? id, kind: status.kind, selected, level: node?.alert_level ?? "default", project: project() });
 
       if (status.kind !== "needs-you" && status.kind !== "error") return;
 
