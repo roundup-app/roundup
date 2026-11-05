@@ -65,7 +65,12 @@ export const shelfKeys = (props: { frame: ShelfFrame; shelf: () => HTMLElement |
     if (opening) queueFocus(() => selectedTab()?.focus({ preventScroll: true }));
   };
 
+  const modalOpen = () => document.querySelector('.drawer[data-open="true"], [role="dialog"], [role="alertdialog"], [role="menu"], [data-dnd-dragging]') !== null;
+
   const isCloseAvailable = (target: Element, path: EventTarget[] = []) => {
+    // U6224: Escape closes a peek from anywhere, the Terminal included, unless a Drawer, dialog or menu owns the key.
+    if (props.frame.peeking()) return !modalOpen();
+
     if (!props.frame.open()) return false;
 
     const shelf = props.shelf();
@@ -79,7 +84,7 @@ export const shelfKeys = (props: { frame: ShelfFrame; shelf: () => HTMLElement |
 
     if (!inside && (!overlay || !target.closest(".centre"))) return false;
 
-    if ((inside && target.closest("input, textarea, [contenteditable]")) || document.querySelector('.drawer[data-open="true"], [role="dialog"], [role="alertdialog"], [role="menu"], [data-dnd-dragging]')) return false;
+    if ((inside && target.closest("input, textarea, [contenteditable]")) || modalOpen()) return false;
 
     return true;
   };
@@ -107,7 +112,7 @@ export const shelfKeys = (props: { frame: ShelfFrame; shelf: () => HTMLElement |
     }, { action: CHORDS.find(row => row.name === "shelf.maximise")!, searchable: false,
       when: canShelfKey, capture: focus => ({ available: () => focus?.isConnected === true && !focus.closest("input,textarea,select,[contenteditable]") && props.frame.open() && props.shelf()?.contains(focus) === true && props.shelf()?.closest(".window")?.getAttribute("data-shelf-mode") !== "overlay", invoke: () => props.frame.toggleMaximise("key") }) }]);
     registerKeys({ kind: "app" }, [{ action: CHORDS.find(row => row.name === "shelf.close")!, searchable: false, when: canEscape,
-      capture: focus => ({ available: () => focus?.isConnected === true && isCloseAvailable(focus), invoke: () => toggle("key") }) }]);
+      capture: focus => ({ available: () => focus?.isConnected === true && isCloseAvailable(focus), invoke: () => { if (props.frame.peeking()) props.frame.unpeek(); else toggle("key"); } }) }]);
 
     return dispose;
   });

@@ -15,7 +15,7 @@ import { setResizeDragging } from "../resize/dragging";
 import type { Widths } from "../resize/widths";
 
 /** How the Shelf sits (U369 to U371): in the layout or not, slid in or out, and whether a change slides. */
-export type ShelfPlacement = { open: boolean; rendered: boolean; shown: boolean; animated: boolean; maximised?: boolean; onMaximise?: (source: ActivationSource) => void; reducedMotion?: boolean; onClose?: (source?: ActivationSource) => void; onSettle: () => void; attach?: (element: HTMLElement) => void; sliding?: boolean };
+export type ShelfPlacement = { open: boolean; peeking?: boolean; covering?: boolean; rendered: boolean; shown: boolean; animated: boolean; maximised?: boolean; onMaximise?: (source: ActivationSource) => void; reducedMotion?: boolean; onClose?: (source?: ActivationSource) => void; onSettle: () => void; attach?: (element: HTMLElement) => void; sliding?: boolean };
 
 const SETTLED: ShelfPlacement = { open: true, rendered: true, shown: true, animated: false, onSettle: () => {} };
 
@@ -78,13 +78,15 @@ export const Layout = (props: {
   const placement = () => props.shelfPlacement ?? SETTLED;
 
   let windowElement: HTMLDivElement | undefined;
-  const [mode, setMode] = createSignal<"reserved" | "overlay">("reserved");
+  const [measured, setMeasured] = createSignal<"reserved" | "overlay">("reserved");
+  // U6224: a peek covers the centre and reserves nothing, so it lays out as the overlay without its scrim.
+  const mode = () => placement().covering ? "overlay" : measured();
 
   const measure = () => {
     if (!windowElement || windowElement.clientWidth === 0) return;
     const style = getComputedStyle(windowElement);
     const available = windowElement.clientWidth - parseFloat(style.getPropertyValue("--rail-width")) - parseFloat(style.getPropertyValue("--shelf-span"));
-    setMode(available < parseFloat(style.getPropertyValue("--centre-min-width")) ? "overlay" : "reserved");
+    setMeasured(available < parseFloat(style.getPropertyValue("--centre-min-width")) ? "overlay" : "reserved");
   };
 
   // ResizeObserver sees previews as well as committed and restored panel widths.
@@ -105,7 +107,7 @@ export const Layout = (props: {
     props.widths?.style();
     measure();
   });
-  createEffect(on(() => placement().shown, () => {
+  createEffect(on(() => [placement().shown, placement().covering] as const, () => {
     const drawer = windowElement?.querySelector('.drawer[data-open="true"]');
     setShelfSliding(!drawer && mode() === "reserved" && placement().animated && placement().rendered);
   }, { defer: true }));
@@ -129,7 +131,7 @@ export const Layout = (props: {
   onCleanup(() => setShelfSliding(false));
 
   return (
-  <div {...binding("root")} class="window" data-rail={props.railOpen === false ? "closed" : "open"} data-shelf-maximised={mode() === "reserved" && placement().maximised === true} data-layout-root="" ref={(element) => { windowElement = element; props.widths?.attach(element); }} style={props.widths?.style()} data-shelf={placement().open ? "open" : "closed"} data-shelf-mode={mode()} data-shelf-shown={placement().shown} data-shelf-animated={placement().animated}>
+  <div {...binding("root")} class="window" data-rail={props.railOpen === false ? "closed" : "open"} data-shelf-maximised={mode() === "reserved" && placement().maximised === true} data-layout-root="" ref={(element) => { windowElement = element; props.widths?.attach(element); }} style={props.widths?.style()} data-shelf={placement().open ? "open" : placement().peeking ? "peek" : "closed"} data-shelf-peek={placement().covering === true} data-shelf-mode={mode()} data-shelf-shown={placement().shown} data-shelf-animated={placement().animated}>
     <header class="header">{props.header}</header>
     <div {...props.tabs} style={{ display: "grid", "grid-area": "2 / 1", "min-height": "0", "min-width": "0" }}>
     <div class="columns" style={{ "grid-area": "1 / 1" }}>
@@ -141,7 +143,7 @@ export const Layout = (props: {
       </section>
       <Show when={props.widths}>{(widths) => <ResizeEdge class="rail-edge" side={widths().rail} onDragging={setResizeDragging} />}</Show>
     </div>
-    <Show when={mode() === "overlay" && placement().rendered}>
+    <Show when={mode() === "overlay" && placement().rendered && !placement().covering}>
       <div class="shelf-scrim" onPointerDown={(event) => event.preventDefault()} onClick={() => placement().onClose?.()} />
     </Show>
     <div class="overlay">{props.overlay}</div>
@@ -153,7 +155,7 @@ export const Layout = (props: {
       data-open={placement().shown}
       data-animated={placement().animated}
       hidden={!placement().rendered}
-      inert={!placement().open}
+      inert={!placement().open && !placement().peeking}
       ref={element => placement().attach?.(element)}
     >
       {props.shelfTabs}

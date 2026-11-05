@@ -1,6 +1,6 @@
-# UI: the full-height Shelf keeps the centre readable (U369 to U373)
+# UI: the full-height Shelf keeps the centre readable (U369 to U373, U6224)
 
-Module: `apps/desktop` (the webview). Ids: U369, U370, U371, U372, U373.
+Module: `apps/desktop` (the webview). Ids: U369, U370, U371, U372, U373, U6224.
 
 Webview only: no App command, no Daemon method and nothing under `contracts/` changes. U369 and U371's geometry is amended for #1612; their earlier fixed-pane overlay acceptance is replaced. The remaining tab, depth and motion acceptance stays in force.
 
@@ -32,11 +32,23 @@ U373 #4966 policy amendment: the Bench holds Todos and Pads, still one tabpanel 
 
 **Scrim**: The darkened surface over the centre while the Shelf overlays it.
 
+**U6224 the Bench peeks in at the trailing edge and stays on use.** Adds a third phase to U370's open and closed: a peek. Given an open Project with the Bench closed (U370) and no Drawer, dialog or menu open, then:
+
+- **Intent.** The Bench peeks in only after a mouse pointer with no button held rests within the window's trailing `PEEK_EDGE` (3 CSS px) for `PEEK_DWELL` (250 ms). A pass across the edge that leaves it sooner, a pointer with a button held (a Terminal text selection or a panel resize drag), a pointer on the Terminal's scrollbar (which sits clear of the edge) and any pointer while a Drawer, dialog or menu is open, peek nothing. Tests: `u6224_a_rest_at_the_edge_peeks_the_bench_in`, `u6224_a_fast_pass_peeks_nothing`, `u6224_a_held_button_peeks_nothing`, `u6224_the_terminal_scrollbar_peeks_nothing`.
+- **Cover, then push on use.** A peek slides in from the trailing edge over the centre as U370's motion says, with no scrim, and the centre keeps its width: no `terminal.resize` is sent, and `⌘K B` and the bar tabs read it as closed. A peek saves nothing, so a peek that slides back leaves the saved open state, tab and widths as they were and sends no `terminal.resize`. Tests: `u6224_a_peek_that_slides_back_saves_nothing_and_resizes_nothing`.
+- **Use.** A press, a key press or focus inside the Bench, a drag over it, or `⌘K B` or a bar tab, makes it the open Bench in place: U370 and U371 then apply, reserved width or overlay by width, with at most one `terminal.resize`, and the open state is saved as U370 saves it. Tests: `u6224_use_makes_the_peek_the_open_bench`, `u6224_a_pointerdown_inside_the_peek_is_use`, `u6224_a_keydown_inside_the_peek_is_use`, `u6224_a_dragenter_inside_the_peek_is_use`, `u6224_the_open_shortcut_makes_the_peek_the_open_bench`.
+- **Leave.** `PEEK_GRACE` (350 ms) after the pointer leaves the Bench and the window's trailing edge, a peek slides back; returning inside the grace keeps it. A press in the centre closes the peek at once and still reaches what it hit. Escape closes a peek from anywhere, including the Terminal, unless a Drawer, dialog or menu owns it, and sends no Terminal input. Tests: `u6224_leaving_without_use_slides_the_peek_back`, `u6224_a_press_in_the_centre_closes_the_peek_and_reaches_the_terminal`, `u6224_escape_closes_a_peek_and_reaches_no_terminal`.
+- **Focus.** A peek never moves focus: the Terminal keeps its keys until the user clicks or tabs into the Bench. Test: `u6224_the_terminal_keeps_the_keyboard_during_a_peek`.
+- **Reduced motion.** With `prefers-reduced-motion` the peek appears and leaves without a slide and keeps the same dwell and grace.
+- **Open or maximised.** With the Bench open the edge does nothing. A peek shows at the Bench's normal width even when the open Bench is maximised.
+
+The design critic judges the peek's look with U371's Checks on `tree-40` at 1512×950 (AGENTS.md rule 10); no test asserts geometry.
+
 **U372 what the Shelf shows follows #676's layout.** Narrows U359. Given Todo titles, Pad names and a Pad's text written by an Agent (Q2's list is the owner of which surfaces; the Shelf's are named there when #676's scenarios merge), then in the Shelf each renders as Q3 lays it out: one labelled part per field, no mono except an id, a path or code (D13), and a Pad's preview or any text beyond a row's two lines is shown whole in its Drawer, not in the Shelf. The design critic judges D12, D13 and D14 in the overlay (AGENTS.md rule 10); no test.
 
 Motion (`docs/motion.md`, `animate`): opening and closing the Shelf is a slide from the trailing edge, `transform: translateX`, **~180 ms ease-out** on `--duration-drawer`, the exit its reverse and interruptible; the shadow fades with it on `opacity` of the same duration. A tab switch is instant (seen constantly, like a Glyph change), and neither a restart nor `prefers-reduced-motion` animates anything. U371 retains this Shelf slide and shadow fade. In reserved-width mode the centre releases or reserves width with the same duration and curve; in overlay mode it does not animate. Tests: `u371_overlay_scrim_fades_with_the_interruptible_slide`, `u370_the_state_survives_a_restart_per_project`.
 
-Checks moved: D2 (`docs/design-system.md:126` on main), D5 (`docs/design-system.md:129`) and D6 (`docs/design-system.md:130`); depth and motion retain D8 (`docs/design-system.md:132`) and D9 (`docs/design-system.md:133`). The design critic judges these Checks in each mode, including a failed call's full text on `tree-40` (AGENTS.md rule 10); `u3789d_controls_keep_all_actions_dismisses_failure_from_menu` asserts the failure text; no Check passing on main may regress. Captures belong to U369 and U371 only, via `just capture U369 U371`.
+Checks moved: D2 (`docs/design-system.md:126` on main), D5 (`docs/design-system.md:129`) and D6 (`docs/design-system.md:130`); depth and motion retain D8 (`docs/design-system.md:132`) and D9 (`docs/design-system.md:133`). The design critic judges these Checks in each mode, including a failed call's full text on `tree-40` (AGENTS.md rule 10); `u3789d_controls_keep_all_actions_dismisses_failure_from_menu` asserts the failure text; no Check passing on main may regress. Captures belong to U369, U371 and U6224 only, via `just capture U369 U371 U6224`.
 
 Policy: the implementation PR updates the Shelf description in `GLOSSARY.md`, the Surfaces and depth paragraph of `docs/design-system.md` and any stale observer assertions alongside the webview callers. Rule 7 remains: cold start <300 ms, keystroke-to-render <16 ms p95, ten idle Agents <150 MB extra RSS and no >10% regression (`docs/perf.md`); `just perf` is the numerical observer. This specification PR changes acceptance only; its dependent implementation Issue owns code, tests, captures and those documentation updates. No script is introduced by this specification.
 
