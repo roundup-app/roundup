@@ -2,7 +2,7 @@
 use super::*;
 use crate::tests::{ask, daemon_in, daemon_with_launcher};
 
-async fn call(daemon: &Daemon, method: &str, params: Value) -> Value {
+pub(crate) async fn call(daemon: &Daemon, method: &str, params: Value) -> Value {
     let response = ask(
         daemon,
         &json!({"id":1,"method":method,"params":params}).to_string(),
@@ -37,7 +37,7 @@ async fn a3308_set_auto_persists_and_emits_once() {
     assert_eq!(rail[0]["auto"], true);
 }
 
-fn running_daemon(project: &std::path::Path) -> Daemon {
+pub(crate) fn running_daemon(project: &std::path::Path) -> Daemon {
     use std::os::unix::fs::PermissionsExt;
     let data = project.join("data");
     let fake = project.join("fake-claude");
@@ -57,7 +57,7 @@ fn running_daemon(project: &std::path::Path) -> Daemon {
     )
 }
 
-async fn door(daemon: &Daemon) -> String {
+pub(crate) async fn door(daemon: &Daemon) -> String {
     let node = call(daemon, "rail.createWorkstream", json!({"name":"Ship"})).await;
     call(daemon, "rail.startDoor", json!({"id":node["id"]})).await;
     node["id"].as_str().unwrap().into()
@@ -282,7 +282,7 @@ async fn a3308_a_restart_resends_nothing() {
     reopened.stop_terminals().await.unwrap();
 }
 
-async fn as_door(daemon: &Daemon, home: &str, method: &str, params: Value) -> Value {
+pub(crate) async fn as_door(daemon: &Daemon, home: &str, method: &str, params: Value) -> Value {
     let (events, _) = mpsc::unbounded_channel();
     let mut conn = Conn {
         actor: Actor {

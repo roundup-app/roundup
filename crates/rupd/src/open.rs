@@ -281,7 +281,10 @@ impl Daemon {
                 Arc::clone(&self.digests),
                 Arc::new(
                     settlement::Settlements::open(&self.data_dir.join("project.db"))
-                        .unwrap_or_default(),
+                        .unwrap_or_else(|err| {
+                            eprintln!("rupd: settlement store not opened, kept in memory: {err}");
+                            settlement::Settlements::default()
+                        }),
                 ),
                 events,
             ));
