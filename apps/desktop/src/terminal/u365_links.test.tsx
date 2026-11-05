@@ -201,6 +201,7 @@ describe("u365b bare domains", () => {
 
   const open = (failures: Record<string, RpcError>) => {
     const calls: OpenTarget[] = [];
+
     const openTarget = async (t: OpenTarget) => {
       calls.push(t);
 
