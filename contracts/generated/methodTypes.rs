@@ -30,7 +30,6 @@
     Method { name: "project.setWorktrees", params: "project_Worktrees", result: "null" },
     Method { name: "project.setMcp", params: "project_Mcp", result: "null" },
     Method { name: "project.setPrepared", params: "project_Prepared", result: "null" },
-    Method { name: "project.getPrepared", params: "null", result: "project_Prepared" },
     Method { name: "project.importDiscover", params: "project_ImportDiscoverParams", result: "project_ImportDiscovery" },
     Method { name: "import.list", params: "project_ImportListParams", result: "project_ImportList" },
     Method { name: "project.importCommit", params: "project_ImportCommitParams", result: "project_ImportResult" },

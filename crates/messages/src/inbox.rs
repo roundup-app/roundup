@@ -29,6 +29,15 @@ pub trait NoteInbox: Send + Sync {
     fn previous(&self, _agent: &str) -> Result<Option<String>, Inbox> {
         Ok(None)
     }
+    /// DCL8: the Jobs of `reported`-less Attempts, as `id (name), attempt` lines, for the open-Job
+    /// snapshot a Door's batch carries. `reported` gives the Attempts an Agent has reported.
+    fn open_jobs(
+        &self,
+        _agent: &str,
+        _reported: &dyn Fn(&str) -> Result<Vec<String>, RpcError>,
+    ) -> Vec<(String, String, String)> {
+        Vec::new()
+    }
     /// B50: write `notes` as entries; the answer names the failed state.
     fn write(&self, agent: &str, notes: &[Entry]) -> Result<(), Inbox>;
 }
@@ -61,6 +70,22 @@ impl NoteInbox for agents::Agents {
         self.inbox_previous(agent)
     }
 
+    fn open_jobs(
+        &self,
+        agent: &str,
+        reported: &dyn Fn(&str) -> Result<Vec<String>, RpcError>,
+    ) -> Vec<(String, String, String)> {
+        // DCL8: only a Door's batch carries the snapshot.
+        if !self.is_door(agent) {
+            return Vec::new();
+        }
+        agents::Agents::open_jobs(self, reported)
+            .unwrap_or_default()
+            .into_iter()
+            .map(|job| (job.id, job.name, job.attempt))
+            .collect()
+    }
+
     fn write(&self, agent: &str, notes: &[Entry]) -> Result<(), Inbox> {
         self.inbox_write(agent, notes)
     }
@@ -89,6 +114,42 @@ pub(crate) async fn refuse_mismatch(inner: &Arc<Inner>, note: &Message) -> Resul
         code::INBOX_UNAVAILABLE,
         "Message pending: Claude Code changed its message format",
     ))
+}
+
+/// DCL8: the open-Job snapshot the first batch of a Door's Attempt carries, listing each Job
+/// whose current Attempt has no report; `None` when it was given or no Job is open.
+fn open_job_snapshot(inner: &Arc<Inner>, agent: &str, at: store::Binding) -> Option<String> {
+    let inbox = inner.inbox.get()?;
+    if lock(&inner.snapshotted).contains(&(agent.to_owned(), at.0)) {
+        return None;
+    }
+    let reported = |id: &str| -> Result<Vec<String>, RpcError> {
+        let store = lock(&inner.store);
+        let mut rows = store
+            .db
+            .prepare("SELECT record FROM message_results WHERE agent=? ORDER BY seq")
+            .map_err(RpcError::internal)?;
+        let records = rows
+            .query_map([id], |r| r.get::<_, String>(0))
+            .map_err(RpcError::internal)?;
+        let mut attempts = Vec::new();
+        for record in records {
+            let report: contracts::message::ResultReport =
+                serde_json::from_str(&record.map_err(RpcError::internal)?)
+                    .map_err(RpcError::internal)?;
+            attempts.push(report.attempt);
+        }
+        Ok(attempts)
+    };
+    let jobs = inbox.open_jobs(agent, &reported);
+    if jobs.is_empty() {
+        return None;
+    }
+    let lines: Vec<String> = jobs
+        .into_iter()
+        .map(|(id, name, attempt)| format!("- {id} {name} (attempt {attempt})"))
+        .collect();
+    Some(format!("[open jobs]\n{}", lines.join("\n")))
 }
 
 /// B50(a), B50(c): writes `notes` to `agent`'s inbox when `state` is `ok` and leaves them
@@ -138,7 +199,24 @@ pub(crate) async fn send(
         };
         names
     };
-    let entries: Vec<Entry> = notes
+    // DCL8: the open-Job snapshot goes with the batch that leaves no Message of the receiver pending.
+    let last = {
+        let store = lock(&inner.store);
+        let pending = store.pending_all().expect("message store");
+        pending.iter().all(|m| {
+            m.to != agent
+                || pushes::is_digest(&m.from, &m.body)
+                || notes.iter().any(|n| n.id == m.id)
+                || store.in_flight(m.id).unwrap_or(false)
+        })
+    };
+    let snapshot = if last {
+        open_job_snapshot(inner, agent, at)
+    } else {
+        None
+    };
+    let attached = snapshot.is_some();
+    let mut entries: Vec<Entry> = notes
         .iter()
         .zip(pushes::bodies_of(&notes))
         .map(|(note, text)| Entry {
@@ -154,6 +232,18 @@ pub(crate) async fn send(
             text,
         })
         .collect();
+    let carrier = entries
+        .iter()
+        .rposition(|entry| !entry.one_line)
+        .or(entries.len().checked_sub(1));
+    if let (Some(snapshot), Some(last)) = (snapshot, carrier.and_then(|i| entries.get_mut(i))) {
+        last.one_line = false;
+        last.text = if last.text.is_empty() {
+            snapshot
+        } else {
+            format!("{}\n\n{snapshot}", last.text)
+        };
+    }
     let Some(inbox) = inner.inbox.get() else {
         return true;
     };
@@ -246,6 +336,9 @@ pub(crate) async fn send(
         Some(inbox) if !said.is_empty() => inbox.write(agent, &said),
         _ => Ok(()),
     };
+    if written.is_ok() && attached && !said.is_empty() {
+        lock(&inner.snapshotted).insert((agent.to_owned(), at.0));
+    }
     if written.is_err() {
         failure::record(inner, agent, failure::WRITE_FAILED);
         // A failed batch may have written a prefix; its previous comparison value is uncertain.
