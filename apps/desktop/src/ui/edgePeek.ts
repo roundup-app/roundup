@@ -43,7 +43,7 @@ export const createEdgePeek = (peek: EdgePeek) => {
   };
 
   const atEdge = (event: PointerEvent) => event.pointerType === "mouse" && event.buttons === 0
-    && (peek.edge === "leading" ? event.clientX < PEEK_EDGE : event.clientX >= document.documentElement.clientWidth - PEEK_EDGE || onSensor(event))
+    && ((peek.edge === "leading" ? event.clientX < PEEK_EDGE : event.clientX >= document.documentElement.clientWidth - PEEK_EDGE) || onSensor(event))
     && document.querySelector(OPEN_LAYER) === null;
 
   const use = (event: Event) => {
