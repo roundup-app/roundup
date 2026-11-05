@@ -10,6 +10,7 @@ import { createFakeApp } from "../testing/fakeApp";
 import { RpcError } from "../app/seam";
 import { CHORDS, HELP_ROWS } from "../keys/chords";
 import { copy } from "./copy";
+import { xtermOptions } from "../terminal/emulator";
 
 beforeEach(() => {
   vi.spyOn(Terminal.prototype, "open").mockImplementation(() => {});
@@ -152,7 +153,7 @@ it("u4547c_settings_choices_do_not_change_the_workstream_prompt", async () => {
 it("u3806_an_invalid_field_falls_back_alone", async () => {
   localStorage.setItem("roundup:app-settings", JSON.stringify({ fontSize: 1000, lineHeight: 10, letterSpacing: 2, fontWeight: 42, interfaceScale: "bad", focusMarkers: false, mode: "light", fontFamily: "Menlo", permissionMode: "plan", engine: 12, model: "kept", quickAdd: "x" }));
   await mount();
-  expect(appSettings()).toMatchObject({ mode: "light", fontFamily: "Menlo", permissionMode: "plan", engine: "", model: "kept", quickAdd: "meta+shift+KeyT", lineHeight: 1.7, letterSpacing: 2, fontWeight: 300, interfaceScale: "default", focusMarkers: false });
+  expect(appSettings()).toMatchObject({ mode: "light", fontFamily: "Menlo", permissionMode: "plan", engine: "", model: "kept", quickAdd: "meta+shift+KeyT", lineHeight: xtermOptions.lineHeight, letterSpacing: 2, fontWeight: 300, interfaceScale: "default", focusMarkers: false });
   await section("Terminal");
   expect(Number((await screen.findByLabelText<HTMLInputElement>("Font size", { selector: "input" })).value)).toBeLessThan(22);
   cleanup();
@@ -283,10 +284,10 @@ it("u4687b_preview_follows_valid_drafts_without_committing", async () => {
   const preview = renderer.mock.instances.at(-1)!;
   fireEvent.input(input, { target: { value: "1.2" } });
   await waitFor(() => expect(preview.options.lineHeight).toBe(1.2));
-  expect(appSettings().lineHeight).toBe(1.7);
+  expect(appSettings().lineHeight).toBe(xtermOptions.lineHeight);
   fireEvent.input(input, { target: { value: "invalid" } });
   expect(preview.options.lineHeight).toBe(1.2);
-  expect(appSettings().lineHeight).toBe(1.7);
+  expect(appSettings().lineHeight).toBe(xtermOptions.lineHeight);
   expect(app.calls.filter(call => call.method.startsWith("terminal.") || call.method === "agent.spawn")).toEqual([]);
 });
 
@@ -331,7 +332,7 @@ it("u4687c_a_failed_save_keeps_its_revision_and_a_newer_edit", async () => {
     expect(drafts).toContainEqual(expect.objectContaining({ status: "failed", value: expect.objectContaining({ text: "1.25" }) }));
     expect(drafts).toContainEqual(expect.objectContaining({ status: "draft", value: expect.objectContaining({ text: "newer exact edit" }) }));
   });
-  expect(appSettings().lineHeight).toBe(1.7);
+  expect(appSettings().lineHeight).toBe(xtermOptions.lineHeight);
 });
 
 it("u4687c_saved_changes_reach_other_project_tabs", async () => {
