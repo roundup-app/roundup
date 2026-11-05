@@ -295,19 +295,14 @@ impl TellMap {
         Ok(self.map.insert(key, told))
     }
 
-    /// Records `told`, logging a refused write once, naming the Door and child (DCL10a).
-    fn record(&mut self, key: (String, String), told: Told) -> bool {
+    /// Records `told`, logging a refused write once, naming the Door and child (DCL10a); with
+    /// `push`, the change is also queued for the Door in the same transaction (DCL4).
+    fn record(&mut self, key: (String, String), told: Told, push: Option<&DigestEntry>) -> bool {
         let at = format!("{}/{}", key.0, key.1);
-        Self::logged(&at, self.insert(key, told))
-    }
-
-    /// `record` for a change that is to be pushed (DCL4).
-    fn record_queued(&mut self, key: (String, String), told: Told, entry: &DigestEntry) -> bool {
-        let at = format!("{}/{}", key.0, key.1);
-        Self::logged(&at, self.insert_queued(key, told, entry))
-    }
-
-    fn logged(at: &str, result: rusqlite::Result<Option<Told>>) -> bool {
+        let result = match push {
+            Some(entry) => self.insert_queued(key, told, entry),
+            None => self.insert(key, told),
+        };
         let Err(err) = result else {
             return true;
         };
@@ -462,7 +457,7 @@ impl Seen {
                 if let Some(newest) = newest {
                     book.name(&key, newest);
                 }
-                book.told.record(key, told(&entry, child, from));
+                book.told.record(key, told(&entry, child, from), None);
             }
             items.push(DigestItem::Child(entry));
         }
@@ -489,7 +484,7 @@ impl Seen {
             if let Some(newest) = newest {
                 book.name(&key, newest);
             }
-            book.told.record(key, told(&entry, node, from));
+            book.told.record(key, told(&entry, node, from), None);
         }
         Some(entry)
     }
@@ -512,7 +507,7 @@ impl Seen {
                 let after = book.named.get(&key).copied();
                 let (entry, _) = entry(child, &meta.id, from, after, false);
                 let seen = told(&entry, child, from);
-                book.told.record(key, seen);
+                book.told.record(key, seen, None);
             }
         }
     }
@@ -568,7 +563,7 @@ impl Seen {
                     .get(&key)
                     .is_some_and(|was| was.entry.kind != now.entry.kind)
             {
-                book.told.record(key.clone(), now.clone());
+                book.told.record(key.clone(), now.clone(), None);
             }
             if moved {
                 let noted = book.noted.get(&key).copied();
@@ -591,12 +586,8 @@ impl Seen {
                 };
                 let before = (after, book.told.get(&key).cloned());
                 // DCL10a: a refused write leaves the change untold, to be offered again.
-                let recorded = if repeated {
-                    book.told.record(key.clone(), now.clone())
-                } else {
-                    book.told.record_queued(key.clone(), now.clone(), &pushed)
-                };
-                if !recorded {
+                let queued = (!repeated).then_some(&pushed);
+                if !book.told.record(key.clone(), now.clone(), queued) {
                     match noted {
                         Some(kind) => book.noted.insert(key, kind),
                         None => book.noted.remove(&key),
