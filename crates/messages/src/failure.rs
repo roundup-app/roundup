@@ -17,7 +17,10 @@ pub(crate) const AWAITING_INPUT: &str = "waiting until the user's first input in
 pub(crate) const INBOX_NOT_READY: &str = "waiting until the receiver's inbox is ready";
 
 /// The one waiting predicate: why the send path keeps a Message `pending` instead of writing it.
-pub(crate) fn waiting_reason(admitted: bool, inbox: contracts::agent::Inbox) -> Option<&'static str> {
+pub(crate) fn waiting_reason(
+    admitted: bool,
+    inbox: contracts::agent::Inbox,
+) -> Option<&'static str> {
     if !admitted {
         Some(AWAITING_INPUT)
     } else if inbox != contracts::agent::Inbox::Ok {
@@ -41,7 +44,9 @@ pub(crate) fn hold(inner: &Inner, ids: &[u32], reason: Option<&'static str>) {
 /// `message` as its sender reads it: a `pending` Message carries the reason it waits.
 pub(crate) fn with_waiting(inner: &Inner, mut message: Message) -> Message {
     if message.status == MessageStatus::Pending {
-        message.waiting = lock(&inner.waiting).get(&message.id).map(|r| (*r).to_owned());
+        message.waiting = lock(&inner.waiting)
+            .get(&message.id)
+            .map(|r| (*r).to_owned());
     }
     message
 }
