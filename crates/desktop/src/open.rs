@@ -43,8 +43,17 @@ pub fn check(target: Target) -> Result<Launch, RpcError> {
     }
 }
 
+/// `~` and `~/rest` under `home`; any other path as printed.
+fn expand_home(path: &str, home: Option<std::ffi::OsString>) -> PathBuf {
+    match (path.strip_prefix("~/"), path, home) {
+        (Some(rest), _, Some(home)) => PathBuf::from(home).join(rest),
+        (None, "~", Some(home)) => PathBuf::from(home),
+        _ => PathBuf::from(path),
+    }
+}
+
 fn parse_path(path: &str) -> Result<PathBuf, RpcError> {
-    let path = PathBuf::from(path);
+    let path = expand_home(path, std::env::var_os("HOME"));
     if !path.is_absolute() {
         return Err(RpcError::conflict(format!(
             "{} is not an absolute path",
@@ -268,6 +277,19 @@ pub fn open_in_editor(path: &str, line: Option<u32>) -> Result<(), RpcError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn u365b_a_home_path_expands() {
+        let home = || Some(std::ffi::OsString::from("/Users/me"));
+
+        assert_eq!(
+            expand_home("~/notes/a.md", home()),
+            PathBuf::from("/Users/me/notes/a.md")
+        );
+        assert_eq!(expand_home("~", home()), PathBuf::from("/Users/me"));
+        assert_eq!(expand_home("~x/a", home()), PathBuf::from("~x/a"));
+        assert_eq!(expand_home("/abs/a", home()), PathBuf::from("/abs/a"));
+    }
 
     fn url(text: &str) -> Target {
         Target::Url { url: text.into() }
