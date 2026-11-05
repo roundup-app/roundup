@@ -220,7 +220,7 @@ export const RailRowView = (props: {
         <Show when={isGroup()}><IconButton class="rail-group-chevron" aria-label={props.row.collapsed ? copy.expand : copy.collapse} aria-expanded={!props.row.collapsed} {...ownKeys} onClick={event => { event.stopPropagation(); props.onToggle(); }}><Icon name={props.row.collapsed ? "right" : "down"} /></IconButton></Show>
       </span>
     </p>
-    <Show when={workstream() && props.row.node.waiting}>{count => <ReservedLine class="rail-waiting" status={copy.doorStoppedWaiting(count())} />}</Show>
+    <Show when={workstream() && !connected.rail.launching(props.row.node.id) && props.row.node.waiting}>{count => <ReservedLine class="rail-waiting" status={copy.doorStoppedWaiting(count())} />}</Show>
     <Show when={workstream() && connected.rail.doorFailure(props.row.node.id)}>{cause => <FailureCause label={cause()} class="rail-door-failure" />}</Show>
     <Show when={props.row.node.start_attribution}>{source => <ReservedLine class="rail-attribution" status={copy.startedBy(source().agent_name, source().project_name)} />}</Show>
     <Show when={!workstream() && (props.selected || !connected.rail.dismissed(props.row.node))}><FailureLine status={props.row.node.status} dismissed={connected.rail.dismissed(props.row.node)} /></Show>

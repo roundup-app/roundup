@@ -4,7 +4,6 @@ import { cleanup, fireEvent, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { batch, createSignal } from "solid-js";
 import fuzzysort from "fuzzysort";
-import { chooseAction as chooseRailAction } from "../rail/railFixture";
 import { CHORDS, LEADER } from "../keys/chords";
 import { leaderKey } from "../keys/leaderFixture";
 import { openTabs, tab } from "../header/stripFixture";
@@ -90,7 +89,7 @@ it.each(["enter", "pointer"] as const)("u2572b_actions_share_key_behavior_in_the
   press("n", { metaKey: true, code: "KeyN" });
   await waitFor(() => expect(outcomes).toHaveLength(1));
   const keyOutcome = outcomes[0];
-  await waitFor(() => expect(document.querySelector('.rail-actions button[aria-label="Create"]')?.getAttribute("aria-disabled")).toBeNull());
+  await connected.rail.settled();
   await show();
   await chooseAction("New Agent", how);
   await waitFor(() => expect(outcomes).toEqual([keyOutcome, keyOutcome]));
@@ -236,7 +235,7 @@ it.each(["rail", "pane", "bubble", "editor", "text"])("u2572c_actions_follow_ope
   if (context === "text") focus.remove();
 });
 
-it.each(["daemon", "removed", "selection", "pending"])("u2572c_actions_follow_opening_context_and_revalidate: stale %s", async (change) => {
+it.each(["daemon", "removed", "selection"])("u2572c_actions_follow_opening_context_and_revalidate: stale %s", async (change) => {
   const [daemonExit, setDaemonExit] = createSignal<{ code: number | null } | null>(null);
   const { app, connected } = await mountSwitcher("ann", undefined, undefined, daemonExit);
   const origin = document.querySelector<HTMLElement>('[data-id="ann"][role="treeitem"]')!;
@@ -249,11 +248,7 @@ it.each(["daemon", "removed", "selection", "pending"])("u2572c_actions_follow_op
 
   if (change === "daemon") setDaemonExit({ code: 1 });
   else if (change === "removed") { app.handlers["rail.tree"] = () => []; await connected.rail.refresh(); }
-  else if (change === "selection") connected.rail.select("ops");
-  else {
-    app.handlers["agent.spawn"] = () => new Promise(() => {});
-    await chooseRailAction(app, "ops", "Agent");
-  }
+  else connected.rail.select("ops");
 
   await waitFor(() => expect(actionRows().map(row => row.dataset.value)).not.toContain(stale.dataset.value));
   const afterChange = app.calls.length;

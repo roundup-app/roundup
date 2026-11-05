@@ -29,6 +29,7 @@ const section = async (name: string) => {
   const tab = screen.getByRole("tab", { name });
   fireEvent.click(tab);
   await waitFor(() => expect(tab.getAttribute("aria-selected")).toBe("true"));
+  await waitFor(() => expect(screen.getByRole("tabpanel", { name }).querySelector('[aria-busy="true"]')).toBeNull());
 };
 
 it("u5242a_each_page_exposes_its_rows_as_labelled_groups", async () => {
@@ -142,7 +143,7 @@ it("u5243a_search_results_show_place_control_and_description", async () => {
     fireEvent.input(search(), { target: { value: query } });
     const rows = await screen.findAllByRole("listitem");
     expect(rows).toHaveLength(1);
-    const width = within(rows[0]!).getByRole("radiogroup", { name: "Default width", description: /\S/ });
+    const width = await within(rows[0]!).findByRole("radiogroup", { name: "Default width", description: /\S/ });
     expect(rows[0]!.textContent).toContain(copy.settingsPlace(copy.settingsPads, copy.settingsPads));
     expect(rows[0]!.contains(document.getElementById(width.getAttribute("aria-describedby")!))).toBe(true);
   }
