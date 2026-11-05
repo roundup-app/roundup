@@ -72,7 +72,7 @@ fn writes(inbox: &Gated) -> Vec<Vec<u32>> {
 async fn u6248a_held_messages_are_not_delivery_failures() {
     let dir = tempfile::tempdir().unwrap();
     let (messages, inbox, now) = open(dir.path());
-    let note = pending(&messages, &Actor::daemon(), "from rupd");
+    let note = pending(&messages, &Actor::daemon(), "from daemon");
     let inner = &messages.inner;
     for _ in 0..20 {
         failure::sweep(inner).await;
@@ -92,7 +92,7 @@ async fn u6248a_redelivery_backs_off_and_shows_after_four_misses() {
     let (messages, inbox, now) = open(dir.path());
     inbox.input_started.store(true, Ordering::SeqCst);
     lock(&messages.inner.failures).jitter = Some(7);
-    let note = pending(&messages, &Actor::daemon(), "from rupd");
+    let note = pending(&messages, &Actor::daemon(), "from daemon");
     let inner = &messages.inner;
     crate::delivery::deliver_pending(inner, "m").await;
     assert_eq!(writes(&inbox).len(), 1);
@@ -131,7 +131,7 @@ async fn u6248a_a_receipt_after_the_second_miss_keeps_the_line_empty() {
     let dir = tempfile::tempdir().unwrap();
     let (messages, inbox, now) = open(dir.path());
     inbox.input_started.store(true, Ordering::SeqCst);
-    let note = pending(&messages, &Actor::daemon(), "from rupd");
+    let note = pending(&messages, &Actor::daemon(), "from daemon");
     let inner = &messages.inner;
     crate::delivery::deliver_pending(inner, "m").await;
     for _ in 0..2 {
