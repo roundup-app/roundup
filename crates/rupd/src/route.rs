@@ -140,17 +140,13 @@ impl Daemon {
         self.with_waiting(reply).await
     }
 
-    /// DCL10, DCL10c: each stopped Door's waiting count, read from the stored backlog on every
-    /// reply; a Workstream whose Door has a live program carries none. A reply passes through
-    /// untouched when no Door has one.
+    /// DCL2, DCL10, DCL10c: each Workstream's state, and each stopped Door's waiting count, read from the stored backlog on every
+    /// reply; a Workstream whose Door has a live program carries none.
     async fn with_waiting(&self, reply: rpc::Reply) -> Result<rpc::Reply, RpcError> {
-        let Some(messages) = self.sender.get() else {
-            return Ok(reply);
+        let counts = match self.sender.get() {
+            Some(messages) => messages.waiting_counts().await?,
+            None => Default::default(),
         };
-        let counts = messages.waiting_counts().await?;
-        if counts.is_empty() {
-            return Ok(reply);
-        }
         let mut nodes: Vec<contracts::agent::RailNode> = match reply {
             rpc::Reply::Value(value) => serde_json::from_value(value),
             rpc::Reply::Json(json) => serde_json::from_str(&json),
@@ -164,6 +160,7 @@ impl Daemon {
                     .filter(|n| *n > 0 && messages::ended(node));
             }
         }
+        crate::workstream_state::derive(&mut nodes);
         Ok(rpc::Reply::Value(rpc::reply(&nodes)?))
     }
 

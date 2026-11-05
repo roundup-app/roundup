@@ -213,6 +213,7 @@ mod tests {
 
     fn node(id: &str, kind: NodeKind, name: &str, parent: Option<&str>, door: bool) -> RailNode {
         RailNode {
+            workstream_state: None,
             waiting: None,
             start_attribution: None,
             visibility: Default::default(),

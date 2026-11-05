@@ -9,6 +9,8 @@ use crate::common::Status;
 
 mod alert;
 pub use alert::{AlertLevel, SetAlertLevelParams};
+mod state;
+pub use state::{FinalText, FinalTextKind, WorkstreamState};
 mod launch;
 pub use launch::{
     CreateWorkstreamParams, Extras, ExtrasAddParams, PermissionMode, SpawnParams, SpawnRole,
@@ -410,6 +412,11 @@ pub const TITLE_CAP: usize = 6;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct RailNode {
+    /// DCL2: on a Workstream, the most urgent state among its Door and all its descendant Agents;
+    /// apart from the Door's own `status`. Absent on every other node.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[specta(optional, type = WorkstreamState)]
+    pub workstream_state: Option<WorkstreamState>,
     /// A5765e: captured foreign source identity, descriptive only; absent for ordinary Add.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[specta(optional, type = StartAttribution)]
@@ -488,25 +495,6 @@ pub struct RailNode {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[specta(optional, type = ConversationOverview)]
     pub overview: Option<ConversationOverview>,
-}
-
-/// U5483c: completed-turn evidence, never the assistant's text. Missing evidence protects.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
-pub struct FinalText {
-    pub attempt: String,
-    /// Opaque completed-turn identity, scoped to the Attempt.
-    pub turn: String,
-    pub finished: String,
-    pub kind: FinalTextKind,
-}
-
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
-#[serde(rename_all = "kebab-case")]
-pub enum FinalTextKind {
-    #[default]
-    Unknown,
-    Empty,
-    Present,
 }
 
 /// A2681a: display data from a closed Agent's saved conversation, never authority.
