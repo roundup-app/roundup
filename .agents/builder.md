@@ -36,7 +36,7 @@ Stop only on an unresolved product decision that changes the requested outcome a
 
 ## Review run
 
-Your input is the task, which carries the full text of the scenarios the PR names as `main` holds them, the checkout of its head, `gh pr diff` and `.agents/data/gates.md`. You cannot post or push; your answer is the verdict.
+Your input is the task, which carries the full text of the scenarios the PR names as `main` holds them, the checkout of its head, `gh pr diff` and `.agents/data/gates.md`. You cannot post or push; your answer is the verdict. On a GitHub runner the checkout has `node_modules` and `pnpm` (no Rust, no browser): you may run the test files the diff touches (from `apps/desktop`, `pnpm exec vitest run <file>`) and cite what they print.
 
 1. `git rev-parse HEAD` equals the task's head, or reject with that finding.
 2. Judge the diff against the recipes, the scenario and `AGENTS.md`, naming the rule per defect.
