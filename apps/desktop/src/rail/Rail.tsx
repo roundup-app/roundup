@@ -668,7 +668,7 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
   return (
     <>
     <Show when={props.collapse}>{collapse => <div class="rail-head"><IconButton class="rail-collapse" aria-label={props.peeked ? copy.expandRail : copy.collapseRail} onClick={collapse()}><Icon name={props.peeked ? "right" : "left"} /></IconButton></div>}</Show>
-    <MovePicker target={moveAgent.target()} destinations={moveAgent.destinations()} close={moveAgent.close} choose={(id, parent) => { void moveAgent.move({ id, parent, index: siblingsOf(topology(), parent).length }); }} />
+    <MovePicker replacement={rowElement} target={moveAgent.target()} destinations={moveAgent.destinations()} close={moveAgent.close} choose={(id, parent) => { void moveAgent.move({ id, parent, index: siblingsOf(topology(), parent).length }); }} />
     <button
       type="button"
       data-button="quiet"
