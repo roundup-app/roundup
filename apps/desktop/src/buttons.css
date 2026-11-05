@@ -286,3 +286,10 @@ input:is(.todo-tick, [type="range"])[data-pressed="true"]:not(:disabled, [aria-d
 .project-opening button[data-button] {
   --button-radius: 0;
 }
+
+/* U6264a covers captions only: a button that holds a row's content keeps wrapping and shrinking. */
+[data-button].made-open,
+[data-button].todo-ref-link {
+  flex-shrink: 1;
+  white-space: normal;
+}
