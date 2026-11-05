@@ -59,9 +59,16 @@ impl Ledger {
 
     /// Writes each slot through, and drops the rows of those that are gone. A refused write
     /// is returned and leaves the stored rows as they were (DCL10a).
-    fn save(&self, inner: &Inner) -> rusqlite::Result<()> {
+    /// `queued` names the Door and child whose `push_intents` row this write replaces (DCL4).
+    fn save(&self, inner: &Inner, queued: Option<(&str, &str)>) -> rusqlite::Result<()> {
         let store = lock(&inner.store);
         let tx = store.db.unchecked_transaction()?;
+        if let Some((door, child)) = queued {
+            tx.execute(
+                "DELETE FROM push_intents WHERE door = ?1 AND child = ?2",
+                rusqlite::params![door, child],
+            )?;
+        }
         tx.execute("DELETE FROM push_slots", [])?;
         for (meta, slot) in &self.metas {
             let json = serde_json::to_string(slot)
@@ -75,8 +82,8 @@ impl Ledger {
     }
 
     /// `save`, logging a refused write; the entries stay waiting in memory.
-    fn persist(&self, inner: &Inner) {
-        if let Err(err) = self.save(inner) {
+    fn persist(&self, inner: &Inner, queued: Option<(&str, &str)>) {
+        if let Err(err) = self.save(inner, queued) {
             crate::log_failure("push ledger", &err.to_string());
         }
     }
@@ -321,6 +328,9 @@ fn rollup_body(waiting: &[(String, DigestEntry, u32)]) -> String {
 
 /// B21, B22: accepts one changed entry, retaining it until its Door can receive it.
 pub(crate) async fn push(inner: &Arc<Inner>, meta: &str, subagent: &str, entry: &DigestEntry) {
+    // DCL4's observer ends the Daemon here, after the change was recorded as told and before it is
+    // queued; the hook refuses nothing.
+    let _ = crate::trip(inner, "push.queue");
     let mut ledger = inner.pushes.lock().await;
     let now = (inner.clock)();
     let slot = ledger.metas.entry(meta.to_owned()).or_default();
@@ -333,13 +343,13 @@ pub(crate) async fn push(inner: &Arc<Inner>, meta: &str, subagent: &str, entry: 
         .map_or(1, |at| slot.waiting.remove(at).2 + 1);
     slot.waiting
         .push((subagent.to_owned(), entry.clone(), weight));
-    ledger.persist(inner);
+    ledger.persist(inner, Some((meta, subagent)));
     let slot = ledger.metas.entry(meta.to_owned()).or_default();
     match crate::load_rail_nodes(inner).await {
         Ok(nodes) => roll_up(inner, meta, slot, now, plain, &nodes).await,
         Err(err) => crate::log_failure("push", &format!("{meta}: {}", err.message)),
     }
-    ledger.persist(inner);
+    ledger.persist(inner, Some((meta, subagent)));
 }
 
 /// B22(a): at the window's end, the changes kept back go out as one Message.
@@ -364,7 +374,7 @@ pub(crate) async fn flush(inner: &Arc<Inner>) {
     ledger
         .metas
         .retain(|_, slot| !slot.sent.is_empty() || !slot.waiting.is_empty());
-    ledger.persist(inner);
+    ledger.persist(inner, None);
 }
 
 async fn roll_up(

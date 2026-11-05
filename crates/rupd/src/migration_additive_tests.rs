@@ -95,6 +95,7 @@ fn mg1_the_changes_own_migrations_are_additive() {
         .args([
             "diff",
             "--name-only",
+            "--relative",
             "--diff-filter=A",
             "origin/main...HEAD",
             "--",
