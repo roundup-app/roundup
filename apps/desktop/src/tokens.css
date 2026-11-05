@@ -554,7 +554,6 @@ button, file-tree-container, diffs-container {
 /* U4456c: floating labels and disabled controls keep a distinct dark fill;
    Light retains its sunken fill. Root aliases prevent a local self-reference. */
 .app-tooltip,
-.tab-tip,
 :is([data-scope="field"], [data-scope="number-input"], [data-scope="date-picker"]):is([data-part="input"], [data-part="textarea"]):disabled,
 .app-dialog-form textarea:disabled,
 .import-prompt:disabled,

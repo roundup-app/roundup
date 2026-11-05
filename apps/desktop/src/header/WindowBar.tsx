@@ -73,7 +73,7 @@ export const WindowBar = (props: {
     onCleanup(() => observer.disconnect());
   });
 
-  const empty = (target: EventTarget | null) => target instanceof Element && !target.closest('button, input, [role="tab"], [role="tablist"], [role="dialog"], [role="alertdialog"], [role="menu"], .tab-tip, .traffic-lights');
+  const empty = (target: EventTarget | null) => target instanceof Element && !target.closest('button, input, [role="tab"], [role="tablist"], [role="dialog"], [role="alertdialog"], [role="menu"], .traffic-lights');
 
   const action = async (kind: "drag" | "zoom") => {
     try {

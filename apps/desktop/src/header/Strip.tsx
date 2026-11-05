@@ -1,5 +1,7 @@
 import type { App as AppCalls } from "../app/seam";
 import type { ProjectsState } from "../state/projects";
+import type { ProjectAlertLevels } from "../state/projectAlerts";
+import { Sortable } from "../ui/sortable";
 import { Tabs } from "../ui/Tabs";
 import { IconButton } from "../ui/IconButton";
 import { copy } from "./copy";
@@ -29,7 +31,7 @@ const edgeOf = (hidden: StripTab[], nearestFirst: boolean): Edge | null => {
   return { mark: marked.some((entry) => entry.mark === "error") ? "error" : "needs-you", count: marked.length, nearest };
 };
 
-/** The header's strip (U179): one tab per open Project in the order they were opened, then a quiet `+`. */
+/** The header's strip (U179): one tab per open Project in the order the user left them (U6220c), then a quiet `+`. */
 export const Strip = (props: {
   tabs: StripTab[];
   active: string | null;
@@ -38,6 +40,10 @@ export const Strip = (props: {
   onMark: (path: string) => void;
   onRename: (path: string, name: string, base?: string) => ReturnType<ProjectsState["rename"]>;
   onClose: (path: string) => void | Promise<void>;
+  /** U6220c: a drag put the tabs in this order. */
+  onReorder: (paths: string[]) => void;
+  /** U6220d: each Project's alert level, and the menu's way to change it. */
+  alerts: ProjectAlertLevels;
   onChoose: () => void;
   /** U2694a: the seam that shows a tab's system menu. */
   app: Pick<AppCalls, "showContextMenu" | "ask" | "writeClipboardText">;
@@ -238,14 +244,15 @@ export const Strip = (props: {
     }}>
       <div class="strip-scroll">
         {edge(copy.left, left())}
-        <Tabs.List class="tablist" aria-label={copy.projects} ref={(element) => { list = element; setListElement(element); onCleanup(() => setListElement(undefined)); }} onScroll={measure} style={{ "--cut-start": `${cutStart()}px`, "--cut-end": `${cutEnd()}px` }}>
+        <Tabs.Context>{(tabs) => <Sortable.Root {...tabs().getListProps()} onDrag={undefined} class="tablist app-tabs-list" aria-label={copy.projects} plain horizontal ids={paths()} onOrderChange={(ids) => props.onReorder(ids)} ref={(element) => { list = element; setListElement(element); onCleanup(() => setListElement(undefined)); }} onScroll={measure} style={{ "--cut-start": `${cutStart()}px`, "--cut-end": `${cutEnd()}px` }}>
           <For each={paths()}>
-            {(path) => {
+            {(path, at) => {
               // A tab stays the same element while its name, mark or counts change, so focus and hover survive.
               const tab = createMemo<StripTab>((last) => props.tabs.find((each) => each.path === path) ?? last, props.tabs.find((each) => each.path === path)!);
 
               return (
-                <ProjectTab
+                <Sortable.Item id={path} index={at()} pressable>{(sort) => <ProjectTab
+                  sort={sort}
                   tab={tab()}
                   selected={path === props.active}
                   suppressed={path === props.active}
@@ -262,11 +269,13 @@ export const Strip = (props: {
                   onRename={(name, base) => props.onRename(path, name, base)}
                   onClose={() => requestClose(tab())}
                   app={props.app}
-                />
+                  alerts={props.alerts.level(path)}
+                  onAlerts={(level) => props.alerts.set(path, level)}
+                />}</Sortable.Item>
               );
             }}
           </For>
-        </Tabs.List>
+        </Sortable.Root>}</Tabs.Context>
         {edge(copy.right, right())}
       </div>
       <IconButton data-flat-add="" class="strip-add" aria-label={copy.openAFolder} onClick={() => props.onChoose()}>{copy.addProjectMark}</IconButton>

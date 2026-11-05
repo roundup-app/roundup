@@ -45,6 +45,7 @@ const Fixture = () => {
         onClose={(path) => { const next = tabs().filter(tab => tab.path !== path); setTabs(next);
 
  if (active() === path) setActive(next[0]!.path); }}
+        onReorder={() => {}} alerts={{ level: () => "all", set: () => {} }}
         onChoose={() => {}} />
     </div>
   </>;

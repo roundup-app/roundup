@@ -38,7 +38,7 @@ read = r"""(() => {
   const titleRange=document.createRange();
   if(title)titleRange.selectNodeContents(title);
   const titleCss=title ? getComputedStyle(title) : null;
-  const controls=[...document.querySelectorAll('.strip button,.tab-rename,.strip-edge,.tab-tip')].map(e=>({box:e.getBoundingClientRect().toJSON(),visible:getComputedStyle(e).visibility!=='hidden',name:e.className}));
+  const controls=[...document.querySelectorAll('.strip button,.tab-rename,.strip-edge')].map(e=>({box:e.getBoundingClientRect().toJSON(),visible:getComputedStyle(e).visibility!=='hidden',name:e.className}));
   return {width:innerWidth,bar:box('.header'),reserved:box('.traffic-lights'),title:box('.window-title'),windowTitle:window.__fake.app.windowOperations.filter(op=>op.kind==='title').at(-1)?.title ?? "",titleName:title?.getAttribute('aria-label') ?? "",titleTip:document.getElementById(title?.getAttribute('aria-describedby'))?.textContent ?? "",
     titleStyle:{overflow:title ? getComputedStyle(title).textOverflow : "",whiteSpace:title ? getComputedStyle(title).whiteSpace : ""},
     titleTextWidth:title ? titleRange.getBoundingClientRect().width : 0,titlePadding:titleCss ? parseFloat(titleCss.paddingLeft)+parseFloat(titleCss.paddingRight) : 0,
@@ -296,14 +296,6 @@ try:
                     capture(prefix + "-overflow")
                     browser("hover", ".centre")
                     browser("press", "Tab")
-                    evaluate("""(async()=>{
-                      const list=document.querySelector('.tablist'),tab=list.querySelector('.tab-mark').closest('[role=tab]');
-                      const left=Math.min(tab.closest('.project-tab').offsetLeft+20,list.scrollWidth-list.clientWidth);
-                      if(list.scrollLeft!==left)await new Promise(resolve=>{list.addEventListener('scroll',resolve,{once:true});list.scrollLeft=left});
-                      tab.focus({preventScroll:true});
-                    })()""")
-                    browser("wait", ".tab-tip[data-state=open]")
-                    capture(prefix + "-tooltip")
                     evaluate("document.activeElement.blur();document.querySelector('.tablist').scrollLeft=0")
                     evaluate("const v=document.querySelector('.tablist').getBoundingClientRect(),end=document.querySelector('.strip-edge-right')?.getBoundingClientRect().left??v.right;const tab=[...document.querySelectorAll('.project-tab')].filter(e=>{const r=e.getBoundingClientRect();return Math.min(r.right,end)-Math.max(r.left,v.left)>16}).at(-1);const r=tab.getBoundingClientRect();tab.dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,clientX:Math.min(r.right,end)-8,clientY:24}))")
                     browser("wait", "--fn", "window.__fake.app.menuResolve !== null")

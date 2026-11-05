@@ -2,6 +2,7 @@ import type { AlertLevel } from "@contracts/agent/AlertLevel";
 import type { Kind } from "@contracts/Kind";
 import type { StateAlert } from "../app/seam";
 import { appSettings } from "../settings/preferences";
+import { mayRaise, type ProjectAlerts } from "../state/projectAlerts";
 import { stateLabel } from "./copy";
 
 /** U5232d: per Agent, at most one alert and one sound in this many milliseconds. */
@@ -9,7 +10,7 @@ const WINDOW_MS = 5000;
 
 export type StateAlerts = {
   /** U5232c: an Agent's Kind just changed. Calls `stateAlert` as the owner chose and answers whether the Toast of `needs-you` and `error` sounds its chime, which that Toast alone plays. */
-  changed(agent: { key: string; id: string; name: string; kind: Kind; selected: boolean; level?: AlertLevel }): { chime: boolean };
+  changed(agent: { key: string; id: string; name: string; kind: Kind; selected: boolean; level?: AlertLevel; project?: ProjectAlerts }): { chime: boolean };
 };
 
 /** The Alert and Sound choices of U5232. `onFailure` gets the cause of a refused call, or null after one that worked. */
@@ -22,10 +23,10 @@ export const createStateAlerts = (
   const last = new Map<string, number>();
 
   return {
-    changed: ({ key, id, name, kind, selected, level = "default" }) => {
+    changed: ({ key, id, name, kind, selected, level = "default", project = "all" }) => {
       const none = { chime: false };
 
-      if (level === "quiet" || (kind === "idle" && level !== "all")) return none;
+      if (level === "quiet" || !mayRaise(project, kind) || (kind === "idle" && level !== "all")) return none;
 
       const front = inFront();
       const choice = level === "all" ? { alert: true, sound: true } : kind === "idle" ? { alert: false, sound: false } : appSettings().stateAlerts[kind];
