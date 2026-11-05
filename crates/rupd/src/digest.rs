@@ -151,6 +151,9 @@ impl World {
     }
 }
 
+/// DCL4: how often a pass compares the Rail with what was told, whether or not an event came.
+const REPAIR_PERIOD: std::time::Duration = std::time::Duration::from_secs(30);
+
 /// B21: whether `data` can change an entry of a digest.
 fn moves_an_entry(data: &EventData) -> bool {
     matches!(
@@ -184,13 +187,19 @@ pub async fn push_changes(
         seen.baseline(&world.sources());
         reader.observed(&world);
     }
+    // DCL4: no event stream is authoritative, so a pass also runs every `REPAIR_PERIOD`.
+    let mut timer =
+        tokio::time::interval_at(tokio::time::Instant::now() + REPAIR_PERIOD, REPAIR_PERIOD);
     loop {
-        match events.recv().await {
-            Ok(event) if moves_an_entry(&event.data) => {}
-            Ok(_) => continue,
-            // Events were missed: the next comparison with what was told finds their effect.
-            Err(RecvError::Lagged(_)) => {}
-            Err(RecvError::Closed) => return,
+        tokio::select! {
+            _ = timer.tick() => {}
+            received = events.recv() => match received {
+                Ok(event) if moves_an_entry(&event.data) => {}
+                Ok(_) => continue,
+                // Events were missed: the next comparison with what was told finds their effect.
+                Err(RecvError::Lagged(_)) => {}
+                Err(RecvError::Closed) => return,
+            },
         }
         if let Err(err) = push_once(&reader, &messages, &seen).await {
             eprintln!("rupd: digest push failed: {err}");
@@ -286,5 +295,32 @@ mod tests {
         task.abort();
         assert!(task.await.unwrap_err().is_cancelled());
         assert!(refreshed.unwrap().unwrap().is_empty());
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn dcl4_timer_repairs_a_lost_notification() {
+        let dir = tempfile::tempdir().unwrap();
+        let daemon = crate::Daemon::open(&dir.path().join("data")).unwrap();
+        let (reads, mut snapshots) = mpsc::unbounded_channel();
+        let pads = Arc::new(Pads {
+            listed: Mutex::new(Vec::new()),
+            reads,
+        });
+        let mut modules = daemon.modules.clone();
+        modules.insert("pad", pads.clone());
+        let bus = Bus::new();
+        let reader = Reader::new(&modules, bus.clone(), daemon.touches.clone(), None);
+        let task = tokio::spawn(push_changes(
+            reader,
+            daemon.sender.get().unwrap().clone(),
+            Arc::new(messages::digest::Seen::default()),
+            bus.subscribe(),
+        ));
+        snapshots.recv().await.unwrap();
+        // No event is emitted: only the timer can make the next comparison read the world.
+        tokio::time::advance(REPAIR_PERIOD + Duration::from_secs(1)).await;
+        let repaired = snapshots.recv().await;
+        task.abort();
+        assert!(repaired.is_some());
     }
 }

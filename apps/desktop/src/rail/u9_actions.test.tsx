@@ -191,7 +191,7 @@ describe("u9 actions", () => {
     await waitFor(() => expect(railCallsTo(mounted.app, "rail.startDoor")).toEqual([{ id: "g" }]));
   });
 
-  it("u9_a_double_click_on_plus_agent_spawns_one_agent", async () => {
+  it("u9_a_second_plus_agent_while_one_is_pending_is_not_refused", async () => {
     const mounted = await mountRail([workstream("g")]);
     let finish: (node: RailNode) => void = () => {};
 
@@ -199,10 +199,11 @@ describe("u9 actions", () => {
     mounted.rail.select("g");
     await chooseAction(mounted.app, "g", copy.addAgentMenu);
     fireEvent.contextMenu(rowOf("g"));
-    expect(mounted.app.shownMenus.at(-1)!.items.find(item => item.id === "add")?.children?.map(item => item.id)).not.toContain("add-agent");
+    expect(mounted.app.shownMenus.at(-1)!.items.find(item => item.id === "add")?.children?.map(item => item.id)).toContain("add-agent");
     await mounted.app.closeMenu();
     finish(SPAWNED);
     await mounted.rail.settled();
+    // U6000d: a start fired while another is pending is never refused.
     expect(railCallsTo(mounted.app, "agent.spawn")).toHaveLength(1);
   });
 
