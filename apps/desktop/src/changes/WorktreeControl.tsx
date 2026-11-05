@@ -32,10 +32,6 @@ const Panel = (props: { id: string; name: string; worktree: Worktree; notes: Not
   const { app, worktrees, rail, daemonExit } = useConnectedProject();
   const state = () => worktrees.read(props.id);
 
-  // The reader and the tree are separate chunks (startup budget); an open panel fetches them ahead of use.
-  void loadReader();
-  void loadTree();
-
   const facts = () => {
     const read = state();
 
@@ -142,6 +138,9 @@ const Panel = (props: { id: string; name: string; worktree: Worktree; notes: Not
   }, { defer: true }));
 
   const openPanel = () => {
+    // The reader and the tree are separate chunks (startup budget); opening the panel fetches them ahead of use.
+    void loadReader();
+    void loadTree();
     treeFocus = captureFocus(true);
     props.onOpen();
     setOpen(true);
