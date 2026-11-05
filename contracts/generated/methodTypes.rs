@@ -127,6 +127,8 @@
     Method { name: "github.prSetBody", params: "github_SetBodyParams", result: "github_Pr" },
     Method { name: "github.prReady", params: "github_Number", result: "github_Pr" },
     Method { name: "github.prAutoMerge", params: "github_Number", result: "github_Pr" },
+    Method { name: "feedback.send", params: "feedback_SendParams", result: "feedback_Sent" },
+    Method { name: "feedback.retry", params: "feedback_RetryParams", result: "feedback_Sent" },
     Method { name: "project.open", params: "project_OpenParams", result: "project_Opened" },
     Method { name: "project.start", params: "project_StartParams", result: "project_StartedRow" },
     Method { name: "action.serve", params: "null", result: "null" },

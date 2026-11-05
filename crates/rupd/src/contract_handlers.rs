@@ -85,6 +85,15 @@ impl Daemon {
         self.github(conn, method, params).await
     }
 
+    pub(super) async fn feedback_call(
+        &self,
+        conn: &mut Conn,
+        method: &str,
+        params: Value,
+    ) -> Result<Value, RpcError> {
+        self.feedback(conn, method, params).await
+    }
+
     pub(super) async fn rpc_link_read(
         &self,
         conn: &mut Conn,
