@@ -676,6 +676,7 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
       ref={element => { overview = element; }}
       data-history-region="rail"
       aria-pressed={rail.selected() === null}
+      data-selected={rail.selected() === null ? "true" : undefined}
       aria-labelledby={`${overviewName} ${overviewRoot}${waitingShown() ? ` ${overviewWaiting}` : ""}`}
       data-scrolled={scrolled()}
       class="todo-project-root"
