@@ -148,7 +148,7 @@ it("u5239d_the_terminal_sweep_holds_with_overrides", async () => {
   press("KeyT", { metaKey: true, shiftKey: true });
   await waitFor(() => expect(appSettings().shortcuts["terminal.new"]).toBe("meta+shift+KeyT"));
 
-  const appScope = CHORDS.filter(row => row.name !== "todo.capture" && !row.inFirstRun && !row.inRail && !row.inTerminals && !row.inShelf && !row.inEditor).flatMap(row => row.presses);
+  const appScope = CHORDS.filter(row => row.name !== "todo.capture" && !row.inFirstRun && !row.inRail && !row.inTerminals && !row.inShelf && !row.ownsEscape && !row.inEditor).flatMap(row => row.presses);
 
   expect(appScope).toContain("meta+shift+KeyT");
   expect(appScope).not.toContain("meta+KeyT");

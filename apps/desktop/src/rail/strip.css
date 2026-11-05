@@ -1,0 +1,77 @@
+/* U6228: the collapsed Rail. One column of marks on the Rail's own ground, the width of --rail-strip-width; names show only in the peek. */
+.rail-strip {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: 0;
+  padding-top: var(--space-2);
+  padding-bottom: var(--space-2);
+}
+
+.rail-strip-scroll {
+  flex: 1;
+  align-self: stretch;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+}
+
+.rail-strip-scroll .app-tree {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.rail-mark {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: var(--space-6);
+  height: var(--space-6);
+  padding: 0;
+  border-radius: var(--radius-row);
+  color: var(--grey);
+  cursor: pointer;
+}
+
+.rail-mark[data-selected],
+.rail-mark[aria-pressed="true"],
+.rail-mark:focus-visible {
+  background-color: var(--selected);
+  color: var(--text);
+}
+
+/* The state glyph sits at the mark's lower leading corner, the count at its upper trailing one, both inside its box. */
+.rail-mark-state {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  display: inline-flex;
+}
+
+.rail-mark-state svg {
+  width: var(--space-3);
+  height: var(--space-3);
+}
+
+.rail-mark .ink-count {
+  position: absolute;
+  top: 0;
+  right: var(--space-1);
+  color: var(--amber);
+  font-size: var(--text-caption);
+  font-variant-numeric: tabular-nums;
+}
+
+.rail-mark .unread-dot {
+  position: absolute;
+  top: var(--space-1);
+  left: var(--space-1);
+}

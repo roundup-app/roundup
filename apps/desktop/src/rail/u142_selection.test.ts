@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { chromePath, openPage, type ChromePage } from "../testing/chromePage";
 
 type Point = { x: number; y: number };
@@ -14,6 +14,9 @@ let browser: ChromePage;
 beforeAll(async () => {
   if (found) browser = await openPage(found);
 }, 90_000);
+
+// The Rail's width and collapse persist per Project; a drag that grabbed its Edge must not carry over.
+afterEach(async () => { await browser?.call("() => localStorage.clear()"); });
 
 afterAll(async () => { await browser?.close(); });
 
