@@ -987,9 +987,13 @@ struct Shim {
 
 impl Shim {
     async fn start(project: &Project, id: &str) -> Shim {
+        Shim::start_at(&socket(project), id).await
+    }
+
+    async fn start_at(socket: &std::path::Path, id: &str) -> Shim {
         let mut child = tokio::process::Command::new(env!("CARGO_BIN_EXE_rup"))
             .args(["mcp", id])
-            .env("RUPD_SOCKET", socket(project))
+            .env("RUPD_SOCKET", socket)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .kill_on_drop(true)
@@ -1007,23 +1011,23 @@ impl Shim {
                     "clientInfo": { "name": "t", "version": "0" } }),
         )
         .await;
-        let stdin = shim.child.stdin.as_mut().unwrap();
-        let note = json!({ "jsonrpc": "2.0", "method": "notifications/initialized" });
+        shim.send(&json!({ "jsonrpc": "2.0", "method": "notifications/initialized" }))
+            .await;
+        shim
+    }
+
+    async fn send(&mut self, frame: &Value) {
+        let stdin = self.child.stdin.as_mut().unwrap();
         stdin
-            .write_all(format!("{note}\n").as_bytes())
+            .write_all(format!("{frame}\n").as_bytes())
             .await
             .unwrap();
-        shim
     }
 
     async fn request(&mut self, method: &str, params: Value) -> Value {
         self.next += 1;
         let line = json!({ "jsonrpc": "2.0", "id": self.next, "method": method, "params": params });
-        let stdin = self.child.stdin.as_mut().unwrap();
-        stdin
-            .write_all(format!("{line}\n").as_bytes())
-            .await
-            .unwrap();
+        self.send(&line).await;
         let reply = tokio::time::timeout(Duration::from_secs(30), self.lines.next_line())
             .await
             .expect("the shim answered")
@@ -2592,11 +2596,7 @@ impl Shim {
         self.next += 1;
         let line = json!({ "jsonrpc": "2.0", "id": self.next, "method": "tools/call",
                            "params": { "name": name, "arguments": arguments } });
-        let stdin = self.child.stdin.as_mut().unwrap();
-        stdin
-            .write_all(format!("{line}\n").as_bytes())
-            .await
-            .unwrap();
+        self.send(&line).await;
         let reply = tokio::time::timeout(Duration::from_secs(30), self.lines.next_line())
             .await
             .expect("the shim answered")

@@ -1,18 +1,19 @@
 //! B46 to B49 through a real Daemon with the fake `claude`: a note is delivered once, a status flip
 //! makes none, a refused wake says why, and an end note carries only the child's own summary.
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use contracts::{ActorKind, Kind};
 use serde_json::{Value, json};
+use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
 
-use super::daemon::{h21_poll, needs_you, start};
+use super::daemon::{Project, h21_poll, needs_you, start};
 use super::wake::{
     FAIL, STOP, WORK, ask, drive, messages, named, notes, scene, start_again, status_of, still,
     typed,
 };
-use super::{Shim, actor, client_as, rail};
+use super::{Shim, actor, client_as, rail, socket};
 
 fn env(prompts: &Path) -> [(&str, &str); 1] {
     [("FAKE_CLAUDE_PROMPT_LOG", prompts.to_str().unwrap())]
@@ -794,4 +795,85 @@ async fn al1_a_door_tool_reply_naming_an_agent_carries_its_link() {
         .find(|node| node["id"] == rail.a)
         .unwrap();
     assert_eq!(named["link"], link(&rail.a));
+}
+
+/// A Daemon between a shim and the real one: a request for `method` after the first `pass` of
+/// them is never answered, or is answered with an error, and every other frame passes through.
+fn lossy_daemon(
+    project: &Project,
+    method: &'static str,
+    pass: usize,
+    refuse: bool,
+) -> (tempfile::TempDir, PathBuf) {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("lossy.sock");
+    let listener = tokio::net::UnixListener::bind(&path).unwrap();
+    let real = socket(project);
+    tokio::spawn(async move {
+        while let Ok((shim, _)) = listener.accept().await {
+            let Ok(daemon) = tokio::net::UnixStream::connect(&real).await else {
+                continue;
+            };
+            let (shim_read, shim_write) = shim.into_split();
+            let shim_write = std::sync::Arc::new(tokio::sync::Mutex::new(shim_write));
+            let (mut daemon_read, mut daemon_write) = daemon.into_split();
+            let back = shim_write.clone();
+            tokio::spawn(async move {
+                let mut lines = BufReader::new(shim_read).lines();
+                let mut seen = 0;
+                while let Ok(Some(line)) = lines.next_line().await {
+                    let frame: Value = serde_json::from_str(&line).unwrap_or_default();
+                    if frame["method"] == method {
+                        seen += 1;
+                    }
+                    if frame["method"] != method || seen <= pass {
+                        let _ = daemon_write.write_all(format!("{line}\n").as_bytes()).await;
+                    } else if refuse {
+                        let error = json!({ "jsonrpc": "2.0", "id": frame["id"],
+                            "error": { "code": -32603, "message": "refused" } });
+                        let _ = back
+                            .lock()
+                            .await
+                            .write_all(format!("{error}\n").as_bytes())
+                            .await;
+                    }
+                }
+            });
+            tokio::spawn(async move {
+                let mut buf = [0u8; 8192];
+                while let Ok(n) = daemon_read.read(&mut buf).await {
+                    if n == 0 || shim_write.lock().await.write_all(&buf[..n]).await.is_err() {
+                        break;
+                    }
+                }
+            });
+        }
+    });
+    (dir, path)
+}
+
+#[tokio::test]
+async fn al6_a_failed_link_lookup_returns_the_reply_without_links() {
+    let project = start(&[]);
+    let user = project.client().await;
+    let rail = rail(&project, &user).await;
+    for (method, pass, refuse) in [("daemon.ping", 0, false), ("rail.tree", 1, true)] {
+        let (_dir, path) = lossy_daemon(&project, method, pass, refuse);
+        let mut door = Shim::start_at(&path, &rail.m).await;
+        let reply = door
+            .request(
+                "tools/call",
+                json!({ "name": "rail_tree", "arguments": {} }),
+            )
+            .await;
+        assert_ne!(reply["isError"], true, "{method}: {reply}");
+        let tree: Value =
+            serde_json::from_str(reply["content"][0]["text"].as_str().unwrap()).unwrap();
+        let nodes = tree.as_array().unwrap();
+        assert!(nodes.iter().any(|n| n["id"] == rail.a), "{method}: {tree}");
+        assert!(
+            nodes.iter().all(|n| n.get("link").is_none()),
+            "{method}: {tree}"
+        );
+    }
 }
