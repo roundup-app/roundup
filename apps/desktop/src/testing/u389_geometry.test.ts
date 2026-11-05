@@ -1,6 +1,7 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { chromePath, openPage } from "./chromePage";
 import type { ChromePage } from "./chromePage";
+import { railEffective } from "../resize/widths";
 
 /** U389 in a real Chromium: a real pointer drag of the Rail's Edge sets its width and clamps it. */
 
@@ -44,6 +45,9 @@ const dragEdge = async (label: string, panel: string, from: number, to: number):
   return page.call<number>(`() => document.querySelector("${panel}").getBoundingClientRect().width`);
 };
 
+// What the Rail's drag persisted for the Project, the width it kept and whether it collapsed.
+const stored = () => page.call<{ rail: number; collapsed: boolean }>(`() => JSON.parse(localStorage.getItem(Object.keys(localStorage).find(key => key.startsWith("roundup:widths:")))) `);
+
 const railDrag = (from: number, to: number) => dragEdge("Resize Rail", ".rail", from, to);
 
 run("u389 the Rail Edge drag", () => {
@@ -51,8 +55,17 @@ run("u389 the Rail Edge drag", () => {
 
   it("u389_a_drag_sets_the_width_and_clamps", async () => {
     await load(1280, 800);
-    expect(await railDrag(288, 360)).toBe(360);
-    expect(await railDrag(360, 900)).toBe(480);
-    expect(await railDrag(480, 10)).toBe(252);
+    const target = 360;
+    const beyond = 900;
+
+    await railDrag(288, target);
+    expect((await stored()).rail).toBe(target);
+
+    await railDrag(target, beyond);
+    expect((await stored()).rail).toBe(railEffective(beyond));
+
+    // U6228: a drag below the minimum collapses the Rail to its strip, so the lower clamp is the collapse.
+    await railDrag(railEffective(beyond), 10);
+    expect((await stored()).collapsed).toBe(true);
   });
 });

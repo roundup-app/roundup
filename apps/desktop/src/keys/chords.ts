@@ -23,7 +23,7 @@ export type ActionArg = { key: string; required?: true; press?: (value: ActionVa
 );
 
 /** One line of Help (U54): the chord as shown, what it does, and every key press it stands for as `<mods>+<code>`, mods in the order `ctrl+alt+meta+shift`. `inFirstRun` keeps a chord in first-run Help only; `inRail` marks a chord only a focused Rail row binds (U358); `inTerminals` marks the scoped Agent/Bubble/tab switch; the rest bind from the pane too. */
-export type Chord = { name: string; args?: readonly ActionArg[]; keys: KeyText; what: string; presses: readonly string[]; inFirstRun?: true; inRail?: true; inTerminals?: true; inShelf?: true; inEditor?: true; /** U3751: a key of Todo triage mode, bound only while the mode is on. */ inTriage?: true; hint?: Hint };
+export type Chord = { name: string; args?: readonly ActionArg[]; keys: KeyText; what: string; presses: readonly string[]; inFirstRun?: true; inRail?: true; inTerminals?: true; /** Listed in Help's Shelf section. */ inShelf?: true; /** A floating App layer that owns Escape over the Terminal while it shows, so no App-wide chord lists it. */ ownsEscape?: true; inEditor?: true; /** U3751: a key of Todo triage mode, bound only while the mode is on. */ inTriage?: true; hint?: Hint };
 
 /** Where focus can sit for the hint line (U2230a): a Rail row, watched Agent, Bubble, Pad, Drawer, Switcher or Editor. */
 export type HintPlace = "rail" | "agent" | "bubble" | "pad" | "drawer" | "switcher" | "editor" | "shelf";
@@ -75,7 +75,8 @@ export const CHORDS: readonly Chord[] = ([
   { name: "shelf.maximise", keys: "M", what: copy.maximise, presses: ["KeyM"], inShelf: true, hint: { label: copy.maximise, at: { shelf: 0 } } },
   { name: "todo.delete", keys: "D", what: copy.deleteFocusedRow, presses: ["KeyD"], inShelf: true, hint: { label: copy.deleteFocusedRow, at: { shelf: 3 } } },
   { name: "todo.export", keys: "E", what: copy.exportMd, presses: ["KeyE"], inShelf: true, hint: { label: copy.exportMd, at: { shelf: 4 } } },
-  { name: "shelf.close", keys: "Esc", what: copy.close, presses: ["Escape"], inShelf: true, hint: { label: copy.close, at: { shelf: 5 } } },
+  { name: "rail.close-peek", keys: "Esc", what: copy.close, presses: ["Escape"], ownsEscape: true },
+  { name: "shelf.close", keys: "Esc", what: copy.close, presses: ["Escape"], inShelf: true, ownsEscape: true, hint: { label: copy.close, at: { shelf: 5 } } },
   { name: "terminal.text-larger", keys: "⌘=", what: copy.terminalLargerText, presses: ["meta+Equal"], inTerminals: true },
   { name: "terminal.text-smaller", keys: "⌘-", what: copy.terminalSmallerText, presses: ["meta+Minus"], inTerminals: true },
   { name: "terminal.text-reset", keys: "⌘0", what: copy.terminalResetText, presses: ["meta+Digit0"], inTerminals: true },
@@ -159,6 +160,7 @@ export const LEADER: readonly LeaderKey[] = ([
   { name: "leader.bubble-minimise", keys: "M", what: copy.minimiseOrRestoreTheBubble, short: copy.leaderShortMinimise, press: "KeyM" },
   { name: "leader.bubble-close", keys: "W", what: copy.closeTheBubble, short: copy.leaderShortClose, press: "KeyW" },
   { name: "leader.shelf", keys: "B", what: copy.openShelf, short: copy.leaderShortShelf, press: "KeyB" },
+  { name: "leader.rail", keys: "R", what: copy.toggleTheRail, short: copy.rail, press: "KeyR" },
   { name: "leader.capture", keys: "T", what: copy.captureATodo, short: copy.leaderShortCapture, press: "KeyT" },
   { name: "leader.inbox", keys: "I", what: copy.openTheInbox, short: copy.leaderShortInbox, press: "KeyI" },
 ] satisfies readonly (Omit<LeaderKey, "keys"> & { keys: string })[]).map(withKeyText);

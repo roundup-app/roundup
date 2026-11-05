@@ -21,10 +21,10 @@ import type { Kind } from "@contracts/Kind";
 import { Icon } from "../ink/Icon";
 import { mergeProps } from "@zag-js/solid";
 import { StatusTip } from "../ink/StatusTip";
-import { byUrgency } from "../ink/glyph";
 import { KindGlyph } from "../ink/KindGlyph";
 import { FailureLine, Line as FailureCause } from "../ink/FailureLine";
-import { agentKindsBelow, descendantsOf, isWorkstream } from "./layout";
+import { descendantsOf, isWorkstream } from "./layout";
+import { rowKind, rowUnread } from "./rollup";
 import { Trunks } from "../ui/TreeView";
 import type { NodeRow, RailTopology } from "./layout";
 import { PadsControl } from "./pads/AgentPads";
@@ -110,9 +110,6 @@ const NameField = (props: { node: RailNode; onCommit: (name: string) => Promise<
 };
 
 
-/** DCL2: the Kind a Workstream state shows; `idle` and `settled` add nothing to the Door's own Kind. */
-const STATE_KIND: Record<NonNullable<RailNode["workstream_state"]>, Kind | undefined> = { "needs-you": "needs-you", error: "error", stalled: "working", working: "working", waiting: "blocked", idle: undefined, settled: undefined };
-
 export const RailRowView = (props: {
   actions: RowActions; doorAction?: JSX.Element;
   topology: RailTopology; todoCount: number;
@@ -141,24 +138,7 @@ export const RailRowView = (props: {
   const isGroup = () => props.row.node.kind === "group";
   const isContainer = () => workstream() || isGroup();
 
-  /** DCL2: the Daemon's Workstream state, as the Kind that glyph shows; `idle` and `settled` add nothing to the Door's own Kind. */
-  const stateKind = (): Kind | undefined => {
-    const own = connected.rail.dismissed(props.row.node) ? "idle" : props.row.node.status?.kind;
-    const shown: Kind | undefined = STATE_KIND[props.row.node.workstream_state ?? "idle"];
-
-    if (shown === undefined) return undefined;
-
-    // A dismissed or quiet failure below no longer reads as urgent.
-    const urgent = shown === "error" || shown === "needs-you";
-
-    return urgent && shown !== own && !agentKindsBelow(props.topology, props.row.node.id, connected.rail.dismissed).includes(shown) ? undefined : shown;
-  };
-
-  const kind = (): Kind | null => {
-    const kinds = [connected.rail.dismissed(props.row.node) ? "idle" as const : props.row.node.status?.kind, ...(workstream() && props.row.node.workstream_state !== undefined ? [stateKind()] : isContainer() && props.row.collapsed !== null ? agentKindsBelow(props.topology, props.row.node.id, connected.rail.dismissed) : [])];
-
-    return byUrgency(kinds.filter((kind): kind is Kind => kind !== undefined))[0] ?? null;
-  };
+  const kind = (): Kind | null => rowKind(props.topology, props.row.node, node => connected.rail.dismissed(node), isContainer() && props.row.collapsed !== null);
 
   /** DCL1: the first Agent, the row's own, its direct child, or any below it while the row is folded, whose Messages have not reached it, with the Daemon's cause. */
   const unreachable = () => [props.row.node, ...(isContainer() ? descendantsOf(props.topology, props.row.node.id).filter(node => props.row.collapsed || node.parent === props.row.node.id) : [])].find(node => node.unreachable);
@@ -169,7 +149,7 @@ export const RailRowView = (props: {
     return status?.kind === "error" && connected.rail.dismissed(props.row.node) ? copy.dismissedFailure(status.label) : status?.label ?? "";
   };
 
-  const unread = () => connected.unseen.of(props.row.node.id) || (isContainer() && props.row.collapsed !== null && descendantsOf(props.topology, props.row.node.id).some(node => connected.unseen.of(node.id)));
+  const unread = () => rowUnread(props.topology, props.row.node, id => connected.unseen.of(id), isContainer() && props.row.collapsed !== null);
 
   const queuedBadge = () => {
     const queued = workstream() ? connected.queue.entryOf(props.row.node.id) : null;

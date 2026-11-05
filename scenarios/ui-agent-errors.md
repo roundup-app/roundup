@@ -74,6 +74,38 @@ Policy: implementation moves D2, D5, D6. Run `just capture U5151h` at 1512×950 
 
 Policy: record the producer/consumer inventory, remaining gaps and implementation progress on Issue #5151. Audit Agent status, not unrelated Todo/Pad/PR state models or arbitrary vendor prose. No scenario Work table or open-ended repository redesign is required.
 
+## Failures that heal alone (Issue #6248)
+
+Acceptance for Issue #6248. A failure that heals inside its schedule never renders; every failure that renders carries an action that changes the outcome. The Daemon owns every schedule and the App shows its times (policy). The user's own send or start never retries (P11, A4665): only redelivery and transient Claude turn failures do. Backoff is one maintained Rust crate, exponential with full jitter and a cap, named in the PR's `Reuse:` section (rule 9).
+
+| Failure | Who can act | Heals alone | Action |
+|---|---|---|---|
+| Message held by the send path (A5556a first-input gate, busy Door batch, reserved restart) | no one | yes, when the gate opens | none; not a failure |
+| Written Message with no receipt | no one at first | usually | re-write at 30 s, 1, 2, 4 min, then every 8 min; line after the fourth miss (DCL1a's action) |
+| Transcript unreadable | the user | no | `Open` at once (DCL1a) |
+| `StopFailure` `overloaded`, `rate_limit`, `server_error` | no one | usually | resume after 1, 4, 16 min; `Resume` after the third miss |
+| `StopFailure` `authentication_failed`, `oauth_org_not_allowed`, `account_on_hold`, `billing_error`, `invalid_request`, `model_not_found`, `max_output_tokens`, `cloud_credential_error`, `unknown` | the user | no | `error` at once with U5151b's label |
+
+**U6248a only a written Message can miss its receipt.** Amends DCL1. Given an Agent with pending Messages, then:
+
+- A Message that the send path holds by its own rules (A5556a's first-input gate, a busy Door's batch, a reserved restart) is never a delivery failure. The sweep and the send path decide eligibility through one shared predicate. Test: `u6248a_held_messages_are_not_delivery_failures` in `crates/messages/src/tests/`, injected clock: a resumed Agent before its first input holds an Agent's note for ten minutes and `delivery_failure()` stays empty; after its first input the note is written once.
+- The receipt clock starts at the inbox write, not at the oldest pending Message. A missed receipt re-writes the same Message (same `msg_id`) at 30 s, 1, 2 and 4 min, then every 8 min, each with full jitter. `node.unreachable` stays empty until four writes have missed while the session stays live, and clears on the receipt; a receipt after the second miss keeps it empty throughout. Test: `u6248a_redelivery_backs_off_and_shows_after_four_misses` in `crates/messages/src/tests/`, injected clock and a seeded jitter.
+- `transcript unreadable` still shows at once (DCL1a), and a write or previous-entry read failure keeps DCL1's visible line after the fourth miss. Test: the existing `dcl1_unreadable_transcript_exposes_delivery_failure` in `crates/messages/src/tests/dcl_tests.rs` still holds.
+
+**U6248b roundup resumes a turn Claude gave up.** Amends U5151c. Given an Agent whose Claude Code ended a turn after its own retries, then:
+
+- After a `StopFailure` with `overloaded`, `rate_limit` or `server_error`, the Daemon sends the Agent one resume Message through the existing delivery path after 1, 4 and 16 min, each jittered. A turn that starts, a Message that arrives or the user stopping the Agent cancels the remaining resumes; none runs while a turn runs or after the third. Test: `u6248b_roundup_resumes_after_a_transient_stop_failure`, injected clock, replaying `StopFailure` `overloaded`: one resume Message per step, a turn starting between steps cancels the rest, three misses give `error`.
+- While a resume waits, the Agent's Status is a waiting state, never `error`, and carries the cause and the next time. After the third resume fails it is `error` with U5151b's label for the cause. Test: asserted in `u6248b_roundup_resumes_after_a_transient_stop_failure`.
+- Every other `StopFailure` code in the U5151b table is `error` at once and sends no Message. Test: `authentication_failed` case of `u6248b_roundup_resumes_after_a_transient_stop_failure`.
+- With Claude's own retries on, a scripted 500 then 200 reaches a real Claude: the resume Message arrives and the next turn clears the waiting state. Test: `u6248b_real_claude_resumes_after_a_server_error`, extending `b37_real_claude_receives_a_note_after_a_scripted_server_error` in `crates/rup/tests/door_actions.rs`; a real process is needed because only a real Claude's retry and hook stream prove it.
+- No App timer or poll exists for this; the Daemon owns the schedule (policy). A waiting state or time that needs a contract field follows the Contract recipe, every caller in the same PR.
+
+**U6248c a waiting row is one grey line, an exhausted row offers Resume.** Given a Rail row of an Agent with a waiting resume (U6248b), then:
+
+- The row shows one grey line through the existing `ReservedLine` status, the cause and the next time in the local clock ("Claude overloaded · resumes 14:05"), with the waiting glyph and no button. Test: `u6248c_waiting_row_has_no_button` in `apps/desktop/src/rail/`, asserting roles and calls, not looks.
+- After the third miss the row shows U5151b's error line and offers Resume, which sends the resume Message at once, one Message per activation. Test: the exhausted case of `u6248c_waiting_row_has_no_button`.
+- Policy: the design critic judges dark and light captures of the waiting and the exhausted row at 1512×950 (`just capture U6248c`); implementation Moves D2, D5, D6.
+
 ## Gates and rendered observation
 
 Policy: P1 — can any explanation hide direct Agent access? P3 — can routine progress gain attention or a native request lose its Terminal continuation? P4 — can App code interpret vendor codes or change credentials? P9 — can reading/dismissal spend a turn or type vendor commands? P11 — can these actions discard or misaddress a draft? P14 — can recovery introduce usage or cost computation? Each answer must be no; the named observers check status visibility, zero unsolicited input, attention continuation and retained App delivery behavior.
