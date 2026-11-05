@@ -38,7 +38,7 @@
   padding: 0;
   border-radius: var(--radius-row);
   color: var(--grey);
-  cursor: default;
+  cursor: pointer;
 }
 
 .rail-mark[data-selected],
