@@ -20,9 +20,10 @@ const BOUND: Duration = Duration::from_secs(30);
 const DOOR_PROMPT: &str = "What is this Workstream for?";
 
 async fn until(what: &str, mut ready: impl FnMut() -> bool) {
+    let mut tick = tokio::time::interval(Duration::from_millis(10));
     tokio::time::timeout(BOUND, async {
         while !ready() {
-            tokio::time::sleep(Duration::from_millis(10)).await;
+            tick.tick().await;
         }
     })
     .await
@@ -140,6 +141,7 @@ async fn dcl2_idle_door_receives_while_child_works() {
         .unwrap()["id"]
         .clone();
     let mut delivered = false;
+    let mut tick = tokio::time::interval(Duration::from_millis(20));
     tokio::time::timeout(BOUND, async {
         while !delivered {
             let message = user
@@ -147,7 +149,7 @@ async fn dcl2_idle_door_receives_while_child_works() {
                 .await
                 .unwrap();
             delivered = message["status"] == "delivered";
-            tokio::time::sleep(Duration::from_millis(20)).await;
+            tick.tick().await;
         }
     })
     .await

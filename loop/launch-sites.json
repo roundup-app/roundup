@@ -883,5 +883,10 @@
     "cleanup": "No separate built-Daemon launch site.",
     "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
     "kind": "reference"
+  },
+  "crates/rupd/tests/dcl2_workstream_state.rs": {
+    "cleanup": "The shared rupd harness's Drop stops the Daemon before the owned data directory closes.",
+    "data": "Absolute caller-owned TempDir override through the shared harness; no later environment override.",
+    "kind": "reference"
   }
 }
