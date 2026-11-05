@@ -11,8 +11,7 @@ export const copy = {
   noShot: (cause: string) => `No shot: ${cause}`,
   noCapture: "Capture unavailable. Allow Screen Recording for roundup in macOS Privacy settings",
   facts: "Sent with it",
-  /** @prose */
-  log: (count: number) => `App log with ${count} lines`,
+  log: (count: number) => `Log, ${count} lines`,
   send: keysCopy.sendFeedback,
   close: sharedCopy.close,
   /** @prose */
