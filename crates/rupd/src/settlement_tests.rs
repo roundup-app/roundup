@@ -19,7 +19,11 @@ impl Run {
         let dir = tempfile::tempdir().unwrap();
         let daemon = running_daemon(dir.path());
         let door = door(&daemon).await;
-        let store = Arc::new(Settlements::open(&dir.path().join("settled.db")).unwrap());
+        let store = Arc::new(
+            Settlements::open(&dir.path().join("settled.db"))
+                .unwrap()
+                .without_quiet(),
+        );
         store.migrate().unwrap();
         let run = Self {
             daemon,
@@ -135,7 +139,9 @@ async fn dcl6_door_reply_and_restart_do_not_rearm_settlement() {
     let first = run.notes("[settled]").await;
     run.take_in(&first).await;
     // A restart reopens the stored marker; the Door's reply is no child change.
-    let reopened = Settlements::open(&run.dir.path().join("settled.db")).unwrap();
+    let reopened = Settlements::open(&run.dir.path().join("settled.db"))
+        .unwrap()
+        .without_quiet();
     let run = Run {
         store: Arc::new(reopened),
         ..run

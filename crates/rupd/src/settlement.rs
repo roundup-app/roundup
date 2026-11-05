@@ -21,14 +21,19 @@ const TOKEN: &str = "settlement:";
 /// Where the stop note names the child changes it answers.
 const STOP: &str = "settlement-stop:";
 
+/// How long the children must have gone unchanged before the Door is told: a replayed Stop and
+/// Working pair rests only for an instant, and costs the Door no turn.
+const QUIET_MS: i64 = 2_000;
+
 /// The markers `door_settlement` stores in `project.db`; in memory when none is given.
-pub struct Settlements(Mutex<Connection>);
+pub struct Settlements(Mutex<Connection>, i64);
 
 impl Default for Settlements {
     fn default() -> Self {
-        let store = Self(Mutex::new(
-            Connection::open_in_memory().expect("in-memory settlement store"),
-        ));
+        let store = Self(
+            Mutex::new(Connection::open_in_memory().expect("in-memory settlement store")),
+            QUIET_MS,
+        );
         store.migrate().expect("settlement schema");
         store
     }
@@ -36,7 +41,14 @@ impl Default for Settlements {
 
 impl Settlements {
     pub fn open(path: &Path) -> rusqlite::Result<Self> {
-        Ok(Self(Mutex::new(Connection::open(path)?)))
+        Ok(Self(Mutex::new(Connection::open(path)?), QUIET_MS))
+    }
+
+    /// The same store, telling a Door as soon as its children rest.
+    #[cfg(test)]
+    fn without_quiet(mut self) -> Self {
+        self.1 = 0;
+        self
     }
 
     fn migrate(&self) -> rusqlite::Result<()> {
@@ -133,6 +145,8 @@ fn due(
     open: &HashSet<String>,
     waiting: &HashMap<String, u32>,
     store: &Settlements,
+    now: i64,
+    quiet: &mut Option<i64>,
 ) -> Vec<Due> {
     let mut due = Vec::new();
     for door in nodes.iter().filter(|n| n.kind == NodeKind::Workstream) {
@@ -158,6 +172,17 @@ fn due(
             || busy(door)
             || children.iter().any(|c| busy(c))
         {
+            continue;
+        }
+        // The children have rested for the quiet period, or the pass after it comes back.
+        let last = children
+            .iter()
+            .filter_map(|c| c.status.as_ref().map(|s| s.since))
+            .max()
+            .unwrap_or(0);
+        let left = last + store.1 - now;
+        if left > 0 {
+            *quiet = Some(quiet.map_or(left, |q| q.min(left)));
             continue;
         }
         let marker = marker(&children);
@@ -215,16 +240,15 @@ fn due(
 }
 
 /// One pass: each Door whose children changed since its last settled note and now rest gets one.
+/// Answers the milliseconds until a Door's quiet period ends, so the caller passes again then.
 pub(crate) async fn settle(
     reader: &Reader,
     messages: &messages::Messages,
     store: &Settlements,
     world: &World,
     waiting: &HashMap<String, u32>,
-) {
-    let Some(agents) = reader.agents() else {
-        return;
-    };
+) -> Option<std::time::Duration> {
+    let agents = reader.agents()?;
     let open: HashSet<String> = match agents.open_jobs(|id| {
         Ok(messages
             .result_reports(id)?
@@ -235,10 +259,20 @@ pub(crate) async fn settle(
         Ok(jobs) => jobs.into_iter().map(|job| job.id).collect(),
         Err(err) => {
             eprintln!("settlement could not read open Jobs: {err}");
-            return;
+            return None;
         }
     };
-    for due in due(world.nodes(), world.messages(), &open, waiting, store) {
+    let mut quiet = None;
+    let found = due(
+        world.nodes(),
+        world.messages(),
+        &open,
+        waiting,
+        store,
+        provenance::now_ms(),
+        &mut quiet,
+    );
+    for due in found {
         let Due {
             door,
             marker,
@@ -294,6 +328,7 @@ pub(crate) async fn settle(
             eprintln!("settlement of {door} not stored: {err}");
         }
     }
+    quiet.map(|ms| std::time::Duration::from_millis(ms.unsigned_abs() + 50))
 }
 
 #[cfg(test)]

@@ -203,16 +203,9 @@ async fn name_of(user: &rpc::Client, id: &str) -> String {
         .name
 }
 
-/// The notes made for `to` and the prompts typed, less the settled notes of DCL6: a finished
-/// turn is a child change there, which B47(a)'s replays are not allowed to turn into a flip note.
+/// The notes made for `to` and the prompts typed.
 async fn turns(user: &rpc::Client, to: &str, prompts: &std::path::Path) -> (Vec<String>, usize) {
-    let notes = made(user, to).await;
-    let typed = typed(prompts, 0).await;
-    let settled = |text: &str| text.contains("[settled]");
-    (
-        notes.into_iter().filter(|b| !settled(b)).collect(),
-        typed.iter().filter(|p| !settled(&p.to_string())).count(),
-    )
+    (made(user, to).await, typed(prompts, 0).await.len())
 }
 
 #[tokio::test]

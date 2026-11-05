@@ -234,9 +234,12 @@ pub async fn push_changes(
     // DCL4: no event stream is authoritative, so a pass also runs every `REPAIR_PERIOD`.
     let mut timer =
         tokio::time::interval_at(tokio::time::Instant::now() + REPAIR_PERIOD, REPAIR_PERIOD);
+    // DCL6: a Door's quiet period ends here, so its settled note does not wait for an event.
+    let mut quiet: Option<std::time::Duration> = None;
     loop {
         tokio::select! {
             _ = timer.tick() => {}
+            () = async { tokio::time::sleep(quiet.unwrap_or_default()).await }, if quiet.is_some() => {}
             received = events.recv() => match received {
                 Ok(event) if moves_an_entry(&event.data) => {}
                 Ok(_) => continue,
@@ -245,8 +248,9 @@ pub async fn push_changes(
                 Err(RecvError::Closed) => return,
             },
         }
-        if let Err(err) = push_once(&reader, &messages, &seen, &settlements, &mut facts).await {
-            eprintln!("rupd: digest push failed: {err}");
+        match push_once(&reader, &messages, &seen, &settlements, &mut facts).await {
+            Ok(wait) => quiet = wait,
+            Err(err) => eprintln!("rupd: digest push failed: {err}"),
         }
     }
 }
@@ -257,7 +261,7 @@ async fn push_once(
     seen: &messages::digest::Seen,
     settlements: &crate::settlement::Settlements,
     facts: &mut Facts,
-) -> Result<(), RpcError> {
+) -> Result<Option<std::time::Duration>, RpcError> {
     let world = reader.world().await?;
     for push in seen.changed(&world.sources()) {
         // Messages owns waiting and retry weights; releasing Seen here would count a refusal
@@ -267,10 +271,10 @@ async fn push_once(
             .await;
     }
     let waiting = messages.waiting_counts().await.unwrap_or_default();
-    crate::settlement::settle(reader, messages, settlements, &world, &waiting).await;
+    let quiet = crate::settlement::settle(reader, messages, settlements, &world, &waiting).await;
     facts.publish(reader, &world).await;
     reader.observed(&world);
-    Ok(())
+    Ok(quiet)
 }
 
 #[cfg(test)]
