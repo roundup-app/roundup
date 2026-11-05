@@ -1,6 +1,6 @@
 # UI: an image an Agent draws shows in its Terminal (U5984)
 
-Module: `apps/desktop` (the webview). Ids: U5984, U5985, U6144, U6145, U6146. Source: the owner's report in #5984: an Agent Terminal shows `cmp.png` as a boxed file name, not the picture. Terms: Agent, Terminal, Door, Bubble, Thread, Pad (`GLOSSARY.md`). Acceptance only.
+Module: `apps/desktop` (the webview). Ids: U5984, U5985, U6144, U6144a, U6144b, U6145, U6146. Source: the owner's report in #5984: an Agent Terminal shows `cmp.png` as a boxed file name, not the picture. Terms: Agent, Terminal, Door, Bubble, Thread, Pad (`GLOSSARY.md`). Acceptance only.
 
 **U5984 the Terminal answers Kitty graphics and stores the image.** Claude Code 2.1.316 draws a picture inline only when the terminal answers its Kitty graphics query (`a=q`); it takes the iTerm2 path only when XTVERSION names iTerm2 3.5 or later. The App's emulator (`apps/desktop/src/terminal/emulator.ts`) answers neither today, so Claude Code draws the alt text in a box. Given an Agent Terminal on the App's emulator, then:
 
@@ -49,3 +49,7 @@ Observer: Vitest against the App's emulator, in `just check`. The real-`claude` 
 - OSC 7501 is answered only if the App handles it.
 
 A reply that claims a feature the emulator lacks is changed or removed in the same PR. Tests: `u6146_<query>_reply_matches_the_emulator`, one per query, in `apps/desktop/src/terminal/` or `crates/terminal` where the Daemon answers. Observer: Vitest and `cargo nextest`, in `just check`.
+
+**U6144a the Daemon answers a chunk's queries in the order the program wrote them.** Claude Code writes `CSI ? 2026 $ p`, a Kitty query, `CSI 16 t`, `CSI ? 1016 $ p` and DA1 in one write, and DA1's reply ends its wait. Given a Daemon Terminal whose program writes that batch, in one chunk or split inside the Kitty query, then the Kitty `OK` for the query's id reaches the program before DA1's reply. Tests: `u6144a_the_kitty_ok_reaches_the_program_before_da1_in_one_chunk` and `u6144a_the_order_holds_when_the_chunk_splits_inside_the_kitty_query` (`crates/terminal/tests/scenarios/scheme.rs`).
+
+**U6144b a Daemon Terminal's environment claims only this emulator.** Given a Daemon Terminal started from a launcher whose `TERM` is `xterm-ghostty` and whose `TERM_PROGRAM` is set, or whose caller passes them, then the program sees `TERM=xterm-256color` and none of `TERM_PROGRAM`, `TERM_PROGRAM_VERSION` or another terminal's variables. Test: `u6144b_a_terminal_claims_only_this_emulator` (same file).
