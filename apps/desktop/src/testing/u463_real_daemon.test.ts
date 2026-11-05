@@ -286,10 +286,9 @@ it("u2875d_real_import_reopen_and_resume", async () => {
     await browser("open", "about:blank");
     await real.restart();
     await browser("open", `${real.base}/harness.html?view=workstreams&items=1&tabs=1&daemon=1`);
-    // An imported idle child is past the one-minute fold, so open the idle branch first (U5940a).
-    await wait("!!document.querySelector('.rail-fold')");
-    await activate(".rail-fold");
+    // The restart keeps the imported child selected, so its idle fold lifts it out and holds nothing else (U6238a).
     await wait(`!!document.querySelector('.rail-row[data-id="${child.id}"]')`);
+    expect((await browser("eval", "document.querySelectorAll('.rail-fold').length")).result).toBe(0);
     await activate(`.rail-row[data-id="${child.id}"] .name`);
     await browser("eval", "(async () => { window.__importMenu = (await import('/src/testing/menuProbe.ts')).menuProbe; })()");
     await choose(child.id, "resume");
