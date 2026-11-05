@@ -68,7 +68,7 @@ import { ResourceStrip } from "./resources/ResourceStrip";
 import { createShelfFrame } from "./shelf/frame";
 import { Shelf, createShelfTabs, ShelfTabs, ProjectShelfTabs } from "./shelf/Shelf";
 import { shelfKeys } from "./shelf/keys";
-import { createShelfPeek } from "./shelf/peek";
+import { createEdgePeek } from "./ui/edgePeek";
 import { createWidths } from "./resize/widths";
 
 const ForkSheet = lazy(() => import("./fork/ForkSheet").then(module => ({ default: module.ForkSheet })));
@@ -525,7 +525,8 @@ export const App = (props: {
   const widths = createWidths(projects.active);
   const shelfTabs = createShelfTabs(frame);
   const shelfFocus = shelfKeys({ frame, shelf: shelfElement });
-  createShelfPeek(frame);
+  // U6224: the bar tabs promote through their own click; counting their press as use would let that click close what it just opened.
+  createEdgePeek({ edge: "trailing", region: shelfElement, state: frame, promote: (target) => { if (!target.closest(".shelf-tabs")) frame.promote(); } });
 
   const [menuFocus, setMenuFocus] = createSignal<Element | null>(null);
   const recordFocus = () => setMenuFocus(document.activeElement);

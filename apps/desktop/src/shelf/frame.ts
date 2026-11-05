@@ -33,7 +33,7 @@ export type ShelfFrame = {
   open: Accessor<boolean>;
   /** U6224: the Shelf covers the centre at the pointer's request and nothing is saved. */
   peeking: Accessor<boolean>;
-  /** U6224: a peek is in the layout, sliding in, held or sliding back; it never reserves width. */
+  /** U6224: a peek is in the layout, sliding in, resting or sliding back; it never reserves width. */
   covering: Accessor<boolean>;
   /** U6224: slide in over the centre without saving anything. */
   peek: () => void;

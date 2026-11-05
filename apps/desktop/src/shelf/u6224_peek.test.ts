@@ -88,7 +88,7 @@ it("u6224_a_fast_pass_peeks_nothing", async () => {
   expect(await everPeeked()).toBe(false);
 }, 90_000);
 
-it("u6224_a_held_button_peeks_nothing", async () => {
+it("u6224_a_pressed_button_peeks_nothing", async () => {
   await closedBenchOverATerminal();
   await watchPeeks();
   await browser("mouse", "move", "500", "400");
