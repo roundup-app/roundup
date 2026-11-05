@@ -894,5 +894,10 @@
     "cleanup": "In-process test runtime owns these Daemons; no built executable launch.",
     "data": "Daemon::open_stores receives an explicit TempDir path; no production fallback resolver.",
     "kind": "in-process"
+  },
+  "crates/rupd/tests/dcl5_facts.rs": {
+    "cleanup": "In-process test runtime owns the Daemon and its served socket; the TempDir project is removed on drop; no built executable launch.",
+    "data": "daemon_with_clock receives an explicit TempDir path; the socket lives under that project; no production fallback resolver.",
+    "kind": "in-process"
   }
 }
