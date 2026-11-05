@@ -125,7 +125,6 @@ export const copy = {
   exitedBySignal: "exited by signal",
   closeShelf: "Close the Bench",
   openShelf: "Open the Bench",
-  toggleTheRail: "Toggle the Rail",
   maximise: "Maximise",
   restore: "Restore",
   newAgent: "New Agent",

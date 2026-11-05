@@ -30,6 +30,9 @@ export const rowKind = (source: RailSource, node: RailNode, dismissed: Dismissed
   return byUrgency([dismissed(node) ? "idle" as const : node.status?.kind, ...below].filter((kind): kind is Kind => kind !== undefined))[0] ?? null;
 };
 
+/** U6228: a mark with no state of its own shows the calm glyph. */
+export const markKind = (kind: Kind | null): Kind => kind ?? "idle";
+
 /** U3566, U6119: whether the row, or while it is folded any Agent below it, has a result the user has not seen. */
 export const rowUnread = (source: RailSource, node: RailNode, unseen: (id: string) => boolean, folded: boolean): boolean =>
   unseen(node.id) || ((isWorkstream(node) || node.kind === "group") && folded && descendantsOf(source, node.id).some(each => unseen(each.id)));

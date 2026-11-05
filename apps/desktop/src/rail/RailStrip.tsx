@@ -8,10 +8,9 @@ import { TreeView } from "../ui/TreeView";
 import { captureActions } from "../keys/registry";
 import { useConnectedProject } from "../state/connectedProject";
 import { attentionCount } from "./attention";
-import { copy as sharedCopy } from "../sharedCopy";
 import { copy } from "./copy";
 import { isWorkstream, layoutRail, resolvedWorkstream } from "./layout";
-import { rowAttention, rowKind, rowUnread } from "./rollup";
+import { markKind, rowAttention, rowKind, rowUnread } from "./rollup";
 import "./strip.css";
 
 /** U6228: the collapsed Rail: one mark per Workstream, in the Rail's order, each with the state glyph and needs-you count its row rolls up from its Agents; the Overview mark carries the Project's count. */
@@ -32,7 +31,7 @@ export const RailStrip = (props: { expand: () => void }) => {
   const add = () => captureActions(document.activeElement).find(action => action.name === "workstream.new")?.run();
 
   return (
-    <nav class="rail-strip" aria-label={sharedCopy.workstreams}>
+    <nav class="rail-strip" aria-label={copy.railStrip}>
       <IconButton class="rail-strip-expand" aria-label={copy.expandRail} onClick={props.expand}><Icon name="right" /></IconButton>
       <button type="button" data-button="quiet" class="rail-mark" data-overview="" aria-pressed={rail.selected() === null} aria-label={copy.overviewMark(attention())} onClick={() => rail.select(null)}>
         <Icon name="layout-dashboard" />
@@ -40,7 +39,7 @@ export const RailStrip = (props: { expand: () => void }) => {
       </button>
       <div class="rail-strip-scroll">
         <TreeView.Root collection={collection()} selectedValue={current() === null ? [] : [current()!]} expandOnClick={false}>
-          <TreeView.Tree aria-label={sharedCopy.workstreams}>
+          <TreeView.Tree aria-label={copy.railStrip}>
             <For each={marks()}>{(node, at) => {
               const kind = () => rowKind(rail.topology(), node, dismissed, true);
 
@@ -55,10 +54,10 @@ export const RailStrip = (props: { expand: () => void }) => {
               return (
                 <TreeView.NodeProvider node={collection().at([at()])!} indexPath={[at()]}>
                   <TreeView.Item
-                    aria-label={copy.markName(node.name, LABELS[kind() ?? "idle"], needs(), unread())}
+                    aria-label={copy.markName(node.name, LABELS[markKind(kind())], needs(), unread())}
                     asChild={item => <div {...item({ class: "rail-mark", onClick: () => rail.select(node.id) })} data-id={node.id} data-kind={kind() ?? undefined}>
                       <Icon name={KIND_ICON.workstream} />
-                      <span class="rail-mark-state"><KindGlyph kind={kind() ?? "idle"} decorative /></span>
+                      <span class="rail-mark-state"><KindGlyph kind={markKind(kind())} decorative /></span>
                       <Show when={needs() > 0}><span class="ink-count" data-state="" data-tone="amber" aria-hidden="true">{needs()}</span></Show>
                       <Show when={unread()}><span class="unread-dot" aria-hidden="true" /></Show>
                     </div>}
