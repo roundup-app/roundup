@@ -330,7 +330,7 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
 
     if (node.kind === "group") return [{ id: "rename", label: copy.rename, shortcut: copy.renameChord, run: () => rename(node.id) }, ...extra(node)];
 
-    const remove: MenuEntry = { id: "remove", label: copy.remove, shortcut: "⌘⌫", run: () => requestRemove(node, exit, removed) };
+    const remove: MenuEntry = { id: "remove", label: copy.remove, shortcut: "⇧⌘⌫", run: () => requestRemove(node, exit, removed) };
 
     const queued = node.kind === "workstream" ? queue.entryOf(node.id) : null;
 
