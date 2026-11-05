@@ -387,6 +387,23 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn fb4_no_token_variable_is_set_or_read() {
+        let s = setup(&format!("env > \"$0.env\"; {OK}"));
+        call(&s.daemon, "feedback.send", send("r1", false, TARGET)).await;
+        let env = std::fs::read_to_string(s.bin.path().join("gh.env")).unwrap();
+        for name in ["GH_TOKEN", "GITHUB_TOKEN"] {
+            let seen = env.lines().any(|l| l.starts_with(&format!("{name}=")));
+            assert_eq!(
+                seen,
+                std::env::var_os(name).is_some(),
+                "{name} is the Daemon's own"
+            );
+        }
+        let body = std::fs::read_to_string(s.bin.path().join("gh.stdin")).unwrap();
+        assert!(!body.contains("GH_TOKEN=") && !body.contains("GITHUB_TOKEN="));
+    }
+
+    #[tokio::test]
     async fn fb4_an_agent_is_forbidden() {
         let s = setup(OK);
         let agent = Actor {
