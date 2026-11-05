@@ -33,6 +33,7 @@ pub trait NoteInbox: Send + Sync {
     /// snapshot a Door's batch carries. `reported` gives the Attempts an Agent has reported.
     fn open_jobs(
         &self,
+        _agent: &str,
         _reported: &dyn Fn(&str) -> Result<Vec<String>, RpcError>,
     ) -> Vec<(String, String, String)> {
         Vec::new()
@@ -71,8 +72,13 @@ impl NoteInbox for agents::Agents {
 
     fn open_jobs(
         &self,
+        agent: &str,
         reported: &dyn Fn(&str) -> Result<Vec<String>, RpcError>,
     ) -> Vec<(String, String, String)> {
+        // DCL8: only a Door's batch carries the snapshot.
+        if !self.is_door(agent) {
+            return Vec::new();
+        }
         agents::Agents::open_jobs(self, reported)
             .unwrap_or_default()
             .into_iter()
@@ -135,7 +141,7 @@ fn open_job_snapshot(inner: &Arc<Inner>, agent: &str, at: store::Binding) -> Opt
         }
         Ok(attempts)
     };
-    let jobs = inbox.open_jobs(&reported);
+    let jobs = inbox.open_jobs(agent, &reported);
     if jobs.is_empty() {
         return None;
     }
