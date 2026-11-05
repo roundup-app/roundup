@@ -1,7 +1,6 @@
 import { copy as sharedCopy } from "../sharedCopy";
-import { copy as keysCopy } from "../keys/copy";
 
-const FEEDBACK = "Feedback";
+const FEEDBACK = sharedCopy.feedback;
 
 export const copy = {
   title: FEEDBACK,
@@ -12,7 +11,7 @@ export const copy = {
   noCapture: "Capture unavailable. Allow Screen Recording for roundup in macOS Privacy settings",
   facts: "Sent with it",
   log: (count: number) => `Log, ${count} lines`,
-  send: keysCopy.sendFeedback,
+  send: "Send report",
   close: sharedCopy.close,
   /** @prose */
   posted: "Your report is posted. Select to open it.",
@@ -20,10 +19,10 @@ export const copy = {
   keptRetry: (folder: string) => `Kept in ${folder}. Select to retry.`,
   /** @prose */
   notSent: "Your report was not sent.",
-  setting: "Feedback Issue",
-  /** @prose */
-  settingHint: "The Issue that receives each report, as a GitHub URL.",
-  /** @prose */
-  settingInvalid: "Enter an Issue URL.",
-  group: FEEDBACK,
+  noCommit: "no commit",
+  service: "Service",
+  up: "up",
+  project: "Project",
+  selected: "Selected",
+  none: "none",
 } as const;

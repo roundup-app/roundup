@@ -8,7 +8,7 @@ import { createFakeApp } from "../testing/fakeApp";
 import { agent } from "../testing/nodes";
 import type { FeedbackReport } from "../app/seam";
 import { Feedback } from "./Feedback";
-import { FeedbackSetting } from "./FeedbackSetting";
+import { FeedbackSetting } from "../settings/FeedbackSetting";
 import { validIssueUrl } from "./target";
 
 const URL = "https://github.com/roundup-app/roundup/issues/6163";

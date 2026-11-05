@@ -7,8 +7,7 @@ import { registerKeys } from "../keys/registry";
 import { Combobox } from "../ui/Combobox";
 import { Tabs } from "../ui/Tabs";
 import { Field } from "../ui/Field";
-import { FeedbackSetting } from "../feedback/FeedbackSetting";
-import { copy as feedbackCopy } from "../feedback/copy";
+import { FeedbackSetting } from "./FeedbackSetting";
 import { Deferred } from "../ui/Deferred";
 import { Switch } from "../ui/Switch";
 import { Select } from "../ui/Select";
@@ -298,7 +297,7 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
       { id: "engine", page: copy.settingsAgents, group: copy.groupEngine, label: copy.engine, description: copy.engineHint, when: () => !!props.project() },
       { id: "model", page: copy.settingsAgents, group: copy.groupEngine, label: copy.model, description: copy.modelHint, when: () => !!props.project() },
       { id: "naming", page: copy.settingsAgents, group: copy.groupNaming, label: copy.automaticRenaming, description: copy.automaticRenamingHint, hiddenHint: true },
-      { id: "feedbackIssue", page: copy.settingsAgents, group: feedbackCopy.group, label: feedbackCopy.setting, description: feedbackCopy.settingHint },
+      { id: "feedbackIssue", page: copy.settingsAgents, group: copy.groupFeedback, label: copy.feedbackIssue, description: copy.feedbackIssueHint },
       { id: "skill", page: copy.settingsAgents, group: copy.groupSkill, label: copy.skill, description: copy.skillHint, hiddenHint: true },
       { id: "fontFamily", page: copy.settingsTerminal, group: copy.groupFont, label: copy.fontFamily, description: copy.fontFamilyHint },
       { id: "fontWeight", page: copy.settingsTerminal, group: copy.groupFont, label: copy.fontWeight, description: copy.fontWeightHint },
