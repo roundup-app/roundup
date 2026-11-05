@@ -54,10 +54,13 @@ it("u5940a_working_idle_one_minute_then_working_returns", async () => {
   setNow(NOW + 59_999);
   expect(rowNames()).toContain("child");
   setNow(NOW + 60_000);
+  await settled();
+  expect(rowNames()).toEqual(["stream", "child", "busy"]);
+  rail.select("busy");
   await waitFor(() => expect(rowNames()).toEqual(["stream", "busy"]));
   app.emit(event({ name: "agent.status", data: { id: "child", attempt: "1", status_revision: "3", status: { kind: "working", label: "working", since: NOW + 60_000, finished: "1" } } }));
   expect(rowNames()).toEqual(["stream", "child", "busy"]);
-  expect(rail.selected()).toBe("child");
+  expect(rail.selected()).toBe("busy");
   expect(app.calls.slice(calls).filter(call => !["message.list", "pad.list", "todo.list"].includes(call.method))).toEqual([]);
 });
 
@@ -160,4 +163,66 @@ it("u5483a_workstreams_keep_separate_folds", async () => {
   fireEvent.click(document.querySelector('[data-id="fold:first"] [data-part="branch-control"]')!);
   await waitFor(() => expect(rowNames()).toContain("first-child"));
   expect(rowNames()).not.toContain("second-child");
+});
+
+const foldedStream = () => [workstream("stream"),
+  agent("a", "done", "done", { parent: "stream" }),
+  agent("b", "done", "done", { parent: "stream" }),
+  agent("hidden", "idle", "idle", { parent: "stream", visibility: "internal" }),
+  agent("busy", "working", "working", { parent: "stream" }),
+];
+
+const folds = () => [...document.querySelectorAll(".rail-fold-name")].map(fold => fold.textContent);
+
+it.each(["a", "hidden"])("u6238a_closed_fold_lifts_out_the_selected_agent %s", async id => {
+  const { rail } = await mountRail(foldedStream());
+  await settled();
+  expect(folds()).toEqual(["1 internal", "2 idle"]);
+  rail.select(id);
+  await settled();
+  expect(rowNames()).toContain(id);
+  expect(folds()).toEqual(id === "a" ? ["1 internal", "1 idle"] : ["2 idle"]);
+  expect(rail.selected()).toBe(id);
+});
+
+it("u6238b_the_row_returns_when_selection_moves", async () => {
+  const { rail } = await mountRail(foldedStream());
+  await settled();
+  rail.select("a");
+  await settled();
+  rail.select("busy");
+  await settled();
+  expect(rowNames()).toEqual(["stream", "busy"]);
+  expect(folds()).toEqual(["1 internal", "2 idle"]);
+  rail.select("a");
+  await settled();
+  fireEvent.click(document.querySelector('[data-id="fold:stream"] [data-part=branch-control]')!);
+  await settled();
+  expect(rowNames()).toEqual(["stream", "busy", "a", "b"]);
+});
+
+it("u6238a_lifted_agent_is_a_direct_child_the_arrow_walk_passes_through", async () => {
+  const { rail } = await mountRail(foldedStream());
+  await settled();
+  rail.select("a");
+  await settled();
+  const row = (id: string) => document.querySelector<HTMLElement>(`[data-id="${id}"]`)!;
+  expect(row("a").getAttribute("aria-level")).toBe(row("busy").getAttribute("aria-level"));
+  row("busy").focus();
+  fireEvent.keyDown(row("busy"), { key: "ArrowUp" });
+  await settled();
+  expect(row("a").contains(document.activeElement)).toBe(true);
+});
+
+it("u6238a_the_remaining_fold_still_opens_with_arrow_right", async () => {
+  const { rail } = await mountRail(foldedStream());
+  await settled();
+  rail.select("a");
+  await settled();
+  const fold = document.querySelector<HTMLElement>('[data-id="fold:stream"] [data-part=branch-control]')!;
+  fold.focus();
+  expect(document.activeElement).toBe(fold);
+  fireEvent.keyDown(fold, { key: "ArrowRight" });
+  await settled();
+  expect(document.querySelector('[data-id="fold:stream"]')!.getAttribute("aria-expanded")).toBe("true");
 });
