@@ -101,7 +101,7 @@ fn saved_prefix_behind(behind: usize) -> (tempfile::TempDir, Connection, usize) 
 fn saved_prefix_before_reactions_retire() -> (tempfile::TempDir, Connection, usize) {
     let dir = tempfile::tempdir().unwrap();
     let mut db = Connection::open(dir.path().join("project.db")).unwrap();
-    let prefix = migrations().len() - 4;
+    let prefix = migrations().len() - 5;
     Migrations::new(migrations()[..prefix].to_vec())
         .to_latest(&mut db)
         .unwrap();
@@ -428,6 +428,8 @@ async fn n16_all_stores_share_one_project_database() {
         standalone::schema(&db).into_iter().collect();
     // The Project-only publication trigger is proved through the Daemon's U3787a RPC test.
     actual.remove("pad_publications_revoked");
+    // DCL6: the Daemon's settlement markers have no standalone store; they are proved through its RPC.
+    actual.remove("door_settlement");
     // M5159c: no migration drops the retired Checkpoint tables; no store creates or reads them.
     actual.remove("checkpoints");
     actual.remove("marks");
