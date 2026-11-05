@@ -146,7 +146,7 @@ describe("u6175 Esc and floating surfaces", () => {
     },
   );
 
-  it("u6175c_escape_from_the_home_ask_input_leaves_it", async () => {
+  it.each(["home", "over"])("u6175c_escape_from_the_home_ask_input_leaves_it: %s", async (mode) => {
     await mountApp();
     fireEvent.click(document.querySelector<HTMLElement>(".todo-project-root")!);
 
@@ -159,6 +159,13 @@ describe("u6175 Esc and floating surfaces", () => {
     });
 
     input.focus();
+
+    if (mode === "over") {
+      key("/", { metaKey: true });
+      await waitFor(() => expect(document.querySelector('.ask-bar[data-mode="over"]')).not.toBeNull());
+      // Ark's dismissable layer registers a tick after the surface mounts.
+      await new Promise((done) => setTimeout(done, 50));
+    }
 
     const escape = key("Escape");
 
