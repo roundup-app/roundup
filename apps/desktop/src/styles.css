@@ -105,6 +105,49 @@ p {
   padding-left: var(--space-4);
 }
 
+/* U6228: the Rail's content in one box, so a collapsed Rail can hide it whole while it stays mounted and keeps its keys. */
+.rail-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+}
+
+/* U6228: a collapsed Rail hides its body; a peek slides it out over the centre at the width it had, reserving none. */
+.rail[data-collapsed] {
+  position: relative;
+  overflow: visible;
+}
+
+/* The resize edge stays above a resting strip; only a peek rises over the centre. */
+.rail[data-peek] {
+  z-index: var(--layer-drawer);
+}
+
+.rail[data-collapsed] .rail-body {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: var(--rail-peek-width);
+  display: none;
+  background-color: var(--sunken);
+  transform: translateX(-100%);
+  transition: transform var(--duration-drawer) var(--easing-out), display var(--duration-drawer) allow-discrete;
+}
+
+.rail[data-peek] .rail-body {
+  display: flex;
+  transform: none;
+}
+
+@starting-style {
+  .rail[data-peek] .rail-body {
+    transform: translateX(-100%);
+  }
+}
+
 .rail-scroll {
   padding-left: 0;
   padding-right: 0;

@@ -857,3 +857,18 @@
   flex-basis: 100%;
   white-space: normal;
 }
+
+/* U6228: the collapse button floats over the Overview row's trailing edge, so the head spends no row; its centre sits on the chevron column, --space-5 from the inner right edge. */
+.rail-head {
+  position: relative;
+  z-index: 1;
+  height: 0;
+}
+
+.rail-head .rail-collapse {
+  position: absolute;
+  top: 0;
+  right: var(--space-3);
+  width: var(--space-5);
+  height: var(--space-6);
+}

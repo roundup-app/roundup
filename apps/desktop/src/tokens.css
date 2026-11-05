@@ -109,6 +109,7 @@
   --shadow-scroll: inset 0 8px 8px -8px rgba(0, 0, 0, 0.18);
   --rail-width: 288px;
   --shelf-width: 320px;
+  --rail-strip-width: 56px;
   --centre-min-width: 388px;
   /* U131: title geometry, including empty leading slots; not a space step. */
   --row-text-inset: 44px;
@@ -519,6 +520,9 @@ button, file-tree-container, diffs-container {
   box-shadow: var(--elevation)
 }
 .drawer[data-open="true"] {
+  box-shadow: var(--elevation)
+}
+.rail[data-peek] .rail-body {
   box-shadow: var(--elevation)
 }
 .pane .xterm-helper-textarea:focus-visible {

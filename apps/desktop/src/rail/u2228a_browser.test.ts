@@ -12,13 +12,19 @@ it("u2228a_title_follows_the_layout", async () => {
   await browser("eval", `window.__fake.app.handlers["rail.rename"]({ id: "tokens", name: "${NAME}" })`);
 
   await browser("focus", '[aria-label="Resize Rail"]');
-  await browser("press", "Home");
+  // Home is the collapse key (U6228); Shift+Left steps the open Rail down to its narrow end.
+  const narrow = async () => { for (let step = 0; step < 4; step++) await browser("press", "Shift+ArrowLeft"); };
+
+  await browser("press", "End");
+  await wait(`${title} === null`);
+
+  await narrow();
   await wait(`${title} === '${NAME}'`);
 
   await browser("press", "End");
   await wait(`${title} === null`);
 
-  await browser("press", "Home");
+  await narrow();
   await wait(`${title} === '${NAME}'`);
   expect(await read<string>(title)).toBe(NAME);
 });

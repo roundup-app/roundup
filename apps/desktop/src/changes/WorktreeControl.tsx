@@ -2,7 +2,7 @@ import { LEADER } from "../keys/chords";
 import { registerKeys } from "../keys/registry";
 import { captureFocus, queueFocus } from "../keys/focus";
 import { createCutTitle } from "../ui/cutTitle";
-import { createEffect, createMemo, createSignal, on, onCleanup, Show } from "solid-js";
+import { createEffect, createMemo, createSignal, lazy, on, onCleanup, Show } from "solid-js";
 import type { Accessor } from "solid-js";
 import type { ChangedFiles } from "@contracts/agent/ChangedFiles";
 import type { Worktree } from "@contracts/agent/Worktree";
@@ -15,9 +15,15 @@ import { Popover } from "../ui/Popover";
 import { notesFor } from "./notes";
 import type { Notes, Note } from "./notes";
 import { NoteBatch, NoteRecovery } from "./NoteBatch";
-import { DiffReader } from "./DiffReader";
-import { ChangedTree } from "./ChangedTree";
 import "./styles.css";
+
+const loadReader = () => import("./DiffReader");
+
+const loadTree = () => import("./ChangedTree");
+
+const DiffReader = lazy(() => loadReader().then(module => ({ default: module.DiffReader })));
+
+const ChangedTree = lazy(() => loadTree().then(module => ({ default: module.ChangedTree })));
 
 type Read = { failure: null; changed: ChangedFiles } | { failure: string; changed?: ChangedFiles } | null;
 
@@ -132,6 +138,9 @@ const Panel = (props: { id: string; name: string; worktree: Worktree; notes: Not
   }, { defer: true }));
 
   const openPanel = () => {
+    // The reader and the tree are separate chunks (startup budget); opening the panel fetches them ahead of use.
+    void loadReader();
+    void loadTree();
     treeFocus = captureFocus(true);
     props.onOpen();
     setOpen(true);

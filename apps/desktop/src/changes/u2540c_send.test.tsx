@@ -183,14 +183,14 @@ it("u2773b_changes_late_failure_stays_with_original_project", async () => {
   fireEvent.click(await screen.findByRole("button", { name: /\d+ changed files?/ }));
   await screen.findByText("original Project refused");
   fireEvent.click(screen.getByRole("button", { name: "Edit note 1" }));
-  expect(screen.getByLabelText<HTMLTextAreaElement>("Note", { selector: "textarea" }).value).toBe(newer);
+  expect((await screen.findByLabelText<HTMLTextAreaElement>("Note", { selector: "textarea" })).value).toBe(newer);
   fireEvent.click(within(screen.getByRole("form", { name: "Line note" })).getByRole("button", { name: "Close" }));
   fireEvent.click(tab("web"));
 
   await screen.findByText("b", { selector: "[role=treeitem][aria-selected=true] .name" });
   fireEvent.click(await screen.findByRole("button", { name: /\d+ changed files?/ }));
   fireEvent.click(await screen.findByRole("button", { name: "Edit note 1" }));
-  expect(screen.getByLabelText<HTMLTextAreaElement>("Note", { selector: "textarea" }).value).toBe(other);
+  expect((await screen.findByLabelText<HTMLTextAreaElement>("Note", { selector: "textarea" })).value).toBe(other);
   expect(app.of(path("web")).calls.filter(call => call.method === "message.send")).toHaveLength(0);
   expect(original.calls.filter(call => call.method === "message.send")).toHaveLength(1);
 }, 45_000); // two Projects, two opened diffs: ~10x its peers (~3 s here), so CI shard load crossed the 15 s default.
