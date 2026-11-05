@@ -497,7 +497,7 @@ it("u3787a_rail_delete_undo_redo_without_feedback", async () => {
   await connected!.rail.settled();
   await waitFor(() => expect(connected!.rail.selected()).toBe(item.id));
   row.focus();
-  fireEvent.keyDown(row, { key: "Backspace", code: "Backspace", metaKey: true });
+  fireEvent.keyDown(row, { key: "Backspace", code: "Backspace", metaKey: true, shiftKey: true });
   const present = async () => (await app.rpc("rail.tree", null)).some(node => node.id === item.id);
   await waitFor(async () => expect(await present()).toBe(false));
   await waitFor(() => expect(connected!.drafts.todoUndo.pending()).toBe(false));
