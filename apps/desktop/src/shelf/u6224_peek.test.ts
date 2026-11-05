@@ -1,4 +1,7 @@
+import { mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { expect, it } from "vitest";
+import { captureDir } from "../testing/captures";
 import { shelfBrowser } from "./u371Browser";
 
 const { browser, evaluate, settle, openShelf, toggle } = shelfBrowser();
@@ -55,6 +58,19 @@ it("u6224_a_rest_at_the_edge_peeks_the_bench_in", async () => {
   await settle();
   expect(await evaluate("document.querySelector('.shelf-scrim')")).toBeNull();
   expect(await calls("terminal.resize")).toBe(0);
+
+  const root = captureDir("U6224");
+
+  if (!root) return;
+  // The critic's frame: dark, the one viewport, the peek still covering a selected Terminal.
+  const dir = join(root, "head");
+
+  mkdirSync(dir, { recursive: true });
+  await browser("set", "media", "dark");
+  await browser("set", "viewport", "1512", "950");
+  await settle();
+  await browser("screenshot", join(dir, "peek.png"));
+  writeFileSync(join(dir, "peek.checks.json"), JSON.stringify(await evaluate("window.__checks()")));
 }, 90_000);
 
 it("u6224_a_fast_pass_peeks_nothing", async () => {

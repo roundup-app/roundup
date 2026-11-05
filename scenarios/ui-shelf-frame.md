@@ -42,7 +42,7 @@ U373 #4966 policy amendment: the Bench holds Todos and Pads, still one tabpanel 
 - **Reduced motion.** With `prefers-reduced-motion` the peek appears and leaves without a slide and keeps the same dwell and grace.
 - **Open or maximised.** With the Bench open the edge does nothing. A peek shows at the Bench's normal width even when the open Bench is maximised.
 
-The design critic judges the peek's look with U371's Checks on `tree-40` at 1512×950 (AGENTS.md rule 10); no test asserts geometry.
+The design critic judges the peek's look with U371's Checks on `agents-10` with a Terminal selected, dark at 1512×950 (AGENTS.md rule 10); no test asserts geometry.
 
 **U372 what the Shelf shows follows #676's layout.** Narrows U359. Given Todo titles, Pad names and a Pad's text written by an Agent (Q2's list is the owner of which surfaces; the Shelf's are named there when #676's scenarios merge), then in the Shelf each renders as Q3 lays it out: one labelled part per field, no mono except an id, a path or code (D13), and a Pad's preview or any text beyond a row's two lines is shown whole in its Drawer, not in the Shelf. The design critic judges D12, D13 and D14 in the overlay (AGENTS.md rule 10); no test.
 
