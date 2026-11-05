@@ -1,7 +1,6 @@
 import { createSignal, Show } from "solid-js";
 import type { Sent } from "@contracts/feedback/Sent";
 import type { FeedbackReport } from "../app/seam";
-import { ReservedLine } from "../ink/ReservedLine";
 import { queueFocus } from "../keys/focus";
 import { CHORDS } from "../keys/chords";
 import { modalOpen, registerKeys } from "../keys/registry";
@@ -11,7 +10,8 @@ import type { ToastQueue } from "../toasts/queue";
 import { Dialog } from "../ui/Dialog";
 import { Field } from "../ui/Field";
 import { copy } from "./copy";
-import { factsText } from "./facts";
+import { Disclosure } from "../ui/Disclosure";
+import { factsText, logText, sentText } from "./facts";
 import "./styles.css";
 
 type Report = { id: string; capture: FeedbackReport | null; cause: string | null };
@@ -25,11 +25,15 @@ export const Feedback = (props: { notify: ToastQueue["notify"] }) => {
   const [shot, setShot] = createSignal<string | null>(null);
   let form: HTMLFormElement | undefined;
 
-  const facts = () => {
+  const selection = () => {
     const node = rail.nodes.find(each => each.id === rail.selected());
 
-    return factsText(report()?.capture ?? null, project.path, node ? { kind: node.kind, name: node.name, state: node.status?.kind ?? null } : null);
+    return node ? { kind: node.kind, name: node.name, state: node.status?.kind ?? null } : null;
   };
+
+  const facts = () => factsText(report()?.capture ?? null, project.path, selection());
+
+  const log = () => logText(report()?.capture ?? null);
 
   const done = (id: string, sent: Sent) => {
     const base = { key: `feedback:${id}`, item: `feedback:${id}`, project: project.path, selected: false };
@@ -48,7 +52,7 @@ export const Feedback = (props: { notify: ToastQueue["notify"] }) => {
       return;
     }
 
-    props.notify({ ...base, kind: "error", name: sent.cause, line: copy.keptRetry(sent.dir), open: async () => {
+    props.notify({ ...base, kind: "error", name: sent.cause, line: copy.keptRetry(sent.dir.split("/").slice(-2).join("/")), open: async () => {
       try {
         done(id, await app.rpc("feedback.retry", { id, target: appSettings().feedbackIssue }));
 
@@ -88,7 +92,7 @@ export const Feedback = (props: { notify: ToastQueue["notify"] }) => {
 
     if (!current) return;
 
-    const params: Parameters<typeof app.rpc<"feedback.send">>[1] = { id: current.id, text: text(), facts: facts(), target: appSettings().feedbackIssue };
+    const params: Parameters<typeof app.rpc<"feedback.send">>[1] = { id: current.id, text: text(), facts: sentText(current.capture, project.path, selection()), target: appSettings().feedbackIssue };
     const picture = shot();
     const node = rail.selected();
 
@@ -114,9 +118,12 @@ export const Feedback = (props: { notify: ToastQueue["notify"] }) => {
             <button type="button" data-button="quiet" onClick={() => setShot(null)}>{copy.removeShot}</button>
           </div>}
         </Show>
-        <section aria-label={copy.facts}><pre class="feedback-facts">{facts()}</pre></section>
+        <section class="feedback-sent">
+          <h3>{copy.facts}</h3>
+          <pre class="feedback-facts">{facts()}</pre>
+          <Show when={log()}><Disclosure label={copy.log(report()!.capture!.facts.log.length)}><pre class="feedback-log">{log()}</pre></Disclosure></Show>
+        </section>
         <div class="app-dialog-actions">
-          <ReservedLine message={null} />
           <Dialog.CloseTrigger type="button" data-button="quiet">{copy.close}</Dialog.CloseTrigger>
           <button type="submit" data-button="primary">{copy.send}</button>
         </div>

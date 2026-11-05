@@ -4,6 +4,16 @@
   gap: var(--space-3);
 }
 
+.feedback-form {
+  width: min(calc(var(--dialog-min-width) * 2), calc(100vw - var(--space-6)));
+}
+
+.feedback-sent h3 {
+  margin: 0 0 var(--space-1);
+  font-size: var(--text-small);
+  font-weight: 600;
+}
+
 .feedback-form textarea {
   width: 100%;
   box-sizing: border-box;
@@ -26,7 +36,8 @@
   color: var(--text);
 }
 
-.feedback-facts {
+.feedback-facts,
+.feedback-log {
   margin: 0;
   max-height: calc(var(--dialog-min-width) / 2);
   overflow: auto;

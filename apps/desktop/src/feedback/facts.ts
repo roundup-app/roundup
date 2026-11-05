@@ -8,11 +8,15 @@ export const factsText = (report: FeedbackReport | null, project: string, select
     report ? `roundup ${report.facts.version} (${report.facts.commit || "no commit"})` : "roundup",
     `macOS ${report?.facts.macos || "unknown"}`,
     "Daemon: up",
-    `Project: ${project}`,
-    selection ? `Selected: ${selection.kind} ${selection.name}${selection.state ? ` (${selection.state})` : ""}` : "Selected: none",
+    `Project: ${project.split("/").filter(Boolean).pop() ?? project}`,
+    selection ? `Selected: ${selection.kind === "agent" ? "Agent" : selection.kind} ${selection.name}${selection.state ? ` (${selection.state})` : ""}` : "Selected: none",
   ];
-
-  if (report?.facts.log.length) lines.push("", `App log (last ${report.facts.log.length} lines):`, ...report.facts.log);
 
   return lines.join("\n");
 };
+
+/** The App log as the Daemon receives it after the facts; the form shows it behind a disclosure. */
+export const logText = (report: FeedbackReport | null): string => report?.facts.log.length ? `App log (last ${report.facts.log.length} lines):\n${report.facts.log.join("\n")}` : "";
+
+/** The text the Daemon receives: the facts, then the log. */
+export const sentText = (report: FeedbackReport | null, project: string, selection: Selection): string => [factsText(report, project, selection), logText(report)].filter(Boolean).join("\n\n");

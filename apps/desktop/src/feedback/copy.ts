@@ -9,14 +9,16 @@ export const copy = {
   shotAlt: "Window shot",
   removeShot: "Remove the shot",
   noShot: (cause: string) => `No shot: ${cause}`,
-  noCapture: "Capture unavailable",
+  noCapture: "Capture unavailable. Allow Screen Recording for roundup in macOS Privacy settings",
   facts: "Sent with it",
+  /** @prose */
+  log: (count: number) => `App log with ${count} lines, closed`,
   send: keysCopy.sendFeedback,
   close: sharedCopy.close,
   /** @prose */
   posted: "Your report is posted. Select to open it.",
   /** @prose */
-  keptRetry: (folder: string) => `Your report is in ${folder}. Select to retry.`,
+  keptRetry: (folder: string) => `I kept it in ${folder}. Select to retry.`,
   /** @prose */
   notSent: "Your report was not sent.",
   setting: "Feedback Issue",

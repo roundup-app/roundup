@@ -144,7 +144,7 @@ it("fb3_the_form_shows_the_text_that_posts", async () => {
 
   send();
   await waitFor(() => expect(sends).toHaveLength(1));
-  expect(sends[0]).toMatchObject({ text: "the Rail jumps", facts: shown, shot: "iVBOR", selected: "ann" });
+  expect(sends[0]).toMatchObject({ text: "the Rail jumps", facts: expect.stringContaining(shown), shot: "iVBOR", selected: "ann" });
 });
 
 it("fb4_send_closes_the_form_and_the_toast_links_the_comment", async () => {
@@ -183,7 +183,7 @@ it("fb5_the_toast_names_the_cause_and_the_folder_and_retries", async () => {
   send();
   await waitFor(() => expect(toasts).toHaveLength(1));
   expect(toasts[0]!.name).toContain("gh: not logged in");
-  expect(toasts[0]!.line).toContain("/data/feedback/r1");
+  expect(toasts[0]!.line).toContain("feedback/r1");
   answer(async () => ({ state: "posted", url: URL }));
   await expect(toasts[0]!.open("pointer")).resolves.toBeNull();
   expect(sends[1]).toMatchObject({ id: ids[0] });
