@@ -181,7 +181,7 @@ const swallowNextClick = (): (() => void) => {
 };
 
 const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
-  const reduced = useContext(ReducedMotionContext) ?? (() => matchMedia("(prefers-reduced-motion: reduce)").matches);
+  const reduced = useContext(ReducedMotionContext) ?? (() => matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false);
   const [local, rest] = splitProps(props, ["ids", "onOrderChange", "tree", "external", "plain", "horizontal", "ref", "onDrag", "children"]);
   let over: T | null = null;
   let list: HTMLDivElement | undefined;
