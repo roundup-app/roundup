@@ -213,3 +213,16 @@ it("u6238a_lifted_agent_is_a_direct_child_the_arrow_walk_passes_through", async 
   await settled();
   expect(row("a").contains(document.activeElement)).toBe(true);
 });
+
+it("u6238a_the_remaining_fold_still_opens_with_arrow_right", async () => {
+  const { rail } = await mountRail(foldedStream());
+  await settled();
+  rail.select("a");
+  await settled();
+  const fold = document.querySelector<HTMLElement>('[data-id="fold:stream"] [data-part=branch-control]')!;
+  fold.focus();
+  expect(document.activeElement).toBe(fold);
+  fireEvent.keyDown(fold, { key: "ArrowRight" });
+  await settled();
+  expect(document.querySelector('[data-id="fold:stream"]')!.getAttribute("aria-expanded")).toBe("true");
+});
