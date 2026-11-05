@@ -151,6 +151,16 @@ export const attachLinkGestures = (terminal: Terminal, host: HTMLElement, open: 
 
   const leave = () => { pointer = null; refresh(); };
 
+  // AL3: an OSC 8 link shows its own text; xterm's linkHandler gives the address, activated by the same single-click rules.
+  terminal.options.linkHandler = {
+    allowNonHttpProtocols: true,
+    activate: (event, uri) => {
+      if (event.button !== 0 || event.detail !== 1 || event.ctrlKey || event.altKey || terminal.hasSelection()) return;
+      pending = () => open({ kind: "url", url: uri });
+      timer = setTimeout(finish, LINK_CLICK_MS);
+    },
+  };
+
   host.addEventListener("mousedown", down, true);
   host.addEventListener("mousemove", move, true);
   host.addEventListener("mouseleave", leave);
@@ -162,6 +172,7 @@ export const attachLinkGestures = (terminal: Terminal, host: HTMLElement, open: 
 
   return () => {
     cancel();
+    terminal.options.linkHandler = null;
     rendered.dispose(); scrolled.dispose();
 
     for (const mark of marks) mark.remove();

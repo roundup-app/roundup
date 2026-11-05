@@ -128,7 +128,8 @@ const newestFailure = (state: TerminalFailures | undefined): FailureEntry | null
 
 const NOT_FOUND = -32001;
 
-export const createScreens = (connected: ConnectedProject, createEmulator: EmulatorFactory): Screens => {
+/** `openObject` is the App's one route for a `roundup://` link (AL3); without it the link goes to the OS like any other address. */
+export const createScreens = (connected: ConnectedProject, createEmulator: EmulatorFactory, openObject?: (url: string) => void): Screens => {
   const { app, rail, daemonExit, project } = connected;
   const holders = new Map<string, Holder>();
   const watches = new Map<string, Watch>();
@@ -600,6 +601,13 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
 
   /** U365: a Door's Terminal and a worktree-less Agent's resolve against the Project folder; an Agent's against its Worktree. */
   const open = async (id: string, printed: Printed): Promise<void> => {
+    if (printed.kind === "url" && openObject && !/^https?:/i.test(printed.url)) {
+      setFailure(id, "link", null);
+      openObject(printed.url);
+
+      return;
+    }
+
     const node = rail.nodes.find((candidate) => candidate.terminal_id === id);
     const path = printed.kind === "path" ? absolutePath(printed.path, node?.kind === "agent" ? node.worktree?.path ?? project.path : project.path) : "";
 
