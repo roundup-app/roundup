@@ -110,6 +110,7 @@ export const SEAM_COMMANDS = [
   "canonical_project_path",
   "close_project",
   "exit_for_update",
+  "feedback_capture",
   "fork_branch",
   "fork_make",
   "rename_project",

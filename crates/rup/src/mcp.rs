@@ -327,7 +327,63 @@ pub(crate) async fn display_data(
         }
         _ => {}
     }
+    link_nodes(client, &mut result).await?;
     Ok(result)
+}
+
+/// AL1: whether `value` holds an object that names something by `id` and `name`.
+fn names_something(value: &Value) -> bool {
+    match value {
+        Value::Object(map) => {
+            (map.get("id").is_some_and(Value::is_string)
+                && map.get("name").is_some_and(Value::is_string))
+                || map.values().any(names_something)
+        }
+        Value::Array(items) => items.iter().any(names_something),
+        _ => false,
+    }
+}
+
+/// AL1: gives each object of `value` that names a Rail node by `id` and `name` the node's LK1 `link`.
+fn add_links(value: &mut Value, key: &str, nodes: &[agent::RailNode]) {
+    match value {
+        Value::Object(map) => {
+            let link = map
+                .get("id")
+                .and_then(Value::as_str)
+                .filter(|_| map.get("name").is_some_and(Value::is_string))
+                .and_then(|id| nodes.iter().find(|node| node.id == id))
+                .and_then(|node| contracts::link::node_link(key, node));
+            for child in map.values_mut() {
+                add_links(child, key, nodes);
+            }
+            if let Some(link) = link {
+                map.insert("link".into(), link.into());
+            }
+        }
+        Value::Array(items) => items
+            .iter_mut()
+            .for_each(|item| add_links(item, key, nodes)),
+        _ => {}
+    }
+}
+
+/// AL1: a Door's tool reply names an Agent with its link, so the Door can give the user a link to act in it.
+async fn link_nodes(client: &rpc::Client, result: &mut Value) -> Result<(), RpcError> {
+    if !names_something(result) {
+        return Ok(());
+    }
+    let nodes = rail_nodes(client).await?;
+    let ping = tokio::time::timeout(CALL_TIMEOUT, client.request("daemon.ping", Value::Null))
+        .await
+        .map_err(|_| {
+            RpcError::internal("could not read the Project key: the Daemon did not answer")
+        })??;
+    let key = ping["projectKey"]
+        .as_str()
+        .ok_or_else(|| RpcError::internal("the Daemon's ping names no Project key"))?;
+    add_links(result, key, &nodes);
+    Ok(())
 }
 
 /// M17: only declared unit replies become acknowledgements; nullable data stays JSON.

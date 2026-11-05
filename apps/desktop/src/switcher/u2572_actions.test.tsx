@@ -149,7 +149,7 @@ it.each([false, true])("u2572b_actions_share_key_behavior_in_the_opening_view: R
   row.focus();
 
   if (byAction) { await show(); await chooseAction("Remove", "enter"); }
-  else press("Backspace", { metaKey: true }, row);
+  else press("Backspace", { metaKey: true, shiftKey: true }, row);
   await questionDialog();
   await answerQuestion(false);
   expect(app.calls.filter((call) => call.method === "rail.remove")).toEqual([]);
@@ -224,7 +224,7 @@ it.each(["rail", "pane", "bubble", "editor", "text"])("u2572c_actions_follow_ope
   await show();
 
   const expected = ["New Agent", "Agent with prompt", "New Workstream", "New Mode", ...(context === "editor" ? [] : ["New Terminal"]),
-    "Next needs you", ...(context === "rail" ? ["Rename", "Remove"] : []),
+    "Next needs you", ...(context === "rail" ? ["Rename"] : []), "Remove",
     "Focus Ask bar", ...(context === "pane" ? ["Larger Terminal text", "Smaller Terminal text", "Reset text size", "Find…"] : []), "Assign / Ask", ...(["bubble", "editor"].includes(context) ? ["Minimise Bubble", "Close the Bubble"] : [])];
 
   expect(actionNames()).toEqual(expected);

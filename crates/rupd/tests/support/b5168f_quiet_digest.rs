@@ -7,6 +7,7 @@ fn digest_of(last: &str) -> String {
         kind: contracts::Kind::Working,
         last: last.into(),
         todos: 0,
+        link: None,
         pads: vec![],
     })
 }
