@@ -149,7 +149,7 @@ fn due(
         let (settled, publishing) = match store.row(&door.id) {
             Ok(row) => row,
             Err(err) => {
-                eprintln!("rupd: settlement of {} not read: {err}", door.id);
+                eprintln!("settlement of {} not read: {err}", door.id);
                 continue;
             }
         };
@@ -189,7 +189,7 @@ pub(crate) async fn settle(
     }) {
         Ok(jobs) => jobs.into_iter().map(|job| job.id).collect(),
         Err(err) => {
-            eprintln!("rupd: settlement could not read open Jobs: {err}");
+            eprintln!("settlement could not read open Jobs: {err}");
             return;
         }
     };
@@ -199,7 +199,7 @@ pub(crate) async fn settle(
             // Written before the note, so a crash after sending finds the note by its token.
             let settled = store.row(&door).ok().and_then(|(settled, _)| settled);
             if let Err(err) = store.write(&door, settled.as_deref(), Some(&marker)) {
-                eprintln!("rupd: settlement of {door} not stored: {err}");
+                eprintln!("settlement of {door} not stored: {err}");
                 continue;
             }
             let body = format!(
@@ -216,12 +216,12 @@ pub(crate) async fn settle(
                 )
                 .await;
             if let Err(err) = reply {
-                eprintln!("rupd: settled note for {door} not sent: {err}");
+                eprintln!("settled note for {door} not sent: {err}");
                 continue;
             }
         }
         if let Err(err) = store.write(&door, Some(&marker), None) {
-            eprintln!("rupd: settlement of {door} not stored: {err}");
+            eprintln!("settlement of {door} not stored: {err}");
         }
     }
 }
