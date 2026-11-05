@@ -267,6 +267,9 @@ importers:
       tinykeys:
         specifier: ^4.0.1
         version: 4.0.1
+      tldts:
+        specifier: ^7.4.16
+        version: 7.4.16
       valibot:
         specifier: ^1.5.0
         version: 1.5.0(typescript@7.0.2)

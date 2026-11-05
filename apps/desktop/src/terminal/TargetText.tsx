@@ -1,8 +1,7 @@
 import { createMemo, For } from "solid-js";
-import { RpcError } from "../app/seam";
 import { useConnectedProject } from "../state/connectedProject";
 import { copy } from "./copy";
-import { absolutePath, findTargets, type Printed } from "./links";
+import { findTargets, openPrinted, type Printed } from "./links";
 import "./styles.css";
 
 /** U365: shared recognised ranges in read-only Ask and Message text. */
@@ -24,17 +23,7 @@ export const TargetText = (props: { text: string; base: string; objectLinks?: bo
     return pieces;
   });
 
-  const open = async (printed: Printed) => {
-    const target = printed.kind === "url" ? printed : { ...printed, path: absolutePath(printed.path, props.base) };
-
-    try {
-      await app.openTarget(target);
-      props.onFailure(null);
-    } catch (error) {
-      if (!(error instanceof Error)) throw error;
-      props.onFailure(error instanceof RpcError && error.code === -32001 && target.kind === "path" ? copy.doesNotExist(target.path) : error.message);
-    }
-  };
+  const open = async (printed: Printed) => props.onFailure(await openPrinted((target) => app.openTarget(target), printed, props.base, copy.doesNotExist));
 
   return <><For each={pieces()}>{piece => piece.printed
     ? <a data-native-link={props.objectLinks && piece.printed.kind === "url" && /^roundup:/i.test(piece.printed.url) ? "" : undefined} class="target-link" href={piece.printed.kind === "url" ? piece.printed.url : piece.printed.path}

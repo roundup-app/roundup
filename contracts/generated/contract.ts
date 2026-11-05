@@ -50,6 +50,8 @@ export const CONTRACT = {
     "deliverable.remove": "91e18f475738c84d",
     "deliverable.resolve": "6df699e51874607a",
     "events.subscribe": "de0fefe1c4790852",
+    "feedback.retry": "df34e089a937b5a8",
+    "feedback.send": "b9a34dbeeb0a2304",
     "github.issueGet": "5752a99b295ac021",
     "github.prAutoMerge": "451c0803a86aaa94",
     "github.prGet": "3686d6505b1be8d7",
