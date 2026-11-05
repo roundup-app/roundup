@@ -4274,6 +4274,7 @@ dependencies = [
  "notify",
  "pads",
  "percent-encoding",
+ "proptest",
  "provenance",
  "reflink-copy",
  "rpc",

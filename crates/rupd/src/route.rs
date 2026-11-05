@@ -104,9 +104,13 @@ impl Daemon {
             self.start_queue();
             Ok(rpc::Reply::Json(builtin::ping_json(self)))
         } else {
-            self.route(conn, method, params)
-                .await
-                .map(rpc::Reply::Value)
+            let routed = self.route(conn, method, params).await;
+            if method == "agent.signal"
+                && let Some(tell) = self.rail_told.get()
+            {
+                tell.nudge.notify_one();
+            }
+            routed.map(rpc::Reply::Value)
         };
         let id = id?;
         Some(match outcome {
@@ -166,26 +170,7 @@ impl Daemon {
             rpc::Reply::Json(json) => serde_json::from_str(&json),
         }
         .map_err(RpcError::internal)?;
-        for node in &mut nodes {
-            // DCL1: the cause rides the Agent's row and, through its Door, the Workstream's.
-            let cause = self
-                .sender
-                .get()
-                .and_then(|messages| messages.delivery_failure(&node.id));
-            node.unreachable = cause.map(str::to_owned);
-            if node.kind == contracts::agent::NodeKind::Workstream {
-                node.waiting = counts
-                    .get(&node.id)
-                    .copied()
-                    .filter(|n| *n > 0 && messages::ended(node));
-                if stalled.contains(&node.id)
-                    && let Some(status) = node.status.as_mut()
-                {
-                    status.label = "stalled".into();
-                }
-            }
-        }
-        crate::workstream_state::derive(&mut nodes, &stalled);
+        crate::workstream_state::present(&mut nodes, &counts, &stalled, self.sender.get());
         Ok(rpc::Reply::Value(rpc::reply(&nodes)?))
     }
 
