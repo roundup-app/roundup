@@ -167,7 +167,7 @@ impl Daemon {
                 }
             }
         }
-        crate::workstream_state::derive(&mut nodes);
+        crate::workstream_state::derive(&mut nodes, &stalled);
         Ok(rpc::Reply::Value(rpc::reply(&nodes)?))
     }
 
