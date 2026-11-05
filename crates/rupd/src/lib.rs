@@ -419,6 +419,8 @@ mod import_tests;
 mod vendor_list_tests;
 
 #[cfg(test)]
+mod facts_tests;
+#[cfg(test)]
 mod workstream_door;
 
 #[cfg(test)]

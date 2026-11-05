@@ -245,9 +245,9 @@ for line in sys.stdin:
 }
 
 /// Use the real stores, routing, lifecycle fold and vendor socket; only launch is controlled.
-struct IdleDoor {
+pub(crate) struct IdleDoor {
     _project: tempfile::TempDir,
-    daemon: Daemon,
+    pub(crate) daemon: Daemon,
     launcher: Launcher,
     config: std::path::PathBuf,
     steers: Arc<std::sync::atomic::AtomicUsize>,
@@ -255,6 +255,11 @@ struct IdleDoor {
 
 impl IdleDoor {
     fn new() -> Self {
+        Self::with_clock(Arc::new(std::sync::atomic::AtomicI64::new(0)), false)
+    }
+
+    /// `ticking` reads the Agents' time from `clock`; otherwise they keep the system's.
+    pub(crate) fn with_clock(clock: Arc<std::sync::atomic::AtomicI64>, ticking: bool) -> Self {
         let project = tempfile::tempdir().unwrap();
         let config = project.path().join("vendor");
         std::fs::create_dir_all(config.join("sessions")).unwrap();
@@ -268,12 +273,16 @@ impl IdleDoor {
         let recording = Arc::clone(&steers);
         let daemon =
             Daemon::open_stores(project.path(), &project.path().join(".roundup"), |agents| {
-                agents
-                    .with_launcher_for_test(launcher.clone())
-                    .with_steer_effect(move |_| {
-                        recording.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-                        Ok(())
-                    })
+                let agents = agents.with_launcher_for_test(launcher.clone());
+                let agents = if ticking {
+                    agents.with_clock(move || clock.load(std::sync::atomic::Ordering::SeqCst))
+                } else {
+                    agents
+                };
+                agents.with_steer_effect(move |_| {
+                    recording.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                    Ok(())
+                })
             })
             .unwrap();
         Self {
@@ -285,7 +294,7 @@ impl IdleDoor {
         }
     }
 
-    async fn call(&self, method: &str, params: Value) -> Value {
+    pub(crate) async fn call(&self, method: &str, params: Value) -> Value {
         let reply = crate::tests::ask(
             &self.daemon,
             &json!({"jsonrpc":"2.0","id":1,"method":method,"params":params}).to_string(),
@@ -295,7 +304,7 @@ impl IdleDoor {
         reply["result"].clone()
     }
 
-    async fn start(
+    pub(crate) async fn start(
         &self,
         kind: &str,
         parent: Option<&str>,

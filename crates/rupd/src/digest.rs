@@ -228,7 +228,7 @@ pub async fn push_changes(
     }
 }
 
-async fn push_once(
+pub(crate) async fn push_once(
     reader: &Reader,
     messages: &messages::Messages,
     seen: &messages::digest::Seen,
