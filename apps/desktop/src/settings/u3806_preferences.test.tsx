@@ -10,6 +10,7 @@ import { createFakeApp } from "../testing/fakeApp";
 import { RpcError } from "../app/seam";
 import { CHORDS, HELP_ROWS } from "../keys/chords";
 import { copy } from "./copy";
+import { DEFAULT_FONT_SIZE } from "../terminal/fontSize";
 import { xtermOptions } from "../terminal/emulator";
 
 beforeEach(() => {
@@ -389,4 +390,18 @@ it("u5205_a_mac_wide_chord_calls_configure_and_reset_returns_none", async () => 
   await waitFor(() => expect(appSettings().quickAddAnywhere).toBe(""));
   expect(configure).toHaveBeenLastCalledWith(null);
   expect(appSettings().quickAdd).toBe("meta+shift+KeyT");
+});
+
+it("u6276a_a_save_stores_only_what_differs_from_the_default", async () => {
+  const stored = () => JSON.parse(localStorage.getItem("roundup:app-settings")!);
+
+  await saveAppSettings({ fontSize: 15 });
+  expect(stored()).toEqual({ fontSize: 15 });
+  await saveAppSettings({ mode: "dark" });
+  expect(stored()).toEqual({ fontSize: 15, mode: "dark" });
+  await saveAppSettings({ mode: "system" });
+  expect(stored()).toEqual({ fontSize: 15 });
+  await saveAppSettings({ fontSize: DEFAULT_FONT_SIZE });
+  expect(stored()).toEqual({});
+  expect(appSettings().lineHeight).toBe(xtermOptions.lineHeight);
 });
