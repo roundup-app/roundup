@@ -1,12 +1,11 @@
 import { createMemo, For } from "solid-js";
 import { useConnectedProject } from "../state/connectedProject";
-import { copy } from "./copy";
 import { findTargets, openPrinted, type Printed } from "./links";
 import "./styles.css";
 
 /** U365: shared recognised ranges in read-only Ask and Message text. */
-export const TargetText = (props: { text: string; base: string; objectLinks?: boolean; onFailure: (message: string | null) => void }) => {
-  const { app } = useConnectedProject();
+export const TargetText = (props: { text: string; base: string; objectLinks?: boolean}) => {
+  const { app, project } = useConnectedProject();
 
   const pieces = createMemo(() => {
     const pieces: { text: string; printed?: Printed }[] = [];
@@ -23,10 +22,15 @@ export const TargetText = (props: { text: string; base: string; objectLinks?: bo
     return pieces;
   });
 
-  const open = async (printed: Printed) => props.onFailure(await openPrinted((target) => app.openTarget(target), printed, props.base, copy.doesNotExist));
+  // U6249c4: a printed path that cannot open is logged by `openPrinted`; the Terminal's own line is the one surface that shows a failure.
+  const open = async (printed: Printed) => {
+    const failure = await openPrinted((target) => app.openTarget(target), printed, [props.base, project.path]);
+
+    if (failure !== null) console.warn(`link not opened: ${failure}`);
+  };
 
   return <><For each={pieces()}>{piece => piece.printed
-    ? <a data-native-link={props.objectLinks && piece.printed.kind === "url" && /^roundup:/i.test(piece.printed.url) ? "" : undefined} class="target-link" href={piece.printed.kind === "url" ? piece.printed.url : piece.printed.path}
+    ? <a data-native-link={props.objectLinks && piece.printed.kind === "url" && /^roundup:/i.test(piece.printed.url) ? project.path : undefined} class="target-link" href={piece.printed.kind === "url" ? piece.printed.url : piece.printed.path}
       onClick={event => { event.preventDefault(); event.stopPropagation(); void open(piece.printed!); }}
       onKeyDown={event => event.stopPropagation()}>{piece.text}</a>
     : piece.text}</For></>;

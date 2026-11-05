@@ -1,10 +1,5 @@
 import { labels, copy as sharedCopy, type CopyValue } from "../sharedCopy";
 
-export const linkCopy = {
-  published: "This published link cannot be opened here. Open it from Made.",
-  projectClosed: "The link's Project is not open. Open that Project and try the link again.",
-} as const;
-
 export const storageCopy = {
   incompatible: sharedCopy.storageIncompatible,
   restoring: "Restoring saved work…",

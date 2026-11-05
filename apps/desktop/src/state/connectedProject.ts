@@ -157,6 +157,9 @@ export type ConnectedProject = {
   hasView: (view: string) => boolean;
   hideView: (view: string) => void;
   showView: (view: string | null) => void;
+  /** U6249c2: the published Deliverable the Made panel marks as chosen; a link sets it, and the panel's own opens do. */
+  madeSelected: Accessor<string | null>;
+  selectMade: (id: string | null) => void;
   worktrees: ReturnType<typeof createWorktreeState>;
   drawer: DrawerState;
   /** U504: the Asks the user sent and where each part went. */
@@ -326,9 +329,11 @@ export const connectProject = async (
   const hasView = (name: string) => views().includes(name);
   const showView = (name: string | null) => { setViews(previous => name === null ? [] : previous.includes(name) ? previous : [...previous, name]); };
 
+  const [madeSelected, selectMade] = createSignal<string | null>(null);
+
   const hideView = (name: string) => { setViews(previous => previous.includes(name) ? previous.filter(value => value !== name) : previous); };
 
-  return { creation, createIn, finishCreation, padsTab, padsRequest, padsOwner, showPadsOf, finishPadsRequest, view, hasView, showView, hideView, project, drafts, app, events, rail, held, terminalScheme, unseen, visits, queue, importing, worktrees: createWorktreeState(app, rail, now, daemonExit), drawer: createDrawer(), asks, settingsView: drafts.settingsView, notes: createNoteQueue(app, events, daemonExit), reducedMotion, now, contractNotice, daemonExit, stopTerminalScheme: () => { stopRail(); stopQueue(); stopUnseen(); stopAsks(); terminalScheme.stop(); } };
+  return { creation, createIn, finishCreation, padsTab, padsRequest, padsOwner, showPadsOf, finishPadsRequest, view, hasView, showView, hideView, madeSelected, selectMade, project, drafts, app, events, rail, held, terminalScheme, unseen, visits, queue, importing, worktrees: createWorktreeState(app, rail, now, daemonExit), drawer: createDrawer(), asks, settingsView: drafts.settingsView, notes: createNoteQueue(app, events, daemonExit), reducedMotion, now, contractNotice, daemonExit, stopTerminalScheme: () => { stopRail(); stopQueue(); stopUnseen(); stopAsks(); terminalScheme.stop(); } };
 };
 
 /** App-run authority for owners outside a connection, including Project tabs.

@@ -230,18 +230,3 @@
   pointer-events: none;
 }
 
-/* Ellipsis would hide the failure cause after a long path. */
-.reserved-line.target-failure {
-  block-size: auto;
-  max-block-size: none;
-  overflow: visible;
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-
-.target-failure p.ink[role="alert"] {
-  margin: 0;
-  white-space: pre-wrap;
-  overflow: visible;
-  text-overflow: clip;
-}

@@ -1,4 +1,4 @@
-import { copy as sharedCopy, type CopyValue } from "../sharedCopy";
+import { copy as sharedCopy } from "../sharedCopy";
 
 export const copy = {
   terminalFocusChanged: "Terminal focus changed",
@@ -33,5 +33,4 @@ export const copy = {
   latest: "↓ Latest",
   findLabel: "Find in Terminal",
   findNoMatch: "No matches",
-  doesNotExist: (value1: CopyValue) => `${value1} does not exist.`,
 } as const;
