@@ -148,7 +148,9 @@ impl Daemon {
             return Ok(reply);
         };
         let counts = messages.waiting_counts().await?;
-        if counts.is_empty() {
+        // DCL5: a stalled Door shows its own stall on its row; it is sent no Message about it.
+        let stalled = self.agents.stalled(crate::facts::STALL_MS);
+        if counts.is_empty() && stalled.is_empty() {
             return Ok(reply);
         }
         let mut nodes: Vec<contracts::agent::RailNode> = match reply {
@@ -162,6 +164,11 @@ impl Daemon {
                     .get(&node.id)
                     .copied()
                     .filter(|n| *n > 0 && messages::ended(node));
+                if stalled.contains(&node.id)
+                    && let Some(status) = node.status.as_mut()
+                {
+                    status.label = "stalled".into();
+                }
             }
         }
         Ok(rpc::Reply::Value(rpc::reply(&nodes)?))
