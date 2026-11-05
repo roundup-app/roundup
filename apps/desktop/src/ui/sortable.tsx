@@ -404,7 +404,7 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
 
     window.addEventListener("keydown", turn, { capture: true });
     stopListening = () => window.removeEventListener("keydown", turn, { capture: true });
-  }} plugins={(defaults) => defaults.filter((plugin) => plugin !== Cursor && !(local.plain && plugin === Accessibility) && !(local.horizontal && plugin === AutoScroller)).map((plugin) => plugin === Feedback ? Feedback.configure({ dropAnimation: local.horizontal ? { duration: reorderMs(document.documentElement), easing: getComputedStyle(document.documentElement).getPropertyValue("--easing-out").trim() } : null, keyboardTransition: null }) : plugin)} onDragMove={(event) => {
+  }} plugins={(defaults) => defaults.filter((plugin) => plugin !== Cursor && !(local.plain && plugin === Accessibility) && !(local.horizontal && plugin === AutoScroller)).map((plugin) => plugin === Feedback ? Feedback.configure({ dropAnimation: local.horizontal ? { duration: reduced() ? 0 : reorderMs(document.documentElement), easing: getComputedStyle(document.documentElement).getPropertyValue("--easing-out").trim() } : null, keyboardTransition: null }) : plugin)} onDragMove={(event) => {
     const { source, position } = event.operation;
 
     // The library dispatches dragmove before it applies the move, so the destination is `to`, else the current position plus `by`.
