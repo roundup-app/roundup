@@ -30,6 +30,7 @@ Key source always overrides the preset to instant. Under reduced motion every no
 | Drawer / pointer open-close | Spatial consistency / slide | Motion spring, 250 ms, bounce ≤0.1; transform/opacity | Retarget current position/velocity; inert exit; one settled Terminal fit | U3010b M3; U5/U40/U111/U430 |
 | Shelf / pointer open-close | Spatial consistency / slide and scrim | Same spring; transform/opacity | Reserved mode commits final centre width once and fits at settlement; overlay never fits | U3010b M3; U370/U371 |
 | Terminal Bubble / pointer open-close | Spatial consistency / spring | Same spring; transform/opacity | Current position/velocity; existing single-bubble placement/focus | U3010b M3; U2580a amended |
+| Shelf / edge peek | Spatial consistency / slide, no scrim | Same spring; transform only | Covers the centre and reserves nothing, so no fit; use commits the reserved width at once, with one fit; reduced motion appears and leaves instantly | U6224 |
 | Drawer, Shelf, Bubble, Help, Leader, Switcher / key open-close | Immediate access / none | 0 | Cancel stale effects; final content/focus next frame | U3010b M1; U2580a |
 | Help, Leader, Switcher / pointer | Immediate access / none | 0 | Existing immediate dismissal/focus | U2580a |
 | App-rendered menu/popover / pointer open-close | Spatial consistency / corner entrance | Scale 0.96→1 plus fade, 150 ms in, 100 ms out | Resolved trigger origin follows Ark placement; exit inert; key immediate | U3010b M4 |
