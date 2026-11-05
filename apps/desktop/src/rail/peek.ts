@@ -1,6 +1,8 @@
 import { makeEventListener } from "@solid-primitives/event-listener";
 import { debounce } from "@solid-primitives/scheduled";
 import { createEffect, createSignal, on, type Accessor } from "solid-js";
+import { CHORDS } from "../keys/chords";
+import { registerKeys } from "../keys/registry";
 import { createEdgePeek, OPEN_LAYER, PEEK_DWELL } from "../ui/edgePeek";
 
 const STRIP = ".rail-strip";
@@ -27,9 +29,9 @@ export const createRailPeek = (collapsed: Accessor<boolean>, region: () => Eleme
   });
 
   // Escape closes a peek from anywhere, the Terminal included, unless a Drawer, dialog or menu owns the key.
-  makeEventListener(document, "keydown", (event) => {
-    if (event.key === "Escape" && peeking() && document.querySelector(OPEN_LAYER) === null) unpeek();
-  }, { capture: true });
+  registerKeys({ kind: "app" }, [{ action: CHORDS.find(row => row.name === "rail.close-peek")!, searchable: false,
+    when: press => !press.defaultPrevented && press.key === "Escape" && peeking() && document.querySelector(OPEN_LAYER) === null,
+    capture: () => ({ available: peeking, invoke: unpeek }) }]);
 
   createEffect(on(collapsed, (now) => { if (!now) unpeek(); }));
 

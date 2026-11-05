@@ -154,6 +154,21 @@ run("u6228 the collapsed Rail peeks", () => {
     expect(await collapsed()).toBe(true);
   });
 
+  it("u6228_keyboard_focus_on_a_mark_never_peeks_and_escape_slides_a_peek_back", async () => {
+    await load();
+    await collapseByButton();
+
+    await page.call(`() => document.querySelector('.rail-mark[data-id]').focus()`);
+    await page.call(`() => new Promise(resolve => setTimeout(resolve, 600))`);
+    expect(await peeking()).toBe(false);
+
+    await hover(".rail-mark");
+    await page.until(`() => document.querySelector('.rail').dataset.peek === 'true'`);
+    await page.press("Escape", "Escape");
+    await page.until(`() => document.querySelector('.rail').dataset.peek !== 'true'`);
+    expect(await collapsed()).toBe(true);
+  });
+
   it("u6228_a_click_in_the_peek_selects_and_the_peek_still_slides_back", async () => {
     await load();
     await collapseByButton();

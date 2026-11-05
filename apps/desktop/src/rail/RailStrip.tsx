@@ -3,7 +3,6 @@ import { createTreeCollection } from "@ark-ui/solid/tree-view";
 import { KindGlyph, LABELS } from "../ink/KindGlyph";
 import { Icon } from "../ink/Icon";
 import { KIND_ICON } from "../ink/kindIcon";
-import { IconButton } from "../ui/IconButton";
 import { TreeView } from "../ui/TreeView";
 import { captureActions } from "../keys/registry";
 import { useConnectedProject } from "../state/connectedProject";
@@ -13,7 +12,7 @@ import { isWorkstream, layoutRail, resolvedWorkstream } from "./layout";
 import { markKind, rowAttention, rowKind, rowUnread } from "./rollup";
 import "./strip.css";
 
-/** U6228: the collapsed Rail: one mark per Workstream, in the Rail's order, each with the state glyph and needs-you count its row rolls up from its Agents; the Overview mark carries the Project's count. */
+/** U6228: the collapsed Rail (its marks carry names for assistive technology only; the peek shows them, so no tooltips): one mark per Workstream, in the Rail's order, each with the state glyph and needs-you count its row rolls up from its Agents; the Overview mark carries the Project's count. */
 export const RailStrip = (props: { expand: () => void }) => {
   const { rail, unseen } = useConnectedProject();
   const dismissed = (node: Parameters<typeof rail.dismissed>[0]) => rail.dismissed(node);
@@ -32,7 +31,7 @@ export const RailStrip = (props: { expand: () => void }) => {
 
   return (
     <nav class="rail-strip" aria-label={copy.railStrip}>
-      <IconButton class="rail-strip-expand" aria-label={copy.expandRail} onClick={props.expand}><Icon name="right" /></IconButton>
+      <button type="button" data-button="icon" class="word rail-strip-expand" aria-label={copy.expandRail} onClick={props.expand}><Icon name="right" /></button>
       <button type="button" data-button="quiet" class="rail-mark" data-overview="" aria-pressed={rail.selected() === null} aria-label={copy.overviewMark(attention())} onClick={() => rail.select(null)}>
         <Icon name="layout-dashboard" />
         <Show when={attention() > 0}><span class="ink-count" data-state="" data-tone="amber" aria-hidden="true">{attention()}</span></Show>
@@ -68,7 +67,7 @@ export const RailStrip = (props: { expand: () => void }) => {
           </TreeView.Tree>
         </TreeView.Root>
       </div>
-      <IconButton class="rail-strip-add" aria-label={copy.addWorkstreamWord.trim()} onClick={add}><Icon name="plus" /></IconButton>
+      <button type="button" data-button="icon" class="word rail-strip-add" aria-label={copy.addWorkstreamWord.trim()} onClick={add}><Icon name="plus" /></button>
     </nav>
   );
 };

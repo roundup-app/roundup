@@ -75,6 +75,7 @@ export const CHORDS: readonly Chord[] = ([
   { name: "shelf.maximise", keys: "M", what: copy.maximise, presses: ["KeyM"], inShelf: true, hint: { label: copy.maximise, at: { shelf: 0 } } },
   { name: "todo.delete", keys: "D", what: copy.deleteFocusedRow, presses: ["KeyD"], inShelf: true, hint: { label: copy.deleteFocusedRow, at: { shelf: 3 } } },
   { name: "todo.export", keys: "E", what: copy.exportMd, presses: ["KeyE"], inShelf: true, hint: { label: copy.exportMd, at: { shelf: 4 } } },
+  { name: "rail.close-peek", keys: "Esc", what: copy.close, presses: ["Escape"], inShelf: true },
   { name: "shelf.close", keys: "Esc", what: copy.close, presses: ["Escape"], inShelf: true, hint: { label: copy.close, at: { shelf: 5 } } },
   { name: "terminal.text-larger", keys: "⌘=", what: copy.terminalLargerText, presses: ["meta+Equal"], inTerminals: true },
   { name: "terminal.text-smaller", keys: "⌘-", what: copy.terminalSmallerText, presses: ["meta+Minus"], inTerminals: true },
