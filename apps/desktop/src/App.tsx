@@ -42,7 +42,6 @@ import type { StateAlerts } from "./rail/stateAlerts";
 import { railStorage } from "./rail/persist/storage";
 import { Rail } from "./rail/Rail";
 import { createRailPeek } from "./rail/peek";
-import { RailStrip } from "./rail/RailStrip";
 import { ProjectSettingsView } from "./rail/ProjectSettings";
 import { Help } from "./keys/Help";
 import { Leader } from "./keys/Leader";
@@ -74,6 +73,7 @@ import { Shelf, createShelfTabs, ShelfTabs, ProjectShelfTabs } from "./shelf/She
 import { shelfKeys } from "./shelf/keys";
 import { createEdgePeek } from "./ui/edgePeek";
 import { createWidths } from "./resize/widths";
+import { RailStrip } from "./rail/RailStrip";
 
 const ForkSheet = lazy(() => import("./fork/ForkSheet").then(module => ({ default: module.ForkSheet })));
 

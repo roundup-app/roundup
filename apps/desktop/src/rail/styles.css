@@ -879,12 +879,17 @@
   white-space: normal;
 }
 
-/* U6228: the Rail's head holds the collapse button at the trailing edge, one row high. */
+/* U6228: the collapse button floats over the Overview row's trailing edge, so the head spends no row; its centre sits on the chevron column, --space-5 from the inner right edge. */
 .rail-head {
-  display: flex;
-  flex: none;
-  align-items: center;
-  justify-content: flex-end;
-  padding-right: var(--space-4);
-  min-height: var(--space-6);
+  position: relative;
+  z-index: 1;
+  height: 0;
+}
+
+.rail-head .rail-collapse {
+  position: absolute;
+  top: 0;
+  right: var(--space-3);
+  width: var(--space-5);
+  height: var(--space-6);
 }

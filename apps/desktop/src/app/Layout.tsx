@@ -141,7 +141,7 @@ export const Layout = (props: {
     <div class="columns" style={{ "grid-area": "1 / 1" }}>
       <section {...binding("rail")} class="rail" aria-busy={props.busy || undefined} data-collapsed={props.widths?.collapsed() || undefined} data-peek={props.railPeeking || undefined} data-layout-panel="rail" aria-label={copy.rail}>
         <Show when={props.widths?.collapsed()}>{props.railStrip}</Show>
-        <div class="rail-body" inert={(props.widths?.collapsed() && !props.railPeeking) || undefined}>{props.rail}</div>
+        <div class="rail-body" inert={(props.widths?.collapsed() && !props.railPeeking) || undefined} aria-hidden={(props.widths?.collapsed() && !props.railPeeking) || undefined}>{props.rail}</div>
       </section>
       <section {...binding("centre")} class="centre" aria-busy={props.busy || undefined} data-layout-panel="centre" aria-label={copy.centreRegion}>
         {props.centre}

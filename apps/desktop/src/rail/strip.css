@@ -42,16 +42,17 @@
 }
 
 .rail-mark[data-selected],
-.rail-mark[aria-pressed="true"] {
+.rail-mark[aria-pressed="true"],
+.rail-mark:focus-visible {
   background-color: var(--selected);
   color: var(--text);
 }
 
-/* The state glyph sits at the mark's lower leading corner, the count at its upper trailing one. */
+/* The state glyph sits at the mark's lower leading corner, the count at its upper trailing one, both inside its box. */
 .rail-mark-state {
   position: absolute;
-  bottom: calc(-1 * var(--space-1));
-  left: calc(-1 * var(--space-1));
+  bottom: 0;
+  left: 0;
   display: inline-flex;
 }
 
@@ -62,8 +63,8 @@
 
 .rail-mark .ink-count {
   position: absolute;
-  top: calc(-1 * var(--space-1));
-  right: calc(-1 * var(--space-1));
+  top: 0;
+  right: var(--space-1);
   color: var(--amber);
   font-size: var(--text-caption);
   font-variant-numeric: tabular-nums;

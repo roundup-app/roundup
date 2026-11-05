@@ -77,7 +77,6 @@ Starting values. The thresholds in the checks are fixed; a value that fails a th
 | `--duration-instant` | `0s` | same | instant press feedback, keyboard paths and reduced motion |
 | `--centre-min-width` | `388px` | same | the centre floor and Shelf reservation threshold (U371, U389) |
 | `--shelf-width` | `320px` | same | the open Shelf's width (U371; #622 makes it resizable) |
-| `--rail-strip-width` | `56px` | same | the collapsed Rail's width: one column of Workstream marks (U6228) |
 | `--text-pad-subheading` / `--text-pad-heading` | `20px` / `24px` | same | legacy Todo headings and Pad document title |
 | `--radius-row` / `--radius-control` / `--radius-drawer` | `6px` / `6px` / `12px` | same | selection band, buttons, Drawer, Terminal bubble (U523) |
 | `--easing-out` | `cubic-bezier(0.32, 0.72, 0, 1)` | same | every eased motion (`docs/motion.md`, U2579a) |

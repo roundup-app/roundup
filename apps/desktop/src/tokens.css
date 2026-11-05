@@ -525,6 +525,9 @@ button, file-tree-container, diffs-container {
 .drawer[data-open="true"] {
   box-shadow: var(--elevation)
 }
+.rail[data-peek] .rail-body {
+  box-shadow: var(--elevation)
+}
 .pane .xterm-helper-textarea:focus-visible {
   box-shadow: none
 }
