@@ -13,7 +13,7 @@ export const railCollection = (rows: readonly RailRow[]) => {
 
   for (const row of rows) {
     const node: TreeNode = row.kind === "fold"
-      ? { id: row.key, name: `${row.count}${row.group === "internal" ? copy.internalCount : copy.idleCount}`, children: [] }
+      ? { id: row.key, name: `${row.count}${row.group === "internal" ? copy.internalCount : copy.idleCount}`, childrenCount: row.count, children: [] }
       : isWorkstream(row.node) || row.node.kind === "group"
       ? { id: row.node.id, name: row.node.name, childrenCount: 0, children: [] }
       : { id: row.node.id, name: row.node.name };
