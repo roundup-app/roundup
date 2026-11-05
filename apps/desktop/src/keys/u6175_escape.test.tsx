@@ -12,8 +12,10 @@ const surfaces: {
   from?: () => HTMLElement;
   /** The Agent to select and the App to open it in; a second Project is needed for the Project picker. */
   twoProjects?: true;
-  open: () => void;
+  open: () => void | Promise<void>;
   shown: () => Element | null;
+  /** A peek slides in without taking focus, so focus stays where it was. */
+  focusStays?: true;
 }[] = [
   {
     name: "Ask bar",
@@ -68,7 +70,25 @@ const surfaces: {
     open: () => { key("K", { metaKey: true }); key("P", { code: "KeyP" }); },
     shown: () => screen.queryByRole("combobox", { name: /project/i }),
   },
+  {
+    name: "Rail peek",
+    open: async () => { key("K", { metaKey: true }); key("R", { code: "KeyR" }); await restAtEdge(); },
+    shown: () => document.querySelector(".rail[data-peek]"),
+    focusStays: true,
+  },
+  {
+    name: "Bench peek",
+    open: async () => { key("K", { metaKey: true }); key("B", { code: "KeyB" }); await new Promise((done) => setTimeout(done, 400)); await restAtEdge(); },
+    shown: () => document.querySelector('.window[data-shelf="peek"]'),
+    focusStays: true,
+  },
 ];
+
+/** A mouse at rest on the window's edge for the peek's dwell; a jsdom window is 0 px wide, so its leading and trailing edges are both at x 0. */
+const restAtEdge = async () => {
+  document.dispatchEvent(new PointerEvent("pointermove", { pointerType: "mouse", buttons: 0, clientX: 0, clientY: 100, bubbles: true }));
+  await new Promise((done) => setTimeout(done, 400));
+};
 
 const key = (name: string, init: KeyboardEventInit = {}) =>
   (document.activeElement ?? document.body).dispatchEvent(
@@ -122,15 +142,16 @@ const terminalFocus = async (twoProjects = false) => {
 describe("u6175 Esc and floating surfaces", () => {
   it.each(surfaces)(
     "u6175a_escape_closes_each_floating_surface: $name",
-    async ({ from, open, shown, twoProjects }) => {
+    async ({ from, open, shown, twoProjects, focusStays }) => {
       const { opener } = await terminalFocus(twoProjects);
       const origin = from?.() ?? opener;
 
       origin.focus();
 
-      open();
+      await open();
       await waitFor(() => expect(shown()).not.toBeNull());
-      await waitFor(() => expect(shown()?.contains(document.activeElement)).toBe(true));
+
+      if (!focusStays) await waitFor(() => expect(shown()?.contains(document.activeElement)).toBe(true));
       // Ark's dismissable layer registers a tick after the surface mounts.
       await new Promise((done) => setTimeout(done, 50));
       reached.length = 0;
