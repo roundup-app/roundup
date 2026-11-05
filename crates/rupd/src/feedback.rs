@@ -1,6 +1,6 @@
 //! FB3 to FB5 (`scenarios/feedback-report.md`): the Daemon adds its facts to a Feedback report, then
 //! posts it with the owner's `gh` or keeps it in `<App data>/feedback/<id>/`. A report is saved
-//! before `gh` runs, and its folder moves to `posted/` only after `gh` exited 0.
+//! before `gh` runs, and its dir moves to `posted/` only after `gh` exited 0.
 
 use base64::Engine;
 use contracts::feedback::{RetryParams, SendParams, Sent};
@@ -80,7 +80,7 @@ fn valid_target(target: &str) -> Result<(), &'static str> {
 }
 
 impl Daemon {
-    /// `<App data>`: the parent of `projects/` when the Daemon's data folder is a Project's.
+    /// `<App data>`: the parent of `projects/` when the Daemon's data dir is a Project's.
     fn app_data(&self) -> PathBuf {
         match self.data_dir.parent() {
             Some(projects) if projects.file_name().is_some_and(|name| name == "projects") => {
@@ -154,10 +154,10 @@ impl Daemon {
         if let Some(first) = self.first_result(id) {
             return Ok(first);
         }
-        let folder = self.app_data().join("feedback").join(id);
-        if let Some(cause) = read_saved(&folder).and_then(|saved| saved.cause) {
+        let dir = self.app_data().join("feedback").join(id);
+        if let Some(cause) = read_saved(&dir).and_then(|saved| saved.cause) {
             return Ok(Sent::Kept {
-                folder: folder.to_string_lossy().into_owned(),
+                dir: dir.to_string_lossy().into_owned(),
                 cause,
             });
         }
@@ -172,12 +172,12 @@ impl Daemon {
             target: p.target,
             cause: None,
         };
-        std::fs::create_dir_all(&folder).map_err(RpcError::internal)?;
+        std::fs::create_dir_all(&dir).map_err(RpcError::internal)?;
         if let Some(shot) = shot {
-            std::fs::write(folder.join("shot.png"), shot).map_err(RpcError::internal)?;
+            std::fs::write(dir.join("shot.png"), shot).map_err(RpcError::internal)?;
         }
-        write_saved(&folder, &saved)?;
-        Ok(self.post(id, &folder, saved).await)
+        write_saved(&dir, &saved)?;
+        Ok(self.post(id, &dir, saved).await)
     }
 
     async fn feedback_retry(&self, p: RetryParams) -> Result<Sent, RpcError> {
@@ -186,14 +186,14 @@ impl Daemon {
         if let Some(first) = self.first_result(id) {
             return Ok(first);
         }
-        let folder = self.app_data().join("feedback").join(id);
-        let mut saved = read_saved(&folder)
+        let dir = self.app_data().join("feedback").join(id);
+        let mut saved = read_saved(&dir)
             .ok_or_else(|| RpcError::not_found(format!("no kept Feedback report {id}")))?;
         if let Some(target) = p.target {
             saved.target = target;
-            write_saved(&folder, &saved)?;
+            write_saved(&dir, &saved)?;
         }
-        Ok(self.post(id, &folder, saved).await)
+        Ok(self.post(id, &dir, saved).await)
     }
 
     /// FB5: a report that posted returns its comment; one kept and sent again returns its cause.
@@ -202,28 +202,28 @@ impl Daemon {
         if let Ok(url) = std::fs::read_to_string(root.join("posted").join(id).join("url")) {
             return Some(Sent::Posted { url });
         }
-        let folder = root.join(id);
+        let dir = root.join(id);
         // A crash after `gh` exited 0 left its URL here: finish the move, run no `gh`.
-        let url = std::fs::read_to_string(folder.join("url")).ok()?;
-        self.move_posted(id, &folder);
+        let url = std::fs::read_to_string(dir.join("url")).ok()?;
+        self.move_posted(id, &dir);
         Some(Sent::Posted { url })
     }
 
-    fn move_posted(&self, id: &str, folder: &Path) {
+    fn move_posted(&self, id: &str, dir: &Path) {
         let posted = self.app_data().join("feedback").join("posted");
         if std::fs::create_dir_all(&posted).is_ok() {
-            let _ = std::fs::rename(folder, posted.join(id));
+            let _ = std::fs::rename(dir, posted.join(id));
         }
     }
 
-    async fn post(&self, id: &str, folder: &Path, mut saved: Saved) -> Sent {
+    async fn post(&self, id: &str, dir: &Path, mut saved: Saved) -> Sent {
         let result = match valid_target(&saved.target) {
             Err(cause) => Err(cause.to_string()),
             Ok(()) => {
-                let shot = folder.join("shot.png");
+                let shot = dir.join("shot.png");
                 let shot = shot.to_string_lossy().into_owned();
                 let mut args = vec!["issue", "comment", saved.target.trim(), "--body-file", "-"];
-                if folder.join("shot.png").exists() {
+                if dir.join("shot.png").exists() {
                     args.extend(["--attach", &shot]);
                 }
                 gh(&self.project, &args, Some(&saved.body))
@@ -241,15 +241,15 @@ impl Daemon {
                     .unwrap_or(saved.target.trim())
                     .to_string();
                 // The URL is on disk before the move: a crash between them posts nothing twice.
-                let _ = std::fs::write(folder.join("url"), &url);
-                self.move_posted(id, folder);
+                let _ = std::fs::write(dir.join("url"), &url);
+                self.move_posted(id, dir);
                 Sent::Posted { url }
             }
             Err(cause) => {
                 saved.cause = Some(cause.clone());
-                let _ = write_saved(folder, &saved);
+                let _ = write_saved(dir, &saved);
                 Sent::Kept {
-                    folder: folder.to_string_lossy().into_owned(),
+                    dir: dir.to_string_lossy().into_owned(),
                     cause,
                 }
             }
@@ -274,13 +274,13 @@ fn checked_id(id: &str) -> Result<&str, RpcError> {
     }
 }
 
-fn write_saved(folder: &Path, saved: &Saved) -> Result<(), RpcError> {
+fn write_saved(dir: &Path, saved: &Saved) -> Result<(), RpcError> {
     let json = serde_json::to_string_pretty(saved).map_err(RpcError::internal)?;
-    std::fs::write(folder.join("report.json"), json).map_err(RpcError::internal)
+    std::fs::write(dir.join("report.json"), json).map_err(RpcError::internal)
 }
 
-fn read_saved(folder: &Path) -> Option<Saved> {
-    serde_json::from_str(&std::fs::read_to_string(folder.join("report.json")).ok()?).ok()
+fn read_saved(dir: &Path) -> Option<Saved> {
+    serde_json::from_str(&std::fs::read_to_string(dir.join("report.json")).ok()?).ok()
 }
 
 #[cfg(test)]
@@ -414,12 +414,12 @@ mod tests {
                 .unwrap()
                 .starts_with("gh could not run")
         );
-        let folder = feedback(&s).join("r1");
-        assert_eq!(sent["folder"], folder.to_string_lossy().as_ref());
-        let saved = read_saved(&folder).unwrap();
+        let dir = feedback(&s).join("r1");
+        assert_eq!(sent["dir"], dir.to_string_lossy().as_ref());
+        let saved = read_saved(&dir).unwrap();
         assert_eq!(saved.text, "the Rail jumps");
         assert!(saved.body.contains("App 1.0") && saved.body.contains("Daemon: up"));
-        assert!(folder.join("shot.png").exists());
+        assert!(dir.join("shot.png").exists());
     }
 
     #[tokio::test]

@@ -2,5 +2,5 @@
 export type Sent = 
 /**  The comment's URL. */
 { state: "posted"; url: string } | 
-/**  The report is saved in `folder`; `cause` is one line. */
-{ state: "kept"; folder: string; cause: string };
+/**  The report is saved in `dir`; `cause` is one line. */
+{ state: "kept"; dir: string; cause: string };

@@ -38,6 +38,6 @@ pub struct RetryParams {
 pub enum Sent {
     /// The comment's URL.
     Posted { url: String },
-    /// The report is saved in `folder`; `cause` is one line.
-    Kept { folder: String, cause: String },
+    /// The report is saved in `dir`; `cause` is one line.
+    Kept { dir: String, cause: String },
 }
