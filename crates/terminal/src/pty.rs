@@ -59,10 +59,27 @@ pub(super) fn read(
         let (seen, reported) = {
             let mut state = screen.lock().expect("terminal screen lock");
             let offset = state.after;
+            // U6144a: the parser reads the chunk up to each Kitty query's end, so every reply keeps
+            // the order the program wrote its queries in.
+            let mut kitty = Vec::new();
+            state.kitty.feed(&chunk[..read], &mut kitty);
             let parsed = state.ensure_parser().map(|parser| {
                 catch_unwind(AssertUnwindSafe(|| {
-                    parser.process(&chunk[..read]);
-                    std::mem::take(parser.callbacks_mut())
+                    let mut seen = Seen::default();
+                    let mut from = 0;
+                    for &(end, request) in &kitty {
+                        parser.process(&chunk[from..end]);
+                        from = end;
+                        let mut part = std::mem::take(parser.callbacks_mut());
+                        seen.titles.append(&mut part.titles);
+                        seen.requests.append(&mut part.requests);
+                        seen.requests.push(request);
+                    }
+                    parser.process(&chunk[from..read]);
+                    let mut part = std::mem::take(parser.callbacks_mut());
+                    seen.titles.append(&mut part.titles);
+                    seen.requests.append(&mut part.requests);
+                    seen
                 }))
             });
             let reported = state.status.feed(&chunk[..read], (shared.clock)());
@@ -73,7 +90,7 @@ pub(super) fn read(
                 offset,
                 bytes: Arc::from(&chunk[..read]),
             });
-            let mut seen = match parsed {
+            let seen = match parsed {
                 Some(Ok(seen)) => {
                     for request in &seen.requests {
                         if let scheme::Request::Notices(on) = request {
@@ -85,11 +102,10 @@ pub(super) fn read(
                 Some(Err(_)) => {
                     eprintln!("terminal {number}: screen parser panicked; snapshots are off");
                     state.parser = ScreenParser::Failed;
-                    Seen::default()
+                    only_queries(&kitty)
                 }
-                None => Seen::default(),
+                None => only_queries(&kitty),
             };
-            state.kitty.feed(&chunk[..read], &mut seen.requests);
             (seen, reported)
         };
         if shared.answer_status_query.load(Ordering::Relaxed) && !reported.reply.is_empty() {
@@ -102,6 +118,14 @@ pub(super) fn read(
         seen.titles
             .into_iter()
             .for_each(|title| shared.retitle(number, title));
+    }
+}
+
+/// What a chunk asked when no screen parser reads it: the Kitty queries alone.
+fn only_queries(kitty: &[(usize, scheme::Request)]) -> Seen {
+    Seen {
+        requests: kitty.iter().map(|(_, request)| *request).collect(),
+        ..Seen::default()
     }
 }
 

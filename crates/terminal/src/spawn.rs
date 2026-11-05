@@ -64,6 +64,7 @@ impl Terminals {
         for marker in &self.shared.clean_env {
             command.env_remove(marker);
         }
+        claim_only_this_emulator(&mut command);
         // SK7.2: `rup skill report` writes only where this is set; a caller's value never stands.
         command.env("ROUNDUP_TERMINAL", number.to_string());
         // All three threads start before the program, so a thread-creation failure leaves no
@@ -259,4 +260,49 @@ fn program_name(command: Option<&[String]>) -> String {
         .filter(|name| !name.is_empty())
         .unwrap_or("terminal")
         .to_string()
+}
+
+/// U6144b: variables other terminals set that a program reads as that terminal's features.
+const OTHER_TERMINALS: &[&str] = &[
+    "TERM_PROGRAM",
+    "TERM_PROGRAM_VERSION",
+    "TERM_SESSION_ID",
+    "TERMINFO",
+    "TERMINAL_EMULATOR",
+    "GHOSTTY_RESOURCES_DIR",
+    "GHOSTTY_BIN_DIR",
+    "GHOSTTY_SHELL_FEATURES",
+    "KITTY_WINDOW_ID",
+    "KITTY_PID",
+    "KITTY_INSTALLATION_DIR",
+    "KITTY_PUBLIC_KEY",
+    "WEZTERM_EXECUTABLE",
+    "WEZTERM_PANE",
+    "WEZTERM_UNIX_SOCKET",
+    "ITERM_SESSION_ID",
+    "ITERM_PROFILE",
+    "LC_TERMINAL",
+    "LC_TERMINAL_VERSION",
+    "VTE_VERSION",
+    "KONSOLE_VERSION",
+    "KONSOLE_DBUS_SESSION",
+    "KONSOLE_DBUS_SERVICE",
+    "WT_SESSION",
+    "WT_PROFILE_ID",
+    "ALACRITTY_LOG",
+    "ALACRITTY_SOCKET",
+    "ALACRITTY_WINDOW_ID",
+    "WARP_IS_LOCAL_SHELL_SESSION",
+    "TMUX",
+    "TMUX_PANE",
+    "STY",
+];
+
+/// U6144b: the program sees `TERM=xterm-256color` and no other terminal's variables, whatever
+/// launched the Daemon or the caller passed, so it takes only the paths this emulator draws.
+fn claim_only_this_emulator(command: &mut CommandBuilder) {
+    for name in OTHER_TERMINALS {
+        command.env_remove(name);
+    }
+    command.env("TERM", "xterm-256color");
 }
