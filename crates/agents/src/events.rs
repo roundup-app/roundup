@@ -750,6 +750,20 @@ impl Agents {
             .collect()
     }
 
+    /// DCL5: live Rail id to how many compactions its Adapter saw finish.
+    pub fn compactions(&self) -> HashMap<String, u64> {
+        self.shared
+            .runs()
+            .iter()
+            .filter_map(|(id, slot)| match slot {
+                Slot::Running(run) if !run.ended && run.adapter.compactions() > 0 => {
+                    Some((id.clone(), run.adapter.compactions()))
+                }
+                _ => None,
+            })
+            .collect()
+    }
+
     /// A5482c: live Rail id to (Attempt/turn identity, turn start/end in Unix milliseconds, final text).
     /// The Adapter supplies the text; this reads no Terminal and parses no vendor records.
     pub fn completed_text(&self) -> HashMap<String, (String, i64, i64, String)> {

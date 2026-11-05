@@ -535,6 +535,31 @@ pub mod test_support {
         }
     }
 
+    /// A Daemon over `data` whose Agents launch `launcher` and read `clock` for stall timing.
+    pub fn daemon_with_clock(
+        project: &Path,
+        data: &Path,
+        launcher: agents::claude_code::Launcher,
+        clock: impl Fn() -> i64 + Send + Sync + 'static,
+    ) -> Daemon {
+        assert!(data.is_absolute(), "test data directory must be absolute");
+        Daemon::open_stores(project, data, |_| {
+            let bus = Bus::new();
+            let terminals = Arc::new(terminal::Terminals::open(data, bus.clone()).unwrap());
+            agents::Agents::open_in(
+                project,
+                data,
+                bus,
+                terminals,
+                launcher,
+                agents::worktree::Git::from_env(),
+            )
+            .unwrap()
+            .with_clock(clock)
+        })
+        .unwrap()
+    }
+
     /// Open stores before entering Tokio so background readers see the configured modules.
     pub fn reply_daemon(dir: &Path, door: bool) -> (Daemon, Arc<ReplyState>) {
         let dir = dir.to_path_buf();

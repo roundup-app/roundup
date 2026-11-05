@@ -40,6 +40,7 @@ rusqlite.workspace = true
 rusqlite_migration.workspace = true
 
 [dev-dependencies]
+rupd = { path = ".", features = ["test-support"] }
 allocation-counter = "0.8.1"
 terminal = { path = "../terminal", features = ["test-support"] }
 tokio = { workspace = true, features = ["test-util"] }

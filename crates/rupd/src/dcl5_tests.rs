@@ -86,6 +86,11 @@ impl Run {
     }
 
     async fn signal(&self, id: &str, event: &str) {
+        self.signal_with(id, json!({ "hook_event_name": event }))
+            .await;
+    }
+
+    async fn signal_with(&self, id: &str, payload: Value) {
         let node = call(&self.daemon, "rail.tree", Value::Null).await;
         let node = node
             .as_array()
@@ -97,7 +102,7 @@ impl Run {
         call(
             &self.daemon,
             "agent.signal",
-            json!({"id":id,"attempt":node["attempt"],"payload":{"hook_event_name":event}}),
+            json!({"id":id,"attempt":node["attempt"],"payload":payload}),
         )
         .await;
     }
@@ -223,5 +228,32 @@ async fn dcl5_inactive_turn_stalls_but_live_background_work_does_not() {
     run.signal(&idle, "PostToolUse").await;
     run.signal(&run.door.clone(), "PostToolUse").await;
     assert_ne!(run.label(&run.door).await, "stalled");
+    run.daemon.stop_terminals().await.unwrap();
+}
+
+#[tokio::test]
+async fn dcl5_completed_compaction_is_reported_once() {
+    let run = Run::start().await;
+    let child = run.spawn("compacting").await;
+    run.signal(&child, "UserPromptSubmit").await;
+    run.signal_with(
+        &child,
+        json!({"hook_event_name":"PreCompact","trigger":"auto"}),
+    )
+    .await;
+    run.pass().await;
+    assert!(
+        run.facts("[compacted]").await.is_empty(),
+        "a start is not a completion"
+    );
+    let done = json!({"hook_event_name":"PostCompact","trigger":"auto","compact_summary":"s"});
+    run.signal_with(&child, done.clone()).await;
+    run.signal_with(&child, done).await;
+    run.pass().await;
+    run.pass().await;
+    let facts = run.facts("[compacted]").await;
+    assert_eq!(facts.len(), 1, "{facts:?}");
+    assert!(facts[0].contains("compacting"), "{}", facts[0]);
+    assert!(!facts[0].contains("token") && !facts[0].contains("cost"));
     run.daemon.stop_terminals().await.unwrap();
 }
