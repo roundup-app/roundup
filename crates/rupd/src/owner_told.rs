@@ -609,7 +609,13 @@ mod tests {
         for name in ["rail", "todo", "pad", "message"] {
             modules.insert(name, stub.clone());
         }
-        let reader = Reader::new(&modules, Bus::new(), daemon.touches.clone(), None);
+        let reader = Reader::new(
+            &modules,
+            Bus::new(),
+            daemon.touches.clone(),
+            None,
+            String::new(),
+        );
         (stub, reader)
     }
 

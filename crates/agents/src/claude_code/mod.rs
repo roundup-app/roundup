@@ -126,6 +126,8 @@ pub struct ClaudeCode {
     /// the same event is not a second compaction.
     compactions: u64,
     last_compaction: Option<Box<str>>,
+    /// DCL5: when the vendor last gave a Signal or a title; ticks and process snapshots are not activity.
+    active_at: i64,
 }
 
 impl ClaudeCode {
@@ -134,6 +136,7 @@ impl ClaudeCode {
         Self {
             completed: None,
             turn_started: (clock)(),
+            active_at: (clock)(),
             completed_turn: None,
             status: None,
             ending: Ending::Running,
@@ -404,6 +407,19 @@ impl ClaudeCode {
         self.compactions
     }
 
+    /// DCL5: whether the turn is working, has shown no activity for `limit_ms`, and has no
+    /// foreground tool call or background work running. Genuine activity clears it.
+    pub fn stalled(&self, limit_ms: i64) -> bool {
+        self.ending == Ending::Running
+            && self
+                .status
+                .as_ref()
+                .is_some_and(|s| s.kind == Kind::Working)
+            && !self.after_pre_tool_use
+            && !self.background.holds()
+            && (self.clock)() - self.active_at >= limit_ms
+    }
+
     /// DCL3: a Stop came, so the process table decides whether work outlives it.
     pub(crate) fn needs_processes(&self) -> bool {
         self.ending == Ending::Running && self.background.stopped
@@ -525,8 +541,14 @@ impl ClaudeCode {
             Observation::Processes { root, table } => {
                 self.observe_processes(root, table.as_deref().map_err(Clone::clone))
             }
-            Observation::Signal(payload) => self.signal(&payload, &mut completion_changed),
-            Observation::Title(title) => self.retitle(&title),
+            Observation::Signal(payload) => {
+                self.active_at = (self.clock)();
+                self.signal(&payload, &mut completion_changed)
+            }
+            Observation::Title(title) => {
+                self.active_at = (self.clock)();
+                self.retitle(&title)
+            }
             Observation::Program(status) => self.settle(status.kind, status.label),
         };
         (status, completion_changed)
@@ -928,5 +950,33 @@ mod tests {
         a.title(62_000, "◑");
         a.title(62_500, "✳");
         assert_eq!(a.adapter.tick_at(), None);
+    }
+
+    #[test]
+    fn dcl5_inactive_turn_stalls_but_live_background_work_does_not() {
+        let mut a = Clocked::new();
+        let ten = 10 * 60 * 1000;
+        a.signal(0, "UserPromptSubmit");
+        a.now.store(ten - 1, Ordering::SeqCst);
+        assert!(
+            !a.adapter.stalled(ten),
+            "just under ten minutes is no stall"
+        );
+        a.now.store(ten, Ordering::SeqCst);
+        assert!(a.adapter.stalled(ten));
+        a.signal(ten, "PostToolUse");
+        assert!(!a.adapter.stalled(ten), "activity clears the stall");
+        // A foreground tool call that has not returned is running work.
+        a.signal(ten, "PreToolUse");
+        a.now.store(4 * ten, Ordering::SeqCst);
+        assert!(!a.adapter.stalled(ten));
+        // A Stop that leaves a background Agent open keeps Working: not a stall either.
+        a.at(
+            4 * ten,
+            Observation::Signal(json!({"hook_event_name":"SubagentStart","agent_id":"b"})),
+        );
+        a.signal(4 * ten, "Stop");
+        a.now.store(6 * ten, Ordering::SeqCst);
+        assert!(!a.adapter.stalled(ten));
     }
 }

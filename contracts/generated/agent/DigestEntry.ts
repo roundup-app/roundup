@@ -8,6 +8,8 @@ import type * as Kind from "../Kind";
 export type DigestEntry = {
 	name: string,
 	kind: Kind.Kind,
+	/**  AL1: the child's link (`roundup://agent/<id>?project=<key>`, LK1), which the Door gives the user. */
+	link?: string,
 	last: string,
 	todos: number,
 	pads: string[],

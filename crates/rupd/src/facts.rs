@@ -1,0 +1,225 @@
+//! DCL5: the facts a Door learns once about a child, from the Rail, the Todos and the Messages:
+//! the child ended with open Todos it owns and no report, or its turn stalled.
+
+use std::collections::{HashMap, HashSet};
+
+use contracts::agent::{NodeKind, RailNode};
+use contracts::message::Message;
+use contracts::todo::Todo;
+use contracts::{Actor, ActorKind, Kind};
+use serde_json::json;
+
+use crate::digest::{Reader, World};
+
+/// How long a working turn may show no activity before it is stalled.
+pub const STALL_MS: i64 = 10 * 60 * 1000;
+
+/// What was already published, so each fact reaches its Door once while it holds.
+#[derive(Default)]
+pub struct Facts {
+    ended: HashSet<String>,
+    /// The children whose current stall was published; leaving the stalled set re-arms it.
+    stalled: HashSet<String>,
+}
+
+struct Fact {
+    door: String,
+    child: String,
+    body: String,
+}
+
+fn owned_by(todo: &Todo, child: &str) -> bool {
+    !todo.done
+        && todo
+            .owner
+            .as_ref()
+            .is_some_and(|o| o.kind == ActorKind::Agent && o.id == child)
+}
+
+impl Facts {
+    /// The ended facts not yet published. A Daemon note already in the Door's inbox with the same
+    /// body counts as published, so a reopen does not repeat it.
+    fn ended(&self, nodes: &[RailNode], todos: &[Todo], messages: &[Message]) -> Vec<Fact> {
+        let doors: HashMap<&str, &RailNode> = nodes
+            .iter()
+            .filter(|n| n.kind == NodeKind::Workstream)
+            .map(|n| (n.id.as_str(), n))
+            .collect();
+        let mut facts = Vec::new();
+        for child in nodes {
+            let Some(door) = child.parent.as_deref().filter(|id| doors.contains_key(id)) else {
+                continue;
+            };
+            if !child
+                .status
+                .as_ref()
+                .is_some_and(|s| matches!(s.kind, Kind::Done | Kind::Error))
+            {
+                continue;
+            }
+            let open = todos.iter().filter(|t| owned_by(t, &child.id)).count();
+            let reported = messages
+                .iter()
+                .any(|m| m.from.kind == ActorKind::Agent && m.from.id == child.id && m.to == door);
+            if open == 0 || reported {
+                continue;
+            }
+            let unassigned = todos
+                .iter()
+                .filter(|t| !t.done && t.owner.is_none() && t.home.as_deref() == Some(door))
+                .count();
+            let body = format!(
+                "[ended] {} ended with {open} open Todos it owns and no report. Their owner is unchanged until you assign them; {unassigned} open Todos of this Workstream are unassigned. Reconcile them.",
+                child.name
+            );
+            let key = format!(
+                "{door}/{}/{}",
+                child.id,
+                child.attempt.as_deref().unwrap_or("")
+            );
+            if self.ended.contains(&key)
+                || messages
+                    .iter()
+                    .any(|m| m.from == Actor::daemon() && m.to == door && m.body == body)
+            {
+                continue;
+            }
+            facts.push(Fact {
+                door: door.to_owned(),
+                child: key,
+                body,
+            });
+        }
+        facts
+    }
+
+    fn stalls(&mut self, nodes: &[RailNode], stalled: &HashSet<String>) -> Vec<Fact> {
+        self.stalled.retain(|id| stalled.contains(id));
+        let doors: HashSet<&str> = nodes
+            .iter()
+            .filter(|n| n.kind == NodeKind::Workstream)
+            .map(|n| n.id.as_str())
+            .collect();
+        nodes
+            .iter()
+            .filter(|n| stalled.contains(&n.id) && !self.stalled.contains(&n.id))
+            .filter_map(|child| {
+                let door = child.parent.as_deref().filter(|id| doors.contains(id))?;
+                Some(Fact {
+                    door: door.to_owned(),
+                    child: child.id.clone(),
+                    body: format!(
+                        "[stalled] {} is working but has shown no activity for ten minutes and runs no tool or background work. Decide whether to nudge, replace or accept it.",
+                        child.name
+                    ),
+                })
+            })
+            .collect()
+    }
+
+    /// Sends each fact due as a `note` from the Daemon; one that fails stays due.
+    pub async fn publish(&mut self, reader: &Reader, world: &World) {
+        let mut due = self.ended(world.nodes(), &world.todos(), world.messages());
+        let ended = due.len();
+        due.extend(self.stalls(world.nodes(), world.stalled()));
+        for (index, fact) in due.into_iter().enumerate() {
+            let sent = reader
+                .call::<Message>(
+                    "message",
+                    "message.send",
+                    json!({"to": fact.door, "kind": "note", "body": fact.body}),
+                    Actor::daemon(),
+                )
+                .await;
+            match sent {
+                Ok(_) if index < ended => {
+                    self.ended.insert(fact.child);
+                }
+                Ok(_) => {
+                    self.stalled.insert(fact.child);
+                }
+                Err(err) => eprintln!("rupd: fact for {} not sent: {err}", fact.door),
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn node(id: &str, kind: &str, parent: Option<&str>, status: &str) -> RailNode {
+        serde_json::from_value(json!({
+            "id":id,"kind":kind,"name":id,"parent":parent,"order":0,
+            "status":{"kind":status,"label":"","since":0,"finished":"0"},"attempt":"1",
+            "status_revision":"1","terminal_id":null,"worktree":null,"can_resume":false,
+            "yolo":false,"channel":null,"stray":[],"model":null,"effort":null,"work":null,"auto":false
+        }))
+        .unwrap()
+    }
+
+    fn todo(id: u32, owner: Option<&str>, home: Option<&str>) -> Todo {
+        serde_json::from_value(json!({
+            "id":id,"title":"t","body":"","done":false,"blockers":[],"blocked":false,
+            "created_at":0,"updated_at":0,"creator":Actor::user(),"home":home,
+            "owner":owner.map(|o| json!({"kind":"agent","id":o,"parent":"door"})),
+            "refs":[]
+        }))
+        .unwrap()
+    }
+
+    #[test]
+    fn dcl5_kill_reports_owned_open_todos_without_reassigning() {
+        let nodes = [
+            node("door", "workstream", None, "idle"),
+            node("sub", "agent", Some("door"), "done"),
+        ];
+        let mut todos: Vec<Todo> = (0..7).map(|i| todo(i, Some("sub"), Some("door"))).collect();
+        todos.extend((7..21).map(|i| todo(i, None, Some("door"))));
+        let mut facts = Facts::default();
+        let due = facts.ended(&nodes, &todos, &[]);
+        assert_eq!(due.len(), 1);
+        assert_eq!(due[0].door, "door");
+        assert!(
+            due[0].body.contains("sub ended with 7 open Todos"),
+            "{}",
+            due[0].body
+        );
+        assert!(due[0].body.contains("no report"));
+        assert!(
+            due[0]
+                .body
+                .contains("14 open Todos of this Workstream are unassigned")
+        );
+        // Published once: the same state offers nothing more, and no Todo changed owner.
+        facts.ended.insert(due[0].child.clone());
+        assert!(facts.ended(&nodes, &todos, &[]).is_empty());
+        assert_eq!(todos.iter().filter(|t| owned_by(t, "sub")).count(), 7);
+        // A report from the child, or a child with nothing open, is no such fact.
+        let done: Vec<Todo> = Vec::new();
+        assert!(Facts::default().ended(&nodes, &done, &[]).is_empty());
+    }
+
+    #[test]
+    fn dcl5_a_stall_is_published_once_until_activity_clears_it() {
+        let nodes = [
+            node("door", "workstream", None, "working"),
+            node("sub", "agent", Some("door"), "working"),
+        ];
+        let mut facts = Facts::default();
+        let stalled: HashSet<String> = ["sub".to_owned(), "door".to_owned()].into();
+        let due = facts.stalls(&nodes, &stalled);
+        // The stalled Door has a row fact, not a Message to itself; only the child's reaches it.
+        assert_eq!(due.len(), 1);
+        assert_eq!(due[0].door, "door");
+        assert!(due[0].body.contains("sub"));
+        facts.stalled.insert(due[0].child.clone());
+        assert!(facts.stalls(&nodes, &stalled).is_empty());
+        assert!(facts.stalls(&nodes, &HashSet::new()).is_empty());
+        assert_eq!(
+            facts.stalls(&nodes, &stalled).len(),
+            1,
+            "a new stall after activity is new"
+        );
+    }
+}

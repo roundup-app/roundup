@@ -27,7 +27,7 @@ describe("u2694 the Rail's system menu", () => {
 
     open("w");
     expect(entry(app, copy.rename)).toMatchObject({ shortcut: "F2" });
-    expect(entry(app, copy.remove)).toMatchObject({ shortcut: "⌘⌫" });
+    expect(entry(app, copy.remove)).toMatchObject({ shortcut: "⇧⌘⌫" });
   });
 
   it("u2694b_stopping_a_door_calls_agent_stop", async () => {

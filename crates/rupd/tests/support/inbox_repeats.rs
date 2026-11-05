@@ -201,6 +201,7 @@ fn digest(last: &str) -> contracts::agent::DigestEntry {
         kind: contracts::Kind::Working,
         last: last.into(),
         todos: 0,
+        link: None,
         pads: vec![],
     }
 }

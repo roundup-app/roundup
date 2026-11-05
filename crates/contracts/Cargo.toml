@@ -13,6 +13,7 @@ name = "contracts"
 required-features = ["export"]
 
 [dependencies]
+percent-encoding = "2"
 schemars = "1"
 serde.workspace = true
 serde_json.workspace = true

@@ -308,6 +308,7 @@ impl Daemon {
             self.bus.clone(),
             Arc::clone(&self.touches),
             std::env::var_os("RUPD_DIGEST_OBSERVER").map(std::path::PathBuf::from),
+            self.project_key.clone(),
         )
         .with_agents(Arc::clone(&self.agents))
     }

@@ -191,7 +191,7 @@ it.each([true, false].flatMap(accepted => (["key", "pointer"] as const).map(sour
     render(() => <ConnectedProjectContext.Provider value={connected}><Leader /><HintLine /></ConnectedProjectContext.Provider>);
     const row = document.querySelector<HTMLElement>('.rail-row[data-id="ann"]')!;
     row.focus();
-    await activate("⌘⌫", source);
+    await activate("⇧⌘⌫", source);
     await questionDialog();
     expect(app.calls.filter(call => call.method === "rail.remove")).toEqual([]);
     await answerQuestion(accepted);
