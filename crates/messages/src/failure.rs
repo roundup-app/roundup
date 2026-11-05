@@ -12,6 +12,39 @@ const DEADLINE_MS: i64 = 30_000;
 pub(crate) const UNREADABLE: &str = "transcript unreadable";
 pub(crate) const WRITE_FAILED: &str = "inbox write failed";
 pub(crate) const NO_RECEIPT: &str = "no receipt after 30 s";
+/// U6260a: why the send path holds a Message; a held Message is never a delivery failure.
+pub(crate) const AWAITING_INPUT: &str = "held until the user's first input in this Attempt";
+pub(crate) const INBOX_NOT_READY: &str = "held until the receiver's inbox is ready";
+
+/// The one held predicate: why the send path keeps a Message `pending` instead of writing it.
+pub(crate) fn held_reason(admitted: bool, inbox: contracts::agent::Inbox) -> Option<&'static str> {
+    if !admitted {
+        Some(AWAITING_INPUT)
+    } else if inbox != contracts::agent::Inbox::Ok {
+        Some(INBOX_NOT_READY)
+    } else {
+        None
+    }
+}
+
+/// Records why `ids` are held, or clears them when `reason` is `None`.
+pub(crate) fn hold(inner: &Inner, ids: &[u32], reason: Option<&'static str>) {
+    let mut held = lock(&inner.held);
+    for id in ids {
+        match reason {
+            Some(reason) => held.insert(*id, reason),
+            None => held.remove(id),
+        };
+    }
+}
+
+/// `message` as its sender reads it: a `pending` Message carries the reason it is held.
+pub(crate) fn with_held(inner: &Inner, mut message: Message) -> Message {
+    if message.status == MessageStatus::Pending {
+        message.held = lock(&inner.held).get(&message.id).map(|r| (*r).to_owned());
+    }
+    message
+}
 
 /// Each receiver's current cause, and since when it has been eligible with Messages waiting.
 #[derive(Default)]

@@ -920,6 +920,7 @@ fn row_to_message(row: &rusqlite::Row<'_>) -> rusqlite::Result<Message> {
             .get::<_, Option<String>>(7)?
             .map(|text| from_text(7, &text))
             .transpose()?,
+        held: None,
         at: row.get(8)?,
     })
 }

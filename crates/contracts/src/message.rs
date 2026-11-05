@@ -52,6 +52,10 @@ pub struct Message {
     pub reply_to: Option<u32>,
     pub status: MessageStatus,
     pub reason: Option<Reason>,
+    /// U6260a: why a `pending` Message waits for its receiver's inbox; a held state, never a failure.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[specta(optional)]
+    pub held: Option<String>,
     #[specta(type = specta_typescript::Number)]
     pub at: i64,
 }

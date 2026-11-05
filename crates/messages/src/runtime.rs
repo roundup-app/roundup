@@ -48,6 +48,8 @@ pub(super) struct Inner {
     pub(super) snapshotted: Mutex<std::collections::HashSet<(String, i64)>>,
     /// DCL1: the delivery failures of each receiver.
     pub(super) failures: Mutex<failure::Failures>,
+    /// U6260a: why each `pending` Message waits, until it is written.
+    pub(super) held: Mutex<std::collections::HashMap<u32, &'static str>>,
     /// B50: the transport of every Message to an Agent; without one nothing is delivered.
     pub(super) inbox: std::sync::OnceLock<Arc<dyn NoteInbox>>,
 }
@@ -95,6 +97,7 @@ impl Messages {
             inbox_written: Mutex::default(),
             snapshotted: Mutex::default(),
             failures: Mutex::default(),
+            held: Mutex::default(),
             inbox: std::sync::OnceLock::new(),
         });
         Ok(Self { inner })

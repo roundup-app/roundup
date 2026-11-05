@@ -181,6 +181,14 @@ impl Shared {
             .join(format!("{id}.json"))
     }
 
+    /// U6260b: whether the owner record of `id` says its conversation received the user's input.
+    pub(super) fn stored_input_started(&self, id: &str) -> bool {
+        std::fs::read(self.owner_file(id))
+            .ok()
+            .and_then(|body| serde_json::from_slice::<Stored>(&body).ok())
+            .is_some_and(|stored| stored.input_started)
+    }
+
     /// Keep admission beside the verified owner, fenced to its original Attempt.
     pub(super) fn save_input_started(&self, id: &str, attempt: &str) -> Result<(), RpcError> {
         self.update_owner(id, attempt, |stored| {
