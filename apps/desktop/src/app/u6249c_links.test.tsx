@@ -7,6 +7,7 @@ import { agent, door } from "../testing/nodes";
 import { TargetText } from "../terminal/TargetText";
 import { ConnectedProjectContext, type ConnectedProject } from "../state/connectedProject";
 import { RpcError, type NativeOpen } from "./seam";
+import { keyOfPath } from "./projectLink";
 
 afterEach(() => { batch(cleanup); localStorage.clear(); sessionStorage.clear(); vi.restoreAllMocks(); });
 
@@ -81,4 +82,20 @@ it("u6249c_link_failure_has_one_surface", async () => {
   fireEvent.click(m.link);
   await screen.findByText("not found: agent chosen");
   expect(screen.getAllByRole("alert")).toHaveLength(1);
+});
+
+it("u6249c_project_key_matches_the_daemons", async () => {
+  // `printf '%s' /Users/x/closed | shasum -a 256` starts 9c99096382081341; `project_data` in crates/rupd/src/data.rs builds the key the same way.
+  expect(await keyOfPath("/Users/x/closed")).toBe("closed-9c99096382081341");
+});
+
+it("u6249c_closed_project_link_offers_open", async () => {
+  const m = await mountSurface("plain");
+  m.app.recentProjects = async () => ["/Users/x/closed"];
+  m.app.handlers["link.read"] = () => { throw new RpcError(-32001, "Not this Project", { kind: "other-project" }); };
+
+  m.receive({ kind: "link", url: "roundup://agent/4?project=closed-9c99096382081341" });
+  fireEvent.click(await screen.findByRole("button", { name: "Open closed" }));
+  await waitFor(() => expect(m.app.of("/Users/x/closed").calls.filter(call => call.method === "link.read")).toHaveLength(1));
+  await waitFor(() => { if (screen.queryByRole("button", { name: "Open closed" })) throw new Error("the action still shows"); });
 });

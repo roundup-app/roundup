@@ -1,12 +1,13 @@
 import type { JSX } from "solid-js";
 import type * as Solid from "solid-js";
 import type { LinkContent } from "@contracts/link/LinkContent";
+import { linkCopy } from "./copy";
 import { RpcError, type App, type NativeOpen } from "./seam";
 import type { ProjectsState } from "../state/projects";
 import type { ConnectedProject } from "../state/connectedProject";
 import { REVEAL_BUBBLE } from "../bubbles/places";
 import { captureFocus } from "../keys/focus";
-import { inProject } from "./projectLink";
+import { inProject, keyOfPath } from "./projectLink";
 
 /** An OS request, or a `roundup://` link clicked in a surface of the Project at `surface` (U6249c1). */
 export type OpenRequest = Extract<NativeOpen, { kind: "project" }> | { kind: "link"; url: string; surface?: string | undefined };
@@ -21,7 +22,8 @@ export const watchNativeOpen = ({ solid: { createEffect, createSignal, onCleanup
   connectionOf: (path: string) => ConnectedProject | undefined;
   /** The Drawer body for a linked Pad or Todo; its Drawers stay in the entry that already holds them. */
   item: (content: LinkContent, fail: (message: string) => void) => JSX.Element;
-  fail: (message: string | null) => void;
+  /** An `action` is the one thing the user can do about the failure; the App shows it beside a dismissal. */
+  fail: (message: string | null, action?: { label: string; run: () => void }) => void;
 }) => {
   const [linked, setLinked] = createSignal<{ path: string; content: LinkContent; focus: ReturnType<typeof captureFocus> } | null>(null);
   createEffect(() => {
@@ -64,7 +66,20 @@ export const watchNativeOpen = ({ solid: { createEffect, createSignal, onCleanup
   let pending = Promise.resolve();
   onCleanup(() => { stopped = true; });
 
-  const open = (request: OpenRequest) => {
+  /** U6249c3: the recent Project, not open, whose key the link names. */
+  const closedProject = async (url: string) => {
+    const key = URL.canParse(url) ? new URL(url).searchParams.get("project") : null;
+
+    if (key === null) return undefined;
+
+    for (const path of await app.recentProjects()) {
+      if (await keyOfPath(path) === key) return { path, name: path.split("/").findLast(Boolean) ?? path };
+    }
+
+    return undefined;
+  };
+
+  const open = (request: OpenRequest, offer = true) => {
     const focus = captureFocus(true);
     pending = pending.then(async () => {
       if (stopped) return;
@@ -111,8 +126,12 @@ export const watchNativeOpen = ({ solid: { createEffect, createSignal, onCleanup
         }
       }
 
-      if (failures.length === 0) console.warn(`link not opened: ${url}: no running Project owns it`);
-      else fail([...new Set(failures)].join("; "));
+      if (failures.length === 0) {
+        const closed = offer ? await closedProject(url) : undefined;
+
+        if (!closed) console.warn(`link not opened: ${url}: no running Project owns it`);
+        else fail(linkCopy.closed(closed.name), { label: linkCopy.openProject(closed.name), run: () => void projects.open(closed.path).then(() => { fail(null); open(request, false); }) });
+      } else fail([...new Set(failures)].join("; "));
     }).catch(error => { if (!(error instanceof Error)) throw error; fail(error.message); });
   };
 
