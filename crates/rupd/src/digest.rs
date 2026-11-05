@@ -431,6 +431,7 @@ mod tests {
                 daemon.reader(),
                 Arc::clone(&messages),
                 Arc::clone(&daemon.digests),
+                Arc::default(),
                 daemon.bus.subscribe(),
             ));
             let life = Self {
