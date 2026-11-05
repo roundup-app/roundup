@@ -6,6 +6,7 @@ use std::io::Write;
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use crate::facts::{Facts, STALL_MS};
 use contracts::message::Message;
 use contracts::{Actor, EventData};
 use rpc::{Bus, Ctx, Module, RpcError};
@@ -116,6 +117,10 @@ impl Reader {
                 .agents
                 .as_ref()
                 .map_or_else(HashMap::new, |agents| agents.completed_text()),
+            stalled: self
+                .agents
+                .as_ref()
+                .map_or_else(Default::default, |agents| agents.stalled(STALL_MS)),
             // The user sees every Message; `message.list` shows the Daemon only its own.
             messages: self
                 .call("message", "message.list", json!({}), Actor::user())
@@ -126,6 +131,7 @@ impl Reader {
 }
 
 pub struct World {
+    stalled: std::collections::HashSet<String>,
     completed: HashMap<String, (String, i64, i64, String)>,
     nodes: Vec<contracts::agent::RailNode>,
     todos: Vec<contracts::todo::Todo>,
@@ -138,6 +144,14 @@ pub struct World {
 impl World {
     pub fn nodes(&self) -> &[contracts::agent::RailNode] {
         &self.nodes
+    }
+
+    pub(crate) fn messages(&self) -> &[Message] {
+        &self.messages
+    }
+
+    pub(crate) fn stalled(&self) -> &std::collections::HashSet<String> {
+        &self.stalled
     }
 
     pub fn todos(&self) -> Vec<contracts::todo::Todo> {
@@ -185,8 +199,9 @@ pub async fn push_changes(
     // DCL10: a stored told book is compared with the Rail, so a fact told before the stop stays
     // told and one changed while stopped is queued once. With none, what is there is not news:
     // record it as told before the first event is judged.
+    let mut facts = Facts::default();
     if seen.has_told() {
-        if let Err(err) = push_once(&reader, &messages, &seen).await {
+        if let Err(err) = push_once(&reader, &messages, &seen, &mut facts).await {
             eprintln!("rupd: digest push failed: {err}");
         }
     } else if let Ok(world) = reader.world().await {
@@ -207,7 +222,7 @@ pub async fn push_changes(
                 Err(RecvError::Closed) => return,
             },
         }
-        if let Err(err) = push_once(&reader, &messages, &seen).await {
+        if let Err(err) = push_once(&reader, &messages, &seen, &mut facts).await {
             eprintln!("rupd: digest push failed: {err}");
         }
     }
@@ -217,6 +232,7 @@ async fn push_once(
     reader: &Reader,
     messages: &messages::Messages,
     seen: &messages::digest::Seen,
+    facts: &mut Facts,
 ) -> Result<(), RpcError> {
     let world = reader.world().await?;
     for push in seen.changed(&world.sources()) {
@@ -226,6 +242,7 @@ async fn push_once(
             .push_digest(&push.meta, push.subagent(), &push.entry)
             .await;
     }
+    facts.publish(reader, &world).await;
     reader.observed(&world);
     Ok(())
 }
