@@ -22,7 +22,8 @@ globalThis.IntersectionObserver ??= class { root = null; rootMargin = "0px"; scr
 
 // The harness also starts the scrollbar tracker here; jsdom paints no boxes and
 // cannot adopt the shared styles into its library-owned shadow roots.
-Element.prototype.checkVisibility ??= () => false;
+// A connected element counts as visible, as a browser reports one with a box.
+Element.prototype.checkVisibility ??= function (this: Element) { return this.isConnected; };
 
 ShadowRoot.prototype.adoptedStyleSheets ??= [];
 

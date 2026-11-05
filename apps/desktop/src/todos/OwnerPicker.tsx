@@ -1,3 +1,4 @@
+import { anchorBox } from "../ui/anchorBox";
 import { Combobox } from "../ui/Combobox";
 import { LEADER } from "../keys/chords";
 import { registerKeys } from "../keys/registry";
@@ -25,6 +26,8 @@ export const OwnerPicker = <Id extends number | string>(props: {
   offers: Accessor<readonly Owner[]>;
   /** The list's accessible name for the row it is open for. */
   label: (id: Id | undefined) => string;
+  /** U6236b: the live row of a Todo whose element a re-render replaced. */
+  replacement?: () => HTMLElement | null | undefined;
   choose: (id: Id, owner: Actor | null) => void;
   /** U3743: `New Workstream…` for the target Todo, after the picker has closed. */
   newWorkstream?: (id: Id) => void;
@@ -34,7 +37,7 @@ export const OwnerPicker = <Id extends number | string>(props: {
     lazyMount
     unmountOnExit
     open={props.target() !== null && (props.offers().length > 0 || !!props.newWorkstream)}
-    positioning={{ placement: "bottom-start", getAnchorRect: () => props.target()?.anchor.getBoundingClientRect() ?? null }}
+    positioning={{ placement: "bottom-start", getAnchorRect: () => anchorBox(props.target()?.anchor, props.replacement) }}
     onOpenChange={({ open }) => { if (!open) props.close(); }}
     onSelect={({ value }) => {
       const target = props.target();
