@@ -160,8 +160,8 @@ export const RailRowView = (props: {
     return byUrgency(kinds.filter((kind): kind is Kind => kind !== undefined))[0] ?? null;
   };
 
-  /** DCL1: the first Agent, the row's own or below it, whose Messages have not reached it, with the Daemon's cause. */
-  const unreachable = () => [props.row.node, ...(isContainer() ? descendantsOf(props.topology, props.row.node.id) : [])].find(node => node.unreachable);
+  /** DCL1: the first Agent, the row's own, its direct child, or any below it while the row is folded, whose Messages have not reached it, with the Daemon's cause. */
+  const unreachable = () => [props.row.node, ...(isContainer() ? descendantsOf(props.topology, props.row.node.id).filter(node => props.row.collapsed || node.parent === props.row.node.id) : [])].find(node => node.unreachable);
 
   const statusLabel = () => {
     const status = props.row.node.status;

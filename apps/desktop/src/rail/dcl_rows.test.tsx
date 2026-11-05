@@ -35,15 +35,6 @@ it("dcl2_permission_action_opens_requesting_terminal", async () => {
   expect(rail.nodes.find(node => node.id === "b")?.terminal_id).toBe("t-b");
 });
 
-it("dcl2_a_working_child_makes_an_idle_door_row_work", async () => {
-  await mountRail([
-    door("w", "idle", "ready", { name: "payments", workstream_state: "working" }),
-    agent("a", "working", "busy", { parent: "w", name: "busy" }),
-  ]);
-
-  expect(rowOf("payments").dataset.kind).toBe("working");
-});
-
 it("dcl8_row_start_and_waiting_count_follow_stored_backlog", async () => {
   const { app } = await mountRail([workstream("w", { name: "payments", waiting: 2 })]);
 

@@ -863,3 +863,8 @@
 .rail-row:is(:hover, :focus-within, [data-selected="true"]) .rail-attribution {
   visibility: visible;
 }
+
+/* DCL1: a delivery failure reads in the error tone, like the failure lines beside it. */
+.rail-unreachable .reserved-status {
+  color: var(--red);
+}
