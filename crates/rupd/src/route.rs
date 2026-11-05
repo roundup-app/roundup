@@ -140,6 +140,18 @@ impl Daemon {
         self.with_waiting(reply).await
     }
 
+    /// `rail.tree` as a connection reads it: the Rail with each Workstream's state and waiting count.
+    pub(crate) async fn presented_rail(
+        &self,
+        conn: &Conn,
+    ) -> Result<Vec<contracts::agent::RailNode>, RpcError> {
+        match self.rail_reply(conn).await? {
+            rpc::Reply::Value(value) => serde_json::from_value(value),
+            rpc::Reply::Json(json) => serde_json::from_str(&json),
+        }
+        .map_err(RpcError::internal)
+    }
+
     /// DCL2, DCL10, DCL10c: each Workstream's state, and each stopped Door's waiting count, read from the stored backlog on every
     /// reply; a Workstream whose Door has a live program carries none.
     async fn with_waiting(&self, reply: rpc::Reply) -> Result<rpc::Reply, RpcError> {
@@ -194,6 +206,9 @@ impl Daemon {
         }
         if matches!(method, "todo.restore" | "todo.redo") && conn.actor.kind != ActorKind::User {
             return Err(RpcError::forbidden("only the user restores deleted Todos"));
+        }
+        if method == "rail.tree" {
+            return rpc::reply(&self.presented_rail(conn).await?);
         }
         let owner = contracts::methods::owner_namespace(method).unwrap_or(namespace);
         if owner == "daemon" {
