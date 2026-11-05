@@ -15,7 +15,7 @@ export const HomePicker = (props: {
   target: Accessor<{ id: number; anchor: HTMLElement; focus?: ReturnType<typeof captureFocus> } | null>;
   offers: Accessor<readonly Home[]>;
   /** U6236b: the live row of a Todo whose element a re-render replaced. */
-  replacement?: (id: number | undefined) => HTMLElement | null | undefined;
+  replacement?: () => HTMLElement | null | undefined;
   choose: (id: number, home: string | null) => void;
   close: () => void;
 }) => (
@@ -23,7 +23,7 @@ export const HomePicker = (props: {
     lazyMount
     unmountOnExit
     open={props.target() !== null && props.offers().length > 0}
-    positioning={{ placement: "bottom-start", getAnchorRect: () => anchorBox(props.target()?.anchor, () => props.replacement?.(props.target()?.id)) }}
+    positioning={{ placement: "bottom-start", getAnchorRect: () => anchorBox(props.target()?.anchor, props.replacement) }}
     onOpenChange={({ open }) => { if (!open) props.close(); }}
     onSelect={({ value }) => {
       const target = props.target();

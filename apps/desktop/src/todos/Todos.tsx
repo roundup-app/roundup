@@ -508,12 +508,14 @@ export const Todos = (props: {
   };
 
   // U6236b: a picker whose Todo is gone has no row to sit against, so it closes.
-  createEffect(() => { const id = picking()?.id;
+  const rowOf = (target: { id: number } | null) => target && rowButtonOf(target.id);
+  const gone = (target: { id: number } | null) => target && !todos.byId().has(target.id);
 
- if (id !== undefined && !todos.byId().has(id)) stopPicking(); });
-  createEffect(() => { const id = moving()?.id;
+  createEffect(() => {
+    if (gone(picking())) stopPicking();
 
- if (id !== undefined && !todos.byId().has(id)) stopMoving(); });
+    if (gone(moving())) stopMoving();
+  });
 
   const enterTriage = () => {
     const buttons = triageButtons();
@@ -795,8 +797,8 @@ export const Todos = (props: {
         </TreeView.Root>
         </>; }}</OwnerGroups>
       </Show>
-      <HomePicker replacement={id => id === undefined ? undefined : rowButtonOf(id)} target={moving} offers={homeOffers} choose={(id, home) => void moveHome(id, home)} close={stopMoving} />
-      <OwnerPicker replacement={id => id === undefined ? undefined : rowButtonOf(id)} label={id => copy.ownersFor(id ?? "")} target={picking} offers={offers} choose={(id, owner) => void assign(id, owner)} close={stopPicking} newWorkstream={id => {
+      <HomePicker replacement={() => rowOf(moving())} target={moving} offers={homeOffers} choose={(id, home) => void moveHome(id, home)} close={stopMoving} />
+      <OwnerPicker replacement={() => rowOf(picking())} label={id => copy.ownersFor(id ?? "")} target={picking} offers={offers} choose={(id, owner) => void assign(id, owner)} close={stopPicking} newWorkstream={id => {
         const focus = captureFocus(true);
         namingNext = id;
         setTimeout(() => { namingNext = null; focus(() => setNaming(id)); }, 0);

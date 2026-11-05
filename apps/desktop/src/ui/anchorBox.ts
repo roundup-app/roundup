@@ -3,8 +3,7 @@
  * `replacement` finds the live element when the captured one was replaced by a re-render.
  */
 export const anchorBox = (element: HTMLElement | null | undefined, replacement?: () => HTMLElement | null | undefined): DOMRect | null => {
-  const live = (candidate: HTMLElement | null | undefined) => candidate?.isConnected && candidate.checkVisibility?.() !== false ? candidate : null;
-  const found = live(element) ?? (replacement ? live(replacement()) : null);
+  const live = (candidate: HTMLElement | null | undefined) => candidate?.checkVisibility() ? candidate : null;
 
-  return found?.getBoundingClientRect() ?? null;
+  return (live(element) ?? live(replacement?.()))?.getBoundingClientRect() ?? null;
 };

@@ -8,26 +8,23 @@ import "./Tooltip.css";
 
 type Anchor = () => HTMLElement | undefined;
 
-const Ownership = createContext<{ pointer: (event: PointerEvent, id: string | undefined) => void; focus: (event: FocusEvent, id: string | undefined) => void }>();
+const Ownership = createContext<{ pointer: (event: PointerEvent) => void; focus: (event: FocusEvent, id: string | undefined) => void }>();
 
 const Root = (props: ArkTooltip.RootProps & { anchor?: Anchor | undefined }) => {
   const [owner, setOwner] = createSignal<HTMLElement>();
   const control = floatingControl(props, () => props.anchor?.() ?? owner());
   let pointer: { x: number; y: number } | undefined;
-  let ownerId: string | undefined;
   // U6236a: a re-render replaces the trigger's element; its id finds the replacement.
-  const rect = () => props.anchor ? anchorBox(props.anchor()) : anchorBox(owner(), () => ownerId ? document.getElementById(ownerId) : null);
+  const rect = () => props.anchor ? anchorBox(props.anchor()) : anchorBox(owner(), () => document.getElementById(owner()?.id ?? ""));
 
   const ownership = {
-    pointer: (event: PointerEvent, id: string | undefined) => {
+    pointer: (event: PointerEvent) => {
       if (event.pointerType === "touch") return;
-      ownerId = id;
       setOwner(event.currentTarget instanceof HTMLElement ? event.currentTarget : undefined);
       pointer = { x: event.clientX, y: event.clientY };
     },
     focus: (event: FocusEvent, id: string | undefined) => {
       const current = event.currentTarget;
-      ownerId = id;
 
       setOwner(current instanceof HTMLElement ? (id ? current.ownerDocument.getElementById(id) : null) ?? current : undefined);
       pointer = undefined;
@@ -36,7 +33,7 @@ const Root = (props: ArkTooltip.RootProps & { anchor?: Anchor | undefined }) => 
 
   createEffect(() => {
     if (!control.open()) return;
-    const watch = new MutationObserver(() => { if (!rect()) control.change({ open: false }); });
+    const watch = new MutationObserver(() => rect() || control.change({ open: false }));
 
     watch.observe(document.body, { childList: true, subtree: true });
     onCleanup(() => watch.disconnect());
@@ -66,10 +63,7 @@ export const Tooltip = {
     const tooltip = useTooltipContext();
     const [triggerProps] = splitProps(props, ["value"]);
 
-    const id = () => tooltip().getTriggerProps(triggerProps).id;
-    const pointer = (event: PointerEvent) => ownership?.pointer(event, id());
-
-    return <ArkTooltip.Trigger {...props} onPointerMove={pointer} onPointerOver={pointer} onFocusIn={(event) => ownership?.focus(event, id())} />;
+    return <ArkTooltip.Trigger {...props} onPointerMove={ownership?.pointer} onPointerOver={ownership?.pointer} onFocusIn={(event) => ownership?.focus(event, tooltip().getTriggerProps(triggerProps).id)} />;
   },
   Content: (props: ArkTooltip.ContentProps & { chord?: Chord | undefined }) => {
     const [local, rest] = splitProps(props, ["chord", "children", "class"]);
