@@ -300,6 +300,7 @@ impl Daemon {
                             settlement::Settlements::default()
                         }),
                 ),
+                self.rail_told.get().cloned(),
                 events,
             ));
         }
