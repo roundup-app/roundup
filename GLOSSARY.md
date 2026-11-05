@@ -363,6 +363,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Result acceptance (`ResultAcceptance`, `AcceptResultParams`, `message.acceptResult`) | same | — |
 | Result check (`ResultCheck`, `ResultObservation`, `message.verifyResult`) | same | — |
 | Continuation (`ContinuationAction`, `ContinuationChoice`, `Reconciliation`, `ResumeWorkParams`, `message.reconcileWork`, `message.resumeWork`) | same | — |
+| Delivery retry (`message.retryDelivery`) | Retry | — |
 | Result resolution (`ResultResolution`, `ResultOutcome`, `ResolveResultParams`, `message.resolveResult`) | same | — |
 | Progress (`Progress`, `ProgressParams`, `ResultProgress`, `message.progress`) | same | — |
 | Collapsible | same | — |

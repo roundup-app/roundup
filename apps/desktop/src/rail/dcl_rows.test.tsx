@@ -13,10 +13,43 @@ it("dcl1_failure_reaches_agent_and_workstream_rows", async () => {
   ]);
 
   for (const name of ["payments", "helper"]) expect(rowOf(name).querySelector(".rail-unreachable")).not.toBeNull();
+});
 
-  // The recovery action takes the user to the Agent the Message did not reach.
+it("dcl1a_write_and_read_failures_offer_retry_and_unreadable_transcript_offers_open", async () => {
+  await mountRail([
+    door("w", "idle", "ready", { name: "payments", workstream_state: "idle" }),
+    agent("a", "idle", "ready", { parent: "w", name: "writer", unreachable: "inbox write failed" }),
+    agent("b", "idle", "ready", { parent: "w", name: "late", unreachable: "no receipt after 30 s" }),
+    agent("c", "idle", "ready", { parent: "w", name: "reader", unreachable: "transcript unreadable" }),
+  ]);
+
+  const action = (row: string) => rowOf(row).querySelector<HTMLButtonElement>(".rail-unreachable button")!;
+
+  expect(action("writer").getAttribute("aria-label")).toBe("Retry writer");
+  expect(action("reader").getAttribute("aria-label")).toBe("Open reader");
+});
+
+it("dcl1a_retry_requests_one_reconciliation_and_selects_nothing", async () => {
+  const { app, rail } = await mountRail([
+    door("w", "idle", "ready", { name: "payments", workstream_state: "idle" }),
+    agent("a", "idle", "ready", { parent: "w", name: "helper", unreachable: "inbox write failed" }),
+    agent("c", "idle", "ready", { parent: "w", name: "reader", unreachable: "transcript unreadable" }),
+  ]);
+
+  const before = rail.selected();
+
   fireEvent.click(rowOf("helper").querySelector("button[data-button=quiet]")!);
-  expect(rail.selected()).toBe("a");
+  await waitFor(() => expect(railCallsTo(app, "message.retryDelivery")).toEqual([{ id: "a" }]));
+  expect(rail.selected()).toBe(before);
+
+  // The Workstream row shows the same action for the same Agent.
+  fireEvent.click(rowOf("payments").querySelector("button[data-button=quiet]")!);
+  await waitFor(() => expect(railCallsTo(app, "message.retryDelivery")).toHaveLength(2));
+
+  // An unreadable transcript opens the Agent and asks for no pass.
+  fireEvent.click(rowOf("reader").querySelector("button[data-button=quiet]")!);
+  expect(rail.selected()).toBe("c");
+  expect(railCallsTo(app, "message.retryDelivery")).toHaveLength(2);
 });
 
 it("dcl2_permission_action_opens_requesting_terminal", async () => {

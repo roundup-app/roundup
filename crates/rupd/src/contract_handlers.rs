@@ -202,6 +202,25 @@ impl Daemon {
         .await
     }
 
+    /// DCL1a: one delivery pass for the Agent, now; the user only.
+    pub(super) async fn rpc_message_retry_delivery(
+        &self,
+        conn: &mut Conn,
+        _method: &str,
+        params: Value,
+    ) -> Result<Value, RpcError> {
+        if conn.actor.kind != contracts::ActorKind::User {
+            return Err(RpcError::forbidden("only the user retries a delivery"));
+        }
+        let id: contracts::agent::NodeId = rpc::params(params)?;
+        let messages = self
+            .sender
+            .get()
+            .ok_or_else(|| RpcError::internal("Message holder is unavailable"))?;
+        messages.retry_delivery(&id.id).await;
+        rpc::reply(&())
+    }
+
     pub(super) async fn rpc_workstream_restart(
         &self,
         conn: &mut Conn,

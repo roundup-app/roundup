@@ -68,6 +68,7 @@ export const CONTRACT = {
     "message.report": "5fba8698e2cb5199",
     "message.resolveResult": "60cc870ca0afa5ef",
     "message.resumeWork": "eb41be955fe911da",
+    "message.retryDelivery": "d2072f04c148165c",
     "message.send": "724edde964c778fd",
     "message.verifyResult": "56ac2cd591b57b21",
     "models.list": "e135644577bcc30d",
