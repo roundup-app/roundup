@@ -655,6 +655,7 @@ async fn u5740c_current_project_drops_only_retired_tables() {
                 "reactions",
                 "reaction_project",
                 "door_told",
+                "push_intents",
                 "push_slots",
             ],
         )

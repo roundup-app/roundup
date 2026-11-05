@@ -11,7 +11,10 @@ pub fn open(db: &mut Connection, path: &Path) -> rusqlite::Result<()> {
 }
 
 fn migrations() -> Vec<M<'static>> {
-    vec![M::up(include_str!("../migrations/001-digest/up.sql"))]
+    vec![
+        M::up(include_str!("../migrations/001-digest/up.sql")),
+        M::up(include_str!("../migrations/002-digest/up.sql")),
+    ]
 }
 
 #[cfg(test)]

@@ -176,6 +176,15 @@ pub async fn push_changes(
     seen: Arc<messages::digest::Seen>,
     mut events: tokio::sync::broadcast::Receiver<contracts::Event>,
 ) {
+    // DCL4: a change told before the Daemon ended and never queued is queued now, once; the
+    // ledger's write removes its intent.
+    for intent in seen.intents() {
+        for _ in 0..intent.weight {
+            messages
+                .push_digest(&intent.door, &intent.child, &intent.entry)
+                .await;
+        }
+    }
     // DCL10: a stored told book is compared with the Rail, so a fact told before the stop stays
     // told and one changed while stopped is queued once. With none, what is there is not news:
     // record it as told before the first event is judged.
@@ -331,6 +340,7 @@ mod tests {
         daemon: crate::Daemon,
         state: Arc<crate::test_support::ReplyState>,
         killed: Arc<tokio::sync::Notify>,
+        messages: Arc<messages::Messages>,
     }
 
     impl Life {
@@ -365,7 +375,7 @@ mod tests {
             );
             tokio::spawn(push_changes(
                 daemon.reader(),
-                messages,
+                Arc::clone(&messages),
                 Arc::clone(&daemon.digests),
                 daemon.bus.subscribe(),
             ));
@@ -374,6 +384,7 @@ mod tests {
                 daemon,
                 state,
                 killed,
+                messages,
             };
             life.state.status("1", contracts::Kind::Idle);
             life.add_children(0, children);
@@ -401,18 +412,26 @@ mod tests {
 
         /// What the Door's digests account for: each kept digest weighs the changes it holds.
         async fn accounted(&self) -> u32 {
-            let listed = crate::tests::ask(
-                &self.daemon,
-                &json!({"id":1,"method":"message.list","params":{"to":"1"}}).to_string(),
+            // Not through `dispatch`, which would start the Daemon's own push watcher beside this one.
+            let listed = self.messages.call(
+                &self.daemon.ctx(Actor::user()),
+                "message.list",
+                json!({"to":"1"}),
             )
-            .await;
-            listed["result"]
+            .await
+            .unwrap();
+            listed
                 .as_array()
                 .unwrap()
                 .iter()
                 .filter(|m| m["status"] != "dropped")
-                .filter_map(|m| m["body"].as_str()?.strip_prefix("[digest] ["))
-                .map(|head| head.split(' ').next().unwrap().parse().unwrap_or(1))
+                .filter_map(|m| m["body"].as_str()?.strip_prefix("[digest] "))
+                .map(|body| {
+                    // A rollup or merge states its count first; a plain push stands for one.
+                    body.strip_prefix('[')
+                        .and_then(|head| head.split(' ').next()?.parse().ok())
+                        .unwrap_or(1)
+                })
                 .sum()
         }
     }
@@ -440,14 +459,28 @@ mod tests {
             let second = Life::open(dir.path(), &clock, kill_at, 1);
             second.add_children(1, FACTS + 1);
             second.rt.block_on(async {
-                tokio::time::timeout(Duration::from_secs(5), async {
+                let reached = tokio::time::timeout(Duration::from_secs(5), async {
                     match kill_at {
                         Some(_) => second.killed.notified().await,
-                        None => second.state.written.notified().await,
+                        // The Door's next idle takes the pending digests to its inbox.
+                        None => loop {
+                            second.state.status("1", contracts::Kind::Working);
+                            second.state.status("1", contracts::Kind::Idle);
+                            let written = second.state.written.notified();
+                            if tokio::time::timeout(Duration::from_millis(50), written)
+                                .await
+                                .is_ok()
+                            {
+                                break;
+                            }
+                        },
                     }
                 })
-                .await
-                .unwrap_or_else(|_| panic!("the life reaches its delivery boundary at {kill_at:?}"));
+                .await;
+                if reached.is_err() {
+                    let l = second.messages.call(&second.daemon.ctx(Actor::user()), "message.list", json!({"to":"1"})).await;
+                    panic!("DEBUG {l:?} the life reaches its delivery boundary at {kill_at:?}");
+                }
             });
             drop(second.rt);
             drop(second.daemon);
