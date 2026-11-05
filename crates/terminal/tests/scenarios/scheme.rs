@@ -219,3 +219,56 @@ async fn z3799g_scheme_hex_keeps_its_input_language() {
         assert!(terminals.set_scheme(bad).await.is_err(), "{refused:?}");
     }
 }
+
+/// Claude Code's second probe batch: DECRQM 2026, a Kitty query, `CSI 16 t`, DECRQM 1016, DA1.
+const PROBE_BATCH: [&str; 2] = [
+    r"\033[?2026\$p\033_Gi=31,s=1,v=1,a=q,t=d,f=24;AAAA",
+    r"\033\\\033[16t\033[?1016\$p\033[c",
+];
+
+#[tokio::test]
+async fn u6144a_the_kitty_ok_reaches_the_program_before_da1_in_one_chunk() {
+    let dir = tempfile::tempdir().unwrap();
+    let (terminals, _) = open(&dir);
+    terminals.set_scheme(params(Scheme::Dark)).await.unwrap();
+    let mut spawned = terminals
+        .spawn(sh(dir.path(), &script(&PROBE_BATCH.concat())))
+        .await
+        .unwrap();
+    let expected = hex("\x1b_Gi=31;OK\x1b\\\x1b[?62;22c");
+    assert_eq!(typed_back(&mut spawned).await, expected);
+}
+
+#[tokio::test]
+async fn u6144a_the_order_holds_when_the_chunk_splits_inside_the_kitty_query() {
+    let dir = tempfile::tempdir().unwrap();
+    let (terminals, _) = open(&dir);
+    terminals.set_scheme(params(Scheme::Dark)).await.unwrap();
+    let split = format!(
+        "stty raw -echo min 0 time 10; printf '{}'; sleep 0.3; printf '{}'; echo ready; dd bs=1 count=200 2>/dev/null | od -An -v -tx1",
+        PROBE_BATCH[0], PROBE_BATCH[1]
+    );
+    let mut spawned = terminals.spawn(sh(dir.path(), &split)).await.unwrap();
+    let expected = hex("\x1b_Gi=31;OK\x1b\\\x1b[?62;22c");
+    assert_eq!(typed_back(&mut spawned).await, expected);
+}
+
+#[tokio::test]
+async fn u6144b_a_terminal_claims_only_this_emulator() {
+    let dir = tempfile::tempdir().unwrap();
+    let (terminals, _) = open(&dir);
+    let mut params = sh(
+        dir.path(),
+        r#"echo "term=$TERM program=${TERM_PROGRAM-none} version=${TERM_PROGRAM_VERSION-none} kitty=${KITTY_WINDOW_ID-none}""#,
+    );
+    params.env.insert("TERM".into(), "xterm-ghostty".into());
+    params.env.insert("TERM_PROGRAM".into(), "ghostty".into());
+    params.env.insert("TERM_PROGRAM_VERSION".into(), "1".into());
+    params.env.insert("KITTY_WINDOW_ID".into(), "1".into());
+    let mut spawned = terminals.spawn(params).await.unwrap();
+    let printed = drain(&mut spawned.output).await;
+    assert!(
+        printed.contains("term=xterm-256color program=none version=none kitty=none"),
+        "{printed:?}"
+    );
+}
