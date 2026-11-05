@@ -279,6 +279,10 @@ impl Daemon {
                 self.reader(),
                 Arc::clone(sender),
                 Arc::clone(&self.digests),
+                Arc::new(
+                    settlement::Settlements::open(&self.data_dir.join("project.db"))
+                        .unwrap_or_default(),
+                ),
                 events,
             ));
         }

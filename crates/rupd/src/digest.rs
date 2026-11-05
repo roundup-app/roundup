@@ -49,6 +49,10 @@ impl Reader {
         self
     }
 
+    pub(crate) fn agents(&self) -> Option<&Arc<agents::Agents>> {
+        self.agents.as_ref()
+    }
+
     /// B21's isolated observer acknowledges the snapshot only after every push was judged.
     fn observed(&self, world: &World) {
         if let Some(path) = &self.observer {
@@ -135,6 +139,10 @@ impl World {
         &self.nodes
     }
 
+    pub(crate) fn messages(&self) -> &[Message] {
+        &self.messages
+    }
+
     pub fn todos(&self) -> Vec<contracts::todo::Todo> {
         self.todos.clone()
     }
@@ -174,13 +182,14 @@ pub async fn push_changes(
     reader: Reader,
     messages: Arc<messages::Messages>,
     seen: Arc<messages::digest::Seen>,
+    settlements: Arc<crate::settlement::Settlements>,
     mut events: tokio::sync::broadcast::Receiver<contracts::Event>,
 ) {
     // DCL10: a stored told book is compared with the Rail, so a fact told before the stop stays
     // told and one changed while stopped is queued once. With none, what is there is not news:
     // record it as told before the first event is judged.
     if seen.has_told() {
-        if let Err(err) = push_once(&reader, &messages, &seen).await {
+        if let Err(err) = push_once(&reader, &messages, &seen, &settlements).await {
             eprintln!("rupd: digest push failed: {err}");
         }
     } else if let Ok(world) = reader.world().await {
@@ -201,7 +210,7 @@ pub async fn push_changes(
                 Err(RecvError::Closed) => return,
             },
         }
-        if let Err(err) = push_once(&reader, &messages, &seen).await {
+        if let Err(err) = push_once(&reader, &messages, &seen, &settlements).await {
             eprintln!("rupd: digest push failed: {err}");
         }
     }
@@ -211,6 +220,7 @@ async fn push_once(
     reader: &Reader,
     messages: &messages::Messages,
     seen: &messages::digest::Seen,
+    settlements: &crate::settlement::Settlements,
 ) -> Result<(), RpcError> {
     let world = reader.world().await?;
     for push in seen.changed(&world.sources()) {
@@ -220,6 +230,8 @@ async fn push_once(
             .push_digest(&push.meta, push.subagent(), &push.entry)
             .await;
     }
+    let waiting = messages.waiting_counts().await.unwrap_or_default();
+    crate::settlement::settle(reader, messages, settlements, &world, &waiting).await;
     reader.observed(&world);
     Ok(())
 }
@@ -277,6 +289,7 @@ mod tests {
             reader,
             daemon.sender.get().unwrap().clone(),
             Arc::new(messages::digest::Seen::default()),
+            Arc::default(),
             bus.subscribe(),
         ));
         let initial = tokio::time::timeout(Duration::from_secs(5), snapshots.recv())
@@ -314,6 +327,7 @@ mod tests {
             reader,
             daemon.sender.get().unwrap().clone(),
             Arc::new(messages::digest::Seen::default()),
+            Arc::default(),
             bus.subscribe(),
         ));
         snapshots.recv().await.unwrap();
