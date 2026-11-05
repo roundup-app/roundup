@@ -4,7 +4,7 @@ import { KIND_ICON } from "../ink/kindIcon";
 import type { ConnectedProject } from "../state/connectedProject";
 import { railCollection } from "./collection";
 import { copy } from "./copy";
-import { layoutRail, type NodeRow } from "./layout";
+import { foldIdOf, layoutRail, type NodeRow } from "./layout";
 import type { RailSection } from "./persist/storage";
 
 export const sections: { id: RailSection; label: string; icon: typeof KIND_ICON[keyof typeof KIND_ICON] }[] = [
@@ -21,7 +21,7 @@ export const createRailTree = (connected: ConnectedProject, unfolded: Accessor<R
 
   const sectionRows = createMemo(() => presentSections().map(section => ({
     ...section,
-    rows: rail.closedSections().has(section.id) ? [] : layoutRail(topology(), { collapsed: collapsed(), unfolded: unfolded(), now: now() }, section.id),
+    rows: rail.closedSections().has(section.id) ? [] : layoutRail(topology(), { collapsed: collapsed(), unfolded: unfolded(), now: now(), selected: rail.selected() }, section.id),
   })));
 
   const rows = createMemo(() => sectionRows().flatMap(section => section.rows));
@@ -29,10 +29,17 @@ export const createRailTree = (connected: ConnectedProject, unfolded: Accessor<R
   /** Section branches share Ark's keyboard walk and add one semantic level above their rows. */
   const collection = createMemo(() => {
     const allUnfolded = new Set([...topology().index.keys()].flatMap(id => [id, `internal:${id}`]));
+    const selected = rail.selected();
+    const chosen = selected === null ? undefined : topology().nodes[topology().index.get(selected) ?? -1];
+    const parent = chosen?.parent == null ? undefined : topology().nodes[topology().index.get(chosen.parent) ?? -1];
+    const foldId = chosen && parent ? foldIdOf(chosen, parent.id, { collapsed: collapsed(), unfolded: unfolded(), now: now() }) : null;
+
+    // U6238a: a closed fold lifts the selected Agent, so the collection holds it beside its siblings, as the rows do.
+    if (foldId !== null && !unfolded().has(foldId)) allUnfolded.delete(foldId);
 
     const children = presentSections().map(section => ({
       id: `section:${section.id}`, name: section.label,
-      children: railCollection(layoutRail(topology(), { collapsed: new Set(), unfolded: allUnfolded, now: now() }, section.id)).rootNode.children ?? [],
+      children: railCollection(layoutRail(topology(), { collapsed: new Set(), unfolded: allUnfolded, now: now(), selected }, section.id)).rootNode.children ?? [],
     }));
 
     return createTreeCollection({

@@ -96,8 +96,9 @@ run("u502 resize edges use Ark Splitter", () => {
     await settled(EDGES.rail, 352);
     await page.press("End", "End");
     await settled(EDGES.rail, 480);
+    // U6228: Home takes the Rail below its minimum, which collapses it to the strip.
     await page.press("Home", "Home");
-    await settled(EDGES.rail, 252);
+    await settled(EDGES.rail, 56);
     await page.press("Enter", "Enter");
     await settled(EDGES.rail, 288);
     await page.press("End", "End");
@@ -140,13 +141,14 @@ run("u502 resize edges use Ark Splitter", () => {
     expect(await commits()).toBe(1);
     await drag(EDGES.rail, 900, "release");
     await settled(EDGES.rail, 480);
+    // U6228: a drag under the minimum collapses the Rail to the strip, where an Escape drag keeps it.
     await drag(EDGES.rail, -900, "release");
-    await settled(EDGES.rail, 252);
+    await settled(EDGES.rail, 56);
 
     const committed = await commits();
 
     await drag(EDGES.rail, 100, "escape");
-    await settled(EDGES.rail, 252);
+    await settled(EDGES.rail, 56);
     expect(await commits()).toBe(committed);
     await drag(EDGES.shelf, -100, "release");
     await settled(EDGES.shelf, 420);

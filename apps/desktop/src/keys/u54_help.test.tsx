@@ -221,7 +221,7 @@ describe("u54 keyboard help", () => {
     fireEvent.click(rowOf("a"));
     await waitFor(() => expect(document.querySelector('.rail-actions [aria-label="Create"]')).not.toBeNull());
 
-    const listed = CHORDS.filter((chord) => !chord.inFirstRun && !chord.inRail && !chord.inTerminals && !chord.inShelf && !chord.inEditor).flatMap((chord) => chord.presses).sort();
+    const listed = CHORDS.filter((chord) => !chord.inFirstRun && !chord.inRail && !chord.inTerminals && !chord.inShelf && !chord.ownsEscape && !chord.inEditor).flatMap((chord) => chord.presses).sort();
     // Arrow keys are probed for `⌘` alone: the Terminal tabs bind them with other modifiers too (U2230).
     const outsideTerminal = document.querySelector<HTMLElement>("[data-todo-root]")!;
     outsideTerminal.focus();
@@ -270,7 +270,7 @@ describe("u54 keyboard help", () => {
     if (rename.defaultPrevented) railOnly.push(pressOf(rename));
     fireEvent.keyDown(screen.getByRole("textbox", { name: "Name" }), { key: "Escape", code: "Escape" });
     const railBound = [...new Set([...railPresses, ...railOnly])].sort();
-    expect([...new Set([...bound, ...railBound])].sort()).toEqual(CHORDS.filter((chord) => !chord.inFirstRun && !chord.inTerminals && !chord.inShelf && !chord.inEditor).flatMap((chord) => chord.presses).sort());
+    expect([...new Set([...bound, ...railBound])].sort()).toEqual(CHORDS.filter((chord) => !chord.inFirstRun && !chord.inTerminals && !chord.inShelf && !chord.ownsEscape && !chord.inEditor).flatMap((chord) => chord.presses).sort());
   });
 
 });

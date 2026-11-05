@@ -1,3 +1,4 @@
+import { anchorBox } from "../ui/anchorBox";
 import { movedTo } from "../state/rail";
 import { applying } from "../app/pending";
 import type { ConnectedProject } from "../state/connectedProject";
@@ -12,6 +13,7 @@ import { captureFocus, queueFocus } from "../keys/focus";
 export const MovePicker = (props: {
   target: { id: string; anchor: HTMLElement } | null;
   destinations: readonly { value: string; label: string }[];
+  replacement?: (id: string) => HTMLElement | null | undefined;
   choose: (id: string, parent: string) => void;
   close: () => void;
 }) => <Show when={props.target} keyed>{target => {
@@ -27,7 +29,7 @@ export const MovePicker = (props: {
 
   return <Popover.Root open closeOnInteractOutside finalFocusEl={() => target.anchor}
     onOpenChange={({ open }) => { if (!open) close(); }}
-    positioning={{ placement: "bottom-start", strategy: "fixed", getAnchorRect: () => target.anchor.getBoundingClientRect() }}>
+    positioning={{ placement: "bottom-start", strategy: "fixed", getAnchorRect: () => anchorBox(target.anchor, () => props.replacement?.(target.id)) }}>
     <Portal><Popover.Positioner><Popover.Content class="choice-picker" ref={element => { panel = element; }} aria-label={copy.moveTo}>
       <Combobox.Root items={items()} inputValue={query()} onInput={setQuery}
         highlightedValue={items().some(item => item.value === highlight()) ? highlight() : items()[0]?.value ?? null} onHighlightChange={setHighlight}

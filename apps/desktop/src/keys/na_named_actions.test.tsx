@@ -12,10 +12,10 @@ const disposals: (() => void)[] = [];
 afterEach(() => { disposals.splice(0).forEach(dispose => dispose()); batch(cleanup); localStorage.clear(); });
 
 const PINNED = `agent.new agent.new-with-prompt workstream.new mode.new terminal.new leader.open switcher.open feedback.open attention.jump todo.capture terminal.switch rail.collapse-expand rail.move rail.rename help.open
-agent.restart-mode rail.remove ask.open todo.assign-slot todo.open-draft todo.add todo.assign shelf.maximise todo.delete todo.export shelf.close terminal.text-larger terminal.text-smaller
+agent.restart-mode rail.remove ask.open todo.assign-slot todo.open-draft todo.add todo.assign shelf.maximise todo.delete todo.export shelf.close rail.close-peek terminal.text-larger terminal.text-smaller
 terminal.text-reset editor.quote editor.bullet-list editor.numbered-list editor.code-block editor.italic editor.inline-code terminal.find edit.undo edit.redo settings.open settings.forward
 todo.triage-enter todo.triage-move todo.triage-assign todo.triage-workstream todo.triage-nest todo.triage-unnest todo.triage-done todo.triage-comment todo.triage-leave project.choose-folder
-leader.assign leader.project leader.changes leader.attention leader.attention-other-project leader.row leader.bubble-minimise leader.bubble-close leader.shelf leader.capture leader.inbox`.split(/\s+/);
+leader.assign leader.project leader.changes leader.attention leader.attention-other-project leader.row leader.bubble-minimise leader.bubble-close leader.shelf leader.rail leader.capture leader.inbox`.split(/\s+/);
 
 const probe = (element: Element, name = "terminal.find") => {
   const calls: unknown[] = [];
@@ -43,7 +43,7 @@ const mountTerminal = async () => {
 
 it("na1_every_entry_has_a_unique_stable_name", () => {
   const names = ACTION_ROWS.map(row => row.name);
-  expect(names).toHaveLength(CHORDS.length + 11);
+  expect(names).toHaveLength(CHORDS.length + 12);
   expect(new Set(names).size).toBe(names.length);
   expect(names.every(name => /^[a-z]+(-[a-z]+)*\.[a-z]+(-[a-z]+)*$/.test(name))).toBe(true);
   expect(ACTION_ROWS.flatMap(row => row.args ?? []).every(arg => ["string", "integer", "boolean", "choice"].includes(arg.type))).toBe(true);
