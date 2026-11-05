@@ -28,6 +28,8 @@ T3779c observer disposition: `u3799_u3805_rendered_settings_checks` and `setting
 
 **U3806 settings persist and apply at once.** Given any change in U3801–U3805, then it takes effect without restarting the App and survives one; a stored record that is unreadable or invalid in a field falls back to that field's default, the others kept. A change shows in every open Project tab. Tests: `u3806_a_change_survives_a_reload`, `u3806_an_invalid_field_falls_back_alone`, `u3806_every_open_tab_sees_a_change`.
 
+**U6276a Settings stores only what the user changed.** Amends U3806. Given any change in App Settings, when it saves, then the stored record holds only the settings whose value differs from the default; a value equal to the default is not stored, and saving or resetting a setting to its default removes its key. Reading fills every missing key from the current default, so a changed default (Line height, #6223) reaches every setting the user did not change. A record stored in full before this keeps its values until the user resets them (pre-release, no upgrade code). Test: `u6276a_a_save_stores_only_what_differs_from_the_default` in `apps/desktop/src/settings/`.
+
 Moves: D2, D5, D6 (`docs/design-system.md`, heading `The checks`). Policy: the view and its controls use `ui/` primitives wrapping Ark UI and Tokens only, no new Token and no motion beyond them; the Reuse section of the implementing PR names the libraries considered (rule 9). Run `just capture U3799 U3805`; leave PNGs under `artifacts/ux/<id>/`, committing no image or video.
 
 
