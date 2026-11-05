@@ -1,25 +1,89 @@
-//! DCL1: a pending Message the inbox could not take, or that no receipt followed for 30 s while
-//! its receiver was eligible, is a delivery failure the Rows can show. The cause is derived from
-//! the pending Messages and the Daemon's clock, so a restart rebuilds the 30 s deadline from the stored time of the oldest pending Message.
+//! DCL1, U6248a: a pending Message the inbox could not take, or that no receipt followed after
+//! four writes while its receiver was eligible, is a delivery failure the Rows can show. A Message
+//! the send path holds by its own rules is never one. The receipt clock starts at the inbox
+//! write and backs off exponentially with jitter (30 s, 1, 2, 4 min, then every 8 min).
 
 use std::collections::{HashMap, HashSet};
+use std::time::Duration;
+
+use backon::{BackoffBuilder, ExponentialBuilder};
 
 use super::*;
 
-/// How long an eligible pending Message may go without a receipt before it is a failure.
-const DEADLINE_MS: i64 = 30_000;
+/// Writes that must miss their receipt before the line shows.
+const SHOWN_AFTER_MISSES: u32 = 4;
 
 pub(crate) const UNREADABLE: &str = "transcript unreadable";
 pub(crate) const WRITE_FAILED: &str = "inbox write failed";
-pub(crate) const NO_RECEIPT: &str = "no receipt after 30 s";
+pub(crate) const NO_RECEIPT: &str = "no receipt after four writes";
 
 /// Each receiver's current cause, and since when it has been eligible with Messages waiting.
-#[derive(Default)]
 pub(crate) struct Failures {
     cause: HashMap<String, &'static str>,
     since: HashMap<String, i64>,
     /// Receivers this process has judged: busy time resets their clock, a first sight does not.
     seen: HashSet<String>,
+    /// Receivers whose inbox write this process made and no receipt has matched yet.
+    written: HashSet<String>,
+    /// Writes of each receiver that missed their receipt.
+    misses: HashMap<String, u32>,
+    /// Jitter on the redelivery schedule, off under test unless a test seeds it.
+    pub(crate) jitter: Option<u64>,
+}
+
+impl Default for Failures {
+    fn default() -> Self {
+        Self {
+            cause: HashMap::new(),
+            since: HashMap::new(),
+            seen: HashSet::new(),
+            written: HashSet::new(),
+            misses: HashMap::new(),
+            jitter: (!cfg!(test)).then(|| {
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .map_or(0, |d| d.as_nanos() as u64)
+            }),
+        }
+    }
+}
+
+impl Failures {
+    /// How long after its last write `agent` waits for a receipt before writing again.
+    fn wait_ms(&self, agent: &str) -> i64 {
+        let misses = self.misses.get(agent).copied().unwrap_or(0) as usize;
+        let mut schedule = ExponentialBuilder::default()
+            .with_min_delay(Duration::from_secs(30))
+            .with_factor(2.0)
+            .with_max_delay(Duration::from_secs(8 * 60))
+            .without_max_times();
+        if let Some(seed) = self.jitter {
+            schedule = schedule
+                .with_jitter()
+                .with_jitter_seed(seed ^ misses as u64);
+        }
+        schedule
+            .build()
+            .nth(misses)
+            .map_or(i64::MAX, |d| d.as_millis() as i64)
+    }
+}
+
+/// The inbox took a write for `agent`: its receipt clock starts now.
+pub(crate) fn wrote(inner: &Inner, agent: &str) {
+    let now = (inner.clock)();
+    let mut failures = lock(&inner.failures);
+    failures.since.insert(agent.to_owned(), now);
+    failures.written.insert(agent.to_owned());
+}
+
+/// The send path's own rules: whether the inbox takes this Message now (A5556a's first-input
+/// gate). The send and the sweep both decide through it, so a held Message is never a failure.
+pub(crate) fn admitted(inner: &Inner, agent: &str, message: &Message) -> bool {
+    inner
+        .inbox
+        .get()
+        .is_none_or(|inbox| inbox.admits(agent, &message.from))
 }
 
 pub(crate) fn record(inner: &Inner, agent: &str, cause: &'static str) {
@@ -37,11 +101,13 @@ pub(crate) fn settle(inner: &Inner, agent: &str) {
         failures.cause.remove(agent);
         failures.since.remove(agent);
         failures.seen.remove(agent);
+        failures.written.remove(agent);
+        failures.misses.remove(agent);
     }
 }
 
 /// One reconciliation pass, without a new event: every eligible receiver whose Messages waited
-/// 30 s since its last attempt gets its cause shown and its original batch written again.
+/// the schedule of its last write gets its cause shown and its original batch written again.
 pub(super) async fn sweep(inner: &Arc<Inner>) {
     let (waiting, idle): (Vec<String>, Vec<String>) = {
         let store = lock(&inner.store);
@@ -71,15 +137,21 @@ pub(super) async fn sweep(inner: &Arc<Inner>) {
     };
     let now = (inner.clock)();
     for agent in waiting {
-        let eligible = nodes.iter().any(|node| {
-            node.id == agent
-                && !delivery::ended(node)
-                && node.status_revision.is_some()
-                && node
-                    .status
-                    .as_ref()
-                    .is_some_and(|s| matches!(s.kind, Kind::Idle | Kind::Blocked | Kind::Error))
-        });
+        let held = lock(&inner.store)
+            .list_pending_to(&agent)
+            .expect("message store")
+            .iter()
+            .all(|m| !admitted(inner, &agent, m));
+        let eligible = !held
+            && nodes.iter().any(|node| {
+                node.id == agent
+                    && !delivery::ended(node)
+                    && node.status_revision.is_some()
+                    && node
+                        .status
+                        .as_ref()
+                        .is_some_and(|s| matches!(s.kind, Kind::Idle | Kind::Blocked | Kind::Error))
+            });
         let stored = lock(&inner.store)
             .list_pending_to(&agent)
             .expect("message store")
@@ -96,21 +168,40 @@ pub(super) async fn sweep(inner: &Arc<Inner>) {
                 } else {
                     stored.min(now)
                 });
-                if now - since >= DEADLINE_MS {
+                if now - since >= failures.wait_ms(&agent) {
                     failures.since.insert(agent.clone(), now);
-                    failures.cause.entry(agent.clone()).or_insert(NO_RECEIPT);
+                    if failures.written.contains(&agent) {
+                        let misses = failures.misses.entry(agent.clone()).or_insert(0);
+                        *misses += 1;
+                        if *misses >= SHOWN_AFTER_MISSES {
+                            failures.cause.entry(agent.clone()).or_insert(NO_RECEIPT);
+                        }
+                    }
                     true
                 } else {
                     false
                 }
             } else {
-                // Busy, stopped or asking for a permission: that time does not count.
+                // Busy, stopped, asking for a permission or held: that time does not count.
                 failures.since.remove(&agent);
                 false
             }
         };
         if due {
+            rearm_written(inner, &agent);
             delivery::deliver_pending(inner, &agent).await;
+        }
+    }
+}
+
+/// A write that missed its receipt is written again under the same `msg_id`: its flight and
+/// written marks are forgotten, and its repeat check is skipped.
+fn rearm_written(inner: &Inner, agent: &str) {
+    let store = lock(&inner.store);
+    for message in store.list_pending_to(agent).expect("message store") {
+        if lock(&inner.inbox_written).remove(&message.id) {
+            store.clear_flight(message.id).expect("message store");
+            lock(&inner.rewrite).insert(message.id);
         }
     }
 }
