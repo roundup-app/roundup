@@ -28,5 +28,11 @@ it("u6228_rendered_strip_collapsed_and_worst_case", async () => {
   await lane.until("[...document.querySelectorAll('.rail-mark')].some(mark => mark.getAttribute('aria-label')?.startsWith('WWWW'))");
   await lane.capture("U6228a", "worst-case");
 
+  // The peek over the centre, at the worst case's strip.
+  await lane.browser("hover", ".rail-mark");
+  await lane.until("document.querySelector('.rail').dataset.peek === 'true'");
+  await lane.until("document.querySelector('.rail-body').getAnimations().every(animation => animation.playState === 'finished')");
+  await lane.capture("U6228a", "peeking");
+
   expect(await lane.evaluate<boolean>("document.querySelector('.rail').dataset.collapsed === 'true'")).toBe(true);
 }, 120_000);

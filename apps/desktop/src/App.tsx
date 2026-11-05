@@ -39,6 +39,7 @@ import { createStateAlerts } from "./rail/stateAlerts";
 import type { StateAlerts } from "./rail/stateAlerts";
 import { railStorage } from "./rail/persist/storage";
 import { Rail } from "./rail/Rail";
+import { createRailPeek } from "./rail/peek";
 import { RailStrip } from "./rail/RailStrip";
 import { ProjectSettingsView } from "./rail/ProjectSettings";
 import { Help } from "./keys/Help";
@@ -536,6 +537,7 @@ export const App = (props: {
     available: () => activeConnection() != null,
     invoke: () => setRailCollapsed(!widths.collapsed(), false),
   }) }]);
+  const railPeeking = createRailPeek(widths.collapsed, () => document.querySelector(".rail"));
   const shelfTabs = createShelfTabs(frame);
   const shelfFocus = shelfKeys({ frame, shelf: shelfElement });
   // U6224: the bar tabs promote through their own click; counting their press as use would let that click close what it just opened.
@@ -711,6 +713,7 @@ export const App = (props: {
             /></Show>
           </WindowBar>
         }
+        railPeeking={railPeeking()}
         railStrip={<InProject open={activeConnection()}>{() => <RailStrip expand={() => setRailCollapsed(false)} />}</InProject>}
         rail={
           <>
@@ -723,7 +726,7 @@ export const App = (props: {
                 {() => (
                   <>
                     <AttentionKey />
-                    <Rail collapse={() => setRailCollapsed(true)} />
+                    <Rail collapse={() => setRailCollapsed(!railPeeking())} peeked={railPeeking()} />
                   </>
                 )}
               </InProject>

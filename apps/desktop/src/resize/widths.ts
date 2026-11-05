@@ -133,7 +133,7 @@ export const createWidths = (path: Accessor<string | null>): Widths => {
         save();
       },
     },
-    style: () => ({ "--rail-width": `${railNow()}px`, "--shelf-span": `${shelfNow()}px` }),
+    style: () => ({ "--rail-width": `${railNow()}px`, "--rail-peek-width": `${railEffective(rail())}px`, "--shelf-span": `${shelfNow()}px` }),
     attach: (el) => {
       element = el;
     },

@@ -124,7 +124,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Remove all (`agent::RemoveScope::All`) | Remove all | — |
 | Hint line | same | — |
 | Shelf | Bench | — |
-| Peek (`ShelfFrame.peek`, `ShelfFrame.unpeek`, `ShelfFrame.peeking`, `ShelfFrame.promote`, `createEdgePeek`) | none | — |
+| Peek (`ShelfFrame.peek`, `ShelfFrame.unpeek`, `ShelfFrame.peeking`, `ShelfFrame.promote`, `createEdgePeek`, `createRailPeek`) | none | — |
 | Scrim | same | — |
 | Resize edge | same | — |
 | Inbox | same | — |

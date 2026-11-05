@@ -114,3 +114,73 @@ run("u6228 the Rail collapses to a strip", () => {
     expect(Math.abs((await saved()).rail - 380)).toBeLessThanOrEqual(2);
   });
 });
+
+const hover = async (selector: string) => {
+  const at = await page.call<{ x: number; y: number }>(`() => { const r = document.querySelector('${selector}').getBoundingClientRect(); return { x: (r.left + r.right) / 2, y: (r.top + r.bottom) / 2 }; }`);
+
+  await page.pointer("move", at.x - 1, at.y);
+  await page.pointer("move", at.x, at.y);
+};
+
+const peeking = () => page.call<boolean>(`() => document.querySelector('.rail').dataset.peek === 'true'`);
+
+const awayFromRail = async () => {
+  await page.pointer("move", 700, 400);
+  await page.pointer("move", 701, 400);
+};
+
+const collapseByButton = async () => {
+  await page.call(`() => document.querySelector('.rail-collapse').click()`);
+  await page.until(`() => document.querySelector('.rail').dataset.collapsed === 'true'`);
+  await awayFromRail();
+};
+
+run("u6228 the collapsed Rail peeks", () => {
+  vi.setConfig({ testTimeout: 60_000 });
+
+  it("u6228_a_rested_pointer_peeks_the_rail_over_the_centre_and_leaving_slides_it_back", async () => {
+    await load();
+    await collapseByButton();
+    const before = await quiet();
+
+    await hover(".rail-mark");
+    await page.until(`() => document.querySelector('.rail').dataset.peek === 'true'`);
+    expect(await quiet()).toBe(before);
+    expect(await saved()).toMatchObject({ collapsed: true });
+
+    await awayFromRail();
+    await page.until(`() => document.querySelector('.rail').dataset.peek !== 'true'`);
+    expect(await quiet()).toBe(before);
+    expect(await collapsed()).toBe(true);
+  });
+
+  it("u6228_a_click_in_the_peek_selects_and_the_peek_still_slides_back", async () => {
+    await load();
+    await collapseByButton();
+    await hover(".rail-mark");
+    await page.until(`() => document.querySelector('.rail').dataset.peek === 'true'`);
+
+    await page.call(`() => document.querySelector('.rail-body [data-id="auth"] .name').click()`);
+    await page.until(`() => document.querySelector('.rail-body [data-id="auth"]')?.getAttribute('aria-selected') === 'true'`);
+    expect(await peeking()).toBe(true);
+    expect(await collapsed()).toBe(true);
+
+    await awayFromRail();
+    await page.until(`() => document.querySelector('.rail').dataset.peek !== 'true'`);
+    expect(await collapsed()).toBe(true);
+  });
+
+  it("u6228_only_an_explicit_expand_opens_the_peeked_rail_and_pushes_the_centre", async () => {
+    await load();
+    await collapseByButton();
+    const before = await quiet();
+
+    await hover(".rail-mark");
+    await page.until(`() => document.querySelector('.rail').dataset.peek === 'true'`);
+    await page.call(`() => document.querySelector('.rail-collapse').click()`);
+    await page.until(`() => document.querySelector('.rail').dataset.collapsed !== 'true'`);
+    expect(await quiet()).toBe(before + 1);
+    expect(await saved()).toMatchObject({ collapsed: false });
+    expect(await peeking()).toBe(false);
+  });
+});
