@@ -535,6 +535,7 @@ pub(crate) mod tests {
             kind: Kind::Working,
             last: "new work".into(),
             todos: 1,
+            link: None,
             pads: vec![],
         });
         let first = pending(&messages, &Actor::daemon(), &body);

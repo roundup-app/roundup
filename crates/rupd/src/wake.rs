@@ -188,6 +188,7 @@ impl Waker {
                 kind: Kind::Done,
                 last: String::new(),
                 todos: 0,
+                link: None,
                 pads: Vec::new(),
             })
     }
