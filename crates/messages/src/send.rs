@@ -195,6 +195,6 @@ impl Messages {
         if message.status == MessageStatus::Pending && receiver_status.is_some() {
             nudge(&self.inner, &p.to).await;
         }
-        Ok(failure::with_held(&self.inner, message))
+        Ok(failure::with_waiting(&self.inner, message))
     }
 }

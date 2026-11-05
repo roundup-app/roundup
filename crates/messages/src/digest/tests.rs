@@ -54,7 +54,7 @@ fn sent(id: u32, from: &str, to: &str, body: &str) -> Message {
         reply_to: None,
         status: MessageStatus::Delivered,
         reason: None,
-        held: None,
+        waiting: None,
         at: id.into(),
     }
 }

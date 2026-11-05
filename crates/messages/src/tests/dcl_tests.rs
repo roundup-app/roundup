@@ -173,7 +173,7 @@ impl crate::NoteInbox for Gated {
 }
 
 #[tokio::test]
-async fn u6260a_held_prompt_is_reported_to_its_sender() {
+async fn u6260a_waiting_prompt_is_reported_to_its_sender() {
     let dir = tempfile::tempdir().unwrap();
     let gated = Arc::new(Gated::default());
     let (messages2, _, _) = open_with(dir.path(), gated.clone());
@@ -188,9 +188,9 @@ async fn u6260a_held_prompt_is_reported_to_its_sender() {
         Inbox::Ok,
     )
     .await;
-    let seen = failure::with_held(inner, lock(&inner.store).get(note.id).unwrap().unwrap());
+    let seen = failure::with_waiting(inner, lock(&inner.store).get(note.id).unwrap().unwrap());
     assert_eq!(seen.status, MessageStatus::Pending);
-    assert_eq!(seen.held.as_deref(), Some(failure::AWAITING_INPUT));
+    assert_eq!(seen.waiting.as_deref(), Some(failure::AWAITING_INPUT));
     assert_eq!(messages2.delivery_failure("m"), None);
     assert!(lock(&gated.inner.batches).is_empty());
 
@@ -205,8 +205,8 @@ async fn u6260a_held_prompt_is_reported_to_its_sender() {
     )
     .await;
     assert_eq!(written_by(&gated), vec![vec![note.id]]);
-    let seen = failure::with_held(inner, lock(&inner.store).get(note.id).unwrap().unwrap());
-    assert_eq!(seen.held, None);
+    let seen = failure::with_waiting(inner, lock(&inner.store).get(note.id).unwrap().unwrap());
+    assert_eq!(seen.waiting, None);
 }
 
 fn written_by(inbox: &Gated) -> Vec<Vec<u32>> {

@@ -125,7 +125,7 @@ mod tests {
             reply_to: None,
             status,
             reason: None,
-            held: None,
+            waiting: None,
             at: 0,
         }
     }

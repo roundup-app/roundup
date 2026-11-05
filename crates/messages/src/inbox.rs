@@ -175,9 +175,9 @@ pub(crate) async fn send(
                 .inbox
                 .get()
                 .is_none_or(|inbox| inbox.admits(agent, &m.from));
-            let held = failure::held_reason(admitted, state);
-            failure::hold(inner, &[m.id], held);
-            held.is_none()
+            let waiting = failure::waiting_reason(admitted, state);
+            failure::hold(inner, &[m.id], waiting);
+            waiting.is_none()
         });
     }
     if notes.is_empty() {

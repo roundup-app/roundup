@@ -7,7 +7,7 @@ impl Messages {
         let message = self.get_or_not_found(p.id)?;
         require_readable(ctx, &message)?;
         ctx.touch(Verb::Read, &item(p.id))?;
-        reply(&failure::with_held(&self.inner, message))
+        reply(&failure::with_waiting(&self.inner, message))
     }
 
     pub(super) fn list(&self, ctx: &Ctx, p: ListParams) -> Result<Value, RpcError> {
@@ -28,7 +28,7 @@ impl Messages {
         }
         let messages: Vec<Message> = messages
             .into_iter()
-            .map(|m| failure::with_held(&self.inner, m))
+            .map(|m| failure::with_waiting(&self.inner, m))
             .collect();
         reply(&messages)
     }
