@@ -6,6 +6,7 @@ import { applying } from "../app/pending";
 import { batch, createMemo, createSignal } from "solid-js";
 import { createStore, reconcile } from "solid-js/store";
 import type { Actor } from "@contracts/Actor";
+import type { Status } from "@contracts/Status";
 import type { Event as DaemonEvent } from "@contracts/Event";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { TerminalInfo } from "@contracts/terminal/TerminalInfo";
@@ -64,6 +65,11 @@ export type RailState = {
   terminals(): readonly TerminalInfo[];
   /** How Terminal `id` ended, or `null` while it runs or when it is unknown. */
   terminalExit(id: string): ExitState | null;
+  /** U6000a: show row `id` as `starting` until the returned release runs. */
+  launch(id: string): () => void;
+  /** U6000a: true while a launch holds row `id` at `starting`; a pending `rail.startDoor` is one. */
+  launching(id: string): boolean;
+  /** True while a `rail.startDoor` call for Workstream `id` is pending. */
   doorPending(id: string): boolean;
   doorFailure(id: string): string | null;
   startDoor(id: string): Promise<void>;
@@ -138,8 +144,21 @@ export const movedTo = (tree: readonly RailNode[], id: string, place: RailPlace)
   return moved.map(each => each.parent === place.parent ? { ...each, order: sequence.indexOf(each.id) } : each);
 };
 
+/** The Daemon's own `starting` Status, drawn before it reports one. */
+const startingStatus = (since: number | undefined): Status => ({ kind: "working", label: "starting", since: since ?? Date.now(), finished: "0" });
+
 /** A24: how long the App waits for `rail.startDoor`, the Daemon's own bound of 10 000 ms. */
 const DOOR_START_BOUND_MS = 10_000;
+
+const once = (run: () => void): (() => void) => {
+  let done = false;
+
+  return () => {
+    if (done) return;
+    done = true;
+    run();
+  };
+};
 
 let provisionalCount = 0;
 
@@ -180,6 +199,8 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
   // Status, selection, disclosure, questions and clocks never enter this memo.
   // U5991a: rows a Rail action removed before its call answered; the Daemon's reply or failure lifts the hold.
   const [hidden, setHidden] = createSignal<ReadonlySet<string>>(new Set());
+  // U6000a: rows whose program is starting. An existing row shows `starting` while its call is pending.
+  const [launches, setLaunches] = createSignal<readonly string[]>([]);
   const [drawn, setDrawn] = createSignal<readonly (typeof identity)[]>([]);
   const removedRows: RailNode[][] = [];
   const redoneRows: RailNode[][] = [];
@@ -188,8 +209,10 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
 
   const view = createMemo(() => {
     const shown = hidden().size === 0 ? model.tree : model.tree.filter(node => !hidden().has(node.id));
+    const starting = launches();
+    const drawing = drawn().reduce<readonly RailNode[]>((tree, change) => change(tree), shown);
 
-    return drawn().reduce<readonly RailNode[]>((tree, change) => change(tree), shown);
+    return starting.length === 0 ? drawing : drawing.map(node => starting.includes(node.id) ? { ...node, status: startingStatus(node.status?.since) } : node);
   });
 
   const topology = createMemo(() => railTopology(view()));
@@ -455,6 +478,7 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
       setRestored(false);
     });
     setDoors(id, { pending: true, observedLive: false, failure: null });
+    const release = state.launch(id);
 
     let prepared: TerminalPreparation | undefined;
 
@@ -479,6 +503,7 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
     } finally {
       prepared?.dispose();
       setDoors(id, "pending", false);
+      release();
     }
   };
 
@@ -541,6 +566,16 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
 
       return code === null ? { kind: "signal" } : { kind: "code", code };
     },
+    launch: id => {
+      setLaunches(each => [...each, id]);
+
+      return once(() => setLaunches(each => {
+        const at = each.indexOf(id);
+
+        return at < 0 ? each : each.toSpliced(at, 1);
+      }));
+    },
+    launching: id => launches().includes(id),
     doorPending: (id) => doors[id]?.pending ?? false,
     doorFailure: (id) => doors[id]?.failure?.message ?? null,
     startDoor,

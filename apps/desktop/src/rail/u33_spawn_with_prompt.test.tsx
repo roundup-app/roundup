@@ -188,18 +188,6 @@ describe("u33 spawn with a prompt", () => {
     expect(screen.queryByLabelText(copy.task)).toBeNull();
   });
 
-  it("u33_shift_cmd_n_does_nothing_while_a_spawn_is_in_flight", async () => {
-    const mounted = await mountRail([workstream("g")]);
-    mounted.app.handlers["agent.spawn"] = () => new Promise(() => {});
-
-    chord("n", { metaKey: true });
-    chord("n");
-    // guarded() sets pending() synchronously, so canSpawn() already reads false; this just gives a tick before asserting nothing slipped through.
-    await Promise.resolve();
-
-    expect(screen.queryByLabelText(copy.task)).toBeNull();
-  });
-
   it("u33_shift_cmd_n_does_nothing_after_the_daemon_exited", async () => {
     const [exit] = createSignal({ code: 1 });
     await mountRail([workstream("g")], [], exit);

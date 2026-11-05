@@ -99,7 +99,7 @@ export const Rail = () => {
         { id: "add-pad", label: copy.pad, enabled: daemonExit() === null, run: () => connected.createIn("pad", node.id) },
         { id: "add-terminal", label: copy.addTerminalMenu, enabled: daemonExit() === null, run: () => connected.createIn("terminal", node.id) },
       ] },
-        ...(rail.exitOf(node) !== null && !connected.queue.entryOf(node.id) ? [{ id: "start", label: rail.doorFailure(node.id) ? copy.retryDoor : copy.startDoor, enabled: !rail.doorPending(node.id), run: () => { failure.clear(); rail.clearWorkstreamFailure(); void rail.startDoor(node.id); } }] : [])] : []),
+        ...(rail.exitOf(node) !== null && !connected.queue.entryOf(node.id) ? [{ id: "start", label: rail.doorFailure(node.id) ? copy.retryDoor : copy.startDoor, enabled: !rail.launching(node.id), run: () => { failure.clear(); rail.clearWorkstreamFailure(); void rail.startDoor(node.id); } }] : [])] : []),
     ];
   }, id => copied.get(id), () => knownTodos.isLoaded() && !knownTodos.failure() && knownPads.loaded() && !knownPads.failure() ? { todos: knownTodos.all(), pads: knownPads.pads() } : null);
 
@@ -160,7 +160,7 @@ export const Rail = () => {
 
     const original = rail.nodes.find((node) => node.id === taskDestination());
 
-    return original !== undefined && doorStateOf(original, rail.exitOf(original), rail.doorPending(original.id), rail.doorFailure(original.id) !== null) === null ? "note" : "spawn";
+    return original !== undefined && doorStateOf(original, rail.exitOf(original), rail.launching(original.id), rail.doorFailure(original.id) !== null) === null ? "note" : "spawn";
   };
 
   const openCompose = (prompt?: ActionValue) => {
@@ -296,7 +296,7 @@ export const Rail = () => {
         selection.selection.replace(group.id);
         setEditingName(group.id);
       }, node.id) },
-      { id: "remove-selection", label: copy.removeAll, shortcut: "⌘⌫", run: () => removeSelection(chosen) },
+      { id: "remove-selection", label: copy.removeAll, shortcut: "⇧⌘⌫", run: () => removeSelection(chosen) },
     ], x, y);
   };
 
@@ -308,7 +308,7 @@ export const Rail = () => {
     return ids.find((id) => id === selected) ?? ids[0] ?? null;
   });
 
-  /** U358: `⌘⌫` in the Rail takes the row menu's `remove` for the selected row; the selection then moves to the next row, else the previous, and focus stays in the Rail. A repeat acts on nothing. */
+  /** U358, U6171a: `⇧⌘⌫` anywhere in the window takes the row menu's `remove` for the selected row; the selection then moves to the next row, else the previous, and focus stays in the Rail. A repeat acts on nothing. */
   const removeSelected = (repeat: boolean) => {
     if (!repeat && selectedNodes().length > 1) {
       removeSelection();
@@ -372,12 +372,9 @@ export const Rail = () => {
     void moveAgent.move({ id, parent, index: trueIndex(id, parent, index) });
   };
 
-  const [pending, setPending] = createSignal(false);
-
-  /** Runs one of the add actions; a second click while the Daemon is still answering would add a second row. */
+  /** Runs one of the add actions; U6000d: a second one fired while the Daemon is still answering is not refused. */
   const guarded = <T,>(call: () => Promise<T>): void => {
-    setPending(true);
-    void attempt(call).finally(() => setPending(false));
+    void attempt(call);
   };
 
   const parent = (): string | null => {
@@ -385,6 +382,8 @@ export const Rail = () => {
 
     return selected?.kind === "workstream" ? selected.id : null;
   };
+
+  let sendOrder: Promise<void> = Promise.resolve();
 
   const spawnAgentWith = (prompt: string | null, under: string | null = parent()) => {
     const params: SpawnParams = { cwd: project.path, prompt, parent: under, model: null, effort: null };
@@ -398,15 +397,24 @@ export const Rail = () => {
         return;
       }
 
-      guarded(async () => {
+      // U6000a, U6000d: the row (drawn below) shows `starting` at once; launches fired while one is pending reach the Daemon in the order fired.
+      const turn = sendOrder;
+      let sent!: () => void;
+
+      sendOrder = new Promise<void>(resolve => { sent = resolve; });
+      void attempt(async () => {
         const focus = captureFocus(true);
         let prepared: Awaited<ReturnType<NonNullable<typeof rail.prepareTerminal>>> | undefined;
         // U5991a: the Row shows now; the refreshed tree or a failure lifts it.
         const lift = rail.drawNew("agent", copy.newAgent, under);
 
         try {
+          await turn;
           prepared = await rail.prepareTerminal?.();
-          const spawned = await app.rpc("agent.spawn", { ...params, ...prepared?.size });
+          const call = app.rpc("agent.spawn", { ...params, ...prepared?.size });
+
+          sent();
+          const spawned = await call;
 
           if (spawned.terminal_id) prepared?.bind(spawned.terminal_id);
           await rail.refresh();
@@ -417,7 +425,7 @@ export const Rail = () => {
 
           if (error.name === "AbortError") return;
           failure.show(`${copy.newAgent}: ${error.message}`, null, "rail", run);
-        } finally { lift(); prepared?.dispose(); }
+        } finally { sent(); lift(); prepared?.dispose(); }
       });
     };
 
@@ -555,7 +563,7 @@ export const Rail = () => {
     });
   };
 
-  const canSpawn = () => !pending() && !rail.workstreamCreating() && !rail.doorPending(rail.selected() ?? "") && daemonExit() === null;
+  const canSpawn = () => !rail.workstreamCreating() && !rail.doorPending(rail.selected() ?? "") && daemonExit() === null;
 
   onMount(() => {
     const clear = (event: MouseEvent) => {
@@ -594,7 +602,7 @@ export const Rail = () => {
     }) }]);
   });
 
-  /** U32, U33: `⌘N` adds an Agent or returns to the open field; `⇧⌘N` opens the field. A kept key acts once. U31, U56, U358: the row menu and `⌘⌫` act on a focused row only; the keys of a control inside a row are its own. */
+  /** U32, U33: `⌘N` adds an Agent or returns to the open field; `⇧⌘N` opens the field. A kept key acts once. U31, U56, U358: the row menu acts on a focused row only; the keys of a control inside a row are its own. */
   registerKeys({ kind: "app" }, [
     { action: CHORDS.find(row => row.name === "rail.move")!, when: press => moveAgent.available(focusedRowId(press)), capture: focus => {
       const id = focus instanceof HTMLElement && focus.matches(ROW) ? focus.closest<HTMLElement>("[data-id]")?.dataset.id : undefined;
@@ -618,7 +626,7 @@ export const Rail = () => {
     { action: CHORDS.find(row => row.name === "mode.new")!, capture: () => ({ available: canSpawn, invoke: () => setCreatingMode(true) }) },
     { chords: ["ContextMenu", "Shift+F10"], when: (press) => focusedRowId(press) !== undefined, run: openMenuAtFocusedRow },
     { chords: ["ContextMenu", "Shift+F10"], when: (press) => press.target instanceof HTMLElement && press.target.matches("[data-todo-root]"), run: openOverviewMenu },
-    { action: CHORDS.find((row) => row.name === "rail.remove")!, when: (press) => focusedRowId(press) !== undefined, capture: (focus) => ({ available: () => focus instanceof HTMLElement && focus.isConnected && focus.matches(ROW) && (selectedNodes().length > 0 || rail.nodes.some((node) => node.id === rail.selected())) && daemonExit() === null, invoke: () => removeSelected(false) }) },
+    { action: CHORDS.find((row) => row.name === "rail.remove")!, capture: () => ({ available: () => (selectedNodes().length > 0 || rail.nodes.some((node) => node.id === rail.selected())) && daemonExit() === null, invoke: () => removeSelected(false) }) },
   ]);
 
   registerKeys({ kind: "region", element: container }, [{ action: CHORDS.find(row => row.name === "rail.rename")!, capture: focus => {
@@ -797,7 +805,7 @@ export const Rail = () => {
                           topology={topology()}
                           todoCount={todoCount(view().node.id)}
                           actions={actionsOf(view().node)}
-                          doorAction={<Show when={isWorkstream(view().node) && !view().node.opening_prompt?.trim() && rail.exitOf(view().node) !== null && !connected.queue.entryOf(view().node.id)}><IconButton aria-label={rail.doorFailure(view().node.id) ? copy.retryDoor : copy.startDoor} aria-disabled={rail.doorPending(view().node.id)} onKeyDown={event => event.stopPropagation()} onClick={event => { event.stopPropagation(); failure.clear(); rail.clearWorkstreamFailure(); void rail.startDoor(view().node.id); }}><Icon name="play" /></IconButton></Show>}
+                          doorAction={<Show when={isWorkstream(view().node) && !view().node.opening_prompt?.trim() && rail.exitOf(view().node) !== null && !connected.queue.entryOf(view().node.id)}><IconButton aria-label={rail.doorFailure(view().node.id) ? copy.retryDoor : copy.startDoor} aria-disabled={rail.launching(view().node.id)} onKeyDown={event => event.stopPropagation()} onClick={event => { event.stopPropagation(); failure.clear(); rail.clearWorkstreamFailure(); void rail.startDoor(view().node.id); }}><Icon name="play" /></IconButton></Show>}
                           rootDivider={collection().isBranchNode(entryOf(view().node.id).node) && view().key !== sectionRows().find(each => each.id === section.id)?.rows[0]?.key}
                           copyWith={feedback => {
                             const id = view().node.id;

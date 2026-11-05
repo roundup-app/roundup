@@ -24,15 +24,15 @@ describe("u32 spawn shortcuts and pinned actions", () => {
     await waitFor(() => expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([{ cwd: "/p", prompt: null, parent: "g", model: null, effort: null }]));
   });
 
-  it("u32_a_second_chord_while_a_spawn_is_in_flight_calls_nothing", async () => {
+  it("u32_a_second_chord_while_a_spawn_is_in_flight_sends_its_own_spawn", async () => {
     const mounted = await mountRail([workstream("g")]);
     mounted.app.handlers["agent.spawn"] = () => new Promise(() => {});
 
     chord("n");
     chord("n");
-    await Promise.resolve();
 
-    expect(railCallsTo(mounted.app, "agent.spawn").length).toBe(1);
+    // U6000d: a spawn fired while another is pending is not refused.
+    await waitFor(() => expect(railCallsTo(mounted.app, "agent.spawn").length).toBe(2));
   });
 
   it("u32_the_chords_do_nothing_after_the_daemon_exited", async () => {

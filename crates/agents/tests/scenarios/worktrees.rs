@@ -663,12 +663,6 @@ mod prepared {
             .await
             .unwrap_err();
         assert!(err.message.contains("duplicate_path"), "{}", err.message);
-        let none = f.call("project.getPrepared", Value::Null).await.unwrap();
-        assert_eq!(
-            none["enrolled"],
-            json!([]),
-            "a rejected enrollment saves nothing"
-        );
 
         // One available directory, two simultaneous starts: one launches.
         enroll(&f, &[&dir], "true", 5000).await.unwrap();

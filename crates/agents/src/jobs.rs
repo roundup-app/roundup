@@ -20,6 +20,14 @@ pub struct JobStop {
 }
 
 impl Agents {
+    /// DCL8: whether `id` is a Door (a Workstream), the one receiver whose Start carries the snapshot.
+    pub fn is_door(&self, id: &str) -> bool {
+        self.shared
+            .rail()
+            .node(id)
+            .is_ok_and(|node| node.kind == contracts::agent::NodeKind::Workstream)
+    }
+
     /// DCL9: every Job whose current Attempt has no report, as the Door's open-Job snapshot.
     /// `reported_attempts` gives the Attempt of each retained report of an Agent; a question
     /// is no report, and a report of an earlier Attempt does not close this one. Reads stored

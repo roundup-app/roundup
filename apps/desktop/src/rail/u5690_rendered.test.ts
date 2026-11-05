@@ -96,7 +96,7 @@ it("u5690_rendered_selection_actions_on_dense_tree", async () => {
     expect(await read("window.__fake.app.calls.filter(call => ['agent.spawn','agent.resume','agent.stop','rail.startDoor'].includes(call.method))")).toEqual([]);
     await browser("click", "[data-todo-root]");
     await read(`(() => { for (const id of ${JSON.stringify(chosen)}) document.querySelector('.rail-row[data-id="'+id+'"]').dispatchEvent(new MouseEvent('click',{bubbles:true,metaKey:true})); document.querySelector('.rail-row[data-id="${chosen[0]}"]').focus(); return true; })()`);
-    await browser("press", "Meta+Backspace");
+    await browser("press", "Meta+Shift+Backspace");
     await wait("window.__question.shown !== null");
 
     if (root) await writeFile(join(root, "head", "native-question.json"), JSON.stringify(await read("window.__question.shown"), null, 2));
@@ -105,7 +105,7 @@ it("u5690_rendered_selection_actions_on_dense_tree", async () => {
     await wait("window.__question.shown === null");
     await capture("kept-selection");
     await read(`document.querySelector('.rail-row[data-id="${chosen[0]}"]').focus(); true`);
-    await browser("press", "Meta+Backspace");
+    await browser("press", "Meta+Shift+Backspace");
     await wait("window.__question.shown !== null");
     await read("window.__question.answer(true); true");
     await wait(`!document.querySelector('.rail-row[data-id="${chosen[0]}"]')`);
