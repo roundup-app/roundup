@@ -399,6 +399,13 @@ mod tests {
                 node.name = node.id.clone();
                 node.parent = Some("1".into());
                 node.terminal_id = Some(format!("t-c{i}"));
+                // An error is news: a quiet digest would wait in the inbox queue unwritten (B5168f).
+                node.status = Some(contracts::Status {
+                    kind: contracts::Kind::Error,
+                    label: String::new(),
+                    since: 0,
+                    finished: "0".into(),
+                });
                 nodes.push(node);
             }
         }
@@ -413,13 +420,15 @@ mod tests {
         /// What the Door's digests account for: each kept digest weighs the changes it holds.
         async fn accounted(&self) -> u32 {
             // Not through `dispatch`, which would start the Daemon's own push watcher beside this one.
-            let listed = self.messages.call(
-                &self.daemon.ctx(Actor::user()),
-                "message.list",
-                json!({"to":"1"}),
-            )
-            .await
-            .unwrap();
+            let listed = self
+                .messages
+                .call(
+                    &self.daemon.ctx(Actor::user()),
+                    "message.list",
+                    json!({"to":"1"}),
+                )
+                .await
+                .unwrap();
             listed
                 .as_array()
                 .unwrap()
@@ -477,10 +486,9 @@ mod tests {
                     }
                 })
                 .await;
-                if reached.is_err() {
-                    let l = second.messages.call(&second.daemon.ctx(Actor::user()), "message.list", json!({"to":"1"})).await;
-                    panic!("DEBUG {l:?} the life reaches its delivery boundary at {kill_at:?}");
-                }
+                reached.unwrap_or_else(|_| {
+                    panic!("the life reaches its delivery boundary at {kill_at:?}")
+                });
             });
             drop(second.rt);
             drop(second.daemon);

@@ -12,7 +12,8 @@ pub fn open(db: &mut Connection, path: &Path) -> rusqlite::Result<()> {
     if stored == sequence.len() as i64 - 1 {
         let run = || -> rusqlite::Result<()> {
             let mut reference = Connection::open_in_memory()?;
-            Migrations::new(sequence[..sequence.len() - 1].to_vec())
+            // The one before the last two (010) drops the retired tables; the last adds tables of its own.
+            Migrations::new(sequence[..sequence.len() - 2].to_vec())
                 .to_latest(&mut reference)
                 .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
             if let Some(difference) = provenance::migration::difference(db, &reference)? {
@@ -52,7 +53,7 @@ fn migrations() -> Vec<M<'static>> {
         M::up(include_str!("../migrations/008/up.sql")),
         M::up(include_str!("../migrations/009/up.sql")),
         M::up(include_str!("../migrations/010/up.sql")),
-        M::up(include_str!("../migrations/011/up.sql")),
+        M::up(include_str!("../migrations/012/up.sql")),
     ]
 }
 
