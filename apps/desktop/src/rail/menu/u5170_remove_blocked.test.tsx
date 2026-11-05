@@ -153,7 +153,7 @@ describe("u5170d", () => {
       await app.pickMenu("Remove");
     } else {
       rowOf(title).focus();
-      fireEvent.keyDown(rowOf(title), { key: "Backspace", code: "Backspace", metaKey: true });
+      fireEvent.keyDown(rowOf(title), { key: "Backspace", code: "Backspace", metaKey: true, shiftKey: true });
     }
 
     const inFlight = state.endsWith("in_flight");

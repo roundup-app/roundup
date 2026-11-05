@@ -45,7 +45,7 @@ export const createLinkProvider = (
     const line = logicalLine(terminal, y);
     const links: ILink[] = [];
 
-    for (const { start, end, printed } of line ? findTargets(line.text) : []) {
+    for (const { start, end, printed } of line ? findTargets(line.text, true) : []) {
       const from = line?.cells[start];
       const to = line?.cells[end - 1];
 

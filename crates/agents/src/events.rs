@@ -735,6 +735,21 @@ impl Agents {
         })
     }
 
+    /// DCL5: the live Agents whose turn has shown no activity for `limit_ms` and has no tool call
+    /// or background work running, on each Adapter's own clock.
+    pub fn stalled(&self, limit_ms: i64) -> std::collections::HashSet<String> {
+        self.shared
+            .runs()
+            .iter()
+            .filter_map(|(id, slot)| match slot {
+                Slot::Running(run) if !run.ended && run.adapter.stalled(limit_ms) => {
+                    Some(id.clone())
+                }
+                _ => None,
+            })
+            .collect()
+    }
+
     /// A5482c: live Rail id to (Attempt/turn identity, turn start/end in Unix milliseconds, final text).
     /// The Adapter supplies the text; this reads no Terminal and parses no vendor records.
     pub fn completed_text(&self) -> HashMap<String, (String, i64, i64, String)> {

@@ -83,7 +83,7 @@ fn ask(
     seen.ask(&m, "m", &from).unwrap().children
 }
 
-fn entries(items: &[DigestItem]) -> Vec<&DigestEntry> {
+pub(super) fn entries(items: &[DigestItem]) -> Vec<&DigestEntry> {
     items
         .iter()
         .filter_map(|item| match item {
@@ -385,7 +385,6 @@ pub(super) fn sources<'a>(
     messages: &'a [Message],
 ) -> Sources<'a> {
     Sources {
-        completed: std::collections::HashMap::new(),
         touches: pads
             .iter()
             .map(|pad| contracts::Touch {
@@ -403,6 +402,7 @@ pub(super) fn sources<'a>(
         todos,
         pads,
         messages,
+        ..Sources::default()
     }
 }
 

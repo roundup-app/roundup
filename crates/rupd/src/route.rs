@@ -147,6 +147,8 @@ impl Daemon {
             Some(messages) => messages.waiting_counts().await?,
             None => Default::default(),
         };
+        // DCL5: a stalled Door shows its own stall on its row; it is sent no Message about it.
+        let stalled = self.agents.stalled(crate::facts::STALL_MS);
         let mut nodes: Vec<contracts::agent::RailNode> = match reply {
             rpc::Reply::Value(value) => serde_json::from_value(value),
             rpc::Reply::Json(json) => serde_json::from_str(&json),
@@ -158,6 +160,11 @@ impl Daemon {
                     .get(&node.id)
                     .copied()
                     .filter(|n| *n > 0 && messages::ended(node));
+                if stalled.contains(&node.id)
+                    && let Some(status) = node.status.as_mut()
+                {
+                    status.label = "stalled".into();
+                }
             }
         }
         crate::workstream_state::derive(&mut nodes);

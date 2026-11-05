@@ -494,6 +494,7 @@ mod tests {
             kind: contracts::Kind::Working,
             last: "change".into(),
             todos: 2,
+            link: None,
             pads: vec![],
         }
     }

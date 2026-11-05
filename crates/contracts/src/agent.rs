@@ -11,6 +11,8 @@ mod alert;
 pub use alert::{AlertLevel, SetAlertLevelParams};
 mod state;
 pub use state::{FinalText, FinalTextKind, WorkstreamState};
+mod digest;
+pub use digest::{Digest, DigestEntry, DigestItem};
 mod launch;
 pub use launch::{
     CreateWorkstreamParams, Extras, ExtrasAddParams, PermissionMode, SpawnParams, SpawnRole,
@@ -662,32 +664,6 @@ pub struct ContextTodo {
     pub id: u32,
     pub title: String,
     pub blocked: bool,
-}
-
-/// B19: what a Door is told about one child. `last` is one line, `todos` counts the open Todos
-/// whose Home is the child, and `pads` names the child's Pads written since the previous envelope.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
-pub struct DigestEntry {
-    pub name: String,
-    pub kind: crate::Kind,
-    pub last: String,
-    pub todos: u32,
-    pub pads: Vec<String>,
-}
-
-/// B20: one item of `agent.digest`'s `children`: a child's entry, or the last item `{more: n}` when
-/// the Door has more children than the result holds.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
-#[serde(untagged)]
-pub enum DigestItem {
-    Child(DigestEntry),
-    More { more: u32 },
-}
-
-/// What `agent.digest` returns (B20).
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
-pub struct Digest {
-    pub children: Vec<DigestItem>,
 }
 
 /// B41: ask to be woken when the named Agents finish.

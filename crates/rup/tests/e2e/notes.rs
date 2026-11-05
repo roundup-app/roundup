@@ -12,7 +12,7 @@ use super::wake::{
     FAIL, STOP, WORK, ask, drive, messages, named, notes, scene, start_again, status_of, still,
     typed,
 };
-use super::{actor, client_as};
+use super::{Shim, actor, client_as, rail};
 
 fn env(prompts: &Path) -> [(&str, &str); 1] {
     [("FAKE_CLAUDE_PROMPT_LOG", prompts.to_str().unwrap())]
@@ -763,4 +763,35 @@ async fn t25_a_restart_sends_nothing() {
         .filter(|c| c["handed"]["id"] == s.a.as_str())
         .count();
     assert_eq!(handed, 1);
+}
+
+#[tokio::test]
+async fn al1_a_door_tool_reply_naming_an_agent_carries_its_link() {
+    let project = start(&[]);
+    let user = project.client().await;
+    let rail = rail(&project, &user).await;
+    let key = user.request("daemon.ping", Value::Null).await.unwrap()["projectKey"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let link = |id: &str| format!("roundup://agent/{id}?project={key}");
+    let mut door = Shim::start(&project, &rail.m).await;
+
+    let digest = door.call("agent_digest", json!({})).await;
+    let links: Vec<_> = digest["children"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|entry| entry["link"].as_str().unwrap().to_owned())
+        .collect();
+    assert_eq!(links, [link(&rail.a), link(&rail.b)]);
+
+    let tree = door.call("rail_tree", json!({})).await;
+    let named = tree
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|node| node["id"] == rail.a)
+        .unwrap();
+    assert_eq!(named["link"], link(&rail.a));
 }
