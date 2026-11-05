@@ -1,3 +1,4 @@
+import { anchorBox } from "../ui/anchorBox";
 import { Disclosure } from "../ui/Disclosure";
 import { KindGlyph } from "../ink/KindGlyph";
 import { createSignal, For, Show } from "solid-js";
@@ -60,7 +61,7 @@ export const RailFooter = (props: {
           }}><KindGlyph kind={row.kind} /><span class="held-content"><span>{row.name}</span><span class="held-line">{row.line}</span></span><time dateTime={new Date(row.at).toISOString()}>{copy.time(row.at)}</time></button>}</For>
         </Disclosure></Show>
         <div class="rail-actions">
-          <Menu.Root open={open()} onOpenChange={details => { if (!details.open || canSpawn()) setOpen(details.open); }} positioning={{ placement: "top-start", getAnchorRect: () => failure.surface() === "rail" && failure.retry() ? footer?.getBoundingClientRect() ?? null : null }} onSelect={({ value }) => { if (canSpawn()) choices.find(choice => choice.kind === value)?.run(); }}>
+          <Menu.Root open={open()} onOpenChange={details => { if (!details.open || canSpawn()) setOpen(details.open); }} positioning={{ placement: "top-start", getAnchorRect: () => failure.surface() === "rail" && failure.retry() ? anchorBox(footer) : null }} onSelect={({ value }) => { if (canSpawn()) choices.find(choice => choice.kind === value)?.run(); }}>
             <Menu.Trigger onPointerDown={() => setPointer(true)} onKeyDown={() => setPointer(false)} onClick={event => setPointer(activationSource(event) === "pointer")} data-button="add" aria-label={copy.create} aria-disabled={canSpawn() ? undefined : true}><Icon name="plus" /></Menu.Trigger>
             <Portal><Menu.Positioner><Menu.Content aria-label={copy.create} class="rail-create-menu" data-pointer={pointer() || undefined}>
               <For each={choices}>{choice => {

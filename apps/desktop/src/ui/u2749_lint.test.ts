@@ -68,3 +68,31 @@ it("u3512a_lint_rejects_inline_delete_confirmation_copy", () => {
     rmSync(temporary, { recursive: true, force: true });
   }
 });
+
+it("u6236c_lint_rejects_raw_anchor_boxes", () => {
+  const root = resolve(import.meta.dirname, "../../../..");
+  const temporary = mkdtempSync(join(tmpdir(), "u6236-"));
+
+  const cases = [
+    ["raw.tsx", "export const positioning = { getAnchorRect: () => target.anchor.getBoundingClientRect() };", 1],
+    ["raw-position.tsx", "export const config = { getPosition: ({ active }) => active.el.getBoundingClientRect() };", 1],
+    ["helper.tsx", "export const positioning = { getAnchorRect: () => anchorBox(target.anchor) };", 0],
+    ["other.tsx", "export const size = (element) => element.getBoundingClientRect().width;", 0],
+  ] as const;
+
+  try {
+    for (const [name, code, expected] of cases) {
+      const folder = join(temporary, name, "apps/desktop/src/todos");
+      mkdirSync(folder, { recursive: true });
+      const path = join(folder, name);
+      writeFileSync(path, code);
+      const result = spawnSync(join(root, "node_modules/.bin/oxlint"), ["--config", join(root, ".oxlintrc.json"), path], { cwd: root, encoding: "utf8" });
+      console.log(`${name}: exit ${result.status}`);
+      expect(result.status, result.stdout + result.stderr).toBe(expected);
+
+      if (expected !== 0) expect(result.stdout + result.stderr).toContain("no-raw-anchor-box");
+    }
+  } finally {
+    rmSync(temporary, { recursive: true, force: true });
+  }
+});

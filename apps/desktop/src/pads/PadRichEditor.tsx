@@ -1,3 +1,4 @@
+import { anchorBox } from "../ui/anchorBox";
 import { animate } from "motion";
 import { createReducedMotion, ReducedMotionContext } from "../app/reducedMotion";
 import Highlighter from "lucide-solid/icons/highlighter";
@@ -216,9 +217,10 @@ export default function PadRichEditor(props: {
         getOffset: () => 0,
         // Nested node bounds can remain over another list after scrolling; keep controls outside the reading column.
         getPosition: ({ active, editorDom }) => {
-          const block = active.el.getBoundingClientRect();
+          const editor = anchorBox(editorDom);
+          const block = anchorBox(active.el) ?? editor;
 
-          return new DOMRect(editorDom.getBoundingClientRect().left, block.top, 0, block.height);
+          return new DOMRect(editor?.left ?? 0, block?.top ?? 0, 0, block?.height ?? 0);
         },
         root: menuHost,
       },
