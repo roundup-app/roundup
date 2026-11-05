@@ -12,7 +12,7 @@ const surfaces: {
   from?: () => HTMLElement;
   /** The Agent to select and the App to open it in; a second Project is needed for the Project picker. */
   twoProjects?: true;
-  open: () => void | Promise<void>;
+  open: () => boolean | void | Promise<void>;
   shown: () => Element | null;
   /** A peek slides in without taking focus, so focus stays where it was. */
   focusStays?: true;
