@@ -13,8 +13,8 @@ pub(crate) const UNREADABLE: &str = "transcript unreadable";
 pub(crate) const WRITE_FAILED: &str = "inbox write failed";
 pub(crate) const NO_RECEIPT: &str = "no receipt after 30 s";
 /// U6260a: why the send path keeps a Message; a waiting Message is never a delivery failure.
-pub(crate) const AWAITING_INPUT: &str = "waiting until the user's first input in this Attempt";
-pub(crate) const INBOX_NOT_READY: &str = "waiting until the receiver's inbox is ready";
+pub(crate) const AWAITING_INPUT: &str = "held until the user's first input in this Attempt";
+pub(crate) const INBOX_NOT_READY: &str = "held until the receiver's inbox is ready";
 
 /// The one waiting predicate: why the send path keeps a Message `pending` instead of writing it.
 pub(crate) fn waiting_reason(
