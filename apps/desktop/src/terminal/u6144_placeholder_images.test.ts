@@ -1,5 +1,5 @@
 import { afterEach, expect, it, vi } from "vitest";
-import { kitty, open, placeholderPicture, placements, png } from "./imageHarness";
+import { drawn, kitty, open, placeholderPicture, placements, png } from "./imageHarness";
 
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
@@ -64,4 +64,14 @@ it("u6144_an_oversized_placeholder_image_is_dropped", async () => {
   expect(addon.storageUsage).toBe(0);
   expect(placements(addon, terminal.rows)).toEqual([]);
   expect(terminal.buffer.active.getLine(0)?.translateToString(true)).toBe("kept");
+});
+
+it("u6144_a_placeholder_image_keeps_its_aspect_inside_its_cells", async () => {
+  const { write, settle } = open();
+
+  // 4 x 4 cells at the default 7 x 14 px cell is 28 x 56 px; a 2:1 picture fits as 28 x 14, centred.
+  await write(placeholderPicture(77, 4, 4, png(96, 48)));
+  await settle();
+
+  expect(drawn).toEqual([[0, 21, 28, 14]]);
 });

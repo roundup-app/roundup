@@ -40,12 +40,27 @@ const stubDecoder = () => vi.stubGlobal("createImageBitmap", async (
   return { width: resize.resizeWidth ?? width, height: resize.resizeHeight ?? height, close() {} };
 });
 
+/** jsdom has no canvas: record what the addon draws onto the canvases it makes. */
+export const drawn: number[][] = [];
+
+const stubCanvas = () => {
+  const context = {
+    imageSmoothingQuality: "low",
+    drawImage: (_source: Bitmap, ...rect: number[]) => { drawn.push(rect); },
+  };
+
+  // SAFETY: the addon only sets imageSmoothingQuality and calls drawImage on the 2d context it makes.
+  vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockImplementation((() => context) as never);
+};
+
 const factory = () => createXtermEmulators(undefined, () => ({
   activate() {}, dispose() {}, onContextLoss() { return { dispose() {} }; },
 }));
 
 export const open = (id = "t-img") => {
   stubDecoder();
+  stubCanvas();
+  drawn.length = 0;
   const terminals = vi.spyOn(xtermModule, "Terminal");
   const addons = vi.spyOn(imageModule, "ImageAddon");
   const emulator = factory()(id);
