@@ -5,7 +5,7 @@ use contracts::agent::NodeKind;
 use rpc::code;
 use serde_json::{Value, json};
 
-use crate::common::{Fixture, hold_starts, release, status_of, until_file};
+use crate::common::{Fixture, PATIENCE, hold_starts, release, status_of, until_file};
 
 #[tokio::test]
 async fn a4_spawn_runs_claude_with_the_agents_settings_and_lists_an_agent() {
@@ -259,12 +259,21 @@ async fn u6000e_spawn_held_at_the_worktree_step_already_lists_a_starting_node() 
     let tree = f.until(|t| !t.is_empty()).await;
 
     assert_eq!(status_of(&tree, &tree[0].id).label, "starting");
-    let changed = std::iter::from_fn(|| events.try_recv().ok())
+    // The row can show before its event arrives: `emit` saves the event before it broadcasts.
+    let published = tokio::time::timeout(PATIENCE, async {
+        while !matches!(
+            events.recv().await.unwrap().data,
+            contracts::EventData::RailChanged
+        ) {}
+    })
+    .await;
+    let again = std::iter::from_fn(|| events.try_recv().ok())
         .filter(|event| matches!(event.data, contracts::EventData::RailChanged))
         .count();
-    assert_eq!(changed, 1, "published before the launch steps");
-
+    // Release before asserting: a failed assertion with the spawn still held would hang the runtime.
     release(config).await;
+    assert!(published.is_ok(), "published before the launch steps");
+    assert_eq!(again, 0, "published once before the launch steps");
     spawning.await.unwrap().unwrap();
 }
 
