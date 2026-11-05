@@ -538,3 +538,9 @@ Raw commands, exit codes, counted-file reports, module attribution, visualizer o
 The fix-run pair above was rebuilt in fresh worktrees after merging #5576; its raw checker reports and exact commands are retained in [PR #5599](https://github.com/roundup-app/roundup/pull/5599). Earlier module attribution and rendered evidence remain in the original artifact.
 
 The existing `u3021c_open_restores_exact_revision_without_rpc_todos_creation` assertion failed before the new-Todo recovery repair (exit 1): Open found no field containing the exact draft. No test was changed or removed. Its full App recovery file and Todo creation file now pass all 34 tests (exit 0); the focused editor/reference/focus/startup group passes 44 (exit 0). MCP test compilation passes `cargo clippy -p rup --test mcp -- -D warnings` (exit 0).
+
+## R3800 startup headroom after #6160
+
+Main reached 439,961 gzip bytes (1,354,353 raw) against the 439,900 ceiling, 61 over. Deferring the Settings page's heavy controls with the existing `Deferred` helper gives **435,380 gzip bytes** (1,336,627 raw), saving **4,581 bytes** and leaving 4,520 under the ceiling (macOS build, `pnpm --filter desktop build && pnpm --filter desktop check:startup`).
+
+Moved out of the entry: `ui/SegmentGroup` with Ark's segment-group and radio-group machine (four Settings rows), `settings/ShortcutSetting`, `settings/NamingSettings` and `settings/SkillSetting`, now loaded when the Settings page shows one of them. `Switch`, `Select` and `Combobox` stay eager (other eager surfaces use them). The `Deferred` loading line shows while a chunk loads; the Settings tests wait for it to clear. No budget, observer, compression, dependency or bundler configuration changed.
