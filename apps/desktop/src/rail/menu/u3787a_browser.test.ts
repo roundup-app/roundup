@@ -48,7 +48,7 @@ it("u3787a_rail_feedback_is_immediate_and_conflicts_stay_retryable", async () =>
     await lane.until("!!document.querySelector('[data-id=\"' + window.__railChosen + '\"]')");
     await lane.capture("U3787a", `rail-${seed}-before`);
     await lane.evaluate("(() => { const row=document.querySelector('[data-id=\"'+window.__railChosen+'\"] [data-part=branch-control]') ?? document.querySelector('[data-id=\"'+window.__railChosen+'\"]'); row.click(); row.focus(); return true; })()");
-    await lane.browser("press", "Meta+Backspace");
+    await lane.browser("press", "Meta+Shift+Backspace");
     await lane.until("!document.querySelector('[data-id=\"' + window.__railChosen + '\"]')");
     await lane.capture("U3787a", `rail-${seed}-deleted`);
     await lane.evaluate("(() => { const rail=document.querySelector('.rail-tree'); rail.tabIndex=-1; rail.focus(); return true; })()");

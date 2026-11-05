@@ -64,7 +64,7 @@ export const CHORDS: readonly Chord[] = ([
   // Help follows the logical ? through HELP_KEYS, rather than a physical US-layout chord.
   { name: "help.open", keys: "?", what: copy.help, presses: [] },
   { name: "agent.restart-mode", keys: "R", what: copy.restartMode, presses: ["KeyR"], inRail: true },
-  { name: "rail.remove", keys: "⌘⌫", what: copy.remove, presses: ["meta+Backspace"], inRail: true, hint: { label: copy.remove, at: { rail: 2 } } },
+  { name: "rail.remove", keys: "⇧⌘⌫", what: copy.remove, presses: ["meta+shift+Backspace"], hint: { label: copy.remove, at: { rail: 2 } } },
   { name: "ask.open", keys: "⌘/", what: copy.askBarShortcut, presses: ["meta+Slash"], hint: { label: copy.askBarShortcut, at: { rail: 4, agent: 3, bubble: 2, pad: 2, drawer: 2, shelf: 6 } } },
   { name: "todo.assign-slot", keys: "1–9", what: copy.todoAssignDigit, presses: Array.from({ length: 9 }, (_, at) => `Digit${at + 1}`), args: [{ key: "slot", type: "integer", min: 1, max: 9, required: true, press: (slot: ActionValue) => `Digit${slot}` }], inShelf: true, hint: { label: copy.assign, at: { shelf: 2 } } },
   { name: "todo.open-draft", keys: "⏎", what: copy.openDraft, presses: ["Enter"], inShelf: true },

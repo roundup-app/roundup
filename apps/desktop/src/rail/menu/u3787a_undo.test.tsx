@@ -50,7 +50,7 @@ it.each(["menu", "key", "unknown", "pending"].flatMap(entry => ["agent", "workst
   if (entry !== "key") {
     fireEvent.contextMenu(rowOf("chosen"));
     await daemon.pickMenu("Remove");
-  } else fireEvent.keyDown(rowOf("chosen"), { key: "Backspace", code: "Backspace", metaKey: true });
+  } else fireEvent.keyDown(rowOf("chosen"), { key: "Backspace", code: "Backspace", metaKey: true, shiftKey: true });
 
   await waitFor(() => expect(daemon.calls.filter(c => c.method === "rail.remove")).toEqual([{ method: "rail.remove", params: { id: "chosen", operation: expect.any(String) } }]));
   expect(daemon.questions).toEqual([]);
@@ -58,7 +58,7 @@ it.each(["menu", "key", "unknown", "pending"].flatMap(entry => ["agent", "workst
   if (entry === "pending") {
     // U5991a: the row is already gone while the call is pending; a second press on it does nothing.
     expect(() => rowOf("chosen")).toThrow();
-    fireEvent.keyDown(document.activeElement ?? document.body, { key: "Backspace", code: "Backspace", metaKey: true });
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: "Backspace", code: "Backspace", metaKey: true, shiftKey: true });
     expect([screen.queryByText("Deleted chosen")]).toEqual([null]);
     finish!(receipt!);
   }
