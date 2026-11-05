@@ -485,28 +485,32 @@ mod recovery {
         }
     }
 
-    async fn u3791a_daemon_restart_has_bounded_backoff(fx: &Fixture) {
+    #[tokio::test(start_paused = true)]
+    async fn u6249b_daemon_reopens_at_1_3_9_seconds() {
+        tauri::async_runtime::set(tokio::runtime::Handle::current());
+        let fx = Fixture::new().await;
         let path = fx.project("bounded");
         fx.open(&path).await;
         std::fs::write(Path::new(&path).join("fail"), "").unwrap();
         fx.exit(&path).await;
-        tick(249).await;
-        assert_eq!(fx.starts(&path), 1);
-        tick(1).await;
-        until(|| fx.starts(&path) == 2).await;
-        until(|| {
-            fx.events
-                .lock()
-                .unwrap()
-                .iter()
-                .filter(|event| event["path"] == path && event["recovery"] == "waiting")
-                .count()
-                == 2
-        })
-        .await;
-        tick(499).await;
-        assert_eq!(fx.starts(&path), 2);
-        tick(1).await;
+        for (wait, starts) in [(1000, 2), (3000, 3), (9000, 4)] {
+            tick(wait - 1).await;
+            assert_eq!(fx.starts(&path), starts - 1);
+            tick(1).await;
+            until(|| fx.starts(&path) == starts).await;
+            if starts < 4 {
+                until(|| {
+                    fx.events
+                        .lock()
+                        .unwrap()
+                        .iter()
+                        .filter(|event| event["path"] == path && event["recovery"] == "waiting")
+                        .count()
+                        == starts
+                })
+                .await;
+            }
+        }
         until(|| {
             fx.events
                 .lock()
@@ -515,20 +519,19 @@ mod recovery {
                 .any(|event| event["path"] == path && event["recovery"].is_null())
         })
         .await;
-        assert_eq!(fx.starts(&path), 3);
-        tick(10_000).await;
-        assert_eq!(fx.starts(&path), 3);
+        tick(30_000).await;
+        assert_eq!(fx.starts(&path), 4);
         std::fs::remove_file(Path::new(&path).join("fail")).unwrap();
         fx.open(&path).await;
         fx.subscribe(&path).await.unwrap();
-        assert_eq!(fx.starts(&path), 4);
+        assert_eq!(fx.starts(&path), 5);
     }
 
     async fn u3791a_daemon_success_resets_count(fx: &Fixture) {
         let path = fx.project("reset");
         fx.open(&path).await;
         fx.exit(&path).await;
-        tick(250).await;
+        tick(1000).await;
         until(|| {
             fx.starts(&path) == 2 && std::fs::read_to_string(Path::new(&path).join("pid")).is_ok()
         })
@@ -556,7 +559,7 @@ mod recovery {
         })
         .await;
         let starts = fx.starts(&path);
-        tick(499).await;
+        tick(2999).await;
         assert_eq!(fx.starts(&path), starts);
         *fx.subscribe_failure.lock().unwrap() = None;
         tick(1).await;
@@ -576,7 +579,7 @@ mod recovery {
         fx.subscribe(&path).await.unwrap();
         fx.events.lock().unwrap().clear();
         fx.exit(&path).await;
-        tick(249).await;
+        tick(999).await;
         assert_eq!(fx.starts(&path), starts + 1);
         tick(1).await;
         until(|| fx.starts(&path) == starts + 2).await;
@@ -615,7 +618,7 @@ mod recovery {
         fx.open(&late).await;
         std::fs::write(Path::new(&late).join("hold"), "").unwrap();
         fx.exit(&late).await;
-        tick(250).await;
+        tick(1000).await;
         until(|| Path::new(&late).join("held-pid").exists()).await;
         let held_pid = std::fs::read_to_string(Path::new(&late).join("held-pid")).unwrap();
         fx.app.state::<AppState>().close_project(&late).unwrap();
@@ -727,7 +730,7 @@ mod recovery {
         fx.exit(&a).await;
         fx.exit(&b).await;
         fx.app.state::<AppState>().close_project(&a).unwrap();
-        tick(250).await;
+        tick(1000).await;
         until(|| fx.starts(&b) == 2).await;
         tick(25).await;
         until(|| {
@@ -766,7 +769,6 @@ mod recovery {
     async fn u3791a_native_recovery() {
         tauri::async_runtime::set(tokio::runtime::Handle::current());
         let fx = Fixture::new().await;
-        u3791a_daemon_restart_has_bounded_backoff(&fx).await;
         u3791a_daemon_success_resets_count(&fx).await;
         u3791a_close_cancels_restart(&fx).await;
         u3791a_close_cancels_queued_reopen(&fx).await;

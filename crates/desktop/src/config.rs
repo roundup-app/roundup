@@ -12,6 +12,18 @@ pub const READY_BOUND: Duration = Duration::from_secs(10);
 /// How long one `rpc` call waits for its reply before the App reports an unknown outcome.
 pub const CALL_BOUND: Duration = Duration::from_secs(30);
 
+/// A Daemon that exits is reopened after 1, 3 and 9 s (U6249b); the fourth failure is final.
+pub const LAST: u8 = 4;
+
+pub fn reopen_wait(failures: u8) -> Duration {
+    Duration::from_secs(3u64.pow(u32::from(failures.saturating_sub(1))))
+}
+
+/// The `recovery` a Daemon exit reports: `waiting` while a reopen remains, none after the last.
+pub fn waiting(failures: u8) -> Option<&'static str> {
+    (failures < LAST).then_some("waiting")
+}
+
 /// Everything the App reads from its environment, resolved once at startup.
 #[derive(Clone, Debug)]
 pub struct Config {

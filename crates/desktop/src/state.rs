@@ -17,7 +17,7 @@ use tokio::process::ChildStdin;
 use tokio::sync::{oneshot, watch};
 use tokio::time::{Duration, sleep, timeout};
 
-use crate::config::Config;
+use crate::config::{Config, LAST, reopen_wait, waiting};
 use crate::daemon::{self, OwnedSocket};
 use crate::store::Store;
 
@@ -300,13 +300,13 @@ impl AppState {
                     let Some(failure) = self.record_failure(&key, &lifetime) else {
                         return Err(not_open(&key));
                     };
-                    if failure == 3 {
+                    if failure == LAST {
                         return Err(err);
                     }
                     tokio::select! {
                         biased;
                         _ = cancel.changed() => return Err(not_open(&key)),
-                        _ = sleep(Duration::from_millis(250 * u64::from(failure))) => {}
+                        _ = sleep(reopen_wait(failure)) => {}
                     }
                 }
             }
@@ -741,7 +741,7 @@ impl AppState {
         let entry = entries
             .iter_mut()
             .find(|entry| entry.path == path && Arc::ptr_eq(&entry.lifetime, lifetime))?;
-        entry.failures = (entry.failures + 1).min(3);
+        entry.failures = (entry.failures + 1).min(LAST);
         Some(entry.failures)
     }
 
@@ -761,14 +761,14 @@ impl AppState {
             return;
         }
         entry.phase = Phase::Exited;
-        entry.failures = (entry.failures + 1).min(3);
+        entry.failures = (entry.failures + 1).min(LAST);
         let failures = entry.failures;
         let lifetime = entry.lifetime.clone();
         let cancel = entry.cancel.subscribe();
         // Emit while holding the entry: close/reopen cannot overtake its exit notification.
-        Self::notify(app, path, code, (failures < 3).then_some("waiting"), cause);
+        Self::notify(app, path, code, waiting(failures), cause);
         drop(entries);
-        if failures < 3 {
+        if failures < LAST {
             Self::recover(app.clone(), path.to_owned(), lifetime, cancel, failures);
         }
     }
@@ -805,7 +805,7 @@ impl AppState {
                 tokio::select! {
                     biased;
                     _ = cancel.changed() => return,
-                    _ = sleep(Duration::from_millis(250 * u64::from(failures))) => {}
+                    _ = sleep(reopen_wait(failures)) => {}
                 }
                 let state = app.state::<AppState>();
                 let starting = tokio::select! {
@@ -848,14 +848,8 @@ impl AppState {
                         {
                             return;
                         }
-                        Self::notify(
-                            &app,
-                            &path,
-                            None,
-                            (failures < 3).then_some("waiting"),
-                            Some(err.message),
-                        );
-                        if failures == 3 {
+                        Self::notify(&app, &path, None, waiting(failures), Some(err.message));
+                        if failures == LAST {
                             return;
                         }
                     }
