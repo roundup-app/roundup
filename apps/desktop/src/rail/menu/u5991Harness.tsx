@@ -12,7 +12,7 @@ export const gone = (name: string) => screen.queryByText(name, { selector: ".nam
 export const removeByKey = (name: string) => {
   fireEvent.click(rowOf(name));
   rowOf(name).focus();
-  fireEvent.keyDown(rowOf(name), { key: "Backspace", code: "Backspace", metaKey: true });
+  fireEvent.keyDown(rowOf(name), { key: "Backspace", code: "Backspace", metaKey: true, shiftKey: true });
 };
 
 /** One frame after the action: the Rail has drawn and Solid has flushed, while the fake call stays pending. */

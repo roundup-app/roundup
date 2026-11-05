@@ -110,6 +110,7 @@ mod tests {
             kind,
             last: last.into(),
             todos,
+            link: None,
             pads: vec![],
         }
     }

@@ -129,7 +129,7 @@ const AskRow = (props: { linkFailure: string | null; onLinkFailure: (message: st
   const candidates = () => (props.part.placement.kind === "unclear" ? props.part.placement.candidates : []);
   const others = () => rail.nodes.filter((each) => each.kind === "workstream" && !candidates().includes(each.id));
 
-  const linked = () => findTargets(props.part.text).length > 0;
+  const linked = () => findTargets(props.part.text, true).length > 0;
 
   const line = (trigger: TriggerProps) => (
     <>
@@ -144,7 +144,7 @@ const AskRow = (props: { linkFailure: string | null; onLinkFailure: (message: st
           setIsLinkFocused(false);
 
           if (!(event.relatedTarget instanceof Node && event.currentTarget.contains(event.relatedTarget))) event.currentTarget.scrollLeft = 0;
-        }}><TargetText text={props.part.text} base={node()?.worktree?.path ?? project.path} onFailure={props.onLinkFailure} /></span>
+        }}><TargetText objectLinks text={props.part.text} base={node()?.worktree?.path ?? project.path} onFailure={props.onLinkFailure} /></span>
       <span class="ask-where">
         <Show when={status()}>{(live) => <Tip text={live().kind === "error" ? live().label : LABELS[live().kind]}>{(trigger) => <span {...trigger()} class="ask-kind"><KindGlyph kind={shownKind(live(), dismissed())} /></span>}</Tip>}</Show>
         <Tip text={props.where} disabled={!isNameCut()}>{(trigger) => <span {...trigger()} ref={name} class="ask-name">{props.where}</span>}</Tip>

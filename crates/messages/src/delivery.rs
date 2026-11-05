@@ -652,6 +652,7 @@ mod tests {
             kind: Kind::Working,
             last: "unchanged".into(),
             todos: 2,
+            link: None,
             pads: vec![],
         });
         let history = lock(&messages.inner.store)

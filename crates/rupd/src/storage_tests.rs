@@ -509,6 +509,7 @@ async fn n16_all_stores_share_one_project_database() {
         serde_json::from_value(call(&daemon, "pad.list", Json::Null).await).unwrap();
     let sources = messages::digest::Sources {
         completed: std::collections::HashMap::new(),
+        project_key: "",
         touches: daemon.touches.history("pad:kept Pad").unwrap(),
         nodes: &nodes,
         todos: &todos,

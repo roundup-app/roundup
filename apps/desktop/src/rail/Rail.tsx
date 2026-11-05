@@ -296,7 +296,7 @@ export const Rail = () => {
         selection.selection.replace(group.id);
         setEditingName(group.id);
       }, node.id) },
-      { id: "remove-selection", label: copy.removeAll, shortcut: "⌘⌫", run: () => removeSelection(chosen) },
+      { id: "remove-selection", label: copy.removeAll, shortcut: "⇧⌘⌫", run: () => removeSelection(chosen) },
     ], x, y);
   };
 
@@ -308,7 +308,7 @@ export const Rail = () => {
     return ids.find((id) => id === selected) ?? ids[0] ?? null;
   });
 
-  /** U358: `⌘⌫` in the Rail takes the row menu's `remove` for the selected row; the selection then moves to the next row, else the previous, and focus stays in the Rail. A repeat acts on nothing. */
+  /** U358, U6171a: `⇧⌘⌫` anywhere in the window takes the row menu's `remove` for the selected row; the selection then moves to the next row, else the previous, and focus stays in the Rail. A repeat acts on nothing. */
   const removeSelected = (repeat: boolean) => {
     if (!repeat && selectedNodes().length > 1) {
       removeSelection();
@@ -602,7 +602,7 @@ export const Rail = () => {
     }) }]);
   });
 
-  /** U32, U33: `⌘N` adds an Agent or returns to the open field; `⇧⌘N` opens the field. A kept key acts once. U31, U56, U358: the row menu and `⌘⌫` act on a focused row only; the keys of a control inside a row are its own. */
+  /** U32, U33: `⌘N` adds an Agent or returns to the open field; `⇧⌘N` opens the field. A kept key acts once. U31, U56, U358: the row menu acts on a focused row only; the keys of a control inside a row are its own. */
   registerKeys({ kind: "app" }, [
     { action: CHORDS.find(row => row.name === "rail.move")!, when: press => moveAgent.available(focusedRowId(press)), capture: focus => {
       const id = focus instanceof HTMLElement && focus.matches(ROW) ? focus.closest<HTMLElement>("[data-id]")?.dataset.id : undefined;
@@ -626,7 +626,7 @@ export const Rail = () => {
     { action: CHORDS.find(row => row.name === "mode.new")!, capture: () => ({ available: canSpawn, invoke: () => setCreatingMode(true) }) },
     { chords: ["ContextMenu", "Shift+F10"], when: (press) => focusedRowId(press) !== undefined, run: openMenuAtFocusedRow },
     { chords: ["ContextMenu", "Shift+F10"], when: (press) => press.target instanceof HTMLElement && press.target.matches("[data-todo-root]"), run: openOverviewMenu },
-    { action: CHORDS.find((row) => row.name === "rail.remove")!, when: (press) => focusedRowId(press) !== undefined, capture: (focus) => ({ available: () => focus instanceof HTMLElement && focus.isConnected && focus.matches(ROW) && (selectedNodes().length > 0 || rail.nodes.some((node) => node.id === rail.selected())) && daemonExit() === null, invoke: () => removeSelected(false) }) },
+    { action: CHORDS.find((row) => row.name === "rail.remove")!, capture: () => ({ available: () => (selectedNodes().length > 0 || rail.nodes.some((node) => node.id === rail.selected())) && daemonExit() === null, invoke: () => removeSelected(false) }) },
   ]);
 
   registerKeys({ kind: "region", element: container }, [{ action: CHORDS.find(row => row.name === "rail.rename")!, capture: focus => {

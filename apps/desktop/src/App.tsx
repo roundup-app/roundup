@@ -23,7 +23,7 @@ import { Tabs } from "./ui/Tabs";
 import { Reopen } from "./app/Reopen";
 import { createDropTargets } from "./app/dropTargets";
 import type { Requested } from "@contracts/project/Requested";
-import type { App as AppCalls, DaemonExit, MenuItem, ActionRequest, ActionReply } from "./app/seam";
+import type { App as AppCalls, NativeOpen, DaemonExit, MenuItem, ActionRequest, ActionReply } from "./app/seam";
 import { DrawerHost } from "./drawer/DrawerHost";
 import { InboxKey } from "./inbox/Inbox";
 import { WindowBar } from "./header/WindowBar";
@@ -381,10 +381,12 @@ export const App = (props: {
   };
 
   const [nativeFailure, setNativeFailure] = createSignal<string | null>(null);
+  let nativeHandler: Promise<(request: NativeOpen) => void> | undefined;
+  const routeNativeOpen = (request: NativeOpen) => void nativeHandler?.then(handle => handle(request)).catch(error => setNativeFailure(String(error)));
   onMount(() => {
     const owner = getOwner();
-    const handler = import("./app/nativeOpen").then(({ watchNativeOpen }) => runWithOwner(owner, () => watchNativeOpen({ solid: { createEffect, createSignal, onCleanup }, app: props.app, projects, connectionOf, item: linkedItem, fail: setNativeFailure }))!);
-    const stop = props.app.onNativeOpen?.(request => void handler.then(handle => handle(request)).catch(error => setNativeFailure(String(error))));
+    nativeHandler = import("./app/nativeOpen").then(({ watchNativeOpen }) => runWithOwner(owner, () => watchNativeOpen({ solid: { createEffect, createSignal, onCleanup }, app: props.app, projects, connectionOf, item: linkedItem, fail: setNativeFailure }))!);
+    const stop = props.app.onNativeOpen?.(routeNativeOpen);
     onCleanup(() => void stop?.then(release => release()));
     void stop?.catch(error => setNativeFailure(String(error)));
   });
@@ -751,7 +753,7 @@ export const App = (props: {
                   <div class="centre-stack">
                     <div class="project-center-area">
                     <div class="project-center-content" inert={open.settingsView.open()} style={{ visibility: open.settingsView.open() ? "hidden" : "visible" }}>
-                    <Pane observeTerminal={props.observeTerminal ? id => props.observeTerminal?.(open.project.path, id) : undefined} notice={open.rail.failure() ?? jumpFailure() ?? open.contractNotice} retryNotice={open.rail.failure() !== null ? () => void open.rail.refresh({ terminals: true }) : undefined} createEmulator={tracked} screensRef={setScreens} />
+                    <Pane observeTerminal={props.observeTerminal ? id => props.observeTerminal?.(open.project.path, id) : undefined} notice={open.rail.failure() ?? jumpFailure() ?? open.contractNotice} retryNotice={open.rail.failure() !== null ? () => void open.rail.refresh({ terminals: true }) : undefined} createEmulator={tracked} screensRef={setScreens} openObject={url => routeNativeOpen({ kind: "link", url })} />
                     <AskBar viewLabel={id => views.find(([view]) => view === id)?.[1]} />
                     <Switcher notify={toasts.notify} onFailure={setJumpFailure} onOpen={() => { if (document.querySelector('.window[data-shelf="open"][data-shelf-mode="overlay"]')) shelfFocus.toggle("key"); }} />
                     </div>

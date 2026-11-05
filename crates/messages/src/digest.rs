@@ -23,6 +23,7 @@ const CHILDREN: usize = 20;
 const CUT: &str = "[cut]";
 
 /// What the Daemon read to compose a digest.
+#[derive(Default)]
 pub struct Sources<'a> {
     pub nodes: &'a [RailNode],
     pub todos: &'a [Todo],
@@ -31,6 +32,8 @@ pub struct Sources<'a> {
     /// A5482c: Agent id to (Attempt/turn identity, turn start/end in Unix milliseconds, final text), from the Adapter.
     pub completed: HashMap<String, (String, i64, i64, String)>,
     pub messages: &'a [Message],
+    /// AL1: the Project's key, which an Agent's link names; empty before the Daemon has one.
+    pub project_key: &'a str,
 }
 
 /// B5641: event-local columns replace the multiplied joins measured by the cost observer.
@@ -49,6 +52,7 @@ struct Projection<'a> {
     // The greatest question time answers any turn-start lower bound, across all recipients.
     questions: Vec<Option<i64>>,
     completed: Vec<Option<&'a (String, i64, i64, String)>>,
+    project_key: &'a str,
 }
 
 impl<'a> Projection<'a> {
@@ -160,6 +164,7 @@ impl<'a> Projection<'a> {
             messages,
             questions,
             completed,
+            project_key: source.project_key,
         }
     }
 
@@ -684,8 +689,12 @@ impl Seen {
 #[must_use]
 pub fn entry_text(entry: &DigestEntry) -> String {
     let line = |text: &str| text.replace(['\n', '\r'], " ");
+    let link = entry
+        .link
+        .as_ref()
+        .map_or_else(String::new, |link| format!(" ({link})"));
     let mut text = format!(
-        "{} is {}\n  last: {}\n  open todos: {}",
+        "{} is {}{link}\n  last: {}\n  open todos: {}",
         line(&entry.name),
         kind_word(entry.kind),
         line(&entry.last),
@@ -705,22 +714,29 @@ pub(crate) fn kind_word(kind: Kind) -> String {
         .unwrap_or_default()
 }
 
-/// B33: the entry whose first line is `head` (`<name> is <kind>`), with the indented `rest` lines.
-pub(crate) fn parse_head(head: &str) -> Option<(String, Kind)> {
+/// B33, AL1: the entry whose first line is `head` (`<name> is <kind>`, then ` (<link>)` when the
+/// entry has one), with the indented `rest` lines.
+pub(crate) fn parse_head(head: &str) -> Option<(String, Kind, Option<String>)> {
     if head.starts_with([' ', '[']) {
         return None;
     }
+    let (head, link) = head
+        .strip_suffix(')')
+        .and_then(|head| head.rsplit_once(" ("))
+        .filter(|(_, link)| link.starts_with("roundup://"))
+        .map_or((head, None), |(head, link)| (head, Some(link.to_owned())));
     let (name, kind) = head.rsplit_once(" is ")?;
     let kind = serde_json::from_value(serde_json::Value::String(kind.to_owned())).ok()?;
-    Some((name.to_owned(), kind))
+    Some((name.to_owned(), kind, link))
 }
 
 /// B33: the entry that `head` and its indented `rest` lines spell, the inverse of `entry_text`.
 pub(crate) fn parse_entry(head: &str, rest: &[&str]) -> Option<DigestEntry> {
-    let (name, kind) = parse_head(head)?;
+    let (name, kind, link) = parse_head(head)?;
     let mut entry = DigestEntry {
         name,
         kind,
+        link,
         last: String::new(),
         todos: 0,
         pads: Vec::new(),
@@ -877,6 +893,9 @@ fn entry(
     let entry = DigestEntry {
         name: child.name.clone(),
         kind: status.kind,
+        link: (!from.project_key.is_empty())
+            .then(|| contracts::link::node_link(from.project_key, child))
+            .flatten(),
         last: cut(&last, if end { END_LAST_BYTES } else { LAST_BYTES }),
         todos,
         pads,
@@ -962,6 +981,8 @@ pub(crate) fn fit(mut entry: DigestEntry, max: usize) -> DigestEntry {
     entry
 }
 
+#[cfg(test)]
+mod link_tests;
 #[cfg(test)]
 mod reopen_tests;
 #[cfg(test)]
