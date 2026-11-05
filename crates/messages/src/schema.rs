@@ -12,8 +12,7 @@ pub fn open(db: &mut Connection, path: &Path) -> rusqlite::Result<()> {
     if stored == sequence.len() as i64 - 1 {
         let run = || -> rusqlite::Result<()> {
             let mut reference = Connection::open_in_memory()?;
-            // The one before the last two (010) drops the retired tables; the last adds tables of its own.
-            Migrations::new(sequence[..sequence.len() - 2].to_vec())
+            Migrations::new(sequence[..sequence.len() - 1].to_vec())
                 .to_latest(&mut reference)
                 .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
             if let Some(difference) = provenance::migration::difference(db, &reference)? {
@@ -228,7 +227,8 @@ mod deletion_tests {
         let path = dir.path().join("messages.db");
         let mut db = Connection::open(&path).unwrap();
         let sequence = migrations();
-        Migrations::new(sequence[..sequence.len() - 1].to_vec())
+        // The one before the last two (010) drops the retired tables; the last adds tables of its own.
+        Migrations::new(sequence[..sequence.len() - 2].to_vec())
             .to_latest(&mut db)
             .unwrap();
         db.execute_batch(r#"INSERT INTO messages(id,from_actor,to_id,kind,body,status,at) VALUES(77,'{"kind":"user","id":"you","parent":null}','you','note','keep exact','delivered',42);
@@ -241,7 +241,8 @@ mod deletion_tests {
             .to_latest(&mut reference)
             .unwrap();
         for _ in 0..2 {
-            open(&mut db, &path).unwrap();
+            // `open` upgrades only a store one version behind; this one is two behind.
+            Migrations::new(migrations()).to_latest(&mut db).unwrap();
             assert_eq!(
                 provenance::migration::difference(&db, &reference).unwrap(),
                 None

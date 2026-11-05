@@ -502,7 +502,7 @@ mod tests {
                         if total >= u32::try_from(FACTS).unwrap() {
                             break total;
                         }
-                        tokio::time::sleep(Duration::from_millis(100)).await;
+                        tokio::task::yield_now().await;
                     }
                 })
                 .await
@@ -512,7 +512,9 @@ mod tests {
             // Further passes duplicate nothing.
             third.rt.block_on(async {
                 clock.fetch_add(60_001, Ordering::SeqCst);
-                tokio::time::sleep(Duration::from_millis(1100)).await;
+                for _ in 0..1000 {
+                    tokio::task::yield_now().await;
+                }
                 assert_eq!(third.accounted().await, 100, "kill at {kill_at:?} repeated");
             });
         }
