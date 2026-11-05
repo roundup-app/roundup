@@ -55,6 +55,7 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
   const restartSession = async (id: string, request = restarts[id]?.request ?? crypto.randomUUID()): Promise<{ kind: "acknowledged" | "pending" } | { kind: "failed" | "unknown"; message: string }> => {
     if (restarts[id]?.pending) return { kind: "pending" };
     setRestarts(id, { request, pending: true });
+    const release = rail.launch(id);
 
     try {
       await app.rpc("workstream.restart", { id, request });
@@ -70,6 +71,7 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
       return { kind: outcomeOf(error), message: error.message };
     } finally {
       if (restarts[id]) setRestarts(id, { request, pending: false });
+      release();
     }
   };
 
@@ -127,6 +129,7 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
     if (resuming.has(id)) return;
 
     resuming.add(id);
+    const release = rail.launch(id);
     // U5991a: the row shows running now; the refresh or a failure lifts the drawing.
     const lift = rail.drawExit(id, null);
 
@@ -149,6 +152,7 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
     } finally {
       lift();
       resuming.delete(id);
+      release();
     }
   };
 
@@ -289,6 +293,8 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
 
   /** U2694d: `agent.resume {id, mode}` restarts the same session, running or exited; a failure shows U80's line. */
   const restart = async (node: RailNode, mode: "normal" | "yolo") => {
+    const release = rail.launch(node.id);
+
     try {
       await app.rpc("agent.resume", { id: node.id, mode });
       await rail.refresh();
@@ -299,6 +305,8 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
       onFailure(error.message, node.id);
 
       if (error.code === NOT_FOUND) await rail.refresh();
+    } finally {
+      release();
     }
   };
 
