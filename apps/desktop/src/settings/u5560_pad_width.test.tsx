@@ -2,6 +2,7 @@ import userEvent from "@testing-library/user-event";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { AppSettings } from "./AppSettings";
+import { appSettings } from "./preferences";
 import { createFakeApp } from "../testing/fakeApp";
 import { openPad, openShelf, padOf } from "../pads/padsFixture";
 import { USER } from "../testing/nodes";
@@ -20,11 +21,11 @@ const choose = async (choice: string) => {
 
   if (choice === "Narrow") {
     fireEvent.click(within(group).getByRole("radio", { name: "Wide" }));
-    await waitFor(() => expect(JSON.parse(localStorage.getItem("roundup:app-settings")!).padWidth).toBe("wide"));
+    await waitFor(() => expect(appSettings().padWidth).toBe("wide"));
   }
 
   fireEvent.click(within(group).getByRole("radio", { name: choice }));
-  await waitFor(() => expect(JSON.parse(localStorage.getItem("roundup:app-settings")!).padWidth).toBe(choice.toLowerCase()));
+  await waitFor(() => expect(appSettings().padWidth).toBe(choice.toLowerCase()));
   fireEvent.click(screen.getByRole("button", { name: "← Back" }));
 };
 
@@ -54,7 +55,7 @@ it.each(["Narrow", "Wide", "Full"].flatMap(choice => ["close", "switch", "collap
     const user = userEvent.setup();
 
     for (let step = 0; step < (choice === "Narrow" ? 2 : 1); step++) await user.keyboard(choice === "Full" ? "{ArrowLeft}" : "{ArrowRight}");
-    await waitFor(() => expect(JSON.parse(localStorage.getItem("roundup:app-settings")!).padWidth).toBe(local.toLowerCase()));
+    await waitFor(() => expect(appSettings().padWidth).toBe(local.toLowerCase()));
     fireEvent.click(screen.getByRole("button", { name: "← Back" }));
     await selected(choice);
     fireEvent.click(screen.getByRole("button", { name: "Restore" }));

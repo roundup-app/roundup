@@ -297,6 +297,13 @@ p.ink[role="alert"] {
   transition-property: none;
 }
 
+/* U6264b: beside actions the line takes the room they leave and truncates there. */
+.reserved-line:has(~ [data-button]),
+[data-button] ~ .reserved-line {
+  inline-size: auto;
+  flex: 1 1 0;
+}
+
 .reserved-line[data-overlay="true"] {
   position: absolute;
   inset-inline: 0;
