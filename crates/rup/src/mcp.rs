@@ -327,7 +327,7 @@ pub(crate) async fn display_data(
         }
         _ => {}
     }
-    link_nodes(client, &mut result).await?;
+    link_nodes(client, &mut result).await;
     Ok(result)
 }
 
@@ -369,21 +369,20 @@ fn add_links(value: &mut Value, key: &str, nodes: &[agent::RailNode]) {
 }
 
 /// AL1: a Door's tool reply names an Agent with its link, so the Door can give the user a link to act in it.
-async fn link_nodes(client: &rpc::Client, result: &mut Value) -> Result<(), RpcError> {
+/// AL6: the reply already succeeded, so a failed read of the Rail or the Project key leaves it without links.
+async fn link_nodes(client: &rpc::Client, result: &mut Value) {
     if !names_something(result) {
-        return Ok(());
+        return;
     }
-    let nodes = rail_nodes(client).await?;
-    let ping = tokio::time::timeout(CALL_TIMEOUT, client.request("daemon.ping", Value::Null))
-        .await
-        .map_err(|_| {
-            RpcError::internal("could not read the Project key: the Daemon did not answer")
-        })??;
-    let key = ping["projectKey"]
-        .as_str()
-        .ok_or_else(|| RpcError::internal("the Daemon's ping names no Project key"))?;
-    add_links(result, key, &nodes);
-    Ok(())
+    let Ok(nodes) = rail_nodes(client).await else {
+        return;
+    };
+    let ping = tokio::time::timeout(CALL_TIMEOUT, client.request("daemon.ping", Value::Null)).await;
+    if let Ok(Ok(ping)) = ping
+        && let Some(key) = ping["projectKey"].as_str()
+    {
+        add_links(result, key, &nodes);
+    }
 }
 
 /// M17: only declared unit replies become acknowledgements; nullable data stays JSON.
