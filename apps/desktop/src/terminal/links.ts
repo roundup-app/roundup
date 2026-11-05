@@ -1,4 +1,3 @@
-import { parse } from "tldts";
 import { RpcError } from "../app/seam";
 import type { OpenTarget } from "../app/seam";
 
@@ -21,6 +20,15 @@ const LABEL = /^[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?$/;
 
 const NOT_FOUND = -32001;
 
+type Parse = typeof import("tldts").parse;
+
+let parseHost: Parse | null = null;
+
+/** The public suffix list is a separate chunk (entry budget R3800): a bare domain is a link once it has loaded. */
+export const suffixesLoaded: Promise<void> = import("tldts").then((module) => {
+  parseHost = module.parse;
+});
+
 /** U365b: `https://` plus a printed token whose host has two or more labels and ends in an ICANN public suffix (bundled list, no lookup); null otherwise. */
 export const bareDomainUrl = (token: string): string | null => {
   if (/^[/.~]|@|:/.test(token)) return null;
@@ -30,7 +38,9 @@ export const bareDomainUrl = (token: string): string | null => {
 
   if (labels.length < 2 || !labels.every((label) => LABEL.test(label))) return null;
 
-  const parsed = parse(host, { allowPrivateDomains: false });
+  if (parseHost === null) return null;
+
+  const parsed = parseHost(host, { allowPrivateDomains: false });
 
   return parsed.isIcann && parsed.domain !== null ? `https://${token}` : null;
 };

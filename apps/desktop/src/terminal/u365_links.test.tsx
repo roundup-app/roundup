@@ -1,12 +1,12 @@
 import { cleanup } from "@solidjs/testing-library";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { Terminal } from "@xterm/xterm";
 import type { ILink } from "@xterm/xterm";
 import { RpcError } from "../app/seam";
 import type { OpenTarget } from "../app/seam";
 import { door, info, node } from "../testing/nodes";
 import { createLinkProvider } from "./linkProvider";
-import { absolutePath, findTargets, openPrinted } from "./links";
+import { absolutePath, findTargets, openPrinted, suffixesLoaded } from "./links";
 import { mountPane } from "./paneHarness";
 
 afterEach(cleanup);
@@ -175,6 +175,8 @@ describe("u365 opening", () => {
 });
 
 describe("u365b bare domains", () => {
+  beforeAll(() => suffixesLoaded);
+
   const target = (text: string) => findTargets(text)[0]?.printed;
 
   it("u365b_a_bare_domain_is_a_link", () => {
