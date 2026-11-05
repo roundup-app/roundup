@@ -54,6 +54,7 @@ mod rewind;
 mod todo_refs;
 mod waits;
 mod wake;
+mod workstream_state;
 
 pub use connection::serve;
 use connection::{Frame, failure};
@@ -426,6 +427,8 @@ mod workstream_door;
 
 #[cfg(test)]
 mod concurrent_tests;
+#[cfg(test)]
+mod dcl2_tests;
 #[cfg(test)]
 mod todo_deletion_tests;
 

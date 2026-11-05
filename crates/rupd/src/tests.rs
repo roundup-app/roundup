@@ -105,20 +105,20 @@ async fn r16_rail_reply_preserves_every_field_and_row_order_on_the_socket() {
     // This fixture is the module's already-presented result, not a replacement for
     // Agents' lifecycle tests: the Daemon must transport every field unchanged.
     let nodes = json!([
-        {"id":"door", "kind":"workstream", "name":"日本語\n\"Door\" 🦀",
+        {"workstream_state":"needs-you", "visibility":"shown", "alert_level":"default", "id":"door", "kind":"workstream", "name":"日本語\n\"Door\" 🦀",
          "parent":null, "order":0, "status":null, "attempt":null,
          "status_revision":null, "terminal_id":null, "worktree":null,
-         "can_resume":false, "channel":null, "work":null, "stray":[],
+         "can_resume":false, "can_make_workstream":false, "can_save_as_mode":false, "yolo":false, "channel":null, "work":null, "stray":[],
          "model":null, "effort":null},
-        {"id":"child", "kind":"agent", "name":"Child", "parent":"door",
+        {"visibility":"shown", "alert_level":"default", "id":"child", "kind":"agent", "name":"Child", "parent":"door",
          "order":0, "status":{"kind":"needs-you", "label":"Waiting for approval", "since":123456789, "finished":"0"},
          "attempt":"9223372036854775807", "status_revision":"3",
          "terminal_id":"terminal-1", "worktree":{"path":"/tmp/p", "branch":"b", "base":"main"},
-         "can_resume":false, "channel":"missing", "work":{"kind":"work", "ask":"Continue", "limits":["Preserve files"]},
+         "can_resume":false, "can_make_workstream":false, "can_save_as_mode":false, "yolo":false, "channel":"missing", "work":{"kind":"work", "ask":"Continue", "limits":["Preserve files"]},
          "stray":[{"pid":123,"command":"claude \t--resume"}], "model":"model", "effort":"high"},
-        {"id":"sibling", "kind":"agent", "name":"Exited", "parent":"door",
+        {"visibility":"shown", "alert_level":"default", "id":"sibling", "kind":"agent", "name":"Exited", "parent":"door",
          "order":1, "status":null, "attempt":"2", "status_revision":null,
-         "terminal_id":null, "worktree":null, "can_resume":true, "channel":null,
+         "terminal_id":null, "worktree":null, "can_resume":true, "can_make_workstream":false, "can_save_as_mode":false, "yolo":false, "channel":null,
          "work":null, "stray":[], "model":null, "effort":null}
     ]);
     serde_json::from_value::<Vec<contracts::agent::RailNode>>(nodes.clone()).unwrap();

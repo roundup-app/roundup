@@ -895,6 +895,11 @@
     "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
     "kind": "reference"
   },
+  "crates/rupd/tests/dcl2_workstream_state.rs": {
+    "cleanup": "The shared rupd harness's Drop stops the Daemon before the owned data directory closes.",
+    "data": "Absolute caller-owned TempDir override through the shared harness; no later environment override.",
+    "kind": "reference"
+  },
   "crates/rupd/src/dcl5_tests.rs": {
     "cleanup": "In-process test runtime owns these Daemons; no built executable launch.",
     "data": "Daemon::open_stores receives an explicit TempDir path; no production fallback resolver.",

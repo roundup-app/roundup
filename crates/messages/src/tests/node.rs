@@ -3,6 +3,7 @@ use super::*;
 
 pub(crate) fn node(id: &str, kind: NodeKind, _door: bool, status: Option<Status>) -> RailNode {
     RailNode {
+        workstream_state: None,
         waiting: None,
         start_attribution: None,
         visibility: Default::default(),

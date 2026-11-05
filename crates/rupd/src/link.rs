@@ -160,7 +160,7 @@ impl Daemon {
                 LinkContent::Terminal { id, screen }
             }
             Target::Agent(id) => {
-                let node = self.node(&id, false).await?;
+                let node = self.node(conn, &id, false).await?;
                 let digest = match self
                     .read_as(conn, "agent", &id, "agent.digest", json!({ "id": id }))
                     .await
@@ -179,7 +179,7 @@ impl Daemon {
                 LinkContent::Agent { id, node, digest }
             }
             Target::Workstream(id) => {
-                let node = self.node(&id, true).await?;
+                let node = self.node(conn, &id, true).await?;
                 let children = self
                     .rail()
                     .await?
@@ -194,9 +194,14 @@ impl Daemon {
     }
 
     /// The Rail row of `id`, when it is a Workstream (`workstream`) or an Agent.
-    async fn node(&self, id: &str, workstream: bool) -> Result<agent::RailNode, RpcError> {
+    async fn node(
+        &self,
+        conn: &Conn,
+        id: &str,
+        workstream: bool,
+    ) -> Result<agent::RailNode, RpcError> {
         let is_workstream = |node: &agent::RailNode| node.kind == agent::NodeKind::Workstream;
-        self.rail()
+        self.presented_rail(conn)
             .await?
             .into_iter()
             .find(|node| {
