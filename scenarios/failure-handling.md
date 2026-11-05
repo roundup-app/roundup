@@ -44,6 +44,16 @@ Policy: keep error identity from Daemon to App. If prose-only rejection causes n
 - All production swallowed catches in ItemDrawer and Terminal scheme synchronization are removed. A final failure reaches its owning line after any eligible read/local-write retry; scheme synchronization is a remote command, not a safe local write. Planned `u3791c_rejected_actions_reach_their_owner` rejects those actual operations and checks the user can recover without losing input. Keep scheme synchronization and its subscription disposal (Check 5).
 - A lint run exits nonzero for `.catch(() => undefined)` and `.catch(console.warn)` under `apps/desktop/src` production files. Exclude `*.test.*`, `src/testing/**` and explicitly identified test-only browser helpers such as `todos/laneBrowser.ts`; never exclude a production directory merely to make lint pass. Planned `u3791c_swallowed_catch_lint` runs the real lint rule on temporary production-path fixtures for both forbidden forms, a handled rejection and the test-helper exclusions. Policy: extend the installed oxlint plugin/configuration; frozen loop machinery stays untouched.
 
+**U6249b reads retry with backoff before failing.** Given an open Project and an automatic read through `retryRead` (`apps/desktop/src/app/seam.ts`), when an attempt rejects or returns a failure, then:
+
+- Retry the same captured read up to 4 times, waiting 250 ms, doubling to a 4 s cap (250, 500, 1000, 2000 ms), each wait randomised. The last good data stays and no failure text, Retry control, toast or attention shows until the last retry fails. Assert in `u6249b_reads_retry_with_backoff_before_failing` with fake timers: a read failing three times then succeeding returns its data with one underlying call per attempt and no failure; a read failing five times makes five calls and exposes one failure after the last wait.
+- A mutation, Message delivery or the user's send is never retried by `retryRead`; it fails at once after one call. Assert in the same test, checking one mutation call.
+- The U3791a one-retry tests change to this budget: `u3791a_read_recovers_once` and `u3791a_second_failure_is_actionable` inject enough failures and advance fake time for 4 retries; `s3806b_actions.test.tsx`, which counts wire attempts after a rejection, counts five. Policy: no test keeps asserting two attempts.
+
+**U6249e a failure line carries its action and dismissal.** Given the shared failure line (`apps/desktop/src/ink/FailureLine.tsx`), then:
+
+- Its props require an action and a dismissal, so a failure line without them fails the type check; the type check is the proof and no test repeats it. Policy: every existing failure line (Rail, Switcher, Ask, Inbox, Todos, App) passes both in the same PR, with the RETRY-FIRST rows of the Rail owned by this change, and no new colour Token.
+
 ## Main baseline and regression Checks
 
 All baseline citations below exist on main. Planned test names above are implementation obligations, not claims of passing tests. Counts describe the inspected baseline, not a fixed acceptance limit.
