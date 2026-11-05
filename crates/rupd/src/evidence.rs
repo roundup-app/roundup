@@ -406,6 +406,8 @@ async fn read_resolution(
             "use an HTTPS receipt source without embedded credentials or fragments (literal loopback HTTP is supported)",
         );
     }
+    // reqwest's `rustls-no-provider` needs one installed; a second install returns Err, which is fine.
+    let _ = rustls::crypto::ring::default_provider().install_default();
     let client = match reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(5))
         .redirect(reqwest::redirect::Policy::none())
