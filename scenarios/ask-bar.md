@@ -1,5 +1,7 @@
 # One Ask bar places every ask
 
+Policy amendment — owner decision of 2026-11-05 (#6244, `scenarios/ui-project-root-overview.md`): the Overview and its change list are deleted. U504's list, Last visit, First visit, Event source, Rows and actions, Quiet return clauses and the #5730 change-list Checks retire (named there); the Ask opens only by ⌘/ over the centre, and every other U504, U505 and U506 clause stands.
+
 Policy amendment — owner decision of 2026-11-02 (#5730): U504 defines one list of Project changes since the last visit under Ask. It replaces #4966's four-section accordion and section-unseen rules, and #4901's Earlier disclosure and Ask history presentation. U505 retains Sent-part acknowledgement, delivery, routing and recovery; acknowledged parts leave Overview. Full Made remains on demand through its existing Project menu action. U504's composition also governs U2539b and DV5/DV6 where they previously required Overview sections.
 
 Module: `crates/agents` (the Ask store, placement and delivery; the Placement call under `claude_code/`), `crates/contracts`, `crates/rupd` (registration), `contracts/generated/`, `crates/rup/tests/` (the real-Claude observers) and `apps/desktop` (U504 to U506). Ids: A39, A40, A41, A42, U504, U505, U506.
