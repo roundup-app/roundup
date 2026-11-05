@@ -1,6 +1,6 @@
 # UI: opening links and paths from a Terminal (U365)
 
-Module: `apps/desktop` (the webview). Ids: U365.
+Module: `apps/desktop` (the webview). Ids: U365, U365b.
 
 **U365 a plain click on a web link or file path in a Terminal opens it.** Owner amendment #5582 replaces Cmd+click with an unmodified primary click. Applies to every Agent, Door and shell Terminal, including Bubbles. Reuse the existing `findTargets`, path resolution and `openTarget` App seam; no new RPC, App seam command, Token or domain term is specified (policy). Ask-row and Overview Message acceptance extends U505 (`scenarios/ask-bar.md`) below. Acceptance only; this specification claims no implementation. Given a Terminal that printed `https://example.com`, `/abs/path/a.ts` and `src/a.ts:42`, then:
 
@@ -31,5 +31,29 @@ Regression Checks on main:
 4. `apps/desktop/src/ask/u505_ask_rows.test.tsx`, `u505_selecting_a_row_selects_its_workstream`: opening non-link Ask-row content still selects its Workstream.
 5. `apps/desktop/src/terminal/u365_browser.test.ts`, `u365_plain_click_opens_once_%s`, `u365_drag_selects_without_opening`, `u365_double_click_selects_without_opening`, `u365_stationary_hover_tracks_output_scroll_and_resize`, `u365_links_open_in_mouse_reporting_mode_%s` and `u365_wrapped_targets_open_from_each_row_without_punctuation`: retained real-pointer behavior. `crates/desktop/src/open.rs`, `u365_a_folder_opens_in_finder` and `u365_a_missing_path_opens_nothing_and_says_so`: folder opening and existence refusal.
 6. `docs/design-system.md`, heading “The checks”, and `apps/desktop/src/testing/checks.ts`, `d2`, `d5`, `d6`: retained rendered Checks.
+
+**U365b a printed web address without a scheme opens in the browser, and every link form a Terminal shows has one target.** Applies to every Agent, Door and shell Terminal, including Bubbles, Ask rows and read-only `TargetText`. Reuse U365's `findTargets`, path resolution and `openTarget`; no new RPC, App seam command, Token or domain term (policy). Given a Terminal in Project `shark-tank-alternative` that printed `legislation.gov.uk`, `www.example.com/a`, `example.co.uk/x?y=1`, `README.md` and `notes.io`, then:
+
+- **A bare domain is a link.** A token is a bare domain when it has no leading `/`, `./`, `../` or `~/`, no `@`, no `:line`, and its host (the text before the first `/`, `?` or `#`) is two or more dot-separated labels of letters, digits and hyphens whose last label is on the public suffix list (the ICANN section; private suffixes such as `github.io` do not count). Recognition uses a bundled list and the printed text only: no remote request and no filesystem lookup during recognition or hover (policy). Its target is `https://` plus the token, without the trailing punctuation U365 strips. Asserted in `u365b_a_bare_domain_is_a_link`, a table test over `findTargets`.
+- **An existing path wins.** Opening a bare domain first asks `openTarget` for the path U365 resolves (base per U365); only a `NOT_FOUND` answer is followed by `openTarget {kind: "url", url: "https://" + token}`. A file or folder named `README.md` or `notes.io` next to the Project therefore opens as that path, and `legislation.gov.uk` with no such file opens `https://legislation.gov.uk` once, showing no failure line. When the path is missing and the URL is refused, the failure line shows the URL's cause, not `<path> does not exist`. Asserted in `u365b_an_existing_file_named_like_a_domain_opens_the_file`, `u365b_a_missing_file_falls_back_to_https` and `u365b_a_refused_fallback_shows_its_cause`, against the fake App.
+- **Not a domain stays as U365 has it.** A token whose last label is not a public suffix and that is not a path by U365's syntax (`foo.notatld`, `a.b`, `v1.2`, `file.txt`-style paths excepted) is no link, as today; `file.txt` stays a path. Asserted in `u365b_a_non_suffix_token_stays_plain_text`.
+- **Audit.** Each form opens its target or is no link; the PR records the audit as this table with the test that proves each row, and fixes every row that differs:
+
+| Printed form | Target |
+|---|---|
+| `http://` / `https://` URL | itself via `openTarget {url}` (U365) |
+| OSC 8 hyperlink | its URI when `http` or `https`, via `openTarget {url}` and never xterm's `window.confirm`/`window.open`; any other scheme opens nothing |
+| bare domain, with or without path or query | the rule above |
+| `mailto:a@b.co`, `a@b.co` | no link (`openTarget` refuses non-http schemes; no address is a path) |
+| `/abs/a.ts`, `src/a.ts`, `README.md` | the path per U365 |
+| `~/notes/a.md`, `~/` | the path under the user's home folder, expanded by the App's path check, never joined to the base |
+| `src/a.ts:42`, `src/a.ts:42:7` | the path with its line (U365) |
+
+  Asserted in `u365b_every_link_form_maps_to_its_target`, a table test through the mounted emulator's link finder and `openTarget` call log, one row per line above, plus `u365b_osc8_http_opens_through_open_target`.
+- **Scope.** The webview's `terminal/links.ts` and `terminal/screens.ts` change; `crates/desktop/src/open.rs` changes only for the `~/` expansion. Library choice is rule 9's: research `linkify-it`, `tldts`, `psl` and the xterm web-links addon before any matcher; a library must work offline (policy).
+
+Observer: Vitest table and fake-App tests above, named in `apps/desktop/src/terminal/u365_links.test.tsx` beside U365's, plus a Rust test `u365b_a_home_path_expands` in `open.rs`. Test behaviour and call counts only (AGENTS.md rule 10). Rendered observer (policy): at 1512×950 in dark on the U365 densest seed extended with the printed forms above, inspect that each recognised form underlines and opens, and the failure line for a missing path stays complete; moves D2, D5 and D6 only if the look changes. Chromium establishes this; the user reports what they meet on the Mac.
+
+Regression Checks on main: U365's Checks 1 and 2 above (`u365_recognises_links_and_paths`, `u365_a_missing_path_opens_nothing_and_says_so`) keep passing; a bare domain that is also a missing path now opens the browser and U365's missing-path line shows for any token that is not a bare domain.
 
 **openTarget**: The existing App seam command (`open_target`) that opens a web link in the browser, or an absolute path in its default app (a folder in Finder), when the user clicks a recognised target in a Terminal, Ask row or Overview Message; a missing path is `NOT_FOUND`, a scheme but http and https is `FORBIDDEN` (U365).
