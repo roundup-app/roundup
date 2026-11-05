@@ -12,6 +12,8 @@ mod contract_handlers;
 #[cfg(test)]
 mod contract_tests;
 pub mod data;
+#[cfg(test)]
+mod dcl5_tests;
 mod deliverables;
 #[cfg(test)]
 mod describe_tests;
@@ -535,6 +537,31 @@ pub mod test_support {
                 contracts::EventData::AgentStatus(Box::new(event)),
             );
         }
+    }
+
+    /// A Daemon over `data` whose Agents launch `launcher` and read `clock` for stall timing.
+    pub fn daemon_with_clock(
+        project: &Path,
+        data: &Path,
+        launcher: agents::claude_code::Launcher,
+        clock: impl Fn() -> i64 + Send + Sync + 'static,
+    ) -> Daemon {
+        assert!(data.is_absolute(), "test data directory must be absolute");
+        Daemon::open_stores(project, data, |_| {
+            let bus = Bus::new();
+            let terminals = Arc::new(terminal::Terminals::open(data, bus.clone()).unwrap());
+            agents::Agents::open_in(
+                project,
+                data,
+                bus,
+                terminals,
+                launcher,
+                agents::worktree::Git::from_env(),
+            )
+            .unwrap()
+            .with_clock(clock)
+        })
+        .unwrap()
     }
 
     /// Open stores before entering Tokio so background readers see the configured modules.

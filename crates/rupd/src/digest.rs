@@ -121,6 +121,10 @@ impl Reader {
                 .agents
                 .as_ref()
                 .map_or_else(Default::default, |agents| agents.stalled(STALL_MS)),
+            compactions: self
+                .agents
+                .as_ref()
+                .map_or_else(HashMap::new, |agents| agents.compactions()),
             // The user sees every Message; `message.list` shows the Daemon only its own.
             messages: self
                 .call("message", "message.list", json!({}), Actor::user())
@@ -131,6 +135,7 @@ impl Reader {
 }
 
 pub struct World {
+    compactions: HashMap<String, u64>,
     stalled: std::collections::HashSet<String>,
     completed: HashMap<String, (String, i64, i64, String)>,
     nodes: Vec<contracts::agent::RailNode>,
@@ -148,6 +153,10 @@ impl World {
 
     pub(crate) fn messages(&self) -> &[Message] {
         &self.messages
+    }
+
+    pub(crate) fn compactions(&self) -> &HashMap<String, u64> {
+        &self.compactions
     }
 
     pub(crate) fn stalled(&self) -> &std::collections::HashSet<String> {
