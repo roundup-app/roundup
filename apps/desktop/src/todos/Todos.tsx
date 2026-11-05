@@ -787,8 +787,8 @@ export const Todos = (props: {
         </TreeView.Root>
         </>; }}</OwnerGroups>
       </Show>
-      <HomePicker target={moving} offers={homeOffers} choose={(id, home) => void moveHome(id, home)} close={stopMoving} />
-      <OwnerPicker label={id => copy.ownersFor(id ?? "")} target={picking} offers={offers} choose={(id, owner) => void assign(id, owner)} close={stopPicking} newWorkstream={id => {
+      <HomePicker replacement={id => id === undefined ? undefined : rowButtonOf(id)} target={moving} offers={homeOffers} choose={(id, home) => void moveHome(id, home)} close={stopMoving} />
+      <OwnerPicker replacement={id => id === undefined ? undefined : rowButtonOf(id)} label={id => copy.ownersFor(id ?? "")} target={picking} offers={offers} choose={(id, owner) => void assign(id, owner)} close={stopPicking} newWorkstream={id => {
         const focus = captureFocus(true);
         namingNext = id;
         setTimeout(() => { namingNext = null; focus(() => setNaming(id)); }, 0);

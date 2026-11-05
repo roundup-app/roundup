@@ -1,33 +1,46 @@
 import { Tooltip as ArkTooltip, useTooltipContext } from "@ark-ui/solid/tooltip";
 import { floatingControl } from "./Dialog";
-import { createContext, createSignal, Show, splitProps, useContext } from "solid-js";
+import { anchorBox } from "./anchorBox";
+import { createContext, createEffect, createSignal, onCleanup, Show, splitProps, useContext } from "solid-js";
 import type { Chord } from "../keys/chords";
 import { KeyHint } from "../keys/KeyHint";
 import "./Tooltip.css";
 
 type Anchor = () => HTMLElement | undefined;
 
-const Ownership = createContext<{ pointer: (event: PointerEvent) => void; focus: (event: FocusEvent, id: string | undefined) => void }>();
+const Ownership = createContext<{ pointer: (event: PointerEvent, id: string | undefined) => void; focus: (event: FocusEvent, id: string | undefined) => void }>();
 
 const Root = (props: ArkTooltip.RootProps & { anchor?: Anchor | undefined }) => {
   const [owner, setOwner] = createSignal<HTMLElement>();
   const control = floatingControl(props, () => props.anchor?.() ?? owner());
   let pointer: { x: number; y: number } | undefined;
-  const rect = () => (props.anchor ? props.anchor() : owner())?.getBoundingClientRect() ?? null;
+  let ownerId: string | undefined;
+  // U6236a: a re-render replaces the trigger's element; its id finds the replacement.
+  const rect = () => props.anchor ? anchorBox(props.anchor()) : anchorBox(owner(), () => ownerId ? document.getElementById(ownerId) : null);
 
   const ownership = {
-    pointer: (event: PointerEvent) => {
+    pointer: (event: PointerEvent, id: string | undefined) => {
       if (event.pointerType === "touch") return;
+      ownerId = id;
       setOwner(event.currentTarget instanceof HTMLElement ? event.currentTarget : undefined);
       pointer = { x: event.clientX, y: event.clientY };
     },
     focus: (event: FocusEvent, id: string | undefined) => {
       const current = event.currentTarget;
+      ownerId = id;
 
       setOwner(current instanceof HTMLElement ? (id ? current.ownerDocument.getElementById(id) : null) ?? current : undefined);
       pointer = undefined;
     },
   };
+
+  createEffect(() => {
+    if (!control.open()) return;
+    const watch = new MutationObserver(() => { if (!rect()) control.change({ open: false }); });
+
+    watch.observe(document.body, { childList: true, subtree: true });
+    onCleanup(() => watch.disconnect());
+  });
 
   return <Ownership.Provider value={ownership}><ArkTooltip.Root lazyMount unmountOnExit {...props}
     open={control.open()} disabled={props.disabled || control.blocked()}
@@ -53,7 +66,9 @@ export const Tooltip = {
     const tooltip = useTooltipContext();
     const [triggerProps] = splitProps(props, ["value"]);
 
-    return <ArkTooltip.Trigger {...props} onPointerMove={ownership?.pointer} onPointerOver={ownership?.pointer} onFocusIn={(event) => ownership?.focus(event, tooltip().getTriggerProps(triggerProps).id)} />;
+    const id = () => tooltip().getTriggerProps(triggerProps).id;
+
+    return <ArkTooltip.Trigger {...props} onPointerMove={(event) => ownership?.pointer(event, id())} onPointerOver={(event) => ownership?.pointer(event, id())} onFocusIn={(event) => ownership?.focus(event, id())} />;
   },
   Content: (props: ArkTooltip.ContentProps & { chord?: Chord | undefined }) => {
     const [local, rest] = splitProps(props, ["chord", "children", "class"]);

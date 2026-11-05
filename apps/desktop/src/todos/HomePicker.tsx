@@ -1,3 +1,4 @@
+import { anchorBox } from "../ui/anchorBox";
 import type { captureFocus } from "../keys/focus";
 import { For } from "solid-js";
 import type { Accessor } from "solid-js";
@@ -13,6 +14,8 @@ import type { Home } from "./homes";
 export const HomePicker = (props: {
   target: Accessor<{ id: number; anchor: HTMLElement; focus?: ReturnType<typeof captureFocus> } | null>;
   offers: Accessor<readonly Home[]>;
+  /** U6236b: the live row of a Todo whose element a re-render replaced. */
+  replacement?: (id: number | undefined) => HTMLElement | null | undefined;
   choose: (id: number, home: string | null) => void;
   close: () => void;
 }) => (
@@ -20,7 +23,7 @@ export const HomePicker = (props: {
     lazyMount
     unmountOnExit
     open={props.target() !== null && props.offers().length > 0}
-    positioning={{ placement: "bottom-start", getAnchorRect: () => props.target()?.anchor.getBoundingClientRect() ?? null }}
+    positioning={{ placement: "bottom-start", getAnchorRect: () => anchorBox(props.target()?.anchor, () => props.replacement?.(props.target()?.id)) }}
     onOpenChange={({ open }) => { if (!open) props.close(); }}
     onSelect={({ value }) => {
       const target = props.target();
