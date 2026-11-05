@@ -469,8 +469,10 @@ async fn fetch_receipt(url: &str) -> Result<Vec<u8>, String> {
         .take(LIMIT as u64 + 1)
         .read_to_end(&mut body)
         .await;
-    if body.len() > LIMIT {
-        return Err("the authoritative receipt exceeds 64 KiB".into());
+    let oversized = body.len() > LIMIT;
+    if oversized {
+        // Curl writes the status only after the body; let it finish (bounded by --max-time).
+        let _ = tokio::io::copy(&mut out, &mut tokio::io::sink()).await;
     }
     let mut tail = Vec::new();
     let _ = err.read_to_end(&mut tail).await;
@@ -482,16 +484,97 @@ async fn fetch_receipt(url: &str) -> Result<Vec<u8>, String> {
         .next()
         .unwrap_or("");
     let code: u16 = code.parse().unwrap_or(0);
+    if code != 0 && !(200..300).contains(&code) {
+        return Err(format!("the authoritative source returned HTTP {code}"));
+    }
+    if oversized && code != 0 {
+        return Err("the authoritative receipt exceeds 64 KiB".into());
+    }
+    // curl exit 18 (partial file) and 56 (receive failure): the reply began and stopped short.
+    let cut_short = status
+        .as_ref()
+        .is_ok_and(|s| matches!(s.code(), Some(18 | 56)));
+    if code != 0 && cut_short {
+        return Err("the authoritative receipt could not be read completely".into());
+    }
     if !status.is_ok_and(|s| s.success()) || code == 0 {
         return Err(
             "the authoritative source was unavailable or did not answer within five seconds".into(),
         );
     }
-    if !(200..300).contains(&code) {
-        return Err(format!("the authoritative source returned HTTP {code}"));
-    }
     if read.is_err() {
         return Err("the authoritative receipt could not be read completely".into());
     }
     Ok(body)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::fetch_receipt;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+    /// Serve one raw reply, then close (or hold open when `hold`).
+    async fn serve(reply: Vec<u8>, hold: bool) -> String {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let url = format!("http://{}/", listener.local_addr().unwrap());
+        tokio::spawn(async move {
+            let (mut sock, _) = listener.accept().await.unwrap();
+            let mut buf = [0u8; 1024];
+            let _ = sock.read(&mut buf).await;
+            let _ = sock.write_all(&reply).await;
+            if hold {
+                tokio::time::sleep(std::time::Duration::from_secs(30)).await;
+            }
+        });
+        url
+    }
+
+    fn reply(status: &str, declared: usize, body: &[u8]) -> Vec<u8> {
+        let mut r =
+            format!("HTTP/1.1 {status}\r\nContent-Length: {declared}\r\nConnection: close\r\n\r\n")
+                .into_bytes();
+        r.extend_from_slice(body);
+        r
+    }
+
+    #[tokio::test]
+    async fn u3078l_a_non_success_status_wins_over_an_oversized_body() {
+        let body = vec![b'x'; 70_000];
+        let url = serve(reply("503 Service Unavailable", body.len(), &body), false).await;
+        assert_eq!(
+            fetch_receipt(&url).await.unwrap_err(),
+            "the authoritative source returned HTTP 503"
+        );
+    }
+
+    #[tokio::test]
+    async fn u3078l_a_truncated_body_is_not_reported_as_unavailable() {
+        let url = serve(reply("200 OK", 1000, b"{\"a\":"), false).await;
+        assert_eq!(
+            fetch_receipt(&url).await.unwrap_err(),
+            "the authoritative receipt could not be read completely"
+        );
+    }
+
+    #[tokio::test]
+    async fn u3078l_other_failures_keep_their_causes() {
+        let body = vec![b'x'; 70_000];
+        let url = serve(reply("200 OK", body.len(), &body), false).await;
+        assert_eq!(
+            fetch_receipt(&url).await.unwrap_err(),
+            "the authoritative receipt exceeds 64 KiB"
+        );
+        let url = serve(reply("200 OK", 10, b"ab"), true).await;
+        assert_eq!(
+            fetch_receipt(&url).await.unwrap_err(),
+            "the authoritative source was unavailable or did not answer within five seconds"
+        );
+        let l = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let url = format!("http://{}/", l.local_addr().unwrap());
+        drop(l);
+        assert_eq!(
+            fetch_receipt(&url).await.unwrap_err(),
+            "the authoritative source was unavailable or did not answer within five seconds"
+        );
+    }
 }
