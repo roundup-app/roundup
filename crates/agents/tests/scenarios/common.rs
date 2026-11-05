@@ -16,7 +16,7 @@ use serde_json::{Value, json};
 use terminal::Terminals;
 use tokio::sync::broadcast::Receiver;
 
-const PATIENCE: Duration = Duration::from_secs(10);
+pub const PATIENCE: Duration = Duration::from_secs(10);
 
 pub struct Fixture {
     pub dir: tempfile::TempDir,
