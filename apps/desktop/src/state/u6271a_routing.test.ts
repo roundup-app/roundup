@@ -41,6 +41,23 @@ describe("u6271a_routing", () => {
       { text: "fix the  login ", workstream: "w2", project: undefined },
       { text: "start docs", workstream: undefined, project: "b" },
     ]);
-    expect(first_sent.map(({ text, workstream }) => ({ text, workstream }))).toEqual([{ text: "tidy", workstream: "w1" }]);
+    expect(first_sent.map(({ text, workstream, parts }) => ({ text, workstream, kind: parts?.[0]?.placement.kind }))).toEqual([
+      { text: "tidy", workstream: "w1", kind: undefined },
+      { text: "which?", workstream: undefined, kind: "unclear" },
+    ]);
+    expect(first_sent.map(sent => sent.submission)).toEqual(["s1:2", "s1:3"]);
+  });
+
+  it("u6271a_reconcile_finds_a_routed_ask_in_its_projects_door", async () => {
+    const first = createFakeApp();
+    const second = createFakeApp();
+    second.handlers["ask.list"] = () => [reply({ text: "x", submission: "s1:0" })];
+    first.handlers["ask.list"] = () => [];
+    const open = [{ name: "a", path: "/a" }, { name: "b", path: "/b" }];
+    const routing = { app: { forProject: (path: string) => (path === "/b" ? second : first) }, open: () => open };
+    const asks = createAsks(first, await connectEvents(first), undefined, routing);
+
+    expect((await asks.reconcile("s1")).kind).toBe("acknowledged");
+    expect((await asks.reconcile("s2")).kind).toBe("unknown");
   });
 });

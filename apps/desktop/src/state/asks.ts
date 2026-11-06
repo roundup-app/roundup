@@ -61,7 +61,8 @@ const placing = (text: string): AskPart => ({ text, placement: { kind: "unclear"
 /**
  * U6271a: sends each placed part to the Daemon of its own Project, in order, verbatim.
  * A `routed` part types into its Workstream; a `new` part fixes `project` so that Daemon starts the Workstream (A42).
- * A part naming no open Project goes to `active`; an `unclear` part has no destination and is not sent.
+ * An `unclear` part is stored `waiting` by `active` until `ask.pick` (A42); a part naming no open Project goes to `active`.
+ * Part `index` is sent as submission `<submission>:<index>`, so an equal retry replays the same Ask (A40).
  */
 export const sendPlaced = async (
   app: Pick<App, "forProject">,
@@ -75,9 +76,7 @@ export const sendPlaced = async (
   for (const [index, part] of parts.entries()) {
     const { placement } = part;
 
-    if (placement.kind === "unclear") continue;
-
-    const owner = open.find(project => project.name === placement.project);
+    const owner = placement.kind === "unclear" ? undefined : open.find(project => project.name === placement.project);
     const daemon = owner ? app.forProject(owner.path) : active;
     const id = `${submission}:${index}`;
 
@@ -205,7 +204,7 @@ export const createAsks = (app: AppSeam, events: Events, viewed?: { path: string
         let ask: Ask;
 
         if (routing && captured.parts?.length) {
-          // U6271a: a part with no destination is not sent; with none to send there is no acknowledgement.
+          // U6271a: every part reaches a Daemon; an empty list has nothing to acknowledge.
           const sent = await sendPlaced(routing.app, app, routing.open(), submission, captured.parts);
           const first = sent[0];
 
@@ -236,8 +235,11 @@ export const createAsks = (app: AppSeam, events: Events, viewed?: { path: string
 
     reconcile: async (submission) => {
       try {
-        const records = await app.rpc("ask.list", null);
-        const ask = records.find(ask => ask.submission === submission);
+        // Routed parts are stored as `<submission>:<index>` by the Daemon of each part's Project.
+        const own = (ask: Ask): boolean => ask.submission === submission || ask.submission.startsWith(`${submission}:`);
+        const doors = routing ? [app, ...routing.open().map(project => routing.app.forProject(project.path))] : [app];
+        const lists = await Promise.all(doors.map(door => door.rpc("ask.list", null)));
+        const ask = lists.flat().find(own);
 
         if (ask) {
           upsert(ask);
