@@ -162,22 +162,16 @@ const fixedSlots = (axis: "x" | "y", list: () => HTMLElement | undefined, depth:
     if (nearest !== slot && distance(slot) - distance(nearest) > STICKY_ROW_SHARE * lift.size) slot = nearest;
   };
 
-  /**
-   * How far each row at lift shows from its place now: the dragged row's centre, moved by the pointer, sits between two slots,
-   * and every other row stands that share of the way between its places for those two slots (the paper's `d.between`).
-   */
+  /** How far each row at lift shows from its place now: every other row stands on the whole slot the drop slot gives it, so no row rests between two places. */
   const pose = (): number[] | null => {
     if (!lift || !dragged || !pointer) return null;
     const { from } = dragged;
 
     if (far) return lift.starts.map(() => 0);
-    const centre = startOf(from, from) + lift.sizes[from]! / 2 + (axis === "x" ? pointer.x : pointer.y) - dragged.at + offset(lift.scroller) - lift.offset;
-    const slots = lift.starts.map((_, to) => startOf(from, to) + lift!.sizes[from]! / 2);
-    const k = Math.max(0, Math.min(slots.length - 2, slots.findLastIndex(at => at <= centre)));
-    const share = slots.length < 2 ? 0 : Math.max(0, Math.min(1, (centre - slots[k]!) / (slots[k + 1]! - slots[k]!)));
-    const a = shifts(from, k), b = shifts(from, Math.min(k + 1, slots.length - 1));
 
-    return a && b ? a.map((shift, index) => index === from ? 0 : shift + (b[index]! - shift) * share) : null;
+    const now = shifts(from, slot);
+
+    return now ? now.map((shift, index) => index === from ? 0 : shift) : null;
   };
 
   type Input = { droppable: Droppable; dragOperation: { source: Draggable | null; target: Droppable | null; activatorEvent: Event | null } };
@@ -721,13 +715,16 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
     stopPointer?.();
     lifted = source?.element?.parentNode ? { element: source.element, parent: source.element.parentNode, before: source.element.previousSibling } : null;
     let wasFar = false;
+    let wasSlot = -1;
 
     // The other rows follow the pointer; they slide only when the far zone flips.
     stopPointer = slots.begin(source, event.operation.position.initial, event.operation.position.current, pose => {
       const far = slots.isFar();
+      const at = slots.slot();
 
-      place(others(source).map(({ element, index }) => ({ element, shift: pose[index] ?? 0 })), far !== wasFar);
+      place(others(source).map(({ element, index }) => ({ element, shift: pose[index] ?? 0 })), far !== wasFar || at !== wasSlot);
       wasFar = far;
+      wasSlot = at;
       list?.setAttribute("data-sortable-index", String(slots.slot()));
     });
 
