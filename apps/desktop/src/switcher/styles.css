@@ -73,6 +73,11 @@
   justify-self: end;
 }
 
+/* U6249d: a failure's actions use the UI font, as the Rail's do. */
+.switcher .reserved-actions button {
+  font-family: var(--font-ui);
+}
+
 /* U4681: the destination dialog keeps the Project picker and other choices unchanged. */
 .switcher[role="dialog"] {
   padding: var(--space-3);
