@@ -472,3 +472,63 @@ fn a3507c_placement_extends_settings_without_tools() {
     }
     assert_eq!(std::fs::read_dir(empty).unwrap().count(), 0);
 }
+
+fn stream(id: &str, name: &str) -> contracts::agent::RailNode {
+    serde_json::from_value(serde_json::json!({
+        "id": id, "kind": "workstream", "name": name, "parent": null, "order": 0,
+        "status": null, "attempt": null, "status_revision": null,
+        "terminal_id": null, "worktree": null, "can_resume": false, "channel": null, "work": null, "stray": [], "model": null, "effort": null
+    }))
+    .expect("a Workstream node")
+}
+
+fn request_streams(request: &Request) -> Vec<(Option<String>, String)> {
+    serde_json::to_value(request).unwrap()["workstreams"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|each| {
+            (
+                each["project"].as_str().map(str::to_owned),
+                each["id"].as_str().unwrap().to_owned(),
+            )
+        })
+        .collect()
+}
+
+#[test]
+fn u6271a_a_request_holds_every_open_projects_workstreams() {
+    let request = Request::across(
+        "ship the docs".into(),
+        vec![],
+        vec![
+            (Some("alpha".into()), vec![stream("w1", "Build")]),
+            (Some("beta".into()), vec![stream("w2", "Docs")]),
+        ],
+        None,
+    );
+    assert_eq!(
+        request_streams(&request),
+        [
+            (Some("alpha".into()), "w1".into()),
+            (Some("beta".into()), "w2".into())
+        ]
+    );
+}
+
+#[test]
+fn u6271a_a_fixed_project_narrows_the_request() {
+    let request = Request::across(
+        "ship the docs".into(),
+        vec![],
+        vec![
+            (Some("alpha".into()), vec![stream("w1", "Build")]),
+            (Some("beta".into()), vec![stream("w2", "Docs")]),
+        ],
+        Some("beta"),
+    );
+    assert_eq!(
+        request_streams(&request),
+        [(Some("beta".into()), "w2".into())]
+    );
+}

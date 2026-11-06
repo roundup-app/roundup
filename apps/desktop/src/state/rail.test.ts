@@ -121,6 +121,26 @@ describe("u3 Rail state", () => {
     expect(rail.nodes.map((each) => each.id)).toEqual(["a", "b"]);
   });
 
+  it("u6243b_subscription_restart_rereads_the_rail", async () => {
+    const stale: RailNode = { ...workstream("ws"), workstream_state: "working" };
+    const fresh: RailNode = { ...workstream("ws"), workstream_state: "idle" };
+    const { app, rail } = await open([stale]);
+
+    // A restarted subscription (Daemon restart, App wake, socket reconnect) is a new connection: it reads the whole Rail before it applies an Event.
+    app.handlers["rail.tree"] = () => [fresh];
+    const restarted = createRailState(app, await connectEvents(app));
+    await restarted.settled();
+
+    expect(rail.nodes[0]?.workstream_state).toBe("working");
+    expect(restarted.nodes[0]?.workstream_state).toBe("idle");
+
+    app.emit(event({ name: "rail.changed" }));
+    app.emit(event({ name: "rail.changed" }));
+    await restarted.settled();
+
+    expect(restarted.nodes.map((each) => [each.id, each.workstream_state])).toEqual([["ws", "idle"]]);
+  });
+
   it("u3_agent_status_replaces_one_nodes_status", async () => {
     const { app, rail } = await open([node("a"), node("b")]);
 
