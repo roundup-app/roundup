@@ -151,6 +151,7 @@ const landed = {
   "make Workstream": base => [workstream("made", { order: 0 }), ...base.map(node => ({ ...node, parent: "made" }))],
 } satisfies Record<string, (base: RailNode[]) => RailNode[]>;
 
+/** U5991f: the Daemon's Event can come before the call's reply, after it, or not at all. */
 const arrivals = ["event before reply", "event after reply", "no event"] as const;
 
 // SAFETY: `Object.keys` of a literal returns exactly its keys.
