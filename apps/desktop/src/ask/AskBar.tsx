@@ -20,6 +20,8 @@ import { ASK_CLOSE, CHORDS, chordsFor } from "../keys/chords";
 import { modalOpen, modalOutside, registerKeys, type KeyScope } from "../keys/registry";
 import { useConnectedProject } from "../state/connectedProject";
 import { Combobox } from "../ui/Combobox";
+import { Select } from "../ui/Select";
+import { createProjectPick } from "./projectPick";
 import { Mentions } from "../ui/Mentions";
 import { KindGlyph, LABELS } from "../ink/KindGlyph";
 import { FailureLine, shownKind } from "../ink/FailureLine";
@@ -256,12 +258,22 @@ export const AskBar = (props: {
     { chords: ASK_CLOSE, run: () => { if (matching().length > 0) setDismissed(true); else close(true); } },
   ]);
 
+  const projectPick = createProjectPick({
+    place: value => asks.place(value),
+    projects: asks.projects,
+    active: connected.project.name,
+    text,
+    named: () => v.safeParse(v.string(), current()?.value.workstream).success,
+  });
+
   const send = async (): Promise<void> => {
     const value = text();
 
     if (value.trim() === "") return;
 
     const draft = current();
+    // Read before the submit makes the draft pending and empties the field.
+    const placement = projectPick.request();
 
     if (!draft || !(await drafts.submit(draft.revision))) return;
     setFailure(null);
@@ -269,6 +281,9 @@ export const AskBar = (props: {
     const request: AskSubmission = { text: value, submission: draft.revision };
 
     if (workstream.success) request.workstream = workstream.output;
+    else Object.assign(request, placement);
+
+    projectPick.clear();
     void asks.send(request).then((outcome) => {
       drafts.settle(draft.revision, outcome.kind === "refused" ? "failed" : outcome.kind);
 
@@ -346,6 +361,10 @@ export const AskBar = (props: {
             return <><KindGlyph decorative kind={shownKind(node()?.status, dismissed())} /><Tip text={item.label} cut={cut}>{trigger => <span {...trigger()} ref={name} class="app-mention-name">{item.label.slice(0, start())}<mark>{item.label.slice(start(), end())}</mark>{item.label.slice(end())}</span>}</Tip><Show when={parent()}>{name => <span class="app-mention-parent">{name()}</span>}</Show><Show when={!dismissed()}><FailureLine status={node()?.status} /></Show></>;
           }} /></Show>
         </Mentions.Root>
+        <Show when={projectPick.chips().length > 0}><div class="ask-choices ask-chips">
+          <For each={projectPick.chips()}>{chip => <Select label={projectPick.chips().length > 1 ? copy.askProjectOf(chip.text) : copy.askProject} value={chip.project}
+            choices={asks.projects().map(project => ({ value: project.name, label: project.name }))} onValueChange={projectPick.pick} />}</For>
+        </div></Show>
         <ReservedLine overlay class="ask-send-status" message={problem() ? copy.draftRetention(connected.project.name, copy.draftSurface("ask"), problem()!.cause) : failure()?.message ?? (records().some(draft => draft.status === "unknown") ? null : asks.failure())}
           status={records().some(draft => draft.status === "unknown") ? copy.askUnknownState : null}>
         <For each={records().filter(draft => draft.status === "unknown").map(draft => draft.revision)}>{revision => {

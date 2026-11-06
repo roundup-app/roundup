@@ -22,6 +22,7 @@ import { Layout } from "./app/Layout";
 import { Tabs } from "./ui/Tabs";
 import { Reopen } from "./app/Reopen";
 import { createDropTargets } from "./app/dropTargets";
+import type { RailNode } from "@contracts/agent/RailNode";
 import type { Requested } from "@contracts/project/Requested";
 import type { App as AppCalls, NativeOpen, DaemonExit, MenuItem, ActionRequest, ActionReply, Project } from "./app/seam";
 import { DrawerHost } from "./drawer/DrawerHost";
@@ -114,6 +115,9 @@ const Connection = (props: {
   show: () => void;
   /** U6271a: every open Project, so a placed part reaches its own Daemon. */
   open: () => readonly Project[];
+  /** U6271c: another Project's Rail nodes, and showing it with one of its Workstreams selected. */
+  nodes: (path: string) => readonly RailNode[];
+  openIn: (path: string, workstream: string) => void;
 }) => {
   const first = props.tab();
 
@@ -137,7 +141,7 @@ const Connection = (props: {
       const next = await connectProject({ ...calls, serveActions: async (answer, invalidated) => {
         await calls.serveActions?.(request => (request.method === "project.open" || request.method === "project.start")
           ? props.onOpen(request, captured.signal) : answer(request), () => { captured.abort(); invalidated?.(); });
-      } }, first.project, props.reducedMotion, props.now, () => props.tab()?.generation === generation ? props.tab()?.exit ?? null : { code: null, recovery: "connecting" }, railStorage(path), props.drafts(path), props.viewing, props.clock, { app: props.app, open: props.open });
+      } }, first.project, props.reducedMotion, props.now, () => props.tab()?.generation === generation ? props.tab()?.exit ?? null : { code: null, recovery: "connecting" }, railStorage(path), props.drafts(path), props.viewing, props.clock, { app: props.app, open: props.open, nodes: props.nodes, show: props.openIn });
 
       if (props.tab()?.generation !== generation) {
         next.stopTerminalScheme();
@@ -694,7 +698,7 @@ export const App = (props: {
   return (
     <ReducedMotionContext.Provider value={props.reducedMotion}><DisplayClockContext.Provider value={now.subscribe}><ProjectDraftsContext.Provider value={drafts}><Show when={projects.loaded()}>
       <For each={keys()}>
-        {(key) => <Connection drafts={drafts} app={dropTargets.app} tab={tabOf(key)} reducedMotion={props.reducedMotion} now={pollingNow} clock={props.clock} onConnected={connect} onRecovered={projects.connected} onRequested={answer} onOpen={opening.answer} toasts={toasts} alerts={alerts} projectAlerts={() => projectAlerts.level(key)} active={() => projects.active() === key} viewing={() => projects.active() === key && visible() && focus() === "focused" && !settingsOpen()} show={() => projects.select(key)} open={() => projects.tabs().map(tab => tab.project)} />}
+        {(key) => <Connection drafts={drafts} app={dropTargets.app} tab={tabOf(key)} reducedMotion={props.reducedMotion} now={pollingNow} clock={props.clock} onConnected={connect} onRecovered={projects.connected} onRequested={answer} onOpen={opening.answer} toasts={toasts} alerts={alerts} projectAlerts={() => projectAlerts.level(key)} active={() => projects.active() === key} viewing={() => projects.active() === key && visible() && focus() === "focused" && !settingsOpen()} show={() => projects.select(key)} open={() => projects.tabs().map(tab => tab.project)} nodes={path => railOf(path)?.nodes ?? []} openIn={(path, workstream) => { projects.select(path); railOf(path)?.select(workstream, "open"); }} />}
       </For>
       <ProjectOpening opening={opening} />
       <DockBadge app={props.app} rails={() => [...connections()].flatMap(([path, connection]) => (connection instanceof Error ? [] : [{ alerts: projectAlerts.level(path), nodes: attentionHolders(connection.rail.nodes, connection.rail.terminals(), connection.rail.dismissed) }]))} onFailure={setBadgeFailure} />

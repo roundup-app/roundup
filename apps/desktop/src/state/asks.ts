@@ -5,6 +5,7 @@ import type { Target } from "@contracts/ask/Target";
 import { outcomeOf, RpcError, type App, type AppSeam, type Project } from "../app/seam";
 import type { SendParams } from "@contracts/ask/SendParams";
 import type { PlacedPart } from "@contracts/ask/PlacedPart";
+import type { RailNode } from "@contracts/agent/RailNode";
 import type { Events } from "../app/events";
 import * as v from "valibot";
 import { storageSchema, storedValue } from "./storage";
@@ -38,6 +39,12 @@ export type AsksState = {
   send(request: AskSubmission): Promise<AskOutcome>;
   /** Read-only authoritative acceptance lookup. Absence cannot prove refusal of an in-flight request. */
   reconcile(submission: string): Promise<AskOutcome>;
+  /** U6271b: the open Projects a part can go to; fewer than two means the chip is not shown. */
+  projects(): readonly Project[];
+  /** U6271b: one `ask.place` call over every open Project's Workstreams; stores no Ask. */
+  place(text: string): Promise<readonly PlacedPart[]>;
+  /** U6271c: the Project a part went to and how to reach its Workstreams; `null` with fewer than two open Projects. */
+  destination(entry: AskEntry, index: number): AskDestination | null;
   /** U506: `ask.pick` for one part; resolves with the failure message or `null`. */
   pick(id: string, part: number, target: Target): Promise<string | null>;
   picking(id: string, part: number): boolean;
@@ -54,6 +61,9 @@ export type AsksState = {
   /** P3557c: clears exactly this failure; no RPC, no Ask change, no draft touched. */
   dismiss(failure: AskFailure): void;
 };
+
+/** U6271c: where a part went; `local` is the Project this Ask list belongs to. */
+export type AskDestination = { project: Project; local: boolean; nodes(): readonly RailNode[]; open(id: string): void };
 
 /** The part an Ask holds until the Daemon's answer replaces it (A40). */
 const placing = (text: string): AskPart => ({ text, placement: { kind: "unclear", question: "", candidates: [] }, state: "placing" });
@@ -102,7 +112,14 @@ const partKey = (entry: Pick<AskEntry, "key" | "parts">, index: number): string 
 };
 
 /** Where placed parts go: each to the Daemon of the open Project it names. */
-export type AskRouting = { app: Pick<App, "forProject">; open(): readonly Project[] };
+export type AskRouting = {
+  app: Pick<App, "forProject">;
+  open(): readonly Project[];
+  /** U6271c: a Project's Rail nodes; empty while it is not connected. */
+  nodes?(path: string): readonly RailNode[];
+  /** U6271c: shows that Project, then selects the Workstream in it. */
+  show?(path: string, workstream: string): void;
+};
 
 export const createAsks = (app: AppSeam, events: Events, viewed?: { path: string; target(): string | null }, routing?: AskRouting): AsksState => {
   const storage = storedValue(`roundup:ask-acknowledged:${viewed?.path ?? ""}`, acknowledgedSchema);
@@ -212,7 +229,9 @@ export const createAsks = (app: AppSeam, events: Events, viewed?: { path: string
           sent.forEach(upsert);
           ask = first;
         } else {
-          ask = await app.rpc("ask.send", captured);
+          // U6271b: a fixed Project is placed within by the Daemon that owns it.
+          const owner = routing && captured.project ? routing.open().find(project => project.name === captured.project) : undefined;
+          ask = await (owner ? routing!.app.forProject(owner.path) : app).rpc("ask.send", captured);
           upsert(ask);
         }
 
@@ -252,6 +271,45 @@ export const createAsks = (app: AppSeam, events: Events, viewed?: { path: string
       } catch (error) {
         return { kind: "unknown", submission, message: error instanceof Error ? error.message : String(error) };
       }
+    },
+
+    projects: () => routing?.open() ?? [],
+
+    place: async (text) => {
+      const open = routing?.open() ?? [];
+      const projects = await Promise.all(open.map(async project => ({ name: project.name, tree: await routing!.app.forProject(project.path).rpc("rail.tree", null) })));
+
+      return app.rpc("ask.place", { text, projects });
+    },
+
+    destination: (entry, index) => {
+      const open = routing?.open() ?? [];
+      const placement = entry.parts[index]?.placement;
+
+      if (!routing || open.length < 2 || !placement) return null;
+
+      const named = placement.kind === "unclear" ? undefined : open.find(project => project.name === placement.project);
+      const project = named ?? open.find(each => each.path === viewed?.path);
+
+      if (!project) return null;
+
+      const local = project.path === viewed?.path;
+
+      return {
+        project,
+        local,
+        nodes: () => routing.nodes?.(project.path) ?? [],
+        open: (id) => {
+          routing.show?.(project.path, id);
+          const key = partKey(entry, index);
+
+          if (!acknowledged().includes(key) && entry.parts[index]?.state === "typed") {
+            const next = [...acknowledged(), key];
+            setAcknowledged(next);
+            void storage.write(next);
+          }
+        },
+      };
     },
 
     pick: async (id, part, target) => {
