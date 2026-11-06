@@ -4,14 +4,12 @@
     {"path": "crates/rup/tests/a34.rs", "ceiling": 1079, "reason": "Historical hand-written file; freeze its measured ceiling rather than split unrelated code in a lint rollout."},
 
     {"path": "crates/rup/tests/e2e.rs", "ceiling": 3004, "reason": "Historical hand-written file; freeze its measured ceiling rather than split unrelated code in a lint rollout."},
-    {"path": "crates/rupd/src/queue.rs", "ceiling": 1030, "reason": "Historical hand-written file; freeze its measured ceiling rather than split unrelated code in a lint rollout."},
     {"path": "loop/builder.py", "ceiling": 1450, "reason": "Historical hand-written file; freeze its measured ceiling rather than split unrelated code in a lint rollout."},
     {"path": "loop/builder.test.py", "ceiling": 1656, "reason": "Historical hand-written file; freeze its measured ceiling rather than split unrelated code in a lint rollout."},
     {"path": "proofs/messages/PROOF.bend", "ceiling": 1630, "reason": "Historical hand-written file; freeze its measured ceiling rather than split unrelated code in a lint rollout."}
   ],
   "ast": [
     {"rule": "sleep-poll", "path": "crates/rup/tests/e2e.rs", "source": "tokio::time::sleep(Duration::from_millis(300))", "detail": "", "occurrence": 1, "location": "1002:9", "reason": "Existing observation wait in a test; changing its synchronization is outside the lint rollout."},
-    {"rule": "sleep-poll", "path": "crates/rupd/src/queue.rs", "source": "tokio::time::sleep(std::time::Duration::from_millis(20))", "detail": "", "occurrence": 1, "location": "1022:17", "reason": "Existing native/vendor observation wait; preserve behavior during the lint rollout."},
     {"rule": "sleep-poll", "path": "crates/rupd/src/vendor_list_tests.rs", "source": "tokio::time::sleep(std::time::Duration::from_millis(50))", "detail": "", "occurrence": 1, "location": "103:9", "reason": "Existing observation wait in a test; changing its synchronization is outside the lint rollout."},
     {"rule": "sleep-poll", "path": "crates/rup/tests/relaunch.rs", "source": "tokio::time::sleep(Duration::from_millis(10))", "detail": "", "occurrence": 1, "location": "104:13", "reason": "Existing observation wait in a test; changing its synchronization is outside the lint rollout."},
     {"rule": "sleep-poll", "path": "crates/perf/src/keystroke.rs", "source": "tokio::time::sleep(Duration::from_millis(50))", "detail": "", "occurrence": 1, "location": "105:21", "reason": "Existing performance sampling cadence; retain the current measurement."},

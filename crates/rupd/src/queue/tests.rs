@@ -87,8 +87,7 @@ async fn start(daemon: &Daemon, id: u32, start: Value) -> Result<Value, RpcError
 }
 
 async fn queue(daemon: &Daemon) -> QueueState {
-    serde_json::from_value(call(daemon, "workstream.queue", Value::Null).await.unwrap())
-        .unwrap()
+    serde_json::from_value(call(daemon, "workstream.queue", Value::Null).await.unwrap()).unwrap()
 }
 
 fn changes(daemon: &Daemon) -> impl FnMut() -> usize + use<> {
@@ -579,6 +578,7 @@ async fn a3196_a_done_todo_wakes_the_watcher_and_its_entry_starts() {
     let daemon = watched(project.path());
     let gate = todo(&daemon, "gate", "").await;
     let ids = queued(&daemon, &[Some(gate)]).await;
+    let mut events = daemon.bus.subscribe();
     call(&daemon, "todo.complete", json!({"id": gate}))
         .await
         .unwrap();
@@ -593,7 +593,13 @@ async fn a3196_a_done_todo_wakes_the_watcher_and_its_entry_starts() {
             if started {
                 break;
             }
-            tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+            while !matches!(
+                events.recv().await.map(|e| e.data),
+                Ok(EventData::RailChanged
+                    | EventData::AgentStatus(_)
+                    | EventData::WorkstreamQueueChanged)
+                    | Err(tokio::sync::broadcast::error::RecvError::Lagged(_))
+            ) {}
         }
     })
     .await
