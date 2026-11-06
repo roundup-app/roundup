@@ -608,7 +608,7 @@ pub(super) fn channel_in(
 }
 
 /// `name` when it is a whole number of milliseconds, else `default`.
-fn bound_from_env(name: &str, default: Duration) -> Duration {
+pub(super) fn bound_from_env(name: &str, default: Duration) -> Duration {
     match std::env::var(name) {
         Ok(ms) => ms.parse().map(Duration::from_millis).unwrap_or_else(|_| {
             eprintln!("agents: {name}={ms:?} is not milliseconds; ignored");

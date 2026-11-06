@@ -31,12 +31,18 @@ pub(crate) struct Resume {
     running: bool,
 }
 
+/// The first wait, 1 min; `ROUNDUP_RESUME_DELAY_MS` shortens it for the real-Claude observer.
+fn first_wait() -> Duration {
+    super::events::bound_from_env("ROUNDUP_RESUME_DELAY_MS", Duration::from_secs(60))
+}
+
 /// How long after `now` resume number `sent` (from 0) waits: 1, 4, 16 min, full jitter, capped.
 fn delay_ms(sent: usize, now: i64) -> i64 {
+    let first = first_wait();
     ExponentialBuilder::default()
-        .with_min_delay(Duration::from_secs(60))
+        .with_min_delay(first)
         .with_factor(4.0)
-        .with_max_delay(Duration::from_secs(16 * 60))
+        .with_max_delay(first * 16)
         .with_max_times(RESUMES)
         .with_jitter()
         .with_jitter_seed(now as u64)
@@ -100,6 +106,11 @@ pub(crate) fn fold(
     }
 }
 
+/// A Message reached `id` while its resume waits: the remaining resumes are cancelled.
+pub(crate) fn cancel(table: &mut HashMap<String, Resume>, id: &str) -> bool {
+    table.remove(id).is_some()
+}
+
 /// Marks every resume due at `now` as sent and names its Agent. A resume never fires while its
 /// turn runs.
 pub(crate) fn take_due(table: &mut HashMap<String, Resume>, now: i64) -> Vec<String> {
@@ -136,6 +147,17 @@ impl Agents {
                 .emit(Actor::daemon(), EventData::RailChanged);
         }
         due
+    }
+
+    /// U6248b: a Message other than the resume itself reached `id`; its remaining resumes are
+    /// cancelled.
+    pub fn cancel_resume(&self, id: &str) {
+        let moved = cancel(&mut self.shared.resumes.lock().expect("resumes lock"), id);
+        if moved {
+            self.shared
+                .bus
+                .emit(Actor::daemon(), EventData::RailChanged);
+        }
     }
 
     /// U6248b: how long until the earliest waiting resume is due, on the Agents' clock.
@@ -199,6 +221,16 @@ mod tests {
             Kind::Error,
             "Claude is overloaded; wait, then send a message to retry.",
         )
+    }
+
+    #[test]
+    fn u6248b_a_message_cancels_the_rest() {
+        let mut table = HashMap::new();
+        fold(&mut table, "a", &overloaded(), 0);
+        let first = table["a"].at.expect("waiting");
+        assert!(cancel(&mut table, "a"));
+        assert!(take_due(&mut table, first).is_empty());
+        assert!(!cancel(&mut table, "a"));
     }
 
     #[test]

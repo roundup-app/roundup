@@ -5,7 +5,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use contracts::{Actor, Event};
+use contracts::{Actor, Event, EventData};
 use tokio::sync::broadcast::{Receiver, error::RecvError};
 
 use crate::digest::Reader;
@@ -35,6 +35,9 @@ pub async fn resume_turns(
             .unwrap_or(Duration::from_secs(3600));
         tokio::select! {
             event = events.recv() => match event {
+                Ok(Event { data: EventData::MessageSent(m), .. }) if m.body != agents::RESUME_BODY => {
+                    agents.cancel_resume(&m.to);
+                }
                 Ok(_) | Err(RecvError::Lagged(_)) => {}
                 Err(RecvError::Closed) => return,
             },
