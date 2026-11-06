@@ -18,7 +18,7 @@ export const copy = {
   cantReach: (agent: string, cause: string) => `can't reach ${agent}: ${cause}`,
   /** U6248c: the cause and the local clock time the Daemon resumes the Agent at. */
   resumesAt: (cause: string, at: number) => `${cause} · resumes ${new Date(at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false })}`,
-  retryMessage: (agent: string) => `Retry ${agent}`,
+  resumeAgent: (agent: string) => `Resume ${agent}`,
   openUnreachable: () => sharedCopy.openDraft,
   retryUnreachable: () => sharedCopy.retryDoor,
   startedBy: (agent: string, project: string) => `by ${agent} (${project})`,
