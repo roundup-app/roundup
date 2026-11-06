@@ -786,18 +786,7 @@
 .rail-row .failure-line {
   padding-inline-start: var(--length-zero);
   overflow-wrap: anywhere;
-  color: var(--grey);
-  animation: rail-failure-arrive var(--duration-reduced) var(--easing-out);
 }
-
-/* U6249d: the glyph is the only red on a shown failure; the line fades in over 150 ms, leaves at once and never animates height. Reduced motion keeps the fade. */
-.rail-row .failure-line::before {
-  content: "✕";
-  color: var(--red);
-  margin-inline-end: var(--space-1);
-}
-
-@keyframes rail-failure-arrive { from { opacity: 0; } }
 
 /* The idle branch uses the same Token columns as ordinary Rail rows. */
 .rail-fold-content {

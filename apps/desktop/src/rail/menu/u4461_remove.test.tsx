@@ -96,19 +96,19 @@ it("u4461_a_failed_removal_shows_the_message", async () => {
   expect(rowOf("chosen")).toBeTruthy();
 });
 
-it("u4461_a_failed_native_question_authorizes_nothing_and_retries", async () => {
+it("u4461_a_failed_native_question_authorizes_nothing_and_asks_in_the_app", async () => {
   const { app } = await mountRail([workstream("chosen"), agent("running", "working", "busy", { parent: "chosen" })], [info("live-shell", { owner: "chosen" })]);
   app.questionFailure = new RpcError(-32603, "Alert unavailable; retry");
   fireEvent.contextMenu(rowOf("chosen"));
   await app.pickMenu("Remove");
-  await screen.findByText("Alert unavailable; retry");
+  const keep = await screen.findByRole("button", { name: "Keep" });
+  // The native alert is not replayed; the user answers the same question in the App.
+  expect(app.removalQuestions).toHaveLength(1);
   expect(railCallsTo(app, "rail.remove")).toEqual([]);
-  app.questionFailure = null;
-  fireEvent.click(screen.getByRole("button", { name: "Retry" }));
-  await waitFor(() => expect(app.removalQuestions).toHaveLength(2));
-  app.answerRemoval!("cancel");
+  fireEvent.click(keep);
   await waitFor(() => expect(document.activeElement).toBe(rowOf("chosen")));
   expect(railCallsTo(app, "rail.remove")).toEqual([]);
+  expect(app.removalQuestions).toHaveLength(1);
 });
 
 it.each([

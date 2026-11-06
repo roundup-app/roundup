@@ -2,16 +2,34 @@
   margin: 0;
   padding-inline-start: var(--indent, var(--space-3));
   font-size: var(--text-small);
-  color: var(--red);
+  color: var(--grey);
   overflow-wrap: anywhere;
 }
 
-.failure-line {
-  display: block;
+/* U6249d: a shown failure is calm. The glyph is the only red, the cause is one grey line, and the raw message sits in its tooltip. The line fades in over 150 ms and leaves at once. */
+.failure-line::before {
+  content: "✕";
+  color: var(--red);
+  margin-inline-end: var(--space-1);
 }
 
-.failure-line.dismissed {
+.failure-line,
+.ink[data-kind="error"] {
+  animation: failure-arrive var(--duration-reduced) var(--easing-out);
+}
+
+.ink[data-kind="error"]:not(button) {
   color: var(--grey);
+}
+
+.ink[data-kind="error"] .icon {
+  color: var(--red);
+}
+
+@keyframes failure-arrive { from { opacity: 0; } }
+
+.failure-line {
+  display: block;
 }
 
 .overview-entry {

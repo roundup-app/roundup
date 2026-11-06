@@ -15,6 +15,7 @@ export const storageCopy = {
   incompatible: sharedCopy.storageIncompatible,
   restoring: "Restoring saved work…",
   restoreRetry: sharedCopy.retry,
+  deleteSaved: "Delete saved data",
   saveRetry: "Retry saving",
   /** @prose */
   failure: (problems: readonly { key: string; cause: string }[]) => {

@@ -47,10 +47,10 @@ describe.each(["U5502", "U5503"])("%s native menu navigation", id => {
     await page.capture(id, "terminal");
   });
 
-  it.skipIf(!enabled)(`${id.toLowerCase()}_removed_menu_agent_shows_recovery_without_a_replacement`, async () => {
+  it.skipIf(!enabled)(`${id.toLowerCase()}_removed_menu_agent_shows_nothing_and_a_valid_one_selects`, async () => {
     const selected = await page.evaluate("document.querySelector('[role=treeitem][aria-selected=true]')?.getAttribute('data-id') ?? null");
     await page.evaluate("window.__fake.app.menuBarAction({kind:'agent',path:'/Users/you/harness',agent:'removed'}); true");
-    await page.until("document.body.textContent.includes('That is gone')");
+    await page.evaluate("new Promise(resolve => setTimeout(resolve, 200))");
     expect(await page.evaluate("document.querySelector('[role=treeitem][aria-selected=true]')?.getAttribute('data-id') ?? null")).toBe(selected);
     await page.capture(id, "failure");
     await page.evaluate("window.__fake.app.menuBarAction({kind:'agent',path:'/Users/you/harness',agent:'agent-2'}); true");

@@ -19,6 +19,7 @@ export const copy = {
   /** U6248c: the cause and the local clock time the Daemon resumes the Agent at. */
   resumesAt: (cause: string, at: number) => `${cause} · resumes ${new Date(at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false })}`,
   resumeAgent: (agent: string) => `Resume ${agent}`,
+  openTerminal: "Open Terminal",
   openUnreachable: () => sharedCopy.openDraft,
   retryUnreachable: () => sharedCopy.retryDoor,
   startedBy: (agent: string, project: string) => `by ${agent} (${project})`,
