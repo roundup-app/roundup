@@ -74,7 +74,7 @@
 }
 
 /* U6249d: a failure's actions use the UI font, as the Rail's do. */
-.switcher .reserved-actions button {
+.switcher [data-button="quiet"] {
   font-family: var(--font-ui);
 }
 
