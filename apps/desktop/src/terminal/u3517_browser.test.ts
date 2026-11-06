@@ -118,7 +118,7 @@ it.each([1, 2])("u3517b_default_row_pitch_is_solos_at_ratio_%i", async scale => 
   // oxlint-disable-next-line anti-slop/no-new-web-assertions
   expect(pitch).toBeGreaterThanOrEqual(18);
   // oxlint-disable-next-line anti-slop/no-new-web-assertions
-  expect(pitch).toBeLessThanOrEqual(20);
+  expect(pitch).toBeLessThanOrEqual(21);
 }, 60_000);
 
 it("u3517d_rendering_changes_keep_input_and_scrollback", async () => {

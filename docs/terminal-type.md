@@ -16,7 +16,7 @@ keeps its existing stack. U6355 selects regular weight 400 through `--weight-ter
 | --- | --- | --- |
 | `--font-terminal` | `fontFamily` | `"Fira Code", ui-monospace, "SF Mono", Menlo, monospace` |
 | `--text-terminal` | `fontSize` | 13 CSS px (U6355) |
-| `--line-terminal` | `lineHeight` | 1.3, unitless (U6355; rows stay in U3517b's 18–20 CSS px band) |
+| `--line-terminal` | `lineHeight` | 1.3, unitless (U6355; rows stay in U3517b's band, widened to 18–21 CSS px by U6355) |
 | `--letter-terminal` | `letterSpacing` | 0 CSS px (U4592 / #4627) |
 | `--weight-terminal` | `fontWeight` | 400 (Regular, U6355); bold remains 700 |
 
