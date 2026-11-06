@@ -219,7 +219,6 @@ export const copy = {
   copy: "Copy",
   comma: ", ",
   unreadResult: "Unread result",
-  needYou: (count: number) => `${count} ${count === 1 ? "needs" : "need"} you`,
   moveTo: "Move to…",
   inlineCodeAction: "Inline code",
 } as const;
