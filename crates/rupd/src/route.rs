@@ -319,7 +319,7 @@ mod tests {
     use std::sync::Mutex;
 
     #[test]
-    fn z6395a_one_table_decides_which_methods_take_the_caller_identity() {
+    fn z6395a_one_table_decides_which_methods_take_the_process_identity() {
         for method in [
             "terminal.catchUp",
             "todo.delete",
