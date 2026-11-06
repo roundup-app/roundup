@@ -32,7 +32,7 @@ export type SpawnParams = {
 	 */
 	order?: agent$Order.Order,
 	/**
-	 *  A28: the child's Rail name, at most 32 characters; A9 never renames it. Name the child after
+	 *  A28: the child's Rail name, at most 42 characters; A9 never renames it. Name the child after
 	 *  its task. Without one, A9 names it from its first prompt.
 	 */
 	name?: string,

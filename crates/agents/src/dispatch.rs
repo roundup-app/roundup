@@ -522,7 +522,7 @@ impl Agents {
             if name.chars().count() > name::MAX_CHARS {
                 return Err(RpcError::new(
                     code::INVALID_PARAMS,
-                    "name is longer than 42 characters",
+                    format!("name is longer than {} characters", name::MAX_CHARS),
                 ));
             }
             let node = {

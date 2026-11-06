@@ -127,7 +127,7 @@ async fn a4688a_off_consumes_the_first_prompt_across_running_and_future_agents()
     }
     let fresh = spawn(&b, None).await;
     submit(&b, &fresh, "Fix the refresh race in token.ts").await;
-    assert_eq!(name(&b, &fresh).await, "fix-refresh-race");
+    assert_eq!(name(&b, &fresh).await, "Fix Refresh Race");
     a.stop_terminals().await.unwrap();
     b.stop_terminals().await.unwrap();
 }
@@ -181,4 +181,33 @@ async fn a4688a_agents_cannot_change_global_naming_preferences() {
     assert_eq!(error.code, code::FORBIDDEN);
     let saved = call(&daemon, "daemon.getNaming", Value::Null).await;
     assert_eq!(saved["result"]["automaticRenaming"], true);
+}
+
+#[tokio::test]
+async fn u6380a_a_fresh_guide_is_title_case_and_the_old_default_reads_as_it() {
+    let root = tempfile::tempdir().unwrap();
+    let daemon = daemon_in(root.path());
+    let new = "Use distinguishable meaningful name in title-case; at most 42 characters.";
+    let fresh = call(&daemon, "daemon.getNaming", Value::Null).await;
+    assert_eq!(fresh["result"]["namingGuide"], new);
+
+    let old = contracts::project::NamingSettings::OLD_DEFAULT_GUIDE;
+    let saved = call(
+        &daemon,
+        "daemon.setNaming",
+        json!({"automaticRenaming":true,"namingGuide":old}),
+    )
+    .await;
+    assert!(saved.get("error").is_none(), "{saved}");
+    let read = call(&daemon, "daemon.getNaming", Value::Null).await;
+    assert_eq!(read["result"]["namingGuide"], new);
+
+    call(
+        &daemon,
+        "daemon.setNaming",
+        json!({"automaticRenaming":true,"namingGuide":"Mine"}),
+    )
+    .await;
+    let kept = call(&daemon, "daemon.getNaming", Value::Null).await;
+    assert_eq!(kept["result"]["namingGuide"], "Mine");
 }

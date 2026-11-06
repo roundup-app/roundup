@@ -1,6 +1,7 @@
 //! A9 a first prompt names its Agent.
 
 use contracts::agent::RailNode;
+use rpc::Module;
 use serde_json::json;
 
 use crate::common::{Fixture, hold_starts, release};
@@ -78,14 +79,90 @@ async fn a9_a_rename_before_the_first_prompt_wins() {
 }
 
 #[tokio::test]
-async fn a9_a_door_keeps_its_workstreams_name() {
-    let f = Fixture::running("sleep 30");
-    let team = f.workstream("team", None).await;
+async fn u6380b_a_door_names_its_workstream() {
+    let mut f = Fixture::running("sleep 30");
+    let team = f.workstream("New Workstream", None).await;
     f.call("rail.startDoor", json!({"id": team})).await.unwrap();
+    f.changed();
 
-    f.submit(&team, "fix the build").await;
+    f.submit(&team, "Fix the refresh race in token.ts").await;
+    assert_eq!(f.name_of(&team).await, "Fix Refresh Race");
+    assert_eq!(f.changed(), 1);
 
-    assert_eq!(f.name_of(&team).await, "team");
+    f.submit(&team, "now write the docs").await;
+    assert_eq!(f.name_of(&team).await, "Fix Refresh Race");
+    assert_eq!(f.changed(), 0);
+
+    let named = f.workstream("team", None).await;
+    f.call("rail.startDoor", json!({"id": named}))
+        .await
+        .unwrap();
+    f.submit(&named, "fix the build").await;
+    assert_eq!(f.name_of(&named).await, "team");
+}
+
+#[tokio::test]
+async fn u6380a_names_are_title_case_within_42() {
+    let f = Fixture::running("sleep 30");
+    let ok = f.spawn_named(Some(&"a".repeat(42)), None).await.unwrap();
+    assert_eq!(ok.name.chars().count(), 42);
+    let err = f
+        .spawn_named(Some(&"a".repeat(43)), None)
+        .await
+        .unwrap_err();
+    assert_eq!(err.code, rpc::code::INVALID_PARAMS);
+    let taken = f.spawn_named(Some(&"a".repeat(42)), None).await.unwrap();
+    assert_eq!(taken.name, format!("{} 2", "a".repeat(40)));
+    let a = f.spawn(None, None).await.unwrap();
+    assert_eq!(a.name, "New Agent");
+    let rename = f
+        .call("rail.rename", json!({"id": a.id, "name": "b".repeat(43)}))
+        .await
+        .unwrap_err();
+    assert_eq!(rename.code, rpc::code::INVALID_PARAMS);
+}
+
+#[tokio::test]
+async fn u6380c_a_user_named_row_keeps_its_name() {
+    let mut f = Fixture::running("sleep 30");
+    let node = f.spawn(None, None).await.unwrap();
+    f.call("rail.rename", json!({"id": node.id, "name": "Mine"}))
+        .await
+        .unwrap();
+    f.changed();
+
+    let mut ctx = f.ctx();
+    ctx.actor = contracts::Actor {
+        kind: contracts::ActorKind::Agent,
+        id: node.id.clone(),
+        parent: None,
+    };
+    let err = f
+        .agents
+        .call(
+            &ctx,
+            "rail.rename",
+            json!({"id": node.id, "name": "Theirs"}),
+        )
+        .await
+        .unwrap_err();
+    assert_eq!(err.code, rpc::code::FORBIDDEN);
+    assert_eq!(err.message, "the user named this row; keep its name");
+    f.submit(&node.id, "fix the build").await;
+    assert_eq!(f.name_of(&node.id).await, "Mine");
+    assert_eq!(f.changed(), 0);
+
+    f.call("rail.rename", json!({"id": node.id, "name": "Again"}))
+        .await
+        .unwrap();
+    let f = f.reopen();
+    let err = f
+        .agents
+        .call(&ctx, "rail.rename", json!({"id": node.id, "name": "X"}))
+        .await
+        .unwrap_err();
+    assert_eq!(err.code, rpc::code::FORBIDDEN);
+    assert_eq!(f.name_of(&node.id).await, "Again");
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
