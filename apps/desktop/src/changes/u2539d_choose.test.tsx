@@ -66,7 +66,7 @@ describe("U2539d", () => {
   it("u2539d_a_failed_open_shows_one_failure_line", async () => {
     const { app } = await open();
 
-    app.editorFailure = new RpcError(-32001, "no code editor found; choose one in Settings");
+    app.editorFailure = new RpcError(-32001, "no code editor found; install VS Code, Cursor or Zed, or set ROUNDUP_EDITOR");
     fireEvent.dblClick(row("src/a.ts")!, { composed: true });
 
     expect((await screen.findByRole("alert")).textContent).toContain("no code editor found");
