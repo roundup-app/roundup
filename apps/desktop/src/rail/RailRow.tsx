@@ -140,8 +140,8 @@ export const RailRowView = (props: {
 
   const kind = (): Kind | null => rowKind(props.topology, props.row.node, node => connected.rail.dismissed(node), isContainer() && props.row.collapsed !== null);
 
-  /** DCL1: the first Agent, the row's own, its direct child, or any below it while the row is folded, whose Messages have not reached it, with the Daemon's cause. */
-  const unreachable = () => [props.row.node, ...(isContainer() ? descendantsOf(props.topology, props.row.node.id).filter(node => props.row.collapsed || node.parent === props.row.node.id) : [])].find(node => node.unreachable);
+  /** DCL1, U6249d: the first Agent, the row's own, or any below it while the row is folded, whose Messages have not reached it, with the Daemon's cause. An open Workstream adds nothing: its child's own row shows the line. */
+  const unreachable = () => [props.row.node, ...(isContainer() && props.row.collapsed ? descendantsOf(props.topology, props.row.node.id) : [])].find(node => node.unreachable);
 
   const statusLabel = () => {
     const status = props.row.node.status;
@@ -247,7 +247,7 @@ export const RailRowView = (props: {
     </Show>}</Show>
     <Show when={workstream() && connected.rail.doorFailure(props.row.node.id)}>{cause => <FailureCause label={cause()} class="rail-door-failure" />}</Show>
     <Show when={props.row.node.start_attribution}>{source => <ReservedLine class="rail-attribution" status={copy.startedBy(source().agent_name, source().project_name)} />}</Show>
-    <Show when={!workstream() && !exhaustedResume() && (props.selected || !connected.rail.dismissed(props.row.node))}><FailureLine status={props.row.node.status} dismissed={connected.rail.dismissed(props.row.node)} dismissIn="menu" dismiss={() => connected.rail.dismiss(props.row.node)} /></Show>
+    <Show when={!workstream() && !exhaustedResume() && !connected.rail.dismissed(props.row.node)}><FailureLine status={props.row.node.status} dismiss={() => connected.rail.dismiss(props.row.node)} recover={{ run: () => props.onOpen(props.row.node.id), label: copy.openTerminal }} /></Show>
   </div>}</StatusTip>;
 
   return <>

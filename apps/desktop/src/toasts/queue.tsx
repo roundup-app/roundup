@@ -143,7 +143,7 @@ export const createToastQueue = (inFront: () => boolean, chime: Chime, now: () =
       if (displayed.has(entry.id)) continue;
 
       displayed.add(entry.id);
-      toast.show({ id: entry.id, type: entry.kind === "error" ? "error" : undefined, label: entry.name === "" ? entry.line : copy.toastLine(entry.name, entry.line), glyph: <KindGlyph kind={entry.kind} decorative />, name: entry.name, content: entry.line });
+      toast.show({ id: entry.id, type: entry.kind === "error" ? "error" : undefined, label: entry.name === "" ? entry.line : entry.line === "" ? entry.name : copy.toastLine(entry.name, entry.line), glyph: <KindGlyph kind={entry.kind} decorative />, name: entry.name, content: entry.line });
     }
   }
 

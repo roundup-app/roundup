@@ -26,19 +26,25 @@ export const pad = (name: string, _actor: Actor): Pad => ({ incarnation: `fixtur
 /** U5151a: the Adapter-mapped cause and next action a failed turn carries. */
 export const FAILURE = "Claude's servers failed; send the Agent a message to retry.";
 
+/** The cause a refused `todo.list` carries, which a Toast's open shows as its failure line. */
+export const UNREADABLE = "Daemon unavailable";
+
 export const status = (id: string, kind: Kind) =>
   event({ name: "agent.status", data: { id, attempt: "1", status_revision: String(Math.random()).slice(2), status: { kind, label: kind === "error" ? FAILURE : kind, since: NOW, finished: "0" } } });
 
 export const by = (actor: Actor, data: Parameters<typeof event>[0]) => ({ ...event(data), actor });
 
 /** The Toasts on a fake Daemon: `front` is whether roundup is the app in front, `sounds` counts the chimes. */
-export const mountToasts = async (tree: RailNode[], options: { todos?: Todo[]; pads?: Pad[]; selected?: string | null; reducedMotion?: boolean; front?: boolean; project?: ProjectAlerts } = {}) => {
+export const mountToasts = async (tree: RailNode[], options: { unreadable?: true; todos?: Todo[]; pads?: Pad[]; selected?: string | null; reducedMotion?: boolean; front?: boolean; project?: ProjectAlerts } = {}) => {
   const app = createFakeApp();
 
   app.handlers["rail.tree"] = () => tree;
   app.handlers["todo.list"] = () => options.todos ?? [];
   app.handlers["pad.list"] = () => options.pads ?? [];
   Object.assign(app.handlers, todoHandlers({ todos: options.todos ?? [] }, () => {}));
+
+  if (options.unreadable) app.handlers["todo.list"] = () => { throw new Error(UNREADABLE); };
+
   app.handlers["pad.read"] = ({ name }) => (options.pads ?? []).find((each) => each.name === name)!;
 
   const connected = await connectProject(app, { name: "p", path: "/p" }, () => options.reducedMotion ?? false, () => NOW);

@@ -17,8 +17,6 @@ const TITLE_CHARS = 60;
 
 const cut = (text: string): string => (text.length > TITLE_CHARS ? `${text.slice(0, TITLE_CHARS - 1)}…` : text);
 
-const GONE = copy.thatIsGone;
-
 const todoItem = (id: number) => `todo:${id}`;
 
 const padItem = (name: string) => `pad:${name}`;
@@ -65,7 +63,7 @@ export const watchProject = (connected: ConnectedProject, pushCandidate: (candid
   };
 
   const openAgent = (id: string) => () => {
-    if (!rail.nodes.some((node) => node.id === id)) return GONE;
+    if (!rail.nodes.some((node) => node.id === id)) return null;
 
     show();
     rail.select(id);
@@ -84,7 +82,7 @@ export const watchProject = (connected: ConnectedProject, pushCandidate: (candid
       return failure.message;
     }
 
-    if (!listed.some((todo) => todo.id === id)) return GONE;
+    if (!listed.some((todo) => todo.id === id)) return null;
 
     show();
     drawer.open(() => <TodoHost id={id} />, source, { kind: "todo", project: connected.project.path });
@@ -123,7 +121,8 @@ export const watchProject = (connected: ConnectedProject, pushCandidate: (candid
         item: `agent:${id}`,
         kind: status.kind,
         name: node?.name ?? id,
-        line: status.kind === "error" ? status.label : copy.needsYou,
+        // U6249d: an error toast keeps the name and glyph; its cause shows once, on the Agent's own row.
+        line: status.kind === "error" ? "" : copy.needsYou,
         selected,
         silent: raised !== undefined && !raised.chime,
         open: openAgent(id),

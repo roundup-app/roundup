@@ -48,15 +48,15 @@ it("u5502_projects_and_doors_keep_distinct_identities", async () => {
   expect(document.querySelector('[role=treeitem][data-id="same"]')?.getAttribute("aria-selected")).toBe("true");
 });
 
-it("u5502_valid_menu_selection_clears_stale_row_failure", async () => {
+it("u5502_gone_menu_row_shows_nothing_and_a_valid_one_selects", async () => {
   const { app } = await openTabs({ api: [agent("a", "needs-you", "question")], web: [] });
 
   app.menuBarAction({ kind: "agent", path: path("api"), agent: "gone" });
-  const failure = await screen.findByText("That is gone");
+  await new Promise(resolve => setTimeout(resolve));
+  expect(screen.queryByRole("alert")).toBeNull();
 
   app.menuBarAction({ kind: "agent", path: path("api"), agent: "a" });
   await waitFor(() => expect(document.querySelector('[role=treeitem][data-id="a"]')?.getAttribute("aria-selected")).toBe("true"));
-  expect(failure.isConnected).toBe(false);
 });
 
 it.each([false, true])("u5502_open_and_more_do_not_acknowledge_results (overflow=%s)", async overflow => {

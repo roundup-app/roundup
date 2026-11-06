@@ -67,6 +67,8 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
   const [savingMode, setSavingMode] = createSignal<string | null>(null);
   const copied = new Map<string, ReturnType<typeof createCopyFeedback>>();
 
+  const shownFailure = (id: string | undefined) => rail.nodes.find(node => node.id === id && node.kind === "agent" && node.status?.kind === "error" && !rail.dismissed(node));
+
   const moveAgent = createMove(connected, id => rowElement(id));
 
   const knownTodos = useTodoList();
@@ -598,6 +600,8 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
     { action: CHORDS.find(row => row.name === "workstream.new")!, capture: () => ({ available: canSpawn, invoke: createWorkstream }) },
     { action: CHORDS.find(row => row.name === "mode.new")!, capture: () => ({ available: canSpawn, invoke: () => setCreatingMode(true) }) },
     { chords: ["ContextMenu", "Shift+F10"], when: (press) => focusedRowId(press) !== undefined, run: openMenuAtFocusedRow },
+    // U6249d: Escape on a focused row dismisses the failure its line shows, as the line's Dismiss does.
+    { chords: ["Escape"], when: press => shownFailure(focusedRowId(press)) !== undefined, run: press => rail.dismiss(shownFailure(focusedRowId(press))!) },
     // U3289c: with the Rail itself focused (no row), the same keys open the recovery item the background right-click opens.
     { chords: ["ContextMenu", "Shift+F10"], when: () => document.activeElement === container() && recoveryEntries().length > 0, run: () => {
       const box = container()!.getBoundingClientRect();

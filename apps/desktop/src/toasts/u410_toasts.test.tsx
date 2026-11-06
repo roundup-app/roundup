@@ -3,7 +3,7 @@ import { createToastQueue } from "./queue";
 import { cleanup, fireEvent, screen } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { agent, USER } from "../testing/nodes";
-import { FAILURE, TOAST_AGENT as AGENT, by, mountToasts, pad, status, toastTodo as todo } from "./toastFixture";
+import { TOAST_AGENT as AGENT, by, mountToasts, pad, status, toastTodo as todo, UNREADABLE } from "./toastFixture";
 
 const tree = () => [agent("a", "working", "x", { name: "scout" }), agent("b", "working", "x", { name: "mason" })];
 
@@ -39,7 +39,7 @@ describe("u410 which events make a Toast", () => {
     app.emit(status("b", "error"));
     await settle();
 
-    expect(names(toasts())).toEqual([`mason ${FAILURE}`]);
+    expect(names(toasts())).toEqual(["mason"]);
     expect(sounds).toHaveLength(1);
   });
 
@@ -100,7 +100,7 @@ describe("u411 what a Toast shows and how it leaves", () => {
     const toast = toasts()[0]!;
 
     const name = update.name === "extension.problem" ? update.data.extension : "scout";
-    const line = update.name === "extension.problem" ? update.data.cause : kind === "error" ? FAILURE : undefined;
+    const line = update.name === "extension.problem" ? update.data.cause : undefined;
 
     expect(screen.getByRole("button", { name: new RegExp(name) })).toBe(toast);
 
@@ -181,7 +181,7 @@ describe("u412 clicking a Toast opens what it names", () => {
 
   });
 
-  it("u412_a_gone_target_shows_the_failure_line", async () => {
+  it("u6249c_gone_target_closes_without_a_failure", async () => {
     const { app, toasts, connected, view } = await mountToasts(tree(), { todos: [], pads: [] });
 
     app.emit(by(AGENT, { name: "todo.updated", data: todo(7, USER) }));
@@ -190,10 +190,22 @@ describe("u412 clicking a Toast opens what it names", () => {
     await settle();
 
     expect(connected.drawer.content()).toBeNull();
-    expect(view.container.querySelector("[role=alert]")?.textContent).toContain("gone");
+    expect(view.container.querySelector("[role=alert]")).toBeNull();
+  });
+
+  it("u412_a_refused_open_shows_the_failure_line", async () => {
+    const { app, toasts, connected, view } = await mountToasts(tree(), { unreadable: true });
+
+    app.emit(by(AGENT, { name: "todo.updated", data: todo(7, USER) }));
+    await settle();
+    fireEvent.click(toasts()[0]!);
+    await settle();
+
+    expect(connected.drawer.content()).toBeNull();
+    expect(view.container.querySelector("[role=alert]")?.textContent).toContain(UNREADABLE);
 
     await vi.advanceTimersByTimeAsync(5000);
-    expect(view.container.querySelector("[role=alert]")?.textContent).toContain("gone");
+    expect(view.container.querySelector("[role=alert]")?.textContent).toContain(UNREADABLE);
   });
 });
 
@@ -220,7 +232,7 @@ describe("u413 when roundup is not in front, and for the selected Agent", () => 
     comeBack();
     await settle();
 
-    expect(names(toasts())).toEqual([`mason ${FAILURE}`, "scout Needs you"]);
+    expect(names(toasts())).toEqual(["mason", "scout Needs you"]);
     expect(sounds).toHaveLength(1);
 
     await vi.advanceTimersByTimeAsync(6000);

@@ -249,7 +249,8 @@ export const connectProject = async (
 
   await rail.settled();
 
-  const held = createHeld(project.path, cause => rail.commandFailure.show(cause, null, "rail"));
+  // U6249d A13: held alerts are best-effort; a failed write goes to the log.
+  const held = createHeld(project.path, cause => console.error(cause));
   const settingsView = drafts.settingsView;
   let stopUnseen = () => {};
 

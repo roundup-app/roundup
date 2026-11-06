@@ -278,15 +278,12 @@ it("u3512a_pending_confirmation_is_single", async () => {
   await waitFor(() => expect(app.closed).toEqual([path("api")]));
 });
 
-it("u3512a_unavailable_alert_does_not_authorize_action", async () => {
+it("u3512a_unavailable_alert_does_not_authorize_action_and_asks_in_the_app", async () => {
   const { app } = await openTabs({ api: [agent("a", "working", "x")], web: [] });
   app.questionFailure = new Error("System alert unavailable");
   fireEvent.click(closer("api"));
-  await screen.findByText("System alert unavailable");
+  const confirm = await screen.findByRole("button", { name: "Stop and close" });
   expect(app.closed).toEqual([]);
-  app.questionFailure = null;
-  fireEvent.click(screen.getByRole("button", { name: "Retry" }));
-  await questionDialog();
-  await answerQuestion(true);
+  fireEvent.click(confirm);
   await waitFor(() => expect(app.closed).toEqual([path("api")]));
 });

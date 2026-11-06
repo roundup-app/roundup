@@ -128,7 +128,7 @@ it.each([
 it.each([
   { target: "agent", mounted: false }, { target: "door", mounted: false },
   { target: "agent", mounted: true }, { target: "door", mounted: true },
-] as const)("u5501_a_failed_or_gone_target_open_preserves_held_rows $target mounted=$mounted", async ({ target, mounted }) => {
+] as const)("u5501_a_failed_open_preserves_held_rows_and_a_gone_target_drops_its_row $target mounted=$mounted", async ({ target, mounted }) => {
   const { app, connected, hold, tree, emulators } = await mount(false, target);
 
   if (mounted) {
@@ -155,10 +155,10 @@ it.each([
   fireEvent.click(await waitFor(() => { const row = document.querySelector(".held-row"); expect(row).not.toBeNull();
 
  return row!; }));
-  expect(connected.held.rows()).toHaveLength(1);
+  // U6249c: the row whose Agent is gone drops without a message.
+  await waitFor(() => expect(connected.held.rows()).toHaveLength(0));
   expect(connected.rail.selected()).not.toBe("b");
-  await waitFor(() => expect(connected.rail.commandFailure.message()).toBeTruthy());
-  expect(await screen.findByText(connected.rail.commandFailure.message()!)).toBeTruthy();
+  expect(connected.rail.commandFailure.message()).toBeNull();
 });
 
 it.each([

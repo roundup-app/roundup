@@ -25,7 +25,7 @@ export const errorCause = (status: Status | null | undefined, dismissed: boolean
 export const FailureLine = (props: { status: Status | null | undefined; dismissed?: boolean; class?: string } & Recovery) => (
   <Show when={errorCause(props.status, props.dismissed)}>{label => <>
     <Line label={label()} class={`${props.class ?? ""} ${props.dismissed ? "dismissed" : ""}`} />
-    <RecoveryButtons recover={props.recover} dismiss={props.dismiss} dismissIn={props.dismissIn} />
+    <span class="failure-actions"><RecoveryButtons recover={props.recover} dismiss={props.dismiss} dismissIn={props.dismissIn} /></span>
   </>}</Show>
 );
 
