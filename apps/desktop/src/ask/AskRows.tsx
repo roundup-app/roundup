@@ -87,7 +87,7 @@ export const AskRows = (props: { onOpened: () => void; keys: KeyScope }) => {
   </div></Show>;
 };
 
-const AskRow = (props: { live: boolean; keys: KeyScope; entry: AskEntry; part: AskPart; index: number; where: string; workstream: string | null; open: (id: string) => void }) => {
+const AskRow = (props: { live: boolean; keys: KeyScope; entry: AskEntry; part: AskPart; index: number; where: string; workstream: string | null; open: (id: string | null) => void }) => {
   const { asks, rail, project } = useConnectedProject();
 
   let button: HTMLButtonElement | undefined;

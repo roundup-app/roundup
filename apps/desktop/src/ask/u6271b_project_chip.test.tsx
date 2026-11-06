@@ -31,8 +31,8 @@ const setup = async () => {
   return { ...mounted, places, sent, shown, routing };
 };
 
-
 const type = (text: string) => fireEvent.input(input()!, { target: { value: text } });
+
 const enter = () => press("Enter", {}, input()!);
 
 const chip = () => screen.findByRole("combobox", { name: "Project" }, slow);
