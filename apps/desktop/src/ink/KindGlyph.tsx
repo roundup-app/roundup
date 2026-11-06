@@ -1,5 +1,5 @@
 import { animate } from "motion";
-import { createComputed, createEffect, createSignal, on, onCleanup, Show, useContext } from "solid-js";
+import { createComputed, createEffect, createMemo, createSignal, on, onCleanup, Show, useContext } from "solid-js";
 import { createReducedMotion, ReducedMotionContext } from "../app/reducedMotion";
 import { copy } from "./copy";
 import type { Kind } from "@contracts/Kind";
@@ -78,7 +78,10 @@ export const KindGlyph = (props: { kind: Kind; decorative?: boolean; label?: str
   const stop = () => { running.forEach(animation => animation.cancel()); running = []; };
 
   // A computation runs before Solid redraws the Mark, so the working arc is still in the DOM to read.
-  createComputed(on(() => props.kind, kind => {
+  // The memo passes on only a different Kind: a redraw that hands the same Kind again starts no fade and reads no style.
+  const changed = createMemo(() => props.kind);
+
+  createComputed(on(changed, kind => {
     const previous = shown;
 
     shown = kind;

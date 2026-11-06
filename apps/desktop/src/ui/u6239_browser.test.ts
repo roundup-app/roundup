@@ -89,4 +89,53 @@ run("u6239 Project tab drag", () => {
     expect(seen[0]).toBe(String(liftedAt + 1));
     await page.pointer("up", x, from.y);
   }, 60_000);
+  it("u6239d_a_clipped_tab_follows_and_reorders", async () => {
+    await page.load("/harness.html?seed=tabs-8", 1512, 950);
+    await page.until(`() => document.querySelectorAll('.app-tabs-list .project-tab').length >= 6`);
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    // Scroll the strip so the fourth tab is cut by the start edge, and grab it by the part still showing.
+    await page.call(`() => {
+      const list = document.querySelector('.app-tabs-list');
+      const b = list.querySelectorAll('.project-tab')[3].getBoundingClientRect();
+
+      list.scrollLeft += b.left + 30 - list.getBoundingClientRect().left;
+    }`);
+    await new Promise(resolve => setTimeout(resolve, 600));
+
+    const grabbed = await page.call<{ path: string; x: number; y: number; cut: boolean }>(`() => {
+      const list = document.querySelector('.app-tabs-list');
+      const edge = list.getBoundingClientRect().left;
+      const target = list.querySelectorAll('.project-tab')[3];
+      const b = target.getBoundingClientRect();
+      return { path: target.dataset.path, x: edge + 20, y: b.top + b.height / 2, cut: b.left < edge };
+    }`);
+
+    if (!grabbed.cut) throw new Error("the tab is not cut by the strip's start");
+    const before = await order();
+    const saved = () => page.call<string | null>(`() => localStorage.getItem('roundup:tab-order')`);
+    const savedBefore = await saved();
+    const width = await page.call<number>(`path => [...document.querySelectorAll('.app-tabs-list .project-tab')].find(t => t.dataset.path === path).getBoundingClientRect().width`, grabbed.path);
+    const target = grabbed.x + width * 2;
+
+    await page.pointer("down", grabbed.x, grabbed.y);
+    await page.pointer("move", grabbed.x + 6, grabbed.y);
+
+    for (let step = 1; step <= 10; step++) {
+      const x = grabbed.x + 6 + ((target - grabbed.x) * step) / 10;
+
+      await page.pointer("move", x, grabbed.y);
+      await page.call(`() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))`);
+      // U6239d extends U6239a's pointer-hit guard to a clipped tab.
+      // oxlint-disable-next-line anti-slop/no-new-web-assertions
+      expect(await hit(x, grabbed.y, grabbed.path)).toEqual({ lifted: true, slots: 0 });
+    }
+
+    await page.pointer("up", target, grabbed.y);
+    await new Promise(resolve => setTimeout(resolve, 600));
+    const after = await order();
+
+    expect(after).not.toEqual(before);
+    expect(await saved()).not.toEqual(savedBefore);
+  }, 60_000);
 });

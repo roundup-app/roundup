@@ -3,6 +3,8 @@ import type { Accessor } from "solid-js";
 import * as v from "valibot";
 import type { App, DaemonExit, Project } from "../app/seam";
 import { outcomeOf, retryRead, RpcError } from "../app/seam";
+import { captureFocus } from "../keys/focus";
+import { modalOpen, questionPending } from "../keys/registry";
 import { copy } from "./copy";
 import { storageSchema, storedValue } from "./storage";
 
@@ -27,6 +29,8 @@ export type ProjectsState = {
   readFailure: Accessor<string | null>;
   reload(): Promise<void>;
   select(path: string): void;
+  /** U6371a: takes the focus request a switch to `path` left, once; `move` runs only while the user has moved focus nowhere since the switch. */
+  arrival(path: string): ((move: () => void) => boolean) | undefined;
   /** U6220c: puts the tabs in `paths` order, keeps that order for the next start, and leaves a tab `paths` omits after the rest. */
   reorder(paths: readonly string[]): void;
   /** Asks the macOS chooser for a folder and opens it as a tab; a cancel changes nothing. */
@@ -91,7 +95,14 @@ export const createProjectsState = (app: App, saved = openTabStorage(), order = 
 
   const update = (path: string, change: (tab: OpenTab) => OpenTab) => setTabs((all) => all.map((tab) => (tab.project.path === path ? change(tab) : tab)));
 
+  let arriving: { path: string; focus: (move: () => void) => boolean } | null = null;
+
   const show = (path: string | null) => {
+    // U6371b: only a change of Project asks for focus, and never from inside a dialog.
+    if (path !== null && path !== active()) {
+      arriving = questionPending() || modalOpen() ? null : { path, focus: captureFocus(true) };
+    }
+
     setActive(path);
 
     if (path !== null) void saved.write(path);
@@ -172,6 +183,15 @@ export const createProjectsState = (app: App, saved = openTabStorage(), order = 
     reload,
     reopening,
     connected: (path, generation) => update(path, tab => tab.generation === generation && tab.exit?.recovery !== "waiting" ? { ...tab, exit: null, reopenFailure: null } : tab),
+    arrival: (path) => {
+      if (arriving?.path !== path) return undefined;
+
+      const { focus } = arriving;
+
+      arriving = null;
+
+      return focus;
+    },
     select: (path) => {
       if (tabs().some((tab) => tab.project.path === path)) show(path);
     },

@@ -364,7 +364,7 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
   const moveTo = ({ id, parent, index }: SortableMove) => {
     if (daemonExit() !== null || pointerOutside()) return;
 
-    void moveAgent.move({ id, parent, index: trueIndex(id, parent, index) });
+    return moveAgent.move({ id, parent, index: trueIndex(id, parent, index) });
   };
 
   /** Runs one of the add actions; U6000d: a second one fired while the Daemon is still answering is not refused. */
@@ -615,7 +615,7 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
     const id = focus instanceof HTMLElement && focus.matches(ROW) ? focus.closest<HTMLElement>("[data-id]")?.dataset.id : undefined;
 
     return {
-      available: () => !!id && !!focus?.isConnected && !focus.classList.contains("sortable-source") && daemonExit() === null && editingName() === null && rail.nodes.some(node => node.id === id),
+      available: () => !!id && !!focus?.isConnected && !focus.closest("[data-dnd-dragging]") && daemonExit() === null && editingName() === null && rail.nodes.some(node => node.id === id),
       invoke: () => { if (id) setEditingName(id); },
     };
   } }]);

@@ -1,6 +1,7 @@
 import pRetry from "p-retry";
 import { createProjectOpening, ProjectOpening } from "./app/ProjectOpening";
 import { historyRegion, returnFocus } from "./keys/focus";
+import { focusPane } from "./bubbles/focus";
 import Hourglass from "lucide-solid/icons/hourglass";
 import { ReducedMotionContext } from "./app/reducedMotion";
 import { pressFeedback } from "./ui/pressFeedback";
@@ -425,8 +426,8 @@ export const App = (props: {
     select: (path, agent) => batch(() => {
       settingsView.close(false);
       connectionOf(path)!.settingsView.close(false);
-      projects.select(path);
       railOf(path)!.select(agent);
+      projects.select(path);
       setFocus(document.hasFocus() ? "focused" : "blurred");
     }),
     fail: setMenuBarFailure, hide,
@@ -649,12 +650,12 @@ export const App = (props: {
 
   /** U181: that Project opens and its most urgent Agent is selected, as leader `J` does. */
   const jumpTo = (path: string) => {
-    projects.select(path);
-
     const rail = railOf(path);
     const next = rail && nextAttention(rail.nodes, rail.selected(), rail.dismissed);
 
     if (next) rail?.select(next.id);
+
+    projects.select(path);
   };
 
 
@@ -667,8 +668,8 @@ export const App = (props: {
 
     if (path === undefined) return;
 
-    projects.select(path);
     railOf(path)?.select(agent, "open");
+    projects.select(path);
   }).then(stop => { if (alertClicksEnded) stop(); else stopAlertClicks = stop; });
   onCleanup(() => { alertClicksEnded = true; stopAlertClicks?.(); });
 
@@ -705,7 +706,7 @@ export const App = (props: {
   return (
     <ReducedMotionContext.Provider value={props.reducedMotion}><DisplayClockContext.Provider value={now.subscribe}><ProjectDraftsContext.Provider value={drafts}><Show when={projects.loaded()}>
       <For each={keys()}>
-        {(key) => <Connection drafts={drafts} app={dropTargets.app} tab={tabOf(key)} reducedMotion={props.reducedMotion} now={pollingNow} clock={props.clock} onConnected={connect} onRecovered={projects.connected} onRequested={answer} onOpen={opening.answer} toasts={toasts} alerts={alerts} projectAlerts={() => projectAlerts.level(key)} active={() => projects.active() === key} viewing={() => projects.active() === key && visible() && focus() === "focused" && !settingsOpen()} show={() => projects.select(key)} open={() => projects.tabs().map(tab => tab.project)} nodes={path => railOf(path)?.nodes ?? []} openIn={(path, workstream) => { projects.select(path); railOf(path)?.select(workstream, "open"); }} />}
+        {(key) => <Connection drafts={drafts} app={dropTargets.app} tab={tabOf(key)} reducedMotion={props.reducedMotion} now={pollingNow} clock={props.clock} onConnected={connect} onRecovered={projects.connected} onRequested={answer} onOpen={opening.answer} toasts={toasts} alerts={alerts} projectAlerts={() => projectAlerts.level(key)} active={() => projects.active() === key} viewing={() => projects.active() === key && visible() && focus() === "focused" && !settingsOpen()} show={() => projects.select(key)} open={() => projects.tabs().map(tab => tab.project)} nodes={path => railOf(path)?.nodes ?? []} openIn={(path, workstream) => { railOf(path)?.select(workstream, "open"); projects.select(path); }} />}
       </For>
       <ProjectOpening opening={opening} />
       <DockBadge app={props.app} rails={() => [...connections()].flatMap(([path, connection]) => (connection instanceof Error ? [] : [{ alerts: projectAlerts.level(path), nodes: attentionHolders(connection.rail.nodes, connection.rail.terminals(), connection.rail.dismissed) }]))} onFailure={hide} />
@@ -789,6 +790,15 @@ export const App = (props: {
               {(open) => {
                 const tracked = emulators();
                 const [screens, setScreens] = createSignal<Screens>();
+                const arrived = projects.arrival(open.project.path);
+
+                // U6371a: the Pane's effects have run by the next microtask; a user's own focus move since the switch has voided the request.
+                if (arrived) queueMicrotask(() => arrived(() => {
+                  const id = open.rail.nodes.find(node => node.id === open.rail.selected())?.terminal_id;
+
+                  if (id) screens()?.emulatorFor(id).focus();
+                  else focusPane();
+                }));
 
                 return (
                   <div class="centre-stack">
