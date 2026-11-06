@@ -262,7 +262,7 @@ const translateOf = (element: Element) => {
 const glide = (element: HTMLElement, to: { x: number; y: number }, duration: number, easing: string) => {
   const rect = element.getBoundingClientRect();
   const from = translateOf(element);
-  const target = `${from.x + to.x - rect.x}px ${from.y + to.y - rect.y}px 0`;
+  const target = `${from.x + to.x - rect.x}px ${from.y + to.y - rect.y}px`;
 
   // Reduced motion lands at once.
   if (!duration) {
@@ -271,7 +271,7 @@ const glide = (element: HTMLElement, to: { x: number; y: number }, duration: num
     return Promise.resolve();
   }
 
-  const animation = element.animate({ translate: [`${from.x}px ${from.y}px 0`, target] }, { duration, easing, fill: "forwards" });
+  const animation = element.animate({ translate: [`${from.x}px ${from.y}px`, target] }, { duration, easing, fill: "forwards" });
 
   return new Promise<void>(resolve => { animation.onfinish = () => resolve(); animation.oncancel = () => resolve(); });
 };
@@ -437,7 +437,7 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
   // The rows' offsets go in the same update that redraws the list: a list that slides its rows reads where they show before it redraws and again after.
   createEffect(on(shownOrder, () => { for (const arrive of arrivals) arrive(); }, { defer: true }));
 
-  const along = (shift: number) => `${local.horizontal ? shift : 0}px ${local.horizontal ? 0 : shift}px 0`;
+  const along = (shift: number) => `${local.horizontal ? shift : 0}px ${local.horizontal ? 0 : shift}px`;
   const slides = new WeakMap<Element, Animation>();
 
   /** Shows each row `shift` px from its place: at once, or sliding from where it shows now. Reads every row before it writes one. */
@@ -511,12 +511,12 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
   /** Shows `element` offset by `by` from its place, sliding there from where it shows now when `slide`. */
   const offsetTo = (element: HTMLElement, by: { x: number; y: number }, slide: boolean) => {
     const from = translateOf(element);
-    const to = by.x || by.y ? `${by.x}px ${by.y}px 0` : "";
+    const to = by.x || by.y ? `${by.x}px ${by.y}px` : "";
 
     slides.get(element)?.cancel();
     element.style.translate = to;
 
-    if (slide && Math.hypot(from.x - by.x, from.y - by.y) >= 0.5 && !reduced()) slides.set(element, element.animate({ translate: [`${from.x}px ${from.y}px 0`, `${by.x}px ${by.y}px 0`] }, { duration: reorderMs(document.documentElement), easing: getComputedStyle(document.documentElement).getPropertyValue("--easing-out").trim() }));
+    if (slide && Math.hypot(from.x - by.x, from.y - by.y) >= 0.5 && !reduced()) slides.set(element, element.animate({ translate: [`${from.x}px ${from.y}px`, `${by.x}px ${by.y}px`] }, { duration: reorderMs(document.documentElement), easing: getComputedStyle(document.documentElement).getPropertyValue("--easing-out").trim() }));
   };
 
   /**
@@ -581,7 +581,7 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
     const resting = translateOf(floating);
 
     floating.setAttribute("data-dnd-dropping", "");
-    floating.style.translate = `${resting.x}px ${resting.y}px 0`;
+    floating.style.translate = `${resting.x}px ${resting.y}px`;
     await glide(floating, landing(), duration, easing);
 
     // The library clears the dropping mark only after its own drop animation; one left on the row frees its `translate` on every later drag, and the row stops following the pointer.
