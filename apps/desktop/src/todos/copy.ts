@@ -33,6 +33,7 @@ export const copy = {
   todoDeleteRetry: sharedCopy.todoDeleteRetry,
   todoDeleteUnconfirmed: (ids: number[]) => `Deleting ${ids.map(id => `#${id}`).join(", ")} is unconfirmed. Check that deletion before trying Delete again.`,
   todoRestorePending: "Restoration is in progress. Wait for it to finish, then try Delete again.",
+  captureOff: (cause: string) => `Quick capture could not start. ${cause}`,
   todoDeleted: (id: number) => `#${id} was deleted`,
   moveUp: sharedCopy.moveUp,
   moveDown: sharedCopy.moveDown,

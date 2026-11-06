@@ -178,9 +178,12 @@ export const trackScrollbars = (doc: Document): void => {
       // One scan per mutated parent: a list that mounts 200 rows reports 200 records for the same parent,
       // and each scan walks that parent's whole subtree.
       const parents = new Set<Element | Document | ShadowRoot>();
+      let outside = false;
 
       for (const record of records) {
         if (record.target instanceof Element && record.target.closest(".scrollbar-slot, .os-size-observer, .os-trinsic-observer, .xterm")) continue;
+
+        outside = true;
 
         // Inspect the parent too: a newly mounted node can itself be the viewport.
         if (record.type === "childList" && (record.target instanceof Element || record.target instanceof Document || record.target instanceof ShadowRoot)) parents.add(record.target);
@@ -188,7 +191,8 @@ export const trackScrollbars = (doc: Document): void => {
 
       for (const parent of parents) discover(parent);
 
-      flush();
+      // U6283a: records from inside a Terminal move no tracked bar, so they place nothing.
+      if (outside) flush();
     });
 
     observer.observe(root, { childList: true, subtree: true });

@@ -59,11 +59,11 @@ it("x17_ending_the_connection_stops_following_the_window", async () => {
 });
 
 
-it("u3791c_rejected_actions_reach_their_owner_scheme", async () => {
+it("u6249b_a_refused_scheme_push_is_logged_once_and_not_replayed", async () => {
   const window = scheme(false);
   const app = createFakeApp();
+  const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
   let refused = true;
-
 
   app.handlers["terminal.scheme"] = () => {
     if (refused) throw new Error("scheme unavailable");
@@ -73,12 +73,13 @@ it("u3791c_rejected_actions_reach_their_owner_scheme", async () => {
 
   const connected = await connectProject(app, { name: "p", path: "/p" }, () => false, () => 0);
   expect(schemeCalls(app)).toHaveLength(1);
-  expect(connected.terminalScheme.failure()).not.toBeNull();
+  expect(warn).toHaveBeenCalledTimes(1);
+  expect(warn.mock.calls[0]?.[0]).toContain("scheme unavailable");
   refused = false;
-  await connected.terminalScheme.retry();
-  expect(connected.terminalScheme.failure()).toBeNull();
-  expect(schemeCalls(app)).toHaveLength(2);
-  connected.stopTerminalScheme();
   window.switchTo(true);
+  expect(schemeCalls(app)).toHaveLength(2);
+  expect(warn).toHaveBeenCalledTimes(1);
+  connected.stopTerminalScheme();
+  window.switchTo(false);
   expect(schemeCalls(app)).toHaveLength(2);
 });

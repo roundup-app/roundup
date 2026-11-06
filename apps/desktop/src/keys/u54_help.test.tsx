@@ -204,6 +204,8 @@ describe("u54 keyboard help", () => {
 
   it("u54_while_open_the_listed_chords_do_nothing_and_the_rail_does_not_reorder", async () => {
     const app = await open();
+    // The selected Terminal attaches, then asks for its screen; the calls to compare start after that.
+    await waitFor(() => expect(app.calls.some(call => call.method === "terminal.snapshot")).toBe(true));
     const calls = [...app.calls];
 
     rowOf("a").focus();

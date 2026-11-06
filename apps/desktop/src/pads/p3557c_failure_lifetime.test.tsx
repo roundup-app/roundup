@@ -139,3 +139,14 @@ it.each([false, true])("p3557c_failure_lifetime_recovery_acknowledges_only_resum
   await waitFor(() => expect(acknowledged.mock.calls).toEqual([["fixture-notes"]]));
   expect(connected.drafts.list()).toEqual([]);
 });
+
+it("u6249d_an_unmappable_edit_offers_copy_my_text", async () => {
+  const { app, field } = await open();
+  const clipboard = vi.fn(async () => {});
+  vi.spyOn(app, "clipboardWrite").mockImplementation(clipboard);
+  fireEvent.input(field, { target: { value: "unmappable" } });
+  fireEvent.focusOut(field);
+
+  fireEvent.click(await screen.findByRole("button", { name: "Copy my text" }));
+  expect(clipboard).toHaveBeenCalledWith("unmappable");
+});

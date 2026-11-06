@@ -42,3 +42,32 @@ What could not be measured: which script started those 2 samples. The profiler s
 ## Not done
 
 No repeat run (the first failing line stopped the window run). No trace with every roundup handler removed (U6283c); the after build still shows long gaps, so U6283c is open: if a repeat run reproduces them, that trace is the next step.
+
+## Layout reads by call site (counted shim, no Web Inspector)
+
+Web Inspector was not used. Safari is read-only to computer-use and its Develop menu is the owner's setting, so no Layout & Rendering timeline was taken. A small script stood in. It was injected into each bundle's `dist/index.html` (build output only, no source edit). It wrapped `getBoundingClientRect`, `getClientRects`, `window.getComputedStyle` and the layout getters of `Element` (`clientWidth`, `scrollHeight`, `offsetWidth` and the like), counted each call with its top four stack frames, and posted the counts to a local collector.
+
+Run: each bundle's 10,000-line Terminal scrolled from the top by 20 batches of 15 wheel ticks. The scroll took about 6 s of wall clock in both bundles, not 30 s. One run per build.
+
+Calls counted during the scroll, grouped by the bundle chunk of the top stack frame:
+
+| chunk and API | before 551cd247d | after d64d1ee08 |
+|---|---|---|
+| `scrollHover` chunk: `getComputedStyle` | 168 | 134 |
+| `scrollHover` chunk: `getBoundingClientRect` | 108 | 72 |
+| `scrollHover` chunk: `scrollWidth`, `scrollHeight` (each) | 20 | 26 |
+| `scrollHover` chunk: `clientWidth`, `clientHeight`, `clientLeft`, `clientTop` (each) | 12 | 8 |
+| `emulator` (xterm) chunk: `getBoundingClientRect` | 80 | 70 |
+| `emulator` chunk: `getComputedStyle` | 60 | 24 |
+| `emulator` chunk: `clientHeight` | 20 | 0 |
+| `index` chunk (App code): `clientWidth`, `getBoundingClientRect`, `offsetLeft`, `offsetWidth` | 21, 12, 8, 8 | 24, 16, 0, 0 |
+| all layout-read calls | 411 | 424 |
+
+Findings:
+- The largest caller in both builds is `apps/desktop/src/scrollHover.ts`: it reads a computed style and a rect for every ancestor of a scrollable element (lines 69 and 70), and `scrollWidth` and `scrollHeight` (lines 109, 142, 205). The chunk made 364 of 411 reads before and 290 of 424 after, so it is the first place to look for forced layout. The `scrollHover` chunk also bundles a vendored scrollbar library, so some of these calls come from that library, not from `scrollHover.ts`; the shim's four frames do not separate them.
+- xterm's own reads (`emulator` chunk) fall from 160 to 94. They run on mouse events; the scroll tool moves the pointer, so part of this count belongs to the input method.
+- Total calls are about equal (411 and 424): #6302 moved reads between callers and did not remove them.
+
+What this cannot show: the shim counts reads. It cannot tell which read hit dirty layout, so it does not prove a forced layout, only a read that could force one. It also cannot attribute the two 33.3 ms display gaps: the gaps come from the earlier xctrace runs and the shim run is a different run with no frame timing. The two 33.3 ms frames stay unattributed.
+
+Per Observer line, the verdict above stands (FAIL on the frame line, NOT PROVEN on forced layout). This section names the largest caller of scripted layout reads in each build: the `scrollHover` chunk.

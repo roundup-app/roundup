@@ -140,3 +140,29 @@ it("u6283b_scrollbar_listener_places_once_per_frame", async () => {
   scrolled.remove();
   other.remove();
 });
+
+it("u6283a_terminal_mutations_place_no_bar", async () => {
+  const { trackScrollbars } = await import("../scrollHover");
+
+  const frame = () => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+  const tracked = document.body.appendChild(document.createElement("div"));
+
+  Object.assign(tracked.style, { overflowY: "auto", height: "40px", width: "40px" });
+  tracked.appendChild(document.createElement("div")).style.height = "400px";
+  const terminal = document.body.appendChild(document.createElement("div"));
+
+  terminal.className = "xterm";
+  trackScrollbars(document);
+  await frame();
+  const placed = vi.spyOn(tracked, "getBoundingClientRect");
+
+  for (let row = 0; row < 50; row += 1) terminal.appendChild(document.createElement("div"));
+
+  await frame();
+  expect(placed).not.toHaveBeenCalled();
+  document.body.appendChild(document.createElement("div"));
+  await frame();
+  expect(placed).toHaveBeenCalled();
+  tracked.remove();
+  terminal.remove();
+});

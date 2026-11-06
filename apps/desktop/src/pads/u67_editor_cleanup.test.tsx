@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from "@solidjs/testing-library";
+import { cleanup, render, screen, waitFor } from "@solidjs/testing-library";
 import { Editor, EditorStatus } from "@milkdown/kit/core";
 import { afterEach, expect, it, vi } from "vitest";
 import PadRichEditor from "./PadRichEditor";
@@ -11,13 +11,30 @@ afterEach(() => {
 it("u67_a_failed_editor_reports_creation_failure_without_destroying", async () => {
   const editor = Editor.make();
   vi.spyOn(Editor, "make").mockReturnValue(editor);
-  vi.spyOn(editor, "create").mockRejectedValue(new Error("Editor could not open"));
+  const create = vi.spyOn(editor, "create").mockRejectedValue(new Error("Editor could not open"));
   const destroy = vi.spyOn(editor, "destroy");
   const view = render(() => <PadRichEditor text="" readonly={false} onChange={vi.fn()} onText={vi.fn()} onBlur={vi.fn()} onReady={vi.fn()} />);
 
-  expect((await screen.findByRole("alert")).textContent).toContain("Editor could not open");
+  await screen.findByRole("alert");
+  // U6249d E2: the editor is mounted once more before the failure shows, and no more than once.
+  expect(create).toHaveBeenCalledTimes(2);
   view.unmount();
   expect(destroy).not.toHaveBeenCalled();
+});
+
+it("u6249d_an_editor_that_opens_on_the_second_mount_shows_no_failure", async () => {
+  const editor = Editor.make();
+  vi.spyOn(Editor, "make").mockReturnValue(editor);
+  vi.spyOn(editor, "create").mockRejectedValueOnce(new Error("Editor could not open"));
+  const onReady = vi.fn();
+  const view = render(() => <PadRichEditor text="# Heading" readonly={false} onChange={vi.fn()} onText={vi.fn()} onBlur={vi.fn()} onReady={onReady} />);
+
+  try {
+    await waitFor(() => expect(onReady).toHaveBeenCalledTimes(1));
+    expect(screen.queryByRole("alert")).toBeNull();
+  } finally {
+    view.unmount();
+  }
 });
 
 it.each([false, true])("u67_unmount_disposes_the_editor_without_a_retry_timer_ready_%s", async (ready) => {

@@ -12,7 +12,7 @@ it.each(["dismissal", "clipboard success keeps output failure"] as const)("p3557
 
   app.outputFailure = new RpcError(-32603, "channel refused");
   connected.rail.select("a");
-  await screen.findByRole("alert", { name: "terminal.output: channel refused" });
+  await screen.findByRole("alert", { name: /^Terminal output stopped\.\s+channel refused$/ });
 
   const calls = app.calls.length;
 
@@ -25,7 +25,7 @@ it.each(["dismissal", "clipboard success keeps output failure"] as const)("p3557
   if (action === "clipboard success keeps output failure") {
     pasteEvent(container.querySelector("[data-terminal]")!, "ok");
     await waitFor(() => expect(app.calls.length).toBeGreaterThan(calls));
-    expect(screen.getByRole("alert", { name: "terminal.output: channel refused" })).toBeTruthy();
+    expect(screen.getAllByRole("alert")).toHaveLength(1);
   }
 });
 

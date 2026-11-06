@@ -223,7 +223,7 @@ it("u3791a_project_read_exhaustion_keeps_explicit_retry", async () => {
 });
 
 
-it("u3791c_equal_causes_keep_recovery_with_their_owner", async () => {
+it("u6249b_a_refused_scheme_push_adds_no_second_line_beside_the_rail_failure", async () => {
   vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
   const app = createFakeApp();
 
@@ -250,11 +250,6 @@ it("u3791c_equal_causes_keep_recovery_with_their_owner", async () => {
     expect(connected.rail.nodes.map(node => node.id)).toEqual(["kept"]);
     expect(app.calls.filter(call => call.method === "rail.tree")).toHaveLength(6);
     expect(app.calls.filter(call => call.method === "terminal.scheme")).toHaveLength(1);
-    expect(screen.getAllByRole("alert")).toHaveLength(1);
-    app.handlers["terminal.scheme"] = () => null;
-    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
-    await vi.advanceTimersByTimeAsync(0);
     expect(screen.queryByRole("alert")).toBeNull();
-    expect(app.calls.filter(call => call.method === "terminal.scheme")).toHaveLength(2);
   } finally { connected.stopTerminalScheme(); }
 });

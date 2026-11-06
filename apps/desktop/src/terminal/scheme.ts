@@ -1,35 +1,28 @@
-import { createSignal } from "solid-js";
 import type { AppSeam } from "../app/seam";
 import { appDark, followAppAppearance } from "../settings/preferences";
+import { copy } from "./copy";
 import { terminalThemeFor } from "./theme";
 
-/** X17: tells the Daemon the window's colour scheme and the emulator's colours for it, now and on every switch, so the Daemon answers a program's colour query for every Terminal, shown or not. The Project connection owns its failure and explicit retry; ending it disposes the appearance subscription. */
+/** X17: tells the Daemon the window's colour scheme and the emulator's colours for it, now and on every switch, so the Daemon answers a program's colour query for every Terminal, shown or not. A failed push is logged, not shown (U6249b); ending the connection disposes the appearance subscription. */
 export const syncTerminalScheme = async (app: AppSeam) => {
-  const [failure, setFailure] = createSignal<string | null>(null);
   let ended = false;
   let latest = 0;
 
-  const send = (): Promise<null> => {
+  const send = async (): Promise<void> => {
+    const mine = ++latest;
     const dark = appDark();
     const theme = terminalThemeFor();
 
-    return app.rpc("terminal.scheme", { scheme: dark ? "dark" : "light", background: theme.background, foreground: theme.foreground });
-  };
-
-  const retry = async () => {
-    const mine = ++latest;
-
     try {
-      await send();
-
-      if (!ended && mine === latest) setFailure(null);
+      await app.rpc("terminal.scheme", { scheme: dark ? "dark" : "light", background: theme.background, foreground: theme.foreground });
     } catch (error) {
-      if (!ended && mine === latest) setFailure(error instanceof Error ? error.message : String(error));
+      // U6249b: a command to the Daemon is not replayed, and a colour that missed is cosmetic: the next switch sends again.
+      if (!ended && mine === latest) console.warn(copy.terminalSchemeNotSent(error instanceof Error ? error.message : String(error)));
     }
   };
 
-  await retry();
-  const stop = followAppAppearance(() => { void retry(); });
+  await send();
+  const stop = followAppAppearance(() => { void send(); });
 
-  return { failure, retry, stop: () => { ended = true; stop(); } };
+  return { stop: () => { ended = true; stop(); } };
 };

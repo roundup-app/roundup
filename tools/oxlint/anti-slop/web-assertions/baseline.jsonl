@@ -150,7 +150,6 @@
 {"file":"apps/desktop/src/pads/u38_empty_pads.test.tsx","test":"u38 empty Pads > u38_no_pads_yet_returns_once_the_last_pad_is_removed","identity":"dda27a21a3d26861a2433cd1b45cdafa6176b92cf3b5c4849f101cd649d4701f"}
 {"file":"apps/desktop/src/pads/u38_empty_pads.test.tsx","test":"u38 empty Pads > u38_a_failed_initial_pad_list_shows_its_message_not_no_pads_yet","identity":"acf17fb984fe089f471373e6f21a1b773350a6c1693c5bc3b7d93a8153bbe505"}
 {"file":"apps/desktop/src/pads/u38_empty_pads.test.tsx","test":"u38 empty Pads > u38_a_failed_initial_pad_list_shows_its_message_not_no_pads_yet","identity":"330de8c5359010b9005e9285d6e87ac6dd626080d54e72a5820dc4932f5c6d34"}
-{"file":"apps/desktop/src/pads/u67_editor_cleanup.test.tsx","test":"u67_a_failed_editor_reports_creation_failure_without_destroying","identity":"32b8832fc70ff2afe63237a28a86bd65821961d629a14aa6d76ed0df2b92718c"}
 {"file":"apps/desktop/src/plain/q10_markdown.test.tsx","test":"Q10 the App renders the Markdown an Agent writes > q10_html_is_text","identity":"4bc1c893d9eeca95cdb0f479c1f0827c5574df7693f8283fe0846adb6b22980e"}
 {"file":"apps/desktop/src/plain/q10_markdown.test.tsx","test":"Q10 the App renders the Markdown an Agent writes > q10_html_is_text","identity":"a317c47ed9e3d4418b704e2e68417ce61b3d7231aec7eb088eba1746811ceab2"}
 {"file":"apps/desktop/src/rail/menu/u2694_confirm.test.tsx","test":"u2694 the Rail's menu actions > u2694b_a_removed_object_refetches_on_not_found","identity":"4365c787eb149050e09f666354712932484a7c451ee45ad3d3220a0e2a61e6f8"}
@@ -186,7 +185,6 @@
 {"file":"apps/desktop/src/switcher/u529_switcher.test.tsx","test":"u2773e_unreadable_query_offers_only_retry_until_there_is_text","identity":"e60fd2ba870b6b76306b13e9b4a5deaf211765157b93a07417a3bd47dd3a15ee"}
 {"file":"apps/desktop/src/switcher/u529_switcher.test.tsx","test":"u2773e_unreadable_query_offers_only_retry_until_there_is_text","identity":"4a4d9811ff3950b573f2f093c407dbc01ecdfcda88f7a583650baadfa7705645"}
 {"file":"apps/desktop/src/switcher/u529_switcher.test.tsx","test":"u2773e_unreadable_query_offers_only_retry_until_there_is_text","identity":"727f4126e4feb2811e4caa7a94826f59d4d4a6ed0f2fdb3ff6b3951f08ed9a8b"}
-{"file":"apps/desktop/src/terminal/p3557c_failure_lifetime_screens.test.tsx","test":"p3557c_failure_lifetime_screens_%s","identity":"7d7f837cf538ad5a9568afef10e23a351b688f6a101a7200876d94a55fb259e9"}
 {"file":"apps/desktop/src/terminal/u12_typing.test.tsx","test":"u12 typing > u12_a_failed_write_shows_its_message","identity":"4b33efa986dfa5805e6a43b8bde9ae8405ae59d46d8a0adbd33616acc8aeaf1b"}
 {"file":"apps/desktop/src/terminal/u162_file_drop.test.tsx","test":"u162 drop files on a pane > u162_a_failed_write_shows_its_message","identity":"b82d3922e0cf2d1b5e4b6511b22a271d3a12081e74a23609e4403ca02262ac35"}
 {"file":"apps/desktop/src/terminal/u34_scrollback.test.tsx","test":"u34 the latest control > u34_is_hidden_while_the_view_is_at_the_bottom","identity":"2bd96acfa95481fad854da8974bc5e60f965d29cc8b181c6d0789f1009877475"}
@@ -196,7 +194,6 @@
 {"file":"apps/desktop/src/terminal/u3560_failure.test.tsx","test":"u3560d_a_terminal_in_an_open_bubble_shows_its_failure_there_and_not_in_the_pane","identity":"58e95a4af7bb7748ca3022bd25389516db72789006e542dcb8e7f7117fbf8d87"}
 {"file":"apps/desktop/src/terminal/u365_links.test.tsx","test":"u365 opening > u365_other_schemes_open_nothing","identity":"8a8b91130de13013312ad812b8a71d3683802ca004bf0a968eed12bcc8feafb1"}
 {"file":"apps/desktop/src/terminal/u38_empty_pane.test.tsx","test":"u38 empty Pane > u38_a_selected_agent_shows_no_empty_pane_text","identity":"3fb45d51dffa6d3ed5076d984530e3c05f840d5f6de0516c46595acff4b529da"}
-{"file":"apps/desktop/src/terminal/u38_empty_pane.test.tsx","test":"u38 empty Pane > u38_a_failed_output_subscription_hides_the_empty_pane_text_with_nothing_selected","identity":"c7331d1a23bcc2399177a75aaf07ca4a08072f40262d8bd69f8e2686a87e10ef"}
 {"file":"apps/desktop/src/terminal/u38_empty_pane.test.tsx","test":"u38 empty Pane > u38_a_failed_initial_rail_tree_shows_no_empty_pane_text","identity":"542d9ace0b85730435371a7c178176354d93bef64f8a77b46effdac424df1cd5"}
 {"file":"apps/desktop/src/testing/u2580a_key_layers.test.tsx","test":"u2580a_instant_actions_release_slide_and_fit_once","identity":"ce4900c9bb8c11d2bf23d959e972532cabb6dbe95d804f77fc7d0cfd1271d37e"}
 {"file":"apps/desktop/src/testing/u2580a_key_layers.test.tsx","test":"u2580a_instant_actions_release_slide_and_fit_once","identity":"3d38e9f1fd30840bafaaafce3cebc025a51f8668f6cade44c0737bf076343834"}
@@ -215,7 +212,6 @@
 {"file":"apps/desktop/src/todos/u152_every_action.test.tsx","test":"p3557c_failure_lifetime_delegate_board_%s","identity":"30319a27526f0604c7be95b1610a2a1af2b23a119f3783e16eea5c3009e8a21a"}
 {"file":"apps/desktop/src/todos/u152_every_action.test.tsx","test":"`p3557c_failure_lifetime_${owner}_load_%s`","identity":"03afa6b42179120e4ec70b1583ffaf6bace61eb280c2677132bb0d639e1e9399"}
 {"file":"apps/desktop/src/todos/u152_every_action.test.tsx","test":"`p3557c_failure_lifetime_${owner}_load_%s`","identity":"b2012d404b935c890938090b2994fd673853695b5e8617d5b69677696ca71f48"}
-{"file":"apps/desktop/src/todos/u17_todo_detail.test.tsx","test":"u17 Todo detail > u17_when_another_actor_deletes_the_open_todo_the_drawer_says_so","identity":"5a1b492aec31309915f2417ee44d2b9b782571c51277b09b866ba02d86b7ce6a"}
 {"file":"apps/desktop/src/todos/u2773_unfinished_input.test.tsx","test":"u3021c_todo_selected_revision_refuses_wrong_%s","identity":"31ebcbb789fe760208c17720b6e49573e8e1ba9424869fd6dea316c0bf156264"}
 {"file":"apps/desktop/src/todos/u3308_board.test.tsx","test":"u3310_the_switch_is_absent_without_a_workstream","identity":"5701c4135075bbbcbbce87d2865b482482ab310ef1a3e7509e343c5c6780961b"}
 {"file":"apps/desktop/src/todos/u3308_board.test.tsx","test":"u3310_a_refused_call_keeps_the_state_and_shows_its_cause","identity":"89c3dee33abc2d5e17ce022200e81462292088093fc5613bbf412ccd6d241a93"}
