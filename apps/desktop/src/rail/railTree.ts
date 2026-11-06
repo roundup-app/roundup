@@ -4,7 +4,7 @@ import { KIND_ICON } from "../ink/kindIcon";
 import type { ConnectedProject } from "../state/connectedProject";
 import { railCollection } from "./collection";
 import { copy } from "./copy";
-import { foldIdOf, layoutRail, type NodeRow } from "./layout";
+import { foldIdOf, layoutRail, type NodeRow, type RailRow } from "./layout";
 import type { RailSection } from "./persist/storage";
 
 export const sections: { id: RailSection; label: string; icon: typeof KIND_ICON[keyof typeof KIND_ICON] }[] = [
@@ -12,6 +12,23 @@ export const sections: { id: RailSection; label: string; icon: typeof KIND_ICON[
   { id: "modes", label: copy.modesHead, icon: KIND_ICON.mode },
   { id: "agents", label: copy.agentsHead, icon: KIND_ICON.agent },
 ];
+
+const sameList = (left: readonly unknown[], right: readonly unknown[]) => left.length === right.length && left.every((value, at) => value === right[at]);
+
+/** U3800d: a layout pass draws new row objects for rows that did not change; keeping the old object keeps that row's subtree still. */
+const sameRow = (left: RailRow, right: RailRow): boolean => {
+  if (left.kind === "node" && right.kind === "node") {
+    return left.key === right.key && left.depth === right.depth && left.node === right.node && left.children === right.children && sameList(left.trail, right.trail)
+      && (left.collapsed === right.collapsed || (left.collapsed !== null && right.collapsed !== null && sameList(left.collapsed.agents, right.collapsed.agents)));
+  }
+
+  if (left.kind === "fold" && right.kind === "fold") {
+    return left.key === right.key && left.depth === right.depth && left.parent === right.parent && left.group === right.group && left.status === right.status
+      && left.count === right.count && left.open === right.open && sameList(left.trail, right.trail);
+  }
+
+  return false;
+};
 
 export const createRailTree = (connected: ConnectedProject, unfolded: Accessor<ReadonlySet<string | null>>, rowElement: (id: string) => HTMLElement | undefined) => {
   const { rail, now } = connected;
@@ -69,7 +86,11 @@ export const createRailTree = (connected: ConnectedProject, unfolded: Accessor<R
   const nodeIds = createMemo(() => nodeRows().map((row) => row.node.id));
   const indexOf = createMemo(() => new Map(nodeIds().map((id, at) => [id, at])));
   const treeRows = createMemo(() => nodeRows().map((row) => ({ id: row.node.id, parent: topology().nodes[topology().parent[topology().index.get(row.node.id)!] ?? -1]?.id ?? null })));
-  const byKey = createMemo(() => new Map(rows().map((row) => [row.key, row])));
+  const byKey = createMemo<ReadonlyMap<string, RailRow>>(before => new Map(rows().map((row) => {
+    const kept = before?.get(row.key);
+
+    return [row.key, kept && sameRow(kept, row) ? kept : row];
+  })));
 
   return { topology, sectionRows, rows, collection, expanded, entryOf, nodeRows, nodeIds, indexOf, treeRows, byKey };
 };
