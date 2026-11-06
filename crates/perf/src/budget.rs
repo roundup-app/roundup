@@ -134,7 +134,7 @@ pub fn judge_all(result: &Report, budgets: &Budgets) -> Result<Outcome, String> 
     Ok(Outcome { misses, skipped })
 }
 
-/// The middle value; the mean of the two middle values for an even count.
+/// The middle value; the mean of the two middle values for an even count; NaN for none.
 pub fn median(values: &[f64]) -> f64 {
     let mut sorted = values.to_vec();
 
@@ -142,9 +142,11 @@ pub fn median(values: &[f64]) -> f64 {
 
     let mid = sorted.len() / 2;
 
+    let at = |i: usize| sorted.get(i).copied().unwrap_or(f64::NAN);
+
     if sorted.len() % 2 == 1 {
-        sorted[mid]
+        at(mid)
     } else {
-        (sorted[mid - 1] + sorted[mid]) / 2.0
+        (at(mid.wrapping_sub(1)) + at(mid)) / 2.0
     }
 }

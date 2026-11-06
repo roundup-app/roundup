@@ -23,13 +23,14 @@ pub(crate) fn checked_workload(report: &Value, flood: bool) -> io::Result<()> {
             || evidence["opened"] != true
             || samples.len() < 2
             || !samples.windows(2).all(|pair| {
-                pair[0]["bytes"]
+                let [first, second] = pair else { return false };
+                first["bytes"]
                     .as_u64()
-                    .zip(pair[1]["bytes"].as_u64())
+                    .zip(second["bytes"].as_u64())
                     .is_some_and(|(a, b)| b >= a)
-                    && pair[0]["at_ms"]
+                    && first["at_ms"]
                         .as_f64()
-                        .zip(pair[1]["at_ms"].as_f64())
+                        .zip(second["at_ms"].as_f64())
                         .is_some_and(|(a, b)| a.is_finite() && b.is_finite() && a >= 0.0 && b >= a)
             })
             || !samples

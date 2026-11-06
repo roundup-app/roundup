@@ -47,9 +47,9 @@ pub fn render(result: &Report, outcome: &Outcome, out: &Path) -> Vec<String> {
         .metrics
         .iter()
         .map(|(name, value)| {
-            let spread = &result.per_run[name];
-            let low = spread.iter().copied().fold(f64::INFINITY, f64::min);
-            let high = spread.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+            let spread = || result.per_run.get(name).into_iter().flatten().copied();
+            let low = spread().fold(f64::INFINITY, f64::min);
+            let high = spread().fold(f64::NEG_INFINITY, f64::max);
 
             format!(
                 "{name:<26} median {value:>9.3}  range {low:.3}..{high:.3}  {}",

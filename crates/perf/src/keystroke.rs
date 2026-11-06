@@ -1,5 +1,9 @@
 //! Keystroke-to-render in the real App (`scenarios/perf.md` R11): runs a build made with `VITE_ROUNDUP_PERF`,
 //! reads the `PERF <json>` line the webview writes through its Terminal from the Terminal's Output log, and compares its p95 with the budget.
+#![deny(clippy::unwrap_used, clippy::expect_used)]
+#![deny(clippy::panic, clippy::indexing_slicing)]
+#![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
+#![cfg_attr(test, allow(clippy::panic, clippy::indexing_slicing))]
 
 use std::collections::BTreeMap;
 use std::io;
@@ -9,6 +13,7 @@ use std::time::Duration;
 
 use clap::Parser;
 use perf::gate::read_budgets;
+use perf::measure::field;
 use perf::webview::failure;
 use perf::webview::{judged, marked_line};
 use rpc::Client;
@@ -129,7 +134,7 @@ async fn collect_report(
                     let report: Value = serde_json::from_str(line).map_err(|err| {
                         failure(format!("the {} line is not JSON: {err}", marker.trim()))
                     })?;
-                    if marker == "PERF " && report["terminal_id"] != id {
+                    if marker == "PERF " && field(&report, "terminal_id") != id {
                         return Err(failure("PERF report Terminal identity mismatch"));
                     }
                     return Ok(report);
@@ -209,7 +214,7 @@ fn frame_exit(report: &Value) -> io::Result<u8> {
         Some(code @ (0 | 1)) => {
             let valid = report["invalid"].as_array().is_some_and(Vec::is_empty)
                 && ["sample", "idle"].iter().all(|key| {
-                    let series = &report[key];
+                    let series = field(report, key);
                     series["intervals"].as_array().is_some_and(|raw| {
                         !raw.is_empty()
                             && series["n"].as_u64() == Some(raw.len() as u64)
@@ -218,7 +223,7 @@ fn frame_exit(report: &Value) -> io::Result<u8> {
                                 .all(|v| v.as_f64().is_some_and(|n| n.is_finite() && n > 0.0))
                     })
                 });
-            let scheduling = &report["stages"]["scheduling"];
+            let scheduling = field(field(report, "stages"), "scheduling");
             let measured = scheduling["status"] == "measured";
             let matches = if code == 1 {
                 measured && scheduling["meets_thresholds"] == false && report["verdict"] == "fail"
@@ -313,8 +318,11 @@ async fn run(args: &Args) -> Result<u8, Box<dyn std::error::Error>> {
         .await
         {
             Ok(mut report) => {
-                if let Err(error) = checked_workload(&report, args.flood) {
-                    report["error"] = error.to_string().into();
+                if let (Err(error), Some(object)) = (
+                    checked_workload(&report, args.flood),
+                    report.as_object_mut(),
+                ) {
+                    object.insert("error".into(), error.to_string().into());
                 }
                 report
             }

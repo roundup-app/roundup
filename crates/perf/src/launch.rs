@@ -61,9 +61,9 @@ async fn stop(child: &mut Child, app: bool, dir: &std::path::Path) -> io::Result
             system.refresh_processes(ProcessesToUpdate::All, true);
             let mut owners = vec![root];
             let mut cursor = 0;
-            while cursor < owners.len() {
+            while let Some(&owner) = owners.get(cursor) {
                 for (pid, process) in system.processes() {
-                    if process.parent() == Some(owners[cursor]) && !owners.contains(pid) {
+                    if process.parent() == Some(owner) && !owners.contains(pid) {
                         descendants.push((*pid, process.start_time()));
                         owners.push(*pid);
                     }
