@@ -248,9 +248,10 @@ const ProgressContent = (props: { id: string }) => {
 
   return (
     <>
-      <ReservedLine message={unread() ? copy.progressUnreadable(unread()!) : null} onDismiss={() => setDismissedRead(read.latest)} action={
+      <ReservedLine message={unread() ? copy.progressUnreadable(unread()!) : null} clearedBy={unread} action={<>
         <button class="word" data-button="quiet" type="button" onClick={refresh}>{copy.progressRetry}</button>
-      } />
+        <IconButton aria-label={copy.clearName(copy.error.toLowerCase())} onClick={() => setDismissedRead(read.latest)}><Icon name="x" /></IconButton>
+      </>} />
       <Show when={loaded()}>
         {(data) => (
             <section class="progress-section" aria-label={copy.progress}>

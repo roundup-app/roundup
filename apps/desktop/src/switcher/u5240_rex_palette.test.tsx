@@ -204,7 +204,7 @@ it("u5240d_a_refused_key_shows_its_cause_by_the_row_and_esc_cancels", async () =
   switcherKey("Enter", { metaKey: true }, field()!);
   await waitFor(() => expect(recordingMark()).not.toBeNull());
   switcherKey("N", { metaKey: true, altKey: true }, field()!);
-  await waitFor(() => expect(document.querySelector(".reserved-line [data-kind=error]")).not.toBeNull());
+  await waitFor(() => expect(document.querySelector(".reserved-line[role=status] .reserved-status:not(:empty)")).not.toBeNull());
   expect(recordingMark()).not.toBeNull();
   switcherKey("Escape", {}, field()!);
   await waitFor(() => expect(recordingMark()).toBeNull());

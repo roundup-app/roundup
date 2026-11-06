@@ -187,7 +187,7 @@ describe("u2773 Rail persisted edits", () => {
     fireEvent.input(name, { target: { value: " exact e\u0301 😀 " } });
     tree = [{ ...node, name: "Changed elsewhere" }];
     app.emit(event({ name: "rail.changed" }));
-    expect((await screen.findByRole("alert")).tabIndex).toBe(-1);
+    expect((await screen.findByText(railCopy.railDraftConflict)).tabIndex).toBe(-1);
     const conflicted = screen.getByLabelText<HTMLInputElement>("Name", { selector: "input" });
     expect(conflicted.value).toBe(" exact e\u0301 😀 ");
     fireEvent.keyDown(conflicted, { key: "Enter" });

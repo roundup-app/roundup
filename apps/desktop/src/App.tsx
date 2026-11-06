@@ -331,6 +331,7 @@ export const App = (props: {
   // U5232g: one line for a refused State alert, whichever Agent raised it.
   const [menuBarFailure, setMenuBarFailure] = createSignal<string | null>(null);
   const [alertFailure, setAlertFailure] = createSignal<string | null>(null);
+  const railFailure = () => windowFailure() ?? (activeTab()?.exit ? activeTab()?.reopenFailure ?? daemonExitText(activeTab()!.exit!) : null) ?? (projects.tabs().length > 0 ? projects.failure() : null) ?? badgeFailure() ?? alertFailure() ?? menuBarFailure();
   const alerts = createStateAlerts(alert => props.app.stateAlert(alert), inFront, setAlertFailure);
   const projectAlerts = createProjectAlerts();
   const capture = props.app.capture;
@@ -737,7 +738,7 @@ export const App = (props: {
         railStrip={<InProject open={activeConnection()}>{() => <RailStrip expand={() => setRailCollapsed(false)} />}</InProject>}
         rail={
           <>
-            <ReservedLine overlay message={windowFailure() ?? (activeTab()?.exit ? activeTab()?.reopenFailure ?? daemonExitText(activeTab()!.exit!) : null) ?? (projects.tabs().length > 0 ? projects.failure() : null) ?? badgeFailure() ?? alertFailure() ?? menuBarFailure()} clearedBy={() => [windowFailure(), activeTab()?.exit, activeTab()?.reopenFailure, projects.failure(), badgeFailure(), alertFailure(), menuBarFailure()]} action={<>
+            <ReservedLine overlay message={railFailure()} clearedBy={railFailure} action={<>
               <Show when={projects.readFailure() && projects.tabs().length > 0 && !windowFailure() && !activeTab()?.exit}><button data-button="quiet" type="button" onClick={() => void projects.reload()}>{copy.retry}</button></Show>
               <Show when={activeTab()?.exit && !activeTab()?.exit?.recovery}><Reopen onReopen={() => void projects.reopen(activeTab()!.project.path)} busy={projects.reopening()} /></Show>
             </>} />

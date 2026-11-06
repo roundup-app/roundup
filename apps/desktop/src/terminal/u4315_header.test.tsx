@@ -112,7 +112,7 @@ it.each(["success", "refused"])("u4355_close_keeps_pending_import: %s", async ou
   } else {
     expect(screen.getByRole("region", { name: "Import Claude Code" })).toBe(region);
     expect(connected().rail.selected()).toBe("a0");
-    expect(panel.getAllByRole("alert").length).toBeGreaterThan(0);
+    expect(panel.getAllByRole("status").some(line => line.textContent)).toBe(true);
     expect(panel.getByRole("button", { name: "Import 2" })).toHaveProperty("disabled", false);
     fireEvent.click(back);
     await waitFor(() => expect(region.isConnected).toBe(false));

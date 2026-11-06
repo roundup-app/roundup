@@ -663,8 +663,8 @@ it.each(reviewCases)("s3806b_action_survives_surface_close: Review changes $read
 
   if (outcome !== "resolve") {
     await waitFor(() => expect(screen.queryAllByRole("alert").some(alert => alert.textContent?.includes("Review changes rejected: worktree unavailable"))).toBe(true));
-    // connectProject's existing retryRead allows one additional wire attempt after rejection.
-    expect(reads().map(call => call.params)).toEqual([{ id: "reviewed" }, { id: "reviewed" }]);
+    // U6249b: connectProject's retryRead repeats the rejected read 4 more times.
+    expect(reads().map(call => call.params)).toEqual(Array.from({ length: 5 }, () => ({ id: "reviewed" })));
     expect(connected.drafts.list()).toEqual(drafts);
 
     if (outcome === "identity" || outcome === "missing") {
