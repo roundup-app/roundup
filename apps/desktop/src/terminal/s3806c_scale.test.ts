@@ -171,8 +171,9 @@ it.each(["Agent", "Door", "Bubble"].flatMap(host => [false, true].map(webgl => (
   expect(callsTo(app, "terminal.resize").at(-1)).toEqual({ id: "t-a", cols: 85, rows: 25 });
   cols = 82;
   saveAppSettings({ fontFamily: "monospace" });
+  // The font effect loads the face, then fits once; a render alone no longer refits.
+  await vi.waitFor(() => expect(callsTo(app, "terminal.resize").at(-1)).toEqual({ id: "t-a", cols: 82, rows: 25 }));
   vi.advanceTimersToNextFrame();
-  expect(callsTo(app, "terminal.resize").at(-1)).toEqual({ id: "t-a", cols: 82, rows: 25 });
   expect(content()).toEqual(before);
   expect(terminal.getSelection()).toBe(selection);
   expect(terminal.buffer.active.viewportY).toBe(5);
