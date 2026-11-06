@@ -23,7 +23,7 @@ export const TERMINALS: TerminalInfo[] = [
 ];
 
 /** The Pane and its bubbles in one open Project whose Daemon lists `terminals`, with a fake `terminal.open` and `terminal.close`. */
-export const mountBubbles = async (selected: string | null = "a", terminals: TerminalInfo[] = TERMINALS, tree: RailNode[] = TREE, hostPresent = true) => {
+export const mountBubbles = async (selected: string | null = "a", terminals: TerminalInfo[] = TERMINALS, tree: RailNode[] = TREE, hostPresent = true, arrange?: (app: ReturnType<typeof createFakeApp>) => void) => {
   const app = createFakeApp();
   const [hasHost, setHostPresent] = createSignal(hostPresent);
   let listed = [...terminals];
@@ -46,6 +46,8 @@ export const mountBubbles = async (selected: string | null = "a", terminals: Ter
 
     return null;
   };
+
+  arrange?.(app);
 
   const [recovery, recover] = createSignal<{ project: string; revision: string }>();
   const [exit, setExit] = createSignal<{ code: number | null } | null>(null);

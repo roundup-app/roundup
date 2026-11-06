@@ -2,6 +2,7 @@ import { answerQuestion } from "../shelf/bulkQuestionHarness";
 import { nameOf } from "./places";
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { RpcError } from "../app/seam";
 import { agent, event, info, workstream } from "../testing/nodes";
 import { bubbleNames, bubbleCalls, mountBubbles, TERMINALS } from "./bubblesFixture";
 import { clamped, MIN_HEIGHT, MIN_WIDTH } from "./places";
@@ -276,5 +277,15 @@ describe("u164 a bubble floats over the centre pane", () => {
     mounted.emulators.made.get("1")!.type(new TextEncoder().encode("x"));
     // paneHarness.type calls screens.ts onInput synchronously; Daemon exit returns before flush.
     expect(bubbleCalls(mounted.app, "terminal.write")).toEqual([]);
+  });
+
+  it("u6249d_a_bubble_terminal_failure_offers_retry_and_dismiss", async () => {
+    const mounted = await mountBubbles("a", TERMINALS, TOP_LEVEL, true, app => { app.handlers["terminal.snapshot"] = () => { throw new RpcError(-32603, "connection closed"); }; });
+    await waitFor(() => bubble("1"));
+    fireEvent.click(document.querySelector('.terminal-tab[data-bubble="1"]')!);
+    await waitFor(() => expect(bubble("1").querySelector("[data-dismiss-failure]")).not.toBeNull());
+    mounted.app.handlers["terminal.snapshot"] = () => ({ cols: 100, rows: 30, after: 0, data: "" });
+    fireEvent.click(bubble("1").querySelector(".reserved-actions button")!);
+    await waitFor(() => expect(bubble("1").querySelector("[data-dismiss-failure]")).toBeNull());
   });
 });
