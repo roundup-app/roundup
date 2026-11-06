@@ -13,7 +13,7 @@
   position: absolute;
   inset: 0;
   z-index: -1;
-  background: var(--rail-ground, var(--ground));
+  background: var(--rail-ground);
   pointer-events: none;
 }
 
