@@ -27,12 +27,12 @@ describe("u167 a new Workstream's default name is unique among the Rail's roots"
       await mounted.rail.settled();
     };
 
-    await create(1, "workstream");
-    await create(2, "workstream 2");
-    await create(3, "workstream 3");
+    await create(1, "New Workstream");
+    await create(2, "New Workstream 2");
+    await create(3, "New Workstream 3");
 
-    expect(createdNames(mounted.app)).toEqual(named("workstream", "workstream 2", "workstream 3"));
-    expect(rowNames()).toEqual(expect.arrayContaining(["workstream", "workstream 2", "workstream 3"]));
+    expect(createdNames(mounted.app)).toEqual(named("New Workstream", "New Workstream 2", "New Workstream 3"));
+    expect(rowNames()).toEqual(expect.arrayContaining(["New Workstream", "New Workstream 2", "New Workstream 3"]));
 
     tree[1] = workstream("w2", { name: "renamed" });
     mounted.app.emit(event({ name: "rail.changed" }));
@@ -40,13 +40,13 @@ describe("u167 a new Workstream's default name is unique among the Rail's roots"
     await mounted.rail.settled();
 
     await chooseFooter("Workstream");
-    await waitFor(() => expect(createdNames(mounted.app)).toEqual(named("workstream", "workstream 2", "workstream 3", "workstream 2")));
+    await waitFor(() => expect(createdNames(mounted.app)).toEqual(named("New Workstream", "New Workstream 2", "New Workstream 3", "New Workstream 2")));
   });
 
   it("u167_the_new_name_is_the_one_thread_and_card_words_use", async () => {
-    const mounted = await mountRail([workstream("a", { name: "workstream" }), workstream("b", { name: "workstream 2" })]);
+    const mounted = await mountRail([workstream("a", { name: "New Workstream" }), workstream("b", { name: "New Workstream 2" })]);
 
-    expect(mounted.rail.nameOf({ kind: "agent", id: "b", parent: null })).toBe("workstream 2");
-    expect(mounted.rail.nameOf({ kind: "agent", id: "a", parent: null })).toBe("workstream");
+    expect(mounted.rail.nameOf({ kind: "agent", id: "b", parent: null })).toBe("New Workstream 2");
+    expect(mounted.rail.nameOf({ kind: "agent", id: "a", parent: null })).toBe("New Workstream");
   });
 });

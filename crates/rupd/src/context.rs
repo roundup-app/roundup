@@ -155,13 +155,24 @@ pub(crate) fn naming(
     text: String,
     settings: &contracts::project::NamingSettings,
     settled: bool,
+    user_named: bool,
+    door: bool,
 ) -> String {
-    let action = if !settings.automatic_renaming {
+    let action = if user_named {
+        "Your name is the user's: keep it. Only the user renames it; rail_rename of it is refused."
+    } else if !settings.automatic_renaming {
         "Automatic self-naming is off. Keep your current name; do not rename yourself automatically."
     } else if settled {
         "Automatic self-naming is on. Your name is already chosen: keep it. Never replace an explicit or user-entered name."
     } else {
         "Automatic self-naming is on. Choose your own task name with rail_rename, following the naming guide. Never replace an explicit or user-entered name, including a later user rename."
+    };
+    let action = if door && !user_named && settings.automatic_renaming && !settled {
+        format!(
+            "{action} You are a Workstream's Door: name your Workstream after its task once, through rail_rename."
+        )
+    } else {
+        action.to_owned()
     };
     let (name, rest) = text.split_once('\n').unwrap_or((&text, ""));
     format!(

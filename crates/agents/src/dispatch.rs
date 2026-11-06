@@ -464,6 +464,8 @@ impl Agents {
             if let Some(order) = &order {
                 valid_explicit_order(order)?;
             }
+            let typed =
+                ctx.actor.kind == ActorKind::User && !name::is_workstream_placeholder(&name);
             let node = shared.rail().insert_ordered(
                 NodeKind::Workstream,
                 &name,
@@ -472,6 +474,9 @@ impl Agents {
                 order.as_ref(),
                 start_attribution.as_ref(),
             )?;
+            if typed {
+                shared.rail().set_user_named(&node.id)?;
+            }
             if ctx.actor.kind == ActorKind::Agent {
                 shared.rail().set_creator(&node.id, &ctx.actor.id)?;
             }
@@ -514,10 +519,26 @@ impl Agents {
         {
             let RenameParams { id, name } = params(value)?;
             shared.guard_reach(&ctx.actor, &id, true)?;
+            if name.chars().count() > name::MAX_CHARS {
+                return Err(RpcError::new(
+                    code::INVALID_PARAMS,
+                    "name is longer than 42 characters",
+                ));
+            }
             let node = {
                 let mut rail = shared.rail();
+                let user = ctx.actor.kind == ActorKind::User;
+                // U6380c: only the user renames a row the user named.
+                if !user && rail.user_named(&id)? {
+                    return Err(RpcError::forbidden(
+                        "the user named this row; keep its name",
+                    ));
+                }
                 let before = rail.node(&id)?.name;
                 let node = rail.rename(&id, &name)?;
+                if user {
+                    rail.set_user_named(&id)?;
+                }
                 // Publish before releasing Rail: both producers follow its commit order.
                 if node.name != before {
                     shared.bus.emit(

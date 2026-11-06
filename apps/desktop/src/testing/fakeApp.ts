@@ -146,7 +146,7 @@ export const createFakeApp = (): FakeApp => {
 
   const nameAt = (path: string): string => open.find((project) => project.path === path)?.name ?? folderOf(path);
 
-  let naming = { automaticRenaming: true, namingGuide: "Use three hyphen-separated words: role-verb-object, within 32 characters." };
+  let naming = { automaticRenaming: true, namingGuide: "Use distinguishable meaningful name in title-case; at most 42 characters." };
 
   const app: FakeApp = {
     serveActions: async (answer, invalidated) => { invalidateActions?.(); answerAction = answer; invalidateActions = invalidated; },

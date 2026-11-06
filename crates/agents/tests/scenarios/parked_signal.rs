@@ -95,7 +95,7 @@ async fn a14_a_parked_user_prompt_submit_still_names_the_agent() {
     let tree = f.tree().await;
     assert_eq!(
         tree.iter().find(|n| n.id == node.id).unwrap().name,
-        "fix-build"
+        "Fix Build"
     );
 }
 

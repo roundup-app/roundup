@@ -146,6 +146,12 @@ pub(crate) fn read_naming(
     )
     .optional()
     .map(Option::unwrap_or_default)
+    .map(|mut settings| {
+        if settings.naming_guide == contracts::project::NamingSettings::OLD_DEFAULT_GUIDE {
+            settings.naming_guide = contracts::project::NamingSettings::DEFAULT_GUIDE.into();
+        }
+        settings
+    })
 }
 
 pub(crate) fn write_naming(

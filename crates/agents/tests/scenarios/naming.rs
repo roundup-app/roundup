@@ -29,12 +29,12 @@ async fn a4452b_first_user_message_is_the_users_words() {
         .spawn(None, Some("roundup coordination must not name this agent"))
         .await
         .unwrap();
-    assert_eq!(node.name, "new-agent");
+    assert_eq!(node.name, "New Agent");
     f.changed();
 
     f.submit(&node.id, "Fix the refresh race in token.ts").await;
 
-    assert_eq!(f.name_of(&node.id).await, "fix-refresh-race");
+    assert_eq!(f.name_of(&node.id).await, "Fix Refresh Race");
     assert_eq!(f.changed(), 1);
 }
 
@@ -47,7 +47,7 @@ async fn a9_later_prompts_never_rename_the_agent() {
 
     f.submit(&node.id, "now write the docs").await;
 
-    assert_eq!(f.name_of(&node.id).await, "fix-build");
+    assert_eq!(f.name_of(&node.id).await, "Fix Build");
     assert_eq!(f.changed(), 0);
 }
 
@@ -60,7 +60,7 @@ async fn a9_a_prompt_with_no_words_left_keeps_the_name_and_still_counts_as_the_f
     f.submit(&node.id, "please, the...").await;
     f.submit(&node.id, "fix the build").await;
 
-    assert_eq!(f.name_of(&node.id).await, "new-agent");
+    assert_eq!(f.name_of(&node.id).await, "New Agent");
     assert_eq!(f.changed(), 0);
 }
 
@@ -121,9 +121,9 @@ async fn u176_agents_with_one_prompt_are_numbered_among_their_siblings() {
     assert_eq!(
         names,
         [
-            "what-should-this",
-            "what-should-this-2",
-            "what-should-this-3"
+            "What Should This",
+            "What Should This 2",
+            "What Should This 3"
         ]
     );
 }
@@ -158,7 +158,7 @@ async fn a27_three_same_tag_siblings_are_named_by_their_text() {
     for id in &ids {
         names.push(f.name_of(id).await);
     }
-    assert_eq!(names, ["fix-login-bug", "write-docs", "tune-cache"]);
+    assert_eq!(names, ["Fix Login Bug", "Write Docs", "Tune Cache"]);
 }
 
 #[tokio::test]
@@ -190,14 +190,14 @@ async fn a28_a_taken_name_gets_a_suffix() {
     let second = f.spawn_named(Some("docs"), None).await.unwrap();
     let third = f.spawn_named(Some("docs"), None).await.unwrap();
     assert_eq!(first.name, "docs");
-    assert_eq!(second.name, "docs-2");
-    assert_eq!(third.name, "docs-3");
+    assert_eq!(second.name, "docs 2");
+    assert_eq!(third.name, "docs 3");
 }
 
 #[tokio::test]
 async fn a28_a_bad_name_is_invalid_params() {
     let f = Fixture::running("sleep 30");
-    for bad in ["", "   ", &"a".repeat(33), "two\nlines"] {
+    for bad in ["", "   ", &"a".repeat(43), "two\nlines"] {
         let err = f.spawn_named(Some(bad), None).await.unwrap_err();
         assert_eq!(err.code, rpc::code::INVALID_PARAMS, "{bad:?}");
     }
@@ -208,9 +208,9 @@ async fn a28_a_bad_name_is_invalid_params() {
 async fn a28_a_spawn_without_a_name_is_named_by_a9() {
     let f = Fixture::running("sleep 30");
     let node = f.spawn_named(None, None).await.unwrap();
-    assert_eq!(node.name, "new-agent");
+    assert_eq!(node.name, "New Agent");
     f.submit(&node.id, "fix the build").await;
-    assert_eq!(f.name_of(&node.id).await, "fix-build");
+    assert_eq!(f.name_of(&node.id).await, "Fix Build");
 }
 
 #[tokio::test]
@@ -224,16 +224,16 @@ async fn a44_a_clarification_steer_names_no_agent() {
          `agent_context` names under `ask`. Then record a Work order with `agent_set_order`.",
     )
     .await;
-    assert_eq!(f.name_of(&node.id).await, "new-agent");
+    assert_eq!(f.name_of(&node.id).await, "New Agent");
 
     f.submit(&node.id, "fix the build").await;
-    assert_eq!(f.name_of(&node.id).await, "fix-build");
+    assert_eq!(f.name_of(&node.id).await, "Fix Build");
 }
 
 #[tokio::test]
 async fn a2741a_first_prompt_and_rpc_share_the_committed_name_seam() {
     let f = Fixture::running("exec sleep 30");
-    f.spawn_named(Some("fix-build"), None).await.unwrap();
+    f.spawn_named(Some("Fix Build"), None).await.unwrap();
     let node = f.spawn(None, None).await.unwrap();
     let mut events = f.bus.subscribe();
     f.submit(&node.id, "fix the build").await;
@@ -243,7 +243,7 @@ async fn a2741a_first_prompt_and_rpc_share_the_committed_name_seam() {
     assert_eq!(
         crate::common::renames(&mut events),
         [
-            (node.id.clone(), "fix-build-2".into()),
+            (node.id.clone(), "Fix Build 2".into()),
             (node.id.clone(), "mine".into())
         ]
     );
@@ -323,7 +323,7 @@ async fn a2741a_unchanged_prompt_names_produce_no_change() {
         if matches!(case, "no words" | "Clarification") {
             f.submit(&id, "fix the build").await;
             if case == "Clarification" {
-                expected.push((id.clone(), "fix-build".into()));
+                expected.push((id.clone(), "Fix Build".into()));
             }
         }
         f.call(

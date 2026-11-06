@@ -294,7 +294,7 @@ describe("u33 spawn with a prompt", () => {
     await chooseFooter("Workstream");
 
     await waitFor(() =>
-      expect(railCallsTo(mounted.app, "rail.createWorkstream")).toEqual([{ name: "workstream", parent: null }]),
+      expect(railCallsTo(mounted.app, "rail.createWorkstream")).toEqual([{ name: "New Workstream", parent: null }]),
     );
     expect(field().value).toBe("keep me");
   });
