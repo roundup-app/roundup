@@ -63,8 +63,7 @@ it.each(["tree-40", "agents-10", "tabs-8", "empty-project", "resources"])("u2539
       await capture(lane, `${seed}-landing`);
 
       if (lane === "head" && seed === "agents-10") {
-        await browser("focus", '.change-row:has([aria-label="Needs-you"]) .change-action');
-        await browser("click", '.change-row:has([aria-label="Needs-you"]) .change-action');
+        await browser("click", '.rail-row[data-id="agent-4"] .name');
         await until("!!document.querySelector('.pane-screen')");
         await capture(lane, "agents-10-selected-agent");
         await evaluate("window.__select(null)");

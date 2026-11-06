@@ -23,6 +23,8 @@ export type LaneBrowser = {
   tabTo: (name: string) => Promise<void>;
   /** Waits until the page function returns truthy. */
   until: (predicate: string) => Promise<void>;
+  /** Opens the Ask the way a user does, with `⌘/`; a press before the App registers its keys is lost, so it repeats until the input exists. */
+  openAsk: () => Promise<void>;
   /** Writes the Checks and a screenshot through the shared capture directory when enabled. */
   capture: (id: string, step: string) => Promise<void>;
   /** Reloads the harness, makes one Todo per title, the third blocked by the first, and shows the Todos tab. */
@@ -70,8 +72,19 @@ export const openLane = async (width: number, scheme: "light" | "dark", name: st
 
   const resetCalls = async () => { await evaluate("(() => { window.__fake.app.calls.length = 0; return true; })()"); };
 
+  const openAsk = async () => {
+    for (let attempt = 0; attempt < 20; attempt++) {
+      if (await evaluate<boolean>("!!document.querySelector('.ask-input')")) return;
+      await evaluate("document.body.dispatchEvent(new KeyboardEvent('keydown', { key: '/', code: 'Slash', metaKey: true, bubbles: true })), true");
+      if (await evaluate<boolean>("!!document.querySelector('.ask-input')")) return;
+      await new Promise(resolve => setTimeout(resolve, 250));
+    }
+
+    throw new Error("The Ask never opened on ⌘/");
+  };
+
   return {
-    browser, evaluate, until, calls, resetCalls, focused, tabTo,
+    browser, evaluate, until, openAsk, calls, resetCalls, focused, tabTo,
     capture: async (id, step) => {
       const dir = captureDir(id);
 

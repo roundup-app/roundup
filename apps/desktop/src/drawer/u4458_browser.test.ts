@@ -182,7 +182,7 @@ it.concurrent.each(cases)(
 
   try {
     await lane.until("!!document.querySelector('.rail-scroll')");
-    await lane.until("!!document.querySelector('.ask-input')");
+    await lane.openAsk();
     await lane.browser("fill", ".ask-input", "  Original unsent work 雪\nkeep this exact draft  ");
     let target = ".storage-failure button";
 

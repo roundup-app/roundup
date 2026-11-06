@@ -38,15 +38,20 @@ it("u3721_restore_keeps_terminal_fitting_operable", async () => {
 it("u4279b_maximised_shelf_excludes_covered_controls", async () => {
   await openShelf("tree-40", 288, 360, 1512, "dark");
   await browser("set", "viewport", "1512", "950");
-  await browser("wait", ".ask-input");
-  const targets = ".ask-input, .overview-attention button";
+  await browser("wait", ".rail-scroll");
+
+  for (let attempt = 0; attempt < 20 && !(await evaluate<boolean>("!!document.querySelector('.ask-input')")); attempt++) {
+    await browser("press", "Meta+/");
+    await new Promise(resolve => setTimeout(resolve, 250));
+  }
+
+  const targets = ".ask-input";
 
   const before = await evaluate<{ points: { x: number; y: number }[] }>(`(() => {
     const targets = [...document.querySelectorAll('${targets}')];
     return { points: targets.map(e => { const r = e.getBoundingClientRect(); return { x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2) }; }) };
   })()`);
 
-  expect(await evaluate("!!document.querySelector('.overview-attention button')")).toBe(true);
   expect(await evaluate(`document.querySelector('.ask-input').checkVisibility({ visibilityProperty: true })`)).toBe(true);
   await browser("click", ".shelf-controls button[aria-label=Maximise]");
   await settle();
