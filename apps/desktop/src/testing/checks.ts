@@ -1,6 +1,6 @@
 // U137: the one module that measures D1 to D14 (docs/design-system.md, "The checks"). `window.__checks()` on the harness page and the u130_ to u137_ tests call it, so a check has one implementation.
 // It reads computed style, stylesheet text and the DOM and writes nothing: a hover, press or focus style is read from the stylesheet rules that would apply, never by driving the page into that state.
-import { pressCheck, rowCueCheck, rowAlignmentCheck } from "./designChecks";
+import { pressCheck, rowCueCheck, rowAlignmentCheck, tabStateCheck } from "./designChecks";
 import valueParser from "postcss-value-parser";
 import { contrastRgb } from "./contrast";
 import { inlineStyleCss, lookLiterals } from "./lookLiterals";
@@ -80,6 +80,12 @@ type Page = {
   style: (el: Element) => CSSStyleDeclaration;
   token: (name: string) => string | undefined;
   resolve: (value: string) => string;
+};
+
+const rowAndTabCue = (doc: Document, rules: CSSStyleRule[]) => {
+  const rows = rowCueCheck(doc, rules);
+
+  return rows.status === "fail" ? rows : tabStateCheck(doc, rules);
 };
 
 const styleRulesOf = (doc: Document): CSSStyleRule[] => {
@@ -863,7 +869,7 @@ export function runChecks(doc: Document = document): Checks {
       const { ok, value, selector } = BY_ID[id](page);
 
       if (!ok) return { status: "fail", value, selector };
-      const extension = id === "D4" ? pressCheck(doc, page.rules) : id === "D7" ? rowCueCheck(doc, page.rules) : id === "D8" ? rowAlignmentCheck(doc) : null;
+      const extension = id === "D4" ? pressCheck(doc, page.rules) : id === "D7" ? rowAndTabCue(doc, page.rules) : id === "D8" ? rowAlignmentCheck(doc) : null;
 
       return extension?.status === "fail" ? extension : { status: "pass", value: extension ? { original: value, extension: extension.value } : value, selector };
     } catch {

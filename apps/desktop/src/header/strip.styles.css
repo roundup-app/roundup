@@ -225,8 +225,8 @@
   font-weight: 600;
 }
 
-.project-tab[data-unfinished="true"][data-selected="true"] {
-  /* Keep the 8ch name and its mark clear of both action targets and their gap. */
+.project-tab[data-unfinished="true"] {
+  /* Open or not, keep the 8ch name and its mark clear of both action targets and their gap. */
   min-width: calc(8ch + 3 * var(--space-5) + 5 * var(--space-1) + var(--space-3) + 2 * var(--rule));
 }
 
