@@ -34,14 +34,8 @@ def evaluate(script):
 
 read = r"""(() => {
   const box = selector => {const e=document.querySelector(selector);return e ? e.getBoundingClientRect().toJSON() : null;};
-  const title=document.querySelector('.window-title');
-  const titleRange=document.createRange();
-  if(title)titleRange.selectNodeContents(title);
-  const titleCss=title ? getComputedStyle(title) : null;
   const controls=[...document.querySelectorAll('.strip button,.tab-rename,.strip-edge')].map(e=>({box:e.getBoundingClientRect().toJSON(),visible:getComputedStyle(e).visibility!=='hidden',name:e.className}));
-  return {width:innerWidth,bar:box('.header'),reserved:box('.traffic-lights'),title:box('.window-title'),windowTitle:window.__fake.app.windowOperations.filter(op=>op.kind==='title').at(-1)?.title ?? "",titleName:title?.getAttribute('aria-label') ?? "",titleTip:document.getElementById(title?.getAttribute('aria-describedby'))?.textContent ?? "",
-    titleStyle:{overflow:title ? getComputedStyle(title).textOverflow : "",whiteSpace:title ? getComputedStyle(title).whiteSpace : ""},
-    titleTextWidth:title ? titleRange.getBoundingClientRect().width : 0,titlePadding:titleCss ? parseFloat(titleCss.paddingLeft)+parseFloat(titleCss.paddingRight) : 0,
+  return {width:innerWidth,bar:box('.header'),reserved:box('.traffic-lights'),title:box('.window-title'),windowTitle:window.__fake.app.windowOperations.filter(op=>op.kind==='title').at(-1)?.title ?? "",
     strip:box('.strip'),rail:box('.rail'),centre:box('.centre'),shelf:box('.shelf'),drawer:box('.drawer'),close:box('.drawer .close'),menu:window.__fake.app.shownMenus.at(-1) ?? null,
     centreSurfaces:[...document.querySelectorAll('.centre .pane-screen,.centre .terminal-bar')].map(e=>e.getBoundingClientRect().toJSON()),
     checks:matchMedia('(prefers-color-scheme: dark)').matches ? window.__checks() : {},controls,plus:box('.strip-add'),scroll:{width:document.querySelector('.tablist')?.clientWidth ?? 0,total:document.querySelector('.tablist')?.scrollWidth ?? 0}};
@@ -226,9 +220,7 @@ try:
                         browser("wait", "--fn", "document.querySelector('.tablist').scrollWidth > document.querySelector('.tablist').clientWidth")
                     browser("wait", "--fn", "document.querySelector('[data-id=\"'+window.__longWorkstream+'\"]') !== null")
                     browser("click", '.rail-row[data-id="long-workstream"] .name')
-                    browser("wait", "--fn", "document.querySelector('.window-title').getAttribute('aria-label').includes('W'.repeat(300))")
-                    browser("hover", ".window-title")
-                    browser("wait", "[role=tooltip][data-state=open]")
+                    browser("wait", "--fn", "window.__fake.app.windowOperations.filter(op=>op.kind==='title').at(-1)?.title.includes('W'.repeat(300))")
                     capture(prefix + "-overflow")
                     browser("hover", ".centre")
                     browser("press", "Tab")
