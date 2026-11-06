@@ -251,6 +251,30 @@ async fn u6296a_a_message_to_a_busy_receiver_shows_its_reason() {
     assert_eq!(messages.delivery_failure("m"), None);
 }
 
+#[tokio::test]
+async fn u6307a_a_busy_receiver_keeps_the_messages_own_reason() {
+    let dir = tempfile::tempdir().unwrap();
+    let (messages, rail, inbox, _) = open(dir.path());
+    let inner = &messages.inner;
+    let idle = lock(&rail.nodes)[0].clone();
+    let mut busy = idle.clone();
+    busy.status.as_mut().unwrap().kind = Kind::Working;
+    lock(&rail.nodes)[0] = busy;
+    let first = pending(&messages, &Actor::daemon(), "first input");
+    let unread = pending(&messages, &Actor::daemon(), "unreadable");
+    let plain = pending(&messages, &Actor::daemon(), "no reason");
+    failure::hold(inner, &[first.id], Some(failure::AWAITING_INPUT));
+    failure::hold(inner, &[unread.id], Some(failure::UNREADABLE));
+    crate::nudge(inner, "m").await;
+    let reason = |id: u32| {
+        failure::with_waiting(inner, lock(&inner.store).get(id).unwrap().unwrap()).waiting
+    };
+    assert_eq!(reason(first.id).as_deref(), Some(failure::AWAITING_INPUT));
+    assert_eq!(reason(unread.id).as_deref(), Some(failure::UNREADABLE));
+    assert_eq!(reason(plain.id).as_deref(), Some(failure::RECEIVER_BUSY));
+    assert!(written(&inbox).is_empty());
+}
+
 fn written_by(inbox: &Gated) -> Vec<Vec<u32>> {
     lock(&inbox.inner.batches)
         .iter()

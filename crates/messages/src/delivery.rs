@@ -331,7 +331,14 @@ pub(super) async fn deliver_pending(inner: &Arc<Inner>, agent: &str) {
             .iter()
             .map(|m| m.id)
             .collect();
-        failure::hold(inner, &ids, Some(failure::RECEIVER_BUSY));
+        // U6307a: a Message with its own reason keeps it.
+        let fresh: Vec<u32> = {
+            let waiting = lock(&inner.waiting);
+            ids.into_iter()
+                .filter(|id| !waiting.contains_key(id))
+                .collect()
+        };
+        failure::hold(inner, &fresh, Some(failure::RECEIVER_BUSY));
     }
 }
 
