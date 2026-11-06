@@ -47,6 +47,7 @@ agents = { path = "../agents", features = ["test-support"] }
 async-trait.workspace = true
 jsonschema = { version = "0.60.2", default-features = false }
 tempfile.workspace = true
+proptest = { version = "1.12.0", default-features = false, features = ["std"] }
 
 [lints]
 workspace = true
