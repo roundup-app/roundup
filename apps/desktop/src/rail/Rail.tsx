@@ -9,7 +9,7 @@ import { captureFocus, returnFocus } from "../keys/focus";
 import { type createCopyFeedback } from "../ui/CopyButton";
 import * as v from "valibot";
 import { copy } from "./copy";
-import { createEffect, createMemo, createSignal, For, lazy, on, onCleanup, onMount, Show } from "solid-js";
+import { createEffect, createMemo, createSignal, For, lazy, on, onCleanup, onMount, Show, untrack } from "solid-js";
 import { ReservedLine } from "../ink/ReservedLine";
 import { SectionHead } from "../ink/SectionHead";
 import { KindGlyph } from "../ink/KindGlyph";
@@ -25,7 +25,7 @@ import { OpeningPrompt } from "./OpeningPrompt";
 import { SaveAsMode } from "./SaveAsMode";
 import { RailConfirm } from "./menu/RailConfirm";
 import { createRailMenu } from "./menu/model";
-import { ancestorsOf, isWorkstream, siblingsOf } from "./layout";
+import { ancestorsOf, descendantsOf, isWorkstream, siblingsOf } from "./layout";
 import { RailRowView } from "./RailRow";
 import { focusedRowId, ROW, type RowActions } from "./rows";
 import { SpawnPromptField } from "./SpawnPromptField";
@@ -37,7 +37,7 @@ import { useRecoveryMenu } from "../drawer/DraftRecovery";
 import { draftsOf } from "./persist/storage";
 import { createRailDrag } from "./drag";
 import { createRailSelection } from "./selection";
-import { createRailTree, sections } from "./railTree";
+import { createRailTree, sameList, sections } from "./railTree";
 import { RailRecovery } from "./RailRecovery";
 import { RailFooter } from "./RailFooter";
 import "./styles.css";
@@ -756,12 +756,17 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
                 return (
                   <>
                     <Show when={node()}>
-                      {(view) => (
+                      {(view) => {
+                        // U3800d: a row reads its own subtree of the topology, so a move redraws only the rows whose subtree it changed.
+                        const id = untrack(() => view().node.id);
+                        const below = createMemo(() => topology(), topology(), { equals: (a, b) => sameList(descendantsOf(a, id), descendantsOf(b, id)) });
+
+                        return (
                         <TreeView.NodeProvider node={entryOf(view().node.id).node} indexPath={entryOf(view().node.id).indexPath}>
                         <Sortable.Item id={view().node.id} index={indexOf().get(view().node.id) ?? 0} disabled={daemonExit() !== null}>{(parts) =>
                         <RailRowView
                           row={view()}
-                          topology={topology()}
+                          topology={below()}
                           todoCount={todoCount(view().node.id)}
                           actions={actionsOf(view().node)}
                           doorAction={<Show when={isWorkstream(view().node) && !view().node.opening_prompt?.trim() && rail.exitOf(view().node) !== null && !connected.queue.entryOf(view().node.id)}><IconButton aria-label={rail.doorFailure(view().node.id) ? copy.retryDoor : copy.startDoor} aria-disabled={rail.launching(view().node.id)} onKeyDown={event => event.stopPropagation()} onClick={event => { event.stopPropagation(); failure.clear(); rail.clearWorkstreamFailure(); void rail.startDoor(view().node.id); }}><Icon name="play" /></IconButton></Show>}
@@ -796,7 +801,8 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
                         />
                         }</Sortable.Item>
                         </TreeView.NodeProvider>
-                      )}
+                        );
+                      }}
                     </Show>
                     <Show when={fold()}>
                       {(view) => (
