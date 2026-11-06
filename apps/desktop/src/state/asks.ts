@@ -2,8 +2,9 @@ import { batch, createEffect, createSignal } from "solid-js";
 import type { Ask } from "@contracts/ask/Ask";
 import type { AskPart } from "@contracts/ask/AskPart";
 import type { Target } from "@contracts/ask/Target";
-import { outcomeOf, RpcError, type AppSeam } from "../app/seam";
+import { outcomeOf, RpcError, type App, type AppSeam, type Project } from "../app/seam";
 import type { SendParams } from "@contracts/ask/SendParams";
+import type { PlacedPart } from "@contracts/ask/PlacedPart";
 import type { Events } from "../app/events";
 import * as v from "valibot";
 import { storageSchema, storedValue } from "./storage";
@@ -56,6 +57,41 @@ export type AsksState = {
 
 /** The part an Ask holds until the Daemon's answer replaces it (A40). */
 const placing = (text: string): AskPart => ({ text, placement: { kind: "unclear", question: "", candidates: [] }, state: "placing" });
+
+/**
+ * U6271a: sends each placed part to the Daemon of its own Project, in order, verbatim.
+ * A `routed` part types into its Workstream; a `new` part fixes `project` so that Daemon starts the Workstream (A42).
+ * A part naming no open Project goes to `active`; an `unclear` part has no destination and is not sent.
+ */
+export const sendPlaced = async (
+  app: Pick<App, "forProject">,
+  active: AppSeam,
+  open: readonly Project[],
+  submission: string,
+  parts: readonly PlacedPart[],
+): Promise<Ask[]> => {
+  const sent: Ask[] = [];
+
+  for (const [index, part] of parts.entries()) {
+    const { placement } = part;
+
+    if (placement.kind === "unclear") continue;
+
+    const owner = open.find(project => project.name === placement.project);
+    const daemon = owner ? app.forProject(owner.path) : active;
+    const id = `${submission}:${index}`;
+
+    const request: SendParams = placement.kind === "routed"
+      ? { text: part.text, submission: id, workstream: placement.workstream }
+      : { text: part.text, submission: id, parts: [part] };
+
+    if (placement.kind === "new" && placement.project) request.project = placement.project;
+
+    sent.push(await daemon.rpc("ask.send", request));
+  }
+
+  return sent;
+};
 
 const acknowledgedSchema = storageSchema("roundup:ask-acknowledged", v.array(v.string()));
 
