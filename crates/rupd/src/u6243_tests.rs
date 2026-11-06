@@ -139,6 +139,8 @@ impl Peer {
     fn close(&mut self) {
         if let Some(stop) = self.stop.take() {
             stop.store(true, Ordering::SeqCst);
+            // Wake the blocked accept so the listener thread sees the flag and exits.
+            let _ = std::os::unix::net::UnixStream::connect(&self.socket);
         }
         let _ = std::fs::remove_file(&self.socket);
         drop(UnixListener::bind(&self.socket).unwrap());
@@ -151,17 +153,14 @@ impl Peer {
         }
         let _ = std::fs::remove_file(&self.socket);
         let listener = UnixListener::bind(&self.socket).unwrap();
-        listener.set_nonblocking(true).unwrap();
         let stop = Arc::new(AtomicBool::new(false));
         self.stop = Some(stop.clone());
         let transcript = self.transcript.clone();
         std::thread::spawn(move || {
             while !stop.load(Ordering::SeqCst) {
                 let Ok((stream, _)) = listener.accept() else {
-                    std::thread::sleep(std::time::Duration::from_millis(5));
                     continue;
                 };
-                stream.set_nonblocking(false).unwrap();
                 for line in std::io::BufReader::new(stream)
                     .lines()
                     .map_while(Result::ok)
@@ -198,9 +197,14 @@ async fn walk(steps: Vec<Step>) -> Told {
     tells(&mut events);
     let mut last = fresh(&run).await;
     assert_eq!(told(&run), last);
+    // An Agent whose session ended cannot receive a Message.
+    let mut ended = false;
     for step in steps {
         match step {
-            Step::Hook(who, hook) => run.signal(&ids[who], hook).await,
+            Step::Hook(who, hook) => {
+                ended |= who == 1 && hook == "SessionEnd";
+                run.signal(&ids[who], hook).await
+            }
             Step::Background(start) => {
                 let hook = if start {
                     "SubagentStart"
@@ -230,6 +234,7 @@ async fn walk(steps: Vec<Step>) -> Told {
                     .await;
                 }
             }
+            Step::DeliveryFails | Step::DeliveryLands if ended => {}
             Step::DeliveryFails | Step::DeliveryLands => {
                 if matches!(step, Step::DeliveryFails) {
                     peer.close();
