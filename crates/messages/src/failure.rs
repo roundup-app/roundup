@@ -19,6 +19,7 @@ pub(crate) const NO_RECEIPT: &str = "no receipt after four writes";
 /// U6260a: why the send path keeps a Message; a waiting Message is never a delivery failure.
 pub(crate) const AWAITING_INPUT: &str = "held until the user's first input in this Attempt";
 pub(crate) const INBOX_NOT_READY: &str = "held until the receiver's inbox is ready";
+pub(crate) const RECEIVER_BUSY: &str = "the receiver is busy; written when it is idle";
 pub(crate) const RESTART_RESERVED: &str = "held until the reserved restart ends";
 
 /// The one waiting predicate: why the send path keeps a Message `pending` instead of writing it.

@@ -320,6 +320,18 @@ pub(super) async fn deliver_pending(inner: &Arc<Inner>, agent: &str) {
                 .is_some_and(|s| matches!(s.kind, Kind::Idle | Kind::Blocked | Kind::Error))
     }) {
         on_idle(inner, agent, binding(node), Pick::Fresh).await;
+    } else if let Some(node) = nodes
+        .iter()
+        .find(|node| node.id == agent && !ended(node) && node.status_revision.is_some())
+    {
+        // U6296a: a live receiver that is not ready keeps its Messages pending, with the reason.
+        let ids: Vec<u32> = lock(&inner.store)
+            .list_pending_to(&node.id)
+            .expect("message store")
+            .iter()
+            .map(|m| m.id)
+            .collect();
+        failure::hold(inner, &ids, Some(failure::RECEIVER_BUSY));
     }
 }
 

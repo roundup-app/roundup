@@ -18,7 +18,7 @@ import { createDrawer } from "../drawer/drawer";
 import type { DrawerState } from "../drawer/drawer";
 import { createWorktreeState } from "./worktrees";
 import { createAsks } from "./asks";
-import type { AsksState } from "./asks";
+import type { AsksState, AskRouting } from "./asks";
 import { syncTerminalScheme } from "../terminal/scheme";
 import { createRailState } from "./rail";
 import { dismissalStorage, resumptionStorage } from "../rail/persist/storage";
@@ -201,6 +201,7 @@ export const connectProject = async (
   /** U3566: whether the selected Agent's pane is displayed in a visible, focused, active window. */
   viewing: Accessor<boolean> = () => true,
   clock: Accessor<number> = now,
+  routing?: AskRouting,
 ): Promise<ConnectedProject> => {
   drafts.todoUndo.reconnect(app);
   const original = app;
@@ -280,7 +281,7 @@ export const connectProject = async (
       const node = rail.nodes.find(node => node.id === rail.selected());
 
       return node?.kind === "workstream" && node.terminal_id !== null ? node.id : null;
-    } });
+    } }, routing);
   });
 
   if (ended) stopAsks();
