@@ -62,6 +62,15 @@ it("u522_pointer_move_calls_rail_move", async () => {
   expect(await moves()).toEqual([{ id: "tokens", parent: "auth", index: 1 }]);
 }, 90_000);
 
+it("u522_a_release_inside_still_moves_when_the_pointer_leaves_before_the_move_runs", async () => {
+  await load();
+  await dragBelow("tokens", "logins");
+  await mouse("up");
+  await mouse("move", 1270, pointer.y);
+  await settle(1);
+  expect(await moves()).toEqual([{ id: "tokens", parent: "auth", index: 1 }]);
+}, 90_000);
+
 it("u522_cancel_calls_nothing", async () => {
   await load();
   const before = await order();

@@ -1,10 +1,11 @@
 import { createMemo, type Accessor } from "solid-js";
 import { createTreeCollection } from "@ark-ui/solid/tree-view";
+import type { RailNode as ProjectNode } from "@contracts/agent/RailNode";
 import { KIND_ICON } from "../ink/kindIcon";
 import type { ConnectedProject } from "../state/connectedProject";
 import { railCollection } from "./collection";
 import { copy } from "./copy";
-import { foldIdOf, layoutRail, type NodeRow } from "./layout";
+import { foldIdOf, layoutRail, type NodeRow, type RailRow } from "./layout";
 import type { RailSection } from "./persist/storage";
 
 export const sections: { id: RailSection; label: string; icon: typeof KIND_ICON[keyof typeof KIND_ICON] }[] = [
@@ -12,6 +13,24 @@ export const sections: { id: RailSection; label: string; icon: typeof KIND_ICON[
   { id: "modes", label: copy.modesHead, icon: KIND_ICON.mode },
   { id: "agents", label: copy.agentsHead, icon: KIND_ICON.agent },
 ];
+
+export const sameList = (a: readonly unknown[], b: readonly unknown[]) => a.length === b.length && a.every((each, at) => each === b[at]);
+
+/** A copy the drawing made of a node it did not change is the node: equal field by field. */
+const sameNode = (a: ProjectNode, b: ProjectNode): boolean => {
+  if (a === b) return true;
+  // SAFETY: Object.keys of a RailNode lists its own fields, each a key of RailNode.
+  const keys = Object.keys(a) as (keyof ProjectNode)[];
+
+  return keys.length === Object.keys(b).length && keys.every(key => a[key] === b[key]);
+};
+
+const sameRow = (a: RailRow, b: RailRow): boolean => {
+  if (a.kind === "node" && b.kind === "node") return sameNode(a.node, b.node) && a.depth === b.depth && a.children === b.children && sameList(a.trail, b.trail)
+    && (a.collapsed === null ? b.collapsed === null : b.collapsed !== null && sameList(a.collapsed.agents, b.collapsed.agents));
+
+  return a.kind === "fold" && b.kind === "fold" && a.depth === b.depth && a.parent === b.parent && a.group === b.group && a.status === b.status && a.count === b.count && a.open === b.open && sameList(a.trail, b.trail);
+};
 
 type RailNode = { id: string; name: string; childrenCount?: number; children?: RailNode[] };
 
@@ -23,12 +42,23 @@ export const createRailTree = (connected: ConnectedProject, unfolded: Accessor<R
   const topology = rail.topology;
   const presentSections = createMemo(() => sections.filter(section => topology().section.includes(section.id)));
 
-  const sectionRows = createMemo(() => presentSections().map(section => ({
+  /** U3800d: a row the move left as it was keeps its object, so the view built from it does not run again. */
+  const stable = (previous: Map<string, RailRow> | undefined, row: RailRow): RailRow => {
+    const kept = previous?.get(row.key);
+
+    return kept && sameRow(kept, row) ? kept : row;
+  };
+
+  const sectionRows = createMemo<{ id: RailSection; label: string; icon: (typeof sections)[number]["icon"]; rows: RailRow[] }[]>(() => presentSections().map(section => ({
     ...section,
     rows: rail.closedSections().has(section.id) ? [] : layoutRail(topology(), { collapsed: collapsed(), unfolded: unfolded(), now: now(), selected: rail.selected() }, section.id),
   })));
 
-  const rows = createMemo(() => sectionRows().flatMap(section => section.rows));
+  const rows = createMemo<RailRow[]>(previous => {
+    const before = new Map(previous?.map(row => [row.key, row]));
+
+    return sectionRows().flatMap(section => section.rows).map(row => stable(before, row));
+  }, []);
 
   /** Section branches share Ark's keyboard walk and add one semantic level above their rows. */
   const collection = createMemo(() => {
