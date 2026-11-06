@@ -148,7 +148,6 @@ it("fb3_the_form_shows_the_text_that_posts", async () => {
 });
 
 it("fb4_send_closes_the_form_and_the_toast_links_the_comment", async () => {
-  await saveAppSettings({ feedbackIssue: URL });
   const { app, sends, toasts } = await mount();
 
   await open();
@@ -207,6 +206,7 @@ it("fb6_the_setting_holds_and_validates_the_issue_url", async () => {
 });
 
 it("fb6_an_empty_setting_keeps_the_report_and_says_so", async () => {
+  await saveAppSettings({ feedbackIssue: "" });
   const { answer, sends, toasts } = await mount();
 
   answer(async () => ({ state: "kept", dir: "/d/r1", cause: "the Feedback Issue setting is empty" }));
