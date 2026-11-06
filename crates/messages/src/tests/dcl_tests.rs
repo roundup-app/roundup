@@ -267,9 +267,9 @@ async fn u6404a_a_stopped_receiver_gets_its_message_under_a_hold_and_a_running_o
     assert_eq!(seen.waiting.as_deref(), Some(failure::RECEIVER_BUSY));
     assert!(written(&inbox).is_empty());
 
-    let mut held = running;
-    held.status.as_mut().unwrap().label = "waiting on `npm test`".into();
-    lock(&rail.nodes)[0] = held;
+    let mut waiting = running;
+    waiting.status.as_mut().unwrap().label = "waiting on `npm test`".into();
+    lock(&rail.nodes)[0] = waiting;
     crate::nudge(inner, "m").await;
     assert_eq!(written(&inbox), vec![vec![note.id]]);
 }

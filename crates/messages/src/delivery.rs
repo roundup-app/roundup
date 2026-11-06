@@ -151,7 +151,7 @@ pub(super) async fn on_status_labeled(
     } else {
         (
             kind == Kind::Done,
-            matches!(kind, Kind::Idle | Kind::Blocked) || stop_held(kind, label),
+            matches!(kind, Kind::Idle | Kind::Blocked) || stop_recorded(kind, label),
         )
     };
     {
@@ -354,7 +354,7 @@ pub(super) async fn deliver_pending(inner: &Arc<Inner>, agent: &str) {
 
 /// U6404a: a Stop that a DCL3d hold keeps `working` (DCL3e's label) ends the turn, so the receiver
 /// takes input at its prompt. The label is the one fact of the Stop the Rail carries.
-fn stop_held(kind: Kind, label: &str) -> bool {
+fn stop_recorded(kind: Kind, label: &str) -> bool {
     kind == Kind::Working && label.starts_with("waiting on ")
 }
 
@@ -362,7 +362,7 @@ fn stop_held(kind: Kind, label: &str) -> bool {
 /// under a hold (U6404a).
 pub(super) fn ready(status: &contracts::Status) -> bool {
     matches!(status.kind, Kind::Idle | Kind::Blocked | Kind::Error)
-        || stop_held(status.kind, &status.label)
+        || stop_recorded(status.kind, &status.label)
 }
 
 pub(super) fn binding(node: &RailNode) -> store::Binding {
