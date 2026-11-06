@@ -23,7 +23,7 @@ it("u4464_cmd_o_opens_the_chooser_on_first_run_only", async () => {
   render(() => <App app={app} clock={() => 0} reducedMotion={() => true} createEmulator={fakeEmulators().factory} />);
   await screen.findByRole("button", { name: "Choose Project…" });
   fireEvent.keyDown(window, { key: "o", code: "KeyO", metaKey: true });
-  await screen.findByRole("textbox", { name: "Ask" });
+  await screen.findByRole("group", { name: "Nothing selected" });
   expect(choose).toHaveBeenCalledOnce();
   fireEvent.keyDown(window, { key: "o", code: "KeyO", metaKey: true });
   expect(choose).toHaveBeenCalledOnce();

@@ -29,6 +29,8 @@ import "./todoWorstCase.styles.css";
 declare global {
   interface Window {
     __fake: Controls;
+    /** U6244: the Rail has no Overview row, so a lane clears the selection through the open Project. */
+    __select: (id: string | null) => void;
     __question: typeof questionProbe;
     __terminals: Map<string, Emulator>;
     /** U463: cancel only the next isolated choice; no caller-supplied path. */
@@ -119,6 +121,8 @@ const mount = (app: AppSeam) => {
   };
 
   const content = () => <><App app={app} reducedMotion={reducedMotion} clock={() => Date.now()} prepareIdle={open => {
+    window.__select = id => open.rail.select(id);
+
     if (requested.has(open.project.path)) return;
     requested.add(open.project.path);
     inspection(open);

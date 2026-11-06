@@ -53,7 +53,7 @@ it.each(["initial open", "reopen"])("r3800_shell_needs_at_most_one_rpc_reply: %s
   render(() => <App app={app} reducedMotion={() => true} clock={() => 0} createEmulator={fakeEmulators().factory} />);
 
   if (mode === "reopen") {
-    await screen.findByRole("textbox", { name: "Ask" });
+    await screen.findByRole("region", { name: "Rail" });
     openProjectPage("view:workstreams", app.opened.project.path);
     await within(await screen.findByRole("region", { name: "Rail" })).findByText("Seeded Agent");
     holding = true;
@@ -83,7 +83,7 @@ it.each(["initial open", "reopen"])("r3800_shell_needs_at_most_one_rpc_reply: %s
 
   if (reopen) await waitFor(() => expect(reopen?.isConnected).toBe(false));
 
-  await screen.findByRole("textbox", { name: "Ask" });
+  await screen.findByRole("region", { name: "Rail" });
   openProjectPage("view:workstreams", app.opened.project.path);
   await within(await screen.findByRole("region", { name: "Rail" })).findByText("Seeded Agent");
 
@@ -143,7 +143,7 @@ it.each(["equal", "older", "newer", "missing"])("r3800_startup_preserves_contrac
   };
 
   subscription.resolve();
-  await screen.findByRole("textbox", { name: "Ask" });
+  await screen.findByRole("region", { name: "Rail" });
 
   if (contract !== "equal") {
     expect(screen.getByRole("alert")).toBeTruthy();

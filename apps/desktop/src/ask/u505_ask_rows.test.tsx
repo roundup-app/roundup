@@ -10,7 +10,7 @@ import { agentBrowserExecutable, chromePath } from "../testing/chromePage";
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { event } from "../testing/nodes";
-import { ask, mountAskBar as mountQuietAskBar, rowTexts } from "./askFixture";
+import { ask, mountAskBar as mountQuietAskBar, openAsk, rowTexts } from "./askFixture";
 
 afterEach(cleanup);
 
@@ -79,6 +79,7 @@ describe("u505 an Ask row shows progress from Agent state", () => {
             data: {ask: {id: "native", at: "1", text: "ship it", parts: [{text: "ship it",
               placement: {kind: "routed", workstream: "payments"}, state: "typed"}]}}});
         })()`);
+        await browser("eval", "document.body.dispatchEvent(new KeyboardEvent('keydown', {key: '/', code: 'Slash', metaKey: true, bubbles: true}))");
         await browser("wait", "--fn", "!!document.querySelector('button.ask-line') && document.fonts.status === 'loaded'");
         await browser("eval", `(() => {
           window.__activations = 0;
@@ -121,6 +122,7 @@ describe("u505 an Ask row shows progress from Agent state", () => {
         window.__fake.emit({actor: {kind: "user", id: "you", parent: null}, name: "ask.changed",
           data: {ask: {id: "arrows", at: "1", text: "arrows", parts}}});
       })()`);
+      await browser("eval", "document.body.dispatchEvent(new KeyboardEvent('keydown', {key: '/', code: 'Slash', metaKey: true, bubbles: true}))");
       await browser("wait", "--fn", "document.querySelectorAll('button.ask-line').length === 2");
 
       await browser("focus", ".ask-row[data-state=queued] button.ask-line");
@@ -150,7 +152,14 @@ describe("u505 an Ask row shows progress from Agent state", () => {
   });
 });
 
-const mountAskBar = mountQuietAskBar;
+/** Only `⌘/` opens the Ask (U6244c), so each mount opens it as the user does. */
+const mountAskBar = async (...args: Parameters<typeof mountQuietAskBar>) => {
+  const mounted = await mountQuietAskBar(...args);
+
+  await openAsk();
+
+  return mounted;
+};
 
 
 it("u2539b_history_shows_each_doors_current_status_once", async () => {

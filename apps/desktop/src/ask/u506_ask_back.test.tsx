@@ -1,7 +1,7 @@
 import { copy } from "./copy";
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
-import { ask, mountAskBar as mountQuietAskBar } from "./askFixture";
+import { ask, mountAskBar as mountQuietAskBar, openAsk } from "./askFixture";
 
 afterEach(cleanup);
 
@@ -79,4 +79,11 @@ describe("u506 an unclear row asks back", () => {
   });
 });
 
-const mountAskBar = mountQuietAskBar;
+/** Only `⌘/` opens the Ask (U6244c), so each mount opens it as the user does. */
+const mountAskBar = async (...args: Parameters<typeof mountQuietAskBar>) => {
+  const mounted = await mountQuietAskBar(...args);
+
+  await openAsk();
+
+  return mounted;
+};

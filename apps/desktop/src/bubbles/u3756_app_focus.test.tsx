@@ -53,7 +53,6 @@ const mount = async () => {
     };
   });
   render(() => <App app={root} createEmulator={emulators.factory} clock={() => 0} reducedMotion={() => true} prepareIdle={value => { connected = value; }} />);
-  await screen.findByRole("textbox", { name: "Ask" });
   await waitFor(() => expect(document.querySelector('.rail-row[data-id="home"]')).not.toBeNull());
 
   return { app, emulators, connected, hold: () => { holdTree = true; }, waiting: () => waiting, reveal: () => { holdTree = false; reveal(); }, finish: () => finishStart() };
@@ -64,11 +63,13 @@ it.each(["rail", "ask", "other-row"])("u4011_new_workstream_selection_preserves_
   m.hold();
   void m.connected.rail.createWorkstream();
   await waitFor(() => expect(m.waiting()).toBe(true));
-  const ask = screen.getByRole<HTMLTextAreaElement>("textbox", { name: "Ask" });
+
+  if (choice === "ask") fireEvent.keyDown(document.body, { key: "/", code: "Slash", metaKey: true });
+  const ask = choice === "ask" ? await screen.findByRole<HTMLTextAreaElement>("textbox", { name: "Ask" }) : null;
   const rail = document.querySelector<HTMLElement>(".rail-scroll")!;
   const other = document.querySelector<HTMLElement>('.rail-row[data-id="other"]')!;
 
-  if (choice === "ask") { fireEvent.pointerDown(ask); ask.focus(); }
+  if (ask) { fireEvent.pointerDown(ask); ask.focus(); }
   else if (choice === "other-row") { fireEvent.pointerDown(other); fireEvent.click(other.querySelector(".name")!); other.focus(); }
   else fireEvent.pointerDown(rail);
   const newer = document.activeElement;
@@ -89,7 +90,7 @@ it.each(["rail", "ask", "other-row"])("u4011_new_workstream_selection_preserves_
   expect(terminalFocuses).toEqual([]);
   expect(document.activeElement).toBe(newer);
 
-  if (choice === "ask") {
+  if (ask) {
     fireEvent.input(ask, { target: { value: "u4011 exact marker" } });
     expect(ask.value).toBe("u4011 exact marker");
     expect(document.activeElement).toBe(ask);

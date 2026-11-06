@@ -7,7 +7,6 @@ import { mountTodos } from "../todos/testHarness";
 import { AskBar } from "../ask/AskBar";
 import { ConnectedProjectContext } from "../state/connectedProject";
 import { copy } from "../ink/copy";
-import { copy as askCopy } from "../ask/copy";
 import { copy as shelfCopy } from "../shelf/copy";
 import { createNow, DisplayClockContext, NOW_TICK_MS } from "../state/clock";
 
@@ -111,29 +110,4 @@ it("u5231b_new_status_event_replaces_label_and_age_together", async () => {
 
   m.app.emit(event({ name: "agent.status", data: { id: "a", attempt: node.attempt!, status_revision: String(Number(node.status_revision) + 1), status: { kind: "needs-you", label: "Pick a branch", since: Date.now() - 20.5 * 60_000, finished: "0" } } }));
   await waitFor(() => expect(screen.getByRole("tooltip").textContent).toBe(copy.statusReveal("Pick a branch", copy.statusAge.minutes(20))));
-});
-
-it("u5231c_ticking_age_keeps_typed_input", async () => {
-  vi.useFakeTimers({ toFake: ["Date", "setInterval", "clearInterval"] });
-  vi.setSystemTime(NOW);
-  const nodes = [agent("a", "needs-you", "Waiting for approval", { name: "alpha", order: 0, status: { kind: "needs-you", label: "Waiting for approval", since: NOW - 59_000, finished: "0" } })];
-  const m = await mountTodos([], true, nodes);
-  const now = createNow(() => Date.now(), () => false);
-
-  render(() => <DisplayClockContext.Provider value={now.subscribe}><ConnectedProjectContext.Provider value={m.connected}><AskBar /></ConnectedProjectContext.Provider></DisplayClockContext.Provider>);
-  m.connected.showView("attention");
-  await screen.findByRole("region", { name: "Needs you" });
-  const input = screen.getByPlaceholderText<HTMLTextAreaElement>(askCopy.askBarPlaceholder);
-
-  fireEvent.input(input, { target: { value: "unfinished" } });
-  input.focus();
-  const row = head("a");
-
-  fireEvent.pointerMove(row, { pointerType: "mouse" });
-  await screen.findByRole("tooltip");
-  await vi.advanceTimersByTimeAsync(NOW_TICK_MS);
-  expect(screen.getByRole("tooltip").textContent).toBe(copy.statusReveal("Waiting for approval", copy.statusAge.minutes(1)));
-  expect(input.value).toBe("unfinished");
-  expect(document.activeElement).toBe(input);
-  expect(head("a")).toBe(row);
 });

@@ -92,7 +92,7 @@ it.skipIf(!captureDir("U3295b"))("u3295b_rendered_modal_dismissal_and_dialog_pic
     await snap("dense-failure");
 
     await browser("open", new URL("/harness.html?seed=agents-10", server.resolvedUrls.local[0]!).href);
-    await wait("!!window.__fake && !!document.querySelector('.todo-project-root')");
+    await wait("!!window.__fake && !!window.__select");
     await snap("agents-before");
     await read("(() => { const nodes = window.__fake.app.handlers['rail.tree'](); for (const node of nodes.filter(n => n.kind === 'agent' && n.status?.kind !== 'needs-you').slice(0, 3)) window.__fake.setStatus(node.id, 'needs-you', 'Choose the next step'); })()");
     await wait("document.querySelectorAll('.app-toast').length >= 3");

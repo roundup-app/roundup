@@ -4,16 +4,10 @@ import { door, event, workstream } from "../testing/nodes";
 import { RpcError } from "../app/seam";
 import type { Deliverable } from "@contracts/deliverable/Deliverable";
 import type { Ask } from "@contracts/ask/Ask";
-import { ask, input, mountAskBar as mountClosed, press } from "./askFixture";
+import { ask, input, mountAskBar as mountClosed, openAsk as reopen, press } from "./askFixture";
 import { copy } from "./copy";
 
 afterEach(cleanup);
-
-/** Only `⌘/` opens the Ask (U6244c): a mount with nothing selected opens it, so tests start at the input. */
-const reopen = async () => {
-  press("/", { metaKey: true }, document.querySelector(".outside")!);
-  await waitFor(() => expect(input()).not.toBeNull());
-};
 
 const mountAskBar = async (...args: Parameters<typeof mountClosed>) => {
   const mounted = await mountClosed(...args);

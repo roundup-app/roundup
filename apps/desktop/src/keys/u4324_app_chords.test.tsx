@@ -1,4 +1,5 @@
 import { batch } from "solid-js";
+import { openAsk } from "../ask/askFixture";
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it, vi } from "vitest";
 import { App } from "../App";
@@ -79,7 +80,7 @@ it.each(rows)("u4324b_app_chords_follow_focus: $chord / $place / native=$native 
     return emulator;
   }} prepareIdle={open => { connection = open; }} />);
 
-  if (!first) await screen.findByLabelText("Ask", { selector: '[role="textbox"]' });
+  if (!first) await screen.findByRole("region", { name: "Rail" });
   const daemon = app;
   const calls = (method: string) => daemon.calls.filter(call => call.method === method);
   daemon.handlers["agent.spawn"] = () => { const spawned = agent("new", "idle", "ready"); nodes.push(spawned);
@@ -97,8 +98,15 @@ it.each(rows)("u4324b_app_chords_follow_focus: $chord / $place / native=$native 
 
     if (place === "first-frame") target = document.querySelector<HTMLElement>(".centre")!;
   } else {
+    await openAsk();
     const editor = screen.getByLabelText("Ask", { selector: '[role="textbox"]' });
     fireEvent.input(editor, { target: { value: draft } });
+
+    if (place !== "ask") {
+      fireEvent.keyDown(editor, { key: "Escape", code: "Escape" });
+      await waitFor(() => expect(document.querySelectorAll('[role="textbox"][aria-label="Ask"]')).toHaveLength(0));
+    }
+
     fixture!.store.todos[0]!.home = "home";
 
     if (place !== "ask") fixture!.connected().rail.select("home");

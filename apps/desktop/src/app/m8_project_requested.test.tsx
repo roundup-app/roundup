@@ -1,6 +1,6 @@
 import { batch } from "solid-js";
 import * as v from "valibot";
-import { cleanup, fireEvent, render, screen, within } from "@solidjs/testing-library";
+import { cleanup, fireEvent, render, screen, within, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Requested } from "@contracts/project/Requested";
 import { createProjectDrafts } from "../state/connectedProject";
@@ -77,6 +77,21 @@ it("u3021a_recovery_lists_only_work_at_risk", async () => {
   expect(within(recovery).getAllByRole("listitem")).toHaveLength(1);
   expect(app.shownMenus.at(-1)!.items.map((item) => item.label)).toEqual(["Unfinished work (1)"]);
   expect(holder.list()).toHaveLength(2);
+});
+
+it("u3289c_a_focused_row_menu_by_keyboard_holds_recovery", async () => {
+  const drafts = createProjectDrafts();
+
+  failedSave(drafts(FIRST.path), { surface: "todos", object: "9", recipient: null }, { title: "lost when closed" });
+  const app = mount(drafts);
+  await screen.findByLabelText("Rail", { selector: '[role="tree"]' });
+  const row = await waitFor(() => { const found = document.querySelector<HTMLElement>(".rail-row"); expect(found).not.toBeNull();
+
+ return found!; });
+
+  row.focus();
+  fireEvent.keyDown(row, { key: "ContextMenu", code: "ContextMenu" });
+  await waitFor(() => expect(app.shownMenus.at(-1)?.items.map((item) => item.label)).toContain("Unfinished work (1)"));
 });
 
 it("u3289a_left_or_crashed_input_qualifies", async () => {

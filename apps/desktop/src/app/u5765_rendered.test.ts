@@ -45,7 +45,7 @@ it("u5765_escape_refuses_and_restores_ask_focus_on_tree_40", async () => {
     await page.capture("U5765", `attribution-${id}`);
   }
 
-  await page.browser("press", "Meta+/");
+  await page.evaluate("document.body.dispatchEvent(new KeyboardEvent('keydown', { key: '/', code: 'Slash', metaKey: true, bubbles: true }))");
   await page.browser("focus", ".ask-input");
   await page.capture("U5765", "before");
   await page.evaluate(`(() => {

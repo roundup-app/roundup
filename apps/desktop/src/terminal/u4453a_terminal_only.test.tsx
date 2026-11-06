@@ -43,7 +43,7 @@ it.skipIf(!process.env.ROUNDUP_CAPTURES?.includes("U4453a"))("u4453a_rendered_te
       for (const seed of ["agents-10", "door-stopped", "tree-40", "empty-project"]) {
         await page.evaluate("localStorage.clear()");
         await page.browser("open", new URL(`/harness.html?seed=${seed}`, url).href);
-        await page.until("!!window.__fake && !!document.querySelector('.todo-project-root')");
+        await page.until("!!window.__fake && !!window.__select");
 
         if (seed !== "empty-project") {
           await page.evaluate("(async () => { const id = document.querySelector('.rail-row[data-id]').dataset.id; await window.__fake.app.rpc('rail.rename', {id, name: 'An Agent with a sixty character name to test the full Rail width'}); return true; })()");

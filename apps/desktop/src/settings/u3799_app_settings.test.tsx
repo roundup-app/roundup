@@ -143,13 +143,13 @@ it.each(["import-work", "project-settings"] as const)("u3814_escape_restores_the
   const page = await screen.findByRole("region", { name: command === "import-work" ? "Import Claude Code" : "Project settings" });
   opener.remove();
   fireEvent.keyDown(page, { key: "Escape", code: "Escape" });
-  await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("button", { name: /^Overview/ })));
+  await waitFor(() => expect(document.activeElement).toBe(document.querySelector<HTMLElement>(".rail-actions button")!));
 });
 
 
 it("u3814_switching_settings_pages_keeps_the_original_return_destination", async () => {
   await openTabs({ api: [workstream("w")] });
-  const overview = screen.getByRole("button", { name: /^Overview/ });
+  const overview = document.querySelector<HTMLElement>(".rail-actions button")!;
   overview.focus();
   window.dispatchEvent(new Event("open-app-settings"));
   const appPage = await screen.findByRole("region", { name: "Settings" });
@@ -169,7 +169,7 @@ it.skipIf(!captureDir("U3813"))("u3813_u3814_u3815_rendered_project_pages", asyn
   try {
     await lane.capture("U3813", "tree-40-overview");
     await lane.browser("record", "start", join(captureDir("U3814")!, "project-pages.webm"));
-    await lane.until("!!window.__fake && !!document.querySelector('.todo-project-root')");
+    await lane.until("!!window.__fake && !!window.__select");
     await lane.evaluate(`(() => {
       window.__fake.app.handlers['project.importDiscover'] = () => ({ candidates: Array.from({ length: 10 }, (_, at) => ({ source: 's' + at, revision: 'r' + at, title: ('長い会話 🪁 ' + at + ' ').repeat(12), cwd: 'src', last_activity_ms: 1n })), excluded: [] });
       window.dispatchEvent(new CustomEvent('open-project-page', { detail: { path: '/Users/you/harness', command: 'import-work' } }));
@@ -217,7 +217,7 @@ it.skipIf(!captureDir("U3813"))("u3813_u3814_u3815_rendered_project_pages", asyn
       await lane.until("!!document.querySelector('.window')");
 
       if (seed !== "first-run") {
-        await lane.until("!!document.querySelector('.todo-project-root')");
+        await lane.until("!!window.__select");
         await lane.capture("U3813", `${seed}-overview`);
         await lane.evaluate("window.dispatchEvent(new CustomEvent('open-project-page', { detail: { path: document.querySelector('.project-tab[data-selected=true]').dataset.path, command: 'import-work' } }))");
         await lane.until("!!document.querySelector('.import-panel')");

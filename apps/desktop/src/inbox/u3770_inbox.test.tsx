@@ -1,3 +1,4 @@
+import { openAsk } from "../ask/askFixture";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { Event as DaemonEvent } from "@contracts/Event";
@@ -361,6 +362,7 @@ it.each(["rail", "ask", "bench", "drawer", "agent-terminal", "shell-terminal", "
 
     expect(connected().project.path).toBe("/p");
     expect(projectMenu.path).toBe("/p");
+    await openAsk();
     expect(screen.getByLabelText("Ask", { selector: "textarea" })).toHaveProperty("value", draft);
     expect(daemon.calls.slice(before).filter(call => ["terminal.write", "ask.send", "agent.resume", "rail.startDoor", "agent.spawn"].includes(call.method))).toEqual([]);
   }

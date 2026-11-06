@@ -98,7 +98,7 @@ it.each(["pointer", "enter"])("u5742c_switcher_choice_focuses_terminal_%s", asyn
 
 it.each(["direct", "leader"])("u5742c_attention_choice_focuses_terminal_%s", async choice => {
   const m = await mount();
-  screen.getByLabelText("Ask", { selector: "textarea" }).focus();
+  document.querySelector<HTMLElement>(".rail-row")!.focus();
 
   if (choice === "leader") { key("k", { metaKey: true }); key("j"); }
   else key("j", { metaKey: true, ctrlKey: true });
@@ -277,6 +277,7 @@ it.each(["fold", "add-agent", "door-action", "menu"])("u5742b_controls_do_not_ac
 it("u5742c_ask_result_choice_focuses_terminal", async () => {
   const m = await mount([door("ann", "idle", "ready")]);
   m.app.emit({ actor: { kind: "user", id: "you", parent: null }, name: "ask.changed", data: { ask: { id: "asked", at: 1n, text: "review this", parts: [{ text: "review this", placement: { kind: "routed", workstream: "ann" }, state: "typed" }] } } });
+  key("/", { metaKey: true });
   fireEvent.click(await screen.findByRole("button", { name: /review this/ }));
   await provesChoice(m, "ann");
 });
@@ -382,7 +383,7 @@ it.each(["authorization", "readiness"] as const)("u5742d_message_link_preserves_
   fireEvent.click(m.link);
   await waitFor(() => expect(release).toBeDefined());
 
-  if (stage === "readiness") fireEvent.keyDown(document.activeElement!, { key: "/", code: "Slash", metaKey: true });
+  fireEvent.keyDown(document.activeElement ?? document.body, { key: "/", code: "Slash", metaKey: true });
   const ask = await screen.findByLabelText<HTMLTextAreaElement>("Ask", { selector: "textarea" });
   ask.focus();
   fireEvent.input(ask, { target: { value: "keep my draft" } });

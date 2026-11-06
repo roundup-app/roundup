@@ -32,7 +32,7 @@ import { SpawnPromptField } from "./SpawnPromptField";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { ExitState } from "../state/rail";
 import type { SpawnParams } from "@contracts/agent/SpawnParams";
-import { contextMenu, openOnRelease } from "../ui/contextMenu";
+import { contextMenu, openOnRelease, type MenuEntry } from "../ui/contextMenu";
 import { useRecoveryMenu } from "../drawer/DraftRecovery";
 import { draftsOf } from "./persist/storage";
 import { createRailDrag } from "./drag";
@@ -269,7 +269,7 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
     });
   };
 
-  const openSelectionMenu = (node: RailNode, x: number, y: number) => {
+  const openSelectionMenu = (node: RailNode, x: number, y: number, extra: MenuEntry[] = []) => {
     if (!selection.selection.isSelected(node.id)) {
       selection.selection.replace(node.id);
       anchorAt(node.id);
@@ -278,7 +278,7 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
     focusRow(node.id);
     const chosen = selectedNodes();
 
-    if (chosen.length < 2) return menu.open(node, rail.exitOf(node), x, y);
+    if (chosen.length < 2) return menu.open(node, rail.exitOf(node), x, y, undefined, extra);
 
     return contextMenu(app, [
       { id: "group", label: copy.group, run: () => attempt(async () => {
@@ -342,7 +342,8 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
 
     if (row && node) {
       const box = row.getBoundingClientRect();
-      void openSelectionMenu(node, box.left, box.bottom);
+      // U3289c: the keyboard reaches the recovery item through the focused row's menu, since the Rail itself is not a Tab stop.
+      void openSelectionMenu(node, box.left, box.bottom, recoveryEntries("key"));
     }
   };
 

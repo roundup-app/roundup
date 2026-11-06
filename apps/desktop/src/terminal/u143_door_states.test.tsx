@@ -239,7 +239,7 @@ it.each(CHORDS.filter((row) => row.what === copy.newAgent || row.what === copy.n
       await waitFor(() => expect(document.activeElement).toBe(input));
       fireEvent.keyDown(input, { code: "Escape", key: "Escape" });
       await waitFor(() => expect(document.activeElement).toBe(start));
-      expect(screen.getByRole("textbox", { name: copy.askBarLabel })).toBeTruthy();
+      await waitFor(() => expect(screen.queryByRole("textbox", { name: copy.askBarLabel })).toBeNull());
     }
 
     expect(calls(daemon, "rail.createWorkstream")).toEqual([]);

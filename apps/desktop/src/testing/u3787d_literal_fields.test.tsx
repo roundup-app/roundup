@@ -43,7 +43,7 @@ it.each(inventory)("u3787d_each_field_keeps_literal_input %s", async opening => 
   }
 
   render(() => <App app={app} reducedMotion={() => true} clock={() => 0} createEmulator={fakeEmulators().factory} prepareIdle={open => open.showView("terminal-tabs")} />);
-  await screen.findByLabelText("Ask", { selector: '[role="textbox"]' });
+  await screen.findByLabelText("Rail", { selector: '[role="tree"]' });
   let field: HTMLInputElement | HTMLTextAreaElement;
 
   if (opening === "Change note") {
@@ -68,6 +68,7 @@ it.each(inventory)("u3787d_each_field_keeps_literal_input %s", async opening => 
     fireEvent.click(await screen.findByRole("button", { name: new RegExp(label) }));
     field = await screen.findByRole("combobox", { name: label });
   } else if (opening === "Ask prompt") {
+    fireEvent.keyDown(document.body, { key: "/", code: "Slash", metaKey: true });
     field = await screen.findByLabelText("Ask", { selector: '[role="textbox"]' });
   } else if (opening === "Switcher query") {
     leaderKey("KeyK");
