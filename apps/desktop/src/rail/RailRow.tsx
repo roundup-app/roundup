@@ -157,6 +157,8 @@ export const RailRowView = (props: {
     return queued ? queued.entry.start.kind === "afterTodo" ? copy.afterBadge(queued.entry.start.todo) : copy.queuedBadge(queued.place) : null;
   };
 
+  // U6248c: an exhausted resume shows its cause once, in the line that carries Resume.
+  const exhaustedResume = () => props.row.node.resume?.at === null && props.row.node.status?.kind === "error";
   const worktreeFailure = () => connected.worktrees.read(props.row.node.id)?.failure;
 
   const facts = () => {
@@ -245,7 +247,7 @@ export const RailRowView = (props: {
     </Show>}</Show>
     <Show when={workstream() && connected.rail.doorFailure(props.row.node.id)}>{cause => <FailureCause label={cause()} class="rail-door-failure" />}</Show>
     <Show when={props.row.node.start_attribution}>{source => <ReservedLine class="rail-attribution" status={copy.startedBy(source().agent_name, source().project_name)} />}</Show>
-    <Show when={!workstream() && !(props.row.node.resume && props.row.node.resume.at === null && props.row.node.status?.kind === "error") && (props.selected || !connected.rail.dismissed(props.row.node))}><FailureLine status={props.row.node.status} dismissed={connected.rail.dismissed(props.row.node)} /></Show>
+    <Show when={!workstream() && !exhaustedResume() && (props.selected || !connected.rail.dismissed(props.row.node))}><FailureLine status={props.row.node.status} dismissed={connected.rail.dismissed(props.row.node)} /></Show>
   </div>}</StatusTip>;
 
   return <>
