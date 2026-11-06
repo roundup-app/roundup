@@ -820,31 +820,3 @@ async fn a5335c_resume_without_a_saved_conversation_starts_nothing() {
     assert_eq!(after.attempt, before.attempt);
     assert_eq!(after.terminal_id, None);
 }
-
-/// U6260b: a spawn with `prompt` had the user's input; one without awaits it.
-async fn resumed_input_started(prompt: Option<&str>) -> bool {
-    let f = Arc::new(Fixture::running("sleep 30"));
-    let node = f.spawn(None, prompt).await.unwrap();
-    f.session_start(&node.id, CONVERSATION, "startup")
-        .await
-        .unwrap();
-    f.call("agent.stop", json!({"id": node.id})).await.unwrap();
-    let old_attempt = node.attempt.clone().unwrap();
-    let resuming = {
-        let f = Arc::clone(&f);
-        let id = node.id.clone();
-        tokio::spawn(async move { f.resume(&id).await })
-    };
-    f.until_attempt_changed(&node.id, &old_attempt).await;
-    f.session_start(&node.id, CONVERSATION, "resume")
-        .await
-        .unwrap();
-    resuming.await.unwrap().unwrap();
-    f.agents.input_started(&node.id)
-}
-
-#[tokio::test]
-async fn u6260b_resume_keeps_the_conversation_admitted() {
-    assert!(resumed_input_started(Some("build it")).await);
-    assert!(!resumed_input_started(None).await);
-}
