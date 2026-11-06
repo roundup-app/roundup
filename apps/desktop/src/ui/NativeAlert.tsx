@@ -77,7 +77,7 @@ export const NativeAlert = (props: {
     if (open) untrack(() => void request());
   }));
 
-  return <Show when={failure()}><ReservedLine class="native-alert-failure" ref={element => { line = element; }} message={failure()} clearedBy={failure} action={<>
+  return <Show when={failure()}><ReservedLine class="native-alert-failure" ref={element => { line = element; }} message={failure()} selfClearing action={<>
     <button data-button="quiet" type="button" onClick={() => void request()}>{copy.retry}</button>
     <button data-button="quiet" type="button" onClick={() => { props.onCancel(); props.finalFocus()?.focus(); }}>{copy.keep}</button>
   </>} /></Show>;

@@ -61,7 +61,7 @@ export const NamingSettings = (props: { app: App }) => {
         <Field.ErrorText asChild={error => <div {...error()}><ReservedLine message={failure()} action={DISMISS_ONLY} onDismiss={() => setFailure(null)} /></div>} />
       </Field.Root>
     </>}</Show>
-    <Show when={!settings() && failure()}><ReservedLine message={failure()} clearedBy={failure} action={<button data-button="quiet" type="button" onClick={() => void refetch()}>{copy.storageRetry}</button>} /></Show>
-    <ReservedLine message={drafts.problem() ? copy.draftRetention(copy.settings, copy.namingGuide, drafts.problem()!.cause) : null} clearedBy={drafts.problem} action={<button data-button="quiet" type="button" onClick={() => drafts.retry()}>{copy.storageRetry}</button>} />
+    <Show when={!settings() && failure()}><ReservedLine message={failure()} selfClearing action={<button data-button="quiet" type="button" onClick={() => void refetch()}>{copy.storageRetry}</button>} /></Show>
+    <ReservedLine message={drafts.problem() ? copy.draftRetention(copy.settings, copy.namingGuide, drafts.problem()!.cause) : null} selfClearing action={<button data-button="quiet" type="button" onClick={() => drafts.retry()}>{copy.storageRetry}</button>} />
   </>;
 };

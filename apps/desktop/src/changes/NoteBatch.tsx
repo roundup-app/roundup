@@ -39,7 +39,7 @@ export const NoteBatch = (props: { id: string; name: string; fallback?: () => vo
   const older = (note: Note) => olderComparison(props.comparison, note.comparison);
 
   return <section class="note-batch" aria-label={copy.notesRegion}>
-      <ReservedLine message={props.notes.problem() ?? props.notes.failure(props.id)} status={status()} clearedBy={() => [props.notes.problem(), props.notes.failure(props.id)]} action={<>
+      <ReservedLine message={props.notes.problem() ?? props.notes.failure(props.id)} status={status()} selfClearing action={<>
         <Show when={props.notes.failure(props.id)}><button type="button" data-button="quiet" onClick={() => props.notes.dismiss(props.id)}>{copy.dismissFailure}</button></Show>
         <Show when={uncertain()}><button type="button" data-button="quiet" onClick={() => void props.notes.reconcile(props.id)}>{copy.checkMessageHistory}</button></Show>
         <Show when={props.notes.problem()}><button type="button" data-button="quiet" onClick={props.recover}>{copy.openNotesRecovery}</button></Show></>} />
@@ -137,7 +137,7 @@ export const NoteRecovery = (props: { compact?: boolean | undefined; notes: Note
     <Dialog.Positioner class="note-recovery-positioner"><Dialog.Content ref={setElement} class="worktree-panel note-recovery" aria-label={copy.recoverNotes}>
       <header class="diff-header"><Dialog.Title class="diff-identity">{copy.recoverNotes}</Dialog.Title><button type="button" onClick={close}>{copy.close}</button></header>
       <Show when={!retained()}><EmptyState art="clumsy" {...{ title: copy.noNoteDrafts }} line={copy.emptyNotesLine} /></Show>
-      <Show when={props.notes.problem()}>{problem => <ReservedLine message={problem()} clearedBy={props.notes.problem} action={<button type="button" onClick={props.notes.retry}>{copy.retry}</button>} />}</Show>
+      <Show when={props.notes.problem()}>{problem => <ReservedLine message={problem()} selfClearing action={<button type="button" onClick={props.notes.retry}>{copy.retry}</button>} />}</Show>
       <For each={[...failures()]}>{([key, text]) => <ReservedLine message={text} action={DISMISS_ONLY} onDismiss={() => clear(key)} />}</For>
 
       <Show when={editing()} keyed>{value => <NoteForm id={value.id} comparison={comparisons().get(`${value.id}:${value.form.comparison.newPath}`) ?? value.form.comparison} notes={props.notes} recovered={value.form} selection={{ side: value.form.side, start: Number(value.form.start), end: Number(value.form.end) }} close={() => setEditing(undefined)} />}</Show>

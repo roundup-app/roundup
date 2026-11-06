@@ -67,7 +67,7 @@ export const CapturePanel = (props: { port: CapturePort }) => {
         if (event.key === "Enter" && !event.isComposing) { event.preventDefault(); file(event.shiftKey); }
       }} />
     <p class="capture-target"><span>{state()?.owner}</span><span>{state()?.home}</span></p>
-    <ReservedLine message={failure() ?? state()?.failure} clearedBy={() => failure() ?? state()?.failure} action={
+    <ReservedLine message={failure() ?? state()?.failure} selfClearing action={
       <Show when={state()?.retention}><button data-button="quiet" onClick={() => {
           const current = state();
 

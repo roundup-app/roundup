@@ -14,7 +14,7 @@ export const StorageRecovery = (props: { children: JSX.Element }) => {
         <Show when={result()} keyed>{failure => failure.status === "incompatible"
           ? <>{storageCopy.incompatible("")}<code class="storage-gate-folder">{failure.folder}</code></>
           : failure.message}</Show>
-      } clearedBy={result} action={
+      } selfClearing action={
         <Show when={result()?.status === "failed"}><div class="storage-gate-actions">
           <button data-button="quiet" type="button" onClick={() => void refetch()}>{storageCopy.restoreRetry}</button>
         </div></Show>

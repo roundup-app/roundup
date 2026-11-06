@@ -369,7 +369,7 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
         {controls.naming()}
         {controls.skill()}
         {controls.feedbackIssue()}
-        <ReservedLine message={offered()?.failure} clearedBy={offered} action={<button data-button="quiet" type="button" onClick={() => void refetchOffered()}>{copy.storageRetry}</button>} />
+        <ReservedLine message={offered()?.failure} selfClearing action={<button data-button="quiet" type="button" onClick={() => void refetchOffered()}>{copy.storageRetry}</button>} />
       </SettingsGroup></Tabs.Content>
       <Tabs.Content value="Terminal"><SettingsGroup hideHeading name={copy.settingsTerminal}>
         {controls.fontFamily()}
@@ -395,12 +395,12 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
       </SettingsGroup></Tabs.Content>
       </Show>
       <ReservedLine message={failure()} action={DISMISS_ONLY} onDismiss={() => setFailure(null)} />
-      <ReservedLine message={numericFields.some(({ name }) => conflicted(name)) ? copy.settingsConflict : null} clearedBy={() => numericFields.some(({ name }) => conflicted(name))} action={<>
+      <ReservedLine message={numericFields.some(({ name }) => conflicted(name)) ? copy.settingsConflict : null} selfClearing action={<>
         <For each={numericFields.filter(({ name }) => conflicted(name))}>{({ name, label }) => <button data-button="quiet" type="button" onClick={() => { const draft = current(name);
 
  if (draft) void drafts.discard(draft.revision); }}>{copy.discardSettingsEdit(label)}</button>}</For>
       </>} />
-      <ReservedLine message={drafts.problem() ? copy.draftRetention(copy.settings, copy.settingsTerminal, drafts.problem()!.cause) : null} clearedBy={drafts.problem} action={<button data-button="quiet" type="button" onClick={() => drafts.retry()}>{copy.storageRetry}</button>} />
+      <ReservedLine message={drafts.problem() ? copy.draftRetention(copy.settings, copy.settingsTerminal, drafts.problem()!.cause) : null} selfClearing action={<button data-button="quiet" type="button" onClick={() => drafts.retry()}>{copy.storageRetry}</button>} />
       </div></Tabs.Root>
     </SettingsShell>
     </Show>

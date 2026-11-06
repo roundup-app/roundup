@@ -40,7 +40,7 @@ export const RailFooter = (props: {
       <div class="rail-footer" ref={element => { footer = element; }}>
         <ReservedLine content={failure.message()?.startsWith(`${copy.newAgent}: `) ? <span>{failure.message()!.slice(0, copy.newAgent.length + 2)}<span>{failure.message()!.slice(copy.newAgent.length + 2)}</span></span> : undefined} class="rail-command-notice" message={(failure.surface() === "rail" ? failure.message() : null) ?? rail.storageFailure() ?? (rail.unsavedDismissal() !== null ? copy.dismissalUnsaved(rail.unsavedDismissal()!) : null) ?? (retained.problem()?.destination?.surface.startsWith("rail-") ? copy.railDraftRetention(project.name, retained.problem()!.destination?.surface ?? "rail", retained.problem()!.operation) : null)}
           status={asking() ? copy.askingTheDoor : retained.records().some(entry => entry.destination.surface.startsWith("rail-") && entry.status === "unknown") ? copy.railDraftUnknown(project.name) : null}
-          clearedBy={() => [failure.message(), rail.storageFailure(), rail.unsavedDismissal(), retained.problem()]} action={<>
+          selfClearing action={<>
           <Show when={failure.retry()}>{retry => <>
             <button type="button" data-button="quiet" onClick={() => retry()()}>{copy.retry}</button>
             <button type="button" data-button="quiet" onClick={failure.clear}>{copy.dismiss}</button>

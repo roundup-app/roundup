@@ -23,16 +23,16 @@ export const ChooseProject = (props: { app: App; failure: string | null; onOpen:
 
   return (
     <div class="choose-project">
-      <ReservedLine message={props.failure} clearedBy={() => props.failure} action={<Show when={props.onRetry}>{retry => <button data-button="quiet" type="button" onClick={retry()}>{copy.retry}</button>}</Show>} />
+      <ReservedLine message={props.failure} selfClearing action={<Show when={props.onRetry}>{retry => <button data-button="quiet" type="button" onClick={retry()}>{copy.retry}</button>}</Show>} />
       <Show when={!props.failure}><EmptyState art="strolling" {...{ title: copy.openAFolderToStart }} actions={[{ label: copy.chooseFolder, chord: chordNamed("project.choose-folder")!, run: props.onChoose }]} /></Show>
       <Show when={props.failure}><button data-button="primary" type="button" onClick={() => props.onChoose()}>{copy.chooseFolder}</button></Show>
-      <Show when={recent()?.failure}>{failure => <ReservedLine message={failure()} clearedBy={recent} action={<button data-button="quiet" type="button" onClick={() => void refetchRecent()}>{copy.retry}</button>} />}</Show>
+      <Show when={recent()?.failure}>{failure => <ReservedLine message={failure()} selfClearing action={<button data-button="quiet" type="button" onClick={() => void refetchRecent()}>{copy.retry}</button>} />}</Show>
       <Show when={recent()?.paths.length}>
         <ul aria-label={copy.recentFolders}>
           <For each={recent()?.paths.slice(0, 5)}>{path => <li><button data-button="quiet" type="button" onClick={() => props.onOpen(path)}>{path}</button></li>}</For>
         </ul>
       </Show>
-      <Show when={binary()}>{fact => <Show when={fact().value} fallback={<ReservedLine message={fact().failure ?? copy.claudeNotFound} clearedBy={binary} action={<button data-button="quiet" type="button" onClick={() => void refetchBinary()}>{copy.retry}</button>} />}>{value => <p>{copy.claudeBinary(value().version, value().path)}</p>}</Show>}</Show>
+      <Show when={binary()}>{fact => <Show when={fact().value} fallback={<ReservedLine message={fact().failure ?? copy.claudeNotFound} selfClearing action={<button data-button="quiet" type="button" onClick={() => void refetchBinary()}>{copy.retry}</button>} />}>{value => <p>{copy.claudeBinary(value().version, value().path)}</p>}</Show>}</Show>
     </div>
   );
 };

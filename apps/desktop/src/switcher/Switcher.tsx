@@ -436,7 +436,7 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
           }} />
         <ReservedLine message={makeFailure()} action={DISMISS_ONLY} onDismiss={() => setMakeFailure(null)} />
         <p class="switcher-footer"><For each={footer()}>{key => <span class="switcher-footer-key"><KeyChip keys={key.keys} /> {key.label}</span>}</For></p>
-        <ReservedLine message={retentionProblem() ? copy.switcherRetentionFailure(retentionProblem()!.operation, project.name) : null} clearedBy={retentionProblem} action={<>
+        <ReservedLine message={retentionProblem() ? copy.switcherRetentionFailure(retentionProblem()!.operation, project.name) : null} selfClearing action={<>
           <Show when={text() !== "" && !copyFailure()}>
             <button data-button="quiet" ref={restoreFocusOnRemoval} onClick={copyQuery}>{copied() ? copy.queryCopied : copy.copyQuery}</button>
           </Show>
@@ -450,7 +450,7 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
             }}>{copy.discardQuery}</button>
           </Show>
         </>} />
-        <ReservedLine message={copyFailure() ? copy.switcherCopyFailure : null} clearedBy={copyFailure} action={<>
+        <ReservedLine message={copyFailure() ? copy.switcherCopyFailure : null} selfClearing action={<>
           <button data-button="quiet" ref={restoreFocusOnRemoval} onClick={copyQuery}>{copied() ? copy.queryCopied : copy.copyQuery}</button>
           <button data-button="quiet" ref={restoreFocusOnRemoval} onClick={() => { setCopyFailure(null); }}>{copy.close}</button>
         </>} />

@@ -285,7 +285,7 @@ export const TodoDrawer = (props: {
           message={deletionRefusal() && drafts.todoUndo.uncertain() ? deletionRefusal() : failure()}
           status={deletionRefusal() && !drafts.todoUndo.uncertain() ? deletionRefusal() : null}
           content={deletionRefusal() ? <Show when={deleteRefused()} keyed>{press => <span>{press > 0 && deletionRefusal()}</span>}</Show> : undefined}
-          clearedBy={() => failure() ?? deletionRefusal()}
+          selfClearing
           action={<>
           <Show when={deletionRefusal() && drafts.todoUndo.uncertain()}>
             <button data-button="quiet" type="button" disabled={drafts.todoUndo.pending()} onClick={() => void drafts.todoUndo.retryDelete()}>{copy.todoDeleteRetry}</button>
@@ -312,7 +312,7 @@ export const TodoDrawer = (props: {
                     commit={async (title, expected_change) => { await applied(() => app.rpc("todo.update", { id: props.id, title, body: null, expected_change })); }}
                   />
                 </div>
-                <ReservedLine class="todo-title-feedback" message={titleFailure()} clearedBy={titleFailure} action={<button data-dismiss-failure onMouseDown={event => event.preventDefault()} data-button="quiet" class="word" type="button" onClick={() => dismissTitle?.()}>{copy.dismissFailure}</button>} />
+                <ReservedLine class="todo-title-feedback" message={titleFailure()} selfClearing action={<button data-dismiss-failure onMouseDown={event => event.preventDefault()} data-button="quiet" class="word" type="button" onClick={() => dismissTitle?.()}>{copy.dismissFailure}</button>} />
                 <TodoMeta todo={{ ...(props.todos.byId().get(props.id) ?? current()), blockers: (answered() ?? current()).blockers }} graph={props.todos.blockerGraph()} toggle={toggle} change={changeBlockers}
                   owner={ownersOnRail(connected).find(owner => sameOwner(owner.actor, current().owner))?.name ?? copy.unassigned}
                   assign={anchor => openOwner?.(anchor)} fail={setFailure} />

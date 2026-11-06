@@ -113,7 +113,7 @@ const ProjectSettingsBody = (props: { onClose: () => void }) => {
       </label>
       <Checkbox class="app-dialog-checkbox" checked={saved() === null} onCheckedChange={checked => void save(checked ? null : (capOf(text()) ?? 1))}>{copy.noLimit}</Checkbox>
       <ReservedLine message={failure()} action={DISMISS_ONLY} onDismiss={() => setFailure(null)} />
-      <ReservedLine message={drafts.problem() ? copy.draftRetention(copy.projectSettings, copy.workstreams, drafts.problem()!.cause) : null} clearedBy={drafts.problem} action={<button data-button="quiet" type="button" onClick={() => drafts.retry()}>{copy.storageRetry}</button>} />
+      <ReservedLine message={drafts.problem() ? copy.draftRetention(copy.projectSettings, copy.workstreams, drafts.problem()!.cause) : null} selfClearing action={<button data-button="quiet" type="button" onClick={() => drafts.retry()}>{copy.storageRetry}</button>} />
     </div></SettingsGroup>
   </SettingsShell>;
 };

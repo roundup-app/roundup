@@ -245,7 +245,7 @@ export const RailRowView = (props: {
     </Show>}</Show>
     <Show when={workstream() && connected.rail.doorFailure(props.row.node.id)}>{cause => <FailureCause label={cause()} class="rail-door-failure" />}</Show>
     <Show when={props.row.node.start_attribution}>{source => <ReservedLine class="rail-attribution" status={copy.startedBy(source().agent_name, source().project_name)} />}</Show>
-    <Show when={!workstream() && !(props.row.node.resume && props.row.node.resume.at === null && props.row.node.status?.kind === "error") && (props.selected || !connected.rail.dismissed(props.row.node))}><FailureLine status={props.row.node.status} dismissed={connected.rail.dismissed(props.row.node)} action={ROW_ACTION} clearedBy={() => connected.rail.dismissed(props.row.node)} /></Show>
+    <Show when={!workstream() && !(props.row.node.resume && props.row.node.resume.at === null && props.row.node.status?.kind === "error") && (props.selected || !connected.rail.dismissed(props.row.node))}><FailureLine status={props.row.node.status} dismissed={connected.rail.dismissed(props.row.node)} action={ROW_ACTION} /></Show>
   </div>}</StatusTip>;
 
   return <>

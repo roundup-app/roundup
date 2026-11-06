@@ -683,7 +683,7 @@ export const Todos = (props: {
         <IconButton class="shelf-triage" data-triage-toggle aria-label={copy.triage} aria-pressed={triage.on()} action="todo.triage-enter" onClick={() => triage.on() ? leaveTriage() : enterTriage()}><ListChecks class="icon" aria-hidden="true" width={16} height={16} stroke-width={1.75} /></IconButton>
         <TodoAuto home={selectedWorkstream} />
       </ScopeAction>
-      <ReservedLine overlay message={todos.failure() || (!typing() ? createFailure() : null)} action={<button type="button" data-button="quiet" onClick={() => void todos.reload()}>{copy.retry}</button>} clearedBy={() => todos.failure() || createFailure()} />
+      <ReservedLine overlay message={todos.failure() || (!typing() ? createFailure() : null)} action={<button type="button" data-button="quiet" onClick={() => void todos.reload()}>{copy.retry}</button>} selfClearing />
       <Show when={isEmpty() && !typing() && !todos.failure() && !createFailure()}>
         <EmptyState art="running" {...{ title: copy.noTodosYet }} line={copy.emptyTodosLine} action={<button type="button" data-button="primary" onClick={() => openField()}>{copy.addTodoWord}</button>} />
       </Show>
@@ -864,7 +864,7 @@ export const Todos = (props: {
       <Show when={todos.isLoaded()}>
         <For each={[...new Set(connected.drafts.list().filter(draft => draft.destination.surface === "todos"
           && draft.destination.object !== "new" && !todos.byId().has(Number(draft.destination.object))).map(draft => draft.destination.object))]}>{object => <div>
-          <ReservedLine message={copy.draftIdentity(copy.originalUnavailable, object)} action={<button type="button" data-button="quiet" onClick={() => void todos.reload()}>{copy.retry}</button>} clearedBy={() => todos.byId().has(Number(object))} />
+          <ReservedLine message={copy.draftIdentity(copy.originalUnavailable, object)} action={<button type="button" data-button="quiet" onClick={() => void todos.reload()}>{copy.retry}</button>} selfClearing />
           <TodoDraftRecovery object={object} />
         </div>}</For>
       </Show>

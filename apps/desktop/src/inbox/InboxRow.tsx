@@ -52,11 +52,11 @@ export const InboxRow = (props: { row: AgentRow; open: boolean; selected: boolea
         </Collapsible.Trigger>}</StatusTip>
         <div class="inbox-actions">{actions()}</div>
       </div>
-      <FailureLine status={node()?.status} class="inbox-failure" action={ROW_ACTION} clearedBy={() => node()?.status} />
+      <FailureLine status={node()?.status} class="inbox-failure" action={ROW_ACTION} />
       <Collapsible.Content>
         <div class="inbox-body">
           <p class="inbox-step"><Show when={node()}><span class="light">{copy.inboxLastStep}</span> </Show><TargetText objectLinks text={step() ?? ""} base={project.path} /></p>
-          <ReservedLine message={failure()} clearedBy={failure} action={
+          <ReservedLine message={failure()} selfClearing action={
             <button type="button" data-button="quiet" class="word" aria-describedby={name} onClick={() => props.actions.dismiss(props.row)}>{copy.inboxDismiss}</button>
           } />
         </div>

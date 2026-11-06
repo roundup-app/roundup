@@ -738,7 +738,7 @@ export const App = (props: {
         railStrip={<InProject open={activeConnection()}>{() => <RailStrip expand={() => setRailCollapsed(false)} />}</InProject>}
         rail={
           <>
-            <ReservedLine overlay message={railFailure()} clearedBy={railFailure} action={<>
+            <ReservedLine overlay message={railFailure()} selfClearing action={<>
               <Show when={projects.readFailure() && projects.tabs().length > 0 && !windowFailure() && !activeTab()?.exit}><button data-button="quiet" type="button" onClick={() => void projects.reload()}>{copy.retry}</button></Show>
               <Show when={activeTab()?.exit && !activeTab()?.exit?.recovery}><Reopen onReopen={() => void projects.reopen(activeTab()!.project.path)} busy={projects.reopening()} /></Show>
             </>} />
@@ -772,7 +772,7 @@ export const App = (props: {
               return <Show when={message()}>{message => <ReservedLine class="centre-notice" message={`${name()}: ${message()}`} onDismiss={() => failure()?.clear()} action={<button data-button="quiet" type="button" onClick={() => projects.select(path)}>{copy.openDraft} {name()}</button>} />}</Show>;
             }}</For>
             <Show when={nativeFailure()}>{failure => <ReservedLine class="centre-notice" message={failure().message} onDismiss={() => setNativeFailure(null)} action={failure().action ? <button data-button="quiet" type="button" onClick={failure().action!.run}>{failure().action!.label}</button> : DISMISS_ONLY} />}</Show>
-            <Show when={storageFailures().length > 0}><div class="storage-failure"><ReservedLine message={storageCopy.failure(storageFailures())} clearedBy={storageFailures} action={<button data-button="quiet" type="button" onClick={() => void Promise.all(storageFailures().map(problem => problem.retry()))}>{storageCopy.saveRetry}</button>} /></div></Show>
+            <Show when={storageFailures().length > 0}><div class="storage-failure"><ReservedLine message={storageCopy.failure(storageFailures())} selfClearing action={<button data-button="quiet" type="button" onClick={() => void Promise.all(storageFailures().map(problem => problem.retry()))}>{storageCopy.saveRetry}</button>} /></div></Show>
           </div>
           <div class="centre-frame">
           <div class="settings-center">

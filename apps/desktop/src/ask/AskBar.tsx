@@ -347,7 +347,7 @@ export const AskBar = (props: {
           }} /></Show>
         </Mentions.Root>
         <ReservedLine overlay class="ask-send-status" message={problem() ? copy.draftRetention(connected.project.name, copy.draftSurface("ask"), problem()!.cause) : failure()?.message ?? (records().some(draft => draft.status === "unknown") ? null : asks.failure())}
-          status={records().some(draft => draft.status === "unknown") ? copy.askUnknownState : null} clearedBy={() => [problem(), failure(), asks.listFailure(), asks.intakeFailure()]} action={<>
+          status={records().some(draft => draft.status === "unknown") ? copy.askUnknownState : null} selfClearing action={<>
         <For each={records().filter(draft => draft.status === "unknown").map(draft => draft.revision)}>{revision => {
           const [cause, setCause] = createSignal<string | null>(null);
           const label = () => String(records().find(draft => draft.revision === revision)?.value.text ?? "");
@@ -603,7 +603,7 @@ const Deliverables = (props: { state: ReturnType<typeof createDeliverables> }) =
 
   return <section ref={section} on:click={{ capture: true, handleEvent: content.click }} on:keydown={{ capture: true, handleEvent: rowKey }} class="made" aria-label={copy.deliverables} aria-busy={pending() !== null || props.state.loading()}>
       <Combobox.Picker label={copy.deliverablesFilter} value={filter()} items={choices()} onSelect={setFilter} />
-      <ReservedLine message={props.state.failure()} status={props.state.loading() ? copy.deliverablesLoading : null} action={<button type="button" data-button="quiet" onClick={() => props.state.reload()}>{copy.retry}</button>} clearedBy={props.state.failure} />
+      <ReservedLine message={props.state.failure()} status={props.state.loading() ? copy.deliverablesLoading : null} action={<button type="button" data-button="quiet" onClick={() => props.state.reload()}>{copy.retry}</button>} selfClearing />
       <Show when={!props.state.loading() && props.state.failure() === null && records().length === 0}><p class="overview-quiet">{copy.deliverablesEmpty}</p></Show>
       <ul class="made-list"><For each={records()}>{record => <li class="made-row" data-deliverable={record.id} data-overview-item={record.id} data-selected={content.selection.isEmpty() ? selected() === record.id : content.selection.isSelected(record.id)}
         onContextMenu={event => openOnRelease(event, (x, y) => openMenu(record, x, y))}>
