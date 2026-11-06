@@ -334,10 +334,9 @@ async fn a5717b_surviving_attempt_without_input_keeps_waiting() {
         .unwrap();
 }
 
-// A5717c: an explicit resume or restart keeps the conversation's admission (U6260b), so the
-// user's next input is written.
+// A5717c: durable authorization belongs only to the surviving Attempt, including on restart.
 #[tokio::test]
-async fn a5717c_explicit_resume_and_restart_keep_the_conversation_admitted() {
+async fn a5717c_explicit_resume_and_restart_require_fresh_input() {
     for restart_live in [false, true] {
         let mut run = Run::owned("terminal").await;
         let earlier = run.attempt.clone();
@@ -357,6 +356,11 @@ async fn a5717c_explicit_resume_and_restart_keep_the_conversation_admitted() {
         assert_ne!(run.attempt, earlier);
         run.ready().await;
         run.idle_edge().await;
+        let ids = run.automatic(0).await;
+        assert!(run.entries().is_empty());
+        for id in ids {
+            assert_eq!(run.status(id).await.0, "pending");
+        }
         let user = run
             .user
             .request(
