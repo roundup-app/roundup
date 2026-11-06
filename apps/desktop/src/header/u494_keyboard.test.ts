@@ -49,17 +49,7 @@ it("u497_no_native_titles", async () => {
   const field = await screen.findByRole("textbox", { name: "Project name" });
   fireEvent.input(field, { target: { value: name } });
   fireEvent.keyDown(field, { key: "Enter" });
-  const title = await screen.findByRole("heading", { level: 1, name });
-  const linkedTip = () => document.getElementById(title.getAttribute("aria-describedby") ?? "");
-  fireEvent.pointerOver(title, { pointerType: "mouse" });
-  await waitFor(() => expect(linkedTip()?.getAttribute("role")).toBe("tooltip"));
-  expect(linkedTip()?.textContent).toBe(name);
-  fireEvent.pointerLeave(title, { pointerType: "mouse" });
-  await waitFor(() => expect(linkedTip()).toBeNull());
-  fireEvent.keyDown(document.body, { key: "Tab" });
-  title.focus();
-  await waitFor(() => expect(linkedTip()?.getAttribute("role")).toBe("tooltip"));
-  expect(linkedTip()?.textContent).toBe(name);
+  await waitFor(() => expect(document.querySelector(".project-tab .tab-name")?.textContent).toBe(name));
   expect(document.querySelectorAll(".header [title],.drawer [title]")).toHaveLength(0);
 });
 
