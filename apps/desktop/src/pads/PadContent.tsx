@@ -122,7 +122,7 @@ const PadBody = (props: {
     // Markdown can normalize live spaces and empty paragraphs; retain the exact native draft until acknowledgement.
     const snapshot = editor && (text === null || !editor.unchanged()) ? editor.snapshot() : null;
 
-    if (text === null) actionFailure.show(copy.padSourceMappingFailed);
+    if (text === null) actionFailure.show(copy.padSourceMappingFailed, "source-mapping");
 
     if ((text === null && !snapshot) || (!editing() && text === origin())) return;
     const selection = editor?.selection() ?? draftSelection;
@@ -254,7 +254,7 @@ const PadBody = (props: {
         const message = copy.padSourceMappingFailed;
 
         if (closed) props.onLateFailure(message);
-        else actionFailure.show(message);
+        else actionFailure.show(message, "source-mapping");
 
         return;
       }
@@ -471,7 +471,7 @@ const PadBody = (props: {
           <CopyButton app={connected.app} text={invalid() ? JSON.stringify(retained?.value) : currentDraft() ?? shown()} onSuccess={() => actionFailure.clear()} onFailure={error => actionFailure.show(copy.copyDraftFailure(String(error)))}>{sourceLabel}</CopyButton>
           <button data-button="quiet" type="button" onClick={useTheirs}>{copy.discardRevision}</button>
         </Show>
-        <Show when={actionFailure.message() === copy.padSourceMappingFailed}>
+        <Show when={actionFailure.kind() === "source-mapping"}>
           <CopyButton app={connected.app} text={editor?.snapshot().text ?? shown()} onSuccess={() => actionFailure.clear()} onFailure={error => actionFailure.show(copy.copyDraftFailure(String(error)))}>{copy.copyMyText}</CopyButton>
         </Show>
         <Show when={paused() && !retentionProblem()}><button data-button="primary" type="button" disabled={deleted() || invalid()} onClick={() => void resume()}>{copy.resume}</button></Show>

@@ -152,9 +152,9 @@ it("u4547c_settings_choices_do_not_change_the_workstream_prompt", async () => {
 });
 
 it("u3806_an_invalid_field_falls_back_alone", async () => {
-  localStorage.setItem("roundup:app-settings", JSON.stringify({ fontSize: 1000, lineHeight: 10, letterSpacing: 2, fontWeight: 42, interfaceScale: "bad", focusMarkers: false, mode: "light", fontFamily: "Menlo", permissionMode: "plan", engine: 12, model: "kept", quickAdd: "x" }));
+  localStorage.setItem("roundup:app-settings", JSON.stringify({ fontSize: 1000, lineHeight: 10, letterSpacing: 2, fontWeight: 42, interfaceScale: "bad", focusMarkers: true, mode: "light", fontFamily: "Menlo", permissionMode: "plan", engine: 12, model: "kept", quickAdd: "x" }));
   await mount();
-  expect(appSettings()).toMatchObject({ mode: "light", fontFamily: "Menlo", permissionMode: "plan", engine: "", model: "kept", quickAdd: "meta+shift+KeyT", lineHeight: xtermOptions.lineHeight, letterSpacing: 2, fontWeight: 300, interfaceScale: "default", focusMarkers: false });
+  expect(appSettings()).toMatchObject({ mode: "light", fontFamily: "Menlo", permissionMode: "plan", engine: "", model: "kept", quickAdd: "meta+shift+KeyT", lineHeight: xtermOptions.lineHeight, letterSpacing: 2, fontWeight: 400, interfaceScale: "default", focusMarkers: true });
   await section("Terminal");
   expect(Number((await screen.findByLabelText<HTMLInputElement>("Font size", { selector: "input" })).value)).toBeLessThan(22);
   cleanup();
@@ -269,11 +269,11 @@ it("u4687d_marker_visibility_is_saved_and_shared", async () => {
   await mount();
   await section("Appearance");
   fireEvent.click(screen.getByRole("switch", { name: "Show focus markers" }));
-  await waitFor(() => expect(appSettings().focusMarkers).toBe(false));
+  await waitFor(() => expect(appSettings().focusMarkers).toBe(true));
   cleanup();
   await mount();
   await section("Appearance");
-  expect(screen.getByRole("switch", { name: "Show focus markers" }).getAttribute("aria-checked")).toBe("false");
+  expect(screen.getByRole("switch", { name: "Show focus markers" }).getAttribute("aria-checked")).toBe("true");
 });
 
 it("u4687b_preview_follows_valid_drafts_without_committing", async () => {
