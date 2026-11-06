@@ -131,6 +131,12 @@ Test: `u6260a_held_prompt_is_reported_to_its_sender` in `crates/messages/src/tes
 
 Observer: `cargo test -p messages -p agents` runs both tests. Policy: P1 asks whether a Message becomes Terminal input; no (A4452d). P9 asks whether the fix spends a turn before the user's first input; no (A5556b). No visual change; no Mac observation.
 
+## A Message held by a busy receiver names its reason (U6296)
+
+Acceptance for #6296; amends U6260a. Module: `crates/messages/src/` (`delivery.rs` `on_idle`, `inbox.rs` `send`). It adds no second held predicate and no contract field: it fills the existing held reason of U6260a.
+
+**U6296a a Message waiting for a busy receiver shows "busy" as its reason.** Given a Door or Agent whose receiver is Busy, when a sender sends it a Message, then the sender's Message list shows that Message held with the reason "the receiver is busy; written when it is idle", never `waiting: None`. When the receiver goes idle, the Message is written once under its original id and the held state clears. The reason is a held state, never a delivery failure: `delivery_failure()` stays empty (U6248a). Test: `u6296a_a_message_to_a_busy_receiver_shows_its_reason` in `crates/messages/src/tests/`, injected clock, no `claude`, no PTY: a send to a Busy receiver reads a non-empty held reason, `on_idle` writes it once and the reason clears. It fails on `main`, where the reason reads `None`.
+
 ## Gates and existing checks
 
 These numbered Checks hold on `origin/main` at `a1d2169e3`; they are preservation references, not claims that the proposed laws or observers pass:
@@ -155,3 +161,9 @@ Installed baseline: workspace/agents/messages Cargo manifests already supply Tok
 | [Kani](https://github.com/model-checking/kani) 0.68.0 | [kani-0.68.0, 2026-09-16](https://github.com/model-checking/kani/releases/tag/kani-0.68.0) | Bounded Rust verification; foreign C and CI compiler compatibility need separate evidence |
 
 These tools are complementary. Rejected for new laws: Quint, by owner decision. Future implementation adding FFI/build machinery must carry its own rule-9 comparison of at least two maintained candidates and the platform capabilities; this tool list does not preapprove custom machinery.
+
+## A held Message keeps its own reason when the receiver is not ready (U6307)
+
+Acceptance for #6307; follows the busy-receiver reason of #6296. Module: `crates/messages/src/` (`delivery.rs` `deliver_pending`, `failure.rs` `waiting_reason`). It adds no contract field and no second held predicate.
+
+**U6307a the busy reason replaces no other held reason.** Given a pending Message held for another reason (the user's first input in this Attempt, an unreadable transcript, or a write already made that awaits its receipt), when the receiver turns Working and `nudge` or a due retry runs `deliver_pending`, then the Message keeps its own reason: "held until the user's first input in this Attempt" stays that, never "the receiver is busy; written when it is idle". Only a Message with no held reason of its own takes the busy reason. When the receiver goes idle and the gate opens, the Message is written once under its original id and the reason clears. Test: `u6307a_a_busy_receiver_keeps_the_messages_own_held_reason` in `crates/messages/src/tests/`, injected clock, no `claude`, no PTY: seed a Message held for the first input, turn the receiver Working, run `deliver_pending` and read the reason unchanged; repeat for `UNREADABLE`. It fails where `deliver_pending` overwrites every reason with "busy".

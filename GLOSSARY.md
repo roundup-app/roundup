@@ -189,6 +189,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Interrupt | same | cancel, abort |
 | Toast | same | — |
 | Held alert (`createHeld`, `ConnectedProject.held`) | held | — |
+| Waiting Message (`Message.waiting`, `failure::waiting_reason`) | same | — |
 | Alert level (`alertLevel`, `AlertLevel`, `RailNode.alert_level`, `SetAlertLevelParams`, `rail.setAlertLevel`, `Rail::set_alert_level`) | Alerts: Default, All, Quiet | — |
 | Project alert level (`ProjectAlerts`, `projectAlerts`, `mayRaise`) | Alerts: All, Needs you only, Off | — |
 | State alert (`StateAlert`, `stateAlert`, `state_alert`, `state-alert-clicked`) | same | notification |
