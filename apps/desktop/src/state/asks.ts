@@ -102,7 +102,10 @@ const partKey = (entry: Pick<AskEntry, "key" | "parts">, index: number): string 
   return JSON.stringify([entry.key, index, part?.text, placement?.kind, placement?.kind === "unclear" ? placement.question : placement?.workstream]);
 };
 
-export const createAsks = (app: AppSeam, events: Events, viewed?: { path: string; target(): string | null }): AsksState => {
+/** Where placed parts go: each to the Daemon of the open Project it names. */
+export type AskRouting = { app: Pick<App, "forProject">; open(): readonly Project[] };
+
+export const createAsks = (app: AppSeam, events: Events, viewed?: { path: string; target(): string | null }, routing?: AskRouting): AsksState => {
   const storage = storedValue(`roundup:ask-acknowledged:${viewed?.path ?? ""}`, acknowledgedSchema);
   const [acknowledged, setAcknowledged] = createSignal<readonly string[]>(storage.read() ?? []);
   const [asks, setAsks] = createSignal<readonly Ask[]>([]);
@@ -199,8 +202,21 @@ export const createAsks = (app: AppSeam, events: Events, viewed?: { path: string
       setPending((all) => [{ key, text, parts: [placing(text)], pending: true }, ...all.filter(entry => entry.key !== key)]);
 
       try {
-        const ask = await app.rpc("ask.send", captured);
-        upsert(ask);
+        let ask: Ask;
+
+        if (routing && captured.parts?.length) {
+          // U6271a: a part with no destination is not sent; with none to send there is no acknowledgement.
+          const sent = await sendPlaced(routing.app, app, routing.open(), submission, captured.parts);
+          const first = sent[0];
+
+          if (!first) throw new Error(copy.askNoAcknowledgement);
+          sent.forEach(upsert);
+          ask = first;
+        } else {
+          ask = await app.rpc("ask.send", captured);
+          upsert(ask);
+        }
+
         setIntakeFailure(null);
 
         return { kind: "acknowledged", submission, ask };
