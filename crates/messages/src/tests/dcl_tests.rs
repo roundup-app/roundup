@@ -227,6 +227,30 @@ async fn u6260a_a_reserved_restart_is_reported_and_a_settled_message_forgets_its
     assert!(lock(&inner.waiting).is_empty());
 }
 
+#[tokio::test]
+async fn u6296a_a_message_to_a_busy_receiver_shows_its_reason() {
+    let dir = tempfile::tempdir().unwrap();
+    let (messages, rail, inbox, _) = open(dir.path());
+    let inner = &messages.inner;
+    let idle = lock(&rail.nodes)[0].clone();
+    let mut busy = idle.clone();
+    busy.status.as_mut().unwrap().kind = Kind::Working;
+    lock(&rail.nodes)[0] = busy;
+    let note = pending(&messages, &Actor::daemon(), "when you can");
+    crate::nudge(inner, "m").await;
+    let seen = failure::with_waiting(inner, lock(&inner.store).get(note.id).unwrap().unwrap());
+    assert_eq!(seen.waiting.as_deref(), Some(failure::RECEIVER_BUSY));
+    assert_eq!(messages.delivery_failure("m"), None);
+    assert!(written(&inbox).is_empty());
+
+    lock(&rail.nodes)[0] = idle;
+    crate::nudge(inner, "m").await;
+    assert_eq!(written(&inbox), vec![vec![note.id]]);
+    let seen = failure::with_waiting(inner, lock(&inner.store).get(note.id).unwrap().unwrap());
+    assert_eq!(seen.waiting, None);
+    assert_eq!(messages.delivery_failure("m"), None);
+}
+
 fn written_by(inbox: &Gated) -> Vec<Vec<u32>> {
     lock(&inbox.inner.batches)
         .iter()
