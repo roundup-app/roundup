@@ -39,7 +39,7 @@ it("u3791c_enter_intervene_review_failure_journey", async () => {
       window.__fake.emit({actor:{kind:'user',id:'you',parent:null},name:'rail.changed'});
       return true;
     })()`);
-    // U6249b: 5 attempts; the real backoff waits at most 7.5 s of the 15 s `until` allows.
+    // U6249b: 5 attempts; the lane's `p-retry` alias (`appServer`) retries without waiting.
     await until("window.readCount === 5 && document.querySelector('[role=alert]')");
     await capture("U3791a", "read-exhausted");
     await capture("U3791c", "read-exhausted");
