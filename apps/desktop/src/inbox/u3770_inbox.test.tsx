@@ -169,6 +169,11 @@ it("u3770d_changes_do_not_close_or_move_the_open_row", async () => {
   expect(head().getAttribute("aria-expanded")).toBe("true");
 });
 
+it("u3770d_the_needs_you_count_is_a_polite_live_region", async () => {
+  await mountInbox();
+  expect(panel().getAttribute("aria-live")).toBe("polite");
+});
+
 it("u3770e_reduced_motion_makes_every_change_instant", async () => {
   const m = await mountInbox(NODES, true);
   await send(m, status("b", "needs-you"));

@@ -102,7 +102,7 @@ const cycle = async (lane: LaneBrowser, covered: boolean, shelf: boolean) => {
 
   // Milkdown owns Tab inside its editor. Opposite sweeps meet there without editing the Pad.
   for (const key of covered ? ["Tab", "Shift+Tab"] : ["Tab"]) {
-    await run(`focus '${covered ? ".rail-row" : ".rail-actions button:last-child"}'`, quote("window.__cycle.start = document.activeElement"));
+    await run(`focus '${covered ? ".rail [data-part=branch-control]" : ".rail-actions button:last-child"}'`, quote("window.__cycle.start = document.activeElement"));
     let complete = false;
 
     for (let step = 0; step < 160; step++) {
@@ -182,8 +182,11 @@ it.concurrent.each(cases)(
 
   try {
     await lane.until("!!document.querySelector('.rail-scroll')");
-    await lane.until("!!document.querySelector('.ask-input')");
+    await lane.openAsk();
     await lane.browser("fill", ".ask-input", "  Original unsent work 雪\nkeep this exact draft  ");
+    // U6244c: the Ask is a modal layer that makes the Drawer and Shelf inert, so the draft waits behind Escape.
+    await lane.browser("press", "Escape");
+    await lane.until("!document.querySelector('.ask-input')");
     let target = ".storage-failure button";
 
     if (background === "save") {
@@ -257,10 +260,14 @@ it.concurrent.each(cases)(
       await lane.until("!!document.querySelector('.drawer[data-open=false]')");
       await shot(`${shelf}-closed`);
       await cycle(lane, false, shelf);
+      await lane.openAsk();
+      expect(await lane.evaluate<string>("document.querySelector('.ask-input').value")).toBe("  Original unsent work 雪\nkeep this exact draft  ");
+      await lane.browser("press", "Escape");
+      await lane.until("!document.querySelector('.ask-input')");
       expect(await lane.evaluate(`({ same: document.querySelector('.centre') === window.__covered.centre && document.querySelector(${JSON.stringify(target)}) === window.__covered.button,
         text: window.__covered.button.parentElement.textContent === window.__covered.text,
-        draft: document.querySelector('.ask-input').value, writes: window.__writes === window.__covered.writes, actions:window.__covered.actions, copies:window.__fake.app.clipboardWrites.length,
-        reachable:window.__cycle.nodes.includes(window.__covered.button), submits:window.__fake.app.calls.filter(c => c.method === 'ask.send').length })`)).toEqual({same:true,text:true,draft:"  Original unsent work 雪\nkeep this exact draft  ",writes:true,actions:0,copies:0,reachable:true,submits:0});
+        writes: window.__writes === window.__covered.writes, actions:window.__covered.actions, copies:window.__fake.app.clipboardWrites.length,
+        reachable:window.__cycle.nodes.includes(window.__covered.button), submits:window.__fake.app.calls.filter(c => c.method === 'ask.send').length })`)).toEqual({same:true,text:true,writes:true,actions:0,copies:0,reachable:true,submits:0});
     }
 
     if (background === "save") await lane.evaluate("window.__restoreStorage()");

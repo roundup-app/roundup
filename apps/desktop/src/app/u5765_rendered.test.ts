@@ -8,6 +8,9 @@ let page: Awaited<ReturnType<typeof openLane>>;
 
 let recording = false;
 
+/** U5765: the control focused before the confirmation opened, to which focus returns. */
+const PREVIOUS = '.rail-row[data-id=backend]';
+
 beforeAll(async () => {
   page = await openLane(1512, "dark", "u5765", true);
   const origin = await page.evaluate<string>("location.origin");
@@ -29,7 +32,7 @@ afterAll(async () => {
   finally { await page?.close(); }
 });
 
-it("u5765_escape_refuses_and_restores_ask_focus_on_tree_40", async () => {
+it("u5765_escape_refuses_and_restores_focus_on_tree_40", async () => {
   await page.evaluate(`(async () => {
     const app = window.__fake.app;
     const tree = await app.rpc("rail.tree", null);
@@ -45,8 +48,7 @@ it("u5765_escape_refuses_and_restores_ask_focus_on_tree_40", async () => {
     await page.capture("U5765", `attribution-${id}`);
   }
 
-  await page.evaluate("document.body.dispatchEvent(new KeyboardEvent('keydown', { key: '/', code: 'Slash', metaKey: true, bubbles: true }))");
-  await page.browser("focus", ".ask-input");
+  await page.browser("focus", PREVIOUS);
   await page.capture("U5765", "before");
   await page.evaluate(`(() => {
     const app = window.__fake.app;
@@ -63,7 +65,7 @@ it("u5765_escape_refuses_and_restores_ask_focus_on_tree_40", async () => {
   // A real keyboard Escape refuses the actual registered App handler.
   await page.browser("press", "Escape");
   await page.until("window.openResult?.error?.code === -32002 && !document.querySelector('[role=dialog]')");
-  await page.until("document.activeElement?.matches('.ask-input')");
+  await page.until(`document.activeElement?.matches('${PREVIOUS}')`);
   await page.capture("U5765", "refused");
 });
 
@@ -82,11 +84,11 @@ it("u5765_open_failure_exposes_the_cause_and_recovery", async () => {
   expect(await page.evaluate("window.openResult.error.code")).toBe(-32001);
   await page.capture("U5765", "failure");
   await page.browser("press", "Escape");
-  await page.until("!document.querySelector('[role=dialog]') && document.activeElement?.matches('.ask-input')");
+  await page.until(`!document.querySelector('[role=dialog]') && document.activeElement?.matches('${PREVIOUS}')`);
 });
 
-it("u5765_pointer_refusal_restores_ask_focus_after_the_final_queued_request", async () => {
-  await page.browser("focus", ".ask-input");
+it("u5765_pointer_refusal_restores_focus_after_the_final_queued_request", async () => {
+  await page.browser("focus", PREVIOUS);
   await page.evaluate(`(() => {
     const app = window.__fake.app;
     window.queuedResults = [];
@@ -97,12 +99,12 @@ it("u5765_pointer_refusal_restores_ask_focus_after_the_final_queued_request", as
   await page.browser("click", "[role=dialog] button:first-child");
   await page.until("window.queuedResults.length === 1 && document.querySelector('[role=dialog]')?.textContent.includes('queued-5769')");
   await page.browser("click", "[role=dialog] button:first-child");
-  await page.until("window.queuedResults.length === 2 && document.activeElement?.matches('.ask-input')");
+  await page.until(`window.queuedResults.length === 2 && document.activeElement?.matches('${PREVIOUS}')`);
   expect(await page.evaluate("window.queuedResults.map(reply => [reply.id, reply.error.code])")).toEqual([[5768, -32002], [5769, -32002]]);
 });
 
-it("u5765_keyboard_queue_handoff_keeps_choices_reachable_and_returns_to_ask", async () => {
-  await page.browser("focus", ".ask-input");
+it("u5765_keyboard_queue_handoff_keeps_choices_reachable_and_returns_focus", async () => {
+  await page.browser("focus", PREVIOUS);
   await page.evaluate(`(() => {
     const app = window.__fake.app;
     window.queuedResults = [];
@@ -118,12 +120,12 @@ it("u5765_keyboard_queue_handoff_keeps_choices_reachable_and_returns_to_ask", as
   await page.browser("press", "Shift+Tab");
   await page.until("document.activeElement?.textContent === 'Refuse'");
   await page.browser("press", "Enter");
-  await page.until("window.queuedResults.length === 2 && document.activeElement?.matches('.ask-input')");
+  await page.until(`window.queuedResults.length === 2 && document.activeElement?.matches('${PREVIOUS}')`);
   expect(await page.evaluate("window.queuedResults.map(reply => [reply.id, reply.error.code])")).toEqual([[5770, -32002], [5771, -32002]]);
 });
 
 it("u5765_keyboard_open_completes_the_request", async () => {
-  await page.browser("focus", ".ask-input");
+  await page.browser("focus", PREVIOUS);
   await page.evaluate(`(() => {
     const app = window.__fake.app;
     app.opened.failure = null;
@@ -145,7 +147,7 @@ it("u5765_target_start_failure_keeps_recovery_reachable", async () => {
   const source = await page.evaluate<string>("window.__fake.app.opened.project.path");
   await page.browser("click", `.project-tab[data-path="${source}"] [role=tab]`);
   await page.until("document.querySelectorAll('[role=treeitem]').length >= 40");
-  await page.browser("focus", ".ask-input");
+  await page.browser("focus", PREVIOUS);
   await page.evaluate(`(() => {
     const app = window.__fake.app;
     const target = app.of('/Users/you/Projects/keyboard-target');
@@ -160,7 +162,7 @@ it("u5765_target_start_failure_keeps_recovery_reachable", async () => {
   await page.capture("U5765", "target-start-failure");
   await page.tabTo("Close");
   await page.browser("press", "Enter");
-  await page.until("!document.querySelector('[role=dialog]') && document.activeElement?.matches('.ask-input')");
+  await page.until(`!document.querySelector('[role=dialog]') && document.activeElement?.matches('${PREVIOUS}')`);
   expect(await page.evaluate("window.startResult.error.message.includes('created-work')")).toBe(true);
 });
 

@@ -25,6 +25,8 @@ export type LaneBrowser = {
   until: (predicate: string) => Promise<void>;
   /** Writes the Checks and a screenshot through the shared capture directory when enabled. */
   capture: (id: string, step: string) => Promise<void>;
+  /** Opens the Ask with `⌘/` as the user does; the press repeats until the App has registered its keys and the input answers. */
+  openAsk: () => Promise<void>;
   /** Reloads the harness, makes one Todo per title, the third blocked by the first, and shows the Todos tab. */
   seedTodos: (titles: readonly string[], blocked?: boolean, seed?: string) => Promise<void>;
   /** The Todo ids in the order the Shelf shows them. */
@@ -70,8 +72,18 @@ export const openLane = async (width: number, scheme: "light" | "dark", name: st
 
   const resetCalls = async () => { await evaluate("(() => { window.__fake.app.calls.length = 0; return true; })()"); };
 
+  const openAsk = async () => {
+    for (let attempt = 0; attempt < 8; attempt++) {
+      if (await evaluate<boolean>("!!document.querySelector('.ask-input')")) return;
+      await browser("press", "Meta+/");
+      await new Promise((resolve) => setTimeout(resolve, 250));
+    }
+
+    await until("!!document.querySelector('.ask-input')");
+  };
+
   return {
-    browser, evaluate, until, calls, resetCalls, focused, tabTo,
+    browser, evaluate, until, calls, resetCalls, focused, tabTo, openAsk,
     capture: async (id, step) => {
       const dir = captureDir(id);
 
