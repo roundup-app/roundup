@@ -65,6 +65,22 @@ fn kind_of(world: &World, id: &str) -> Option<Kind> {
         .and_then(|node| node.status.as_ref().map(|status| status.kind))
 }
 
+fn label_of(world: &World, id: &str) -> Option<String> {
+    world
+        .nodes()
+        .iter()
+        .find(|node| node.id == id && is_agent(node))
+        .and_then(|node| node.status.as_ref().map(|status| status.label.clone()))
+}
+
+/// B48(a), DCL3e: "already working", then the first label that names what a hold waits on.
+fn why_working(labels: Vec<String>) -> String {
+    match labels.iter().find(|label| label.starts_with("waiting on ")) {
+        Some(label) => format!("already working, {label}"),
+        None => "already working".to_owned(),
+    }
+}
+
 impl Waker {
     /// B41: `agent.wake`. Saves the request, decides it at once, and answers `{id, fired}`.
     pub async fn ask(&self, caller: &Actor, params: serde_json::Value) -> Result<Woken, RpcError> {
@@ -105,7 +121,8 @@ impl Waker {
         self.decide(&mut gate, wake, &replay, &world).await;
         let fired = self.messages.wake(id)?.is_none();
         // B48(a): the one reason a request is saved and waits.
-        let why = (!fired).then(|| "already working".to_owned());
+        let why = (!fired)
+            .then(|| why_working(ids.iter().filter_map(|id| label_of(&world, id)).collect()));
         Ok(Woken { id, fired, why })
     }
 
@@ -339,5 +356,20 @@ pub async fn tell_renames(reader: Reader, mut events: rpc::Subscription) {
                 _ => panic!("queue Rail rename note: {err}"),
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn dcl3e_wake_why_carries_the_hold_label() {
+        let labels = vec!["working".to_owned(), "waiting on `npm test`".to_owned()];
+        assert_eq!(
+            why_working(labels),
+            "already working, waiting on `npm test`"
+        );
+        assert_eq!(why_working(vec!["working".into()]), "already working");
     }
 }
