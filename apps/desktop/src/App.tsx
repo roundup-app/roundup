@@ -23,7 +23,8 @@ import { Tabs } from "./ui/Tabs";
 import { Reopen } from "./app/Reopen";
 import { createDropTargets } from "./app/dropTargets";
 import type { Requested } from "@contracts/project/Requested";
-import type { App as AppCalls, NativeOpen, DaemonExit, MenuItem, ActionRequest, ActionReply, Project } from "./app/seam";
+import type { OpenRequest } from "./app/nativeOpen";
+import type { App as AppCalls, DaemonExit, MenuItem, ActionRequest, ActionReply, Project } from "./app/seam";
 import { DrawerHost } from "./drawer/DrawerHost";
 import { InboxKey } from "./inbox/Inbox";
 import { WindowBar } from "./header/WindowBar";
@@ -391,15 +392,16 @@ export const App = (props: {
     return connection instanceof Error ? undefined : connection;
   };
 
-  const [nativeFailure, setNativeFailure] = createSignal<string | null>(null);
-  let nativeHandler: Promise<(request: NativeOpen) => void> | undefined;
-  const routeNativeOpen = (request: NativeOpen) => void nativeHandler?.then(handle => handle(request)).catch(error => setNativeFailure(String(error)));
+  const [nativeFailure, setNativeFailure] = createSignal<{ message: string; action?: { label: string; run: () => void } } | null>(null);
+  const failNative = (message: string | null, action?: { label: string; run: () => void }) => setNativeFailure(message === null ? null : action ? { message, action } : { message });
+  let nativeHandler: Promise<(request: OpenRequest) => void> | undefined;
+  const routeNativeOpen = (request: OpenRequest) => void nativeHandler?.then(handle => handle(request)).catch(error => failNative(String(error)));
   onMount(() => {
     const owner = getOwner();
-    nativeHandler = import("./app/nativeOpen").then(({ watchNativeOpen }) => runWithOwner(owner, () => watchNativeOpen({ solid: { createEffect, createSignal, onCleanup }, app: props.app, projects, connectionOf, item: linkedItem, fail: setNativeFailure }))!);
+    nativeHandler = import("./app/nativeOpen").then(({ watchNativeOpen }) => runWithOwner(owner, () => watchNativeOpen({ solid: { createEffect, createSignal, onCleanup }, app: props.app, projects, connectionOf, item: linkedItem, fail: failNative }))!);
     const stop = props.app.onNativeOpen?.(routeNativeOpen);
     onCleanup(() => void stop?.then(release => release()));
-    void stop?.catch(error => setNativeFailure(String(error)));
+    void stop?.catch(error => failNative(String(error)));
   });
 
   const [menuBar] = createResource(() => import("./app/menuBar").catch(error => {
@@ -768,7 +770,7 @@ export const App = (props: {
   
               return <Show when={message()}>{message => <ReservedLine class="centre-notice" message={`${name()}: ${message()}`} onDismiss={() => failure()?.clear()} action={<button data-button="quiet" type="button" onClick={() => projects.select(path)}>{copy.openDraft} {name()}</button>} />}</Show>;
             }}</For>
-            <Show when={nativeFailure()}>{message => <ReservedLine class="centre-notice" message={message()} action={DISMISS_ONLY} onDismiss={() => setNativeFailure(null)} />}</Show>
+            <Show when={nativeFailure()}>{failure => <ReservedLine class="centre-notice" message={failure().message} onDismiss={() => setNativeFailure(null)} action={failure().action ? <button data-button="quiet" type="button" onClick={failure().action!.run}>{failure().action!.label}</button> : DISMISS_ONLY} />}</Show>
             <Show when={storageFailures().length > 0}><div class="storage-failure"><ReservedLine message={storageCopy.failure(storageFailures())} clearedBy={storageFailures} action={<button data-button="quiet" type="button" onClick={() => void Promise.all(storageFailures().map(problem => problem.retry()))}>{storageCopy.saveRetry}</button>} /></div></Show>
           </div>
           <div class="centre-frame">
@@ -784,7 +786,7 @@ export const App = (props: {
                   <div class="centre-stack">
                     <div class="project-center-area">
                     <div class="project-center-content" inert={open.settingsView.open()} style={{ visibility: open.settingsView.open() ? "hidden" : "visible" }}>
-                    <Pane observeTerminal={props.observeTerminal ? id => props.observeTerminal?.(open.project.path, id) : undefined} notice={open.rail.failure() ?? jumpFailure() ?? open.contractNotice} retryNotice={open.rail.failure() !== null ? () => void open.rail.refresh({ terminals: true }) : undefined} createEmulator={tracked} screensRef={setScreens} openObject={url => routeNativeOpen({ kind: "link", url })} />
+                    <Pane observeTerminal={props.observeTerminal ? id => props.observeTerminal?.(open.project.path, id) : undefined} notice={open.rail.failure() ?? jumpFailure() ?? open.contractNotice} retryNotice={open.rail.failure() !== null ? () => void open.rail.refresh({ terminals: true }) : undefined} createEmulator={tracked} screensRef={setScreens} openObject={(url, surface) => routeNativeOpen({ kind: "link", url, surface })} />
                     <AskBar viewLabel={id => views.find(([view]) => view === id)?.[1]} />
                     <Feedback notify={toasts.notify} />
                     <Switcher notify={toasts.notify} onFailure={setJumpFailure} onOpen={() => { if (document.querySelector('.window[data-shelf="open"][data-shelf-mode="overlay"]')) shelfFocus.toggle("key"); }} />

@@ -60,6 +60,7 @@ fn load_with<T>(
                 workstream_state: None,
                 waiting: None,
                 unreachable: None,
+                resume: None,
                 start_attribution: row
                     .get_ref(19)?
                     .as_str_or_null()?

@@ -2,6 +2,7 @@ import { cleanup, fireEvent, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { leaderKey } from "../keys/leaderFixture";
 import { agent, door, workstream } from "../testing/nodes";
+import { copy } from "./copy";
 import { mountRail, railCallsTo, rowOf } from "./railFixture";
 
 afterEach(cleanup);
@@ -76,4 +77,21 @@ it("dcl8_row_start_and_waiting_count_follow_stored_backlog", async () => {
   fireEvent.click(rowOf("payments").querySelector("button[aria-label=Start]")!);
 
   await waitFor(() => expect(railCallsTo(app, "rail.startDoor")).toEqual([{ id: "w" }]));
+});
+
+it("u6248c_waiting_row_has_no_button", async () => {
+  const { app } = await mountRail([
+    agent("w", "blocked", "Claude is overloaded", { name: "waiting", resume: { at: Date.UTC(2026, 10, 5, 14, 5) } }),
+    agent("x", "error", "Claude is overloaded; wait, then send a message to retry.", { name: "spent", resume: { at: null } }),
+  ]);
+
+  expect(rowOf("waiting").querySelector(".rail-resume")?.getAttribute("role")).toBe("status");
+  expect(rowOf("waiting").querySelector(".rail-resume button")).toBeNull();
+
+  const resume = rowOf("spent").querySelector<HTMLButtonElement>(".rail-resume button")!;
+  expect(resume.getAttribute("aria-label")).toBe(copy.retryMessage("spent"));
+  expect(rowOf("spent").querySelectorAll("[data-failure], .rail-resume .reserved-status")).toHaveLength(1);
+  fireEvent.click(resume);
+  await waitFor(() => expect(railCallsTo(app, "message.send")).toHaveLength(1));
+  expect(railCallsTo(app, "message.send")[0]).toMatchObject({ to: "x", kind: "note" });
 });
