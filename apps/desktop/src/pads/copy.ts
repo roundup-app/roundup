@@ -6,7 +6,6 @@ export const copy = {
   toggle: "Toggle",
   toggleLabel: "Toggle label",
   forAgents: "For Agents",
-  dismiss: sharedCopy.dismiss,
   draftField: sharedCopy.draftField,
   draftIdentity: sharedCopy.draftIdentity,
   openDraft: sharedCopy.openDraft,

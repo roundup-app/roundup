@@ -77,7 +77,6 @@ export const copy = {
   },
   dismissFailure: dismiss,
   dismissedFailure: (label: string) => `Dismissed: ${label}`,
-  dismiss,
   retryStorage: "Try again",
   draftSurface: (surface: string) => draftSurfaceLabels.get(surface) ?? word.unfinishedWork,
   draftField: (field: string) => ({ originalName: "Original name", document: "Editor document", editorSource: "Original editor source", editorCaret: "Editor selection context", source: "Source", base: "Original source", name: word.name, title: word.title, ask: word.ask, done: word.done, password: "Password", body: word.text, text: word.text, content: word.text, limits: "Limits" })[field] ?? "Stored value",
