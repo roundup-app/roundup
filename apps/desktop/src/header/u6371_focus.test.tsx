@@ -30,7 +30,7 @@ const twoProjects = async () => {
   await pick("a1");
   fireEvent.click(tab("web"));
   await waitFor(() => inEmulator("t-w1"));
-  // SAFETY: inEmulator just held, so the focused element is the emulator's div.
+  // SAFETY: inEmulator is still true, so the focused element is the emulator's div.
   (document.activeElement as HTMLElement).blur();
 
   return opened;
