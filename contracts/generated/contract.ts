@@ -36,6 +36,7 @@ export const CONTRACT = {
     "api.list": "b37e12c7f2862ecd",
     "ask.list": "dd8bee1eec2326f2",
     "ask.pick": "d0407cda8d9f736b",
+    "ask.place": "e8b87a2d1a3049f6",
     "ask.send": "153fa70f0447722d",
     "daemon.getNaming": "0095e9c5bedcd461",
     "daemon.identify": "2a0bf35352bb8646",

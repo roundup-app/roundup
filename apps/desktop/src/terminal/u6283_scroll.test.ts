@@ -1,0 +1,142 @@
+import * as xtermModule from "@xterm/xterm";
+import { FitAddon } from "@xterm/addon-fit";
+import { afterEach, expect, it, vi } from "vitest";
+import { createXtermEmulators } from "./emulator";
+
+afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
+
+const shown = async () => {
+  const spy = vi.spyOn(xtermModule, "Terminal");
+  const emulator = createXtermEmulators(undefined, () => ({ activate() {}, dispose() {}, onContextLoss() { return { dispose() {} }; } }))("t-scroll");
+  const terminal = spy.mock.instances[0]!;
+  spy.mockRestore();
+  const host = document.body.appendChild(document.createElement("div"));
+  vi.stubGlobal("matchMedia", () => ({ matches: false, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {} }));
+  await emulator.ready;
+  emulator.show(host);
+  const lines = Array.from({ length: 600 }, (_, index) => `line ${index}`).join("\r\n");
+  await new Promise<void>((resolve) => emulator.write(new TextEncoder().encode(lines), resolve));
+
+  return { emulator, terminal, host };
+};
+
+it("u6283a_scroll_does_no_own_work", async () => {
+  const { emulator, terminal, host } = await shown();
+  const proposed = vi.spyOn(FitAddon.prototype, "proposeDimensions");
+  const flags = vi.spyOn(terminal.element!.parentElement!, "toggleAttribute");
+  const renders = vi.fn();
+
+  terminal.onRender(renders);
+  // The first render after output fits and sets the flags once; scrolling then changes neither.
+  terminal.refresh(0, terminal.rows - 1);
+  await vi.waitFor(() => expect(renders).toHaveBeenCalled());
+  proposed.mockClear();
+  flags.mockClear();
+  renders.mockClear();
+
+  for (let line = 0; line < 500; line += 1) terminal.scrollLines(line % 2 === 0 ? -1 : 1);
+
+  terminal.refresh(0, terminal.rows - 1);
+  await vi.waitFor(() => expect(renders).toHaveBeenCalled());
+  expect(proposed).not.toHaveBeenCalled();
+  expect(flags).not.toHaveBeenCalled();
+  emulator.dispose();
+  host.remove();
+});
+
+it("u6283a_resize_fits_once", async () => {
+  const { emulator, host } = await shown();
+  const fit = vi.spyOn(FitAddon.prototype, "fit");
+
+  vi.spyOn(FitAddon.prototype, "proposeDimensions").mockReturnValue({ cols: 37, rows: 11 });
+  emulator.fit();
+
+  expect(fit).toHaveBeenCalledTimes(1);
+  expect(emulator.serialize?.()?.cols).toBe(37);
+  emulator.dispose();
+  host.remove();
+});
+
+it("u6283a_view_work_once_per_frame", async () => {
+  const { emulator, terminal, host } = await shown();
+  const renders = vi.fn();
+
+  terminal.onRender(renders);
+  terminal.refresh(0, terminal.rows - 1);
+  await vi.waitFor(() => expect(renders).toHaveBeenCalled());
+  await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+
+  const proposed = vi.spyOn(FitAddon.prototype, "proposeDimensions");
+  const flags = vi.spyOn(terminal.element!.parentElement!, "toggleAttribute");
+
+  renders.mockClear();
+
+  for (let event = 0; event < 50; event += 1) {
+    terminal.scrollLines(event % 2 === 0 ? -1 : 1);
+    terminal.refresh(0, terminal.rows - 1);
+  }
+
+  await vi.waitFor(() => expect(renders).toHaveBeenCalled());
+  await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+  expect(renders.mock.calls.length).toBeLessThanOrEqual(2);
+  // The view is the same, so the pass writes and fits nothing.
+  expect(flags).not.toHaveBeenCalled();
+  expect(proposed).not.toHaveBeenCalled();
+  emulator.dispose();
+  host.remove();
+});
+
+it("u6283a_shown_scrollbar_gets_no_new_timer", async () => {
+  const { showScrollbars } = await import("../scrollHover");
+
+  vi.useFakeTimers();
+  const element = document.createElement("div");
+  const timers = vi.spyOn(globalThis, "setTimeout");
+  const write = vi.spyOn(element, "setAttribute");
+
+  showScrollbars(element);
+
+  for (let scroll = 0; scroll < 100; scroll += 1) {
+    vi.advanceTimersByTime(4);
+    showScrollbars(element);
+  }
+
+  expect(timers).toHaveBeenCalledTimes(1);
+  expect(write).toHaveBeenCalledTimes(1);
+  // The bar stays shown while scrolling continues, then hides after the idle delay.
+  expect(element.hasAttribute("data-scroll-active")).toBe(true);
+  vi.advanceTimersByTime(1000);
+  expect(element.hasAttribute("data-scroll-active")).toBe(false);
+});
+
+it("u6283b_scrollbar_listener_places_once_per_frame", async () => {
+  const { trackScrollbars } = await import("../scrollHover");
+
+  const frame = () => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+
+  const make = () => {
+    const element = document.body.appendChild(document.createElement("div"));
+
+    Object.assign(element.style, { overflowX: "auto", overflowY: "auto", height: "40px", width: "40px" });
+    const content = element.appendChild(document.createElement("div"));
+
+    content.style.height = "400px";
+
+    return element;
+  };
+
+  const [scrolled, other] = [make(), make()];
+
+  trackScrollbars(document);
+  await frame();
+  const moved = vi.spyOn(scrolled, "getBoundingClientRect");
+  const still = vi.spyOn(other, "getBoundingClientRect");
+
+  for (let event = 0; event < 20; event += 1) scrolled.dispatchEvent(new Event("scroll"));
+
+  await frame();
+  expect(moved).toHaveBeenCalledTimes(1);
+  expect(still).not.toHaveBeenCalled();
+  scrolled.remove();
+  other.remove();
+});

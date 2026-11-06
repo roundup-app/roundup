@@ -105,6 +105,7 @@
     Method { name: "terminal.read", params: "terminal_ReadParams", result: "terminal_Read" },
     Method { name: "terminal.search", params: "terminal_SearchParams", result: "terminal_Search" },
     Method { name: "ask.send", params: "ask_SendParams", result: "ask_Ask" },
+    Method { name: "ask.place", params: "ask_PlaceParams", result: "ask_PlacedPart[]" },
     Method { name: "ask.list", params: "null", result: "ask_Ask[]" },
     Method { name: "ask.pick", params: "ask_PickParams", result: "ask_Ask" },
     Method { name: "daemon.getNaming", params: "null", result: "project_NamingSettings" },
