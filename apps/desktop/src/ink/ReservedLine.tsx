@@ -31,7 +31,7 @@ type Loose = { message?: string | null | false; children?: JSX.Element; action?:
 
 /** The Retry and Dismiss controls a failure line draws from its `Recovery`. */
 export const RecoveryButtons = (props: { dismiss?: (() => void) | undefined; recover?: Recovery["recover"]; dismissIn?: Recovery["dismissIn"] }) => <>
-  <Show when={props.recover}>{recover => <button type="button" data-button="quiet" onClick={() => recover().run()}>{recover().label ?? copy.retry}</button>}</Show>
+  <Show when={props.recover}>{recover => <button type="button" data-button="quiet" onMouseDown={event => event.preventDefault()} onClick={() => recover().run()}>{recover().label ?? copy.retry}</button>}</Show>
   <Show when={props.dismiss && props.dismissIn !== "menu" ? props.dismiss : undefined}>{dismiss => <button type="button" data-button="quiet" data-dismiss-failure onMouseDown={event => event.preventDefault()} onClick={() => dismiss()()}>{copy.dismissFailure}</button>}</Show>
 </>;
 
