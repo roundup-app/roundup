@@ -14,14 +14,14 @@ type Shared = Omit<JSX.HTMLAttributes<HTMLDivElement>, "role" | "children"> & {
 /** `action` for a failure with nothing to retry: the Dismiss button `onDismiss` draws is the whole recovery. */
 export const DISMISS_ONLY = "dismiss-only";
 
-/** `action` for a failure line inside a row the user opens: opening the row is the recovery, and the line goes with the failure. */
-export const ROW_ACTION = "row-action";
+/** `action` for a failure line on a Rail row, which has no room for a control: the row's context menu carries the Dismiss error item. */
+export const MENU_DISMISS = "menu-dismiss";
 
-/** U6249e: how the user lets go of a failure: a dismissal ReservedLine draws, or `selfClearing`: the line goes when its message does, because the caller derives the message from the state that caused it (no runtime cost). */
-type Dismissal = { onDismiss: () => void } | { selfClearing: true };
+/** U6249e: how the user lets go of a failure: a dismissal ReservedLine draws, `selfClearing` (the line goes when its message does, derived from the state that caused it), or `ownDismissal` (the `action` holds this line's own dismiss control). The flags cost no runtime closure. */
+type Dismissal = { onDismiss: () => void } | { selfClearing: true } | { ownDismissal: true };
 
 /** An `action` is a control to run, or, when only dismissing is possible, the Dismiss button itself. */
-export type Recovery = ({ action: JSX.Element } & Dismissal) | { action: typeof DISMISS_ONLY; onDismiss: () => void } | { action: typeof ROW_ACTION };
+export type Recovery = ({ action: JSX.Element } & Dismissal) | { action: typeof DISMISS_ONLY; onDismiss: () => void } | { action: typeof MENU_DISMISS };
 
 /** A line that is not a failure: status text, with optional actions. */
 type StatusProps = Shared & { message?: never; children?: JSX.Element };
@@ -32,7 +32,7 @@ type FailureProps = Shared & { message: string | null | false | undefined } & Re
 type Props = StatusProps | FailureProps;
 
 /** Every prop either form may carry, for reading both through one name. */
-type Loose = { message?: string | null | false; children?: JSX.Element; action?: JSX.Element; onDismiss?: () => void; selfClearing?: boolean };
+type Loose = { message?: string | null | false; children?: JSX.Element; action?: JSX.Element; onDismiss?: () => void; selfClearing?: boolean; ownDismissal?: boolean };
 
 /** The standard control that lets the user dismiss a failure line. */
 export const DismissButton = (props: { onDismiss: () => void }) => <button type="button" data-button="quiet" onClick={() => props.onDismiss()}>{copy.dismissFailure}</button>;
@@ -40,7 +40,7 @@ export const DismissButton = (props: { onDismiss: () => void }) => <button type=
 /** U3807: callers keep this place mounted and change only its message and actions. */
 export const ReservedLine = (props: Props) => {
   // SAFETY: both forms are assignable to Shared & Loose; Loose only widens the form-specific keys to optional.
-  const [local, rest] = splitProps(props as Shared & Loose, ["message", "status", "content", "overlay", "children", "action", "onDismiss", "selfClearing", "class"]);
+  const [local, rest] = splitProps(props as Shared & Loose, ["message", "status", "content", "overlay", "children", "action", "onDismiss", "selfClearing", "ownDismissal", "class"]);
 
   // U3807 explicitly requires the whole message as a title on its reserved place.
   // oxlint-disable-next-line anti-slop/no-tooltip-bypass

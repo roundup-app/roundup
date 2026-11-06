@@ -349,7 +349,7 @@ export const Capture = (props: { onFile: (() => void) | undefined; onNativeOpen?
             <span {...ownerCut.attrs()}>{ownerLine()}</span>
             <span {...homeCut.attrs()}>{homeLine()}</span>
           </p>
-          <ReservedLine message={failure() ?? (drafts.problem() ? copy.draftRetention(connected.project.name, copy.leaderShortCapture, drafts.problem()!.cause) : null)} selfClearing action={
+          <ReservedLine message={failure() ?? (drafts.problem() ? copy.draftRetention(connected.project.name, copy.leaderShortCapture, drafts.problem()!.cause) : null)} ownDismissal action={
             <Show when={drafts.problem()}><button data-button="quiet" type="button" onClick={() => drafts.retry()}>{copy.storageRetry}</button></Show>
           } />
           <For each={recovered()}>{draft => <div class="capture-recovery">

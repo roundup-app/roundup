@@ -46,6 +46,6 @@ export const TodoAuto = (props: { home: Accessor<string | null> }) => {
       if (current()?.id === id) setFailure(message);
       setPending(false);
     }}>{copy.todoAuto}</Switch>
-    <ReservedLine overlay message={failure()} selfClearing action={<button data-dismiss-failure onMouseDown={event => event.preventDefault()} data-button="quiet" class="word" type="button" onClick={() => setFailure(null)}>{copy.dismissFailure}</button>} />
+    <ReservedLine overlay message={failure()} ownDismissal action={<button data-dismiss-failure onMouseDown={event => event.preventDefault()} data-button="quiet" class="word" type="button" onClick={() => setFailure(null)}>{copy.dismissFailure}</button>} />
   </div>}</Show>;
 };

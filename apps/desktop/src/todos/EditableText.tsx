@@ -63,7 +63,7 @@ export const TodoDraftRecovery = (props: { object: string; active?: boolean; inD
   return <Show when={!drawer.content() || props.inDrawer}><section class="todo-draft-recovery" data-in-drawer={props.inDrawer ? "" : undefined} aria-label={copy.draftIdentity(surface, props.object)} onMouseDown={event => {
     if (event.target instanceof Element && event.target.closest("button")) event.preventDefault();
   }}>
-    <ReservedLine overlay={!props.inDrawer && props.object !== "new"} message={failure() ?? (problem() ? copy.draftRetention(project.name, copy.draftSurface(surface), problem()!.cause) : null)} status={records().length > 0 ? label(records()[records().length - 1]!) : null} selfClearing action={<>
+    <ReservedLine overlay={!props.inDrawer && props.object !== "new"} message={failure() ?? (problem() ? copy.draftRetention(project.name, copy.draftSurface(surface), problem()!.cause) : null)} status={records().length > 0 ? label(records()[records().length - 1]!) : null} ownDismissal action={<>
     <Show when={failure()}><button data-dismiss-failure onMouseDown={event => event.preventDefault()} data-button="quiet" class="word" type="button" onClick={() => setFailure(null)}>{copy.dismissFailure}</button></Show>
     <Show when={problem()}><button data-button="quiet" class="word" type="button" onClick={() => drafts.retry()}>{copy.storageRetry}</button></Show>
     <For each={records().map(draft => draft.revision)}>{revision => {
@@ -382,7 +382,7 @@ export const EditableText = (props: {
 
   return (
     <div class="todo-editable" ref={container}>
-    <ReservedLine overlay message={retentionFailure() || (!props.onFailure && failure())} selfClearing action={<Show when={!retentionFailure()}><button data-dismiss-failure onMouseDown={event => event.preventDefault()} data-button="quiet" class="word" type="button" onClick={() => setFailure(null)}>{copy.dismissFailure}</button></Show>} />
+    <ReservedLine overlay message={retentionFailure() || (!props.onFailure && failure())} ownDismissal action={<Show when={!retentionFailure()}><button data-dismiss-failure onMouseDown={event => event.preventDefault()} data-button="quiet" class="word" type="button" onClick={() => setFailure(null)}>{copy.dismissFailure}</button></Show>} />
     <Show
       when={editing()}
       fallback={

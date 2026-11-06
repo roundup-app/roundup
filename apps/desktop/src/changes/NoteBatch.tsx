@@ -39,7 +39,7 @@ export const NoteBatch = (props: { id: string; name: string; fallback?: () => vo
   const older = (note: Note) => olderComparison(props.comparison, note.comparison);
 
   return <section class="note-batch" aria-label={copy.notesRegion}>
-      <ReservedLine message={props.notes.problem() ?? props.notes.failure(props.id)} status={status()} selfClearing action={<>
+      <ReservedLine message={props.notes.problem() ?? props.notes.failure(props.id)} status={status()} ownDismissal action={<>
         <Show when={props.notes.failure(props.id)}><button type="button" data-button="quiet" onClick={() => props.notes.dismiss(props.id)}>{copy.dismissFailure}</button></Show>
         <Show when={uncertain()}><button type="button" data-button="quiet" onClick={() => void props.notes.reconcile(props.id)}>{copy.checkMessageHistory}</button></Show>
         <Show when={props.notes.problem()}><button type="button" data-button="quiet" onClick={props.recover}>{copy.openNotesRecovery}</button></Show></>} />

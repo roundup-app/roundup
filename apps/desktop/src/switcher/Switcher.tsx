@@ -450,7 +450,7 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
             }}>{copy.discardQuery}</button>
           </Show>
         </>} />
-        <ReservedLine message={copyFailure() ? copy.switcherCopyFailure : null} selfClearing action={<>
+        <ReservedLine message={copyFailure() ? copy.switcherCopyFailure : null} ownDismissal action={<>
           <button data-button="quiet" ref={restoreFocusOnRemoval} onClick={copyQuery}>{copied() ? copy.queryCopied : copy.copyQuery}</button>
           <button data-button="quiet" ref={restoreFocusOnRemoval} onClick={() => { setCopyFailure(null); }}>{copy.close}</button>
         </>} />

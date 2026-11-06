@@ -120,7 +120,7 @@ const DraftRecoveryPanel = () => {
             <div class="draft-text">
               <span class="draft-name">{copy.draftTitle(title(row).place, title(row).name)}</span>
               <span class="draft-cause">{copy.riskLine(copy.riskCause[row.cause], copy.riskTime(Math.floor((Date.now() - row.since) / 60000)))}</span>
-              <Show when={failures()[row.draft.revision]}>{message => <ReservedLine message={message()} selfClearing action={<button data-button="quiet" type="button" onClick={() => clear(row.draft.revision)}>{copy.dismissCopyFailure}</button>} />}</Show>
+              <Show when={failures()[row.draft.revision]}>{message => <ReservedLine message={message()} ownDismissal action={<button data-button="quiet" type="button" onClick={() => clear(row.draft.revision)}>{copy.dismissCopyFailure}</button>} />}</Show>
             </div>
           </div>
           <div class="draft-actions">
