@@ -253,9 +253,20 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
     }
   };
 
-  /** U6249b: subscribing is a read, so it retries like one; a subscription nobody wants any more ends the retries (`null`). */
-  const subscribe = (id: string, listener: (message: OutputMessage) => void, wanted: () => boolean): Promise<OutputSubscription | null> =>
-    retryRead(async () => wanted() ? app.selectOutput(id, listener) : null);
+  /** U6249b: subscribing is a read, so it retries like one; a subscription nobody wants any more ends the retries (`null`). The first try is made at once and counts as the read's first attempt, so a subscription that works is placed with no extra wait. */
+  const subscribe = (id: string, listener: (message: OutputMessage) => void, wanted: () => boolean): Promise<OutputSubscription | null> => {
+    if (!wanted()) return Promise.resolve(null);
+
+    let first: Promise<OutputSubscription> | null = app.selectOutput(id, listener);
+
+    return first.catch(() => retryRead(async () => {
+      const attempt = first ?? (wanted() ? app.selectOutput(id, listener) : null);
+
+      first = null;
+
+      return attempt;
+    }));
+  };
 
   /** Bytes the watch missed between the stream's release and its own start (`offset` past `shownTo`) count as unseen too. */
   const startWatch = (id: string): void => {
