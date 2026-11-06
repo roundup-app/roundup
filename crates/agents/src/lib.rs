@@ -120,6 +120,8 @@ struct Shared {
     /// A33: the lowest open blocker of the Todos each Agent created that wait; an idle Agent in
     /// it reads `blocked`.
     waits: Mutex<HashMap<String, u32>>,
+    /// U6248b: the Agents whose turn Claude Code gave up on and whose resume waits.
+    resumes: Mutex<HashMap<String, resume_wait::Resume>>,
     /// F5: the scan of the Doors' process trees.
     scan: Scan,
     /// Each Door's strays as last announced; a Door with none has no entry.
@@ -397,6 +399,8 @@ mod owners;
 mod rail_view;
 mod registration;
 mod removal;
+mod resume_wait;
+pub use resume_wait::RESUME_BODY;
 mod resume;
 mod spawn;
 mod steer;

@@ -1,0 +1,39 @@
+{
+  "fixtures": [
+    {
+      "match": {
+        "userMessage": "<session>"
+      },
+      "response": {
+        "content": "{\"title\":\"U6248b recovery\"}"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Please continue where you left off"
+      },
+      "response": {
+        "content": "Resumed after the server error."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "U6248b scripted server error",
+        "sequenceIndex": 0
+      },
+      "response": {
+        "error": {
+          "message": "U6248b scripted server error",
+          "type": "api_error"
+        },
+        "status": 500
+      }
+    },
+    {
+      "match": {},
+      "response": {
+        "content": "Ready."
+      }
+    }
+  ]
+}
