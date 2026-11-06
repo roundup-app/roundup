@@ -42,6 +42,8 @@ import type { Woken as agent_Woken } from "./agent/Woken";
 import type { WorktreeState as agent_WorktreeState } from "./agent/WorktreeState";
 import type { Ask as ask_Ask } from "./ask/Ask";
 import type { PickParams as ask_PickParams } from "./ask/PickParams";
+import type { PlaceParams as ask_PlaceParams } from "./ask/PlaceParams";
+import type { PlacedPart as ask_PlacedPart } from "./ask/PlacedPart";
 import type { SendParams as ask_SendParams } from "./ask/SendParams";
 import type { HistoryParams as common_HistoryParams } from "./HistoryParams";
 import type { IdentifyParams as common_IdentifyParams } from "./IdentifyParams";
@@ -283,6 +285,7 @@ export type RpcMethods = {
   "terminal.read": { params: terminal_ReadParams; result: terminal_Read };
   "terminal.search": { params: terminal_SearchParams; result: terminal_Search };
   "ask.send": { params: ask_SendParams; result: ask_Ask };
+  "ask.place": { params: ask_PlaceParams; result: ask_PlacedPart[] };
   "ask.list": { params: null; result: ask_Ask[] };
   "ask.pick": { params: ask_PickParams; result: ask_Ask };
   "daemon.getNaming": { params: null; result: project_NamingSettings };

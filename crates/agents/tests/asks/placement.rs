@@ -274,3 +274,57 @@ async fn a40_an_ambiguous_name_waits_without_a_call() {
     }
     assert_eq!(h.count.load(Ordering::SeqCst), 0);
 }
+
+#[tokio::test]
+async fn u6271a_place_is_a_pure_call_that_names_each_parts_project() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut h = Harness::open(dir.path());
+    let projects = json!([{"name":"alpha","tree":[]},{"name":"beta","tree":[]}]);
+    let (placed, call) = tokio::join!(
+        h.asks.call(
+            &h.ctx,
+            "ask.place",
+            json!({"text":"ship the docs","projects":projects,"project":"beta"})
+        ),
+        async {
+            let call = h.calls.recv().await.unwrap();
+            let wire = serde_json::to_value(&call.request).unwrap();
+            call.answer
+                .send(vec![AskPart {
+                    project: None,
+                    text: "ship the docs".into(),
+                    destination: Destination::New {
+                        title: "Docs".into(),
+                    },
+                }])
+                .unwrap();
+            wire
+        }
+    );
+    assert_eq!(call["projects"], json!(["beta"]));
+    let placed = placed.unwrap();
+    assert_eq!(placed[0]["placement"]["project"], "beta");
+    assert_eq!(placed[0]["placement"]["title"], "Docs");
+    assert_eq!(h.list().await, json!([]));
+}
+
+#[tokio::test]
+async fn u6271a_send_stores_placed_parts_without_a_second_call() {
+    let dir = tempfile::tempdir().unwrap();
+    let h = Harness::open(dir.path());
+    let ask = h
+        .asks
+        .call(
+            &h.ctx,
+            "ask.send",
+            json!({"text":"one; two","parts":[
+                {"text":"one","placement":{"kind":"unclear","question":"Which?","candidates":[]}},
+                {"text":"two","placement":{"kind":"unclear","question":"Which?","candidates":[]}}
+            ]}),
+        )
+        .await
+        .unwrap();
+    assert_eq!(ask["parts"][1]["text"], "two");
+    assert_eq!(ask["parts"][1]["state"], "waiting");
+    assert_eq!(h.count.load(Ordering::SeqCst), 0);
+}
