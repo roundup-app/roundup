@@ -309,6 +309,9 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
   return <DragDropProvider sensors={defaults => defaults.map(sensor => sensor === PointerSensor ? pointerSensor() : sensor)} modifiers={[RestrictToElement.configure({ element: () => list ?? null }), ...local.horizontal ? [RestrictToHorizontalAxis] : []]} onDragStart={(event) => {
     const tree = local.tree;
     const source = event.operation.source;
+    const feedback = source?.manager?.registry.plugins.get(Feedback);
+
+    if (feedback) feedback.dropAnimation = undefined;
 
     if (source?.element) {
       clearPress(source.element);
@@ -451,6 +454,13 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
     tree?.onPreview(null);
 
     if (pointerDrag) swallowNextClick();
+
+    // The row ends over another list: the list's glide (U3311) is its one motion, so the library's drop animation stays off.
+    if (outside && source && local.external) {
+      const feedback = source.manager?.registry.plugins.get(Feedback);
+
+      if (feedback) feedback.dropAnimation = null;
+    }
 
     if (event.canceled) return;
 
