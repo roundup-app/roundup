@@ -98,10 +98,11 @@ export const KindGlyph = (props: { kind: Kind; decorative?: boolean; label?: str
       return;
     }
 
+    if (!mark || !outgoing || !current) return;
+
+    // Read only when a crossfade runs: a style read in every mounted glyph's first effect forces a style recalculation per row.
     const tokens = getComputedStyle(document.documentElement);
     const seconds = parseFloat(tokens.getPropertyValue("--duration-reduced")) / 1000;
-
-    if (!mark || !outgoing || !current) return;
 
     if (!(seconds > 0)) return setLeaving(undefined);
     // Opaque marks stacked: an eased pair keeps the combined Glyph from dimming at the midpoint.

@@ -10,7 +10,7 @@ const rowsTitled = (title: string) => [...document.querySelectorAll(".shelf-row"
 const frame = () => new Promise<void>(resolve => setTimeout(resolve));
 
 /** U5991f: a Capture's shown row and the filed Todo it stands for never draw together, whichever of the list refresh and the reply comes first. */
-it.each(["event before reply", "reply before event"] as const)("u5991f_a_capture_never_shows_two_rows_for_one_Todo_%s", async order => {
+it.each(["event before reply", "reply before event"] as const)("u5991f_a_captured_todo_is_drawn_once_%s", async order => {
   const { app, store, todos } = await mountTodos([todo(1, { title: "Old" })]);
   const counts: number[] = [];
 

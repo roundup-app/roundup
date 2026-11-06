@@ -103,7 +103,7 @@ export const Bubble = (props: {
   onCleanup(() => restoreResize?.());
 
   // Move and resize share settlement; listeners exist before capture can cause an early blur.
-  const drag = (start: PointerEvent, change: (from: Place, dx: number, dy: number) => Place, framed = false) => {
+  const drag = (start: PointerEvent, change: (from: Place, dx: number, dy: number) => Place) => {
     if (start.button !== 0 || restoreResize) return;
 
     start.preventDefault();
@@ -124,8 +124,7 @@ export const Bubble = (props: {
       if (event.pointerId !== undefined && event.pointerId !== start.pointerId) return;
       pointer = { x: event.clientX, y: event.clientY };
 
-      if (framed) pending ??= requestAnimationFrame(apply);
-      else apply();
+      pending ??= requestAnimationFrame(apply);
     };
 
     const finish = (restore: boolean) => {
@@ -164,9 +163,9 @@ export const Bubble = (props: {
     }
   };
 
-  /** U2236: centre resize writes once per frame and cancellation restores its original place. */
+  /** U2236, U3010i: a move or resize writes once per frame and cancellation restores its original place. */
   const resize = (start: PointerEvent, zone: Zone) => drag(start,
-    (from, dx, dy) => resizedAbout(from, zone, dx, dy, props.extent()), true);
+    (from, dx, dy) => resizedAbout(from, zone, dx, dy, props.extent()));
 
   let header: HTMLElement | undefined;
 
