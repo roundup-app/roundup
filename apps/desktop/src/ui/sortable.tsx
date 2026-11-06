@@ -252,6 +252,8 @@ const fixedSlots = (axis: "x" | "y", list: () => HTMLElement | undefined, depth:
   };
 };
 
+const easingOut = (element: Element = document.documentElement) => getComputedStyle(element).getPropertyValue("--easing-out").trim();
+
 const translateOf = (element: Element) => {
   const [x = "0", y = "0"] = getComputedStyle(element).translate.split(" ");
 
@@ -446,7 +448,7 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
 
  return local.horizontal ? now.x : now.y; }) : [];
 
-    const easing = slide ? getComputedStyle(document.documentElement).getPropertyValue("--easing-out").trim() : "";
+    const easing = slide ? easingOut() : "";
     const duration = slide ? reorderMs(document.documentElement) : 0;
 
     rows.forEach(({ element, shift }, at) => {
@@ -516,7 +518,7 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
     slides.get(element)?.cancel();
     element.style.translate = to;
 
-    if (slide && Math.hypot(from.x - by.x, from.y - by.y) >= 0.5 && !reduced()) slides.set(element, element.animate({ translate: [`${from.x}px ${from.y}px`, `${by.x}px ${by.y}px`] }, { duration: reorderMs(document.documentElement), easing: getComputedStyle(document.documentElement).getPropertyValue("--easing-out").trim() }));
+    if (slide && Math.hypot(from.x - by.x, from.y - by.y) >= 0.5 && !reduced()) slides.set(element, element.animate({ translate: [`${from.x}px ${from.y}px`, `${by.x}px ${by.y}px`] }, { duration: reorderMs(document.documentElement), easing: easingOut() }));
   };
 
   /**
@@ -554,7 +556,7 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
   const settle: DropAnimationFunction = async ({ source, feedbackElement, element, placeholder }) => {
     const dragged = commit;
     const duration = reduced() ? 0 : reorderMs(document.documentElement);
-    const easing = getComputedStyle(document.documentElement).getPropertyValue("--easing-out").trim();
+    const easing = easingOut();
     const home = () => (placeholder?.isConnected ? placeholder : element).getBoundingClientRect();
 
     const landing = () => {
@@ -725,7 +727,7 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
     if (source?.element instanceof HTMLElement) {
       const keyboardLift = event.operation.activatorEvent instanceof KeyboardEvent;
       const duration = keyboardLift || reduced() ? 0 : reorderMs(source.element);
-      const easing = getComputedStyle(source.element).getPropertyValue("--easing-out").trim();
+      const easing = easingOut(source.element);
 
       // The other rows make room by sortable transitions; the dragged row follows the pointer with none.
       for (const draggable of source.manager?.registry.draggables ?? []) {
