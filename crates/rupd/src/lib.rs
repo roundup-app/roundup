@@ -116,6 +116,8 @@ pub struct Daemon {
     /// B21: subscribed at `open`, so no change is missed before the pusher runs; taken once, when
     /// a Tokio runtime is there to run it.
     pushes: std::sync::Mutex<Option<tokio::sync::broadcast::Receiver<contracts::Event>>>,
+    /// U6368a: subscribed at `open`, taken once by the resume watcher.
+    resumes: std::sync::Mutex<Option<tokio::sync::broadcast::Receiver<contracts::Event>>>,
     /// B2704a: retain committed names even when the live event ring lags.
     renames: std::sync::Mutex<Option<rpc::Subscription>>,
     owner_events: std::sync::Mutex<Option<rpc::Subscription>>,
