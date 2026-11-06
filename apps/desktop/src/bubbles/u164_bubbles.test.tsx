@@ -170,6 +170,8 @@ describe("u164 a bubble floats over the centre pane", () => {
 
     const tab = (id: string) => document.querySelector<HTMLElement>(`.terminal-tab[data-bubble="${id}"]`)!;
 
+    // The stream is placed before its screen is asked for; output printed earlier would be read as part of the screen.
+    await waitFor(() => expect(bubbleCalls(mounted.app, "terminal.snapshot").length).toBeGreaterThan(0));
     mounted.app.emitOutput("1", "building");
     await waitFor(() => expect(tab("1").querySelector("[data-state]")).not.toBeNull());
     expect(tab("2").querySelector("[data-state]")).toBeNull();
@@ -260,7 +262,7 @@ describe("u164 a bubble floats over the centre pane", () => {
     cleanup();
     const again = await mountBubbles("a");
     await waitFor(() => expect(bubble("1").getAttribute("style")).toBe(style));
-    expect(bubbleCalls(again.app, "terminal.snapshot").length).toBeGreaterThan(0);
+    await waitFor(() => expect(bubbleCalls(again.app, "terminal.snapshot").length).toBeGreaterThan(0));
   });
 
   it("u164_daemon_exited_clears_places_and_makes_bubbles_read_only", async () => {

@@ -9,6 +9,7 @@ import { drawerSliding } from "../drawer/sliding";
 import { resizeDragging } from "../resize/dragging";
 import { createEffect, createMemo, createSignal, on, onCleanup, Show, For, untrack } from "solid-js";
 import { dismissable, ReservedLine } from "../ink/ReservedLine";
+import type { Recovery } from "../ink/ReservedLine";
 import { Icon } from "../ink/Icon";
 import { doorStateOf, doorStateText } from "../rail/doorState";
 import { useConnectedProject } from "../state/connectedProject";
@@ -35,7 +36,6 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
   const storage = fontSizeStorage(connected.project.path);
   let fontSize: number | undefined;
   let zoomed = storage.read() !== null;
-  const [storageFailure, setStorageFailure] = createSignal<string | null>(null);
   const createEmulator = props.createEmulator ?? lazyXtermEmulators();
 
   const screens = createScreens(connected, (id, copy) => {
@@ -71,26 +71,29 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
 
   /** U38: a failure that fills this region shows in its place, never beside its empty line. */
   const givenNotice = dismissable(() => props.notice);
-  const schemeNotice = dismissable(() => connected.terminalScheme.failure());
 
-  const notice = createMemo(() => {
+  /** The one failure the pane shows, with what the user can do about it: each kind states its own dismissal and retry. */
+  const notice = createMemo((): { kind: "notice" | "command" | "terminal"; message: string; recovery: Recovery } | null => {
     const given = givenNotice.message();
 
-    if (given != null) return { kind: "notice" as const, message: given };
+    if (given) return { kind: "notice", message: given, recovery: { dismiss: givenNotice.dismiss, recover: props.retryNotice ? { run: props.retryNotice } : undefined } };
 
-    if (rail.commandFailure.surface() === "pane") return { kind: "command" as const, message: rail.commandFailure.message() };
+    const command = rail.commandFailure.surface() === "pane" ? rail.commandFailure.message() : null;
 
-    const stored = storageFailure();
+    if (command !== null) {
+      const retry = rail.commandFailure.retry();
 
-    if (stored !== null) return { kind: "storage" as const, message: stored };
+      return { kind: "command", message: command, recovery: { dismiss: rail.commandFailure.clear, recover: retry ? { run: retry } : undefined } };
+    }
 
-    const scheme = schemeNotice.message();
+    const id = terminalId();
+    const message = id !== null && screens.viewedInBubble(id) ? null : screens.failure(id);
 
-    if (scheme) return { kind: "scheme" as const, message: scheme };
+    if (message === null) return null;
 
-    const terminal = screens.viewedInBubble(terminalId() ?? "") ? null : screens.failure(terminalId());
+    const retry = screens.retry(id);
 
-    return terminal === null ? null : { kind: "terminal" as const, message: terminal };
+    return { kind: "terminal", message, recovery: { dismiss: () => screens.dismiss(id), recover: retry ? { run: retry } : undefined } };
   });
 
   const [screen, setScreen] = createSignal<HTMLDivElement>();
@@ -214,7 +217,7 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
     zoomed = key !== "reset";
     fontSize = next;
     screens.setFontSize(next);
-    void (zoomed ? storage.write(next) : storage.clear()).then(setStorageFailure);
+    void (zoomed ? storage.write(next) : storage.clear()).then(cause => { if (cause !== null) console.warn(copy.terminalZoomNotKept(cause)); });
     refitNextFrame();
   };
 
@@ -251,33 +254,6 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
       };
     },
   })));
-
-  /** P3557c: only a Terminal failure is the user's to dismiss; a retention, Rail or Daemon line keeps its own recovery. */
-  const dismissFailure = (): (() => void) | null => {
-    if (notice()?.kind !== "terminal") return null;
-
-    const id = terminalId();
-
-    return rail.doorFailure(selected()?.id ?? "") === null && id !== null && !screens.viewedInBubble(id) && screens.failure(id) !== null ? () => screens.dismiss(id) : null;
-  };
-
-  const dismissNotice = (): void => {
-    const kind = notice()?.kind;
-
-    if (kind === "notice") givenNotice.dismiss();
-    else if (kind === "command") rail.commandFailure.clear();
-    else if (kind === "storage") setStorageFailure(null);
-    else if (kind === "scheme") schemeNotice.dismiss();
-    else dismissFailure()?.();
-  };
-
-  const recoverNotice = () => {
-    const kind = notice()?.kind;
-
-    if (kind === "scheme") return { run: () => void connected.terminalScheme.retry() };
-
-    return kind === "notice" && props.retryNotice ? { run: () => props.retryNotice?.() } : undefined;
-  };
 
   // U162: the window's native File drop, reported by the App seam. The ring shows only while a drop would be taken.
   const [dropOver, setDropOver] = createSignal(false);
@@ -383,9 +359,18 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
         </Show>
       </div>
       </div>
-      <Show when={notice()}><div class="pane-failure">
-        <ReservedLine message={notice()?.message} dismiss={dismissNotice} recover={recoverNotice()} />
-      </div></Show>
+      <Show when={notice()}>{shown => (
+        // Escape reaches the line only with focus inside it, so a program in the Terminal keeps its own Escape.
+        <div class="pane-failure" onKeyDown={event => {
+          const dismiss = shown().recovery.dismiss;
+
+          if (event.key !== "Escape" || !dismiss) return;
+          event.stopPropagation();
+          dismiss();
+        }}>
+          <ReservedLine message={shown().message} {...shown().recovery} />
+        </div>
+      )}</Show>
     </div>
   );
 };

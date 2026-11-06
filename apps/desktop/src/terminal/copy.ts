@@ -2,8 +2,8 @@ import { copy as sharedCopy } from "../sharedCopy";
 
 export const copy = {
   terminalFocusChanged: "Terminal focus changed",
-  terminalDestinationUnavailable: "Terminal could not open: its font or layout was not ready. Retry.",
-  terminalPreparationUnavailable: "Terminal could not open: its renderer was not available. Retry.",
+  terminalDestinationUnavailable: "Terminal could not open: its font or layout was not ready.",
+  terminalPreparationUnavailable: "Terminal could not open: its renderer was not available.",
   terminalPreparationCancelled: sharedCopy.terminalPreparationCancelled,
   dismissFailure: sharedCopy.dismissFailure,
   error: sharedCopy.error,
@@ -32,7 +32,17 @@ export const copy = {
   selectCommand: "Select command",
   addAgentMenu: sharedCopy.addAgentMenu,
   noOutputKeptFromAnEarlierRun: "No output kept from an earlier run.",
-  terminalRestoreFailed: (cause: string) => `Could not restore Terminal output: ${cause}. Switch away and back to retry.`,
+  /** The first line is the failure; the cause follows it for the tooltip. */
+  terminalRestoreFailed: (cause: string) => `Could not restore Terminal output.\n${cause}`,
+  terminalOutputStopped: (cause: string) => `Terminal output stopped.\n${cause}`,
+  /** @prose */
+  terminalOutputNotKept: (cause: string) => `Terminal output not kept: ${cause}`,
+  /** @prose */
+  terminalZoomNotKept: (cause: string) => `Terminal text size not kept: ${cause}`,
+  /** @prose */
+  terminalSchemeNotSent: (cause: string) => `Terminal colour scheme not sent: ${cause}`,
+  /** @prose */
+  terminalOutputNotWatched: (cause: string) => `Terminal output not watched: ${cause}`,
   latest: "↓ Latest",
   findLabel: "Find in Terminal",
   findNoMatch: "No matches",
