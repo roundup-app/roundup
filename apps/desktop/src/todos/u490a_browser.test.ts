@@ -181,12 +181,12 @@ for (const list of [shelf]) {
       const before = await state(rows);
       const last = await centre(rows, before.ids.length - 1);
 
+      // The original gap is the row's own box at lift: a pointer drag moves no row and inserts none.
+      const gap = await centre(rows, before.ids.length - 1, false);
+
       await page.pointer("down", last.x, last.y);
       await page.pointer("move", last.x + 6, last.y);
-      // Sortable keeps the source row in place and draws its drop gap separately (ui/sortable.tsx).
-      await page.until(`() => Boolean(document.querySelector('.sortable-slot:not([data-ending])'))`);
-      const gap = await centre('.sortable-slot:not([data-ending])', 0, false);
-
+      await page.until(`() => Boolean(document.querySelector('[data-sortable-index]')) && Boolean(document.querySelector('[data-dnd-dragging]'))`);
       await page.pointer("move", gap.x, gap.y);
       await page.until(`() => document.querySelector('[data-sortable-index]')?.getAttribute('data-sortable-index') === "${before.ids.length - 1}"`);
       await page.pointer("up", gap.x, gap.y);

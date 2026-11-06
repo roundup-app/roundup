@@ -1,60 +1,23 @@
-/* The real row keeps its layout and input state; an inset edge changes no geometry. */
-.sortable-source {
-  position: relative;
+/* The dragged row follows the pointer; its gap in the list is the hidden placeholder, shifted right by the depth the drop would have. */
+[data-dnd-placeholder] {
+  margin-inline-start: var(--sortable-shift, 0);
 }
 
-/* A lifted row floats over its neighbours: an opaque ground under its content hides what lies beneath it. */
-.sortable-source {
-  isolation: isolate;
-}
-
-.sortable-source::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  background: var(--rail-ground);
-  pointer-events: none;
-}
-
-[data-horizontal] .sortable-source::before {
-  content: none;
-}
-
-.sortable-source::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border: var(--stroke-width) solid var(--accent);
-  pointer-events: none;
-}
-
-/* A horizontal list marks the drop with one gap, no outline or box (U6220c); it inserts no slot, the dragged tab's own place is the gap (U6239a). */
-[data-horizontal] .sortable-source::after {
-  border: 0;
-}
-
-/* The drop line lies over the library's placeholder, outside the flow, so no row shifts for it. */
-[data-sortable-index] {
-  position: relative;
-}
-
-.sortable-slot {
-  box-sizing: border-box;
-  position: absolute;
-  pointer-events: none;
-}
-
-.sortable-slot::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border: var(--stroke-width) dashed var(--accent);
-  pointer-events: none;
-}
-
-.sortable-slot[data-ending="true"] {
+/* Nothing in the gap paints: opacity on the placeholder hides its whole subtree whatever its descendants set, and the gap keeps its size. */
+[data-dnd-placeholder] {
   opacity: 0;
+}
+
+/* The dragged row floats in the top layer, outside its list, and the library unsets a popover's background: without its own it shows the rows under it through its text. */
+[data-dnd-dragging] {
+  z-index: 1;
+  background-color: var(--ground);
+}
+
+/* The Rail and the Shelf sit on their own ground; a dragged tab keeps the strip's. */
+.rail [data-dnd-dragging],
+.shelf [data-dnd-dragging] {
+  background-color: var(--rail-ground);
 }
 
 .sortable-handle {
@@ -66,14 +29,14 @@
   opacity: 0;
   transition: opacity var(--duration-crossfade) var(--easing-out);
 }
-.sortable-handle:active { cursor: grabbing; }
+.sortable-handle:active:not([data-dnd-dragging] *) { cursor: grabbing; }
 .sortable-handle svg { width: var(--space-4); height: var(--space-4); }
 
 .sortable-handle:focus-visible { color: var(--text); }
 
-/* A grip shows while its row is hovered, holds focus, is selected or is the drag source. */
-:is(.shelf-row, .rail-row, .rail-leaf, .pad-row-head, .todo-row):is(:hover, :focus-within, [data-selected="true"], [aria-selected="true"], .sortable-source) .sortable-handle,
-.sortable-source .sortable-handle,
+/* A grip shows while its row is hovered, holds focus, is selected or is dragged. */
+:is(.shelf-row, .rail-row, .rail-leaf, .pad-row-head, .todo-row):is(:hover, :focus-within, [data-selected="true"], [aria-selected="true"], [data-dnd-dragging]) .sortable-handle,
+[data-dnd-dragging] .sortable-handle,
 .sortable-handle:focus-visible { opacity: 1; }
 
 @media (prefers-reduced-motion: reduce) {
