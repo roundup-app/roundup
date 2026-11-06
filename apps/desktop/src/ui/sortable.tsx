@@ -5,6 +5,7 @@ import { clearPress } from "./pressFeedback";
 import { captureFocus } from "../keys/focus";
 import "./sortable.css";
 import { Accessibility, AutoScroller, Cursor, Feedback, PointerActivationConstraints, PointerSensor, type Draggable } from "@dnd-kit/dom";
+import { RestrictToHorizontalAxis } from "@dnd-kit/abstract/modifiers";
 import { RestrictToElement } from "@dnd-kit/dom/modifiers";
 import { ProxiedElements } from "@dnd-kit/dom/utilities";
 import { effect } from "@dnd-kit/state";
@@ -12,6 +13,9 @@ import { DragDropProvider, DragOverlay } from "@dnd-kit/solid";
 import { isSortable } from "@dnd-kit/dom/sortable";
 import { useSortable, type UseSortableInput } from "@dnd-kit/solid/sortable";
 import { mergeProps, onCleanup, splitProps, useContext, type JSX } from "solid-js";
+
+/** The reorder Token in milliseconds: how long rows slide aside and the dragged row settles. */
+const reorderMs = (element: Element) => Number.parseFloat(getComputedStyle(element).getPropertyValue("--duration-reorder"));
 
 /** A press that moves less than this is a click. */
 const PRESS_DRAG_PX = 4;
@@ -177,7 +181,7 @@ const swallowNextClick = (): (() => void) => {
 };
 
 const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
-  const reduced = useContext(ReducedMotionContext) ?? (() => matchMedia("(prefers-reduced-motion: reduce)").matches);
+  const reduced = useContext(ReducedMotionContext) ?? (() => matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false);
   const [local, rest] = splitProps(props, ["ids", "onOrderChange", "tree", "external", "plain", "horizontal", "ref", "onDrag", "children"]);
   let over: T | null = null;
   let list: HTMLDivElement | undefined;
@@ -288,7 +292,7 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
       closingSlot = ending;
       const styles = getComputedStyle(ending);
       const opacity = styles.opacity;
-      const duration = Number.parseFloat(styles.getPropertyValue("--duration-crossfade"));
+      const duration = reorderMs(ending);
       const easing = styles.getPropertyValue("--easing-out").trim();
 
       for (const animation of ending.getAnimations()) animation.cancel();
@@ -307,7 +311,7 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
 
   onCleanup(() => { clearPreview(); stopRestoringFocus?.(); stopListening?.(); mark(null); });
 
-  return <DragDropProvider sensors={defaults => defaults.map(sensor => sensor === PointerSensor ? pointerSensor() : sensor)} modifiers={[RestrictToElement.configure({ element: () => list ?? null })]} onDragStart={(event) => {
+  return <DragDropProvider sensors={defaults => defaults.map(sensor => sensor === PointerSensor ? pointerSensor() : sensor)} modifiers={[RestrictToElement.configure({ element: () => list ?? null }), ...local.horizontal ? [RestrictToHorizontalAxis] : []]} onDragStart={(event) => {
     const tree = local.tree;
     const source = event.operation.source;
 
@@ -327,7 +331,7 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
       sourceRow.classList.add("sortable-source");
       const keyboardLift = event.operation.activatorEvent instanceof KeyboardEvent;
       const styles = getComputedStyle(sourceRow);
-      const duration = keyboardLift ? 0 : Number.parseFloat(styles.getPropertyValue("--duration-crossfade"));
+      const duration = keyboardLift || reduced() ? 0 : reorderMs(sourceRow);
       const easing = styles.getPropertyValue("--easing-out").trim();
 
       // Sortable owns sibling transforms; the real source must stay at its original position.
@@ -335,33 +339,34 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
         if (isSortable(draggable)) draggable.sortable.transition = { duration: draggable === source ? 0 : duration, easing };
       }
 
-      slot = document.createElement("div");
-      slot.className = "sortable-slot";
-      slot.setAttribute("data-dnd-placeholder", "");
-      slot.setAttribute("aria-hidden", "true");
-      slot.style.height = `${box.height}px`;
+      // A horizontal list inserts no slot: the library's placeholder of the dragged tab is the gap (U6239a).
+      if (!local.horizontal) {
+        slot = document.createElement("div");
+        slot.className = "sortable-slot";
+        slot.setAttribute("data-dnd-placeholder", "");
+        slot.setAttribute("aria-hidden", "true");
+        slot.style.height = `${box.height}px`;
+        slot.dataset.keyboard = String(keyboardLift);
+        sourceRow.insertAdjacentElement("afterend", slot);
+        placeSlot(null);
 
-      if (local.horizontal) slot.style.width = `${box.width}px`;
-      slot.dataset.keyboard = String(keyboardLift);
-      sourceRow.insertAdjacentElement("afterend", slot);
-      placeSlot(null);
-
-      // WAAPI belongs to this lift: re-inserting the slot at another gap cannot restart its entrance.
-      if (!keyboardLift && !reduced()) slot.animate([{ opacity: 0 }, { opacity: 1 }], { duration, easing });
-      ProxiedElements.set(sourceRow, slot);
+        // WAAPI belongs to this lift: re-inserting the slot at another gap cannot restart its entrance.
+        if (!keyboardLift && !reduced()) slot.animate([{ opacity: 0 }, { opacity: 1 }], { duration, easing });
+        ProxiedElements.set(sourceRow, slot);
+      }
 
       const target = isSortable(source) ? source.sortable.target : undefined;
       const placeholder = slot;
 
       restoreSource = () => {
-        if (isSortable(source) && source.sortable.target === placeholder) source.sortable.target = target;
+        if (placeholder && isSortable(source) && source.sortable.target === placeholder) source.sortable.target = target;
       };
 
       stopTracking = effect(() => {
         if (!isSortable(source)) return;
 
         // Keeping the original hit target at lift prevents the new slot from selecting a neighbour.
-        source.sortable.target = source.index === source.initialIndex ? target : placeholder;
+        if (placeholder) source.sortable.target = source.index === source.initialIndex ? target : placeholder;
         list?.setAttribute("data-sortable-index", String(source.index));
 
         track(source, event.operation.position);
@@ -399,7 +404,7 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
 
     window.addEventListener("keydown", turn, { capture: true });
     stopListening = () => window.removeEventListener("keydown", turn, { capture: true });
-  }} plugins={(defaults) => defaults.filter((plugin) => plugin !== Cursor && !(local.plain && plugin === Accessibility) && !(local.horizontal && plugin === AutoScroller)).map((plugin) => plugin === Feedback ? Feedback.configure({ dropAnimation: null, keyboardTransition: null }) : plugin)} onDragMove={(event) => {
+  }} plugins={(defaults) => defaults.filter((plugin) => plugin !== Cursor && !(local.plain && plugin === Accessibility) && !(local.horizontal && plugin === AutoScroller)).map((plugin) => plugin === Feedback ? Feedback.configure({ dropAnimation: local.horizontal ? { duration: reduced() ? 0 : reorderMs(document.documentElement), easing: getComputedStyle(document.documentElement).getPropertyValue("--easing-out").trim() } : null, keyboardTransition: null }) : plugin)} onDragMove={(event) => {
     const { source, position } = event.operation;
 
     // The library dispatches dragmove before it applies the move, so the destination is `to`, else the current position plus `by`.
@@ -484,7 +489,7 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
     if (moved === undefined) return;
     order.splice(index ?? source.initialIndex, 0, moved);
     local.onOrderChange?.(order, String(source.id));
-  }}><div {...rest} ref={element => { list = element; local.ref?.(element); }} data-plain={local.plain ? "" : undefined} data-horizontal={local.horizontal ? "" : undefined}>{local.children}</div><DragOverlay class="sortable-overlay" dropAnimation={null}>{null}</DragOverlay></DragDropProvider>;
+  }}><div {...rest} ref={element => { list = element; local.ref?.(element); }} data-plain={local.plain ? "" : undefined} data-horizontal={local.horizontal ? "" : undefined}>{local.children}</div>{local.horizontal ? null : <DragOverlay class="sortable-overlay" dropAnimation={null}>{null}</DragOverlay>}</DragDropProvider>;
 };
 
 type ItemProps = Pick<UseSortableInput, "id" | "index" | "disabled"> & {

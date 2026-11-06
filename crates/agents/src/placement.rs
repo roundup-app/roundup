@@ -21,9 +21,23 @@ pub enum Destination {
     },
 }
 
+impl AskPart {
+    /// A part with no Project of its own: the Workstream or the only open Project decides.
+    pub fn new(text: impl Into<String>, destination: Destination) -> Self {
+        Self {
+            text: text.into(),
+            project: None,
+            destination,
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct AskPart {
     pub text: String,
+    /// U6271a: the Project a `new` part starts in, or a `routed` part's Project when the call names it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub project: Option<String>,
     #[serde(flatten)]
     pub destination: Destination,
 }
@@ -36,6 +50,8 @@ pub struct EarlierAsk {
 
 #[derive(Clone, Debug, Serialize)]
 struct Workstream {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    project: Option<String>,
     id: String,
     name: String,
     title: Option<String>,
@@ -48,25 +64,50 @@ struct Workstream {
 pub struct Request {
     pub text: String,
     earlier: Vec<EarlierAsk>,
+    /// U6271a: the named open Projects offered; one name only when the owner fixed the Project.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    projects: Vec<String>,
     workstreams: Vec<Workstream>,
 }
 
 impl Request {
     /// `earlier` contains only Asks preceding this Ask; the five newest go into the call.
     /// Pass the complete rail.tree, including stopped Workstreams.
-    pub fn new(text: String, mut earlier: Vec<EarlierAsk>, rail: Vec<RailNode>) -> Self {
+    pub fn new(text: String, earlier: Vec<EarlierAsk>, rail: Vec<RailNode>) -> Self {
+        Self::across(text, earlier, vec![(None, rail)], None)
+    }
+
+    /// U6271a: one request for every open Project. Each Workstream carries its Project's name;
+    /// a `fixed` Project narrows the request to that Project's Workstreams (U6271b), and a
+    /// Project that is not among `projects` is never offered.
+    pub fn across(
+        text: String,
+        mut earlier: Vec<EarlierAsk>,
+        projects: Vec<(Option<String>, Vec<RailNode>)>,
+        fixed: Option<&str>,
+    ) -> Self {
         earlier.sort_by_key(|ask| std::cmp::Reverse(ask.at));
         earlier.truncate(5);
-        let workstreams = rail
+        let projects: Vec<_> = projects
             .into_iter()
-            .filter(|node| node.kind == NodeKind::Workstream)
-            .map(|node| {
+            .filter(|(project, _)| fixed.is_none_or(|fixed| project.as_deref() == Some(fixed)))
+            .collect();
+        let names = projects
+            .iter()
+            .filter_map(|(project, _)| project.clone())
+            .collect();
+        let workstreams = projects
+            .into_iter()
+            .flat_map(|(project, rail)| rail.into_iter().map(move |node| (project.clone(), node)))
+            .filter(|(_, node)| node.kind == NodeKind::Workstream)
+            .map(|(project, node)| {
                 let (title, ask, question) = match node.work {
                     Some(Order::Work { title, ask, .. }) => (title, Some(ask), None),
                     Some(Order::Clarification { question }) => (None, None, Some(question)),
                     None => (None, None, None),
                 };
                 Workstream {
+                    project,
                     id: node.id,
                     name: node.name,
                     title,
@@ -79,6 +120,7 @@ impl Request {
         Self {
             text,
             earlier,
+            projects: names,
             workstreams,
         }
     }
@@ -108,6 +150,7 @@ pub async fn place(
         Err(cause) => {
             log(id, &cause);
             vec![AskPart {
+                project: None,
                 text: request.text.clone(),
                 destination: Destination::Unclear {
                     question: format!("Couldn't place this: {cause}"),
@@ -170,9 +213,28 @@ fn parse_parts(parts: Vec<AskPart>, request: &Request) -> Result<Vec<AskPart>, S
         }
     }
     for part in &parts {
+        let project = part.project.as_deref();
+        if let Some(name) = project
+            && !request.projects.iter().any(|each| each == name)
+        {
+            return Err("unknown project".into());
+        }
         match &part.destination {
             Destination::Routed { workstream } if !known(workstream) => {
                 return Err("unknown workstream".into());
+            }
+            Destination::Routed { workstream } => {
+                let owner = request
+                    .workstreams
+                    .iter()
+                    .find(|stream| &stream.id == workstream)
+                    .and_then(|stream| stream.project.as_deref());
+                if project.is_some() && project != owner {
+                    return Err("workstream is not in that project".into());
+                }
+            }
+            Destination::New { .. } if project.is_none() && request.projects.len() > 1 => {
+                return Err("no project for a new workstream".into());
             }
             Destination::New { title } => {
                 Order::Work {
@@ -191,7 +253,6 @@ fn parse_parts(parts: Vec<AskPart>, request: &Request) -> Result<Vec<AskPart>, S
                     return Err("unknown candidate".into());
                 }
             }
-            _ => {}
         }
     }
     Ok(parts)

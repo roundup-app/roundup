@@ -15,6 +15,7 @@ serde_json.workspace = true
 rusqlite.workspace = true
 rusqlite_migration.workspace = true
 tokio.workspace = true
+backon = "1"
 
 [dev-dependencies]
 allocation-counter = "0.8.1"

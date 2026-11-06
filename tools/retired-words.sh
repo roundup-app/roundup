@@ -30,6 +30,7 @@ alert_tokens = {
         "u5501_held_rows_keep_event_identity_content_and_order_across_reopen",
         "u5501_opening_an_agent_clears_only_its_held_rows",
     },
+    "apps/desktop/src/ui/u6239_browser.test.ts": {"u6239a_the_held_tab_is_under_the_pointer"},
     "apps/desktop/src/toasts/watch.tsx": {"held"},
     "apps/desktop/src/toasts/u5501_levels.test.tsx": {"held"},
     "apps/desktop/src/state/connectedProject.ts": {"createHeld", "held", "held:"},

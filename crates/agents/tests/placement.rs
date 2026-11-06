@@ -120,6 +120,7 @@ async fn a39_an_answer_that_is_not_a_checked_span_is_unclear() {
 }
 fn part(text: &str, destination: Destination) -> AskPart {
     AskPart {
+        project: None,
         text: text.into(),
         destination,
     }
@@ -471,4 +472,115 @@ fn a3507c_placement_extends_settings_without_tools() {
         assert!(removed.contains(&marker));
     }
     assert_eq!(std::fs::read_dir(empty).unwrap().count(), 0);
+}
+
+fn stream(id: &str, name: &str) -> contracts::agent::RailNode {
+    serde_json::from_value(serde_json::json!({
+        "id": id, "kind": "workstream", "name": name, "parent": null, "order": 0,
+        "status": null, "attempt": null, "status_revision": null,
+        "terminal_id": null, "worktree": null, "can_resume": false, "channel": null, "work": null, "stray": [], "model": null, "effort": null
+    }))
+    .expect("a Workstream node")
+}
+
+fn request_streams(request: &Request) -> Vec<(Option<String>, String)> {
+    serde_json::to_value(request).unwrap()["workstreams"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|each| {
+            (
+                each["project"].as_str().map(str::to_owned),
+                each["id"].as_str().unwrap().to_owned(),
+            )
+        })
+        .collect()
+}
+
+#[test]
+fn u6271a_a_request_holds_every_open_projects_workstreams() {
+    let request = Request::across(
+        "ship the docs".into(),
+        vec![],
+        vec![
+            (Some("alpha".into()), vec![stream("w1", "Build")]),
+            (Some("beta".into()), vec![stream("w2", "Docs")]),
+        ],
+        None,
+    );
+    assert_eq!(
+        request_streams(&request),
+        [
+            (Some("alpha".into()), "w1".into()),
+            (Some("beta".into()), "w2".into())
+        ]
+    );
+}
+
+#[test]
+fn u6271a_a_fixed_project_narrows_the_request() {
+    let request = Request::across(
+        "ship the docs".into(),
+        vec![],
+        vec![
+            (Some("alpha".into()), vec![stream("w1", "Build")]),
+            (Some("beta".into()), vec![stream("w2", "Docs")]),
+        ],
+        Some("beta"),
+    );
+    assert_eq!(
+        request_streams(&request),
+        [(Some("beta".into()), "w2".into())]
+    );
+}
+
+fn two_projects() -> Request {
+    Request::across(
+        "ship the docs".into(),
+        vec![],
+        vec![
+            (Some("alpha".into()), vec![stream("w1", "Build")]),
+            (Some("beta".into()), vec![stream("w2", "Docs")]),
+        ],
+        None,
+    )
+}
+
+struct Fixed(Vec<AskPart>);
+#[async_trait::async_trait]
+impl agents::placement::Placement for Fixed {
+    async fn call(&self, _: &str, _: &Request) -> Result<Vec<AskPart>, String> {
+        Ok(self.0.clone())
+    }
+}
+
+#[tokio::test]
+async fn u6271a_an_unclear_project_asks_back() {
+    let request = two_projects();
+    let new = |project: Option<&str>| {
+        let mut each = part(
+            "ship the docs",
+            Destination::New {
+                title: "Docs".into(),
+            },
+        );
+        each.project = project.map(str::to_owned);
+        each
+    };
+    // A new part names the Project it fits; one that names none, or a closed one, asks back.
+    for (answer, placed) in [
+        (new(Some("beta")), true),
+        (new(None), false),
+        (new(Some("gamma")), false),
+    ] {
+        let parts = agents::placement::place(&Fixed(vec![answer]), "a", &request, |_, _| {}).await;
+        assert_eq!(
+            matches!(parts[0].destination, Destination::New { .. }),
+            placed
+        );
+        assert_eq!(
+            matches!(parts[0].destination, Destination::Unclear { .. }),
+            !placed
+        );
+    }
 }
