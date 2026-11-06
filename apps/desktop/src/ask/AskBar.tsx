@@ -179,6 +179,8 @@ export const AskBar = (props: {
       : null,
     // Background layers may close while Ask remains the newer focus owner.
     onRequestDismiss: event => event.preventDefault(),
+    // An open Project list takes its own Escape and closes alone.
+    onEscapeKeyDown: event => { if (document.querySelector(".ask-chips [aria-expanded=true]")) event.preventDefault(); },
     onOpenChange: details => { if (!details.open) close(true); },
   }));
 
@@ -247,7 +249,7 @@ export const AskBar = (props: {
 
   registerKeys(scope, [
     { chords: chordsFor("⌘/"), run: (press) => { if (!press.repeat) close(true); } },
-    { chords: ASK_CLOSE, run: () => { if (matching().length > 0) setDismissed(true); else close(true); } },
+    { chords: ASK_CLOSE, when: event => !(event.target instanceof Element && event.target.closest(".app-select-list, [aria-expanded=true]")), run: () => { if (matching().length > 0) setDismissed(true); else close(true); } },
   ]);
 
   const projectPick = createProjectPick({
@@ -345,8 +347,11 @@ export const AskBar = (props: {
           }} /></Show>
         </Mentions.Root>
         <Show when={projectPick.chips().length > 0}><div class="ask-choices ask-chips">
-          <Index each={projectPick.chips()}>{chip => <Select label={projectPick.chips().length > 1 ? copy.askProjectOf(chip().text) : copy.askProject} value={chip().project}
-            choices={asks.projects().map(project => ({ value: project.name, label: project.name }))} onValueChange={projectPick.pick} />}</Index>
+          <Index each={projectPick.chips()}>{(chip, index) => <span class="ask-chip">
+            <span class="ask-chip-lead">{projectPick.chips().length > 1 ? chip().text : copy.askProject}</span>
+            <Select label={projectPick.chips().length > 1 ? copy.askProjectOf(chip().text) : copy.askProject} value={chip().project}
+              choices={asks.projects().map(project => ({ value: project.name, label: project.name }))} onValueChange={value => projectPick.pick(index, value)} />
+          </span>}</Index>
         </div></Show>
         <ReservedLine overlay class="ask-send-status" message={problem() ? copy.draftRetention(connected.project.name, copy.draftSurface("ask"), problem()!.cause) : failure()?.message ?? (records().some(draft => draft.status === "unknown") ? null : asks.failure())}
           status={records().some(draft => draft.status === "unknown") ? copy.askUnknownState : null}>

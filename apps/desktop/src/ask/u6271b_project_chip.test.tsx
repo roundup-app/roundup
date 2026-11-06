@@ -89,6 +89,43 @@ describe("u6271b the Project chip", () => {
   });
 });
 
+describe("u6271b each part's chip", () => {
+  it("u6271b_a_pick_on_one_part_sends_only_that_part_to_the_project", async () => {
+    const { app, sent } = await setup();
+
+    const two: PlacedPart[] = [
+      { text: "fix login", placement: { kind: "routed", workstream: "w1", project: "p" } },
+      { text: "pay invoices", placement: { kind: "routed", workstream: "w9", project: "p" } },
+    ];
+
+    app.handlers["ask.place"] = () => two;
+    type("fix login. pay invoices");
+    fireEvent.click(await screen.findByRole("combobox", { name: "Project for fix login" }, slow));
+    const choice = await screen.findByRole("option", { name: "other" });
+    fireEvent.pointerDown(choice, { pointerType: "mouse", button: 0 });
+    fireEvent.pointerUp(choice, { pointerType: "mouse", button: 0 });
+    fireEvent.click(choice);
+    await waitFor(() => expect([...document.querySelectorAll<HTMLSelectElement>(".ask-chips select")].map(select => select.value)).toEqual(["other", "p"]));
+    enter();
+    await waitFor(() => expect(sent).toHaveLength(2));
+    expect(sent.find(request => request.text === "fix login")?.parts).toEqual([{ text: "fix login", placement: { kind: "new", title: "fix login", project: "other" } }]);
+    expect(sent.find(request => request.text === "pay invoices")).toMatchObject({ workstream: "w9" });
+  });
+});
+
+describe("u6271b the chip's list", () => {
+  it("u6271b_escape_in_the_open_list_keeps_the_ask_open", async () => {
+    await setup();
+    type("ship it");
+    fireEvent.click(await chip());
+    const choice = await screen.findByRole("option", { name: "other" });
+
+    press("Escape", {}, choice);
+    await new Promise(resolve => setTimeout(resolve, 100));
+    expect(() => screen.getByRole("dialog", { name: "Ask" })).not.toThrow();
+  });
+});
+
 describe("u6271c a sent row names its Project", () => {
   it("u6271c_opening_a_row_of_another_project_selects_it", async () => {
     const part = { text: "pay invoices", placement: { kind: "routed" as const, workstream: "w9", project: "other" }, state: "typed" as const };

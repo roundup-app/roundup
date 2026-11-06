@@ -23,7 +23,8 @@ export const createProjectPick = (from: {
   named: Accessor<boolean>;
 }) => {
   const [placed, setPlaced] = createSignal<{ text: string; parts: readonly PlacedPart[] } | null>(null);
-  const [pick, setPick] = createSignal<string | null>(null);
+  const [pick, setPick] = createSignal<Readonly<Record<number, string>>>({});
+  const picked = () => Object.keys(pick()).length > 0;
   const shown = () => from.projects().length >= 2 && !from.named();
   let inflight = false;
   let later: string | null = null;
@@ -46,15 +47,15 @@ export const createProjectPick = (from: {
   };
 
   const pause = debounce((value: string) => {
-    if (value === from.text() && value !== placed()?.text && pick() === null && shown()) run(value);
+    if (value === from.text() && value !== placed()?.text && !picked() && shown()) run(value);
   }, PAUSE_MS);
 
   createEffect(() => {
     const value = from.text();
 
-    if (value.trim() === "") return setPick(null);
+    if (value.trim() === "") return setPick({});
 
-    if (shown() && pick() === null) pause(value);
+    if (shown() && !picked()) pause(value);
   });
 
   const current = () => (placed()?.text === from.text() ? placed()!.parts : null);
@@ -63,23 +64,25 @@ export const createProjectPick = (from: {
     chips: (): readonly ProjectChip[] => {
       if (!shown()) return [];
 
-      if (from.text().trim() === "") return [{ text: "", project: pick() ?? from.active }];
+      if (from.text().trim() === "") return [{ text: "", project: pick()[0] ?? from.active }];
 
       const parts = current() ?? [{ text: from.text(), placement: { kind: "unclear" as const, question: "", candidates: [] } }];
 
-      return parts.map(part => ({ text: part.text, project: pick() ?? (part.placement.kind === "unclear" ? undefined : part.placement.project) ?? from.active }));
+      return parts.map((part, index) => ({ text: part.text, project: pick()[index] ?? (part.placement.kind === "unclear" ? undefined : part.placement.project) ?? from.active }));
     },
-    pick: setPick,
+    /** One part's pick: only that part's chip changes and sends. */
+    pick: (index: number, project: string): void => { setPick(picks => ({ ...picks, [index]: project })); },
     /** What the send adds to its request: the owner's Project, else the parts already placed for exactly this text. */
     request: (): Pick<SendParams, "project" | "parts"> => {
-      const fixed = pick();
-
-      if (fixed !== null) return { project: fixed };
-
+      const picks = pick();
       const parts = current();
 
-      return parts ? { parts: [...parts] } : {};
+      if (!picked()) return parts ? { parts: [...parts] } : {};
+
+      if (!parts || parts.length === 1) return { project: picks[0] ?? Object.values(picks)[0]! };
+
+      return { parts: parts.map((part, index): PlacedPart => picks[index] === undefined ? part : { text: part.text, placement: { kind: "new", title: part.text, project: picks[index] } }) };
     },
-    clear: (): void => { setPick(null); setPlaced(null); },
+    clear: (): void => { setPick({}); setPlaced(null); },
   };
 };
