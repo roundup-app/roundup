@@ -1,6 +1,6 @@
 # UI: tooltip anchors
 
-Ids: U2749a, U2749b, U2749c, U2749d, U2749e, U6236a, U6236b, U6236c. Work Issues: #2749, #6236, #6340. Terms: Tooltip, IconButton, Project root, Workstream, Kind, Rail, Ask (`GLOSSARY.md`). Journey stage: Understand (`.agents/data/journey.md`): the user identifies the state beside the work it describes. This specification defines implementation acceptance; it claims no shipped fix.
+Ids: U2749a, U2749b, U2749c, U2749d, U2749e, U6236a, U6236b, U6236c. Work Issues: #2749, #6236, #6340. Terms: Tooltip, IconButton, Project root, Workstream, Kind, Rail, Ask (`GLOSSARY.md`). Journey stage: Understand (`.agents/data/journey.md`): the user identifies the state beside the work it describes. This specification defines implementation acceptance.
 
 Scope (policy): `apps/desktop/src/ui/Tooltip.tsx`, one shared `Tip` wrapper and its callers, the superseded `rail/Tip.tsx` and `ink/Tip.tsx`, tooltip-related styles and tests, `.oxlintrc.json`, its lint implementation and behavioral fixtures under `tools/oxlint/`, and `docs/design-system.md`. Retain `createCut` and its users when retiring `ink/Tip.tsx`'s wrapper. No RPC, App seam command, domain term or new dependency is required. Changes to callers are limited to tooltip ownership, anchoring and migration; no unrelated component redesign. This scope authorizes the cross-directory migration needed for one shared primitive.
 
