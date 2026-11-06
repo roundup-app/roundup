@@ -40,7 +40,7 @@ export const copy = {
   toolCallCopy: sharedCopy.copy,
   toolCallCopyFailed: "Copy failed",
   publishedWhen: (at: string) => new Date(at).toLocaleString(undefined, { year: "numeric", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }),
-  projectAttention: (count: number) => count === 0 ? sharedCopy.inboxEmpty : `${count} ${count === 1 ? "needs" : "need"} you`,
+  projectAttention: (count: number) => count === 0 ? sharedCopy.inboxEmpty : sharedCopy.needYou(count),
   askBarLabel: sharedCopy.askBarLabel,
   askBarPlaceholder: "Ask anything. @ names a Workstream",
   askRows: "Asks",
