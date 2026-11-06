@@ -200,6 +200,7 @@ it.each(["agent", "bubble", "pad-filled", "pad-side"])("u4690a_pointer_keeps_sou
     await read(`window.__padEditor = document.querySelector('.drawer .ProseMirror'); window.__padDraft = window.__padEditor.textContent`);
     await read(`window.__source = document.querySelector('.pad-body button'); window.__source.focus()`);
   } else {
+    await read(`document.querySelector('.rail-row[data-id="agent-2"]').scrollIntoView({ block: 'center' })`);
     await browser("click", '.rail-row[data-id="agent-2"]');
     await wait(`!!document.querySelector('.pane-screen textarea')`);
 
