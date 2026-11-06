@@ -98,6 +98,7 @@ async fn u2773a_captured_target_keeps_exact_text_across_concurrent_rename() {
     blocked
         .answer
         .send(vec![AskPart {
+            project: None,
             text: "hold placement".into(),
             destination: Destination::Unclear {
                 question: "Where?".into(),
@@ -179,6 +180,7 @@ async fn u2773a_removal_between_intake_and_placement_retains_original_work() {
     blocked
         .answer
         .send(vec![AskPart {
+            project: None,
             text: "hold placement".into(),
             destination: Destination::Unclear {
                 question: "Where?".into(),

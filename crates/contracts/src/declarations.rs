@@ -194,6 +194,7 @@ declarations! { $;
     }
     asks_methods["ask"] {
         "ask.send": contracts::ask::SendParams => contracts::ask::Ask, rpc_ask_send, none("A40, P9: each carries a Steer from the user."), off_path("Question delivery and selection are event-driven coordination, outside the measured echo and Rail-read loops."), text("Send an Ask to the user.");
+        "ask.place": contracts::ask::PlaceParams => Vec<contracts::ask::PlacedPart>, rpc_ask_place, none("A40, P9: each carries a Steer from the user."), off_path("Question delivery and selection are event-driven coordination, outside the measured echo and Rail-read loops."), text("Place text across the open Projects without storing an Ask.");
         "ask.list": () => Vec<contracts::ask::Ask>, rpc_ask_list, none("A40, P9: each carries a Steer from the user."), off_path("Question delivery and selection are event-driven coordination, outside the measured echo and Rail-read loops."), text("List the Asks.");
         "ask.pick": contracts::ask::PickParams => contracts::ask::Ask, rpc_ask_pick, none("A40, P9: each carries a Steer from the user."), off_path("Question delivery and selection are event-driven coordination, outside the measured echo and Rail-read loops."), text("Answer an Ask by picking one of its choices.");
     }
