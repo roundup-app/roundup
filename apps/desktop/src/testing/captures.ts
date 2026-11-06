@@ -36,6 +36,7 @@ const observerTable = {
   "src/app/u3560_browser.test.ts": ["U3560e"],
   "src/app/u3787f_browser.test.ts": ["U3787f"],
   "src/app/u3791c_rendered.test.ts": ["U3791c"],
+  "src/app/u6249_rendered.test.ts": ["U6249a"],
   "src/app/z3742h_browser.test.ts": ["Z3742h"],
   "src/ask/dv5_rendered.test.ts": ["DV5", "DV6", "U3021c"],
   "src/ask/u505_ask_rows.test.tsx": ["U504", "U505"],
