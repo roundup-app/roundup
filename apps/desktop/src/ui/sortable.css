@@ -11,9 +11,8 @@
   pointer-events: none;
 }
 
-/* A horizontal list marks the drop with one gap, no outline or box (U6220c). */
-[data-horizontal] .sortable-source::after,
-[data-horizontal] .sortable-slot::after {
+/* A horizontal list marks the drop with one gap, no outline or box (U6220c); it inserts no slot, the dragged tab's own place is the gap (U6239a). */
+[data-horizontal] .sortable-source::after {
   border: 0;
 }
 
