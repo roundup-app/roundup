@@ -48,6 +48,14 @@ Observer: `u6380b_a_door_names_its_workstream` in `crates/agents/tests/scenarios
 
 Observer: `u6380c_a_user_named_row_keeps_its_name` in `crates/rupd/tests/` (real Daemon: the Agent's and its Door's `rail_rename` refused with the code and message, name and event count unchanged; A9 leaves a user-named Workstream; a second user rename works; restart keeps the mark) and `crates/agents/tests/launch/briefs.rs` (the start-up text says to keep the name).
 
+## An app-supplied name is not the user's
+
+Acceptance for #6414. Specification only; the implementation is built from the Issue once these scenarios are on `main`. Amends U6380c: only a name the user typed marks a row as named by the user.
+
+**U6414a An imported Agent is named by its first prompt.** Given Automatic renaming on and an Agent that the import flow spawned with its own name "Import", when the user submits that Agent's first prompt "Fix the refresh race in token.ts", then the row is renamed "Fix Refresh Race" by A9's rule and `rail.changed` is emitted; a later prompt does not rename it. The row is not marked as named by the user, so the Agent's own `rail_rename` succeeds, as does a user `rail.rename`, which then marks the row (U6380c). Given a spawn whose name the user typed, then the mark is set and U6380c holds as written. The Daemon tells the two apart by what the caller says, never by the name's text: a name the app supplies is sent without the user-named mark, and an `agent.spawn` with no such statement keeps today's meaning.
+
+Observer: `u6414a_an_app_named_agent_takes_its_first_prompt_name` in `crates/rupd/tests/` (real Daemon: an app-named spawn is renamed by its first prompt, then its `rail_rename` succeeds; a user-typed name stays and `rail_rename` is refused with U6380c's code and message) and a new `apps/desktop/src/rail/importState.test.ts` (the import flow's `agent.spawn` call carries the app-supplied marker; a name typed in the New Agent dialog does not). Extend the U6380c observer's fixture rather than adding another (policy).
+
 ## Regression checks on main
 
 1. `scenarios/agents.md`, headings A9 and A28, and `crates/agents/tests/scenarios/naming.rs`, tests `a9_later_prompts_never_rename_the_agent`, `a9_a_rename_before_the_first_prompt_wins`, `a9_a_rename_while_the_agent_is_still_starting_wins_over_the_first_prompt` and `a28_a_given_name_survives_the_first_prompt`, hold first-prompt finality and explicit-name precedence.
