@@ -15,6 +15,7 @@ export const copy = {
   discardRevision: sharedCopy.discardRevision,
   draftRetention: sharedCopy.draftRetention,
   copyField: sharedCopy.copyField,
+  copyMyText: "Copy my text",
   copyDraftFailure: sharedCopy.copyDraftFailure,
   addPadWord: "+ Pad",
   emptyPadsLine: sharedCopy.emptyPadsLine,

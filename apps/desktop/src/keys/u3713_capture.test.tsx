@@ -423,3 +423,28 @@ it.each(["create", "move"])("t4905_a_settled_failure_removes_only_its_placeholde
 
   expect(app.calls.some(call => JSON.stringify(call.params).includes('"id":-'))).toBe(false);
 });
+
+it("u6249d_a_capture_subscription_that_fails_twice_is_retried_and_shows_no_failure", async () => {
+  let requested = () => {};
+
+  const subscribe = vi.fn<import("../app/seam").CapturePort["onRequested"]>()
+    .mockRejectedValueOnce(new Error("bridge not ready"))
+    .mockRejectedValueOnce(new Error("bridge not ready"))
+    .mockImplementation(async listener => {
+      requested = listener;
+
+      return () => {};
+    });
+
+  const capture: import("../app/seam").CapturePort = {
+    configure: async () => {}, show: vi.fn(async () => {}), dismiss: async () => {}, publish: async () => {}, act: async () => {},
+    onRequested: subscribe, onAction: async () => () => {}, onState: async () => () => {},
+  };
+
+  const { connected } = await mount(undefined, undefined, capture);
+  connected.rail.select("w");
+  await waitFor(() => expect(subscribe).toHaveBeenCalledTimes(3));
+  requested();
+  await waitFor(() => expect(capture.show).toHaveBeenCalledTimes(1));
+  expect(screen.queryByRole("alert")).toBeNull();
+});

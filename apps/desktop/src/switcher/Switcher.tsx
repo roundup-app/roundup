@@ -454,7 +454,7 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
         <ReservedLine message={copyFailure() ? copy.switcherCopyFailure : null} dismiss={() => { setCopyFailure(null); restoreQueryFocus(); }} action={<>
           <button data-button="quiet" ref={restoreFocusOnRemoval} onClick={copyQuery}>{copied() ? copy.queryCopied : copy.copyQuery}</button>
         </>} />
-        <Show when={refusal()}>{shown => <ReservedLine status={shown().cause} />}</Show>
+        <Show when={refusal()}>{shown => <ReservedLine message={shown().cause} dismiss={() => { setRefusal(null); restoreQueryFocus(); }} />}</Show>
       </section>
     </Show>
   );

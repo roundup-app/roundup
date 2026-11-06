@@ -1,5 +1,6 @@
 import { createSignal, onCleanup, For } from "solid-js";
 import type { CapturePort, CaptureState } from "../app/seam";
+import { retryRead } from "../app/seam";
 import { dismissable, ReservedLine } from "../ink/ReservedLine";
 import { copy } from "./copy";
 import "./capture.styles.css";
@@ -20,7 +21,7 @@ export const CapturePanel = (props: { port: CapturePort }) => {
     catch (error) { setFailure(String(error)); }
   };
 
-  void props.port.onState(snapshot => {
+  void retryRead(() => props.port.onState(snapshot => {
     if (snapshot.session !== state()?.session) sequence = 0;
 
     if (snapshot.sequence >= sequence) setText(snapshot.text);
@@ -28,7 +29,7 @@ export const CapturePanel = (props: { port: CapturePort }) => {
     document.documentElement.dataset.mode = snapshot.mode;
     document.documentElement.style.colorScheme = snapshot.mode;
     input?.focus({ preventScroll: true });
-  }).then(stop => {
+  })).then(stop => {
     if (stopped) {
       stop();
 
@@ -37,7 +38,7 @@ export const CapturePanel = (props: { port: CapturePort }) => {
 
     release = stop;
     void send({ kind: "ready" });
-  }).catch(error => setFailure(String(error)));
+  }).catch(error => console.warn("capture subscription failed", error));
   onCleanup(() => { stopped = true; release?.(); });
 
   const file = (keepOpen: boolean) => {

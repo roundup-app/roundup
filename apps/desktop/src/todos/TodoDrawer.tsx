@@ -87,6 +87,13 @@ export const TodoDrawer = (props: {
     : drafts.todoUndo.uncertain() ? (drafts.todoUndo.ids().length ? copy.todoDeleteUnconfirmed(drafts.todoUndo.ids()) : copy.deleteUnconfirmed)
     : drafts.todoUndo.pending() ? copy.todoRestorePending : null;
 
+  // U6249d F3: a Todo someone else deleted leaves nothing to show, so the Drawer closes; unsaved text held for it keeps the line that says why.
+  const heldText = () => drafts.list().some(draft => draft.destination.surface === "todos" && draft.destination.object === String(props.id));
+
+  createEffect(() => {
+    if (props.todos.isLoaded() && !todo() && !removedByMe() && !deleting() && !props.recovery && !heldText()) drawer.close("key");
+  });
+
   const [saved, setSaved] = createSignal(0);
   const clearFailure = () => { setFailure(null); setTitleFailure(null); setSaved(value => value + 1); };
 

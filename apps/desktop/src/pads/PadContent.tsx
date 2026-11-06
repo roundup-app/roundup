@@ -471,6 +471,9 @@ const PadBody = (props: {
           <CopyButton app={connected.app} text={invalid() ? JSON.stringify(retained?.value) : currentDraft() ?? shown()} onSuccess={() => actionFailure.clear()} onFailure={error => actionFailure.show(copy.copyDraftFailure(String(error)))}>{sourceLabel}</CopyButton>
           <button data-button="quiet" type="button" onClick={useTheirs}>{copy.discardRevision}</button>
         </Show>
+        <Show when={actionFailure.message() === copy.padSourceMappingFailed}>
+          <CopyButton app={connected.app} text={editor?.snapshot().text ?? shown()} onSuccess={() => actionFailure.clear()} onFailure={error => actionFailure.show(copy.copyDraftFailure(String(error)))}>{copy.copyMyText}</CopyButton>
+        </Show>
         <Show when={paused() && !retentionProblem()}><button data-button="primary" type="button" disabled={deleted() || invalid()} onClick={() => void resume()}>{copy.resume}</button></Show>
         <Show when={conflictActor()}>
           <button data-button="quiet" type="button" class="word" onClick={() => void keepMine()}>{copy.keepMine}</button>

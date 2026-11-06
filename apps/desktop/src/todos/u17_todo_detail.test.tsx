@@ -208,13 +208,14 @@ describe("u17 Todo detail", () => {
     expect(within(drawer()).getByRole("textbox", { name: "Title" })).toHaveProperty("value", "typed");
   });
 
-  it("u17_when_another_actor_deletes_the_open_todo_the_drawer_says_so", async () => {
+  it("u6249d_when_another_actor_deletes_the_open_todo_the_drawer_closes_without_a_message", async () => {
     const { app, store } = await openDrawerOf(/#5/);
     store.todos = shelf().filter((each) => each.id !== 5);
 
     app.emit({ actor: USER, name: "todo.deleted", data: { id: 5 } });
 
-    expect((await within(drawer()).findByText(/was deleted/)).textContent).toBe("#5 was deleted");
+    await waitFor(() => expect(drawer().dataset.mounted).toBe("false"));
+    expect(drawer().textContent).toBe("");
   });
 
   it("u17_two_quick_blocker_picks_both_land_the_second_built_on_the_first", async () => {
