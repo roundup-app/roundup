@@ -149,6 +149,7 @@
   --duration-instant: 0s;
   --duration-drawer: 250ms;
   --duration-crossfade: 120ms;
+  --duration-reorder: 180ms;
   --duration-copy: 1500ms;
   --duration-press: 100ms;
   --duration-reduced: 150ms;

@@ -49,8 +49,7 @@ impl Fixture {
     }
 
     /// Like `new`, but the fixture's directory is padded so the first (`run` 0) socket path is
-    /// exactly `socket_len` bytes, letting a test push a reopen's `{run}-` prefix past the
-    /// 104-byte limit on purpose (mirrors `dir_of` in `s1_a_socket_path_of_103_bytes_is_accepted_and_104_is_rejected`).
+    /// exactly `socket_len` bytes, so a reopen's `{run}-` prefix passes the 104-byte limit.
     /// The padding is however much the real temp dir still leaves under `socket_len`, so this
     /// crosses the limit by construction instead of assuming `TMPDIR` is short: a `TMPDIR` long
     /// enough to already exceed `socket_len` fails loud here, not with a subtraction underflow.
@@ -98,6 +97,7 @@ impl Fixture {
         )
         .unwrap();
         config.data_dir = Some(dir.path().join("data"));
+        config.reopen_waits = [Duration::from_millis(250); 3];
         Self {
             dir,
             project,
@@ -830,7 +830,7 @@ fn s5_after_a_failed_reopen_a_different_path_opens_a_second_daemon() {
          {link}\n\
          read go < '{dir}/go'\n\
          exit 0\n\
-         elif [ \"$n\" -le 4 ]; then\n\
+         elif [ \"$n\" -le 5 ]; then\n\
          echo 'boom: reopen failed' >&2\n\
          exit 3\n\
          else\n\
@@ -864,7 +864,7 @@ fn s5_after_a_failed_reopen_the_same_path_can_be_retried() {
          {link}\n\
          read go < '{dir}/go'\n\
          exit 0\n\
-         elif [ \"$n\" -le 4 ]; then\n\
+         elif [ \"$n\" -le 5 ]; then\n\
          echo 'boom: reopen failed' >&2\n\
          exit 3\n\
          else\n\
@@ -1009,7 +1009,7 @@ fn s5_a_refused_reopen_does_not_burn_a_run_number() {
          {link}\n\
          read go < '{dir}/go'\n\
          exit 0\n\
-         elif [ \"$n\" -eq 8 ]; then\n\
+         elif [ \"$n\" -eq 10 ]; then\n\
          printf '%s' \"$RUPD_SOCKET\" > '{dir}/socket'\n\
          {link}\n\
          exec cat\n\
