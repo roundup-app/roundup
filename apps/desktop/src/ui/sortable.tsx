@@ -437,7 +437,15 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
   const arrivals = new Set<() => void>();
 
   // The rows' offsets go in the same update that redraws the list: a list that slides its rows reads where they show before it redraws and again after.
-  createEffect(on(shownOrder, () => { for (const arrive of arrivals) arrive(); }, { defer: true }));
+  // The list moves the dropped row's node when it shows the move, which drops focus; the handle takes it back.
+  let refocus: HTMLElement | null = null;
+
+  createEffect(on(shownOrder, () => {
+    for (const arrive of arrivals) arrive();
+
+    if (refocus?.isConnected && document.activeElement === document.body) refocus.focus();
+    refocus = null;
+  }, { defer: true }));
 
   const along = (shift: number) => `${local.horizontal ? shift : 0}px ${local.horizontal ? 0 : shift}px`;
   const slides = new WeakMap<Element, Animation>();
@@ -708,6 +716,7 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
     }
 
     previewed = null;
+    refocus = null;
     clearPreview();
     stopPointer?.();
     lifted = source?.element?.parentNode ? { element: source.element, parent: source.element.parentNode, before: source.element.previousSibling } : null;
@@ -738,7 +747,10 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
 
       stopTracking = effect(() => {
         if (!isSortable(source)) return;
-        list?.setAttribute("data-sortable-index", String(indexOf(source)));
+        const index = indexOf(source);
+
+        // A pointer drag moves no row in the library: the slot the pointer takes is the index.
+        list?.setAttribute("data-sortable-index", String(event.operation.activatorEvent instanceof KeyboardEvent ? index : slots.slot()));
 
         track(source, event.operation.position);
       });
@@ -816,6 +828,7 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
           stopRestoringFocus?.();
 
           focus(() => { if (handle.isConnected) handle.focus(); });
+          refocus = handle;
         });
       });
     }

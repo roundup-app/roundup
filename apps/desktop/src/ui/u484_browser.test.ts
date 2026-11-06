@@ -224,7 +224,7 @@ it("u3800a_one_drag_fixture", async () => {
   await browser("batch", "--bail", `mouse move ${start.x} ${start.y}`, "mouse down", `mouse move ${start.x} ${start.y + 12}`);
   await browser("wait", "--fn", "!!document.querySelector('[data-dnd-placeholder]')");
   await capture("U3800a", "pad-lift");
-  const end = await read<{x:number;y:number}>(`(() => {const b=document.querySelector(${JSON.stringify(grip(second))}).getBoundingClientRect();return {x:Math.round(b.x+b.width/2),y:Math.round(b.y+b.height/2)}})()`);
+  const end = await read<{x:number;y:number}>(`(() => {const g=document.querySelector(${JSON.stringify(grip(second))});const b=g.getBoundingClientRect();const lift=parseFloat(getComputedStyle(g.closest('[data-pad]')).translate.split(' ')[1])||0;return {x:Math.round(b.x+b.width/2),y:Math.round(b.y+b.height/2-lift)}})()`);
   await browser("mouse", "move", String(end.x), String(end.y));
   await browser("wait", "--fn", "document.querySelector('.pads-tab .shelf-list[data-sortable-index]')?.dataset.sortableIndex === '1'");
   await browser("mouse", "up");
