@@ -71,3 +71,40 @@ Findings:
 What this cannot show: the shim counts reads. It cannot tell which read hit dirty layout, so it does not prove a forced layout, only a read that could force one. It also cannot attribute the two 33.3 ms display gaps: the gaps come from the earlier xctrace runs and the shim run is a different run with no frame timing. The two 33.3 ms frames stay unattributed.
 
 Per Observer line, the verdict above stands (FAIL on the frame line, NOT PROVEN on forced layout). This section names the largest caller of scripted layout reads in each build: the `scrollHover` chunk.
+
+## Trace 3 (after #6332)
+
+Commit c5ae06451 (origin/main with #6332: `trackScrollbars`' MutationObserver no longer calls `flush()` for Terminal-only mutations). Same method as above, same Terminal content and scroll. Two bundles of this commit: one with the counted layout-read shim (identifier `dev.roundup.app6283c`) for the read counts, one without it (`dev.roundup.app6283d`) for the traces, so the shim does not load the traced run. The trace runs are two, one after the other in the same App; the shim runs are two in one App. In trace 1, 186 of 3121 frame gaps are 16.67 ms and fall across the whole 30 s, including seconds after the scroll ended (a, b and trace 2 have 8, 15 and 17); the cause was not found, so read that trace's gap figures as noisy. Wheel input, a 120 Hz display, no trackpad, one other roundup App (PID 10356) running.
+
+### Scripted layout reads (counted shim, two scrolls)
+
+| measure | before 551cd247d | after #6302 d64d1ee08 | after #6332 run 1 | run 2 |
+|---|---|---|---|---|
+| total layout-read calls | 411 | 424 | 372 | 400 |
+| `scrollHover` chunk | 364 (89%) | 290 (68%) | 217 (58%) | 227 (57%) |
+| `scrollHover.ts` ancestor walk (`getComputedStyle` + `getBoundingClientRect` pairs) | 84 | 56 | 28 | 28 |
+| vendored scrollbar library reads in that chunk (`scrollWidth`, `scrollHeight`, computed style) | not separated | 26 each (+52 computed style) | 25 each (+50) | 25 each (+50) |
+| `emulator` (xterm) chunk | 160 (39%) | 94 (22%) | 90 (24%) | 104 (26%) |
+| `index` chunk (App code) | 49 | 40 | 56 | 60 |
+
+The ancestor walk halves again (56 to 28), the largest drop since #6302. The vendored library's reads are unchanged, so they are now the largest part of the chunk. xterm's share is about equal; the App code's own reads are up by 16 to 20 (the `index` chunk: `clientWidth` and `getBoundingClientRect` at two call sites).
+
+### Hitches and gaps (30 s Animation Hitches traces, all processes)
+
+| measure | before 551cd247d | after #6302 d64d1ee08 | after #6332 trace 1 | trace 2 |
+|---|---|---|---|---|
+| hitches attributed to the roundup process (each 8.33 ms late) | 13 | 3 | 8 (4.5 to 5.4 s) | 11 (4.9 to 5.9 s) |
+| gaps over 16.7 / 25 / 33.4 ms between displayed frames | 8 / 2 / 0 | 5 / 2 / 0 | 5 / 1 / 0 | 0 / 0 / 0 |
+| longest gap | 33.33 ms | 33.33 ms | 33.33 ms | 16.67 ms |
+| p95 of the gap | 8.33 ms | 8.33 ms | 16.67 ms (noisy run) | 8.33 ms |
+| WebContent CPU samples (1 ms each) | 6317 | 5056 | 4939 | 3662 |
+| of those under a layout call | 896 | 994 | 1016 | 769 |
+| samples in `updateLayoutIfDimensionsOutOfDate` (a script reading a size) | 7 | 2 | 9 | 17 |
+
+What this shows:
+- The scripted reads fell: total reads, the ancestor walk and the `scrollHover` share all fall against #6302.
+- The hitches did not fall in these two traces. Both show 8 to 11 hitches in the first second of the scroll (4.5 to 5.9 s), against 3 after #6302. One trace per build before this run, so the 3 may have been a good run.
+- Frames over 16.7 ms: trace 2 has none and the longest gap is 16.67 ms; trace 1 keeps one 33.33 ms gap and four 16.7 to 25 ms gaps. The two traces disagree, so one run cannot decide this line.
+- Scripted dimension reads in the profile (`updateLayoutIfDimensionsOutOfDate`) are 9 and 17 samples, above the 2 after #6302. The sample counts are 1 ms each; the profiler does not name the script.
+
+Per Observer line: the frame line is still not proven (trace 1 has a 33.33 ms gap, trace 2 has none, two runs only). Forced layout from roundup scripts is not zero: the ancestor walk still runs 28 times, the vendored library and the App's own `index` reads remain. Two 33.3 ms frames are not attributed in any run: the shim run and the trace runs are separate runs with no frame timing in the shim.
