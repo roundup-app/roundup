@@ -42,3 +42,27 @@ What could not be measured: which script started those 2 samples. The profiler s
 ## Not done
 
 No repeat run (the first failing line stopped the window run). No trace with every roundup handler removed (U6283c); the after build still shows long gaps, so U6283c is open: if a repeat run reproduces them, that trace is the next step.
+
+## Layout reads by call site (counted shim, no Web Inspector)
+
+Web Inspector was not used. Safari is read-only to computer-use and its Develop menu is the owner's setting, so no Layout & Rendering timeline was taken. A small script stood in. It was injected into each bundle's `dist/index.html` (build output only, no source edit). It wrapped `getBoundingClientRect`, `getClientRects`, `window.getComputedStyle` and the layout getters of `Element` (`clientWidth`, `scrollHeight`, `offsetWidth` and the like), counted each call with its top four stack frames, and posted the counts to a local collector.
+
+Run: each bundle's 10,000-line Terminal scrolled from the top by 20 batches of 15 wheel ticks. The scroll took about 6 s of wall clock in both bundles, not 30 s. One run per build.
+
+| measure | before 551cd247d | after d64d1ee08 |
+|---|---|---|
+| layout-read calls counted during the scroll | 411 | 424 |
+| `scrollHover.ts` ancestor walk (line 69 `getComputedStyle` + line 70 `getBoundingClientRect`, one pair per ancestor) | 84 + 84 | 56 + 56 |
+| `scrollHover.ts` scan of scrollable elements (`getComputedStyle`, line 124) | 24 | 0 (the library below) |
+| `scrollWidth`, `scrollHeight` and `getComputedStyle` in the vendored scrollbar library (`wt`, `yt`, same chunk) | 0 | 26 each, plus 52 more `getComputedStyle` |
+| xterm mouse-position reads (`_positionFromMouseEvent`, `fire`) | 14 + 8 | 24 + 24 + 24 + 22 |
+
+Findings:
+- The recurring caller in both builds is the `scrollHover.ts` ancestor walk. It reads a computed style and a rect for every ancestor of each scrollable element. After the fix it runs 56 times instead of 84.
+- After the fix a vendored scrollbar library adds reads of its own (`scrollWidth`, `scrollHeight`, computed style, 26 each). Before the fix this chunk had none. These reads are new in the after build.
+- xterm's mouse-position code reads a rect and a computed style on each mouse event. The scroll tool moves the pointer, so this count belongs to the input method, not to scrolling.
+- Total calls are about equal (411 and 424).
+
+What this cannot show: the shim counts reads. It cannot tell which read hit dirty layout, so it does not prove a forced layout, only a read that could force one. It also cannot attribute the two 33.3 ms display gaps: the gaps come from the earlier xctrace runs and the shim run is a different run with no frame timing. The two 33.3 ms frames stay unattributed.
+
+Per Observer line, the verdict above stands (FAIL on the frame line, NOT PROVEN on forced layout). This section adds one named caller for scripted layout reads in each build (`scrollHover.ts` lines 69 and 70) and a second source in the after build (the vendored scrollbar library).
