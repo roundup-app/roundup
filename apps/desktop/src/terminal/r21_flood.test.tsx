@@ -170,11 +170,10 @@ it("r21_flood_gutters_draw_once_per_frame_without_losing_turn_selection", async 
     const output = Array.from({ length: 200 }, (_, i) => `flood ${i}\r\n`).join("");
 
     await write(output);
-    // xterm's render event, rather than each scrolled row or parse callback,
-    // owns the gutter's layout read and writes.
-    expect(reads).not.toHaveBeenCalled();
+    // xterm's render event, rather than each scrolled row or parse callback, owns the gutter's
+    // writes; U6283a: the gutter sizes itself in percentages, so no frame reads layout.
     vi.advanceTimersToNextFrame();
-    expect(reads).toHaveBeenCalledTimes(1);
+    expect(reads).not.toHaveBeenCalled();
     host.querySelector<HTMLButtonElement>(".turn-gutter")!.click();
     expect(emulator.selection()).toBe("$ yes\n" + output.replaceAll("\r", "").trimEnd());
   } finally {
