@@ -12,7 +12,7 @@ use crate::tests::ask;
 pub(crate) struct Run {
     pub(crate) daemon: Daemon,
     pub(crate) now: Arc<AtomicI64>,
-    dir: tempfile::TempDir,
+    pub(crate) dir: tempfile::TempDir,
     pub(crate) door: String,
 }
 
@@ -32,7 +32,7 @@ impl Run {
         let dir = tempfile::tempdir().unwrap();
         let project = dir.path();
         let fake = project.join("fake-claude");
-        std::fs::write(&fake, "#!/bin/sh\nif [ \"$1\" = plugin ] && [ \"$2\" = test ]; then echo 'Q11 runtime hook closure: 1 pass'; exit 0; fi\nwhile read line; do :; done\n").unwrap();
+        std::fs::write(&fake, "#!/bin/sh\nif [ \"$1\" = plugin ] && [ \"$2\" = test ]; then echo 'Q11 runtime hook closure: 1 pass'; exit 0; fi\nprintf '%s\\n' \"$@\" > \"$(dirname \"$0\")/args.$$\"\nwhile read line; do :; done\n").unwrap();
         std::fs::set_permissions(&fake, std::fs::Permissions::from_mode(0o755)).unwrap();
         let rup = project.join("rup");
         std::fs::write(&rup, "").unwrap();
@@ -90,7 +90,7 @@ impl Run {
             .await;
     }
 
-    async fn signal_with(&self, id: &str, payload: Value) {
+    pub(crate) async fn signal_with(&self, id: &str, payload: Value) {
         let node = call(&self.daemon, "rail.tree", Value::Null).await;
         let node = node
             .as_array()
