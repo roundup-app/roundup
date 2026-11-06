@@ -216,6 +216,7 @@ mod tests {
             workstream_state: None,
             waiting: None,
             unreachable: None,
+            resume: None,
             start_attribution: None,
             visibility: Default::default(),
             alert_level: Default::default(),

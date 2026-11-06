@@ -5,6 +5,7 @@ import type { RailNode } from "@contracts/agent/RailNode";
 import { railOrder } from "../rail/layout";
 import { copy } from "./copy";
 import type { App, AppSeam, MenuItem } from "../app/seam";
+import { projectKeyOf } from "../app/projectLink";
 
 /** U2694a: one item of a menu model. `run` stays in the webview; only the rest crosses to the host. */
 export type MenuEntry = {
@@ -86,9 +87,7 @@ export const contextMenu = async (app: Pick<App, "showContextMenu">, model: Menu
 type Link = { kind: "pad" | "todo" | "agent" | "workstream" | "terminal"; id: string | number }
   | { kind: "deliverable"; id: string; project: string };
 
-/** LK1: `roundup://<kind>/<id>?project=<key>`; the key is the Daemon's, read once per seam. */
-const keys = new WeakMap<AppSeam, Promise<string>>();
-
+/** LK1: `roundup://<kind>/<id>?project=<key>`. */
 const linkOf = async (app: AppSeam, target: Link): Promise<{ kind: "available"; url: string } | { kind: "unavailable"; cause: string }> => {
   if (target.kind === "deliverable") {
     const resolved = await app.rpc("deliverable.resolve", { project: target.project, id: target.id });
@@ -98,15 +97,7 @@ const linkOf = async (app: AppSeam, target: Link): Promise<{ kind: "available"; 
     return { kind: "available", url: copy.linkUrl(target.kind, encodeURIComponent(target.id), encodeURIComponent(target.project)) };
   }
 
-  let key = keys.get(app);
-
-  if (!key) {
-    key = app.rpc("daemon.ping", null).then((ping) => ping.projectKey);
-    key.catch(() => keys.delete(app));
-    keys.set(app, key);
-  }
-
-  return { kind: "available", url: copy.linkUrl(target.kind, encodeURIComponent(String(target.id)), encodeURIComponent(await key)) };
+  return { kind: "available", url: copy.linkUrl(target.kind, encodeURIComponent(String(target.id)), encodeURIComponent(await projectKeyOf(app))) };
 };
 
 /** U2694c: Copy Link and Send to Agent ▸ for one object; `nodes` are the Project's Rail nodes in order, `fail` shows U80's line. */

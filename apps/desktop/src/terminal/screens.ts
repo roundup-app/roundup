@@ -125,10 +125,8 @@ const newestFailure = (state: TerminalFailures | undefined): FailureEntry | null
   );
 };
 
-const NOT_FOUND = -32001;
-
 /** `openObject` is the App's one route for a `roundup://` link (AL3); without it the link goes to the OS like any other address. */
-export const createScreens = (connected: ConnectedProject, createEmulator: EmulatorFactory, openObject?: (url: string) => void): Screens => {
+export const createScreens = (connected: ConnectedProject, createEmulator: EmulatorFactory, openObject?: (url: string, surface: string) => void): Screens => {
   const { app, rail, daemonExit, project } = connected;
   const holders = new Map<string, Holder>();
   const watches = new Map<string, Watch>();
@@ -602,13 +600,14 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
   const open = async (id: string, printed: Printed): Promise<void> => {
     if (printed.kind === "url" && openObject && !/^https?:/i.test(printed.url)) {
       setFailure(id, "link", null);
-      openObject(printed.url);
+      openObject(printed.url, project.path);
 
       return;
     }
 
     const node = rail.nodes.find((candidate) => candidate.terminal_id === id);
-    const failure = await openPrinted((target) => app.openTarget(target), printed, node?.kind === "agent" ? node.worktree?.path ?? project.path : project.path, appCopy.doesNotExist);
+    const worktree = node?.kind === "agent" ? node.worktree?.path : undefined;
+    const failure = await openPrinted((target) => app.openTarget(target), printed, [worktree ?? project.path, project.path, ...worktree ? [worktree] : []]);
 
     setFailure(id, "link", failure);
   };

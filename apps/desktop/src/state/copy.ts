@@ -10,6 +10,7 @@ export const storageCopy = {
 } as const;
 
 export const copy = {
+  resumeNote: "Your last turn was cut off by a Claude service error. Please continue where you left off.",
   actionsUnregistered: "The App could not register its actions.",
   projectNoLongerOpen: "Project is closed.",
   terminalOutcomeUnknown: sharedCopy.terminalOutcomeUnknown,

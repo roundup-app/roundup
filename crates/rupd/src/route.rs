@@ -170,6 +170,9 @@ impl Daemon {
             rpc::Reply::Json(json) => serde_json::from_str(&json),
         }
         .map_err(RpcError::internal)?;
+        for node in &mut nodes {
+            node.resume = self.agents.resume_wait(&node.id);
+        }
         crate::workstream_state::present(&mut nodes, &counts, &stalled, self.sender.get());
         Ok(rpc::Reply::Value(rpc::reply(&nodes)?))
     }
