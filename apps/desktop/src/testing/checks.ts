@@ -784,6 +784,13 @@ const d16 = (page: Page): Measure => {
 
 // D14: no row is a card, gaps within each list are equal space steps, and no title shows more than two lines or overflows its row.
 const d14 = (page: Page): Measure => {
+  // A pointer drag moves rows by `translate` only, so a row's box less its translate is its place in the list's layout, its place at lift.
+  const placed = (row: Element, box: DOMRect) => {
+    const shift = px(page.style(row).translate.split(" ")[1] ?? "") ?? 0;
+
+    return { top: box.top - shift, bottom: box.bottom - shift };
+  };
+
   // A lifted row floats over its neighbours (M6); its in-flow placeholder holds its place in the list.
   const rows = shelfRows(page).filter(({ row }) => !row.matches("[data-dnd-dragging]"));
 
@@ -818,14 +825,14 @@ const d14 = (page: Page): Measure => {
       if (listOf(one.row) === listOf(previous.row)) {
         // U3800a: the room a drag opens for the dragged row is a row-sized gap, not empty spacing between rows; a gap that holds the dragged row's height holds its room.
         const room = listOf(one.row)?.querySelector("[data-dnd-dragging]")?.getBoundingClientRect().height ?? 0;
-        const gap = one.box.top - previous.box.bottom;
+        const gap = placed(one.row, one.box).top - placed(previous.row, previous.box).bottom;
         const occupied = room > 0 && gap >= room ? room : 0;
 
         between.push(gap - occupied);
       }
     });
 
-    if (head && own[0]) heads.push(own[0].box.top - head.getBoundingClientRect().bottom);
+    if (head && own[0]) heads.push(placed(own[0].row, own[0].box).top - head.getBoundingClientRect().bottom);
   }
 
   const sections = SHELF_LISTS.flatMap((list) => page.doc.querySelector(`.shelf section[aria-label="${list}" i]`) ?? []);
