@@ -689,3 +689,25 @@ async fn r3696b_write_classifies_its_caller_once() {
         "{write} classifications for a write, one chain is {chain}"
     );
 }
+
+/// U6368a: a request starts no watcher, so the Daemon's tasks and bus subscribers stay as the first request left them.
+#[tokio::test]
+async fn u6368a_requests_leave_no_task_or_subscriber() {
+    let dir = tempfile::tempdir().unwrap();
+    let daemon = Daemon::open(dir.path()).unwrap();
+    let methods = [
+        r#"{"jsonrpc":"2.0","id":1,"method":"daemon.ping"}"#,
+        r#"{"jsonrpc":"2.0","id":1,"method":"rail.tree"}"#,
+        r#"{"jsonrpc":"2.0","id":1,"method":"terminal.write","params":{"id":"t-none","data":"x"}}"#,
+    ];
+    let metrics = tokio::runtime::Handle::current().metrics();
+    ask(&daemon, methods[0]).await;
+    tokio::task::yield_now().await;
+    let (subscribers, tasks) = (daemon.bus.receiver_count(), metrics.num_alive_tasks());
+    for i in 0..500 {
+        ask(&daemon, methods[i % 3]).await;
+    }
+    tokio::task::yield_now().await;
+    assert_eq!(daemon.bus.receiver_count(), subscribers);
+    assert_eq!(metrics.num_alive_tasks(), tasks);
+}

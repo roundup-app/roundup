@@ -25,7 +25,7 @@ const lift = async (lane: LaneBrowser, id: number) => {
 };
 
 /** The press that follows a release is lost while the Sortable still closes the last drag (its slot fades out and its source row returns), which a loaded runner stretches past the next press. */
-const SETTLED = "!document.querySelector('[data-dnd-dragging], [data-dnd-placeholder], .sortable-source, [data-ending]') && document.querySelector('.shelf .todo-list').getAnimations({ subtree: true }).length === 0";
+const SETTLED = "!document.querySelector('[data-dnd-dragging], [data-dnd-placeholder], [data-ending]') && document.querySelector('.shelf .todo-list').getAnimations({ subtree: true }).length === 0";
 
 const seedDestination = async (lane: LaneBrowser) => {
   await lane.evaluate(`(async () => { await window.__fake.app.rpc('todo.create', {title:'destination', body:null, blockers:null, owner:{kind:'user',id:'you',parent:null}}); })()`);
