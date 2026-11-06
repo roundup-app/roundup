@@ -47,12 +47,12 @@ impl Daemon {
         let method = request["method"].as_str().unwrap_or_default();
         if method == "terminal.write" {
             // A child may not turn its Terminal keystrokes into a user's answer by claiming
-            // `user`; H21's process identity applies here. The wire reader already resolved it.
+            // `user`; H21's caller identity applies here. The wire reader already resolved it.
             let actor = actor.unwrap_or_else(|| self.terminal_writer(conn));
             if actor.kind == ActorKind::Agent {
                 conn.actor = actor;
             }
-        } else if takes_process_identity(method) {
+        } else if takes_caller_identity(method) {
             conn.actor = actor.unwrap_or_else(|| self.action_actor(conn));
         }
         let outcome = if method == "rail.tree" {
@@ -319,17 +319,17 @@ mod tests {
     use std::sync::Mutex;
 
     #[test]
-    fn z6395a_one_table_decides_which_methods_take_the_process_identity() {
+    fn z6395a_one_table_decides_which_methods_take_the_caller_identity() {
         for method in [
             "terminal.catchUp",
             "todo.delete",
             "deliverable.read",
             "agent.spawn",
         ] {
-            assert!(takes_process_identity(method), "{method}");
+            assert!(takes_caller_identity(method), "{method}");
         }
         for method in ["daemon.ping", "rail.tree", "terminal.write"] {
-            assert!(!takes_process_identity(method), "{method}");
+            assert!(!takes_caller_identity(method), "{method}");
         }
     }
 
@@ -573,9 +573,9 @@ mod tests {
     }
 }
 
-/// The one table of methods that take the calling process's identity (`action_actor`)
+/// The one table of methods that take the caller's identity (`action_actor`)
 /// instead of the connection's. The wire reader and the router both read it (Z6395a).
-pub(crate) fn takes_process_identity(method: &str) -> bool {
+pub(crate) fn takes_caller_identity(method: &str) -> bool {
     method.starts_with("deliverable.")
         || crate::actions::is_action(method)
         || matches!(

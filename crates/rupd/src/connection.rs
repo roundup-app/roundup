@@ -109,7 +109,7 @@ pub(crate) async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Resul
             }
         } else if method
             .as_deref()
-            .is_some_and(crate::route::takes_process_identity)
+            .is_some_and(crate::route::takes_caller_identity)
         {
             daemon.action_actor(&conn)
         } else {
