@@ -173,7 +173,7 @@ impl crate::NoteInbox for Gated {
 }
 
 #[tokio::test]
-async fn u6260a_held_prompt_is_reported_to_its_sender() {
+async fn u6260a_waiting_prompt_is_reported_to_its_sender() {
     let dir = tempfile::tempdir().unwrap();
     let gated = Arc::new(Gated::default());
     let (messages2, _, _) = open_with(dir.path(), gated.clone());
