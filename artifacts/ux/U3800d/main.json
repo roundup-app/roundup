@@ -1,0 +1,84 @@
+{
+  "label": "main",
+  "chromium": "156.0.8078.0 headless",
+  "viewport": "1512x950 dark",
+  "seed": "tree-40",
+  "drops": [
+    {
+      "drop": 1,
+      "longest_task_ms": 517.4,
+      "release_to_end_ms": 878.1
+    },
+    {
+      "drop": 2,
+      "longest_task_ms": 537.1,
+      "release_to_end_ms": 886.2
+    },
+    {
+      "drop": 3,
+      "longest_task_ms": 466.4,
+      "release_to_end_ms": 819.1
+    },
+    {
+      "drop": 4,
+      "longest_task_ms": 477.4,
+      "release_to_end_ms": 833.7
+    },
+    {
+      "drop": 5,
+      "longest_task_ms": 473.9,
+      "release_to_end_ms": 827.3
+    },
+    {
+      "drop": 6,
+      "longest_task_ms": 468.4,
+      "release_to_end_ms": 863.5
+    },
+    {
+      "drop": 7,
+      "longest_task_ms": 471.6,
+      "release_to_end_ms": 828.8
+    },
+    {
+      "drop": 8,
+      "longest_task_ms": 463.3,
+      "release_to_end_ms": 812
+    },
+    {
+      "drop": 9,
+      "longest_task_ms": 446.1,
+      "release_to_end_ms": 802.3
+    },
+    {
+      "drop": 10,
+      "longest_task_ms": 467.7,
+      "release_to_end_ms": 823.6
+    }
+  ],
+  "max_longest_task_ms": 537.1,
+  "press_to_next_paint_ms": [
+    17.1,
+    23,
+    19.3,
+    30.4,
+    27,
+    33.9,
+    25.3,
+    42.3,
+    23,
+    30.6
+  ],
+  "max_press_to_next_paint_ms": 42.29999999993015,
+  "event_timing_entries_over_16ms": [
+    40,
+    32,
+    32,
+    40,
+    32,
+    40,
+    40,
+    48,
+    32,
+    40
+  ]
+}
