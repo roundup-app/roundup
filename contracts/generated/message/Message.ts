@@ -17,5 +17,7 @@ export type Message = {
 	replyTo: number | null,
 	status: message$MessageStatus.MessageStatus,
 	reason: message$Reason.Reason | null,
+	/**  U6260a: why a `pending` Message waits for its receiver's inbox; a waiting state, never a failure. */
+	waiting?: string | null,
 	at: number,
 };

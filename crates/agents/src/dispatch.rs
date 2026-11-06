@@ -110,10 +110,11 @@ impl Agents {
             } else {
                 Steer::Instruction(&text)
             };
-            // A4452d: only the user's words are typed; an Agent's text goes to the inbox.
+            // A4452d: only the user's words are typed; an Agent's text goes to the inbox as its
+            // own Message, so U6260a's waiting reason is readable in the sender's Message list.
             if ctx.actor.kind == ActorKind::Agent {
                 self.shared
-                    .coordinate(Actor::daemon(), &id, None, text)
+                    .coordinate(ctx.actor.clone(), &id, None, text)
                     .await
                     .map_err(PromptError::from)?;
             } else {
