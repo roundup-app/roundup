@@ -9,8 +9,11 @@ import { createFakeApp } from "../testing/fakeApp";
 import { info, node } from "../testing/nodes";
 
 import { fakeEmulators } from "../terminal/paneHarness";
+import { useRealBackoff } from "../testing/immediateRetry";
 
 afterEach(cleanup);
+
+useRealBackoff();
 
 it("u3791a_daemon_third_failure_is_visible", async () => {
   const app = createFakeApp();
