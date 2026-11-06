@@ -1,6 +1,11 @@
 //! U6243a: a real Daemon over public RPC, a fake `claude`, hook Signals and the injected Agents
-//! clock. No step is an Agent's own report: hooks and the clock only (U6243c).
-use std::sync::atomic::Ordering;
+//! clock. No step is an Agent's own report: hooks, the Queue, a peer inbox that takes a note or
+//! refuses it, and the clock only (U6243c).
+use std::io::{BufRead, Write};
+use std::os::unix::net::UnixListener;
+use std::path::PathBuf;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use proptest::prelude::*;
 
@@ -12,6 +17,15 @@ use crate::workstream_state::{TELL_PERIOD, Told, told_of};
 #[derive(Clone, Debug)]
 enum Step {
     Hook(usize, &'static str),
+    /// A background task starts, or is reaped, under the second child.
+    Background(bool),
+    /// A Workstream joins the Queue, or its first entry leaves it.
+    Enqueue,
+    Dequeue,
+    /// A note to the first child while its inbox refuses the write.
+    DeliveryFails,
+    /// A note to the first child while its inbox takes it and its transcript records the receipt.
+    DeliveryLands,
     /// The clock passes `STALL_MS` and one `TELL_PERIOD`, with no event.
     Clock,
 }
@@ -29,6 +43,11 @@ fn step() -> impl Strategy<Value = Step> {
             ])
         )
             .prop_map(|(who, hook)| Step::Hook(who, hook)),
+        any::<bool>().prop_map(Step::Background),
+        Just(Step::Enqueue),
+        Just(Step::Dequeue),
+        Just(Step::DeliveryFails),
+        Just(Step::DeliveryLands),
         Just(Step::Clock),
     ]
 }
@@ -65,10 +84,115 @@ fn tells(events: &mut tokio::sync::broadcast::Receiver<contracts::Event>) -> usi
     count
 }
 
-async fn walk(steps: Vec<Step>) {
+/// The first child's messaging socket, session listing and transcript, as Claude Code keeps them.
+struct Peer {
+    socket: PathBuf,
+    transcript: PathBuf,
+    stop: Option<Arc<AtomicBool>>,
+}
+
+impl Peer {
+    async fn open(run: &Run, id: &str) -> Self {
+        let dir = run.dir.path();
+        let wanted = format!("/{id}.sock");
+        let socket = loop {
+            let found = std::fs::read_dir(dir).unwrap().flatten().find_map(|file| {
+                let text = std::fs::read_to_string(file.path()).ok()?;
+                text.lines()
+                    .find(|line| line.ends_with(&wanted))
+                    .map(PathBuf::from)
+            });
+            if let Some(found) = found {
+                break found;
+            }
+            settle().await;
+        };
+        let sessions = dir.join("sessions");
+        std::fs::create_dir_all(&sessions).unwrap();
+        let pid = std::process::id();
+        std::fs::write(
+            sessions.join(format!("{pid}.json")),
+            serde_json::json!({
+                "pid": pid, "sessionId": "peer", "peerProtocol": 1,
+                "messagingSocketPath": socket,
+            })
+            .to_string(),
+        )
+        .unwrap();
+        std::fs::write(
+            sessions.join(format!("{pid}.k.key")),
+            serde_json::json!({"peerToken": "t"}).to_string(),
+        )
+        .unwrap();
+        let transcript = dir.join("transcript.jsonl");
+        std::fs::write(&transcript, "").unwrap();
+        let mut peer = Self {
+            socket,
+            transcript,
+            stop: None,
+        };
+        peer.close();
+        peer
+    }
+
+    /// A socket file nobody listens on: the write is refused.
+    fn close(&mut self) {
+        if let Some(stop) = self.stop.take() {
+            stop.store(true, Ordering::SeqCst);
+        }
+        let _ = std::fs::remove_file(&self.socket);
+        drop(UnixListener::bind(&self.socket).unwrap());
+    }
+
+    /// A listener that takes each note and records its receipt in the transcript.
+    fn listen(&mut self) {
+        if self.stop.is_some() {
+            return;
+        }
+        let _ = std::fs::remove_file(&self.socket);
+        let listener = UnixListener::bind(&self.socket).unwrap();
+        listener.set_nonblocking(true).unwrap();
+        let stop = Arc::new(AtomicBool::new(false));
+        self.stop = Some(stop.clone());
+        let transcript = self.transcript.clone();
+        std::thread::spawn(move || {
+            while !stop.load(Ordering::SeqCst) {
+                let Ok((stream, _)) = listener.accept() else {
+                    std::thread::sleep(std::time::Duration::from_millis(5));
+                    continue;
+                };
+                stream.set_nonblocking(false).unwrap();
+                for line in std::io::BufReader::new(stream)
+                    .lines()
+                    .map_while(Result::ok)
+                {
+                    let Ok(note) = serde_json::from_str::<Value>(&line) else {
+                        continue;
+                    };
+                    if let Some(id) = note["msg_id"].as_str() {
+                        let receipt = json!({"origin":{"kind":"peer","msg_id":id}});
+                        let mut file = std::fs::OpenOptions::new()
+                            .append(true)
+                            .open(&transcript)
+                            .unwrap();
+                        writeln!(file, "{receipt}").unwrap();
+                    }
+                }
+            }
+        });
+    }
+}
+
+async fn walk(steps: Vec<Step>) -> Told {
     let run = Run::start().await;
     let kids = [run.spawn("one").await, run.spawn("two").await];
     let ids = [run.door.clone(), kids[0].clone(), kids[1].clone()];
+    let mut peer = Peer::open(&run, &kids[0]).await;
+    run.signal_with(
+        &kids[0],
+        json!({"hook_event_name":"UserPromptSubmit","transcript_path":peer.transcript}),
+    )
+    .await;
     let mut events = run.daemon.bus.subscribe();
     settle().await;
     tells(&mut events);
@@ -77,6 +201,53 @@ async fn walk(steps: Vec<Step>) {
     for step in steps {
         match step {
             Step::Hook(who, hook) => run.signal(&ids[who], hook).await,
+            Step::Background(start) => {
+                let hook = if start {
+                    "SubagentStart"
+                } else {
+                    "SubagentStop"
+                };
+                run.signal_with(&ids[2], json!({"hook_event_name":hook,"agent_id":"bg"}))
+                    .await;
+            }
+            Step::Enqueue => {
+                let todo = call(&run.daemon, "todo.create", json!({"title":"queued"})).await;
+                call(
+                    &run.daemon,
+                    "todo.startWorkstream",
+                    json!({"id":todo["id"],"name":"Later","start":{"kind":"queued"}}),
+                )
+                .await;
+            }
+            Step::Dequeue => {
+                let queue = call(&run.daemon, "workstream.queue", Value::Null).await;
+                if let Some(entry) = queue["entries"].get(0) {
+                    call(
+                        &run.daemon,
+                        "workstream.dequeue",
+                        json!({"workstream":entry["workstream"]}),
+                    )
+                    .await;
+                }
+            }
+            Step::DeliveryFails | Step::DeliveryLands => {
+                if matches!(step, Step::DeliveryFails) {
+                    peer.close();
+                } else {
+                    peer.listen();
+                }
+                call(
+                    &run.daemon,
+                    "message.send",
+                    json!({"to":ids[1],"kind":"note","body":"note"}),
+                )
+                .await;
+                settle().await;
+                if matches!(step, Step::DeliveryLands) {
+                    // The transcript changed: the Agent's next hook is when the receipt is read.
+                    run.signal(&ids[1], "Stop").await;
+                }
+            }
             Step::Clock => {
                 run.now.fetch_add(STALL_MS + 1, Ordering::SeqCst);
                 tokio::time::advance(TELL_PERIOD).await;
@@ -92,15 +263,16 @@ async fn walk(steps: Vec<Step>) {
         last = now;
     }
     run.daemon.stop_terminals().await.unwrap();
+    last
 }
 
-fn on_paused_clock(steps: Vec<Step>) {
+fn on_paused_clock(steps: Vec<Step>) -> Told {
     tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .start_paused(true)
         .build()
         .unwrap()
-        .block_on(walk(steps));
+        .block_on(walk(steps))
 }
 
 proptest! {
@@ -118,4 +290,20 @@ fn u6243a_the_last_working_child_ending_is_told_once() {
         Step::Hook(1, "UserPromptSubmit"),
         Step::Hook(1, "SessionEnd"),
     ]);
+}
+
+/// Each input U6243a names moves a derived value the walk then sees told.
+#[test]
+fn u6243a_a_refused_note_is_told_and_a_received_one_is_told_again() {
+    let unreachable = |told: &Told| told.values().any(|v| v.2.is_some());
+    let idle = Step::Hook(1, "Stop");
+    assert!(unreachable(&on_paused_clock(vec![
+        idle.clone(),
+        Step::DeliveryFails,
+    ])));
+    assert!(!unreachable(&on_paused_clock(vec![
+        idle,
+        Step::DeliveryFails,
+        Step::DeliveryLands,
+    ])));
 }
