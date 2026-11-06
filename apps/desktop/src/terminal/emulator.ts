@@ -294,16 +294,30 @@ export const createXtermEmulators = (
     element.style.height = "100%";
     element.style.gridArea = "1 / 1";
     terminal.loadAddon(fitter);
+
+    // U6283a: a flag is written only when it changes, so a scroll that changes neither writes nothing.
+    const flag = (name: string, on: boolean) => {
+      if (element.hasAttribute(name) !== on) element.toggleAttribute(name, on);
+    };
+
+    // U6283a: only a size, font, pixel-ratio or renderer change moves the fit; a scroll or a redraw of the same cells cannot.
+    let fitKey = "";
     terminal.onRender(() => {
       const buffer = terminal.buffer.active;
-      element.toggleAttribute("data-terminal-content", buffer.baseY > 0 || Array.from({ length: terminal.rows }, (_, row) => buffer.getLine(row)?.translateToString(true)).some(Boolean));
-      element.toggleAttribute("data-scrollback", terminal.buffer.active.baseY > 0);
+      const scrollback = buffer.baseY > 0;
+
+      flag("data-scrollback", scrollback);
+      // With scrollback the Terminal has content; the row scan runs only while the buffer is one screen.
+      flag("data-terminal-content", scrollback || Array.from({ length: terminal.rows }, (_, row) => buffer.getLine(row)?.translateToString(true)).some(Boolean));
       probe?.rendered(id);
 
-      refit();
+      const { fontSize, fontFamily, fontWeight, lineHeight, letterSpacing } = terminal.options;
+      const key = [window.devicePixelRatio, fontSize, fontFamily, fontWeight, lineHeight, letterSpacing, loadedWebgl !== null].join("|");
+
+      if (key !== fitKey && refit()) fitKey = key;
     });
     terminal.onScroll(() => {
-      element.toggleAttribute("data-scrollback", terminal.buffer.active.baseY > 0);
+      flag("data-scrollback", terminal.buffer.active.baseY > 0);
 
       if (opened && terminal.buffer.active.baseY > 0) showScrollbars(element);
     });
@@ -469,12 +483,15 @@ export const createXtermEmulators = (
 
     // xterm redraws both renderers after DPR/cell metrics change; host observers miss equal CSS bounds.
     // During an edge drag, Pane refits on release; a live-output redraw must not fit the intermediate width.
-    const refit = () => {
-      if (!opened || disposed || !fontsReady || resizeDragging() || !element.parentElement || element.closest("[hidden]")) return;
+    // True when the fit was checked, false when a guard stopped it.
+    const refit = (): boolean => {
+      if (!opened || disposed || !fontsReady || resizeDragging() || !element.parentElement || element.closest("[hidden]")) return false;
 
       const proposed = fitter.proposeDimensions();
 
       if (proposed && (proposed.cols !== terminal.cols || proposed.rows !== terminal.rows)) size();
+
+      return true;
     };
 
     const prepareFontChange = () => {

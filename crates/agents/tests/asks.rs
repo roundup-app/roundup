@@ -111,6 +111,7 @@ impl Harness {
         let call = self.calls.recv().await.unwrap();
         call.answer
             .send(vec![AskPart {
+                project: None,
                 text: text.into(),
                 destination: Destination::Unclear {
                     question: "Where?".into(),
@@ -476,6 +477,7 @@ async fn a42_a_new_part_makes_and_starts_one_workstream_with_the_ask_alone() {
         .unwrap()
         .answer
         .send(vec![AskPart {
+            project: None,
             text: "/skill café".into(),
             destination: Destination::New {
                 title: "Café".into(),
@@ -550,6 +552,7 @@ async fn a42_a_failed_start_leaves_no_workstream_and_can_be_dropped() {
         .unwrap()
         .answer
         .send(vec![AskPart {
+            project: None,
             text: "new work".into(),
             destination: Destination::New {
                 title: "New work".into(),

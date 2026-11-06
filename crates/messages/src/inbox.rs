@@ -163,18 +163,21 @@ pub(crate) async fn send(
     mut notes: Vec<Message>,
     state: Inbox,
 ) -> bool {
+    failure::forget_settled(inner);
     {
         let store = lock(&inner.store);
         notes.retain(|m| {
-            (!store.in_flight(m.id).expect("message store")
-                || !lock(&inner.inbox_written).contains(&m.id))
-                && failure::admitted(inner, agent, m)
+            if store.in_flight(m.id).expect("message store")
+                && lock(&inner.inbox_written).contains(&m.id)
+            {
+                return false;
+            }
+            let waiting = failure::waiting_reason(failure::admitted(inner, agent, m), state);
+            failure::hold(inner, &[m.id], waiting);
+            waiting.is_none()
         });
     }
     if notes.is_empty() {
-        return true;
-    }
-    if state != Inbox::Ok {
         return true;
     }
     let senders: std::collections::HashSet<&str> = notes
@@ -255,6 +258,8 @@ pub(crate) async fn send(
             Ok(previous) => previous,
             Err(_) => {
                 failure::record(inner, agent, failure::UNREADABLE);
+                let ids: Vec<u32> = notes.iter().map(|m| m.id).collect();
+                failure::hold(inner, &ids, Some(failure::UNREADABLE));
                 return true;
             }
         };
@@ -301,6 +306,7 @@ pub(crate) async fn send(
         return true;
     }
     let ids: Vec<u32> = notes.iter().map(|m| m.id).collect();
+    failure::hold(inner, &ids, None);
     let _typing = {
         let mut store = lock(&inner.store);
         if store.require_generation(agent, at).is_err() {

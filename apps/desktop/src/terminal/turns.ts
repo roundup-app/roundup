@@ -13,6 +13,8 @@ type Turn = {
   cwd: string | null;
   command: string | null;
   gutter: HTMLButtonElement | null;
+  /** What the gutter last wrote, so a pass over the same view writes nothing. */
+  drawn: { top: string; height: string; label: string } | null;
 };
 
 /** The directory an `OSC 7` names (`file://host/path`), or null when it is not one. */
@@ -85,7 +87,6 @@ export const attachTurns = (terminal: Terminal, select: (first: number, last: nu
     const buffer = terminal.buffer.active;
     const top = buffer.viewportY;
     const bottom = top + terminal.rows - 1;
-    const rowHeight = screen.clientHeight / terminal.rows;
 
     for (const turn of turns) {
       const first = Math.max(turn.start.line, top);
@@ -93,6 +94,7 @@ export const attachTurns = (terminal: Terminal, select: (first: number, last: nu
 
       if (first > last) {
         turn.gutter?.remove();
+        turn.drawn = null;
         continue;
       }
 
@@ -111,9 +113,20 @@ export const attachTurns = (terminal: Terminal, select: (first: number, last: nu
 
       const command = buffer.getLine(turn.start.line)?.translateToString(true).trim();
 
-      strip.setAttribute("aria-label", command ? `${copy.selectCommand}: ${command}` : copy.selectCommand);
-      strip.style.top = `${(first - top) * rowHeight}px`;
-      strip.style.height = `${(last - first + 1) * rowHeight}px`;
+      // Percentages of the strips' own height, which is the screen's: no layout read.
+      const next = {
+        top: `${100 * (first - top) / terminal.rows}%`,
+        height: `${100 * (last - first + 1) / terminal.rows}%`,
+        label: command ? `${copy.selectCommand}: ${command}` : copy.selectCommand,
+      };
+
+      if (turn.drawn?.label !== next.label) strip.setAttribute("aria-label", next.label);
+
+      if (turn.drawn?.top !== next.top) strip.style.top = next.top;
+
+      if (turn.drawn?.height !== next.height) strip.style.height = next.height;
+
+      turn.drawn = next;
 
       if (strip.parentElement !== strips) strips.append(strip);
     }
@@ -163,7 +176,7 @@ export const attachTurns = (terminal: Terminal, select: (first: number, last: nu
         previous.endColumn = terminal.buffer.active.cursorX;
       }
 
-      const turn: Turn = { start: line, end: null, endColumn: 0, exit: null, cwd: null, command: null, gutter: null };
+      const turn: Turn = { start: line, end: null, endColumn: 0, exit: null, cwd: null, command: null, gutter: null, drawn: null };
 
       line.onDispose(() => drop(turn));
       turns.push(turn);
