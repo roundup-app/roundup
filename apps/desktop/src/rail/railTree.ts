@@ -86,6 +86,7 @@ export const createRailTree = (connected: ConnectedProject, unfolded: Accessor<R
   const nodeIds = createMemo(() => nodeRows().map((row) => row.node.id));
   const indexOf = createMemo(() => new Map(nodeIds().map((id, at) => [id, at])));
   const treeRows = createMemo(() => nodeRows().map((row) => ({ id: row.node.id, parent: topology().nodes[topology().parent[topology().index.get(row.node.id)!] ?? -1]?.id ?? null })));
+
   const byKey = createMemo<ReadonlyMap<string, RailRow>>(before => new Map(rows().map((row) => {
     const kept = before?.get(row.key);
 
