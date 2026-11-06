@@ -1,3 +1,4 @@
+import { copy } from "./copy";
 import { RpcError } from "../app/seam";
 import type { OpenTarget } from "../app/seam";
 
@@ -100,36 +101,58 @@ export const absolutePath = (path: string, base: string): string => {
   return `/${parts.join("/")}`;
 };
 
-/** U365b: opens a printed target through `openTarget`; a path is asked for first, and a bare domain that is missing opens as `https://` once. Returns the failure line, or null. */
+/** U6249c4: the absolute paths a printed path may mean, most likely first: against each of `bases`, then the home folder for a relative one. */
+const homesOf = (path: string, bases: readonly string[]): string[] => {
+  const relative = !path.startsWith("/") && !path.startsWith("~");
+
+  return [...new Set([...bases.map((base) => absolutePath(path, base)), ...(relative ? [`~/${path}`] : [])])];
+};
+
+/**
+ * U365b, U6249c4: opens a printed target through `openTarget`. A path is asked for against `bases` in order (the first is where it was printed: the Agent's Worktree or the Project folder), then the home folder; a bare domain that is missing opens as `https://` once, after the first miss.
+ * Returns the failure line, or null: a path that exists nowhere is logged, not shown.
+ */
 export const openPrinted = async (
   openTarget: (target: OpenTarget) => Promise<void>,
   printed: Printed,
-  base: string,
-  doesNotExist: (path: string) => string,
+  bases: readonly string[],
 ): Promise<string | null> => {
-  const path = printed.kind === "path" ? absolutePath(printed.path, base) : "";
+  const tried: string[] = [];
 
   try {
-    await openTarget(printed.kind === "url" ? printed : { kind: "path", path, line: printed.line });
+    if (printed.kind === "url") {
+      await openTarget(printed);
+
+      return null;
+    }
+
+    const [first, ...rest] = homesOf(printed.path, bases);
+    const url = printed.line === null ? bareDomainUrl(printed.path) : null;
+
+    for (const [index, path] of [first!, ...rest].entries()) {
+      try {
+        await openTarget({ kind: "path", path, line: printed.line });
+
+        return null;
+      } catch (thrown) {
+        if (!(thrown instanceof RpcError) || thrown.code !== NOT_FOUND) throw thrown;
+
+        tried.push(path);
+      }
+
+      if (index === 0 && url !== null) {
+        await openTarget({ kind: "url", url });
+
+        return null;
+      }
+    }
+
+    console.warn(copy.pathNotFound(printed.path, tried.join(", ")));
 
     return null;
   } catch (thrown) {
     if (!(thrown instanceof Error)) throw thrown;
 
-    if (printed.kind !== "path" || !(thrown instanceof RpcError) || thrown.code !== NOT_FOUND) return thrown.message;
-
-    const url = printed.line === null ? bareDomainUrl(printed.path) : null;
-
-    if (url === null) return doesNotExist(path);
-
-    try {
-      await openTarget({ kind: "url", url });
-
-      return null;
-    } catch (refused) {
-      if (!(refused instanceof Error)) throw refused;
-
-      return refused.message;
-    }
+    return thrown.message;
   }
 };

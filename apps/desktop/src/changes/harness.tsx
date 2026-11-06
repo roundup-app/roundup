@@ -1,4 +1,5 @@
 import { render, waitFor } from "@solidjs/testing-library";
+import { afterAll } from "vitest";
 import type { ChangedFiles } from "@contracts/agent/ChangedFiles";
 import type { WorktreeState } from "@contracts/agent/WorktreeState";
 import type { ConnectedProject } from "../state/connectedProject";
@@ -6,6 +7,10 @@ import { connectProject, ConnectedProjectContext } from "../state/connectedProje
 import { createFakeApp } from "../testing/fakeApp";
 import { agent, NOW } from "../testing/nodes";
 import { WorktreeControl } from "./WorktreeControl";
+
+// Opening the panel prefetches the reader and tree chunks without awaiting them. A file whose last test
+// ends first would evaluate them after jsdom is gone ("window is not defined"), so each file awaits them.
+afterAll(() => Promise.all([import("./DiffReader"), import("./ChangedTree")]));
 
 export const WORKTREE = { path: "/p/.roundup/a", branch: "roundup/a", base: "main" };
 

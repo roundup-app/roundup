@@ -569,10 +569,6 @@
   text-overflow: clip;
 }
 
-.ask-content .target-failure {
-  grid-column: 1 / -1;
-}
-
 .ask-row .reserved-line {
   grid-column: 1 / -1;
 }

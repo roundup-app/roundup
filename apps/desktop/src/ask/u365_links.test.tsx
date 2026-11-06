@@ -4,7 +4,6 @@ import * as Solid from "solid-js";
 import { afterEach, expect, it, vi } from "vitest";
 import { ConnectedProjectContext } from "../state/connectedProject";
 import { TargetText } from "../terminal/TargetText";
-import { RpcError } from "../app/seam";
 import { agent, door } from "../testing/nodes";
 import { watchNativeOpen } from "../app/nativeOpen";
 import { ask, mountAskBar, openAsk } from "./askFixture";
@@ -32,17 +31,6 @@ it("u365_ask_row_links_open_once", async () => {
   expect(app.calls.filter(call => ["ask.send", "ask.pick", "message.send", "agent.spawn", "terminal.write"].includes(call.method))).toEqual([]);
 });
 
-it("u365_ask_missing_path_shows_failure", async () => {
-  const { app } = await mountAskBar([ask("links", 1, [{ text: "gone.ts", state: "typed", placement: { kind: "routed", workstream: "lead" } }])]);
-  await openAsk();
-  app.openFailure = new RpcError(-32001, "not found");
-  fireEvent.click(await screen.findByRole("link", { name: "gone.ts" }));
-  await waitFor(() => expect(screen.getByRole("alert")).toBeTruthy());
-  expect(app.openedTargets).toEqual([]);
-  expect(app.attemptedTargets).toHaveLength(1);
-});
-
-
 it.each(["no-worktree", "no-destination"])("u365_ask_row_relative_paths_use_the_destination_%s", async kind => {
   const part = kind === "no-worktree"
     ? { text: "src/a.ts:42", state: "queued" as const, placement: { kind: "routed" as const, workstream: "lead" } }
@@ -68,7 +56,7 @@ it("u365_ask_slash_commands_stay_plain_text", async () => {
   const calls = app.calls.length;
 
   const readonly = render(() => <ConnectedProjectContext.Provider value={connected}>
-    <TargetText text={text} base="/" onFailure={() => { throw new Error("commands must not open"); }} />
+    <TargetText text={text} base="/" />
   </ConnectedProjectContext.Provider>);
 
   expect(readonly.container.querySelectorAll("a")).toHaveLength(0);
