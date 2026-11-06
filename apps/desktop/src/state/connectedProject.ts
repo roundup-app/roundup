@@ -259,7 +259,7 @@ export const connectProject = async (
     return createUnseen(() => rail.nodes, rail.selected, () => viewing() && !settingsView.open(), unseenStorage(project.path), { app, events, path: project.path, observedAt: clock() });
   });
 
-
+  if (ended) stopUnseen();
 
   let stopQueue = () => {};
 
