@@ -33,12 +33,15 @@ it("u5232e_a_click_selects_the_agent_and_shows_its_terminal", async () => {
   await waitFor(() => expect(selectedIndex()).toBe(first + 1));
 });
 
-it("u5232e_a_click_for_a_gone_agent_shows_the_failure_line", async () => {
+it("u5232e_a_click_for_a_gone_agent_changes_nothing_and_shows_nothing", async () => {
   const app = await started();
+  const before = selectedIndex();
 
   app.clickStateAlert("nobody");
+  await new Promise(resolve => setTimeout(resolve));
 
-  await screen.findByText("That is gone");
+  expect(screen.queryByRole("alert")).toBeNull();
+  expect(selectedIndex()).toBe(before);
 });
 
 it("u5232e_a_click_switches_to_the_agents_project_tab", async () => {

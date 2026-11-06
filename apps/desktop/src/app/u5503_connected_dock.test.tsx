@@ -70,7 +70,7 @@ it("u5503_dock_and_menu_bar_share_opening_and_acknowledgement", async () => {
   finish(app, "api", "same", "2");
   await waitFor(() => expect(rows(app)).toHaveLength(3));
   app.menuBarAction({ kind: "agent", path: path("api"), agent: "removed" });
-  await screen.findByText("That is gone");
+  await new Promise(resolve => setTimeout(resolve));
   expect(document.querySelector('[role=treeitem][data-id="waiting"]')?.getAttribute("aria-selected")).toBe("true");
 });
 
@@ -84,8 +84,11 @@ it("u5503_only_an_agent_action_opens_and_acknowledges", async () => {
   const show = vi.spyOn(app, "showWindow");
   const calls = app.of(path("api")).calls.length;
   expect(show).not.toHaveBeenCalled();
+  const log = vi.spyOn(console, "error").mockImplementation(() => undefined);
   app.menuBarAction({ kind: "failure", message: "Dock section could not be refreshed" });
-  await screen.findByText("Dock section could not be refreshed");
+  expect(log).toHaveBeenCalledWith("Dock section could not be refreshed");
+  expect(screen.queryByRole("alert")).toBeNull();
+  log.mockRestore();
   expect(show).not.toHaveBeenCalled();
 
   for (const entry of app.menuBar!.dock.filter(entry => entry.action?.kind === "open")) app.menuBarAction(entry.action!);
@@ -122,12 +125,16 @@ it.each([false, true])("u5503_menu_changes_leave_badge_behavior_unchanged (badge
   expect(await observe(true)).toEqual(await observe(false));
 });
 
-it("u5503_an_unavailable_dock_menu_reports_its_cause", async () => {
+it("u5503_an_unavailable_dock_menu_logs_its_cause", async () => {
   const { app } = await openTabs({ api: [agent("a", "working", "live")] });
   const install = vi.spyOn(app, "setMenuBar").mockRejectedValueOnce(new Error("Dock callback installation refused"));
   const show = vi.spyOn(app, "showWindow");
+  const log = vi.spyOn(console, "error").mockImplementation(() => undefined);
   finish(app, "api", "a");
-  await screen.findByText("Error: Dock callback installation refused");
-  expect(install).toHaveBeenCalledOnce();
+  await waitFor(() => expect(log).toHaveBeenCalledWith("Error: Dock callback installation refused"));
+  expect(screen.queryByRole("alert")).toBeNull();
+  expect(install).toHaveBeenCalled();
+  expect(log).toHaveBeenCalledOnce();
+  log.mockRestore();
   expect(show).not.toHaveBeenCalled();
 });

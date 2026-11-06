@@ -5,7 +5,7 @@ import type { App, NativeQuestion, RemovalQuestion, RemovalAnswer } from "../app
 import { copy } from "./copy";
 import { ReservedLine } from "../ink/ReservedLine";
 
-/** A native question owns one request until answered; failed requests authorize nothing and can be retried. */
+/** A native question owns one request until answered. A request the system cannot show authorizes nothing and is never replayed (U6249d C10): its cause goes to the log and the same question is asked in the App, where the user answers it. */
 export const NativeAlert = (props: {
   app: Pick<App, "ask"> & Partial<Pick<App, "askRemoval">>;
   open: boolean;
@@ -59,6 +59,7 @@ export const NativeAlert = (props: {
       if (!(error instanceof Error)) throw error;
 
       if (mine === generation && props.open) {
+        console.error(error.message);
         setFailure(error.message);
         queueMicrotask(() => focus(() => line?.querySelector("button")?.focus()));
       }
@@ -77,7 +78,24 @@ export const NativeAlert = (props: {
     if (open) untrack(() => void request());
   }));
 
-  return <Show when={failure()}><ReservedLine class="native-alert-failure" ref={element => { line = element; }} message={failure()} dismiss={() => setFailure(null)} recover={{ run: () => void request() }} action={
-    <button data-button="quiet" type="button" onClick={() => { props.onCancel(); props.finalFocus()?.focus(); }}>{copy.keep}</button>
-  } /></Show>;
+  const answer = (value?: RemovalAnswer) => {
+    setFailure(null);
+    void props.onConfirm(value);
+  };
+
+  const cancel = () => {
+    setFailure(null);
+    props.onCancel();
+    props.finalFocus()?.focus();
+  };
+
+  const removal = () => "thisLabel" in props.question ? props.question : null;
+  const confirm = () => "okLabel" in props.question ? props.question.okLabel : "";
+
+  return <Show when={failure()}><ReservedLine class="native-alert-failure" ref={element => { line = element; }} status={props.question.message}>
+    <Show when={removal()} fallback={<button data-button="quiet" type="button" onClick={() => answer()}>{confirm()}</button>}>
+      {each => <><button data-button="quiet" type="button" onClick={() => answer("this")}>{each().thisLabel}</button><button data-button="quiet" type="button" onClick={() => answer("all")}>{each().allLabel}</button></>}
+    </Show>
+    <button data-button="quiet" type="button" onClick={cancel}>{props.question.cancelLabel}</button>
+  </ReservedLine></Show>;
 };

@@ -53,7 +53,7 @@ it("n5467b_old_browser_storage_is_refused", async () => {
     const failure = await initializeStorage();
     expect(failure?.message).toContain("incompatible");
     expect(failure?.message).toContain("/isolated/WebKit/roundup/WebsiteData");
-    expect(failure?.message).toContain("Close roundup");
+    expect(failure?.message).toContain("Delete it to start fresh");
     expect(storedValue("roundup:open-tab", v.string()).restore()).toEqual({ status: "failed", cause: "unreadable" });
   }
 

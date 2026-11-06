@@ -26,10 +26,11 @@ alert_tokens = {
     },
     "apps/desktop/src/rail/u5501_held.test.tsx": {
         "held", "held-row", "roundup:held:",
-        "u5501_a_failed_or_gone_target_open_preserves_held_rows",
+        "u5501_a_failed_open_preserves_held_rows_and_a_gone_target_drops_its_row",
         "u5501_held_rows_keep_event_identity_content_and_order_across_reopen",
         "u5501_opening_an_agent_clears_only_its_held_rows",
     },
+    "apps/desktop/src/rail/u6249d_failure.test.tsx": {"held", "held-row"},
     "crates/messages/src/failure.rs": {"held"},
     "crates/messages/src/tests/dcl_tests.rs": {"u6260a_held_prompt_is_reported_to_its_sender"},
     "apps/desktop/src/ui/u6239_browser.test.ts": {"u6239a_the_held_tab_is_under_the_pointer"},

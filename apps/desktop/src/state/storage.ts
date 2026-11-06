@@ -60,6 +60,11 @@ export const useBrowserStorage = (adapter: Storage) => {
   setFailures([]);
 };
 
+/** U6249d C6: the user's own choice to start fresh removes every `roundup:` key obsolete saved work left in the browser. */
+export const deleteSavedWork = () => {
+  for (const key of Object.keys(window.localStorage).filter(each => each.startsWith("roundup:"))) window.localStorage.removeItem(key);
+};
+
 /** Refuse obsolete browser metadata before opening native storage or constructing editors. */
 export const initializeStorage = async (): Promise<null | { status: "incompatible"; folder: string; message: string } | { status: "failed"; message: string }> => {
   browser = undefined;

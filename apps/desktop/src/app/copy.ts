@@ -15,6 +15,7 @@ export const storageCopy = {
   incompatible: sharedCopy.storageIncompatible,
   restoring: "Restoring saved work…",
   restoreRetry: sharedCopy.retry,
+  deleteSaved: "Delete saved data",
   saveRetry: "Retry saving",
   /** @prose */
   failure: (problems: readonly { key: string; cause: string }[]) => {
@@ -98,7 +99,6 @@ export const copy = {
   clipboardCopyRetry: "Try again, or select text and use the context menu.",
   copy: sharedCopy.copy,
   centreRegion: "Centre",
-  thatIsGone: sharedCopy.thatIsGone,
   daemonExit: (exit: string) => `Disconnected: ${exit}`,
 } as const;
 

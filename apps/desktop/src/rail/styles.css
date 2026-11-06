@@ -68,7 +68,7 @@
   padding-right: var(--rail-edge, var(--space-4));
 }
 
-.rail-row :is(.line, .reserved-line, .failure-line),
+.rail-row :is(.line, .reserved-line, .failure-line, .failure-actions),
 .rail-fold button {
   grid-column: 2;
 }

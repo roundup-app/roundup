@@ -1,5 +1,5 @@
 import { createResource, Show, type JSX } from "solid-js";
-import { initializeStorage } from "../state/storage";
+import { deleteSavedWork, initializeStorage } from "../state/storage";
 import { storageCopy } from "./copy";
 import { dismissable, ReservedLine } from "../ink/ReservedLine";
 import "../state/storage.css";
@@ -15,7 +15,7 @@ export const StorageRecovery = (props: { children: JSX.Element }) => {
         <Show when={result()} keyed>{failure => failure.status === "incompatible"
           ? <>{storageCopy.incompatible("")}<code class="storage-gate-folder">{failure.folder}</code></>
           : failure.message}</Show>
-      } blocked recover={result()?.status === "failed" ? { run: () => void refetch(), label: storageCopy.restoreRetry } : undefined} /></div></div>}>
+      } blocked recover={result()?.status === "failed" ? { run: () => void refetch(), label: storageCopy.restoreRetry } : { run: () => { deleteSavedWork(); void refetch(); }, label: storageCopy.deleteSaved }} /></div></div>}>
       {props.children}
     </Show>
   </Show>;

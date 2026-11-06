@@ -1,3 +1,4 @@
+import pRetry from "p-retry";
 import { createProjectOpening, ProjectOpening } from "./app/ProjectOpening";
 import { historyRegion, returnFocus } from "./keys/focus";
 import Hourglass from "lucide-solid/icons/hourglass";
@@ -331,18 +332,19 @@ export const App = (props: {
   const toasts = createToastQueue(inFront, props.chime ?? webChime());
   const [jumpFailure, setJumpFailure] = createSignal<string | null>(null);
   const [windowFailure, setWindowFailure] = createSignal<string | null>(null);
-  const [badgeFailure, setBadgeFailure] = createSignal<string | null>(null);
-  // U5232g: one line for a refused State alert, whichever Agent raised it.
+  /** U6249d: a failure of OS integration (Dock badge, State alert, menu bar) is not the user's to act on; the log holds its cause and the screen shows nothing. */
+  const hide = (cause: string) => console.error(cause);
+  // U5541: a failed publication read keeps its line; the menu bar's own refusals go to the log.
   const [menuBarFailure, setMenuBarFailure] = createSignal<string | null>(null);
-  const [alertFailure, setAlertFailure] = createSignal<string | null>(null);
-  const railFailure = () => windowFailure() ?? (activeTab()?.exit ? activeTab()?.reopenFailure ?? daemonExitText(activeTab()!.exit!) : null) ?? (projects.tabs().length > 0 ? projects.failure() : null) ?? badgeFailure() ?? alertFailure() ?? menuBarFailure();
+  const railFailure = () => windowFailure() ?? (activeTab()?.exit ? activeTab()?.reopenFailure ?? daemonExitText(activeTab()!.exit!) : null) ?? (projects.tabs().length > 0 ? projects.failure() : null) ?? menuBarFailure();
   const railLine = dismissable(railFailure);
   const storageLine = dismissable(() => storageFailures().length > 0 ? storageCopy.failure(storageFailures()) : null);
-  const alerts = createStateAlerts(alert => props.app.stateAlert(alert), inFront, setAlertFailure);
+  const alerts = createStateAlerts(alert => props.app.stateAlert(alert), inFront, cause => { if (cause !== null) hide(cause); });
   const projectAlerts = createProjectAlerts();
   const capture = props.app.capture;
   onMount(() => {
-    void capture?.configure(appSettings().quickAddAnywhere || null).catch(error => setWindowFailure(String(error)));
+    // U6249d: C1 retries twice, at 0.5 s and 2 s, then goes to the log.
+    if (capture) void pRetry(() => capture.configure(appSettings().quickAddAnywhere || null), { retries: 2, minTimeout: 500, factor: 4 }).catch(error => hide(String(error)));
   });
   onCleanup(() => { void capture?.configure(null); });
 
@@ -412,7 +414,7 @@ export const App = (props: {
   });
 
   const [menuBar] = createResource(() => import("./app/menuBar").catch(error => {
-    setMenuBarFailure(String(error));
+    hide(String(error));
 
     return null;
   }));
@@ -427,7 +429,7 @@ export const App = (props: {
       railOf(path)!.select(agent);
       setFocus(document.hasFocus() ? "focused" : "blurred");
     }),
-    missing: copy.thatIsGone, fail: setMenuBarFailure,
+    fail: setMenuBarFailure, hide,
   }));
 
   const stripTabs = createMemo<StripTab[]>(() =>
@@ -663,7 +665,7 @@ export const App = (props: {
   void props.app.onStateAlertClicked(agent => {
     const path = [...connections().keys()].find(each => railOf(each)?.nodes.some(node => node.id === agent));
 
-    if (path === undefined) return setAlertFailure(copy.thatIsGone);
+    if (path === undefined) return;
 
     projects.select(path);
     railOf(path)?.select(agent, "open");
@@ -706,7 +708,7 @@ export const App = (props: {
         {(key) => <Connection drafts={drafts} app={dropTargets.app} tab={tabOf(key)} reducedMotion={props.reducedMotion} now={pollingNow} clock={props.clock} onConnected={connect} onRecovered={projects.connected} onRequested={answer} onOpen={opening.answer} toasts={toasts} alerts={alerts} projectAlerts={() => projectAlerts.level(key)} active={() => projects.active() === key} viewing={() => projects.active() === key && visible() && focus() === "focused" && !settingsOpen()} show={() => projects.select(key)} open={() => projects.tabs().map(tab => tab.project)} nodes={path => railOf(path)?.nodes ?? []} openIn={(path, workstream) => { projects.select(path); railOf(path)?.select(workstream, "open"); }} />}
       </For>
       <ProjectOpening opening={opening} />
-      <DockBadge app={props.app} rails={() => [...connections()].flatMap(([path, connection]) => (connection instanceof Error ? [] : [{ alerts: projectAlerts.level(path), nodes: attentionHolders(connection.rail.nodes, connection.rail.terminals(), connection.rail.dismissed) }]))} onFailure={setBadgeFailure} />
+      <DockBadge app={props.app} rails={() => [...connections()].flatMap(([path, connection]) => (connection instanceof Error ? [] : [{ alerts: projectAlerts.level(path), nodes: attentionHolders(connection.rail.nodes, connection.rail.terminals(), connection.rail.dismissed) }]))} onFailure={hide} />
       <Tabs.Root id={tabsId} value={projects.active()} onValueChange={({ value }) => projects.select(value)} activationMode="manual" style={{ display: "contents" }}
         ids={{
           trigger: (path) => `tabs:${tabsId}:trigger-${encodeURIComponent(path)}`,

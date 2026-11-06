@@ -43,11 +43,12 @@ it("p3557c_rendered_failure_clears_with_its_deleted_todo", async () => {
 
   await browser("eval", `window.__fake.emit({ actor: { kind: 'agent', id: 'a', parent: null }, name: 'todo.updated', data: ${JSON.stringify(todo)} })`);
   await browser("wait", ".app-toast-action");
-  await browser("eval", "window.__fake.app.handlers['todo.list'] = () => []");
+  await browser("eval", "window.__fake.app.handlers['todo.list'] = () => { throw new Error('Daemon unavailable') }");
   await browser("click", ".app-toast-action");
   await browser("wait", "[role=alert]");
   await capture("dark-failure-visible");
   await capture("dark-failure-visible", "U411");
+  await browser("eval", "window.__fake.app.handlers['todo.list'] = () => []");
   await browser("eval", `window.__fake.emit({ actor: { kind: 'user', id: 'you', parent: null }, name: 'todo.deleted', data: { id: ${todo.id} } })`);
   await browser("wait", "--fn", "!document.querySelector('[role=alert]')");
   await capture("dark-failure-cleared");

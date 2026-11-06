@@ -24,8 +24,8 @@ afterEach(() => {
 
 describe("p3557c_failure_lifetime_todo", () => {
   const fail = async () => {
-    // No item exists, so opening it fails with "gone".
-    const mounted = await mountToasts(tree(), { todos: [] });
+    // The Daemon refuses the read, so opening it fails.
+    const mounted = await mountToasts(tree(), { unreadable: true });
 
     mounted.app.emit(by(AGENT, { name: "todo.updated", data: todo(1, USER) }));
     await settle();
@@ -91,9 +91,11 @@ describe("p3557c_failure_lifetime_todo", () => {
 
 
 it("u3791c_same_scope_failure_replaces_only_in_original_project", async () => {
-  const first = await mountToasts(tree(), { todos: [] });
+  const first = await mountToasts(tree(), { unreadable: true });
   const app = createFakeApp();
   app.handlers["rail.tree"] = tree;
+  app.handlers["todo.list"] = () => { throw new Error("Daemon unavailable"); };
+
   const second = await connectProject(app, { path: "/other", name: "other" }, () => true, () => 0);
   const stop = watchProject(second, first.queue.push, () => {}, () => true, first.queue.settle);
 
