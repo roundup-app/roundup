@@ -87,6 +87,14 @@ export const createSortedList = (source: {
     }
 
     for (const [id, el] of frames) {
+      // The library's drop animation settles the dragged row (U6239c); cancelling it would strand the row mid-drop.
+      if (el.matches("[data-dnd-dragging], [data-dnd-dropping]")) {
+        const settling = positionOf(el);
+
+        if (settling) positions.set(id, settling);
+        continue;
+      }
+
       animations.get(id)?.cancel();
       animations.delete(id);
 

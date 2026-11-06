@@ -290,7 +290,7 @@
   grid-template-columns: var(--indent) minmax(0, 1fr);
 }
 
-.rail-leaf :is(.shelf-row, .rail-pad, .sortable-slot) {
+.rail-leaf :is(.shelf-row, .rail-pad) {
   grid-column: 2;
 }
 
