@@ -10,7 +10,7 @@ use rpc::Client;
 use serde_json::{Value, json};
 
 /// The Agent's program: it waits for `request`, sends it raw with no `daemon.identify`,
-/// and writes the reply line to `reply`.
+/// and writes the reply line to the `reply` fifo.
 const PROGRAM: &str = r#"#!/usr/bin/env python3
 import os, socket, sys, time
 if sys.argv[1:3] == ['plugin', 'test']:
@@ -22,8 +22,7 @@ s = socket.socket(socket.AF_UNIX)
 s.connect(d + '/rupd.sock')
 s.sendall(open(d + '/request', 'rb').read())
 line = s.makefile('rb').readline()
-open(d + '/reply.tmp', 'wb').write(line)
-os.rename(d + '/reply.tmp', d + '/reply')
+open(d + '/reply', 'wb').write(line)
 time.sleep(600)
 "#;
 
@@ -33,6 +32,14 @@ async fn z6395b_an_agent_process_is_refused_terminal_catch_up_over_the_wire() {
     let program = dir.path().join("claude");
     std::fs::write(&program, PROGRAM).unwrap();
     std::fs::set_permissions(&program, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let fifo = dir.path().join("reply");
+    assert!(
+        std::process::Command::new("mkfifo")
+            .arg(&fifo)
+            .status()
+            .unwrap()
+            .success()
+    );
     let daemon = rupd_harness::start(
         Path::new(env!("CARGO_BIN_EXE_rupd")),
         dir.path(),
@@ -62,16 +69,13 @@ async fn z6395b_an_agent_process_is_refused_terminal_catch_up_over_the_wire() {
     let params = json!({"id": terminal, "incarnation": incarnation, "after": 0});
     let request = json!({"jsonrpc":"2.0","id":1,"method":"terminal.catchUp","params":params});
     std::fs::write(dir.path().join("request"), format!("{request}\n")).unwrap();
-    let reply = tokio::time::timeout(Duration::from_secs(30), async {
-        loop {
-            if let Ok(line) = std::fs::read_to_string(dir.path().join("reply")) {
-                return serde_json::from_str::<Value>(&line).unwrap();
-            }
-            tokio::time::sleep(Duration::from_millis(50)).await;
-        }
-    })
-    .await
-    .expect("the Agent process got a reply");
+    let read = tokio::task::spawn_blocking(move || std::fs::read_to_string(fifo));
+    let line = tokio::time::timeout(Duration::from_secs(30), read)
+        .await
+        .expect("the Agent process got a reply")
+        .unwrap()
+        .unwrap();
+    let reply = serde_json::from_str::<Value>(&line).unwrap();
     assert!(reply.get("result").is_none(), "{reply}");
     assert_eq!(reply["error"]["code"], rpc::code::FORBIDDEN, "{reply}");
     let caught_up = app.request("terminal.catchUp", params).await.unwrap();
