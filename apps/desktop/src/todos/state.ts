@@ -36,7 +36,7 @@ export type TodosState = {
   reload: () => Promise<void>;
   /** The Project's Todos as `todo.list` last answered. */
   all: Accessor<readonly Todo[]>;
-  /** Visible Capture feedback, excluded from all item actions until acknowledged. */
+  /** Visible Capture feedback, excluded from all item actions until acknowledged. U5991f: a row stands down once the list holds the Todo it stands for, so no frame shows both. */
   pending: Accessor<readonly Todo[]>;
   /** Every Todo by id, rebuilt once per change of the list, so a row finds its blockers without scanning. */
   byId: Accessor<ReadonlyMap<number, Todo>>;
@@ -150,15 +150,30 @@ export const createTodosState = (app: AppSeam, events: Events, project: string):
   );
   void reload();
 
-  const [pending, setPending] = createSignal<readonly Todo[]>([]);
+  const [shown, setShown] = createSignal<readonly { todo: Todo; known: ReadonlySet<number> }[]>([]);
+
+  // U5991f: a shown row stands for the first Todo of its title and Owner that the list gained since it was shown.
+  const pending = createMemo((): readonly Todo[] => {
+    const claimed = new Set<number>();
+
+    return shown().filter(({ todo, known }) => {
+      const arrived = shelf.todos.find(each => !known.has(each.id) && !claimed.has(each.id) && each.title === todo.title && same(each.owner, todo.owner));
+
+      if (arrived) claimed.add(arrived.id);
+
+      return !arrived;
+    }).map(({ todo }) => todo);
+  });
 
   const [revealed, setRevealed] = createSignal(0);
 
   const show = (todo: Todo) => {
     setRevealed((count) => count + 1);
-    setPending((rows) => [...rows, todo]);
+    const row = { todo, known: new Set(shelf.todos.map(each => each.id)) };
 
-    return () => setPending((rows) => rows.filter((row) => row !== todo));
+    setShown((rows) => [...rows, row]);
+
+    return () => setShown((rows) => rows.filter((each) => each !== row));
   };
 
   const all = createMemo((): readonly Todo[] => {

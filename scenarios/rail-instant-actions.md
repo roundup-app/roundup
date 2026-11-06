@@ -1,6 +1,6 @@
 # Rail actions draw their result at once
 
-Module: apps/desktop/src/rail; U5991a, U5991b, U5991c, U5991d.
+Module: apps/desktop/src/rail; U5991a, U5991b, U5991c, U5991d, U5991f.
 
 Acceptance for [#5991](https://github.com/roundup-app/roundup/issues/5991). The owner: "removing something from the rail is too slow the UI should be fast even if the actual removal still happens in the BG". Tests marked planned belong to implementation; this specification changes no runtime behavior and no contract.
 
@@ -19,6 +19,8 @@ Policy: the Daemon's removal steps, bounds and order stay as A16, A34 and G5 say
 **U5991d A removal that would lose work still asks first.** Given an Agent or Workstream removal that G5, A34 or U4461 would refuse or ask about (a dirty or ahead Worktree, a running child, an open Todo), when the user removes it, then the question shows before any row leaves, judged from data the App already holds where it can, and Cancel or Escape leaves the Rail and the seam's call log unchanged; a clean removal asks nothing and the row leaves in the next frame. Where the App's data cannot decide, the row stays until the Daemon answers and no row leaves unasked. Planned test: `u5991d_a_loss_question_precedes_the_optimistic_removal` in `apps/desktop/src/rail/menu/u5991_instant.test.tsx`, reusing the seeds of `u4461_remove.test.tsx` and `u5170_remove_blocked.test.tsx`; a Workstream removal no longer awaits `judgeRemoval` before its question shows when the App holds the children's state.
 
 **U5991e A real removal leaves the row at once and the program within its bound.** Given a running real Claude Code Agent and the real Daemon, when the user removes it, then the row leaves in the next frame and the program exits within the existing bound of `CLEAN_EXIT_BOUND` (5 s) plus `KILL_WAIT_BOUND` (2 s), 7 s, that A16 and A17 stop under. Planned test: `u5991e_a_real_removal_hides_the_row_and_the_program_exits` in `crates/rup/tests/door_actions.rs`, a real-Claude test under E2962: it removes through the real Daemon, asserts `rail.tree` and the Terminal's exit within 7 s, and relies on U5991a for the frame. No native Mac observer is requested.
+
+**U5991f A create never shows two rows for one new item.** Narrows U5991a. Owner, 2026-11-06: "when I add a new agent 2 items appear for a moment in the rail - that is a bug" ([#6356](https://github.com/roundup-app/roundup/issues/6356)). Given a new Agent, Workstream or Mode, or a Capture's Todo, drawn before its call answers, when the Daemon's own row reaches the App before the call's reply (an Event and its refetch) or after it, then no frame shows both the drawn row and the Daemon's: the drawn row stands down as soon as the list holds a row that arrived since it was drawn and matches it (Rail: kind and parent; Todos: title and Owner), and the Daemon's row stays. Planned tests: `u5991f_new_Agent_never_shows_two_rows_for_one_create_*` and the Workstream twin in `apps/desktop/src/rail/u5991f_one_row_per_create.test.tsx`, and `u5991f_a_capture_never_shows_two_rows_for_one_Todo_*` in `apps/desktop/src/todos/u5991f_one_row_per_create.test.tsx`, each in both arrival orders, fake app, asserting the row count after every step.
 
 ## Gates and observers
 
