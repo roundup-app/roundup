@@ -88,7 +88,7 @@ const shared = async (owner: string, trigger: string, phase: string) => {
 
   vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
     const y = this.getAttribute("data-id") === "B" ? 50 : 0;
-    const row = this.hasAttribute("data-id") || this.matches(".sortable-slot, .sortable-overlay");
+    const row = this.hasAttribute("data-id") || this.matches("[data-dnd-dragging]");
 
     return { x: 0, y, left: 0, top: y, right: row ? 200 : 1280, bottom: y + (row ? 50 : 300), width: row ? 200 : 1280, height: row ? 50 : 300, toJSON() {} };
   });

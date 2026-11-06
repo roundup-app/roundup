@@ -34,10 +34,10 @@ const u535Fixture = () => {
       tree={{
         rows: rows(), indent: INDENT, nests: (id) => NESTS.has(id),
         inset: (element) => Number.parseFloat(getComputedStyle(element).paddingInlineStart),
-        onMove: (next) => move([...moves(), next]),
+        onMove: (next) => { move([...moves(), next]); },
         onPreview: (drop) => preview([...previews(), drop ? `${drop.parent}:${drop.index}:${drop.depth}` : "end"]),
       }}
-      onOrderChange={() => order(orders() + 1)}>
+      onOrderChange={() => { order(orders() + 1); }}>
       <For each={rows()}>{(row, index) => <Sortable.Item id={row.id} index={index()}>{(parts) =>
         <div ref={parts.ref} data-id={row.id} class="sortable-row" style={{ "padding-left": `${depth(row.id) * INDENT}px` }} data-dragging={parts.isDragging()}>
           <span>{row.id}</span>

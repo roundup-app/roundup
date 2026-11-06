@@ -48,6 +48,9 @@ const load = async (dense = false, query = dense ? "?dense" : "") => {
 
 const order = () => read<string[]>(`[...document.querySelectorAll('.sortable-fixture > .sortable-row:not([data-dnd-placeholder])')].map(el => el.dataset.id)`);
 
+// A pointer drag moves no row in the DOM: the other rows make room by translate, so the order it previews is the order the rows show in.
+const shownOrder = () => read<string[]>(`[...document.querySelectorAll('.sortable-fixture > .sortable-row:not([data-dnd-placeholder])')].sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top).map(el => el.dataset.id)`);
+
 const committed = async (value: string, count = 1) => {
   await browser("wait", "--fn", `document.querySelector('[aria-label="Commits"]').textContent === '${count}'`);
   expect(await read<string>(`document.querySelector('[aria-label="Committed order"]').textContent`)).toBe(value);
@@ -153,8 +156,9 @@ it("u3800a_one_drag_fixture", async () => {
   await load();
   await drag("A", "C");
   await browser("wait", "--fn", `document.querySelector('.sortable-fixture').dataset.sortableIndex === '2'`);
-  // The library's own placeholder is the gap, so the lifted row sits in its new place while the pointer is down.
-  expect(await order()).toEqual(['B', 'C', 'A']);
+  // U3800a commissions this one assertion: the order the rows show mid-drag, since a pointer drag moves no row in the DOM.
+  // oxlint-disable-next-line anti-slop/no-new-web-assertions
+  expect(await shownOrder()).toEqual(['B', 'C', 'A']);
   await browser("press", "Escape");
   await browser("mouse", "up");
   await browser("wait", "--fn", idle);
@@ -218,7 +222,7 @@ it("u3800a_one_drag_fixture", async () => {
   const padCalls = "window.__fake.app.calls.filter(c=>c.method==='pad.reorder')";
   const start = await read<{x:number;y:number}>(`(() => {const el=document.querySelector(${JSON.stringify(grip(first))});el.scrollIntoView({block:"nearest"});const b=el.getBoundingClientRect();return {x:Math.round(b.x+b.width/2),y:Math.round(b.y+b.height/2)}})()`);
   await browser("batch", "--bail", `mouse move ${start.x} ${start.y}`, "mouse down", `mouse move ${start.x} ${start.y + 12}`);
-  await browser("wait", "--fn", "!!document.querySelector('.sortable-slot')");
+  await browser("wait", "--fn", "!!document.querySelector('[data-dnd-placeholder]')");
   await capture("U3800a", "pad-lift");
   const end = await read<{x:number;y:number}>(`(() => {const b=document.querySelector(${JSON.stringify(grip(second))}).getBoundingClientRect();return {x:Math.round(b.x+b.width/2),y:Math.round(b.y+b.height/2)}})()`);
   await browser("mouse", "move", String(end.x), String(end.y));
@@ -233,7 +237,7 @@ it("u3800a_one_drag_fixture", async () => {
   expect(await read<number>("document.querySelectorAll('[role=dialog],.pad-body').length")).toBe(0);
   await capture("U3800a", "pad-accepted");
   await browser("focus", grip(first));
-  await browser("batch", "--bail", "press Space", `wait --fn ${JSON.stringify("!!document.querySelector('.sortable-slot')")}`, "press ArrowUp");
+  await browser("batch", "--bail", "press Space", `wait --fn ${JSON.stringify("!!document.querySelector('[data-dnd-placeholder]')")}`, "press ArrowUp");
   await capture("U3800c", "pad-keyboard");
   await browser("press", "Space");
   await browser("wait", "--fn", `${padCalls}.length===2 && ${padOrder}[0]===${JSON.stringify(first)}`);
