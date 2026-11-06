@@ -27,7 +27,7 @@ pub async fn resume_turns(
                 )
                 .await;
             if let Err(err) = sent {
-                eprintln!("rupd: resume of {id} not sent: {err}");
+                eprintln!("resume of {id} not sent: {err}");
             }
         }
         let wait = agents

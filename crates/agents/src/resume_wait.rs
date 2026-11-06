@@ -14,7 +14,8 @@ use super::*;
 const RESUMES: usize = 3;
 
 /// The Message a resume sends, through the ordinary delivery path.
-pub const RESUME_BODY: &str = "Your last turn was cut off by a Claude service error. Please continue where you left off.";
+pub const RESUME_BODY: &str =
+    "Your last turn was cut off by a Claude service error. Please continue where you left off.";
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct Resume {
@@ -52,14 +53,28 @@ impl Resume {
 }
 
 /// Folds one raw (adapter) Status into `table` for `id`; whether the entry changed.
-pub(crate) fn fold(table: &mut HashMap<String, Resume>, id: &str, status: &Status, now: i64) -> bool {
+pub(crate) fn fold(
+    table: &mut HashMap<String, Resume>,
+    id: &str,
+    status: &Status,
+    now: i64,
+) -> bool {
     match status.kind {
         Kind::Error => match claude_code::transient_cause(&status.label) {
             None => table.remove(id).is_some(),
             Some(cause) => match table.get_mut(id) {
                 None => {
                     let at = Some(now + delay_ms(0, now));
-                    table.insert(id.to_owned(), Resume { cause, sent: 0, at, awaiting: false, running: false });
+                    table.insert(
+                        id.to_owned(),
+                        Resume {
+                            cause,
+                            sent: 0,
+                            at,
+                            awaiting: false,
+                            running: false,
+                        },
+                    );
                     true
                 }
                 Some(entry) if entry.running || entry.awaiting => {
@@ -111,9 +126,14 @@ impl Shared {
 impl Agents {
     /// U6248b: the Agents whose next resume is due; each is sent the resume Message by the caller.
     pub fn take_due_resumes(&self) -> Vec<String> {
-        let due = take_due(&mut self.shared.resumes.lock().expect("resumes lock"), (self.shared.clock)());
+        let due = take_due(
+            &mut self.shared.resumes.lock().expect("resumes lock"),
+            (self.shared.clock)(),
+        );
         if !due.is_empty() {
-            self.shared.bus.emit(Actor::daemon(), EventData::RailChanged);
+            self.shared
+                .bus
+                .emit(Actor::daemon(), EventData::RailChanged);
         }
         due
     }
@@ -121,8 +141,14 @@ impl Agents {
     /// U6248b: how long until the earliest waiting resume is due, on the Agents' clock.
     pub fn until_next_resume(&self) -> Option<Duration> {
         let table = self.shared.resumes.lock().expect("resumes lock");
-        let at = table.values().filter(|e| !e.running && !e.awaiting).filter_map(|e| e.at).min()?;
-        Some(Duration::from_millis((at - (self.shared.clock)()).max(0) as u64))
+        let at = table
+            .values()
+            .filter(|e| !e.running && !e.awaiting)
+            .filter_map(|e| e.at)
+            .min()?;
+        Some(Duration::from_millis(
+            (at - (self.shared.clock)()).max(0) as u64
+        ))
     }
 
     /// U6248b, U6248c: the resume state of `id`, if it has one.
@@ -135,7 +161,15 @@ impl Agents {
 /// (its third resume failed) and every other Kind keep their own.
 pub(super) fn resuming(status: &Status, resume: Option<&Resume>) -> Status {
     match (status.kind, resume) {
-        (Kind::Error, Some(Resume { cause, at, awaiting, .. })) if at.is_some() || *awaiting => Status {
+        (
+            Kind::Error,
+            Some(Resume {
+                cause,
+                at,
+                awaiting,
+                ..
+            }),
+        ) if at.is_some() || *awaiting => Status {
             kind: Kind::Blocked,
             label: (*cause).to_owned(),
             since: status.since,
@@ -152,11 +186,19 @@ mod tests {
     const MIN: i64 = 60_000;
 
     fn status(kind: Kind, label: &str) -> Status {
-        Status { kind, label: label.into(), since: 0, finished: "0".into() }
+        Status {
+            kind,
+            label: label.into(),
+            since: 0,
+            finished: "0".into(),
+        }
     }
 
     fn overloaded() -> Status {
-        status(Kind::Error, "Claude is overloaded; wait, then send a message to retry.")
+        status(
+            Kind::Error,
+            "Claude is overloaded; wait, then send a message to retry.",
+        )
     }
 
     #[test]
@@ -167,17 +209,31 @@ mod tests {
         assert!((MIN..=2 * MIN).contains(&first), "1 min, jittered");
         assert!(take_due(&mut table, first - 1).is_empty());
         let shown = resuming(&overloaded(), table.get("a"));
-        assert_eq!((shown.kind, shown.label.as_str()), (Kind::Blocked, "Claude is overloaded"));
+        assert_eq!(
+            (shown.kind, shown.label.as_str()),
+            (Kind::Blocked, "Claude is overloaded")
+        );
 
         // The first resume is sent once; the next waits 4 minutes.
         assert_eq!(take_due(&mut table, first), ["a"]);
-        assert!(take_due(&mut table, first).is_empty(), "one Message per step");
+        assert!(
+            take_due(&mut table, first).is_empty(),
+            "one Message per step"
+        );
         let second = table["a"].at.expect("waiting");
         assert!((first + 4 * MIN..=first + 8 * MIN).contains(&second));
 
         // Its turn starts and fails again: the schedule goes on.
-        assert!(!fold(&mut table, "a", &status(Kind::Working, "working"), first));
-        assert!(take_due(&mut table, second).is_empty(), "none while a turn runs");
+        assert!(!fold(
+            &mut table,
+            "a",
+            &status(Kind::Working, "working"),
+            first
+        ));
+        assert!(
+            take_due(&mut table, second).is_empty(),
+            "none while a turn runs"
+        );
         assert!(fold(&mut table, "a", &overloaded(), first + 1));
         assert_eq!(take_due(&mut table, second), ["a"]);
         let third = table["a"].at.expect("waiting");
@@ -189,7 +245,12 @@ mod tests {
         // After the third resume the row is exhausted: `error`, with Resume.
         assert_eq!(table["a"].at, None);
         assert!(take_due(&mut table, i64::MAX).is_empty(), "never a fourth");
-        assert!(!fold(&mut table, "a", &status(Kind::Working, "working"), third));
+        assert!(!fold(
+            &mut table,
+            "a",
+            &status(Kind::Working, "working"),
+            third
+        ));
         assert!(fold(&mut table, "a", &overloaded(), third + 1));
         assert_eq!(resuming(&overloaded(), table.get("a")).kind, Kind::Error);
     }
@@ -207,7 +268,10 @@ mod tests {
     #[test]
     fn u6248b_other_stop_failures_are_errors_at_once() {
         let mut table = HashMap::new();
-        let failed = status(Kind::Error, "Claude could not sign in; open its Terminal, sign in, then retry.");
+        let failed = status(
+            Kind::Error,
+            "Claude could not sign in; open its Terminal, sign in, then retry.",
+        );
         assert!(!fold(&mut table, "a", &failed, 0));
         assert!(table.is_empty());
         assert!(take_due(&mut table, i64::MAX).is_empty());

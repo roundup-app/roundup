@@ -77,3 +77,19 @@ it("dcl8_row_start_and_waiting_count_follow_stored_backlog", async () => {
 
   await waitFor(() => expect(railCallsTo(app, "rail.startDoor")).toEqual([{ id: "w" }]));
 });
+
+it("u6248c_waiting_row_has_no_button", async () => {
+  const { app } = await mountRail([
+    agent("w", "blocked", "Claude is overloaded", { name: "waiting", resume: { at: Date.UTC(2026, 10, 5, 14, 5) } }),
+    agent("x", "error", "Claude is overloaded; wait, then send a message to retry.", { name: "spent", resume: { at: null } }),
+  ]);
+
+  expect(rowOf("waiting").querySelector(".rail-resume")?.getAttribute("role")).toBe("status");
+  expect(rowOf("waiting").querySelector(".rail-resume button")).toBeNull();
+
+  const resume = rowOf("spent").querySelector<HTMLButtonElement>(".rail-resume button")!;
+  expect(resume.getAttribute("aria-label")).toBe("Resume spent");
+  fireEvent.click(resume);
+  await waitFor(() => expect(railCallsTo(app, "message.send")).toHaveLength(1));
+  expect(railCallsTo(app, "message.send")[0]).toMatchObject({ to: "x", kind: "note" });
+});

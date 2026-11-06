@@ -16,6 +16,8 @@ const removalPlurals = new Intl.PluralRules("en");
 export const copy = {
   doorStoppedWaiting: (count: number) => `Door stopped · ${count} waiting`,
   cantReach: (agent: string, cause: string) => `can't reach ${agent}: ${cause}`,
+  /** U6248c: the cause and the local clock time the Daemon resumes the Agent at. */
+  resumesAt: (cause: string, at: number) => `${cause} · resumes ${new Date(at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false })}`,
   openUnreachable: () => sharedCopy.openDraft,
   retryUnreachable: () => sharedCopy.retryDoor,
   startedBy: (agent: string, project: string) => `by ${agent} (${project})`,

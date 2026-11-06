@@ -6,6 +6,7 @@ pub(crate) fn node(id: &str, kind: NodeKind, _door: bool, status: Option<Status>
         workstream_state: None,
         waiting: None,
         unreachable: None,
+        resume: None,
         start_attribution: None,
         visibility: Default::default(),
         alert_level: Default::default(),
