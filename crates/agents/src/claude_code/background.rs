@@ -1,7 +1,8 @@
 //! DCL3: work that outlives a foreground `Stop`. A native background Agent has no long-lived
 //! process of its own, so it is a retained task fact (`SubagentStart` until its own
-//! `SubagentStop`); a background shell or Monitor is a process under the program, seen through a
-//! process snapshot. Services of the program itself never count as work.
+//! `SubagentStop`); a background shell or Monitor is a process at or under a tool shell of the
+//! program, seen through a process snapshot. Nothing else counts as work: MCP servers and the
+//! `rup` calls of hooks never hold, whenever they start.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::process::{Command, Stdio};
@@ -14,9 +15,6 @@ use serde_json::Value;
 /// DCL5's `PostCompact` rides along: the vendor's completed-compaction event, with `PreCompact`
 /// deliberately not hooked since a start is not a completion.
 pub const BACKGROUND_EVENTS: [&str; 3] = ["SubagentStart", "SubagentStop", "PostCompact"];
-
-/// `ps` reports a process's age in whole seconds.
-const START_SLACK_MS: i64 = 1500;
 
 /// How often work that outlives a Stop is looked at again.
 pub const POLL_MS: i64 = 2000;
@@ -69,8 +67,8 @@ fn etime_seconds(etime: &str) -> Option<i64> {
     Some(seconds)
 }
 
-/// One process of a snapshot. `started` (Unix milliseconds) tells work of this turn from a service
-/// that was already running, and a reused PID from the process first seen.
+/// One process of a snapshot. `started` (Unix milliseconds) tells a reused PID from the process
+/// first seen.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Process {
     pub pid: u32,
@@ -87,6 +85,8 @@ pub struct Background {
     pub agents: BTreeSet<String>,
     /// Work processes by PID and the start time they were first seen with.
     pub processes: BTreeMap<u32, i64>,
+    /// The commands of the tool shells among them, in PID order (DCL3e).
+    pub commands: Vec<String>,
     /// Why the last process observation failed; work is then not known to have ended.
     pub unavailable: Option<String>,
     /// A foreground `Stop` came and no prompt has followed.
@@ -100,7 +100,7 @@ pub struct Background {
 pub struct Retained {
     agents: BTreeSet<String>,
     stopped: bool,
-    /// Unix milliseconds; work older than this is a service, so a reopen must not move it.
+    /// Unix milliseconds.
     turn_started: i64,
 }
 
@@ -123,6 +123,7 @@ impl Retained {
         Background {
             agents: self.agents,
             processes: BTreeMap::new(),
+            commands: Vec::new(),
             unavailable: self
                 .stopped
                 .then(|| "process table not read since the Daemon reopened".into()),
@@ -152,9 +153,27 @@ impl Background {
         }
     }
 
+    /// DCL3e: the Status label of a held Stop: what it waits on, else "working" while only an
+    /// unavailable observation holds.
+    pub(super) fn label(&self) -> String {
+        self.waiting_on().unwrap_or_else(|| "working".into())
+    }
+
+    fn waiting_on(&self) -> Option<String> {
+        if !self.commands.is_empty() {
+            let commands: Vec<String> = self.commands.iter().map(|c| format!("`{c}`")).collect();
+            return Some(format!("waiting on {}", commands.join(", ")));
+        }
+        match self.agents.len() {
+            0 => None,
+            1 => Some("waiting on 1 background Agent".into()),
+            n => Some(format!("waiting on {n} background Agents")),
+        }
+    }
+
     /// Replace the process facts with what `snapshot` shows under `root`; an `Err` keeps them and
-    /// records the cause. `rup` calls and hook shells are services, not work.
-    pub fn observe(&mut self, root: u32, snapshot: Result<&[Process], String>, since: i64) {
+    /// records the cause. Only a tool shell and what runs under it is work (DCL3d).
+    pub fn observe(&mut self, root: u32, snapshot: Result<&[Process], String>) {
         let snapshot = match snapshot {
             Ok(snapshot) => snapshot,
             Err(cause) => {
@@ -165,19 +184,39 @@ impl Background {
         self.unavailable = None;
         let by_pid: BTreeMap<u32, &Process> = snapshot.iter().map(|p| (p.pid, p)).collect();
         let mut work = BTreeMap::new();
+        let mut commands = Vec::new();
         for process in snapshot {
-            // A process older than the turn (an MCP server) is a service, not work.
-            if process.pid == root
-                || process.started + START_SLACK_MS < since
-                || !under(root, process, &by_pid)
-            {
+            if process.pid == root || !held_by_tool_shell(root, process, &by_pid) {
                 continue;
             }
             // Keyed by PID with its start time, so a reused PID is the new process it is.
             work.insert(process.pid, process.started);
+            commands.extend(tool_command(process));
         }
         self.processes = work;
+        self.commands = commands;
     }
+}
+
+/// The command a tool shell runs: Claude Code starts each Bash or Monitor command as
+/// `<shell> -c source …/shell-snapshots/snapshot-….sh … && eval '<command>' …`.
+fn tool_command(process: &Process) -> Option<String> {
+    let args = &process.command;
+    let shell = args
+        .first()
+        .is_some_and(|p| matches!(p.rsplit('/').next(), Some("sh" | "bash" | "zsh")));
+    if !shell
+        || args.get(1).is_none_or(|flag| flag != "-c")
+        || !args.iter().any(|a| a.contains("shell-snapshots/"))
+    {
+        return None;
+    }
+    let at = args.iter().position(|a| a == "eval")?;
+    let rest = args[at + 1..].join(" ");
+    Some(match rest.strip_prefix('\'') {
+        Some(quoted) => quoted.split('\'').next().unwrap_or(quoted).to_owned(),
+        None => rest,
+    })
 }
 
 fn service(process: &Process) -> bool {
@@ -198,15 +237,16 @@ fn service(process: &Process) -> bool {
     rup || hook_shell
 }
 
-/// Whether `process` descends from `root` through no service.
-fn under(root: u32, process: &Process, by_pid: &BTreeMap<u32, &Process>) -> bool {
-    let mut at = process;
+/// Whether `process` is a tool shell or runs under one below `root`, through no service.
+fn held_by_tool_shell(root: u32, process: &Process, by_pid: &BTreeMap<u32, &Process>) -> bool {
+    let (mut at, mut tool) = (process, false);
     for _ in 0..by_pid.len() + 1 {
         if service(at) {
             return false;
         }
+        tool |= tool_command(at).is_some();
         if at.parent == root {
-            return true;
+            return tool;
         }
         match by_pid.get(&at.parent) {
             Some(next) => at = next,
@@ -231,6 +271,15 @@ mod tests {
             started,
             command: command.iter().map(|s| s.to_string()).collect(),
         }
+    }
+
+    /// A tool shell as Claude Code starts it, running `command`.
+    fn tool_shell(pid: u32, parent: u32, started: i64, command: &str) -> Process {
+        let line = format!(
+            "bash -c source /home/u/.claude/shell-snapshots/snapshot-bash-1.sh && eval '{command}' < /dev/null"
+        );
+        let words: Vec<&str> = line.split_whitespace().collect();
+        proc(pid, parent, started, &words)
     }
 
     fn agent() -> ClaudeCode {
@@ -271,7 +320,10 @@ mod tests {
         );
         assert_eq!(kind(&a), Kind::Working);
         // The Agent ends but a shell and its sleep still run under the program.
-        let shell = [proc(10, 1, 5, &["bash"]), proc(11, 10, 6, &["sleep", "15"])];
+        let shell = [
+            tool_shell(10, 1, 5, "sleep 15"),
+            proc(11, 10, 6, &["sleep", "15"]),
+        ];
         a.observe_processes(1, Ok(&shell));
         hook(
             &mut a,
@@ -301,15 +353,73 @@ mod tests {
         a.observe_processes(1, Ok(&only_services));
         assert_eq!(kind(&a), Kind::Idle);
         assert!(!a.background().holds());
-        // An MCP server of any name that started before the turn is a service, not work; a
-        // `ps` listing gives each process's age.
-        let mut b = ClaudeCode::new(|| 400_000);
+        assert_eq!(etime_seconds("1-02:03:04"), Some(93_784));
+    }
+
+    /// The recorded table of a Claude Code with six MCP servers, all born with the program.
+    fn mcp_table() -> Vec<Process> {
+        let table = "\
+ 100 1 00:02 claude
+ 101 100 00:02 uv tool uvx mcp-for-blender
+ 102 101 00:02 python /x/bin/mcp
+ 103 100 00:02 uv tool uvx cadgen mcp
+ 104 103 00:02 python /x/bin/cadgen
+ 105 100 00:02 node /x/bin/openpencil-mcp
+ 106 100 00:02 /Applications/Solo.app/Contents/MacOS/mcp
+ 107 100 00:02 rup mcp 10
+";
+        snapshot(table, 2_000)
+    }
+
+    #[test]
+    fn dcl3d_mcp_servers_born_with_the_first_turn_do_not_hold_working() {
+        // The program started at 0 ms; the first turn began at 1.9 s.
+        let mut a = ClaudeCode::new(|| 1_900);
+        hook(&mut a, json!({"hook_event_name":"UserPromptSubmit"}));
+        hook(&mut a, json!({"hook_event_name":"Stop"}));
+        a.observe_processes(100, Ok(&mcp_table()));
+        assert!(!a.background().holds());
+        assert_eq!(kind(&a), Kind::Idle);
+        // The same table plus a tool shell running `sleep 30` holds until a read lists no shell.
+        let mut b = ClaudeCode::new(|| 1_900);
         hook(&mut b, json!({"hook_event_name":"UserPromptSubmit"}));
         hook(&mut b, json!({"hook_event_name":"Stop"}));
-        let table = "  2     1 05:00 npx some-mcp\n  3     1    00:02 sleep 30\n";
-        b.observe_processes(1, Ok(&snapshot(table, 410_000)));
-        assert_eq!(b.background().processes.keys().collect::<Vec<_>>(), [&3]);
-        assert_eq!(etime_seconds("1-02:03:04"), Some(93_784));
+        let mut held = mcp_table();
+        held.push(tool_shell(110, 100, 1_950, "sleep 30"));
+        held.push(proc(111, 110, 1_960, &["sleep", "30"]));
+        b.observe_processes(100, Ok(&held));
+        assert_eq!(kind(&b), Kind::Working);
+        assert_eq!(
+            b.background().processes.keys().collect::<Vec<_>>(),
+            [&110, &111]
+        );
+        let done = b
+            .observe_processes(100, Ok(&mcp_table()))
+            .expect("released");
+        assert_eq!(done.kind, Kind::Idle);
+    }
+
+    #[test]
+    fn dcl3e_hold_label_names_the_waited_on_command_and_agent_wake_carries_it() {
+        let mut a = agent();
+        hook(&mut a, json!({"hook_event_name":"UserPromptSubmit"}));
+        hook(&mut a, json!({"hook_event_name":"Stop"}));
+        let shell = [tool_shell(10, 1, 0, "npm test")];
+        let held = a.observe_processes(1, Ok(&shell)).expect("held");
+        assert_eq!(
+            (held.kind, held.label.as_str()),
+            (Kind::Working, "waiting on `npm test`")
+        );
+        let done = a.observe_processes(1, Ok(&[])).expect("released");
+        assert_eq!((done.kind, done.label.as_str()), (Kind::Idle, "idle"));
+        // A background Agent alone is named by its count.
+        hook(&mut a, json!({"hook_event_name":"UserPromptSubmit"}));
+        hook(
+            &mut a,
+            json!({"hook_event_name":"SubagentStart","agent_id":"b"}),
+        );
+        hook(&mut a, json!({"hook_event_name":"Stop"}));
+        assert_eq!(a.status().unwrap().label, "waiting on 1 background Agent");
     }
 
     #[test]
@@ -328,7 +438,7 @@ mod tests {
         hook(&mut a, json!({"hook_event_name":"SubagentStop"}));
         hook(&mut a, json!({"hook_event_name":"Stop"}));
         assert_eq!(kind(&a), Kind::Working);
-        let work = [proc(10, 1, 5, &["sleep", "9"])];
+        let work = [tool_shell(10, 1, 5, "sleep 9")];
         a.observe_processes(1, Ok(&work));
         // Daemon reopen: a fresh adapter adopts the kept task facts and reads liveness again.
         let kept = a.retained().expect("C is open after the Stop");
