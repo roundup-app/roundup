@@ -3,6 +3,7 @@ import { copy as sharedCopy } from "../sharedCopy";
 export const copy = {
   copyDraftFailure: sharedCopy.copyDraftFailure,
   needsYou: sharedCopy.needsYou,
+  needYou: sharedCopy.needYou,
   inboxEmpty: sharedCopy.inboxEmpty,
   inboxRow: (agent: string, todo: string) => `${agent} on ${todo}`,
   inboxRetry: "Retry Inbox",

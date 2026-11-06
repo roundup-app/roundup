@@ -57,12 +57,13 @@ it("u3787f_current_save_failure_rendered_retry", async () => {
           };
           window.__failStorage("roundup:rail:");
         })()`);
-        await lane.browser("click", "[data-todo-root]");
+        const first = await lane.evaluate<string>("document.querySelector('.rail-row[data-id]').dataset.id");
+        await lane.browser("click", `.rail-row[data-id="${first}"]`);
         await lane.until("!!document.querySelector('.rail-command-notice [role=alert]')");
-        // The click returns to Ask (U4453b), whose own draft-retention line is a separate scope (U3791c); the Rail command failure shows once.
+        // The Rail command failure shows once.
         expect(await lane.evaluate<number>("[...document.querySelectorAll('.rail-command-notice [role=alert]')].filter(el => el.textContent.includes(window.__failureCause)).length")).toBe(1);
         await lane.evaluate("window.__restoreStorage()");
-        await lane.browser("click", "[data-todo-root]");
+        await lane.evaluate("window.__select(null)");
         await lane.until("!document.querySelector('.rail-command-notice [role=alert]')");
         await lane.evaluate(`(async () => {
           window.__failStorage();

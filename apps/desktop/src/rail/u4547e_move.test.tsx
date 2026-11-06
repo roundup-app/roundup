@@ -80,7 +80,8 @@ it("u4547e_move_key_uses_the_focused_rail_scope", async () => {
   const input = await screen.findByRole("combobox");
   fireEvent.keyDown(input, { key: "Escape", code: "Escape" });
   await waitFor(() => expect(document.activeElement).toBe(rowOf("free")));
-  const ask = screen.getByRole("textbox", { name: "Ask" });
+  fireEvent.keyDown(document.body, { key: "/", code: "Slash", metaKey: true });
+  const ask = await screen.findByRole("textbox", { name: "Ask" });
   ask.focus();
   expect(fireEvent.keyDown(ask, { key: "m", code: "KeyM" })).toBe(true);
   expect(railCallsTo(daemon, "rail.move")).toEqual([]);

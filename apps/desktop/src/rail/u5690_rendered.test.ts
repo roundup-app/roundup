@@ -67,7 +67,6 @@ it("u5690_rendered_selection_actions_on_dense_tree", async () => {
 
     await wait("!!document.querySelector('.rail-row .name')?.textContent.includes('A selected row')");
     await capture("dense-before");
-    await browser("click", "[data-todo-root]");
     await read(`(() => { for (const id of ${JSON.stringify(chosen)}) document.querySelector('.rail-row[data-id="'+id+'"]').dispatchEvent(new MouseEvent('click',{bubbles:true,metaKey:true})); return true; })()`);
     const point = await read<{ x: number; y: number }>(`(() => { const box = document.querySelector('.rail-row[data-id="${chosen[0]}"]').getBoundingClientRect(); return {x:box.left+80,y:box.top+box.height/2}; })()`);
     await browser("mouse", "move", String(point.x), String(point.y));
@@ -94,7 +93,6 @@ it("u5690_rendered_selection_actions_on_dense_tree", async () => {
     await capture("rename-failure");
     await browser("press", "Escape");
     expect(await read("window.__fake.app.calls.filter(call => ['agent.spawn','agent.resume','agent.stop','rail.startDoor'].includes(call.method))")).toEqual([]);
-    await browser("click", "[data-todo-root]");
     await read(`(() => { for (const id of ${JSON.stringify(chosen)}) document.querySelector('.rail-row[data-id="'+id+'"]').dispatchEvent(new MouseEvent('click',{bubbles:true,metaKey:true})); document.querySelector('.rail-row[data-id="${chosen[0]}"]').focus(); return true; })()`);
     await browser("press", "Meta+Shift+Backspace");
     await wait("window.__question.shown !== null");

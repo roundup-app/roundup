@@ -2,8 +2,17 @@ import { event } from "../testing/nodes";
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import type { Deliverable } from "@contracts/deliverable/Deliverable";
-import { ask, input, mountAskBar } from "./askFixture";
+import { ask, input, mountAskBar as mountQuiet, openAsk } from "./askFixture";
+
 import { RpcError } from "../app/seam";
+
+const mountAskBar = async (...args: Parameters<typeof mountQuiet>) => {
+  const mounted = await mountQuiet(...args);
+
+  await openAsk();
+
+  return mounted;
+};
 
 afterEach(cleanup);
 
@@ -38,7 +47,7 @@ const published = (n: number): Deliverable => ({
 });
 
 it("p3557c_failure_lifetime_ask_bar_deliverables", async () => {
-  const { app, connected } = await mountAskBar();
+  const { app, connected } = await mountQuiet();
   connected.showView("made");
   let records = [published(1), published(2)];
 
@@ -50,7 +59,6 @@ it("p3557c_failure_lifetime_ask_bar_deliverables", async () => {
   const lines = () => rows().map(row => row.querySelector(".reserved-line")?.getAttribute("title") || null);
   const open = (i: number) => fireEvent.click(within(rows()[i]!).getAllByRole("button")[0]!);
 
-  type(input(), "unfinished");
   await waitFor(() => expect(rows()).toHaveLength(2));
   open(0);
   await waitFor(() => expect(lines()[0]).toContain("the saved version is missing"));
@@ -61,7 +69,7 @@ it("p3557c_failure_lifetime_ask_bar_deliverables", async () => {
   expect(lines()[0]).toContain("the saved version is missing");
   expect(lines()[1]).toBeNull();
 
-  // Dismissal clears it, without touching the typed input.
+  // Dismissal clears it.
   fireEvent.click(within(rows()[0]!).getByRole("button", { name: "Dismiss" }));
   await waitFor(() => expect(lines()).toEqual([null, null]));
 
@@ -82,7 +90,6 @@ it("p3557c_failure_lifetime_ask_bar_deliverables", async () => {
   app.emit(event({ name: "deliverable.changed" }));
   await waitFor(() => expect(rows()).toHaveLength(1));
   expect(lines()).toEqual([null]);
-  expect(input()!.value).toBe("unfinished");
 });
 
 function type(element: HTMLTextAreaElement | HTMLInputElement | null, value: string) {
@@ -104,7 +111,7 @@ it("p3557c_failure_lifetime_ask_bar_send_dismiss_once", async () => {
 });
 
 it("u5558e_failed_reload_retains_data", async () => {
-  const { app, connected } = await mountAskBar();
+  const { app, connected } = await mountQuiet();
   connected.showView("made");
   const made = await screen.findByRole("region", { name: "Made" });
   await waitFor(() => expect(made.getAttribute("aria-busy")).toBe("false"));
@@ -122,7 +129,7 @@ it("u5558e_failed_reload_retains_data", async () => {
 
 
 it("u5558a_automatic_reload_preserves_focused_publication", async () => {
-  const { app, connected } = await mountAskBar();
+  const { app, connected } = await mountQuiet();
   connected.showView("made");
   app.handlers["deliverable.list"] = () => [published(1), published(2)];
   app.handlers["deliverable.resolve"] = () => ({ kind: "retained", path: "/retained/publication-1", sha256: "hash-1" });

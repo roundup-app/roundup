@@ -44,7 +44,7 @@ with TemporaryDirectory(prefix="u2875d-profile-") as profile:
         browser("open", origin + "harness.html?seed=tree-40&import=dense")
         browser("set", "viewport", "1512", "950")
         browser("set", "media", "dark")
-        browser("wait", ".todo-project-root")
+        browser("wait", ".rail-actions button")
         browser("wait", "--fn", "document.querySelectorAll('.rail-row').length > 30")
         evaluate("document.fonts.ready")
         capture("rail")

@@ -29,7 +29,7 @@ const mount = async (entry: typeof inventory[number], titles = names) => {
     padHandlers({ pads: titles.map((name, i) => ({ ...padOf(name, USER), incarnation: `pad-${i}` })), history: [] }, () => {}));
   render(() => <RequestedApp app={app} reducedMotion={() => true} clock={() => 0} createEmulator={fakeEmulators().factory} />);
   await screen.findByRole("tab", { name: "selection" });
-  await screen.findByLabelText("Ask", { selector: '[role="textbox"]' });
+  await screen.findByLabelText("Rail", { selector: '[role="tree"]' });
   await showEverythingInApp();
   showShelfTab(entry.tab);
 

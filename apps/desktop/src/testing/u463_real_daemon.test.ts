@@ -226,7 +226,7 @@ it("u2875d_real_import_reopen_and_resume", async () => {
       ["open", `${real.base}/harness.html?view=workstreams&items=1&tabs=1&daemon=1`],
       ["set", "viewport", "1512", "950"],
       ["set", "media", "dark"],
-      ["wait", "--fn", "!!document.querySelector('.todo-project-root')"],
+      ["wait", "--fn", "!!window.__select"],
       ["eval", "window.dispatchEvent(new CustomEvent('open-project-page', { detail: { path: document.querySelector('.project-tab[data-selected=true]').dataset.path, command: 'import-work' } }))"],
       ["wait", "--fn", "!!document.querySelector('.import-check')"]
     );
@@ -305,7 +305,7 @@ it("u2875d_real_import_reopen_and_resume", async () => {
       await browser("record", "start", join(captures, "recovery.webm"));
       await browser("set", "media", "dark");
       await browser("open", `${real.base}/harness.html?view=workstreams&items=1&tabs=1&seed=import-candidates`);
-      await wait("!!window.__fake && !!document.querySelector('.todo-project-root')");
+      await wait("!!window.__fake && !!window.__select");
       await browser("eval", "window.dispatchEvent(new CustomEvent('open-project-page', { detail: { path: document.querySelector('.project-tab[data-selected=true]').dataset.path, command: 'import-work' } }))");
       await wait("document.querySelectorAll('.import-check').length === 10");
 
@@ -502,7 +502,7 @@ it.skipIf(!captureDir("A4899a"))("a4899a_a_blocked_door_takes_the_named_ask_in_t
       expect(asks[0]?.parts[0]).toMatchObject({ text, state: "typed" });
     });
     await lane.until("!document.querySelector('.ask-input').value");
-    await lane.evaluate("window.dispatchEvent(new CustomEvent('open-project-page', { detail: { path: document.querySelector('.project-tab[data-selected=true]').dataset.path, command: 'view:ask-history' } }))");
+    await lane.browser("press", "Meta+/");
     await lane.until("!!document.querySelector('.ask-row[data-state=typed]')");
     await lane.capture("A4899a", "sent-with-blocker");
     await vi.waitFor(async () => {

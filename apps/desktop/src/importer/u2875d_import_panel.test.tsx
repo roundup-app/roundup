@@ -50,7 +50,7 @@ const open = async () => {
 
 it("u3814_close_restores_the_previous_center_and_focus", async () => {
   await mount();
-  const opener = screen.getByRole("button", { name: /Overview/ });
+  const opener = document.querySelector<HTMLElement>(".rail-actions button")!;
   opener.focus();
 
   await open();
@@ -339,7 +339,7 @@ it.skipIf(!captureDir("U3299a")).each(["names", "retention"] as const)("u5014a_u
 
     for (const [side, url] of [...(baseline ? [["base", baseline.resolvedUrls.local[0]]] : []), ["head", headUrl]] as const) {
       await lane.browser("open", `${url}/harness.html?seed=tree-40`);
-      await lane.until("!!document.querySelector('.todo-project-root')");
+      await lane.until("!!window.__select");
       let legacyRevision: string | null = null;
 
       if (phase === "retention") {
@@ -352,7 +352,7 @@ it.skipIf(!captureDir("U3299a")).each(["names", "retention"] as const)("u5014a_u
         })()`);
         // A fresh App must restore the legacy record before storage starts failing.
         await lane.browser("open", `${url}/harness.html?seed=tree-40`);
-        await lane.until("!!document.querySelector('.todo-project-root')");
+        await lane.until("!!window.__select");
       }
 
       await lane.evaluate(`(async () => {
@@ -366,7 +366,7 @@ it.skipIf(!captureDir("U3299a")).each(["names", "retention"] as const)("u5014a_u
         app.handlers['deliverable.list'] = () => [7,9].map(revision => ({id:'published-'+revision,project:'original-project',title:'Orchard report',maker:{kind:'agent',id:'removed-maker',parent:null},maker_name:'Review',home:'backend',published_at:1792713600000,target:{kind:'pad',name:'Authored report',incarnation:'original-incarnation',revision,length:10,sha256:'original-hash-'+revision}}));
         window.__fake.emit({actor:{kind:'user',id:'you',parent:null},name:'rail.changed'});
         window.__fake.emit({actor:{kind:'user',id:'you',parent:null},name:'deliverable.changed'});
-        document.querySelector('.todo-project-root').click();
+        window.__select(null);
         return true;
       })()`);
       await lane.evaluate(`(async () => {
@@ -403,7 +403,7 @@ it.skipIf(!captureDir("U3299a")).each(["names", "retention"] as const)("u5014a_u
       if (phase === "retention") {
       await lane.browser("click", '.rail-row[data-id="backend"]');
       await lane.until("document.querySelector('.rail-row[data-id=backend]')?.dataset.selected === 'true' && !document.querySelector('.ask-input')");
-      await lane.browser("click", ".todo-project-root");
+      await lane.evaluate("window.__select(null)");
       await lane.until("!!document.querySelector('.ask-input')");
       await lane.evaluate(`(() => {
         Storage.prototype.setItem = () => { throw new Error('Storage is full'); };
@@ -420,7 +420,7 @@ it.skipIf(!captureDir("U3299a")).each(["names", "retention"] as const)("u5014a_u
       await lane.until("document.activeElement === document.querySelector('.spawn-prompt-field')");
       await lane.browser("press", "Escape");
       await lane.until("!document.querySelector('.spawn-prompt-field')");
-      await lane.browser("click", ".todo-project-root");
+      await lane.evaluate("window.__select(null)");
       await lane.until("!!document.querySelector('.ask-input')");
       await lane.browser("fill", ".ask-input", "Exact Ask /Users/authored/path");
       await lane.until("!!document.querySelector('.ask-send-status [role=alert]')");
@@ -464,7 +464,7 @@ it.skipIf(!captureDir("U3299a")).each(["names", "retention"] as const)("u5014a_u
         window.__fake.app.menuChoice = 'recover';
         return true;
       })()`);
-      await lane.browser("focus", ".todo-project-root");
+      await lane.browser("focus", ".rail-actions button");
       await lane.browser("press", "Shift+F10");
       await lane.until("!!document.querySelector('[aria-label=\"Unfinished work\"] [data-revision=\"' + window.__auditLegacy + '\"]')");
       await capture("U3299c", side!, "retained-order");
@@ -473,7 +473,7 @@ it.skipIf(!captureDir("U3299a")).each(["names", "retention"] as const)("u5014a_u
       expect(await lane.calls("agent.setOrder")).toEqual([]);
       await lane.browser("click", ".drawer .close");
       await lane.until("document.querySelector('.drawer')?.dataset.open === 'false'");
-      await lane.browser("click", ".todo-project-root");
+      await lane.evaluate("window.__select(null)");
       await lane.until("!!document.querySelector('.ask-input')");
       await lane.browser("click", "#shelf-tab-todos");
       await lane.until("!!document.querySelector('.todos-tab')");
@@ -514,7 +514,7 @@ it.skipIf(!captureDir("U3299a")).each(["names", "retention"] as const)("u5014a_u
       await lane.until("document.querySelector('.project-tab[data-selected=true] [role=tab]')?.getAttribute('aria-busy') === 'false'");
 
       if (phase === "names") {
-      await lane.browser("hover", ".todo-project-root");
+      await lane.browser("hover", ".rail-actions button");
       await lane.browser("hover", ".project-tab[data-selected=true] .tab-name");
       await lane.until("!!document.querySelector('[role=tooltip]')");
       await capture("U3299d", side!, "project-tooltip");

@@ -513,9 +513,6 @@ button, file-tree-container, diffs-container {
 .worktree-tree::after {
   box-shadow: var(--shadow-scroll)
 }
-.todo-project-root[data-scrolled="true"]::after {
-  box-shadow: var(--shadow-scroll)
-}
 .shelf-scroll::before,
 .shelf-scroll::after {
   box-shadow: var(--shadow-scroll)

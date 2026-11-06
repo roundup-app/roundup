@@ -6,7 +6,7 @@ import { ConnectedProjectContext } from "../state/connectedProject";
 import { TargetText } from "../terminal/TargetText";
 import { agent, door } from "../testing/nodes";
 import { watchNativeOpen } from "../app/nativeOpen";
-import { ask, mountAskBar } from "./askFixture";
+import { ask, mountAskBar, openAsk } from "./askFixture";
 import { AskBar } from "./AskBar";
 import { mountTodos } from "../todos/testHarness";
 
@@ -17,6 +17,8 @@ it("u365_ask_row_links_open_once", async () => {
 
   const { app, connected } = await mountAskBar([ask("links", 1, [{ text, state: "typed", placement: { kind: "routed", workstream: "lead" } }])], null,
     [door("lead", "idle", "ready", { worktree: { path: "/work/lead", branch: "b", base: "main" } })]);
+
+  await openAsk();
 
   const selected = connected.rail.selected();
   const link = await screen.findByRole("link", { name: "src/a.ts:42" });
@@ -35,6 +37,7 @@ it.each(["no-worktree", "no-destination"])("u365_ask_row_relative_paths_use_the_
     : { text: "src/a.ts:42", state: "waiting" as const, placement: { kind: "unclear" as const, question: "Choose work", candidates: [] } };
 
   const { app } = await mountAskBar([ask("links", 1, [part])], null, [door("lead", "idle", "ready")], false, "/fallback");
+  await openAsk();
   const draft = screen.getByRole("textbox", { name: "Ask" });
   fireEvent.input(draft, { target: { value: "exact unsent draft" } });
   fireEvent.click(await screen.findByRole("link", { name: "src/a.ts:42" }));
@@ -47,6 +50,7 @@ it("u365_ask_slash_commands_stay_plain_text", async () => {
   const text = "/clear /context /hope:compose /word /word:word";
   const entry = ask("commands", 1, [{ text, state: "typed", placement: { kind: "routed", workstream: "lead" } }]);
   const { app, connected } = await mountAskBar([entry]);
+  await openAsk();
   const draft = screen.getByRole("textbox", { name: "Ask" });
   fireEvent.input(draft, { target: { value: "exact unsent draft" } });
   const calls = app.calls.length;
@@ -89,6 +93,8 @@ it("al5_inbox_and_overview_text_links_open_the_object", async () => {
   const overview = await mountAskBar(
     [ask("links", 1, [{ text: `Open ${url}.`, state: "typed", placement: { kind: "routed", workstream: "lead" } }])],
     null, [door("lead", "idle", "ready"), ann]);
+
+  await openAsk();
 
   routeLinks(overview.app, overview.connected, ann);
   fireEvent.click(await screen.findByRole("link", { name: url }));

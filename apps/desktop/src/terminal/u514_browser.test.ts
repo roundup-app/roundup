@@ -224,7 +224,7 @@ const editor = async (kind: typeof editorKinds[number] | "pad-source" | "diff" |
   let selector: string;
 
   if (kind === "ask") {
-    await browser("click", "[data-todo-root]");
+    await browser("press", "Meta+/");
     selector = 'textarea[aria-label="Ask"]';
     await batch(
       ["wait", "--fn", `!!document.querySelector(${JSON.stringify(selector)})`],

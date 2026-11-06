@@ -33,7 +33,6 @@ it.each([[1280, 820], [1512, 950]])("u4698e_activity_rendered_%sx%s", { retry: 0
 
   await evaluate(`(async () => {
     const app = window.__fake.app;
-    document.querySelector('[data-todo-root]')?.click();
     await app.rpc('todo.update', { id: 1, title: 'Review the release and its deployment dependencies '.repeat(4), body: '# Release plan\\n\\nA document and its Activity share a reading edge.\\n\\n' + 'Review each dependency before publishing. '.repeat(15) });
     const tab = document.querySelector('#shelf-tab-todos'); if (tab.getAttribute('aria-expanded') !== 'true') tab.click();
     return true;
