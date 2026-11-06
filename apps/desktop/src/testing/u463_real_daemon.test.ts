@@ -504,7 +504,7 @@ it.skipIf(!captureDir("A4899a"))("a4899a_a_blocked_door_takes_the_named_ask_in_t
       expect(asks[0]?.parts[0]).toMatchObject({ text, state: "typed" });
     });
     await lane.until("!document.querySelector('.ask-input').value");
-    await lane.evaluate("window.dispatchEvent(new CustomEvent('open-project-page', { detail: { path: document.querySelector('.project-tab[data-selected=true]').dataset.path, command: 'view:ask-history' } }))");
+    await lane.browser("press", "Meta+/");
     await lane.until("!!document.querySelector('.ask-row[data-state=typed]')");
     await lane.capture("A4899a", "sent-with-blocker");
     await vi.waitFor(async () => {

@@ -117,13 +117,18 @@ it.skipIf(!captureDir("U4277a"))("u5621_u4277a_u4277b_u4277c_requested_screens_d
 
         if (state === "filled" && command === "ask-history") await lane.evaluate(`(() => { window.__fake.emit({actor:{kind:'user',id:'you',parent:null}, name:'ask.changed',data:{ask:window.__fake.app.handlers['ask.list']()[0]}}); return true; })()`);
 
+        if (command === "ask-history") {
+          await lane.browser("press", "Meta+/");
+          await lane.until("!!document.querySelector('.ask-bar')");
+        }
+
         if (command === "resources") {
           await lane.evaluate("window.dispatchEvent(new CustomEvent('open-project-page', {detail:{path:'/Users/you/harness', command:'view:workstreams'}}))");
           await lane.until("!!document.querySelector('.rail-row')");
           await lane.evaluate("document.querySelector('.rail-row[data-id=worktree-agent], .rail-row[data-id=agent-1]')?.click()");
         }
 
-        await lane.evaluate(`window.dispatchEvent(new CustomEvent('open-project-page', {detail:{path:'/Users/you/harness',command:'${command === "import-work" ? command : "view:" + command}'}}))`);
+        if (command !== "ask-history") await lane.evaluate(`window.dispatchEvent(new CustomEvent('open-project-page', {detail:{path:'/Users/you/harness',command:'${command === "import-work" ? command : "view:" + command}'}}))`);
 
         if (command === "notes" && phase === "head") await lane.until("!!document.querySelector('.note-recovery')");
 
