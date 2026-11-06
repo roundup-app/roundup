@@ -7,6 +7,7 @@ import type PadRichEditor from "./PadRichEditor";
 import { PadDrawer } from "./PadDrawer";
 import { ConnectedProjectContext } from "../state/connectedProject";
 import { usePadList } from "../rail/pads/padList";
+import { copy } from "./copy";
 import { USER } from "./owner";
 import { deferred, openShelf, padOf, RpcError, waitForReload, writeAdopted } from "./padsFixture";
 
@@ -149,4 +150,18 @@ it("u6249d_an_unmappable_edit_offers_copy_my_text", async () => {
 
   fireEvent.click(await screen.findByRole("button", { name: "Copy my text" }));
   expect(clipboard).toHaveBeenCalledWith("unmappable");
+});
+
+it("u6249d_copy_my_text_follows_the_source_mapping_kind_not_the_message", async () => {
+  const { app, field } = await open();
+  app.handlers["pad.write"] = () => { throw new RpcError(-32000, copy.padSourceMappingFailed); };
+
+  fireEvent.input(field, { target: { value: "refused" } });
+  fireEvent.focusOut(field);
+  await screen.findByText(copy.padSourceMappingFailed);
+  expect(screen.queryByRole("button", { name: copy.copyMyText })).toBeNull();
+
+  fireEvent.input(field, { target: { value: "unmappable" } });
+  fireEvent.focusOut(field);
+  expect(await screen.findByRole("button", { name: copy.copyMyText })).toBeTruthy();
 });
