@@ -14,11 +14,14 @@ type Shared = Omit<JSX.HTMLAttributes<HTMLDivElement>, "role" | "children"> & {
 /** `action` for a failure with nothing to retry: the Dismiss button `onDismiss` draws is the whole recovery. */
 export const DISMISS_ONLY = "dismiss-only";
 
+/** `action` for a failure line inside a row the user opens: opening the row is the recovery, and `clearedBy` is the signal that opening flips. */
+export const ROW_ACTION = "row-action";
+
 /** U6249e: how the user lets go of a failure: a dismissal ReservedLine draws, or the signal whose change clears it. */
 type Dismissal = { onDismiss: () => void } | { clearedBy: Accessor<unknown> };
 
 /** An `action` is a control to run, or, when only dismissing is possible, the Dismiss button itself. */
-export type Recovery = ({ action: JSX.Element } & Dismissal) | { action: typeof DISMISS_ONLY; onDismiss: () => void };
+export type Recovery = ({ action: JSX.Element } & Dismissal) | { action: typeof DISMISS_ONLY; onDismiss: () => void } | { action: typeof ROW_ACTION; clearedBy: Accessor<unknown> };
 
 /** A line that is not a failure: status text, with optional actions. */
 type StatusProps = Shared & { message?: never; children?: JSX.Element };
