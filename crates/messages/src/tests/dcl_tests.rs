@@ -252,6 +252,29 @@ async fn u6296a_a_message_to_a_busy_receiver_shows_its_reason() {
 }
 
 #[tokio::test]
+async fn u6404a_a_stopped_receiver_gets_its_message_under_a_hold_and_a_running_one_does_not() {
+    let dir = tempfile::tempdir().unwrap();
+    let (messages, rail, inbox, _) = open(dir.path());
+    let inner = &messages.inner;
+    let idle = lock(&rail.nodes)[0].clone();
+    let mut running = idle.clone();
+    running.status.as_mut().unwrap().kind = Kind::Working;
+    running.status.as_mut().unwrap().label = "working".into();
+    lock(&rail.nodes)[0] = running.clone();
+    let note = pending(&messages, &Actor::daemon(), "child is done");
+    crate::nudge(inner, "m").await;
+    let seen = failure::with_waiting(inner, lock(&inner.store).get(note.id).unwrap().unwrap());
+    assert_eq!(seen.waiting.as_deref(), Some(failure::RECEIVER_BUSY));
+    assert!(written(&inbox).is_empty());
+
+    let mut held = running;
+    held.status.as_mut().unwrap().label = "waiting on `npm test`".into();
+    lock(&rail.nodes)[0] = held;
+    crate::nudge(inner, "m").await;
+    assert_eq!(written(&inbox), vec![vec![note.id]]);
+}
+
+#[tokio::test]
 async fn u6307a_a_busy_receiver_keeps_the_messages_own_reason() {
     let dir = tempfile::tempdir().unwrap();
     let (messages, rail, inbox, _) = open(dir.path());

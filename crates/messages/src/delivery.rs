@@ -56,12 +56,13 @@ fn spawn_status_listener(
                 }) => {
                     let _ = guarded(
                         "on_status",
-                        on_status(
+                        on_status_labeled(
                             &inner,
                             &status.id,
                             &status.attempt,
                             &status.status_revision,
                             status.status.kind,
+                            &status.status.label,
                         ),
                     )
                     .await;
@@ -93,12 +94,24 @@ fn spawn_status_listener(
     });
 }
 
+#[cfg(test)]
 pub(super) async fn on_status(
     inner: &Arc<Inner>,
     agent: &str,
     attempt: &str,
     revision: &str,
     kind: Kind,
+) {
+    on_status_labeled(inner, agent, attempt, revision, kind, "").await;
+}
+
+pub(super) async fn on_status_labeled(
+    inner: &Arc<Inner>,
+    agent: &str,
+    attempt: &str,
+    revision: &str,
+    kind: Kind,
+    label: &str,
 ) {
     let at = (
         contracts::agent::parse_positive_ordinal(attempt).expect("wire Attempt"),
@@ -138,7 +151,7 @@ pub(super) async fn on_status(
     } else {
         (
             kind == Kind::Done,
-            matches!(kind, Kind::Idle | Kind::Blocked),
+            matches!(kind, Kind::Idle | Kind::Blocked) || stop_held(kind, &label),
         )
     };
     {
@@ -314,10 +327,7 @@ pub(super) async fn deliver_pending(inner: &Arc<Inner>, agent: &str) {
         node.id == agent
             && !ended(node)
             && node.status_revision.is_some()
-            && node
-                .status
-                .as_ref()
-                .is_some_and(|s| matches!(s.kind, Kind::Idle | Kind::Blocked | Kind::Error))
+            && node.status.as_ref().is_some_and(ready)
     }) {
         on_idle(inner, agent, binding(node), Pick::Fresh).await;
     } else if let Some(node) = nodes
@@ -340,6 +350,19 @@ pub(super) async fn deliver_pending(inner: &Arc<Inner>, agent: &str) {
         };
         failure::hold(inner, &fresh, Some(failure::RECEIVER_BUSY));
     }
+}
+
+/// U6404a: a Stop that a DCL3d hold keeps `working` (DCL3e's label) ends the turn, so the receiver
+/// takes input at its prompt. The label is the one fact of the Stop the Rail carries.
+fn stop_held(kind: Kind, label: &str) -> bool {
+    kind == Kind::Working && label.starts_with("waiting on ")
+}
+
+/// Whether the receiver's status lets a Message be written: idle, blocked, a live error, or a Stop
+/// under a hold (U6404a).
+pub(super) fn ready(status: &contracts::Status) -> bool {
+    matches!(status.kind, Kind::Idle | Kind::Blocked | Kind::Error)
+        || stop_held(status.kind, &status.label)
 }
 
 pub(super) fn binding(node: &RailNode) -> store::Binding {
