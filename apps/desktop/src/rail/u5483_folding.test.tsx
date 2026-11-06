@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { agent, workstream, NOW, event } from "../testing/nodes";
-import { mountRail, rowNames, rowOf, settled } from "./railFixture";
+import { itemOf, mountRail, rowNames, rowOf, settled } from "./railFixture";
 
 afterEach(cleanup);
 
@@ -225,4 +225,18 @@ it("u6238a_the_remaining_fold_still_opens_with_arrow_right", async () => {
   fireEvent.keyDown(fold, { key: "ArrowRight" });
   await settled();
   expect(document.querySelector('[data-id="fold:stream"]')!.getAttribute("aria-expanded")).toBe("true");
+});
+
+it("u6399a_a_fold_row_has_no_selection_state", async () => {
+  await mountRail([workstream("stream"), agent("done", "done", "done", { parent: "stream", final_text: { ...empty, finished: "0" } })]);
+  await waitFor(() => expect(rowNames()).toEqual(["stream"]));
+  const fold = document.querySelector<HTMLElement>(".rail-fold")!;
+
+  fireEvent.click(rowOf("stream"));
+  await settled();
+  fireEvent.click(fold);
+  fold.focus();
+
+  for (const name of ["aria-selected", "data-selected", "aria-current"]) expect(fold.hasAttribute(name)).toBe(false);
+  expect(itemOf("stream").getAttribute("aria-selected")).toBe("true");
 });
