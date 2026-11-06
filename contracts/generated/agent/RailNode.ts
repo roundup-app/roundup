@@ -9,6 +9,7 @@ import type * as agent$Inbox from "./Inbox";
 import type * as agent$NodeKind from "./NodeKind";
 import type * as agent$Order from "./Order";
 import type * as agent$RailVisibility from "./RailVisibility";
+import type * as agent$ResumeWait from "./ResumeWait";
 import type * as agent$StartAttribution from "./StartAttribution";
 import type * as agent$Stray from "./Stray";
 import type * as agent$ToolCall from "./ToolCall";
@@ -79,6 +80,8 @@ export type RailNode = {
 	waiting?: number,
 	/**  DCL1: why Messages to this Agent, or to a Workstream's Door, have not reached it (`inbox write failed`); absent when none is failing. */
 	unreachable?: string,
+	/**  U6248b: the Agent's turn ended on a Claude service error and roundup resumes it; absent when none does. */
+	resume?: agent$ResumeWait.ResumeWait,
 	/**  A2681a: available conversation parts, only after the Agent's program exits. */
 	overview?: agent$ConversationOverview.ConversationOverview,
 };

@@ -497,10 +497,22 @@ pub struct RailNode {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[specta(optional, type = String)]
     pub unreachable: Option<String>,
+    /// U6248b: the Agent's turn ended on a Claude service error and roundup resumes it; absent when none does.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[specta(optional, type = ResumeWait)]
+    pub resume: Option<ResumeWait>,
     /// A2681a: available conversation parts, only after the Agent's program exits.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[specta(optional, type = ConversationOverview)]
     pub overview: Option<ConversationOverview>,
+}
+
+/// U6248b: where an Agent's resume stands. `at` is when, in milliseconds since the Unix epoch, the
+/// next resume is sent; `None` once the third was sent, when the row offers Resume.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
+pub struct ResumeWait {
+    #[specta(type = Option<specta_typescript::Number>)]
+    pub at: Option<i64>,
 }
 
 /// A2681a: display data from a closed Agent's saved conversation, never authority.

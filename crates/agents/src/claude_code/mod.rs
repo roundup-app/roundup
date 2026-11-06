@@ -819,6 +819,18 @@ fn failure_label(code: Option<&str>) -> String {
     format!("{cause}; {next}.")
 }
 
+/// U6248b: the cause of a `StopFailure` label that waiting can heal (`overloaded`, `rate_limit`,
+/// `server_error`); `None` for every other label.
+pub fn transient_cause(label: &str) -> Option<&'static str> {
+    [
+        "Claude's request limit was reached",
+        "Claude is overloaded",
+        "Claude's servers failed",
+    ]
+    .into_iter()
+    .find(|cause| label.starts_with(cause))
+}
+
 /// The question being asked; else the tool name, with its command when it has one.
 fn permission_label(payload: &Value) -> String {
     let tool = payload["tool_name"].as_str().unwrap_or("tool");

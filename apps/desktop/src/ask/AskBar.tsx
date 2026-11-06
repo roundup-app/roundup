@@ -530,7 +530,8 @@ const Deliverables = (props: { state: ReturnType<typeof createDeliverables> }) =
   const records = createMemo(() => props.state.records().filter(record => filter() === "" ? scope.includes(record.home, record.maker)
     : filter() === `home:${record.home}` || record.maker.kind === "agent" && filter() === `maker:${record.maker.id}`));
 
-  const [selected, setSelected] = createSignal<string | null>(null);
+  const selected = connected.madeSelected;
+  const setSelected = connected.selectMade;
   const [pending, setPending] = createSignal<string | null>(null);
   const [failures, setFailures] = createSignal<ReadonlyMap<string, string>>(new Map());
   const failure = (id: string): string | null => failures().get(id) ?? null;

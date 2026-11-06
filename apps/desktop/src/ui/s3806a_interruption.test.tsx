@@ -78,6 +78,7 @@ const shared = async (owner: string, trigger: string, phase: string) => {
   // jsdom omits WAAPI; the real gesture engines still own activation and cancellation.
   Object.defineProperty(document, "getAnimations", { configurable: true, value: () => [] });
   Object.defineProperty(HTMLElement.prototype, "getAnimations", { configurable: true, value: () => [] });
+  Object.defineProperty(HTMLElement.prototype, "animate", { configurable: true, value: () => ({ finished: Promise.resolve(), cancel() {}, finish() {}, addEventListener() {}, removeEventListener() {} }) });
 
   // Zag sends use microtasks. dnd-kit schedules pointer movement on rAF, then its Solid renderer completes in the next task.
   const settle = async () => {
