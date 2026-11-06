@@ -86,11 +86,9 @@ it.skipIf(!captureDir("U5721"))("u5721_rendered_workstream_selection_and_failed_
     await lane.until("window.__fake.app.calls.some(call => call.method === 'terminal.snapshot' && call.params.id === window.__alertTerminal)");
     await lane.browser("mouse", "move", "1100", "900");
     await lane.capture("U5721", "first-load-after");
-    await lane.browser("click", "[data-todo-root]");
     await lane.evaluate("document.querySelector('.rail-row[data-id=\"' + window.__alertDoor + '\"]').click()");
     await lane.browser("mouse", "move", "1100", "900");
     await lane.capture("U5721", "mounted-after");
-    await lane.browser("click", "[data-todo-root]");
     await lane.evaluate(`(() => {
       window.__fake.app.handlers['terminal.snapshot'] = () => { throw new Error('Terminal unavailable. Try again.'); };
       window.__fake.app.handlers['terminal.catchUp'] = () => { throw new Error('Terminal unavailable. Try again.'); };

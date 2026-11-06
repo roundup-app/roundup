@@ -236,7 +236,7 @@ def reopen_fake():
 
 def reopen_surfaces():
     open_page(origin + '/harness.html?seed=tree-40')
-    wait('Boolean(window.__fake && document.querySelector("[data-todo-root]"))')
+    wait('Boolean(window.__fake && document.querySelector(".rail-scroll"))')
     if evaluate('document.querySelector("#shelf-tab-todos").getAttribute("aria-expanded")!=="true"'):
         browser('click', '#shelf-tab-todos')
     evaluate("(async()=>{window.__blockers=[];for(let n=0;n<10;n++)window.__blockers.push((await window.__fake.app.rpc('todo.create',{title:'Review '+n,body:null,blockers:null})).id);})()")
@@ -247,7 +247,7 @@ def reopen_surfaces():
             if surface != "overview":
                 browser('click', '.rail-row[data-id="tokens"] .name')
             else:
-                evaluate('document.querySelector("[data-todo-root]").click()')
+                evaluate('document.querySelector(".rail-scroll").click()')
             if surface == 'rail':
                 evaluate("(()=>{const b=document.querySelector('.rail-row[data-id=\"tokens\"] [data-pads-control]');if(b.getAttribute('aria-expanded')!=='true')b.click()})()")
             else:

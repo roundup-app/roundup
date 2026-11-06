@@ -23,7 +23,6 @@ const shared = async () => {
   live ??= await mountApp();
 
   if (document.querySelector('.drawer[data-open="true"]')) fireEvent.keyDown(document.body, { key: "Escape" });
-  fireEvent.click(document.querySelector("[data-todo-root]")!);
 
   if (shelf().hidden) chord();
 
@@ -66,7 +65,7 @@ describe("u373 and u370 on one mounted App", () => {
     live = undefined;
   });
 
-  it.each([["payments", 0], ["tokens", 3], [null, 7]] as const)("u373_counts_follow_the_scope: %s", async (selected, todoCount) => {
+  it.each([[null, 7], ["payments", 0], ["tokens", 3]] as const)("u373_counts_follow_the_scope: %s", async (selected, todoCount) => {
     await shared();
 
     if (selected) fireEvent.click(document.querySelector(`.rail-row[data-id="${selected}"]`)!);

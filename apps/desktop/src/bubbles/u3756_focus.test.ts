@@ -174,8 +174,7 @@ it("u3756d_initial_and_explicit_terminal_focus_still_work", async () => {
   expect(await read(`window.__fake.app.calls.filter(c => c.method === 'terminal.write').map(c => atob(c.params.data)).join('')`)).toBe("initial");
   await capture("U3756d", "initial");
   await newer("bubble");
-  await read(`window.originalRow = document.querySelector('.rail-row[data-selected=true]'); document.querySelector('[data-todo-root]').click()`);
-  await wait(`!document.querySelector('.rail-row[data-selected=true]')`);
+  await read(`window.originalRow = document.querySelector('.rail-row[data-selected=true]')`);
   await browser("focus", `.rail-row[data-id="${await read<string>("window.originalRow.dataset.id")}"]`);
   await browser("press", "Enter");
   await wait(`!!document.activeElement?.closest('.pane-screen')`);

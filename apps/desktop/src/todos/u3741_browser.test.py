@@ -40,7 +40,7 @@ try:
     browser('open', origin + '/harness.html?seed=tree-40')
     browser('set', 'viewport', '1512', '950')
     browser('set', 'media', 'dark')
-    browser('wait', '--fn', 'Boolean(window.__fake && document.querySelector("[data-todo-root]"))')
+    browser('wait', '--fn', 'Boolean(window.__fake && document.querySelector(".rail-scroll"))')
     browser('press', 'Meta+k')
     browser('wait', '.hint-line.leader')
     browser('press', 'b')

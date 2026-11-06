@@ -32,7 +32,8 @@ import { SpawnPromptField } from "./SpawnPromptField";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { ExitState } from "../state/rail";
 import type { SpawnParams } from "@contracts/agent/SpawnParams";
-import { contextMenu } from "../ui/contextMenu";
+import { contextMenu, openOnRelease } from "../ui/contextMenu";
+import { useRecoveryMenu } from "../drawer/DraftRecovery";
 import { draftsOf } from "./persist/storage";
 import { createRailDrag } from "./drag";
 import { createRailSelection } from "./selection";
@@ -50,6 +51,8 @@ const toggled = <T,>(set: ReadonlySet<T>, member: T): ReadonlySet<T> =>
 export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) => {
   const connected = useConnectedProject();
   const { app, project, rail, daemonExit } = connected;
+
+  const recoveryEntries = useRecoveryMenu();
 
   const todoCount = createAgentPads();
   const collapsed = rail.collapsed;
@@ -629,9 +632,17 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
     <Show when={props.collapse}>{collapse => <div class="rail-head"><IconButton class="rail-collapse" aria-label={props.peeked ? copy.expandRail : copy.collapseRail} onClick={collapse()}><Icon name={props.peeked ? "right" : "left"} /></IconButton></div>}</Show>
     <MovePicker replacement={rowElement} target={moveAgent.target()} destinations={moveAgent.destinations()} close={moveAgent.close} choose={(id, parent) => { void moveAgent.move({ id, parent, index: siblingsOf(topology(), parent).length }); }} />
     <Show when={isEmpty()}><EmptyRail onNew={() => captureActions(document.activeElement).find(action => action.value === "action:chord:⌘N")?.run()} onWorkstream={() => captureActions(document.activeElement).find(action => action.value === "action:chord:⇧⌘N")?.run()} available={canSpawn()} /></Show>
-    <div class="rail-scroll">
+    <div class="rail-scroll" onContextMenu={(press: MouseEvent) => {
+      // U3289c: the Rail background holds the recovery item; a row keeps its own menu.
+      if (press.target instanceof Element && press.target.closest(".rail-row")) return;
+      openOnRelease(press, (x, y) => {
+        const entries = recoveryEntries();
+
+        if (entries.length > 0) void contextMenu(app, entries, x, y);
+      });
+    }}>
     <TreeView.Root
-      class="rail-tree" data-history-region="rail"
+      class="rail-tree" data-history-region="rail" tabindex="-1"
       ref={(element) => {
         setContainer(element);
         element.addEventListener("click", selectClick, true);

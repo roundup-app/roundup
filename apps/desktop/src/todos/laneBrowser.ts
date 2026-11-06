@@ -91,7 +91,6 @@ export const openLane = async (width: number, scheme: "light" | "dark", name: st
         await until("document.querySelector('.project-tab[data-path=\"/Users/you/project-number-2\"] [role=tab]').getAttribute('aria-selected') === 'true'");
       }
 
-      await browser("click", "[data-todo-root]");
 
       // Consume the seed's initial refusal before installing this observer's exact failing action.
       if (seed === "conflict") await evaluate("window.__fake.app.rpc('todo.list', null).catch(error => { if (error.code !== -32003) throw error; return []; })");

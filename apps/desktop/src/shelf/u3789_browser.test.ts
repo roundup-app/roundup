@@ -63,7 +63,6 @@ const load = async (seed: string, base = false) => {
 };
 
 const overview = async () => {
-  await browser("click", "[data-todo-root]");
 
   if (!await read("!!document.querySelector('#shelf-tab-todos')")) {
     await browser("press", "Meta+k");

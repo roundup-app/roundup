@@ -18,7 +18,7 @@ it.skipIf(!captureDir("U3787c")).each(["tree-40", "tabs-8", "conflict"])("u3787c
   if (dir) { mkdirSync(dir, { recursive: true }); await lane.browser("record", "start", join(dir, `overview-made-${seed}.webm`)); }
 
   try {
-    await lane.until("!!window.__fake && !!document.querySelector('[data-todo-root]')");
+    await lane.until("!!window.__fake && !!document.querySelector('.rail-scroll')");
 
     if (seed === "tabs-8") {
       await lane.browser("focus", '.project-tab[data-path="/Users/you/project-number-2"] [role=tab]');
@@ -41,7 +41,6 @@ it.skipIf(!captureDir("U3787c")).each(["tree-40", "tabs-8", "conflict"])("u3787c
       return true;
     })()`);
     // Overview is the production return path from the currently selected Workstream.
-    await lane.browser("click", '[data-todo-root]');
     await lane.evaluate("window.dispatchEvent(new CustomEvent('open-project-page',{detail:{path:document.querySelector('.project-tab[data-selected=true]').dataset.path,command:'view:workstreams'}}))");
     await lane.until("document.querySelectorAll('.overview-entry').length >= 5");
 

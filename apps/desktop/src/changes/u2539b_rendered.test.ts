@@ -141,7 +141,6 @@ it.each(["tree-40", "agents-10", "tabs-8", "empty-project", "resources"])("u2539
         }
 
         // A new selection forces the next authoritative read, including the empty→nonempty case.
-        await evaluate("document.querySelector('[data-todo-root]').click()");
       }
 
       await evaluate("window.__fake.app.handlers['agent.changedFiles'] = () => { throw new Error('Changed files unavailable: the Worktree directory could not be read. Retry to check it again.') }");

@@ -19,7 +19,6 @@ export const showEverythingInApp = async (_name = /backend/, tab: "Todos" | "Pad
 
   if (!screen.queryByLabelText("Rail", { selector: '[role="tree"]' })) openProjectPage("view:workstreams", projectMenu.path);
   await screen.findByLabelText("Rail", { selector: '[role="tree"]' });
-  fireEvent.click(document.querySelector('[data-todo-root]')!);
 
   showShelfTab(tab);
 

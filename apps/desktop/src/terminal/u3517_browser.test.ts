@@ -420,7 +420,6 @@ for (const [surface, seed, command, selector] of [
 it.skipIf(!groundOutput)("u4456c_shelf_drawers_and_visual_content", async () => {
   for (const base of process.env.U500_BASE_ROOT ? [true, false] : [false]) {
     await groundLoad("tree-40", base, "system");
-    await browser("click", "[data-todo-root]");
     await read("if(document.querySelector('#shelf-tab-todos')?.getAttribute('aria-expanded') !== 'true') document.querySelector('#shelf-tab-todos').click()");
     await wait("!!document.querySelector('.shelf')");
     await read("for (const control of document.querySelectorAll('[data-shelf-group] [data-part=branch-control]')) if (control.closest('[role=treeitem]')?.getAttribute('aria-expanded') === 'false') control.click()");
@@ -447,7 +446,6 @@ it.skipIf(!groundOutput)("u4456c_shelf_drawers_and_visual_content", async () => 
 it.skipIf(!groundOutput)("u4456c_floating_menu_picker_dialog", async () => {
   for (const base of process.env.U500_BASE_ROOT ? [true, false] : [false]) {
     await groundLoad("tree-40", base, "system");
-    await browser("click", "[data-todo-root]");
     await read("if(document.querySelector('#shelf-tab-todos')?.getAttribute('aria-expanded') !== 'true') document.querySelector('#shelf-tab-todos').click(); for (const control of document.querySelectorAll('[data-shelf-group] [data-part=branch-control]')) if (control.closest('[role=treeitem]')?.getAttribute('aria-expanded') === 'false') control.click()");
     await wait("[...document.querySelectorAll('.todo-row-button')].some(row => row.checkVisibility())");
     await read("[...document.querySelectorAll('.todo-row-button')].find(row => row.checkVisibility()).focus()");
@@ -482,7 +480,6 @@ it.skipIf(!groundOutput)("u4456c_changes_tree_and_diff", async () => {
 it.skipIf(!groundOutput)("u4456c_ask_and_tooltip", async () => {
   for (const base of process.env.U500_BASE_ROOT ? [true, false] : [false]) {
     await groundLoad("tree-40", base, "system");
-    await browser("click", "[data-todo-root]");
     await wait("!!document.querySelector('.ask-input')?.checkVisibility()");
     await browser("click", ".ask-input");
     await browser("keyboard", "type", "@");

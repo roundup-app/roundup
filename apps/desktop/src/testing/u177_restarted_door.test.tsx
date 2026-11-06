@@ -78,7 +78,6 @@ describe("u177 a stopped Door starts again on the real Daemon", () => {
     await waitFor(async () => expect(await messages(app)).toEqual([["ship a", "delivered"], ["ship b", "delivered"]]), { timeout: 90_000 });
     await waitFor(async () => expect((await app.rpc("todo.list", null)).map((todo) => todo.title)).toEqual(expect.arrayContaining(["ship a", "ship b"])), { timeout: 30_000 });
 
-    fireEvent.click(document.querySelector("[data-todo-root]")!);
     showShelfTab(copy.todos);
     await waitFor(() => {
       const todos = Array.from(document.querySelectorAll("[data-todo]")).map((todo) => todo.textContent ?? "");

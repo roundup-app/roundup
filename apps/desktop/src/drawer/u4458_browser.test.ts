@@ -102,7 +102,7 @@ const cycle = async (lane: LaneBrowser, covered: boolean, shelf: boolean) => {
 
   // Milkdown owns Tab inside its editor. Opposite sweeps meet there without editing the Pad.
   for (const key of covered ? ["Tab", "Shift+Tab"] : ["Tab"]) {
-    await run(`focus '${covered ? "[data-todo-root]" : ".rail-actions button:last-child"}'`, quote("window.__cycle.start = document.activeElement"));
+    await run(`focus '${covered ? ".rail-row" : ".rail-actions button:last-child"}'`, quote("window.__cycle.start = document.activeElement"));
     let complete = false;
 
     for (let step = 0; step < 160; step++) {
@@ -181,8 +181,7 @@ it.concurrent.each(cases)(
   };
 
   try {
-    await lane.until("!!document.querySelector('[data-todo-root]')");
-    await lane.browser("click", "[data-todo-root]");
+    await lane.until("!!document.querySelector('.rail-scroll')");
     await lane.until("!!document.querySelector('.ask-input')");
     await lane.browser("fill", ".ask-input", "  Original unsent work 雪\nkeep this exact draft  ");
     let target = ".storage-failure button";

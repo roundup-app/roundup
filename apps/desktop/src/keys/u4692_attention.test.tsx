@@ -277,7 +277,7 @@ it("u4692_rendered_direct_jump_and_discovery", async () => {
     await lane.capture("U4692", "before");
 
     for (const place of ["rail", "terminal", "shelf", "ask"]) {
-      if (place === "ask") { await lane.browser("click", "[data-todo-root]"); await lane.until("!!document.querySelector('.ask-input')"); }
+      if (place === "ask") { await lane.browser("press", "Meta+/"); await lane.until("!!document.querySelector('.ask-input')"); }
 
       await lane.evaluate(`(() => {
         const target = ${place === "rail" ? "document.querySelector('.rail-row')" : place === "terminal" ? "document.querySelector('.xterm-helper-textarea')" : place === "shelf" ? "document.querySelector('.todo-row-button') || document.querySelector('.shelf button')" : "document.querySelector('.ask-input')"};
@@ -314,7 +314,6 @@ it("u4692a_rendered_hint_places", async () => {
   const lane = await openLane(1512, "dark", "u4692a");
 
   try {
-    await lane.browser("click", "[data-todo-root]");
     await lane.browser("click", "#shelf-tab-pads");
     await lane.until("!!document.querySelector('.pads-tab [data-shelf-group]')");
     await lane.evaluate(`(() => { for (const group of document.querySelectorAll('.pads-tab [data-shelf-group]')) if (group.getAttribute('aria-expanded') === 'false') group.querySelector('[data-part=branch-control]').click(); })()`);
