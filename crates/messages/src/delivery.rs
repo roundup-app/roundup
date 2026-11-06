@@ -151,7 +151,7 @@ pub(super) async fn on_status_labeled(
     } else {
         (
             kind == Kind::Done,
-            matches!(kind, Kind::Idle | Kind::Blocked) || stop_held(kind, &label),
+            matches!(kind, Kind::Idle | Kind::Blocked) || stop_held(kind, label),
         )
     };
     {
