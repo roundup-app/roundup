@@ -171,11 +171,7 @@ pub(crate) async fn send(
             {
                 return false;
             }
-            let admitted = inner
-                .inbox
-                .get()
-                .is_none_or(|inbox| inbox.admits(agent, &m.from));
-            let waiting = failure::waiting_reason(admitted, state);
+            let waiting = failure::waiting_reason(failure::admitted(inner, agent, m), state);
             failure::hold(inner, &[m.id], waiting);
             waiting.is_none()
         });
@@ -290,7 +286,10 @@ pub(crate) async fn send(
             empty.push(entry);
         // Questions preserve same-id receipt recovery; distinct reply ids already prevent
         // equality between different Questions. B5763c closes recovered notes only.
-        } else if entry.kind == MessageKind::Note && previous.as_deref() == Some(&content) {
+        } else if entry.kind == MessageKind::Note
+            && previous.as_deref() == Some(&content)
+            && !lock(&inner.rewrite).contains(&entry.id)
+        {
             repeats.push(entry.id);
         } else if !quiet {
             previous = Some(content);
@@ -342,6 +341,10 @@ pub(crate) async fn send(
         Some(inbox) if !said.is_empty() => inbox.write(agent, &said),
         _ => Ok(()),
     };
+    lock(&inner.rewrite).retain(|id| !ids.contains(id));
+    if written.is_ok() && !said.is_empty() {
+        failure::wrote(inner, agent);
+    }
     if written.is_ok() && attached && !said.is_empty() {
         lock(&inner.snapshotted).insert((agent.to_owned(), at.0));
     }
