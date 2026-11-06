@@ -255,17 +255,24 @@ async fn on_idle(inner: &Arc<Inner>, agent: &str, at: store::Binding, pick: Pick
     };
     let found = {
         let store = lock(&inner.store);
+        let reserved = store.is_reserved(agent).expect("message store");
         if matches!(
             step::retirement_event(
                 store.retirement(agent).expect("message store").is_some(),
-                step::restart_event(
-                    store.is_reserved(agent).expect("message store"),
-                    Event::Idle
-                )
+                step::restart_event(reserved, Event::Idle)
             ),
             Event::Busy
         ) || store.require_generation(agent, at).is_err()
         {
+            if reserved {
+                let ids: Vec<u32> = store
+                    .list_pending_to(agent)
+                    .expect("message store")
+                    .iter()
+                    .map(|m| m.id)
+                    .collect();
+                failure::hold(inner, &ids, Some(failure::RESTART_RESERVED));
+            }
             return;
         }
         // A just-sent Message is bound to the current revision, which the queue excludes.
