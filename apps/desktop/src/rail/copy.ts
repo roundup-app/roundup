@@ -109,7 +109,7 @@ export const copy = {
   expandRail: "Expand the Rail",
   railStrip: sharedCopy.workstreams,
   /** U6228: a strip mark's name: the Workstream, its state, and what needs the user. */
-  markName: (name: string, state: string, needs: number, unread: boolean) => [name, state, ...(needs > 0 ? [`${needs} need you`] : []), ...(unread ? [sharedCopy.unreadResult] : [])].join(", "),
+  markName: (name: string, state: string, needs: number, unread: boolean) => [name, state, ...(needs > 0 ? [sharedCopy.needYou(needs)] : []), ...(unread ? [sharedCopy.unreadResult] : [])].join(", "),
   expand: "Expand",
   hiddenAgents: (n: number) => `${n} hidden Agents`,
   retryDoor: sharedCopy.retryDoor,
