@@ -857,7 +857,7 @@ export const Todos = (props: {
             </div>
           </div>
         </Show>
-          <ShelfRow glyph={<KindGlyph kind="done" decorative />} class="todo-inset">
+          <ShelfRow glyph={<KindGlyph kind="done" decorative />} class="todo-inset row-wash-inert">
             <div class="shelf-done-line">
               <RowButton hang={false} onClick={() => setUnfolded(!unfolded())}>
                 <span class="shelf-title">{foldedDone().length}{copy.doneCount}</span>
