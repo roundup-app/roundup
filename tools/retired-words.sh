@@ -30,6 +30,8 @@ alert_tokens = {
         "u5501_held_rows_keep_event_identity_content_and_order_across_reopen",
         "u5501_opening_an_agent_clears_only_its_held_rows",
     },
+    "crates/messages/src/failure.rs": {"held"},
+    "crates/messages/src/tests/dcl_tests.rs": {"u6260a_held_prompt_is_reported_to_its_sender"},
     "apps/desktop/src/toasts/watch.tsx": {"held"},
     "apps/desktop/src/toasts/u5501_levels.test.tsx": {"held"},
     "apps/desktop/src/state/connectedProject.ts": {"createHeld", "held", "held:"},

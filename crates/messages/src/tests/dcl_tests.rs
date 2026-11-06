@@ -173,7 +173,7 @@ impl crate::NoteInbox for Gated {
 }
 
 #[tokio::test]
-async fn u6260a_waiting_prompt_is_reported_to_its_sender() {
+async fn u6260a_held_prompt_is_reported_to_its_sender() {
     let dir = tempfile::tempdir().unwrap();
     let gated = Arc::new(Gated::default());
     let (messages2, _, _) = open_with(dir.path(), gated.clone());
@@ -207,6 +207,24 @@ async fn u6260a_waiting_prompt_is_reported_to_its_sender() {
     assert_eq!(written_by(&gated), vec![vec![note.id]]);
     let seen = failure::with_waiting(inner, lock(&inner.store).get(note.id).unwrap().unwrap());
     assert_eq!(seen.waiting, None);
+}
+
+#[tokio::test]
+async fn u6260a_a_reserved_restart_is_reported_and_a_settled_message_forgets_its_reason() {
+    let dir = tempfile::tempdir().unwrap();
+    let (messages, _, _) = open_with(dir.path(), Arc::new(Gated::default()));
+    let inner = &messages.inner;
+    let note = pending(&messages, &Actor::daemon(), "after the restart");
+    lock(&inner.store)
+        .reserve_restart("m", "restart", 1, None)
+        .unwrap();
+    crate::nudge(inner, "m").await;
+    let seen = failure::with_waiting(inner, lock(&inner.store).get(note.id).unwrap().unwrap());
+    assert_eq!(seen.waiting.as_deref(), Some(failure::RESTART_RESERVED));
+
+    assert!(lock(&inner.store).drop_merged(note.id).unwrap());
+    failure::forget_settled(inner);
+    assert!(lock(&inner.waiting).is_empty());
 }
 
 fn written_by(inbox: &Gated) -> Vec<Vec<u32>> {

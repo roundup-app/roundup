@@ -163,6 +163,7 @@ pub(crate) async fn send(
     mut notes: Vec<Message>,
     state: Inbox,
 ) -> bool {
+    failure::forget_settled(inner);
     {
         let store = lock(&inner.store);
         notes.retain(|m| {

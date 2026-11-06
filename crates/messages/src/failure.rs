@@ -17,8 +17,9 @@ pub(crate) const UNREADABLE: &str = "transcript unreadable";
 pub(crate) const WRITE_FAILED: &str = "inbox write failed";
 pub(crate) const NO_RECEIPT: &str = "no receipt after four writes";
 /// U6260a: why the send path keeps a Message; a waiting Message is never a delivery failure.
-pub(crate) const AWAITING_INPUT: &str = "waiting for the user's first input in this Attempt";
-pub(crate) const INBOX_NOT_READY: &str = "waiting for the receiver's inbox to be ready";
+pub(crate) const AWAITING_INPUT: &str = "held until the user's first input in this Attempt";
+pub(crate) const INBOX_NOT_READY: &str = "held until the receiver's inbox is ready";
+pub(crate) const RESTART_RESERVED: &str = "held until the reserved restart ends";
 
 /// The one waiting predicate: why the send path keeps a Message `pending` instead of writing it.
 pub(crate) fn waiting_reason(
@@ -43,6 +44,18 @@ pub(crate) fn hold(inner: &Inner, ids: &[u32], reason: Option<&'static str>) {
             None => waiting.remove(id),
         };
     }
+}
+
+/// Forgets the reason of every Message that left `pending`, however it left (written, refused,
+/// dropped or stale), so the map never outgrows the queue.
+pub(crate) fn forget_settled(inner: &Inner) {
+    let pending: HashSet<u32> = lock(&inner.store)
+        .pending_all()
+        .expect("message store")
+        .into_iter()
+        .map(|m| m.id)
+        .collect();
+    lock(&inner.waiting).retain(|id, _| pending.contains(id));
 }
 
 /// `message` as its sender reads it: a `pending` Message carries the reason it waits.
