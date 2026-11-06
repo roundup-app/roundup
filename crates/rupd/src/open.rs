@@ -253,6 +253,11 @@ impl Daemon {
         {
             tokio::spawn(wake::tell_renames(self.reader(), renames));
         }
+        tokio::spawn(resume_turn::resume_turns(
+            self.reader(),
+            Arc::clone(&self.agents),
+            self.bus.subscribe(),
+        ));
         if let Some(owner_events) = self
             .owner_events
             .lock()

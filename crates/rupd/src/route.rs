@@ -173,6 +173,7 @@ impl Daemon {
                 .get()
                 .and_then(|messages| messages.delivery_failure(&node.id));
             node.unreachable = cause.map(str::to_owned);
+            node.resume = self.agents.resume_wait(&node.id);
             if node.kind == contracts::agent::NodeKind::Workstream {
                 node.waiting = counts
                     .get(&node.id)

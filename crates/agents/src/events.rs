@@ -528,7 +528,15 @@ impl Shared {
         // Announced while `runs` is parked, so announcements leave in the order the Status
         // changed; `emit` never blocks.
         if let Some(status) = changed {
+            // U6248b: the raw Status moves the resume table before it is announced.
+            let resume_moved = resume_wait::fold(
+                &mut self.resumes.lock().expect("resumes lock"),
+                id,
+                &status,
+                (self.clock)(),
+            );
             let status = waiting_on(&status, self.wait_of(id));
+            let status = resume_wait::resuming(&status, self.resume_of(id).as_ref());
             run.status_revision = run
                 .status_revision
                 .checked_add(1)
@@ -542,6 +550,9 @@ impl Shared {
             };
             self.bus
                 .emit(actor.clone(), EventData::AgentStatus(event.into()));
+            if resume_moved {
+                self.bus.emit(Actor::daemon(), EventData::RailChanged);
+            }
         }
         if let (Some(rail), Some(name)) = (rail, first_prompt)
             && !std::mem::replace(&mut run.named, true)

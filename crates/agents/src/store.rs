@@ -155,6 +155,7 @@ impl Agents {
                 naming_guide: None,
                 coordination: None,
                 waits: Mutex::new(HashMap::new()),
+                resumes: Mutex::new(HashMap::new()),
             }),
             dir: dir.to_owned(),
             launcher,
@@ -608,6 +609,7 @@ pub(super) mod tests {
             naming_guide: None,
             coordination: None,
             waits: Mutex::new(HashMap::new()),
+                resumes: Mutex::new(HashMap::new()),
         });
         (dir, bus, shared)
     }
@@ -669,6 +671,7 @@ pub(super) mod tests {
             naming_guide: None,
             coordination: None,
             waits: Mutex::new(HashMap::new()),
+                resumes: Mutex::new(HashMap::new()),
         })
     }
 
@@ -767,6 +770,7 @@ pub(super) mod tests {
             naming_guide: None,
             coordination: None,
             waits: Mutex::new(HashMap::new()),
+                resumes: Mutex::new(HashMap::new()),
         });
         (dir, shared)
     }
