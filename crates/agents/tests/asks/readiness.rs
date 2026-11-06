@@ -85,6 +85,7 @@ async fn new_part(f: &mut DoorHarness, text: &str) -> (Value, String, String) {
         .unwrap()
         .answer
         .send(vec![AskPart {
+            project: None,
             text: text.into(),
             destination: Destination::New {
                 title: "New work".into(),
