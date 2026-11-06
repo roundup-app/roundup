@@ -431,7 +431,7 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
               <Show when={entry.todo !== undefined || entry.pad !== undefined}><span class="switcher-kind">{entry.todo !== undefined ? copy.kindTodo : copy.kindPad}</span></Show>
               <span class="switcher-name">{entry.label}</span>
               <Show when={entry.owner}><span class="switcher-owner">{entry.owner}</span></Show>
-              <Show when={entry.node && !rail.dismissed(entry.node)}><ReservedLine status={errorCause(entry.node?.status, false)} /></Show>
+              <Show when={entry.node && !rail.dismissed(entry.node)}><Show when={errorCause(entry.node?.status, false)}>{cause => <ReservedLine status={cause()} />}</Show></Show>
             </span>}</StatusTip>;
           }} />
         <ReservedLine message={makeFailure()} action={DISMISS_ONLY} onDismiss={() => setMakeFailure(null)} />

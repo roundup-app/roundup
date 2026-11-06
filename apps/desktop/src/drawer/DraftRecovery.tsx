@@ -2,7 +2,7 @@ import { applied } from "../app/pending";
 import { EmptyState } from "../ink/EmptyState";
 import { NameField } from "../ui/Editable";
 import { CopyButton } from "../ui/CopyButton";
-import { DISMISS_ONLY, ReservedLine } from "../ink/ReservedLine";
+import { ReservedLine } from "../ink/ReservedLine";
 import type { ActivationSource } from "../keys/registry";
 import { useConnectedProject } from "../state/connectedProject";
 import type { MenuEntry } from "../ui/contextMenu";
@@ -120,7 +120,7 @@ const DraftRecoveryPanel = () => {
             <div class="draft-text">
               <span class="draft-name">{copy.draftTitle(title(row).place, title(row).name)}</span>
               <span class="draft-cause">{copy.riskLine(copy.riskCause[row.cause], copy.riskTime(Math.floor((Date.now() - row.since) / 60000)))}</span>
-              <Show when={failures()[row.draft.revision]}>{message => <ReservedLine message={message()} action={DISMISS_ONLY} onDismiss={() => clear(row.draft.revision)} />}</Show>
+              <Show when={failures()[row.draft.revision]}>{message => <ReservedLine message={message()} clearedBy={() => failures()[row.draft.revision]} action={<button data-button="quiet" type="button" onClick={() => clear(row.draft.revision)}>{copy.dismissCopyFailure}</button>} />}</Show>
             </div>
           </div>
           <div class="draft-actions">

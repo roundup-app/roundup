@@ -343,7 +343,7 @@ export const AskBar = (props: {
 
             const dismissed = () => node() !== undefined && rail.dismissed(node()!);
 
-            return <><KindGlyph decorative kind={shownKind(node()?.status, dismissed())} /><Tip text={item.label} cut={cut}>{trigger => <span {...trigger()} ref={name} class="app-mention-name">{item.label.slice(0, start())}<mark>{item.label.slice(start(), end())}</mark>{item.label.slice(end())}</span>}</Tip><Show when={parent()}>{name => <span class="app-mention-parent">{name()}</span>}</Show><Show when={!dismissed()}><ReservedLine status={errorCause(node()?.status, false)} /></Show></>;
+            return <><KindGlyph decorative kind={shownKind(node()?.status, dismissed())} /><Tip text={item.label} cut={cut}>{trigger => <span {...trigger()} ref={name} class="app-mention-name">{item.label.slice(0, start())}<mark>{item.label.slice(start(), end())}</mark>{item.label.slice(end())}</span>}</Tip><Show when={parent()}>{name => <span class="app-mention-parent">{name()}</span>}</Show><Show when={!dismissed()}><Show when={errorCause(node()?.status, false)}>{cause => <ReservedLine status={cause()} />}</Show></Show></>;
           }} /></Show>
         </Mentions.Root>
         <ReservedLine overlay class="ask-send-status" message={problem() ? copy.draftRetention(connected.project.name, copy.draftSurface("ask"), problem()!.cause) : failure()?.message ?? (records().some(draft => draft.status === "unknown") ? null : asks.failure())}
@@ -481,7 +481,7 @@ const OverviewEntry = (props: { node: RailNode; status: boolean; waiting: boolea
         </span>
       }</Tip>
       <span {...tip} ref={name} class={props.waiting ? "overview-name ink" : "overview-name"}>{props.node.name}</span>
-      <ReservedLine status={errorCause(status(), false)} />
+      <Show when={errorCause(status(), false)}>{cause => <ReservedLine status={cause()} />}</Show>
     </button>;
   }}</Tip>;
 };
