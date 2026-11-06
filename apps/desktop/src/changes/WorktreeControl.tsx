@@ -15,11 +15,8 @@ import { Popover } from "../ui/Popover";
 import { notesFor } from "./notes";
 import type { Notes, Note } from "./notes";
 import { NoteBatch, NoteRecovery } from "./NoteBatch";
+import { loadReader, loadTree } from "./chunks";
 import "./styles.css";
-
-const loadReader = () => import("./DiffReader");
-
-const loadTree = () => import("./ChangedTree");
 
 const DiffReader = lazy(() => loadReader().then(module => ({ default: module.DiffReader })));
 
