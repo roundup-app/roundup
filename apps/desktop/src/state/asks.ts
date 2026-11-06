@@ -236,7 +236,7 @@ export const createAsks = (app: AppSeam, events: Events, viewed?: { path: string
     reconcile: async (submission) => {
       try {
         // Routed parts are stored as `<submission>:<index>` by the Daemon of each part's Project.
-        const own = (ask: Ask): boolean => ask.submission === submission || ask.submission.startsWith(`${submission}:`);
+        const own = (ask: Ask): boolean => ask.submission === submission || (ask.submission?.startsWith(`${submission}:`) ?? false);
         const doors = routing ? [app, ...routing.open().map(project => routing.app.forProject(project.path))] : [app];
         const lists = await Promise.all(doors.map(door => door.rpc("ask.list", null)));
         const ask = lists.flat().find(own);
