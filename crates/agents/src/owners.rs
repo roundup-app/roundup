@@ -188,6 +188,15 @@ impl Shared {
         })
     }
 
+    /// U6260b: whether the conversation `id` resumes already received the user's input, per its
+    /// owner record, whichever Attempt wrote it. No record, or an unreadable one, says no.
+    pub(super) fn owner_input_started(&self, id: &str) -> bool {
+        std::fs::read(self.owner_file(id))
+            .ok()
+            .and_then(|body| serde_json::from_slice::<Stored>(&body).ok())
+            .is_some_and(|stored| stored.input_started)
+    }
+
     /// DCL3c: keep the open background work beside the verified owner, fenced to its Attempt.
     pub(super) fn save_background(
         &self,

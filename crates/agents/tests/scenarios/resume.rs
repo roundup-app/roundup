@@ -820,3 +820,34 @@ async fn a5335c_resume_without_a_saved_conversation_starts_nothing() {
     assert_eq!(after.attempt, before.attempt);
     assert_eq!(after.terminal_id, None);
 }
+
+#[tokio::test]
+async fn u6260b_resume_keeps_the_conversation_admitted() {
+    for (had_input, admitted) in [(true, true), (false, false)] {
+        let f = Arc::new(Fixture::running("sleep 30"));
+        let node = f.spawn(None, None).await.unwrap();
+        f.session_start(&node.id, CONVERSATION, "startup")
+            .await
+            .unwrap();
+        if had_input {
+            let attempt = f.attempt(&node.id).await;
+            f.signal_payload(
+                &node.id,
+                &attempt,
+                json!({"hook_event_name": "UserPromptSubmit", "prompt": "earlier request"}),
+            )
+            .await
+            .unwrap();
+        }
+        assert_eq!(f.agents.input_started(&node.id), had_input);
+        f.call("agent.stop", json!({"id": node.id})).await.unwrap();
+        let node = f
+            .tree()
+            .await
+            .into_iter()
+            .find(|n| n.id == node.id)
+            .unwrap();
+        resume_in_mode(&f, &node, None).await;
+        assert_eq!(f.agents.input_started(&node.id), admitted);
+    }
+}
