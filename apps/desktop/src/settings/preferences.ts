@@ -79,6 +79,16 @@ export const terminalType = (settings = appSettings()) => ({
   letterSpacing: settings.letterSpacing,
 });
 
+const defaults = new Map(Object.entries(v.parse(schema, {})));
+
+/** U6276a: a value equal to its default is not stored, so a later default reaches the user. Reads fill the gaps. */
+const changedFromDefaults = (settings: Preferences): Preferences => {
+  const changed = Object.entries(v.parse(schema, settings)).filter(([key, value]) => JSON.stringify(value) !== JSON.stringify(defaults.get(key)));
+
+  // SAFETY: every field of the schema falls back on read, so the delta parses back to a full record.
+  return Object.fromEntries(changed) as Preferences;
+};
+
 /** A failed durable write changes nothing; the settings view shows the returned cause. */
 let saving: Promise<unknown> = Promise.resolve();
 
@@ -91,7 +101,7 @@ export const saveAppSettings = (patch: Partial<Preferences>, capture?: CapturePo
 
     try {
       if (replacement && capture) await capture.configure(captured.quickAddAnywhere! || null);
-      const failure = await storage().write({ ...before, ...captured });
+      const failure = await storage().write(changedFromDefaults({ ...before, ...captured }));
 
       if (failure && replacement && capture) await capture.configure(before.quickAddAnywhere || null);
 
