@@ -1,3 +1,4 @@
+import { copy } from "./copy";
 import { RpcError } from "../app/seam";
 import type { OpenTarget } from "../app/seam";
 
@@ -146,7 +147,7 @@ export const openPrinted = async (
       }
     }
 
-    console.warn(`path not found: ${printed.path} (tried ${tried.join(", ")})`);
+    console.warn(copy.pathNotFound(printed.path, tried.join(", ")));
 
     return null;
   } catch (thrown) {

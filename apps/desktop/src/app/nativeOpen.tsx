@@ -117,7 +117,7 @@ export const watchNativeOpen = ({ solid: { createEffect, createSignal, onCleanup
 
           // U6249c3: the user cannot fix a link no Project can parse; the App log holds the cause.
           if (error instanceof RpcError && error.code === INVALID_PARAMS) {
-            console.warn(`link not opened: ${url}: ${error.message}`);
+            console.warn(linkCopy.notOpened(url, error.message));
 
             return;
           }
@@ -129,7 +129,7 @@ export const watchNativeOpen = ({ solid: { createEffect, createSignal, onCleanup
       if (failures.length === 0) {
         const closed = offer ? await closedProject(url) : undefined;
 
-        if (!closed) console.warn(`link not opened: ${url}: no running Project owns it`);
+        if (!closed) console.warn(linkCopy.notOpened(url, linkCopy.noOwner));
         else fail(linkCopy.closed(closed.name), { label: linkCopy.openProject(closed.name), run: () => void projects.open(closed.path).then(() => { fail(null); open(request, false); }) });
       } else fail([...new Set(failures)].join("; "));
     }).catch(error => { if (!(error instanceof Error)) throw error; fail(error.message); });

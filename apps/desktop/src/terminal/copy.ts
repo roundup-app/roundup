@@ -33,4 +33,8 @@ export const copy = {
   latest: "↓ Latest",
   findLabel: "Find in Terminal",
   findNoMatch: "No matches",
+  /** @prose */
+  linkNotOpened: (cause: string) => `link not opened: ${cause}`,
+  /** @prose */
+  pathNotFound: (path: string, tried: string) => `path not found: ${path} (tried ${tried})`,
 } as const;

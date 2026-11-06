@@ -1,3 +1,4 @@
+import { linkCopy } from "./copy";
 import type { AppSeam } from "./seam";
 
 /** The Daemon's key for its Project, read once per seam (LK1). */
@@ -17,7 +18,7 @@ export const projectKeyOf = (app: AppSeam): Promise<string> => {
 
 /** The Daemon's key for the Project at `path` (the Daemon names its Project folder so): its folder name, a dash and the first 16 hex digits of the SHA-256 of the path. `path` must already be canonical; a symlinked recent path does not match. */
 export const keyOfPath = async (path: string): Promise<string> => {
-  const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(path)));
+  const digest = new Uint8Array(await crypto.subtle.digest(linkCopy.keyDigest, new TextEncoder().encode(path)));
 
   return `${path.split("/").findLast(Boolean) ?? "root"}-${Array.from(digest.slice(0, 8), byte => byte.toString(16).padStart(2, "0")).join("")}`;
 };

@@ -1,6 +1,11 @@
 import { labels, copy as sharedCopy, type CopyValue } from "../sharedCopy";
 
 export const linkCopy = {
+  /** @prose */
+  notOpened: (url: string, cause: string) => `link not opened: ${url}: ${cause}`,
+  /** The digest the Daemon hashes a Project path with; not shown. */
+  keyDigest: "SHA-256",
+  noOwner: "no running Project owns it",
   closed: (project: string) => `${project} is not open.`,
   openProject: (project: string) => `Open ${project}`,
 } as const;

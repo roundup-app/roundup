@@ -5,6 +5,7 @@ import { createFakeApp } from "../testing/fakeApp";
 import { agent, info, workstream } from "../testing/nodes";
 import { fakeEmulators } from "../terminal/paneHarness";
 import type { NativeOpen } from "./seam";
+import { keyOfPath } from "./projectLink";
 
 let receive: ((request: NativeOpen) => void) | undefined;
 
@@ -31,8 +32,10 @@ it("u3787f_deep_link_preserves_identity_and_authority_refuses_without_opening_a_
 
   render(() => <App app={app} reducedMotion={() => true} clock={() => 0} prepareIdle={open => open.showView("workstreams")} />);
   await waitFor(() => expect(receive).toBeDefined());
-  receive?.({ kind: "link", url: "roundup://pad/notes?project=unavailable" });
-  await screen.findByText(/Project.*not open/);
+  // U6249c3: a recent Project that is not open is offered, not refused with text alone.
+  app.recentProjects = async () => ["/gone/unavailable"];
+  receive?.({ kind: "link", url: `roundup://pad/notes?project=${await keyOfPath("/gone/unavailable")}` });
+  await screen.findByRole("button", { name: "Open unavailable" });
   expect(app.calls.filter(call => /spawn|start|input|write/.test(call.method))).toEqual([]);
 });
 

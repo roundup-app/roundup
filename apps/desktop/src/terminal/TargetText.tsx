@@ -1,5 +1,6 @@
 import { createMemo, For } from "solid-js";
 import { useConnectedProject } from "../state/connectedProject";
+import { copy } from "./copy";
 import { findTargets, openPrinted, type Printed } from "./links";
 import "./styles.css";
 
@@ -26,7 +27,7 @@ export const TargetText = (props: { text: string; base: string; objectLinks?: bo
   const open = async (printed: Printed) => {
     const failure = await openPrinted((target) => app.openTarget(target), printed, [props.base, project.path]);
 
-    if (failure !== null) console.warn(`link not opened: ${failure}`);
+    if (failure !== null) console.warn(copy.linkNotOpened(failure));
   };
 
   return <><For each={pieces()}>{piece => piece.printed
