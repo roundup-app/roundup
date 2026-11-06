@@ -597,6 +597,12 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
     { action: CHORDS.find(row => row.name === "workstream.new")!, capture: () => ({ available: canSpawn, invoke: createWorkstream }) },
     { action: CHORDS.find(row => row.name === "mode.new")!, capture: () => ({ available: canSpawn, invoke: () => setCreatingMode(true) }) },
     { chords: ["ContextMenu", "Shift+F10"], when: (press) => focusedRowId(press) !== undefined, run: openMenuAtFocusedRow },
+    // U3289c: with the Rail itself focused (no row), the same keys open the recovery item the background right-click opens.
+    { chords: ["ContextMenu", "Shift+F10"], when: () => document.activeElement === container() && recoveryEntries().length > 0, run: () => {
+      const box = container()!.getBoundingClientRect();
+
+      void contextMenu(app, recoveryEntries(), box.left + 8, box.top + 8);
+    } },
     { action: CHORDS.find((row) => row.name === "rail.remove")!, capture: () => ({ available: () => (selectedNodes().length > 0 || rail.nodes.some((node) => node.id === rail.selected())) && daemonExit() === null, invoke: () => removeSelected(false) }) },
   ]);
 
