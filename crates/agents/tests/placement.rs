@@ -120,6 +120,7 @@ async fn a39_an_answer_that_is_not_a_checked_span_is_unclear() {
 }
 fn part(text: &str, destination: Destination) -> AskPart {
     AskPart {
+        project: None,
         text: text.into(),
         destination,
     }
@@ -531,4 +532,55 @@ fn u6271a_a_fixed_project_narrows_the_request() {
         request_streams(&request),
         [(Some("beta".into()), "w2".into())]
     );
+}
+
+fn two_projects() -> Request {
+    Request::across(
+        "ship the docs".into(),
+        vec![],
+        vec![
+            (Some("alpha".into()), vec![stream("w1", "Build")]),
+            (Some("beta".into()), vec![stream("w2", "Docs")]),
+        ],
+        None,
+    )
+}
+
+struct Fixed(Vec<AskPart>);
+#[async_trait::async_trait]
+impl agents::placement::Placement for Fixed {
+    async fn call(&self, _: &str, _: &Request) -> Result<Vec<AskPart>, String> {
+        Ok(self.0.clone())
+    }
+}
+
+#[tokio::test]
+async fn u6271a_an_unclear_project_asks_back() {
+    let request = two_projects();
+    let new = |project: Option<&str>| {
+        let mut each = part(
+            "ship the docs",
+            Destination::New {
+                title: "Docs".into(),
+            },
+        );
+        each.project = project.map(str::to_owned);
+        each
+    };
+    // A new part names the Project it fits; one that names none, or a closed one, asks back.
+    for (answer, placed) in [
+        (new(Some("beta")), true),
+        (new(None), false),
+        (new(Some("gamma")), false),
+    ] {
+        let parts = agents::placement::place(&Fixed(vec![answer]), "a", &request, |_, _| {}).await;
+        assert_eq!(
+            matches!(parts[0].destination, Destination::New { .. }),
+            placed
+        );
+        assert_eq!(
+            matches!(parts[0].destination, Destination::Unclear { .. }),
+            !placed
+        );
+    }
 }
