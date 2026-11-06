@@ -43,8 +43,12 @@ export const attachLinkGestures = (terminal: Terminal, host: HTMLElement, open: 
   };
 
   const refresh = () => {
+    // U6283a: with no pointer over the Terminal and nothing shown, a frame has nothing to detect or draw.
+    if (!pointer && shown === "") return;
+
     const link = linkAt(pointer && cellAt(pointer));
-    const key = link ? JSON.stringify([link.range, link.text, terminal.buffer.active.type, terminal.buffer.active.viewportY, terminal.cols, terminal.rows]) : "";
+    const { start, end } = link?.range ?? { start: { x: 0, y: 0 }, end: { x: 0, y: 0 } };
+    const key = link ? [start.x, start.y, end.x, end.y, link.text, terminal.buffer.active.type, terminal.buffer.active.viewportY, terminal.cols, terminal.rows].join("|") : "";
 
     if (shown === key) return;
     shown = key;
@@ -167,13 +171,13 @@ export const attachLinkGestures = (terminal: Terminal, host: HTMLElement, open: 
   const document = host.ownerDocument;
   document.addEventListener("mouseup", up, true);
   document.addEventListener("mousedown", nextPress, true);
+  // U6283a: a scroll always ends in a render, so one pass per frame after xterm draws covers both.
   const rendered = terminal.onRender(refresh);
-  const scrolled = terminal.onScroll(refresh);
 
   return () => {
     cancel();
     terminal.options.linkHandler = null;
-    rendered.dispose(); scrolled.dispose();
+    rendered.dispose();
 
     for (const mark of marks) mark.remove();
     (terminal.element ?? host).style.cursor = "";
