@@ -107,7 +107,7 @@ pub(crate) fn fold(
 }
 
 /// A Message reached `id` while its resume waits: the remaining resumes are cancelled.
-pub(crate) fn cancel(table: &mut HashMap<String, Resume>, id: &str) -> bool {
+pub(crate) fn withdraw(table: &mut HashMap<String, Resume>, id: &str) -> bool {
     table.remove(id).is_some()
 }
 
@@ -151,8 +151,8 @@ impl Agents {
 
     /// U6248b: a Message other than the resume itself reached `id`; its remaining resumes are
     /// cancelled.
-    pub fn cancel_resume(&self, id: &str) {
-        let moved = cancel(&mut self.shared.resumes.lock().expect("resumes lock"), id);
+    pub fn withdraw_resume(&self, id: &str) {
+        let moved = withdraw(&mut self.shared.resumes.lock().expect("resumes lock"), id);
         if moved {
             self.shared
                 .bus
@@ -228,9 +228,9 @@ mod tests {
         let mut table = HashMap::new();
         fold(&mut table, "a", &overloaded(), 0);
         let first = table["a"].at.expect("waiting");
-        assert!(cancel(&mut table, "a"));
+        assert!(withdraw(&mut table, "a"));
         assert!(take_due(&mut table, first).is_empty());
-        assert!(!cancel(&mut table, "a"));
+        assert!(!withdraw(&mut table, "a"));
     }
 
     #[test]
@@ -289,10 +289,10 @@ mod tests {
 
     #[test]
     fn u6248b_a_turn_a_stop_or_a_user_cancels_the_rest() {
-        for cancel in [Kind::Working, Kind::Idle, Kind::Done] {
+        for kind in [Kind::Working, Kind::Idle, Kind::Done] {
             let mut table = HashMap::new();
             fold(&mut table, "a", &overloaded(), 0);
-            assert!(fold(&mut table, "a", &status(cancel, "x"), 1));
+            assert!(fold(&mut table, "a", &status(kind, "x"), 1));
             assert!(take_due(&mut table, i64::MAX).is_empty());
         }
     }
