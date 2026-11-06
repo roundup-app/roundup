@@ -131,7 +131,6 @@
 .settings-sections .app-tabs-trigger[data-selected] {
   --button-surface: var(--transparent);
   color: var(--accent);
-  font-weight: 600;
 }
 
 .settings-content {
@@ -306,6 +305,8 @@
 .settings-rows :is(.app-select, .settings-field, .app-segments, .app-switch, .settings-appearance-preview, .settings-preview):not(:first-child) {
   border-top: var(--hairline-width) solid var(--hairline);
 }
+/* A long value (a URL) takes the row's full width, its label above. */
+.settings-content .settings-field.settings-field-stacked { grid-template-columns: minmax(0, 1fr); row-gap: var(--space-1); }
 /* A picker inside a field is part of that row, not a row of its own. */
 .settings-field .app-select { padding: 0; }
 .settings-field .app-select:not(:first-child) { border-top: 0; }

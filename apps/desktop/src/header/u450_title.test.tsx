@@ -125,3 +125,11 @@ it("u450_full_title_reaches_the_window", async () => {
   fireEvent.click(document.querySelector('.rail-row[data-id="long"]')!);
   await waitFor(() => expect(app.windowOperations.at(-1)).toEqual({ kind: "title", title: "api — " + "W".repeat(300) }));
 });
+
+it("u6382a_bar_draws_no_title", async () => {
+  const { app } = await openTabs({ api: [workstream("build", { name: "Build" })] });
+
+  fireEvent.click(document.querySelector('.rail-row[data-id="build"]')!);
+  await waitFor(() => expect(app.windowOperations).toContainEqual({ kind: "title", title: "api — Build" }));
+  expect(document.querySelector(".window-bar")!.querySelector('[role="heading"], .window-title')).toBeNull();
+});

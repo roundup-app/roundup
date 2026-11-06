@@ -108,7 +108,7 @@ const doubleAt = async (at: { x: number; y: number }) => {
 };
 
 // Every surface shares the one `user-select: none` chrome rule, so one title-bar, one Rail and one Shelf surface represent it.
-const chromeSurfaces = [".window-title", '[data-id="migrate"] .name', ".shelf-tabs"];
+const chromeSurfaces = [".traffic-lights", '[data-id="migrate"] .name', ".shelf-tabs"];
 
 it.each(["drag", "double-click"])(
   "u2680c_chrome_drag_and_double_click_leave_no_browser_selection_%s", async gesture => {
@@ -193,13 +193,13 @@ it.each(["agent", "bubble"] as const)("u2680a_terminal_boundaries_never_create_b
 it.each(["agent", "bubble"] as const)("u2680b_a_click_clears_browser_and_terminal_selections_%s", async where => {
   const selector = await placement(where);
 
-  const targets = where === "agent" ? ["output", "inset", ".window-title"]
+  const targets = where === "agent" ? ["output", "inset", ".traffic-lights"]
     : ["output", ".bubble-header", '.bubble-zone[data-zone="se"]'];
 
   for (const target of targets) {
     await browser("dblclick", selector);
     expect(await read<string>("window.__emu.selection()"), target).not.toBe("");
-    await browser("eval", "(() => { const range = document.createRange(); range.selectNodeContents(document.querySelector('.window-title')); getSelection().removeAllRanges(); getSelection().addRange(range); })()");
+    await browser("eval", "(() => { const range = document.createRange(); range.selectNodeContents(document.querySelector('.project-tab .tab-name-button')); getSelection().removeAllRanges(); getSelection().addRange(range); })()");
 
     const at = target === "inset" ? await read<{ x: number; y: number }>(`(() => {
       const host = document.querySelector(${JSON.stringify(selector)}).closest('.pane-screen, .bubble-body').getBoundingClientRect();
@@ -315,7 +315,7 @@ it.each([{ kind: "pad", gesture: "double-click" }, { kind: "rename", gesture: "d
   const selected = "window.__editor instanceof HTMLInputElement || window.__editor instanceof HTMLTextAreaElement ? window.__editor.value.slice(window.__editor.selectionStart, window.__editor.selectionEnd) : getSelection().toString()";
 
   expect(await read<string>(selected)).not.toBe("");
-  await browser("click", ".window-title");
+  await browser("click", ".traffic-lights");
   expect(await read<string>(selected)).toBe("");
   expect(await read<string>("window.__editor.value ?? window.__editor.textContent")).toBe(before);
   await batch(
@@ -332,7 +332,7 @@ it("u2680b_minimising_and_restoring_does_not_restore_selection", async () => {
   await browser("dblclick", selector);
   expect(await read<string>("window.__emu.selection()")).not.toBe("");
   await batch(
-    ["click", ".window-title"],
+    ["click", ".traffic-lights"],
     ["wait", "--fn", "!document.querySelector('.bubble:not([hidden])')"]
   );
   expect(await read<string>("window.__emu.selection()")).toBe("");
@@ -758,7 +758,7 @@ it.each(["diff", "code", "readonly-pad"] as const)("u5515c_readonly_text_preserv
   expect(selected).toContain(" ");
   await rightAt({ x: from.x + 20, y: from.y });
   expect(await read("window.__context")).toEqual({ editable: false, cancelled: false, selected });
-  await browser("click", ".window-title");
+  await browser("click", ".traffic-lights");
   await rightAt(from);
   expect(await read<boolean>("window.__context.editable || window.__context.cancelled")).toBe(false);
 }, 90_000);
