@@ -5,9 +5,10 @@ export const linkCopy = {
   notOpened: (url: string, cause: string) => `link not opened: ${url}: ${cause}`,
   /** The digest the Daemon hashes a Project path with; not shown. */
   keyDigest: "SHA-256",
+  /** @prose */
   noOwner: "no running Project owns it",
   closed: (project: string) => `${project} is not open.`,
-  openProject: (project: string) => `Open ${project}`,
+  openProject: sharedCopy.openEvidence,
 } as const;
 
 export const storageCopy = {
