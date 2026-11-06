@@ -157,14 +157,18 @@ describe("u365 opening", () => {
     expect(app.openedTargets).toEqual([]);
   });
 
-  it("u365_a_missing_path_opens_nothing_and_says_so", async () => {
+  it("u6249c_missing_path_is_logged_not_shown", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const { app, emulators, container } = await mount();
 
     app.openFailure = new RpcError(-32001, "not found: /w/a/gone.ts");
     emulators.get("t-a")!.clickLink({ kind: "path", path: "gone.ts", line: null });
 
-    await vi.waitFor(() => expect(container.querySelector("[role=alert]")?.textContent).toContain("/w/a/gone.ts does not exist"));
+    await vi.waitFor(() => expect(warn).toHaveBeenCalledTimes(1));
+    expect(warn.mock.calls[0]?.[0]).toContain("gone.ts");
+    expect(container.querySelector("[role=alert]")).toBeNull();
     expect(app.openedTargets).toEqual([]);
+    warn.mockRestore();
   });
 
   it("u365_paths_fold_dots_and_trailing_slashes", () => {
@@ -201,7 +205,7 @@ describe("u365b bare domains", () => {
     expect(target("file.txt")).toEqual({ kind: "path", path: "file.txt", line: null });
   });
 
-  const open = (failures: Record<string, RpcError>) => {
+  const open = (failures: Record<string, RpcError>, bases: string[] = ["/p"]) => {
     const calls: OpenTarget[] = [];
 
     const openTarget = async (t: OpenTarget) => {
@@ -212,7 +216,7 @@ describe("u365b bare domains", () => {
       if (failure) throw failure;
     };
 
-    return { calls, run: (text: string) => openPrinted(openTarget, target(text)!, "/p", (path) => `${path} does not exist.`) };
+    return { calls, run: (text: string) => openPrinted(openTarget, target(text)!, bases) };
   };
 
   it("u365b_an_existing_file_named_like_a_domain_opens_the_file", async () => {
@@ -227,6 +231,18 @@ describe("u365b bare domains", () => {
 
     expect(await run("legislation.gov.uk")).toBeNull();
     expect(calls).toEqual([{ kind: "path", path: "/p/legislation.gov.uk", line: null }, { kind: "url", url: "https://legislation.gov.uk" }]);
+  });
+
+  it("u6249c_path_tries_likely_homes", async () => {
+    const missing = new RpcError(-32001, "not found");
+    const { calls, run } = open({ "/w/a/src/a.ts": missing, "/p/src/a.ts": missing }, ["/w/a", "/p", "/w/a"]);
+
+    expect(await run("src/a.ts:42")).toBeNull();
+    expect(calls).toEqual([
+      { kind: "path", path: "/w/a/src/a.ts", line: 42 },
+      { kind: "path", path: "/p/src/a.ts", line: 42 },
+      { kind: "path", path: "~/src/a.ts", line: 42 },
+    ]);
   });
 
   it("u365b_a_refused_fallback_shows_its_cause", async () => {

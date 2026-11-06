@@ -1,8 +1,14 @@
 import { labels, copy as sharedCopy, type CopyValue } from "../sharedCopy";
 
 export const linkCopy = {
-  published: "This published link cannot be opened here. Open it from Made.",
-  projectClosed: "The link's Project is not open. Open that Project and try the link again.",
+  /** @prose */
+  notOpened: (url: string, cause: string) => `link not opened: ${url}: ${cause}`,
+  /** The digest the Daemon hashes a Project path with; not shown. */
+  keyDigest: "SHA-256",
+  /** @prose */
+  noOwner: "no running Project owns it",
+  closed: (project: string) => `${project} is not open.`,
+  openProject: sharedCopy.openEvidence,
 } as const;
 
 export const storageCopy = {
