@@ -99,3 +99,26 @@ it("u6249c_closed_project_link_offers_open", async () => {
   await waitFor(() => expect(m.app.of("/Users/x/closed").calls.filter(call => call.method === "link.read")).toHaveLength(1));
   await waitFor(() => { if (screen.queryByRole("button", { name: "Open closed" })) throw new Error("the action still shows"); });
 });
+
+it("u6249c_symlinked_recent_project_offers_open", async () => {
+  const m = await mountSurface("plain");
+  m.app.recentProjects = async () => ["/Users/x/link"];
+  m.app.canonicalProjectPath = async () => "/Users/x/real/closed";
+  m.app.handlers["link.read"] = () => { throw new RpcError(-32001, "Not this Project", { kind: "other-project" }); };
+
+  m.receive({ kind: "link", url: `roundup://agent/4?project=${await keyOfPath("/Users/x/real/closed")}` });
+  fireEvent.click(await screen.findByRole("button", { name: "Open link" }));
+  await waitFor(() => expect(m.app.of("/Users/x/link").calls.filter(call => call.method === "link.read")).toHaveLength(1));
+});
+
+it("u6249c_unresolvable_recent_path_is_skipped", async () => {
+  const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+  const m = await mountSurface("plain");
+  m.app.recentProjects = async () => ["/Users/x/closed"];
+  m.app.canonicalProjectPath = async () => { throw new RpcError(-32001, "gone"); };
+
+  m.app.handlers["link.read"] = () => { throw new RpcError(-32001, "Not this Project", { kind: "other-project" }); };
+
+  m.receive({ kind: "link", url: "roundup://agent/4?project=closed-9c99096382081341" });
+  await waitFor(() => expect(warn).toHaveBeenCalled());
+});
