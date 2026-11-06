@@ -48,7 +48,7 @@ describe("u11 one emulator per Terminal", () => {
     app.outputFailure = new RpcError(-32603, "channel refused");
     connected.rail.select("a");
 
-    await screen.findByRole("alert", { name: "terminal.output: channel refused" });
+    await screen.findByRole("alert", { name: /^Terminal output stopped\.\s+channel refused$/ });
 
     expect(screen.getAllByRole("alert")).toHaveLength(1);
   });

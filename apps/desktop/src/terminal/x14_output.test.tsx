@@ -122,6 +122,8 @@ describe("x14 the App's output subscription", () => {
     screens.show("t-b", host());
     await subscribed(app, "t-a");
     await subscribed(app, "t-b");
+    // The screens are asked for after the subscriptions; output printed before that is part of the screen, not of the stream.
+    await vi.waitFor(() => expect(app.calls.filter(call => call.method === "terminal.snapshot")).toHaveLength(2));
 
     const [a, b] = app.outputSubscriptions;
     const written = (id: string) => decoded(made.get(id)?.written ?? []);

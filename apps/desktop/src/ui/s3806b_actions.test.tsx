@@ -144,6 +144,8 @@ const mountApp = async (capture?: import("../app/seam").CapturePort, empty = fal
 
   const mounted: MountedApp = { app: app.of(path("first")), connected: original! };
 
+  if (!empty) await waitFor(() => expect(mounted.app.calls.some(call => call.method === "terminal.snapshot")).toBe(true));
+
   if (second) mounted.other = app.of(path("second"));
 
   return mounted;

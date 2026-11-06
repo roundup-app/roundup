@@ -147,7 +147,7 @@ it.each([
   fireEvent.click(await waitFor(() => { const row = document.querySelector(".held-row"); expect(row).not.toBeNull();
 
  return row!; }));
-  await screen.findByText(/Terminal unavailable/);
+  await screen.findByText(/Could not restore Terminal output/);
   expect(connected.held.rows()).toHaveLength(1);
   app.handlers["rail.tree"] = () => tree.filter(node => node.id !== "a");
   app.emit(event({ name: "rail.changed" }));

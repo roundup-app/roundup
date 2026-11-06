@@ -1,6 +1,7 @@
 import { isWorkstreamChild } from "../rail/layout";
 import { throttle } from "@solid-primitives/scheduled";
 import { captureFocus } from "../keys/focus";
+import { retryRead } from "../app/seam";
 import { forgetScrollback, restoreScrollback, retainScrollback } from "./scrollback";
 import { clipboardFailure, readPaste } from "../app/clipboard";
 import { copy as appCopy } from "./copy";
@@ -12,6 +13,9 @@ import { fromBase64, toBase64 } from "./base64";
 import { openPrinted } from "./links";
 import type { Printed } from "./links";
 import type { Emulator, EmulatorFactory, Size, TerminalPreparation } from "./emulator";
+
+/** One try of `prepare`: the preparation, or the reason it stopped for good (cancelled, out of time, or no renderer), which no retry changes. */
+type Preparing = { kind: "prepared"; value: TerminalPreparation } | { kind: "stopped"; reason: unknown };
 
 /** An emulator reply of `OK` to a Kitty graphics command. */
 const isKittyOk = (text: string): boolean => text.startsWith("\x1b_G") && text.endsWith("\x1b\\") && /^i=\d+;OK$/.test(text.slice(3, -2));
@@ -49,8 +53,10 @@ export type Screens = {
   pastePaths(id: string, paths: string[]): void;
   /** The selected Terminal's last failed call or `terminal.output`, until a later call for that Terminal succeeds. */
   failure(id: string | null): string | null;
+  /** U6249b: the verb that tries the shown failure of `failure(id)` again, or null when it has none. */
+  retry(id: string | null): (() => void) | null;
   /** P3557c: the user dismisses the failure `failure(id)` shows; an older failure of that Terminal then shows, and no other Terminal, call or input changes. */
-  dismiss(id: string): void;
+  dismiss(id: string | null): void;
   dispose(): void;
 };
 
@@ -109,7 +115,7 @@ type Holder = {
   resizeSize: Size | null;
 };
 
-type FailureEntry = { message: string; order: number };
+type FailureEntry = { message: string; order: number; retry: (() => void) | null };
 
 /** `output` is the subscription's own failure: a later successful call does not clear it, only a new subscription does. */
 type TerminalFailures = { snapshot: FailureEntry | null; live: FailureEntry | null; output: FailureEntry | null; clipboard: FailureEntry | null; link: FailureEntry | null };
@@ -139,7 +145,7 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
   let failureOrder = 0;
   let disposed = false;
 
-  const setFailure = (id: string, kind: keyof TerminalFailures, message: string | null): void => {
+  const setFailure = (id: string, kind: keyof TerminalFailures, message: string | null, retry: (() => void) | null = null): void => {
     setFailures((current) => {
       const previous = current.get(id) ?? { snapshot: null, live: null, output: null, clipboard: null, link: null };
 
@@ -152,7 +158,7 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
         state.link = null;
       }
 
-      state[kind] = message === null ? null : { message, order: ++failureOrder };
+      state[kind] = message === null ? null : { message, order: ++failureOrder, retry };
 
       const next = new Map(current);
 
@@ -217,6 +223,19 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
     });
   };
 
+  /** The failure `failure(id)` shows, with the Terminal that owns it: that of `id`, or with no `id` the newest of any Terminal. */
+  const shownFailure = (id: string | null): { id: string; entry: FailureEntry } | null => {
+    let latest: { id: string; entry: FailureEntry } | null = null;
+
+    for (const [owner, state] of failures()) {
+      const entry = id === null || owner === id ? newestFailure(state) : null;
+
+      if (entry && (!latest || entry.order > latest.entry.order)) latest = { id: owner, entry };
+    }
+
+    return latest;
+  };
+
   const stopWatch = async (id: string): Promise<void> => {
     const watch = watches.get(id);
 
@@ -230,8 +249,23 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
     } catch (thrown) {
       if (!(thrown instanceof Error)) throw thrown;
 
-      if (!disposed) setFailure(id, "output", `terminal.output: ${thrown.message}`);
+      if (!disposed) console.warn(appCopy.terminalOutputNotWatched(thrown.message));
     }
+  };
+
+  /** U6249b: subscribing is a read, so it retries like one; a subscription nobody wants any more ends the retries (`null`). The first try is made at once and counts as the read's first attempt, so a subscription that works is placed with no extra wait. */
+  const subscribe = (id: string, listener: (message: OutputMessage) => void, wanted: () => boolean): Promise<OutputSubscription | null> => {
+    if (!wanted()) return Promise.resolve(null);
+
+    let first: Promise<OutputSubscription> | null = app.selectOutput(id, listener);
+
+    return first.catch(() => retryRead(async () => {
+      const attempt = first ?? (wanted() ? app.selectOutput(id, listener) : null);
+
+      first = null;
+
+      return attempt;
+    }));
   };
 
   /** Bytes the watch missed between the stream's release and its own start (`offset` past `shownTo`) count as unseen too. */
@@ -243,15 +277,15 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
 
     void (async () => {
       try {
-        const subscription = await app.selectOutput(id, () => {
+        const subscription = await subscribe(id, () => {
           if (!watch.open) return;
 
           markUnseen(id, true);
           void stopWatch(id);
-        });
+        }, () => watch.open);
 
-        if (!watch.open) {
-          await subscription.release();
+        if (!watch.open || subscription === null) {
+          await subscription?.release();
 
           return;
         }
@@ -265,7 +299,8 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
       } catch (thrown) {
         if (!(thrown instanceof Error)) throw thrown;
 
-        if (watch.open) setFailure(id, "output", `terminal.output: ${thrown.message}`);
+        // The watch only learns that bytes came: nothing here is the user's to act on.
+        if (watch.open) console.warn(appCopy.terminalOutputNotWatched(thrown.message));
       }
     })();
   };
@@ -374,7 +409,7 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
         if (!(thrown instanceof Error)) throw thrown;
 
         stream.parsing = false;
-        setFailure(id, "output", `terminal.output: ${thrown.message}`);
+        setFailure(id, "output", appCopy.terminalOutputStopped(thrown.message));
       }
 
       if (stream.parsing) return;
@@ -395,7 +430,7 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
       const output = holder.emulator.serialize?.();
 
       if (output) retainScrollback(project.path, holder.incarnation!, { ...output, after },
-        cause => setFailure(id, "output", appCopy.terminalRestoreFailed(cause)));
+        cause => console.warn(appCopy.terminalOutputNotKept(cause)));
     });
   };
 
@@ -408,7 +443,7 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
       const retained = await restoreScrollback(
         connected, id, holder.incarnation, holder.emulator, holder.complete, shownTo.get(id),
         () => stream.open && stream.after === null && !stream.lost,
-        cause => setFailure(id, "output", appCopy.terminalRestoreFailed(cause)),
+        cause => console.warn(appCopy.terminalOutputNotKept(cause)),
       );
 
       if (!stream.open) return;
@@ -442,7 +477,9 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
 
       if (!stream.open) return;
 
-      setFailure(id, "snapshot", appCopy.terminalRestoreFailed(thrown.message));
+      setFailure(id, "snapshot", appCopy.terminalRestoreFailed(thrown.message), () => {
+        if (stream.open && !stream.restoring) void restore(id, holder, stream);
+      });
 
       if (!holder.complete) stream.after = stream.queue[0]?.offset ?? stream.start ?? 0;
 
@@ -521,10 +558,10 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
       if (!exited(id)) {
         setFailure(id, "output", null);
 
-        const subscription = await app.selectOutput(id, (message) => receive(id, holder, stream, message));
+        const subscription = await subscribe(id, (message) => receive(id, holder, stream, message), () => stream.open);
 
-        if (!stream.open) {
-          await subscription.release();
+        if (!stream.open || subscription === null) {
+          await subscription?.release();
 
           return;
         }
@@ -541,7 +578,9 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
 
       if (!stream.open) return;
 
-      setFailure(id, "output", `terminal.output: ${thrown.message}`);
+      setFailure(id, "output", appCopy.terminalOutputStopped(thrown.message), () => {
+        if (stream.open) void attach(id, holder, stream);
+      });
     }
 
     if (stream.open) void restore(id, holder, stream);
@@ -570,7 +609,7 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
     } catch (thrown) {
       if (!(thrown instanceof Error)) throw thrown;
 
-      if (!disposed) setFailure(id, "output", `terminal.output: ${thrown.message}`);
+      if (!disposed) console.warn(appCopy.terminalOutputNotWatched(thrown.message));
     }
   };
 
@@ -836,39 +875,66 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
   };
 
   const prepare = async (host: HTMLElement, settled = () => true, signal?: AbortSignal): Promise<TerminalPreparation> => {
-    let bound: string | null = null;
-    const emulator = createEmulator(crypto.randomUUID(), text => bound ? copy(bound, text) : Promise.resolve());
-    let owned = true;
-    const dispose = () => { if (owned) { owned = false; emulator.dispose(); } };
-
-    // Include lazy loading, fonts and layout in the same finite preparation budget.
+    // Include lazy loading, fonts and layout in the same finite preparation budget, across every try.
     const deadline = AbortSignal.timeout(5_000);
     const cancellation = AbortSignal.any(signal ? [signal, deadline] : [deadline]);
-    const listening = new AbortController();
+    const asError = (reason: { message: string }): Error => reason instanceof Error ? reason : new Error(reason.message, { cause: reason }); // callers branch on `instanceof Error`
+    const stopped = () => ({ kind: "stopped", reason: deadline.aborted ? new Error(appCopy.terminalDestinationUnavailable) : asError(cancellation.reason) }) as const;
 
-    // Created inside the race, so the race handles a rejection that lands before or after it settles.
-    const cancelled = () => new Promise<never>((_, reject) => {
-      const abort = () => {
-        dispose();
-        reject(deadline.aborted ? new Error(appCopy.terminalDestinationUnavailable) : cancellation.reason);
-      };
+    const waiting = new AbortController();
+
+    // A cancellation answers at once, not after the wait between two tries.
+    const gone = new Promise<never>((_, reject) => {
+      const abort = () => reject(stopped().reason);
 
       if (cancellation.aborted) abort();
-      else cancellation.addEventListener("abort", abort, { once: true, signal: listening.signal });
+      else cancellation.addEventListener("abort", abort, { once: true, signal: waiting.signal });
     });
 
-    try {
-      if (!emulator.prepare) throw new Error(appCopy.terminalPreparationUnavailable);
-      const size = await Promise.race([emulator.prepare(host, settled, cancellation), cancelled()]);
+    // U6249b: attaching is local and cheap to repeat, so a try that fails quickly is made again by the read retry.
+    const attempts = retryRead(async (): Promise<Preparing> => {
+      if (cancellation.aborted) return stopped();
 
-      return { size, bind: id => {
-        if (!owned) return;
-        bound = id;
-        emulator.bind?.(id);
-        holderFor(id, emulator);
-        owned = false;
-      }, dispose };
-    } catch (error) { dispose(); throw error; } finally { listening.abort(); }
+      let bound: string | null = null;
+      const emulator = createEmulator(crypto.randomUUID(), text => bound ? copy(bound, text) : Promise.resolve());
+      let owned = true;
+      const dispose = () => { if (owned) { owned = false; emulator.dispose(); } };
+
+      try {
+        if (!emulator.prepare) {
+          dispose();
+
+          return { kind: "stopped", reason: new Error(appCopy.terminalPreparationUnavailable) };
+        }
+
+        const size = await Promise.race([emulator.prepare(host, settled, cancellation), gone]);
+
+        return { kind: "prepared", value: { size, bind: id => {
+          if (!owned) return;
+          bound = id;
+          emulator.bind?.(id);
+          holderFor(id, emulator);
+          owned = false;
+        }, dispose } };
+      } catch (error) {
+        dispose();
+
+        if (cancellation.aborted) return stopped();
+
+        throw error;
+      }
+    });
+
+    const preparing = await Promise.race([attempts, gone]).catch((error) => {
+      // A try that finishes after the answer has no owner.
+      void attempts.then(late => { if (late.kind === "prepared") late.value.dispose(); }, () => {});
+
+      throw error;
+    }).finally(() => waiting.abort());
+
+    if (preparing.kind === "stopped") throw preparing.reason;
+
+    return preparing.value;
   };
 
   return {
@@ -908,26 +974,13 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
         holders.get(id)?.emulator.blur?.();
       }
     },
-    failure: (id) => {
-      const current = failures();
-
-      if (id !== null) return newestFailure(current.get(id))?.message ?? null;
-
-      let latest: FailureEntry | null = null;
-
-      for (const state of current.values()) {
-        const failure = newestFailure(state);
-
-        if (failure && (!latest || failure.order > latest.order)) latest = failure;
-      }
-
-      return latest?.message ?? null;
-    },
+    failure: (id) => shownFailure(id)?.entry.message ?? null,
+    retry: (id) => shownFailure(id)?.entry.retry ?? null,
     dismiss: (id) => {
-      const state = failures().get(id);
-      const shown = newestFailure(state);
+      const shown = shownFailure(id);
+      const state = shown && failures().get(shown.id);
 
-      for (const kind of FAILURE_KINDS) if (state?.[kind] === shown) setFailure(id, kind, null);
+      if (shown) for (const kind of FAILURE_KINDS) if (state?.[kind] === shown.entry) setFailure(shown.id, kind, null);
     },
     dispose: () => {
       disposed = true;
