@@ -124,7 +124,8 @@ async fn q11_a_loaded_bundle_allows_a_subsequent_agent() {
 
 #[tokio::test]
 async fn b37_real_claude_receives_a_note_after_a_scripted_server_error() {
-    let mut project = daemon::start_real("b37_server_error", &[]);
+    let hour = [("ROUNDUP_RESUME_DELAY_MS", "3600000")];
+    let mut project = daemon::start_real("b37_server_error", &hour);
     let user = project.client().await;
     let mut events = project.subscribed().await;
     let door = user
@@ -252,10 +253,10 @@ async fn b37_real_claude_receives_a_note_after_a_scripted_server_error() {
     .expect("the Door went idle after the Digests and took the scripted server error prompt");
     let failed = project
         .next_named(
-            "the Door's error status after the scripted server error",
+            "the Door's waiting status after the scripted server error",
             &mut events,
             |data| match data {
-                EventData::AgentStatus(s) if s.id == door && s.status.kind == Kind::Error => {
+                EventData::AgentStatus(s) if s.id == door && s.status.kind == Kind::Blocked => {
                     Some(s)
                 }
                 _ => None,
