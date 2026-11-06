@@ -871,9 +871,10 @@
   block-size: auto;
   max-block-size: none;
 }
-.rail-resume-spent .reserved-content { flex-wrap: wrap; }
+.rail-resume-spent .reserved-content { align-items: flex-start; }
 .rail-resume-spent .reserved-status {
-  flex-basis: 100%;
+  font-size: inherit;
+  line-height: normal;
   white-space: normal;
 }
 

@@ -88,7 +88,7 @@ it("u6248c_waiting_row_has_no_button", async () => {
   expect(rowOf("waiting").querySelector(".rail-resume button")).toBeNull();
 
   const resume = rowOf("spent").querySelector<HTMLButtonElement>(".rail-resume button")!;
-  expect(resume.getAttribute("aria-label")).toBe("Resume spent");
+  expect(resume.getAttribute("aria-label")).toBe("Send retry message to spent");
   expect(rowOf("spent").querySelectorAll("[data-failure], .rail-resume .reserved-status")).toHaveLength(1);
   fireEvent.click(resume);
   await waitFor(() => expect(railCallsTo(app, "message.send")).toHaveLength(1));

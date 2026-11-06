@@ -239,7 +239,7 @@ export const RailRowView = (props: {
     }}</Show>
     <Show when={!workstream() && props.row.node.resume}>{resume => <Show when={resume().at} fallback={
       <Show when={props.row.node.status?.kind === "error"}>
-        <ReservedLine class="rail-resume rail-resume-spent" status={props.row.node.status?.label}><button type="button" data-button="quiet" aria-label={`${copy.resume} ${props.row.node.name}`} onClick={event => { event.stopPropagation(); void connected.rail.resumeTurn(props.row.node.id).then(failed => { if (failed !== null) props.onFailure(copy.failed(copy.resume, failed)); }); }}>{copy.resume}</button></ReservedLine>
+        <ReservedLine class="rail-resume rail-resume-spent" status={props.row.node.status?.label}><button type="button" data-button="quiet" aria-label={`Send retry message to ${props.row.node.name}`} onClick={event => { event.stopPropagation(); void connected.rail.resumeTurn(props.row.node.id).then(failed => { if (failed !== null) props.onFailure(copy.failed(copy.retry, failed)); }); }}>{copy.retry}</button></ReservedLine>
       </Show>}>
       {at => <ReservedLine class="rail-resume" status={copy.resumesAt(props.row.node.status?.label ?? "", at())} />}
     </Show>}</Show>
