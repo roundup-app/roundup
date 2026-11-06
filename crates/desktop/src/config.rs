@@ -25,6 +25,8 @@ pub struct Config {
     pub socket: PathBuf,
     pub ready_bound: Duration,
     pub call_bound: Duration,
+    /// The waits before each automatic Daemon reopen (U6249b); tests shorten them.
+    pub reopen_waits: [Duration; 3],
     /// Where names and the open list are kept (S10); `None` until the App resolves its own data folder.
     pub data_dir: Option<PathBuf>,
     /// `ROUNDUP_DEV_PORT` (S13): the Vite port `just app` gave this run; `devUrl` follows it.
@@ -54,9 +56,16 @@ impl Config {
             socket,
             ready_bound: READY_BOUND,
             call_bound: CALL_BOUND,
+            reopen_waits: crate::reopen::WAITS,
             data_dir: None,
             dev_port: None,
         })
+    }
+
+    /// The wait after the `failures`-th failure of a Daemon, or `None` once recovery is spent (U6249b).
+    pub(crate) fn reopen_wait(&self, failures: u8) -> Option<Duration> {
+        let index = usize::from(failures).checked_sub(1)?;
+        self.reopen_waits.get(index).copied()
     }
 
     /// The socket path for one Daemon run: `socket` unchanged for the first (`run` 0), and a

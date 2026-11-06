@@ -17,6 +17,7 @@ async fn a40_send_returns_at_once_and_the_parts_follow() {
     let mut events = h.ctx.bus.subscribe();
     call.answer
         .send(vec![AskPart {
+            project: None,
             text: "keep my words".into(),
             destination: Destination::Unclear {
                 question: "Which work?".into(),
@@ -48,6 +49,7 @@ async fn a40_a_two_topic_message_becomes_two_parts() {
         .send(
             ["fix café", "ship 🚀"]
                 .map(|text| AskPart {
+                    project: None,
                     text: text.into(),
                     destination: Destination::Unclear {
                         question: "Where?".into(),

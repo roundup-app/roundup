@@ -268,14 +268,10 @@ impl Shared {
             return Err(err);
         }
         let clock = Arc::clone(&self.clock);
-        // U6260b: a conversation that already had the user's input stays admitted; a retained
-        // order alone is not new input (A5556a).
-        let conversation_had_input =
-            old.as_ref().is_some_and(|old| old.input_started) || self.stored_input_started(id);
         let mut run = Run {
             yolo: mode == contracts::agent::ResumeMode::Yolo,
             startup_context: true,
-            input_started: prompt.is_some() || conversation_had_input,
+            input_started: prompt.is_some(),
             attempt: attempt.clone(),
             status_revision: 1,
             closing: false,

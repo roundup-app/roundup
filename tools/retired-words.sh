@@ -32,6 +32,7 @@ alert_tokens = {
     },
     "crates/messages/src/failure.rs": {"held"},
     "crates/messages/src/tests/dcl_tests.rs": {"u6260a_held_prompt_is_reported_to_its_sender"},
+    "apps/desktop/src/ui/u6239_browser.test.ts": {"u6239a_the_held_tab_is_under_the_pointer"},
     "apps/desktop/src/toasts/watch.tsx": {"held"},
     "apps/desktop/src/toasts/u5501_levels.test.tsx": {"held"},
     "apps/desktop/src/state/connectedProject.ts": {"createHeld", "held", "held:"},

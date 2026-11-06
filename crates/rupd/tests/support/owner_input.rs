@@ -128,7 +128,11 @@ impl Run {
     async fn pending_identity(&self, before: &[Value]) {
         for original in before {
             let id = original["id"].as_u64().unwrap() as u32;
-            assert_eq!(self.message(id).await, *original);
+            // U6260a: `waiting` says why it stays pending; the Message's identity is the rest.
+            let (mut now, mut then) = (self.message(id).await, original.clone());
+            now.as_object_mut().unwrap().remove("waiting");
+            then.as_object_mut().unwrap().remove("waiting");
+            assert_eq!(now, then);
             assert_eq!(original["status"], "pending");
         }
     }
