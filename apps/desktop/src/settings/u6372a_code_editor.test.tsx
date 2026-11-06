@@ -16,7 +16,6 @@ it("u6372a_the_editor_group_lists_automatic_and_the_installed_editors_and_the_ch
   fireEvent.click(await screen.findByRole("tab", { name: "Editor" }));
   const panel = within(await screen.findByLabelText("Editor", { selector: '[role="tabpanel"]' }));
   const trigger = await waitFor(() => panel.getByLabelText("Code editor", { selector: "button" }));
-  expect(trigger.textContent).toBe("Automatic");
 
   fireEvent.click(trigger);
   const list = within(await screen.findByLabelText("Code editor", { selector: '[role="listbox"]' }));

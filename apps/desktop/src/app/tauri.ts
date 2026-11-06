@@ -152,7 +152,13 @@ export const createTauriApp = (): App => {
     listEditors: () => parsedCommand(v.array(v.object({ id: v.string(), name: v.string() })), "list_editors", {}),
     showContextMenu: (items, x, y) => parsedCommand(v.nullable(v.string()), "show_context_menu", { items, x, y }),
     openInEditor: async (path, line, editor) => {
-      await command("open_in_editor", { path, ...line === undefined ? {} : { line }, ...editor ? { editor } : {} });
+      const params: { path: string; line?: number; editor?: string } = { path };
+
+      if (line !== undefined) params.line = line;
+
+      if (editor) params.editor = editor;
+
+      await command("open_in_editor", params);
     },
     // The bytes are the request body and the type a header, so a screenshot is not sent as a JSON list.
     savePastedImage: ({ type, bytes }) => parsedCommand(v.string(), "save_pasted_image", bytes, { headers: { type } }),
