@@ -9,7 +9,7 @@ import { copy } from "./copy";
 import { createCut } from "../ink/Tip";
 import { DISMISS_ONLY, ReservedLine } from "../ink/ReservedLine";
 import { KindGlyph, LABELS } from "../ink/KindGlyph";
-import { AgentError, shownKind } from "../ink/FailureLine";
+import { FailureLine, shownKind } from "../ink/FailureLine";
 import { useConnectedProject } from "../state/connectedProject";
 import type { AskEntry } from "../state/asks";
 import { registerKeys, type KeyScope } from "../keys/registry";
@@ -164,7 +164,9 @@ const AskRow = (props: { linkFailure: string | null; onLinkFailure: (message: st
           {line(tip)}
         </Dynamic>;
       }}</Tip>
-      <Show when={!dismissed()}><AgentError status={status()} /></Show>
+      <Show when={!dismissed()}><FailureLine status={status()} action={DISMISS_ONLY} onDismiss={() => { const each = node();
+
+ if (each) rail.dismiss(each); }} /></Show>
       <Show when={asking()}>
         <div class="ask-back">
           <p class="ask-reason">{props.part.reason ?? (props.part.placement.kind === "unclear" ? props.part.placement.question : "")}</p>

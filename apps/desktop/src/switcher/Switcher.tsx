@@ -11,7 +11,7 @@ import type { ActionRow } from "@contracts/action/ActionRow";
 import { copy } from "./copy";
 import { KindGlyph } from "../ink/KindGlyph";
 import { StatusTip } from "../ink/StatusTip";
-import { AgentError, shownKind } from "../ink/FailureLine";
+import { errorCause, shownKind } from "../ink/FailureLine";
 import { Combobox } from "../ui/Combobox";
 import { trackSurface } from "../ui/openSurfaces";
 import { useConnectedProject } from "../state/connectedProject";
@@ -431,7 +431,7 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
               <Show when={entry.todo !== undefined || entry.pad !== undefined}><span class="switcher-kind">{entry.todo !== undefined ? copy.kindTodo : copy.kindPad}</span></Show>
               <span class="switcher-name">{entry.label}</span>
               <Show when={entry.owner}><span class="switcher-owner">{entry.owner}</span></Show>
-              <Show when={entry.node && !rail.dismissed(entry.node)}><AgentError status={entry.node?.status} /></Show>
+              <Show when={entry.node && !rail.dismissed(entry.node)}><ReservedLine status={errorCause(entry.node?.status, false)} /></Show>
             </span>}</StatusTip>;
           }} />
         <ReservedLine message={makeFailure()} action={DISMISS_ONLY} onDismiss={() => setMakeFailure(null)} />

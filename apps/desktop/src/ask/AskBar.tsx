@@ -22,7 +22,7 @@ import { useConnectedProject } from "../state/connectedProject";
 import { Combobox } from "../ui/Combobox";
 import { Mentions } from "../ui/Mentions";
 import { KindGlyph, LABELS } from "../ink/KindGlyph";
-import { AgentError, shownKind } from "../ink/FailureLine";
+import { errorCause, shownKind } from "../ink/FailureLine";
 import { attentionOrder } from "../rail/attention";
 import { selectedRailRow } from "../rail/selectedRow";
 import { descendantsOf, resolvedWorkstream, siblingsOf } from "../rail/layout";
@@ -343,7 +343,7 @@ export const AskBar = (props: {
 
             const dismissed = () => node() !== undefined && rail.dismissed(node()!);
 
-            return <><KindGlyph decorative kind={shownKind(node()?.status, dismissed())} /><Tip text={item.label} cut={cut}>{trigger => <span {...trigger()} ref={name} class="app-mention-name">{item.label.slice(0, start())}<mark>{item.label.slice(start(), end())}</mark>{item.label.slice(end())}</span>}</Tip><Show when={parent()}>{name => <span class="app-mention-parent">{name()}</span>}</Show><Show when={!dismissed()}><AgentError status={node()?.status} /></Show></>;
+            return <><KindGlyph decorative kind={shownKind(node()?.status, dismissed())} /><Tip text={item.label} cut={cut}>{trigger => <span {...trigger()} ref={name} class="app-mention-name">{item.label.slice(0, start())}<mark>{item.label.slice(start(), end())}</mark>{item.label.slice(end())}</span>}</Tip><Show when={parent()}>{name => <span class="app-mention-parent">{name()}</span>}</Show><Show when={!dismissed()}><ReservedLine status={errorCause(node()?.status, false)} /></Show></>;
           }} /></Show>
         </Mentions.Root>
         <ReservedLine overlay class="ask-send-status" message={problem() ? copy.draftRetention(connected.project.name, copy.draftSurface("ask"), problem()!.cause) : failure()?.message ?? (records().some(draft => draft.status === "unknown") ? null : asks.failure())}
@@ -481,7 +481,7 @@ const OverviewEntry = (props: { node: RailNode; status: boolean; waiting: boolea
         </span>
       }</Tip>
       <span {...tip} ref={name} class={props.waiting ? "overview-name ink" : "overview-name"}>{props.node.name}</span>
-      <AgentError status={status()} />
+      <ReservedLine status={errorCause(status(), false)} />
     </button>;
   }}</Tip>;
 };
@@ -602,7 +602,7 @@ const Deliverables = (props: { state: ReturnType<typeof createDeliverables> }) =
 
   return <section ref={section} on:click={{ capture: true, handleEvent: content.click }} on:keydown={{ capture: true, handleEvent: rowKey }} class="made" aria-label={copy.deliverables} aria-busy={pending() !== null || props.state.loading()}>
       <Combobox.Picker label={copy.deliverablesFilter} value={filter()} items={choices()} onSelect={setFilter} />
-      <ReservedLine status={props.state.failure() ?? (props.state.loading() ? copy.deliverablesLoading : null)} />
+      <ReservedLine message={props.state.failure()} status={props.state.loading() ? copy.deliverablesLoading : null} action={<button type="button" data-button="quiet" onClick={() => props.state.reload()}>{copy.retry}</button>} clearedBy={props.state.failure} />
       <Show when={!props.state.loading() && props.state.failure() === null && records().length === 0}><p class="overview-quiet">{copy.deliverablesEmpty}</p></Show>
       <ul class="made-list"><For each={records()}>{record => <li class="made-row" data-deliverable={record.id} data-overview-item={record.id} data-selected={content.selection.isEmpty() ? selected() === record.id : content.selection.isSelected(record.id)}
         onContextMenu={event => openOnRelease(event, (x, y) => openMenu(record, x, y))}>

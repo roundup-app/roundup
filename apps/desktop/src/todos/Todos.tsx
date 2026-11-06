@@ -854,7 +854,7 @@ export const Todos = (props: {
       <Show when={todos.isLoaded()}>
         <For each={[...new Set(connected.drafts.list().filter(draft => draft.destination.surface === "todos"
           && draft.destination.object !== "new" && !todos.byId().has(Number(draft.destination.object))).map(draft => draft.destination.object))]}>{object => <div>
-          <ReservedLine status={copy.draftIdentity(copy.originalUnavailable, object)} />
+          <ReservedLine message={copy.draftIdentity(copy.originalUnavailable, object)} action={<button type="button" data-button="quiet" onClick={() => void todos.reload()}>{copy.retry}</button>} clearedBy={() => todos.byId().has(Number(object))} />
           <TodoDraftRecovery object={object} />
         </div>}</For>
       </Show>

@@ -5,9 +5,9 @@ import type { TerminalInfo } from "@contracts/terminal/TerminalInfo";
 import { nameOf } from "../bubbles/places";
 import { statusText } from "../terminal/programStatus";
 import { copy } from "./copy";
-import { ReservedLine } from "../ink/ReservedLine";
+import { DISMISS_ONLY, ReservedLine } from "../ink/ReservedLine";
 import { KindGlyph } from "../ink/KindGlyph";
-import { AgentError } from "../ink/FailureLine";
+import { FailureLine } from "../ink/FailureLine";
 import { StatusTip } from "../ink/StatusTip";
 import { Collapsible } from "../ui/Collapsible";
 import { TargetText } from "../terminal/TargetText";
@@ -27,7 +27,7 @@ export type RowActions = {
 
 /** U3770b: one Agent's row. Any row opens in place to the Agent's last step and the one action that fits its state. */
 export const InboxRow = (props: { row: AgentRow; open: boolean; selected: boolean; toggle(): void; actions: RowActions; head(element: HTMLElement): void }) => {
-  const { project } = useConnectedProject();
+  const { project, rail } = useConnectedProject();
   const name = createUniqueId();
   const node = () => props.row.node;
   const terminal = () => props.row.terminal;
@@ -53,7 +53,9 @@ export const InboxRow = (props: { row: AgentRow; open: boolean; selected: boolea
         </Collapsible.Trigger>}</StatusTip>
         <div class="inbox-actions">{actions()}</div>
       </div>
-      <AgentError status={node()?.status} class="inbox-failure" />
+      <FailureLine status={node()?.status} class="inbox-failure" action={DISMISS_ONLY} onDismiss={() => { const each = node();
+
+ if (each) rail.dismiss(each); }} />
       <Collapsible.Content>
         <div class="inbox-body">
           <p class="inbox-step"><Show when={node()}><span class="light">{copy.inboxLastStep}</span> </Show><TargetText objectLinks text={step() ?? ""} base={project.path} onFailure={message => props.actions.fail(props.row, message)} /></p>
