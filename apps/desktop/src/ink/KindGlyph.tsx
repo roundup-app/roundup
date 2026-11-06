@@ -81,6 +81,9 @@ export const KindGlyph = (props: { kind: Kind; decorative?: boolean; label?: str
   createComputed(on(() => props.kind, kind => {
     const previous = shown;
 
+    // A redraw re-reads the prop for every Glyph; only a different Kind is a change to fade.
+    if (kind === previous) return;
+
     shown = kind;
     // Read what is on screen before the running fade is cancelled, so an interrupted fade continues from it.
     const from = current ? parseFloat(getComputedStyle(current).opacity) || 1 : 1;
@@ -98,12 +101,10 @@ export const KindGlyph = (props: { kind: Kind; decorative?: boolean; label?: str
       return;
     }
 
-    if (!mark || !outgoing || !current) return;
-
-    // Read tokens only when a fade runs: a style read per glyph after a redraw's writes forces a recalculation per row.
     const tokens = getComputedStyle(document.documentElement);
     const seconds = parseFloat(tokens.getPropertyValue("--duration-reduced")) / 1000;
 
+    if (!mark || !outgoing || !current) return;
 
     if (!(seconds > 0)) return setLeaving(undefined);
     // Opaque marks stacked: an eased pair keeps the combined Glyph from dimming at the midpoint.
