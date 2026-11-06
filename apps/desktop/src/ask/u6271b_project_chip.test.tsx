@@ -36,8 +36,9 @@ const type = (text: string) => fireEvent.input(input()!, { target: { value: text
 const enter = () => press("Enter", {}, input()!);
 
 const chip = () => screen.findByRole("combobox", { name: "Project" }, slow);
+
 /** The Project the chip currently holds: the value of the Select's hidden native field. */
-const held = () => document.querySelector<HTMLSelectElement>(".ask-chips select")?.value;
+const chosen = () => document.querySelector<HTMLSelectElement>(".ask-chips select")?.value;
 
 describe("u6271b the Project chip", () => {
   it("u6271b_the_chip_reads_the_active_project_until_a_pick_returns", async () => {
@@ -45,10 +46,10 @@ describe("u6271b the Project chip", () => {
 
     type("pay invoices");
     await chip();
-    expect(held()).toBe("p");
+    expect(chosen()).toBe("p");
     expect(places).toEqual([]);
 
-    await waitFor(() => expect(held()).toBe("other"), slow);
+    await waitFor(() => expect(chosen()).toBe("other"), slow);
     expect(places).toEqual(["pay invoices"]);
   });
 
@@ -75,7 +76,7 @@ describe("u6271b the Project chip", () => {
     fireEvent.pointerDown(choice, { pointerType: "mouse", button: 0 });
     fireEvent.pointerUp(choice, { pointerType: "mouse", button: 0 });
     fireEvent.click(choice);
-    await waitFor(() => expect(held()).toBe("other"));
+    await waitFor(() => expect(chosen()).toBe("other"));
     enter();
     await waitFor(() => expect(sent).toHaveLength(1));
     expect(sent[0]).toMatchObject({ text: "ship it", project: "other" });
