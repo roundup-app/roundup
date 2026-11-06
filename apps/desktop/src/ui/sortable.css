@@ -3,6 +3,24 @@
   position: relative;
 }
 
+/* A lifted row floats over its neighbours: an opaque ground under its content hides what lies beneath it. */
+.sortable-source {
+  isolation: isolate;
+}
+
+.sortable-source::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: var(--rail-ground, var(--ground));
+  pointer-events: none;
+}
+
+[data-horizontal] .sortable-source::before {
+  content: none;
+}
+
 .sortable-source::after {
   content: "";
   position: absolute;
