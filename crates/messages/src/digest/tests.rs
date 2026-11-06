@@ -1,6 +1,7 @@
 use super::*;
 use contracts::message::{MessageKind, MessageStatus};
 use contracts::{Kind, Status};
+
 pub(super) fn status(kind: Kind, label: &str) -> Status {
     Status {
         kind,
@@ -54,7 +55,6 @@ fn sent(id: u32, from: &str, to: &str, body: &str) -> Message {
         reply_to: None,
         status: MessageStatus::Delivered,
         reason: None,
-        waiting: None,
         at: id.into(),
     }
 }
