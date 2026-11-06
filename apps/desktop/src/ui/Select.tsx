@@ -29,7 +29,6 @@ export const Select = (props: {
   const [root, setRoot] = createSignal<HTMLDivElement>();
   const [list, setList] = createSignal<HTMLDivElement>();
   const control = floatingControl({}, root);
-  const closing = new WeakSet<Event>();
   let trigger: HTMLButtonElement | undefined;
   let initialFocus = captureFocus();
   let returnFocus = captureFocus();
@@ -70,17 +69,19 @@ export const Select = (props: {
 
   const api = createMemo(() => select.connect(service, normalizeProps));
 
-  // Ark closes the list before an Escape reaches the form, so mark the Escape that found it open first.
+  // An Escape in the open list closes only it: stopping it at the window's capture phase keeps every enclosing dismiss layer, whichever registered first, from seeing it.
   const mark = (event: KeyboardEvent) => {
     const target = event.target;
 
-    if (event.key === "Escape" && control.open() && target instanceof Node && (root()?.contains(target) || list()?.contains(target))) closing.add(event);
+    if (event.key !== "Escape" || !control.open() || !(target instanceof Node) || !(root()?.contains(target) || list()?.contains(target))) return;
+    event.stopPropagation();
+    api().setOpen(false);
   };
 
-  document.addEventListener("keydown", mark, true);
-  onCleanup(() => document.removeEventListener("keydown", mark, true));
+  window.addEventListener("keydown", mark, true);
+  onCleanup(() => window.removeEventListener("keydown", mark, true));
 
-  return <div class="app-select" ref={setRoot} onKeyDown={(event) => { if (closing.has(event)) event.stopPropagation(); }}>
+  return <div class="app-select" ref={setRoot}>
     <ArkSelect.RootProvider value={api} lazyMount unmountOnExit>
       <ArkSelect.Label class="app-select-label">{props.label}</ArkSelect.Label>
       <ArkSelect.Control>

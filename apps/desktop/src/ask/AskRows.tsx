@@ -49,20 +49,22 @@ export const AskRows = (props: { onOpened: () => void; keys: KeyScope }) => {
     }));
   });
 
-  const nameOf = (id: string): string => rail.nodes.find((node) => node.id === id)?.name ?? id;
-
-  const where = (part: AskPart): string => {
+  /** U6271c: with two or more open Projects the row names the Project too. */
+  const where = (entry: AskEntry, index: number, part: AskPart): string => {
     const placement = part.placement;
+    const dest = asks.destination(entry, index);
+    const nodes = dest && !dest.local ? dest.nodes() : rail.nodes;
+    const nameOf = (id: string): string => nodes.find((node) => node.id === id)?.name ?? id;
 
-    if (placement.kind === "routed") return nameOf(placement.workstream);
+    const name = placement.kind === "routed" ? nameOf(placement.workstream)
+      : placement.kind === "new" ? (placement.workstream === undefined ? placement.title : nameOf(placement.workstream))
+      : placement.question;
 
-    if (placement.kind === "new") return placement.workstream === undefined ? placement.title : nameOf(placement.workstream);
-
-    return placement.question;
+    return dest && placement.kind !== "unclear" ? copy.askWhere(dest.project.name, name) : name;
   };
 
-  const open = (id: string): void => {
-    rail.select(id);
+  const open = (id: string | null): void => {
+    if (id !== null) rail.select(id);
     props.onOpened();
     focusPane();
   };
@@ -70,7 +72,7 @@ export const AskRows = (props: { onOpened: () => void; keys: KeyScope }) => {
   const live = () => parts().filter(row => isUnresolved(asks, row.entry, row.index, row.part));
 
   const rows = (items: ReturnType<typeof parts>) => <ul class="ask-rows" aria-label={copy.askRows}>
-    <For each={items}>{({ entry, part, index, live }) => <AskRow live={live} keys={props.keys} entry={entry} part={part} index={index} where={where(part)} workstream={workstreamOf(part)} open={open} />}</For>
+    <For each={items}>{({ entry, part, index, live }) => <AskRow live={live} keys={props.keys} entry={entry} part={part} index={index} where={where(entry, index, part)} workstream={workstreamOf(part)} open={open} />}</For>
   </ul>;
 
   return <Show when={live().length > 0}><div class="ask-content">
@@ -81,7 +83,7 @@ export const AskRows = (props: { onOpened: () => void; keys: KeyScope }) => {
   </div></Show>;
 };
 
-const AskRow = (props: { live: boolean; keys: KeyScope; entry: AskEntry; part: AskPart; index: number; where: string; workstream: string | null; open: (id: string) => void }) => {
+const AskRow = (props: { live: boolean; keys: KeyScope; entry: AskEntry; part: AskPart; index: number; where: string; workstream: string | null; open: (id: string | null) => void }) => {
   const { asks, rail, project } = useConnectedProject();
 
   let button: HTMLButtonElement | undefined;
@@ -103,17 +105,28 @@ const AskRow = (props: { live: boolean; keys: KeyScope; entry: AskEntry; part: A
   registerKeys({ kind: "region", element: () => button }, arrows);
   registerKeys(props.keys, arrows);
 
-  const node = () => (props.workstream === null ? undefined : rail.nodes.find((each) => each.id === props.workstream));
+  const dest = () => asks.destination(props.entry, props.index);
+  const foreign = () => dest()?.local === false ? dest() : null;
+
+  const node = () => (props.workstream === null ? undefined : (foreign()?.nodes() ?? rail.nodes).find((each) => each.id === props.workstream));
 
   const open = (): void => {
     const target = node();
 
-    if (target) props.open(target.id);
+    if (!target) return;
+
+    // U6271c: a Workstream of another Project is reached by showing that Project first.
+    const other = foreign();
+
+    if (other) {
+      other.open(target.id);
+      props.open(null);
+    } else props.open(target.id);
   };
 
   /** U505: once typed, the Door's own live Status; never text a model wrote. */
   const status = () => (props.live && props.part.state === "typed" ? node()?.status ?? null : null);
-  const dismissed = () => node() !== undefined && rail.dismissed(node()!);
+  const dismissed = () => node() !== undefined && foreign() === null && rail.dismissed(node()!);
   const asking = () => !props.entry.pending && (props.part.state === "waiting" || props.part.state === "failed");
   const busy = () => asks.picking(props.entry.key, props.index);
   const failure = () => asks.partFailure(props.entry.key, props.index);

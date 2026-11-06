@@ -22,7 +22,7 @@ export const copy = {
   noCommit: "no commit",
   service: "Service",
   up: "up",
-  project: "Project",
+  project: sharedCopy.project,
   selected: "Selected",
   none: "none",
 } as const;
