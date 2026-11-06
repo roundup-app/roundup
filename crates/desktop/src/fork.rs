@@ -112,18 +112,84 @@ pub(crate) fn fork_path(home: &Path, name: &str) -> PathBuf {
         .expect("an unused folder name")
 }
 
-/// Starts the branch's App on the Fork, from the source checkout, opening the first picked Project.
-pub(crate) fn open(checkout: &Path, fork: &Path, project: &str) -> Result<(), RpcError> {
-    Command::new("just")
-        .arg("app")
+/// The line `just app` prints once everything is built and only the App's launch is left.
+pub(crate) const STARTED: &str = "roundup: starting the App";
+
+/// The live App's per-instance variables: the Fork's App takes its own, never these.
+const LIVE_ONLY: [&str; 3] = ["ROUNDUP_DEV_PORT", "ROUNDUP_SLOT", "ROUNDUP_RUPD_BIN"];
+
+/// U6266a: the command that starts the branch's App on the Fork from the source checkout, with an
+/// environment of its own: the Fork's data folder and none of the live App's per-instance variables.
+fn command(checkout: &Path, fork: &Path, project: &str) -> Command {
+    let mut command = Command::new("just");
+    command
+        .args(["--quiet", "app"])
         .arg(project)
         .current_dir(checkout)
-        .env("ROUNDUP_DATA_DIR", fork)
-        .env_remove("ROUNDUP_SLOT")
+        .env("ROUNDUP_DATA_DIR", fork);
+    for name in LIVE_ONLY {
+        command.env_remove(name);
+    }
+    command
+}
+
+/// Runs `command` until it prints `STARTED`; it fails with the last line it wrote to stderr
+/// when it exits non-zero first. The child keeps running after a start.
+fn start(mut command: Command) -> Result<(), RpcError> {
+    use std::io::{BufRead, BufReader};
+    use std::sync::mpsc;
+
+    let mut child = command
         .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
         .spawn()
-        .map(drop)
-        .map_err(|error| RpcError::internal(format!("start the branch's App: {error}")))
+        .map_err(|error| RpcError::internal(format!("just: {error}")))?;
+    let (tx, rx) = mpsc::channel();
+    let stdout = child.stdout.take().expect("piped stdout");
+    let stderr = child.stderr.take().expect("piped stderr");
+    let started = tx.clone();
+    std::thread::spawn(move || {
+        for line in BufReader::new(stdout).lines().map_while(Result::ok) {
+            if line.trim() == STARTED {
+                let _ = started.send(Event::Started);
+            }
+        }
+    });
+    let errors = std::thread::spawn(move || {
+        BufReader::new(stderr)
+            .lines()
+            .map_while(Result::ok)
+            .filter(|line| !line.trim().is_empty())
+            .last()
+    });
+    std::thread::spawn(move || {
+        let status = child.wait();
+        let last = errors.join().ok().flatten();
+        let _ = tx.send(Event::Exited(
+            status.map(|s| s.success()).unwrap_or(false),
+            last,
+        ));
+    });
+    match rx.recv() {
+        Ok(Event::Started) | Ok(Event::Exited(true, _)) => Ok(()),
+        Ok(Event::Exited(false, last)) => {
+            Err(RpcError::internal(last.unwrap_or_else(|| {
+                "the App exited before it started".into()
+            })))
+        }
+        Err(error) => Err(RpcError::internal(error)),
+    }
+}
+
+enum Event {
+    Started,
+    Exited(bool, Option<String>),
+}
+
+/// Starts the branch's App on the Fork, opening the first picked Project; returns once it has started.
+pub(crate) fn open(checkout: &Path, fork: &Path, project: &str) -> Result<(), RpcError> {
+    start(command(checkout, fork, project))
 }
 
 #[cfg(test)]
@@ -171,5 +237,28 @@ mod tests {
         std::fs::create_dir_all(&first).unwrap();
         assert_eq!(fork_path(tmp.path(), "日本"), forks.join("fork-2"));
         assert_eq!(fork_path(tmp.path(), "my fix"), forks.join("my-fix"));
+    }
+
+    #[test]
+    fn u6266a_the_forks_command_carries_none_of_the_live_apps_variables() {
+        let command = command(Path::new("/src"), Path::new("/fork"), "/proj");
+        let envs: Vec<_> = command.get_envs().collect();
+        for name in LIVE_ONLY {
+            assert!(envs.contains(&(std::ffi::OsStr::new(name), None)), "{name}");
+        }
+        assert!(envs.contains(&(
+            std::ffi::OsStr::new("ROUNDUP_DATA_DIR"),
+            Some(std::ffi::OsStr::new("/fork"))
+        )));
+    }
+
+    #[test]
+    fn u6266a_a_start_that_fails_names_the_last_error_line() {
+        let mut failing = Command::new("sh");
+        failing.args(["-c", "echo noise >&2; echo 'port is taken' >&2; exit 1"]);
+        assert_eq!(start(failing).unwrap_err().message, "port is taken");
+        let mut up = Command::new("sh");
+        up.args(["-c", &format!("echo '{STARTED}'; sleep 1")]);
+        assert!(start(up).is_ok());
     }
 }

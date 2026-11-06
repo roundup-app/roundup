@@ -649,3 +649,4 @@ async fn b2_a_message_to_an_idle_door_reaches_its_inbox_without_a_later_status_e
         .unwrap();
     assert_eq!(got["status"], "delivered");
 }
+mod u6248_tests;

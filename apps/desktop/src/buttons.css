@@ -22,6 +22,12 @@ button {
   cursor: pointer;
 }
 
+/* U6264a: an action caption stays on one line at its own width; the message or name beside it gives way. */
+[data-button] {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
 /* primary: the one action of a state. */
 [data-button="primary"] {
   color: var(--accent);
@@ -228,4 +234,11 @@ input:is(.todo-tick, [type="range"])[data-pressed="true"]:not(:disabled, [aria-d
 /* Project consent keeps its actions unboxed; only the Dialog is rounded. */
 .project-opening button[data-button] {
   --button-radius: 0;
+}
+
+/* U6264a covers captions only: a button that holds a row's content keeps wrapping and shrinking. */
+[data-button].made-open,
+[data-button].todo-ref-link {
+  flex-shrink: 1;
+  white-space: normal;
 }
