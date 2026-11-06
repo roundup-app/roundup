@@ -48,7 +48,7 @@ Tests (`u391_`; Chromium on `just harness`, plus Vitest against the fake App): `
 
 **U391a the Rail's list ends above its footer.** Given the Rail on `tree-40`, failed rows included (their "Open Terminal · Dismiss" line stays: U6249d), at 1512×900 and 1512×950, then:
 
-- **End.** The element that scrolls the list ends at the footer's top edge, and no row paints under the footer. `u391_the_footer_is_outside_the_scroll_area` holds the structure; the Observer judges the geometry.
+- **End.** The element that scrolls the list ends at the footer's top edge, and no row paints under the footer. Policy: the Observer judges the geometry (rule 10: no test of a position or overlap).
 - **Last row.** Scrolled to its end, the list shows its last row whole above the footer's hairline.
 - **Drag.** Every row, the last included, can be lifted by its grip and dropped at the slot the rows show. Auto-scroll at the list's edges stays (U522).
 
