@@ -36,6 +36,8 @@ pub struct EarlierAsk {
 
 #[derive(Clone, Debug, Serialize)]
 struct Workstream {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    project: Option<String>,
     id: String,
     name: String,
     title: Option<String>,
@@ -54,19 +56,34 @@ pub struct Request {
 impl Request {
     /// `earlier` contains only Asks preceding this Ask; the five newest go into the call.
     /// Pass the complete rail.tree, including stopped Workstreams.
-    pub fn new(text: String, mut earlier: Vec<EarlierAsk>, rail: Vec<RailNode>) -> Self {
+    pub fn new(text: String, earlier: Vec<EarlierAsk>, rail: Vec<RailNode>) -> Self {
+        Self::across(text, earlier, vec![(None, rail)], None)
+    }
+
+    /// U6271a: one request for every open Project. Each Workstream carries its Project's name;
+    /// a `fixed` Project narrows the request to that Project's Workstreams (U6271b), and a
+    /// Project that is not among `projects` is never offered.
+    pub fn across(
+        text: String,
+        mut earlier: Vec<EarlierAsk>,
+        projects: Vec<(Option<String>, Vec<RailNode>)>,
+        fixed: Option<&str>,
+    ) -> Self {
         earlier.sort_by_key(|ask| std::cmp::Reverse(ask.at));
         earlier.truncate(5);
-        let workstreams = rail
+        let workstreams = projects
             .into_iter()
-            .filter(|node| node.kind == NodeKind::Workstream)
-            .map(|node| {
+            .filter(|(project, _)| fixed.is_none_or(|fixed| project.as_deref() == Some(fixed)))
+            .flat_map(|(project, rail)| rail.into_iter().map(move |node| (project.clone(), node)))
+            .filter(|(_, node)| node.kind == NodeKind::Workstream)
+            .map(|(project, node)| {
                 let (title, ask, question) = match node.work {
                     Some(Order::Work { title, ask, .. }) => (title, Some(ask), None),
                     Some(Order::Clarification { question }) => (None, None, Some(question)),
                     None => (None, None, None),
                 };
                 Workstream {
+                    project,
                     id: node.id,
                     name: node.name,
                     title,

@@ -50,6 +50,8 @@ mod settlement;
 pub mod skill;
 mod specialist;
 mod storage;
+#[cfg(test)]
+mod u6243_tests;
 
 mod rewind;
 mod todo_refs;
@@ -108,6 +110,8 @@ pub struct Daemon {
     /// A3196: what the Workstream Queue remembers between passes.
     queue: Arc<queue::Memory>,
     auto: auto::Auto,
+    /// U6243a: the derived Rail values last told; the watcher starts once, with the others.
+    rail_told: std::sync::OnceLock<Arc<workstream_state::Tell>>,
     /// B21: subscribed at `open`, so no change is missed before the pusher runs; taken once, when
     /// a Tokio runtime is there to run it.
     pushes: std::sync::Mutex<Option<tokio::sync::broadcast::Receiver<contracts::Event>>>,

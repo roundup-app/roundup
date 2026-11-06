@@ -208,6 +208,7 @@ pub async fn push_changes(
     messages: Arc<messages::Messages>,
     seen: Arc<messages::digest::Seen>,
     settlements: Arc<crate::settlement::Settlements>,
+    tell: Option<Arc<crate::workstream_state::Tell>>,
     mut events: tokio::sync::broadcast::Receiver<contracts::Event>,
 ) {
     // DCL4: a change told before the Daemon ended and never queued is queued now, once; the
@@ -251,6 +252,11 @@ pub async fn push_changes(
         match push_once(&reader, &messages, &seen, &settlements, &mut facts).await {
             Ok(wait) => quiet = wait,
             Err(err) => eprintln!("rupd: digest push failed: {err}"),
+        }
+        // U6243a: a push moves a waiting count and sends no event, so the pass that read the
+        // count before it lands is asked to read again.
+        if let Some(tell) = &tell {
+            tell.recheck.notify_one();
         }
     }
 }
@@ -337,6 +343,7 @@ mod tests {
             daemon.sender.get().unwrap().clone(),
             Arc::new(messages::digest::Seen::default()),
             Arc::default(),
+            None,
             bus.subscribe(),
         ));
         let initial = tokio::time::timeout(Duration::from_secs(5), snapshots.recv())
@@ -381,6 +388,7 @@ mod tests {
             daemon.sender.get().unwrap().clone(),
             Arc::new(messages::digest::Seen::default()),
             Arc::default(),
+            None,
             bus.subscribe(),
         ));
         snapshots.recv().await.unwrap();
@@ -436,6 +444,7 @@ mod tests {
                 Arc::clone(&messages),
                 Arc::clone(&daemon.digests),
                 Arc::default(),
+                None,
                 daemon.bus.subscribe(),
             ));
             let life = Self {
