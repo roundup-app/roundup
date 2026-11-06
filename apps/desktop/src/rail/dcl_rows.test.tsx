@@ -2,6 +2,7 @@ import { cleanup, fireEvent, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { leaderKey } from "../keys/leaderFixture";
 import { agent, door, workstream } from "../testing/nodes";
+import { copy } from "./copy";
 import { mountRail, railCallsTo, rowOf } from "./railFixture";
 
 afterEach(cleanup);
@@ -88,7 +89,7 @@ it("u6248c_waiting_row_has_no_button", async () => {
   expect(rowOf("waiting").querySelector(".rail-resume button")).toBeNull();
 
   const resume = rowOf("spent").querySelector<HTMLButtonElement>(".rail-resume button")!;
-  expect(resume.getAttribute("aria-label")).toBe("Send retry message to spent");
+  expect(resume.getAttribute("aria-label")).toBe(copy.retryMessage("spent"));
   expect(rowOf("spent").querySelectorAll("[data-failure], .rail-resume .reserved-status")).toHaveLength(1);
   fireEvent.click(resume);
   await waitFor(() => expect(railCallsTo(app, "message.send")).toHaveLength(1));
