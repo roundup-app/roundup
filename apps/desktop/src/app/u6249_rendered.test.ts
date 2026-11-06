@@ -40,3 +40,25 @@ for (const scheme of ["dark", "light"] as const) {
     }
   }, 90_000);
 }
+
+// U6249 Observer: the Terminal top line and a Pads failure are one calm line, dismissable.
+for (const scheme of ["dark", "light"] as const) {
+  it(`u6249_terminal_restore_failure_is_calm_${scheme}`, async () => {
+    const page = await openLane(1512, scheme, `u6249t-${scheme}`);
+    const { evaluate, until, capture } = page;
+
+    try {
+      await until("document.querySelectorAll('.rail-row').length > 10");
+      await evaluate(`(() => {
+        window.__fake.app.handlers['terminal.snapshot'] = () => { throw new Error('Terminal output is unavailable.'); };
+        document.querySelector('.rail-row[data-id]').click();
+        return true;
+      })()`);
+      await until("document.querySelector('.pane-failure [role=alert]')");
+      expect(await evaluate("document.querySelectorAll('.pane-failure [role=alert]').length")).toBe(1);
+      await capture("U6249a", `terminal-failed-${scheme}`);
+    } finally {
+      await page.close();
+    }
+  }, 90_000);
+}
