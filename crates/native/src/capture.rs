@@ -163,8 +163,11 @@ impl<R: Runtime> CapturePanel<R> {
         let (send, receive) = mpsc::sync_channel(1);
         self.app
             .run_on_main_thread(move || {
-                let _main = MainThreadMarker::new().expect("Tauri main-thread dispatch");
-                let result = work(&app);
+                let result = if MainThreadMarker::new().is_some() {
+                    work(&app)
+                } else {
+                    Err("the native operation did not run on the main thread".to_owned())
+                };
                 // A dropped caller cannot authorize a later operation; this only acknowledges it.
                 let _ = send.send(result);
             })
