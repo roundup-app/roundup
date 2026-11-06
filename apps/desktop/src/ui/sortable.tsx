@@ -7,9 +7,8 @@ import "./sortable.css";
 import { Accessibility, AutoScroller, Cursor, Feedback, PointerActivationConstraints, PointerSensor, type Draggable } from "@dnd-kit/dom";
 import { RestrictToHorizontalAxis } from "@dnd-kit/abstract/modifiers";
 import { RestrictToElement } from "@dnd-kit/dom/modifiers";
-import { ProxiedElements } from "@dnd-kit/dom/utilities";
 import { effect } from "@dnd-kit/state";
-import { DragDropProvider, DragOverlay } from "@dnd-kit/solid";
+import { DragDropProvider } from "@dnd-kit/solid";
 import { isSortable } from "@dnd-kit/dom/sortable";
 import { useSortable, type UseSortableInput } from "@dnd-kit/solid/sortable";
 import { mergeProps, onCleanup, splitProps, useContext, type JSX } from "solid-js";
@@ -188,7 +187,6 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
   let sourceRow: HTMLElement | null = null;
   let slot: HTMLDivElement | null = null;
   let stopTracking: (() => void) | undefined;
-  let restoreSource: (() => void) | undefined;
   let closingSlot: HTMLDivElement | null = null;
 
   // Keyboard drags choose depth with ArrowLeft and ArrowRight; `slot` is the gap `depth` belongs to.
@@ -208,10 +206,12 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
     const step = local.tree.indent;
     const inset = local.tree.inset(target);
     const indent = inset + (depth - targetDepth) * step;
-    const parent = slot.parentElement;
+    const gap = [...list.querySelectorAll("[data-dnd-placeholder]")].find(element => element !== slot);
+    const bounds = list.getBoundingClientRect();
 
-    if (!parent) return;
-    slot.style.marginInlineStart = `${box.left + indent - parent.getBoundingClientRect().left}px`;
+    if (!gap) return;
+    slot.style.left = `${box.left + indent - bounds.left + list.scrollLeft}px`;
+    slot.style.top = `${gap.getBoundingClientRect().top - bounds.top + list.scrollTop}px`;
     slot.style.width = `${box.width - indent}px`;
   };
 
@@ -275,15 +275,10 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
     stopTracking?.();
     stopTracking = undefined;
     const ending = slot;
-    const restore = restoreSource;
-
-    restoreSource = undefined;
 
     const remove = () => {
       // OptimisticSorting restores the proxy at dragend in the renderer's next task.
       setTimeout(() => {
-        if (original && ProxiedElements.get(original) === ending) ProxiedElements.delete(original);
-        restore?.();
         ending?.remove();
       });
     };
@@ -339,34 +334,23 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
         if (isSortable(draggable)) draggable.sortable.transition = { duration: draggable === source ? 0 : duration, easing };
       }
 
-      // A horizontal list inserts no slot: the library's placeholder of the dragged tab is the gap (U6239a).
+      // No list inserts a slot into the flow: the library's placeholder of the dragged row is the gap (U6239a, U6239b).
+      // A tree's drop line is an indicator outside the flow, over that gap, so the rows around it never move.
       if (!local.horizontal) {
         slot = document.createElement("div");
         slot.className = "sortable-slot";
-        slot.setAttribute("data-dnd-placeholder", "");
         slot.setAttribute("aria-hidden", "true");
         slot.style.height = `${box.height}px`;
         slot.dataset.keyboard = String(keyboardLift);
-        sourceRow.insertAdjacentElement("afterend", slot);
+        list?.append(slot);
         placeSlot(null);
 
-        // WAAPI belongs to this lift: re-inserting the slot at another gap cannot restart its entrance.
         if (!keyboardLift && !reduced()) slot.animate([{ opacity: 0 }, { opacity: 1 }], { duration, easing });
-        ProxiedElements.set(sourceRow, slot);
       }
-
-      const target = isSortable(source) ? source.sortable.target : undefined;
-      const placeholder = slot;
-
-      restoreSource = () => {
-        if (placeholder && isSortable(source) && source.sortable.target === placeholder) source.sortable.target = target;
-      };
 
       stopTracking = effect(() => {
         if (!isSortable(source)) return;
 
-        // Keeping the original hit target at lift prevents the new slot from selecting a neighbour.
-        if (placeholder) source.sortable.target = source.index === source.initialIndex ? target : placeholder;
         list?.setAttribute("data-sortable-index", String(source.index));
 
         track(source, event.operation.position);
@@ -489,7 +473,7 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
     if (moved === undefined) return;
     order.splice(index ?? source.initialIndex, 0, moved);
     local.onOrderChange?.(order, String(source.id));
-  }}><div {...rest} ref={element => { list = element; local.ref?.(element); }} data-plain={local.plain ? "" : undefined} data-horizontal={local.horizontal ? "" : undefined}>{local.children}</div>{local.horizontal ? null : <DragOverlay class="sortable-overlay" dropAnimation={null}>{null}</DragOverlay>}</DragDropProvider>;
+  }}><div {...rest} ref={element => { list = element; local.ref?.(element); }} data-plain={local.plain ? "" : undefined} data-horizontal={local.horizontal ? "" : undefined}>{local.children}</div></DragDropProvider>;
 };
 
 type ItemProps = Pick<UseSortableInput, "id" | "index" | "disabled"> & {

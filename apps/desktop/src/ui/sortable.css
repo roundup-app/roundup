@@ -16,16 +16,14 @@
   border: 0;
 }
 
-/* Feedback still measures the library overlay for collisions and drag completion. */
-.sortable-overlay {
-  visibility: hidden;
+/* The drop line lies over the library's placeholder, outside the flow, so no row shifts for it. */
+[data-sortable-index] {
+  position: relative;
 }
 
 .sortable-slot {
   box-sizing: border-box;
-  position: relative;
-  flex-shrink: 0;
-  margin-inline-start: var(--sortable-indent, 0);
+  position: absolute;
   pointer-events: none;
 }
 
