@@ -422,12 +422,12 @@ os.execv({binary:?}, [{binary:?}, *sys.argv[1:]])
     let earlier = (0..7)
         .map(|at| agents::placement::EarlierAsk {
             at,
-            parts: vec![agents::placement::AskPart {
-                text: format!("earlier {at}"),
-                destination: Destination::Routed {
+            parts: vec![agents::placement::AskPart::new(
+                format!("earlier {at}"),
+                Destination::Routed {
                     workstream: "work".into(),
                 },
-            }],
+            )],
         })
         .collect();
     let request = Request::new(
@@ -442,25 +442,25 @@ os.execv({binary:?}, [{binary:?}, *sys.argv[1:]])
     assert_eq!(
         parts,
         vec![
-            agents::placement::AskPart {
-                text: "A39 fix café".into(),
-                destination: Destination::Routed {
+            agents::placement::AskPart::new(
+                "A39 fix café",
+                Destination::Routed {
                     workstream: "work".into()
                 }
-            },
-            agents::placement::AskPart {
-                text: "/ship 原文".into(),
-                destination: Destination::New {
+            ),
+            agents::placement::AskPart::new(
+                "/ship 原文",
+                Destination::New {
                     title: "Ship".into()
                 }
-            },
-            agents::placement::AskPart {
-                text: "decide".into(),
-                destination: Destination::Unclear {
+            ),
+            agents::placement::AskPart::new(
+                "decide",
+                Destination::Unclear {
                     question: "Which work?".into(),
                     candidates: vec!["work".into()]
                 }
-            },
+            ),
         ]
     );
     model.assert_matched();
