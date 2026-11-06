@@ -1,6 +1,6 @@
 import { TargetText } from "../terminal/TargetText";
 import { ConnectedProjectContext } from "../state/connectedProject";
-import { batch, createSignal } from "solid-js";
+import { batch } from "solid-js";
 import { RpcError } from "../app/seam";
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
@@ -334,8 +334,7 @@ const mountTextLink = async (kind: "agent" | "workstream") => {
   render(() => <App app={app} createEmulator={emulators.factory} reducedMotion={() => true} clock={() => 0} prepareIdle={open => { connected = open;  }} />);
   await waitFor(() => expect(connected).toBeDefined());
   const url = `roundup://${kind}/chosen?project=project-0000000000000000`;
-  const [failure, setFailure] = createSignal<string | null>(null);
-  render(() => <ConnectedProjectContext.Provider value={connected}><TargetText objectLinks text={`Choose ${url}.`} base="/project" onFailure={setFailure} /><span role="alert">{failure()}</span></ConnectedProjectContext.Provider>);
+  render(() => <ConnectedProjectContext.Provider value={connected}><TargetText objectLinks text={`Choose ${url}.`} base="/project" /></ConnectedProjectContext.Provider>);
   const link = await screen.findByRole("link", { name: url });
 
   return { app, connected, emulators, link, url };
@@ -388,7 +387,7 @@ it.each(["authorization", "readiness"] as const)("u5742d_message_link_preserves_
   fireEvent.input(ask, { target: { value: "keep my draft" } });
   release();
 
-  if (stage === "authorization") await waitFor(() => expect(screen.getByRole("alert").textContent).toBe(""));
+  if (stage === "authorization") await waitFor(() => { if (screen.queryByText("Previous refusal")) throw new Error("the refusal still shows"); });
   else await waitFor(() => expect(m.emulators.made.get("t-chosen")?.host).toBeTruthy());
   expect(document.activeElement).toBe(ask);
   expect(ask.value).toBe("keep my draft");

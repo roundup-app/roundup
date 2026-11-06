@@ -36,7 +36,7 @@ pub async fn resume_turns(
         tokio::select! {
             event = events.recv() => match event {
                 Ok(Event { data: EventData::MessageSent(m), .. }) if m.body != agents::RESUME_BODY => {
-                    agents.cancel_resume(&m.to);
+                    agents.withdraw_resume(&m.to);
                 }
                 Ok(_) | Err(RecvError::Lagged(_)) => {}
                 Err(RecvError::Closed) => return,

@@ -3,6 +3,24 @@
   position: relative;
 }
 
+/* A lifted row floats over its neighbours: an opaque ground under its content hides what lies beneath it. */
+.sortable-source {
+  isolation: isolate;
+}
+
+.sortable-source::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: var(--rail-ground);
+  pointer-events: none;
+}
+
+[data-horizontal] .sortable-source::before {
+  content: none;
+}
+
 .sortable-source::after {
   content: "";
   position: absolute;
@@ -16,16 +34,14 @@
   border: 0;
 }
 
-/* Feedback still measures the library overlay for collisions and drag completion. */
-.sortable-overlay {
-  visibility: hidden;
+/* The drop line lies over the library's placeholder, outside the flow, so no row shifts for it. */
+[data-sortable-index] {
+  position: relative;
 }
 
 .sortable-slot {
   box-sizing: border-box;
-  position: relative;
-  flex-shrink: 0;
-  margin-inline-start: var(--sortable-indent, 0);
+  position: absolute;
   pointer-events: none;
 }
 

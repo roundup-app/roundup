@@ -11,7 +11,7 @@ Accepted implementation target: U3010a–d in `scenarios/ui-motion.md`, commissi
 | M3 | Pointer Drawer, Shelf and Terminal Bubble: Motion spring, duration target 250 ms, bounce ≤0.1, retarget displayed position and velocity | U3010b continuity trace; existing focus/resize regressions |
 | M4 | Pointer App-rendered menu/popover: trigger-corner scale 0.96→1 and opacity 0→1, 150 ms enter, 100 ms exit | U3010b rendered placement/exit; Ark focus/action test |
 | M5 | Pointer/incoming reorder, nest, add/remove: Motion layout, 200 ms; no height keyframes | U3010c measured Solid layout probe and source review |
-| M6 | Dragging: accent outline on stationary source, empty dashed landing slot; only slot space opens/closes over crossfade; committed drop uses M5 | U3010c rendered drag; #3540 owns shared drag behavior |
+| M6 | Dragging: accent outline on the lifted row, which follows the pointer on an opaque ground, empty dashed landing slot; only slot space opens/closes over crossfade; committed drop uses M5 | U3010c rendered drag; #3540 owns shared drag behavior |
 | M7 | Acknowledged non-key Todo completion: tick draws, row starts folding at acknowledgement +300 ms through M5; data/count changes immediately | U3010c fake-clock lifetime and rendered tick/fold |
 | M8 | Clipboard success: activated control's label “Copied” for 1.5 s, through one helper; rejection shows failure line | U3010c fake clipboard/clock and every rendered caller |
 | M9 | Kind change: 150 ms glyph crossfade; only working rotates at rest | U3010c rendered Kind transitions; P3 attention regression |

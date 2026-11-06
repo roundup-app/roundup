@@ -124,7 +124,8 @@ async fn q11_a_loaded_bundle_allows_a_subsequent_agent() {
 
 #[tokio::test]
 async fn b37_real_claude_receives_a_note_after_a_scripted_server_error() {
-    let mut project = daemon::start_real("b37_server_error", &[]);
+    let hour = [("ROUNDUP_RESUME_DELAY_MS", "3600000")];
+    let mut project = daemon::start_real("b37_server_error", &hour);
     let user = project.client().await;
     let mut events = project.subscribed().await;
     let door = user
@@ -252,10 +253,10 @@ async fn b37_real_claude_receives_a_note_after_a_scripted_server_error() {
     .expect("the Door went idle after the Digests and took the scripted server error prompt");
     let failed = project
         .next_named(
-            "the Door's error status after the scripted server error",
+            "the Door's waiting status after the scripted server error",
             &mut events,
             |data| match data {
-                EventData::AgentStatus(s) if s.id == door && s.status.kind == Kind::Error => {
+                EventData::AgentStatus(s) if s.id == door && s.status.kind == Kind::Blocked => {
                     Some(s)
                 }
                 _ => None,
@@ -422,12 +423,12 @@ os.execv({binary:?}, [{binary:?}, *sys.argv[1:]])
     let earlier = (0..7)
         .map(|at| agents::placement::EarlierAsk {
             at,
-            parts: vec![agents::placement::AskPart {
-                text: format!("earlier {at}"),
-                destination: Destination::Routed {
+            parts: vec![agents::placement::AskPart::new(
+                format!("earlier {at}"),
+                Destination::Routed {
                     workstream: "work".into(),
                 },
-            }],
+            )],
         })
         .collect();
     let request = Request::new(
@@ -442,25 +443,25 @@ os.execv({binary:?}, [{binary:?}, *sys.argv[1:]])
     assert_eq!(
         parts,
         vec![
-            agents::placement::AskPart {
-                text: "A39 fix café".into(),
-                destination: Destination::Routed {
+            agents::placement::AskPart::new(
+                "A39 fix café",
+                Destination::Routed {
                     workstream: "work".into()
                 }
-            },
-            agents::placement::AskPart {
-                text: "/ship 原文".into(),
-                destination: Destination::New {
+            ),
+            agents::placement::AskPart::new(
+                "/ship 原文",
+                Destination::New {
                     title: "Ship".into()
                 }
-            },
-            agents::placement::AskPart {
-                text: "decide".into(),
-                destination: Destination::Unclear {
+            ),
+            agents::placement::AskPart::new(
+                "decide",
+                Destination::Unclear {
                     question: "Which work?".into(),
                     candidates: vec!["work".into()]
                 }
-            },
+            ),
         ]
     );
     model.assert_matched();

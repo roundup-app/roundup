@@ -6,18 +6,38 @@ import "overlayscrollbars/styles/overlayscrollbars.css";
 
 const IDLE_MS = 500;
 
-const idle = new WeakMap<Element, ReturnType<typeof setTimeout>>();
+/** The pending hide timer and the time before which the bar must stay shown. */
+const idle = new WeakMap<Element, { timer: ReturnType<typeof setTimeout>; until: number }>();
 
 /** Z3742a: xterm 6 owns a virtual scrollbar, not a native overflow viewport.
  * Its public API has no scroll-only auto-hide delay; keep this timer only there.
  * Capability probes and CSS fallback failure: Issues #3742 and #4094. */
 export const showScrollbars = (element: HTMLElement): void => {
-  clearTimeout(idle.get(element));
-  element.setAttribute("data-scroll-active", "");
-  idle.set(element, setTimeout(() => {
+  const until = performance.now() + IDLE_MS;
+  const pending = idle.get(element);
+
+  // U6283a: a bar already shown extends its deadline; it gets no attribute write and no new timer.
+  if (pending) {
+    pending.until = until;
+
+    return;
+  }
+
+  const hide = () => {
+    const entry = idle.get(element);
+
+    if (entry && entry.until > performance.now()) {
+      entry.timer = setTimeout(hide, entry.until - performance.now());
+
+      return;
+    }
+
     element.removeAttribute("data-scroll-active");
     idle.delete(element);
-  }, IDLE_MS));
+  };
+
+  element.setAttribute("data-scroll-active", "");
+  idle.set(element, { timer: setTimeout(hide, IDLE_MS), until });
 };
 
 /** Z3742a: OverlayScrollbars 2.17 requires per-element initialization and cannot
@@ -190,8 +210,23 @@ export const trackScrollbars = (doc: Document): void => {
     };
 
     root.addEventListener("input", updateField, true);
-    root.addEventListener("scroll", () => {
-      for (const [element, { slot }] of entries) place(element, slot);
+    // U6283b: scroll events fire per frame at most per target; place once per frame, only the bars the scrolled element moves.
+    const scrolled = new Set<Element>();
+    let placing = 0;
+
+    root.addEventListener("scroll", (event) => {
+      if (!(event.target instanceof Element)) return;
+
+      scrolled.add(event.target);
+      placing ||= requestAnimationFrame(() => {
+        placing = 0;
+
+        for (const [element, { slot }] of entries) {
+          if ([...scrolled].some((target) => target.contains(element))) place(element, slot);
+        }
+
+        scrolled.clear();
+      });
     }, true);
     discover(root);
   };

@@ -23,7 +23,8 @@ import { Tabs } from "./ui/Tabs";
 import { Reopen } from "./app/Reopen";
 import { createDropTargets } from "./app/dropTargets";
 import type { Requested } from "@contracts/project/Requested";
-import type { App as AppCalls, NativeOpen, DaemonExit, MenuItem, ActionRequest, ActionReply } from "./app/seam";
+import type { OpenRequest } from "./app/nativeOpen";
+import type { App as AppCalls, DaemonExit, MenuItem, ActionRequest, ActionReply, Project } from "./app/seam";
 import { DrawerHost } from "./drawer/DrawerHost";
 import { InboxKey } from "./inbox/Inbox";
 import { WindowBar } from "./header/WindowBar";
@@ -112,6 +113,8 @@ const Connection = (props: {
   /** U3566: this Project is on screen in a visible, focused window. */
   viewing: () => boolean;
   show: () => void;
+  /** U6271a: every open Project, so a placed part reaches its own Daemon. */
+  open: () => readonly Project[];
 }) => {
   const first = props.tab();
 
@@ -135,7 +138,7 @@ const Connection = (props: {
       const next = await connectProject({ ...calls, serveActions: async (answer, invalidated) => {
         await calls.serveActions?.(request => (request.method === "project.open" || request.method === "project.start")
           ? props.onOpen(request, captured.signal) : answer(request), () => { captured.abort(); invalidated?.(); });
-      } }, first.project, props.reducedMotion, props.now, () => props.tab()?.generation === generation ? props.tab()?.exit ?? null : { code: null, recovery: "connecting" }, railStorage(path), props.drafts(path), props.viewing, props.clock);
+      } }, first.project, props.reducedMotion, props.now, () => props.tab()?.generation === generation ? props.tab()?.exit ?? null : { code: null, recovery: "connecting" }, railStorage(path), props.drafts(path), props.viewing, props.clock, { app: props.app, open: props.open });
 
       if (props.tab()?.generation !== generation) {
         next.stopTerminalScheme();
@@ -389,15 +392,16 @@ export const App = (props: {
     return connection instanceof Error ? undefined : connection;
   };
 
-  const [nativeFailure, setNativeFailure] = createSignal<string | null>(null);
-  let nativeHandler: Promise<(request: NativeOpen) => void> | undefined;
-  const routeNativeOpen = (request: NativeOpen) => void nativeHandler?.then(handle => handle(request)).catch(error => setNativeFailure(String(error)));
+  const [nativeFailure, setNativeFailure] = createSignal<{ message: string; action?: { label: string; run: () => void } } | null>(null);
+  const failNative = (message: string | null, action?: { label: string; run: () => void }) => setNativeFailure(message === null ? null : action ? { message, action } : { message });
+  let nativeHandler: Promise<(request: OpenRequest) => void> | undefined;
+  const routeNativeOpen = (request: OpenRequest) => void nativeHandler?.then(handle => handle(request)).catch(error => failNative(String(error)));
   onMount(() => {
     const owner = getOwner();
-    nativeHandler = import("./app/nativeOpen").then(({ watchNativeOpen }) => runWithOwner(owner, () => watchNativeOpen({ solid: { createEffect, createSignal, onCleanup }, app: props.app, projects, connectionOf, item: linkedItem, fail: setNativeFailure }))!);
+    nativeHandler = import("./app/nativeOpen").then(({ watchNativeOpen }) => runWithOwner(owner, () => watchNativeOpen({ solid: { createEffect, createSignal, onCleanup }, app: props.app, projects, connectionOf, item: linkedItem, fail: failNative }))!);
     const stop = props.app.onNativeOpen?.(routeNativeOpen);
     onCleanup(() => void stop?.then(release => release()));
-    void stop?.catch(error => setNativeFailure(String(error)));
+    void stop?.catch(error => failNative(String(error)));
   });
 
   const [menuBar] = createResource(() => import("./app/menuBar").catch(error => {
@@ -692,7 +696,7 @@ export const App = (props: {
   return (
     <ReducedMotionContext.Provider value={props.reducedMotion}><DisplayClockContext.Provider value={now.subscribe}><ProjectDraftsContext.Provider value={drafts}><Show when={projects.loaded()}>
       <For each={keys()}>
-        {(key) => <Connection drafts={drafts} app={dropTargets.app} tab={tabOf(key)} reducedMotion={props.reducedMotion} now={pollingNow} clock={props.clock} onConnected={connect} onRecovered={projects.connected} onRequested={answer} onOpen={opening.answer} toasts={toasts} alerts={alerts} projectAlerts={() => projectAlerts.level(key)} active={() => projects.active() === key} viewing={() => projects.active() === key && visible() && focus() === "focused" && !settingsOpen()} show={() => projects.select(key)} />}
+        {(key) => <Connection drafts={drafts} app={dropTargets.app} tab={tabOf(key)} reducedMotion={props.reducedMotion} now={pollingNow} clock={props.clock} onConnected={connect} onRecovered={projects.connected} onRequested={answer} onOpen={opening.answer} toasts={toasts} alerts={alerts} projectAlerts={() => projectAlerts.level(key)} active={() => projects.active() === key} viewing={() => projects.active() === key && visible() && focus() === "focused" && !settingsOpen()} show={() => projects.select(key)} open={() => projects.tabs().map(tab => tab.project)} />}
       </For>
       <ProjectOpening opening={opening} />
       <DockBadge app={props.app} rails={() => [...connections()].flatMap(([path, connection]) => (connection instanceof Error ? [] : [{ alerts: projectAlerts.level(path), nodes: attentionHolders(connection.rail.nodes, connection.rail.terminals(), connection.rail.dismissed) }]))} onFailure={setBadgeFailure} />
@@ -772,7 +776,10 @@ export const App = (props: {
                 <button data-button="quiet" type="button" onClick={() => failure()?.clear()}>{copy.dismiss}</button>
               </ReservedLine>}</Show>;
             }}</For>
-            <Show when={nativeFailure()}>{message => <ReservedLine class="centre-notice" message={message()} />}</Show>
+            <Show when={nativeFailure()}>{failure => <ReservedLine class="centre-notice" message={failure().message}>
+              <Show when={failure().action}>{action => <button data-button="quiet" type="button" onClick={action().run}>{action().label}</button>}</Show>
+              <button data-button="quiet" type="button" onClick={() => setNativeFailure(null)}>{copy.dismiss}</button>
+            </ReservedLine>}</Show>
             <Show when={storageFailures().length > 0}><div class="storage-failure"><ReservedLine message={storageCopy.failure(storageFailures())}>
               <button data-button="quiet" type="button" onClick={() => void Promise.all(storageFailures().map(problem => problem.retry()))}>{storageCopy.saveRetry}</button>
             </ReservedLine></div></Show>
@@ -790,7 +797,7 @@ export const App = (props: {
                   <div class="centre-stack">
                     <div class="project-center-area">
                     <div class="project-center-content" inert={open.settingsView.open()} style={{ visibility: open.settingsView.open() ? "hidden" : "visible" }}>
-                    <Pane observeTerminal={props.observeTerminal ? id => props.observeTerminal?.(open.project.path, id) : undefined} notice={open.rail.failure() ?? jumpFailure() ?? open.contractNotice} retryNotice={open.rail.failure() !== null ? () => void open.rail.refresh({ terminals: true }) : undefined} createEmulator={tracked} screensRef={setScreens} openObject={url => routeNativeOpen({ kind: "link", url })} />
+                    <Pane observeTerminal={props.observeTerminal ? id => props.observeTerminal?.(open.project.path, id) : undefined} notice={open.rail.failure() ?? jumpFailure() ?? open.contractNotice} retryNotice={open.rail.failure() !== null ? () => void open.rail.refresh({ terminals: true }) : undefined} createEmulator={tracked} screensRef={setScreens} openObject={(url, surface) => routeNativeOpen({ kind: "link", url, surface })} />
                     <AskBar viewLabel={id => views.find(([view]) => view === id)?.[1]} />
                     <Feedback notify={toasts.notify} />
                     <Switcher notify={toasts.notify} onFailure={setJumpFailure} onOpen={() => { if (document.querySelector('.window[data-shelf="open"][data-shelf-mode="overlay"]')) shelfFocus.toggle("key"); }} />
