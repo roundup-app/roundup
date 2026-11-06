@@ -53,8 +53,8 @@ export type RailState = {
   keepRemoved(ids: readonly string[]): void;
   /** U5991a: show the last removal undone (`undo`) or redone at once; the returned call refreshes, then lifts the drawing; `kept` false puts the memory back, since the call failed. */
   drawHistory(direction: "undo" | "redo"): (kept: boolean) => Promise<void>;
-  /** U5991a: show `change` of the tree at once; the returned call lifts it once the Daemon's reply or Event holds the result. */
-  draw(change: (tree: readonly RailNode[]) => readonly RailNode[]): () => void;
+  /** U5991a: show `change` of the tree at once; the returned call lifts it once the Daemon's reply or Event holds the result. U5991f: a `change` that adds a Row names it in `landing`, and the drawing stands down the moment the tree holds a Row that arrived since, so no frame shows both. */
+  draw(change: (tree: readonly RailNode[]) => readonly RailNode[], landing?: Landing): () => void;
   /** One structural index shared by selection and every mounted Rail projection. */
   topology(): RailTopology;
   /** U5483c: latest accepted working start in milliseconds; retained across Project connections for the same Attempt. */
@@ -191,7 +191,23 @@ const provisionalRow = (tree: readonly RailNode[], kind: "agent" | "workstream",
   work: null,
 });
 
-const identity = (tree: readonly RailNode[]): readonly RailNode[] => tree;
+/** U5991f: the Row a drawing adds, as the Daemon's own Row will arrive: of `kind`, under `parent`, with an id not in `known`. */
+type Landing = { kind: RailNode["kind"]; parent: string | null };
+
+type Drawing = { change: (tree: readonly RailNode[]) => readonly RailNode[]; landing?: (Landing & { known: ReadonlySet<string> }) | undefined };
+
+/** U5991f: applies `drawings` over `tree`; each Row-adding drawing claims the oldest Row the Daemon added since it was drawn and, having one, draws nothing. */
+const drawnOver = (tree: readonly RailNode[], drawings: readonly Drawing[]): readonly RailNode[] => {
+  const claimed = new Set<string>();
+
+  return drawings.reduce((shown, { change, landing }) => {
+    const arrived = landing && tree.find(node => !landing.known.has(node.id) && !claimed.has(node.id) && node.kind === landing.kind && node.parent === landing.parent);
+
+    if (arrived) claimed.add(arrived.id);
+
+    return arrived ? shown : change(shown);
+  }, tree);
+};
 
 export const createRailState = (app: AppSeam, events: Events, storage?: RailStorage, dismissals?: DismissalStorage, resumptions?: ResumptionStorage): RailState => {
   const [model, setModel] = createStore<{ tree: RailNode[]; exited: Record<string, number | null> }>({
@@ -205,7 +221,7 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
   const [hidden, setHidden] = createSignal<ReadonlySet<string>>(new Set());
   // U6000a: rows whose program is starting. An existing row shows `starting` while its call is pending.
   const [launches, setLaunches] = createSignal<readonly string[]>([]);
-  const [drawn, setDrawn] = createSignal<readonly (typeof identity)[]>([]);
+  const [drawn, setDrawn] = createSignal<readonly Drawing[]>([]);
   const removedRows: RailNode[][] = [];
   const redoneRows: RailNode[][] = [];
   const renaming = new Map<string, () => void>();
@@ -214,7 +230,7 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
   const view = createMemo(() => {
     const shown = hidden().size === 0 ? model.tree : model.tree.filter(node => !hidden().has(node.id));
     const starting = launches();
-    const drawing = drawn().reduce<readonly RailNode[]>((tree, change) => change(tree), shown);
+    const drawing = drawnOver(shown, drawn());
 
     return starting.length === 0 ? drawing : drawing.map(node => starting.includes(node.id) ? { ...node, status: startingStatus(node.status?.since) } : node);
   });
@@ -594,10 +610,12 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
       return view();
     },
     hide: ids => setHidden(rows => new Set([...rows, ...ids])),
-    draw: change => {
-      setDrawn(changes => [...changes, change]);
+    draw: (change, landing) => {
+      const drawing: Drawing = { change, landing: landing && { ...landing, known: new Set(model.tree.map(node => node.id)) } };
 
-      return () => setDrawn(changes => changes.filter(each => each !== change));
+      setDrawn(drawings => [...drawings, drawing]);
+
+      return () => setDrawn(drawings => drawings.filter(each => each !== drawing));
     },
     keepRemoved: ids => {
       const rows = model.tree.filter(node => ids.includes(node.id)).map(node => ({ ...node }));
@@ -623,13 +641,13 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
         try { await state.refresh(); } finally { lift(); }
       };
     },
-    drawNew: (kind, name, parent) => state.draw(tree => [...tree, provisionalRow(tree, kind, name, parent)]),
+    drawNew: (kind, name, parent) => state.draw(tree => [...tree, provisionalRow(tree, kind, name, parent)], { kind, parent }),
     drawGroup: (ids, name) => state.draw(tree => {
       const first = tree.find(each => ids.includes(each.id));
       const row = { ...provisionalRow(tree, "workstream", name, first?.parent ?? null), order: first?.order ?? 0 };
 
       return [...tree.map(each => ids.includes(each.id) ? { ...each, parent: row.id } : each), row];
-    }),
+    }, { kind: "workstream", parent: model.tree.find(each => ids.includes(each.id))?.parent ?? null }),
     drawExit: (id, exit) => {
       const mark = { exit };
 

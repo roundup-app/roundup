@@ -1,6 +1,6 @@
 # U6266c Mac observation
 
-U6266c: steps 1, 3 and 4 PASS; step 2 PARTIAL (the forked Agent shows in the Fork); step 2b FAIL (Resume of a forked Agent with a real conversation shows `no acknowledgement within 10s`, see below).
+U6266c: steps 1, 3 and 4 PASS; step 2 PARTIAL (the forked Agent shows in the Fork); step 2b FAIL on d64d1ee08 (Resume of a forked Agent with a real conversation shows `no acknowledgement within 10s`); step 2c PASS on 983f7eda0, which holds #6333 (the same walk resumes).
 Date: 2026-11-06. Commit: d64d1ee08 (origin/main), worktree /tmp/loop-own/obs6266 with a warm target.
 Live App: `just app /tmp/loop-own/obs-data/proj` with `ROUNDUP_HOME=/tmp/loop-own/obs6266-home`, `ROUNDUP_DATA_DIR=/tmp/loop-own/obs6266-data` and `ROUNDUP_CLAUDE_BIN` set to a stand-in script (the real `claude` answers its `plugin` probe; an Agent's launch only prints text). The Project is a fresh git repository with one Agent.
 Driving: the menu item `Fork for development…` through `osascript` System Events; clicks through a CGEvent mouse click; windows read with `CGWindowListCopyWindowInfo`; screenshots with `screencapture -l`. `osascript` keystrokes did not reach the App, so every Fork kept the sheet's default name `fork` (the second landed in folder `fork-2`).
@@ -43,6 +43,22 @@ What the Fork did: the forked Agent's `attempt` went from 1 to 2 (a launch was s
 
 Not known: why the new Attempt sent no `SessionStart` within 10 s. Not checked: whether the live Agent's still-running `claude` on the same session id blocks the Fork's resume; a resume with the live App quit first would separate the two. Driver note: the first click on `Resume` only highlighted the item; a second click ran it, so the Fork may have received one resume only (one error line shows).
 
+## Step 2c: the same walk on main with #6333 (983f7eda0)
+
+Result: PASS. Resume in the Fork continues the conversation: the Terminal shows the prompt `Reply with the word ok.`, the reply `ok` and the Claude Code header, and no error line shows. The Rail's Agent returns to the idle circle.
+
+Run (2026-11-06, about 17:24, Mac idle over 60 s at each window step): live App from `just app /tmp/loop-own/obs-data/proj` in a worktree at 983f7eda0, `ROUNDUP_HOME=/tmp/loop-own/obs6266d-home`, `ROUNDUP_DATA_DIR=/tmp/loop-own/obs6266d-data`, the real `claude` (App default model Opus 5.5, unchanged). New Agent, prompt "Reply with the word ok."; `Fork for development…` with the Agent ticked (default); Resume from the forked Agent's context menu (the first click only highlighted the item, the second ran it).
+
+| | live Agent | forked Agent after Resume |
+|---|---|---|
+| conversation_id | 20095184-1067-4334-b818-6ce8c1e46870 | 2d62dab3-fa86-4052-a7a3-98bbb9830223 |
+| conversation_cwd | /private/tmp/loop-own/obs-data/proj | the same |
+| attempt | 1 | 2 (terminal_id 1) |
+
+The forked Agent now holds a new conversation id: the resume forks the session, so the live Agent's conversation stays as it was. The new session's folder exists under `~/.claude/projects/-private-tmp-loop-own-obs-data-proj/`; no `.jsonl` for it existed at the time of the check (the run ended with no further prompt).
+
+Not checked: a resume of a Fork whose live App was quit first (not needed for this result).
+
 ## Still open
 
-Step 2b's cause: resume of the forked Agent with the live App quit first, and the Fork's launch output (the Fork's stdout was not captured).
+None for #6266's Mac observer. A reader who needs the Fork's own launch output has none: the Fork's stdout was not captured.

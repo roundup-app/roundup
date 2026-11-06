@@ -55,9 +55,10 @@
   max-block-size: none;
 }
 
+/* U6249d: the cause and its actions share one row, as the Rail's do; a long cause wraps in its own cell. */
 .switcher .reserved-content {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
+  align-items: baseline;
+  gap: var(--space-3);
 }
 
 .switcher .ink[role="alert"] {
@@ -67,10 +68,6 @@
   grid-template-columns: var(--space-4) minmax(0, 1fr);
   column-gap: var(--space-1);
   align-items: baseline;
-}
-
-.switcher .reserved-actions {
-  justify-self: end;
 }
 
 /* U6249d: a failure's actions use the UI font, as the Rail's do. */

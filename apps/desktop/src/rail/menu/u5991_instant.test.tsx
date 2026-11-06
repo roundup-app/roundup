@@ -2,9 +2,12 @@ import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { RpcError } from "../../app/seam";
 import { todo } from "../../todos/testHarness";
+import type { RailNode } from "@contracts/agent/RailNode";
 import { agent, event, info, workstream } from "../../testing/nodes";
 import { mountRail, railCallsTo, rowOf, settled } from "../railFixture";
 import { actions, gone, nextFrame, removeByKey } from "./u5991Harness";
+
+const actor = { kind: "user", id: "user", parent: null } as const;
 
 afterEach(cleanup);
 
@@ -138,4 +141,64 @@ it("u5991d_a_clean_workstream_leaves_in_the_next_frame_while_its_call_is_pending
   await waitFor(() => expect(gone("chosen")).toBe(true));
   expect(gone("child")).toBe(true);
   await waitFor(() => expect(railCallsTo(app, "rail.remove")).toHaveLength(1));
+});
+
+/** The Daemon's rows once each creating action has landed: the original tree plus the row the action made. */
+const landed = {
+  "new Agent": base => [...base, agent("made", "working", "starting", { order: 1 })],
+  "new Workstream": base => [...base, workstream("made", { order: 1 })],
+  "new Mode": base => [...base, workstream("made", { order: 1 })],
+  "make Workstream": base => [workstream("made", { order: 0 }), ...base.map(node => ({ ...node, parent: "made" }))],
+} satisfies Record<string, (base: RailNode[]) => RailNode[]>;
+
+/** U5991f: the Daemon's Event can come before the call's reply, after it, or not at all. */
+const arrivals = ["event before reply", "event after reply", "no event"] as const;
+
+// SAFETY: `Object.keys` of a literal returns exactly its keys.
+const kinds = Object.keys(landed) as (keyof typeof landed)[];
+
+it.each(kinds.flatMap(name => arrivals.map(arrival => [name, arrival] as const)))("u5991f_the_rail_never_draws_a_new_row_twice_%s_%s", async (name, arrival) => {
+  const action = actions.find(each => each.name === name)!;
+  const mounted = await action.mount();
+  const base = await mounted.app.handlers["rail.tree"]!(null);
+  const answer = Promise.withResolvers<void>();
+  let tree = base;
+  const counts: number[] = [];
+
+  const frame = async () => {
+    await nextFrame();
+    counts.push(mounted.rail.nodes.length);
+  };
+
+  mounted.app.handlers["rail.tree"] = () => tree;
+  mounted.app.handlers["workstream.setOpeningPrompt"] = () => null;
+  // SAFETY: the fake reply carries only the fields the App reads from the made row, which these methods' results share.
+  mounted.app.handlers[action.method] = (async () => {
+    await answer.promise;
+
+    return tree.find(node => node.id === "made");
+  }) as never;
+  await settled();
+  await action.fire(mounted);
+  await frame();
+  tree = landed[name](base);
+
+  if (arrival === "event before reply") {
+    mounted.app.emit({ name: "rail.changed", actor });
+    await frame();
+    answer.resolve();
+    await frame();
+  } else {
+    answer.resolve();
+    await frame();
+
+    if (arrival === "event after reply") {
+      mounted.app.emit({ name: "rail.changed", actor });
+      await frame();
+    }
+  }
+
+  await mounted.rail.settled();
+  await frame();
+  expect(counts.every(count => count === base.length + 1), `${counts}`).toBe(true);
 });
