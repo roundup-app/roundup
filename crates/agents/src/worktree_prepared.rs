@@ -329,6 +329,11 @@ impl Git {
             .store(true, std::sync::atomic::Ordering::Relaxed);
     }
 
+    /// U6266c: whether this is a Fork's, whose resumes start with `--fork-session`.
+    pub(crate) fn is_forked(&self) -> bool {
+        self.forked.load(std::sync::atomic::Ordering::Relaxed)
+    }
+
     /// FOP5978d: refuse a change to a Worktree of a Project folder the live App owns.
     pub(super) fn refuse_in_fork(&self) -> Result<(), RpcError> {
         if self.forked.load(std::sync::atomic::Ordering::Relaxed) {

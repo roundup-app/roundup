@@ -128,7 +128,8 @@ impl Shared {
         else {
             unreachable!("observe matched a Resuming slot for {id}");
         };
-        if !is_resume_ack(&payload, &conversation_id) || terminal_id.is_none() {
+        if !is_resume_ack(&payload, &conversation_id, self.git.is_forked()) || terminal_id.is_none()
+        {
             hold(id, &mut parked, actor, payload);
             runs.insert(
                 id.to_owned(),
@@ -180,9 +181,9 @@ impl Shared {
                 conversation_id,
                 parked,
                 ..
-            }) => parked
-                .iter()
-                .position(|(_, payload)| is_resume_ack(payload, conversation_id)),
+            }) => parked.iter().position(|(_, payload)| {
+                is_resume_ack(payload, conversation_id, self.git.is_forked())
+            }),
             _ => None,
         };
         let Some(position) = found else { return };
@@ -393,10 +394,15 @@ pub(super) fn save_signal_conversation(
 }
 
 /// A22: whether `payload` is the acknowledgement a pending resume waits for: a `SessionStart`
-/// that began with `--resume` and names the saved conversation id.
-pub(super) fn is_resume_ack(payload: &Value, conversation_id: &str) -> bool {
-    claude_code::session_source(payload) == Some("resume")
-        && claude_code::conversation_id(payload).as_deref() == Some(conversation_id)
+/// that began with `--resume` and names the saved conversation id. In a Fork the resume carries
+/// `--fork-session` (FOP5978c), so Claude Code sends source `fork` with a new conversation id,
+/// which becomes the Agent's saved conversation (U6266c).
+pub(super) fn is_resume_ack(payload: &Value, conversation_id: &str, forked: bool) -> bool {
+    match claude_code::session_source(payload) {
+        Some("resume") => claude_code::conversation_id(payload).as_deref() == Some(conversation_id),
+        Some("fork") => forked && claude_code::conversation_id(payload).is_some(),
+        _ => false,
+    }
 }
 
 #[cfg(test)]
@@ -416,5 +422,17 @@ mod tests {
                 "{error}"
             );
         }
+    }
+
+    #[test]
+    fn u6266c_a_fork_session_start_acknowledges_a_resume_in_a_fork() {
+        let fork = serde_json::json!({
+            "hook_event_name": "SessionStart",
+            "source": "fork",
+            "session_id": "22222222-2222-4222-8222-222222222222",
+        });
+        let saved = "11111111-1111-4111-8111-111111111111";
+        assert!(super::is_resume_ack(&fork, saved, true));
+        assert!(!super::is_resume_ack(&fork, saved, false));
     }
 }
