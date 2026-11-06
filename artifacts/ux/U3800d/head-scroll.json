@@ -1,0 +1,84 @@
+{
+  "label": "head",
+  "chromium": "156.0.8078.0 headless",
+  "viewport": "1512x950 dark",
+  "seed": "tree-40",
+  "drops": [
+    {
+      "drop": 1,
+      "longest_task_ms": 278.8,
+      "release_to_end_ms": 565.4
+    },
+    {
+      "drop": 2,
+      "longest_task_ms": 255.6,
+      "release_to_end_ms": 533.7
+    },
+    {
+      "drop": 3,
+      "longest_task_ms": 258.4,
+      "release_to_end_ms": 531.5
+    },
+    {
+      "drop": 4,
+      "longest_task_ms": 274.9,
+      "release_to_end_ms": 549.3
+    },
+    {
+      "drop": 5,
+      "longest_task_ms": 280.2,
+      "release_to_end_ms": 553.3
+    },
+    {
+      "drop": 6,
+      "longest_task_ms": 276.6,
+      "release_to_end_ms": 554.4
+    },
+    {
+      "drop": 7,
+      "longest_task_ms": 281.5,
+      "release_to_end_ms": 571.8
+    },
+    {
+      "drop": 8,
+      "longest_task_ms": 308.4,
+      "release_to_end_ms": 580.5
+    },
+    {
+      "drop": 9,
+      "longest_task_ms": 279,
+      "release_to_end_ms": 557.6
+    },
+    {
+      "drop": 10,
+      "longest_task_ms": 284.1,
+      "release_to_end_ms": 555.2
+    }
+  ],
+  "max_longest_task_ms": 308.4,
+  "press_to_next_paint_ms": [
+    10.3,
+    15.1,
+    9.3,
+    12.9,
+    29.2,
+    18.7,
+    8.3,
+    15,
+    18.8,
+    12.7
+  ],
+  "max_press_to_next_paint_ms": 29.20000000006985,
+  "event_timing_entries_over_16ms": [
+    40,
+    48,
+    40,
+    40,
+    40,
+    64,
+    40,
+    40,
+    48,
+    40
+  ]
+}
