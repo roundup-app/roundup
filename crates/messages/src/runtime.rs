@@ -44,10 +44,14 @@ pub(super) struct Inner {
     pub(super) typing: Mutex<std::collections::HashSet<u32>>,
     /// Successful writes in this Daemon run; recovered flights may need repeat closure.
     pub(super) inbox_written: Mutex<std::collections::HashSet<u32>>,
+    /// U6248a: Messages written again after a missed receipt; their repeat check is skipped.
+    pub(super) rewrite: Mutex<std::collections::HashSet<u32>>,
     /// DCL8: the Attempts of a Door whose batch already carried the open-Job snapshot.
     pub(super) snapshotted: Mutex<std::collections::HashSet<(String, i64)>>,
     /// DCL1: the delivery failures of each receiver.
     pub(super) failures: Mutex<failure::Failures>,
+    /// U6260a: why each `pending` Message waits, until it is written.
+    pub(super) waiting: Mutex<std::collections::HashMap<u32, &'static str>>,
     /// B50: the transport of every Message to an Agent; without one nothing is delivered.
     pub(super) inbox: std::sync::OnceLock<Arc<dyn NoteInbox>>,
 }
@@ -94,7 +98,9 @@ impl Messages {
             typing: Mutex::default(),
             inbox_written: Mutex::default(),
             snapshotted: Mutex::default(),
+            rewrite: Mutex::default(),
             failures: Mutex::default(),
+            waiting: Mutex::default(),
             inbox: std::sync::OnceLock::new(),
         });
         Ok(Self { inner })

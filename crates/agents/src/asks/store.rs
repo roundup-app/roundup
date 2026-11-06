@@ -135,6 +135,7 @@ impl Store {
         at: i64,
         submission: Option<String>,
         workstream: Option<String>,
+        placed: Option<Vec<Part>>,
     ) -> Result<Ask, RpcError> {
         let tx = self.0.transaction().map_err(sql)?;
         let id: String = tx
@@ -152,26 +153,33 @@ impl Store {
             )
             .map_err(sql)?;
         }
-        let part = Part {
-            text: text.clone(),
-            placement: workstream.map_or_else(
-                || Place::Unclear {
-                    question: String::new(),
-                    candidates: vec![],
-                },
-                |workstream| Place::Routed { workstream },
-            ),
-            state: State::Placing,
-            reason: None,
-        };
-        write_part(&tx, &id, 0, &part)?;
+        let parts = placed.unwrap_or_else(|| {
+            vec![Part {
+                text: text.clone(),
+                placement: workstream.map_or_else(
+                    || Place::Unclear {
+                        question: String::new(),
+                        candidates: vec![],
+                    },
+                    |workstream| Place::Routed {
+                        workstream,
+                        project: None,
+                    },
+                ),
+                state: State::Placing,
+                reason: None,
+            }]
+        });
+        for (ord, part) in parts.iter().enumerate() {
+            write_part(&tx, &id, ord, part)?;
+        }
         tx.commit().map_err(sql)?;
         Ok(Ask {
             id,
             text,
             at,
             submission,
-            parts: vec![part],
+            parts,
         })
     }
 

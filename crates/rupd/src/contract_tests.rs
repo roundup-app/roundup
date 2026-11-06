@@ -118,7 +118,12 @@ async fn b2_a_user_set_non_agent_auto_route_reaches_the_inbox() {
             &json!({"id":2,"method":"message.get","params":{"id":id}}).to_string(),
         )
         .await;
-        assert_eq!(pending["result"], sent);
+        // U6296a: the pending Message may now also carry its waiting reason.
+        let mut pending_core = pending["result"].clone();
+        pending_core.as_object_mut().unwrap().remove("waiting");
+        let mut sent_core = sent.clone();
+        sent_core.as_object_mut().unwrap().remove("waiting");
+        assert_eq!(pending_core, sent_core);
         state
             .messages
             .get()

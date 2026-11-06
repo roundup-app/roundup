@@ -192,6 +192,9 @@ async fn b5551a_messages_wait_for_a_surviving_agents_status() {
             let mut h = Harness::open(dir.path(), rail.clone(), true);
             h.inbox.receipt(false);
             initial(&h.messages).await;
+            // U6296a: the busy reason lives in memory, so the restarted Daemon does not carry it.
+            let mut saved = saved;
+            saved.as_object_mut().unwrap().remove("waiting");
             assert_eq!(h.call("message.get", json!({"id":1})).await.unwrap(), saved);
             let sent = h
                 .call_as(

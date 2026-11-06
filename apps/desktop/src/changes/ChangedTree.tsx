@@ -118,8 +118,12 @@ export const ChangedTree = (props: { initialFocus?: ReturnType<typeof captureFoc
 
       if (scroller) {
         const measure = () => {
-          mount.toggleAttribute("data-clipped-top", scroller.scrollTop > 0);
-          mount.toggleAttribute("data-clipped-bottom", scroller.scrollTop + scroller.clientHeight < scroller.scrollHeight - 1);
+          // U6283b: read first, write only the edge that changed.
+          const clipped = { "data-clipped-top": scroller.scrollTop > 0, "data-clipped-bottom": scroller.scrollTop + scroller.clientHeight < scroller.scrollHeight - 1 };
+
+          for (const [name, on] of Object.entries(clipped)) {
+            if (mount.hasAttribute(name) !== on) mount.toggleAttribute(name, on);
+          }
         };
 
         const observer = new ResizeObserver(measure);

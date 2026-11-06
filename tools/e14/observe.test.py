@@ -50,6 +50,18 @@ class E14(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "does not cover lane"):
                 observer.evidence(directory)
 
+    def test_e14_a_stalled_sampler_is_reported_and_does_not_fail_the_lane(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            (directory / "lane.json").write_text(json.dumps(dict(exit_code=0, started=1000, ended=20000)))
+            (directory / "lifecycle.json").write_text(json.dumps([dict(id="b21", start=1200, end=1800, real=True)]))
+            (directory / "memory.jsonl").write_text("".join(json.dumps(dict(at=at, used=used, total=100)) + "\n" for at, used in ((999, 20), (1500, 70), (8970, 40), (20001, 30))))
+            row = observer.evidence(directory)
+            self.assertEqual((row["peak_runner_bytes"], row["max_sample_gap_ms"]), (70, 11031))
+            (directory / "memory.jsonl").write_text("".join(json.dumps(dict(at=at, used=used, total=100)) + "\n" for at, used in ((999, 20), (1500, 70), (1400, 40), (20001, 30))))
+            with self.assertRaisesRegex(ValueError, "not ordered"):
+                observer.evidence(directory)
+
     def test_e14_failed_lane_cannot_be_reported_as_success(self):
         with tempfile.TemporaryDirectory() as temporary:
             directory = Path(temporary)

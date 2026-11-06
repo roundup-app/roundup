@@ -9,14 +9,14 @@ use super::*;
 use crate::facts::STALL_MS;
 use crate::tests::ask;
 
-struct Run {
-    daemon: Daemon,
-    now: Arc<AtomicI64>,
-    dir: tempfile::TempDir,
-    door: String,
+pub(crate) struct Run {
+    pub(crate) daemon: Daemon,
+    pub(crate) now: Arc<AtomicI64>,
+    pub(crate) dir: tempfile::TempDir,
+    pub(crate) door: String,
 }
 
-async fn call(daemon: &Daemon, method: &str, params: Value) -> Value {
+pub(crate) async fn call(daemon: &Daemon, method: &str, params: Value) -> Value {
     let response = ask(
         daemon,
         &json!({"id":1,"method":method,"params":params}).to_string(),
@@ -27,12 +27,12 @@ async fn call(daemon: &Daemon, method: &str, params: Value) -> Value {
 }
 
 impl Run {
-    async fn start() -> Self {
+    pub(crate) async fn start() -> Self {
         use std::os::unix::fs::PermissionsExt;
         let dir = tempfile::tempdir().unwrap();
         let project = dir.path();
         let fake = project.join("fake-claude");
-        std::fs::write(&fake, "#!/bin/sh\nif [ \"$1\" = plugin ] && [ \"$2\" = test ]; then echo 'Q11 runtime hook closure: 1 pass'; exit 0; fi\nwhile read line; do :; done\n").unwrap();
+        std::fs::write(&fake, "#!/bin/sh\nif [ \"$1\" = plugin ] && [ \"$2\" = test ]; then echo 'Q11 runtime hook closure: 1 pass'; exit 0; fi\nprintf '%s\\n' \"$@\" > \"$(dirname \"$0\")/args.$$\"\nwhile read line; do :; done\n").unwrap();
         std::fs::set_permissions(&fake, std::fs::Permissions::from_mode(0o755)).unwrap();
         let rup = project.join("rup");
         std::fs::write(&rup, "").unwrap();
@@ -75,7 +75,7 @@ impl Run {
         run
     }
 
-    async fn spawn(&self, name: &str) -> String {
+    pub(crate) async fn spawn(&self, name: &str) -> String {
         let node = call(
             &self.daemon,
             "agent.spawn",
@@ -85,12 +85,12 @@ impl Run {
         node["id"].as_str().unwrap().to_owned()
     }
 
-    async fn signal(&self, id: &str, event: &str) {
+    pub(crate) async fn signal(&self, id: &str, event: &str) {
         self.signal_with(id, json!({ "hook_event_name": event }))
             .await;
     }
 
-    async fn signal_with(&self, id: &str, payload: Value) {
+    pub(crate) async fn signal_with(&self, id: &str, payload: Value) {
         let node = call(&self.daemon, "rail.tree", Value::Null).await;
         let node = node
             .as_array()

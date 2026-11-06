@@ -68,3 +68,9 @@
   margin-inline-end: auto;
   color: var(--text);
 }
+
+/* U6264b: the line stays out of the sheet's intrinsic width and truncates before the actions. */
+.fork-failure {
+  min-inline-size: 0;
+  contain: inline-size;
+}

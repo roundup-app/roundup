@@ -15,6 +15,7 @@ mod menu;
 mod menu_bar;
 mod open;
 mod paste;
+mod reopen;
 mod state;
 mod store;
 mod update;
@@ -352,7 +353,10 @@ async fn fork_make(
     {
         log::warn!("make the Fork's .app: {error}");
     }
-    fork::open(&fork::checkout(), &folder, &first)
+    let checkout = fork::checkout();
+    tokio::task::spawn_blocking(move || fork::open(&checkout, &folder, &first))
+        .await
+        .map_err(RpcError::internal)?
 }
 
 #[tauri::command]

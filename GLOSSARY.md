@@ -188,6 +188,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Interrupt | same | cancel, abort |
 | Toast | same | — |
 | Held alert (`createHeld`, `ConnectedProject.held`) | held | — |
+| Waiting Message (`Message.waiting`, `failure::waiting_reason`) | same | — |
 | Alert level (`alertLevel`, `AlertLevel`, `RailNode.alert_level`, `SetAlertLevelParams`, `rail.setAlertLevel`, `Rail::set_alert_level`) | Alerts: Default, All, Quiet | — |
 | Project alert level (`ProjectAlerts`, `projectAlerts`, `mayRaise`) | Alerts: All, Needs you only, Off | — |
 | State alert (`StateAlert`, `stateAlert`, `state_alert`, `state-alert-clicked`) | same | notification |
@@ -354,6 +355,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Ask acknowledgement (`AsksState.acknowledged`) | none | — |
 | Placement (`Placement`, `Destination`, `Target`) | same | — |
 | Placement request (`placement::Request`, `EarlierAsk`) | same | — |
+| Placed part (`PlacedPart`, `PlaceParams`, `ProjectTree`, `ask.place`) | same | — |
 | Placement call (`PlacementCall`, `Agents::placement_call`) | same | — |
 | Deliverable | Made | — |
 | Completion (`Completion`, `AgentCompleted`, `agent.completed`, `Agents::turn_identity`) | same | — |

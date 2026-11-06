@@ -2,8 +2,9 @@ import { batch, createEffect, createSignal } from "solid-js";
 import type { Ask } from "@contracts/ask/Ask";
 import type { AskPart } from "@contracts/ask/AskPart";
 import type { Target } from "@contracts/ask/Target";
-import { outcomeOf, RpcError, type AppSeam } from "../app/seam";
+import { outcomeOf, RpcError, type App, type AppSeam, type Project } from "../app/seam";
 import type { SendParams } from "@contracts/ask/SendParams";
+import type { PlacedPart } from "@contracts/ask/PlacedPart";
 import type { Events } from "../app/events";
 import * as v from "valibot";
 import { storageSchema, storedValue } from "./storage";
@@ -57,6 +58,40 @@ export type AsksState = {
 /** The part an Ask holds until the Daemon's answer replaces it (A40). */
 const placing = (text: string): AskPart => ({ text, placement: { kind: "unclear", question: "", candidates: [] }, state: "placing" });
 
+/**
+ * U6271a: sends each placed part to the Daemon of its own Project, in order, verbatim.
+ * A `routed` part types into its Workstream; a `new` part fixes `project` so that Daemon starts the Workstream (A42).
+ * An `unclear` part is stored `waiting` by `active` until `ask.pick` (A42); a part naming no open Project goes to `active`.
+ * Part `index` is sent as submission `<submission>:<index>`, so an equal retry replays the same Ask (A40).
+ */
+export const sendPlaced = async (
+  app: Pick<App, "forProject">,
+  active: AppSeam,
+  open: readonly Project[],
+  submission: string,
+  parts: readonly PlacedPart[],
+): Promise<Ask[]> => {
+  const sent: Ask[] = [];
+
+  for (const [index, part] of parts.entries()) {
+    const { placement } = part;
+
+    const owner = placement.kind === "unclear" ? undefined : open.find(project => project.name === placement.project);
+    const daemon = owner ? app.forProject(owner.path) : active;
+    const id = `${submission}:${index}`;
+
+    const request: SendParams = placement.kind === "routed"
+      ? { text: part.text, submission: id, workstream: placement.workstream }
+      : { text: part.text, submission: id, parts: [part] };
+
+    if (placement.kind === "new" && placement.project) request.project = placement.project;
+
+    sent.push(await daemon.rpc("ask.send", request));
+  }
+
+  return sent;
+};
+
 const acknowledgedSchema = storageSchema("roundup:ask-acknowledged", v.array(v.string()));
 
 const partKey = (entry: Pick<AskEntry, "key" | "parts">, index: number): string => {
@@ -66,7 +101,10 @@ const partKey = (entry: Pick<AskEntry, "key" | "parts">, index: number): string 
   return JSON.stringify([entry.key, index, part?.text, placement?.kind, placement?.kind === "unclear" ? placement.question : placement?.workstream]);
 };
 
-export const createAsks = (app: AppSeam, events: Events, viewed?: { path: string; target(): string | null }): AsksState => {
+/** Where placed parts go: each to the Daemon of the open Project it names. */
+export type AskRouting = { app: Pick<App, "forProject">; open(): readonly Project[] };
+
+export const createAsks = (app: AppSeam, events: Events, viewed?: { path: string; target(): string | null }, routing?: AskRouting): AsksState => {
   const storage = storedValue(`roundup:ask-acknowledged:${viewed?.path ?? ""}`, acknowledgedSchema);
   const [acknowledged, setAcknowledged] = createSignal<readonly string[]>(storage.read() ?? []);
   const [asks, setAsks] = createSignal<readonly Ask[]>([]);
@@ -163,8 +201,21 @@ export const createAsks = (app: AppSeam, events: Events, viewed?: { path: string
       setPending((all) => [{ key, text, parts: [placing(text)], pending: true }, ...all.filter(entry => entry.key !== key)]);
 
       try {
-        const ask = await app.rpc("ask.send", captured);
-        upsert(ask);
+        let ask: Ask;
+
+        if (routing && captured.parts?.length) {
+          // U6271a: every part reaches a Daemon; an empty list has nothing to acknowledge.
+          const sent = await sendPlaced(routing.app, app, routing.open(), submission, captured.parts);
+          const first = sent[0];
+
+          if (!first) throw new Error(copy.askNoAcknowledgement);
+          sent.forEach(upsert);
+          ask = first;
+        } else {
+          ask = await app.rpc("ask.send", captured);
+          upsert(ask);
+        }
+
         setIntakeFailure(null);
 
         return { kind: "acknowledged", submission, ask };
@@ -184,8 +235,11 @@ export const createAsks = (app: AppSeam, events: Events, viewed?: { path: string
 
     reconcile: async (submission) => {
       try {
-        const records = await app.rpc("ask.list", null);
-        const ask = records.find(ask => ask.submission === submission);
+        // Routed parts are stored as `<submission>:<index>` by the Daemon of each part's Project.
+        const own = (ask: Ask): boolean => ask.submission === submission || (ask.submission?.startsWith(`${submission}:`) ?? false);
+        const doors = routing ? [app, ...routing.open().map(project => routing.app.forProject(project.path))] : [app];
+        const lists = await Promise.all(doors.map(door => door.rpc("ask.list", null)));
+        const ask = lists.flat().find(own);
 
         if (ask) {
           upsert(ask);

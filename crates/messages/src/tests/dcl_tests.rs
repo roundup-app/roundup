@@ -34,6 +34,15 @@ impl crate::NoteInbox for Flaky {
 }
 
 fn open(dir: &std::path::Path) -> (Messages, Arc<BatchRail>, Arc<Flaky>, Arc<AtomicI64>) {
+    let flaky = Arc::new(Flaky::default());
+    let (messages, rail, now) = open_with(dir, flaky.clone());
+    (messages, rail, flaky, now)
+}
+
+fn open_with<I: crate::NoteInbox + 'static>(
+    dir: &std::path::Path,
+    inbox: Arc<I>,
+) -> (Messages, Arc<BatchRail>, Arc<AtomicI64>) {
     let rail = Arc::new(BatchRail::default());
     let mut node = live("m");
     node.status = Some(Status {
@@ -49,8 +58,7 @@ fn open(dir: &std::path::Path) -> (Messages, Arc<BatchRail>, Arc<Flaky>, Arc<Ato
         fault: Arc::new(|_| Ok(())),
     };
     let messages = Messages::open_with(dir, Bus::new(), rail.clone(), env).unwrap();
-    let inbox = Arc::new(Flaky::default());
-    messages.set_inbox(inbox.clone());
+    messages.set_inbox(inbox);
     lock(&messages.inner.store)
         .set_generation(
             "m",
@@ -62,7 +70,7 @@ fn open(dir: &std::path::Path) -> (Messages, Arc<BatchRail>, Arc<Flaky>, Arc<Ato
             },
         )
         .unwrap();
-    (messages, rail, inbox, now)
+    (messages, rail, now)
 }
 
 fn written(inbox: &Flaky) -> Vec<Vec<u32>> {
@@ -142,4 +150,110 @@ async fn dcl1_eligible_pending_deadline_recovers_without_a_new_event() {
     assert_eq!(written(&inbox), vec![vec![note.id]]);
     messages.confirm_inbox("m", &[note.id]);
     assert_eq!(messages.delivery_failure("m"), None);
+}
+
+/// An inbox that admits automatic notes only once its gate is opened (A5556a).
+#[derive(Default)]
+struct Gated {
+    inner: BatchInbox,
+    open: AtomicBool,
+}
+
+#[async_trait::async_trait]
+impl crate::NoteInbox for Gated {
+    async fn check(&self, _: &str) -> Inbox {
+        Inbox::Ok
+    }
+    fn admits(&self, _: &str, _: &Actor) -> bool {
+        self.open.load(Ordering::SeqCst)
+    }
+    fn write(&self, agent: &str, notes: &[Entry]) -> Result<(), Inbox> {
+        self.inner.write(agent, notes)
+    }
+}
+
+#[tokio::test]
+async fn u6260a_held_prompt_is_reported_to_its_sender() {
+    let dir = tempfile::tempdir().unwrap();
+    let gated = Arc::new(Gated::default());
+    let (messages2, _, _) = open_with(dir.path(), gated.clone());
+    let note = pending(&messages2, &Actor::daemon(), "please continue");
+    let inner = &messages2.inner;
+    crate::inbox::send(
+        inner,
+        "m",
+        (1, 2),
+        Pick::Next,
+        vec![note.clone()],
+        Inbox::Ok,
+    )
+    .await;
+    let seen = failure::with_waiting(inner, lock(&inner.store).get(note.id).unwrap().unwrap());
+    assert_eq!(seen.status, MessageStatus::Pending);
+    assert_eq!(seen.waiting.as_deref(), Some(failure::AWAITING_INPUT));
+    assert_eq!(messages2.delivery_failure("m"), None);
+    assert!(lock(&gated.inner.batches).is_empty());
+
+    gated.open.store(true, Ordering::SeqCst);
+    crate::inbox::send(
+        inner,
+        "m",
+        (1, 2),
+        Pick::Next,
+        vec![note.clone()],
+        Inbox::Ok,
+    )
+    .await;
+    assert_eq!(written_by(&gated), vec![vec![note.id]]);
+    let seen = failure::with_waiting(inner, lock(&inner.store).get(note.id).unwrap().unwrap());
+    assert_eq!(seen.waiting, None);
+}
+
+#[tokio::test]
+async fn u6260a_a_reserved_restart_is_reported_and_a_settled_message_forgets_its_reason() {
+    let dir = tempfile::tempdir().unwrap();
+    let (messages, _, _) = open_with(dir.path(), Arc::new(Gated::default()));
+    let inner = &messages.inner;
+    let note = pending(&messages, &Actor::daemon(), "after the restart");
+    lock(&inner.store)
+        .reserve_restart("m", "restart", 1, None)
+        .unwrap();
+    crate::nudge(inner, "m").await;
+    let seen = failure::with_waiting(inner, lock(&inner.store).get(note.id).unwrap().unwrap());
+    assert_eq!(seen.waiting.as_deref(), Some(failure::RESTART_RESERVED));
+
+    assert!(lock(&inner.store).drop_merged(note.id).unwrap());
+    failure::forget_settled(inner);
+    assert!(lock(&inner.waiting).is_empty());
+}
+
+#[tokio::test]
+async fn u6296a_a_message_to_a_busy_receiver_shows_its_reason() {
+    let dir = tempfile::tempdir().unwrap();
+    let (messages, rail, inbox, _) = open(dir.path());
+    let inner = &messages.inner;
+    let idle = lock(&rail.nodes)[0].clone();
+    let mut busy = idle.clone();
+    busy.status.as_mut().unwrap().kind = Kind::Working;
+    lock(&rail.nodes)[0] = busy;
+    let note = pending(&messages, &Actor::daemon(), "when you can");
+    crate::nudge(inner, "m").await;
+    let seen = failure::with_waiting(inner, lock(&inner.store).get(note.id).unwrap().unwrap());
+    assert_eq!(seen.waiting.as_deref(), Some(failure::RECEIVER_BUSY));
+    assert_eq!(messages.delivery_failure("m"), None);
+    assert!(written(&inbox).is_empty());
+
+    lock(&rail.nodes)[0] = idle;
+    crate::nudge(inner, "m").await;
+    assert_eq!(written(&inbox), vec![vec![note.id]]);
+    let seen = failure::with_waiting(inner, lock(&inner.store).get(note.id).unwrap().unwrap());
+    assert_eq!(seen.waiting, None);
+    assert_eq!(messages.delivery_failure("m"), None);
+}
+
+fn written_by(inbox: &Gated) -> Vec<Vec<u32>> {
+    lock(&inbox.inner.batches)
+        .iter()
+        .map(|batch| batch.iter().map(|w| w.0).collect())
+        .collect()
 }
