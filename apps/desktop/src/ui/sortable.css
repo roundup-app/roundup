@@ -3,9 +3,9 @@
   margin-inline-start: var(--sortable-shift, 0);
 }
 
-/* Nothing in the gap paints, not even a control that sets its own visibility, so no stray part shows under a neighbour sliding in. */
-[data-dnd-placeholder][data-dnd-placeholder] * {
-  visibility: hidden;
+/* Nothing in the gap paints: opacity on the placeholder hides its whole subtree whatever its descendants set, and the gap keeps its size. */
+[data-dnd-placeholder] {
+  opacity: 0;
 }
 
 /* The dragged row floats in the top layer, outside its list, and the library unsets a popover's background: without its own it shows the rows under it through its text. */
