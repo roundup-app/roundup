@@ -10,7 +10,7 @@ Regular (400), light (300) and bold (700) are bundled. The Terminal weight Token
 for normal text through xterm’s public fontWeight option; Light serves a saved weight of 300. Upstream supplies no italic faces;
 the browser synthesizes italic and bold italic from these same local faces.
 No remote or installed font is needed for any of the four styles. The emulator
-loads normal and italic at every bundled weight before its first authoritative fit.
+loads normal and italic at the default weight and bold, and at a saved weight before its first authoritative fit.
 The retired JetBrains Mono notice remains in the adjacent `jetbrains-mono/`.
 
 SHA-256:

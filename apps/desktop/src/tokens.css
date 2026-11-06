@@ -615,6 +615,10 @@ button, file-tree-container, diffs-container {
   outline-offset: calc(-1 * var(--hairline-width));
 }
 
+:root[data-focus-markers="false"] .drawer:focus-within {
+  outline: none;
+}
+
 /* Keep region paint below portalled tooltips without moving resize anchors. */
 .columns {
   isolation: isolate;

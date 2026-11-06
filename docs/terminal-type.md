@@ -511,4 +511,4 @@ device ratio 1 and 18.5 at ratio 2 in Chromium, inside U3517b's 18-20 band;
 and fail outside it. Font size, tracking, face, `customGlyphs` and the WebGL
 renderer are unchanged, so box and block glyphs still fill the cell. The
 Settings line-height control applies the same multiplier, so its default now
-reads 1.45; a saved explicit value is kept. U6355 (2026-11-06) later sets the defaults to 13 CSS px at 1.3, weight 400.
+reads 1.3 since U6355 (2026-11-06, which also sets 13 CSS px and weight 400, rows 20 CSS px at ratio 1); a saved explicit value is kept.

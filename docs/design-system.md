@@ -377,7 +377,7 @@ uses it; the rest of the App retains its existing type.
 `fontWeight`; bold retains 700. Light 300 remains bundled for a saved choice (U6355).
 
 The emulator, App Settings and Project zoom reset share `--text-terminal` (13 CSS
-px, U6355). `--line-terminal` is xterm's unitless line-height multiplier (1.3: xterm multiplies the font's measured cell height, about 15 CSS px at 13 px, so 1.3 draws 19.5 CSS px rows at ratio 1 and 20.5 at ratio 2, inside U3517b's band as U6355 widens it to 18–21) and
+px, U6355). `--line-terminal` is xterm's unitless line-height multiplier (1.3: xterm multiplies the font's measured cell height, about 15 CSS px at 13 px, so 1.3 draws 20 CSS px rows at ratio 1 and 20.5 at ratio 2, inside U3517b's band as U6355 widens it to 18–21) and
 `--letter-terminal` is extra cell tracking (0 CSS px, U4592 / #4627). U4456 uses Solo's
 0.846 Terminal scale against its 13 px base; the 1.23 interface scale does not
 apply. Rendered cell measurements are recorded in `docs/terminal-type.md`.
