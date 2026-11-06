@@ -19,9 +19,9 @@ const settings = async () => {
 const choose = async (choice: string) => {
   const group = await settings();
 
-  if (choice === "Narrow") {
-    fireEvent.click(within(group).getByRole("radio", { name: "Wide" }));
-    await waitFor(() => expect(appSettings().padWidth).toBe("wide"));
+  if (choice === "Wide") {
+    fireEvent.click(within(group).getByRole("radio", { name: "Narrow" }));
+    await waitFor(() => expect(appSettings().padWidth).toBe("narrow"));
   }
 
   fireEvent.click(within(group).getByRole("radio", { name: choice }));
@@ -76,8 +76,8 @@ it.each(["Narrow", "Wide", "Full"].flatMap(choice => ["close", "switch", "collap
   await selected(path === "collapsed" ? local : choice);
 });
 
-it.each(["wide", "invalid", null])("u5560b_default_survives_restart_and_defaults_alone %s", async stored => {
-  await choose("Wide");
+it.each(["narrow", "invalid", null])("u5560b_default_survives_restart_and_defaults_alone %s", async stored => {
+  await choose("Narrow");
   cleanup();
   const record = JSON.parse(localStorage.getItem("roundup:app-settings")!);
   record.fontSize = 19;
@@ -86,7 +86,7 @@ it.each(["wide", "invalid", null])("u5560b_default_survives_restart_and_defaults
   else record.padWidth = stored;
   localStorage.setItem("roundup:app-settings", JSON.stringify(record));
   const group = await settings();
-  const expected = stored === "wide" ? "Wide" : "Narrow";
+  const expected = stored === "narrow" ? "Narrow" : "Wide";
   expect(within(group).getByRole<HTMLInputElement>("radio", { name: expected }).checked).toBe(true);
   fireEvent.click(screen.getByRole("tab", { name: "Terminal" }));
   expect(await screen.findByRole("spinbutton", { name: "Font size" })).toHaveProperty("value", "19");
