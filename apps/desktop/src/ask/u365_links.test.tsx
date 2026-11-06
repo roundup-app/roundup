@@ -19,6 +19,8 @@ it("u365_ask_row_links_open_once", async () => {
   const { app, connected } = await mountAskBar([ask("links", 1, [{ text, state: "typed", placement: { kind: "routed", workstream: "lead" } }])], null,
     [door("lead", "idle", "ready", { worktree: { path: "/work/lead", branch: "b", base: "main" } })]);
 
+  await openAsk();
+
   const selected = connected.rail.selected();
   const link = await screen.findByRole("link", { name: "src/a.ts:42" });
   expect(link.closest("button, [role=button]") === null).toBe(true);
@@ -32,6 +34,7 @@ it("u365_ask_row_links_open_once", async () => {
 
 it("u365_ask_missing_path_shows_failure", async () => {
   const { app } = await mountAskBar([ask("links", 1, [{ text: "gone.ts", state: "typed", placement: { kind: "routed", workstream: "lead" } }])]);
+  await openAsk();
   app.openFailure = new RpcError(-32001, "not found");
   fireEvent.click(await screen.findByRole("link", { name: "gone.ts" }));
   await waitFor(() => expect(screen.getByRole("alert")).toBeTruthy());
@@ -102,6 +105,8 @@ it("al5_inbox_and_overview_text_links_open_the_object", async () => {
   const overview = await mountAskBar(
     [ask("links", 1, [{ text: `Open ${url}.`, state: "typed", placement: { kind: "routed", workstream: "lead" } }])],
     null, [door("lead", "idle", "ready"), ann]);
+
+  await openAsk();
 
   routeLinks(overview.app, overview.connected, ann);
   fireEvent.click(await screen.findByRole("link", { name: url }));

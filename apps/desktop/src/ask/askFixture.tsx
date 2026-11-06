@@ -83,8 +83,17 @@ export const press = (key: string, init: KeyboardEventInit = {}, target: EventTa
   return event;
 };
 
-/** U6244c: only `⌘/` opens the Ask; the mounted bar starts closed, so tests open it as the user does. */
+/** U6244c: only `⌘/` opens the Ask; the mounted bar starts closed, so tests open it as the user does. A press made before the App registers its keys is lost, so it is repeated until the Ask answers. */
 export const openAsk = async (): Promise<void> => {
-  press("/", { metaKey: true }, document.querySelector(".outside") ?? document.body);
+  for (let attempt = 0; attempt < 8; attempt++) {
+    press("/", { metaKey: true }, document.querySelector(".outside") ?? document.body);
+
+    try {
+      await waitFor(() => expect(input()).not.toBeNull(), { timeout: 250 });
+
+      return;
+    } catch { /* the keys were not registered yet */ }
+  }
+
   await waitFor(() => expect(input()).not.toBeNull());
 };

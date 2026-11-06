@@ -146,6 +146,6 @@ it.each(["equal", "older", "newer", "missing"])("r3800_startup_preserves_contrac
   await screen.findByRole("region", { name: "Rail" });
 
   if (contract !== "equal") {
-    expect(screen.getByRole("alert")).toBeTruthy();
+    expect(await screen.findByRole("alert")).toBeTruthy();
   }
 });

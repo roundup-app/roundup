@@ -7,6 +7,7 @@ import { createProjectDrafts } from "../state/connectedProject";
 import { RequestedApp as App } from "../testing/requestedApp";
 import { createFakeApp } from "../testing/fakeApp";
 import type { FakeApp } from "../testing/fakeApp";
+import { workstream } from "../testing/nodes";
 import { openRecovery, recoveryLabel } from "../testing/recovery";
 
 const FIRST = { name: "payments-api", path: "/Users/me/repos/payments-api" };
@@ -84,7 +85,10 @@ it("u3289c_a_focused_row_menu_by_keyboard_holds_recovery", async () => {
 
   failedSave(drafts(FIRST.path), { surface: "todos", object: "9", recipient: null }, { title: "lost when closed" });
   const app = mount(drafts);
+
+  app.handlers["rail.tree"] = () => [workstream("home")];
   await screen.findByLabelText("Rail", { selector: '[role="tree"]' });
+
   const row = await waitFor(() => { const found = document.querySelector<HTMLElement>(".rail-row"); expect(found).not.toBeNull();
 
  return found!; });
