@@ -7,7 +7,7 @@ import type { ProjectsState } from "../state/projects";
 import type { ConnectedProject } from "../state/connectedProject";
 import { REVEAL_BUBBLE } from "../bubbles/places";
 import { captureFocus } from "../keys/focus";
-import { inProject, keyOfPath } from "./projectLink";
+import { inProject, keyOfPath } from "./linkRoute";
 
 /** An OS request, or a `roundup://` link clicked in a surface of the Project at `surface` (U6249c1). */
 export type OpenRequest = Extract<NativeOpen, { kind: "project" }> | { kind: "link"; url: string; surface?: string | undefined };

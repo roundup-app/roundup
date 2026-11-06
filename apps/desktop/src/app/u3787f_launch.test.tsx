@@ -5,7 +5,7 @@ import { createFakeApp } from "../testing/fakeApp";
 import { agent, info, workstream } from "../testing/nodes";
 import { fakeEmulators } from "../terminal/paneHarness";
 import type { NativeOpen } from "./seam";
-import { keyOfPath } from "./projectLink";
+import { keyOfPath } from "./linkRoute";
 
 let receive: ((request: NativeOpen) => void) | undefined;
 

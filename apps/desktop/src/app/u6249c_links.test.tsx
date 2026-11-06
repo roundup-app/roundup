@@ -7,7 +7,7 @@ import { agent, door } from "../testing/nodes";
 import { TargetText } from "../terminal/TargetText";
 import { ConnectedProjectContext, type ConnectedProject } from "../state/connectedProject";
 import { RpcError, type NativeOpen } from "./seam";
-import { keyOfPath } from "./projectLink";
+import { keyOfPath } from "./linkRoute";
 
 afterEach(() => { batch(cleanup); localStorage.clear(); sessionStorage.clear(); vi.restoreAllMocks(); });
 
