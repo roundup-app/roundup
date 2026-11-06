@@ -15,7 +15,7 @@ export const StorageRecovery = (props: { children: JSX.Element }) => {
         <Show when={result()} keyed>{failure => failure.status === "incompatible"
           ? <>{storageCopy.incompatible("")}<code class="storage-gate-folder">{failure.folder}</code></>
           : failure.message}</Show>
-      } dismiss={line.dismiss} dismissIn="menu" recover={result()?.status === "failed" ? { run: () => void refetch(), label: storageCopy.restoreRetry } : undefined} /></div></div>}>
+      } blocked recover={result()?.status === "failed" ? { run: () => void refetch(), label: storageCopy.restoreRetry } : undefined} /></div></div>}>
       {props.children}
     </Show>
   </Show>;

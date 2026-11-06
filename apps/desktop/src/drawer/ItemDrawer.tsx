@@ -62,7 +62,7 @@ const ItemDrawerBody = <Value,>(props: Props<Value>) => {
 
   return (
     <ErrorBoundary fallback={(error: Error, reset) => (
-      <ReservedLine message={error.message} dismiss={reset} recover={{ run: () => { void refetch(); reset(); }, label: copy.tryAgain }} />
+      <ReservedLine message={error.message} blocked recover={{ run: () => { void refetch(); reset(); }, label: copy.tryAgain }} />
     )}>
       <Show when={loaded()}>
         {(item) => (

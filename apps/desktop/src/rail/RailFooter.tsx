@@ -2,7 +2,7 @@ import { anchorBox } from "../ui/anchorBox";
 import { Disclosure } from "../ui/Disclosure";
 import { KindGlyph } from "../ink/KindGlyph";
 import { createSignal, For, Show } from "solid-js";
-import { dismissable, ReservedLine, type Recovery } from "../ink/ReservedLine";
+import { dismissable, ReservedLine, type Dismissible } from "../ink/ReservedLine";
 import { Icon } from "../ink/Icon";
 import { KIND_ICON } from "../ink/kindIcon";
 import { KeyChip } from "../keys/KeyChip";
@@ -28,7 +28,7 @@ export const RailFooter = (props: {
   const draftLine = dismissable(() => retained.problem()?.destination?.surface.startsWith("rail-") ? copy.railDraftRetention(project.name, retained.problem()!.destination?.surface ?? "rail", retained.problem()!.operation) : null);
 
   /** The first failure the footer has, with how the owner recovers from that one. */
-  const line = (): { message: string | null } & Recovery => {
+  const line = (): { message: string | null } & Dismissible => {
     const command = failure.surface() === "rail" ? failure.message() : null;
 
     if (command) {
