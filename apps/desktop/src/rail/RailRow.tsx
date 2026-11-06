@@ -237,9 +237,15 @@ export const RailRowView = (props: {
 
       return <ReservedLine class="rail-unreachable" status={copy.cantReach(reached().name, reached().unreachable!)}><button type="button" data-button="quiet" aria-label={`${label()} ${reached().name}`} onClick={act}>{label()}</button></ReservedLine>;
     }}</Show>
+    <Show when={!workstream() && props.row.node.resume}>{resume => <Show when={resume().at} fallback={
+      <Show when={props.row.node.status?.kind === "error"}>
+        <ReservedLine class="rail-resume rail-resume-spent" status={props.row.node.status?.label}><button type="button" data-button="quiet" aria-label={copy.retryMessage(props.row.node.name)} onClick={event => { event.stopPropagation(); void connected.rail.resumeTurn(props.row.node.id).then(failed => { if (failed !== null) props.onFailure(copy.failed(copy.retry, failed)); }); }}>{copy.retry}</button></ReservedLine>
+      </Show>}>
+      {at => <ReservedLine class="rail-resume" status={copy.resumesAt(props.row.node.status?.label ?? "", at())} />}
+    </Show>}</Show>
     <Show when={workstream() && connected.rail.doorFailure(props.row.node.id)}>{cause => <FailureCause label={cause()} class="rail-door-failure" />}</Show>
     <Show when={props.row.node.start_attribution}>{source => <ReservedLine class="rail-attribution" status={copy.startedBy(source().agent_name, source().project_name)} />}</Show>
-    <Show when={!workstream() && (props.selected || !connected.rail.dismissed(props.row.node))}><FailureLine status={props.row.node.status} dismissed={connected.rail.dismissed(props.row.node)} /></Show>
+    <Show when={!workstream() && !(props.row.node.resume && props.row.node.resume.at === null && props.row.node.status?.kind === "error") && (props.selected || !connected.rail.dismissed(props.row.node))}><FailureLine status={props.row.node.status} dismissed={connected.rail.dismissed(props.row.node)} /></Show>
   </div>}</StatusTip>;
 
   return <>

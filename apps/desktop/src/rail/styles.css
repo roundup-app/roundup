@@ -864,6 +864,20 @@
   visibility: visible;
 }
 
+/* U6248c: a waiting resume is one grey caption line; an exhausted one is the single error line, wrapping under Resume like the delivery failure. */
+.rail-resume .reserved-status { color: var(--grey); font-size: var(--text-caption); }
+.rail-resume-spent .reserved-status { color: var(--red); }
+.rail-resume-spent.reserved-line {
+  block-size: auto;
+  max-block-size: none;
+}
+.rail-resume-spent .reserved-content { align-items: flex-start; }
+.rail-resume-spent .reserved-status {
+  font-size: inherit;
+  line-height: normal;
+  white-space: normal;
+}
+
 /* DCL1: a delivery failure reads in the error tone, like the failure lines beside it. */
 .rail-unreachable .reserved-status {
   color: var(--red);
