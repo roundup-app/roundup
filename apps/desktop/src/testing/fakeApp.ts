@@ -5,7 +5,7 @@ import type { RpcMethodName, RpcMethods } from "@contracts/methods";
 import { OWN_CONTRACT } from "../app/contractMatch";
 import { RpcError } from "../app/seam";
 import { menuProbe, probeQuestion, probeRemovalQuestion, questionProbe } from "./menuProbe";
-import type { ActionRequest, ActionReply, ProjectCalls, AppSeam, RemovalQuestion, RemovalAnswer, NativeOpen, NativeQuestion, DaemonExit, DaemonExited, FileDrop, MenuItem, OpenTarget, OutputMessage, PastedImage, Project, StateAlert, MenuBar, MenuBarAction } from "../app/seam";
+import type { ActionRequest, ActionReply, ProjectCalls, AppSeam, RemovalQuestion, RemovalAnswer, NativeOpen, NativeQuestion, DaemonExit, DaemonExited, FileDrop, MenuItem, OpenTarget, EditorChoice, OutputMessage, PastedImage, Project, StateAlert, MenuBar, MenuBarAction } from "../app/seam";
 
 const CONFLICT = -32003;
 
@@ -87,7 +87,10 @@ export type FakeApp = AppSeam & {
   /** Every path `open_in_editor` was called with, in order; `editorFailure` is what it rejects with. */
   editorOpened: string[];
   /** The same calls with their `line`. */
-  editorCalls: { path: string; line?: number }[];
+  editorCalls: { path: string; line?: number; editor?: string }[];
+  /** U6372a: what `list_editors` answers, and the code editor each open call carried (`undefined`: none). */
+  installedEditors: EditorChoice[];
+  openedEditors: (string | undefined)[];
   editorFailure: RpcError | null;
   /** Every menu `show_context_menu` was called with, in order; `menuChoice` is the id it resolves (`null`: the menu closed with no choice). */
   shownMenus: { items: MenuItem[]; x: number; y: number }[];
@@ -196,6 +199,8 @@ export const createFakeApp = (): FakeApp => {
     openFailure: null,
     editorOpened: [],
     editorCalls: [],
+    installedEditors: [],
+    openedEditors: [],
     editorFailure: null,
     clipboardWrites: [],
     clipboardFailure: null,
@@ -345,6 +350,7 @@ export const createFakeApp = (): FakeApp => {
         windowOperations: app.windowOperations,
         openTarget: app.openTarget,
         openInEditor: app.openInEditor,
+        listEditors: app.listEditors,
         savePastedImage: app.savePastedImage,
         writeClipboardText: (text: string) => app.writeClipboardText(text),
         clipboardWrites: app.clipboardWrites,
@@ -439,18 +445,20 @@ export const createFakeApp = (): FakeApp => {
         },
       };
     },
-    openTarget: async (target) => {
+    listEditors: async () => app.installedEditors,
+    openTarget: async (target, editor) => {
       app.attemptedTargets.push(target);
 
       if (app.openFailure) throw app.openFailure;
 
       app.openedTargets.push(target);
+      app.openedEditors.push(editor);
     },
-    openInEditor: async (path, line) => {
+    openInEditor: async (path, line, editor) => {
       if (app.editorFailure) throw app.editorFailure;
 
       app.editorOpened.push(path);
-      app.editorCalls.push(line === undefined ? { path } : { path, line });
+      app.editorCalls.push({ path, ...line === undefined ? {} : { line }, ...editor ? { editor } : {} });
     },
     showContextMenu: async (items, x, y) => {
       app.shownMenus.push({ items, x, y });

@@ -48,6 +48,9 @@ export type Unsubscribe = () => void;
 export type FileDrop = { phase: "over" | "drop" | "leave"; paths: string[]; x: number; y: number };
 
 /** What Cmd+click on a Terminal's link asks the App to open (U365): a web link, or an absolute path with the line it was printed with. */
+/** U6372a: an installed code editor: its bundle id and its name. */
+export type EditorChoice = { id: string; name: string };
+
 export type OpenTarget = { kind: "url"; url: string } | { kind: "path"; path: string; line: number | null };
 
 /** U2694a: one item of a native menu. Both menus use one-step accelerators and separate sequence hints; adjacent context groups receive native separators. Project groups are create, navigate and views. `children` makes a native submenu in either menu. */
@@ -122,6 +125,7 @@ export const SEAM_COMMANDS = [
   "terminal_output_stop",
   "open_target",
   "open_in_editor",
+  "list_editors",
   "save_pasted_image",
   "plugin:clipboard-manager|write_text",
   "show_context_menu",
@@ -253,10 +257,12 @@ export type App = {
   zoomWindow(): Promise<void>;
   /** FB2: takes the shot of the window as drawn now (base64 PNG, or none with its cause) and reads the App's facts. */
   feedbackCapture?(): Promise<FeedbackReport>;
-  /** Opens a web link in the default browser, or an absolute path in its default app (a folder in Finder). Rejects NOT_FOUND for a missing path and FORBIDDEN for a scheme but http and https (U365). */
-  openTarget(target: OpenTarget): Promise<void>;
+  /** Opens a web link in the default browser, or an absolute path: a text file in the code editor `editor` (a bundle id; absent is `Automatic`, U6372b), any other in its default app (a folder in Finder). Rejects NOT_FOUND for a missing path and FORBIDDEN for a scheme but http and https (U365). */
+  openTarget(target: OpenTarget, editor?: string): Promise<void>;
   /** Opens the absolute directory or file `path` in the user's code editor, a file at `line` when the editor takes one (U429, U2539c). Rejects NOT_FOUND for a missing path or when no editor is found, and CONFLICT for a relative path. */
-  openInEditor(path: string, line?: number): Promise<void>;
+  openInEditor(path: string, line?: number, editor?: string): Promise<void>;
+  /** U6372a: the code editors of Settings' choice that LaunchServices finds installed, in list order. */
+  listEditors(): Promise<EditorChoice[]>;
   /** Saves a pasted image as a new file in the OS cache folder and resolves its absolute path (U418). Rejects FORBIDDEN for another type or bytes over 20 MiB, and writes nothing then. */
   savePastedImage(image: PastedImage): Promise<string>;
   /** Pops the macOS system menu at `x`, `y` (window CSS pixels) and resolves the chosen item's id, or `null` when it closes with no choice (U2694a). */
