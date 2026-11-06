@@ -47,10 +47,10 @@ export type Unsubscribe = () => void;
 /** One step of a File drop: `x` and `y` in CSS pixels of the webview; `paths` absolute, empty unless `phase` is `drop`. */
 export type FileDrop = { phase: "over" | "drop" | "leave"; paths: string[]; x: number; y: number };
 
-/** What Cmd+click on a Terminal's link asks the App to open (U365): a web link, or an absolute path with the line it was printed with. */
 /** U6372a: an installed code editor: its bundle id and its name. */
 export type EditorChoice = { id: string; name: string };
 
+/** What Cmd+click on a Terminal's link asks the App to open (U365): a web link, or an absolute path with the line it was printed with. */
 export type OpenTarget = { kind: "url"; url: string } | { kind: "path"; path: string; line: number | null };
 
 /** U2694a: one item of a native menu. Both menus use one-step accelerators and separate sequence hints; adjacent context groups receive native separators. Project groups are create, navigate and views. `children` makes a native submenu in either menu. */

@@ -315,7 +315,7 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
       { id: "fontFamily", page: copy.settingsTerminal, group: copy.groupFont, label: copy.fontFamily, description: copy.fontFamilyHint },
       { id: "fontWeight", page: copy.settingsTerminal, group: copy.groupFont, label: copy.fontWeight, description: copy.fontWeightHint },
       ...numericFields.map(({ name, label, hint }) => ({ id: name, page: copy.settingsTerminal, group: copy.groupFont, label, description: hint })),
-      { id: "codeEditor", page: copy.settingsEditor, group: copy.groupCodeEditor, label: copy.codeEditor, description: copy.codeEditorHint },
+      { id: "codeEditor", page: copy.settingsEditor, group: copy.settingsEditor, label: copy.codeEditor, description: copy.codeEditorHint },
       { id: "quickAdd", page: copy.settingsShortcuts, group: copy.groupQuickAdd, label: copy.quickAddTodo, description: copy.quickAddHint },
       { id: "quickAddAnywhere", page: copy.settingsShortcuts, group: copy.groupQuickAdd, label: copy.quickAddAnywhere, description: copy.quickAddAnywhereHint },
       { id: "padWidth", page: copy.settingsPads, group: copy.settingsPads, label: copy.defaultWidth, description: copy.defaultWidthHint },

@@ -70,7 +70,6 @@ export const copy = {
   settingsAgents: "Agents",
   settingsTerminal: sharedCopy.terminal,
   settingsEditor: "Editor",
-  groupCodeEditor: "Code editor",
   codeEditor: "Code editor",
   codeEditorHint: "Opens the text files you click in Terminals, changes and the Rail.",
   editorAutomatic: "Automatic",
