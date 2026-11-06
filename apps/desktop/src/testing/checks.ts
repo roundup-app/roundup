@@ -810,7 +810,7 @@ const d14 = (page: Page): Measure => {
 
       // The done fold begins another list; its separation is not a gap between neighbours.
       if (listOf(one.row) === listOf(previous.row)) {
-        // U3800a: the room a drag opens for the held row is a row-sized gap, not empty spacing between rows; a gap that holds the held row's height holds its room.
+        // U3800a: the room a drag opens for the dragged row is a row-sized gap, not empty spacing between rows; a gap that holds the dragged row's height holds its room.
         const room = listOf(one.row)?.querySelector("[data-dnd-dragging]")?.getBoundingClientRect().height ?? 0;
         const gap = one.box.top - previous.box.bottom;
         const occupied = room > 0 && gap >= room ? room : 0;

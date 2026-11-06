@@ -1,15 +1,15 @@
-/* The held row follows the pointer; its gap in the list is the hidden placeholder, shifted right by the depth the drop would have. */
+/* The dragged row follows the pointer; its gap in the list is the hidden placeholder, shifted right by the depth the drop would have. */
 [data-dnd-placeholder] {
   margin-inline-start: var(--sortable-shift, 0);
 }
 
-/* The held row floats in the top layer, outside its list, and the library unsets a popover's background: without its own it shows the rows under it through its text. */
+/* The dragged row floats in the top layer, outside its list, and the library unsets a popover's background: without its own it shows the rows under it through its text. */
 [data-dnd-dragging] {
   z-index: 1;
   background-color: var(--ground);
 }
 
-/* The Rail and the Shelf sit on their own ground; a held tab keeps the strip's. */
+/* The Rail and the Shelf sit on their own ground; a dragged tab keeps the strip's. */
 .rail [data-dnd-dragging],
 .shelf [data-dnd-dragging] {
   background-color: var(--rail-ground);
@@ -29,7 +29,7 @@
 
 .sortable-handle:focus-visible { color: var(--text); }
 
-/* A grip shows while its row is hovered, holds focus, is selected or is held. */
+/* A grip shows while its row is hovered, holds focus, is selected or is dragged. */
 :is(.shelf-row, .rail-row, .rail-leaf, .pad-row-head, .todo-row):is(:hover, :focus-within, [data-selected="true"], [aria-selected="true"], [data-dnd-dragging]) .sortable-handle,
 [data-dnd-dragging] .sortable-handle,
 .sortable-handle:focus-visible { opacity: 1; }

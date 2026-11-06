@@ -73,7 +73,7 @@ const scrollerOf = (element: Element): Element | null => {
 };
 
 /**
- * Collision against the slots the rows held at lift, never the live boxes that move.
+ * Collision against the slots the rows had at lift, never the live boxes that move.
  * A pointer drag keeps the library's target on the dragged row itself, so the library moves no row in the DOM:
  * the other rows make room by `translate`, as a function of the pointer (`pose`), and the drop takes slot `slot()`.
  * Keyboard drags keep the library's own sorting.
@@ -86,12 +86,12 @@ const fixedSlots = (axis: "x" | "y", list: () => HTMLElement | undefined, depth:
 
   const offset = (scroller: Element | null) => scroller ? (axis === "x" ? scroller.scrollLeft : scroller.scrollTop) : 0;
   let lift: Lift | null = null;
-  let held: { id: UniqueIdentifier; from: number; at: number; manager: DragDropManager } | null = null;
+  let dragged: { id: UniqueIdentifier; from: number; at: number; manager: DragDropManager } | null = null;
   let slot = -1;
   let far = false;
   let pointer: { x: number; y: number } | null = null;
 
-  const rowsOf = (): Row[] => [...held?.manager.registry.droppables ?? []].filter((row): row is Droppable & Row => isSortable(row)).filter(row => row.element && list()?.contains(row.element));
+  const rowsOf = (): Row[] => [...dragged?.manager.registry.droppables ?? []].filter((row): row is Droppable & Row => isSortable(row)).filter(row => row.element && list()?.contains(row.element));
 
   const measure = (rows: readonly Row[]): Lift | null => {
     const shown = rows.filter((row): row is Row & { element: Element } => !!row.element).sort((a, b) => a.index - b.index);
@@ -113,7 +113,7 @@ const fixedSlots = (axis: "x" | "y", list: () => HTMLElement | undefined, depth:
     return { centres: rects.map(rect => rect[start] + rect[length] / 2 + offset(scroller)), starts: rects.map(rect => rect[start] + offset(scroller)), sizes: rects.map(rect => rect[length]), size: rects[0]![length], box: new DOMRect(left, top, right - left, bottom - top), ids: new Set(shown.map(row => row.id)), elements: shown.map(row => row.element), scroller, offset: offset(scroller) };
   };
 
-  /** Where the held row's start edge sits, in scroll-content coordinates, once it sits at index `to`. */
+  /** Where the dragged row's start edge sits, in scroll-content coordinates, once it sits at index `to`. */
   const startOf = (from: number, to: number) => to <= from ? lift!.starts[to]! : lift!.starts[to]! + lift!.sizes[to]! - lift!.sizes[from]!;
 
   const shifts = (from: number, to: number): number[] | null => {
@@ -132,9 +132,9 @@ const fixedSlots = (axis: "x" | "y", list: () => HTMLElement | undefined, depth:
     return out;
   };
 
-  // The pointer picks the slot nearest the held row; it changes hands only past STICKY_ROW_SHARE of a row.
+  // The pointer picks the slot nearest the dragged row; it changes hands only past STICKY_ROW_SHARE of a row.
   const update = () => {
-    if (!held || !pointer) return;
+    if (!dragged || !pointer) return;
     const rows = rowsOf();
 
     // A row that joined the list mid-drag makes new slots. One that leaves keeps its slot, and a row unregistered for a moment changes nothing.
@@ -151,7 +151,7 @@ const fixedSlots = (axis: "x" | "y", list: () => HTMLElement | undefined, depth:
 
     far = far ? gap > FAR_IN_PX : gap > FAR_OUT_PX;
 
-    if (far) { slot = held.from;
+    if (far) { slot = dragged.from;
 
  return; }
 
@@ -163,15 +163,15 @@ const fixedSlots = (axis: "x" | "y", list: () => HTMLElement | undefined, depth:
   };
 
   /**
-   * How far each row at lift shows from its place now: the held row's centre, moved by the pointer, sits between two slots,
+   * How far each row at lift shows from its place now: the dragged row's centre, moved by the pointer, sits between two slots,
    * and every other row stands that share of the way between its places for those two slots (the paper's `d.between`).
    */
   const pose = (): number[] | null => {
-    if (!lift || !held || !pointer) return null;
-    const { from } = held;
+    if (!lift || !dragged || !pointer) return null;
+    const { from } = dragged;
 
     if (far) return lift.starts.map(() => 0);
-    const centre = startOf(from, from) + lift.sizes[from]! / 2 + (axis === "x" ? pointer.x : pointer.y) - held.at + offset(lift.scroller) - lift.offset;
+    const centre = startOf(from, from) + lift.sizes[from]! / 2 + (axis === "x" ? pointer.x : pointer.y) - dragged.at + offset(lift.scroller) - lift.offset;
     const slots = lift.starts.map((_, to) => startOf(from, to) + lift!.sizes[from]! / 2);
     const k = Math.max(0, Math.min(slots.length - 2, slots.findLastIndex(at => at <= centre)));
     const share = slots.length < 2 ? 0 : Math.max(0, Math.min(1, (centre - slots[k]!) / (slots[k + 1]! - slots[k]!)));
@@ -210,7 +210,7 @@ const fixedSlots = (axis: "x" | "y", list: () => HTMLElement | undefined, depth:
  if (now) posed?.(now); };
 
   const follow = (event: PointerEvent) => at(event.clientX, event.clientY);
-  const moved = (x: number, y: number) => { if (held) at(x, y); };
+  const moved = (x: number, y: number) => { if (dragged) at(x, y); };
 
   return {
     detect,
@@ -219,22 +219,22 @@ const fixedSlots = (axis: "x" | "y", list: () => HTMLElement | undefined, depth:
     isFar: () => far,
     /** The slot a pointer release takes now. */
     slot: () => slot,
-    /** Where the held row's start edge shows once it sits at index `to`: the rows' places at lift, in view coordinates now. */
+    /** Where the dragged row's start edge shows once it sits at index `to`: the rows' places at lift, in view coordinates now. */
     startAt: (from: number, to: number): number | null => {
       if (!lift || from < 0 || to < 0 || to >= lift.starts.length || from >= lift.starts.length) return null;
 
       return startOf(from, to) - offset(lift.scroller);
     },
-    /** How far each row shows from its place at lift once the row at `from` sits at `to`; the held row's own entry is its move. */
+    /** How far each row shows from its place at lift once the row at `from` sits at `to`; the dragged row's own entry is its move. */
     shifts,
     /** The rows in their order at lift. */
     rowsAtLift: (): readonly Element[] => lift?.elements ?? [],
     /** Starts reading the pointer for one drag of `source`, grabbed at `grab`; `onPose` gets every row's offset as the pointer moves. Returns what stops it. */
     begin: (source: Draggable | null, grab: { x: number; y: number }, current: { x: number; y: number }, onPose: (pose: number[]) => void) => {
-      lift = null; far = false; pointer = null; held = null; slot = -1; posed = onPose;
+      lift = null; far = false; pointer = null; dragged = null; slot = -1; posed = onPose;
 
       if (!isSortable(source) || !source.manager) return () => undefined;
-      held = { id: source.id, from: source.initialIndex, at: axis === "x" ? grab.x : grab.y, manager: source.manager };
+      dragged = { id: source.id, from: source.initialIndex, at: axis === "x" ? grab.x : grab.y, manager: source.manager };
       slot = source.initialIndex;
       lift = measure(rowsOf());
       // The move that started the drag was made before this listener: the slot starts from where the pointer is now, not from the lift.
@@ -276,7 +276,7 @@ const glide = (element: HTMLElement, to: { x: number; y: number }, duration: num
   return new Promise<void>(resolve => { animation.onfinish = () => resolve(); animation.oncancel = () => resolve(); });
 };
 
-/** Longest the held row waits at its new place for the Daemon's answer to show in the list. */
+/** Longest the dragged row waits at its new place for the Daemon's answer to show in the list. */
 const ANSWER_WAIT_MS = 2500;
 
 const SlotsContext = createContext<CollisionDetector>();
@@ -312,7 +312,7 @@ type SortableTree = {
   /** The row content's inset from its border box, in pixels, at its current depth. */
   inset: (element: HTMLElement) => number;
   nests: (id: string) => boolean;
-  /** A string the promise resolves to is the Daemon's refusal; the held row then blends back once. */
+  /** A string the promise resolves to is the Daemon's refusal; the dragged row then blends back once. */
   onMove: (move: SortableMove) => MoveAnswer;
   /** The drop a release would commit, or null once the drag ends. */
   onPreview: (drop: SortableDrop | null) => void;
@@ -421,7 +421,7 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
   let stopPointer: (() => void) | undefined;
   const slots = fixedSlots(local.horizontal ? "x" : "y", () => list, !!local.tree);
 
-  // A drop shows its new order at once: the held row settles into the slot and waits there until the list itself shows the order, or the Daemon refuses.
+  // A drop shows its new order at once: the dragged row settles into the slot and waits there until the list itself shows the order, or the Daemon refuses.
   // The move itself runs once the row has landed (`run`): a list that redraws on a move then blocks no frame of the settle.
   let commit: { start: number | null; run: () => MoveAnswer; key: string; undo: () => void; clear: () => void } | null = null;
 
@@ -490,21 +490,21 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
     for (const box of boxes) box.style.overflow = "visible";
   };
 
-  /** The other rows of a pointer drag, in their order at lift, with the held row left out. */
+  /** The other rows of a pointer drag, in their order at lift, with the dragged row left out. */
   const others = (source: Draggable | null) => isSortable(source) ? slots.rowsAtLift().flatMap((element, index) => index !== source.initialIndex && element instanceof HTMLElement ? [{ element, index }] : []) : [];
 
   // A pointer drag moves no row in the DOM; the list changes only when the Daemon answers. Until then the siblings slide to the places the drop gives them, and stay.
   const showDrop = (source: Draggable | null, to: number, slide: boolean) => {
     const shifts = isSortable(source) ? slots.shifts(source.initialIndex, to) : null;
-    const held = shifts ? others(source) : [];
+    const dragged = shifts ? others(source) : [];
 
     const these = unclipped;
 
-    place(held.map(({ element, index }) => ({ element, shift: shifts![index] ?? 0 })), slide);
+    place(dragged.map(({ element, index }) => ({ element, shift: shifts![index] ?? 0 })), slide);
 
     return {
-      undo: () => { place(held.map(({ element }) => ({ element, shift: 0 })), true); reclipAfterSlide(these); },
-      clear: () => { place(held.map(({ element }) => ({ element, shift: 0 })), false); reclip(these); },
+      undo: () => { place(dragged.map(({ element }) => ({ element, shift: 0 })), true); reclipAfterSlide(these); },
+      clear: () => { place(dragged.map(({ element }) => ({ element, shift: 0 })), false); reclip(these); },
     };
   };
 
@@ -523,8 +523,8 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
    * Runs the move once the library has let go of the dropped row, so the list is the only writer of its DOM when it redraws.
    * Until the list shows the move, the dropped row stays where it landed (`landed`, from its place in the list) and the others where the drop put them.
    */
-  const commitDrop = (held: NonNullable<typeof commit>, row: HTMLElement, landed: { x: number; y: number }) => {
-    const answer = held.run();
+  const commitDrop = (dragged: NonNullable<typeof commit>, row: HTMLElement, landed: { x: number; y: number }) => {
+    const answer = dragged.run();
     let open = true;
 
     // The list showing the order puts every row where it waited; a refusal or a silent Daemon sends them back to their own places.
@@ -533,18 +533,18 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
       open = false;
       arrivals.delete(arrived);
 
-      if (shown) { held.clear(); offsetTo(row, { x: 0, y: 0 }, false);
+      if (shown) { dragged.clear(); offsetTo(row, { x: 0, y: 0 }, false);
 
  return; }
 
-      held.undo();
+      dragged.undo();
       offsetTo(row, { x: 0, y: 0 }, Math.hypot(landed.x, landed.y) > 1);
     };
 
     const arrived = () => end(true);
 
     // A list that draws the move at once (the Rail) already shows the new order: holding the rows too would shift them twice.
-    if (shownOrder() !== held.key) return end(true);
+    if (shownOrder() !== dragged.key) return end(true);
     arrivals.add(arrived);
 
     if (answer instanceof Promise) answer.then(reply => { if (reply) end(false); }, () => end(false));
@@ -552,7 +552,7 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
   };
 
   const settle: DropAnimationFunction = async ({ source, feedbackElement, element, placeholder }) => {
-    const held = commit;
+    const dragged = commit;
     const duration = reduced() ? 0 : reorderMs(document.documentElement);
     const easing = getComputedStyle(document.documentElement).getPropertyValue("--easing-out").trim();
     const home = () => (placeholder?.isConnected ? placeholder : element).getBoundingClientRect();
@@ -560,15 +560,15 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
     const landing = () => {
       const box = home();
 
-      if (held?.start == null) return { x: box.x, y: box.y };
+      if (dragged?.start == null) return { x: box.x, y: box.y };
 
-      return local.horizontal ? { x: held.start, y: box.y } : { x: box.x, y: held.start };
+      return local.horizontal ? { x: dragged.start, y: box.y } : { x: box.x, y: dragged.start };
     };
 
     commit = null;
 
     // A list that remounts the row on a drop leaves nothing to settle.
-    if (!(feedbackElement instanceof HTMLElement) || !feedbackElement.isConnected) { held?.run(); held?.clear();
+    if (!(feedbackElement instanceof HTMLElement) || !feedbackElement.isConnected) { dragged?.run(); dragged?.clear();
 
  return; }
 
@@ -577,7 +577,7 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
     // Moving the row in the DOM takes it out of the top layer; the library shows it again for its own drop animation.
     showPopover(floating);
 
-    // The library pins the held row's `translate` while dragging; marking it dropping frees the property for the glide, which starts where the row shows.
+    // The library pins the dragged row's `translate` while dragging; marking it dropping frees the property for the glide, which starts where the row shows.
     const resting = translateOf(floating);
 
     floating.setAttribute("data-dnd-dropping", "");
@@ -585,7 +585,7 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
     await glide(floating, landing(), duration, easing);
 
     // The library clears the dropping mark only after its own drop animation; one left on the row frees its `translate` on every later drag, and the row stops following the pointer.
-    if (!held) {
+    if (!dragged) {
       for (const animation of floating.getAnimations()) animation.cancel();
       floating.removeAttribute("data-dnd-dropping");
       floating.style.translate = "";
@@ -607,7 +607,7 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
       for (const animation of floating.getAnimations()) animation.cancel();
       floating.removeAttribute("data-dnd-dropping");
       offsetTo(floating, landed, false);
-      setTimeout(() => commitDrop(held, floating, landed));
+      setTimeout(() => commitDrop(dragged, floating, landed));
     });
   };
 
@@ -618,7 +618,7 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
 
   let stopListening: (() => void) | undefined;
 
-  // The held row follows the pointer; its gap in the list shifts right of where it began by the depth the drop would have.
+  // The dragged row follows the pointer; its gap in the list shifts right of where it began by the depth the drop would have.
   const preview = (drop: SortableDrop | null) => {
     if (drop?.parent === previewed?.parent && drop?.index === previewed?.index && drop?.depth === previewed?.depth) return;
 
@@ -727,7 +727,7 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
       const duration = keyboardLift || reduced() ? 0 : reorderMs(source.element);
       const easing = getComputedStyle(source.element).getPropertyValue("--easing-out").trim();
 
-      // The other rows make room by sortable transitions; the held row follows the pointer with none.
+      // The other rows make room by sortable transitions; the dragged row follows the pointer with none.
       for (const draggable of source.manager?.registry.draggables ?? []) {
         if (isSortable(draggable)) draggable.sortable.transition = { duration: draggable === source ? 0 : duration, easing };
       }
