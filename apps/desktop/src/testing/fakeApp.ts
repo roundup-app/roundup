@@ -44,6 +44,9 @@ const emptyReads: Handlers = {
 /** One `selectOutput` call: the listener stays here after `release`, so a test can call it late. */
 export type FakeOutputSubscription = { id: string; offset: number; listener: (message: OutputMessage) => void; released: boolean };
 
+/** One `open_in_editor` call: the path, its `line` and the code editor chosen, when given. */
+type EditorCall = { path: string; line?: number; editor?: string };
+
 export type FakeApp = AppSeam & {
   requestAction(request: ActionRequest): Promise<ActionReply>;
   invalidateActions(): void;
@@ -87,7 +90,7 @@ export type FakeApp = AppSeam & {
   /** Every path `open_in_editor` was called with, in order; `editorFailure` is what it rejects with. */
   editorOpened: string[];
   /** The same calls with their `line`. */
-  editorCalls: { path: string; line?: number; editor?: string }[];
+  editorCalls: EditorCall[];
   /** U6372a: what `list_editors` answers, and the code editor each open call carried (`undefined`: none). */
   installedEditors: EditorChoice[];
   openedEditors: (string | undefined)[];
@@ -458,7 +461,13 @@ export const createFakeApp = (): FakeApp => {
       if (app.editorFailure) throw app.editorFailure;
 
       app.editorOpened.push(path);
-      app.editorCalls.push({ path, ...line === undefined ? {} : { line }, ...editor ? { editor } : {} });
+      const call: EditorCall = { path };
+
+      if (line !== undefined) call.line = line;
+
+      if (editor) call.editor = editor;
+
+      app.editorCalls.push(call);
     },
     showContextMenu: async (items, x, y) => {
       app.shownMenus.push({ items, x, y });
