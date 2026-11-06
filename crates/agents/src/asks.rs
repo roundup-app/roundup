@@ -169,6 +169,7 @@ impl Intake {
                 );
             }
             vec![placement::AskPart {
+                project: None,
                 text: ask.text.clone(),
                 destination: Destination::Routed { workstream },
             }]
@@ -195,6 +196,7 @@ impl Intake {
                 },
             };
             vec![placement::AskPart {
+                project: None,
                 text: text.into(),
                 destination,
             }]
@@ -215,6 +217,7 @@ impl Intake {
                         .parts
                         .into_iter()
                         .map(|part| placement::AskPart {
+                            project: None,
                             text: part.text,
                             destination: match part.placement {
                                 Place::Routed { workstream } => Destination::Routed { workstream },
