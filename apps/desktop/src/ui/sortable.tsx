@@ -80,7 +80,7 @@ const scrollerOf = (element: Element): Element | null => {
  * Far from the list the slot is the row's own: nothing moves and a release puts it back.
  */
 const fixedSlots = (axis: "x" | "y", list: () => HTMLElement | undefined, depth: boolean) => {
-  type Lift = { centres: number[]; starts: number[]; sizes: number[]; size: number; box: DOMRect; ids: Set<UniqueIdentifier>; elements: Element[]; scroller: Element | null; offset: number };
+  type Lift = { starts: number[]; sizes: number[]; size: number; box: DOMRect; ids: Set<UniqueIdentifier>; elements: Element[]; scroller: Element | null; offset: number };
 
   type Row = { id: UniqueIdentifier; index: number; element: Element | undefined };
 
@@ -110,7 +110,7 @@ const fixedSlots = (axis: "x" | "y", list: () => HTMLElement | undefined, depth:
     const length = axis === "x" ? "width" : "height";
 
     // Slots are kept in scroll-content coordinates: auto-scroll moves the rows under a fixed slot.
-    return { centres: rects.map(rect => rect[start] + rect[length] / 2 + offset(scroller)), starts: rects.map(rect => rect[start] + offset(scroller)), sizes: rects.map(rect => rect[length]), size: rects[0]![length], box: new DOMRect(left, top, right - left, bottom - top), ids: new Set(shown.map(row => row.id)), elements: shown.map(row => row.element), scroller, offset: offset(scroller) };
+    return { starts: rects.map(rect => rect[start] + offset(scroller)), sizes: rects.map(rect => rect[length]), size: rects[0]![length], box: new DOMRect(left, top, right - left, bottom - top), ids: new Set(shown.map(row => row.id)), elements: shown.map(row => row.element), scroller, offset: offset(scroller) };
   };
 
   /** Where the dragged row's start edge sits, in scroll-content coordinates, once it sits at index `to`. */
@@ -131,6 +131,9 @@ const fixedSlots = (axis: "x" | "y", list: () => HTMLElement | undefined, depth:
 
     return out;
   };
+
+  /** The held row's middle now, in scroll-content coordinates of the lift. */
+  const heldMiddle = () => startOf(dragged!.from, dragged!.from) + lift!.sizes[dragged!.from]! / 2 + (axis === "x" ? pointer!.x : pointer!.y) - dragged!.at + offset(lift!.scroller) - lift!.offset;
 
   // The pointer picks the slot nearest the dragged row; it changes hands only past STICKY_ROW_SHARE of a row.
   const update = () => {
@@ -155,23 +158,30 @@ const fixedSlots = (axis: "x" | "y", list: () => HTMLElement | undefined, depth:
 
  return; }
 
-    const along = (axis === "x" ? x : y) + offset(lift.scroller);
-    const distance = (index: number) => Math.abs((lift?.centres[index] ?? Infinity) - along);
-    const nearest = lift.centres.reduce((best, _, index) => distance(index) < distance(best) ? index : best, 0);
+    // The pick reads the held row's middle against its own middle at each slot, the places `pose` draws, so a tall row and the rows agree.
+    const middle = heldMiddle();
+    const distance = (index: number) => Math.abs(startOf(dragged!.from, index) + lift!.sizes[dragged!.from]! / 2 - middle);
+    const nearest = lift.starts.reduce((best, _, index) => distance(index) < distance(best) ? index : best, 0);
 
     if (nearest !== slot && distance(slot) - distance(nearest) > STICKY_ROW_SHARE * lift.size) slot = nearest;
   };
 
-  /** How far each row at lift shows from its place now: every other row stands on the whole slot the drop slot gives it, so no row rests between two places. */
+  /**
+   * How far each row at lift shows from its place now: the dragged row's centre, moved by the pointer, sits between two slots,
+   * and every other row stands that share of the way between its places for those two slots (the paper's `d.between`).
+   */
   const pose = (): number[] | null => {
     if (!lift || !dragged || !pointer) return null;
     const { from } = dragged;
 
     if (far) return lift.starts.map(() => 0);
+    const centre = heldMiddle();
+    const slots = lift.starts.map((_, to) => startOf(from, to) + lift!.sizes[from]! / 2);
+    const k = Math.max(0, Math.min(slots.length - 2, slots.findLastIndex(at => at <= centre)));
+    const share = slots.length < 2 ? 0 : Math.max(0, Math.min(1, (centre - slots[k]!) / (slots[k + 1]! - slots[k]!)));
+    const a = shifts(from, k), b = shifts(from, Math.min(k + 1, slots.length - 1));
 
-    const now = shifts(from, slot);
-
-    return now ? now.map((shift, index) => index === from ? 0 : shift) : null;
+    return a && b ? a.map((shift, index) => index === from ? 0 : shift + (b[index]! - shift) * share) : null;
   };
 
   type Input = { droppable: Droppable; dragOperation: { source: Draggable | null; target: Droppable | null; activatorEvent: Event | null } };
@@ -203,12 +213,11 @@ const fixedSlots = (axis: "x" | "y", list: () => HTMLElement | undefined, depth:
 
  if (now) posed?.(now); };
 
-  const follow = (event: PointerEvent) => at(event.clientX, event.clientY);
   const moved = (x: number, y: number) => { if (dragged) at(x, y); };
 
   return {
     detect,
-    /** The drag's own report of the pointer: the move that started the drag reaches no listener of ours. */
+    /** The drag's own report of the pointer, the one source of a move: `begin` starts the slot from where the pointer is when the drag starts. */
     moved,
     isFar: () => far,
     /** The slot a pointer release takes now. */
@@ -234,11 +243,9 @@ const fixedSlots = (axis: "x" | "y", list: () => HTMLElement | undefined, depth:
       // The move that started the drag was made before this listener: the slot starts from where the pointer is now, not from the lift.
       pointer = { x: current.x, y: current.y };
       update();
-      window.addEventListener("pointermove", follow, { capture: true });
       window.addEventListener("scroll", scrolled, { capture: true, passive: true });
 
       return () => {
-        window.removeEventListener("pointermove", follow, { capture: true });
         window.removeEventListener("scroll", scrolled, { capture: true });
         posed = undefined;
       };
@@ -715,16 +722,13 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
     stopPointer?.();
     lifted = source?.element?.parentNode ? { element: source.element, parent: source.element.parentNode, before: source.element.previousSibling } : null;
     let wasFar = false;
-    let wasSlot = -1;
 
     // The other rows follow the pointer; they slide only when the far zone flips.
     stopPointer = slots.begin(source, event.operation.position.initial, event.operation.position.current, pose => {
       const far = slots.isFar();
-      const at = slots.slot();
 
-      place(others(source).map(({ element, index }) => ({ element, shift: pose[index] ?? 0 })), far !== wasFar || at !== wasSlot);
+      place(others(source).map(({ element, index }) => ({ element, shift: pose[index] ?? 0 })), far !== wasFar);
       wasFar = far;
-      wasSlot = at;
       list?.setAttribute("data-sortable-index", String(slots.slot()));
     });
 
@@ -783,7 +787,7 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
 
     window.addEventListener("keydown", turn, { capture: true });
     stopListening = () => window.removeEventListener("keydown", turn, { capture: true });
-  }} plugins={(defaults) => defaults.filter((plugin) => plugin !== Cursor && !(local.plain && plugin === Accessibility) && !(local.horizontal && plugin === AutoScroller)).map((plugin) => plugin === Feedback ? Feedback.configure({ dropAnimation: settle, keyboardTransition: null }) : plugin)} onDragMove={(event) => {
+  }} plugins={(defaults) => defaults.filter((plugin) => plugin !== Cursor && !(local.plain && plugin === Accessibility) && !(local.horizontal && plugin === AutoScroller)).map((plugin) => plugin === Feedback ? Feedback.configure({ dropAnimation: settle, keyboardTransition: null }) : plugin === AutoScroller ? AutoScroller.configure({ threshold: { x: 0, y: 0.2 } }) : plugin)} onDragMove={(event) => {
     const { source, position } = event.operation;
 
     // The library dispatches dragmove before it applies the move, so the destination is `to`, else the current position plus `by`.
