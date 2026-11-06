@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
+import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import type { Pad } from "@contracts/pad/Pad";
 import type { Todo } from "@contracts/todo/Todo";
@@ -204,9 +204,9 @@ it("u5240d_a_refused_key_shows_its_cause_by_the_row_and_esc_cancels", async () =
   switcherKey("Enter", { metaKey: true }, field()!);
   await waitFor(() => expect(recordingMark()).not.toBeNull());
   switcherKey("N", { metaKey: true, altKey: true }, field()!);
-  await screen.findByRole("alert");
+  const cause = await screen.findByRole("alert");
   expect(recordingMark()).not.toBeNull();
-  fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
+  fireEvent.click(within(cause.closest(".reserved-line")!).getByRole("button", { name: "Dismiss" }));
   await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
   expect(recordingMark()).not.toBeNull();
   switcherKey("N", { metaKey: true, altKey: true }, field()!);
