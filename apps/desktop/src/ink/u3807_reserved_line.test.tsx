@@ -6,13 +6,13 @@ import { createSignal } from "solid-js";
 import { readFileSync, readdirSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
-import { DISMISS_ONLY, ReservedLine } from "./ReservedLine";
+import { ReservedLine } from "./ReservedLine";
 
 afterEach(cleanup);
 
 it("u3807_the_line_form_is_mounted_without_a_message_and_keeps_its_height", () => {
   const [message, setMessage] = createSignal<string | null>(null);
-  const { container } = render(() => <section><button>Before</button><ReservedLine message={message()} action={DISMISS_ONLY} onDismiss={() => setMessage(null)} /><button>After</button></section>);
+  const { container } = render(() => <section><button>Before</button><ReservedLine message={message()} dismiss={() => setMessage(null)} /><button>After</button></section>);
   const surface = container.firstElementChild!;
   const nodes = [...surface.children];
   expect(screen.queryByRole("alert")).toBeNull();
@@ -26,7 +26,7 @@ it("u3807_the_line_form_is_mounted_without_a_message_and_keeps_its_height", () =
 
 it("u3807_the_overlay_form_is_out_of_flow", () => {
   const [message, setMessage] = createSignal<string | null>(null);
-  const { container } = render(() => <section><ReservedLine overlay message={message()} action={DISMISS_ONLY} onDismiss={() => setMessage(null)} /><input aria-label="Draft" /></section>);
+  const { container } = render(() => <section><ReservedLine overlay message={message()} dismiss={() => setMessage(null)} /><input aria-label="Draft" /></section>);
   const surface = container.firstElementChild!;
   const nodes = [...surface.children];
   setMessage("Could not send");

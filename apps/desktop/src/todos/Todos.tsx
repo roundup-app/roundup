@@ -26,7 +26,7 @@ import { registerOpener } from "../shelf/openItem";
 import { createEffect, createMemo, createSignal, For, on, onCleanup, Show, useContext, type JSX } from "solid-js";
 import { useTabsContext } from "@ark-ui/solid/tabs";
 import type { Todo } from "@contracts/todo/Todo";
-import { ReservedLine } from "../ink/ReservedLine";
+import { dismissable, ReservedLine } from "../ink/ReservedLine";
 import { homesToOffer } from "./homes";
 import { ShelfRow } from "../ink/ShelfRow";
 import { KindGlyph } from "../ink/KindGlyph";
@@ -88,6 +88,7 @@ export const Todos = (props: {
   const [creationRevision, setCreationRevision] = createSignal<string | null>(retained?.revision ?? null);
   const [typing, setTyping] = createSignal(retained !== undefined);
   const [createFailure, setCreateFailure] = createSignal<string | null>(null);
+  const shelfFailure = dismissable(() => todos.failure() || (!typing() ? createFailure() : null));
   const [unfolded, setUnfolded] = createSignal(false);
   const wasDoneUnfolded = createMemo((mounted) => mounted || unfolded(), false);
   const scope = shelfScope(connected);
@@ -683,7 +684,7 @@ export const Todos = (props: {
         <IconButton class="shelf-triage" data-triage-toggle aria-label={copy.triage} aria-pressed={triage.on()} action="todo.triage-enter" onClick={() => triage.on() ? leaveTriage() : enterTriage()}><ListChecks class="icon" aria-hidden="true" width={16} height={16} stroke-width={1.75} /></IconButton>
         <TodoAuto home={selectedWorkstream} />
       </ScopeAction>
-      <ReservedLine overlay message={todos.failure() || (!typing() ? createFailure() : null)} action={<button type="button" data-button="quiet" onClick={() => void todos.reload()}>{copy.retry}</button>} selfClearing />
+      <ReservedLine overlay message={shelfFailure.message()} dismiss={shelfFailure.dismiss} recover={{ run: () => void todos.reload() }} />
       <Show when={isEmpty() && !typing() && !todos.failure() && !createFailure()}>
         <EmptyState art="running" {...{ title: copy.noTodosYet }} line={copy.emptyTodosLine} action={<button type="button" data-button="primary" onClick={() => openField()}>{copy.addTodoWord}</button>} />
       </Show>
@@ -863,10 +864,14 @@ export const Todos = (props: {
       </Show>
       <Show when={todos.isLoaded()}>
         <For each={[...new Set(connected.drafts.list().filter(draft => draft.destination.surface === "todos"
-          && draft.destination.object !== "new" && !todos.byId().has(Number(draft.destination.object))).map(draft => draft.destination.object))]}>{object => <div>
-          <ReservedLine message={copy.draftIdentity(copy.originalUnavailable, object)} action={<button type="button" data-button="quiet" onClick={() => void todos.reload()}>{copy.retry}</button>} selfClearing />
-          <TodoDraftRecovery object={object} />
-        </div>}</For>
+          && draft.destination.object !== "new" && !todos.byId().has(Number(draft.destination.object))).map(draft => draft.destination.object))]}>{object => {
+          const unavailable = dismissable(() => copy.draftIdentity(copy.originalUnavailable, object));
+
+          return <div>
+            <ReservedLine message={unavailable.message()} dismiss={unavailable.dismiss} recover={{ run: () => void todos.reload() }} />
+            <TodoDraftRecovery object={object} />
+          </div>;
+        }}</For>
       </Show>
       <Show when={triage.on()}>
         <p class="triage-hints" aria-label={copy.triageKeys}>

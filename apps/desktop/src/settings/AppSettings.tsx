@@ -2,7 +2,7 @@ import fuzzysort from "fuzzysort";
 import { createEffect, createResource, createSignal, createMemo, For, on, onCleanup, Show, type JSX } from "solid-js";
 import type { App } from "../app/seam";
 import { copy, stateLabel } from "./copy";
-import { DISMISS_ONLY, ReservedLine } from "../ink/ReservedLine";
+import { dismissable, ReservedLine } from "../ink/ReservedLine";
 import { registerKeys } from "../keys/registry";
 import { Combobox } from "../ui/Combobox";
 import { Tabs } from "../ui/Tabs";
@@ -28,6 +28,9 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
   const [failure, setFailure] = createSignal<string | null>(null);
   const [numericFailure, setNumericFailure] = createSignal<Record<string, string | null>>({});
   const drafts = draftStorage("app-settings");
+  const offeredLine = dismissable(() => offered()?.failure);
+  const conflictLine = dismissable(() => numericFields.some(({ name }) => conflicted(name)) ? copy.settingsConflict : null);
+  const draftLine = dismissable(() => drafts.problem() ? copy.draftRetention(copy.settings, copy.settingsTerminal, drafts.problem()!.cause) : null);
   drafts.validate("settings", v.object({ text: v.string(), saved: v.optional(v.string()) }));
   const destination = (field: string) => ({ surface: "settings", object: field, recipient: null });
   const current = (field: string) => drafts.list().findLast(draft => draft.destination.surface === "settings" && draft.destination.object === field);
@@ -369,7 +372,7 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
         {controls.naming()}
         {controls.skill()}
         {controls.feedbackIssue()}
-        <ReservedLine message={offered()?.failure} selfClearing action={<button data-button="quiet" type="button" onClick={() => void refetchOffered()}>{copy.storageRetry}</button>} />
+        <ReservedLine message={offeredLine.message()} dismiss={offeredLine.dismiss} recover={{ run: () => void refetchOffered(), label: copy.storageRetry }} />
       </SettingsGroup></Tabs.Content>
       <Tabs.Content value="Terminal"><SettingsGroup hideHeading name={copy.settingsTerminal}>
         {controls.fontFamily()}
@@ -394,13 +397,13 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
         </div>}</For>
       </SettingsGroup></Tabs.Content>
       </Show>
-      <ReservedLine message={failure()} action={DISMISS_ONLY} onDismiss={() => setFailure(null)} />
-      <ReservedLine message={numericFields.some(({ name }) => conflicted(name)) ? copy.settingsConflict : null} selfClearing action={<>
+      <ReservedLine message={failure()} dismiss={() => setFailure(null)} />
+      <ReservedLine message={conflictLine.message()} dismiss={conflictLine.dismiss} action={<>
         <For each={numericFields.filter(({ name }) => conflicted(name))}>{({ name, label }) => <button data-button="quiet" type="button" onClick={() => { const draft = current(name);
 
  if (draft) void drafts.discard(draft.revision); }}>{copy.discardSettingsEdit(label)}</button>}</For>
       </>} />
-      <ReservedLine message={drafts.problem() ? copy.draftRetention(copy.settings, copy.settingsTerminal, drafts.problem()!.cause) : null} selfClearing action={<button data-button="quiet" type="button" onClick={() => drafts.retry()}>{copy.storageRetry}</button>} />
+      <ReservedLine message={draftLine.message()} dismiss={draftLine.dismiss} recover={{ run: () => drafts.retry(), label: copy.storageRetry }} />
       </div></Tabs.Root>
     </SettingsShell>
     </Show>

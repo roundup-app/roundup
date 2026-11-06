@@ -34,7 +34,7 @@ it.each(["dismiss", "discard", "acknowledged", "same-copy", "other-copy", "other
       expect(within(panel).getAllByRole("alert")).toHaveLength(2);
     }
 
-    fireEvent.click(screen.getByRole("button", { name: "Dismiss copy failure" }));
+    fireEvent.click(within(screen.getByText(/clipboard refused/).closest<HTMLElement>(".reserved-line")!).getByRole("button", { name: "Dismiss" }));
   } else if (action === "discard") {
     fireEvent.click(within(row).getByRole("button", { name: "Discard" }));
   } else if (action === "acknowledged" || action === "failed") {

@@ -6,10 +6,10 @@ import { queueFocus, returnFocus } from "../keys/focus";
 import { writeText } from "../app/clipboard";
 import { CopyButton } from "../ui/CopyButton";
 import * as v from "valibot";
-import { createEffect, createSignal, createUniqueId, For, onCleanup, onMount, Show, untrack } from "solid-js";
+import { createEffect, createSignal, createUniqueId, For, onCleanup, onMount, untrack } from "solid-js";
 import type { Todo } from "@contracts/todo/Todo";
 import { copy } from "./copy";
-import { ReservedLine } from "../ink/ReservedLine";
+import { dismissable, ReservedLine } from "../ink/ReservedLine";
 import type { Actor } from "@contracts/Actor";
 import { CHORDS, LEADER } from "../keys/chords";
 import { resolvedWorkstream } from "../rail/layout";
@@ -78,6 +78,7 @@ export const Capture = (props: { onFile: (() => void) | undefined; onNativeOpen?
   /** U3746: a Todo created whose move was refused, kept with the title it was filed under so a retry of the same text moves it instead of creating another. */
   let stranded: { title: string; id: number } | null = null;
   const [failure, setFailure] = createSignal<string | null>(null);
+  const problem = dismissable(() => drafts.problem() ? copy.draftRetention(connected.project.name, copy.leaderShortCapture, drafts.problem()!.cause) : null);
   let returnTo: Element | null = null;
   let input: HTMLTextAreaElement | undefined;
   let panel: HTMLElement | undefined;
@@ -349,9 +350,7 @@ export const Capture = (props: { onFile: (() => void) | undefined; onNativeOpen?
             <span {...ownerCut.attrs()}>{ownerLine()}</span>
             <span {...homeCut.attrs()}>{homeLine()}</span>
           </p>
-          <ReservedLine message={failure() ?? (drafts.problem() ? copy.draftRetention(connected.project.name, copy.leaderShortCapture, drafts.problem()!.cause) : null)} ownDismissal action={
-            <Show when={drafts.problem()}><button data-button="quiet" type="button" onClick={() => drafts.retry()}>{copy.storageRetry}</button></Show>
-          } />
+          <ReservedLine message={failure() ?? problem.message()} dismiss={() => failure() ? setFailure(null) : problem.dismiss()} recover={drafts.problem() ? { run: () => drafts.retry(), label: copy.storageRetry } : undefined} />
           <For each={recovered()}>{draft => <div class="capture-recovery">
             <span class="ink" data-state={draft.status}>{copy.draftStatus[draft.status]}</span>
             <textarea class="capture-field" aria-label={copy.recoveredCaptureDraft} rows={1} readOnly value={String(draft.value.text)} />

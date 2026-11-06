@@ -188,7 +188,7 @@ export const DiffReader = (props: { id: string; name: string; path: string; note
         <button type="button" data-button="quiet" onClick={props.onClose}>{copy.closeChanges}</button>
       </div>
     </header>
-    <ReservedLine message={failure()} status={notice()} onDismiss={() => setFailure(null)} action={<Show when={!loading() && failure()}><button type="button" data-button="quiet" onClick={() => setVersion(v => v + 1)}>{copy.retry}</button></Show>} />
+    <ReservedLine message={failure()} status={notice()} dismiss={() => setFailure(null)} action={<Show when={!loading() && failure()}><button type="button" data-button="quiet" onClick={() => setVersion(v => v + 1)}>{copy.retry}</button></Show>} />
     <Show when={read()}>{value => <>
       <Show when={value().status !== null}>
         <Show when={value().old.kind !== "binary" && value().new.kind !== "binary"}>

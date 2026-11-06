@@ -78,7 +78,7 @@ export const createTerminalClose = (connected: ConnectedProject, shown: Accessor
     }
   };
 
-  const Failure = (props: { message: string | null; action?: JSX.Element; onDismiss: () => void }) => <ReservedLine overlay class={props.message ? "bubble-failure" : undefined} message={props.message} onDismiss={props.onDismiss} action={<>
+  const Failure = (props: { message: string | null; action?: JSX.Element; onDismiss: () => void }) => <ReservedLine overlay class={props.message ? "bubble-failure" : undefined} message={props.message} dismiss={props.onDismiss} action={<>
     <Show when={retry()?.message === props.message ? retry() : null}>{failed => <button data-button="quiet" type="button" onClick={() => {
       // Retry starts from the original close control, so cancel and success keep their normal focus destinations.
       document.querySelector<HTMLElement>(`.terminal-tab-pair[data-bubble="${failed().id}"] button:last-child`)?.focus();

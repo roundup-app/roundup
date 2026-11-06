@@ -7,7 +7,7 @@ import type { AskPart } from "@contracts/ask/AskPart";
 import type { Target } from "@contracts/ask/Target";
 import { copy } from "./copy";
 import { createCut } from "../ink/Tip";
-import { DISMISS_ONLY, ReservedLine } from "../ink/ReservedLine";
+import { ReservedLine } from "../ink/ReservedLine";
 import { KindGlyph, LABELS } from "../ink/KindGlyph";
 import { FailureLine, shownKind } from "../ink/FailureLine";
 import { useConnectedProject } from "../state/connectedProject";
@@ -158,7 +158,7 @@ const AskRow = (props: { live: boolean; keys: KeyScope; entry: AskEntry; part: A
           {line(tip)}
         </Dynamic>;
       }}</Tip>
-      <Show when={!dismissed()}><FailureLine status={status()} action={DISMISS_ONLY} onDismiss={() => { const each = node();
+      <Show when={!dismissed()}><FailureLine status={status()} dismiss={() => { const each = node();
 
  if (each) rail.dismiss(each); }} /></Show>
       <Show when={asking()}>
@@ -175,7 +175,7 @@ const AskRow = (props: { live: boolean; keys: KeyScope; entry: AskEntry; part: A
             <button type="button" data-button="quiet" disabled={busy()} onClick={() => pick({ kind: "new" })}>{copy.askNewWorkstream}</button>
             <button type="button" data-button="quiet" disabled={busy()} onClick={() => pick({ kind: "drop" })}>{copy.askDrop}</button>
           </div>
-          <ReservedLine message={failure()?.message} action={DISMISS_ONLY} onDismiss={() => { const each = failure();
+          <ReservedLine message={failure()?.message} dismiss={() => { const each = failure();
 
  if (each) asks.dismiss(each); }} />
         </div>

@@ -3,7 +3,7 @@ import { Sortable } from "../ui/sortable";
 import { createCopyFeedback } from "../ui/CopyButton";
 import { outcomeOf } from "../app/seam";
 import { captureFocus, queueFocus } from "../keys/focus";
-import { ReservedLine, MENU_DISMISS } from "../ink/ReservedLine";
+import { ReservedLine } from "../ink/ReservedLine";
 import { openOnRelease } from "../ui/contextMenu";
 import * as v from "valibot";
 import { useConnectedProject } from "../state/connectedProject";
@@ -247,7 +247,7 @@ export const RailRowView = (props: {
     </Show>}</Show>
     <Show when={workstream() && connected.rail.doorFailure(props.row.node.id)}>{cause => <FailureCause label={cause()} class="rail-door-failure" />}</Show>
     <Show when={props.row.node.start_attribution}>{source => <ReservedLine class="rail-attribution" status={copy.startedBy(source().agent_name, source().project_name)} />}</Show>
-    <Show when={!workstream() && !exhaustedResume() && (props.selected || !connected.rail.dismissed(props.row.node))}><FailureLine status={props.row.node.status} dismissed={connected.rail.dismissed(props.row.node)} action={MENU_DISMISS} /></Show>
+    <Show when={!workstream() && !exhaustedResume() && (props.selected || !connected.rail.dismissed(props.row.node))}><FailureLine status={props.row.node.status} dismissed={connected.rail.dismissed(props.row.node)} dismissIn="menu" dismiss={() => connected.rail.dismiss(props.row.node)} /></Show>
   </div>}</StatusTip>;
 
   return <>

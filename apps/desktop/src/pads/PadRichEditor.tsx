@@ -11,7 +11,7 @@ import { registerKeys } from "../keys/registry";
 import { CHORDS, chordsFor } from "../keys/chords";
 import { clearTextInCurrentBlockCommand, toggleStrongCommand, toggleEmphasisCommand, toggleInlineCodeCommand, wrapInBlockquoteCommand, wrapInBulletListCommand, wrapInOrderedListCommand, createCodeBlockCommand } from "@milkdown/kit/preset/commonmark";
 import { captureFocus } from "../keys/focus";
-import { DISMISS_ONLY, ReservedLine } from "../ink/ReservedLine";
+import { ReservedLine } from "../ink/ReservedLine";
 import { copy } from "./copy";
 import { createEffect, createMemo, createSignal, For, Show, createUniqueId, onCleanup, onMount, splitProps, useContext } from "solid-js";
 import { Portal } from "solid-js/web";
@@ -680,7 +680,7 @@ export default function PadRichEditor(props: {
         class="pad-editor pad-rich-editor reading"
         classList={{ "pad-readonly": props.readonly }}
         onFocusOut={(event) => props.onBlur(event.relatedTarget)}>
-        <ReservedLine message={failure()} action={DISMISS_ONLY} onDismiss={() => setFailure(null)} />
+        <ReservedLine message={failure()} dismiss={() => setFailure(null)} />
         <div class="pad-editor-host" ref={(element) => (host = element)} />
       </div>
     </>

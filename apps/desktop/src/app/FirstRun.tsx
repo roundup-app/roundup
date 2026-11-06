@@ -5,7 +5,7 @@ import { chordNamed } from "../keys/chords";
 import { EmptyState } from "../ink/EmptyState";
 import type { App } from "./seam";
 import { copy } from "./copy";
-import { ReservedLine } from "../ink/ReservedLine";
+import { dismissable, ReservedLine } from "../ink/ReservedLine";
 
 /** Screen 11 of `docs/wireframes.md`: each region says what will live there; there is no tutorial. */
 export const EmptyRail = (props: { onNew?: () => void; onWorkstream?: () => void; available?: boolean }) => (
@@ -19,20 +19,24 @@ export const ChooseProject = (props: { app: App; failure: string | null; onOpen:
   const [recent, { refetch: refetchRecent }] = createResource(() => props.app.recentProjects().then(paths => ({ paths, failure: null })).catch((error: Error) => ({ paths: [], failure: error.message })));
   const [binary, { refetch: refetchBinary }] = createResource(() => props.app.claudeBinary().then(value => ({ value, failure: null })).catch((error: Error) => ({ value: null, failure: error.message })));
 
+  const failureLine = dismissable(() => props.failure);
+  const recentLine = dismissable(() => recent()?.failure);
+  const binaryLine = dismissable(() => binary() && !binary()!.value ? binary()!.failure ?? copy.claudeNotFound : null);
+
   registerKeys({ kind: "app" }, [{ action: chordNamed("project.choose-folder")!, capture: () => ({ available: () => true, invoke: () => props.onChoose() }) }]);
 
   return (
     <div class="choose-project">
-      <ReservedLine message={props.failure} selfClearing action={<Show when={props.onRetry}>{retry => <button data-button="quiet" type="button" onClick={retry()}>{copy.retry}</button>}</Show>} />
+      <ReservedLine message={failureLine.message()} dismiss={failureLine.dismiss} recover={props.onRetry ? { run: props.onRetry } : undefined} />
       <Show when={!props.failure}><EmptyState art="strolling" {...{ title: copy.openAFolderToStart }} actions={[{ label: copy.chooseFolder, chord: chordNamed("project.choose-folder")!, run: props.onChoose }]} /></Show>
       <Show when={props.failure}><button data-button="primary" type="button" onClick={() => props.onChoose()}>{copy.chooseFolder}</button></Show>
-      <Show when={recent()?.failure}>{failure => <ReservedLine message={failure()} selfClearing action={<button data-button="quiet" type="button" onClick={() => void refetchRecent()}>{copy.retry}</button>} />}</Show>
+      <Show when={recent()?.failure}><ReservedLine message={recentLine.message()} dismiss={recentLine.dismiss} recover={{ run: () => void refetchRecent() }} /></Show>
       <Show when={recent()?.paths.length}>
         <ul aria-label={copy.recentFolders}>
           <For each={recent()?.paths.slice(0, 5)}>{path => <li><button data-button="quiet" type="button" onClick={() => props.onOpen(path)}>{path}</button></li>}</For>
         </ul>
       </Show>
-      <Show when={binary()}>{fact => <Show when={fact().value} fallback={<ReservedLine message={fact().failure ?? copy.claudeNotFound} selfClearing action={<button data-button="quiet" type="button" onClick={() => void refetchBinary()}>{copy.retry}</button>} />}>{value => <p>{copy.claudeBinary(value().version, value().path)}</p>}</Show>}</Show>
+      <Show when={binary()}>{fact => <Show when={fact().value} fallback={<ReservedLine message={binaryLine.message()} dismiss={binaryLine.dismiss} recover={{ run: () => void refetchBinary() }} />}>{value => <p>{copy.claudeBinary(value().version, value().path)}</p>}</Show>}</Show>
     </div>
   );
 };

@@ -1,4 +1,4 @@
-import { Show, splitProps, type JSX } from "solid-js";
+import { createSignal, Show, splitProps, type JSX } from "solid-js";
 import { ErrorLine } from "./ErrorLine";
 import { copy } from "./copy";
 import "./styles.css";
@@ -11,36 +11,41 @@ type Shared = Omit<JSX.HTMLAttributes<HTMLDivElement>, "role" | "children"> & {
   overlay?: boolean;
 };
 
-/** `action` for a failure with nothing to retry: the Dismiss button `onDismiss` draws is the whole recovery. */
-export const DISMISS_ONLY = "dismiss-only";
-
-/** `action` for a failure line on a Rail row, which has no room for a control: the row's context menu carries the Dismiss error item. */
-export const MENU_DISMISS = "menu-dismiss";
-
-/** U6249e: how the user lets go of a failure: a dismissal ReservedLine draws, `selfClearing` (the line goes when its message does, derived from the state that caused it), or `ownDismissal` (the `action` holds this line's own dismiss control). The flags cost no runtime closure. */
-type Dismissal = { onDismiss: () => void } | { selfClearing: true } | { ownDismissal: true };
-
-/** An `action` is a control to run, or, when only dismissing is possible, the Dismiss button itself. */
-export type Recovery = ({ action: JSX.Element } & Dismissal) | { action: typeof DISMISS_ONLY; onDismiss: () => void } | { action: typeof MENU_DISMISS };
+/** U6249e: how a failure line lets the user recover. `dismiss` is required: ReservedLine draws the Dismiss button from it (or, with `dismissIn: "menu"`, leaves the button to the row's context menu, whose item calls the same function). `recover` is the verb to try again, drawn as a button labelled Retry unless it names its own label. */
+export type Recovery = {
+  dismiss: () => void;
+  recover?: { run: () => void; label?: string | undefined } | undefined;
+  dismissIn?: "menu" | undefined;
+};
 
 /** A line that is not a failure: status text, with optional actions. */
-type StatusProps = Shared & { message?: never; children?: JSX.Element };
+type StatusProps = Shared & { message?: never; children?: JSX.Element; action?: JSX.Element };
 
-/** U6249e: a failure line states what the user can do (`action`) and how it goes away. Failures outrank status text. */
-type FailureProps = Shared & { message: string | null | false | undefined } & Recovery;
+/** U6249e: a failure line states how the user dismisses it and, when there is something to try again, how. Failures outrank status text. `action` holds extra controls only. */
+type FailureProps = Shared & { message: string | null | false | undefined; children?: JSX.Element; action?: JSX.Element } & Recovery;
 
 type Props = StatusProps | FailureProps;
 
 /** Every prop either form may carry, for reading both through one name. */
-type Loose = { message?: string | null | false; children?: JSX.Element; action?: JSX.Element; onDismiss?: () => void; selfClearing?: boolean; ownDismissal?: boolean };
+type Loose = { message?: string | null | false; children?: JSX.Element; action?: JSX.Element; dismiss?: (() => void) | undefined; recover?: Recovery["recover"]; dismissIn?: Recovery["dismissIn"] };
 
-/** The standard control that lets the user dismiss a failure line. */
-export const DismissButton = (props: { onDismiss: () => void }) => <button type="button" data-button="quiet" onClick={() => props.onDismiss()}>{copy.dismissFailure}</button>;
+/** The Retry and Dismiss controls a failure line draws from its `Recovery`. */
+export const RecoveryButtons = (props: { dismiss?: (() => void) | undefined; recover?: Recovery["recover"]; dismissIn?: Recovery["dismissIn"] }) => <>
+  <Show when={props.recover}>{recover => <button type="button" data-button="quiet" onClick={() => recover().run()}>{recover().label ?? copy.retry}</button>}</Show>
+  <Show when={props.dismiss && props.dismissIn !== "menu" ? props.dismiss : undefined}>{dismiss => <button type="button" data-button="quiet" data-dismiss-failure onMouseDown={event => event.preventDefault()} onClick={() => dismiss()()}>{copy.dismissFailure}</button>}</Show>
+</>;
+
+/** A failure that goes away with the state that caused it still has a dismissal: the user hides the current message, and a different message shows again. */
+export const dismissable = (message: () => string | null | false | undefined) => {
+  const [hidden, setHidden] = createSignal<string | null>(null);
+
+  return { message: () => message() && message() !== hidden() ? message() : null, dismiss: () => setHidden(message() || null) };
+};
 
 /** U3807: callers keep this place mounted and change only its message and actions. */
 export const ReservedLine = (props: Props) => {
   // SAFETY: both forms are assignable to Shared & Loose; Loose only widens the form-specific keys to optional.
-  const [local, rest] = splitProps(props as Shared & Loose, ["message", "status", "content", "overlay", "children", "action", "onDismiss", "selfClearing", "ownDismissal", "class"]);
+  const [local, rest] = splitProps(props as Shared & Loose, ["message", "status", "content", "overlay", "children", "action", "dismiss", "recover", "dismissIn", "class"]);
 
   // U3807 explicitly requires the whole message as a title on its reserved place.
   // oxlint-disable-next-line anti-slop/no-tooltip-bypass
@@ -49,10 +54,10 @@ export const ReservedLine = (props: Props) => {
       <Show when={local.message} fallback={<span class="reserved-status">{local.status || props["aria-live"] !== undefined ? local.content ?? (local.status || null) : null}</span>}>
         {message => <ErrorLine message={message()} content={local.content} />}
       </Show>
-      <Show when={local.message || local.status}><div class="reserved-actions">{local.children}{local.action === DISMISS_ONLY ? null : local.action}<Show when={local.message ? local.onDismiss : undefined}>{dismiss => <DismissButton onDismiss={dismiss()} />}</Show></div></Show>
+      <Show when={local.message || local.status}><div class="reserved-actions">{local.children}{local.action}<Show when={local.message}><RecoveryButtons recover={local.recover} dismiss={local.dismiss} dismissIn={local.dismissIn} /></Show></div></Show>
     </div>
   </div>;
 };
 
 /** Solid's ErrorBoundary fallback keeps the same presentation as an ordinary failure. */
-export const failureLine = (failure: Error, reset: () => void) => <ReservedLine message={failure.message} action={<button type="button" data-button="quiet" onClick={reset}>{copy.retry}</button>} selfClearing />;
+export const failureLine = (failure: Error, reset: () => void) => <ReservedLine message={failure.message} dismiss={reset} recover={{ run: reset }} />;

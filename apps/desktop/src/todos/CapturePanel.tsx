@@ -1,12 +1,13 @@
-import { createSignal, onCleanup, Show, For } from "solid-js";
+import { createSignal, onCleanup, For } from "solid-js";
 import type { CapturePort, CaptureState } from "../app/seam";
-import { ReservedLine } from "../ink/ReservedLine";
+import { dismissable, ReservedLine } from "../ink/ReservedLine";
 import { copy } from "./copy";
 import "./capture.styles.css";
 
 /** Presentation only. Edits and deliberate actions return to the original Capture owner. */
 export const CapturePanel = (props: { port: CapturePort }) => {
   const [state, setState] = createSignal<CaptureState>();
+  const published = dismissable(() => state()?.failure);
   const [text, setText] = createSignal("");
   const [failure, setFailure] = createSignal<string | null>(null);
   let sequence = 0;
@@ -67,12 +68,11 @@ export const CapturePanel = (props: { port: CapturePort }) => {
         if (event.key === "Enter" && !event.isComposing) { event.preventDefault(); file(event.shiftKey); }
       }} />
     <p class="capture-target"><span>{state()?.owner}</span><span>{state()?.home}</span></p>
-    <ReservedLine message={failure() ?? state()?.failure} selfClearing action={
-      <Show when={state()?.retention}><button data-button="quiet" onClick={() => {
-          const current = state();
+    <ReservedLine message={failure() ?? published.message()} dismiss={() => failure() ? setFailure(null) : published.dismiss()} recover={state()?.retention ? { run: () => {
+      const current = state();
 
-          if (current) void send({ kind: "retry", session: current.session }); }}>{copy.retry}</button></Show>
-    } />
+      if (current) void send({ kind: "retry", session: current.session });
+    } } : undefined} />
     <For each={state()?.recovered}>{draft => <div class="capture-recovery">
       <span class="ink" data-state={draft.status}>{draft.label}</span>
       <textarea class="capture-field" aria-label={copy.recoveredCaptureDraft} rows={1} readOnly value={draft.text} />

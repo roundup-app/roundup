@@ -1,6 +1,6 @@
 import { makeEventListenerStack } from "@solid-primitives/event-listener";
 import { makeResizeObserver } from "@solid-primitives/resize-observer";
-import { DISMISS_ONLY, ReservedLine } from "../ink/ReservedLine";
+import { ReservedLine } from "../ink/ReservedLine";
 import { createEffect, For, on, onCleanup } from "solid-js";
 import { Portal } from "solid-js/web";
 import { registerKeys } from "../keys/registry";
@@ -225,7 +225,7 @@ export const Bubble = (props: {
               </span>
               <span class="bubble-name">{props.name}</span>
             </header>
-            <div class="bubble-body" tabindex="-1" ref={mount} /><ReservedLine overlay class={props.screens.failure(id()) ? "bubble-failure" : undefined} message={props.screens.failure(id())} action={DISMISS_ONLY} onDismiss={() => props.screens.dismiss(id())} />
+            <div class="bubble-body" tabindex="-1" ref={mount} /><ReservedLine overlay class={props.screens.failure(id()) ? "bubble-failure" : undefined} message={props.screens.failure(id())} dismiss={() => props.screens.dismiss(id())} />
           </section>
           <For each={ZONES}>{(zone) => (
             <span class="bubble-zone" data-zone={zone.name} data-zone-of={id()} aria-hidden="true" hidden={place().min}

@@ -262,7 +262,7 @@ for (const owner of ["todos", "pads"] as const) {
     }
 
     if (action === "dismissed") {
-      fireEvent.click(screen.getByRole("button", { name: owner === "todos" ? "Clear same #1" : "Clear first" }));
+      fireEvent.click(screen.getAllByRole("button", { name: "Dismiss" })[0]!);
     } else if (action === "removed-event") {
       if ("store" in fixture) {
         fixture.store.todos = fixture.store.todos.filter(item => item.id !== first);

@@ -2,7 +2,7 @@ import type { App, CapturePort } from "../app/seam";
 import { createSignal, createUniqueId, For, Show } from "solid-js";
 import { copy } from "./copy";
 import { KeyChip } from "../keys/KeyChip";
-import { DISMISS_ONLY, ReservedLine } from "../ink/ReservedLine";
+import { ReservedLine } from "../ink/ReservedLine";
 import { type KeyText, leaderKeys, ACTION_ROWS, CHORDS, LEADER, defaultPress, pressOf, recordable, shortcutLabel } from "../keys/chords";
 import { checkRecorded, holderOf, isModifier, ownerOf, shortcutsWith } from "./shortcutRules";
 import { registerKeys } from "../keys/registry";
@@ -175,6 +175,6 @@ export const ShortcutSetting = (props: { field: keyof typeof ROWS; capture?: Cap
       </div>
       <span id={hint} class="settings-hint">{row.hint}</span>
     </div>
-    <ReservedLine message={failure()} action={DISMISS_ONLY} onDismiss={() => setFailure(null)} />
+    <ReservedLine message={failure()} dismiss={() => setFailure(null)} />
   </>;
 };

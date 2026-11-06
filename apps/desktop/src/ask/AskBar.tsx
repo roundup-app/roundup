@@ -15,7 +15,7 @@ import type { AskSubmission } from "../state/asks";
 import { copy } from "./copy";
 import { openDeliverable } from "./openDeliverable";
 import { Icon } from "../ink/Icon";
-import { DISMISS_ONLY, ReservedLine } from "../ink/ReservedLine";
+import { dismissable, ReservedLine } from "../ink/ReservedLine";
 import { ASK_CLOSE, CHORDS, chordsFor } from "../keys/chords";
 import { modalOpen, modalOutside, registerKeys, type KeyScope } from "../keys/registry";
 import { useConnectedProject } from "../state/connectedProject";
@@ -152,6 +152,17 @@ export const AskBar = (props: {
     const intake = asks.intakeFailure();
 
     if (intake) asks.dismiss(intake);
+  };
+
+  const sendLine = dismissable(() => problem() ? copy.draftRetention(connected.project.name, copy.draftSurface("ask"), problem()!.cause) : failure()?.message ?? (records().some(draft => draft.status === "unknown") ? null : asks.failure()));
+
+  const dismissSendLine = () => {
+    const listed = asks.listFailure() ?? asks.intakeFailure();
+
+    if (problem()) sendLine.dismiss();
+    else if (failure()) dismissSend();
+    else if (listed) asks.dismiss(listed);
+    else sendLine.dismiss();
   };
 
   const [highlighted, setHighlighted] = createSignal<string | null>(null);
@@ -329,8 +340,7 @@ export const AskBar = (props: {
             return <><KindGlyph decorative kind={shownKind(node()?.status, dismissed())} /><Tip text={item.label} cut={cut}>{trigger => <span {...trigger()} ref={name} class="app-mention-name">{item.label.slice(0, start())}<mark>{item.label.slice(start(), end())}</mark>{item.label.slice(end())}</span>}</Tip><Show when={parent()}>{name => <span class="app-mention-parent">{name()}</span>}</Show><Show when={!dismissed()}><Show when={errorCause(node()?.status, false)}>{cause => <ReservedLine status={cause()} />}</Show></Show></>;
           }} /></Show>
         </Mentions.Root>
-        <ReservedLine overlay class="ask-send-status" message={problem() ? copy.draftRetention(connected.project.name, copy.draftSurface("ask"), problem()!.cause) : failure()?.message ?? (records().some(draft => draft.status === "unknown") ? null : asks.failure())}
-          status={records().some(draft => draft.status === "unknown") ? copy.askUnknownState : null} selfClearing action={<>
+        <ReservedLine overlay class="ask-send-status" message={sendLine.message()} status={records().some(draft => draft.status === "unknown") ? copy.askUnknownState : null} dismiss={dismissSendLine} recover={problem() ? { run: () => drafts.retry(), label: copy.storageRetry } : undefined} action={<>
         <For each={records().filter(draft => draft.status === "unknown").map(draft => draft.revision)}>{revision => {
           const [cause, setCause] = createSignal<string | null>(null);
           const label = () => String(records().find(draft => draft.revision === revision)?.value.text ?? "");
@@ -350,12 +360,6 @@ export const AskBar = (props: {
             }}>{copy.askCheckAcceptance}</button>
           </div>;
         }}</For>
-        <Show when={problem()}><button type="button" data-button="quiet" onClick={() => drafts.retry()}>{copy.storageRetry}</button></Show>
-        <Show when={!problem() && !records().some(draft => draft.status === "unknown")}>
-          <Show when={failure()} fallback={<Show when={asks.listFailure() ?? asks.intakeFailure()}>{each => <button type="button" data-button="quiet" onClick={() => asks.dismiss(each())}>{copy.dismiss}</button>}</Show>}>
-            <button type="button" data-button="quiet" onClick={dismissSend}>{copy.dismiss}</button>
-          </Show>
-        </Show>
         </>} />
         </div>
         <AskRows keys={scope} onOpened={() => close(false)} /></Show>
@@ -491,6 +495,9 @@ const Deliverables = (props: { state: ReturnType<typeof createDeliverables> }) =
     ...[...new Map(props.state.records().filter(record => record.maker.kind === "agent").map(record => [record.maker.id, record.maker_name])).entries()].map(([id, label]) => ({ value: `maker:${id}`, label })),
   ]);
 
+
+  const line = dismissable(() => props.state.failure());
+
   const records = createMemo(() => props.state.records().filter(record => filter() === "" ? scope.includes(record.home, record.maker)
     : filter() === `home:${record.home}` || record.maker.kind === "agent" && filter() === `maker:${record.maker.id}`));
 
@@ -586,7 +593,7 @@ const Deliverables = (props: { state: ReturnType<typeof createDeliverables> }) =
 
   return <section ref={section} on:click={{ capture: true, handleEvent: content.click }} on:keydown={{ capture: true, handleEvent: rowKey }} class="made" aria-label={copy.deliverables} aria-busy={pending() !== null || props.state.loading()}>
       <Combobox.Picker label={copy.deliverablesFilter} value={filter()} items={choices()} onSelect={setFilter} />
-      <ReservedLine message={props.state.failure()} status={props.state.loading() ? copy.deliverablesLoading : null} action={<button type="button" data-button="quiet" onClick={() => props.state.reload()}>{copy.retry}</button>} selfClearing />
+      <ReservedLine message={line.message()} status={props.state.loading() ? copy.deliverablesLoading : null} dismiss={line.dismiss} recover={{ run: () => props.state.reload() }} />
       <Show when={!props.state.loading() && props.state.failure() === null && records().length === 0}><p class="overview-quiet">{copy.deliverablesEmpty}</p></Show>
       <ul class="made-list"><For each={records()}>{record => <li class="made-row" data-deliverable={record.id} data-overview-item={record.id} data-selected={content.selection.isEmpty() ? selected() === record.id : content.selection.isSelected(record.id)}
         onContextMenu={event => openOnRelease(event, (x, y) => openMenu(record, x, y))}>
@@ -604,7 +611,7 @@ const Deliverables = (props: { state: ReturnType<typeof createDeliverables> }) =
           </span>
           <Icon name="right" />
         </button>}</Tip>
-        <ReservedLine overlay message={failure(record.id)} action={DISMISS_ONLY} onDismiss={() => clear(record.id)} />
+        <ReservedLine overlay message={failure(record.id)} dismiss={() => clear(record.id)} />
       </li>}</For></ul>
     </section>;
 };

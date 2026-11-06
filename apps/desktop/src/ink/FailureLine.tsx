@@ -3,7 +3,7 @@ import type { Status } from "@contracts/Status";
 import { createCut } from "./Tip";
 import { Tip } from "../ui/Tip";
 import { copy } from "./copy";
-import { DISMISS_ONLY, MENU_DISMISS, DismissButton, type Recovery } from "./ReservedLine";
+import { RecoveryButtons, type Recovery } from "./ReservedLine";
 import "./failureLine.css";
 
 /** The failure text with its cut Tip, for a cause that is not an Agent Status. */
@@ -25,8 +25,7 @@ export const errorCause = (status: Status | null | undefined, dismissed: boolean
 export const FailureLine = (props: { status: Status | null | undefined; dismissed?: boolean; class?: string } & Recovery) => (
   <Show when={errorCause(props.status, props.dismissed)}>{label => <>
     <Line label={label()} class={`${props.class ?? ""} ${props.dismissed ? "dismissed" : ""}`} />
-    {props.action === DISMISS_ONLY || props.action === MENU_DISMISS ? null : props.action}
-    <Show when={"onDismiss" in props ? props.onDismiss : undefined}>{dismiss => <DismissButton onDismiss={dismiss()} />}</Show>
+    <RecoveryButtons recover={props.recover} dismiss={props.dismiss} dismissIn={props.dismissIn} />
   </>}</Show>
 );
 

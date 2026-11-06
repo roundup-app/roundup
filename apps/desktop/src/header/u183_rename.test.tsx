@@ -618,7 +618,7 @@ it.each([
   await within(dialog).findByRole("alert", { name: /clipboard blocked/ });
   expect(blocked).toHaveBeenCalledExactlyOnceWith(a.value.name);
 
-  if (action === "dismiss") fireEvent.click(within(dialog).getByRole("button", { name: "Close · Copy name" }));
+  if (action === "dismiss") fireEvent.click(within(dialog).getAllByRole("button", { name: "Dismiss" })[0]!);
   else if (action.startsWith("discard")) {
     if (action === "discard other revision") fireEvent.click(within(dialog).getByRole("button", { name: new RegExp(`^${recoveryCopy.currentDraft} ·`) }));
     fireEvent.click(within(dialog).getByRole("button", { name: recoveryCopy.discardRevision }));
@@ -663,7 +663,7 @@ it.each(["dismiss", "discard"] as const)("p3557c_failure_lifetime_header_retenti
   fireEvent.click(within(dialog).getByRole("button", { name: "Copy name" }));
   await within(dialog).findByRole("alert", { name: /clipboard blocked/ });
   expect(within(dialog).getByRole("alert", { name: /Storage could not save unfinished work/ })).toBeDefined();
-  fireEvent.click(within(dialog).getByRole("button", { name: action === "dismiss" ? "Close · Copy name" : recoveryCopy.discardRevision }));
+  fireEvent.click(action === "dismiss" ? within(dialog).getAllByRole("button", { name: "Dismiss" })[0]! : within(dialog).getByRole("button", { name: recoveryCopy.discardRevision }));
   await waitFor(() => expect(within(dialog).queryByRole("alert", { name: /clipboard blocked/ })).toBeNull());
   expect(within(dialog).getByRole("alert", { name: /Storage could not save unfinished work/ })).toBeDefined();
   expect(within(dialog).getByRole<HTMLButtonElement>("button", { name: "Retry storage only" }).disabled).toBe(false);

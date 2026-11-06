@@ -9,8 +9,6 @@ import type { Accessor, JSX } from "solid-js";
 import { Portal } from "solid-js/web";
 import { ReservedLine } from "../ink/ReservedLine";
 import { registerKeys } from "../keys/registry";
-import { IconButton } from "../ui/IconButton";
-import { Icon } from "../ink/Icon";
 
 export const ShelfActions = createContext<{ mount: Accessor<HTMLDivElement | undefined>; open: Accessor<boolean>; /** U3730: the scope line, where the tab's one add control sits. */ scope: Accessor<HTMLElement | undefined> }>();
 
@@ -188,9 +186,7 @@ export const createBulkDelete = <Id,>(props: {
   const shown = () => (readFailure() === null ? failures() : []);
   const failureText = (failure: { target: Target<Id>; message: string }) => `${copy.couldNotDelete} ${labelOf(failure.target)}${copy.colon}${failure.message}`;
 
-  const clearButton = (failure: { target: Target<Id>; message: string }) => (
-    <IconButton aria-label={`${copy.clear} ${labelOf(failure.target)}`} onClick={() => setFailures(current => current.filter(other => other.target.id !== failure.target.id))}><Icon name="x" /></IconButton>
-  );
+  const clearFailure = (failure: { target: Target<Id> }) => setFailures(current => current.filter(other => other.target.id !== failure.target.id));
 
   const bar = () => (
     <Show when={props.selected().length > 1 || failures().length > 0 || question()?.kind === "pending" || readFailure() !== null}>
@@ -208,13 +204,11 @@ export const createBulkDelete = <Id,>(props: {
         <Show when={owners().some(owner => owner.live)}>
           <p>{copy.agentsMayStillBeWritingDeletingDoesNot(owners().filter(owner => owner.live).map(owner => owner.name).join(copy.comma))}</p>
         </Show>
-        <ReservedLine data-deletion-pending={question()?.kind === "pending"} aria-busy={question()?.kind === "pending"} status={question()?.kind === "pending" ? copy.draftStatus.pending : null} message={readFailure() ?? (shown().length > 0 ? failureText(shown()[0]!) : null)} selfClearing action={
-          <Show when={readFailure() !== null} fallback={shown().length > 0 ? clearButton(shown()[0]!) : null}>
-            <button data-button="quiet" type="button" onClick={() => void readback?.()}>{copy.retry}</button>
-          </Show>
-        } />
+        <ReservedLine data-deletion-pending={question()?.kind === "pending"} aria-busy={question()?.kind === "pending"} status={question()?.kind === "pending" ? copy.draftStatus.pending : null} message={readFailure() ?? (shown().length > 0 ? failureText(shown()[0]!) : null)}
+          dismiss={() => { if (readFailure() !== null) setReadFailure(null); else if (shown().length > 0) clearFailure(shown()[0]!); }}
+          recover={readFailure() !== null ? { run: () => void readback?.() } : undefined} />
         <For each={shown().slice(1)}>{failure => (
-          <ReservedLine message={failureText(failure)} selfClearing action={clearButton(failure)} />
+          <ReservedLine message={failureText(failure)} dismiss={() => clearFailure(failure)} />
         )}</For>
       </div>
     </Show>

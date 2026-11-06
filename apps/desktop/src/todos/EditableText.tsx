@@ -8,7 +8,7 @@ import type { Todo } from "@contracts/todo/Todo";
 import type { Change } from "@contracts/todo/Change";
 import { useConnectedProject } from "../state/connectedProject";
 import { doesClearTodoFailure } from "./failureOf";
-import { ReservedLine } from "../ink/ReservedLine";
+import { dismissable, ReservedLine } from "../ink/ReservedLine";
 import { batch, createEffect, createSignal, For, lazy, on, onCleanup, Show, Suspense } from "solid-js";
 
 import type { PadEditorHandle } from "../pads/PadRichEditor";
@@ -55,6 +55,8 @@ export const TodoDraftRecovery = (props: { object: string; active?: boolean; inD
     return found?.destination && found.destination.surface !== "todos" ? null : found;
   };
 
+  const problemLine = dismissable(() => problem() ? copy.draftRetention(project.name, copy.draftSurface(surface), problem()!.cause) : null);
+
   const label = (draft: ReturnType<typeof drafts.list>[number]) => copy.draftIdentity(
     draft.destination.recipient === "comment" ? copy.comment : copy.draftField(draft.destination.object === "new" ? "title" : draft.destination.recipient?.startsWith("blockers:") ? "blockers" : draft.destination.recipient ?? "title"),
     String(draft.value.text ?? draft.value.title ?? "").slice(0, 48),
@@ -63,9 +65,7 @@ export const TodoDraftRecovery = (props: { object: string; active?: boolean; inD
   return <Show when={!drawer.content() || props.inDrawer}><section class="todo-draft-recovery" data-in-drawer={props.inDrawer ? "" : undefined} aria-label={copy.draftIdentity(surface, props.object)} onMouseDown={event => {
     if (event.target instanceof Element && event.target.closest("button")) event.preventDefault();
   }}>
-    <ReservedLine overlay={!props.inDrawer && props.object !== "new"} message={failure() ?? (problem() ? copy.draftRetention(project.name, copy.draftSurface(surface), problem()!.cause) : null)} status={records().length > 0 ? label(records()[records().length - 1]!) : null} ownDismissal action={<>
-    <Show when={failure()}><button data-dismiss-failure onMouseDown={event => event.preventDefault()} data-button="quiet" class="word" type="button" onClick={() => setFailure(null)}>{copy.dismissFailure}</button></Show>
-    <Show when={problem()}><button data-button="quiet" class="word" type="button" onClick={() => drafts.retry()}>{copy.storageRetry}</button></Show>
+    <ReservedLine overlay={!props.inDrawer && props.object !== "new"} message={failure() ?? problemLine.message()} status={records().length > 0 ? label(records()[records().length - 1]!) : null} dismiss={() => failure() ? setFailure(null) : problemLine.dismiss()} recover={problem() ? { run: () => drafts.retry(), label: copy.storageRetry } : undefined} action={<>
     <For each={records().map(draft => draft.revision)}>{revision => {
       const draft = () => records().find(record => record.revision === revision);
 
@@ -382,7 +382,7 @@ export const EditableText = (props: {
 
   return (
     <div class="todo-editable" ref={container}>
-    <ReservedLine overlay message={retentionFailure() || (!props.onFailure && failure())} ownDismissal action={<Show when={!retentionFailure()}><button data-dismiss-failure onMouseDown={event => event.preventDefault()} data-button="quiet" class="word" type="button" onClick={() => setFailure(null)}>{copy.dismissFailure}</button></Show>} />
+    <ReservedLine overlay message={retentionFailure() || (!props.onFailure && failure())} dismiss={() => retentionFailure() ? setRetentionFailure(null) : setFailure(null)} />
     <Show
       when={editing()}
       fallback={

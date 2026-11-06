@@ -31,7 +31,7 @@ import { WindowBar } from "./header/WindowBar";
 import { Strip } from "./header/Strip";
 import type { StripTab } from "./header/tab";
 import { ReservedLine } from "./ink/ReservedLine";
-import { DISMISS_ONLY, failureLine } from "./ink/ReservedLine";
+import { dismissable, failureLine } from "./ink/ReservedLine";
 import { exitText } from "./ink/exitText";
 import { AttentionKey } from "./rail/AttentionKey";
 import { attentionCounts, attentionHolders, nextAttention } from "./rail/attention";
@@ -332,6 +332,8 @@ export const App = (props: {
   const [menuBarFailure, setMenuBarFailure] = createSignal<string | null>(null);
   const [alertFailure, setAlertFailure] = createSignal<string | null>(null);
   const railFailure = () => windowFailure() ?? (activeTab()?.exit ? activeTab()?.reopenFailure ?? daemonExitText(activeTab()!.exit!) : null) ?? (projects.tabs().length > 0 ? projects.failure() : null) ?? badgeFailure() ?? alertFailure() ?? menuBarFailure();
+  const railLine = dismissable(railFailure);
+  const storageLine = dismissable(() => storageFailures().length > 0 ? storageCopy.failure(storageFailures()) : null);
   const alerts = createStateAlerts(alert => props.app.stateAlert(alert), inFront, setAlertFailure);
   const projectAlerts = createProjectAlerts();
   const capture = props.app.capture;
@@ -738,8 +740,7 @@ export const App = (props: {
         railStrip={<InProject open={activeConnection()}>{() => <RailStrip expand={() => setRailCollapsed(false)} />}</InProject>}
         rail={
           <>
-            <ReservedLine overlay message={railFailure()} selfClearing action={<>
-              <Show when={projects.readFailure() && projects.tabs().length > 0 && !windowFailure() && !activeTab()?.exit}><button data-button="quiet" type="button" onClick={() => void projects.reload()}>{copy.retry}</button></Show>
+            <ReservedLine overlay message={railLine.message()} dismiss={railLine.dismiss} recover={projects.readFailure() && projects.tabs().length > 0 && !windowFailure() && !activeTab()?.exit ? { run: () => void projects.reload() } : undefined} action={<>
               <Show when={activeTab()?.exit && !activeTab()?.exit?.recovery}><Reopen onReopen={() => void projects.reopen(activeTab()!.project.path)} busy={projects.reopening()} /></Show>
             </>} />
             <Show when={projects.tabs().length > 0} fallback={<EmptyRail />}>
@@ -761,7 +762,7 @@ export const App = (props: {
 
             const failure = () => projects.active() === path ? undo.feedbackFailure() : null;
 
-            return <ReservedLine class="todo-undo" overlay message={failure()} onDismiss={undo.dismiss} action={<Show when={undo.uncertain()}><button data-button="quiet" type="button" disabled={undo.pending()} onClick={() => void undo.retryDelete()}>{copy.todoDeleteRetry}</button></Show>} />;
+            return <ReservedLine class="todo-undo" overlay message={failure()} dismiss={undo.dismiss} action={<Show when={undo.uncertain()}><button data-button="quiet" type="button" disabled={undo.pending()} onClick={() => void undo.retryDelete()}>{copy.todoDeleteRetry}</button></Show>} />;
           }}</For>
           <div class="centre-failures">
             <For each={keys()}>{path => {
@@ -769,10 +770,10 @@ export const App = (props: {
               const message = () => projects.active() !== path && failure()?.surface() === "rail" ? failure()?.message() : null;
               const name = () => tabOf(path)()?.project.name ?? "";
   
-              return <Show when={message()}>{message => <ReservedLine class="centre-notice" message={`${name()}: ${message()}`} onDismiss={() => failure()?.clear()} action={<button data-button="quiet" type="button" onClick={() => projects.select(path)}>{copy.openDraft} {name()}</button>} />}</Show>;
+              return <Show when={message()}>{message => <ReservedLine class="centre-notice" message={`${name()}: ${message()}`} dismiss={() => failure()?.clear()} action={<button data-button="quiet" type="button" onClick={() => projects.select(path)}>{copy.openDraft} {name()}</button>} />}</Show>;
             }}</For>
-            <Show when={nativeFailure()}>{failure => <ReservedLine class="centre-notice" message={failure().message} onDismiss={() => setNativeFailure(null)} action={failure().action ? <button data-button="quiet" type="button" onClick={failure().action!.run}>{failure().action!.label}</button> : DISMISS_ONLY} />}</Show>
-            <Show when={storageFailures().length > 0}><div class="storage-failure"><ReservedLine message={storageCopy.failure(storageFailures())} selfClearing action={<button data-button="quiet" type="button" onClick={() => void Promise.all(storageFailures().map(problem => problem.retry()))}>{storageCopy.saveRetry}</button>} /></div></Show>
+            <Show when={nativeFailure()}>{failure => <ReservedLine class="centre-notice" message={failure().message} dismiss={() => setNativeFailure(null)} recover={failure().action ?? undefined} />}</Show>
+            <Show when={storageFailures().length > 0}><div class="storage-failure"><ReservedLine message={storageLine.message()} dismiss={storageLine.dismiss} recover={{ run: () => void Promise.all(storageFailures().map(problem => problem.retry())), label: storageCopy.saveRetry }} /></div></Show>
           </div>
           <div class="centre-frame">
           <div class="settings-center">

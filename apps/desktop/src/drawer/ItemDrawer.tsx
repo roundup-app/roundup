@@ -2,7 +2,7 @@ import { createResource, createSignal, ErrorBoundary, onCleanup, Show } from "so
 import type { JSX } from "solid-js";
 import type { Event } from "@contracts/Event";
 import { copy } from "./copy";
-import { ReservedLine } from "../ink/ReservedLine";
+import { dismissable, ReservedLine } from "../ink/ReservedLine";
 import { useConnectedProject } from "../state/connectedProject";
 import { lastTouchLine, padTouchSentence } from "./touchLine";
 
@@ -58,17 +58,17 @@ const ItemDrawerBody = <Value,>(props: Props<Value>) => {
   }));
   onCleanup(() => { latest += 1; });
 
+  const historyLine = dismissable(failure);
+
   return (
     <ErrorBoundary fallback={(error: Error, reset) => (
-      <ReservedLine message={error.message} selfClearing action={
-        <button data-button="quiet" type="button" onClick={() => { void refetch(); reset(); }}>{copy.tryAgain}</button>
-      } />
+      <ReservedLine message={error.message} dismiss={reset} recover={{ run: () => { void refetch(); reset(); }, label: copy.tryAgain }} />
     )}>
       <Show when={loaded()}>
         {(item) => (
           <>
             {props.children(item().value)}
-            <ReservedLine message={failure()} selfClearing action={<button data-button="quiet" type="button" onClick={() => void refreshHistory()}>{copy.tryAgain}</button>} />
+            <ReservedLine message={historyLine.message()} dismiss={historyLine.dismiss} recover={{ run: () => void refreshHistory(), label: copy.tryAgain }} />
             <Show when={newer() ?? item().line}>
               {(line) => (
                 <p class="light" style={props.sentence ? { "font-family": "var(--font-ui)" } : { "white-space": "pre" }}>

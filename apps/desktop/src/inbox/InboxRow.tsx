@@ -5,7 +5,7 @@ import type { TerminalInfo } from "@contracts/terminal/TerminalInfo";
 import { nameOf } from "../bubbles/places";
 import { statusText } from "../terminal/programStatus";
 import { copy } from "./copy";
-import { DISMISS_ONLY, ReservedLine } from "../ink/ReservedLine";
+import { ReservedLine } from "../ink/ReservedLine";
 import { KindGlyph } from "../ink/KindGlyph";
 import { FailureLine } from "../ink/FailureLine";
 import { StatusTip } from "../ink/StatusTip";
@@ -52,15 +52,13 @@ export const InboxRow = (props: { row: AgentRow; open: boolean; selected: boolea
         </Collapsible.Trigger>}</StatusTip>
         <div class="inbox-actions">{actions()}</div>
       </div>
-      <FailureLine status={node()?.status} class="inbox-failure" action={DISMISS_ONLY} onDismiss={() => { const each = node();
+      <FailureLine status={node()?.status} class="inbox-failure" dismiss={() => { const each = node();
 
- if (each) rail.dismiss(each); }} />
+        if (each) rail.dismiss(each); }} />
       <Collapsible.Content>
         <div class="inbox-body">
           <p class="inbox-step"><Show when={node()}><span class="light">{copy.inboxLastStep}</span> </Show><TargetText objectLinks text={step() ?? ""} base={project.path} /></p>
-          <ReservedLine message={failure()} ownDismissal action={
-            <button type="button" data-button="quiet" class="word" aria-describedby={name} onClick={() => props.actions.dismiss(props.row)}>{copy.inboxDismiss}</button>
-          } />
+          <ReservedLine message={failure()} dismiss={() => props.actions.dismiss(props.row)} />
         </div>
       </Collapsible.Content>
     </Collapsible.Root>

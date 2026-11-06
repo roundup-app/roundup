@@ -2,7 +2,7 @@ import { captureFocus } from "../keys/focus";
 import { createSignal, For, onCleanup, onMount } from "solid-js";
 import type { ChangedFile } from "@contracts/agent/ChangedFile";
 import { copy } from "./copy";
-import { DISMISS_ONLY, ReservedLine } from "../ink/ReservedLine";
+import { ReservedLine } from "../ink/ReservedLine";
 import { failureOf } from "../todos/failureOf";
 import { useConnectedProject } from "../state/connectedProject";
 import { changedPath as absolutePath, statusText } from "./paths";
@@ -178,7 +178,7 @@ export const ChangedTree = (props: { initialFocus?: ReturnType<typeof captureFoc
   return (
     <>
       <div ref={setHost} class="worktree-tree" />
-      <For each={[...failures()]} fallback={<ReservedLine />}>{([path, error]) => <ReservedLine message={`${path.split("/").pop()}: ${error}`} action={DISMISS_ONLY} onDismiss={() => clear(path)} />}</For>
+      <For each={[...failures()]} fallback={<ReservedLine />}>{([path, error]) => <ReservedLine message={`${path.split("/").pop()}: ${error}`} dismiss={() => clear(path)} />}</For>
     </>
   );
 };

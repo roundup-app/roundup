@@ -6,7 +6,7 @@ import { createCutTitle } from "../ui/cutTitle";
 import { copy } from "./copy";
 import { createEffect, createSignal, For, on, onCleanup, Show } from "solid-js";
 import type { FileComparison } from "@contracts/agent/FileComparison";
-import { DISMISS_ONLY, ReservedLine } from "../ink/ReservedLine";
+import { dismissable, ReservedLine } from "../ink/ReservedLine";
 import { modalOutside } from "../keys/registry";
 import { Dialog } from "../ui/Dialog";
 import { useConnectedProject } from "../state/connectedProject";
@@ -38,9 +38,10 @@ export const NoteBatch = (props: { id: string; name: string; fallback?: () => vo
 
   const older = (note: Note) => olderComparison(props.comparison, note.comparison);
 
+  const noteLine = dismissable(() => props.notes.problem() ?? props.notes.failure(props.id));
+
   return <section class="note-batch" aria-label={copy.notesRegion}>
-      <ReservedLine message={props.notes.problem() ?? props.notes.failure(props.id)} status={status()} ownDismissal action={<>
-        <Show when={props.notes.failure(props.id)}><button type="button" data-button="quiet" onClick={() => props.notes.dismiss(props.id)}>{copy.dismissFailure}</button></Show>
+      <ReservedLine message={noteLine.message()} status={status()} dismiss={() => props.notes.failure(props.id) ? props.notes.dismiss(props.id) : noteLine.dismiss()} action={<>
         <Show when={uncertain()}><button type="button" data-button="quiet" onClick={() => void props.notes.reconcile(props.id)}>{copy.checkMessageHistory}</button></Show>
         <Show when={props.notes.problem()}><button type="button" data-button="quiet" onClick={props.recover}>{copy.openNotesRecovery}</button></Show></>} />
       <Show when={props.notes.list(props.id).length}>
@@ -129,6 +130,8 @@ export const NoteRecovery = (props: { compact?: boolean | undefined; notes: Note
   const entries = () => props.notes.entries().filter(([, value]) => value.forms.length || value.notes.length || value.submissions.length || value.recovered.length);
   const retained = () => entries().length > 0 || props.notes.invalid().length > 0 || !!props.notes.problem();
 
+  const problemLine = dismissable(() => props.notes.problem());
+
   createEffect(() => { if (!props.open) setEditing(undefined); });
   createEffect(() => { if (props.open && element() && modalOutside(element())) close(); });
 
@@ -137,8 +140,8 @@ export const NoteRecovery = (props: { compact?: boolean | undefined; notes: Note
     <Dialog.Positioner class="note-recovery-positioner"><Dialog.Content ref={setElement} class="worktree-panel note-recovery" aria-label={copy.recoverNotes}>
       <header class="diff-header"><Dialog.Title class="diff-identity">{copy.recoverNotes}</Dialog.Title><button type="button" onClick={close}>{copy.close}</button></header>
       <Show when={!retained()}><EmptyState art="clumsy" {...{ title: copy.noNoteDrafts }} line={copy.emptyNotesLine} /></Show>
-      <Show when={props.notes.problem()}>{problem => <ReservedLine message={problem()} selfClearing action={<button type="button" onClick={props.notes.retry}>{copy.retry}</button>} />}</Show>
-      <For each={[...failures()]}>{([key, text]) => <ReservedLine message={text} action={DISMISS_ONLY} onDismiss={() => clear(key)} />}</For>
+      <Show when={props.notes.problem()}><ReservedLine message={problemLine.message()} dismiss={problemLine.dismiss} recover={{ run: props.notes.retry }} /></Show>
+      <For each={[...failures()]}>{([key, text]) => <ReservedLine message={text} dismiss={() => clear(key)} />}</For>
 
       <Show when={editing()} keyed>{value => <NoteForm id={value.id} comparison={comparisons().get(`${value.id}:${value.form.comparison.newPath}`) ?? value.form.comparison} notes={props.notes} recovered={value.form} selection={{ side: value.form.side, start: Number(value.form.start), end: Number(value.form.end) }} close={() => setEditing(undefined)} />}</Show>
       <For each={entries()}>{([id, value]) => <section class="note-batch">

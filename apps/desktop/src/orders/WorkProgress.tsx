@@ -1,7 +1,6 @@
 import "./styles.css";
 import { captureFocus } from "../keys/focus";
 import { ReservedLine } from "../ink/ReservedLine";
-import { IconButton } from "../ui/IconButton";
 import { For, Show, createEffect, createMemo, createResource, createSignal, onCleanup } from "solid-js";
 import type { ContinuationAction } from "@contracts/message/ContinuationAction";
 import type { Progress } from "@contracts/message/Progress";
@@ -235,7 +234,7 @@ const ProgressContent = (props: { id: string }) => {
         <For each={noteOf(result, plan)}>{(note) => <div class="progress-note" role="note"><p>{note.cause}</p><p>{note.action}</p></div>}</For>
         <button class="word progress-evidence" data-button="quiet" type="button" aria-label={copy.openEvidence(result.report.publication.title)}
           aria-disabled={opening() !== null ? true : undefined} onClick={() => void inspect(result)}>{result.report.publication.title}</button>
-        <ReservedLine message={failures()[result.report.report]} ownDismissal action={<IconButton aria-label={copy.clearName(copy.error.toLowerCase())} onClick={() => clearReport(result.report.report)}><Icon name="x" /></IconButton>} />
+        <ReservedLine message={failures()[result.report.report]} dismiss={() => clearReport(result.report.report)} />
       </li>
     );
   };
@@ -248,10 +247,7 @@ const ProgressContent = (props: { id: string }) => {
 
   return (
     <>
-      <ReservedLine message={unread() ? copy.progressUnreadable(unread()!) : null} ownDismissal action={<>
-        <button class="word" data-button="quiet" type="button" onClick={refresh}>{copy.progressRetry}</button>
-        <IconButton aria-label={copy.clearName(copy.error.toLowerCase())} onClick={() => setDismissedRead(read.latest)}><Icon name="x" /></IconButton>
-      </>} />
+      <ReservedLine message={unread() ? copy.progressUnreadable(unread()!) : null} dismiss={() => setDismissedRead(read.latest)} recover={{ run: refresh, label: copy.progressRetry }} />
       <Show when={loaded()}>
         {(data) => (
             <section class="progress-section" aria-label={copy.progress}>
@@ -263,7 +259,7 @@ const ProgressContent = (props: { id: string }) => {
                 </Show>
               </div>
               <ReservedLine ref={status} class="progress-status" tabindex="-1" message={resumeFailure() ? `${resumeMessage()}\n${diagnostic()}` : null} content={resumeMessage()}
-                status={phase() === "resumed" ? copy.resumed : phase() === "nothing" ? copy.resumeNothing : null} ownDismissal action={<Show when={resumeFailure()}><IconButton aria-label={copy.clearName(copy.error.toLowerCase())} onClick={() => setResumeFailure(null)}><Icon name="x" /></IconButton></Show>} />
+                status={phase() === "resumed" ? copy.resumed : phase() === "nothing" ? copy.resumeNothing : null} dismiss={() => setResumeFailure(null)} />
               <Show when={data().progress.results.length === 0}><p>{copy.progressEmpty}</p></Show>
               <ul class="progress-rows"><For each={rows()?.current}>{(result) => row(result, data().plan)}</For></ul>
               <Show when={(rows()?.earlier.length ?? 0) > 0}>

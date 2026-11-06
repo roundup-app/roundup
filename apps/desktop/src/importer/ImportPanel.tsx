@@ -1,6 +1,6 @@
 import { KindGlyph } from "../ink/KindGlyph";
 import { CopyButton } from "../ui/CopyButton";
-import { DISMISS_ONLY, ReservedLine } from "../ink/ReservedLine";
+import { dismissable, ReservedLine } from "../ink/ReservedLine";
 import "./import.css";
 import { createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import type { ImportPeriod } from "@contracts/project/ImportPeriod";
@@ -32,6 +32,7 @@ export const ImportPanel = (props: { onClose: () => void }) => {
   const failure = state.failure;
   const refused = state.failed;
   const uncertain = () => !state.verified() && [...refused().values()].some(failure => copy.importRowRefusal(failure) === null);
+  const line = dismissable(() => failure() ?? (state.restoreFailure() || state.retentionFailure() ? `${state.restoreFailure() ? copy.importRestoreFailure : copy.importRetentionFailure} ${copy.importRetentionRecovery}` : null) ?? (uncertain() ? copy.importUnconfirmed : null));
   const pending = state.pending;
   const choose = state.setPeriod;
   const confirm = state.confirm;
@@ -75,7 +76,7 @@ export const ImportPanel = (props: { onClose: () => void }) => {
           <textarea rows={1} class="import-prompt" aria-label={copy.importPrompt} value={state.prompt()} spellcheck={false} autocorrect="off" autocapitalize="off" onInput={event => void state.setPrompt(event.currentTarget.value)} />
           <button type="button" data-button="quiet" disabled={daemonExit() !== null || pending() || state.starting() || state.prompt().trim().length === 0} onClick={() => void state.start()}>{copy.importStart}</button>
         </div>
-        <ReservedLine message={state.startFailure()} action={DISMISS_ONLY} onDismiss={state.dismissStartFailure} />
+        <ReservedLine message={state.startFailure()} dismiss={state.dismissStartFailure} />
       </SettingsGroup>
       <SettingsGroup name={copy.importPeriod}>
           <div role="group" aria-label={copy.importPeriod} class="import-period">
@@ -89,11 +90,8 @@ export const ImportPanel = (props: { onClose: () => void }) => {
       <SettingsGroup name={copy.importResults}><div class="import-panel">
           <ReservedLine status={state.listingAgent() && !found()?.candidates.length ? copy.importListing(listing()?.name ?? copy.importAgentName) : null}
             content={<span class="import-listing"><KindGlyph kind={listing()?.status?.kind ?? "working"} /><span>{copy.importListing(listing()?.name ?? copy.importAgentName)}</span></span>} />
-          <ReservedLine message={failure() ?? (state.restoreFailure() || state.retentionFailure() ? `${state.restoreFailure() ? copy.importRestoreFailure : copy.importRetentionFailure} ${copy.importRetentionRecovery}` : null) ?? (uncertain() ? copy.importUnconfirmed : null)}
-            aria-live="polite" aria-label={state.hasConflict() ? copy.importConflict : undefined} selfClearing status={state.hasConflict() ? copy.importConflictExplanation : !state.verified() && wanted().size > 0 ? copy.importRestored(wanted().size) : state.loading() ? copy.importLooking : found()?.candidates.length === 0 ? copy.importNone : null} action={<>
-            <Show when={failure()}><button type="button" data-button="quiet" onClick={() => void state.refresh()}>{copy.retry}</button></Show>
-            <Show when={state.restoreFailure() || state.retentionFailure()}><button type="button" data-button="quiet" onClick={state.retryStorage}>{copy.retryStorage}</button></Show>
-          </>} />
+          <ReservedLine message={line.message()} dismiss={line.dismiss} recover={failure() ? { run: () => void state.refresh() } : state.restoreFailure() || state.retentionFailure() ? { run: state.retryStorage, label: copy.retryStorage } : undefined}
+            aria-live="polite" aria-label={state.hasConflict() ? copy.importConflict : undefined} status={state.hasConflict() ? copy.importConflictExplanation : !state.verified() && wanted().size > 0 ? copy.importRestored(wanted().size) : state.loading() ? copy.importLooking : found()?.candidates.length === 0 ? copy.importNone : null} />
           <Show when={state.hasConflict()}>
             <section class="import-recovery" aria-label={copy.importChoices}>
               <For each={state.choices()}>{(choice, at) => (
@@ -145,7 +143,7 @@ export const ImportPanel = (props: { onClose: () => void }) => {
               </Show>
             </>}
           </Show>
-          <ReservedLine message={copyFailure()} action={DISMISS_ONLY} onDismiss={() => failCopy(null)} />
+          <ReservedLine message={copyFailure()} dismiss={() => failCopy(null)} />
       </div></SettingsGroup>
       </div>
           <p class="import-words">

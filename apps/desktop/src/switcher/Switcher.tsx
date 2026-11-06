@@ -2,7 +2,7 @@ import type { KeyText } from "../keys/chords";
 import { useDialog } from "@ark-ui/solid/dialog";
 import { captureFocus, queueFocus } from "../keys/focus";
 import { writeText } from "../app/clipboard";
-import { DISMISS_ONLY, ReservedLine } from "../ink/ReservedLine";
+import { dismissable, ReservedLine } from "../ink/ReservedLine";
 import { lazy, batch, createEffect, createMemo, createResource, createSignal, For, on, onCleanup, Show } from "solid-js";
 import { createCopyFeedback } from "../ui/CopyButton";
 import * as v from "valibot";
@@ -176,6 +176,8 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
       if (selection) input.setSelectionRange(...selection);
     });
   };
+
+  const retentionLine = dismissable(() => retentionProblem() ? copy.switcherRetentionFailure(retentionProblem()!.operation, project.name) : null);
 
   const restoreFocusOnRemoval = (element: HTMLElement): void => {
     onCleanup(() => {
@@ -434,13 +436,12 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
               <Show when={entry.node && !rail.dismissed(entry.node)}><Show when={errorCause(entry.node?.status, false)}>{cause => <ReservedLine status={cause()} />}</Show></Show>
             </span>}</StatusTip>;
           }} />
-        <ReservedLine message={makeFailure()} action={DISMISS_ONLY} onDismiss={() => setMakeFailure(null)} />
+        <ReservedLine message={makeFailure()} dismiss={() => setMakeFailure(null)} />
         <p class="switcher-footer"><For each={footer()}>{key => <span class="switcher-footer-key"><KeyChip keys={key.keys} /> {key.label}</span>}</For></p>
-        <ReservedLine message={retentionProblem() ? copy.switcherRetentionFailure(retentionProblem()!.operation, project.name) : null} selfClearing action={<>
+        <ReservedLine message={retentionLine.message()} dismiss={() => { retentionLine.dismiss(); restoreQueryFocus(); }} recover={{ run: () => { drafts.retry(); }, label: copy.retryStorage }} action={<>
           <Show when={text() !== "" && !copyFailure()}>
             <button data-button="quiet" ref={restoreFocusOnRemoval} onClick={copyQuery}>{copied() ? copy.queryCopied : copy.copyQuery}</button>
           </Show>
-          <button data-button="quiet" ref={restoreFocusOnRemoval} onClick={() => { drafts.retry(); }}>{copy.retryStorage}</button>
           <Show when={text() !== ""}>
             <button data-button="quiet" ref={restoreFocusOnRemoval} onClick={() => {
               const draft = current();
@@ -450,9 +451,8 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
             }}>{copy.discardQuery}</button>
           </Show>
         </>} />
-        <ReservedLine message={copyFailure() ? copy.switcherCopyFailure : null} ownDismissal action={<>
+        <ReservedLine message={copyFailure() ? copy.switcherCopyFailure : null} dismiss={() => { setCopyFailure(null); restoreQueryFocus(); }} action={<>
           <button data-button="quiet" ref={restoreFocusOnRemoval} onClick={copyQuery}>{copied() ? copy.queryCopied : copy.copyQuery}</button>
-          <button data-button="quiet" ref={restoreFocusOnRemoval} onClick={() => { setCopyFailure(null); }}>{copy.close}</button>
         </>} />
         <Show when={refusal()}>{shown => <ReservedLine status={shown().cause} />}</Show>
       </section>
