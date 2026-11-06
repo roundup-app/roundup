@@ -808,7 +808,7 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
                       {(view) => (
                         <TreeView.NodeProvider node={entryOf(view().key).node} indexPath={entryOf(view().key).indexPath}>
                           <TreeView.Branch data-id={view().key} aria-label={`${view().count}${view().group === "internal" ? copy.internalCount : copy.idleCount}`}>
-                            <TreeView.BranchControl class="rail-fold row-wash" style={{ "--indent": `calc(${view().depth} * var(--rail-step) + var(--rail-inset))` }} onClick={() => setUnfolded(open => toggled(open, view().key.slice(5)))}>
+                            <TreeView.BranchControl class="rail-fold row-wash row-wash-inert" style={{ "--indent": `calc(${view().depth} * var(--rail-step) + var(--rail-inset))` }} onClick={() => setUnfolded(open => toggled(open, view().key.slice(5)))}>
                               <Trunks depth={view().depth} trail={[...view().trail, false]} stem={view().open} />
                               <span class="rail-fold-content"><KindGlyph kind={view().status} decorative /><span class="rail-fold-name">{view().count}{view().group === "internal" ? copy.internalCount : copy.idleCount}</span></span>
                               <TreeView.BranchIndicator><Icon name="right" /></TreeView.BranchIndicator>
