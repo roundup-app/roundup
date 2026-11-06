@@ -878,7 +878,8 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
     // Include lazy loading, fonts and layout in the same finite preparation budget, across every try.
     const deadline = AbortSignal.timeout(5_000);
     const cancellation = AbortSignal.any(signal ? [signal, deadline] : [deadline]);
-    const stopped = () => ({ kind: "stopped", reason: deadline.aborted ? new Error(appCopy.terminalDestinationUnavailable) : cancellation.reason }) as const;
+    const asError = (reason: Error | DOMException): Error => reason instanceof Error ? reason : new Error(reason.message, { cause: reason }); // callers branch on `instanceof Error`
+    const stopped = () => ({ kind: "stopped", reason: deadline.aborted ? new Error(appCopy.terminalDestinationUnavailable) : asError(cancellation.reason) }) as const;
 
     const waiting = new AbortController();
 
