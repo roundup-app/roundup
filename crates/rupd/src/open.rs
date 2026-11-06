@@ -148,6 +148,7 @@ impl Daemon {
             auto: auto::Auto::new(&bus),
             pushes: std::sync::Mutex::new(Some(bus.subscribe())),
             rail_told: Default::default(),
+            resumes: std::sync::Mutex::new(Some(bus.subscribe())),
             resources: Default::default(),
             publications: deliverables::Publications::open(dir)?,
             prompt_effect_gate: std::env::var_os("RUPD_PROMPT_EFFECT_GATE").map(Into::into),
@@ -267,11 +268,18 @@ impl Daemon {
         {
             tokio::spawn(wake::tell_renames(self.reader(), renames));
         }
-        tokio::spawn(resume_turn::resume_turns(
-            self.reader(),
-            Arc::clone(&self.agents),
-            self.bus.subscribe(),
-        ));
+        if let Some(events) = self
+            .resumes
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .take()
+        {
+            tokio::spawn(resume_turn::resume_turns(
+                self.reader(),
+                Arc::clone(&self.agents),
+                events,
+            ));
+        }
         if let Some(owner_events) = self
             .owner_events
             .lock()

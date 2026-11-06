@@ -74,6 +74,11 @@ impl Bus {
         self.shared.sender.subscribe()
     }
 
+    /// How many receivers are subscribed now.
+    pub fn receiver_count(&self) -> usize {
+        self.shared.sender.receiver_count()
+    }
+
     /// Maximum retained events before an unread receiver reports lag.
     pub fn capacity(&self) -> usize {
         self.capacity
