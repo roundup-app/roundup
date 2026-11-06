@@ -8,7 +8,7 @@ import { captureFocus, queueFocus } from "../keys/focus";
 import { createCopyLabels } from "../ui/CopyButton";
 import { writeText } from "../app/clipboard";
 import type { JSX } from "solid-js";
-import { batch, untrack, createComputed, createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js";
+import { batch, untrack, createComputed, createEffect, createMemo, createSignal, For, Index, onCleanup, onMount, Show } from "solid-js";
 import * as v from "valibot";
 import { createStore, reconcile } from "solid-js/store";
 import type { AskSubmission } from "../state/asks";
@@ -20,6 +20,8 @@ import { ASK_CLOSE, CHORDS, chordsFor } from "../keys/chords";
 import { modalOpen, modalOutside, registerKeys, type KeyScope } from "../keys/registry";
 import { useConnectedProject } from "../state/connectedProject";
 import { Combobox } from "../ui/Combobox";
+import { Select } from "../ui/Select";
+import { createProjectPick } from "./projectPick";
 import { Mentions } from "../ui/Mentions";
 import { KindGlyph, LABELS } from "../ink/KindGlyph";
 import { errorCause, shownKind } from "../ink/FailureLine";
@@ -256,8 +258,16 @@ export const AskBar = (props: {
 
   registerKeys(scope, [
     { chords: chordsFor("⌘/"), run: (press) => { if (!press.repeat) close(true); } },
-    { chords: ASK_CLOSE, run: () => { if (matching().length > 0) setDismissed(true); else close(true); } },
+    { chords: ASK_CLOSE, when: event => !(event.target instanceof Element && event.target.closest(".app-select-list, [aria-expanded=true]")), run: () => { if (matching().length > 0) setDismissed(true); else close(true); } },
   ]);
+
+  const projectPick = createProjectPick({
+    place: value => asks.place(value),
+    projects: asks.projects,
+    active: connected.project.name,
+    text,
+    named: () => v.safeParse(v.string(), current()?.value.workstream).success,
+  });
 
   const send = async (): Promise<void> => {
     const value = text();
@@ -265,6 +275,8 @@ export const AskBar = (props: {
     if (value.trim() === "") return;
 
     const draft = current();
+    // Read before the submit makes the draft pending and empties the field.
+    const placement = projectPick.request();
 
     if (!draft || !(await drafts.submit(draft.revision))) return;
     setFailure(null);
@@ -272,6 +284,9 @@ export const AskBar = (props: {
     const request: AskSubmission = { text: value, submission: draft.revision };
 
     if (workstream.success) request.workstream = workstream.output;
+    else Object.assign(request, placement);
+
+    projectPick.clear();
     void asks.send(request).then((outcome) => {
       drafts.settle(draft.revision, outcome.kind === "refused" ? "failed" : outcome.kind);
 
@@ -340,6 +355,13 @@ export const AskBar = (props: {
             return <><KindGlyph decorative kind={shownKind(node()?.status, dismissed())} /><Tip text={item.label} cut={cut}>{trigger => <span {...trigger()} ref={name} class="app-mention-name">{item.label.slice(0, start())}<mark>{item.label.slice(start(), end())}</mark>{item.label.slice(end())}</span>}</Tip><Show when={parent()}>{name => <span class="app-mention-parent">{name()}</span>}</Show><Show when={!dismissed()}><Show when={errorCause(node()?.status, false)}>{cause => <ReservedLine status={cause()} />}</Show></Show></>;
           }} /></Show>
         </Mentions.Root>
+        <Show when={projectPick.chips().length > 0}><div class="ask-choices ask-chips">
+          <Index each={projectPick.chips()}>{(chip, index) => <span class="ask-chip">
+            <span class="ask-chip-lead">{projectPick.chips().length > 1 ? chip().text : copy.askProject}</span>
+            <Select label={projectPick.chips().length > 1 ? copy.askProjectOf(chip().text) : copy.askProject} value={chip().project}
+              choices={asks.projects().map(project => ({ value: project.name, label: project.name }))} onValueChange={value => projectPick.pick(index, value)} />
+          </span>}</Index>
+        </div></Show>
         <ReservedLine overlay class="ask-send-status" message={sendLine.message()} status={records().some(draft => draft.status === "unknown") ? copy.askUnknownState : null} dismiss={dismissSendLine} recover={problem() ? { run: () => drafts.retry(), label: copy.storageRetry } : undefined} action={<>
         <For each={records().filter(draft => draft.status === "unknown").map(draft => draft.revision)}>{revision => {
           const [cause, setCause] = createSignal<string | null>(null);
