@@ -13,6 +13,9 @@ const render = (view: () => JSX.Element) => renderWithoutClock(() => <DisplayClo
 
 afterEach(cleanup);
 
+/** U6249b: a read is tried 5 times before its failure shows. */
+const READ_ATTEMPTS = 5;
+
 describe("u38 empty Pads", () => {
 
   it("u4464_no_empty_view_before_the_first_answer_u38_pads_pad_list_answers", async () => {
@@ -145,7 +148,7 @@ describe("u38 empty Pads", () => {
     app.handlers["pad.list"] = () => {
       calls += 1;
 
-      return calls <= 2 ? Promise.reject(new Error("boom")) : retry.promise;
+      return calls <= READ_ATTEMPTS ? Promise.reject(new Error("boom")) : retry.promise;
     };
 
     app.handlers["rail.tree"] = () => withScopeRow([]);
@@ -160,17 +163,17 @@ describe("u38 empty Pads", () => {
 
     const exhausted = await screen.findByRole("alert");
 
-    expect(calls).toBe(2);
+    expect(calls).toBe(READ_ATTEMPTS);
 
     app.emit({ actor: AGENT, name: "pad.changed", data: { name: "auth-notes" } });
-    await waitFor(() => expect(calls).toBe(3));
+    await waitFor(() => expect(calls).toBe(READ_ATTEMPTS + 1));
 
     expect(screen.getByRole("alert")).toBe(exhausted);
 
     retry.resolve([]);
 
     await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
-    expect(calls).toBe(3);
+    expect(calls).toBe(READ_ATTEMPTS + 1);
   });
 
   it("u38_a_failed_initial_pad_list_shows_its_message_not_no_pads_yet", async () => {

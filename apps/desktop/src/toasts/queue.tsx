@@ -119,7 +119,7 @@ export const createToastQueue = (inFront: () => boolean, chime: Chime, now: () =
     failures.delete(id);
     failures.set(id, { item: entry.item, message });
     setFailure(message);
-    toast.show({ id, name: "", content: "", body: () => <ReservedLine message={message}><button type="button" data-button="quiet" onClick={() => toast.dismiss(id)}>{copy.close}</button></ReservedLine>, duration: NO_TIME, extra: true });
+    toast.show({ id, name: "", content: "", body: () => <ReservedLine message={message} dismiss={() => toast.dismiss(id)} />, duration: NO_TIME, extra: true });
   }
 
   const shown = createMemo(() => Math.min(entries().length, MOST_SHOWN));

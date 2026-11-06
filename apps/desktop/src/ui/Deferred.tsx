@@ -12,9 +12,7 @@ export const Deferred = <T,>(props: { load: () => Promise<T>; label: string; onC
     ? <SettingsShell heading={props.label} onClose={props.onClose}><SettingsGroup hideHeading name={props.label}>{content}</SettingsGroup></SettingsShell>
     : content;
 
-  return <ErrorBoundary fallback={(_error, reset) => fallback(<ReservedLine message={copy.surfaceLoadFailed(props.label)}>
-    <button data-button="quiet" type="button" onClick={() => { void refetch(); reset(); }}>{copy.retry}</button>
-  </ReservedLine>)}>
+  return <ErrorBoundary fallback={(_error, reset) => fallback(<ReservedLine message={copy.surfaceLoadFailed(props.label)} blocked recover={{ run: () => { void refetch(); reset(); } }} />)}>
     <Suspense fallback={<ReservedLine status={copy.surfaceLoading(props.label)} content={<><Hourglass class="icon" aria-hidden="true" />{copy.surfaceLoading(props.label)}</>} aria-busy="true"><Show when={props.onClose}><button data-button="quiet" type="button" onClick={() => props.onClose?.()}>{copy.close}</button></Show></ReservedLine>}>
       <Show when={loaded()}>{value => props.children(value())}</Show>
     </Suspense>

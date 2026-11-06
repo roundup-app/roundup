@@ -219,7 +219,7 @@ export const OpenRow = (props: {
       <Show when={props.nested}>{head}</Show>
       {props.connections}
       <div class="todo-group-status">{props.groupProgress}</div>
-      <div class="todo-row-notice"><ReservedLine overlay message={failure()} content={failedAction() && actionFailure() && !moveFailure() ? <>{copy.failed(failedAction()!, "")}<span>{failure()}</span></> : undefined} /></div>
+      <div class="todo-row-notice"><ReservedLine overlay message={failure()} dismiss={clearFailure} content={failedAction() && actionFailure() && !moveFailure() ? <>{copy.failed(failedAction()!, "")}<span>{failure()}</span></> : undefined} /></div>
     </ShelfRow>
   );
 };

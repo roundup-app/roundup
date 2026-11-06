@@ -23,7 +23,6 @@ export const copy = {
   noUnfinishedWork: "This Project has no unfinished work.",
   draftProblem,
   tryAgain: sharedCopy.retryStorage,
-  dismissCopyFailure: "Dismiss copy failure",
   copyDraftFailure: sharedCopy.copyDraftFailure,
   emptyDraftsLine: "Unfinished work you keep appears here.",
   pads: sharedCopy.pads,

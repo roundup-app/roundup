@@ -284,15 +284,13 @@ export const TodoDrawer = (props: {
           aria-live={drafts.todoUndo.uncertain() ? undefined : "polite"} aria-atomic="true"
           message={deletionRefusal() && drafts.todoUndo.uncertain() ? deletionRefusal() : failure()}
           status={deletionRefusal() && !drafts.todoUndo.uncertain() ? deletionRefusal() : null}
-          content={deletionRefusal() ? <Show when={deleteRefused()} keyed>{press => <span>{press > 0 && deletionRefusal()}</span>}</Show> : undefined}>
-          <Show when={deletionRefusal() && drafts.todoUndo.uncertain()}>
-            <button data-button="quiet" type="button" disabled={drafts.todoUndo.pending()} onClick={() => void drafts.todoUndo.retryDelete()}>{copy.todoDeleteRetry}</button>
-          </Show>
-          <button data-dismiss-failure onMouseDown={event => event.preventDefault()} data-button="quiet" class="word" type="button" onClick={() => { setDeleteRefused(0); setFailure(null); }}>{copy.dismissFailure}</button></ReservedLine>
+          content={deletionRefusal() ? <Show when={deleteRefused()} keyed>{press => <span>{press > 0 && deletionRefusal()}</span>}</Show> : undefined}
+          dismiss={() => { setDeleteRefused(0); setFailure(null); }}
+          recover={deletionRefusal() && drafts.todoUndo.uncertain() ? { run: () => void drafts.todoUndo.retryDelete(), label: copy.todoDeleteRetry } : undefined} />
           <Show
             when={todo()}
             fallback={
-              <ReservedLine message={!removedByMe() && !deleting() && !noticeDismissed() ? copy.todoDeleted(props.id) : null}><button data-dismiss-failure onMouseDown={event => event.preventDefault()} data-button="quiet" class="word" type="button" onClick={() => setNoticeDismissed(true)}>{copy.dismissFailure}</button></ReservedLine>
+              <ReservedLine status={!removedByMe() && !deleting() && !noticeDismissed() ? copy.todoDeleted(props.id) : null}><button data-dismiss-failure onMouseDown={event => event.preventDefault()} data-button="quiet" class="word" type="button" onClick={() => setNoticeDismissed(true)}>{copy.dismissFailure}</button></ReservedLine>
             }
           >
             {(current) => (
@@ -310,7 +308,7 @@ export const TodoDrawer = (props: {
                     commit={async (title, expected_change) => { await applied(() => app.rpc("todo.update", { id: props.id, title, body: null, expected_change })); }}
                   />
                 </div>
-                <ReservedLine class="todo-title-feedback" message={titleFailure()}><button data-dismiss-failure onMouseDown={event => event.preventDefault()} data-button="quiet" class="word" type="button" onClick={() => dismissTitle?.()}>{copy.dismissFailure}</button></ReservedLine>
+                <ReservedLine class="todo-title-feedback" message={titleFailure()} dismiss={() => dismissTitle?.()} />
                 <TodoMeta todo={{ ...(props.todos.byId().get(props.id) ?? current()), blockers: (answered() ?? current()).blockers }} graph={props.todos.blockerGraph()} toggle={toggle} change={changeBlockers}
                   owner={ownersOnRail(connected).find(owner => sameOwner(owner.actor, current().owner))?.name ?? copy.unassigned}
                   assign={anchor => openOwner?.(anchor)} fail={setFailure} />

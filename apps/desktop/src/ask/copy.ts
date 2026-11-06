@@ -16,7 +16,6 @@ export const copy = {
   openDeliverable: sharedCopy.openEvidence,
   deliverableUnsafe: "This link is unsupported. Try an HTTP or HTTPS target.",
   deliverableUnavailable: sharedCopy.deliverableUnavailable,
-  dismiss: sharedCopy.dismiss,
   draftSurface: sharedCopy.draftSurface,
   storageRetry: sharedCopy.storageRetry,
   draftRetention: sharedCopy.draftRetention,

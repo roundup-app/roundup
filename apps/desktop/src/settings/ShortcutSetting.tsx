@@ -127,7 +127,7 @@ const ActionShortcut = (props: { label: string; keys: KeyText; recording: boolea
       </Show>
       <Show when={props.overridden}><button data-button="quiet" type="button" onClick={props.onReset}>{copy.reset}</button></Show>
     </div>
-    <Show when={props.failure}>{message => <ReservedLine message={message()} />}</Show>
+    <Show when={props.failure}>{message => <ReservedLine status={message()} />}</Show>
   </div>;
 };
 
@@ -175,6 +175,6 @@ export const ShortcutSetting = (props: { field: keyof typeof ROWS; capture?: Cap
       </div>
       <span id={hint} class="settings-hint">{row.hint}</span>
     </div>
-    <ReservedLine message={failure()} />
+    <ReservedLine message={failure()} dismiss={() => setFailure(null)} />
   </>;
 };

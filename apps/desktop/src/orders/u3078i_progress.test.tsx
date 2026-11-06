@@ -170,7 +170,7 @@ it.each(["dismiss", "same report recovery", "unrelated report recovery", "report
   await within(row("r-login")!).findByRole("alert", { name: "Cannot open login; retry" });
   await within(row("r-deploy")!).findByRole("alert", { name: "Cannot open deployment; retry" });
 
-  if (transition === "dismiss") fireEvent.click(within(section.querySelector<HTMLElement>('[data-report="r-login"]')!).getByRole("button", { name: "Clear error" }));
+  if (transition === "dismiss") fireEvent.click(within(section.querySelector<HTMLElement>('[data-report="r-login"]')!).getByRole("button", { name: "Dismiss" }));
 
   if (transition.includes("recovery")) {
     unavailable = false;
@@ -203,7 +203,7 @@ it.each(["dismiss", "acknowledge"] as const)("p3557c_failure_lifetime_work_progr
   fireEvent.click(view.getByRole("button", { name: "Resume unfinished work" }));
   await view.findByRole("alert", { name: /Agent stopped; start it again/ });
 
-  if (transition === "dismiss") fireEvent.click(view.getByRole("button", { name: "Clear error" }));
+  if (transition === "dismiss") fireEvent.click(view.getByRole("button", { name: "Dismiss" }));
   else {
     const reply = gate<ResumeWork>();
     app.handlers["message.resumeWork"] = () => reply.promise;
@@ -236,7 +236,7 @@ it.each(["dismiss", "recover", "unrelated removal"] as const)("p3557c_failure_li
   app.emit({ actor: { kind: "user", id: "you", parent: null }, name: "rail.changed" });
   await screen.findByText(/Progress read failed; retry/);
 
-  if (transition === "dismiss") fireEvent.click(screen.getByRole("button", { name: "Clear error" }));
+  if (transition === "dismiss") fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
 
   if (transition === "recover") {
     unreadable = false;
@@ -285,7 +285,7 @@ it.each(["dismiss", "unrelated removal"] as const)("p3557c_failure_lifetime_work
   render(() => <ConnectedProjectContext.Provider value={connected}><WorkProgress id="historical" /></ConnectedProjectContext.Provider>);
   await screen.findByRole("alert");
 
-  if (transition === "dismiss") fireEvent.click(screen.getByRole("button", { name: "Clear error" }));
+  if (transition === "dismiss") fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
   else {
     nodes = [];
     await connected.rail.refresh();

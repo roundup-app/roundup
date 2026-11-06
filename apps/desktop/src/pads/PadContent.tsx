@@ -17,7 +17,7 @@ import type { Accessor } from "solid-js";
 import type { Actor } from "@contracts/Actor";
 import type { Pad } from "@contracts/pad/Pad";
 import { ItemDrawer } from "../drawer/ItemDrawer";
-import { ReservedLine } from "../ink/ReservedLine";
+import { dismissable, ReservedLine } from "../ink/ReservedLine";
 import { useConnectedProject } from "../state/connectedProject";
 import { failureOf } from "../todos/failureOf";
 import { createFailure } from "./failure";
@@ -104,6 +104,7 @@ const PadBody = (props: {
   });
 
   const actionFailure = createFailure();
+  const note = dismissable(() => deleted() && !removedByMe() ? copy.padDeleted(name) : retentionProblem() ? copy.draftRetention(connected.project.name, copy.pad, retentionProblem()!.cause) : conflictActor() ? conflictLabel() : paused() ? statusLabel() : null);
   const [deleted, setDeleted] = createSignal(false);
   const [removedByMe, setRemovedByMe] = createSignal(false);
   let editor: PadEditorHandle | undefined;
@@ -389,7 +390,7 @@ const PadBody = (props: {
   };
 
   const onEditorBlur = (next: EventTarget | null) => {
-    if (next instanceof Element && next.closest(".pad-rich-editor, [data-pad-dismiss]")) return;
+    if (next instanceof Element && next.closest(".pad-rich-editor, [data-dismiss-failure]")) return;
 
     flush();
   };
@@ -464,20 +465,18 @@ const PadBody = (props: {
           </IconButton>
         </Show>
       </div>
-      <ReservedLine data-state={saved() && !deleted() && !conflictActor() ? "saved" : undefined} message={actionFailure.message() ?? (deleted() && !removedByMe() ? `Pad ${name} was deleted` : retentionProblem() ? copy.draftRetention(connected.project.name, copy.pad, retentionProblem()!.cause) : conflictActor() ? conflictLabel() : paused() ? statusLabel() : null)}
-        status={saved() && !deleted() && !conflictActor() ? copy.padSaved : null}>
+      <ReservedLine data-state={saved() && !deleted() && !conflictActor() ? "saved" : undefined} message={actionFailure.message() ?? note.message()}
+        status={saved() && !deleted() && !conflictActor() ? copy.padSaved : null} dismiss={() => { if (actionFailure.message()) { actionFailure.clear(); props.onFailureCleared?.(); } else note.dismiss(); }} recover={retentionProblem() ? { run: () => connected.drafts.retry(), label: copy.storageRetry } : undefined} action={<>
         <Show when={retentionProblem()}>
-          <button data-button="primary" type="button" onClick={() => connected.drafts.retry()}>{copy.storageRetry}</button>
           <CopyButton app={connected.app} text={invalid() ? JSON.stringify(retained?.value) : currentDraft() ?? shown()} onSuccess={() => actionFailure.clear()} onFailure={error => actionFailure.show(copy.copyDraftFailure(String(error)))}>{sourceLabel}</CopyButton>
           <button data-button="quiet" type="button" onClick={useTheirs}>{copy.discardRevision}</button>
         </Show>
         <Show when={paused() && !retentionProblem()}><button data-button="primary" type="button" disabled={deleted() || invalid()} onClick={() => void resume()}>{copy.resume}</button></Show>
-        <Show when={actionFailure.message()}><button data-pad-dismiss data-button="quiet" type="button" onClick={() => { actionFailure.clear(); props.onFailureCleared?.(); }}>{copy.dismiss}</button></Show>
         <Show when={conflictActor()}>
           <button data-button="quiet" type="button" class="word" onClick={() => void keepMine()}>{copy.keepMine}</button>
           <button data-button="quiet" type="button" class="word" onClick={useTheirs}>{copy.useTheirs}</button>
         </Show>
-      </ReservedLine>
+      </>} />
       <Suspense>
         <PadRichEditor
           toolbar={<Show when={maximised()}><SegmentGroup label={copy.padWidth} segments={copy.padWidths} value={width()} onValueChange={setWidth} /></Show>}

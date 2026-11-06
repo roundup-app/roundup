@@ -178,7 +178,7 @@ export const ChangedTree = (props: { initialFocus?: ReturnType<typeof captureFoc
   return (
     <>
       <div ref={setHost} class="worktree-tree" />
-      <For each={[...failures()]} fallback={<ReservedLine />}>{([path, error]) => <ReservedLine message={`${path.split("/").pop()}: ${error}`}><button type="button" data-button="quiet" onClick={() => clear(path)}>{copy.dismissFailure}</button></ReservedLine>}</For>
+      <For each={[...failures()]} fallback={<ReservedLine />}>{([path, error]) => <ReservedLine message={`${path.split("/").pop()}: ${error}`} dismiss={() => clear(path)} />}</For>
     </>
   );
 };

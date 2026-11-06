@@ -394,12 +394,14 @@ it.each(["pending", "failed", "unknown"] as const)("u2773a_shared_project_restor
     expect(replaced.drafts.list()).toEqual([newer]);
     expect(other.drafts.list()).toEqual([elsewhere]);
     const focus = document.activeElement;
-    const before = opened.paths.map((path) => opened.app.of(path!).calls.length);
+    // U6249b: a read the reopened daemon refused is still retrying in the background; the retry of the draft is the only caller counted.
+    const calls = () => opened.paths.map((path) => opened.app.of(path!).calls.filter((call) => call.method !== "terminal.snapshot").length);
+    const before = calls();
     write.mockRestore();
     expect((await replaced.drafts.retry())).toBeNull();
     expect(draftStorage(replaced.project.path).list()).toEqual([newer]);
     expect(document.activeElement).toBe(focus);
-    expect(opened.paths.map((path) => opened.app.of(path!).calls.length)).toEqual(before);
+    expect(calls()).toEqual(before);
     const submits = new Set(["ask.send", "terminal.write", "message.send"]);
     expect(opened.paths.flatMap((path) => opened.app.of(path!).calls).filter((call) => submits.has(call.method))).toEqual([]);
   } finally { opened.close(); }

@@ -9,7 +9,6 @@ export const copy = {
   inboxRetry: "Retry Inbox",
   inboxOpen: sharedCopy.openDraft,
   inboxLastStep: "Last step",
-  inboxDismiss: sharedCopy.dismiss,
   retry: sharedCopy.retry,
   copy: sharedCopy.copy,
 } as const;

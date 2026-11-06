@@ -135,7 +135,7 @@ it.each(["retry", "dismiss"])("p3557c_failure_lifetime_worktree_control: %s", as
   }
 
   expect(screen.queryByRole("alert")).toBeNull();
-  expect(app.calls.filter(call => call.method === "agent.changedFiles").map(call => call.params)).toEqual(Array.from({ length: action === "retry" ? 5 : 4 }, () => ({ id: "a" })));
+  expect(app.calls.filter(call => call.method === "agent.changedFiles").map(call => call.params)).toEqual(Array.from({ length: action === "retry" ? 11 : 10 }, () => ({ id: "a" })));
 });
 
 

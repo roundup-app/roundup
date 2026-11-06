@@ -321,7 +321,7 @@ export const outcomeOf = (thrown: unknown): "failed" | "unknown" =>
   thrown instanceof RpcError && refusals.has(thrown.code) ? "failed" : "unknown";
 
 
-/** Foreign reads get one additional attempt; no caller can change the retry budget.
+/** U6249b: foreign reads retry 4 times, waiting 250 ms doubling to 4 s, randomised; no caller can change the retry budget.
  * Normalize TypeError because p-retry otherwise retries only network TypeErrors.
  */
 export const retryRead = <T>(read: () => Promise<T>): Promise<T> => pRetry(async () => {
@@ -334,4 +334,4 @@ export const retryRead = <T>(read: () => Promise<T>): Promise<T> => pRetry(async
 
     throw new RpcError(INTERNAL_CODE, String(thrown));
   }
-}, { retries: 1, minTimeout: 0, maxTimeout: 0 });
+}, { retries: 4, minTimeout: 250, maxTimeout: 4000, factor: 2, randomize: true });

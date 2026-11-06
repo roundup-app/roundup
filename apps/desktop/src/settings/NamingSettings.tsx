@@ -5,12 +5,13 @@ import { copy } from "./copy";
 import { draftStorage } from "../state/storage";
 import { Field } from "../ui/Field";
 import { Switch } from "../ui/Switch";
-import { ReservedLine } from "../ink/ReservedLine";
+import { dismissable, ReservedLine } from "../ink/ReservedLine";
 
 /** Global naming preferences use the existing RPC seam even before a Project is open. */
 export const NamingSettings = (props: { app: App }) => {
   const calls = props.app.forProject("");
   const drafts = draftStorage("naming-settings");
+  const draftLine = dismissable(() => drafts.problem() ? copy.draftRetention(copy.settings, copy.namingGuide, drafts.problem()!.cause) : null);
   drafts.validate("settings", v.object({ text: v.string() }));
   const destination = { surface: "settings", object: "namingGuide", recipient: null };
   const draft = () => drafts.list().findLast(item => item.destination.object === "namingGuide");
@@ -58,10 +59,10 @@ export const NamingSettings = (props: { app: App }) => {
         }} />
         <Field.HelperText>{copy.namingGuideHint}</Field.HelperText>
         <button class="word" data-button="quiet" type="button" disabled={saving()} onClick={() => void save(value().automaticRenaming, text(), draft()?.revision)}>{copy.save}</button>
-        <Field.ErrorText asChild={error => <div {...error()}><ReservedLine message={failure()} /></div>} />
+        <Field.ErrorText asChild={error => <div {...error()}><ReservedLine message={failure()} dismiss={() => setFailure(null)} /></div>} />
       </Field.Root>
     </>}</Show>
-    <Show when={!settings() && failure()}><ReservedLine message={failure()}><button data-button="quiet" type="button" onClick={() => void refetch()}>{copy.storageRetry}</button></ReservedLine></Show>
-    <ReservedLine message={drafts.problem() ? copy.draftRetention(copy.settings, copy.namingGuide, drafts.problem()!.cause) : null}><button data-button="quiet" type="button" onClick={() => drafts.retry()}>{copy.storageRetry}</button></ReservedLine>
+    <Show when={!settings() && failure()}><ReservedLine message={failure()} dismiss={() => setFailure(null)} recover={{ run: () => void refetch(), label: copy.storageRetry }} /></Show>
+    <ReservedLine message={draftLine.message()} dismiss={draftLine.dismiss} recover={{ run: () => drafts.retry(), label: copy.storageRetry }} />
   </>;
 };

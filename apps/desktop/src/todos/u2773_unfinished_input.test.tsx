@@ -260,10 +260,13 @@ it("u2773a_todos_blocker_choice_survives_a_failed_incoming_history_read", async 
   fireEvent.click(screen.getByRole("button", { name: /^Blocked by/ }));
   fireEvent.click(await screen.findByRole("option", { name: /#2/ }));
   await waitFor(() => expect(connected.drafts.list().map(draft => draft.value.blockers)).toEqual([["2"]]));
-  await waitFor(() => expect(rejections).toHaveLength(1));
-  rejections[0]?.(new RpcError(-32003, "first history failure"));
-  await waitFor(() => expect(rejections).toHaveLength(2));
-  rejections[1]?.(new RpcError(-32003, "history unavailable"));
+
+  // U6249b: the read is tried 5 times before it fails.
+  for (let attempt = 1; attempt <= 5; attempt++) {
+    await waitFor(() => expect(rejections).toHaveLength(attempt));
+    rejections[attempt - 1]?.(new RpcError(-32003, attempt === 5 ? "history unavailable" : "first history failure"));
+  }
+
   await screen.findByText("history unavailable");
   expect(connected.drafts.list()[0]?.value).toMatchObject({ blockers: ["2"], originalChange: 1, originalBlockers: [] });
   expect(app.calls.filter(call => call.method === "todo.setBlockers")).toEqual([]);

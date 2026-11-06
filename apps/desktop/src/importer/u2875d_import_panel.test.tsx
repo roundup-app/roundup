@@ -614,7 +614,8 @@ it("u3791b_copy_depends_on_codes_not_messages_import_refusals", async () => {
     fireEvent.click(within(row).getByRole("button", { name: "Copy" }));
     await waitFor(() => expect(JSON.parse(app.clipboardWrites.at(-1)!).error.message).toBe(message));
 
-    return screen.getByRole("alert").textContent;
+    // A row refusal is status text on its row; an uncertain outcome is the panel's failure line.
+    return (within(row).queryByRole("status") ?? screen.getByRole("alert")).textContent;
   };
 
   const refusal = await submit();

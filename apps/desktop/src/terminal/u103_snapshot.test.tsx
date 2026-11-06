@@ -108,11 +108,14 @@ const mount = async (
   return { app, connected, pending, snapshots, subscriptionsAtSnapshot, log, logOf, shown: () => made.get("t-a")?.shown ?? false, fits: () => made.get("t-a")?.fits ?? 0 };
 };
 
-/** Both attempts of one captured read fail before its exhausted line is asserted. */
+/** U6249b: a captured read is tried 5 times; all fail before its exhausted line is asserted. */
+const READ_ATTEMPTS = 5;
+
 const exhaust = async (pending: ((reply: Reply) => void)[], index: number, message: string) => {
-  pending[index]?.(new Error(message));
-  await vi.waitFor(() => expect(pending).toHaveLength(index + 2));
-  pending[index + 1]?.(new Error(message));
+  for (let attempt = 0; attempt < READ_ATTEMPTS; attempt++) {
+    await vi.waitFor(() => expect(pending.length).toBeGreaterThan(index + attempt));
+    pending[index + attempt]?.(new Error(message));
+  }
 };
 
 const typed = (app: { calls: { method: string }[] }) => app.calls.filter((call) => call.method === "terminal.write");
@@ -338,14 +341,14 @@ describe("u103 a reloaded pane shows the screen", () => {
     await screen.findByRole("alert", { name: /A failed/ });
 
     connected.rail.select("b");
-    await vi.waitFor(() => expect(snapshots()).toHaveLength(3));
-    pending[2]?.(snapshotOf("B screen", 0));
+    await vi.waitFor(() => expect(snapshots()).toHaveLength(READ_ATTEMPTS + 1));
+    pending[READ_ATTEMPTS]?.(snapshotOf("B screen", 0));
     await vi.waitFor(() => expect(logOf("t-b")).toContain("B screen"));
     expect(screen.queryByRole("alert")).toBeNull();
 
     app.emitGap("t-b", 0, 50);
-    await vi.waitFor(() => expect(snapshots()).toHaveLength(4));
-    await exhaust(pending, 3, "B failed");
+    await vi.waitFor(() => expect(snapshots()).toHaveLength(READ_ATTEMPTS + 2));
+    await exhaust(pending, READ_ATTEMPTS + 1, "B failed");
     await screen.findByRole("alert", { name: /B failed/ });
 
     connected.rail.select("a");

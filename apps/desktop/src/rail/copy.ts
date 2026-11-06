@@ -45,7 +45,6 @@ export const copy = {
   railDraftCopy: sharedCopy.copy,
   railDraftDiscard: sharedCopy.discardRevision,
   deliverables: sharedCopy.deliverables,
-  dismiss: sharedCopy.dismiss,
   dismissError: "Dismiss error",
   dismissalUnsaved: (agent: string) => `The dismissal for ${agent} did not save; it returns after reload.`,
   dismissedFailure: sharedCopy.dismissedFailure,

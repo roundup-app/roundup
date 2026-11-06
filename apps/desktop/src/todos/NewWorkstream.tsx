@@ -121,7 +121,7 @@ export const NewWorkstream = (props: { target: Accessor<number | null>; done: (i
                 <WaitFor todos={others()} value={after()} onPick={setAfter} />
               </div>
             </Show>
-            <ReservedLine message={failure()} />
+            <ReservedLine message={failure()} dismiss={() => setFailure(null)} />
             <div class="app-dialog-actions">
               <Dialog.CloseTrigger data-button="quiet">{copy.close}</Dialog.CloseTrigger>
               <Tip disabled={ready()} text={createBlocked()}>{trigger =>

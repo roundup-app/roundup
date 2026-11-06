@@ -8,7 +8,7 @@ import { shelfSliding } from "../shelf/sliding";
 import { drawerSliding } from "../drawer/sliding";
 import { resizeDragging } from "../resize/dragging";
 import { createEffect, createMemo, createSignal, on, onCleanup, Show, For, untrack } from "solid-js";
-import { ReservedLine } from "../ink/ReservedLine";
+import { dismissable, ReservedLine } from "../ink/ReservedLine";
 import { Icon } from "../ink/Icon";
 import { doorStateOf, doorStateText } from "../rail/doorState";
 import { useConnectedProject } from "../state/connectedProject";
@@ -70,8 +70,13 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
   onCleanup(() => props.observeTerminal?.(null));
 
   /** U38: a failure that fills this region shows in its place, never beside its empty line. */
+  const givenNotice = dismissable(() => props.notice);
+  const schemeNotice = dismissable(() => connected.terminalScheme.failure());
+
   const notice = createMemo(() => {
-    if (props.notice != null) return { kind: "notice" as const, message: props.notice };
+    const given = givenNotice.message();
+
+    if (given != null) return { kind: "notice" as const, message: given };
 
     if (rail.commandFailure.surface() === "pane") return { kind: "command" as const, message: rail.commandFailure.message() };
 
@@ -79,9 +84,9 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
 
     if (stored !== null) return { kind: "storage" as const, message: stored };
 
-    const scheme = connected.terminalScheme.failure();
+    const scheme = schemeNotice.message();
 
-    if (scheme !== null) return { kind: "scheme" as const, message: scheme };
+    if (scheme) return { kind: "scheme" as const, message: scheme };
 
     const terminal = screens.viewedInBubble(terminalId() ?? "") ? null : screens.failure(terminalId());
 
@@ -256,6 +261,24 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
     return rail.doorFailure(selected()?.id ?? "") === null && id !== null && !screens.viewedInBubble(id) && screens.failure(id) !== null ? () => screens.dismiss(id) : null;
   };
 
+  const dismissNotice = (): void => {
+    const kind = notice()?.kind;
+
+    if (kind === "notice") givenNotice.dismiss();
+    else if (kind === "command") rail.commandFailure.clear();
+    else if (kind === "storage") setStorageFailure(null);
+    else if (kind === "scheme") schemeNotice.dismiss();
+    else dismissFailure()?.();
+  };
+
+  const recoverNotice = () => {
+    const kind = notice()?.kind;
+
+    if (kind === "scheme") return { run: () => void connected.terminalScheme.retry() };
+
+    return kind === "notice" && props.retryNotice ? { run: () => props.retryNotice?.() } : undefined;
+  };
+
   // U162: the window's native File drop, reported by the App seam. The ring shows only while a drop would be taken.
   const [dropOver, setDropOver] = createSignal(false);
   let body: HTMLElement | undefined;
@@ -361,11 +384,7 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
       </div>
       </div>
       <Show when={notice()}><div class="pane-failure">
-        <ReservedLine message={notice()?.message}>
-          <Show when={notice()?.kind === "scheme"}><button data-button="quiet" type="button" onClick={() => void connected.terminalScheme.retry()}>{copy.retry}</button></Show>
-          <Show when={notice()?.kind === "notice" && props.retryNotice}><button data-button="quiet" type="button" onClick={() => props.retryNotice?.()}>{copy.retry}</button></Show>
-          <Show when={dismissFailure()}>{(dismiss) => <button data-button="quiet" type="button" class="word" onClick={() => dismiss()()}>{copy.dismissFailure}</button>}</Show>
-        </ReservedLine>
+        <ReservedLine message={notice()?.message} dismiss={dismissNotice} recover={recoverNotice()} />
       </div></Show>
     </div>
   );

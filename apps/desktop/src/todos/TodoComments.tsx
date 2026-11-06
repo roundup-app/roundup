@@ -187,7 +187,7 @@ export const TodoComments = (props: { id: number; onSent?: ((focus: ReturnType<t
   const renderComment = (comment: Comment) => <div class="todo-comment" data-comment={comment.id}>
       <p class="todo-comment-head"><Show when={glyphOf(comment)} fallback={<Show when={comment.author.kind === "agent"}><span class="todo-comment-glyph-gap" aria-hidden="true" /></Show>}>{(node) => <KindGlyph kind={shownKind(node().status, rail.dismissed(node()))} />}</Show><span class="todo-comment-author">{author(comment)}</span> <time datetime={new Date(comment.created_at).toISOString()}>{copy.commentTime(comment.created_at, now())}</time>
         <Show when={comment.author.kind === "agent"}><button data-button="quiet" class="word" type="button" onClick={() => field?.focus()}>{copy.reply}</button></Show></p>
-      <Show when={glyphOf(comment)}>{(node) => <Show when={!rail.dismissed(node())}><FailureLine status={node().status} /></Show>}</Show>
+      <Show when={glyphOf(comment)}>{(node) => <Show when={!rail.dismissed(node())}><FailureLine status={node().status} dismiss={() => rail.dismiss(node())} /></Show>}</Show>
       <div class="todo-comment-parts"><For each={partsOf(comment.body, comment.author.kind === "agent")}>{(part) => isStatus(part)
         ? <Collapsible.Root class="todo-status" lazyMount unmountOnExit>
           <Collapsible.Trigger data-button="quiet" class="word todo-status-summary">{part.summary}</Collapsible.Trigger>
@@ -199,7 +199,7 @@ export const TodoComments = (props: { id: number; onSent?: ((focus: ReturnType<t
   return <section class="todo-comments" aria-label={copy.activity}>
     <div class="todo-activity-head"><h3>{copy.activity}</h3>{history.copy}</div>
     {history.feedback}
-    <ReservedLine message={failure()}><button data-button="quiet" class="word" type="button" onMouseDown={event => event.preventDefault()} onClick={() => void refresh()}>{copy.commentRetry}</button><button data-dismiss-failure onMouseDown={event => event.preventDefault()} data-button="quiet" class="word" type="button" onClick={() => setFailure(null)}>{copy.dismissFailure}</button></ReservedLine>
+    <ReservedLine message={failure()} dismiss={() => setFailure(null)} recover={{ run: () => void refresh(), label: copy.commentRetry }} />
     <Show when={(history.changes()?.length ?? 0) > 0}>
       <Collapsible.Root lazyMount unmountOnExit open={historyExpanded()} onOpenChange={details => setHistoryExpanded(details.open)}>
         <Collapsible.Trigger data-button="quiet" class="word todo-history-line"><Icon name={historyExpanded() ? "down" : "right"} />{copy.historyEntries(history.changes()!.length)}</Collapsible.Trigger>
@@ -220,7 +220,7 @@ export const TodoComments = (props: { id: number; onSent?: ((focus: ReturnType<t
 
         if (event.key === "Enter" && !event.shiftKey && !event.isComposing) { event.preventDefault(); void send(); }
       }} /></div>
-    <ReservedLine message={sendFailure()}><button data-dismiss-failure onMouseDown={event => event.preventDefault()} data-button="quiet" class="word" type="button" onClick={() => setSendFailure(null)}>{copy.dismissFailure}</button></ReservedLine>
+    <ReservedLine message={sendFailure()} dismiss={() => setSendFailure(null)} />
     <p class="todo-comments-send"><button data-button="quiet" class="word" type="button" aria-disabled={text().trim() === "" || sending() ? true : undefined} onClick={() => void send()}>{copy.comment}</button></p>
   </section>;
 };

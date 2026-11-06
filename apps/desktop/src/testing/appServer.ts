@@ -21,7 +21,7 @@ export const startAppServer = async ({ root = process.cwd() }: { root?: string }
   const cacheDir = mkdtempSync(join(tmpdir(), "vite-cache-"));
 
   // `@solidjs/testing-library` is imported only by the keyboard observer's page; bundling it up front keeps its first load from reloading the page.
-  const server = await createServer({ root, cacheDir, server: { port: 0, strictPort: false, hmr: false, host: "127.0.0.1" }, logLevel: "silent", optimizeDeps: { include: ["@solidjs/testing-library"] } });
+  const server = await createServer({ root, cacheDir, server: { port: 0, strictPort: false, hmr: false, host: "127.0.0.1" }, logLevel: "silent", resolve: { alias: { "p-retry": join(root, "src/testing/immediateRetry.ts") } }, optimizeDeps: { include: ["@solidjs/testing-library"] } });
 
   await server.listen();
   // Compile the harness's static imports before a browser's App-readiness bound starts.

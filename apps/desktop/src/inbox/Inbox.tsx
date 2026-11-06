@@ -1,7 +1,7 @@
 import { lazy, createEffect, createMemo, createResource, createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import type { UnreadComment } from "@contracts/todo/UnreadComment";
 import { copy } from "./copy";
-import { ReservedLine } from "../ink/ReservedLine";
+import { dismissable, ReservedLine } from "../ink/ReservedLine";
 import { KindGlyph } from "../ink/KindGlyph";
 import { queueFocus } from "../keys/focus";
 import { LEADER } from "../keys/chords";
@@ -209,9 +209,11 @@ export const Inbox = (props: { state?: ReturnType<typeof createInbox> }) => {
     <span class="inbox-row-line">{row.comment.body}</span>
   </button></li>;
 
+  const loadFailure = dismissable(failure);
+
   return <section class="inbox" aria-label={copy.needsYou} ref={root} tabindex={-1} on:click={{ capture: true, handleEvent: content.click }} on:keydown={{ capture: true, handleEvent: rowKey }}>
     <Show when={selectedText() !== ""}><div class="inbox-title"><CopyButton app={app} class="word inbox-copy" text={selectedText()} onSuccess={() => setCopyFailure(null)} onFailure={error => setCopyFailure(copy.copyDraftFailure(error.message))}>{copy.copy}</CopyButton></div></Show>
-    <ReservedLine overlay message={copyFailure() ?? failure()}><Show when={copyFailure()}><button data-button="quiet" class="word" type="button" onClick={() => setCopyFailure(null)}>{copy.inboxDismiss}</button></Show><Show when={!copyFailure() && failure()}><button data-button="quiet" class="word" type="button" onClick={() => void refresh()}>{copy.inboxRetry}</button></Show></ReservedLine>
+    <ReservedLine overlay message={copyFailure() ?? loadFailure.message()} dismiss={copyFailure() ? () => setCopyFailure(null) : loadFailure.dismiss} recover={!copyFailure() && loadFailure.message() ? { run: () => void refresh(), label: copy.inboxRetry } : undefined} />
     <p class="inbox-count" aria-live="polite" aria-atomic="true">{needsCount() > 0 ? copy.needYou(needsCount()) : ""}</p>
     <Show when={loaded() && needsCount() === 0 && !failure() && !copyFailure()}><p class="overview-quiet">{copy.inboxEmpty}</p></Show>
     <For each={groups().map(group => group.id)}>{id => <div class="inbox-group" data-agent={id}>

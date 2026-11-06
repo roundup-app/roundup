@@ -235,7 +235,9 @@ for (const owner of ["todos", "pads"] as const) {
 
       row("first").focus();
       fireEvent.keyDown(row("first"), { key: "d", code: "KeyD" });
-          await screen.findByRole("button", { name: "Retry" });
+      // The list's own failure line has its Retry too; this one is the deletion's readback.
+      const deletion = () => within(screen.getByRole("group", { name: "Bench deletion" }));
+      await waitFor(() => deletion().getByRole("button", { name: "Retry" }));
 
       if (listTodos) app.handlers["todo.list"] = listTodos;
 
@@ -252,7 +254,7 @@ for (const owner of ["todos", "pads"] as const) {
       await waitFor(() => expect(screen.queryByRole("button", { name: owner === "todos" ? /^(Idle|Blocked|Done) #3 / : "other" })).toBeNull());
       expect(within(screen.getByRole("group", { name: "Bench deletion" })).getByRole("alert").textContent).toContain(readbackError.message);
       expect(connected.drafts.list()).toEqual(retained);
-      fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+      fireEvent.click(deletion().getByRole("button", { name: "Retry" }));
       await questionClosed();
       expect(screen.getByText(message("second"))).toBeTruthy();
 
@@ -260,7 +262,7 @@ for (const owner of ["todos", "pads"] as const) {
     }
 
     if (action === "dismissed") {
-      fireEvent.click(screen.getByRole("button", { name: owner === "todos" ? "Clear same #1" : "Clear first" }));
+      fireEvent.click(screen.getAllByRole("button", { name: "Dismiss" })[0]!);
     } else if (action === "removed-event") {
       if ("store" in fixture) {
         fixture.store.todos = fixture.store.todos.filter(item => item.id !== first);

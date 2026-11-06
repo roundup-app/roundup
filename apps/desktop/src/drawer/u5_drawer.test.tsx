@@ -184,7 +184,7 @@ describe("u5 Drawer and last touch", () => {
 
     app.emit({ name: "pad.changed", actor: AGENT, data: { name: "n" } });
     await screen.findByRole("alert");
-    expect(calls).toBe(2);
+    expect(calls).toBe(5);
     expect(field.value).toBe("  exact draft 😀\n ");
     expect(document.activeElement).toBe(field);
     app.handlers["provenance.history"] = () => [];

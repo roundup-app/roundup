@@ -2,7 +2,7 @@ import * as v from "valibot";
 import { batch, createEffect, createSignal, on, onCleanup, onMount, Show } from "solid-js";
 import { Deferred } from "../ui/Deferred";
 import { copy } from "./copy";
-import { ReservedLine } from "../ink/ReservedLine";
+import { dismissable, ReservedLine } from "../ink/ReservedLine";
 import { SettingsGroup, SettingsShell } from "../settings/SettingsShell";
 import { useConnectedProject } from "../state/connectedProject";
 import { failureOf } from "../todos/failureOf";
@@ -98,6 +98,8 @@ const ProjectSettingsBody = (props: { onClose: () => void }) => {
     else setFailure(null);
   };
 
+  const draftLine = dismissable(() => drafts.problem() ? copy.draftRetention(copy.projectSettings, copy.workstreams, drafts.problem()!.cause) : null);
+
   return <SettingsShell heading={copy.projectSettings} onClose={props.onClose}>
     <SettingsGroup name={copy.workstreams}><div class="app-dialog-form">
       <label class="app-dialog-field">
@@ -112,8 +114,8 @@ const ProjectSettingsBody = (props: { onClose: () => void }) => {
         <span>{copy.workstreamsAtOnce}</span>
       </label>
       <Checkbox class="app-dialog-checkbox" checked={saved() === null} onCheckedChange={checked => void save(checked ? null : (capOf(text()) ?? 1))}>{copy.noLimit}</Checkbox>
-      <ReservedLine message={failure()} />
-      <ReservedLine message={drafts.problem() ? copy.draftRetention(copy.projectSettings, copy.workstreams, drafts.problem()!.cause) : null}><button data-button="quiet" type="button" onClick={() => drafts.retry()}>{copy.storageRetry}</button></ReservedLine>
+      <ReservedLine message={failure()} dismiss={() => setFailure(null)} />
+      <ReservedLine message={draftLine.message()} dismiss={draftLine.dismiss} recover={{ run: () => drafts.retry(), label: copy.storageRetry }} />
     </div></SettingsGroup>
   </SettingsShell>;
 };

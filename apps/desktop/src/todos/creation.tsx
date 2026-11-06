@@ -169,7 +169,7 @@ export const createTodoCreation = (inputs: {
           if (reason !== "blur") plusButton()?.focus();
         }}
       />
-      <ReservedLine message={createFailure()} content={createFailure() ? <>{copy.failed(copy.addTodo, "")}<span>{createFailure()}</span></> : undefined} />
+      <ReservedLine message={createFailure()} dismiss={() => setCreateFailure(null)} content={createFailure() ? <>{copy.failed(copy.addTodo, "")}<span>{createFailure()}</span></> : undefined} />
     </div>
   );
 

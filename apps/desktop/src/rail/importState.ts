@@ -243,6 +243,7 @@ export const createImport = (app: AppSeam, path: string, onOpened: (workstream: 
 
   return {
     prompt, listingAgent, starting, startFailure,
+    dismissStartFailure: () => setStartFailure(null),
     setPrompt: (text: string) => { setPromptSignal(text);
 
       return persist(); },

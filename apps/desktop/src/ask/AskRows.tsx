@@ -171,7 +171,9 @@ const AskRow = (props: { live: boolean; keys: KeyScope; entry: AskEntry; part: A
           {line(tip)}
         </Dynamic>;
       }}</Tip>
-      <Show when={!dismissed()}><FailureLine status={status()} /></Show>
+      <Show when={!dismissed()}><FailureLine status={status()} dismiss={() => { const each = node();
+
+ if (each) rail.dismiss(each); }} /></Show>
       <Show when={asking()}>
         <div class="ask-back">
           <p class="ask-reason">{props.part.reason ?? (props.part.placement.kind === "unclear" ? props.part.placement.question : "")}</p>
@@ -186,7 +188,9 @@ const AskRow = (props: { live: boolean; keys: KeyScope; entry: AskEntry; part: A
             <button type="button" data-button="quiet" disabled={busy()} onClick={() => pick({ kind: "new" })}>{copy.askNewWorkstream}</button>
             <button type="button" data-button="quiet" disabled={busy()} onClick={() => pick({ kind: "drop" })}>{copy.askDrop}</button>
           </div>
-          <ReservedLine message={failure()?.message}><Show when={failure()}>{(each) => <button type="button" data-button="quiet" onClick={() => asks.dismiss(each())}>{copy.dismiss}</button>}</Show></ReservedLine>
+          <ReservedLine message={failure()?.message} dismiss={() => { const each = failure();
+
+ if (each) asks.dismiss(each); }} />
         </div>
       </Show>
     </li>

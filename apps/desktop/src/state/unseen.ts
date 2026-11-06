@@ -34,6 +34,8 @@ export type UnseenState = {
     records: Accessor<Deliverable[]>;
     failure: Accessor<string | null>;
     loading: Accessor<boolean>;
+    /** Read the catalogue again, for the Retry of its failure line. */
+    reload: () => void;
   };
   /** U3566b: whether any Agent below Workstream `id` is unseen. */
   below(id: string): boolean;
@@ -201,6 +203,7 @@ export const createUnseen = (
       records: () => catalogue() ?? [],
       failure: publicationFailure,
       loading: () => catalogue.loading,
+      reload: () => void refetch(),
     },
     below: (id) => descendantsOf(nodes(), id).some((node) => of(node.id)),
     any: () => nodes().some((node) => of(node.id)),

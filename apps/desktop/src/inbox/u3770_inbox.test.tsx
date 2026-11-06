@@ -236,7 +236,8 @@ it.each(["dismiss", "acknowledge", "remove"] as const)("p3557c_failure_lifetime_
   expect((await within(row("alpha")).findByRole("alert")).textContent).toBe(message);
 
   if (transition === "dismiss") {
-    const dismiss = within(row("alpha")).getByRole("button", { name: "Dismiss" });
+    // The row's own failure line also has a Dismiss; the resume refusal's sits last, in the open body.
+    const dismiss = within(row("alpha")).getAllByRole("button", { name: "Dismiss" }).at(-1)!;
 
     dismiss.focus();
     fireEvent.click(dismiss);

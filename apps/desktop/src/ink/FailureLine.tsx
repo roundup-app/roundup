@@ -3,6 +3,7 @@ import type { Status } from "@contracts/Status";
 import { createCut } from "./Tip";
 import { Tip } from "../ui/Tip";
 import { copy } from "./copy";
+import { RecoveryButtons, type Recovery } from "./ReservedLine";
 import "./failureLine.css";
 
 /** The failure text with its cut Tip, for a cause that is not an Agent Status. */
@@ -16,9 +17,16 @@ export const Line = (props: { label: string; class?: string | undefined }) => {
   );
 };
 
-/** U5151a: the Adapter's cause and next action for an Agent whose last turn failed, shown as text on every surface that presents the error. */
-export const FailureLine = (props: { status: Status | null | undefined; dismissed?: boolean; class?: string }) => (
-  <Show when={props.status?.kind === "error" ? (props.dismissed ? copy.dismissedFailure(props.status.label) : props.status.label) : null}>{label => <Line label={label()} class={`${props.class ?? ""} ${props.dismissed ? "dismissed" : ""}`} />}</Show>
+/** U5151a: the Adapter's cause and next action for an Agent whose last turn failed, for a surface that lists the Agent in a row it cannot hold a control in (a picker, a mention); the row's `ReservedLine` shows it as status text. */
+export const errorCause = (status: Status | null | undefined, dismissed: boolean | undefined) =>
+  status?.kind === "error" ? (dismissed ? copy.dismissedFailure(status.label) : status.label) : null;
+
+/** U6249e: the failure notice for an Agent's last turn, which states what the user can do about it and how it goes away. */
+export const FailureLine = (props: { status: Status | null | undefined; dismissed?: boolean; class?: string } & Recovery) => (
+  <Show when={errorCause(props.status, props.dismissed)}>{label => <>
+    <Line label={label()} class={`${props.class ?? ""} ${props.dismissed ? "dismissed" : ""}`} />
+    <RecoveryButtons recover={props.recover} dismiss={props.dismiss} dismissIn={props.dismissIn} />
+  </>}</Show>
 );
 
 /** U5151c: the Kind an individual Agent presents; a dismissed failure no longer reads as an error. */

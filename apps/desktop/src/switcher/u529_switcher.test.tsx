@@ -250,7 +250,7 @@ it.each(["dismiss", "copy", "discard", "failed discard", "unrelated discard", "f
 
     if (action !== "failed discard" && action !== "failed retry") refuse.mockRestore();
 
-    if (action === "dismiss") fireEvent.click(within(screen.getByRole("dialog", { name: "Switch to" })).getByRole("button", { name: "Close" }));
+    if (action === "dismiss") fireEvent.click(within(screen.getByRole("alert", { name: copy.switcherCopyFailure }).closest<HTMLElement>(".reserved-line")!).getByRole("button", { name: "Dismiss" }));
 
     if (action === "copy") {
       writeText.mockResolvedValue(undefined);

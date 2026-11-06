@@ -75,7 +75,7 @@ it("u3787f_current_save_failure_rendered_retry", async () => {
         await lane.until("!!document.querySelector('.storage-failure [data-button]')");
         expect(await lane.evaluate<boolean>("document.querySelector('.storage-failure [role=alert]').getAttribute('aria-label').includes(window.__failureCause)")).toBe(true);
         expect(await lane.evaluate<number>("[...document.querySelectorAll('[role=alert]')].filter(el => el.textContent.includes(window.__failureCause)).length")).toBe(1);
-        expect(await lane.evaluate<number>("document.querySelectorAll('.storage-failure button').length")).toBe(1);
+        expect(await lane.evaluate<number>("document.querySelectorAll('.storage-failure button').length")).toBe(2);
         await lane.browser("hover", ".storage-failure [role=alert]");
         await lane.until("!!document.querySelector('[role=tooltip]')");
         await lane.capture("U3787f", `head-${seed}-retention-failure`);

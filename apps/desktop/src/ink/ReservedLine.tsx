@@ -1,22 +1,63 @@
-import { Show, splitProps, type JSX } from "solid-js";
+import { createSignal, Show, splitProps, type JSX } from "solid-js";
 import { ErrorLine } from "./ErrorLine";
+import { copy } from "./copy";
 import "./styles.css";
 
-type Props = Omit<JSX.HTMLAttributes<HTMLDivElement>, "role" | "children"> & {
-  /** Failures outrank status text. Empty content still reserves exactly one line. */
-  message?: string | null | false | undefined;
+type Shared = Omit<JSX.HTMLAttributes<HTMLDivElement>, "role" | "children"> & {
   status?: string | null | false | undefined;
   /** Rich text keeps its canonical message for the title and announcement. */
   content?: JSX.Element;
   /** An edge the containing surface reserves over its content, out of flow. */
   overlay?: boolean;
-  /** Retry or recovery actions; shown only while a message is present. */
-  children?: JSX.Element;
+};
+
+/** U6249e: a failure line is Dismissible or Blocked (below). A Dismissible one lets the user recover: `dismiss` is required: ReservedLine draws the Dismiss button from it (or, with `dismissIn: "menu"`, leaves the button to the row's context menu, whose item calls the same function). `recover` is the verb to try again, drawn as a button labelled Retry unless it names its own label. */
+export type Dismissible = {
+  dismiss: () => void;
+  recover?: { run: () => void; label?: string | undefined } | undefined;
+  dismissIn?: "menu" | undefined;
+  blocked?: never;
+};
+
+/** A failure the surface cannot go on without (a startup gate, an error boundary's fallback): there is nothing to hide, so no Dismiss; the surface's own Close, when it has one, leaves it. */
+export type Blocked = {
+  blocked: true;
+  recover?: { run: () => void; label?: string | undefined } | undefined;
+  dismiss?: never;
+  dismissIn?: never;
+};
+
+/** Every failure line states one of the two. */
+export type Recovery = Dismissible | Blocked;
+
+/** A line that is not a failure: status text, with optional actions. */
+type StatusProps = Shared & { message?: never; children?: JSX.Element; action?: JSX.Element };
+
+/** U6249e: a failure line states how the user dismisses it and, when there is something to try again, how. Failures outrank status text. `action` holds extra controls only. */
+type FailureProps = Shared & { message: string | null | false | undefined; children?: JSX.Element; action?: JSX.Element } & Recovery;
+
+type Props = StatusProps | FailureProps;
+
+/** Every prop either form may carry, for reading both through one name. */
+type Loose = { message?: string | null | false; children?: JSX.Element; action?: JSX.Element; dismiss?: (() => void) | undefined; recover?: Recovery["recover"]; dismissIn?: "menu" | undefined; blocked?: boolean };
+
+/** The Retry and Dismiss controls a failure line draws from its `Recovery`. */
+export const RecoveryButtons = (props: { dismiss?: (() => void) | undefined; recover?: Recovery["recover"]; dismissIn?: Recovery["dismissIn"] }) => <>
+  <Show when={props.recover}>{recover => <button type="button" data-button="quiet" onMouseDown={event => event.preventDefault()} onClick={() => recover().run()}>{recover().label ?? copy.retry}</button>}</Show>
+  <Show when={props.dismiss && props.dismissIn !== "menu" ? props.dismiss : undefined}>{dismiss => <button type="button" data-button="quiet" data-dismiss-failure onMouseDown={event => event.preventDefault()} onClick={() => dismiss()()}>{copy.dismissFailure}</button>}</Show>
+</>;
+
+/** A failure that goes away with the state that caused it still has a dismissal: the user hides the current message, and a different message shows again. */
+export const dismissable = (message: () => string | null | false | undefined) => {
+  const [hidden, setHidden] = createSignal<string | null>(null);
+
+  return { message: () => message() && message() !== hidden() ? message() : null, dismiss: () => setHidden(message() || null) };
 };
 
 /** U3807: callers keep this place mounted and change only its message and actions. */
 export const ReservedLine = (props: Props) => {
-  const [local, rest] = splitProps(props, ["message", "status", "content", "overlay", "children", "class"]);
+  // SAFETY: both forms are assignable to Shared & Loose; Loose only widens the form-specific keys to optional.
+  const [local, rest] = splitProps(props as Shared & Loose, ["message", "status", "content", "overlay", "children", "action", "dismiss", "recover", "dismissIn", "blocked", "class"]);
 
   // U3807 explicitly requires the whole message as a title on its reserved place.
   // oxlint-disable-next-line anti-slop/no-tooltip-bypass
@@ -25,10 +66,10 @@ export const ReservedLine = (props: Props) => {
       <Show when={local.message} fallback={<span class="reserved-status">{local.status || props["aria-live"] !== undefined ? local.content ?? (local.status || null) : null}</span>}>
         {message => <ErrorLine message={message()} content={local.content} />}
       </Show>
-      <Show when={local.message || local.status}><div class="reserved-actions">{local.children}</div></Show>
+      <Show when={local.message || local.status}><div class="reserved-actions">{local.children}{local.action}<Show when={local.message}><RecoveryButtons recover={local.recover} dismiss={local.dismiss} dismissIn={local.dismissIn} /></Show></div></Show>
     </div>
   </div>;
 };
 
 /** Solid's ErrorBoundary fallback keeps the same presentation as an ordinary failure. */
-export const failureLine = (failure: Error) => <ReservedLine message={failure.message} />;
+export const failureLine = (failure: Error, reset: () => void) => <ReservedLine message={failure.message} blocked recover={{ run: reset }} />;

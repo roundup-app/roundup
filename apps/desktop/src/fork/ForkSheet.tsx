@@ -108,7 +108,7 @@ const Form = (props: { app: App; rows: ForkRow[]; onClose: () => void; inputRef:
     </Field.Root>
     <RadioGroup class="fork-swatches" label={forkCopy.colour} choices={COLOURS.map(value => ({ value, label: value }))} value={colour()} onValueChange={setColour} />
     <div class="app-dialog-actions">
-      <ReservedLine class="fork-failure" message={failure()} />
+      <ReservedLine class="fork-failure" message={failure()} dismiss={() => setFailure(null)} />
       <Dialog.CloseTrigger type="button" data-button="quiet">{forkCopy.close}</Dialog.CloseTrigger>
       <button type="submit" data-button="primary" disabled={busy()}>{forkCopy.make}</button>
     </div>

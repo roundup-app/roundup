@@ -1,11 +1,11 @@
-import { createSignal, onCleanup, Show } from "solid-js";
+import { createSignal, onCleanup } from "solid-js";
 import * as v from "valibot";
 import { outcomeOf } from "../app/seam";
 import { copy } from "./copy";
 import { useConnectedProject } from "../state/connectedProject";
 import { Dialog } from "../ui/Dialog";
 import { Field } from "../ui/Field";
-import { ReservedLine } from "../ink/ReservedLine";
+import { dismissable, ReservedLine } from "../ink/ReservedLine";
 
 /** U4547b: retain the created identity before saving or starting, so retry resumes it. */
 export const CreateMode = (props: { onClose: () => void; onCreated: (id: string, request: string) => void; finalFocus: (id: string) => HTMLElement | null }) => {
@@ -22,6 +22,8 @@ export const CreateMode = (props: { onClose: () => void; onCreated: (id: string,
   let created: string | null = null;
   const [busy, setBusy] = createSignal(false);
   const [failure, setFailure] = createSignal<string | null>(null);
+  const line = dismissable(() => [failure(), drafts.problem() ? copy.railDraftRetention(project.name, copy.modeWord, drafts.problem()!.operation) : null].filter(Boolean).join(" "));
+  const dismissLine = () => { setFailure(null); line.dismiss(); };
 
   const submit = async () => {
     if (busy() || !value().name.trim() || !value().text.trim()) return;
@@ -68,7 +70,7 @@ export const CreateMode = (props: { onClose: () => void; onCreated: (id: string,
       <form onSubmit={event => { event.preventDefault(); void submit(); }}>
         <Field.Root disabled={busy()}><Field.Label>{copy.name}</Field.Label><Field.Input type="text" value={value().name} onInput={event => edit({ name: event.currentTarget.value })} /></Field.Root>
         <Field.Root disabled={busy()} class="opening-prompt-field"><Field.Label>{copy.openingPrompt}</Field.Label><Field.Textarea value={value().text} onInput={event => edit({ text: event.currentTarget.value })} spellcheck={false} autocorrect="off" autocapitalize="off" /><Field.HelperText>{copy.modePromptHint}</Field.HelperText></Field.Root>
-        <ReservedLine message={[failure(), drafts.problem() ? copy.railDraftRetention(project.name, copy.modeWord, drafts.problem()!.operation) : null].filter(Boolean).join(" ")}><Show when={drafts.problem()}><button type="button" data-button="quiet" onClick={() => void drafts.retry()}>{copy.railDraftRetry}</button></Show></ReservedLine>
+        <ReservedLine message={line.message()} dismiss={dismissLine} recover={drafts.problem() ? { run: () => void drafts.retry(), label: copy.railDraftRetry } : undefined} />
         <div class="app-dialog-actions"><Dialog.CloseTrigger type="button" data-button="quiet">{copy.close}</Dialog.CloseTrigger><button type="submit" data-button="primary" aria-disabled={busy() || !value().name.trim() || !value().text.trim()}>{copy.createMode}</button></div>
       </form>
     </Dialog.Content></Dialog.Positioner>

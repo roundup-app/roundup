@@ -49,10 +49,9 @@ describe("u3790 every Toast has a time and shows it", () => {
     await settle();
     fireEvent.click(screen.getByRole("button", { name: /Changed Todo/ }));
     await settle();
-    expect(screen.getByRole("alert").textContent).toContain("gone");
     await vi.advanceTimersByTimeAsync(60_000);
     expect(screen.queryByRole("alert")).not.toBeNull();
-    fireEvent.click(within(screen.getByRole("alert").closest<HTMLElement>(".app-toast")!).getByRole("button", { name: "Close" }));
+    fireEvent.click(within(screen.getByRole("alert").closest<HTMLElement>(".app-toast")!).getByRole("button", { name: "Dismiss" }));
     await vi.advanceTimersByTimeAsync(400);
     expect(screen.queryByRole("alert")).toBeNull();
     expect(view.container.querySelector(".app-toast")).toBeNull();

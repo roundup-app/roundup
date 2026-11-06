@@ -105,7 +105,7 @@ const NameField = (props: { node: RailNode; onCommit: (name: string) => Promise<
       }}
       onBlur={() => props.onCancel(false)}
     />
-    <ReservedLine overlay message={conflict() ? copy.railDraftConflict : null} />
+    <ReservedLine overlay status={conflict() ? copy.railDraftConflict : null} />
   </>;
 };
 
@@ -247,7 +247,7 @@ export const RailRowView = (props: {
     </Show>}</Show>
     <Show when={workstream() && connected.rail.doorFailure(props.row.node.id)}>{cause => <FailureCause label={cause()} class="rail-door-failure" />}</Show>
     <Show when={props.row.node.start_attribution}>{source => <ReservedLine class="rail-attribution" status={copy.startedBy(source().agent_name, source().project_name)} />}</Show>
-    <Show when={!workstream() && !exhaustedResume() && (props.selected || !connected.rail.dismissed(props.row.node))}><FailureLine status={props.row.node.status} dismissed={connected.rail.dismissed(props.row.node)} /></Show>
+    <Show when={!workstream() && !exhaustedResume() && (props.selected || !connected.rail.dismissed(props.row.node))}><FailureLine status={props.row.node.status} dismissed={connected.rail.dismissed(props.row.node)} dismissIn="menu" dismiss={() => connected.rail.dismiss(props.row.node)} /></Show>
   </div>}</StatusTip>;
 
   return <>

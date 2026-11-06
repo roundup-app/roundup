@@ -3,7 +3,7 @@ import { outcomeOf } from "../app/seam";
 import { captureFocus } from "../keys/focus";
 import { createCopyFeedback, CopyButton } from "../ui/CopyButton";
 import { createTerminalClose } from "./close";
-import { ReservedLine } from "../ink/ReservedLine";
+import { dismissable, ReservedLine } from "../ink/ReservedLine";
 import { CHORDS, LEADER } from "../keys/chords";
 import { registerKeys } from "../keys/registry";
 import * as v from "valibot";
@@ -58,6 +58,7 @@ export const Bubbles = (props: {
   const [recovering, recover] = createSignal(false);
   const [inspected, inspect] = createSignal<string>();
   const [copyFailure, failCopy] = createSignal<{ revision: string; message: string } | null>(null);
+  const recoveryLine = dismissable(() => (copyFailure()?.message) || (problem() ? (copy.draftRetention(connected.project.name, copy.terminalName, problem()!.cause)) : null) || null);
   createEffect(() => {
     const listed = records();
     const prior = untrack(copyFailure);
@@ -819,7 +820,7 @@ export const Bubbles = (props: {
         <Portal><Dialog.Positioner asChild={positioner => <aside {...positioner({})} />}><Dialog.Content class="draft-recovery bubble-recovery" ref={element => { recoveryPanel = element; }}>
           <Dialog.Title asChild={title => <h2 {...title({})}>{copy.unfinishedWork}</h2>} />
           <Dialog.Description class="draft-identity">{copy.draftIdentity(connected.project.name, copy.terminalName)}</Dialog.Description>
-          <ReservedLine message={(copyFailure()?.message) || (problem() ? (copy.draftRetention(connected.project.name, copy.terminalName, problem()!.cause)) : null) || null}><Show when={copyFailure()}><button data-button="quiet" class="word" type="button" onClick={() => failCopy(null)}>{copy.dismissFailure}</button></Show></ReservedLine>
+          <ReservedLine message={recoveryLine.message()} dismiss={() => copyFailure() ? failCopy(null) : recoveryLine.dismiss()} recover={problem() ? { run: () => drafts.retry(), label: copy.storageRetry } : undefined} />
           <Show when={records().length > 1}><For each={[...records()].reverse().sort((a, b) => Number(b.status === "draft") - Number(a.status === "draft"))}>{(draft, index) => <button type="button" data-button="quiet" aria-pressed={shownDraft()?.revision === draft.revision} onClick={() => inspect(draft.revision)}>{copy.draftIdentity(copy.inspectDraft, draft.status === "draft" ? copy.currentDraft : copy.draftStatus[draft.status], String(draft.value.base ?? ""), String(index() + 1))}</button>}</For></Show>
           <Show when={shownDraft()}>{draft => <>
             <p class="draft-identity">{copy.draftIdentity(String(draft().value.base ?? ""), draft().destination.recipient ?? copy.noDraftRecipient)}</p>
@@ -829,11 +830,10 @@ export const Bubbles = (props: {
           <div class="draft-actions">
             <Show when={shownDraft()}>{draft => <><CopyButton app={app} identity={draft().revision} text={String(draft().value.name ?? "")} onSuccess={() => failCopy(prior => prior?.revision === draft().revision ? null : prior)} onFailure={error => failCopy({ revision: draft().revision, message: copy.copyDraftFailure(error.message) })}>{copy.copyProjectName}</CopyButton>
             <button type="button" data-button="quiet" onClick={() => { drafts.discard(draft().revision); setEditing(null); }}>{copy.discardRevision}</button></>}</Show>
-            <Show when={problem()}><button type="button" data-button="quiet" onClick={() => drafts.retry()}>{copy.storageRetry}</button></Show>
-            <Dialog.CloseTrigger data-button="quiet">{copy.close}</Dialog.CloseTrigger>
+                        <Dialog.CloseTrigger data-button="quiet">{copy.close}</Dialog.CloseTrigger>
           </div>
         </Dialog.Content></Dialog.Positioner></Portal>
       </Dialog.Root>
-      <CloseFailure message={failure()?.message ?? null}><Show when={failure()?.terminal === null}><button data-button="quiet" class="word" type="button" onClick={() => { setFailure(null); void open(); }}>{copy.retry}</button></Show><button data-button="quiet" class="word" type="button" onClick={() => setFailure(null)}>{copy.dismissFailure}</button></CloseFailure>
+      <CloseFailure message={failure()?.message ?? null} onDismiss={() => setFailure(null)} action={<Show when={failure()?.terminal === null}><button data-button="quiet" class="word" type="button" onClick={() => { setFailure(null); void open(); }}>{copy.retry}</button></Show>} />
     </div>;
 };

@@ -680,7 +680,7 @@ export default function PadRichEditor(props: {
         class="pad-editor pad-rich-editor reading"
         classList={{ "pad-readonly": props.readonly }}
         onFocusOut={(event) => props.onBlur(event.relatedTarget)}>
-        <ReservedLine message={failure()}><button data-button="quiet" type="button" onClick={() => setFailure(null)}>{copy.dismiss}</button></ReservedLine>
+        <ReservedLine message={failure()} dismiss={() => setFailure(null)} />
         <div class="pad-editor-host" ref={(element) => (host = element)} />
       </div>
     </>

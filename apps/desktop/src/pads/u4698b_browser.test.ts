@@ -169,11 +169,11 @@ it.skipIf(typographyOutputs.length > 0 || Boolean(captureDir("U5705"))).each([[1
     await browser("press", "Control+End");
     await evaluate("window.__fake.failNext(-32000, 'The Pad could not be saved'); true");
     await browser("press", "x");
-    await browser("wait", ".drawer [data-pad-dismiss]");
+    await browser("wait", ".drawer [data-dismiss-failure]");
     await evaluate("document.querySelector('.pad-editor').scrollTop = 0; true");
     await settle();
     await capture(`save-failure-${viewportWidth}`);
-    await browser("click", ".drawer [data-pad-dismiss]");
+    await browser("click", ".drawer [data-dismiss-failure]");
     await evaluate(`(async () => {
       const pad = await window.__fake.app.rpc('pad.read', {name: ${JSON.stringify(name)}});
       window.__fake.actAs({kind:'agent',id:'agent-3',parent:null});
@@ -412,7 +412,7 @@ it.skipIf(typographyOutputs.length === 0)("u5574b_empty_document_remains_editabl
   await browser("click", ".pad-head-name");
   await browser("wait", "--fn", "document.body.textContent.includes('disk is full')");
   await save("dense-save-failure");
-  await browser("click", "[data-pad-dismiss]");
+  await browser("click", "[data-dismiss-failure]");
   await settle();
   await evaluate(`(async () => {
     const pad = await window.__fake.app.rpc('pad.read', {name: 'rhythm-probe'});

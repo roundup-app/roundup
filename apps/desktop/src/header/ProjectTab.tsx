@@ -1,6 +1,6 @@
 import { writeText } from "../app/clipboard";
 import { createCopyFeedback } from "../ui/CopyButton";
-import { ReservedLine } from "../ink/ReservedLine";
+import { dismissable, ReservedLine } from "../ink/ReservedLine";
 import type { ProjectsState } from "../state/projects";
 import { copy } from "./copy";
 import * as v from "valibot";
@@ -116,6 +116,12 @@ export const ProjectTab = (props: {
     const failure = drafts?.problem();
 
     return (failure?.destination && failure.destination.surface !== "header") || (!failure?.destination && records().length === 0) ? null : failure;
+  });
+
+  const retention = dismissable(() => {
+    const failure = problem();
+
+    return failure ? copy.draftRetention(props.tab.name, copy.projectName, failure.cause) : null;
   });
 
   let panel: HTMLDivElement | undefined;
@@ -253,10 +259,8 @@ export const ProjectTab = (props: {
       <Portal><Dialog.Positioner asChild={positioner => <aside {...positioner({})} />}><Dialog.Content class="draft-recovery header-recovery" ref={element => { panel = element; }}>
         <Dialog.Title asChild={title => <h2 {...title({})}>{copy.unfinishedWork}</h2>} />
         <Dialog.Description class="draft-identity">{props.tab.name}</Dialog.Description>
-        <ReservedLine message={copyFailure()?.message}>
-          <IconButton aria-label={copy.draftIdentity(copy.close, copy.copyProjectName)} onClick={() => failCopy(null)}><Icon name="x" /></IconButton>
-        </ReservedLine>
-        <Show when={problem()}>{failure => <ReservedLine message={copy.draftRetention(props.tab.name, copy.projectName, failure().cause)} />}</Show>
+        <ReservedLine message={copyFailure()?.message} dismiss={() => failCopy(null)} />
+        <Show when={retention.message()}>{message => <ReservedLine message={message()} dismiss={retention.dismiss} recover={{ run: () => drafts?.retry(), label: copy.storageRetry }} />}</Show>
         <For each={[...records()].reverse().sort((a, b) => Number(b.revision === current()?.revision) - Number(a.revision === current()?.revision))}>{(draft, index) => <Show when={records().length > 1} fallback={<ReservedLine aria-label={copy.draftStatus[draft.status]} status={draft.revision === current()?.revision ? copy.currentDraft : copy.draftStatus[draft.status]} data-state={draft.status} />}><button type="button" data-button="quiet" aria-pressed={shown()?.revision === draft.revision} onClick={() => inspect(draft.revision)}>{copy.draftIdentity(draft.revision === current()?.revision ? copy.currentDraft : copy.draftStatus[draft.status], String(index() + 1))}</button></Show>}</For>
         <Show when={shown()}>{draft => <>
           <ReservedLine status={draft().value.base !== props.tab.base ? copy.railDraftConflict : null} />
@@ -266,7 +270,6 @@ export const ProjectTab = (props: {
         <Show when={shown()}>{draft => <><button type="button" data-button="quiet" onClick={() => void copyName()}>{nameCopy.copied() ? copy.copied : copy.copyProjectName}</button>
           <button type="button" data-button="quiet" onClick={() => { drafts?.discard(draft().revision); setEditing(null); }}>{copy.discardRevision}</button>
         </>}</Show>
-          <Show when={problem()}><button type="button" data-button="quiet" onClick={() => drafts?.retry()}>{copy.storageRetry}</button></Show>
         <Dialog.CloseTrigger data-button="quiet">{copy.close}</Dialog.CloseTrigger></div>
       </Dialog.Content></Dialog.Positioner></Portal>
     </Dialog.Root>

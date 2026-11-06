@@ -50,7 +50,6 @@ export const copy = {
   rpcFailure: sharedCopy.rpcFailure,
   deliverables: sharedCopy.deliverables,
   dismissFailure: sharedCopy.dismissFailure,
-  dismiss: sharedCopy.dismiss,
   openDraft: sharedCopy.openDraft,
   openEvidence: sharedCopy.openEvidence,
   loadingProject: "Loading Project…",
