@@ -16,7 +16,7 @@ const settle = async () => {
 };
 
 it("u503_shared_toast_preserves_lifecycle", async () => {
-  const { app, toasts, sounds, connected, shown } = await mountToasts([agent("a", "working", "x", { name: "scout" }), agent("b", "working", "x", { name: "mason" })], { todos: [] });
+  const { app, toasts, sounds, connected, shown } = await mountToasts([agent("a", "working", "x", { name: "scout" }), agent("b", "working", "x", { name: "mason" })], { unreadable: true });
 
   app.emit(status("a", "needs-you"));
   await settle();

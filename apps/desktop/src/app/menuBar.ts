@@ -36,8 +36,10 @@ export const watchMenuBar = (options: {
   connection: (path: string) => ConnectedProject | undefined;
   select: (path: string, agent: string) => void;
   open: () => void;
-  missing: string;
+  /** The line the user sees: a publication read that failed, so a marker stays unread. */
   fail: (message: string | null) => void;
+  /** U6249d: a refusal by the native shell is not the user's to act on; the log holds it. */
+  hide: (cause: string) => void;
 }) => {
   const { createEffect, createSignal, onCleanup } = options.solid;
   const [turn, setTurn] = createSignal(0);
@@ -121,12 +123,12 @@ export const watchMenuBar = (options: {
     const menu: MenuBar = { mark: rows.some(row => row.waiting) ? "waiting" : rows.length ? "ready" : "empty", entries: entries(7), dock: entries(5) };
     const failure = tabs.map(tab => options.connection(tab.project.path)?.unseen.publicationFailure()).find(Boolean) ?? null;
 
-    void options.app.setMenuBar(menu).then(() => options.fail(failure), error => options.fail(String(error)));
+    void options.app.setMenuBar(menu).then(() => options.fail(failure), error => options.hide(String(error)));
   });
   let ended = false;
   let stop: (() => void) | undefined;
   void options.app.onMenuBarAction(action => {
-    if (action.kind === "failure") { options.fail(action.message);
+    if (action.kind === "failure") { options.hide(action.message);
 
  return; }
 
@@ -135,14 +137,14 @@ export const watchMenuBar = (options: {
     if (action.kind === "agent") {
       const rail = options.connection(action.path)?.rail;
 
-      if (!options.tabs().some(tab => tab.project.path === action.path) || !rail?.nodes.some(node => node.id === action.agent)) options.fail(options.missing);
-      else {
+      // U6249d: a row whose Agent is gone drops without a message.
+      if (options.tabs().some(tab => tab.project.path === action.path) && rail?.nodes.some(node => node.id === action.agent)) {
         options.fail(null);
         options.select(action.path, action.agent);
       }
     }
 
-    void options.app.showWindow().catch(error => options.fail(String(error)));
+    void options.app.showWindow().catch(error => options.hide(String(error)));
   }).then(unsubscribe => { if (ended) unsubscribe(); else stop = unsubscribe; });
   onCleanup(() => { ended = true; stop?.(); });
 };

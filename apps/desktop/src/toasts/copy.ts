@@ -6,6 +6,5 @@ export const copy = {
   toastLine: (value1: CopyValue, value2: CopyValue) => `${value1}: ${value2}`,
   toastsRegion: "Updates",
   toastOverflow: (value1: CopyValue) => `And ${value1} more`,
-  thatIsGone: sharedCopy.thatIsGone,
   changedTodo: sharedCopy.changedTodo,
 } as const;

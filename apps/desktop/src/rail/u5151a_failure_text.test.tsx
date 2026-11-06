@@ -46,7 +46,7 @@ describe("U5151c", () => {
     await settled();
 
     expect(rowOf("one").getAttribute("data-kind")).toBe("idle");
-    expect(rowOf("one").textContent).toContain(`Dismissed: ${LABEL}`);
+    expect(rowOf("one").querySelector("[data-failure]")).toBeNull();
     expect(rowOf("one").closest("[role=treeitem]")?.getAttribute("aria-label") ?? rowOf("one").getAttribute("aria-label")).toContain(`Dismissed: ${LABEL}`);
     expect(rowOf("two").getAttribute("data-kind")).toBe("error");
     expect(rail.dismissed(rail.nodes.find((node) => node.id === "one")!)).toBe(true);

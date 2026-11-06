@@ -118,7 +118,6 @@ export const copy = {
   needsYou: "Needs you",
   needYou: (count: number) => `${count} ${count === 1 ? "needs" : "need"} you`,
   needsYouGlyph: "Needs-you",
-  thatIsGone: "That is gone",
   blocked: "Blocked",
   working: "Working",
   idle: "Idle",

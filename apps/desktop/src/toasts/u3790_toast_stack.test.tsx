@@ -43,7 +43,7 @@ describe("u3790 every Toast has a time and shows it", () => {
   });
 
   it("u3790_a_failure_toast_has_no_time_and_closes_on_dismissal", async () => {
-    const { app, view } = await mountToasts(tree(), { todos: [] });
+    const { app, view } = await mountToasts(tree(), { unreadable: true });
 
     app.emit(by(AGENT, { name: "todo.updated", data: todo(7, USER) }));
     await settle();
@@ -70,7 +70,7 @@ describe("u3790 every Toast has a time and shows it", () => {
   });
 
   it("u3790_no_toast_outlives_its_time", async () => {
-    const { app, view } = await mountToasts(tree(), { todos: [] });
+    const { app, view } = await mountToasts(tree(), { unreadable: true });
 
     app.emit(status("a", "needs-you"));
     await settle();

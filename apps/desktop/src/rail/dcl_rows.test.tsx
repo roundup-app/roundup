@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, waitFor } from "@solidjs/testing-library";
+import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { leaderKey } from "../keys/leaderFixture";
 import { agent, door, workstream } from "../testing/nodes";
@@ -7,13 +7,18 @@ import { mountRail, railCallsTo, rowOf } from "./railFixture";
 
 afterEach(cleanup);
 
-it("dcl1_failure_reaches_agent_and_workstream_rows", async () => {
+it("dcl1_failure_reaches_agent_row_and_a_folded_workstream_row", async () => {
   const { rail } = await mountRail([
     door("w", "idle", "ready", { name: "payments", workstream_state: "idle" }),
     agent("a", "idle", "ready", { parent: "w", name: "helper", unreachable: "inbox write failed" }),
   ]);
 
-  for (const name of ["payments", "helper"]) expect(rowOf(name).querySelector(".rail-unreachable")).not.toBeNull();
+  // U6249d: an open Workstream adds nothing while its child's row shows the line.
+  expect(rowOf("helper").querySelector(".rail-unreachable")).not.toBeNull();
+  expect(rowOf("payments").querySelector(".rail-unreachable")).toBeNull();
+
+  fireEvent.click(screen.getByRole("button", { name: "Collapse" }));
+  await waitFor(() => expect(rowOf("payments").querySelector(".rail-unreachable")).not.toBeNull());
 });
 
 it("dcl1a_write_and_read_failures_offer_retry_and_unreadable_transcript_offers_open", async () => {
@@ -43,14 +48,16 @@ it("dcl1a_retry_requests_one_reconciliation_and_selects_nothing", async () => {
   await waitFor(() => expect(railCallsTo(app, "message.retryDelivery")).toEqual([{ id: "a" }]));
   expect(rail.selected()).toBe(before);
 
-  // The Workstream row shows the same action for the same Agent.
-  fireEvent.click(rowOf("payments").querySelector("button[data-button=quiet]")!);
-  await waitFor(() => expect(railCallsTo(app, "message.retryDelivery")).toHaveLength(2));
-
   // An unreadable transcript opens the Agent and asks for no pass.
   fireEvent.click(rowOf("reader").querySelector("button[data-button=quiet]")!);
   expect(rail.selected()).toBe("c");
-  expect(railCallsTo(app, "message.retryDelivery")).toHaveLength(2);
+  expect(railCallsTo(app, "message.retryDelivery")).toHaveLength(1);
+
+  // The folded Workstream row shows the same action for the same Agent.
+  fireEvent.click(screen.getByRole("button", { name: "Collapse" }));
+  await waitFor(() => expect(rowOf("payments").querySelector(".rail-unreachable button")).not.toBeNull());
+  fireEvent.click(rowOf("payments").querySelector("button[data-button=quiet]")!);
+  await waitFor(() => expect(railCallsTo(app, "message.retryDelivery")).toHaveLength(2));
 });
 
 it("dcl2_permission_action_opens_requesting_terminal", async () => {

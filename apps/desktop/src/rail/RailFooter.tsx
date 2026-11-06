@@ -61,13 +61,8 @@ export const RailFooter = (props: {
           dismiss={line().dismiss} recover={line().recover} />
         <Show when={held.rows().length}><Disclosure label={copy.held(held.rows().length)}>
           <For each={held.rows()}>{row => <button type="button" data-button="quiet" class="held-row" onClick={() => {
-            const node = rail.nodes.find(node => node.id === row.agent);
-
-            if (!node) {
-              failure.show(copy.thatIsGone, null, "rail");
-
-              return;
-            }
+            // U6249d: a held row whose Agent is gone drops without a message.
+            if (!rail.nodes.some(node => node.id === row.agent)) return held.acknowledge(row.agent);
 
             rail.select(row.agent, "open");
           }}><KindGlyph kind={row.kind} /><span class="held-content"><span>{row.name}</span><span class="held-line">{row.line}</span></span><time dateTime={new Date(row.at).toISOString()}>{copy.time(row.at)}</time></button>}</For>

@@ -23,7 +23,6 @@ export const copy = {
   retryUnreachable: () => sharedCopy.retryDoor,
   startedBy: (agent: string, project: string) => `by ${agent} (${project})`,
   create: sharedCopy.create,
-  thatIsGone: sharedCopy.thatIsGone,
   alerts: sharedCopy.alerts,
   alertLevels: { all: sharedCopy.allAlerts, default: sharedCopy.defaultChoice, quiet: "Quiet" },
   held: (count: number) => `${count} held`,
