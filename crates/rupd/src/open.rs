@@ -147,6 +147,7 @@ impl Daemon {
             queue: Default::default(),
             auto: auto::Auto::new(&bus),
             pushes: std::sync::Mutex::new(Some(bus.subscribe())),
+            rail_told: Default::default(),
             resources: Default::default(),
             publications: deliverables::Publications::open(dir)?,
             prompt_effect_gate: std::env::var_os("RUPD_PROMPT_EFFECT_GATE").map(Into::into),
@@ -240,6 +241,19 @@ impl Daemon {
                 Arc::clone(&self.agents),
             ));
         }
+        if tokio::runtime::Handle::try_current().is_ok() && self.sender.get().is_some() {
+            let tell = Arc::<workstream_state::Tell>::default();
+            if self.rail_told.set(Arc::clone(&tell)).is_ok() {
+                tokio::spawn(workstream_state::tell_changes(
+                    self.reader(),
+                    Arc::clone(&self.sender),
+                    Arc::clone(&self.agents),
+                    self.bus.clone(),
+                    tell,
+                    self.bus.subscribe(),
+                ));
+            }
+        }
         let events = self
             .pushes
             .lock()
@@ -286,6 +300,7 @@ impl Daemon {
                             settlement::Settlements::default()
                         }),
                 ),
+                self.rail_told.get().cloned(),
                 events,
             ));
         }

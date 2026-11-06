@@ -191,6 +191,8 @@ app project:
     done
     (( SECONDS < deadline )) || { echo "dev server did not answer on :$port within 30 s" >&2; exit 1; }
     curl --max-time 30 --fail-with-body -sS http://localhost:$port/__roundup_ready || { echo "webview imports are not ready; App was not opened" >&2; exit 1; }
+    cargo build -p desktop
+    echo "roundup: starting the App"
     cargo run -p desktop -- "$path"
 
 # Builds the webview files, then rupd, rup and the App (custom-protocol, serving apps/desktop/dist) in release mode, and runs the App on them with no dev server. No bundling or signing.
