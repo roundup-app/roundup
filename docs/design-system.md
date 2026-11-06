@@ -373,11 +373,11 @@ browser-synthesized italic and bold italic; OFL in
 `apps/desktop/public/fonts/fira-code/`). `--font-terminal` is
 `"Fira Code", ui-monospace, "SF Mono", Menlo, monospace`. Only Terminal content
 uses it; the rest of the App retains its existing type.
-`--weight-terminal: 300` selects the bundled Light face through xterm’s public
-`fontWeight`; bold retains 700. Regular 400 remains bundled for explicit use.
+`--weight-terminal: 400` selects the bundled Regular face through xterm’s public
+`fontWeight`; bold retains 700. Light 300 remains bundled for a saved choice (U6355).
 
-The emulator, App Settings and Project zoom reset share `--text-terminal` (11 CSS
-px). `--line-terminal` is xterm's unitless line-height multiplier (1.45: xterm multiplies the font's measured cell height, about 12.7 CSS px at 11 px, so 1.45 draws Solo's 18 CSS px rows, U3517b) and
+The emulator, App Settings and Project zoom reset share `--text-terminal` (13 CSS
+px, U6355). `--line-terminal` is xterm's unitless line-height multiplier (1.3: xterm multiplies the font's measured cell height, about 15 CSS px at 13 px, so 1.3 stays inside U3517b's 18–20 CSS px rows) and
 `--letter-terminal` is extra cell tracking (0 CSS px, U4592 / #4627). U4456 uses Solo's
 0.846 Terminal scale against its 13 px base; the 1.23 interface scale does not
 apply. Rendered cell measurements are recorded in `docs/terminal-type.md`.

@@ -188,15 +188,15 @@
   --font-mono: ui-monospace, "SF Mono", Menlo, monospace;
   --mono: var(--font-mono);
   --font-terminal: "Fira Code", ui-monospace, "SF Mono", Menlo, monospace;
-  --text-terminal: 11px;
-  --line-terminal: 1.45;
+  --text-terminal: 13px;
+  --line-terminal: 1.3;
   --line-terminal-min: 1;
   --line-terminal-max: 2;
   --letter-terminal-min: 0px;
   --letter-terminal-max: 3px;
   --terminal-type-step: 0.1;
   --letter-terminal: 0px;
-  --weight-terminal: 300;
+  --weight-terminal: 400;
   --inset-box: color-mix(in srgb, var(--text) 5%, var(--ground));
   --text-caption: calc(11px * var(--interface-scale));
   --text-small: calc(12px * var(--interface-scale));
@@ -488,6 +488,14 @@ button, file-tree-container, diffs-container {
 /* U3768: the progress bar's track tints the grey. */
 :root {
   --progress-track: color-mix(in srgb, var(--grey) 40%, transparent);
+}
+
+@font-face {
+  font-family: "Fira Code";
+  src: url("/fonts/fira-code/FiraCode-Regular.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
 }
 
 @font-face {

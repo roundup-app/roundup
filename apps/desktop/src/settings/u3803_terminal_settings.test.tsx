@@ -102,8 +102,8 @@ it("u4687d_visibility_keeps_focus_input_and_resize_behavior", async () => {
   const focused = document.activeElement;
   const fits = emulator.fits;
   const calls = app.calls.length;
-  await saveAppSettings({ focusMarkers: false });
   await saveAppSettings({ focusMarkers: true });
+  await saveAppSettings({ focusMarkers: false });
   expect(document.activeElement).toBe(focused);
   expect(emulator.fits).toBe(fits);
   expect(app.calls.slice(calls).filter(call => ["terminal.resize", "terminal.write", "agent.spawn", "rail.startDoor"].includes(call.method))).toEqual([]);

@@ -1,24 +1,24 @@
 # Terminal typography (U4456)
 
 Terminal output uses Fira Code 6.2, replacing the JetBrains Mono font files.
-The unmodified Light (300) and bold (700) WOFF2 files, OFL notice, upstream
+The unmodified Regular (400), Light (300) and bold (700) WOFF2 files, OFL notice, upstream
 release URL and SHA-256 hashes are in
 `apps/desktop/public/fonts/fira-code/`. The original JetBrains Mono licence
 notice remains alongside it. Fira Code supplies no italic files: browser font
 synthesis renders italic and bold italic from the bundled faces. The emulator
-requests normal and italic at both bundled weights before its first authoritative fit.
+requests normal and italic at every bundled weight before its first authoritative fit.
 Local App URLs have no `local()` or remote font source; other App typography
-keeps its existing stack. U4592 selects regular weight 300 through `--weight-terminal`; bold retains xterm's 700 default.
+keeps its existing stack. U6355 selects regular weight 400 through `--weight-terminal`; bold retains xterm's 700 default.
 
 ## Metrics
 
 | Token | xterm option | Value |
 | --- | --- | --- |
 | `--font-terminal` | `fontFamily` | `"Fira Code", ui-monospace, "SF Mono", Menlo, monospace` |
-| `--text-terminal` | `fontSize` | 11 CSS px |
-| `--line-terminal` | `lineHeight` | 1.45, unitless (18 CSS px rows, Solo's; #6222) |
+| `--text-terminal` | `fontSize` | 13 CSS px (U6355) |
+| `--line-terminal` | `lineHeight` | 1.3, unitless (U6355; rows stay in U3517b's 18–20 CSS px band) |
 | `--letter-terminal` | `letterSpacing` | 0 CSS px (U4592 / #4627) |
-| `--weight-terminal` | `fontWeight` | 300 (Light); bold remains 700 |
+| `--weight-terminal` | `fontWeight` | 400 (Regular, U6355); bold remains 700 |
 
 Solo's `terminalFontScale` 0.846 multiplies its 13 px base, giving 11 px;
 its 1.23 interface scale does not apply to Terminal text. The real rendered
@@ -511,4 +511,4 @@ device ratio 1 and 18.5 at ratio 2 in Chromium, inside U3517b's 18-20 band;
 and fail outside it. Font size, tracking, face, `customGlyphs` and the WebGL
 renderer are unchanged, so box and block glyphs still fill the cell. The
 Settings line-height control applies the same multiplier, so its default now
-reads 1.45; a saved explicit value is kept.
+reads 1.45; a saved explicit value is kept. U6355 (2026-11-06) later sets the defaults to 13 CSS px at 1.3, weight 400.

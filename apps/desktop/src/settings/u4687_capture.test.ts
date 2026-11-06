@@ -42,8 +42,8 @@ it.skipIf(!captureDir("U4687a"))("u4687a_rendered_controls_and_preview", async (
     await lane.capture("U4687a", "head/scale-small");
     await lane.browser("click", "[data-scope=segment-group][data-part=item][aria-label=Default]");
     await lane.browser("click", "[role=switch]");
-    await lane.until("document.documentElement.dataset.focusMarkers === 'false'");
-    await lane.capture("U4687d", "head/marker-off");
+    await lane.until("document.documentElement.dataset.focusMarkers === 'true'");
+    await lane.capture("U4687d", "head/marker-on");
     await lane.browser("click", "[role=switch]");
     await lane.browser("click", "[role=tab][data-value=Terminal]");
     await lane.until("!!document.querySelector('.settings-preview .xterm')");
