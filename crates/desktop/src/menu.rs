@@ -92,73 +92,95 @@ pub(crate) fn app_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>>
     Ok(menu)
 }
 
+/// The one reader of a menu item's id text.
+enum MenuCommand<'a> {
+    Update,
+    AppSettings,
+    ForkSheet,
+    /// An id the Project or Edit menu holds, kept whole as the payload's `command`.
+    Project(&'a str),
+    /// Any other id: the popped-up menu's pending `Choice`.
+    Choice,
+}
+
+impl<'a> MenuCommand<'a> {
+    fn parse(id: &'a str) -> Self {
+        match id {
+            crate::update::ITEM => Self::Update,
+            "app-settings" => Self::AppSettings,
+            "fork-sheet" => Self::ForkSheet,
+            "import-work" | "project-settings" => Self::Project(id),
+            _ if id.starts_with("view:") || id.starts_with("action:") => Self::Project(id),
+            _ => Self::Choice,
+        }
+    }
+}
+
 pub(crate) fn app_chosen<R: Runtime>(app: &AppHandle<R>, event: &MenuEvent) {
-    if event.id().0 == crate::update::ITEM {
-        if let (Ok(running), Some(home)) = (std::env::var("ROUNDUP_SLOT"), crate::update::home())
-            && crate::update::choose(&crate::update::update_status(&home, &running), |slot| {
-                if let Err(error) = crate::update::relaunch_into(&home, slot) {
-                    crate::diagnostics::failure(
-                        "relaunch into the new build",
-                        &tauri::Error::Io(error),
-                    );
-                }
-            })
-        {
-            app.exit(0);
+    match MenuCommand::parse(event.id().0.as_str()) {
+        MenuCommand::Update => {
+            if let (Ok(running), Some(home)) =
+                (std::env::var("ROUNDUP_SLOT"), crate::update::home())
+                && crate::update::choose(&crate::update::update_status(&home, &running), |slot| {
+                    if let Err(error) = crate::update::relaunch_into(&home, slot) {
+                        crate::diagnostics::failure(
+                            "relaunch into the new build",
+                            &tauri::Error::Io(error),
+                        );
+                    }
+                })
+            {
+                app.exit(0);
+            }
         }
-    } else if event.id().0 == "app-settings" {
-        if let Err(error) = app.emit("open-app-settings", ()) {
-            crate::diagnostics::failure("open Settings", &error);
+        MenuCommand::AppSettings => {
+            if let Err(error) = app.emit("open-app-settings", ()) {
+                crate::diagnostics::failure("open Settings", &error);
+            }
         }
-    } else if event.id().0 == "fork-sheet" {
-        if let Err(error) = app.emit("open-fork-sheet", ()) {
-            crate::diagnostics::failure("open the Fork sheet", &error);
+        MenuCommand::ForkSheet => {
+            if let Err(error) = app.emit("open-fork-sheet", ()) {
+                crate::diagnostics::failure("open the Fork sheet", &error);
+            }
         }
-    } else if matches!(event.id().0.as_str(), "import-work" | "project-settings")
-        || event.id().0.starts_with("view:")
-        || event.id().0.starts_with("action:")
-    {
-        let enabled = app
-            .menu()
-            .and_then(|menu| {
-                menu.get(
-                    if matches!(
-                        event.id().0.as_str(),
-                        "action:chord:⌘Z" | "action:chord:⇧⌘Z"
-                    ) {
-                        "edit-menu"
-                    } else {
-                        "project-menu"
-                    },
-                )
-            })
-            .and_then(|item| match item {
-                MenuItemKind::Submenu(project) => project.get(event.id().0.as_str()),
-                _ => None,
-            })
-            .and_then(|item| {
-                if let MenuItemKind::MenuItem(item) = item {
-                    item.is_enabled().ok()
-                } else {
-                    None
-                }
-            })
-            .unwrap_or(false);
-        if !enabled {
-            return;
-        }
-        let selected = app.state::<ProjectMenu>();
-        let path = selected.0.lock().expect("Project menu lock");
-        if let Some(path) = path.as_ref()
-            && let Err(error) = app.emit(
-                "open-project-page",
-                serde_json::json!({ "path": path, "command": event.id().0 }),
-            )
-        {
-            crate::diagnostics::failure("open Project page", &error);
-        }
+        MenuCommand::Project(command) => open_project_page(app, command),
+        MenuCommand::Choice => app.state::<Choice>().chosen(event),
+    }
+}
+
+fn open_project_page<R: Runtime>(app: &AppHandle<R>, command: &str) {
+    let owner = if matches!(command, "action:chord:⌘Z" | "action:chord:⇧⌘Z") {
+        "edit-menu"
     } else {
-        app.state::<Choice>().chosen(event);
+        "project-menu"
+    };
+    let enabled = app
+        .menu()
+        .and_then(|menu| menu.get(owner))
+        .and_then(|item| match item {
+            MenuItemKind::Submenu(submenu) => submenu.get(command),
+            _ => None,
+        })
+        .and_then(|item| {
+            if let MenuItemKind::MenuItem(item) = item {
+                item.is_enabled().ok()
+            } else {
+                None
+            }
+        })
+        .unwrap_or(false);
+    if !enabled {
+        return;
+    }
+    let selected = app.state::<ProjectMenu>();
+    let path = selected.0.lock().expect("Project menu lock");
+    if let Some(path) = path.as_ref()
+        && let Err(error) = app.emit(
+            "open-project-page",
+            serde_json::json!({ "path": path, "command": command }),
+        )
+    {
+        crate::diagnostics::failure("open Project page", &error);
     }
 }
 
