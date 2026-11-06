@@ -255,7 +255,7 @@ export const Capture = (props: { onFile: (() => void) | undefined; onNativeOpen?
     let stopped = false;
     const stops: (() => void)[] = [];
     // U6249d F6: a subscription is a read; the seam retries it, and the user cannot act on its exhaustion, so the App log holds the cause.
-    const own = (subscribe: () => Promise<() => void>) => void retryRead(subscribe).then(stop => { if (stopped) stop(); else stops.push(stop); }).catch(error => console.warn("capture subscription failed", error));
+    const own = (subscribe: () => Promise<() => void>) => void retryRead(subscribe).then(stop => { if (stopped) stop(); else stops.push(stop); }).catch(error => console.warn(copy.captureOff(String(error))));
     own(() => port.onRequested(nativeShow));
     own(() => port.onAction(action => {
       if (!nativeOpen()) return;

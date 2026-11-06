@@ -38,7 +38,7 @@ export const CapturePanel = (props: { port: CapturePort }) => {
 
     release = stop;
     void send({ kind: "ready" });
-  }).catch(error => console.warn("capture subscription failed", error));
+  }).catch(error => console.warn(copy.captureOff(String(error))));
   onCleanup(() => { stopped = true; release?.(); });
 
   const file = (keepOpen: boolean) => {
