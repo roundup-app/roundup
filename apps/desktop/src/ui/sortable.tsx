@@ -132,8 +132,8 @@ const fixedSlots = (axis: "x" | "y", list: () => HTMLElement | undefined, depth:
     return out;
   };
 
-  /** The held row's middle now, in scroll-content coordinates of the lift. */
-  const heldMiddle = () => startOf(dragged!.from, dragged!.from) + lift!.sizes[dragged!.from]! / 2 + (axis === "x" ? pointer!.x : pointer!.y) - dragged!.at + offset(lift!.scroller) - lift!.offset;
+  /** The lifted row's middle now, in scroll-content coordinates of the lift. */
+  const liftedMiddle = () => startOf(dragged!.from, dragged!.from) + lift!.sizes[dragged!.from]! / 2 + (axis === "x" ? pointer!.x : pointer!.y) - dragged!.at + offset(lift!.scroller) - lift!.offset;
 
   // The pointer picks the slot nearest the dragged row; it changes hands only past STICKY_ROW_SHARE of a row.
   const update = () => {
@@ -158,8 +158,8 @@ const fixedSlots = (axis: "x" | "y", list: () => HTMLElement | undefined, depth:
 
  return; }
 
-    // The pick reads the held row's middle against its own middle at each slot, the places `pose` draws, so a tall row and the rows agree.
-    const middle = heldMiddle();
+    // The pick reads the lifted row's middle against its own middle at each slot, the places `pose` draws, so a tall row and the rows agree.
+    const middle = liftedMiddle();
     const distance = (index: number) => Math.abs(startOf(dragged!.from, index) + lift!.sizes[dragged!.from]! / 2 - middle);
     const nearest = lift.starts.reduce((best, _, index) => distance(index) < distance(best) ? index : best, 0);
 
@@ -175,7 +175,7 @@ const fixedSlots = (axis: "x" | "y", list: () => HTMLElement | undefined, depth:
     const { from } = dragged;
 
     if (far) return lift.starts.map(() => 0);
-    const centre = heldMiddle();
+    const centre = liftedMiddle();
     const slots = lift.starts.map((_, to) => startOf(from, to) + lift!.sizes[from]! / 2);
     const k = Math.max(0, Math.min(slots.length - 2, slots.findLastIndex(at => at <= centre)));
     const share = slots.length < 2 ? 0 : Math.max(0, Math.min(1, (centre - slots[k]!) / (slots[k + 1]! - slots[k]!)));
