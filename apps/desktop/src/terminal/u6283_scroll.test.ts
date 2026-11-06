@@ -52,7 +52,7 @@ it("u6283a_resize_fits_once", async () => {
   emulator.fit();
 
   expect(fit).toHaveBeenCalledTimes(1);
-  expect(emulator.serialize().cols).toBe(37);
+  expect(emulator.serialize?.()?.cols).toBe(37);
   emulator.dispose();
   host.remove();
 });
