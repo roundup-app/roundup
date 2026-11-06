@@ -33,7 +33,7 @@ export const createSettingsView = (): SettingsViewState => {
         restore?.();
 
         const focus = () => {
-          const target = opener?.isConnected ? opener : document.querySelector<HTMLElement>(".todo-project-root");
+          const target = opener?.isConnected ? opener : document.querySelector<HTMLElement>(".rail .rail-row");
           target?.focus();
         };
 

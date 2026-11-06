@@ -137,7 +137,7 @@ const activate = async (keys: string, source: "key" | "pointer", leader = false)
   }
 };
 
-it.each(["A", "P", "C", "J", "B", "T", "I"].flatMap(keys => (["key", "pointer"] as const).map(source => ({ keys, source }))))(
+it.each(["P", "C", "J", "B", "T", "I"].flatMap(keys => (["key", "pointer"] as const).map(source => ({ keys, source }))))(
   "u4690b_leader_clicks_and_keys_share_one_wait: $keys $source", async ({ keys, source }) => {
     const { daemon, connected } = await mountNavigation(false, 1, 2);
     connected().showView("workstreams");
@@ -256,38 +256,6 @@ it.each(["M", "D", "E", "Esc", "O"].flatMap(keys => (["key", "pointer"] as const
     expect(app.calls.filter(call => call.method === "terminal.write")).toEqual([]);
   },
 );
-
-it("u4690b_leader_clicks_and_keys_share_one_wait: competing A owners pointer", async () => {
-  const source = "pointer";
-  const { app } = seedApp("tree-40", 0);
-  // CI timed out in this forty-row fixture; the competing owners need one Workstream and its Agent.
-  const tree = await app.handlers["rail.tree"]!(null);
-  app.handlers["rail.tree"] = () => tree.filter(node => node.id === "backend" || node.id === "migrate").map(node => node.status?.kind === "needs-you" ? { ...node, status: { ...node.status, kind: "working" as const } } : node);
-  const listed = await app.handlers["todo.list"]!(null);
-  app.handlers["todo.list"] = () => listed.map(todo => ({ ...todo, home: "backend" }));
-  render(() => <RequestedApp app={app} reducedMotion={() => true} clock={() => 0} createEmulator={fakeEmulators().factory} />);
-  await showEverythingInApp();
-  fireEvent.click(document.querySelector('.rail-row[data-id="backend"]')!);
-  await waitFor(() => expect(document.querySelector('[role=treeitem][data-id="backend"]')?.getAttribute("aria-selected")).toBe("true"));
-
-  for (const control of document.querySelectorAll<HTMLElement>('.shelf [data-part="branch-control"]')) {
-    if (control.closest('[role="treeitem"]')?.getAttribute("aria-expanded") === "false") fireEvent.click(control);
-  }
-
-  const row = await waitFor(() => {
-    const found = document.querySelector<HTMLElement>(".shelf .todo-row-button[aria-pressed]");
-    expect(found).not.toBeNull();
-
-    return found!;
-  });
-
-  fireEvent.click(row);
-  row.focus();
-  await activate("A", source, true);
-  await waitFor(() => expect(document.querySelectorAll('.switcher input')).toHaveLength(1));
-  expect(document.querySelector('[role=treeitem][data-id="backend"]')?.getAttribute("aria-selected")).toBe("true");
-  expect(app.calls.filter(call => call.method === "todo.assign" || call.method === "terminal.write")).toEqual([]);
-});
 
 it.each(["modal", "project", "pending"])("u4690c_unavailable_or_stale_hints_run_nothing: %s", async state => {
   const { app } = await openTabs({ api: [agent("a", "idle", "idle")], web: [agent("w", "idle", "idle")] });

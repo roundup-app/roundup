@@ -67,7 +67,7 @@ def observe(side, origin):
 
     def todos():
         load("/harness.html?seed=tree-40")
-        evaluate("document.querySelector('[data-todo-root]').click(); for(const t of document.querySelectorAll('[role=tab]'))if(t.textContent.startsWith('Todos')&&t.getAttribute('aria-expanded')!=='true')t.click();")
+        evaluate("for(const t of document.querySelectorAll('[role=tab]'))if(t.textContent.startsWith('Todos')&&t.getAttribute('aria-expanded')!=='true')t.click();")
         wait("!!document.querySelector('.shelf [data-shelf-group]')")
         evaluate("for(const e of document.querySelectorAll('.shelf [data-shelf-group] [data-part=branch-control]'))if(e.closest('[role=treeitem]')?.getAttribute('aria-expanded')==='false')e.click();")
         wait("!!document.querySelector('.shelf .todo-row[data-todo] .shelf-title')")

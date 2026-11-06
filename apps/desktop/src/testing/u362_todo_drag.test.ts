@@ -25,7 +25,6 @@ const setup = async (worst = false, origin = "", width = 1280, height = 820) => 
   await page.call(`() => {
     const tab = document.querySelector('#shelf-tab-todos');
     if (tab.getAttribute('aria-expanded') !== 'true') tab.click();
-    document.querySelector('[data-todo-root]').click();
   }`);
   await page.until(`() => Boolean(document.querySelector('.shelf [data-shelf-group="unassigned"] [data-part="branch-control"]'))`);
   await page.until(`() => !document.querySelector('.rail-row[data-selected="true"]')`);
@@ -83,7 +82,7 @@ run('u137 compound selected ground', () => {
 run('u362 rendered Todo drag', () => {
   // The drop target and calls do not change with scheme; the wash reads its own Token.
   for (const scheme of ['light'] as const) {
-    it(`u362_a_drop_moves_to_the_workstream_then_project_root ${scheme}`, async () => {
+    it(`u362_a_drop_moves_to_the_workstream ${scheme}`, async () => {
       await page.scheme(scheme);
       await setup();
       const id = await page.call<string>(`() => document.querySelector('.shelf .todo-row').dataset.todo`);
@@ -100,24 +99,6 @@ run('u362 rendered Todo drag', () => {
       expect(await page.call(`() => window.__fake.app.calls.filter(c => c.method === 'todo.reorder').length`)).toBe(0);
       const movedHome = await page.call<string>(`async id => (await window.__fake.app.rpc('todo.list', {})).find(todo => todo.id === Number(id)).home`, id);
       expect(movedHome).toBe(home);
-      // todo.updated can refetch before dnd-kit finishes its drop. Its Feedback
-      // cleanup removes the placeholder only after returning the source to idle.
-      await page.until(`() => !document.querySelector('[data-dnd-placeholder], [data-dnd-dragging]')`);
-      // sortedList.settle slides rows after the refetch; measure the next drag
-      // only once those animations have finished moving its handle.
-      await page.call(`async () => {
-        await Promise.all([...document.querySelectorAll('.shelf .todo-row')].flatMap(row => row.getAnimations()).map(animation => animation.finished));
-      }`);
-      const back = await point(`.shelf [data-todo="${id}"] .todo-row-button`);
-      const root = await point('[data-todo-root]');
-      await page.pointer('down', back.x, back.y);
-      await page.pointer('move', root.x, root.y);
-      await page.until(`() => document.querySelector('[data-todo-root]')?.hasAttribute('data-todo-drop')`);
-      await page.pointer('up', root.x, root.y);
-      await page.until(`() => window.__fake.app.calls.filter(c => c.method === 'todo.move').length === 2`);
-      expect(await page.call(`() => window.__fake.app.calls.filter(c => c.method === 'todo.move').at(-1).params`)).toEqual({id: Number(id), home: null});
-      expect(await page.call(`() => document.activeElement === document.body`)).toBe(false);
-      expect(await page.call(`async id => (await window.__fake.app.rpc('todo.list', {})).find(todo => todo.id === Number(id)).home`, id)).toBeNull();
     }, 60_000);
   }
 });

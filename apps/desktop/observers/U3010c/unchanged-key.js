@@ -8,9 +8,7 @@ export default async function ({ list = 'shelf', quarter = false } = {}) {
     const tab = document.querySelector('#shelf-tab-todos');
 
     if (tab.getAttribute('aria-expanded') !== 'true') tab.click();
-    document.querySelector('[data-todo-root]').click();
     await frame();
-    document.querySelector('[data-todo-root]').click();
     const group = document.querySelector('.shelf [data-shelf-group="unassigned"]');
 
     if (group?.getAttribute('aria-expanded') !== 'true') group?.querySelector('[data-part="branch-control"]')?.click();

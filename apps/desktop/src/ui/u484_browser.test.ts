@@ -204,7 +204,6 @@ it("u3800a_one_drag_fixture", async () => {
   // Commissioned Shelf Pad consumer: pointer and keyboard use the real holder and RPC.
   await browser("open", new URL("harness.html?view=workstreams&items=1&tabs=1&seed=tree-40", origin).href);
   await browser("wait", "--fn", "!!document.querySelector('#shelf-tab-pads')");
-  await browser("click", "[data-todo-root]");
   await browser("wait", "--fn", "!document.querySelector('.rail-row[data-selected=true]')");
   await browser("click", "#shelf-tab-pads");
   await browser("wait", "--fn", "!!document.querySelector('.pads-tab [data-shelf-group] [data-part=branch-control]')");

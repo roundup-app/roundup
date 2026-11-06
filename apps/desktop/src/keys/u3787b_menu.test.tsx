@@ -1,3 +1,4 @@
+import { openAsk } from "../ask/askFixture";
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { batch, createRoot, createSignal } from "solid-js";
 import { afterEach, expect, it, vi } from "vitest";
@@ -328,6 +329,7 @@ it("u3787b_menu_and_key_share_one_action: Project Rename from key captures the f
   await waitFor(() => expect(rename).toHaveBeenCalledExactlyOnceWith("/p", "Renamed Project", "p"));
   expect(document.activeElement?.closest(".project-tab")?.getAttribute("data-path")).toBe("/p");
   const retained = captureActions(document.activeElement).find(action => action.value === "action:chord:F2")!;
+  await openAsk();
   screen.getByLabelText("Ask", { selector: '[role="textbox"]' }).focus();
   expect(retained.available()).toBe(false);
   retained.run();
@@ -358,6 +360,7 @@ it.each([
   expect([...field.querySelectorAll(semantic)].map(node => node.textContent)).toEqual(["chosen"]);
   expect(field.value).toContain(" untouched");
   expect(document.activeElement).toBe(surface);
+  await openAsk();
   const ask = screen.getByLabelText("Ask", { selector: '[role="textbox"]' });
   ask.focus();
   expect(captured.available()).toBe(false);
@@ -390,6 +393,7 @@ it.each([
 
   expect([...field.querySelectorAll(semantic)].map(node => node.querySelector("p")?.textContent ?? node.textContent)).toEqual(["chosen"]);
   expect(document.activeElement).toBe(surface);
+  await openAsk();
   screen.getByLabelText("Ask", { selector: '[role="textbox"]' }).focus();
   expect(captured.available()).toBe(false);
   captured.run();

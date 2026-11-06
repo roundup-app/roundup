@@ -68,7 +68,7 @@ it.skipIf(!captureDir("U3295b"))("u3295b_rendered_modal_dismissal_and_dialog_pic
     await key("Escape", "Escape");
 
     // The recorded dense Shelf supplies the real owner menu and New Workstream Dialog.
-    await read("document.querySelector('[data-todo-root]').click(); if(document.querySelector('#shelf-tab-todos')?.getAttribute('aria-expanded') !== 'true') document.querySelector('#shelf-tab-todos')?.click()");
+    await read("document.querySelector('.rail-row').click(); if(document.querySelector('#shelf-tab-todos')?.getAttribute('aria-expanded') !== 'true') document.querySelector('#shelf-tab-todos')?.click()");
     await wait("!!document.querySelector('.shelf')");
     await read("(() => { for (const b of document.querySelectorAll('[data-shelf-group] [data-part=branch-control]')) if (b.closest('[role=treeitem]')?.getAttribute('aria-expanded') === 'false') b.click(); })()");
     await wait("[...document.querySelectorAll('.todo-row-button')].some(row => row.checkVisibility())");
@@ -92,7 +92,7 @@ it.skipIf(!captureDir("U3295b"))("u3295b_rendered_modal_dismissal_and_dialog_pic
     await snap("dense-failure");
 
     await browser("open", new URL("/harness.html?seed=agents-10", server.resolvedUrls.local[0]!).href);
-    await wait("!!window.__fake && !!document.querySelector('.todo-project-root')");
+    await wait("!!window.__fake && !!window.__select");
     await snap("agents-before");
     await read("(() => { const nodes = window.__fake.app.handlers['rail.tree'](); for (const node of nodes.filter(n => n.kind === 'agent' && n.status?.kind !== 'needs-you').slice(0, 3)) window.__fake.setStatus(node.id, 'needs-you', 'Choose the next step'); })()");
     await wait("document.querySelectorAll('.app-toast').length >= 3");

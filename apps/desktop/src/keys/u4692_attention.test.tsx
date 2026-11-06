@@ -12,6 +12,7 @@ import { fakeEmulators } from "../terminal/paneHarness";
 import { showShelfTab } from "../testing/shelfTabs";
 import { appSettings } from "../settings/preferences";
 import { endLeader } from "./registry";
+import { openAsk } from "../ask/askFixture";
 
 afterEach(() => { batch(cleanup); endLeader(); localStorage.clear(); sessionStorage.clear(); });
 
@@ -65,7 +66,7 @@ const open = async (first = false, nodes = [
   }} />);
 
   if (first) await screen.findByRole("button", { name: "Choose Project…" });
-  else await screen.findByLabelText("Ask", { selector: '[role="textbox"]' });
+  else await screen.findByLabelText("Rail", { selector: '[role="tree"]' });
 
   return { app, daemon, connected: () => connection!, emulators };
 };
@@ -85,13 +86,12 @@ const shelf = async () => {
   fireEvent.click(group);
 };
 
-it.each(["rail", "centre", "shelf", "triage", "ask", "pad", "drawer", "watch", "door", "shell"])("u4692_the_direct_chord_reaches_attention_from_each_focus_place: %s", async place => {
+it.each(["rail", "centre", "shelf", "triage", "pad", "drawer", "watch", "door", "shell"])("u4692_the_direct_chord_reaches_attention_from_each_focus_place: %s", async place => {
   const { daemon, connected } = await open();
   connected().rail.select("home");
   const nested = document.querySelector<HTMLElement>('.rail-row[data-id="nested"]')!;
   fireEvent.click(within(nested).getByRole("button", { name: "Collapse" }));
 
-  if (place === "ask") connected().rail.select(null);
   let target: HTMLElement;
 
   if (place === "watch" || place === "door") {
@@ -129,7 +129,7 @@ it.each(["rail", "centre", "shelf", "triage", "ask", "pad", "drawer", "watch", "
  return input!; });
       }
     }
-  } else target = place === "ask" ? screen.getByLabelText("Ask", { selector: '[role="textbox"]' }) : document.querySelector<HTMLElement>(place === "rail" ? '.rail-row[data-id="home"]' : ".centre")!;
+  } else target = document.querySelector<HTMLElement>(place === "rail" ? '.rail-row[data-id="home"]' : ".centre")!;
   target.tabIndex = -1; target.focus();
   expect(document.activeElement).toBe(target);
 
@@ -185,8 +185,10 @@ it("u4692_without_a_project_the_chord_does_nothing", async () => {
 
 it.each(["help", "switcher", "capture", "recording"])("u4692_modal_layers_block_the_direct_jump: %s", async layer => {
   const { connected, daemon } = await open();
-  const field = screen.getByLabelText("Ask", { selector: '[role="textbox"]' });
-  fireEvent.input(field, { target: { value: draft } });
+  await openAsk();
+  fireEvent.input(screen.getByLabelText("Ask", { selector: '[role="textbox"]' }), { target: { value: draft } });
+  key("Escape", { key: "Escape" });
+  await waitFor(() => expect(document.querySelectorAll('[role="textbox"][aria-label="Ask"]')).toHaveLength(0));
   document.querySelector<HTMLElement>('.rail-row[data-id="home"]')!.focus();
   const saved = appSettings().quickAdd;
 
@@ -214,25 +216,20 @@ it.each(["help", "switcher", "capture", "recording"])("u4692_modal_layers_block_
   key("Escape", { key: "Escape" });
 
   if (layer === "recording") fireEvent.click(screen.getByRole("button", { name: "← Back" }));
+  await openAsk();
   expect(await screen.findByLabelText("Ask", { selector: '[role="textbox"]' })).toHaveProperty("value", draft);
 });
 
-it.each(["ask", "pad"])("u4692_jump_preserves_unsubmitted_input: %s", async surface => {
+it("u4692_jump_preserves_unsubmitted_input", async () => {
   const { connected, daemon } = await open(false, [workstream("home"), agent("need", "needs-you", "Answer", { parent: "home" })]);
-  let field: HTMLElement;
 
-  if (surface === "ask") {
-    field = screen.getByLabelText("Ask", { selector: '[role="textbox"]' });
-    fireEvent.input(field, { target: { value: draft } });
-  } else {
-    connected().drafts.edit({ surface: "pads", object: "notes-1", recipient: null }, { originalName: "notes", source: draft, base: "saved", baseRevision: 1 }, null, "ordinary");
-    connected().rail.select("home");
-    showShelfTab("Pads");
-    const pad = await within(await screen.findByLabelText("Pads", { selector: "section" })).findByRole("button", { name: "notes" });
-    pad.focus();
-    fireEvent.keyDown(pad, { key: "Enter", code: "Enter" });
-    field = await screen.findByLabelText<HTMLElement>("Pad body", { selector: '[role="textbox"]' });
-  }
+  connected().drafts.edit({ surface: "pads", object: "notes-1", recipient: null }, { originalName: "notes", source: draft, base: "saved", baseRevision: 1 }, null, "ordinary");
+  connected().rail.select("home");
+  showShelfTab("Pads");
+  const pad = await within(await screen.findByLabelText("Pads", { selector: "section" })).findByRole("button", { name: "notes" });
+  pad.focus();
+  fireEvent.keyDown(pad, { key: "Enter", code: "Enter" });
+  const field = await screen.findByLabelText<HTMLElement>("Pad body", { selector: '[role="textbox"]' });
 
   const original = structuredClone(connected().drafts.list());
   expect(original.some(record => record.value.text === draft || record.value.source === draft)).toBe(true);
@@ -240,16 +237,11 @@ it.each(["ask", "pad"])("u4692_jump_preserves_unsubmitted_input: %s", async surf
   press();
   await destination();
 
-  if (surface === "ask") {
-    connected().rail.select(null);
-    expect(await screen.findByLabelText("Ask", { selector: '[role="textbox"]' })).toHaveProperty("value", draft);
-  } else {
-    showShelfTab("Pads");
-    const pad = await within(await screen.findByLabelText("Pads", { selector: "section" })).findByRole("button", { name: "notes" });
-    pad.focus();
-    fireEvent.keyDown(pad, { key: "Enter", code: "Enter" });
-    await screen.findByLabelText<HTMLElement>("Pad body", { selector: '[role="textbox"]' });
-  }
+  showShelfTab("Pads");
+  const reopened = await within(await screen.findByLabelText("Pads", { selector: "section" })).findByRole("button", { name: "notes" });
+  reopened.focus();
+  fireEvent.keyDown(reopened, { key: "Enter", code: "Enter" });
+  await screen.findByLabelText<HTMLElement>("Pad body", { selector: '[role="textbox"]' });
 
   expect(connected().drafts.list()).toEqual(original);
   expect(daemon.calls.filter(call => ["ask.send", "message.send", "pad.write"].includes(call.method))).toEqual([]);
@@ -276,11 +268,9 @@ it("u4692_rendered_direct_jump_and_discovery", async () => {
     await lane.until("document.body.textContent.includes('Permission denied — choose a writable folder and retry')");
     await lane.capture("U4692", "before");
 
-    for (const place of ["rail", "terminal", "shelf", "ask"]) {
-      if (place === "ask") { await lane.browser("click", "[data-todo-root]"); await lane.until("!!document.querySelector('.ask-input')"); }
-
+    for (const place of ["rail", "terminal", "shelf"]) {
       await lane.evaluate(`(() => {
-        const target = ${place === "rail" ? "document.querySelector('.rail-row')" : place === "terminal" ? "document.querySelector('.xterm-helper-textarea')" : place === "shelf" ? "document.querySelector('.todo-row-button') || document.querySelector('.shelf button')" : "document.querySelector('.ask-input')"};
+        const target = ${place === "rail" ? "document.querySelector('.rail-row')" : place === "terminal" ? "document.querySelector('.xterm-helper-textarea')" : "document.querySelector('.todo-row-button') || document.querySelector('.shelf button')"};
         if (!target) throw new Error('Missing ${place} focus target');
         target.focus();
       })()`);
@@ -314,7 +304,7 @@ it("u4692a_rendered_hint_places", async () => {
   const lane = await openLane(1512, "dark", "u4692a");
 
   try {
-    await lane.browser("click", "[data-todo-root]");
+    await lane.evaluate("window.__select(null)");
     await lane.browser("click", "#shelf-tab-pads");
     await lane.until("!!document.querySelector('.pads-tab [data-shelf-group]')");
     await lane.evaluate(`(() => { for (const group of document.querySelectorAll('.pads-tab [data-shelf-group]')) if (group.getAttribute('aria-expanded') === 'false') group.querySelector('[data-part=branch-control]').click(); })()`);

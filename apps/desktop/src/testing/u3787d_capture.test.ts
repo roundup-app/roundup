@@ -105,7 +105,7 @@ it.skipIf(!captureDir("U5463c"))("u5463c_shared_editor_and_recovery_surfaces", a
     await capture("project-recovery");
     await lane.browser("press", "Escape");
     await lane.until("!document.querySelector('.header-recovery')");
-    await lane.browser("focus", "[data-todo-root]");
+    await lane.browser("focus", ".rail-row");
     await lane.browser("press", "ContextMenu");
     await lane.until("!!document.querySelector('[role=menuitem][data-value=recover]')");
     await lane.browser("click", "[role=menuitem][data-value=recover]");

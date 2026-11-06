@@ -39,7 +39,6 @@ it.each([[1280, 820], [1512, 950]])("u5119_partial_activity_rendered_%sx%s", { r
   };
 
   try {
-    await evaluate("document.querySelector('[data-todo-root]')?.click(); true");
     await settle();
     await browser("wait", "#shelf-tab-todos");
     await evaluate("(() => { const tab = document.querySelector('#shelf-tab-todos'); if (tab.getAttribute('aria-expanded') !== 'true') tab.click(); return true; })()");

@@ -1,12 +1,13 @@
 import { batch } from "solid-js";
 import * as v from "valibot";
-import { cleanup, fireEvent, render, screen, within } from "@solidjs/testing-library";
+import { cleanup, fireEvent, render, screen, within, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Requested } from "@contracts/project/Requested";
 import { createProjectDrafts } from "../state/connectedProject";
 import { RequestedApp as App } from "../testing/requestedApp";
 import { createFakeApp } from "../testing/fakeApp";
 import type { FakeApp } from "../testing/fakeApp";
+import { workstream } from "../testing/nodes";
 import { openRecovery, recoveryLabel } from "../testing/recovery";
 
 const FIRST = { name: "payments-api", path: "/Users/me/repos/payments-api" };
@@ -66,7 +67,8 @@ it("u3021a_recovery_lists_only_work_at_risk", async () => {
   failedSave(holder, { surface: "todos", object: "8", recipient: null }, { title: "  " });
   const app = mount(drafts);
   await within(await screen.findByLabelText("Projects", { selector: '[role="tablist"]' })).findByRole("tab", { name: FIRST.name });
-  fireEvent.contextMenu(await screen.findByRole("button", { name: /^Overview/ }), { clientX: 10, clientY: 10 });
+  await screen.findByLabelText("Rail", { selector: '[role="tree"]' });
+  fireEvent.contextMenu(document.querySelector(".rail-scroll")!, { clientX: 10, clientY: 10 });
   expect(app.shownMenus).toEqual([]);
 
   failedSave(holder, { surface: "todos", object: "9", recipient: null }, { title: "lost when closed" });
@@ -78,15 +80,22 @@ it("u3021a_recovery_lists_only_work_at_risk", async () => {
   expect(holder.list()).toHaveLength(2);
 });
 
-it("u3289c_overview_menu_opens_from_the_keyboard", async () => {
+it("u3289c_a_focused_row_menu_by_keyboard_holds_recovery", async () => {
   const drafts = createProjectDrafts();
+
   failedSave(drafts(FIRST.path), { surface: "todos", object: "9", recipient: null }, { title: "lost when closed" });
   const app = mount(drafts);
-  const overview = await screen.findByRole("button", { name: /^Overview/ });
 
-  overview.focus();
-  fireEvent.keyDown(overview, { key: "F10", shiftKey: true });
-  await vi.waitFor(() => expect(app.shownMenus.at(-1)?.items.map((item) => item.label)).toEqual(["Unfinished work (1)"]));
+  app.handlers["rail.tree"] = () => [workstream("home")];
+  await screen.findByLabelText("Rail", { selector: '[role="tree"]' });
+
+  const row = await waitFor(() => { const found = document.querySelector<HTMLElement>(".rail-row"); expect(found).not.toBeNull();
+
+ return found!; });
+
+  row.focus();
+  fireEvent.keyDown(row, { key: "ContextMenu", code: "ContextMenu" });
+  await waitFor(() => expect(app.shownMenus.at(-1)?.items.map((item) => item.label)).toContain("Unfinished work (1)"));
 });
 
 it("u3289a_left_or_crashed_input_qualifies", async () => {
@@ -97,7 +106,8 @@ it("u3289a_left_or_crashed_input_qualifies", async () => {
 
   holder.edit(destination, { title: "still typing" }, null, "ordinary");
   const app = mount(drafts);
-  fireEvent.contextMenu(await screen.findByRole("button", { name: /^Overview/ }), { clientX: 10, clientY: 10 });
+  await screen.findByLabelText("Rail", { selector: '[role="tree"]' });
+  fireEvent.contextMenu(document.querySelector(".rail-scroll")!, { clientX: 10, clientY: 10 });
   expect(app.shownMenus).toEqual([]);
 
   typing();
@@ -253,14 +263,13 @@ it("u3289c_overview_menu_opens_recovery", async () => {
   const drafts = createProjectDrafts();
   const holder = drafts(FIRST.path);
   const app = mount(drafts);
-  const overview = await screen.findByRole("button", { name: /^Overview/ });
+  await screen.findByLabelText("Rail", { selector: '[role="tree"]' });
 
   expect(await recoveryLabel()).toBeNull();
   expect(app.shownMenus).toEqual([]);
   failedSave(holder, { surface: "todos", object: "9", recipient: null }, { title: "lost when closed" });
   failedSave(holder, { surface: "todos", object: "10", recipient: null }, { title: "lost too" });
   expect(await recoveryLabel()).toBe("Unfinished work (2)");
-  fireEvent.click(overview);
   await openRecovery();
   expect(within(await screen.findByRole("region", { name: "Unfinished work" })).getAllByRole("listitem")).toHaveLength(2);
 });

@@ -47,12 +47,10 @@ const shelf: List = {
       const shelf = document.querySelector('.shelf');
       const tab = shelf.querySelector('#shelf-tab-todos');
       if (tab.getAttribute('aria-expanded') !== 'true') tab.click();
-      document.querySelector('.rail').querySelector('[data-todo-root]').click();
     }`);
     await page.until(`() => Boolean(document.querySelector('.shelf [data-shelf-group="unassigned"] [data-part="branch-control"]'))`);
     await page.call(`() => {
       const shelf = document.querySelector('.shelf');
-      document.querySelector('.rail').querySelector('[data-todo-root]').click();
       shelf.querySelector('[data-shelf-group="unassigned"] [data-part="branch-control"]')?.click();
     }`);
     await page.until(`() => document.querySelectorAll(".shelf .todo-list .todo-row-button").length > 2`);

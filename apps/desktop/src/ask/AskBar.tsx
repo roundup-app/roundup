@@ -1,7 +1,7 @@
 import "../ui/Row.css";
 import { createRowCollection, rowKey } from "../ui/RowCollection";
 import { Inbox } from "../inbox/Inbox";
-import { ChangeList } from "./ChangeList";
+import { AskRows } from "./AskRows";
 import { useDialog } from "@ark-ui/solid/dialog";
 import { Presence } from "@ark-ui/solid/presence";
 import { captureFocus, queueFocus } from "../keys/focus";
@@ -41,7 +41,7 @@ const mentionOf = (text: string): string | null => /^@(\S*)$/.exec(text)?.[1] ??
 
 const optionalViews = ["made"];
 
-/** U504: the Ask bar and its rows. The Project's home screen while the Rail selects no Workstream, and `⌘/` opens it over anything else; Escape closes that and returns focus. */
+/** U504, U6244c: the Ask bar and its rows. Only `⌘/` opens it, over whatever the centre shows; Escape closes it and returns focus. Requested lists show while nothing is selected. */
 
 export const AskBar = (props: {
   /** Change on the mounted owner to open one retained revision without reloading its readers.
@@ -54,8 +54,8 @@ export const AskBar = (props: {
   const { asks, rail, daemonExit, drafts } = connected;
   const deliverables = createDeliverables();
 
-  const [opening, setOpening] = createSignal<"home-focus" | "over" | null>(null);
-  const over = () => opening() === "over" || (opening() === "home-focus" && rail.selected() !== null);
+  const [opening, setOpening] = createSignal<"over" | null>(null);
+  const over = () => opening() === "over";
   const [selected, setSelected] = createSignal<string | null>(null);
   const destination = { surface: "ask", object: "ask-bar", recipient: null };
   const formSchema = v.object({ text: v.string(), workstream: v.optional(v.nullable(v.string())), name: v.optional(v.nullable(v.string())), recovered: v.optional(v.literal(true)) });
@@ -162,7 +162,6 @@ export const AskBar = (props: {
 
   let openingFocus = captureFocus();
   let selectedPane = false;
-  let homeFocus = false;
 
   const dialog = useDialog(() => ({
     open: over(), modal: false, trapFocus: true, preventScroll: false,
@@ -173,9 +172,7 @@ export const AskBar = (props: {
 
       return field;
     }),
-    finalFocusEl: () => homeFocus
-      ? selectedRailRow()
-      : selectedPane
+    finalFocusEl: () => selectedPane
       ? document.querySelector<HTMLElement>('.thread[data-mode="thread"] .thread-composer textarea:not(:disabled)')
         ?? document.querySelector<HTMLElement>(".pane-screen textarea")
         ?? selectedRailRow()
@@ -185,11 +182,12 @@ export const AskBar = (props: {
     onOpenChange: details => { if (!details.open) close(true); },
   }));
 
-  // With no Workstream at all the Pane's "New Workstream" is the way in, so home leaves it uncovered.
-  const shown = () => opening() !== null || rail.selected() === null || optionalViews.some(connected.hasView);
+  // Requested lists show with nothing selected; the Made list shows over any selection.
+  const listed = () => optionalViews.some(connected.hasView) || rail.selected() === null && (connected.hasView("attention") || connected.hasView("workstreams"));
+  const shown = () => over() || listed();
 
   createEffect(() => {
-    if (shown()) onCleanup(drafts.editor(destination));
+    if (over()) onCleanup(drafts.editor(destination));
   });
 
   asks.load();
@@ -210,17 +208,12 @@ export const AskBar = (props: {
     if (!list.some((item) => item.value === highlighted())) setHighlighted(list[0]?.value ?? null);
   });
 
-  /** At home the Ask input is part of the page, so Esc has no panel to close: it leaves the input for the Rail's selected row. */
-  const leaveHome = () => queueFocus(() => selectedRailRow()?.focus());
-
   const close = (restore: boolean): void => {
     if (optionalViews.some(connected.hasView)) optionalViews.forEach(connected.hideView);
     selectedPane = !restore;
     batch(() => { setOpening(null); setSelected(null); });
 
     if (field?.isConnected) restoreSelection(field);
-
-    if (restore && rail.selected() === null) leaveHome();
   };
 
   createEffect(() => { if (over() && modalOutside(panel)) close(false); });
@@ -228,7 +221,6 @@ export const AskBar = (props: {
   const open = (): void => {
     if (modalOpen()) return;
     selectedPane = false;
-    homeFocus = false;
     openingFocus = captureFocus(true);
     setOpening("over");
   };
@@ -312,13 +304,6 @@ export const AskBar = (props: {
       return;
     }
 
-    if (event.key === "Escape" && !over() && !event.isComposing) {
-      event.preventDefault();
-      leaveHome();
-
-      return;
-    }
-
     if (event.key !== "Enter" || event.shiftKey || event.isComposing) return;
 
     event.preventDefault();
@@ -330,10 +315,8 @@ export const AskBar = (props: {
 
   return (<>
     <Show when={shown()}>
-      <section {...(over() ? dialog().getContentProps() : {})} role={over() ? "dialog" : "region"} class="ask-bar" data-mode={over() ? "over" : "home"} aria-label={copy.askBarLabel} ref={(element) => { panel = element; }}
-        onFocusIn={(event) => { if (event.target === field && opening() === null && rail.workstreamCreating() && rail.selected() === null) { selectedPane = true; homeFocus = true; openingFocus = captureFocus(); setOpening("home-focus"); } }}
-        onFocusOut={(event) => { if (opening() === "home-focus" && rail.selected() === null && !(event.relatedTarget instanceof Node && panel?.contains(event.relatedTarget))) setOpening(null); }}>
-        <div class="ask-compose">
+      <section {...(over() ? dialog().getContentProps() : {})} role={over() ? "dialog" : "region"} class="ask-bar" data-mode={over() ? "over" : "home"} aria-label={copy.askBarLabel} ref={(element) => { panel = element; }}>
+        <Show when={over()}><div class="ask-compose">
         <Mentions.Root inputValue={text()} onDismiss={() => setDismissed(true)} items={matching()} highlightedValue={highlighted()} onHighlightChange={setHighlighted} onSelect={complete}>
           <Mentions.Field class="ask-input" ref={restoreSelection}
             rows={1} aria-label={copy.askBarLabel} placeholder={copy.askBarPlaceholder} value={text()} open={matching().length > 0}
@@ -394,8 +377,8 @@ export const AskBar = (props: {
         </Show>
         </ReservedLine>
         </div>
+        <AskRows keys={scope} onOpened={() => close(false)} /></Show>
         <Show when={!over()}>
-          <ChangeList ready={treeReady() && asks.loadState() !== "loading"} keys={scope} onOpened={() => close(false)} />
           <RequestedViews ready={treeReady()} deliverables={deliverables} />
         </Show>
       </section>

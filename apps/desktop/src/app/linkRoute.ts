@@ -2,7 +2,7 @@ import { linkCopy } from "./copy";
 import { projectKeyOf } from "./projectLink";
 import type { AppSeam } from "./seam";
 
-/** The Daemon's key for the Project at `path` (the Daemon names its Project folder so): its folder name, a dash and the first 16 hex digits of the SHA-256 of the path. `path` must already be canonical; a symlinked recent path does not match. */
+/** The Daemon's key for the Project at `path` (the Daemon names its Project folder so): its folder name, a dash and the first 16 hex digits of the SHA-256 of the path. `path` must already be canonical: the closed-Project lookup resolves a recent path with `canonicalProjectPath` first. */
 export const keyOfPath = async (path: string): Promise<string> => {
   const digest = new Uint8Array(await crypto.subtle.digest(linkCopy.keyDigest, new TextEncoder().encode(path)));
 

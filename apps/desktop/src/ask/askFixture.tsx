@@ -1,6 +1,7 @@
 // fallow-ignore-file duplicate-export -- press supplies Ask slash-key codes; switcherFixture supplies letter-key codes. Tests import each directly.
 import { createSignal, Show } from "solid-js";
-import { render } from "@solidjs/testing-library";
+import { expect } from "vitest";
+import { render, waitFor } from "@solidjs/testing-library";
 import type { Ask } from "@contracts/ask/Ask";
 import type { RailNode } from "@contracts/agent/RailNode";
 import { DrawerHost } from "../drawer/DrawerHost";
@@ -81,4 +82,19 @@ export const press = (key: string, init: KeyboardEventInit = {}, target: EventTa
   target.dispatchEvent(event);
 
   return event;
+};
+
+/** U6244c: only `⌘/` opens the Ask; the mounted bar starts closed, so tests open it as the user does. A press made before the App registers its keys is lost, so it is repeated until the Ask answers. */
+export const openAsk = async (): Promise<void> => {
+  for (let attempt = 0; attempt < 8; attempt++) {
+    press("/", { metaKey: true }, document.querySelector(".outside") ?? document.body);
+
+    try {
+      await waitFor(() => expect(input()).not.toBeNull(), { timeout: 250 });
+
+      return;
+    } catch { /* the keys were not registered yet */ }
+  }
+
+  await waitFor(() => expect(input()).not.toBeNull());
 };

@@ -1,3 +1,4 @@
+import { openAsk } from "../ask/askFixture";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { Event as DaemonEvent } from "@contracts/Event";
@@ -8,6 +9,7 @@ import { mountTodos, todo } from "../todos/testHarness";
 import { mountNavigation } from "../testing/navigationFixture";
 import { openProjectPage, projectMenu } from "../testing/menuProbe";
 import { info } from "../testing/nodes";
+import { copy } from "./copy";
 import { AskBar } from "../ask/AskBar";
 import { ConnectedProjectContext } from "../state/connectedProject";
 
@@ -169,8 +171,14 @@ it("u3770d_changes_do_not_close_or_move_the_open_row", async () => {
 });
 
 it("u3770d_the_needs_you_count_is_a_polite_live_region", async () => {
-  await mountInbox();
-  expect(document.querySelector(".change-list")!.getAttribute("aria-live")).toBe("polite");
+  const m = await mountInbox();
+  const live = panel().querySelectorAll("[aria-live]");
+  expect(live).toHaveLength(1);
+  expect(live[0]!.getAttribute("aria-live")).toBe("polite");
+  expect(live[0]!.getAttribute("aria-atomic")).toBe("true");
+  expect(live[0]!.textContent).toBe(copy.needYou(3));
+  await send(m, status("a", "working"));
+  await waitFor(() => expect(live[0]!.textContent).toBe(copy.needYou(2)));
 });
 
 it("u3770e_reduced_motion_makes_every_change_instant", async () => {
@@ -299,7 +307,7 @@ it("u3770a_comment_only_attention_opens_needs_you_without_marking_read", async (
 });
 
 
-it.each(["rail", "ask", "bench", "drawer", "agent-terminal", "shell-terminal", "empty-key", "empty-menu", "idle-key", "idle-menu", "menu"])("u3770e_inbox_route_opens_overview_needs_you_once: %s", async from => {
+it.each(["rail", "bench", "drawer", "agent-terminal", "shell-terminal", "empty-key", "empty-menu", "idle-key", "idle-menu", "menu"])("u3770e_inbox_route_opens_overview_needs_you_once: %s", async from => {
   const { connected, daemon, shells } = await mountNavigation(from.startsWith("empty"), 0, 1);
 
   if (from.startsWith("idle")) {
@@ -307,10 +315,13 @@ it.each(["rail", "ask", "bench", "drawer", "agent-terminal", "shell-terminal", "
     await connected().rail.refresh();
   }
 
+  await waitFor(() => expect(document.querySelector(from.startsWith("empty") ? ".rail-actions button" : '[role="treeitem"]')).not.toBeNull());
+  await openAsk();
   const ask = screen.getByLabelText("Ask", { selector: "textarea" });
   const draft = "  exact é 東京 🧭 draft  ";
   fireEvent.input(ask, { target: { value: draft } });
-  await waitFor(() => expect(document.querySelector(".changes")).not.toBeNull());
+  fireEvent.keyDown(ask, { key: "Escape", code: "Escape" });
+  await waitFor(() => expect(document.querySelectorAll('textarea[aria-label="Ask"]')).toHaveLength(0));
   connected().showView("made");
   await waitFor(() => expect(connected().hasView("made")).toBe(true));
   expect(connected().hasView("attention")).toBe(false);
@@ -332,8 +343,6 @@ it.each(["rail", "ask", "bench", "drawer", "agent-terminal", "shell-terminal", "
     connected().rail.select("home");
     fireEvent.keyDown(document.activeElement ?? document.body, { key: "t", code: "KeyT", metaKey: true });
   }
-
-  if (from === "ask") ask.focus();
 
   if (from.endsWith("terminal")) await waitFor(() => expect(document.activeElement?.hasAttribute("data-terminal")).toBe(true));
   const before = daemon.calls.length;
@@ -361,7 +370,13 @@ it.each(["rail", "ask", "bench", "drawer", "agent-terminal", "shell-terminal", "
 
     expect(connected().project.path).toBe("/p");
     expect(projectMenu.path).toBe("/p");
-    expect(screen.getByLabelText("Ask", { selector: "textarea" })).toHaveProperty("value", draft);
+
+    if (!document.querySelector(".ask-input")) await openAsk();
+    const reopened = screen.getByLabelText("Ask", { selector: "textarea" });
+
+    expect(reopened).toHaveProperty("value", draft);
+    fireEvent.keyDown(reopened, { key: "Escape", code: "Escape" });
+    await waitFor(() => expect(document.querySelector(".ask-input")).toBeNull());
     expect(daemon.calls.slice(before).filter(call => ["terminal.write", "ask.send", "agent.resume", "rail.startDoor", "agent.spawn"].includes(call.method))).toEqual([]);
   }
 });

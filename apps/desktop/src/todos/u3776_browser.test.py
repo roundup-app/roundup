@@ -42,7 +42,7 @@ arrive = r"""(async () => {
 def open_drawer():
     browser('open', origin + '/harness.html?seed=tree-40')
     browser('set', 'viewport', '1512', '950')
-    browser('wait', '--fn', 'Boolean(window.__fake && document.querySelector("[data-todo-root]"))')
+    browser('wait', '--fn', 'Boolean(window.__fake && document.querySelector(".rail-scroll"))')
     if evaluate("document.querySelector('.window').dataset.shelf === 'closed'"):
         browser('press', 'Meta+k')
         browser('wait', '.hint-line.leader')

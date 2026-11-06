@@ -18,7 +18,12 @@ it("u4454a_the_centre_has_no_time_timeline_or_back_to_ask", async () => {
   );
   await connected().rail.refresh();
   const draft = "  Keep this exact draft\nfor my original Project 🦉";
-  fireEvent.input(screen.getByRole("textbox", { name: "Ask" }), { target: { value: draft } });
+  const slash = () => fireEvent.keyDown(document.body, { key: "/", code: "Slash", metaKey: true });
+  slash();
+  const typing = await screen.findByRole("textbox", { name: "Ask" });
+  fireEvent.input(typing, { target: { value: draft } });
+  fireEvent.keyDown(typing, { key: "Escape", code: "Escape" });
+  await waitFor(() => expect(document.querySelectorAll('[role="textbox"][aria-label="Ask"]')).toHaveLength(0));
 
   for (const id of ["a0", "home", "stopped", null]) {
     connected().rail.select(id);
@@ -29,8 +34,8 @@ it("u4454a_the_centre_has_no_time_timeline_or_back_to_ask", async () => {
     }
   }
 
-  connected().rail.select("a0");
-  fireEvent.click(screen.getByRole("button", { name: /^Overview/ }));
+  connected().rail.select(null);
+  slash();
   const field = await screen.findByRole("textbox", { name: "Ask" });
 
   if (!(field instanceof HTMLTextAreaElement)) throw new Error("Ask must be editable");
@@ -82,10 +87,6 @@ it.each(["success", "refused"])("u4355_close_keeps_pending_import: %s", async ou
   fireEvent.click(back);
   fireEvent.keyDown(back, { key: "Enter", code: "Enter" });
   fireEvent.keyDown(region, { key: "Escape", code: "Escape" });
-  // U4453b uses the same pending-import guard through both new return paths.
-  fireEvent.keyDown(document.body, { key: "k", code: "KeyK", metaKey: true });
-  fireEvent.keyDown(document.body, { key: "a", code: "KeyA" });
-  fireEvent.click(screen.getByRole("button", { name: /^Overview/ }));
   expect(screen.getByRole("region", { name: "Import Claude Code" })).toBe(region);
   expect(connected().importing.pending()).toBe(true);
   expect(connected().rail.selected()).toBe("a0");

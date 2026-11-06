@@ -54,7 +54,7 @@ it.skipIf(!captureDir("U4277c")).each(["tree-40", "tabs-8"].flatMap(seed =>
         await lane.browser("record", "start", join(dir, `${view}-${filled ? "filled" : "empty"}.webm`), `${origin}/harness.html?view=workstreams&seed=${captureSeed}`);
         recording = true;
 
-        await lane.until(seed === "tabs-8" ? "!!window.__fake && document.querySelectorAll('.project-tab').length === 8" : "!!window.__fake && !!document.querySelector('[data-todo-root]')");
+        await lane.until(seed === "tabs-8" ? "!!window.__fake && document.querySelectorAll('.project-tab').length === 8" : "!!window.__fake && !!document.querySelector('.rail-scroll')");
         await lane.browser("set", "viewport", "1512", "950");
         await lane.browser("set", "media", "dark");
 
@@ -65,7 +65,6 @@ it.skipIf(!captureDir("U4277c")).each(["tree-40", "tabs-8"].flatMap(seed =>
           await lane.until("document.querySelector('.project-tab[data-path=\"/Users/you/project-number-2\"] [role=tab]')?.getAttribute('aria-selected') === 'true' && !!document.querySelector('.ask-bar')");
         }
 
-        await lane.browser("click", "[data-todo-root]");
         await lane.until("!!document.querySelector('.ask-bar')");
 
         await lane.evaluate(`window.__fake.app.projects().then(projects => {window.__auditPath = projects[${seed === "tabs-8" ? 1 : 0}].path; window.__fake.app = window.__fake.app.of(window.__auditPath); return true;})`);
@@ -119,13 +118,14 @@ it.skipIf(!captureDir("U4277c")).each(["tree-40", "tabs-8"].flatMap(seed =>
 
         // U4274b/c: Rail and Terminal navigation are primary; their visibility commands were retired.
         if (view === "ask-history") {
-          // The Overview list is the centre view; nothing to open.
+          // U6244: the Ask list lives in the Ask bar; open it with ⌘/.
+          await lane.browser("press", "Meta+/");
         } else if (view !== "workstreams" && view !== "terminal-tabs") await command(view === "import-work" ? view : `view:${view}`);
-        const selector = {"ask-history":".changes",made:".ask-bar",resources:".resource-inspection",workstreams:".rail","terminal-tabs":".terminal-tabs","import-work":".import-panel"}[view];
+        const selector = {"ask-history":".ask-bar",made:".ask-bar",resources:".resource-inspection",workstreams:".rail","terminal-tabs":".terminal-tabs","import-work":".import-panel"}[view];
         await lane.until(view === "terminal-tabs" && !filled ? "!document.querySelector('.terminal-tab')" : `!!document.querySelector('${selector}')`);
         expect((await lane.calls()).filter(call => ["agent.spawn", "rail.startDoor", "ask.send", "terminal.write", "project.importCommit"].includes(call.method))).toEqual([]);
 
-        if (view === "ask-history") await lane.until(filled ? "!!document.querySelector('.ask-row')" : "!!document.querySelector('.changes .overview-quiet')");
+        if (view === "ask-history") await lane.until(filled ? "!!document.querySelector('.ask-row')" : "!!document.querySelector('.ask-bar')");
 
         if (view === "made") await lane.until("document.querySelector('.made')?.getAttribute('aria-busy') === 'false'");
 

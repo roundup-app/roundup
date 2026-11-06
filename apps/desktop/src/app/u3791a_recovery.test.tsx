@@ -37,7 +37,8 @@ it("u3791a_reconnected_project_refetches", async () => {
   app.handlers["rail.tree"] = () => [node("old", { name: "Old work" })];
   render(() => <App app={app} reducedMotion={() => true} clock={() => 0} />);
   await screen.findByText("Old work");
-  const input = screen.getByRole("textbox", { name: "Ask" });
+  fireEvent.keyDown(document.body, { key: "/", code: "Slash", metaKey: true });
+  const input = await screen.findByRole("textbox", { name: "Ask" });
   fireEvent.input(input, { target: { value: "Exact draft  🌿\nnext line  " } });
   const reads = ["rail.tree", "terminal.list", "todo.list", "pad.list"];
   const before = reads.map(method => app.calls.filter(call => call.method === method).length);
@@ -46,9 +47,11 @@ it("u3791a_reconnected_project_refetches", async () => {
   app.exitDaemon({ code: 1, recovery: "connecting" });
   await screen.findByText("New work");
   await waitFor(() => reads.forEach((method, index) => expect(app.calls.filter(call => call.method === method).length).toBeGreaterThan(before[index]!)));
-  expect(screen.queryByText("Old work")).toBeNull();
+  expect(document.querySelector('.rail-row[data-id="old"]')).toBeNull();
   expect(app.subscribed).toHaveLength(2);
-  expect(screen.getByRole("textbox", { name: "Ask" })).toHaveProperty("value", "Exact draft  🌿\nnext line  ");
+
+  if (!screen.queryByRole("textbox", { name: "Ask" })) fireEvent.keyDown(document.body, { key: "/", code: "Slash", metaKey: true });
+  expect(await screen.findByRole("textbox", { name: "Ask" })).toHaveProperty("value", "Exact draft  🌿\nnext line  ");
   expect(app.calls.filter(call => /^(agent\.(spawn|stop|prompt)|terminal\.(write|resize)|message\.send)$/.test(call.method))).toEqual([]);
 });
 

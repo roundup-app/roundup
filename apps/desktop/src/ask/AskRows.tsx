@@ -32,10 +32,6 @@ const STATE_WORDS: Record<AskPart["state"], string> = {
 const isUnresolved = (asks: ReturnType<typeof useConnectedProject>["asks"], entry: AskEntry, index: number, part: AskPart) =>
   part.state !== "dropped" && !asks.acknowledged(entry, index);
 
-/** U504: the Ask parts that stay in the change list: not dropped and not yet acknowledged by a view of their Terminal. */
-export const unresolvedParts = (asks: ReturnType<typeof useConnectedProject>["asks"]) =>
-  asks.entries().flatMap(entry => entry.parts.flatMap((part, index) => isUnresolved(asks, entry, index, part) ? [{ entry, part, index }] : []));
-
 /** U505, U506: one row for each part of each Ask, newest first. */
 export const AskRows = (props: { onOpened: () => void; keys: KeyScope }) => {
   const { asks, rail } = useConnectedProject();

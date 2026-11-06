@@ -33,8 +33,7 @@ it.each([true, false].flatMap(base => [1280, 1512].map(width => ({base, width}))
     await browser("set", "viewport", String(width), width === 1280 ? "820" : "950");
     await wait(`innerWidth === ${width} && innerHeight === ${width === 1280 ? 820 : 950}`);
     await browser("set", "media", "dark");
-    await wait("window.__fake && document.querySelector('[data-todo-root]')");
-    await browser("eval", "document.querySelector('[data-todo-root]').click()");
+    await wait("window.__fake && document.querySelector('.rail-scroll')");
     await browser("eval", `(async () => {
       const rpc = window.__fake.app.rpc;
       const blockers = [];
