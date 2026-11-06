@@ -334,7 +334,7 @@ async fn a5717b_surviving_attempt_without_input_keeps_waiting() {
         .unwrap();
 }
 
-// A5717c: durable authorization belongs only to the surviving Attempt, including on restart.
+// A5717c, U6260b: an explicit resume or restart of a conversation that had input stays admitted.
 #[tokio::test]
 async fn a5717c_explicit_resume_and_restart_require_fresh_input() {
     for restart_live in [false, true] {
@@ -356,25 +356,13 @@ async fn a5717c_explicit_resume_and_restart_require_fresh_input() {
         assert_ne!(run.attempt, earlier);
         run.ready().await;
         run.idle_edge().await;
+        // U6260b: the conversation had the user's input, so the resume stays admitted.
         let ids = run.automatic(0).await;
-        assert!(run.entries().is_empty());
-        for id in ids {
-            assert_eq!(run.status(id).await.0, "pending");
-        }
-        let user = run
-            .user
-            .request(
-                "message.send",
-                json!({"to":run.child,"kind":"note","body":"fresh request"}),
-            )
-            .await
-            .unwrap();
-        let id = user["id"].as_u64().unwrap() as u32;
-        until("fresh explicit input", async || {
-            (!run.entries().is_empty()).then_some(())
+        let expected: Vec<String> = ids.iter().map(|id| format!("rup-{id}")).collect();
+        until("automatic input after resume", async || {
+            (run.entries() == expected).then_some(())
         })
         .await;
-        assert_eq!(run.entries()[0], format!("rup-{id}"));
         run.user
             .request("agent.stop", json!({"id":run.child}))
             .await

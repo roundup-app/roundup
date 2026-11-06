@@ -269,10 +269,14 @@ impl Shared {
             return Err(err);
         }
         let clock = Arc::clone(&self.clock);
+        // U6260b: a resume continues the conversation, so input it already received stays
+        // admitted; a retained order alone is not input (A5556a).
+        let continued =
+            old.as_ref().is_some_and(|old| old.input_started) || self.owner_input_started(id);
         let mut run = Run {
             yolo: mode == contracts::agent::ResumeMode::Yolo,
             startup_context: true,
-            input_started: prompt.is_some(),
+            input_started: prompt.is_some() || continued,
             attempt: attempt.clone(),
             status_revision: 1,
             closing: false,
