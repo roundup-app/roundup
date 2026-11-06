@@ -94,6 +94,16 @@ run("u6239 Project tab drag", () => {
     await page.until(`() => document.querySelectorAll('.app-tabs-list .project-tab').length >= 6`);
     await new Promise(resolve => setTimeout(resolve, 1000));
 
+    // Narrow the window until the strip overflows, then size it to about four of the tabs at their narrowest, so no tab width in the CSS decides whether a tab can reach the strip's start.
+    const measure = () => page.call<{ strip: number; tab: number }>(`() => ({ strip: document.querySelector('.app-tabs-list').clientWidth, tab: document.querySelectorAll('.app-tabs-list .project-tab')[3].getBoundingClientRect().width })`);
+
+    await page.resize(600, 950);
+    await new Promise(resolve => setTimeout(resolve, 600));
+    const narrow = await measure();
+
+    await page.resize(Math.round(600 - narrow.strip + narrow.tab * 4), 950);
+    await new Promise(resolve => setTimeout(resolve, 600));
+
     // Scroll the strip so the fourth tab is cut by the start edge, and grab it by the part still showing.
     await page.call(`() => {
       const list = document.querySelector('.app-tabs-list');
