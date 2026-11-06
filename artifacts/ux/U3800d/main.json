@@ -1,84 +1,80 @@
 {
   "label": "main",
-  "chromium": "156.0.8078.0 headless",
+  "chromium": "headless",
   "viewport": "1512x950 dark",
   "seed": "tree-40",
   "drops": [
     {
       "drop": 1,
-      "longest_task_ms": 517.4,
-      "release_to_end_ms": 878.1
+      "moved": true,
+      "moves": 1,
+      "longest_task_ms": 276,
+      "press_to_next_paint_ms": 28.4
     },
     {
       "drop": 2,
-      "longest_task_ms": 537.1,
-      "release_to_end_ms": 886.2
+      "moved": true,
+      "moves": 2,
+      "longest_task_ms": 173,
+      "press_to_next_paint_ms": 23.3
     },
     {
       "drop": 3,
-      "longest_task_ms": 466.4,
-      "release_to_end_ms": 819.1
+      "moved": true,
+      "moves": 3,
+      "longest_task_ms": 206,
+      "press_to_next_paint_ms": 22.6
     },
     {
       "drop": 4,
-      "longest_task_ms": 477.4,
-      "release_to_end_ms": 833.7
+      "moved": true,
+      "moves": 4,
+      "longest_task_ms": 178,
+      "press_to_next_paint_ms": 21.1
     },
     {
       "drop": 5,
-      "longest_task_ms": 473.9,
-      "release_to_end_ms": 827.3
+      "moved": true,
+      "moves": 5,
+      "longest_task_ms": 214,
+      "press_to_next_paint_ms": 22.5
     },
     {
       "drop": 6,
-      "longest_task_ms": 468.4,
-      "release_to_end_ms": 863.5
+      "moved": true,
+      "moves": 6,
+      "longest_task_ms": 169,
+      "press_to_next_paint_ms": 34.6
     },
     {
       "drop": 7,
-      "longest_task_ms": 471.6,
-      "release_to_end_ms": 828.8
+      "moved": true,
+      "moves": 7,
+      "longest_task_ms": 211,
+      "press_to_next_paint_ms": 22.5
     },
     {
       "drop": 8,
-      "longest_task_ms": 463.3,
-      "release_to_end_ms": 812
+      "moved": true,
+      "moves": 8,
+      "longest_task_ms": 171,
+      "press_to_next_paint_ms": 21.3
     },
     {
       "drop": 9,
-      "longest_task_ms": 446.1,
-      "release_to_end_ms": 802.3
+      "moved": true,
+      "moves": 9,
+      "longest_task_ms": 212,
+      "press_to_next_paint_ms": 21.2
     },
     {
       "drop": 10,
-      "longest_task_ms": 467.7,
-      "release_to_end_ms": 823.6
+      "moved": true,
+      "moves": 10,
+      "longest_task_ms": 183,
+      "press_to_next_paint_ms": 29.9
     }
   ],
-  "max_longest_task_ms": 537.1,
-  "press_to_next_paint_ms": [
-    17.1,
-    23,
-    19.3,
-    30.4,
-    27,
-    33.9,
-    25.3,
-    42.3,
-    23,
-    30.6
-  ],
-  "max_press_to_next_paint_ms": 42.29999999993015,
-  "event_timing_entries_over_16ms": [
-    40,
-    32,
-    32,
-    40,
-    32,
-    40,
-    40,
-    48,
-    32,
-    40
-  ]
+  "max_longest_task_ms": 276,
+  "max_press_to_next_paint_ms": 34.6
 }
