@@ -262,7 +262,16 @@ const translateOf = (element: Element) => {
 const glide = (element: HTMLElement, to: { x: number; y: number }, duration: number, easing: string) => {
   const rect = element.getBoundingClientRect();
   const from = translateOf(element);
-  const animation = element.animate({ translate: [`${from.x}px ${from.y}px 0`, `${from.x + to.x - rect.x}px ${from.y + to.y - rect.y}px 0`] }, { duration, easing, fill: "forwards" });
+  const target = `${from.x + to.x - rect.x}px ${from.y + to.y - rect.y}px 0`;
+
+  // Reduced motion lands at once.
+  if (!duration) {
+    element.style.translate = target;
+
+    return Promise.resolve();
+  }
+
+  const animation = element.animate({ translate: [`${from.x}px ${from.y}px 0`, target] }, { duration, easing, fill: "forwards" });
 
   return new Promise<void>(resolve => { animation.onfinish = () => resolve(); animation.oncancel = () => resolve(); });
 };
@@ -544,7 +553,7 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
 
   const settle: DropAnimationFunction = async ({ source, feedbackElement, element, placeholder }) => {
     const held = commit;
-        const duration = reduced() ? 0 : reorderMs(document.documentElement);
+    const duration = reduced() ? 0 : reorderMs(document.documentElement);
     const easing = getComputedStyle(document.documentElement).getPropertyValue("--easing-out").trim();
     const home = () => (placeholder?.isConnected ? placeholder : element).getBoundingClientRect();
 
