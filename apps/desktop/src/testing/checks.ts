@@ -778,7 +778,8 @@ const d16 = (page: Page): Measure => {
 
 // D14: no row is a card, gaps within each list are equal space steps, and no title shows more than two lines or overflows its row.
 const d14 = (page: Page): Measure => {
-  const rows = shelfRows(page);
+  // A lifted row floats over its neighbours (M6); its in-flow placeholder holds its place in the list.
+  const rows = shelfRows(page).filter(({ row }) => !row.matches("[data-dnd-dragging]"));
 
   if (rows.length === 0) return { ok: true, value: "no Shelf row", selector: "" };
 
