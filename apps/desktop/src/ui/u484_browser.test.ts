@@ -153,7 +153,7 @@ it("u3800a_one_drag_fixture", async () => {
   await load();
   await drag("A", "C");
   await browser("wait", "--fn", `document.querySelector('.sortable-fixture').dataset.sortableIndex === '2'`);
-  // The library's own placeholder is the gap, so the held row sits in its new place while the pointer is down.
+  // The library's own placeholder is the gap, so the lifted row sits in its new place while the pointer is down.
   expect(await order()).toEqual(['B', 'C', 'A']);
   await browser("press", "Escape");
   await browser("mouse", "up");
