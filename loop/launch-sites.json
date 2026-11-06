@@ -909,5 +909,10 @@
     "cleanup": "In-process test runtime owns the Daemon and its served socket; the TempDir project is removed on drop; no built executable launch.",
     "data": "daemon_with_clock receives an explicit TempDir path; the socket lives under that project; no production fallback resolver.",
     "kind": "in-process"
+  },
+  "crates/rupd/tests/z6395b_agent_catch_up.rs": {
+    "cleanup": "The shared rupd_harness kills and reaps its Daemon before deleting its owned data TempDir.",
+    "data": "Calls the audited support/rupd_harness.rs; it supplies a canonical absolute ROUNDUP_DATA_DIR in a fresh owned TempDir and removes inherited App data redirection.",
+    "kind": "reference"
   }
 }
