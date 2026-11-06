@@ -88,7 +88,7 @@ const toolbarCommands = [
 const normalHeading = (text: string) => text.replace(/^#+/, "").split(/\s+/).filter(Boolean).join(" ").toLowerCase();
 
 /** U147: the Pad's one surface. `readonly` prevents editing unavailable content; `onChange` fires on every document change the user makes, `onText` follows with the settled Markdown. */
-export default function PadRichEditor(props: {
+type EditorProps = {
   item?: "pad" | "todo";
   autofocus?: boolean;
   label?: string;
@@ -101,7 +101,16 @@ export default function PadRichEditor(props: {
   onReady: (editor: PadEditorHandle) => void;
   toolbar?: import("solid-js").JSX.Element;
   onSelection?: () => void;
-}) {
+};
+
+/** U6249d E2: an editor that fails to open is mounted once more before its failure shows; a save is a mutation and never repeats. */
+export default function PadRichEditor(props: EditorProps) {
+  const [attempt, setAttempt] = createSignal(0);
+
+  return <Show when={[attempt()]} keyed>{([count]) => <MountedEditor {...props} remount={count === 0 ? () => setAttempt(1) : undefined} />}</Show>;
+}
+
+function MountedEditor(props: EditorProps & { remount: (() => void) | undefined }) {
   const mountExpand = useContext(DrawerExpandContext);
   const [toolbarHost, setToolbarHost] = createSignal<HTMLElement>();
   const menuId = createUniqueId();
@@ -609,7 +618,10 @@ export default function PadRichEditor(props: {
         },
       });
     }).catch((error) => {
-      if (!closed) setFailure(error instanceof Error ? error.message : String(error));
+      if (closed) return;
+
+      if (props.remount) props.remount();
+      else setFailure(error instanceof Error ? error.message : String(error));
     });
   });
 

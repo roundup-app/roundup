@@ -1,7 +1,7 @@
 import { applied } from "../app/pending";
 import { currentOwner } from "../state/rail";
 import { appDark } from "../settings/preferences";
-import { outcomeOf } from "../app/seam";
+import { outcomeOf, retryRead } from "../app/seam";
 import { queueFocus, returnFocus } from "../keys/focus";
 import { writeText } from "../app/clipboard";
 import { CopyButton } from "../ui/CopyButton";
@@ -254,9 +254,10 @@ export const Capture = (props: { onFile: (() => void) | undefined; onNativeOpen?
   if (port) {
     let stopped = false;
     const stops: (() => void)[] = [];
-    const own = (subscription: Promise<() => void>) => void subscription.then(stop => { if (stopped) stop(); else stops.push(stop); }).catch(error => setFailure(String(error)));
-    own(port.onRequested(nativeShow));
-    own(port.onAction(action => {
+    // U6249d F6: a subscription is a read; the seam retries it, and the user cannot act on its exhaustion, so the App log holds the cause.
+    const own = (subscribe: () => Promise<() => void>) => void retryRead(subscribe).then(stop => { if (stopped) stop(); else stops.push(stop); }).catch(error => console.warn(copy.captureOff(String(error))));
+    own(() => port.onRequested(nativeShow));
+    own(() => port.onAction(action => {
       if (!nativeOpen()) return;
 
       if (action.kind === "ready") {
