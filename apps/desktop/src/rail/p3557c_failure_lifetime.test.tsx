@@ -1,12 +1,8 @@
 import { RpcError } from "../app/seam";
-import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
+import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
-import type { Pad } from "@contracts/pad/Pad";
 import { answerQuestion } from "../shelf/bulkQuestionHarness";
-import { todo } from "../todos/testHarness";
-import { agent, event } from "../testing/nodes";
-import { todoHandlers } from "../testing/stores";
-import type { TodoStore } from "../testing/stores";
+import { agent } from "../testing/nodes";
 import { mountRail, rowOf } from "./railFixture";
 import { fakeEmulators } from "../terminal/paneHarness";
 
@@ -15,8 +11,6 @@ afterEach(cleanup);
 const REFUSED = "daemon said no";
 
 const refuse = () => { throw new RpcError(-32003, REFUSED); };
-
-const owned = (name: string, by: string): Pad => ({ incarnation: `fixture-${name}`, name, text: "old", updated_at: 0, revision: 1, home: null });
 
 /** Row `a` fails to remove; the Rail's line is the failure. */
 const failedRemove = async (pane = false) => {
