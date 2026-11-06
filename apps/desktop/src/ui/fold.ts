@@ -63,9 +63,11 @@ export function foldMotion(doc: Document, reduced: Accessor<boolean>, { animate,
       reduced();
       const tokens = getComputedStyle(doc.documentElement);
 
-      const read = (name: string) => { const value = tokens.getPropertyValue(name).trim();
+      const read = (name: string) => {
+        const value = tokens.getPropertyValue(name).trim();
 
- return parseFloat(value) / (value.endsWith("ms") ? 1000 : 1); };
+        return parseFloat(value) / (value.endsWith("ms") ? 1000 : 1);
+      };
 
       seconds = read("--duration-reorder");
       fade = read("--duration-reduced");

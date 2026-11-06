@@ -31,9 +31,11 @@ const surfaces = () => (
         </TreeView.Branch></TreeView.NodeProvider>
       </TreeView.Tree>
     </TreeView.Root>
-    {(() => { const [open, setOpen] = createSignal(false);
+    {(() => {
+      const [open, setOpen] = createSignal(false);
 
- return <button type="button" aria-expanded={open()} onClick={() => setOpen(!open())}>Plain</button>; })()}
+      return <button type="button" aria-expanded={open()} onClick={() => setOpen(!open())}>Plain</button>;
+    })()}
   </>
 );
 
