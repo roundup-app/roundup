@@ -44,6 +44,48 @@ it("u6283a_scroll_does_no_own_work", async () => {
   host.remove();
 });
 
+it("u6283a_resize_fits_once", async () => {
+  const { emulator, host } = await shown();
+  const fit = vi.spyOn(FitAddon.prototype, "fit");
+
+  vi.spyOn(FitAddon.prototype, "proposeDimensions").mockReturnValue({ cols: 37, rows: 11 });
+  emulator.fit();
+
+  expect(fit).toHaveBeenCalledTimes(1);
+  expect(emulator.serialize().cols).toBe(37);
+  emulator.dispose();
+  host.remove();
+});
+
+it("u6283a_view_work_once_per_frame", async () => {
+  const { emulator, terminal, host } = await shown();
+  const renders = vi.fn();
+
+  terminal.onRender(renders);
+  terminal.refresh(0, terminal.rows - 1);
+  await vi.waitFor(() => expect(renders).toHaveBeenCalled());
+  await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+
+  const proposed = vi.spyOn(FitAddon.prototype, "proposeDimensions");
+  const flags = vi.spyOn(terminal.element!.parentElement!, "toggleAttribute");
+
+  renders.mockClear();
+
+  for (let event = 0; event < 50; event += 1) {
+    terminal.scrollLines(event % 2 === 0 ? -1 : 1);
+    terminal.refresh(0, terminal.rows - 1);
+  }
+
+  await vi.waitFor(() => expect(renders).toHaveBeenCalled());
+  await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+  expect(renders.mock.calls.length).toBeLessThanOrEqual(2);
+  // The view is the same, so the pass writes and fits nothing.
+  expect(flags).not.toHaveBeenCalled();
+  expect(proposed).not.toHaveBeenCalled();
+  emulator.dispose();
+  host.remove();
+});
+
 it("u6283a_shown_scrollbar_gets_no_new_timer", async () => {
   const { showScrollbars } = await import("../scrollHover");
 
