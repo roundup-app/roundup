@@ -179,8 +179,6 @@ export const AskBar = (props: {
       : null,
     // Background layers may close while Ask remains the newer focus owner.
     onRequestDismiss: event => event.preventDefault(),
-    // An open Project list takes its own Escape and closes alone.
-    onEscapeKeyDown: event => { if (document.querySelector(".ask-chips [aria-expanded=true]")) event.preventDefault(); },
     onOpenChange: details => { if (!details.open) close(true); },
   }));
 

@@ -25,6 +25,8 @@ export const createProjectPick = (from: {
   const [placed, setPlaced] = createSignal<{ text: string; parts: readonly PlacedPart[] } | null>(null);
   const [pick, setPick] = createSignal<Readonly<Record<number, string>>>({});
   const picked = () => Object.keys(pick()).length > 0;
+  /** The text and part count a pick was made against; picks keyed to several parts do not outlive an edit of that text. */
+  let pickedOn: { text: string; count: number } | null = null;
   const shown = () => from.projects().length >= 2 && !from.named();
   let inflight = false;
   let later: string | null = null;
@@ -55,6 +57,8 @@ export const createProjectPick = (from: {
 
     if (value.trim() === "") return setPick({});
 
+    if (picked() && pickedOn && pickedOn.count > 1 && value !== pickedOn.text) setPick({});
+
     if (shown() && !picked()) pause(value);
   });
 
@@ -71,7 +75,10 @@ export const createProjectPick = (from: {
       return parts.map((part, index) => ({ text: part.text, project: pick()[index] ?? (part.placement.kind === "unclear" ? undefined : part.placement.project) ?? from.active }));
     },
     /** One part's pick: only that part's chip changes and sends. */
-    pick: (index: number, project: string): void => { setPick(picks => ({ ...picks, [index]: project })); },
+    pick: (index: number, project: string): void => {
+      pickedOn = { text: from.text(), count: (placed()?.text === from.text() ? placed()!.parts.length : 1) };
+      setPick(picks => ({ ...picks, [index]: project }));
+    },
     /** What the send adds to its request: the owner's Project, else the parts already placed for exactly this text. */
     request: (): Pick<SendParams, "project" | "parts"> => {
       const picks = pick();
@@ -83,6 +90,6 @@ export const createProjectPick = (from: {
 
       return { parts: parts.map((part, index): PlacedPart => picks[index] === undefined ? part : { text: part.text, placement: { kind: "new", title: part.text, project: picks[index] } }) };
     },
-    clear: (): void => { setPick({}); setPlaced(null); },
+    clear: (): void => { pickedOn = null; setPick({}); setPlaced(null); },
   };
 };

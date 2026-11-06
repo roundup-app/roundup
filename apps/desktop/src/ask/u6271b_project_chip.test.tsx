@@ -80,6 +80,7 @@ describe("u6271b the Project chip", () => {
     fireEvent.pointerUp(choice, { pointerType: "mouse", button: 0 });
     fireEvent.click(choice);
     await waitFor(() => expect(chosen()).toBe("other"));
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("combobox", { name: "Project" })));
     enter();
     await waitFor(() => expect(sent).toHaveLength(1));
     expect(sent[0]).toMatchObject({ text: "ship it", project: "other" });
@@ -120,9 +121,36 @@ describe("u6271b the chip's list", () => {
     fireEvent.click(await chip());
     const choice = await screen.findByRole("option", { name: "other" });
 
+    await new Promise(resolve => setTimeout(resolve, 100));
     press("Escape", {}, choice);
     await new Promise(resolve => setTimeout(resolve, 100));
     expect(() => screen.getByRole("dialog", { name: "Ask" })).not.toThrow();
+  });
+});
+
+describe("u6271b the chip and the send agree", () => {
+  it("u6271b_editing_after_a_part_pick_sends_what_the_chip_shows", async () => {
+    const { app, sent } = await setup();
+
+    app.handlers["ask.place"] = () => [
+      { text: "fix login", placement: { kind: "routed", workstream: "w1", project: "p" } },
+      { text: "pay invoices", placement: { kind: "routed", workstream: "w9", project: "p" } },
+    ] satisfies PlacedPart[];
+    type("fix login. pay invoices");
+    fireEvent.click(await screen.findByRole("combobox", { name: "Project for pay invoices" }, slow));
+    const choice = await screen.findByRole("option", { name: "other" });
+    fireEvent.pointerDown(choice, { pointerType: "mouse", button: 0 });
+    fireEvent.pointerUp(choice, { pointerType: "mouse", button: 0 });
+    fireEvent.click(choice);
+    await waitFor(() => expect([...document.querySelectorAll<HTMLSelectElement>(".ask-chips select")].map(select => select.value)).toEqual(["p", "other"]));
+    type("fix login. pay invoices today");
+    await waitFor(() => expect(document.querySelectorAll(".ask-chips select")).toHaveLength(1));
+    const shown = chosen();
+    enter();
+    await waitFor(() => expect(input()!.value).toBe(""));
+    await new Promise(resolve => setTimeout(resolve, 100));
+    expect(shown).toBe("p");
+    expect(sent).toEqual([]);
   });
 });
 
