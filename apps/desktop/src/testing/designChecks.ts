@@ -69,6 +69,44 @@ export function rowCueCheck(doc: Document, rules: CSSStyleRule[]) {
   return result({ rows: rows.length, cue: "one selected wash; Kind ink retained" });
 }
 
+/** U6387b: a state selector that matches a tab sets no size, spacing or font property that differs from the tab's rest state. */
+export function tabStateCheck(doc: Document, rules: CSSStyleRule[]) {
+  const tabs = [...doc.querySelectorAll('.project-tab, .terminal-tab-pair, [data-flat-tab], .settings-sections .app-tabs-trigger')];
+  const stateTest = /\[data-(?:selected|open)(?:="true")?\]|:hover|:focus-visible|:focus-within|:focus/;
+  const state = new RegExp(stateTest.source, "g");
+
+  const properties = ["width", "min-width", "max-width", "padding", "padding-left", "padding-right", "padding-inline", "margin", "margin-left", "margin-right", "margin-inline", "gap", "border-width", "border-left-width", "border-right-width", "border-top-width", "border-bottom-width", "font-weight", "font-size", "letter-spacing"];
+  const reset = new Set(["0", "0px", "none", "unset", "inherit", "revert", "initial"]);
+  const matches = (el: Element, selector: string) => { try { return el.matches(selector); } catch { return false; } };
+
+  for (const rule of rules) {
+    if (!stateTest.test(rule.selectorText)) continue;
+
+    for (const part of rule.selectorText.split(",")) {
+      if (!stateTest.test(part)) continue;
+      const selector = part.replace(state, ":where(*)");
+      const tab = tabs.find(el => matches(el, selector));
+
+      if (!tab) continue;
+
+      for (const property of properties) {
+        const value = rule.style.getPropertyValue(property);
+
+        if (!value) continue;
+
+        // The flat tab's selected borders are balanced by two spacers on every other tab (flat-tab.styles.css), so its footprint holds.
+        if (property.startsWith("border") && tab.matches("[data-flat-tab]")) continue;
+        const restRule = rules.filter(other => !stateTest.test(other.selectorText) && matches(tab, other.selectorText) && other.style.getPropertyValue(property)).pop();
+        const rest = restRule?.style.getPropertyValue(property) ?? "";
+
+        if (value !== rest && !(rest === "" && reset.has(value))) return result({ cue: property, rule: rule.selectorText }, nameOf(tab), false);
+      }
+    }
+  }
+
+  return result({ rows: tabs.length, cue: "a tab's box and name hold at rest, open, hover and focus" });
+}
+
 /** U131 horizontal inset; U86 delegates optical x-height centring to the critic. */
 export function rowAlignmentCheck(doc: Document) {
   const view = doc.defaultView!;

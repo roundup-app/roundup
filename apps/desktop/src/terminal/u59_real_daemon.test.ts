@@ -82,7 +82,7 @@ run("u59 on the real Daemon", () => {
       expect(await read<string>("window.__emu.selection()")).toBe("");
       await page.doubleClick(from.x + 20, from.y);
       expect(await read<string>("window.__emu.selection()")).not.toBe("");
-      await click(".window-title");
+      await click(".traffic-lights");
       expect(await read<string>("window.__emu.selection()")).toBe("");
     } finally {
       await selectionDaemon.stop();

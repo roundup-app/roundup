@@ -13,12 +13,16 @@ export const createRailDrag = (rail: ConnectedProject["rail"], container: () => 
   /** The row a keyboard lift began on: the library returns focus only to a handle, and the whole row is the Rail's. */
   let liftedRow: string | null = null;
 
-  const pointerOutside = () => {
+  /** Whether the release fell outside the Rail, kept from `pointerup` until the next press or key: the move runs after the drop's glide, when the pointer may be elsewhere. */
+  let released: boolean | null = null;
+
+  const outside = (point: { x: number; y: number }) => {
     const box = container()?.getBoundingClientRect();
 
-    return pointerPressed && pointerAt !== null && box !== undefined &&
-      (pointerAt.x < box.left || pointerAt.x >= box.right || pointerAt.y < box.top || pointerAt.y >= box.bottom);
+    return box !== undefined && (point.x < box.left || point.x >= box.right || point.y < box.top || point.y >= box.bottom);
   };
+
+  const pointerOutside = () => released ?? (pointerPressed && pointerAt !== null && outside(pointerAt));
 
   createEffect(() => {
     const tree = container();
@@ -38,8 +42,13 @@ export const createRailDrag = (rail: ConnectedProject["rail"], container: () => 
 
     const press = (event: PointerEvent) => {
       pointerPressed = true;
+      released = null;
       pointerAt = { x: event.clientX, y: event.clientY };
     };
+
+    const release = (event: PointerEvent) => { if (pointerPressed) released = outside({ x: event.clientX, y: event.clientY }); };
+
+    const clear = () => { released = null; };
 
     const follow = (event: PointerEvent) => { pointerAt = { x: event.clientX, y: event.clientY }; };
 
@@ -61,10 +70,14 @@ export const createRailDrag = (rail: ConnectedProject["rail"], container: () => 
 
     window.addEventListener("pointerdown", press, { capture: true });
     window.addEventListener("pointermove", follow, { capture: true });
+    window.addEventListener("pointerup", release, { capture: true });
+    window.addEventListener("keydown", clear, { capture: true });
     tree.addEventListener("keydown", lift, { capture: true });
     onCleanup(() => {
       window.removeEventListener("pointerdown", press, { capture: true });
       window.removeEventListener("pointermove", follow, { capture: true });
+      window.removeEventListener("pointerup", release, { capture: true });
+      window.removeEventListener("keydown", clear, { capture: true });
       tree.removeEventListener("keydown", lift, { capture: true });
     });
   });

@@ -43,8 +43,8 @@ const schema = storageSchema("roundup:app-settings", v.object({
   quickAddAnywhereKey: v.fallback(v.string(), ""),
   // U5239b: a saved press per action `name`; an entry that is not a press is dropped.
   shortcuts: v.fallback(v.record(v.string(), v.pipe(v.string(), v.regex(/^(?=.*(?:meta|ctrl)\+)(?:ctrl\+)?(?:alt\+)?(?:meta\+)?(?:shift\+)?[A-Za-z][A-Za-z0-9]*$/))), {}),
-  // FB6: the Feedback Issue's URL; empty until the owner sets it.
-  feedbackIssue: v.fallback(v.string(), ""),
+  // FB6, U6381a: the Feedback Issue's URL; the live one until the owner saves another or none.
+  feedbackIssue: v.fallback(v.string(), "https://github.com/roundup-app/roundup/issues/6163"),
   mode: v.fallback(v.picklist(["dark", "light", "system"]), "system"),
   stateAlerts: v.fallback(
     v.object({ working: stateRow(false), blocked: stateRow(false), "needs-you": stateRow(true), error: stateRow(true), done: stateRow(false) }),

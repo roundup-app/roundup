@@ -72,7 +72,6 @@
 {"file":"apps/desktop/src/header/u186_keys.test.tsx","test":"u186 keys > u186_with_one_marked_project_it_acts_as_leader_j_and_with_none_changes_nothing","identity":"32a2fa25426169f991ba9088394d3db0ba6e43e7d9fe1abf3add149af7e20929"}
 {"file":"apps/desktop/src/header/u186_keys.test.tsx","test":"u186 keys > u186_a_restart_shows_the_stored_order_and_names_and_the_open_tab_again","identity":"a4c27035ae9eafe8ba8abc6aaf95d7a51a342f068ca721d2beb17d5c9885320f"}
 {"file":"apps/desktop/src/header/u186_keys.test.tsx","test":"u186 keys > u186_a_restart_shows_the_stored_order_and_names_and_the_open_tab_again","identity":"1ab6c5c166e92a489c4ad160045ee998a3ead1af18992280f405568b07af0c5e"}
-{"file":"apps/desktop/src/header/u2228b_title_cut.test.ts","test":"u2228b_a_short_title_is_whole","identity":"d0f11dc40610d9ec4e40bb3f55c6e97a611576b9fc29d536b772a81024ea0bc9"}
 {"file":"apps/desktop/src/header/u382_clip.test.tsx","test":"u382 a clipped tab keeps what tells it apart > u382_a_space_at_the_split_point_survives","identity":"8be2185438e92b4a050f857918c731658f0706a4b8843e6def7b723035574f86"}
 {"file":"apps/desktop/src/header/u382_clip.test.tsx","test":"u382 a clipped tab keeps what tells it apart > u382_the_accessible_name_is_whole","identity":"7ccc74ebb5d0821ed6d9370dde65b3eee4f6ea524a3d2731af40dff5101af84f"}
 {"file":"apps/desktop/src/header/u382_clip.test.tsx","test":"u382 a clipped tab keeps what tells it apart > u382_the_accessible_name_is_whole","identity":"775435c6b714aeeea9fc48326f058cee9f1f50955077fd137330b50d89dbe554"}
