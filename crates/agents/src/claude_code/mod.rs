@@ -365,7 +365,7 @@ impl ClaudeCode {
         }
         // DCL3: a Stop while background work runs does not finish the Agent.
         if self.background.stopped && kind == Kind::Idle && self.background.holds() {
-            (kind, label) = (Kind::Working, "working".into());
+            (kind, label) = (Kind::Working, self.background.label());
         }
         self.after_pre_tool_use = event == Some("PreToolUse");
         self.star_parked_since = None;
@@ -453,9 +453,9 @@ impl ClaudeCode {
         if self.ending != Ending::Running {
             return None;
         }
-        self.background.observe(root, snapshot, self.turn_started);
+        self.background.observe(root, snapshot);
         if self.background.stopped && self.background.holds() {
-            return self.settle(Kind::Working, "working".into());
+            return self.settle(Kind::Working, self.background.label());
         }
         self.release_hold()
     }

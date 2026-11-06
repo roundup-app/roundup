@@ -13,6 +13,10 @@ export const sections: { id: RailSection; label: string; icon: typeof KIND_ICON[
   { id: "agents", label: copy.agentsHead, icon: KIND_ICON.agent },
 ];
 
+type RailNode = { id: string; name: string; childrenCount?: number; children?: RailNode[] };
+
+type Entry = { node: RailNode; indexPath: number[]; branch: boolean };
+
 export const createRailTree = (connected: ConnectedProject, unfolded: Accessor<ReadonlySet<string | null>>, rowElement: (id: string) => HTMLElement | undefined) => {
   const { rail, now } = connected;
   const collapsed = rail.collapsed;
@@ -55,14 +59,38 @@ export const createRailTree = (connected: ConnectedProject, unfolded: Accessor<R
     return section ? !rail.closedSections().has(section.id) : id.startsWith("fold:") ? unfolded().has(id.slice(5)) : !collapsed().has(id);
   }));
 
-  /** The tree node and index path Ark's providers need for the row `id`. */
+  /** One walk of the collection gives every node its index path; a move then costs O(rows), not a `getIndexPath` scan per row. */
+  const entries = createMemo<Map<string, Entry>>((previous) => {
+    const next = new Map<string, Entry>();
+
+    const walk = (node: RailNode, indexPath: number[]) => {
+      node.children?.forEach((child, at) => {
+        const path = [...indexPath, at];
+        const kept = previous?.get(child.id);
+
+        const same = kept && kept.indexPath.join() === path.join() && kept.node.name === child.name && kept.node.childrenCount === child.childrenCount
+          && (kept.node.children?.map(each => each.id).join() ?? "") === (child.children?.map(each => each.id).join() ?? "");
+
+        // SAFETY: `child` comes from this collection's own rootNode, so isBranchNode reads a node it holds.
+        // An unmoved row keeps its entry object, so its provider props do not change.
+        next.set(child.id, same ? kept : { node: child, indexPath: path, branch: collection().isBranchNode(child as never) });
+        walk(child, path);
+      });
+    };
+
+    // SAFETY: rootNode's children are the nodes `RailNode` names (id, name, optional childrenCount and children).
+    walk(collection().rootNode as RailNode, []);
+
+    return next;
+  });
+
+  /** The tree node, index path and branch-ness Ark's providers need for the row `id`; stable while that row is unchanged. */
   const entryOf = (id: string) => {
-    const indexPath = collection().getIndexPath(id);
-    const node = indexPath && collection().at(indexPath);
+    const entry = entries().get(id);
 
-    if (!indexPath || !node) throw new Error(`no node for row ${id}`);
+    if (!entry) throw new Error(`no node for row ${id}`);
 
-    return { node, indexPath };
+    return entry;
   };
 
   const nodeRows = createMemo(() => rows().filter((row): row is NodeRow => row.kind === "node"));

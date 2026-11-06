@@ -765,7 +765,7 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
                           todoCount={todoCount(view().node.id)}
                           actions={actionsOf(view().node)}
                           doorAction={<Show when={isWorkstream(view().node) && !view().node.opening_prompt?.trim() && rail.exitOf(view().node) !== null && !connected.queue.entryOf(view().node.id)}><IconButton aria-label={rail.doorFailure(view().node.id) ? copy.retryDoor : copy.startDoor} aria-disabled={rail.launching(view().node.id)} onKeyDown={event => event.stopPropagation()} onClick={event => { event.stopPropagation(); failure.clear(); rail.clearWorkstreamFailure(); void rail.startDoor(view().node.id); }}><Icon name="play" /></IconButton></Show>}
-                          rootDivider={collection().isBranchNode(entryOf(view().node.id).node) && view().key !== sectionRows().find(each => each.id === section.id)?.rows[0]?.key}
+                          rootDivider={entryOf(view().node.id).branch && view().key !== sectionRows().find(each => each.id === section.id)?.rows[0]?.key}
                           copyWith={feedback => {
                             const id = view().node.id;
                             copied.set(id, feedback);
@@ -776,7 +776,7 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
                           selected={selection.selection.isSelected(view().node.id)}
                           multiple={selection.selection.selectedValues().length > 1}
                           tabbable={tabbableId() === view().node.id}
-                          branch={collection().isBranchNode(entryOf(view().node.id).node)}
+                          branch={entryOf(view().node.id).branch}
                           onToggle={() => rail.toggleCollapsed(view().node.id)}
                           onOpen={id => openRow(id ?? view().node.id)}
                           onFailure={(message) => {
