@@ -12,3 +12,9 @@
   z-index: var(--layer-tooltip);
   padding: var(--space-2);
 }
+
+/* U2749e: a name takes no press; the control beneath gets it. Ark's positioner box is the part that catches it. */
+[data-scope="tooltip"][data-part="positioner"],
+.app-tooltip {
+  pointer-events: none;
+}
