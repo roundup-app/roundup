@@ -18,6 +18,7 @@ it("u3791c_enter_intervene_review_failure_journey", async () => {
     await browser("set", "media", "dark");
     await until("matchMedia('(prefers-color-scheme: dark)').matches && document.querySelectorAll('.rail-row').length > 10");
     await capture("U3791c", "enter");
+    await page.openAsk();
     await browser("fill", ".ask-input", "  keep my work 🌿  ");
     await evaluate(`(() => {
       const app = window.__fake.app;
@@ -62,6 +63,7 @@ it("u3791c_enter_intervene_review_failure_journey", async () => {
       };
       return true;
     })()`);
+    await page.openAsk();
     await browser("fill", ".ask-input", "  failed save keeps this 🌿  ");
     await until("window.writeCount >= 2 && document.querySelector('[role=alert]')");
     await capture("U3791a", "write-exhausted");
@@ -69,6 +71,7 @@ it("u3791c_enter_intervene_review_failure_journey", async () => {
     await evaluate("Storage.prototype.setItem = window.savedWrite; true");
     await browser("find", "role", "button", "click", "--name", "Retry storage only");
     await until("!document.querySelector('[role=alert]')");
+    await page.openAsk();
     expect(await evaluate("document.querySelector('.ask-input').value")).toBe("  failed save keeps this 🌿  ");
     await evaluate("window.__fake.app.exitDaemon({code:1,recovery:'waiting'}); true");
     expect(await evaluate("document.querySelectorAll('[role=alert]').length")).toBe(0);
@@ -80,6 +83,7 @@ it("u3791c_enter_intervene_review_failure_journey", async () => {
     await capture("U3791c", "daemon-exhausted");
     await browser("find", "role", "button", "click", "--name", "Reopen", "--exact");
     await until("!document.querySelector('[role=alert]')");
+    await page.openAsk();
     expect(await evaluate("document.querySelector('.ask-input').value")).toBe("  failed save keeps this 🌿  ");
     await browser("click", "#shelf-tab-pads");
     await evaluate("document.querySelector('.pads-tab [data-shelf-group][data-state=closed] [data-part=branch-control]')?.click(); true");

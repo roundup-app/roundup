@@ -59,16 +59,16 @@ it.each(["tree-40", "agents-10", "tabs-8", "empty-project", "resources"])("u2539
   for (const [lane, served] of [["base", baseline], ["head", server]] as const) {
     if (!served) continue;
       await browser("open", `${served.resolvedUrls.local[0]}harness.html?seed=${seed}`);
-      await until("!!document.querySelector('.ask-input, .rail-tree')");
+      await until("!!document.querySelector('.rail-tree')");
       await capture(lane, `${seed}-landing`);
 
       if (lane === "head" && seed === "agents-10") {
-        await browser("focus", '.change-row:has([aria-label="Needs-you"]) .change-action');
-        await browser("click", '.change-row:has([aria-label="Needs-you"]) .change-action');
+        const asking = await evaluate<string>("window.__fake.app.handlers['rail.tree']().find(node => node.kind === 'agent' && node.status?.kind === 'needs-you').id");
+        await browser("click", `.rail-row[data-id="${asking}"]`);
         await until("!!document.querySelector('.pane-screen')");
         await capture(lane, "agents-10-selected-agent");
-        await browser("click", ".todo-project-root");
-        await until("!!document.querySelector('.ask-input')");
+        await evaluate("window.__select(null)");
+        await until("!document.querySelector('.rail-row[data-selected=true]')");
       }
 
       if (lane === "head" && seed === "tree-40") {
@@ -141,7 +141,6 @@ it.each(["tree-40", "agents-10", "tabs-8", "empty-project", "resources"])("u2539
         }
 
         // A new selection forces the next authoritative read, including the empty→nonempty case.
-        await evaluate("document.querySelector('[data-todo-root]').click()");
       }
 
       await evaluate("window.__fake.app.handlers['agent.changedFiles'] = () => { throw new Error('Changed files unavailable: the Worktree directory could not be read. Retry to check it again.') }");

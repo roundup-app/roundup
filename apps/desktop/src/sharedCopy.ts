@@ -117,6 +117,7 @@ export const copy = {
   openAFolder: "Open Project",
   error: word.error,
   needsYou: "Needs you",
+  needYou: (count: number) => `${count} ${count === 1 ? "needs" : "need"} you`,
   needsYouGlyph: "Needs-you",
   thatIsGone: "That is gone",
   blocked: "Blocked",

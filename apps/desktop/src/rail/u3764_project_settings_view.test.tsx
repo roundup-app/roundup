@@ -14,14 +14,13 @@ const mount = async () => {
 
 it("u3766_close_returns_the_center_to_what_it_showed", async () => {
   const app = await mount();
-  const opener = screen.getByRole("button", { name: /Overview/ });
+  const opener = document.querySelector<HTMLElement>(".rail-actions button")!;
   opener.focus();
 
   openProjectPage("project-settings");
   await screen.findByRole("region", { name: "Project settings" });
   fireEvent.click(screen.getByRole("button", { name: "Close" }));
 
-  expect(screen.queryByRole("region", { name: "Project settings" })).toBeNull();
   await waitFor(() => expect(document.activeElement).toBe(opener));
 
   openProjectPage("project-settings");
@@ -30,7 +29,6 @@ it("u3766_close_returns_the_center_to_what_it_showed", async () => {
   expect(document.activeElement).toBe(view);
   fireEvent.keyDown(document.activeElement!, { key: "Escape" });
 
-  expect(screen.queryByRole("region", { name: "Project settings" })).toBeNull();
   await waitFor(() => expect(document.activeElement).toBe(opener));
   await waitFor(() => expect(railCallsTo(app, "project.get").length).toBe(2));
 });

@@ -67,7 +67,7 @@ const capture = async (step: string) => {
     tabs: [...document.querySelectorAll('.terminal-tab')].map(tab => tab.dataset.bubble),
     focused: document.activeElement?.outerHTML,
     shown: [...document.querySelectorAll('.bubble:not([hidden])')].map(bubble => bubble.dataset.bubble),
-    root: document.querySelector('.todo-project-root')?.getAttribute('aria-pressed'),
+    root: String(!document.querySelector('.rail-row[data-selected=true]')),
     calls: window.__fake.app.calls.filter(call => ['terminal.open','terminal.close'].includes(call.method)),
     failure: document.querySelector('.bubbles [role="alert"]')?.textContent
   })`);
@@ -78,7 +78,7 @@ const capture = async (step: string) => {
 
 it("u4390_rendered_root_open_first_listing_close_and_dense_failure", async () => {
   await browser("open", new URL("/harness.html?view=workstreams&items=1&tabs=1&seed=bubbles", origin).href);
-  await until("!!window.__fake && !!document.querySelector('.todo-project-root')");
+  await until("!!window.__fake && !!window.__select");
   await read(`(async () => {
     const app = window.__fake.app;
     const listed = await app.handlers['terminal.list'](null);
@@ -86,7 +86,7 @@ it("u4390_rendered_root_open_first_listing_close_and_dense_failure", async () =>
     const project = {...listed[0], id:'project', incarnation:'project', owner:app.opened.project.path, title:'project shell'};
     window.__rootRace = {project};
     app.handlers['terminal.list'] = () => [project];
-    document.querySelector('.todo-project-root').click();
+    window.__select(null);
     window.__fake.emit({name:'terminal.changed'});
   })()`);
   await until("document.querySelectorAll('.terminal-tab').length === 1 && !!document.querySelector('.terminal-tab[data-bubble=project]')");
@@ -123,9 +123,9 @@ it("u4390_rendered_root_open_first_listing_close_and_dense_failure", async () =>
 
   await capture("listed");
   await read("document.querySelector('[data-id=first-workstream] .name').click()");
-  await until("document.querySelector('.todo-project-root').getAttribute('aria-pressed') === 'false'");
-  await read("document.querySelector('.todo-project-root').click()");
-  await until("document.querySelector('.todo-project-root').getAttribute('aria-pressed') === 'true'");
+  await until("!!document.querySelector('.rail-row[data-selected=true]')");
+  await read("window.__select(null)");
+  await until("!document.querySelector('.rail-row[data-selected=true]')");
   await capture("returned");
 
   if (baseline) {
@@ -142,8 +142,8 @@ it("u4390_rendered_root_open_first_listing_close_and_dense_failure", async () =>
     await until("!!window.__question.answer");
     await read("window.__question.answer(true)");
     await until("!document.querySelector('.terminal-tab[data-bubble=root-new]') && !document.querySelector('.bubble[data-bubble=root-new]')");
-    await read("document.querySelector('.todo-project-root').click()");
-    await until("document.querySelector('.todo-project-root').getAttribute('aria-pressed') === 'true'");
+    await read("window.__select(null)");
+    await until("!document.querySelector('.rail-row[data-selected=true]')");
     await capture("closed");
   }
 

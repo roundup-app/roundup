@@ -1,4 +1,5 @@
 import { batch } from "solid-js";
+import { openAsk } from "../ask/askFixture";
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it, vi } from "vitest";
 import { App } from "../App";
@@ -23,7 +24,7 @@ afterEach(() => { batch(cleanup); endLeader(); localStorage.clear(); });
 
 const chords = ["agent", "prompt", "terminal", "capture", "leader", "ask", "help"] as const;
 
-const places = ["rail", "centre", "agent-terminal", "bubble", "shelf", "triage", "ask", "first-control", "first-frame"] as const;
+const places = ["rail", "centre", "agent-terminal", "bubble", "shelf", "triage", "first-control", "first-frame"] as const;
 
 const rows = [
   ...chords.flatMap(chord => places.map(place => ({ chord, place, native: false, choose: false }))),
@@ -79,7 +80,7 @@ it.each(rows)("u4324b_app_chords_follow_focus: $chord / $place / native=$native 
     return emulator;
   }} prepareIdle={open => { connection = open; }} />);
 
-  if (!first) await screen.findByLabelText("Ask", { selector: '[role="textbox"]' });
+  if (!first) await screen.findByRole("region", { name: "Rail" });
   const daemon = app;
   const calls = (method: string) => daemon.calls.filter(call => call.method === method);
   daemon.handlers["agent.spawn"] = () => { const spawned = agent("new", "idle", "ready"); nodes.push(spawned);
@@ -97,11 +98,17 @@ it.each(rows)("u4324b_app_chords_follow_focus: $chord / $place / native=$native 
 
     if (place === "first-frame") target = document.querySelector<HTMLElement>(".centre")!;
   } else {
+    await waitFor(() => expect(document.querySelector('[role="treeitem"]')).not.toBeNull());
+    await openAsk();
     const editor = screen.getByLabelText("Ask", { selector: '[role="textbox"]' });
     fireEvent.input(editor, { target: { value: draft } });
+
+    fireEvent.keyDown(editor, { key: "Escape", code: "Escape" });
+    await waitFor(() => expect(document.querySelectorAll('[role="textbox"][aria-label="Ask"]')).toHaveLength(0));
+
     fixture!.store.todos[0]!.home = "home";
 
-    if (place !== "ask") fixture!.connected().rail.select("home");
+    fixture!.connected().rail.select("home");
 
     if (place === "agent-terminal" || place === "terminal-screen") {
       fixture!.connected().rail.select("a1");
@@ -143,7 +150,7 @@ it.each(rows)("u4324b_app_chords_follow_focus: $chord / $place / native=$native 
         target = child;
       } else document.querySelector(".centre")!.appendChild(target);
     } else if (place === "header") target = screen.getByRole("tab", { name: "p" });
-    else target = place === "ask" ? editor : document.querySelector<HTMLElement>(place === "rail" ? '.rail-row[data-id="home"]' : ".centre")!;
+    else target = document.querySelector<HTMLElement>(place === "rail" ? '.rail-row[data-id="home"]' : ".centre")!;
   }
 
   target.tabIndex = -1;
@@ -160,7 +167,7 @@ it.each(rows)("u4324b_app_chords_follow_focus: $chord / $place / native=$native 
     : chord === "leader" ? press("KeyK", { metaKey: true })
     : press(chord === "agent" || chord === "prompt" ? "KeyN" : "KeyT", { metaKey: true, shiftKey: chord === "prompt" || chord === "capture" });
 
-  const excludedHelp = chord === "help" && ["agent-terminal", "bubble", "ask", "terminal-screen", "rename", "textarea", "select", "editable"].includes(place);
+  const excludedHelp = chord === "help" && ["agent-terminal", "bubble", "terminal-screen", "rename", "textarea", "select", "editable"].includes(place);
 
   if (chord === "help") {
     if (excludedHelp) { expect(event.defaultPrevented).toBe(false); expect(screen.queryByRole("dialog")).toBeNull(); }
@@ -190,7 +197,7 @@ it.each(rows)("u4324b_app_chords_follow_focus: $chord / $place / native=$native 
     if (!choose || native) expect(screen.queryByRole("dialog")).toBeNull();
   } else if (chord === "agent") {
     await waitFor(() => expect(calls("agent.spawn")).toHaveLength(1));
-    expect(calls("agent.spawn")[0]?.params).toMatchObject({ cwd: "/p", parent: place === "ask" || place === "agent-terminal" ? null : "home" });
+    expect(calls("agent.spawn")[0]?.params).toMatchObject({ cwd: "/p", parent: place === "agent-terminal" ? null : "home" });
   } else if (chord === "terminal") {
     await waitFor(() => expect(calls("terminal.open")).toHaveLength(1));
     expect(calls("terminal.open")[0]?.params).toEqual({ workstream: "home", cols: 100, rows: 30 });

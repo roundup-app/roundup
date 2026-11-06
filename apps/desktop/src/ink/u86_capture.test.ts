@@ -102,7 +102,8 @@ it.skipIf(!captureDir("U86"))("u86_capture_icon_text_pairs", { retry: 0, timeout
       await wait("!!document.querySelector('[role=menu]')");
       await states("rail-menu", '[role="menuitem"]:first-child');
       await browser("press", "Escape");
-      await load("tree-40", "&view=ask-history");
+      await load("tree-40");
+      await browser("press", "Meta+/");
       await read(`window.__fake.emit({actor:{kind:'user',id:'you',parent:null},name:'ask.changed',data:{ask:{id:'u86',text:'Review icon alignment',at:'1793304000000',parts:[{text:'Review icon alignment',placement:{kind:'routed',workstream:'backend'},state:'typed'}]}}})`);
       await wait("!!document.querySelector('.ask-row')");
       await states("ask-history", ".ask-row .ask-line");

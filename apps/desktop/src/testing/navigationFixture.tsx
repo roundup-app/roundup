@@ -29,7 +29,7 @@ export const mountNavigation = async (empty = false, projectCount = 1, agentCoun
   let connected: ConnectedProject | undefined;
   const emulators = fakeEmulators();
   render(() => <App app={app} reducedMotion={() => true} clock={() => 0} createEmulator={emulators.factory} prepareIdle={open => { connected = open; }} />);
-  await screen.findByLabelText("Ask", { selector: '[role="textbox"]' });
+  await screen.findByRole("group", { name: "Nothing selected" });
   await waitFor(() => expect(projectMenu.path).toBe("/p"));
 
   return { app, daemon, connected: () => connected!, store, emulators, nodes, shells };

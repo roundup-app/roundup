@@ -19,8 +19,6 @@ export const attentionOrder = (nodes: readonly RailNode[], dismissed: Dismissed 
     .sort((a, b) => a.rank - b.rank || a.since - b.since)
     .map(({ node }) => node);
 
-export const attentionCount = (nodes: readonly RailNode[], dismissed: Dismissed = none): number => attentionOrder(nodes, dismissed).length;
-
 /** The first of `attentionOrder` when `selected` is not in it; otherwise the next, wrapping after the last. `null` when none need you. */
 export const nextAttention = (nodes: readonly RailNode[], selected: string | null, dismissed: Dismissed = none): RailNode | null => {
   const order = attentionOrder(nodes, dismissed);

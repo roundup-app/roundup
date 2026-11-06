@@ -15,7 +15,7 @@ import { agent, event, USER } from "../testing/nodes";
 import { progressSeed } from "../testing/progressSeed";
 import { TodoComments } from "../todos/TodoComments";
 import { TodoRefs } from "../todos/TodoRefs";
-import { mountAskBar, input, press } from "../ask/askFixture";
+import { mountAskBar, input, openAsk, press } from "../ask/askFixture";
 import { mountTodos, todo } from "../todos/testHarness";
 
 import { createBulkDelete } from "../shelf/BulkDelete";
@@ -119,6 +119,7 @@ it("u3807_each_site_shows_its_message_in_the_reserved_line: Rail", async () => {
 
 it("u3807_each_site_shows_its_message_in_the_reserved_line: Ask send", async () => {
   const { app } = await mountAskBar();
+  await openAsk();
   const surface = document.querySelector<HTMLElement>(".ask-bar")!;
   app.handlers["ask.send"] = () => { throw new RpcError(-32003, FAILURE); };
 
@@ -345,7 +346,6 @@ it.each(["window", "Daemon exit", "Project"])("u3807_each_site_shows_its_message
     const place = message.closest<HTMLElement>(".reserved-line")!;
     fireEvent.click(within(place).getByRole("button", { name: "Reopen" }));
     await waitFor(() => expect(within(surface).queryByRole("alert")).toBeNull());
-    await within(surface).findByRole("button", { name: /Overview/ });
   } else {
     const original = app.chooseProjectPath;
     await cycle(surface,

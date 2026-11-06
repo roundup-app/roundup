@@ -18,7 +18,7 @@ export const copy = {
   cantReach: (agent: string, cause: string) => `can't reach ${agent}: ${cause}`,
   /** U6248c: the cause and the local clock time the Daemon resumes the Agent at. */
   resumesAt: (cause: string, at: number) => `${cause} · resumes ${new Date(at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false })}`,
-  retryMessage: (agent: string) => `Retry ${agent}`,
+  resumeAgent: (agent: string) => `Resume ${agent}`,
   openUnreachable: () => sharedCopy.openDraft,
   retryUnreachable: () => sharedCopy.retryDoor,
   startedBy: (agent: string, project: string) => `by ${agent} (${project})`,
@@ -96,7 +96,6 @@ export const copy = {
   assign: sharedCopy.assign,
   overview: sharedCopy.overview,
   projectRoot: sharedCopy.projectRoot,
-  overviewWaiting: (count: number) => `${count} waiting`,
   modesHead: "MODES",
   agentsHead: "AGENTS",
   workstreamsHead: "WORKSTREAMS",
@@ -113,8 +112,7 @@ export const copy = {
   expandRail: "Expand the Rail",
   railStrip: sharedCopy.workstreams,
   /** U6228: a strip mark's name: the Workstream, its state, and what needs the user. */
-  markName: (name: string, state: string, needs: number, unread: boolean) => [name, state, ...(needs > 0 ? [`${needs} need you`] : []), ...(unread ? [sharedCopy.unreadResult] : [])].join(", "),
-  overviewMark: (needs: number) => [sharedCopy.overview, ...(needs > 0 ? [`${needs} need you`] : [])].join(", "),
+  markName: (name: string, state: string, needs: number, unread: boolean) => [name, state, ...(needs > 0 ? [sharedCopy.needYou(needs)] : []), ...(unread ? [sharedCopy.unreadResult] : [])].join(", "),
   expand: "Expand",
   hiddenAgents: (n: number) => `${n} hidden Agents`,
   retryDoor: sharedCopy.retryDoor,

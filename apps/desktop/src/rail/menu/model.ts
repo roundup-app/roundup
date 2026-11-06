@@ -80,8 +80,8 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
   };
 
   /** U2694g: pointer menus address their row without activating it. */
-  const open = (node: RailNode, exit: ExitState | null, x: number, y: number, removed?: () => void) => {
-    return contextMenu(app, entries(node, exit, removed), x, y);
+  const open = (node: RailNode, exit: ExitState | null, x: number, y: number, removed?: () => void, more: MenuEntry[] = []) => {
+    return contextMenu(app, [...entries(node, exit, removed), ...more], x, y);
   };
 
   const attempt = async (call: () => Promise<void>, item?: string) => {

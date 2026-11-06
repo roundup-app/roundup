@@ -472,27 +472,6 @@
 
 }
 
-/* U3704: attention stays beside the name rather than in the trailing action group. */
-.todo-project-root .ink-count {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  font-size: var(--text-caption);
-  font-variant-numeric: tabular-nums;
-  color: var(--amber);
-}
-
-.todo-project-root[data-scrolled="true"]::after {
-  content: "";
-  position: absolute;
-  top: 100%;
-  left: 0;
-  right: 0;
-  height: var(--space-2);
-  z-index: 1;
-  pointer-events: none;
-}
-
 /* U520: the tree's name is for a screen reader; the section head speaks to the eye. */
 .rail-label {
   position: absolute;
@@ -893,11 +872,12 @@
   white-space: normal;
 }
 
-/* U6228: the collapse button floats over the Overview row's trailing edge, so the head spends no row; its centre sits on the chevron column, --space-5 from the inner right edge. */
+/* U6228: the collapse button has its own head line, so no section chevron sits under it; its centre sits on the chevron column, --space-5 from the inner right edge. */
 .rail-head {
   position: relative;
   z-index: 1;
-  height: 0;
+  height: var(--space-6);
+  flex: none;
 }
 
 .rail-head .rail-collapse {

@@ -37,10 +37,8 @@ const setup = async (reduced: boolean) => {
   await page.call(`() => {
     const tab = document.querySelector('#shelf-tab-todos');
     if (tab.getAttribute('aria-expanded') !== 'true') tab.click();
-    document.querySelector('[data-todo-root]').click();
   }`);
   await page.call(`() => {
-    document.querySelector('[data-todo-root]').click();
     document.querySelector('.shelf [data-shelf-group="unassigned"] [data-part="branch-control"]')?.click();
   }`);
   await page.until(`() => document.querySelectorAll(".shelf .todo-list .todo-row-button").length > 2`);

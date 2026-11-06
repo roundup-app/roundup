@@ -11,13 +11,13 @@ export const todoDropTargets = (connected: ConnectedProject, todos: TodosState) 
 
     if (!clip || x < clip.left || x >= clip.right || y < clip.top || y >= clip.bottom) return null;
 
-    for (const element of rail!.querySelectorAll<HTMLElement>(".rail-row[data-id], [data-todo-root]")) {
+    for (const element of rail!.querySelectorAll<HTMLElement>(".rail-row[data-id]")) {
       const box = element.getBoundingClientRect();
 
       if (x < box.left || x >= box.right || y < box.top || y >= box.bottom) continue;
-      const home = element.hasAttribute("data-todo-root") ? null : element.dataset.id!;
+      const home = element.dataset.id!;
 
-      if (home === current || (home !== null && !connected.rail.nodes.some((node) => node.id === home && node.kind === "workstream"))) return null;
+      if (home === current || !connected.rail.nodes.some((node) => node.id === home && node.kind === "workstream")) return null;
 
       return { element, home };
     }

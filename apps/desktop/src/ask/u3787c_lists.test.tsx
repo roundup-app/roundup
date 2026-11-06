@@ -33,7 +33,7 @@ const mount = async (command: string | null, selector: string) => {
   app.handlers["deliverable.resolve"] = ({ id }) => ({ kind: "external", availability: "not-checked", url: `https://example.com/${id}` });
   const { factory } = fakeEmulators();
   render(() => <App app={app} reducedMotion={() => true} clock={() => 0} createEmulator={factory} prepareIdle={open => { if (command === "view:workstreams") open.showView("workstreams"); }} />);
-  await (command === "view:workstreams" ? screen.findByRole("region", { name: "Project overview" }) : screen.findByRole("textbox", { name: "Ask" }));
+  await (command === "view:workstreams" ? screen.findByRole("region", { name: "Project overview" }) : screen.findByRole("group", { name: "Nothing selected" }));
 
   if (command === "view:made") openProjectPage(command, "/p");
   await waitFor(() => expect(document.querySelectorAll(selector).length).toBe(command === "view:workstreams" ? 9 : 8));
@@ -97,7 +97,8 @@ it.each(["Enter", " "])("u3787c_Made_activation_resolves_the_original_identity_%
   expect(app.calls.filter(call => call.method === "deliverable.resolve").map(call => call.params)).toEqual([{ project: "original-project", id: "record-2" }]);
 });
 
-it.each(inventory)("u3787c_reopening_keeps_the_existing_list_lifetime $opening", async ({ command, selector }) => {
+// U6244a: Made no longer shares a mounted home with the Overview, so its rows live only while the list is open; the Made variant retires.
+it.each(inventory.filter(entry => entry.command !== "view:made"))("u3787c_reopening_keeps_the_existing_list_lifetime $opening", async ({ command, selector }) => {
   const { app, rows } = await mount(command, selector);
   fireEvent.click(rows[1]!, { metaKey: true });
   expect(selected(rows)).toEqual([rows[1]]);

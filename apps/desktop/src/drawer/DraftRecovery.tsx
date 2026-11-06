@@ -23,7 +23,7 @@ const Todos = lazy(() => import("../todos/Todos").then(module => ({ default: mod
 const TodoDrawer = lazy(() => import("../todos/TodoDrawer").then(module => ({ default: module.TodoDrawer })));
 
 /**
- * U3289c: the Overview row's menu item. Nothing renders unasked (U3289b); with no work at risk the item is absent.
+ * U3289c: the Rail background's menu item. Nothing renders unasked (U3289b); with no work at risk the item is absent.
  * Opening the panel sends no mutation (U3021c).
  */
 export const useRecoveryMenu = (): ((source?: ActivationSource) => MenuEntry[]) => {

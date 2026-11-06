@@ -93,7 +93,8 @@ it("u4547d_restart_controls_share_the_focused_mode_action_from_its_key", async (
   fireEvent.keyDown(rowOf("mode"), { key: "r", code: "KeyR" });
   await waitFor(() => expect(railCallsTo(daemon, "workstream.restart")).toHaveLength(1));
   expect(railCallsTo(daemon, "agent.resume")).toEqual([]);
-  const field = screen.getByRole("textbox", { name: "Ask" });
+  fireEvent.keyDown(document.body, { key: "/", code: "Slash", metaKey: true });
+  const field = await screen.findByRole("textbox", { name: "Ask" });
   field.focus();
   expect(fireEvent.keyDown(field, { key: "r", code: "KeyR" })).toBe(true);
   expect(railCallsTo(daemon, "workstream.restart")).toHaveLength(1);

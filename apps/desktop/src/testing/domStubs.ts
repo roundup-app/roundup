@@ -1,10 +1,14 @@
 import { useBrowserStorage } from "../state/storage";
 import { configure } from "@solidjs/testing-library";
-import { beforeEach } from "vitest";
+import { afterEach, beforeEach } from "vitest";
+import { settled } from "../changes/chunks";
 
 useBrowserStorage(window.localStorage);
 
 beforeEach(() => useBrowserStorage(window.localStorage));
+
+// Opening the Worktree panel starts two lazy chunks; one landing after jsdom is gone fails the lane with an Unhandled Error.
+afterEach(settled);
 
 // A lazily mounted tab (Todos, Progress) on a CPU-starved shard outlasts the 1000 ms default of `waitFor` and `findBy`; the 15 s test timeout decides instead.
 configure({ asyncUtilTimeout: 10_000 });

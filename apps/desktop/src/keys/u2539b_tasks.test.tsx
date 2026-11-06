@@ -30,35 +30,6 @@ it("u2539b_capture_keeps_requested_work_items_unmounted_until_filing", async () 
   expect(document.querySelector(".todos-tab, .shelf-tabs")).toBeNull();
 });
 
-it("u2539b_drawer_keeps_attention_reachable", async () => {
-  const { connected } = await mount();
-  leader("KeyB");
-  const row = await screen.findByText("Selected work");
-  fireEvent.click(row);
-  fireEvent.keyDown(row.closest("button")!, { key: "Enter", code: "Enter" });
-  await waitFor(() => expect(connected().drawer.content()).not.toBeNull());
-  const attention = document.querySelector<HTMLElement>(".change-row");
-  expect(attention).not.toBeNull();
-  fireEvent.click(within(attention!).getByRole("button"));
-  await waitFor(() => expect(connected().rail.selected()).toBe("a0"));
-});
-
-it("u2539b_selected_agent_returns_to_landing", async () => {
-  const { connected } = await mount();
-
-  const row = await waitFor(() => {
-    const entry = document.querySelector<HTMLElement>(".change-row");
-    expect(entry).not.toBeNull();
-
-    return entry!;
-  });
-
-  fireEvent.click(within(row).getByRole("button"));
-  await waitFor(() => expect(connected().rail.selected()).toBe("a0"));
-  fireEvent.click(screen.getByRole("button", { name: /^Overview/ }));
-  await waitFor(() => expect(connected().rail.selected()).toBeNull());
-});
-
 it("u2539b_other_project_attention_opens_its_requesting_terminal", async () => {
   const { app } = await mount();
   const other = app.of("/project0");
@@ -83,9 +54,6 @@ it.each(["resources"])("u2539b_landing_opens_requested_surfaces_and_returns: %s"
   await waitFor(() => expect(connected().view()).toBe(view));
   openProjectPage(`view:${view}`, "/p");
   await waitFor(() => expect(connected().view()).toBeNull());
-
-  if (view === "resources") fireEvent.click(screen.getByRole("button", { name: /^Overview/ }));
-  expect(document.querySelector(".ask-input")).not.toBeNull();
 });
 
 it.each(["ask", "agent", "terminal", "todo", "attention", "items", "inbox", "assign", "project", "changes"].flatMap(task =>
@@ -158,7 +126,7 @@ it.each(["ask", "agent", "terminal", "todo", "attention", "items", "inbox", "ass
     fireEvent.click(await todos.findByRole("button", { name: /Unassigned/ }));
     const row = await todos.findByRole("button", { name: /^(?:Idle|Blocked|Done) #\d+ Selected work/ });
     fireEvent.click(row);
-    screen.getByLabelText("Ask", { selector: '[role="textbox"]' }).focus();
+    document.querySelector<HTMLElement>(".rail-row")!.focus();
     runLeader("KeyA");
     const field = await screen.findByRole("combobox");
     fireEvent.input(field, { target: { value: "Agent 11" } });
@@ -203,8 +171,9 @@ it("u5919b_menu_tracks_configured_capture_shortcut", async () => {
 it("u2539b_empty_project_can_submit_an_ask", async () => {
   const { daemon } = await mount(true);
   daemon.handlers["ask.send"] = params => ({ id: "first", text: params.text, at: 0n, parts: [] });
-  const field = screen.getByLabelText("Ask", { selector: '[role="textbox"]' });
   expect(daemon.calls.filter(call => call.method === "agent.spawn" || call.method === "ask.send")).toHaveLength(0);
+  key("Slash", { metaKey: true });
+  const field = await screen.findByLabelText("Ask", { selector: '[role="textbox"]' });
   field.focus();
   fireEvent.input(field, { target: { value: "First work" } });
   key("Enter");
@@ -232,13 +201,17 @@ it("u2539b_strip_items_follow_actionable_facts", async () => {
 it("u2539b_hiding_optional_views_preserves_original_drafts", async () => {
   const { connected, daemon } = await mount();
   const text = "  unfinished\nexact work 🐈  ";
-  fireEvent.input(screen.getByLabelText("Ask", { selector: '[role="textbox"]' }), { target: { value: text } });
+  key("Slash", { metaKey: true });
+  const typing = await screen.findByLabelText("Ask", { selector: '[role="textbox"]' });
+  fireEvent.input(typing, { target: { value: text } });
+  fireEvent.keyDown(typing, { key: "Escape", code: "Escape" });
   const original = connected().drafts.list().find(draft => draft.destination.surface === "ask")!;
   openProjectPage("view:made", "/p");
   openProjectPage("view:made", "/p");
   connected().rail.select("a1");
   connected().rail.select(null);
-  const restored = screen.getByRole<HTMLTextAreaElement>("textbox", { name: "Ask" });
+  key("Slash", { metaKey: true });
+  const restored = await screen.findByRole<HTMLTextAreaElement>("textbox", { name: "Ask" });
   expect(restored.value).toBe(text);
   expect(connected().drafts.list().find(draft => draft.revision === original.revision)?.destination).toEqual(original.destination);
   expect(daemon.calls.filter(call => call.method === "ask.send")).toHaveLength(0);
@@ -286,10 +259,6 @@ it.each(["working", "idle", "blocked", "needs-you", "error", "done"] as const)("
 
     if (connected().rail.collapsed().has("home") && document.querySelector('.rail-row[data-id="home"]')) found.push("collapsed ancestor");
 
-    if (attention && document.querySelector(".todo-project-root .ink-count")) found.push("Project root aggregate");
-
-    if ([...document.querySelectorAll(".change-row")].some(row => row.textContent?.includes(target.name))) found.push("Needs you row");
-
     if ([...document.querySelectorAll(".inbox-item")].some(row => row.textContent?.includes(target.name))) {
       found.push("Inbox entry", "Inbox section count");
     }
@@ -334,7 +303,10 @@ it("u4278a_no_selected_project_projects_no_actions", async () => {
 it("u5740a_remaining_navigation_preserves_ask_and_terminal", async () => {
   const { connected, daemon, emulators } = await mount(false, 0, 10);
   const text = "keep exact\n unfinished 🧭  ";
-  fireEvent.input(screen.getByRole("textbox", { name: "Ask" }), { target: { value: text } });
+  key("Slash", { metaKey: true });
+  const typing = await screen.findByRole("textbox", { name: "Ask" });
+  fireEvent.input(typing, { target: { value: text } });
+  fireEvent.keyDown(typing, { key: "Escape", code: "Escape" });
   connected().rail.select("a1");
   await waitFor(() => expect(document.activeElement?.getAttribute("data-terminal")).toBe("t-a1"));
   const terminal = emulators.made.get("t-a1")!;
@@ -351,14 +323,15 @@ it("u5740a_remaining_navigation_preserves_ask_and_terminal", async () => {
   expect(connected().rail.selected()).toBe("a1");
   expect(emulators.made.get("t-a1")).toBe(terminal);
   expect(terminal.selection()).toBe("exact Terminal selection\n second line");
-  fireEvent.click(screen.getByRole("button", { name: /^Overview/ }));
-  const overview = screen.getByRole("button", { name: /^Overview/ });
+  connected().rail.select(null);
+  const overview = document.querySelector<HTMLElement>(".rail-actions button")!;
   overview.focus();
   key("Slash", { key: "?", shiftKey: true });
   await screen.findByRole("dialog", { name: /Help|Keyboard/ });
   key("Escape");
   await waitFor(() => expect(document.activeElement).toBe(overview));
-  expect(screen.getByRole<HTMLTextAreaElement>("textbox", { name: "Ask" }).value).toBe(text);
+  key("Slash", { metaKey: true });
+  expect((await screen.findByRole<HTMLTextAreaElement>("textbox", { name: "Ask" })).value).toBe(text);
   expect(terminal.selection()).toBe("exact Terminal selection\n second line");
   expect(daemon.calls.filter(call => !["terminal.resize", "terminal.snapshot", "rail.tree", "terminal.list", "deliverable.list", "ask.list", "todo.unread", "pad.list", "daemon.ping", "terminal.scheme", "agent.changedFiles", "agent.worktreeState", "todo.list", "workstream.queue", "action.userList", "message.list", "todo.listHanded"].includes(call.method))).toEqual([]);
 });

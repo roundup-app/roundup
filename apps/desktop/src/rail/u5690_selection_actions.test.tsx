@@ -78,7 +78,7 @@ it.each([
   await waitFor(() => expect(selected()).toEqual(next ? [next] : []));
 
   if (next) await waitFor(() => expect(document.activeElement).toBe(rowOf(next)));
-  else await waitFor(() => expect(document.activeElement).toBe(document.querySelector("[data-todo-root]")));
+  else await waitFor(() => expect(document.activeElement).toBe(document.querySelector(".rail-tree")));
   await waitFor(() => expect(connected.drafts.todoUndo.available("rail")).toBe(true));
   expect(railCallsTo(app, "rail.remove")).toEqual([]);
 });

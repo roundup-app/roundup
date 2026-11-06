@@ -183,8 +183,8 @@ it.skipIf(!captureDir("U4464") && !captureDir("U5163"))("u5606_capture_empty_vie
       await load("empty-project");
       await read(`(async () => { const {draftStorage} = await import('/src/state/storage.ts'); draftStorage(window.__fake.app.opened.project.path).edit({surface:'terminal_selection', object:'missing', recipient:'missing'}, {note:'Unfinished selection', excerpt:'Earlier output', source:'gone'}, null, 'ordinary'); })()`);
       await browser("reload");
-      await wait(`!!window.__fake && !!document.querySelector('.todo-project-root')`);
-      await read(`document.querySelector('.todo-project-root').dispatchEvent(new MouseEvent('contextmenu', {bubbles:true,clientX:30,clientY:60}))`);
+      await wait(`!!window.__fake && !!window.__select`);
+      await read(`document.querySelector('.rail-scroll').dispatchEvent(new MouseEvent('contextmenu', {bubbles:true,clientX:30,clientY:60}))`);
       await read(`(async () => { const {menuProbe} = await import('/src/testing/menuProbe.ts'); const item = menuProbe.shown.find(item => item.id === 'recover'); if (!item) throw new Error('Recovery menu unavailable'); menuProbe.answer(item.id); })()`);
       await wait(`!!document.querySelector('.draft-recovery')`);
       await read(`[...document.querySelectorAll('.draft-recovery button')].find(button => button.textContent === 'Discard').click()`);
@@ -361,7 +361,7 @@ it.skipIf(!captureDir("U5740a"))("u5740a_capture_remaining_app_surfaces", { time
       writeFileSync(join(dir, `${seed}-menu.json`), JSON.stringify(await lane.evaluate("window.__u5740menu")));
       await lane.capture("U5740a", `${seed}-menu-made`);
       await lane.browser("fill", ".ask-input", "keep exact unfinished 🧭  ");
-      await lane.browser("focus", "[data-todo-root]");
+      await lane.browser("focus", ".rail-row");
       await lane.browser("press", "Shift+?");
       await lane.until("!!document.querySelector('.help')");
       await lane.capture("U5740a", `${seed}-help`);
