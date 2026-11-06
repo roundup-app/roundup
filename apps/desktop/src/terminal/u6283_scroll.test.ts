@@ -71,6 +71,7 @@ it("u6283b_scrollbar_listener_places_once_per_frame", async () => {
   const { trackScrollbars } = await import("../scrollHover");
 
   const frame = () => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+
   const make = () => {
     const element = document.body.appendChild(document.createElement("div"));
 
