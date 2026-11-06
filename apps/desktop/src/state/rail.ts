@@ -11,7 +11,7 @@ import type { Event as DaemonEvent } from "@contracts/Event";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { TerminalInfo } from "@contracts/terminal/TerminalInfo";
 import { defaultWorkstreamName } from "../rail/defaultName";
-import { railTopology, type RailTopology } from "../rail/topology";
+import { railTopology, sameTopology, type RailTopology } from "../rail/topology";
 import { ancestorsOf, isWorkstream } from "../rail/layout";
 import type { RailSection, RailStorage, ResumptionStorage } from "../rail/persist/storage";
 import type { Events } from "../app/events";
@@ -235,7 +235,7 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
     return starting.length === 0 ? drawing : drawing.map(node => starting.includes(node.id) ? { ...node, status: startingStatus(node.status?.since) } : node);
   });
 
-  const topology = createMemo(() => railTopology(view()));
+  const topology = createMemo(() => railTopology(view()), undefined, { equals: sameTopology });
 
   const [resumed, setResumed] = createStore<Parameters<ResumptionStorage["write"]>[0]>(resumptions?.read() ?? {});
 

@@ -35,3 +35,19 @@ export const railTopology = (source: readonly RailNode[]) => {
 };
 
 export type RailTopology = ReturnType<typeof railTopology>;
+
+const sameRecord = (a: RailNode, b: RailNode) => {
+  if (a === b) return true;
+
+  const other = new Map(Object.entries(b));
+
+  return Object.keys(a).length === other.size && Object.entries(a).every(([key, value]) => other.get(key) === value);
+};
+
+/** U3800d: a redraw that leaves every Row as it was (the Daemon's answer to a move already drawn) keeps the topology it had, so nothing built from it runs again. Rows are matched by id, since the Daemon lists them in its own order. */
+export const sameTopology = (before: RailTopology, after: RailTopology) =>
+  before.nodes.length === after.nodes.length && after.nodes.every(node => {
+    const kept = before.nodes[before.index.get(node.id) ?? -1];
+
+    return kept !== undefined && sameRecord(kept, node);
+  });
