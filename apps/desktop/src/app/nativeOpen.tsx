@@ -73,7 +73,10 @@ export const watchNativeOpen = ({ solid: { createEffect, createSignal, onCleanup
     if (key === null) return undefined;
 
     for (const path of await app.recentProjects()) {
-      if (await keyOfPath(path) === key) return { path, name: path.split("/").findLast(Boolean) ?? path };
+      // The Daemon names its folder from the canonical path; a path that cannot be resolved (gone) is skipped.
+      const canonical = await app.canonicalProjectPath(path).catch(() => null);
+
+      if (canonical !== null && await keyOfPath(canonical) === key) return { path, name: path.split("/").findLast(Boolean) ?? path };
     }
 
     return undefined;
