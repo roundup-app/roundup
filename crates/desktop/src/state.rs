@@ -19,7 +19,7 @@ use tokio::time::{Duration, sleep, timeout};
 
 use crate::config::Config;
 use crate::daemon::{self, OwnedSocket};
-use crate::reopen::{self, GIVE_UP};
+use crate::reopen::GIVE_UP;
 use crate::store::Store;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
@@ -300,7 +300,7 @@ impl AppState {
                     let Some(failure) = self.record_failure(&key, &lifetime) else {
                         return Err(not_open(&key));
                     };
-                    let Some(wait) = reopen::wait(failure) else {
+                    let Some(wait) = self.config.reopen_wait(failure) else {
                         return Err(err);
                     };
                     tokio::select! {
@@ -802,7 +802,7 @@ impl AppState {
         mut failures: u8,
     ) {
         tauri::async_runtime::spawn(async move {
-            while let Some(wait) = reopen::wait(failures) {
+            while let Some(wait) = app.state::<AppState>().config.reopen_wait(failures) {
                 tokio::select! {
                     biased;
                     _ = cancel.changed() => return,
