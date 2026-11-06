@@ -57,10 +57,10 @@ it("u6249c_gone_target_drops_silently", async () => {
   await rail.refresh();
 
   fireEvent.click(screen.getByRole("button", { name: /held/ }));
-  const heldRow = () => [...document.querySelectorAll(".held-row")].find(each => each.textContent?.includes("gone"));
+  const goneRow = () => [...document.querySelectorAll(".held-row")].find(each => each.textContent?.includes("gone"));
 
-  await waitFor(() => expect(heldRow()).toBeDefined());
-  fireEvent.click(heldRow()!);
+  await waitFor(() => expect(goneRow()).toBeDefined());
+  fireEvent.click(goneRow()!);
 
   await waitFor(() => expect(connected.held.rows().map(row => row.agent)).toEqual(["b"]));
   expect(screen.queryByRole("alert")).toBeNull();
