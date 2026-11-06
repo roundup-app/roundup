@@ -153,7 +153,7 @@ impl Background {
         }
     }
 
-    /// DCL3e: the Status label of a held Stop: what it waits on, else "working" while only an
+    /// DCL3e: the Status label of a Stop that stays working: what it waits on, else "working" while only an
     /// unavailable observation holds.
     pub(super) fn label(&self) -> String {
         self.waiting_on().unwrap_or_else(|| "working".into())
@@ -186,7 +186,7 @@ impl Background {
         let mut work = BTreeMap::new();
         let mut commands = Vec::new();
         for process in snapshot {
-            if process.pid == root || !held_by_tool_shell(root, process, &by_pid) {
+            if process.pid == root || !runs_tool_work(root, process, &by_pid) {
                 continue;
             }
             // Keyed by PID with its start time, so a reused PID is the new process it is.
@@ -238,7 +238,7 @@ fn service(process: &Process) -> bool {
 }
 
 /// Whether `process` is a tool shell or runs under one below `root`, through no service.
-fn held_by_tool_shell(root: u32, process: &Process, by_pid: &BTreeMap<u32, &Process>) -> bool {
+fn runs_tool_work(root: u32, process: &Process, by_pid: &BTreeMap<u32, &Process>) -> bool {
     let (mut at, mut tool) = (process, false);
     for _ in 0..by_pid.len() + 1 {
         if service(at) {
@@ -384,10 +384,10 @@ mod tests {
         let mut b = ClaudeCode::new(|| 1_900);
         hook(&mut b, json!({"hook_event_name":"UserPromptSubmit"}));
         hook(&mut b, json!({"hook_event_name":"Stop"}));
-        let mut held = mcp_table();
-        held.push(tool_shell(110, 100, 1_950, "sleep 30"));
-        held.push(proc(111, 110, 1_960, &["sleep", "30"]));
-        b.observe_processes(100, Ok(&held));
+        let mut pending = mcp_table();
+        pending.push(tool_shell(110, 100, 1_950, "sleep 30"));
+        pending.push(proc(111, 110, 1_960, &["sleep", "30"]));
+        b.observe_processes(100, Ok(&pending));
         assert_eq!(kind(&b), Kind::Working);
         assert_eq!(
             b.background().processes.keys().collect::<Vec<_>>(),
@@ -405,9 +405,9 @@ mod tests {
         hook(&mut a, json!({"hook_event_name":"UserPromptSubmit"}));
         hook(&mut a, json!({"hook_event_name":"Stop"}));
         let shell = [tool_shell(10, 1, 0, "npm test")];
-        let held = a.observe_processes(1, Ok(&shell)).expect("held");
+        let pending = a.observe_processes(1, Ok(&shell)).expect("pending");
         assert_eq!(
-            (held.kind, held.label.as_str()),
+            (pending.kind, pending.label.as_str()),
             (Kind::Working, "waiting on `npm test`")
         );
         let done = a.observe_processes(1, Ok(&[])).expect("released");
