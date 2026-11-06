@@ -252,7 +252,7 @@ async fn u6296a_a_message_to_a_busy_receiver_shows_its_reason() {
 }
 
 #[tokio::test]
-async fn u6307a_a_busy_receiver_keeps_the_messages_own_held_reason() {
+async fn u6307a_a_busy_receiver_keeps_the_messages_own_reason() {
     let dir = tempfile::tempdir().unwrap();
     let (messages, rail, inbox, _) = open(dir.path());
     let inner = &messages.inner;

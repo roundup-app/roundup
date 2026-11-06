@@ -331,7 +331,7 @@ pub(super) async fn deliver_pending(inner: &Arc<Inner>, agent: &str) {
             .iter()
             .map(|m| m.id)
             .collect();
-        // U6307a: a Message already held for its own reason keeps it.
+        // U6307a: a Message with its own reason keeps it.
         let fresh: Vec<u32> = {
             let waiting = lock(&inner.waiting);
             ids.into_iter()
