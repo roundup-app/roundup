@@ -32,6 +32,16 @@
   display: block;
 }
 
+/* The actions of a failure read as one inline group, each in the interface font. */
+.failure-actions {
+  display: inline-flex;
+  gap: var(--space-3);
+}
+
+.failure-actions button {
+  font-family: var(--font-ui);
+}
+
 .overview-entry {
   flex-wrap: wrap;
 }
