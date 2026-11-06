@@ -5,7 +5,7 @@ import type { SendParams } from "@contracts/ask/SendParams";
 import type { PlacedPart } from "@contracts/ask/PlacedPart";
 import { createFakeApp } from "../testing/fakeApp";
 import { door, workstream } from "../testing/nodes";
-import { ask, mountAskBar, input, press } from "./askFixture";
+import { ask, mountAskBar, input, openAsk, press } from "./askFixture";
 
 afterEach(cleanup);
 
@@ -23,6 +23,7 @@ const setup = async () => {
 
   const routing = { app: { forProject: () => other }, open: () => open, nodes: () => [workstream("w9", { name: "billing" })], show: (path: string, id: string) => void shown.push([path, id]) };
   const mounted = await mountAskBar([], null, [door("lead", "idle", "idle", { name: "lead" })], false, "/p", false, () => true, routing);
+  await openAsk();
   const placed: PlacedPart[] = [{ text: "pay invoices", placement: { kind: "routed", workstream: "w9", project: "other" } }];
   const places: string[] = [];
   mounted.app.handlers["ask.place"] = (params: { text: string }) => places.push(params.text) > 0 ? placed : placed;
@@ -44,6 +45,8 @@ describe("u6271b the Project chip", () => {
   it("u6271b_the_chip_reads_the_active_project_until_a_pick_returns", async () => {
     const { places } = await setup();
 
+    await chip();
+    expect(chosen()).toBe("p");
     type("pay invoices");
     await chip();
     expect(chosen()).toBe("p");
@@ -93,6 +96,7 @@ describe("u6271c a sent row names its Project", () => {
     const shown: [string, string][] = [];
     const routing = { app: { forProject: () => other }, open: () => open, nodes: () => [workstream("w9", { name: "billing" })], show: (path: string, id: string) => { shown.push([path, id]); } };
     await mountAskBar([ask("a1", 1, [part])], null, [door("lead", "idle", "idle", { name: "lead" })], false, "/p", false, () => true, routing);
+    await openAsk();
 
     const row = await screen.findByText("other / billing");
     fireEvent.click(row.closest("button")!);

@@ -61,7 +61,9 @@ export const createProjectPick = (from: {
 
   return {
     chips: (): readonly ProjectChip[] => {
-      if (!shown() || from.text().trim() === "") return [];
+      if (!shown()) return [];
+
+      if (from.text().trim() === "") return [{ text: "", project: pick() ?? from.active }];
 
       const parts = current() ?? [{ text: from.text(), placement: { kind: "unclear" as const, question: "", candidates: [] } }];
 

@@ -8,7 +8,7 @@ import { captureFocus, queueFocus } from "../keys/focus";
 import { createCopyLabels } from "../ui/CopyButton";
 import { writeText } from "../app/clipboard";
 import type { JSX } from "solid-js";
-import { batch, untrack, createComputed, createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js";
+import { batch, untrack, createComputed, createEffect, createMemo, createSignal, For, Index, onCleanup, onMount, Show } from "solid-js";
 import * as v from "valibot";
 import { createStore, reconcile } from "solid-js/store";
 import type { AskSubmission } from "../state/asks";
@@ -345,8 +345,8 @@ export const AskBar = (props: {
           }} /></Show>
         </Mentions.Root>
         <Show when={projectPick.chips().length > 0}><div class="ask-choices ask-chips">
-          <For each={projectPick.chips()}>{chip => <Select label={projectPick.chips().length > 1 ? copy.askProjectOf(chip.text) : copy.askProject} value={chip.project}
-            choices={asks.projects().map(project => ({ value: project.name, label: project.name }))} onValueChange={projectPick.pick} />}</For>
+          <Index each={projectPick.chips()}>{chip => <Select label={projectPick.chips().length > 1 ? copy.askProjectOf(chip().text) : copy.askProject} value={chip().project}
+            choices={asks.projects().map(project => ({ value: project.name, label: project.name }))} onValueChange={projectPick.pick} />}</Index>
         </div></Show>
         <ReservedLine overlay class="ask-send-status" message={problem() ? copy.draftRetention(connected.project.name, copy.draftSurface("ask"), problem()!.cause) : failure()?.message ?? (records().some(draft => draft.status === "unknown") ? null : asks.failure())}
           status={records().some(draft => draft.status === "unknown") ? copy.askUnknownState : null}>
