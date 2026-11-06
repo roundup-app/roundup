@@ -9,7 +9,7 @@ import { captureFocus, returnFocus } from "../keys/focus";
 import { type createCopyFeedback } from "../ui/CopyButton";
 import * as v from "valibot";
 import { copy } from "./copy";
-import { createEffect, createMemo, createSignal, For, lazy, on, onCleanup, onMount, Show } from "solid-js";
+import { createEffect, createMemo, createSignal, For, lazy, on, onCleanup, onMount, Show, untrack } from "solid-js";
 import { ReservedLine } from "../ink/ReservedLine";
 import { SectionHead } from "../ink/SectionHead";
 import { KindGlyph } from "../ink/KindGlyph";
@@ -25,7 +25,7 @@ import { OpeningPrompt } from "./OpeningPrompt";
 import { SaveAsMode } from "./SaveAsMode";
 import { RailConfirm } from "./menu/RailConfirm";
 import { createRailMenu } from "./menu/model";
-import { ancestorsOf, isWorkstream, siblingsOf } from "./layout";
+import { ancestorsOf, descendantsOf, isWorkstream, siblingsOf } from "./layout";
 import { RailRowView } from "./RailRow";
 import { focusedRowId, ROW, type RowActions } from "./rows";
 import { SpawnPromptField } from "./SpawnPromptField";
@@ -37,7 +37,7 @@ import { useRecoveryMenu } from "../drawer/DraftRecovery";
 import { draftsOf } from "./persist/storage";
 import { createRailDrag } from "./drag";
 import { createRailSelection } from "./selection";
-import { createRailTree, sections } from "./railTree";
+import { createRailTree, sameList, sections } from "./railTree";
 import { RailRecovery } from "./RailRecovery";
 import { RailFooter } from "./RailFooter";
 import "./styles.css";
@@ -364,7 +364,7 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
   const moveTo = ({ id, parent, index }: SortableMove) => {
     if (daemonExit() !== null || pointerOutside()) return;
 
-    void moveAgent.move({ id, parent, index: trueIndex(id, parent, index) });
+    return moveAgent.move({ id, parent, index: trueIndex(id, parent, index) });
   };
 
   /** Runs one of the add actions; U6000d: a second one fired while the Daemon is still answering is not refused. */
@@ -615,7 +615,7 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
     const id = focus instanceof HTMLElement && focus.matches(ROW) ? focus.closest<HTMLElement>("[data-id]")?.dataset.id : undefined;
 
     return {
-      available: () => !!id && !!focus?.isConnected && !focus.classList.contains("sortable-source") && daemonExit() === null && editingName() === null && rail.nodes.some(node => node.id === id),
+      available: () => !!id && !!focus?.isConnected && !focus.closest("[data-dnd-dragging]") && daemonExit() === null && editingName() === null && rail.nodes.some(node => node.id === id),
       invoke: () => { if (id) setEditingName(id); },
     };
   } }]);
@@ -756,16 +756,21 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
                 return (
                   <>
                     <Show when={node()}>
-                      {(view) => (
+                      {(view) => {
+                        // U3800d: a row reads its own subtree of the topology, so a move redraws only the rows whose subtree it changed.
+                        const id = untrack(() => view().node.id);
+                        const below = createMemo(() => topology(), topology(), { equals: (a, b) => sameList(descendantsOf(a, id), descendantsOf(b, id)) });
+
+                        return (
                         <TreeView.NodeProvider node={entryOf(view().node.id).node} indexPath={entryOf(view().node.id).indexPath}>
                         <Sortable.Item id={view().node.id} index={indexOf().get(view().node.id) ?? 0} disabled={daemonExit() !== null}>{(parts) =>
                         <RailRowView
                           row={view()}
-                          topology={topology()}
+                          topology={below()}
                           todoCount={todoCount(view().node.id)}
                           actions={actionsOf(view().node)}
                           doorAction={<Show when={isWorkstream(view().node) && !view().node.opening_prompt?.trim() && rail.exitOf(view().node) !== null && !connected.queue.entryOf(view().node.id)}><IconButton aria-label={rail.doorFailure(view().node.id) ? copy.retryDoor : copy.startDoor} aria-disabled={rail.launching(view().node.id)} onKeyDown={event => event.stopPropagation()} onClick={event => { event.stopPropagation(); failure.clear(); rail.clearWorkstreamFailure(); void rail.startDoor(view().node.id); }}><Icon name="play" /></IconButton></Show>}
-                          rootDivider={collection().isBranchNode(entryOf(view().node.id).node) && view().key !== sectionRows().find(each => each.id === section.id)?.rows[0]?.key}
+                          rootDivider={entryOf(view().node.id).branch && view().key !== sectionRows().find(each => each.id === section.id)?.rows[0]?.key}
                           copyWith={feedback => {
                             const id = view().node.id;
                             copied.set(id, feedback);
@@ -776,7 +781,7 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
                           selected={selection.selection.isSelected(view().node.id)}
                           multiple={selection.selection.selectedValues().length > 1}
                           tabbable={tabbableId() === view().node.id}
-                          branch={collection().isBranchNode(entryOf(view().node.id).node)}
+                          branch={entryOf(view().node.id).branch}
                           onToggle={() => rail.toggleCollapsed(view().node.id)}
                           onOpen={id => openRow(id ?? view().node.id)}
                           onFailure={(message) => {
@@ -796,7 +801,8 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
                         />
                         }</Sortable.Item>
                         </TreeView.NodeProvider>
-                      )}
+                        );
+                      }}
                     </Show>
                     <Show when={fold()}>
                       {(view) => (

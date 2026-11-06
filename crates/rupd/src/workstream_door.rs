@@ -76,6 +76,7 @@ for line in sys.stdin:
         digests: Default::default(),
         pushes: Default::default(),
         rail_told: Default::default(),
+        resumes: Default::default(),
         waits: Default::default(),
         resources: Default::default(),
         publications: crate::deliverables::Publications::in_memory(dir.join("deliverables")),

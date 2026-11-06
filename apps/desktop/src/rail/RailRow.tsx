@@ -9,7 +9,7 @@ import * as v from "valibot";
 import { useConnectedProject } from "../state/connectedProject";
 import "../keys/styles.css";
 import { copy } from "./copy";
-import { Show, onCleanup, type JSX } from "solid-js";
+import { Show, createMemo, onCleanup, type JSX } from "solid-js";
 import { IconButton } from "../ui/IconButton";
 import { TreeView } from "../ui/TreeView";
 import { RowIcons } from "./RowIcons";
@@ -138,7 +138,8 @@ export const RailRowView = (props: {
   const isGroup = () => props.row.node.kind === "group";
   const isContainer = () => workstream() || isGroup();
 
-  const kind = (): Kind | null => rowKind(props.topology, props.row.node, node => connected.rail.dismissed(node), isContainer() && props.row.collapsed !== null);
+  // U3800d: each derived value is a memo, so a move that changes none of them runs nothing below it.
+  const kind = createMemo((): Kind | null => rowKind(props.topology, props.row.node, node => connected.rail.dismissed(node), isContainer() && props.row.collapsed !== null));
 
   /** DCL1, U6249d: the first Agent, the row's own, or any below it while the row is folded, whose Messages have not reached it, with the Daemon's cause. An open Workstream adds nothing: its child's own row shows the line. */
   const unreachable = () => [props.row.node, ...(isContainer() && props.row.collapsed ? descendantsOf(props.topology, props.row.node.id) : [])].find(node => node.unreachable);
@@ -149,7 +150,13 @@ export const RailRowView = (props: {
     return status?.kind === "error" && connected.rail.dismissed(props.row.node) ? copy.dismissedFailure(status.label) : status?.label ?? "";
   };
 
-  const unread = () => rowUnread(props.topology, props.row.node, id => connected.unseen.of(id), isContainer() && props.row.collapsed !== null);
+  const unread = createMemo(() => rowUnread(props.topology, props.row.node, id => connected.unseen.of(id), isContainer() && props.row.collapsed !== null));
+  const level = createMemo(() => alertLevel(props.topology, props.row.node));
+  const selected = createMemo(() => props.selected);
+  const multiple = createMemo(() => props.multiple);
+  const tabbable = createMemo(() => props.tabbable);
+  const rootDivider = createMemo(() => props.rootDivider ?? false);
+  const pending = createMemo(() => connected.rail.pendingOf(props.row.node.id) ? true : undefined);
 
   const queuedBadge = () => {
     const queued = workstream() ? connected.queue.entryOf(props.row.node.id) : null;
@@ -168,13 +175,13 @@ export const RailRowView = (props: {
   };
 
   const rowProps = () => ({
-    class: "rail-row", classList: { "row-wash": true, "rail-root-divider": props.rootDivider ?? false }, "data-id": props.row.node.id,
+    class: "rail-row", classList: { "row-wash": true, "rail-root-divider": rootDivider() }, "data-id": props.row.node.id,
     title: !props.editing ? cutName.title() : undefined,
-    "data-selected": props.selected ? "true" : undefined,
-    "data-multiple": props.multiple ? "true" : undefined,
-    tabIndex: props.tabbable ? 0 : -1,
+    "data-selected": selected() ? "true" : undefined,
+    "data-multiple": multiple() ? "true" : undefined,
+    tabIndex: tabbable() ? 0 : -1,
     "data-worktree": props.row.node.worktree ? "true" : undefined,
-    "data-editing": props.editing, "aria-busy": connected.rail.pendingOf(props.row.node.id) ? true : undefined, "data-kind": kind() ?? undefined, "data-lifted": props.lifted,
+    "data-editing": props.editing, "aria-busy": pending(), "data-kind": kind() ?? undefined, "data-lifted": props.lifted,
     style: { "--tree-depth": props.row.depth, "--indent": `calc(${props.row.depth} * var(--rail-step) + var(--rail-inset))` },
     onDblClick: (event: MouseEvent) => {
       if (!(event.target instanceof Element) || event.target.closest("button, input") || props.lifted) return;
@@ -204,7 +211,7 @@ export const RailRowView = (props: {
       <Show when={workstream()}><IconButton class="rail-chevron row-control" aria-label={props.row.collapsed ? copy.expand : copy.collapse} aria-expanded={!props.row.collapsed} {...ownKeys} onClick={event => { event.stopPropagation(); props.onToggle(); }}><Icon name={props.row.collapsed ? "right" : "down"} /></IconButton></Show>
       <span class="row-state"><KindGlyph kind={kind() ?? "idle"} /></span>
       {name()}
-      <Show when={alertLevel(props.topology, props.row.node) !== "default" && alertLevel(props.topology, props.row.node)}>{level => <span class="alert-level" data-state="alert-level">{level()}</span>}</Show>
+      <Show when={level() !== "default" && level()}>{level => <span class="alert-level" data-state="alert-level">{level()}</span>}</Show>
       <Show when={props.row.collapsed?.agents.length}>{hidden => <span class="hidden-agents" data-state="collapsed" role="img" aria-label={copy.hiddenAgents(hidden())}>{hidden()}</span>}</Show>
       <Show when={unread()}><span class="unread-dot row-secondary" data-state="" role="img" aria-label={copy.unreadResult} /></Show>
       <Show when={queuedBadge()}>{badge => <span class="light queue-badge row-secondary">{badge()}</span>}</Show>

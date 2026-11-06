@@ -1,6 +1,6 @@
 // U137: the one module that measures D1 to D14 (docs/design-system.md, "The checks"). `window.__checks()` on the harness page and the u130_ to u137_ tests call it, so a check has one implementation.
 // It reads computed style, stylesheet text and the DOM and writes nothing: a hover, press or focus style is read from the stylesheet rules that would apply, never by driving the page into that state.
-import { pressCheck, rowCueCheck, rowAlignmentCheck } from "./designChecks";
+import { pressCheck, rowCueCheck, rowAlignmentCheck, tabStateCheck } from "./designChecks";
 import valueParser from "postcss-value-parser";
 import { contrastRgb } from "./contrast";
 import { inlineStyleCss, lookLiterals } from "./lookLiterals";
@@ -80,6 +80,12 @@ type Page = {
   style: (el: Element) => CSSStyleDeclaration;
   token: (name: string) => string | undefined;
   resolve: (value: string) => string;
+};
+
+const rowAndTabCue = (doc: Document, rules: CSSStyleRule[]) => {
+  const rows = rowCueCheck(doc, rules);
+
+  return rows.status === "fail" ? rows : tabStateCheck(doc, rules);
 };
 
 const styleRulesOf = (doc: Document): CSSStyleRule[] => {
@@ -778,6 +784,13 @@ const d16 = (page: Page): Measure => {
 
 // D14: no row is a card, gaps within each list are equal space steps, and no title shows more than two lines or overflows its row.
 const d14 = (page: Page): Measure => {
+  // A pointer drag moves rows by `translate` only, so a row's box less its translate is its place in the list's layout, its place at lift.
+  const placed = (row: Element, box: DOMRect) => {
+    const shift = px(page.style(row).translate.split(" ")[1] ?? "") ?? 0;
+
+    return { top: box.top - shift, bottom: box.bottom - shift };
+  };
+
   // A lifted row floats over its neighbours (M6); its in-flow placeholder holds its place in the list.
   const rows = shelfRows(page).filter(({ row }) => !row.matches("[data-dnd-dragging]"));
 
@@ -810,15 +823,16 @@ const d14 = (page: Page): Measure => {
 
       // The done fold begins another list; its separation is not a gap between neighbours.
       if (listOf(one.row) === listOf(previous.row)) {
-        const slot = listOf(one.row)?.querySelector(".sortable-slot")?.getBoundingClientRect();
-        // U3800a's destination is a visible row-sized slot, not empty spacing between rows.
-        const occupied = slot && slot.top >= previous.box.bottom && slot.bottom <= one.box.top ? slot.height : 0;
+        // U3800a: the room a drag opens for the dragged row is a row-sized gap, not empty spacing between rows; a gap that holds the dragged row's height holds its room.
+        const room = listOf(one.row)?.querySelector("[data-dnd-dragging]")?.getBoundingClientRect().height ?? 0;
+        const gap = placed(one.row, one.box).top - placed(previous.row, previous.box).bottom;
+        const occupied = room > 0 && gap >= room ? room : 0;
 
-        between.push(one.box.top - previous.box.bottom - occupied);
+        between.push(gap - occupied);
       }
     });
 
-    if (head && own[0]) heads.push(own[0].box.top - head.getBoundingClientRect().bottom);
+    if (head && own[0]) heads.push(placed(own[0].row, own[0].box).top - head.getBoundingClientRect().bottom);
   }
 
   const sections = SHELF_LISTS.flatMap((list) => page.doc.querySelector(`.shelf section[aria-label="${list}" i]`) ?? []);
@@ -862,7 +876,7 @@ export function runChecks(doc: Document = document): Checks {
       const { ok, value, selector } = BY_ID[id](page);
 
       if (!ok) return { status: "fail", value, selector };
-      const extension = id === "D4" ? pressCheck(doc, page.rules) : id === "D7" ? rowCueCheck(doc, page.rules) : id === "D8" ? rowAlignmentCheck(doc) : null;
+      const extension = id === "D4" ? pressCheck(doc, page.rules) : id === "D7" ? rowAndTabCue(doc, page.rules) : id === "D8" ? rowAlignmentCheck(doc) : null;
 
       return extension?.status === "fail" ? extension : { status: "pass", value: extension ? { original: value, extension: extension.value } : value, selector };
     } catch {

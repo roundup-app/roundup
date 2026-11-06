@@ -121,7 +121,7 @@ it("u2742d_switch_respects_repeat_modifiers_and_focus_ownership", async () => {
   await wait(`window.__fake.app.calls.some(c => c.method === 'terminal.write' && c.params.id === '103' && atob(c.params.data) === '\\x1b')`);
 
   // Requested navigation and the window title still receive an outside press.
-  for (const target of [".window-title", ".project-tab[data-selected] .tab-name-button"]) {
+  for (const target of [".traffic-lights", ".project-tab[data-selected] .tab-name-button"]) {
 
     await read(`(() => {
       window.__outsidePresses = 0;

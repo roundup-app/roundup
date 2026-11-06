@@ -13,14 +13,12 @@ type Box = { height: number; left: number; right: number; top: number; bottom: n
 type Frame = { top: number; bottom: number; barBottom: number };
 
 type Observation = {
-  case: string; width: number; bar: Box; reserved: Box; title: Box; strip: Box; plus: Box;
+  case: string; width: number; bar: Box; reserved: Box; title: Box | null; strip: Box; plus: Box;
   rail: Box; centre: Box; shelf: Box; drawer: Box; close: Box;
   menu: { items: { id: string; label: string; enabled: boolean }[] } | null;
   centreSurfaces: Box[];
   opening?: Frame[]; closing?: Frame[];
-  windowTitle: string; titleName: string; titleTip: string;
-  titleTextWidth: number; titlePadding: number;
-  titleStyle: { overflow: string; whiteSpace: string };
+  windowTitle: string;
   controls: { name: string; box: Box; visible: boolean }[];
   scroll: { total: number; width: number };
   checks: Record<string, { status: string }>;
@@ -58,11 +56,10 @@ run("u449 isolated rendered window bar", () => {
     if (cacheDir) rmSync(cacheDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
   });
 
-  it("u449_long_title_keeps_its_full_name", () => {
+  it("u6382a_bar_draws_no_title", () => {
     for (const record of records.filter((record) => record.case.includes("overflow"))) {
+      expect(record.title).toBeNull();
       expect(record.windowTitle).toContain("W".repeat(300));
-      expect(record.windowTitle).toBe(record.titleName);
-      expect(record.windowTitle).toBe(record.titleTip);
     }
   });
 });

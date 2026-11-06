@@ -316,12 +316,18 @@ export const Todos = (props: {
 
       if (message !== null) {
         nestFocus = null;
+        sorted.show(id, message);
 
-        return sorted.show(id, message);
+        return message;
       }
     }
 
-    if (plan.before !== undefined) sorted.show(id, await sorted.reorderTo(id, plan.before));
+    if (plan.before === undefined) return null;
+    const message = await sorted.reorderTo(id, plan.before);
+
+    sorted.show(id, message);
+
+    return message;
   };
 
   let plusButton: HTMLButtonElement | undefined;
@@ -788,7 +794,7 @@ export const Todos = (props: {
             return Number.parseFloat(styles.paddingInlineStart) - Number.parseFloat(styles.getPropertyValue("--space-2"));
           },
           nests: () => true,
-          onMove: (move) => void dropOf(tree(), group().items.filter(todo => !pending().includes(todo)), Number(move.id), move.parent === null ? null : Number(move.parent), move.index),
+          onMove: (move) => dropOf(tree(), group().items.filter(todo => !pending().includes(todo)), Number(move.id), move.parent === null ? null : Number(move.parent), move.index),
           onPreview: () => undefined,
         }}>
         <TreeView.Tree aria-label={copy.todos} style={{ padding: "0" }}>

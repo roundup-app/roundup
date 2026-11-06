@@ -1,5 +1,6 @@
 import { createMemo, type Accessor } from "solid-js";
 import { createTreeCollection } from "@ark-ui/solid/tree-view";
+import type { RailNode as ProjectNode } from "@contracts/agent/RailNode";
 import { KIND_ICON } from "../ink/kindIcon";
 import type { ConnectedProject } from "../state/connectedProject";
 import { railCollection } from "./collection";
@@ -13,22 +14,27 @@ export const sections: { id: RailSection; label: string; icon: typeof KIND_ICON[
   { id: "agents", label: copy.agentsHead, icon: KIND_ICON.agent },
 ];
 
-const sameList = (left: readonly unknown[], right: readonly unknown[]) => left.length === right.length && left.every((value, at) => value === right[at]);
+export const sameList = (a: readonly unknown[], b: readonly unknown[]) => a.length === b.length && a.every((each, at) => each === b[at]);
 
-/** U3800d: a layout pass draws new row objects for rows that did not change; keeping the old object keeps that row's subtree still. */
-const sameRow = (left: RailRow, right: RailRow): boolean => {
-  if (left.kind === "node" && right.kind === "node") {
-    return left.key === right.key && left.depth === right.depth && left.node === right.node && left.children === right.children && sameList(left.trail, right.trail)
-      && (left.collapsed === right.collapsed || (left.collapsed !== null && right.collapsed !== null && sameList(left.collapsed.agents, right.collapsed.agents)));
-  }
+/** A copy the drawing made of a node it did not change is the node: equal field by field. */
+const sameNode = (a: ProjectNode, b: ProjectNode): boolean => {
+  if (a === b) return true;
+  // SAFETY: Object.keys of a RailNode lists its own fields, each a key of RailNode.
+  const keys = Object.keys(a) as (keyof ProjectNode)[];
 
-  if (left.kind === "fold" && right.kind === "fold") {
-    return left.key === right.key && left.depth === right.depth && left.parent === right.parent && left.group === right.group && left.status === right.status
-      && left.count === right.count && left.open === right.open && sameList(left.trail, right.trail);
-  }
-
-  return false;
+  return keys.length === Object.keys(b).length && keys.every(key => a[key] === b[key]);
 };
+
+const sameRow = (a: RailRow, b: RailRow): boolean => {
+  if (a.kind === "node" && b.kind === "node") return sameNode(a.node, b.node) && a.depth === b.depth && a.children === b.children && sameList(a.trail, b.trail)
+    && (a.collapsed === null ? b.collapsed === null : b.collapsed !== null && sameList(a.collapsed.agents, b.collapsed.agents));
+
+  return a.kind === "fold" && b.kind === "fold" && a.depth === b.depth && a.parent === b.parent && a.group === b.group && a.status === b.status && a.count === b.count && a.open === b.open && sameList(a.trail, b.trail);
+};
+
+type RailNode = { id: string; name: string; childrenCount?: number; children?: RailNode[] };
+
+type Entry = { node: RailNode; indexPath: number[]; branch: boolean };
 
 export const createRailTree = (connected: ConnectedProject, unfolded: Accessor<ReadonlySet<string | null>>, rowElement: (id: string) => HTMLElement | undefined) => {
   const { rail, now } = connected;
@@ -36,12 +42,23 @@ export const createRailTree = (connected: ConnectedProject, unfolded: Accessor<R
   const topology = rail.topology;
   const presentSections = createMemo(() => sections.filter(section => topology().section.includes(section.id)));
 
-  const sectionRows = createMemo(() => presentSections().map(section => ({
+  /** U3800d: a row the move left as it was keeps its object, so the view built from it does not run again. */
+  const stable = (previous: Map<string, RailRow> | undefined, row: RailRow): RailRow => {
+    const kept = previous?.get(row.key);
+
+    return kept && sameRow(kept, row) ? kept : row;
+  };
+
+  const sectionRows = createMemo<{ id: RailSection; label: string; icon: (typeof sections)[number]["icon"]; rows: RailRow[] }[]>(() => presentSections().map(section => ({
     ...section,
     rows: rail.closedSections().has(section.id) ? [] : layoutRail(topology(), { collapsed: collapsed(), unfolded: unfolded(), now: now(), selected: rail.selected() }, section.id),
   })));
 
-  const rows = createMemo(() => sectionRows().flatMap(section => section.rows));
+  const rows = createMemo<RailRow[]>(previous => {
+    const before = new Map(previous?.map(row => [row.key, row]));
+
+    return sectionRows().flatMap(section => section.rows).map(row => stable(before, row));
+  }, []);
 
   /** Section branches share Ark's keyboard walk and add one semantic level above their rows. */
   const collection = createMemo(() => {
@@ -72,26 +89,45 @@ export const createRailTree = (connected: ConnectedProject, unfolded: Accessor<R
     return section ? !rail.closedSections().has(section.id) : id.startsWith("fold:") ? unfolded().has(id.slice(5)) : !collapsed().has(id);
   }));
 
-  /** The tree node and index path Ark's providers need for the row `id`. */
+  /** One walk of the collection gives every node its index path; a move then costs O(rows), not a `getIndexPath` scan per row. */
+  const entries = createMemo<Map<string, Entry>>((previous) => {
+    const next = new Map<string, Entry>();
+
+    const walk = (node: RailNode, indexPath: number[]) => {
+      node.children?.forEach((child, at) => {
+        const path = [...indexPath, at];
+        const kept = previous?.get(child.id);
+
+        const same = kept && kept.indexPath.join() === path.join() && kept.node.name === child.name && kept.node.childrenCount === child.childrenCount
+          && (kept.node.children?.map(each => each.id).join() ?? "") === (child.children?.map(each => each.id).join() ?? "");
+
+        // SAFETY: `child` comes from this collection's own rootNode, so isBranchNode reads a node it holds.
+        // An unmoved row keeps its entry object, so its provider props do not change.
+        next.set(child.id, same ? kept : { node: child, indexPath: path, branch: collection().isBranchNode(child as never) });
+        walk(child, path);
+      });
+    };
+
+    // SAFETY: rootNode's children are the nodes `RailNode` names (id, name, optional childrenCount and children).
+    walk(collection().rootNode as RailNode, []);
+
+    return next;
+  });
+
+  /** The tree node, index path and branch-ness Ark's providers need for the row `id`; stable while that row is unchanged. */
   const entryOf = (id: string) => {
-    const indexPath = collection().getIndexPath(id);
-    const node = indexPath && collection().at(indexPath);
+    const entry = entries().get(id);
 
-    if (!indexPath || !node) throw new Error(`no node for row ${id}`);
+    if (!entry) throw new Error(`no node for row ${id}`);
 
-    return { node, indexPath };
+    return entry;
   };
 
   const nodeRows = createMemo(() => rows().filter((row): row is NodeRow => row.kind === "node"));
   const nodeIds = createMemo(() => nodeRows().map((row) => row.node.id));
   const indexOf = createMemo(() => new Map(nodeIds().map((id, at) => [id, at])));
   const treeRows = createMemo(() => nodeRows().map((row) => ({ id: row.node.id, parent: topology().nodes[topology().parent[topology().index.get(row.node.id)!] ?? -1]?.id ?? null })));
-
-  const byKey = createMemo<ReadonlyMap<string, RailRow>>(before => new Map(rows().map((row) => {
-    const kept = before?.get(row.key);
-
-    return [row.key, kept && sameRow(kept, row) ? kept : row];
-  })));
+  const byKey = createMemo(() => new Map(rows().map((row) => [row.key, row])));
 
   return { topology, sectionRows, rows, collection, expanded, entryOf, nodeRows, nodeIds, indexOf, treeRows, byKey };
 };

@@ -83,7 +83,10 @@ export const KindGlyph = (props: { kind: Kind; decorative?: boolean; label?: str
   const stop = () => { running.forEach(animation => animation.cancel()); running = []; };
 
   // A computation runs before Solid redraws the Mark, so the working arc is still in the DOM to read.
-  createComputed(on(() => props.kind, kind => {
+  // The memo passes on only a different Kind: a redraw that hands the same Kind again starts no fade and reads no style.
+  const changed = createMemo(() => props.kind);
+
+  createComputed(on(changed, kind => {
     const previous = shown;
 
     // A redraw re-reads the prop for every Glyph; only a different Kind is a change to fade.
