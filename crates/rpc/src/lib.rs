@@ -1,5 +1,12 @@
 //! Shared by the Daemon, its modules and its clients: errors, the module contract, and the client.
 
+#![deny(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
+
 mod client;
 mod error;
 mod module;

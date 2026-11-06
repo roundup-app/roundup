@@ -193,19 +193,23 @@ async fn read_loop(
             eprintln!("rpc: dropped a frame that is not JSON");
             continue;
         };
-        if matches!(
-            frame["method"].as_str(),
-            Some("terminal.output" | "terminal.gap")
-        ) {
+        let method = frame.get("method");
+        let is_output = method == Some(&Value::from("terminal.output"));
+        let is_gap = method == Some(&Value::from("terminal.gap"));
+        let is_event = method == Some(&Value::from("event"));
+        let is_closed = method == Some(&Value::from("action.closed"));
+        let is_request = method.is_some_and(Value::is_string)
+            && frame.get("id").is_some_and(Value::is_u64);
+        if is_output || is_gap {
             let params = frame.get_mut("params").map_or(Value::Null, Value::take);
-            let parsed = if frame["method"] == "terminal.output" {
+            let parsed = if is_output {
                 serde_json::from_value(params).map(OutputFrame::Bytes)
             } else {
                 serde_json::from_value(params).map(OutputFrame::Gap)
             };
             match parsed {
                 Ok(output) => {
-                    if let Some(sender) = &state.lock().expect("Client state poisoned").output {
+                    if let Some(sender) = &state.lock().unwrap_or_else(|e| e.into_inner()).output {
                         let _ = sender.send(output);
                     }
                 }
@@ -217,7 +221,7 @@ async fn read_loop(
             tokio::task::yield_now().await;
             continue;
         }
-        if frame["method"] == "event" {
+        if is_event {
             match serde_json::from_value::<Event>(
                 frame.get_mut("params").map_or(Value::Null, Value::take),
             ) {
@@ -230,13 +234,11 @@ async fn read_loop(
             }
             continue;
         }
-        if frame["method"] == "action.closed"
-            || (frame["method"].is_string() && frame["id"].is_u64())
-        {
+        if is_closed || is_request {
             let _ = requests.send(frame);
             continue;
         }
-        let Some(id) = frame["id"].as_u64() else {
+        let Some(id) = frame.get("id").and_then(Value::as_u64) else {
             continue;
         };
         let outcome = match frame.get_mut("error") {
