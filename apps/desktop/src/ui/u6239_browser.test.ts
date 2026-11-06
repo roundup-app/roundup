@@ -90,26 +90,31 @@ run("u6239 Project tab drag", () => {
     await page.pointer("up", x, from.y);
   }, 60_000);
   it("u6239d_a_clipped_tab_follows_and_reorders", async () => {
-    await page.load("/harness.html?seed=tabs-8", 1512, 950);
+    // Narrow enough that the strip overflows whatever else the window bar holds.
+    await page.load("/harness.html?seed=tabs-8", 1000, 950);
     await page.until(`() => document.querySelectorAll('.app-tabs-list .project-tab').length >= 6`);
     await new Promise(resolve => setTimeout(resolve, 1000));
 
-    // Scroll the strip so the fourth tab is cut by the start edge, and grab it by the part still showing.
-    await page.call(`() => {
+    // Scroll the strip so the furthest tab the overflow can reach is cut by the start edge, and grab it by the part still showing.
+    const index = await page.call<number>(`() => {
       const list = document.querySelector('.app-tabs-list');
-      const b = list.querySelectorAll('.project-tab')[3].getBoundingClientRect();
+      const offsets = [...list.querySelectorAll('.project-tab')].map(tab => tab.getBoundingClientRect().left - list.getBoundingClientRect().left + list.scrollLeft);
+      const index = offsets.findLastIndex(offset => offset + 30 <= list.scrollWidth - list.clientWidth);
 
-      list.scrollLeft += b.left + 30 - list.getBoundingClientRect().left;
+      list.scrollLeft = offsets[index] + 30;
+
+      return index;
     }`);
+
     await new Promise(resolve => setTimeout(resolve, 600));
 
-    const grabbed = await page.call<{ path: string; x: number; y: number; cut: boolean }>(`() => {
+    const grabbed = await page.call<{ path: string; x: number; y: number; cut: boolean }>(`index => {
       const list = document.querySelector('.app-tabs-list');
       const edge = list.getBoundingClientRect().left;
-      const target = list.querySelectorAll('.project-tab')[3];
+      const target = list.querySelectorAll('.project-tab')[index];
       const b = target.getBoundingClientRect();
       return { path: target.dataset.path, x: edge + 20, y: b.top + b.height / 2, cut: b.left < edge };
-    }`);
+    }`, index);
 
     if (!grabbed.cut) throw new Error("the tab is not cut by the strip's start");
     const before = await order();
