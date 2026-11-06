@@ -275,7 +275,21 @@ fn plist(name: &str, identifier: &str) -> String {
     )
 }
 
-/// FA5980b: `<fork>/<name>.app`, its executable a link to `binary`. Replaces an earlier one;
+fn shell_quote(path: &Path) -> String {
+    format!("'{}'", path.to_string_lossy().replace('\'', "'\\''"))
+}
+
+/// U6266b: the `.app`'s executable: Finder gives the binary no environment, so it names the Fork's
+/// folder and drops the live App's per-instance variables before it runs the binary.
+fn launcher_script(fork: &Path, binary: &Path) -> String {
+    format!(
+        "#!/bin/sh\nunset ROUNDUP_DEV_PORT ROUNDUP_SLOT ROUNDUP_RUPD_BIN\nROUNDUP_DATA_DIR={} exec {} \"$@\"\n",
+        shell_quote(fork),
+        shell_quote(binary)
+    )
+}
+
+/// FA5980b: `<fork>/<name>.app`, its executable a launcher that runs `binary` on the Fork. Replaces an earlier one;
 /// a failure leaves no half-made bundle.
 pub(crate) fn make(fork: &Path, binary: &Path) -> Result<PathBuf, String> {
     make_from(fork, binary, ARTWORK)
@@ -320,9 +334,14 @@ fn make_from(fork: &Path, binary: &Path, artwork: &[u8]) -> Result<PathBuf, Stri
         )
         .map_err(io)?;
         #[cfg(unix)]
-        std::os::unix::fs::symlink(binary, scratch.join("Contents/MacOS/roundup")).map_err(io)?;
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let launcher = scratch.join("Contents/MacOS/roundup");
+            fs::write(&launcher, launcher_script(fork, binary)).map_err(io)?;
+            fs::set_permissions(&launcher, fs::Permissions::from_mode(0o755)).map_err(io)?;
+        }
         #[cfg(not(unix))]
-        return Err("a Fork's .app needs a unix link".into());
+        return Err("a Fork's .app needs a unix launcher".into());
         // A renamed Fork leaves no `.app` of its old name behind.
         for entry in fs::read_dir(fork).map_err(io)?.flatten() {
             if entry.path().extension().is_some_and(|ext| ext == "app") {
@@ -469,10 +488,6 @@ mod tests {
         ] {
             assert!(plist_text.contains(token), "{token}");
         }
-        assert_eq!(
-            fs::read_link(app.join("Contents/MacOS/roundup")).unwrap(),
-            binary
-        );
         let family =
             IconFamily::read(fs::File::open(app.join("Contents/Resources/fork.icns")).unwrap())
                 .unwrap();
@@ -578,5 +593,29 @@ mod tests {
             .collect();
         top.sort();
         assert_eq!(top, ["fork", "live"]);
+    }
+
+    #[test]
+    fn u6266b_the_app_runs_the_binary_on_the_forks_folder() {
+        use std::os::unix::fs::PermissionsExt;
+        let tmp = tempfile::tempdir().unwrap();
+        let fork = fork_in(tmp.path(), "it's", "F", ForkColour::Blue);
+        let binary = tmp.path().join("bin");
+        fs::write(
+            &binary,
+            "#!/bin/sh\necho \"$ROUNDUP_DATA_DIR|$ROUNDUP_DEV_PORT\"\n",
+        )
+        .unwrap();
+        fs::set_permissions(&binary, fs::Permissions::from_mode(0o755)).unwrap();
+        let app = make(&fork, &binary).unwrap();
+        let out = std::process::Command::new(app.join("Contents/MacOS/roundup"))
+            .env_remove("ROUNDUP_DATA_DIR")
+            .env("ROUNDUP_DEV_PORT", "5173")
+            .output()
+            .unwrap();
+        assert_eq!(
+            String::from_utf8_lossy(&out.stdout).trim(),
+            format!("{}|", fork.display())
+        );
     }
 }
