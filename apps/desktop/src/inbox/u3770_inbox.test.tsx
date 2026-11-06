@@ -9,6 +9,7 @@ import { mountTodos, todo } from "../todos/testHarness";
 import { mountNavigation } from "../testing/navigationFixture";
 import { openProjectPage, projectMenu } from "../testing/menuProbe";
 import { info } from "../testing/nodes";
+import { copy } from "./copy";
 import { AskBar } from "../ask/AskBar";
 import { ConnectedProjectContext } from "../state/connectedProject";
 
@@ -170,8 +171,14 @@ it("u3770d_changes_do_not_close_or_move_the_open_row", async () => {
 });
 
 it("u3770d_the_needs_you_count_is_a_polite_live_region", async () => {
-  await mountInbox();
-  expect(panel().getAttribute("aria-live")).toBe("polite");
+  const m = await mountInbox();
+  const live = panel().querySelectorAll("[aria-live]");
+  expect(live).toHaveLength(1);
+  expect(live[0]!.getAttribute("aria-live")).toBe("polite");
+  expect(live[0]!.getAttribute("aria-atomic")).toBe("true");
+  expect(live[0]!.textContent).toBe(copy.needYou(3));
+  await send(m, status("a", "working"));
+  await waitFor(() => expect(live[0]!.textContent).toBe(copy.needYou(2)));
 });
 
 it("u3770e_reduced_motion_makes_every_change_instant", async () => {
