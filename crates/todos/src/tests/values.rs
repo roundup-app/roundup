@@ -404,6 +404,26 @@ async fn t8_unparseable_creator_fails_as_internal() {
     assert_eq!(err.code, code::INTERNAL);
 }
 
+/// A failed SQLite statement answers `INTERNAL`, never a caller-fault code.
+#[tokio::test]
+async fn t8_failed_statement_fails_as_internal() {
+    let dir = tempfile::tempdir().unwrap();
+    let h = Harness::new(dir.path());
+    h.call("todo.create", json!({"title": "a"})).await.unwrap();
+    rusqlite::Connection::open(dir.path().join("todos.db"))
+        .unwrap()
+        .execute_batch(
+            "CREATE TRIGGER refuse BEFORE UPDATE ON todos BEGIN SELECT RAISE(ABORT, 'refused'); END",
+        )
+        .unwrap();
+
+    let err = h
+        .call("todo.update", json!({"id": 1, "title": "b"}))
+        .await
+        .unwrap_err();
+    assert_eq!(err.code, code::INTERNAL);
+}
+
 #[tokio::test]
 async fn t31_the_user_updates_an_agent_owned_todo() {
     let dir = tempfile::tempdir().unwrap();

@@ -4,11 +4,13 @@
 
 mod alert;
 mod closed;
+pub(crate) mod error;
 mod placement;
 mod queue;
 mod removal;
 mod settings;
 mod view;
+use error::StoreError;
 use view::load_nodes;
 
 use std::path::Path;
@@ -58,7 +60,7 @@ impl Rail {
     }
 
     /// Resource holders may address reserved nodes; user-facing Rail callers cannot.
-    pub(super) fn resource_node(&self, id: &str) -> Result<RailNode, RpcError> {
+    pub(super) fn resource_node(&self, id: &str) -> Result<RailNode, StoreError> {
         find(&load_nodes(&self.db, true)?, id).cloned()
     }
 
@@ -70,7 +72,7 @@ impl Rail {
         name: &str,
         parent: Option<&str>,
         terminal_id: Option<&str>,
-    ) -> Result<RailNode, RpcError> {
+    ) -> Result<RailNode, StoreError> {
         self.insert_ordered(kind, name, parent, terminal_id, None, None)
     }
 
@@ -83,18 +85,12 @@ impl Rail {
         terminal_id: Option<&str>,
         work: Option<&Order>,
         start_attribution: Option<&StartAttribution>,
-    ) -> Result<RailNode, RpcError> {
+    ) -> Result<RailNode, StoreError> {
         // NULL already materializes O3's Workstream default in the loader. Persisting
         // that implicit Order adds 40 allocations per forty-node read (R3696c).
-        let work = work
-            .map(serde_json::to_string)
-            .transpose()
-            .map_err(RpcError::internal)?;
-        let start_attribution = start_attribution
-            .map(serde_json::to_string)
-            .transpose()
-            .map_err(RpcError::internal)?;
-        let tx = self.db.transaction().map_err(sql)?;
+        let work = work.map(serde_json::to_string).transpose()?;
+        let start_attribution = start_attribution.map(serde_json::to_string).transpose()?;
+        let tx = self.db.transaction()?;
         let nodes = load(&tx)?;
         check_parent(&nodes, kind, parent)?;
         let order = siblings(&nodes, parent).len() as i64;
@@ -110,36 +106,30 @@ impl Rail {
                 work,
                 start_attribution
             ],
-        )
-        .map_err(sql)?;
+        )?;
         let id = tx.last_insert_rowid().to_string();
-        tx.commit().map_err(sql)?;
+        tx.commit()?;
         self.node(&id)
     }
 
     /// O13: record that Agent `spawner` started node `id`.
-    pub fn set_spawner(&mut self, id: &str, spawner: &str) -> Result<(), RpcError> {
+    pub fn set_spawner(&mut self, id: &str, spawner: &str) -> Result<(), StoreError> {
         self.node(id)?;
-        self.db
-            .execute(
-                "UPDATE nodes SET spawner = ? WHERE id = ?",
-                params![spawner, id],
-            )
-            .map_err(sql)?;
+        self.db.execute(
+            "UPDATE nodes SET spawner = ? WHERE id = ?",
+            params![spawner, id],
+        )?;
         Ok(())
     }
 
     /// O13: whether an Agent's `agent.spawn` started `id` and `door` is above it: the `parent`
     /// chain of `id` reaches `door`.
-    pub fn spawned_under(&self, id: &str, door: &str) -> Result<bool, RpcError> {
-        let started: Option<String> = self
-            .db
-            .query_row(
-                "SELECT spawner FROM nodes WHERE id = ?",
-                params![id],
-                |row| row.get(0),
-            )
-            .map_err(sql)?;
+    pub fn spawned_under(&self, id: &str, door: &str) -> Result<bool, StoreError> {
+        let started: Option<String> = self.db.query_row(
+            "SELECT spawner FROM nodes WHERE id = ?",
+            params![id],
+            |row| row.get(0),
+        )?;
         if started.is_none() {
             return Ok(false);
         }
@@ -159,27 +149,24 @@ impl Rail {
         &mut self,
         id: &str,
         role: contracts::agent::SpawnRole,
-    ) -> Result<(), RpcError> {
+    ) -> Result<(), StoreError> {
         self.node(id)?;
-        self.db
-            .execute(
-                "UPDATE nodes SET role = ? WHERE id = ?",
-                params![role.as_str(), id],
-            )
-            .map_err(sql)?;
+        self.db.execute(
+            "UPDATE nodes SET role = ? WHERE id = ?",
+            params![role.as_str(), id],
+        )?;
         Ok(())
     }
 
     /// DCL9: the role stored for `id`; `None` for the user's own Agents. `NOT_FOUND` for an unknown id.
-    pub fn role(&self, id: &str) -> Result<Option<contracts::agent::SpawnRole>, RpcError> {
+    pub fn role(&self, id: &str) -> Result<Option<contracts::agent::SpawnRole>, StoreError> {
         use contracts::agent::SpawnRole;
         self.node(id)?;
-        let stored: Option<String> = self
-            .db
-            .query_row("SELECT role FROM nodes WHERE id = ?", params![id], |row| {
-                row.get(0)
-            })
-            .map_err(sql)?;
+        let stored: Option<String> =
+            self.db
+                .query_row("SELECT role FROM nodes WHERE id = ?", params![id], |row| {
+                    row.get(0)
+                })?;
         Ok(stored.and_then(|role| match role.as_str() {
             "job" => Some(SpawnRole::Job),
             "consult" => Some(SpawnRole::Consult),
@@ -188,27 +175,23 @@ impl Rail {
     }
 
     /// O8: keep the prompt an Agent's spawn gave beside its order.
-    pub fn set_spawn_prompt(&mut self, id: &str, prompt: &str) -> Result<(), RpcError> {
+    pub fn set_spawn_prompt(&mut self, id: &str, prompt: &str) -> Result<(), StoreError> {
         self.node(id)?;
-        self.db
-            .execute(
-                "UPDATE nodes SET spawn_prompt = ? WHERE id = ?",
-                params![prompt, id],
-            )
-            .map_err(sql)?;
+        self.db.execute(
+            "UPDATE nodes SET spawn_prompt = ? WHERE id = ?",
+            params![prompt, id],
+        )?;
         Ok(())
     }
 
     /// O8: the prompt kept for `id`, `None` when it has none; `NOT_FOUND` for an unknown id.
-    pub fn spawn_prompt(&self, id: &str) -> Result<Option<String>, RpcError> {
+    pub fn spawn_prompt(&self, id: &str) -> Result<Option<String>, StoreError> {
         self.node(id)?;
-        self.db
-            .query_row(
-                "SELECT spawn_prompt FROM nodes WHERE id = ?",
-                params![id],
-                |row| row.get(0),
-            )
-            .map_err(sql)
+        Ok(self.db.query_row(
+            "SELECT spawn_prompt FROM nodes WHERE id = ?",
+            params![id],
+            |row| row.get(0),
+        )?)
     }
 
     /// O4, U2773c: compare the captured base and replace the Order in one immediate
@@ -218,35 +201,33 @@ impl Rail {
         id: &str,
         order: &Order,
         captured: Option<&CapturedOrder>,
-    ) -> Result<RailNode, RpcError> {
-        let tx = self.db.transaction().map_err(sql)?;
+    ) -> Result<RailNode, StoreError> {
+        let tx = self.db.transaction()?;
         let mut node = find(&load(&tx)?, id)?.clone();
         if let Some(base) = captured
             && node.work != base.order
         {
-            return Err(RpcError::conflict("Order changed since it was captured"));
+            return Err(StoreError::conflict("Order changed since it was captured"));
         }
-        let json = serde_json::to_string(order).map_err(RpcError::internal)?;
+        let json = serde_json::to_string(order)?;
         tx.execute(
             "UPDATE nodes SET work = ? WHERE id = ?",
             params![json, node.id],
-        )
-        .map_err(sql)?;
+        )?;
         if matches!(order, Order::Clarification { .. }) {
-            tx.execute("UPDATE nodes SET visibility='shown' WHERE id=?", [id])
-                .map_err(sql)?;
+            tx.execute("UPDATE nodes SET visibility='shown' WHERE id=?", [id])?;
             node.visibility = contracts::agent::RailVisibility::Shown;
         }
-        tx.commit().map_err(sql)?;
+        tx.commit()?;
         node.work = Some(order.clone());
         Ok(node)
     }
 
-    pub(super) fn order_revision(&self, id: &str) -> Result<Option<String>, RpcError> {
-        self.db.query_row(
+    pub(super) fn order_revision(&self, id: &str) -> Result<Option<String>, StoreError> {
+        Ok(self.db.query_row(
             "SELECT CAST(max(revision) AS TEXT) FROM instruction_revisions WHERE agent=? AND message IS NULL",
             [id], |row| row.get(0),
-        ).map_err(sql)
+        )?)
     }
 
     pub(super) fn prepare_instruction(
@@ -255,11 +236,11 @@ impl Rail {
         attempt: &str,
         text: &str,
         first: bool,
-    ) -> Result<String, RpcError> {
+    ) -> Result<String, StoreError> {
         self.db.execute(
             "INSERT INTO instruction_deliveries(revision,attempt,text,state,first) VALUES(?,?,?,'prepared',?)",
             params![revision, attempt, text, first],
-        ).map_err(sql)?;
+        )?;
         Ok(self.db.last_insert_rowid().to_string())
     }
 
@@ -267,26 +248,24 @@ impl Rail {
         &self,
         agent: &str,
         attempt: &str,
-    ) -> Result<Option<String>, RpcError> {
-        self.db.query_row(
+    ) -> Result<Option<String>, StoreError> {
+        Ok(self.db.query_row(
             "SELECT CAST(d.id AS TEXT) FROM instruction_deliveries d JOIN instruction_revisions r ON r.revision=d.revision
              WHERE r.agent=? AND d.attempt=? AND d.first=1 ORDER BY d.id DESC LIMIT 1",
             params![agent, attempt], |row| row.get(0),
-        ).optional().map_err(sql)
+        ).optional()?)
     }
 
     pub(super) fn instruction_state(
         &mut self,
         id: &str,
         state: contracts::agent::InstructionState,
-    ) -> Result<(), RpcError> {
-        let state = serde_json::to_value(state).map_err(RpcError::internal)?;
-        self.db
-            .execute(
-                "UPDATE instruction_deliveries SET state=? WHERE id=?",
-                params![state.as_str(), id],
-            )
-            .map_err(sql)?;
+    ) -> Result<(), StoreError> {
+        let state = serde_json::to_value(state)?;
+        self.db.execute(
+            "UPDATE instruction_deliveries SET state=? WHERE id=?",
+            params![state.as_str(), id],
+        )?;
         Ok(())
     }
 
@@ -294,23 +273,22 @@ impl Rail {
         &mut self,
         id: &str,
         project: &str,
-    ) -> Result<contracts::agent::Instructions, RpcError> {
+    ) -> Result<contracts::agent::Instructions, StoreError> {
         use contracts::agent::{
             Instruction, InstructionDelivery, InstructionRevision, Instructions,
         };
-        let tx = self.db.transaction().map_err(sql)?;
+        let tx = self.db.transaction()?;
         let home = tx
             .query_row(
                 "SELECT home FROM instruction_homes WHERE agent=?",
                 [id],
                 |row| row.get(0),
             )
-            .optional()
-            .map_err(sql)?
-            .ok_or_else(|| RpcError::not_found(GONE_AGENT))?;
-        let rows = tx.prepare("SELECT revision,workstream,work,message,text FROM instruction_revisions WHERE agent=? ORDER BY revision").map_err(sql)?
+            .optional()?
+            .ok_or_else(|| StoreError::not_found(GONE_AGENT))?;
+        let rows = tx.prepare("SELECT revision,workstream,work,message,text FROM instruction_revisions WHERE agent=? ORDER BY revision")?
             .query_map([id], |row| Ok((row.get::<_,i64>(0)?,row.get::<_,Option<String>>(1)?,row.get::<_,Option<String>>(2)?,row.get::<_,Option<u32>>(3)?,row.get::<_,Option<String>>(4)?)))
-            .map_err(sql)?.collect::<Result<Vec<_>,_>>().map_err(sql)?;
+            ?.collect::<Result<Vec<_>,_>>()?;
         let mut revisions = Vec::new();
         let mut current = None;
         for (revision, workstream, work, message, text) in rows {
@@ -319,11 +297,11 @@ impl Rail {
                 (Some(work), None, None) => {
                     current = Some(revision.clone());
                     Instruction::Order {
-                        order: serde_json::from_str(&work).map_err(RpcError::internal)?,
+                        order: serde_json::from_str(&work)?,
                     }
                 }
                 (None, Some(message), Some(text)) => Instruction::Message { message, text },
-                _ => return Err(RpcError::internal("invalid retained instruction")),
+                _ => return Err(StoreError::internal("invalid retained instruction")),
             };
             revisions.push(InstructionRevision {
                 revision,
@@ -332,9 +310,9 @@ impl Rail {
                 instruction,
             });
         }
-        let rows = tx.prepare("SELECT d.id,d.revision,d.attempt,d.text,d.state FROM instruction_deliveries d JOIN instruction_revisions r ON r.revision=d.revision WHERE r.agent=? ORDER BY d.id").map_err(sql)?
+        let rows = tx.prepare("SELECT d.id,d.revision,d.attempt,d.text,d.state FROM instruction_deliveries d JOIN instruction_revisions r ON r.revision=d.revision WHERE r.agent=? ORDER BY d.id")?
             .query_map([id], |row| Ok((row.get::<_,i64>(0)?,row.get::<_,i64>(1)?,row.get::<_,String>(2)?,row.get::<_,String>(3)?,row.get::<_,String>(4)?)))
-            .map_err(sql)?.collect::<Result<Vec<_>,_>>().map_err(sql)?;
+            ?.collect::<Result<Vec<_>,_>>()?;
         let deliveries = rows
             .into_iter()
             .map(|(id, revision, attempt, text, state)| {
@@ -343,22 +321,19 @@ impl Rail {
                     revision: revision.to_string(),
                     attempt,
                     text,
-                    state: serde_json::from_value(serde_json::Value::String(state))
-                        .map_err(RpcError::internal)?,
+                    state: serde_json::from_value(serde_json::Value::String(state))?,
                 })
             })
-            .collect::<Result<Vec<_>, RpcError>>()?;
-        let present: bool = tx
-            .query_row(
-                "SELECT EXISTS(SELECT 1 FROM nodes WHERE CAST(id AS TEXT)=?)",
-                [id],
-                |row| row.get(0),
-            )
-            .map_err(sql)?;
+            .collect::<Result<Vec<_>, StoreError>>()?;
+        let present: bool = tx.query_row(
+            "SELECT EXISTS(SELECT 1 FROM nodes WHERE CAST(id AS TEXT)=?)",
+            [id],
+            |row| row.get(0),
+        )?;
         if !present {
             current = None;
         }
-        tx.commit().map_err(sql)?;
+        tx.commit()?;
         Ok(Instructions {
             project: project.to_owned(),
             home,
@@ -368,159 +343,129 @@ impl Rail {
         })
     }
 
-    pub fn rename(&mut self, id: &str, name: &str) -> Result<RailNode, RpcError> {
+    pub fn rename(&mut self, id: &str, name: &str) -> Result<RailNode, StoreError> {
         // SQLite would match "01" to node 1; only the exact id names a node.
         let node = self.node(id)?;
-        self.db
-            .execute(
-                "UPDATE nodes SET name = ? WHERE id = ?",
-                params![name, node.id],
-            )
-            .map_err(sql)?;
+        self.db.execute(
+            "UPDATE nodes SET name = ? WHERE id = ?",
+            params![name, node.id],
+        )?;
         self.node(id)
     }
 
     /// U6380c: mark node `id` as named by the user, so no automatic rename takes its name.
-    pub fn set_user_named(&mut self, id: &str) -> Result<(), RpcError> {
+    pub fn set_user_named(&mut self, id: &str) -> Result<(), StoreError> {
         let node = self.node(id)?;
-        self.db
-            .execute(
-                "UPDATE nodes SET user_named = 1 WHERE id = ?",
-                params![node.id],
-            )
-            .map_err(sql)?;
+        self.db.execute(
+            "UPDATE nodes SET user_named = 1 WHERE id = ?",
+            params![node.id],
+        )?;
         Ok(())
     }
 
     /// U6380c: whether the user named node `id`.
-    pub fn user_named(&self, id: &str) -> Result<bool, RpcError> {
+    pub fn user_named(&self, id: &str) -> Result<bool, StoreError> {
         let node = self.node(id)?;
-        self.db
-            .query_row(
-                "SELECT user_named FROM nodes WHERE id = ?",
-                params![node.id],
-                |row| row.get(0),
-            )
-            .map_err(sql)
+        Ok(self.db.query_row(
+            "SELECT user_named FROM nodes WHERE id = ?",
+            params![node.id],
+            |row| row.get(0),
+        )?)
     }
 
-    pub fn allocate_attempt(&mut self, id: &str) -> Result<String, RpcError> {
+    pub fn allocate_attempt(&mut self, id: &str) -> Result<String, StoreError> {
         let node = self.node(id)?;
-        let previous = node
-            .attempt
-            .as_deref()
-            .unwrap_or("0")
-            .parse::<i64>()
-            .map_err(sql_ordinal)?;
+        let previous = node.attempt.as_deref().unwrap_or("0").parse::<i64>()?;
         let next = previous
             .checked_add(1)
-            .ok_or_else(|| RpcError::internal("Attempt exhausted"))?;
-        self.db
-            .execute(
-                "UPDATE nodes SET attempt = ? WHERE id = ?",
-                params![next, id],
-            )
-            .map_err(sql)?;
+            .ok_or_else(|| StoreError::internal("Attempt exhausted"))?;
+        self.db.execute(
+            "UPDATE nodes SET attempt = ? WHERE id = ?",
+            params![next, id],
+        )?;
         Ok(next.to_string())
     }
 
-    pub fn detach_terminal(&mut self, id: &str) -> Result<(), RpcError> {
-        self.db
-            .execute(
-                "UPDATE nodes SET terminal_id = NULL WHERE id = ?",
-                params![id],
-            )
-            .map_err(sql)?;
+    pub fn detach_terminal(&mut self, id: &str) -> Result<(), StoreError> {
+        self.db.execute(
+            "UPDATE nodes SET terminal_id = NULL WHERE id = ?",
+            params![id],
+        )?;
         Ok(())
     }
 
     /// Record which Terminal runs the Agent `id`.
-    pub fn attach_terminal(&mut self, id: &str, terminal_id: &str) -> Result<(), RpcError> {
-        let changed = self
-            .db
-            .execute(
-                "UPDATE nodes SET terminal_id = ? WHERE id = ?",
-                params![terminal_id, id],
-            )
-            .map_err(sql)?;
+    pub fn attach_terminal(&mut self, id: &str, terminal_id: &str) -> Result<(), StoreError> {
+        let changed = self.db.execute(
+            "UPDATE nodes SET terminal_id = ? WHERE id = ?",
+            params![terminal_id, id],
+        )?;
         if changed == 0 {
-            return Err(RpcError::not_found(GONE_AGENT));
+            return Err(StoreError::not_found(GONE_AGENT));
         }
         Ok(())
     }
 
     /// M7: record that Agent `creator` created node `id`; it goes with the node.
-    pub fn set_creator(&mut self, id: &str, creator: &str) -> Result<(), RpcError> {
-        self.db
-            .execute(
-                "UPDATE nodes SET creator = ? WHERE id = ?",
-                params![creator, id],
-            )
-            .map_err(sql)?;
+    pub fn set_creator(&mut self, id: &str, creator: &str) -> Result<(), StoreError> {
+        self.db.execute(
+            "UPDATE nodes SET creator = ? WHERE id = ?",
+            params![creator, id],
+        )?;
         Ok(())
     }
 
     /// A5214a: turn root Agent `id` into a Workstream in place; `Ok(false)` when it is not a root
     /// Agent. `to_workstream = false` undoes it.
-    pub fn convert_kind(&mut self, id: &str, to_workstream: bool) -> Result<bool, RpcError> {
+    pub fn convert_kind(&mut self, id: &str, to_workstream: bool) -> Result<bool, StoreError> {
         let (from, to) = if to_workstream {
             ("agent", "workstream")
         } else {
             ("workstream", "agent")
         };
-        let changed = self
-            .db
-            .execute(
-                "UPDATE nodes SET kind = ?1 WHERE id = ?2 AND kind = ?3 AND parent IS NULL",
-                params![to, id, from],
-            )
-            .map_err(sql)?;
+        let changed = self.db.execute(
+            "UPDATE nodes SET kind = ?1 WHERE id = ?2 AND kind = ?3 AND parent IS NULL",
+            params![to, id, from],
+        )?;
         Ok(changed == 1)
     }
 
     /// M7: the ids of the Workstreams Agent `creator` created and that still exist.
-    pub fn created_by(&self, creator: &str) -> Result<Vec<String>, RpcError> {
+    pub fn created_by(&self, creator: &str) -> Result<Vec<String>, StoreError> {
         Self::created_by_in(&self.db, creator)
     }
 
     /// `created_by` read inside a caller's own transaction.
-    pub(crate) fn created_by_in(db: &Connection, creator: &str) -> Result<Vec<String>, RpcError> {
-        let mut query = db
-            .prepare("SELECT id FROM nodes WHERE creator = ?")
-            .map_err(sql)?;
-        let rows = query
-            .query_map(params![creator], |row| {
-                Ok(row.get::<_, i64>(0)?.to_string())
-            })
-            .map_err(sql)?;
-        rows.collect::<Result<_, _>>().map_err(sql)
+    pub(crate) fn created_by_in(db: &Connection, creator: &str) -> Result<Vec<String>, StoreError> {
+        let mut query = db.prepare("SELECT id FROM nodes WHERE creator = ?")?;
+        let rows = query.query_map(params![creator], |row| {
+            Ok(row.get::<_, i64>(0)?.to_string())
+        })?;
+        Ok(rows.collect::<Result<_, _>>()?)
     }
 
     /// Current Rail name for prose; an absent node has no machine identity to display.
-    pub fn name(&self, id: &str) -> Result<String, RpcError> {
-        self.db
+    pub fn name(&self, id: &str) -> Result<String, StoreError> {
+        Ok(self.db
             .query_row(
                 "SELECT name FROM nodes WHERE id = ?1 AND CAST(id AS TEXT) = ?1 AND NOT EXISTS (SELECT 1 FROM closed_sources WHERE published=0 AND (agent=nodes.id OR workstream=nodes.id))",
                 [id],
-                |row| row.get(0),
+                |row| row.get::<_, String>(0),
             )
-            .optional()
-            .map_err(sql)
-            .map(|name| name.unwrap_or_else(|| GONE_AGENT.into()))
+            .optional()?
+            .unwrap_or_else(|| GONE_AGENT.into()))
     }
 
     /// Last allocated identity, including removed nodes; SQLite never reuses it.
-    pub fn last_id(&self) -> Result<i64, RpcError> {
-        self.db
-            .query_row(
-                "SELECT COALESCE((SELECT seq FROM sqlite_sequence WHERE name='nodes'), 0)",
-                [],
-                |row| row.get(0),
-            )
-            .map_err(sql)
+    pub fn last_id(&self) -> Result<i64, StoreError> {
+        Ok(self.db.query_row(
+            "SELECT COALESCE((SELECT seq FROM sqlite_sequence WHERE name='nodes'), 0)",
+            [],
+            |row| row.get(0),
+        )?)
     }
 
-    pub fn node(&self, id: &str) -> Result<RailNode, RpcError> {
+    pub fn node(&self, id: &str) -> Result<RailNode, StoreError> {
         find(&load(&self.db)?, id).cloned()
     }
 
@@ -528,8 +473,8 @@ impl Rail {
         &mut self,
         id: &str,
         plan: &super::worktree::Provision,
-    ) -> Result<(), RpcError> {
-        self.db.execute("UPDATE nodes SET worktree_state='provisioning', worktree_path=?, worktree_branch=?, worktree_base=?, worktree_owner=?, worktree_commit=? WHERE id=?", params![plan.worktree.path.to_string_lossy(), plan.worktree.branch, plan.worktree.base, plan.owner, plan.commit, id]).map_err(sql)?;
+    ) -> Result<(), StoreError> {
+        self.db.execute("UPDATE nodes SET worktree_state='provisioning', worktree_path=?, worktree_branch=?, worktree_base=?, worktree_owner=?, worktree_commit=? WHERE id=?", params![plan.worktree.path.to_string_lossy(), plan.worktree.branch, plan.worktree.base, plan.owner, plan.commit, id])?;
         Ok(())
     }
 
@@ -538,17 +483,15 @@ impl Rail {
     /// which no caller may clean up.
     pub fn provisioning(
         &self,
-    ) -> Result<Vec<(RailNode, Option<super::worktree::Provision>, bool)>, RpcError> {
+    ) -> Result<Vec<(RailNode, Option<super::worktree::Provision>, bool)>, StoreError> {
         let mut records = Vec::new();
         for node in load_nodes(&self.db, true)? {
-            let (state, owner, commit): (Option<String>, Option<String>, Option<String>) = self
-                .db
-                .query_row(
+            let (state, owner, commit): (Option<String>, Option<String>, Option<String>) =
+                self.db.query_row(
                     "SELECT worktree_state, worktree_owner, worktree_commit FROM nodes WHERE id=?",
                     [&node.id],
                     |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
-                )
-                .map_err(sql)?;
+                )?;
             if state.as_deref() == Some("provisioning") && owner.is_none() {
                 records.push((node.clone(), None, false));
                 continue;
@@ -568,39 +511,35 @@ impl Rail {
         Ok(records)
     }
 
-    pub fn clear_provisioning_owner(&mut self, id: &str) -> Result<(), RpcError> {
-        self.db
-            .execute(
-                "UPDATE nodes SET worktree_owner=NULL, worktree_commit=NULL WHERE id=?",
-                [id],
-            )
-            .map_err(sql)?;
+    pub fn clear_provisioning_owner(&mut self, id: &str) -> Result<(), StoreError> {
+        self.db.execute(
+            "UPDATE nodes SET worktree_owner=NULL, worktree_commit=NULL WHERE id=?",
+            [id],
+        )?;
         Ok(())
     }
 
     /// Record a Worktree Provisioning made for `id`, just before its Terminal starts.
-    pub fn set_worktree(&mut self, id: &str, worktree: &Worktree) -> Result<(), RpcError> {
+    pub fn set_worktree(&mut self, id: &str, worktree: &Worktree) -> Result<(), StoreError> {
         let path = worktree.path.as_str();
-        self.db
-            .execute(
-                "UPDATE nodes SET worktree_path = ?, worktree_branch = ?, worktree_base = ?,
+        self.db.execute(
+            "UPDATE nodes SET worktree_path = ?, worktree_branch = ?, worktree_base = ?,
                     worktree_state = 'ready' WHERE id = ?",
-                params![path, worktree.branch, worktree.base, id],
-            )
-            .map_err(sql)?;
+            params![path, worktree.branch, worktree.base, id],
+        )?;
         Ok(())
     }
 
     /// Undo `mark_worktree_provisioning`/`set_worktree` for a node that keeps its place on the
     /// Rail (`rail.startDoor`'s own failure path; a failed `agent.spawn` deletes the node outright).
-    pub fn clear_worktree(&mut self, id: &str) -> Result<(), RpcError> {
+    pub fn clear_worktree(&mut self, id: &str) -> Result<(), StoreError> {
         self.db
             .execute(
                 "UPDATE nodes SET worktree_path = NULL, worktree_branch = NULL,
                     worktree_base = NULL, worktree_state = NULL, worktree_owner=NULL, worktree_commit=NULL WHERE id = ?",
                 params![id],
             )
-            .map_err(sql)?;
+            ?;
         Ok(())
     }
 
@@ -611,46 +550,40 @@ impl Rail {
         id: &str,
         conversation_id: &str,
         cwd: &str,
-    ) -> Result<(), RpcError> {
-        let changed = self
-            .db
-            .execute(
-                "UPDATE nodes SET conversation_id = ?, conversation_cwd = ? WHERE id = ?",
-                params![conversation_id, cwd, id],
-            )
-            .map_err(sql)?;
+    ) -> Result<(), StoreError> {
+        let changed = self.db.execute(
+            "UPDATE nodes SET conversation_id = ?, conversation_cwd = ? WHERE id = ?",
+            params![conversation_id, cwd, id],
+        )?;
         if changed == 0 {
-            return Err(RpcError::not_found(GONE_AGENT));
+            return Err(StoreError::not_found(GONE_AGENT));
         }
         Ok(())
     }
 
     /// A5213: the permission mode the saved conversation's Attempt last ran in, beside A21's data.
-    pub fn save_conversation_yolo(&mut self, id: &str, yolo: bool) -> Result<(), RpcError> {
-        self.db
-            .execute(
-                "UPDATE nodes SET conversation_yolo = ? WHERE id = ?",
-                params![yolo, id],
-            )
-            .map_err(sql)?;
+    pub fn save_conversation_yolo(&mut self, id: &str, yolo: bool) -> Result<(), StoreError> {
+        self.db.execute(
+            "UPDATE nodes SET conversation_yolo = ? WHERE id = ?",
+            params![yolo, id],
+        )?;
         Ok(())
     }
 
     /// A5213: whether the saved conversation last ran in YOLO.
-    pub fn conversation_yolo(&self, id: &str) -> Result<bool, RpcError> {
+    pub fn conversation_yolo(&self, id: &str) -> Result<bool, StoreError> {
         self.db
             .query_row(
                 "SELECT conversation_yolo FROM nodes WHERE id = ?",
                 [id],
                 |row| row.get(0),
             )
-            .optional()
-            .map_err(sql)?
-            .ok_or_else(|| RpcError::not_found(GONE_AGENT))
+            .optional()?
+            .ok_or_else(|| StoreError::not_found(GONE_AGENT))
     }
 
     /// The saved conversation id and cwd (A21), if any.
-    pub fn conversation(&self, id: &str) -> Result<Option<(String, String)>, RpcError> {
+    pub fn conversation(&self, id: &str) -> Result<Option<(String, String)>, StoreError> {
         let found: (Option<String>, Option<String>) = self
             .db
             .query_row(
@@ -660,8 +593,8 @@ impl Rail {
                 |row| Ok((row.get(0)?, row.get(1)?)),
             )
             .optional()
-            .map_err(sql)?
-            .ok_or_else(|| RpcError::not_found(GONE_AGENT))?;
+            ?
+            .ok_or_else(|| StoreError::not_found(GONE_AGENT))?;
         Ok(match found {
             (Some(conversation_id), Some(cwd)) => Some((conversation_id, cwd)),
             _ => None,
@@ -669,17 +602,9 @@ impl Rail {
     }
 
     /// Whether `id` has A21 data; used to compute `can_resume` without exposing the id itself.
-    pub fn has_conversation(&self, id: &str) -> Result<bool, RpcError> {
+    pub fn has_conversation(&self, id: &str) -> Result<bool, StoreError> {
         Ok(self.conversation(id)?.is_some())
     }
-}
-
-fn sql_ordinal(err: std::num::ParseIntError) -> RpcError {
-    RpcError::internal(err)
-}
-
-fn sql(err: rusqlite::Error) -> RpcError {
-    RpcError::internal(err)
 }
 
 /// O3: the order a Workstream's Door holds when none was given. An Agent holds none (O2).
@@ -695,15 +620,15 @@ fn kind_name(kind: NodeKind) -> &'static str {
     }
 }
 
-fn load(db: &Connection) -> Result<Vec<RailNode>, RpcError> {
+fn load(db: &Connection) -> Result<Vec<RailNode>, StoreError> {
     load_nodes(db, false)
 }
 
-fn find<'a>(nodes: &'a [RailNode], id: &str) -> Result<&'a RailNode, RpcError> {
+fn find<'a>(nodes: &'a [RailNode], id: &str) -> Result<&'a RailNode, StoreError> {
     nodes
         .iter()
         .find(|node| node.id == id)
-        .ok_or_else(|| RpcError::not_found(GONE_AGENT))
+        .ok_or_else(|| StoreError::not_found(GONE_AGENT))
 }
 
 /// Ids of the children of `parent`, by `order`.
@@ -718,7 +643,11 @@ fn siblings(nodes: &[RailNode], parent: Option<&str>) -> Vec<String> {
 
 /// A26: a Workstream sits at the root. An Agent sits under a Workstream or under the Agent that
 /// started it.
-fn check_parent(nodes: &[RailNode], kind: NodeKind, parent: Option<&str>) -> Result<(), RpcError> {
+fn check_parent(
+    nodes: &[RailNode],
+    kind: NodeKind,
+    parent: Option<&str>,
+) -> Result<(), StoreError> {
     let Some(parent) = parent.map(|id| find(nodes, id)).transpose()? else {
         return Ok(());
     };
@@ -728,14 +657,14 @@ fn check_parent(nodes: &[RailNode], kind: NodeKind, parent: Option<&str>) -> Res
             while let Some(id) = at {
                 let ancestor = find(nodes, id)?;
                 if kind == NodeKind::Workstream && ancestor.kind != NodeKind::Group {
-                    return Err(RpcError::conflict("Workstreams never nest"));
+                    return Err(StoreError::conflict("Workstreams never nest"));
                 }
                 at = ancestor.parent.as_deref();
             }
             Ok(())
         }
         (NodeKind::Group, _) => Ok(()),
-        (NodeKind::Workstream, _) => Err(RpcError::conflict(format!(
+        (NodeKind::Workstream, _) => Err(StoreError::conflict(format!(
             "Workstreams never nest: a Workstream cannot sit under {}",
             parent.id
         ))),
@@ -759,13 +688,12 @@ fn is_within(nodes: &[RailNode], node: &str, id: &str) -> bool {
 }
 
 /// Make `ids` the children of `parent`, in that order, numbered from 0.
-fn place(tx: &Connection, parent: Option<&str>, ids: &[String]) -> Result<(), RpcError> {
+fn place(tx: &Connection, parent: Option<&str>, ids: &[String]) -> Result<(), StoreError> {
     for (order, id) in (0_i64..).zip(ids) {
         tx.execute(
             "UPDATE nodes SET parent = ?, ord = ? WHERE id = ?",
             params![parent, order, id],
-        )
-        .map_err(sql)?;
+        )?;
     }
     Ok(())
 }

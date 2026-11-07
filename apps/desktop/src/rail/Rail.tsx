@@ -238,7 +238,8 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
 
     const target = branch?.key ?? parent;
     setFocused(target);
-    queueMicrotask(() => rowElement(target)?.focus());
+    // U3800g: the restore runs at the next frame, after the drop's task.
+    requestAnimationFrame(() => rowElement(target)?.focus());
   }));
 
   const openRow = (id: string) => {

@@ -1,4 +1,5 @@
 use super::*;
+use crate::rail::error::StoreError;
 use rusqlite::{Connection, OptionalExtension, params};
 
 pub(super) struct Store(pub(super) Connection);
@@ -26,64 +27,57 @@ impl Store {
         Ok(Self(db))
     }
 
-    pub(super) fn list(&self) -> Result<Vec<Ask>, RpcError> {
+    pub(super) fn list(&self) -> Result<Vec<Ask>, StoreError> {
         let mut stmt = self
             .0
             .prepare("SELECT asks.id, text, at, submission FROM asks LEFT JOIN ask_submissions ON ask=asks.id ORDER BY seq DESC")
-            .map_err(sql)?;
-        let rows = stmt
-            .query_map([], |row| {
-                Ok(Ask {
-                    id: row.get(0)?,
-                    text: row.get(1)?,
-                    at: row.get(2)?,
-                    submission: row.get(3)?,
-                    parts: vec![],
-                })
+            ?;
+        let rows = stmt.query_map([], |row| {
+            Ok(Ask {
+                id: row.get(0)?,
+                text: row.get(1)?,
+                at: row.get(2)?,
+                submission: row.get(3)?,
+                parts: vec![],
             })
-            .map_err(sql)?;
-        let mut asks = rows.collect::<rusqlite::Result<Vec<_>>>().map_err(sql)?;
+        })?;
+        let mut asks = rows.collect::<rusqlite::Result<Vec<_>>>()?;
         for ask in &mut asks {
             ask.parts = self.parts(&ask.id)?;
         }
         Ok(asks)
     }
 
-    fn parts(&self, id: &str) -> Result<Vec<Part>, RpcError> {
-        let mut stmt = self
-            .0
-            .prepare(
-                "SELECT text, placement, state, reason FROM ask_parts WHERE ask=? ORDER BY ord",
-            )
-            .map_err(sql)?;
-        let rows = stmt
-            .query_map([id], |row| {
-                Ok((
-                    row.get::<_, String>(0)?,
-                    row.get::<_, String>(1)?,
-                    row.get::<_, String>(2)?,
-                    row.get::<_, Option<String>>(3)?,
-                ))
-            })
-            .map_err(sql)?;
+    fn parts(&self, id: &str) -> Result<Vec<Part>, StoreError> {
+        let mut stmt = self.0.prepare(
+            "SELECT text, placement, state, reason FROM ask_parts WHERE ask=? ORDER BY ord",
+        )?;
+        let rows = stmt.query_map([id], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, String>(2)?,
+                row.get::<_, Option<String>>(3)?,
+            ))
+        })?;
         rows.map(|row| {
-            let (text, placement, state, reason) = row.map_err(sql)?;
+            let (text, placement, state, reason) = row?;
             Ok(Part {
                 text,
-                placement: serde_json::from_str(&placement).map_err(RpcError::internal)?,
-                state: serde_json::from_value(Value::String(state)).map_err(RpcError::internal)?,
+                placement: serde_json::from_str(&placement)?,
+                state: serde_json::from_value(Value::String(state))?,
                 reason,
             })
         })
         .collect()
     }
 
-    pub(super) fn next_placing(&self) -> Result<Option<Ask>, RpcError> {
-        let id: Option<String> = self.0.query_row("SELECT asks.id FROM asks JOIN ask_parts ON ask_parts.ask=asks.id WHERE state='placing' AND json_extract(placement,'$.kind') IN ('unclear','routed') ORDER BY asks.seq LIMIT 1", [], |row|row.get(0)).optional().map_err(sql)?;
+    pub(super) fn next_placing(&self) -> Result<Option<Ask>, StoreError> {
+        let id: Option<String> = self.0.query_row("SELECT asks.id FROM asks JOIN ask_parts ON ask_parts.ask=asks.id WHERE state='placing' AND json_extract(placement,'$.kind') IN ('unclear','routed') ORDER BY asks.seq LIMIT 1", [], |row|row.get(0)).optional()?;
         id.map(|id| self.get(&id)).transpose()
     }
 
-    pub(super) fn get(&self, id: &str) -> Result<Ask, RpcError> {
+    pub(super) fn get(&self, id: &str) -> Result<Ask, StoreError> {
         let mut ask = self
             .0
             .query_row("SELECT asks.id,text,at,submission FROM asks LEFT JOIN ask_submissions ON ask=asks.id WHERE asks.id=?", [id], |row| {
@@ -96,8 +90,8 @@ impl Store {
                 })
             })
             .optional()
-            .map_err(sql)?
-            .ok_or_else(|| RpcError::not_found(format!("Ask {id}")))?;
+            ?
+            .ok_or_else(|| StoreError::not_found(format!("Ask {id}")))?;
         ask.parts = self.parts(id)?;
         Ok(ask)
     }
@@ -107,7 +101,7 @@ impl Store {
         submission: &str,
         text: &str,
         workstream: Option<&str>,
-    ) -> Result<Option<Ask>, RpcError> {
+    ) -> Result<Option<Ask>, StoreError> {
         let stored: Option<(String, Option<String>)> = self
             .0
             .query_row(
@@ -115,14 +109,13 @@ impl Store {
                 [submission],
                 |row| Ok((row.get(0)?, row.get(1)?)),
             )
-            .optional()
-            .map_err(sql)?;
+            .optional()?;
         let Some((id, target)) = stored else {
             return Ok(None);
         };
         let ask = self.get(&id)?;
         if ask.text != text || target.as_deref() != workstream {
-            return Err(RpcError::conflict(
+            return Err(StoreError::conflict(
                 "Ask submission identity already holds different work",
             ));
         }
@@ -136,22 +129,18 @@ impl Store {
         submission: Option<String>,
         workstream: Option<String>,
         placed: Option<Vec<Part>>,
-    ) -> Result<Ask, RpcError> {
-        let tx = self.0.transaction().map_err(sql)?;
-        let id: String = tx
-            .query_row("SELECT lower(hex(randomblob(16)))", [], |row| row.get(0))
-            .map_err(sql)?;
+    ) -> Result<Ask, StoreError> {
+        let tx = self.0.transaction()?;
+        let id: String = tx.query_row("SELECT lower(hex(randomblob(16)))", [], |row| row.get(0))?;
         tx.execute(
             "INSERT INTO asks (id,text,at) VALUES (?,?,?)",
             params![id, text, at],
-        )
-        .map_err(sql)?;
+        )?;
         if let Some(submission) = &submission {
             tx.execute(
                 "INSERT INTO ask_submissions (submission,ask,workstream) VALUES (?,?,?)",
                 params![submission, id, workstream],
-            )
-            .map_err(sql)?;
+            )?;
         }
         let parts = placed.unwrap_or_else(|| {
             vec![Part {
@@ -173,7 +162,7 @@ impl Store {
         for (ord, part) in parts.iter().enumerate() {
             write_part(&tx, &id, ord, part)?;
         }
-        tx.commit().map_err(sql)?;
+        tx.commit()?;
         Ok(Ask {
             id,
             text,
@@ -183,14 +172,13 @@ impl Store {
         })
     }
 
-    pub(super) fn replace(&mut self, id: &str, parts: &[Part]) -> Result<(), RpcError> {
-        let tx = self.0.transaction().map_err(sql)?;
-        tx.execute("DELETE FROM ask_parts WHERE ask=?", [id])
-            .map_err(sql)?;
+    pub(super) fn replace(&mut self, id: &str, parts: &[Part]) -> Result<(), StoreError> {
+        let tx = self.0.transaction()?;
+        tx.execute("DELETE FROM ask_parts WHERE ask=?", [id])?;
         for (ord, part) in parts.iter().enumerate() {
             write_part(&tx, id, ord, part)?;
         }
-        tx.commit().map_err(sql)
+        Ok(tx.commit()?)
     }
 
     pub(super) fn update(
@@ -199,9 +187,18 @@ impl Store {
         ord: usize,
         part: &Part,
         from: State,
-    ) -> Result<bool, RpcError> {
-        let changed = self.0.execute("UPDATE ask_parts SET placement=?,state=?,reason=? WHERE ask=? AND ord=? AND state=?",
-            params![serde_json::to_string(&part.placement).map_err(RpcError::internal)?, state(part.state), part.reason, id, i64::try_from(ord).map_err(RpcError::internal)?, state(from)]).map_err(sql)?;
+    ) -> Result<bool, StoreError> {
+        let changed = self.0.execute(
+            "UPDATE ask_parts SET placement=?,state=?,reason=? WHERE ask=? AND ord=? AND state=?",
+            params![
+                serde_json::to_string(&part.placement)?,
+                state(part.state),
+                part.reason,
+                id,
+                i64::try_from(ord)?,
+                state(from)
+            ],
+        )?;
         Ok(changed == 1)
     }
 }
@@ -213,21 +210,17 @@ fn state(state: State) -> String {
         .expect("string state")
         .into()
 }
-fn write_part(db: &Connection, id: &str, ord: usize, part: &Part) -> Result<(), RpcError> {
+fn write_part(db: &Connection, id: &str, ord: usize, part: &Part) -> Result<(), StoreError> {
     db.execute(
         "INSERT INTO ask_parts (ask,ord,text,placement,state,reason) VALUES (?,?,?,?,?,?)",
         params![
             id,
-            i64::try_from(ord).map_err(RpcError::internal)?,
+            i64::try_from(ord)?,
             part.text,
-            serde_json::to_string(&part.placement).map_err(RpcError::internal)?,
+            serde_json::to_string(&part.placement)?,
             state(part.state),
             part.reason
         ],
-    )
-    .map_err(sql)?;
+    )?;
     Ok(())
-}
-fn sql(error: rusqlite::Error) -> RpcError {
-    RpcError::internal(error)
 }

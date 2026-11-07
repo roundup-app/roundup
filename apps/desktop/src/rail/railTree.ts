@@ -60,8 +60,10 @@ export const createRailTree = (connected: ConnectedProject, unfolded: Accessor<R
     return sectionRows().flatMap(section => section.rows).map(row => stable(before, row));
   }, []);
 
+  const signatures = new WeakMap<object, string>();
+
   /** Section branches share Ark's keyboard walk and add one semantic level above their rows. */
-  const collection = createMemo(() => {
+  const collection = createMemo<ReturnType<typeof createTreeCollection<RailNode>>>(previous => {
     const allUnfolded = new Set([...topology().index.keys()].flatMap(id => [id, `internal:${id}`]));
     const selected = rail.selected();
     const chosen = selected === null ? undefined : topology().nodes[topology().index.get(selected) ?? -1];
@@ -76,18 +78,27 @@ export const createRailTree = (connected: ConnectedProject, unfolded: Accessor<R
       children: railCollection(layoutRail(topology(), { collapsed: new Set(), unfolded: allUnfolded, now: now(), selected }, section.id)).rootNode.children ?? [],
     }));
 
-    return createTreeCollection({
+    // U3800g: a move that leaves the tree's signature as it was keeps the collection, so Ark does not recompute every row's item props.
+    const signature = JSON.stringify(children);
+
+    if (previous && signatures.get(previous) === signature) return previous;
+
+    const next = createTreeCollection<RailNode>({
       nodeToValue: node => node.id, nodeToString: node => node.name,
       isNodeDisabled: node => Boolean(rowElement(node.id)?.closest("[hidden], [inert], [aria-disabled=true]")),
       rootNode: { id: "", name: "", children },
     });
+
+    signatures.set(next, signature);
+
+    return next;
   });
 
-  const expanded = createMemo(() => collection().getBranchValues().filter(id => {
+  const expanded = createMemo<string[]>(() => collection().getBranchValues().filter(id => {
     const section = sections.find(section => `section:${section.id}` === id);
 
     return section ? !rail.closedSections().has(section.id) : id.startsWith("fold:") ? unfolded().has(id.slice(5)) : !collapsed().has(id);
-  }));
+  }), [], { equals: sameList });
 
   /** One walk of the collection gives every node its index path; a move then costs O(rows), not a `getIndexPath` scan per row. */
   const entries = createMemo<Map<string, Entry>>((previous) => {

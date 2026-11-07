@@ -12,7 +12,7 @@ impl Todos {
     pub async fn rpc_contract_probe(&self, ctx: &Ctx, _method: &str, value: Value) -> Result<Value, RpcError> {
         let p: contracts::todo::TodoId = params(value)?;
         ctx.touch(contracts::Verb::Read, "c4:contractProbe")?;
-        reply(&contracts::todo::TodoId {id: p.id + 1})
+        Ok(crate::error::reply(&contracts::todo::TodoId {id: p.id + 1})?)
     }
 }
 '''

@@ -3,19 +3,20 @@ use std::collections::BTreeSet;
 
 use contracts::todo::{CreateParams, SetBlockersParams, TodoId, UpdateParams};
 use contracts::{EventData, Verb};
-use rpc::{Ctx, RpcError, reply};
+use rpc::Ctx;
 use serde_json::Value;
 
 use super::{Todos, cycle, item};
+use crate::error::{Error, reply};
 
 impl Todos {
     /// The creator is the calling Actor; a `creator` field sent in the params is ignored.
-    pub(super) fn create(&self, ctx: &Ctx, p: CreateParams) -> Result<Value, RpcError> {
+    pub(super) fn create(&self, ctx: &Ctx, p: CreateParams) -> Result<Value, Error> {
         let owner = p
             .owner
             .map(contracts::common::Owner::into_actor)
             .transpose()
-            .map_err(|e| RpcError::new(rpc::code::INVALID_PARAMS, e))?;
+            .map_err(Error::InvalidParams)?;
         let todo = self.store()?.insert(
             &p.title,
             &p.body.unwrap_or_default(),
@@ -23,18 +24,17 @@ impl Todos {
             &ctx.actor,
             owner.as_ref(),
             p.priority,
-            ctx.touches.sequence().map_err(RpcError::internal)?,
+            ctx.touches.sequence()?,
         )?;
         ctx.touch(Verb::Wrote, &item(todo.id))?;
         ctx.emit(EventData::TodoCreated(todo.clone().into()));
         reply(&todo)
     }
 
-    pub(super) fn update(&self, ctx: &Ctx, p: UpdateParams) -> Result<Value, RpcError> {
+    pub(super) fn update(&self, ctx: &Ctx, p: UpdateParams) -> Result<Value, Error> {
         if p.title.is_none() && p.body.is_none() && p.priority.is_none() {
-            return Err(RpcError::new(
-                rpc::code::INVALID_PARAMS,
-                "update needs a title, a body or a priority",
+            return Err(Error::InvalidParams(
+                "update needs a title, a body or a priority".into(),
             ));
         }
         let store = self.store()?;
@@ -51,7 +51,7 @@ impl Todos {
             p.body.as_deref(),
             p.priority,
             p.expected_change,
-            ctx.touches.sequence().map_err(RpcError::internal)?,
+            ctx.touches.sequence()?,
             &ctx.actor,
         )?;
         ctx.touch(Verb::Wrote, &item(p.id))?;
@@ -59,45 +59,35 @@ impl Todos {
         reply(&todo)
     }
 
-    pub(super) fn complete(&self, ctx: &Ctx, p: TodoId) -> Result<Value, RpcError> {
+    pub(super) fn complete(&self, ctx: &Ctx, p: TodoId) -> Result<Value, Error> {
         let store = self.store()?;
         let was_blocked = store.blocked_ids()?;
-        let todo = store.set_done(
-            p.id,
-            true,
-            ctx.touches.sequence().map_err(RpcError::internal)?,
-            &ctx.actor,
-        )?;
+        let todo = store.set_done(p.id, true, ctx.touches.sequence()?, &ctx.actor)?;
         ctx.touch(Verb::Wrote, &item(p.id))?;
         ctx.emit(EventData::TodoUpdated(todo.clone().into()));
         emit_unblocked(ctx, &was_blocked, &store.blocked_ids()?);
         reply(&todo)
     }
 
-    pub(super) fn reopen(&self, ctx: &Ctx, p: TodoId) -> Result<Value, RpcError> {
+    pub(super) fn reopen(&self, ctx: &Ctx, p: TodoId) -> Result<Value, Error> {
         let store = self.store()?;
         let todo = store.get(p.id)?;
         if !todo.done {
             return reply(&todo);
         }
-        let todo = store.set_done(
-            p.id,
-            false,
-            ctx.touches.sequence().map_err(RpcError::internal)?,
-            &ctx.actor,
-        )?;
+        let todo = store.set_done(p.id, false, ctx.touches.sequence()?, &ctx.actor)?;
         ctx.touch(Verb::Wrote, &item(p.id))?;
         ctx.emit(EventData::TodoUpdated(todo.clone().into()));
         reply(&todo)
     }
 
-    pub(super) fn set_blockers(&self, ctx: &Ctx, p: SetBlockersParams) -> Result<Value, RpcError> {
+    pub(super) fn set_blockers(&self, ctx: &Ctx, p: SetBlockersParams) -> Result<Value, Error> {
         let store = self.store()?;
         let was_blocked = store.blocked_ids()?;
         store.get(p.id)?;
         store.require_all(&p.blockers)?;
         if cycle::creates_cycle(&store.edges()?, p.id, &p.blockers) {
-            return Err(RpcError::conflict(format!(
+            return Err(Error::Conflict(format!(
                 "blockers {:?} would make todo {} block itself",
                 p.blockers, p.id
             )));
@@ -106,7 +96,7 @@ impl Todos {
             p.id,
             &p.blockers,
             p.expected_change,
-            ctx.touches.sequence().map_err(RpcError::internal)?,
+            ctx.touches.sequence()?,
             &ctx.actor,
         )?;
         ctx.touch(Verb::Wrote, &item(p.id))?;
