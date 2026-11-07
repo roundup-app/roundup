@@ -54,7 +54,7 @@ impl End {
             format!("{} MB", self.memory >> 20)
         };
         let reason = match self.reason {
-            Reason::Budget => "Agents held over half of this Mac's memory",
+            Reason::Budget => "Agents used over half of this Mac's memory",
             Reason::Critical => "this Mac's memory ran critical",
         };
         format!(
@@ -81,14 +81,14 @@ pub trait Source: Send + 'static {
 /// `claude`. Over `budget` it returns the largest first until the rest is at or under it; at
 /// critical `level` with nothing over it, the largest alone.
 pub fn decide(readings: &[Reading], budget: u64, level: u8) -> Vec<u32> {
-    let mut held: Vec<&Reading> = readings
+    let mut big: Vec<&Reading> = readings
         .iter()
         .filter(|r| r.agent.is_some() && !r.protected)
         .collect();
-    held.sort_by(|a, b| b.memory.cmp(&a.memory).then(a.pid.cmp(&b.pid)));
-    let mut sum: u64 = held.iter().map(|r| r.memory).sum();
+    big.sort_by(|a, b| b.memory.cmp(&a.memory).then(a.pid.cmp(&b.pid)));
+    let mut sum: u64 = big.iter().map(|r| r.memory).sum();
     let mut ends = Vec::new();
-    for r in &held {
+    for r in &big {
         if sum <= budget {
             break;
         }
@@ -96,7 +96,7 @@ pub fn decide(readings: &[Reading], budget: u64, level: u8) -> Vec<u32> {
         ends.push(r.pid);
     }
     if ends.is_empty() && level >= CRITICAL {
-        ends.extend(held.first().map(|r| r.pid));
+        ends.extend(big.first().map(|r| r.pid));
     }
     ends
 }

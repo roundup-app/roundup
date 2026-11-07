@@ -194,7 +194,7 @@ mod tests {
             assert!(body.contains("roundup ended sleep ("), "{body}");
             assert!(body.contains(" MB)"), "{body}");
             assert!(
-                body.contains("Agents held over half of this Mac's memory"),
+                body.contains("Agents used over half of this Mac's memory"),
                 "{body}"
             );
             assert!(body.contains("run fewer at once"), "{body}");
