@@ -232,7 +232,8 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
 
     const target = branch?.key ?? parent;
     setFocused(target);
-    queueMicrotask(() => rowElement(target)?.focus());
+    // U3800g: the restore runs at the next frame, after the drop's task.
+    requestAnimationFrame(() => rowElement(target)?.focus());
   }));
 
   const openRow = (id: string) => {
@@ -721,6 +722,8 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
         tree={{
           rows: treeRows(),
           indent: railStep(),
+          // U22: a release outside the Rail's box drops nothing, so a nest steps inside it.
+          bounds: () => container()?.getBoundingClientRect(),
           inset: (element) => {
             const content = element.querySelector<HTMLElement>(".line");
 
@@ -729,6 +732,7 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
           nests: (id) => rows().some((row) => row.kind === "node" && row.node.id === id && isWorkstream(row.node) && row.collapsed === null),
           onMove: moveTo,
           onPreview: (next) => placeDrop(next),
+          accepts: () => !pointerOutside(),
         }}
       >
       <TreeView.Tree aria-label={copy.rail} aria-disabled={daemonExit() !== null ? true : undefined}>

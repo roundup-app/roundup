@@ -311,7 +311,7 @@ impl Daemon {
                         graph = Some(result);
                         Ok(())
                     },
-                    |db| agents::Agents::acknowledge_restoration_in(db, &p.operation),
+                    |db| agents::Agents::acknowledge_restoration_in(db, &p.operation).map_err(todos::Error::from),
                 )?;
                 events.extend(todo_events);
                 Ok((

@@ -163,7 +163,10 @@ impl Agents {
             }
             let attempt = rail.allocate_attempt(&node.id)?;
             self.shared.mark_starting(&node.id, attempt.clone());
-            if given.is_some() && ctx.actor.kind == ActorKind::User {
+            if given.is_some()
+                && ctx.actor.kind == ActorKind::User
+                && params.app_named != Some(true)
+            {
                 rail.set_user_named(&node.id)?;
             }
             if given.is_some()
@@ -301,10 +304,7 @@ impl Agents {
             }
             None => self.project_dir().to_string_lossy().into_owned(),
         };
-        let shell = std::env::var_os("SHELL")
-            .map(|shell| shell.to_string_lossy().into_owned())
-            .filter(|shell| !shell.is_empty())
-            .unwrap_or_else(|| "/bin/sh".into());
+        let shell = self.shared.shell.clone();
         let spawned = self
             .shared
             .terminals
@@ -463,7 +463,7 @@ impl Agents {
             model: node.model,
             effort: node.effort,
             mcp_off: !models::mcp_on(
-                std::env::var_os("ROUNDUP_MCP").as_deref(),
+                self.shared.mcp_env.as_deref(),
                 self.shared.rail().get_mcp()?.on,
             ),
             lean: Launcher::load_lean(&self.dir, id)?,
