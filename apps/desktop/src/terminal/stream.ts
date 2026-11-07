@@ -194,6 +194,18 @@ export const createPump = <H extends PumpHolder>({ connected, failures, watches,
     if (agent && rail.shouldAcknowledgeAlerts() && rail.selected() === agent.id) acknowledge(agent.id);
   };
 
+  const restoreFailed = (id: string, holder: H, stream: Stream, thrown: Error): void => {
+    failures.set(id, "snapshot", appCopy.terminalRestoreFailed(thrown.message), () => {
+      if (isOpen(stream) && !stream.restoring) void restore(id, holder, stream);
+    });
+
+    if (!holder.complete) stream.after = stream.queue[0]?.offset ?? (stream.phase.kind === "placed" ? stream.phase.start : 0);
+
+    stream.restoring = false;
+
+    if (!holder.complete) drain(id, holder, stream);
+  };
+
   const restore = async (id: string, holder: H, stream: Stream): Promise<void> => {
     if (stream.restoring || !isOpen(stream)) return;
 
@@ -209,17 +221,7 @@ export const createPump = <H extends PumpHolder>({ connected, failures, watches,
     } catch (thrown) {
       if (!(thrown instanceof Error)) throw thrown;
 
-      if (!isOpen(stream)) return;
-
-      failures.set(id, "snapshot", appCopy.terminalRestoreFailed(thrown.message), () => {
-        if (isOpen(stream) && !stream.restoring) void restore(id, holder, stream);
-      });
-
-      if (!holder.complete) stream.after = stream.queue[0]?.offset ?? (stream.phase.kind === "placed" ? stream.phase.start : 0);
-
-      stream.restoring = false;
-
-      if (!holder.complete) drain(id, holder, stream);
+      if (isOpen(stream)) restoreFailed(id, holder, stream, thrown);
 
       return;
     }
