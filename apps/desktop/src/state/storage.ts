@@ -1,5 +1,7 @@
 import { storageCopy } from "./copy";
 import { createSignal } from "solid-js";
+import { createDraftsStore } from "./drafts";
+import { createSerialQueue } from "./serialQueue";
 import * as v from "valibot";
 import { webviewDataPath } from "../app/tauri";
 import { load } from "@tauri-apps/plugin-store";
@@ -30,8 +32,6 @@ let browser: Storage | undefined;
 
 let initialized = false;
 
-let writes: Promise<unknown> = Promise.resolve();
-
 let adapterRevision = 0;
 
 const [failures, setFailures] = createSignal<{ key: string; cause: string; retry: () => Promise<string | null> }[]>([]);
@@ -56,7 +56,6 @@ export const useBrowserStorage = (adapter: Storage) => {
   adapterRevision++;
   browser = adapter;
   initialized = true;
-  writes = Promise.resolve();
   setFailures([]);
 };
 
@@ -105,6 +104,9 @@ type Restore<T> =
 
 /** onRetained runs after a successful write or retry, so views observe only acknowledged values. */
 export const storedValue = <T>(key: string, schema: v.GenericSchema<unknown, T>, onRetained?: () => void) => {
+  // One queue per holder keeps its writes in order; a slow write here never delays another holder.
+  const queue = createSerialQueue();
+
   const restore = (): Restore<T> => {
     if (!initialized) return { status: "failed", cause: "unreadable" };
 
@@ -151,37 +153,49 @@ export const storedValue = <T>(key: string, schema: v.GenericSchema<unknown, T>,
       record = JSON.stringify(remove ? { version: 1, removed: true } : { version: 1, value: JSON.parse(bytes) });
     } catch (error) { return Promise.resolve((error instanceof Error ? error.message : String(error))); }
 
-    const pending = writes.then(async () => {
+    // The job's base is what a retry rebases to: the saved record, or the caller's expectation.
+    const verify = async (): Promise<T | null> => {
+      if (!initialized) throw new Error(storageCopy.notRestored);
+
+      if (!browser) await reopen();
+      const current = restore();
+
+      if (current.status === "failed" && (current.cause === "unreadable" || expected !== undefined)) throw new Error(storageCopy.readFailure(current.cause));
+      const saved = current.status === "restored" ? current.value : null;
+
+      if (expected !== undefined && JSON.stringify(saved) !== JSON.stringify(expected)
+        && JSON.stringify(saved) !== bytes) throw new Error(storageCopy.changed);
+
+      return expected === undefined ? saved : expected;
+    };
+
+    const apply = async () => {
+      if (!browser) {
+        if (!plugin) throw new Error(storageCopy.notRestored);
+        await plugin.set(key, JSON.parse(record));
+        await plugin.save();
+        restored.set(key, JSON.parse(record));
+
+        return;
+      }
+
+      for (let attempt = 0; ; attempt++) {
+        try {
+          if (remove) browser.removeItem(key); else browser.setItem(key, bytes);
+
+          return;
+        } catch (error) { if (attempt === 1) throw error; }
+      }
+    };
+
+    const pending = queue.add(async () => {
       if (revision !== adapterRevision) return storageCopy.replaced;
       let base: T | null = expected ?? null;
       let failure: string | null = null;
 
       try {
-        if (!initialized) throw new Error(storageCopy.notRestored);
-
-        if (!browser) await reopen();
-        const current = restore();
-
-        if (current.status === "failed" && (current.cause === "unreadable" || expected !== undefined)) throw new Error(storageCopy.readFailure(current.cause));
-        const saved = current.status === "restored" ? current.value : null;
-        base = expected === undefined ? saved : expected;
-
-        if (expected !== undefined && JSON.stringify(saved) !== JSON.stringify(expected)
-          && JSON.stringify(saved) !== bytes) throw new Error(storageCopy.changed);
-
-        if (browser) {
-          for (let attempt = 0; ; attempt++) {
-            try {
-              if (remove) browser.removeItem(key); else browser.setItem(key, bytes);
-              break;
-            } catch (error) { if (attempt === 1) throw error; }
-          }
-        } else {
-          if (!plugin) throw new Error(storageCopy.notRestored);
-          await plugin.set(key, JSON.parse(record));
-          await plugin.save();
-          restored.set(key, JSON.parse(record));
-        }
+        base = await verify();
+        await apply();
       } catch (error) { failure = (error instanceof Error ? error.message : String(error)); }
 
       if (revision !== adapterRevision) return failure;
@@ -194,8 +208,6 @@ export const storedValue = <T>(key: string, schema: v.GenericSchema<unknown, T>,
 
       return failure;
     });
-
-    writes = pending;
 
     return pending;
   };
@@ -210,7 +222,7 @@ export const storedValue = <T>(key: string, schema: v.GenericSchema<unknown, T>,
     },
     write: (value: T, expected?: T | null) => commit(value, false, expected),
     refresh: (): Promise<string | null> => {
-      const pending = writes.then(async () => {
+      return queue.add(async () => {
         if (browser) return null;
 
         try {
@@ -219,11 +231,8 @@ export const storedValue = <T>(key: string, schema: v.GenericSchema<unknown, T>,
           return null;
         } catch (error) { return (error instanceof Error ? error.message : String(error)); }
       });
-
-      writes = pending;
-
-      return pending;
     },
+    idle: () => queue.idle(),
   };
 };
 
@@ -276,7 +285,7 @@ const sameDestination = (a: Destination, b: Destination) =>
  * Reading/copying never submits, changes the current draft, or resumes autosave.
  * Credential drafts remain memory-only; vendor Terminal buffers must never enter this holder.
  * Values contain named scalar fields/string selections; editor documents remain exact source strings.
- * list()/problem() are reactive; list() returns independent copies, oldest first; the last draft for a destination is current.
+ * list()/problem() are reactive; list() returns read-only records the holder replaces and never mutates, oldest first; the last draft for a destination is current.
  * submit() marks a snapshot before the owner sends; settle() requires that revision's actual outcome.
  * Unknown acceptance requires reconciliation by the owner, never another submit() here.
  * edit returns recoverable memory and a retained promise; submit awaits its retention result.
@@ -285,15 +294,13 @@ const sameDestination = (a: Destination, b: Destination) =>
  */
 export const draftStorage = (project: string) => {
   const storage = storedValue(`roundup:drafts:${project}`, draftsSchema);
-  const [version, setVersion] = createSignal(0);
-  let drafts: Draft[] = [];
+  const { current, setDrafts, setProblem, problem, list } = createDraftsStore<Draft, DraftProblem>();
   const [editors, setEditors] = createSignal<Destination[]>([]);
-  let problem: DraftProblem | null = null;
   let baseline = "";
   const schemas = new Map<string, v.GenericSchema>();
   let incompatible = false;
   const removed = new Set<string>();
-  let retaining: Promise<unknown> = Promise.resolve();
+  const retaining = createSerialQueue();
 
   const validateSaved = (saved: Draft[]): boolean => {
     const invalid = saved.find((draft) => {
@@ -305,7 +312,7 @@ export const draftStorage = (project: string) => {
     if (!invalid) return true;
 
     incompatible = true;
-    problem = { project, destination: invalid.destination, revision: invalid.revision, operation: "restore", cause: "invalid" };
+    setProblem({ project, destination: invalid.destination, revision: invalid.revision, operation: "restore", cause: "invalid" });
 
     return false;
   };
@@ -314,19 +321,14 @@ export const draftStorage = (project: string) => {
     const result = storage.restore();
 
     if (result.status === "failed") {
-      if (!incompatible) problem = { project, destination: null, revision: null, operation: "restore", cause: result.cause };
-      setVersion((previous) => previous + 1);
+      if (!incompatible) setProblem({ project, destination: null, revision: null, operation: "restore", cause: result.cause });
 
       return false;
     }
 
     const saved = result.status === "restored" ? result.value.drafts : [];
 
-    if (!validateSaved(saved)) {
-      setVersion((previous) => previous + 1);
-
-      return false;
-    }
+    if (!validateSaved(saved)) return false;
 
     incompatible = false;
     baseline = JSON.stringify(saved);
@@ -335,11 +337,11 @@ export const draftStorage = (project: string) => {
       if (draft.destination.surface === "rail-clear") removed.add(draft.revision);
     }
 
-    const known = new Set(drafts.map((draft) => draft.revision));
+    const known = new Set(current().map((draft) => draft.revision));
 
-    drafts = [...saved.filter((draft) => !known.has(draft.revision) && !removed.has(draft.revision)).map((draft): Draft => ({
+    setDrafts([...saved.filter((draft) => !known.has(draft.revision) && !removed.has(draft.revision)).map((draft): Draft => ({
       ...draft, status: draft.status === "pending" ? "unknown" : draft.status,
-    })), ...drafts];
+    })), ...current()]);
 
     return true;
   };
@@ -347,35 +349,35 @@ export const draftStorage = (project: string) => {
   restore();
 
   const persist = async (affected: Draft | null, ordinary: Draft[], discarded: string[]): Promise<DraftProblem | null> => {
-    if (incompatible) return structuredClone(problem);
+    if (incompatible) return problem();
 
     // Never overwrite a record that failed parsing, or a different writer's work.
     const result = storage.restore();
 
     if (result.status === "failed") {
-      problem = { project, destination: affected?.destination ?? null, revision: affected?.revision ?? null, operation: "restore", cause: result.cause };
+      setProblem({ project, destination: affected?.destination ?? null, revision: affected?.revision ?? null, operation: "restore", cause: result.cause });
 
-      return structuredClone(problem);
+      return problem();
     }
 
     const saved = result.status === "restored" ? result.value.drafts : [];
 
-    if (!validateSaved(saved)) return structuredClone(problem);
+    if (!validateSaved(saved)) return problem();
 
     if (JSON.stringify(saved) !== baseline) {
-      problem = { project, destination: affected?.destination ?? null, revision: affected?.revision ?? null, operation: "retain", cause: "changed" };
+      setProblem({ project, destination: affected?.destination ?? null, revision: affected?.revision ?? null, operation: "retain", cause: "changed" });
 
-      return structuredClone(problem);
+      return problem();
     }
 
-    if (!validateSaved(ordinary)) return structuredClone(problem);
+    if (!validateSaved(ordinary)) return problem();
 
     const value = { version: 1 as const, drafts: ordinary };
 
     if (new TextEncoder().encode(JSON.stringify(value)).byteLength > 10 * 1024 * 1024) {
-      problem = { project, destination: affected?.destination ?? null, revision: affected?.revision ?? null, operation: "retain", cause: "capacity" };
+      setProblem({ project, destination: affected?.destination ?? null, revision: affected?.revision ?? null, operation: "retain", cause: "capacity" });
 
-      return structuredClone(problem);
+      return problem();
     }
 
     const failure = await storage.write(value, result.status === "restored" ? result.value : null);
@@ -383,54 +385,44 @@ export const draftStorage = (project: string) => {
     if (failure !== null) {
       setFailures(previous => previous.map(entry => entry.key === `roundup:drafts:${project}`
         ? { ...entry, retry: async () => (await retry())?.cause ?? null } : entry));
-      problem = { project, destination: affected?.destination ?? null, revision: affected?.revision ?? null, operation: "retain", cause: failure === storageCopy.changed ? "changed" : "write" };
+      setProblem({ project, destination: affected?.destination ?? null, revision: affected?.revision ?? null, operation: "retain", cause: failure === storageCopy.changed ? "changed" : "write" });
 
-      return structuredClone(problem);
+      return problem();
     }
 
     baseline = JSON.stringify(v.parse(draftsSchema, value).drafts);
 
     for (const revision of discarded) removed.delete(revision);
-    problem = null;
+    setProblem(null);
 
     return null;
   };
 
   const retain = (affected: Draft | null): Promise<DraftProblem | null> => {
     // U5643a: only membership is captured; retained records are replaced, never mutated.
-    const ordinary = drafts.filter(draft => draft.policy === "ordinary");
+    const ordinary = current().filter(draft => draft.policy === "ordinary");
     const discarded = [...removed];
 
-    const pending = retaining.then(() => persist(affected, ordinary, discarded)).then(failure => {
-      setVersion(previous => previous + 1);
-
-      return failure;
-    });
-
-    retaining = pending;
     // Edits are visible immediately; only the returned promise acknowledges retention.
-    setVersion(previous => previous + 1);
-
-    return pending;
+    return retaining.add(() => persist(affected, ordinary, discarded));
   };
 
   const retry = async (): Promise<DraftProblem | null> => {
-      await retaining;
+      await retaining.idle();
       const failure = await storage.refresh();
 
       if (failure !== null) {
-        problem = { project, destination: null, revision: null, operation: "restore", cause: "unreadable" };
-        setVersion(previous => previous + 1);
+        setProblem({ project, destination: null, revision: null, operation: "restore", cause: "unreadable" });
         setFailures(previous => [...previous.filter(entry => entry.key !== `roundup:drafts:${project}`), {
           key: `roundup:drafts:${project}`, cause: failure, retry: async () => (await retry())?.cause ?? null,
         }]);
 
-        return structuredClone(problem);
+        return problem();
       }
 
-      if ((problem?.operation === "restore" || problem?.cause === "changed") && !restore()) return structuredClone(problem);
+      if ((problem()?.operation === "restore" || problem()?.cause === "changed") && !restore()) return problem();
 
-      return retain(drafts.find((draft) => draft.revision === problem?.revision) ?? null);
+      return retain(current().find((draft) => draft.revision === problem()?.revision) ?? null);
   };
 
   // U350 retires these revisions without offering recovery or replay.
@@ -447,15 +439,13 @@ export const draftStorage = (project: string) => {
 
       if (!incompatible && result.status === "restored") validateSaved(result.value.drafts);
 
-      if (!incompatible) validateSaved(drafts.filter((draft) => draft.policy === "ordinary"));
+      if (!incompatible) validateSaved(current().filter((draft) => draft.policy === "ordinary"));
 
       if (result.status === "failed" && !incompatible) {
-        problem = { project, destination: null, revision: null, operation: "restore", cause: result.cause };
+        setProblem({ project, destination: null, revision: null, operation: "restore", cause: result.cause });
       }
 
-      setVersion((previous) => previous + 1);
-
-      return structuredClone(problem);
+      return problem();
     },
     editor: (destination: Destination) => {
       setEditors(previous => [...previous, destination]);
@@ -463,19 +453,16 @@ export const draftStorage = (project: string) => {
       return () => setEditors(previous => previous.filter(entry => entry !== destination));
     },
     recoverable: (): Draft[] => {
-      version();
+      const open = editors();
+      const broken = problem() !== null;
 
-      return structuredClone(drafts.filter(draft => draft.status !== "draft" || problem !== null || !editors().some(destination => sameDestination(destination, draft.destination))));
+      return list(draft => draft.status !== "draft" || broken || !open.some(destination => sameDestination(destination, draft.destination)));
     },
     list: (): Draft[] => {
-      version();
-
-      return structuredClone(drafts);
+      return list();
     },
     problem: (): DraftProblem | null => {
-      version();
-
-      return structuredClone(problem);
+      return problem();
     },
     /** Omitting replaces edits the destination's current drafts; a revision replaces only
      * that editable draft, and null starts a draft without consuming another editor's work.
@@ -489,59 +476,56 @@ export const draftStorage = (project: string) => {
       const replaced = (previous: Draft) => previous.status === "draft" && sameDestination(previous.destination, target)
         && (replaces === undefined || previous.revision === replaces);
 
-      for (const previous of drafts) {
-        if (replaced(previous)) {
-          removed.add(previous.revision);
-        }
+      for (const previous of current()) {
+        if (replaced(previous)) removed.add(previous.revision);
       }
 
-      drafts = drafts.filter((previous) => !replaced(previous));
-      drafts.push(draft);
+      setDrafts([...current().filter((previous) => !replaced(previous)), draft]);
       const retained = retain(draft);
 
       return { draft: structuredClone(draft), retained };
     },
     setSelection: async (revision: string, selection: Draft["selection"]): Promise<DraftProblem | null> => {
-      const draft = drafts.find(entry => entry.revision === revision);
+      const draft = current().find(entry => entry.revision === revision);
 
-      if (!draft) return structuredClone(problem);
+      if (!draft) return problem();
       const next = { ...draft, selection: structuredClone(selection) };
-      drafts = drafts.map(entry => entry === draft ? next : entry);
+      setDrafts(current().map(entry => entry === draft ? next : entry));
 
       return retain(next);
     },
     submit: async (revision: string): Promise<{ draft: Draft; problem: DraftProblem | null } | null> => {
-      const draft = drafts.find((entry) => entry.revision === revision);
+      const draft = current().find((entry) => entry.revision === revision);
 
       if (!draft || (draft.status !== "draft" && draft.status !== "failed")) return null;
 
       const next: Draft = { ...draft, status: "pending" };
-      drafts = drafts.map(entry => entry === draft ? next : entry);
+      setDrafts(current().map(entry => entry === draft ? next : entry));
       const snapshot = structuredClone(next);
       const failure = await retain(next);
 
       return { draft: snapshot, problem: failure };
     },
     settle: async (revision: string, outcome: "acknowledged" | "failed" | "unknown"): Promise<DraftProblem | null> => {
-      const draft = drafts.find((entry) => entry.revision === revision);
+      const draft = current().find((entry) => entry.revision === revision);
 
-      if (!draft || draft.status === "draft") return structuredClone(problem);
+      if (!draft || draft.status === "draft") return problem();
 
       if (outcome === "acknowledged") {
         removed.add(revision);
-        drafts = drafts.filter((entry) => entry.revision !== revision);
+        setDrafts(current().filter((entry) => entry.revision !== revision));
       }
-      else drafts = drafts.map(entry => entry === draft ? { ...entry, status: outcome } : entry);
+      else setDrafts(current().map(entry => entry === draft ? { ...entry, status: outcome } : entry));
 
       return retain(draft);
     },
     discard: async (revision: string): Promise<DraftProblem | null> => {
-      const draft = drafts.find((entry) => entry.revision === revision);
+      const draft = current().find((entry) => entry.revision === revision);
 
-      if (!draft) return structuredClone(problem);
+      if (!draft) return problem();
 
       removed.add(revision);
-      drafts = drafts.filter((entry) => entry.revision !== revision);
+      setDrafts(current().filter((entry) => entry.revision !== revision));
 
       return retain(draft);
     },
