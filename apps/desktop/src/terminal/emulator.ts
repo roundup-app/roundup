@@ -1,6 +1,6 @@
 import { copy as appCopy } from "./copy";
 import { showScrollbars } from "../scrollHover";
-import { resizeDragging } from "../resize/dragging";
+import { layoutMoving } from "../resize/motion";
 import tokens from "../tokens.css?inline";
 import { createRoot, createEffect, on } from "solid-js";
 import { terminalType, followAppAppearance } from "../settings/preferences";
@@ -494,10 +494,10 @@ export const createXtermEmulators = (
     };
 
     // xterm redraws both renderers after DPR/cell metrics change; host observers miss equal CSS bounds.
-    // During an edge drag, Pane refits on release; a live-output redraw must not fit the intermediate width.
+    // During an edge drag or a Drawer or Shelf slide, Pane refits when it ends; a live-output redraw must not fit the intermediate width.
     // True when the fit was checked, false when a guard stopped it.
     const refit = (): boolean => {
-      if (!opened || disposed || !fontsReady || resizeDragging() || !element.parentElement || element.closest("[hidden]")) return false;
+      if (!opened || disposed || !fontsReady || layoutMoving() || !element.parentElement || element.closest("[hidden]")) return false;
 
       const proposed = fitter.proposeDimensions();
 

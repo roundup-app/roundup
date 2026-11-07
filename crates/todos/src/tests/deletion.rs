@@ -186,7 +186,7 @@ async fn u3787a_transaction_refusal_retains_nothing_and_deletes_nothing() {
     let dir = tempfile::tempdir().unwrap();
     let h = Harness::new(dir.path());
     made(&h, json!({"title":"chosen"})).await;
-    let mut db = rusqlite::Connection::open(dir.path().join("project.db")).unwrap();
+    let mut db = storage::connect(dir.path()).unwrap();
     db.pragma_update(None, "foreign_keys", true).unwrap();
     let tx = db.transaction().unwrap();
     Todos::delete_in(
@@ -221,7 +221,7 @@ async fn u3787a_restore_collision_keeps_the_operation_retryable() {
         .await
         .unwrap();
     // An external identity collision is the input this acceptance clause explicitly names.
-    let db = rusqlite::Connection::open(dir.path().join("project.db")).unwrap();
+    let db = storage::connect(dir.path()).unwrap();
     db.execute(
         "INSERT INTO todos(id,title,body,created_at) VALUES(1,'collision','',0)",
         [],
@@ -316,7 +316,7 @@ async fn u3787a_failed_delete_rolls_back_retention_with_the_entire_bulk() {
             .unwrap();
     }
     let before = h.call("todo.list", Value::Null).await.unwrap();
-    let db = rusqlite::Connection::open(dir.path().join("project.db")).unwrap();
+    let db = storage::connect(dir.path()).unwrap();
     db.execute_batch("CREATE TRIGGER refuse_delete BEFORE DELETE ON todos WHEN OLD.id=2 BEGIN SELECT RAISE(ABORT,'refused'); END;").unwrap();
     assert!(
         h.call("todo.delete", json!({"operation":"refused", "ids":[1,2]}))
@@ -506,7 +506,7 @@ async fn u3787a_redo_refuses_replaced_creation_and_retries_after_authoritative_r
         .unwrap();
     // An external replacement copies all visible fields and timestamps, but cannot
     // acquire the retained creation Change. This is the named incarnation probe.
-    let db = rusqlite::Connection::open(dir.path().join("project.db")).unwrap();
+    let db = storage::connect(dir.path()).unwrap();
     db.execute("INSERT INTO todos SELECT id,title,body,done,created_at,creator,home,pos,owner,updated_at,priority FROM deleted_todos WHERE operation='later'", []).unwrap();
     let restoration = h
         .call("todo.deletion", json!({"operation":"first"}))
