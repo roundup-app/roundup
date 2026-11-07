@@ -35,10 +35,12 @@ describe("u162 one add opens a Workstream", () => {
     expect(document.activeElement).toBe(rowOf("h"));
   });
 
-  it("u191_cmd_n_keep_their_parent_rule_with_no_workstream", async () => {
+  it("u378_new_agent_with_a_workstream_selected_spawns_top_level", async () => {
     const mounted = await mountRail([workstream("g")]);
     mounted.app.handlers["agent.spawn"] = () => agent("fresh", "idle", "starting");
 
+    fireEvent.click(rowOf("g"));
+    await settled();
     chord("n");
     await waitFor(() => expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([{ cwd: "/p", prompt: null, parent: null, model: null, effort: null }]));
   });
