@@ -171,7 +171,7 @@ impl Daemon {
             target: report.request.target.clone(),
             output: report.request.output.id.clone(),
             instruction: report.instruction.revision.clone(),
-            next: report.request.next.clone(),
+            next: report.request.next.to_string(),
             decision: covered.map(|c| c.decision),
             id,
         })
@@ -193,12 +193,6 @@ impl Daemon {
         if conn.actor.kind != ActorKind::User {
             return Err(RpcError::forbidden(
                 "only the user may choose to resume unfinished work",
-            ));
-        }
-        if p.request.trim().is_empty() || p.request.len() > 256 {
-            return Err(RpcError::new(
-                rpc::code::INVALID_PARAMS,
-                "request is empty or too long",
             ));
         }
         let messages = self
@@ -252,7 +246,7 @@ impl Daemon {
         let accepting = if open.is_empty() { &chosen } else { &open };
         let request = Continue {
             agent: p.id.clone(),
-            request: p.request.clone(),
+            request: p.request.to_string(),
             payload,
             actions: accepting.iter().map(|a| a.id.clone()).collect(),
             body: successor_body(accepting, &reconciliation),

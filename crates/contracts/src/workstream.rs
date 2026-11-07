@@ -27,7 +27,7 @@ pub struct OpeningPromptParams {
 #[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 pub struct RestartParams {
     pub id: String,
-    pub request: String,
+    pub request: crate::Text<128, { crate::text::NONEMPTY }>,
 }
 
 /// A3194: when a new Workstream's Door starts (the Start choice).

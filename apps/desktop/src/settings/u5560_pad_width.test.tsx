@@ -6,6 +6,7 @@ import { appSettings } from "./preferences";
 import { createFakeApp } from "../testing/fakeApp";
 import { openPad, openShelf, padOf } from "../pads/padsFixture";
 import { USER } from "../testing/nodes";
+import { useBrowserStorage } from "../state/storage";
 
 const settings = async () => {
   render(() => <AppSettings app={createFakeApp()} project={() => null} />);
@@ -85,6 +86,7 @@ it.each(["narrow", "invalid", null])("u5560b_default_survives_restart_and_defaul
   if (stored === null) delete record.padWidth;
   else record.padWidth = stored;
   localStorage.setItem("roundup:app-settings", JSON.stringify(record));
+  useBrowserStorage(localStorage);
   const group = await settings();
   const expected = stored === "narrow" ? "Narrow" : "Wide";
   expect(within(group).getByRole<HTMLInputElement>("radio", { name: expected }).checked).toBe(true);

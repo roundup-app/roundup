@@ -1,0 +1,26 @@
+[package]
+name = "storage"
+edition.workspace = true
+license.workspace = true
+version.workspace = true
+
+[dependencies]
+getrandom = "0.3"
+memchr = "2"
+provenance = { path = "../provenance" }
+rusqlite = { workspace = true, features = ["serialize"] }
+rusqlite_migration.workspace = true
+rustix = { version = "1", features = ["fs"] }
+serde.workspace = true
+serde_json.workspace = true
+tempfile.workspace = true
+
+[build-dependencies]
+rusqlite.workspace = true
+rusqlite_migration.workspace = true
+
+[dev-dependencies]
+contracts = { path = "../contracts" }
+
+[lints]
+workspace = true

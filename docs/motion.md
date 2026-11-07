@@ -17,6 +17,7 @@ Accepted implementation target: U3010a–d in `scenarios/ui-motion.md`, commissi
 | M9 | Kind change: 150 ms glyph crossfade; only working rotates at rest | U3010c rendered Kind transitions; P3 attention regression |
 | M10 | One live preference source, no `!important`: all movement becomes 150 ms opacity fade, final geometry/focus next frame; no loop/replay; M1 still instant | U3010b/d live switch, rendered reduced variants and source review |
 | M11 | Only transform/opacity interpolate; all settings resolve Tokens; every App-owned effect appears in the inventory or is deleted | U3010a/d source inventory, critic and bundle observation |
+| M12 | Pointer fold or unfold of any list (Rail sections, Workstreams, idle fold, Rail footer list, Shelf owner groups, Todos done fold, Disclosure, Tree branches): one shared helper (`ui/fold.ts`), one Motion layout projection on M5's duration and easing, final layout committed once; the pressed row and scroll offset stay; a second press retargets; a key folds at once (M1); reduced motion is M10's fade | U6398a-d shared-helper call counts, critic and frame probe |
 
 These are policy and rendered obligations except the named behavior tests in the scenarios. Tests do not assert timing curves, geometry, exact copy or computed styles. “250 ms spring” means the duration parameter, not a claim that physics ends at exactly 250 ms. Report actual settling time and overshoot.
 

@@ -610,3 +610,19 @@ async fn a3196_a_done_todo_wakes_the_watcher_and_its_entry_starts() {
     assert!(queue(&daemon).await.entries.is_empty());
     daemon.stop_terminals().await.unwrap();
 }
+
+#[test]
+fn c6629c_a_bad_queue_cap_fails_to_parse() {
+    let parse = |cap: Value| rpc::params::<CapRequest>(json!({ "cap": cap }));
+    let too_big = u64::from(u32::MAX) + 1;
+    for bad in [json!(0), json!(-1), json!(1.5), json!("2"), json!(too_big)] {
+        let err = parse(bad.clone()).err().unwrap();
+        assert_eq!(err.code, code::INVALID_PARAMS, "{bad}");
+        assert!(
+            err.message
+                .contains("cap must be a whole number of 1 or more, or null")
+        );
+    }
+    assert_eq!(parse(Value::Null).unwrap().cap, None);
+    assert_eq!(parse(json!(u32::MAX)).unwrap().cap, Some(u32::MAX));
+}

@@ -39,6 +39,8 @@ impl Daemon {
         if conn.actor.kind != ActorKind::User {
             return Err(RpcError::forbidden("only the user forks the data folder"));
         }
+        let params = crate::fork::ForkRequest::try_from(params)
+            .map_err(|message| RpcError::new(rpc::code::INVALID_PARAMS, message))?;
         let root = crate::data::naming_path(&self.data_dir)
             .parent()
             .map(std::path::Path::to_path_buf)

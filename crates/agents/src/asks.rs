@@ -274,7 +274,7 @@ impl Intake {
     async fn type_part(&self, workstream: &str, attempt: &str, text: &str) -> Result<(), RpcError> {
         loop {
             let observed = self.agents.shared.events.observed.notified();
-            let deadline = match self.agents.shared.runs().get(workstream) {
+            let deadline = match self.agents.shared.runs().slot(workstream) {
                 Some(Slot::Running(run))
                     if run.attempt() == attempt && !run.ended() && !run.closing() =>
                 {
@@ -446,7 +446,7 @@ impl Intake {
                 .agents
                 .shared
                 .runs()
-                .get(workstream)
+                .slot(workstream)
                 .is_some_and(Slot::closing)
             {
                 observed.await;

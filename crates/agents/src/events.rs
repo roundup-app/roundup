@@ -1,4 +1,7 @@
+#![deny(clippy::too_many_lines)]
+
 use super::*;
+use crate::agent::{self, fold};
 
 impl Observation {
     /// The word a log line names this Observation by; a Signal by its vendor event.
@@ -26,8 +29,6 @@ pub(super) struct State {
     /// B39: told each submitted prompt; its answer says whether the hook must drop the prompt.
     /// B50, B51: what the Claude inbox of each Agent is and what its transcript has recorded.
     pub(super) inbox: Arc<InboxState>,
-    /// U3780a: the current or last tool call of each Agent.
-    pub(super) tool_calls: Mutex<HashMap<String, claude_code::toolcall::Tracked>>,
 }
 
 impl Drop for State {
@@ -171,14 +172,17 @@ impl Shared {
     /// PS9.2: Terminal `terminal`'s program status reaches the Agent that runs in it, if its
     /// adapter has no hook Signal; any other Agent keeps the Kind its Signals give (PS9.1).
     pub(super) fn observe_program(&self, terminal: &str, status: Status) {
-        let found = self.runs().iter().find_map(|(id, slot)| match slot {
-            Slot::Running(run)
-                if run.terminal_id() == terminal && !run.ended() && !run.view().hooked =>
-            {
-                Some((id.clone(), run.attempt().to_string()))
-            }
-            _ => None,
-        });
+        let found = self
+            .runs()
+            .iter()
+            .find_map(|(id, agent)| match &agent.slot {
+                Slot::Running(run)
+                    if run.terminal_id() == terminal && !run.ended() && !run.view().hooked =>
+                {
+                    Some((id.clone(), run.attempt().to_string()))
+                }
+                _ => None,
+            });
         if let Some((id, attempt)) = found {
             let _ = self.observe(Actor::daemon(), &id, &attempt, Observation::Program(status));
         }
@@ -194,7 +198,7 @@ impl Shared {
                 self.rail().name(id)?
             )));
         }
-        let attempt = self.runs().get(id).map(|slot| slot.attempt().to_owned());
+        let attempt = self.runs().slot(id).map(|slot| slot.attempt().to_owned());
         if let Some(attempt) = attempt {
             self.set_channel(actor.clone(), id, &attempt, Channel::Up);
         }
@@ -203,26 +207,25 @@ impl Shared {
 
     /// E6: whether the live Attempt of `id` has not yet reported its Channel or missed the deadline.
     pub(super) fn channel_pending(&self, id: &str) -> bool {
-        let runs = self.runs();
-        let channels = self.channels.lock().expect("channels lock");
-        channel_in(&channels, id, runs.get(id)) == Some(Channel::Pending)
+        channel_in(self.runs().get(id)) == Some(Channel::Pending)
     }
 
     /// E6: move the Channel of `attempt` to `channel` and say so, unless it is there already or
     /// the Attempt is no longer the live one.
     pub(super) fn set_channel(&self, by: Actor, id: &str, attempt: &str, channel: Channel) {
         let changed = {
-            let runs = self.runs();
-            let slot = runs.get(id).filter(|slot| slot.attempt() == attempt);
-            let mut channels = self.channels.lock().expect("channels lock");
-            let current = channel_in(&channels, id, slot);
+            let mut runs = self.runs();
+            let agent = runs
+                .get_mut(id)
+                .filter(|agent| agent.slot.attempt() == attempt);
+            let current = channel_in(agent.as_deref());
             // `up` is final for an Attempt; `missing` never replaces it.
             let moves = match (current, channel) {
                 (None, _) | (Some(Channel::Up), _) => false,
                 (Some(now), next) => now != next,
             };
-            if moves {
-                channels.insert(id.to_owned(), (attempt.to_owned(), channel));
+            if let (true, Some(agent)) = (moves, agent) {
+                agent.facts.channel = Some((attempt.to_owned(), channel));
             }
             moves
         };
@@ -246,6 +249,26 @@ impl Shared {
         });
     }
 
+    /// A21: a failed save fails the call, settles the Status to `error` and stops the Terminal,
+    /// since `agent.spawn` has already returned by the time a Running Agent can reach here (the
+    /// parked window's own save is `finish_starting`'s; A22's resuming is `finish_resuming`'s).
+    fn fail_conversation_save(
+        &self,
+        actor: &Actor,
+        id: &str,
+        run: &mut Run,
+        err: RpcError,
+    ) -> RpcError {
+        self.events.observed.notify_waiters();
+        if let (Some(status), _) = run.observe(Observation::Failed(format!(
+            "cannot save conversation: {err}"
+        ))) {
+            run.publish(&self.bus, actor.clone(), id, status);
+        }
+        self.spawn_kill(run.terminal_id().to_owned());
+        err
+    }
+
     /// Fold `observation` into Agent `id`'s Status. A change is announced as `agent.status`, and
     /// the first `SessionStart` Steers the prompt the Agent was spawned with. Returns when, on `clock`, the
     /// adapter wants its next `Observation::Tick`.
@@ -257,55 +280,43 @@ impl Shared {
         observation: Observation,
     ) -> Result<Option<i64>, RpcError> {
         let name = self.rail().name(id)?;
-        let first_prompt = match &observation {
-            Observation::Signal(payload) => claude_code::see(payload)
-                .prompt
-                .filter(|prompt| !order::is_clarification_steer(prompt))
-                .map(name::from_prompt),
-            _ => None,
-        };
+        let first_prompt = fold::first_prompt(&observation);
         // Taken before `runs`, as every other path does, so a rename and a prompt cannot deadlock.
         // U3566c: any Observation may end a turn, and the finish count is saved with its Status.
         let mut rail = Some(self.rail());
         let (prompt, tick_at) = {
             let mut runs = self.runs();
             // A20: an Observation from an earlier Attempt is ignored, never an error to its sender.
-            if runs.get(id).is_some_and(|slot| slot.attempt() != attempt) {
+            if runs.slot(id).is_some_and(|slot| slot.attempt() != attempt) {
                 eprintln!(
                     "agents: {id}: ignored {} from earlier Attempt {attempt}",
                     observation.name()
                 );
                 return Ok(None);
             }
-            if runs.get(id).is_some_and(Slot::closing) {
+            if runs.slot(id).is_some_and(Slot::closing) {
                 return Err(RpcError::conflict(format!("{name} is stopping")));
             }
-            match runs.get_mut(id) {
-                Some(Slot::Running(run)) => {
+            match runs
+                .get_mut(id)
+                .map(|agent| (&mut agent.slot, &mut agent.facts))
+            {
+                Some((Slot::Running(run), agent_facts)) => {
                     if run.ended() {
                         return Err(RpcError::not_found(format!("{name} has ended")));
                     }
                     // A21: a Signal naming a conversation of the current Attempt saves it
-                    // before being applied; a failed save fails this call, settles the Status
-                    // to `error` and stops the Terminal, since `agent.spawn` has already
-                    // returned by the time a Running Agent can reach here (the parked window's
-                    // own save is `finish_starting`'s; A22's resuming is `finish_resuming`'s).
+                    // before being applied (see `fail_conversation_save`).
                     if let Observation::Signal(payload) = &observation
                         && let Some(rail) = rail.as_deref_mut()
                         && let Err(err) = save_signal_conversation(rail, run, id, payload)
                     {
-                        self.events.observed.notify_waiters();
-                        if let (Some(status), _) = run.observe(Observation::Failed(format!(
-                            "cannot save conversation: {err}"
-                        ))) {
-                            run.publish(&self.bus, actor.clone(), id, status);
-                        }
-                        self.spawn_kill(run.terminal_id().to_owned());
-                        return Err(err);
+                        return Err(self.fail_conversation_save(&actor, id, run, err));
                     }
                     self.apply(
                         rail.as_deref_mut(),
                         run,
+                        agent_facts,
                         id,
                         &actor,
                         observation,
@@ -315,7 +326,7 @@ impl Shared {
                 // A14: a Signal here is parked, in arrival order, for when the Agent is
                 // registered, instead of `NOT_FOUND`; anything else cannot arrive this early
                 // (`watch` only starts once the Agent is `Running`).
-                Some(Slot::Starting { parked, .. }) => {
+                Some((Slot::Starting { parked, .. }, _)) => {
                     let Observation::Signal(payload) = observation else {
                         return Err(RpcError::not_found(&name));
                     };
@@ -324,7 +335,7 @@ impl Shared {
                 }
                 // A22: a non-ack Signal is parked exactly as `Starting`'s; the ack promotes to
                 // `Running` and wakes the pending `agent.resume` (`finish_resuming`).
-                Some(Slot::Resuming { starred, .. }) => {
+                Some((Slot::Resuming { starred, .. }, _)) => {
                     if let Observation::Title(title) = &observation {
                         *starred |= title.starts_with('✳');
                         return Ok(None);
@@ -334,8 +345,8 @@ impl Shared {
                     };
                     self.finish_resuming(rail.as_deref_mut(), &mut runs, id, actor, payload)?
                 }
-                None => return Err(RpcError::not_found(&name)),
-                Some(Slot::Closing | Slot::ResumeCleanup { .. }) => {
+                None | Some((Slot::Gone, _)) => return Err(RpcError::not_found(&name)),
+                Some((Slot::Closing | Slot::ResumeCleanup { .. }, _)) => {
                     return Err(RpcError::conflict(format!("{name} is stopping")));
                 }
             }
@@ -349,10 +360,12 @@ impl Shared {
     /// Fold `observation` into `run`, which `observe` has already found `Running`; `rail`, when
     /// given, is locked by the caller, never here, so a caller draining several Signals under
     /// one `rail`-then-`runs` lock section (`finish_starting`) is never asked to lock it twice.
+    #[allow(clippy::too_many_arguments)]
     pub(super) fn apply(
         &self,
         mut rail: Option<&mut rail::Rail>,
         run: &mut Run,
+        agent_facts: &mut agent::Facts,
         id: &str,
         actor: &Actor,
         observation: Observation,
@@ -360,165 +373,154 @@ impl Shared {
     ) -> Result<Applied, RpcError> {
         // The caller holds `runs`: a woken observer reads the completed fold after unlock.
         self.events.observed.notify_waiters();
-        let exited = matches!(observation, Observation::Exit { .. });
-        // A4452a: coordination waits for SessionStart; no star gates it.
-        let session_start = matches!(&observation, Observation::Signal(payload)
-            if claude_code::see(payload).session_start);
-        let star = matches!(&observation, Observation::Title(title) if title.starts_with('✳'));
-        if session_start {
+        let facts = fold::Facts::of(&observation);
+        if facts.session_start {
             run.note_session_start();
         }
-        if star {
+        if facts.star {
             run.note_star();
         }
-        if matches!(&observation, Observation::Signal(payload)
-            if claude_code::see(payload).prompt.is_some())
-            && !run.input_started()
-        {
+        if facts.starts_input(run) {
             self.save_input_started(id, run.attempt())?;
             run.start_input();
         }
-        // H11: the Steer's wait ends with the Signal that names it, or with the Agent.
-        if matches!(&observation, Observation::Signal(payload)
-            if claude_code::see(payload).prompt.is_some())
-            && run
-                .steer()
-                .and_then(|steer| steer.slash_written.as_ref())
-                .is_none_or(|gate| *gate.lock().expect("slash-command write gate"))
-        {
-            // H12 permits a late submission after refusal. Keep that acknowledgement even
-            // after the Steer's timeout so a coordinator retry need not Resume again.
-            run.submit_steer();
-        } else if matches!(observation, Observation::Exit { .. } | Observation::Stopped) {
-            // The Agent is over: no Steer or Interrupt waits on it. A prompt no writer owns is
-            // refused; a released or queued writer must publish its own completion instead.
-            run.finish_waits();
-        }
-        // H13: the Interrupt's wait ends with the title (or the Dismissal of its dialog) that
-        // leaves the Agent idle, or with the Agent.
-        let acks = matches!(observation, Observation::Title(_) | Observation::Tick);
+        // The payload is borrowed here, before `decide` consumes it, so no Signal is copied.
         if let Observation::Signal(payload) = &observation {
-            // Announced while `runs` is parked, as the Status is, so calls leave in arrival order.
-            let mut calls = self
-                .events
-                .tool_calls
-                .lock()
-                .unwrap_or_else(|e| e.into_inner());
-            let mut current = calls.remove(id);
-            if claude_code::toolcall::fold(&mut current, payload, run.cwd(), (self.clock)())
-                && let Some(tracked) = &current
-            {
-                self.bus.emit(
-                    actor.clone(),
-                    EventData::AgentToolCall(Box::new(contracts::agent::ToolCallEvent {
-                        id: id.to_owned(),
-                        call: tracked.call.clone(),
-                    })),
-                );
-            }
-            if let Some(tracked) = current {
-                calls.insert(id.to_owned(), tracked);
-            }
+            self.announce_tool_call(agent_facts, actor, id, run.cwd(), payload);
         }
-        let was = run.view().clone();
-        let was_kind = was.status.as_ref().map(|status| status.kind);
-        let signal = matches!(observation, Observation::Signal(_));
-        let (changed, completion_changed) = run.observe(observation);
-        let changed = changed.or_else(|| {
-            if !exited || run.ended() {
-                return None;
-            }
-            let mut status = run.view().status.clone()?;
-            status.since = (self.clock)();
-            Some(status)
-        });
-        if super::rail_view::visibility_protection(run.view().status.as_ref().map(|s| s.kind))
-            .is_some()
-            && let Some(rail) = rail.as_deref_mut()
-            && rail.set_visibility(id, contracts::agent::RailVisibility::Shown)?
-        {
-            self.bus.emit(actor.clone(), EventData::RailChanged);
+        let now = (self.clock)();
+        for effect in fold::decide(run, id, observation, &facts, now, first_prompt) {
+            self.perform(rail.as_deref_mut(), run, agent_facts, id, actor, effect)?;
         }
-        if was.final_text != run.view().final_text || completion_changed {
-            self.bus.emit(actor.clone(), EventData::RailChanged);
-        }
-        if let Some(turn) = run.view().completed_turn.as_deref()
-            && was.completed_turn.as_deref() != Some(turn)
+        let prompt = run.release_prompt();
+        Ok((prompt, run.view().next_due))
+    }
+
+    /// Announced while `runs` is parked, as the Status is, so calls leave in arrival order.
+    fn announce_tool_call(
+        &self,
+        agent_facts: &mut agent::Facts,
+        actor: &Actor,
+        id: &str,
+        cwd: &str,
+        payload: &serde_json::Value,
+    ) {
+        if claude_code::toolcall::fold(&mut agent_facts.tool_call, payload, cwd, (self.clock)())
+            && let Some(tracked) = &agent_facts.tool_call
         {
             self.bus.emit(
                 actor.clone(),
-                EventData::AgentCompleted(contracts::event::Completion {
-                    maker: id.to_owned(),
-                    attempt: run.attempt().to_string(),
-                    turn: turn.to_owned(),
-                }),
+                EventData::AgentToolCall(Box::new(contracts::agent::ToolCallEvent {
+                    id: id.to_owned(),
+                    call: tracked.call.clone(),
+                })),
             );
         }
-        if signal
-            && (session_start
-                || changed
-                    .as_ref()
-                    .is_some_and(|status| Some(status.kind) != was_kind))
-            && run
-                .steer()
-                .and_then(|steer| steer.slash_written.as_ref())
-                .is_some_and(|gate| *gate.lock().expect("slash-command write gate"))
-            && let Some(steer) = run.take_steer()
-        {
-            let _ = steer.submitted.send(());
-        }
-        // H4702a: a Signal that takes a native question from `needs-you` to idle or working
-        // is an observed dismissal, though the title never changes.
-        let dismissed = signal
-            && was_kind == Some(Kind::NeedsYou)
-            && changed
-                .as_ref()
-                .is_some_and(|status| matches!(status.kind, Kind::Idle | Kind::Working));
-        if (dismissed
-            || acks
-                && changed
-                    .as_ref()
-                    .is_some_and(|status| status.kind == Kind::Idle))
-            && let Some(waiting) = run.take_interrupt()
-        {
-            let _ = waiting.send(());
-        }
-        if exited {
-            run.exit();
-            if let Some(rail) = rail.as_deref_mut() {
-                rail.detach_terminal(id)?;
+    }
+
+    /// Do one `Effect` of `fold::decide` under the locks `apply` holds.
+    fn perform(
+        &self,
+        rail: Option<&mut rail::Rail>,
+        run: &mut Run,
+        agent_facts: &mut agent::Facts,
+        id: &str,
+        actor: &Actor,
+        effect: fold::Effect,
+    ) -> Result<(), RpcError> {
+        use fold::Effect;
+        match effect {
+            Effect::SubmitSteer => {
+                if run
+                    .steer()
+                    .and_then(|steer| steer.slash_written.as_ref())
+                    .is_none_or(|gate| *gate.lock().expect("slash-command write gate"))
+                {
+                    // H12 permits a late submission after refusal. Keep that acknowledgement even
+                    // after the Steer's timeout so a coordinator retry need not Resume again.
+                    run.submit_steer();
+                }
+            }
+            Effect::ShowOnRail => {
+                if let Some(rail) = rail
+                    && rail.set_visibility(id, contracts::agent::RailVisibility::Shown)?
+                {
+                    self.bus.emit(actor.clone(), EventData::RailChanged);
+                }
+            }
+            Effect::RailChanged => self.bus.emit(actor.clone(), EventData::RailChanged),
+            Effect::Completed(completion) => self
+                .bus
+                .emit(actor.clone(), EventData::AgentCompleted(completion)),
+            Effect::SettleSteer => {
+                if run
+                    .steer()
+                    .and_then(|steer| steer.slash_written.as_ref())
+                    .is_some_and(|gate| *gate.lock().expect("slash-command write gate"))
+                    && let Some(steer) = run.take_steer()
+                {
+                    let _ = steer.submitted.send(());
+                }
+            }
+            Effect::AckInterrupt => {
+                if let Some(waiting) = run.take_interrupt() {
+                    let _ = waiting.send(());
+                }
+            }
+            Effect::Exit => {
+                run.exit();
+                if let Some(rail) = rail {
+                    rail.detach_terminal(id)?;
+                }
+            }
+            Effect::SaveBackground(background) => {
+                self.save_background(id, run.attempt(), background)?;
+            }
+            Effect::SaveFinished(finished) => {
+                if let Some(rail) = rail {
+                    rail.set_finished(id, finished)?;
+                }
+            }
+            Effect::Publish(status) => self.publish_status(run, agent_facts, id, actor, status),
+            Effect::Name(name) => {
+                if let Some(rail) = rail {
+                    self.name_from_prompt(rail, run, id, actor, name)?;
+                }
             }
         }
-        // DCL3c: background work is saved before its Status is published, so a reopen finds it.
-        let background = run.view().retained.clone();
-        if background != was.retained {
-            self.save_background(id, run.attempt(), background)?;
+        Ok(())
+    }
+
+    /// Announced while `runs` is parked, so announcements leave in the order the Status
+    /// changed; `emit` never blocks.
+    fn publish_status(
+        &self,
+        run: &mut Run,
+        agent_facts: &mut agent::Facts,
+        id: &str,
+        actor: &Actor,
+        status: Status,
+    ) {
+        // U6248b: the raw Status moves the resume table before it is announced.
+        let resume_moved = resume_wait::fold(&mut agent_facts.resume, &status, (self.clock)());
+        let status = waiting_on(&status, agent_facts.wait);
+        let status = resume_wait::resuming(&status, agent_facts.resume.as_ref());
+        run.publish(&self.bus, actor.clone(), id, status);
+        if resume_moved {
+            self.bus.emit(Actor::daemon(), EventData::RailChanged);
         }
-        // U3566c: a counted finish is saved before its Status is published.
-        if run.view().finished != was.finished
-            && let Some(rail) = rail.as_deref_mut()
-        {
-            rail.set_finished(id, run.view().finished)?;
-        }
-        // Announced while `runs` is parked, so announcements leave in the order the Status
-        // changed; `emit` never blocks.
-        if let Some(status) = changed {
-            // U6248b: the raw Status moves the resume table before it is announced.
-            let resume_moved = resume_wait::fold(
-                &mut self.resumes.lock().expect("resumes lock"),
-                id,
-                &status,
-                (self.clock)(),
-            );
-            let status = waiting_on(&status, self.wait_of(id));
-            let status = resume_wait::resuming(&status, self.resume_of(id).as_ref());
-            run.publish(&self.bus, actor.clone(), id, status);
-            if resume_moved {
-                self.bus.emit(Actor::daemon(), EventData::RailChanged);
-            }
-        }
-        if let (Some(rail), Some(name)) = (rail, first_prompt)
-            && run.claim_name()
+    }
+
+    /// The first prompt names the Agent, unless a name is settled or automatic naming is off.
+    fn name_from_prompt(
+        &self,
+        rail: &mut rail::Rail,
+        run: &mut Run,
+        id: &str,
+        actor: &Actor,
+        name: Option<String>,
+    ) -> Result<(), RpcError> {
+        if run.claim_name()
             && self
                 .automatic_renaming
                 .as_ref()
@@ -550,25 +552,20 @@ impl Shared {
             }
             self.bus.emit(actor.clone(), EventData::RailChanged);
         }
-        let prompt = run.release_prompt();
-        Ok((prompt, run.view().next_due))
+        Ok(())
     }
 }
 
-/// E6: the Channel of the live Attempt in `slot`; `None` when no program runs (a Workstream whose Door
-/// never started, an Agent with no live Terminal). An entry of an earlier Attempt reads `pending`.
-pub(super) fn channel_in(
-    channels: &HashMap<String, (String, Channel)>,
-    id: &str,
-    slot: Option<&Slot>,
-) -> Option<Channel> {
-    let slot = slot?;
+/// E6: the Channel of the live Attempt of `agent`; `None` when no program runs (a Workstream whose
+/// Door never started, an Agent with no live Terminal). An entry of an earlier Attempt reads `pending`.
+pub(super) fn channel_in(agent: Option<&Agent>) -> Option<Channel> {
+    let Agent { slot, facts } = agent?;
     let live = match slot {
         Slot::Running(run) => !run.ended() && !run.closing(),
         Slot::Starting { .. } | Slot::Resuming { .. } => true,
-        Slot::Closing | Slot::ResumeCleanup { .. } => false,
+        Slot::Closing | Slot::ResumeCleanup { .. } | Slot::Gone => false,
     };
-    live.then(|| match channels.get(id) {
+    live.then(|| match &facts.channel {
         Some((attempt, channel)) if attempt == slot.attempt() => *channel,
         _ => Channel::Pending,
     })
@@ -664,7 +661,7 @@ impl Shared {
     ) -> Result<Option<i64>, RpcError> {
         let root = {
             let runs = self.runs();
-            let Some(Slot::Running(run)) = runs.get(id) else {
+            let Some(Slot::Running(run)) = runs.slot(id) else {
                 return Ok(tick_at);
             };
             if run.ended() || !run.view().needs_snapshot {
@@ -702,7 +699,7 @@ impl Agents {
     /// U504: the observed maker turn at publication capture; absence must never be guessed.
     pub fn turn_identity(&self, maker: &str) -> Option<contracts::event::Completion> {
         let runs = self.shared.runs();
-        let Slot::Running(run) = runs.get(maker)? else {
+        let Slot::Running(run) = runs.slot(maker)? else {
             return None;
         };
         if run.ended() || run.closing() {
@@ -721,7 +718,7 @@ impl Agents {
         self.shared
             .runs()
             .iter()
-            .filter_map(|(id, slot)| match slot {
+            .filter_map(|(id, agent)| match &agent.slot {
                 Slot::Running(run)
                     if !run.ended()
                         && run
@@ -741,7 +738,7 @@ impl Agents {
         self.shared
             .runs()
             .iter()
-            .filter_map(|(id, slot)| match slot {
+            .filter_map(|(id, agent)| match &agent.slot {
                 Slot::Running(run) if !run.ended() && run.view().compactions > 0 => {
                     Some((id.clone(), run.view().compactions))
                 }
@@ -756,8 +753,8 @@ impl Agents {
         self.shared
             .runs()
             .iter()
-            .filter_map(|(id, slot)| {
-                let Slot::Running(run) = slot else {
+            .filter_map(|(id, agent)| {
+                let Slot::Running(run) = &agent.slot else {
                     return None;
                 };
                 if run.ended() {

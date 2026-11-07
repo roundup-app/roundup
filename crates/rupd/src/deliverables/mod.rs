@@ -505,16 +505,11 @@ impl Daemon {
     }
 }
 
-/// The refusals of a publish request that need no database: who may publish, and the shape.
-fn check_publish(actor: ActorKind, p: &PublishParams) -> Ret<()> {
+/// The refusal of a publish request that needs no database: who may publish.
+fn check_publish(actor: ActorKind) -> Ret<()> {
     if actor == ActorKind::Ext {
         return Err(DeliverableError::Forbidden(
             "only the user or an authenticated maker can publish".into(),
-        ));
-    }
-    if p.key.is_empty() || p.key.len() > 256 || p.title.trim().is_empty() || p.title.len() > 4096 {
-        return Err(DeliverableError::Invalid(
-            "publication key/title is empty or too long".into(),
         ));
     }
     Ok(())
@@ -534,7 +529,7 @@ fn publish(
     completion: Option<contracts::event::Completion>,
 ) -> Ret<Done<Deliverable>> {
     let (conn, tx) = (call.conn, call.tx);
-    check_publish(conn.actor.kind, &p)?;
+    check_publish(conn.actor.kind)?;
     let request = serde_json::to_string(&p)?;
     let actor_key = format!("{:?}:{}", conn.actor.kind, conn.actor.id);
     if let Some((old, record, removed)) = store::previous_in(tx, &actor_key, &p.key)? {
@@ -569,7 +564,7 @@ fn publish(
             Some(_) => agents::home_in(tx, &conn.actor.id)?,
             None => None,
         },
-        title: p.title,
+        title: p.title.into(),
         published_at: now_ms()?,
         target: captured.target,
     };

@@ -385,6 +385,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Import failure (`ImportFailure`, `ImportOutcome.error`) | same | — |
 | Import disposition (`ImportDisposition`, `outcome`) | same | — |
 | Final text (`FinalText`, `FinalTextKind`, `final_text`) | none | — |
+| Bounded text (`Text`, `OperationKey`) | same | — |
 | Idle evidence (`record_idle_evidence`, `recordIdleEvidence`, `IdleEvidence`) | same | — |
 | Daemon recovery (`DaemonExited.recovery`, `DaemonExit.recovery`) | same | — |
 | Native integration (`native`, `Preferences`, `Missing`) | same | — |
@@ -397,6 +398,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Code term | User label | Avoid |
 |---|---|---|
 | Storage recovery (`StorageRecovery`, `storageRecovery`, `retainedStorage`) | same | — |
+| Project schema crate (`storage`, `storage::connect`, `storage::fixture`, `Word`, `Json`) | none | — |
 | Capture panel (`CapturePanel`, `CapturePanelState`, `register_capture`) | same | — |
 | Capture presentation (`CapturePort`, `CaptureState`, `CaptureAction`, `captureStateSchema`, `captureActionSchema`, `CapturePanel` in the App, `control` in the capture-panel plugin) | same | — |
 | Native material (`Material`, `native_material`, `followMaterial`, `watch_transparency`, `--material-tint`) | same | — |

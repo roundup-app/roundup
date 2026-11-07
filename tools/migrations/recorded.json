@@ -1,6 +1,6 @@
 [
   {
-    "directory": "crates/rupd/migrations/project",
+    "directory": "crates/storage/migrations/project",
     "prefix": 15,
     "members": [
       "0015-message-results.sql",
@@ -8,7 +8,7 @@
     ]
   },
   {
-    "directory": "crates/rupd/migrations/project",
+    "directory": "crates/storage/migrations/project",
     "prefix": 20,
     "members": [
       "0020-continuations.sql",
@@ -16,7 +16,7 @@
     ]
   },
   {
-    "directory": "crates/rupd/migrations/project",
+    "directory": "crates/storage/migrations/project",
     "prefix": 23,
     "members": [
       "0023-agent-finished.sql",
@@ -25,7 +25,7 @@
     ]
   },
   {
-    "directory": "crates/rupd/migrations/project",
+    "directory": "crates/storage/migrations/project",
     "prefix": 26,
     "members": [
       "0026-pad-deletions.sql",
@@ -38,6 +38,39 @@
     "members": [
       "001-digest/up.sql",
       "001/up.sql"
+    ]
+  },
+  {
+    "directory": "crates/storage/migrations/project",
+    "prefix": 15,
+    "members": [
+      "0015-message-results.sql",
+      "0015-todo-change-actor.sql"
+    ]
+  },
+  {
+    "directory": "crates/storage/migrations/project",
+    "prefix": 20,
+    "members": [
+      "0020-continuations.sql",
+      "0020-todo-refs.sql"
+    ]
+  },
+  {
+    "directory": "crates/storage/migrations/project",
+    "prefix": 23,
+    "members": [
+      "0023-agent-finished.sql",
+      "0023-measurement-no-tokens-or-money.sql",
+      "0023-remove-decisions.sql"
+    ]
+  },
+  {
+    "directory": "crates/storage/migrations/project",
+    "prefix": 26,
+    "members": [
+      "0026-pad-deletions.sql",
+      "0026-todo-deletions.sql"
     ]
   }
 ]
