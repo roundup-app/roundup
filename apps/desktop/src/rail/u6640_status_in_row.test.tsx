@@ -7,6 +7,7 @@ import { mountRail } from "./railFixture";
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
 const KINDS = ["blocked", "needs-you", "working", "error"] as const;
+
 const since = () => ({ since: Date.now() - 15 * 60_000, finished: "0" });
 
 it("u6640a_a_rail_row_holds_its_status_and_its_mark_has_no_tooltip", async () => {
