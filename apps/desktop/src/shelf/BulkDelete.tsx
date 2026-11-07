@@ -161,6 +161,16 @@ export const createBulkDelete = <Id,>(props: {
     }
   };
 
+  // A click can leave focus on the page body or a Shelf control rather than the row (the webview does not focus a clicked button).
+  registerKeys({ kind: "app" }, [{
+    chords: ["Backspace"],
+    when: event => props.selected().length > 0 && !event.isComposing && event.target instanceof Element
+      && (event.target === document.body || event.target.closest(".shelf") !== null)
+      && !event.target.closest("input, textarea, select, [contenteditable], .todo-blocker, .drawer, [role=dialog], [role=alertdialog], [role=menu]")
+      && !document.querySelector('.drawer[data-open="true"], [role=dialog], [role=alertdialog], [role=menu]'),
+    run: key,
+  }]);
+
   registerKeys(shelfKeyScope, [
     { chords: ["Escape"], when: event => props.selected().length > 0 && !(event.target instanceof Element && event.target.closest("input, textarea, select, [contenteditable], .todo-blocker")), run: key },
     { chords: ["Backspace"], when: event => props.selected().length > 0 && event.target instanceof Element && event.target.closest(".shelf-bulk") !== null, run: key },
