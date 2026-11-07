@@ -53,7 +53,7 @@ impl Terminals {
     #[cfg(feature = "test-support")]
     #[allow(
         clippy::panic,
-        reason = "only a panic while the lock is held poisons a Mutex"
+        reason = "only a panic while the lock is taken poisons a Mutex"
     )]
     pub fn poison_remote_table_for_test(&self) {
         let _ = std::thread::scope(|scope| {
