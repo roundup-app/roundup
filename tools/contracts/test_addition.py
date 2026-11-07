@@ -9,10 +9,9 @@ ROOT = Path(__file__).resolve().parents[2]
 DECLARATION = '        "project.contractProbe": contracts::todo::TodoId => contracts::todo::TodoId, rpc_contract_probe, all(schema(contracts::todo::TodoId, "A harmless contract fixture.")), measured("ping_p95_ms"), tool;\n'
 HANDLER = '''
 impl Todos {
-    pub async fn rpc_contract_probe(&self, ctx: &Ctx, _method: &str, value: Value) -> Result<Value, RpcError> {
-        let p: contracts::todo::TodoId = params(value)?;
+    pub async fn rpc_contract_probe(&self, ctx: &Ctx, p: contracts::todo::TodoId) -> Result<contracts::todo::TodoId, crate::error::Error> {
         ctx.touch(contracts::Verb::Read, "c4:contractProbe")?;
-        Ok(crate::error::reply(&contracts::todo::TodoId {id: p.id + 1})?)
+        Ok(contracts::todo::TodoId {id: p.id + 1})
     }
 }
 '''
