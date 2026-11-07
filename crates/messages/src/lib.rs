@@ -22,6 +22,7 @@ pub mod evidence;
 mod failure;
 mod flight;
 mod inbox;
+mod note_inbox;
 mod plan;
 mod pushes;
 mod receiver_view;
@@ -60,7 +61,7 @@ use delivery::{
 use dispatch::{is_receiver, item, require_user};
 pub use error::Error;
 use flight::confirm_ids;
-pub use inbox::NoteInbox;
+pub use note_inbox::NoteInbox;
 use receiver_view::{gone_drops, idle_batch};
 use rpc::{Bus, Ctx, Module, OpenError, RpcError, code};
 use runtime::{Inner, guarded, lock, log_failure, trip};
