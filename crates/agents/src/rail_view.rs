@@ -1,4 +1,5 @@
 use super::*;
+use contracts::agent::Ordinal;
 
 /// State the Terminal watchers and the RPC calls share.
 /// A33: an `idle` Status of an Agent that waits on blocker `wait` reads `blocked`; every other
@@ -60,50 +61,35 @@ impl Shared {
         agent_lock(&self.rail).expect("rail lock")
     }
 
-    pub(super) fn wait_of(&self, id: &str) -> Option<u32> {
-        self.waits.lock().expect("waits lock").get(id).copied()
-    }
-
     /// A33: replace the blockers Agents wait on. A running Agent whose reading changes gets a
     /// new `status_revision` and a Status event.
     pub(super) fn set_waits(&self, next: HashMap<String, u32>) {
         let mut runs = self.runs();
-        let mut waits = self.waits.lock().expect("waits lock");
-        for (id, slot) in runs.iter_mut() {
-            let Slot::Running(run) = slot else { continue };
-            let Some(status) = run.adapter.status() else {
+        for (id, agent) in runs.iter_mut() {
+            let wait = next.get(id).copied();
+            let before = std::mem::replace(&mut agent.facts.wait, wait);
+            let Slot::Running(run) = &mut agent.slot else {
                 continue;
             };
-            let before = waiting_on(status, waits.get(id).copied());
-            let after = waiting_on(status, next.get(id).copied());
-            if run.ended || (before.kind, &before.label) == (after.kind, &after.label) {
+            let Some(status) = run.view().status.as_ref() else {
+                continue;
+            };
+            let before = waiting_on(status, before);
+            let after = waiting_on(status, wait);
+            if run.ended() || (before.kind, &before.label) == (after.kind, &after.label) {
                 continue;
             }
-            run.status_revision = run
-                .status_revision
-                .checked_add(1)
-                .expect("Status revision exhausted");
-            self.bus.emit(
-                Actor::daemon(),
-                EventData::AgentStatus(Box::new(StatusEvent {
-                    ended: false,
-                    id: id.clone(),
-                    attempt: run.attempt.clone(),
-                    status_revision: run.status_revision.to_string(),
-                    status: after,
-                })),
-            );
+            run.publish(&self.bus, Actor::daemon(), id, after);
         }
-        *waits = next;
     }
 
-    pub(super) fn runs(&self) -> MutexGuard<'_, HashMap<String, Slot>> {
+    pub(super) fn runs(&self) -> MutexGuard<'_, HashMap<String, Agent>> {
         agent_lock(&self.runs).expect("runs lock")
     }
 
-    pub(super) fn mark_starting(&self, id: &str, attempt: String) {
+    pub(super) fn mark_starting(&self, id: &str, attempt: Ordinal) {
         let since = (self.clock)();
-        self.runs().insert(
+        self.runs().put(
             id.to_owned(),
             Slot::Starting {
                 attempt,
@@ -121,35 +107,43 @@ impl Shared {
     pub(super) fn present(
         &self,
         mut node: RailNode,
-        runs: &HashMap<String, Slot>,
+        runs: &HashMap<String, Agent>,
         rail: &rail::Rail,
         finished: u64,
     ) -> Result<RailNode, RpcError> {
         if node.kind == NodeKind::Group {
             return Ok(node);
         }
-        node.final_text = match runs.get(&node.id) {
+        let entry = runs.get(&node.id);
+        let slot = entry
+            .map(|agent| &agent.slot)
+            .filter(|slot| !matches!(slot, Slot::Gone));
+        node.final_text = match slot {
             Some(Slot::Running(run)) => {
-                run.adapter.turn().map(|turn| contracts::agent::FinalText {
-                    turn: turn.to_owned(),
-                    attempt: run.attempt.clone(),
-                    finished: run.adapter.finished().to_string(),
-                    kind: run.adapter.final_text(),
-                })
+                run.view()
+                    .turn
+                    .as_deref()
+                    .map(|turn| contracts::agent::FinalText {
+                        turn: turn.to_owned(),
+                        attempt: run.attempt().to_string(),
+                        finished: run.view().finished.to_string(),
+                        kind: run.view().final_text,
+                    })
             }
             _ => None,
         };
-        node.status_revision = match runs.get(&node.id) {
-            Some(Slot::Running(run)) => Some(run.status_revision.to_string()),
+        node.status_revision = match slot {
+            Some(Slot::Running(run)) => Some(run.status_revision().clone()),
             // B36: inheriting the ended run's revision closes Messages on the new Attempt.
-            Some(Slot::Starting { .. } | Slot::Resuming { .. }) => Some("1".into()),
+            Some(Slot::Starting { .. } | Slot::Resuming { .. }) => Some(Ordinal::first()),
             _ => None,
         };
-        let live = match runs.get(&node.id) {
+        let live = match slot {
             Some(Slot::Running(run)) => run
-                .adapter
-                .status()
-                .map(|status| waiting_on(status, self.wait_of(&node.id))),
+                .view()
+                .status
+                .as_ref()
+                .map(|status| waiting_on(status, entry.and_then(|agent| agent.facts.wait))),
             Some(Slot::Starting { since, .. } | Slot::Resuming { since, .. }) => Some(Status {
                 kind: Kind::Working,
                 label: "starting".into(),
@@ -169,7 +163,7 @@ impl Shared {
                     finished: finished.to_string(),
                 })
             }
-            None | Some(Slot::Closing) => None,
+            None | Some(Slot::Closing | Slot::Gone) => None,
         };
         node.status = Some(live.unwrap_or_else(|| Status {
             kind: Kind::Done,
@@ -180,35 +174,38 @@ impl Shared {
         #[cfg(feature = "test-support")]
         if let Some(status) = self.rail_view.statuses.lock().unwrap().get(&node.id) {
             node.status = Some(status.clone());
-            node.status_revision = Some("1".into());
+            node.status_revision = Some(Ordinal::first());
         }
         // A22: exited (no live process, and no start in flight), with A21 data to resume.
-        let exited = match runs.get(&node.id) {
-            Some(Slot::Running(run)) => run.ended,
+        let exited = match slot {
+            Some(Slot::Running(run)) => run.ended(),
             Some(
                 Slot::Starting { .. }
                 | Slot::Resuming { .. }
                 | Slot::ResumeCleanup { .. }
                 | Slot::Closing,
             ) => false,
-            None => true,
+            None | Some(Slot::Gone) => true,
         };
         node.can_resume &= exited;
         // A5287: the guards of `agent.makeWorkstream` and `agent.saveAsMode`.
         let agent = node.kind == NodeKind::Agent;
         node.can_make_workstream =
             agent && node.parent.is_none() && rail.has_conversation(&node.id)?;
-        node.can_save_as_mode =
-            agent && Launcher::load_lean(&self.rail_view.data_dir, &node.id).is_some();
-        node.yolo = match runs.get(&node.id) {
-            Some(Slot::Running(run)) => run.yolo,
+        node.can_save_as_mode = agent
+            && matches!(
+                Launcher::load_lean(&self.rail_view.data_dir, &node.id),
+                Ok(Some(_))
+            );
+        node.yolo = match slot {
+            Some(Slot::Running(run)) => run.yolo(),
             Some(
                 Slot::Resuming { old: Some(old), .. } | Slot::ResumeCleanup { old: Some(old), .. },
-            ) => old.yolo,
+            ) => old.yolo(),
             _ => false,
         };
         if node.can_resume
-            && !matches!(runs.get(&node.id), Some(Slot::Running(run)) if run.closing)
+            && !matches!(slot, Some(Slot::Running(run)) if run.closing())
             && let Some((id, cwd)) = rail.conversation(&node.id)?
         {
             // RO2: the cache only; a task of its own reads the transcript and announces it.
@@ -223,27 +220,19 @@ impl Shared {
                 });
         }
         // R3696c: a Workstream holds a channel, inbox, tool call or stray only while a
-        // Door runs under its id; an idle one skips four lock acquisitions per node.
-        if node.kind == NodeKind::Workstream && runs.get(&node.id).is_none() {
+        // Door runs under its id.
+        if node.kind == NodeKind::Workstream && slot.is_none() {
             return Ok(node);
         }
-        let channels = self.channels.lock().expect("channels lock");
-        node.channel = channel_in(&channels, &node.id, runs.get(&node.id));
+        node.channel = channel_in(entry);
         node.inbox = self.events.inbox.fact(&node.id);
-        node.tool_call = self
-            .events
-            .tool_calls
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .get(&node.id)
-            .map(|tracked| tracked.call.clone());
-        node.stray = self
-            .strays
-            .lock()
-            .expect("scan found lock")
-            .get(&node.id)
-            .cloned()
-            .unwrap_or_default();
+        if let Some(Facts {
+            tool_call, strays, ..
+        }) = entry.map(|agent| &agent.facts)
+        {
+            node.tool_call = tool_call.as_ref().map(|tracked| tracked.call.clone());
+            node.stray = strays.clone();
+        }
         Ok(node)
     }
 
@@ -261,28 +250,33 @@ impl Shared {
     /// Every node of `rail` as `tree` presents it, its finish count read with the node.
     pub(super) fn presented_tree(&self, rail: &rail::Rail) -> Result<Vec<RailNode>, RpcError> {
         let runs = self.runs();
-        rail.tree_with(|node, finished| self.present(node, &runs, rail, finished))
+        Ok(rail.tree_with(|node, finished| self.present(node, &runs, rail, finished))?)
     }
 }
 
 impl Agents {
     /// Whether this Agent's name has already been chosen explicitly or by its first prompt.
     pub fn naming_settled(&self, id: &str) -> bool {
-        match self.shared.runs().get(id) {
-            Some(Slot::Running(run)) => run.named,
+        match self.shared.runs().slot(id) {
+            Some(Slot::Running(run)) => run.named(),
             Some(Slot::Starting { named, .. }) => *named,
             _ => true,
         }
     }
 
+    /// U6380c: whether the user named `id`; a row that is gone reads false.
+    pub fn user_named(&self, id: &str) -> bool {
+        self.shared.rail().user_named(id).unwrap_or(false)
+    }
+
     /// Resolve an Agent's current Rail name for prose, preserving storage failures.
     pub fn rail_name(&self, id: &str) -> Result<String, RpcError> {
-        self.shared.rail().name(id)
+        Ok(self.shared.rail().name(id)?)
     }
 
     /// Preserve canonical Rail identities after their nodes leave the live tree.
     pub fn rail_last_id(&self) -> Result<i64, RpcError> {
-        self.shared.rail().last_id()
+        Ok(self.shared.rail().last_id()?)
     }
 
     /// H21: the Agent a call from process `pid` is by, found by walking its parents to the
@@ -301,11 +295,11 @@ impl Agents {
         self.shared
             .runs()
             .iter()
-            .filter_map(|(id, slot)| match slot {
+            .filter_map(|(id, agent)| match &agent.slot {
                 Slot::Running(run) => self
                     .shared
                     .terminals
-                    .program_pid(&run.terminal_id)
+                    .program_pid(run.terminal_id())
                     .map(|pid| (id.clone(), pid)),
                 _ => None,
             })

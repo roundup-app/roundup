@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import json, os, re, socket, subprocess, sys, threading, tty
+import json, os, re, socket, subprocess, sys, threading, time, tty
 root = here = os.path.dirname(os.path.abspath(__file__))
 # With a `per-agent` marker beside it, each Agent keeps its files in a folder of its own id.
 if os.path.exists(root + '/per-agent') and 'ROUNDUP_AGENT' in os.environ:
@@ -75,6 +75,14 @@ def hook(event, fields):
     for group in settings['hooks'][event]:
         for item in group['hooks']:
             subprocess.run(item['command'], shell=True, input=json.dumps(fields), text=True, check=True, stdout=subprocess.DEVNULL)
+# A `bg-shell` marker beside it starts a tool shell as Claude Code runs one: it outlives every Stop.
+def tool_shell():
+    while not os.path.exists(root + '/bg-shell'):
+        time.sleep(0.05)
+    subprocess.Popen(['bash', '-c', 'sleep 60; :', 'shell-snapshots/snapshot-1.sh', 'eval', 'sleep 60'], stdin=subprocess.DEVNULL)
+    # A title change wakes the Daemon's watch, which then reads the process table.
+    print('\033]0;✳ Shell\007', flush=True)
+threading.Thread(target=tool_shell, daemon=True).start()
 hook('SessionStart', {'session_id': '00000000-0000-4000-8000-000000000050', 'source': 'resume' if '--resume' in sys.argv else 'startup', 'transcript_path': here + '/transcript.jsonl'})
 hook('Stop', {})
 print('READY', flush=True)

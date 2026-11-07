@@ -1,8 +1,9 @@
 //! U3078: authenticated public reports and passive exact-version source observation.
 use contracts::ActorKind;
-use contracts::agent::{Instructions, RailNode};
+use contracts::agent::{InstructionDelivery, Instructions, RailNode};
 use contracts::deliverable::{Deliverable, PublishedTarget, Resolution, UnavailableCause};
 use contracts::message::*;
+use messages::Messages;
 use rpc::{Module, RpcError};
 use serde_json::{Value, json};
 
@@ -68,47 +69,38 @@ impl Daemon {
             .sender
             .get()
             .ok_or_else(|| RpcError::internal("Message holder is unavailable"))?;
-        let p = match method {
-            "message.progress" => rpc::params::<ProgressParams>(args.clone())?,
+        match method {
+            "message.progress" => {
+                let p: ProgressParams = rpc::params(args)?;
+                self.result_progress(conn, messages, &p).await
+            }
             "message.report" => {
-                let p: ReportParams = rpc::params(args.clone())?;
-                ProgressParams {
-                    project: p.project,
-                    id: p.id,
-                }
+                let p: ReportParams = rpc::params(args)?;
+                self.result_report(conn, messages, p).await
             }
             "message.acceptResult" => {
-                let p: AcceptResultParams = rpc::params(args.clone())?;
-                ProgressParams {
-                    project: p.project,
-                    id: p.id,
-                }
+                let p: AcceptResultParams = rpc::params(args)?;
+                self.result_accept(conn, messages, p).await
             }
             "message.resolveResult" => {
-                let p: ResolveResultParams = rpc::params(args.clone())?;
-                if conn.actor.kind != ActorKind::User {
-                    return Err(RpcError::forbidden(
-                        "only the user may authorize an external resolution source",
-                    ));
-                }
-                ProgressParams {
-                    project: p.project,
-                    id: p.id,
-                }
+                let p: ResolveResultParams = rpc::params(args)?;
+                self.result_resolve(conn, messages, p, now).await
             }
             "message.verifyResult" => {
-                let p: ResultId = rpc::params(args.clone())?;
-                ProgressParams {
-                    project: p.project,
-                    id: p.id,
-                }
+                let p: ResultId = rpc::params(args)?;
+                self.result_verify(conn, messages, p).await
             }
-            _ => return Err(RpcError::method_not_found(method)),
-        };
-        let instructions = self.result_instructions(conn, &p).await?;
-        let reports = messages.result_reports(&p.id)?;
+            _ => Err(RpcError::method_not_found(method)),
+        }
+    }
+
+    /// The reports of one Agent's results that wait on an external effect with no resolution yet.
+    fn unresolved_reports<'a>(
+        messages: &Messages,
+        reports: &'a [ResultReport],
+    ) -> Result<Vec<&'a ResultReport>, RpcError> {
         let mut unresolved = Vec::new();
-        for report in &reports {
+        for report in reports {
             if report.request.state == ResultState::UnknownEffect
                 && !messages
                     .result_observations(&report.report)?
@@ -118,169 +110,248 @@ impl Daemon {
                 unresolved.push(report);
             }
         }
-        if method == "message.progress" {
-            // A successor made by an accepted resume continues the instruction; it does not replace it.
-            let continued = messages.continuation_messages(&p.id)?;
-            let substantive = instructions
-                .revisions
+        Ok(unresolved)
+    }
+
+    async fn result_progress(
+        &self,
+        conn: &Conn,
+        messages: &Messages,
+        p: &ProgressParams,
+    ) -> Result<Value, RpcError> {
+        let instructions = self.result_instructions(conn, p).await?;
+        let reports = messages.result_reports(&p.id)?;
+        let unresolved = Self::unresolved_reports(messages, &reports)?;
+        // A successor made by an accepted resume continues the instruction; it does not replace it.
+        let continued = messages.continuation_messages(&p.id)?;
+        let substantive = instructions
+            .revisions
+            .iter()
+            .rposition(|r| {
+                !matches!(&r.instruction, contracts::agent::Instruction::Message { message, .. } if continued.contains(message))
+            })
+            .unwrap_or(0);
+        let present = self.rail().await?.iter().any(|n| n.id == p.id);
+        let mut results = Vec::new();
+        for (index, report) in reports.iter().enumerate() {
+            let pending = unresolved.iter().any(|r| r.report == report.report);
+            let blocked = unresolved
                 .iter()
-                .rposition(|r| {
-                    !matches!(&r.instruction, contracts::agent::Instruction::Message { message, .. } if continued.contains(message))
-                })
-                .unwrap_or(0);
-            let present = self.rail().await?.iter().any(|n| n.id == p.id);
-            let mut results = Vec::new();
-            for (index, report) in reports.iter().enumerate() {
-                let pending = unresolved.iter().any(|r| r.report == report.report);
-                let blocked = unresolved
-                    .iter()
-                    .any(|r| r.request.target.id == report.request.target.id);
-                let current = pending
-                    || (!blocked
-                        && present
-                        && instructions.current == report.order_revision
-                        && instructions
-                            .revisions
-                            .iter()
-                            .position(|r| r.revision == report.instruction.revision)
-                            .is_some_and(|at| at >= substantive)
-                        && !reports[index + 1..]
-                            .iter()
-                            .any(|later| later.request.target.id == report.request.target.id));
-                results.push(ResultProgress {
-                    report: report.clone(),
-                    current,
-                    acceptances: messages.result_acceptances(&report.report)?,
-                    observations: messages.result_observations(&report.report)?,
-                    availability: self.result_availability(conn, report).await?,
-                });
-            }
-            return rpc::reply(&Progress {
-                instructions,
-                results,
+                .any(|r| r.request.target.id == report.request.target.id);
+            let current = pending
+                || (!blocked
+                    && present
+                    && instructions.current == report.order_revision
+                    && instructions
+                        .revisions
+                        .iter()
+                        .position(|r| r.revision == report.instruction.revision)
+                        .is_some_and(|at| at >= substantive)
+                    && !reports
+                        .iter()
+                        .skip(index + 1)
+                        .any(|later| later.request.target.id == report.request.target.id));
+            results.push(ResultProgress {
+                report: report.clone(),
+                current,
+                acceptances: messages.result_acceptances(&report.report)?,
+                observations: messages.result_observations(&report.report)?,
+                availability: self.result_availability(conn, report).await?,
             });
         }
-        if method == "message.report" {
-            let p: ReportParams = rpc::params(args)?;
-            // Identity flags are not authority: only the live vendor process tree can report.
-            let peer = conn.peer.and_then(|pid| self.agents.agent_of_peer(pid));
-            if conn.actor.kind != ActorKind::Agent
-                || peer.as_deref() != Some(&p.id)
-                || conn.actor.id != p.id
-            {
-                return Err(RpcError::forbidden(
-                    "only the authenticated Agent may report its own Attempt",
-                ));
-            }
-            for (name, value, bound) in [
-                ("key", p.key.as_str(), 256),
-                ("result", p.result.as_str(), 8192),
-                ("target", p.target.id.as_str(), 1024),
-                ("target revision", p.target.revision.as_str(), 1024),
-            ] {
-                if value.trim().is_empty() || value.len() > bound {
-                    return Err(RpcError::new(
-                        rpc::code::INVALID_PARAMS,
-                        format!("{name} is empty or too long"),
-                    ));
-                }
-            }
-            if p.next.len() > 8192 {
-                return Err(RpcError::new(
-                    rpc::code::INVALID_PARAMS,
-                    "next action is too long",
-                ));
-            }
-            let delivery = instructions
-                .deliveries
-                .iter()
-                .find(|d| d.id == p.delivery)
-                .ok_or_else(|| RpcError::not_found("instruction delivery is absent"))?;
-            let node: RailNode = self
-                .rail()
-                .await?
-                .into_iter()
-                .find(|n| n.id == p.id)
-                .ok_or_else(|| RpcError::not_found("reporting Agent is gone"))?;
-            if node.attempt.as_deref() != Some(&delivery.attempt)
-                || delivery.state != contracts::agent::InstructionState::Submitted
-            {
-                return Err(RpcError::conflict(
-                    "report does not name a submitted instruction in this Attempt",
-                ));
-            }
-            if let Some(previous) = reports.iter().find(|r| r.request.key == p.key) {
-                let mut replay = previous.clone();
-                replay.request = p;
-                replay.author = conn.actor.clone();
-                replay.attempt = delivery.attempt.clone();
-                return rpc::reply(&messages.record_result(replay)?);
-            }
-            let index = instructions
-                .revisions
-                .iter()
-                .position(|r| r.revision == delivery.revision)
-                .ok_or_else(|| RpcError::not_found("instruction revision is absent"))?;
-            let instruction = instructions.revisions[index].clone();
-            let order_revision = instructions.revisions[..=index]
-                .iter()
-                .rev()
-                .find(|r| matches!(r.instruction, contracts::agent::Instruction::Order { .. }))
-                .map(|r| r.revision.clone());
-            let publication: Deliverable = serde_json::from_value(
-                self.deliverable_call(conn, "deliverable.get", json!(p.output))
-                    .await?,
-            )
-            .map_err(RpcError::internal)?;
-            if publication.maker != conn.actor {
-                return Err(RpcError::forbidden("output belongs to another maker"));
-            }
-            let report = messages.record_result(ResultReport {
-                report: String::new(),
-                author: conn.actor.clone(),
-                attempt: delivery.attempt.clone(),
-                home: instructions.home,
-                order_revision,
-                request: p,
-                instruction,
-                publication,
-            })?;
-            return rpc::reply(&report);
+        rpc::reply(&Progress {
+            instructions,
+            results,
+        })
+    }
+
+    /// Identity flags are not authority: only the live vendor process tree can report.
+    fn check_reporter(&self, conn: &Conn, p: &ReportParams) -> Result<(), RpcError> {
+        let peer = conn.peer.and_then(|pid| self.agents.agent_of_peer(pid));
+        if conn.actor.kind != ActorKind::Agent
+            || peer.as_deref() != Some(&p.id)
+            || conn.actor.id != p.id
+        {
+            return Err(RpcError::forbidden(
+                "only the authenticated Agent may report its own Attempt",
+            ));
         }
-        let report_id = args["report"].as_str().unwrap_or_default();
-        let report = reports
+        Ok(())
+    }
+
+    /// The submitted delivery a report names, in the reporting Agent's current Attempt.
+    async fn submitted_delivery(
+        &self,
+        instructions: &Instructions,
+        p: &ReportParams,
+    ) -> Result<InstructionDelivery, RpcError> {
+        let delivery = instructions
+            .deliveries
             .iter()
-            .find(|r| r.report == report_id)
+            .find(|d| d.id == p.delivery)
+            .ok_or_else(|| RpcError::not_found("instruction delivery is absent"))?;
+        let node: RailNode = self
+            .rail()
+            .await?
+            .into_iter()
+            .find(|n| n.id == p.id)
+            .ok_or_else(|| RpcError::not_found("reporting Agent is gone"))?;
+        if node.attempt.as_deref() != Some(&delivery.attempt)
+            || delivery.state != contracts::agent::InstructionState::Submitted
+        {
+            return Err(RpcError::conflict(
+                "report does not name a submitted instruction in this Attempt",
+            ));
+        }
+        Ok(delivery.clone())
+    }
+
+    async fn result_report(
+        &self,
+        conn: &Conn,
+        messages: &Messages,
+        p: ReportParams,
+    ) -> Result<Value, RpcError> {
+        let progress = ProgressParams {
+            project: p.project.clone(),
+            id: p.id.clone(),
+        };
+        let instructions = self.result_instructions(conn, &progress).await?;
+        let reports = messages.result_reports(&p.id)?;
+        self.check_reporter(conn, &p)?;
+        let delivery = self.submitted_delivery(&instructions, &p).await?;
+        if let Some(previous) = reports.iter().find(|r| r.request.key == p.key) {
+            let mut replay = previous.clone();
+            replay.request = p;
+            replay.author = conn.actor.clone();
+            replay.attempt = delivery.attempt.clone();
+            return rpc::reply(&messages.record_result(replay)?);
+        }
+        let index = instructions
+            .revisions
+            .iter()
+            .position(|r| r.revision == delivery.revision)
+            .ok_or_else(|| RpcError::not_found("instruction revision is absent"))?;
+        let instruction = instructions
+            .revisions
+            .get(index)
+            .cloned()
+            .ok_or_else(|| RpcError::not_found("instruction revision is absent"))?;
+        let order_revision = instructions
+            .revisions
+            .iter()
+            .take(index + 1)
+            .rev()
+            .find(|r| matches!(r.instruction, contracts::agent::Instruction::Order { .. }))
+            .map(|r| r.revision.clone());
+        let publication: Deliverable = serde_json::from_value(
+            self.deliverable_call(conn, "deliverable.get", json!(p.output))
+                .await?,
+        )
+        .map_err(RpcError::internal)?;
+        if publication.maker != conn.actor {
+            return Err(RpcError::forbidden("output belongs to another maker"));
+        }
+        let report = messages.record_result(ResultReport {
+            report: String::new(),
+            author: conn.actor.clone(),
+            attempt: delivery.attempt.clone(),
+            home: instructions.home,
+            order_revision,
+            request: p,
+            instruction,
+            publication,
+        })?;
+        rpc::reply(&report)
+    }
+
+    /// The report a result call names, once the Agent's instructions and reports are read.
+    async fn named_report(
+        &self,
+        conn: &Conn,
+        messages: &Messages,
+        progress: &ProgressParams,
+        report: &str,
+    ) -> Result<(Vec<ResultReport>, ResultReport), RpcError> {
+        self.result_instructions(conn, progress).await?;
+        let reports = messages.result_reports(&progress.id)?;
+        let named = reports
+            .iter()
+            .find(|r| r.report == report)
+            .cloned()
             .ok_or_else(|| RpcError::not_found("result report is absent"))?;
-        if method == "message.acceptResult" {
-            let p: AcceptResultParams = rpc::params(args)?;
-            if conn.actor.kind != ActorKind::User {
-                return Err(RpcError::forbidden("only the user may accept a result"));
-            }
-            if p.evidence.trim().is_empty() || p.evidence.len() > 8192 {
-                return Err(RpcError::new(
-                    rpc::code::INVALID_PARAMS,
-                    "acceptance evidence is empty or too long",
-                ));
-            }
-            let acceptance = ResultAcceptance {
-                actor: conn.actor.clone(),
-                evidence: p.evidence,
-            };
-            messages.accept_result(&report.report, &acceptance)?;
-            return rpc::reply(&acceptance);
+        Ok((reports, named))
+    }
+
+    async fn result_accept(
+        &self,
+        conn: &Conn,
+        messages: &Messages,
+        p: AcceptResultParams,
+    ) -> Result<Value, RpcError> {
+        let progress = ProgressParams {
+            project: p.project,
+            id: p.id,
+        };
+        let (_, report) = self
+            .named_report(conn, messages, &progress, &p.report)
+            .await?;
+        if conn.actor.kind != ActorKind::User {
+            return Err(RpcError::forbidden("only the user may accept a result"));
         }
-        if method == "message.resolveResult" {
-            if report.request.state != ResultState::UnknownEffect {
-                return Err(RpcError::conflict(
-                    "external resolution requires an unknown-effect report",
-                ));
-            }
-            let p: ResolveResultParams = rpc::params(args)?;
-            let observation = read_resolution(&p.source, report, &conn.actor, now).await;
-            messages.observe_result(&report.report, &observation)?;
-            return rpc::reply(&observation);
+        let acceptance = ResultAcceptance {
+            actor: conn.actor.clone(),
+            evidence: p.evidence.into(),
+        };
+        messages.accept_result(&report.report, &acceptance)?;
+        rpc::reply(&acceptance)
+    }
+
+    async fn result_resolve(
+        &self,
+        conn: &Conn,
+        messages: &Messages,
+        p: ResolveResultParams,
+        now: i64,
+    ) -> Result<Value, RpcError> {
+        if conn.actor.kind != ActorKind::User {
+            return Err(RpcError::forbidden(
+                "only the user may authorize an external resolution source",
+            ));
         }
+        let progress = ProgressParams {
+            project: p.project,
+            id: p.id,
+        };
+        let (_, named) = self
+            .named_report(conn, messages, &progress, &p.report)
+            .await?;
+        let report = &named;
+        if report.request.state != ResultState::UnknownEffect {
+            return Err(RpcError::conflict(
+                "external resolution requires an unknown-effect report",
+            ));
+        }
+        let observation = read_resolution(&p.source, report, &conn.actor, now).await;
+        messages.observe_result(&report.report, &observation)?;
+        rpc::reply(&observation)
+    }
+
+    async fn result_verify(
+        &self,
+        conn: &Conn,
+        messages: &Messages,
+        p: ResultId,
+    ) -> Result<Value, RpcError> {
+        let progress = ProgressParams {
+            project: p.project,
+            id: p.id,
+        };
+        let (reports, named) = self
+            .named_report(conn, messages, &progress, &p.report)
+            .await?;
+        let report = &named;
+        let unresolved = Self::unresolved_reports(messages, &reports)?;
         if let Some(resolved) = messages
             .result_observations(&report.report)?
             .into_iter()
@@ -396,8 +467,7 @@ async fn read_resolution(
         Some(url::Host::Ipv6(ip)) => ip.is_loopback(),
         _ => false,
     };
-    if source.len() > 4096
-        || !url.username().is_empty()
+    if !url.username().is_empty()
         || url.password().is_some()
         || url.fragment().is_some()
         || !(url.scheme() == "https" || (url.scheme() == "http" && loopback))
@@ -415,9 +485,6 @@ async fn read_resolution(
     };
     if evidence.target != report.request.target {
         return unknown("the authoritative receipt names another target or version");
-    }
-    if evidence.revision.trim().is_empty() || evidence.revision.len() > 1024 {
-        return unknown("the authoritative receipt has no usable source revision");
     }
     if evidence.observed_at < now.saturating_sub(60) || evidence.observed_at > now.saturating_add(5)
     {
@@ -463,7 +530,9 @@ async fn fetch_receipt(url: &str) -> Result<Vec<u8>, String> {
         .kill_on_drop(true)
         .spawn()
         .map_err(|_| "the authoritative source reader could not start".to_string())?;
-    let (mut out, mut err) = (child.stdout.take().unwrap(), child.stderr.take().unwrap());
+    let (Some(mut out), Some(mut err)) = (child.stdout.take(), child.stderr.take()) else {
+        return Err("the authoritative source reader could not start".to_string());
+    };
     let mut body = Vec::new();
     let read = (&mut out)
         .take(LIMIT as u64 + 1)

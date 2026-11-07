@@ -16,7 +16,7 @@ beforeEach(() => {
 
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
-const closer = (name: string) => screen.getByLabelText(`Close ${name}`);
+const closer = (name: string) => tab(name).closest(".project-tab")!.querySelector<HTMLElement>(".tab-close")!;
 
 describe("u184 close with a question", () => {
   it("u184_no_agents_closes_at_once", async () => {

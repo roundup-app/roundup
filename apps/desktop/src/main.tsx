@@ -9,6 +9,7 @@ import "./tokens.css";
 import "./styles.css";
 import "./scrollbar.css";
 import { trackScrollbars } from "./scrollHover";
+import { routeWebLinks } from "./app/webLinks";
 
 trackScrollbars(document);
 
@@ -58,6 +59,8 @@ if (!import.meta.env.VITE_ROUNDUP_IDLE_PERF && import.meta.env.VITE_ROUNDUP_PERF
 }
 
 const app = keystrokes?.traced(tauri) ?? tauri;
+
+routeWebLinks(document, tauri);
 
 // The panel never initializes storage, opens Projects or mounts another App.
 if (new URLSearchParams(location.search).has("capture") && tauri.capture) {

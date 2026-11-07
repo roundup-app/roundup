@@ -6,6 +6,7 @@ static ALLOCATOR: &stats_alloc::StatsAlloc<std::alloc::System> = &stats_alloc::I
 
 #[doc(hidden)]
 pub mod schema;
+use contracts::agent::Ordinal;
 use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -17,8 +18,7 @@ use contracts::agent::{
     ChangedFiles, Channel, ChannelEvent, CreateWorkstreamParams, ExtrasAddParams, KeptItem,
     KeptReason, Landed, MoveParams, NodeId, NodeKind, Order, PromptParams, RailNode, Removal,
     RemovalKind, RemoveScope, RemovedItem, RenameParams, RunParams, SetModelParams, SetOrderParams,
-    SignalOutcome, SignalParams, SpawnParams, StartDoorParams, StatusEvent, Stray, StrayEvent,
-    WorktreeState,
+    SignalOutcome, SignalParams, SpawnParams, StartDoorParams, Stray, StrayEvent, WorktreeState,
 };
 use contracts::project::{Mcp, PrepareParams, ProjectModels, ProjectSettings, Worktrees};
 use contracts::terminal::{OpenParams, Opened, SpawnParams as TerminalSpawn};
@@ -31,6 +31,7 @@ use tokio::sync::broadcast::error::RecvError;
 use tokio::sync::oneshot;
 use tokio::time::{Instant, sleep_until};
 
+mod agent;
 mod asks;
 mod auto;
 pub mod claude_code;
@@ -50,11 +51,38 @@ pub use peer::{classifications, parent_lookups};
 mod prepared;
 mod queue;
 mod rail;
+pub use rail::{home_in, is_home_in, maker_in, registered_in};
 pub mod rewind;
 mod scan;
 pub mod worktree;
 
-use claude_code::{ClaudeCode, Launcher, Pair, Role};
+use agent::{Agent, Facts, Fold, Run, Runs, Slot};
+use claude_code::{LaunchFacts, Launcher, Role};
+
+/// How a session began, as its adapter reports it.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Source {
+    Resume,
+    Fork,
+    Other,
+}
+
+/// What the supervisor reads from one Signal, whatever the vendor: parsed once by the adapter
+/// (`claude_code::see`), so nothing outside it probes a payload.
+pub(crate) struct Seen<'a> {
+    /// The event the Signal names, or `Signal` when it names none.
+    pub(crate) name: &'a str,
+    /// The prompt a submission carries (empty when it carries none); `None` for any other Signal.
+    pub(crate) prompt: Option<&'a str>,
+    /// Whether the Signal readies a fresh Agent for its first prompt (H12).
+    pub(crate) session_start: bool,
+    /// A21: the conversation a session start names, accepted only as a UUID.
+    pub(crate) conversation: Option<&'a str>,
+    /// A22: how a session start says it began.
+    pub(crate) source: Option<Source>,
+    /// The transcript file the Signal names.
+    pub(crate) transcript: Option<std::path::PathBuf>,
+}
 
 /// One input an adapter reads about its Agent.
 pub enum Observation {
@@ -62,7 +90,7 @@ pub enum Observation {
     Signal(Value),
     /// The window title the Agent's program set.
     Title(String),
-    /// The clock reached the time the adapter asked for (see `ClaudeCode::tick_at`).
+    /// The clock reached the time the adapter asked for (see `View::next_due`).
     Tick,
     /// DCL3: the processes under the Agent's program (`root`), or why they could not be read.
     Processes {
@@ -76,15 +104,58 @@ pub enum Observation {
     /// PS9.2: the Status its Terminal's program reports (PS7); read only by an adapter with no
     /// hook Signal.
     Program(Status),
+    /// U3566c: the Agent's published finishes, carried across Attempts by its caller.
+    Finished(u64),
+    /// A21: roundup could not save the Agent's conversation; the Status settles to `error` with
+    /// this label and no later Observation changes it.
+    Failed(String),
+    /// DCL3c: the background work a Daemon reopen kept; the first process snapshot decides what
+    /// still runs.
+    Resumed(claude_code::background::Retained),
+}
+
+/// What one fold of an Observation left: the Status change, if any, and the Agent's state as the
+/// supervisor reads it, so no call reaches into the adapter between folds.
+pub struct Folded {
+    /// The new Status; `None` means no change.
+    pub changed: Option<Status>,
+    /// A5482c: the fold moved the completed turn's text.
+    pub(crate) completion_changed: bool,
+    pub(crate) view: View,
+}
+
+/// The Agent's state after a fold, vendor-neutral.
+#[derive(Clone)]
+pub struct View {
+    pub(crate) status: Option<Status>,
+    /// U3566c
+    pub(crate) finished: u64,
+    pub(crate) final_text: contracts::agent::FinalTextKind,
+    /// The authoritative turn of the current work.
+    pub(crate) turn: Option<Box<str>>,
+    pub(crate) completed_turn: Option<Box<str>>,
+    /// A5482c: completed turn identity, start/end times and final text.
+    pub(crate) completed: Option<Arc<(String, i64, i64, String)>>,
+    /// DCL5: compactions finished.
+    pub(crate) compactions: u64,
+    /// DCL3c: background work a reopen keeps.
+    pub(crate) retained: Option<claude_code::background::Retained>,
+    pub(crate) ended: bool,
+    /// PS9.1: whether the Agent's tooling pushes Signals.
+    pub(crate) hooked: bool,
+    /// When the adapter wants an `Observation::Tick`.
+    pub(crate) next_due: Option<i64>,
+    /// DCL3: a Stop came, so a process snapshot decides whether work outlives it.
+    pub(crate) needs_snapshot: bool,
+    /// DCL5: when a working turn with no tool call or background work last showed activity.
+    pub(crate) quiet_since: Option<i64>,
 }
 
 /// Turns one vendor's program into an Agent's Status. It emits `error`, `needs-you`, `working`,
 /// `idle` and `done`, never `blocked`: that Kind is the Daemon's, from Todos and Routes.
 pub trait AgentAdapter {
-    /// Fold one Observation into the Status. `None` means no change.
-    fn observe(&mut self, observation: Observation) -> Option<Status>;
-    /// PS9.1: whether the Agent's tooling pushes Signals; if so they alone give its Kind.
-    fn has_hook_signal(&self) -> bool;
+    /// Fold one Observation into the Status and the state read back from it.
+    fn observe(&mut self, observation: Observation) -> Folded;
 }
 
 type ResumeEffect = Arc<dyn Fn(&str, &str) -> Result<(), RpcError> + Send + Sync>;
@@ -100,7 +171,7 @@ struct Shared {
     rail: Mutex<rail::Rail>,
     /// A node is marked `Starting`, and unmarked on failure, in the same Rail critical section
     /// that creates or reserves it, so `agent.stop` never finds a starting node unmarked.
-    runs: Mutex<HashMap<String, Slot>>,
+    runs: Mutex<HashMap<String, Agent>>,
     /// A41: removal excludes Door starts until its Rail transaction has committed.
     door_lifecycle: tokio::sync::RwLock<()>,
     bus: Bus,
@@ -108,24 +179,18 @@ struct Shared {
     /// Milliseconds since the Unix epoch. Adapters stamp Statuses with it and the watchers time
     /// Ticks by it, so the two never disagree about when a hold ends.
     clock: Clock,
+    /// The Daemon's `SHELL`, read once when the store opens.
+    shell: String,
+    /// The Daemon's `ROUNDUP_MCP` (M2219), read once when the store opens.
+    mcp_env: Option<std::ffi::OsString>,
     /// Itself, so a Signal's fold can start H12's first Steer on a task of its own.
     me: Weak<Shared>,
-    /// E6: the Channel of each Agent's current Attempt that has left `pending`, as
-    /// `(attempt, channel)`; an entry of an earlier Attempt reads as `pending`.
-    channels: Mutex<HashMap<String, (String, Channel)>>,
     /// E3: the Daemon supplies mutable Context before the one first Steer.
     context: Option<ContextText>,
     /// A4452d: where roundup's own text goes instead of the Terminal.
     coordination: Option<CoordinationSink>,
-    /// A33: the lowest open blocker of the Todos each Agent created that wait; an idle Agent in
-    /// it reads `blocked`.
-    waits: Mutex<HashMap<String, u32>>,
-    /// U6248b: the Agents whose turn Claude Code gave up on and whose resume waits.
-    resumes: Mutex<HashMap<String, resume_wait::Resume>>,
     /// F5: the scan of the Doors' process trees.
     scan: Scan,
-    /// Each Door's strays as last announced; a Door with none has no entry.
-    strays: Mutex<HashMap<String, Vec<Stray>>>,
     /// H11: how long a Steer waits for its `UserPromptSubmit` Signal.
     steer_bound: Duration,
     steer: SteerSettings,
@@ -260,59 +325,6 @@ impl From<PromptError> for RpcError {
 /// F5: how long between two reads of the process table. `ROUNDUP_SCAN_MS` shortens it for a test.
 pub const SCAN_INTERVAL: Duration = Duration::from_millis(2000);
 
-/// A node's place in `Shared::runs`.
-// Slots live in one map and are matched in place; boxing `Run` would add an indirection at every site.
-#[allow(clippy::large_enum_variant)]
-enum Slot {
-    /// Its Terminal is starting; `since` is when, on `clock`, it was marked.
-    Starting {
-        attempt: String,
-        since: i64,
-        /// A `rail.rename` came while it started; its first prompt must not undo it.
-        named: bool,
-        /// Signals that reached `agent.signal` in this window, in arrival order, applied once
-        /// the Agent is registered (A14).
-        parked: VecDeque<(Actor, Value)>,
-    },
-    /// A22: a resume's launch is pending acknowledgement; `since` is when, on `clock`, it began.
-    Resuming {
-        mode: contracts::agent::ResumeMode,
-        attempt: String,
-        since: i64,
-        /// The stashed exited Run, presented and restored on rollback; `None` when there was
-        /// nothing to restore (a reopened Agent with no live Run, A12).
-        old: Option<Box<Run>>,
-        /// The saved conversation id the ack must name.
-        conversation_id: String,
-        /// The directory the new Attempt runs in, saved alongside the conversation id (A21)
-        /// once the ack confirms it.
-        cwd: String,
-        /// A35 reserves this prompt before the acknowledging Status can admit Messages.
-        prompt: Option<String>,
-        /// H19: retain a ready title arriving before the ack, so the first prompt can enter.
-        starred: bool,
-        /// The Terminal this launch started, once `agent.resume` has spawned it; `None` until
-        /// then, so a Signal cannot arrive for it any earlier.
-        terminal_id: Option<String>,
-        /// Signals parked exactly as `Starting`'s, awaiting the ack among them (A14).
-        parked: VecDeque<(Actor, Value)>,
-        /// Promotion or timeout claims this sender under the runs lock. Failure sends only
-        /// after cleanup finishes; a timer that loses the claim still awaits this sender.
-        done: tokio::sync::oneshot::Sender<Result<(), RpcError>>,
-    },
-    Running(Run),
-    /// A failed Resume retains its Terminal until cleanup is confirmed or explicitly stopped.
-    ResumeCleanup {
-        /// Keep the last acknowledged Run until cleanup or explicit Stop restores it.
-        old: Option<Box<Run>>,
-        attempt: String,
-        terminal_id: String,
-        pending: bool,
-        error: RpcError,
-    },
-    Closing,
-}
-
 /// B6: an accounted first Steer. None of these outcomes authorizes another initial prompt.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum FirstSteerCompletion {
@@ -322,48 +334,6 @@ pub enum FirstSteerCompletion {
     Refused,
     /// The physical effect ended, but submission (or a partial write) is unknown.
     Uncertain,
-}
-
-/// An Agent's program and what is left to tell it.
-enum FirstPrompt {
-    Reserved,
-    Written,
-    Acknowledged,
-}
-
-struct Run {
-    yolo: bool,
-    /// A42 keeps a new Ask's first Steer byte for byte; other starts include E3 Context.
-    startup_context: bool,
-    input_started: bool,
-    attempt: String,
-    status_revision: i64,
-    closing: bool,
-    ended: bool,
-    adapter: ClaudeCode,
-    /// H12: sent as a Steer at the first `SessionStart`, then gone.
-    prompt: Option<String>,
-    /// H12: no Message overtakes the first Steer before its completion or refusal.
-    first_pending: bool,
-    /// B6: retained first Steer result; only its physical writer may settle an active effect.
-    first_completion: Option<tokio::sync::watch::Sender<Option<FirstSteerCompletion>>>,
-    /// Retained after the first Steer acknowledgement so a dropped coordinator can retry.
-    first_prompt: Option<FirstPrompt>,
-    /// H19: when the first `SessionStart` arrived; repeats cannot extend the Ask wait.
-    session_started: Option<tokio::time::Instant>,
-    /// H19: the first title with the star glyph has arrived.
-    starred: bool,
-    /// H11: the Steer awaiting submission or local-command acceptance.
-    steer: Option<SteerWait>,
-    /// H13: the Interrupt written and awaiting the title that acknowledges it.
-    interrupt: Option<tokio::sync::oneshot::Sender<()>>,
-    /// The first prompt has been submitted, or a `rail.rename` came first: either way the name
-    /// is settled and no prompt renames the node.
-    named: bool,
-    terminal_id: String,
-    /// A21: the effective working directory this launch runs in, after Worktree mapping; saved
-    /// to `agents.db` alongside the conversation id the first Signal to name one carries.
-    cwd: String,
 }
 
 /// `spawn` registers an Agent before its watcher starts, so the watcher always finds it.
@@ -389,6 +359,8 @@ pub struct Agents {
 
 mod dispatch;
 mod door;
+mod typed;
+pub use typed::RailRead;
 mod ending;
 mod events;
 mod import_work;
@@ -414,6 +386,8 @@ pub use events::InboxObserver;
 use events::{channel_deadline_from_env, channel_in, interrupt_bound_from_env, watch};
 use rail_view::{agent_lock, valid_explicit_order, valid_order, waiting_on};
 use registration::{hold, save_signal_conversation};
+use resume::{Abandoned, Resumption};
+use spawn::{Attach, Launch, Origin};
 use worktree_wiring::report_undo;
 
 /// G6: a legacy Worktree record from before ownership proofs; nothing may clean it up.
@@ -453,10 +427,15 @@ impl Agents {
 impl Agents {
     /// PS9.2: make Agent `id`'s adapter one with no hook Signal, as a vendor without hooks has.
     pub fn drop_hooks_for_test(&self, id: &str) {
-        if let Some(Slot::Running(run)) = self.shared.runs().get_mut(id) {
+        if let Some(Slot::Running(run)) = self.shared.runs().slot_mut(id) {
             let clock = Arc::clone(&self.shared.clock);
-            run.adapter = ClaudeCode::starting(move || clock()).without_hooks();
+            run.replace_fold(claude_code::hookless(move || clock()));
         }
+    }
+
+    /// X6570b: run `save_owner` for Agent `id`'s Terminal `terminal_id`.
+    pub fn save_owner_for_test(&self, id: &str, terminal_id: &str) -> Result<(), RpcError> {
+        self.save_owner(id, terminal_id)
     }
 
     /// U4593 controls observed Status without a vendor, Terminal or wall clock.
@@ -472,8 +451,8 @@ impl Agents {
             EventData::AgentStatus(Box::new(contracts::agent::StatusEvent {
                 ended: false,
                 id: id.to_owned(),
-                attempt: "1".into(),
-                status_revision: "1".into(),
+                attempt: Ordinal::first(),
+                status_revision: Ordinal::first(),
                 status,
             })),
         );

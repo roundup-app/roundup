@@ -155,6 +155,8 @@ pub(crate) fn naming(
     text: String,
     settings: &contracts::project::NamingSettings,
     settled: bool,
+    user_named: bool,
+    door: bool,
 ) -> String {
     let action = if !settings.automatic_renaming {
         "Automatic self-naming is off. Keep your current name; do not rename yourself automatically."
@@ -162,6 +164,20 @@ pub(crate) fn naming(
         "Automatic self-naming is on. Your name is already chosen: keep it. Never replace an explicit or user-entered name."
     } else {
         "Automatic self-naming is on. Choose your own task name with rail_rename, following the naming guide. Never replace an explicit or user-entered name, including a later user rename."
+    };
+    let action = if user_named {
+        format!(
+            "{action} Your name is the user's: keep it. Only the user renames it; rail_rename of it is refused."
+        )
+    } else {
+        action.to_owned()
+    };
+    let action = if door && !user_named && settings.automatic_renaming && !settled {
+        format!(
+            "{action} You are a Workstream's Door: name your Workstream after its task once, through rail_rename."
+        )
+    } else {
+        action
     };
     let (name, rest) = text.split_once('\n').unwrap_or((&text, ""));
     format!(
@@ -197,6 +213,26 @@ pub(crate) fn text(nodes: &[RailNode], context: &Context) -> String {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn u6380b_a_door_is_told_to_name_its_workstream_and_a_user_named_row_to_keep_its_name() {
+        let on = contracts::project::NamingSettings::default();
+        let door = naming("Name\nrest".into(), &on, false, false, true);
+        assert!(door.contains("name your Workstream after its task once, through rail_rename"));
+        assert!(door.contains(&format!("Naming guide: {}", on.naming_guide)));
+        let agent = naming("Name\nrest".into(), &on, false, false, false);
+        assert!(!agent.contains("Workstream's Door"));
+        let off = contracts::project::NamingSettings {
+            automatic_renaming: false,
+            ..on.clone()
+        };
+        assert!(
+            !naming("Name\nrest".into(), &off, false, false, true).contains("Workstream's Door")
+        );
+        let user = naming("Name\nrest".into(), &on, false, true, true);
+        assert!(user.contains("Your name is the user's: keep it."));
+        assert!(!user.contains("Workstream's Door"));
+    }
+
     use contracts::Status;
     use serde_json::json;
 
@@ -228,7 +264,7 @@ mod tests {
             parent: parent.map(str::to_owned),
             order: 0,
             status: status(Kind::Idle),
-            attempt: (kind == NodeKind::Agent || door).then(|| "1".into()),
+            attempt: (kind == NodeKind::Agent || door).then(contracts::agent::Ordinal::first),
             status_revision: None,
             final_text: None,
             terminal_id: None,

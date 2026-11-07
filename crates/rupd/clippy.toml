@@ -1,0 +1,11 @@
+# Clippy reads only the nearest clippy.toml, so this crate-level file is the one rupd's lint uses.
+disallowed-methods = [
+    { path = "tokio::runtime::Handle::try_current", reason = "a background task starts at the composition root, never by asking whether a runtime is there" },
+    { path = "std::env::var", reason = "the Daemon reads its environment once, in Observers::from_env" },
+    { path = "std::env::var_os", reason = "the Daemon reads its environment once, in Observers::from_env" },
+    { path = "std::env::vars", reason = "the Daemon reads its environment once, in Observers::from_env" },
+]
+too-many-lines-threshold = 100
+disallowed-types = [
+    { path = "std::sync::Mutex", reason = "parking_lot::Mutex never poisons, so a lock has no panic or recovery arm; a section that can fail returns its error (RB3798b)" },
+]

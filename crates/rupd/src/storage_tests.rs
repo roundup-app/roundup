@@ -1,5 +1,7 @@
-use super::*;
-use rusqlite::params;
+//! N16, U5740c: the Daemon over the Project schema `storage` owns.
+use rusqlite::Connection;
+use rusqlite_migration::Migrations;
+use std::path::Path;
 
 const STORES: [&str; 6] = [
     "agents",
@@ -10,99 +12,65 @@ const STORES: [&str; 6] = [
     "digest",
 ];
 
-fn dump(db: &Connection) -> Vec<String> {
-    dump_except(db, &[])
-}
-
-fn dump_except(db: &Connection, excluded: &[&str]) -> Vec<String> {
-    let mut out = Vec::new();
-    let mut q = db
-        .prepare("SELECT type,name,sql FROM sqlite_master ORDER BY type,name")
-        .unwrap();
-    let rows: Vec<(String, String, Option<String>)> = q
-        .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))
-        .unwrap()
-        .map(Result::unwrap)
-        .collect();
-    for (kind, name, sql) in rows {
-        if excluded
-            .iter()
-            .any(|table| name == *table || name.starts_with(&format!("sqlite_autoindex_{table}_")))
-        {
-            continue;
-        }
-        out.push(format!("{kind} {name} {sql:?}"));
-        if kind == "table" && !name.starts_with("sqlite_") && name != "deliverable_project" {
-            let mut s = db.prepare(&format!("SELECT * FROM \"{name}\"")).unwrap();
-            let n = s.column_count();
-            let mut rows = s.query([]).unwrap();
-            while let Some(r) = rows.next().unwrap() {
-                let row: Vec<String> = (0..n)
-                    .map(|i| format!("{:?}", r.get_ref(i).unwrap()))
-                    .collect();
-                out.push(format!("{name}: {}", row.join("|")));
-            }
-        }
-    }
-    out
-}
-
-#[test]
-fn r3696c_a_fresh_project_db_equals_the_migrated_one_with_its_own_identity() {
-    let (a, b) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
-    open(a.path()).unwrap();
-    open(b.path()).unwrap();
-    let migrated = tempfile::tempdir().unwrap();
-    let mut db = Connection::open(migrated.path().join("project.db")).unwrap();
-    let version = |d: &Connection| {
-        d.query_row("PRAGMA user_version", [], |r| r.get::<_, i64>(0))
-            .unwrap()
+/// What the retired standalone Messages and Digest stores created, which the Project must still hold.
+fn standalone_messages(current: &mut Connection, digest: bool) {
+    let sql: &[&str] = if digest {
+        &[
+            include_str!("../../messages/migrations/001-digest/up.sql"),
+            include_str!("../../messages/migrations/011-digest/up.sql"),
+        ]
+    } else {
+        &[
+            include_str!("../../messages/migrations/001/up.sql"),
+            include_str!("../../messages/migrations/002/up.sql"),
+            include_str!("../../messages/migrations/003/up.sql"),
+            "CREATE TABLE message_sender_names (agent TEXT PRIMARY KEY NOT NULL, name TEXT NOT NULL);",
+            include_str!("../../messages/migrations/004/up.sql"),
+            include_str!("../../messages/migrations/005/up.sql"),
+            messages::evidence::SCHEMA,
+            messages::continuation::SCHEMA,
+            include_str!("../../messages/migrations/006/up.sql"),
+            include_str!("../../messages/migrations/007/up.sql"),
+            include_str!("../../messages/migrations/008/up.sql"),
+            include_str!("../../messages/migrations/009/up.sql"),
+            include_str!("../../messages/migrations/010/up.sql"),
+            include_str!("../../messages/migrations/012/up.sql"),
+        ]
     };
-    apply(&mut db, migrations()).unwrap();
-    let fresh = Connection::open(a.path().join("project.db")).unwrap();
-    assert_eq!(version(&fresh), version(&db));
-    assert_eq!(dump(&fresh), dump(&db));
-    let id = |dir: &Path, table: &str| -> String {
-        Connection::open(dir.join("project.db"))
-            .unwrap()
-            .query_row(&format!("SELECT id FROM {table}"), [], |r| r.get(0))
-            .unwrap()
-    };
-    let own = id(a.path(), "deliverable_project");
-    assert_ne!(own, id(b.path(), "deliverable_project"));
-    assert!(own.len() == 32 && own.bytes().all(|c| c.is_ascii_hexdigit()));
-    let image = std::fs::read(a.path().join("project.db")).unwrap();
-    for placeholder in IDENTITIES {
-        assert!(!image.windows(32).any(|window| window == placeholder));
+    for step in sql {
+        current.execute_batch(step).unwrap();
     }
 }
 
-// Real production prefixes; no owner data or copied migration inventory.
-fn saved_prefix() -> (tempfile::TempDir, Connection, usize) {
-    saved_prefix_behind(1)
+mod dump {
+    include!("../../storage/src/tests/dump.rs");
+}
+use dump::{dump, dump_except};
+
+mod standalone {
+    include!("../tests/support/store_migrations.rs");
 }
 
-fn saved_prefix_behind(behind: usize) -> (tempfile::TempDir, Connection, usize) {
-    let dir = tempfile::tempdir().unwrap();
-    let mut db = Connection::open(dir.path().join("project.db")).unwrap();
-    let prefix = migrations().len() - behind;
-    Migrations::new(migrations()[..prefix].to_vec())
-        .to_latest(&mut db)
-        .unwrap();
-    db.execute_batch(
-        "INSERT INTO nodes(id,kind,name,ord) VALUES(5809,'workstream','saved work',7);
-         INSERT INTO nodes(id,kind,name,ord) VALUES(5810,'workstream','more work',9);",
-    )
-    .unwrap();
-    (dir, db, prefix)
+/// The Pads crate's migration files as a standalone store built them, for the expected schema.
+fn pads_standalone(db: &mut Connection, _: &Path) -> rusqlite::Result<()> {
+    use rusqlite_migration::M;
+    Migrations::new(vec![
+        M::up(include_str!("../../pads/migrations/001/up.sql")),
+        M::up(include_str!("../../pads/migrations/002/up.sql")),
+        M::up(include_str!("../../pads/migrations/003/up.sql")),
+        M::up(include_str!("../../pads/migrations/004/up.sql")),
+        M::up(include_str!("../../pads/migrations/005/up.sql")),
+    ])
+    .to_latest(db)
+    .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))
 }
 
 // The prefix just before 0046-delete-reactions, the migration these tests retire tables with.
 fn saved_prefix_before_reactions_retire() -> (tempfile::TempDir, Connection, usize) {
     let dir = tempfile::tempdir().unwrap();
     let mut db = Connection::open(dir.path().join("project.db")).unwrap();
-    let prefix = migrations().len() - 5;
-    Migrations::new(migrations()[..prefix].to_vec())
+    let prefix = storage::migrations().len() - 6;
+    Migrations::new(storage::migrations()[..prefix].to_vec())
         .to_latest(&mut db)
         .unwrap();
     db.execute_batch(
@@ -112,170 +80,6 @@ fn saved_prefix_before_reactions_retire() -> (tempfile::TempDir, Connection, usi
     .unwrap();
     (dir, db, prefix)
 }
-
-fn saved_rows(db: &Connection) -> Vec<(i64, String, String, i64)> {
-    db.prepare("SELECT id,kind,name,ord FROM nodes WHERE id IN (5809,5810) ORDER BY id")
-        .unwrap()
-        .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))
-        .unwrap()
-        .map(Result::unwrap)
-        .collect()
-}
-
-#[test]
-fn n5809a_matching_project_upgrades_and_keeps_rows() {
-    for behind in [1, 7] {
-        matching_prefix_upgrades(behind);
-    }
-}
-
-fn matching_prefix_upgrades(behind: usize) {
-    let (dir, db, _) = saved_prefix_behind(behind);
-    let rows = saved_rows(&db);
-    drop(db);
-    for _ in 0..2 {
-        let db = open(dir.path()).unwrap();
-        assert_eq!(
-            db.pragma_query_value(None, "user_version", |r| r.get::<_, i64>(0))
-                .unwrap(),
-            migrations().len() as i64
-        );
-        assert_eq!(
-            provenance::migration::difference(&db, &reference().unwrap()).unwrap(),
-            None
-        );
-        assert_eq!(saved_rows(&db), rows);
-    }
-}
-
-#[test]
-fn n5809b_divergent_project_names_column_without_changes() {
-    for behind in [1, 7] {
-        divergent_prefix_refuses(behind);
-    }
-}
-
-fn divergent_prefix_refuses(behind: usize) {
-    let (dir, db, prefix) = saved_prefix_behind(behind);
-    db.execute_batch("ALTER TABLE nodes ADD COLUMN n5809_extra TEXT")
-        .unwrap();
-    let before = dump(&db);
-    let rows = saved_rows(&db);
-    drop(db);
-    for _ in 0..2 {
-        let message = match crate::test_daemon(dir.path()) {
-            Ok(_) => panic!("divergent predecessor returned a Daemon"),
-            Err(error) => error.to_string(),
-        };
-        for detail in [
-            dir.path().join("project.db").display().to_string(),
-            format!("database version {prefix}"),
-            format!("supports through {}", migrations().len()),
-            "table `nodes` has column `n5809_extra`".into(),
-            "newer or branch build".into(),
-            "close roundup and delete".into(),
-        ] {
-            assert!(message.contains(&detail), "{message}");
-        }
-        let db = Connection::open(dir.path().join("project.db")).unwrap();
-        assert_eq!(
-            db.pragma_query_value(None, "user_version", |r| r.get::<_, i64>(0))
-                .unwrap(),
-            prefix as i64
-        );
-        assert_eq!(dump(&db), before);
-        assert_eq!(saved_rows(&db), rows);
-    }
-}
-
-#[test]
-fn n5809c_failed_suffix_rolls_back_and_names_migration() {
-    let (dir, mut db, prefix) = saved_prefix();
-    let before = dump(&db);
-    let rows = saved_rows(&db);
-    let mut failing = migrations()[..prefix].to_vec();
-    failing.push(M::up("CREATE TABLE n5809_partial(value TEXT); INSERT INTO nodes(id,kind,name,ord) VALUES(5811,'workstream','must roll back',11);"));
-    failing.push(M::up("N5809_INVALID_SQL;"));
-    let message = apply(&mut db, failing).unwrap_err().to_string();
-    assert!(
-        message.contains(&format!("migration {}:", prefix + 2)),
-        "{message}"
-    );
-    assert!(message.contains("N5809_INVALID_SQL"), "{message}");
-    drop(db);
-    let db = Connection::open(dir.path().join("project.db")).unwrap();
-    assert_eq!(
-        db.pragma_query_value(None, "user_version", |r| r.get::<_, i64>(0))
-            .unwrap(),
-        prefix as i64
-    );
-    assert_eq!(dump(&db), before);
-    assert_eq!(saved_rows(&db), rows);
-}
-
-mod standalone {
-    include!("../tests/support/store_migrations.rs");
-}
-
-#[test]
-fn n2705a_sender_names_reject_nulls_and_duplicate_identities() {
-    let dir = tempfile::tempdir().unwrap();
-    open(dir.path()).unwrap();
-    let db = Connection::open(dir.path().join("project.db")).unwrap();
-    db.execute(
-        "INSERT INTO message_sender_names(agent, name) VALUES ('7013', 'sad')",
-        [],
-    )
-    .unwrap();
-    for (agent, name) in [
-        (None, Some("sad")),
-        (Some("7014"), None),
-        (Some("7013"), Some("glad")),
-    ] {
-        let error = db
-            .execute(
-                "INSERT INTO message_sender_names(agent, name) VALUES (?1, ?2)",
-                params![agent, name],
-            )
-            .unwrap_err();
-        assert_eq!(
-            error.sqlite_error_code(),
-            Some(rusqlite::ErrorCode::ConstraintViolation)
-        );
-    }
-}
-
-#[test]
-fn n2705a_updated_names_survive_project_reopen() {
-    let dir = tempfile::tempdir().unwrap();
-    open(dir.path()).unwrap();
-    let path = dir.path().join("project.db");
-    let db = Connection::open(&path).unwrap();
-    db.execute_batch(
-        "INSERT INTO message_sender_names(agent, name) VALUES ('7013', 'sad');
-         UPDATE message_sender_names SET name = 'glad' WHERE agent = '7013';
-         INSERT INTO message_sender_names(agent, name) VALUES ('7014', 'glad');",
-    )
-    .unwrap();
-    drop(db);
-    open(dir.path()).unwrap();
-    let db = Connection::open(path).unwrap();
-    let rows: Vec<(String, String)> = db
-        .prepare("SELECT agent, name FROM message_sender_names ORDER BY agent")
-        .unwrap()
-        .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))
-        .unwrap()
-        .collect::<Result<_, _>>()
-        .unwrap();
-    assert_eq!(
-        rows,
-        [
-            ("7013".to_owned(), "glad".to_owned()),
-            ("7014".to_owned(), "glad".to_owned())
-        ]
-    );
-}
-
 #[tokio::test]
 async fn n16_all_stores_share_one_project_database() {
     use crate::{Conn, Daemon};
@@ -316,13 +120,18 @@ async fn n16_all_stores_share_one_project_database() {
     let mut expected = std::collections::BTreeMap::new();
     for name in STORES {
         let mut current = Connection::open_in_memory().unwrap();
+        if matches!(name, "messages" | "digest") {
+            standalone_messages(&mut current, name == "digest");
+            for (table, sql) in standalone::schema(&current) {
+                expected.insert(table, sql);
+            }
+            continue;
+        }
         let initialize = match name {
             "agents" => agents::schema::open,
             "todos" => todos::schema::open,
-            "pads" => pads::schema::open,
+            "pads" => pads_standalone,
             "provenance" => provenance::schema::open,
-            "messages" => messages::schema::open,
-            "digest" => messages::digest_schema::open,
             _ => unreachable!(),
         };
         initialize(&mut current, Path::new(name)).unwrap();
@@ -339,11 +148,17 @@ async fn n16_all_stores_share_one_project_database() {
         }
     }
     let resize_schema = Connection::open_in_memory().unwrap();
-    resize_schema.execute_batch(RESIZES).unwrap();
+    resize_schema
+        .execute_batch(include_str!("../../storage/migrations/003/up.sql"))
+        .unwrap();
     expected.extend(standalone::schema(&resize_schema));
-    resize_schema.execute_batch(ACTIONS).unwrap();
+    resize_schema
+        .execute_batch(include_str!("../../storage/migrations/005/up.sql"))
+        .unwrap();
     expected.extend(standalone::schema(&resize_schema));
-    resize_schema.execute_batch(EVENTS).unwrap();
+    resize_schema
+        .execute_batch(include_str!("../../storage/migrations/006/up.sql"))
+        .unwrap();
     expected.extend(standalone::schema(&resize_schema));
     expected.insert(
         "message_sender_names".to_owned(),
@@ -351,11 +166,13 @@ async fn n16_all_stores_share_one_project_database() {
     );
     // Publications extend the Project owner, rather than a second standalone store.
     resize_schema
-        .execute_batch(include_str!("../migrations/project/0004-deliverables.sql"))
+        .execute_batch(include_str!(
+            "../../storage/migrations/project/0004-deliverables.sql"
+        ))
         .unwrap();
     resize_schema
         .execute_batch(include_str!(
-            "../migrations/project/0028-deliverable-files.sql"
+            "../../storage/migrations/project/0028-deliverable-files.sql"
         ))
         .unwrap();
     expected.extend(standalone::schema(&resize_schema));
@@ -363,19 +180,21 @@ async fn n16_all_stores_share_one_project_database() {
     resize_schema
         .execute_batch(include_str!("../../messages/migrations/001/up.sql"))
         .unwrap();
-    resize_schema.execute_batch(FLIGHT).unwrap();
+    resize_schema
+        .execute_batch(include_str!("../../messages/migrations/002/up.sql"))
+        .unwrap();
     resize_schema
         .execute_batch(include_str!(
-            "../migrations/project/0034-door-session-restart.sql"
+            "../../storage/migrations/project/0034-door-session-restart.sql"
         ))
         .unwrap();
     resize_schema
         .execute_batch(include_str!(
-            "../migrations/project/0013-instruction-messages.sql"
+            "../../storage/migrations/project/0013-instruction-messages.sql"
         ))
         .unwrap();
     expected.extend(standalone::schema(&resize_schema));
-    let rail = include_str!("../migrations/project/0027-rail-deletions.sql");
+    let rail = include_str!("../../storage/migrations/project/0027-rail-deletions.sql");
     resize_schema.execute_batch(rail).unwrap();
     expected.extend(standalone::schema(&resize_schema));
     let mut retention = Connection::open_in_memory().unwrap();
@@ -383,20 +202,22 @@ async fn n16_all_stores_share_one_project_database() {
     retention
         .execute_batch(include_str!("../../messages/migrations/001/up.sql"))
         .unwrap();
-    retention.execute_batch(FLIGHT).unwrap();
+    retention
+        .execute_batch(include_str!("../../messages/migrations/002/up.sql"))
+        .unwrap();
     retention
         .execute_batch(include_str!(
-            "../migrations/project/0013-instruction-messages.sql"
+            "../../storage/migrations/project/0013-instruction-messages.sql"
         ))
         .unwrap();
     retention
         .execute_batch(include_str!(
-            "../migrations/project/0033-coordination-instructions.sql"
+            "../../storage/migrations/project/0033-coordination-instructions.sql"
         ))
         .unwrap();
     retention
         .execute_batch(include_str!(
-            "../migrations/project/0041-user-order-instructions.sql"
+            "../../storage/migrations/project/0041-user-order-instructions.sql"
         ))
         .unwrap();
     expected.extend(
@@ -408,7 +229,7 @@ async fn n16_all_stores_share_one_project_database() {
     );
     resize_schema
         .execute_batch(include_str!(
-            "../migrations/project/0040-current-publications.sql"
+            "../../storage/migrations/project/0040-current-publications.sql"
         ))
         .unwrap();
     for name in [
@@ -435,9 +256,11 @@ async fn n16_all_stores_share_one_project_database() {
     actual.remove("marks");
     assert_eq!(actual, expected);
     assert_eq!(
-        Migrations::new(migrations()).current_version(&db).unwrap(),
+        Migrations::new(storage::migrations())
+            .current_version(&db)
+            .unwrap(),
         rusqlite_migration::SchemaVersion::Inside(
-            std::num::NonZeroUsize::new(migrations().len()).unwrap()
+            std::num::NonZeroUsize::new(storage::migrations().len()).unwrap()
         )
     );
     standalone::write_ask(&db);
@@ -568,49 +391,6 @@ async fn n16_all_stores_share_one_project_database() {
     );
 }
 
-#[path = "storage_tests/migration_files.rs"]
-mod migration_files;
-
-/// N17: a data folder from before `project.db` still holds per-store databases, one of them
-/// in a column order no current build writes. They are not read, so they cannot block startup.
-#[test]
-fn n17_old_store_files_never_block_the_open() {
-    let dir = tempfile::tempdir().unwrap();
-    let old = dir.path().join("agents.db");
-    Connection::open(&old)
-        .unwrap()
-        .execute_batch(
-            "CREATE TABLE nodes (id INTEGER PRIMARY KEY, kind TEXT NOT NULL, creator TEXT, spawn_prompt TEXT);
-             INSERT INTO nodes VALUES (1,'agent','a','p');",
-        )
-        .unwrap();
-    std::fs::write(dir.path().join("todos.db"), b"not a database").unwrap();
-    let before = std::fs::read(&old).unwrap();
-    open(dir.path()).unwrap();
-    let db = Connection::open(dir.path().join("project.db")).unwrap();
-    let nodes: i64 = db
-        .query_row("SELECT COUNT(*) FROM nodes", [], |r| r.get(0))
-        .unwrap();
-    assert_eq!(nodes, 0);
-    assert_eq!(std::fs::read(&old).unwrap(), before);
-}
-
-/// R3696c: these stores have no startup recovery and `storage::open` already initialized WAL.
-/// Holding SQLite's read lock closed detects an eager schema read without a timing threshold.
-#[test]
-fn r3696c_idle_project_stores_do_not_read_the_schema_on_open() {
-    let dir = tempfile::tempdir().unwrap();
-    let db = open(dir.path()).unwrap();
-    db.pragma_update(None, "locking_mode", "EXCLUSIVE").unwrap();
-    db.execute_batch("BEGIN EXCLUSIVE").unwrap();
-    let path = dir.path().join("project.db");
-    let bus = rpc::Bus::new();
-    let _touches = provenance::Touches::open(&path).expect("Touches must not read the schema yet");
-    let _todos =
-        todos::Todos::open(dir.path(), bus.clone()).expect("Todos must not read the schema yet");
-    let _pads = pads::Pads::open(dir.path(), bus).expect("Pads must not read the schema yet");
-}
-
 #[tokio::test]
 async fn u5740c_current_project_drops_only_retired_tables() {
     let (dir, mut db, _) = saved_prefix_before_reactions_retire();
@@ -664,7 +444,9 @@ async fn u5740c_current_project_drops_only_retired_tables() {
         )
     };
     // 0046 runs here with the later migrations, so the open leaves the retained tables as they stand.
-    apply(&mut db, migrations()).unwrap();
+    Migrations::new(storage::migrations())
+        .to_latest(&mut db)
+        .unwrap();
     let before = retained(&db);
     drop(db);
     for _ in 0..2 {
@@ -702,7 +484,8 @@ async fn u5740c_current_project_drops_only_retired_tables() {
             )
             .await
             .unwrap()
-            .into_value();
+            .into_value()
+            .unwrap();
         assert!(answer.get("error").is_none(), "{answer}");
         assert_eq!(answer["result"]["head"], 1028);
         let (saved, head) = daemon.bus.saved_after(0).unwrap();
@@ -752,4 +535,20 @@ fn u5740c_other_representations_are_unchanged_on_refusal() {
             prefix as i64
         );
     }
+}
+
+/// R3696c: these stores have no startup recovery and `storage::connect` already initialized WAL.
+/// Holding SQLite's read lock closed detects an eager schema read without a timing threshold.
+#[test]
+fn r3696c_idle_project_stores_do_not_read_the_schema_on_open() {
+    let dir = tempfile::tempdir().unwrap();
+    let db = storage::connect(dir.path()).unwrap();
+    // N22: Pads opens through `storage::connect`, which checks the schema, so it opens before the lock.
+    let bus = rpc::Bus::new();
+    drop(pads::Pads::open(dir.path(), bus.clone()).unwrap());
+    db.pragma_update(None, "locking_mode", "EXCLUSIVE").unwrap();
+    db.execute_batch("BEGIN EXCLUSIVE").unwrap();
+    let path = dir.path().join("project.db");
+    let _touches = provenance::Touches::open(&path).expect("Touches must not read the schema yet");
+    let _todos = todos::Todos::open(dir.path(), bus).expect("Todos must not read the schema yet");
 }

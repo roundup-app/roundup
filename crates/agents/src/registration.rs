@@ -1,30 +1,5 @@
 use super::*;
 
-impl Slot {
-    pub(super) fn attempt(&self) -> &str {
-        match self {
-            Self::Starting { attempt, .. }
-            | Self::Resuming { attempt, .. }
-            | Self::ResumeCleanup { attempt, .. } => attempt,
-            Self::Running(run) => &run.attempt,
-            Self::Closing => "",
-        }
-    }
-    pub(super) fn closing(&self) -> bool {
-        matches!(self, Self::Closing | Self::ResumeCleanup { .. })
-            || matches!(self, Self::Running(run) if run.closing)
-    }
-
-    /// The node's name is final: no prompt renames it.
-    pub(super) fn settle_name(&mut self) {
-        match self {
-            Self::Running(run) => run.named = true,
-            Self::Starting { named, .. } => *named = true,
-            Self::Resuming { .. } | Self::ResumeCleanup { .. } | Self::Closing => {}
-        }
-    }
-}
-
 impl Shared {
     /// Swap `id` from `Starting` to `Running` (the Run `build` makes, told whether a
     /// `rail.rename` already settled its name) and apply every Signal parked for it, in arrival
@@ -41,25 +16,24 @@ impl Shared {
     ) -> Result<Vec<String>, RpcError> {
         let mut rail = self.rail();
         let mut runs = self.runs();
-        if !matches!(runs.get(id), Some(Slot::Starting { attempt: active, .. }) if active == attempt)
+        if !matches!(runs.slot(id), Some(Slot::Starting { attempt: active, .. }) if active.as_str() == attempt)
         {
             return Err(RpcError::conflict(format!(
                 "{}: stale start completion",
                 rail.name(id)?
             )));
         }
-        let Some(Slot::Starting { named, parked, .. }) = runs.remove(id) else {
+        let Some(Slot::Starting { named, parked, .. }) = runs.take(id) else {
             unreachable!("spawn marks {id} Starting before run_agent runs")
         };
         let mut run = build(named);
-        if run.input_started
-            && let Err(error) = self.save_input_started(id, &run.attempt)
+        if run.input_started()
+            && let Err(error) = self.save_input_started(id, run.attempt())
         {
-            runs.insert(id.to_owned(), Slot::Running(run));
+            runs.put(id.to_owned(), Slot::Running(run));
             return Err(error);
         }
-        run.adapter
-            .set_finished(rail.finished(id).unwrap_or_default());
+        run.observe(Observation::Finished(rail.finished(id).unwrap_or_default()));
         let mut prompts = Vec::new();
         for (actor, payload) in parked {
             // A21: a parked Signal naming a conversation is saved before it is applied, same as a
@@ -70,18 +44,20 @@ impl Shared {
                 // Put `id` back so the caller's own failed-spawn cleanup (which expects to find
                 // its Attempt still in `runs`) still removes the orphaned node and kills the
                 // Terminal `start` already recorded, exactly as any other failed spawn.
-                runs.insert(id.to_owned(), Slot::Running(run));
+                runs.put(id.to_owned(), Slot::Running(run));
                 return Err(err);
             }
-            let first_prompt = claude_code::submitted_prompt(&payload).map(name::from_prompt);
+            let first_prompt = claude_code::see(&payload).prompt.map(name::from_prompt);
             // Logged, not panicked: a panic here would unwind while `rail` and `runs` are both
             // still locked, poisoning them and taking every later `rail()`/`runs()` call down
             // with it. `rail.node(id)` itself cannot be `NOT_FOUND` (a Starting id's Rail node is
             // removed only by its own failed spawn, which never reaches here), but the write a
             // parked rename makes can still fail on its own account.
+            let agent_facts = &mut runs.get_mut(id).expect("taken, not removed").facts;
             match self.apply(
                 Some(&mut *rail),
                 &mut run,
+                agent_facts,
                 id,
                 &actor,
                 Observation::Signal(payload),
@@ -93,7 +69,7 @@ impl Shared {
                 ),
             }
         }
-        runs.insert(id.to_owned(), Slot::Running(run));
+        runs.put(id.to_owned(), Slot::Running(run));
         Ok(prompts)
     }
 
@@ -107,7 +83,7 @@ impl Shared {
     pub(super) fn finish_resuming(
         &self,
         rail: Option<&mut rail::Rail>,
-        runs: &mut HashMap<String, Slot>,
+        runs: &mut HashMap<String, Agent>,
         id: &str,
         actor: Actor,
         payload: Value,
@@ -124,14 +100,14 @@ impl Shared {
             terminal_id,
             mut parked,
             done,
-        }) = runs.remove(id)
+        }) = runs.take(id)
         else {
             unreachable!("observe matched a Resuming slot for {id}");
         };
         if !is_resume_ack(&payload, &conversation_id, self.git.is_forked()) || terminal_id.is_none()
         {
             hold(id, &mut parked, actor, payload);
-            runs.insert(
+            runs.put(
                 id.to_owned(),
                 Slot::Resuming {
                     mode,
@@ -176,7 +152,7 @@ impl Shared {
     pub(super) fn promote_parked_resume_ack(&self, id: &str) {
         let mut rail = self.rail();
         let mut runs = self.runs();
-        let found = match runs.get(id) {
+        let found = match runs.slot(id) {
             Some(Slot::Resuming {
                 conversation_id,
                 parked,
@@ -198,7 +174,7 @@ impl Shared {
             mut parked,
             done,
             ..
-        }) = runs.remove(id)
+        }) = runs.take(id)
         else {
             unreachable!("checked above, under the same lock")
         };
@@ -242,9 +218,9 @@ impl Shared {
     fn promote_resuming(
         &self,
         rail: &mut rail::Rail,
-        runs: &mut HashMap<String, Slot>,
+        runs: &mut HashMap<String, Agent>,
         id: &str,
-        attempt: String,
+        attempt: Ordinal,
         old: Option<Box<Run>>,
         mode: contracts::agent::ResumeMode,
         cwd: String,
@@ -256,14 +232,19 @@ impl Shared {
         actor: Actor,
         payload: Value,
     ) -> Result<Applied, RpcError> {
-        if let Err(err) = rail.attach_terminal(id, &terminal_id) {
+        if let Err(err) = rail
+            .attach_terminal(id, &terminal_id)
+            .map_err(RpcError::from)
+        {
             self.fail_resume(
                 runs,
                 id,
                 attempt,
-                old,
-                Some(terminal_id),
-                done,
+                Abandoned {
+                    old,
+                    terminal_id: Some(terminal_id),
+                    done,
+                },
                 RpcError::conflict(format!("cannot resume: {err}")),
             );
             return Err(err);
@@ -272,52 +253,44 @@ impl Shared {
         // U6260b: a resume continues the conversation, so input it already received stays
         // admitted; a retained order alone is not input (A5556a).
         let continued =
-            old.as_ref().is_some_and(|old| old.input_started) || self.owner_input_started(id);
-        let mut run = Run {
-            yolo: mode == contracts::agent::ResumeMode::Yolo,
-            startup_context: true,
-            input_started: prompt.is_some() || continued,
-            attempt: attempt.clone(),
-            status_revision: 1,
-            closing: false,
-            ended: false,
-            adapter: ClaudeCode::starting(move || clock()),
-            first_pending: prompt.is_some(),
-            first_completion: prompt.as_ref().map(|_| tokio::sync::watch::channel(None).0),
-            first_prompt: prompt.as_ref().map(|_| FirstPrompt::Reserved),
-            prompt,
-            steer: None,
-            session_started: None,
-            starred: false,
-            interrupt: None,
-            named: true,
-            terminal_id: terminal_id.clone(),
+            old.as_ref().is_some_and(|old| old.input_started()) || self.owner_input_started(id);
+        let mut run = Run::resumed(
+            clock,
+            mode == contracts::agent::ResumeMode::Yolo,
+            attempt.clone(),
+            terminal_id.clone(),
             cwd,
-        };
-        if run.input_started
-            && let Err(error) = self.save_input_started(id, &run.attempt)
+            prompt,
+            continued,
+        );
+        if run.input_started()
+            && let Err(error) = self.save_input_started(id, run.attempt())
         {
             self.fail_resume(
                 runs,
                 id,
                 attempt,
-                old,
-                Some(terminal_id),
-                done,
+                Abandoned {
+                    old,
+                    terminal_id: Some(terminal_id),
+                    done,
+                },
                 error.clone(),
             );
             return Err(error);
         }
-        run.adapter
-            .set_finished(rail.finished(id).unwrap_or_default());
+        run.observe(Observation::Finished(rail.finished(id).unwrap_or_default()));
         // Only the matching ack may release the first prompt; a parked mismatched SessionStart
         // must not take it before the remembered title is applied below.
         for (parked_actor, parked_payload) in parked {
-            let first_prompt =
-                claude_code::submitted_prompt(&parked_payload).map(name::from_prompt);
+            let first_prompt = claude_code::see(&parked_payload)
+                .prompt
+                .map(name::from_prompt);
+            let agent_facts = &mut runs.get_mut(id).expect("taken, not removed").facts;
             if let Err(err) = self.apply(
                 Some(rail),
                 &mut run,
+                agent_facts,
                 id,
                 &parked_actor,
                 Observation::Signal(parked_payload),
@@ -335,7 +308,8 @@ impl Shared {
                     err.code,
                     format!(
                         "{}; cannot detach Terminal {terminal_id}: {}",
-                        err.message, detach.message
+                        err.message,
+                        RpcError::from(detach).message
                     ),
                 ),
             };
@@ -343,23 +317,29 @@ impl Shared {
                 runs,
                 id,
                 attempt,
-                old,
-                Some(terminal_id),
-                done,
+                Abandoned {
+                    old,
+                    terminal_id: Some(terminal_id),
+                    done,
+                },
                 RpcError::conflict(format!("cannot resume: {err}")),
             );
             return Err(err);
         }
-        run.starred = starred;
+        if starred {
+            run.note_star();
+        }
+        let agent_facts = &mut runs.get_mut(id).expect("taken, not removed").facts;
         let applied = self.apply(
             Some(rail),
             &mut run,
+            agent_facts,
             id,
             &actor,
             Observation::Signal(payload),
             None,
         );
-        runs.insert(id.to_owned(), Slot::Running(run));
+        runs.put(id.to_owned(), Slot::Running(run));
         let _ = done.send(Ok(()));
         applied
     }
@@ -389,11 +369,11 @@ pub(super) fn save_signal_conversation(
     id: &str,
     payload: &Value,
 ) -> Result<(), RpcError> {
-    let Some(conversation_id) = claude_code::conversation_id(payload) else {
+    let Some(conversation_id) = claude_code::see(payload).conversation else {
         return Ok(());
     };
-    rail.save_conversation(id, &conversation_id, &run.cwd)?;
-    rail.save_conversation_yolo(id, run.yolo)?;
+    rail.save_conversation(id, conversation_id, run.cwd())?;
+    rail.save_conversation_yolo(id, run.yolo())?;
     Ok(())
 }
 
@@ -402,9 +382,10 @@ pub(super) fn save_signal_conversation(
 /// `--fork-session` (FOP5978c), so Claude Code sends source `fork` with a new conversation id,
 /// which becomes the Agent's saved conversation (U6266c).
 pub(super) fn is_resume_ack(payload: &Value, conversation_id: &str, forked: bool) -> bool {
-    match claude_code::session_source(payload) {
-        Some("resume") => claude_code::conversation_id(payload).as_deref() == Some(conversation_id),
-        Some("fork") => forked && claude_code::conversation_id(payload).is_some(),
+    let seen = claude_code::see(payload);
+    match seen.source {
+        Some(Source::Resume) => seen.conversation == Some(conversation_id),
+        Some(Source::Fork) => forked && seen.conversation.is_some(),
         _ => false,
     }
 }

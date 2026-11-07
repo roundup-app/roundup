@@ -1,6 +1,6 @@
 //! NA6–NA9 over a real socket, with a fake App connection that answers as the App's handler does.
 
-use std::sync::Mutex;
+use parking_lot::Mutex;
 use std::time::Duration;
 
 use super::*;
@@ -83,11 +83,15 @@ async fn daemon() -> Fixture {
 
 async fn daemon_waiting(timeout: Duration) -> Fixture {
     let dir = tempfile::tempdir().unwrap();
-    let mut daemon = <Daemon>::open(dir.path()).unwrap();
+    let (mut daemon, watchers) = <Daemon>::open(dir.path()).unwrap();
     daemon.actions = crate::actions::Answerer::with_timeout(timeout);
     let daemon = Arc::new(daemon);
     let socket = dir.path().join("actions.sock");
-    tokio::spawn(serve(UnixListener::bind(&socket).unwrap(), daemon));
+    tokio::spawn(serve(
+        UnixListener::bind(&socket).unwrap(),
+        daemon,
+        watchers,
+    ));
     Fixture {
         _dir: dir,
         socket,
@@ -108,12 +112,12 @@ impl Fixture {
                 let id = request["id"].clone();
                 match request["method"].as_str() {
                     Some("action.list") => {
-                        *lists.lock().unwrap() += 1;
+                        *lists.lock() += 1;
                         app.send(json!({"jsonrpc":"2.0","id":id,"result":rows()}))
                             .await;
                     }
                     Some("action.run") => {
-                        runs.lock().unwrap().push(request["params"].clone());
+                        runs.lock().push(request["params"].clone());
                         match &run {
                             Run::Answer(result) => {
                                 app.send(json!({"jsonrpc":"2.0","id":id,"result":result})).await
@@ -193,7 +197,7 @@ async fn na7_run_reaches_the_app_once_and_returns_its_answer() {
         .await;
     assert_eq!(reply["result"], json!({"status":"awaiting"}));
     assert_eq!(
-        *fixture.runs.lock().unwrap(),
+        *fixture.runs.lock(),
         vec![json!({"name":"leader.row","args":[{"key":"query","value":"a=b c"}]})]
     );
 }
@@ -224,7 +228,7 @@ async fn na7_unknown_name_or_argument_is_refused_before_the_app() {
             .unwrap()
             .contains("force")
     );
-    assert!(fixture.runs.lock().unwrap().is_empty());
+    assert!(fixture.runs.lock().is_empty());
 }
 
 #[tokio::test]
@@ -251,7 +255,7 @@ async fn na7_run_with_no_app_runs_nothing() {
         .call("action.run", json!({"name":"agent.new"}))
         .await;
     assert_eq!(reply["error"]["code"], code::APP_CLOSED);
-    assert!(fixture.runs.lock().unwrap().is_empty());
+    assert!(fixture.runs.lock().is_empty());
 }
 
 #[tokio::test]
@@ -265,7 +269,7 @@ async fn na8_only_the_user_runs_an_action() {
     );
     let reply = agent.call("action.run", json!({"name":"agent.new"})).await;
     assert_eq!(reply["error"]["code"], code::FORBIDDEN);
-    assert!(fixture.runs.lock().unwrap().is_empty());
+    assert!(fixture.runs.lock().is_empty());
     // An Agent cannot take the App's place either.
     let reply = agent.call("action.serve", Value::Null).await;
     assert_eq!(reply["error"]["code"], code::FORBIDDEN);
@@ -318,7 +322,7 @@ async fn na9_a_run_the_app_never_answered_is_unknown_outcome_and_not_retried() {
         .call("action.run", json!({"name":"agent.new"}))
         .await;
     assert_eq!(reply["error"]["code"], code::UNKNOWN_OUTCOME);
-    assert_eq!(fixture.runs.lock().unwrap().len(), 1);
+    assert_eq!(fixture.runs.lock().len(), 1);
     // The same call again is a second run: there is no operation id.
     let reply = fixture
         .user()
@@ -326,7 +330,7 @@ async fn na9_a_run_the_app_never_answered_is_unknown_outcome_and_not_retried() {
         .call("action.run", json!({"name":"agent.new"}))
         .await;
     assert_eq!(reply["error"]["code"], code::UNKNOWN_OUTCOME);
-    assert_eq!(fixture.runs.lock().unwrap().len(), 2);
+    assert_eq!(fixture.runs.lock().len(), 2);
 }
 
 #[tokio::test]

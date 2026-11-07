@@ -187,7 +187,8 @@ async fn u6260a_held_prompt_is_reported_to_its_sender() {
         vec![note.clone()],
         Inbox::Ok,
     )
-    .await;
+    .await
+    .unwrap();
     let seen = failure::with_waiting(inner, lock(&inner.store).get(note.id).unwrap().unwrap());
     assert_eq!(seen.status, MessageStatus::Pending);
     assert_eq!(seen.waiting.as_deref(), Some(failure::AWAITING_INPUT));
@@ -203,7 +204,8 @@ async fn u6260a_held_prompt_is_reported_to_its_sender() {
         vec![note.clone()],
         Inbox::Ok,
     )
-    .await;
+    .await
+    .unwrap();
     assert_eq!(written_by(&gated), vec![vec![note.id]]);
     let seen = failure::with_waiting(inner, lock(&inner.store).get(note.id).unwrap().unwrap());
     assert_eq!(seen.waiting, None);
@@ -223,7 +225,7 @@ async fn u6260a_a_reserved_restart_is_reported_and_a_settled_message_forgets_its
     assert_eq!(seen.waiting.as_deref(), Some(failure::RESTART_RESERVED));
 
     assert!(lock(&inner.store).drop_merged(note.id).unwrap());
-    failure::forget_settled(inner);
+    failure::forget_settled(inner).unwrap();
     assert!(lock(&inner.waiting).is_empty());
 }
 
@@ -249,6 +251,29 @@ async fn u6296a_a_message_to_a_busy_receiver_shows_its_reason() {
     let seen = failure::with_waiting(inner, lock(&inner.store).get(note.id).unwrap().unwrap());
     assert_eq!(seen.waiting, None);
     assert_eq!(messages.delivery_failure("m"), None);
+}
+
+#[tokio::test]
+async fn u6404a_a_stopped_receiver_gets_its_message_under_a_hold_and_a_running_one_does_not() {
+    let dir = tempfile::tempdir().unwrap();
+    let (messages, rail, inbox, _) = open(dir.path());
+    let inner = &messages.inner;
+    let idle = lock(&rail.nodes)[0].clone();
+    let mut running = idle.clone();
+    running.status.as_mut().unwrap().kind = Kind::Working;
+    running.status.as_mut().unwrap().label = "working".into();
+    lock(&rail.nodes)[0] = running.clone();
+    let note = pending(&messages, &Actor::daemon(), "child is done");
+    crate::nudge(inner, "m").await;
+    let seen = failure::with_waiting(inner, lock(&inner.store).get(note.id).unwrap().unwrap());
+    assert_eq!(seen.waiting.as_deref(), Some(failure::RECEIVER_BUSY));
+    assert!(written(&inbox).is_empty());
+
+    let mut waiting = running;
+    waiting.status.as_mut().unwrap().label = "waiting on `npm test`".into();
+    lock(&rail.nodes)[0] = waiting;
+    crate::nudge(inner, "m").await;
+    assert_eq!(written(&inbox), vec![vec![note.id]]);
 }
 
 #[tokio::test]

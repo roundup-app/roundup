@@ -12,17 +12,24 @@ use tokio::sync::broadcast::{Receiver, error::RecvError};
 
 use crate::digest::{Reader, World};
 
-const MAX_IDS: usize = 20;
+/// `WakeParams` whose `ids` list was checked while parsing: one to twenty.
+#[derive(serde::Deserialize)]
+#[serde(try_from = "WakeParams")]
+struct WakeRequest(WakeParams);
+
+impl TryFrom<WakeParams> for WakeRequest {
+    type Error = &'static str;
+
+    fn try_from(params: WakeParams) -> Result<Self, Self::Error> {
+        if params.ids.is_empty() || params.ids.len() > 20 {
+            return Err("ids must name 1 to 20 Agents");
+        }
+        Ok(Self(params))
+    }
+}
 
 pub(super) fn parse_request(params: serde_json::Value) -> Result<WakeParams, RpcError> {
-    let WakeParams { ids, any } = rpc::params(params)?;
-    if ids.is_empty() || ids.len() > MAX_IDS {
-        return Err(RpcError::new(
-            code::INVALID_PARAMS,
-            format!("ids must name 1 to {MAX_IDS} Agents"),
-        ));
-    }
-    Ok(WakeParams { ids, any })
+    Ok(rpc::params::<WakeRequest>(params)?.0)
 }
 
 /// What the deciding task remembers between Events: serialised by its lock, so a registration and a
@@ -133,7 +140,7 @@ impl Waker {
             Ok((events, _)) => events,
             Err(err) if err.code == code::EVENTS_EXPIRED => Vec::new(),
             Err(err) => {
-                eprintln!("rupd: wake: the event log was not read: {}", err.message);
+                eprintln!("rupd: wake: the event log was not read: {}", err);
                 Vec::new()
             }
         }
@@ -172,7 +179,7 @@ impl Waker {
             if (wake.finished.clone(), wake.seen) != before
                 && let Err(err) = self.messages.keep_wake(wake.id, &wake.finished, wake.seen)
             {
-                eprintln!("rupd: wake: not kept: {}", err.message);
+                eprintln!("rupd: wake: not kept: {}", err);
             }
             return None;
         }
@@ -182,7 +189,15 @@ impl Waker {
             }
             return None;
         }
-        let entries: Vec<DigestEntry> = wake.ids.iter().map(|id| self.entry(id, world)).collect();
+        let entries: Result<Vec<DigestEntry>, _> =
+            wake.ids.iter().map(|id| self.entry(id, world)).collect();
+        let entries = match entries {
+            Ok(entries) => entries,
+            Err(err) => {
+                eprintln!("rupd: wake: not fired: {err}");
+                return None;
+            }
+        };
         let body = messages::wake::note_body(&entries);
         match self.messages.fire_wake(wake.id, &wake.waiter, body).await {
             Ok(true) => Some(Fired {
@@ -191,23 +206,24 @@ impl Waker {
             }),
             Ok(false) => None,
             Err(err) => {
-                eprintln!("rupd: wake: not fired: {}", err.message);
+                eprintln!("rupd: wake: not fired: {}", err);
                 None
             }
         }
     }
 
-    fn entry(&self, id: &str, world: &World) -> DigestEntry {
-        self.digests
-            .entry_of(id, &world.sources(), false)
-            .unwrap_or_else(|| DigestEntry {
-                name: self.agents.rail_name(id).expect("read wake Agent name"),
-                kind: Kind::Done,
-                last: String::new(),
-                todos: 0,
-                link: None,
-                pads: Vec::new(),
-            })
+    fn entry(&self, id: &str, world: &World) -> Result<DigestEntry, RpcError> {
+        if let Some(entry) = self.digests.entry_of(id, &world.sources(), false) {
+            return Ok(entry);
+        }
+        Ok(DigestEntry {
+            name: self.agents.rail_name(id)?,
+            kind: Kind::Done,
+            last: String::new(),
+            todos: 0,
+            link: None,
+            pads: Vec::new(),
+        })
     }
 
     /// B44: decides every open request again, from the log and the present Kinds.
@@ -218,7 +234,7 @@ impl Waker {
         let wakes = match self.messages.wakes() {
             Ok(wakes) => wakes,
             Err(err) => {
-                eprintln!("rupd: wake: requests not read: {}", err.message);
+                eprintln!("rupd: wake: requests not read: {}", err);
                 return;
             }
         };
@@ -248,7 +264,7 @@ impl Waker {
             // since a resume of it (B36) is the same Agent; nothing is sent to a `done` Agent.
             if kind_of(&world, &wake.waiter).is_none() {
                 if let Err(err) = self.messages.drop_wakes_of(&wake.waiter) {
-                    eprintln!("rupd: wake: not dropped: {}", err.message);
+                    eprintln!("rupd: wake: not dropped: {}", err);
                 }
                 continue;
             }
@@ -289,7 +305,7 @@ impl Waker {
                 .repeats_last_note(&parent, &status.id, status.status.kind)
             && let Err(err) = self.messages.note_attention(&parent, &entry).await
         {
-            eprintln!("rupd: wake: note to {parent} not sent: {}", err.message);
+            eprintln!("rupd: wake: note to {parent} not sent: {}", err);
         }
     }
 
@@ -321,7 +337,7 @@ pub async fn tell_renames(reader: Reader, mut events: rpc::Subscription) {
         let EventData::RailRenamed { id, name } = event.data else {
             continue;
         };
-        let nodes: Vec<RailNode> = reader
+        let nodes: Vec<RailNode> = match reader
             .call(
                 "rail",
                 "rail.tree",
@@ -329,7 +345,13 @@ pub async fn tell_renames(reader: Reader, mut events: rpc::Subscription) {
                 Actor::daemon(),
             )
             .await
-            .expect("read renamed Agent");
+        {
+            Ok(nodes) => nodes,
+            Err(err) => {
+                eprintln!("rupd: Rail rename note for {name} not sent, Rail unreadable: {err}");
+                return;
+            }
+        };
         if !nodes.iter().any(|node| {
             node.id == id
                 && is_agent(node)
@@ -353,7 +375,10 @@ pub async fn tell_renames(reader: Reader, mut events: rpc::Subscription) {
                 rpc::code::NOT_FOUND | rpc::code::CONFLICT | rpc::code::INVALID_PARAMS => {
                     eprintln!("rupd: Rail rename note for {name} refused: {err}");
                 }
-                _ => panic!("queue Rail rename note: {err}"),
+                _ => {
+                    eprintln!("rupd: Rail rename note for {name} failed: {err}");
+                    return;
+                }
             }
         }
     }
@@ -361,6 +386,19 @@ pub async fn tell_renames(reader: Reader, mut events: rpc::Subscription) {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn c6629b_a_bad_wake_ids_list_fails_to_parse() {
+        let ids = |n: usize| serde_json::json!({"ids": (0..n).map(|i| i.to_string()).collect::<Vec<_>>()});
+        for bad in [0, 21] {
+            let err = super::parse_request(ids(bad)).unwrap_err();
+            assert_eq!(err.code, rpc::code::INVALID_PARAMS);
+            assert!(err.message.contains("ids must name 1 to 20 Agents"));
+        }
+        for good in [1, 20] {
+            assert_eq!(super::parse_request(ids(good)).unwrap().ids.len(), good);
+        }
+    }
+
     use super::*;
 
     #[test]

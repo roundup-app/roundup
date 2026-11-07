@@ -86,7 +86,7 @@ async fn open(
 ) -> Fx {
     early(root.path());
     let data = root.path().join("data");
-    let mut daemon = Daemon::open(&data).unwrap();
+    let (mut daemon, watchers) = Daemon::open(&data).unwrap();
     daemon.extensions = super::Host::for_test(extensions(root.path()), node, timeout);
     let daemon = Arc::new(daemon);
     let (events, _) = daemon.subscribe();
@@ -94,6 +94,7 @@ async fn open(
     tokio::spawn(crate::serve(
         UnixListener::bind(&socket).unwrap(),
         Arc::clone(&daemon),
+        watchers,
     ));
     Fx {
         root,
@@ -474,7 +475,7 @@ async fn ua5_only_the_user_runs_a_user_action() {
         .call("action.run", json!({"name":"user.deploy"}))
         .await;
     assert_eq!(reply["error"]["code"], code::FORBIDDEN);
-    assert_eq!(fx.daemon.extensions.store.lock().unwrap().get("d"), None);
+    assert_eq!(fx.daemon.extensions.store.lock().get("d"), None);
 }
 
 #[tokio::test]

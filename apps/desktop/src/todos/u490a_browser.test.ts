@@ -79,6 +79,9 @@ const drag = async (from: Point, to: () => Promise<Point>, release = true) => {
 
   for (let step = 1; step <= 8; step++) await page.pointer("move", from.x + ((target.x - from.x) * step) / 8, from.y - 6 + ((target.y - from.y + 6) * step) / 8);
 
+  // U3800e: a release commits the drop the last painted frame showed, so the last move paints before it.
+  await page.call("() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve(null))))");
+
   if (release) await page.pointer("up", target.x, target.y);
 };
 

@@ -3,11 +3,15 @@ use super::*;
 use contracts::agent::AlertLevel;
 
 impl Rail {
-    pub(crate) fn set_alert_level(&mut self, id: &str, level: AlertLevel) -> Result<(), RpcError> {
-        let tx = self.db.transaction().map_err(sql)?;
+    pub(crate) fn set_alert_level(
+        &mut self,
+        id: &str,
+        level: AlertLevel,
+    ) -> Result<(), StoreError> {
+        let tx = self.db.transaction()?;
         let nodes = load(&tx)?;
         let target = find(&nodes, id)?;
-        let stored = serde_json::to_string(&level).map_err(RpcError::internal)?;
+        let stored = serde_json::to_string(&level)?;
         for node in &nodes {
             if (node.kind == NodeKind::Agent || node.attempt.is_some())
                 && (node.id == id
@@ -16,11 +20,10 @@ impl Rail {
                 tx.execute(
                     "UPDATE nodes SET alert_level=? WHERE id=?",
                     params![stored, node.id],
-                )
-                .map_err(sql)?;
+                )?;
             }
         }
-        tx.commit().map_err(sql)
+        Ok(tx.commit()?)
     }
 }
 
@@ -29,17 +32,17 @@ impl Rail {
         &self,
         id: &str,
         visibility: contracts::agent::RailVisibility,
-    ) -> Result<bool, RpcError> {
+    ) -> Result<bool, StoreError> {
         let value = match visibility {
             contracts::agent::RailVisibility::Shown => "shown",
             contracts::agent::RailVisibility::Internal => "internal",
         };
-        self.db
+        Ok(self
+            .db
             .execute(
                 "UPDATE nodes SET visibility=?1 WHERE id=?2 AND visibility<>?1",
                 params![value, id],
             )
-            .map(|n| n != 0)
-            .map_err(sql)
+            .map(|n| n != 0)?)
     }
 }

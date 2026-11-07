@@ -178,7 +178,7 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
 
   const endCompose = () => setComposing(false);
 
-  const { topology, sectionRows, rows, collection, expanded, entryOf, nodeRows, nodeIds, indexOf, treeRows, byKey } = createRailTree(connected, unfolded, id => rowElement(id));
+  const { topology, sectionRows, rows, collection, expanded, entryOf, nodeRows, nodeIds, indexOf, treeRows, byKey, lifted, dropRules } = createRailTree(connected, unfolded, id => rowElement(id), () => container());
 
 
   /** U38: mounting follows the first tree answer; fetch failure takes precedence. */
@@ -232,7 +232,8 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
 
     const target = branch?.key ?? parent;
     setFocused(target);
-    queueMicrotask(() => rowElement(target)?.focus());
+    // U3800g: the restore runs at the next frame, after the drop's task.
+    requestAnimationFrame(() => rowElement(target)?.focus());
   }));
 
   const openRow = (id: string) => {
@@ -327,14 +328,14 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
 
     const ids = nodeIds();
     const next = ids[ids.indexOf(node.id) + 1] ?? ids[ids.indexOf(node.id) - 1];
-    menu.requestRemove(node, rail.exitOf(node), () => {
+    menu.requestRemove(node, rail.exitOf(node), () => untrack(() => {
       if (next === undefined || rail.selected() !== node.id && !selection.selection.isSelected(node.id)) return;
 
       selection.selection.replace(next);
       anchorAt(next);
       rail.select(next);
       focusRow(next);
-    });
+    }));
   };
 
   const openMenuAtFocusedRow = (press: KeyboardEvent) => {
@@ -721,14 +722,17 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
         tree={{
           rows: treeRows(),
           indent: railStep(),
+          // U22: a release outside the Rail's box drops nothing, so a nest steps inside it.
+          bounds: () => container()?.getBoundingClientRect(),
           inset: (element) => {
             const content = element.querySelector<HTMLElement>(".line");
 
             return content ? content.getBoundingClientRect().left - element.getBoundingClientRect().left : 0;
           },
-          nests: (id) => rows().some((row) => row.kind === "node" && row.node.id === id && isWorkstream(row.node) && row.collapsed === null),
+          ...dropRules,
           onMove: moveTo,
           onPreview: (next) => placeDrop(next),
+          accepts: () => !pointerOutside(),
         }}
       >
       <TreeView.Tree aria-label={copy.rail} aria-disabled={daemonExit() !== null ? true : undefined}>
@@ -789,11 +793,12 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
                             failure.show(message, id, "rail", () => setEditingName(id));
                           }}
                           onEditing={(editing) => setEditingName(editing ? view().node.id : null)}
-                          onRename={async (name) => {
-                            await rail.rename(view().node.id, name);
-                            failure.acknowledge(view().node.id);
+                          onRename={(name) => {
+                            const id = view().node.id;
+
+                            return rail.rename(id, name).then(() => failure.acknowledge(id));
                           }}
-                          lifted={parts.isDragging()}
+                          lifted={parts.isDragging()} folded={lifted() === view().node.id}
                           sortRef={parts.ref}
                           handleRef={parts.handleRef}
                           draggable={daemonExit() === null}
@@ -808,7 +813,7 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
                       {(view) => (
                         <TreeView.NodeProvider node={entryOf(view().key).node} indexPath={entryOf(view().key).indexPath}>
                           <TreeView.Branch data-id={view().key} aria-label={`${view().count}${view().group === "internal" ? copy.internalCount : copy.idleCount}`}>
-                            <TreeView.BranchControl class="rail-fold row-wash" style={{ "--indent": `calc(${view().depth} * var(--rail-step) + var(--rail-inset))` }} onClick={() => setUnfolded(open => toggled(open, view().key.slice(5)))}>
+                            <TreeView.BranchControl class="rail-fold row-wash row-wash-inert" style={{ "--indent": `calc(${view().depth} * var(--rail-step) + var(--rail-inset))` }} onClick={() => setUnfolded(open => toggled(open, view().key.slice(5)))}>
                               <Trunks depth={view().depth} trail={[...view().trail, false]} stem={view().open} />
                               <span class="rail-fold-content"><KindGlyph kind={view().status} decorative /><span class="rail-fold-name">{view().count}{view().group === "internal" ? copy.internalCount : copy.idleCount}</span></span>
                               <TreeView.BranchIndicator><Icon name="right" /></TreeView.BranchIndicator>
@@ -844,7 +849,7 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
         setCreatingMode(false);
         // The arriving Door must not reuse the selection permission to take focus from this row.
         const focus = rail.terminalFocus();
-        queueMicrotask(() => focus(() => rowElement(id)?.focus({ preventScroll: true })));
+        queueMicrotask(() => untrack(() => focus(() => rowElement(id)?.focus({ preventScroll: true }))));
         void menu.restartSession(id, request);
       }} /></Show>
       <RailConfirm menu={menu} rowElement={rowElement} />

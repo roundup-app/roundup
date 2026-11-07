@@ -256,7 +256,7 @@ impl Fixture {
             .await
             .into_iter()
             .find(|n| n.id == id)
-            .and_then(|n| n.attempt)
+            .and_then(|n| n.attempt.map(String::from))
             .unwrap_or_else(|| "1".into())
     }
 

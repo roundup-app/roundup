@@ -46,7 +46,7 @@ const ways: [string, () => void | Promise<void>][] = [
     leaderKey("KeyP");
     fireEvent.click(await screen.findByRole("option", { name: /api/ }));
   }],
-  ["closing the open tab", () => { fireEvent.click(screen.getByLabelText("Close web")); }],
+  ["closing the open tab", () => { fireEvent.click(tab("web").closest(".project-tab")!.querySelector<HTMLElement>(".tab-close")!); }],
 ];
 
 describe("u6371 a switch puts focus in the centre", () => {
@@ -80,7 +80,7 @@ describe("u6371 a switch puts focus in the centre", () => {
     expect(document.activeElement).toBe(tab("web"));
 
     // The close-Project question is open: a switch leaves focus where it is.
-    fireEvent.click(screen.getByLabelText("Close api"));
+    fireEvent.click(tab("api").closest(".project-tab")!.querySelector<HTMLElement>(".tab-close")!);
     await questionDialog();
     await userEvent.click(tab("api"));
     await waitFor(() => expect(tab("api").getAttribute("aria-selected")).toBe("true"));

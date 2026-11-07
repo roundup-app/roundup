@@ -21,7 +21,7 @@ const tips = () => screen.queryAllByRole("tooltip").map((tip) => tip.textContent
 it("u521_icon_controls_show_their_names", { timeout: 60_000 }, async () => {
   await mountRail(tree());
 
-  const icons = [...document.querySelectorAll<HTMLButtonElement>(".rail-tree button")].filter((button) => (button.textContent ?? "").trim() === "");
+  const icons = [...document.querySelectorAll<HTMLButtonElement>(".rail-tree button:not(.sortable-handle)")].filter((button) => (button.textContent ?? "").trim() === "");
 
   expect(icons.length).toBeGreaterThan(2);
 

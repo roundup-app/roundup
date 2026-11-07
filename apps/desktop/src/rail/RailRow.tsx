@@ -83,6 +83,7 @@ const NameField = (props: { node: RailNode; onCommit: (name: string) => Promise<
   return <>
     <input spellcheck={false} autocorrect="off" autocapitalize="off"
       type="text"
+      class="field-inline"
       aria-label={copy.name}
       aria-invalid={conflict() || current()?.status === "failed" ? true : undefined}
       value={value()}
@@ -110,6 +111,15 @@ const NameField = (props: { node: RailNode; onCommit: (name: string) => Promise<
 };
 
 
+/** The count a row shows for children it hides: those folded under it while a drag holds it (U6550a), else its collapsed Agents. */
+const FoldedCount = (props: { folded: boolean; topology: RailTopology; id: string; hidden: number | undefined }) => {
+  const lifted = () => props.folded ? descendantsOf(props.topology, props.id).length : 0;
+
+  return <Show when={lifted() || props.hidden}>{lifted()
+  ? <span class="hidden-agents" data-state="lifted" role="img" aria-label={copy.liftedChildren(lifted())}>{copy.liftedCount(lifted())}</span>
+  : <span class="hidden-agents" data-state="collapsed" role="img" aria-label={copy.hiddenAgents(props.hidden!)}>{props.hidden}</span>}</Show>;
+};
+
 export const RailRowView = (props: {
   actions: RowActions; doorAction?: JSX.Element;
   topology: RailTopology; todoCount: number;
@@ -117,7 +127,7 @@ export const RailRowView = (props: {
   copyWith?: (feedback: ReturnType<typeof createCopyFeedback>) => () => void;
   editing: boolean; onEditing: (editing: boolean) => void; onToggle: () => void; onOpen: (id?: string) => void;
   onRename: (name: string) => Promise<void>; onFailure: (message: string) => void;
-  lifted: boolean; sortRef: (element: HTMLElement | undefined) => void;
+  lifted: boolean; /** U6550a: the drag holds this row and its children are folded under it. */ folded: boolean; sortRef: (element: HTMLElement | undefined) => void;
   handleRef: (element: HTMLButtonElement | undefined) => void;
   draggable: boolean;
   onOpenMenu: (x: number, y: number) => void;
@@ -212,7 +222,7 @@ export const RailRowView = (props: {
       <span class="row-state"><KindGlyph kind={kind() ?? "idle"} /></span>
       {name()}
       <Show when={level() !== "default" && level()}>{level => <span class="alert-level" data-state="alert-level">{level()}</span>}</Show>
-      <Show when={props.row.collapsed?.agents.length}>{hidden => <span class="hidden-agents" data-state="collapsed" role="img" aria-label={copy.hiddenAgents(hidden())}>{hidden()}</span>}</Show>
+      <FoldedCount folded={props.folded} topology={props.topology} id={props.row.node.id} hidden={props.row.collapsed?.agents.length} />
       <Show when={unread()}><span class="unread-dot row-secondary" data-state="" role="img" aria-label={copy.unreadResult} /></Show>
       <Show when={queuedBadge()}>{badge => <span class="light queue-badge row-secondary">{badge()}</span>}</Show>
       <Show when={!workstream() && props.row.node.worktree}><span class="worktree-chips row-secondary">

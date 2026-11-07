@@ -15,9 +15,13 @@ fn lc19_lean_starts_include_memory_tools_and_guard() {
             for yolo in [false, true] {
                 for resume in [None, Some("saved-conversation")] {
                     let s = setup();
-                    let pair = Pair {
+                    let pair = LaunchFacts {
                         mcp_off,
-                        yolo,
+                        permission: if yolo {
+                            agents::claude_code::Permission::Bypass
+                        } else {
+                            agents::claude_code::Permission::Inherit
+                        },
                         ..pair.clone()
                     };
                     let argv = s.prepare_lean("7", role, &pair, resume).unwrap();
@@ -182,7 +186,7 @@ fn lc19_memory_guard_extends_user_settings() {
     for (row, role, pair) in
         lean_children()
             .into_iter()
-            .chain([(Role::Agent, Role::Agent, Pair::default())])
+            .chain([(Role::Agent, Role::Agent, LaunchFacts::default())])
     {
         let s = setup();
         let memory = s.root.path().canonicalize().unwrap().join("local-memory");

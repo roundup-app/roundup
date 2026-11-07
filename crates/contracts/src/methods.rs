@@ -31,7 +31,10 @@ impl ExportedMethod {
     }
 }
 
-pub(crate) fn typed<P: Type, R: Type>(name: &'static str) -> ExportedMethod {
+/// Why a method's types could not be exported.
+pub type ExportError = Box<dyn std::error::Error + Send + Sync>;
+
+pub(crate) fn typed<P: Type, R: Type>(name: &'static str) -> Result<ExportedMethod, ExportError> {
     let mut types = specta::Types::default();
     let params = P::definition(&mut types);
     let result = R::definition(&mut types);
@@ -47,16 +50,10 @@ pub(crate) fn typed<P: Type, R: Type>(name: &'static str) -> ExportedMethod {
             crate::export::defaults(dt);
         }
     });
-    let types = specta_serde::Format
-        .map_types(&types)
-        .expect("valid contract metadata")
-        .into_owned();
+    let types = specta_serde::Format.map_types(&types)?.into_owned();
     let exporter = specta_typescript::Typescript::default()
         .layout(specta_typescript::Layout::ModulePrefixedName);
-    let render = |dt| {
-        specta_typescript::primitives::reference(&exporter, &types, dt)
-            .expect("exportable method type")
-    };
+    let render = |dt| specta_typescript::primitives::reference(&exporter, &types, dt);
     let ((params, result), references) =
         specta_typescript::collect_references(|| (render(&params), render(&result)));
     let imports = references
@@ -64,16 +61,16 @@ pub(crate) fn typed<P: Type, R: Type>(name: &'static str) -> ExportedMethod {
         .map(|reference| {
             let ty = types
                 .get(&reference)
-                .expect("registered contract reference");
-            (ty.module_path.to_string(), ty.name.to_string())
+                .ok_or("method names an unregistered type")?;
+            Ok((ty.module_path.to_string(), ty.name.to_string()))
         })
-        .collect();
-    ExportedMethod {
+        .collect::<Result<_, ExportError>>()?;
+    Ok(ExportedMethod {
         name,
-        params,
-        result,
+        params: params?,
+        result: result?,
         imports,
-    }
+    })
 }
 
 #[cfg(test)]

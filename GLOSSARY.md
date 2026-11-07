@@ -84,11 +84,13 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Rollup | same | — |
 | Attempt | same | — |
 | Status revision | same | — |
+| Ordinal (`Ordinal`; an Attempt or Status revision on the wire: a canonical positive decimal string) | same | — |
 | Finish count (`Status.finished`, `finished`) | same | — |
 | Unseen (`unseen`, `UnseenState`) | Unread result | — |
 | Resume (`ResumeParams`, `ResumeMode`) | same | — |
 | Turn resume (`ResumeWait`, `RailNode.resume`) | `resumes 14:05` | — |
-| YOLO (`yolo`) | same | — |
+| YOLO (`yolo`, `Permission::Bypass`) | same | — |
+| Launch facts (`LaunchFacts`, `Permission`; `Request` to the Launcher; `Launch`, `Origin`, `Attach` to a start) | none | — |
 | Conversation overview (`ConversationOverview`, `RailNode.overview`) | same | — |
 | Conversion offer (`RailNode.can_make_workstream`, `RailNode.can_save_as_mode`) | same | — |
 | Import (`project.importDiscover`, `project.importCommit`, `ImportPeriod`, `ImportCandidate`, `ImportSelection`, `ImportResult`) | same | — |
@@ -266,6 +268,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Context menu (`show_context_menu`, `MenuItem`, `MenuEntry`, `Item`, `project_kind`, `context_menu`) | same | — |
 | openTarget | none | — |
 | open_in_editor | none | — |
+| Code editor (`codeEditor`, `list_editors`, `EditorChoice`) | Code editor | — |
 | Extension | same | — |
 | Hook | same | — |
 | User action (`UserAction`, `action.userList`, `action.userChanged`) | action | — |
@@ -382,6 +385,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Import failure (`ImportFailure`, `ImportOutcome.error`) | same | — |
 | Import disposition (`ImportDisposition`, `outcome`) | same | — |
 | Final text (`FinalText`, `FinalTextKind`, `final_text`) | none | — |
+| Bounded text (`Text`, `OperationKey`) | same | — |
 | Idle evidence (`record_idle_evidence`, `recordIdleEvidence`, `IdleEvidence`) | same | — |
 | Daemon recovery (`DaemonExited.recovery`, `DaemonExit.recovery`) | same | — |
 | Native integration (`native`, `Preferences`, `Missing`) | same | — |
@@ -394,6 +398,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Code term | User label | Avoid |
 |---|---|---|
 | Storage recovery (`StorageRecovery`, `storageRecovery`, `retainedStorage`) | same | — |
+| Project schema crate (`storage`, `storage::connect`, `storage::fixture`, `Word`, `Json`) | none | — |
 | Capture panel (`CapturePanel`, `CapturePanelState`, `register_capture`) | same | — |
 | Capture presentation (`CapturePort`, `CaptureState`, `CaptureAction`, `captureStateSchema`, `captureActionSchema`, `CapturePanel` in the App, `control` in the capture-panel plugin) | same | — |
 | Native material (`Material`, `native_material`, `followMaterial`, `watch_transparency`, `--material-tint`) | same | — |
@@ -408,6 +413,8 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 |---|---|---|
 | Recent Projects (`recent_projects`, `recentProjects`) | Recent folders | — |
 | Claude binary (`claude_binary`, `claudeBinary`, `ClaudeBinary`, `claudeBinarySchema`) | claude | — |
+| Project task (`project_task`, `supervise`, `Supervisor`, `Command`, `Access`, `Attachment`, `Pump`) | none | — |
+| Open cause (`OpenCause`, `User`, `Restore`) | none | — |
 
 | Undo refusal (`RpcErrorData::UndoParent`, `UndoIdentity`, `UndoPadName`, `RpcError::undo_parent`, `undo_identity`, `undo_pad_name`) | same | — |
 

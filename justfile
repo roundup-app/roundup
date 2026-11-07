@@ -38,11 +38,17 @@ lint-rust base="": lint-repo
     python3 loop/lint-repo.test.py
     tools/question-guard/guard.test.sh
     tools/question-guard/guard.sh
+    tools/nodes-sql/guard.sh
+    tools/agents-state/guard.test.sh
+    tools/agents-state/guard.sh
     tools/retired-words.test.sh
     tools/retired-words.sh
     tools/library-reuse.test.sh
     tools/update/update.test.sh
     tools/library-reuse.sh
+    tools/method-policy/guard.sh
+    tools/worktree-prefix.sh
+    tools/typed-calls/guard.sh
     just proofs
 
 # Lints every target of the workspace; CI runs it on Linux and on macOS, whose `target_os = "macos"` code Linux never compiles (L89).

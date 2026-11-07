@@ -76,11 +76,7 @@ impl Messages {
         env: Env,
     ) -> Result<Self, OpenError> {
         let events = bus.subscribe();
-        let store = Store::open(&dir.join(if dir.join("project.db").exists() {
-            "project.db"
-        } else {
-            "messages.db"
-        }))?;
+        let store = Store::open(dir)?;
         let pushes = pushes::Ledger::load(&store.db);
         let inner = Arc::new(Inner {
             store: Mutex::new(store),
@@ -107,9 +103,9 @@ impl Messages {
     }
 
     /// Reconcile verified owners before any fresh Status can race the restart binding reset.
-    pub async fn recover(&self) -> Result<(), RpcError> {
+    pub async fn recover(&self) -> Result<(), Error> {
         if !super::delivery::resync(&self.inner).await {
-            return Err(RpcError::internal(
+            return Err(Error::internal(
                 "could not reconcile recovered Message receivers",
             ));
         }
@@ -124,7 +120,7 @@ impl Messages {
         }
     }
 
-    pub(super) fn store(&self) -> Result<MutexGuard<'_, Store>, RpcError> {
+    pub(super) fn store(&self) -> Result<MutexGuard<'_, Store>, Error> {
         Ok(lock(&self.inner.store))
     }
 }

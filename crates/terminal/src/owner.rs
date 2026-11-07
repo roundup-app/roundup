@@ -7,6 +7,8 @@ use std::sync::Arc;
 use contracts::Actor;
 use contracts::terminal::{SchemeParams, SpawnParams, TerminalInfo};
 use rpc::{Bus, Client, Ctx, Module, OpenError, RpcError};
+
+use crate::{Error, Locked};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
@@ -100,7 +102,7 @@ impl TerminalOwner {
     /// or a signal before verification. An exit racing this lookup cannot create a replacement:
     /// the connected owner has exactly one immutable Terminal and no spawn RPC.
     pub async fn connect(&self, project: &Path) -> Result<Client, RpcError> {
-        let project = project.canonicalize().map_err(RpcError::internal)?;
+        let project = project.canonicalize().map_err(Error::internal)?;
         if project != self.project
             || self.directory.parent() != Some(project.as_path())
             || std::fs::read_link(self.directory.join(SOCKET_LINK))
@@ -108,27 +110,30 @@ impl TerminalOwner {
                 .as_deref()
                 != self.socket.parent()
         {
-            return Err(RpcError::not_found("Terminal owner Project"));
+            return Err(Error::not_found("Terminal owner Project").into());
         }
-        tokio::time::timeout(std::time::Duration::from_secs(5), self.connect_live())
+        let live = tokio::time::timeout(std::time::Duration::from_secs(5), self.connect_live())
             .await
-            .map_err(|_| RpcError::internal("Terminal owner did not answer within five seconds"))?
+            .map_err(|_| Error::internal("Terminal owner did not answer within five seconds"))?;
+        Ok(live?)
     }
 
-    async fn connect_live(&self) -> Result<Client, RpcError> {
+    async fn connect_live(&self) -> Result<Client, Error> {
         let client = Client::connect(&self.socket)
             .await
-            .map_err(RpcError::internal)?;
+            .map_err(Error::internal)?;
         let terminals: Vec<TerminalInfo> =
             rpc::params(client.request("terminal.list", json!({})).await?)?;
-        if terminals.len() != 1
-            || terminals[0].id != self.info.id
-            || terminals[0].incarnation != self.info.incarnation
-            || !terminals[0].running
-        {
-            return Err(RpcError::not_found("live Terminal incarnation"));
+        match terminals.as_slice() {
+            [only]
+                if only.id == self.info.id
+                    && only.incarnation == self.info.incarnation
+                    && only.running =>
+            {
+                Ok(client)
+            }
+            _ => Err(Error::not_found("live Terminal incarnation")),
         }
-        Ok(client)
     }
 }
 
@@ -238,7 +243,12 @@ async fn connection(
                     Err(error) => json!({"jsonrpc":"2.0", "id":request_id, "error":error}),
                 }
             }
-            item = async { output.as_mut().expect("selected output").next().await }, if output.is_some() => {
+            item = async {
+                match output.as_mut() {
+                    Some(output) => output.next().await,
+                    None => std::future::pending().await,
+                }
+            }, if output.is_some() => {
                 match item {
                     Some(Output::Bytes { offset, bytes }) => json!({"jsonrpc":"2.0", "method":"terminal.output",
                         "params": {"id":id, "offset":offset, "data":STANDARD.encode(&bytes)}}),
@@ -312,37 +322,38 @@ async fn dispatch(
         }
         "terminal.kill" => {
             let handle = terminals.running(id)?;
-            tokio::task::spawn_blocking(move || {
-                let mut program = handle.program.lock().expect("terminal program lock");
-                if program.try_wait().map_err(RpcError::internal)?.is_some() {
-                    return Err(RpcError::not_found("running Terminal"));
+            let killed: Result<Value, Error> = tokio::task::spawn_blocking(move || {
+                let mut program = handle.program.locked("terminal program lock")?;
+                if program.try_wait().map_err(Error::internal)?.is_some() {
+                    return Err(Error::not_found("running Terminal"));
                 }
                 let pid = program
                     .process_id()
-                    .ok_or_else(|| RpcError::not_found("Terminal program"))?;
-                let pid = i32::try_from(pid).map_err(RpcError::internal)?;
+                    .ok_or_else(|| Error::not_found("Terminal program"))?;
+                let pid = i32::try_from(pid).map_err(Error::internal)?;
                 // portable-pty establishes this child as its own session/process-group leader.
                 // The unreaped original child, locked against the reaper, proves group ownership.
                 nix::sys::signal::killpg(
                     nix::unistd::Pid::from_raw(pid),
                     nix::sys::signal::Signal::SIGKILL,
                 )
-                .map_err(RpcError::internal)?;
+                .map_err(Error::internal)?;
                 drop(program);
-                crate::reap(&handle.program).map_err(RpcError::internal)?;
+                crate::reap(&handle.program).map_err(Error::internal)?;
                 #[cfg(target_os = "linux")]
                 loop {
                     match nix::sys::wait::waitpid(None, None) {
                         Ok(_) => {}
                         Err(nix::errno::Errno::EINTR) => continue,
                         Err(nix::errno::Errno::ECHILD) => break,
-                        Err(err) => return Err(RpcError::internal(err)),
+                        Err(err) => return Err(Error::internal(err)),
                     }
                 }
                 Ok(Value::Null)
             })
             .await
-            .map_err(RpcError::internal)?
+            .map_err(Error::internal)?;
+            Ok(killed?)
         }
         "terminal.output" => {
             let stream = terminals.subscribe_output(id)?;

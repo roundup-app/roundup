@@ -212,7 +212,7 @@ export const TodoComments = (props: { id: number; onSent?: ((focus: ReturnType<t
     </Collapsible.Root>
     <div class="todo-activity-entries"><For each={recent()}>{renderEntry}</For></div>
     <ReservedLine class="todo-comments-live" status={announcement()} aria-live="polite" aria-atomic="true" />
-    <div class="todo-composer"><span class="todo-composer-actor" aria-hidden="true"><Icon name="circle" /></span><textarea spellcheck={false} autocorrect="off" autocapitalize="off" class="todo-comment-field" rows={2} aria-label={copy.commentField} placeholder={copy.commentPlaceholder} value={text()}
+    <div class="todo-composer"><span class="todo-composer-actor" aria-hidden="true"><Icon name="circle" /></span><textarea spellcheck={false} autocorrect="off" autocapitalize="off" class="todo-comment-field field-frame" rows={2} aria-label={copy.commentField} placeholder={copy.commentPlaceholder} value={text()}
       ref={(element) => { field = element; }}
       onInput={(event) => setText(event.currentTarget.value)}
       onKeyDown={(event) => {

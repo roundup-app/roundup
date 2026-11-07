@@ -32,10 +32,15 @@ export type SpawnParams = {
 	 */
 	order?: agent$Order.Order,
 	/**
-	 *  A28: the child's Rail name, at most 32 characters; A9 never renames it. Name the child after
+	 *  A28: the child's Rail name, at most 42 characters; A9 never renames it. Name the child after
 	 *  its task. Without one, A9 names it from its first prompt.
 	 */
 	name?: string,
+	/**
+	 *  U6414a: the App sends `true` when `name` is one it supplied, not one the user typed; the
+	 *  row is then not marked as named by the user. Only the user's spawn may say so.
+	 */
+	appNamed?: boolean,
 	/**
 	 *  A36, M12: the child's Model, an id; without one the Project's for the Role applies. Any id
 	 *  `models.list` offers is accepted.

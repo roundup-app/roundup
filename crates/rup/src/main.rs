@@ -1,3 +1,8 @@
+#![deny(clippy::unwrap_used, clippy::expect_used)]
+#![deny(clippy::panic, clippy::indexing_slicing)]
+#![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
+#![cfg_attr(test, allow(clippy::panic, clippy::indexing_slicing))]
+
 use std::io::Read;
 use std::process::ExitCode;
 use std::time::Duration;
@@ -108,7 +113,14 @@ async fn main() -> ExitCode {
             return ExitCode::SUCCESS;
         }
         // SK9: no Daemon and no Agent id; `skill report` is the hook's and never exits 2.
-        ["skill", ..] => return skill::run(&args[args.len() - command.len() + 1..]),
+        ["skill", ..] => {
+            let flags: Vec<String> = command
+                .iter()
+                .skip(1)
+                .map(|flag| (*flag).to_owned())
+                .collect();
+            return skill::run(&flags);
+        }
         ["help", "skill"] => {
             print!("{}", skill::help_text());
             return ExitCode::SUCCESS;
@@ -188,10 +200,10 @@ async fn ping(options: &Options) -> Result<(), String> {
         );
         return Ok(());
     }
-    let word = |key: &str| reply[key].as_str().map(str::to_owned);
+    let word = |key: &str| reply.get(key)?.as_str().map(str::to_owned);
     println!(
         "rupd {} at {} for {}",
-        reply["pid"],
+        reply.get("pid").unwrap_or(&Value::Null),
         socket.display(),
         word("project").unwrap_or_default()
     );
@@ -203,9 +215,9 @@ async fn ping(options: &Options) -> Result<(), String> {
 async fn signal(agent_id: &str) -> Result<bool, String> {
     let attempt =
         std::env::var("ROUNDUP_ATTEMPT").map_err(|_| "ROUNDUP_ATTEMPT is required".to_owned())?;
-    if contracts::agent::parse_positive_ordinal(&attempt).is_none() {
-        return Err("ROUNDUP_ATTEMPT must be a canonical positive signed 64-bit decimal".into());
-    }
+    let attempt = contracts::agent::Ordinal::parse(&attempt).ok_or_else(|| {
+        "ROUNDUP_ATTEMPT must be a canonical positive signed 64-bit decimal".to_owned()
+    })?;
     let mut input = String::new();
     std::io::stdin()
         .read_to_string(&mut input)
@@ -287,7 +299,11 @@ async fn identified(agent_id: &str) -> Result<rpc::Client, String> {
 }
 
 /// Identify as Agent `agent_id` and hand the Daemon its Signal.
-async fn deliver(agent_id: &str, attempt: String, payload: Value) -> Result<bool, String> {
+async fn deliver(
+    agent_id: &str,
+    attempt: contracts::agent::Ordinal,
+    payload: Value,
+) -> Result<bool, String> {
     let client = identified(agent_id).await?;
     let signal = SignalParams {
         id: agent_id.to_owned(),
@@ -311,18 +327,20 @@ async fn deliver(agent_id: &str, attempt: String, payload: Value) -> Result<bool
 
 // N7: in-process MCP observers compose production stores only with owned test data here.
 #[cfg(test)]
-fn test_daemon(data: &std::path::Path) -> std::sync::Arc<rupd::Daemon> {
+fn test_daemon(data: &std::path::Path) -> (std::sync::Arc<rupd::Daemon>, rupd::Watchers) {
     assert!(data.is_absolute());
-    std::sync::Arc::new(rupd::Daemon::open(data).unwrap())
+    let (daemon, watchers) = rupd::Daemon::open(data).unwrap();
+    (std::sync::Arc::new(daemon), watchers)
 }
 
 #[cfg(test)]
 fn serve_test_daemon(
     socket: &std::path::Path,
     daemon: std::sync::Arc<rupd::Daemon>,
+    watchers: rupd::Watchers,
 ) -> tokio::task::JoinHandle<std::io::Result<()>> {
     let listener = tokio::net::UnixListener::bind(socket).unwrap();
-    tokio::spawn(rupd::serve(listener, daemon))
+    tokio::spawn(rupd::serve(listener, daemon, watchers))
 }
 
 // Daemon setup belongs to the composition root; MCP tests use its isolated socket.
@@ -339,10 +357,10 @@ async fn reply_project(
     std::sync::Arc<ReplyState>,
 ) {
     let dir = tempfile::tempdir().unwrap();
-    let (daemon, state) = rupd::test_support::reply_daemon(dir.path(), door);
+    let (daemon, watchers, state) = rupd::test_support::reply_daemon(dir.path(), door);
     let socket = dir.path().join("rpc.sock");
     let listener = tokio::net::UnixListener::bind(&socket).unwrap();
-    tokio::spawn(rupd::serve(listener, std::sync::Arc::new(daemon)));
+    tokio::spawn(rupd::serve(listener, std::sync::Arc::new(daemon), watchers));
     let user = rpc::Client::connect(&socket).await.unwrap();
     (dir, socket, user, state)
 }

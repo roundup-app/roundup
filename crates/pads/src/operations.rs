@@ -1,3 +1,4 @@
+use crate::Error;
 use provenance::now_ms;
 use std::path::Path;
 use std::sync::Mutex;
@@ -7,7 +8,9 @@ use contracts::pad::{
     ReorderParams, SetStorageParams, WriteParams,
 };
 use contracts::{ActorKind, EventData, Verb};
-use rpc::{Bus, Ctx, OpenError, RpcError, reply};
+use rpc::{Bus, Ctx, OpenError};
+
+use crate::reply;
 use serde_json::Value;
 
 use crate::store::Store;
@@ -17,18 +20,12 @@ impl Pads {
     /// `dir` is the Project's data folder (N1). `bus` is for events no call caused.
     pub fn open(dir: &Path, _bus: Bus) -> Result<Self, OpenError> {
         Ok(Self {
-            store: Mutex::new(Store::open(&dir.join(
-                if dir.join("project.db").exists() {
-                    "project.db"
-                } else {
-                    "pads.db"
-                },
-            ))?),
+            store: Mutex::new(Store::open(dir)?),
             files_dir: dir.join("pads"),
         })
     }
 
-    pub(super) fn create(&self, ctx: &Ctx, p: CreateParams) -> Result<Value, RpcError> {
+    pub(super) fn create(&self, ctx: &Ctx, p: CreateParams) -> Result<Value, Error> {
         name::validate(&p.name)?;
         let pad = Pad {
             incarnation: String::new(), // Assigned by the existing source-creation trigger.
@@ -40,8 +37,8 @@ impl Pads {
         };
         let store = self.store()?;
         let pad = store.atomically(|| {
-            if !store.insert(&pad).map_err(RpcError::internal)? {
-                return Err(RpcError::conflict(format!("pad exists: {}", pad.name)));
+            if !store.insert(&pad).map_err(Error::internal)? {
+                return Err(Error::conflict(format!("pad exists: {}", pad.name)));
             }
             self.mirror(&store, &pad.name, &pad.text)?;
             get(&store, &pad.name)
@@ -51,11 +48,11 @@ impl Pads {
     }
 
     /// T27: whether the Pad `link` names, and its section, exist now. It logs no Touch.
-    pub fn holds(&self, link: &reference::PadRef) -> Result<bool, RpcError> {
+    pub fn holds(&self, link: &reference::PadRef) -> Result<bool, Error> {
         let store = self.store()?;
         let pad = match get(&store, &link.name) {
             Ok(pad) => pad,
-            Err(err) if err.code == rpc::code::NOT_FOUND => return Ok(false),
+            Err(Error::NotFound(_)) => return Ok(false),
             Err(err) => return Err(err),
         };
         Ok(link
@@ -64,25 +61,25 @@ impl Pads {
             .is_none_or(|heading| section::find(&pad.text, &section::wanted(heading)).is_some()))
     }
 
-    pub(super) fn read(&self, ctx: &Ctx, p: PadName) -> Result<Value, RpcError> {
+    pub(super) fn read(&self, ctx: &Ctx, p: PadName) -> Result<Value, Error> {
         let store = self.store()?;
         let pad = get(&store, &p.name)?;
         ctx.touch(Verb::Read, &item(&pad.name))?;
         reply(&pad)
     }
 
-    pub(super) fn list(&self) -> Result<Value, RpcError> {
-        reply(&self.store()?.list().map_err(RpcError::internal)?)
+    pub(super) fn list(&self) -> Result<Vec<Pad>, Error> {
+        self.store()?.list().map_err(Error::internal)
     }
 
-    pub(super) fn write(&self, ctx: &Ctx, p: WriteParams) -> Result<Value, RpcError> {
+    pub(super) fn write(&self, ctx: &Ctx, p: WriteParams) -> Result<Value, Error> {
         let store = self.store()?;
         let pad = store.atomically(|| {
             let pad = get(&store, &p.name)?;
             if let Some(expected) = &p.expected_incarnation
                 && expected != &pad.incarnation
             {
-                return Err(RpcError::conflict(format!(
+                return Err(Error::conflict(format!(
                     "pad {} is a different creation",
                     pad.name
                 )));
@@ -90,7 +87,7 @@ impl Pads {
             if let Some(expected) = p.expected_revision
                 && expected != pad.revision
             {
-                return Err(RpcError::conflict(format!(
+                return Err(Error::conflict(format!(
                     "pad {} is at revision {}, not {expected}",
                     pad.name, pad.revision
                 )));
@@ -106,7 +103,7 @@ impl Pads {
         reply(&pad)
     }
 
-    pub(super) fn append(&self, ctx: &Ctx, p: AppendParams) -> Result<Value, RpcError> {
+    pub(super) fn append(&self, ctx: &Ctx, p: AppendParams) -> Result<Value, Error> {
         let store = self.store()?;
         let pad = get(&store, &p.name)?;
         let text = pad.text + &p.text;
@@ -119,16 +116,12 @@ impl Pads {
     }
 
     /// P15: the revision check, the insertion and the write happen in one transaction, so of two callers with one expected revision only one succeeds.
-    pub(super) fn append_section(
-        &self,
-        ctx: &Ctx,
-        p: AppendSectionParams,
-    ) -> Result<Value, RpcError> {
+    pub(super) fn append_section(&self, ctx: &Ctx, p: AppendSectionParams) -> Result<Value, Error> {
         let store = self.store()?;
         get(&store, &p.name)?;
         let wanted = section::wanted(&p.heading);
         if wanted.is_empty() || p.text.is_empty() {
-            return Err(RpcError::new(
+            return Err(Error::new(
                 rpc::code::INVALID_PARAMS,
                 "heading and text must not be empty",
             ));
@@ -138,7 +131,7 @@ impl Pads {
             if let Some(expected) = p.expected_revision
                 && expected != pad.revision
             {
-                return Err(RpcError::conflict(format!(
+                return Err(Error::conflict(format!(
                     "pad {} is at revision {}, not {expected}",
                     pad.name, pad.revision
                 )));
@@ -149,7 +142,7 @@ impl Pads {
                 } else {
                     format!("headings: \"{}\"", headings.join("\", \""))
                 };
-                RpcError::new(
+                Error::new(
                     rpc::code::INVALID_PARAMS,
                     format!("no heading \"{}\" in pad {}; {listed}", p.heading, pad.name),
                 )
@@ -162,30 +155,30 @@ impl Pads {
         reply(&pad)
     }
 
-    pub(super) fn reorder(&self, ctx: &Ctx, p: ReorderParams) -> Result<Value, RpcError> {
+    pub(super) fn reorder(&self, ctx: &Ctx, p: ReorderParams) -> Result<Value, Error> {
         if ctx.actor.kind != ActorKind::User {
-            return Err(RpcError::forbidden("only the user may reorder pads"));
+            return Err(Error::forbidden("only the user may reorder pads"));
         }
         let store = self.store()?;
         let (pad, changed) = store.atomically(|| {
             let pad = get(&store, &p.name)?;
             if pad.incarnation != p.expected_incarnation || pad.name != p.name {
-                return Err(RpcError::conflict("the original pad creation changed"));
+                return Err(Error::conflict("the original pad creation changed"));
             }
-            let mut order = store.list().map_err(RpcError::internal)?;
+            let mut order = store.list().map_err(Error::internal)?;
             let original: Vec<_> = order.iter().map(|pad| pad.incarnation.clone()).collect();
             order.retain(|entry| entry.incarnation != pad.incarnation);
             let at = if let Some(before) = &p.before {
                 let target = get(&store, before)?;
                 if target.home != pad.home || target.incarnation == pad.incarnation {
-                    return Err(RpcError::conflict(
+                    return Err(Error::conflict(
                         "reorder needs another pad of the same Home",
                     ));
                 }
                 order
                     .iter()
                     .position(|entry| entry.incarnation == target.incarnation)
-                    .ok_or_else(|| RpcError::conflict("pad target changed"))?
+                    .ok_or_else(|| Error::conflict("pad target changed"))?
             } else {
                 order.len()
             };
@@ -196,7 +189,7 @@ impl Pads {
                     .map(|pad| pad.incarnation.clone())
                     .collect::<Vec<_>>();
             if changed {
-                store.set_order(&order).map_err(RpcError::internal)?;
+                store.set_order(&order).map_err(Error::internal)?;
             }
             Ok((pad, changed))
         })?;
@@ -209,23 +202,23 @@ impl Pads {
     }
 
     /// The Daemon has checked `home` against the Rail (P12). A move to the Home it has changes nothing.
-    pub(super) fn move_to(&self, ctx: &Ctx, p: MoveParams) -> Result<Value, RpcError> {
+    pub(super) fn move_to(&self, ctx: &Ctx, p: MoveParams) -> Result<Pad, Error> {
         let store = self.store()?;
         let pad = get(&store, &p.name)?;
         if pad.home == p.home {
-            return reply(&pad);
+            return Ok(pad);
         }
         found(store.set_home(&pad.name, p.home.as_deref()), &pad.name)?;
         wrote(ctx, &pad.name)?;
-        reply(&Pad {
+        Ok(Pad {
             home: p.home,
             ..pad
         })
     }
 
-    pub(super) fn export(&self, ctx: &Ctx, p: ExportParams) -> Result<Value, RpcError> {
+    pub(super) fn export(&self, ctx: &Ctx, p: ExportParams) -> Result<Value, Error> {
         if !Path::new(&p.path).is_absolute() {
-            return Err(RpcError::new(
+            return Err(Error::new(
                 rpc::code::INVALID_PARAMS,
                 format!("export path must be absolute: {}", p.path),
             ));
@@ -237,19 +230,19 @@ impl Pads {
                 std::io::ErrorKind::NotFound => rpc::code::INVALID_PARAMS,
                 _ => rpc::code::INTERNAL,
             };
-            RpcError::new(code, format!("cannot export to {}: {err}", p.path))
+            Error::new(code, format!("cannot export to {}: {err}", p.path))
         })?;
         ctx.touch(Verb::Read, &item(&pad.name))?;
         Ok(Value::Null)
     }
 
-    pub(super) fn set_storage(&self, ctx: &Ctx, p: SetStorageParams) -> Result<Value, RpcError> {
+    pub(super) fn set_storage(&self, ctx: &Ctx, p: SetStorageParams) -> Result<Value, Error> {
         let store = self.store()?;
-        if store.files().map_err(RpcError::internal)? == p.files {
+        if store.files().map_err(Error::internal)? == p.files {
             return Ok(Value::Null);
         }
         let imported = store.atomically(|| {
-            let pads = store.list().map_err(RpcError::internal)?;
+            let pads = store.list().map_err(Error::internal)?;
             for pad in &pads {
                 name::validate(&pad.name)?;
             }
@@ -264,7 +257,7 @@ impl Pads {
                     imported.push(pad.name.clone());
                 }
             }
-            store.set_files(p.files).map_err(RpcError::internal)?;
+            store.set_files(p.files).map_err(Error::internal)?;
             Ok(imported)
         })?;
         for name in &imported {
@@ -274,38 +267,38 @@ impl Pads {
     }
 
     /// Writes the file while file storage is on. Callers do this inside `Store::atomically`, so a failure rolls the database change back.
-    fn mirror(&self, store: &Store, name: &str, text: &str) -> Result<(), RpcError> {
-        if store.files().map_err(RpcError::internal)? {
+    fn mirror(&self, store: &Store, name: &str, text: &str) -> Result<(), Error> {
+        if store.files().map_err(Error::internal)? {
             files::write(&self.files_dir, name, text)?;
         }
         Ok(())
     }
 
-    pub(super) fn store(&self) -> Result<std::sync::MutexGuard<'_, Store>, RpcError> {
+    pub(super) fn store(&self) -> Result<std::sync::MutexGuard<'_, Store>, Error> {
         self.store
             .lock()
-            .map_err(|_| RpcError::internal("pad store poisoned"))
+            .map_err(|_| Error::internal("pad store poisoned"))
     }
 }
 
 /// Validates the name, then looks the Pad up.
-pub(super) fn get(store: &Store, name: &str) -> Result<Pad, RpcError> {
+pub(super) fn get(store: &Store, name: &str) -> Result<Pad, Error> {
     name::validate(name)?;
     store
         .get(name)
-        .map_err(RpcError::internal)?
-        .ok_or_else(|| RpcError::not_found(format!("pad {name}")))
+        .map_err(Error::internal)?
+        .ok_or_else(|| Error::not_found(format!("pad {name}")))
 }
 
 /// An update that touched no row means another Daemon deleted the Pad since we looked.
-pub(super) fn found(updated: rusqlite::Result<bool>, name: &str) -> Result<(), RpcError> {
-    match updated.map_err(RpcError::internal)? {
+pub(super) fn found(updated: rusqlite::Result<bool>, name: &str) -> Result<(), Error> {
+    match updated.map_err(Error::internal)? {
         true => Ok(()),
-        false => Err(RpcError::not_found(format!("pad {name}"))),
+        false => Err(Error::not_found(format!("pad {name}"))),
     }
 }
 
-pub(super) fn wrote(ctx: &Ctx, name: &str) -> Result<(), RpcError> {
+pub(super) fn wrote(ctx: &Ctx, name: &str) -> Result<(), Error> {
     ctx.touch(Verb::Wrote, &item(name))?;
     ctx.emit(EventData::PadChanged(PadName { name: name.into() }));
     Ok(())
@@ -323,6 +316,6 @@ mod tests {
     fn an_update_that_changed_no_row_is_not_found() {
         assert!(found(Ok(true), "notes").is_ok());
         let err = found(Ok(false), "notes").unwrap_err();
-        assert_eq!(err.code, rpc::code::NOT_FOUND);
+        assert!(matches!(err, Error::NotFound(_)));
     }
 }

@@ -31,6 +31,10 @@ fn first_line(stderr: &str) -> String {
     first_line_hiding(stderr, secret_values())
 }
 
+#[expect(
+    clippy::disallowed_methods,
+    reason = "scrubs every live secret-looking variable from gh's stderr, whichever the Daemon inherited"
+)]
 fn secret_values() -> Vec<String> {
     std::env::vars()
         .filter(|(name, value)| {

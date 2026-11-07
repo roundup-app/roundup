@@ -15,12 +15,6 @@ impl Daemon {
                 "only the user may restart a Door session",
             ));
         }
-        if p.request.is_empty() || p.request.len() > 128 {
-            return Err(RpcError::new(
-                code::INVALID_PARAMS,
-                "restart request must contain 1 to 128 bytes",
-            ));
-        }
         let _gate = self.restarting.lock().await;
         let node = self
             .rail()
@@ -70,7 +64,8 @@ impl Daemon {
             state = SessionRestart::Started {
                 attempt: fresh
                     .attempt
-                    .ok_or_else(|| RpcError::internal("fresh Door has no Attempt"))?,
+                    .ok_or_else(|| RpcError::internal("fresh Door has no Attempt"))?
+                    .to_string(),
             };
             messages.set_session_restart(&p.id, &key, state.clone())?;
         }

@@ -15,17 +15,26 @@ impl Daemon {
                 "only the user controls global naming preferences",
             ));
         }
-        let db = self.naming.lock().expect("naming preferences poisoned");
         if method == "daemon.getNaming" {
-            return rpc::reply(&crate::data::read_naming(&db).map_err(RpcError::internal)?);
+            self.get_naming()
+        } else {
+            self.set_naming(rpc::params(params)?)
         }
-        let settings: contracts::project::NamingSettings = rpc::params(params)?;
+    }
+
+    fn get_naming(&self) -> Result<Value, RpcError> {
+        let db = self.naming.lock();
+        rpc::reply(&crate::data::read_naming(&db).map_err(RpcError::internal)?)
+    }
+
+    fn set_naming(&self, settings: contracts::project::NamingSettings) -> Result<Value, RpcError> {
         if settings.naming_guide.trim().is_empty() {
             return Err(RpcError::new(
                 rpc::code::INVALID_PARAMS,
                 "Enter a naming guide before saving.",
             ));
         }
+        let db = self.naming.lock();
         crate::data::write_naming(&db, &settings).map_err(RpcError::internal)?;
         rpc::reply(&())
     }
@@ -40,7 +49,7 @@ impl Daemon {
         if conn.actor.kind != contracts::ActorKind::User {
             return Err(RpcError::forbidden("only the user forks the data folder"));
         }
-        let params: contracts::data::ForkParams = rpc::params(params)?;
+        let params: crate::fork::ForkRequest = rpc::params(params)?;
         let root = crate::data::naming_path(&self.data_dir)
             .parent()
             .map(std::path::Path::to_path_buf)
@@ -73,7 +82,7 @@ impl Daemon {
             method,
             &params,
         )
-        .expect("declared built-in method")
+        .unwrap_or_else(|| Err(RpcError::method_not_found(method)))
     }
 
     pub(super) async fn github_call(

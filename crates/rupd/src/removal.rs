@@ -3,11 +3,19 @@
 use std::sync::Arc;
 
 use contracts::{Actor, agent::RemoveScope};
-use rpc::{Module, RpcError};
+use rpc::RpcError;
 use rusqlite::params;
 use serde_json::Value;
 
 use crate::Daemon;
+
+/// The deletion a retained operation holds; a receipt without one is a store fault.
+fn retained(removal: &contracts::agent::Removal) -> Result<&contracts::agent::Deletion, RpcError> {
+    removal
+        .deletion
+        .as_ref()
+        .ok_or_else(|| RpcError::internal("retained operation has no deletion"))
+}
 
 impl Daemon {
     pub(crate) async fn remove_selection(
@@ -36,14 +44,7 @@ impl Daemon {
             }
             if let Some(receipt) = self.agents.rail_deletion(actor, operation)? {
                 let ids = if receipt.selection.is_empty() {
-                    vec![
-                        receipt
-                            .deletion
-                            .as_ref()
-                            .expect("retained operation")
-                            .id
-                            .clone(),
-                    ]
+                    vec![retained(&receipt)?.id.clone()]
                 } else {
                     receipt.selection.clone()
                 };
@@ -68,7 +69,7 @@ impl Daemon {
             let todos = Arc::clone(&self.todos);
             let pads = Arc::clone(&self.pads);
             let caller = actor.clone();
-            let retention = operation.clone();
+            let retention = operation.to_string();
             let selected = p.ids.clone();
             let (removal, (files, events, owners)) = self.agents.remove_reversible_with(actor.clone(), p.ids, &operation, move |db, removal| {
                 todos::Todos::retain_workstream_in(db, &caller, &retention, &homes)?;
@@ -81,12 +82,15 @@ impl Daemon {
                     let (guard, changes) = pads.remove_workstream(db, home, removal)?;
                     files.push(guard);
                     events.extend(changes);
-                    if db.execute("UPDATE deliverables SET home=NULL,record=json_set(record,'$.home',NULL) WHERE home=? AND removed=0", [home]).map_err(RpcError::internal)? > 0 { events.push(contracts::EventData::DeliverableChanged); }
+                    if crate::deliverables::clear_home_in(db, home).map_err(RpcError::internal)? > 0 { events.push(contracts::EventData::DeliverableChanged); }
                 }
                 let mut removed = selected.clone();
                 removed.extend(removal.removed.iter().filter(|i| i.kind == RemovalKind::Agent).map(|i| i.id.clone()));
                 let owners = todos::Todos::remove_owners_in(db, &Actor::daemon(), &retention, &removed)?;
-                removal_touch(db, &caller, &selected[0], Some(&retention), removal)?;
+                let first = selected
+                    .first()
+                    .ok_or_else(|| RpcError::new(rpc::code::INVALID_PARAMS, "empty Rail selection"))?;
+                removal_touch(db, &caller, first, Some(&retention), removal)?;
                 Ok((files,events,owners))
             }).await?;
             for file in files {
@@ -115,7 +119,7 @@ impl Daemon {
             let node = tree
                 .iter()
                 .find(|n| n.id == *id)
-                .expect("validated selection");
+                .ok_or_else(|| RpcError::not_found("Rail selection"))?;
             if node.kind == NodeKind::Workstream {
                 let removal: Removal = serde_json::from_value(
                     self.remove_workstream(actor, id, RemoveScope::This).await?,
@@ -124,16 +128,15 @@ impl Daemon {
                 result.removed.extend(removal.removed);
                 result.kept.extend(removal.kept);
             } else {
+                let remove = contracts::agent::RemoveParams {
+                    id: id.clone(),
+                    scope: None,
+                    operation: None,
+                };
                 self.agents
-                    .call(
-                        &self.ctx(actor.clone()),
-                        "rail.remove",
-                        serde_json::json!({"id":id}),
-                    )
+                    .remove_node(&self.ctx(actor.clone()), remove)
                     .await?;
-                self.reset_orphaned_homes().await?;
-                self.reset_orphaned_owners().await?;
-                self.reset_orphaned_pad_homes().await?;
+                self.reset_orphans().await?;
             }
             result.removed.push(RemovedItem {
                 id: id.clone(),
@@ -189,7 +192,9 @@ impl Daemon {
                 let mut events = todos.remove_workstream(db, &home, &caller, removal, scope)?;
                 let (files, pad_events) = pads.remove_workstream(db, &home, removal)?;
                 events.extend(pad_events);
-                if db.execute("UPDATE deliverables SET home=NULL, record=json_set(record,'$.home',NULL) WHERE home=? AND removed=0",[&home]).map_err(RpcError::internal)? > 0 { events.push(contracts::EventData::DeliverableChanged); }
+                if crate::deliverables::clear_home_in(db, &home).map_err(RpcError::internal)? > 0 {
+                    events.push(contracts::EventData::DeliverableChanged);
+                }
                 (files, events)
             } else {
                 (pads::RemovalFiles::default(), Vec::new())
@@ -250,22 +255,10 @@ impl Daemon {
                 Err(RpcError::not_found("Rail removal"))
             };
         };
-        if receipt
-            .deletion
-            .as_ref()
-            .expect("retained operation")
-            .project
-            != p.project
-        {
+        if retained(&receipt)?.project != p.project {
             return Err(RpcError::forbidden("removal belongs to another Project"));
         }
-        if method == "rail.deletion"
-            || receipt
-                .deletion
-                .as_ref()
-                .expect("retained operation")
-                .restored
-        {
+        if method == "rail.deletion" || retained(&receipt)?.restored {
             return rpc::reply(&receipt);
         }
         let actor = conn.actor.clone();
@@ -296,7 +289,9 @@ impl Daemon {
                         moved.sort_unstable();
                         moved.dedup();
                         let (mirrors, pad_events) =
-                            pads.restore_workstream_in(db, &actor, &p.operation)?;
+                            pads
+                                .restore_workstream_in(db, &actor, &p.operation)
+                                .map_err(RpcError::from)?;
                         files = mirrors;
                         events = pad_events;
                         let publications: bool = db.query_row("SELECT EXISTS(SELECT 1 FROM rail_removal_items WHERE operation=? AND kind='deliverable-home')", [&p.operation], |r| r.get(0)).map_err(RpcError::internal)?;
@@ -304,14 +299,14 @@ impl Daemon {
                         removal_touch(
                             db,
                             &actor,
-                            &result.deletion.as_ref().expect("retained operation").id,
+                            &retained(&result)?.id,
                             Some(&p.operation),
                             &result,
                         )?;
                         graph = Some(result);
                         Ok(())
                     },
-                    |db| agents::Agents::acknowledge_restoration_in(db, &p.operation),
+                    |db| agents::Agents::acknowledge_restoration_in(db, &p.operation).map_err(todos::Error::from),
                 )?;
                 events.extend(todo_events);
                 Ok((
@@ -450,7 +445,7 @@ impl Daemon {
                 todos::Todos::remove_owners_in(db,&Actor::daemon(),&operation,&owners)?;
                 db.execute("INSERT INTO rail_removal_items(operation,kind,id,home) SELECT ?2,kind,id,home FROM rail_removal_items r WHERE operation=?1 AND kind='deliverable-home' AND EXISTS(SELECT 1 FROM deliverables d WHERE d.id=r.id AND d.home=r.home AND d.removed=0)",params![source,operation]).map_err(RpcError::internal)?;
                 db.execute("INSERT OR IGNORE INTO rail_removal_items(operation,kind,id,home) SELECT ?1,'deliverable-home',id,home FROM deliverables WHERE home=?2 AND removed=0",params![operation,id]).map_err(RpcError::internal)?;
-                if db.execute("UPDATE deliverables SET home=NULL,record=json_set(record,'$.home',NULL) WHERE id IN (SELECT id FROM rail_removal_items WHERE operation=? AND kind='deliverable-home')",[&operation]).map_err(RpcError::internal)? > 0 { events.push(contracts::EventData::DeliverableChanged); }
+                if crate::deliverables::clear_retained_homes_in(db, &operation).map_err(RpcError::internal)? > 0 { events.push(contracts::EventData::DeliverableChanged); }
                 let mut q=db.prepare("SELECT DISTINCT CAST(id AS INTEGER) FROM rail_removal_items WHERE operation=? AND kind IN ('todo-home','todo-owner')").map_err(RpcError::internal)?;
                 let moved=q.query_map([&operation],|r|r.get::<_,u32>(0)).map_err(RpcError::internal)?.collect::<Result<Vec<_>,_>>().map_err(RpcError::internal)?;
                 removal_touch(db, &caller, &id, Some(&operation), removal)?;

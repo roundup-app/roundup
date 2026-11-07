@@ -17,10 +17,10 @@ async fn serve_for_the_parent() {
         return;
     };
     let dir = Path::new(&dir);
-    let daemon = rupd::Daemon::open(&dir.join(".roundup")).unwrap();
-    daemon.reattach_owners().await;
+    let (daemon, watchers) = rupd::Daemon::open(&dir.join(".roundup")).unwrap();
+    daemon.reattach_owners().await.unwrap();
     let listener = tokio::net::UnixListener::bind(dir.join("rupd.sock")).unwrap();
-    rupd::serve(listener, std::sync::Arc::new(daemon))
+    rupd::serve(listener, std::sync::Arc::new(daemon), watchers)
         .await
         .unwrap();
 }
@@ -28,10 +28,12 @@ async fn serve_for_the_parent() {
 /// Serve an authoritative Project store on an isolated test socket.
 #[allow(dead_code)] // Only the MCP integration target uses the in-process server.
 pub fn serve(dir: &Path, socket: &Path) -> tokio::task::JoinHandle<std::io::Result<()>> {
-    let daemon = Arc::new(rupd::Daemon::open(&dir.join(".roundup")).unwrap());
+    let (daemon, watchers) = rupd::Daemon::open(&dir.join(".roundup")).unwrap();
+    let daemon = Arc::new(daemon);
     tokio::spawn(rupd::serve(
         tokio::net::UnixListener::bind(socket).unwrap(),
         daemon,
+        watchers,
     ))
 }
 

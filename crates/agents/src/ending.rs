@@ -33,16 +33,14 @@ impl Shared {
     pub(super) fn release_closing(&self, id: &str, ended: bool) {
         let mut runs = self.runs();
         self.events.observed.notify_waiters();
-        if let Some(Slot::Running(run)) = runs.get_mut(id) {
-            run.closing = false;
-            run.ended |= ended;
+        if let Some(Slot::Running(run)) = runs.slot_mut(id) {
+            run.release_closing(ended);
         } else if let Some(Slot::ResumeCleanup {
             old: Some(mut old), ..
-        }) = runs.remove(id)
+        }) = runs.take(id)
         {
-            old.closing = false;
-            old.ended |= ended;
-            runs.insert(id.to_owned(), Slot::Running(*old));
+            old.release_closing(ended);
+            runs.put(id.to_owned(), Slot::Running(*old));
         }
     }
 
@@ -121,12 +119,12 @@ impl Shared {
             if !remove
                 && node.terminal_id.is_none()
                 && runs
-                    .get(id)
-                    .is_none_or(|s| matches!(s, Slot::Running(r) if r.ended))
+                    .slot(id)
+                    .is_none_or(|s| matches!(s, Slot::Running(r) if r.ended()))
             {
                 return Ok(());
             }
-            match runs.get_mut(id) {
+            match runs.slot_mut(id) {
                 Some(Slot::Starting { .. }) => {
                     return Err(RpcError::conflict(format!("{id} is still starting")));
                 }
@@ -135,14 +133,13 @@ impl Shared {
                     return Err(RpcError::conflict(format!("{id} is resuming")));
                 }
                 Some(Slot::Running(run)) => {
-                    if run.closing {
+                    if !run.begin_closing() {
                         return Err(RpcError::conflict(format!("{id} is stopping")));
                     }
-                    run.closing = true;
-                    node.terminal_id = Some(run.terminal_id.clone());
+                    node.terminal_id = Some(run.terminal_id().to_owned());
                 }
-                None => {
-                    runs.insert(id.to_owned(), Slot::Closing);
+                None | Some(Slot::Gone) => {
+                    runs.put(id.to_owned(), Slot::Closing);
                 }
                 Some(Slot::ResumeCleanup {
                     terminal_id,
@@ -167,14 +164,18 @@ impl Shared {
                     .flatten(),
             )
         };
-        if let Some(Slot::Running(run)) = self.runs().get_mut(id) {
-            self.apply(None, run, id, &actor, Observation::Stopped, None)?;
+        if let Some(Agent {
+            slot: Slot::Running(run),
+            facts,
+        }) = self.runs().get_mut(id)
+        {
+            self.apply(None, run, facts, id, &actor, Observation::Stopped, None)?;
         }
         let killed = match terminal_id {
             Some(terminal_id) => {
                 let killed =
                     kill_or_already_gone(&*self.ending.kill, &self.terminals, &terminal_id).await;
-                if matches!(self.runs().get(id), Some(Slot::ResumeCleanup { .. })) {
+                if matches!(self.runs().slot(id), Some(Slot::ResumeCleanup { .. })) {
                     match killed {
                         Ok(()) => self.confirm_terminal_exit(&terminal_id).await,
                         Err(err) => Err(err),
@@ -214,12 +215,12 @@ impl Shared {
             let mut runs = self.runs();
             self.events.observed.notify_waiters();
             if let Err(err) = killed {
-                if let Some(Slot::Running(run)) = runs.get_mut(id) {
-                    run.closing = false;
-                } else if let Some(Slot::ResumeCleanup { pending, .. }) = runs.get_mut(id) {
+                if let Some(Slot::Running(run)) = runs.slot_mut(id) {
+                    run.release_closing(false);
+                } else if let Some(Slot::ResumeCleanup { pending, .. }) = runs.slot_mut(id) {
                     *pending = false;
                 } else {
-                    runs.remove(id);
+                    runs.take(id);
                 }
                 return Err(err);
             }
@@ -229,24 +230,20 @@ impl Shared {
                 rail.detach_terminal(id)
             };
             if remove {
-                runs.remove(id);
+                // A failed delete keeps the node, so its facts stay with it.
                 if result.is_ok() {
-                    self.events
-                        .tool_calls
-                        .lock()
-                        .unwrap_or_else(|e| e.into_inner())
-                        .remove(id);
+                    runs.remove(id);
+                } else {
+                    runs.take(id);
                 }
-            } else if let Some(Slot::Running(run)) = runs.get_mut(id) {
-                run.closing = false;
-                run.ended = true;
+            } else if let Some(Slot::Running(run)) = runs.slot_mut(id) {
+                run.finish_closing();
             } else if let Some(Slot::ResumeCleanup {
                 old: Some(mut old), ..
-            }) = runs.remove(id)
+            }) = runs.take(id)
             {
-                old.closing = false;
-                old.ended = true;
-                runs.insert(id.to_owned(), Slot::Running(*old));
+                old.finish_closing();
+                runs.put(id.to_owned(), Slot::Running(*old));
             }
             result
         };
@@ -262,6 +259,14 @@ impl Shared {
             );
         }
         Ok(())
+    }
+}
+
+impl Shared {
+    /// Kill `terminal` and confirm it no longer runs.
+    pub(super) async fn stop_and_confirm(&self, terminal: &str) -> Result<(), RpcError> {
+        kill_or_already_gone(&*self.ending.kill, &self.terminals, terminal).await?;
+        self.confirm_terminal_exit(terminal).await
     }
 }
 

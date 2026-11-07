@@ -47,7 +47,7 @@ describe("u143 empty Project", () => {
     await chooseFooter("Workstream");
 
     await waitFor(() => expect(calls(app, "rail.startDoor")).toMatchObject([{ id: "made" }]));
-    expect([calls(app, "rail.createWorkstream"), connected.rail.selected()]).toEqual([[{ name: "workstream", parent: null }], "made"]);
+    expect([calls(app, "rail.createWorkstream"), connected.rail.selected()]).toEqual([[{ name: "Workstream", parent: null }], "made"]);
   });
 
   it("u143_a_pending_creation_reads_creating_and_repeat_activation_calls_nothing", async () => {

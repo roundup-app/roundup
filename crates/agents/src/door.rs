@@ -27,7 +27,7 @@ impl Shared {
             let runs = self.runs();
             let mut doors = self.scan.doors.lock().expect("scan doors lock");
             doors.retain(|id, _| {
-                matches!(runs.get(id), Some(Slot::Running(run)) if !run.ended && !run.closing)
+                matches!(runs.slot(id), Some(Slot::Running(run)) if !run.ended() && !run.closing())
             });
             doors
                 .iter()
@@ -61,24 +61,14 @@ impl Shared {
             })
             .collect();
         let changed: Vec<(String, Vec<Stray>)> = {
-            let mut found = self.strays.lock().expect("scan found lock");
-            let gone: Vec<String> = found
-                .keys()
-                .filter(|id| !now.contains_key(*id))
-                .cloned()
-                .collect();
-            now.extend(gone.into_iter().map(|id| (id, Vec::new())));
+            let mut runs = self.runs();
             let mut changed = Vec::new();
-            for (id, stray) in now {
-                if found.get(&id).map_or(&[][..], Vec::as_slice) == stray.as_slice() {
-                    continue;
+            for (id, agent) in runs.iter_mut() {
+                let stray = now.remove(id).unwrap_or_default();
+                if agent.facts.strays != stray {
+                    agent.facts.strays = stray.clone();
+                    changed.push((id.clone(), stray));
                 }
-                if stray.is_empty() {
-                    found.remove(&id);
-                } else {
-                    found.insert(id.clone(), stray.clone());
-                }
-                changed.push((id, stray));
             }
             changed
         };
@@ -105,15 +95,16 @@ impl Agents {
                 let observed = self.shared.events.observed.notified();
                 {
                     let runs = self.shared.runs();
-                    match runs.get(id) {
+                    match runs.slot(id) {
                         Some(Slot::Running(run))
-                            if run.attempt == attempt && !run.ended && !run.closing =>
+                            if run.attempt() == attempt && !run.ended() && !run.closing() =>
                         {
-                            if run.session_started.is_some()
-                                && !run.first_pending
+                            if run.session_started().is_some()
+                                && !run.first().pending()
                                 && run
-                                    .adapter
-                                    .status()
+                                    .view()
+                                    .status
+                                    .as_ref()
                                     .is_some_and(|s| s.kind == contracts::Kind::Idle)
                             {
                                 break;
@@ -187,13 +178,13 @@ impl Agents {
                 return Err(error);
             }
         };
-        let attempt = node.attempt.clone().unwrap_or_default();
+        let attempt = node.attempt.as_deref().unwrap_or_default().to_owned();
         let started = async {
             loop {
                 let observed = self.shared.events.observed.notified();
                 let seen = matches!(
-                    self.shared.runs().get(id),
-                    Some(Slot::Running(run)) if run.attempt == attempt && run.session_started.is_some()
+                    self.shared.runs().slot(id),
+                    Some(Slot::Running(run)) if run.attempt() == attempt && run.session_started().is_some()
                 );
                 if seen {
                     return;
@@ -302,10 +293,13 @@ impl Agents {
                 return Err(RpcError::conflict(format!("{id} is not a Workstream")));
             }
             let mut runs = self.shared.runs();
-            if let Some(slot) = runs.get(id) {
+            if let Some(slot) = runs.slot(id) {
                 let live = match slot {
                     Slot::Running(run) => {
-                        run.closing || listed.iter().any(|t| t.id == run.terminal_id && t.running)
+                        run.closing()
+                            || listed
+                                .iter()
+                                .any(|t| t.id == run.terminal_id() && t.running)
                     }
                     _ => true,
                 };
@@ -316,12 +310,12 @@ impl Agents {
             rail.set_pair(id, pair.model.as_deref(), pair.effort.as_deref())?;
             let attempt = rail.allocate_attempt(id)?;
             self.shared.events.observed.notify_waiters();
-            runs.insert(
+            runs.put(
                 id.to_owned(),
                 Slot::Starting {
                     attempt: attempt.clone(),
                     since: (self.shared.clock)(),
-                    named: true,
+                    named: false,
                     parked: VecDeque::new(),
                 },
             );
@@ -332,19 +326,23 @@ impl Agents {
         let project = self.project_dir().to_owned();
         if let Err(err) = self
             .run_agent(
-                id,
-                &attempt,
-                &project,
+                Launch {
+                    id,
+                    attempt: &attempt,
+                    cwd: &project,
+                    origin: Origin::Fresh,
+                    attach: Attach::Now,
+                    permission: permission_mode.into(),
+                    size: (size.cols, size.rows),
+                },
                 first,
                 startup_context,
-                permission_mode,
-                (size.cols, size.rows),
             )
             .await
         {
             let mut rail = self.shared.rail();
             let mut runs = self.shared.runs();
-            if runs.get(id).is_some_and(|slot| slot.attempt() == attempt) {
+            if runs.slot(id).is_some_and(|slot| slot.attempt() == attempt) {
                 runs.remove(id);
                 rail.detach_terminal(id)?;
             }

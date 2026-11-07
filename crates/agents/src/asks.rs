@@ -274,11 +274,11 @@ impl Intake {
     async fn type_part(&self, workstream: &str, attempt: &str, text: &str) -> Result<(), RpcError> {
         loop {
             let observed = self.agents.shared.events.observed.notified();
-            let deadline = match self.agents.shared.runs().get(workstream) {
+            let deadline = match self.agents.shared.runs().slot(workstream) {
                 Some(Slot::Running(run))
-                    if run.attempt == attempt && !run.ended && !run.closing =>
+                    if run.attempt() == attempt && !run.ended() && !run.closing() =>
                 {
-                    run.session_started
+                    run.session_started()
                         .map(|started| started + START_DOOR_ACK_BOUND)
                 }
                 _ => return Err(RpcError::not_accepted("prompt not accepted")),
@@ -446,7 +446,7 @@ impl Intake {
                 .agents
                 .shared
                 .runs()
-                .get(workstream)
+                .slot(workstream)
                 .is_some_and(Slot::closing)
             {
                 observed.await;

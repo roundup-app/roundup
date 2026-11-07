@@ -289,17 +289,18 @@
     "kind": "real",
     "sha256": "b1b4dd73afa012b5ebb60236d3fc8232e9ecaa219288de48efac3c2119fa5cfe"
   },
+  "crates/desktop/tests/project_task/mod.rs": {
+    "cleanup": "Fixture's TempDir drops with the App; the wrapper scripts serve fake sockets, so no built rupd outlives the test.",
+    "data": "Fixture config data_dir and Project are absolute folders inside the test's TempDir.",
+    "kind": "in-process",
+    "sha256": "bfe7b33985d57cdb6dae5f491294f14dc95354672d299b017d2e25fc9b815cc3"
+  },
   "crates/desktop/tests/update_exit/mod.rs": {
     "cleanup": "Fixture Drop closes the Project and the App; S5981 tests assert the recorded rupd and terminal-owner pids are gone before the temporary folders are removed.",
     "data": "Fixture::new's wrapper script runs rupd with an absolute TempDir data folder and Project, with a fake claude as the Agent program.",
     "issue": 5981,
     "kind": "indirect",
     "sha256": "fda24f7d3782b4768c590b46740cd7f6c3475884a2fcea2051507a425cbc2a77"
-  },
-  "crates/messages/src/digest_schema.rs": {
-    "cleanup": "No separate built-Daemon launch site.",
-    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
-    "kind": "reference"
   },
   "crates/messages/src/inbox.rs": {
     "cleanup": "No separate built-Daemon launch site.",
@@ -316,17 +317,7 @@
     "data": "Owns no executable launch or App data; the rupd name appears only in the Message failure diagnostic.",
     "kind": "reference"
   },
-  "crates/messages/src/schema.rs": {
-    "cleanup": "No separate built-Daemon launch site.",
-    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
-    "kind": "reference"
-  },
   "crates/messages/src/tests/b_hop_tests.rs": {
-    "cleanup": "No separate built-Daemon launch site.",
-    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
-    "kind": "reference"
-  },
-  "crates/pads/src/schema.rs": {
     "cleanup": "No separate built-Daemon launch site.",
     "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
     "kind": "reference"
@@ -761,9 +752,24 @@
     "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
     "kind": "reference"
   },
-  "crates/rupd/src/route.rs": {
+  "crates/rupd/src/route/mod.rs": {
     "cleanup": "No separate built-Daemon launch site.",
     "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "tools/method-policy/guard.sh": {
+    "cleanup": "Reads source files only; starts no process.",
+    "data": "Greps committed rupd sources for method-name comparisons; no Daemon launch.",
+    "kind": "reference"
+  },
+  "tools/typed-calls/guard.sh": {
+    "cleanup": "Reads source files only; starts no process.",
+    "data": "Greps committed rupd sources for method-name calls; no Daemon launch.",
+    "kind": "reference"
+  },
+  "tools/contracts/test_addition.py": {
+    "cleanup": "Temporary checkout is removed on success and failure; no Daemon launch.",
+    "data": "Edits copied sources in a temporary directory; names rupd files only.",
     "kind": "reference"
   },
   "crates/rupd/src/fork_tests.rs": {
@@ -795,7 +801,7 @@
     "cleanup": "In-process test runtime owns these Daemons; no built executable launch.",
     "data": "Unit observers open Daemon stores on the explicit project's .roundup directory; no production fallback resolver.",
     "kind": "in-process",
-    "sha256": "42c071ff14001c2633d5bbca5c3c3ff3fa832538a3d26c6151c41132abe2af6b"
+    "sha256": "48caeec85a0179e8085be5391741f161de7d8de2494b58cf382439c6a0b124fb"
   },
   "apps/desktop/src/testing/u3078i_real_daemon.test.tsx": {
     "cleanup": "Launch owner above supplies cleanup; this caller launches no executable itself.",
@@ -909,5 +915,16 @@
     "cleanup": "In-process test runtime owns the Daemon and its served socket; the TempDir project is removed on drop; no built executable launch.",
     "data": "daemon_with_clock receives an explicit TempDir path; the socket lives under that project; no production fallback resolver.",
     "kind": "in-process"
+  },
+  "crates/rupd/tests/z6395b_agent_catch_up.rs": {
+    "cleanup": "The shared rupd_harness kills and reaps its Daemon before deleting its owned data TempDir.",
+    "data": "Calls the audited support/rupd_harness.rs; it supplies a canonical absolute ROUNDUP_DATA_DIR in a fresh owned TempDir and removes inherited App data redirection.",
+    "kind": "reference"
+  },
+  "crates/rupd/src/queue/tests.rs": {
+    "cleanup": "In-process test runtime owns these Daemons; no built executable launch.",
+    "data": "Unit observers open Daemon stores on the explicit project's .roundup directory; no production fallback resolver.",
+    "kind": "in-process",
+    "sha256": "11470c60774830d2314e6125848a58e0b0c2984c4b7ff27207b2f38b9b99145b"
   }
 }

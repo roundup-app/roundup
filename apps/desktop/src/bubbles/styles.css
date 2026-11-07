@@ -243,7 +243,7 @@
   text-overflow: ellipsis;
 }
 
-/* U2234: the name's editor sits in the tab with the label's type and no box of its own. */
+/* U2234, U6545a: the name's editor sits in the tab with the label's type, in the shared inline frame. */
 .terminal-tab-editor {
   display: inline-grid;
   align-items: center;
@@ -254,18 +254,8 @@
 }
 
 .terminal-tab-editor [data-part="input"] {
-  box-sizing: content-box;
   min-width: 0;
-  margin: 0;
-  padding: 0;
-  font: inherit;
-  line-height: inherit;
-  letter-spacing: inherit;
-  color: inherit;
-  background: none;
-  border-width: 0;
   field-sizing: content;
-  min-height: var(--space-5);
   cursor: pointer;
 }
 

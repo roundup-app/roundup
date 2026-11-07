@@ -1,5 +1,9 @@
 //! Keystroke-to-render in the real App (`scenarios/perf.md` R11): runs a build made with `VITE_ROUNDUP_PERF`,
 //! reads the `PERF <json>` line the webview writes through its Terminal from the Terminal's Output log, and compares its p95 with the budget.
+#![deny(clippy::unwrap_used, clippy::expect_used)]
+#![deny(clippy::panic, clippy::indexing_slicing)]
+#![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
+#![cfg_attr(test, allow(clippy::panic, clippy::indexing_slicing))]
 
 use std::collections::BTreeMap;
 use std::io;
@@ -9,6 +13,7 @@ use std::time::Duration;
 
 use clap::Parser;
 use perf::gate::read_budgets;
+use perf::measure::field;
 use perf::webview::failure;
 use perf::webview::{judged, marked_line};
 use rpc::Client;
@@ -18,6 +23,10 @@ use sysinfo::System;
 #[cfg(test)]
 use app::{FRAMES_SHELL, daemon_script};
 use perf::app;
+
+#[path = "keystroke_workload.rs"]
+mod workload;
+use workload::checked_workload;
 
 const RUN_BOUND: Duration = Duration::from_secs(240);
 
@@ -125,7 +134,7 @@ async fn collect_report(
                     let report: Value = serde_json::from_str(line).map_err(|err| {
                         failure(format!("the {} line is not JSON: {err}", marker.trim()))
                     })?;
-                    if marker == "PERF " && report["terminal_id"] != id {
+                    if marker == "PERF " && field(&report, "terminal_id") != id {
                         return Err(failure("PERF report Terminal identity mismatch"));
                     }
                     return Ok(report);
@@ -163,55 +172,6 @@ async fn collect_report(
         }
     }
     result
-}
-
-fn checked_workload(report: &Value, flood: bool) -> io::Result<()> {
-    let expected = if flood { "flood" } else { "idle" };
-    if report["workload"] != expected {
-        return Err(failure(format!(
-            "built workload does not match runner workload {expected}"
-        )));
-    }
-    if flood && report.get("error").is_none() {
-        let evidence = &report["flood"];
-        let samples = evidence["samples"]
-            .as_array()
-            .ok_or_else(|| failure("missing flood activity samples"))?;
-        if evidence["id"].as_str().is_none()
-            || evidence["id"] == report["terminal_id"]
-            || evidence["command"] != "/usr/bin/yes roundup-flood"
-            || evidence["opened"] != true
-            || samples.len() < 2
-            || !samples.windows(2).all(|pair| {
-                pair[0]["bytes"]
-                    .as_u64()
-                    .zip(pair[1]["bytes"].as_u64())
-                    .is_some_and(|(a, b)| b >= a)
-                    && pair[0]["at_ms"]
-                        .as_f64()
-                        .zip(pair[1]["at_ms"].as_f64())
-                        .is_some_and(|(a, b)| a.is_finite() && b.is_finite() && a >= 0.0 && b >= a)
-            })
-            || !samples
-                .first()
-                .zip(samples.last())
-                .is_some_and(|(first, last)| {
-                    last["bytes"].as_u64() > first["bytes"].as_u64()
-                        && last["at_ms"].as_f64() > first["at_ms"].as_f64()
-                })
-            || !samples
-                .iter()
-                .all(|sample| matches!(sample["state"].as_str(), Some("visible" | "folded")))
-            || !evidence["bytes_per_second"]
-                .as_f64()
-                .is_some_and(|rate| rate.is_finite() && rate > 0.0)
-        {
-            return Err(failure(
-                "invalid flood producer activity or Terminal identity",
-            ));
-        }
-    }
-    Ok(())
 }
 
 /// One fresh App, one report. The App is stopped when this returns, which stops its Daemon (D1).
@@ -254,7 +214,7 @@ fn frame_exit(report: &Value) -> io::Result<u8> {
         Some(code @ (0 | 1)) => {
             let valid = report["invalid"].as_array().is_some_and(Vec::is_empty)
                 && ["sample", "idle"].iter().all(|key| {
-                    let series = &report[key];
+                    let series = field(report, key);
                     series["intervals"].as_array().is_some_and(|raw| {
                         !raw.is_empty()
                             && series["n"].as_u64() == Some(raw.len() as u64)
@@ -263,7 +223,7 @@ fn frame_exit(report: &Value) -> io::Result<u8> {
                                 .all(|v| v.as_f64().is_some_and(|n| n.is_finite() && n > 0.0))
                     })
                 });
-            let scheduling = &report["stages"]["scheduling"];
+            let scheduling = field(field(report, "stages"), "scheduling");
             let measured = scheduling["status"] == "measured";
             let matches = if code == 1 {
                 measured && scheduling["meets_thresholds"] == false && report["verdict"] == "fail"
@@ -358,8 +318,11 @@ async fn run(args: &Args) -> Result<u8, Box<dyn std::error::Error>> {
         .await
         {
             Ok(mut report) => {
-                if let Err(error) = checked_workload(&report, args.flood) {
-                    report["error"] = error.to_string().into();
+                if let (Err(error), Some(object)) = (
+                    checked_workload(&report, args.flood),
+                    report.as_object_mut(),
+                ) {
+                    object.insert("error".into(), error.to_string().into());
                 }
                 report
             }
@@ -492,13 +455,16 @@ mod tests {
         let dir = tempfile::tempdir()?;
         let project = dir.path().join("project");
         std::fs::create_dir(&project)?;
-        let daemon = std::sync::Arc::new(
-            rupd::Daemon::open_project(&project, &dir.path().join("data"))
-                .map_err(io::Error::other)?,
-        );
+        let (daemon, watchers) = rupd::Daemon::open_project(&project, &dir.path().join("data"))
+            .map_err(io::Error::other)?;
+        let daemon = std::sync::Arc::new(daemon);
         let socket = dir.path().join("daemon.sock");
         let listener = tokio::net::UnixListener::bind(&socket)?;
-        let server = tokio::spawn(rupd::serve(listener, std::sync::Arc::clone(&daemon)));
+        let server = tokio::spawn(rupd::serve(
+            listener,
+            std::sync::Arc::clone(&daemon),
+            watchers,
+        ));
         let result =
             tokio::time::timeout(RUN_BOUND, async {
                 let client = Client::connect(&socket).await?;

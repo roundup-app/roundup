@@ -14,10 +14,11 @@ pub(crate) async fn ask(daemon: &Daemon, line: &str) -> Value {
         .await
         .unwrap()
         .into_value()
+        .unwrap()
 }
 
 pub(super) fn daemon_in(dir: &Path) -> Daemon {
-    Daemon::open(dir).unwrap()
+    Daemon::open(dir).unwrap().0
 }
 
 pub(super) fn daemon_with_launcher(
@@ -25,7 +26,7 @@ pub(super) fn daemon_with_launcher(
     data: &Path,
     launcher: agents::claude_code::Launcher,
 ) -> Daemon {
-    Daemon::open_stores(project, data, |_| {
+    Daemon::open_stores_idle(project, data, |_| {
         let bus = Bus::new();
         let terminals = Arc::new(terminal::Terminals::open(data, bus.clone()).unwrap());
         agents::Agents::open_in(
@@ -300,7 +301,7 @@ struct Echo;
 #[async_trait::async_trait]
 impl Module for Echo {
     fn namespaces(&self) -> &'static [&'static str] {
-        &["echo"]
+        &["ask"]
     }
 
     async fn call(&self, ctx: &Ctx, method: &str, _params: Value) -> Result<Value, RpcError> {
@@ -313,20 +314,22 @@ async fn module_methods_reach_their_module_with_the_callers_actor() {
     let (_dir, mut daemon) = daemon();
     daemon.register(Arc::new(Echo));
 
-    let reply = ask(&daemon, r#"{"jsonrpc":"2.0","id":1,"method":"echo.hello"}"#).await;
+    let reply = ask(&daemon, r#"{"jsonrpc":"2.0","id":1,"method":"ask.list"}"#).await;
 
-    assert_eq!(reply["result"]["method"], "echo.hello");
+    assert_eq!(reply["result"]["method"], "ask.list");
     assert_eq!(reply["result"]["actor"], "you");
 }
 
 #[tokio::test]
 async fn subscribers_receive_events_pushed_on_the_same_connection() {
     let dir = tempfile::tempdir().unwrap();
-    let daemon = Arc::new(Daemon::open(dir.path()).unwrap());
+    let (daemon, watchers) = Daemon::open(dir.path()).unwrap();
+    let daemon = Arc::new(daemon);
     let socket = dir.path().join("rupd.sock");
     tokio::spawn(serve(
         UnixListener::bind(&socket).unwrap(),
         Arc::clone(&daemon),
+        watchers,
     ));
     let mut client = rpc::Client::connect(&socket).await.unwrap();
     client
@@ -444,9 +447,11 @@ async fn serving_a_module_that_hangs() -> (
         release: Arc::clone(&release),
     }));
     let socket = dir.path().join("rupd.sock");
+    let watchers = daemon.watchers().unwrap();
     tokio::spawn(serve(
         UnixListener::bind(&socket).unwrap(),
         Arc::new(daemon),
+        watchers,
     ));
     (dir, said, release, socket)
 }
@@ -655,9 +660,11 @@ async fn u3808_the_list_reads_recorded_handoffs_without_history_or_touches() {
 async fn r3696b_write_classifies_its_caller_once() {
     let (dir, daemon) = daemon();
     let socket = dir.path().join("rupd.sock");
+    let watchers = daemon.watchers().unwrap();
     tokio::spawn(serve(
         UnixListener::bind(&socket).unwrap(),
         Arc::new(daemon),
+        watchers,
     ));
     let mut client = BufReader::new(UnixStream::connect(&socket).await.unwrap());
     let mut call = async |method: &str| {
@@ -694,7 +701,7 @@ async fn r3696b_write_classifies_its_caller_once() {
 #[tokio::test]
 async fn u6368a_requests_leave_no_task_or_subscriber() {
     let dir = tempfile::tempdir().unwrap();
-    let daemon = Daemon::open(dir.path()).unwrap();
+    let daemon = Daemon::open(dir.path()).unwrap().0;
     let methods = [
         r#"{"jsonrpc":"2.0","id":1,"method":"daemon.ping"}"#,
         r#"{"jsonrpc":"2.0","id":1,"method":"rail.tree"}"#,
@@ -710,4 +717,27 @@ async fn u6368a_requests_leave_no_task_or_subscriber() {
     tokio::task::yield_now().await;
     assert_eq!(daemon.bus.receiver_count(), subscribers);
     assert_eq!(metrics.num_alive_tasks(), tasks);
+}
+
+/// D1: a watcher that panics or returns while the Daemon serves ends `serve` with an error.
+#[tokio::test]
+async fn a_watcher_that_ends_early_ends_serve_with_an_error() {
+    for panics in [true, false] {
+        let dir = tempfile::tempdir().unwrap();
+        let (daemon, mut watchers) = Daemon::open(dir.path()).unwrap();
+        watchers.also(async move {
+            if panics {
+                panic!("watcher fell over");
+            }
+        });
+        let socket = dir.path().join("rupd.sock");
+        let ended = serve(
+            UnixListener::bind(&socket).unwrap(),
+            Arc::new(daemon),
+            watchers,
+        )
+        .await;
+        let err = ended.expect_err("serve ends with the watcher");
+        assert!(err.to_string().contains("watcher"), "{err}");
+    }
 }

@@ -1,32 +1,27 @@
 //! A3308: ordinary Messages ask the Door to assign unassigned Todos. The retained Message
 //! and Todo owner history together identify a firing, including after a Daemon restart.
 use super::*;
+use crate::field::Field;
+use crate::rail_index::RailIndex;
+use crate::route::policy::{Serial, policy};
 use contracts::agent::{NodeKind, RailNode};
 use contracts::message::Message;
 use contracts::todo::{History, Todo};
 
+#[derive(Default)]
 pub(crate) struct Auto {
     gate: Arc<tokio::sync::Mutex<()>>,
-    events: std::sync::Mutex<Option<tokio::sync::broadcast::Receiver<contracts::Event>>>,
 }
 
 impl Auto {
-    pub(crate) fn new(bus: &Bus) -> Self {
-        Self {
-            gate: Default::default(),
-            events: std::sync::Mutex::new(Some(bus.subscribe())),
-        }
-    }
-
-    /// `reader` runs only on the first call: it copies the module map, which every request
-    /// would otherwise pay for.
-    pub(crate) fn start(&self, reader: impl FnOnce() -> digest::Reader) {
-        let Some(mut events) = self.events.lock().expect("Auto events lock").take() else {
-            return;
-        };
-        let reader = reader();
+    /// Tell the Door of each change that may leave a Todo unassigned, until the Bus closes.
+    pub(crate) fn watch(
+        &self,
+        mut events: tokio::sync::broadcast::Receiver<contracts::Event>,
+        reader: digest::Reader,
+    ) -> impl std::future::Future<Output = ()> + use<> {
         let gate = Arc::clone(&self.gate);
-        tokio::spawn(async move {
+        async move {
             use tokio::sync::broadcast::error::RecvError;
             loop {
                 match events.recv().await {
@@ -42,11 +37,11 @@ impl Auto {
                     Err(RecvError::Closed) => return,
                 }
                 let _guard = gate.lock().await;
-                tell(&reader)
-                    .await
-                    .expect("retain Auto notices for the Door");
+                if let Err(err) = tell(&reader).await {
+                    eprintln!("Auto notices for the Door were not retained: {err}");
+                }
             }
-        });
+        }
     }
 }
 
@@ -62,26 +57,18 @@ impl Daemon {
         let params = self
             .resolve_agent_inputs(&conn.actor, method, params)
             .await?;
-        self.auto.start(|| self.reader());
-        let observes = (method.starts_with("todo.")
-            && !matches!(method, "todo.restore" | "todo.deletion" | "todo.redo"))
-            || method.starts_with("workstream.")
-            || matches!(
-                method,
-                "rail.startDoor" | "rail.remove" | "agent.resume" | "agent.spawn"
-            );
-        let serializes = method.starts_with("pad.")
-            || (method.starts_with("todo.") && method != "todo.startWorkstream")
-            || method == "workstream.setAuto"
-            || method == "rail.restore"
-            || method == "rail.redo"
-            || (method == "rail.remove" && params["operation"].is_string());
+        let row = policy(method).ok_or_else(|| RpcError::method_not_found(method))?;
+        let serializes = match row.serial {
+            Serial::No => false,
+            Serial::Yes => true,
+            Serial::Operation => params.field("operation").is_string(),
+        };
         let _guard = if serializes {
             Some(self.auto.gate.lock().await)
         } else {
             None
         };
-        let _cap = if method == "agent.spawn" && conn.actor.kind == ActorKind::Agent {
+        let _cap = if row.capped && conn.actor.kind == ActorKind::Agent {
             let guard = self.queue.pass.lock().await;
             self.require_auto_slot(&conn.actor).await?;
             Some(guard)
@@ -89,7 +76,7 @@ impl Daemon {
             None
         };
         let result = self.route_inner(conn, method, params).await;
-        if observes && result.is_ok() {
+        if row.observes && result.is_ok() {
             // Terminal starts and stops may await an external program. They must leave
             // unrelated Todo edits free; only their subsequent notice pass needs this lock.
             let _notice = if _guard.is_none() {
@@ -104,31 +91,21 @@ impl Daemon {
 
     async fn require_auto_slot(&self, actor: &Actor) -> Result<(), RpcError> {
         let nodes = self.rail().await?;
-        let mut at = nodes.iter().find(|node| node.id == actor.id);
-        while let Some(node) = at {
-            if node.kind == NodeKind::Workstream {
-                if node.auto == Some(true) {
-                    let running = queue::running(
-                        &nodes,
-                        &self.queue.launching.lock().expect("Queue launching lock"),
-                    );
-                    if !running.contains(&node.id)
-                        && self
-                            .agents
-                            .workstream_cap()?
-                            .is_some_and(|cap| running.len() >= cap as usize)
-                    {
-                        return Err(RpcError::conflict(
-                            "Workstream cap reached; wait for a running Workstream to finish",
-                        ));
-                    }
-                }
-                break;
+        let Some(door) = RailIndex::new(&nodes).workstream_of(&actor.id) else {
+            return Ok(());
+        };
+        if door.auto == Some(true) {
+            let running = queue::running(&nodes, &self.queue.launching.lock());
+            if !running.contains(&door.id)
+                && self
+                    .agents
+                    .workstream_cap()?
+                    .is_some_and(|cap| running.len() >= cap as usize)
+            {
+                return Err(RpcError::conflict(
+                    "Workstream cap reached; wait for a running Workstream to finish",
+                ));
             }
-            at = node
-                .parent
-                .as_ref()
-                .and_then(|parent| nodes.iter().find(|node| &node.id == parent));
         }
         Ok(())
     }

@@ -3,43 +3,38 @@
 use std::path::PathBuf;
 
 use contracts::{EventData, pad::RenameParams};
-use rpc::{Ctx, RpcError, reply};
+use rpc::Ctx;
 use serde_json::Value;
 
-use crate::{Pads, RemovalFiles, files, get, name, store, wrote};
+use crate::{Error, Pads, RemovalFiles, files, get, name, reply, store, wrote};
 
 impl Pads {
-    pub(super) fn rename(&self, ctx: &Ctx, p: RenameParams) -> Result<Value, RpcError> {
+    pub(super) fn rename(&self, ctx: &Ctx, p: RenameParams) -> Result<Value, Error> {
         name::validate(&p.new_name)?;
         let store = self.store()?;
         let mut mirror = MirrorRename::default();
         let pad = store.atomically(|| {
             let pad = get(&store, &p.name)?;
             if pad.incarnation != p.expected_incarnation || pad.name != p.name {
-                return Err(RpcError::conflict(
-                    "the original pad name or creation changed",
-                ));
+                return Err(Error::conflict("the original pad name or creation changed"));
             }
             if store::key(&pad.name) != store::key(&p.new_name)
-                && store
-                    .get(&p.new_name)
-                    .map_err(RpcError::internal)?
-                    .is_some()
+                && store.get(&p.new_name).map_err(Error::internal)?.is_some()
             {
-                return Err(RpcError::conflict(format!("pad exists: {}", p.new_name)));
+                return Err(Error::conflict(format!("pad exists: {}", p.new_name)));
             }
             if pad.name == p.new_name {
                 return Ok(pad);
             }
             store
                 .rename(&pad.name, &p.new_name)
-                .map_err(RpcError::internal)?;
-            if store.files().map_err(RpcError::internal)? {
+                .map_err(Error::internal)?;
+            if store.files().map_err(Error::internal)? {
                 mirror.original.stage(&self.files_dir, &pad.name)?;
                 let destination = self.files_dir.join(format!("{}.md", p.new_name));
                 if let Some((_, backup)) = mirror.original.files.last() {
                     // hard_link refuses an occupied path and preserves external edits and metadata.
-                    std::fs::hard_link(backup, &destination).map_err(RpcError::internal)?;
+                    std::fs::hard_link(backup, &destination).map_err(Error::internal)?;
                 } else {
                     files::write_new(&self.files_dir, &p.new_name, &pad.text)?;
                 }

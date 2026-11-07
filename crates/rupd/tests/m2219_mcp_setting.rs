@@ -20,8 +20,13 @@ async fn m2219_the_setting_resolves_from_the_environment_then_the_project() {
     let mut seen = Vec::new();
     for round in 0..2 {
         let socket = dir.path().join(format!("rupd{round}.sock"));
-        let daemon = Arc::new(rupd::Daemon::open(&roundup).unwrap());
-        tokio::spawn(rupd::serve(UnixListener::bind(&socket).unwrap(), daemon));
+        let (daemon, watchers) = rupd::Daemon::open(&roundup).unwrap();
+        let daemon = Arc::new(daemon);
+        tokio::spawn(rupd::serve(
+            UnixListener::bind(&socket).unwrap(),
+            daemon,
+            watchers,
+        ));
         let client = Client::connect(&socket).await.unwrap();
         if round == 0 {
             assert!(on(&client).await, "a Project that never set it reads on");

@@ -1,17 +1,17 @@
 //! LC1–LC14: lean launch profiles and extras.
 use super::*;
 
-use agents::claude_code::{Lean, Pair};
+use agents::claude_code::{LaunchFacts, Lean};
 use contracts::agent::Extras;
 
-fn lean_pair(scout: bool, extras: Extras) -> Pair {
-    Pair {
+fn lean_pair(scout: bool, extras: Extras) -> LaunchFacts {
+    LaunchFacts {
         lean: Some(Lean {
             scout,
             extras,
             fresh_brief: false,
         }),
-        ..Pair::default()
+        ..LaunchFacts::default()
     }
 }
 
@@ -20,11 +20,18 @@ impl Setup {
         &self,
         id: &str,
         role: Role,
-        pair: &Pair,
+        pair: &LaunchFacts,
         resume: Option<&str>,
     ) -> Result<Vec<String>, rpc::RpcError> {
-        self.launcher()
-            .prepare_on(folders(&self.dir), id, "1", &self.cwd, resume, role, pair)
+        self.launcher().prepare_on(&agents::claude_code::Request {
+            folders: folders(&self.dir),
+            id,
+            attempt: "1",
+            cwd: &self.cwd,
+            resume,
+            role,
+            facts: pair,
+        })
     }
 
     /// The word after `flag`, or `None` when it is absent.
@@ -45,9 +52,9 @@ fn has(argv: &[String], flag: &str) -> bool {
 }
 
 /// The three lean children of the LC1 table: a Door, a scout and a worker.
-fn lean_children() -> [(Role, Role, Pair); 3] {
+fn lean_children() -> [(Role, Role, LaunchFacts); 3] {
     [
-        (Role::Door, Role::Door, Pair::default()),
+        (Role::Door, Role::Door, LaunchFacts::default()),
         (Role::Scout, Role::Agent, lean_pair(true, Extras::default())),
         (
             Role::Agent,
@@ -67,7 +74,7 @@ fn lc1_each_role_launches_as_its_row() {
                 "PROJECT_INSTRUCTION_MARKER",
             )
             .unwrap();
-            let pair = Pair {
+            let pair = LaunchFacts {
                 mcp_off: !mcp,
                 ..pair.clone()
             };
@@ -159,7 +166,7 @@ async fn lc2_the_users_output_style_shapes_a_child() {
         for (row, role, pair) in
             lean_children()
                 .into_iter()
-                .chain([(Role::Agent, Role::Agent, Pair::default())])
+                .chain([(Role::Agent, Role::Agent, LaunchFacts::default())])
         {
             let s = setup();
             s.user_file("CLAUDE.md", "USER GLOBAL RULE");
@@ -170,7 +177,15 @@ async fn lc2_the_users_output_style_shapes_a_child() {
             s.user_file("settings.json", &user.to_string());
             let launcher = plugin_launcher(&s);
             let (argv, env) = launcher
-                .launch_on(folders(&s.dir), "7", "1", &s.cwd, None, role, &pair)
+                .launch_on(&agents::claude_code::Request {
+                    folders: folders(&s.dir),
+                    id: "7",
+                    attempt: "1",
+                    cwd: &s.cwd,
+                    resume: None,
+                    role,
+                    facts: &pair,
+                })
                 .await
                 .unwrap();
             for flag in [
@@ -210,15 +225,15 @@ async fn lc3_the_door_launches_with_the_users_setup_and_its_brief_omits_the_plai
     s.user_file("CLAUDE.md", "USER GLOBAL RULE");
     let launcher = plugin_launcher(&s);
     let (argv, _) = launcher
-        .launch_on(
-            folders(&s.dir),
-            "7",
-            "1",
-            &s.cwd,
-            None,
-            Role::Door,
-            &Pair::default(),
-        )
+        .launch_on(&agents::claude_code::Request {
+            folders: folders(&s.dir),
+            id: "7",
+            attempt: "1",
+            cwd: &s.cwd,
+            resume: None,
+            role: Role::Door,
+            facts: &LaunchFacts::default(),
+        })
         .await
         .unwrap();
     assert_eq!(
@@ -237,7 +252,7 @@ async fn lc3_the_door_launches_with_the_users_setup_and_its_brief_omits_the_plai
 fn lc4_a_scout_launches_with_read_tools_and_the_users_setup() {
     let s = setup();
     s.user_file("CLAUDE.md", "USER GLOBAL RULE");
-    let pair = Pair {
+    let pair = LaunchFacts {
         model: Some("haiku".into()),
         effort: Some("low".into()),
         ..lean_pair(true, Extras::default())
@@ -267,7 +282,15 @@ async fn lc5_every_child_gets_the_plugins_and_global_instructions() {
         s.user_file("CLAUDE.md", "USER GLOBAL RULE");
         let launcher = plugin_launcher(&s);
         let (argv, env) = launcher
-            .launch_on(folders(&s.dir), "7", "1", &s.cwd, None, role, &pair)
+            .launch_on(&agents::claude_code::Request {
+                folders: folders(&s.dir),
+                id: "7",
+                attempt: "1",
+                cwd: &s.cwd,
+                resume: None,
+                role,
+                facts: &pair,
+            })
             .await
             .unwrap();
         let names: Vec<_> = argv
@@ -330,7 +353,15 @@ async fn lc5_a_users_installed_plugin_replaces_its_bundled_copy() {
                 launcher
             };
             let (argv, _) = launcher
-                .launch_on(folders(&s.dir), "7", "1", &s.cwd, None, role, &pair)
+                .launch_on(&agents::claude_code::Request {
+                    folders: folders(&s.dir),
+                    id: "7",
+                    attempt: "1",
+                    cwd: &s.cwd,
+                    resume: None,
+                    role,
+                    facts: &pair,
+                })
                 .await
                 .unwrap();
             let names: Vec<_> = argv
@@ -363,15 +394,15 @@ async fn lc14_a_door_without_the_intent_skill_starts_and_says_so() {
     let s = setup();
     let launcher = plugin_launcher(&s).without_intent_skill();
     let (argv, _) = launcher
-        .launch_on(
-            folders(&s.dir),
-            "7",
-            "1",
-            &s.cwd,
-            None,
-            Role::Door,
-            &Default::default(),
-        )
+        .launch_on(&agents::claude_code::Request {
+            folders: folders(&s.dir),
+            id: "7",
+            attempt: "1",
+            cwd: &s.cwd,
+            resume: None,
+            role: Role::Door,
+            facts: &Default::default(),
+        })
         .await
         .expect("a missing skill never fails the start");
     let status_line = |argv: &[String]| {
@@ -399,15 +430,15 @@ async fn lc14_a_door_without_the_intent_skill_starts_and_says_so() {
     assert!(!brief.contains("hope:intent"));
     // Only a Door says so; a worker's start is the same.
     let (worker, _) = launcher
-        .launch_on(
-            folders(&s.dir),
-            "8",
-            "1",
-            &s.cwd,
-            None,
-            Role::Agent,
-            &lean_pair(false, Extras::default()),
-        )
+        .launch_on(&agents::claude_code::Request {
+            folders: folders(&s.dir),
+            id: "8",
+            attempt: "1",
+            cwd: &s.cwd,
+            resume: None,
+            role: Role::Agent,
+            facts: &lean_pair(false, Extras::default()),
+        })
         .await
         .unwrap();
     assert_eq!(status_line(&worker), None);
@@ -419,15 +450,15 @@ async fn lc6_a_user_started_agent_keeps_the_users_setup() {
     s.user_file("settings.json", r#"{"permissions":{"allow":["Read(x)"]}}"#);
     let launcher = plugin_launcher(&s);
     let (argv, env) = launcher
-        .launch_on(
-            folders(&s.dir),
-            "7",
-            "1",
-            &s.cwd,
-            None,
-            Role::Agent,
-            &Pair::default(),
-        )
+        .launch_on(&agents::claude_code::Request {
+            folders: folders(&s.dir),
+            id: "7",
+            attempt: "1",
+            cwd: &s.cwd,
+            resume: None,
+            role: Role::Agent,
+            facts: &LaunchFacts::default(),
+        })
         .await
         .unwrap();
     for flag in [
@@ -542,9 +573,9 @@ fn lc8_a_missing_extra_relaunches_with_resume_and_snapshot_off() {
         fresh_brief: true,
         ..Lean::default()
     };
-    let pair = Pair {
+    let pair = LaunchFacts {
         lean: Some(fresh),
-        ..Pair::default()
+        ..LaunchFacts::default()
     };
     let resumed = s
         .prepare_lean("7", Role::Agent, &pair, Some("conv-1"))
@@ -569,9 +600,9 @@ fn lc8_a_missing_extra_relaunches_with_resume_and_snapshot_off() {
     // The kept profile survives a Daemon restart and is cleared once applied.
     let dir = s.dir.canonicalize().unwrap();
     Launcher::save_lean(&dir, "7", pair.lean.as_ref().unwrap()).unwrap();
-    assert_eq!(Launcher::load_lean(&dir, "7"), pair.lean);
+    assert_eq!(Launcher::load_lean(&dir, "7").unwrap(), pair.lean);
     Launcher::discard(&dir, "7").unwrap();
-    assert_eq!(Launcher::load_lean(&dir, "7"), None);
+    assert_eq!(Launcher::load_lean(&dir, "7").unwrap(), None);
 }
 
 #[test]
@@ -579,7 +610,7 @@ fn lc10_no_launch_uses_bare_safe_mode_or_agent() {
     for (_, role, pair) in
         lean_children()
             .into_iter()
-            .chain([(Role::Agent, Role::Agent, Pair::default())])
+            .chain([(Role::Agent, Role::Agent, LaunchFacts::default())])
     {
         let s = setup();
         let argv = s.prepare_lean("7", role, &pair, Some("c")).unwrap();
@@ -604,9 +635,9 @@ fn lc11_the_doors_start_allows_no_shell_or_terminal_start() {
             .prepare_lean(
                 "7",
                 Role::Door,
-                &Pair {
+                &LaunchFacts {
                     mcp_off: !mcp,
-                    ..Pair::default()
+                    ..LaunchFacts::default()
                 },
                 None,
             )
@@ -690,7 +721,15 @@ async fn lc17_a_lean_child_loads_no_claude_md_by_itself() {
         std::fs::write(s.dir.parent().unwrap().join("CLAUDE.md"), "PROJECT_TOKEN").unwrap();
         let launcher = plugin_launcher(&s);
         let (argv, env) = launcher
-            .launch_on(folders(&s.dir), "7", "1", &s.cwd, None, role, &pair)
+            .launch_on(&agents::claude_code::Request {
+                folders: folders(&s.dir),
+                id: "7",
+                attempt: "1",
+                cwd: &s.cwd,
+                resume: None,
+                role,
+                facts: &pair,
+            })
             .await
             .unwrap();
         assert_eq!(env["CLAUDE_CODE_DISABLE_CLAUDE_MDS"], "1", "{row:?}");
@@ -715,7 +754,7 @@ fn lc16_no_role_hides_slash_commands() {
     let roles = agents::claude_code::PROFILES.iter().map(|(role, _)| *role);
     for role in roles.chain([Role::Agent]) {
         for pair in [
-            Pair::default(),
+            LaunchFacts::default(),
             lean_pair(false, Extras::default()),
             lean_pair(true, Extras::default()),
         ] {
@@ -809,9 +848,13 @@ async fn lc22_a_failed_memory_command_blocks() {
                         "settings.json",
                         &json!({"autoMemoryDirectory":memory}).to_string(),
                     );
-                    let pair = Pair {
+                    let pair = LaunchFacts {
                         mcp_off,
-                        yolo,
+                        permission: if yolo {
+                            agents::claude_code::Permission::Bypass
+                        } else {
+                            agents::claude_code::Permission::Inherit
+                        },
                         ..pair.clone()
                     };
                     let argv = s.prepare_lean("7", role, &pair, resume).unwrap();

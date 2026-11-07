@@ -185,39 +185,17 @@
 .rail-row input {
   flex: 1;
   min-width: 0;
-  min-height: var(--space-6);
-  box-sizing: border-box;
-  padding: var(--space-1);
-  border: 0;
-  background: var(--transparent);
-  color: inherit;
-  font: inherit;
 }
 
-.spawn-prompt-field {
-  box-sizing: border-box;
+.field-frame.spawn-prompt-field {
   display: block;
-  width: 100%;
-  min-height: var(--space-5);
-  padding: var(--space-1) var(--space-2) var(--space-1) var(--space-3);
-  font: inherit;
-  color: var(--text);
-  background: var(--ground);
-  border: 0;
+  width: calc(100% - 2 * var(--space-3));
+  margin-inline: var(--space-3);
   resize: none;
   overflow-y: auto;
   overscroll-behavior: contain;
   line-height: var(--space-4);
   max-height: calc(6lh + 2 * var(--space-1));
-}
-
-.spawn-prompt-field::placeholder {
-  color: var(--grey);
-  opacity: 1;
-}
-
-.spawn-prompt-field:hover {
-  background-color: var(--hover);
 }
 
 .rail-tree {
@@ -563,8 +541,10 @@
   background: var(--ground);
 }
 
-.rail-row[data-editing="true"] input {
-  width: 100%;
+/* The field ends before the row's icons, which stay inert while the name is edited. */
+.rail-row[data-editing="true"] .row-tail {
+  visibility: hidden;
+  pointer-events: none;
 }
 
 .rail-recovery summary {
@@ -680,6 +660,7 @@
   opacity: 1;
   pointer-events: auto;
 }
+.rail-row[data-lifted="true"]:is(:hover, :focus-within) :is(.row-icons, .row-controls) { opacity: 0; pointer-events: none; } /* U6550a: a lifted row shows its folded count with no control over it. */
 .rail-row[data-multiple="true"]:not(:hover, :focus-within) :is(.row-controls, .rail-chevron, .row-secondary) { opacity: 0; pointer-events: none; }
 .rail-row .row-state { flex: none; }
 
@@ -819,6 +800,7 @@
 .rail-fold [data-state="open"] {
   transform: rotate(90deg);
 }
+.rail-fold [data-part="branch-indicator"] { transition: transform var(--fold-turn, var(--duration-instant)) var(--easing-out); }
 .held-row { display: flex; align-items: baseline; gap: var(--space-2); width: 100%; text-align: left; }
 .held-content { display: flex; flex: 1; min-width: 0; flex-direction: column; }
 .held-content span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

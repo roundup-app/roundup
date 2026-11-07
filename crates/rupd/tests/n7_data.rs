@@ -187,13 +187,12 @@ mod x14_daemon_observer {
             let dir = tempfile::tempdir()?;
             let project = dir.path().join("project");
             std::fs::create_dir(&project)?;
-            let daemon = Arc::new(rupd::Daemon::open_project(
-                &project,
-                &dir.path().join("data"),
-            )?);
+            let (daemon, watchers) =
+                rupd::Daemon::open_project(&project, &dir.path().join("data"))?;
+            let daemon = Arc::new(daemon);
             let socket = dir.path().join("daemon.sock");
             let listener = UnixListener::bind(&socket)?;
-            let server = tokio::spawn(rupd::serve(listener, Arc::clone(&daemon)));
+            let server = tokio::spawn(rupd::serve(listener, Arc::clone(&daemon), watchers));
             let client = timeout(BOUND, Client::connect(&socket)).await??;
             let node = timeout(
                 BOUND,

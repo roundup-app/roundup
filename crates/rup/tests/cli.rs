@@ -842,7 +842,7 @@ async fn t21_the_cli_comment_is_the_same_call() {
 
 #[tokio::test]
 async fn lc22_successful_memory_decisions_reach_the_vendor() {
-    use agents::claude_code::{Folders, Launcher, Pair, Role};
+    use agents::claude_code::{Folders, LaunchFacts, Launcher, Role};
     let dir = tempfile::tempdir().unwrap();
     let project = dir.path().join("Project's checkout");
     let data = dir.path().join("data");
@@ -860,21 +860,25 @@ async fn lc22_successful_memory_decisions_reach_the_vendor() {
     for role in [Role::Door, Role::Scout] {
         for yolo in [false, true] {
             let argv = launcher
-                .prepare_on(
-                    Folders {
+                .prepare_on(&agents::claude_code::Request {
+                    folders: Folders {
                         project: &project,
                         data: &data,
                     },
-                    "7",
-                    "1",
-                    &project,
-                    None,
+                    id: "7",
+                    attempt: "1",
+                    cwd: &project,
+                    resume: None,
                     role,
-                    &Pair {
-                        yolo,
-                        ..Pair::default()
+                    facts: &LaunchFacts {
+                        permission: if yolo {
+                            agents::claude_code::Permission::Bypass
+                        } else {
+                            agents::claude_code::Permission::Inherit
+                        },
+                        ..LaunchFacts::default()
                     },
-                )
+                })
                 .unwrap();
             let settings: Value =
                 serde_json::from_slice(&std::fs::read(&argv[2]).unwrap()).unwrap();

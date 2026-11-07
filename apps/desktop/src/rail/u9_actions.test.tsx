@@ -93,7 +93,7 @@ describe("u9 actions", () => {
 
     await chooseFooter("Workstream");
 
-    await waitFor(() => expect(railCallsTo(mounted.app, "rail.createWorkstream")).toEqual([{ name: "workstream", parent: null }]));
+    await waitFor(() => expect(railCallsTo(mounted.app, "rail.createWorkstream")).toEqual([{ name: "Workstream", parent: null }]));
   });
 
   it("u9_double_clicking_a_name_edits_it_and_enter_renames", async () => {
@@ -215,7 +215,7 @@ it("u62_creates_one_root_workstream_selects_the_tree_row_and_starts_only_its_doo
   mounted.app.handlers["rail.createWorkstream"] = () => workstream("returned-workstream");
   mounted.app.handlers["rail.startDoor"] = () => door("returned-workstream", "working", "starting");
   await chooseFooter("Workstream");
-  await waitFor(() => expect(railCallsTo(mounted.app, "rail.createWorkstream")).toEqual([{ name: "workstream", parent: null }]));
+  await waitFor(() => expect(railCallsTo(mounted.app, "rail.createWorkstream")).toEqual([{ name: "Workstream", parent: null }]));
   expect(railCallsTo(mounted.app, "rail.startDoor")).toEqual([]);
   tree.push(workstream("returned-workstream"));
   mounted.app.emit(event({ name: "rail.changed" }));

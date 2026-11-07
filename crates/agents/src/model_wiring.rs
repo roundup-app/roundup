@@ -9,7 +9,7 @@ impl Agents {
         role: Role,
         model: Option<String>,
         effort: Option<String>,
-    ) -> Result<Pair, RpcError> {
+    ) -> Result<LaunchFacts, RpcError> {
         models::check_listed(model.as_deref(), effort.as_deref())?;
         let project = self.project_models()?;
         if actor.kind == ActorKind::Agent {
@@ -20,7 +20,7 @@ impl Agents {
 
     pub(super) fn project_models(&self) -> Result<ProjectModels, RpcError> {
         let roles: Vec<&str> = Role::ALL.iter().map(|role| role.id()).collect();
-        self.shared.rail().get_models(&roles)
+        Ok(self.shared.rail().get_models(&roles)?)
     }
 
     /// A37: change the Model and Effort of node `id`. A live Agent is stopped and resumed once on

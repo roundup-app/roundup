@@ -1,5 +1,6 @@
 //! A35: coordinator-owned, durable queue reservations. No lifecycle calls or consent policy.
 use super::*;
+use crate::delivery::{End, Receiver};
 use store::FirstPrompt;
 
 /// Durable progress fenced before every non-repeatable lifecycle or input effect.
@@ -19,7 +20,7 @@ impl Messages {
         &self,
         agent: &str,
         key: &str,
-    ) -> Result<Option<(Option<String>, SessionRestart)>, RpcError> {
+    ) -> Result<Option<(Option<String>, SessionRestart)>, Error> {
         let store = self.store()?;
         let Some(restart) = store.restart(agent, key)? else {
             return Ok(None);
@@ -31,13 +32,13 @@ impl Messages {
                 rusqlite::params![agent, key],
                 |row| row.get(0),
             )
-            .map_err(RpcError::internal)?;
+            .map_err(Error::internal)?;
         Ok(Some((
             restart.prompt.body().map(str::to_owned),
             state
                 .map(|s| serde_json::from_str(&s))
                 .transpose()
-                .map_err(RpcError::internal)?
+                .map_err(Error::internal)?
                 .unwrap_or(SessionRestart::Reserved),
         )))
     }
@@ -48,18 +49,18 @@ impl Messages {
         agent: &str,
         key: &str,
         state: SessionRestart,
-    ) -> Result<(), RpcError> {
+    ) -> Result<(), Error> {
         self.store()?
             .db
             .execute(
                 "UPDATE message_restarts SET session=? WHERE agent=? AND key=?",
                 rusqlite::params![
-                    serde_json::to_string(&state).map_err(RpcError::internal)?,
+                    serde_json::to_string(&state).map_err(Error::internal)?,
                     agent,
                     key
                 ],
             )
-            .map_err(RpcError::internal)?;
+            .map_err(Error::internal)?;
         Ok(())
     }
 
@@ -73,11 +74,10 @@ impl Messages {
         agent: &str,
         key: &str,
         first_prompt: Option<&str>,
-    ) -> Result<(), RpcError> {
+    ) -> Result<(), Error> {
         if key.is_empty() || first_prompt.is_some_and(|p| p.is_empty() || p.len() > MAX_BODY_BYTES)
         {
-            return Err(RpcError::new(
-                code::INVALID_PARAMS,
+            return Err(Error::invalid_params(
                 "empty restart key or invalid first prompt",
             ));
         }
@@ -86,19 +86,16 @@ impl Messages {
             return if previous.prompt.body() == first_prompt {
                 Ok(())
             } else {
-                Err(RpcError::conflict("restart first prompt changed"))
+                Err(Error::conflict("restart first prompt changed"))
             };
         }
         let nodes = load_rail_nodes(&self.inner).await?;
         let node = nodes
             .iter()
             .find(|n| n.id == agent)
-            .ok_or_else(|| RpcError::not_found(agent))?;
+            .ok_or_else(|| Error::not_found(agent))?;
         if first_prompt.is_some() && node.kind != contracts::agent::NodeKind::Workstream {
-            return Err(RpcError::new(
-                code::INVALID_PARAMS,
-                "first prompt note requires a Door",
-            ));
+            return Err(Error::invalid_params("first prompt note requires a Door"));
         }
         let mut store = self.store()?;
         accept_reservation(&self.inner, &mut store, node)?;
@@ -115,7 +112,7 @@ impl Messages {
         agent: &str,
         key: &str,
         attempt: &str,
-    ) -> Result<Message, RpcError> {
+    ) -> Result<Message, Error> {
         let _delivery = self.inner.delivery.write().await;
         let ordinal = parse_attempt(attempt)?;
         let previous = self.store()?.restart(agent, key)?;
@@ -124,37 +121,35 @@ impl Messages {
         {
             let store = self.store()?;
             if store.bound(id)?.0 != ordinal {
-                return Err(RpcError::conflict(
-                    "first prompt recorded for another Attempt",
-                ));
+                return Err(Error::conflict("first prompt recorded for another Attempt"));
             }
             if matches!(restart.prompt, FirstPrompt::Published { .. }) {
                 return store
                     .get(id)?
-                    .ok_or_else(|| RpcError::internal("restart note missing"));
+                    .ok_or_else(|| Error::internal("restart note missing"));
             }
         }
         let at = (ordinal, 0);
         let mut store = self.store()?;
         let restart = store
             .restart(agent, key)?
-            .ok_or_else(|| RpcError::conflict("restart not reserved"))?;
+            .ok_or_else(|| Error::conflict("restart not reserved"))?;
         if ordinal <= restart.before {
-            return Err(RpcError::conflict(
+            return Err(Error::conflict(
                 "first prompt acknowledgement predates restart",
             ));
         }
         let body = restart
             .prompt
             .body()
-            .ok_or_else(|| RpcError::conflict("no reserved first prompt"))?
+            .ok_or_else(|| Error::conflict("no reserved first prompt"))?
             .to_owned();
-        (self.inner.fault)("record_restart_prompt").map_err(RpcError::internal)?;
+        (self.inner.fault)("record_restart_prompt").map_err(Error::internal)?;
         let message = store.atomically(|s| {
             if let Some(id) = restart.prompt.note() {
                 return s
                     .get(id)?
-                    .ok_or_else(|| RpcError::internal("restart note missing"));
+                    .ok_or_else(|| Error::internal("restart note missing"));
             }
             let message = s.insert(
                 &Actor::user(),
@@ -176,16 +171,16 @@ impl Messages {
                 .inner
                 .touches
                 .history(&item)
-                .map_err(RpcError::internal)?
+                .map_err(Error::internal)?
                 .iter()
                 .any(|t| t.verb == Verb::Wrote && t.actor == Actor::user());
             if !wrote {
                 self.inner
                     .touches
                     .record(&Actor::user(), Verb::Wrote, &item)
-                    .map_err(RpcError::internal)?;
+                    .map_err(Error::internal)?;
             }
-            (self.inner.fault)("publish_restart_prompt").map_err(RpcError::internal)?;
+            (self.inner.fault)("publish_restart_prompt").map_err(Error::internal)?;
             store.publish_restart_note(agent, key)?;
             self.inner.bus.emit(
                 Actor::user(),
@@ -209,19 +204,19 @@ impl Messages {
         agent: &str,
         key: &str,
         attempt: &str,
-    ) -> Result<(), RpcError> {
+    ) -> Result<(), Error> {
         {
             let _delivery = self.inner.delivery.write().await;
             let ordinal = parse_attempt(attempt)?;
             let previous = self
                 .store()?
                 .restart(agent, key)?
-                .ok_or_else(|| RpcError::conflict("restart not reserved"))?;
+                .ok_or_else(|| Error::conflict("restart not reserved"))?;
             if let Some(done) = previous.released {
                 return if done == ordinal {
                     Ok(())
                 } else {
-                    Err(RpcError::conflict("restart released to another Attempt"))
+                    Err(Error::conflict("restart released to another Attempt"))
                 };
             }
             let at = self.restart_binding(agent, key, attempt).await?;
@@ -229,17 +224,17 @@ impl Messages {
             store.require_generation(agent, at)?;
             let previous = store
                 .restart(agent, key)?
-                .ok_or_else(|| RpcError::conflict("restart not reserved"))?;
+                .ok_or_else(|| Error::conflict("restart not reserved"))?;
             if !matches!(
                 previous.prompt,
                 FirstPrompt::Absent | FirstPrompt::Published { .. }
             ) {
-                return Err(RpcError::conflict("first prompt not recorded"));
+                return Err(Error::conflict("first prompt not recorded"));
             }
             if let Some(id) = previous.prompt.note()
                 && store.bound(id)?.0 > ordinal
             {
-                return Err(RpcError::conflict(
+                return Err(Error::conflict(
                     "first prompt acknowledgement is newer than release Attempt",
                 ));
             }
@@ -254,24 +249,24 @@ impl Messages {
         agent: &str,
         key: &str,
         attempt: &str,
-    ) -> Result<store::Binding, RpcError> {
+    ) -> Result<store::Binding, Error> {
         let attempt = parse_attempt(attempt)?;
         let restart = self
             .store()?
             .restart(agent, key)?
-            .ok_or_else(|| RpcError::conflict("restart not reserved"))?;
+            .ok_or_else(|| Error::conflict("restart not reserved"))?;
         let nodes = load_rail_nodes(&self.inner).await?;
         let node = nodes
             .iter()
             .find(|n| n.id == agent)
-            .ok_or_else(|| RpcError::not_found(agent))?;
+            .ok_or_else(|| Error::not_found(agent))?;
         let at = binding(node);
         if at.0 != attempt
             || attempt <= restart.before
             || ended(node)
             || node.status_revision.is_none()
         {
-            return Err(RpcError::conflict("matching restarted Attempt not live"));
+            return Err(Error::conflict("matching restarted Attempt not live"));
         }
         let mut store = self.store()?;
         reconcile(
@@ -280,9 +275,8 @@ impl Messages {
             agent,
             at,
             Ending {
-                closed: false,
-                permanent: false,
-                retained: false,
+                end: End::Live,
+                receiver: Receiver::Agent,
                 restart: false,
             },
         )?;
@@ -291,7 +285,8 @@ impl Messages {
     }
 }
 
-fn parse_attempt(attempt: &str) -> Result<i64, RpcError> {
-    contracts::agent::parse_positive_ordinal(attempt)
-        .ok_or_else(|| RpcError::new(code::INVALID_PARAMS, "invalid Attempt"))
+fn parse_attempt(attempt: &str) -> Result<i64, Error> {
+    contracts::agent::Ordinal::parse(attempt)
+        .map(|n| n.get())
+        .ok_or_else(|| Error::invalid_params("invalid Attempt"))
 }

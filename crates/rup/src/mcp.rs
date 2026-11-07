@@ -32,42 +32,65 @@ use agent_tools::{
 
 const TOOLS_TTL_MS: u64 = 3_600_000;
 
+/// What a tool's input is, and how the shim fills it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum Input {
+    /// The tool takes no input and the params are null.
+    None,
+    /// E4: the params are `{id}` with the shim's own Agent id, and the tool takes no input.
+    OwnId,
+    /// The params are the tool's arguments.
+    Arguments,
+    /// The params are the tool's arguments and `id`, the shim's own Agent id, which the tool's schema lacks.
+    ArgumentsWithOwnId,
+    /// X16: the params carry `reader`, the shim's own Agent id, and the tool's schema lacks it.
+    ArgumentsWithOwnReader,
+}
+
+/// Who is offered a tool.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum Audience {
+    Agent,
+    /// B20, A32, M10: only a Door is offered it.
+    DoorOnly,
+}
+
+/// How a call to a tool ends.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum Delivery {
+    /// One answer within `CALL_TIMEOUT`.
+    Answer,
+    /// H14: the call waits for the user, so no `CALL_TIMEOUT` applies and its result is the answer's text.
+    WaitsForUser,
+    /// I9: the call answers once and then pushes Events, so `rup` has it as a command and `rup mcp` does not offer it.
+    Stream,
+}
+
 /// One entry of the one tool list: `rup mcp` offers it as a tool and `rup` as a command (I1).
 pub(crate) struct Offered {
     pub(crate) method: &'static str,
     pub(crate) tool: Tool,
-    takes_params: bool,
-    /// E4: the params are `{id}` with the shim's own Agent id, and the tool takes no input.
-    own_id: bool,
-    /// X16: the params carry `reader`, the shim's own Agent id, and the tool's schema lacks it.
-    own_reader: bool,
-    /// H14: the call waits for the user, so no `CALL_TIMEOUT` applies and its result is the answer's text.
-    pub(crate) waits_for_user: bool,
-    /// B20, A32, M10: only a Door is offered it.
-    pub(crate) door_only: bool,
-    /// I9: the call answers once and then pushes Events, so `rup` has it as a command and `rup mcp` does not offer it.
-    pub(crate) stream: bool,
+    input: Input,
+    pub(crate) audience: Audience,
+    pub(crate) delivery: Delivery,
 }
 
 impl Offered {
     /// The params of a call by Agent `agent` with the tool's `arguments`.
     pub(crate) fn params(&self, agent: &str, arguments: Option<JsonObject>) -> Value {
-        let arguments = match arguments {
-            Some(mut arguments) if self.own_reader => {
-                arguments.insert("reader".into(), agent.into());
-                Some(arguments)
-            }
-            other => other,
+        let own = |key: &str, mut arguments: JsonObject| {
+            arguments.insert(key.into(), agent.into());
+            Value::Object(arguments)
         };
-        match (self.takes_params, self.own_id, arguments) {
-            (false, true, _) => serde_json::json!({ "id": agent }),
-            (true, true, arguments) => {
-                let mut arguments = arguments.unwrap_or_default();
-                arguments.insert("id".into(), agent.into());
-                Value::Object(arguments)
-            }
-            (true, false, arguments) => Value::Object(arguments.unwrap_or_default()),
-            (false, false, _) => Value::Null,
+        match self.input {
+            Input::None => Value::Null,
+            Input::OwnId => serde_json::json!({ "id": agent }),
+            Input::Arguments => Value::Object(arguments.unwrap_or_default()),
+            Input::ArgumentsWithOwnId => own("id", arguments.unwrap_or_default()),
+            Input::ArgumentsWithOwnReader => match arguments {
+                Some(arguments) => own("reader", arguments),
+                None => Value::Object(JsonObject::new()),
+            },
         }
     }
 }
@@ -87,16 +110,18 @@ impl std::fmt::Display for Gone {
     }
 }
 
+/// The JSON Schema of `P`, which a params struct makes an object.
+fn schema_of<P: JsonSchema>() -> JsonObject {
+    schemars::schema_for!(P).ensure_object().clone()
+}
+
 fn offered<P: JsonSchema>(method: &'static str, description: &'static str) -> Offered {
-    let Ok(Value::Object(schema)) = serde_json::to_value(schemars::schema_for!(P)) else {
-        unreachable!("a params struct's schema is an object");
-    };
-    offer(method, description, schema, true)
+    offer(method, description, schema_of::<P>(), Input::Arguments)
 }
 
 fn offered_without_params(method: &'static str, description: &'static str) -> Offered {
     let schema = JsonObject::from_iter([("type".into(), "object".into())]);
-    offer(method, description, schema, false)
+    offer(method, description, schema, Input::None)
 }
 
 /// The tool for a method: its name with `.` as `_`. The `github.` methods read `github_pr_get`
@@ -118,7 +143,7 @@ fn offer(
     method: &'static str,
     description: &'static str,
     schema: JsonObject,
-    takes_params: bool,
+    input: Input,
 ) -> Offered {
     Offered {
         method,
@@ -129,12 +154,13 @@ fn offer(
             ),
             schema,
         ),
-        takes_params,
-        own_id: false,
-        own_reader: false,
-        waits_for_user: matches!(method, "project.open" | "project.start"),
-        door_only: false,
-        stream: false,
+        input,
+        audience: Audience::Agent,
+        delivery: if matches!(method, "project.open" | "project.start") {
+            Delivery::WaitsForUser
+        } else {
+            Delivery::Answer
+        },
     }
 }
 
@@ -173,22 +199,22 @@ fn agent_run() -> Offered {
 
 /// X16: `terminal.read` returns what is new since the caller's last read; the shim fills `reader`.
 fn terminal_read() -> Offered {
-    let Ok(Value::Object(mut schema)) =
-        serde_json::to_value(schemars::schema_for!(terminal::ReadParams))
-    else {
-        unreachable!("a params struct's schema is an object");
-    };
+    let mut schema = schema_of::<terminal::ReadParams>();
     if let Some(Value::Object(properties)) = schema.get_mut("properties") {
         properties.remove("reader");
     }
     Offered {
-        own_reader: true,
         tool: Tool::new(
             "terminal_read",
             "Read a Terminal's output you have not read yet, as plain text; `next` is the offset after it. At most 200 lines and 16 384 bytes a call, `truncated` says more remains. With `after`, read from that offset instead and keep your place.",
             schema,
         ),
-        ..offer("terminal.read", "", JsonObject::new(), true)
+        ..offer(
+            "terminal.read",
+            "",
+            JsonObject::new(),
+            Input::ArgumentsWithOwnReader,
+        )
     }
 }
 
@@ -198,9 +224,7 @@ fn with_own_id<P: JsonSchema>(
     name: &'static str,
     description: &'static str,
 ) -> Offered {
-    let Ok(Value::Object(mut schema)) = serde_json::to_value(schemars::schema_for!(P)) else {
-        unreachable!("a params struct's schema is an object");
-    };
+    let mut schema = schema_of::<P>();
     if let Some(Value::Object(properties)) = schema.get_mut("properties") {
         properties.remove("id");
     }
@@ -208,16 +232,15 @@ fn with_own_id<P: JsonSchema>(
         required.retain(|name| name != "id");
     }
     Offered {
-        own_id: true,
         tool: Tool::new(name, description, schema),
-        ..offer(method, "", JsonObject::new(), true)
+        ..offer(method, "", JsonObject::new(), Input::ArgumentsWithOwnId)
     }
 }
 
 /// I9: `events.subscribe`, the one stream of the list.
 fn events_stream() -> Offered {
     Offered {
-        stream: true,
+        delivery: Delivery::Stream,
         ..offered::<contracts::SubscribeParams>(
             "events.subscribe",
             "Print the Events saved after a number, one JSON object per line, then stop at the end of the log. `--follow` keeps streaming new ones; `--kept` starts at the oldest kept Event, otherwise without `--after` it starts at the end.",
@@ -230,30 +253,30 @@ fn events_stream() -> Offered {
 pub(crate) fn tools(door: bool) -> Vec<Offered> {
     commands(door)
         .into_iter()
-        .filter(|offer| !offer.stream)
+        .filter(|offer| offer.delivery != Delivery::Stream)
         .collect()
 }
 
 /// I1, I9: every entry of the one list, the streams included.
 pub(crate) fn commands(door: bool) -> Vec<Offered> {
     let mut list = offered_tools();
-    list.retain(|offer| door || !offer.door_only);
+    list.retain(|offer| door || offer.audience == Audience::Agent);
     list
 }
 
 /// M5: one tool for each method of its first list; the methods left out are in its second, with their reasons (`scenarios/mcp.md`).
 macro_rules! push_tool {
     ($list:ident, $wire:literal, none($reason:expr)) => {};
-    ($list:ident, $wire:literal, all($($tool:tt)*)) => { push_tool!(@offer $list, $wire, false, $($tool)*); };
-    ($list:ident, $wire:literal, door($($tool:tt)*)) => { push_tool!(@offer $list, $wire, true, $($tool)*); };
+    ($list:ident, $wire:literal, all($($tool:tt)*)) => { push_tool!(@offer $list, $wire, Audience::Agent, $($tool)*); };
+    ($list:ident, $wire:literal, door($($tool:tt)*)) => { push_tool!(@offer $list, $wire, Audience::DoorOnly, $($tool)*); };
     (@offer $list:ident, $wire:literal, $door:expr, schema($schema:ty, $description:expr)) => {
-        $list.push(Offered { door_only: $door, ..offered::<$schema>($wire, $description) });
+        $list.push(Offered { audience: $door, ..offered::<$schema>($wire, $description) });
     };
     (@offer $list:ident, $wire:literal, $door:expr, empty($description:expr)) => {
-        $list.push(Offered { door_only: $door, ..offered_without_params($wire, $description) });
+        $list.push(Offered { audience: $door, ..offered_without_params($wire, $description) });
     };
     (@offer $list:ident, $wire:literal, $door:expr, custom($offer:expr)) => {
-        $list.push(Offered { door_only: $door, ..$offer });
+        $list.push(Offered { audience: $door, ..$offer });
     };
 }
 macro_rules! declared_tools {
@@ -265,6 +288,21 @@ macro_rules! declared_tools {
 }
 fn offered_tools() -> Vec<Offered> {
     contracts::all_methods!(declared_tools)
+}
+
+/// `value`'s member `key`, or null when `value` has none.
+fn field<'a>(value: &'a Value, key: &str) -> &'a Value {
+    value.get(key).unwrap_or(&Value::Null)
+}
+
+/// Sets member `key` of `value`, which is an object, or null and so becomes one.
+fn set_key(value: &mut Value, key: &str, to: Value) {
+    if value.is_null() {
+        *value = Value::Object(JsonObject::new());
+    }
+    if let Some(object) = value.as_object_mut() {
+        object.insert(key.into(), to);
+    }
 }
 
 // Resolve before actions: discard removes the node, so a lookup after success loses its name.
@@ -279,9 +317,17 @@ pub(crate) async fn display_params(
     }
     let nodes = rail_nodes(client).await?;
     let mut display = params.clone();
-    display["id"] = rail_name(&nodes, &params["id"]).into();
-    if method == "rail.move" && !params["parent"].is_null() {
-        display["parent"] = rail_name(&nodes, &params["parent"]).into();
+    set_key(
+        &mut display,
+        "id",
+        rail_name(&nodes, field(params, "id")).into(),
+    );
+    if method == "rail.move" && !field(params, "parent").is_null() {
+        set_key(
+            &mut display,
+            "parent",
+            rail_name(&nodes, field(params, "parent")).into(),
+        );
     }
     Ok(display)
 }
@@ -315,15 +361,23 @@ pub(crate) async fn display_data(
                 .as_array_mut()
                 .ok_or_else(|| RpcError::internal("invalid Rail tree"))?
             {
-                if !node["parent"].is_null() {
-                    node["parent_name"] = rail_name(&nodes, &node["parent"]).into();
+                if !field(node, "parent").is_null() {
+                    let name = rail_name(&nodes, field(node, "parent"));
+                    set_key(node, "parent_name", name.into());
                 }
             }
         }
         // A Door asks the user; only an Agent destination needs a Rail name.
-        "agent.context" if result["ask"]["to"].as_str().is_some_and(|to| to != "you") => {
+        "agent.context"
+            if field(field(&result, "ask"), "to")
+                .as_str()
+                .is_some_and(|to| to != "you") =>
+        {
             let nodes = rail_nodes(client).await?;
-            result["ask"]["name"] = rail_name(&nodes, &result["ask"]["to"]).into();
+            let name = rail_name(&nodes, field(field(&result, "ask"), "to"));
+            if let Some(ask) = result.get_mut("ask") {
+                set_key(ask, "name", name.into());
+            }
         }
         _ => {}
     }
@@ -379,7 +433,7 @@ async fn link_nodes(client: &rpc::Client, result: &mut Value) {
     };
     let ping = tokio::time::timeout(CALL_TIMEOUT, client.request("daemon.ping", Value::Null)).await;
     if let Ok(Ok(ping)) = ping
-        && let Some(key) = ping["projectKey"].as_str()
+        && let Some(key) = field(&ping, "projectKey").as_str()
     {
         add_links(result, key, &nodes);
     }
@@ -393,7 +447,7 @@ pub(crate) fn success_text(method: &str, params: &Value, result: Value) -> Strin
     if method == "project.open" {
         return format!(
             "opened Project {}",
-            result["path"].as_str().unwrap_or_default()
+            field(&result, "path").as_str().unwrap_or_default()
         );
     }
     if !unit {
@@ -535,7 +589,7 @@ impl Shim {
     ) -> Result<Result<String, RpcError>, Gone> {
         let params = offer.params(&self.actor.id, arguments);
         let client = self.connect().await?;
-        if offer.waits_for_user {
+        if offer.delivery == Delivery::WaitsForUser {
             return Ok(client
                 .request(offer.method, &params)
                 .await
@@ -603,7 +657,8 @@ impl ServerHandler for Shim {
         if matches!(request.name.as_ref(), "ask_send" | "ask_list" | "ask_pick") {
             return Err(ErrorData::new(
                 rmcp::model::ErrorCode(
-                    rpc::code::FORBIDDEN.try_into().expect("FORBIDDEN fits i32"),
+                    i32::try_from(rpc::code::FORBIDDEN)
+                        .map_err(|e| ErrorData::internal_error(e.to_string(), None))?,
                 ),
                 format!("{} is user-only", request.name),
                 None,
@@ -671,7 +726,7 @@ async fn serve(actor: Actor) -> Result<(), String> {
             if offer.method == "agent.spawn" {
                 let description = offer.tool.description.as_deref().unwrap_or_default();
                 offer.tool.description = Some(format!(
-                    "{description} Naming guide: {guide} Supply an optional name, trimmed and at most 32 characters; sibling collisions receive a suffix. When name is omitted, the first prompt names the child if Automatic renaming is on, otherwise it keeps its current name."
+                    "{description} Naming guide: {guide} Supply an optional name, trimmed and at most 42 characters; sibling collisions receive a suffix. When name is omitted, the first prompt names the child if Automatic renaming is on, otherwise it keeps its current name."
                 ).into());
             }
         }

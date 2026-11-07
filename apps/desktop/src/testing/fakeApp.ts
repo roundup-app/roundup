@@ -5,7 +5,7 @@ import type { RpcMethodName, RpcMethods } from "@contracts/methods";
 import { OWN_CONTRACT } from "../app/contractMatch";
 import { RpcError } from "../app/seam";
 import { menuProbe, probeQuestion, probeRemovalQuestion, questionProbe } from "./menuProbe";
-import type { ActionRequest, ActionReply, ProjectCalls, AppSeam, RemovalQuestion, RemovalAnswer, NativeOpen, NativeQuestion, DaemonExit, DaemonExited, FileDrop, MenuItem, OpenTarget, OutputMessage, PastedImage, Project, StateAlert, MenuBar, MenuBarAction } from "../app/seam";
+import type { ActionRequest, ActionReply, ProjectCalls, AppSeam, RemovalQuestion, RemovalAnswer, NativeOpen, NativeQuestion, DaemonExit, DaemonExited, FileDrop, MenuItem, OpenTarget, EditorChoice, OutputMessage, PastedImage, Project, StateAlert, MenuBar, MenuBarAction } from "../app/seam";
 
 const CONFLICT = -32003;
 
@@ -43,6 +43,9 @@ const emptyReads: Handlers = {
 
 /** One `selectOutput` call: the listener stays here after `release`, so a test can call it late. */
 export type FakeOutputSubscription = { id: string; offset: number; listener: (message: OutputMessage) => void; released: boolean };
+
+/** One `open_in_editor` call: the path, its `line` and the code editor chosen, when given. */
+type EditorCall = { path: string; line?: number; editor?: string };
 
 export type FakeApp = AppSeam & {
   requestAction(request: ActionRequest): Promise<ActionReply>;
@@ -87,7 +90,10 @@ export type FakeApp = AppSeam & {
   /** Every path `open_in_editor` was called with, in order; `editorFailure` is what it rejects with. */
   editorOpened: string[];
   /** The same calls with their `line`. */
-  editorCalls: { path: string; line?: number }[];
+  editorCalls: EditorCall[];
+  /** U6372a: what `list_editors` answers, and the code editor each open call carried (`undefined`: none). */
+  installedEditors: EditorChoice[];
+  openedEditors: (string | undefined)[];
   editorFailure: RpcError | null;
   /** Every menu `show_context_menu` was called with, in order; `menuChoice` is the id it resolves (`null`: the menu closed with no choice). */
   shownMenus: { items: MenuItem[]; x: number; y: number }[];
@@ -146,7 +152,7 @@ export const createFakeApp = (): FakeApp => {
 
   const nameAt = (path: string): string => open.find((project) => project.path === path)?.name ?? folderOf(path);
 
-  let naming = { automaticRenaming: true, namingGuide: "Use three hyphen-separated words: role-verb-object, within 32 characters." };
+  let naming = { automaticRenaming: true, namingGuide: "Use distinguishable meaningful name in title-case; at most 42 characters." };
 
   const app: FakeApp = {
     serveActions: async (answer, invalidated) => { invalidateActions?.(); answerAction = answer; invalidateActions = invalidated; },
@@ -196,6 +202,8 @@ export const createFakeApp = (): FakeApp => {
     openFailure: null,
     editorOpened: [],
     editorCalls: [],
+    installedEditors: [],
+    openedEditors: [],
     editorFailure: null,
     clipboardWrites: [],
     clipboardFailure: null,
@@ -345,6 +353,7 @@ export const createFakeApp = (): FakeApp => {
         windowOperations: app.windowOperations,
         openTarget: app.openTarget,
         openInEditor: app.openInEditor,
+        listEditors: app.listEditors,
         savePastedImage: app.savePastedImage,
         writeClipboardText: (text: string) => app.writeClipboardText(text),
         clipboardWrites: app.clipboardWrites,
@@ -439,18 +448,26 @@ export const createFakeApp = (): FakeApp => {
         },
       };
     },
-    openTarget: async (target) => {
+    listEditors: async () => app.installedEditors,
+    openTarget: async (target, editor) => {
       app.attemptedTargets.push(target);
 
       if (app.openFailure) throw app.openFailure;
 
       app.openedTargets.push(target);
+      app.openedEditors.push(editor);
     },
-    openInEditor: async (path, line) => {
+    openInEditor: async (path, line, editor) => {
       if (app.editorFailure) throw app.editorFailure;
 
       app.editorOpened.push(path);
-      app.editorCalls.push(line === undefined ? { path } : { path, line });
+      const call: EditorCall = { path };
+
+      if (line !== undefined) call.line = line;
+
+      if (editor) call.editor = editor;
+
+      app.editorCalls.push(call);
     },
     showContextMenu: async (items, x, y) => {
       app.shownMenus.push({ items, x, y });

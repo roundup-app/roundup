@@ -154,6 +154,7 @@ export const Pads = (props: {
     rail: connected.rail,
     selected: selection.selected,
     afterRemoval: selection.afterRemoval,
+    focused: selection.focused,
     targets: () => shown().map((pad) => ({ id: pad.incarnation, label: pad.name })),
     context: () => connected.rail.selected() ?? "overview",
     noun: copy.pads, replace: selection.replace, clear: selection.clear, cancelSelection: selection.cancel,
@@ -262,7 +263,7 @@ export const Pads = (props: {
         <div class="shelf-list">
           <ShelfRow glyph={<Icon name={PAD_ICON} />} class="entry-row pad-inset">
             <Editable.Root edit value={name()} readOnly={invalid()} selectOnFocus={false} submitMode="none" onValueChange={({ value }) => { setName(value); capture(); }}>
-            <Editable.Input spellcheck={false} autocorrect="off" autocapitalize="off" type="text" class="entry-field shelf-title" aria-label={copy.padName} placeholder={copy.newPadPlaceholder} value={name()}
+            <Editable.Input spellcheck={false} autocorrect="off" autocapitalize="off" type="text" class="entry-field shelf-title field-inline" aria-label={copy.padName} placeholder={copy.newPadPlaceholder} value={name()}
               ref={(input) => {
                 field = input;
                 queueFocus(() => {

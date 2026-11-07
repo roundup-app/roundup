@@ -475,10 +475,9 @@ async fn b1_concurrent_sends_at_the_bound_never_both_succeed() {
         touches: Arc::clone(&touches),
     };
     for _ in 0..40 {
-        // Exercise the same SQL admission/transaction path without paying for
-        // 40 WAL databases and 1,240 durable seed inserts. Durability is not B1's race.
-        *messages.inner.store.lock().unwrap() =
-            Store::open(std::path::Path::new(":memory:")).unwrap();
+        // A fresh store per round keeps the 1,240 seed inserts out of one WAL database.
+        let fresh = storage::fixture().unwrap();
+        *messages.inner.store.lock().unwrap() = Store::open(fresh.path()).unwrap();
         for n in 0..31 {
             messages
                 .call(

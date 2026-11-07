@@ -2,17 +2,28 @@
 //! Builder. Stores Messages and Routes, answers the user's and an Actor's calls, and on an `idle`
 //! writes it to the receiving Agent's Claude inbox.
 
+#![cfg_attr(
+    not(test),
+    deny(
+        clippy::unwrap_used,
+        clippy::expect_used,
+        clippy::panic,
+        clippy::indexing_slicing
+    )
+)]
+
 pub mod continuation;
 mod contract_handlers;
 mod delivery;
 pub mod digest;
 #[doc(hidden)]
-pub mod digest_schema;
 mod dispatch;
+mod error;
 pub mod evidence;
 mod failure;
 mod flight;
 mod inbox;
+mod plan;
 mod pushes;
 mod receiver_view;
 mod removal;
@@ -21,7 +32,6 @@ mod retirement;
 mod routes;
 mod runtime;
 #[doc(hidden)]
-pub mod schema;
 mod send;
 mod step;
 mod store;
@@ -48,11 +58,12 @@ use delivery::{
     Ending, Pick, accept_receiver, accept_reservation, binding, deliver_pending as nudge,
     load_rail_nodes, reconcile, start_listener,
 };
-use dispatch::{is_receiver, item, require_user, send_params};
+use dispatch::{is_receiver, item, params, reply, require_user, send_params};
+pub use error::Error;
 use flight::confirm_ids;
 pub use inbox::NoteInbox;
 use receiver_view::{gone_drops, idle_batch};
-use rpc::{Bus, Ctx, Module, OpenError, RpcError, code, params, reply};
+use rpc::{Bus, Ctx, Module, OpenError, RpcError, code};
 use runtime::{Inner, guarded, lock, log_failure, trip};
 use send::MAX_BODY_BYTES;
 use serde_json::Value;

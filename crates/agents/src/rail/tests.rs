@@ -66,7 +66,7 @@ fn a2703a_rail_resolves_current_names_and_gone_agents() {
     assert_eq!(rail.name(&node.id).unwrap(), "glad");
     assert_eq!(rail.name("7013").unwrap(), "an Agent that is gone");
     rail.db.execute_batch("DROP TABLE nodes").unwrap();
-    assert_eq!(rail.name(&node.id).unwrap_err().code, code::INTERNAL);
+    assert_eq!(code_of(rail.name(&node.id).unwrap_err()), code::INTERNAL);
 }
 
 #[test]
@@ -113,7 +113,7 @@ fn a7_attempt_exhaustion_does_not_wrap_or_change_the_node() {
         .unwrap();
     let before = rail.node(&node.id).unwrap();
     assert_eq!(
-        rail.allocate_attempt(&node.id).unwrap_err().code,
+        code_of(rail.allocate_attempt(&node.id).unwrap_err()),
         code::INTERNAL
     );
     assert_eq!(rail.node(&node.id).unwrap(), before);
@@ -131,7 +131,7 @@ fn a6_nothing_nests_under_an_agent() {
             .unwrap_err();
         let moved = rail.move_node(&group.id, Some(&leaf.id), 0).unwrap_err();
         assert_eq!(
-            (inserted.code, moved.code),
+            (code_of(inserted), code_of(moved)),
             (code::CONFLICT, code::CONFLICT),
             "{kind:?}"
         );
@@ -143,7 +143,7 @@ fn a6_rename_needs_the_exact_id() {
     let (_dir, mut rail) = rail();
     let group = rail.insert(NodeKind::Workstream, "g", None, None).unwrap();
     let err = rail.rename(&format!("0{}", group.id), "other").unwrap_err();
-    assert_eq!(err.code, code::NOT_FOUND);
+    assert_eq!(code_of(err), code::NOT_FOUND);
     assert_eq!(rail.tree().unwrap()[0].name, "g");
 }
 
@@ -245,7 +245,61 @@ fn a16_a_groups_delete_failing_after_a_successful_move_rolls_both_back() {
 
     let err = rail.remove(&group.id).unwrap_err();
 
-    assert_eq!(err.code, code::INTERNAL);
+    assert_eq!(code_of(err), code::INTERNAL);
     let found = rail.node(&child.id).unwrap();
     assert_eq!(found.parent.as_deref(), Some(group.id.as_str()));
+}
+
+/// U6550c: the App reads `apps/desktop/src/rail/placement.json` to show only drops the Daemon takes; it agrees with `check_parent` for every kind pair.
+#[test]
+fn u6550c_placement_table_is_check_parent() {
+    let table: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../../apps/desktop/src/rail/placement.json"
+    ))
+    .unwrap();
+    let make = |rail: &mut Rail, kind: NodeKind, name: &str| {
+        let leaf = (kind == NodeKind::Agent).then_some("1");
+        rail.insert(kind, name, None, leaf).unwrap().id
+    };
+    let kinds = [
+        (NodeKind::Workstream, "workstream"),
+        (NodeKind::Group, "group"),
+        (NodeKind::Agent, "agent"),
+    ];
+    for (kind, name) in kinds {
+        for (parent_kind, parent_name) in kinds {
+            let (_dir, mut rail) = rail();
+            let id = make(&mut rail, kind, "moved");
+            let parent = make(&mut rail, parent_kind, "parent");
+            let moved = rail.move_node(&id, Some(&parent), 0).is_ok();
+            let rule = &table[name][parent_name];
+            assert_eq!(
+                moved,
+                rule != &serde_json::Value::Bool(false),
+                "{name} under {parent_name}"
+            );
+        }
+    }
+    // "chain": a Workstream under a Group takes it only while every ancestor of that Group is a Group.
+    let (_dir, mut rail) = rail();
+    let workstream = make(&mut rail, NodeKind::Workstream, "holder");
+    let group = make(&mut rail, NodeKind::Group, "inner");
+    let moved = make(&mut rail, NodeKind::Workstream, "moved");
+    rail.move_node(&group, Some(&workstream), 0).unwrap();
+    assert_eq!(table["workstream"]["group"], "chain");
+    assert!(rail.move_node(&moved, Some(&group), 0).is_err());
+}
+
+fn code_of(error: super::StoreError) -> i64 {
+    rpc::RpcError::from(error).code
+}
+
+#[test]
+fn dcl9_stored_node_with_unknown_kind_fails_instead_of_reading_as_an_agent() {
+    let (_dir, mut rail) = rail();
+    let node = rail.insert(NodeKind::Agent, "kept", None, None).unwrap();
+    rail.db
+        .execute("UPDATE nodes SET kind='room' WHERE id=?", [&node.id])
+        .unwrap();
+    assert!(rail.tree().is_err());
 }

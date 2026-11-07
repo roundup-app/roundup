@@ -8,9 +8,9 @@ impl Shared {
         let Some(shared) = self.me.upgrade() else {
             return;
         };
-        let (completion, startup_context) = match self.runs().get(id) {
-            Some(Slot::Running(run)) if run.attempt == attempt => {
-                (run.first_completion.clone(), run.startup_context)
+        let (completion, startup_context) = match self.runs().slot(id) {
+            Some(Slot::Running(run)) if run.attempt() == attempt => {
+                (run.first().completion(), run.startup_context())
             }
             _ => return,
         };
@@ -34,10 +34,10 @@ impl Shared {
             if let Err(err) = &result {
                 eprintln!("agents: the coordination text of {id} failed: {err}");
             }
-            if let Some(Slot::Running(run)) = shared.runs().get_mut(&id)
-                && run.attempt == attempt
+            if let Some(Slot::Running(run)) = shared.runs().slot_mut(&id)
+                && run.attempt() == attempt
             {
-                run.first_pending = false;
+                run.first_mut().settle();
             }
             shared.events.observed.notify_waiters();
             if let Some(completion) = completion {
@@ -62,12 +62,12 @@ impl Shared {
         let name = self
             .rail()
             .name(id)
-            .map_err(|error| SteerError::Refused(PromptError::Rail(error)))?;
-        match self.runs().get(id) {
+            .map_err(|error| SteerError::Refused(PromptError::Rail(error.into())))?;
+        match self.runs().slot(id) {
             Some(Slot::Running(run))
-                if attempt.is_none_or(|attempt| run.attempt == attempt)
-                    && !run.ended
-                    && !run.closing => {}
+                if attempt.is_none_or(|attempt| run.attempt() == attempt)
+                    && !run.ended()
+                    && !run.closing() => {}
             _ => {
                 return Err(SteerError::Refused(PromptError::NotFound {
                     id: id.to_owned(),
@@ -98,23 +98,27 @@ impl Agents {
         id: &str,
         attempt: &str,
     ) -> Result<FirstSteerCompletion, PromptError> {
-        let name = self.shared.rail().name(id).map_err(PromptError::Rail)?;
+        let name = self
+            .shared
+            .rail()
+            .name(id)
+            .map_err(|error| PromptError::Rail(error.into()))?;
         let missing = || PromptError::NotFound {
             id: id.to_owned(),
             name: name.clone(),
         };
         let mut completion = {
             let runs = self.shared.runs();
-            let Some(Slot::Running(run)) = runs.get(id) else {
+            let Some(Slot::Running(run)) = runs.slot(id) else {
                 return Err(missing());
             };
-            if run.attempt != attempt {
+            if run.attempt() != attempt {
                 return Err(missing());
             }
-            let Some(completion) = &run.first_completion else {
+            let Some(completion) = run.first().subscribe() else {
                 return Ok(FirstSteerCompletion::Refused);
             };
-            completion.subscribe()
+            completion
         };
         loop {
             if let Some(result) = *completion.borrow_and_update() {
@@ -259,7 +263,7 @@ impl Shared {
         let name = self
             .rail()
             .name(id)
-            .map_err(|error| SteerError::Refused(PromptError::Rail(error)))?;
+            .map_err(|error| SteerError::Refused(PromptError::Rail(error.into())))?;
         let not_found = |name: &str| PromptError::NotFound {
             id: id.to_owned(),
             name: name.to_owned(),
@@ -267,8 +271,8 @@ impl Shared {
         let (terminal_id, attempt, submitted, slash_written) = loop {
             let mut completion = {
                 let mut runs = self.runs();
-                let Some(Slot::Running(run)) = runs.get_mut(id) else {
-                    return Err(SteerError::Refused(match runs.get(id) {
+                let Some(Slot::Running(run)) = runs.slot_mut(id) else {
+                    return Err(SteerError::Refused(match runs.slot(id) {
                         Some(Slot::Starting { .. } | Slot::Resuming { .. }) => PromptError::Busy {
                             id: id.to_owned(),
                             name: name.clone(),
@@ -277,23 +281,24 @@ impl Shared {
                         _ => not_found(&name),
                     }));
                 };
-                if first.is_some_and(|attempt| attempt != run.attempt)
-                    || run.ended
-                    || run.closing
-                    || run.adapter.is_ended()
+                if first.is_some_and(|attempt| attempt != run.attempt())
+                    || run.ended()
+                    || run.closing()
+                    || run.view().ended
                 {
                     return Err(SteerError::Refused(not_found(&name)));
                 }
                 let kind = run
-                    .adapter
-                    .status()
+                    .view()
+                    .status
+                    .as_ref()
                     .map_or(Kind::Working, |status| status.kind);
                 if let Some(attempt) = record.as_ref().and_then(|record| record.attempt.as_deref())
                 {
-                    if run.attempt != attempt {
+                    if run.attempt() != attempt {
                         return Err(SteerError::Refused(not_found(&name)));
                     }
-                    let started = run.session_started;
+                    let started = run.session_started();
                     if started.is_some_and(|started| {
                         tokio::time::Instant::now() >= started + START_DOOR_ACK_BOUND
                     }) {
@@ -302,7 +307,7 @@ impl Shared {
                             name: name.clone(),
                         }));
                     }
-                    if started.is_none() || !run.starred || kind != Kind::Idle {
+                    if started.is_none() || !run.starred() || kind != Kind::Idle {
                         return Err(SteerError::Refused(PromptError::Busy {
                             id: id.to_owned(),
                             name: name.clone(),
@@ -310,21 +315,20 @@ impl Shared {
                         }));
                     }
                 }
-                let ahead = run.first_pending && first.is_none();
+                let ahead = run.first().pending() && first.is_none();
                 // An idle Signal can precede the first Steer's task resuming from its ack.
                 // Subscribe under the admission lock so Busy cannot miss the final wake-up.
                 if ahead
                     && matches!(kind, Kind::Idle | Kind::Error)
-                    && matches!(run.first_prompt, Some(FirstPrompt::Acknowledged))
-                    && let Some(completion) = &run.first_completion
+                    && run.first().acknowledged()
+                    && let Some(completion) = run.first().subscribe()
                 {
-                    completion.subscribe()
+                    completion
                 } else {
                     if ahead
                         || !matches!(kind, Kind::Idle | Kind::Error)
                         || run
-                            .steer
-                            .as_ref()
+                            .steer()
                             .is_some_and(|steer| !steer.submitted.is_closed())
                     {
                         return Err(SteerError::Refused(PromptError::Busy {
@@ -336,17 +340,17 @@ impl Shared {
                     let (steer, submitted) = oneshot::channel();
                     let slash_written = (verbatim && first.is_none() && text.starts_with('/'))
                         .then(|| Arc::new(Mutex::new(false)));
-                    run.steer = Some(SteerWait {
+                    run.wait_for_steer(SteerWait {
                         submitted: steer,
                         slash_written: slash_written.clone(),
                     });
                     // The first Steer stays ahead of Messages through physical completion.
-                    if first.is_some() && matches!(run.first_prompt, Some(FirstPrompt::Reserved)) {
-                        run.first_prompt = Some(FirstPrompt::Written);
+                    if first.is_some() {
+                        run.first_mut().begin_write();
                     }
                     break (
-                        run.terminal_id.clone(),
-                        run.attempt.clone(),
+                        run.terminal_id().to_owned(),
+                        run.ordinal().clone(),
                         submitted,
                         slash_written,
                     );
@@ -368,7 +372,7 @@ impl Shared {
                 Ok(None)
             }
         }
-        .map_err(|error| SteerError::Refused(PromptError::Rail(error)))?;
+        .map_err(|error| SteerError::Refused(PromptError::Rail(error.into())))?;
         let retaining = self.me.upgrade();
         let retained_delivery = delivery.clone();
         let bytes = if verbatim {
@@ -406,14 +410,14 @@ impl Shared {
         {
             self.rail()
                 .instruction_state(delivery, contracts::agent::InstructionState::Refused)
-                .map_err(|error| SteerError::Refused(PromptError::Rail(error)))?;
+                .map_err(|error| SteerError::Refused(PromptError::Rail(error.into())))?;
         }
         let failure = match effect {
             Err(err) if err.code == code::NOT_FOUND => {
                 let name = self
                     .rail()
                     .name(id)
-                    .map_err(|error| SteerError::Refused(PromptError::Rail(error)))?;
+                    .map_err(|error| SteerError::Refused(PromptError::Rail(error.into())))?;
                 return Err(SteerError::Refused(not_found(&name)));
             }
             Err(err) => {
@@ -423,7 +427,7 @@ impl Shared {
                     name: self
                         .rail()
                         .name(id)
-                        .map_err(|error| SteerError::Uncertain(PromptError::Rail(error)))?,
+                        .map_err(|error| SteerError::Uncertain(PromptError::Rail(error.into())))?,
                 };
                 if err.code == code::UNKNOWN_OUTCOME {
                     SteerError::Uncertain(reason)
@@ -443,16 +447,17 @@ impl Shared {
                                     &delivery,
                                     contracts::agent::InstructionState::Submitted,
                                 )
-                                .map_err(|error| SteerError::Uncertain(PromptError::Rail(error)))?;
+                                .map_err(|error| {
+                                    SteerError::Uncertain(PromptError::Rail(error.into()))
+                                })?;
                         }
                         return Ok(());
                     }
                     _ => SteerError::Uncertain(PromptError::NotAccepted {
                         id: id.to_owned(),
-                        name: self
-                            .rail()
-                            .name(id)
-                            .map_err(|error| SteerError::Uncertain(PromptError::Rail(error)))?,
+                        name: self.rail().name(id).map_err(|error| {
+                            SteerError::Uncertain(PromptError::Rail(error.into()))
+                        })?,
                     }),
                 }
             }
@@ -460,14 +465,14 @@ impl Shared {
         let name = self
             .rail()
             .name(id)
-            .map_err(|error| SteerError::Uncertain(PromptError::Rail(error)))?;
+            .map_err(|error| SteerError::Uncertain(PromptError::Rail(error.into())))?;
         let mut runs = self.runs();
-        let ended = match runs.get_mut(id) {
-            Some(Slot::Running(run)) if run.terminal_id == terminal_id => {
-                run.steer = None;
+        let ended = match runs.slot_mut(id) {
+            Some(Slot::Running(run)) if run.terminal_id() == terminal_id => {
+                run.take_steer();
                 // An unacknowledged Steer can release input without a Kind change.
                 self.events.observed.notify_waiters();
-                run.ended || run.closing
+                run.ended() || run.closing()
             }
             _ => true,
         };
@@ -489,8 +494,8 @@ impl Shared {
         let not_found = || RpcError::not_found(format!("{name} is not running"));
         let (terminal_id, acked) = {
             let mut runs = self.runs();
-            let Some(Slot::Running(run)) = runs.get_mut(id) else {
-                return Err(match runs.get(id) {
+            let Some(Slot::Running(run)) = runs.slot_mut(id) else {
+                return Err(match runs.slot(id) {
                     Some(Slot::Starting { .. } | Slot::Resuming { .. }) => RpcError::new(
                         code::NOT_RUNNING,
                         format!("{name} has no turn to interrupt yet"),
@@ -498,12 +503,13 @@ impl Shared {
                     _ => not_found(),
                 });
             };
-            if run.ended || run.closing {
+            if run.ended() || run.closing() {
                 return Err(not_found());
             }
             let kind = run
-                .adapter
-                .status()
+                .view()
+                .status
+                .as_ref()
                 .map_or(Kind::Working, |status| status.kind);
             if matches!(kind, Kind::Idle | Kind::Done | Kind::Error) {
                 return Err(RpcError::new(
@@ -511,18 +517,14 @@ impl Shared {
                     format!("{name} is {kind:?}, with no turn to interrupt"),
                 ));
             }
-            if run
-                .interrupt
-                .as_ref()
-                .is_some_and(|waiting| !waiting.is_closed())
-            {
+            if run.interrupt_waiting() {
                 return Err(RpcError::conflict(format!(
                     "{name} is already being interrupted"
                 )));
             }
             let (waiting, acked) = oneshot::channel();
-            run.interrupt = Some(waiting);
-            (run.terminal_id.clone(), acked)
+            run.wait_for_interrupt(waiting);
+            (run.terminal_id().to_owned(), acked)
         };
         // B6: an enqueue acknowledgement cannot bound the Escape's effect. Await its
         // physical completion so no timeout result leaves a future write behind.
@@ -568,8 +570,8 @@ impl Shared {
                 }
             },
         };
-        if let Some(Slot::Running(run)) = self.runs().get_mut(id) {
-            run.interrupt = None;
+        if let Some(Slot::Running(run)) = self.runs().slot_mut(id) {
+            run.take_interrupt();
         }
         Err(error)
     }
@@ -577,6 +579,7 @@ impl Shared {
 
 #[cfg(test)]
 mod tests {
+    use crate::agent::Runs;
     use crate::tests::*;
     #[tokio::test]
     async fn a2703a_prompt_storage_failure_stays_an_error() {
@@ -632,8 +635,8 @@ mod tests {
         std::sync::Arc::get_mut(&mut watched.shared)
             .unwrap()
             .terminals = terminals.clone();
-        if let Some(crate::Slot::Running(run)) = watched.shared.runs().get_mut("7013") {
-            run.terminal_id = terminal.id.clone();
+        if let Some(crate::Slot::Running(run)) = watched.shared.runs().slot_mut("7013") {
+            run.set_terminal_id(terminal.id.clone());
         }
         let error = watched.shared.interrupt("7013").await.unwrap_err();
         assert_eq!(error.code, rpc::code::UNKNOWN_OUTCOME);
@@ -663,12 +666,14 @@ mod tests {
                     shared.runs().remove("7013");
                 }
                 "closing" => {
-                    shared.runs().insert("7013".into(), crate::Slot::Closing);
+                    shared.runs().put("7013".into(), crate::Slot::Closing);
                 }
-                "starting" => shared.mark_starting("7013", "1".into()),
+                "starting" => {
+                    shared.mark_starting("7013", contracts::agent::Ordinal::parse("1").unwrap())
+                }
                 "ended" => {
-                    if let Some(crate::Slot::Running(run)) = shared.runs().get_mut("7013") {
-                        run.ended = true;
+                    if let Some(crate::Slot::Running(run)) = shared.runs().slot_mut("7013") {
+                        run.exit();
                     }
                 }
                 "idle" => {
@@ -686,8 +691,8 @@ mod tests {
                 "interrupted" => {
                     let (tx, rx) = tokio::sync::oneshot::channel();
                     receiver = Some(rx);
-                    if let Some(crate::Slot::Running(run)) = shared.runs().get_mut("7013") {
-                        run.interrupt = Some(tx);
+                    if let Some(crate::Slot::Running(run)) = shared.runs().slot_mut("7013") {
+                        run.wait_for_interrupt(tx);
                     }
                 }
                 _ => {}

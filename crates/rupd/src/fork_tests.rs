@@ -77,7 +77,7 @@ fn live() -> Live {
     for tag in ["alpha", "beta"] {
         let project = tmp.path().join(tag);
         std::fs::create_dir_all(&project).unwrap();
-        let opened = Daemon::open_project(&project, &data).unwrap();
+        let opened = Daemon::open_project(&project, &data).unwrap().0;
         let dir = data::project_data(&data, &project).unwrap();
         seed(&dir, tag);
         keys.push(dir.file_name().unwrap().to_string_lossy().into_owned());
@@ -168,7 +168,9 @@ async fn fk5977a_the_full_copy_reads_back_through_a_second_daemon() {
         assert_eq!(std::fs::read_dir(to.join("agents")).unwrap().count(), 2);
     }
     // The same Project folder opens its copy.
-    let second = Daemon::open(&folder.join("projects").join(&live.keys[0])).unwrap();
+    let second = Daemon::open(&folder.join("projects").join(&live.keys[0]))
+        .unwrap()
+        .0;
     let todos = ask(
         &second,
         &json!({"id":1,"method":"todo.list","params":null}).to_string(),
@@ -455,7 +457,7 @@ async fn fk5977e_the_live_folder_is_unchanged_by_a_fork_and_by_a_write_in_it() {
     } = live;
     drop((daemon, _others));
     let params = |name: &str, projects: Option<Vec<contracts::data::ForkProject>>| {
-        contracts::data::ForkParams {
+        request(contracts::data::ForkParams {
             name: "Try".into(),
             colour: contracts::data::ForkColour::Teal,
             path: _tmp
@@ -465,7 +467,7 @@ async fn fk5977e_the_live_folder_is_unchanged_by_a_fork_and_by_a_write_in_it() {
                 .to_string_lossy()
                 .into_owned(),
             projects,
-        }
+        })
     };
     let before = checksums(&data);
     let picked =
@@ -474,7 +476,9 @@ async fn fk5977e_the_live_folder_is_unchanged_by_a_fork_and_by_a_write_in_it() {
         crate::fork::fork(&data, &params(name, projects)).unwrap();
         same(&checksums(&data), &before, name);
     }
-    let copy = Daemon::open(&_tmp.path().join("forks/full/projects").join(&keys[0])).unwrap();
+    let copy = Daemon::open(&_tmp.path().join("forks/full/projects").join(&keys[0]))
+        .unwrap()
+        .0;
     let added = ask(
         &copy,
         &json!({"id":1,"method":"todo.create","params":{"title":"in the fork"}}).to_string(),
@@ -525,7 +529,7 @@ async fn fk5977f_a_database_at_rest_gains_no_wal_or_shm_from_a_fork() {
     );
     let picked = vec![serde_json::from_value(json!({"key":keys[0],"agents":"all"})).unwrap()];
     for (name, projects) in [("full", None), ("picked", Some(picked))] {
-        let params = contracts::data::ForkParams {
+        let params = request(contracts::data::ForkParams {
             name: "Try".into(),
             colour: contracts::data::ForkColour::Teal,
             path: _tmp
@@ -535,7 +539,7 @@ async fn fk5977f_a_database_at_rest_gains_no_wal_or_shm_from_a_fork() {
                 .to_string_lossy()
                 .into_owned(),
             projects,
-        };
+        });
         crate::fork::fork(&data, &params).unwrap();
         assert_eq!(checksums(&data), before, "{name}");
     }
@@ -552,7 +556,32 @@ async fn u6044a_ping_reports_the_fork_colour() {
     let folder = live.fork_dir("blue");
     let made = fork(&live, &folder, json!({"colour":"blue"})).await;
     assert!(made.get("error").is_none(), "{made}");
-    let copy = Daemon::open(&folder.join("projects").join(&live.keys[0])).unwrap();
+    let copy = Daemon::open(&folder.join("projects").join(&live.keys[0]))
+        .unwrap()
+        .0;
     let reply = ask(&copy, &ping).await;
     assert_eq!(reply["result"]["forkColour"], "blue", "{reply}");
+}
+
+fn request(params: contracts::data::ForkParams) -> crate::fork::ForkRequest {
+    params.try_into().unwrap()
+}
+
+#[test]
+fn c6629a_a_bad_fork_name_fails_to_parse() {
+    let parse = |name: &str| {
+        rpc::params::<crate::fork::ForkRequest>(
+            json!({"name": name, "colour": "teal", "path": "/tmp/x"}),
+        )
+    };
+    for bad in ["", &"x".repeat(41), "a\nb"] {
+        let err = parse(bad).unwrap_err();
+        assert_eq!(err.code, rpc::code::INVALID_PARAMS);
+        assert!(
+            err.message
+                .contains("A Fork name is 1 to 40 characters with no control character.")
+        );
+    }
+    parse("x").unwrap();
+    parse(&"x".repeat(40)).unwrap();
 }

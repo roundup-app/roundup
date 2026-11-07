@@ -1,0 +1,4 @@
+# Pedantic lints, read only by modules that deny them (AGENTS.md rule: a function that decides
+# and writes splits; no function takes two bools).
+max-fn-params-bools = 1
+too-many-lines-threshold = 100

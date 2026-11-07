@@ -136,6 +136,27 @@ class Lints(unittest.TestCase):
                 self.assertIn(rule, self.scan('ast', 1))
                 self.write(path, source)
 
+    def test_t3797a_solid_reactivity_extra_beside_exception(self):
+        plugin = HERE.parent.parent / 'node_modules/eslint-plugin-solid/dist/index.mjs'
+        self.write('.oxlintrc.json', json.dumps({'jsPlugins': [{'name': 'solid', 'specifier': str(plugin)}], 'rules': {'solid/reactivity': 'error'}}))
+        source = 'export function A(props: { n: number }) {\n  const n = props.n;\n  return <p onClick={() => n}>{n}</p>;\n}\n'
+        self.write('apps/desktop/src/A.tsx', source)
+        self.baseline('oxlint')
+        self.scan('oxlint', 0)
+        self.write('apps/desktop/src/A.tsx', source + source.replace('A(', 'B('))
+        self.assertIn('solid(reactivity)', self.scan('oxlint', 1))
+
+    def test_t3797a_function_size_ceiling(self):
+        def source(name, branches):
+            return f'export function {name}(a: number) {{\n' + '  if (a > 0) a += 1;\n' * branches + '  return a;\n}\n'
+        self.write('apps/desktop/src/A.ts', source('kept', 15) + source('stays', 16))
+        self.baseline('oxlint')
+        self.scan('oxlint', 0)
+        self.write('apps/desktop/src/A.ts', source('kept', 15) + source('stays', 17))
+        self.assertIn('raised size ceiling', self.scan('oxlint', 1))
+        self.write('apps/desktop/src/A.ts', source('kept', 15) + source('stays', 16) + source('added', 16))
+        self.assertIn('eslint(complexity)', self.scan('oxlint', 1))
+
     def test_t3797a_spelling(self):
         self.write('text.txt', 'the spelling is correct\n')
         self.scan('typos', 0)

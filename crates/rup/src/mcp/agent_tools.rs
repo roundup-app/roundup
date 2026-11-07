@@ -4,7 +4,7 @@ use super::*;
 /// E4: `agent.context` takes `{id}`; the shim fills it, so the Agent's tool takes no input.
 pub(super) fn agent_context() -> Offered {
     Offered {
-        own_id: true,
+        input: Input::OwnId,
         ..offered_without_params(
             "agent.context",
             "Ask where you stand now: whom you report to, whom to ask, your peers, your open Todos and the Models you may start a child on.",
@@ -15,7 +15,7 @@ pub(super) fn agent_context() -> Offered {
 /// B20: `agent.digest` takes `{id}`; the shim fills it, so a Door's tool takes no input.
 pub(super) fn agent_digest() -> Offered {
     Offered {
-        own_id: true,
+        input: Input::OwnId,
         ..offered_without_params(
             "agent.digest",
             "Ask what each of your direct children did: its Kind, its last line, its open Todos and the Pads it wrote since you were last told.",

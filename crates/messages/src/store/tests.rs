@@ -2,8 +2,12 @@ use contracts::ActorKind;
 
 use super::*;
 
+fn actor_json(actor: &Actor) -> String {
+    super::actor_json(actor).unwrap()
+}
+
 fn open(dir: &Path) -> Store {
-    Store::open(&dir.join("messages.db")).unwrap()
+    Store::open(dir).unwrap()
 }
 
 fn put(store: &Store, status: MessageStatus, reason: Option<Reason>) -> u32 {
@@ -91,7 +95,8 @@ fn b5_a_stored_route_word_no_variant_has_is_an_error() {
 
 #[test]
 fn b5640a_history_materializes_only_matching_rows() {
-    let store = Store::open(Path::new(":memory:")).unwrap();
+    let dir = storage::fixture().unwrap();
+    let store = Store::open(dir.path()).unwrap();
     let daemon = actor_json(&Actor::daemon());
     store
         .db

@@ -90,7 +90,6 @@ export const Todos = (props: {
   const [createFailure, setCreateFailure] = createSignal<string | null>(null);
   const shelfFailure = dismissable(() => todos.failure() || (!typing() ? createFailure() : null));
   const [unfolded, setUnfolded] = createSignal(false);
-  const wasDoneUnfolded = createMemo((mounted) => mounted || unfolded(), false);
   const scope = shelfScope(connected);
   const selectedWorkstream = scope.home;
 
@@ -203,6 +202,7 @@ export const Todos = (props: {
     rail: connected.rail,
     selected: selection.selected,
     afterRemoval: selection.afterRemoval,
+    focused: selection.focused,
     targets: () => [...open(), ...(unfolded() ? done() : [])].map(target),
     done: () => done().map(target),
     context: () => connected.rail.selected() ?? "overview",
@@ -796,6 +796,17 @@ export const Todos = (props: {
           nests: () => true,
           onMove: (move) => dropOf(tree(), group().items.filter(todo => !pending().includes(todo)), Number(move.id), move.parent === null ? null : Number(move.parent), move.index),
           onPreview: () => undefined,
+          // A drop lands as shown only if its plan changes something and the Todo then nests under the parent shown: a nest that makes a cycle, or one under another first blocker, does not.
+          accepts: (move) => {
+            const id = Number(move.id), parent = move.parent === null ? null : Number(move.parent);
+            const items = group().items.filter(todo => !pending().includes(todo));
+            const plan = planDrop(tree(), items, todos.all(), id, parent, move.index);
+            const blockers = plan.blockers;
+
+            if (blockers === undefined) return plan.before !== undefined;
+
+            return treeRows(items.map(todo => todo.id === id ? { ...todo, blockers } : todo)).find(row => row.todo.id === id)?.parent === parent;
+          },
         }}>
         <TreeView.Tree aria-label={copy.todos} style={{ padding: "0" }}>
         {renderChildren(null)}
@@ -827,8 +838,8 @@ export const Todos = (props: {
       }} />
       <Show when={foldedDone().length > 0}>
         <div class="shelf-list">
-        <Show when={wasDoneUnfolded()}>
-          <div class="todo-done-fold" data-open={unfolded()} data-reduced-motion={connected.reducedMotion()} inert={!unfolded()}>
+        <Show when={unfolded()}>
+          <div class="todo-done-fold todo-group-content" data-state="open">
             <div class="todo-done-content">
             <For each={foldedDone().filter((todo) => !finishingRow(todo))}>
               {(todo) => (
@@ -857,11 +868,11 @@ export const Todos = (props: {
             </div>
           </div>
         </Show>
-          <ShelfRow glyph={<KindGlyph kind="done" decorative />} class="todo-inset">
+          <ShelfRow glyph={<KindGlyph kind="done" decorative />} class="todo-inset row-wash-inert">
             <div class="shelf-done-line">
-              <RowButton hang={false} onClick={() => setUnfolded(!unfolded())}>
-                <span class="shelf-title">{foldedDone().length}{copy.doneCount}</span>
-              </RowButton>
+              <span class="todo-done-toggle" data-fold>
+                <RowButton hang={false} onClick={() => setUnfolded(!unfolded())}><span class="shelf-title">{foldedDone().length}{copy.doneCount}</span></RowButton>
+              </span>
               <button data-button="quiet" type="button" onClick={() => bulk.ask(true)}>{copy.clearDone}</button>
             </div>
           </ShelfRow>

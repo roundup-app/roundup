@@ -97,14 +97,14 @@ impl Agents {
             let settled = if ready {
                 recovery
                     .finish(project, &plan)
-                    .and_then(|()| rail.clear_provisioning_owner(&node.id))
+                    .and_then(|()| Ok(rail.clear_provisioning_owner(&node.id)?))
             } else {
                 recovery.recover(project, &plan).and_then(|()| {
                     Launcher::discard(dir, &node.id).map_err(RpcError::internal)?;
                     if node.kind == NodeKind::Agent {
-                        rail.remove(&node.id)
+                        Ok(rail.remove(&node.id)?)
                     } else {
-                        rail.clear_worktree(&node.id)
+                        Ok(rail.clear_worktree(&node.id)?)
                     }
                 })
             };
@@ -127,6 +127,11 @@ impl Agents {
                 },
                 terminals,
                 clock: Arc::new(|| now_ms().max(0)),
+                shell: std::env::var_os("SHELL")
+                    .map(|shell| shell.to_string_lossy().into_owned())
+                    .filter(|shell| !shell.is_empty())
+                    .unwrap_or_else(|| "/bin/sh".into()),
+                mcp_env: std::env::var_os("ROUNDUP_MCP"),
                 rail_view: rail_view::State {
                     #[cfg(feature = "test-support")]
                     statuses: Default::default(),
@@ -145,17 +150,12 @@ impl Agents {
                     observed: Default::default(),
                     channel_deadline: channel_deadline_from_env(),
                     inbox: Default::default(),
-                    tool_calls: Default::default(),
                 },
-                channels: Mutex::new(HashMap::new()),
                 scan: Scan::new(scan_interval_from_env()),
-                strays: Mutex::new(HashMap::new()),
                 context: None,
                 automatic_renaming: None,
                 naming_guide: None,
                 coordination: None,
-                waits: Mutex::new(HashMap::new()),
-                resumes: Mutex::new(HashMap::new()),
             }),
             dir: dir.to_owned(),
             launcher,
@@ -286,9 +286,27 @@ impl Agents {
 
     /// B51: check Agent `id`'s Claude inbox and keep the outcome as its Rail fact `inbox`.
     pub fn inbox_check(&self, id: &str) -> contracts::agent::Inbox {
-        let state = self.launcher.inbox_check(id);
+        let state = if self.awaiting_channel(id) {
+            contracts::agent::Inbox::Missing
+        } else {
+            self.launcher.inbox_check(id)
+        };
         self.shared.events.inbox.set(id, state);
         state
+    }
+
+    /// E6, B51: a Door takes Messages once its `rup mcp` is up, or the Channel deadline passed;
+    /// a note it takes before then can ask for a tool Claude Code has not connected yet.
+    pub(crate) fn awaiting_channel(&self, id: &str) -> bool {
+        let mcp = self
+            .shared
+            .rail()
+            .get_mcp()
+            .is_ok_and(|mcp| models::mcp_on(self.shared.mcp_env.as_deref(), mcp.on));
+        if !mcp || !self.is_door(id) {
+            return false;
+        }
+        self.shared.channel_pending(id)
     }
 
     /// B5763b: the receiving peer session used for durable inbox comparison.
@@ -316,7 +334,7 @@ impl Agents {
     /// B5763b: the exact content the current receiving permission mode will write.
     pub fn inbox_content(&self, id: &str, note: &claude_code::inbox::Entry) -> String {
         let runs = self.shared.runs();
-        let yolo = matches!(runs.get(id), Some(Slot::Running(run)) if run.yolo);
+        let yolo = matches!(runs.slot(id), Some(Slot::Running(run)) if run.yolo());
         self.launcher.inbox_content(id, note, yolo)
     }
 
@@ -328,7 +346,7 @@ impl Agents {
         notes: &[claude_code::inbox::Entry],
     ) -> Result<(), contracts::agent::Inbox> {
         let runs = self.shared.runs();
-        let yolo = matches!(runs.get(id), Some(Slot::Running(run)) if run.yolo);
+        let yolo = matches!(runs.slot(id), Some(Slot::Running(run)) if run.yolo());
         self.launcher
             .inbox_write(id, notes, yolo)
             .inspect_err(|state| {
@@ -342,33 +360,23 @@ impl Agents {
 
     /// A5556: whether this Attempt has received explicit input.
     pub fn input_started(&self, id: &str) -> bool {
-        matches!(self.shared.runs().get(id), Some(Slot::Running(run)) if run.input_started)
+        matches!(self.shared.runs().slot(id), Some(Slot::Running(run)) if run.input_started())
     }
 
     /// Admit pending automatic Messages after explicit input, using the existing status lane.
     pub fn admit_input(&self, id: &str) {
         let mut runs = self.shared.runs();
-        if let Some(Slot::Running(run)) = runs.get_mut(id)
-            && !run.input_started
+        if let Some(Slot::Running(run)) = runs.slot_mut(id)
+            && !run.input_started()
         {
             self.shared
-                .save_input_started(id, &run.attempt)
+                .save_input_started(id, run.attempt())
                 .expect("persist explicit inbox input");
-            run.input_started = true;
-            let Some(status) = run.adapter.status().cloned() else {
+            run.start_input();
+            let Some(status) = run.view().status.as_ref().cloned() else {
                 return;
             };
-            run.status_revision += 1;
-            self.shared.bus.emit(
-                Actor::daemon(),
-                EventData::AgentStatus(Box::new(contracts::agent::StatusEvent {
-                    id: id.into(),
-                    attempt: run.attempt.clone(),
-                    status_revision: run.status_revision.to_string(),
-                    status,
-                    ended: run.ended,
-                })),
-            );
+            run.publish(&self.shared.bus, Actor::daemon(), id, status);
         }
     }
 
@@ -393,6 +401,7 @@ impl Agents {
 
 #[cfg(test)]
 pub(super) mod tests {
+    use crate::agent::Runs;
     use crate::{ending, events, rail_view};
     use std::collections::HashMap;
     use std::sync::{Arc, Mutex};
@@ -409,7 +418,6 @@ pub(super) mod tests {
     use tokio::task::JoinHandle;
     use tokio::time::Instant;
 
-    use crate::claude_code::ClaudeCode;
     use crate::{Clock, KillsTerminals, Observation, Run, Shared, Slot, rail, watch, worktree};
 
     pub(crate) const PATIENCE: Duration = Duration::from_secs(60);
@@ -431,34 +439,14 @@ pub(super) mod tests {
             let clock: Clock = Arc::new(move || begun.elapsed().as_millis() as i64);
             let adapter_clock = Arc::clone(&clock);
             let (dir, bus, shared) = shared_over_temp_dir(clock);
-            let run = Run {
-                yolo: false,
-                startup_context: true,
-                input_started: true,
-                attempt: "1".into(),
-                status_revision: 1,
-                closing: false,
-                ended: false,
-                adapter: ClaudeCode::starting(move || adapter_clock()),
-                prompt: None,
-                first_pending: false,
-                first_completion: None,
-                first_prompt: None,
-                steer: None,
-                session_started: None,
-                starred: false,
-                interrupt: None,
-                named: false,
-                terminal_id: "1".into(),
-                cwd: "/".into(),
-            };
-            shared.runs().insert("1".into(), Slot::Running(run));
+            let run = Run::fixture(adapter_clock, false);
+            shared.runs().put("1".into(), Slot::Running(run));
             let (terminal, terminal_events) = broadcast::channel(16);
             let events = bus.subscribe();
             let watcher = tokio::spawn(watch(
                 Arc::clone(&shared),
                 "1".into(),
-                "1".into(),
+                contracts::agent::Ordinal::parse("1").unwrap(),
                 terminal_events,
             ));
             Self {
@@ -576,6 +564,8 @@ pub(super) mod tests {
             },
             terminals,
             clock,
+            shell: "/bin/sh".into(),
+            mcp_env: None,
             rail_view: rail_view::State {
                 #[cfg(feature = "test-support")]
                 statuses: Default::default(),
@@ -599,17 +589,12 @@ pub(super) mod tests {
                 observed: Default::default(),
                 channel_deadline: crate::CHANNEL_DEADLINE,
                 inbox: Default::default(),
-                tool_calls: Default::default(),
             },
-            channels: Mutex::new(HashMap::new()),
             scan: crate::Scan::new(crate::SCAN_INTERVAL),
-            strays: Mutex::new(HashMap::new()),
             context: None,
             automatic_renaming: None,
             naming_guide: None,
             coordination: None,
-            waits: Mutex::new(HashMap::new()),
-            resumes: Mutex::new(HashMap::new()),
         });
         (dir, bus, shared)
     }
@@ -638,6 +623,8 @@ pub(super) mod tests {
                 kill: Arc::new(FailingKill),
             },
             clock: Arc::new(|| 0),
+            shell: "/bin/sh".into(),
+            mcp_env: None,
             rail_view: rail_view::State {
                 #[cfg(feature = "test-support")]
                 statuses: Default::default(),
@@ -661,17 +648,12 @@ pub(super) mod tests {
                 observed: Default::default(),
                 channel_deadline: crate::CHANNEL_DEADLINE,
                 inbox: Default::default(),
-                tool_calls: Default::default(),
             },
-            channels: Mutex::new(HashMap::new()),
             scan: crate::Scan::new(crate::SCAN_INTERVAL),
-            strays: Mutex::new(HashMap::new()),
             context: None,
             automatic_renaming: None,
             naming_guide: None,
             coordination: None,
-            waits: Mutex::new(HashMap::new()),
-            resumes: Mutex::new(HashMap::new()),
         })
     }
 
@@ -683,29 +665,9 @@ pub(super) mod tests {
             .insert(NodeKind::Agent, "a", parent, Some("1"))
             .unwrap()
             .id;
-        shared.runs().insert(
+        shared.runs().put(
             id.clone(),
-            Slot::Running(Run {
-                yolo: false,
-                startup_context: true,
-                input_started: true,
-                attempt: "1".into(),
-                status_revision: 1,
-                closing: false,
-                ended: false,
-                adapter: ClaudeCode::starting(|| 0),
-                prompt: None,
-                first_pending: false,
-                first_completion: None,
-                first_prompt: None,
-                steer: None,
-                session_started: None,
-                starred: false,
-                interrupt: None,
-                named: true,
-                terminal_id: "1".into(),
-                cwd: "/".into(),
-            }),
+            Slot::Running(Run::fixture(Arc::new(|| 0), true)),
         );
         id
     }
@@ -737,6 +699,8 @@ pub(super) mod tests {
                 kill: Arc::new(FlakyKill(std::sync::atomic::AtomicBool::new(false))),
             },
             clock: Arc::new(|| 0),
+            shell: "/bin/sh".into(),
+            mcp_env: None,
             rail_view: rail_view::State {
                 #[cfg(feature = "test-support")]
                 statuses: Default::default(),
@@ -760,17 +724,12 @@ pub(super) mod tests {
                 observed: Default::default(),
                 channel_deadline: crate::CHANNEL_DEADLINE,
                 inbox: Default::default(),
-                tool_calls: Default::default(),
             },
-            channels: Mutex::new(HashMap::new()),
             scan: crate::Scan::new(crate::SCAN_INTERVAL),
-            strays: Mutex::new(HashMap::new()),
             context: None,
             automatic_renaming: None,
             naming_guide: None,
             coordination: None,
-            waits: Mutex::new(HashMap::new()),
-            resumes: Mutex::new(HashMap::new()),
         });
         (dir, shared)
     }

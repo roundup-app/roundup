@@ -37,7 +37,7 @@ for line in sys.stdin:
     std::fs::set_permissions(&fake, std::fs::Permissions::from_mode(0o755)).unwrap();
     let rup = project.path().join("rup");
     std::fs::write(&rup, "").unwrap();
-    crate::storage::open(&dir).unwrap();
+    storage::connect(&dir).unwrap();
     let bus = Bus::new();
     let terminals = Arc::new(terminal::Terminals::open(&dir, bus.clone()).unwrap());
     let agents = Arc::new(
@@ -57,11 +57,10 @@ for line in sys.stdin:
     );
     let touches = Arc::new(provenance::Touches::open(&dir.join("provenance.db")).unwrap());
     let mut daemon = Daemon {
-        naming: Arc::new(std::sync::Mutex::new(
+        naming: Arc::new(parking_lot::Mutex::new(
             crate::data::open_naming(&crate::data::naming_path(&dir)).unwrap(),
         )),
         terminals: terminals.clone(),
-        program_changes: Default::default(),
         program_statuses: Default::default(),
         modules: Default::default(),
         todos: Arc::new(todos::Todos::open(&dir, bus.clone()).unwrap()),
@@ -74,33 +73,34 @@ for line in sys.stdin:
         fork_colour: None,
         touches,
         digests: Default::default(),
-        pushes: Default::default(),
         rail_told: Default::default(),
-        resumes: Default::default(),
-        waits: Default::default(),
+        observers: Default::default(),
         resources: Default::default(),
         publications: crate::deliverables::Publications::in_memory(dir.join("deliverables")),
         prompt_effect_gate: None,
         actions: Default::default(),
         extensions: crate::extensions::Host::new(std::path::PathBuf::new()),
         agents: agents.clone(),
-        renames: std::sync::Mutex::new(None),
-        owner_events: std::sync::Mutex::new(None),
-        wake_events: Default::default(),
+        rail: agents.clone(),
         wake_gate: Default::default(),
         sender: Default::default(),
         restarting: Default::default(),
         queue: Default::default(),
-        auto: crate::auto::Auto::new(&bus),
+        auto: Default::default(),
     };
     daemon.register(Arc::new(
         messages::Messages::open(&dir, bus.clone(), agents.clone()).unwrap(),
     ));
     daemon.register(agents);
     daemon.register(terminals);
+    let watchers = daemon.watchers().unwrap();
     let daemon = Arc::new(daemon);
     let socket = project.path().join("rupd.sock");
-    let serving = tokio::spawn(serve(UnixListener::bind(&socket).unwrap(), daemon.clone()));
+    let serving = tokio::spawn(serve(
+        UnixListener::bind(&socket).unwrap(),
+        daemon.clone(),
+        watchers,
+    ));
     let client = Client::connect(&socket).await.unwrap();
     let workstream = client
         .request(
@@ -182,8 +182,8 @@ for line in sys.stdin:
         EventData::AgentStatus(Box::new(StatusEvent {
             ended: false,
             id: id.into(),
-            attempt: "1".into(),
-            status_revision: "1".into(),
+            attempt: contracts::agent::Ordinal::first(),
+            status_revision: contracts::agent::Ordinal::first(),
             status: Status {
                 kind: Kind::Done,
                 label: "old exit".into(),
@@ -268,16 +268,21 @@ impl IdleDoor {
         );
         let steers = Arc::new(std::sync::atomic::AtomicUsize::new(0));
         let recording = Arc::clone(&steers);
-        let daemon =
-            Daemon::open_stores(project.path(), &project.path().join(".roundup"), |agents| {
+        let (daemon, watchers) = Daemon::open_stores(
+            project.path(),
+            &project.path().join(".roundup"),
+            crate::Observers::from_env(),
+            |agents| {
                 agents
                     .with_launcher_for_test(launcher.clone())
                     .with_steer_effect(move |_| {
                         recording.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
                         Ok(())
                     })
-            })
-            .unwrap();
+            },
+        )
+        .unwrap();
+        daemon.watch(watchers);
         Self {
             _project: project,
             daemon,

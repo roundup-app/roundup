@@ -1,9 +1,10 @@
 //! U3078e/f: one accepted decision to continue unfinished work, written in the same transaction
 //! as its successor Message, so either both exist with the ids they were given or neither does.
 //! Which actions are eligible is the Daemon's to decide; this module only commits what it decided.
+use crate::Error;
 use contracts::Actor;
 use contracts::message::{Message, MessageKind};
-use rpc::{Ctx, RpcError};
+use rpc::Ctx;
 use rusqlite::{OptionalExtension, params};
 
 use crate::store::Store;
@@ -59,7 +60,7 @@ pub struct Covered {
 }
 
 impl Store {
-    pub(crate) fn covered(&self, action: &str) -> Result<Option<Covered>, RpcError> {
+    pub(crate) fn covered(&self, action: &str) -> Result<Option<Covered>, Error> {
         let decided = self
             .db
             .query_row(
@@ -69,14 +70,14 @@ impl Store {
                 |r| Ok((r.get::<_, String>(0)?, r.get::<_, u32>(1)?)),
             )
             .optional()
-            .map_err(RpcError::internal)?;
+            .map_err(Error::internal)?;
         if let Some((decision, message)) = decided {
             return Ok(Some(Covered { decision, message }));
         }
         Ok(None)
     }
 
-    fn decision(&self, sql: &str, key: &[&str]) -> Result<Option<Choice>, RpcError> {
+    fn decision(&self, sql: &str, key: &[&str]) -> Result<Option<Choice>, Error> {
         let row = self
             .db
             .query_row(sql, rusqlite::params_from_iter(key), |r| {
@@ -90,17 +91,17 @@ impl Store {
                 })
             })
             .optional()
-            .map_err(RpcError::internal)?;
+            .map_err(Error::internal)?;
         let Some(mut decision) = row else {
             return Ok(None);
         };
         decision.actions = self
             .db
             .prepare("SELECT action FROM continuation_actions WHERE decision = ?1 ORDER BY rowid")
-            .map_err(RpcError::internal)?
+            .map_err(Error::internal)?
             .query_map(params![decision.id], |r| r.get(0))
             .and_then(|rows| rows.collect())
-            .map_err(RpcError::internal)?;
+            .map_err(Error::internal)?;
         Ok(Some(decision))
     }
 
@@ -110,7 +111,7 @@ impl Store {
         agent: &str,
         request: &str,
         payload: &str,
-    ) -> Result<Option<Choice>, RpcError> {
+    ) -> Result<Option<Choice>, Error> {
         let stored: Option<String> = self
             .db
             .query_row(
@@ -119,10 +120,10 @@ impl Store {
                 |r| r.get(0),
             )
             .optional()
-            .map_err(RpcError::internal)?;
+            .map_err(Error::internal)?;
         match stored {
             None => Ok(None),
-            Some(saved) if saved != payload => Err(RpcError::conflict(
+            Some(saved) if saved != payload => Err(Error::conflict(
                 "this request id already names another resume",
             )),
             Some(_) => self.decision(
@@ -133,7 +134,7 @@ impl Store {
         }
     }
 
-    fn decision_of(&self, action: &str) -> Result<Option<Choice>, RpcError> {
+    fn decision_of(&self, action: &str) -> Result<Option<Choice>, Error> {
         self.decision(
             "SELECT d.id, d.agent, d.request, d.message, d.evidence FROM continuation_decisions d
              JOIN continuation_actions a ON a.decision = d.id WHERE a.action = ?1",
@@ -143,7 +144,7 @@ impl Store {
 
     /// The decision that already accepts every action of `c`, whether by this request, an earlier
     /// one; `None` when some action is still unaccepted.
-    pub(crate) fn accepted(&self, c: &Continue) -> Result<Option<Choice>, RpcError> {
+    pub(crate) fn accepted(&self, c: &Continue) -> Result<Option<Choice>, Error> {
         if let Some(decision) = self.requested(&c.agent, &c.request, &c.payload)? {
             return Ok(Some(decision));
         }
@@ -158,25 +159,25 @@ impl Store {
         }
     }
 
-    fn insert_decision(&self, c: &Continue, message: u32) -> Result<Choice, RpcError> {
+    fn insert_decision(&self, c: &Continue, message: u32) -> Result<Choice, Error> {
         let id: String = self
             .db
             .query_row("SELECT lower(hex(randomblob(16)))", [], |r| r.get(0))
-            .map_err(RpcError::internal)?;
+            .map_err(Error::internal)?;
         self.db
             .execute(
                 "INSERT INTO continuation_decisions (id, agent, request, payload, message, evidence)
                  VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
                 params![id, c.agent, c.request, c.payload, message, c.evidence],
             )
-            .map_err(RpcError::internal)?;
+            .map_err(Error::internal)?;
         for action in &c.actions {
             self.db
                 .execute(
                     "INSERT INTO continuation_actions (action, decision) VALUES (?1, ?2)",
                     params![action, id],
                 )
-                .map_err(|_| RpcError::conflict("an action was accepted by another resume"))?;
+                .map_err(|_| Error::conflict("an action was accepted by another resume"))?;
         }
         Ok(Choice {
             id,
@@ -188,7 +189,7 @@ impl Store {
         })
     }
 
-    pub(crate) fn accept_continuation(&self, c: &Continue, message: u32) -> Result<(), RpcError> {
+    pub(crate) fn accept_continuation(&self, c: &Continue, message: u32) -> Result<(), Error> {
         self.insert_decision(c, message).map(drop)
     }
 }
@@ -198,11 +199,9 @@ impl Messages {
     /// rules as any Message from the Daemon. A retry, a fresh request id for an accepted action, a
     /// concurrent observer of the same action all return the first decision
     /// and its Message; nothing more is sent.
-    pub async fn continue_work(&self, c: Continue) -> Result<(Choice, Message), RpcError> {
+    pub async fn continue_work(&self, c: Continue) -> Result<(Choice, Message), Error> {
         if c.actions.is_empty() {
-            return Err(RpcError::conflict(
-                "there is no unfinished action to accept",
-            ));
+            return Err(Error::conflict("there is no unfinished action to accept"));
         }
         if let Some(found) = self.accepted_now(&c)? {
             return Ok(found);
@@ -229,22 +228,26 @@ impl Messages {
             }
         };
         // After the commit: a failure here is a lost reply, and a retry returns this decision.
-        (self.inner.fault)("continuation_reply").map_err(RpcError::internal)?;
+        (self.inner.fault)("continuation_reply").map_err(Error::internal)?;
+        let first = c
+            .actions
+            .first()
+            .ok_or_else(|| Error::internal("accepted continuation names no action"))?;
         let decision = self
             .store()?
-            .decision_of(&c.actions[0])?
-            .ok_or_else(|| RpcError::internal("accepted decision vanished"))?;
+            .decision_of(first)?
+            .ok_or_else(|| Error::internal("accepted decision vanished"))?;
         Ok((decision, message))
     }
 
-    fn accepted_now(&self, c: &Continue) -> Result<Option<(Choice, Message)>, RpcError> {
+    fn accepted_now(&self, c: &Continue) -> Result<Option<(Choice, Message)>, Error> {
         let mut store = self.store()?;
         let Some(decision) = store.atomically(|store| store.accepted(c))? else {
             return Ok(None);
         };
         let message = store
             .get(decision.message)?
-            .ok_or_else(|| RpcError::internal("an accepted decision lost its Message"))?;
+            .ok_or_else(|| Error::internal("an accepted decision lost its Message"))?;
         Ok(Some((decision, message)))
     }
 
@@ -254,42 +257,42 @@ impl Messages {
         agent: &str,
         request: &str,
         payload: &str,
-    ) -> Result<Option<(Choice, Message)>, RpcError> {
+    ) -> Result<Option<(Choice, Message)>, Error> {
         let store = self.store()?;
         let Some(decision) = store.requested(agent, request, payload)? else {
             return Ok(None);
         };
         let message = store
             .get(decision.message)?
-            .ok_or_else(|| RpcError::internal("an accepted decision lost its Message"))?;
+            .ok_or_else(|| Error::internal("an accepted decision lost its Message"))?;
         Ok(Some((decision, message)))
     }
 
     /// The Messages made by accepted decisions for `agent`.
-    pub fn continuation_messages(&self, agent: &str) -> Result<Vec<u32>, RpcError> {
+    pub fn continuation_messages(&self, agent: &str) -> Result<Vec<u32>, Error> {
         self.store()?
             .db
             .prepare("SELECT message FROM continuation_decisions WHERE agent = ?1")
-            .map_err(RpcError::internal)?
+            .map_err(Error::internal)?
             .query_map(params![agent], |r| r.get(0))
             .and_then(|rows| rows.collect())
-            .map_err(RpcError::internal)
+            .map_err(Error::internal)
     }
 
     /// Where `action` was already accepted, if anywhere.
-    pub fn continuation_of(&self, action: &str) -> Result<Option<Covered>, RpcError> {
+    pub fn continuation_of(&self, action: &str) -> Result<Option<Covered>, Error> {
         self.store()?.covered(action)
     }
 
     /// The decision that accepted `action` and the Message it made.
-    pub fn decision_of(&self, action: &str) -> Result<Option<(Choice, Message)>, RpcError> {
+    pub fn decision_of(&self, action: &str) -> Result<Option<(Choice, Message)>, Error> {
         let store = self.store()?;
         let Some(decision) = store.decision_of(action)? else {
             return Ok(None);
         };
         let message = store
             .get(decision.message)?
-            .ok_or_else(|| RpcError::internal("an accepted decision lost its Message"))?;
+            .ok_or_else(|| Error::internal("an accepted decision lost its Message"))?;
         Ok(Some((decision, message)))
     }
 }

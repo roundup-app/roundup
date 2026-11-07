@@ -22,20 +22,22 @@ impl Agents {
                     "{id} is not a root Agent with a saved conversation"
                 )));
             }
-            matches!(self.shared.runs().get(id), Some(Slot::Running(run)) if !run.ended)
+            matches!(self.shared.runs().slot(id), Some(Slot::Running(run)) if !run.ended())
         };
         if live
             && let Err(error) = self
                 .resume_conversation(
                     ctx,
                     id,
-                    RESUME_ACK_BOUND,
-                    None,
-                    None,
-                    RailPublication::Immediate,
-                    Some(ResumeMode::Normal),
-                    self.launcher.selected_permission_mode(id),
-                    (80, 24),
+                    Resumption {
+                        ack_bound: RESUME_ACK_BOUND,
+                        conversation: None,
+                        prompt: None,
+                        publication: RailPublication::Immediate,
+                        mode: Some(ResumeMode::Normal),
+                        permission_mode: self.launcher.selected_permission_mode(id),
+                        size: (80, 24),
+                    },
                 )
                 .await
         {
@@ -60,7 +62,7 @@ impl Agents {
         if name.is_empty() {
             return Err(RpcError::new(code::INVALID_PARAMS, "a Mode needs a name"));
         }
-        let Some(lean) = Launcher::load_lean(&self.dir, &id) else {
+        let Some(lean) = Launcher::load_lean(&self.dir, &id)? else {
             return Err(RpcError::conflict(format!(
                 "{id} keeps the user's full setup: it was not started by an Agent"
             )));

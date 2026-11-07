@@ -7,9 +7,12 @@ mod brief;
 mod conversation;
 mod discovery;
 pub mod extras;
+mod hook;
+pub(crate) use hook::see;
 pub mod inbox;
 mod launch;
 mod launch_files;
+mod launch_lean;
 mod memory;
 mod models;
 pub use memory::memory_guard;
@@ -27,13 +30,14 @@ mod vendor_list;
 use contracts::agent::FinalTextKind;
 use contracts::{Kind, Status};
 use serde_json::Value;
+use std::sync::Arc;
 
-use crate::{AgentAdapter, Observation};
+use crate::{AgentAdapter, Folded, Observation, View};
 
 pub use brief::{Role, WORKSTREAM_GUIDANCE};
 pub(crate) use discovery::ImportCandidate;
-pub use launch::{Folders, INTENT_MISSING, Launcher, STATE_EVENTS, settings_marker};
-pub use models::{Lean, Pair, efforts, engines, models};
+pub use launch::{Folders, INTENT_MISSING, Launcher, Request, STATE_EVENTS, settings_marker};
+pub use models::{LaunchFacts, Lean, Permission, efforts, engines, models};
 pub use profiles::{
     DOOR_TOOLS, DOOR_TOOLS_NO_MCP, PROFILES, Profile, SCOUT_TOOLS, SCOUT_TOOLS_NO_MCP, profile,
 };
@@ -99,7 +103,7 @@ enum Ending {
 
 pub struct ClaudeCode {
     /// A5482c: completed turn identity, start/end times and final assistant text.
-    completed: Option<Box<(String, i64, i64, String)>>,
+    completed: Option<Arc<(String, i64, i64, String)>>,
     turn_started: i64,
     completed_turn: Option<Box<str>>,
     status: Option<Status>,
@@ -154,49 +158,26 @@ impl ClaudeCode {
         }
     }
 
+    #[cfg(feature = "test-support")]
     /// PS9.2: an Agent whose tooling pushes no Signal; its Terminal's program status gives its Kind.
-    pub fn without_hooks(mut self) -> Self {
+    fn without_hooks(mut self) -> Self {
         self.hooked = false;
         self
     }
 
     /// Continue the Agent's finish count from an earlier Attempt.
-    pub(crate) fn set_finished(&mut self, finished: u64) {
+    fn set_finished(&mut self, finished: u64) {
         self.finished = finished;
         if let Some(status) = &mut self.status {
             status.finished = finished.to_string();
         }
     }
 
-    pub(crate) fn turn(&self) -> Option<&str> {
-        self.prompt_id.as_deref()
-    }
-
-    pub(crate) fn completed_turn(&self) -> Option<&str> {
-        self.completed_turn.as_deref()
-    }
-
-    pub(crate) fn final_text(&self) -> FinalTextKind {
-        self.final_text
-    }
-
-    pub(crate) fn finished(&self) -> u64 {
-        self.finished
-    }
-
     /// An adapter for a program that has just started: working until it says otherwise.
-    pub fn starting(clock: impl Fn() -> i64 + Send + 'static) -> Self {
+    fn starting(clock: impl Fn() -> i64 + Send + 'static) -> Self {
         let mut adapter = Self::new(clock);
         adapter.settle(Kind::Working, "starting".into());
         adapter
-    }
-
-    pub(super) fn is_ended(&self) -> bool {
-        self.ending != Ending::Running
-    }
-
-    pub fn status(&self) -> Option<&Status> {
-        self.status.as_ref()
     }
 
     /// Adopt `kind` and `label`. `since` moves only when the Kind does.
@@ -394,35 +375,24 @@ impl ClaudeCode {
                     *old_turn == turn && *started == self.turn_started && old_text == text
                 })
             {
-                self.completed = Some(Box::new((turn, self.turn_started, ended, text.to_owned())));
+                self.completed = Some(Arc::new((turn, self.turn_started, ended, text.to_owned())));
                 *completion_changed = true;
             }
         }
         changed
     }
 
-    /// DCL5: how many compactions the vendor has reported finished; the supervisor publishes one
-    /// fact for each rise.
-    pub fn compactions(&self) -> u64 {
-        self.compactions
-    }
-
-    /// DCL5: whether the turn is working, has shown no activity for `limit_ms`, and has no
-    /// foreground tool call or background work running. Genuine activity clears it.
-    pub fn stalled(&self, limit_ms: i64) -> bool {
-        self.ending == Ending::Running
+    /// DCL5: when the turn last showed activity, if it is working with no foreground tool call or
+    /// background work running; the supervisor compares it with its limit. Genuine activity clears it.
+    fn quiet_since(&self) -> Option<i64> {
+        (self.ending == Ending::Running
             && self
                 .status
                 .as_ref()
                 .is_some_and(|s| s.kind == Kind::Working)
             && !self.after_pre_tool_use
-            && !self.background.holds()
-            && (self.clock)() - self.active_at >= limit_ms
-    }
-
-    /// DCL3: a Stop came, so the process table decides whether work outlives it.
-    pub(crate) fn needs_processes(&self) -> bool {
-        self.ending == Ending::Running && self.background.stopped
+            && !self.background.holds())
+        .then_some(self.active_at)
     }
 
     /// DCL3: the work the Agent still has after a foreground Stop.
@@ -432,20 +402,20 @@ impl ClaudeCode {
     }
 
     /// DCL3c: the task facts a Daemon reopen keeps; `None` when no background work is open.
-    pub(crate) fn retained(&self) -> Option<background::Retained> {
+    fn retained(&self) -> Option<background::Retained> {
         background::Retained::new(&self.background, self.turn_started)
     }
 
     /// DCL3c: adopt the facts `retained` kept across a Daemon reopen; the first process snapshot
     /// then decides what still runs.
-    pub(crate) fn resume_background(&mut self, kept: background::Retained) {
+    fn resume_background(&mut self, kept: background::Retained) {
         self.turn_started = kept.turn_started();
         *self.background = kept.reopen();
     }
 
     /// DCL3: reconcile with a process snapshot of the program rooted at `root`. Work found after
     /// a Stop holds Working; work gone releases the hold, so completion lands once.
-    pub fn observe_processes(
+    fn observe_processes(
         &mut self,
         root: u32,
         snapshot: Result<&[background::Process], String>,
@@ -467,10 +437,6 @@ impl ClaudeCode {
             return self.settle(Kind::Idle, "idle".into());
         }
         None
-    }
-
-    pub(crate) fn completed_text(&self) -> Option<&(String, i64, i64, String)> {
-        self.completed.as_deref()
     }
 
     fn exit(&mut self, code: Option<i32>) -> Option<Status> {
@@ -501,7 +467,7 @@ impl ClaudeCode {
 
     /// A21: roundup itself could not save the Agent's conversation. Final: no later Observation
     /// changes the Status again, the Exit that follows the Terminal being stopped included.
-    pub fn fail(&mut self, label: String) -> Option<Status> {
+    fn fail(&mut self, label: String) -> Option<Status> {
         if self.ending != Ending::Running {
             return None;
         }
@@ -513,10 +479,7 @@ impl ClaudeCode {
 }
 
 impl ClaudeCode {
-    pub(crate) fn observe_completion(
-        &mut self,
-        observation: Observation,
-    ) -> (Option<Status>, bool) {
+    fn fold(&mut self, observation: Observation) -> (Option<Status>, bool) {
         let mut completion_changed = false;
         let status = match observation {
             Observation::Exit { code } => self.exit(code),
@@ -550,41 +513,96 @@ impl ClaudeCode {
                 self.retitle(&title)
             }
             Observation::Program(status) => self.settle(status.kind, status.label),
+            Observation::Finished(finished) => {
+                self.set_finished(finished);
+                None
+            }
+            Observation::Failed(label) => self.fail(label),
+            Observation::Resumed(kept) => {
+                self.resume_background(kept);
+                None
+            }
         };
         (status, completion_changed)
     }
 }
 
-impl AgentAdapter for ClaudeCode {
-    fn observe(&mut self, observation: Observation) -> Option<Status> {
-        self.observe_completion(observation).0
+#[cfg(test)]
+impl ClaudeCode {
+    pub(crate) fn status(&self) -> Option<&Status> {
+        self.status.as_ref()
     }
 
-    fn has_hook_signal(&self) -> bool {
-        self.hooked
+    pub(crate) fn compactions(&self) -> u64 {
+        self.compactions
     }
+
+    pub(crate) fn stalled(&self, limit_ms: i64) -> bool {
+        self.quiet_since()
+            .is_some_and(|at| (self.clock)() - at >= limit_ms)
+    }
+
+    pub(crate) fn observe_completion(
+        &mut self,
+        observation: Observation,
+    ) -> (Option<Status>, bool) {
+        self.fold(observation)
+    }
+}
+
+impl ClaudeCode {
+    fn view(&self) -> View {
+        View {
+            status: self.status.clone(),
+            finished: self.finished,
+            final_text: self.final_text,
+            turn: self.prompt_id.clone(),
+            completed_turn: self.completed_turn.clone(),
+            completed: self.completed.clone(),
+            compactions: self.compactions,
+            retained: self.retained(),
+            ended: self.ending != Ending::Running,
+            hooked: self.hooked,
+            next_due: self.tick_at(),
+            needs_snapshot: self.ending == Ending::Running && self.background.stopped,
+            quiet_since: self.quiet_since(),
+        }
+    }
+}
+
+impl AgentAdapter for ClaudeCode {
+    fn observe(&mut self, observation: Observation) -> Folded {
+        let (changed, completion_changed) = self.fold(observation);
+        Folded {
+            changed,
+            completion_changed,
+            view: self.view(),
+        }
+    }
+}
+
+/// The spawn seam: the adapter of a program that has just started, working until it says
+/// otherwise, and its first view.
+pub(crate) fn starting(
+    clock: impl Fn() -> i64 + Send + 'static,
+) -> (Box<dyn AgentAdapter + Send>, View) {
+    let adapter = ClaudeCode::starting(clock);
+    let view = adapter.view();
+    (Box::new(adapter), view)
+}
+
+/// PS9.2: `starting`, for an Agent whose tooling pushes no Signal.
+#[cfg(feature = "test-support")]
+pub(crate) fn hookless(
+    clock: impl Fn() -> i64 + Send + 'static,
+) -> (Box<dyn AgentAdapter + Send>, View) {
+    let adapter = ClaudeCode::starting(clock).without_hooks();
+    let view = adapter.view();
+    (Box::new(adapter), view)
 }
 
 /// E3: mutable Context travels after the work text so A27's name still comes from the work.
 pub(crate) const CONTEXT_START: &str = "\n\n<roundup-context>\n";
-
-/// The hook event a payload names, or `Signal` when it names none.
-pub fn event_name(payload: &Value) -> &str {
-    payload["hook_event_name"].as_str().unwrap_or("Signal")
-}
-
-/// The prompt a `UserPromptSubmit` payload carries (empty when it carries none); `None` for any
-/// other payload.
-pub fn submitted_prompt(payload: &Value) -> Option<&str> {
-    (payload["hook_event_name"] == "UserPromptSubmit")
-        .then(|| payload["prompt"].as_str().unwrap_or_default())
-}
-
-/// Whether `payload` is the `SessionStart` Signal, which readies a fresh Agent for its first
-/// prompt (H12).
-pub fn is_session_start(payload: &Value) -> bool {
-    payload["hook_event_name"] == "SessionStart"
-}
 
 /// E3: what the `SessionStart` hook prints so Claude Code adds `text` to the model's context: the
 /// vendor's own JSON, `hookSpecificOutput.additionalContext`.
@@ -681,27 +699,9 @@ pub fn interrupt_bytes() -> Vec<u8> {
     vec![0x1b]
 }
 
-/// A21: the conversation a `SessionStart` payload names, accepted only as a UUID; `None` for any
-/// other payload, or one whose `session_id` is not a UUID.
-pub fn conversation_id(payload: &Value) -> Option<String> {
-    (payload["hook_event_name"] == "SessionStart")
-        .then(|| payload["session_id"].as_str())
-        .flatten()
-        .filter(|id| is_uuid(id))
-        .map(str::to_owned)
-}
-
-/// A22: whether a `SessionStart` payload says it began with `--resume`; `None` for any other
-/// payload.
-pub fn session_source(payload: &Value) -> Option<&str> {
-    (payload["hook_event_name"] == "SessionStart")
-        .then(|| payload["source"].as_str())
-        .flatten()
-}
-
 /// `8-4-4-4-12` lowercase or uppercase hex, dashes at those exact positions; no other form (no
 /// braces, no `urn:uuid:`) is accepted as a conversation id.
-fn is_uuid(id: &str) -> bool {
+pub(super) fn is_uuid(id: &str) -> bool {
     let bytes = id.as_bytes();
     bytes.len() == 36
         && [8, 13, 18, 23].iter().all(|&i| bytes[i] == b'-')

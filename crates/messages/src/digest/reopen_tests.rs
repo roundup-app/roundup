@@ -6,24 +6,23 @@ use super::*;
 #[test]
 fn dcl8_reopen_keeps_told_and_marks_no_untold_fact_told() {
     let dir = tempfile::tempdir().unwrap();
-    let path = dir.path().join("digest.db");
     let none: Vec<Todo> = vec![];
     let mut nodes = rail();
-    let seen = Seen::open(&path).unwrap();
+    let seen = Seen::open(dir.path()).unwrap();
     seen.baseline(&sources(&nodes, &none, &[], &[]));
     nodes[1].status = Some(status(Kind::Idle, "done"));
     assert_eq!(seen.changed(&sources(&nodes, &none, &[], &[])).len(), 1);
     drop(seen);
 
     // Told stays told: the same fact is not queued again.
-    let seen = Seen::open(&path).unwrap();
+    let seen = Seen::open(dir.path()).unwrap();
     seen.baseline(&sources(&nodes, &none, &[], &[]));
     assert!(seen.changed(&sources(&nodes, &none, &[], &[])).is_empty());
     drop(seen);
 
     // A change while closed is untold after the reopen, and queued once.
     let todos = vec![todo(1, "a", false)];
-    let seen = Seen::open(&path).unwrap();
+    let seen = Seen::open(dir.path()).unwrap();
     seen.baseline(&sources(&nodes, &todos, &[], &[]));
     let pushes = seen.changed(&sources(&nodes, &todos, &[], &[]));
     assert_eq!(pushes.len(), 1);
@@ -46,8 +45,8 @@ fn refuse_told_writes(path: &std::path::Path, refuse: bool) {
 #[test]
 fn dcl10a_a_refused_told_write_keeps_the_fact_untold() {
     let dir = tempfile::tempdir().unwrap();
-    let path = dir.path().join("digest.db");
-    let seen = Seen::open(&path).unwrap();
+    let path = dir.path().join("project.db");
+    let seen = Seen::open(dir.path()).unwrap();
     let mut nodes = rail();
     let none: Vec<Todo> = vec![];
     seen.baseline(&sources(&nodes, &none, &[], &[]));
@@ -75,10 +74,10 @@ fn dcl10a_a_refused_told_write_keeps_the_fact_untold() {
 #[test]
 fn dcl10a_reopen_after_a_refused_write_queues_the_fact_once() {
     let dir = tempfile::tempdir().unwrap();
-    let path = dir.path().join("digest.db");
+    let path = dir.path().join("project.db");
     let mut nodes = rail();
     let none: Vec<Todo> = vec![];
-    let seen = Seen::open(&path).unwrap();
+    let seen = Seen::open(dir.path()).unwrap();
     seen.baseline(&sources(&nodes, &none, &[], &[]));
     nodes[1].status = Some(status(Kind::Idle, "done"));
     refuse_told_writes(&path, true);
@@ -86,9 +85,9 @@ fn dcl10a_reopen_after_a_refused_write_queues_the_fact_once() {
     drop(seen);
     refuse_told_writes(&path, false);
 
-    let seen = Seen::open(&path).unwrap();
+    let seen = Seen::open(dir.path()).unwrap();
     assert_eq!(seen.changed(&sources(&nodes, &none, &[], &[])).len(), 1);
     drop(seen);
-    let seen = Seen::open(&path).unwrap();
+    let seen = Seen::open(dir.path()).unwrap();
     assert!(seen.changed(&sources(&nodes, &none, &[], &[])).is_empty());
 }

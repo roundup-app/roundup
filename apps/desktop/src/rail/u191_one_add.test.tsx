@@ -14,7 +14,7 @@ describe("u162 one add opens a Workstream", () => {
     mounted.app.handlers["rail.startDoor"] = () => door("made", "working", "starting");
 
     await chooseFooter("Workstream");
-    await waitFor(() => expect(railCallsTo(mounted.app, "rail.createWorkstream")).toEqual([{ name: "workstream", parent: null }]));
+    await waitFor(() => expect(railCallsTo(mounted.app, "rail.createWorkstream")).toEqual([{ name: "Workstream", parent: null }]));
     tree.push(workstream("made"));
     mounted.app.emit(event({ name: "rail.changed" }));
 

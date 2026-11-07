@@ -1,5 +1,5 @@
 //! RPC method dispatch for Todos.
-use rpc::{Ctx, RpcError, params, reply};
+use rpc::{Ctx, RpcError, params};
 use serde_json::Value;
 
 use super::Todos;
@@ -22,7 +22,7 @@ impl Todos {
         _method: &str,
         value: Value,
     ) -> Result<Value, RpcError> {
-        self.create(ctx, params(value)?)
+        Ok(self.create(ctx, params(value)?)?)
     }
 
     async fn rpc_todo_list(
@@ -31,7 +31,7 @@ impl Todos {
         _method: &str,
         _value: Value,
     ) -> Result<Value, RpcError> {
-        reply(&self.store()?.list()?)
+        Ok(crate::error::reply(&self.store()?.list()?)?)
     }
 
     async fn rpc_todo_list_handed(
@@ -40,7 +40,7 @@ impl Todos {
         _method: &str,
         _value: Value,
     ) -> Result<Value, RpcError> {
-        reply(&self.store()?.list_handed()?)
+        Ok(crate::error::reply(&self.store()?.list_handed()?)?)
     }
 
     async fn rpc_todo_get(
@@ -49,7 +49,7 @@ impl Todos {
         _method: &str,
         value: Value,
     ) -> Result<Value, RpcError> {
-        self.get(ctx, params(value)?)
+        Ok(crate::error::reply(&self.get(ctx, params(value)?)?)?)
     }
 
     async fn rpc_todo_get_history(
@@ -58,7 +58,7 @@ impl Todos {
         _method: &str,
         value: Value,
     ) -> Result<Value, RpcError> {
-        self.get_history(ctx, params(value)?)
+        Ok(self.get_history(ctx, params(value)?)?)
     }
 
     async fn rpc_todo_read_history(
@@ -67,7 +67,7 @@ impl Todos {
         _method: &str,
         value: Value,
     ) -> Result<Value, RpcError> {
-        self.read_history(ctx, params(value)?)
+        Ok(self.read_history(ctx, params(value)?)?)
     }
 
     async fn rpc_todo_update(
@@ -76,7 +76,7 @@ impl Todos {
         _method: &str,
         value: Value,
     ) -> Result<Value, RpcError> {
-        self.update(ctx, params(value)?)
+        Ok(self.update(ctx, params(value)?)?)
     }
 
     async fn rpc_todo_complete(
@@ -85,7 +85,7 @@ impl Todos {
         _method: &str,
         value: Value,
     ) -> Result<Value, RpcError> {
-        self.complete(ctx, params(value)?)
+        Ok(self.complete(ctx, params(value)?)?)
     }
 
     async fn rpc_todo_reopen(
@@ -94,7 +94,7 @@ impl Todos {
         _method: &str,
         value: Value,
     ) -> Result<Value, RpcError> {
-        self.reopen(ctx, params(value)?)
+        Ok(self.reopen(ctx, params(value)?)?)
     }
 
     async fn rpc_todo_set_blockers(
@@ -103,7 +103,7 @@ impl Todos {
         _method: &str,
         value: Value,
     ) -> Result<Value, RpcError> {
-        self.set_blockers(ctx, params(value)?)
+        Ok(self.set_blockers(ctx, params(value)?)?)
     }
 
     async fn rpc_todo_reorder(
@@ -112,7 +112,7 @@ impl Todos {
         _method: &str,
         value: Value,
     ) -> Result<Value, RpcError> {
-        self.reorder(ctx, params(value)?)
+        Ok(self.reorder(ctx, params(value)?)?)
     }
 
     async fn rpc_todo_assign(
@@ -121,7 +121,7 @@ impl Todos {
         _method: &str,
         value: Value,
     ) -> Result<Value, RpcError> {
-        self.assign(ctx, params(value)?)
+        Ok(crate::error::reply(&self.assign(ctx, params(value)?)?)?)
     }
 
     async fn rpc_todo_hand(
@@ -130,7 +130,7 @@ impl Todos {
         _method: &str,
         value: Value,
     ) -> Result<Value, RpcError> {
-        self.hand(ctx, params(value)?)
+        Ok(self.hand(ctx, params(value)?)?)
     }
 
     async fn rpc_todo_move(
@@ -139,7 +139,7 @@ impl Todos {
         _method: &str,
         value: Value,
     ) -> Result<Value, RpcError> {
-        self.move_to(ctx, params(value)?)
+        Ok(crate::error::reply(&self.move_to(ctx, params(value)?)?)?)
     }
 
     async fn rpc_todo_delete(
@@ -148,7 +148,7 @@ impl Todos {
         _method: &str,
         value: Value,
     ) -> Result<Value, RpcError> {
-        self.delete(ctx, params(value)?)
+        Ok(self.delete(ctx, params(value)?)?)
     }
 
     async fn rpc_todo_deletion(
@@ -157,7 +157,7 @@ impl Todos {
         _method: &str,
         value: Value,
     ) -> Result<Value, RpcError> {
-        self.deletion(ctx, params(value)?)
+        Ok(self.deletion(ctx, params(value)?)?)
     }
 
     async fn rpc_todo_redo(
@@ -166,7 +166,7 @@ impl Todos {
         _method: &str,
         value: Value,
     ) -> Result<Value, RpcError> {
-        self.redo(ctx, params(value)?)
+        Ok(self.redo(ctx, params(value)?)?)
     }
 
     async fn rpc_todo_restore(
@@ -175,7 +175,7 @@ impl Todos {
         _method: &str,
         value: Value,
     ) -> Result<Value, RpcError> {
-        self.restore(ctx, params(value)?)
+        Ok(self.restore(ctx, params(value)?)?)
     }
 
     async fn rpc_todo_comment(
@@ -184,7 +184,7 @@ impl Todos {
         _method: &str,
         value: Value,
     ) -> Result<Value, RpcError> {
-        self.comment(ctx, params(value)?)
+        Ok(self.comment(ctx, params(value)?)?)
     }
 
     async fn rpc_todo_comments(
@@ -193,7 +193,7 @@ impl Todos {
         _method: &str,
         value: Value,
     ) -> Result<Value, RpcError> {
-        self.comments(params(value)?)
+        Ok(self.comments(params(value)?)?)
     }
 
     async fn rpc_todo_add_ref(
@@ -202,7 +202,7 @@ impl Todos {
         _method: &str,
         value: Value,
     ) -> Result<Value, RpcError> {
-        self.add_ref(ctx, params(value)?)
+        Ok(self.add_ref(ctx, params(value)?)?)
     }
 
     async fn rpc_todo_remove_ref(
@@ -211,7 +211,7 @@ impl Todos {
         _method: &str,
         value: Value,
     ) -> Result<Value, RpcError> {
-        self.remove_ref(ctx, params(value)?)
+        Ok(self.remove_ref(ctx, params(value)?)?)
     }
 
     async fn rpc_todo_unread(
@@ -220,7 +220,7 @@ impl Todos {
         _method: &str,
         _value: Value,
     ) -> Result<Value, RpcError> {
-        self.unread()
+        Ok(self.unread()?)
     }
 
     async fn rpc_todo_mark_comments_read(
@@ -229,6 +229,6 @@ impl Todos {
         _method: &str,
         value: Value,
     ) -> Result<Value, RpcError> {
-        self.mark_comments_read(ctx, params(value)?)
+        Ok(self.mark_comments_read(ctx, params(value)?)?)
     }
 }

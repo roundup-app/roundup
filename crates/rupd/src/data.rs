@@ -11,6 +11,10 @@ use sha2::{Digest, Sha256};
 const IDENTIFIER: &str = "dev.roundup.app";
 
 /// `ROUNDUP_DATA_DIR` when set, else the App's data folder for `dev.roundup.app`.
+#[expect(
+    clippy::disallowed_methods,
+    reason = "the data folder is resolved before any Daemon, or Observers, exists"
+)]
 pub fn data_dir() -> io::Result<PathBuf> {
     resolve(
         std::env::var_os("ROUNDUP_DATA_DIR"),
@@ -45,7 +49,7 @@ pub fn project_data(data: &Path, project: &Path) -> io::Result<PathBuf> {
     let canonical = project.canonicalize()?;
     let digest = Sha256::digest(canonical.as_os_str().as_encoded_bytes());
     let mut hex = String::new();
-    for byte in &digest[..8] {
+    for byte in digest.iter().take(8) {
         let _ = write!(hex, "{byte:02x}");
     }
     let name = canonical
@@ -146,6 +150,12 @@ pub(crate) fn read_naming(
     )
     .optional()
     .map(Option::unwrap_or_default)
+    .map(|mut settings| {
+        if settings.naming_guide == contracts::project::NamingSettings::OLD_DEFAULT_GUIDE {
+            settings.naming_guide = contracts::project::NamingSettings::DEFAULT_GUIDE.into();
+        }
+        settings
+    })
 }
 
 pub(crate) fn write_naming(

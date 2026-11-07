@@ -18,10 +18,10 @@ impl From<Value> for Frame {
 
 impl Frame {
     /// The frame as the client reads it.
-    pub(crate) fn into_value(self) -> Value {
+    pub(crate) fn into_value(self) -> serde_json::Result<Value> {
         match self {
-            Self::Value(value) => value,
-            Self::Json(text) => serde_json::from_str(&text).expect("a written frame is JSON"),
+            Self::Value(value) => Ok(value),
+            Self::Json(text) => serde_json::from_str(&text),
         }
     }
 
@@ -35,10 +35,28 @@ impl Frame {
     }
 }
 
-/// Accept connections until the listener fails.
-pub async fn serve(listener: UnixListener, daemon: Arc<Daemon>) -> io::Result<()> {
-    // UA1: the Extension host starts after the socket is bound and never delays it.
+/// Start the Daemon's watchers once and accept connections until the listener fails. A watcher
+/// that ends first fails the serve: a panicked watcher would otherwise vanish. An Extension host
+/// starts after the socket is bound and never delays it (UA1).
+pub async fn serve(
+    listener: UnixListener,
+    daemon: Arc<Daemon>,
+    watchers: Watchers,
+) -> io::Result<()> {
+    let mut running = watchers.spawn(&daemon);
     daemon.extensions.start(&daemon);
+    tokio::select! {
+        accepted = accept(listener, daemon) => accepted,
+        Some(ended) = running.join_next() => Err(io::Error::other(match ended {
+            Ok(()) => "a watcher ended while the Daemon served".to_owned(),
+            Err(err) => format!("a watcher failed: {err}"),
+        })),
+    }
+}
+
+/// Accept connections on a further socket (A12a) until the listener fails; `serve` runs the
+/// watchers.
+pub async fn accept(listener: UnixListener, daemon: Arc<Daemon>) -> io::Result<()> {
     loop {
         let (stream, _) = listener.accept().await?;
         let daemon = Arc::clone(&daemon);
@@ -85,73 +103,29 @@ pub(crate) async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Resul
             daemon.actions.answer(&frames, answer);
             continue;
         }
-        let method = request
+        let row = request
             .as_ref()
-            .and_then(|request| request["method"].as_str().map(str::to_owned));
+            .and_then(|request| request["method"].as_str())
+            .and_then(crate::route::policy::policy);
         // Actor and subscription changes must commit before the next wire request is read.
-        if matches!(
-            method.as_deref(),
-            Some(
-                "daemon.identify" | "events.subscribe" | "terminal.output" | "terminal.outputStop"
-            )
-        ) {
+        if row.is_some_and(|row| row.settles) {
             if let Some(reply) = daemon.dispatch(&mut conn, &line, None).await {
                 let _ = frames.send(reply);
             }
             continue;
         }
-        let actor = if method.as_deref() == Some("terminal.write") {
-            let writer = daemon.terminal_writer(&conn);
-            if writer.kind == ActorKind::Agent {
-                writer
-            } else {
-                conn.actor.clone()
+        use crate::route::policy::Actor as Caller;
+        let actor = match row.map(|row| row.actor) {
+            Some(Caller::TerminalWriter) => {
+                let writer = daemon.terminal_writer(&conn);
+                if writer.kind == ActorKind::Agent {
+                    writer
+                } else {
+                    conn.actor.clone()
+                }
             }
-        } else if method.as_deref().is_some_and(|m| {
-            m.starts_with("deliverable.")
-                || matches!(m, "project.open" | "project.start")
-                || actions::is_action(m)
-                || matches!(
-                    m,
-                    "todo.delete"
-                        | "todo.deletion"
-                        | "todo.restore"
-                        | "todo.redo"
-                        | "rail.remove"
-                        | "rail.deletion"
-                        | "rail.restore"
-                        | "rail.redo"
-                        | "message.progress"
-                        | "message.report"
-                        | "message.acceptResult"
-                        | "message.verifyResult"
-                        | "message.resolveResult"
-                        | "message.reconcileWork"
-                        | "message.resumeWork"
-                )
-        }) || matches!(
-            method.as_deref(),
-            Some(
-                "daemon.getNaming"
-                    | "daemon.setNaming"
-                    | "rail.group"
-                    | "rail.removeSelection"
-                    | "rail.rename"
-                    | "rail.setAlertLevel"
-                    | "workstream.setAuto"
-                    | "agent.spawn"
-                    | "agent.stop"
-                    | "agent.interrupt"
-                    | "agent.prompt"
-                    | "agent.setOrder"
-                    | "agent.setVisibility"
-                    | "agent.resume"
-                    | "agent.instructions"
-            )
-        ) {
-            daemon.action_actor(&conn)
-        } else {
-            conn.actor.clone()
+            Some(Caller::Caller) => daemon.action_actor(&conn),
+            Some(Caller::Connection) | None => conn.actor.clone(),
         };
         let mut request_conn = conn.clone();
         let daemon = Arc::clone(&daemon);

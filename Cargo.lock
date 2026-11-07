@@ -45,6 +45,7 @@ dependencies = [
  "stats_alloc",
  "tempfile",
  "terminal",
+ "thiserror 2.0.21",
  "time",
  "tokio",
  "unicode-normalization",
@@ -998,6 +999,7 @@ dependencies = [
  "dirs",
  "getrandom 0.3.4",
  "icns",
+ "indexmap 2.14.2",
  "log",
  "mac-notification-sys",
  "native",
@@ -3004,10 +3006,11 @@ dependencies = [
  "provenance",
  "rpc",
  "rusqlite",
- "rusqlite_migration",
  "serde",
  "serde_json",
+ "storage",
  "tempfile",
+ "thiserror 2.0.21",
  "tokio",
 ]
 
@@ -3607,9 +3610,11 @@ dependencies = [
  "pulldown-cmark",
  "rpc",
  "rusqlite",
- "rusqlite_migration",
+ "serde",
  "serde_json",
+ "storage",
  "tempfile",
+ "thiserror 2.0.21",
  "tokio",
  "unicode-normalization",
  "url",
@@ -4292,12 +4297,12 @@ dependencies = [
  "base64 0.23.1",
  "cap-std",
  "contracts",
- "getrandom 0.3.4",
  "jsonschema",
  "memchr",
  "messages",
  "notify",
  "pads",
+ "parking_lot",
  "percent-encoding",
  "proptest",
  "provenance",
@@ -4310,8 +4315,10 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2",
+ "storage",
  "tempfile",
  "terminal",
+ "thiserror 2.0.21",
  "time",
  "todos",
  "tokio",
@@ -4889,6 +4896,22 @@ name = "stats_alloc"
 version = "0.1.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5c0e04424e733e69714ca1bbb9204c1a57f09f5493439520f9f68c132ad25eec"
+
+[[package]]
+name = "storage"
+version = "0.0.0"
+dependencies = [
+ "contracts",
+ "getrandom 0.3.4",
+ "memchr",
+ "provenance",
+ "rusqlite",
+ "rusqlite_migration",
+ "rustix",
+ "serde",
+ "serde_json",
+ "tempfile",
+]
 
 [[package]]
 name = "string_cache"
@@ -5531,6 +5554,8 @@ dependencies = [
  "serde_json",
  "stats_alloc",
  "tempfile",
+ "terminal",
+ "thiserror 2.0.21",
  "tokio",
  "vt100",
 ]
@@ -5648,8 +5673,10 @@ dependencies = [
  "rpc",
  "rusqlite",
  "rusqlite_migration",
+ "serde",
  "serde_json",
  "tempfile",
+ "thiserror 2.0.21",
  "tokio",
 ]
 

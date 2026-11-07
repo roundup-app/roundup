@@ -12,10 +12,14 @@ impl Todos {
     pub async fn rpc_contract_probe(&self, ctx: &Ctx, _method: &str, value: Value) -> Result<Value, RpcError> {
         let p: contracts::todo::TodoId = params(value)?;
         ctx.touch(contracts::Verb::Read, "c4:contractProbe")?;
-        reply(&contracts::todo::TodoId {id: p.id + 1})
+        Ok(crate::error::reply(&contracts::todo::TodoId {id: p.id + 1})?)
     }
 }
 '''
+
+
+POLICY_ROW = '    ("project.contractProbe", PLAIN),\n'
+ANCHOR = '    ("project.get", PLAIN),\n'
 
 
 class Addition(unittest.TestCase):
@@ -35,6 +39,11 @@ class Addition(unittest.TestCase):
                 declaration.write_text(original.replace("    todos_methods[\"todo\"] {\n", "    todos_methods[\"todo\"] {\n" + DECLARATION))
                 handler = checkout / "crates/todos/src/dispatch.rs"
                 handler.write_text(handler.read_text() + HANDLER)
+                # A new method needs its policy row too: the table has no default row.
+                policy = checkout / "crates/rupd/src/route/policy.rs"
+                table = policy.read_text()
+                self.assertIn(ANCHOR, table)
+                policy.write_text(table.replace(ANCHOR, POLICY_ROW + ANCHOR, 1))
                 integration = checkout / "crates/rup/tests/mcp.rs"
                 integration.write_text(integration.read_text() + '\n#[allow(dead_code)]\n#[path = "../src/mcp/c4_adapter.rs"]\nmod c4_adapter;\n')
                 adapter = checkout / "crates/rup/src/mcp.rs"

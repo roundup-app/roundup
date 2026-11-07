@@ -73,7 +73,7 @@ export const ImportPanel = (props: { onClose: () => void }) => {
       <div class="import-content">
       <SettingsGroup name={copy.importPrompt}>
         <div class="import-instructions">
-          <textarea rows={1} class="import-prompt" aria-label={copy.importPrompt} value={state.prompt()} spellcheck={false} autocorrect="off" autocapitalize="off" onInput={event => void state.setPrompt(event.currentTarget.value)} />
+          <textarea rows={1} class="import-prompt field-frame" aria-label={copy.importPrompt} value={state.prompt()} spellcheck={false} autocorrect="off" autocapitalize="off" onInput={event => void state.setPrompt(event.currentTarget.value)} />
           <button type="button" data-button="quiet" disabled={daemonExit() !== null || pending() || state.starting() || state.prompt().trim().length === 0} onClick={() => void state.start()}>{copy.importStart}</button>
         </div>
         <ReservedLine message={state.startFailure()} dismiss={state.dismissStartFailure} />

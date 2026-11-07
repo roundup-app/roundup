@@ -34,7 +34,7 @@ fn event(log: &str, name: &str) -> Value {
 }
 
 fn signal(adapter: &mut ClaudeCode, payload: Value) -> Option<Status> {
-    adapter.observe(Observation::Signal(payload))
+    adapter.observe(Observation::Signal(payload)).changed
 }
 
 fn kind(status: Option<Status>) -> Kind {
@@ -254,6 +254,7 @@ fn a3_exit_zero_is_done() {
     signal(&mut adapter, event(RUN1, "UserPromptSubmit"));
     let status = adapter
         .observe(Observation::Exit { code: Some(0) })
+        .changed
         .unwrap();
     assert_eq!(status.kind, Kind::Done);
 }
@@ -263,6 +264,7 @@ fn a3_non_zero_exit_is_an_error_naming_the_code() {
     let (mut adapter, _) = adapter();
     let status = adapter
         .observe(Observation::Exit { code: Some(3) })
+        .changed
         .unwrap();
     assert_eq!(
         (status.kind, status.label.as_str()),
@@ -273,7 +275,10 @@ fn a3_non_zero_exit_is_an_error_naming_the_code() {
 #[test]
 fn a3_death_by_signal_is_an_error() {
     let (mut adapter, _) = adapter();
-    let status = adapter.observe(Observation::Exit { code: None }).unwrap();
+    let status = adapter
+        .observe(Observation::Exit { code: None })
+        .changed
+        .unwrap();
     assert_eq!(
         (status.kind, status.label.as_str()),
         (Kind::Error, "exited by signal")
@@ -291,18 +296,24 @@ fn a3_a_signal_after_exit_is_ignored() {
 fn a3_exit_after_a_clean_session_end_stays_done() {
     let (mut adapter, _) = adapter();
     signal(&mut adapter, event(RUN1, "SessionEnd"));
-    assert_eq!(adapter.observe(Observation::Exit { code: Some(0) }), None);
+    assert_eq!(
+        adapter.observe(Observation::Exit { code: Some(0) }).changed,
+        None
+    );
 }
 
 #[test]
 fn a7_a_stopped_agent_stays_done_when_its_program_dies_by_signal() {
     let (mut adapter, _) = adapter();
-    let status = adapter.observe(Observation::Stopped).unwrap();
+    let status = adapter.observe(Observation::Stopped).changed.unwrap();
     assert_eq!(
         (status.kind, status.label.as_str()),
         (Kind::Done, "stopped")
     );
-    assert_eq!(adapter.observe(Observation::Exit { code: None }), None);
+    assert_eq!(
+        adapter.observe(Observation::Exit { code: None }).changed,
+        None
+    );
 }
 
 #[test]
@@ -340,19 +351,19 @@ fn u5151d_status_labels_read_as_user_actions() {
     let cases: Vec<(&str, Produce, Kind, &str)> = vec![
         (
             "stopped",
-            Box::new(|a| a.observe(Observation::Stopped)),
+            Box::new(|a| a.observe(Observation::Stopped).changed),
             Kind::Done,
             "stopped",
         ),
         (
             "exit by code",
-            Box::new(|a| a.observe(Observation::Exit { code: Some(3) })),
+            Box::new(|a| a.observe(Observation::Exit { code: Some(3) }).changed),
             Kind::Error,
             "exited 3",
         ),
         (
             "exit by signal",
-            Box::new(|a| a.observe(Observation::Exit { code: None })),
+            Box::new(|a| a.observe(Observation::Exit { code: None }).changed),
             Kind::Error,
             "signal",
         ),
@@ -364,7 +375,12 @@ fn u5151d_status_labels_read_as_user_actions() {
         ),
         (
             "conversation not saved",
-            Box::new(|a| a.fail("cannot save conversation: disk full".into())),
+            Box::new(|a| {
+                a.observe(Observation::Failed(
+                    "cannot save conversation: disk full".into(),
+                ))
+                .changed
+            }),
             Kind::Error,
             "disk full",
         ),

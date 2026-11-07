@@ -11,6 +11,7 @@ nix = { version = "0.28", features = ["signal"] }
 contracts = { path = "../contracts" }
 rpc = { path = "../rpc" }
 serde_json.workspace = true
+thiserror.workspace = true
 serde.workspace = true
 provenance = { path = "../provenance" }
 tempfile.workspace = true
@@ -23,6 +24,7 @@ tokio.workspace = true
 
 [dev-dependencies]
 stats_alloc = "0.1"
+terminal = { path = ".", features = ["test-support"] }
 
 [lints]
 workspace = true

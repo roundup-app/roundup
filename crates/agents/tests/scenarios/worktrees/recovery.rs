@@ -224,6 +224,7 @@ async fn g2_g6_door_retry_reuses_recorded_worktree_and_preserves_uncommitted_fil
         .call("rail.startDoor", json!({"id":id}))
         .await
         .unwrap_err();
+    assert_eq!(err.code, rpc::code::NOT_FOUND, "rb3798c");
     assert!(err.message.starts_with("worktree_missing:"));
     let tree = f.call("rail.tree", Value::Null).await.unwrap();
     assert_eq!(tree[0]["worktree"], first["worktree"]);

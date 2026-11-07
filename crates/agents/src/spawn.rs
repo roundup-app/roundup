@@ -1,4 +1,111 @@
+#![deny(clippy::fn_params_excessive_bools, clippy::too_many_lines)]
+
 use super::*;
+use claude_code::Permission;
+use rail::NewAgent;
+
+/// Where a launch's conversation comes from.
+#[derive(Clone, Copy)]
+pub(super) enum Origin<'a> {
+    Fresh,
+    /// A22: the saved conversation id, added to argv as `--resume <id>`.
+    Resume(&'a str),
+}
+
+/// When a launch's Terminal is recorded in the Rail.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(super) enum Attach {
+    Now,
+    /// A22's pending resume must not record a `terminal_id` until its launch is acknowledged.
+    AfterAck,
+}
+
+/// One start of Claude Code for node `id`.
+#[derive(Clone, Copy)]
+pub(super) struct Launch<'a> {
+    pub id: &'a str,
+    pub attempt: &'a Ordinal,
+    pub cwd: &'a Path,
+    pub origin: Origin<'a>,
+    pub attach: Attach,
+    pub permission: Permission,
+    pub size: (u16, u16),
+}
+
+/// A spawn after parsing: every value the new Agent starts with.
+struct SpawnRequest {
+    given: Option<String>,
+    parent: Option<String>,
+    visibility: contracts::agent::RailVisibility,
+    role: Option<contracts::agent::SpawnRole>,
+    order: Option<Order>,
+    spawn_prompt: Option<String>,
+    spawner: Option<String>,
+    pair: LaunchFacts,
+    lean: Option<claude_code::Lean>,
+    start_attribution: Option<contracts::agent::StartAttribution>,
+    by_user_named: bool,
+    settle_name: bool,
+    size: (u16, u16),
+    cwd: String,
+    permission: Permission,
+}
+
+/// DCL9: an Agent's spawn names Job or Consult; the user's names none.
+fn check_role(
+    role: Option<contracts::agent::SpawnRole>,
+    by_agent: bool,
+) -> Result<Option<contracts::agent::SpawnRole>, RpcError> {
+    if by_agent && role.is_none() {
+        return Err(RpcError::new(
+            code::INVALID_PARAMS,
+            "an Agent's spawn needs a `role`: `job` for one bounded outcome that ends with a \
+             report, `consult` for a Subagent that answers questions and rests",
+        ));
+    }
+    if !by_agent && role.is_some() {
+        return Err(RpcError::new(
+            code::INVALID_PARAMS,
+            "`role` is for an Agent's spawn",
+        ));
+    }
+    Ok(role)
+}
+
+/// O2, O8: the Order a spawn starts with and the prompt kept beside it.
+fn order_of(
+    prompt: Option<String>,
+    order: Option<Order>,
+    by_agent: bool,
+) -> Result<(Option<Order>, Option<String>), RpcError> {
+    let explicit = order.is_some();
+    let (order, spawn_prompt) = match (prompt, order) {
+        (Some(prompt), Some(order)) if by_agent => (Some(order), Some(prompt)),
+        (Some(_), Some(_)) => {
+            return Err(RpcError::new(
+                code::INVALID_PARAMS,
+                "prompt and order are exclusive",
+            ));
+        }
+        (Some(_), None) if by_agent => {
+            return Err(RpcError::new(
+                code::INVALID_PARAMS,
+                "an Agent's spawn needs an `order` with the ask, the done condition and the \
+                 limits; add it, and keep the working detail in `prompt`",
+            ));
+        }
+        (Some(prompt), None) => (Some(Order::work(&prompt)), None),
+        (None, order) => (order, None),
+    };
+    if let Some(order) = &order {
+        if explicit {
+            valid_explicit_order(order)?;
+        } else {
+            valid_order(order)?;
+        }
+    }
+    Ok((order, spawn_prompt))
+}
 
 impl Agents {
     /// The Project folder: `.roundup/`'s parent, where its git repository (if any) lives.
@@ -7,11 +114,107 @@ impl Agents {
     }
 
     /// Put a new Agent in the Rail and start Claude Code for it in a Terminal.
-    pub(super) async fn spawn(
-        &self,
-        ctx: &Ctx,
-        mut params: SpawnParams,
-    ) -> Result<RailNode, RpcError> {
+    pub(super) async fn spawn(&self, ctx: &Ctx, params: SpawnParams) -> Result<RailNode, RpcError> {
+        let request = self.spawn_request(ctx, params)?;
+        let (id, attempt) = self.insert_spawned(&request)?;
+        // U6000e: the starting row is published before the worktree, config and launch steps.
+        ctx.emit(EventData::RailChanged);
+        match self
+            .run_agent(
+                Launch {
+                    id: &id,
+                    attempt: &attempt,
+                    cwd: Path::new(&request.cwd),
+                    origin: Origin::Fresh,
+                    attach: Attach::Now,
+                    permission: request.permission,
+                    size: request.size,
+                },
+                None,
+                true,
+            )
+            .await
+            .map(drop)
+        {
+            Ok(()) => {}
+            Err(mut err) => {
+                let mut rail = self.shared.rail();
+                let mut runs = self.shared.runs();
+                if runs.slot(&id).is_some_and(|slot| slot.attempt() == attempt) {
+                    runs.remove(&id);
+                    self.shared.events.observed.notify_waiters();
+                    if rail.node(&id)?.worktree.is_none() {
+                        report_undo("remove the Agent from the Rail", rail.remove(&id));
+                    } else if request.start_attribution.is_some() {
+                        let path = self.project_dir().to_string_lossy().into_owned();
+                        let cause = err.message.clone();
+                        err.message = format!(
+                            "start failed for {path} row {id}: {cause}; inspect this row before retrying"
+                        );
+                        err.data = Some(contracts::RpcErrorData::StartFailed {
+                            path,
+                            id: id.clone(),
+                            cause,
+                        });
+                        Self::touch_creation(ctx, &id, request.start_attribution.as_ref())?;
+                    }
+                }
+                drop((rail, runs));
+                ctx.emit(EventData::RailChanged);
+                return Err(err);
+            }
+        };
+        if request.start_attribution.is_some() {
+            Self::touch_creation(ctx, &id, request.start_attribution.as_ref())?;
+        }
+        ctx.emit(EventData::RailChanged);
+        self.shared.node(&id)
+    }
+
+    /// Parse `params` and the caller into the values the new Agent starts with, or refuse before
+    /// anything is written.
+    fn spawn_request(&self, ctx: &Ctx, mut params: SpawnParams) -> Result<SpawnRequest, RpcError> {
+        let size = self.check_spawner(ctx, &mut params)?;
+        let by_agent = ctx.actor.kind == ActorKind::Agent;
+        let lean = self.lean_of(&mut params, by_agent)?;
+        let role = check_role(params.role, by_agent)?;
+        let pair = self.choose(
+            &ctx.actor,
+            Role::Agent,
+            params.model.take(),
+            params.effort.take(),
+        )?;
+        let (order, spawn_prompt) = order_of(params.prompt, params.order, by_agent)?;
+        let given = params
+            .name
+            .as_deref()
+            .map(name::given)
+            .transpose()
+            .map_err(|reason| RpcError::new(code::INVALID_PARAMS, reason))?;
+        Ok(SpawnRequest {
+            by_user_named: given.is_some()
+                && ctx.actor.kind == ActorKind::User
+                && params.app_named != Some(true),
+            settle_name: given.is_some() && !(params.app_named == Some(true) && !by_agent),
+            given,
+            parent: params.parent,
+            visibility: params.visibility.unwrap_or_default(),
+            role,
+            order,
+            spawn_prompt,
+            spawner: by_agent.then(|| ctx.actor.id.clone()),
+            pair,
+            lean,
+            start_attribution: params.start_attribution,
+            size,
+            cwd: params.cwd,
+            permission: params.permission_mode.into(),
+        })
+    }
+
+    /// Who may start what: start attribution and internal children, and an Agent's child sits
+    /// under it (F3, A26).
+    fn check_spawner(&self, ctx: &Ctx, params: &mut SpawnParams) -> Result<(u16, u16), RpcError> {
         if params.start_attribution.is_some() && ctx.actor.kind != ActorKind::User {
             return Err(RpcError::forbidden(
                 "only the user connection supplies start attribution",
@@ -30,7 +233,6 @@ impl Agents {
         let size = terminal::window(params.cols.unwrap_or(80), params.rows.unwrap_or(24))?;
         models::check_engine(params.engine.as_deref())?;
         models::check_permissions(&ctx.actor, params.permission_mode)?;
-        // F3, A26: any Agent may start a child, which sits under it; a `parent` it passes is ignored.
         if ctx.actor.kind == ActorKind::Agent {
             let agent = self.shared.rail().node(&ctx.actor.id).is_ok();
             if !agent {
@@ -47,8 +249,15 @@ impl Agents {
                 "{parent} is an Agent: only an Agent's own start nests under it"
             )));
         }
-        // LC4, LC7: only an Agent's own start is lean, so only it names a scout or extras.
-        let by_agent = ctx.actor.kind == ActorKind::Agent;
+        Ok((size.cols, size.rows))
+    }
+
+    /// LC4, LC7: only an Agent's own start is lean, so only it names a scout or extras.
+    fn lean_of(
+        &self,
+        params: &mut SpawnParams,
+        by_agent: bool,
+    ) -> Result<Option<claude_code::Lean>, RpcError> {
         if params.specialist.is_some() && (!by_agent || params.scout != Some(true)) {
             return Err(RpcError::new(
                 code::INVALID_PARAMS,
@@ -72,152 +281,51 @@ impl Agents {
                 &lean.extras,
             )?;
         }
-        // DCL9: an Agent's spawn names Job or Consult; refuse before anything starts.
-        if by_agent && params.role.is_none() {
-            return Err(RpcError::new(
-                code::INVALID_PARAMS,
-                "an Agent's spawn needs a `role`: `job` for one bounded outcome that ends with a \
-                 report, `consult` for a Subagent that answers questions and rests",
-            ));
-        }
-        if !by_agent && params.role.is_some() {
-            return Err(RpcError::new(
-                code::INVALID_PARAMS,
-                "`role` is for an Agent's spawn",
-            ));
-        }
-        let pair = self.choose(
-            &ctx.actor,
-            Role::Agent,
-            params.model.take(),
-            params.effort.take(),
-        )?;
-        let cwd = Path::new(&params.cwd);
-        let explicit = params.order.is_some();
-        let (order, spawn_prompt) = match (params.prompt, params.order) {
-            (Some(prompt), Some(order)) if by_agent => (Some(order), Some(prompt)),
-            (Some(_), Some(_)) => {
-                return Err(RpcError::new(
-                    code::INVALID_PARAMS,
-                    "prompt and order are exclusive",
-                ));
+        Ok(lean)
+    }
+
+    /// Write the Agent node and mark its first attempt starting: one insert, so a failed write
+    /// leaves no node.
+    fn insert_spawned(&self, request: &SpawnRequest) -> Result<(String, Ordinal), RpcError> {
+        let mut rail = self.shared.rail();
+        let name = match &request.given {
+            Some(given) => {
+                let taken = rail
+                    .tree()?
+                    .into_iter()
+                    .filter(|node| node.parent == request.parent)
+                    .map(|node| node.name)
+                    .collect::<Vec<_>>();
+                name::unique(given, taken.iter().map(String::as_str))
             }
-            (Some(_), None) if by_agent => {
-                return Err(RpcError::new(
-                    code::INVALID_PARAMS,
-                    "an Agent's spawn needs an `order` with the ask, the done condition and the \
-                     limits; add it, and keep the working detail in `prompt`",
-                ));
-            }
-            (Some(prompt), None) => (Some(Order::work(&prompt)), None),
-            (None, Some(order)) => (Some(order), None),
-            (None, None) => (None, None),
+            None => name::UNNAMED.to_owned(),
         };
-        if let Some(order) = &order {
-            if explicit {
-                valid_explicit_order(order)?;
-            } else {
-                valid_order(order)?;
-            }
+        let node = rail.insert_agent(NewAgent {
+            name: &name,
+            parent: request.parent.as_deref(),
+            work: request.order.as_ref(),
+            start_attribution: request.start_attribution.as_ref(),
+            visibility: request.visibility,
+            spawn_prompt: request.spawn_prompt.as_deref(),
+            spawner: request.spawner.as_deref(),
+            role: request.role,
+            model: request.pair.model.as_deref(),
+            effort: request.pair.effort.as_deref(),
+        })?;
+        if let Some(lean) = &request.lean {
+            Launcher::save_lean(&self.dir, &node.id, lean)?;
         }
-        let given = params
-            .name
-            .as_deref()
-            .map(name::given)
-            .transpose()
-            .map_err(|reason| RpcError::new(code::INVALID_PARAMS, reason))?;
-        let (id, attempt) = {
-            let mut rail = self.shared.rail();
-            let name = match &given {
-                Some(given) => {
-                    let tree = rail.tree()?;
-                    let taken = tree
-                        .iter()
-                        .filter(|node| node.parent == params.parent)
-                        .map(|node| node.name.as_str());
-                    name::unique(given, taken)
-                }
-                None => name::UNNAMED.to_owned(),
-            };
-            let node = rail.insert_ordered(
-                NodeKind::Agent,
-                &name,
-                params.parent.as_deref(),
-                None,
-                order.as_ref(),
-                params.start_attribution.as_ref(),
-            )?;
-            rail.set_visibility(&node.id, params.visibility.unwrap_or_default())?;
-            if let Some(prompt) = &spawn_prompt {
-                rail.set_spawn_prompt(&node.id, prompt)?;
-            }
-            if by_agent {
-                rail.set_spawner(&node.id, &ctx.actor.id)?;
-            }
-            if let Some(role) = params.role {
-                rail.set_role(&node.id, role)?;
-            }
-            rail.set_pair(&node.id, pair.model.as_deref(), pair.effort.as_deref())?;
-            if let Some(lean) = &lean {
-                Launcher::save_lean(&self.dir, &node.id, lean)?;
-            }
-            let attempt = rail.allocate_attempt(&node.id)?;
-            self.shared.mark_starting(&node.id, attempt.clone());
-            if given.is_some()
-                && let Some(slot) = self.shared.runs().get_mut(&node.id)
-            {
-                slot.settle_name();
-            }
-            (node.id, attempt)
-        };
-        // U6000e: the starting row is published before the worktree, config and launch steps.
-        ctx.emit(EventData::RailChanged);
-        match self
-            .run_agent(
-                &id,
-                &attempt,
-                cwd,
-                None,
-                true,
-                params.permission_mode,
-                (size.cols, size.rows),
-            )
-            .await
-            .map(drop)
+        let attempt = rail.allocate_attempt(&node.id)?;
+        self.shared.mark_starting(&node.id, attempt.clone());
+        if request.by_user_named {
+            rail.set_user_named(&node.id)?;
+        }
+        if request.settle_name
+            && let Some(slot) = self.shared.runs().slot_mut(&node.id)
         {
-            Ok(()) => {}
-            Err(mut err) => {
-                let mut rail = self.shared.rail();
-                let mut runs = self.shared.runs();
-                if runs.get(&id).is_some_and(|slot| slot.attempt() == attempt) {
-                    runs.remove(&id);
-                    self.shared.events.observed.notify_waiters();
-                    if rail.node(&id)?.worktree.is_none() {
-                        report_undo("remove the Agent from the Rail", rail.remove(&id));
-                    } else if params.start_attribution.is_some() {
-                        let path = self.project_dir().to_string_lossy().into_owned();
-                        let cause = err.message.clone();
-                        err.message = format!(
-                            "start failed for {path} row {id}: {cause}; inspect this row before retrying"
-                        );
-                        err.data = Some(contracts::RpcErrorData::StartFailed {
-                            path,
-                            id: id.clone(),
-                            cause,
-                        });
-                        Self::touch_creation(ctx, &id, params.start_attribution.as_ref())?;
-                    }
-                }
-                drop((rail, runs));
-                ctx.emit(EventData::RailChanged);
-                return Err(err);
-            }
-        };
-        if params.start_attribution.is_some() {
-            Self::touch_creation(ctx, &id, params.start_attribution.as_ref())?;
+            slot.settle_name();
         }
-        ctx.emit(EventData::RailChanged);
-        self.shared.node(&id)
+        Ok((node.id, attempt))
     }
 
     /// X11: start `command` in a Terminal owned by Agent `params.id`; it adds no Rail node.
@@ -239,8 +347,8 @@ impl Agents {
         let (node, saved_cwd) = {
             let rail = self.shared.rail();
             let node = rail.node(&id)?;
-            let saved_cwd = match self.shared.runs().get(&id) {
-                Some(Slot::Running(run)) => Some(run.cwd.clone()),
+            let saved_cwd = match self.shared.runs().slot(&id) {
+                Some(Slot::Running(run)) => Some(run.cwd().to_owned()),
                 _ => None,
             };
             (node, saved_cwd)
@@ -297,10 +405,7 @@ impl Agents {
             }
             None => self.project_dir().to_string_lossy().into_owned(),
         };
-        let shell = std::env::var_os("SHELL")
-            .map(|shell| shell.to_string_lossy().into_owned())
-            .filter(|shell| !shell.is_empty())
-            .unwrap_or_else(|| "/bin/sh".into());
+        let shell = self.shared.shell.clone();
         let spawned = self
             .shared
             .terminals
@@ -320,18 +425,15 @@ impl Agents {
     /// Start Claude Code for node `id`, marked as starting, in a Terminal recorded in the Rail,
     /// then register and watch it; returns the Terminal's id. Failed cleanup keeps its Worktree
     /// ownership record so reopening can recover it without deleting unrelated work.
-    // Each argument carries an existing launch constraint; size must reach PTY creation.
-    #[allow(clippy::too_many_arguments)]
     pub(super) async fn run_agent(
         &self,
-        id: &str,
-        attempt: &str,
-        cwd: &Path,
+        launch: Launch<'_>,
         first: Option<String>,
         startup_context: bool,
-        permission_mode: Option<contracts::agent::PermissionMode>,
-        size: (u16, u16),
     ) -> Result<String, RpcError> {
+        let Launch {
+            id, attempt, cwd, ..
+        } = launch;
         let (node, prompt) = {
             let mut rail = self.shared.rail();
             let node = rail.node(id)?;
@@ -355,10 +457,7 @@ impl Agents {
         if let Some(path) = &retained
             && !path.is_dir()
         {
-            return Err(RpcError::internal(format!(
-                "worktree_missing: {}",
-                path.display()
-            )));
+            return Err(worktree::WorktreeError::Missing(path.display().to_string()).into());
         }
         let provisioned = if retained.is_none() {
             self.provision_worktree(id, cwd).await?
@@ -370,16 +469,10 @@ impl Agents {
             |(cwd, _)| cwd.clone(),
         );
         let spawned = match self
-            .start(
-                id,
-                attempt,
-                &effective_cwd,
-                None,
-                true,
-                false,
-                permission_mode,
-                size,
-            )
+            .start(Launch {
+                cwd: &effective_cwd,
+                ..launch
+            })
             .await
         {
             Ok(spawned) => spawned,
@@ -397,7 +490,7 @@ impl Agents {
         let prompts = self.shared.finish_starting(id, attempt, |named| {
             Run::starting(
                 Arc::clone(&self.shared.clock),
-                attempt.to_owned(),
+                attempt.clone(),
                 spawned.id.clone(),
                 effective_cwd.to_string_lossy().into_owned(),
                 prompt,
@@ -421,54 +514,54 @@ impl Agents {
         tokio::spawn(watch(
             Arc::clone(&self.shared),
             id.to_owned(),
-            attempt.to_owned(),
+            attempt.clone(),
             spawned.events,
         ));
         Ok(spawned.id)
     }
 
-    /// `resume` is A22's saved conversation id, added to argv as `--resume <id>`; `None` starts
-    /// fresh. `attach` is false only for A22's pending resume, which must not record a
-    /// `terminal_id` in the Rail until its launch is acknowledged.
-    #[allow(clippy::too_many_arguments)]
-    pub(super) async fn start(
-        &self,
-        id: &str,
-        attempt: &str,
-        cwd: &Path,
-        resume: Option<&str>,
-        attach: bool,
-        yolo: bool,
-        permission_mode: Option<contracts::agent::PermissionMode>,
-        size: (u16, u16),
-    ) -> Result<terminal::Spawned, RpcError> {
+    /// Start Claude Code as `launch` says: its Origin, when its Terminal is recorded and how it asks
+    /// for permission.
+    pub(super) async fn start(&self, launch: Launch<'_>) -> Result<terminal::Spawned, RpcError> {
+        let Launch {
+            id,
+            attempt,
+            cwd,
+            origin,
+            attach,
+            permission,
+            size,
+        } = launch;
+        let resume = match origin {
+            Origin::Fresh => None,
+            Origin::Resume(conversation) => Some(conversation),
+        };
         let node = self.shared.rail().node(id)?;
         let role = match node.kind {
             NodeKind::Workstream => Role::Door,
             _ => Role::Agent,
         };
-        let pair = Pair {
+        let pair = LaunchFacts {
             naming_guide: self
                 .shared
                 .naming_guide
                 .as_ref()
                 .map(|read| read())
                 .transpose()?,
-            yolo,
-            permission_mode,
+            permission,
             model: node.model,
             effort: node.effort,
             mcp_off: !models::mcp_on(
-                std::env::var_os("ROUNDUP_MCP").as_deref(),
+                self.shared.mcp_env.as_deref(),
                 self.shared.rail().get_mcp()?.on,
             ),
-            lean: Launcher::load_lean(&self.dir, id),
+            lean: Launcher::load_lean(&self.dir, id)?,
         };
         let started = attempt.to_owned();
         let (argv, env) = self
             .launcher
-            .launch_on(
-                claude_code::Folders {
+            .launch_on(&claude_code::Request {
+                folders: claude_code::Folders {
                     project: self.project_dir(),
                     data: &self.dir,
                 },
@@ -477,8 +570,8 @@ impl Agents {
                 cwd,
                 resume,
                 role,
-                &pair,
-            )
+                facts: &pair,
+            })
             .await?;
         self.retain_worktree(id).await?;
         let spawned = match self
@@ -498,15 +591,15 @@ impl Agents {
         Ok(spawned)
     }
 
-    /// Start `command` (the login shell when `None`) in a Terminal and, when `attach`, record it
-    /// as the one behind node `id`.
+    /// Start `command` (the login shell when `None`) in a Terminal and, when `attach` is `Now`,
+    /// record it as the one behind node `id`.
     pub(super) async fn spawn_behind(
         &self,
         id: &str,
         cwd: &Path,
         command: Option<Vec<String>>,
         env: BTreeMap<String, String>,
-        attach: bool,
+        attach: Attach,
         size: (u16, u16),
     ) -> Result<terminal::Spawned, RpcError> {
         let spawned = self
@@ -520,9 +613,11 @@ impl Agents {
                 rows: size.1,
             })
             .await?;
-        if attach {
+        if attach == Attach::Now {
             let attached = self.shared.rail().attach_terminal(id, &spawned.id);
-            let attached = attached.and_then(|()| self.save_owner(id, &spawned.id));
+            let attached = attached
+                .map_err(RpcError::from)
+                .and_then(|()| self.save_owner(id, &spawned.id));
             if let Err(err) = attached {
                 report_undo(
                     "kill the Agent's Terminal",
@@ -532,40 +627,6 @@ impl Agents {
             }
         }
         Ok(spawned)
-    }
-}
-
-impl Run {
-    fn starting(
-        clock: Clock,
-        attempt: String,
-        terminal_id: String,
-        cwd: String,
-        prompt: Option<String>,
-        startup_context: bool,
-        named: bool,
-    ) -> Self {
-        Self {
-            yolo: false,
-            startup_context,
-            input_started: prompt.is_some(),
-            attempt,
-            status_revision: 1,
-            closing: false,
-            ended: false,
-            adapter: ClaudeCode::starting(move || clock()),
-            first_pending: prompt.is_some(),
-            first_completion: prompt.as_ref().map(|_| tokio::sync::watch::channel(None).0),
-            first_prompt: None,
-            prompt,
-            steer: None,
-            session_started: None,
-            starred: false,
-            interrupt: None,
-            named,
-            terminal_id,
-            cwd,
-        }
     }
 }
 
@@ -613,6 +674,7 @@ impl Agents {
 }
 
 #[cfg(test)]
+#[allow(clippy::too_many_lines)]
 mod idle_tests {
     use super::*;
 
@@ -643,19 +705,17 @@ mod idle_tests {
             if restart {
                 let mut earlier = Run::starting(
                     Arc::new(|| 0),
-                    "1".into(),
+                    contracts::agent::Ordinal::parse("1").unwrap(),
                     "old".into(),
                     "/".into(),
                     None,
                     true,
                     false,
                 );
-                shared.apply(Some(&mut rail), &mut earlier, &node.id, &Actor::user(),
+                shared.apply(Some(&mut rail), &mut earlier, &mut Facts::default(), &node.id, &Actor::user(),
                     Observation::Signal(serde_json::json!({"hook_event_name":"UserPromptSubmit","prompt":"earlier request"})), None).unwrap();
-                assert!(earlier.input_started);
-                shared
-                    .runs()
-                    .insert(node.id.clone(), Slot::Running(earlier));
+                assert!(earlier.input_started());
+                shared.runs().put(node.id.clone(), Slot::Running(earlier));
             }
             let prompt = order::first_input(
                 None,
@@ -666,7 +726,7 @@ mod idle_tests {
             );
             let mut run = Run::starting(
                 Arc::new(|| 0),
-                "1".into(),
+                contracts::agent::Ordinal::parse("1").unwrap(),
                 "none".into(),
                 "/".into(),
                 prompt,
@@ -684,6 +744,7 @@ mod idle_tests {
                     .apply(
                         Some(&mut rail),
                         &mut run,
+                        &mut Facts::default(),
                         &node.id,
                         &Actor::daemon(),
                         observation,
@@ -691,12 +752,12 @@ mod idle_tests {
                     )
                     .unwrap();
                 assert!(input.is_none(), "automatic startup input: {input:?}");
-                assert!(!run.input_started);
-                assert!(run.steer.is_none());
+                assert!(!run.input_started());
+                assert!(run.steer().is_none());
             }
-            shared.apply(Some(&mut rail), &mut run, &node.id, &Actor::user(),
+            shared.apply(Some(&mut rail), &mut run, &mut Facts::default(), &node.id, &Actor::user(),
                 Observation::Signal(serde_json::json!({"hook_event_name":"UserPromptSubmit","prompt":"my request"})), None).unwrap();
-            assert!(run.input_started);
+            assert!(run.input_started());
         }
         // Resume uses its actual promotion seam: a retained order is not fresh input.
         let (_dir, _bus, shared) = tests::shared_over_temp_dir(Arc::new(|| 0));
@@ -713,48 +774,54 @@ mod idle_tests {
             .unwrap();
         let mut earlier = Run::starting(
             Arc::new(|| 0),
-            "1".into(),
+            contracts::agent::Ordinal::parse("1").unwrap(),
             "old".into(),
             "/".into(),
             None,
             true,
             false,
         );
-        shared.apply(Some(&mut rail), &mut earlier, &node.id, &Actor::user(),
+        shared.apply(Some(&mut rail), &mut earlier, &mut Facts::default(), &node.id, &Actor::user(),
             Observation::Signal(serde_json::json!({"hook_event_name":"UserPromptSubmit","prompt":"earlier request"})), None).unwrap();
-        assert!(earlier.input_started);
-        shared
-            .runs()
-            .insert(node.id.clone(), Slot::Running(earlier));
+        assert!(earlier.input_started());
+        shared.runs().put(node.id.clone(), Slot::Running(earlier));
         let (done, _completion) = oneshot::channel();
         let conversation = "00000000-0000-4000-8000-000000000001";
         let mut runs = HashMap::from([(
             node.id.clone(),
-            Slot::Resuming {
-                mode: contracts::agent::ResumeMode::default(),
-                attempt: "2".into(),
-                since: 0,
-                old: None,
-                conversation_id: conversation.into(),
-                cwd: "/".into(),
-                prompt: None,
-                starred: true,
-                terminal_id: Some("fixture".into()),
-                parked: VecDeque::new(),
-                done,
+            Agent {
+                facts: Facts::default(),
+                slot: Slot::Resuming {
+                    mode: contracts::agent::ResumeMode::default(),
+                    attempt: contracts::agent::Ordinal::parse("2").unwrap(),
+                    since: 0,
+                    old: None,
+                    conversation_id: conversation.into(),
+                    cwd: "/".into(),
+                    prompt: None,
+                    starred: true,
+                    terminal_id: Some("fixture".into()),
+                    parked: VecDeque::new(),
+                    done,
+                },
             },
         )]);
         let (input, _) = shared.finish_resuming(Some(&mut rail), &mut runs, &node.id, Actor::daemon(),
             serde_json::json!({"hook_event_name":"SessionStart","source":"resume","session_id":conversation})).unwrap();
         assert!(input.is_none());
-        let Some(Slot::Running(run)) = runs.get_mut(&node.id) else {
+        let Some(Agent {
+            slot: Slot::Running(run),
+            facts,
+        }) = runs.get_mut(&node.id)
+        else {
             panic!("resume was not promoted")
         };
-        assert!(!run.input_started);
+        assert!(!run.input_started());
         shared
             .apply(
                 Some(&mut rail),
                 run,
+                facts,
                 &node.id,
                 &Actor::user(),
                 Observation::Signal(
@@ -763,7 +830,7 @@ mod idle_tests {
                 None,
             )
             .unwrap();
-        assert!(run.input_started);
+        assert!(run.input_started());
         let work = Order::work("build");
         assert_eq!(
             order::first_input(None, Some(&work), Some("details"), true, "1"),

@@ -44,8 +44,9 @@ fn is_token_line(line: &str) -> bool {
 /// FB3: the last `LOG_LINES` lines of `text`, each line holding a token replaced.
 fn tail_redacted(text: &str) -> String {
     let lines: Vec<&str> = text.lines().collect();
-    lines[lines.len().saturating_sub(LOG_LINES)..]
+    lines
         .iter()
+        .skip(lines.len().saturating_sub(LOG_LINES))
         .map(|line| {
             if is_token_line(line) {
                 "[redacted]"
@@ -65,12 +66,11 @@ fn valid_target(target: &str) -> Result<(), &'static str> {
     let rest = target.strip_prefix("https://github.com/");
     let ok = rest.is_some_and(|rest| {
         let parts: Vec<&str> = rest.split('/').collect();
-        parts.len() == 4
-            && !parts[0].is_empty()
-            && !parts[1].is_empty()
-            && parts[2] == "issues"
-            && !parts[3].is_empty()
-            && parts[3].bytes().all(|b| b.is_ascii_digit())
+        matches!(parts.as_slice(), [owner, repo, "issues", number]
+            if !owner.is_empty()
+                && !repo.is_empty()
+                && !number.is_empty()
+                && number.bytes().all(|b| b.is_ascii_digit()))
     });
     if ok {
         Ok(())
@@ -304,7 +304,7 @@ mod tests {
         let project = tempfile::tempdir().unwrap();
         let data = tempfile::tempdir().unwrap();
         FAKE.with(|f| *f.borrow_mut() = Some(fake_gh(bin.path(), body)));
-        let daemon = Daemon::open_project(project.path(), data.path()).unwrap();
+        let daemon = Daemon::open_project(project.path(), data.path()).unwrap().0;
         Setup {
             bin,
             _data: data,

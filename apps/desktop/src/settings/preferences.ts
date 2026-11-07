@@ -1,7 +1,8 @@
-import { createEffect, createRoot, createSignal, on, onCleanup, untrack } from "solid-js";
+import { createEffect, createMemo, createRoot, createSignal, on, onCleanup, untrack } from "solid-js";
+import PQueue from "p-queue";
 import * as v from "valibot";
 import tokens from "../tokens.css?inline";
-import { storageSchema, storedValue } from "../state/storage";
+import { storageOpened, storageSchema, storedValue } from "../state/storage";
 import { DEFAULT_FONT_SIZE, MIN_FONT_SIZE, MAX_FONT_SIZE } from "../terminal/fontSize";
 import type { CapturePort, AppSeam } from "../app/seam";
 
@@ -36,6 +37,8 @@ const schema = storageSchema("roundup:app-settings", v.object({
   interfaceScale: v.fallback(v.picklist(["small", "default", "large"]), "default"),
   padWidth: v.fallback(v.picklist(["narrow", "wide", "full"]), "wide"),
   focusMarkers: v.fallback(v.boolean(), false),
+  // U6372a: the bundle id of the code editor; "" is Automatic.
+  codeEditor: v.fallback(v.string(), ""),
   quickAdd: v.fallback(v.pipe(v.string(), v.regex(/^(?=.*(?:meta|ctrl)\+)(?:ctrl\+)?(?:alt\+)?(?:meta\+)?(?:shift\+)?[A-Za-z][A-Za-z0-9]*$/)), "meta+shift+KeyT"),
   quickAddKey: v.fallback(v.string(), ""),
   // Mac-wide quick add: "" is none, and none registers no global shortcut.
@@ -59,16 +62,19 @@ export const alertStates = ["working", "blocked", "needs-you", "error", "done"] 
 
 export const alertChoices = ["alert", "sound", "badge"] as const;
 
-const [revision, changed] = createSignal(0);
+const [written, setWritten] = createSignal<object>({});
 
-const storage = () => storedValue("roundup:app-settings", schema, () => changed(value => value + 1));
+const storage = storedValue("roundup:app-settings", schema, () => setWritten({}));
 
-/** One app-wide record; each untrusted field defaults independently. A revision notifies all open Project tabs. */
-export const appSettings = (): Preferences => {
-  revision();
+const settings = createRoot(() => createMemo((): Preferences => {
+  storageOpened();
+  written();
 
-  return storage().read() ?? v.parse(schema, {});
-};
+  return storage.read() ?? v.parse(schema, {});
+}));
+
+/** One app-wide record, parsed once per change; each untrusted field defaults independently. The memo notifies all open Project tabs. */
+export const appSettings = (): Preferences => settings();
 
 /** Preview and real emulators resolve the same saved typography; Project zoom overrides size separately. */
 export const terminalType = (settings = appSettings()) => ({
@@ -90,18 +96,18 @@ const changedFromDefaults = (settings: Preferences): Preferences => {
 };
 
 /** A failed durable write changes nothing; the settings view shows the returned cause. */
-let saving: Promise<unknown> = Promise.resolve();
+const saving = new PQueue({ concurrency: 1 });
 
 export const saveAppSettings = (patch: Partial<Preferences>, capture?: CapturePort): Promise<string | null> => {
   const captured = structuredClone(patch);
 
-  const pending = saving.then(async () => {
-    const before = appSettings();
+  return saving.add(async () => {
+    const before = untrack(appSettings);
     const replacement = captured.quickAddAnywhere !== undefined && captured.quickAddAnywhere !== before.quickAddAnywhere;
 
     try {
       if (replacement && capture) await capture.configure(captured.quickAddAnywhere! || null);
-      const failure = await storage().write(changedFromDefaults({ ...before, ...captured }));
+      const failure = await storage.write(changedFromDefaults({ ...before, ...captured }));
 
       if (failure && replacement && capture) await capture.configure(before.quickAddAnywhere || null);
 
@@ -110,10 +116,6 @@ export const saveAppSettings = (patch: Partial<Preferences>, capture?: CapturePo
       return String(error);
     }
   });
-
-  saving = pending;
-
-  return pending;
 };
 
 /** Own the root's explicit scheme for this App lifetime. System continues using the native media query. */
@@ -162,9 +164,14 @@ export const withAppSettings = (app: AppSeam, resumesDoor: (id: string | number)
     return app.rpc(method, params);
   };
 
+  // U6372b: every open call carries the chosen code editor.
+  const editor = () => untrack(appSettings).codeEditor || undefined;
+
   return {
     ...app,
     rpc,
+    openTarget: (target, chosen) => app.openTarget(target, chosen ?? editor()),
+    openInEditor: (path, line, chosen) => app.openInEditor(path, line, chosen ?? editor()),
     // The native menu responder can change after connecting a Project; read it when invoked.
     get showContextMenu() { return app.showContextMenu; },
   };

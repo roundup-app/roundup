@@ -1,3 +1,4 @@
+use crate::agent::Runs;
 use std::collections::VecDeque;
 use std::sync::Arc;
 use std::sync::mpsc;
@@ -11,10 +12,10 @@ use serde_json::{Value, json};
 
 use tokio::time::Instant;
 
-use crate::claude_code::ClaudeCode;
 use crate::{Observation, Run, Slot};
 
 use crate::tests::*;
+
 #[tokio::test]
 async fn a2703a_errors_use_rail_names() {
     for case in [
@@ -24,22 +25,22 @@ async fn a2703a_errors_use_rail_names() {
         let shared = &watched.shared;
         match case {
             "ended" => {
-                if let Some(Slot::Running(run)) = shared.runs().get_mut("7013") {
-                    run.ended = true;
+                if let Some(Slot::Running(run)) = shared.runs().slot_mut("7013") {
+                    run.exit();
                 }
             }
             "closing" => {
-                shared.runs().insert("7013".into(), Slot::Closing);
+                shared.runs().put("7013".into(), Slot::Closing);
             }
             "starting" => {
-                shared.mark_starting("7013", "1".into());
+                shared.mark_starting("7013", contracts::agent::Ordinal::parse("1").unwrap());
             }
             "resuming" => {
-                shared.runs().insert(
+                shared.runs().put(
                     "7013".into(),
                     Slot::Resuming {
                         mode: Default::default(),
-                        attempt: "1".into(),
+                        attempt: contracts::agent::Ordinal::parse("1").unwrap(),
                         since: 0,
                         old: None,
                         conversation_id: "conversation".into(),
@@ -53,11 +54,11 @@ async fn a2703a_errors_use_rail_names() {
                 );
             }
             "cleanup" => {
-                shared.runs().insert(
+                shared.runs().put(
                     "7013".into(),
                     Slot::ResumeCleanup {
                         old: None,
-                        attempt: "1".into(),
+                        attempt: contracts::agent::Ordinal::parse("1").unwrap(),
                         terminal_id: "1".into(),
                         pending: false,
                         error: rpc::RpcError::internal("failed"),
@@ -150,10 +151,10 @@ async fn a2_an_exit_ends_the_watch_without_waiting_out_a_parked_star() {
 #[test]
 fn a14_a_non_signal_observation_for_a_starting_id_is_still_not_found() {
     let (_dir, _bus, shared) = shared_over_temp_dir(Arc::new(|| 0));
-    shared.runs().insert(
+    shared.runs().put(
         "1".into(),
         Slot::Starting {
-            attempt: "1".into(),
+            attempt: contracts::agent::Ordinal::parse("1").unwrap(),
             since: 0,
             named: false,
             parked: VecDeque::new(),
@@ -176,8 +177,8 @@ fn a14_a_failed_rail_write_for_a_parked_signal_does_not_poison_the_locks() {
         .insert(contracts::agent::NodeKind::Agent, "new-agent", None, None)
         .unwrap()
         .id;
-    shared.mark_starting(&id, "1".into());
-    if let Some(Slot::Starting { parked, .. }) = shared.runs().get_mut(&id) {
+    shared.mark_starting(&id, contracts::agent::Ordinal::parse("1").unwrap());
+    if let Some(Slot::Starting { parked, .. }) = shared.runs().slot_mut(&id) {
         parked.push_back((
             Actor::daemon(),
             json!({"hook_event_name": "UserPromptSubmit", "prompt": "fix the build"}),
@@ -185,32 +186,12 @@ fn a14_a_failed_rail_write_for_a_parked_signal_does_not_poison_the_locks() {
     }
     let db = refuse_rail_writes(dir.path());
 
-    let prompts = shared.finish_starting(&id, "1", |named| Run {
-        yolo: false,
-        startup_context: true,
-        input_started: true,
-        attempt: "1".into(),
-        status_revision: 1,
-        closing: false,
-        ended: false,
-        adapter: ClaudeCode::starting(|| 0),
-        prompt: None,
-        first_pending: false,
-        first_completion: None,
-        first_prompt: None,
-        steer: None,
-        session_started: None,
-        starred: false,
-        interrupt: None,
-        named,
-        terminal_id: "1".into(),
-        cwd: "/".into(),
-    });
+    let prompts = shared.finish_starting(&id, "1", |named| Run::fixture(Arc::new(|| 0), named));
 
     db.execute_batch("DROP TRIGGER fail_write").unwrap();
     assert_eq!(prompts.unwrap(), Vec::<String>::new());
     // Neither lock was poisoned by the failed write: both can still be acquired.
-    assert!(matches!(shared.runs().get(&id), Some(Slot::Running(_))));
+    assert!(matches!(shared.runs().slot(&id), Some(Slot::Running(_))));
     shared.rail().tree().unwrap();
 }
 /// A21: a parked `SessionStart` whose conversation save fails must abort `finish_starting`
@@ -225,8 +206,8 @@ fn a21_a_failed_parked_save_reinserts_so_the_caller_can_clean_up() {
         .insert(contracts::agent::NodeKind::Agent, "new-agent", None, None)
         .unwrap()
         .id;
-    shared.mark_starting(&id, "1".into());
-    if let Some(Slot::Starting { parked, .. }) = shared.runs().get_mut(&id) {
+    shared.mark_starting(&id, contracts::agent::Ordinal::parse("1").unwrap());
+    if let Some(Slot::Starting { parked, .. }) = shared.runs().slot_mut(&id) {
         parked.push_back((
             Actor::daemon(),
             json!({
@@ -239,36 +220,16 @@ fn a21_a_failed_parked_save_reinserts_so_the_caller_can_clean_up() {
     }
     let db = refuse_rail_writes(dir.path());
 
-    let result = shared.finish_starting(&id, "1", |named| Run {
-        yolo: false,
-        startup_context: true,
-        input_started: true,
-        attempt: "1".into(),
-        status_revision: 1,
-        closing: false,
-        ended: false,
-        adapter: ClaudeCode::starting(|| 0),
-        prompt: None,
-        first_pending: false,
-        first_completion: None,
-        first_prompt: None,
-        steer: None,
-        session_started: None,
-        starred: false,
-        interrupt: None,
-        named,
-        terminal_id: "1".into(),
-        cwd: "/".into(),
-    });
+    let result = shared.finish_starting(&id, "1", |named| Run::fixture(Arc::new(|| 0), named));
 
     db.execute_batch("DROP TRIGGER fail_write").unwrap();
     assert!(result.is_err());
     let runs = shared.runs();
-    let Some(Slot::Running(run)) = runs.get(&id) else {
+    let Some(Slot::Running(run)) = runs.slot(&id) else {
         panic!("put back as Running for the caller's cleanup to find")
     };
     // The Stop parked after the SessionStart was never drained: the abort is immediate.
-    assert_eq!(run.adapter.status().unwrap().kind, Kind::Working);
+    assert_eq!(run.view().status.as_ref().unwrap().kind, Kind::Working);
 }
 
 /// The build rendezvous makes the late Signal contend for both locks,
@@ -306,10 +267,10 @@ fn a14_a_signal_released_once_the_agent_is_registered_never_outruns_the_parked_o
             }
         });
         let id = "1".to_owned();
-        shared.runs().insert(
+        shared.runs().put(
             id.clone(),
             Slot::Starting {
-                attempt: "1".into(),
+                attempt: contracts::agent::Ordinal::parse("1").unwrap(),
                 since: 0,
                 named: false,
                 parked: VecDeque::from([(
@@ -322,27 +283,7 @@ fn a14_a_signal_released_once_the_agent_is_registered_never_outruns_the_parked_o
             .finish_starting(&id, "1", |named| {
                 observe.send(id.clone()).unwrap();
                 arriving.recv().unwrap();
-                Run {
-                    yolo: false,
-                    startup_context: true,
-                    input_started: true,
-                    attempt: "1".into(),
-                    status_revision: 1,
-                    closing: false,
-                    ended: false,
-                    adapter: ClaudeCode::starting(|| 0),
-                    prompt: None,
-                    first_pending: false,
-                    first_completion: None,
-                    first_prompt: None,
-                    session_started: None,
-                    starred: false,
-                    steer: None,
-                    interrupt: None,
-                    named,
-                    terminal_id: id.clone(),
-                    cwd: "/".into(),
-                }
+                Run::fixture(Arc::new(|| 0), named)
             })
             .unwrap();
         completed.recv().unwrap();
@@ -364,11 +305,13 @@ async fn b37_a7_old_title_tick_exit_and_signal_do_not_change_a_new_run() {
     let mut watched = Watched::start();
     {
         let mut runs = watched.shared.runs();
-        let Some(Slot::Running(run)) = runs.get_mut("1") else {
+        let Some(Slot::Running(run)) = runs.slot_mut("1") else {
             panic!("Running")
         };
-        run.attempt = "2".into();
-        run.terminal_id = "new-terminal".into();
+        run.relaunch(
+            contracts::agent::Ordinal::parse("2").unwrap(),
+            "new-terminal".into(),
+        );
     }
     for observation in [
         Observation::Title("old title".into()),
@@ -386,13 +329,13 @@ async fn b37_a7_old_title_tick_exit_and_signal_do_not_change_a_new_run() {
     }
     assert!(watched.events.try_recv().is_err());
     let runs = watched.shared.runs();
-    let Some(Slot::Running(run)) = runs.get("1") else {
+    let Some(Slot::Running(run)) = runs.slot("1") else {
         panic!("Running")
     };
-    assert_eq!(run.attempt, "2");
-    assert_eq!(run.terminal_id, "new-terminal");
-    assert!(!run.ended);
-    assert_eq!(run.adapter.status().unwrap().kind, Kind::Working);
+    assert_eq!(run.attempt(), "2");
+    assert_eq!(run.terminal_id(), "new-terminal");
+    assert!(!run.ended());
+    assert_eq!(run.view().status.as_ref().unwrap().kind, Kind::Working);
 }
 #[tokio::test]
 async fn a7_status_revisions_order_transitions_even_when_the_clock_ties() {
@@ -689,9 +632,9 @@ async fn b5635c_unrelated_hooks_do_not_copy_completed_text() {
         shared.observe(Actor::daemon(), &id, "1", Observation::Signal(json!({"hook_event_name":"Stop","prompt_id":"p","last_assistant_message":"x".repeat(size)}))).unwrap();
         let before = shared
             .runs()
-            .get(&id)
+            .slot(&id)
             .and_then(|slot| match slot {
-                Slot::Running(run) => run.adapter.completed_text().cloned(),
+                Slot::Running(run) => run.view().completed.as_deref().cloned(),
                 _ => None,
             })
             .unwrap();
@@ -711,10 +654,10 @@ async fn b5635c_unrelated_hooks_do_not_copy_completed_text() {
         );
         costs.push(bytes);
         let runs = shared.runs();
-        let Some(Slot::Running(run)) = runs.get(&id) else {
+        let Some(Slot::Running(run)) = runs.slot(&id) else {
             panic!("running")
         };
-        assert_eq!(run.adapter.completed_text(), Some(&before));
+        assert_eq!(run.view().completed.as_deref(), Some(&before));
     }
     assert!(
         costs[1] <= costs[0] + 64 * 1024,
@@ -733,8 +676,10 @@ async fn b5635c_completion_changes_are_reported_once() {
     let (_dir, bus, shared) = shared_over_temp_dir(Arc::new(move || clock.load(Ordering::SeqCst)));
     let id = running_agent(&shared, None);
     let clock = Arc::clone(&now);
-    if let Some(Slot::Running(run)) = shared.runs().get_mut(&id) {
-        run.adapter = ClaudeCode::starting(move || clock.load(Ordering::SeqCst));
+    if let Some(Slot::Running(run)) = shared.runs().slot_mut(&id) {
+        run.replace_fold(crate::claude_code::starting(move || {
+            clock.load(Ordering::SeqCst)
+        }));
     }
     shared
         .observe(
@@ -761,11 +706,11 @@ async fn b5635c_completion_changes_are_reported_once() {
         }
         assert_eq!(count, expected_events);
         let runs = shared.runs();
-        let Some(Slot::Running(run)) = runs.get(&id) else {
+        let Some(Slot::Running(run)) = runs.slot(&id) else {
             panic!("running")
         };
         assert_eq!(
-            run.adapter.completed_text(),
+            run.view().completed.as_deref(),
             Some(&(
                 "1".into(),
                 10,

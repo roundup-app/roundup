@@ -4,6 +4,8 @@
 use agents::claude_code::inbox::Entry;
 use contracts::agent::Inbox;
 
+use crate::plan::{self, Batch, Plan};
+
 use super::*;
 
 /// What the adapter exposes for an Agent's Claude inbox; the Daemon passes `Agents`.
@@ -103,15 +105,14 @@ pub(crate) fn is_inbox_send(p: &SendParams) -> bool {
 /// is a `mismatch`: the note stays `pending` until Claude Code or the Daemon changes. A `missing`
 /// inbox is not told: the session is starting or gone, and the note goes at the Agent's next
 /// passing check.
-pub(crate) async fn refuse_mismatch(inner: &Arc<Inner>, note: &Message) -> Result<(), RpcError> {
+pub(crate) async fn refuse_mismatch(inner: &Arc<Inner>, note: &Message) -> Result<(), Error> {
     let Some(inbox) = inner.inbox.get() else {
         return Ok(());
     };
     if inbox.check(&note.to).await != Inbox::Mismatch {
         return Ok(());
     }
-    Err(RpcError::new(
-        code::INBOX_UNAVAILABLE,
+    Err(Error::inbox_unavailable(
         "Message pending: Claude Code changed its message format",
     ))
 }
@@ -123,24 +124,25 @@ fn open_job_snapshot(inner: &Arc<Inner>, agent: &str, at: store::Binding) -> Opt
     if lock(&inner.snapshotted).contains(&(agent.to_owned(), at.0)) {
         return None;
     }
-    let reported = |id: &str| -> Result<Vec<String>, RpcError> {
+    let attempts = |id: &str| -> Result<Vec<String>, Error> {
         let store = lock(&inner.store);
         let mut rows = store
             .db
             .prepare("SELECT record FROM message_results WHERE agent=? ORDER BY seq")
-            .map_err(RpcError::internal)?;
+            .map_err(Error::internal)?;
         let records = rows
             .query_map([id], |r| r.get::<_, String>(0))
-            .map_err(RpcError::internal)?;
+            .map_err(Error::internal)?;
         let mut attempts = Vec::new();
         for record in records {
             let report: contracts::message::ResultReport =
-                serde_json::from_str(&record.map_err(RpcError::internal)?)
-                    .map_err(RpcError::internal)?;
+                serde_json::from_str(&record.map_err(Error::internal)?).map_err(Error::internal)?;
             attempts.push(report.attempt);
         }
         Ok(attempts)
     };
+    // The seam to `agents` speaks `RpcError`.
+    let reported = |id: &str| attempts(id).map_err(RpcError::from);
     let jobs = inbox.open_jobs(agent, &reported);
     if jobs.is_empty() {
         return None;
@@ -152,33 +154,77 @@ fn open_job_snapshot(inner: &Arc<Inner>, agent: &str, at: store::Binding) -> Opt
     Some(format!("[open jobs]\n{}", lines.join("\n")))
 }
 
+/// What `commit` found when it took the batch's Messages.
+enum Committed {
+    /// A revision, binding or concurrent write moved on first: nothing was written.
+    Stale,
+    Written,
+    /// A prefix may be written: the comparison value and the flights are cleared.
+    WriteFailed,
+}
+
 /// B50(a), B50(c): writes `notes` to `agent`'s inbox when `state` is `ok` and leaves them
-/// `pending` otherwise. A note already written and not yet recorded is not written again. `false`
-/// when the batch must not go on (a stale revision or a Message no longer `pending`).
+/// `pending` otherwise. A note already written and not yet recorded is not written again. The
+/// answer is the plan carried out: `Stale` when the batch must not go on (a stale revision or a
+/// Message no longer `pending`).
 pub(crate) async fn send(
     inner: &Arc<Inner>,
     agent: &str,
     at: store::Binding,
     pick: Pick,
-    mut notes: Vec<Message>,
+    notes: Vec<Message>,
     state: Inbox,
-) -> bool {
-    failure::forget_settled(inner);
-    {
-        let store = lock(&inner.store);
-        notes.retain(|m| {
-            if store.in_flight(m.id).expect("message store")
-                && lock(&inner.inbox_written).contains(&m.id)
-            {
-                return false;
+) -> Result<Plan, Error> {
+    failure::forget_settled(inner)?;
+    let (batch, session) = match load(inner, agent, at, pick, notes, state).await? {
+        Ok(loaded) => loaded,
+        Err(plan) => return Ok(plan),
+    };
+    let plan = plan::plan(&batch);
+    match &plan {
+        Plan::Stale => {}
+        Plan::Hold { ids, why } => failure::hold(inner, ids, *why),
+        Plan::Write { .. } => {
+            if let Committed::Stale = commit(inner, &batch, &session, &plan)? {
+                return Ok(Plan::Stale);
             }
-            let waiting = failure::waiting_reason(failure::admitted(inner, agent, m), state);
-            failure::hold(inner, &[m.id], waiting);
-            waiting.is_none()
-        });
+        }
     }
+    Ok(plan)
+}
+
+/// Reads what `plan` decides from, applying the waiting reasons of the Messages that cannot go
+/// yet. `Err` is the plan when the batch ends here.
+async fn load<'a>(
+    inner: &'a Arc<Inner>,
+    agent: &'a str,
+    at: store::Binding,
+    pick: Pick,
+    notes: Vec<Message>,
+    state: Inbox,
+) -> Result<Result<(Batch<'a>, String), Plan>, Error> {
+    let asked: Vec<u32> = notes.iter().map(|m| m.id).collect();
+    let notes = {
+        let store = lock(&inner.store);
+        let mut keep = Vec::with_capacity(notes.len());
+        for m in notes {
+            if store.in_flight(m.id)? && lock(&inner.inbox_written).contains(&m.id) {
+                continue;
+            }
+            let waiting = failure::waiting_reason(failure::admitted(inner, agent, &m), state);
+            failure::hold(inner, &[m.id], waiting);
+            if waiting.is_none() {
+                keep.push(m);
+            }
+        }
+        keep
+    };
+    let deferred = |why| Plan::Hold {
+        ids: asked.clone(),
+        why,
+    };
     if notes.is_empty() {
-        return true;
+        return Ok(Err(deferred(None)));
     }
     let senders: std::collections::HashSet<&str> = notes
         .iter()
@@ -186,23 +232,23 @@ pub(crate) async fn send(
         .map(|m| m.from.id.as_str())
         .collect();
     if !senders.is_empty() && load_rail_nodes(inner).await.is_err() {
-        return false;
+        return Ok(Err(Plan::Stale));
     }
     let names = {
         let store = lock(&inner.store);
-        let names: Result<std::collections::HashMap<&str, String>, _> = senders
+        let names: Result<std::collections::HashMap<String, String>, _> = senders
             .into_iter()
-            .map(|id| store.sender_name(id).map(|name| (id, name)))
+            .map(|id| store.sender_name(id).map(|name| (id.to_owned(), name)))
             .collect();
         let Ok(names) = names else {
-            return false;
+            return Ok(Err(Plan::Stale));
         };
         names
     };
     // DCL8: the open-Job snapshot goes with the batch that leaves no Message of the receiver pending.
     let last = {
         let store = lock(&inner.store);
-        let pending = store.pending_all().expect("message store");
+        let pending = store.pending_all()?;
         pending.iter().all(|m| {
             m.to != agent
                 || pushes::is_digest(&m.from, &m.body)
@@ -215,44 +261,13 @@ pub(crate) async fn send(
     } else {
         None
     };
-    let attached = snapshot.is_some();
-    let mut entries: Vec<Entry> = notes
-        .iter()
-        .zip(pushes::bodies_of(&notes))
-        .map(|(note, text)| Entry {
-            id: note.id,
-            kind: note.kind,
-            from: if note.from.kind == ActorKind::Agent {
-                names[note.from.id.as_str()].clone()
-            } else {
-                note.from.id.clone()
-            },
-            one_line: note.kind == MessageKind::Note
-                && (text.starts_with("[wake]") || text.starts_with("[digest]")),
-            text,
-        })
-        .collect();
-    let carrier = entries
-        .iter()
-        .rposition(|entry| !entry.one_line)
-        .or(entries.len().checked_sub(1));
-    if let (Some(snapshot), Some(last)) = (snapshot, carrier.and_then(|i| entries.get_mut(i))) {
-        last.one_line = false;
-        last.text = if last.text.is_empty() {
-            snapshot
-        } else {
-            format!("{}\n\n{snapshot}", last.text)
-        };
-    }
     let Some(inbox) = inner.inbox.get() else {
-        return true;
+        return Ok(Err(deferred(None)));
     };
     let session = inbox
         .session(agent)
         .unwrap_or_else(|| format!("attempt:{}", at.0));
-    let mut previous = lock(&inner.store)
-        .last_inbox(agent, &session)
-        .expect("message store");
+    let mut previous = lock(&inner.store).last_inbox(agent, &session)?;
     if previous.is_none() {
         previous = match inbox.previous(agent) {
             Ok(previous) => previous,
@@ -260,68 +275,93 @@ pub(crate) async fn send(
                 failure::record(inner, agent, failure::UNREADABLE);
                 let ids: Vec<u32> = notes.iter().map(|m| m.id).collect();
                 failure::hold(inner, &ids, Some(failure::UNREADABLE));
-                return true;
+                return Ok(Err(deferred(Some(failure::UNREADABLE))));
             }
         };
         if let Some(content) = &previous {
-            lock(&inner.store)
-                .record_inbox(agent, &session, content)
-                .expect("message store");
+            lock(&inner.store).record_inbox(agent, &session, content)?;
         }
     }
     let quiet = {
         let store = lock(&inner.store);
         let given = if notes.iter().any(|m| pushes::is_digest(&m.from, &m.body)) {
-            store.delivered_to(agent).expect("message store")
+            store.delivered_to(agent)?
         } else {
             Vec::new()
         };
         receiver_view::are_quiet_digests(&given, &notes)
     };
-    let mut repeats = Vec::new();
-    let mut said = Vec::new();
-    let mut empty = Vec::new();
-    for entry in entries {
-        let content = inbox.content(agent, &entry);
-        if entry.text.is_empty() {
-            empty.push(entry);
-        // Questions preserve same-id receipt recovery; distinct reply ids already prevent
-        // equality between different Questions. B5763c closes recovered notes only.
-        } else if entry.kind == MessageKind::Note
-            && previous.as_deref() == Some(&content)
-            && !lock(&inner.rewrite).contains(&entry.id)
-        {
-            repeats.push(entry.id);
-        } else if !quiet {
-            previous = Some(content);
-            said.push(entry);
-        }
-    }
-    notes.retain(|m| {
-        repeats.contains(&m.id)
-            || said.iter().any(|e| e.id == m.id)
-            || empty.iter().any(|e| e.id == m.id)
-    });
-    if notes.is_empty() {
-        return true;
-    }
+    let (generation_ok, bounds) = {
+        let store = lock(&inner.store);
+        let bounds = notes
+            .iter()
+            .map(|m| store.bound(m.id))
+            .collect::<Result<Vec<_>, _>>()?;
+        (store.require_generation(agent, at).is_ok(), bounds)
+    };
+    let batch = Batch {
+        agent,
+        at,
+        pick,
+        notes,
+        bounds,
+        generation_ok,
+        names,
+        previous,
+        rewrite: lock(&inner.rewrite).clone(),
+        quiet,
+        snapshot,
+        render: Box::new(move |entry| inbox.content(agent, entry)),
+    };
+    Ok(Ok((batch, session)))
+}
+
+/// Takes the planned Messages, writes `said`, then records the outcome and emits the Events.
+fn commit(
+    inner: &Arc<Inner>,
+    batch: &Batch,
+    session: &str,
+    plan: &Plan,
+) -> Result<Committed, Error> {
+    let Plan::Write {
+        said,
+        repeats,
+        empty,
+        snapshot: attached,
+    } = plan
+    else {
+        return Ok(Committed::Written);
+    };
+    let (agent, at) = (batch.agent, batch.at);
+    let notes: Vec<&Message> = batch
+        .notes
+        .iter()
+        .filter(|m| {
+            repeats.contains(&m.id)
+                || said.iter().any(|e| e.id == m.id)
+                || empty.iter().any(|e| e.id == m.id)
+        })
+        .collect();
     let ids: Vec<u32> = notes.iter().map(|m| m.id).collect();
     failure::hold(inner, &ids, None);
     let _typing = {
         let mut store = lock(&inner.store);
-        if store.require_generation(agent, at).is_err() {
-            return false;
-        }
-        for note in &notes {
-            let bound = store.bound(note.id).expect("message store");
-            if bound.0 != at.0 || (pick == Pick::Next && bound.1 >= at.1) {
-                return false;
-            }
+        let bounds = ids
+            .iter()
+            .map(|id| store.bound(*id))
+            .collect::<Result<Vec<_>, _>>()?;
+        if plan::is_stale(
+            at,
+            batch.pick,
+            store.require_generation(agent, at).is_ok(),
+            &bounds,
+        ) {
+            return Ok(Committed::Stale);
         }
         {
             let mut typing = lock(&inner.typing);
             if ids.iter().any(|id| typing.contains(id)) {
-                return false;
+                return Ok(Committed::Stale);
             }
             typing.extend(ids.iter().copied());
         }
@@ -329,24 +369,20 @@ pub(crate) async fn send(
             set: &inner.typing,
             ids: ids.clone(),
         };
-        if store
-            .record_flight_all(&ids)
-            .expect("message store")
-            .is_none()
-        {
-            return false;
+        if store.record_flight_all(&ids)?.is_none() {
+            return Ok(Committed::Stale);
         }
         guard
     };
     let written = match inner.inbox.get() {
-        Some(inbox) if !said.is_empty() => inbox.write(agent, &said),
+        Some(inbox) if !said.is_empty() => inbox.write(agent, said),
         _ => Ok(()),
     };
     lock(&inner.rewrite).retain(|id| !ids.contains(id));
     if written.is_ok() && !said.is_empty() {
         failure::wrote(inner, agent);
     }
-    if written.is_ok() && attached && !said.is_empty() {
+    if written.is_ok() && *attached && !said.is_empty() {
         lock(&inner.snapshotted).insert((agent.to_owned(), at.0));
     }
     if written.is_err() {
@@ -358,26 +394,28 @@ pub(crate) async fn send(
                 "DELETE FROM message_inbox_last WHERE receiver=? AND session=?",
                 rusqlite::params![agent, session],
             )
-            .expect("message store");
+            .map_err(Error::internal)?;
         for id in &ids {
-            lock(&inner.store).clear_flight(*id).expect("message store");
+            lock(&inner.store).clear_flight(*id)?;
         }
-        return true;
+        return Ok(Committed::WriteFailed);
     }
     {
         let mut store = lock(&inner.store);
         if !said.is_empty() {
-            store
-                .record_inbox(agent, &session, previous.as_deref().expect("written entry"))
-                .expect("message store");
-            lock(&inner.inbox_written).extend(
-                said.iter()
-                    .filter(|e| store.in_flight(e.id).expect("message store"))
-                    .map(|e| e.id),
-            );
+            // What the receiver was last given is the content of the last entry written.
+            if let Some(last) = said.last() {
+                let previous = (batch.render)(last);
+                store.record_inbox(agent, session, &previous)?;
+            }
+            for entry in said {
+                if store.in_flight(entry.id)? {
+                    lock(&inner.inbox_written).insert(entry.id);
+                }
+            }
         }
         for id in repeats {
-            if let Some(message) = store.deliver_repeat(id).expect("message store") {
+            if let Some(message) = store.deliver_repeat(*id)? {
                 inner
                     .bus
                     .emit(Actor::daemon(), EventData::MessageDelivered(message.into()));
@@ -395,7 +433,7 @@ pub(crate) async fn send(
         let empty: Vec<u32> = empty.iter().map(|entry| entry.id).collect();
         confirm_ids(inner, agent, &empty);
     }
-    true
+    Ok(Committed::Written)
 }
 
 impl Messages {
@@ -559,6 +597,8 @@ pub(crate) mod tests {
                 Inbox::Ok
             )
             .await
+            .unwrap()
+            .went()
         );
         assert_eq!(lock(&inbox.batches)[0].len(), 1);
         let store = lock(&messages.inner.store);
@@ -591,7 +631,8 @@ pub(crate) mod tests {
                 vec![first.clone()],
                 Inbox::Ok,
             )
-            .await;
+            .await
+            .unwrap();
             messages.confirm_inbox("m", &[first.id]);
             repeat = pending(&messages, &Actor::daemon(), "same note");
             lock(&messages.inner.store)
@@ -608,7 +649,8 @@ pub(crate) mod tests {
             vec![repeat.clone()],
             Inbox::Ok,
         )
-        .await;
+        .await
+        .unwrap();
         assert!(lock(&inbox.batches).is_empty());
         assert_eq!(
             lock(&messages.inner.store)
@@ -650,7 +692,8 @@ pub(crate) mod tests {
             vec![first.clone()],
             Inbox::Ok,
         )
-        .await;
+        .await
+        .unwrap();
         messages.confirm_inbox("m", &[first.id]);
         tokio::time::advance(std::time::Duration::from_secs(31)).await;
         let repeat = pending(&messages, &Actor::daemon(), &body);
@@ -662,7 +705,8 @@ pub(crate) mod tests {
             vec![repeat.clone()],
             Inbox::Missing,
         )
-        .await;
+        .await
+        .unwrap();
         assert_eq!(
             lock(&messages.inner.store)
                 .get(repeat.id)
@@ -679,7 +723,8 @@ pub(crate) mod tests {
             vec![repeat.clone()],
             Inbox::Ok,
         )
-        .await;
+        .await
+        .unwrap();
         assert_eq!(lock(&inbox.batches).len(), 1);
         assert_eq!(
             lock(&messages.inner.store)
@@ -770,6 +815,8 @@ pub(crate) mod tests {
                 Inbox::Ok
             )
             .await
+            .unwrap()
+            .went()
         );
         assert_eq!(rail.reads.load(Ordering::SeqCst), 1);
         let expected: Vec<_> = notes
@@ -801,6 +848,8 @@ pub(crate) mod tests {
                 Inbox::Ok
             )
             .await
+            .unwrap()
+            .went()
         );
         assert_eq!(rail.reads.load(Ordering::SeqCst), 0);
     }
@@ -826,7 +875,12 @@ pub(crate) mod tests {
             pending(&messages, &agent("b"), "removed"),
             pending(&messages, &agent("missing-id"), "unknown"),
         ];
-        assert!(send(&messages.inner, "m", (1, 2), Pick::Next, notes, Inbox::Ok).await);
+        assert!(
+            send(&messages.inner, "m", (1, 2), Pick::Next, notes, Inbox::Ok)
+                .await
+                .unwrap()
+                .went()
+        );
         let batches = lock(&inbox.batches);
         assert_eq!(batches[0][0].2, "last observed");
         assert_eq!(batches[0][1].2, "removed original");
@@ -857,7 +911,8 @@ pub(crate) mod tests {
                 vec![note.clone()],
                 Inbox::Ok,
             )
-            .await;
+            .await
+            .unwrap();
             assert!(lock(&inbox.batches).is_empty());
             assert!(!lock(&messages.inner.store).in_flight(note.id).unwrap());
             assert_eq!(
@@ -881,6 +936,8 @@ pub(crate) mod tests {
                         Inbox::Ok
                     )
                     .await
+                    .unwrap()
+                    .went()
                 );
             } else {
                 assert!(
@@ -893,6 +950,8 @@ pub(crate) mod tests {
                         Inbox::Ok
                     )
                     .await
+                    .unwrap()
+                    .went()
                 );
                 assert_eq!(lock(&inbox.batches)[0][0].0, note.id);
                 assert!(lock(&messages.inner.store).in_flight(note.id).unwrap());

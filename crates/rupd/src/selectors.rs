@@ -1,5 +1,7 @@
 //! Canonicalize Agent and Workstream inputs before authority checks and effects.
 use super::*;
+use crate::field::Field;
+use crate::route::policy::{Inputs, policy};
 use contracts::agent::{NodeKind, RailNode};
 
 fn is_agent(node: &RailNode) -> bool {
@@ -112,14 +114,8 @@ fn owner(
     last_id: i64,
     value: &mut Value,
 ) -> Result<(), RpcError> {
-    if value.is_string() {
-        let id = select(
-            nodes,
-            actor,
-            last_id,
-            value.as_str().unwrap(),
-            NodeKind::Agent,
-        )?;
+    if let Some(text) = value.as_str() {
+        let id = select(nodes, actor, last_id, text, NodeKind::Agent)?;
         *value = json!({"kind":"agent", "id":id, "parent":null});
     } else if value["kind"] == "agent" {
         // Explicit Actors retain opaque stored identities, including retired owners.
@@ -140,20 +136,26 @@ impl Daemon {
         method: &str,
         mut params: Value,
     ) -> Result<Value, RpcError> {
-        if method == "rail.startDoor"
-            && let Some(id) = params["id"].as_str()
+        let inputs = policy(method)
+            .ok_or_else(|| RpcError::method_not_found(method))?
+            .inputs;
+        if inputs == Inputs::StartDoor
+            && let Some(id) = params.field("id").as_str()
         {
             let nodes = self.rail().await?;
             let last_id = self.agents.rail_last_id()?;
-            params["id"] = select(&nodes, actor, last_id, id, NodeKind::Workstream)?.into();
+            let selected = select(&nodes, actor, last_id, id, NodeKind::Workstream)?;
+            if let Some(object) = params.as_object_mut() {
+                object.insert("id".to_owned(), selected.into());
+            }
             return Ok(params);
         }
-        if method == "agent.wake" {
+        if inputs == Inputs::Wake {
             wake::parse_request(params.clone())?;
         }
         // Provenance also filters historical user/Extension Actors and retired Agent identities.
-        if method == "provenance.touched"
-            && let Some(id) = params["actor_id"].as_str()
+        if inputs == Inputs::Provenance
+            && let Some(id) = params.field("actor_id").as_str()
             && id != "me"
             && !id.starts_with("name:")
             && (id == actor.id
@@ -169,28 +171,24 @@ impl Daemon {
         }
         // Only declared reference fields are interpreted; ids of other objects and prose are untouched.
         let mut fields: Vec<(&str, bool)> = Vec::new();
-        if method.starts_with("agent.")
-            && !matches!(method, "agent.spawn" | "agent.extras" | "agent.wake")
-        {
-            fields.push(("id", false));
-        }
-        match method {
-            "agent.spawn" if actor.kind == ActorKind::Agent => {
+        match inputs {
+            Inputs::Spawn if actor.kind == ActorKind::Agent => {
                 if let Some(parent) = params.get_mut("parent") {
                     *parent = json!(actor.id);
                 }
             }
-            "agent.spawn" => fields.push(("parent", false)),
-            "rail.move" => {
+            Inputs::Spawn => fields.push(("parent", false)),
+            Inputs::Move => {
                 fields.push(("id", false));
                 fields.push(("parent", false));
             }
-            "rail.rename" | "rail.remove" => fields.push(("id", false)),
-            "todo.hand" => fields.push(("agent", false)),
-            "message.send" | "message.list" => fields.push(("to", true)),
-            "route.set" => {
+            Inputs::Id | Inputs::Remove => fields.push(("id", false)),
+            Inputs::Hand => fields.push(("agent", false)),
+            Inputs::To => fields.push(("to", true)),
+            Inputs::RouteSet => {
                 // Reserved sender identities keep their meaning even when an Agent shares the name.
-                if !params["from"]
+                if !params
+                    .field("from")
                     .as_str()
                     .is_some_and(|from| from == Actor::daemon().id || from.starts_with("ext:"))
                 {
@@ -198,37 +196,37 @@ impl Daemon {
                 }
                 fields.push(("to", true));
             }
-            "message.progress"
-            | "message.reconcileWork"
-            | "message.resumeWork"
-            | "message.report"
-            | "message.acceptResult"
-            | "message.verifyResult"
-            | "message.resolveResult" => fields.push(("id", false)),
-            "deliverable.list" => fields.push(("maker", true)),
-            "provenance.touched" if params["actor_id"] != Actor::daemon().id => {
+            Inputs::Maker => fields.push(("maker", true)),
+            Inputs::Provenance
+                if params.field("actor_id").as_str() != Some(Actor::daemon().id.as_str()) =>
+            {
                 fields.push(("actor_id", true))
             }
-            "terminal.read" if params["after"].is_null() => fields.push(("reader", false)),
-            "project.importDiscover" | "project.importCommit" => fields.push(("agent", false)),
+            Inputs::Reader if params.field("after").is_null() => fields.push(("reader", false)),
+            Inputs::Agent => fields.push(("agent", false)),
             _ => {}
         }
-        let has_owner = matches!(method, "todo.create" | "todo.assign");
-        let has_list = matches!(method, "agent.wake" | "workstream.rewind");
-        if !has_owner && !has_list && !fields.iter().any(|(field, _)| params[*field].is_string()) {
+        let has_owner = inputs == Inputs::Owner;
+        let has_list = matches!(inputs, Inputs::Wake | Inputs::Rewind);
+        if !has_owner
+            && !has_list
+            && !fields
+                .iter()
+                .any(|(field, _)| params.field(field).is_string())
+        {
             return Ok(params);
         }
         let nodes = self.rail().await?;
         let last_id = self.agents.rail_last_id()?;
         // Retained removal receipts keep their authority and key-conflict precedence.
-        if method == "rail.remove"
-            && let Some(operation) = params["operation"].as_str()
+        if inputs == Inputs::Remove
+            && let Some(operation) = params.field("operation").as_str()
         {
             if actor.kind != ActorKind::User {
                 return Err(RpcError::forbidden("only the user retains a Rail removal"));
             }
             if self.agents.rail_deletion(actor, operation)?.is_some()
-                && let Some(id) = params["id"].as_str()
+                && let Some(id) = params.field("id").as_str()
                 && select(&nodes, actor, last_id, id, NodeKind::Agent)
                     .is_err_and(|e| e.code == code::NOT_FOUND)
             {
@@ -243,7 +241,7 @@ impl Daemon {
                 string(&nodes, actor, last_id, value, user)?;
             }
         }
-        let list = if method == "agent.wake" {
+        let list = if inputs == Inputs::Wake {
             params.get_mut("ids")
         } else {
             None
@@ -253,7 +251,7 @@ impl Daemon {
                 string(&nodes, actor, last_id, id, false)?;
             }
         }
-        if method == "workstream.rewind"
+        if inputs == Inputs::Rewind
             && let Some(Value::Array(turns)) = params.get_mut("turns")
         {
             for agent in turns.iter_mut().filter_map(|turn| turn.get_mut("agent")) {

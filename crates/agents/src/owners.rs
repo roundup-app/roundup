@@ -7,7 +7,7 @@ use terminal::TerminalOwner as OwnerRecord;
 /// One Agent's record: the Attempt it belongs to, and the owner verified at attachment.
 #[derive(serde::Serialize, serde::Deserialize)]
 struct Stored {
-    attempt: String,
+    attempt: Ordinal,
     #[serde(default)]
     input_started: bool,
     #[serde(default)]
@@ -25,10 +25,12 @@ impl Agents {
     /// Save the owner behind client Terminal `terminal_id` for Agent `id`'s current Attempt.
     /// A Terminal the client owns directly has no record, and reopening reports its Agent `done`.
     pub(super) fn save_owner(&self, id: &str, terminal_id: &str) -> Result<(), RpcError> {
-        let Some(owner) = self.shared.terminals.terminal_owner(terminal_id) else {
+        let Some(owner) = self.shared.terminals.terminal_owner(terminal_id)? else {
             return Ok(());
         };
-        let attempt = self.shared.rail().node(id)?.attempt.unwrap_or_default();
+        let Some(attempt) = self.shared.rail().node(id)?.attempt else {
+            return Ok(());
+        };
         let file = self.shared.owner_file(id);
         let body = serde_json::to_vec(&Stored {
             attempt,
@@ -118,39 +120,27 @@ impl Agents {
             |(_, cwd)| cwd,
         );
         let clock = Arc::clone(&self.shared.clock);
-        let mut adapter = ClaudeCode::starting(move || clock());
-        adapter.set_finished(self.shared.rail().finished(id).unwrap_or_default());
+        let mut fold = Fold::new(claude_code::starting(move || clock()));
+        fold.observe(Observation::Finished(
+            self.shared.rail().finished(id).unwrap_or_default(),
+        ));
         if let Some(kept) = stored.background {
-            adapter.resume_background(kept);
+            fold.observe(Observation::Resumed(kept));
         }
-        let run = Run {
-            yolo: false,
-            startup_context: false,
-            input_started: stored.input_started,
-            attempt: stored.attempt.clone(),
-            status_revision: 1,
-            closing: false,
-            ended: false,
-            adapter,
-            prompt: None,
-            first_pending: false,
-            first_completion: None,
-            first_prompt: Some(FirstPrompt::Acknowledged),
-            session_started: None,
-            starred: false,
-            steer: None,
-            interrupt: None,
-            named: true,
-            terminal_id: spawned.id.clone(),
+        let run = Run::reattached(
+            fold,
+            stored.attempt.clone(),
+            spawned.id.clone(),
             cwd,
-        };
+            stored.input_started,
+        );
         let placed = {
             let mut rail = self.shared.rail();
             let mut runs = self.shared.runs();
             if runs.contains_key(id) {
                 false
             } else if rail.attach_terminal(id, &spawned.id).is_ok() {
-                runs.insert(id.to_owned(), Slot::Running(run));
+                runs.put(id.to_owned(), Slot::Running(run));
                 true
             } else {
                 false

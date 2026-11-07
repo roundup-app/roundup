@@ -107,6 +107,7 @@ async fn a5765a_an_agent_starts_each_kind_in_open_b_and_gets_its_id() {
         ("FAKE_CLAUDE_LAUNCH_LOG", launch.to_str().unwrap()),
         ("FAKE_CLAUDE_EXACT_PROMPTS", "1"),
         ("ANTHROPIC_MODEL", "target-vendor-default"),
+        ("ROUNDUP_CHANNEL_DEADLINE_MS", "100"),
     ]);
     let source_launch = logs.path().join("source-launch.jsonl");
     let source_input = logs.path().join("source-input.jsonl");
@@ -441,7 +442,10 @@ async fn a5765b_unopened_c_has_no_effect_until_open() {
         let mut target = daemon::start_in(
             folder,
             tempfile::tempdir().unwrap(),
-            &[("FAKE_CLAUDE_PROMPT_LOG", input.to_str().unwrap())],
+            &[
+                ("FAKE_CLAUDE_PROMPT_LOG", input.to_str().unwrap()),
+                ("ROUNDUP_CHANNEL_DEADLINE_MS", "100"),
+            ],
         );
         let client = target.client().await;
         let made = start_target(&client, &path, &request, None).await;

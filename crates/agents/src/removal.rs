@@ -147,8 +147,8 @@ impl Shared {
                 if current_door.worktree != door.worktree
                     || current_door.attempt != door.attempt
                     || runs
-                        .get(&id_owned)
-                        .is_some_and(|slot| !matches!(slot, Slot::Running(r) if r.ended))
+                        .slot(&id_owned)
+                        .is_some_and(|slot| !matches!(slot, Slot::Running(r) if r.ended()))
                 {
                     return Err(RpcError::conflict("Door changed during removal judgement"));
                 }
@@ -162,38 +162,35 @@ impl Shared {
                     if !unchanged
                         || (reason.is_none()
                             && runs
-                                .get(&node.id)
-                                .is_some_and(|slot| !matches!(slot, Slot::Running(r) if r.ended)))
+                                .slot(&node.id)
+                                .is_some_and(|slot| !matches!(slot, Slot::Running(r) if r.ended())))
                     {
                         return Err(RpcError::conflict("Agent changed during removal judgement"));
                     }
                 }
-                let result =
-                    rail.remove_workstream(&id_owned, &mut removal, None, |db, removal| {
+                let result = rail.remove_workstream(
+                    &id_owned,
+                    &mut removal,
+                    None,
+                    |db, removal| -> Result<_, RpcError> {
                         let out = apply(db, removal)?;
                         undo.remove(&git, &project)?;
                         Ok(out)
-                    });
+                    },
+                );
                 match result {
                     Ok(out) => {
-                        let mut calls = shared
-                            .events
-                            .tool_calls
-                            .lock()
-                            .unwrap_or_else(|e| e.into_inner());
                         for item in &removal.removed {
                             if item.kind == RemovalKind::Agent {
                                 runs.remove(&item.id);
-                                calls.remove(&item.id);
                             }
                         }
                         runs.remove(&id_owned);
-                        calls.remove(&id_owned);
                         Ok((removal, out))
                     }
                     Err(err) => {
                         undo.restore(&git.bounded(), &project)?;
-                        Err(err)
+                        Err(err.into())
                     }
                 }
             })
@@ -307,7 +304,7 @@ impl Agents {
         actor: &Actor,
         operation: &str,
     ) -> Result<Option<Removal>, RpcError> {
-        self.shared.rail().deletion(actor, operation)
+        Ok(self.shared.rail().deletion(actor, operation)?)
     }
 
     /// Retain one captured selection in the existing graph transaction; this never starts or stops programs.
@@ -389,7 +386,7 @@ impl Agents {
             let selected = |n: &&RailNode| n.id == id || removal.removed.iter().any(|i| i.kind==RemovalKind::Agent && i.id==n.id);
             for node in tree.iter().filter(selected) {
                 if node.worktree.is_some()
-                    || runs.get(&node.id).is_some_and(|slot| !matches!(slot, Slot::Running(run) if run.ended && !run.closing))
+                    || runs.slot(&node.id).is_some_and(|slot| !matches!(slot, Slot::Running(run) if run.ended() && !run.closing()))
                     || listed.iter().any(|t| t.running && (t.owner.as_deref()==Some(&node.id) || node.terminal_id.as_deref()==Some(&t.id))) {
                     return Err(RpcError::conflict("Removing this item would stop a running process or discard its Worktree. Confirm removal to continue."));
                 }
@@ -431,7 +428,7 @@ impl Agents {
         actor: &Actor,
         p: &contracts::agent::DeletionParams,
     ) -> Result<Removal, RpcError> {
-        rail::Rail::restore_removal_in(db, actor, p)
+        Ok(rail::Rail::restore_removal_in(db, actor, p)?)
     }
 }
 
@@ -454,7 +451,7 @@ impl Agents {
                 let tree=rail.tree()?;
                 let runs=shared.runs();
                 for node in tree.iter().filter(|n|n.id==*id || source.removed.iter().any(|i|i.kind==RemovalKind::Agent && i.id==n.id)) {
-                    if node.worktree.is_some() || runs.get(&node.id).is_some_and(|s|!matches!(s,Slot::Running(r) if r.ended && !r.closing)) || listed.iter().any(|t|t.running && (t.owner.as_deref()==Some(&node.id) || node.terminal_id.as_deref()==Some(&t.id))) {
+                    if node.worktree.is_some() || runs.slot(&node.id).is_some_and(|s|!matches!(s,Slot::Running(r) if r.ended() && !r.closing())) || listed.iter().any(|t|t.running && (t.owner.as_deref()==Some(&node.id) || node.terminal_id.as_deref()==Some(&t.id))) {
                         return Err(RpcError::conflict("Redo would stop a program or discard a Worktree; confirm removal instead."));
                     }
                 }
@@ -470,13 +467,13 @@ impl Agents {
         db: &rusqlite::Connection,
         operation: &str,
     ) -> Result<(), RpcError> {
-        rail::Rail::acknowledge_restoration_in(db, operation)
+        Ok(rail::Rail::acknowledge_restoration_in(db, operation)?)
     }
 }
 
 #[cfg(test)]
 mod tests {
-
+    use std::collections::HashMap;
     use std::sync::Arc;
 
     use std::time::Duration;
@@ -486,10 +483,21 @@ mod tests {
     use contracts::terminal::ExitedEvent;
     use contracts::{Actor, EventData, Kind};
 
-    use crate::claude_code::ClaudeCode;
     use crate::{KillsTerminals, Observation, Run, Slot};
 
+    use crate::agent::Runs;
     use crate::tests::*;
+
+    fn tool_calls(
+        shared: &crate::Shared,
+    ) -> HashMap<String, crate::claude_code::toolcall::Tracked> {
+        shared
+            .runs()
+            .iter()
+            .filter_map(|(id, agent)| Some((id.clone(), agent.facts.tool_call.clone()?)))
+            .collect()
+    }
+
     fn record_call(shared: &crate::Shared, id: &str) {
         shared
             .observe(
@@ -502,7 +510,7 @@ mod tests {
                 })),
             )
             .unwrap();
-        assert!(shared.events.tool_calls.lock().unwrap().contains_key(id));
+        assert!(tool_calls(shared).contains_key(id));
     }
 
     #[tokio::test]
@@ -510,7 +518,7 @@ mod tests {
         let (_dir, _, shared) = shared_over_temp_dir(Arc::new(|| 0));
         let survivor = running_agent(&shared, None);
         record_call(&shared, &survivor);
-        let expected = shared.events.tool_calls.lock().unwrap().clone();
+        let expected = tool_calls(&shared).clone();
         for finished in [false, true, false, true] {
             let id = running_agent(&shared, None);
             record_call(&shared, &id);
@@ -520,11 +528,11 @@ mod tests {
                 )).unwrap();
             }
             shared.remove(Actor::user(), &id).await.unwrap();
-            assert_eq!(*shared.events.tool_calls.lock().unwrap(), expected);
+            assert_eq!(tool_calls(&shared), expected);
         }
         let silent = running_agent(&shared, None);
         shared.remove(Actor::user(), &silent).await.unwrap();
-        assert_eq!(*shared.events.tool_calls.lock().unwrap(), expected);
+        assert_eq!(tool_calls(&shared), expected);
     }
 
     #[tokio::test]
@@ -533,7 +541,7 @@ mod tests {
         let id = running_agent(&shared, None);
         record_call(&shared, &id);
         shared.remove(Actor::user(), &id).await.unwrap();
-        assert!(shared.events.tool_calls.lock().unwrap().is_empty());
+        assert!(tool_calls(&shared).is_empty());
 
         let error = shared
             .observe(
@@ -548,7 +556,7 @@ mod tests {
             .unwrap_err();
 
         assert_eq!(error.code, rpc::code::NOT_FOUND);
-        assert!(shared.events.tool_calls.lock().unwrap().is_empty());
+        assert!(tool_calls(&shared).is_empty());
         assert!(shared.tree().unwrap().is_empty());
     }
 
@@ -560,11 +568,11 @@ mod tests {
         shared.observe(Actor::daemon(), &id, "1", Observation::Signal(
             serde_json::json!({"hook_event_name": "PostToolUse", "tool_use_id": "call", "tool_response": "ok"})
         )).unwrap();
-        let before = shared.events.tool_calls.lock().unwrap().clone();
+        let before = tool_calls(&shared).clone();
 
         shared.stop(Actor::user(), &id).await.unwrap();
 
-        assert_eq!(*shared.events.tool_calls.lock().unwrap(), before);
+        assert_eq!(tool_calls(&shared), before);
         assert_eq!(
             shared.node(&id).unwrap().tool_call.as_ref(),
             Some(&before[&id].call)
@@ -580,29 +588,9 @@ mod tests {
             .unwrap()
             .id;
         shared.rail().allocate_attempt(&ws).unwrap();
-        shared.runs().insert(
+        shared.runs().put(
             ws.clone(),
-            Slot::Running(Run {
-                yolo: false,
-                startup_context: true,
-                input_started: true,
-                attempt: "1".into(),
-                status_revision: 1,
-                closing: false,
-                ended: false,
-                adapter: ClaudeCode::starting(|| 0),
-                prompt: None,
-                first_pending: false,
-                first_completion: None,
-                first_prompt: None,
-                steer: None,
-                session_started: None,
-                starred: false,
-                interrupt: None,
-                named: true,
-                terminal_id: "1".into(),
-                cwd: "/".into(),
-            }),
+            Slot::Running(Run::fixture(Arc::new(|| 0), true)),
         );
         let finished = running_agent(&shared, Some(&ws));
         let living = running_agent(&shared, Some(&ws));
@@ -623,7 +611,7 @@ mod tests {
                 Observation::Signal(serde_json::json!({"hook_event_name": "SessionEnd"})),
             )
             .unwrap();
-        let before = shared.events.tool_calls.lock().unwrap().clone();
+        let before = tool_calls(&shared).clone();
 
         let removal = shared
             .remove_workstream(Actor::user(), &ws, RemoveScope::This)
@@ -637,7 +625,7 @@ mod tests {
             shared.node(&survivor).unwrap().parent.as_deref(),
             Some(sibling.as_str())
         );
-        let calls = shared.events.tool_calls.lock().unwrap();
+        let calls = tool_calls(&shared);
         assert!(!calls.contains_key(&ws));
         assert!(!calls.contains_key(&finished));
         assert_eq!(calls.len(), 2);
@@ -657,29 +645,9 @@ mod tests {
             .unwrap()
             .id;
         shared.rail().allocate_attempt(&group).unwrap();
-        shared.runs().insert(
+        shared.runs().put(
             group.clone(),
-            Slot::Running(Run {
-                yolo: false,
-                startup_context: true,
-                input_started: true,
-                attempt: "1".into(),
-                status_revision: 1,
-                closing: false,
-                ended: false,
-                adapter: ClaudeCode::starting(|| 0),
-                prompt: None,
-                first_pending: false,
-                first_completion: None,
-                first_prompt: None,
-                steer: None,
-                session_started: None,
-                starred: false,
-                interrupt: None,
-                named: true,
-                terminal_id: "1".into(),
-                cwd: "/".into(),
-            }),
+            Slot::Running(Run::fixture(Arc::new(|| 0), true)),
         );
         let child = shared
             .rail()
@@ -705,7 +673,6 @@ mod tests {
     }
     #[tokio::test]
     async fn d9_workstream_removal_enters_all_sixteen_stops_before_any_is_released() {
-        use crate::AgentAdapter;
         struct Shutdown {
             entered: tokio::sync::mpsc::UnboundedSender<()>,
             release: tokio::sync::Semaphore,
@@ -733,10 +700,10 @@ mod tests {
         for _ in 0..16 {
             let id = running_agent(&shared, Some(&ws));
             let mut runs = shared.runs();
-            let Slot::Running(run) = runs.get_mut(&id).unwrap() else {
+            let Slot::Running(run) = runs.slot_mut(&id).unwrap() else {
                 unreachable!()
             };
-            run.adapter.observe(Observation::Signal(
+            run.observe(Observation::Signal(
                 serde_json::json!({"hook_event_name": "SessionEnd"}),
             ));
         }
@@ -763,7 +730,6 @@ mod tests {
     }
     #[tokio::test]
     async fn a34_a_failed_stop_waits_for_every_accepted_stop_before_returning() {
-        use crate::AgentAdapter;
         struct Shutdown {
             entered: tokio::sync::mpsc::UnboundedSender<String>,
             release: tokio::sync::Semaphore,
@@ -795,11 +761,11 @@ mod tests {
         let parked = running_agent(&shared, Some(&ws));
         for (id, terminal) in [(&failed, "failed"), (&parked, "parked")] {
             let mut runs = shared.runs();
-            let Slot::Running(run) = runs.get_mut(id).unwrap() else {
+            let Slot::Running(run) = runs.slot_mut(id).unwrap() else {
                 unreachable!()
             };
-            run.terminal_id = terminal.into();
-            run.adapter.observe(Observation::Signal(
+            run.set_terminal_id(terminal.into());
+            run.observe(Observation::Signal(
                 serde_json::json!({"hook_event_name": "SessionEnd"}),
             ));
         }
@@ -839,10 +805,10 @@ mod tests {
         assert_eq!(shared.rail().tree().unwrap(), before);
         for id in [&failed, &parked] {
             let runs = shared.runs();
-            let Slot::Running(run) = runs.get(id).unwrap() else {
+            let Slot::Running(run) = runs.slot(id).unwrap() else {
                 unreachable!()
             };
-            assert!(!run.closing);
+            assert!(!run.closing());
         }
     }
     /// The Status a failed stop leaves (`done`, from `agent.stop`'s own Stopped observation, set
@@ -853,19 +819,19 @@ mod tests {
         let (_dir, shared) = shared_with_a_flaky_kill();
         let id = running_agent(&shared, None);
         record_call(&shared, &id);
-        let before = shared.events.tool_calls.lock().unwrap().clone();
+        let before = tool_calls(&shared).clone();
 
         let err = shared.remove(Actor::daemon(), &id).await.unwrap_err();
 
         assert_eq!(err.code, rpc::code::INTERNAL);
         let node = shared.node(&id).unwrap();
         assert_eq!(node.status.unwrap().kind, Kind::Done);
-        assert_eq!(*shared.events.tool_calls.lock().unwrap(), before);
+        assert_eq!(tool_calls(&shared), before);
 
         shared.remove(Actor::daemon(), &id).await.unwrap();
 
         assert!(shared.rail().tree().unwrap().is_empty());
-        assert!(shared.events.tool_calls.lock().unwrap().is_empty());
+        assert!(tool_calls(&shared).is_empty());
     }
     /// `remove`'s eviction of `id` from `runs` can race a Terminal exit already in flight: the
     /// watcher must end quietly, not panic through `REGISTERED`'s `.expect`.
@@ -908,7 +874,7 @@ mod tests {
                     )
                     .unwrap();
             }
-            let before = shared.events.tool_calls.lock().unwrap().clone();
+            let before = tool_calls(&shared).clone();
             let db = rusqlite::Connection::open(dir.path().join("agents.db")).unwrap();
             db.execute_batch("CREATE TRIGGER fail_delete BEFORE DELETE ON nodes BEGIN SELECT RAISE(ABORT,'delete refused'); END;").unwrap();
             let error = if let Some(ws) = &ws {
@@ -922,7 +888,7 @@ mod tests {
             assert_eq!(error.code, rpc::code::INTERNAL);
             assert_eq!(shared.tree().unwrap().len(), if workstream { 2 } else { 1 });
             assert_eq!(shared.node(&id).unwrap().status.unwrap().kind, Kind::Done);
-            assert_eq!(*shared.events.tool_calls.lock().unwrap(), before);
+            assert_eq!(tool_calls(&shared), before);
             db.execute_batch("DROP TRIGGER fail_delete").unwrap();
             if let Some(ws) = &ws {
                 shared
@@ -933,7 +899,7 @@ mod tests {
                 shared.remove(Actor::user(), &id).await.unwrap();
             }
             assert!(shared.tree().unwrap().is_empty());
-            assert!(shared.events.tool_calls.lock().unwrap().is_empty());
+            assert!(tool_calls(&shared).is_empty());
         }
     }
 

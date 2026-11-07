@@ -64,7 +64,7 @@ impl Rig {
 
     /// A row written straight to the database, bypassing name validation.
     fn store_row(&self, name: &str) {
-        rusqlite::Connection::open(self.dir.path().join("pads.db"))
+        rusqlite::Connection::open(self.dir.path().join("project.db"))
             .unwrap()
             .execute(
                 "INSERT INTO pads (key, name, text, updated_at) VALUES (?1, ?1, 'orig', 0)",
@@ -328,7 +328,7 @@ async fn p9_any_actor_deletes() {
                 json!({"name":"notes","text":"committed before delete"}),
             )
             .await;
-            let db = rusqlite::Connection::open(rig.dir.path().join("pads.db")).unwrap();
+            let db = rusqlite::Connection::open(rig.dir.path().join("project.db")).unwrap();
             let original = source(&db, "notes").unwrap().unwrap();
             if files {
                 assert!(rig.dir.path().join("pads/notes.md").exists());
@@ -785,7 +785,7 @@ async fn p8_flip_back_validates_before_reading_any_file() {
 
 /// Makes the next update of `name` delete the row first, as a concurrent Daemon's delete would.
 fn delete_row_before_update_of(rig: &Rig, name: &str) {
-    rusqlite::Connection::open(rig.dir.path().join("pads.db"))
+    rusqlite::Connection::open(rig.dir.path().join("project.db"))
         .unwrap()
         .execute_batch(&format!(
             "CREATE TRIGGER racing_delete BEFORE UPDATE ON pads WHEN OLD.name = '{name}'
@@ -972,4 +972,20 @@ async fn p16_any_actor_renames_any_pad() {
             }
         }
     }
+}
+
+#[tokio::test]
+async fn rb3798c_a_deletion_operation_beyond_256_bytes_is_invalid_params() {
+    let rig = Rig::new();
+    let a = agent("a");
+    rig.create("notes", "x").await;
+    let err = rig
+        .fail(
+            &a,
+            "pad.delete",
+            json!({"name": "notes", "operation": "o".repeat(257)}),
+        )
+        .await;
+    assert_eq!(err.code, code::INVALID_PARAMS);
+    assert_eq!(err.message, "invalid deletion operation");
 }

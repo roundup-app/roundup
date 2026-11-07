@@ -1,5 +1,6 @@
 use super::*;
 use crate::pr_checks::{Conclusion, Evidence, Gap};
+use crate::worktree::WorktreeError;
 use contracts::agent::{WorktreeCheckConclusion, WorktreeEvidence, WorktreeRequiredCheck};
 
 impl Agents {
@@ -17,7 +18,7 @@ impl Agents {
             Ok::<_, RpcError>((state, head.ok().flatten()))
         })
         .await
-        .map_err(|err| RpcError::internal(format!("worktree_failed: {err}")))??;
+        .map_err(|err| RpcError::from(WorktreeError::Failed(err.to_string())))??;
         // A local read can outlive replacement: never attach the replacement's facts to it.
         if self.shared.node(id)?.worktree.as_ref() != Some(&record) {
             return Err(RpcError::new(code::NOT_FOUND, "Worktree identity changed"));
@@ -57,7 +58,7 @@ impl Agents {
         let worktree = worktree::Worktree::from(&record);
         tokio::task::spawn_blocking(move || git.changed_files(&worktree))
             .await
-            .map_err(|err| RpcError::internal(format!("worktree_failed: {err}")))?
+            .map_err(|err| RpcError::from(WorktreeError::Failed(err.to_string())))?
     }
 
     /// U2540a: read one comparison within the assigned Worktree.
@@ -76,7 +77,7 @@ impl Agents {
         let path = path.to_owned();
         tokio::task::spawn_blocking(move || git.compare_file(&worktree, &path))
             .await
-            .map_err(|err| RpcError::internal(format!("worktree_failed: {err}")))?
+            .map_err(|err| RpcError::from(WorktreeError::Failed(err.to_string())))?
     }
 
     /// G4: land the Agent's branch on its Base, after the Project's `check` passes in the Worktree.
@@ -91,7 +92,7 @@ impl Agents {
         let base =
             tokio::task::spawn_blocking(move || git.land(&project, &worktree, check.as_deref()))
                 .await
-                .map_err(|err| RpcError::internal(format!("worktree_failed: {err}")))??;
+                .map_err(|err| RpcError::from(WorktreeError::Failed(err.to_string())))??;
         Ok(Landed { base })
     }
 
@@ -171,7 +172,7 @@ impl Agents {
             .find(|(node, _, _)| node.id == id);
         if let Some((node, plan, _)) = pending {
             let plan =
-                plan.ok_or_else(|| RpcError::internal(format!("worktree_failed: {UNPROVEN}")))?;
+                plan.ok_or_else(|| RpcError::from(WorktreeError::Failed(UNPROVEN.to_string())))?;
             self.shared
                 .rail()
                 .set_worktree(id, &node.worktree.expect("provisioned Worktree"))?;
@@ -197,7 +198,7 @@ impl Agents {
         };
         let undone = tokio::task::spawn_blocking(move || match pending {
             Some((_, Some(plan), _)) => git.recover(&project, &plan),
-            Some((_, None, _)) => Err(RpcError::internal(format!("worktree_failed: {UNPROVEN}"))),
+            Some((_, None, _)) => Err(RpcError::from(WorktreeError::Failed(UNPROVEN.to_string()))),
             None => git.remove_landed(&project, &worktree),
         })
         .await
@@ -781,7 +782,7 @@ mod tests {
             tokio::time::timeout(Duration::from_secs(10), async {
                 loop {
                     let ready = matches!(
-                        agents.shared.runs().get(&id),
+                        agents.shared.runs().slot(&id),
                         Some(Slot::Resuming {
                             terminal_id: Some(_),
                             ..

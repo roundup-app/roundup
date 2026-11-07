@@ -266,7 +266,7 @@ fn b20_forbidden_not_found_and_conflict() {
         id: id.into(),
         parent: None,
     };
-    let code = |caller: &Actor, id: &str| seen.ask(caller, id, &from).unwrap_err().code;
+    let code = |c: &Actor, id: &str| rpc::RpcError::from(seen.ask(c, id, &from).unwrap_err()).code;
     assert_eq!(code(&agent("a"), "m"), rpc::code::FORBIDDEN);
     assert_eq!(code(&Actor::daemon(), "m"), rpc::code::FORBIDDEN);
     assert_eq!(code(&Actor::user(), "nobody"), rpc::code::NOT_FOUND);
@@ -372,7 +372,7 @@ fn b2705a_digest_errors_use_rail_names() {
             nodes.push(caller);
         }
         let from = sources(&nodes, &[], &[], &[]);
-        let error = Seen::default().ask(&caller, target, &from).unwrap_err();
+        let error = rpc::RpcError::from(Seen::default().ask(&caller, target, &from).unwrap_err());
         assert_eq!(error.code, expected_code, "{case}");
         assert_eq!(error.message, expected, "{case}");
     }
@@ -660,7 +660,7 @@ fn a5482c_non_door_coordinator_receives_the_fallback() {
         "a replay repeated the fallback"
     );
     assert_eq!(
-        seen.ask(&Actor::user(), "m", &from).unwrap_err().code,
+        rpc::RpcError::from(seen.ask(&Actor::user(), "m", &from).unwrap_err()).code,
         rpc::code::CONFLICT
     );
 }
@@ -733,12 +733,12 @@ fn b37_an_older_idle_snapshot_cannot_supersede_a_needs_you_digest() {
     let seen = Seen::default();
     let mut idle = rail();
     idle[1].status = Some(status(Kind::Idle, "idle"));
-    idle[1].status_revision = Some("4".into());
+    idle[1].status_revision = Some(contracts::agent::Ordinal::parse("4").unwrap());
     seen.baseline(&sources(&idle, &[], &[], &[]));
 
     let mut asking = idle.clone();
     asking[1].status = Some(status(Kind::NeedsYou, "Bash: ls"));
-    asking[1].status_revision = Some("5".into());
+    asking[1].status_revision = Some(contracts::agent::Ordinal::parse("5").unwrap());
     seen.entry_of("a", &sources(&asking, &[], &[], &[]), true)
         .unwrap();
 
@@ -946,15 +946,15 @@ fn b5641c_fresh_sources_keep_delivery_history() {
 #[test]
 fn b5641b_completion_keeps_question_and_note_time_bounds() {
     for (question_at, note_at, attempt, expected) in [
-        (Some(9), 20, "run", "final"),
-        (Some(10), 20, "run", "note"),
-        (Some(30), 20, "run", "note"),
-        (None, 21, "run", "note"),
-        (None, 19, "other", "note"),
-        (None, 19, "run", "final"),
+        (Some(9), 20, "1", "final"),
+        (Some(10), 20, "1", "note"),
+        (Some(30), 20, "1", "note"),
+        (None, 21, "1", "note"),
+        (None, 19, "2", "note"),
+        (None, 19, "1", "final"),
     ] {
         let mut nodes = rail();
-        nodes[1].attempt = Some(attempt.into());
+        nodes[1].attempt = Some(contracts::agent::Ordinal::parse(attempt).unwrap());
         let mut note = sent(10, "a", "m", "note");
         note.at = note_at;
         let mut messages = vec![note];
@@ -966,7 +966,7 @@ fn b5641b_completion_keeps_question_and_note_time_bounds() {
         }
         let mut from = sources(&nodes, &[], &[], &messages);
         from.completed
-            .insert("a".into(), ("run:1".into(), 10, 20, "final".into()));
+            .insert("a".into(), ("1:1".into(), 10, 20, "final".into()));
         assert_eq!(
             Seen::default().entry_of("a", &from, false).unwrap().last,
             expected

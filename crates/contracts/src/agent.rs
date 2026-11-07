@@ -13,19 +13,13 @@ mod state;
 pub use state::{FinalText, FinalTextKind, WorkstreamState};
 mod digest;
 pub use digest::{Digest, DigestEntry, DigestItem};
+mod ordinal;
+pub use ordinal::Ordinal;
 mod launch;
 pub use launch::{
     CreateWorkstreamParams, Extras, ExtrasAddParams, PermissionMode, SpawnParams, SpawnRole,
     StartAttribution, StartDoorParams,
 };
-
-/// Parse the wire ordinal without accepting aliases such as leading zeroes or signs.
-pub fn parse_positive_ordinal(value: &str) -> Option<i64> {
-    value
-        .parse::<i64>()
-        .ok()
-        .filter(|n| *n > 0 && n.to_string() == value)
-}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 #[serde(rename_all = "kebab-case")]
@@ -98,6 +92,9 @@ pub enum RemoveScope {
     All,
 }
 
+/// A client's retry key for the deletion ledger (R30): 1 to 96 bytes.
+pub type OperationKey = crate::Text<96, { crate::text::NONEMPTY }>;
+
 /// A client key requests data-only removal; omission keeps irreversible removal's consent path.
 #[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 pub struct RemoveParams {
@@ -107,7 +104,7 @@ pub struct RemoveParams {
     pub scope: Option<RemoveScope>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[specta(optional)]
-    pub operation: Option<String>,
+    pub operation: Option<OperationKey>,
 }
 
 /// Captured selection; every target uses its default removal scope. A key requests data-only retention.
@@ -116,7 +113,7 @@ pub struct RemoveSelectionParams {
     pub ids: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[specta(optional)]
-    pub operation: Option<String>,
+    pub operation: Option<OperationKey>,
 }
 
 /// Authority is retained by the Project, never supplied as a replacement graph.
@@ -447,9 +444,11 @@ pub struct RailNode {
     /// `None` for Terminals.
     pub status: Option<Status>,
     /// Last allocated program attempt; present even after stop or reopen.
-    pub attempt: Option<String>,
+    #[specta(type = Option<String>)]
+    pub attempt: Option<Ordinal>,
     /// Status transition within the current Attempt; absent after reopen.
-    pub status_revision: Option<String>,
+    #[specta(type = Option<String>)]
+    pub status_revision: Option<Ordinal>,
     /// U5483c: only authoritative known-empty final text can permit folding.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[specta(optional, type = FinalText)]
@@ -838,7 +837,8 @@ pub struct PromptParams {
 #[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 pub struct SignalParams {
     pub id: String,
-    pub attempt: String,
+    #[specta(type = String)]
+    pub attempt: Ordinal,
     #[specta(type = std::collections::BTreeMap<String, specta_typescript::Unknown>)]
     pub payload: Value,
 }
@@ -905,8 +905,10 @@ pub struct StatusEvent {
     #[specta(optional, type = bool)]
     pub ended: bool,
     pub id: String,
-    pub attempt: String,
-    pub status_revision: String,
+    #[specta(type = String)]
+    pub attempt: Ordinal,
+    #[specta(type = String)]
+    pub status_revision: Ordinal,
     pub status: Status,
 }
 
