@@ -8,7 +8,7 @@ export const Leader = () => {
   const { daemonExit } = useConnectedProject();
 
   registerKeys({ kind: "app" }, [{
-    action: CHORDS.find(row => row.name === "leader.open")!,
+    action: CHORDS["leader.open"],
     searchable: false,
     capture: () => ({ available: () => daemonExit() === null && document.querySelector(".spawn-prompt-field") === null, invoke: () => armLeader() }),
   }]);

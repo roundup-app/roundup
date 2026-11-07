@@ -4,7 +4,7 @@ import { cleanup, fireEvent, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { batch, createSignal } from "solid-js";
 import fuzzysort from "fuzzysort";
-import { CHORDS, LEADER } from "../keys/chords";
+import { CHORDS, CHORD_ROWS, LEADER_ROWS } from "../keys/chords";
 import { leaderKey } from "../keys/leaderFixture";
 import { openTabs, tab } from "../header/stripFixture";
 import { agent, info, workstream } from "../testing/nodes";
@@ -285,8 +285,8 @@ it.each(["rail", "bubble", "App"])("u2572d_action_keys_come_from_the_tables: %s"
   await show();
 
   for (const option of actionRows()) {
-    const row = [...CHORDS, ...LEADER].find(row => `action:${"press" in row ? "leader" : "chord"}:${row.keys}` === option.dataset.value)!;
-    const keys = "press" in row ? `${CHORDS.find(chord => chord.keys === "⌘K")!.keys} ${row.keys}` : row.keys;
+    const row = [...CHORD_ROWS, ...LEADER_ROWS].find(row => `action:${"press" in row ? "leader" : "chord"}:${row.keys}` === option.dataset.value)!;
+    const keys = "press" in row ? `${CHORDS["leader.open"].keys} ${row.keys}` : row.keys;
     expect([...option.querySelectorAll("kbd.key-chip")].map((chip) => chip.textContent).join("")).toBe(keys.replaceAll(" ", ""));
   }
 });

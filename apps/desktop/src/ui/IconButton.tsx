@@ -1,11 +1,11 @@
 import { mergeProps, splitProps, type JSX } from "solid-js";
 import { Portal } from "solid-js/web";
-import { ariaChord, chordNamed } from "../keys/chords";
+import { ariaChord, CHORDS, type ChordName } from "../keys/chords";
 import { copy } from "./copy";
 import { Icon } from "../ink/Icon";
 import { Tooltip } from "./Tooltip";
 
-export const IconButton = (props: Omit<JSX.ButtonHTMLAttributes<HTMLButtonElement>, "aria-label"> & { "aria-label": string; action?: string | undefined; tooltip?: string | undefined; /** The name shows elsewhere (a peek, a visible label), so no tooltip. */ bare?: true }) => {
+export const IconButton = (props: Omit<JSX.ButtonHTMLAttributes<HTMLButtonElement>, "aria-label"> & { "aria-label": string; action?: ChordName | undefined; tooltip?: string | undefined; /** The name shows elsewhere (a peek, a visible label), so no tooltip. */ bare?: true }) => {
   const [local, rest] = splitProps(props, ["class", "onClick", "action", "tooltip", "bare"]);
 
   const click: JSX.EventHandler<HTMLButtonElement, MouseEvent> = (event) => {
@@ -24,7 +24,7 @@ export const IconButton = (props: Omit<JSX.ButtonHTMLAttributes<HTMLButtonElemen
     else handler(event);
   };
 
-  const chord = () => chordNamed(local.action);
+  const chord = () => local.action && CHORDS[local.action];
 
   if (local.bare) return <button {...mergeProps({ type: "button" as const }, rest, { onClick: click })} data-button="icon" class={`word ${local.class ?? ""}`} />;
 

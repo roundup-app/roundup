@@ -74,7 +74,7 @@ async fn r20_hop_report_accounts_for_the_echo_round_trip() {
     let ctx = Ctx {
         actor: Actor::user(),
         bus,
-        touches: Arc::new(Touches::open(&dir.path().join("touches.db")).unwrap()),
+        touches: Arc::new(Touches::open(dir.path()).unwrap()),
     };
     let (input, queued) = mpsc::sync_channel(16);
     // A PTY handle only: no process is spawned. The controlled writer/reader use the production loops.
@@ -223,7 +223,7 @@ async fn r20_agents_and_extensions_cannot_enable_or_read_a_recording() {
                 parent: None,
             },
             bus: bus.clone(),
-            touches: Arc::new(Touches::open(&dir.path().join("touches.db")).unwrap()),
+            touches: Arc::new(Touches::open(dir.path()).unwrap()),
         };
         let error = terminals
             .call(&ctx, "terminal.measure", json!({"id":"1", "run":"test"}))
@@ -279,7 +279,7 @@ async fn rb3798b_a_poisoned_lock_answers_internal() {
     let ctx = Ctx {
         actor: Actor::user(),
         bus,
-        touches: Arc::new(Touches::open(&dir.path().join("touches.db")).unwrap()),
+        touches: Arc::new(Touches::open(dir.path()).unwrap()),
     };
     let error = terminals
         .call(

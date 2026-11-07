@@ -3,7 +3,7 @@ import { afterEach, expect, it } from "vitest";
 import { RpcError } from "../app/seam";
 import { agent, event } from "../testing/nodes";
 import { withScopeRow } from "../testing/showEverything";
-import { CHORDS, HELP_ROWS, hintsFor } from "../keys/chords";
+import { CHORDS, HELP_ROWS, hintsFor, CHORD_ROWS } from "../keys/chords";
 import { copy } from "./copy";
 import { mountTodos, todo, todoEvent, todoCallsTo as callsTo } from "./testHarness";
 
@@ -131,7 +131,7 @@ it("u3720_choosing_assigns_once_and_returns_focus_to_the_row", async () => {
 });
 
 it("u3720_the_key_is_a_registered_shelf_binding_listed_in_help", () => {
-  const owned = CHORDS.filter((chord) => chord.presses.includes("KeyO"));
+  const owned = CHORD_ROWS.filter((chord) => chord.presses.includes("KeyO"));
 
   expect(owned).toHaveLength(1);
   expect(owned[0]).toMatchObject({ inShelf: true, keys: "O" });

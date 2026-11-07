@@ -14,6 +14,7 @@ serde_json.workspace = true
 thiserror.workspace = true
 
 provenance = { path = "../provenance" }
+storage = { path = "../storage" }
 rusqlite.workspace = true
 rusqlite_migration.workspace = true
 
