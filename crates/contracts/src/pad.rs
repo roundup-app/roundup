@@ -105,9 +105,7 @@ pub struct RenameParams {
 #[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 pub struct DeleteParams {
     pub name: String,
-    #[serde(default)]
-    #[specta(optional, type = String)]
-    pub operation: Option<String>,
+    pub operation: crate::agent::OperationKey,
     #[serde(default, rename = "expectedIncarnation")]
     #[specta(optional, type = String)]
     pub expected_incarnation: Option<String>,

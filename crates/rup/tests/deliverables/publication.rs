@@ -209,7 +209,12 @@ async fn dv1_stale_pad_source_cannot_publish_replacement() {
         json!({"key":"original","title":"Original","target":target}),
     )
     .await;
-    call(&c, "pad.delete", json!({"name":"notes"})).await;
+    call(
+        &c,
+        "pad.delete",
+        json!({"name":"notes","operation":"del-notes"}),
+    )
+    .await;
     pad(&c, "notes", "replacement").await;
     refused(
         &c,

@@ -56,7 +56,7 @@ impl Rail {
         id: &str,
         removal: &mut contracts::agent::Removal,
         retain: Option<(&contracts::Actor, &str)>,
-        apply: impl FnOnce(&Connection, &mut contracts::agent::Removal) -> Result<T, E>,
+        apply: impl FnOnce(&rusqlite::Transaction, &mut contracts::agent::Removal) -> Result<T, E>,
     ) -> Result<T, StoreError> {
         use rusqlite::session::{Session, invert_strm};
         self.db.pragma_update(None, "foreign_keys", true)?;
@@ -219,16 +219,11 @@ impl Rail {
     /// The owning Todo transaction coordinates Rail and Pad restoration. It must commit
     /// before any events, Touches or file guards are published.
     pub fn restore_removal_in(
-        db: &Connection,
+        db: &rusqlite::Transaction,
         actor: &contracts::Actor,
         p: &contracts::agent::DeletionParams,
     ) -> Result<contracts::agent::Removal, StoreError> {
         use rusqlite::session::ConflictAction;
-        if db.is_autocommit() {
-            return Err(StoreError::internal(
-                "Rail restoration requires a transaction",
-            ));
-        }
         let project: String =
             db.query_row("SELECT id FROM deliverable_project", [], |r| r.get(0))?;
         if project != p.project {
@@ -476,7 +471,7 @@ impl Rail {
         &mut self,
         actor: &contracts::Actor,
         p: &contracts::agent::RedoParams,
-        apply: impl FnOnce(&Connection, &mut contracts::agent::Removal) -> Result<T, E>,
+        apply: impl FnOnce(&rusqlite::Transaction, &mut contracts::agent::Removal) -> Result<T, E>,
     ) -> Result<(contracts::agent::Removal, Option<T>), StoreError> {
         if p.operation.is_empty() || p.operation.len() > 96 {
             return Err(StoreError::invalid("removal needs a key of 1–96 bytes"));

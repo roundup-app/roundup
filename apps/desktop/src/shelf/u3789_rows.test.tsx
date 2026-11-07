@@ -405,7 +405,7 @@ it.each(["todo", "pad"].flatMap(kind => ["delete", "move"].map(action => ({kind,
     if (action === "delete") await app.rpc("todo.delete", {operation: crypto.randomUUID(), ids:[item.id]});
     else await app.rpc("todo.move", {id:item.id, home:null});
   } else {
-    if (action === "delete") await app.rpc("pad.delete", {name:item.name});
+    if (action === "delete") await app.rpc("pad.delete", {name:item.name, operation: crypto.randomUUID()});
     else await app.rpc("pad.move", {name:item.name, home:null});
   }
 

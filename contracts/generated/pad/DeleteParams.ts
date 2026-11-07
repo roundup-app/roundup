@@ -6,6 +6,6 @@
  */
 export type DeleteParams = {
 	name: string,
-	operation?: string,
+	operation: string,
 	expectedIncarnation?: string,
 };
