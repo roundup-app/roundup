@@ -3,7 +3,7 @@ import { FitAddon } from "@xterm/addon-fit";
 import { afterEach, expect, it, vi } from "vitest";
 import { createXtermEmulators } from "./emulator";
 
-afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
+afterEach(() => { vi.restoreAllMocks(); vi.useRealTimers(); vi.unstubAllGlobals(); });
 
 const shown = async () => {
   const spy = vi.spyOn(xtermModule, "Terminal");
@@ -166,3 +166,57 @@ it("u6283a_terminal_mutations_place_no_bar", async () => {
   tracked.remove();
   terminal.remove();
 });
+
+const OSC = (body: string) => `\x1b]${body}\x07`;
+
+/** One command with 12 rows of output, taller than the 10-row screen, so the view always sits inside the last Turn. */
+const longTurn = () => OSC("133;A") + "$ " + OSC("133;B") + "cmd\r\n" + OSC("133;C") + Array.from({ length: 12 }, (_, row) => `row ${row}\r\n`).join("") + OSC("133;D;0");
+
+/** The per-frame handler calls of one render over a Terminal holding `turns` Turns. */
+const frameCalls = async (turns: number) => {
+  const { emulator, terminal, host } = await shown();
+  let reads = 0;
+  const register = terminal.registerMarker.bind(terminal);
+
+  terminal.resize(80, 10);
+  vi.spyOn(terminal, "registerMarker").mockImplementation((offset) => {
+    const marker = register(offset);
+
+    if (!marker) return marker;
+
+    // A marker whose `line` reads are counted.
+    return Object.create(marker, { line: { get: () => { reads += 1; return marker.line; } } });
+  });
+  const input = longTurn().repeat(turns);
+
+  await new Promise<void>((resolve) => emulator.write(new TextEncoder().encode(input), resolve));
+  const renders = vi.fn();
+  const lines = vi.spyOn(terminal.buffer.active, "getLine");
+
+  terminal.onRender(renders);
+  terminal.refresh(0, terminal.rows - 1);
+  await vi.waitFor(() => expect(renders).toHaveBeenCalled());
+  await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+  reads = 0;
+  lines.mockClear();
+  renders.mockClear();
+  terminal.scrollLines(-3);
+  terminal.refresh(0, terminal.rows - 1);
+  await vi.waitFor(() => expect(renders).toHaveBeenCalled());
+  const calls = { reads, lines: lines.mock.calls.length, turns: emulator.turns().length };
+
+  emulator.dispose();
+  host.remove();
+
+  return calls;
+};
+
+it("u6283e_frame_cost_does_not_grow_with_turns", async () => {
+  const few = await frameCalls(1);
+  const many = await frameCalls(200);
+
+  expect(many.turns).toBe(200);
+  // Text rows are read for the Turns in view only, and Turns are found by search, not by walking all of them.
+  expect(many.lines).toBe(few.lines);
+  expect(many.reads).toBeLessThanOrEqual(few.reads + 2 * Math.ceil(Math.log2(200)) + 6);
+}, 30_000);

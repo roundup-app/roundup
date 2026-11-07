@@ -62,11 +62,15 @@ export const attachTurns = (terminal: Terminal, select: (first: number, last: nu
 
     if (anchor === turn) anchor = null;
 
+    shown.delete(turn);
+
     turn.gutter?.remove();
     turn.end?.dispose();
   };
 
   let strips: HTMLElement | null = null;
+  /** The Turns whose gutter the last pass drew, the only ones a later pass can need to take down. */
+  let shown = new Set<Turn>();
 
   /**
    * The gutter: one strip per Turn, on each visible slice of its rows and left of the cell grid, so it covers no glyph,
@@ -88,15 +92,28 @@ export const attachTurns = (terminal: Terminal, select: (first: number, last: nu
     const top = buffer.viewportY;
     const bottom = top + terminal.rows - 1;
 
-    for (const turn of turns) {
+    // U6283e: Turns are in buffer order and do not overlap, so the pass starts at the first Turn that reaches the view
+    // and stops past it; its cost is the Turns in view, not all the Turns.
+    let low = 0;
+    let high = turns.length;
+
+    while (low < high) {
+      const middle = (low + high) >> 1;
+
+      if (lastRow(turns[middle]!) < top) low = middle + 1;
+      else high = middle;
+    }
+
+    const visible = new Set<Turn>();
+
+    for (let index = low; index < turns.length && turns[index]!.start.line <= bottom; index += 1) {
+      const turn = turns[index]!;
       const first = Math.max(turn.start.line, top);
       const last = Math.min(lastRow(turn), bottom);
 
-      if (first > last) {
-        turn.gutter?.remove();
-        turn.drawn = null;
-        continue;
-      }
+      if (first > last) continue;
+
+      visible.add(turn);
 
       let strip = turn.gutter;
 
@@ -130,6 +147,15 @@ export const attachTurns = (terminal: Terminal, select: (first: number, last: nu
 
       if (strip.parentElement !== strips) strips.append(strip);
     }
+
+    for (const turn of shown) {
+      if (visible.has(turn)) continue;
+
+      turn.gutter?.remove();
+      turn.drawn = null;
+    }
+
+    shown = visible;
   };
 
   /** The text from the end of the prompt to the cursor, where the command starts running. */
