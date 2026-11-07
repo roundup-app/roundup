@@ -178,7 +178,7 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
 
   const endCompose = () => setComposing(false);
 
-  const { topology, sectionRows, rows, collection, expanded, entryOf, nodeRows, nodeIds, indexOf, treeRows, byKey, lifted, dropRules } = createRailTree(connected, unfolded, id => rowElement(id), () => container());
+  const { topology, sectionRows, rows, collection, settleCollection, expanded, entryOf, nodeRows, nodeIds, indexOf, treeRows, byKey, lifted, dropRules } = createRailTree(connected, unfolded, id => rowElement(id), () => container());
 
 
   /** U38: mounting follows the first tree answer; fetch failure takes precedence. */
@@ -658,7 +658,8 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
       ref={(element) => {
         setContainer(element);
         element.addEventListener("click", selectClick, true);
-        element.addEventListener("keydown", selectKey, true);
+        // Ark walks its collection on a key, so the collection shows the rows as drawn first.
+        element.addEventListener("keydown", event => { settleCollection(); selectKey(event); }, true);
         let contextClick = false;
         element.addEventListener("pointerdown", (event) => {
           contextClick = event.button === 0 && event.ctrlKey;
