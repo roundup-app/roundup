@@ -4,7 +4,6 @@ import { historyRegion, returnFocus } from "./keys/focus";
 import { focusPane } from "./bubbles/focus";
 import Hourglass from "lucide-solid/icons/hourglass";
 import { ReducedMotionContext } from "./app/reducedMotion";
-import { foldMotion } from "./ui/fold";
 import { pressFeedback } from "./ui/pressFeedback";
 import { storageCopy } from "./app/copy";
 import { storageProblems } from "./state/storage";
@@ -265,7 +264,9 @@ export const App = (props: {
 
   onMount(() => {
     onCleanup(pressFeedback(document, props.reducedMotion));
-    onCleanup(foldMotion(document, props.reducedMotion));
+    // Loaded after mount so the fold helper and Motion's layout projection stay out of the entry bundle (R3800).
+    const fold = import("./ui/fold").then(({ foldMotion }) => foldMotion(document, props.reducedMotion));
+    onCleanup(() => void fold.then(stop => stop()));
     window.addEventListener("contextmenu", suppressBrowserMenu);
     window.addEventListener("pointerdown", clearBrowserSelection, true);
   });
