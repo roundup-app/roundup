@@ -80,7 +80,7 @@ it("u3800g_collection_survives_a_redraw_that_leaves_the_tree_as_it_was", async (
   const app = createFakeApp();
   app.handlers["rail.tree"] = () => tree40();
   const [now, setNow] = createSignal(NOW);
-  const connected = await connectProject(app, { path: "/p", name: "p" }, () => true, now);
+  const connected = await connectProject(app, { path: "/p", name: "p" }, () => true, () => now());
 
   createRoot(dispose => {
     const tree = createRailTree(connected, () => new Set(), () => undefined);
