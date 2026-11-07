@@ -4,7 +4,7 @@ export type TreeRow = { id: string; parent: string | null };
 /** Where a drag would land: the parent, the index among that parent's other children, and the depth the drop line sits at. */
 export type SortableDrop = { parent: string | null; index: number; depth: number };
 
-export type DepthRow = TreeRow & { depth: number };
+type DepthRow = TreeRow & { depth: number };
 
 export const withDepth = (rows: readonly TreeRow[]): DepthRow[] => {
   const depths = new Map<string, number>();
@@ -16,12 +16,6 @@ export const withDepth = (rows: readonly TreeRow[]): DepthRow[] => {
 
     return { ...row, depth };
   });
-};
-
-/** What a tree's owner says about its drops: which rows take a child, and which parents take a dragged row. A drop line shows only slots `takes` allows, and a pointer or key over any other snaps to the nearest one. */
-export type DropRules = {
-  nests: (id: string) => boolean;
-  takes?: ((id: string, parent: string | null) => boolean) | undefined;
 };
 
 /** The rows without the dragged row and the rows that move with it, which are not drop targets. */
@@ -46,38 +40,6 @@ export const depthsAt = (rows: readonly DepthRow[], nests: (id: string) => boole
   if (below && below.depth > above.depth) return { min: above.depth + 1, max: above.depth + 1 };
 
   return { min: below?.depth ?? 0, max: above.depth + (nests(above.id) ? 1 : 0) };
-};
-
-/** The parent of a drop in gap `slot` of `rows` at `depth`. */
-const parentAt = (rows: readonly DepthRow[], slot: number, depth: number): string | null => {
-  const above = rows[slot - 1];
-
-  if (!above) return null;
-
-  if (depth > above.depth) return above.id;
-
-  return rows.slice(0, slot).findLast((row) => row.depth === depth)?.parent ?? null;
-};
-
-/** The depths of gap `slot` the tree's owner takes for `dragged`, shallowest first. */
-export const legalDepths = (rows: readonly DepthRow[], tree: DropRules, dragged: string, slot: number): number[] => {
-  const { min, max } = depthsAt(rows, tree.nests, slot);
-  const depths: number[] = [];
-
-  for (let depth = min; depth <= max; depth++) if (!tree.takes || tree.takes(dragged, parentAt(rows, slot, depth))) depths.push(depth);
-
-  return depths;
-};
-
-/** The legal depth nearest `wanted`, the shallower on a tie. */
-export const nearestDepth = (depths: readonly number[], wanted: number): number => depths.reduce((best, depth) => Math.abs(depth - wanted) < Math.abs(best - wanted) ? depth : best, depths[0]!);
-
-/** The gap nearest `slot` with a legal depth; `toward` (1 down, -1 up) prefers that side, 0 the nearer. Gap 0 is the root, which every row takes. */
-export const legalSlot = (rows: readonly DepthRow[], tree: DropRules, dragged: string, slot: number, toward: number): number => {
-  const gaps = Array.from({ length: rows.length + 1 }, (_, gap) => gap)
-    .sort((a, b) => (toward === 0 ? 0 : Number((a - slot) * toward < 0) - Number((b - slot) * toward < 0)) || Math.abs(a - slot) - Math.abs(b - slot) || a - b);
-
-  return gaps.find((gap) => legalDepths(rows, tree, dragged, gap).length > 0) ?? 0;
 };
 
 /** The drop for gap `slot` of `rows` with the pointer at `depth`, clamped to the depths the gap allows. `rows` holds neither the dragged row nor what moves with it. */
