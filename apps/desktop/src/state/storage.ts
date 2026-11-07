@@ -34,6 +34,9 @@ let initialized = false;
 
 let adapterRevision = 0;
 
+// Holders for one key are created repeatedly, so writes stay in order across all holders.
+const queue = new PQueue({ concurrency: 1 });
+
 const [failures, setFailures] = createSignal<{ key: string; cause: string; retry: () => Promise<string | null> }[]>([]);
 
 /** Recoverable pending operations, with full foreign causes; no draft contents are logged. */
@@ -104,9 +107,6 @@ type Restore<T> =
 
 /** onRetained runs after a successful write or retry, so views observe only acknowledged values. */
 export const storedValue = <T>(key: string, schema: v.GenericSchema<unknown, T>, onRetained?: () => void) => {
-  // One queue per holder keeps its writes in order; a slow write here never delays another holder.
-  const queue = new PQueue({ concurrency: 1 });
-
   const restore = (): Restore<T> => {
     if (!initialized) return { status: "failed", cause: "unreadable" };
 
