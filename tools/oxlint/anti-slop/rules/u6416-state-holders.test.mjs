@@ -18,6 +18,8 @@ test("u6416_state_holder_lints", () => {
     ["no-promise-chain-queue", "let writes = Promise.resolve(); writes = writes.then(() => work());", 1],
     ["no-promise-chain-queue", "let writes = Promise.resolve(); writes = writes.then(a).catch(b);", 1],
     ["no-promise-chain-queue", "let writes = Promise.resolve(); writes = other.then(() => work());", 0],
+    ["no-draft-bypass", "drafts.settle(revision, \"acknowledged\"); setTimeout(() => {}, 15_000);", 1],
+    ["no-draft-bypass", "lifetime.settle(); setTimeout(() => {}, 500);", 0],
     ["no-promise-chain-queue", "const queue = createQueue(); queue.add(() => work());", 0],
   ];
 
