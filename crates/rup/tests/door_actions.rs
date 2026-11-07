@@ -188,6 +188,16 @@ async fn b37_real_claude_receives_a_note_after_a_scripted_server_error() {
             _ => None,
         })
         .await;
+    // DTC2: the child's idle Digest is quiet; it waits in the ledger until a Message reaches the Door.
+    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+    let setup = user
+        .request(
+            "message.send",
+            json!({"to":door,"kind":"note","body":"B37 setup complete"}),
+        )
+        .await
+        .unwrap();
+    let setup_id: u32 = serde_json::from_value(setup["id"].clone()).unwrap();
     // Bind the receipt to the final idle Digest, not an earlier status of the child.
     let idle_digest = project
         .next_named(
@@ -205,16 +215,6 @@ async fn b37_real_claude_receives_a_note_after_a_scripted_server_error() {
             },
         )
         .await;
-    // B5168f: if an earlier idle Digest was already delivered, this one is quiet. Explicit
-    // setup input carries it without requiring that routine progress start another model turn.
-    let setup = user
-        .request(
-            "message.send",
-            json!({"to":door,"kind":"note","body":"B37 setup complete"}),
-        )
-        .await
-        .unwrap();
-    let setup_id: u32 = serde_json::from_value(setup["id"].clone()).unwrap();
     for id in [idle_digest.id, setup_id] {
         project
             .next_named(

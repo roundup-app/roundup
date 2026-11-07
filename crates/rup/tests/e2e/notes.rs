@@ -505,10 +505,11 @@ async fn end_note(
         .await
         .unwrap();
     h21_poll("the end note", async || {
-        made(&s.user, &s.door)
-            .await
-            .into_iter()
-            .find(|body| body.starts_with("[digest] finder is done"))
+        made(&s.user, &s.door).await.into_iter().find_map(|body| {
+            // DTC2: the end note rides with the quiet notes before it, as one rollup.
+            let at = body.find("finder is done")?;
+            Some(format!("[digest] {}", &body[at..]))
+        })
     })
     .await
 }
