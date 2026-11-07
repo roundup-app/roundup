@@ -405,7 +405,7 @@ it.each(["todo", "pad"].flatMap(kind => ["delete", "move"].map(action => ({kind,
     if (action === "delete") await app.rpc("todo.delete", {operation: crypto.randomUUID(), ids:[item.id]});
     else await app.rpc("todo.move", {id:item.id, home:null});
   } else {
-    if (action === "delete") await app.rpc("pad.delete", {name:item.name});
+    if (action === "delete") await app.rpc("pad.delete", {name:item.name, operation: crypto.randomUUID()});
     else await app.rpc("pad.move", {name:item.name, home:null});
   }
 
@@ -536,15 +536,6 @@ it("u4275c_rows_keep_details_in_the_opened_todo_return", async () => {
   await waitFor(() => expect(document.querySelector('.drawer[data-open=true]')?.textContent).toContain(authored.body!.split("\n")[0]!));
   expect(app.calls.slice(before).filter(call => ["todo.update", "todo.complete", "todo.move"].includes(call.method))).toEqual([]);
 });
-
-it("u4275b_row_actions_keep_menu_semantics", async () => {
-  const { app } = await open("tree-40", ["backend", "payments", "auth", "tokens"]);
-  const row = document.querySelector('.rail-row[data-id="auth"]')!;
-  fireEvent.click(row.querySelector('[aria-label="Add Agent"]')!);
-  await waitFor(() => expect(rpcCalls(app, "agent.spawn")).toEqual([{cwd:"/Users/you/harness",prompt:null,parent:"auth",model:null,effort:null,cols:100,rows:30}]));
-
-});
-
 
 it("u4275b_row_actions_keep_menu_semantics_stop_cancellation", async () => {
   const { app } = await open("tree-40", ["backend", "auth", "tokens"]);

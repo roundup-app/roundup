@@ -162,7 +162,7 @@ async fn t19_failed_history_preserves_done_state() {
     let before = changes(&h, 1).await;
     let touches = h.touches(1);
     h.events();
-    let db = rusqlite::Connection::open(dir.path().join("project.db")).unwrap();
+    let db = storage::connect(dir.path()).unwrap();
     db.execute_batch("CREATE TRIGGER fail_history BEFORE INSERT ON changes BEGIN SELECT RAISE(ABORT, 'history failed'); END;").unwrap();
     assert!(h.call("todo.reopen", json!({"id":1})).await.is_err());
     assert_eq!(
@@ -341,7 +341,7 @@ async fn t15_history_failure_leaves_no_unrecorded_mutation() {
     let h = Harness::new(dir.path());
     h.call("todo.create", json!({"title": "a"})).await.unwrap();
     let before = changes(&h, 1).await;
-    let db = rusqlite::Connection::open(dir.path().join("project.db")).unwrap();
+    let db = storage::connect(dir.path()).unwrap();
     db.execute_batch("CREATE TRIGGER fail_history BEFORE INSERT ON changes BEGIN SELECT RAISE(ABORT, 'history failed'); END;").unwrap();
     for (method, params) in [
         ("todo.update", json!({"id": 1, "title": "lost"})),
@@ -387,7 +387,7 @@ async fn t15_equal_time_reads_and_changes_keep_order() {
     h.call_as(agent("a"), "todo.update", json!({"id": 1, "body": "new"}))
         .await
         .unwrap();
-    let db = rusqlite::Connection::open(dir.path().join("project.db")).unwrap();
+    let db = storage::connect(dir.path()).unwrap();
     db.execute("UPDATE touches SET at = 0", []).unwrap();
     let history = changes(&h, 1).await;
     assert_eq!(history["unread"], history["changes"][1]["seq"]);
@@ -434,7 +434,7 @@ async fn t15_list_does_not_load_history() {
             .await
             .unwrap();
     }
-    let db = rusqlite::Connection::open(dir.path().join("project.db")).unwrap();
+    let db = storage::connect(dir.path()).unwrap();
     db.execute("UPDATE changes SET after_values = 'unreadable'", [])
         .unwrap();
     let list = h.call("todo.list", json!({})).await.unwrap();

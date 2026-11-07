@@ -2,6 +2,8 @@ use std::sync::Arc;
 
 use contracts::Actor;
 
+use crate::agent::Runs;
+use crate::id::AgentId;
 use crate::tests::*;
 
 #[tokio::test]
@@ -26,8 +28,8 @@ async fn u177_a_door_attempt_awaits_its_channel_until_it_is_up_or_missing() {
             rail.set_mcp(&contracts::project::Mcp { on: mcp }).unwrap();
             node.id
         };
-        let run = shared.runs().remove("7013").unwrap();
-        shared.runs().insert(id.clone(), run);
+        let run = shared.runs().forget("7013").unwrap();
+        shared.runs().insert(AgentId::parse(&id).unwrap(), run);
         if let Some(channel) = settled {
             shared.set_channel(Actor::daemon(), &id, "1", channel);
         }

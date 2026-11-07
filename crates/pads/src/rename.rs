@@ -2,18 +2,20 @@
 
 use std::path::PathBuf;
 
-use contracts::{EventData, pad::RenameParams};
+use contracts::{
+    EventData,
+    pad::{Pad, RenameParams},
+};
 use rpc::Ctx;
-use serde_json::Value;
 
-use crate::{Error, Pads, RemovalFiles, files, get, name, reply, store, wrote};
+use crate::{Error, Pads, RemovalFiles, files, get, name, store, wrote};
 
 impl Pads {
-    pub(super) fn rename(&self, ctx: &Ctx, p: RenameParams) -> Result<Value, Error> {
+    pub(super) async fn rename(&self, ctx: &Ctx, p: RenameParams) -> Result<Pad, Error> {
         name::validate(&p.new_name)?;
         let store = self.store()?;
         let mut mirror = MirrorRename::default();
-        let pad = store.atomically(|| {
+        let pad = store.atomically(|_tx| {
             let pad = get(&store, &p.name)?;
             if pad.incarnation != p.expected_incarnation || pad.name != p.name {
                 return Err(Error::conflict("the original pad name or creation changed"));
@@ -51,7 +53,7 @@ impl Pads {
                 previous_name: p.name,
             });
         }
-        reply(&pad)
+        Ok(pad)
     }
 }
 

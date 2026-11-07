@@ -15,19 +15,6 @@ describe("u427 a Workstream row's icons", () => {
 
   });
 
-  it("u427_the_plus_icon_focuses_an_open_composing_field", async () => {
-    const mounted = await mountRail([workstream("g")]);
-    mounted.rail.select("g");
-    fireEvent.keyDown(document, { key: "n", metaKey: true, shiftKey: true });
-    const field = await screen.findByLabelText("Work");
-
-    await chooseAction(mounted.app, "g", "Agent");
-
-    expect(document.activeElement).toBe(field);
-    expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([]);
-  });
-
-
   it.each([null, { path: "/p/.wt/d", branch: "d", base: "main" }])("u427_open_folder_opens_the_doors_directory_%s", async worktree => {
     const mounted = await mountRail([workstream("selected"), door("d", "idle", "i", { worktree })]);
     mounted.rail.select("selected");

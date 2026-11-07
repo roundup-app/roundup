@@ -1,7 +1,7 @@
 import { copy as recoveryCopy } from "../sharedCopy";
 import { copy as railCopy } from "../rail/copy";
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
+import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { RequestedApp as App } from "../testing/requestedApp";
 import { draftStorage } from "../state/storage";
@@ -10,37 +10,8 @@ import { fakeEmulators } from "../terminal/paneHarness";
 import { createFakeApp } from "./fakeApp";
 import { agent, workstream, event } from "./nodes";
 import type { RailNode } from "@contracts/agent/RailNode";
-import { menuProbe } from "./menuProbe";
 
 afterEach(() => { cleanup(); localStorage.clear(); vi.restoreAllMocks(); });
-
-it("u176_two_agents_added_to_one_workstream_are_told_apart_in_the_rail", async () => {
-  const app = createFakeApp();
-  app.add("/project", "Project");
-  const home = workstream("home");
-  const tree = [home];
-  app.handlers["rail.tree"] = () => tree;
-  app.handlers["agent.spawn"] = () => agent(`child-${tree.length}`, "working", "ready", { parent: home.id });
-  render(() => <App app={app} reducedMotion={() => false} clock={Date.now} createEmulator={fakeEmulators().factory} />);
-  const rail = await screen.findByRole("region", { name: "Rail" });
-
-  for (const [index, name] of ["what-should-this", "what-should-this-2"].entries()) {
-    await waitFor(() => expect(within(rail).getByRole("button", { name: "Create" }).getAttribute("aria-disabled")).not.toBe("true"));
-    fireEvent.contextMenu(await within(rail).findByText(home.name, { selector: ".rail-row .name" }));
-    await waitFor(() => expect(menuProbe.shown?.find(item => item.id === "add")?.children?.some(item => item.id === "add-agent" && item.enabled)).toBe(true));
-    menuProbe.answer!("add-agent");
-    await waitFor(() => expect(app.calls.filter(call => call.method === "agent.spawn")).toHaveLength(index + 1));
-    // Production naming is proved by agents::u176_agents_with_one_prompt_are_numbered_among_their_siblings.
-    // Here the Daemon supplies names; the App must show each on its own row.
-    tree.push(agent(`child-${index + 1}`, "working", "ready", { parent: home.id, name }));
-    app.emit(event({ name: "rail.changed" }));
-    await within(rail).findByText(name, { selector: `.rail-row[data-id="child-${index + 1}"] .name` });
-  }
-
-  expect(app.calls.filter(call => call.method === "agent.spawn").map(call => call.params)).toEqual([
-    expect.objectContaining({ parent: home.id }), expect.objectContaining({ parent: home.id }),
-  ]);
-}, 180_000);
 
 // Incoming trees are supplied facts; the mounted App owns draft identity and submission.
 describe("u2773 Rail task destinations", () => {
@@ -153,7 +124,7 @@ describe("u2773 Rail task destinations", () => {
     for (const spy of [calls, rightCalls]) expect(spy.mock.calls.filter(([method]) => ["agent.spawn", "message.send"].includes(method))).toEqual([]);
     submit();
     await waitFor(() => expect(calls.mock.calls.filter(([method]) => method === "agent.spawn")).toHaveLength(1));
-    expect(calls.mock.calls.find(([method]) => method === "agent.spawn")?.[1]).toMatchObject({ parent: home, prompt: "left\ne\u0301 😀" });
+    expect(calls.mock.calls.find(([method]) => method === "agent.spawn")?.[1]).toMatchObject({ parent: null, prompt: "left\ne\u0301 😀" });
     expect(rightCalls.mock.calls.filter(([method]) => ["agent.spawn", "message.send"].includes(method))).toEqual([]);
   }, 120_000);
 

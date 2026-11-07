@@ -202,7 +202,6 @@ export const copy = {
   linkUrl: (kind: string, id: string, project: string) => `roundup://${kind}/${id}?project=${project}`,
   linkNote: (link: string) => `${link}\nrup link read ${link}`,
   renameChord: "F2",
-  addAgentMenu: word.agent,
   copyLink: "Copy link",
   failed: (value1: CopyValue, value2: CopyValue) => `${value1} failed: ${value2}`,
   changedTodo: (value1: CopyValue) => `Changed Todo "${value1}"`,

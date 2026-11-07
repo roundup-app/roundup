@@ -192,13 +192,13 @@ impl crate::Agents {
                             .as_ref()
                             .is_some_and(|status| status.kind == Kind::NeedsYou) =>
                 {
-                    Some(agent.clone())
+                    Some(*agent)
                 }
                 _ => None,
             })
         };
         if let Some(agent) = waiting {
-            let name = self.shared.rail().name(&agent)?;
+            let name = self.shared.rail().name(&agent.to_string())?;
             return Err(RpcError::forbidden(format!(
                 "{name} waits on the user in its Terminal"
             )));

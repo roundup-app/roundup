@@ -1,15 +1,14 @@
 //! T25, T26: the Daemon hands an idle Agent its next owned Todo.
 use contracts::EventData;
-use contracts::todo::HandParams;
+use contracts::todo::{HandParams, Todo};
 use rpc::Ctx;
-use serde_json::Value;
 
 use super::Todos;
-use crate::error::{Error, reply};
+use crate::error::Error;
 
 impl Todos {
     /// T25, T26: only the Daemon hands; the Change is written before any Message is sent.
-    pub(crate) fn hand(&self, ctx: &Ctx, p: HandParams) -> Result<Value, Error> {
+    pub(crate) async fn hand(&self, ctx: &Ctx, p: HandParams) -> Result<Option<Todo>, Error> {
         if ctx.actor != contracts::Actor::daemon() {
             return Err(Error::Forbidden("only the Daemon hands a Todo".into()));
         }
@@ -19,6 +18,6 @@ impl Todos {
         if let Some(todo) = &handed {
             ctx.emit(EventData::TodoUpdated(todo.clone().into()));
         }
-        reply(&handed)
+        Ok(handed)
     }
 }

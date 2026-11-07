@@ -3,11 +3,10 @@
 //! before `gh` runs, and its dir moves to `posted/` only after `gh` exited 0.
 
 use base64::Engine;
+use contracts::ActorKind;
 use contracts::feedback::{RetryParams, SendParams, Sent};
-use contracts::{Actor, ActorKind};
-use rpc::{RpcError, code, params};
+use rpc::{RpcError, code};
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 use std::path::{Path, PathBuf};
 
 use crate::github::gh;
@@ -120,24 +119,31 @@ impl Daemon {
         out
     }
 
-    pub(crate) async fn feedback(
-        &self,
-        conn: &Conn,
-        method: &str,
-        value: Value,
-    ) -> Result<Value, RpcError> {
-        let Actor { kind, .. } = &conn.actor;
-        if *kind != ActorKind::User {
+    fn owner_only(conn: &Conn, method: &str) -> Result<(), RpcError> {
+        if conn.actor.kind != ActorKind::User {
             return Err(RpcError::forbidden(format!(
                 "{method} is the owner's own action"
             )));
         }
-        let sent = if method == "feedback.send" {
-            self.feedback_send(params(value)?).await?
-        } else {
-            self.feedback_retry(params(value)?).await?
-        };
-        rpc::reply(&sent)
+        Ok(())
+    }
+
+    pub(crate) async fn send_feedback(
+        &self,
+        conn: &mut Conn,
+        p: SendParams,
+    ) -> Result<Sent, RpcError> {
+        Self::owner_only(conn, "feedback.send")?;
+        self.feedback_send(p).await
+    }
+
+    pub(crate) async fn retry_feedback(
+        &self,
+        conn: &mut Conn,
+        p: RetryParams,
+    ) -> Result<Sent, RpcError> {
+        Self::owner_only(conn, "feedback.retry")?;
+        self.feedback_retry(p).await
     }
 
     async fn feedback_send(&self, p: SendParams) -> Result<Sent, RpcError> {
@@ -287,6 +293,8 @@ fn read_saved(dir: &Path) -> Option<Saved> {
 mod tests {
     use super::*;
     use crate::github::tests::{FAKE, fake_gh};
+    use contracts::Actor;
+    use serde_json::Value;
     use serde_json::json;
 
     const TARGET: &str = "https://github.com/o/r/issues/6163";
@@ -322,13 +330,13 @@ mod tests {
         params: Value,
     ) -> Result<Value, RpcError> {
         let (events, _) = tokio::sync::mpsc::unbounded_channel();
-        let conn = Conn {
+        let mut conn = Conn {
             actor,
             peer: None,
             events,
             output: None,
         };
-        daemon.feedback(&conn, method, params).await
+        daemon.route(&mut conn, method, params).await
     }
 
     async fn call(daemon: &Daemon, method: &str, params: Value) -> Value {

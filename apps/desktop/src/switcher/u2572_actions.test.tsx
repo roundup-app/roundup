@@ -105,7 +105,7 @@ it("u2572b_action_choice_does_not_select_a_highlighted_destination", async () =>
   expect(connected.rail.selected()).toBe("ops");
   await chooseAction("New Agent", "enter");
   await waitFor(() => expect(app.calls.filter((call) => call.method === "agent.spawn").map((call) => call.params)).toEqual([
-    { cwd: "/p", prompt: null, parent: "ops", model: null, effort: null, cols: 100, rows: 30 },
+    { cwd: "/p", prompt: null, parent: null, model: null, effort: null, cols: 100, rows: 30 },
   ]));
 });
 
@@ -120,7 +120,7 @@ it.each([false, true])("u2572b_actions_share_key_behavior_in_the_opening_view: p
   fireEvent.input(prompt, { target: { value: "make this work" } });
   press("Enter", {}, prompt);
   await waitFor(() => expect(app.calls.filter((call) => call.method === "agent.spawn").map((call) => call.params)).toEqual([
-    { cwd: "/p", prompt: "make this work", parent: "ops", model: null, effort: null, cols: 100, rows: 30 },
+    { cwd: "/p", prompt: "make this work", parent: null, model: null, effort: null, cols: 100, rows: 30 },
   ]));
 });
 

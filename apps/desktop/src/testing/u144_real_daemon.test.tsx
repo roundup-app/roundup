@@ -246,7 +246,7 @@ describe("u2773 Project draft integration on real Projects", () => {
     expect(opener.disabled).toBe(false);
     const clipboard = vi.fn(async (_text: string) => {});
     vi.spyOn(app, "writeClipboardText").mockImplementation(clipboard);
-    await firstApp.rpc("pad.delete", { name: pad.name });
+    await firstApp.rpc("pad.delete", { name: pad.name, operation: crypto.randomUUID() });
     const replacementPad = await firstApp.rpc("pad.create", { name: pad.name, text: "replacement" });
     expect(replacementPad.incarnation).not.toBe(pad.incarnation);
     const copyButton = await within(recovery).findByRole("button", { name: "Copy" });

@@ -101,8 +101,6 @@ pub(crate) struct Policy {
     pub(crate) capped: bool,
     /// The wire reader dispatches it before it reads the next request.
     pub(crate) settles: bool,
-    /// The call ends a Terminal output stream.
-    pub(crate) releases: bool,
 }
 
 const PLAIN: Policy = Policy {
@@ -116,7 +114,6 @@ const PLAIN: Policy = Policy {
     serial: Serial::No,
     capped: false,
     settles: false,
-    releases: false,
 };
 
 /// The row of `method`, or `None` for a name the Daemon does not serve.
@@ -258,7 +255,7 @@ static TABLE: &[(&str, Policy)] = &[
     ("terminal.measure", PLAIN),
     ("terminal.open", Policy { gate: Gate::Open, ..PLAIN }),
     ("terminal.output", Policy { settles: true, ..PLAIN }),
-    ("terminal.outputStop", Policy { settles: true, releases: true, ..PLAIN }),
+    ("terminal.outputStop", Policy { settles: true, ..PLAIN }),
     ("terminal.read", Policy { gate: Gate::ChildRead, inputs: Inputs::Reader, ..PLAIN }),
     ("terminal.resize", Policy { observed: true, gate: Gate::Terminal, ..PLAIN }),
     ("terminal.scheme", PLAIN),

@@ -150,7 +150,9 @@ async fn u3789a_mcp_and_cli_rename_keep_the_guarded_creation() {
     assert_eq!(accepted.is_error, Some(false));
     let mut expected = original.clone();
     expected["name"] = serde_json::json!("Plan");
-    assert_eq!(super::text(&accepted), expected);
+    let mut linked = expected.clone();
+    linked["link"] = serde_json::json!("roundup://pad/Plan?project=.roundup");
+    assert_eq!(super::text(&accepted), linked);
     let cli = tokio::process::Command::new(env!("CARGO_BIN_EXE_rup"))
         .args([
             "pad",
@@ -343,7 +345,7 @@ async fn p16_shared_pad_access_over_public_seams() {
             let removed = shim
                 .call(
                     "pad_delete",
-                    json!({"name":renamed,"expectedIncarnation":original["incarnation"]}),
+                    json!({"name":renamed,"operation":format!("del-{renamed}"),"expectedIncarnation":original["incarnation"]}),
                 )
                 .await;
             assert_ne!(removed.is_error, Some(true));
