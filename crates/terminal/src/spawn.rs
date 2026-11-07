@@ -264,6 +264,8 @@ fn program_name(command: Option<&[String]>) -> String {
 
 /// U6144b: variables other terminals set that a program reads as that terminal's features.
 const OTHER_TERMINALS: &[&str] = &[
+    // Owner decision 2026-11-06: Claude Code's Kitty placeholders break in this emulator.
+    "CLAUDE_CODE_FORCE_TERMINAL_IMAGES",
     "TERM_PROGRAM",
     "TERM_PROGRAM_VERSION",
     "TERM_SESSION_ID",
@@ -305,6 +307,4 @@ fn claim_only_this_emulator(command: &mut CommandBuilder) {
         command.env_remove(name);
     }
     command.env("TERM", "xterm-256color");
-    // U6144c: Claude Code names no other switch for the Kitty placeholders this emulator draws.
-    command.env("CLAUDE_CODE_FORCE_TERMINAL_IMAGES", "1");
 }

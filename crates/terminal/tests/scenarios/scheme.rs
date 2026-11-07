@@ -259,32 +259,19 @@ async fn u6144b_a_terminal_claims_only_this_emulator() {
     let (terminals, _) = open(&dir);
     let mut params = sh(
         dir.path(),
-        r#"echo "term=$TERM program=${TERM_PROGRAM-none} version=${TERM_PROGRAM_VERSION-none} kitty=${KITTY_WINDOW_ID-none}""#,
+        r#"echo "term=$TERM program=${TERM_PROGRAM-none} version=${TERM_PROGRAM_VERSION-none} kitty=${KITTY_WINDOW_ID-none} images=${CLAUDE_CODE_FORCE_TERMINAL_IMAGES-none}""#,
     );
     params.env.insert("TERM".into(), "xterm-ghostty".into());
     params.env.insert("TERM_PROGRAM".into(), "ghostty".into());
     params.env.insert("TERM_PROGRAM_VERSION".into(), "1".into());
     params.env.insert("KITTY_WINDOW_ID".into(), "1".into());
+    params
+        .env
+        .insert("CLAUDE_CODE_FORCE_TERMINAL_IMAGES".into(), "1".into());
     let mut spawned = terminals.spawn(params).await.unwrap();
     let printed = drain(&mut spawned.output).await;
     assert!(
-        printed.contains("term=xterm-256color program=none version=none kitty=none"),
+        printed.contains("term=xterm-256color program=none version=none kitty=none images=none"),
         "{printed:?}"
     );
-}
-
-#[tokio::test]
-async fn u6144c_a_terminal_carries_the_force_images_variable() {
-    let dir = tempfile::tempdir().unwrap();
-    let (terminals, _) = open(&dir);
-    let mut params = sh(
-        dir.path(),
-        r#"echo "images=${CLAUDE_CODE_FORCE_TERMINAL_IMAGES-none}""#,
-    );
-    params
-        .env
-        .insert("CLAUDE_CODE_FORCE_TERMINAL_IMAGES".into(), "0".into());
-    let mut spawned = terminals.spawn(params).await.unwrap();
-    let printed = drain(&mut spawned.output).await;
-    assert!(printed.contains("images=1"), "{printed:?}");
 }

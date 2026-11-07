@@ -15,20 +15,24 @@ pub fn parse_footprint(raw: &str) -> Result<u64, String> {
     if rows.len() != 1 {
         return Err("missing/duplicate phys_footprint ledger".into());
     }
-    let words: Vec<_> = rows[0].split_whitespace().collect();
-    if words.len() == 1 {
-        return words[0]
-            .parse::<u64>()
-            .map_err(|_| "invalid forced-byte phys_footprint ledger".into());
-    }
-    if words.len() != 2 {
-        return Err("unsupported phys_footprint value/unit".into());
-    }
-    let value: f64 = words[0]
+    let words: Vec<_> = rows
+        .first()
+        .map(|row| row.split_whitespace().collect())
+        .unwrap_or_default();
+    let (number, unit) = match words[..] {
+        [bytes] => {
+            return bytes
+                .parse::<u64>()
+                .map_err(|_| "invalid forced-byte phys_footprint ledger".into());
+        }
+        [number, unit] => (number, unit),
+        _ => return Err("unsupported phys_footprint value/unit".into()),
+    };
+    let value: f64 = number
         .parse()
         .map_err(|_| "invalid phys_footprint number")?;
     // footprint's formatted K/M/G suffixes are binary; -f bytes avoids rounding on native runs.
-    let factor = match words[1] {
+    let factor = match unit {
         "B" | "bytes" => 1.0,
         "K" | "KB" | "KiB" => 1024.0,
         "M" | "MB" | "MiB" => 1_048_576.0,
@@ -64,14 +68,15 @@ pub fn parse_top(raw: &str) -> Result<Counters, String> {
             }
             header = true;
         } else if header && !fields.is_empty() {
+            let [first, .., cpu_field, wakes_field] = fields[..] else {
+                return Err("incomplete top row".into());
+            };
             if fields.len() < 4 {
                 return Err("incomplete top row".into());
             }
-            let pid: u32 = fields[0].parse().map_err(|_| "invalid top PID")?;
-            let c: f64 = fields[fields.len() - 2]
-                .parse()
-                .map_err(|_| "invalid top CPU")?;
-            let w: u64 = fields[fields.len() - 1]
+            let pid: u32 = first.parse().map_err(|_| "invalid top PID")?;
+            let c: f64 = cpu_field.parse().map_err(|_| "invalid top CPU")?;
+            let w: u64 = wakes_field
                 .parse()
                 .map_err(|_| "invalid top IDLEW interval count")?;
             if !c.is_finite() || c < 0.0 || cpu.insert(pid, c).is_some() {
@@ -117,12 +122,14 @@ pub(super) fn summarize(
         }
         let dt = interval.end_s - interval.start_s;
         for pid in &ids {
-            let c = interval.cpu[pid];
+            let (Some(&c), Some(&idle)) = (interval.cpu.get(pid), interval.idlew.get(pid)) else {
+                return Err("top sample missing PID/metric".into());
+            };
             if !c.is_finite() || c < 0.0 {
                 return Err(format!("PID {pid}: invalid CPU"));
             }
             cpu += c * dt;
-            *wakes.entry(*pid).or_default() += interval.idlew[pid] as f64;
+            *wakes.entry(*pid).or_default() += idle as f64;
         }
         elapsed = interval.end_s;
     }

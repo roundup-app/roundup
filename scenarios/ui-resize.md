@@ -1,6 +1,6 @@
 # UI: the Rail and the Shelf resize (U389 to U391)
 
-Module: `apps/desktop` (the webview). Ids: U389, U390, U391.
+Module: `apps/desktop` (the webview). Ids: U389, U390, U391, U391a.
 
 Webview only: no App command, no Daemon method and nothing under `contracts/` changes. Found by the user's report #622: "the sidebar rail and pads/todos should be width resizable", "+ new workstream on the rail should be sticky at the bottom button full width of the rail bottom not in the rail" and "the sidebar rail width should be a bit wider and more and should be resizable". Observer: rendered-page checks in Chromium on `just harness` (U26) against the fake App, light and dark for behavioral observers (captures and critic Check readings use dark only, U3725), on `tree-40` and `agents-10` at 1280 by 800, and at 1280 by 400 (U85). Never a native Mac capture.
 
@@ -45,5 +45,13 @@ Tests (`u390_`): `u390_default_is_320`, `u390_the_edge_is_a_focusable_separator`
 - **Error line.** The `✕` line sits directly above the footer, outside the list, and is visible with the list scrolled anywhere.
 
 Tests (`u391_`; Chromium on `just harness`, plus Vitest against the fake App): `u391_the_footer_is_outside_the_scroll_area`, `u391_it_is_kind_add`, `u391_it_still_creates_selects_and_starts` (U9, U62's tests keep passing unchanged), `u391_pending_and_exited_disable_it`, `u391_the_error_line_stays_above_it`. Moves: D2, D6, D8. Owns `apps/desktop/src/rail/`.
+
+**U391a the Rail's list ends above its footer.** Given the Rail on `tree-40`, failed rows included (their "Open Terminal · Dismiss" line stays: U6249d), at 1512×900 and 1512×950, then:
+
+- **End.** The element that scrolls the list ends at the footer's top edge, and no row paints under the footer. Policy: the Observer judges the geometry (rule 10: no test of a position or overlap).
+- **Last row.** Scrolled to its end, the list shows its last row whole above the footer's hairline.
+- **Drag.** Every row, the last included, can be lifted by its grip and dropped at the slot the rows show. Auto-scroll at the list's edges stays (U522).
+
+Policy: the footer is not moved into the list and its height (`--rail-actions-height`, U4313b) and the `✕` line above it (U391) are unchanged. No test of a position, size or overlap (rule 10); the rendered Observer on `tree-40`, dark, headless in an isolated session: scroll to the end and read the last row's box against the footer's top edge; lift agent-28 by its grip, move it up 2 rows, drop it, then back down 2; read D2, D5, D6 and D8 at both sizes. Moves: D2, D5, D6, D8. Owns `apps/desktop/src/rail/`.
 
 Narrowing summary, for the review run: U23, U24, U85 and U172 (the Rail's 252 px becomes the minimum and 288 px the default), U111 (the Drawer's cap follows the Rail's width; the no-sideways-scroll clauses are restated and tested), U369 to U371 (the Shelf's Edge and width), U9, U62 and U191 (the button's place), `docs/design-system.md` (the **add** row; Surfaces and depth: the Rail's and Shelf's hairline is a Resize edge) and `GLOSSARY.md` **Resize edge**. The implementation run rewrites the sentences these name as it ships them.

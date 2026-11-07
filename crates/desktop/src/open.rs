@@ -66,13 +66,61 @@ fn parse_path(path: &str) -> Result<PathBuf, RpcError> {
     Ok(path)
 }
 
-/// Apps that take a line, by bundle id, and the URL scheme that opens a file at one.
-const LINE_APPS: [(&str, &str); 4] = [
-    ("com.microsoft.VSCode", "vscode"),
-    ("dev.zed.Zed", "zed"),
-    ("dev.zed.Zed-Preview", "zed"),
-    ("com.todesktop.230313mzl4w4u92", "cursor"),
+/// A code editor the user can choose: its bundle id, its name and the URL scheme that opens a file at a line (`None`: it takes no line).
+struct Editor {
+    id: &'static str,
+    name: &'static str,
+    scheme: Option<&'static str>,
+}
+
+/// The choices of `Code editor` (`scenarios/ui-app-settings.md` U6372a), in the order `Automatic` tries the first four (U2539c).
+const EDITORS: [Editor; 7] = [
+    Editor {
+        id: "com.microsoft.VSCode",
+        name: "VS Code",
+        scheme: Some("vscode"),
+    },
+    Editor {
+        id: "com.todesktop.230313mzl4w4u92",
+        name: "Cursor",
+        scheme: Some("cursor"),
+    },
+    Editor {
+        id: "dev.zed.Zed",
+        name: "Zed",
+        scheme: Some("zed"),
+    },
+    Editor {
+        id: "dev.zed.Zed-Preview",
+        name: "Zed Preview",
+        scheme: Some("zed"),
+    },
+    Editor {
+        id: "com.apple.dt.Xcode",
+        name: "Xcode",
+        scheme: None,
+    },
+    Editor {
+        id: "com.sublimetext.4",
+        name: "Sublime Text",
+        scheme: None,
+    },
+    Editor {
+        id: "com.panic.Nova",
+        name: "Nova",
+        scheme: None,
+    },
 ];
+
+/// How many of `EDITORS` `Automatic` tries.
+const AUTOMATIC: usize = 4;
+
+/// An installed editor as the Settings choice lists it.
+#[derive(Debug, PartialEq, serde::Serialize)]
+pub struct EditorChoice {
+    pub id: &'static str,
+    pub name: &'static str,
+}
 
 /// `<scheme>://file<path>:<line>` with the path percent-encoded.
 fn goto_url(scheme: &str, path: &std::path::Path, line: u32) -> String {
@@ -88,173 +136,193 @@ fn goto_url(scheme: &str, path: &std::path::Path, line: u32) -> String {
     format!("{url}:{line}")
 }
 
-/// The program and arguments that open `launch`: a file with a line, whose default app is one that takes a line, opens at it there; anything else goes to the system opener.
-fn command(launch: &Launch, default_app: Option<&str>) -> (String, Vec<std::ffi::OsString>) {
+type Opening = (String, Vec<std::ffi::OsString>);
+
+fn system_command(argument: std::ffi::OsString) -> Opening {
     let opener = if cfg!(target_os = "macos") {
         "open"
     } else {
         "xdg-open"
     };
-    let scheme = LINE_APPS
-        .iter()
-        .find(|(name, _)| Some(*name) == default_app)
-        .map(|(_, scheme)| *scheme);
-    let argument = match (launch, scheme) {
-        (Launch::Url(url), _) => url.as_str().into(),
-        (
-            Launch::Path {
-                path,
-                line: Some(line),
-            },
-            Some(scheme),
-        ) => goto_url(scheme, path, *line).into(),
-        (Launch::Path { path, .. }, _) => path.as_os_str().to_owned(),
-    };
     (opener.into(), vec![argument])
 }
 
-/// Asks LaunchServices (no Apple events, so no consent prompt) for the bundle id of the app that opens argv[0].
-const DEFAULT_APP_SCRIPT: &str = "function run(argv) { try { const url = $.NSWorkspace.sharedWorkspace.URLForApplicationToOpenURL($.NSURL.fileURLWithPath(argv[0])); return ObjC.unwrap($.NSBundle.bundleWithURL(url).bundleIdentifier) || ''; } catch (e) { return ''; } }";
-
-/// The bundle id `osascript` printed, or `None` when it printed none.
-fn parse_bundle_id(stdout: &[u8]) -> Option<String> {
-    let id = std::str::from_utf8(stdout).ok()?.trim();
-    (!id.is_empty()).then(|| id.to_owned())
-}
-
-/// The bundle id of the file's default app; `None` off macOS or when it has none.
-fn default_app(path: &std::path::Path) -> Option<String> {
-    if !cfg!(target_os = "macos") {
-        return None;
-    }
-    let output = Command::new("osascript")
-        .args(["-l", "JavaScript", "-e", DEFAULT_APP_SCRIPT])
-        .arg(path)
-        .output()
-        .ok()?;
-    if !output.status.success() {
-        return None;
-    }
-    parse_bundle_id(&output.stdout)
-}
-
-/// Hands the system the target; a folder opens in Finder and a file in its default app, at its line when that app takes one.
-pub fn launch(launch: &Launch) -> Result<(), RpcError> {
-    let app = match launch {
-        Launch::Path {
-            path,
-            line: Some(_),
-        } => default_app(path),
-        _ => None,
-    };
-    let (program, args) = command(launch, app.as_deref());
-    Command::new(&program)
-        .args(args)
-        .spawn()
-        .map(drop)
-        .map_err(|err| RpcError::new(rpc::code::INTERNAL, format!("{program}: {err}")))
-}
-
-/// A code editor the App can launch: by bundle id (`open -b`) or application name (`open -a`).
-#[derive(Debug, PartialEq, Clone)]
-enum Editor {
-    Bundle(String),
-    Name(String),
-}
-
-/// `ROUNDUP_EDITOR` names an app by bundle id (it holds a dot) or by application name.
-fn named_editor(text: &str) -> Editor {
-    if text.contains('.') && !text.contains(' ') && !text.ends_with(".app") {
-        Editor::Bundle(text.into())
-    } else {
-        Editor::Name(text.into())
-    }
-}
-
-/// The first editor that applies: `ROUNDUP_EDITOR`, then VS Code, Cursor and Zed; one counts when `installed` finds it.
-fn choose_editor(chosen: Option<&str>, installed: &dyn Fn(&Editor) -> bool) -> Option<Editor> {
-    chosen
-        .map(str::trim)
-        .filter(|text| !text.is_empty())
-        .map(named_editor)
-        .into_iter()
-        .chain(
-            [LINE_APPS[0], LINE_APPS[3], LINE_APPS[1], LINE_APPS[2]]
-                .iter()
-                .map(|(id, _)| Editor::Bundle((*id).into())),
-        )
-        .find(|editor| installed(editor))
-}
-
-/// The program and arguments that open `path` in `editor`: a file with a `line` goes to the editor as its goto URL when the editor takes one.
-fn editor_command(
-    editor: &Editor,
-    path: &std::path::Path,
-    line: Option<u32>,
-) -> (String, Vec<std::ffi::OsString>) {
-    let (flag, app) = match editor {
-        Editor::Bundle(id) => ("-b", id),
-        Editor::Name(name) => ("-a", name),
-    };
-    let scheme = LINE_APPS
-        .iter()
-        .find(|(id, _)| matches!(editor, Editor::Bundle(bundle) if bundle == id))
-        .map(|(_, scheme)| *scheme);
-    let target = match (line, scheme) {
+/// The command that opens `path` in `editor`, at `line` when the editor takes one.
+fn editor_command(editor: &Editor, path: &std::path::Path, line: Option<u32>) -> Opening {
+    let target = match (line, editor.scheme) {
         (Some(line), Some(scheme)) if path.is_file() => goto_url(scheme, path, line).into(),
         _ => path.as_os_str().to_owned(),
     };
-    ("open".into(), vec![flag.into(), app.into(), target])
+    ("open".into(), vec!["-b".into(), editor.id.into(), target])
+}
+
+/// The editor to use: the chosen bundle id when it is installed, else the first installed of `Automatic`'s order. `Ok(None)` is `Automatic` with none installed; a chosen editor that is not installed fails (U6372c).
+fn resolve(
+    chosen: Option<&str>,
+    installed: &dyn Fn(&str) -> bool,
+) -> Result<Option<&'static Editor>, RpcError> {
+    match chosen.map(str::trim).filter(|id| !id.is_empty()) {
+        None => Ok(EDITORS[..AUTOMATIC]
+            .iter()
+            .find(|editor| installed(editor.id))),
+        Some(id) => EDITORS
+            .iter()
+            .find(|editor| editor.id == id && installed(id))
+            .map(Some)
+            .ok_or_else(|| {
+                let name = EDITORS
+                    .iter()
+                    .find(|editor| editor.id == id)
+                    .map_or(id, |editor| editor.name);
+                RpcError::new(
+                    rpc::code::NOT_FOUND,
+                    format!("{name} is not installed; choose another in Settings"),
+                )
+            }),
+    }
+}
+
+/// What the machine answers: whether an app is installed and whether a file is a text file.
+struct Machine<'a> {
+    installed: &'a dyn Fn(&str) -> bool,
+    text: &'a dyn Fn(&std::path::Path) -> bool,
+}
+
+/// A file with no extension (`justfile`) or whose type conforms to `public.text` (U6372b).
+fn is_text(path: &std::path::Path, conforms: &dyn Fn(&str) -> bool) -> bool {
+    path.extension()
+        .is_none_or(|extension| conforms(&extension.to_string_lossy()))
+}
+
+/// The command for `launch`. A text file goes to the editor, at its line when it takes one; a folder goes there only from `Open in editor` (`in_editor`); a web link and every other file go to the system opener.
+fn plan(
+    launch: &Launch,
+    chosen: Option<&str>,
+    in_editor: bool,
+    machine: &Machine<'_>,
+) -> Result<Opening, RpcError> {
+    let (path, line) = match launch {
+        Launch::Url(url) => return Ok(system_command(url.as_str().into())),
+        Launch::Path { path, line } => (path, line),
+    };
+    let wanted = if path.is_dir() {
+        in_editor
+    } else {
+        (machine.text)(path)
+    };
+    if !wanted {
+        return Ok(system_command(path.as_os_str().to_owned()));
+    }
+    match resolve(chosen, machine.installed)? {
+        Some(editor) => Ok(editor_command(editor, path, *line)),
+        None if in_editor => Err(RpcError::new(
+            rpc::code::NOT_FOUND,
+            "no code editor found; choose one in Settings",
+        )),
+        None => Ok(system_command(path.as_os_str().to_owned())),
+    }
 }
 
 // Query LaunchServices without opening Finder or launching the app during discovery.
 // https://developer.apple.com/documentation/appkit/nsworkspace/urlforapplication(withbundleidentifier:)
-const EDITOR_PATH_SCRIPT: &str = "ObjC.import('AppKit'); function run(argv) { try { const w = $.NSWorkspace.sharedWorkspace; return argv[0] === 'bundle' ? ObjC.unwrap(w.URLForApplicationWithBundleIdentifier(argv[1]).path) || '' : ObjC.unwrap(w.fullPathForApplication(argv[1])) || ''; } catch (e) { return ''; } }";
+const INSTALLED_SCRIPT: &str = "ObjC.import('AppKit'); function run(argv) { const w = $.NSWorkspace.sharedWorkspace; return argv.filter(id => { try { return !!w.URLForApplicationWithBundleIdentifier(id); } catch (e) { return false; } }).join('\\n'); }";
 
-fn is_installed(editor: &Editor) -> bool {
+// https://developer.apple.com/documentation/uniformtypeidentifiers/uttype
+const CONFORMS_SCRIPT: &str = "ObjC.import('UniformTypeIdentifiers'); function run(argv) { try { const type = $.UTType.typeWithFilenameExtension(argv[0]); return type && type.conformsToType($.UTType.typeWithIdentifier('public.text')) ? 'yes' : 'no'; } catch (e) { return 'no'; } }";
+
+/// The stdout of an `osascript` run of `script`; `None` off macOS or when it fails.
+fn osascript(script: &str, args: &[&str]) -> Option<String> {
     if !cfg!(target_os = "macos") {
-        return false;
+        return None;
     }
-    let (kind, app) = match editor {
-        Editor::Bundle(id) => ("bundle", id),
-        Editor::Name(name) => ("name", name),
-    };
-    Command::new("osascript")
-        .args(["-l", "JavaScript", "-e", EDITOR_PATH_SCRIPT, kind, app])
+    let output = Command::new("osascript")
+        .args(["-l", "JavaScript", "-e", script])
+        .args(args)
         .output()
-        .map(|out| out.status.success() && !out.stdout.iter().all(u8::is_ascii_whitespace))
-        .unwrap_or(false)
+        .ok()?;
+    output
+        .status
+        .success()
+        .then(|| String::from_utf8_lossy(&output.stdout).trim().to_owned())
 }
 
-type Launcher<'a> = dyn FnMut(&str, &[std::ffi::OsString]) -> Result<(), RpcError> + 'a;
+/// The bundle ids among `ids` that are installed, in one LaunchServices query.
+fn installed_ids(ids: &[&str]) -> Vec<String> {
+    osascript(INSTALLED_SCRIPT, ids)
+        .map(|out| out.lines().map(str::to_owned).collect())
+        .unwrap_or_default()
+}
 
-/// Opens the directory or file (at `line`) in the chosen editor, with the environment, the installed test and the launcher passed in so a test replaces them.
-fn open_in_editor_with(
-    path: &str,
-    line: Option<u32>,
+/// The editors of `EDITORS` that are installed, in list order.
+pub fn installed_editors() -> Vec<EditorChoice> {
+    let ids: Vec<&str> = EDITORS.iter().map(|editor| editor.id).collect();
+    let found = installed_ids(&ids);
+
+    EDITORS
+        .iter()
+        .filter(|editor| found.iter().any(|id| id == editor.id))
+        .map(|editor| EditorChoice {
+            id: editor.id,
+            name: editor.name,
+        })
+        .collect()
+}
+
+/// Opens `launch` as `plan` says, with the machine's answers from LaunchServices.
+fn open_with(
+    launch: &Launch,
     chosen: Option<&str>,
-    installed: &dyn Fn(&Editor) -> bool,
-    launch: &mut Launcher<'_>,
+    in_editor: bool,
+    run: impl FnOnce(&str, &[std::ffi::OsString]) -> Result<(), RpcError>,
 ) -> Result<(), RpcError> {
-    let path = parse_path(path)?;
-    let editor = choose_editor(chosen, installed).ok_or_else(|| {
-        RpcError::new(
-            rpc::code::NOT_FOUND,
-            "no code editor found; install VS Code, Cursor or Zed, or set ROUNDUP_EDITOR",
-        )
-    })?;
-    let (program, args) = editor_command(&editor, &path, line);
-    launch(&program, &args)
+    let found = std::cell::OnceCell::new();
+    let installed = |id: &str| {
+        found
+            .get_or_init(|| {
+                let ids: Vec<&str> = EDITORS.iter().map(|editor| editor.id).collect();
+                installed_ids(&ids)
+            })
+            .iter()
+            .any(|found| found == id)
+    };
+    let text = |path: &std::path::Path| {
+        is_text(path, &|extension| {
+            osascript(CONFORMS_SCRIPT, &[extension]).as_deref() == Some("yes")
+        })
+    };
+    let (program, args) = plan(
+        launch,
+        chosen,
+        in_editor,
+        &Machine {
+            installed: &installed,
+            text: &text,
+        },
+    )?;
+    run(&program, &args)
 }
 
-/// `open_in_editor`: the directory or file (at `line`) opens in the user's code editor (`scenarios/ui-rail-actions.md` U429, `scenarios/ui-worktree-changes.md` U2539c).
-pub fn open_in_editor(path: &str, line: Option<u32>) -> Result<(), RpcError> {
-    open_in_editor_with(
-        path,
-        line,
-        std::env::var("ROUNDUP_EDITOR").ok().as_deref(),
-        &is_installed,
-        &mut |program, args| {
+/// Hands the system the target; a text file opens in the chosen editor at its line when that takes one, anything else in its default app (a folder in Finder).
+pub fn launch(launch: &Launch, chosen: Option<&str>) -> Result<(), RpcError> {
+    open_with(launch, chosen, false, |program, args| {
+        Command::new(program)
+            .args(args)
+            .spawn()
+            .map(drop)
+            .map_err(|err| RpcError::new(rpc::code::INTERNAL, format!("{program}: {err}")))
+    })
+}
+
+/// `open_in_editor`: the directory or text file (at `line`) opens in the chosen code editor (`scenarios/ui-rail-actions.md` U429, `scenarios/ui-worktree-changes.md` U2539c, `scenarios/ui-app-settings.md` U6372b).
+pub fn open_in_editor(path: &str, line: Option<u32>, chosen: Option<&str>) -> Result<(), RpcError> {
+    let path = parse_path(path)?;
+    let line = line.filter(|_| path.is_file());
+
+    open_with(
+        &Launch::Path { path, line },
+        chosen,
+        true,
+        |program, args| {
             let output = Command::new(program)
                 .args(args)
                 .output()
@@ -328,50 +396,18 @@ mod tests {
     }
 
     #[test]
-    fn u365_an_absolute_path_opens_with_its_line() {
+    fn u365_an_absolute_path_keeps_its_line() {
         let dir = tempfile::tempdir().unwrap();
         let file = dir.path().join("a.ts");
         std::fs::write(&file, "x").unwrap();
 
-        let opened = check(path(file.to_str().unwrap())).unwrap();
-
         assert_eq!(
-            opened,
+            check(path(file.to_str().unwrap())).unwrap(),
             Launch::Path {
-                path: file.clone(),
+                path: file,
                 line: Some(42)
             }
         );
-        let (_, args) = command(&opened, Some("com.microsoft.VSCode"));
-        assert_eq!(
-            args,
-            [format!("vscode://file{}:42", file.display()).into()] as [std::ffi::OsString; 1]
-        );
-        let (_, args) = command(&opened, Some("abnerworks.Typora"));
-        assert_eq!(args, [file.clone().into_os_string()]);
-        let (_, args) = command(&opened, None);
-        assert_eq!(args, [file.into_os_string()]);
-    }
-
-    #[test]
-    fn u365_zed_and_zed_preview_open_at_the_line() {
-        let opened = Launch::Path {
-            path: "/a/b.rs".into(),
-            line: Some(7),
-        };
-        for id in ["dev.zed.Zed", "dev.zed.Zed-Preview"] {
-            let (_, args) = command(&opened, Some(id));
-            assert_eq!(args, [std::ffi::OsString::from("zed://file/a/b.rs:7")]);
-        }
-    }
-
-    #[test]
-    fn u365_the_default_app_is_the_bundle_id_osascript_prints() {
-        assert_eq!(
-            parse_bundle_id(b"com.microsoft.VSCode\n").as_deref(),
-            Some("com.microsoft.VSCode")
-        );
-        assert_eq!(parse_bundle_id(b"\n"), None);
     }
 
     #[test]
@@ -402,191 +438,167 @@ mod tests {
         );
     }
 
-    type Launched = Vec<(String, Vec<std::ffi::OsString>)>;
-
-    fn run(path: &str, chosen: Option<&str>, present: &[&str]) -> (Result<(), RpcError>, Launched) {
-        run_at(path, None, chosen, present)
+    fn present(ids: &[&'static str]) -> impl Fn(&str) -> bool {
+        let ids = ids.to_vec();
+        move |id| ids.contains(&id)
     }
 
-    fn run_at(
-        path: &str,
+    fn planned(
+        path: &std::path::Path,
         line: Option<u32>,
         chosen: Option<&str>,
-        present: &[&str],
-    ) -> (Result<(), RpcError>, Launched) {
-        let mut launched = Vec::new();
-        let installed = |editor: &Editor| {
-            let (Editor::Bundle(id) | Editor::Name(id)) = editor;
-            present.contains(&id.as_str())
+        in_editor: bool,
+        ids: &[&'static str],
+    ) -> Result<Opening, RpcError> {
+        let installed = present(ids);
+        let text = |path: &std::path::Path| {
+            is_text(path, &|extension| ["swift", "ts"].contains(&extension))
         };
-        let result = open_in_editor_with(path, line, chosen, &installed, &mut |program, args| {
-            launched.push((program.to_owned(), args.to_vec()));
-            Ok(())
-        });
-        (result, launched)
+        plan(
+            &Launch::Path {
+                path: path.to_path_buf(),
+                line,
+            },
+            chosen,
+            in_editor,
+            &Machine {
+                installed: &installed,
+                text: &text,
+            },
+        )
+    }
+
+    fn all() -> Vec<&'static str> {
+        EDITORS.iter().map(|editor| editor.id).collect()
     }
 
     #[test]
-    fn u2539c_a_directory_still_opens_as_u429_says() {
+    fn u6372b_the_chosen_editor_gets_text_files_at_their_line() {
         let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().to_str().unwrap();
-
-        let (result, launched) = run(
-            path,
-            None,
-            &["com.todesktop.230313mzl4w4u92", "com.microsoft.VSCode"],
-        );
-
-        assert!(result.is_ok());
-        assert_eq!(
-            launched,
-            [(
-                "open".to_owned(),
-                vec![
-                    "-b".into(),
-                    "com.microsoft.VSCode".into(),
-                    dir.path().as_os_str().to_owned()
-                ]
-            )]
-        );
-        let (_, launched) = run(path, None, &["com.todesktop.230313mzl4w4u92"]);
-        assert_eq!(
-            launched[0].1[1],
-            std::ffi::OsString::from("com.todesktop.230313mzl4w4u92")
-        );
-    }
-
-    #[test]
-    fn u2539c_roundup_editor_still_wins() {
-        let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().to_str().unwrap();
-
-        let (_, by_name) = run(path, Some("Zed"), &["Zed", "com.microsoft.VSCode"]);
-        let (_, by_id) = run(
-            path,
-            Some("dev.zed.Zed"),
-            &["dev.zed.Zed", "com.microsoft.VSCode"],
-        );
-        let (_, missing) = run(path, Some("Zed"), &["com.microsoft.VSCode"]);
-
-        assert_eq!(by_name[0].1[..2], ["-a", "Zed"]);
-        assert_eq!(by_id[0].1[..2], ["-b", "dev.zed.Zed"]);
-        assert_eq!(
-            missing[0].1[1],
-            std::ffi::OsString::from("com.microsoft.VSCode")
-        );
-    }
-
-    #[test]
-    fn u429_no_editor_is_not_found_with_that_message() {
-        let dir = tempfile::tempdir().unwrap();
-
-        let (result, launched) = run(dir.path().to_str().unwrap(), None, &[]);
-        let err = result.unwrap_err();
-
-        assert_eq!(err.code, rpc::code::NOT_FOUND);
-        assert_eq!(
-            err.message,
-            "no code editor found; install VS Code, Cursor or Zed, or set ROUNDUP_EDITOR"
-        );
-        assert!(launched.is_empty());
-    }
-
-    #[test]
-    fn u429_a_relative_path_is_conflict() {
-        let (result, launched) = run("src", None, &["com.microsoft.VSCode"]);
-
-        assert_eq!(result.unwrap_err().code, rpc::code::CONFLICT);
-        assert!(launched.is_empty());
-    }
-
-    #[test]
-    fn u429_a_missing_path_is_not_found() {
-        let (result, launched) = run("/no/such/roundup/dir", None, &["com.microsoft.VSCode"]);
-
-        assert_eq!(result.unwrap_err().code, rpc::code::NOT_FOUND);
-        assert!(launched.is_empty());
-    }
-
-    #[test]
-    fn u2539c_a_file_opens_at_its_line() {
-        let dir = tempfile::tempdir().unwrap();
-        let file = dir.path().join("a b.ts");
-        std::fs::write(&file, "x").unwrap();
-
-        for (id, scheme) in [
-            ("com.microsoft.VSCode", "vscode"),
-            ("com.todesktop.230313mzl4w4u92", "cursor"),
-            ("dev.zed.Zed", "zed"),
-        ] {
-            let (result, launched) = run_at(file.to_str().unwrap(), Some(9), None, &[id]);
-
-            assert!(result.is_ok());
-            assert_eq!(
-                launched[0].1,
-                [
-                    "-b".into(),
-                    id.into(),
-                    format!("{scheme}://file{}/a%20b.ts:9", dir.path().display()).into()
-                ] as [std::ffi::OsString; 3]
-            );
+        let swift = dir.path().join("a b.swift");
+        let justfile = dir.path().join("justfile");
+        let png = dir.path().join("a.png");
+        for file in [&swift, &justfile, &png] {
+            std::fs::write(file, "x").unwrap();
         }
+        let zed = Some("dev.zed.Zed");
+
+        let (program, args) = planned(&swift, Some(12), zed, false, &all()).unwrap();
+        assert_eq!(program, "open");
+        assert_eq!(
+            args,
+            [
+                "-b".into(),
+                "dev.zed.Zed".into(),
+                format!("zed://file{}/a%20b.swift:12", dir.path().display()).into()
+            ] as [std::ffi::OsString; 3]
+        );
+        assert_eq!(
+            planned(&justfile, Some(3), zed, false, &all()).unwrap().1[..2],
+            ["-b", "dev.zed.Zed"]
+        );
+        for system in [&png, &dir.path().to_path_buf()] {
+            let (_, args) = planned(system, None, zed, false, &all()).unwrap();
+            assert_eq!(args, [system.as_os_str().to_owned()]);
+        }
+        let (_, args) =
+            planned(&swift, Some(12), Some("com.apple.dt.Xcode"), false, &all()).unwrap();
+        assert_eq!(
+            args,
+            [
+                "-b".into(),
+                "com.apple.dt.Xcode".into(),
+                swift.into_os_string()
+            ] as [std::ffi::OsString; 3]
+        );
     }
 
     #[test]
-    fn u2539c_an_editor_without_a_line_opens_the_file() {
+    fn u6372b_open_in_editor_takes_a_folder_and_not_a_picture() {
+        let dir = tempfile::tempdir().unwrap();
+        let png = dir.path().join("a.png");
+        std::fs::write(&png, "x").unwrap();
+
+        let (_, folder) =
+            planned(dir.path(), Some(5), Some("com.panic.Nova"), true, &all()).unwrap();
+        let (_, picture) = planned(&png, None, Some("com.panic.Nova"), true, &all()).unwrap();
+
+        assert_eq!(folder[..2], ["-b", "com.panic.Nova"]);
+        assert_eq!(folder[2], dir.path().as_os_str().to_owned());
+        assert_eq!(picture, [png.into_os_string()]);
+    }
+
+    #[test]
+    fn u6372b_automatic_keeps_the_order_of_u2539c() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("a.ts");
+        std::fs::write(&file, "x").unwrap();
+        let first =
+            |ids: &[&'static str]| planned(&file, None, None, false, ids).unwrap().1[1].clone();
+
+        assert_eq!(
+            first(&[
+                "dev.zed.Zed",
+                "com.microsoft.VSCode",
+                "com.todesktop.230313mzl4w4u92"
+            ]),
+            "com.microsoft.VSCode"
+        );
+        assert_eq!(
+            first(&["dev.zed.Zed", "com.todesktop.230313mzl4w4u92"]),
+            "com.todesktop.230313mzl4w4u92"
+        );
+        assert_eq!(
+            first(&["dev.zed.Zed-Preview", "dev.zed.Zed", "com.apple.dt.Xcode"]),
+            "dev.zed.Zed"
+        );
+        assert_eq!(first(&["dev.zed.Zed-Preview"]), "dev.zed.Zed-Preview");
+    }
+
+    #[test]
+    fn u6372c_a_missing_editor_fails_with_its_message() {
         let dir = tempfile::tempdir().unwrap();
         let file = dir.path().join("a.ts");
         std::fs::write(&file, "x").unwrap();
 
-        let (_, launched) = run_at(
-            file.to_str().unwrap(),
-            Some(9),
-            Some("Sublime Text"),
-            &["Sublime Text"],
-        );
-
-        assert_eq!(
-            launched[0].1,
-            ["-a".into(), "Sublime Text".into(), file.into_os_string()] as [std::ffi::OsString; 3]
-        );
-    }
-
-    #[test]
-    fn u2539c_zed_is_tried_after_cursor() {
-        let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().to_str().unwrap();
-
-        let (_, both) = run(
-            path,
+        let chosen = planned(
+            &file,
             None,
-            &["dev.zed.Zed", "com.todesktop.230313mzl4w4u92"],
-        );
-        let (_, zed) = run(path, None, &["dev.zed.Zed-Preview", "dev.zed.Zed"]);
-        let (_, preview) = run(path, None, &["dev.zed.Zed-Preview"]);
-
-        assert_eq!(
-            both[0].1[1],
-            std::ffi::OsString::from("com.todesktop.230313mzl4w4u92")
-        );
-        assert_eq!(zed[0].1[1], std::ffi::OsString::from("dev.zed.Zed"));
-        assert_eq!(
-            preview[0].1[1],
-            std::ffi::OsString::from("dev.zed.Zed-Preview")
-        );
-    }
-
-    #[test]
-    fn u2539c_a_line_on_a_directory_is_ignored() {
-        let dir = tempfile::tempdir().unwrap();
-
-        let (_, launched) = run_at(
-            dir.path().to_str().unwrap(),
-            Some(5),
-            None,
+            Some("dev.zed.Zed"),
+            false,
             &["com.microsoft.VSCode"],
-        );
+        )
+        .unwrap_err();
+        let automatic = planned(dir.path(), None, None, true, &["com.apple.dt.Xcode"]).unwrap_err();
 
-        assert_eq!(launched[0].1[2], dir.path().as_os_str().to_owned());
+        assert_eq!(chosen.code, rpc::code::NOT_FOUND);
+        assert_eq!(
+            chosen.message,
+            "Zed is not installed; choose another in Settings"
+        );
+        assert_eq!(
+            automatic.message,
+            "no code editor found; choose one in Settings"
+        );
+        let (_, opened) = planned(&file, None, None, false, &[]).unwrap();
+        assert_eq!(opened, [file.into_os_string()]);
+    }
+
+    #[test]
+    fn u429_a_relative_path_is_conflict() {
+        assert_eq!(
+            open_in_editor("src", None, None).unwrap_err().code,
+            rpc::code::CONFLICT
+        );
+    }
+
+    #[test]
+    fn u429_a_missing_path_is_not_found() {
+        assert_eq!(
+            open_in_editor("/no/such/roundup/dir", None, None)
+                .unwrap_err()
+                .code,
+            rpc::code::NOT_FOUND
+        );
     }
 }

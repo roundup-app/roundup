@@ -55,7 +55,9 @@ impl<'de> Deserialize<'de> for Parsed {
                         }
                         return Ok(Parsed(Value::Object(values)));
                     };
-                    staged[count] = Some((key, value));
+                    if let Some(slot) = staged.get_mut(count) {
+                        *slot = Some((key, value));
+                    }
                     count += 1;
                 }
                 let next = map.next_entry::<String, Parsed>()?;

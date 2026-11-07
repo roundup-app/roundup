@@ -17,8 +17,13 @@ pub fn removal_alert<R: Runtime>(
     answer: impl FnOnce(&'static str) + Send + 'static,
 ) -> tauri::Result<()> {
     app.run_on_main_thread(move || {
-        let _main = MainThreadMarker::new().expect("Tauri's main thread");
-        let class = AnyClass::get(c"NSAlert").expect("AppKit is loaded");
+        // Without a native alert the removal is refused, as Cancel would.
+        let (Some(_main), Some(class)) = (MainThreadMarker::new(), AnyClass::get(c"NSAlert"))
+        else {
+            log::warn!(target: "roundup::shell", "native removal alert unavailable");
+            answer("cancel");
+            return;
+        };
         // SAFETY: NSAlert and its retained buttons live entirely on AppKit's main thread;
         // runModal keeps them alive until the native response is delivered.
         unsafe {

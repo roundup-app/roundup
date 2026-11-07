@@ -145,14 +145,17 @@ pub async fn collect(
     }
     let mut invocations = Vec::new();
     for turn in 0..pairs {
-        for (index, side) in ["base", "head"].into_iter().enumerate() {
-            if builds[index].reference != references[index] {
+        for (side, (build, reference)) in ["base", "head"]
+            .into_iter()
+            .zip(builds.iter().zip(&references))
+        {
+            if build.reference != *reference {
                 return Err(format!("{side}: build reference mismatch").into());
             }
             let mut report = env
-                .measure(&builds[index], turn)
+                .measure(build, turn)
                 .await
-                .map_err(|e| format!("{side} {} measurement: {e}", references[index]))?;
+                .map_err(|e| format!("{side} {reference} measurement: {e}"))?;
             valid(&report, budgets)?;
             let after = env.identity()?;
             if after != identity {
@@ -189,6 +192,21 @@ pub async fn collect(
     Ok(Some(result))
 }
 
+/// The median of one metric over a side's invocations; a side without it is an invalid pair.
+fn median_of(side: &[&Invocation], name: &str) -> Result<f64, Error> {
+    let values = side
+        .iter()
+        .map(|i| {
+            i.report
+                .metrics
+                .get(name)
+                .copied()
+                .ok_or_else(|| format!("pair: {} invocation lacks metric {name}", i.side))
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(median(&values))
+}
+
 /// Validate retained observations before deriving the paired verdict; also used on deserialized reports.
 pub fn judge(pair: &mut Pair, budgets: &Budgets) -> Result<(), Error> {
     let base: Vec<_> = pair
@@ -207,9 +225,13 @@ pub fn judge(pair: &mut Pair, budgets: &Budgets) -> Result<(), Error> {
     {
         return Err("pair: zero or unequal invocation counts".into());
     }
+    let first = &pair
+        .invocations
+        .first()
+        .ok_or("pair: zero or unequal invocation counts")?
+        .report;
     for invocation in &pair.invocations {
         valid(&invocation.report, budgets)?;
-        let first = &pair.invocations[0].report;
         if invocation.report.runs != first.runs
             || invocation.report.cpus != first.cpus
             || invocation.report.os != first.os
@@ -224,16 +246,8 @@ pub fn judge(pair: &mut Pair, budgets: &Budgets) -> Result<(), Error> {
     pair.skipped.clear();
     pair.stored_misses.clear();
     for (name, budget) in budgets {
-        let values = |side: &[&Invocation]| {
-            median(
-                &side
-                    .iter()
-                    .map(|i| i.report.metrics[name])
-                    .collect::<Vec<_>>(),
-            )
-        };
-        let base_value = values(&base);
-        let head_value = values(&head);
+        let base_value = median_of(&base, name)?;
+        let head_value = median_of(&head, name)?;
         let ceiling = base_value * 1.10 + budget.noise;
         let mut skipped = false;
         if name != "rss_extra_mb" {
@@ -264,23 +278,17 @@ pub fn judge(pair: &mut Pair, budgets: &Budgets) -> Result<(), Error> {
     let report = Report {
         os: "linux".into(),
         class: Some(pair.class.clone()),
-        cpus: head[0].report.cpus,
+        cpus: head
+            .first()
+            .ok_or("pair: zero or unequal invocation counts")?
+            .report
+            .cpus,
         runs: head.len(),
         loads: head.iter().map(|i| median(&i.report.loads)).collect(),
         metrics: budgets
             .keys()
-            .map(|name| {
-                (
-                    name.clone(),
-                    median(
-                        &head
-                            .iter()
-                            .map(|i| i.report.metrics[name])
-                            .collect::<Vec<_>>(),
-                    ),
-                )
-            })
-            .collect(),
+            .map(|name| Ok((name.clone(), median_of(&head, name)?)))
+            .collect::<Result<_, Error>>()?,
         per_run: BTreeMap::new(),
         skipped: Vec::new(),
     };

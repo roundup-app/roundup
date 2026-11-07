@@ -145,8 +145,10 @@ pub fn plugin<R: Runtime>() -> TauriPlugin<R> {
     tauri::plugin::Builder::new("webkit-rate")
         .on_webview_ready(|webview| {
             if let Err(error) = webview.with_webview(|platform| {
-                let main = MainThreadMarker::new()
-                    .expect("Tauri dispatches with_webview on the main thread");
+                let Some(main) = MainThreadMarker::new() else {
+                    log::warn!(target: "roundup::shell", "configure WebKit frame rate: not on the main thread");
+                    return;
+                };
                 // SAFETY: on macOS `inner` is the `WKWebView`, alive for this call on the main thread.
                 apply(unsafe { &*platform.inner().cast::<AnyObject>() }, main);
             }) {
