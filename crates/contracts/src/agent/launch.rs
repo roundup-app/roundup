@@ -60,6 +60,12 @@ pub struct SpawnParams {
     #[serde(default)]
     #[specta(optional, type = String)]
     pub name: Option<String>,
+    /// U6414a: the App sends `true` when `name` is one it supplied, not one the user typed; the
+    /// row is then not marked as named by the user. Only the user's spawn may say so.
+    #[serde(default, rename = "appNamed", skip_serializing_if = "Option::is_none")]
+    #[specta(optional, type = bool)]
+    #[schemars(skip)]
+    pub app_named: Option<bool>,
     /// A36, M12: the child's Model, an id; without one the Project's for the Role applies. Any id
     /// `models.list` offers is accepted.
     #[serde(default)]

@@ -37,6 +37,11 @@ export type SpawnParams = {
 	 */
 	name?: string,
 	/**
+	 *  U6414a: the App sends `true` when `name` is one it supplied, not one the user typed; the
+	 *  row is then not marked as named by the user. Only the user's spawn may say so.
+	 */
+	appNamed?: boolean,
+	/**
 	 *  A36, M12: the child's Model, an id; without one the Project's for the Role applies. Any id
 	 *  `models.list` offers is accepted.
 	 */
