@@ -1,6 +1,6 @@
 //! Permission choices at the Adapter launch seam.
 use super::*;
-use agents::claude_code::Pair;
+use agents::claude_code::LaunchFacts;
 
 #[test]
 fn b2706_a_normal_start_passes_no_permission_mode() {
@@ -19,12 +19,20 @@ fn b2706_a_normal_start_passes_no_permission_mode() {
             assert_eq!(argv.iter().any(|a| a == "--resume"), resume.is_some());
         }
     }
-    let yolo = Pair {
-        yolo: true,
-        ..Pair::default()
+    let yolo = LaunchFacts {
+        permission: agents::claude_code::Permission::Bypass,
+        ..LaunchFacts::default()
     };
     let argv = launcher
-        .prepare_on(folders(&s.dir), "7", "1", &s.cwd, None, Role::Agent, &yolo)
+        .prepare_on(&agents::claude_code::Request {
+            folders: folders(&s.dir),
+            id: "7",
+            attempt: "1",
+            cwd: &s.cwd,
+            resume: None,
+            role: Role::Agent,
+            facts: &yolo,
+        })
         .unwrap();
     let at = argv.iter().position(|a| a == "--permission-mode").unwrap();
     assert_eq!(argv[at + 1], "bypassPermissions");
@@ -51,13 +59,24 @@ fn u3801_a_given_permission_mode_is_passed_to_claude_and_none_passes_nothing() {
     ] {
         for (permission_mode, expected) in modes {
             for yolo in [false, true] {
-                let pair = Pair {
-                    permission_mode,
-                    yolo,
-                    ..Pair::default()
+                let pair = LaunchFacts {
+                    permission: if yolo {
+                        agents::claude_code::Permission::Bypass
+                    } else {
+                        permission_mode.into()
+                    },
+                    ..LaunchFacts::default()
                 };
                 let argv = launcher
-                    .prepare_on(folders(&s.dir), "7", "1", &s.cwd, resume, role, &pair)
+                    .prepare_on(&agents::claude_code::Request {
+                        folders: folders(&s.dir),
+                        id: "7",
+                        attempt: "1",
+                        cwd: &s.cwd,
+                        resume,
+                        role,
+                        facts: &pair,
+                    })
                     .unwrap();
                 let passed: Vec<_> = argv
                     .windows(2)

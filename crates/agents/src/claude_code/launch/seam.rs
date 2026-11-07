@@ -1,21 +1,19 @@
 //! The launch seam: a process-free command and the production launch.
+#![deny(clippy::fn_params_excessive_bools)]
 
 use super::*;
 
 impl Launcher {
     /// A3507a: process-free Agent launch construction, shared by starts and resumes.
-    #[allow(clippy::too_many_arguments)]
-    pub fn command_on(
-        &self,
-        folders: Folders<'_>,
-        id: &str,
-        attempt: &str,
-        cwd: &Path,
-        resume: Option<&str>,
-        role: Role,
-        pair: &Pair,
-    ) -> Result<std::process::Command, RpcError> {
-        let argv = self.prepare_on(folders, id, attempt, cwd, resume, role, pair)?;
+    pub fn command_on(&self, request: &Request<'_>) -> Result<std::process::Command, RpcError> {
+        let Request {
+            id,
+            cwd,
+            role,
+            facts: pair,
+            ..
+        } = *request;
+        let argv = self.prepare_on(request)?;
         let mut command = std::process::Command::new(&argv[0]);
         command.args(&argv[1..]).current_dir(cwd).envs(pair.env());
         let settings: Value =
@@ -51,17 +49,19 @@ impl Launcher {
     /// Q11: the production launch seam. Keep this Launcher alive while its Agents run:
     /// it owns their complete bundle. Initial launch, resume and clear use this same seam.
     /// Probe the selected executable once; validate the pinned files before every launch.
-    #[allow(clippy::too_many_arguments)]
     pub async fn launch_on(
         &self,
-        folders: Folders<'_>,
-        id: &str,
-        attempt: &str,
-        cwd: &Path,
-        resume: Option<&str>,
-        role: Role,
-        pair: &Pair,
+        request: &Request<'_>,
     ) -> Result<(Vec<String>, BTreeMap<String, String>), RpcError> {
+        let Request {
+            folders,
+            id,
+            attempt,
+            cwd,
+            resume,
+            role,
+            facts: pair,
+        } = *request;
         let (launcher, project, data, id, attempt, cwd, resume, pair) = (
             self.clone(),
             folders.project.to_owned(),
@@ -79,18 +79,18 @@ impl Launcher {
             Some(lean) => profile(if lean.scout { Role::Scout } else { role }).bundled_plugins,
         };
         let command = tokio::task::spawn_blocking(move || {
-            launcher.command_on(
-                Folders {
+            launcher.command_on(&Request {
+                folders: Folders {
                     project: &project,
                     data: &data,
                 },
-                &id,
-                &attempt,
-                &cwd,
-                resume.as_deref(),
+                id: &id,
+                attempt: &attempt,
+                cwd: &cwd,
+                resume: resume.as_deref(),
                 role,
-                &pair,
-            )
+                facts: &pair,
+            })
         })
         .await
         .map_err(RpcError::internal)??;

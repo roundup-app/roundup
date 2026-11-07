@@ -1,6 +1,30 @@
 //! Where an Agent's launch files live.
+#![deny(clippy::fn_params_excessive_bools)]
 
 use super::*;
+
+/// Every file one Agent's launch owns, under the Project's data folder `dir`.
+pub(in crate::claude_code) struct Paths {
+    pub agents: PathBuf,
+    pub settings: PathBuf,
+    pub mcp_config: PathBuf,
+    pub brief: PathBuf,
+    pub shims: PathBuf,
+    pub extras: PathBuf,
+}
+
+impl Paths {
+    pub fn new(dir: &Path, id: u64) -> Self {
+        Self {
+            agents: agents_dir(dir),
+            settings: settings_path(dir, id),
+            mcp_config: mcp_config_path(dir, id),
+            brief: brief_path(dir, id),
+            shims: shim_dir(dir, id),
+            extras: extras_dir(dir, id),
+        }
+    }
+}
 
 /// An Agent id becomes a file name and a shell word, so only a node id in its one form (decimal,
 /// no sign, no leading zero) is accepted; `;` or `../` never reach a shell or a path.
@@ -64,7 +88,7 @@ pub(in crate::claude_code) fn extras_dir(dir: &Path, id: u64) -> PathBuf {
 
 /// LC1, LC6: how `role`'s child launches: lean for a Door and for the child of a Door or an Agent,
 /// the user's full setup for an Agent the user started.
-pub(in crate::claude_code) fn lean_of(role: Role, pair: &Pair) -> Option<Lean> {
+pub(in crate::claude_code) fn lean_of(role: Role, pair: &LaunchFacts) -> Option<Lean> {
     match (role, &pair.lean) {
         (_, Some(lean)) => Some(lean.clone()),
         (Role::Door, None) => Some(Lean::default()),
@@ -76,7 +100,10 @@ pub(in crate::claude_code) fn brief_path(dir: &Path, id: u64) -> PathBuf {
     agents_dir(dir).join(format!("{id}.brief.md"))
 }
 
-pub(in crate::claude_code) fn enabled_plugin<'a>(settings: &'a Value, name: &str) -> Option<&'a str> {
+pub(in crate::claude_code) fn enabled_plugin<'a>(
+    settings: &'a Value,
+    name: &str,
+) -> Option<&'a str> {
     settings
         .get("enabledPlugins")?
         .as_object()?

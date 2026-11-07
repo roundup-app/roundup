@@ -168,18 +168,18 @@ fn e3_workstream_guidance_precedes_tools() {
     for mcp in [true, false] {
         for role in [Role::Door, Role::Agent, Role::Scout] {
             s.launcher()
-                .prepare_on(
-                    folders(&s.dir),
-                    "7",
-                    "1",
-                    &s.cwd,
-                    None,
+                .prepare_on(&agents::claude_code::Request {
+                    folders: folders(&s.dir),
+                    id: "7",
+                    attempt: "1",
+                    cwd: &s.cwd,
+                    resume: None,
                     role,
-                    &agents::claude_code::Pair {
+                    facts: &agents::claude_code::LaunchFacts {
                         mcp_off: !mcp,
                         ..Default::default()
                     },
-                )
+                })
                 .unwrap();
             let text = std::fs::read_to_string(s.dir.join("agents/7.brief.md")).unwrap();
             let catalogue = text

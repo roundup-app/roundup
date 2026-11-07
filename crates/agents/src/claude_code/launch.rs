@@ -1,6 +1,7 @@
 //! What an Agent's Claude Code is started with: a per-Agent settings file whose command hook is
 //! `rup signal <agent-id>`, a per-Agent MCP config that runs `rup mcp <agent-id>`, and a pre-trusted
 //! working directory (no hook fires for the trust dialog).
+#![deny(clippy::fn_params_excessive_bools)]
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::ffi::{OsStr, OsString};
@@ -16,12 +17,12 @@ use shlex::try_quote;
 use tokio::sync::OnceCell;
 use unicode_normalization::UnicodeNormalization;
 
-use super::brief::{self, Role};
+use super::brief::Role;
 use super::extras;
 use super::launch_files::{
-    ConfigLock, is_symlink, landing, merge_settings, replace_file, replace_text, user_settings,
+    ConfigLock, is_symlink, landing, replace_file, replace_text, user_settings,
 };
-use super::models::{Lean, Pair};
+use super::models::{LaunchFacts, Lean, Permission};
 use super::plugins;
 use super::profiles::profile;
 
@@ -137,6 +138,19 @@ impl std::fmt::Debug for Launcher {
 pub struct Folders<'a> {
     pub project: &'a Path,
     pub data: &'a Path,
+}
+
+/// One launch of an Agent: where it runs, which conversation it continues and how it is set.
+#[derive(Clone, Copy)]
+pub struct Request<'a> {
+    pub folders: Folders<'a>,
+    pub id: &'a str,
+    pub attempt: &'a str,
+    pub cwd: &'a Path,
+    /// A22: the saved conversation to continue; `None` starts fresh.
+    pub resume: Option<&'a str>,
+    pub role: Role,
+    pub facts: &'a LaunchFacts,
 }
 
 impl Launcher {
@@ -293,10 +307,11 @@ impl Launcher {
 
 mod parts;
 mod paths;
-mod prepare;
+mod plan;
 mod seam;
+mod write;
 
-pub(in crate::claude_code) use paths::{lean_path, parse_id};
+use self::paths::Paths;
 pub use paths::settings_marker;
 use paths::*;
-
+pub(in crate::claude_code) use paths::{lean_path, parse_id};

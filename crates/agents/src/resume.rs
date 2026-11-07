@@ -1,5 +1,25 @@
 use super::*;
+use crate::claude_code::Permission;
 use crate::ending::kill_or_already_gone;
+
+/// How one A22 resume runs: how long it waits for the ack and what it continues.
+pub(super) struct Resumption<'a> {
+    pub ack_bound: Duration,
+    /// A conversation (id, cwd) that is not the one the Rail saved.
+    pub conversation: Option<(&'a str, &'a str)>,
+    pub prompt: Option<String>,
+    pub publication: RailPublication,
+    pub mode: Option<contracts::agent::ResumeMode>,
+    pub permission_mode: Option<contracts::agent::PermissionMode>,
+    pub size: (u16, u16),
+}
+
+/// What a failed resume gives back: the run it replaced, its Terminal and the waiting caller.
+pub(super) struct Abandoned {
+    pub old: Option<Box<Run>>,
+    pub terminal_id: Option<String>,
+    pub done: oneshot::Sender<Result<(), RpcError>>,
+}
 
 impl Agents {
     /// A22: continue a saved conversation. A2693a's explicit mode also accepts a live Agent
@@ -56,13 +76,15 @@ impl Agents {
         self.resume_conversation(
             ctx,
             id,
-            RESUME_ACK_BOUND,
-            None,
-            None,
-            RailPublication::Immediate,
-            mode,
-            permission_mode,
-            (80, 24),
+            Resumption {
+                ack_bound: RESUME_ACK_BOUND,
+                conversation: None,
+                prompt: None,
+                publication: RailPublication::Immediate,
+                mode,
+                permission_mode,
+                size: (80, 24),
+            },
         )
         .await
     }
@@ -128,30 +150,34 @@ impl Agents {
         self.resume_conversation(
             ctx,
             id,
-            ack_bound,
-            None,
-            None,
-            RailPublication::Immediate,
-            None,
-            permission_mode,
-            size,
+            Resumption {
+                ack_bound,
+                conversation: None,
+                prompt: None,
+                publication: RailPublication::Immediate,
+                mode: None,
+                permission_mode,
+                size,
+            },
         )
         .await
     }
 
-    #[allow(clippy::too_many_arguments)]
     pub(super) async fn resume_conversation(
         &self,
         ctx: &Ctx,
         id: &str,
-        ack_bound: Duration,
-        conversation: Option<(&str, &str)>,
-        prompt: Option<String>,
-        publication: RailPublication,
-        mode: Option<contracts::agent::ResumeMode>,
-        permission_mode: Option<contracts::agent::PermissionMode>,
-        size: (u16, u16),
+        resumption: Resumption<'_>,
     ) -> Result<RailNode, RpcError> {
+        let Resumption {
+            ack_bound,
+            conversation,
+            prompt,
+            publication,
+            mode,
+            permission_mode,
+            size,
+        } = resumption;
         let (attempt, conversation_id, worktree, saved_cwd, done_rx) = {
             let mut rail = self.shared.rail();
             let node = rail.node(id)?;
@@ -276,16 +302,19 @@ impl Agents {
         // `saved_cwd` as recorded.
         let effective_cwd = PathBuf::from(&saved_cwd);
         let spawned = match self
-            .start(
+            .start(Launch {
                 id,
-                &attempt,
-                &effective_cwd,
-                Some(&conversation_id),
-                false,
-                mode == Some(contracts::agent::ResumeMode::Yolo),
-                permission_mode,
+                attempt: &attempt,
+                cwd: &effective_cwd,
+                origin: Origin::Resume(&conversation_id),
+                attach: Attach::AfterAck,
+                permission: if mode == Some(contracts::agent::ResumeMode::Yolo) {
+                    Permission::Bypass
+                } else {
+                    permission_mode.into()
+                },
                 size,
-            )
+            })
             .await
         {
             Ok(spawned) => spawned,
@@ -426,26 +455,30 @@ impl Shared {
             &mut runs,
             id,
             attempt.clone(),
-            old,
-            terminal_id,
-            done,
+            Abandoned {
+                old,
+                terminal_id,
+                done,
+            },
             error,
         );
     }
 
     /// Keep the Attempt reserved until its only cleanup effect finishes. The task owns the
     /// sender, so dropping an RPC receiver cannot detach cleanup from its ownership record.
-    #[allow(clippy::too_many_arguments)]
     pub(super) fn fail_resume(
         &self,
         runs: &mut HashMap<String, Slot>,
         id: &str,
         attempt: Ordinal,
-        old: Option<Box<Run>>,
-        terminal_id: Option<String>,
-        done: oneshot::Sender<Result<(), RpcError>>,
+        abandoned: Abandoned,
         error: RpcError,
     ) {
+        let Abandoned {
+            old,
+            terminal_id,
+            done,
+        } = abandoned;
         let Some(terminal_id) = terminal_id else {
             if let Some(old) = old {
                 runs.insert(id.to_owned(), Slot::Running(*old));

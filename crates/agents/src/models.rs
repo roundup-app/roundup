@@ -4,7 +4,7 @@
 use contracts::project::{Choice, ModelList, ProjectModels};
 use rpc::{RpcError, code};
 
-use crate::claude_code::{self, Pair, Role};
+use crate::claude_code::{self, LaunchFacts, Permission, Role};
 
 fn choices(table: &[(&str, &str)]) -> Vec<Choice> {
     table
@@ -83,12 +83,11 @@ pub fn resolve(
     role: Role,
     model: Option<String>,
     effort: Option<String>,
-) -> Pair {
+) -> LaunchFacts {
     let own = project.roles.iter().find(|entry| entry.role == role.id());
-    Pair {
+    LaunchFacts {
         naming_guide: None,
-        yolo: false,
-        permission_mode: None,
+        permission: Permission::Inherit,
         model: model.or_else(|| own.and_then(|entry| entry.model.clone())),
         effort: effort.or_else(|| own.and_then(|entry| entry.effort.clone())),
         mcp_off: false,
@@ -156,6 +155,9 @@ mod tests {
 
     #[test]
     fn a_role_never_set_resolves_to_none() {
-        assert_eq!(resolve(&project(), Role::Door, None, None), Pair::default());
+        assert_eq!(
+            resolve(&project(), Role::Door, None, None),
+            LaunchFacts::default()
+        );
     }
 }

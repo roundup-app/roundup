@@ -89,7 +89,8 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Unseen (`unseen`, `UnseenState`) | Unread result | — |
 | Resume (`ResumeParams`, `ResumeMode`) | same | — |
 | Turn resume (`ResumeWait`, `RailNode.resume`) | `resumes 14:05` | — |
-| YOLO (`yolo`) | same | — |
+| YOLO (`yolo`, `Permission::Bypass`) | same | — |
+| Launch facts (`LaunchFacts`, `Permission`; `Request` to the Launcher; `Launch`, `Origin`, `Attach` to a start) | none | — |
 | Conversation overview (`ConversationOverview`, `RailNode.overview`) | same | — |
 | Conversion offer (`RailNode.can_make_workstream`, `RailNode.can_save_as_mode`) | same | — |
 | Import (`project.importDiscover`, `project.importCommit`, `ImportPeriod`, `ImportCandidate`, `ImportSelection`, `ImportResult`) | same | — |

@@ -61,7 +61,7 @@ impl Call {
         let mut settings = self
             .launcher
             .placement_settings(self.project.as_deref().unwrap_or(cwd))?;
-        let pair = super::Pair {
+        let pair = super::LaunchFacts {
             model: Some("haiku".into()),
             effort: Some("low".into()),
             ..Default::default()
