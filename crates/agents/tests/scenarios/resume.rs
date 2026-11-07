@@ -851,3 +851,110 @@ async fn u6260b_resume_keeps_the_conversation_admitted() {
         assert_eq!(f.agents.input_started(&node.id), admitted);
     }
 }
+
+fn agent_ctx(f: &Fixture, id: &str) -> rpc::Ctx {
+    let mut ctx = f.ctx();
+    ctx.actor = contracts::Actor {
+        kind: contracts::ActorKind::Agent,
+        id: id.to_owned(),
+        parent: None,
+    };
+    ctx
+}
+
+/// A Job under `door` that is mid-turn (`Working`) when the quit marks it.
+async fn working_job(f: &Fixture, door: &str) -> RailNode {
+    let job = f.spawn_as(door, Some(door)).await.unwrap();
+    f.session_start(&job.id, CONVERSATION, "startup")
+        .await
+        .unwrap();
+    f.signal_payload(
+        &job.id,
+        &f.attempt(&job.id).await,
+        json!({"hook_event_name": "UserPromptSubmit"}),
+    )
+    .await
+    .unwrap();
+    job
+}
+
+/// DCR2 (a), (b): after a restart an Agent's `agent_resume` without `mode` takes the Job the
+/// quit cut off, and refuses the reported Job and the stopped Job, starting no Attempt.
+#[tokio::test(flavor = "multi_thread")]
+async fn dcr2_resume_without_mode_takes_a_cut_off_job_and_refuses_a_finished_one() {
+    let f = Fixture::running("sleep 30");
+    let door = f.workstream("Door", None).await;
+    let cut = working_job(&f, &door).await;
+    let reported = working_job(&f, &door).await;
+    let stopped = working_job(&f, &door).await;
+    f.call("agent.stop", json!({"id": stopped.id}))
+        .await
+        .unwrap();
+    let reported_attempt = f.attempt(&reported.id).await;
+    // The quit: Jobs are marked before any program ends. `reported` sent its report.
+    f.agents
+        .mark_cut_off(|id| {
+            Ok(if id == reported.id {
+                vec![reported_attempt.clone()]
+            } else {
+                vec![]
+            })
+        })
+        .unwrap();
+    let f = Arc::new(f.reopen());
+    let ctx = agent_ctx(&f, &door);
+    for finished in [&reported, &stopped] {
+        let err = f
+            .agents
+            .call(&ctx, "agent.resume", json!({"id": finished.id}))
+            .await
+            .unwrap_err();
+        assert_eq!(err.code, code::CONFLICT, "{err}");
+        let after = f
+            .tree()
+            .await
+            .into_iter()
+            .find(|n| n.id == finished.id)
+            .unwrap();
+        assert_eq!(after.attempt, finished.attempt);
+        assert_eq!(after.terminal_id, None);
+    }
+    let before = f.attempt(&cut.id).await;
+    let pending = {
+        let f = Arc::clone(&f);
+        let id = cut.id.clone();
+        let door = door.clone();
+        tokio::spawn(async move {
+            f.agents
+                .call(&agent_ctx(&f, &door), "agent.resume", json!({"id": id}))
+                .await
+        })
+    };
+    f.until_attempt_changed(&cut.id, &before).await;
+    f.session_start(&cut.id, CONVERSATION, "resume")
+        .await
+        .unwrap();
+    let node: RailNode = serde_json::from_value(pending.await.unwrap().unwrap()).unwrap();
+    assert_eq!(node.id, cut.id);
+    assert_ne!(node.attempt.as_deref(), Some(before.as_str()));
+}
+
+/// DCR2 (c): a cut-off Job outside the caller's Reach is refused with the Reach error.
+#[tokio::test(flavor = "multi_thread")]
+async fn dcr2_resume_outside_reach_is_refused() {
+    let f = Fixture::running("sleep 30");
+    let door = f.workstream("Door", None).await;
+    let other = f.workstream("Other", None).await;
+    let job = working_job(&f, &other).await;
+    f.agents.mark_cut_off(|_| Ok(vec![])).unwrap();
+    let f = f.reopen();
+    let err = f
+        .agents
+        .call(&agent_ctx(&f, &door), "agent.resume", json!({"id": job.id}))
+        .await
+        .unwrap_err();
+    assert_eq!(err.code, code::FORBIDDEN, "{err}");
+    assert!(err.message.contains("Reach"), "{err}");
+    let after = f.tree().await.into_iter().find(|n| n.id == job.id).unwrap();
+    assert_eq!(after.attempt, job.attempt);
+}
