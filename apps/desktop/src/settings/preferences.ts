@@ -140,6 +140,7 @@ export const applyAppAppearance = () => {
     if (mode === "system") document.documentElement.style.removeProperty("color-scheme");
     else document.documentElement.style.colorScheme = mode;
   });
+
   // MC40: the Tokens `look.json` colours; one dropped from the file returns to its stylesheet value.
   let coloured: string[] = [];
 
@@ -148,14 +149,17 @@ export const applyAppAppearance = () => {
     const style = document.documentElement.style;
 
     for (const token of coloured) if (!(token in colours)) style.removeProperty(token);
+
     for (const [token, value] of Object.entries(colours)) style.setProperty(token, value);
     coloured = Object.keys(colours);
   });
+
   onCleanup(() => {
     delete document.documentElement.dataset.mode;
     delete document.documentElement.dataset.interfaceScale;
     delete document.documentElement.dataset.focusMarkers;
     document.documentElement.style.removeProperty("color-scheme");
+
     for (const token of Object.keys(lookColours())) document.documentElement.style.removeProperty(token);
   });
 };

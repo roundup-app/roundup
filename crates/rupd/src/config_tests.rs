@@ -36,7 +36,7 @@ fn mc41_unknown_name_or_bad_press_refuses_the_file() {
 #[tokio::test]
 async fn mc40_saved_look_applies_without_restart() {
     let dir = tempfile::tempdir().unwrap();
-    let (daemon, _watchers) = Daemon::open(dir.path()).unwrap();
+    let daemon = crate::tests::daemon_in(dir.path());
     let daemon = Arc::new(daemon.with_config(dir.path()));
     let (mut events, _) = daemon.subscribe();
     daemon.config.start(&daemon);
