@@ -980,3 +980,15 @@ async fn dtc2_a_restart_keeps_the_waiting_quiet_notes() {
     assert_eq!(sent.len(), 1);
     assert_eq!(h.pl(&sent[0]).entries()[0].todos, 7);
 }
+
+#[tokio::test]
+async fn dtc2_a_report_wakes_the_door_within_2s() {
+    let dir = tempfile::tempdir().unwrap();
+    let h = Pushes::new(dir.path());
+    h.quiet(&entry("d", 1)).await;
+    let mut ended = entry("c", 0);
+    ended.kind = Kind::Done;
+    // The clock does not move: the report is written at once, with the quiet note.
+    h.push(&ended).await;
+    assert_eq!(h.standing().await.len(), 1);
+}

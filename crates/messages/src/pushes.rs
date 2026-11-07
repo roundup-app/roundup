@@ -39,7 +39,7 @@ struct Slot {
     waiting: Vec<(String, DigestEntry, u32)>,
     /// DTC2: every waiting entry is quiet, so no clock sends it; the Door's next turn does.
     #[serde(default)]
-    held: bool,
+    all_quiet: bool,
 }
 
 impl Ledger {
@@ -372,9 +372,9 @@ pub(crate) async fn push(
     slot.expire(now);
     let plain = slot.waiting.is_empty() && slot.sent.len() < PUSHES;
     if slot.waiting.is_empty() {
-        slot.held = quiet;
+        slot.all_quiet = quiet;
     } else if !quiet {
-        slot.held = false;
+        slot.all_quiet = false;
     }
     let weight = slot
         .waiting
@@ -424,7 +424,7 @@ async fn release(inner: &Arc<Inner>, door: &str) {
     let Some(slot) = ledger.metas.get_mut(door) else {
         return;
     };
-    if !slot.held || slot.waiting.is_empty() {
+    if !slot.all_quiet || slot.waiting.is_empty() {
         return;
     }
     if !lock(&inner.store)
@@ -433,7 +433,7 @@ async fn release(inner: &Arc<Inner>, door: &str) {
     {
         return;
     }
-    slot.held = false;
+    slot.all_quiet = false;
     let now = (inner.clock)();
     slot.expire(now);
     match crate::load_rail_nodes(inner).await {
@@ -453,12 +453,12 @@ pub(crate) async fn flush(inner: &Arc<Inner>) {
     if ledger
         .metas
         .values()
-        .any(|slot| !slot.waiting.is_empty() && !slot.held)
+        .any(|slot| !slot.waiting.is_empty() && !slot.all_quiet)
     {
         match crate::load_rail_nodes(inner).await {
             Ok(nodes) => {
                 for (meta, slot) in &mut ledger.metas {
-                    if !slot.waiting.is_empty() && !slot.held {
+                    if !slot.waiting.is_empty() && !slot.all_quiet {
                         roll_up(inner, meta, slot, now, false, &nodes).await;
                     }
                 }
@@ -506,7 +506,7 @@ async fn roll_up(
         Ok(()) => {
             slot.sent.push_back(now);
             slot.waiting.clear();
-            slot.held = false;
+            slot.all_quiet = false;
         }
         Err(err) => crate::log_failure("push", &format!("{meta}: {}", err)),
     }
@@ -637,7 +637,7 @@ mod tests {
             } else {
                 vec![]
             },
-            held: false,
+            all_quiet: false,
         }
     }
 
