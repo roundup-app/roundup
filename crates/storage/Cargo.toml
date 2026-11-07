@@ -7,7 +7,6 @@ version.workspace = true
 [dependencies]
 getrandom = "0.3"
 memchr = "2"
-provenance = { path = "../provenance" }
 rusqlite = { workspace = true, features = ["serialize"] }
 rusqlite_migration.workspace = true
 rustix = { version = "1", features = ["fs"] }

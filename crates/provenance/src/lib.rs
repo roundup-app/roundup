@@ -1,8 +1,5 @@
 //! Provenance: the append-only log of Touches. There is no update or delete.
 
-pub mod migration;
-#[doc(hidden)]
-pub mod schema;
 mod store;
 pub use store::record_in;
 
