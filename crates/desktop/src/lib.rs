@@ -16,8 +16,9 @@ mod menu_bar;
 mod navigation;
 mod open;
 mod paste;
+mod project_task;
+mod projects;
 mod reopen;
-mod state;
 mod store;
 mod update;
 mod window;
@@ -26,9 +27,9 @@ use std::path::{Path, PathBuf};
 
 pub use config::{CALL_BOUND, Config, READY_BOUND};
 use contracts::Event;
+pub use projects::{AppState, Listed, Project};
 use rpc::RpcError;
 use serde_json::Value;
-pub use state::{AppState, Listed, Project};
 use tauri::ipc::{Channel, InvokeResponseBody};
 use tauri::{AppHandle, Builder, Manager, RunEvent, Runtime, State};
 

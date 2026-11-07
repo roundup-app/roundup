@@ -146,7 +146,7 @@ impl Drop for Fixture {
         let Some(dir) = self.temporary.take() else {
             return;
         };
-        // Closing stdin requests shutdown; AppState's watcher reaps the child (state.rs).
+        // Closing stdin requests shutdown; AppState's watcher reaps the child (project_task.rs).
         let _ = self.invoke(
             "close_project",
             json!({"path": self.project.display().to_string()}),

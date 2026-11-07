@@ -227,4 +227,4 @@ Policy — rendered observer: one isolated headless agent-browser session on the
 4. `apps/desktop/src/rail/RailRow.tsx`, `unreachable`: includes the direct child and, folded, every descendant.
 5. `apps/desktop/src/ink/ReservedLine.tsx`, `ReservedLine`; `apps/desktop/src/ink/FailureLine.tsx`, `FailureLine`.
 6. `scenarios/automatic-updates.md`, **U5558e automatic reads are bounded and recoverable**; `scenarios/ui-surfaces.md`, **U80 one failure line**.
-7. `crates/desktop/src/state.rs`, `recover`: the reopen wait.
+7. `crates/desktop/src/project_task.rs`, `fail_run`: the reopen wait.
