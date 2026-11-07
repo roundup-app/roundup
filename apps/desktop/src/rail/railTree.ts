@@ -52,15 +52,21 @@ const createLiftMotion = (container: Accessor<HTMLElement | undefined>, lifted: 
 
     if (reduced || keyed || before.size === 0) return;
 
-    for (const row of rows()) {
-      if (!("animate" in row) || row.matches("[data-dnd-dragging], [data-dnd-dropping]")) continue;
+    const moving = rows().filter(row => "animate" in row && !row.matches("[data-dnd-dragging], [data-dnd-dropping]"));
+
+    // A row slides once, by its real displacement: a translate still running on it would be read into the distance and added to it.
+    for (const row of moving) if (!row.style.translate) for (const animation of row.getAnimations()) if (animation instanceof CSSTransition ? animation.transitionProperty === "translate" : animation.effect instanceof KeyframeEffect && animation.effect.getKeyframes().some(frame => "translate" in frame)) animation.cancel();
+
+    const tops = moving.map(row => row.getBoundingClientRect().top);
+
+    moving.forEach((row, at) => {
       const was = before.get(row.dataset.id!);
       const options = { duration: reorderMs(row), easing: easingOut(row) };
 
       if (was === undefined) row.animate({ opacity: [0, 1] }, options);
       // A row the sortable shifted slides itself from that shift; a second translate here would double it.
-      else if (!row.style.translate && Math.abs(was - row.getBoundingClientRect().top) >= 1) row.animate({ translate: [`0 ${was - row.getBoundingClientRect().top}px`, "0 0"] }, options);
-    }
+      else if (!row.style.translate && Math.abs(was - tops[at]!) >= 1) row.animate({ translate: [`0 ${was - tops[at]!}px`, "0 0"] }, options);
+    });
   }), { defer: true }));
 
   // A row inside a collapsed group is inert and not drawn: it returns by fading in, never by sliding from where the hidden group left it.
