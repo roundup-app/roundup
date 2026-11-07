@@ -17,6 +17,10 @@ const BEYOND_NAME_MAX: usize = 300;
 
 const NOT_UTF8: [u8; 2] = [0xff, 0xfe];
 
+fn delete(name: &str) -> Value {
+    json!({"name": name, "operation": "k"})
+}
+
 fn agent(id: &str) -> Actor {
     Actor {
         kind: ActorKind::Agent,
@@ -334,12 +338,7 @@ async fn p9_any_actor_deletes() {
                 assert!(rig.dir.path().join("pads/notes.md").exists());
             }
             let mut events = rig.bus.subscribe();
-            rig.ok(
-                &caller,
-                "pad.delete",
-                json!({"name": "notes", "operation": "k"}),
-            )
-            .await;
+            rig.ok(&caller, "pad.delete", delete("notes")).await;
             let cause = PadDeletion::User;
             assert_eq!(
                 source_state(&db, original.incarnation).unwrap(),
@@ -512,8 +511,7 @@ async fn p9_a_failed_file_removal_deletes_nothing() {
     std::fs::write(file.join("inner"), "x").unwrap();
     let mut events = rig.bus.subscribe();
 
-    rig.fail(&a, "pad.delete", json!({"name": "notes", "operation": "k"}))
-        .await;
+    rig.fail(&a, "pad.delete", delete("notes")).await;
 
     let pad = rig.ok(&a, "pad.read", json!({"name": "notes"})).await;
     assert_eq!(pad["text"], "keep");
@@ -657,8 +655,7 @@ async fn p1_every_method_resolves_other_spellings_to_the_same_pad() {
     rig.ok(&b, "pad.export", json!({"name": "NOTES", "path": path}))
         .await;
     assert_eq!(std::fs::read_to_string(&path).unwrap(), "yz");
-    rig.ok(&b, "pad.delete", json!({"name": "noTES", "operation": "k"}))
-        .await;
+    rig.ok(&b, "pad.delete", delete("noTES")).await;
 
     let gone = rig.fail(&a, "pad.read", json!({"name": "Notes"})).await;
     assert_eq!(gone.code, code::NOT_FOUND);
@@ -688,12 +685,7 @@ async fn p5_a_code_point_apfs_refuses_is_invalid_params() {
     rig.store_row("a\u{FFFE}");
     let on_flip = rig.fail(&a, "pad.setStorage", json!({"files": true})).await;
     assert_eq!(on_flip.code, code::INVALID_PARAMS);
-    rig.ok(
-        &a,
-        "pad.delete",
-        json!({"name": "a\u{FFFE}", "operation": "k"}),
-    )
-    .await;
+    rig.ok(&a, "pad.delete", delete("a\u{FFFE}")).await;
     rig.ok(&a, "pad.setStorage", json!({"files": true})).await;
 
     let on_create = rig
@@ -711,8 +703,7 @@ async fn p9_delete_succeeds_when_the_file_was_removed_on_disk() {
     rig.ok(&a, "pad.setStorage", json!({"files": true})).await;
     std::fs::remove_file(rig.dir.path().join("pads/notes.md")).unwrap();
 
-    rig.ok(&a, "pad.delete", json!({"name": "notes", "operation": "k"}))
-        .await;
+    rig.ok(&a, "pad.delete", delete("notes")).await;
 
     let gone = rig.fail(&a, "pad.read", json!({"name": "notes"})).await;
     assert_eq!(gone.code, code::NOT_FOUND);
