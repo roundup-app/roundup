@@ -4,9 +4,11 @@ import { ReducedMotionContext } from "../app/reducedMotion";
 import { clearPress } from "./pressFeedback";
 import { captureFocus } from "../keys/focus";
 import { dropLine } from "./dropLine";
-import { depthsAt, depthSteps, dropAt, gapAt, isInPlace, legalDepths, legalSlot, nearestDepth, remainingRows, stepLevel, withDepth, type DepthStep, type DropRules, type SortableDrop, type TreeRow } from "./treeDrop";
+import { pointerSensor } from "./pointerSensor";
+import { scrollerOf } from "./scrollerOf";
+import { depthsAt, depthSteps, dropAt, gapAt, isInPlace, legalDepths, legalGaps, legalSlot, nearestDepth, remainingRows, stepLevel, withDepth, type DepthStep, type DropRules, type SortableDrop, type TreeRow } from "./treeDrop";
 import "./sortable.css";
-import { Accessibility, AutoScroller, Cursor, Feedback, PointerActivationConstraints, PointerSensor, type DragDropManager, type Draggable, type DropAnimationFunction, type Droppable } from "@dnd-kit/dom";
+import { Accessibility, AutoScroller, Cursor, Feedback, PointerSensor, type DragDropManager, type Draggable, type DropAnimationFunction, type Droppable } from "@dnd-kit/dom";
 import { CollisionPriority, CollisionType, type CollisionDetector, type UniqueIdentifier } from "@dnd-kit/abstract";
 import { RestrictToHorizontalAxis } from "@dnd-kit/abstract/modifiers";
 import { showPopover } from "@dnd-kit/dom/utilities";
@@ -19,42 +21,6 @@ import { createContext, createEffect, createMemo, mergeProps, on, onCleanup, spl
 /** The reorder Token in milliseconds: how long rows slide aside and the dragged row settles. */
 const reorderMs = (element: Element) => Number.parseFloat(getComputedStyle(element).getPropertyValue("--duration-reorder"));
 
-/** A press that moves less than this is a click. */
-const PRESS_DRAG_PX = 4;
-
-// DOM 0.5.1 cancels pointercancel/Escape, but omits window blur even while activation is pending.
-class InterruptiblePointerSensor extends PointerSensor {
-  private stopBlur: (() => void) | undefined;
-
-  protected override handlePointerDown(event: PointerEvent, source: Draggable, options: Parameters<PointerSensor["bind"]>[1]) {
-    const previous = this.controller;
-
-    super.handlePointerDown(event, source, options);
-
-    if (!this.controller || this.controller === previous) return;
-    const owner = event.view ?? window;
-    const cancel = (event: Event) => this.handleCancel(event);
-
-    owner.addEventListener("blur", cancel);
-    this.stopBlur = () => owner.removeEventListener("blur", cancel);
-  }
-
-  protected override handleStart(source: Draggable, event: PointerEvent) {
-    super.handleStart(source, event);
-
-    // A blur during capture can make the superclass attach its final listeners after cancellation.
-    if (!this.controller) this.cleanup();
-  }
-
-  protected override cleanup() {
-    this.stopBlur?.();
-    this.stopBlur = undefined;
-    super.cleanup();
-  }
-}
-
-const pointerSensor = () => ({ ...PointerSensor.configure({ activationConstraints: [new PointerActivationConstraints.Distance({ value: PRESS_DRAG_PX })] }), plugin: InterruptiblePointerSensor });
-
 /** Past this many pixels outside the list the preview shows no move; back inside the lower gap it follows again. */
 const FAR_OUT_PX = 56;
 
@@ -65,17 +31,6 @@ const STICKY_ROW_SHARE = 0.25;
 
 /** How a pointer drag reads a tree drop's depth: one indent in pixels, the levels each gap allows from the dragged row's own depth, and the box the pointer picks depths in. */
 type DepthReading = { indent: number; levels: (slot: number) => { lo: number; hi: number }; box: { left: number; right: number } };
-
-/** The nearest ancestor that scrolls along `axis`, else null. */
-const scrollerOf = (element: Element): Element | null => {
-  for (let node = element.parentElement; node; node = node.parentElement) {
-    const { overflowX, overflowY } = getComputedStyle(node);
-
-    if (/auto|scroll/.test(overflowX + overflowY) && (node.scrollHeight > node.clientHeight || node.scrollWidth > node.clientWidth)) return node;
-  }
-
-  return null;
-};
 
 /**
  * Collision against the slots the rows had at lift, never the live boxes that move.
@@ -652,28 +607,13 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
   /** The gap the last resolve took, for the direction of a key past a refused one. */
   let legalAt = 0;
 
-  /** Whether the drop at index `index` of the dragged row has a gap the owner takes, from the rows as they stand. */
+  /** Whether each drop index of the dragged row has a gap the owner takes, from the rows as they stand. */
   let legalIndices: { rows: readonly TreeRow[]; dragged: string; ok: boolean[] } | null = null;
 
   const legalIndex = (tree: SortableTree, dragged: string, index: number): boolean => {
     if (!tree.takes) return true;
 
-    if (legalIndices?.rows !== tree.rows || legalIndices.dragged !== dragged) {
-      const rows = withDepth(tree.rows);
-      const remaining = remainingRows(rows, dragged);
-      const kept = new Set(remaining.map((row) => row.id));
-      const others = rows.filter((row) => row.id !== dragged);
-      const ok: boolean[] = [];
-      let gap = 0;
-
-      for (let at = 0; at <= others.length; at++) {
-        ok.push(legalDepths(remaining, tree, dragged, gap).length > 0);
-
-        if (others[at] && kept.has(others[at]!.id)) gap++;
-      }
-
-      legalIndices = { rows: tree.rows, dragged, ok };
-    }
+    if (legalIndices?.rows !== tree.rows || legalIndices.dragged !== dragged) legalIndices = { rows: tree.rows, dragged, ok: legalGaps(tree.rows, tree, dragged) };
 
     return legalIndices.ok[index] ?? false;
   };

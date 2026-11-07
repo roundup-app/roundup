@@ -80,6 +80,24 @@ export const legalSlot = (rows: readonly DepthRow[], tree: DropRules, dragged: s
   return gaps.find((gap) => legalDepths(rows, tree, dragged, gap).length > 0) ?? 0;
 };
 
+/** Whether each drop index of `dragged` in `tree` has a gap the tree's owner takes. */
+export const legalGaps = (tree: readonly TreeRow[], rules: DropRules, dragged: string): boolean[] => {
+  const rows = withDepth(tree);
+  const remaining = remainingRows(rows, dragged);
+  const kept = new Set(remaining.map((row) => row.id));
+  const others = rows.filter((row) => row.id !== dragged);
+  const ok: boolean[] = [];
+  let gap = 0;
+
+  for (let at = 0; at <= others.length; at++) {
+    ok.push(legalDepths(remaining, rules, dragged, gap).length > 0);
+
+    if (others[at] && kept.has(others[at]!.id)) gap++;
+  }
+
+  return ok;
+};
+
 /** The drop for gap `slot` of `rows` with the pointer at `depth`, clamped to the depths the gap allows. `rows` holds neither the dragged row nor what moves with it. */
 export const dropAt = (rows: readonly DepthRow[], nests: (id: string) => boolean, slot: number, depth: number): SortableDrop => {
   const above = rows[slot - 1];
