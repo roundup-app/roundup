@@ -871,9 +871,7 @@ export const Todos = (props: {
           <ShelfRow glyph={<KindGlyph kind="done" decorative />} class="todo-inset row-wash-inert">
             <div class="shelf-done-line">
               <span class="todo-done-toggle" data-fold>
-                <RowButton hang={false} onClick={() => setUnfolded(!unfolded())}>
-                  <span class="shelf-title">{foldedDone().length}{copy.doneCount}</span>
-                </RowButton>
+                <RowButton hang={false} onClick={() => setUnfolded(!unfolded())}><span class="shelf-title">{foldedDone().length}{copy.doneCount}</span></RowButton>
               </span>
               <button data-button="quiet" type="button" onClick={() => bulk.ask(true)}>{copy.clearDone}</button>
             </div>
