@@ -12,6 +12,36 @@ const STORES: [&str; 6] = [
     "digest",
 ];
 
+/// What the retired standalone Messages and Digest stores created, which the Project must still hold.
+fn standalone_messages(current: &mut Connection, digest: bool) {
+    let sql: &[&str] = if digest {
+        &[
+            include_str!("../../messages/migrations/001-digest/up.sql"),
+            include_str!("../../messages/migrations/011-digest/up.sql"),
+        ]
+    } else {
+        &[
+            include_str!("../../messages/migrations/001/up.sql"),
+            include_str!("../../messages/migrations/002/up.sql"),
+            include_str!("../../messages/migrations/003/up.sql"),
+            "CREATE TABLE message_sender_names (agent TEXT PRIMARY KEY NOT NULL, name TEXT NOT NULL);",
+            include_str!("../../messages/migrations/004/up.sql"),
+            include_str!("../../messages/migrations/005/up.sql"),
+            messages::evidence::SCHEMA,
+            messages::continuation::SCHEMA,
+            include_str!("../../messages/migrations/006/up.sql"),
+            include_str!("../../messages/migrations/007/up.sql"),
+            include_str!("../../messages/migrations/008/up.sql"),
+            include_str!("../../messages/migrations/009/up.sql"),
+            include_str!("../../messages/migrations/010/up.sql"),
+            include_str!("../../messages/migrations/012/up.sql"),
+        ]
+    };
+    for step in sql {
+        current.execute_batch(step).unwrap();
+    }
+}
+
 mod dump {
     include!("../../storage/src/tests/dump.rs");
 }
@@ -19,6 +49,20 @@ use dump::{dump, dump_except};
 
 mod standalone {
     include!("../tests/support/store_migrations.rs");
+}
+
+/// The Pads crate's migration files as a standalone store built them, for the expected schema.
+fn pads_standalone(db: &mut Connection, _: &Path) -> rusqlite::Result<()> {
+    use rusqlite_migration::M;
+    Migrations::new(vec![
+        M::up(include_str!("../../pads/migrations/001/up.sql")),
+        M::up(include_str!("../../pads/migrations/002/up.sql")),
+        M::up(include_str!("../../pads/migrations/003/up.sql")),
+        M::up(include_str!("../../pads/migrations/004/up.sql")),
+        M::up(include_str!("../../pads/migrations/005/up.sql")),
+    ])
+    .to_latest(db)
+    .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))
 }
 
 // The prefix just before 0046-delete-reactions, the migration these tests retire tables with.
@@ -76,13 +120,20 @@ async fn n16_all_stores_share_one_project_database() {
     let mut expected = std::collections::BTreeMap::new();
     for name in STORES {
         let mut current = Connection::open_in_memory().unwrap();
-        let initialize = match name {
+        if matches!(name, "messages" | "digest") {
+            standalone_messages(&mut current, name == "digest");
+            for (table, sql) in standalone::schema(&current) {
+                expected.insert(table, sql);
+            }
+            continue;
+        }
+        let initialize: fn(&mut Connection, &Path) -> rusqlite::Result<()> = match name {
             "agents" => agents::schema::open,
             "todos" => todos::schema::open,
-            "pads" => pads::schema::open,
-            "provenance" => provenance::schema::open,
-            "messages" => messages::schema::open,
-            "digest" => messages::digest_schema::open,
+            "pads" => pads_standalone,
+            "provenance" => {
+                |db, _| db.execute_batch(include_str!("../../provenance/migrations/001/up.sql"))
+            }
             _ => unreachable!(),
         };
         initialize(&mut current, Path::new(name)).unwrap();
@@ -435,7 +486,8 @@ async fn u5740c_current_project_drops_only_retired_tables() {
             )
             .await
             .unwrap()
-            .into_value();
+            .into_value()
+            .unwrap();
         assert!(answer.get("error").is_none(), "{answer}");
         assert_eq!(answer["result"]["head"], 1028);
         let (saved, head) = daemon.bus.saved_after(0).unwrap();
@@ -487,18 +539,17 @@ fn u5740c_other_representations_are_unchanged_on_refusal() {
     }
 }
 
-/// R3696c: these stores have no startup recovery and `storage::connect` already initialized WAL.
+/// R3696c: these stores (Touches opens through `connect`, which reads the schema once) have no startup recovery and `storage::connect` already initialized WAL.
 /// Holding SQLite's read lock closed detects an eager schema read without a timing threshold.
 #[test]
 fn r3696c_idle_project_stores_do_not_read_the_schema_on_open() {
     let dir = tempfile::tempdir().unwrap();
     let db = storage::connect(dir.path()).unwrap();
+    // N22: Pads and Touches open through `storage::connect`, which checks the schema, so it opens before the lock.
+    let bus = rpc::Bus::new();
+    drop(pads::Pads::open(dir.path(), bus.clone()).unwrap());
+    drop(provenance::Touches::open(dir.path()).unwrap());
     db.pragma_update(None, "locking_mode", "EXCLUSIVE").unwrap();
     db.execute_batch("BEGIN EXCLUSIVE").unwrap();
-    let path = dir.path().join("project.db");
-    let bus = rpc::Bus::new();
-    let _touches = provenance::Touches::open(&path).expect("Touches must not read the schema yet");
-    let _todos =
-        todos::Todos::open(dir.path(), bus.clone()).expect("Todos must not read the schema yet");
-    let _pads = pads::Pads::open(dir.path(), bus).expect("Pads must not read the schema yet");
+    let _todos = todos::Todos::open(dir.path(), bus).expect("Todos must not read the schema yet");
 }

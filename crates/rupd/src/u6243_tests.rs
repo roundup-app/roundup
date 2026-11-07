@@ -58,7 +58,7 @@ async fn fresh(run: &Run) -> Told {
 }
 
 fn told(run: &Run) -> Told {
-    run.daemon.rail_told.told.lock().unwrap().clone()
+    run.daemon.rail_told.told.lock().clone()
 }
 
 /// Lets the watcher judge what the step sent.

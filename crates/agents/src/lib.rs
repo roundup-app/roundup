@@ -56,7 +56,7 @@ pub mod rewind;
 mod scan;
 pub mod worktree;
 
-use agent::{Fold, Run, Slot};
+use agent::{Agent, Facts, Fold, Run, Runs, Slot};
 use claude_code::{LaunchFacts, Launcher, Role};
 
 /// How a session began, as its adapter reports it.
@@ -171,7 +171,7 @@ struct Shared {
     rail: Mutex<rail::Rail>,
     /// A node is marked `Starting`, and unmarked on failure, in the same Rail critical section
     /// that creates or reserves it, so `agent.stop` never finds a starting node unmarked.
-    runs: Mutex<HashMap<String, Slot>>,
+    runs: Mutex<HashMap<String, Agent>>,
     /// A41: removal excludes Door starts until its Rail transaction has committed.
     door_lifecycle: tokio::sync::RwLock<()>,
     bus: Bus,
@@ -185,22 +185,12 @@ struct Shared {
     mcp_env: Option<std::ffi::OsString>,
     /// Itself, so a Signal's fold can start H12's first Steer on a task of its own.
     me: Weak<Shared>,
-    /// E6: the Channel of each Agent's current Attempt that has left `pending`, as
-    /// `(attempt, channel)`; an entry of an earlier Attempt reads as `pending`.
-    channels: Mutex<HashMap<String, (String, Channel)>>,
     /// E3: the Daemon supplies mutable Context before the one first Steer.
     context: Option<ContextText>,
     /// A4452d: where roundup's own text goes instead of the Terminal.
     coordination: Option<CoordinationSink>,
-    /// A33: the lowest open blocker of the Todos each Agent created that wait; an idle Agent in
-    /// it reads `blocked`.
-    waits: Mutex<HashMap<String, u32>>,
-    /// U6248b: the Agents whose turn Claude Code gave up on and whose resume waits.
-    resumes: Mutex<HashMap<String, resume_wait::Resume>>,
     /// F5: the scan of the Doors' process trees.
     scan: Scan,
-    /// Each Door's strays as last announced; a Door with none has no entry.
-    strays: Mutex<HashMap<String, Vec<Stray>>>,
     /// H11: how long a Steer waits for its `UserPromptSubmit` Signal.
     steer_bound: Duration,
     steer: SteerSettings,
@@ -437,7 +427,7 @@ impl Agents {
 impl Agents {
     /// PS9.2: make Agent `id`'s adapter one with no hook Signal, as a vendor without hooks has.
     pub fn drop_hooks_for_test(&self, id: &str) {
-        if let Some(Slot::Running(run)) = self.shared.runs().get_mut(id) {
+        if let Some(Slot::Running(run)) = self.shared.runs().slot_mut(id) {
             let clock = Arc::clone(&self.shared.clock);
             run.replace_fold(claude_code::hookless(move || clock()));
         }

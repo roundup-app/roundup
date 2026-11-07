@@ -140,7 +140,7 @@ impl Agents {
             if runs.contains_key(id) {
                 false
             } else if rail.attach_terminal(id, &spawned.id).is_ok() {
-                runs.insert(id.to_owned(), Slot::Running(run));
+                runs.put(id.to_owned(), Slot::Running(run));
                 true
             } else {
                 false

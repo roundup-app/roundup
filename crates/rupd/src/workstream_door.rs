@@ -55,9 +55,9 @@ for line in sys.stdin:
         )
         .unwrap(),
     );
-    let touches = Arc::new(provenance::Touches::open(&dir.join("provenance.db")).unwrap());
+    let touches = Arc::new(provenance::Touches::open(&dir).unwrap());
     let mut daemon = Daemon {
-        naming: Arc::new(std::sync::Mutex::new(
+        naming: Arc::new(parking_lot::Mutex::new(
             crate::data::open_naming(&crate::data::naming_path(&dir)).unwrap(),
         )),
         terminals: terminals.clone(),

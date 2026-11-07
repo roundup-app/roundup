@@ -1,3 +1,4 @@
+import { createEffect, createRoot } from "solid-js";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { Terminal } from "@xterm/xterm";
@@ -12,6 +13,7 @@ import { CHORDS, HELP_ROWS } from "../keys/chords";
 import { copy } from "./copy";
 import { DEFAULT_FONT_SIZE } from "../terminal/fontSize";
 import { xtermOptions } from "../terminal/emulator";
+import { useBrowserStorage } from "../state/storage";
 
 beforeEach(() => {
   vi.spyOn(Terminal.prototype, "open").mockImplementation(() => {});
@@ -153,12 +155,14 @@ it("u4547c_settings_choices_do_not_change_the_workstream_prompt", async () => {
 
 it("u3806_an_invalid_field_falls_back_alone", async () => {
   localStorage.setItem("roundup:app-settings", JSON.stringify({ fontSize: 1000, lineHeight: 10, letterSpacing: 2, fontWeight: 42, interfaceScale: "bad", focusMarkers: true, mode: "light", fontFamily: "Menlo", permissionMode: "plan", engine: 12, model: "kept", quickAdd: "x" }));
+  useBrowserStorage(localStorage);
   await mount();
   expect(appSettings()).toMatchObject({ mode: "light", fontFamily: "Menlo", permissionMode: "plan", engine: "", model: "kept", quickAdd: "meta+shift+KeyT", lineHeight: xtermOptions.lineHeight, letterSpacing: 2, fontWeight: 400, interfaceScale: "default", focusMarkers: true });
   await section("Terminal");
   expect(Number((await screen.findByLabelText<HTMLInputElement>("Font size", { selector: "input" })).value)).toBeLessThan(22);
   cleanup();
   localStorage.setItem("roundup:app-settings", "not JSON");
+  useBrowserStorage(localStorage);
   await mount();
   expect(appSettings()).toMatchObject({ mode: "system", permissionMode: "", fontFamily: "", model: "" });
 });
@@ -404,4 +408,30 @@ it("u6276a_a_save_stores_only_what_differs_from_the_default", async () => {
   await saveAppSettings({ fontSize: DEFAULT_FONT_SIZE });
   expect(stored()).toEqual({});
   expect(appSettings().lineHeight).toBe(xtermOptions.lineHeight);
+});
+
+it("u6276a_two_saves_reach_storage_in_order", async () => {
+  const writes: string[] = [];
+  const setItem = Storage.prototype.setItem;
+  vi.spyOn(Storage.prototype, "setItem").mockImplementation(function (this: Storage, key, value) {
+    if (key === "roundup:app-settings") writes.push(value);
+    setItem.call(this, key, value);
+  });
+
+  await Promise.all([saveAppSettings({ fontSize: 15 }), saveAppSettings({ mode: "dark" }), saveAppSettings({ fontSize: 17 })]);
+  expect(writes.map(write => JSON.parse(write))).toEqual([{ fontSize: 15 }, { fontSize: 15, mode: "dark" }, { fontSize: 17, mode: "dark" }]);
+});
+
+it("u6276a_a_change_reaches_every_open_project_tab", async () => {
+  const seen: string[][] = [[], []];
+
+  const dispose = createRoot(dispose => {
+    seen.forEach((tab, index) => createEffect(() => { tab.push(`${index}:${appSettings().mode}`); }));
+
+    return dispose;
+  });
+
+  await saveAppSettings({ mode: "dark" });
+  dispose();
+  expect(seen).toEqual([["0:system", "0:dark"], ["1:system", "1:dark"]]);
 });

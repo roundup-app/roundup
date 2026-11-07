@@ -1,5 +1,6 @@
 //! UA2: `rup-extension.json`, checked before any code runs.
 
+use crate::field::Field;
 use std::path::{Component, Path};
 
 use serde_json::Value;
@@ -20,7 +21,8 @@ pub(super) fn fingerprint(folder: &Path) -> Option<String> {
     let module = serde_json::from_slice::<Value>(&manifest)
         .ok()
         .and_then(|manifest| {
-            manifest["module"]
+            manifest
+                .field("module")
                 .as_str()
                 .map(|module| folder.join(module))
         })
@@ -37,13 +39,14 @@ pub(super) fn read(folder: &Path) -> Result<Manifest, String> {
         .map_err(|err| format!("{at}: unreadable: {err}"))?;
     let value: Value =
         serde_json::from_str(&text).map_err(|err| format!("{at}: not JSON: {err}"))?;
-    let string = |key: &str| match value[key].as_str() {
+    let string = |key: &str| match value.field(key).as_str() {
         Some(text) if !text.is_empty() => Ok(text.to_owned()),
         _ => Err(format!("{at}: \"{key}\" is missing or not a string")),
     };
     let name = string("name")?;
     let module = string("module")?;
-    let permissions = value["permissions"]
+    let permissions = value
+        .field("permissions")
         .as_array()
         .ok_or_else(|| format!("{at}: \"permissions\" is missing or not a list"))?
         .iter()

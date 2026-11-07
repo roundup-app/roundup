@@ -1,13 +1,12 @@
 import { closeFocused as closeBubble, bubbleElement, focusedId, focusItem as focusBubble, onBubbleFocus as trackBubbleFocus, hasTerminalFocus } from "./focus";
 import { outcomeOf } from "../app/seam";
 import { captureFocus } from "../keys/focus";
-import { createCopyFeedback, CopyButton } from "../ui/CopyButton";
 import { createTerminalClose } from "./close";
 import { dismissable, ReservedLine } from "../ink/ReservedLine";
 import { CHORDS, LEADER } from "../keys/chords";
 import { registerKeys } from "../keys/registry";
 import * as v from "valibot";
-import { Dialog } from "../ui/Dialog";
+import { NameDraftRecovery } from "../drawer/NameDraftRecovery";
 import { Editable } from "../ui/Editable";
 import { FlatAdd, FlatTab } from "../ui/FlatTab";
 import { IconButton } from "../ui/IconButton";
@@ -56,7 +55,6 @@ export const Bubbles = (props: {
   });
   const records = createMemo(() => drafts.list().filter(draft => draft.destination.surface === "bubbles"));
   const [recovering, recover] = createSignal(false);
-  const [inspected, inspect] = createSignal<string>();
   const [copyFailure, failCopy] = createSignal<{ revision: string; message: string } | null>(null);
   const recoveryLine = dismissable(() => (copyFailure()?.message) || (problem() ? (copy.draftRetention(connected.project.name, copy.terminalName, problem()!.cause)) : null) || null);
   createEffect(() => {
@@ -65,7 +63,7 @@ export const Bubbles = (props: {
 
     if (prior && !listed.some(draft => draft.revision === prior.revision)) failCopy(null);
   });
-  const shownDraft = () => records().find(draft => draft.revision === inspected()) ?? records().filter(draft => draft.status === "draft" && !draft.value.recovery).at(-1) ?? records().at(-1);
+  const currentDraft = () => records().filter(draft => draft.status === "draft" && !draft.value.recovery).at(-1);
 
   const problem = () => {
     const failure = drafts.problem();
@@ -795,7 +793,7 @@ export const Bubbles = (props: {
     setFailure, clearItemFailure, lastTarget, close, bubbleMenus,
   };
 
-  const recoveryNotice = createMemo(() => shownDraft() ? !original(shownDraft()!) || readOnly() ? copy.originalUnavailable : shownDraft()!.value.base !== nameFor(original(shownDraft()!)!) ? copy.railDraftConflict : null : null);
+  const recoveryNotice = (draft: ReturnType<typeof records>[number]) => !original(draft) || readOnly() ? copy.originalUnavailable : draft.value.base !== nameFor(original(draft)!) ? copy.railDraftConflict : null;
 
   return <div class="bubbles" ref={setLayer}>
       <For each={[...Object.keys(reserved()).filter(key => reserved()[key] === null), ...shownIds().map(id => Object.keys(reserved()).find(key => reserved()[key] === id) ?? id)]}>{key => {
@@ -816,24 +814,16 @@ export const Bubbles = (props: {
         </div>
         <HintLine />
       </Portal>
-      <Dialog.Root instant open={recovering()} onOpenChange={details => recover(details.open)}>
-        <Portal><Dialog.Positioner asChild={positioner => <aside {...positioner({})} />}><Dialog.Content class="draft-recovery bubble-recovery" ref={element => { recoveryPanel = element; }}>
-          <Dialog.Title asChild={title => <h2 {...title({})}>{copy.unfinishedWork}</h2>} />
-          <Dialog.Description class="draft-identity">{copy.draftIdentity(connected.project.name, copy.terminalName)}</Dialog.Description>
-          <ReservedLine message={recoveryLine.message()} dismiss={() => copyFailure() ? failCopy(null) : recoveryLine.dismiss()} recover={problem() ? { run: () => drafts.retry(), label: copy.storageRetry } : undefined} />
-          <Show when={records().length > 1}><For each={[...records()].reverse().sort((a, b) => Number(b.status === "draft") - Number(a.status === "draft"))}>{(draft, index) => <button type="button" data-button="quiet" aria-pressed={shownDraft()?.revision === draft.revision} onClick={() => inspect(draft.revision)}>{copy.draftIdentity(copy.inspectDraft, draft.status === "draft" ? copy.currentDraft : copy.draftStatus[draft.status], String(draft.value.base ?? ""), String(index() + 1))}</button>}</For></Show>
-          <Show when={shownDraft()}>{draft => <>
-            <p class="draft-identity">{copy.draftIdentity(String(draft().value.base ?? ""), draft().destination.recipient ?? copy.noDraftRecipient)}</p>
-            <ReservedLine status={recoveryNotice() ?? copy.draftStatus[draft().status]} data-state={draft().status} />
-            <pre class="draft-value">{String(draft().value.name ?? "")}</pre>
-          </>}</Show>
-          <div class="draft-actions">
-            <Show when={shownDraft()}>{draft => <><CopyButton app={app} identity={draft().revision} text={String(draft().value.name ?? "")} onSuccess={() => failCopy(prior => prior?.revision === draft().revision ? null : prior)} onFailure={error => failCopy({ revision: draft().revision, message: copy.copyDraftFailure(error.message) })}>{copy.copyProjectName}</CopyButton>
-            <button type="button" data-button="quiet" onClick={() => { drafts.discard(draft().revision); setEditing(null); }}>{copy.discardRevision}</button></>}</Show>
-                        <Dialog.CloseTrigger data-button="quiet">{copy.close}</Dialog.CloseTrigger>
-          </div>
-        </Dialog.Content></Dialog.Positioner></Portal>
-      </Dialog.Root>
+      <NameDraftRecovery class="bubble-recovery" open={recovering()} onOpenChange={recover} panel={element => { recoveryPanel = element; }}
+        identity={copy.draftIdentity(connected.project.name, copy.terminalName)} records={records()} current={currentDraft()} app={app}
+        lines={<ReservedLine message={recoveryLine.message()} dismiss={() => copyFailure() ? failCopy(null) : recoveryLine.dismiss()} recover={problem() ? { run: () => drafts.retry(), label: copy.storageRetry } : undefined} />}
+        label={(draft, index) => copy.draftIdentity(copy.inspectDraft, draft.status === "draft" ? copy.currentDraft : copy.draftStatus[draft.status], String(draft.value.base ?? ""), String(index + 1))}
+        detail={draft => <p class="draft-identity">{copy.draftIdentity(String(draft.value.base ?? ""), draft.destination.recipient ?? copy.noDraftRecipient)}</p>}
+        notice={draft => <ReservedLine status={recoveryNotice(draft) ?? copy.draftStatus[draft.status]} data-state={draft.status} />}
+        value={draft => String(draft.value.name ?? "")}
+        onCopySuccess={draft => failCopy(prior => prior?.revision === draft.revision ? null : prior)}
+        onCopyFailure={(draft, error) => failCopy({ revision: draft.revision, message: copy.copyDraftFailure(error.message) })}
+        onDiscard={draft => { drafts.discard(draft.revision); setEditing(null); }} />
       <CloseFailure message={failure()?.message ?? null} onDismiss={() => setFailure(null)} action={<Show when={failure()?.terminal === null}><button data-button="quiet" class="word" type="button" onClick={() => { setFailure(null); void open(); }}>{copy.retry}</button></Show>} />
     </div>;
 };

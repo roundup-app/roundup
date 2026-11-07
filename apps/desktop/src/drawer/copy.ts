@@ -19,6 +19,8 @@ export const copy = {
   openDraft: sharedCopy.openDraft,
   copyDraft: sharedCopy.copy,
   discardRow: sharedCopy.discardRevision,
+  discardRevision: sharedCopy.discardRevision,
+  copyProjectName: sharedCopy.copyProjectName,
   unfinishedWork: sharedCopy.unfinishedWork,
   noUnfinishedWork: "This Project has no unfinished work.",
   draftProblem,

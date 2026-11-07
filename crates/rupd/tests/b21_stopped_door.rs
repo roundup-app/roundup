@@ -7,9 +7,10 @@ mod rupd_harness;
 #[path = "support/transcripts.rs"]
 mod transcripts;
 
+use parking_lot::Mutex;
 use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::time::Duration;
 
 use contracts::EventData;
@@ -230,7 +231,6 @@ impl Run {
         wait(|| {
             self.log
                 .lock()
-                .unwrap()
                 .lines()
                 .filter(|line| *line == "rupd: digest comparison complete")
                 .count()
@@ -249,7 +249,7 @@ impl Run {
                 .any(|op| op == "push" || op == "message.send"),
             "send attempted while stopped: {attempts}"
         );
-        let log = self.log.lock().unwrap();
+        let log = self.log.lock();
         assert!(
             !log.contains("push failed") && !log.contains("refused"),
             "refusal while stopped: {log}"
@@ -335,10 +335,7 @@ fn launch(
     let stderr = daemon.stderr.take().unwrap();
     std::thread::spawn(move || {
         for line in BufReader::new(stderr).lines() {
-            captured
-                .lock()
-                .unwrap()
-                .push_str(&format!("{}\n", line.unwrap()));
+            captured.lock().push_str(&format!("{}\n", line.unwrap()));
         }
     });
     (daemon, log)
