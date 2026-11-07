@@ -551,6 +551,5 @@ fn r3696c_idle_project_stores_do_not_read_the_schema_on_open() {
     drop(provenance::Touches::open(dir.path()).unwrap());
     db.pragma_update(None, "locking_mode", "EXCLUSIVE").unwrap();
     db.execute_batch("BEGIN EXCLUSIVE").unwrap();
-    let _todos =
-        todos::Todos::open(dir.path(), bus).expect("Todos must not read the schema yet");
+    let _todos = todos::Todos::open(dir.path(), bus).expect("Todos must not read the schema yet");
 }
