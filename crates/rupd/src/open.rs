@@ -288,7 +288,7 @@ impl Daemon {
     }
 }
 
-/// The Daemon's background tasks, held by value from `open` until `serve` starts each once.
+/// The Daemon's background tasks, owned by value from `open` until `serve` starts each once.
 /// Each owns the receiver it was subscribed with at `open`.
 pub struct Watchers {
     programs: tokio::sync::broadcast::Receiver<Arc<terminal::Change>>,
