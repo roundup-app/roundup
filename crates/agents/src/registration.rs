@@ -1,4 +1,5 @@
 use super::*;
+use crate::id::AgentId;
 
 impl Shared {
     /// Swap `id` from `Starting` to `Running` (the Run `build` makes, told whether a
@@ -30,7 +31,7 @@ impl Shared {
         if run.input_started()
             && let Err(error) = self.save_input_started(id, run.attempt())
         {
-            runs.put(id.to_owned(), Slot::Running(run));
+            runs.put(id, Slot::Running(run));
             return Err(error);
         }
         run.observe(Observation::Finished(rail.finished(id).unwrap_or_default()));
@@ -44,7 +45,7 @@ impl Shared {
                 // Put `id` back so the caller's own failed-spawn cleanup (which expects to find
                 // its Attempt still in `runs`) still removes the orphaned node and kills the
                 // Terminal `start` already recorded, exactly as any other failed spawn.
-                runs.put(id.to_owned(), Slot::Running(run));
+                runs.put(id, Slot::Running(run));
                 return Err(err);
             }
             let first_prompt = claude_code::see(&payload).prompt.map(name::from_prompt);
@@ -53,7 +54,7 @@ impl Shared {
             // with it. `rail.node(id)` itself cannot be `NOT_FOUND` (a Starting id's Rail node is
             // removed only by its own failed spawn, which never reaches here), but the write a
             // parked rename makes can still fail on its own account.
-            let agent_facts = &mut runs.get_mut(id).expect("taken, not removed").facts;
+            let agent_facts = &mut runs.agent_mut(id).expect("taken, not removed").facts;
             match self.apply(
                 Some(&mut *rail),
                 &mut run,
@@ -69,7 +70,7 @@ impl Shared {
                 ),
             }
         }
-        runs.put(id.to_owned(), Slot::Running(run));
+        runs.put(id, Slot::Running(run));
         Ok(prompts)
     }
 
@@ -83,7 +84,7 @@ impl Shared {
     pub(super) fn finish_resuming(
         &self,
         rail: Option<&mut rail::Rail>,
-        runs: &mut HashMap<String, Agent>,
+        runs: &mut HashMap<AgentId, Agent>,
         id: &str,
         actor: Actor,
         payload: Value,
@@ -108,7 +109,7 @@ impl Shared {
         {
             hold(id, &mut parked, actor, payload);
             runs.put(
-                id.to_owned(),
+                id,
                 Slot::Resuming {
                     mode,
                     attempt,
@@ -218,7 +219,7 @@ impl Shared {
     fn promote_resuming(
         &self,
         rail: &mut rail::Rail,
-        runs: &mut HashMap<String, Agent>,
+        runs: &mut HashMap<AgentId, Agent>,
         id: &str,
         attempt: Ordinal,
         old: Option<Box<Run>>,
@@ -286,7 +287,7 @@ impl Shared {
             let first_prompt = claude_code::see(&parked_payload)
                 .prompt
                 .map(name::from_prompt);
-            let agent_facts = &mut runs.get_mut(id).expect("taken, not removed").facts;
+            let agent_facts = &mut runs.agent_mut(id).expect("taken, not removed").facts;
             if let Err(err) = self.apply(
                 Some(rail),
                 &mut run,
@@ -329,7 +330,7 @@ impl Shared {
         if starred {
             run.note_star();
         }
-        let agent_facts = &mut runs.get_mut(id).expect("taken, not removed").facts;
+        let agent_facts = &mut runs.agent_mut(id).expect("taken, not removed").facts;
         let applied = self.apply(
             Some(rail),
             &mut run,
@@ -339,7 +340,7 @@ impl Shared {
             Observation::Signal(payload),
             None,
         );
-        runs.put(id.to_owned(), Slot::Running(run));
+        runs.put(id, Slot::Running(run));
         let _ = done.send(Ok(()));
         applied
     }

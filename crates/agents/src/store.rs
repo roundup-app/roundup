@@ -440,7 +440,7 @@ pub(super) mod tests {
             let adapter_clock = Arc::clone(&clock);
             let (dir, bus, shared) = shared_over_temp_dir(clock);
             let run = Run::fixture(adapter_clock, false);
-            shared.runs().put("1".into(), Slot::Running(run));
+            shared.runs().put("1", Slot::Running(run));
             let (terminal, terminal_events) = broadcast::channel(16);
             let events = bus.subscribe();
             let watcher = tokio::spawn(watch(
@@ -467,8 +467,11 @@ pub(super) mod tests {
                 [],
             )
             .unwrap();
-            let run = watched.shared.runs().remove("1").unwrap();
-            watched.shared.runs().insert("7013".into(), run);
+            let run = watched.shared.runs().forget("1").unwrap();
+            watched
+                .shared
+                .runs()
+                .insert(crate::id::AgentId::parse("7013").unwrap(), run);
             watched
         }
 
@@ -665,10 +668,9 @@ pub(super) mod tests {
             .insert(NodeKind::Agent, "a", parent, Some("1"))
             .unwrap()
             .id;
-        shared.runs().put(
-            id.clone(),
-            Slot::Running(Run::fixture(Arc::new(|| 0), true)),
-        );
+        shared
+            .runs()
+            .put(&id, Slot::Running(Run::fixture(Arc::new(|| 0), true)));
         id
     }
 

@@ -98,7 +98,7 @@ async fn a4899a_an_already_idle_door_takes_the_queued_part_without_another_event
         assert_eq!(
             w.shared
                 .runs()
-                .get("7013")
+                .agent("7013")
                 .and_then(|agent| agent.facts.wait),
             blocked.then_some(4)
         );

@@ -141,7 +141,7 @@ impl Agents {
                 let mut rail = self.shared.rail();
                 let mut runs = self.shared.runs();
                 if runs.slot(&id).is_some_and(|slot| slot.attempt() == attempt) {
-                    runs.remove(&id);
+                    runs.forget(&id);
                     self.shared.events.observed.notify_waiters();
                     if rail.node(&id)?.worktree.is_none() {
                         report_undo("remove the Agent from the Rail", rail.remove(&id));
@@ -715,7 +715,7 @@ mod idle_tests {
                 shared.apply(Some(&mut rail), &mut earlier, &mut Facts::default(), &node.id, &Actor::user(),
                     Observation::Signal(serde_json::json!({"hook_event_name":"UserPromptSubmit","prompt":"earlier request"})), None).unwrap();
                 assert!(earlier.input_started());
-                shared.runs().put(node.id.clone(), Slot::Running(earlier));
+                shared.runs().put(&node.id, Slot::Running(earlier));
             }
             let prompt = order::first_input(
                 None,
@@ -784,11 +784,11 @@ mod idle_tests {
         shared.apply(Some(&mut rail), &mut earlier, &mut Facts::default(), &node.id, &Actor::user(),
             Observation::Signal(serde_json::json!({"hook_event_name":"UserPromptSubmit","prompt":"earlier request"})), None).unwrap();
         assert!(earlier.input_started());
-        shared.runs().put(node.id.clone(), Slot::Running(earlier));
+        shared.runs().put(&node.id, Slot::Running(earlier));
         let (done, _completion) = oneshot::channel();
         let conversation = "00000000-0000-4000-8000-000000000001";
         let mut runs = HashMap::from([(
-            node.id.clone(),
+            crate::id::AgentId::parse(&node.id).unwrap(),
             Agent {
                 facts: Facts::default(),
                 slot: Slot::Resuming {
@@ -812,7 +812,7 @@ mod idle_tests {
         let Some(Agent {
             slot: Slot::Running(run),
             facts,
-        }) = runs.get_mut(&node.id)
+        }) = runs.agent_mut(&node.id)
         else {
             panic!("resume was not promoted")
         };

@@ -179,7 +179,7 @@ impl Shared {
                 Slot::Running(run)
                     if run.terminal_id() == terminal && !run.ended() && !run.view().hooked =>
                 {
-                    Some((id.clone(), run.attempt().to_string()))
+                    Some((id.to_string(), run.attempt().to_string()))
                 }
                 _ => None,
             });
@@ -207,7 +207,7 @@ impl Shared {
 
     /// E6: whether the live Attempt of `id` has not yet reported its Channel or missed the deadline.
     pub(super) fn channel_pending(&self, id: &str) -> bool {
-        channel_in(self.runs().get(id)) == Some(Channel::Pending)
+        channel_in(self.runs().agent(id)) == Some(Channel::Pending)
     }
 
     /// E6: move the Channel of `attempt` to `channel` and say so, unless it is there already or
@@ -216,7 +216,7 @@ impl Shared {
         let changed = {
             let mut runs = self.runs();
             let agent = runs
-                .get_mut(id)
+                .agent_mut(id)
                 .filter(|agent| agent.slot.attempt() == attempt);
             let current = channel_in(agent.as_deref());
             // `up` is final for an Attempt; `missing` never replaces it.
@@ -298,7 +298,7 @@ impl Shared {
                 return Err(RpcError::conflict(format!("{name} is stopping")));
             }
             match runs
-                .get_mut(id)
+                .agent_mut(id)
                 .map(|agent| (&mut agent.slot, &mut agent.facts))
             {
                 Some((Slot::Running(run), agent_facts)) => {
@@ -726,7 +726,7 @@ impl Agents {
                             .quiet_since
                             .is_some_and(|at| (self.shared.clock)() - at >= limit_ms) =>
                 {
-                    Some(id.clone())
+                    Some(id.to_string())
                 }
                 _ => None,
             })
@@ -740,7 +740,7 @@ impl Agents {
             .iter()
             .filter_map(|(id, agent)| match &agent.slot {
                 Slot::Running(run) if !run.ended() && run.view().compactions > 0 => {
-                    Some((id.clone(), run.view().compactions))
+                    Some((id.to_string(), run.view().compactions))
                 }
                 _ => None,
             })
@@ -762,7 +762,7 @@ impl Agents {
                 }
                 let (turn, started, ended, text) = run.view().completed.as_deref()?;
                 Some((
-                    id.clone(),
+                    id.to_string(),
                     (
                         format!("{}:{turn}", run.attempt()),
                         *started,

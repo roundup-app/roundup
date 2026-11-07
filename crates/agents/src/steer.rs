@@ -663,10 +663,10 @@ mod tests {
             let mut receiver = None;
             match case {
                 "missing" => {
-                    shared.runs().remove("7013");
+                    shared.runs().forget("7013");
                 }
                 "closing" => {
-                    shared.runs().put("7013".into(), crate::Slot::Closing);
+                    shared.runs().put("7013", crate::Slot::Closing);
                 }
                 "starting" => {
                     shared.mark_starting("7013", contracts::agent::Ordinal::parse("1").unwrap())

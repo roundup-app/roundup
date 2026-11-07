@@ -1,4 +1,5 @@
 use super::*;
+use crate::id::AgentId;
 use contracts::agent::Ordinal;
 
 /// State the Terminal watchers and the RPC calls share.
@@ -66,7 +67,7 @@ impl Shared {
     pub(super) fn set_waits(&self, next: HashMap<String, u32>) {
         let mut runs = self.runs();
         for (id, agent) in runs.iter_mut() {
-            let wait = next.get(id).copied();
+            let wait = next.get(&id.to_string()).copied();
             let before = std::mem::replace(&mut agent.facts.wait, wait);
             let Slot::Running(run) = &mut agent.slot else {
                 continue;
@@ -79,18 +80,18 @@ impl Shared {
             if run.ended() || (before.kind, &before.label) == (after.kind, &after.label) {
                 continue;
             }
-            run.publish(&self.bus, Actor::daemon(), id, after);
+            run.publish(&self.bus, Actor::daemon(), &id.to_string(), after);
         }
     }
 
-    pub(super) fn runs(&self) -> MutexGuard<'_, HashMap<String, Agent>> {
+    pub(super) fn runs(&self) -> MutexGuard<'_, HashMap<AgentId, Agent>> {
         agent_lock(&self.runs).expect("runs lock")
     }
 
     pub(super) fn mark_starting(&self, id: &str, attempt: Ordinal) {
         let since = (self.clock)();
         self.runs().put(
-            id.to_owned(),
+            id,
             Slot::Starting {
                 attempt,
                 since,
@@ -107,14 +108,14 @@ impl Shared {
     pub(super) fn present(
         &self,
         mut node: RailNode,
-        runs: &HashMap<String, Agent>,
+        runs: &HashMap<AgentId, Agent>,
         rail: &rail::Rail,
         finished: u64,
     ) -> Result<RailNode, RpcError> {
         if node.kind == NodeKind::Group {
             return Ok(node);
         }
-        let entry = runs.get(&node.id);
+        let entry = runs.agent(&node.id);
         let slot = entry
             .map(|agent| &agent.slot)
             .filter(|slot| !matches!(slot, Slot::Gone));
@@ -300,7 +301,7 @@ impl Agents {
                     .shared
                     .terminals
                     .program_pid(run.terminal_id())
-                    .map(|pid| (id.clone(), pid)),
+                    .map(|pid| (id.to_string(), pid)),
                 _ => None,
             })
             .collect()
