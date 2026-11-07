@@ -1,4 +1,5 @@
 import { focusActions } from "./focusActions";
+import { makeEventListener } from "@solid-primitives/event-listener";
 import { captureFocus } from "../keys/focus";
 import * as menu from "@zag-js/menu";
 import { normalizeProps, useMachine } from "@zag-js/solid";
@@ -16,10 +17,9 @@ const Owner = createContext<{ setElement: (element: HTMLElement) => void; setCon
 const trackOpening = (element: HTMLElement, request: () => void) => {
   const key = (event: KeyboardEvent) => { if (["Enter", " ", "ArrowUp", "ArrowDown"].includes(event.key)) request(); };
 
-  element.addEventListener("click", request, true);
-  element.addEventListener("contextmenu", request, true);
-  element.addEventListener("keydown", key, true);
-  onCleanup(() => { element.removeEventListener("click", request, true); element.removeEventListener("contextmenu", request, true); element.removeEventListener("keydown", key, true); });
+  makeEventListener(element, "click", request, true);
+  makeEventListener(element, "contextmenu", request, true);
+  makeEventListener(element, "keydown", key, true);
 };
 
 export const Menu = {
@@ -102,9 +102,8 @@ export const Menu = {
     return <ArkMenu.Content {...props} ref={(element: HTMLDivElement) => {
       owner?.setContent(element);
       const returning = () => owner?.returning();
-      element.addEventListener("keydown", returning, true);
-      element.addEventListener("click", returning, true);
-      onCleanup(() => { element.removeEventListener("keydown", returning, true); element.removeEventListener("click", returning, true); });
+      makeEventListener(element, "keydown", returning, true);
+      makeEventListener(element, "click", returning, true);
       // SAFETY: callers supply callback refs; Solid compiles element bindings into callbacks.
       (props.ref as ((element: HTMLDivElement) => void) | undefined)?.(element);
     }} class={`app-menu ${props.class ?? ""}`} />;

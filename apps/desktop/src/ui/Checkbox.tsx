@@ -1,4 +1,5 @@
 import "./Field.css";
+import { makeEventListener } from "@solid-primitives/event-listener";
 import "./Checkbox.css";
 import { Checkbox as ArkCheckbox } from "@ark-ui/solid/checkbox";
 import Check from "lucide-solid/icons/check";
@@ -15,8 +16,7 @@ export const Checkbox = (props: { class?: string; inputRef?: (element: HTMLInput
       const click = props.onClickCapture;
 
       if (click) {
-        element.addEventListener("click", click, true);
-        onCleanup(() => element.removeEventListener("click", click, true));
+        makeEventListener(element, "click", click, true);
       }
 
       createEffect(() => { element.indeterminate = props.checked === "indeterminate"; }); }} style="" />} />
