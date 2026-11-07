@@ -11,6 +11,10 @@ use sha2::{Digest, Sha256};
 const IDENTIFIER: &str = "dev.roundup.app";
 
 /// `ROUNDUP_DATA_DIR` when set, else the App's data folder for `dev.roundup.app`.
+#[expect(
+    clippy::disallowed_methods,
+    reason = "the data folder is resolved before any Daemon, or Observers, exists"
+)]
 pub fn data_dir() -> io::Result<PathBuf> {
     resolve(
         std::env::var_os("ROUNDUP_DATA_DIR"),

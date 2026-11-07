@@ -455,13 +455,16 @@ mod tests {
         let dir = tempfile::tempdir()?;
         let project = dir.path().join("project");
         std::fs::create_dir(&project)?;
-        let daemon = std::sync::Arc::new(
-            rupd::Daemon::open_project(&project, &dir.path().join("data"))
-                .map_err(io::Error::other)?,
-        );
+        let (daemon, watchers) = rupd::Daemon::open_project(&project, &dir.path().join("data"))
+            .map_err(io::Error::other)?;
+        let daemon = std::sync::Arc::new(daemon);
         let socket = dir.path().join("daemon.sock");
         let listener = tokio::net::UnixListener::bind(&socket)?;
-        let server = tokio::spawn(rupd::serve(listener, std::sync::Arc::clone(&daemon)));
+        let server = tokio::spawn(rupd::serve(
+            listener,
+            std::sync::Arc::clone(&daemon),
+            watchers,
+        ));
         let result =
             tokio::time::timeout(RUN_BOUND, async {
                 let client = Client::connect(&socket).await?;

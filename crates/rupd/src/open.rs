@@ -2,31 +2,46 @@ use super::*;
 
 impl Daemon {
     /// `dir` is the Project's data folder (N1); it is created if missing. The Project folder is
-    /// taken as its parent.
-    pub fn open(dir: &Path) -> Result<Self, OpenError> {
+    /// taken as its parent. The Watchers are the background tasks `serve` starts.
+    pub fn open(dir: &Path) -> Result<(Self, Watchers), OpenError> {
         Self::open_in(dir.parent().unwrap_or(dir), dir)
     }
 
     /// Open `project`, keeping its data in `data` (N1); obsolete local data is refused.
-    pub fn open_project(project: &Path, data: &Path) -> Result<Self, OpenError> {
+    pub fn open_project(project: &Path, data: &Path) -> Result<(Self, Watchers), OpenError> {
+        Self::open_observed(project, data, Observers::from_env())
+    }
+
+    /// `open_project` with the environment already read into `observers`.
+    pub fn open_observed(
+        project: &Path,
+        data: &Path,
+        observers: Observers,
+    ) -> Result<(Self, Watchers), OpenError> {
         let dir = data::project_data(data, project)?;
         data::refuse_old_data(project).map_err(OpenError::from)?;
-        let daemon = Self::open_in(project, &dir)?;
-        Ok(match std::env::var_os("HOME") {
-            Some(home) => daemon.with_extensions(&Path::new(&home).join(".roundup/extensions")),
-            None => daemon,
+        let home = observers.home.clone();
+        let (daemon, watchers) = Self::open_stores(project, &dir, observers, |agents| agents)?;
+        Ok(match home {
+            Some(home) => (
+                daemon.with_extensions(&home.join(".roundup/extensions")),
+                watchers,
+            ),
+            None => (daemon, watchers),
         })
     }
 
-    pub(crate) fn open_in(project: &Path, dir: &Path) -> Result<Self, OpenError> {
-        Self::open_stores(project, dir, |agents| agents)
+    pub(crate) fn open_in(project: &Path, dir: &Path) -> Result<(Self, Watchers), OpenError> {
+        Self::open_stores(project, dir, Observers::from_env(), |agents| agents)
     }
 
+    /// Open the stores with `configure` applied to the Agents, and subscribe the Watchers.
     pub(crate) fn open_stores(
         project: &Path,
         dir: &Path,
+        observers: Observers,
         configure: impl FnOnce(agents::Agents) -> agents::Agents,
-    ) -> Result<Self, OpenError> {
+    ) -> Result<(Self, Watchers), OpenError> {
         let begun = std::time::Instant::now();
         std::fs::create_dir_all(dir)?;
         let naming = Arc::new(std::sync::Mutex::new(data::open_naming(
@@ -39,10 +54,10 @@ impl Daemon {
         let bus = Bus::with_log(Arc::new(event_log::SqliteLog::from_connection(db)?));
         let mut terminals =
             terminal::Terminals::open_with(dir, bus.clone(), &agents::claude_code::MARKERS)?
-                .with_input_writer(terminal_input_observer())
-                .with_exit_hold(terminal_exit_observer());
-        if let Some(helper) = terminal_owner_helper() {
-            terminals = terminals.with_terminal_owner(&helper);
+                .with_input_writer(terminal_input_observer(&observers))
+                .with_exit_hold(terminal_exit_observer(&observers));
+        if let Some(helper) = &observers.terminal_owner {
+            terminals = terminals.with_terminal_owner(helper);
         }
         let terminals = Arc::new(terminals);
         terminals.answer_status_query(true);
@@ -111,9 +126,9 @@ impl Daemon {
                     }
                 }
             })
-            .with_steer_effect(steer_effect_observer())
-            .with_resume_effect(resume_effect_observer())
-            .with_overview_hold(overview_read_observer()),
+            .with_steer_effect(steer_effect_observer(&observers))
+            .with_resume_effect(resume_effect_observer(&observers))
+            .with_overview_hold(overview_read_observer(&observers)),
         );
         let agents_at = begun.elapsed();
         let agents_module: Arc<dyn Module> = agents.clone();
@@ -136,29 +151,19 @@ impl Daemon {
             digests: Arc::new(messages::digest::Seen::open(&dir.join("project.db"))?),
             sender: Arc::clone(&messages),
             agents: Arc::clone(&agents),
-            program_changes: std::sync::Mutex::new(Some(terminals.subscribe_status())),
             program_statuses: Default::default(),
             terminals: Arc::clone(&terminals),
-            wake_events: std::sync::Mutex::new(Some(bus.subscribe())),
-            renames: std::sync::Mutex::new(Some(bus.subscribe_after(Default::default())?)),
-            owner_events: std::sync::Mutex::new(Some(bus.subscribe_after(Default::default())?)),
             wake_gate: Default::default(),
             restarting: Default::default(),
             queue: Default::default(),
-            auto: auto::Auto::new(&bus),
-            pushes: std::sync::Mutex::new(Some(bus.subscribe())),
+            auto: Default::default(),
             rail_told: Default::default(),
-            resumes: std::sync::Mutex::new(Some(bus.subscribe())),
+            observers: observers.clone(),
             resources: Default::default(),
             publications: deliverables::Publications::open(dir)?,
-            prompt_effect_gate: std::env::var_os("RUPD_PROMPT_EFFECT_GATE").map(Into::into),
+            prompt_effect_gate: observers.prompt_effect_gate.clone(),
             actions: Default::default(),
             extensions: extensions::Host::new(dir.join("extensions")),
-            waits: std::sync::Mutex::new(Some((
-                bus.subscribe(),
-                Arc::clone(&agents),
-                Arc::clone(&todos),
-            ))),
         };
         let services_at = begun.elapsed();
         daemon.register(todos);
@@ -167,7 +172,7 @@ impl Daemon {
             dir,
             bus,
             agents_module,
-            messages_env(Arc::clone(&daemon.touches)),
+            messages_env(&observers, Arc::clone(&daemon.touches)),
         )?);
         // B50: every Message to an Agent is written to the Agent's Claude inbox; its transcript confirms it.
         opened.set_inbox(agents.clone());
@@ -201,122 +206,26 @@ impl Daemon {
                 "messages_ms": (messages_at - services_at).as_secs_f64() * 1e3,
             })
         );
-        Ok(daemon)
+        let watchers = daemon.watchers()?;
+        Ok((daemon, watchers))
     }
 
-    /// B21: start sending children's changes to their Doors, at most once.
-    pub(crate) fn start_pushes(&self) {
-        if tokio::runtime::Handle::try_current().is_err() {
-            return;
-        }
-        let waiter = self
-            .waits
-            .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner())
-            .take();
-        if let Some((events, agents, todos)) = waiter {
-            let (touches, bus) = (Arc::clone(&self.touches), self.bus.clone());
-            tokio::spawn(waits::keep(events, agents, move || {
-                let ctx = Ctx {
-                    actor: Actor::daemon(),
-                    bus: bus.clone(),
-                    touches: Arc::clone(&touches),
-                };
-                let todos = Arc::clone(&todos);
-                async move {
-                    let list = todos.call(&ctx, "todo.list", Value::Null).await.ok()?;
-                    serde_json::from_value(list).ok()
-                }
-            }));
-        }
-        if let Some(changes) = self
-            .program_changes
-            .lock()
-            .unwrap_or_else(|p| p.into_inner())
-            .take()
-        {
-            tokio::spawn(Arc::clone(&self.program_statuses).run(
-                changes,
-                self.bus.clone(),
-                Arc::clone(&self.terminals),
-                Arc::clone(&self.agents),
-            ));
-        }
-        if tokio::runtime::Handle::try_current().is_ok() && self.sender.get().is_some() {
-            let tell = Arc::<workstream_state::Tell>::default();
-            if self.rail_told.set(Arc::clone(&tell)).is_ok() {
-                tokio::spawn(workstream_state::tell_changes(
-                    self.reader(),
-                    Arc::clone(&self.sender),
-                    Arc::clone(&self.agents),
-                    self.bus.clone(),
-                    tell,
-                    self.bus.subscribe(),
-                ));
-            }
-        }
-        let events = self
-            .pushes
-            .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner())
-            .take();
-        if let Some(renames) = self
-            .renames
-            .lock()
-            .unwrap_or_else(|p| p.into_inner())
-            .take()
-        {
-            tokio::spawn(wake::tell_renames(self.reader(), renames));
-        }
-        if let Some(events) = self
-            .resumes
-            .lock()
-            .unwrap_or_else(|p| p.into_inner())
-            .take()
-        {
-            tokio::spawn(resume_turn::resume_turns(
-                self.reader(),
-                Arc::clone(&self.agents),
-                events,
-            ));
-        }
-        if let Some(owner_events) = self
-            .owner_events
-            .lock()
-            .unwrap_or_else(|p| p.into_inner())
-            .take()
-        {
-            tokio::spawn(owner_told::tell_owners(self.reader(), owner_events));
-        }
-        let wake_events = self
-            .wake_events
-            .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner())
-            .take();
-        // `waker` copies the module map and reads the environment, so it is
-        // built only when there are events to hand it, not on every request.
-        if let Some(events) = wake_events
-            && let Some(waker) = self.waker()
-        {
-            tokio::spawn(waker.run(events));
-        }
-        if let (Some(events), Some(sender)) = (events, self.sender.get()) {
-            // Once, with the other watchers: `start_pushes` runs on every call, and `events` is taken once.
-            tokio::spawn(digest::push_changes(
-                self.reader(),
-                Arc::clone(sender),
-                Arc::clone(&self.digests),
-                Arc::new(
-                    settlement::Settlements::open(&self.data_dir.join("project.db"))
-                        .unwrap_or_else(|err| {
-                            eprintln!("settlement store not opened, kept in memory: {err}");
-                            settlement::Settlements::default()
-                        }),
-                ),
-                self.rail_told.get().cloned(),
-                events,
-            ));
-        }
+    /// Subscribe every watcher to the Bus now, so no Event between `open` and `serve` is lost.
+    pub(crate) fn watchers(&self) -> Result<Watchers, OpenError> {
+        Ok(Watchers {
+            programs: self.terminals.subscribe_status(),
+            waits: self.bus.subscribe(),
+            pushes: self.bus.subscribe(),
+            renames: self.bus.subscribe_after(Default::default())?,
+            owners: self.bus.subscribe_after(Default::default())?,
+            wakes: self.bus.subscribe(),
+            resumes: self.bus.subscribe(),
+            auto: self.bus.subscribe(),
+            queue: self.bus.subscribe(),
+            rail: self.bus.subscribe(),
+            #[cfg(test)]
+            extra: Vec::new(),
+        })
     }
 
     pub(crate) fn waker(&self) -> Option<wake::Waker> {
@@ -335,7 +244,7 @@ impl Daemon {
             &self.modules,
             self.bus.clone(),
             Arc::clone(&self.touches),
-            std::env::var_os("RUPD_DIGEST_OBSERVER").map(std::path::PathBuf::from),
+            self.observers.digest_observer.clone(),
             self.project_key.clone(),
         )
         .with_agents(Arc::clone(&self.agents))
@@ -364,13 +273,6 @@ impl Daemon {
     }
 }
 
-/// The packaged `terminal-owner` helper (X8), named by `RUPD_TERMINAL_OWNER`. The App sets it
-/// for its Daemon; without it, Terminals stay children of the Daemon and a reopen reports Agents
-/// `done`.
-fn terminal_owner_helper() -> Option<std::path::PathBuf> {
-    std::env::var_os("RUPD_TERMINAL_OWNER").map(Into::into)
-}
-
 impl Daemon {
     /// Attach the Terminal owners that outlived the previous Daemon (A12a) and return the
     /// sockets their programs still call, for the caller to serve beside its own.
@@ -382,7 +284,119 @@ impl Daemon {
             .recover()
             .await
             .expect("recovered Message receivers");
-        self.start_pushes();
         self.agents.retained_sockets()
+    }
+}
+
+/// The Daemon's background tasks, owned by value from `open` until `serve` starts each once.
+/// Each owns the receiver it was subscribed with at `open`.
+pub struct Watchers {
+    programs: tokio::sync::broadcast::Receiver<Arc<terminal::Change>>,
+    waits: tokio::sync::broadcast::Receiver<contracts::Event>,
+    pushes: tokio::sync::broadcast::Receiver<contracts::Event>,
+    renames: rpc::Subscription,
+    owners: rpc::Subscription,
+    wakes: tokio::sync::broadcast::Receiver<contracts::Event>,
+    resumes: tokio::sync::broadcast::Receiver<contracts::Event>,
+    auto: tokio::sync::broadcast::Receiver<contracts::Event>,
+    queue: tokio::sync::broadcast::Receiver<contracts::Event>,
+    rail: tokio::sync::broadcast::Receiver<contracts::Event>,
+    #[cfg(test)]
+    extra: Vec<std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send>>>,
+}
+
+impl Watchers {
+    /// Start every watcher in one set. A watcher that ends while the set lives has failed: the
+    /// Bus it follows closes only when the Daemon is gone.
+    pub(crate) fn spawn(self, daemon: &Daemon) -> tokio::task::JoinSet<()> {
+        let mut set = tokio::task::JoinSet::new();
+        let (touches, bus) = (Arc::clone(&daemon.touches), daemon.bus.clone());
+        let todos = Arc::clone(&daemon.todos);
+        set.spawn(waits::keep(
+            self.waits,
+            Arc::clone(&daemon.agents),
+            move || {
+                let ctx = Ctx {
+                    actor: Actor::daemon(),
+                    bus: bus.clone(),
+                    touches: Arc::clone(&touches),
+                };
+                let todos = Arc::clone(&todos);
+                async move {
+                    let list = todos.call(&ctx, "todo.list", Value::Null).await.ok()?;
+                    serde_json::from_value(list).ok()
+                }
+            },
+        ));
+        set.spawn(Arc::clone(&daemon.program_statuses).run(
+            self.programs,
+            daemon.bus.clone(),
+            Arc::clone(&daemon.terminals),
+            Arc::clone(&daemon.agents),
+        ));
+        set.spawn(daemon.auto.watch(self.auto, daemon.reader()));
+        set.spawn(daemon.queuer().watch(self.queue));
+        set.spawn(wake::tell_renames(daemon.reader(), self.renames));
+        set.spawn(resume_turn::resume_turns(
+            daemon.reader(),
+            Arc::clone(&daemon.agents),
+            self.resumes,
+        ));
+        set.spawn(owner_told::tell_owners(daemon.reader(), self.owners));
+        if let Some(waker) = daemon.waker() {
+            set.spawn(waker.run(self.wakes));
+        }
+        if let Some(sender) = daemon.sender.get() {
+            set.spawn(workstream_state::tell_changes(
+                daemon.reader(),
+                Arc::clone(&daemon.sender),
+                Arc::clone(&daemon.agents),
+                daemon.bus.clone(),
+                Arc::clone(&daemon.rail_told),
+                self.rail,
+            ));
+            set.spawn(digest::push_changes(
+                daemon.reader(),
+                Arc::clone(sender),
+                Arc::clone(&daemon.digests),
+                Arc::new(
+                    settlement::Settlements::open(&daemon.data_dir.join("project.db"))
+                        .unwrap_or_else(|err| {
+                            eprintln!("settlement store not opened, kept in memory: {err}");
+                            settlement::Settlements::default()
+                        }),
+                ),
+                Some(Arc::clone(&daemon.rail_told)),
+                self.pushes,
+            ));
+        }
+        #[cfg(test)]
+        for task in self.extra {
+            set.spawn(task);
+        }
+        set
+    }
+
+    /// A test's own watcher, started with the others.
+    #[cfg(test)]
+    pub(crate) fn also(&mut self, task: impl std::future::Future<Output = ()> + Send + 'static) {
+        self.extra.push(Box::pin(task));
+    }
+}
+
+#[cfg(test)]
+impl Daemon {
+    /// `open_stores` with its watchers dropped, for a test of one request.
+    pub(crate) fn open_stores_idle(
+        project: &Path,
+        dir: &Path,
+        configure: impl FnOnce(agents::Agents) -> agents::Agents,
+    ) -> Result<Self, OpenError> {
+        Self::open_stores(project, dir, Observers::from_env(), configure).map(|(daemon, _)| daemon)
+    }
+
+    /// Run the watchers on the current runtime for as long as it lives.
+    pub(crate) fn watch(&self, watchers: Watchers) {
+        watchers.spawn(self).detach_all();
     }
 }

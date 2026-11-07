@@ -315,7 +315,7 @@ mod tests {
     #[tokio::test]
     async fn a34_pad_deleted_refreshes_the_digests_pad_snapshot() {
         let dir = tempfile::tempdir().unwrap();
-        let daemon = crate::Daemon::open(&dir.path().join("data")).unwrap();
+        let daemon = crate::Daemon::open(&dir.path().join("data")).unwrap().0;
         let (reads, mut snapshots) = mpsc::unbounded_channel();
         let pads = Arc::new(Pads {
             listed: Mutex::new(vec![contracts::pad::Pad {
@@ -367,7 +367,7 @@ mod tests {
     #[tokio::test(start_paused = true)]
     async fn dcl4_timer_repairs_a_lost_notification() {
         let dir = tempfile::tempdir().unwrap();
-        let daemon = crate::Daemon::open(&dir.path().join("data")).unwrap();
+        let daemon = crate::Daemon::open(&dir.path().join("data")).unwrap().0;
         let (reads, mut snapshots) = mpsc::unbounded_channel();
         let pads = Arc::new(Pads {
             listed: Mutex::new(Vec::new()),
@@ -427,7 +427,7 @@ mod tests {
             let killed = Arc::new(tokio::sync::Notify::new());
             let (hook, armed) = (Arc::clone(&killed), AtomicBool::new(true));
             let clock = Arc::clone(clock);
-            let (daemon, state, messages) = crate::test_support::reply_daemon_with(
+            let (daemon, _watchers, state, messages) = crate::test_support::reply_daemon_with(
                 dir,
                 true,
                 Arc::new(move || clock.load(Ordering::SeqCst)),

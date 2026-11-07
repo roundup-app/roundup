@@ -27,8 +27,13 @@ async fn a32_removed_methods_are_unknown_and_change_nothing() {
     let dir = tempfile::tempdir().unwrap();
     let data = dir.path().join(".roundup");
     let socket = dir.path().join("rpc.sock");
-    let daemon = Arc::new(rupd::Daemon::open(&data).unwrap());
-    let server = tokio::spawn(rupd::serve(UnixListener::bind(&socket).unwrap(), daemon));
+    let (daemon, watchers) = rupd::Daemon::open(&data).unwrap();
+    let daemon = Arc::new(daemon);
+    let server = tokio::spawn(rupd::serve(
+        UnixListener::bind(&socket).unwrap(),
+        daemon,
+        watchers,
+    ));
     let mut user = rpc::Client::connect(&socket).await.unwrap();
     let door = user
         .request("rail.createWorkstream", json!({"name":"team"}))

@@ -39,7 +39,7 @@ async fn fixture() -> (
     Arc<Semaphore>,
 ) {
     let dir = tempfile::tempdir().unwrap();
-    let mut daemon = Daemon::open(dir.path()).unwrap();
+    let (mut daemon, watchers) = Daemon::open(dir.path()).unwrap();
     daemon
         .agents
         .call(
@@ -64,6 +64,7 @@ async fn fixture() -> (
     tokio::spawn(serve(
         UnixListener::bind(&socket).unwrap(),
         Arc::new(daemon),
+        watchers,
     ));
     let stream = UnixStream::connect(socket).await.unwrap();
     (dir, stream, entries, release)
