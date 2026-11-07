@@ -3,7 +3,7 @@ import { createTreeCollection } from "@ark-ui/solid/tree-view";
 import type { RailNode as ProjectNode } from "@contracts/agent/RailNode";
 import { KIND_ICON } from "../ink/kindIcon";
 import type { ConnectedProject } from "../state/connectedProject";
-import { easingOut, reorderMs } from "../ui/reorderMotion";
+import { easingOut, reorderMs, translateOf } from "../ui/reorderMotion";
 import { railCollection } from "./collection";
 import { copy } from "./copy";
 import { foldIdOf, isWorkstream, layoutRail, type NodeRow, type RailRow } from "./layout";
@@ -51,6 +51,7 @@ const cancelTranslates = (row: HTMLElement) => {
 const createLiftMotion = (container: Accessor<HTMLElement | undefined>, lifted: Accessor<string | null>) => {
   let drawn = new Map<string, number>();
   let keyed = false;
+  const slides = new WeakMap<HTMLElement, Animation>();
   const rows = () => [...container()?.querySelectorAll<HTMLElement>(".rail-row[data-id]") ?? []];
 
   createEffect(on(lifted, () => queueMicrotask(() => {
@@ -64,9 +65,10 @@ const createLiftMotion = (container: Accessor<HTMLElement | undefined>, lifted: 
     const moving = rows().filter(row => "animate" in row && !row.matches("[data-dnd-dragging], [data-dnd-dropping]"));
 
     // A row slides once, by its real displacement: a translate still running on it would be read into the distance and added to it.
-    for (const row of moving) if (!row.style.translate) cancelTranslates(row);
+    for (const row of moving) if (!row.style.translate) { slides.get(row)?.cancel(); cancelTranslates(row); }
 
-    const tops = moving.map(row => row.getBoundingClientRect().top);
+    // A translate that outlived the cancel is not part of the row's place.
+    const tops = moving.map(row => row.getBoundingClientRect().top - translateOf(row).y);
 
     moving.forEach((row, at) => {
       const was = before.get(row.dataset.id!);
@@ -74,7 +76,7 @@ const createLiftMotion = (container: Accessor<HTMLElement | undefined>, lifted: 
 
       if (was === undefined) row.animate({ opacity: [0, 1] }, options);
       // A row the sortable shifted slides itself from that shift; a second translate here would double it.
-      else if (!row.style.translate && Math.abs(was - tops[at]!) >= 1) row.animate({ translate: [`0 ${was - tops[at]!}px`, "0 0"] }, options);
+      else if (!row.style.translate && Math.abs(was - tops[at]!) >= 1) slides.set(row, row.animate({ translate: [`0 ${was - tops[at]!}px`, "0 0"] }, options));
     });
   }), { defer: true }));
 
