@@ -26,6 +26,7 @@ serde_json.workspace = true
 sha2 = "0.10"
 percent-encoding = "2"
 url = "2"
+herdr = { path = "../herdr" }
 terminal = { path = "../terminal" }
 todos = { path = "../todos" }
 time = { version = "0.3.55", features = ["parsing", "formatting"] }
