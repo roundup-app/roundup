@@ -3,7 +3,7 @@ import { Portal } from "solid-js/web";
 import { Dialog } from "../ui/Dialog";
 import { CopyButton } from "../ui/CopyButton";
 import type { App } from "../app/seam";
-import { copy } from "../sharedCopy";
+import { copy } from "./copy";
 
 /** The current draft first, then the other revisions newest first (`scenarios/unfinished-input.md`). */
 export const recoveryOrder = <T extends { revision: string }>(records: readonly T[], current: T | undefined): T[] =>
