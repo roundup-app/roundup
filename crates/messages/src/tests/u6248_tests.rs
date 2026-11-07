@@ -170,16 +170,9 @@ async fn u177_a_message_waits_for_the_channel_event_then_is_written() {
                 channel,
             }),
         );
+        while completed.recv().await.unwrap() != "on_channel" {}
         if channel == contracts::agent::Channel::Pending {
-            tokio::task::yield_now().await;
             assert!(writes(&inbox).is_empty());
-        } else {
-            for _ in 0..100 {
-                if !writes(&inbox).is_empty() {
-                    break;
-                }
-                tokio::time::sleep(std::time::Duration::from_millis(10)).await;
-            }
         }
     }
     assert_eq!(writes(&inbox), vec![vec![note.id]]);

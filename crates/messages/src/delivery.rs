@@ -78,6 +78,8 @@ fn spawn_status_listener(
                     if channel.channel != contracts::agent::Channel::Pending {
                         deliver_pending(&inner, &channel.id).await;
                     }
+                    #[cfg(test)]
+                    let _ = inner.completed.send("on_channel");
                 }
                 Ok(contracts::Event {
                     data: EventData::RailRenamed { id, name },

@@ -690,6 +690,8 @@ fn tick_after(shared: &Shared, tick_at: Option<i64>) -> Option<Instant> {
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod u177_tests;
 
 impl Shared {
     /// DCL3: after a Stop, read the process table and fold it in, until no work holds the Agent;
