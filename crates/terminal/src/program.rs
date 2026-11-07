@@ -25,46 +25,48 @@ impl Terminals {
             return;
         }
         let ended = parse_terminal_number(id).ok().and_then(|number| {
-            let table = self.shared.table();
+            let table = self.shared.table().ok()?;
             table.get(&number)?;
             self.shared
                 .program_ends
-                .lock()
-                .expect("terminal program ends lock")
+                .locked("terminal program ends lock")
+                .ok()?
                 .get(&number)
                 .cloned()
         });
         let Some(mut ended) = ended else {
             return;
         };
-        ended
-            .wait_for(|ended| *ended)
-            .await
-            .expect("the reaper publishes completion before closing");
+        // A reaper that closed without publishing has ended the program all the same.
+        let _ = ended.wait_for(|ended| *ended).await;
     }
 
     /// Stop a running Terminal's program (SIGHUP, then SIGKILL if it lingers) and return once it is
     /// stopped. It stays listed as exited once `terminal.exited` is emitted. `NOT_FOUND` as for
     /// [`Terminals::write`], including a program that ended just before this call.
     pub async fn kill(&self, id: &str) -> Result<(), RpcError> {
+        Ok(self.kill_in(id).await?)
+    }
+
+    pub(super) async fn kill_in(&self, id: &str) -> Result<(), Error> {
         if let Some(remote) = self.remote(id)? {
             return remote.call("terminal.kill", serde_json::json!({"id":id}));
         }
         let handle = self.running(id)?;
         // portable-pty's `Child::kill` waits out the SIGHUP grace period, so keep it off the runtime.
         tokio::task::spawn_blocking(move || {
-            let mut program = handle.program.lock().expect("terminal program lock");
+            let mut program = handle.program.locked("terminal program lock")?;
             match program.try_wait() {
-                Ok(None) => program.kill().map_err(RpcError::internal)?,
-                Ok(Some(_)) => return Err(RpcError::not_found("running terminal")),
-                Err(err) => return Err(RpcError::internal(err)),
+                Ok(None) => program.kill().map_err(Error::internal)?,
+                Ok(Some(_)) => return Err(Error::not_found("running terminal")),
+                Err(err) => return Err(Error::internal(err)),
             }
             drop(program);
             // portable-pty returns right after SIGKILL; a second kill must already see the program gone.
-            reap(&handle.program).map(drop).map_err(RpcError::internal)
+            reap(&handle.program).map(drop).map_err(Error::internal)
         })
         .await
-        .map_err(RpcError::internal)?
+        .map_err(Error::internal)?
     }
 
     /// Whether Terminal `id`'s program has ended, which can be before the Terminal is exited: a
@@ -78,12 +80,10 @@ impl Terminals {
                 .map_or(true, |info| !info.running);
         }
         match self.running(id) {
-            Ok(handle) => handle
-                .program
-                .lock()
-                .expect("terminal program lock")
-                .try_wait()
-                .map_or(true, |status| status.is_some()),
+            Ok(handle) => match handle.program.locked("terminal program lock") {
+                Ok(mut program) => program.try_wait().map_or(true, |status| status.is_some()),
+                Err(_) => true,
+            },
             Err(_) => true,
         }
     }

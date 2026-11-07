@@ -21,7 +21,8 @@ use std::ops::ControlFlow;
 
 use contracts::terminal::{Match, Read, Screen, Search};
 use regex::RegexBuilder;
-use rpc::{RpcError, code};
+
+use crate::Error;
 use vt100::Callbacks;
 
 /// How many output bytes a Terminal keeps.
@@ -60,12 +61,12 @@ impl Log {
             let (head, tail) = self.bytes.as_slices();
             for slice in [head, tail] {
                 let take = slice.len().min(left);
-                checkpoint.absorb(&slice[..take], offset);
+                checkpoint.absorb(crate::within(slice, ..take), offset);
                 offset += take as u64;
                 left -= take;
             }
             self.bytes.drain(..extra);
-            checkpoint.absorb(&chunk[..discard], offset);
+            checkpoint.absorb(crate::within(chunk, ..discard), offset);
         }
         // Evict before extending: 129 × 8192 bytes otherwise leaves a 2 MiB allocation (#5639).
         let needed = self.bytes.len() + keep;
@@ -73,7 +74,7 @@ impl Log {
             self.bytes
                 .reserve_exact(needed.next_power_of_two() - self.bytes.len());
         }
-        self.bytes.extend(&chunk[discard..]);
+        self.bytes.extend(crate::within(chunk, discard..));
         self.end += chunk.len() as u64;
     }
 
@@ -86,11 +87,10 @@ impl Log {
     }
 
     /// Exact retained bytes, without cloning the plain-text checkpoint parser.
-    pub(crate) fn raw(&self, after: u64) -> Result<Vec<u8>, RpcError> {
+    pub(crate) fn raw(&self, after: u64) -> Result<Vec<u8>, Error> {
         if after > self.end {
-            return Err(RpcError::new(
-                code::INVALID_PARAMS,
-                "after is beyond the output end",
+            return Err(Error::InvalidParams(
+                "after is beyond the output end".into(),
             ));
         }
         if after < self.start() {
@@ -105,15 +105,12 @@ impl Log {
     }
 
     /// A copy of the log from `after` (or the log's start when that is older), so the caller can work on it holding no lock.
-    pub(crate) fn from(&self, after: u64) -> Result<Window, RpcError> {
+    pub(crate) fn from(&self, after: u64) -> Result<Window, Error> {
         if after > self.end {
-            return Err(RpcError::new(
-                code::INVALID_PARAMS,
-                format!(
-                    "after {after} is beyond the end of the output, {}",
-                    self.end
-                ),
-            ));
+            return Err(Error::InvalidParams(format!(
+                "after {after} is beyond the end of the output, {}",
+                self.end
+            )));
         }
         let from = after.max(self.start());
         Ok(Window {
@@ -161,14 +158,13 @@ impl Window {
 }
 
 /// A reply's cap: the request's `max` may only lower it.
-pub(crate) fn cap(max: Option<u32>) -> Result<usize, RpcError> {
+pub(crate) fn cap(max: Option<u32>) -> Result<usize, Error> {
     match max {
         None => Ok(REPLY_BYTES),
         Some(max) if max >= 1 && max as usize <= REPLY_BYTES => Ok(max as usize),
-        Some(max) => Err(RpcError::new(
-            code::INVALID_PARAMS,
-            format!("max must be from 1 to {REPLY_BYTES}, not {max}"),
-        )),
+        Some(max) => Err(Error::InvalidParams(format!(
+            "max must be from 1 to {REPLY_BYTES}, not {max}"
+        ))),
     }
 }
 
@@ -290,12 +286,12 @@ impl Replay {
         let mut done = 0;
         self.parser.callbacks_mut().absorbing = true;
         while done < bytes.len() {
-            let end = bytes[done..]
+            let end = crate::within(bytes, done..)
                 .iter()
                 .position(|byte| matches!(byte, 10..=12))
                 .map_or(bytes.len(), |line_feed| done + line_feed + 1);
             self.parser.callbacks_mut().at = first + end as u64;
-            self.parser.process(&bytes[done..end]);
+            self.parser.process(crate::within(bytes, done..end));
             done = end;
         }
         self.parser.callbacks_mut().absorbing = false;
@@ -531,15 +527,12 @@ pub(crate) fn read(window: &Window, cap: usize) -> Read {
 }
 
 /// `terminal.search`.
-pub(crate) fn search(window: &Window, pattern: &str, cap: usize) -> Result<Search, RpcError> {
+pub(crate) fn search(window: &Window, pattern: &str, cap: usize) -> Result<Search, Error> {
     let regex = RegexBuilder::new(pattern)
         .size_limit(PATTERN_BYTES)
         .build()
         .map_err(|err| {
-            RpcError::new(
-                code::INVALID_PARAMS,
-                format!("pattern is not a usable regular expression: {err}"),
-            )
+            Error::InvalidParams(format!("pattern is not a usable regular expression: {err}"))
         })?;
     let mut matches = Vec::new();
     let mut used = 0;

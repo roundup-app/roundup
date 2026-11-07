@@ -296,7 +296,9 @@ impl Daemon {
                         moved.sort_unstable();
                         moved.dedup();
                         let (mirrors, pad_events) =
-                            pads.restore_workstream_in(db, &actor, &p.operation)?;
+                            pads
+                                .restore_workstream_in(db, &actor, &p.operation)
+                                .map_err(RpcError::from)?;
                         files = mirrors;
                         events = pad_events;
                         let publications: bool = db.query_row("SELECT EXISTS(SELECT 1 FROM rail_removal_items WHERE operation=? AND kind='deliverable-home')", [&p.operation], |r| r.get(0)).map_err(RpcError::internal)?;

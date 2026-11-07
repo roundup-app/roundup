@@ -55,20 +55,37 @@ pub struct Found {
     pub text: String,
 }
 
+/// `text[range]` for offsets `headings` produced, which sit on character boundaries.
+fn slice(text: &str, range: std::ops::Range<usize>) -> &str {
+    text.get(range).unwrap_or_default()
+}
+
+/// Where the section of heading `at` ends: the next heading of the same or a higher level.
+fn end_of(all: &[Heading], at: usize, text: &str) -> usize {
+    let level = all.get(at).map_or(0, |h| h.level);
+    all.iter()
+        .skip(at + 1)
+        .find(|h| h.level <= level)
+        .map_or(text.len(), |h| h.line)
+}
+
 /// The first section whose heading is `wanted`, ending at the next heading of the same or a higher level.
 pub fn find(text: &str, wanted: &str) -> Option<Found> {
     let all = headings(text);
-    let at = all.iter().position(|h| normalize(&h.title) == wanted)?;
-    let end = all[at + 1..]
+    let (at, this) = all
         .iter()
-        .find(|h| h.level <= all[at].level)
-        .map_or(text.len(), |h| h.line);
-    let start = text[all[at].line..end]
+        .enumerate()
+        .find(|(_, h)| normalize(&h.title) == wanted)?;
+    let end = end_of(&all, at, text);
+    let start = slice(text, this.line..end)
         .find('\n')
-        .map_or(end, |i| all[at].line + i + 1);
+        .map_or(end, |i| this.line + i + 1);
     Some(Found {
-        heading: all[at].title.clone(),
-        text: text[start..end].trim_matches('\n').trim_end().to_owned(),
+        heading: this.title.clone(),
+        text: slice(text, start..end)
+            .trim_matches('\n')
+            .trim_end()
+            .to_owned(),
     })
 }
 
@@ -81,20 +98,25 @@ pub fn insert(text: &str, wanted: &str, add: &str) -> Result<String, Vec<String>
             .map(|h| format!("{} {}", "#".repeat(h.level), h.title))
             .collect());
     };
-    let end = all[at + 1..]
-        .iter()
-        .find(|h| h.level <= all[at].level)
-        .map_or(text.len(), |h| h.line);
-    let content_end = text[..end].trim_end().len();
+    let end = end_of(&all, at, text);
+    let content_end = slice(text, 0..end).trim_end().len();
     let add = add
         .strip_suffix("\r\n")
         .or_else(|| add.strip_suffix('\n'))
         .unwrap_or(add);
-    Ok(match text[content_end..end].find('\n') {
+    Ok(match slice(text, content_end..end).find('\n') {
         Some(offset) => {
             let at = content_end + offset + 1;
-            format!("{}{add}\n{}", &text[..at], &text[at..])
+            format!(
+                "{}{add}\n{}",
+                slice(text, 0..at),
+                slice(text, at..text.len())
+            )
         }
-        None => format!("{}\n{add}{}", &text[..end], &text[end..]),
+        None => format!(
+            "{}\n{add}{}",
+            slice(text, 0..end),
+            slice(text, end..text.len())
+        ),
     })
 }

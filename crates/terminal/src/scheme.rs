@@ -5,8 +5,8 @@
 //! DSR 996 (the scheme) for every Terminal, shown or not, and tells each program that turned on
 //! mode 2031 whenever the scheme changes. Before the first call it answers nothing.
 
+use crate::Error;
 use contracts::terminal::{Scheme, SchemeParams};
-use rpc::RpcError;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum Query {
@@ -35,7 +35,7 @@ pub(crate) struct Palette {
 }
 
 impl Palette {
-    pub fn parse(params: &SchemeParams) -> Result<Self, RpcError> {
+    pub fn parse(params: &SchemeParams) -> Result<Self, Error> {
         Ok(Self {
             scheme: params.scheme,
             background: hex(&params.background)?,
@@ -159,18 +159,20 @@ fn osc_colour(code: u8, [r, g, b]: [u8; 3]) -> Vec<u8> {
     format!("\x1b]{code};rgb:{r:02x}{r:02x}/{g:02x}{g:02x}/{b:02x}{b:02x}\x1b\\").into_bytes()
 }
 
-fn hex(text: &str) -> Result<[u8; 3], RpcError> {
-    let digits = text
-        .strip_prefix('#')
-        .filter(|digits| digits.len() == 6 && digits.bytes().all(|b| b.is_ascii_hexdigit()))
-        .ok_or_else(|| {
-            RpcError::new(
-                rpc::code::INVALID_PARAMS,
-                format!("{text:?} is not a #rrggbb colour"),
-            )
-        })?;
-    let channel = |at: usize| u8::from_str_radix(&digits[at..at + 2], 16).expect("checked hex");
-    Ok([channel(0), channel(2), channel(4)])
+fn hex(text: &str) -> Result<[u8; 3], Error> {
+    let bad = || Error::InvalidParams(format!("{text:?} is not a #rrggbb colour"));
+    let digits = text.strip_prefix('#').ok_or_else(bad)?;
+    let channel = |at: usize| {
+        digits
+            .get(at..at + 2)
+            .and_then(|pair| u8::from_str_radix(pair, 16).ok())
+    };
+    match (digits.len(), channel(0), channel(2), channel(4)) {
+        (6, Some(r), Some(g), Some(b)) if digits.bytes().all(|b| b.is_ascii_hexdigit()) => {
+            Ok([r, g, b])
+        }
+        _ => Err(bad()),
+    }
 }
 
 /// An OSC the parser did not handle: `10;?` or `11;?`.

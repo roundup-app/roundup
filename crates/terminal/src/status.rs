@@ -7,7 +7,7 @@
 
 use std::sync::Arc;
 
-use super::{Shared, Terminals};
+use super::{Error, Locked, Shared, Terminals, within};
 
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD;
@@ -117,12 +117,13 @@ impl Mirror {
         let mut at = 0;
         while at < bytes.len() {
             if matches!(self.scan, Scan::Ground) {
-                match bytes[at..].iter().position(|&byte| byte == 0x1b) {
+                match within(bytes, at..).iter().position(|&byte| byte == 0x1b) {
                     Some(esc) => at += esc,
                     None => break,
                 }
             }
-            self.step(bytes[at], now, &mut out);
+            let Some(&byte) = bytes.get(at) else { break };
+            self.step(byte, now, &mut out);
             at += 1;
         }
         out
@@ -194,8 +195,8 @@ impl Mirror {
         if payload == QUERY {
             out.reply.extend_from_slice(REPLY);
             out.reply.extend_from_slice(terminator.bytes());
-        } else if payload.starts_with(REPORT) {
-            if self.apply(&payload[REPORT.len()..], now) {
+        } else if let Some(report) = payload.strip_prefix(REPORT) {
+            if self.apply(report, now) {
                 out.changes.push(self.records.clone());
             }
         } else if (payload == PROMPT || payload.starts_with(b"133;A;")) && self.drop_running() {
@@ -286,7 +287,7 @@ impl Report {
             let Some(at) = pair.iter().position(|&byte| byte == b'=') else {
                 continue;
             };
-            let (key, value) = (&pair[..at], &pair[at + 1..]);
+            let (key, value) = (within(pair, ..at), within(pair, at + 1..));
             match key {
                 b"state" => {
                     report.state = match value {
@@ -372,16 +373,19 @@ impl Shared {
     }
 
     /// PS4: the Terminal's program exited.
-    pub(super) fn program_exited(&self, number: u64) {
+    pub(super) fn program_exited(&self, number: u64) -> Result<(), Error> {
         let screen = self
-            .table()
+            .table()?
             .get(&number)
             .map(|entry| Arc::clone(&entry.screen));
-        let records =
-            screen.and_then(|screen| screen.lock().expect("terminal screen lock").status.exited());
+        let records = match screen {
+            Some(screen) => screen.locked("terminal screen lock")?.status.exited(),
+            None => None,
+        };
         if let Some(records) = records {
             self.changed(number, records);
         }
+        Ok(())
     }
 }
 

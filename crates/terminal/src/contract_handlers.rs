@@ -33,7 +33,8 @@ impl Terminals {
             if ctx.actor.kind == contracts::ActorKind::Agent {
                 self.write_completed(&id, bytes).await.and(reply(&()))
             } else {
-                self.write_at(&id, &bytes, received).and(reply(&()))
+                self.write_at(&id, &bytes, received)?;
+                reply(&())
             }
         }
     }
@@ -179,13 +180,13 @@ impl Terminals {
         let handle = self.running(&id)?;
         let recording = recorder::Recording::new(&run)?;
         let recorder = handle.recorder.get_or_init(|| Mutex::new(recording));
-        let recorder = recorder.lock().expect("recorder lock");
+        let recorder = recorder.locked("recorder lock")?;
         if recorder.run != run {
             return Err(RpcError::conflict("Terminal already records another run"));
         }
         reply(&contracts::terminal::Measurement {
             at: (self.shared.clock)(),
-            samples: recorder.samples(),
+            samples: recorder.samples()?,
         })
     }
 }
