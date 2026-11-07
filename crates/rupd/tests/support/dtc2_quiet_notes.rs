@@ -34,10 +34,16 @@ impl Run {
 async fn dtc2_a_status_flip_of_a_child_starts_no_door_turn() {
     let run = Run::start_live().await;
     std::fs::write(run.dir.path().join("attempts"), "").unwrap();
+    // Setup's own Messages may have carried the first quiet notes out; only later ones are counted.
+    let before = run.digests().await.len();
     run.change("first").await;
     run.change("second").await;
     run.settle_quiet().await;
-    assert!(run.digests().await.is_empty(), "no inbox write, no prompt");
+    assert_eq!(
+        run.digests().await.len(),
+        before,
+        "no inbox write, no prompt"
+    );
 }
 
 #[tokio::test]
@@ -45,7 +51,12 @@ async fn dtc2_a_last_line_change_of_a_child_under_a_wake_starts_no_door_turn() {
     let run = Run::start_live().await;
     door_waits_on_child(&run).await;
     std::fs::write(run.dir.path().join("attempts"), "").unwrap();
+    let before = run.digests().await.len();
     run.change("while waiting").await;
     run.settle_quiet().await;
-    assert!(run.digests().await.is_empty(), "no inbox write, no prompt");
+    assert_eq!(
+        run.digests().await.len(),
+        before,
+        "no inbox write, no prompt"
+    );
 }
