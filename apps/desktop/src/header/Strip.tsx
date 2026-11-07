@@ -31,6 +31,45 @@ const edgeOf = (hidden: StripTab[], nearestFirst: boolean): Edge | null => {
   return { mark: marked.some((entry) => entry.mark === "error") ? "error" : "needs-you", count: marked.length, nearest };
 };
 
+/** The close question and the line of Projects waiting for it (U6544b): each closes as its X does; one with running work asks first, and the ones after it wait for their turn. */
+const createClosing = (props: { tabs: StripTab[]; onClose: (path: string) => void | Promise<void> }) => {
+  const [asking, setAsking] = createSignal<string | null>(null);
+  const [closeOpener, setCloseOpener] = createSignal<HTMLElement>();
+  let waiting: string[] = [];
+
+  // The question stays the same object until its Project or running work changes, so an unrelated tab update never re-asks it.
+  const question = createMemo(() => props.tabs.find((tab) => tab.path === asking()), undefined, { equals: (a, b) => a?.path === b?.path && a?.name === b?.name && JSON.stringify(a?.running) === JSON.stringify(b?.running) });
+
+  const requestClose = (tab: StripTab) => {
+    if (asking() !== null) return;
+
+    if (tab.exitText !== null || tab.running.length === 0) props.onClose(tab.path);
+    else {
+      const active = document.activeElement instanceof HTMLElement ? document.activeElement : undefined;
+
+      // The close X is a pointer target outside the accessibility tree, so focus returns to its tab.
+      setCloseOpener(active?.classList.contains("tab-close") ? active.closest<HTMLElement>(".project-tab")?.querySelector<HTMLElement>(".tab-name-button") ?? active : active);
+      setAsking(tab.path);
+    }
+  };
+
+  const next = () => {
+    while (asking() === null && waiting.length > 0) {
+      const path = waiting.shift();
+      const tab = props.tabs.find(each => each.path === path);
+
+      if (tab) requestClose(tab);
+    }
+  };
+
+  const closeAll = (closing: string[]) => {
+    waiting = [...closing];
+    next();
+  };
+
+  return { asking, setAsking, closeOpener, setCloseOpener, question, requestClose, closeAll, next };
+};
+
 /** The header's strip (U179): one tab per open Project in the order the user left them (U6220c), then a quiet `+`. */
 export const Strip = (props: {
   tabs: StripTab[];
@@ -48,7 +87,6 @@ export const Strip = (props: {
   /** U2694a: the seam that shows a tab's system menu. */
   app: Pick<AppCalls, "showContextMenu" | "ask" | "writeClipboardText">;
 }) => {
-  const [asking, setAsking] = createSignal<string | null>(null);
   // An edge that says the same thing is not a change: a slot resizes the list only when its cap really appears, changes or goes, so measuring cannot chase its own layout.
   const sameEdge = (a: Edge | null, b: Edge | null) => a === b || (a !== null && b !== null && a.mark === b.mark && a.count === b.count && a.nearest === b.nearest);
   const [left, setLeft] = createSignal<Edge | null>(null, { equals: sameEdge });
@@ -60,19 +98,8 @@ export const Strip = (props: {
   let list: HTMLDivElement | undefined;
   const [listElement, setListElement] = createSignal<HTMLDivElement>();
   let observer: ResizeObserver | undefined;
-  const [closeOpener, setCloseOpener] = createSignal<HTMLElement>();
 
-  const question = createMemo(() => props.tabs.find((tab) => tab.path === asking()));
-
-  const requestClose = (tab: StripTab) => {
-    if (asking() !== null) return;
-
-    if (tab.exitText !== null || tab.running.length === 0) props.onClose(tab.path);
-    else {
-      setCloseOpener(document.activeElement instanceof HTMLElement ? document.activeElement : undefined);
-      setAsking(tab.path);
-    }
-  };
+  const { asking, setAsking, closeOpener, setCloseOpener, question, requestClose, closeAll, next } = createClosing(props);
 
   let settling = 0;
   let flips = 0;
@@ -268,6 +295,7 @@ export const Strip = (props: {
                   onMark={() => props.onMark(path)}
                   onRename={(name, base) => props.onRename(path, name, base)}
                   onClose={() => requestClose(tab())}
+                  closing={{ others: paths().length > 1 ? () => closeAll(paths().filter(each => each !== path)) : undefined, left: at() > 0 ? () => closeAll(paths().slice(0, at())) : undefined, right: at() < paths().length - 1 ? () => closeAll(paths().slice(at() + 1)) : undefined }}
                   app={props.app}
                   alerts={props.alerts.level(path)}
                   onAlerts={(level) => props.alerts.set(path, level)}
@@ -279,13 +307,17 @@ export const Strip = (props: {
         {edge(copy.right, right())}
       </div>
       <IconButton data-flat-add="" class="strip-add" aria-label={copy.openAFolder} onClick={() => props.onChoose()}>{copy.addProjectMark}</IconButton>
-      <CloseDialog app={props.app} opener={closeOpener()} tab={question()} onCancel={() => setAsking(null)} onStop={() => {
+      <CloseDialog app={props.app} opener={closeOpener()} tab={question()} onCancel={() => { setAsking(null); next(); }} onStop={() => {
         const path = asking();
 
         if (!path) return;
         setAsking(null);
 
-        return props.onClose(path);
+        const closed = props.onClose(path);
+
+        next();
+
+        return closed;
       }} />
     </div>
   );

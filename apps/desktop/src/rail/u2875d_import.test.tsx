@@ -95,7 +95,7 @@ describe("u2875d the import panel is an ordinary Rail action", () => {
     await waitFor(() => expect(release).toBeTypeOf("function"));
 
     const reopen = async () => {
-      fireEvent.click(screen.getByLabelText("Close api"));
+      fireEvent.click(tab("api").closest(".project-tab")!.querySelector<HTMLElement>(".tab-close")!);
       await waitFor(() => expect(screen.queryByRole("tab", { name: /^api/ })).toBeNull());
       app.chooser.path = path("api");
       fireEvent.click(screen.getByRole("button", { name: copy.openAFolder }));

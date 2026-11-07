@@ -217,7 +217,7 @@ it("u3787a_undo_stays_with_its_project", async () => {
 
   // Closing the original tab consumes no receipt.
   fireEvent.pointerEnter(document.querySelector<HTMLElement>('.project-tab[data-path="/a"] [role="tab"]')!.parentElement!);
-  fireEvent.click(screen.getByLabelText("Close a"));
+  fireEvent.click(document.querySelector<HTMLElement>('.project-tab[data-path="/a"] .tab-close')!);
   await waitFor(() => expect(app.closed).toContain("/a"));
   app.nativeOpen({ kind: "project", path: "/a" });
   await waitFor(() => expect(projectMenu.path).toBe("/a"));

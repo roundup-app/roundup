@@ -26,7 +26,7 @@ const product = (left, right, merge) => left.flatMap(a => right.map(b => merge(a
 const LONG_LABELS = new Set(['Quick add from any app', '⟦0⟧ belongs to the Terminal', "can't reach ⟦0⟧: ⟦1⟧", 'Pad ⟦0⟧ was deleted']);
 
 // SK10 and U5919a order these labels word for word, including their vocabulary and length.
-const ORDERED_LABELS = new Set(['Teach other Claude Code sessions about roundup', 'New Agent with a Prompt…', 'Jump to What Needs You', 'Open Folder…', 'Door stopped · ⟦0⟧ waiting']);
+const ORDERED_LABELS = new Set(['Teach other Claude Code sessions about roundup', 'New Agent with a Prompt…', 'Jump to What Needs You', 'Open Folder…', 'Door stopped · ⟦0⟧ waiting', 'Close to the Left', 'Close to the Right']);
 
 // Babel owns syntax and lexical binding resolution. This layer describes only copy policy.
 

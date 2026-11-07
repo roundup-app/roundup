@@ -1,5 +1,6 @@
 import { copy as appCopy } from "../app/copy";
 import { copy } from "./copy";
+import { copy as recoveryCopy } from "../sharedCopy";
 import { createFakeApp } from "../testing/fakeApp";
 import { cleanup, fireEvent, render, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
@@ -302,10 +303,12 @@ it("u3807_each_site_shows_its_message_in_the_reserved_line: ProjectTab", async (
   const path = mounted.connected.project.path;
   const draft = mounted.connected.drafts.edit({ surface: "header", object: path, recipient: null }, { name: "retained", base: "p" }, null, "ordinary").draft;
   render(() => <ProjectDraftsContext.Provider value={() => mounted.connected.drafts}><Tabs.Root value={path}><Tabs.List>
-    <ProjectTab tab={{ path, name: "p", base: "p", busy: false, running: [], needsYou: 0, error: 0, exitText: null }} selected app={mounted.app} alerts="all" onAlerts={() => {}} recovery={{ project: path, revision: draft.revision }} onMark={() => {}} onClose={() => {}} onRename={async () => ({ path, name: "p", revision: 1, status: "acknowledged", project: { path, name: "p" } })} />
+    <ProjectTab tab={{ path, name: "p", base: "p", busy: false, running: [], needsYou: 0, error: 0, exitText: null }} selected app={mounted.app} alerts="all" onAlerts={() => {}} recovery={{ project: path, revision: draft.revision }} onMark={() => {}} onClose={() => {}} onRename={() => Promise.resolve({ path, name: "p", revision: 1, status: "acknowledged", project: { path, name: "p" } })} />
   </Tabs.List></Tabs.Root></ProjectDraftsContext.Provider>);
   fireEvent.keyDown(await within(document.body).findByRole("textbox", { name: "Project name" }), { key: "Escape" });
-  fireEvent.click(await within(document.body).findByRole("button", { name: /Recover unfinished work/ }));
+  // U6544c: a tab's recovery is in its right-click menu.
+  fireEvent.contextMenu(document.querySelector<HTMLElement>(".project-tab")!, { clientX: 40, clientY: 10 });
+  await mounted.app.pickMenu(recoveryCopy.recoverDrafts);
   const surface = await within(document.body).findByRole("dialog", { name: "Unfinished work" });
   let rejected = true;
   vi.spyOn(mounted.app, "clipboardWrite").mockImplementation(async () => { if (rejected) throw new Error(FAILURE); });

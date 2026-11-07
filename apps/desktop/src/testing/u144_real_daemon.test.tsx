@@ -409,8 +409,7 @@ describe("u2773 closed-Project draft lifetime through the App seam", () => {
     fireEvent.click(screen.getByRole("button", { name: "Open Project" }));
     await screen.findByRole("tab", { name: "second" });
     // Closing the Project removes its Connection; the App-run draft authority must survive.
-    fireEvent.pointerEnter(screen.getByRole("tab", { name: "first" }).closest(".project-tab")!);
-    fireEvent.click(screen.getByRole("button", { name: "Close first" }));
+    fireEvent.click(screen.getByRole("tab", { name: "first" }).closest(".project-tab")!.querySelector<HTMLElement>(".tab-close")!);
     await waitFor(async () => expect((await app.projects()).some(project => project.path === first.dir)).toBe(false));
     expect(drafts(first.dir)).toBe(header);
     expect(header.list()).toEqual([saved, headerSaved]);

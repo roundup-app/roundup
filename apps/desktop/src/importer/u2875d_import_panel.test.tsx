@@ -524,8 +524,8 @@ it.skipIf(!captureDir("U3299a")).each(["names", "retention"] as const)("u5014a_u
       await lane.evaluate("(() => { Storage.prototype.setItem = () => { throw new Error('Storage is full'); }; return true; })()");
       await lane.browser("fill", ".tab-rename", "Original retained Project name");
       await lane.browser("press", "Escape");
-      await lane.until("!!document.querySelector('.tab-recover')");
-      await lane.browser("click", ".tab-recover");
+      await lane.until("!document.querySelector('.tab-rename')");
+      await lane.evaluate(`(() => { window.__fake.app.menuChoice = 'recover'; document.querySelector('.project-tab[data-selected=true], .project-tab').dispatchEvent(new MouseEvent('contextmenu', {bubbles:true, cancelable:true})); return true; })()`);
       await lane.until("!!document.querySelector('.header-recovery [role=alert]')");
       expect(await lane.evaluate("document.querySelector('.header-recovery').contains(document.activeElement)")).toBe(true);
       await capture("U3299c", side!, "project-recovery");

@@ -61,9 +61,6 @@
 {"file":"apps/desktop/src/header/u183_rename.test.tsx","test":"u183 rename in place > u183_a_failed_call_restores_the_name_and_shows_the_line_after_the_strip","identity":"01bb1366c8a138eefbefcfa26df07f43cad697a4124e747c4ac869bfca172a21"}
 {"file":"apps/desktop/src/header/u183_rename.test.tsx","test":"u183 rename in place > u183_a_failed_call_restores_the_name_and_shows_the_line_after_the_strip","identity":"012bafd5466cb2efbeb1c569a9fdaff8bd8d70fa18500160ff023fcc7245d9ec"}
 {"file":"apps/desktop/src/header/u183_rename.test.tsx","test":"u183 rename in place > u183_a_failed_call_restores_the_name_and_shows_the_line_after_the_strip","identity":"13d3ddb6237df6839224ab25e336b9144b4ccb06250898c4978d120618160ab3"}
-{"file":"apps/desktop/src/header/u183_rename.test.tsx","test":"u2773c_header_external_change_keeps_original","identity":"1c77feda15479ef6a6583a6460fee265b18f010a35889c46c090841129c41073"}
-{"file":"apps/desktop/src/header/u183_rename.test.tsx","test":"u2773c_header_external_change_keeps_original","identity":"6118665816d871cd2c0939038567f5954624ad0949ab721f2c6a494150ac543c"}
-{"file":"apps/desktop/src/header/u183_rename.test.tsx","test":"u2773e_header_incompatible_form_preserves_stored_bytes","identity":"d6f79f8dbd67be4043fd6588a0d51d17d251b67c4a411b8e0931662ca679a6ec"}
 {"file":"apps/desktop/src/header/u184_close.test.tsx","test":"u184 close with a question > u184_a_failed_close_keeps_the_tab","identity":"02e963b8784f8f3492d2d51a4a1fb9ead34fee6ed4bcfdac28de7f4320ed6900"}
 {"file":"apps/desktop/src/header/u184_close.test.tsx","test":"u184 overflow > u184_the_edge_line_scrolls_and_does_not_switch","identity":"2d6b8989b9859801bdc3e608382c29cb5651665874a9031e4ba5bd3b5ad98af0"}
 {"file":"apps/desktop/src/header/u186_keys.test.tsx","test":"u186 keys > u186_leader_shift_j_goes_to_the_next_marked_project_and_selects_its_most_urgent_agent","identity":"0739ad50961dd70d4eb9b141d075851ce3e317fb9a61ba40bfe6329bd365fed0"}
