@@ -47,7 +47,7 @@ pub(crate) struct Access {
     pub run: u64,
 }
 
-/// A pump task that ends when dropped, wherever it was last held.
+/// A pump task that ends when dropped, wherever its owner last kept it.
 pub(crate) struct Pump(pub JoinHandle<()>);
 
 impl Drop for Pump {
@@ -115,7 +115,7 @@ pub(crate) struct Shared {
     pub store: Store,
     /// Counts successful Daemon starts so each gets its own socket path (S5): a reopen must never
     /// land on the exited run's path, and a failed attempt leaves this unchanged so a retry still
-    /// gets the same chance under the socket limit. Held across a start, so Daemons start one at
+    /// gets the same chance under the socket limit. Locked across a start, so Daemons start one at
     /// a time and two never take the same run number.
     runs: tokio::sync::Mutex<u64>,
 }

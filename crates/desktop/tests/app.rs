@@ -1886,7 +1886,6 @@ fn s5_reopening_starts_rupd_on_a_socket_path_unique_to_the_new_run() {
     fx.release();
 }
 
-#[path = "project_names/mod.rs"]
 mod project_names;
 mod project_opening;
 mod project_task;
