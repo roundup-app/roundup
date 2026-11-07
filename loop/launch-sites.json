@@ -732,11 +732,6 @@
     "data": "Delegates launches to support/rupd_harness.rs with an explicit absolute caller-owned TempDir, retained across reopen.",
     "kind": "reference"
   },
-  "crates/todos/src/schema.rs": {
-    "cleanup": "No separate built-Daemon launch site.",
-    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
-    "kind": "reference"
-  },
   "crates/todos/t15_perf.py": {
     "cleanup": "Exec retains same PID; perf must reap on every path before deleting Project TempDir.",
     "data": "Exec helper overwrites inherited override with absolute perf-owned project/perf-data; project argument is supplied by perf.",
