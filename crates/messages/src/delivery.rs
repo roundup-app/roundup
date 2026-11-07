@@ -1,4 +1,5 @@
 //! Receiver lifecycle reconciliation and pending inbox delivery.
+#![deny(clippy::struct_excessive_bools)]
 
 use super::*;
 
@@ -166,9 +167,8 @@ pub(super) async fn on_status_labeled(
             agent,
             at,
             Ending {
-                closed,
-                permanent: false,
-                retained,
+                end: if closed { End::Closed } else { End::Live },
+                receiver: receiver_of(retained),
                 restart: false,
             },
         )
@@ -213,9 +213,8 @@ pub(super) async fn resync(inner: &Arc<Inner>) -> bool {
                 &id,
                 (attempt, i64::MAX),
                 Ending {
-                    closed: true,
-                    permanent: true,
-                    retained: false,
+                    end: End::Gone,
+                    receiver: Receiver::Agent,
                     restart: false,
                 },
             )
@@ -435,9 +434,14 @@ fn reconcile_node(
         &node.id,
         at,
         Ending {
-            closed: ended(node),
-            permanent: permanently_ended(node),
-            retained: node.kind == contracts::agent::NodeKind::Workstream,
+            end: if permanently_ended(node) {
+                End::Gone
+            } else if ended(node) {
+                End::Closed
+            } else {
+                End::Live
+            },
+            receiver: receiver_of(node.kind == contracts::agent::NodeKind::Workstream),
             restart,
         },
     )
@@ -477,13 +481,34 @@ pub(super) fn accept_reservation(
     }
 }
 
-/// What ended at a binding: the Attempt (`closed`), its Terminal for good (`permanent`), whether
-/// the receiver is a Door still on the Rail (`retained`, DCL8), and a Daemon reopen (`restart`).
+/// How far a binding ended: still running, the Attempt over, or its Terminal gone for good.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(super) enum End {
+    Live,
+    Closed,
+    Gone,
+}
+
+/// Whether the receiver is a Door still on the Rail (DCL8) or an Agent.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(super) enum Receiver {
+    Door,
+    Agent,
+}
+
+fn receiver_of(retained: bool) -> Receiver {
+    if retained {
+        Receiver::Door
+    } else {
+        Receiver::Agent
+    }
+}
+
+/// What ended at a binding, which receiver it was, and whether a Daemon reopen caused it.
 #[derive(Clone, Copy)]
 pub(super) struct Ending {
-    pub(super) closed: bool,
-    pub(super) permanent: bool,
-    pub(super) retained: bool,
+    pub(super) end: End,
+    pub(super) receiver: Receiver,
     pub(super) restart: bool,
 }
 
@@ -510,15 +535,16 @@ fn reconcile_into(
     events: &mut Vec<EventData>,
 ) -> Result<(), RpcError> {
     let Ending {
-        closed,
-        permanent,
-        retained,
+        end,
+        receiver,
         restart,
     } = end;
+    let closed = end != End::Live;
+    let retained = receiver == Receiver::Door;
     let previous = store.generation(agent)?;
     let reserved = store.is_reserved(agent)?;
     let retiring = store.retirement(agent)?.is_some();
-    let through = if permanent {
+    let through = if end == End::Gone {
         Some((at.0, i64::MAX))
     } else if closed {
         Some(at)
@@ -590,7 +616,7 @@ fn reconcile_into(
     if closed {
         state.closed_revision = state.closed_revision.max(at.1);
     }
-    state.closed |= retiring || (permanent && !reserved);
+    state.closed |= retiring || (end == End::Gone && !reserved);
     store.set_generation(agent, state)
 }
 
@@ -794,9 +820,8 @@ mod dcl_tests {
                 "m",
                 (1, 9),
                 Ending {
-                    closed: true,
-                    permanent: true,
-                    retained: false,
+                    end: End::Gone,
+                    receiver: Receiver::Agent,
                     restart: false,
                 },
             )
@@ -853,9 +878,8 @@ mod dcl_tests {
                 "m",
                 (1, 9),
                 Ending {
-                    closed: true,
-                    permanent: true,
-                    retained: false,
+                    end: End::Gone,
+                    receiver: Receiver::Agent,
                     restart: false,
                 },
             )
