@@ -35,7 +35,7 @@ impl Shared {
             return Err(error);
         }
         run.observe(Observation::Finished(
-            crate::rail_view::finished_of(&rail, id).unwrap_or_default(),
+            crate::rail_view::finished_of(rail, id).unwrap_or_default(),
         ));
         let mut prompts = Vec::new();
         for (actor, payload) in parked {
@@ -283,7 +283,7 @@ impl Shared {
             return Err(error);
         }
         run.observe(Observation::Finished(
-            crate::rail_view::finished_of(&rail, id).unwrap_or_default(),
+            crate::rail_view::finished_of(rail, id).unwrap_or_default(),
         ));
         // Only the matching ack may release the first prompt; a parked mismatched SessionStart
         // must not take it before the remembered title is applied below.
