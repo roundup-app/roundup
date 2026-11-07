@@ -1,4 +1,4 @@
-import { createEffect } from "solid-js";
+import { createEffect, untrack } from "solid-js";
 import { createStore } from "solid-js/store";
 import { isWorkstreamChild } from "../rail/layout";
 import { retryRead } from "../app/seam";
@@ -44,7 +44,7 @@ export const createWatches = ({ connected, exited, streaming, shownTo, disposed 
 
     if (on && rail.nodes.some((node) => (node.terminal_id === id || node.id === owner) && isWorkstreamChild(rail.nodes, node))) return;
 
-    if (!!unseenIds[id] !== on) setUnseen(id, on ? true : undefined);
+    if (!!untrack(() => unseenIds[id]) !== on) setUnseen(id, on ? true : undefined);
   };
 
   const stop = async (id: string): Promise<void> => {
