@@ -8,7 +8,11 @@ async fn ping_round_trips_through_the_daemon() {
     let socket = dir.path().join("rupd.sock");
     let (daemon, watchers) = rupd::Daemon::open(&dir.path().join(".roundup")).unwrap();
     let daemon = Arc::new(daemon);
-    tokio::spawn(rupd::serve(UnixListener::bind(&socket).unwrap(), daemon, watchers));
+    tokio::spawn(rupd::serve(
+        UnixListener::bind(&socket).unwrap(),
+        daemon,
+        watchers,
+    ));
 
     let client = rpc::Client::connect(&socket).await.unwrap();
     let reply = client

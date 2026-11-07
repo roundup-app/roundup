@@ -32,7 +32,9 @@ pub fn serve(dir: &Path, socket: &Path) -> tokio::task::JoinHandle<std::io::Resu
     let daemon = Arc::new(daemon);
     tokio::spawn(rupd::serve(
         tokio::net::UnixListener::bind(socket).unwrap(),
-        daemon, watchers,))
+        daemon,
+        watchers,
+    ))
 }
 
 /// A Daemon child process that is killed when this drops.

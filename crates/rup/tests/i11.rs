@@ -17,7 +17,7 @@ impl Daemon {
         let dir = tempfile::tempdir().unwrap();
         let socket = dir.path().join("rupd.sock");
         let (daemon, watchers) = rupd::Daemon::open(&dir.path().join(".roundup")).unwrap();
-    let daemon = Arc::new(daemon);
+        let daemon = Arc::new(daemon);
         let listener = tokio::net::UnixListener::bind(&socket).unwrap();
         let task = tokio::spawn(async move {
             let _ = rupd::serve(listener, daemon, watchers).await;

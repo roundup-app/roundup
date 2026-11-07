@@ -34,7 +34,7 @@ impl Daemon {
         self.stop();
         let _ = std::fs::remove_file(&self.socket);
         let (daemon, watchers) = rupd::Daemon::open(&self.data).unwrap();
-    let daemon = Arc::new(daemon);
+        let daemon = Arc::new(daemon);
         let listener = tokio::net::UnixListener::bind(&self.socket).unwrap();
         self.task = Some(tokio::spawn(async move {
             let _ = rupd::serve(listener, daemon, watchers).await;

@@ -26,7 +26,9 @@ fn start_daemon() -> Project {
     let (daemon, watchers) = rupd::Daemon::open(&dir.path().join(".roundup")).unwrap();
     tokio::spawn(rupd::serve(
         UnixListener::bind(&socket).unwrap(),
-        Arc::new(daemon), watchers,));
+        Arc::new(daemon),
+        watchers,
+    ));
     Project { dir, socket }
 }
 

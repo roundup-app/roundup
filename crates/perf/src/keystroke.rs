@@ -460,7 +460,11 @@ mod tests {
         let daemon = std::sync::Arc::new(daemon);
         let socket = dir.path().join("daemon.sock");
         let listener = tokio::net::UnixListener::bind(&socket)?;
-        let server = tokio::spawn(rupd::serve(listener, std::sync::Arc::clone(&daemon), watchers));
+        let server = tokio::spawn(rupd::serve(
+            listener,
+            std::sync::Arc::clone(&daemon),
+            watchers,
+        ));
         let result =
             tokio::time::timeout(RUN_BOUND, async {
                 let client = Client::connect(&socket).await?;
