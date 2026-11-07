@@ -6,16 +6,10 @@ use super::*;
 impl Launcher {
     /// A3507a: process-free Agent launch construction, shared by starts and resumes.
     pub fn command_on(&self, request: &Request<'_>) -> Result<std::process::Command, RpcError> {
-        let Request {
-            id,
-            cwd,
-            role,
-            facts: pair,
-            ..
-        } = *request;
+        let Request { id, cwd, .. } = *request;
         let argv = self.prepare_on(request)?;
         let mut command = std::process::Command::new(&argv[0]);
-        command.args(&argv[1..]).current_dir(cwd).envs(pair.env());
+        command.args(&argv[1..]).current_dir(cwd);
         let settings: Value =
             serde_json::from_slice(&std::fs::read(&argv[2]).map_err(RpcError::internal)?)
                 .map_err(RpcError::internal)?;
@@ -31,9 +25,6 @@ impl Launcher {
         }
         for marker in super::super::MARKERS {
             command.env_remove(marker);
-        }
-        if lean_of(role, pair).is_some() {
-            command.env("CLAUDE_CODE_DISABLE_CLAUDE_MDS", "1");
         }
         command.env("ROUNDUP_AGENT", id);
         if let Some(dir) = self.rup.parent().filter(|dir| dir.is_absolute()) {
@@ -139,9 +130,9 @@ impl Launcher {
             .map_err(RpcError::internal)?;
         let command = command.as_std();
         argv[0] = command.get_program().to_string_lossy().into_owned();
-        let settings: Value =
-            serde_json::from_slice(&std::fs::read(&argv[2]).map_err(RpcError::internal)?)
-                .map_err(RpcError::internal)?;
+        // The user's own sources decide, since the launch's settings file holds only roundup's keys.
+        let settings =
+            user_settings(&self.conversation_dir, folders.project).map_err(RpcError::internal)?;
         let missing_intent = self.door_lacks_intent(role, &settings, folders.project);
         // LC5: a user's enabled install takes precedence over the bundled plugin of the same name.
         let args: Vec<_> = command.get_args().collect();
