@@ -4317,6 +4317,7 @@ dependencies = [
  "sha2",
  "tempfile",
  "terminal",
+ "thiserror 2.0.21",
  "time",
  "todos",
  "tokio",

@@ -5,3 +5,4 @@ disallowed-methods = [
     { path = "std::env::var_os", reason = "the Daemon reads its environment once, in Observers::from_env" },
     { path = "std::env::vars", reason = "the Daemon reads its environment once, in Observers::from_env" },
 ]
+too-many-lines-threshold = 100

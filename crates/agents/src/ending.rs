@@ -260,6 +260,14 @@ impl Shared {
     }
 }
 
+impl Shared {
+    /// Kill `terminal` and confirm it no longer runs.
+    pub(super) async fn stop_and_confirm(&self, terminal: &str) -> Result<(), RpcError> {
+        kill_or_already_gone(&*self.ending.kill, &self.terminals, terminal).await?;
+        self.confirm_terminal_exit(terminal).await
+    }
+}
+
 /// Kill a Terminal's program and return once it is observably not running (A16) or
 /// `KILL_WAIT_BOUND` has passed, whichever comes first: `kill` itself returns as soon as the
 /// program is reaped, which can race the Terminal's own reader thread noticing the program's end

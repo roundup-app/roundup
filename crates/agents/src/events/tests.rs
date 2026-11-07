@@ -15,6 +15,7 @@ use crate::claude_code::ClaudeCode;
 use crate::{Observation, Run, Slot};
 
 use crate::tests::*;
+
 #[tokio::test]
 async fn a2703a_errors_use_rail_names() {
     for case in [

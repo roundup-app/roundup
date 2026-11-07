@@ -31,6 +31,7 @@ todos = { path = "../todos" }
 time = { version = "0.3.55", features = ["parsing", "formatting"] }
 tokio = { workspace = true, features = ["process"] }
 cap-std = "4"
+thiserror.workspace = true
 rustix = { version = "1", features = ["fs"] }
 reflink-copy = "0.1.32"
 

@@ -200,6 +200,13 @@ impl Shared {
         Ok(())
     }
 
+    /// E6: whether the live Attempt of `id` has not yet reported its Channel or missed the deadline.
+    pub(super) fn channel_pending(&self, id: &str) -> bool {
+        let runs = self.runs();
+        let channels = self.channels.lock().expect("channels lock");
+        channel_in(&channels, id, runs.get(id)) == Some(Channel::Pending)
+    }
+
     /// E6: move the Channel of `attempt` to `channel` and say so, unless it is there already or
     /// the Attempt is no longer the live one.
     pub(super) fn set_channel(&self, by: Actor, id: &str, attempt: &str, channel: Channel) {
@@ -645,6 +652,8 @@ fn tick_after(shared: &Shared, tick_at: Option<i64>) -> Option<Instant> {
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod u177_tests;
 
 impl Shared {
     /// DCL3: after a Stop, read the process table and fold it in, until no work holds the Agent;

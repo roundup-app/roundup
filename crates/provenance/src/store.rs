@@ -152,3 +152,12 @@ fn unknown(column: usize, text: &str) -> rusqlite::Error {
         format!("unknown stored text {text:?}").into(),
     )
 }
+
+/// Record a Touch inside the caller's transaction, so it commits or rolls back with it.
+pub fn record_in(db: &Connection, actor: &Actor, verb: Verb, item: &str) -> rusqlite::Result<()> {
+    db.execute(
+        "INSERT INTO touches (actor_kind, actor_id, actor_parent, verb, item, at, todo_revision) VALUES (?1, ?2, ?3, ?4, ?5, ?6, NULL)",
+        params![kind_str(actor.kind), actor.id, actor.parent, verb_str(verb), item, crate::now_ms()],
+    )?;
+    Ok(())
+}
