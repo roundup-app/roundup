@@ -124,7 +124,8 @@ pub(crate) fn policy(method: &str) -> Option<&'static Policy> {
     TABLE
         .binary_search_by_key(&method, |row| row.0)
         .ok()
-        .map(|at| &TABLE[at].1)
+        .and_then(|at| TABLE.get(at))
+        .map(|row| &row.1)
 }
 
 /// Sorted by name, one row per method.

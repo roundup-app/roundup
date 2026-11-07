@@ -83,7 +83,8 @@ async fn a5830_cached_specialist_refuses_agent_start_attribution() {
         )
         .await
         .unwrap()
-        .into_value();
+        .into_value()
+        .unwrap();
     assert_eq!(refused["error"]["code"], code::FORBIDDEN, "{refused}");
     assert_eq!(
         crate::tests::ask(&daemon, r#"{"id":1,"method":"rail.tree"}"#).await,
@@ -101,7 +102,8 @@ async fn a5830_cached_specialist_refuses_agent_start_attribution() {
         )
         .await
         .unwrap()
-        .into_value();
+        .into_value()
+        .unwrap();
     assert_eq!(reused["result"], *specialist, "{reused}");
     assert_eq!(
         crate::tests::ask(&daemon, r#"{"id":1,"method":"rail.tree"}"#).await,

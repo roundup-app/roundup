@@ -7,11 +7,13 @@ mod manifest;
 #[cfg(test)]
 mod tests;
 
+use crate::field::Field;
+use parking_lot::Mutex;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::ffi::OsString;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex, Weak};
+use std::sync::{Arc, Weak};
 use std::time::Duration;
 
 use contracts::action::{ActionArg, ActionRow, ArgType, ExtensionProblem, RunParams};
@@ -93,7 +95,7 @@ impl Host {
         if self.started.swap(true, Ordering::SeqCst) {
             return;
         }
-        *self.daemon.lock().expect("host poisoned") = Arc::downgrade(daemon);
+        *self.daemon.lock() = Arc::downgrade(daemon);
         let daemon = Arc::clone(daemon);
         tokio::spawn(async move {
             let host = &daemon.extensions;
@@ -139,7 +141,7 @@ impl Host {
             }
         }
         let gone: Vec<String> = {
-            let state = self.state.lock().expect("host poisoned");
+            let state = self.state.lock();
             state
                 .loaded
                 .keys()
@@ -149,19 +151,13 @@ impl Host {
         };
         let mut removed = false;
         for folder in gone {
-            let old = self
-                .state
-                .lock()
-                .expect("host poisoned")
-                .loaded
-                .remove(&folder);
+            let old = self.state.lock().loaded.remove(&folder);
             if let Some(old) = old {
                 if let Some(child) = old.live {
                     child.stop();
                 }
                 self.state
                     .lock()
-                    .expect("host poisoned")
                     .reported
                     .retain(|(name, ..)| *name != old.name);
                 removed = true;
@@ -175,7 +171,6 @@ impl Host {
             let unchanged = self
                 .state
                 .lock()
-                .expect("host poisoned")
                 .loaded
                 .get(&name)
                 .is_some_and(|loaded| loaded.fingerprint == print);
@@ -227,7 +222,7 @@ impl Host {
         };
         let child = Arc::clone(&started.child);
         let old = {
-            let mut state = self.state.lock().expect("host poisoned");
+            let mut state = self.state.lock();
             state.reported.retain(|(ext, ..)| *ext != name);
             state.loaded.insert(
                 folder_name.clone(),
@@ -260,7 +255,7 @@ impl Host {
     /// A folder that failed to load stays known, so an unchanged one is not tried again; what was
     /// last good stays too.
     fn remember_failed(&self, folder: &str, print: String) {
-        let mut state = self.state.lock().expect("host poisoned");
+        let mut state = self.state.lock();
         match state.loaded.get_mut(folder) {
             Some(loaded) => loaded.fingerprint = print,
             None => {
@@ -329,7 +324,7 @@ impl Host {
     /// The child ended (UA6): its actions leave the list until it reloads.
     fn exited(&self, daemon: &Arc<Daemon>, folder: &str, child: &Arc<Child>, in_flight: usize) {
         let name = {
-            let mut state = self.state.lock().expect("host poisoned");
+            let mut state = self.state.lock();
             let Some(loaded) = state.loaded.get_mut(folder) else {
                 return;
             };
@@ -414,11 +409,13 @@ impl Host {
                 let request =
                     json!({ "jsonrpc": "2.0", "id": 1, "method": method, "params": params });
                 let actor = conn.actor.clone();
-                let reply = daemon
+                let reply = match daemon
                     .dispatch_parsed(&mut conn, request, Some(actor))
                     .await
-                    .map(crate::connection::Frame::into_value)
-                    .unwrap_or(Value::Null);
+                {
+                    Some(frame) => frame.into_value().map_err(RpcError::internal)?,
+                    None => Value::Null,
+                };
                 match reply.get("error") {
                     Some(error) => Err(serde_json::from_value(error.clone())
                         .unwrap_or_else(|_| RpcError::internal("the call failed"))),
@@ -436,7 +433,7 @@ impl Host {
         function: &str,
         params: Value,
     ) -> Result<Value, RpcError> {
-        let mut store = self.store.lock().expect("store poisoned");
+        let mut store = self.store.lock();
         let values = store.entry(extension.into()).or_default();
         let key = |params: &Value| {
             params["key"]
@@ -448,7 +445,7 @@ impl Host {
         match function {
             "get" => Ok(values.get(&key(&params)?).cloned().unwrap_or(Value::Null)),
             "set" => {
-                values.insert(key(&params)?, params["value"].clone());
+                values.insert(key(&params)?, params.field("value").clone());
                 Ok(Value::Null)
             }
             "delete" => Ok(values.remove(&key(&params)?).unwrap_or(Value::Null)),
@@ -460,7 +457,7 @@ impl Host {
     /// problem per rule broken, and announces a change (UA7).
     pub(crate) fn reconcile(&self, daemon: &Daemon, announce: bool) {
         let (problems, changed) = {
-            let mut state = self.state.lock().expect("host poisoned");
+            let mut state = self.state.lock();
             let built_in = state.built_in.clone().unwrap_or_default();
             let mut taken: HashMap<String, String> = HashMap::new();
             let mut listed = Vec::new();
@@ -519,7 +516,7 @@ impl Host {
 
     /// UA3: the App registered; its names are read and the check runs again.
     pub(crate) fn app_registered(&self) {
-        let Some(daemon) = self.daemon.lock().expect("host poisoned").upgrade() else {
+        let Some(daemon) = self.daemon.lock().upgrade() else {
             return;
         };
         tokio::spawn(async move {
@@ -536,7 +533,7 @@ impl Host {
     /// The App's names, as it last answered a list; the check of UA3 runs again with them.
     pub(crate) fn built_in(&self, daemon: &Daemon, names: HashSet<String>) {
         let differs = {
-            let mut state = self.state.lock().expect("host poisoned");
+            let mut state = self.state.lock();
             let differs = state.built_in.as_ref() != Some(&names);
             state.built_in = Some(names);
             differs
@@ -548,7 +545,7 @@ impl Host {
 
     /// The User actions now listed (UA1).
     pub(crate) fn rows(&self) -> Vec<ActionRow> {
-        let state = self.state.lock().expect("host poisoned");
+        let state = self.state.lock();
         state.listed.iter().map(|(row, _)| row.clone()).collect()
     }
 
@@ -559,7 +556,7 @@ impl Host {
         run: &RunParams,
     ) -> Option<Result<Value, RpcError>> {
         let (row, child, extension) = {
-            let state = self.state.lock().expect("host poisoned");
+            let state = self.state.lock();
             let (row, folder) = state.listed.iter().find(|(row, _)| row.name == run.name)?;
             let loaded = state.loaded.get(folder)?;
             (row.clone(), loaded.live.clone()?, loaded.name.clone())
@@ -597,7 +594,7 @@ impl Host {
                 }
                 match ran.answer {
                     Some(answer) if answer.get("deny").is_some() => Err(RpcError::conflict(
-                        answer["deny"].as_str().unwrap_or("denied").to_owned(),
+                        answer.field("deny").as_str().unwrap_or("denied").to_owned(),
                     )),
                     Some(_) => Ok(json!({ "status": "done" })),
                     None => match ran.failure {

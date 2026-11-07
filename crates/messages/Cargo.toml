@@ -9,12 +9,11 @@ agents = { path = "../agents" }
 async-trait.workspace = true
 contracts = { path = "../contracts" }
 provenance = { path = "../provenance" }
-storage = { path = "../storage" }
 rpc = { path = "../rpc" }
+storage = { path = "../storage" }
 serde.workspace = true
 serde_json.workspace = true
 rusqlite.workspace = true
-rusqlite_migration.workspace = true
 tokio.workspace = true
 backon = "1"
 thiserror.workspace = true

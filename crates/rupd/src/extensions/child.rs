@@ -1,10 +1,10 @@
 //! One Extension's child process: `node` running the runner script, JSON lines over its stdio.
 
+use parking_lot::Mutex;
 use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::path::Path;
 use std::process::Stdio;
-use std::sync::Mutex;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use serde_json::{Value, json};
@@ -63,8 +63,14 @@ impl Child {
             .stderr(Stdio::null())
             .kill_on_drop(true)
             .spawn()?;
-        let stdin = process.stdin.take().expect("stdin was piped");
-        let stdout = process.stdout.take().expect("stdout was piped");
+        let stdin = process
+            .stdin
+            .take()
+            .ok_or_else(|| std::io::Error::other("stdin was not piped"))?;
+        let stdout = process
+            .stdout
+            .take()
+            .ok_or_else(|| std::io::Error::other("stdout was not piped"))?;
         let child = std::sync::Arc::new(Self {
             id: IDS.fetch_add(1, Ordering::Relaxed),
             stdin: tokio::sync::Mutex::new(stdin),
@@ -95,8 +101,7 @@ impl Child {
                 driven.message(&message, &mut registered_tx, &calls_tx);
             }
             let _ = process.kill().await;
-            let in_flight =
-                std::mem::take(&mut *driven.pending.lock().expect("runs poisoned")).len();
+            let in_flight = std::mem::take(&mut *driven.pending.lock()).len();
             let _ = ended_tx.send(in_flight);
         });
         Ok(Started {
@@ -132,7 +137,7 @@ impl Child {
                 let Some(id) = message["id"].as_u64() else {
                     return;
                 };
-                let waiting = self.pending.lock().expect("runs poisoned").remove(&id);
+                let waiting = self.pending.lock().remove(&id);
                 if let Some(waiting) = waiting {
                     let _ = waiting.send(Ran {
                         answer: Some(message["answer"].clone()).filter(|answer| !answer.is_null()),
@@ -168,20 +173,20 @@ impl Child {
     ) -> Option<Result<Ran, ()>> {
         let id = self.next.fetch_add(1, Ordering::Relaxed);
         let (tx, rx) = oneshot::channel();
-        self.pending.lock().expect("runs poisoned").insert(id, tx);
+        self.pending.lock().insert(id, tx);
         if self
             .send(&json!({ "t": "run", "id": id, "name": name, "args": args }))
             .await
             .is_err()
         {
-            self.pending.lock().expect("runs poisoned").remove(&id);
+            self.pending.lock().remove(&id);
             return None;
         }
         match tokio::time::timeout(timeout, rx).await {
             Ok(Ok(ran)) => Some(Ok(ran)),
             Ok(Err(_)) => None,
             Err(_) => {
-                self.pending.lock().expect("runs poisoned").remove(&id);
+                self.pending.lock().remove(&id);
                 Some(Err(()))
             }
         }
@@ -219,7 +224,7 @@ async fn read_line(
             None => (buffer.len(), false),
         };
         let room = LINE_CAP.saturating_sub(line.len()).min(take);
-        line.extend_from_slice(&buffer[..room]);
+        line.extend(buffer.iter().take(room));
         reader.consume(take);
         if done {
             return Ok(true);

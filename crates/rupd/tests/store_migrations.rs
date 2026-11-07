@@ -145,7 +145,6 @@ async fn n20_current_store_opens() {
 
     // Digest's durable Pad cursor suppresses an already named Pad after reopen.
     let dir = tempfile::tempdir().unwrap();
-    let path = dir.path().join("digest.db");
     let nodes = serde_json::from_value::<Vec<contracts::agent::RailNode>>(json!([
         {"id":"door","kind":"workstream","name":"Door","attempt":"1","order":0,"can_resume":false,"stray":[]},
         {"id":"child","kind":"agent","name":"Child","parent":"door","status":{"kind":"done","label":"Done","since":0,"finished":"0"},"order":0,"can_resume":false,"stray":[]}
@@ -181,11 +180,11 @@ async fn n20_current_store_opens() {
         pads: &pads,
         messages: &[],
     };
-    let seen = messages::digest::Seen::open(&path).unwrap();
+    let seen = messages::digest::Seen::open(dir.path()).unwrap();
     let first = serde_json::to_value(seen.ask(&actor, "door", &sources).unwrap()).unwrap();
     assert_eq!(first["children"][0]["pads"], json!(["kept"]));
     drop(seen);
-    let seen = messages::digest::Seen::open(&path).unwrap();
+    let seen = messages::digest::Seen::open(dir.path()).unwrap();
     let reopened = serde_json::to_value(seen.ask(&actor, "door", &sources).unwrap()).unwrap();
     assert_eq!(reopened["children"][0]["pads"], json!([]));
 }

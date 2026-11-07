@@ -23,7 +23,7 @@ async fn dv2_metadata_only() {
     let denied = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
     let count = denied.clone();
     {
-        let db = daemon.publications.db.lock().unwrap();
+        let db = daemon.publications.db.lock();
         let settings: (String, i64) = db
             .query_row(
                 "SELECT journal_mode,synchronous FROM pragma_journal_mode(),pragma_synchronous()",

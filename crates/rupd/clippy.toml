@@ -6,3 +6,6 @@ disallowed-methods = [
     { path = "std::env::vars", reason = "the Daemon reads its environment once, in Observers::from_env" },
 ]
 too-many-lines-threshold = 100
+disallowed-types = [
+    { path = "std::sync::Mutex", reason = "parking_lot::Mutex never poisons, so a lock has no panic or recovery arm; a section that can fail returns its error (RB3798b)" },
+]
