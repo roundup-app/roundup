@@ -122,7 +122,13 @@ impl std::fmt::Display for Gone {
 fn with_key(arguments: &mut JsonObject) {
     if arguments.get("operation").is_none_or(Value::is_null) {
         let mut bytes = [0u8; 16];
-        getrandom::fill(&mut bytes).expect("the system has a random source");
+        if getrandom::fill(&mut bytes).is_err() {
+            // Without a system random source the clock still makes a key no two calls share.
+            let now = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map_or(0, |d| d.as_nanos());
+            bytes = now.to_le_bytes();
+        }
         let key: String = bytes.iter().map(|b| format!("{b:02x}")).collect();
         arguments.insert("operation".into(), key.into());
     }
