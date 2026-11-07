@@ -24,7 +24,7 @@ fn placeholder(field: &Field) -> String {
 
 /// What the user types before the arguments: `rup pad read`, or `rup events` for a stream.
 fn invocation(spec: &Spec) -> String {
-    if spec.stream {
+    if spec.is_stream() {
         format!("rup {}", spec.noun)
     } else {
         format!("rup {} {}", spec.noun, spec.verb)
@@ -53,10 +53,10 @@ fn usage(spec: &Spec) -> String {
 }
 
 pub(super) fn example(spec: &Spec) -> String {
-    if spec.method == "pad.appendSection" {
+    if spec.offered.method == "pad.appendSection" {
         return "rup pad append-section notes Plan Added --expected-revision 1".into();
     }
-    if spec.stream {
+    if spec.is_stream() {
         return format!("{} --after 12 --follow --json", invocation(spec));
     }
     let mut line = invocation(spec);
@@ -66,7 +66,7 @@ pub(super) fn example(spec: &Spec) -> String {
             (Kind::Int | Kind::Number, _) => "1".to_owned(),
             (_, "id") => "3".to_owned(),
             (_, "name") => "notes".to_owned(),
-            (Kind::Text(choices), _) if !choices.is_empty() => choices[0].clone(),
+            (Kind::Text(choices), _) if let Some(first) = choices.first() => first.clone(),
             _ => "\"...\"".to_owned(),
         };
         line.push(' ');
@@ -111,7 +111,7 @@ pub fn help_text() -> String {
     text.push_str(EXAMPLES);
     text.push_str("\n\nCommands:\n");
     let mut nouns: Vec<&str> = Vec::new();
-    for spec in specs.iter().filter(|spec| !spec.stream) {
+    for spec in specs.iter().filter(|spec| !spec.is_stream()) {
         if !nouns.contains(&spec.noun.as_str()) {
             nouns.push(&spec.noun);
         }
@@ -119,7 +119,11 @@ pub fn help_text() -> String {
     for noun in nouns {
         text.push_str(&format!("\n  {noun}\n"));
         for spec in specs.iter().filter(|spec| spec.noun == noun) {
-            let door = if spec.door_only { " [Door only]" } else { "" };
+            let door = if spec.is_door_only() {
+                " [Door only]"
+            } else {
+                ""
+            };
             text.push_str(&format!(
                 "    {}\n        {}.{door}\n",
                 usage(spec),
@@ -128,7 +132,7 @@ pub fn help_text() -> String {
         }
     }
     text.push_str("\n  streams\n");
-    for spec in specs.iter().filter(|spec| spec.stream) {
+    for spec in specs.iter().filter(|spec| spec.is_stream()) {
         text.push_str(&format!(
             "    {}\n        {}.\n        Example: {}\n",
             usage(spec),
@@ -255,13 +259,17 @@ pub(super) fn distance(a: &str, b: &str) -> usize {
     let b: Vec<char> = b.chars().collect();
     let mut row: Vec<usize> = (0..=b.len()).collect();
     for (i, x) in a.chars().enumerate() {
-        let mut prev = std::mem::replace(&mut row[0], i + 1);
-        for (j, y) in b.iter().enumerate() {
-            let next = (prev + usize::from(x != *y))
-                .min(row[j] + 1)
-                .min(row[j + 1] + 1);
-            prev = std::mem::replace(&mut row[j + 1], next);
+        // `prev` is the cell above-left, `left` the cell to the left; `row` becomes the next row.
+        let mut prev = row.first().copied().unwrap_or(i);
+        let mut left = i + 1;
+        let mut next_row = vec![left];
+        for (y, above) in b.iter().zip(row.iter().skip(1)) {
+            let next = (prev + usize::from(x != *y)).min(left + 1).min(above + 1);
+            prev = *above;
+            left = next;
+            next_row.push(next);
         }
+        row = next_row;
     }
-    row[b.len()]
+    row.last().copied().unwrap_or(b.len())
 }

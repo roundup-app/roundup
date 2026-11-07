@@ -1,3 +1,8 @@
+#![deny(clippy::unwrap_used, clippy::expect_used)]
+#![deny(clippy::panic, clippy::indexing_slicing)]
+#![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
+#![cfg_attr(test, allow(clippy::panic, clippy::indexing_slicing))]
+
 use std::io::Read;
 use std::process::ExitCode;
 use std::time::Duration;
@@ -108,7 +113,14 @@ async fn main() -> ExitCode {
             return ExitCode::SUCCESS;
         }
         // SK9: no Daemon and no Agent id; `skill report` is the hook's and never exits 2.
-        ["skill", ..] => return skill::run(&args[args.len() - command.len() + 1..]),
+        ["skill", ..] => {
+            let flags: Vec<String> = command
+                .iter()
+                .skip(1)
+                .map(|flag| (*flag).to_owned())
+                .collect();
+            return skill::run(&flags);
+        }
         ["help", "skill"] => {
             print!("{}", skill::help_text());
             return ExitCode::SUCCESS;
@@ -188,10 +200,10 @@ async fn ping(options: &Options) -> Result<(), String> {
         );
         return Ok(());
     }
-    let word = |key: &str| reply[key].as_str().map(str::to_owned);
+    let word = |key: &str| reply.get(key)?.as_str().map(str::to_owned);
     println!(
         "rupd {} at {} for {}",
-        reply["pid"],
+        reply.get("pid").unwrap_or(&Value::Null),
         socket.display(),
         word("project").unwrap_or_default()
     );
