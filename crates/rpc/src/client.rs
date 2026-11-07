@@ -198,8 +198,8 @@ async fn read_loop(
         let is_gap = method == Some(&Value::from("terminal.gap"));
         let is_event = method == Some(&Value::from("event"));
         let is_closed = method == Some(&Value::from("action.closed"));
-        let is_request = method.is_some_and(Value::is_string)
-            && frame.get("id").is_some_and(Value::is_u64);
+        let is_request =
+            method.is_some_and(Value::is_string) && frame.get("id").is_some_and(Value::is_u64);
         if is_output || is_gap {
             let params = frame.get_mut("params").map_or(Value::Null, Value::take);
             let parsed = if is_output {
