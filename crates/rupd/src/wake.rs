@@ -15,7 +15,11 @@ use crate::digest::{Reader, World};
 const MAX_IDS: usize = 20;
 
 pub(super) fn parse_request(params: serde_json::Value) -> Result<WakeParams, RpcError> {
-    let WakeParams { ids, any } = rpc::params(params)?;
+    check_request(rpc::params(params)?)
+}
+
+fn check_request(request: WakeParams) -> Result<WakeParams, RpcError> {
+    let WakeParams { ids, any } = request;
     if ids.is_empty() || ids.len() > MAX_IDS {
         return Err(RpcError::new(
             code::INVALID_PARAMS,
@@ -83,11 +87,11 @@ fn why_working(labels: Vec<String>) -> String {
 
 impl Waker {
     /// B41: `agent.wake`. Saves the request, decides it at once, and answers `{id, fired}`.
-    pub async fn ask(&self, caller: &Actor, params: serde_json::Value) -> Result<Woken, RpcError> {
+    pub async fn ask(&self, caller: &Actor, params: WakeParams) -> Result<Woken, RpcError> {
         if caller.kind != ActorKind::Agent {
             return Err(RpcError::forbidden("only an Agent may ask to be woken"));
         }
-        let WakeParams { ids, any } = parse_request(params)?;
+        let WakeParams { ids, any } = check_request(params)?;
         let mut seen = std::collections::HashSet::new();
         if let Some(repeated) = ids.iter().find(|id| !seen.insert(id.as_str())) {
             return Err(RpcError::new(

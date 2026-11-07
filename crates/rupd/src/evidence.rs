@@ -1,11 +1,11 @@
 //! U3078: authenticated public reports and passive exact-version source observation.
 use contracts::ActorKind;
 use contracts::agent::{InstructionDelivery, Instructions, RailNode};
-use contracts::deliverable::{Deliverable, PublishedTarget, Resolution, UnavailableCause};
+use contracts::deliverable::{PublishedTarget, Resolution, UnavailableCause};
 use contracts::message::*;
 use messages::Messages;
 use rpc::{Module, RpcError};
-use serde_json::{Value, json};
+use serde_json::json;
 
 use crate::{Conn, Daemon};
 
@@ -43,11 +43,9 @@ impl Daemon {
         conn: &Conn,
         report: &ResultReport,
     ) -> Result<Resolution, RpcError> {
-        let read = self
-            .deliverable_call(conn, "deliverable.resolve", json!(report.request.output))
-            .await;
+        let read = self.resolve_deliverable(conn, report.request.output.clone());
         match read {
-            Ok(value) => serde_json::from_value(value).map_err(RpcError::internal),
+            Ok(resolution) => Ok(resolution),
             Err(error) if error.code == rpc::code::NOT_FOUND => Ok(Resolution::Unavailable {
                 cause: UnavailableCause::MissingRevision,
             }),
@@ -58,40 +56,52 @@ impl Daemon {
         }
     }
 
-    pub(crate) async fn evidence_call(
-        &self,
-        conn: &Conn,
-        method: &str,
-        args: Value,
-        now: i64,
-    ) -> Result<Value, RpcError> {
-        let messages = self
-            .sender
+    pub(super) fn holder(&self) -> Result<&Messages, RpcError> {
+        self.sender
             .get()
-            .ok_or_else(|| RpcError::internal("Message holder is unavailable"))?;
-        match method {
-            "message.progress" => {
-                let p: ProgressParams = rpc::params(args)?;
-                self.result_progress(conn, messages, &p).await
-            }
-            "message.report" => {
-                let p: ReportParams = rpc::params(args)?;
-                self.result_report(conn, messages, p).await
-            }
-            "message.acceptResult" => {
-                let p: AcceptResultParams = rpc::params(args)?;
-                self.result_accept(conn, messages, p).await
-            }
-            "message.resolveResult" => {
-                let p: ResolveResultParams = rpc::params(args)?;
-                self.result_resolve(conn, messages, p, now).await
-            }
-            "message.verifyResult" => {
-                let p: ResultId = rpc::params(args)?;
-                self.result_verify(conn, messages, p).await
-            }
-            _ => Err(RpcError::method_not_found(method)),
-        }
+            .map(|messages| &**messages)
+            .ok_or_else(|| RpcError::internal("Message holder is unavailable"))
+    }
+
+    pub(crate) async fn message_progress(
+        &self,
+        conn: &mut Conn,
+        p: ProgressParams,
+    ) -> Result<Progress, RpcError> {
+        self.result_progress(conn, self.holder()?, &p).await
+    }
+
+    pub(crate) async fn message_report(
+        &self,
+        conn: &mut Conn,
+        p: ReportParams,
+    ) -> Result<ResultReport, RpcError> {
+        self.result_report(conn, self.holder()?, p).await
+    }
+
+    pub(crate) async fn message_accept_result(
+        &self,
+        conn: &mut Conn,
+        p: AcceptResultParams,
+    ) -> Result<ResultAcceptance, RpcError> {
+        self.result_accept(conn, self.holder()?, p).await
+    }
+
+    pub(crate) async fn message_resolve_result(
+        &self,
+        conn: &mut Conn,
+        p: ResolveResultParams,
+    ) -> Result<ResultObservation, RpcError> {
+        let now = time::OffsetDateTime::now_utc().unix_timestamp();
+        self.result_resolve(conn, self.holder()?, p, now).await
+    }
+
+    pub(crate) async fn message_verify_result(
+        &self,
+        conn: &mut Conn,
+        p: ResultId,
+    ) -> Result<ResultObservation, RpcError> {
+        self.result_verify(conn, self.holder()?, p).await
     }
 
     /// The reports of one Agent's results that wait on an external effect with no resolution yet.
@@ -113,12 +123,12 @@ impl Daemon {
         Ok(unresolved)
     }
 
-    async fn result_progress(
+    pub(super) async fn result_progress(
         &self,
         conn: &Conn,
         messages: &Messages,
         p: &ProgressParams,
-    ) -> Result<Value, RpcError> {
+    ) -> Result<Progress, RpcError> {
         let instructions = self.result_instructions(conn, p).await?;
         let reports = messages.result_reports(&p.id)?;
         let unresolved = Self::unresolved_reports(messages, &reports)?;
@@ -158,7 +168,7 @@ impl Daemon {
                 availability: self.result_availability(conn, report).await?,
             });
         }
-        rpc::reply(&Progress {
+        Ok(Progress {
             instructions,
             results,
         })
@@ -210,7 +220,7 @@ impl Daemon {
         conn: &Conn,
         messages: &Messages,
         p: ReportParams,
-    ) -> Result<Value, RpcError> {
+    ) -> Result<ResultReport, RpcError> {
         let progress = ProgressParams {
             project: p.project.clone(),
             id: p.id.clone(),
@@ -224,7 +234,7 @@ impl Daemon {
             replay.request = p;
             replay.author = conn.actor.clone();
             replay.attempt = delivery.attempt.clone();
-            return rpc::reply(&messages.record_result(replay)?);
+            return Ok(messages.record_result(replay)?);
         }
         let index = instructions
             .revisions
@@ -237,11 +247,7 @@ impl Daemon {
             .rev()
             .find(|r| matches!(r.instruction, contracts::agent::Instruction::Order { .. }))
             .map(|r| r.revision.clone());
-        let publication: Deliverable = serde_json::from_value(
-            self.deliverable_call(conn, "deliverable.get", json!(p.output))
-                .await?,
-        )
-        .map_err(RpcError::internal)?;
+        let publication = self.read_deliverable(conn, p.output.clone())?;
         if publication.maker != conn.actor {
             return Err(RpcError::forbidden("output belongs to another maker"));
         }
@@ -255,7 +261,7 @@ impl Daemon {
             instruction,
             publication,
         })?;
-        rpc::reply(&report)
+        Ok(report)
     }
 
     /// The report a result call names, once the Agent's instructions and reports are read.
@@ -280,7 +286,7 @@ impl Daemon {
         conn: &Conn,
         messages: &Messages,
         p: AcceptResultParams,
-    ) -> Result<Value, RpcError> {
+    ) -> Result<ResultAcceptance, RpcError> {
         let progress = ProgressParams {
             project: p.project,
             id: p.id,
@@ -302,7 +308,7 @@ impl Daemon {
             evidence: p.evidence,
         };
         messages.accept_result(&reports[at].report, &acceptance)?;
-        rpc::reply(&acceptance)
+        Ok(acceptance)
     }
 
     async fn result_resolve(
@@ -311,7 +317,7 @@ impl Daemon {
         messages: &Messages,
         p: ResolveResultParams,
         now: i64,
-    ) -> Result<Value, RpcError> {
+    ) -> Result<ResultObservation, RpcError> {
         if conn.actor.kind != ActorKind::User {
             return Err(RpcError::forbidden(
                 "only the user may authorize an external resolution source",
@@ -332,7 +338,7 @@ impl Daemon {
         }
         let observation = read_resolution(&p.source, report, &conn.actor, now).await;
         messages.observe_result(&report.report, &observation)?;
-        rpc::reply(&observation)
+        Ok(observation)
     }
 
     async fn result_verify(
@@ -340,7 +346,7 @@ impl Daemon {
         conn: &Conn,
         messages: &Messages,
         p: ResultId,
-    ) -> Result<Value, RpcError> {
+    ) -> Result<ResultObservation, RpcError> {
         let progress = ProgressParams {
             project: p.project,
             id: p.id,
@@ -356,7 +362,7 @@ impl Daemon {
             .rev()
             .find(|o| matches!(o, ResultObservation::Resolved { .. }))
         {
-            return rpc::reply(&resolved);
+            return Ok(resolved);
         }
         let availability = self.result_availability(conn, report).await?;
         let observation = self.observe_result(conn, report, &availability).await;
@@ -370,7 +376,7 @@ impl Daemon {
             observation
         };
         messages.observe_result(&report.report, &observation)?;
-        rpc::reply(&observation)
+        Ok(observation)
     }
 
     async fn observe_result(

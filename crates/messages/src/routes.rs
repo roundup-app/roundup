@@ -64,6 +64,6 @@ impl Messages {
     }
 
     pub(super) async fn list_routes(&self, _ctx: &Ctx) -> Result<Vec<Route>, Error> {
-        Ok(self.store()?.list_routes()?)
+        self.store()?.list_routes()
     }
 }

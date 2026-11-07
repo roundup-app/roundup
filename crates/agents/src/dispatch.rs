@@ -67,7 +67,7 @@ impl Agents {
         p: contracts::agent::NodeId,
     ) -> Result<contracts::agent::RailNode, RpcError> {
         let NodeId { id } = p;
-        Ok(self.make_workstream(ctx, &id).await?)
+        self.make_workstream(ctx, &id).await
     }
 
     async fn agent_prompt(
@@ -133,7 +133,7 @@ impl Agents {
         {
             let NodeId { id } = p;
             shared.guard_reach(&ctx.actor, &id, true)?;
-            Ok(self.worktree_state(&id).await?)
+            self.worktree_state(&id).await
         }
     }
 
@@ -146,7 +146,7 @@ impl Agents {
         {
             let NodeId { id } = p;
             shared.guard_reach(&ctx.actor, &id, true)?;
-            Ok(self.changed_files(&id).await?)
+            self.changed_files(&id).await
         }
     }
 
@@ -159,7 +159,7 @@ impl Agents {
         {
             let contracts::agent::CompareFileParams { id, path } = p;
             shared.guard_reach(&ctx.actor, &id, true)?;
-            Ok(self.compare_file(&id, &path).await?)
+            self.compare_file(&id, &path).await
         }
     }
 
@@ -253,7 +253,7 @@ impl Agents {
             ctx.touch(contracts::Verb::Wrote, &format!("agent:{}", p.id))?;
             ctx.emit(EventData::RailChanged);
         }
-        Ok(self.shared.node(&p.id)?)
+        self.shared.node(&p.id)
     }
 
     async fn agent_channel_up(
@@ -293,7 +293,7 @@ impl Agents {
     }
 
     async fn rail_tree(&self, _ctx: &Ctx) -> Result<Vec<contracts::agent::RailNode>, RpcError> {
-        Ok(self.tree()?)
+        self.tree()
     }
 
     async fn workstream_set_auto(
@@ -356,7 +356,7 @@ impl Agents {
         ctx: &Ctx,
         p: contracts::agent::CreateWorkstreamParams,
     ) -> Result<contracts::agent::RailNode, RpcError> {
-        Ok(self.create_workstream(ctx, p)?)
+        self.create_workstream(ctx, p)
     }
 
     async fn rail_group(
@@ -427,7 +427,7 @@ impl Agents {
             };
             Self::touch_rail(ctx, &id)?;
             ctx.emit(EventData::RailChanged);
-            Ok(shared.node(&node.id)?)
+            shared.node(&node.id)
         }
     }
 
@@ -436,7 +436,7 @@ impl Agents {
         _ctx: &Ctx,
         p: contracts::terminal::OpenParams,
     ) -> Result<contracts::terminal::Opened, RpcError> {
-        Ok(self.open_terminal(p).await?)
+        self.open_terminal(p).await
     }
 
     async fn project_set_worktrees(
@@ -489,7 +489,7 @@ impl Agents {
     ) -> Result<contracts::project::ImportDiscovery, RpcError> {
         {
             let params: contracts::project::ImportDiscoverParams = p;
-            Ok(self.import_discover(ctx, params).await?)
+            self.import_discover(ctx, params).await
         }
     }
 
@@ -500,7 +500,7 @@ impl Agents {
     ) -> Result<contracts::project::ImportResult, RpcError> {
         {
             let params: contracts::project::ImportCommitParams = p;
-            Ok(self.import_commit(ctx, params).await?)
+            self.import_commit(ctx, params).await
         }
     }
 
@@ -602,5 +602,4 @@ impl Agents {
             "selection removal requires the Project Daemon",
         ))
     }
-
 }

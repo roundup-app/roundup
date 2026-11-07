@@ -128,8 +128,11 @@ impl Queuer {
     }
 
     /// A3194: one call makes the Workstream, gives it the Todo and applies the Start choice.
-    pub async fn start_workstream(&self, actor: &Actor, params: Value) -> Result<Value, RpcError> {
-        let StartWorkstreamParams { id, name, start } = rpc::params(params)?;
+    pub async fn start_workstream(
+        &self,
+        actor: &Actor,
+        StartWorkstreamParams { id, name, start }: StartWorkstreamParams,
+    ) -> Result<RailNode, RpcError> {
         let name = name.trim().to_owned();
         if name.is_empty() {
             return Err(refuse("name must not be empty"));
@@ -158,9 +161,7 @@ impl Queuer {
             },
         )?;
         let owned = async {
-            self.todos
-                .set_home(&ctx, id, Some(node.id.clone()))
-                .await?;
+            self.todos.set_home(&ctx, id, Some(node.id.clone())).await?;
             let door = Actor {
                 kind: ActorKind::Agent,
                 id: node.id.clone(),
@@ -179,12 +180,12 @@ impl Queuer {
             return Err(err);
         }
         match start {
-            StartChoice::Now => return rpc::reply(&self.start_door(actor, &node.id).await?),
+            StartChoice::Now => return self.start_door(actor, &node.id).await,
             StartChoice::Queued => self.agents.queue_push(&node.id, None)?,
             StartChoice::AfterTodo { todo } => self.agents.queue_push(&node.id, Some(todo))?,
         }
         self.changed();
-        rpc::reply(&node)
+        Ok(node)
     }
 
     pub async fn state(&self) -> Result<QueueState, RpcError> {
@@ -197,54 +198,37 @@ impl Queuer {
         })
     }
 
-    pub async fn call(
-        &self,
-        actor: &Actor,
-        method: &str,
-        params: Value,
-    ) -> Result<Value, RpcError> {
-        match method {
-            "todo.startWorkstream" => self.start_workstream(actor, params).await,
-            "workstream.queue" => rpc::reply(&self.state().await?),
-            "workstream.dequeue" => self.dequeue(rpc::params(params)?),
-            "workstream.queueMove" => self.queue_move(rpc::params(params)?),
-            "workstream.startNow" => self.start_now(actor, rpc::params(params)?).await,
-            "project.setWorkstreamCap" => self.set_cap(rpc::params(params)?),
-            _ => Err(RpcError::method_not_found(method)),
-        }
-    }
-
-    fn dequeue(
+    pub(crate) fn dequeue(
         &self,
         QueuedWorkstream { workstream }: QueuedWorkstream,
-    ) -> Result<Value, RpcError> {
+    ) -> Result<(), RpcError> {
         if !self.agents.queue_remove(&workstream)? {
             return Err(RpcError::not_found(format!(
                 "queued workstream {workstream}"
             )));
         }
         self.changed();
-        rpc::reply(&())
+        Ok(())
     }
 
-    fn queue_move(
+    pub(crate) fn queue_move(
         &self,
         QueueMoveParams { workstream, index }: QueueMoveParams,
-    ) -> Result<Value, RpcError> {
+    ) -> Result<(), RpcError> {
         if !self.agents.queue_place(&workstream, index as usize)? {
             return Err(RpcError::not_found(format!(
                 "queued workstream {workstream}"
             )));
         }
         self.changed();
-        rpc::reply(&())
+        Ok(())
     }
 
-    async fn start_now(
+    pub(crate) async fn start_now(
         &self,
         actor: &Actor,
         QueuedWorkstream { workstream }: QueuedWorkstream,
-    ) -> Result<Value, RpcError> {
+    ) -> Result<RailNode, RpcError> {
         if !self
             .agents
             .queue_entries()?
@@ -258,10 +242,10 @@ impl Queuer {
         let node = self.start_door(actor, &workstream).await?;
         self.agents.queue_remove(&workstream)?;
         self.changed();
-        rpc::reply(&node)
+        Ok(node)
     }
 
-    fn set_cap(&self, CapParams { cap }: CapParams) -> Result<Value, RpcError> {
+    pub(crate) fn set_cap(&self, CapParams { cap }: CapParams) -> Result<(), RpcError> {
         let cap = match cap {
             None | Some(Value::Null) => None,
             Some(Value::Number(n)) => match n.as_u64() {
@@ -272,7 +256,7 @@ impl Queuer {
         };
         self.agents.set_workstream_cap(cap)?;
         self.changed();
-        rpc::reply(&())
+        Ok(())
     }
 
     /// A3196: start Doors from the head of the Queue until `cap` Workstreams run. `start` is

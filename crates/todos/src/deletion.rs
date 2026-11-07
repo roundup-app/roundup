@@ -116,7 +116,7 @@ impl Todos {
         ctx: &Ctx,
         p: DeletionParams,
     ) -> Result<Option<Deletion>, Error> {
-        Ok(receipt(&self.store()?.db, &ctx.actor, &p.operation)?)
+        receipt(&self.store()?.db, &ctx.actor, &p.operation)
     }
 
     pub(super) async fn restore(&self, ctx: &Ctx, p: DeletionParams) -> Result<Deletion, Error> {

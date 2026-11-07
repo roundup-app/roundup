@@ -16,7 +16,7 @@ impl Todos {
             ctx.touch(Verb::Wrote, &item(p.id))?;
             ctx.emit(EventData::TodoRefAdded(TodoId { id: p.id }));
         }
-        Ok(store.get(p.id)?)
+        store.get(p.id)
     }
 
     pub(super) async fn remove_ref(&self, ctx: &Ctx, p: RefParams) -> Result<Todo, Error> {
@@ -27,7 +27,7 @@ impl Todos {
             ctx.touch(Verb::Wrote, &item(p.id))?;
             ctx.emit(EventData::TodoRefRemoved(TodoId { id: p.id }));
         }
-        Ok(store.get(p.id)?)
+        store.get(p.id)
     }
     /// T27: the links of a Todo as added, for the Daemon to read their state. It logs no Touch.
     pub(super) fn read_refs(&self, id: u32) -> Result<Vec<String>, Error> {

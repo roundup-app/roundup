@@ -115,7 +115,7 @@ impl Pads {
             self.mirror(&store, &pad.name, &text)
         })?;
         wrote(ctx, &pad.name)?;
-        Ok(get(&store, &pad.name)?)
+        get(&store, &pad.name)
     }
 
     /// P15: the revision check, the insertion and the write happen in one transaction, so of two callers with one expected revision only one succeeds.

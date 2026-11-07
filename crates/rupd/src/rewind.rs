@@ -1,11 +1,10 @@
 //! M5159b: the Door asks each child's provider to rewind through the provider's own feature.
+use contracts::ActorKind;
 use contracts::agent::{NodeKind, RailNode};
 use contracts::workstream::{Rewind, RewindAgent, RewindParams, RewindState};
-use contracts::{Actor, ActorKind};
-use rpc::{RpcError, code, params, reply};
-use serde_json::Value;
+use rpc::{RpcError, code};
 
-use crate::Daemon;
+use crate::{Conn, Daemon};
 use agents::rewind::Outcome;
 
 /// Whether `node` sits below Workstream `door`, direct or nested, without leaving it.
@@ -25,8 +24,12 @@ fn belongs(nodes: &[RailNode], node: &RailNode, door: &str) -> bool {
 }
 
 impl Daemon {
-    pub(crate) async fn rewind_call(&self, actor: &Actor, value: Value) -> Result<Value, RpcError> {
-        let RewindParams { id, turns } = params(value)?;
+    pub(crate) async fn workstream_rewind(
+        &self,
+        conn: &mut Conn,
+        RewindParams { id, turns }: RewindParams,
+    ) -> Result<Rewind, RpcError> {
+        let actor = &conn.actor;
         let nodes = self.rail().await?;
         let door = nodes
             .iter()
@@ -99,6 +102,6 @@ impl Daemon {
                 }
             })
             .collect();
-        reply(&Rewind { agents })
+        Ok(Rewind { agents })
     }
 }

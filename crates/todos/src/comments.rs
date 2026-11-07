@@ -36,11 +36,11 @@ impl Todos {
     }
 
     pub(crate) async fn comments(&self, _ctx: &Ctx, p: TodoId) -> Result<Vec<Comment>, Error> {
-        Ok(self.store()?.comments(p.id)?)
+        self.store()?.comments(p.id)
     }
 
     pub(crate) async fn unread(&self, _ctx: &Ctx) -> Result<Vec<UnreadComment>, Error> {
-        Ok(self.store()?.unread()?)
+        self.store()?.unread()
     }
 
     /// T23: marks read, logs no Touch, and emits only when something changed.

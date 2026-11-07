@@ -5,7 +5,7 @@ use capture::{Root, hash};
 use contracts::{ActorKind, deliverable::*};
 use rpc::RpcError;
 use rusqlite::{Connection, Transaction};
-use serde_json::Value;
+use serde::{Serialize, de::DeserializeOwned};
 use std::path::{Path, PathBuf};
 
 mod capture;
@@ -334,18 +334,18 @@ fn fault(operation: &str) -> std::io::Result<()> {
 }
 
 /// The finished call: what to reply and what to announce after the commit.
-enum Done {
+enum Done<R> {
     /// A replayed publish answers from the stored record and commits nothing.
-    Replayed(Value),
+    Replayed(R),
     Applied {
-        reply: Value,
+        reply: R,
         changed: bool,
         publication: Option<contracts::EventData>,
     },
 }
 
-impl Done {
-    fn reply(reply: Value) -> Self {
+impl<R> Done<R> {
+    fn reply(reply: R) -> Self {
         Self::Applied {
             reply,
             changed: false,
@@ -364,16 +364,81 @@ struct Call<'a> {
 }
 
 impl Daemon {
-    pub(crate) async fn deliverable_call(
+    pub(crate) async fn deliverable_publish(
+        &self,
+        conn: &mut Conn,
+        p: PublishParams,
+    ) -> std::result::Result<Deliverable, RpcError> {
+        Ok(self.deliver(conn, "deliverable.publish", p, publish)?)
+    }
+
+    pub(crate) async fn deliverable_list(
+        &self,
+        conn: &mut Conn,
+        p: ListParams,
+    ) -> std::result::Result<Vec<Deliverable>, RpcError> {
+        Ok(self.deliver(conn, "deliverable.list", p, |call, p, _| list(call, p))?)
+    }
+
+    pub(crate) async fn deliverable_get(
+        &self,
+        conn: &mut Conn,
+        p: DeliverableId,
+    ) -> std::result::Result<Deliverable, RpcError> {
+        self.read_deliverable(conn, p)
+    }
+
+    pub(crate) async fn deliverable_resolve(
+        &self,
+        conn: &mut Conn,
+        p: DeliverableId,
+    ) -> std::result::Result<Resolution, RpcError> {
+        self.resolve_deliverable(conn, p)
+    }
+
+    /// `deliverable.get` for a caller that holds the connection by shared reference.
+    pub(crate) fn read_deliverable(
+        &self,
+        conn: &Conn,
+        p: DeliverableId,
+    ) -> std::result::Result<Deliverable, RpcError> {
+        Ok(self.deliver(conn, "deliverable.get", p, |call, p, _| get(call, p))?)
+    }
+
+    /// `deliverable.resolve` for a caller that holds the connection by shared reference.
+    pub(crate) fn resolve_deliverable(
+        &self,
+        conn: &Conn,
+        p: DeliverableId,
+    ) -> std::result::Result<Resolution, RpcError> {
+        Ok(self.deliver(conn, "deliverable.resolve", p, |call, p, _| {
+            resolve_call(call, p)
+        })?)
+    }
+
+    pub(crate) async fn deliverable_move(
+        &self,
+        conn: &mut Conn,
+        p: MoveParams,
+    ) -> std::result::Result<Deliverable, RpcError> {
+        Ok(self.deliver(conn, "deliverable.move", p, |call, p, _| move_to(call, p))?)
+    }
+
+    pub(crate) async fn deliverable_remove(
+        &self,
+        conn: &mut Conn,
+        p: DeliverableId,
+    ) -> std::result::Result<(), RpcError> {
+        Ok(self.deliver(conn, "deliverable.remove", p, |call, p, _| remove(call, p))?)
+    }
+
+    fn deliver<P, R: Serialize + DeserializeOwned>(
         &self,
         conn: &Conn,
         method: &str,
-        args: Value,
-    ) -> std::result::Result<Value, RpcError> {
-        Ok(self.deliver(conn, method, args)?)
-    }
-
-    fn deliver(&self, conn: &Conn, method: &str, args: Value) -> Ret<Value> {
+        args: P,
+        run: impl FnOnce(&Call, P, Option<contracts::event::Completion>) -> Ret<Done<R>>,
+    ) -> Ret<R> {
         // Read the run before taking SQLite's writer lock: completion folds may save the Rail.
         let completion = if method == "deliverable.publish" && conn.actor.kind == ActorKind::Agent {
             self.agents.turn_identity(&conn.actor.id)
@@ -404,15 +469,7 @@ impl Daemon {
             project: store::project_in(&tx)?,
             maker,
         };
-        let done = match method {
-            "deliverable.publish" => publish(&call, args, completion)?,
-            "deliverable.list" => list(&call, args)?,
-            "deliverable.move" => move_to(&call, args)?,
-            "deliverable.remove" => remove(&call, args)?,
-            "deliverable.get" => get(&call, args)?,
-            "deliverable.resolve" => resolve_call(&call, args)?,
-            _ => return Err(RpcError::method_not_found(method).into()),
-        };
+        let done = run(&call, args, completion)?;
         let (reply, changed, publication) = match done {
             Done::Replayed(reply) => return Ok(reply),
             Done::Applied {
@@ -473,11 +530,10 @@ fn now_ms() -> Ret<i64> {
 
 fn publish(
     call: &Call,
-    args: Value,
+    p: PublishParams,
     completion: Option<contracts::event::Completion>,
-) -> Ret<Done> {
+) -> Ret<Done<Deliverable>> {
     let (conn, tx) = (call.conn, call.tx);
-    let p: PublishParams = rpc::params(args)?;
     check_publish(conn.actor.kind, &p)?;
     let request = serde_json::to_string(&p)?;
     let actor_key = format!("{:?}:{}", conn.actor.kind, conn.actor.id);
@@ -530,7 +586,7 @@ fn publish(
         store::insert_file_in(tx, &record.id, bytes.len())?;
     }
     Ok(Done::Applied {
-        reply: rpc::reply(&record)?,
+        reply: record.clone(),
         changed: true,
         publication: Some(contracts::EventData::DeliverablePublished {
             record: Box::new(record),
@@ -539,20 +595,18 @@ fn publish(
     })
 }
 
-fn list(call: &Call, args: Value) -> Ret<Done> {
-    let p: ListParams = rpc::params(args)?;
+fn list(call: &Call, p: ListParams) -> Ret<Done<Vec<Deliverable>>> {
     let records = store::list_in(call.tx, p.home.as_deref())?;
-    Ok(Done::reply(rpc::reply(
-        &records
+    Ok(Done::reply(
+        records
             .into_iter()
             .filter(|r| p.maker.as_ref().is_none_or(|m| m == &r.maker.id))
-            .collect::<Vec<_>>(),
-    )?))
+            .collect(),
+    ))
 }
 
-fn move_to(call: &Call, args: Value) -> Ret<Done> {
+fn move_to(call: &Call, p: MoveParams) -> Ret<Done<Deliverable>> {
     let (conn, tx) = (call.conn, call.tx);
-    let p: MoveParams = rpc::params(args)?;
     let mut record = store::get_in(
         tx,
         &call.project,
@@ -582,14 +636,13 @@ fn move_to(call: &Call, args: Value) -> Ret<Done> {
         &format!("deliverable:{}", record.id),
     )?;
     Ok(Done::Applied {
-        reply: rpc::reply(&record)?,
+        reply: record,
         changed,
         publication: None,
     })
 }
 
-fn remove(call: &Call, args: Value) -> Ret<Done> {
-    let p: DeliverableId = rpc::params(args)?;
+fn remove(call: &Call, p: DeliverableId) -> Ret<Done<()>> {
     if call.conn.actor.kind != ActorKind::User {
         return Err(DeliverableError::Forbidden(
             "only the user can remove a publication".into(),
@@ -599,31 +652,21 @@ fn remove(call: &Call, args: Value) -> Ret<Done> {
     call.daemon.publications.invalidate(&record.id)?;
     store::remove_in(call.tx, &record.id)?;
     Ok(Done::Applied {
-        reply: Value::Null,
+        reply: (),
         changed: true,
         publication: None,
     })
 }
 
-fn get(call: &Call, args: Value) -> Ret<Done> {
-    let p: DeliverableId = rpc::params(args)?;
-    Ok(Done::reply(rpc::reply(&store::get_in(
-        call.tx,
-        &call.project,
-        &p,
-    )?)?))
+fn get(call: &Call, p: DeliverableId) -> Ret<Done<Deliverable>> {
+    Ok(Done::reply(store::get_in(call.tx, &call.project, &p)?))
 }
 
-fn resolve_call(call: &Call, args: Value) -> Ret<Done> {
-    let p: DeliverableId = rpc::params(args)?;
+fn resolve_call(call: &Call, p: DeliverableId) -> Ret<Done<Resolution>> {
     let record = store::get_in(call.tx, &call.project, &p)?;
     let publications = &call.daemon.publications;
     publications.invalidate(&record.id)?;
-    Ok(Done::reply(rpc::reply(&resolve(
-        call.tx,
-        publications,
-        &record,
-    )?)?))
+    Ok(Done::reply(resolve(call.tx, publications, &record)?))
 }
 
 const MAX_BYTES: usize = 32 * 1024 * 1024;

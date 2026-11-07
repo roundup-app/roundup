@@ -6,7 +6,7 @@ use contracts::deliverable::Resolution;
 use contracts::message::*;
 use messages::continuation::{self, Continue};
 use rpc::RpcError;
-use serde_json::{Value, json};
+use serde_json::json;
 use sha2::{Digest, Sha256};
 
 use crate::{Conn, Daemon};
@@ -44,15 +44,11 @@ fn block(
 
 impl Daemon {
     async fn progress_of(&self, conn: &Conn, id: &str) -> Result<Progress, RpcError> {
-        let value = self
-            .evidence_call(
-                conn,
-                "message.progress",
-                json!({"project":self.project,"id":id}),
-                0,
-            )
-            .await?;
-        serde_json::from_value(value).map_err(RpcError::internal)
+        let params = ProgressParams {
+            project: self.project.to_string_lossy().into_owned(),
+            id: id.to_owned(),
+        };
+        self.result_progress(conn, self.holder()?, &params).await
     }
 
     pub(crate) async fn reconcile(
@@ -181,17 +177,19 @@ impl Daemon {
         })
     }
 
-    pub(crate) async fn resume_call(
+    pub(crate) async fn message_reconcile_work(
         &self,
-        conn: &Conn,
-        method: &str,
-        args: Value,
-    ) -> Result<Value, RpcError> {
-        if method == "message.reconcileWork" {
-            let p: ProgressParams = rpc::params(args)?;
-            return rpc::reply(&self.reconcile(conn, &p).await?);
-        }
-        let p: ResumeWorkParams = rpc::params(args)?;
+        conn: &mut Conn,
+        p: ProgressParams,
+    ) -> Result<Reconciliation, RpcError> {
+        self.reconcile(conn, &p).await
+    }
+
+    pub(crate) async fn message_resume_work(
+        &self,
+        conn: &mut Conn,
+        p: ResumeWorkParams,
+    ) -> Result<ResumeWork, RpcError> {
         if conn.actor.kind != ActorKind::User {
             return Err(RpcError::forbidden(
                 "only the user may choose to resume unfinished work",
@@ -231,7 +229,7 @@ impl Daemon {
         }
         let reconciliation = self.reconcile(conn, &progress).await?;
         if let Some((decision, _)) = messages.requested_decision(&p.id, &p.request, &payload)? {
-            return rpc::reply(&decided(decision, reconciliation));
+            return Ok(decided(decision, reconciliation));
         }
         let mut chosen: Vec<&ContinuationAction> = reconciliation.actions.iter().collect();
         if let Some(action) = &p.action {
@@ -241,7 +239,7 @@ impl Daemon {
             }
         }
         if chosen.is_empty() {
-            return rpc::reply(&ResumeWork {
+            return Ok(ResumeWork {
                 decision: None,
                 reconciliation,
             });
@@ -261,7 +259,7 @@ impl Daemon {
             evidence: serde_json::to_string(&reconciliation).map_err(RpcError::internal)?,
         };
         match messages.continue_work(request).await {
-            Ok((decision, _)) => rpc::reply(&decided(decision, reconciliation)),
+            Ok((decision, _)) => Ok(decided(decision, reconciliation)),
             Err(error) => {
                 let error = RpcError::from(error);
                 Err(RpcError::new(
