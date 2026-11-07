@@ -3,7 +3,7 @@
 use std::sync::Arc;
 
 use contracts::{Actor, agent::RemoveScope};
-use rpc::{Module, RpcError};
+use rpc::RpcError;
 use rusqlite::params;
 use serde_json::Value;
 
@@ -124,16 +124,15 @@ impl Daemon {
                 result.removed.extend(removal.removed);
                 result.kept.extend(removal.kept);
             } else {
+                let remove = contracts::agent::RemoveParams {
+                    id: id.clone(),
+                    scope: None,
+                    operation: None,
+                };
                 self.agents
-                    .call(
-                        &self.ctx(actor.clone()),
-                        "rail.remove",
-                        serde_json::json!({"id":id}),
-                    )
+                    .remove_node(&self.ctx(actor.clone()), remove)
                     .await?;
-                self.reset_orphaned_homes().await?;
-                self.reset_orphaned_owners().await?;
-                self.reset_orphaned_pad_homes().await?;
+                self.reset_orphans().await?;
             }
             result.removed.push(RemovedItem {
                 id: id.clone(),

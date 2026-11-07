@@ -237,15 +237,7 @@ impl Agents {
         _method: &str,
         value: Value,
     ) -> Result<Value, RpcError> {
-        let shared = &self.shared;
-        {
-            let start: StartDoorParams = params(value)?;
-            let id = start.id.clone();
-            shared.guard_reach(&ctx.actor, &id, false)?;
-            let door = self.start_door(ctx, start).await?;
-            Self::touch_rail(ctx, &id)?;
-            reply(&door)
-        }
+        reply(&self.start_door_node(ctx, params(value)?).await?)
     }
 
     async fn rpc_agent_resume(
@@ -371,8 +363,7 @@ impl Agents {
         _method: &str,
         _value: Value,
     ) -> Result<Value, RpcError> {
-        let shared = &self.shared;
-        reply(&shared.tree()?)
+        reply(&self.tree()?)
     }
 
     async fn rpc_workstream_set_auto(
@@ -442,42 +433,7 @@ impl Agents {
         _method: &str,
         value: Value,
     ) -> Result<Value, RpcError> {
-        let shared = &self.shared;
-        {
-            let CreateWorkstreamParams {
-                start_attribution,
-                name,
-                parent,
-                order,
-            } = params(value)?;
-            if start_attribution.is_some() && ctx.actor.kind != ActorKind::User {
-                return Err(RpcError::forbidden(
-                    "only the user connection supplies start attribution",
-                ));
-            }
-            if let Some(order) = &order {
-                valid_explicit_order(order)?;
-            }
-            let typed =
-                ctx.actor.kind == ActorKind::User && !name::is_workstream_placeholder(&name);
-            let node = shared.rail().insert_ordered(
-                NodeKind::Workstream,
-                &name,
-                parent.as_deref(),
-                None,
-                order.as_ref(),
-                start_attribution.as_ref(),
-            )?;
-            if typed {
-                shared.rail().set_user_named(&node.id)?;
-            }
-            if ctx.actor.kind == ActorKind::Agent {
-                shared.rail().set_creator(&node.id, &ctx.actor.id)?;
-            }
-            Self::touch_creation(ctx, &node.id, start_attribution.as_ref())?;
-            ctx.emit(EventData::RailChanged);
-            reply(&shared.node(&node.id)?)
-        }
+        reply(&self.create_workstream(ctx, params(value)?)?)
     }
 
     async fn rpc_rail_group(
@@ -775,42 +731,6 @@ impl Agents {
         _method: &str,
         value: Value,
     ) -> Result<Value, RpcError> {
-        let shared = &self.shared;
-        {
-            let contracts::agent::RemoveParams {
-                id,
-                operation,
-                scope,
-            } = params(value)?;
-            if operation.is_some() {
-                return Err(RpcError::forbidden(
-                    "reversible removal requires the Project Daemon",
-                ));
-            }
-            let scope = scope.unwrap_or_default();
-            shared.guard_reach(&ctx.actor, &id, false)?;
-            if scope == RemoveScope::All && shared.rail().node(&id)?.kind != NodeKind::Workstream {
-                return Err(RpcError::new(
-                    code::INVALID_PARAMS,
-                    "scope all requires a Workstream",
-                ));
-            }
-            if shared.rail().node(&id)?.kind == NodeKind::Workstream {
-                let removal = shared
-                    .remove_workstream(ctx.actor.clone(), &id, scope)
-                    .await?;
-                for item in &removal.removed {
-                    Self::touch_rail(ctx, &item.id)?;
-                }
-                for item in &removal.kept {
-                    Self::touch_rail(ctx, &item.id)?;
-                }
-                Self::touch_rail(ctx, &id)?;
-                return reply(&removal);
-            }
-            shared.remove(ctx.actor.clone(), &id).await?;
-            Self::touch_rail(ctx, &id)?;
-            reply(&())
-        }
+        reply(&self.remove_node(ctx, params(value)?).await?)
     }
 }

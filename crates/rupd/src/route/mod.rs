@@ -287,9 +287,7 @@ impl Daemon {
                     .await;
             }
             After::RailRemove if outcome.is_ok() => {
-                self.reset_orphaned_homes().await?;
-                self.reset_orphaned_owners().await?;
-                self.reset_orphaned_pad_homes().await?;
+                self.reset_orphans().await?;
                 return outcome;
             }
             After::PadDelete if outcome.is_ok() => {
