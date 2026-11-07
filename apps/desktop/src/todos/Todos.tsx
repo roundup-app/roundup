@@ -1,4 +1,3 @@
-import { Presence } from "@ark-ui/solid/presence";
 import { KeyChip } from "../keys/KeyChip";
 import { shortcutLabel, chordNamed } from "../keys/chords";
 import { createTodoCreation } from "./creation";
@@ -839,7 +838,8 @@ export const Todos = (props: {
       }} />
       <Show when={foldedDone().length > 0}>
         <div class="shelf-list">
-        <Presence present={unfolded()} lazyMount unmountOnExit class="todo-done-fold todo-group-content">
+        <Show when={unfolded()}>
+          <div class="todo-done-fold todo-group-content" data-state="open">
             <div class="todo-done-content">
             <For each={foldedDone().filter((todo) => !finishingRow(todo))}>
               {(todo) => (
@@ -866,7 +866,8 @@ export const Todos = (props: {
               )}
             </For>
             </div>
-        </Presence>
+          </div>
+        </Show>
           <ShelfRow glyph={<KindGlyph kind="done" decorative />} class="todo-inset row-wash-inert">
             <div class="shelf-done-line">
               <span class="todo-done-toggle" data-fold>

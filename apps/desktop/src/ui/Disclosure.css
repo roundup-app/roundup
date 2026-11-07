@@ -1,4 +1,5 @@
 .disclosure-trigger { display: inline-flex; gap: var(--space-1); align-items: center; }
 
-.disclosure-trigger .icon { transition: transform var(--duration-reorder) var(--easing-out); }
 .disclosure-trigger[data-state="open"] .icon { transform: rotate(90deg); }
+
+.disclosure-trigger:where([data-fold-motion] *) .icon { transition: transform var(--duration-layout) var(--easing-out); }

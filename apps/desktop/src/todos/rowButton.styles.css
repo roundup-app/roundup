@@ -422,7 +422,3 @@
   outline: none;
 }
 .todo-row .todo-row-button[data-pressed="true"] { color: inherit; }
-
-/* U6398a: the done fold stays mounted while Ark's Presence waits for this exit to end. */
-.todo-done-fold[data-state="closed"] { animation: todo-fold-out var(--duration-reorder) var(--easing-out) forwards; pointer-events: none; }
-@keyframes todo-fold-out { to { opacity: 0; } }

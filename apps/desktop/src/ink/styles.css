@@ -368,7 +368,6 @@ p.ink[role="alert"] {
   color: var(--grey);
 }
 
-.section-head [data-part="branch-indicator"] { transition: transform var(--duration-reorder) var(--easing-out); }
 .section-head [data-part="branch-indicator"][data-state="open"] {
   transform: rotate(90deg);
 }
@@ -389,3 +388,6 @@ p.ink[role="alert"] {
 .todo-open { position: relative; z-index: 1; flex: none; }
 .todo-open svg { width: var(--space-4); height: var(--space-4); }
 .todo-open:focus-visible { color: var(--text); }
+
+/* U6398a: the chevron turns only during a pointer fold's projection, so a key fold snaps (M1). */
+.section-head:where([data-fold-motion] *) [data-part="branch-indicator"] { transition: transform var(--duration-layout) var(--easing-out); }

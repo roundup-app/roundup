@@ -69,11 +69,35 @@ it("u6398b_a_second_press_retargets_the_running_projection", async () => {
   render(surfaces);
   const plain = screen.getByRole("button", { name: "Plain" });
   fireEvent.click(plain, { detail: 1 });
+  const scope = engine.animateLayout.mock.calls[0]?.[0];
   fireEvent.click(plain, { detail: 1 });
-  const [first, second] = engine.animateLayout.mock.calls;
-  expect(second?.[0]).toBe(first?.[0]);
+  expect(engine.animateLayout).toHaveBeenCalledTimes(2);
+  // The running projection is neither cleared nor handed to another scope: the engine retargets it.
+  expect(engine.animateLayout.mock.calls[1]?.[0]).toBe(scope);
+  expect(scope?.hasAttribute("data-fold-motion")).toBe(true);
   expect(document.querySelectorAll("[data-layout]").length).toBeGreaterThan(0);
   expect(engine.animate).not.toHaveBeenCalled();
+});
+
+it("u6398a_a_press_that_changes_nothing_leaves_no_projection_behind", async () => {
+  install();
+  render(() => <button type="button" class="rail-chevron" aria-expanded="false">Inert</button>);
+  fireEvent.click(screen.getByRole("button", { name: "Inert" }), { detail: 1 });
+  await new Promise(resolve => setTimeout(resolve, 120));
+  expect(document.querySelectorAll("[data-layout], [data-fold-motion]")).toHaveLength(0);
+  expect(engine.animate).not.toHaveBeenCalled();
+});
+
+it("u6398a_a_tree_branch_fades_its_leaving_rows_out_through_opacity", async () => {
+  install();
+  render(surfaces);
+  const group = screen.getByRole("button", { name: "Group" });
+  fireEvent.click(group, { detail: 1 });
+  await new Promise(resolve => setTimeout(resolve, 80));
+  engine.animate.mockClear();
+  fireEvent.click(group, { detail: 1 });
+  await new Promise(resolve => setTimeout(resolve, 80));
+  await vi.waitFor(() => expect(engine.animate).toHaveBeenCalledWith(expect.any(Element), { opacity: [1, 0] }, expect.anything()));
 });
 
 it("u6398c_a_keyboard_fold_starts_no_projection_and_reduced_motion_fades_only", async () => {
