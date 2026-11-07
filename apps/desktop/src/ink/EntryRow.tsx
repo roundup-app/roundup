@@ -20,7 +20,7 @@ export const EntryRow = (props: {
   <ShelfRow data-editing="true" glyph={props.glyph} class={`entry-row ${props.class}`}>
     <input spellcheck={false} autocorrect="off" autocapitalize="off"
       type="text"
-      class="entry-field"
+      class="entry-field field-inline"
       aria-label={props.label}
       placeholder={props.placeholder}
       ref={(field) => {

@@ -319,7 +319,7 @@ export const Capture = (props: { onFile: (() => void) | undefined; onNativeOpen?
           panel = element;
         }}>
           <textarea spellcheck={false} autocorrect="off" autocapitalize="off"
-            class="capture-field"
+            class="capture-field field-frame"
             rows={1}
             wrap="off"
             aria-label={copy.captureLabel}
@@ -354,7 +354,7 @@ export const Capture = (props: { onFile: (() => void) | undefined; onNativeOpen?
           <ReservedLine message={failure() ?? problem.message()} dismiss={() => failure() ? setFailure(null) : problem.dismiss()} recover={drafts.problem() ? { run: () => drafts.retry(), label: copy.storageRetry } : undefined} />
           <For each={recovered()}>{draft => <div class="capture-recovery">
             <span class="ink" data-state={draft.status}>{copy.draftStatus[draft.status]}</span>
-            <textarea class="capture-field" aria-label={copy.recoveredCaptureDraft} rows={1} readOnly value={String(draft.value.text)} />
+            <textarea class="capture-field field-frame" aria-label={copy.recoveredCaptureDraft} rows={1} readOnly value={String(draft.value.text)} />
             <div class="capture-actions">
             <CopyButton app={connected.app} identity={draft.revision} text={String(draft.value.text)} onSuccess={() => setFailure(null)} onFailure={error => setFailure(copy.copyDraftFailure(error.message))}>{copy.copy}</CopyButton>
             <button data-button="quiet" type="button" onClick={() => drafts.discard(draft.revision)}>{copy.discardRevision}</button>

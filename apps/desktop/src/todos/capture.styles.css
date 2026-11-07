@@ -4,25 +4,12 @@
   padding: var(--space-3);
 }
 
-/* A one-row textarea: a text field, so D6 and D7 skip it (U353); focus is the caret alone. */
+/* A one-row textarea in the shared frame (U6545a). */
 .capture-field {
-  box-sizing: border-box;
   display: block;
-  width: 100%;
-  margin: 0;
-  padding: var(--space-2) var(--space-3);
-  border: 0;
-  background: var(--transparent);
-  color: var(--text);
-  font: inherit;
   resize: none;
   overflow: hidden;
   white-space: pre;
-}
-
-.capture-field::placeholder {
-  color: var(--grey);
-  opacity: 1;
 }
 
 .capture .ink {
