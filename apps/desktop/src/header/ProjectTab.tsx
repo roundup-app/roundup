@@ -65,6 +65,14 @@ const RenameField = (props: { name: string; restored: "none" | "current" | "sele
 };
 
 /** One Project's library-owned tab, with a sibling close control. */
+type BulkCloses = { others?: (() => void) | undefined; left?: (() => void) | undefined; right?: (() => void) | undefined };
+
+const bulkCloseItems = (closing: BulkCloses = {}) => [
+  { id: "close-others", label: copy.closeOthers, enabled: closing.others !== undefined, run: () => closing.others?.() },
+  { id: "close-left", label: copy.closeToLeft, enabled: closing.left !== undefined, run: () => closing.left?.() },
+  { id: "close-right", label: copy.closeToRight, enabled: closing.right !== undefined, run: () => closing.right?.() },
+];
+
 export const ProjectTab = (props: {
   tab: StripTab;
   selected: boolean;
@@ -83,9 +91,7 @@ export const ProjectTab = (props: {
   onRename: (name: string, base?: string) => ReturnType<ProjectsState["rename"]>;
   onClose: () => void;
   /** U6544b: the menu's bulk closes; absent when that item would close nothing. */
-  closeOthers?: (() => void) | undefined;
-  closeToLeft?: (() => void) | undefined;
-  closeToRight?: (() => void) | undefined;
+  closing?: BulkCloses | undefined;
   /** U2694a: the seam that shows the tab's system menu; a tab without one has none. */
   app?: Pick<App, "showContextMenu" | "writeClipboardText"> | undefined;
   ref?: (element: HTMLElement) => void;
@@ -208,9 +214,7 @@ export const ProjectTab = (props: {
           ...(records().length || problem() || copyFailure() ? [{ id: "recover", label: copy.recoverDrafts, run: () => { recover(true); } }] : []),
           { id: "alerts", label: copy.alerts, children: PROJECT_ALERTS.map(level => ({ id: `alerts:${level}`, label: copy.alertLevels[level], checked: props.alerts === level, run: () => props.onAlerts(level) })) },
           { id: "close", label: copy.close, run: () => props.onClose() },
-          { id: "close-others", label: copy.closeOthers, enabled: props.closeOthers !== undefined, run: () => props.closeOthers?.() },
-          { id: "close-left", label: copy.closeToLeft, enabled: props.closeToLeft !== undefined, run: () => props.closeToLeft?.() },
-          { id: "close-right", label: copy.closeToRight, enabled: props.closeToRight !== undefined, run: () => props.closeToRight?.() },
+          ...bulkCloseItems(props.closing),
         ], x, y));
       }}>
       <Show when={editing() === null} fallback={<Show when={editing()} keyed>{_session => <RenameField name={initialName} restored={restored} selection={restoredSelection} onEdit={capture} onDone={async (saved, refocus) => {
