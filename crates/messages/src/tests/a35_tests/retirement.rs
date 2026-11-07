@@ -9,7 +9,8 @@ async fn a35_a_previously_stopped_door_restarts_with_its_retained_messages() {
         .await;
     h.status("1", "2", Kind::Done).await;
     h.rail.0.lock().unwrap()[0].status.as_mut().unwrap().kind = Kind::Done;
-    h.rail.0.lock().unwrap()[0].status_revision = Some(contracts::agent::Ordinal::parse("2").unwrap());
+    h.rail.0.lock().unwrap()[0].status_revision =
+        Some(contracts::agent::Ordinal::parse("2").unwrap());
     h.messages.reserve_restart("door", "c", None).await.unwrap();
     h.next();
     h.messages.release_restart("door", "c", "2").await.unwrap();

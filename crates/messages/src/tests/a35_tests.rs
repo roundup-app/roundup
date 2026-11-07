@@ -336,7 +336,8 @@ fn a35_daemon_death_replays_queued_messages_and_the_acknowledged_note() {
         assert_eq!(note.id, before.last().unwrap().id);
         assert_eq!(touches.history(&item(note.id)).unwrap().len(), 1);
         recovered.next();
-        recovered.rail.0.lock().unwrap()[0].attempt = Some(contracts::agent::Ordinal::parse("3").unwrap());
+        recovered.rail.0.lock().unwrap()[0].attempt =
+            Some(contracts::agent::Ordinal::parse("3").unwrap());
         recovered
             .messages
             .release_restart("door", "c", "3")
