@@ -102,21 +102,22 @@ pub(super) async fn on_status(
     revision: &str,
     kind: Kind,
 ) {
-    on_status_labeled(inner, agent, attempt, revision, kind, "").await;
+    let (attempt, revision) = (
+        contracts::agent::Ordinal::parse(attempt).expect("test Attempt"),
+        contracts::agent::Ordinal::parse(revision).expect("test Status revision"),
+    );
+    on_status_labeled(inner, agent, &attempt, &revision, kind, "").await;
 }
 
 pub(super) async fn on_status_labeled(
     inner: &Arc<Inner>,
     agent: &str,
-    attempt: &str,
-    revision: &str,
+    attempt: &contracts::agent::Ordinal,
+    revision: &contracts::agent::Ordinal,
     kind: Kind,
     label: &str,
 ) {
-    let at = (
-        contracts::agent::parse_positive_ordinal(attempt).expect("wire Attempt"),
-        contracts::agent::parse_positive_ordinal(revision).expect("wire Status revision"),
-    );
+    let at = (attempt.get(), revision.get());
     // StopFailure ends a turn, not its Terminal. Read authoritative liveness so a late
     // error cannot reopen an exited Attempt or close a resumed one.
     // A Door's pending Messages outlive its Attempts: read the Rail where an ending or a new
@@ -367,12 +368,12 @@ pub(super) fn ready(status: &contracts::Status) -> bool {
 
 pub(super) fn binding(node: &RailNode) -> store::Binding {
     (
-        node.attempt.as_deref().map_or(0, |n| {
-            contracts::agent::parse_positive_ordinal(n).expect("Rail Attempt")
-        }),
-        node.status_revision.as_deref().map_or(0, |n| {
-            contracts::agent::parse_positive_ordinal(n).expect("Rail Status revision")
-        }),
+        node.attempt
+            .as_ref()
+            .map_or(0, contracts::agent::Ordinal::get),
+        node.status_revision
+            .as_ref()
+            .map_or(0, contracts::agent::Ordinal::get),
     )
 }
 

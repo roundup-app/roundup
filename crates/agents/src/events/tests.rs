@@ -32,14 +32,14 @@ async fn a2703a_errors_use_rail_names() {
                 shared.runs().insert("7013".into(), Slot::Closing);
             }
             "starting" => {
-                shared.mark_starting("7013", "1".into());
+                shared.mark_starting("7013", contracts::agent::Ordinal::parse("1").unwrap());
             }
             "resuming" => {
                 shared.runs().insert(
                     "7013".into(),
                     Slot::Resuming {
                         mode: Default::default(),
-                        attempt: "1".into(),
+                        attempt: contracts::agent::Ordinal::parse("1").unwrap(),
                         since: 0,
                         old: None,
                         conversation_id: "conversation".into(),
@@ -57,7 +57,7 @@ async fn a2703a_errors_use_rail_names() {
                     "7013".into(),
                     Slot::ResumeCleanup {
                         old: None,
-                        attempt: "1".into(),
+                        attempt: contracts::agent::Ordinal::parse("1").unwrap(),
                         terminal_id: "1".into(),
                         pending: false,
                         error: rpc::RpcError::internal("failed"),
@@ -153,7 +153,7 @@ fn a14_a_non_signal_observation_for_a_starting_id_is_still_not_found() {
     shared.runs().insert(
         "1".into(),
         Slot::Starting {
-            attempt: "1".into(),
+            attempt: contracts::agent::Ordinal::parse("1").unwrap(),
             since: 0,
             named: false,
             parked: VecDeque::new(),
@@ -176,7 +176,7 @@ fn a14_a_failed_rail_write_for_a_parked_signal_does_not_poison_the_locks() {
         .insert(contracts::agent::NodeKind::Agent, "new-agent", None, None)
         .unwrap()
         .id;
-    shared.mark_starting(&id, "1".into());
+    shared.mark_starting(&id, contracts::agent::Ordinal::parse("1").unwrap());
     if let Some(Slot::Starting { parked, .. }) = shared.runs().get_mut(&id) {
         parked.push_back((
             Actor::daemon(),
@@ -189,8 +189,8 @@ fn a14_a_failed_rail_write_for_a_parked_signal_does_not_poison_the_locks() {
         yolo: false,
         startup_context: true,
         input_started: true,
-        attempt: "1".into(),
-        status_revision: 1,
+        attempt: contracts::agent::Ordinal::parse("1").unwrap(),
+        status_revision: contracts::agent::Ordinal::first(),
         closing: false,
         ended: false,
         adapter: ClaudeCode::starting(|| 0),
@@ -225,7 +225,7 @@ fn a21_a_failed_parked_save_reinserts_so_the_caller_can_clean_up() {
         .insert(contracts::agent::NodeKind::Agent, "new-agent", None, None)
         .unwrap()
         .id;
-    shared.mark_starting(&id, "1".into());
+    shared.mark_starting(&id, contracts::agent::Ordinal::parse("1").unwrap());
     if let Some(Slot::Starting { parked, .. }) = shared.runs().get_mut(&id) {
         parked.push_back((
             Actor::daemon(),
@@ -243,8 +243,8 @@ fn a21_a_failed_parked_save_reinserts_so_the_caller_can_clean_up() {
         yolo: false,
         startup_context: true,
         input_started: true,
-        attempt: "1".into(),
-        status_revision: 1,
+        attempt: contracts::agent::Ordinal::parse("1").unwrap(),
+        status_revision: contracts::agent::Ordinal::first(),
         closing: false,
         ended: false,
         adapter: ClaudeCode::starting(|| 0),
@@ -309,7 +309,7 @@ fn a14_a_signal_released_once_the_agent_is_registered_never_outruns_the_parked_o
         shared.runs().insert(
             id.clone(),
             Slot::Starting {
-                attempt: "1".into(),
+                attempt: contracts::agent::Ordinal::parse("1").unwrap(),
                 since: 0,
                 named: false,
                 parked: VecDeque::from([(
@@ -326,8 +326,8 @@ fn a14_a_signal_released_once_the_agent_is_registered_never_outruns_the_parked_o
                     yolo: false,
                     startup_context: true,
                     input_started: true,
-                    attempt: "1".into(),
-                    status_revision: 1,
+                    attempt: contracts::agent::Ordinal::parse("1").unwrap(),
+                    status_revision: contracts::agent::Ordinal::first(),
                     closing: false,
                     ended: false,
                     adapter: ClaudeCode::starting(|| 0),
@@ -367,7 +367,7 @@ async fn b37_a7_old_title_tick_exit_and_signal_do_not_change_a_new_run() {
         let Some(Slot::Running(run)) = runs.get_mut("1") else {
             panic!("Running")
         };
-        run.attempt = "2".into();
+        run.attempt = contracts::agent::Ordinal::parse("2").unwrap();
         run.terminal_id = "new-terminal".into();
     }
     for observation in [

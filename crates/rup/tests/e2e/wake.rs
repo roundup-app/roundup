@@ -525,8 +525,8 @@ pub(super) fn finished_event(id: &str, kind: contracts::Kind) -> String {
         data: contracts::EventData::AgentStatus(Box::new(contracts::agent::StatusEvent {
             ended: false,
             id: id.into(),
-            attempt: "1".into(),
-            status_revision: "99".into(),
+            attempt: contracts::agent::Ordinal::first(),
+            status_revision: contracts::agent::Ordinal::parse("99").unwrap(),
             status: contracts::Status {
                 kind,
                 label: "finished".into(),

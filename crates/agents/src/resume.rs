@@ -407,7 +407,7 @@ impl Shared {
 
     /// Claim rollback under the same lock as promotion. If promotion won, its completion
     /// channel owns cleanup; the caller must await it even after the acknowledgement timer.
-    pub(super) fn rollback_resume(&self, id: &str, attempt: &str, error: RpcError) {
+    pub(super) fn rollback_resume(&self, id: &str, attempt: &Ordinal, error: RpcError) {
         let mut runs = self.runs();
         if !matches!(runs.get(id), Some(Slot::Resuming { attempt: active, .. }) if active == attempt)
         {
@@ -425,7 +425,7 @@ impl Shared {
         self.fail_resume(
             &mut runs,
             id,
-            attempt.to_owned(),
+            attempt.clone(),
             old,
             terminal_id,
             done,
@@ -440,7 +440,7 @@ impl Shared {
         &self,
         runs: &mut HashMap<String, Slot>,
         id: &str,
-        attempt: String,
+        attempt: Ordinal,
         old: Option<Box<Run>>,
         terminal_id: Option<String>,
         done: oneshot::Sender<Result<(), RpcError>>,

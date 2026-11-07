@@ -363,13 +363,16 @@ impl Agents {
             let Some(status) = run.adapter.status().cloned() else {
                 return;
             };
-            run.status_revision += 1;
+            run.status_revision = run
+                .status_revision
+                .next()
+                .expect("Status revision exhausted");
             self.shared.bus.emit(
                 Actor::daemon(),
                 EventData::AgentStatus(Box::new(contracts::agent::StatusEvent {
                     id: id.into(),
                     attempt: run.attempt.clone(),
-                    status_revision: run.status_revision.to_string(),
+                    status_revision: run.status_revision.clone(),
                     status,
                     ended: run.ended,
                 })),
@@ -440,8 +443,8 @@ pub(super) mod tests {
                 yolo: false,
                 startup_context: true,
                 input_started: true,
-                attempt: "1".into(),
-                status_revision: 1,
+                attempt: contracts::agent::Ordinal::parse("1").unwrap(),
+                status_revision: contracts::agent::Ordinal::first(),
                 closing: false,
                 ended: false,
                 adapter: ClaudeCode::starting(move || adapter_clock()),
@@ -463,7 +466,7 @@ pub(super) mod tests {
             let watcher = tokio::spawn(watch(
                 Arc::clone(&shared),
                 "1".into(),
-                "1".into(),
+                contracts::agent::Ordinal::parse("1").unwrap(),
                 terminal_events,
             ));
             Self {
@@ -698,8 +701,8 @@ pub(super) mod tests {
                 yolo: false,
                 startup_context: true,
                 input_started: true,
-                attempt: "1".into(),
-                status_revision: 1,
+                attempt: contracts::agent::Ordinal::parse("1").unwrap(),
+                status_revision: contracts::agent::Ordinal::first(),
                 closing: false,
                 ended: false,
                 adapter: ClaudeCode::starting(|| 0),

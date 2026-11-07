@@ -15,7 +15,7 @@ async fn b52_question_restart_replays_receipts_once() {
         {
             let mut rail = h.rail.0.lock().unwrap();
             let node = rail.iter_mut().find(|n| n.id == "sub").unwrap();
-            node.attempt = Some("2".into());
+            node.attempt = Some(contracts::agent::Ordinal::parse("2").unwrap());
         }
         let (h, inbox) = h.restarted().attach_inbox().await;
         nudge(&h.messages.inner, "sub").await;
