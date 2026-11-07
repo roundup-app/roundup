@@ -380,6 +380,30 @@ impl Rail {
         self.node(id)
     }
 
+    /// U6380c: mark node `id` as named by the user, so no automatic rename takes its name.
+    pub fn set_user_named(&mut self, id: &str) -> Result<(), RpcError> {
+        let node = self.node(id)?;
+        self.db
+            .execute(
+                "UPDATE nodes SET user_named = 1 WHERE id = ?",
+                params![node.id],
+            )
+            .map_err(sql)?;
+        Ok(())
+    }
+
+    /// U6380c: whether the user named node `id`.
+    pub fn user_named(&self, id: &str) -> Result<bool, RpcError> {
+        let node = self.node(id)?;
+        self.db
+            .query_row(
+                "SELECT user_named FROM nodes WHERE id = ?",
+                params![node.id],
+                |row| row.get(0),
+            )
+            .map_err(sql)
+    }
+
     pub fn allocate_attempt(&mut self, id: &str) -> Result<String, RpcError> {
         let node = self.node(id)?;
         let previous = node

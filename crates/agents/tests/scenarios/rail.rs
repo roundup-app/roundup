@@ -47,7 +47,7 @@ async fn a6_new_workstreams_are_appended_with_contiguous_order() {
     f.spawn(Some(&a), None).await.unwrap();
     let tree = f.tree().await;
     assert_eq!(children(&tree, None), ["a:0", "b:1"]);
-    assert_eq!(children(&tree, Some(&a)), ["new-agent:0"]);
+    assert_eq!(children(&tree, Some(&a)), ["New Agent:0"]);
     assert_eq!(f.changed(), 4);
 }
 
@@ -67,7 +67,7 @@ async fn a6_move_reorders_and_keeps_orders_contiguous_from_zero() {
     f.mv(&x, Some(&c), 5).await.unwrap();
     let tree = f.tree().await;
     assert_eq!(children(&tree, Some(&b)), Vec::<String>::new());
-    assert_eq!(children(&tree, Some(&c)), ["new-agent:0"]);
+    assert_eq!(children(&tree, Some(&c)), ["New Agent:0"]);
     assert_eq!(f.changed(), 1);
 
     f.mv(&a, None, 2).await.unwrap();
@@ -194,7 +194,7 @@ async fn a6_the_tree_lists_parents_before_their_children() {
     f.spawn(Some(&b), None).await.unwrap();
     f.mv(&b, None, 0).await.unwrap();
     let names: Vec<_> = f.tree().await.into_iter().map(|n| n.name).collect();
-    assert_eq!(names, ["b", "new-agent", "a", "new-agent"]);
+    assert_eq!(names, ["b", "New Agent", "a", "New Agent"]);
 }
 
 #[tokio::test]
@@ -550,9 +550,6 @@ async fn a2741a_only_committed_rpc_name_changes_are_exposed() {
         parent: None,
     };
     // Named cases share one observation window; the final unrelated rename bounds absence.
-    f.call("rail.rename", json!({"id":target,"name":"by-user"}))
-        .await
-        .unwrap();
     f.agents
         .call(
             &agent,
@@ -561,7 +558,10 @@ async fn a2741a_only_committed_rpc_name_changes_are_exposed() {
         )
         .await
         .unwrap();
-    f.call("rail.rename", json!({"id":target,"name":"by-agent"}))
+    f.call("rail.rename", json!({"id":target,"name":"by-user"}))
+        .await
+        .unwrap();
+    f.call("rail.rename", json!({"id":target,"name":"by-user"}))
         .await
         .unwrap(); // same name
     let denied = f
@@ -589,8 +589,8 @@ async fn a2741a_only_committed_rpc_name_changes_are_exposed() {
     assert_eq!(
         crate::common::renames(&mut events),
         [
-            (target.clone(), "by-user".into()),
             (target.clone(), "by-agent".into()),
+            (target.clone(), "by-user".into()),
             (workstream.clone(), "barrier".into())
         ]
     );
