@@ -9,6 +9,7 @@ export const createSerialQueue = () => {
     const done = waiting;
 
     waiting = [];
+
     for (const resolve of done) resolve();
   };
 
