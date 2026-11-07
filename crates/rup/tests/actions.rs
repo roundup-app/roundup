@@ -127,7 +127,7 @@ async fn fake_app(
 
 fn action_rows() -> Value {
     json!([
-        {"name":"agent.new-with-prompt","label":"New agent with prompt","keys":"⇧⌘N","args":[{"key":"prompt","type":"string","required":false}],"available":true},
+        {"name":"agent.new-with-prompt","label":"New agent with prompt","keys":"⇧⌘N","args":[{"key":"prompt","type":"string"}],"available":true},
         {"name":"agent.new","label":"New agent","keys":"⌘N","args":[],"available":true},
         {"name":"todo.assign-slot","label":"Assign slot","keys":"1-9","args":[{"key":"slot","type":"integer","required":true,"min":1,"max":9}],"available":true},
         {"name":"rail.remove","label":"Remove","keys":"⌫","args":[],"available":false,"cause":"needs a Rail row"}

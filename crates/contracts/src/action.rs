@@ -19,8 +19,9 @@ pub struct ActionArg {
     pub key: String,
     #[serde(rename = "type")]
     pub kind: ArgType,
-    #[serde(default)]
-    pub required: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[specta(optional)]
+    pub required: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[specta(optional, type = Option<specta_typescript::Number>)]
     pub min: Option<i64>,

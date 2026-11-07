@@ -5,7 +5,7 @@ import type * as action$ArgType from "./ArgType";
 export type ActionArg = {
 	key: string,
 	type: action$ArgType.ArgType,
-	required: boolean,
+	required?: boolean | null,
 	min?: number | null,
 	max?: number | null,
 	options?: string[],

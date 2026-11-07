@@ -743,7 +743,7 @@ fn check_args(row: &ActionRow, run: &RunParams) -> Result<Map<String, Value>, Rp
     if let Some(missing) = row
         .args
         .iter()
-        .find(|arg| arg.required && !args.contains_key(&arg.key))
+        .find(|arg| arg.required == Some(true) && !args.contains_key(&arg.key))
     {
         return Err(invalid(format!(
             "argument \"{}\" is required for {}",
