@@ -658,7 +658,7 @@ impl Shared {
             let Some(Slot::Running(run)) = runs.get(id) else {
                 return Ok(tick_at);
             };
-            if run.ended() || !run.view().needs_processes {
+            if run.ended() || !run.view().needs_snapshot {
                 return Ok(tick_at);
             }
             // A program that is gone has no work; its Exit follows.

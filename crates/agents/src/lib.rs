@@ -145,7 +145,7 @@ pub struct View {
     /// When the adapter wants an `Observation::Tick`.
     pub(crate) next_due: Option<i64>,
     /// DCL3: a Stop came, so a process snapshot decides whether work outlives it.
-    pub(crate) needs_processes: bool,
+    pub(crate) needs_snapshot: bool,
     /// DCL5: when a working turn with no tool call or background work last showed activity.
     pub(crate) quiet_since: Option<i64>,
 }

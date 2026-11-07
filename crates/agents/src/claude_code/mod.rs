@@ -563,7 +563,7 @@ impl ClaudeCode {
             ended: self.ending != Ending::Running,
             hooked: self.hooked,
             next_due: self.tick_at(),
-            needs_processes: self.ending == Ending::Running && self.background.stopped,
+            needs_snapshot: self.ending == Ending::Running && self.background.stopped,
             quiet_since: self.quiet_since(),
         }
     }
