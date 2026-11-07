@@ -4,7 +4,7 @@ import { captureFocus } from "../keys/focus";
 import type { App } from "../app/seam";
 import { shelfKeyScope } from "./keys";
 import { copy } from "./copy";
-import { createContext, createEffect, createMemo, createSignal, For, on, onCleanup, Show, useContext } from "solid-js";
+import { createContext, createEffect, createMemo, createSignal, For, on, onCleanup, Show, untrack, useContext } from "solid-js";
 import type { Accessor, JSX } from "solid-js";
 import { Portal } from "solid-js/web";
 import { ReservedLine } from "../ink/ReservedLine";
@@ -29,6 +29,8 @@ export const createBulkDelete = <Id,>(props: {
   clear: () => void;
   cancelSelection: () => void;
   afterRemoval?: () => () => HTMLElement | null;
+  /** U6455a: the row holding focus, selected alone after a full success. */
+  focused?: () => Id | undefined;
   remove: (ids: readonly Id[]) => Promise<readonly { id: Id; message: string }[]>;
   blocked: Accessor<boolean>;
   reload: () => Promise<string | null>;
@@ -98,6 +100,12 @@ export const createBulkDelete = <Id,>(props: {
       ?? document.querySelector<HTMLElement>('.shelf-tabs [role="tab"][aria-selected="true"]');
   };
 
+  const selectFocused = () => {
+    const next = untrack(() => props.focused?.());
+
+    if (next !== undefined) props.replace([next]);
+  };
+
   const confirm = async () => {
     const kept = question();
 
@@ -131,6 +139,8 @@ export const createBulkDelete = <Id,>(props: {
       setQuestion(null);
       readback = undefined;
       queueMicrotask(() => focus(() => focusAfter()?.focus()));
+
+      if (remaining.length === 0) queueMicrotask(selectFocused);
     };
 
     await readback();
