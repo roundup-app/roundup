@@ -510,7 +510,7 @@ mod tests {
                 })),
             )
             .unwrap();
-        assert!(tool_calls(&shared).contains_key(id));
+        assert!(tool_calls(shared).contains_key(id));
     }
 
     #[tokio::test]

@@ -360,6 +360,7 @@ impl Shared {
     /// Fold `observation` into `run`, which `observe` has already found `Running`; `rail`, when
     /// given, is locked by the caller, never here, so a caller draining several Signals under
     /// one `rail`-then-`runs` lock section (`finish_starting`) is never asked to lock it twice.
+    #[allow(clippy::too_many_arguments)]
     pub(super) fn apply(
         &self,
         mut rail: Option<&mut rail::Rail>,
