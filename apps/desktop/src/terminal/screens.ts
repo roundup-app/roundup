@@ -1,24 +1,18 @@
-import { isWorkstreamChild } from "../rail/layout";
 import { throttle } from "@solid-primitives/scheduled";
-import { captureFocus } from "../keys/focus";
-import { retryRead } from "../app/seam";
 import { forgetScrollback, restoreScrollback, retainScrollback } from "./scrollback";
-import { clipboardFailure, readPaste } from "../app/clipboard";
 import { copy as appCopy } from "./copy";
-import { createEffect, createSignal } from "solid-js";
+import { createSignal } from "solid-js";
 import type { Accessor } from "solid-js";
 import type { OutputMessage, OutputSubscription } from "../app/seam";
 import type { ConnectedProject } from "../state/connectedProject";
-import { fromBase64, toBase64 } from "./base64";
-import { openPrinted } from "./links";
-import type { Printed } from "./links";
+import { fromBase64 } from "./base64";
+import { createClipboard } from "./clipboard";
+import { createFailures } from "./failures";
+import { createPrepare } from "./prepare";
+import { createWatches } from "./watch";
+import { createOpener } from "./open";
+import { createTyping } from "./typing";
 import type { Emulator, EmulatorFactory, Size, TerminalPreparation } from "./emulator";
-
-/** One try of `prepare`: the preparation, or the reason it stopped for good (cancelled, out of time, or no renderer), which no retry changes. */
-type Preparing = { kind: "prepared"; value: TerminalPreparation } | { kind: "stopped"; reason: unknown };
-
-/** An emulator reply of `OK` to a Kitty graphics command. */
-const isKittyOk = (text: string): boolean => text.startsWith("\x1b_G") && text.endsWith("\x1b\\") && /^i=\d+;OK$/.test(text.slice(3, -2));
 
 export type Screens = {
   prepare(host: HTMLElement, settled?: () => boolean, signal?: AbortSignal): Promise<TerminalPreparation>;
@@ -91,9 +85,6 @@ type Stream = {
   lost: boolean;
 };
 
-/** One Terminal's output subscription that exists only to learn that bytes came: the first one ends it. */
-type Watch = { open: boolean; subscription: OutputSubscription | null };
-
 const takeFirst = (stream: Stream): void => {
   const chunk = stream.queue.shift();
 
@@ -115,72 +106,18 @@ type Holder = {
   resizeSize: Size | null;
 };
 
-type FailureEntry = { message: string; order: number; retry: (() => void) | null };
-
-/** `output` is the subscription's own failure: a later successful call does not clear it, only a new subscription does. */
-type TerminalFailures = { snapshot: FailureEntry | null; live: FailureEntry | null; output: FailureEntry | null; clipboard: FailureEntry | null; link: FailureEntry | null };
-
-const FAILURE_KINDS = ["snapshot", "live", "output", "clipboard", "link"] as const;
-
-const newestFailure = (state: TerminalFailures | undefined): FailureEntry | null => {
-  if (!state) return null;
-
-  return Object.values(state).reduce<FailureEntry | null>(
-    (latest, entry) => entry && (!latest || entry.order > latest.order) ? entry : latest,
-    null,
-  );
-};
-
 /** `openObject` is the App's one route for a `roundup://` link (AL3); without it the link goes to the OS like any other address. */
 export const createScreens = (connected: ConnectedProject, createEmulator: EmulatorFactory, openObject?: (url: string, surface: string) => void): Screens => {
   const { app, rail, daemonExit, project } = connected;
   const holders = new Map<string, Holder>();
-  const watches = new Map<string, Watch>();
   /** The offset up to which a Terminal's output was shown, kept when its stream is released. */
   const shownTo = new Map<string, number>();
   const viewed = new Set<string>();
-  const [bubbled, setBubbled] = createSignal(new Set<string>());
-  const [unseenIds, setUnseenIds] = createSignal<ReadonlySet<string>>(new Set());
-  const [failures, setFailures] = createSignal(new Map<string, TerminalFailures>());
-  let failureOrder = 0;
+  const failures = createFailures();
+  const attempt = failures.attempt;
+  const open = createOpener(connected, failures, openObject);
   let disposed = false;
-
-  const setFailure = (id: string, kind: keyof TerminalFailures, message: string | null, retry: (() => void) | null = null): void => {
-    setFailures((current) => {
-      const previous = current.get(id) ?? { snapshot: null, live: null, output: null, clipboard: null, link: null };
-
-      if (message === null && previous[kind] === null) return current;
-
-      const state: TerminalFailures = { ...previous };
-
-      if (message !== null && (kind === "live" || kind === "link")) {
-        state.live = null;
-        state.link = null;
-      }
-
-      state[kind] = message === null ? null : { message, order: ++failureOrder, retry };
-
-      const next = new Map(current);
-
-      // One Terminal scope per Project: replacing a kind also replaces its owned Terminal.
-      // Acknowledgments still clear only their original id and operation.
-      if (message !== null) for (const [otherId, other] of next) {
-        const replaced = { ...other };
-        const sameKind = kind === "live" || kind === "link" ? ["live", "link"] as const : [kind];
-
-        for (const operation of sameKind) replaced[operation] = null;
-
-        if (newestFailure(replaced)) next.set(otherId, replaced);
-        else next.delete(otherId);
-      }
-
-      next.delete(id);
-
-      if (newestFailure(state)) next.set(id, state);
-
-      return next;
-    });
-  };
+  const watches = createWatches({ connected, exited: (id) => exited(id), streaming: (id) => !!holders.get(id)?.stream, shownTo, disposed: () => disposed });
 
   const resize = (id: string, size: Size, changedOnly = true): void => {
     const holder = holders.get(id);
@@ -204,124 +141,6 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
 
     if (fitted.cols !== holder.shownSize.cols || fitted.rows !== holder.shownSize.rows) resize(id, fitted);
   };
-
-  const markUnseen = (id: string, on: boolean): void => {
-    // U6119c: a Workstream child's Terminals, its own and those it owns, draw no unseen output.
-    const owner = rail.terminals().find((terminal) => terminal.id === id)?.owner;
-
-    if (on && rail.nodes.some((node) => (node.terminal_id === id || node.id === owner) && isWorkstreamChild(rail.nodes, node))) return;
-
-    setUnseenIds((current) => {
-      if (current.has(id) === on) return current;
-
-      const next = new Set(current);
-
-      if (on) next.add(id);
-      else next.delete(id);
-
-      return next;
-    });
-  };
-
-  /** The failure `failure(id)` shows, with the Terminal that owns it: that of `id`, or with no `id` the newest of any Terminal. */
-  const shownFailure = (id: string | null): { id: string; entry: FailureEntry } | null => {
-    let latest: { id: string; entry: FailureEntry } | null = null;
-
-    for (const [owner, state] of failures()) {
-      const entry = id === null || owner === id ? newestFailure(state) : null;
-
-      if (entry && (!latest || entry.order > latest.entry.order)) latest = { id: owner, entry };
-    }
-
-    return latest;
-  };
-
-  const stopWatch = async (id: string): Promise<void> => {
-    const watch = watches.get(id);
-
-    if (!watch) return;
-
-    watch.open = false;
-    watches.delete(id);
-
-    try {
-      await watch.subscription?.release();
-    } catch (thrown) {
-      if (!(thrown instanceof Error)) throw thrown;
-
-      if (!disposed) console.warn(appCopy.terminalOutputNotWatched(thrown.message));
-    }
-  };
-
-  /** U6249b: subscribing is a read, so it retries like one; a subscription nobody wants any more ends the retries (`null`). The first try is made at once and counts as the read's first attempt, so a subscription that works is placed with no extra wait. */
-  const subscribe = (id: string, listener: (message: OutputMessage) => void, wanted: () => boolean): Promise<OutputSubscription | null> => {
-    if (!wanted()) return Promise.resolve(null);
-
-    let first: Promise<OutputSubscription> | null = app.selectOutput(id, listener);
-
-    return first.catch(() => retryRead(async () => {
-      const attempt = first ?? (wanted() ? app.selectOutput(id, listener) : null);
-
-      first = null;
-
-      return attempt;
-    }));
-  };
-
-  /** Bytes the watch missed between the stream's release and its own start (`offset` past `shownTo`) count as unseen too. */
-  const startWatch = (id: string): void => {
-    const watch: Watch = { open: true, subscription: null };
-    const seen = shownTo.get(id);
-
-    watches.set(id, watch);
-
-    void (async () => {
-      try {
-        const subscription = await subscribe(id, () => {
-          if (!watch.open) return;
-
-          markUnseen(id, true);
-          void stopWatch(id);
-        }, () => watch.open);
-
-        if (!watch.open || subscription === null) {
-          await subscription?.release();
-
-          return;
-        }
-
-        watch.subscription = subscription;
-
-        if (seen !== undefined && subscription.offset > seen) {
-          markUnseen(id, true);
-          await stopWatch(id);
-        }
-      } catch (thrown) {
-        if (!(thrown instanceof Error)) throw thrown;
-
-        // The watch only learns that bytes came: nothing here is the user's to act on.
-        if (watch.open) console.warn(appCopy.terminalOutputNotWatched(thrown.message));
-      }
-    })();
-  };
-
-  /** A plain Terminal no one is streaming gets a watch until it is unseen; a Door's or Agent's Terminal, an exited one and one already unseen get none. */
-  const reconcile = (): void => {
-    const panes = new Set(rail.nodes.flatMap((node) => node.terminal_id === null ? [] : [node.terminal_id]));
-    const wanted = new Set(rail.terminals().filter((terminal) => !panes.has(terminal.id)).map((terminal) => terminal.id));
-
-    for (const id of [...watches.keys()]) {
-      if (!wanted.has(id) || exited(id)) void stopWatch(id);
-    }
-
-    for (const id of wanted) {
-      if (!holders.get(id)?.stream && !watches.has(id) && !unseenIds().has(id) && !exited(id)) startWatch(id);
-    }
-
-    setUnseenIds((current) => [...current].every((id) => wanted.has(id)) ? current : new Set([...current].filter((id) => wanted.has(id))));
-  };
-
-  createEffect(reconcile);
 
   const drain = (id: string, holder: Holder, stream: Stream): void => {
     if (stream.restoring || stream.parsing || stream.after === null || !stream.open) return;
@@ -409,7 +228,7 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
         if (!(thrown instanceof Error)) throw thrown;
 
         stream.parsing = false;
-        setFailure(id, "output", appCopy.terminalOutputStopped(thrown.message));
+        failures.set(id, "output", appCopy.terminalOutputStopped(thrown.message));
       }
 
       if (stream.parsing) return;
@@ -468,7 +287,7 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
 
       holder.complete = true;
       holder.retain();
-      setFailure(id, "snapshot", null);
+      failures.set(id, "snapshot", null);
       const agent = rail.nodes.find(node => node.terminal_id === id);
 
       if (agent && rail.shouldAcknowledgeAlerts() && rail.selected() === agent.id) connected.held.acknowledge(agent.id);
@@ -477,7 +296,7 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
 
       if (!stream.open) return;
 
-      setFailure(id, "snapshot", appCopy.terminalRestoreFailed(thrown.message), () => {
+      failures.set(id, "snapshot", appCopy.terminalRestoreFailed(thrown.message), () => {
         if (stream.open && !stream.restoring) void restore(id, holder, stream);
       });
 
@@ -544,7 +363,7 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
       return;
     }
 
-    if (!viewed.has(id)) markUnseen(id, true);
+    if (!viewed.has(id)) watches.markUnseen(id, true);
 
     place(stream, message);
     settle(id, holder, stream);
@@ -553,12 +372,12 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
   /** Installs the Terminal's output subscription first, then asks for its screen, so no byte falls between them. */
   const attach = async (id: string, holder: Holder, stream: Stream): Promise<void> => {
     try {
-      if (watches.has(id)) await stopWatch(id);
+      if (watches.watching(id)) await watches.stop(id);
 
       if (!exited(id)) {
-        setFailure(id, "output", null);
+        failures.set(id, "output", null);
 
-        const subscription = await subscribe(id, (message) => receive(id, holder, stream, message), () => stream.open);
+        const subscription = await watches.subscribe(id, (message) => receive(id, holder, stream, message), () => stream.open);
 
         if (!stream.open || subscription === null) {
           await subscription?.release();
@@ -578,7 +397,7 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
 
       if (!stream.open) return;
 
-      setFailure(id, "output", appCopy.terminalOutputStopped(thrown.message), () => {
+      failures.set(id, "output", appCopy.terminalOutputStopped(thrown.message), () => {
         if (stream.open) void attach(id, holder, stream);
       });
     }
@@ -619,38 +438,6 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
     return node === undefined ? rail.terminalExit(id) !== null : rail.exitOf(node) !== null;
   };
 
-  const attempt = async (id: string, call: Promise<unknown>): Promise<boolean> => {
-    try {
-      await call;
-
-      setFailure(id, "live", null);
-
-      return true;
-    } catch (thrown) {
-      if (!(thrown instanceof Error)) throw thrown;
-
-      setFailure(id, "live", thrown.message);
-
-      return false;
-    }
-  };
-
-  /** U365: a Door's Terminal and a worktree-less Agent's resolve against the Project folder; an Agent's against its Worktree. */
-  const open = async (id: string, printed: Printed): Promise<void> => {
-    if (printed.kind === "url" && openObject && !/^https?:/i.test(printed.url)) {
-      setFailure(id, "link", null);
-      openObject(printed.url, project.path);
-
-      return;
-    }
-
-    const node = rail.nodes.find((candidate) => candidate.terminal_id === id);
-    const worktree = node?.kind === "agent" ? node.worktree?.path : undefined;
-    const failure = await openPrinted((target) => app.openTarget(target), printed, [worktree ?? project.path, project.path, ...worktree ? [worktree] : []]);
-
-    setFailure(id, "link", failure);
-  };
-
   const isFocused = (id: string): boolean => {
     const active = document.activeElement;
     const host = holders.get(id)?.host;
@@ -666,32 +453,10 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
 
     if (known) return known;
 
-    const emulator = prepared ?? createEmulator(id, (text) => copy(id, text));
+    const emulator = prepared ?? createEmulator(id, (text) => clipboard.copy(id, text));
 
     const [atBottom, setAtBottom] = createSignal(true);
-    // Tauri may run two `rpc` calls out of order, so at most one write is in flight; what is typed meanwhile goes as one write.
-    let typed: number[] = [];
-    let writing = false;
-
-    const flush = async (): Promise<void> => {
-      writing = true;
-
-      try {
-        while (typed.length > 0) {
-          const batch = typed;
-
-          emulator.inputEncoding?.(batch);
-
-          const data = toBase64(Uint8Array.from(typed));
-
-          typed = [];
-          emulator.inputEncoded?.(batch);
-          await attempt(id, app.rpc("terminal.write", { id, data }));
-        }
-      } finally {
-        writing = false;
-      }
-    };
+    const type = createTyping(emulator, (data) => attempt(id, app.rpc("terminal.write", { id, data })));
 
     const returnToBottom = () => {
       emulator.scrollToBottom();
@@ -703,14 +468,9 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
     emulator.onInput((bytes, userInput = true) => {
       if ((userInput && !isFocused(id)) || exited(id) || daemonExit() !== null) return;
 
-      // U5984: the Daemon answers a Kitty query in stream order, ahead of DA1; the emulator's own `OK` would reach the program twice.
-      if (!userInput && isKittyOk(String.fromCharCode(...bytes))) return;
-
       if (userInput) returnToBottom();
 
-      for (const byte of bytes) typed.push(byte);
-
-      if (!writing) void flush();
+      type(bytes, userInput);
     });
 
     const holder: Holder = {
@@ -739,59 +499,7 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
   };
 
   const emulatorFor = (id: string): Emulator => holderFor(id).emulator;
-
-  const copy = async (id: string, text?: string): Promise<void> => {
-    const selection = text ?? emulatorFor(id).selection();
-
-    if (!selection && text === undefined) return;
-
-    try {
-      await app.writeClipboardText(selection);
-      setFailure(id, "clipboard", null);
-    } catch (thrown) {
-      if (!(thrown instanceof Error)) throw thrown;
-
-      setFailure(id, "clipboard", clipboardFailure("copy", thrown));
-    }
-  };
-
-  const paste = async (id: string, event: Pick<ClipboardEvent, "clipboardData">): Promise<void> => {
-    if (!isFocused(id) || exited(id) || daemonExit() !== null) return;
-
-    const focus = captureFocus();
-    const signal = focus.signal();
-
-    const check = () => {
-      if (signal.aborted || !isFocused(id)) throw new Error(appCopy.terminalFocusChanged);
-    };
-
-    try {
-      const pasted = await readPaste(event);
-      check();
-
-      if (pasted.kind === "image") {
-        const path = await app.savePastedImage(pasted.image);
-
-        check();
-        pastePaths(id, [path]);
-      } else if (pasted.kind === "text" && !exited(id) && daemonExit() === null) emulatorFor(id).paste(pasted.text);
-
-      setFailure(id, "clipboard", null);
-    } catch (thrown) {
-      if (!(thrown instanceof Error)) throw thrown;
-
-      setFailure(id, "clipboard", clipboardFailure("paste", thrown));
-    } finally {
-      // Release the pending focus request without moving focus after the paste settles.
-      focus(() => {});
-    }
-  };
-
-  const pastePaths = (id: string, paths: string[]): void => {
-    if (!isFocused(id) || paths.length === 0 || exited(id) || daemonExit() !== null) return;
-
-    emulatorFor(id).paste(`${paths.map((path) => `'${path.replaceAll("'", "'\\''")}'`).join(" ")} `);
-  };
+  const clipboard = createClipboard({ connected, failures, emulatorFor, exited, isFocused });
 
   const show = (id: string, host: HTMLElement, focus?: boolean): Size => {
     const holder = holderFor(id);
@@ -799,49 +507,7 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
 
     holder.stopClipboard?.();
     holder.host = host;
-
-    const editor = (target: EventTarget | null) => target instanceof Element
-      && !!target.closest('input, textarea, [contenteditable="true"]') && !target.closest(".xterm-helper-textarea");
-
-    const onPaste = (event: ClipboardEvent) => {
-      if (editor(event.target) || !isFocused(id)) return;
-      event.preventDefault();
-      event.stopImmediatePropagation();
-      void paste(id, event);
-    };
-
-    const onKey = (event: KeyboardEvent) => {
-      if (editor(event.target) || !event.metaKey) return;
-
-      if (event.key.toLowerCase() === "v" && (event.ctrlKey || event.altKey || event.shiftKey)) {
-        event.preventDefault();
-        event.stopImmediatePropagation();
-
-        return;
-      }
-
-      if (event.ctrlKey || event.altKey || event.shiftKey || event.key.toLowerCase() !== "c") return;
-      event.preventDefault();
-      event.stopImmediatePropagation();
-      void copy(id);
-    };
-
-    // The standard Edit > Copy reaches the webview as a `copy` event, not a key press; a key press that did arrive was consumed by onKey, so exactly one runs.
-    const onCopy = (event: ClipboardEvent) => {
-      if (editor(event.target) || !emulatorFor(id).selection()) return;
-      event.preventDefault();
-      event.stopImmediatePropagation();
-      void copy(id);
-    };
-
-    host.addEventListener("paste", onPaste, true);
-    host.addEventListener("copy", onCopy, true);
-    host.addEventListener("keydown", onKey, true);
-    holder.stopClipboard = () => {
-      host.removeEventListener("paste", onPaste, true);
-      host.removeEventListener("copy", onCopy, true);
-      host.removeEventListener("keydown", onKey, true);
-    };
+    holder.stopClipboard = clipboard.listen(id, host);
 
     const size = holder.emulator.show(host, focus);
 
@@ -870,75 +536,12 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
 
     if (holder) {
       holder.host = null;
-      void release(id, holder).then(reconcile);
+      void release(id, holder).then(watches.reconcile);
     }
   };
 
-  const prepare = async (host: HTMLElement, settled = () => true, signal?: AbortSignal): Promise<TerminalPreparation> => {
-    // Include lazy loading, fonts and layout in the same finite preparation budget, across every try.
-    const deadline = AbortSignal.timeout(5_000);
-    const cancellation = AbortSignal.any(signal ? [signal, deadline] : [deadline]);
-    const asError = (reason: { message: string }): Error => reason instanceof Error ? reason : new Error(reason.message, { cause: reason }); // callers branch on `instanceof Error`
-    const stopped = () => ({ kind: "stopped", reason: deadline.aborted ? new Error(appCopy.terminalDestinationUnavailable) : asError(cancellation.reason) }) as const;
-
-    const waiting = new AbortController();
-
-    // A cancellation answers at once, not after the wait between two tries.
-    const gone = new Promise<never>((_, reject) => {
-      const abort = () => reject(stopped().reason);
-
-      if (cancellation.aborted) abort();
-      else cancellation.addEventListener("abort", abort, { once: true, signal: waiting.signal });
-    });
-
-    // U6249b: attaching is local and cheap to repeat, so a try that fails quickly is made again by the read retry.
-    const attempts = retryRead(async (): Promise<Preparing> => {
-      if (cancellation.aborted) return stopped();
-
-      let bound: string | null = null;
-      const emulator = createEmulator(crypto.randomUUID(), text => bound ? copy(bound, text) : Promise.resolve());
-      let owned = true;
-      const dispose = () => { if (owned) { owned = false; emulator.dispose(); } };
-
-      try {
-        if (!emulator.prepare) {
-          dispose();
-
-          return { kind: "stopped", reason: new Error(appCopy.terminalPreparationUnavailable) };
-        }
-
-        const size = await Promise.race([emulator.prepare(host, settled, cancellation), gone]);
-
-        return { kind: "prepared", value: { size, bind: id => {
-          if (!owned) return;
-          bound = id;
-          emulator.bind?.(id);
-          holderFor(id, emulator);
-          owned = false;
-        }, dispose } };
-      } catch (error) {
-        dispose();
-
-        if (cancellation.aborted) return stopped();
-
-        throw error;
-      }
-    });
-
-    const preparing = await Promise.race([attempts, gone]).catch((error) => {
-      // A try that finishes after the answer has no owner.
-      void attempts.then(late => { if (late.kind === "prepared") late.value.dispose(); }, () => {});
-
-      throw error;
-    }).finally(() => waiting.abort());
-
-    if (preparing.kind === "stopped") throw preparing.reason;
-
-    return preparing.value;
-  };
-
   return {
-    prepare,
+    prepare: createPrepare({ createEmulator, copy: clipboard.copy, adopt: (id, emulator) => void holderFor(id, emulator) }),
     emulatorFor,
     show,
     hide,
@@ -948,44 +551,30 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
     },
     isAtBottom: (id) => holderFor(id).atBottom(),
     returnToBottom: (id) => holderFor(id).returnToBottom(),
-    copy,
-    paste,
-    pastePaths,
+    copy: clipboard.copy,
+    paste: clipboard.paste,
+    pastePaths: clipboard.pastePaths,
     exited,
-    unseen: (id) => unseenIds().has(id),
-    viewedInBubble: (id) => bubbled().has(id),
+    unseen: watches.unseen,
+    viewedInBubble: watches.bubbled,
     viewing: (id, on) => {
-      setBubbled((current) => {
-        if (current.has(id) === on) return current;
-
-        const next = new Set(current);
-
-        if (on) next.add(id);
-        else next.delete(id);
-
-        return next;
-      });
+      watches.setBubbled(id, on);
 
       if (on) {
         viewed.add(id);
-        markUnseen(id, false);
+        watches.markUnseen(id, false);
       } else {
         viewed.delete(id);
         holders.get(id)?.emulator.blur?.();
       }
     },
-    failure: (id) => shownFailure(id)?.entry.message ?? null,
-    retry: (id) => shownFailure(id)?.entry.retry ?? null,
-    dismiss: (id) => {
-      const shown = shownFailure(id);
-      const state = shown && failures().get(shown.id);
-
-      if (shown) for (const kind of FAILURE_KINDS) if (state?.[kind] === shown.entry) setFailure(shown.id, kind, null);
-    },
+    failure: (id) => failures.shown(id)?.entry.message ?? null,
+    retry: (id) => failures.shown(id)?.entry.retry ?? null,
+    dismiss: failures.dismiss,
     dispose: () => {
       disposed = true;
 
-      for (const id of [...watches.keys()]) void stopWatch(id);
+      watches.stopAll();
 
       for (const [id, holder] of holders) {
         void release(id, holder);
