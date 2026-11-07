@@ -7,6 +7,7 @@ mod rupd_harness;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
+use contracts::EventData;
 use rpc::Client;
 use serde_json::{Value, json};
 
@@ -74,6 +75,8 @@ async fn amg3_an_end_notes_the_agent_and_its_door() {
         .unwrap()
         .to_owned();
 
+    let mut events = Client::connect(&daemon.socket).await.unwrap();
+    events.request("events.subscribe", json!({})).await.unwrap();
     let mut sleep = std::process::Command::new("sleep")
         .arg("30")
         .env("ROUNDUP_AGENT", &agent)
@@ -81,8 +84,12 @@ async fn amg3_an_end_notes_the_agent_and_its_door() {
         .unwrap();
 
     tokio::time::timeout(Duration::from_secs(15), async {
-        while inbox(&user, &agent).await.is_empty() || inbox(&user, &door).await.is_empty() {
-            tokio::time::sleep(Duration::from_millis(50)).await;
+        let mut seen = 0;
+        while seen < 2 {
+            let event = events.next_event().await.expect("Daemon event connection open");
+            if matches!(event.data, EventData::MessageSent(m) if m.body.contains("roundup ended sleep (")) {
+                seen += 1;
+            }
         }
     })
     .await
