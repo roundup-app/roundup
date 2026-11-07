@@ -1,0 +1,5 @@
+{
+  "workstream": { "workstream": false, "group": "chain", "agent": false },
+  "group": { "workstream": true, "group": true, "agent": true },
+  "agent": { "workstream": true, "group": true, "agent": false }
+}

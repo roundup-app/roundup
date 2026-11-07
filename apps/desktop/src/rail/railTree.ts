@@ -36,7 +36,7 @@ type RailNode = { id: string; name: string; childrenCount?: number; children?: R
 
 type Entry = { node: RailNode; indexPath: number[]; branch: boolean };
 
-export const createRailTree = (connected: ConnectedProject, unfolded: Accessor<ReadonlySet<string | null>>, rowElement: (id: string) => HTMLElement | undefined) => {
+export const createRailTree = (connected: ConnectedProject, unfolded: Accessor<ReadonlySet<string | null>>, rowElement: (id: string) => HTMLElement | undefined, held: Accessor<string | null> = () => null) => {
   const { rail, now } = connected;
   const collapsed = rail.collapsed;
   const topology = rail.topology;
@@ -51,7 +51,7 @@ export const createRailTree = (connected: ConnectedProject, unfolded: Accessor<R
 
   const sectionRows = createMemo<{ id: RailSection; label: string; icon: (typeof sections)[number]["icon"]; rows: RailRow[] }[]>(() => presentSections().map(section => ({
     ...section,
-    rows: rail.closedSections().has(section.id) ? [] : layoutRail(topology(), { collapsed: collapsed(), unfolded: unfolded(), now: now(), selected: rail.selected() }, section.id),
+    rows: rail.closedSections().has(section.id) ? [] : layoutRail(topology(), { collapsed: held() === null ? collapsed() : new Set([...collapsed(), held()!]), unfolded: unfolded(), now: now(), selected: rail.selected() }, section.id),
   })));
 
   const rows = createMemo<RailRow[]>(previous => {

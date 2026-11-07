@@ -117,7 +117,7 @@ export const RailRowView = (props: {
   copyWith?: (feedback: ReturnType<typeof createCopyFeedback>) => () => void;
   editing: boolean; onEditing: (editing: boolean) => void; onToggle: () => void; onOpen: (id?: string) => void;
   onRename: (name: string) => Promise<void>; onFailure: (message: string) => void;
-  lifted: boolean; sortRef: (element: HTMLElement | undefined) => void;
+  lifted: boolean; /** U6550a: the drag holds this row and its children are folded under it. */ folded: boolean; sortRef: (element: HTMLElement | undefined) => void;
   handleRef: (element: HTMLButtonElement | undefined) => void;
   draggable: boolean;
   onOpenMenu: (x: number, y: number) => void;
@@ -212,7 +212,7 @@ export const RailRowView = (props: {
       <span class="row-state"><KindGlyph kind={kind() ?? "idle"} /></span>
       {name()}
       <Show when={level() !== "default" && level()}>{level => <span class="alert-level" data-state="alert-level">{level()}</span>}</Show>
-      <Show when={props.row.collapsed?.agents.length}>{hidden => <span class="hidden-agents" data-state="collapsed" role="img" aria-label={copy.hiddenAgents(hidden())}>{hidden()}</span>}</Show>
+      <Show when={props.folded && descendantsOf(props.topology, props.row.node.id).length} fallback={<Show when={props.row.collapsed?.agents.length}>{hidden => <span class="hidden-agents" data-state="collapsed" role="img" aria-label={copy.hiddenAgents(hidden())}>{hidden()}</span>}</Show>}>{held => <span class="hidden-agents" data-state="held" role="img" aria-label={copy.heldChildren(held())}>+{held()}</span>}</Show>
       <Show when={unread()}><span class="unread-dot row-secondary" data-state="" role="img" aria-label={copy.unreadResult} /></Show>
       <Show when={queuedBadge()}>{badge => <span class="light queue-badge row-secondary">{badge()}</span>}</Show>
       <Show when={!workstream() && props.row.node.worktree}><span class="worktree-chips row-secondary">
