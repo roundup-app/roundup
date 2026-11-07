@@ -5,7 +5,7 @@ import type { Terminal } from "@xterm/xterm";
 const token = (name: string): string => {
   const value = new RegExp(`--${name}:\\s*([^;]+);`).exec(tokens)?.[1]?.trim();
 
-  if (value === undefined) throw new Error(`tokens.css has no --${name}`);
+  if (value === undefined) throw new Error(`--${name} missing from tokens.css`);
 
   return value;
 };
