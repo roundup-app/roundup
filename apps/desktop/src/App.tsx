@@ -188,10 +188,11 @@ const Connection = (props: {
     if (!open || open instanceof Error) return;
 
     // MC40, MC41: the owner's look and keys files, read on connect and on each save; the App's own refusal of keys shows as the Daemon's problems do.
+    const toasts = props.toasts;
     const config = () => void applyConfig(open.app, (file, cause) => {
       const item = `config:${file}:${cause}`;
 
-      props.toasts.push({ key: item, item, kind: "error", name: file, line: cause, selected: false, open: () => null, project: path });
+      toasts.push({ key: item, item, kind: "error", name: file, line: cause, selected: false, open: () => null, project: path });
     });
 
     config();

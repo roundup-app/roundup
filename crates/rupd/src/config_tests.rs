@@ -71,11 +71,18 @@ async fn mc40_saved_look_applies_without_restart() {
     assert_eq!(daemon.config.state().look["mode"], "light");
 
     std::fs::remove_file(dir.path().join("look.json")).unwrap();
-    tokio::time::timeout(Duration::from_secs(1), async {
-        while !daemon.config.state().look.is_empty() {
-            tokio::time::sleep(Duration::from_millis(20)).await;
+    let removed = async {
+        loop {
+            if matches!(
+                events.recv().await.map(|e| e.data),
+                Ok(EventData::ConfigChanged)
+            ) {
+                break;
+            }
         }
-    })
-    .await
-    .unwrap();
+    };
+    tokio::time::timeout(Duration::from_secs(1), removed)
+        .await
+        .unwrap();
+    assert!(daemon.config.state().look.is_empty());
 }

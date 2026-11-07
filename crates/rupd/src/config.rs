@@ -82,10 +82,13 @@ impl Config {
         let mut changed = false;
         for (slot, file) in ["look.json", "keys.json"].into_iter().enumerate() {
             let text = std::fs::read_to_string(self.dir.join(file)).ok();
-            if state.seen[slot].as_ref() == Some(&text) {
+            let Some(seen) = state.seen.get_mut(slot) else {
+                continue;
+            };
+            if seen.as_ref() == Some(&text) {
                 continue;
             }
-            state.seen[slot] = Some(text.clone());
+            *seen = Some(text.clone());
             // A deleted file returns the defaults.
             let parsed = match &text {
                 None => Ok(BTreeMap::new()),
