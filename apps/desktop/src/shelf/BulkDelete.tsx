@@ -4,7 +4,7 @@ import { captureFocus } from "../keys/focus";
 import type { App } from "../app/seam";
 import { shelfKeyScope } from "./keys";
 import { copy } from "./copy";
-import { createContext, createEffect, createMemo, createSignal, For, on, onCleanup, Show, useContext } from "solid-js";
+import { createContext, createEffect, createMemo, createSignal, For, on, onCleanup, Show, untrack, useContext } from "solid-js";
 import type { Accessor, JSX } from "solid-js";
 import { Portal } from "solid-js/web";
 import { ReservedLine } from "../ink/ReservedLine";
@@ -134,7 +134,7 @@ export const createBulkDelete = <Id,>(props: {
       readback = undefined;
       queueMicrotask(() => focus(() => {
         focusAfter()?.focus();
-        const next = remaining.length === 0 ? props.focused?.() : undefined;
+        const next = remaining.length === 0 ? untrack(() => props.focused?.()) : undefined;
 
         if (next !== undefined) props.replace([next]);
       }));
