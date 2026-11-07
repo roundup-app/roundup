@@ -59,7 +59,7 @@ export const CapturePanel = (props: { port: CapturePort }) => {
   return <section class="capture capture-native" aria-label={copy.captureLabel} onKeyDown={event => {
     if (event.key === "Escape") { event.preventDefault(); dismiss(); }
   }}>
-    <textarea spellcheck={false} autocorrect="off" autocapitalize="off" ref={input} class="capture-field" rows={1} aria-label={copy.captureLabel} placeholder={copy.capturePlaceholder} value={text()}
+    <textarea spellcheck={false} autocorrect="off" autocapitalize="off" ref={input} class="capture-field field-frame" rows={1} aria-label={copy.captureLabel} placeholder={copy.capturePlaceholder} value={text()}
       onInput={event => {
         setText(event.currentTarget.value);
         const current = state();
@@ -76,7 +76,7 @@ export const CapturePanel = (props: { port: CapturePort }) => {
     } } : undefined} />
     <For each={state()?.recovered}>{draft => <div class="capture-recovery">
       <span class="ink" data-state={draft.status}>{draft.label}</span>
-      <textarea class="capture-field" aria-label={copy.recoveredCaptureDraft} rows={1} readOnly value={draft.text} />
+      <textarea class="capture-field field-frame" aria-label={copy.recoveredCaptureDraft} rows={1} readOnly value={draft.text} />
       <div class="capture-actions">
         <button data-button="quiet" onClick={() => {
           const current = state();

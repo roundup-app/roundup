@@ -4,7 +4,20 @@
 //! returns the new Terminal's id together with a [`broadcast::Receiver`] of its events. The receiver
 //! exists before the reader thread reads any output, so none is missed.
 
+#![cfg_attr(
+    not(test),
+    deny(
+        clippy::unwrap_used,
+        clippy::expect_used,
+        clippy::panic,
+        clippy::indexing_slicing
+    )
+)]
+
 mod contract_handlers;
+mod error;
+pub use error::Error;
+use error::Locked;
 mod input;
 mod integration;
 mod output;
@@ -41,7 +54,7 @@ use contracts::terminal::{
 };
 use contracts::{Actor, EventData};
 use portable_pty::{Child, CommandBuilder, MasterPty, PtySize, native_pty_system};
-use rpc::{Bus, Ctx, Module, OpenError, RpcError, code, params, reply};
+use rpc::{Bus, Ctx, Module, OpenError, RpcError, params, reply};
 use serde_json::Value;
 use tokio::sync::{broadcast, watch};
 
@@ -144,13 +157,13 @@ struct Handle {
 }
 
 impl Handle {
-    fn enqueue(&self, id: &str, input: Input) -> Result<(), RpcError> {
+    fn enqueue(&self, id: &str, input: Input) -> Result<(), Error> {
         match self.input.try_send(input) {
             Ok(()) => Ok(()),
-            Err(TrySendError::Full(_)) => Err(RpcError::conflict(format!(
+            Err(TrySendError::Full(_)) => Err(Error::conflict(format!(
                 "terminal {id} is not reading its input"
             ))),
-            Err(TrySendError::Disconnected(_)) => Err(RpcError::internal(format!(
+            Err(TrySendError::Disconnected(_)) => Err(Error::internal(format!(
                 "terminal {id} can no longer take input"
             ))),
         }
@@ -161,11 +174,11 @@ type InputWriter = dyn Fn(Box<dyn Write + Send>) -> Box<dyn Write + Send> + Send
 
 type ExitHold = dyn Fn() + Send + Sync;
 
-type Effect = Box<dyn FnOnce(&mut dyn Write) -> Result<(), RpcError> + Send>;
+type Effect = Box<dyn FnOnce(&mut dyn Write) -> Result<(), Error> + Send>;
 
 enum Input {
     Bytes(Vec<u8>, Vec<recorder::Sample>),
-    Effect(Effect, tokio::sync::oneshot::Sender<Result<(), RpcError>>),
+    Effect(Effect, tokio::sync::oneshot::Sender<Result<(), Error>>),
 }
 
 struct Entry {
@@ -199,31 +212,32 @@ struct Shared {
 }
 
 impl Shared {
-    fn table(&self) -> MutexGuard<'_, BTreeMap<u64, Entry>> {
-        self.table.lock().expect("terminal table lock")
+    fn table(&self) -> Result<MutexGuard<'_, BTreeMap<u64, Entry>>, Error> {
+        self.table.locked("terminal table lock")
     }
 
     /// Hand a title or exit event to the Bus, then to this Terminal's subscribers, so a subscriber
     /// that saw the event can rely on the Bus having it. Neither can block the caller.
-    fn publish(&self, number: u64, data: EventData) {
+    fn publish(&self, number: u64, data: EventData) -> Result<(), Error> {
         self.bus.emit(Actor::daemon(), data.clone());
-        if let Some(entry) = self.table().get(&number) {
+        if let Some(entry) = self.table()?.get(&number) {
             let _ = entry.events.send(Arc::new(data));
         }
+        Ok(())
     }
 
-    fn retitle(&self, number: u64, title: String) {
+    fn retitle(&self, number: u64, title: String) -> Result<(), Error> {
         let id = number.to_string();
-        if let Some(entry) = self.table().get_mut(&number) {
+        if let Some(entry) = self.table()?.get_mut(&number) {
             entry.info.title = Some(title.clone());
         }
-        self.publish(number, EventData::TerminalTitle(TitleEvent { id, title }));
+        self.publish(number, EventData::TerminalTitle(TitleEvent { id, title }))
     }
 
-    fn finish(&self, number: u64, code: Option<i32>) {
+    fn finish(&self, number: u64, code: Option<i32>) -> Result<(), Error> {
         let id = number.to_string();
-        self.program_exited(number);
-        if let Some(entry) = self.table().get_mut(&number) {
+        self.program_exited(number)?;
+        if let Some(entry) = self.table()?.get_mut(&number) {
             entry.info.running = false;
             entry.handle = None;
             entry.pid = None;
@@ -231,7 +245,14 @@ impl Shared {
             entry.info.exit_code = code;
             entry.output = None;
         }
-        self.publish(number, EventData::TerminalExited(ExitedEvent { id, code }));
+        self.publish(number, EventData::TerminalExited(ExitedEvent { id, code }))
+    }
+}
+
+/// Say on stderr that a Terminal's background thread stopped on `err`; nothing above it can answer.
+fn stopped(number: u64, what: &str, result: Result<(), Error>) {
+    if let Err(err) = result {
+        eprintln!("terminal {number}: {what}: {err}");
     }
 }
 
@@ -304,13 +325,17 @@ impl Terminals {
     /// A missing cwd, an empty command, or a program that cannot be found or run is the caller's error;
     /// any other failure to start is the Daemon's.
     pub async fn spawn(&self, params: SpawnParams) -> Result<Spawned, RpcError> {
-        self.start(params, None).await
+        Ok(self.start(params, None).await?)
     }
 
     /// As [`Terminals::spawn`], for a Terminal that `owner` shows as a bubble (X11, X12). A ninth
     /// forgets the owner's oldest exited Terminal, and is `CONFLICT` when all eight run. Emits
     /// `terminal.changed`.
     pub async fn spawn_owned(&self, params: SpawnParams, owner: &str) -> Result<Spawned, RpcError> {
+        Ok(self.spawn_owned_in(params, owner).await?)
+    }
+
+    async fn spawn_owned_in(&self, params: SpawnParams, owner: &str) -> Result<Spawned, Error> {
         let forgot = self.evict_for_cap(owner)?;
         let spawned = self.start(params, Some(owner.to_owned())).await;
         if forgot || spawned.is_ok() {
@@ -331,12 +356,25 @@ impl Terminals {
         env: BTreeMap<String, String>,
         size: (u16, u16),
     ) -> Result<Spawned, RpcError> {
+        Ok(self
+            .spawn_shell_owned_in(cwd, shell, owner, env, size)
+            .await?)
+    }
+
+    async fn spawn_shell_owned_in(
+        &self,
+        cwd: &str,
+        shell: &str,
+        owner: &str,
+        env: BTreeMap<String, String>,
+        size: (u16, u16),
+    ) -> Result<Spawned, Error> {
         window(size.0, size.1)?;
         let start =
-            integration::start(&self.integration_dir, shell, &env).map_err(RpcError::internal)?;
+            integration::start(&self.integration_dir, shell, &env).map_err(Error::internal)?;
         let mut command = vec![shell.to_owned()];
         command.extend(start.args);
-        self.spawn_owned(
+        self.spawn_owned_in(
             SpawnParams {
                 cwd: cwd.to_owned(),
                 command: Some(command),
@@ -351,30 +389,34 @@ impl Terminals {
 
     /// X12: stop Terminal `id` if it runs and forget it. `INVALID_PARAMS` for one with no owner.
     pub async fn close(&self, id: &str) -> Result<(), RpcError> {
+        Ok(self.close_in(id).await?)
+    }
+
+    async fn close_in(&self, id: &str) -> Result<(), Error> {
         if self.close_remote(id).await? {
             return Ok(());
         }
         let number = parse_terminal_number(id)?;
         let running = {
-            let table = self.shared.table();
+            let table = self.shared.table()?;
             let entry = table
                 .get(&number)
-                .ok_or_else(|| RpcError::not_found(format!("terminal {id}")))?;
+                .ok_or_else(|| Error::not_found(format!("terminal {id}")))?;
             if entry.info.owner.is_none() {
                 return Err(invalid(format!("terminal {id} has no owner to close it")));
             }
             entry.handle.is_some()
         };
         if running {
-            match self.kill(id).await {
+            match self.kill_in(id).await {
                 Ok(()) => {}
                 // It ended on its own just before; closing it is still right.
-                Err(err) if err.code == code::NOT_FOUND => {}
+                Err(err) if err.is_not_found() => {}
                 Err(err) => return Err(err),
             }
         }
-        if self.shared.table().remove(&number).is_none() {
-            return Err(RpcError::not_found(format!("terminal {id}")));
+        if self.shared.table()?.remove(&number).is_none() {
+            return Err(Error::not_found(format!("terminal {id}")));
         }
         self.shared.changed(number, Vec::new());
         self.shared
@@ -385,22 +427,26 @@ impl Terminals {
 
     /// Close every Terminal `owner` holds; one `terminal.changed` for all, none for none.
     pub async fn close_owned_by(&self, owner: &str) -> Result<(), RpcError> {
+        Ok(self.close_owned_by_in(owner).await?)
+    }
+
+    async fn close_owned_by_in(&self, owner: &str) -> Result<(), Error> {
         let remote_closed = self.close_remote_owned(owner).await?;
         let ids: Vec<u64> = self
             .shared
-            .table()
+            .table()?
             .iter()
             .filter(|(_, entry)| entry.info.owner.as_deref() == Some(owner))
             .map(|(number, _)| *number)
             .collect();
         for number in &ids {
             let id = number.to_string();
-            match self.kill(&id).await {
+            match self.kill_in(&id).await {
                 Ok(()) => {}
-                Err(err) if err.code == code::NOT_FOUND => {}
+                Err(err) if err.is_not_found() => {}
                 Err(err) => return Err(err),
             }
-            self.shared.table().remove(number);
+            self.shared.table()?.remove(number);
             self.shared.changed(*number, Vec::new());
         }
         if !ids.is_empty() || remote_closed {
@@ -413,6 +459,10 @@ impl Terminals {
 
     /// Tell a running Terminal its window is now `cols` x `rows`. `NOT_FOUND` as for [`Terminals::write`].
     pub async fn resize(&self, id: &str, cols: u16, rows: u16) -> Result<(), RpcError> {
+        Ok(self.resize_in(id, cols, rows).await?)
+    }
+
+    async fn resize_in(&self, id: &str, cols: u16, rows: u16) -> Result<(), Error> {
         if let Some(remote) = self.remote(id)? {
             return remote.call(
                 "terminal.resize",
@@ -422,9 +472,9 @@ impl Terminals {
         let size = window(cols, rows)?;
         let handle = self.running(id)?;
         let screen = self.screen(id)?;
-        let mut state = screen.lock().expect("terminal screen lock");
-        let master = handle.master.lock().expect("terminal master lock");
-        master.resize(size).map_err(RpcError::internal)?;
+        let mut state = screen.locked("terminal screen lock")?;
+        let master = handle.master.locked("terminal master lock")?;
+        master.resize(size).map_err(Error::internal)?;
         state.cols = cols;
         state.rows = rows;
         if state.snapshot_available
@@ -449,20 +499,24 @@ impl Terminals {
 
     /// Return the Terminal's last screen and the output offset represented by it, from one cut.
     pub fn snapshot(&self, id: &str) -> Result<Snapshot, RpcError> {
+        Ok(self.snapshot_in(id)?)
+    }
+
+    fn snapshot_in(&self, id: &str) -> Result<Snapshot, Error> {
         if let Some(remote) = self.remote(id)? {
             return remote.call("terminal.snapshot", serde_json::json!({"id":id}));
         }
         let screen = self.screen(id)?;
-        let mut state = screen.lock().expect("terminal screen lock");
+        let mut state = screen.locked("terminal screen lock")?;
         if !state.snapshot_available {
-            return Err(RpcError::conflict(format!(
+            return Err(Error::conflict(format!(
                 "terminal {id} screen is too large to snapshot"
             )));
         }
         let after = state.after;
         let parser = state
             .ensure_parser()
-            .ok_or_else(|| RpcError::internal("terminal screen parser stopped"))?;
+            .ok_or_else(|| Error::internal("terminal screen parser stopped"))?;
         let (rows, cols) = parser.screen().size();
         let data = screen::formatted_snapshot(parser.screen())?;
         Ok(Snapshot {
@@ -479,21 +533,29 @@ impl Terminals {
         id: &str,
         max: Option<u32>,
     ) -> Result<contracts::terminal::Screen, RpcError> {
+        Ok(self.read_screen_in(id, max)?)
+    }
+
+    fn read_screen_in(
+        &self,
+        id: &str,
+        max: Option<u32>,
+    ) -> Result<contracts::terminal::Screen, Error> {
         if let Some(remote) = self.remote(id)? {
             return remote.call("terminal.screen", serde_json::json!({"id":id,"max":max}));
         }
         let cap = output::cap(max)?;
         let screen = self.screen(id)?;
-        let mut state = screen.lock().expect("terminal screen lock");
+        let mut state = screen.locked("terminal screen lock")?;
         if !state.snapshot_available {
-            return Err(RpcError::conflict(format!(
+            return Err(Error::conflict(format!(
                 "terminal {id} screen is too large to read"
             )));
         }
         let offset = state.log.end();
         let parser = state
             .ensure_parser()
-            .ok_or_else(|| RpcError::internal("terminal screen parser stopped"))?;
+            .ok_or_else(|| Error::internal("terminal screen parser stopped"))?;
         let (rows, cols) = parser.screen().size();
         let shown = parser.screen().rows(0, cols).collect();
         Ok(output::screen(cols, rows, offset, shown, cap))
@@ -502,10 +564,14 @@ impl Terminals {
     /// X13, X16: the output from `params.after` on, or from the reader's cursor, as plain text.
     /// Writes nothing and emits nothing; only a read by `reader` moves that reader's cursor.
     pub fn read(&self, params: &ReadParams) -> Result<contracts::terminal::Read, RpcError> {
+        Ok(self.read_in(params)?)
+    }
+
+    fn read_in(&self, params: &ReadParams) -> Result<contracts::terminal::Read, Error> {
         if let Some(remote) = self.remote(&params.id)? {
             return remote.call(
                 "terminal.read",
-                serde_json::to_value(params).map_err(RpcError::internal)?,
+                serde_json::to_value(params).map_err(Error::internal)?,
             );
         }
         let cap = output::cap(params.max)?;
@@ -517,7 +583,7 @@ impl Terminals {
             }
         };
         let screen = self.screen(&params.id)?;
-        let mut state = screen.lock().expect("terminal screen lock");
+        let mut state = screen.locked("terminal screen lock")?;
         let start = after.unwrap_or_else(|| {
             reader
                 .and_then(|r| state.cursors.get(r).copied())
@@ -534,10 +600,14 @@ impl Terminals {
     /// X13: the lines of the output that match `params.pattern`. Changes nothing, and searches a
     /// copy of the log with no lock parked.
     pub fn search(&self, params: &SearchParams) -> Result<contracts::terminal::Search, RpcError> {
+        Ok(self.search_in(params)?)
+    }
+
+    fn search_in(&self, params: &SearchParams) -> Result<contracts::terminal::Search, Error> {
         if let Some(remote) = self.remote(&params.id)? {
             return remote.call(
                 "terminal.search",
-                serde_json::to_value(params).map_err(RpcError::internal)?,
+                serde_json::to_value(params).map_err(Error::internal)?,
             );
         }
         let cap = output::cap(params.max)?;
@@ -545,19 +615,19 @@ impl Terminals {
         output::search(&window, &params.pattern, cap)
     }
 
-    fn window(&self, id: &str, after: u64) -> Result<output::Window, RpcError> {
+    fn window(&self, id: &str, after: u64) -> Result<output::Window, Error> {
         let screen = self.screen(id)?;
-        let state = screen.lock().expect("terminal screen lock");
+        let state = screen.locked("terminal screen lock")?;
         state.log.from(after)
     }
 
-    fn screen(&self, id: &str) -> Result<Arc<Mutex<ScreenState>>, RpcError> {
+    fn screen(&self, id: &str) -> Result<Arc<Mutex<ScreenState>>, Error> {
         let number = parse_terminal_number(id)?;
         self.shared
-            .table()
+            .table()?
             .get(&number)
             .map(|entry| Arc::clone(&entry.screen))
-            .ok_or_else(|| RpcError::not_found(format!("terminal {id}")))
+            .ok_or_else(|| Error::not_found(format!("terminal {id}")))
     }
 
     /// The pid of Terminal `id`'s program, only while it runs (H21).
@@ -566,16 +636,17 @@ impl Terminals {
             return remote.info().ok().and_then(|info| info.program_pid);
         }
         let number = parse_terminal_number(id).ok()?;
-        self.shared.table().get(&number).and_then(|entry| entry.pid)
+        let table = self.shared.table().ok()?;
+        table.get(&number).and_then(|entry| entry.pid)
     }
 
-    fn running(&self, id: &str) -> Result<Arc<Handle>, RpcError> {
+    fn running(&self, id: &str) -> Result<Arc<Handle>, Error> {
         let number = parse_terminal_number(id)?;
         self.shared
-            .table()
+            .table()?
             .get(&number)
             .and_then(|entry| entry.handle.clone())
-            .ok_or_else(|| RpcError::not_found(format!("running terminal {id}")))
+            .ok_or_else(|| Error::not_found(format!("running terminal {id}")))
     }
 
     /// Every event this Terminal emits from now on, in order. `NOT_FOUND` if it is unknown or has
@@ -585,38 +656,46 @@ impl Terminals {
     /// it never slows the PTY reader. For output from the first byte and a guaranteed exit event,
     /// use [`Spawned::events`] instead.
     pub fn subscribe(&self, id: &str) -> Result<broadcast::Receiver<Arc<EventData>>, RpcError> {
+        Ok(self.subscribe_in(id)?)
+    }
+
+    fn subscribe_in(&self, id: &str) -> Result<broadcast::Receiver<Arc<EventData>>, Error> {
         if let Some(remote) = self.remote(id)? {
             return remote.subscribe();
         }
         let number = parse_terminal_number(id)?;
-        let table = self.shared.table();
+        let table = self.shared.table()?;
         table
             .get(&number)
             .filter(|entry| entry.handle.is_some())
             .map(|entry| entry.events.subscribe())
-            .ok_or_else(|| RpcError::not_found(format!("terminal {id}")))
+            .ok_or_else(|| Error::not_found(format!("terminal {id}")))
     }
 
     /// X14: the output of a running Terminal from its current end, in order. `NOT_FOUND` as for
     /// [`Terminals::subscribe`]. Dropping the stream releases the subscription.
     pub fn subscribe_output(&self, id: &str) -> Result<OutputStream, RpcError> {
+        Ok(self.subscribe_output_in(id)?)
+    }
+
+    fn subscribe_output_in(&self, id: &str) -> Result<OutputStream, Error> {
         if let Some(remote) = self.remote(id)? {
             return remote.subscribe_output();
         }
         let number = parse_terminal_number(id)?;
         let (start, receiver) = {
-            let table = self.shared.table();
+            let table = self.shared.table()?;
             let entry = table
                 .get(&number)
                 .filter(|entry| entry.handle.is_some())
-                .ok_or_else(|| RpcError::not_found(format!("terminal {id}")))?;
+                .ok_or_else(|| Error::not_found(format!("terminal {id}")))?;
             let sender = entry
                 .output
                 .as_ref()
-                .ok_or_else(|| RpcError::not_found(format!("terminal {id}")))?;
+                .ok_or_else(|| Error::not_found(format!("terminal {id}")))?;
             // The reader sends a chunk under this lock, so the end read here is where the receiver starts.
             let screen = Arc::clone(&entry.screen);
-            let state = screen.lock().expect("terminal screen lock");
+            let state = screen.locked("terminal screen lock")?;
             let start = state.after;
             let receiver = sender.subscribe();
             drop(state);
@@ -633,8 +712,13 @@ impl Terminals {
     /// PS8.1: the program status `terminal.list` shows for a Terminal; `None` clears it.
     pub fn set_program_status(&self, id: &str, status: Option<contracts::Status>) {
         let Ok(number) = id.parse() else { return };
-        if let Some(entry) = self.shared.table().get_mut(&number) {
-            entry.info.status = status;
+        match self.shared.table() {
+            Ok(mut table) => {
+                if let Some(entry) = table.get_mut(&number) {
+                    entry.info.status = status;
+                }
+            }
+            Err(err) => eprintln!("terminal {number}: program status dropped: {err}"),
         }
     }
 
@@ -645,26 +729,29 @@ impl Terminals {
     /// X17: set the scheme every program is answered in. A change from the one before (or from none)
     /// sends one notice to each running program that turned on mode 2031.
     pub async fn set_scheme(&self, params: SchemeParams) -> Result<(), RpcError> {
+        Ok(self.set_scheme_in(params).await?)
+    }
+
+    async fn set_scheme_in(&self, params: SchemeParams) -> Result<(), Error> {
         let palette = scheme::Palette::parse(&params)?;
         self.remote_scheme(&params)?;
         let before = self
             .shared
             .scheme
-            .lock()
-            .expect("terminal scheme lock")
+            .locked("terminal scheme lock")?
             .replace(palette);
         if before.is_some_and(|before| before.scheme == palette.scheme) {
             return Ok(());
         }
         let running: Vec<(u64, Arc<Mutex<ScreenState>>)> = self
             .shared
-            .table()
+            .table()?
             .iter()
             .filter(|(_, entry)| entry.handle.is_some())
             .map(|(number, entry)| (*number, Arc::clone(&entry.screen)))
             .collect();
         for (number, screen) in running {
-            if screen.lock().expect("terminal screen lock").scheme_notices {
+            if screen.locked("terminal screen lock")?.scheme_notices {
                 self.shared.type_into(number, palette.notice());
             }
         }
@@ -675,11 +762,12 @@ impl Terminals {
     pub async fn list(&self) -> Vec<TerminalInfo> {
         let remotes: Vec<_> = self
             .remotes
-            .lock()
-            .expect("remote table")
-            .values()
-            .cloned()
-            .collect();
+            .locked("remote table")
+            .map(|remotes| remotes.values().cloned().collect())
+            .unwrap_or_else(|err| {
+                eprintln!("terminals not listed: {err}");
+                Vec::new()
+            });
         let mut asked = tokio::task::JoinSet::new();
         for remote in remotes {
             asked.spawn(async move { remote.info_within_deadline().await });
@@ -688,8 +776,11 @@ impl Terminals {
         while let Some(answer) = asked.join_next().await {
             infos.extend(answer.ok().and_then(Result::ok));
         }
-        infos.extend(self.shared.table().values().map(|entry| entry.info.clone()));
-        infos.sort_by_key(|info| info.id.parse::<u64>().expect("Terminal id"));
+        match self.shared.table() {
+            Ok(table) => infos.extend(table.values().map(|entry| entry.info.clone())),
+            Err(err) => eprintln!("terminals not listed: {err}"),
+        }
+        infos.sort_by_key(|info| info.id.parse::<u64>().unwrap_or(u64::MAX));
         infos
     }
 }
@@ -697,7 +788,10 @@ impl Terminals {
 /// Wait for the program to end without holding the lock while it runs, so `kill` can take it.
 fn reap(program: &Program) -> std::io::Result<portable_pty::ExitStatus> {
     loop {
-        let status = program.lock().expect("terminal program lock").try_wait()?;
+        let status = program
+            .locked("terminal program lock")
+            .map_err(std::io::Error::other)?
+            .try_wait()?;
         match status {
             Some(status) => return Ok(status),
             None => std::thread::sleep(REAP_POLL),
@@ -705,9 +799,14 @@ fn reap(program: &Program) -> std::io::Result<portable_pty::ExitStatus> {
     }
 }
 
+/// `bytes[range]` for a range the caller computed from `bytes` itself, so it is never out of bounds.
+fn within(bytes: &[u8], range: impl std::slice::SliceIndex<[u8], Output = [u8]>) -> &[u8] {
+    bytes.get(range).unwrap_or_default()
+}
+
 /// The number a Terminal id names. Only the form `spawn` hands out is an id: `+5`, `05` and `nope`
 /// are malformed, never a second spelling of an existing Terminal.
-fn parse_terminal_number(id: &str) -> Result<u64, RpcError> {
+fn parse_terminal_number(id: &str) -> Result<u64, Error> {
     id.parse::<u64>()
         .ok()
         .filter(|number| number.to_string() == id)
@@ -717,7 +816,7 @@ fn parse_terminal_number(id: &str) -> Result<u64, RpcError> {
 /// Validate Terminal dimensions before allocating launch resources.
 pub fn window(cols: u16, rows: u16) -> Result<PtySize, RpcError> {
     if cols == 0 || rows == 0 {
-        return Err(invalid("cols and rows must be at least 1"));
+        return Err(invalid("cols and rows must be at least 1").into());
     }
     Ok(PtySize {
         rows,
@@ -727,8 +826,8 @@ pub fn window(cols: u16, rows: u16) -> Result<PtySize, RpcError> {
     })
 }
 
-fn invalid(message: impl Into<String>) -> RpcError {
-    RpcError::new(code::INVALID_PARAMS, message)
+fn invalid(message: impl Into<String>) -> Error {
+    Error::InvalidParams(message.into())
 }
 
 #[async_trait]

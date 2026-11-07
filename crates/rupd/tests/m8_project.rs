@@ -29,8 +29,13 @@ async fn world() -> World {
     let dir = tempfile::tempdir().unwrap();
     let roundup = dir.path().join(".roundup");
     let socket = dir.path().join("rupd.sock");
-    let daemon = Arc::new(rupd::Daemon::open(&roundup).unwrap());
-    tokio::spawn(rupd::serve(UnixListener::bind(&socket).unwrap(), daemon));
+    let (daemon, watchers) = rupd::Daemon::open(&roundup).unwrap();
+    let daemon = Arc::new(daemon);
+    tokio::spawn(rupd::serve(
+        UnixListener::bind(&socket).unwrap(),
+        daemon,
+        watchers,
+    ));
     let client = Client::connect(&socket).await.unwrap();
     client
         .request("events.subscribe", Value::Null)

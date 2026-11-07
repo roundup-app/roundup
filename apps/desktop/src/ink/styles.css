@@ -126,10 +126,13 @@ p.ink[role="alert"] {
   display: block;
   box-sizing: border-box;
   min-height: var(--space-5);
+  line-height: var(--space-4);
+}
+
+.shelf-row :is(.todo-row-button, .pad-name) {
   margin: 0;
   padding: var(--space-1) 0;
   font: inherit;
-  line-height: var(--space-4);
   letter-spacing: inherit;
 }
 
@@ -245,20 +248,9 @@ p.ink[role="alert"] {
 .empty-state :is(.empty-state-title, .empty-state-line) { margin: 0; }
 
 
-/* U16, U19: the entry row's field is the title's own text: no box, border, fill or ring, the caret alone shows focus. */
+/* U16, U19, U6545a: the entry row's field is the shared inline frame. */
 .entry-field {
-  box-sizing: border-box;
   width: 100%;
-  margin: 0;
-  padding: 0;
-  border: 0;
-  background: var(--transparent);
-  color: var(--text);
-}
-
-.entry-field::placeholder {
-  color: var(--grey);
-  opacity: 1;
 }
 
 /* The disabled capture mark fits the glyph column; it has no click target. */

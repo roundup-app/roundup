@@ -268,6 +268,10 @@ fn allocation_id(id: &str) -> std::io::Result<()> {
     }
 }
 // Faults are opt-in, isolated-process observers like the capture/commit cuts below.
+#[expect(
+    clippy::disallowed_methods,
+    reason = "an isolated-process fault probe, absent in normal operation"
+)]
 fn fault(operation: &str) -> std::io::Result<()> {
     if std::env::var("RUPD_PUBLICATION_FAIL").ok().as_deref() == Some(operation) {
         Err(std::io::Error::other(format!(
@@ -833,6 +837,10 @@ fn capture(root: &Path, path: &str, worktree: bool) -> Result<(Vec<u8>, FileSour
 
 // Isolated Daemon observer; absent in normal operation. A file acknowledgement, not a sleep,
 // tells the probe exactly which side of the commit/capture it may interrupt.
+#[expect(
+    clippy::disallowed_methods,
+    reason = "an isolated-process observer, absent in normal operation"
+)]
 fn observe(stage: &str) -> Result<(), RpcError> {
     if let Some(path) = std::env::var_os("RUPD_PUBLICATION_TRACE") {
         use std::io::Write;

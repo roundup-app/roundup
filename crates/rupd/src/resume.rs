@@ -262,13 +262,16 @@ impl Daemon {
         };
         match messages.continue_work(request).await {
             Ok((decision, _)) => rpc::reply(&decided(decision, reconciliation)),
-            Err(error) => Err(RpcError::new(
-                error.code,
-                format!(
-                    "resume was not accepted: {}; nothing was claimed, retry with the same request id {}",
-                    error.message, p.request
-                ),
-            )),
+            Err(error) => {
+                let error = RpcError::from(error);
+                Err(RpcError::new(
+                    error.code,
+                    format!(
+                        "resume was not accepted: {}; nothing was claimed, retry with the same request id {}",
+                        error.message, p.request
+                    ),
+                ))
+            }
         }
     }
 }

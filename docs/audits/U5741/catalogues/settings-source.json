@@ -760,7 +760,7 @@
     "crates/contracts/src/common.rs",
     "crates/contracts/src/declarations.rs",
     "crates/desktop/src/lib.rs",
-    "crates/desktop/src/state.rs",
+    "crates/desktop/src/projects.rs",
     "crates/desktop/tests/h18.rs",
     "crates/rup/src/cli.rs",
     "crates/rup/src/mcp.rs",

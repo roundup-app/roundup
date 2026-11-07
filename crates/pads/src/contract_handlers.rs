@@ -7,7 +7,7 @@ impl Pads {
         _method: &str,
         value: Value,
     ) -> Result<Value, RpcError> {
-        self.create(ctx, params(value)?)
+        self.create(ctx, params(value)?).map_err(RpcError::from)
     }
 
     pub(super) async fn rpc_pad_read(
@@ -16,7 +16,7 @@ impl Pads {
         _method: &str,
         value: Value,
     ) -> Result<Value, RpcError> {
-        self.read(ctx, params(value)?)
+        self.read(ctx, params(value)?).map_err(RpcError::from)
     }
 
     pub(super) async fn rpc_pad_list(
@@ -25,7 +25,7 @@ impl Pads {
         _method: &str,
         _value: Value,
     ) -> Result<Value, RpcError> {
-        self.list()
+        self.list().map_err(RpcError::from)
     }
 
     pub(super) async fn rpc_pad_rename(
@@ -34,7 +34,7 @@ impl Pads {
         _method: &str,
         value: Value,
     ) -> Result<Value, RpcError> {
-        self.rename(ctx, params(value)?)
+        self.rename(ctx, params(value)?).map_err(RpcError::from)
     }
 
     pub(super) async fn rpc_pad_write(
@@ -43,7 +43,7 @@ impl Pads {
         _method: &str,
         value: Value,
     ) -> Result<Value, RpcError> {
-        self.write(ctx, params(value)?)
+        self.write(ctx, params(value)?).map_err(RpcError::from)
     }
 
     pub(super) async fn rpc_pad_append(
@@ -52,7 +52,7 @@ impl Pads {
         _method: &str,
         value: Value,
     ) -> Result<Value, RpcError> {
-        self.append(ctx, params(value)?)
+        self.append(ctx, params(value)?).map_err(RpcError::from)
     }
 
     pub(super) async fn rpc_pad_append_section(
@@ -62,6 +62,7 @@ impl Pads {
         value: Value,
     ) -> Result<Value, RpcError> {
         self.append_section(ctx, params(value)?)
+            .map_err(RpcError::from)
     }
 
     pub(super) async fn rpc_pad_reorder(
@@ -70,7 +71,7 @@ impl Pads {
         _method: &str,
         value: Value,
     ) -> Result<Value, RpcError> {
-        self.reorder(ctx, params(value)?)
+        self.reorder(ctx, params(value)?).map_err(RpcError::from)
     }
 
     pub(super) async fn rpc_pad_move(
@@ -79,7 +80,7 @@ impl Pads {
         _method: &str,
         value: Value,
     ) -> Result<Value, RpcError> {
-        self.move_to(ctx, params(value)?)
+        self.move_to(ctx, params(value)?).map_err(RpcError::from)
     }
 
     pub(super) async fn rpc_pad_delete(
@@ -89,6 +90,7 @@ impl Pads {
         value: Value,
     ) -> Result<Value, RpcError> {
         self.delete(ctx, params(value)?, deletion::cause(&ctx.actor))
+            .map_err(RpcError::from)
     }
 
     pub(super) async fn rpc_pad_redo_delete(
@@ -98,6 +100,7 @@ impl Pads {
         value: Value,
     ) -> Result<Value, RpcError> {
         self.redo_delete(ctx, params(value)?)
+            .map_err(RpcError::from)
     }
 
     pub(super) async fn rpc_pad_get_deletion(
@@ -107,6 +110,7 @@ impl Pads {
         value: Value,
     ) -> Result<Value, RpcError> {
         self.get_deletion(ctx, params(value)?)
+            .map_err(RpcError::from)
     }
 
     pub(super) async fn rpc_pad_restore(
@@ -115,7 +119,7 @@ impl Pads {
         _method: &str,
         value: Value,
     ) -> Result<Value, RpcError> {
-        self.restore(ctx, params(value)?)
+        self.restore(ctx, params(value)?).map_err(RpcError::from)
     }
 
     pub(super) async fn rpc_pad_set_storage(
@@ -125,6 +129,7 @@ impl Pads {
         value: Value,
     ) -> Result<Value, RpcError> {
         self.set_storage(ctx, params(value)?)
+            .map_err(RpcError::from)
     }
 
     pub(super) async fn rpc_pad_export(
@@ -133,6 +138,6 @@ impl Pads {
         _method: &str,
         value: Value,
     ) -> Result<Value, RpcError> {
-        self.export(ctx, params(value)?)
+        self.export(ctx, params(value)?).map_err(RpcError::from)
     }
 }

@@ -96,3 +96,24 @@ it("u6236c_lint_rejects_raw_anchor_boxes", () => {
     rmSync(temporary, { recursive: true, force: true });
   }
 });
+
+it("u6545c_lint_rejects_a_text_field_without_the_frame", () => {
+  const root = resolve(import.meta.dirname, "../../../..");
+  const temporary = mkdtempSync(join(tmpdir(), "u6545-"));
+  const cases = [["bare", 1], ["framed", 0], ["inline", 0], ["checkbox", 0]] as const;
+
+  try {
+    for (const [fixture, expected] of cases) {
+      const folder = join(temporary, "apps/desktop/src/rail");
+      mkdirSync(folder, { recursive: true });
+      const path = join(folder, `${fixture}.tsx`);
+      writeFileSync(path, readFileSync(join(root, "tools/oxlint/field-fixtures", `${fixture}.tsx.txt`)));
+      const result = spawnSync(join(root, "node_modules/.bin/oxlint"), ["--config", join(root, ".oxlintrc.json"), path], { cwd: root, encoding: "utf8" });
+      const output = result.stdout + result.stderr;
+
+      expect(output.includes("require-field-frame"), output).toBe(expected === 1);
+    }
+  } finally {
+    rmSync(temporary, { recursive: true, force: true });
+  }
+});

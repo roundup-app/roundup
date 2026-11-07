@@ -19,9 +19,12 @@ fn c4_declarations_preserve_mcp_policy() {
                 offer.method,
                 serde_json::json!({
                     "tool": offer.tool, "params": params,
-                    "takes_params": offer.takes_params, "own_id": offer.own_id,
-                    "own_reader": offer.own_reader, "waits_for_user": offer.waits_for_user,
-                    "door_only": offer.door_only, "stream": offer.stream,
+                    "takes_params": offer.input != Input::None && offer.input != Input::OwnId,
+                    "own_id": matches!(offer.input, Input::OwnId | Input::ArgumentsWithOwnId),
+                    "own_reader": offer.input == Input::ArgumentsWithOwnReader,
+                    "waits_for_user": offer.delivery == Delivery::WaitsForUser,
+                    "door_only": offer.audience == Audience::DoorOnly,
+                    "stream": offer.delivery == Delivery::Stream,
                 }),
             )
         })

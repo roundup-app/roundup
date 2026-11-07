@@ -26,7 +26,7 @@ fn a2681a_stopping_attempt_hides_parts() {
         .save_conversation(&id, conversation, &cwd.to_string_lossy())
         .unwrap();
     if let Some(Slot::Running(run)) = shared.runs().get_mut(&id) {
-        run.ended = true;
+        run.exit();
     }
     shared
         .rail_view
@@ -37,7 +37,7 @@ fn a2681a_stopping_attempt_hides_parts() {
         "fixture must have visible parts before stopping"
     );
     if let Some(Slot::Running(run)) = shared.runs().get_mut(&id) {
-        run.closing = true;
+        run.begin_closing();
     }
     assert!(shared.node(&id).unwrap().overview.is_none());
 }

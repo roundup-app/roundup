@@ -999,6 +999,7 @@ dependencies = [
  "dirs",
  "getrandom 0.3.4",
  "icns",
+ "indexmap 2.14.2",
  "log",
  "mac-notification-sys",
  "native",
@@ -3009,6 +3010,7 @@ dependencies = [
  "serde",
  "serde_json",
  "tempfile",
+ "thiserror 2.0.21",
  "tokio",
 ]
 
@@ -3609,8 +3611,10 @@ dependencies = [
  "rpc",
  "rusqlite",
  "rusqlite_migration",
+ "serde",
  "serde_json",
  "tempfile",
+ "thiserror 2.0.21",
  "tokio",
  "unicode-normalization",
  "url",
@@ -5533,6 +5537,7 @@ dependencies = [
  "stats_alloc",
  "tempfile",
  "terminal",
+ "thiserror 2.0.21",
  "tokio",
  "vt100",
 ]

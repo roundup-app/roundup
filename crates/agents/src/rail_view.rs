@@ -72,28 +72,15 @@ impl Shared {
         let mut waits = self.waits.lock().expect("waits lock");
         for (id, slot) in runs.iter_mut() {
             let Slot::Running(run) = slot else { continue };
-            let Some(status) = run.adapter.status() else {
+            let Some(status) = run.adapter().status() else {
                 continue;
             };
             let before = waiting_on(status, waits.get(id).copied());
             let after = waiting_on(status, next.get(id).copied());
-            if run.ended || (before.kind, &before.label) == (after.kind, &after.label) {
+            if run.ended() || (before.kind, &before.label) == (after.kind, &after.label) {
                 continue;
             }
-            run.status_revision = run
-                .status_revision
-                .next()
-                .expect("Status revision exhausted");
-            self.bus.emit(
-                Actor::daemon(),
-                EventData::AgentStatus(Box::new(StatusEvent {
-                    ended: false,
-                    id: id.clone(),
-                    attempt: run.attempt.clone(),
-                    status_revision: run.status_revision.clone(),
-                    status: after,
-                })),
-            );
+            run.publish(&self.bus, Actor::daemon(), id, after);
         }
         *waits = next;
     }
@@ -131,24 +118,26 @@ impl Shared {
         }
         node.final_text = match runs.get(&node.id) {
             Some(Slot::Running(run)) => {
-                run.adapter.turn().map(|turn| contracts::agent::FinalText {
-                    turn: turn.to_owned(),
-                    attempt: run.attempt.to_string(),
-                    finished: run.adapter.finished().to_string(),
-                    kind: run.adapter.final_text(),
-                })
+                run.adapter()
+                    .turn()
+                    .map(|turn| contracts::agent::FinalText {
+                        turn: turn.to_owned(),
+                        attempt: run.attempt().to_string(),
+                        finished: run.adapter().finished().to_string(),
+                        kind: run.adapter().final_text(),
+                    })
             }
             _ => None,
         };
         node.status_revision = match runs.get(&node.id) {
-            Some(Slot::Running(run)) => Some(run.status_revision.clone()),
+            Some(Slot::Running(run)) => Some(run.status_revision().clone()),
             // B36: inheriting the ended run's revision closes Messages on the new Attempt.
             Some(Slot::Starting { .. } | Slot::Resuming { .. }) => Some(Ordinal::first()),
             _ => None,
         };
         let live = match runs.get(&node.id) {
             Some(Slot::Running(run)) => run
-                .adapter
+                .adapter()
                 .status()
                 .map(|status| waiting_on(status, self.wait_of(&node.id))),
             Some(Slot::Starting { since, .. } | Slot::Resuming { since, .. }) => Some(Status {
@@ -185,7 +174,7 @@ impl Shared {
         }
         // A22: exited (no live process, and no start in flight), with A21 data to resume.
         let exited = match runs.get(&node.id) {
-            Some(Slot::Running(run)) => run.ended,
+            Some(Slot::Running(run)) => run.ended(),
             Some(
                 Slot::Starting { .. }
                 | Slot::Resuming { .. }
@@ -205,14 +194,14 @@ impl Shared {
                 Ok(Some(_))
             );
         node.yolo = match runs.get(&node.id) {
-            Some(Slot::Running(run)) => run.yolo,
+            Some(Slot::Running(run)) => run.yolo(),
             Some(
                 Slot::Resuming { old: Some(old), .. } | Slot::ResumeCleanup { old: Some(old), .. },
-            ) => old.yolo,
+            ) => old.yolo(),
             _ => false,
         };
         if node.can_resume
-            && !matches!(runs.get(&node.id), Some(Slot::Running(run)) if run.closing)
+            && !matches!(runs.get(&node.id), Some(Slot::Running(run)) if run.closing())
             && let Some((id, cwd)) = rail.conversation(&node.id)?
         {
             // RO2: the cache only; a task of its own reads the transcript and announces it.
@@ -273,7 +262,7 @@ impl Agents {
     /// Whether this Agent's name has already been chosen explicitly or by its first prompt.
     pub fn naming_settled(&self, id: &str) -> bool {
         match self.shared.runs().get(id) {
-            Some(Slot::Running(run)) => run.named,
+            Some(Slot::Running(run)) => run.named(),
             Some(Slot::Starting { named, .. }) => *named,
             _ => true,
         }
@@ -314,7 +303,7 @@ impl Agents {
                 Slot::Running(run) => self
                     .shared
                     .terminals
-                    .program_pid(&run.terminal_id)
+                    .program_pid(run.terminal_id())
                     .map(|pid| (id.clone(), pid)),
                 _ => None,
             })

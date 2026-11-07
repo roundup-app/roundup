@@ -104,7 +104,7 @@ const ProjectSettingsBody = (props: { onClose: () => void }) => {
     <SettingsGroup name={copy.workstreams}><div class="app-dialog-form">
       <label class="app-dialog-field">
         <span>{copy.runAtMost}</span>
-        <textarea rows={1} inputMode="numeric" aria-label={copy.workstreamsAtOnce} value={text()} disabled={saved() === null}
+        <textarea class="field-frame" rows={1} inputMode="numeric" aria-label={copy.workstreamsAtOnce} value={text()} disabled={saved() === null}
           onInput={event => {
             const field = event.currentTarget;
             setText(field.value);

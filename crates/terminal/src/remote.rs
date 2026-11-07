@@ -27,12 +27,16 @@ impl Terminals {
 
     /// Persist these verified records for explicit attachment in a fresh client.
     pub fn terminal_owners(&self) -> Vec<TerminalOwner> {
-        self.remotes
-            .lock()
-            .expect("remote table")
-            .values()
-            .map(|remote| remote.owner.clone())
-            .collect()
+        match self.remotes.locked("remote table") {
+            Ok(remotes) => remotes
+                .values()
+                .map(|remote| remote.owner.clone())
+                .collect(),
+            Err(err) => {
+                eprintln!("terminal owners not listed: {err}");
+                Vec::new()
+            }
+        }
     }
 
     /// The persistable owner record behind client Terminal `id`; `Ok(None)` for a Terminal this
@@ -41,15 +45,16 @@ impl Terminals {
         let Ok(number) = id.parse::<u64>() else {
             return Ok(None);
         };
-        let remotes = self
-            .remotes
-            .lock()
-            .map_err(|_| RpcError::internal("remote table poisoned"))?;
+        let remotes = self.remotes.locked("remote table")?;
         Ok(remotes.get(&number).map(|remote| remote.owner.clone()))
     }
 
     /// X6570a: poison the remote table as a panic in another thread would.
     #[cfg(feature = "test-support")]
+    #[allow(
+        clippy::panic,
+        reason = "only a panic while the lock is taken poisons a Mutex"
+    )]
     pub fn poison_remote_table_for_test(&self) {
         let _ = std::thread::scope(|scope| {
             scope
@@ -64,7 +69,7 @@ impl Terminals {
     /// Attach a persisted owner record of this Terminals' own Project, launching nothing and
     /// sending no input (X8). The record's incarnation is verified before it gets a client id.
     pub async fn reattach_owner(&self, owner: &TerminalOwner) -> Result<Spawned, RpcError> {
-        let project = self.integration_dir.parent().expect("Project data");
+        let project = self.project_dir()?;
         self.attach_owner(project, owner).await
     }
 
@@ -73,17 +78,16 @@ impl Terminals {
         helper: &Path,
         params: SpawnParams,
         home: Option<String>,
-    ) -> Result<Spawned, RpcError> {
-        let project = self.integration_dir.parent().expect("Project data");
+    ) -> Result<Spawned, Error> {
+        let project = self.project_dir()?;
         let scheme = self
             .shared
             .scheme
-            .lock()
-            .expect("terminal scheme lock")
+            .locked("terminal scheme lock")?
             .map(scheme::Palette::params);
         let (owner, mut child) =
             TerminalOwner::start_with(helper, project, params, &self.shared.clean_env, scheme)
-                .map_err(RpcError::internal)?;
+                .map_err(Error::internal)?;
         let result = self.attach_owner(project, &owner).await;
         if result.is_err()
             && let Ok(client) = owner.connect(project).await
@@ -99,8 +103,10 @@ impl Terminals {
         });
         let spawned = result?;
         let number = parse_terminal_number(&spawned.id)?;
-        if let Some(remote) = self.remotes.lock().expect("remote table").get_mut(&number) {
-            Arc::get_mut(remote).expect("new attachment").home = home;
+        if let Some(remote) = self.remotes.locked("remote table")?.get_mut(&number) {
+            Arc::get_mut(remote)
+                .ok_or_else(|| Error::internal("new attachment is already shared"))?
+                .home = home;
         }
         Ok(spawned)
     }
@@ -118,13 +124,12 @@ impl Terminals {
         let scheme = self
             .shared
             .scheme
-            .lock()
-            .expect("terminal scheme lock")
+            .locked("terminal scheme lock")?
             .map(scheme::Palette::params);
         if let Some(scheme) = scheme {
             remote.call::<()>(
                 "terminal.scheme",
-                serde_json::to_value(scheme).map_err(RpcError::internal)?,
+                serde_json::to_value(scheme).map_err(Error::internal)?,
             )?;
         }
         let spawned = Spawned {
@@ -133,17 +138,21 @@ impl Terminals {
             output,
         };
         self.remotes
-            .lock()
-            .expect("remote table")
+            .locked("remote table")?
             .insert(id, Arc::new(remote));
         Ok(spawned)
     }
 
-    pub(super) fn remote(&self, id: &str) -> Result<Option<Arc<Remote>>, RpcError> {
+    fn project_dir(&self) -> Result<&Path, Error> {
+        self.integration_dir
+            .parent()
+            .ok_or_else(|| Error::internal("integration directory has no Project data"))
+    }
+
+    pub(super) fn remote(&self, id: &str) -> Result<Option<Arc<Remote>>, Error> {
         Ok(self
             .remotes
-            .lock()
-            .expect("remote table")
+            .locked("remote table")?
             .get(&parse_terminal_number(id)?)
             .cloned())
     }
@@ -155,7 +164,7 @@ impl Remote {
         project: &Path,
         owner: &TerminalOwner,
         bus: Bus,
-    ) -> Result<(Self, OutputStream, broadcast::Receiver<Arc<EventData>>), RpcError> {
+    ) -> Result<(Self, OutputStream, broadcast::Receiver<Arc<EventData>>), Error> {
         let project = project.to_owned();
         let record = owner.clone();
         let owner = owner.clone();
@@ -171,37 +180,37 @@ impl Remote {
         std::thread::Builder::new().name(format!("terminal-owner-{id}")).spawn(move || {
             let runtime = match tokio::runtime::Builder::new_current_thread().enable_all().build() {
                 Ok(runtime) => runtime,
-                Err(error) => { let _ = ready.send(Err(RpcError::internal(error))); return; }
+                Err(error) => { let _ = ready.send(Err(Error::internal(error))); return; }
             };
             runtime.block_on(async move {
                 let setup = async {
                     let client = owner.connect(&project).await?;
                     let input_client = owner.connect(&project).await?;
                     let mut event_client = owner.connect(&project).await?;
-                    let output = event_client.take_output().ok_or_else(|| RpcError::internal("owner output"))?;
+                    let output = event_client.take_output().ok_or_else(|| Error::internal("owner output"))?;
                     let selected = event_client.request("terminal.output", json!({"id":owner.info.id})).await?;
-                    let cut = selected["offset"].as_u64().ok_or_else(|| RpcError::internal("owner offset"))?;
+                    let cut = selected.get("offset").and_then(Value::as_u64).ok_or_else(|| Error::internal("owner offset"))?;
                     let catch_up: contracts::terminal::CatchUp = params(client.request("terminal.catchUp", json!({"id":owner.info.id,"incarnation":owner.info.incarnation,"after":0})).await?)?;
                     {
-                    let mut state = pushed.lock().expect("remote output");
+                    let mut state = pushed.locked("remote output")?;
                     if let contracts::terminal::CatchUp::Contiguous { data, .. } = catch_up {
-                        let mut bytes = STANDARD.decode(data).map_err(RpcError::internal)?;
-                        bytes.truncate(usize::try_from(cut).map_err(RpcError::internal)?);
-                        if !bytes.is_empty() { let _ = state.1.as_ref().expect("output sender").send(Chunk { offset: 0, bytes: Arc::from(bytes) }); }
+                        let mut bytes = STANDARD.decode(data).map_err(Error::internal)?;
+                        bytes.truncate(usize::try_from(cut).map_err(Error::internal)?);
+                        if !bytes.is_empty() && let Some(sender) = state.1.as_ref() { let _ = sender.send(Chunk { offset: 0, bytes: Arc::from(bytes) }); }
                     }
                     state.0 = cut;
                     }
                     // Refuse an exit during stream selection or catch-up before publishing attachment.
                     let infos: Vec<TerminalInfo> = params(client.request("terminal.list", json!({})).await?)?;
-                    if infos.len() != 1 || !infos[0].running || infos[0].incarnation != owner.info.incarnation {
-                        return Err(RpcError::not_found("live Terminal incarnation"));
+                    if !matches!(infos.as_slice(), [only] if only.running && only.incarnation == owner.info.incarnation) {
+                        return Err(Error::not_found("live Terminal incarnation"));
                     }
                     Ok((client, input_client, event_client, output))
                 };
                 let (client, input_client, mut event_client, mut output) = match tokio::time::timeout(DEADLINE, setup).await {
                     Ok(Ok(connected)) => connected,
                     Ok(Err(error)) => { let _ = ready.send(Err(error)); return; }
-                    Err(_) => { let _ = ready.send(Err(RpcError::internal("owner attachment timed out"))); return; }
+                    Err(_) => { let _ = ready.send(Err(Error::internal("owner attachment timed out"))); return; }
                 };
                 let _ = ready.send(Ok(()));
                 let client = Arc::new(client);
@@ -224,7 +233,7 @@ impl Remote {
                                 Ok(rpc::OutputFrame::Bytes(frame)) => {
                                     match STANDARD.decode(frame.data) {
                                         Ok(bytes) => {
-                                            let mut state = pushed.lock().expect("remote output");
+                                            let Ok(mut state) = pushed.locked("remote output") else { break };
                                             publish_output(&mut state, frame.offset, bytes);
                                         }
                                         Err(_) => break,
@@ -245,9 +254,9 @@ impl Remote {
                                 _ => continue,
                             }
                             if matches!(data, EventData::TerminalExited(_)) {
-                                let after = pushed.lock().expect("remote output").0;
+                                let Ok(after) = pushed.locked("remote output").map(|state| state.0) else { break };
                                 let tail = tokio::time::timeout(DEADLINE, client.request("terminal.catchUp", json!({"id":owner.info.id,"incarnation":owner.info.incarnation,"after":after}))).await;
-                                let mut state = pushed.lock().expect("remote output");
+                                let Ok(mut state) = pushed.locked("remote output") else { break };
                                 if let Ok(Ok(value)) = tail {
                                     match params::<contracts::terminal::CatchUp>(value) {
                                         Ok(contracts::terminal::CatchUp::Contiguous { from, after, data, .. }) => {
@@ -257,7 +266,7 @@ impl Remote {
                                             }
                                         }
                                         Ok(contracts::terminal::CatchUp::Gap { after, .. }) => {
-                                            let _ = state.1.as_ref().expect("output sender").send(Chunk { offset: after, bytes: Arc::from([]) });
+                                            if let Some(sender) = state.1.as_ref() { let _ = sender.send(Chunk { offset: after, bytes: Arc::from([]) }); }
                                             state.0 = after;
                                         }
                                         Err(_) => {}
@@ -271,10 +280,10 @@ impl Remote {
                     }
                 }
             });
-        }).map_err(RpcError::internal)?;
+        }).map_err(Error::internal)?;
         result
             .recv_timeout(DEADLINE + Duration::from_secs(1))
-            .map_err(RpcError::internal)??;
+            .map_err(Error::internal)??;
         let (input, queued) = mpsc::sync_channel(WRITE_BACKLOG);
         let writer = RemoteWriter {
             requests: requests.clone(),
@@ -285,7 +294,7 @@ impl Remote {
             .spawn(move || {
                 pty::type_queued(0, queued, Box::new(writer), recorder::clock());
             })
-            .map_err(RpcError::internal)?;
+            .map_err(Error::internal)?;
         Ok((
             Self {
                 owner: record,
@@ -310,7 +319,7 @@ impl Remote {
         &self,
         method: &str,
         mut value: Value,
-    ) -> Result<T, RpcError> {
+    ) -> Result<T, Error> {
         if let Some(id) = value.get_mut("id") {
             *id = json!(self.original);
         }
@@ -318,52 +327,51 @@ impl Remote {
         if let Some(id) = result.get_mut("id") {
             *id = json!(self.id);
         }
-        params(result)
+        Ok(params(result)?)
     }
 
-    pub(super) fn info(&self) -> Result<TerminalInfo, RpcError> {
+    pub(super) fn info(&self) -> Result<TerminalInfo, Error> {
         let mut infos: Vec<TerminalInfo> = self.call("terminal.list", json!({}))?;
-        if infos.len() != 1 {
-            return Err(RpcError::not_found("owned Terminal"));
-        }
-        let mut info = infos.remove(0);
+        let (1, Some(mut info)) = (infos.len(), infos.pop()) else {
+            return Err(Error::not_found("owned Terminal"));
+        };
         info.id = self.id.clone();
         info.owner = self.home.clone();
         Ok(info)
     }
 
     /// `info` off the calling thread and bounded by `DEADLINE`: an owner that does not answer is an error.
-    pub(super) async fn info_within_deadline(self: &Arc<Self>) -> Result<TerminalInfo, RpcError> {
+    pub(super) async fn info_within_deadline(self: &Arc<Self>) -> Result<TerminalInfo, Error> {
         let remote = Arc::clone(self);
         match tokio::time::timeout(DEADLINE, tokio::task::spawn_blocking(move || remote.info()))
             .await
         {
             Ok(Ok(info)) => info,
-            _ => Err(RpcError::unknown_outcome("owner did not answer")),
+            _ => Err(Error::unknown_outcome("owner did not answer")),
         }
     }
 
-    pub(super) fn enqueue(&self, input: Input) -> Result<(), RpcError> {
+    pub(super) fn enqueue(&self, input: Input) -> Result<(), Error> {
         self.input.try_send(input).map_err(|error| match error {
-            TrySendError::Full(_) => RpcError::conflict("Terminal input queue full"),
-            TrySendError::Disconnected(_) => RpcError::not_found("Terminal input"),
+            TrySendError::Full(_) => Error::conflict("Terminal input queue full"),
+            TrySendError::Disconnected(_) => Error::not_found("Terminal input"),
         })
     }
 
-    pub(super) fn subscribe(&self) -> Result<broadcast::Receiver<Arc<EventData>>, RpcError> {
+    pub(super) fn subscribe(&self) -> Result<broadcast::Receiver<Arc<EventData>>, Error> {
         if !self.info()?.running {
-            return Err(RpcError::not_found("running Terminal"));
+            return Err(Error::not_found("running Terminal"));
         }
         Ok(self.events.subscribe())
     }
 
-    pub(super) fn subscribe_output(&self) -> Result<OutputStream, RpcError> {
-        let state = self.output.lock().expect("remote output");
+    pub(super) fn subscribe_output(&self) -> Result<OutputStream, Error> {
+        let state = self.output.locked("remote output")?;
         Ok(OutputStream {
             receiver: state
                 .1
                 .as_ref()
-                .ok_or_else(|| RpcError::not_found("running Terminal"))?
+                .ok_or_else(|| Error::not_found("running Terminal"))?
                 .subscribe(),
             next: state.0,
             after_gap: None,
@@ -375,14 +383,15 @@ fn request(
     sender: &tokio::sync::mpsc::Sender<Request>,
     method: &str,
     value: Value,
-) -> Result<Value, RpcError> {
+) -> Result<Value, Error> {
     let (response, result) = mpsc::sync_channel(1);
     sender
         .try_send((method.to_owned(), value, response))
-        .map_err(|_| RpcError::conflict("owner request queue unavailable"))?;
+        .map_err(|_| Error::conflict("owner request queue unavailable"))?;
     result
         .recv_timeout(DEADLINE + Duration::from_secs(1))
-        .map_err(|_| RpcError::unknown_outcome("owner result lost; do not retry"))?
+        .map_err(|_| Error::unknown_outcome("owner result lost; do not retry"))?
+        .map_err(Error::from)
 }
 
 struct RemoteWriter {
@@ -406,7 +415,7 @@ impl Write for RemoteWriter {
 }
 
 impl Terminals {
-    pub(super) async fn close_remote(&self, id: &str) -> Result<bool, RpcError> {
+    pub(super) async fn close_remote(&self, id: &str) -> Result<bool, Error> {
         let Some(remote) = self.remote(id)? else {
             return Ok(false);
         };
@@ -417,8 +426,7 @@ impl Terminals {
             self.kill(id).await?;
         }
         self.remotes
-            .lock()
-            .expect("remote table")
+            .locked("remote table")?
             .remove(&parse_terminal_number(id)?);
         self.shared
             .bus
@@ -426,11 +434,10 @@ impl Terminals {
         Ok(true)
     }
 
-    pub(super) async fn close_remote_owned(&self, home: &str) -> Result<bool, RpcError> {
+    pub(super) async fn close_remote_owned(&self, home: &str) -> Result<bool, Error> {
         let entries: Vec<_> = self
             .remotes
-            .lock()
-            .expect("remote table")
+            .locked("remote table")?
             .iter()
             .filter(|(_, remote)| remote.home.as_deref() == Some(home))
             .map(|(id, remote)| (*id, remote.clone()))
@@ -439,16 +446,15 @@ impl Terminals {
             if remote.info()?.running {
                 self.kill(&number.to_string()).await?;
             }
-            self.remotes.lock().expect("remote table").remove(number);
+            self.remotes.locked("remote table")?.remove(number);
         }
         Ok(!entries.is_empty())
     }
 
-    pub(super) fn make_remote_space(&self, home: &str) -> Result<bool, RpcError> {
+    pub(super) fn make_remote_space(&self, home: &str) -> Result<bool, Error> {
         let entries: Vec<_> = self
             .remotes
-            .lock()
-            .expect("remote table")
+            .locked("remote table")?
             .iter()
             .filter(|(_, remote)| remote.home.as_deref() == Some(home))
             .map(|(id, remote)| (*id, remote.clone()))
@@ -458,27 +464,26 @@ impl Terminals {
         }
         for (number, remote) in entries {
             if !remote.info()?.running {
-                self.remotes.lock().expect("remote table").remove(&number);
+                self.remotes.locked("remote table")?.remove(&number);
                 return Ok(true);
             }
         }
-        Err(RpcError::conflict(format!(
+        Err(Error::conflict(format!(
             "{home} already runs {OWNED_CAP} terminals"
         )))
     }
 
-    pub(super) fn remote_scheme(&self, params: &SchemeParams) -> Result<(), RpcError> {
+    pub(super) fn remote_scheme(&self, params: &SchemeParams) -> Result<(), Error> {
         let entries: Vec<_> = self
             .remotes
-            .lock()
-            .expect("remote table")
+            .locked("remote table")?
             .values()
             .cloned()
             .collect();
         for remote in entries {
             remote.call::<()>(
                 "terminal.scheme",
-                serde_json::to_value(params).map_err(RpcError::internal)?,
+                serde_json::to_value(params).map_err(Error::internal)?,
             )?;
         }
         Ok(())

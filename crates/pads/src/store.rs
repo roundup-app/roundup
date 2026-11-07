@@ -3,7 +3,9 @@
 use std::path::Path;
 
 use contracts::pad::Pad;
-use rpc::{OpenError, RpcError};
+use rpc::OpenError;
+
+use crate::Error;
 use rusqlite::{Connection, OptionalExtension, Transaction, TransactionBehavior, params};
 use unicode_normalization::UnicodeNormalization;
 
@@ -102,11 +104,11 @@ impl Store {
     }
 
     /// Runs `work` in one write transaction: its Store calls commit together or not at all, and no other connection writes meanwhile.
-    pub fn atomically<T>(&self, work: impl FnOnce() -> Result<T, RpcError>) -> Result<T, RpcError> {
+    pub fn atomically<T>(&self, work: impl FnOnce() -> Result<T, Error>) -> Result<T, Error> {
         let tx = Transaction::new_unchecked(&self.db, TransactionBehavior::Immediate)
-            .map_err(RpcError::internal)?;
+            .map_err(Error::internal)?;
         let out = work()?;
-        tx.commit().map_err(RpcError::internal)?;
+        tx.commit().map_err(Error::internal)?;
         Ok(out)
     }
 

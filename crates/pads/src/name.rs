@@ -1,14 +1,14 @@
 //! Pad names become file names, so they must not be able to escape the pads directory.
 
-use rpc::RpcError;
+use crate::Error;
 
-pub fn validate(name: &str) -> Result<(), RpcError> {
+pub fn validate(name: &str) -> Result<(), Error> {
     let bad = name.is_empty()
         || name.starts_with('.')
         || name.contains(['/', '\\', '\0'])
         || name.contains("..");
     if bad {
-        return Err(RpcError::new(
+        return Err(Error::new(
             rpc::code::INVALID_PARAMS,
             format!("invalid pad name: {name:?}"),
         ));

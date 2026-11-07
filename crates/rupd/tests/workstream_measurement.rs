@@ -6,11 +6,13 @@ use std::sync::Arc;
 use tokio::net::UnixListener;
 
 async fn serve(dir: &std::path::Path) -> Client {
-    let daemon = Arc::new(rupd::Daemon::open(dir).unwrap());
+    let (daemon, watchers) = rupd::Daemon::open(dir).unwrap();
+    let daemon = Arc::new(daemon);
     let socket = dir.join("rupd.sock");
     tokio::spawn(rupd::serve(
         UnixListener::bind(&socket).unwrap(),
         Arc::clone(&daemon),
+        watchers,
     ));
     Client::connect(&socket).await.unwrap()
 }

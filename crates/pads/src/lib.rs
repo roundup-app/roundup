@@ -1,7 +1,19 @@
 //! Pads: markdown notes, app-stored or as files. Owner: pads Builder.
 
+#![cfg_attr(
+    not(test),
+    deny(
+        clippy::unwrap_used,
+        clippy::expect_used,
+        clippy::panic,
+        clippy::indexing_slicing
+    )
+)]
+
 mod contract_handlers;
 mod deletion;
+mod error;
+pub use error::Error;
 mod files;
 pub use deletion::{restore, retain};
 mod name;
@@ -19,7 +31,7 @@ use std::sync::Mutex;
 use async_trait::async_trait;
 use contracts::pad::PadName;
 use contracts::{Actor, EventData};
-use rpc::{Ctx, Module, RpcError, params, reply};
+use rpc::{Ctx, Module, RpcError, params};
 use serde_json::Value;
 
 use operations::{found, get, wrote};
@@ -48,4 +60,8 @@ impl Module for Pads {
 pub struct RemovalFiles {
     files: Vec<(PathBuf, tempfile::TempPath)>,
     committed: bool,
+}
+
+fn reply<T: serde::Serialize>(value: &T) -> Result<Value, Error> {
+    Ok(rpc::reply(value)?)
 }

@@ -93,6 +93,13 @@ async fn u6380b_a_door_names_its_workstream() {
     assert_eq!(f.name_of(&team).await, "Fix Refresh Race");
     assert_eq!(f.changed(), 0);
 
+    let numbered = f.workstream("Workstream 2", None).await;
+    f.call("rail.startDoor", json!({"id": numbered}))
+        .await
+        .unwrap();
+    f.submit(&numbered, "Write the docs").await;
+    assert_eq!(f.name_of(&numbered).await, "Write Docs");
+
     let named = f.workstream("team", None).await;
     f.call("rail.startDoor", json!({"id": named}))
         .await

@@ -2,11 +2,11 @@ use super::*;
 
 impl Terminals {
     /// Forget `owner`'s oldest exited Terminal when it holds [`OWNED_CAP`]; true when one went.
-    pub(super) fn evict_for_cap(&self, owner: &str) -> Result<bool, RpcError> {
+    pub(super) fn evict_for_cap(&self, owner: &str) -> Result<bool, Error> {
         if self.owner_helper.is_some() {
             return self.make_remote_space(owner);
         }
-        let mut table = self.shared.table();
+        let mut table = self.shared.table()?;
         let parked: Vec<(u64, bool)> = table
             .iter()
             .filter(|(_, entry)| entry.info.owner.as_deref() == Some(owner))
@@ -25,7 +25,7 @@ impl Terminals {
                 self.shared.changed(number, Vec::new());
                 Ok(true)
             }
-            None => Err(RpcError::conflict(format!(
+            None => Err(Error::conflict(format!(
                 "{owner} already runs {OWNED_CAP} terminals"
             ))),
         }
@@ -35,7 +35,7 @@ impl Terminals {
         &self,
         params: SpawnParams,
         owner: Option<String>,
-    ) -> Result<Spawned, RpcError> {
+    ) -> Result<Spawned, Error> {
         if let Some(helper) = &self.owner_helper {
             return self.start_owner(helper, params, owner).await;
         }
@@ -46,11 +46,11 @@ impl Terminals {
         }
         // Generate independently of authentication and vendor content; failure starts no program.
         let mut nonce = [0u8; 32];
-        getrandom::fill(&mut nonce).map_err(RpcError::internal)?;
+        getrandom::fill(&mut nonce).map_err(Error::internal)?;
         let incarnation = nonce.iter().map(|byte| format!("{byte:02x}")).collect();
         let pair = native_pty_system()
             .openpty(window(params.cols, params.rows)?)
-            .map_err(RpcError::internal)?;
+            .map_err(Error::internal)?;
         let number = self.next.fetch_add(1, Ordering::Relaxed);
         let mut command = match &params.command {
             Some(argv) => CommandBuilder::from_argv(argv.iter().map(Into::into).collect()),
@@ -69,8 +69,8 @@ impl Terminals {
         command.env("ROUNDUP_TERMINAL", number.to_string());
         // All three threads start before the program, so a thread-creation failure leaves no
         // program behind. The reaper observes completion independently of PTY EOF.
-        let reader = pair.master.try_clone_reader().map_err(RpcError::internal)?;
-        let writer = pair.master.take_writer().map_err(RpcError::internal)?;
+        let reader = pair.master.try_clone_reader().map_err(Error::internal)?;
+        let writer = pair.master.take_writer().map_err(Error::internal)?;
         let writer = match &self.input_writer {
             Some(adapt) => adapt(writer),
             None => writer,
@@ -104,15 +104,16 @@ impl Terminals {
                 if let Ok(program) = program_arrives.recv() {
                     let code = program::exit_code(number, reap(&program));
                     ended.send_replace(true);
-                    program_shared
+                    if let Ok(mut ends) = program_shared
                         .program_ends
-                        .lock()
-                        .expect("terminal program ends lock")
-                        .remove(&number);
+                        .locked("terminal program ends lock")
+                    {
+                        ends.remove(&number);
+                    }
                     let _ = reaped.send(code);
                 }
             })
-            .map_err(RpcError::internal)?;
+            .map_err(Error::internal)?;
         let (arrival, child_arrives) = mpsc::channel::<Arc<Handle>>();
         let (output, output_receiver) = broadcast::channel(OUTPUT_BACKLOG);
         let pump_output = output.clone();
@@ -125,31 +126,34 @@ impl Terminals {
             .spawn(move || {
                 // No child means the program never started: nothing to report.
                 if let Ok(handle) = child_arrives.recv() {
-                    pty::read(
-                        &shared,
+                    stopped(
                         number,
-                        reader,
-                        &handle,
-                        &reader_screen,
-                        &pump_output,
+                        "output stopped",
+                        pty::read(
+                            &shared,
+                            number,
+                            reader,
+                            &handle,
+                            &reader_screen,
+                            &pump_output,
+                        ),
                     );
-                    let code = completion
-                        .recv()
-                        .expect("the reaper reports program completion");
+                    // A reaper that vanished without a report leaves an unknown ending, which must not look like a signal.
+                    let code = completion.recv().unwrap_or(Some(i32::MAX));
                     if let Some(hold) = exit_hold {
                         hold();
                     }
                     drop(pump_output);
-                    shared.finish(number, code);
+                    stopped(number, "exit not published", shared.finish(number, code));
                 }
             })
-            .map_err(RpcError::internal)?;
+            .map_err(Error::internal)?;
         let (input, queued) = mpsc::sync_channel(WRITE_BACKLOG);
         let input_clock = Arc::clone(&self.shared.clock);
         std::thread::Builder::new()
             .name(format!("terminal-{number}-input"))
             .spawn(move || pty::type_queued(number, queued, writer, input_clock))
-            .map_err(RpcError::internal)?;
+            .map_err(Error::internal)?;
         let argv0 = params
             .command
             .as_deref()
@@ -162,7 +166,7 @@ impl Terminals {
         ));
         // Only the program may hold the slave end, or reading never sees it close.
         drop(pair.slave);
-        let pid = program.lock().expect("program lock").process_id();
+        let pid = program.locked("program lock")?.process_id();
         let handle = Arc::new(Handle {
             input,
             program: Arc::clone(&program),
@@ -174,10 +178,9 @@ impl Terminals {
         // Install the wait registration before list can expose this Terminal.
         self.shared
             .program_ends
-            .lock()
-            .expect("terminal program ends lock")
+            .locked("terminal program ends lock")?
             .insert(number, program_ended);
-        self.shared.table().insert(
+        self.shared.table()?.insert(
             number,
             Entry {
                 pid,
@@ -220,7 +223,7 @@ impl Terminals {
 }
 
 /// What the OS would refuse at exec time, caught here so it is the caller's error with a short message.
-fn check_program(params: &SpawnParams) -> Result<(), RpcError> {
+fn check_program(params: &SpawnParams) -> Result<(), Error> {
     let argv = params.command.as_deref().unwrap_or_default();
     if params.command.is_some() && argv.first().is_none_or(String::is_empty) {
         return Err(invalid("command must start with a program name"));
@@ -241,12 +244,12 @@ fn check_program(params: &SpawnParams) -> Result<(), RpcError> {
 
 /// portable-pty reports an argv[0] it cannot find or run as text that can quote the Daemon's `PATH`;
 /// that is the caller's error and must not leak `PATH`. Any other failure to start is the Daemon's.
-fn spawn_error(program: Option<&str>, err: &impl std::fmt::Display) -> RpcError {
+fn spawn_error(program: Option<&str>, err: &impl std::fmt::Display) -> Error {
     match program {
         Some(program) if err.to_string().starts_with("Unable to spawn ") => {
             invalid(format!("cannot run {program}"))
         }
-        _ => RpcError::internal(err),
+        _ => Error::internal(err),
     }
 }
 

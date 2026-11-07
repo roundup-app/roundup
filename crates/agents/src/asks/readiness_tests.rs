@@ -106,7 +106,7 @@ async fn a4899a_readiness_at_the_wait_boundary_is_not_lost() {
         let (w, asks, ctx, mut input) = fixture().await;
         if first_pending {
             if let Some(Slot::Running(run)) = w.shared.runs().get_mut("7013") {
-                run.first_pending = true;
+                run.first_mut().set_pending(true);
             }
         } else {
             w.shared
@@ -131,7 +131,7 @@ async fn a4899a_readiness_at_the_wait_boundary_is_not_lost() {
         *asks.shared.before_wait.lock().unwrap() = Some(Box::new(move || {
             if first_pending {
                 if let Some(Slot::Running(run)) = shared.runs().get_mut("7013") {
-                    run.first_pending = false;
+                    run.first_mut().set_pending(false);
                 }
                 // Same completion boundary as steer_first_prompt: no Kind or bus Event.
                 shared.events.observed.notify_waiters();

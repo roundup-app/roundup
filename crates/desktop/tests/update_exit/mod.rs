@@ -2,7 +2,7 @@
 use super::*;
 
 /// A Daemon stand-in that answers one request, `open_project`'s ping, and then goes silent.
-fn serve_one_answer(socket: PathBuf) {
+pub(super) fn serve_one_answer(socket: PathBuf) {
     use std::io::{BufRead, BufReader, Write};
     let listener = std::os::unix::net::UnixListener::bind(socket).unwrap();
     std::thread::spawn(move || {

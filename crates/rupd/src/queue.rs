@@ -24,7 +24,6 @@ type Starting<'a> = Pin<Box<dyn Future<Output = Result<(), RpcError>> + Send + '
 pub(crate) struct Memory {
     pub(super) launching: Mutex<HashSet<String>>,
     running: Mutex<HashSet<String>>,
-    watching: std::sync::atomic::AtomicBool,
     pub(super) pass: tokio::sync::Mutex<()>,
 }
 
@@ -406,19 +405,6 @@ impl Daemon {
             touches: Arc::clone(&self.touches),
             memory: Arc::clone(&self.queue),
         }
-    }
-
-    /// Start watching the Bus for the Queue, once, at the first request.
-    pub(crate) fn start_queue(&self) {
-        if tokio::runtime::Handle::try_current().is_err()
-            || self
-                .queue
-                .watching
-                .swap(true, std::sync::atomic::Ordering::SeqCst)
-        {
-            return;
-        }
-        tokio::spawn(self.queuer().watch(self.bus.subscribe()));
     }
 }
 

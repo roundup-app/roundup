@@ -146,7 +146,7 @@ impl Drop for Fixture {
         let Some(dir) = self.temporary.take() else {
             return;
         };
-        // Closing stdin requests shutdown; AppState's watcher reaps the child (state.rs).
+        // Closing stdin requests shutdown; AppState's watcher reaps the child (project_task.rs).
         let _ = self.invoke(
             "close_project",
             json!({"path": self.project.display().to_string()}),
@@ -838,10 +838,14 @@ mod s6 {
         let project = dir.path().join("project");
         std::fs::create_dir(&project).unwrap();
         let socket = dir.path().join("real.sock");
-        let daemon = rupd::Daemon::open(&dir.path().join("daemon-data")).unwrap();
+        let (daemon, watchers) = rupd::Daemon::open(&dir.path().join("daemon-data")).unwrap();
         tauri::async_runtime::block_on(async {
             let listener = tokio::net::UnixListener::bind(&socket).unwrap();
-            tauri::async_runtime::spawn(rupd::serve(listener, std::sync::Arc::new(daemon)));
+            tauri::async_runtime::spawn(rupd::serve(
+                listener,
+                std::sync::Arc::new(daemon),
+                watchers,
+            ));
         });
         let script = dir.path().join("rupd");
         std::fs::write(

@@ -1,30 +1,5 @@
 use super::*;
 
-impl Slot {
-    pub(super) fn attempt(&self) -> &str {
-        match self {
-            Self::Starting { attempt, .. }
-            | Self::Resuming { attempt, .. }
-            | Self::ResumeCleanup { attempt, .. } => attempt.as_str(),
-            Self::Running(run) => &run.attempt,
-            Self::Closing => "",
-        }
-    }
-    pub(super) fn closing(&self) -> bool {
-        matches!(self, Self::Closing | Self::ResumeCleanup { .. })
-            || matches!(self, Self::Running(run) if run.closing)
-    }
-
-    /// The node's name is final: no prompt renames it.
-    pub(super) fn settle_name(&mut self) {
-        match self {
-            Self::Running(run) => run.named = true,
-            Self::Starting { named, .. } => *named = true,
-            Self::Resuming { .. } | Self::ResumeCleanup { .. } | Self::Closing => {}
-        }
-    }
-}
-
 impl Shared {
     /// Swap `id` from `Starting` to `Running` (the Run `build` makes, told whether a
     /// `rail.rename` already settled its name) and apply every Signal parked for it, in arrival
@@ -52,13 +27,13 @@ impl Shared {
             unreachable!("spawn marks {id} Starting before run_agent runs")
         };
         let mut run = build(named);
-        if run.input_started
-            && let Err(error) = self.save_input_started(id, &run.attempt)
+        if run.input_started()
+            && let Err(error) = self.save_input_started(id, run.attempt())
         {
             runs.insert(id.to_owned(), Slot::Running(run));
             return Err(error);
         }
-        run.adapter
+        run.adapter_mut()
             .set_finished(rail.finished(id).unwrap_or_default());
         let mut prompts = Vec::new();
         for (actor, payload) in parked {
@@ -275,30 +250,18 @@ impl Shared {
         // U6260b: a resume continues the conversation, so input it already received stays
         // admitted; a retained order alone is not input (A5556a).
         let continued =
-            old.as_ref().is_some_and(|old| old.input_started) || self.owner_input_started(id);
-        let mut run = Run {
-            yolo: mode == contracts::agent::ResumeMode::Yolo,
-            startup_context: true,
-            input_started: prompt.is_some() || continued,
-            attempt: attempt.clone(),
-            status_revision: Ordinal::first(),
-            closing: false,
-            ended: false,
-            adapter: ClaudeCode::starting(move || clock()),
-            first_pending: prompt.is_some(),
-            first_completion: prompt.as_ref().map(|_| tokio::sync::watch::channel(None).0),
-            first_prompt: prompt.as_ref().map(|_| FirstPrompt::Reserved),
-            prompt,
-            steer: None,
-            session_started: None,
-            starred: false,
-            interrupt: None,
-            named: true,
-            terminal_id: terminal_id.clone(),
+            old.as_ref().is_some_and(|old| old.input_started()) || self.owner_input_started(id);
+        let mut run = Run::resumed(
+            clock,
+            mode == contracts::agent::ResumeMode::Yolo,
+            attempt.clone(),
+            terminal_id.clone(),
             cwd,
-        };
-        if run.input_started
-            && let Err(error) = self.save_input_started(id, &run.attempt)
+            prompt,
+            continued,
+        );
+        if run.input_started()
+            && let Err(error) = self.save_input_started(id, run.attempt())
         {
             self.fail_resume(
                 runs,
@@ -311,7 +274,7 @@ impl Shared {
             );
             return Err(error);
         }
-        run.adapter
+        run.adapter_mut()
             .set_finished(rail.finished(id).unwrap_or_default());
         // Only the matching ack may release the first prompt; a parked mismatched SessionStart
         // must not take it before the remembered title is applied below.
@@ -354,7 +317,9 @@ impl Shared {
             );
             return Err(err);
         }
-        run.starred = starred;
+        if starred {
+            run.note_star();
+        }
         let applied = self.apply(
             Some(rail),
             &mut run,
@@ -396,8 +361,8 @@ pub(super) fn save_signal_conversation(
     let Some(conversation_id) = claude_code::conversation_id(payload) else {
         return Ok(());
     };
-    rail.save_conversation(id, &conversation_id, &run.cwd)?;
-    rail.save_conversation_yolo(id, run.yolo)?;
+    rail.save_conversation(id, &conversation_id, run.cwd())?;
+    rail.save_conversation_yolo(id, run.yolo())?;
     Ok(())
 }
 

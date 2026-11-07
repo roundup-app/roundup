@@ -83,11 +83,15 @@ async fn daemon() -> Fixture {
 
 async fn daemon_waiting(timeout: Duration) -> Fixture {
     let dir = tempfile::tempdir().unwrap();
-    let mut daemon = <Daemon>::open(dir.path()).unwrap();
+    let (mut daemon, watchers) = <Daemon>::open(dir.path()).unwrap();
     daemon.actions = crate::actions::Answerer::with_timeout(timeout);
     let daemon = Arc::new(daemon);
     let socket = dir.path().join("actions.sock");
-    tokio::spawn(serve(UnixListener::bind(&socket).unwrap(), daemon));
+    tokio::spawn(serve(
+        UnixListener::bind(&socket).unwrap(),
+        daemon,
+        watchers,
+    ));
     Fixture {
         _dir: dir,
         socket,

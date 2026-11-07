@@ -25,7 +25,7 @@ async fn a2703a_errors_use_rail_names() {
         match case {
             "ended" => {
                 if let Some(Slot::Running(run)) = shared.runs().get_mut("7013") {
-                    run.ended = true;
+                    run.exit();
                 }
             }
             "closing" => {
@@ -185,27 +185,7 @@ fn a14_a_failed_rail_write_for_a_parked_signal_does_not_poison_the_locks() {
     }
     let db = refuse_rail_writes(dir.path());
 
-    let prompts = shared.finish_starting(&id, "1", |named| Run {
-        yolo: false,
-        startup_context: true,
-        input_started: true,
-        attempt: contracts::agent::Ordinal::parse("1").unwrap(),
-        status_revision: contracts::agent::Ordinal::first(),
-        closing: false,
-        ended: false,
-        adapter: ClaudeCode::starting(|| 0),
-        prompt: None,
-        first_pending: false,
-        first_completion: None,
-        first_prompt: None,
-        steer: None,
-        session_started: None,
-        starred: false,
-        interrupt: None,
-        named,
-        terminal_id: "1".into(),
-        cwd: "/".into(),
-    });
+    let prompts = shared.finish_starting(&id, "1", |named| Run::fixture(Arc::new(|| 0), named));
 
     db.execute_batch("DROP TRIGGER fail_write").unwrap();
     assert_eq!(prompts.unwrap(), Vec::<String>::new());
@@ -239,27 +219,7 @@ fn a21_a_failed_parked_save_reinserts_so_the_caller_can_clean_up() {
     }
     let db = refuse_rail_writes(dir.path());
 
-    let result = shared.finish_starting(&id, "1", |named| Run {
-        yolo: false,
-        startup_context: true,
-        input_started: true,
-        attempt: contracts::agent::Ordinal::parse("1").unwrap(),
-        status_revision: contracts::agent::Ordinal::first(),
-        closing: false,
-        ended: false,
-        adapter: ClaudeCode::starting(|| 0),
-        prompt: None,
-        first_pending: false,
-        first_completion: None,
-        first_prompt: None,
-        steer: None,
-        session_started: None,
-        starred: false,
-        interrupt: None,
-        named,
-        terminal_id: "1".into(),
-        cwd: "/".into(),
-    });
+    let result = shared.finish_starting(&id, "1", |named| Run::fixture(Arc::new(|| 0), named));
 
     db.execute_batch("DROP TRIGGER fail_write").unwrap();
     assert!(result.is_err());
@@ -268,7 +228,7 @@ fn a21_a_failed_parked_save_reinserts_so_the_caller_can_clean_up() {
         panic!("put back as Running for the caller's cleanup to find")
     };
     // The Stop parked after the SessionStart was never drained: the abort is immediate.
-    assert_eq!(run.adapter.status().unwrap().kind, Kind::Working);
+    assert_eq!(run.adapter().status().unwrap().kind, Kind::Working);
 }
 
 /// The build rendezvous makes the late Signal contend for both locks,
@@ -322,27 +282,7 @@ fn a14_a_signal_released_once_the_agent_is_registered_never_outruns_the_parked_o
             .finish_starting(&id, "1", |named| {
                 observe.send(id.clone()).unwrap();
                 arriving.recv().unwrap();
-                Run {
-                    yolo: false,
-                    startup_context: true,
-                    input_started: true,
-                    attempt: contracts::agent::Ordinal::parse("1").unwrap(),
-                    status_revision: contracts::agent::Ordinal::first(),
-                    closing: false,
-                    ended: false,
-                    adapter: ClaudeCode::starting(|| 0),
-                    prompt: None,
-                    first_pending: false,
-                    first_completion: None,
-                    first_prompt: None,
-                    session_started: None,
-                    starred: false,
-                    steer: None,
-                    interrupt: None,
-                    named,
-                    terminal_id: id.clone(),
-                    cwd: "/".into(),
-                }
+                Run::fixture(Arc::new(|| 0), named)
             })
             .unwrap();
         completed.recv().unwrap();
@@ -367,8 +307,10 @@ async fn b37_a7_old_title_tick_exit_and_signal_do_not_change_a_new_run() {
         let Some(Slot::Running(run)) = runs.get_mut("1") else {
             panic!("Running")
         };
-        run.attempt = contracts::agent::Ordinal::parse("2").unwrap();
-        run.terminal_id = "new-terminal".into();
+        run.relaunch(
+            contracts::agent::Ordinal::parse("2").unwrap(),
+            "new-terminal".into(),
+        );
     }
     for observation in [
         Observation::Title("old title".into()),
@@ -389,10 +331,10 @@ async fn b37_a7_old_title_tick_exit_and_signal_do_not_change_a_new_run() {
     let Some(Slot::Running(run)) = runs.get("1") else {
         panic!("Running")
     };
-    assert_eq!(run.attempt, "2");
-    assert_eq!(run.terminal_id, "new-terminal");
-    assert!(!run.ended);
-    assert_eq!(run.adapter.status().unwrap().kind, Kind::Working);
+    assert_eq!(run.attempt(), "2");
+    assert_eq!(run.terminal_id(), "new-terminal");
+    assert!(!run.ended());
+    assert_eq!(run.adapter().status().unwrap().kind, Kind::Working);
 }
 #[tokio::test]
 async fn a7_status_revisions_order_transitions_even_when_the_clock_ties() {
@@ -691,7 +633,7 @@ async fn b5635c_unrelated_hooks_do_not_copy_completed_text() {
             .runs()
             .get(&id)
             .and_then(|slot| match slot {
-                Slot::Running(run) => run.adapter.completed_text().cloned(),
+                Slot::Running(run) => run.adapter().completed_text().cloned(),
                 _ => None,
             })
             .unwrap();
@@ -714,7 +656,7 @@ async fn b5635c_unrelated_hooks_do_not_copy_completed_text() {
         let Some(Slot::Running(run)) = runs.get(&id) else {
             panic!("running")
         };
-        assert_eq!(run.adapter.completed_text(), Some(&before));
+        assert_eq!(run.adapter().completed_text(), Some(&before));
     }
     assert!(
         costs[1] <= costs[0] + 64 * 1024,
@@ -734,7 +676,7 @@ async fn b5635c_completion_changes_are_reported_once() {
     let id = running_agent(&shared, None);
     let clock = Arc::clone(&now);
     if let Some(Slot::Running(run)) = shared.runs().get_mut(&id) {
-        run.adapter = ClaudeCode::starting(move || clock.load(Ordering::SeqCst));
+        *run.adapter_mut() = ClaudeCode::starting(move || clock.load(Ordering::SeqCst));
     }
     shared
         .observe(
@@ -765,7 +707,7 @@ async fn b5635c_completion_changes_are_reported_once() {
             panic!("running")
         };
         assert_eq!(
-            run.adapter.completed_text(),
+            run.adapter().completed_text(),
             Some(&(
                 "1".into(),
                 10,

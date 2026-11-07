@@ -304,7 +304,7 @@ mod tests {
         let project = tempfile::tempdir().unwrap();
         let data = tempfile::tempdir().unwrap();
         FAKE.with(|f| *f.borrow_mut() = Some(fake_gh(bin.path(), body)));
-        let daemon = Daemon::open_project(project.path(), data.path()).unwrap();
+        let daemon = Daemon::open_project(project.path(), data.path()).unwrap().0;
         Setup {
             bin,
             _data: data,

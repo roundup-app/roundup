@@ -35,10 +35,28 @@ impl Frame {
     }
 }
 
-/// Accept connections until the listener fails.
-pub async fn serve(listener: UnixListener, daemon: Arc<Daemon>) -> io::Result<()> {
-    // UA1: the Extension host starts after the socket is bound and never delays it.
+/// Start the Daemon's watchers once and accept connections until the listener fails. A watcher
+/// that ends first fails the serve: a panicked watcher would otherwise vanish. An Extension host
+/// starts after the socket is bound and never delays it (UA1).
+pub async fn serve(
+    listener: UnixListener,
+    daemon: Arc<Daemon>,
+    watchers: Watchers,
+) -> io::Result<()> {
+    let mut running = watchers.spawn(&daemon);
     daemon.extensions.start(&daemon);
+    tokio::select! {
+        accepted = accept(listener, daemon) => accepted,
+        Some(ended) = running.join_next() => Err(io::Error::other(match ended {
+            Ok(()) => "a watcher ended while the Daemon served".to_owned(),
+            Err(err) => format!("a watcher failed: {err}"),
+        })),
+    }
+}
+
+/// Accept connections on a further socket (A12a) until the listener fails; `serve` runs the
+/// watchers.
+pub async fn accept(listener: UnixListener, daemon: Arc<Daemon>) -> io::Result<()> {
     loop {
         let (stream, _) = listener.accept().await?;
         let daemon = Arc::clone(&daemon);

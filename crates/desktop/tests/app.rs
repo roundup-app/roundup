@@ -134,20 +134,19 @@ impl Fixture {
 
     /// A real Daemon for the Project folder `name`, on the socket `TWO_DAEMONS` links to.
     fn serve_real_daemon_named(&self, name: &str) {
-        let daemon = rupd::Daemon::open(&self.dir.path().join(format!(".roundup-{name}"))).unwrap();
         let socket = self.dir.path().join(format!("real-{name}.sock"));
-        tauri::async_runtime::block_on(async move {
-            let listener = UnixListener::bind(socket).unwrap();
-            tauri::async_runtime::spawn(rupd::serve(listener, Arc::new(daemon)));
-        });
+        self.serve_daemon(&format!(".roundup-{name}"), socket);
     }
 
     fn serve_real_daemon(&self) {
-        let daemon = rupd::Daemon::open(&self.dir.path().join(".roundup")).unwrap();
-        let socket = self.real_daemon_socket();
+        self.serve_daemon(".roundup", self.real_daemon_socket());
+    }
+
+    fn serve_daemon(&self, data: &str, socket: PathBuf) {
+        let (daemon, watchers) = rupd::Daemon::open(&self.dir.path().join(data)).unwrap();
         tauri::async_runtime::block_on(async move {
             let listener = UnixListener::bind(socket).unwrap();
-            tauri::async_runtime::spawn(rupd::serve(listener, Arc::new(daemon)));
+            tauri::async_runtime::spawn(rupd::serve(listener, Arc::new(daemon), watchers));
         });
     }
 }
@@ -1886,7 +1885,7 @@ fn s5_reopening_starts_rupd_on_a_socket_path_unique_to_the_new_run() {
     fx.release();
 }
 
-#[path = "project_names/mod.rs"]
 mod project_names;
 mod project_opening;
+mod project_task;
 mod update_exit;
