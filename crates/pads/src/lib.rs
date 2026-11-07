@@ -20,7 +20,6 @@ mod name;
 mod operations;
 pub mod reference;
 mod rename;
-#[doc(hidden)]
 pub mod section;
 mod store;
 
