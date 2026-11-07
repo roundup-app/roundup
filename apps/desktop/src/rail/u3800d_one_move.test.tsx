@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, screen } from "@solidjs/testing-library";
-import { createRoot, createSignal } from "solid-js";
+import { createMemo, createRoot, createSignal } from "solid-js";
 import { afterEach, expect, it } from "vitest";
 import { connectProject } from "../state/connectedProject";
 import { createFakeApp } from "../testing/fakeApp";
@@ -79,14 +79,15 @@ it("u3800g_focus_lands_on_the_dropped_row", async () => {
 it("u3800g_collection_survives_a_redraw_that_leaves_the_tree_as_it_was", async () => {
   const app = createFakeApp();
   app.handlers["rail.tree"] = () => tree40();
-  const clock = createSignal(NOW);
-  const connected = await connectProject(app, { path: "/p", name: "p" }, () => true, clock[0]);
+  const [now, setClock] = createSignal(NOW);
+  const clock = createRoot(() => createMemo(now));
+  const connected = await connectProject(app, { path: "/p", name: "p" }, () => true, clock);
 
   createRoot(dispose => {
     const tree = createRailTree(connected, () => new Set(), () => undefined);
     const collection = tree.collection();
     const expanded = tree.expanded();
-    clock[1](NOW + 1000);
+    setClock(NOW + 1000);
     expect(tree.collection()).toBe(collection);
     expect(tree.expanded()).toBe(expanded);
     dispose();
