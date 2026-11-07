@@ -165,8 +165,9 @@ unsafe extern "C-unwind" fn dock_menu(
     // Follow Cocoa's +0 callback convention even if the caller drops its owner during
     // refresh: the autorelease keeps the menu alive until AppKit retains it for tracking.
     // SAFETY: Muda's public accessor is a live NSMenu while Section owns its Menu.
-    let menu = unsafe { Retained::retain(section.menu.ns_menu().cast::<NSMenu>()) }
-        .expect("Muda owns a non-null NSMenu");
+    let Some(menu) = (unsafe { Retained::retain(section.menu.ns_menu().cast::<NSMenu>()) }) else {
+        return std::ptr::null_mut();
+    };
     drop(section);
     Retained::autorelease_return(menu)
 }
