@@ -296,3 +296,15 @@ async fn u6000e_a_failed_spawn_leaves_no_starting_node() {
 
     assert!(f.tree().await.is_empty());
 }
+
+#[tokio::test]
+async fn lc1_a_corrupt_lean_file_fails_the_start() {
+    let f = Fixture::running("sleep 30");
+    std::fs::create_dir_all(f.dir.path().join("agents")).unwrap();
+    std::fs::write(f.dir.path().join("agents/1.lean.json"), "{").unwrap();
+
+    let err = f.spawn(None, None).await.unwrap_err();
+
+    assert!(err.message.contains("1.lean.json"), "{}", err.message);
+    assert!(f.terminals.list().await.is_empty());
+}

@@ -569,9 +569,9 @@ fn lc8_a_missing_extra_relaunches_with_resume_and_snapshot_off() {
     // The kept profile survives a Daemon restart and is cleared once applied.
     let dir = s.dir.canonicalize().unwrap();
     Launcher::save_lean(&dir, "7", pair.lean.as_ref().unwrap()).unwrap();
-    assert_eq!(Launcher::load_lean(&dir, "7"), pair.lean);
+    assert_eq!(Launcher::load_lean(&dir, "7").unwrap(), pair.lean);
     Launcher::discard(&dir, "7").unwrap();
-    assert_eq!(Launcher::load_lean(&dir, "7"), None);
+    assert_eq!(Launcher::load_lean(&dir, "7").unwrap(), None);
 }
 
 #[test]
