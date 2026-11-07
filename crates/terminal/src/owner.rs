@@ -164,7 +164,7 @@ impl Terminals {
         let ctx = Arc::new(Ctx {
             actor: Actor::user(),
             bus,
-            touches: Arc::new(provenance::Touches::open(Path::new(":memory:"))?),
+            touches: Arc::new(provenance::Touches::in_memory()?),
         });
         // Adopt only this helper's descendants so explicit stop can reap the whole PTY group.
         #[cfg(target_os = "linux")]
