@@ -879,5 +879,89 @@ async fn al6_a_failed_link_lookup_returns_the_reply_without_links() {
             nodes.iter().all(|n| n.get("link").is_none()),
             "{method}: {tree}"
         );
+
+        // AL7: a Pad reply is as good as the Project key read.
+        let pad = door
+            .request(
+                "tools/call",
+                json!({ "name": "pad_create", "arguments": { "name": format!("al6 {method}") } }),
+            )
+            .await;
+        assert_ne!(pad["isError"], true, "{method}: {pad}");
+        let pad: Value = serde_json::from_str(pad["content"][0]["text"].as_str().unwrap()).unwrap();
+        assert_eq!(pad["name"], format!("al6 {method}"));
+        // A Pad link needs only the Project key, so a failed Rail read leaves it.
+        assert_eq!(
+            pad.get("link").is_none(),
+            method == "daemon.ping",
+            "{method}: {pad}"
+        );
     }
+}
+
+#[tokio::test]
+async fn al7_pad_and_todo_replies_carry_their_link() {
+    let project = start(&[]);
+    let user = project.client().await;
+    let rail = rail(&project, &user).await;
+    let key = user.request("daemon.ping", Value::Null).await.unwrap()["projectKey"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let pad_link = format!("roundup://pad/plan%3A%20v1?project={key}");
+    let mut agent = Shim::start(&project, &rail.a).await;
+
+    let pad = agent
+        .call("pad_create", json!({ "name": "plan: v1", "text": "hi" }))
+        .await;
+    assert_eq!(pad["link"], pad_link);
+    assert_eq!(
+        agent.call("pad_read", json!({ "name": "plan: v1" })).await["link"],
+        pad_link
+    );
+    let listed = agent.call("pad_list", json!({})).await;
+    assert!(
+        listed
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|p| p["link"] == pad_link),
+        "{listed}"
+    );
+    let todo = agent.call("todo_create", json!({ "title": "Fix" })).await;
+    let id = todo["id"].as_u64().unwrap();
+    let todo_link = format!("roundup://todo/{id}?project={key}");
+    assert_eq!(todo["link"], todo_link);
+    assert_eq!(
+        agent.call("todo_get", json!({ "id": id })).await["link"],
+        todo_link
+    );
+    let listed = agent.call("todo_list", json!({})).await;
+    assert!(
+        listed
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|t| t["link"] == todo_link),
+        "{listed}"
+    );
+
+    let read = agent.call("link_read", json!({ "url": pad_link })).await;
+    assert_eq!(read["pad"]["name"], "plan: v1");
+    let read = agent.call("link_read", json!({ "url": todo_link })).await;
+    assert_eq!(read["todo"]["id"], id);
+
+    let cli = |args: &[&str]| -> Value {
+        let out = std::process::Command::new(env!("CARGO_BIN_EXE_rup"))
+            .args(args)
+            .arg("--json")
+            .env("RUPD_SOCKET", socket(&project))
+            .env("ROUNDUP_AGENT", &rail.a)
+            .output()
+            .unwrap();
+        assert_eq!(out.status.code(), Some(0), "{out:?}");
+        serde_json::from_slice(&out.stdout).unwrap()
+    };
+    assert_eq!(cli(&["pad", "read", "plan: v1"])["link"], pad_link);
+    assert_eq!(cli(&["todo", "get", &id.to_string()])["link"], todo_link);
 }
